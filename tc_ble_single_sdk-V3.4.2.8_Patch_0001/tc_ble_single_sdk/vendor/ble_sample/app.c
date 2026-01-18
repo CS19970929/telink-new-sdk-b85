@@ -30,6 +30,11 @@
 #include "app_ui.h"
 #include "app_att.h"
 #include "battery_check.h"
+#include "modbus_uart.h"
+#include "modbus_rtu.h"
+#include "sci_upper.h"
+
+struct stCell_Info g_stCellInfoReport;
 
 #define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
 #define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
@@ -697,6 +702,8 @@ _attribute_no_inline_ void user_init_normal(void)
 	advertise_begin_tick = clock_time();
 
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
+
+	modbus_uart_init();
 }
 
 
@@ -862,6 +869,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 
 
 
+_attribute_data_retention_ static u32 test_task_tick = 0;
 
 /**
  * @brief		This is main_loop function
@@ -884,6 +892,12 @@ _attribute_no_inline_ void main_loop(void)
 			user_battery_power_check(VBAT_DEEP_THRES_MV);
 		}
 	#endif
+		if(clock_time_exceed(test_task_tick , 1000 * 1000)){
+			test_task_tick  = clock_time();
+			tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
+		}
+
+		main_loop_modbus();
 
 
 	#if (UI_KEYBOARD_ENABLE)
@@ -901,7 +915,7 @@ _attribute_no_inline_ void main_loop(void)
 	#endif
 
 	////////////////////////////////////// PM Process /////////////////////////////////
-	blt_pm_proc();
+	// blt_pm_proc();
 }
 
 

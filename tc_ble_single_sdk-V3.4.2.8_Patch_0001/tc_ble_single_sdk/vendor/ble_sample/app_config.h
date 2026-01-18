@@ -25,8 +25,8 @@
 
 
 ///////////////////////// Feature Configuration////////////////////////////////////////////////
-#define BLE_APP_PM_ENABLE								1
-#define PM_DEEPSLEEP_RETENTION_ENABLE					1
+#define BLE_APP_PM_ENABLE								0
+#define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
 #define BLE_APP_SECURITY_ENABLE      					1	//ACL Slave device SMP, strongly recommended enabled
 #define BLE_OTA_SERVER_ENABLE							0
@@ -46,8 +46,8 @@
 #define APP_BATT_CHECK_ENABLE							0
 
 ///////////////////////// DEBUG  Configuration ////////////////////////////////////////////////
-#define DEBUG_GPIO_ENABLE					0
-#define UART_PRINT_DEBUG_ENABLE				1
+#define DEBUG_GPIO_ENABLE					1
+#define UART_PRINT_DEBUG_ENABLE				0
 #define APP_LOG_EN							1
 #define APP_SMP_LOG_EN						0
 #define APP_KEY_LOG_EN						1
@@ -73,7 +73,7 @@
 
 
 ///////////////////////// UI Configuration ////////////////////////////////////////////////////
-#define	UI_KEYBOARD_ENABLE								1
+#define	UI_KEYBOARD_ENABLE								0
 #define	UI_LED_ENABLE									0
 #define	UI_BUTTON_ENABLE								0
 
@@ -113,10 +113,10 @@
 
 /////////////////////////////////////// PRINT DEBUG INFO ///////////////////////////////////////
 #if (UART_PRINT_DEBUG_ENABLE)
-	#define DEBUG_INFO_TX_PIN           	GPIO_PB1
-	#define PULL_WAKEUP_SRC_PB1         	PM_PIN_PULLUP_10K
-	#define PB1_OUTPUT_ENABLE         		1
-	#define PB1_DATA_OUT                    1
+	#define DEBUG_INFO_TX_PIN           	GPIO_PC2
+	#define PULL_WAKEUP_SRC_PC2         	PM_PIN_PULLUP_10K
+	#define PC2_OUTPUT_ENABLE         		1
+	#define PC2_DATA_OUT                    1
 #endif
 
 #if TEST_CONN_CURRENT_ENABLE
