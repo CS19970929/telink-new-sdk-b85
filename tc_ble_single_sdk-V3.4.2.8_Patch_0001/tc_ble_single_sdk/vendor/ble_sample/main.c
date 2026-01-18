@@ -25,6 +25,7 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
+#include "modbus_uart.h"
 
 
 /**
@@ -36,6 +37,7 @@ _attribute_ram_code_ void irq_handler(void)
 {
 
 	irq_blt_sdk_handler();
+	modbus_uart_irq_proc();
 
 }
 
