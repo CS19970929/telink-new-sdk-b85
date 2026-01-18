@@ -30,9 +30,12 @@
 #include "app_ui.h"
 #include "app_att.h"
 #include "battery_check.h"
+
 #include "modbus_uart.h"
 #include "modbus_rtu.h"
+
 #include "sci_upper.h"
+#include "sh367309_datadeal.h"
 
 struct stCell_Info g_stCellInfoReport;
 
@@ -105,6 +108,13 @@ const u8	tbl_advData[] = {
 const u8	tbl_scanRsp [] = {
 	 8,  DT_COMPLETE_LOCAL_NAME, 				 'v', 'S', 'a', 'm', 'p', 'l', 'e',
 };
+
+void i2c_master_test_init(void)
+{
+	i2c_gpio_set(I2C_GPIO_GROUP_C0C1); // SDA/CK : C0/C1
+
+	i2c_master_init(AFE_ID, (unsigned char)(CLOCK_SYS_CLOCK_HZ / (4 * 100000)));
+}
 
 
 _attribute_data_retention_	int device_in_connection_state;
@@ -703,6 +713,15 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
+	{
+		i2c_master_test_init();
+
+		AFE_Reset();
+		AFE_IsReady();
+		SH367309_UpdataAfeConfig();
+		SH367309_Enable_AFE_Wdt_Cadc_Drivers();
+	}
+
 	modbus_uart_init();
 }
 
@@ -895,6 +914,13 @@ _attribute_no_inline_ void main_loop(void)
 		if(clock_time_exceed(test_task_tick , 1000 * 1000)){
 			test_task_tick  = clock_time();
 			tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
+		}
+
+		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
+		if (clock_time_exceed(update_bms_info_tick, 1000 * 200))
+		{
+			update_bms_info_tick = clock_time();
+			App_AFEGet();
 		}
 
 		main_loop_modbus();
