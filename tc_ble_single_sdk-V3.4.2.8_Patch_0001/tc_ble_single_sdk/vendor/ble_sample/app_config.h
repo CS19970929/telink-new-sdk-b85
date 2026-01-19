@@ -29,7 +29,7 @@
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
 #define BLE_APP_SECURITY_ENABLE      					1	//ACL Slave device SMP, strongly recommended enabled
-#define BLE_OTA_SERVER_ENABLE							0
+#define BLE_OTA_SERVER_ENABLE							1
 
 /* Flash Protection:
  * 1. Flash protection is enabled by default in SDK. User must enable this function on their final mass production application.

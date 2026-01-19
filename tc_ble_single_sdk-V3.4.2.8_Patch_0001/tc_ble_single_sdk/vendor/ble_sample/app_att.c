@@ -26,10 +26,8 @@
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "app_att.h"
+#include "conf.h"
 
-/**
- *  @brief  connect parameters structure for ATT
- */
 typedef struct
 {
   /** Minimum value for the connection event (interval. 0x0006 - 0x0C80 * 1.25 ms) */
@@ -41,6 +39,51 @@ typedef struct
   /** Connection Timeout (0x000A - 0x0C80 * 10 ms) */
   u16 timeout;
 } gap_periConnectParams_t;
+
+////////////////////// SPP ////////////////////////////////////
+static const u8 TelinkSppServiceUUID[16]	      	    = WRAPPING_BRACES(TELINK_SPP_UUID_SERVICE);
+static const u8 TelinkSppDataServer2ClientUUID[16]      = WRAPPING_BRACES(TELINK_SPP_DATA_SERVER2CLIENT);
+static const u8 TelinkSppDataClient2ServerUUID[16]      = WRAPPING_BRACES(TELINK_SPP_DATA_CLIENT2SERVER);
+
+// Spp data from Server to Client characteristic variables
+static u8 SppDataServer2ClientDataCCC[2]  				= {0};
+//this array will not used for sending data(directly calling HandleValueNotify API), so cut array length from 20 to 1, saving some SRAM
+static u8 SppDataServer2ClientData[1] 					= {0};  //SppDataServer2ClientData[20]
+// Spp data from Client to Server characteristic variables
+//this array will not used for receiving data(data processed by Attribute Write CallBack function), so cut array length from 20 to 1, saving some SRAM
+static u8 SppDataClient2ServerData[1] 					= {0};  //SppDataClient2ServerData[20]
+
+
+//SPP data descriptor
+static const u8 TelinkSPPS2CDescriptor[] 		 		= "Telink SPP: Module->Phone";
+static const u8 TelinkSPPC2SDescriptor[]        		= "Telink SPP: Phone->Module";
+
+
+//// Telink spp  attribute values
+// static const u8 TelinkSppDataServer2ClientCharVal[19] = {
+// 	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+// 	U16_LO(SPP_SERVER_TO_CLIENT_DP_H), U16_HI(SPP_SERVER_TO_CLIENT_DP_H),
+// 	TELINK_SPP_DATA_SERVER2CLIENT
+// };
+// static const u8 TelinkSppDataClient2ServerCharVal[19] = {
+// 	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP,
+// 	U16_LO(SPP_CLIENT_TO_SERVER_DP_H), U16_HI(SPP_CLIENT_TO_SERVER_DP_H),
+// 	TELINK_SPP_DATA_CLIENT2SERVER
+// };
+
+static const u8 TelinkSppDataServer2ClientCharVal[19] = {
+	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP | CHAR_PROP_WRITE,
+	U16_LO(SPP_SERVER_TO_CLIENT_DP_H), U16_HI(SPP_SERVER_TO_CLIENT_DP_H),
+	TELINK_SPP_DATA_SERVER2CLIENT
+};
+static const u8 TelinkSppDataClient2ServerCharVal[19] = {
+	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+	U16_LO(SPP_CLIENT_TO_SERVER_DP_H), U16_HI(SPP_CLIENT_TO_SERVER_DP_H),
+	TELINK_SPP_DATA_CLIENT2SERVER
+};
+
+
+
 
 static const u16 clientCharacterCfgUUID = GATT_UUID_CLIENT_CHAR_CFG;
 
@@ -80,7 +123,8 @@ _attribute_data_retention_	static u16 serviceChangeVal[2] = {0};
 
 _attribute_data_retention_	static u8 serviceChangeCCC[2] = {0,0};
 
-static const u8 my_devName[] = {'t','S','a','m','p','l','e'};
+//static const u8 my_devName[] = {'t','S','a','m','p','l','e'};
+static const u8 my_devName[] = DEV_NAME_STR;
 
 static const u8 my_PnPtrs [] = {0x02, 0x8a, 0x24, 0x66, 0x82, 0x01, 0x00};
 
@@ -228,7 +272,7 @@ static const u16 include[3] = {BATT_PS_H, BATT_LEVEL_INPUT_CCB_H, SERVICE_UUID_B
 
 //// GAP attribute values
 static const u8 my_devNameCharVal[5] = {
-	CHAR_PROP_READ,
+	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
 	U16_LO(GenericAccess_DeviceName_DP_H), U16_HI(GenericAccess_DeviceName_DP_H),
 	U16_LO(GATT_UUID_DEVICE_NAME), U16_HI(GATT_UUID_DEVICE_NAME)
 };
@@ -324,6 +368,79 @@ static const u8 my_OtaCharVal[19] = {
 };
 #endif
 
+extern volatile unsigned char i2c_master_rx_buff[43];
+// void update_my_batVal(void)
+// {
+// 	int temp = i2c_master_rx_buff[8];
+// 	temp = temp << 8 | i2c_master_rx_buff[9];
+// 	my_batVal[0] = temp * 5 / 32;
+// 	blc_gatt_pushHandleValueNotify(BLS_CONN_HANDLE, BATT_LEVEL_INPUT_DP_H, &my_batVal[0], sizeof(my_batVal[0]));
+// }
+void update_my_batVal(u16 val)
+{
+	my_batVal[0] = val;
+	blc_gatt_pushHandleValueNotify(BLS_CONN_HANDLE, BATT_LEVEL_INPUT_DP_H, &my_batVal[0], sizeof(my_batVal[0]));
+}
+
+void MODS_Poll(u8 *data, u8 len)
+{
+	// array_printf(data, len);
+
+}
+
+
+
+/**
+ * @brief      write callback of Attribute of TelinkSppDataClient2ServerUUID
+ * @param[in]  para - rf_packet_att_write_t
+ * @return     0
+ */
+extern bool rev_master ;
+extern u8 test_buf[];
+extern void notify_votage(void);
+extern void notify_protect_prarm(void);
+u16 addr = 0;
+u32 rev_cnt = 0;
+int module_onReceiveData(void *para)
+{
+	rf_packet_att_write_t *p = (rf_packet_att_write_t*)para;
+	u8 len = p->l2capLen - 3;
+	u8 *data = (u8 *)&p->value;
+	u8 slave = data[0];
+	u8 cmd   = data[1]; 
+	// u16 addr = (data[2] << 8) | data[3];
+	addr = (data[2] << 8) | data[3];
+	if(len > 0)
+	{
+		MODS_Poll(data, len);
+
+		rev_cnt++;
+		// printf("rev cnt %d", rev_cnt);
+		MODS_Poll(data, len);
+		// array_printf(data, len);
+		// if(addr == 0xd000)
+		// 	notify_votage();
+		// else if (addr == 0x2100)
+		// 	notify_protect_prarm();
+
+		// update_my_batVal(addr);
+		
+		// spp_event_t *pEvt =  (spp_event_t *)p;
+		// pEvt->token = 0xFF;
+		// pEvt->paramLen = p->l2capLen + 2;   //l2cap_len + 2 byte (eventId)
+		// pEvt->eventId = 0x07a0;  //data received event
+		// memcpy(pEvt->param, &p->opcode, len + 3);
+
+		// spp_send_data(HCI_FLAG_EVENT_TLK_MODULE, pEvt);
+		// printf("Receive data, handle = %x\r\n", p->handle1 | (p->handle1<<8));
+		// array_printf(&p->value, len);
+		rev_master = true;
+	}
+
+	return 0;
+}
+
+
 // TM : to modify
 static const attribute_t my_Attributes[] = {
 
@@ -412,6 +529,35 @@ static const attribute_t my_Attributes[] = {
 	{0,ATT_PERMISSIONS_READ,2,sizeof(my_batCharVal),(u8*)(&my_characterUUID), (u8*)(my_batCharVal), 0, 0},				//prop
 	{0,ATT_PERMISSIONS_READ,2,sizeof(my_batVal),(u8*)(&my_batCharUUID), 	(u8*)(my_batVal), 0, 0},	//value
 	{0,ATT_PERMISSIONS_RDWR,2,sizeof(batteryValueInCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(batteryValueInCCC), 0, 0},	//value
+
+	////////////////spp/////////////////
+	// 000f - 0016 SPP
+	{8,ATT_PERMISSIONS_READ,2,16,(u8*)(&my_primaryServiceUUID), 	(u8*)(&TelinkSppServiceUUID), 0},
+	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataServer2ClientCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataServer2ClientCharVal), 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,16,sizeof(SppDataServer2ClientData),(u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), 0},	//value
+	{0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataServer2ClientData),(u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), (att_readwrite_callback_t)&module_onReceiveData},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
+	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPS2CDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPS2CDescriptor)},
+	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataClient2ServerCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataClient2ServerCharVal), 0},				//prop
+	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), (att_readwrite_callback_t)&module_onReceiveData},	//value
+	{0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), 0},	//value
+	{0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
+	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPC2SDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPC2SDescriptor)},
+
+	// ////////////////spp/////////////////
+	// // 000f - 0016 SPP
+	// {8,ATT_PERMISSIONS_READ,2,16,(u8*)(&my_primaryServiceUUID), 	(u8*)(&TelinkSppServiceUUID), 0},
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataServer2ClientCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataServer2ClientCharVal), 0},				//prop
+	// // {0,ATT_PERMISSIONS_READ,16,sizeof(SppDataServer2ClientData),(u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataServer2ClientData),(u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), (att_readwrite_callback_t)&module_onReceiveData},	//value
+	// // {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPS2CDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPS2CDescriptor)},
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataClient2ServerCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataClient2ServerCharVal), 0},				//prop
+	// // {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), (att_readwrite_callback_t)&module_onReceiveData},	//value
+	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPC2SDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPC2SDescriptor)},
+
 
 #if (BLE_OTA_SERVER_ENABLE)
 	////////////////////////////////////// OTA /////////////////////////////////////////////////////

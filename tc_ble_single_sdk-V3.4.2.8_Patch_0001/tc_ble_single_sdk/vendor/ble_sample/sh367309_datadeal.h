@@ -173,8 +173,8 @@ enum SYSTEM_ERROR_COMMAND {
 	/*放电高温恢复*/		AFE_OTD_recover,	AFE_OTD_recover,	50000,	1,\
 	/*放电低温*/			AFE_UTD,	       AFE_UTD,				800,	0,\
 	/*放电低温恢复*/		AFE_UTD_recover,	AFE_UTD_recover,	50000,	1,\
-	/*短路电流*/			100,	100,	65000,	0,\
-	/*短路延时*/			256,		256,		65000,	0,\
+	/*短路电流*/			50,	50,	65000,	0,\
+	/*短路延时*/			64,		64,		65000,	0,\
 }
 
 typedef struct {
@@ -476,7 +476,7 @@ typedef struct _AFE_REG_STORE {
 
 #define BIT6_7_CHS				(0<<6)		//充放电状态监测电压=200uV，就是BSTATUS3的CHGING和DSGING位的置位的界限
 #define BIT4_5_MOST				(0<<4)		//充放电MOSFET开启延时=64us
-#define BIT2_3_OCRT				(2<<2)		//充放电过流自动回复延时=32s
+#define BIT2_3_OCRT				(0<<2)		//充放电过流自动回复延时=32s
 #define BIT0_1_PFT				(0)			//二次过充保护延时=9s
 #define BYTE_10H_MOST_OCRT_PFT	BIT6_7_CHS|BIT4_5_MOST|BIT2_3_OCRT|BIT0_1_PFT
 

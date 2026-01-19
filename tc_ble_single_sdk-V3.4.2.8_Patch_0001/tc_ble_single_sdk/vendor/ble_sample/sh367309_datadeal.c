@@ -593,6 +593,7 @@ void Refresh_Parameters(void)
     // g_u32CS_Res_AFE = ((u32)g_tParam.other.u16Sys_CS_Res_Num * 1000) / g_tParam.other.u16Sys_CS_Res;
 
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
+    // AFE_ROM_PARAMETERS_Struction.m00H_01H.OCRA = 1;
 
 #define __CTLC__
 #ifdef __CTLC__

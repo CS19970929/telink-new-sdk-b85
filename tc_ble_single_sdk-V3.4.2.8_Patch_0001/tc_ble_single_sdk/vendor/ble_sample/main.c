@@ -26,7 +26,7 @@
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "modbus_uart.h"
-
+#include "sh367309_datadeal.h"
 
 /**
  * @brief   IRQ handler
@@ -76,9 +76,11 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 
 	if( deepRetWakeUp ){
 		user_init_deepRetn();
+		SystemStatus.bits.b1Status_Relay_CHG = 1;
 	}
 	else{
 		user_init_normal();
+		SystemStatus.bits.b1Status_Relay_DSG = 1;
 	}
 
     irq_enable();
