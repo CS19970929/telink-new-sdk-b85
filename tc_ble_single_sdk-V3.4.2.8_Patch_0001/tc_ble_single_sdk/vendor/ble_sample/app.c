@@ -42,10 +42,13 @@
 // #include "sif_send.h"
 #include "soc_kv_store.h"
 #include "sif_send.h"
+#include "ble_modbus.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
+
+
 
 void app_timer_test_init(void)
 {
@@ -83,7 +86,7 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 	// gpio_toggle(GPIO_PC3);
 	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
 	{
-		sif_send_data_handle();
+		// sif_send_data_handle();
 		reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
 		timer0_irq_cnt++;
 		// gpio_toggle(GPIO_PC3);
@@ -126,7 +129,6 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 _attribute_data_retention_	u8 ota_is_working = 0;
 _attribute_data_retention_	own_addr_type_t 	app_own_address_type = OWN_ADDRESS_PUBLIC;
 
-
 /**
  * @brief      LinkLayer RX & TX FIFO configuration
  */
@@ -159,24 +161,49 @@ _attribute_data_retention_	my_fifo_t	blt_txfifo = {
 												0,
 												blt_txfifo_b,};
 
+u8 tbl_advData[31];
+u8 tbl_advDataLen;
 
+u8 tbl_scanRsp[31];
+u8 tbl_scanRspLen;
 
-/**
- * @brief	BLE Advertising data
- */
-const u8	tbl_advData[] = {
-	 5,  DT_COMPLETE_LOCAL_NAME, 				'V', 'H', 'I', 'D',
-	 2,	 DT_FLAGS, 								0x05, 					// BLE limited discoverable mode and BR/EDR not supported
-	 3,  DT_APPEARANCE, 						0x80, 0x01, 			// 384, Generic Remote Control, Generic category
-	 5,  DT_INCOMPLETE_LIST_16BIT_SERVICE_UUID,	0x12, 0x18, 0x0F, 0x18,	// incomplete list of service class UUIDs (0x1812, 0x180F)
-};
+static void ble_build_adv_scanrsp(void)
+{
+	u8 i = 0;
 
-/**
- * @brief	BLE Scan Response Packet data
- */
-const u8	tbl_scanRsp [] = {
-	 8,  DT_COMPLETE_LOCAL_NAME, 				 'v', 'S', 'a', 'm', 'p', 'l', 'e',
-};
+	// --- ADV: 放 Flags + Appearance + UUID list（建议 ADV 不放名字，名字放 scanRsp） ---
+	i = 0;
+	// Flags: len=2, type=0x01, data=0x05
+	tbl_advData[i++] = 0x02;
+	tbl_advData[i++] = 0x01;
+	tbl_advData[i++] = 0x05;
+
+	// Appearance: len=3, type=0x19, data=0x0180
+	tbl_advData[i++] = 0x03;
+	tbl_advData[i++] = 0x19;
+	tbl_advData[i++] = 0x80;
+	tbl_advData[i++] = 0x01;
+
+	// Incomplete 16-bit UUIDs: len=5, type=0x02, 0x1812, 0x180F
+	tbl_advData[i++] = 0x05;
+	tbl_advData[i++] = 0x02;
+	tbl_advData[i++] = 0x12;
+	tbl_advData[i++] = 0x18;
+	tbl_advData[i++] = 0x0F;
+	tbl_advData[i++] = 0x18;
+
+	tbl_advDataLen = i;
+
+	// --- ScanRsp: 放完整名字 ---
+	i = 0;
+	tbl_scanRsp[i++] = (u8)(DEV_NAME_LEN + 1); // len = type(1)+name
+	tbl_scanRsp[i++] = 0x09;				   // Complete Local Name
+	memcpy(&tbl_scanRsp[i], DEV_NAME_STR, DEV_NAME_LEN);
+	i += DEV_NAME_LEN;
+
+	tbl_scanRspLen = i;
+}
+
 
 void open_chg_close_dsg(void)
 {
@@ -262,10 +289,10 @@ unsigned int adc_read_gpio_mv(GPIO_PinTypeDef pin)
     //    你现有 adc_base_init 会做一堆初始化，偏重
     //    如果采样频率不高（比如 10~100ms 一次），用它没问题
     adc_base_init(pin);
-	delay_us(NTC_SETTLE_US);
+	// delay_us(NTC_SETTLE_US);
 
     // 2) 丢弃一次（切通道后稳定）
-    (void)adc_sample_and_get_result();
+    // (void)adc_sample_and_get_result();
 
     // 3) 取有效值
     return adc_sample_and_get_result();
@@ -299,10 +326,10 @@ void init_bms_io(void)
 		gpio_write(AFE_CTL_PIN, 1);
 
 		{
-			// gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
-			// gpio_set_input_en(RF_EN_PIN, 0);
-			// gpio_set_output_en(RF_EN_PIN, 1);
-			// gpio_write(RF_EN_PIN, 1);
+			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(RF_EN_PIN, 0);
+			gpio_set_output_en(RF_EN_PIN, 1);
+			gpio_write(RF_EN_PIN, 0);
 
 			gpio_set_func(SW_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
 			gpio_set_input_en(SW_PIN, 1);
@@ -914,6 +941,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		tlkapi_printf(APP_LOG_EN, "[APP][INI] ADV parameters error 0x%x!!!\n", adv_param_status);
 	}
 
+	ble_build_adv_scanrsp();
 	bls_ll_setAdvData( (u8 *)tbl_advData, sizeof(tbl_advData) );
 	bls_ll_setScanRspData( (u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
 	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //ADV enable
@@ -1002,8 +1030,7 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	}
 
-	// modbus_uart_init();
-
+	modbus_uart_init();
 	app_timer_test_init();
 }
 
@@ -1212,6 +1239,7 @@ _attribute_no_inline_ void main_loop(void)
 		}
 
 		main_loop_modbus();
+		app_ble_modbus();
 
 
 	#if (UI_KEYBOARD_ENABLE)

@@ -8,7 +8,7 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-#define DEV_NAME_STR  "BT_666"
+#define DEV_NAME_STR  "BT_star003"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 
