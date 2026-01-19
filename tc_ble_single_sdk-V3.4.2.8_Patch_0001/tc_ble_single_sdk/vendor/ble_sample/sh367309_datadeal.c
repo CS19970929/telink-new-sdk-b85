@@ -3,6 +3,7 @@
 #include "drivers.h"
 #include "conf.h"
 #include "sci_upper.h"
+#include "app.h"
 
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
@@ -726,6 +727,7 @@ u8 AFE_IsReady(void)
         if (++TempCnt >= 50)
         {
             // System_ERROR_UserCallback(ERROR_AFE1);
+            g_stCellInfoReport.unMdlFault_Third.bits.b1SocLow = 1;
             result = 1;
             break;
         }
@@ -952,13 +954,13 @@ void DataLoad_CellVolt(void)
         g_stCellInfoReport.u16VCell[i] = (UINT16)t_i32temp;
     }
 
-    if (SeriesNum < 32)
-    {
-        for (i = SeriesNum; i < 32; ++i)
-        {
-            g_stCellInfoReport.u16VCell[i] = 61001;
-        }
-    }
+    // if (SeriesNum < 32)
+    // {
+    //     for (i = SeriesNum; i < 32; ++i)
+    //     {
+    //         g_stCellInfoReport.u16VCell[i] = 61001;
+    //     }
+    // }
 }
 
 void DataLoad_CellVoltMaxMinFind(void)
@@ -1140,6 +1142,51 @@ void DataLoad_CurrentCali(void)
 #endif
 }
 
+void test_Autocurrent_cycle(void)
+{
+    static uint8_t step = 0;
+#if 1
+    static uint16_t CHG_current = 100;
+    static uint16_t DSG_current = 100;
+#else
+    static uint16_t CHG_current = 200;
+    static uint16_t DSG_current = 400;
+#endif
+
+    switch (step)
+    {
+    case 0:
+        if (g_stCellInfoReport.SocElement.u16Soc < 99)
+        {
+            step = 1;
+            g_stCellInfoReport.u16Ichg = CHG_current;
+            g_stCellInfoReport.u16IDischg = 0;
+        }
+        else
+        {
+            step = 1;
+        }
+        break;
+    case 1:
+    {
+        if (g_stCellInfoReport.SocElement.u16Soc >= 99)
+        {
+            step = 2;
+            g_stCellInfoReport.u16Ichg = 0;
+            g_stCellInfoReport.u16IDischg = DSG_current;
+        }
+        break;
+    }
+    case 2:
+        if (g_stCellInfoReport.SocElement.u16Soc <= 1)
+        {
+            step = 0;
+        }
+        break;
+    default:
+        break;
+    }
+}
 void DataLoad_Current(void)
 {
     // if ((SH367309_Read_AFE1.u16Current & 0x1000) == 0)
@@ -1249,6 +1296,19 @@ void Fault_ChangeToMCU(void)
     static UINT8 su8_CellDsgUtp_Flag = 0;
     static UINT8 su8_CellDsgOtp_Flag = 0;
 
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp = ram_reg_309.REG_BSTATUS1.bits.OV;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp = ram_reg_309.REG_BSTATUS1.bits.UV;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp = ram_reg_309.REG_BSTATUS1.bits.OCD1 || ram_reg_309.REG_BSTATUS1.bits.OCD1;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp = ram_reg_309.REG_BSTATUS1.bits.OCC;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp = ram_reg_309.REG_BSTATUS2.bits.UTC;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp = ram_reg_309.REG_BSTATUS2.bits.OTC;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp = ram_reg_309.REG_BSTATUS2.bits.UTD;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp = ram_reg_309.REG_BSTATUS2.bits.OTD;
+    if (ram_reg_309.REG_BSTATUS1.bits.SC)
+        System_ErrFlag.u8ErrFlag_CBC_DSG = 1;
+    else
+        System_ErrFlag.u8ErrFlag_CBC_DSG = 0;
+
     switch (su8_CellOvp_Flag)
     {
     case 0:
@@ -1287,7 +1347,6 @@ void Fault_ChangeToMCU(void)
     }
 
 #if 1
-    // g_stCellInfoReport.unMdlFault_Second.bits.b1IdischgOcp = SH367309_Reg_Store.REG_BSTATUS1.bits.OCD1;
     switch (su8_IdischgOcp1_Flag)
     {
     case 0:
@@ -1311,7 +1370,6 @@ void Fault_ChangeToMCU(void)
     }
 #endif
 
-    // g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp = SH367309_Reg_Store.REG_BSTATUS1.bits.OCD2;
     // switch (su8_IdischgOcp2_Flag)
     // {
     // case 0:
@@ -1353,7 +1411,6 @@ void Fault_ChangeToMCU(void)
     }
 
 #else
-    // g_stCellInfoReport.unMdlFault_Second.bits.b1IchgOcp = SH367309_Reg_Store.REG_BSTATUS1.bits.OCC;
     // switch (su8_IchgOcp_Flag)
     // {
     // case 0:
@@ -1381,7 +1438,6 @@ void Fault_ChangeToMCU(void)
     case 0:
         if (ram_reg_309.REG_BSTATUS2.bits.UTC)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp = 1;
             FaultWarnRecord2(CellChgUTp_Third);
             su8_CellChgUtp_Flag = 1;
         }
@@ -1390,7 +1446,6 @@ void Fault_ChangeToMCU(void)
     case 1:
         if (!ram_reg_309.REG_BSTATUS2.bits.UTC)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp = 0;
             su8_CellChgUtp_Flag = 0;
         }
         break;
@@ -1404,7 +1459,6 @@ void Fault_ChangeToMCU(void)
     case 0:
         if (ram_reg_309.REG_BSTATUS2.bits.OTC)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp = 1;
             FaultWarnRecord2(CellChgOTp_Third);
             su8_CellChgOtp_Flag = 1;
         }
@@ -1413,7 +1467,6 @@ void Fault_ChangeToMCU(void)
     case 1:
         if (!ram_reg_309.REG_BSTATUS2.bits.OTC)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp = 0;
             su8_CellChgOtp_Flag = 0;
         }
         break;
@@ -1427,7 +1480,6 @@ void Fault_ChangeToMCU(void)
     case 0:
         if (ram_reg_309.REG_BSTATUS2.bits.UTD)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp = 1;
             FaultWarnRecord2(CellDsgUTp_Third);
             su8_CellDsgUtp_Flag = 1;
         }
@@ -1436,7 +1488,6 @@ void Fault_ChangeToMCU(void)
     case 1:
         if (!ram_reg_309.REG_BSTATUS2.bits.UTD)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp = 0;
             su8_CellDsgUtp_Flag = 0;
         }
         break;
@@ -1450,7 +1501,6 @@ void Fault_ChangeToMCU(void)
     case 0:
         if (ram_reg_309.REG_BSTATUS2.bits.OTD)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp = 1;
             FaultWarnRecord2(CellDsgOTp_Third);
             su8_CellDsgOtp_Flag = 1;
         }
@@ -1459,7 +1509,6 @@ void Fault_ChangeToMCU(void)
     case 1:
         if (!ram_reg_309.REG_BSTATUS2.bits.OTD)
         {
-            g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp = 0;
             su8_CellDsgOtp_Flag = 0;
         }
         break;
@@ -1490,7 +1539,8 @@ void App_AFEGet(void)
     DataLoad_CellVoltMaxMinFind();
     DataLoad_Temperature();
     DataLoad_TemperatureMaxMinFind();
-    DataLoad_Current();
+    // DataLoad_Current();
+    test_Autocurrent_cycle();
 
     SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
     SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
@@ -1498,7 +1548,6 @@ void App_AFEGet(void)
 }
 void AFE_Sleep(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 1;
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+    SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 1;
+    MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 }
-

@@ -24,6 +24,7 @@
 #ifndef APP_H_
 #define APP_H_
 
+#include "conf.h"
 
 extern unsigned int	scan_pin_need;
 extern int button_not_released;
@@ -91,5 +92,40 @@ void proc_button(u8 e, u8 *p, int n);
  * @return     none
  */
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end);
+
+struct SYSTEM_ERROR
+{
+	UINT8 u8ErrFlag_Com_AFE1;
+	UINT8 u8ErrFlag_Com_AFE2;
+	UINT8 u8ErrFlag_Com_Can;
+	UINT8 u8ErrFlag_Com_EEPROM;
+
+	UINT8 u8ErrFlag_Com_SPI;
+	UINT8 u8ErrFlag_Com_Upper;
+	UINT8 u8ErrFlag_Com_Client;
+	UINT8 u8ErrFlag_Com_Screen;
+
+	UINT8 u8ErrFlag_Com_Wifi;
+	UINT8 u8ErrFlag_Com_BlueTooth;
+	UINT8 u8ErrFlag_Com_App;
+	UINT8 u8ErrFlag_CBC_CHG;
+
+	UINT8 u8ErrFlag_Store_EEPROM;
+	UINT8 u8ErrFlag_HSE;
+	UINT8 u8ErrFlag_LSE;
+	UINT8 u8ErrFlag_Vdelta_OVER;
+
+	UINT8 u8ErrFlag_Balanced;
+	UINT8 u8ErrFlag_ADC;
+	UINT8 u8ErrFlag_Heat;
+	UINT8 u8ErrFlag_Cool;
+
+	UINT8 u8ErrFlag_CBC_DSG;
+	UINT8 u8ErrFlag_SOC_Cail;
+	UINT8 u8ErrFlag_TempBreak;
+	UINT8 u8ErrFlag_DsgShort;
+};
+
+extern volatile struct SYSTEM_ERROR System_ErrFlag;
 
 #endif /* APP_H_ */
