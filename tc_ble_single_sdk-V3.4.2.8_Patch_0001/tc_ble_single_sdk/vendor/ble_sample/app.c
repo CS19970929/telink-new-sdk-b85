@@ -36,8 +36,11 @@
 
 #include "sci_upper.h"
 #include "sh367309_datadeal.h"
+#include "bms_adc.h"
 
 struct stCell_Info g_stCellInfoReport;
+volatile struct SYSTEM_ERROR System_ErrFlag;
+bool deepsleep_en = false;
 
 #define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
 #define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
@@ -108,6 +111,168 @@ const u8	tbl_advData[] = {
 const u8	tbl_scanRsp [] = {
 	 8,  DT_COMPLETE_LOCAL_NAME, 				 'v', 'S', 'a', 'm', 'p', 'l', 'e',
 };
+
+void open_chg_close_dsg(void)
+{
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	gpio_write(MCC_C_PIN, 1);
+}
+void open_dsg_close_chg(void)
+{
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	gpio_write(MCC_C_PIN, 0);
+}
+void enter_fac_mode(bool on)
+{
+	if (on)
+	{
+		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
+		SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+		SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+		MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+		gpio_write(MCC_C_PIN, 1);
+	}
+	else
+	{
+		open_dsg_close_chg();
+	}
+}
+void charger_detect_and_keyLogi_200ms(void)
+{
+	static u8 state = 0;
+
+	switch (state)
+	{
+	case 0:
+		if (!gpio_read(CHG_IN_PIN))
+		{
+			state = 1;
+			// gpio_write(AFE_CTL_PIN, 0);
+			open_chg_close_dsg();
+		}
+		else
+		{
+		}
+		break;
+	case 1:
+		if (gpio_read(CHG_IN_PIN))
+		{
+			state = 0;
+			open_dsg_close_chg();
+			// gpio_write(AFE_CTL_PIN, 1);
+		}
+		else
+		{
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+
+void adc_init_common(void)
+{
+    adc_init();
+	adc_power_on_sar_adc(1);
+}
+
+#define NTC_SETTLE_US       50u
+static inline void delay_us(uint32_t us)
+{
+    uint32_t t0 = clock_time();
+    while(!clock_time_exceed(t0, us)) {}
+}
+unsigned int adc_read_gpio_mv(GPIO_PinTypeDef pin)
+{
+    // 1) 重新把 ADC 输入映射到该 pin
+    //    你现有 adc_base_init 会做一堆初始化，偏重
+    //    如果采样频率不高（比如 10~100ms 一次），用它没问题
+    adc_base_init(pin);
+	delay_us(NTC_SETTLE_US);
+
+    // 2) 丢弃一次（切通道后稳定）
+    (void)adc_sample_and_get_result();
+
+    // 3) 取有效值
+    return adc_sample_and_get_result();
+}
+
+void app_adc_multi_sample(void)
+{
+    unsigned int v_bat_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
+    unsigned int ntc1_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
+    unsigned int ntc2_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
+    // ...
+	g_stCellInfoReport.u16VCell[29] = v_bat_mv;
+	g_stCellInfoReport.u16VCell[30] = ntc1_mv;
+	g_stCellInfoReport.u16VCell[31] = ntc2_mv;
+}
+
+
+void init_bms_io(void)
+{
+		gpio_set_func(GPIO_PC3, AS_GPIO); 
+		gpio_set_input_en(GPIO_PC3, 0);
+		gpio_set_output_en(GPIO_PC3, 1);
+
+		gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
+		gpio_set_input_en(AFE1_PRO_EN_PIN, 0);
+		gpio_set_output_en(AFE1_PRO_EN_PIN, 1);
+
+		gpio_set_func(AFE_CTL_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+		gpio_set_input_en(AFE_CTL_PIN, 0);
+		gpio_set_output_en(AFE_CTL_PIN, 1);
+		gpio_write(AFE_CTL_PIN, 1);
+
+		{
+			// gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			// gpio_set_input_en(RF_EN_PIN, 0);
+			// gpio_set_output_en(RF_EN_PIN, 1);
+			// gpio_write(RF_EN_PIN, 1);
+
+			gpio_set_func(SW_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(SW_PIN, 1);
+			gpio_set_output_en(SW_PIN, 0);
+			// gpio_write(GPIO_PA1, 1);
+
+			gpio_set_func(MCC_C_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(MCC_C_PIN, 0);
+			gpio_set_output_en(MCC_C_PIN, 1);
+			gpio_write(MCC_C_PIN, 0);
+
+			gpio_set_func(CHG_IN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_10K);
+			gpio_set_input_en(CHG_IN_PIN, 1);
+			gpio_set_output_en(CHG_IN_PIN, 0);
+
+			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(CHG_WK_PIN, 1);
+			gpio_set_output_en(CHG_WK_PIN, 0);
+			gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(ADC_BUSEN_PIN, 0);
+			gpio_set_output_en(ADC_BUSEN_PIN, 1);
+			gpio_write(ADC_BUSEN_PIN, 1);
+
+			gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(ADC_EN_PIN, 0);
+			gpio_set_output_en(ADC_EN_PIN, 1);
+			gpio_write(ADC_EN_PIN, 1);
+
+			gpio_set_func(OWC_TX_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
+			gpio_set_input_en(OWC_TX_PIN, 0);
+			gpio_set_output_en(OWC_TX_PIN, 1);
+			gpio_write(OWC_TX_PIN, 0);
+		}
+
+}
 
 void i2c_master_test_init(void)
 {
@@ -714,12 +879,18 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
+		init_bms_io();
+		
 		i2c_master_test_init();
 
 		AFE_Reset();
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
 		SH367309_Enable_AFE_Wdt_Cadc_Drivers();
+
+		// adc_init_common();
+		// bms_adc_init();
+
 	}
 
 	modbus_uart_init();
@@ -917,10 +1088,14 @@ _attribute_no_inline_ void main_loop(void)
 		}
 
 		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
-		if (clock_time_exceed(update_bms_info_tick, 1000 * 200))
+		if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 		{
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
+			// app_adc_multi_sample();
+			
+			bms_adc_sample_t s;
+			// bms_adc_read_all(&s);
 		}
 
 		main_loop_modbus();

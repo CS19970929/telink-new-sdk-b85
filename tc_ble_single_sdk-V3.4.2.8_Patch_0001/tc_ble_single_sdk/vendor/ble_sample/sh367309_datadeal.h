@@ -173,8 +173,8 @@ enum SYSTEM_ERROR_COMMAND {
 	/*放电高温恢复*/		AFE_OTD_recover,	AFE_OTD_recover,	50000,	1,\
 	/*放电低温*/			AFE_UTD,	       AFE_UTD,				800,	0,\
 	/*放电低温恢复*/		AFE_UTD_recover,	AFE_UTD_recover,	50000,	1,\
-	/*短路电流*/			200,	200,	65000,	0,\
-	/*短路延时*/			256,		256,		65000,	0,\
+	/*短路电流*/			50,	50,	65000,	0,\
+	/*短路延时*/			64,		64,		65000,	0,\
 }
 
 typedef struct {
@@ -673,6 +673,9 @@ union System_Status {				//TODO�����⣬Heat��Cool��û��
 		UINT8 bRcved11				:8;		//res						//������8λ
      }bits;
 };
+
+extern volatile union System_Status SystemStatus;
+
 enum FaultFlag {
 	CellOvp_First = 1,
 	CellUvp_First,
@@ -718,11 +721,19 @@ enum FaultFlag {
 };
 
 #define Record_len 10
+extern UINT8 FaultPoint_First2;
+extern UINT8 FaultPoint_Second2;
+extern UINT8 FaultPoint_Third2;
+extern UINT16 Fault_record_First2[Record_len];
+extern UINT16 Fault_record_Second2[Record_len];
+extern UINT16 Fault_record_Third2[Record_len];
 
 
 extern sh367309_ram_t ram_reg_309;
+extern SH367309_REG_STORE SH367309_Reg_Store;
 
 void SH367309_UpdataAfeConfig(void);
 void App_AFEGet(void);
+void AFE_Reset(void);
 
 #endif
