@@ -38,9 +38,75 @@
 #include "sh367309_datadeal.h"
 #include "bms_adc.h"
 
+#include "SocEnhance.h"
+// #include "sif_send.h"
+#include "soc_kv_store.h"
+#include "sif_send.h"
+
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
+
+void app_timer_test_init(void)
+{
+	// timer0 10ms interval irq
+	reg_irq_mask |= FLD_IRQ_TMR0_EN;
+	reg_tmr0_tick = 0; // clear counter
+	// reg_tmr0_capt = 1 * CLOCK_SYS_CLOCK_1MS;
+	reg_tmr0_capt = 500 * CLOCK_SYS_CLOCK_1US;
+	reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
+	reg_tmr_ctrl |= FLD_TMR0_EN;	// start timer
+
+#if 0
+	//timer1 15ms interval irq
+	reg_irq_mask |= FLD_IRQ_TMR1_EN;
+	reg_tmr1_tick = 0; //clear counter
+	reg_tmr1_capt = 15 * CLOCK_SYS_CLOCK_1MS;
+	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
+	reg_tmr_ctrl |= FLD_TMR1_EN;  //start timer
+
+
+	//timer2 20ms interval irq
+	reg_irq_mask |= FLD_IRQ_TMR2_EN;
+	reg_tmr2_tick = 0; //clear counter
+	reg_tmr2_capt = 20 * CLOCK_SYS_CLOCK_1MS;
+	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
+	reg_tmr_ctrl |= FLD_TMR2_EN;  //start timer
+#endif
+
+	irq_enable();
+}
+
+int timer0_irq_cnt = 0;
+_attribute_ram_code_ void app_timer_test_irq_proc(void)
+{
+	// gpio_toggle(GPIO_PC3);
+	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
+	{
+		sif_send_data_handle();
+		reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
+		timer0_irq_cnt++;
+		// gpio_toggle(GPIO_PC3);
+		if (timer0_irq_cnt >= 200)
+		{
+			timer0_irq_cnt = 0;
+			// gpio_toggle(GPIO_PC3);
+		}
+		// DBG_CHN0_TOGGLE;
+	}
+
+	// if(reg_tmr_sta & FLD_TMR_STA_TMR1){
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
+	// 	timer1_irq_cnt ++;
+	// 	DBG_CHN1_TOGGLE;
+	// }
+
+	// if(reg_tmr_sta & FLD_TMR_STA_TMR2){
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
+	// 	timer2_irq_cnt ++;
+	// 	DBG_CHN2_TOGGLE;
+	// }
+}
 
 #define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
 #define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
@@ -565,6 +631,40 @@ int app_host_event_callback (u32 h, u8 *para, int n)
  */
 void blt_pm_proc(void)
 {
+	static u16 sleep_cnt = 0;
+	static u16 sleep_vlow_cnt = 0;
+	_attribute_data_retention_ static u32 sleep_tick = 0;
+	if (clock_time_exceed(sleep_tick, 1000 * 1000))
+	{
+		sleep_tick = clock_time();
+		if (gpio_read(CHG_IN_PIN))
+		{
+			if (gpio_read(SW_PIN))
+			{
+				if (++sleep_cnt >= 3)
+				{
+					sleep_cnt = 0;
+					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
+					// printf("0xkey %d\n", gpio_read(SW_PIN));
+					// gpio_write(AFE_CTL_PIN, 0);
+					AFE_Sleep();
+					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+				}
+			}
+		}
+		if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		{
+			if(deepsleep_en) sleep_vlow_cnt = 60;
+			if (++sleep_vlow_cnt >= (60))
+			{
+				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+
+				sleep_vlow_cnt = 0;
+				AFE_Sleep();
+				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+			}
+		}
+	}
 
 #if(BLE_APP_PM_ENABLE)
 	if(blc_ll_getCurrentState() == BLS_LINK_STATE_IDLE){ //PM module can not manage Idle state low power.
@@ -880,20 +980,31 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	{
 		init_bms_io();
+		LoadParam();
 		
 		i2c_master_test_init();
+		WaitMs(100);
 
 		AFE_Reset();
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
 		SH367309_Enable_AFE_Wdt_Cadc_Drivers();
 
-		// adc_init_common();
+		adc_init_common();
 		// bms_adc_init();
+		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
+		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
+
+		soc_kv_store_init();
+		soc_kv_data_t d = soc_kv_store_get();
+		// d.soc = 100;
+		soc_param_lib_init(&d);
 
 	}
 
-	modbus_uart_init();
+	// modbus_uart_init();
+
+	app_timer_test_init();
 }
 
 
@@ -1082,9 +1193,11 @@ _attribute_no_inline_ void main_loop(void)
 			user_battery_power_check(VBAT_DEEP_THRES_MV);
 		}
 	#endif
-		if(clock_time_exceed(test_task_tick , 1000 * 1000)){
+		if(clock_time_exceed(test_task_tick , 1000 * 200)){
 			test_task_tick  = clock_time();
 			tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
+			APP_SOC_IntEnhance_Ctrl();
+			charger_detect_and_keyLogi_200ms();
 		}
 
 		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
@@ -1092,7 +1205,7 @@ _attribute_no_inline_ void main_loop(void)
 		{
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
-			// app_adc_multi_sample();
+			app_adc_multi_sample();
 			
 			bms_adc_sample_t s;
 			// bms_adc_read_all(&s);
@@ -1116,7 +1229,7 @@ _attribute_no_inline_ void main_loop(void)
 	#endif
 
 	////////////////////////////////////// PM Process /////////////////////////////////
-	// blt_pm_proc();
+	blt_pm_proc();
 }
 
 

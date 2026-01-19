@@ -38,6 +38,7 @@ _attribute_ram_code_ void irq_handler(void)
 
 	irq_blt_sdk_handler();
 	modbus_uart_irq_proc();
+	app_timer_test_irq_proc();
 
 }
 
