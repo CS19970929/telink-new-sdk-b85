@@ -52,13 +52,13 @@
 
 
 #ifndef MODULE_WATCHDOG_ENABLE
-#define MODULE_WATCHDOG_ENABLE	0
+#define MODULE_WATCHDOG_ENABLE	1
 #endif
 
 
 
 #ifndef WATCHDOG_INIT_TIMEOUT
-#define WATCHDOG_INIT_TIMEOUT			500		//  in ms
+#define WATCHDOG_INIT_TIMEOUT			(1000)		//  in ms
 #endif
 
 

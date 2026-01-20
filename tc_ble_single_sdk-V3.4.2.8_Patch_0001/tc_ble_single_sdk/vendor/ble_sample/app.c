@@ -1208,8 +1208,6 @@ _attribute_no_inline_ void main_loop(void)
 {
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
-
-
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 	#if (APP_BATT_CHECK_ENABLE)
@@ -1240,21 +1238,6 @@ _attribute_no_inline_ void main_loop(void)
 
 		main_loop_modbus();
 		app_ble_modbus();
-
-
-	#if (UI_KEYBOARD_ENABLE)
-		proc_keyboard(0, 0, 0);
-	#elif (UI_BUTTON_ENABLE)
-		/* process button 1 second later after power on, to avoid power unstable */
-		if(!button_detect_en && clock_time_exceed(0, 1000000)){
-			button_detect_en = 1;
-		}
-		if(button_detect_en && clock_time_exceed(button_detect_tick, 5000))
-		{
-			button_detect_tick = clock_time();
-			proc_button(0, 0, 0);  //button triggers pair & unpair  and OTA
-		}
-	#endif
 
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();

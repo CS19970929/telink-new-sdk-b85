@@ -7,6 +7,7 @@
 
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
+
 extern struct stCell_Info g_stCellInfoReport;
 
 UINT32 u32_ChgCur_mA = 0;
@@ -292,281 +293,25 @@ u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
         Delay1ms(1);
     }
 }
-#if 0
-u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
-{
-	u8 result;
-	u8 i;
-	Feed_IWatchDog;
 
-	for (i = 0; i < Length; i++)
-	{
-		result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-		if (!result)
-		{
-			Delay1ms(1);
-			result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-			if (!result)
-			{
-				break;
-			}
-		}
-		WrAddr++;
-		WrBuf++;
-		Delay1ms(1);
-	}
-
-	if (!result)
-	{
-		System_ERROR_UserCallback(ERROR_AFE1);
-	}
-
-	return result;
-}
-#endif
-
-#if 0
-u8 TwiWrite(u8 SlaveID, u16 WrAddr, u8 Length, u8 *WrBuf)
-{
-    u8 i;
-    u8 TempBuf[4];
-    u8 result = 0;
-
-    TempBuf[0] = SlaveID;
-    TempBuf[1] = (u8)WrAddr;
-    TempBuf[2] = *WrBuf;
-    TempBuf[3] = CRC8cal(TempBuf, 3);
-
-    if (Length > 0)
-    {
-        TwiStart();
-
-        if (!TwiSendData(SlaveID, 1))
-        { // Send Slave ID
-            goto WrErr;
-        }
-
-        if (TwiSendData(WrAddr, 0))
-        { // Send Write Address(Low 8bit)
-            result = 1;
-            for (i = 0; i < Length; i++)
-            {
-                if (TwiSendData(*WrBuf, 0))
-                { // Send Write Data
-                    WrBuf++;
-                }
-                else
-                {
-                    result = 0;
-                    break;
-                }
-            }
-            if (!TwiSendData(TempBuf[3], 0))
-            { // write CRC
-                result = 0;
-            }
-        }
-    WrErr:
-        TwiStop();
-    }
-
-    return result;
-}
-#endif
-/*******************************************************************************
-Function: TwiRead()
-Description:  read multi bytes
-Input: SlaveID--Slave Address
-          RdAddr--register addr
-          Length--read data length
-          *RdBuf--data buffer
-Output: result:1--OK
-               0--Error
-Others:
-********************************************************************************/
 u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 {
     // todo 鍚庨潰鍔燾rc,rdbuf澶氬姞涓�涓�
     i2c_read_series(((u16)RdAddr << 8) | Length, 2, (unsigned char *)RdBuf, Length + 1);
-    // printf("TwiRead\n");
-    // array_printf(RdBuf, Length);
 }
-#if 0
-u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
-{
-    u8 i;
-    u8 result = 0;
-    u8 TempBuf[46];
-    u8 RdCrc = 0;
-
-    TempBuf[0] = SlaveID;
-    TempBuf[1] = (u8)RdAddr;
-    TempBuf[2] = Length;
-    TempBuf[3] = SlaveID | 0x01;
-
-    if (Length > 0)
-    {
-        TwiStart();
-
-        if (!TwiSendData(SlaveID, 1))
-        { // Send Slave ID
-            goto RdErr;
-        }
-
-        if (!TwiSendData(RdAddr, 0))
-        { // Send Read Address(Low 8bit)
-            goto RdErr;
-        }
-
-        if (!TwiSendData(Length, 0))
-        {
-            goto RdErr;
-        }
-
-        TwiReStart();
-
-        if (TwiSendData(SlaveID | 0x1, 0))
-        { // Send Slave ID
-            result = 1;
-            for (i = 0; i < Length + 1; i++)
-            {
-                if (i == Length)
-                {
-                    RdCrc = TwiGetData(0); // Get Data
-                }
-                else
-                {
-                    TempBuf[4 + i] = TwiGetData(1); // Get Data
-                }
-            }
-
-            if (RdCrc != CRC8cal(TempBuf, 4 + Length))
-            {
-                result = 0;
-            }
-            else
-            {
-                for (i = 0; i < Length; i++)
-                {
-                    *RdBuf = TempBuf[4 + i];
-                    RdBuf++;
-// 涓嬮潰鐨勯棶棰樺湪浜庯紝濡傛灉浼犺繘鏉ョ殑鏁板�间笉鏄�16浣嶏紝鏄�8浣嶏紝鍙堟湁闂銆�
-// 杩樻槸澶栭儴鑷繁鍐欎竴涓ぇ灏忕杞崲鍑芥暟鑷繁鐪嬫儏鍐垫槸鍚﹀鐞�
-#if 0
-                    //闂鍦ㄤ簬030鐨勫皬绔瓨鍌�
-					if(i == Length - 1 && Length%2) {
-						*(RdBuf) = TempBuf[4+i];		//褰撳彇濂囨暟涓暟鎹紝鏈�鍚庝竴涓紝娌″舰鎴愬鐨勯偅涓闆堕浂鐨勬暟鎹�
-					}
-					else {
-	                    if(i%2) {
-							*(--RdBuf) = TempBuf[4+i];
-							RdBuf += 2;
-	                    }
-						else {
-							*(++RdBuf) = TempBuf[4+i];
-						}
-					}
-#endif
-                }
-            }
-        }
-
-    RdErr:
-        TwiStop();
-    }
-
-    return result;
-}
-#endif
-
 u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf)
 {
     TwiRead(AFE_ID, RdAddr, Length, RdBuf);
     return 1;
 }
-#if 0
-u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf)
-{
-    u8 result = 1;
-
-    Feed_IWatchDog;
-
-    /*
-    if(System_ErrFlag.u8ErrFlag_Com_AFE1) {
-        result = 0;
-    }
-    else {
-        result = TwiRead(AFE_ID, RdAddr, Length, RdBuf);
-        if(!result) {
-            result = TwiRead(AFE_ID, RdAddr, Length, RdBuf);
-        }
-    }
-    */
-
-    result = TwiRead(AFE_ID, RdAddr, Length, RdBuf);
-    if (!result)
-    {
-        result = TwiRead(AFE_ID, RdAddr, Length, RdBuf);
-    }
-
-    if (!result)
-    {
-        System_ERROR_UserCallback(ERROR_AFE1);
-    }
-    return result;
-}
-#endif
-
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
     u8 result;
     u8 i;
 
     TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    // for (i = 0; i < Length; i++)
-    // {
-    //     Feed_IWatchDog;
-    //     // result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    //     TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    //     WrAddr++;
-    //     WrBuf++;
-    //     Delay1ms(40);
-    // }
     // todo 怎么确认硬件i2c成功
 }
-#if 0
-u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
-{
-    u8 result;
-    u8 i;
-
-    for (i = 0; i < Length; i++)
-    {
-        Feed_IWatchDog;
-        result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-        if (!result)
-        {
-            Delay1ms(40);
-            result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-            if (!result)
-            {
-                break;
-            }
-        }
-        WrAddr++;
-        WrBuf++;
-        Delay1ms(40);
-    }
-
-    if (!result)
-    {
-        System_ERROR_UserCallback(ERROR_AFE1);
-    }
-
-    return result;
-}
-#endif
-
 int g_u32CS_Res_AFE;
 void Refresh_Parameters(void)
 {
@@ -575,39 +320,20 @@ void Refresh_Parameters(void)
     u8 TR = 0;
     u16 AFE_TEMPERATURE[8] = {0}; // 娓╁害锛屾憚姘忓害+40锛岋紙0搴︾殑鍊间负40锛�
 
-    // 璇�309鐨凾R锛岄『渚挎妸AFE榛樿鍊奸厤缃紶鍒癆FE_ROM_PARAMETERS_Struction缁撴瀯浣�(#define绫诲瀷)銆�
     if (MTPRead(0x19, 1, &TR))
     {
         SH367309_Reg_Store.TR_ResRef = 680 + 5 * (TR & 0x7F);
         ucMTPBuffer[25] = TR & 0x7F;
-
-/* 鎶婇粯璁ょ殑鏁版嵁鏀惧湪鍙傛暟缁撴瀯浣撻噷 */
-#ifdef _SLEEP_WITH_CURRENT
-        // 浼戠湢甯︾數鏆備笖涓嶉渶瑕侀鍏呭姛鑳�
-        // 瀹忓畾涔夊皯涓嫭鍙凤紝鍑轰簨浜嗭紝璁＄畻浼樺厛绾ч棶棰�
-        ucMTPBuffer[1] = (BYTE_01H_SCONF2) & 0xF3;
-#endif
         memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
     }
     g_u32CS_Res_AFE = 2 * 1000 / 2;
     // g_u32CS_Res_AFE = ((u32)g_tParam.other.u16Sys_CS_Res_Num * 1000) / g_tParam.other.u16Sys_CS_Res;
-
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
-    // AFE_ROM_PARAMETERS_Struction.m00H_01H.OCRA = 1;
-
-#define __CTLC__
-#ifdef __CTLC__
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0xff >> 6);
-#else
-    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0x00 >> 6);
-#endif
-    // AFE_ROM_PARAMETERS_Struction.m00H_01H = AFE_ROM_PARAMETERS_Struction.m00H_01H | 0x0c;
-    // todo ctlc閰嶇疆 OCD2閰嶇疆鍐欐
 
-    /* 鍏呯數杩囧帇 */
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
-    /* 鍏呯數杩囧帇寤舵椂鏃堕棿 */
+
     temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
     /* 鍏呯數杩囧帇鎭㈠ */
@@ -622,10 +348,6 @@ void Refresh_Parameters(void)
     /* 鏀剧數浣庡帇鎭㈠ */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20) & 0x00FF;
 
-    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 褰撳墠瀵瑰簲澶氬皯mv
-    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue * 10; // 褰撳墠瀵瑰簲澶氬皯ms
-    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = Choose_Right_Value(temp, AFE_OCD1T);
     AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = 0;
     AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = 0;
 
@@ -946,10 +668,6 @@ void DataLoad_CellVolt(void)
     for (i = 0; i < SeriesNum; ++i)
     {
         t_i32temp = (UINT32)SH367309_Read_AFE1.u16VCell[SeriesSelect_AFE1[SeriesNum - 1][i]];
-        // if (g_tParam.CalibCoefK[VOLT_AFE1] != 1024 || g_tParam.CalibCoefB[VOLT_AFE1] != 0)
-        // {
-        // 	t_i32temp = ((t_i32temp * g_tParam.CalibCoefK[VOLT_AFE1]) >> 10) + g_tParam.CalibCoefB[VOLT_AFE1];
-        // }
         t_i32temp = ((t_i32temp * SYSKDEFAULT) >> 10) + SYSBDEFAULT;
         t_i32temp = t_i32temp > 0 ? t_i32temp : 0;
         g_stCellInfoReport.u16VCell[i] = (UINT16)t_i32temp;
@@ -1525,12 +1243,6 @@ void App_AFEGet(void)
 #define SLAVE_DMA_MODE_OTHER_DEV_READ (0x40)
     u8 addr = SLAVE_DMA_MODE_OTHER_DEV_READ;
     u8 len = (0x71 - 0x40 + 1); // 鎵嬪唽璇达細闀垮害涓嶅寘鍚獵RC
-    // i2c_master_tx_buff[0] += 1;
-    // 825x slave dma mode, sram address(0x40000~0x4FFFF) length should be 3 byte
-    // i2c_write_series(SLAVE_DMA_MODE_OTHER_DEV_WRITE, 1, (unsigned char *)i2c_master_tx_buff, DBG_DATA_LEN);
-    // WaitMs(100);   //1 S
-    // i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)i2c_master_rx_buff, len + 1);
-    // i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)i2c_master_rx_buff, len);
     i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)&ram_reg_309, len);
 
     UpdateVoltageFromBqMaximo();
