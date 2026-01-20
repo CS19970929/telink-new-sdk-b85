@@ -397,7 +397,7 @@ typedef struct _AFE_REG_STORE {
 								//当过充电/温度保护(温度实际关2个)关闭充电MOS后，如果检测到放电状态，则开启充电MOS
 								//用这个吧，MOS应该会没那么热。
 #define BIT_OCPM	(0<<5)		//0:充电过流只关闭充电MOS，放电过流只关放电MOS。1则同时关
-#define BIT_BAL		(1<<4)		//0：平衡功能由内部SH367309控制，1:由外部MCU控
+#define BIT_BAL		(0<<4)		//0：平衡功能由内部SH367309控制，1:由外部MCU控
 #define BIT0_3_CN	(0)			//5-15，对应串数，别的为16串
 #define BYTE_00H_SCONF1			BIT_ENPCH|BIT_ENMOS|BIT_OCPM|BIT_BAL|BIT0_3_CN
 
@@ -513,7 +513,6 @@ typedef struct _AFE_REG_STORE {
 
 #define BYTE_19H_TR				10			//内部默认应该是10kΩ，实际是多少读出来便可，这个数值无效
 
-//#define AFE_ID				0x34
 #define AFE_ID				0x34
 
 #define E2PROM_ID			0xA0
@@ -522,7 +521,7 @@ typedef struct _AFE_REG_STORE {
 #define VAL_CELL_OVP_REC		((u16)3650)	//单位mV，过充保护恢复
 #define VAL_CELL_UVP			((u16)2500)	//单位mV	
 #define VAL_CELL_UVP_REC		((u16)2600)	//单位mV，低压保护恢复
-#define VAL_BAL_OPEN			((u16)5000)	//单位mV，均衡开启电压
+#define VAL_BAL_OPEN			((u16)4160)	//单位mV，均衡开启电压
 
 
 //Define MTP register addr

@@ -28,7 +28,7 @@
 #define BLE_APP_PM_ENABLE								0
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
-#define BLE_APP_SECURITY_ENABLE      					1	//ACL Slave device SMP, strongly recommended enabled
+#define BLE_APP_SECURITY_ENABLE      					0	//ACL Slave device SMP, strongly recommended enabled
 #define BLE_OTA_SERVER_ENABLE							1
 
 /* Flash Protection:

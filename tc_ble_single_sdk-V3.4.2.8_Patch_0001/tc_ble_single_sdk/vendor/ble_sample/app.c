@@ -39,10 +39,8 @@
 #include "bms_adc.h"
 
 #include "SocEnhance.h"
-// #include "sif_send.h"
 #include "soc_kv_store.h"
 #include "sif_send.h"
-#include "ble_modbus.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -59,7 +57,6 @@ void app_timer_test_init(void)
 	reg_tmr0_capt = 500 * CLOCK_SYS_CLOCK_1US;
 	reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
 	reg_tmr_ctrl |= FLD_TMR0_EN;	// start timer
-
 #if 0
 	//timer1 15ms interval irq
 	reg_irq_mask |= FLD_IRQ_TMR1_EN;
@@ -67,7 +64,6 @@ void app_timer_test_init(void)
 	reg_tmr1_capt = 15 * CLOCK_SYS_CLOCK_1MS;
 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
 	reg_tmr_ctrl |= FLD_TMR1_EN;  //start timer
-
 
 	//timer2 20ms interval irq
 	reg_irq_mask |= FLD_IRQ_TMR2_EN;
@@ -89,21 +85,17 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 		// sif_send_data_handle();
 		reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
 		timer0_irq_cnt++;
-		// gpio_toggle(GPIO_PC3);
 		if (timer0_irq_cnt >= 200)
 		{
 			timer0_irq_cnt = 0;
-			// gpio_toggle(GPIO_PC3);
 		}
 		// DBG_CHN0_TOGGLE;
 	}
-
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR1){
 	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
 	// 	timer1_irq_cnt ++;
 	// 	DBG_CHN1_TOGGLE;
 	// }
-
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR2){
 	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
 	// 	timer2_irq_cnt ++;
@@ -223,6 +215,7 @@ void open_dsg_close_chg(void)
 }
 void enter_fac_mode(bool on)
 {
+#if 0
 	if (on)
 	{
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
@@ -234,6 +227,15 @@ void enter_fac_mode(bool on)
 	else
 	{
 		open_dsg_close_chg();
+	}
+#endif
+	if(on)
+	{
+		gpio_write(AFE_CTL_PIN, 1);
+	}
+	else
+	{
+		gpio_write(AFE_CTL_PIN, 0);
 	}
 }
 void charger_detect_and_keyLogi_200ms(void)
@@ -323,7 +325,7 @@ void init_bms_io(void)
 		gpio_set_func(AFE_CTL_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
 		gpio_set_input_en(AFE_CTL_PIN, 0);
 		gpio_set_output_en(AFE_CTL_PIN, 1);
-		gpio_write(AFE_CTL_PIN, 1);
+		gpio_write(AFE_CTL_PIN, 0);
 
 		{
 			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 榛樿涓� GPIO 鍔熻兘锛屽彲浠ヤ笉璁剧疆
@@ -382,17 +384,6 @@ _attribute_data_retention_	u32 advertise_begin_tick;
 _attribute_data_retention_	u8	sendTerminate_before_enterDeep = 0;
 
 _attribute_data_retention_	u32	latest_user_event_tick;
-
-
-#if (UI_BUTTON_ENABLE)
-
-
-_attribute_data_retention_ static int button_detect_en = 0;
-_attribute_data_retention_ static u32 button_detect_tick = 0;
-
-#endif
-
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_ENTER"
@@ -1208,8 +1199,6 @@ _attribute_no_inline_ void main_loop(void)
 {
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
-
-
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 	#if (APP_BATT_CHECK_ENABLE)
@@ -1226,7 +1215,6 @@ _attribute_no_inline_ void main_loop(void)
 			APP_SOC_IntEnhance_Ctrl();
 			charger_detect_and_keyLogi_200ms();
 		}
-
 		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 		if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 		{
@@ -1239,24 +1227,7 @@ _attribute_no_inline_ void main_loop(void)
 		}
 
 		main_loop_modbus();
-		app_ble_modbus();
 		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
-
-
-	#if (UI_KEYBOARD_ENABLE)
-		proc_keyboard(0, 0, 0);
-	#elif (UI_BUTTON_ENABLE)
-		/* process button 1 second later after power on, to avoid power unstable */
-		if(!button_detect_en && clock_time_exceed(0, 1000000)){
-			button_detect_en = 1;
-		}
-		if(button_detect_en && clock_time_exceed(button_detect_tick, 5000))
-		{
-			button_detect_tick = clock_time();
-			proc_button(0, 0, 0);  //button triggers pair & unpair  and OTA
-		}
-	#endif
-
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();
 }

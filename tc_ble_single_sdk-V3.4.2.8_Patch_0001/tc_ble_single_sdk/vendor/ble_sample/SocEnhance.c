@@ -120,7 +120,7 @@ void set_calsoc(uint8_t _soc)
 {
 	SOC_Calculate_Element.u8SOC_Now = _soc;
 	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600; // ???*10;???��??????????��????????��????????
-	SOC_Calculate_Element.u32Cycle_times = (UINT32)1 * 100;
+	// SOC_Calculate_Element.u32Cycle_times = (UINT32)1 * 100;
 	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
 	SOC_Calculate_Element.u8DSG_SOC_Int = 0;
 }
