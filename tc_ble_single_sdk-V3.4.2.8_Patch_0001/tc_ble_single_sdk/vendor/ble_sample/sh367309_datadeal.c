@@ -738,7 +738,7 @@ u8 AFE_IsReady(void)
 void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
     SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 鏀剧數MOS鐢盇FE纭欢鎺у埗
     MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 }
@@ -1540,8 +1540,8 @@ void App_AFEGet(void)
     DataLoad_CellVoltMaxMinFind();
     DataLoad_Temperature();
     DataLoad_TemperatureMaxMinFind();
-    DataLoad_Current();
-    // test_Autocurrent_cycle();
+    // DataLoad_Current();
+    test_Autocurrent_cycle();
 
     SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
     SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;

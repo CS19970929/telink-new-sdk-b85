@@ -27,6 +27,8 @@
 #include "app.h"
 #include "app_att.h"
 #include "conf.h"
+#include "modbus_uart.h"
+#include "modbus_rtu.h"
 
 typedef struct
 {
@@ -395,46 +397,52 @@ void MODS_Poll(u8 *data, u8 len)
  * @param[in]  para - rf_packet_att_write_t
  * @return     0
  */
-extern bool rev_master ;
-extern u8 test_buf[];
-extern void notify_votage(void);
-extern void notify_protect_prarm(void);
-u16 addr = 0;
-u32 rev_cnt = 0;
+static u8  ble_rsp_buf[512];
+
+#define TELINK_NOTIFY_PAYLOAD 20
+ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
+{
+	u16 offset = 0;
+
+	while (offset < len)
+	{
+		u8 chunk = (len - offset) > TELINK_NOTIFY_PAYLOAD ? TELINK_NOTIFY_PAYLOAD : (len - offset);
+
+		ble_sts_t ret = blc_gatt_pushHandleValueNotify(
+			conn,
+			handle,
+			data + offset,
+			chunk);
+
+		if (ret != BLE_SUCCESS)
+		{
+			printf("Send FAIL offset=%d ret=%x\r\n", offset, ret);
+			return ret;
+		}
+		offset += chunk;
+		// Telink 閻楄锟窖嶇窗闂囷拷鐟曚胶绮扮�靛湱顏稉锟介悙瑙勬闂傝揪绱濋崥锕�鍨� notify 娴兼俺顫﹂崥锟�
+		// sleep_us(800);   // 0.8ms鐡掑啿顧勭�瑰鍙�
+	}
+
+	return BLE_SUCCESS;
+}
 int module_onReceiveData(void *para)
 {
 	rf_packet_att_write_t *p = (rf_packet_att_write_t*)para;
 	u8 len = p->l2capLen - 3;
 	u8 *data = (u8 *)&p->value;
-	u8 slave = data[0];
-	u8 cmd   = data[1]; 
-	// u16 addr = (data[2] << 8) | data[3];
-	addr = (data[2] << 8) | data[3];
 	if(len > 0)
 	{
-		MODS_Poll(data, len);
-
-		rev_cnt++;
-		// printf("rev cnt %d", rev_cnt);
-		MODS_Poll(data, len);
-		// array_printf(data, len);
-		// if(addr == 0xd000)
-		// 	notify_votage();
-		// else if (addr == 0x2100)
-		// 	notify_protect_prarm();
-
-		// update_my_batVal(addr);
-		
-		// spp_event_t *pEvt =  (spp_event_t *)p;
-		// pEvt->token = 0xFF;
-		// pEvt->paramLen = p->l2capLen + 2;   //l2cap_len + 2 byte (eventId)
-		// pEvt->eventId = 0x07a0;  //data received event
-		// memcpy(pEvt->param, &p->opcode, len + 3);
-
-		// spp_send_data(HCI_FLAG_EVENT_TLK_MODULE, pEvt);
-		// printf("Receive data, handle = %x\r\n", p->handle1 | (p->handle1<<8));
-		// array_printf(&p->value, len);
-		rev_master = true;
+		u32 rsp_len = 0;
+        int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
+		if (ok && rsp_len)
+        {
+			ble_sts_t r = notify_big_packet(
+			BLS_CONN_HANDLE,
+			SPP_CLIENT_TO_SERVER_DP_H, 
+			ble_rsp_buf,
+			rsp_len);
+        }
 	}
 
 	return 0;
