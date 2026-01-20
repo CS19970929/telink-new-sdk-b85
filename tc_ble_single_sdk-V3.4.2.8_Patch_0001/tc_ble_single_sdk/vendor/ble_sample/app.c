@@ -1240,6 +1240,7 @@ _attribute_no_inline_ void main_loop(void)
 
 		main_loop_modbus();
 		app_ble_modbus();
+		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 
 
 	#if (UI_KEYBOARD_ENABLE)
