@@ -26,9 +26,9 @@ typedef int8_t INT8;
 #define SeriesNum  (10)
 
 #define FAC_INIT_soc (60)
-// #define CapacityFactory (87)
+#define CapacityFactory (87)
 // #define CapacityFactory (50)
-#define CapacityFactory (180)
+// #define CapacityFactory (180)
 
 typedef enum _CUR {
 CurCHG = 0, CurDSG

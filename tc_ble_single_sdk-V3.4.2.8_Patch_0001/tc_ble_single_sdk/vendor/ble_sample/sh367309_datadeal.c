@@ -955,13 +955,13 @@ void DataLoad_CellVolt(void)
         g_stCellInfoReport.u16VCell[i] = (UINT16)t_i32temp;
     }
 
-    // if (SeriesNum < 32)
-    // {
-    //     for (i = SeriesNum; i < 32; ++i)
-    //     {
-    //         g_stCellInfoReport.u16VCell[i] = 61001;
-    //     }
-    // }
+    if (SeriesNum < 32)
+    {
+        for (i = SeriesNum; i < 32; ++i)
+        {
+            g_stCellInfoReport.u16VCell[i] = 61001;
+        }
+    }
 }
 
 void DataLoad_CellVoltMaxMinFind(void)
