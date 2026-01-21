@@ -384,14 +384,6 @@ void update_my_batVal(u16 val)
 	blc_gatt_pushHandleValueNotify(BLS_CONN_HANDLE, BATT_LEVEL_INPUT_DP_H, &my_batVal[0], sizeof(my_batVal[0]));
 }
 
-void MODS_Poll(u8 *data, u8 len)
-{
-	// array_printf(data, len);
-
-}
-
-
-
 /**
  * @brief      write callback of Attribute of TelinkSppDataClient2ServerUUID
  * @param[in]  para - rf_packet_att_write_t
