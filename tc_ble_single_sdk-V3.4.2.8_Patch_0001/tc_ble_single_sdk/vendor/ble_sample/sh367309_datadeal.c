@@ -738,7 +738,7 @@ u8 AFE_IsReady(void)
 void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
     SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 鏀剧數MOS鐢盇FE纭欢鎺у埗
     MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 }
@@ -1143,8 +1143,6 @@ void DataLoad_CurrentCali(void)
 #endif
 }
 
-void test_Autocurrent_cycle(void)
-{
     static uint8_t step = 0;
 #if 1
     static uint16_t CHG_current = 100;
@@ -1153,6 +1151,9 @@ void test_Autocurrent_cycle(void)
     static uint16_t CHG_current = 200;
     static uint16_t DSG_current = 400;
 #endif
+void test_Autocurrent_cycle(void)
+{
+
 
     switch (step)
     {
@@ -1525,23 +1526,23 @@ void App_AFEGet(void)
 #define SLAVE_DMA_MODE_OTHER_DEV_READ (0x40)
     u8 addr = SLAVE_DMA_MODE_OTHER_DEV_READ;
     u8 len = (0x71 - 0x40 + 1); // 鎵嬪唽璇达細闀垮害涓嶅寘鍚獵RC
-    // i2c_master_tx_buff[0] += 1;
-    // 825x slave dma mode, sram address(0x40000~0x4FFFF) length should be 3 byte
-    // i2c_write_series(SLAVE_DMA_MODE_OTHER_DEV_WRITE, 1, (unsigned char *)i2c_master_tx_buff, DBG_DATA_LEN);
-    // WaitMs(100);   //1 S
-    // i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)i2c_master_rx_buff, len + 1);
-    // i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)i2c_master_rx_buff, len);
     i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)&ram_reg_309, len);
 
     UpdateVoltageFromBqMaximo();
 
     DataLoad_CellVolt();
-    // DataLoad_CellVolt_Test();
     DataLoad_CellVoltMaxMinFind();
     DataLoad_Temperature();
     DataLoad_TemperatureMaxMinFind();
-    // DataLoad_Current();
-    test_Autocurrent_cycle();
+    if(!sys_time.test_fun1_soc)
+    {
+        DataLoad_Current();
+        step = 0;
+    }
+    else
+    {
+        test_Autocurrent_cycle();
+    }
 
     SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
     SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;

@@ -12,6 +12,8 @@
 #include "tl_common.h"
 #include "drivers.h"
 
+#include "conf.h"
+
 void sif_send_PRIVATE_PACKETS_CELLVOLTAGE(void);
 void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void);
 void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void);
@@ -232,6 +234,8 @@ void sif_switch(uint8_t open)
 void sif_send_data_handle(void)
 // static void sif_send_data_handle(uint8_t state)
 {
+#ifdef _FUNC_SIF_
+
     // if (!sif_enable)
     //     return;
     static bool iswakeup = true;
@@ -250,14 +254,14 @@ void sif_send_data_handle(void)
 
         sif_turn_on();
 
-        // if (!GPIO_PinInGet(SL_EMLIB_GPIO_INIT_ONEWIRERXWKUP_PORT, SL_EMLIB_GPIO_INIT_ONEWIRERXWKUP_PIN))
-        // {
-        //     cnt = 0;
-        //     state_mode = SIF_IDLE;
-        //     iswakeup = true;
-        //     cnt_60s = 0;
-        //     return;
-        // }
+        if (!gpio_read(OWC_RX_PIN))
+        {
+            cnt = 0;
+            state_mode = SIF_IDLE;
+            iswakeup = true;
+            cnt_60s = 0;
+            return;
+        }
 
         if (++cnt >= 2 * 1000)
         {
@@ -500,6 +504,8 @@ void sif_send_data_handle(void)
     default:
         break;
     }
+
+#endif // 
 }
 
 #if 1
