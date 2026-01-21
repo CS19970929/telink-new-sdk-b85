@@ -8,7 +8,10 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-#define DEV_NAME_STR  "BT_star003"
+#define _FUNC_SIF_
+// #define _FUNC_UART_
+
+#define DEV_NAME_STR  "BT_star001"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 
@@ -53,5 +56,30 @@ CurCHG = 0, CurDSG
 #define  ADC_NMOS_PIN              (GPIO_PC4)
 #define  ADC_BUSEN_PIN              (GPIO_PD2)
 #define  ADC_EN_PIN              (GPIO_PD3)
+
+typedef struct 
+{
+   uint16_t    cnt_PA0_irq;
+  uint16_t cnt_bms1_keyirq;
+  uint16_t    bq33100_read_cnt;
+  uint16_t    pec_err_cnt;
+  
+  uint8_t isdebugenable;
+	uint16_t CHG;
+	uint16_t DSG;
+
+  uint16_t  cnt_enter_chg_open;
+  uint16_t  cnt_enter_dsg_open;
+
+   uint8_t  wakeup_reason;
+  bool     wakeup_rtc;
+  uint8_t time_enter_rtc;
+  bool power_on;
+
+  uint16_t enter_rtc_delay;
+  bool     test_fun1_soc;
+}Time_T;
+
+extern Time_T  sys_time;
 
 #endif
