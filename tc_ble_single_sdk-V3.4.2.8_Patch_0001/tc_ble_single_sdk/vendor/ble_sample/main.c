@@ -76,11 +76,11 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 
 	if( deepRetWakeUp ){
 		user_init_deepRetn();
-		SystemStatus.bits.b1Status_Relay_CHG = 1;
+		// SystemStatus.bits.b1Status_Relay_CHG = 1;
 	}
 	else{
 		user_init_normal();
-		SystemStatus.bits.b1Status_Relay_DSG = 1;
+		// SystemStatus.bits.b1Status_Relay_DSG = 1;
 	}
 
     irq_enable();

@@ -41,10 +41,12 @@
 #include "SocEnhance.h"
 #include "soc_kv_store.h"
 #include "sif_send.h"
+#include "nvm_flash.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
+nvm_cfg_t nvm_cfg;
 
 
 
@@ -998,6 +1000,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
+		nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();
 		
@@ -1228,6 +1231,7 @@ _attribute_no_inline_ void main_loop(void)
 
 		main_loop_modbus();
 		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+		nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();
 }
