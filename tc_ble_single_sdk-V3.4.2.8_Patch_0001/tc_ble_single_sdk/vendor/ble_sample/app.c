@@ -334,10 +334,11 @@ void init_bms_io(void)
 		gpio_write(AFE_CTL_PIN, 0);
 
 		{
-			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(RF_EN_PIN, 0);
-			gpio_set_output_en(RF_EN_PIN, 1);
-			gpio_write(RF_EN_PIN, 0);
+			// gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			// gpio_set_input_en(RF_EN_PIN, 0);
+			// gpio_set_output_en(RF_EN_PIN, 1);
+			// gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
+			// gpio_write(RF_EN_PIN, 0);
 
 			gpio_set_func(SW_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(SW_PIN, 1);
@@ -720,7 +721,17 @@ void blt_pm_proc(void)
 				bls_pm_setManualLatency(0);
 			}
 
+			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
+			if(!gpio_read(CHG_IN_PIN) ||
+				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
+				g_stCellInfoReport.u16IDischg 
+				)
+			{
+				bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			}
 
+
+#if 0
 		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
 			if(!ota_is_working && !blc_ll_isControllerEventPending()){  //no controller event pending
 				/* enter deepsleep mode after advertising for 60 seconds without being connected. */
@@ -736,6 +747,7 @@ void blt_pm_proc(void)
 				}
 			}
 		#endif  //end of !TEST_CONN_CURRENT_ENABLE
+#endif
 	}
 #endif  //end of BLE_APP_PM_ENABLE
 }
@@ -1027,7 +1039,6 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
-
 }
 
 
@@ -1206,6 +1217,16 @@ _attribute_no_inline_ void main_loop(void)
 	blt_sdk_main_loop();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
+	sys_time.low_power_mode = true;
+	if(sys_time.low_power_mode)
+	{
+		System_ErrFlag.u8ErrFlag_ADC = 1;
+	}
+	else
+	{
+		System_ErrFlag.u8ErrFlag_ADC = 0;
+	}
+
 	#if (APP_BATT_CHECK_ENABLE)
 		/*The frequency of low battery detect is controlled by the variable lowBattDet_tick, which is executed every
 		 500ms in the demo. Users can modify this time according to their needs.*/

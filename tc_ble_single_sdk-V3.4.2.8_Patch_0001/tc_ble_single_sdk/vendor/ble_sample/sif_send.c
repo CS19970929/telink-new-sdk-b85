@@ -233,7 +233,6 @@ void sif_switch(uint8_t open)
 }
 
 void sif_send_data_handle(void)
-// static void sif_send_data_handle(uint8_t state)
 {
     static bool iswakeup = true;
     static uint8_t pubblic_frame3_cnt = 0;
@@ -255,8 +254,6 @@ void sif_send_data_handle(void)
         return;
     }
 
-    // if (!sif_enable)
-    //     return;
     switch (state_mode)
     {
     case SIF_IDLE:
