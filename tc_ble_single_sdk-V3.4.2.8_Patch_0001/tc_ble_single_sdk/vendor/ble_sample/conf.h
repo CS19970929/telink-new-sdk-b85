@@ -9,9 +9,9 @@
 #include "flash_store_cfg.h"
 
 #define _FUNC_SIF_
-// #define _FUNC_UART_
+#define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_star001"
+#define DEV_NAME_STR  "BT_star009"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 

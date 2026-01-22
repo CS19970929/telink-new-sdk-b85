@@ -4,6 +4,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "modbus_rtu.h"
+#include "conf.h"
 
 static volatile u8  s_rx_ready = 0;
 
@@ -14,14 +15,15 @@ volatile unsigned char uart_dmairq_rx_cnt2=0;
 
 void modbus_uart_init(void)
 {
-    WaitMs(50);
+    // WaitMs(50);
 
     // 1) 先配 DMA RX 缓冲（非常关键：照例程的顺序）
     memset((void*)&s_rx_pkt, 0, sizeof(s_rx_pkt));
     uart_recbuff_init((u8*)&s_rx_pkt, sizeof(s_rx_pkt));
 
     // 2) 配引脚（PC2 TX / PC3 RX）
-    uart_gpio_set(UART_TX_PC2, UART_RX_PC3);
+    // uart_gpio_set(UART_TX_PC2, UART_RX_PC3);
+    uart_gpio_set(OWC_TX_PIN, OWC_RX_PIN);
 
     // 3) reset uart（会清 0x90~0x9f），所以 init 要在 reset 后
     uart_reset();
@@ -55,6 +57,8 @@ void modbus_uart_irq_proc(void)
         // 做一个最轻量的标记：主循环再去读长度和内容
         if (s_rx_pkt.dma_len > 0) {
             s_rx_ready = 1;
+
+            bus_mux_on_uart_rx_byte();
         }
     }
 

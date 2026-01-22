@@ -734,5 +734,6 @@ extern SH367309_REG_STORE SH367309_Reg_Store;
 void SH367309_UpdataAfeConfig(void);
 void App_AFEGet(void);
 void AFE_Reset(void);
+u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 
 #endif
