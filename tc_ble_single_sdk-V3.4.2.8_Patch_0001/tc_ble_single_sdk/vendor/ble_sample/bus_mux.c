@@ -191,7 +191,6 @@ void bus_mux_task(void)
         enter_uart_modbus();
         return;
     }
-
     // 2) OWC_IDLE：RX高稳定才允许发
     if (g_state == BUS_STATE_OWC_IDLE)
     {
@@ -210,7 +209,6 @@ void bus_mux_task(void)
             g_rx_high_since = 0;
         }
     }
-
     // 3) UART模式：长时间无通信回OWC_IDLE（可选）
     if (g_state == BUS_STATE_UART_MODBUS && UART_IDLE_BACK_MS > 0)
     {
@@ -220,29 +218,28 @@ void bus_mux_task(void)
             return;
         }
     }
-
-    extern volatile struct SYSTEM_ERROR System_ErrFlag;
-    switch (g_state)
-    {
-    case BUS_STATE_OWC_IDLE:
-        System_ErrFlag.u8ErrFlag_Com_AFE2 = 1;
-        ;
-        System_ErrFlag.u8ErrFlag_Com_Can = 0;
-        System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
-        break;
-    case BUS_STATE_OWC_TX:
-        System_ErrFlag.u8ErrFlag_Com_Can = 1;
-        System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
-        ;
-        System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
-        break;
-    case BUS_STATE_UART_MODBUS:
-        System_ErrFlag.u8ErrFlag_Com_Can = 0;
-        System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
-        ;
-        System_ErrFlag.u8ErrFlag_Com_EEPROM = 1;
-        break;
-    default:
-        break;
-    }
+    // extern volatile struct SYSTEM_ERROR System_ErrFlag;
+    // switch (g_state)
+    // {
+    // case BUS_STATE_OWC_IDLE:
+    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 1;
+    //     ;
+    //     System_ErrFlag.u8ErrFlag_Com_Can = 0;
+    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
+    //     break;
+    // case BUS_STATE_OWC_TX:
+    //     System_ErrFlag.u8ErrFlag_Com_Can = 1;
+    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
+    //     ;
+    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
+    //     break;
+    // case BUS_STATE_UART_MODBUS:
+    //     System_ErrFlag.u8ErrFlag_Com_Can = 0;
+    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
+    //     ;
+    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 1;
+    //     break;
+    // default:
+    //     break;
+    // }
 }

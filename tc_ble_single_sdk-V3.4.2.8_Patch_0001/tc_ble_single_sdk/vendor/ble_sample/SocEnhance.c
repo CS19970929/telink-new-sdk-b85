@@ -972,7 +972,7 @@ void APP_SOC_IntEnhance_Ctrl()
 		break;
 	}
 
-	// soc_cali();
+	soc_cali();
 
 	// SOC_EEPROM_Deal_Monitor();
 	// Correction_CapacityFull();
