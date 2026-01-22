@@ -42,6 +42,7 @@
 #include "soc_kv_store.h"
 #include "sif_send.h"
 //#include "nvm_flash.h"
+#include "bus_mux.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -365,18 +366,6 @@ void init_bms_io(void)
 			gpio_set_input_en(ADC_EN_PIN, 0);
 			gpio_set_output_en(ADC_EN_PIN, 1);
 			gpio_write(ADC_EN_PIN, 1);
-
-#ifdef _FUNC_SIF_
-			gpio_set_func(OWC_TX_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(OWC_TX_PIN, 0);
-			gpio_set_output_en(OWC_TX_PIN, 1);
-			gpio_write(OWC_TX_PIN, 1);
-
-			gpio_set_func(OWC_RX_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(OWC_RX_PIN, 1);
-			gpio_set_output_en(OWC_RX_PIN, 0);
-			// gpio_write(OWC_RX_PIN, 0);
-#endif // _FUNC_SIF_
 		}
 
 }
@@ -1033,12 +1022,12 @@ _attribute_no_inline_ void user_init_normal(void)
 		soc_param_lib_init(&d);
 
 	}
-
-#ifdef _FUNC_UART_
-	modbus_uart_init();
-#endif // _FUNC_UART_
+	
 	app_timer_test_init();
 	gpio_write(AFE_CTL_PIN, 1);
+
+	bus_mux_init();
+
 }
 
 
@@ -1242,6 +1231,7 @@ _attribute_no_inline_ void main_loop(void)
 			// bms_adc_read_all(&s);
 		}
 
+		bus_mux_task();
 #ifdef _FUNC_UART_
 		main_loop_modbus();
 #endif

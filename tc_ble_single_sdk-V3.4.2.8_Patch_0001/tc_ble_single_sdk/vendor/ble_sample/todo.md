@@ -6,3 +6,4 @@ owc是一线通接口，和一线通从设备通信，同时owc_tx、owc_rx直�
 
 todo 
 - 循环次数 soh
+- 上位机增加 调试，显示状态，printf？？？

@@ -13,6 +13,7 @@
 #include "drivers.h"
 
 #include "conf.h"
+#include "bus_mux.h"
 
 void sif_send_PRIVATE_PACKETS_CELLVOLTAGE(void);
 void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void);
@@ -234,10 +235,6 @@ void sif_switch(uint8_t open)
 void sif_send_data_handle(void)
 // static void sif_send_data_handle(uint8_t state)
 {
-#ifdef _FUNC_SIF_
-
-    // if (!sif_enable)
-    //     return;
     static bool iswakeup = true;
     static uint8_t pubblic_frame3_cnt = 0;
     static uint16_t cnt_60s = 0;
@@ -248,6 +245,18 @@ void sif_send_data_handle(void)
     static uint8_t is60s = 0;
     uint8_t *p = (uint8_t *)sif_sendArray;
 
+#ifdef _FUNC_SIF_
+    if (BUS_STATE_OWC_TX != bus_mux_get_state())
+    {
+        cnt = 0;
+        state_mode = SIF_IDLE;
+        iswakeup = true;
+        cnt_60s = 0;
+        return;
+    }
+
+    // if (!sif_enable)
+    //     return;
     switch (state_mode)
     {
     case SIF_IDLE:
@@ -256,6 +265,7 @@ void sif_send_data_handle(void)
 
         if (!gpio_read(OWC_RX_PIN))
         {
+            bus_mux_set_state(BUS_STATE_OWC_IDLE);
             cnt = 0;
             state_mode = SIF_IDLE;
             iswakeup = true;
@@ -505,7 +515,7 @@ void sif_send_data_handle(void)
         break;
     }
 
-#endif // 
+#endif //
 }
 
 #if 1
@@ -827,15 +837,15 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
 
     {
         uint8_t bms_status = 0;
-        //todo
-        // if (!isFault_chg())
-        //     bms_status |= 1 << 0;
-        // if (0 == GPIO_PinInGet(SL_EMLIB_GPIO_INIT_CHG_5V_WK_PORT, SL_EMLIB_GPIO_INIT_CHG_5V_WK_PIN))
-        //     bms_status |= 1 << 2;
-        // if (sys_status == s_CHG && !isFault_chg())
-        //     bms_status |= 1 << 7;
-        // else if (!isFault_dsg())
-        //     bms_status |= 1 << 6;
+        // todo
+        //  if (!isFault_chg())
+        //      bms_status |= 1 << 0;
+        //  if (0 == GPIO_PinInGet(SL_EMLIB_GPIO_INIT_CHG_5V_WK_PORT, SL_EMLIB_GPIO_INIT_CHG_5V_WK_PIN))
+        //      bms_status |= 1 << 2;
+        //  if (sys_status == s_CHG && !isFault_chg())
+        //      bms_status |= 1 << 7;
+        //  else if (!isFault_dsg())
+        //      bms_status |= 1 << 6;
 
         sif_report.private.realTimeInfo.bms_status = bms_status;
     }
@@ -849,7 +859,7 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
     sif_report.private.realTimeInfo.Request_charging_voltage = (43 * SeriesNum);
     sif_report.private.realTimeInfo.Request_charging_current = 20;
 
-    //todo
+    // todo
 #if 0
     if (sys_status == s_CHG)
     {

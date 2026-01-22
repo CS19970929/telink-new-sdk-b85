@@ -11,7 +11,7 @@ extern struct stCell_Info g_stCellInfoReport;
 
 UINT32 u32_ChgCur_mA = 0;
 UINT32 u32_DsgCur_mA = 0;
-u8 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
+u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
 
 UINT8 FaultPoint_First2;
@@ -31,7 +31,7 @@ UINT8 Monitor_TempBreak(UINT16 *temp_AD)
 
     switch (su8_StartUp_Flag)
     {
-    case 0: // 刚开机，不能判断，因为查询AFE函数已经被分割，不能拿到数据，此时判断必为错
+    case 0: // 鍒氬紑鏈猴紝涓嶈兘鍒ゆ柇锛屽洜涓烘煡璇FE鍑芥暟宸茬粡琚垎鍓诧紝涓嶈兘鎷垮埌鏁版嵁锛屾鏃跺垽鏂繀涓洪敊
         if (++su8_Delay_Cnt >= 20)
         {
             su8_Delay_Cnt = 0;
@@ -43,7 +43,7 @@ UINT8 Monitor_TempBreak(UINT16 *temp_AD)
         if (*temp_AD < 110)
         {
             ++result;
-            *temp_AD = 110; // 定死在-29摄氏度。以防上位机显示NA以为没问题
+            *temp_AD = 110; // 瀹氭鍦�-29鎽勬皬搴︺�備互闃蹭笂浣嶆満鏄剧ずNA浠ヤ负娌￠棶棰�
             System_ERROR_UserCallback(ERROR_TEMP_BREAK);
             su8_Recover_Cnt = 0;
         }
@@ -52,7 +52,7 @@ UINT8 Monitor_TempBreak(UINT16 *temp_AD)
             if (System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK))
             {
                 if (++su8_Recover_Cnt >= 50)
-                { // 判断50次自动复原，约为200*50=10s
+                { // 鍒ゆ柇50娆¤嚜鍔ㄥ鍘燂紝绾︿负200*50=10s
                     su8_Recover_Cnt = 0;
                     System_ERROR_UserCallback(ERROR_REMOVE_TEMP_BREAK);
                 }
@@ -69,8 +69,8 @@ UINT8 Monitor_TempBreak(UINT16 *temp_AD)
 }
 
 const unsigned char SeriesSelect_AFE1[16][16] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 1串
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 2串
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 1涓�
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 2涓�
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 3
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 4
     {0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // 5
@@ -89,7 +89,7 @@ const unsigned char SeriesSelect_AFE1[16][16] = {
 
 #define LENGTH_TBLTEMP_AFE_10K ((UINT16)56)
 const UINT16 iSheldTemp_10K_AFE[LENGTH_TBLTEMP_AFE_10K] = {
-    // AD(kΩ*100)		(Temp+40)*10
+    // AD(k惟*100)		(Temp+40)*10
     11611,
     100, //-30
     8935,
@@ -164,7 +164,7 @@ u16 iSheldTemp_10K_NTC[141] = {20375, 19204, 18115, 17100, 16152, 15266, 14437, 
                                127, 124, 120, 117, 114, 111, 108, 106, 103, 100,
                                98};
 
-// 鍓�26涓瘎瀛樺櫒榛樿鍙傛暟
+// 閸擄拷26娑擃亜鐦庣�涙ê娅掓妯款吇閸欏倹鏆�
 u8 ucMTPBuffer[26] = {
     BYTE_00H_SCONF1, BYTE_01H_SCONF2, BYTE_02H_OVT_LDRT_OVH, BYTE_03H_OVL, BYTE_04H_UVT_OVRH,
     BYTE_05H_OVRL, BYTE_06H_UV, BYTE_07H_UVR, BYTE_08H_BALV, BYTE_09H_PREV,
@@ -173,12 +173,12 @@ u8 ucMTPBuffer[26] = {
     BYTE_14H_UTCR, BYTE_15H_OTD, BYTE_16H_OTDR, BYTE_17H_UTD, BYTE_18H_UTDR,
     BYTE_19H_TR};
 
-const u16 AFE_OCD1V_OCCV[16] = {20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 160, 180, 200};                    // 涓�绾ф斁鐢佃繃娴佸拰鍏呯數杩囨祦锛屽崟浣峬v
-const u16 AFE_SCV[16] = {50, 80, 110, 140, 170, 200, 230, 260, 290, 320, 350, 400, 500, 600, 800, 1000};                    // 鐭矾淇濇姢鐢靛帇锛屽崟浣峬v
-const u16 AFE_OVT_UVT[16] = {100, 200, 300, 400, 600, 800, 1000, 2000, 3000, 4000, 6000, 8000, 10000, 20000, 30000, 40000}; // 杩囧帇浣庡帇寤舵椂鏃堕棿銆傚崟浣峬s
-const u16 AFE_SCT[16] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};                      // 鐭矾寤舵椂,鍗曚綅us銆�
-const u16 AFE_OCD1T[16] = {50, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 15000, 20000, 30000, 40000};   // 鏀剧數杩囨祦1寤舵椂銆傚崟浣峬s
-const u16 AFE_OCCT_OCD2T[16] = {10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 8000, 10000, 20000};         // 鏀剧數杩囨祦2鍜屽厖鐢佃繃娴佸欢鏃躲�傚崟浣峬s
+const u16 AFE_OCD1V_OCCV[16] = {20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 160, 180, 200};                    // 娑擄拷缁狙勬杹閻絻绻冨ù浣告嫲閸忓懐鏁告潻鍥ㄧウ閿涘苯宕熸担宄瑅
+const u16 AFE_SCV[16] = {50, 80, 110, 140, 170, 200, 230, 260, 290, 320, 350, 400, 500, 600, 800, 1000};                    // 閻叀鐭炬穱婵囧Б閻㈤潧甯囬敍灞藉礋娴ｅ超v
+const u16 AFE_OVT_UVT[16] = {100, 200, 300, 400, 600, 800, 1000, 2000, 3000, 4000, 6000, 8000, 10000, 20000, 30000, 40000}; // 鏉╁洤甯囨担搴″竾瀵よ埖妞傞弮鍫曟？閵嗗倸宕熸担宄瑂
+const u16 AFE_SCT[16] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};                      // 閻叀鐭惧鑸垫,閸楁洑缍卽s閵嗭拷
+const u16 AFE_OCD1T[16] = {50, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 15000, 20000, 30000, 40000};   // 閺�鍓ф暩鏉╁洦绁�1瀵よ埖妞傞妴鍌氬礋娴ｅ超s
+const u16 AFE_OCCT_OCD2T[16] = {10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 8000, 10000, 20000};         // 閺�鍓ф暩鏉╁洦绁�2閸滃苯鍘栭悽浣冪箖濞翠礁娆㈤弮韬诧拷鍌氬礋娴ｅ超s
 
 const u8 CRC8Table[] = { // 120424-1			CRC Table
     0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
@@ -270,11 +270,6 @@ int Choose_Right_Value(u16 cur_Value, const u16 *AFE_list)
     return i;
 }
 
-u8 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
-{
-    // printf("system error code: %d", errorCode);
-    return 0;
-}
 
 u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
@@ -386,7 +381,7 @@ Others:
 ********************************************************************************/
 u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 {
-    // todo 鍚庨潰鍔燾rc,rdbuf澶氬姞涓�涓�
+    // todo 閸氬酣娼伴崝鐕緍c,rdbuf婢舵艾濮炴稉锟芥稉锟�
     i2c_read_series(((u16)RdAddr << 8) | Length, 2, (unsigned char *)RdBuf, Length + 1);
     // printf("TwiRead\n");
     // array_printf(RdBuf, Length);
@@ -450,12 +445,12 @@ u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
                 {
                     *RdBuf = TempBuf[4 + i];
                     RdBuf++;
-// 涓嬮潰鐨勯棶棰樺湪浜庯紝濡傛灉浼犺繘鏉ョ殑鏁板�间笉鏄�16浣嶏紝鏄�8浣嶏紝鍙堟湁闂銆�
-// 杩樻槸澶栭儴鑷繁鍐欎竴涓ぇ灏忕杞崲鍑芥暟鑷繁鐪嬫儏鍐垫槸鍚﹀鐞�
+// 娑撳娼伴惃鍕６妫版ê婀禍搴礉婵″倹鐏夋导鐘虹箻閺夈儳娈戦弫鏉匡拷闂寸瑝閺勶拷16娴ｅ稄绱濋弰锟�8娴ｅ稄绱濋崣鍫熸箒闂傤噣顣介妴锟�
+// 鏉╂ɑ妲告径鏍劥閼奉亜绻侀崘娆庣娑擃亜銇囩亸蹇曨伂鏉烆剚宕查崙鑺ユ殶閼奉亜绻侀惇瀣剰閸愬灚妲搁崥锕�顦╅悶锟�
 #if 0
-                    //闂鍦ㄤ簬030鐨勫皬绔瓨鍌�
+                    //闂傤噣顣介崷銊ょ艾030閻ㄥ嫬鐨粩顖氱摠閸岋拷
 					if(i == Length - 1 && Length%2) {
-						*(RdBuf) = TempBuf[4+i];		//褰撳彇濂囨暟涓暟鎹紝鏈�鍚庝竴涓紝娌″舰鎴愬鐨勯偅涓闆堕浂鐨勬暟鎹�
+						*(RdBuf) = TempBuf[4+i];		//瑜版挸褰囨總鍥ㄦ殶娑擃亝鏆熼幑顕嗙礉閺堬拷閸氬簼绔存稉顏庣礉濞屸�宠埌閹存劕顕惃鍕亝娑擃亜顒濋梿鍫曟祩閻ㄥ嫭鏆熼幑锟�
 					}
 					else {
 	                    if(i%2) {
@@ -532,7 +527,7 @@ u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
     //     WrBuf++;
     //     Delay1ms(40);
     // }
-    // todo 怎么确认硬件i2c成功
+    // todo 鎬庝箞纭纭欢i2c鎴愬姛
 }
 #if 0
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
@@ -573,18 +568,18 @@ void Refresh_Parameters(void)
     int i = 0;
     int temp = 0;
     u8 TR = 0;
-    u16 AFE_TEMPERATURE[8] = {0}; // 娓╁害锛屾憚姘忓害+40锛岋紙0搴︾殑鍊间负40锛�
+    u16 AFE_TEMPERATURE[8] = {0}; // 濞撯晛瀹抽敍灞炬啔濮樺繐瀹�+40閿涘矉绱�0鎼达妇娈戦崐闂磋礋40閿涳拷
 
-    // 璇�309鐨凾R锛岄『渚挎妸AFE榛樿鍊奸厤缃紶鍒癆FE_ROM_PARAMETERS_Struction缁撴瀯浣�(#define绫诲瀷)銆�
+    // 鐠囷拷309閻ㄥ嚲R閿涘矂銆庢笟鎸庡ΩAFE姒涙顓婚崐濂稿帳缂冾喕绱堕崚鐧咶E_ROM_PARAMETERS_Struction缂佹挻鐎担锟�(#define缁鐎�)閵嗭拷
     if (MTPRead(0x19, 1, &TR))
     {
         SH367309_Reg_Store.TR_ResRef = 680 + 5 * (TR & 0x7F);
         ucMTPBuffer[25] = TR & 0x7F;
 
-/* 鎶婇粯璁ょ殑鏁版嵁鏀惧湪鍙傛暟缁撴瀯浣撻噷 */
+/* 閹跺﹪绮拋銈囨畱閺佺増宓侀弨鎯ф躬閸欏倹鏆熺紒鎾寸�担鎾诲櫡 */
 #ifdef _SLEEP_WITH_CURRENT
-        // 浼戠湢甯︾數鏆備笖涓嶉渶瑕侀鍏呭姛鑳�
-        // 瀹忓畾涔夊皯涓嫭鍙凤紝鍑轰簨浜嗭紝璁＄畻浼樺厛绾ч棶棰�
+        // 娴兼垹婀㈢敮锔炬暩閺嗗倷绗栨稉宥夋付鐟曚線顣╅崗鍛閼筹拷
+        // 鐎瑰繐鐣炬稊澶婄毌娑擃亝瀚崣鍑ょ礉閸戣桨绨ㄦ禍鍡礉鐠侊紕鐣绘导妯哄帥缁狙囨６妫帮拷
         ucMTPBuffer[1] = (BYTE_01H_SCONF2) & 0xF3;
 #endif
         memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
@@ -602,56 +597,56 @@ void Refresh_Parameters(void)
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0x00 >> 6);
 #endif
     // AFE_ROM_PARAMETERS_Struction.m00H_01H = AFE_ROM_PARAMETERS_Struction.m00H_01H | 0x0c;
-    // todo ctlc閰嶇疆 OCD2閰嶇疆鍐欐
+    // todo ctlc闁板秶鐤� OCD2闁板秶鐤嗛崘娆愵劥
 
-    /* 鍏呯數杩囧帇 */
+    /* 閸忓懐鏁告潻鍥у竾 */
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
-    /* 鍏呯數杩囧帇寤舵椂鏃堕棿 */
+    /* 閸忓懐鏁告潻鍥у竾瀵よ埖妞傞弮鍫曟？ */
     temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    /* 鍏呯數杩囧帇鎭㈠ */
+    /* 閸忓懐鏁告潻鍥у竾閹垹顦� */
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) & 0x00FF;
 
-    /*鏀剧數浣庡帇寤舵椂鏃堕棿 */
+    /*閺�鍓ф暩娴ｅ骸甯囧鑸垫閺冨爼妫� */
     temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    /* 鏀剧數浣庡帇 */
+    /* 閺�鍓ф暩娴ｅ骸甯� */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20) & 0x00FF;
-    /* 鏀剧數浣庡帇鎭㈠ */
+    /* 閺�鍓ф暩娴ｅ骸甯囬幁銏狀槻 */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20) & 0x00FF;
 
-    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 褰撳墠瀵瑰簲澶氬皯mv
+    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
     // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue * 10; // 褰撳墠瀵瑰簲澶氬皯ms
+    // temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
     // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = Choose_Right_Value(temp, AFE_OCD1T);
     AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = 0;
     AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = 0;
 
-    /* 鍏呯數杩囨祦 */
-    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 褰撳墠瀵瑰簲澶氬皯mv
+    /* 閸忓懐鏁告潻鍥ㄧウ */
+    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    /* 鍏呯數杩囨祦婊ゆ尝鏃堕棿 */
-    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 褰撳墠瀵瑰簲澶氬皯ms
+    /* 閸忓懐鏁告潻鍥ㄧウ濠娿倖灏濋弮鍫曟？ */
+    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
 
-    /* 鐭矾寤舵椂 */
+    /* 閻叀鐭惧鑸垫 */
     temp = AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue;
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = Choose_Right_Value(temp, AFE_SCT);
-    /* 鐭矾鐢靛帇 */
-    temp = AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue * 1000 / g_u32CS_Res_AFE; // 褰撳墠瀵瑰簲澶氬皯mv
+    /* 閻叀鐭鹃悽闈涘竾 */
+    temp = AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue * 1000 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = Choose_Right_Value(temp, AFE_SCV);
 
-    /* 鎵�鏈夌殑娓╁害淇濇姢 */
-    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10;        /* 鍏呯數楂樻俯淇濇姢 */
-    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10;    /* 鍏呯數楂樻俯淇濇姢鎭㈠ */
-    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10;        /* 鍏呯數浣庢俯淇濇姢 */
-    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10;    /* 鍏呯數浣庢俯淇濇姢鎭㈠ */
-    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10;     /* 鏀剧數楂樻俯淇濇姢 */
-    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10; /* 鏀剧數楂樻俯淇濇姢鎭㈠ */
-    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10;     /* 鏀剧數浣庢俯淇濇姢 */
-    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10; /* 鏀剧數浣庢俯淇濇姢鎭㈠ */
+    /* 閹碉拷閺堝娈戝〒鈺佸娣囨繃濮� */
+    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10;        /* 閸忓懐鏁告妯讳刊娣囨繃濮� */
+    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10;    /* 閸忓懐鏁告妯讳刊娣囨繃濮㈤幁銏狀槻 */
+    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10;        /* 閸忓懐鏁告担搴刊娣囨繃濮� */
+    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10;    /* 閸忓懐鏁告担搴刊娣囨繃濮㈤幁銏狀槻 */
+    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10;     /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б */
+    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10; /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б閹垹顦� */
+    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10;     /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б */
+    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10; /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б閹垹顦� */
 
     for (i = 0; i < 8; i++)
     {
@@ -660,7 +655,7 @@ void Refresh_Parameters(void)
     }
 }
 
-/* 姣忔鏁版嵁鏀瑰彉閮借鍙杛om鍙傛暟姣旇緝涓�涓嬶紝閭ｄ釜鍙傛暟鏀瑰彉灏卞啓鍏ラ偅=鍝釜 */
+/* 濮ｅ繑顐奸弫鐗堝祦閺�鐟板綁闁�燁嚢閸欐潧om閸欏倹鏆熷В鏃囩窛娑擄拷娑撳绱濋柇锝勯嚋閸欏倹鏆熼弨鐟板綁鐏忓崬鍟撻崗銉╁亝=閸濐亙閲� */
 void Write_Parameters(void)
 {
     int i = 0;
@@ -670,10 +665,10 @@ void Write_Parameters(void)
     if (MTPRead(0x00, 25, temp))
     {
         for (i = 0; i < 25; i++)
-        { // 鏈�鍚庝竴涓猅R涓嶅仛瀵规瘮
+        { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
             if (temp[i] != P[i])
             {
-                MTPWriteROM(i, 1, P + i); // 閲嶅啓EEPROM鐨勫瘎瀛樺櫒锛屼袱娆�
+                MTPWriteROM(i, 1, P + i); // 闁插秴鍟揈EPROM閻ㄥ嫬鐦庣�涙ê娅掗敍灞艰⒈濞嗭拷
                 Delay1ms(40);
             }
         }
@@ -717,7 +712,7 @@ u8 AFE_IsReady(void)
 
         TempVar = 0;
         if (MTPRead(MTP_BFLAG2, 1, &TempVar))
-        { // 璇诲彇BLFG2锛屾煡鐪媀ADC鏄惁杞崲瀹屾垚
+        { // 鐠囪褰嘊LFG2閿涘本鐓￠惇濯�ADC閺勵垰鎯佹潪顒佸床鐎瑰本鍨�
             if ((TempVar & 0x10) == 0x10)
             {
                 break;
@@ -737,9 +732,9 @@ u8 AFE_IsReady(void)
 }
 void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 {
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 寮�鍚疌ADC
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 鍏呯數MOS鐢盇FE纭欢鎺у埗
-    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 鏀剧數MOS鐢盇FE纭欢鎺у埗
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閺�鍓ф暩MOS閻㈢泧FE绾兛娆㈤幒褍鍩�
     MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 }
 
@@ -764,7 +759,7 @@ void SH367309_UpdataAfeConfig(void)
             {
                 array_printf(temp, sizeof(temp));
                 for (i = 0; i < 25; i++)
-                { // 鏈�鍚庝竴涓猅R涓嶅仛瀵规瘮
+                { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
                     if (temp[i] != P[i])
                     {
                         isdiff = 1;
@@ -777,7 +772,7 @@ void SH367309_UpdataAfeConfig(void)
         if (isdiff)
         {
             printf("[!!!]flash afe param222");
-            // MCUO_AFE_VPRO = 1; // 杩涘叆鐑у啓妯″紡
+            // MCUO_AFE_VPRO = 1; // 鏉╂稑鍙嗛悜褍鍟撳Ο鈥崇础
             gpio_write(GPIO_PD7, 1);
             Delay1ms(20);
             Feed_IWatchDog;
@@ -785,11 +780,11 @@ void SH367309_UpdataAfeConfig(void)
             Write_Parameters();
 
             Feed_IWatchDog;
-            // MCUO_AFE_VPRO = 0; // 閫�鍑虹儳鍐欐ā寮�
+            // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
             gpio_write(GPIO_PD7, 0);
             Delay1ms(1);
 
-            /* 姣忔鍐欏畬濡傛灉涓嶆姤閿欓兘瑕佸浣嶄竴涓嬨�傝繖鏍峰啓杩涘幓鐨勫弬鏁版墠鏈夋晥 */
+            /* 濮ｅ繑顐奸崘娆忕暚婵″倹鐏夋稉宥嗗Г闁挎瑩鍏樼憰浣割槻娴ｅ秳绔存稉瀣拷鍌濈箹閺嶅嘲鍟撴潻娑樺箵閻ㄥ嫬寮弫鐗堝閺堝鏅� */
             if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
             {
                 AFE_Reset(); // Reset IC
@@ -932,7 +927,7 @@ UINT8 UpdateVoltageFromBqMaximo(void)
         u32temp = ((UINT32)SH367309_Reg_Store.TR_ResRef * U16_SwapEndian(ram_reg_309.Temp3)) / (32769 - U16_SwapEndian(ram_reg_309.Temp3));
         UPDNLMT16(u32temp, 65535, 0);
         SH367309_Read_AFE1.u16TempBat[2] = GetEndValue(iSheldTemp_10K_AFE, (UINT16)LENGTH_TBLTEMP_AFE_10K, u32temp);
-        // 电流要不要加滤波1s除以4，demo是这样的，现在先观察一下
+        // 鐢垫祦瑕佷笉瑕佸姞婊ゆ尝1s闄や互4锛宒emo鏄繖鏍风殑锛岀幇鍦ㄥ厛瑙傚療涓�涓�
         // SH367309_Read_AFE1.i16Current = (UINT16)((UINT32)U16_SwapEndian(Registers_AFE1.Cadc)*200/(21470*RSENSE));		//TODO
         SH367309_Read_AFE1.u16Current = U16_SwapEndian(ram_reg_309.Cadc);
     }
@@ -996,14 +991,14 @@ void DataLoad_CellVoltMaxMinFind(void)
         }
     }
 
-    // 单片机读总压
+    // 鍗曠墖鏈鸿鎬诲帇
     // u32VCellTotle = ((g_i32ADCResult[ADC_VBC]*g_tParam.CalibCoefK[VOLT_VBUS])>>10) + (UINT32)g_tParam.CalibCoefB[VOLT_VBUS]*1000;
-    // AFE读总压
+    // AFE璇绘�诲帇
     // u32VCellTotle = ((g_stBq769x0_Read_AFE1.u32VBat*g_tParam.CalibCoefK[VOLT_VBUS])>>10) + (UINT32)g_tParam.CalibCoefB[VOLT_VBUS]*1000;
-    // 所有单节电池电压加起来
+    // 鎵�鏈夊崟鑺傜數姹犵數鍘嬪姞璧锋潵
     u32VCellTotle = ((u32VCellTotle * SYSKDEFAULT) >> 10) + (UINT32)SYSBDEFAULT * 1000;
 
-    g_stCellInfoReport.u16VCellTotle = (UINT16)((u32VCellTotle * 1638 >> 14) & 0xFFFF); // 除以10
+    g_stCellInfoReport.u16VCellTotle = (UINT16)((u32VCellTotle * 1638 >> 14) & 0xFFFF); // 闄や互10
     g_stCellInfoReport.u16VCellMax = t_u16VcellMaxTemp;                                 // max cell voltage
     g_stCellInfoReport.u16VCellMin = t_u16VcellMinTemp;                                 // min cell voltage
     g_stCellInfoReport.u16VCellDelta = t_u16VcellMaxTemp - t_u16VcellMinTemp;           // delta cell voltage
@@ -1011,10 +1006,10 @@ void DataLoad_CellVoltMaxMinFind(void)
     g_stCellInfoReport.u16VCellMinPosition = t_u8VcellMinPosition + 1;                  // min cell voltage
 }
 
-/*这个是数据溢出的问题，其次是>>这个的优先级和别的符号优先级的问题
-  运算符优先级太混乱导致数据溢出的问题
-   (UINT16)(t_i32temp/100) 和
-    (UINT16)(t_i32temp)/100不一样
+/*杩欎釜鏄暟鎹孩鍑虹殑闂锛屽叾娆℃槸>>杩欎釜鐨勪紭鍏堢骇鍜屽埆鐨勭鍙蜂紭鍏堢骇鐨勯棶棰�
+  杩愮畻绗︿紭鍏堢骇澶贩涔卞鑷存暟鎹孩鍑虹殑闂
+   (UINT16)(t_i32temp/100) 鍜�
+    (UINT16)(t_i32temp)/100涓嶄竴鏍�
 */
 void DataLoad_Temperature(void)
 {
@@ -1033,26 +1028,26 @@ void DataLoad_Temperature(void)
     }
 
 #if 0
-	// 环境温度1
-	t_i32temp = g_i32ADCResult[ADC_TEMP_EV1] / 10 - 40; // 放大1000倍和B值对应的意思
+	// 鐜娓╁害1
+	t_i32temp = g_i32ADCResult[ADC_TEMP_EV1] / 10 - 40; // 鏀惧ぇ1000鍊嶅拰B鍊煎搴旂殑鎰忔��
 	t_i32temp = ((t_i32temp * SYSKDEFAULT) + SYSBDEFAULT) >> 10;
 	g_stCellInfoReport.u16Temperature[ENV_TEMP1] = (UINT16)(t_i32temp * 10 + 400);
 	Monitor_TempBreak(&g_stCellInfoReport.u16Temperature[ENV_TEMP1]);
 
-	// 环境温度2
-	t_i32temp = g_i32ADCResult[ADC_TEMP_EV2] / 10 - 40; // 放大1000倍和B值对应的意思
+	// 鐜娓╁害2
+	t_i32temp = g_i32ADCResult[ADC_TEMP_EV2] / 10 - 40; // 鏀惧ぇ1000鍊嶅拰B鍊煎搴旂殑鎰忔��
 	t_i32temp = -40;
 	t_i32temp = ((t_i32temp * SYSKDEFAULT) + SYSBDEFAULT) >> 10;
 	g_stCellInfoReport.u16Temperature[ENV_TEMP2] = (UINT16)(t_i32temp * 10 + 400);
 
-	// 环境温度3
+	// 鐜娓╁害3
 	t_i32temp = -40;
 	t_i32temp = ((t_i32temp * SYSKDEFAULT) + SYSBDEFAULT) >> 10;
 	g_stCellInfoReport.u16Temperature[ENV_TEMP3] = (UINT16)(t_i32temp * 10 + 400);
 #endif
 
-    // MOS温度为散热片温度
-    // 取两者最大值
+    // MOS娓╁害涓烘暎鐑墖娓╁害
+    // 鍙栦袱鑰呮渶澶у��
     // t_i32temp = g_i32ADCResult[ADC_TEMP_MOS1];
     // t_i32temp = t_i32temp / 10 - 40;
     // t_i32temp = ((t_i32temp * SYSKDEFAULT) + SYSBDEFAULT) >> 10;
@@ -1069,13 +1064,13 @@ void DataLoad_TemperatureMaxMinFind(void)
     t_u16VcellMaxTemp = 0;
     t_u16VcellMinTemp = 0x7FFF;
 
-    // 如果是两个环境温度，则改为8便可
+    // 濡傛灉鏄袱涓幆澧冩俯搴︼紝鍒欐敼涓�8渚垮彲
     for (i = 0; i < 7; i++)
-    { // 默认只有一个环境温度，纳入计算
+    { // 榛樿鍙湁涓�涓幆澧冩俯搴︼紝绾冲叆璁＄畻
         if (g_stCellInfoReport.u16Temperature[i] == 0)
-        {             // 这段代码什么意思，断了就不判断吗？
-            continue; // 有的，则必定会被赋值，要么-29摄氏度。
-        } // 空的，则就是默认刚上电的值0
+        {             // 杩欐浠ｇ爜浠�涔堟剰鎬濓紝鏂簡灏变笉鍒ゆ柇鍚楋紵
+            continue; // 鏈夌殑锛屽垯蹇呭畾浼氳璧嬪�硷紝瑕佷箞-29鎽勬皬搴︺��
+        } // 绌虹殑锛屽垯灏辨槸榛樿鍒氫笂鐢电殑鍊�0
         t_u16VcellTemp = g_stCellInfoReport.u16Temperature[i];
         if (t_u16VcellMaxTemp < t_u16VcellTemp)
         {
@@ -1096,7 +1091,7 @@ void DataLoad_CurrentCali(void)
 #if 0
 	static UINT8 su8_StartUpFlag = 4;
 
-	// todo 预留上位机校准接口，以防万一
+	// todo 棰勭暀涓婁綅鏈烘牎鍑嗘帴鍙ｏ紝浠ラ槻涓囦竴
 	// if (sci_cali_falg)
 	// 	DataLoad_CurrentCali_startup();
 
@@ -1111,7 +1106,7 @@ void DataLoad_CurrentCali(void)
 
 	switch (su8_StartUpFlag)
 	{
-	// 充电偏置
+	// 鍏呯數鍋忕疆
 	case 4:
 		if (u32_ChgCur_mA > OffsetValue_CHG)
 		{
@@ -1119,7 +1114,7 @@ void DataLoad_CurrentCali(void)
 		}
 		else
 		{
-			// u32_ChgCur_mA = 0;	//不能先置0啊，不然错了
+			// u32_ChgCur_mA = 0;	//涓嶈兘鍏堢疆0鍟婏紝涓嶇劧閿欎簡
 			u32_DsgCur_mA = u32_DsgCur_mA + OffsetValue_CHG - u32_ChgCur_mA;
 			u32_ChgCur_mA = 0;
 		}
@@ -1194,7 +1189,7 @@ void DataLoad_Current(void)
     // if ((SH367309_Read_AFE1.u16Current & 0x1000) == 0)
     if ((SH367309_Read_AFE1.u16Current & 0x8000) == 0)
     {
-        // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 默认使用200mV的计算方式
+        // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 榛樿浣跨敤200mV鐨勮绠楁柟寮�
         u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * g_u32CS_Res_AFE / (21470);
         // t_i32temp = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
@@ -1217,7 +1212,7 @@ void DataLoad_Current(void)
     // DataLoad_CurrentCali();
     if (u32_DsgCur_mA > 2000)
     {
-        u32_DsgCur_mA = ((u32_DsgCur_mA * SYSKDEFAULT)) + (INT32)SYSBDEFAULT * 1000; // B值是基于A为单位计算出来的
+        u32_DsgCur_mA = ((u32_DsgCur_mA * SYSKDEFAULT)) + (INT32)SYSBDEFAULT * 1000; // B鍊兼槸鍩轰簬A涓哄崟浣嶈绠楀嚭鏉ョ殑
     }
     else
     {
@@ -1233,7 +1228,7 @@ void DataLoad_Current(void)
         u32_ChgCur_mA = ((u32_ChgCur_mA * 1024));
     }
 
-    // 改为INT32
+    // 鏀逛负INT32
     u32_ChgCur_mA = u32_ChgCur_mA > 0 ? u32_ChgCur_mA : 0;
     u32_DsgCur_mA = u32_DsgCur_mA > 0 ? u32_DsgCur_mA : 0;
 
@@ -1525,7 +1520,7 @@ void App_AFEGet(void)
 #define SLAVE_DMA_MODE_OTHER_DEV_WRITE (0x46)
 #define SLAVE_DMA_MODE_OTHER_DEV_READ (0x40)
     u8 addr = SLAVE_DMA_MODE_OTHER_DEV_READ;
-    u8 len = (0x71 - 0x40 + 1); // 鎵嬪唽璇达細闀垮害涓嶅寘鍚獵RC
+    u8 len = (0x71 - 0x40 + 1); // 閹靛鍞界拠杈剧窗闂�鍨娑撳秴瀵橀崥鐛礡C
     i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)&ram_reg_309, len);
 
     UpdateVoltageFromBqMaximo();
@@ -1552,4 +1547,227 @@ void AFE_Sleep(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 1;
     MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+}
+
+u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
+{
+	u32 result = 0;
+
+	switch (errorCode)
+	{
+	case ERROR_AFE1:
+		System_ErrFlag.u8ErrFlag_Com_AFE1++;
+		break;
+	case ERROR_AFE2:
+		System_ErrFlag.u8ErrFlag_Com_AFE2++;
+		break;
+	case ERROR_CAN:
+		System_ErrFlag.u8ErrFlag_Com_Can++;
+		break;
+	case ERROR_EEPROM_COM:
+		System_ErrFlag.u8ErrFlag_Com_EEPROM++;
+		break;
+	case ERROR_SPI:
+		System_ErrFlag.u8ErrFlag_Com_SPI++;
+		break;
+	case ERROR_UPPER:
+		System_ErrFlag.u8ErrFlag_Com_Upper++;
+		break;
+	case ERROR_CLIENT:
+		System_ErrFlag.u8ErrFlag_Com_Client++;
+		break;
+	case ERROR_SCREEN:
+		System_ErrFlag.u8ErrFlag_Com_Screen++;
+		break;
+	case ERROR_WIFI:
+		System_ErrFlag.u8ErrFlag_Com_Wifi++;
+		break;
+	case ERROR_BLUETOOTH:
+		System_ErrFlag.u8ErrFlag_Com_BlueTooth++;
+		break;
+	case ERROR_APP:
+		System_ErrFlag.u8ErrFlag_Com_App++;
+		break;
+	case ERROR_CBC_CHG:
+		System_ErrFlag.u8ErrFlag_CBC_CHG++;
+		break;
+	case ERROR_CBC_DSG:
+		System_ErrFlag.u8ErrFlag_CBC_DSG++;
+		break;
+	case ERROR_EEPROM_STORE:
+		System_ErrFlag.u8ErrFlag_Store_EEPROM++;
+		break;
+	case ERROR_HSE:
+		System_ErrFlag.u8ErrFlag_HSE++;
+		break;
+	case ERROR_LSE:
+		System_ErrFlag.u8ErrFlag_LSE++;
+		break;
+	case ERROR_VDEATLE_OVER:
+		System_ErrFlag.u8ErrFlag_Vdelta_OVER++;
+		break;
+	case ERROR_BALANCED:
+		System_ErrFlag.u8ErrFlag_Balanced++;
+		break;
+	case ERROR_ADC:
+		System_ErrFlag.u8ErrFlag_ADC++;
+		break;
+	case ERROR_SOC_CAIL:
+		System_ErrFlag.u8ErrFlag_SOC_Cail++;
+		break;
+	case ERROR_HEAT:
+		System_ErrFlag.u8ErrFlag_Heat++;
+		break;
+	case ERROR_COOL:
+		System_ErrFlag.u8ErrFlag_Cool++;
+		break;
+	case ERROR_TEMP_BREAK:
+		System_ErrFlag.u8ErrFlag_TempBreak = 1;
+		break;
+
+	case ERROR_REMOVE_AFE1:
+		System_ErrFlag.u8ErrFlag_Com_AFE1 = 0;
+		break;
+	case ERROR_REMOVE_AFE2:
+		System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
+		break;
+	case ERROR_REMOVE_CAN:
+		System_ErrFlag.u8ErrFlag_Com_Can = 0;
+		break;
+	case ERROR_REMOVE_EEPROM_COM:
+		System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
+		break;
+	case ERROR_REMOVE_SPI:
+		System_ErrFlag.u8ErrFlag_Com_SPI = 0;
+		break;
+	case ERROR_REMOVE_UPPER:
+		System_ErrFlag.u8ErrFlag_Com_Upper = 0;
+		break;
+	case ERROR_REMOVE_CLIENT:
+		System_ErrFlag.u8ErrFlag_Com_Client = 0;
+		break;
+	case ERROR_REMOVE_SCREEN:
+		System_ErrFlag.u8ErrFlag_Com_Screen = 0;
+		break;
+	case ERROR_REMOVE_WIFI:
+		System_ErrFlag.u8ErrFlag_Com_Wifi = 0;
+		break;
+	case ERROR_REMOVE_BLUETOOTH:
+		System_ErrFlag.u8ErrFlag_Com_BlueTooth = 0;
+		break;
+	case ERROR_REMOVE_APP:
+		System_ErrFlag.u8ErrFlag_Com_App = 0;
+		break;
+	case ERROR_REMOVE_CBC_CHG:
+		System_ErrFlag.u8ErrFlag_CBC_CHG = 0;
+		break;
+	case ERROR_REMOVE_CBC_DSG:
+		System_ErrFlag.u8ErrFlag_CBC_DSG = 0;
+		break;
+	case ERROR_REMOVE_EEPROM_STORE:
+		System_ErrFlag.u8ErrFlag_Store_EEPROM = 0;
+		break;
+	case ERROR_REMOVE_HSE:
+		System_ErrFlag.u8ErrFlag_HSE = 0;
+		break;
+	case ERROR_REMOVE_LSE:
+		System_ErrFlag.u8ErrFlag_LSE = 0;
+		break;
+	case ERROR_REMOVE_VDEATLE_OVER:
+		System_ErrFlag.u8ErrFlag_Vdelta_OVER = 0;
+		break;
+	case ERROR_REMOVE_BALANCED:
+		System_ErrFlag.u8ErrFlag_Balanced = 0;
+		break;
+	case ERROR_REMOVE_ADC:
+		System_ErrFlag.u8ErrFlag_ADC = 0;
+		break;
+	case ERROR_REMOVE_HEAT:
+		System_ErrFlag.u8ErrFlag_Heat = 0;
+		break;
+	case ERROR_REMOVE_COOL:
+		System_ErrFlag.u8ErrFlag_Cool = 0;
+		break;
+	case ERROR_REMOVE_SOC_CAIL:
+		System_ErrFlag.u8ErrFlag_SOC_Cail = 0;
+		break;
+	case ERROR_REMOVE_TEMP_BREAK:
+		System_ErrFlag.u8ErrFlag_TempBreak = 0;
+		break;
+
+	case ERROR_STATUS_AFE1:
+		result = System_ErrFlag.u8ErrFlag_Com_AFE1;
+		break;
+	case ERROR_STATUS_AFE2:
+		result = System_ErrFlag.u8ErrFlag_Com_AFE2;
+		break;
+	case ERROR_STATUS_CAN:
+		result = System_ErrFlag.u8ErrFlag_Com_Can;
+		break;
+	case ERROR_STATUS_EEPROM_COM:
+		result = System_ErrFlag.u8ErrFlag_Com_EEPROM;
+		break;
+	case ERROR_STATUS_SPI:
+		result = System_ErrFlag.u8ErrFlag_Com_SPI;
+		break;
+	case ERROR_STATUS_UPPER:
+		result = System_ErrFlag.u8ErrFlag_Com_Upper;
+		break;
+	case ERROR_STATUS_CLIENT:
+		result = System_ErrFlag.u8ErrFlag_Com_Client;
+		break;
+	case ERROR_STATUS_SCREEN:
+		result = System_ErrFlag.u8ErrFlag_Com_Screen;
+		break;
+	case ERROR_STATUS_WIFI:
+		result = System_ErrFlag.u8ErrFlag_Com_Wifi;
+		break;
+	case ERROR_STATUS_BLUETOOTH:
+		result = System_ErrFlag.u8ErrFlag_Com_BlueTooth;
+		break;
+	case ERROR_STATUS_APP:
+		result = System_ErrFlag.u8ErrFlag_Com_App;
+		break;
+	case ERROR_STATUS_CBC_CHG:
+		result = System_ErrFlag.u8ErrFlag_CBC_CHG;
+		break;
+	case ERROR_STATUS_CBC_DSG:
+		result = System_ErrFlag.u8ErrFlag_CBC_DSG;
+		break;
+	case ERROR_STATUS_EEPROM_STORE:
+		result = System_ErrFlag.u8ErrFlag_Store_EEPROM;
+		break;
+	case ERROR_STATUS_HSE:
+		result = System_ErrFlag.u8ErrFlag_HSE;
+		break;
+	case ERROR_STATUS_LSE:
+		result = System_ErrFlag.u8ErrFlag_LSE;
+		break;
+	case ERROR_STATUS_VDEATLE_OVER:
+		result = System_ErrFlag.u8ErrFlag_Vdelta_OVER;
+		break;
+	case ERROR_STATUS_BALANCED:
+		result = System_ErrFlag.u8ErrFlag_Balanced;
+		break;
+	case ERROR_STATUS_ADC:
+		result = System_ErrFlag.u8ErrFlag_ADC;
+		break;
+	case ERROR_STATUS_SOC_CAIL:
+		result = System_ErrFlag.u8ErrFlag_SOC_Cail;
+		break;
+	case ERROR_STATUS_HEAT:
+		result = System_ErrFlag.u8ErrFlag_Heat;
+		break;
+	case ERROR_STATUS_COOL:
+		result = System_ErrFlag.u8ErrFlag_Cool;
+		break;
+	case ERROR_STATUS_TEMP_BREAK:
+		result = System_ErrFlag.u8ErrFlag_TempBreak;
+		break;
+
+	default:
+		break;
+	}
+
+	return result;
 }
