@@ -25,7 +25,7 @@
 
 
 ///////////////////////// Feature Configuration////////////////////////////////////////////////
-#define BLE_APP_PM_ENABLE								0
+#define BLE_APP_PM_ENABLE								1
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
 #define BLE_APP_SECURITY_ENABLE      					0	//ACL Slave device SMP, strongly recommended enabled
@@ -107,8 +107,8 @@
 
 
 /////////////////// watchdog  //////////////////////////////
-#define MODULE_WATCHDOG_ENABLE		0
-#define WATCHDOG_INIT_TIMEOUT		500  //ms
+#define MODULE_WATCHDOG_ENABLE		1
+#define WATCHDOG_INIT_TIMEOUT		1000  //ms
 
 
 /////////////////////////////////////// PRINT DEBUG INFO ///////////////////////////////////////
