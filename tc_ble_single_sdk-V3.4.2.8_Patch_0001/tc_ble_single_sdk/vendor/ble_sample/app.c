@@ -320,10 +320,6 @@ void app_adc_multi_sample(void)
 
 void init_bms_io(void)
 {
-		gpio_set_func(GPIO_PC3, AS_GPIO); 
-		gpio_set_input_en(GPIO_PC3, 0);
-		gpio_set_output_en(GPIO_PC3, 1);
-
 		gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
 		gpio_set_input_en(AFE1_PRO_EN_PIN, 0);
 		gpio_set_output_en(AFE1_PRO_EN_PIN, 1);
@@ -358,15 +354,15 @@ void init_bms_io(void)
 			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(CHG_WK_PIN, 1);
 			gpio_set_output_en(CHG_WK_PIN, 0);
-			gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(ADC_BUSEN_PIN, 0);
-			gpio_set_output_en(ADC_BUSEN_PIN, 1);
-			gpio_write(ADC_BUSEN_PIN, 1);
+			// gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			// gpio_set_input_en(ADC_BUSEN_PIN, 0);
+			// gpio_set_output_en(ADC_BUSEN_PIN, 1);
+			// gpio_write(ADC_BUSEN_PIN, 1);
 
-			gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(ADC_EN_PIN, 0);
-			gpio_set_output_en(ADC_EN_PIN, 1);
-			gpio_write(ADC_EN_PIN, 1);
+			// gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			// gpio_set_input_en(ADC_EN_PIN, 0);
+			// gpio_set_output_en(ADC_EN_PIN, 1);
+			// gpio_write(ADC_EN_PIN, 1);
 		}
 
 }
@@ -662,7 +658,7 @@ void blt_pm_proc(void)
 			if (gpio_read(SW_PIN))
 			{
 				if (++sleep_cnt >= 3)
-				{
+			{
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
 					// printf("0xkey %d\n", gpio_read(SW_PIN));
@@ -686,6 +682,7 @@ void blt_pm_proc(void)
 		}
 	}
 
+#if 0
 #if(BLE_APP_PM_ENABLE)
 	if(blc_ll_getCurrentState() == BLS_LINK_STATE_IDLE){ //PM module can not manage Idle state low power.
 		/* user manage BLE Idle state sleep with API "cpu_sleep_wakeup" */
@@ -750,6 +747,47 @@ void blt_pm_proc(void)
 #endif
 	}
 #endif  //end of BLE_APP_PM_ENABLE
+#endif  //end of BLE_APP_PM_ENABLE
+
+		bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
+		sys_time.low_power_mode = true;
+		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
+			if(0){
+			}
+		#if (UI_KEYBOARD_ENABLE)
+			else if(scan_pin_need || key_not_released){
+				bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			}
+		#elif (UI_BUTTON_ENABLE)
+			else if(button_not_released){
+				bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			}
+		#endif
+			// else if(ota_is_working){
+			// 	bls_pm_setManualLatency(0);
+			// }
+
+			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
+			if(!gpio_read(CHG_IN_PIN) ||
+				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
+				g_stCellInfoReport.u16IDischg 
+				)
+			// if(
+			// 	g_stCellInfoReport.u16IDischg 
+			// 	)
+			{
+				sys_time.low_power_mode = false;
+				bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			}
+
+			if(sys_time.low_power_mode)
+			{
+				System_ErrFlag.u8ErrFlag_ADC = 1;
+			}
+			else
+			{
+				System_ErrFlag.u8ErrFlag_ADC = 0;
+			}
 }
 
 
@@ -983,23 +1021,23 @@ _attribute_no_inline_ void user_init_normal(void)
 	#endif
 
 
-	#if (UI_KEYBOARD_ENABLE)
-		/////////// keyboard gpio wakeup init ////////
-		u32 pin[] = KB_DRIVE_PINS;
-		for (int i=0; i<(sizeof (pin)/sizeof(*pin)); i++)
-		{
-			cpu_set_gpio_wakeup (pin[i], Level_High,1);  //drive pin pad high wakeup deepsleep
-		}
+	// #if (UI_KEYBOARD_ENABLE)
+	// 	/////////// keyboard gpio wakeup init ////////
+	// 	u32 pin[] = KB_DRIVE_PINS;
+	// 	for (int i=0; i<(sizeof (pin)/sizeof(*pin)); i++)
+	// 	{
+	// 		cpu_set_gpio_wakeup (pin[i], Level_High,1);  //drive pin pad high wakeup deepsleep
+	// 	}
 
-		bls_app_registerEventCallback (BLT_EV_FLAG_GPIO_EARLY_WAKEUP, &proc_keyboard);
-	#elif (UI_BUTTON_ENABLE)
+	// 	bls_app_registerEventCallback (BLT_EV_FLAG_GPIO_EARLY_WAKEUP, &proc_keyboard);
+	// #elif (UI_BUTTON_ENABLE)
 
-		cpu_set_gpio_wakeup (SW1_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
-		cpu_set_gpio_wakeup (SW2_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
+	// 	cpu_set_gpio_wakeup (SW1_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
+	// 	cpu_set_gpio_wakeup (SW2_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
 
-		bls_app_registerEventCallback (BLT_EV_FLAG_GPIO_EARLY_WAKEUP, &proc_button);
+	// 	bls_app_registerEventCallback (BLT_EV_FLAG_GPIO_EARLY_WAKEUP, &proc_button);
 
-	#endif
+	// #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/* Check if any Stack(Controller & Host) Initialization error after all BLE initialization done.
@@ -1217,15 +1255,7 @@ _attribute_no_inline_ void main_loop(void)
 	blt_sdk_main_loop();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
-	sys_time.low_power_mode = true;
-	if(sys_time.low_power_mode)
-	{
-		System_ErrFlag.u8ErrFlag_ADC = 1;
-	}
-	else
-	{
-		System_ErrFlag.u8ErrFlag_ADC = 0;
-	}
+	
 
 	#if (APP_BATT_CHECK_ENABLE)
 		/*The frequency of low battery detect is controlled by the variable lowBattDet_tick, which is executed every
