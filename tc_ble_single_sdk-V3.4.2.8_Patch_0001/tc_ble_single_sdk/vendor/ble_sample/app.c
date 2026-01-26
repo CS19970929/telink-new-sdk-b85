@@ -44,6 +44,11 @@
 //#include "nvm_flash.h"
 #include "bus_mux.h"
 
+#include "nvm_kv.h"
+#include "nvm_log.h"
+
+static uint32_t fake_ts(void){ return 123456; }
+
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
@@ -1077,6 +1082,30 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
+
+	nvm_kv_init();
+    nvm_log_init();
+
+	// 1) 存保护参数
+    uint16_t ocp1_th = 120; // A*10 之类
+    nvm_kv_set("ocp1_th", &ocp1_th, sizeof(ocp1_th));
+
+    // 2) 读保护参数
+    uint16_t read_th = 0;
+    size_t len = sizeof(read_th);
+    if(nvm_kv_get("ocp1_th", &read_th, &len) == NVM_OK){
+        // use read_th
+    }
+
+    // 3) 写事件日志
+    nvm_log_event_t e = {
+        .ts = fake_ts(),
+        .type = 0x1001, // EVT_OCP_TRIP
+        .arg0 = 1,      // level
+        .arg1 = 52300,  // pack_mv
+        .arg2 = 0,      // reserved
+    };
+    nvm_log_append(&e);
 }
 
 
