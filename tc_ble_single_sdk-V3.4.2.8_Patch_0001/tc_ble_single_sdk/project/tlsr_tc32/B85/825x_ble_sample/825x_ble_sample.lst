@@ -382,6 +382,7 @@ SYMBOL TABLE:
 00007474 g     F .text	00000014 soc_kv_store_get
 008437cc g     O .retention_data	00000004 ll_module_adv_cb
 0000c8dc g     F .text	00000406 blt_s_connect
+00000000         *UND*	00000000 printf
 00844404 g     O .data	000000c0 AFE_Parameters_RS485_Struction
 00011304 g     O .rodata	00000010 att_access_err_no_enc
 00843912 g     O .retention_data	00000002 bluetooth_ver_subver
@@ -612,6 +613,7 @@ SYMBOL TABLE:
 0000ed48 g     F .text	00000118 att_find_by_type_value_search
 00005e94 g     F .text	0000013a GetEndValue
 0000a310 g     F .text	000000d6 bls_smp_param_Cleanflash
+00000000         *UND*	00000000 strnlen
 008431ec g     O .retention_data	00000004 att_service_discover_tick
 0084334c g     O .retention_data	00000004 func_smp_check
 0000433c g     F .text	0000001e Correction_Terminal
