@@ -1,6 +1,13 @@
 #include "soc_kv_store.h"
 // #include <string.h>
 
+/*
+todo 
+1、增加更多接口？？？
+2、冗余安全处理？？？
+
+*/
+
 // ================= 编码：u16[15:14]=type, u16[13:0]=value =================
 #define TYPE_SHIFT    14
 #define VAL_MASK      0x3FFF
@@ -181,6 +188,7 @@ int soc_kv_store_init(void)
     u32 next_a, next_b;
     u8 has_a, has_b;
 
+    //todo 逻辑是否有问题?上电初始化
     scan_sector(FLASH_ADR_SOC_A, &a, &next_a, &has_a);
     scan_sector(FLASH_ADR_SOC_B, &b, &next_b, &has_b);
 
@@ -197,9 +205,9 @@ int soc_kv_store_init(void)
         g_dbg.loaded = 1;
     } else {
         // 没有有效记录：默认值
-        g_cache.soc = 0;
+        g_cache.soc = 50;
         g_cache.dsg = 0;
-        g_cache.cycle = 0;
+        g_cache.cycle = 1;
 
         g_dbg.active_base = FLASH_ADR_SOC_A;
         g_dbg.write_off = 0;
