@@ -668,6 +668,7 @@ void blt_pm_proc(void)
 				}
 			}
 		}
+	#if 0
 		if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
 			if(deepsleep_en) sleep_vlow_cnt = 60;
@@ -680,6 +681,7 @@ void blt_pm_proc(void)
 				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
 			}
 		}
+	#endif
 	}
 
 #if 0

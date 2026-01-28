@@ -4,7 +4,12 @@
 #include "modbus_uart.h"
 #include "conf.h"
 #include "sh367309_datadeal.h"
+
+#include "sci_upper.h"
 #include "app.h"
+
+extern struct stCell_Info g_stCellInfoReport;
+extern volatile struct SYSTEM_ERROR System_ErrFlag;
 
 // ===== pins =====
 #define PIN_OWC_RX OWC_RX_PIN
@@ -151,7 +156,7 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
     {
         reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 
-        System_ERROR_UserCallback(ERROR_AFE1);
+        // System_ERROR_UserCallback(ERROR_AFE1);
 
         // if(g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX){
         if (g_state == BUS_STATE_OWC_IDLE)
@@ -218,6 +223,13 @@ void bus_mux_task(void)
             return;
         }
     }
+
+    if(g_state == BUS_STATE_OWC_IDLE)
+        g_stCellInfoReport.u16VCell[2] = 1;
+    else if (g_state == BUS_STATE_OWC_TX)
+        g_stCellInfoReport.u16VCell[2] = 2;
+    else if (g_state == BUS_STATE_UART_MODBUS)
+        g_stCellInfoReport.u16VCell[2] = 3;
     // extern volatile struct SYSTEM_ERROR System_ErrFlag;
     // switch (g_state)
     // {

@@ -1140,8 +1140,8 @@ void DataLoad_CurrentCali(void)
 
     static uint8_t step = 0;
 #if 1
-    static uint16_t CHG_current = 100;
-    static uint16_t DSG_current = 100;
+    static uint16_t CHG_current = 10000;
+    static uint16_t DSG_current = 10000;
 #else
     static uint16_t CHG_current = 200;
     static uint16_t DSG_current = 400;
@@ -1525,8 +1525,8 @@ void App_AFEGet(void)
 
     UpdateVoltageFromBqMaximo();
 
-    DataLoad_CellVolt();
-    DataLoad_CellVoltMaxMinFind();
+    // DataLoad_CellVolt();
+    // DataLoad_CellVoltMaxMinFind();
     DataLoad_Temperature();
     DataLoad_TemperatureMaxMinFind();
     if(!sys_time.test_fun1_soc)

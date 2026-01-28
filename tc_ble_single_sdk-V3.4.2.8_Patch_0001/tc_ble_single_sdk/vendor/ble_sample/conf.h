@@ -11,7 +11,7 @@
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_star009"
+#define DEV_NAME_STR  "BT_star666"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 

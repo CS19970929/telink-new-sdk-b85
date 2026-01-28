@@ -1,5 +1,10 @@
 #include "soc_kv_store.h"
 // #include <string.h>
+#include "sci_upper.h"
+#include "app.h"
+
+extern struct stCell_Info g_stCellInfoReport;
+extern volatile struct SYSTEM_ERROR System_ErrFlag;
 
 // ================= 编码：u16[15:14]=type, u16[13:0]=value =================
 #define TYPE_SHIFT    14
@@ -32,12 +37,19 @@ static inline void flash_read_bytes(u32 addr, u8 *buf, u32 len)
 {
     flash_read_page(addr, (int)len, buf);
 }
+static u32 write_cnt = 0;
 static inline void flash_write_bytes(u32 addr, const u8 *buf, u32 len)
 {
+
+    write_cnt++;
+
     flash_write_page(addr, (int)len, (u8*)buf);
 }
+static u16 erase_cnt = 0;
 static inline void flash_erase_sector_safe(u32 base)
 {
+    erase_cnt++;
+
     // 擦除会阻塞 20~100ms：只在允许卡顿的时机触发（init / 休眠前 / 关机前）
     flash_erase_sector(base);
 }
@@ -149,6 +161,8 @@ static int rollover(u32 *io_active_base, u32 *io_write_off, const soc_kv_data_t 
     u32 old_base = *io_active_base;
     u32 new_base = other_sector(old_base);
 
+    System_ErrFlag.u8ErrFlag_ADC = 1;
+
     flash_erase_sector_safe(new_base);
 
     u32 off = 0;
@@ -197,9 +211,9 @@ int soc_kv_store_init(void)
         g_dbg.loaded = 1;
     } else {
         // 没有有效记录：默认值
-        g_cache.soc = 0;
+        g_cache.soc = 50;
         g_cache.dsg = 0;
-        g_cache.cycle = 0;
+        g_cache.cycle = 1;
 
         g_dbg.active_base = FLASH_ADR_SOC_A;
         g_dbg.write_off = 0;
@@ -269,6 +283,22 @@ void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle)
             g_last_logged.cycle = cycle;
         }
     }
+
+    #if 1
+    if(g_dbg.active_base == FLASH_ADR_SOC_A)
+        g_stCellInfoReport.u16VCell[0] = 1;
+    else if(g_dbg.active_base == FLASH_ADR_SOC_B)
+        g_stCellInfoReport.u16VCell[0] = 2;
+    else
+        g_stCellInfoReport.u16VCell[0] = 3;
+    g_stCellInfoReport.u16VCell[1] = g_dbg.write_off;
+    // g_stCellInfoReport.u16VCell[2] = g_dbg.loaded;
+    g_stCellInfoReport.u16VCell[3] = erase_cnt;
+    g_stCellInfoReport.u16VCell[4] = write_cnt;
+
+
+    #endif
+    
 }
 
 void soc_kv_store_factory_reset(void)

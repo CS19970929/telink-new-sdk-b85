@@ -144,6 +144,10 @@ static void write_reg(u16 reg, u16 val) {
         if(val == 0x03) enter_fac_mode(false);
         if(val == 0x07)  sys_time.test_fun1_soc = false;
     }
+    
+    if(reg == 0x2001)  SOC_Calculate_Element.u8SOC_Now = val;
+    if(reg == 0x2003)  SOC_Calculate_Element.u8DSG_SOC_Int = val;
+    if(reg == 0x2005)  SOC_Calculate_Element.u32Cycle_times = val;
     // if(reg == 0x1103)  SOC_Calculate_Element.u8SOC_Now = val;
     if(reg == 0x2319)  SOC_Calculate_Element.u32Cycle_times = val;
     
