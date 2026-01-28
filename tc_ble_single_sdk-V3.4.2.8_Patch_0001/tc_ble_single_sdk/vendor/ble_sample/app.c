@@ -281,6 +281,16 @@ void charger_detect_and_keyLogi_200ms(void)
 
 void adc_init_common(void)
 {
+	gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			gpio_set_input_en(ADC_BUSEN_PIN, 0);
+			gpio_set_output_en(ADC_BUSEN_PIN, 1);
+			gpio_write(ADC_BUSEN_PIN, 1);
+
+			gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			gpio_set_input_en(ADC_EN_PIN, 0);
+			gpio_set_output_en(ADC_EN_PIN, 1);
+			gpio_write(ADC_EN_PIN, 1);
+
     adc_init();
 	adc_power_on_sar_adc(1);
 }
@@ -314,7 +324,7 @@ void app_adc_multi_sample(void)
     // ...
 	g_stCellInfoReport.u16VCell[29] = v_bat_mv;
 	g_stCellInfoReport.u16VCell[30] = ntc1_mv;
-	g_stCellInfoReport.u16VCell[31] = ntc2_mv;
+	g_stCellInfoReport.u16VCell[31] = ntc2_mv * 485 / 15;
 }
 
 
@@ -354,15 +364,6 @@ void init_bms_io(void)
 			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(CHG_WK_PIN, 1);
 			gpio_set_output_en(CHG_WK_PIN, 0);
-			// gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			// gpio_set_input_en(ADC_BUSEN_PIN, 0);
-			// gpio_set_output_en(ADC_BUSEN_PIN, 1);
-			// gpio_write(ADC_BUSEN_PIN, 1);
-
-			// gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			// gpio_set_input_en(ADC_EN_PIN, 0);
-			// gpio_set_output_en(ADC_EN_PIN, 1);
-			// gpio_write(ADC_EN_PIN, 1);
 		}
 
 }
