@@ -5,6 +5,10 @@
 todo 
 1、增加更多接口？？？
 2、冗余安全处理？？？
+3、会读确认
+4、所有函数返回值检测，异常处理？？？
+5、出厂format所有sector？？？
+6、扩展type？？？扩展存储大小
 
 */
 
@@ -120,6 +124,7 @@ static void scan_sector(u32 base, soc_kv_data_t *out, u32 *out_next_off, u8 *out
         next_off = off + REC_BYTES;
     }
 
+    //bug
     if (next_off > SOC_SECTOR_SIZE) next_off = SOC_SECTOR_SIZE;
     *out_next_off = next_off;
     *out_has_any_valid = has_any;
@@ -279,6 +284,7 @@ void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle)
     }
 }
 
+//todo 确认供电？
 void soc_kv_store_factory_reset(void)
 {
     flash_erase_sector_safe(FLASH_ADR_SOC_A);
