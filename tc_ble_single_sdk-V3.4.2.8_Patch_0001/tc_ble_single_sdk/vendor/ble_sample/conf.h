@@ -8,6 +8,8 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
+// #define _UL_RENZHENG_ENABLE_
+
 #define _FUNC_SIF_
 #define _FUNC_UART_
 

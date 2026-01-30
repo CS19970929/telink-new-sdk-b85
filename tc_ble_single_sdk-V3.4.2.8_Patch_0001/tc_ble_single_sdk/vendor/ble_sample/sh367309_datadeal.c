@@ -722,8 +722,8 @@ u8 AFE_IsReady(void)
         Delay1ms(20);
         if (++TempCnt >= 50)
         {
-            // System_ERROR_UserCallback(ERROR_AFE1);
-            g_stCellInfoReport.unMdlFault_Third.bits.b1SocLow = 1;
+            System_ERROR_UserCallback(ERROR_AFE1);
+            System_ERROR_UserCallback(ERROR_UPPER);
             result = 1;
             break;
         }

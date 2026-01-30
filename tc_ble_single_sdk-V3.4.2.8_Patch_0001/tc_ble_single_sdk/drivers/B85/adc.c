@@ -363,7 +363,8 @@ void adc_base_init(GPIO_PinTypeDef pin)
 
 	adc_base_pin_init(pin);
 	adc_set_resolution(ADC_MISC_CHN, RES14);
-	adc_set_tsample_cycle(ADC_MISC_CHN, SAMPLING_CYCLES_6);
+	// adc_set_tsample_cycle(ADC_MISC_CHN, SAMPLING_CYCLES_6);
+	adc_set_tsample_cycle(ADC_MISC_CHN, SAMPLING_CYCLES_48);
 	adc_set_ain_pre_scaler(ADC_PRESCALER_1F8);//adc scaling factor is 1/8
 	adc_set_mode(ADC_NORMAL_MODE);//set RORMAl mode
 
