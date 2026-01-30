@@ -306,15 +306,81 @@ unsigned int adc_read_gpio_mv(GPIO_PinTypeDef pin)
     return adc_sample_and_get_result();
 }
 
+const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
+	// AD		(Temp+40)*10
+	2037, 0, //-30
+	1526, 50, //-30
+	1161, 100, //-30
+	893, 150, //-25
+	694, 200, //-20
+	544, 250, //-15
+	430, 300, //-10
+	342, 350, //-5
+	275, 400, // 0
+	221, 450, // 5
+	180, 500, // 10
+	147, 550, // 15
+	121, 600, // 20
+	100, 650, // 25
+	83, 700, // 30
+	69, 750, // 35
+	58, 800, // 40
+	49, 850, // 45
+	41, 900, // 50
+	35, 950, // 55
+	30, 1000, // 60
+	26, 1050, // 65
+	22, 1100, // 70
+	19, 1150, // 75
+	16, 1200, // 80
+	14, 1250, // 85
+	12, 1300, // 90
+	11, 1350, // 95
+	9, 1400, // 100
+	8, 1450, // 105
+
+};
+
 void app_adc_multi_sample(void)
 {
-    unsigned int v_bat_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
-    unsigned int ntc1_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
-    unsigned int ntc2_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
+    unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
+    unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
+    unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
+	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
+
     // ...
-	g_stCellInfoReport.u16VCell[29] = v_bat_mv;
-	g_stCellInfoReport.u16VCell[30] = ntc1_mv;
-	g_stCellInfoReport.u16VCell[31] = ntc2_mv;
+	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
+	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
+	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
+
+	static u8 state_fuse = 0;
+	switch (state_fuse)
+	{
+	case 0:
+		// if(ntc2_mv >= 4250 * SeriesNum)
+		if(Vbat_mv >= 3800 * SeriesNum)
+		{
+			//if()
+			gpio_write(AFE_CTL_PIN, 0);
+			state_fuse = 1;
+		}
+		break;
+	case 1:
+		#ifdef _UL_RENZHENG_ENABLE_
+			gpio_write(RF_EN_PIN, 1);
+		#endif
+		if(Vbat_mv < 3800 * SeriesNum)
+		{
+			gpio_write(AFE_CTL_PIN, 1);
+			state_fuse = 0;
+		}
+		//todo 冗余逻辑
+		break;
+	
+	default:
+		state_fuse = 0;
+		break;
+	}
 }
 
 
@@ -330,11 +396,13 @@ void init_bms_io(void)
 		gpio_write(AFE_CTL_PIN, 0);
 
 		{
-			// gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			// gpio_set_input_en(RF_EN_PIN, 0);
-			// gpio_set_output_en(RF_EN_PIN, 1);
-			// gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
-			// gpio_write(RF_EN_PIN, 0);
+		#ifdef _UL_RENZHENG_ENABLE_
+			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			gpio_set_input_en(RF_EN_PIN, 0);
+			gpio_set_output_en(RF_EN_PIN, 1);
+			gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
+			gpio_write(RF_EN_PIN, 0);
+		#endif // 
 
 			gpio_set_func(SW_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(SW_PIN, 1);
@@ -1056,6 +1124,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		i2c_master_test_init();
 		WaitMs(100);
 
+		//todo 待测试 , 断线检测测试
 		AFE_Reset();
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
