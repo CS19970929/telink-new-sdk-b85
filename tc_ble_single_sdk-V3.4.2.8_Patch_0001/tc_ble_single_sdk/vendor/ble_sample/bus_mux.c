@@ -151,8 +151,6 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
     {
         reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 
-        System_ERROR_UserCallback(ERROR_AFE1);
-
         // if(g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX){
         if (g_state == BUS_STATE_OWC_IDLE)
         {
