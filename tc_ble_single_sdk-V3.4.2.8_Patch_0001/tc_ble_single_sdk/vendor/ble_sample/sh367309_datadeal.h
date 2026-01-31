@@ -108,8 +108,8 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_COV_recover   (4100)
 #define AFE_COV_filter     100
 
-#define AFE_CUV           (3000)
-#define AFE_CUV_recover     (3100)
+#define AFE_CUV           (2800)
+#define AFE_CUV_recover     (3000)
 #define AFE_CUV_filter     (100)
 #endif // LIFEPO
 
@@ -143,9 +143,9 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1       		(200) 
+#define AFE_ODC1       		(300) 
 #define AFE_ODC1_filter  	(10)
-#define AFE_ODC2       		(200) 
+#define AFE_ODC2       		(300) 
 #define AFE_ODC2_filter  	(10)
 
 

@@ -306,7 +306,9 @@ unsigned int adc_read_gpio_mv(GPIO_PinTypeDef pin)
     return adc_sample_and_get_result();
 }
 
-const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
+#define LENGTH_TBLTEMP_MCU_10K ((UINT16)60)
+// const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
+const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 	// AD		(Temp+40)*10
 	2037, 0, //-30
 	1526, 50, //-30
@@ -343,37 +345,58 @@ const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
 
 void app_adc_multi_sample(void)
 {
+	static u32 power_on_delay = 0;
+	static u16 weichi_delay = 0;
+
     unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
     unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
     unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
 	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
+	u32 mos_temp_r = 10 * 10 * mos_temp_mv / (3300 - mos_temp_mv);
+    g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
+    g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
 
     // ...
 	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
 	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
+	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
+
+	if(++power_on_delay <= (60))
+	{
+		return;
+	}
+	power_on_delay = 61;
 
 	static u8 state_fuse = 0;
 	switch (state_fuse)
 	{
 	case 0:
-		// if(ntc2_mv >= 4250 * SeriesNum)
-		if(Vbat_mv >= 3800 * SeriesNum)
+		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= 1200)
+		// if(Vbat_mv >= 3800 * SeriesNum)
 		{
-			//if()
-			gpio_write(AFE_CTL_PIN, 0);
-			state_fuse = 1;
+			if(++weichi_delay >= (10))
+			{
+				weichi_delay = 0;
+				gpio_write(AFE_CTL_PIN, 0);
+				state_fuse = 1;
+			}
+		}
+		else
+		{
+			weichi_delay = 0;
 		}
 		break;
 	case 1:
 		#ifdef _UL_RENZHENG_ENABLE_
 			gpio_write(RF_EN_PIN, 1);
 		#endif
-		if(Vbat_mv < 3800 * SeriesNum)
-		{
-			gpio_write(AFE_CTL_PIN, 1);
-			state_fuse = 0;
-		}
+		// if(Vbat_mv < 3800 * SeriesNum && g_stCellInfoReport.u16Temperature[8] <= 900)
+		// // if(Vbat_mv < 3800 * SeriesNum)
+		// {
+		// 	gpio_write(AFE_CTL_PIN, 1);
+		// 	state_fuse = 0;
+		// }
 		//todo 冗余逻辑
 		break;
 	
@@ -400,7 +423,7 @@ void init_bms_io(void)
 			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(RF_EN_PIN, 0);
 			gpio_set_output_en(RF_EN_PIN, 1);
-			gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
+			// gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
 			gpio_write(RF_EN_PIN, 0);
 		#endif // 
 
@@ -422,15 +445,15 @@ void init_bms_io(void)
 			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(CHG_WK_PIN, 1);
 			gpio_set_output_en(CHG_WK_PIN, 0);
-			// gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			// gpio_set_input_en(ADC_BUSEN_PIN, 0);
-			// gpio_set_output_en(ADC_BUSEN_PIN, 1);
-			// gpio_write(ADC_BUSEN_PIN, 1);
+			gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			gpio_set_input_en(ADC_BUSEN_PIN, 0);
+			gpio_set_output_en(ADC_BUSEN_PIN, 1);
+			gpio_write(ADC_BUSEN_PIN, 1);
 
-			// gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			// gpio_set_input_en(ADC_EN_PIN, 0);
-			// gpio_set_output_en(ADC_EN_PIN, 1);
-			// gpio_write(ADC_EN_PIN, 1);
+			gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+			gpio_set_input_en(ADC_EN_PIN, 0);
+			gpio_set_output_en(ADC_EN_PIN, 1);
+			gpio_write(ADC_EN_PIN, 1);
 		}
 
 }

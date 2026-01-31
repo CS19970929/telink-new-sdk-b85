@@ -8,12 +8,12 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-// #define _UL_RENZHENG_ENABLE_
+#define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_star009"
+#define DEV_NAME_STR  "BT_star001"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 
@@ -28,7 +28,7 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
-#define SeriesNum  (10)
+#define SeriesNum  (13)
 
 #define FAC_INIT_soc (60)
 // #define CapacityFactory (87)
