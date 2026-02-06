@@ -162,7 +162,7 @@ u8 tbl_advDataLen;
 u8 tbl_scanRsp[31];
 u8 tbl_scanRspLen;
 
-static void ble_build_adv_scanrsp(void)
+void ble_build_adv_scanrsp(void)
 {
 	u8 i = 0;
 

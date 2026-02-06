@@ -8,13 +8,17 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-// #define _UL_RENZHENG_ENABLE_
+// #define __DEBUG__
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_star001"
+// #define DEV_NAME_STR  "BT_star001"
+#define DEV_NAME_STR  "BT_FD260206_66666"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
+
+#define DEV_NAME_STR2  "BT_FD260206_00001"
+#define DEV_NAME_LEN2  (sizeof(DEV_NAME_STR2)-1)
 
 
 typedef uint8_t  UINT8;
