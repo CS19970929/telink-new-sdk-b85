@@ -368,6 +368,7 @@ void app_adc_multi_sample(void)
 	}
 	power_on_delay = 61;
 
+#ifdef _UL_RENZHENG_ENABLE_
 	static u8 state_fuse = 0;
 	switch (state_fuse)
 	{
@@ -404,6 +405,7 @@ void app_adc_multi_sample(void)
 		state_fuse = 0;
 		break;
 	}
+#endif
 }
 
 
@@ -759,18 +761,18 @@ void blt_pm_proc(void)
 				}
 			}
 		}
-		if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
-		{
-			if(deepsleep_en) sleep_vlow_cnt = 60;
-			if (++sleep_vlow_cnt >= (60))
-			{
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+		// if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		// {
+		// 	if(deepsleep_en) sleep_vlow_cnt = 60;
+		// 	if (++sleep_vlow_cnt >= (60))
+		// 	{
+		// 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
-				sleep_vlow_cnt = 0;
-				AFE_Sleep();
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
-			}
-		}
+		// 		sleep_vlow_cnt = 0;
+		// 		AFE_Sleep();
+		// 		cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+		// 	}
+		// }
 	}
 
 #if 0
@@ -1169,6 +1171,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
+	enter_fac_mode(true);
 }
 
 

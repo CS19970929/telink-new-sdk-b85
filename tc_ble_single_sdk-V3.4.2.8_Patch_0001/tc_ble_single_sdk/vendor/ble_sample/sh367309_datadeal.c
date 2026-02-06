@@ -604,14 +604,17 @@ void Refresh_Parameters(void)
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
     /* 閸忓懐鏁告潻鍥у竾瀵よ埖妞傞弮鍫曟？ */
     temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    // AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0;
     /* 閸忓懐鏁告潻鍥у竾閹垹顦� */
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) & 0x00FF;
 
     /*閺�鍓ф暩娴ｅ骸甯囧鑸垫閺冨爼妫� */
     temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    // AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0;
+    /* 閺�鍓ф暩娴ｅ骸甯� */
     /* 閺�鍓ф暩娴ｅ骸甯� */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20) & 0x00FF;
     /* 閺�鍓ф暩娴ｅ骸甯囬幁銏狀槻 */
@@ -626,10 +629,11 @@ void Refresh_Parameters(void)
 
     /* 閸忓懐鏁告潻鍥ㄧウ */
     temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = 0;
     /* 閸忓懐鏁告潻鍥ㄧウ濠娿倖灏濋弮鍫曟？ */
     temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
+    // AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = 0;
 
     /* 閻叀鐭惧鑸垫 */
     temp = AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue;
