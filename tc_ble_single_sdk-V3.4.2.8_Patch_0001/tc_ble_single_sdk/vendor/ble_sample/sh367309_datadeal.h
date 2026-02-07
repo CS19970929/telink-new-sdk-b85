@@ -173,7 +173,7 @@ enum SYSTEM_ERROR_COMMAND {
 	/*放电高温恢复*/		AFE_OTD_recover,	AFE_OTD_recover,	50000,	1,\
 	/*放电低温*/			AFE_UTD,	       AFE_UTD,				800,	0,\
 	/*放电低温恢复*/		AFE_UTD_recover,	AFE_UTD_recover,	50000,	1,\
-	/*短路电流*/			100,	100,	65000,	0,\
+	/*短路电流*/			200,	200,	65000,	0,\
 	/*短路延时*/			128,	128,		65000,	0,\
 }
 
