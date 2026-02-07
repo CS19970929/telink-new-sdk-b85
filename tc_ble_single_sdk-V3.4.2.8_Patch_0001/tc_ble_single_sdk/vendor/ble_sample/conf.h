@@ -8,12 +8,12 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-#define _UL_RENZHENG_ENABLE_
+// #define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_FDstar001"
+#define DEV_NAME_STR  "BT_FDstar666"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
 
 
