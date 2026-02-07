@@ -368,6 +368,7 @@ void app_adc_multi_sample(void)
 	}
 	power_on_delay = 61;
 
+#ifdef _UL_RENZHENG_ENABLE_
 	static u8 state_fuse = 0;
 	switch (state_fuse)
 	{
@@ -404,6 +405,7 @@ void app_adc_multi_sample(void)
 		state_fuse = 0;
 		break;
 	}
+#endif
 }
 
 
