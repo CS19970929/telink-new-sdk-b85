@@ -5,10 +5,13 @@ owc是一线通接口，和一线通从设备通信，同时owc_tx、owc_rx直�
 
 
 todo 
-- 循环次数 soh
-- 上位机增加 调试，显示状态，printf？？？
+- soh、真实容量？？？
+- soc校准
+- mac地址、modbus读取？？？
+- bls_pm_setSuspendMask (SUSPEND_DISABLE); 调用这个功耗太高了，不调用影响时序？？？soc计算？功能
+- 不能去掉，去掉，通信都没法做了
 
-优化一线通速度
+
 
 
 telink有三种name，devname，tbl_advData，tbl_scanRsp，有什么区别

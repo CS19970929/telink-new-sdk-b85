@@ -4,11 +4,11 @@
 #include "stdint.h"
 
 struct SOC_CAL_ELEMENT_UPPER {
-	uint16_t u16Soc;                 	//��ǰ���SOC     0��100 Ϊ��������ٷֱ�
+	uint16_t u16Soc;                 	//��ǰ���SOC     0��100 Ϊ��������ٷֱ�?
 	uint16_t u16Soh;                 	//Ϊ���������ٷֱ�0����100
 	uint16_t u16CapacityNow;        	//��ǰ����	Ah*100
-	uint16_t u16CapacityFull;        	//��ǰ��������	Ah*100		//Ϊʲô*100Ϊ��λ�أ���Ϊ��λ����mAh�������������ʾ����
-	uint16_t u16CapacityFactory;     	//������������	Ah*100		//�����Ľ����650Ah���
+	uint16_t u16CapacityFull;        	//��ǰ��������	Ah*100		//Ϊʲô*100Ϊ��λ�أ���Ϊ��λ����mAh�������������ʾ����?
+	uint16_t u16CapacityFactory;     	//������������	Ah*100		//�����Ľ����?650Ah���?
 	uint16_t u16Cycle_times;     		//ѭ������
 };
 
@@ -61,6 +61,8 @@ struct stCell_Info {
 	union MDLCHGFAULT_REG unMdlFault_Third;
 	uint16_t	u16BalanceFlag1;                 //��ؾ����־λ1
 	uint16_t	u16BalanceFlag2;                 //��ؾ����־λ2
+
+	u8  mac_public[6];
 };
 
 #endif

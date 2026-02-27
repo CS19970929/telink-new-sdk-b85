@@ -32,7 +32,7 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
-#define SeriesNum  (13)
+#define SeriesNum  (10)
 
 #define FAC_INIT_soc (60)
 // #define CapacityFactory (87)
@@ -65,7 +65,7 @@ CurCHG = 0, CurDSG
 
 typedef struct 
 {
-   uint16_t    cnt_PA0_irq;
+  uint16_t    cnt_PA0_irq;
   uint16_t cnt_bms1_keyirq;
   uint16_t    bq33100_read_cnt;
   uint16_t    pec_err_cnt;
