@@ -43,6 +43,7 @@
 #include "sif_send.h"
 //#include "nvm_flash.h"
 #include "bus_mux.h"
+#include "btname_modbus.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -1192,8 +1193,8 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
-
-	bus_mux_task();
+	// bus_mux_task();
+	btname_init();
 }
 
 
