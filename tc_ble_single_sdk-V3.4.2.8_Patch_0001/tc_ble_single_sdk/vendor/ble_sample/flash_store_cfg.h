@@ -21,3 +21,6 @@
 
 #define FLASH_ADDR_LOG_BASE      0x72000   // 8 sectors: 0x72000 ~ 0x79FFF
 #define FLASH_ADDR_LOG_SECTORS   8
+
+/********************ble name area***********************/
+#define FLASH_ADDR_BLE_NAME_BASE      0x50000   // 8 sectors: 0x72000 ~ 0x79FFF
