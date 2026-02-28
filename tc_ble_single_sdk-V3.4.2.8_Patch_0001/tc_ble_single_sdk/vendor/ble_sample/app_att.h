@@ -61,53 +61,53 @@ typedef enum
 
 	//// HID ////
 	/**********************************************************************************************/
-	HID_PS_H, 								//UUID: 2800, 	VALUE: uuid 1812
+	// HID_PS_H, 								//UUID: 2800, 	VALUE: uuid 1812
 
-	//include
-	HID_INCLUDE_H,							//UUID: 2802, 	VALUE: include
+	// //include
+	// HID_INCLUDE_H,							//UUID: 2802, 	VALUE: include
 
-	//protocol
-	HID_PROTOCOL_MODE_CD_H,					//UUID: 2803, 	VALUE:  			Prop: read | write_without_rsp
-	HID_PROTOCOL_MODE_DP_H,					//UUID: 2A4E,	VALUE: protocolMode
+	// //protocol
+	// HID_PROTOCOL_MODE_CD_H,					//UUID: 2803, 	VALUE:  			Prop: read | write_without_rsp
+	// HID_PROTOCOL_MODE_DP_H,					//UUID: 2A4E,	VALUE: protocolMode
 
-	//boot keyboard input report
-	HID_BOOT_KB_REPORT_INPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | Notify
-	HID_BOOT_KB_REPORT_INPUT_DP_H,			//UUID: 2A22, 	VALUE: bootKeyInReport
-	HID_BOOT_KB_REPORT_INPUT_CCB_H,			//UUID: 2902, 	VALUE: bootKeyInReportCCC
+	// //boot keyboard input report
+	// HID_BOOT_KB_REPORT_INPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | Notify
+	// HID_BOOT_KB_REPORT_INPUT_DP_H,			//UUID: 2A22, 	VALUE: bootKeyInReport
+	// HID_BOOT_KB_REPORT_INPUT_CCB_H,			//UUID: 2902, 	VALUE: bootKeyInReportCCC
 
-	//boot keyboard output report
-	HID_BOOT_KB_REPORT_OUTPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | write| write_without_rsp
-	HID_BOOT_KB_REPORT_OUTPUT_DP_H,		    //UUID: 2A32, 	VALUE: bootKeyOutReport
+	// //boot keyboard output report
+	// HID_BOOT_KB_REPORT_OUTPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | write| write_without_rsp
+	// HID_BOOT_KB_REPORT_OUTPUT_DP_H,		    //UUID: 2A32, 	VALUE: bootKeyOutReport
 
-	//consume report in
-	HID_CONSUME_REPORT_INPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | Notify
-	HID_CONSUME_REPORT_INPUT_DP_H,			//UUID: 2A4D, 	VALUE: reportConsumerIn
-	HID_CONSUME_REPORT_INPUT_CCB_H,			//UUID: 2902, 	VALUE: reportConsumerInCCC
-	HID_CONSUME_REPORT_INPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_CONSUMER, TYPE_INPUT
+	// //consume report in
+	// HID_CONSUME_REPORT_INPUT_CD_H,			//UUID: 2803, 	VALUE:  			Prop: Read | Notify
+	// HID_CONSUME_REPORT_INPUT_DP_H,			//UUID: 2A4D, 	VALUE: reportConsumerIn
+	// HID_CONSUME_REPORT_INPUT_CCB_H,			//UUID: 2902, 	VALUE: reportConsumerInCCC
+	// HID_CONSUME_REPORT_INPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_CONSUMER, TYPE_INPUT
 
-	//keyboard report in
-	HID_NORMAL_KB_REPORT_INPUT_CD_H,		//UUID: 2803, 	VALUE:  			Prop: Read | Notify
-	HID_NORMAL_KB_REPORT_INPUT_DP_H,		//UUID: 2A4D, 	VALUE: reportKeyIn
-	HID_NORMAL_KB_REPORT_INPUT_CCB_H,		//UUID: 2902, 	VALUE: reportKeyInInCCC
-	HID_NORMAL_KB_REPORT_INPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_KEYBOARD, TYPE_INPUT
+	// //keyboard report in
+	// HID_NORMAL_KB_REPORT_INPUT_CD_H,		//UUID: 2803, 	VALUE:  			Prop: Read | Notify
+	// HID_NORMAL_KB_REPORT_INPUT_DP_H,		//UUID: 2A4D, 	VALUE: reportKeyIn
+	// HID_NORMAL_KB_REPORT_INPUT_CCB_H,		//UUID: 2902, 	VALUE: reportKeyInInCCC
+	// HID_NORMAL_KB_REPORT_INPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_KEYBOARD, TYPE_INPUT
 
-	//keyboard report out
-	HID_NORMAL_KB_REPORT_OUTPUT_CD_H,		//UUID: 2803, 	VALUE:  			Prop: Read | write| write_without_rsp
-	HID_NORMAL_KB_REPORT_OUTPUT_DP_H,  		//UUID: 2A4D, 	VALUE: reportKeyOut
-	HID_NORMAL_KB_REPORT_OUTPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_KEYBOARD, TYPE_OUTPUT
+	// //keyboard report out
+	// HID_NORMAL_KB_REPORT_OUTPUT_CD_H,		//UUID: 2803, 	VALUE:  			Prop: Read | write| write_without_rsp
+	// HID_NORMAL_KB_REPORT_OUTPUT_DP_H,  		//UUID: 2A4D, 	VALUE: reportKeyOut
+	// HID_NORMAL_KB_REPORT_OUTPUT_REF_H, 		//UUID: 2908    VALUE: REPORT_ID_KEYBOARD, TYPE_OUTPUT
 
-	// report map
-	HID_REPORT_MAP_CD_H,					//UUID: 2803, 	VALUE:  			Prop: Read
-	HID_REPORT_MAP_DP_H,					//UUID: 2A4B, 	VALUE: reportKeyIn
-	HID_REPORT_MAP_EXT_REF_H,				//UUID: 2907 	VALUE: extService
+	// // report map
+	// HID_REPORT_MAP_CD_H,					//UUID: 2803, 	VALUE:  			Prop: Read
+	// HID_REPORT_MAP_DP_H,					//UUID: 2A4B, 	VALUE: reportKeyIn
+	// HID_REPORT_MAP_EXT_REF_H,				//UUID: 2907 	VALUE: extService
 
-	//hid information
-	HID_INFORMATION_CD_H,					//UUID: 2803, 	VALUE:  			Prop: read
-	HID_INFORMATION_DP_H,					//UUID: 2A4A 	VALUE: hidInformation
+	// //hid information
+	// HID_INFORMATION_CD_H,					//UUID: 2803, 	VALUE:  			Prop: read
+	// HID_INFORMATION_DP_H,					//UUID: 2A4A 	VALUE: hidInformation
 
-	//control point
-	HID_CONTROL_POINT_CD_H,					//UUID: 2803, 	VALUE:  			Prop: write_without_rsp
-	HID_CONTROL_POINT_DP_H,					//UUID: 2A4C 	VALUE: controlPoint
+	// //control point
+	// HID_CONTROL_POINT_CD_H,					//UUID: 2803, 	VALUE:  			Prop: write_without_rsp
+	// HID_CONTROL_POINT_DP_H,					//UUID: 2A4C 	VALUE: controlPoint
 
 
 	//// battery service ////

@@ -307,51 +307,51 @@ static const u8 my_PnCharVal[5] = {
 
 
 //// HID attribute values
-static const u8 my_hidProtocolModeCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP,
-	U16_LO(HID_PROTOCOL_MODE_DP_H), U16_HI(HID_PROTOCOL_MODE_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_PROTOCOL_MODE), U16_HI(CHARACTERISTIC_UUID_HID_PROTOCOL_MODE)
-};
-static const u8 my_hidBootKeyInReportCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
-	U16_LO(HID_BOOT_KB_REPORT_INPUT_DP_H), U16_HI(HID_BOOT_KB_REPORT_INPUT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_BOOT_KEY_INPUT), U16_HI(CHARACTERISTIC_UUID_HID_BOOT_KEY_INPUT)
-};
-static const u8 my_hidBootKeyOutReportCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RSP,
-	U16_LO(HID_BOOT_KB_REPORT_OUTPUT_DP_H), U16_HI(HID_BOOT_KB_REPORT_OUTPUT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_BOOT_KEY_OUTPUT), U16_HI(CHARACTERISTIC_UUID_HID_BOOT_KEY_OUTPUT)
-};
-static const u8 my_hidReportCCinCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
-	U16_LO(HID_CONSUME_REPORT_INPUT_DP_H), U16_HI(HID_CONSUME_REPORT_INPUT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
-};
-static const u8 my_hidReportKEYinCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
-	U16_LO(HID_NORMAL_KB_REPORT_INPUT_DP_H), U16_HI(HID_NORMAL_KB_REPORT_INPUT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
-};
-static const u8 my_hidReportKEYoutCharVal[5] = {
-	CHAR_PROP_READ | CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RSP,
-	U16_LO(HID_NORMAL_KB_REPORT_OUTPUT_DP_H), U16_HI(HID_NORMAL_KB_REPORT_OUTPUT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
-};
-static const u8 my_hidReportMapCharVal[5] = {
-	CHAR_PROP_READ,
-	U16_LO(HID_REPORT_MAP_DP_H), U16_HI(HID_REPORT_MAP_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_REPORT_MAP), U16_HI(CHARACTERISTIC_UUID_HID_REPORT_MAP)
-};
-static const u8 my_hidInformationCharVal[5] = {
-	CHAR_PROP_READ,
-	U16_LO(HID_INFORMATION_DP_H), U16_HI(HID_INFORMATION_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_INFORMATION), U16_HI(CHARACTERISTIC_UUID_HID_INFORMATION)
-};
-static const u8 my_hidCtrlPointCharVal[5] = {
-	CHAR_PROP_WRITE_WITHOUT_RSP,
-	U16_LO(HID_CONTROL_POINT_DP_H), U16_HI(HID_CONTROL_POINT_DP_H),
-	U16_LO(CHARACTERISTIC_UUID_HID_CONTROL_POINT), U16_HI(CHARACTERISTIC_UUID_HID_CONTROL_POINT)
-};
+// static const u8 my_hidProtocolModeCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP,
+// 	U16_LO(HID_PROTOCOL_MODE_DP_H), U16_HI(HID_PROTOCOL_MODE_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_PROTOCOL_MODE), U16_HI(CHARACTERISTIC_UUID_HID_PROTOCOL_MODE)
+// };
+// static const u8 my_hidBootKeyInReportCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+// 	U16_LO(HID_BOOT_KB_REPORT_INPUT_DP_H), U16_HI(HID_BOOT_KB_REPORT_INPUT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_BOOT_KEY_INPUT), U16_HI(CHARACTERISTIC_UUID_HID_BOOT_KEY_INPUT)
+// };
+// static const u8 my_hidBootKeyOutReportCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RSP,
+// 	U16_LO(HID_BOOT_KB_REPORT_OUTPUT_DP_H), U16_HI(HID_BOOT_KB_REPORT_OUTPUT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_BOOT_KEY_OUTPUT), U16_HI(CHARACTERISTIC_UUID_HID_BOOT_KEY_OUTPUT)
+// };
+// static const u8 my_hidReportCCinCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+// 	U16_LO(HID_CONSUME_REPORT_INPUT_DP_H), U16_HI(HID_CONSUME_REPORT_INPUT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
+// };
+// static const u8 my_hidReportKEYinCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+// 	U16_LO(HID_NORMAL_KB_REPORT_INPUT_DP_H), U16_HI(HID_NORMAL_KB_REPORT_INPUT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
+// };
+// static const u8 my_hidReportKEYoutCharVal[5] = {
+// 	CHAR_PROP_READ | CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RSP,
+// 	U16_LO(HID_NORMAL_KB_REPORT_OUTPUT_DP_H), U16_HI(HID_NORMAL_KB_REPORT_OUTPUT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_REPORT), U16_HI(CHARACTERISTIC_UUID_HID_REPORT)
+// };
+// static const u8 my_hidReportMapCharVal[5] = {
+// 	CHAR_PROP_READ,
+// 	U16_LO(HID_REPORT_MAP_DP_H), U16_HI(HID_REPORT_MAP_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_REPORT_MAP), U16_HI(CHARACTERISTIC_UUID_HID_REPORT_MAP)
+// };
+// static const u8 my_hidInformationCharVal[5] = {
+// 	CHAR_PROP_READ,
+// 	U16_LO(HID_INFORMATION_DP_H), U16_HI(HID_INFORMATION_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_INFORMATION), U16_HI(CHARACTERISTIC_UUID_HID_INFORMATION)
+// };
+// static const u8 my_hidCtrlPointCharVal[5] = {
+// 	CHAR_PROP_WRITE_WITHOUT_RSP,
+// 	U16_LO(HID_CONTROL_POINT_DP_H), U16_HI(HID_CONTROL_POINT_DP_H),
+// 	U16_LO(CHARACTERISTIC_UUID_HID_CONTROL_POINT), U16_HI(CHARACTERISTIC_UUID_HID_CONTROL_POINT)
+// };
 
 
 //// Battery attribute values
@@ -473,55 +473,55 @@ static const attribute_t my_Attributes[] = {
 	/////////////////////////////////// 4. HID Service /////////////////////////////////////////////////////////
 	// 0x000F
 	//{27, ATT_PERMISSIONS_READ,2,2,(u8*)(&my_primaryServiceUUID), 	(u8*)(&my_hidServiceUUID), 0, 0},
-	{HID_CONTROL_POINT_DP_H - HID_PS_H + 1, ATT_PERMISSIONS_READ,2,2,(u8*)(&my_primaryServiceUUID), 	(u8*)(&my_hidServiceUUID), 0, 0},
+	// {HID_CONTROL_POINT_DP_H - HID_PS_H + 1, ATT_PERMISSIONS_READ,2,2,(u8*)(&my_primaryServiceUUID), 	(u8*)(&my_hidServiceUUID), 0, 0},
 
-	// 0x0010  include battery service
-	{0,ATT_PERMISSIONS_READ,2,sizeof(include),(u8*)(&hidIncludeUUID), 	(u8*)(include), 0, 0},
+	// // 0x0010  include battery service
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(include),(u8*)(&hidIncludeUUID), 	(u8*)(include), 0, 0},
 
-	// 0x0011 - 0x0012  protocol mode
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidProtocolModeCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidProtocolModeCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_RDWR,2, sizeof(protocolMode),(u8*)(&hidProtocolModeUUID), 	(u8*)(&protocolMode), 0, 0},	//value
+	// // 0x0011 - 0x0012  protocol mode
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidProtocolModeCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidProtocolModeCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_RDWR,2, sizeof(protocolMode),(u8*)(&hidProtocolModeUUID), 	(u8*)(&protocolMode), 0, 0},	//value
 
-	// 0x0013 - 0x0015  boot keyboard input report (char-val-client)
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidBootKeyInReportCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidBootKeyInReportCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_READ,2,sizeof(bootKeyInReport),(u8*)(&hidBootKeyInReportUUID), 	(u8*)(&bootKeyInReport), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(bootKeyInReportCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(bootKeyInReportCCC), 0, 0},	//value
+	// // 0x0013 - 0x0015  boot keyboard input report (char-val-client)
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidBootKeyInReportCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidBootKeyInReportCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(bootKeyInReport),(u8*)(&hidBootKeyInReportUUID), 	(u8*)(&bootKeyInReport), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(bootKeyInReportCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(bootKeyInReportCCC), 0, 0},	//value
 
-	// 0x0016 - 0x0017  boot keyboard output report (char-val)
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidBootKeyOutReportCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidBootKeyOutReportCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_RDWR,2, sizeof(bootKeyOutReport), (u8*)(&hidBootKeyOutReportUUID), 	(u8*)(&bootKeyOutReport), 0, 0},	//value
-
-
-	// 0x0018 - 0x001B  consume report in: 4 (char-val-client-ref)
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportCCinCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportCCinCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_READ,2, sizeof(reportConsumerControlIn),(u8*)(&hidReportUUID), 	(u8*)(reportConsumerControlIn), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportConsumerControlInCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(reportConsumerControlInCCC), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefConsumerControlIn),(u8*)(&reportRefUUID), 	(u8*)(reportRefConsumerControlIn), 0, 0},	//value
-
-	// 0x001C - 001F  keyboard report in : 4 (char-val-client-ref)
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportKEYinCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportKEYinCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_READ,2, sizeof(reportKeyIn),(u8*)(&hidReportUUID), 	(u8*)(reportKeyIn), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportKeyInCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(reportKeyInCCC), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefKeyIn),(u8*)(&reportRefUUID), 	(u8*)(reportRefKeyIn), 0, 0},	//value
-
-	// 0x0020 - 0x0022 keyboard report out: 3 (char-val-ref)
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportKEYoutCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportKEYoutCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportKeyOut),(u8*)(&hidReportUUID), 	(u8*)(reportKeyOut), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefKeyOut),(u8*)(&reportRefUUID), 	(u8*)(reportRefKeyOut), 0, 0},	//value
+	// // 0x0016 - 0x0017  boot keyboard output report (char-val)
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidBootKeyOutReportCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidBootKeyOutReportCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_RDWR,2, sizeof(bootKeyOutReport), (u8*)(&hidBootKeyOutReportUUID), 	(u8*)(&bootKeyOutReport), 0, 0},	//value
 
 
-	// 0x0023 - 0x0025 report map: 3
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportMapCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportMapCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_READ,2,sizeof(reportMap),(u8*)(&hidReportMapUUID), 	(u8*)(reportMap), 0, 0},	//value
-	{0,ATT_PERMISSIONS_RDWR,2,sizeof(extServiceUUID),(u8*)(&extReportRefUUID), 	(u8*)(&extServiceUUID), 0, 0},	//value
+	// // 0x0018 - 0x001B  consume report in: 4 (char-val-client-ref)
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportCCinCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportCCinCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,2, sizeof(reportConsumerControlIn),(u8*)(&hidReportUUID), 	(u8*)(reportConsumerControlIn), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportConsumerControlInCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(reportConsumerControlInCCC), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefConsumerControlIn),(u8*)(&reportRefUUID), 	(u8*)(reportRefConsumerControlIn), 0, 0},	//value
 
-	// 0x0026 - 0x0027 hid information: 2
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidInformationCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidInformationCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_READ,2, sizeof(hidInformation),(u8*)(&hidInformationUUID), 	(u8*)(hidInformation), 0, 0},	//value
+	// // 0x001C - 001F  keyboard report in : 4 (char-val-client-ref)
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportKEYinCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportKEYinCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,2, sizeof(reportKeyIn),(u8*)(&hidReportUUID), 	(u8*)(reportKeyIn), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportKeyInCCC),(u8*)(&clientCharacterCfgUUID), 	(u8*)(reportKeyInCCC), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefKeyIn),(u8*)(&reportRefUUID), 	(u8*)(reportRefKeyIn), 0, 0},	//value
 
-	// 0x0028 - 0x0029 control point: 2
-	{0,ATT_PERMISSIONS_READ,2,sizeof(my_hidCtrlPointCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidCtrlPointCharVal), 0, 0},				//prop
-	{0,ATT_PERMISSIONS_WRITE,2, sizeof(controlPoint),(u8*)(&hidCtrlPointUUID), 	(u8*)(&controlPoint), 0, 0},	//value
+	// // 0x0020 - 0x0022 keyboard report out: 3 (char-val-ref)
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportKEYoutCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportKEYoutCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportKeyOut),(u8*)(&hidReportUUID), 	(u8*)(reportKeyOut), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(reportRefKeyOut),(u8*)(&reportRefUUID), 	(u8*)(reportRefKeyOut), 0, 0},	//value
+
+
+	// // 0x0023 - 0x0025 report map: 3
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidReportMapCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidReportMapCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(reportMap),(u8*)(&hidReportMapUUID), 	(u8*)(reportMap), 0, 0},	//value
+	// {0,ATT_PERMISSIONS_RDWR,2,sizeof(extServiceUUID),(u8*)(&extReportRefUUID), 	(u8*)(&extServiceUUID), 0, 0},	//value
+
+	// // 0x0026 - 0x0027 hid information: 2
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidInformationCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidInformationCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_READ,2, sizeof(hidInformation),(u8*)(&hidInformationUUID), 	(u8*)(hidInformation), 0, 0},	//value
+
+	// // 0x0028 - 0x0029 control point: 2
+	// {0,ATT_PERMISSIONS_READ,2,sizeof(my_hidCtrlPointCharVal),(u8*)(&my_characterUUID), (u8*)(my_hidCtrlPointCharVal), 0, 0},				//prop
+	// {0,ATT_PERMISSIONS_WRITE,2, sizeof(controlPoint),(u8*)(&hidCtrlPointUUID), 	(u8*)(&controlPoint), 0, 0},	//value
 
 	////////////////////////////////////// Battery Service /////////////////////////////////////////////////////
 	// 0x002A - 0x002D

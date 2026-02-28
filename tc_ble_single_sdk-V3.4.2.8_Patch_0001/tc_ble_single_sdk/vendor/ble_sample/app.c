@@ -1192,6 +1192,8 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
+
+	bus_mux_task();
 }
 
 
