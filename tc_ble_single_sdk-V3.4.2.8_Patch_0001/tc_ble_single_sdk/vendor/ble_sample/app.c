@@ -113,8 +113,12 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 
 
 #define 	MY_APP_ADV_CHANNEL					BLT_ENABLE_ADV_ALL
-#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
-#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_35MS
+#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
+#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_500MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_500MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
 
 #define		MY_RF_POWER_INDEX					RF_POWER_P3dBm
 
@@ -162,7 +166,7 @@ u8 tbl_advDataLen;
 u8 tbl_scanRsp[31];
 u8 tbl_scanRspLen;
 
-static void ble_build_adv_scanrsp(void)
+void ble_build_adv_scanrsp(void)
 {
 	u8 i = 0;
 
@@ -408,6 +412,18 @@ void app_adc_multi_sample(void)
 #endif
 }
 
+void enter_rtc_mode(void)
+{
+	gpio_write(ADC_BUSEN_PIN, 0);
+
+	gpio_write(ADC_EN_PIN, 0);
+}
+void quit_rtc_mode(void)
+{
+	gpio_write(ADC_BUSEN_PIN, 1);
+
+	gpio_write(ADC_EN_PIN, 1);
+}
 
 void init_bms_io(void)
 {
@@ -761,7 +777,7 @@ void blt_pm_proc(void)
 				}
 			}
 		}
-		if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
 			if(deepsleep_en) sleep_vlow_cnt = 60;
 			if (++sleep_vlow_cnt >= (60))
@@ -871,15 +887,15 @@ void blt_pm_proc(void)
 			{
 				sys_time.low_power_mode = false;
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
+				quit_rtc_mode();
 			}
-
-			if(sys_time.low_power_mode)
+			else if (device_in_connection_state)
 			{
-				System_ErrFlag.u8ErrFlag_ADC = 1;
+				quit_rtc_mode();
 			}
 			else
 			{
-				System_ErrFlag.u8ErrFlag_ADC = 0;
+				enter_rtc_mode();
 			}
 }
 
@@ -960,6 +976,11 @@ _attribute_no_inline_ void user_init_normal(void)
 		app_own_address_type = OWN_ADDRESS_RANDOM;
 		blc_ll_setRandomAddr(mac_random_static);
 	#endif
+
+	for (size_t i = 0; i < 6; i++)
+	{
+		g_stCellInfoReport.mac_public[i] = mac_public[5 - i];
+	}
 
 	blc_ll_initBasicMCU();                      //mandatory
 	blc_ll_initStandby_module(mac_public);		//mandatory
@@ -1376,7 +1397,7 @@ _attribute_no_inline_ void main_loop(void)
 			// bms_adc_read_all(&s);
 		}
 
-		bus_mux_task();
+		// bus_mux_task();
 #ifdef _FUNC_UART_
 		main_loop_modbus();
 #endif
