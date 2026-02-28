@@ -5,6 +5,8 @@
 #include "flash_store_cfg.h"
 
 /* ================= 用户可配置 ================= */
+// btname_modbus.h 或 app_config.h
+#define BTNAME_REG_COUNT        12      // 25字节名称需要13个寄存器 (13*2=26，多一个用于填充)
 
 /* 固定一个 sector 专门存名字（4KB 对齐！必须确认不冲突） */
 #ifndef BTNAME_SECTOR_ADDR
@@ -23,7 +25,7 @@
 
 /* Modbus holding register：客户写 suffix（推荐 16 words = 32 bytes） */
 #ifndef BTNAME_REG_BASE
-#define BTNAME_REG_BASE         0x2000u
+#define BTNAME_REG_BASE         0x1000u
 #endif
 #ifndef BTNAME_REG_WORDS
 #define BTNAME_REG_WORDS        16u
