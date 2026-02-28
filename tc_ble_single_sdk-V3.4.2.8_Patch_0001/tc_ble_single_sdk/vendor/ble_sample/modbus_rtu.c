@@ -46,6 +46,29 @@ static u16 read_reg(u16 reg) {
         return val;
     }
 
+    if (reg >= BTNAME_REG_BASE && reg < BTNAME_REG_BASE + BTNAME_REG_COUNT) {
+        u16 idx = reg - BTNAME_REG_BASE;  // 寄存器索引
+        u16 str_idx = idx * 2;             // 在字符串中的起始位置
+        
+        // 获取蓝牙名称
+        const char *name = btname_get();
+        
+        // 获取两个字符
+        u8 high_byte = 0x00;
+        u8 low_byte = 0x00;
+        
+        if (str_idx < BTNAME_TOTAL_MAX_LEN && name[str_idx] != '\0') {
+            high_byte = name[str_idx];
+        }
+        
+        if (str_idx + 1 < BTNAME_TOTAL_MAX_LEN && name[str_idx + 1] != '\0') {
+            low_byte = name[str_idx + 1];
+        }
+        
+        // 组合成16位值（高字节在前，符合Modbus大端格式）
+        return (high_byte << 8) | low_byte;
+    }
+
     if(reg >= 0xd000 && reg <= 0xd03e)
     {
         // return g_stCellInfoReport.u16VCell[reg - 0xd000];

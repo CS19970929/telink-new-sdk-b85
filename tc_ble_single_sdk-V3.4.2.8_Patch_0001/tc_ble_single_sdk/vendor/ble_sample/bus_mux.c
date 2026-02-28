@@ -179,7 +179,7 @@ void bus_mux_init(void)
     // 但注意：wakeup 只保证“醒来”，醒来后仍要靠本模块检测是否切UART。
 }
 
-#if 1
+#if 0
 void bus_mux_task(void)
 {
     // 1) OWC相关状态：优先UART活动判定
