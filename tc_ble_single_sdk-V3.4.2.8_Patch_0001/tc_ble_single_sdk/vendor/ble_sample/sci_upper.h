@@ -61,6 +61,7 @@ struct stCell_Info {
 	union MDLCHGFAULT_REG unMdlFault_Third;
 	uint16_t	u16BalanceFlag1;                 //��ؾ����־λ1
 	uint16_t	u16BalanceFlag2;                 //��ؾ����־λ2
+	u8  mac_public[6];
 };
 
 #endif

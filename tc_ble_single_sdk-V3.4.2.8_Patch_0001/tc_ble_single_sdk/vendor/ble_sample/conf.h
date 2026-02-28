@@ -13,8 +13,12 @@
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#define DEV_NAME_STR  "BT_FD_star666"
+// #define DEV_NAME_STR  "BT_star001"
+#define DEV_NAME_STR  "BT_FD260206_66666"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
+
+#define DEV_NAME_STR2  "BT_FD260206_00001"
+#define DEV_NAME_LEN2  (sizeof(DEV_NAME_STR2)-1)
 
 
 typedef uint8_t  UINT8;
@@ -28,7 +32,7 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
-#define SeriesNum  (13)
+#define SeriesNum  (10)
 
 #define FAC_INIT_soc (60)
 // #define CapacityFactory (87)

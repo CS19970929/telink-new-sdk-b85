@@ -10,9 +10,75 @@
 #include "app.h"
 #include "conf.h"
 
+#include "stack/ble/ble.h"
+
 #define MB_ADDR        0x01
 
 extern struct stCell_Info g_stCellInfoReport;
+
+extern u8 tbl_advData[31];
+extern u8 tbl_advDataLen;
+extern u8 tbl_scanRsp[31];
+extern u8 tbl_scanRspLen;
+void ble_build_adv_scanrsp_test(void)
+{
+	u8 i = 0;
+
+	// --- ADV: 鏀� Flags + Appearance + UUID list锛堝缓璁� ADV 涓嶆斁鍚嶅瓧锛屽悕瀛楁斁 scanRsp锛� ---
+	i = 0;
+	// Flags: len=2, type=0x01, data=0x05
+	tbl_advData[i++] = 0x02;
+	tbl_advData[i++] = 0x01;
+	tbl_advData[i++] = 0x05;
+
+	// Appearance: len=3, type=0x19, data=0x0180
+	tbl_advData[i++] = 0x03;
+	tbl_advData[i++] = 0x19;
+	tbl_advData[i++] = 0x80;
+	tbl_advData[i++] = 0x01;
+
+	// Incomplete 16-bit UUIDs: len=5, type=0x02, 0x1812, 0x180F
+	tbl_advData[i++] = 0x05;
+	tbl_advData[i++] = 0x02;
+	tbl_advData[i++] = 0x12;
+	tbl_advData[i++] = 0x18;
+	tbl_advData[i++] = 0x0F;
+	tbl_advData[i++] = 0x18;
+
+	tbl_advDataLen = i;
+
+	// --- ScanRsp: 鏀惧畬鏁村悕瀛� ---
+	i = 0;
+	tbl_scanRsp[i++] = (u8)(DEV_NAME_LEN2 + 1); // len = type(1)+name
+	tbl_scanRsp[i++] = 0x09;				   // Complete Local Name
+	memcpy(&tbl_scanRsp[i], DEV_NAME_STR2, DEV_NAME_LEN2);
+	i += DEV_NAME_LEN;
+
+	tbl_scanRspLen = i;
+}
+
+void test_set_blename2(void)
+{
+	bls_ll_setAdvEnable(BLC_ADV_DISABLE);  //ADV enable
+    ble_build_adv_scanrsp_test();
+	bls_ll_setAdvData( (u8 *)tbl_advData, sizeof(tbl_advData) );
+	bls_ll_setScanRspData( (u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
+	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //ADV enable
+
+    System_ERROR_UserCallback(ERROR_CAN);
+}
+
+extern void ble_build_adv_scanrsp(void);
+void test_set_blename1(void)
+{
+	bls_ll_setAdvEnable(BLC_ADV_DISABLE);  //ADV enable
+    ble_build_adv_scanrsp();
+	bls_ll_setAdvData( (u8 *)tbl_advData, sizeof(tbl_advData) );
+	bls_ll_setScanRspData( (u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
+	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //ADV enable
+
+    System_ERROR_UserCallback(ERROR_EEPROM_COM);
+}
 static u16 read_reg(u16 reg) {
     // TODO: 这里换成你的寄存器表
     // 先给个可见的动态值
@@ -21,6 +87,26 @@ static u16 read_reg(u16 reg) {
 	INT8 k;
 	UINT8 a[4];
     u16 val;
+
+    if(reg >= 0 && reg < 3)
+    {
+        // return *(&g_stCellInfoReport.mac_public[0] + (reg - 0x0000));
+        switch (reg) {
+            case 0:
+                val = (g_stCellInfoReport.mac_public[0] << 8) | g_stCellInfoReport.mac_public[1];  // mac_public[0] + mac_public[1]
+                break;
+            case 1:
+                val = (g_stCellInfoReport.mac_public[2] << 8) | g_stCellInfoReport.mac_public[3];  // mac_public[0] + mac_public[1]
+                break;
+            case 2:
+                val = (g_stCellInfoReport.mac_public[4] << 8) | g_stCellInfoReport.mac_public[5];  // mac_public[0] + mac_public[1]
+                break;
+            default:
+                // 错误的寄存器地址
+                break;
+        }
+        return val;
+    }
 
     if(reg >= 0xd000 && reg <= 0xd03e)
     {
@@ -135,14 +221,20 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1005)  set_soc_param(val, 1, 1);
     if(reg == 0x1102)
     {
-        if(val == 0x03) enter_fac_mode(true);
+        // if(val == 0x03) enter_fac_mode(true);
+        if(val == 0x03) test_set_blename2();
+    #ifdef __DEBUG__
         if(val == 0x07)  sys_time.test_fun1_soc = true;
+    #endif // __DEBUG__
         if(val == 0x0A) deepsleep_en = true;
     }
     if(reg == 0x1103)
     {
-        if(val == 0x03) enter_fac_mode(false);
+        // if(val == 0x03) enter_fac_mode(false);
+        if(val == 0x03) test_set_blename1();
+    #ifdef __DEBUG__
         if(val == 0x07)  sys_time.test_fun1_soc = false;
+    #endif // __DEBUG__
     }
     // if(reg == 0x1103)  SOC_Calculate_Element.u8SOC_Now = val;
     if(reg == 0x2319)  SOC_Calculate_Element.u32Cycle_times = val;
