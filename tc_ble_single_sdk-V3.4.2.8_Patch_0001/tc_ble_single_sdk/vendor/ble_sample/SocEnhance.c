@@ -24,8 +24,8 @@ UINT32 ModulusSub(uint32_t Data1, uint32_t Data2)
 #if 1
 // #define SOC_100_VAL g_tParam.other.u16Soc_V_100
 // #define SOC_0_VAL g_tParam.other.u16Soc_V_0
-#define SOC_100_VAL (4150)
-#define SOC_0_VAL (3200)
+#define SOC_100_VAL (4180)
+#define SOC_0_VAL (3100)
 
 #define VCELLMAX g_stCellInfoReport.u16VCellMax
 #define VCELLMIN g_stCellInfoReport.u16VCellMin
@@ -643,6 +643,37 @@ void SOC_Update_param(void)
 	InitData_SOC();
 }
 
+uint8_t bms_soh_from_cycle(uint16_t cycle)
+{
+    // 0~80 次：SOH 不变
+    if (cycle <= 80) {
+        return 100;
+    }
+
+    // >=800 次：夹紧到 80%
+    if (cycle >= 800) {
+        return 80;
+    }
+
+    // 81~500 次：100 -> 90
+    if (cycle <= 500) {
+        // cycle=81 => 100
+        // cycle=500 => 90
+        uint16_t x = (uint16_t)(cycle - 80);      // 1..420
+        // drop = x * 10 / 420
+        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 420u);
+        return (uint8_t)(100u - drop);
+    }
+
+    // 501~799 次：90 -> 80
+    {
+        uint16_t x = (uint16_t)(cycle - 500);     // 1..299
+        // drop = x * 10 / 300
+        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 300u);
+        return (uint8_t)(90u - drop);
+    }
+}
+
 void SOC_Result_Pass(void)
 {
 #ifndef _DOUBLE_SOC_FUNC_
@@ -652,17 +683,8 @@ void SOC_Result_Pass(void)
 	g_stCellInfoReport.real_now_Capacity = SOC_Calculate_Element.u32CapNow * 1 / 360;
 #endif
 
-	// if (SOC_Calculate_Element.u32CapFull >= SOC_Calculate_Element.u32CapFactory)
-	// {
-	// 	g_stCellInfoReport.SocElement.u16Soh = 100;
-	// }
-	// else
-	// {
-	// 	g_stCellInfoReport.SocElement.u16Soh = (uint8_t)((100 * SOC_Calculate_Element.u32CapFull / SOC_Calculate_Element.u32CapFactory) & 0xFF);
-	// }
-
-	// todo soh algo
-	g_stCellInfoReport.SocElement.u16Soh = 100;
+	// g_stCellInfoReport.SocElement.u16Soh = 100;
+	g_stCellInfoReport.SocElement.u16Soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
 
 	g_stCellInfoReport.SocElement.u16CapacityFull = SOC_Calculate_Element.u32CapFull * 1 / 360;
 	g_stCellInfoReport.SocElement.u16CapacityFactory = SOC_Calculate_Element.u32CapFactory * 1 / 360;
