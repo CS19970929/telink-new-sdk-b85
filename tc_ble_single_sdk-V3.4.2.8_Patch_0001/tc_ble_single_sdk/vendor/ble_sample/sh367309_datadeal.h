@@ -521,7 +521,7 @@ typedef struct _AFE_REG_STORE {
 #define VAL_CELL_OVP_REC		((u16)3650)	//单位mV，过充保护恢复
 #define VAL_CELL_UVP			((u16)2500)	//单位mV	
 #define VAL_CELL_UVP_REC		((u16)2600)	//单位mV，低压保护恢复
-#define VAL_BAL_OPEN			((u16)4160)	//单位mV，均衡开启电压
+#define VAL_BAL_OPEN			((u16)4150)	//单位mV，均衡开启电压
 
 
 //Define MTP register addr

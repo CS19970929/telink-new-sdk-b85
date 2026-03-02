@@ -778,7 +778,7 @@ void blt_pm_proc(void)
 				}
 			}
 		}
-		if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		if ((g_stCellInfoReport.u16VCellMin <= 2650 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
 			if(deepsleep_en) sleep_vlow_cnt = 60;
 			if (++sleep_vlow_cnt >= (60))
@@ -1193,7 +1193,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	gpio_write(AFE_CTL_PIN, 1);
 
 	bus_mux_init();
-	bus_mux_task();
+	// bus_mux_task();
 	btname_init();
 }
 
@@ -1400,7 +1400,7 @@ _attribute_no_inline_ void main_loop(void)
 			// bms_adc_read_all(&s);
 		}
 
-		// bus_mux_task();
+		bus_mux_task();
 #ifdef _FUNC_UART_
 		main_loop_modbus();
 #endif

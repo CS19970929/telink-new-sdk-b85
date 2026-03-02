@@ -1,14 +1,14 @@
 #include "btname_modbus.h"
 #include "flash_store_cfg.h"
 
-/* Äã¹¤³ÌÀïµÄ Telink SDK Í·ÎÄ¼þ£¨°´ÄãÊµ¼Ê SDK ¿ÉÄÜ²»Í¬£© */
+/* ï¿½ã¹¤ï¿½ï¿½ï¿½ï¿½ï¿½ Telink SDK Í·ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ SDK ï¿½ï¿½ï¿½Ü²ï¿½Í¬ï¿½ï¿½ */
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
 #include "sh367309_datadeal.h"
 
-/* =================== ×Ô¼ºÊµÏÖ×îÐ¡º¯Êý£¨³¹µ×±Ü¿ª libc£© =================== */
+/* =================== ï¿½Ô¼ï¿½Êµï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×±Ü¿ï¿½ libcï¿½ï¿½ =================== */
 static void *m_memcpy(void *dst, const void *src, unsigned n)
 {
     unsigned char *d = (unsigned char*)dst;
@@ -40,7 +40,7 @@ static char *m_strncpy(char *dst, const char *src, unsigned n)
     return dst;
 }
 
-/* ================== ÄÚ²¿´æ´¢¸ñÊ½£ºÒ»¸ö sector Ö»´æ suffix ================== */
+/* ================== ï¿½Ú²ï¿½ï¿½æ´¢ï¿½ï¿½Ê½ï¿½ï¿½Ò»ï¿½ï¿½ sector Ö»ï¿½ï¿½ suffix ================== */
 #define BTNAME_MAGIC  0x53465831u  /* 'SFX1' */
 
 typedef struct __attribute__((packed)) {
@@ -50,10 +50,10 @@ typedef struct __attribute__((packed)) {
     uint8_t  suffix[BTNAME_SUFFIX_MAX_LEN];     /* raw bytes */
 } btname_rec_t;
 
-/* ================== RAM ×´Ì¬£º×îÖÕÃû×Ö BT_ + suffix ================== */
+/* ================== RAM ×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ BT_ + suffix ================== */
 static char g_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
 
-/* ================== checksum8£¨¼«¼ò¿É¿¿£© ================== */
+/* ================== checksum8ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¿ï¿½ï¿½ï¿½ ================== */
 static uint8_t checksum8(const uint8_t *p, uint8_t n)
 {
     uint8_t s = 0;
@@ -61,7 +61,7 @@ static uint8_t checksum8(const uint8_t *p, uint8_t n)
     return (uint8_t)(s ^ 0xA5u);
 }
 
-/* ================== Flash ·â×°£¨Telink£ºÐ´/²ÁÐè¹ØÖÐ¶Ï£© ================== */
+/* ================== Flash ï¿½ï¿½×°ï¿½ï¿½Telinkï¿½ï¿½Ð´/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶Ï£ï¿½ ================== */
 static void flash_read_bytes(uint32_t addr, uint8_t *buf, uint32_t len)
 {
     flash_read_page(addr, len, buf);
@@ -75,12 +75,13 @@ static void flash_write_bytes_safe(uint32_t addr, const uint8_t *buf, uint32_t l
     flash_write_page(addr, len, (unsigned char*)buf);
 }
 
-/* ================== BLE Ó¦ÓÃÃû×Ö£ºÖ»¸Ä ScanRsp µÄ Complete Local Name(0x09) ==================
- * ×¢Òâ£ºÈç¹ûÄã¹¤³Ì scanRsp »¹Òª°üº¬ÆäËü×Ö¶Î£¨³§ÉÌÊý¾ÝµÈ£©£¬Çë°ÑÕâÀïÌæ»»Îªµ÷ÓÃÄã×Ô¼ºµÄÆ´°üº¯Êý¡£
+/* ================== BLE Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½Ö»ï¿½ï¿½ ScanRsp ï¿½ï¿½ Complete Local Name(0x09) ==================
+ * ×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ã¹¤ï¿½ï¿½ scanRsp ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶Î£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝµÈ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ»»Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
+extern u8 my_devName[BTNAME_TOTAL_MAX_LEN] ;
 static void btname_ble_apply(const char *name)
 {
-    /* Ä³Ð© SDK Ã»ÓÐÕâ¸ö API£ºÈô±¨ undefined£¬¾Í°Ñ enable Ïà¹ØÁ½ÐÐÉ¾µô */
+    /* Ä³Ð© SDK Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ APIï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ undefinedï¿½ï¿½ï¿½Í°ï¿½ enable ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ */
     bls_ll_setAdvEnable(0);
 
     uint8_t scanrsp[31];
@@ -95,11 +96,12 @@ static void btname_ble_apply(const char *name)
     j += nlen;
 
     bls_ll_setScanRspData(scanrsp, j);
+    m_memcpy(my_devName, name, nlen);
 
     bls_ll_setAdvEnable(1);
 }
 
-/* ================== ×é×°×îÖÕÃû×Ö£ºBT_ + suffix ================== */
+/* ================== ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½BT_ + suffix ================== */
 static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTAL_MAX_LEN + 1])
 {
     out[0] = 'B';
@@ -113,7 +115,7 @@ static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTA
     out[BTNAME_PREFIX_LEN + slen] = '\0';
 }
 
-/* ================== ºó×º×Ö·û¹ýÂË ================== */
+/* ================== ï¿½ï¿½×ºï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ ================== */
 static int is_allowed_suffix_char(unsigned char c)
 {
 #if (BTNAME_SUFFIX_STRICT)
@@ -172,7 +174,7 @@ static int suffix_save_to_flash(const char *suffix)
     flash_erase_sector_safe(BTNAME_SECTOR_ADDR);
     flash_write_bytes_safe(BTNAME_SECTOR_ADDR, (const uint8_t*)&rec, sizeof(rec));
 
-    /* »Ø¶ÁÐ£Ñé */
+    /* ï¿½Ø¶ï¿½Ð£ï¿½ï¿½ */
     btname_rec_t chk;
     m_memset(&chk, 0, sizeof(chk));
     //todo
@@ -220,7 +222,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     // if (qty == 0 || qty > (uint16_t)BTNAME_REG_WORDS) return 1;
 
-    /* regs(´ó¶Ë) -> suffix bytes */
+    /* regs(ï¿½ï¿½ï¿½) -> suffix bytes */
     char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
     m_memset(suffix, 0, sizeof(suffix));
 
@@ -264,15 +266,15 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
 int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs)
 {
-    // ½« regs µ±×÷×Ö½ÚÊý×é
+    // ï¿½ï¿½ regs ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½
     const uint8_t *bytes = (const uint8_t *)regs;
-    uint16_t byte_len = qty * 2;  // ×Ü×Ö½ÚÊý
+    uint16_t byte_len = qty * 2;  // ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½
 
     char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
     uint16_t bi = 0;
     for (uint16_t i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
         uint8_t c = bytes[i];
-        if (c == 0) break;          // Óöµ½ 0 ÖÕÖ¹
+        if (c == 0) break;          // ï¿½ï¿½ï¿½ï¿½ 0 ï¿½ï¿½Ö¹
         suffix[bi++] = (char)c;
     }
     suffix[bi] = '\0';
