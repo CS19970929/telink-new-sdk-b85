@@ -464,6 +464,7 @@ void init_bms_io(void)
 			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(CHG_WK_PIN, 1);
 			gpio_set_output_en(CHG_WK_PIN, 0);
+			
 			gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 			gpio_set_input_en(ADC_BUSEN_PIN, 0);
 			gpio_set_output_en(ADC_BUSEN_PIN, 1);
@@ -758,7 +759,8 @@ int app_host_event_callback (u32 h, u8 *para, int n)
 void blt_pm_proc(void)
 {
 	static u16 sleep_cnt = 0;
-	static u16 sleep_vlow_cnt = 0;
+	static u32 sleep_vlow_cnt = 0;
+	static u32 sleep_vnormal_cnt = 0;
 	_attribute_data_retention_ static u32 sleep_tick = 0;
 	if (clock_time_exceed(sleep_tick, 1000 * 1000))
 	{
@@ -768,7 +770,7 @@ void blt_pm_proc(void)
 			if (gpio_read(SW_PIN))
 			{
 				if (++sleep_cnt >= 3)
-			{
+				{
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
 					// printf("0xkey %d\n", gpio_read(SW_PIN));
@@ -777,11 +779,16 @@ void blt_pm_proc(void)
 					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
 				}
 			}
+			else
+			{
+				sleep_cnt = 0;
+			}
 		}
-		if ((g_stCellInfoReport.u16VCellMin <= 2650 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+
+		if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
 			if(deepsleep_en) sleep_vlow_cnt = 60;
-			if (++sleep_vlow_cnt >= (60))
+			if (++sleep_vlow_cnt >= (60 * 60 * 1))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -789,6 +796,22 @@ void blt_pm_proc(void)
 				AFE_Sleep();
 				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
 			}
+		}
+		else if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg))
+		{
+			if (++sleep_vnormal_cnt >= (60 * 60 * 24))
+			{
+				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+
+				sleep_vnormal_cnt = 0;
+				AFE_Sleep();
+				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+			}
+		}
+		else
+		{
+			sleep_vlow_cnt = 0;
+			sleep_vnormal_cnt = 0;
 		}
 	}
 
