@@ -270,7 +270,6 @@ int Choose_Right_Value(u16 cur_Value, const u16 *AFE_list)
     return i;
 }
 
-
 u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
     u8 result;
@@ -381,8 +380,14 @@ Others:
 ********************************************************************************/
 u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 {
-    // todo 閸氬酣娼伴崝鐕緍c,rdbuf婢舵艾濮炴稉锟芥稉锟�
     i2c_read_series(((u16)RdAddr << 8) | Length, 2, (unsigned char *)RdBuf, Length + 1);
+    // modbus_uart_send(RdBuf, Length + 1);
+    u8 crc_buf[Length + 4];
+    crc_buf[0] = 0x34;
+    crc_buf[1] = 0x40;
+    crc_buf[2] = 0x32;
+    crc_buf[3] = 0x35;
+    //  memcpy(&crc_buf[4], &ram_reg_309, Length);
     // printf("TwiRead\n");
     // array_printf(RdBuf, Length);
 }
@@ -570,18 +575,11 @@ void Refresh_Parameters(void)
     u8 TR = 0;
     u16 AFE_TEMPERATURE[8] = {0}; // 濞撯晛瀹抽敍灞炬啔濮樺繐瀹�+40閿涘矉绱�0鎼达妇娈戦崐闂磋礋40閿涳拷
 
-    // 鐠囷拷309閻ㄥ嚲R閿涘矂銆庢笟鎸庡ΩAFE姒涙顓婚崐濂稿帳缂冾喕绱堕崚鐧咶E_ROM_PARAMETERS_Struction缂佹挻鐎担锟�(#define缁鐎�)閵嗭拷
     if (MTPRead(0x19, 1, &TR))
     {
         SH367309_Reg_Store.TR_ResRef = 680 + 5 * (TR & 0x7F);
         ucMTPBuffer[25] = TR & 0x7F;
 
-/* 閹跺﹪绮拋銈囨畱閺佺増宓侀弨鎯ф躬閸欏倹鏆熺紒鎾寸�担鎾诲櫡 */
-#ifdef _SLEEP_WITH_CURRENT
-        // 娴兼垹婀㈢敮锔炬暩閺嗗倷绗栨稉宥夋付鐟曚線顣╅崗鍛閼筹拷
-        // 鐎瑰繐鐣炬稊澶婄毌娑擃亝瀚崣鍑ょ礉閸戣桨绨ㄦ禍鍡礉鐠侊紕鐣绘导妯哄帥缁狙囨６妫帮拷
-        ucMTPBuffer[1] = (BYTE_01H_SCONF2) & 0xF3;
-#endif
         memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
     }
     g_u32CS_Res_AFE = 2 * 1000 / 2;
@@ -597,24 +595,18 @@ void Refresh_Parameters(void)
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0x00 >> 6);
 #endif
     // AFE_ROM_PARAMETERS_Struction.m00H_01H = AFE_ROM_PARAMETERS_Struction.m00H_01H | 0x0c;
-    // todo ctlc闁板秶鐤� OCD2闁板秶鐤嗛崘娆愵劥
-
-    /* 閸忓懐鏁告潻鍥у竾 */
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
-    /* 閸忓懐鏁告潻鍥у竾瀵よ埖妞傞弮鍫曟？ */
+
     temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    /* 閸忓懐鏁告潻鍥у竾閹垹顦� */
+
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) & 0x00FF;
 
-    /*閺�鍓ф暩娴ｅ骸甯囧鑸垫閺冨爼妫� */
     temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    /* 閺�鍓ф暩娴ｅ骸甯� */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20) & 0x00FF;
-    /* 閺�鍓ф暩娴ｅ骸甯囬幁銏狀槻 */
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20) & 0x00FF;
 
     temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
@@ -624,21 +616,16 @@ void Refresh_Parameters(void)
     // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = 0;
     // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = 0;
 
-    /* 閸忓懐鏁告潻鍥ㄧウ */
     temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    /* 閸忓懐鏁告潻鍥ㄧウ濠娿倖灏濋弮鍫曟？ */
     temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
 
-    /* 閻叀鐭惧鑸垫 */
     temp = AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue;
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = Choose_Right_Value(temp, AFE_SCT);
-    /* 閻叀鐭鹃悽闈涘竾 */
     temp = AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue * 1000 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
     AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = Choose_Right_Value(temp, AFE_SCV);
 
-    /* 閹碉拷閺堝娈戝〒鈺佸娣囨繃濮� */
     AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10;        /* 閸忓懐鏁告妯讳刊娣囨繃濮� */
     AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10;    /* 閸忓懐鏁告妯讳刊娣囨繃濮㈤幁銏狀槻 */
     AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10;        /* 閸忓懐鏁告担搴刊娣囨繃濮� */
@@ -1138,17 +1125,16 @@ void DataLoad_CurrentCali(void)
 #endif
 }
 
-    static uint8_t step = 0;
+static uint8_t step = 0;
 #if 1
-    static uint16_t CHG_current = 100;
-    static uint16_t DSG_current = 100;
+static uint16_t CHG_current = 100;
+static uint16_t DSG_current = 100;
 #else
-    static uint16_t CHG_current = 200;
-    static uint16_t DSG_current = 400;
+static uint16_t CHG_current = 200;
+static uint16_t DSG_current = 400;
 #endif
 void test_Autocurrent_cycle(void)
 {
-
 
     switch (step)
     {
@@ -1521,28 +1507,45 @@ void App_AFEGet(void)
 #define SLAVE_DMA_MODE_OTHER_DEV_READ (0x40)
     u8 addr = SLAVE_DMA_MODE_OTHER_DEV_READ;
     u8 len = (0x71 - 0x40 + 1); // 閹靛鍞界拠杈剧窗闂�鍨娑撳秴瀵橀崥鐛礡C
-    i2c_read_series(((u16)addr << 8) | len, 2, (unsigned char *)&ram_reg_309, len);
+    i2c_read_series(((u16)addr << 8) | (len), 2, (unsigned char *)&ram_reg_309, len + 1);
+    // i2c_read_series(((u16)addr << 8) | (len + 1), 2, (unsigned char *)&ram_reg_309, len+1);
+    // i2c_read_series(addr, 1, (unsigned char *)&ram_reg_309, len+1);
+    // modbus_uart_send(&ram_reg_309, len + 1);
+    // modbus_uart_send(&ram_reg_309, len);
+    u8 crc_buf[0x71 - 0x40 + 1 + 4];
+    crc_buf[0] = 0x34;
+    crc_buf[1] = 0x40;
+    crc_buf[2] = 0x32;
+    crc_buf[3] = 0x35;
+    memcpy(&crc_buf[4], &ram_reg_309, len);
+    if (ram_reg_309.crc8 == CRC8cal(crc_buf, 0x71 - 0x40 + 1 + 4))
+    {
+        UpdateVoltageFromBqMaximo();
 
-    UpdateVoltageFromBqMaximo();
+        DataLoad_CellVolt();
+        DataLoad_CellVoltMaxMinFind();
+        DataLoad_Temperature();
+        DataLoad_TemperatureMaxMinFind();
+        DataLoad_Current();
+        // if(!sys_time.test_fun1_soc)
+        // {
+        //     DataLoad_Current();
+        //     step = 0;
+        // }
+        // else
+        // {
+        //     test_Autocurrent_cycle();
+        // }
 
-    DataLoad_CellVolt();
-    DataLoad_CellVoltMaxMinFind();
-    DataLoad_Temperature();
-    DataLoad_TemperatureMaxMinFind();
-    DataLoad_Current();
-    // if(!sys_time.test_fun1_soc)
-    // {
-    //     DataLoad_Current();
-    //     step = 0;
-    // }
-    // else
-    // {
-    //     test_Autocurrent_cycle();
-    // }
-
-    SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
-    SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
-    Fault_ChangeToMCU();
+        SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
+        SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
+        Fault_ChangeToMCU();
+        System_ErrFlag.u8ErrFlag_Com_AFE1 = 0;
+    }
+    else
+    {
+        System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
+    }
 }
 void AFE_Sleep(void)
 {
@@ -1552,223 +1555,223 @@ void AFE_Sleep(void)
 
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
 {
-	u32 result = 0;
+    u32 result = 0;
 
-	switch (errorCode)
-	{
-	case ERROR_AFE1:
-		System_ErrFlag.u8ErrFlag_Com_AFE1++;
-		break;
-	case ERROR_AFE2:
-		System_ErrFlag.u8ErrFlag_Com_AFE2++;
-		break;
-	case ERROR_CAN:
-		System_ErrFlag.u8ErrFlag_Com_Can++;
-		break;
-	case ERROR_EEPROM_COM:
-		System_ErrFlag.u8ErrFlag_Com_EEPROM++;
-		break;
-	case ERROR_SPI:
-		System_ErrFlag.u8ErrFlag_Com_SPI++;
-		break;
-	case ERROR_UPPER:
-		System_ErrFlag.u8ErrFlag_Com_Upper++;
-		break;
-	case ERROR_CLIENT:
-		System_ErrFlag.u8ErrFlag_Com_Client++;
-		break;
-	case ERROR_SCREEN:
-		System_ErrFlag.u8ErrFlag_Com_Screen++;
-		break;
-	case ERROR_WIFI:
-		System_ErrFlag.u8ErrFlag_Com_Wifi++;
-		break;
-	case ERROR_BLUETOOTH:
-		System_ErrFlag.u8ErrFlag_Com_BlueTooth++;
-		break;
-	case ERROR_APP:
-		System_ErrFlag.u8ErrFlag_Com_App++;
-		break;
-	case ERROR_CBC_CHG:
-		System_ErrFlag.u8ErrFlag_CBC_CHG++;
-		break;
-	case ERROR_CBC_DSG:
-		System_ErrFlag.u8ErrFlag_CBC_DSG++;
-		break;
-	case ERROR_EEPROM_STORE:
-		System_ErrFlag.u8ErrFlag_Store_EEPROM++;
-		break;
-	case ERROR_HSE:
-		System_ErrFlag.u8ErrFlag_HSE++;
-		break;
-	case ERROR_LSE:
-		System_ErrFlag.u8ErrFlag_LSE++;
-		break;
-	case ERROR_VDEATLE_OVER:
-		System_ErrFlag.u8ErrFlag_Vdelta_OVER++;
-		break;
-	case ERROR_BALANCED:
-		System_ErrFlag.u8ErrFlag_Balanced++;
-		break;
-	case ERROR_ADC:
-		System_ErrFlag.u8ErrFlag_ADC++;
-		break;
-	case ERROR_SOC_CAIL:
-		System_ErrFlag.u8ErrFlag_SOC_Cail++;
-		break;
-	case ERROR_HEAT:
-		System_ErrFlag.u8ErrFlag_Heat++;
-		break;
-	case ERROR_COOL:
-		System_ErrFlag.u8ErrFlag_Cool++;
-		break;
-	case ERROR_TEMP_BREAK:
-		System_ErrFlag.u8ErrFlag_TempBreak = 1;
-		break;
+    switch (errorCode)
+    {
+    case ERROR_AFE1:
+        System_ErrFlag.u8ErrFlag_Com_AFE1++;
+        break;
+    case ERROR_AFE2:
+        System_ErrFlag.u8ErrFlag_Com_AFE2++;
+        break;
+    case ERROR_CAN:
+        System_ErrFlag.u8ErrFlag_Com_Can++;
+        break;
+    case ERROR_EEPROM_COM:
+        System_ErrFlag.u8ErrFlag_Com_EEPROM++;
+        break;
+    case ERROR_SPI:
+        System_ErrFlag.u8ErrFlag_Com_SPI++;
+        break;
+    case ERROR_UPPER:
+        System_ErrFlag.u8ErrFlag_Com_Upper++;
+        break;
+    case ERROR_CLIENT:
+        System_ErrFlag.u8ErrFlag_Com_Client++;
+        break;
+    case ERROR_SCREEN:
+        System_ErrFlag.u8ErrFlag_Com_Screen++;
+        break;
+    case ERROR_WIFI:
+        System_ErrFlag.u8ErrFlag_Com_Wifi++;
+        break;
+    case ERROR_BLUETOOTH:
+        System_ErrFlag.u8ErrFlag_Com_BlueTooth++;
+        break;
+    case ERROR_APP:
+        System_ErrFlag.u8ErrFlag_Com_App++;
+        break;
+    case ERROR_CBC_CHG:
+        System_ErrFlag.u8ErrFlag_CBC_CHG++;
+        break;
+    case ERROR_CBC_DSG:
+        System_ErrFlag.u8ErrFlag_CBC_DSG++;
+        break;
+    case ERROR_EEPROM_STORE:
+        System_ErrFlag.u8ErrFlag_Store_EEPROM++;
+        break;
+    case ERROR_HSE:
+        System_ErrFlag.u8ErrFlag_HSE++;
+        break;
+    case ERROR_LSE:
+        System_ErrFlag.u8ErrFlag_LSE++;
+        break;
+    case ERROR_VDEATLE_OVER:
+        System_ErrFlag.u8ErrFlag_Vdelta_OVER++;
+        break;
+    case ERROR_BALANCED:
+        System_ErrFlag.u8ErrFlag_Balanced++;
+        break;
+    case ERROR_ADC:
+        System_ErrFlag.u8ErrFlag_ADC++;
+        break;
+    case ERROR_SOC_CAIL:
+        System_ErrFlag.u8ErrFlag_SOC_Cail++;
+        break;
+    case ERROR_HEAT:
+        System_ErrFlag.u8ErrFlag_Heat++;
+        break;
+    case ERROR_COOL:
+        System_ErrFlag.u8ErrFlag_Cool++;
+        break;
+    case ERROR_TEMP_BREAK:
+        System_ErrFlag.u8ErrFlag_TempBreak = 1;
+        break;
 
-	case ERROR_REMOVE_AFE1:
-		System_ErrFlag.u8ErrFlag_Com_AFE1 = 0;
-		break;
-	case ERROR_REMOVE_AFE2:
-		System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
-		break;
-	case ERROR_REMOVE_CAN:
-		System_ErrFlag.u8ErrFlag_Com_Can = 0;
-		break;
-	case ERROR_REMOVE_EEPROM_COM:
-		System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
-		break;
-	case ERROR_REMOVE_SPI:
-		System_ErrFlag.u8ErrFlag_Com_SPI = 0;
-		break;
-	case ERROR_REMOVE_UPPER:
-		System_ErrFlag.u8ErrFlag_Com_Upper = 0;
-		break;
-	case ERROR_REMOVE_CLIENT:
-		System_ErrFlag.u8ErrFlag_Com_Client = 0;
-		break;
-	case ERROR_REMOVE_SCREEN:
-		System_ErrFlag.u8ErrFlag_Com_Screen = 0;
-		break;
-	case ERROR_REMOVE_WIFI:
-		System_ErrFlag.u8ErrFlag_Com_Wifi = 0;
-		break;
-	case ERROR_REMOVE_BLUETOOTH:
-		System_ErrFlag.u8ErrFlag_Com_BlueTooth = 0;
-		break;
-	case ERROR_REMOVE_APP:
-		System_ErrFlag.u8ErrFlag_Com_App = 0;
-		break;
-	case ERROR_REMOVE_CBC_CHG:
-		System_ErrFlag.u8ErrFlag_CBC_CHG = 0;
-		break;
-	case ERROR_REMOVE_CBC_DSG:
-		System_ErrFlag.u8ErrFlag_CBC_DSG = 0;
-		break;
-	case ERROR_REMOVE_EEPROM_STORE:
-		System_ErrFlag.u8ErrFlag_Store_EEPROM = 0;
-		break;
-	case ERROR_REMOVE_HSE:
-		System_ErrFlag.u8ErrFlag_HSE = 0;
-		break;
-	case ERROR_REMOVE_LSE:
-		System_ErrFlag.u8ErrFlag_LSE = 0;
-		break;
-	case ERROR_REMOVE_VDEATLE_OVER:
-		System_ErrFlag.u8ErrFlag_Vdelta_OVER = 0;
-		break;
-	case ERROR_REMOVE_BALANCED:
-		System_ErrFlag.u8ErrFlag_Balanced = 0;
-		break;
-	case ERROR_REMOVE_ADC:
-		System_ErrFlag.u8ErrFlag_ADC = 0;
-		break;
-	case ERROR_REMOVE_HEAT:
-		System_ErrFlag.u8ErrFlag_Heat = 0;
-		break;
-	case ERROR_REMOVE_COOL:
-		System_ErrFlag.u8ErrFlag_Cool = 0;
-		break;
-	case ERROR_REMOVE_SOC_CAIL:
-		System_ErrFlag.u8ErrFlag_SOC_Cail = 0;
-		break;
-	case ERROR_REMOVE_TEMP_BREAK:
-		System_ErrFlag.u8ErrFlag_TempBreak = 0;
-		break;
+    case ERROR_REMOVE_AFE1:
+        System_ErrFlag.u8ErrFlag_Com_AFE1 = 0;
+        break;
+    case ERROR_REMOVE_AFE2:
+        System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
+        break;
+    case ERROR_REMOVE_CAN:
+        System_ErrFlag.u8ErrFlag_Com_Can = 0;
+        break;
+    case ERROR_REMOVE_EEPROM_COM:
+        System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
+        break;
+    case ERROR_REMOVE_SPI:
+        System_ErrFlag.u8ErrFlag_Com_SPI = 0;
+        break;
+    case ERROR_REMOVE_UPPER:
+        System_ErrFlag.u8ErrFlag_Com_Upper = 0;
+        break;
+    case ERROR_REMOVE_CLIENT:
+        System_ErrFlag.u8ErrFlag_Com_Client = 0;
+        break;
+    case ERROR_REMOVE_SCREEN:
+        System_ErrFlag.u8ErrFlag_Com_Screen = 0;
+        break;
+    case ERROR_REMOVE_WIFI:
+        System_ErrFlag.u8ErrFlag_Com_Wifi = 0;
+        break;
+    case ERROR_REMOVE_BLUETOOTH:
+        System_ErrFlag.u8ErrFlag_Com_BlueTooth = 0;
+        break;
+    case ERROR_REMOVE_APP:
+        System_ErrFlag.u8ErrFlag_Com_App = 0;
+        break;
+    case ERROR_REMOVE_CBC_CHG:
+        System_ErrFlag.u8ErrFlag_CBC_CHG = 0;
+        break;
+    case ERROR_REMOVE_CBC_DSG:
+        System_ErrFlag.u8ErrFlag_CBC_DSG = 0;
+        break;
+    case ERROR_REMOVE_EEPROM_STORE:
+        System_ErrFlag.u8ErrFlag_Store_EEPROM = 0;
+        break;
+    case ERROR_REMOVE_HSE:
+        System_ErrFlag.u8ErrFlag_HSE = 0;
+        break;
+    case ERROR_REMOVE_LSE:
+        System_ErrFlag.u8ErrFlag_LSE = 0;
+        break;
+    case ERROR_REMOVE_VDEATLE_OVER:
+        System_ErrFlag.u8ErrFlag_Vdelta_OVER = 0;
+        break;
+    case ERROR_REMOVE_BALANCED:
+        System_ErrFlag.u8ErrFlag_Balanced = 0;
+        break;
+    case ERROR_REMOVE_ADC:
+        System_ErrFlag.u8ErrFlag_ADC = 0;
+        break;
+    case ERROR_REMOVE_HEAT:
+        System_ErrFlag.u8ErrFlag_Heat = 0;
+        break;
+    case ERROR_REMOVE_COOL:
+        System_ErrFlag.u8ErrFlag_Cool = 0;
+        break;
+    case ERROR_REMOVE_SOC_CAIL:
+        System_ErrFlag.u8ErrFlag_SOC_Cail = 0;
+        break;
+    case ERROR_REMOVE_TEMP_BREAK:
+        System_ErrFlag.u8ErrFlag_TempBreak = 0;
+        break;
 
-	case ERROR_STATUS_AFE1:
-		result = System_ErrFlag.u8ErrFlag_Com_AFE1;
-		break;
-	case ERROR_STATUS_AFE2:
-		result = System_ErrFlag.u8ErrFlag_Com_AFE2;
-		break;
-	case ERROR_STATUS_CAN:
-		result = System_ErrFlag.u8ErrFlag_Com_Can;
-		break;
-	case ERROR_STATUS_EEPROM_COM:
-		result = System_ErrFlag.u8ErrFlag_Com_EEPROM;
-		break;
-	case ERROR_STATUS_SPI:
-		result = System_ErrFlag.u8ErrFlag_Com_SPI;
-		break;
-	case ERROR_STATUS_UPPER:
-		result = System_ErrFlag.u8ErrFlag_Com_Upper;
-		break;
-	case ERROR_STATUS_CLIENT:
-		result = System_ErrFlag.u8ErrFlag_Com_Client;
-		break;
-	case ERROR_STATUS_SCREEN:
-		result = System_ErrFlag.u8ErrFlag_Com_Screen;
-		break;
-	case ERROR_STATUS_WIFI:
-		result = System_ErrFlag.u8ErrFlag_Com_Wifi;
-		break;
-	case ERROR_STATUS_BLUETOOTH:
-		result = System_ErrFlag.u8ErrFlag_Com_BlueTooth;
-		break;
-	case ERROR_STATUS_APP:
-		result = System_ErrFlag.u8ErrFlag_Com_App;
-		break;
-	case ERROR_STATUS_CBC_CHG:
-		result = System_ErrFlag.u8ErrFlag_CBC_CHG;
-		break;
-	case ERROR_STATUS_CBC_DSG:
-		result = System_ErrFlag.u8ErrFlag_CBC_DSG;
-		break;
-	case ERROR_STATUS_EEPROM_STORE:
-		result = System_ErrFlag.u8ErrFlag_Store_EEPROM;
-		break;
-	case ERROR_STATUS_HSE:
-		result = System_ErrFlag.u8ErrFlag_HSE;
-		break;
-	case ERROR_STATUS_LSE:
-		result = System_ErrFlag.u8ErrFlag_LSE;
-		break;
-	case ERROR_STATUS_VDEATLE_OVER:
-		result = System_ErrFlag.u8ErrFlag_Vdelta_OVER;
-		break;
-	case ERROR_STATUS_BALANCED:
-		result = System_ErrFlag.u8ErrFlag_Balanced;
-		break;
-	case ERROR_STATUS_ADC:
-		result = System_ErrFlag.u8ErrFlag_ADC;
-		break;
-	case ERROR_STATUS_SOC_CAIL:
-		result = System_ErrFlag.u8ErrFlag_SOC_Cail;
-		break;
-	case ERROR_STATUS_HEAT:
-		result = System_ErrFlag.u8ErrFlag_Heat;
-		break;
-	case ERROR_STATUS_COOL:
-		result = System_ErrFlag.u8ErrFlag_Cool;
-		break;
-	case ERROR_STATUS_TEMP_BREAK:
-		result = System_ErrFlag.u8ErrFlag_TempBreak;
-		break;
+    case ERROR_STATUS_AFE1:
+        result = System_ErrFlag.u8ErrFlag_Com_AFE1;
+        break;
+    case ERROR_STATUS_AFE2:
+        result = System_ErrFlag.u8ErrFlag_Com_AFE2;
+        break;
+    case ERROR_STATUS_CAN:
+        result = System_ErrFlag.u8ErrFlag_Com_Can;
+        break;
+    case ERROR_STATUS_EEPROM_COM:
+        result = System_ErrFlag.u8ErrFlag_Com_EEPROM;
+        break;
+    case ERROR_STATUS_SPI:
+        result = System_ErrFlag.u8ErrFlag_Com_SPI;
+        break;
+    case ERROR_STATUS_UPPER:
+        result = System_ErrFlag.u8ErrFlag_Com_Upper;
+        break;
+    case ERROR_STATUS_CLIENT:
+        result = System_ErrFlag.u8ErrFlag_Com_Client;
+        break;
+    case ERROR_STATUS_SCREEN:
+        result = System_ErrFlag.u8ErrFlag_Com_Screen;
+        break;
+    case ERROR_STATUS_WIFI:
+        result = System_ErrFlag.u8ErrFlag_Com_Wifi;
+        break;
+    case ERROR_STATUS_BLUETOOTH:
+        result = System_ErrFlag.u8ErrFlag_Com_BlueTooth;
+        break;
+    case ERROR_STATUS_APP:
+        result = System_ErrFlag.u8ErrFlag_Com_App;
+        break;
+    case ERROR_STATUS_CBC_CHG:
+        result = System_ErrFlag.u8ErrFlag_CBC_CHG;
+        break;
+    case ERROR_STATUS_CBC_DSG:
+        result = System_ErrFlag.u8ErrFlag_CBC_DSG;
+        break;
+    case ERROR_STATUS_EEPROM_STORE:
+        result = System_ErrFlag.u8ErrFlag_Store_EEPROM;
+        break;
+    case ERROR_STATUS_HSE:
+        result = System_ErrFlag.u8ErrFlag_HSE;
+        break;
+    case ERROR_STATUS_LSE:
+        result = System_ErrFlag.u8ErrFlag_LSE;
+        break;
+    case ERROR_STATUS_VDEATLE_OVER:
+        result = System_ErrFlag.u8ErrFlag_Vdelta_OVER;
+        break;
+    case ERROR_STATUS_BALANCED:
+        result = System_ErrFlag.u8ErrFlag_Balanced;
+        break;
+    case ERROR_STATUS_ADC:
+        result = System_ErrFlag.u8ErrFlag_ADC;
+        break;
+    case ERROR_STATUS_SOC_CAIL:
+        result = System_ErrFlag.u8ErrFlag_SOC_Cail;
+        break;
+    case ERROR_STATUS_HEAT:
+        result = System_ErrFlag.u8ErrFlag_Heat;
+        break;
+    case ERROR_STATUS_COOL:
+        result = System_ErrFlag.u8ErrFlag_Cool;
+        break;
+    case ERROR_STATUS_TEMP_BREAK:
+        result = System_ErrFlag.u8ErrFlag_TempBreak;
+        break;
 
-	default:
-		break;
-	}
+    default:
+        break;
+    }
 
-	return result;
+    return result;
 }

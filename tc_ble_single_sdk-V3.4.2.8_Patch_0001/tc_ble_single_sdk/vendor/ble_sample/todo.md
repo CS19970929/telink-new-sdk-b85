@@ -7,3 +7,11 @@ owc是一线通接口，和一线通从设备通信，同时owc_tx、owc_rx直�
 todo 
 - 循环次数 soh
 - 上位机增加 调试，显示状态，printf？？？
+-
+
+
+todo 
+仔细研究下
+i2c_write_series
+i2c_read_series
+补充crc校验部分

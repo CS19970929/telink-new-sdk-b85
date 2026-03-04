@@ -114,7 +114,7 @@ enum SYSTEM_ERROR_COMMAND {
 #endif // LIFEPO
 
 #define AFE_OTC           ((55 + 40) * 10)
-#define AFE_OTC_recover     ((50 + 40) * 10)
+#define AFE_OTC_recover     ((45 + 40) * 10)
 #define AFE_OTC_filter      100
 
 #ifdef __FUNC__HEAT__
@@ -124,13 +124,13 @@ enum SYSTEM_ERROR_COMMAND {
 #define UTC_3           ((-28 + 40) * 10)
 #endif
 #else
-#define AFE_UTC           ((0 + 40) * 10)
+#define AFE_UTC           ((-7 + 40) * 10)
 #endif // DEBUG
-#define AFE_UTC_recover     ((3 + 40) * 10)
+#define AFE_UTC_recover     ((0 + 40) * 10)
 #define AFE_UTC_filter      100
 
-#define AFE_OTD           ((60 + 40) * 10)
-#define AFE_OTD_recover     ((50 + 40) * 10)
+#define AFE_OTD           ((75 + 40) * 10)
+#define AFE_OTD_recover     ((60 + 40) * 10)
 #define AFE_OTD_filter      100
 
 #define AFE_UTD         ((-20 + 40) * 10)
@@ -144,9 +144,9 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2_filter  	(10)
 
 #define AFE_ODC1       		(300) 
-#define AFE_ODC1_filter  	(10)
+#define AFE_ODC1_filter  	(100)
 #define AFE_ODC2       		(300) 
-#define AFE_ODC2_filter  	(10)
+#define AFE_ODC2_filter  	(100)
 
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
@@ -174,7 +174,7 @@ enum SYSTEM_ERROR_COMMAND {
 	/*放电低温*/			AFE_UTD,	       AFE_UTD,				800,	0,\
 	/*放电低温恢�??*/		AFE_UTD_recover,	AFE_UTD_recover,	50000,	1,\
 	/*�?�?电流*/			200,	200,	65000,	0,\
-	/*�?�?延时*/			128,	128,		65000,	0,\
+	/*�?�?延时*/			256,	256,		65000,	0,\
 }
 
 typedef struct {
@@ -463,7 +463,7 @@ typedef struct _AFE_REG_STORE {
 // #define BYTE_0DH_OCD2V_OCD2T	BIT4_7_OCD2V|BIT0_3_OCD2T
 
 #define BIT4_7_OCD2V			(2<<4)		//1000，放电过流保�?1保护电压=120mV�?0000�?30mV，弄成最�?
-#define BIT0_3_OCD2T			(5)			//0110，放电过�?1保护延时200ms
+#define BIT0_3_OCD2T			(7)			//0110，放电过�?1保护延时200ms
 #define BYTE_0DH_OCD2V_OCD2T	BIT4_7_OCD2V|BIT0_3_OCD2T
 
 #define BIT4_7_SCV				(0<<4)		//1000，短�?保护电压=290mV,0010�?110mV
@@ -521,7 +521,7 @@ typedef struct _AFE_REG_STORE {
 #define VAL_CELL_OVP_REC		((u16)3650)	//单位mV，过充保护恢�?
 #define VAL_CELL_UVP			((u16)2500)	//单位mV	
 #define VAL_CELL_UVP_REC		((u16)2600)	//单位mV，低压保护恢�?
-#define VAL_BAL_OPEN			((u16)4150)	//单位mV，均衡开�?电压
+#define VAL_BAL_OPEN			((u16)4160)	//单位mV，均衡开�?电压
 
 
 //Define MTP register addr
@@ -596,6 +596,7 @@ typedef struct
     uint8_t BFLAG1;     // 0x70
     uint8_t BFLAG2;     // 0x71 (读后某些 FLG �?动清除，手册有描�?):contentReference[oaicite:3]{index=3}
     // uint8_t RSTSTAT;    // 0x72
+	uint8_t crc8;
 } sh367309_ram_t;
 
 #pragma pack(pop)
