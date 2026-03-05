@@ -223,7 +223,7 @@ void open_dsg_close_chg(void)
 }
 void enter_fac_mode(bool on)
 {
-#if 1
+#if 0
 	if (on)
 	{
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
@@ -238,16 +238,11 @@ void enter_fac_mode(bool on)
 	}
 #endif
 
-#if 0
 	if(on)
-	{
-		gpio_write(AFE_CTL_PIN, 1);
-	}
+	sys_time.test_crc = true;
 	else
-	{
-		gpio_write(AFE_CTL_PIN, 0);
-	}
-#endif
+	sys_time.test_crc = false;
+
 }
 void charger_detect_and_keyLogi_200ms(void)
 {
@@ -259,7 +254,6 @@ void charger_detect_and_keyLogi_200ms(void)
 		if (!gpio_read(CHG_IN_PIN))
 		{
 			state = 1;
-			// gpio_write(AFE_CTL_PIN, 0);
 			open_chg_close_dsg();
 		}
 		else
@@ -271,7 +265,6 @@ void charger_detect_and_keyLogi_200ms(void)
 		{
 			state = 0;
 			open_dsg_close_chg();
-			// gpio_write(AFE_CTL_PIN, 1);
 		}
 		else
 		{
@@ -775,7 +768,6 @@ void blt_pm_proc(void)
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
 					// printf("0xkey %d\n", gpio_read(SW_PIN));
-					// gpio_write(AFE_CTL_PIN, 0);
 					AFE_Sleep();
 					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
 				}
@@ -1188,7 +1180,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
-		// bus_mux_task();
+		bus_mux_task();
 		//nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();
