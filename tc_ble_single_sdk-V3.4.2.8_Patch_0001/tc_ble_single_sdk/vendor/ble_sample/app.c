@@ -36,7 +36,6 @@
 
 #include "sci_upper.h"
 #include "sh367309_datadeal.h"
-#include "bms_adc.h"
 
 #include "SocEnhance.h"
 #include "soc_kv_store.h"
@@ -114,12 +113,12 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 
 
 #define 	MY_APP_ADV_CHANNEL					BLT_ENABLE_ADV_ALL
-#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
-#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
 // #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_500MS
 // #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_500MS
-// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
-// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
+#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
+#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
 
 #define		MY_RF_POWER_INDEX					RF_POWER_P3dBm
 
@@ -223,7 +222,7 @@ void open_dsg_close_chg(void)
 }
 void enter_fac_mode(bool on)
 {
-#if 0
+#if 1
 	if (on)
 	{
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
@@ -237,12 +236,6 @@ void enter_fac_mode(bool on)
 		open_dsg_close_chg();
 	}
 #endif
-
-	if(on)
-	sys_time.test_crc = true;
-	else
-	sys_time.test_crc = false;
-
 }
 void charger_detect_and_keyLogi_200ms(void)
 {
@@ -1195,7 +1188,6 @@ _attribute_no_inline_ void user_init_normal(void)
 		SH367309_Enable_AFE_Wdt_Cadc_Drivers();
 
 		adc_init_common();
-		// bms_adc_init();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
@@ -1411,9 +1403,6 @@ _attribute_no_inline_ void main_loop(void)
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
 			app_adc_multi_sample();
-			
-			bms_adc_sample_t s;
-			// bms_adc_read_all(&s);
 		}
 
 		bus_mux_task();

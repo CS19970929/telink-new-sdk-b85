@@ -1513,17 +1513,14 @@ void App_AFEGet(void)
     // modbus_uart_send(&ram_reg_309, len + 1);
     // modbus_uart_send(&ram_reg_309, len);
     u8 crc_buf[0x71 - 0x40 + 1 + 4];
-    if(sys_time.test_crc)
     crc_buf[0] = 0x34;
-    else
-    crc_buf[0] = 0x35;
     crc_buf[1] = 0x40;
     crc_buf[2] = 0x32;
     crc_buf[3] = 0x35;
     memcpy(&crc_buf[4], &ram_reg_309, len);
     if (ram_reg_309.crc8 == CRC8cal(crc_buf, 0x71 - 0x40 + 1 + 4))
     {
-	    gpio_write(AFE_CTL_PIN, 1);
+        gpio_write(AFE_CTL_PIN, 1);
         UpdateVoltageFromBqMaximo();
 
         DataLoad_CellVolt();
@@ -1548,9 +1545,9 @@ void App_AFEGet(void)
     }
     else
     {
-	    gpio_write(AFE_CTL_PIN, 0);
+        gpio_write(AFE_CTL_PIN, 0);
         System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
-        memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport)- 6);
+        memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);
     }
 }
 void AFE_Sleep(void)

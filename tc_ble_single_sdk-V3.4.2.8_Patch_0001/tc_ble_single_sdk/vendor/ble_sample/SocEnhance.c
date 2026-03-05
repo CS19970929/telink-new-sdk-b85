@@ -376,108 +376,6 @@ void Correction_Terminal(enum _CUR CurrentType)
 	}
 }
 
-void Correction_CapacityFull(void)
-{
-	static uint16_t su16_ChgCur_Tcnt = 0;
-	static uint16_t su16_DsgCur_Tcnt = 0;
-	static uint16_t su16_CalErr_Tcnt = 0;
-
-	switch (CapFull_Cali_Flag)
-	{
-	case CAP_FULL_INIT:
-		SOC_Calculate_Element.u32CapFull_Cal_As = 0;
-		CapFull_Cali_Flag = CAP_FULL_STARTUP;
-		break;
-
-	case CAP_FULL_STARTUP:
-		if (VCELLMIN <= SOC_0_VAL)
-		{
-			if (g_stCellInfoReport.u16IDischg <= SOC_VIRTUAL_CURRENT_DSG)
-			{
-				if (++su16_DsgCur_Tcnt > 5)
-				{
-					su16_DsgCur_Tcnt = 0;
-					CapFull_Cali_Flag = CAP_FULL_CALCU;
-					SOC_Calculate_Element.u32CapFull_Cal_As = 0; // ������ʼ������ʼ����
-				}
-			}
-			else
-			{
-				su16_DsgCur_Tcnt = 0;
-			}
-		}
-		break;
-
-	case CAP_FULL_CALCU:
-		if (VCELLMAX >= SOC_100_VAL)
-		{
-			if (g_stCellInfoReport.u16Ichg <= SOC_VIRTUAL_CURRENT_CHG && g_stCellInfoReport.u16IDischg <= SOC_VIRTUAL_CURRENT_DSG)
-			{
-				if (++su16_ChgCur_Tcnt > 5)
-				{
-					su16_ChgCur_Tcnt = 0;
-					CapFull_Cali_Flag = CAP_FULL_SUCCESS;
-				}
-			}
-			else
-			{
-				su16_ChgCur_Tcnt = 0;
-			}
-		}
-
-		if (g_stCellInfoReport.u16Ichg < SOC_VIRTUAL_CURRENT_CHG)
-		{
-			if (++su16_CalErr_Tcnt >= 5 * 60 * 10)
-			{
-				su16_CalErr_Tcnt = 0;
-				CapFull_Cali_Flag = CAP_FULL_FAIL;
-			}
-		}
-		else
-		{
-			su16_CalErr_Tcnt = 0;
-		}
-
-		if (g_stCellInfoReport.u16IDischg > SOC_VIRTUAL_CURRENT_DSG)
-		{
-			if (++su16_DsgCur_Tcnt > 5)
-			{
-				su16_DsgCur_Tcnt = 0;
-				CapFull_Cali_Flag = CAP_FULL_FAIL;
-			}
-		}
-		else
-		{
-			su16_DsgCur_Tcnt = 0;
-		}
-		break;
-
-	case CAP_FULL_SUCCESS:
-		if (SOC_Calculate_Element.u32CapFull_Cal_As == 0)
-		{
-			SOC_Calculate_Element.u32CapFull_Cal_As = SOC_Calculate_Element.u32CapFull;
-		}
-		SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFull_Cal_As; // ������������
-		SOC_Calculate_Element.u32CapFull_Cal_As = 0;
-		SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
-		CapFull_Cali_Flag = CAP_FULL_STARTUP;
-		break;
-
-	case CAP_FULL_FAIL:
-		SOC_Calculate_Element.u32CapFull_Cal_As = 0;
-		CapFull_Cali_Flag = CAP_FULL_STARTUP;
-		break;
-
-	default:
-		break;
-	}
-
-	if (SOC_Calculate_Element.u32CapFull == 0)
-	{
-		SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
-	}
-}
-
 void SOC_Cont_AH_Int_CHG(void)
 {
 	UINT32 C_change_per;
@@ -629,20 +527,6 @@ void SOC_State_Transfer(void)
 	}
 }
 
-void SOC_Update_param(void)
-{
-#if 0
-	SOC_Calculate_Element.u8DSG_SOC_Int = 0;
-	SOC_Calculate_Element.u32CapFactory = (UINT32)g_tParam.other.u16Soc_Ah * 3600;
-	SOC_Calculate_Element.u32Cycle_times = (UINT32)g_tParam.other.u16Soc_Cycle_times * 100;
-	// ����SOC_Calculate_Element.u32CapFactory�Ѿ���ʼ��
-	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
-
-	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
-#endif
-	InitData_SOC();
-}
-
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
     // 0~80 次：SOH 不变
@@ -682,24 +566,12 @@ void SOC_Result_Pass(void)
 #else
 	g_stCellInfoReport.real_now_Capacity = SOC_Calculate_Element.u32CapNow * 1 / 360;
 #endif
-
 	// g_stCellInfoReport.SocElement.u16Soh = 100;
 	g_stCellInfoReport.SocElement.u16Soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
 
 	g_stCellInfoReport.SocElement.u16CapacityFull = SOC_Calculate_Element.u32CapFull * 1 / 360;
 	g_stCellInfoReport.SocElement.u16CapacityFactory = SOC_Calculate_Element.u32CapFactory * 1 / 360;
 	g_stCellInfoReport.SocElement.u16Cycle_times = SOC_Calculate_Element.u32Cycle_times;
-}
-
-void bmsParam_save(void)
-{
-	uint8_t soc_disp = get_dispsoc();
-
-	if (g_bms_param_default.soc_para.soc != soc_disp)
-	{
-		g_bms_param_default.soc_para.soc = soc_disp;
-		WriteEEPROM_Word_NoZone(E2P_ADDR_SOC_RECORD_backup, g_stCellInfoReport.SocElement.u16Soc);
-	}
 }
 
 #if 0
@@ -995,10 +867,7 @@ void APP_SOC_IntEnhance_Ctrl()
 	}
 
 	soc_cali();
-
 	// SOC_EEPROM_Deal_Monitor();
-	// Correction_CapacityFull();
-
 	SOC_Result_Pass();
 }
 
