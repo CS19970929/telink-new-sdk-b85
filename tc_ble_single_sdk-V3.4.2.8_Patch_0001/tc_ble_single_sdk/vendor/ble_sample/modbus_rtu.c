@@ -183,17 +183,11 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1102)
     {
         if(val == 0x03) enter_fac_mode(true);
-    #ifdef __DEBUG__
-        if(val == 0x07)  sys_time.test_fun1_soc = true;
-    #endif // __DEBUG__
         if(val == 0x0A) deepsleep_en = true;
     }
     if(reg == 0x1103)
     {
         if(val == 0x03) enter_fac_mode(false);
-    #ifdef __DEBUG__
-        if(val == 0x07)  sys_time.test_fun1_soc = false;
-    #endif // __DEBUG__
     }
     // if(reg == 0x1103)  SOC_Calculate_Element.u8SOC_Now = val;
     if(reg == 0x2319)  SOC_Calculate_Element.u32Cycle_times = val;

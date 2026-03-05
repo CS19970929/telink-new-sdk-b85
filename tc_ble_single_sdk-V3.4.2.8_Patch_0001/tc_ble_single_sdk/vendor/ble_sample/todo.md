@@ -15,3 +15,16 @@ todo
 i2c_write_series
 i2c_read_series
 补充crc校验部分
+
+
+flash方便使用的框架，log、param、sci comm
+
+
+避免下错程序？13s下错10s，容易烧fuse
+1、afe通讯异常
+关ctlc，理论上充、放电mos关闭，如果mos坏了？adc检测总压 > 4.28 * snum
+
+2、正常通讯，单节 > 4.25,关闭充电mos，如果检测到充电电流或者 adc检测总压 > 4.28 * snum
+
+adc单独检测温度？防止误触发？？？
+温度
