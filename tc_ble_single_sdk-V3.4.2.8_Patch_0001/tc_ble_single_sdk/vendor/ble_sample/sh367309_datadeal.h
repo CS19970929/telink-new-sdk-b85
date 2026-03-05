@@ -105,7 +105,7 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_CUV_filter     (100)
 #else
 #define AFE_COV           (4250)
-#define AFE_COV_recover   (4100)
+#define AFE_COV_recover   (4150)
 #define AFE_COV_filter     100
 
 #define AFE_CUV           (2800)
