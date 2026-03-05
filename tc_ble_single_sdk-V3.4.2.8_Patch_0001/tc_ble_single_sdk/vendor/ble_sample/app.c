@@ -82,7 +82,6 @@ void app_timer_test_init(void)
 int timer0_irq_cnt = 0;
 _attribute_ram_code_ void app_timer_test_irq_proc(void)
 {
-	// gpio_toggle(GPIO_PC3);
 	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
 	{
 		sif_send_data_handle();
@@ -113,12 +112,12 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 
 
 #define 	MY_APP_ADV_CHANNEL					BLT_ENABLE_ADV_ALL
-// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
-// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
+#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
+#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
 // #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_500MS
 // #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_500MS
-#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
-#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
 
 #define		MY_RF_POWER_INDEX					RF_POWER_P3dBm
 
@@ -359,14 +358,15 @@ void app_adc_multi_sample(void)
 	}
 	power_on_delay = 61;
 
+	//todo fuse logi ???
 #ifdef _UL_RENZHENG_ENABLE_
-	//todo ctlc
+	
+
 	static u8 state_fuse = 0;
 	switch (state_fuse)
 	{
 	case 0:
 		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= 1200)
-		// if(Vbat_mv >= 3800 * SeriesNum)
 		{
 			if(++weichi_delay >= (10))
 			{

@@ -25,8 +25,7 @@
 
 /* Modbus holding register£º¿Í»§Ð´ suffix£¨ÍÆ¼ö 16 words = 32 bytes£© */
 #ifndef BTNAME_REG_BASE
-// #define BTNAME_REG_BASE         0x0100u
-#define BTNAME_REG_BASE         0x1000u
+#define BTNAME_REG_BASE         0x0100u
 #endif
 #ifndef BTNAME_REG_WORDS
 #define BTNAME_REG_WORDS        16u

@@ -8,7 +8,7 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-// #define _UL_RENZHENG_ENABLE_
+#define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
@@ -84,7 +84,6 @@ typedef struct
   bool power_on;
 
   uint16_t enter_rtc_delay;
-  bool     test_fun1_soc;
   bool     low_power_mode;
 }Time_T;
 
