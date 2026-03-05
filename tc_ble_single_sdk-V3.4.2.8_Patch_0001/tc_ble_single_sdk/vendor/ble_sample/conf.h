@@ -86,7 +86,6 @@ typedef struct
   uint16_t enter_rtc_delay;
   bool     test_fun1_soc;
   bool     low_power_mode;
-  bool     test_crc;
 }Time_T;
 
 extern Time_T  sys_time;
