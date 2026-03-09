@@ -32,12 +32,12 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
-#define SeriesNum  (10)
+#define SeriesNum  (13)
 
 #define FAC_INIT_soc (60)
 // #define CapacityFactory (87)
-// #define CapacityFactory (116)
-#define CapacityFactory (200)
+#define CapacityFactory (116)
+//#define CapacityFactory (200)
 // #define CapacityFactory (104)
 
 typedef enum _CUR {

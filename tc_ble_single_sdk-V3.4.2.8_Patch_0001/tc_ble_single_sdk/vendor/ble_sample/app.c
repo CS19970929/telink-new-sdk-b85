@@ -746,6 +746,7 @@ int app_host_event_callback (u32 h, u8 *para, int n)
 void blt_pm_proc(void)
 {
 	static u16 sleep_cnt = 0;
+	static u32 sleep_veryvlow_cnt = 0;
 	static u32 sleep_vlow_cnt = 0;
 	static u32 sleep_vnormal_cnt = 0;
 	_attribute_data_retention_ static u32 sleep_tick = 0;
@@ -771,9 +772,21 @@ void blt_pm_proc(void)
 			}
 		}
 
-		if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		if (g_stCellInfoReport.u16VCellMin <= 2500)
 		{
-			if(deepsleep_en) sleep_vlow_cnt = 60;
+			if (++sleep_veryvlow_cnt >= (60 * 60 * 1))
+			//if (++sleep_veryvlow_cnt >= (60 ))
+			{
+				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+
+				sleep_veryvlow_cnt = 0;
+				AFE_Sleep();
+				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+			}
+		}
+		else if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		{
+			if(deepsleep_en) sleep_vlow_cnt = (60 * 60 * 1);
 			if (++sleep_vlow_cnt >= (60 * 60 * 1))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
@@ -796,6 +809,7 @@ void blt_pm_proc(void)
 		}
 		else
 		{
+			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
 		}
@@ -1173,7 +1187,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
-		bus_mux_task();
+		//bus_mux_task();
 		//nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();

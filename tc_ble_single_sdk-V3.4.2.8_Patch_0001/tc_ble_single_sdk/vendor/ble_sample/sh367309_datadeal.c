@@ -1490,6 +1490,7 @@ void App_AFEGet(void)
 {
     u8 addr = 0x40;
     u8 len = (0x71 - 0x40 + 1); 
+    //todo logi fenxiyi len+1与len
     i2c_read_series(((u16)addr << 8) | (len), 2, (unsigned char *)&ram_reg_309, len + 1);
     // i2c_read_series(addr, 1, (unsigned char *)&ram_reg_309, len+1);
     // modbus_uart_send(&ram_reg_309, len + 1);
