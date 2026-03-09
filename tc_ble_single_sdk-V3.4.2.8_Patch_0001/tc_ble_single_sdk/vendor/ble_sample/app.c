@@ -912,7 +912,7 @@ void blt_pm_proc(void)
 		}
 		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 		{
-			if(++afe_comm_err_sleepcnt >= (60))
+			if(++afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);

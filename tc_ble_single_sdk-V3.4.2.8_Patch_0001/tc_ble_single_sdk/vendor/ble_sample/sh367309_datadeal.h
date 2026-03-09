@@ -143,9 +143,9 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1       		(300) 
+#define AFE_ODC1       		(400) 
 #define AFE_ODC1_filter  	(100)
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(400) 
 #define AFE_ODC2_filter  	(100)
 
 
@@ -462,7 +462,7 @@ typedef struct _AFE_REG_STORE {
 // #define BIT0_3_OCD2T			(6)			//0110，放电过�?1保护延时200ms
 // #define BYTE_0DH_OCD2V_OCD2T	BIT4_7_OCD2V|BIT0_3_OCD2T
 
-#define BIT4_7_OCD2V			(2<<4)		//1000，放电过流保�?1保护电压=120mV�?0000�?30mV，弄成最�?
+#define BIT4_7_OCD2V			(3<<4)		//1000，放电过流保�?1保护电压=120mV�?0000�?30mV，弄成最�?
 #define BIT0_3_OCD2T			(7)			//0110，放电过�?1保护延时200ms
 #define BYTE_0DH_OCD2V_OCD2T	BIT4_7_OCD2V|BIT0_3_OCD2T
 
