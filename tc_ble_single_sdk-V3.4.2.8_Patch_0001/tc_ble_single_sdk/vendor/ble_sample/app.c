@@ -56,6 +56,8 @@ void open_ctlc(void)
 void close_ctlc(void)
 {
 	gpio_write(AFE_CTL_PIN, 0);
+
+	gpio_write(MCC_C_PIN, 0);
 }
 
 
@@ -369,6 +371,7 @@ void app_adc_multi_sample(void)
 		if(g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)	
 		{
 			close_ctlc();
+			FaultWarnRecord2(MosOTp_Third);
 			mos_state = 1;
 		}
 		break;
@@ -395,7 +398,6 @@ void app_adc_multi_sample(void)
 
 		close_ctlc();
 		//todo mcc关了，when 开
-		gpio_write(MCC_C_PIN, 0);
 		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
 		{
 			if(++rong_fuse_afe_err_cnt>= 10)
@@ -417,13 +419,14 @@ void app_adc_multi_sample(void)
 			{
 				state_fuse = 1;
 				close_ctlc();
-				gpio_write(MCC_C_PIN, 0);
+            	FaultWarnRecord2(CellChgOTp_Third);
+            	FaultWarnRecord2(CellDsgOTp_Third);
 			}
 			if((g_stCellInfoReport.u16VCellMax >= 4260))
 			{
 				state_fuse = 1;
 				close_ctlc();
-				gpio_write(MCC_C_PIN, 0);
+            	FaultWarnRecord2(CellDsgOTp_Third);
 			}
 			break;
 		case 1:
