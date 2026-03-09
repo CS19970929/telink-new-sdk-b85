@@ -49,6 +49,15 @@ volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
 //nvm_cfg_t nvm_cfg;
 
+void open_ctlc(void)
+{
+	gpio_write(AFE_CTL_PIN, 1);
+}
+void close_ctlc(void)
+{
+	gpio_write(AFE_CTL_PIN, 0);
+}
+
 
 
 void app_timer_test_init(void)
@@ -352,6 +361,95 @@ void app_adc_multi_sample(void)
 	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
 
+	static u8 mos_state = 0;
+	static uint32_t rong_fuse = 0;
+	switch (mos_state)
+	{
+	case 0:
+		if(g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)	
+		{
+			close_ctlc();
+			mos_state = 1;
+		}
+		break;
+	case 1:
+		if(g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)	
+		{
+			open_ctlc();
+			mos_state = 0;
+		}
+		break;
+	default:
+		mos_state = 0;
+		break;
+	}
+
+
+	static u8 state_fuse = 0;
+	static uint32_t rong_fuse_afe_err_cnt = 0;
+
+	if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+	{
+		rong_fuse = 0;
+		state_fuse = 0;
+
+		close_ctlc();
+		//todo mcc关了，when 开
+		gpio_write(MCC_C_PIN, 0);
+		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
+		{
+			if(++rong_fuse_afe_err_cnt>= 10)
+			{
+				rong_fuse_afe_err_cnt = 0;
+		#ifdef _UL_RENZHENG_ENABLE_
+			gpio_write(RF_EN_PIN, 1);
+		#endif
+			}
+
+		}
+	}
+	else
+	{
+		switch (state_fuse)
+		{
+		case 0:
+			if((g_stCellInfoReport.u16Temperature[8] >= (80+40)*10))
+			{
+				state_fuse = 1;
+				close_ctlc();
+				gpio_write(MCC_C_PIN, 0);
+			}
+			if((g_stCellInfoReport.u16VCellMax >= 4260))
+			{
+				state_fuse = 1;
+				close_ctlc();
+				gpio_write(MCC_C_PIN, 0);
+			}
+			break;
+		case 1:
+			if((g_stCellInfoReport.u16Temperature[8] < (75+40)*10) && (g_stCellInfoReport.u16VCellMax <= 4150))
+			{
+				state_fuse = 0;
+				open_ctlc();
+			}
+			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg || g_stCellInfoReport.u16IDischg))
+			{
+				if(++rong_fuse >= (10))
+				{
+					rong_fuse = 0;
+				#ifdef _UL_RENZHENG_ENABLE_
+					gpio_write(RF_EN_PIN, 1);
+				#endif
+				}
+			}
+			break;
+		default:
+			state_fuse = 0;
+			break;
+		}
+	}
+
+#if 0
 	if(++power_on_delay <= (60))
 	{
 		return;
@@ -371,7 +469,7 @@ void app_adc_multi_sample(void)
 			if(++weichi_delay >= (10))
 			{
 				weichi_delay = 0;
-				gpio_write(AFE_CTL_PIN, 0);
+				close_ctlc();
 				state_fuse = 1;
 			}
 		}
@@ -398,6 +496,7 @@ void app_adc_multi_sample(void)
 		break;
 	}
 #endif
+#endif
 }
 
 void enter_rtc_mode(void)
@@ -422,7 +521,7 @@ void init_bms_io(void)
 		gpio_set_func(AFE_CTL_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
 		gpio_set_input_en(AFE_CTL_PIN, 0);
 		gpio_set_output_en(AFE_CTL_PIN, 1);
-		gpio_write(AFE_CTL_PIN, 0);
+		close_ctlc();
 
 		{
 		#ifdef _UL_RENZHENG_ENABLE_
@@ -749,6 +848,7 @@ void blt_pm_proc(void)
 	static u32 sleep_veryvlow_cnt = 0;
 	static u32 sleep_vlow_cnt = 0;
 	static u32 sleep_vnormal_cnt = 0;
+	static u32 afe_comm_err_sleepcnt = 0;
 	_attribute_data_retention_ static u32 sleep_tick = 0;
 	if (clock_time_exceed(sleep_tick, 1000 * 1000))
 	{
@@ -807,11 +907,23 @@ void blt_pm_proc(void)
 				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
 			}
 		}
+		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+		{
+			if(++afe_comm_err_sleepcnt >= (60))
+			{
+				afe_comm_err_sleepcnt = 0;
+				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+
+				AFE_Sleep();
+				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+			}
+		}
 		else
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
+			afe_comm_err_sleepcnt = 0;
 		}
 	}
 
@@ -1213,7 +1325,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	}
 	
 	app_timer_test_init();
-	gpio_write(AFE_CTL_PIN, 1);
+	open_ctlc();
 
 	bus_mux_init();
 	btname_init();

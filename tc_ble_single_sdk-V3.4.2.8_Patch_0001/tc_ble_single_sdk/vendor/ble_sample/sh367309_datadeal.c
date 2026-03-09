@@ -1488,6 +1488,7 @@ u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
 //todo 参数回读校验，crc，
 void App_AFEGet(void)
 {
+    static uint16_t cnt = 0;
     u8 addr = 0x40;
     u8 len = (0x71 - 0x40 + 1); 
     //todo logi fenxiyi len+1与len
@@ -1502,7 +1503,7 @@ void App_AFEGet(void)
     memcpy(&crc_buf[4], &ram_reg_309, len);
     if (ram_reg_309.crc8 == CRC8cal(crc_buf, 0x71 - 0x40 + 1 + 4))
     {
-        gpio_write(AFE_CTL_PIN, 1);
+        cnt = 0;
         UpdateVoltageFromBqMaximo();
 
         DataLoad_CellVolt();
@@ -1518,8 +1519,10 @@ void App_AFEGet(void)
     }
     else
     {
-        gpio_write(AFE_CTL_PIN, 0);
-        System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
-        memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);
+        if(++cnt >= (10))
+        {
+            System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
+            memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);
+        }
     }
 }
