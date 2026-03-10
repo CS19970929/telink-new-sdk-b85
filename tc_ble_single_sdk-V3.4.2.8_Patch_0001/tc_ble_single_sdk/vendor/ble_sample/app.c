@@ -349,6 +349,9 @@ void app_adc_multi_sample(void)
 	static u32 power_on_delay = 0;
 	static u16 weichi_delay = 0;
 
+	if(sys_time.low_power_mode)
+		return;
+
     unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
     unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
     unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
@@ -1030,6 +1033,7 @@ void blt_pm_proc(void)
 			}
 			else if (device_in_connection_state)
 			{
+				sys_time.low_power_mode = false;
 				quit_rtc_mode();
 			}
 			else
@@ -1529,6 +1533,7 @@ _attribute_no_inline_ void main_loop(void)
 		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 		if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 		{
+			//todo 低功耗，时基偏移
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
 			app_adc_multi_sample();
