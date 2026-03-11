@@ -43,6 +43,7 @@
 //#include "nvm_flash.h"
 #include "bus_mux.h"
 #include "btname_modbus.h"
+#include "runtime.h"
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -1021,7 +1022,8 @@ void blt_pm_proc(void)
 			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 			if(!gpio_read(CHG_IN_PIN) ||
 				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg 
+				g_stCellInfoReport.u16IDischg || 
+				MODE_FACTORY == Runtime_GetMode()
 				)
 			// if(
 			// 	g_stCellInfoReport.u16IDischg 
@@ -1336,6 +1338,15 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	bus_mux_init();
 	btname_init();
+
+	//todo 7day enter facmode
+	{
+		Runtime_Init();
+		if(MODE_FACTORY == Runtime_GetMode())
+		{
+			enter_fac_mode(true);
+		}
+	}
 }
 
 
@@ -1537,6 +1548,13 @@ _attribute_no_inline_ void main_loop(void)
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
 			app_adc_multi_sample();
+			
+			static u16 cnt_1min = 0;
+			if(++cnt_1min >= 60)
+			{
+				cnt_1min = 0;
+				Runtime_1MinTask();
+			}
 		}
 
 		bus_mux_task();
