@@ -1,7 +1,7 @@
 #pragma once
 #include "tl_common.h"
 
-//todo 双备份逻辑
+//todo 双�?�份逻辑
 #define FLASH_ADDR_USER_DATA_START1     (0x40000)
 #define FLASH_ADDR_USER_DATA_END1       (0x74000)
 #define FLASH_ADDR_USER_DATA_START2     (0x78000)
@@ -15,7 +15,7 @@
 
 #define FLASH_ADDR_SOFT_PROTECT_BASE   0x78000   // 2 sectors: 0x70000 ~ 0x71FFF
 
-// !!! 你要确认这些地址不和代码/OTA/配对区冲突
+// !!! 你�?�确认这些地址不和代码/OTA/配�?�区冲突
 #define FLASH_ADDR_RUN_KV_BASE   0x70000   // 2 sectors: 0x70000 ~ 0x71FFF
 #define FLASH_ADDR_RUN_KV_SECTORS 2
 
@@ -24,3 +24,9 @@
 
 /********************ble name area***********************/
 #define FLASH_ADDR_BLE_NAME_BASE      0x50000   // 8 sectors: 0x72000 ~ 0x79FFF
+
+
+//todo ���� �޸����������Ƿ����������test
+#define FLASH_ADR_RUNTIME   (FLASH_ADDR_BLE_NAME_BASE + 0x1000)
+#define RUNTIME_FLAG        0xA5A5
+// #define RUNTIME_FLAG        0x5A5A
