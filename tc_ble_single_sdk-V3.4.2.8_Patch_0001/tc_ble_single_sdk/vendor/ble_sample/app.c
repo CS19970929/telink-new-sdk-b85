@@ -58,6 +58,7 @@ void close_ctlc(void)
 {
 	gpio_write(AFE_CTL_PIN, 0);
 
+	//todo 会不会存在冲突，逻辑完备？？？
 	gpio_write(MCC_C_PIN, 0);
 }
 
@@ -274,8 +275,8 @@ void charger_detect_and_keyLogi_200ms(void)
 		{
 		}
 		break;
-
 	default:
+		state = 0;
 		break;
 	}
 }
@@ -350,6 +351,7 @@ void app_adc_multi_sample(void)
 	static u32 power_on_delay = 0;
 	static u16 weichi_delay = 0;
 
+	//todo 低功耗不检测，需要状态机回到初始化？？？
 	if(sys_time.low_power_mode)
 		return;
 
@@ -430,7 +432,9 @@ void app_adc_multi_sample(void)
 			{
 				state_fuse = 1;
 				close_ctlc();
-            	FaultWarnRecord2(CellDsgOTp_Third);
+				//是否应该强制关掉放电？？？
+            	FaultWarnRecord2(CellOvp_Third);
+            	FaultWarnRecord2(BatOvp_Third);
 			}
 			break;
 		case 1:
@@ -439,7 +443,7 @@ void app_adc_multi_sample(void)
 				state_fuse = 0;
 				open_ctlc();
 			}
-			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg || g_stCellInfoReport.u16IDischg))
+			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
 			{
 				if(++rong_fuse >= (10))
 				{

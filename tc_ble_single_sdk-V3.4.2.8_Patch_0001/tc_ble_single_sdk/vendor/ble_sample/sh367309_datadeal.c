@@ -454,7 +454,7 @@ u8 AFE_IsReady(void)
 
         TempVar = 0;
         if (MTPRead(MTP_BFLAG2, 1, &TempVar))
-        { // 鐠囪褰嘊LFG2閿涘本鐓￠惇濯�ADC閺勵垰鎯佹潪顒佸床鐎瑰本鍨�
+        { 
             if ((TempVar & 0x10) == 0x10)
             {
                 break;
@@ -465,7 +465,6 @@ u8 AFE_IsReady(void)
         if (++TempCnt >= 50)
         {
             System_ERROR_UserCallback(ERROR_AFE1);
-            System_ERROR_UserCallback(ERROR_UPPER);
             result = 1;
             break;
         }
@@ -526,7 +525,6 @@ void SH367309_UpdataAfeConfig(void)
             gpio_write(GPIO_PD7, 0);
             Delay1ms(1);
 
-            /* 濮ｅ繑顐奸崘娆忕暚婵″倹鐏夋稉宥嗗Г闁挎瑩鍏樼憰浣割槻娴ｅ秳绔存稉瀣拷鍌濈箹閺嶅嘲鍟撴潻娑樺箵閻ㄥ嫬寮弫鐗堝閺堝鏅� */
             if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
             {
                 AFE_Reset(); // Reset IC
