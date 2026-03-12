@@ -37,6 +37,8 @@ extern const u8 my_OtaUUID[16];
 
 int master_ota_test_mode = 0;
 
+#define BLE_MASTER_OTA_ENABLE 1
+
 #if(BLE_MASTER_OTA_ENABLE)
 
 

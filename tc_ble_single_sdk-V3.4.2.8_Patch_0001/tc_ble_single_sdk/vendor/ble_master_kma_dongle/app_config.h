@@ -32,7 +32,7 @@
 #define ACL_CENTRAL_SIMPLE_SDP_ENABLE		1  //simple service discovery
 
 
-#define BLE_MASTER_OTA_ENABLE			    0  //slave ota test
+#define BLE_MASTER_OTA_ENABLE			    1  //slave ota test
 #define AUDIO_SDM_ENABLE					0  //if using sdm playback, should better disable USB MIC
 
 

@@ -148,10 +148,7 @@ static u16 read_reg(u16 reg) {
         default:
             break;
         }
-        // System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
-        // System_ErrFlag.u8ErrFlag_Com_AFE2 = 8;
-        // System_ErrFlag.u8ErrFlag_Store_EEPROM = 66;
-        // System_ErrFlag.u8ErrFlag_CBC_DSG = 88;
+       
         if(reg >= 0xD109 && reg <= 0xD114)
         {
             return ((*(&System_ErrFlag.u8ErrFlag_Com_AFE1 + 2 * (reg - 0xd109))) << 8) | (*(&System_ErrFlag.u8ErrFlag_Com_AFE1 + 2 * (reg - 0xd109) + 1));
