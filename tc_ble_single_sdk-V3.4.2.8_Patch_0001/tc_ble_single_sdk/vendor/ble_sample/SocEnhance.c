@@ -15,6 +15,37 @@ UINT32 ModulusSub(uint32_t Data1, uint32_t Data2)
 	return (UINT32)(Data1 > Data2 ? Data1 - Data2 : Data2 - Data1);
 }
 
+uint8_t bms_soh_from_cycle(uint16_t cycle)
+{
+    // 0~80 次：SOH 不变
+    if (cycle <= 80) {
+        return 100;
+    }
+
+    // >=800 次：夹紧到 80%
+    if (cycle >= 800) {
+        return 80;
+    }
+
+    // 81~500 次：100 -> 90
+    if (cycle <= 500) {
+        // cycle=81 => 100
+        // cycle=500 => 90
+        uint16_t x = (uint16_t)(cycle - 80);      // 1..420
+        // drop = x * 10 / 420
+        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 420u);
+        return (uint8_t)(100u - drop);
+    }
+
+    // 501~799 次：90 -> 80
+    {
+        uint16_t x = (uint16_t)(cycle - 500);     // 1..299
+        // drop = x * 10 / 300
+        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 300u);
+        return (uint8_t)(90u - drop);
+    }
+}
+
 #if 1
 
 #define SOC_FAC_VALUE 60
@@ -121,8 +152,12 @@ void set_calsoc(uint8_t _soc)
 	SOC_Calculate_Element.u8SOC_Now = _soc;
 	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600; // ???*10;???��??????????��????????��????????
 	// SOC_Calculate_Element.u32Cycle_times = (UINT32)1 * 100;
-	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
-	SOC_Calculate_Element.u8DSG_SOC_Int = 0;
+	// SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
+	// SOC_Calculate_Element.u8DSG_SOC_Int = 0;
+	SOC_Calculate_Element.soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
+
+	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh / 100;
+	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
 }
 
 static void Inc_real_soc(void)
@@ -178,11 +213,13 @@ void soc_factory_param_init_first(void)
 void soc_param_lib_init(soc_kv_data_t *_soc)
 {
 	set_calsoc(_soc->soc);
-
-	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
 	SOC_Calculate_Element.u8DSG_SOC_Int = _soc->dsg;
-	SOC_Calculate_Element.u32CapFactory = SOC_Calculate_Element.u32CapFull;
 	SOC_Calculate_Element.u32Cycle_times = _soc->cycle;
+	SOC_Calculate_Element.soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
+
+	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh / 100;
+	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
+	// SOC_Calculate_Element.u32CapFactory = SOC_Calculate_Element.u32CapFull;
 
 	back_SOC_Calculate_Element = SOC_Calculate_Element;
 
@@ -527,36 +564,6 @@ void SOC_State_Transfer(void)
 	}
 }
 
-uint8_t bms_soh_from_cycle(uint16_t cycle)
-{
-    // 0~80 次：SOH 不变
-    if (cycle <= 80) {
-        return 100;
-    }
-
-    // >=800 次：夹紧到 80%
-    if (cycle >= 800) {
-        return 80;
-    }
-
-    // 81~500 次：100 -> 90
-    if (cycle <= 500) {
-        // cycle=81 => 100
-        // cycle=500 => 90
-        uint16_t x = (uint16_t)(cycle - 80);      // 1..420
-        // drop = x * 10 / 420
-        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 420u);
-        return (uint8_t)(100u - drop);
-    }
-
-    // 501~799 次：90 -> 80
-    {
-        uint16_t x = (uint16_t)(cycle - 500);     // 1..299
-        // drop = x * 10 / 300
-        uint16_t drop = (uint16_t)((uint32_t)x * 10u / 300u);
-        return (uint8_t)(90u - drop);
-    }
-}
 
 void SOC_Result_Pass(void)
 {
