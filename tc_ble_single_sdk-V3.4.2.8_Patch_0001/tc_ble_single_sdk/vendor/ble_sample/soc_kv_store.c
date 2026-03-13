@@ -78,9 +78,9 @@ static int rec_is_valid(const u16 *rw)
 static void scan_sector(u32 base, soc_kv_data_t *out, u32 *out_next_off, u8 *out_has_any_valid)
 {
     // 默认值（按你习惯改）
-    out->soc = 50;
+    out->soc = 66;
     out->dsg = 0;
-    out->cycle = 1;
+    out->cycle = 3;
 
     u32 next_off = 0;
     u8 has_any = 0;
@@ -197,9 +197,9 @@ int soc_kv_store_init(void)
         g_dbg.loaded = 1;
     } else {
         // 没有有效记录：默认值
-        g_cache.soc = 0;
+        g_cache.soc = 60;
         g_cache.dsg = 0;
-        g_cache.cycle = 0;
+        g_cache.cycle = 3;
 
         g_dbg.active_base = FLASH_ADR_SOC_A;
         g_dbg.write_off = 0;

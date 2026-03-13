@@ -26,6 +26,7 @@ struct SOC_CALCULATE_ELEMENT
 
 	uint8_t u8SOC_Old; // ��ʼSOC    0-100 Ϊ��������ٷֱ�?
 	UINT32 u32CapFull_Cal_As; // �������У�����������As*10
+	uint8_t soh;
 };
 
 extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;		 // �ڲ�����ṹ��?

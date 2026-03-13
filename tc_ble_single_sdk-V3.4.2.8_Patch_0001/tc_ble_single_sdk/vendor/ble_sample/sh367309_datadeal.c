@@ -880,8 +880,8 @@ void DataLoad_CurrentCali(void)
 
 static uint8_t step = 0;
 #if 1
-static uint16_t CHG_current = 100;
-static uint16_t DSG_current = 100;
+static uint16_t CHG_current = 40;
+static uint16_t DSG_current = 40;
 #else
 static uint16_t CHG_current = 200;
 static uint16_t DSG_current = 400;
@@ -1508,7 +1508,13 @@ void App_AFEGet(void)
         DataLoad_CellVoltMaxMinFind();
         DataLoad_Temperature();
         DataLoad_TemperatureMaxMinFind();
+        if(!sys_time.test_Autocurrent)
+        {
+            step = 0;
         DataLoad_Current();
+        }
+        else
+        test_Autocurrent_cycle();
 
         SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
         SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
