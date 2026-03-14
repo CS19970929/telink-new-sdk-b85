@@ -143,9 +143,9 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1       		(400) 
+#define AFE_ODC1       		(300) 
 #define AFE_ODC1_filter  	(100)
-#define AFE_ODC2       		(400) 
+#define AFE_ODC2       		(300) 
 #define AFE_ODC2_filter  	(100)
 
 

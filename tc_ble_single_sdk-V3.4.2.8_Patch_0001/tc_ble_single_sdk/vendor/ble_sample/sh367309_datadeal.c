@@ -354,15 +354,15 @@ void Refresh_Parameters(void)
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
 
     temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    // AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0;
+    // AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0;
 
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) & 0x00FF;
 
     temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-    // AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0;
+    // AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0;
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20) & 0x00FF;
     AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20) & 0x00FF;
 
