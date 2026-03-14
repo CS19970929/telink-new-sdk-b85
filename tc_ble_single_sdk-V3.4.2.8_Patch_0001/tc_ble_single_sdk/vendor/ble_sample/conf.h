@@ -32,7 +32,7 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
-#if 0
+#if 1
 #define SeriesNum  (13)
 #define CapacityFactory (104)
 #else
