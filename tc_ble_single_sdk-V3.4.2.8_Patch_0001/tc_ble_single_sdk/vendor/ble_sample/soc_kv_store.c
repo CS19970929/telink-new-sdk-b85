@@ -199,7 +199,7 @@ int soc_kv_store_init(void)
         // 没有有效记录：默认值
         g_cache.soc = 60;
         g_cache.dsg = 0;
-        g_cache.cycle = 3;
+        g_cache.cycle = 1;
 
         g_dbg.active_base = FLASH_ADR_SOC_A;
         g_dbg.write_off = 0;

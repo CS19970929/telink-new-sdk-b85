@@ -1351,7 +1351,6 @@ _attribute_no_inline_ void user_init_normal(void)
 			enter_fac_mode(true);
 		}
 	}
-	sys_time.test_Autocurrent = false;
 }
 
 

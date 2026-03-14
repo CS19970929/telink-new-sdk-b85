@@ -32,14 +32,18 @@ typedef int8_t INT8;
 
 #define __INIT_SOC__        (99)
 
+#if 1
+#define SeriesNum  (13)
+#define CapacityFactory (104)
+#else
 #define SeriesNum  (10)
+#define CapacityFactory (116)
+#endif
 
 #define FAC_INIT_soc (60)
 // #define CapacityFactory (87)
 // #define CapacityFactory (116)
 //#define CapacityFactory (200)
-// #define CapacityFactory (104)
-#define CapacityFactory (100)
 
 typedef enum _CUR {
 CurCHG = 0, CurDSG
@@ -86,8 +90,6 @@ typedef struct
 
   uint16_t enter_rtc_delay;
   bool     low_power_mode;
-  uint32_t main_cycles_cnt;
-  bool     test_Autocurrent;
 }Time_T;
 
 extern Time_T  sys_time;
