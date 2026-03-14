@@ -864,24 +864,24 @@ void blt_pm_proc(void)
 	if (clock_time_exceed(sleep_tick, 1000 * 1000))
 	{
 		sleep_tick = clock_time();
-		if (gpio_read(CHG_IN_PIN))
-		{
-			if (gpio_read(SW_PIN))
-			{
-				if (++sleep_cnt >= 3)
-				{
-					sleep_cnt = 0;
-					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
-					// printf("0xkey %d\n", gpio_read(SW_PIN));
-					AFE_Sleep();
-					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
-				}
-			}
-			else
-			{
-				sleep_cnt = 0;
-			}
-		}
+		// if (gpio_read(CHG_IN_PIN))
+		// {
+		// 	if (gpio_read(SW_PIN))
+		// 	{
+		// 		if (++sleep_cnt >= 3)
+		// 		{
+		// 			sleep_cnt = 0;
+		// 			// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
+		// 			// printf("0xkey %d\n", gpio_read(SW_PIN));
+		// 			AFE_Sleep();
+		// 			cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+		// 		}
+		// 	}
+		// 	else
+		// 	{
+		// 		sleep_cnt = 0;
+		// 	}
+		// }
 
 		if (g_stCellInfoReport.u16VCellMin <= 2500)
 		{
@@ -1551,7 +1551,7 @@ _attribute_no_inline_ void main_loop(void)
 			//todo 低功耗，时基偏移
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
-			app_adc_multi_sample();
+			// app_adc_multi_sample();
 			
 			static u16 cnt_1min = 0;
 			if(++cnt_1min >= 60)
