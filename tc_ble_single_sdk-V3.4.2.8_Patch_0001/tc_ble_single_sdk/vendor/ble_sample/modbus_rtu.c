@@ -15,7 +15,12 @@
 
 #define MB_ADDR        0x01
 
-extern struct stCell_Info g_stCellInfoReport;
+static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
+static u16 read_production_info_reg(u16 reg);
+void WriteProID_Default(void);
+
+struct stCell_Info g_stCellInfoReport;
+PRODUCTION_ID_INFO ProductionInfor;
 
 static u16 read_reg(u16 reg) {
     // TODO: 这里换成你的寄存器表
@@ -67,6 +72,20 @@ static u16 read_reg(u16 reg) {
         
         // 组合成16位值（高字节在前，符合Modbus大端格式）
         return (high_byte << 8) | low_byte;
+    }
+
+    // uint16_t *p
+    // if(reg >= 0xc002 && reg <= (0xc002 + 48))
+    // {
+    //     return *(&ProductionInfor.BMS_SerialNumber[0] + (reg ))
+
+    // }
+    /* ProductionInfor寄存器 */
+    // if ((reg >= PROD_SN_REG_BASE && reg < (PROD_SW_VER_REG_BASE + PROD_SW_VER_REG_COUNT)) ||
+    //     (reg >= PROD_SN_LEN_REG && reg <= PROD_SW_VER_WRITE_FLAG_REG))
+    if(reg >= 0xc002 && reg <= (0xc002 + 48))
+    {
+        return read_production_info_reg(reg);
     }
 
     if(reg >= 0xd000 && reg <= 0xd03e)
@@ -154,9 +173,9 @@ static u16 read_reg(u16 reg) {
             return ((*(&System_ErrFlag.u8ErrFlag_Com_AFE1 + 2 * (reg - 0xd109))) << 8) | (*(&System_ErrFlag.u8ErrFlag_Com_AFE1 + 2 * (reg - 0xd109) + 1));
         }
     }
-    SystemStatus.bits.b1StartUpBMS = 1;
-    SystemStatus.bits.b1Status_ToSleep = 1;
-    SystemStatus.bits.b1Status_AFE1 = 1;
+    // SystemStatus.bits.b1StartUpBMS = 1;
+    // SystemStatus.bits.b1Status_ToSleep = 1;
+    // SystemStatus.bits.b1Status_AFE1 = 1;
     if(reg >= 0xD115 && reg <= 0xD118)
     {
         if(reg == 0xd115) return ((UINT16)(SystemStatus.all & 0x0000FFFF));
@@ -315,3 +334,145 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     *rsp_len = 5;
     return 1;
 }
+
+static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)
+{
+    u16 str_idx = reg_offset * 2;
+    u8 high_byte = 0x00;
+    u8 low_byte  = 0x00;
+
+    if (str_idx < max_len && str[str_idx] != '\0')
+    {
+        high_byte = str[str_idx];
+    }
+
+    if ((str_idx + 1) < max_len && str[str_idx + 1] != '\0')
+    {
+        low_byte = str[str_idx + 1];
+    }
+
+    return ((u16)high_byte << 8) | low_byte;
+}
+
+static u16 read_production_info_reg(u16 reg)
+{
+    /* 1. 序列号 */
+    if (reg >= PROD_SN_REG_BASE && reg < (PROD_SN_REG_BASE + PROD_SN_REG_COUNT))
+    {
+        return read_ascii_string_reg(ProductionInfor.BMS_SerialNumber,
+                                     PRODUCT_ID_LENGTH_MAX,
+                                     reg - PROD_SN_REG_BASE);
+    }
+
+    /* 2. 硬件版本 */
+    if (reg >= PROD_HW_VER_REG_BASE && reg < (PROD_HW_VER_REG_BASE + PROD_HW_VER_REG_COUNT))
+    {
+        return read_ascii_string_reg(ProductionInfor.BMS_HardWareVersion,
+                                     PRODUCT_ID_LENGTH_MAX,
+                                     reg - PROD_HW_VER_REG_BASE);
+    }
+
+    /* 3. 软件版本 */
+    if (reg >= PROD_SW_VER_REG_BASE && reg < (PROD_SW_VER_REG_BASE + PROD_SW_VER_REG_COUNT))
+    {
+        return read_ascii_string_reg(ProductionInfor.BMS_SoftWareVersion,
+                                     PRODUCT_ID_LENGTH_MAX,
+                                     reg - PROD_SW_VER_REG_BASE);
+    }
+
+    /* 4. 长度 */
+    // switch (reg)
+    // {
+    //     case PROD_SN_LEN_REG:
+    //         return ProductionInfor.BMS_SerialNumberLength;
+
+    //     case PROD_HW_VER_LEN_REG:
+    //         return ProductionInfor.BMS_HardWareVersionLength;
+
+    //     case PROD_SW_VER_LEN_REG:
+    //         return ProductionInfor.BMS_SoftWareVersionLength;
+
+    //     case PROD_SN_HEAD_ADDR_REG:
+    //         return ProductionInfor.BMS_SerialNumberHeadAdress;
+
+    //     case PROD_HW_VER_HEAD_ADDR_REG:
+    //         return ProductionInfor.BMS_HardWareVersionHeadAdress;
+
+    //     case PROD_SW_VER_HEAD_ADDR_REG:
+    //         return ProductionInfor.BMS_SoftWareVersionHeadAdress;
+
+    //     case PROD_SN_WRITE_FLAG_REG:
+    //         return ProductionInfor.BMS_SerialNumber_WriteFlag;
+
+    //     case PROD_HW_VER_WRITE_FLAG_REG:
+    //         return ProductionInfor.BMS_HardWareVersion_WriteFlag;
+
+    //     case PROD_SW_VER_WRITE_FLAG_REG:
+    //         return ProductionInfor.BMS_SoftWareVersion_WriteFlag;
+
+    //     default:
+    //         break;
+    // }
+
+    return 0;
+}
+
+#if 1
+void WriteProID_Default(void)
+{
+	UINT8 harewareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > 32 ? 32 : sizeof(BMS_HARDWARE_VERDION_DEFAULT);
+	UINT8 softwareCount = sizeof(BMS_SOFTWARE_VERDION_DEFAULT) > 32 ? 32 : sizeof(BMS_SOFTWARE_VERDION_DEFAULT);
+	UINT8 serialNumberCount = sizeof(BMS_SERIAL_NUMBER_DEFAULT) > 32 ? 32 : sizeof(BMS_SERIAL_NUMBER_DEFAULT);
+
+	memset(&ProductionInfor, 0, sizeof(PRODUCTION_ID_INFO));
+
+	memcpy(&ProductionInfor.BMS_HardWareVersion[0], BMS_HARDWARE_VERDION_DEFAULT, harewareCount);
+	memcpy(&ProductionInfor.BMS_SoftWareVersion[0], BMS_SOFTWARE_VERDION_DEFAULT, softwareCount);
+	memcpy(&ProductionInfor.BMS_SerialNumber[0], BMS_SERIAL_NUMBER_DEFAULT, serialNumberCount);
+}
+#else
+
+void WriteProID_Default(void)
+{
+    const char *hw = BMS_HARDWARE_VERDION_DEFAULT;
+    const char *sw = BMS_SOFTWARE_VERDION_DEFAULT;
+    const char *sn = BMS_SERIAL_NUMBER_DEFAULT;
+
+    UINT8 hardwareCount     = strlen(hw);
+    UINT8 softwareCount     = strlen(sw);
+    UINT8 serialNumberCount = strlen(sn);
+
+    if (hardwareCount > PRODUCT_ID_LENGTH_MAX - 1) {
+        hardwareCount = PRODUCT_ID_LENGTH_MAX - 1;
+    }
+    if (softwareCount > PRODUCT_ID_LENGTH_MAX - 1) {
+        softwareCount = PRODUCT_ID_LENGTH_MAX - 1;
+    }
+    if (serialNumberCount > PRODUCT_ID_LENGTH_MAX - 1) {
+        serialNumberCount = PRODUCT_ID_LENGTH_MAX - 1;
+    }
+
+    memset(&ProductionInfor, 0, sizeof(PRODUCTION_ID_INFO));
+
+    memcpy(ProductionInfor.BMS_HardWareVersion, hw, hardwareCount);
+    memcpy(ProductionInfor.BMS_SoftWareVersion, sw, softwareCount);
+    memcpy(ProductionInfor.BMS_SerialNumber, sn, serialNumberCount);
+
+    ProductionInfor.BMS_HardWareVersion[hardwareCount] = '\0';
+    ProductionInfor.BMS_SoftWareVersion[softwareCount] = '\0';
+    ProductionInfor.BMS_SerialNumber[serialNumberCount] = '\0';
+
+    ProductionInfor.BMS_HardWareVersionLength = hardwareCount;
+    ProductionInfor.BMS_SoftWareVersionLength = softwareCount;
+    ProductionInfor.BMS_SerialNumberLength = serialNumberCount;
+
+    /* 如果这些HeadAdress有实际用途，这里初始化 */
+    /* ProductionInfor.BMS_SerialNumberHeadAdress = ...; */
+    /* ProductionInfor.BMS_HardWareVersionHeadAdress = ...; */
+    /* ProductionInfor.BMS_SoftWareVersionHeadAdress = ...; */
+
+    ProductionInfor.BMS_SerialNumber_WriteFlag = 0;
+    ProductionInfor.BMS_HardWareVersion_WriteFlag = 0;
+    ProductionInfor.BMS_SoftWareVersion_WriteFlag = 0;
+}
+#endif

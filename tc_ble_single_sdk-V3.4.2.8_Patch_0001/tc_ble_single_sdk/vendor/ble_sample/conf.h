@@ -13,6 +13,29 @@
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
+#define C21         0
+#define C31         1
+#define D11         2
+#define D31         3
+#define C700         4
+#define C11_AND_C11pro         5
+
+#define FD_BMS_TYPE   D11
+
+#if (FD_BMS_TYPE == C21)
+#define SeriesNum  (10)
+#define CapacityFactory (104)
+#elif (FD_BMS_TYPE == C31)
+#define SeriesNum  (10)
+#define CapacityFactory (104)
+#elif (FD_BMS_TYPE == D11)
+#define SeriesNum  (10)
+#define CapacityFactory (116)
+#elif (FD_BMS_TYPE == C11_AND_C11pro)
+#define SeriesNum  (13)
+#define CapacityFactory (104)
+#endif
+
 // #define DEV_NAME_STR  "BT_star001"
 #define DEV_NAME_STR  "BT_FD190126F03200046_007"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
@@ -28,22 +51,9 @@ typedef int32_t INT32;
 typedef int16_t INT16;
 typedef int8_t INT8;
 
-
-
 #define __INIT_SOC__        (99)
 
-#if 1
-#define SeriesNum  (13)
-#define CapacityFactory (104)
-#else
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#endif
-
 #define FAC_INIT_soc (60)
-// #define CapacityFactory (87)
-// #define CapacityFactory (116)
-//#define CapacityFactory (200)
 
 typedef enum _CUR {
 CurCHG = 0, CurDSG

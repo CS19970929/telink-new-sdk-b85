@@ -212,9 +212,10 @@ void soc_factory_param_init_first(void)
 
 void soc_param_lib_init(soc_kv_data_t *_soc)
 {
-	set_calsoc(_soc->soc);
 	SOC_Calculate_Element.u8DSG_SOC_Int = _soc->dsg;
 	SOC_Calculate_Element.u32Cycle_times = _soc->cycle;
+	set_calsoc(_soc->soc);
+	
 	SOC_Calculate_Element.soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
 
 	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh / 100;
