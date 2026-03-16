@@ -249,6 +249,7 @@ void enter_fac_mode(bool on)
 	}
 #endif
 }
+extern volatile union System_Status SystemStatus;
 void charger_detect_and_keyLogi_200ms(void)
 {
 	static u8 state = 0;
@@ -260,6 +261,8 @@ void charger_detect_and_keyLogi_200ms(void)
 		{
 			state = 1;
 			open_chg_close_dsg();
+			SystemStatus.bits.b1Status_Cool = 1;
+
 		}
 		else
 		{
@@ -270,6 +273,7 @@ void charger_detect_and_keyLogi_200ms(void)
 		{
 			state = 0;
 			open_dsg_close_chg();
+			SystemStatus.bits.b1Status_Cool = 0;
 		}
 		else
 		{
@@ -1360,6 +1364,9 @@ _attribute_no_inline_ void user_init_normal(void)
 			enter_fac_mode(true);
 		}
 	}
+
+extern void WriteProID_Default(void);
+	WriteProID_Default();
 }
 
 
