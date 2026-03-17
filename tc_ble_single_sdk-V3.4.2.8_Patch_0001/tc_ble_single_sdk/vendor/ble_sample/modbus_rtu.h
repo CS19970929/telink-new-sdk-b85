@@ -1,5 +1,6 @@
 #pragma once
 #include "tl_common.h"
+#include "conf.h"
 
 u16 mb_crc16(const u8 *buf, u32 len);
 
@@ -8,9 +9,20 @@ u16 mb_crc16(const u8 *buf, u32 len);
 // - out: rsp/rsp_len（返�?1表示要发送；0表示不回�?
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 
+#if (FD_BMS_TYPE == C21)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C21"
+#elif (FD_BMS_TYPE == C31)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C31"
+#elif (FD_BMS_TYPE == D11)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
+#elif (FD_BMS_TYPE == D3PRO)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
+#elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
+#endif
+
 #define  BMS_SOFTWARE_VERDION_DEFAULT   "a009-20260316-c096v1p0"  //32
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"hanstar_hello"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"hanstar"
 
 #define PROD_SN_REG_BASE                   0xc002   // 0xE000 ~ 0xE00F
 #define PROD_SN_REG_COUNT                  16

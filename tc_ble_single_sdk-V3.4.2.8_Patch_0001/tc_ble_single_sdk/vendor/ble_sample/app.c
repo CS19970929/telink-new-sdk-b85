@@ -398,6 +398,7 @@ void app_adc_multi_sample(void)
 	}
 
 
+#ifdef _UL_RENZHENG_ENABLE_
 	static u8 state_fuse = 0;
 	static uint32_t rong_fuse_afe_err_cnt = 0;
 
@@ -472,6 +473,7 @@ void app_adc_multi_sample(void)
 			break;
 		}
 	}
+#endif
 
 #if 0
 	if(++power_on_delay <= (60))

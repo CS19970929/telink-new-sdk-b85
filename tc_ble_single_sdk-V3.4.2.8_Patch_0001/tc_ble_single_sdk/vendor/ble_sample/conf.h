@@ -8,7 +8,8 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-#define _UL_RENZHENG_ENABLE_
+// #define FAC_TEST
+// #define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
@@ -19,8 +20,9 @@
 #define D31         3
 #define C700         4
 #define C11_AND_C11pro         5
+#define D3PRO         6
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   D3PRO
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -31,6 +33,9 @@
 #elif (FD_BMS_TYPE == D11)
 #define SeriesNum  (10)
 #define CapacityFactory (116)
+#elif (FD_BMS_TYPE == D3PRO)
+#define SeriesNum  (10)
+#define CapacityFactory (78)
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
 #define CapacityFactory (104)
