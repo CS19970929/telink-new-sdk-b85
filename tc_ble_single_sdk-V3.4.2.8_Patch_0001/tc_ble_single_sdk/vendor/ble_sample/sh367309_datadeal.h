@@ -145,8 +145,22 @@ enum SYSTEM_ERROR_COMMAND {
 
 #define AFE_ODC1       		(400) 
 #define AFE_ODC1_filter  	(100)
-#define AFE_ODC2       		(400) 
+
 #define AFE_ODC2_filter  	(100)
+
+#if (FD_BMS_TYPE == C21)
+#define AFE_ODC2       		(300) 
+#elif (FD_BMS_TYPE == C31)
+#define AFE_ODC2       		(400) 
+#elif (FD_BMS_TYPE == D11)
+#define AFE_ODC2       		(300) 
+#elif (FD_BMS_TYPE == D3PRO)
+#define AFE_ODC2       		(300) 
+#elif (FD_BMS_TYPE == C11_AND_C11pro)
+#define AFE_ODC2       		(400) 
+#else
+#define AFE_ODC2       		(400) 
+#endif
 
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
