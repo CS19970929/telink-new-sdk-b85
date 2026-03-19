@@ -8,7 +8,12 @@
 #include "soc_kv_store.h"
 
 extern struct stCell_Info g_stCellInfoReport;
-// #include "soc_module_test.h"
+
+// Forward declarations
+extern UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+uint8_t get_soc_real(void);
+uint8_t get_dispsoc(void);
+void SOC_Result_Pass(void);
 
 UINT32 ModulusSub(uint32_t Data1, uint32_t Data2)
 {
@@ -97,7 +102,8 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 
 // ==================== OCV-SOC Table (Ternary Li 25C) ====================
 // Format: {voltage_mV, SOC%, ...} for GetEndValue interpolation
-#define SOC_TABLE_TERNARY_SIZE 22
+// 21 pairs = 42 elements
+#define SOC_TABLE_TERNARY_SIZE 42
 static const UINT16 OCV_SOC_Table_TernaryLi[SOC_TABLE_TERNARY_SIZE] = {
 	3000,    0,
 	3200,    5,
