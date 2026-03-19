@@ -9,7 +9,7 @@
 #include "flash_store_cfg.h"
 
 // #define FAC_TEST
-// #define _UL_RENZHENG_ENABLE_
+#define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
@@ -19,26 +19,79 @@
 #define D11         2
 #define D31         3
 #define C700         4
-#define C11_AND_C11pro         5
-#define D3PRO         6
+#define M1PRO         5
+#define M23         6
+#define M32         7
+#define T3MAX         8
+#define T3         9
+#define M25         10
+#define T1_AND_T2         11
+#define D3PRO         12
+#define C11_AND_C11pro         13
 
-#define FD_BMS_TYPE   D3PRO
+#define FD_BMS_TYPE   D11
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
-#define CapacityFactory (104)
+#define CapacityFactory (58)
+#define AFE_ODC2       		(300) 
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C21"
 #elif (FD_BMS_TYPE == C31)
 #define SeriesNum  (10)
-#define CapacityFactory (104)
+#define CapacityFactory (58)
+#define AFE_ODC2       		(400) 
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C31"
 #elif (FD_BMS_TYPE == D11)
 #define SeriesNum  (10)
 #define CapacityFactory (116)
+#define AFE_ODC2       		(300) 
+#define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
+#elif (FD_BMS_TYPE == D31)
+#define SeriesNum  (10)
+#define CapacityFactory (116)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "D31"
+#elif (FD_BMS_TYPE == C700)
+#define SeriesNum  (10)
+#define CapacityFactory (87)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C700"
+#elif (FD_BMS_TYPE == M1PRO)
+#define SeriesNum  (13)
+#define CapacityFactory (116)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "M1PRO"
+#elif (FD_BMS_TYPE == M23)
+#define SeriesNum  (10)
+#define CapacityFactory (116)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "M23"
+#elif (FD_BMS_TYPE == M32)
+#define SeriesNum  (13)
+#define CapacityFactory (116)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "M32"
+#elif (FD_BMS_TYPE == T3MAX)
+#define SeriesNum  (10)
+#define CapacityFactory (180)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "T3MAX"
+#elif (FD_BMS_TYPE == T3)
+#define SeriesNum  (10)
+#define CapacityFactory (270)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "T3"
+#elif (FD_BMS_TYPE == M25)
+#define SeriesNum  (13)
+#define CapacityFactory (145)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
+#elif (FD_BMS_TYPE == T1_AND_T2)
+#define SeriesNum  (13)
+#define CapacityFactory (225)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
 #elif (FD_BMS_TYPE == D3PRO)
 #define SeriesNum  (10)
 #define CapacityFactory (78)
+#define AFE_ODC2       		(300) 
+#define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
 #define CapacityFactory (104)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
+#define AFE_ODC2       		(400) 
 #endif
 
 // #define DEV_NAME_STR  "BT_star001"
