@@ -435,7 +435,7 @@ void app_adc_multi_sample(void)
             	FaultWarnRecord2(CellChgOTp_Third);
             	FaultWarnRecord2(CellDsgOTp_Third);
 			}
-			if((g_stCellInfoReport.u16VCellMax >= 4280))
+			if((g_stCellInfoReport.u16VCellMax >= 4280) && (g_stCellInfoReport.u16VCellMin >= 1000))
 			{
 				++delay_cnt;
 				if(delay_cnt >= 5)
