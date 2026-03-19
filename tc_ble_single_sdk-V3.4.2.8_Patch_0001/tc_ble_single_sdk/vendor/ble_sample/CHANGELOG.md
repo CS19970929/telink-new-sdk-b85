@@ -60,3 +60,45 @@ volatile int timer0_irq_cnt = 0;
 ### 安全配置建议
 - `BLE_APP_SECURITY_ENABLE=0` 当前关闭，量产建议开启
 - `APP_BATT_CHECK_ENABLE=0` 关闭，低电压写Flash有风险
+
+---
+
+## SOC精度改进 (SocEnhance.c)
+
+**日期**: 2026-03-19
+
+### 新增：OCV-SOC查表 (P0)
+- 添加三元锂电池25C OCV-SOC参考表（21个数据点，3000-4200mV）
+- 实现 `soc_ocv_lookup()` 基于 `GetEndValue` 线性插值
+- 替换旧的 `Get_OpenCircuit_Value_new()` 空实现
+
+### 新增：静置检测状态机 (P0)
+- `soc_rest_detect()` 三状态机：IDLE -> PREPARE -> READY
+- 小电流阈值 0.5A，准备时间 30秒，稳定时间 5分钟
+- 大电流(>5A)后需等待 30分钟才可进入静置
+
+### 新增：OCV校准 (P0)
+- `soc_ocv_calibration()` 静置稳定后用OCV查表修正SOC
+- 向下修正：偏差>=5%时校正（防止积分漂移偏高）
+- 向上修正：仅SOC<50%时且偏差>=3%时校正（保守策略）
+
+### 新增：温度-容量补偿 (P1)
+- 添加三元锂温度-容量系数表（-20C~60C，千分比表示）
+- `set_calsoc()` 和 `soc_param_lib_init()` 中 CapFull 乘以温度系数
+- 低温折减示例：-10C时容量为标称的72%
+
+### 新增：温度-电压阈值修正 (P1)
+- 添加低温满充电压修正表（-20C时4000mV，0C时4150mV）
+- 添加低温满放电压修正表（-20C时3300mV，0C时3150mV）
+- `soc_cali()` 满充满放判断使用温度修正后的阈值
+
+### 修改：APP_SOC_IntEnhance_Ctrl()
+- 每200ms周期调用 `soc_rest_detect()` + `soc_ocv_calibration()`
+- 在原有 `soc_cali()` 之前执行OCV校准
+
+### 清理：旧OCV代码
+- 删除约210行 `#if 0` 废弃代码（PRE_OCV, SOC_OCV_Fix2, get_ocv_cali）
+
+### 待标定
+- OCV-SOC表为参考值，建议基于实际电池型号标定
+- 温度容量系数表为经验值，建议做不同温度点充放电验证

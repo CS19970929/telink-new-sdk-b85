@@ -95,6 +95,202 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 
 #define _CAL_SLOW_DOWN_CHG
 
+// ==================== OCV-SOC Table (Ternary Li 25C) ====================
+// Format: {voltage_mV, SOC%, ...} for GetEndValue interpolation
+#define SOC_TABLE_TERNARY_SIZE 22
+static const UINT16 OCV_SOC_Table_TernaryLi[SOC_TABLE_TERNARY_SIZE] = {
+	3000,    0,
+	3200,    5,
+	3350,   10,
+	3420,   15,
+	3480,   20,
+	3530,   25,
+	3570,   30,
+	3610,   35,
+	3650,   40,
+	3690,   45,
+	3730,   50,
+	3770,   55,
+	3810,   60,
+	3860,   65,
+	3910,   70,
+	3970,   75,
+	4030,   80,
+	4080,   85,
+	4120,   90,
+	4160,   95,
+	4200,  100,
+};
+
+// ==================== Temp-Capacity Factor Table (Ternary Li) ====================
+// Format: {(T+40)*10, factor_permil}
+#define TEMP_CAP_TABLE_SIZE 18
+static const UINT16 Temp_Capacity_Table[TEMP_CAP_TABLE_SIZE] = {
+	200,    600,   // -20C -> 60%
+	250,    660,   // -15C
+	300,    720,   // -10C
+	350,    780,   //  -5C
+	400,    840,   //   0C
+	420,    870,   //   2C
+	450,    910,   //   5C
+	500,    950,   //  10C
+	550,    980,   //  15C
+	600,   1000,   //  20C
+	650,   1000,   //  25C
+	700,   1010,   //  30C
+	750,   1020,   //  35C
+	800,   1020,   //  40C
+	850,   1010,   //  45C
+	900,   1000,   //  50C
+	950,    980,   //  55C
+	1000,   960,   //  60C
+};
+
+// ==================== Temp-Voltage Correction Tables ====================
+#define TEMP_V100_TABLE_SIZE 10
+static const UINT16 Temp_V100_Table[TEMP_V100_TABLE_SIZE] = {
+	200,   4000,   // -20C
+	300,   4100,   // -10C
+	400,   4150,   //   0C
+	500,   4170,   //  10C
+	600,   4180,   //  20C
+	650,   4180,   //  25C
+	750,   4180,   //  35C
+	850,   4180,   //  45C
+	950,   4180,   //  55C
+	1000,  4180,   //  60C
+};
+
+#define TEMP_V0_TABLE_SIZE 10
+static const UINT16 Temp_V0_Table[TEMP_V0_TABLE_SIZE] = {
+	200,   3300,   // -20C
+	300,   3200,   // -10C
+	400,   3150,   //   0C
+	500,   3120,   //  10C
+	600,   3100,   //  20C
+	650,   3100,   //  25C
+	750,   3100,   //  35C
+	850,   3100,   //  45C
+	950,   3100,   //  55C
+	1000,  3100,   //  60C
+};
+
+// ==================== Rest Detection ====================
+#define REST_CURRENT_THRESHOLD   5
+#define REST_PREPARE_CNT_SMALL   150
+#define REST_STABLE_CNT          1500
+#define REST_PREPARE_CNT_LARGE   9000
+#define LARGE_CURRENT_THRESHOLD  50
+#define OCV_CALI_DOWN_THRESHOLD  5
+#define OCV_CALI_UP_THRESHOLD    3
+#define OCV_CALI_UP_SOC_LIMIT    50
+
+enum REST_STATE { REST_IDLE = 0, REST_PREPARE, REST_READY };
+
+static struct SOC_REST_DETECT {
+	enum REST_STATE state;
+	uint16_t prepare_cnt;
+	uint16_t stable_cnt;
+	uint8_t  large_curr_flag;
+} s_rest = {REST_IDLE, 0, 0, 0};
+
+static uint16_t soc_temp_get_battery_temp_raw(void)
+{
+	return g_stCellInfoReport.u16Temperature[8];
+}
+static uint16_t soc_get_temp_capacity_factor(uint16_t temp_raw)
+{
+	return GetEndValue(Temp_Capacity_Table, TEMP_CAP_TABLE_SIZE, temp_raw);
+}
+static uint16_t soc_get_temp_v100(uint16_t temp_raw)
+{
+	return GetEndValue(Temp_V100_Table, TEMP_V100_TABLE_SIZE, temp_raw);
+}
+static uint16_t soc_get_temp_v0(uint16_t temp_raw)
+{
+	return GetEndValue(Temp_V0_Table, TEMP_V0_TABLE_SIZE, temp_raw);
+}
+static uint8_t soc_ocv_lookup(uint16_t vcell_mv)
+{
+	if (vcell_mv <= 3000) return 0;
+	if (vcell_mv >= 4200) return 100;
+	return (uint8_t)GetEndValue(OCV_SOC_Table_TernaryLi, SOC_TABLE_TERNARY_SIZE, vcell_mv);
+}
+
+static void soc_rest_detect(void)
+{
+	uint8_t curr_is_small = (ICHG <= REST_CURRENT_THRESHOLD && IDSG <= REST_CURRENT_THRESHOLD) ? 1 : 0;
+	uint8_t curr_is_large = (ICHG >= LARGE_CURRENT_THRESHOLD || IDSG >= LARGE_CURRENT_THRESHOLD) ? 1 : 0;
+
+	if (curr_is_large) {
+		s_rest.large_curr_flag = 1;
+		s_rest.state = REST_IDLE;
+		s_rest.prepare_cnt = 0;
+		s_rest.stable_cnt = 0;
+		return;
+	}
+	if (!curr_is_small) {
+		s_rest.state = REST_IDLE;
+		s_rest.prepare_cnt = 0;
+		s_rest.stable_cnt = 0;
+		return;
+	}
+	switch (s_rest.state) {
+	case REST_IDLE:
+		s_rest.prepare_cnt++;
+		if (s_rest.large_curr_flag) {
+			if (s_rest.prepare_cnt >= REST_PREPARE_CNT_LARGE) {
+				s_rest.large_curr_flag = 0;
+				s_rest.prepare_cnt = 0;
+				s_rest.state = REST_PREPARE;
+			}
+		} else {
+			if (s_rest.prepare_cnt >= REST_PREPARE_CNT_SMALL) {
+				s_rest.prepare_cnt = 0;
+				s_rest.state = REST_PREPARE;
+			}
+		}
+		break;
+	case REST_PREPARE:
+		s_rest.stable_cnt++;
+		if (s_rest.stable_cnt >= REST_STABLE_CNT) {
+			s_rest.stable_cnt = 0;
+			s_rest.state = REST_READY;
+		}
+		break;
+	case REST_READY:
+		break;
+	default:
+		s_rest.state = REST_IDLE;
+		break;
+	}
+}
+
+static void soc_ocv_calibration(void)
+{
+	if (s_rest.state != REST_READY) return;
+
+	uint8_t soc_ocv = soc_ocv_lookup(VCELLMIN);
+	uint8_t soc_now = get_soc_real();
+
+	if (soc_ocv < soc_now) {
+		if ((soc_now - soc_ocv) >= OCV_CALI_DOWN_THRESHOLD) {
+			SOC_Calculate_Element.u8SOC_Now = soc_ocv;
+			SOC_Calculate_Element.u32CapNow = (UINT32)soc_ocv * SOC_Calculate_Element.u32CapFull / 100;
+			SOC_Calculate_Element.u32CapChange = 0;
+		}
+	} else if (soc_ocv > soc_now) {
+		if (soc_now < OCV_CALI_UP_SOC_LIMIT && (soc_ocv - soc_now) >= OCV_CALI_UP_THRESHOLD) {
+			SOC_Calculate_Element.u8SOC_Now = soc_ocv;
+			SOC_Calculate_Element.u32CapNow = (UINT32)soc_ocv * SOC_Calculate_Element.u32CapFull / 100;
+			SOC_Calculate_Element.u32CapChange = 0;
+		}
+	}
+	s_rest.state = REST_IDLE;
+	s_rest.prepare_cnt = 0;
+	s_rest.stable_cnt = 0;
+}
+
 enum SOC_CALI_STATE
 {
 	SOC_CALI_STATE_TRANSFER,
@@ -150,13 +346,14 @@ uint8_t get_soc_real(void)
 void set_calsoc(uint8_t _soc)
 {
 	SOC_Calculate_Element.u8SOC_Now = _soc;
-	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600; // ???*10;???��??????????��????????��????????
-	// SOC_Calculate_Element.u32Cycle_times = (UINT32)1 * 100;
-	// SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
-	// SOC_Calculate_Element.u8DSG_SOC_Int = 0;
+	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600;
 	SOC_Calculate_Element.soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
-
 	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh / 100;
+	{
+		uint16_t temp_raw = soc_temp_get_battery_temp_raw();
+		uint16_t temp_factor = soc_get_temp_capacity_factor(temp_raw);
+		SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFull * temp_factor / 1000;
+	}
 	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
 }
 
@@ -217,8 +414,12 @@ void soc_param_lib_init(soc_kv_data_t *_soc)
 	set_calsoc(_soc->soc);
 	
 	SOC_Calculate_Element.soh = bms_soh_from_cycle(SOC_Calculate_Element.u32Cycle_times);
-
 	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh / 100;
+	{
+		uint16_t temp_raw = soc_temp_get_battery_temp_raw();
+		uint16_t temp_factor = soc_get_temp_capacity_factor(temp_raw);
+		SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFull * temp_factor / 1000;
+	}
 	SOC_Calculate_Element.u32CapNow = get_soc_real() * SOC_Calculate_Element.u32CapFull / 100;
 	// SOC_Calculate_Element.u32CapFactory = SOC_Calculate_Element.u32CapFull;
 
@@ -227,33 +428,10 @@ void soc_param_lib_init(soc_kv_data_t *_soc)
 	SOC_Result_Pass();
 }
 
+// OCV lookup: uses soc_ocv_lookup internally
 uint8_t Get_OpenCircuit_Value_new(uint16_t VCell)
 {
-#if 0
-	uint8_t result = 0;
-
-	// temp_compensatation();
-
-	switch (g_tParam.other.u16Soc_TableSelect)
-	{
-	case SOC_TABLE_LIFEPO:
-		result = GetEndValue(SOC_Table_LiFePO, (uint16_t)SOC_Size_LiFePO, VCell);
-		if (VCell <= SOC_0_VAL)
-		{
-			result = 0;
-		}
-		break;
-	case SOC_TABLE_TERNARYLI:
-		result = GetEndValue(SocTable_TernaryLi, (uint16_t)SOC_Size_TernaryLi, (uint16_t)VCELLMIN);
-		break;
-	case SOC_TABLE_LIFEPO2:
-		result = GetEndValue(SocTable_LiFePO2, (uint16_t)SOC_Size_LiFePO2, (uint16_t)VCELLMIN);
-		break;
-	default:
-		break;
-	}
-	return result;
-#endif
+	return soc_ocv_lookup(VCell);
 }
 
 int8_t get_soc_from_openVol_onlyDec_new(uint16_t VCell)
@@ -582,218 +760,6 @@ void SOC_Result_Pass(void)
 	g_stCellInfoReport.SocElement.u16Cycle_times = SOC_Calculate_Element.u32Cycle_times;
 }
 
-#if 0
-#define LARGE_CURR 500
-#define LARGE_CURR2 100
-
-#define N 7
-
-static uint8_t ocv_state = 0;
-static uint8_t ocv_cnt = 0;
-static uint8_t arr_soc[N] = {0, 0, 0, 0, 0};
-
-static uint8_t large_curr_flag = 0;
-
-static uint32_t ocv200mscnt = 0;
-static uint32_t ocv200mscnt_large_curr = 0;
-
-void PRE_OCV(void)
-{
-#define OCV_CURRENT_THRESHOLD (10)
-	// static uint8_t state_pre_ocv = 0;
-
-	if (g_stCellInfoReport.u16Ichg >= LARGE_CURR || g_stCellInfoReport.u16IDischg >= LARGE_CURR)
-	{
-		large_curr_flag = 1;
-
-		ocv200mscnt = 0;
-		ocv200mscnt_large_curr = 0;
-
-		return;
-	}
-	else if (g_stCellInfoReport.u16Ichg >= LARGE_CURR2 || g_stCellInfoReport.u16IDischg >= LARGE_CURR2)
-	{
-		large_curr_flag = 2;
-
-		ocv200mscnt = 0;
-		ocv200mscnt_large_curr = 0;
-
-		return;
-	}
-
-	if (!large_curr_flag)
-	{
-		//!!! С����ֵ�ĵ�����ʵʱУ׼����soc�ϲ�ȥ,��ȷ�ϣ��϶��䲻��ȥ �������ǰ�
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD)
-		{
-			if (++ocv200mscnt >= g_debug.real_ocv_start_delay_time)
-			{
-				log_a("start real ocv cali");
-				ocv200mscnt = 0;
-				ocv_state = 1;
-			}
-		}
-		else
-		{
-			ocv200mscnt = 0;
-		}
-	}
-	else if (large_curr_flag == 1)
-	{
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD)
-		{
-			// 3��Сʱ������
-			if (++ocv200mscnt_large_curr >= 5 * 60 * 180)
-			{
-				ocv200mscnt_large_curr = 0;
-
-				large_curr_flag = 0;
-
-				// ocv_state = 1;
-			}
-		}
-		//!!!!!!!!!!!!???!!!!!!!!!!!!
-		// else
-		// {
-		// 	ocv200mscnt = 0;
-		// }
-	}
-	else if (large_curr_flag == 2)
-	{
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD && VCELLMIN <= OCV_VOL_ENABLE)
-		{
-			if (++ocv200mscnt_large_curr >= 5 * 60 * 60)
-			{
-				ocv200mscnt_large_curr = 0;
-
-				large_curr_flag = 0;
-
-				// ocv_state = 1;
-				// log_w("large curr ocv cali real soc-> %d\n", soc_calculate.u8SOC_Now);
-			}
-		}
-	}
-}
-uint8_t get_ocv_cali(uint8_t *arr_soc)
-{
-	uint16_t sum = 0;
-	uint8_t temp = 0;
-	uint8_t ocv_soc = 0;
-
-	char count, i, j;
-	for (j = 0; j < (N - 1); j++)
-	{
-		for (i = 0; i < (N - j - 1); i++)
-		{
-			if (arr_soc[i] > arr_soc[i + 1])
-			{
-				temp = arr_soc[i];
-				arr_soc[i] = arr_soc[i + 1];
-				arr_soc[i + 1] = temp;
-			}
-		}
-	}
-// #ifdef __test__
-#if 1
-	uint8_t k = 0;
-
-	log_e("arr_soc[]: ");
-	for (k = 0; k < N; k++)
-	{
-		log_w("%d ", arr_soc[k]);
-	}
-#endif
-	if (ModulusSub(arr_soc[N - 1], arr_soc[0]) > 10)
-	{
-		log_e("maxsoc %d minsoc %d", arr_soc[N - 1], arr_soc[0]);
-		goto _err;
-	}
-	for (count = 1; count < N - 1; count++)
-	{
-		sum += arr_soc[count];
-	}
-	ocv_soc = (uint8_t)(sum / (N - 2));
-	log_e("ocv cali soc->%d", ocv_soc);
-
-	return ocv_soc;
-
-_err:
-	return get_dispsoc();
-}
-
-void SOC_OCV_Fix2(void)
-{
-	static uint8_t ocv_soc = 0;
-
-	// static uint8_t ocv_soc_record[10];
-	// static bool is_firstOCV = true;
-
-	if (VCELLMIN > OCV_VOL_ENABLE)
-	{
-		ocv_state = 0;
-		ocv_cnt = 0;
-		ocv200mscnt = 0;
-		ocv200mscnt_large_curr = 0;
-		return;
-	}
-	if (g_stCellInfoReport.u16Ichg > 10 || g_stCellInfoReport.u16IDischg > 10 || g_debug.people_set)
-	{
-		if (g_debug.people_set)
-			g_debug.people_set = false;
-
-		ocv_state = 0;
-		ocv_cnt = 0;
-
-		// return;
-	}
-	switch (ocv_state)
-	{
-	case 0:
-	{
-		PRE_OCV();
-		break;
-	}
-	case 1:
-	{
-		arr_soc[ocv_cnt] = get_soc_from_openVol_onlyDec_new(VCELLMIN);
-
-		if (++ocv_cnt >= N)
-		{
-			ocv_cnt = 0;
-			// ocv_state = 2;
-			ocv_state = 0;
-
-			ocv_soc = get_ocv_cali(arr_soc);
-
-			// todo ���Ŷ�confidense �б�
-			set_soc_param(ocv_soc, 1, 0);
-		}
-		break;
-	}
-#if 0
-	case 2:
-	{
-		// todo ??????????????????????????????��?????soc?��??????��eeprom????
-		// todo ???��????????��soc eeprom
-
-		if (ModulusSub(ocv_soc, SOC_Calculate_Element.u8SOC_Now) > 3)
-		{
-			set_calsoc(ocv_soc);
-			log_e("ocv success");
-		}
-		else
-		{
-			log_e("ocv soc, soc_now err < 3, not update ocv_soc:%d, soc_now:%d", ocv_soc, SOC_Calculate_Element.u8SOC_Now);
-		}
-
-		break;
-	}
-#endif
-	default:
-		break;
-	}
-}
-#endif
 
 void SOC_EEPROM_Deal_Monitor(void)
 {
@@ -823,17 +789,15 @@ void SOC_EEPROM_Deal_Monitor(void)
 void soc_cali(void)
 {
 	static uint8_t dsg_soc0_delay = 0;
-#define TERNARYLI
 
-#ifdef TERNARYLI
-#define Totle_soc100 (4000)
-#elif (defined(LIFEPO))
-#define Totle_soc100 (3300)
-#endif
+	uint16_t temp_raw = soc_temp_get_battery_temp_raw();
+	uint16_t soc100_val = soc_get_temp_v100(temp_raw);
+	uint16_t soc0_val  = soc_get_temp_v0(temp_raw);
+	uint16_t totle_soc100 = (uint16_t)((uint32_t)soc100_val * 4000 / 4180);
 
 	if (isCHG())
 	{
-		if ((g_stCellInfoReport.u16VCellMax >= SOC_100_VAL) && g_stCellInfoReport.u16VCellMin >= Totle_soc100)
+		if ((g_stCellInfoReport.u16VCellMax >= soc100_val) && g_stCellInfoReport.u16VCellMin >= totle_soc100)
 		{
 			SOC_Calculate_Element.u8SOC_Now = 100;
 			SOC_Calculate_Element.u32CapNow = SOC_Calculate_Element.u32CapFull;
@@ -841,7 +805,7 @@ void soc_cali(void)
 	}
 	else
 	{
-		if ((g_stCellInfoReport.u16VCellMin <= SOC_0_VAL) && (g_stCellInfoReport.u16VCellMin >= 2000))
+		if ((g_stCellInfoReport.u16VCellMin <= soc0_val) && (g_stCellInfoReport.u16VCellMin >= 2000))
 		{
 			if (++dsg_soc0_delay >= (5 * 10))
 			{
@@ -874,8 +838,9 @@ void APP_SOC_IntEnhance_Ctrl()
 		break;
 	}
 
+	soc_rest_detect();
+	soc_ocv_calibration();
 	soc_cali();
-	// SOC_EEPROM_Deal_Monitor();
 	SOC_Result_Pass();
 }
 
