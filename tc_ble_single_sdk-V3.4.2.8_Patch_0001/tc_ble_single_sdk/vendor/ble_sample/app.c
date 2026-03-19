@@ -92,7 +92,7 @@ void app_timer_test_init(void)
 	irq_enable();
 }
 
-int timer0_irq_cnt = 0;
+volatile int timer0_irq_cnt = 0;
 _attribute_ram_code_ void app_timer_test_irq_proc(void)
 {
 	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
@@ -196,11 +196,11 @@ void ble_build_adv_scanrsp(void)
 	tbl_advData[i++] = 0x01;
 
 	// Incomplete 16-bit UUIDs: len=5, type=0x02, 0x1812, 0x180F
-	tbl_advData[i++] = 0x05;
-	tbl_advData[i++] = 0x02;
-	tbl_advData[i++] = 0x12;
+	tbl_advData[i++] = 0x05; // len = type(1) + 2*uuid(4) = 5
+	tbl_advData[i++] = 0x02; // Incomplete List of 16-bit Service Class UUIDs
+	tbl_advData[i++] = 0x12; // 0x1812 HID
 	tbl_advData[i++] = 0x18;
-	tbl_advData[i++] = 0x0F;
+	tbl_advData[i++] = 0x0F; // 0x180F Battery
 	tbl_advData[i++] = 0x18;
 
 	tbl_advDataLen = i;
@@ -354,14 +354,28 @@ void app_adc_multi_sample(void)
 {
 	static u32 power_on_delay = 0;
 	static u16 weichi_delay = 0;
+	static u8 mos_state = 0;
+	static uint32_t rong_fuse = 0;
+	#ifdef _UL_RENZHENG_ENABLE_
+		static u8 state_fuse = 0;
+		static uint32_t rong_fuse_afe_err_cnt = 0;
+	#endif
 
-	//todo 低功耗不检测，需要状态机回到初始化？？？
 	if(sys_time.low_power_mode)
+	{
+		mos_state = 0;
+		#ifdef _UL_RENZHENG_ENABLE_
+			state_fuse = 0;
+			rong_fuse_afe_err_cnt = 0;
+		#endif
 		return;
+	}
 
     unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
     unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
     unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
+	if(bat_temp_mv >= 3299) bat_temp_mv = 3299;
+	if(mos_temp_mv >= 3299) mos_temp_mv = 3299;
 	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
 	u32 mos_temp_r = 10 * 10 * mos_temp_mv / (3300 - mos_temp_mv);
     g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
@@ -373,8 +387,6 @@ void app_adc_multi_sample(void)
 	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
 
-	static u8 mos_state = 0;
-	static uint32_t rong_fuse = 0;
 	switch (mos_state)
 	{
 	case 0:
@@ -399,8 +411,6 @@ void app_adc_multi_sample(void)
 
 
 #ifdef _UL_RENZHENG_ENABLE_
-	static u8 state_fuse = 0;
-	static uint32_t rong_fuse_afe_err_cnt = 0;
 
 	if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 	{
@@ -408,7 +418,6 @@ void app_adc_multi_sample(void)
 		state_fuse = 0;
 
 		close_ctlc();
-		//todo mcc关了，when 开
 		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
 		{
 			if(++rong_fuse_afe_err_cnt>= 10)
@@ -953,114 +962,41 @@ void blt_pm_proc(void)
 		}
 	}
 
-#if 0
-#if(BLE_APP_PM_ENABLE)
-	if(blc_ll_getCurrentState() == BLS_LINK_STATE_IDLE){ //PM module can not manage Idle state low power.
-		/* user manage BLE Idle state sleep with API "cpu_sleep_wakeup" */
-		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
-			if(sendTerminate_before_enterDeep == 2){  //Terminate OK
-				analog_write(USED_DEEP_ANA_REG, analog_read(USED_DEEP_ANA_REG) | CONN_DEEP_FLG);
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);  //deepSleep
-			}
-		#endif
+	/* BLE power management & RTC mode control */
+	bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
+	sys_time.low_power_mode = true;
+
+	#if (UI_KEYBOARD_ENABLE)
+		if(scan_pin_need || key_not_released){
+			bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			sys_time.low_power_mode = false;
+		}
+	#elif (UI_BUTTON_ENABLE)
+		if(button_not_released){
+			bls_pm_setSuspendMask (SUSPEND_DISABLE);
+			sys_time.low_power_mode = false;
+		}
+	#endif
+
+	if(!gpio_read(CHG_IN_PIN) ||
+		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
+		g_stCellInfoReport.u16IDischg ||
+		MODE_FACTORY == Runtime_GetMode()
+		)
+	{
+		sys_time.low_power_mode = false;
+		bls_pm_setSuspendMask (SUSPEND_DISABLE);
+		quit_rtc_mode();
 	}
-	else{ //PM module manage advertising and ACL connection Slave role low power only
-
-		#if (PM_DEEPSLEEP_RETENTION_ENABLE)
-			bls_pm_setSuspendMask (SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
-		#else
-			bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-		#endif
-
-
-		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
-			if(0){
-			}
-		#if (UI_KEYBOARD_ENABLE)
-			else if(scan_pin_need || key_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#elif (UI_BUTTON_ENABLE)
-			else if(button_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#endif
-			else if(ota_is_working){
-				bls_pm_setManualLatency(0);
-			}
-
-			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
-			if(!gpio_read(CHG_IN_PIN) ||
-				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg 
-				)
-			{
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-
-
-#if 0
-		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
-			if(!ota_is_working && !blc_ll_isControllerEventPending()){  //no controller event pending
-				/* enter deepsleep mode after advertising for 60 seconds without being connected. */
-				if( blc_ll_getCurrentState() == BLS_LINK_STATE_ADV && !sendTerminate_before_enterDeep && \
-					clock_time_exceed(advertise_begin_tick , ADV_IDLE_ENTER_DEEP_TIME * 1000000)){
-					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);  //deepsleep
-				}
-				/* enter deepsleep mode after 60 seconds without any UI action(key/voice/led) in connection state. */
-				else if( device_in_connection_state && \
-						clock_time_exceed(latest_user_event_tick, CONN_IDLE_ENTER_DEEP_TIME * 1000000) ){
-					bls_ll_terminateConnection(HCI_ERR_REMOTE_USER_TERM_CONN); //push terminate command into BLE TX buffer
-					sendTerminate_before_enterDeep = 1;
-				}
-			}
-		#endif  //end of !TEST_CONN_CURRENT_ENABLE
-#endif
+	else if (device_in_connection_state)
+	{
+		sys_time.low_power_mode = false;
+		quit_rtc_mode();
 	}
-#endif  //end of BLE_APP_PM_ENABLE
-#endif  //end of BLE_APP_PM_ENABLE
-
-		bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-		sys_time.low_power_mode = true;
-		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
-			if(0){
-			}
-		#if (UI_KEYBOARD_ENABLE)
-			else if(scan_pin_need || key_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#elif (UI_BUTTON_ENABLE)
-			else if(button_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#endif
-			// else if(ota_is_working){
-			// 	bls_pm_setManualLatency(0);
-			// }
-
-			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
-			if(!gpio_read(CHG_IN_PIN) ||
-				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg || 
-				MODE_FACTORY == Runtime_GetMode()
-				)
-			// if(
-			// 	g_stCellInfoReport.u16IDischg 
-			// 	)
-			{
-				sys_time.low_power_mode = false;
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-				quit_rtc_mode();
-			}
-			else if (device_in_connection_state)
-			{
-				sys_time.low_power_mode = false;
-				quit_rtc_mode();
-			}
-			else
-			{
-				enter_rtc_mode();
-			}
+	else
+	{
+		enter_rtc_mode();
+	}
 }
 
 
