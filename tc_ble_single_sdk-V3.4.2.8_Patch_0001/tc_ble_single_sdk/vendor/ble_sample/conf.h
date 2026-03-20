@@ -30,7 +30,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   C11_AND_C11pro
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
