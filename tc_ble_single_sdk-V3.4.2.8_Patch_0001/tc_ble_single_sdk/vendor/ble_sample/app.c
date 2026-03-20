@@ -92,7 +92,7 @@ void app_timer_test_init(void)
 	irq_enable();
 }
 
-int timer0_irq_cnt = 0;
+volatile int timer0_irq_cnt = 0;
 _attribute_ram_code_ void app_timer_test_irq_proc(void)
 {
 	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
@@ -354,14 +354,28 @@ void app_adc_multi_sample(void)
 {
 	static u32 power_on_delay = 0;
 	static u16 weichi_delay = 0;
+	static u8 mos_state = 0;
+	static uint32_t rong_fuse = 0;
+	#ifdef _UL_RENZHENG_ENABLE_
+		static u8 state_fuse = 0;
+		static uint32_t rong_fuse_afe_err_cnt = 0;
+	#endif
 
-	//todo 低功耗不检测，需要状态机回到初始化？？？
 	if(sys_time.low_power_mode)
+	{
+		mos_state = 0;
+		#ifdef _UL_RENZHENG_ENABLE_
+			state_fuse = 0;
+			rong_fuse_afe_err_cnt = 0;
+		#endif
 		return;
+	}
 
     unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
     unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
     unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
+	if(bat_temp_mv >= 3299) bat_temp_mv = 3299;
+	if(mos_temp_mv >= 3299) mos_temp_mv = 3299;
 	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
 	u32 mos_temp_r = 10 * 10 * mos_temp_mv / (3300 - mos_temp_mv);
     g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
@@ -373,8 +387,6 @@ void app_adc_multi_sample(void)
 	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
 
-	static u8 mos_state = 0;
-	static uint32_t rong_fuse = 0;
 	switch (mos_state)
 	{
 	case 0:
@@ -399,8 +411,6 @@ void app_adc_multi_sample(void)
 
 
 #ifdef _UL_RENZHENG_ENABLE_
-	static u8 state_fuse = 0;
-	static uint32_t rong_fuse_afe_err_cnt = 0;
 
 	if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 	{
