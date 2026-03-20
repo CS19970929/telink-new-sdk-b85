@@ -28,6 +28,7 @@
 #define T1_AND_T2         11
 #define D3PRO         12
 #define C11_AND_C11pro         13
+#define test_default         14
 
 #define FD_BMS_TYPE   D11
 
@@ -91,6 +92,11 @@
 #define SeriesNum  (13)
 #define CapacityFactory (104)
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
+#define AFE_ODC2       		(400) 
+#else
+#define SeriesNum  (10)
+#define CapacityFactory (100)
+#define  BMS_HARDWARE_VERDION_DEFAULT   "test"
 #define AFE_ODC2       		(400) 
 #endif
 
