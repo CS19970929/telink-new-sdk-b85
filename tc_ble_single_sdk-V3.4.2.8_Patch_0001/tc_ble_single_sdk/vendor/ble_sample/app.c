@@ -350,24 +350,89 @@ const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 
 };
 
+#define MCU_BAT_OT_WARN_DECIDE       ((80 + 40) * 10)
+#define MCU_BAT_OT_FUSE_DECIDE       ((85 + 40) * 10)
+#define MCU_BAT_OT_RELEASE_DECIDE    ((75 + 40) * 10)
+#define MCU_MOS_OT_DECIDE            ((95 + 40) * 10)
+#define MCU_MOS_OT_RELEASE           ((75 + 40) * 10)
+#define MCU_CELL_OV_FUSE_MV          (4280u)
+#define MCU_CELL_OV_RELEASE_MV       (4150u)
+#define MCU_CELL_VALID_MIN_MV        (1000u)
+#define MCU_PACK_CFG_MARGIN_MV       (1500u)
+#define MCU_PACK_CFG_MAX_PER_CELL_MV (4500u)
+#define MCU_FUSE_CONFIRM_COUNT       (10u)
+#define MCU_CUTOFF_CONFIRM_COUNT     (5u)
+
+typedef enum
+{
+	SECONDARY_PROTECT_IDLE = 0,
+	SECONDARY_PROTECT_CUTOFF,
+	SECONDARY_PROTECT_CFG_MISMATCH,
+	SECONDARY_PROTECT_FUSE_BLOWN,
+} secondary_protect_state_t;
+
+typedef struct
+{
+	secondary_protect_state_t state;
+	u8 mos_ot_latched;
+	u8 fuse_output_latched;
+	u16 cutoff_cnt;
+	u16 fuse_cnt;
+	u16 afe_err_fuse_cnt;
+} secondary_protect_ctx_t;
+
+static secondary_protect_ctx_t g_secondary_protect = {0};
+
+static int pack_cfg_mismatch_detected(u32 vbat_mv)
+{
+	u32 allowed_max_mv = ((u32)SeriesNum * MCU_PACK_CFG_MAX_PER_CELL_MV) + MCU_PACK_CFG_MARGIN_MV;
+
+	if (g_stCellInfoReport.u16VCellMin < MCU_CELL_VALID_MIN_MV)
+	{
+		return 0;
+	}
+
+	return vbat_mv > allowed_max_mv;
+}
+
+static void secondary_force_cutoff(void)
+{
+	close_ctlc();
+}
+
+static void secondary_try_release_cutoff(void)
+{
+	if ((g_secondary_protect.state == SECONDARY_PROTECT_IDLE) &&
+		(g_secondary_protect.mos_ot_latched == 0))
+	{
+		open_ctlc();
+	}
+}
+
+static void secondary_trigger_fuse(void)
+{
+#ifdef _UL_RENZHENG_ENABLE_
+	if (!g_secondary_protect.fuse_output_latched)
+	{
+		gpio_write(RF_EN_PIN, 1);
+		g_secondary_protect.fuse_output_latched = 1;
+	}
+#endif
+	g_secondary_protect.state = SECONDARY_PROTECT_FUSE_BLOWN;
+}
+
 void app_adc_multi_sample(void)
 {
-	static u32 power_on_delay = 0;
-	static u16 weichi_delay = 0;
-	static u8 mos_state = 0;
-	static uint32_t rong_fuse = 0;
-	#ifdef _UL_RENZHENG_ENABLE_
-		static u8 state_fuse = 0;
-		static uint32_t rong_fuse_afe_err_cnt = 0;
-	#endif
-
 	if(sys_time.low_power_mode)
 	{
-		mos_state = 0;
-		#ifdef _UL_RENZHENG_ENABLE_
-			state_fuse = 0;
-			rong_fuse_afe_err_cnt = 0;
-		#endif
+		if (g_secondary_protect.state != SECONDARY_PROTECT_FUSE_BLOWN)
+		{
+			g_secondary_protect.state = SECONDARY_PROTECT_IDLE;
+			g_secondary_protect.mos_ot_latched = 0;
+			g_secondary_protect.cutoff_cnt = 0;
+			g_secondary_protect.fuse_cnt = 0;
+			g_secondary_protect.afe_err_fuse_cnt = 0;
+		}
 		return;
 	}
 
@@ -387,100 +452,134 @@ void app_adc_multi_sample(void)
 	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
 
-	switch (mos_state)
+	if(g_stCellInfoReport.u16Temperature[9] >= MCU_MOS_OT_DECIDE)
 	{
-	case 0:
-		if(g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)	
+		if (!g_secondary_protect.mos_ot_latched)
 		{
-			close_ctlc();
 			FaultWarnRecord2(MosOTp_Third);
-			mos_state = 1;
 		}
-		break;
-	case 1:
-		if(g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)	
-		{
-			open_ctlc();
-			mos_state = 0;
-		}
-		break;
-	default:
-		mos_state = 0;
-		break;
+		g_secondary_protect.mos_ot_latched = 1;
+		secondary_force_cutoff();
+	}
+	else if(g_secondary_protect.mos_ot_latched &&
+			(g_stCellInfoReport.u16Temperature[9] <= MCU_MOS_OT_RELEASE))
+	{
+		g_secondary_protect.mos_ot_latched = 0;
+		secondary_try_release_cutoff();
 	}
 
 
 #ifdef _UL_RENZHENG_ENABLE_
-
-	if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 	{
-		rong_fuse = 0;
-		state_fuse = 0;
+		u8 afe_err = (System_ErrFlag.u8ErrFlag_Com_AFE1 != 0);
+		u8 cfg_mismatch = pack_cfg_mismatch_detected(Vbat_mv);
+		u8 bat_ot_warn = (g_stCellInfoReport.u16Temperature[8] >= MCU_BAT_OT_WARN_DECIDE);
+		u8 bat_ot_fuse = (g_stCellInfoReport.u16Temperature[8] >= MCU_BAT_OT_FUSE_DECIDE);
+		u8 cell_ov_fuse = ((g_stCellInfoReport.u16VCellMax >= MCU_CELL_OV_FUSE_MV) &&
+						  (g_stCellInfoReport.u16VCellMin >= MCU_CELL_VALID_MIN_MV));
+		u8 pack_ov_fuse = (Vbat_mv >= ((u32)MCU_CELL_OV_FUSE_MV * SeriesNum));
+		u8 charging_present = (g_stCellInfoReport.u16Ichg > 0);
+		u8 recover_ok = (g_stCellInfoReport.u16Temperature[8] < MCU_BAT_OT_RELEASE_DECIDE) &&
+					   (g_stCellInfoReport.u16VCellMax <= MCU_CELL_OV_RELEASE_MV) &&
+					   (!afe_err) && (!cfg_mismatch);
 
-		close_ctlc();
-		//todo mcc关了，when 开
-		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
+		if (cfg_mismatch && (g_secondary_protect.state != SECONDARY_PROTECT_FUSE_BLOWN))
 		{
-			if(++rong_fuse_afe_err_cnt>= 10)
-			{
-				rong_fuse_afe_err_cnt = 0;
-		#ifdef _UL_RENZHENG_ENABLE_
-			gpio_write(RF_EN_PIN, 1);
-		#endif
-			}
-
+			g_secondary_protect.state = SECONDARY_PROTECT_CFG_MISMATCH;
+			g_secondary_protect.cutoff_cnt = 0;
+			g_secondary_protect.fuse_cnt = 0;
+			g_secondary_protect.afe_err_fuse_cnt = 0;
+			secondary_force_cutoff();
 		}
-	}
-	else
-	{
-		static u16 delay_cnt = 0;
 
-		switch (state_fuse)
+		if (g_secondary_protect.state == SECONDARY_PROTECT_CFG_MISMATCH)
 		{
-		case 0:
-			if((g_stCellInfoReport.u16Temperature[8] >= (80+40)*10))
+			secondary_force_cutoff();
+			return;
+		}
+
+		if (afe_err)
+		{
+			g_secondary_protect.state = SECONDARY_PROTECT_CUTOFF;
+			g_secondary_protect.cutoff_cnt = 0;
+			g_secondary_protect.fuse_cnt = 0;
+			secondary_force_cutoff();
+
+			if (pack_ov_fuse || bat_ot_fuse)
 			{
-				state_fuse = 1;
-				close_ctlc();
-            	FaultWarnRecord2(CellChgOTp_Third);
-            	FaultWarnRecord2(CellDsgOTp_Third);
-			}
-			if((g_stCellInfoReport.u16VCellMax >= 4280) && (g_stCellInfoReport.u16VCellMin >= 1000))
-			{
-				++delay_cnt;
-				if(delay_cnt >= 5)
+				if (++g_secondary_protect.afe_err_fuse_cnt >= MCU_FUSE_CONFIRM_COUNT)
 				{
-					delay_cnt = 0;
-					state_fuse = 1;
-					close_ctlc();
-					//是否应该强制关掉放电？？？
-            		FaultWarnRecord2(CellOvp_Third);
-            		FaultWarnRecord2(BatOvp_Third);
+					g_secondary_protect.afe_err_fuse_cnt = 0;
+					secondary_trigger_fuse();
 				}
 			}
 			else
-				delay_cnt = 0;
-			break;
-		case 1:
-			if((g_stCellInfoReport.u16Temperature[8] < (75+40)*10) && (g_stCellInfoReport.u16VCellMax <= 4150))
 			{
-				state_fuse = 0;
-				open_ctlc();
+				g_secondary_protect.afe_err_fuse_cnt = 0;
 			}
-			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
+			return;
+		}
+		g_secondary_protect.afe_err_fuse_cnt = 0;
+
+		if ((bat_ot_warn || cell_ov_fuse) &&
+			(g_secondary_protect.state == SECONDARY_PROTECT_IDLE))
+		{
+			g_secondary_protect.state = SECONDARY_PROTECT_CUTOFF;
+			g_secondary_protect.cutoff_cnt = 0;
+			g_secondary_protect.fuse_cnt = 0;
+			secondary_force_cutoff();
+
+			if (bat_ot_warn)
 			{
-				if(++rong_fuse >= (10))
+				FaultWarnRecord2(CellChgOTp_Third);
+				FaultWarnRecord2(CellDsgOTp_Third);
+			}
+			if (cell_ov_fuse)
+			{
+				FaultWarnRecord2(CellOvp_Third);
+				FaultWarnRecord2(BatOvp_Third);
+			}
+		}
+
+		if (g_secondary_protect.state == SECONDARY_PROTECT_CUTOFF)
+		{
+			secondary_force_cutoff();
+
+			if (recover_ok && !g_secondary_protect.mos_ot_latched)
+			{
+				g_secondary_protect.state = SECONDARY_PROTECT_IDLE;
+				g_secondary_protect.cutoff_cnt = 0;
+				g_secondary_protect.fuse_cnt = 0;
+				secondary_try_release_cutoff();
+				return;
+			}
+
+			if (bat_ot_warn || cell_ov_fuse)
+			{
+				if (g_secondary_protect.cutoff_cnt < MCU_CUTOFF_CONFIRM_COUNT)
 				{
-					rong_fuse = 0;
-				#ifdef _UL_RENZHENG_ENABLE_
-					gpio_write(RF_EN_PIN, 1);
-				#endif
+					g_secondary_protect.cutoff_cnt++;
 				}
 			}
-			break;
-		default:
-			state_fuse = 0;
-			break;
+			else
+			{
+				g_secondary_protect.cutoff_cnt = 0;
+			}
+
+			if ((g_secondary_protect.cutoff_cnt >= MCU_CUTOFF_CONFIRM_COUNT) &&
+				(charging_present) &&
+				(pack_ov_fuse || cell_ov_fuse || bat_ot_fuse))
+			{
+				if (++g_secondary_protect.fuse_cnt >= MCU_FUSE_CONFIRM_COUNT)
+				{
+					g_secondary_protect.fuse_cnt = 0;
+					secondary_trigger_fuse();
+				}
+			}
+			else
+			{
+				g_secondary_protect.fuse_cnt = 0;
+			}
 		}
 	}
 #endif
@@ -1598,7 +1697,6 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();
 }
-
 
 
 

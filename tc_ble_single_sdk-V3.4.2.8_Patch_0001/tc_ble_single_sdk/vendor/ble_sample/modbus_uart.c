@@ -5,6 +5,7 @@
 #include "drivers.h"
 #include "modbus_rtu.h"
 #include "conf.h"
+#include "bus_mux.h"
 
 static volatile u8  s_rx_ready = 0;
 
