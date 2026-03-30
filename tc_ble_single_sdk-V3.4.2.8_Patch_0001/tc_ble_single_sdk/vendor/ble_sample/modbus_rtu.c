@@ -192,7 +192,13 @@ static void write_reg(u16 reg, u16 val) {
 
     if(reg >= 0x2100 && reg <= 0x2140)
     {
-        *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100)) = val; 
+        u16 *target = &g_tParam.protect.u16VcellOvp_First + (reg - 0x2100);
+        if (*target != val)
+        {
+            *target = val;
+            SaveParam();
+            AFE_PARAM_WRITE_Flag = 1;
+        }
     }
     // if(reg == 0x2318) 
     if(reg == 0x1005)  set_soc_param(val, 1, 1);

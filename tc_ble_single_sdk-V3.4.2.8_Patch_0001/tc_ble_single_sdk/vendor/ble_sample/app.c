@@ -1454,8 +1454,15 @@ _attribute_no_inline_ void user_init_normal(void)
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
-		soc_kv_store_init();
-		soc_kv_data_t d = soc_kv_store_get();
+		soc_kv_data_t d;
+		if(soc_kv_store_init()){
+			d = soc_kv_store_get();
+		}
+		else{
+			d.soc = FAC_INIT_soc;
+			d.dsg = 0;
+			d.cycle = 1;
+		}
 		// d.soc = 100;
 		soc_param_lib_init(&d);
 
@@ -1692,6 +1699,7 @@ _attribute_no_inline_ void main_loop(void)
 #ifdef _FUNC_UART_
 		main_loop_modbus();
 #endif
+		SH367309_UpdataAfeConfig();
 		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 		//nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
@@ -1700,4 +1708,7 @@ _attribute_no_inline_ void main_loop(void)
 
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> new-master

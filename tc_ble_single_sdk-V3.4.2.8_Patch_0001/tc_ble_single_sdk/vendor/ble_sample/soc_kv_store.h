@@ -28,19 +28,21 @@ extern "C" {
 
 typedef enum {
     SOC_ITEM_SOC   = 0,
-    SOC_ITEM_SOH   = 1,
+    SOC_ITEM_DSG_INT = 1,
+    SOC_ITEM_SOH   = SOC_ITEM_DSG_INT,   // 兼容旧命名：实际保存的是放电累计百分比，不是 SOH
     SOC_ITEM_CYCLE = 2,
 } soc_item_t;
 
 typedef struct {
-    u16 soc;    // 整数
-    u16 dsg;    // 整数
-    u16 cycle;  // 整数
+    u16 soc;    // 当前 SOC
+    u16 dsg;    // 放电累计百分比（u8DSG_SOC_Int），SOH 由 cycle 推导，不直接存储
+    u16 cycle;  // 循环次数
 } soc_kv_data_t;
 
 typedef struct {
     u32 active_base;
     u32 write_off;
+    u32 generation;
     u8  loaded;
 } soc_kv_dbg_t;
 

@@ -270,7 +270,6 @@ int Choose_Right_Value(u16 cur_Value, const u16 *AFE_list)
 
 u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
-    u8 result;
     u8 i;
     Feed_IWatchDog;
 
@@ -283,6 +282,7 @@ u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
         WrBuf++;
         Delay1ms(1);
     }
+    return 1;
 }
 u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 {
@@ -306,9 +306,6 @@ u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf)
 
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
-    u8 result;
-    u8 i;
-
     TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
     // for (i = 0; i < Length; i++)
     // {
@@ -320,6 +317,7 @@ u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
     //     Delay1ms(40);
     // }
     // todo 鎬庝箞纭纭欢i2c鎴愬姛
+    return 1;
 }
 
 int g_u32CS_Res_AFE;
@@ -406,23 +404,70 @@ void Refresh_Parameters(void)
 }
 
 /* 濮ｅ繑顐奸弫鐗堝祦閺�鐟板綁闁�燁嚢閸欐潧om閸欏倹鏆熷В鏃囩窛娑擄拷娑撳绱濋柇锝勯嚋閸欏倹鏆熼弨鐟板綁鐏忓崬鍟撻崗銉╁亝=閸濐亙閲� */
-void Write_Parameters(void)
+static u8 AFE_VerifyParamBytes(u8 start_addr, const u8 *expect, u8 len)
 {
-    int i = 0;
-    u8 temp[26] = {0};
-    u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+    u8 readback[26] = {0};
+    u8 i = 0;
 
-    if (MTPRead(0x00, 25, temp))
+    if (len > sizeof(readback))
     {
-        for (i = 0; i < 25; i++)
-        { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
-            if (temp[i] != P[i])
-            {
-                MTPWriteROM(i, 1, P + i); // 闁插秴鍟揈EPROM閻ㄥ嫬鐦庣�涙ê娅掗敍灞艰⒈濞嗭拷
-                Delay1ms(40);
-            }
+        return 0;
+    }
+
+    if (!MTPRead(start_addr, len, readback))
+    {
+        return 0;
+    }
+
+    for (i = 0; i < len; i++)
+    {
+        if (readback[i] != expect[i])
+        {
+            printf("[AFE] verify fail addr=0x%02x wr=0x%02x rd=0x%02x\n", start_addr + i, expect[i], readback[i]);
+            return 0;
         }
     }
+
+    return 1;
+}
+
+static u8 Write_Parameters(void)
+{
+    int i = 0;
+    u8 temp[25] = {0};
+    u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+    u8 write_cnt = 0;
+
+    if (!MTPRead(0x00, 25, temp))
+    {
+        return 0;
+    }
+
+    for (i = 0; i < 25; i++)
+    { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
+        if (temp[i] != P[i])
+        {
+            if (!MTPWriteROM(i, 1, P + i))
+            {
+                return 0;
+            }
+            Delay1ms(40);
+
+            if (!AFE_VerifyParamBytes(i, P + i, 1))
+            {
+                return 0;
+            }
+
+            write_cnt++;
+        }
+    }
+
+    if (write_cnt == 0)
+    {
+        return 1;
+    }
+
+    return AFE_VerifyParamBytes(0x00, P, 25);
 }
 
 void AFE_Reset(void)
@@ -487,66 +532,76 @@ void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
     MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 }
 
-void SH367309_UpdataAfeConfig(void)
+u8 SH367309_UpdataAfeConfig(void)
 {
     u8 isdiff = 0;
+    u8 write_ok = 1;
 
-    if (AFE_PARAM_WRITE_Flag)
+    if (!AFE_PARAM_WRITE_Flag)
     {
-        AFE_PARAM_WRITE_Flag = 0;
-        // load_protectParam();
-        Refresh_Parameters();
-        {
-            int i = 0;
-            u8 temp[26] = {0};
-            u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
-            printf("[!!!]flash afe param111");
-            array_printf((unsigned char *)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
-            // array_printf((unsigned char*)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
+        return 0;
+    }
 
-            if (MTPRead(0x00, 25, temp))
+    AFE_PARAM_WRITE_Flag = 0;
+    // load_protectParam();
+    Refresh_Parameters();
+    {
+        int i = 0;
+        u8 temp[25] = {0};
+        u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+        printf("[!!!]flash afe param111");
+        array_printf((unsigned char *)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
+
+        if (MTPRead(0x00, 25, temp))
+        {
+            array_printf(temp, sizeof(temp));
+            for (i = 0; i < 25; i++)
             {
-                array_printf(temp, sizeof(temp));
-                for (i = 0; i < 25; i++)
-                { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
-                    if (temp[i] != P[i])
-                    {
-                        isdiff = 1;
-                        break;
-                    }
+                if (temp[i] != P[i])
+                {
+                    isdiff = 1;
+                    break;
                 }
             }
         }
-
-        if (isdiff)
-        {
-            printf("[!!!]flash afe param222");
-            // MCUO_AFE_VPRO = 1; // 鏉╂稑鍙嗛悜褍鍟撳Ο鈥崇础
-            gpio_write(GPIO_PD7, 1);
-            Delay1ms(20);
-            Feed_IWatchDog;
-
-            Write_Parameters();
-
-            Feed_IWatchDog;
-            // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
-            gpio_write(GPIO_PD7, 0);
-            Delay1ms(1);
-
-            if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
-            {
-                AFE_Reset(); // Reset IC
-                Delay1ms(5);
-                AFE_IsReady();
-                AFE_ResetFlag = 1;
-            }
-            SH367309_Enable_AFE_Wdt_Cadc_Drivers();
-        }
-        else
-        {
-            printf("[!!!] no need flash");
-        }
     }
+
+    if (isdiff)
+    {
+        printf("[!!!]flash afe param222");
+        gpio_write(GPIO_PD7, 1);
+        Delay1ms(20);
+        Feed_IWatchDog;
+
+        write_ok = Write_Parameters();
+
+        Feed_IWatchDog;
+        gpio_write(GPIO_PD7, 0);
+        Delay1ms(1);
+
+        if (!write_ok)
+        {
+            printf("[AFE] parameter write verify failed\n");
+            System_ERROR_UserCallback(ERROR_AFE1);
+            AFE_PARAM_WRITE_Flag = 1;
+            return 1;
+        }
+
+        if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
+        {
+            AFE_Reset(); // Reset IC
+            Delay1ms(5);
+            AFE_IsReady();
+            AFE_ResetFlag = 1;
+        }
+        SH367309_Enable_AFE_Wdt_Cadc_Drivers();
+    }
+    else
+    {
+        printf("[!!!] no need flash");
+    }
+
+    return 0;
 }
 
 UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat)

@@ -745,8 +745,9 @@ extern UINT16 Fault_record_Third2[Record_len];
 
 extern sh367309_ram_t ram_reg_309;
 extern SH367309_REG_STORE SH367309_Reg_Store;
+extern int AFE_PARAM_WRITE_Flag;
 
-void SH367309_UpdataAfeConfig(void);
+u8 SH367309_UpdataAfeConfig(void);
 void App_AFEGet(void);
 void AFE_Reset(void);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
