@@ -19,6 +19,7 @@
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "param.h"
+#include "config_store.h"
 
 PARAM_T g_tParam;
 
@@ -35,10 +36,11 @@ PARAM_T g_tParam;
 */
 void LoadParam(void)
 {
+	config_store_blob_t blob;
+	int loaded = 0;
 #ifdef PARAM_SAVE_TO_FLASH
-	/* 读取CPU Flash中的参数 */
-	// flash_read_page(PARAM_ADDR, (u8 *)&g_tParam, sizeof(PARAM_T));
-	flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&g_tParam);
+	loaded = config_store_load(&blob);
+	g_tParam = blob.param;
 	printf("paramVer = %d", g_tParam.ParamVer);
 	array_printf((unsigned char *)&g_tParam, sizeof(g_tParam));
 #endif
@@ -49,7 +51,7 @@ void LoadParam(void)
 #endif
 
 	/* 填充缺省参数 */
-	if (g_tParam.ParamVer != PARAM_VER)
+	if (!loaded || g_tParam.ParamVer != PARAM_VER)
 	{
 		struct PRT_E2ROM_PARAS default_param = E2P_PROTECT_DEFAULT_PRT;
 
@@ -73,10 +75,11 @@ void LoadParam(void)
 */
 void SaveParam(void)
 {
+	config_store_blob_t blob;
 #ifdef PARAM_SAVE_TO_FLASH
-	/* 将全局的参数变量保存到 CPU Flash */
-	flash_erase_sector(PARAM_ADDR);
-	flash_write_page(PARAM_ADDR, sizeof(PARAM_T), (unsigned char *)&g_tParam);
+	config_store_load(&blob);
+	blob.param = g_tParam;
+	config_store_save(&blob);
 #endif
 
 #ifdef PARAM_SAVE_TO_EEPROM

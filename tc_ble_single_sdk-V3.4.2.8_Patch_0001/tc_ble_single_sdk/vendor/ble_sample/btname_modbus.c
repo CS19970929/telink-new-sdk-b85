@@ -1,4 +1,5 @@
 #include "btname_modbus.h"
+#include "config_store.h"
 #include "flash_store_cfg.h"
 
 /* �㹤����� Telink SDK ͷ�ļ�������ʵ�� SDK ���ܲ�ͬ�� */
@@ -40,40 +41,8 @@ static char *m_strncpy(char *dst, const char *src, unsigned n)
     return dst;
 }
 
-/* ================== �ڲ��洢��ʽ��һ�� sector ֻ�� suffix ================== */
-#define BTNAME_MAGIC  0x53465831u  /* 'SFX1' */
-
-typedef struct __attribute__((packed)) {
-    uint32_t magic;
-    uint8_t  len;                               /* 1..BTNAME_SUFFIX_MAX_LEN */
-    uint8_t  cksum;                             /* checksum8 */
-    uint8_t  suffix[BTNAME_SUFFIX_MAX_LEN];     /* raw bytes */
-} btname_rec_t;
-
 /* ================== RAM ״̬���������� BT_ + suffix ================== */
 static char g_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
-
-/* ================== checksum8������ɿ��� ================== */
-static uint8_t checksum8(const uint8_t *p, uint8_t n)
-{
-    uint8_t s = 0;
-    for (uint8_t i = 0; i < n; i++) s ^= p[i];
-    return (uint8_t)(s ^ 0xA5u);
-}
-
-/* ================== Flash ��װ��Telink��д/������жϣ� ================== */
-static void flash_read_bytes(uint32_t addr, uint8_t *buf, uint32_t len)
-{
-    flash_read_page(addr, len, buf);
-}
-static void flash_erase_sector_safe(uint32_t addr)
-{
-    flash_erase_sector(addr);
-}
-static void flash_write_bytes_safe(uint32_t addr, const uint8_t *buf, uint32_t len)
-{
-    flash_write_page(addr, len, (unsigned char*)buf);
-}
 
 /* ================== BLE Ӧ�����֣�ֻ�� ScanRsp �� Complete Local Name(0x09) ==================
  * ע�⣺����㹤�� scanRsp ��Ҫ���������ֶΣ��������ݵȣ�����������滻Ϊ�������Լ���ƴ��������
@@ -145,48 +114,29 @@ static uint8_t sanitize_suffix(char *s)
 /* ================== Flash <-> suffix ================== */
 static int suffix_load_from_flash(char out_suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
-    btname_rec_t rec;
-    m_memset(&rec, 0, sizeof(rec));
-    flash_read_bytes(BTNAME_SECTOR_ADDR, (uint8_t*)&rec, sizeof(rec));
+    config_store_blob_t blob;
 
-    if (rec.magic != BTNAME_MAGIC) return 0;
-    if (rec.len == 0 || rec.len > BTNAME_SUFFIX_MAX_LEN) return 0;
-    if (rec.cksum != checksum8(rec.suffix, rec.len)) return 0;
+    if (!config_store_load(&blob)) return 0;
+    if (blob.meta.bt_name_len == 0 || blob.meta.bt_name_len > BTNAME_SUFFIX_MAX_LEN) return 0;
 
-    m_memcpy(out_suffix, rec.suffix, rec.len);
-    out_suffix[rec.len] = '\0';
+    m_memcpy(out_suffix, blob.bt_name_suffix, blob.meta.bt_name_len);
+    out_suffix[blob.meta.bt_name_len] = '\0';
     return 1;
 }
 
 static int suffix_save_to_flash(const char *suffix)
 {
+    config_store_blob_t blob;
     uint8_t len = 0;
     while (len < BTNAME_SUFFIX_MAX_LEN && suffix[len] != '\0') len++;
     if (len == 0) return 0;
 
-    btname_rec_t rec;
-    m_memset(&rec, 0xFF, sizeof(rec));
-    rec.magic = BTNAME_MAGIC;
-    rec.len   = len;
-    m_memcpy(rec.suffix, suffix, len);
-    rec.cksum = checksum8(rec.suffix, rec.len);
+    config_store_load(&blob);
+    m_memset(blob.bt_name_suffix, 0, sizeof(blob.bt_name_suffix));
+    m_memcpy(blob.bt_name_suffix, suffix, len);
+    blob.meta.bt_name_len = len;
 
-    flash_erase_sector_safe(BTNAME_SECTOR_ADDR);
-    flash_write_bytes_safe(BTNAME_SECTOR_ADDR, (const uint8_t*)&rec, sizeof(rec));
-
-    /* �ض�У�� */
-    btname_rec_t chk;
-    m_memset(&chk, 0, sizeof(chk));
-    //todo
-    flash_read_bytes(BTNAME_SECTOR_ADDR, (uint8_t*)&chk, sizeof(chk));
-
-    if (chk.magic != BTNAME_MAGIC) return 0;
-    if (chk.len != rec.len) return 0;
-    if (chk.cksum != rec.cksum) return 0;
-    for (uint8_t i = 0; i < rec.len; i++) {
-        if (chk.suffix[i] != rec.suffix[i]) return 0;
-    }
-    return 1;
+    return config_store_save(&blob);
 }
 
 /* ================== API ================== */

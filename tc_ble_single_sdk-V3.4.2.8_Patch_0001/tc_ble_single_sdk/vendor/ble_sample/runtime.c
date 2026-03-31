@@ -1,86 +1,43 @@
 #include "runtime.h"
 #include "drivers.h"
 #include "flash_store_cfg.h"
+#include "runtime_state_store.h"
 #include "sci_upper.h"
 #include "sh367309_datadeal.h"
 
 extern struct stCell_Info g_stCellInfoReport;
 
-typedef struct
-{
-    u32 runtime_min;
-    u16 crc;
-    u16 flag;
-}runtime_store_t;
-
 static u32 g_runtime_min = 0;
 static bms_mode_t g_mode = MODE_NORMAL;
 
 
-/* 简单CRC */
-static u16 runtime_crc(u8 *data,u16 len)
-{
-    u16 crc = 0;
 
-    for(u16 i = 0;i < len;i++)
-    {
-        crc += data[i];
-    }
-
-    return crc;
-}
-
-
-/* 从Flash读取 */
 static void runtime_flash_load(void)
 {
-    runtime_store_t data;
+    flash_runtime_state_t state;
 
-    flash_read_page(FLASH_ADR_RUNTIME,sizeof(runtime_store_t),(u8 *)&data);
-
-    if(data.flag != RUNTIME_FLAG)
+    if (runtime_state_store_load(&state))
+    {
+        g_runtime_min = state.runtime_min;
+    }
+    else
     {
         g_runtime_min = 0;
-        return;
     }
-
-    u16 crc = runtime_crc((u8*)&data,sizeof(runtime_store_t)-4);
-
-    if(crc != data.crc)
-    {
-        g_runtime_min = 0;
-        return;
-    }
-
-    g_runtime_min = data.runtime_min;
 }
 
 
 /* 写Flash */
 static void runtime_flash_save(void)
 {
-    runtime_store_t data;
-    runtime_store_t read_check = {0};
+    flash_runtime_state_t state;
 
-    data.runtime_min = g_runtime_min;
-    data.flag = RUNTIME_FLAG;
-
-    data.crc = runtime_crc((u8*)&data,sizeof(runtime_store_t)-4);
-
-    //todo 会有风险，断电？？？
-    flash_erase_sector(FLASH_ADR_RUNTIME);
-    flash_write_page(FLASH_ADR_RUNTIME,sizeof(runtime_store_t),(u8*)&data);
-
-    // flash_read_page(FLASH_ADR_RUNTIME,sizeof(runtime_store_t),(u8 *)&read_check);
-
-    // if(read_check.flag != data.flag)
-    //     System_ERROR_UserCallback(ERROR_CAN);
-    // if(read_check.runtime_min != data.runtime_min)
-    //     System_ERROR_UserCallback(ERROR_CAN);
-    // if(read_check.crc != data.crc)
-    //     System_ERROR_UserCallback(ERROR_CAN);
+    runtime_state_store_load(&state);
+    state.runtime_min = g_runtime_min;
+    state.factory_expired = (g_runtime_min >= FACTORY_TIME_LIMIT_MIN) ? 1 : 0;
+    state.bms_mode = state.factory_expired ? MODE_NORMAL : MODE_FACTORY;
+    runtime_state_store_save(&state);
 }
-
 
 /* 初始化 */
 void Runtime_Init(void)

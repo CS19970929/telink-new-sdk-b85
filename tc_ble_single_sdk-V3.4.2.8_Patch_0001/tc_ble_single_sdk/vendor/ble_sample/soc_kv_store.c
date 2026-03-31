@@ -1,4 +1,5 @@
 #include "soc_kv_store.h"
+#include "runtime_state_store.h"
 // #include <string.h>
 
 // ================= 编码：u16[15:14]=type, u16[13:0]=value =================
@@ -29,6 +30,7 @@ typedef struct {
 
 static soc_kv_data_t g_cache;       // 当前“最新计算值”
 static soc_kv_data_t g_last_logged; // 上一次“写入flash”的值（用于变化>=1判断）
+static soc_kv_data_t g_last_checkpoint;
 static soc_kv_dbg_t  g_dbg;
 
 static inline u16 pack_word(u16 type, u16 val14)
@@ -86,6 +88,35 @@ static void sector_defaults(soc_kv_data_t *out)
     out->soc = 60;
     out->dsg = 0;
     out->cycle = 1;
+}
+
+static u16 diff_u16(u16 lhs, u16 rhs)
+{
+    return (lhs >= rhs) ? (lhs - rhs) : (rhs - lhs);
+}
+
+static void sync_runtime_checkpoint_if_needed(u8 force)
+{
+    if (!force)
+    {
+        if (g_cache.cycle != g_last_checkpoint.cycle) {
+            force = 1;
+        }
+        else if (diff_u16(g_cache.soc, g_last_checkpoint.soc) >= 10u) {
+            force = 1;
+        }
+        else if (diff_u16(g_cache.dsg, g_last_checkpoint.dsg) >= 10u) {
+            force = 1;
+        }
+    }
+
+    if (!force) {
+        return;
+    }
+
+    if (runtime_state_store_save_soc_snapshot(g_cache.soc, g_cache.dsg, g_cache.cycle)) {
+        g_last_checkpoint = g_cache;
+    }
 }
 
 static int generation_is_newer(u32 lhs, u32 rhs)
@@ -332,8 +363,19 @@ int soc_kv_store_init(void)
         g_dbg.generation = b.generation;
         g_dbg.loaded = 1;
     } else {
-        // 没有有效记录：默认值
-        sector_defaults(&g_cache);
+        flash_runtime_state_t runtime_state;
+
+        if (runtime_state_store_load(&runtime_state)) {
+            g_cache.soc = clamp_u14_safe(runtime_state.soc);
+            g_cache.dsg = clamp_u14_safe(runtime_state.dsg_int);
+            g_cache.cycle = clamp_u14_safe(runtime_state.cycle);
+            if (g_cache.cycle == 0) {
+                g_cache.cycle = 1;
+            }
+        } else {
+            // 没有有效记录：默认值
+            sector_defaults(&g_cache);
+        }
 
         g_dbg.active_base = FLASH_ADR_SOC_A;
         g_dbg.write_off = HDR_SIZE_BYTES;
@@ -343,6 +385,7 @@ int soc_kv_store_init(void)
 
     // 上一次已写入值 = 启动恢复值（避免启动后立刻重复写）
     g_last_logged = g_cache;
+    g_last_checkpoint = g_cache;
 
     // 满了就 init 阶段 rollover（通常允许擦）
     if (g_dbg.write_off + REC_BYTES > SOC_SECTOR_SIZE) {
@@ -412,6 +455,8 @@ void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle)
             g_last_logged.cycle = cycle;
         }
     }
+
+    sync_runtime_checkpoint_if_needed(0);
 }
 
 void soc_kv_store_factory_reset(void)
@@ -423,6 +468,7 @@ void soc_kv_store_factory_reset(void)
     g_cache.dsg = 0;
     g_cache.cycle = 0;
     g_last_logged = g_cache;
+    g_last_checkpoint = g_cache;
 
     g_dbg.active_base = FLASH_ADR_SOC_A;
     g_dbg.write_off = HDR_SIZE_BYTES;
