@@ -58,11 +58,7 @@ static void param_upgrade_apply_default_system(void)
 
 static void param_upgrade_apply_default_soc(void)
 {
-    soc_kv_data_t defaults;
-
-    defaults.soc = FAC_INIT_soc;
-    defaults.dsg = 0u;
-    defaults.cycle = 100u;
+    soc_kv_data_t defaults = soc_kv_store_get_default_data();
 
     if (!soc_kv_store_init()) {
         return;

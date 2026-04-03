@@ -191,11 +191,11 @@ void set_soc_param(uint8_t _soc_val, uint16_t _cap_factory, uint8_t disp_sync_up
 void soc_factory_param_init_first(void)
 {
 #if 1
-	SOC_Calculate_Element.u8SOC_Now = FAC_INIT_soc;
+	SOC_Calculate_Element.u8SOC_Now = (uint8_t)SOC_PARAM_DEFAULT_SOC;
 	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600; // ???*10;???��??????????��????????��????????
-	SOC_Calculate_Element.u32Cycle_times = (UINT32)1 * 100;
+	SOC_Calculate_Element.u32Cycle_times = SOC_PARAM_DEFAULT_CYCLE;
 	SOC_Calculate_Element.u32CapFull = SOC_Calculate_Element.u32CapFactory;
-	SOC_Calculate_Element.u8DSG_SOC_Int = 0;
+	SOC_Calculate_Element.u8DSG_SOC_Int = (uint8_t)SOC_PARAM_DEFAULT_DSG;
 
 	// {
 	// 	nvm_param_set(NVM_KEY_SOC, SOC_Calculate_Element.u8SOC_Now);
@@ -841,7 +841,7 @@ void soc_cali(void)
 	}
 	else
 	{
-		if ((g_stCellInfoReport.u16VCellMin <= SOC_0_VAL) && (g_stCellInfoReport.u16VCellMin >= 2000))
+		if ((g_stCellInfoReport.u16VCellMin <= 2900) && (g_stCellInfoReport.u16VCellMin >= 2000))
 		{
 			if (++dsg_soc0_delay >= (5 * 10))
 			{
