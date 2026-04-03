@@ -1,44 +1,53 @@
 #include "soc_kv_store.h"
-// #include <string.h>
+#include <string.h>
 
-// ================= 编码：u16[15:14]=type, u16[13:0]=value =================
-#define TYPE_SHIFT    14
-#define VAL_MASK      0x3FFF
-#define VAL_FORBIDDEN 0x3FFF   // 16383 禁止（否则会与擦除态0xFFFF冲突）
-#define WORD_ERASED   0xFFFF
+#define SOC_KV_RECORD_MAGIC    0x4B56u
+#define SOC_KV_RECORD_VERSION  0x0001u
 
-static inline u16 pack_word(u16 type, u16 val14)
+typedef struct {
+    u16 magic;
+    u16 version;
+    u32 seq;
+    u16 soc;
+    u16 dsg;
+    u16 cycle;
+    u16 checksum;
+} soc_kv_record_t;
+
+#define SOC_KV_RECORD_BYTES  ((u32)sizeof(soc_kv_record_t))
+
+typedef struct {
+    soc_kv_data_t data;
+    u32 next_off;
+    u32 last_seq;
+    u8 has_valid;
+    u8 tail_dirty;
+} soc_kv_sector_state_t;
+
+static soc_kv_data_t g_cache;
+static soc_kv_data_t g_last_logged;
+static soc_kv_dbg_t  g_dbg;
+static u32           g_next_seq = 1;
+
+static void soc_kv_set_default_data(soc_kv_data_t *data)
 {
-    return (u16)((type << TYPE_SHIFT) | (val14 & VAL_MASK));
-}
-static inline u16 word_type(u16 w) { return (u16)(w >> TYPE_SHIFT); }
-static inline u16 word_val(u16 w)  { return (u16)(w & VAL_MASK); }
-
-static inline u16 clamp_u14_safe(u16 v)
-{
-    if (v >= VAL_FORBIDDEN) return (VAL_FORBIDDEN - 1); // 16382
-    return v;
+    data->soc = SOC_KV_DEFAULT_SOC;
+    data->dsg = SOC_KV_DEFAULT_DSG;
+    data->cycle = SOC_KV_DEFAULT_CYCLE;
 }
 
-#if SOC_STORE_REDUNDANT
-    #define REC_WORDS 2   // word + ~word
-#else
-    #define REC_WORDS 1   // only word
-#endif
-#define REC_BYTES   (REC_WORDS * 2)
-
-// ================ Flash IO（Telink） =================
 static inline void flash_read_bytes(u32 addr, u8 *buf, u32 len)
 {
     flash_read_page(addr, (int)len, buf);
 }
+
 static inline void flash_write_bytes(u32 addr, const u8 *buf, u32 len)
 {
-    flash_write_page(addr, (int)len, (u8*)buf);
+    flash_write_page(addr, (int)len, (u8 *)buf);
 }
+
 static inline void flash_erase_sector_safe(u32 base)
 {
-    // 擦除会阻塞 20~100ms：只在允许卡顿的时机触发（init / 休眠前 / 关机前）
     flash_erase_sector(base);
 }
 
@@ -47,171 +56,247 @@ static u32 other_sector(u32 base)
     return (base == FLASH_ADR_SOC_A) ? FLASH_ADR_SOC_B : FLASH_ADR_SOC_A;
 }
 
-// ================= 记录校验 =================
-static int rec_is_erased(const u16 *rw)
+static u16 soc_kv_record_checksum(const soc_kv_record_t *rec)
 {
-#if SOC_STORE_REDUNDANT
-    return (rw[0] == WORD_ERASED && rw[1] == WORD_ERASED);
-#else
-    return (rw[0] == WORD_ERASED);
-#endif
-}
+    const u8 *ptr = (const u8 *)rec;
+    u16 sum = 0x5A5Au;
 
-static int rec_is_valid(const u16 *rw)
-{
-#if SOC_STORE_REDUNDANT
-    if ((u16)(~rw[0]) != rw[1]) return 0;
-#endif
-    u16 w = rw[0];
-    if (w == WORD_ERASED) return 0;
-
-    u16 t = word_type(w);
-    u16 v = word_val(w);
-
-    if (t > 2) return 0;               // 只允许 0/1/2
-    if (v == VAL_FORBIDDEN) return 0;  // 禁止值
-
-    return 1;
-}
-
-// ================= 扫描扇区：恢复每类参数最新值 + next_off =================
-static void scan_sector(u32 base, soc_kv_data_t *out, u32 *out_next_off, u8 *out_has_any_valid)
-{
-    // 默认值（按你习惯改）
-    out->soc = 66;
-    out->dsg = 0;
-    out->cycle = 3;
-
-    u32 next_off = 0;
-    u8 has_any = 0;
-
-    for (u32 off = 0; off + REC_BYTES <= SOC_SECTOR_SIZE; off += REC_BYTES) {
-        u16 rw[REC_WORDS];
-        flash_read_bytes(base + off, (u8*)rw, REC_BYTES);
-
-        // 全擦除态：append-only 尾部
-        if (rec_is_erased(rw)) {
-            next_off = off;
-            break;
-        }
-
-        // 遇到脏记录：最稳策略是停止（不信任后续）
-        if (!rec_is_valid(rw)) {
-            next_off = off;
-            break;
-        }
-
-        u16 w = rw[0];
-        u16 t = word_type(w);
-        u16 v = word_val(w);
-
-        if (t == SOC_ITEM_SOC) out->soc = v;
-        else if (t == SOC_ITEM_SOH) out->dsg = v;
-        else if (t == SOC_ITEM_CYCLE) out->cycle = v;
-
-        has_any = 1;
-        next_off = off + REC_BYTES;
+    for (u32 i = 0; i < (SOC_KV_RECORD_BYTES - sizeof(rec->checksum)); ++i) {
+        sum = (u16)(sum + ptr[i]);
     }
 
-    if (next_off > SOC_SECTOR_SIZE) next_off = SOC_SECTOR_SIZE;
-    *out_next_off = next_off;
-    *out_has_any_valid = has_any;
+    return (u16)(sum ^ 0xA55Au);
 }
 
-// ================= 追加写一条记录（不擦除） =================
-static int append_record(u32 base, u32 *io_off, soc_item_t item, u16 value)
+static int soc_kv_record_is_erased(const soc_kv_record_t *rec)
 {
-    u32 off = *io_off;
-    if (off + REC_BYTES > SOC_SECTOR_SIZE) return 0;
+    const u8 *ptr = (const u8 *)rec;
 
-    u16 w = pack_word((u16)item, clamp_u14_safe(value));
+    for (u32 i = 0; i < SOC_KV_RECORD_BYTES; ++i) {
+        if (ptr[i] != 0xFFu) {
+            return 0;
+        }
+    }
 
-#if SOC_STORE_REDUNDANT
-    // 写入 4B：word + ~word（抗掉电撕裂/脏数据）
-    u16 rw[2] = { w, (u16)(~w) };
-    flash_write_bytes(base + off, (const u8*)rw, 4);
-#else
-    // 写入 2B：极省空间
-    flash_write_bytes(base + off, (const u8*)&w, 2);
-#endif
-
-    *io_off = off + REC_BYTES;
     return 1;
 }
 
-// ================= rollover：满了切扇区 =================
-// 1) 擦新扇区
-// 2) 把当前缓存的 3 个值各写一条（让新扇区一开始就是“完整快照”）
-// 3) 切换 active
-// 4) 擦旧扇区
-static int rollover(u32 *io_active_base, u32 *io_write_off, const soc_kv_data_t *cache)
+static int soc_kv_record_is_valid(const soc_kv_record_t *rec)
 {
-    u32 old_base = *io_active_base;
+    if (rec->magic != SOC_KV_RECORD_MAGIC) {
+        return 0;
+    }
+
+    if (rec->version != SOC_KV_RECORD_VERSION) {
+        return 0;
+    }
+
+    if (rec->checksum != soc_kv_record_checksum(rec)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void soc_kv_build_record(soc_kv_record_t *rec, const soc_kv_data_t *data, u32 seq)
+{
+    rec->magic = SOC_KV_RECORD_MAGIC;
+    rec->version = SOC_KV_RECORD_VERSION;
+    rec->seq = seq;
+    rec->soc = data->soc;
+    rec->dsg = data->dsg;
+    rec->cycle = data->cycle;
+    rec->checksum = 0;
+    rec->checksum = soc_kv_record_checksum(rec);
+}
+
+static void soc_kv_record_to_data(const soc_kv_record_t *rec, soc_kv_data_t *data)
+{
+    data->soc = rec->soc;
+    data->dsg = rec->dsg;
+    data->cycle = rec->cycle;
+}
+
+static void scan_sector(u32 base, soc_kv_sector_state_t *state)
+{
+    soc_kv_set_default_data(&state->data);
+    state->next_off = 0;
+    state->last_seq = 0;
+    state->has_valid = 0;
+    state->tail_dirty = 0;
+
+    for (u32 off = 0; off + SOC_KV_RECORD_BYTES <= SOC_SECTOR_SIZE; off += SOC_KV_RECORD_BYTES) {
+        soc_kv_record_t rec;
+
+        flash_read_bytes(base + off, (u8 *)&rec, SOC_KV_RECORD_BYTES);
+
+        if (soc_kv_record_is_erased(&rec)) {
+            state->next_off = off;
+            return;
+        }
+
+        if (!soc_kv_record_is_valid(&rec)) {
+            state->next_off = SOC_SECTOR_SIZE;
+            state->tail_dirty = 1;
+            return;
+        }
+
+        soc_kv_record_to_data(&rec, &state->data);
+        state->last_seq = rec.seq;
+        state->has_valid = 1;
+        state->next_off = off + SOC_KV_RECORD_BYTES;
+    }
+
+    state->next_off = SOC_SECTOR_SIZE;
+}
+
+static int append_snapshot(u32 base, u32 *io_off, const soc_kv_data_t *data, u32 seq)
+{
+    u32 off = *io_off;
+    soc_kv_record_t rec;
+    soc_kv_record_t verify;
+
+    if (off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE) {
+        return 0;
+    }
+
+    soc_kv_build_record(&rec, data, seq);
+    flash_write_bytes(base + off, (const u8 *)&rec, SOC_KV_RECORD_BYTES);
+    flash_read_bytes(base + off, (u8 *)&verify, SOC_KV_RECORD_BYTES);
+
+    if (memcmp(&rec, &verify, sizeof(rec)) != 0) {
+        return 0;
+    }
+
+    if (!soc_kv_record_is_valid(&verify)) {
+        return 0;
+    }
+
+    *io_off = off + SOC_KV_RECORD_BYTES;
+    return 1;
+}
+
+static int rollover(void)
+{
+    u32 old_base = g_dbg.active_base;
     u32 new_base = other_sector(old_base);
+    u32 off = 0;
 
     flash_erase_sector_safe(new_base);
 
-    u32 off = 0;
-    if (!append_record(new_base, &off, SOC_ITEM_SOC,   cache->soc))   return 0;
-    if (!append_record(new_base, &off, SOC_ITEM_SOH,   cache->dsg))   return 0;
-    if (!append_record(new_base, &off, SOC_ITEM_CYCLE, cache->cycle)) return 0;
+    if (!append_snapshot(new_base, &off, &g_cache, g_next_seq)) {
+        return 0;
+    }
 
-    // 切换
-    *io_active_base = new_base;
-    *io_write_off   = off;
+    g_dbg.active_base = new_base;
+    g_dbg.write_off = off;
+    g_dbg.loaded = 1;
+    g_dbg.tail_dirty = 0;
 
-    // 新扇区写成功后再擦旧扇区（掉电更安全）
+    g_last_logged = g_cache;
+    ++g_next_seq;
+    g_dbg.next_seq = g_next_seq;
+
     flash_erase_sector_safe(old_base);
+    return 1;
+}
+
+static int persist_cache(void)
+{
+    if (g_dbg.tail_dirty || (g_dbg.write_off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE)) {
+        return rollover();
+    }
+
+    if (!append_snapshot(g_dbg.active_base, &g_dbg.write_off, &g_cache, g_next_seq)) {
+        g_dbg.tail_dirty = 1;
+        return 0;
+    }
+
+    g_dbg.loaded = 1;
+    g_dbg.tail_dirty = 0;
+    g_last_logged = g_cache;
+    ++g_next_seq;
+    g_dbg.next_seq = g_next_seq;
 
     return 1;
 }
 
-// ================= 模块状态 =================
-static soc_kv_data_t g_cache;       // 当前“最新计算值”
-static soc_kv_data_t g_last_logged; // 上一次“写入flash”的值（用于变化>=1判断）
-static soc_kv_dbg_t  g_dbg;
+static void select_active_sector(const soc_kv_sector_state_t *a, const soc_kv_sector_state_t *b)
+{
+    if (a->has_valid && (!b->has_valid || a->last_seq >= b->last_seq)) {
+        g_cache = a->data;
+        g_dbg.active_base = FLASH_ADR_SOC_A;
+        g_dbg.write_off = a->next_off;
+        g_dbg.loaded = 1;
+        g_dbg.tail_dirty = a->tail_dirty;
+        return;
+    }
+
+    if (b->has_valid) {
+        g_cache = b->data;
+        g_dbg.active_base = FLASH_ADR_SOC_B;
+        g_dbg.write_off = b->next_off;
+        g_dbg.loaded = 1;
+        g_dbg.tail_dirty = b->tail_dirty;
+        return;
+    }
+
+    soc_kv_set_default_data(&g_cache);
+    g_dbg.loaded = 0;
+
+    if (!a->tail_dirty) {
+        g_dbg.active_base = FLASH_ADR_SOC_A;
+        g_dbg.write_off = a->next_off;
+        g_dbg.tail_dirty = 0;
+        return;
+    }
+
+    if (!b->tail_dirty) {
+        g_dbg.active_base = FLASH_ADR_SOC_B;
+        g_dbg.write_off = b->next_off;
+        g_dbg.tail_dirty = 0;
+        return;
+    }
+
+    g_dbg.active_base = FLASH_ADR_SOC_A;
+    g_dbg.write_off = SOC_SECTOR_SIZE;
+    g_dbg.tail_dirty = 1;
+}
 
 int soc_kv_store_init(void)
 {
+    soc_kv_sector_state_t a;
+    soc_kv_sector_state_t b;
+    u32 max_seq = 0;
+
     memset(&g_cache, 0, sizeof(g_cache));
     memset(&g_last_logged, 0, sizeof(g_last_logged));
     memset(&g_dbg, 0, sizeof(g_dbg));
 
-    soc_kv_data_t a, b;
-    u32 next_a, next_b;
-    u8 has_a, has_b;
+    scan_sector(FLASH_ADR_SOC_A, &a);
+    scan_sector(FLASH_ADR_SOC_B, &b);
 
-    scan_sector(FLASH_ADR_SOC_A, &a, &next_a, &has_a);
-    scan_sector(FLASH_ADR_SOC_B, &b, &next_b, &has_b);
-
-    // 选择更“新”的扇区：优先有有效记录；两边都有时用 next_off 更大者（通常更新更多）
-    if (has_a && (!has_b || next_a >= next_b)) {
-        g_cache = a;
-        g_dbg.active_base = FLASH_ADR_SOC_A;
-        g_dbg.write_off = next_a;
-        g_dbg.loaded = 1;
-    } else if (has_b) {
-        g_cache = b;
-        g_dbg.active_base = FLASH_ADR_SOC_B;
-        g_dbg.write_off = next_b;
-        g_dbg.loaded = 1;
-    } else {
-        // 没有有效记录：默认值
-        g_cache.soc = 60;
-        g_cache.dsg = 0;
-        g_cache.cycle = 1;
-
-        g_dbg.active_base = FLASH_ADR_SOC_A;
-        g_dbg.write_off = 0;
-        g_dbg.loaded = 0;
+    if (a.has_valid && a.last_seq > max_seq) {
+        max_seq = a.last_seq;
     }
 
-    // 上一次已写入值 = 启动恢复值（避免启动后立刻重复写）
-    g_last_logged = g_cache;
+    if (b.has_valid && b.last_seq > max_seq) {
+        max_seq = b.last_seq;
+    }
 
-    // 满了就 init 阶段 rollover（通常允许擦）
-    if (g_dbg.write_off + REC_BYTES > SOC_SECTOR_SIZE) {
-        if (!rollover(&g_dbg.active_base, &g_dbg.write_off, &g_cache)) return 0;
+    select_active_sector(&a, &b);
+
+    g_last_logged = g_cache;
+    g_next_seq = max_seq + 1;
+    if (g_next_seq == 0) {
+        g_next_seq = 1;
+    }
+    g_dbg.next_seq = g_next_seq;
+
+    if (g_dbg.tail_dirty || (g_dbg.write_off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE)) {
+        if (!rollover()) {
+            return 0;
+        }
     }
 
     return 1;
@@ -224,50 +309,29 @@ soc_kv_data_t soc_kv_store_get(void)
 
 int soc_kv_store_put(soc_item_t item, u16 value)
 {
-    // 更新缓存（语义：缓存永远代表最新值）
-    value = clamp_u14_safe(value);
-    if (item == SOC_ITEM_SOC) g_cache.soc = value;
-    else if (item == SOC_ITEM_SOH) g_cache.dsg = value;
-    else if (item == SOC_ITEM_CYCLE) g_cache.cycle = value;
-    else return 0;
-
-    // 空间不足：rollover（会擦除，建议只在“允许卡顿窗口”频繁触发写入）
-    if (g_dbg.write_off + REC_BYTES > SOC_SECTOR_SIZE) {
-        if (!rollover(&g_dbg.active_base, &g_dbg.write_off, &g_cache)) return 0;
-        // rollover 已写入三条快照记录，不再额外写本次 item（省写入）
-        return 1;
+    if (item == SOC_ITEM_SOC) {
+        g_cache.soc = value;
+    } else if (item == SOC_ITEM_SOH) {
+        g_cache.dsg = value;
+    } else if (item == SOC_ITEM_CYCLE) {
+        g_cache.cycle = value;
+    } else {
+        return 0;
     }
 
-    return append_record(g_dbg.active_base, &g_dbg.write_off, item, value);
+    return persist_cache();
 }
 
 void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle)
 {
-    soc   = clamp_u14_safe(soc);
-    dsg   = clamp_u14_safe(dsg);
-    cycle = clamp_u14_safe(cycle);
-
-    // 更新缓存
     g_cache.soc = soc;
     g_cache.dsg = dsg;
     g_cache.cycle = cycle;
 
-    // “没变化1就记录一次”：变化即写一条
-    // 这里按“新值 != 上次写入值”作为触发（等价于变化至少1）
-    if (soc != g_last_logged.soc) {
-        if (soc_kv_store_put(SOC_ITEM_SOC, soc)) {
-            g_last_logged.soc = soc;
-        }
-    }
-    if (dsg != g_last_logged.dsg) {
-        if (soc_kv_store_put(SOC_ITEM_SOH, dsg)) {
-            g_last_logged.dsg = dsg;
-        }
-    }
-    if (cycle != g_last_logged.cycle) {
-        if (soc_kv_store_put(SOC_ITEM_CYCLE, cycle)) {
-            g_last_logged.cycle = cycle;
-        }
+    if ((g_last_logged.soc != g_cache.soc) ||
+        (g_last_logged.dsg != g_cache.dsg) ||
+        (g_last_logged.cycle != g_cache.cycle)) {
+        (void)persist_cache();
     }
 }
 
@@ -276,20 +340,16 @@ void soc_kv_store_factory_reset(void)
     flash_erase_sector_safe(FLASH_ADR_SOC_A);
     flash_erase_sector_safe(FLASH_ADR_SOC_B);
 
-    g_cache.soc = 0;
-    g_cache.dsg = 0;
-    g_cache.cycle = 0;
+    soc_kv_set_default_data(&g_cache);
     g_last_logged = g_cache;
 
+    memset(&g_dbg, 0, sizeof(g_dbg));
     g_dbg.active_base = FLASH_ADR_SOC_A;
-    g_dbg.write_off = 0;
-    g_dbg.loaded = 0;
+    g_dbg.next_seq = 1;
+    g_next_seq = 1;
 }
 
 soc_kv_dbg_t soc_kv_store_get_dbg(void)
 {
     return g_dbg;
 }
-
-
-
