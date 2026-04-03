@@ -1,355 +1,163 @@
 #include "soc_kv_store.h"
+#include "flash_kv32.h"
 #include <string.h>
 
-#define SOC_KV_RECORD_MAGIC    0x4B56u
-#define SOC_KV_RECORD_VERSION  0x0001u
+#define SOC_KV_KEY_SOC    0x0001u
+#define SOC_KV_KEY_DSG    0x0002u
+#define SOC_KV_KEY_CYCLE  0x0003u
 
-typedef struct {
-    u16 magic;
-    u16 version;
-    u32 seq;
-    u16 soc;
-    u16 dsg;
-    u16 cycle;
-    u16 checksum;
-} soc_kv_record_t;
+static flash_kv32_t g_soc_kv;
+static flash_kv32_cache_entry_t g_soc_cache[3];
+static u32 g_soc_sector_addrs[(SOC_KV_HOT_SECTORS > 0) ? SOC_KV_HOT_SECTORS : 1];
 
-#define SOC_KV_RECORD_BYTES  ((u32)sizeof(soc_kv_record_t))
+static const flash_kv32_key_def_t g_soc_keys[] = {
+    { SOC_KV_KEY_SOC,   SOC_KV_DEFAULT_SOC   },
+    { SOC_KV_KEY_DSG,   SOC_KV_DEFAULT_DSG   },
+    { SOC_KV_KEY_CYCLE, SOC_KV_DEFAULT_CYCLE },
+};
 
-typedef struct {
-    soc_kv_data_t data;
-    u32 next_off;
-    u32 last_seq;
-    u8 has_valid;
-    u8 tail_dirty;
-} soc_kv_sector_state_t;
-
-static soc_kv_data_t g_cache;
-static soc_kv_data_t g_last_logged;
-static soc_kv_dbg_t  g_dbg;
-static u32           g_next_seq = 1;
-
-static void soc_kv_set_default_data(soc_kv_data_t *data)
+static void soc_flash_read(void *ctx, u32 addr, u8 *buf, u32 len)
 {
-    data->soc = SOC_KV_DEFAULT_SOC;
-    data->dsg = SOC_KV_DEFAULT_DSG;
-    data->cycle = SOC_KV_DEFAULT_CYCLE;
-}
-
-static inline void flash_read_bytes(u32 addr, u8 *buf, u32 len)
-{
+    (void)ctx;
     flash_read_page(addr, (int)len, buf);
 }
 
-static inline void flash_write_bytes(u32 addr, const u8 *buf, u32 len)
+static int soc_flash_prog(void *ctx, u32 addr, const u8 *buf, u32 len)
 {
+    (void)ctx;
     flash_write_page(addr, (int)len, (u8 *)buf);
-}
-
-static inline void flash_erase_sector_safe(u32 base)
-{
-    flash_erase_sector(base);
-}
-
-static u32 other_sector(u32 base)
-{
-    return (base == FLASH_ADR_SOC_A) ? FLASH_ADR_SOC_B : FLASH_ADR_SOC_A;
-}
-
-static u16 soc_kv_record_checksum(const soc_kv_record_t *rec)
-{
-    const u8 *ptr = (const u8 *)rec;
-    u16 sum = 0x5A5Au;
-
-    for (u32 i = 0; i < (SOC_KV_RECORD_BYTES - sizeof(rec->checksum)); ++i) {
-        sum = (u16)(sum + ptr[i]);
-    }
-
-    return (u16)(sum ^ 0xA55Au);
-}
-
-static int soc_kv_record_is_erased(const soc_kv_record_t *rec)
-{
-    const u8 *ptr = (const u8 *)rec;
-
-    for (u32 i = 0; i < SOC_KV_RECORD_BYTES; ++i) {
-        if (ptr[i] != 0xFFu) {
-            return 0;
-        }
-    }
-
     return 1;
 }
 
-static int soc_kv_record_is_valid(const soc_kv_record_t *rec)
+static int soc_flash_erase_sector(void *ctx, u32 addr, u32 size)
 {
-    if (rec->magic != SOC_KV_RECORD_MAGIC) {
-        return 0;
-    }
-
-    if (rec->version != SOC_KV_RECORD_VERSION) {
-        return 0;
-    }
-
-    if (rec->checksum != soc_kv_record_checksum(rec)) {
-        return 0;
-    }
-
+    (void)ctx;
+    (void)size;
+    flash_erase_sector(addr);
     return 1;
 }
 
-static void soc_kv_build_record(soc_kv_record_t *rec, const soc_kv_data_t *data, u32 seq)
+static const flash_kv32_port_t *soc_kv_port(void)
 {
-    rec->magic = SOC_KV_RECORD_MAGIC;
-    rec->version = SOC_KV_RECORD_VERSION;
-    rec->seq = seq;
-    rec->soc = data->soc;
-    rec->dsg = data->dsg;
-    rec->cycle = data->cycle;
-    rec->checksum = 0;
-    rec->checksum = soc_kv_record_checksum(rec);
+    static const flash_kv32_port_t port = {
+        0,
+        soc_flash_read,
+        soc_flash_prog,
+        soc_flash_erase_sector,
+        0,
+        0,
+    };
+
+    return &port;
 }
 
-static void soc_kv_record_to_data(const soc_kv_record_t *rec, soc_kv_data_t *data)
+static void soc_kv_fill_sector_addrs(void)
 {
-    data->soc = rec->soc;
-    data->dsg = rec->dsg;
-    data->cycle = rec->cycle;
+    u16 i;
+
+    for (i = 0; i < SOC_KV_HOT_SECTORS; ++i) {
+        g_soc_sector_addrs[i] = SOC_KV_HOT_BASE + ((u32)i * SOC_KV_HOT_SECTOR_SIZE);
+    }
 }
 
-static void scan_sector(u32 base, soc_kv_sector_state_t *state)
+static u32 soc_kv_item_to_key(soc_item_t item)
 {
-    soc_kv_set_default_data(&state->data);
-    state->next_off = 0;
-    state->last_seq = 0;
-    state->has_valid = 0;
-    state->tail_dirty = 0;
-
-    for (u32 off = 0; off + SOC_KV_RECORD_BYTES <= SOC_SECTOR_SIZE; off += SOC_KV_RECORD_BYTES) {
-        soc_kv_record_t rec;
-
-        flash_read_bytes(base + off, (u8 *)&rec, SOC_KV_RECORD_BYTES);
-
-        if (soc_kv_record_is_erased(&rec)) {
-            state->next_off = off;
-            return;
-        }
-
-        if (!soc_kv_record_is_valid(&rec)) {
-            state->next_off = SOC_SECTOR_SIZE;
-            state->tail_dirty = 1;
-            return;
-        }
-
-        soc_kv_record_to_data(&rec, &state->data);
-        state->last_seq = rec.seq;
-        state->has_valid = 1;
-        state->next_off = off + SOC_KV_RECORD_BYTES;
+    if (item == SOC_ITEM_SOC) {
+        return SOC_KV_KEY_SOC;
     }
 
-    state->next_off = SOC_SECTOR_SIZE;
+    if ((item == SOC_ITEM_DSG) || (item == SOC_ITEM_SOH)) {
+        return SOC_KV_KEY_DSG;
+    }
+
+    if (item == SOC_ITEM_CYCLE) {
+        return SOC_KV_KEY_CYCLE;
+    }
+
+    return 0u;
 }
 
-static int append_snapshot(u32 base, u32 *io_off, const soc_kv_data_t *data, u32 seq)
+static u32 soc_kv_get_value(u32 key, u32 default_value)
 {
-    u32 off = *io_off;
-    soc_kv_record_t rec;
-    soc_kv_record_t verify;
+    u32 value = default_value;
 
-    if (off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE) {
-        return 0;
-    }
-
-    soc_kv_build_record(&rec, data, seq);
-    flash_write_bytes(base + off, (const u8 *)&rec, SOC_KV_RECORD_BYTES);
-    flash_read_bytes(base + off, (u8 *)&verify, SOC_KV_RECORD_BYTES);
-
-    if (memcmp(&rec, &verify, sizeof(rec)) != 0) {
-        return 0;
-    }
-
-    if (!soc_kv_record_is_valid(&verify)) {
-        return 0;
-    }
-
-    *io_off = off + SOC_KV_RECORD_BYTES;
-    return 1;
-}
-
-static int rollover(void)
-{
-    u32 old_base = g_dbg.active_base;
-    u32 new_base = other_sector(old_base);
-    u32 off = 0;
-
-    flash_erase_sector_safe(new_base);
-
-    if (!append_snapshot(new_base, &off, &g_cache, g_next_seq)) {
-        return 0;
-    }
-
-    g_dbg.active_base = new_base;
-    g_dbg.write_off = off;
-    g_dbg.loaded = 1;
-    g_dbg.tail_dirty = 0;
-
-    g_last_logged = g_cache;
-    ++g_next_seq;
-    g_dbg.next_seq = g_next_seq;
-
-    flash_erase_sector_safe(old_base);
-    return 1;
-}
-
-static int persist_cache(void)
-{
-    if (g_dbg.tail_dirty || (g_dbg.write_off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE)) {
-        return rollover();
-    }
-
-    if (!append_snapshot(g_dbg.active_base, &g_dbg.write_off, &g_cache, g_next_seq)) {
-        g_dbg.tail_dirty = 1;
-        return 0;
-    }
-
-    g_dbg.loaded = 1;
-    g_dbg.tail_dirty = 0;
-    g_last_logged = g_cache;
-    ++g_next_seq;
-    g_dbg.next_seq = g_next_seq;
-
-    return 1;
-}
-
-static void select_active_sector(const soc_kv_sector_state_t *a, const soc_kv_sector_state_t *b)
-{
-    if (a->has_valid && (!b->has_valid || a->last_seq >= b->last_seq)) {
-        g_cache = a->data;
-        g_dbg.active_base = FLASH_ADR_SOC_A;
-        g_dbg.write_off = a->next_off;
-        g_dbg.loaded = 1;
-        g_dbg.tail_dirty = a->tail_dirty;
-        return;
-    }
-
-    if (b->has_valid) {
-        g_cache = b->data;
-        g_dbg.active_base = FLASH_ADR_SOC_B;
-        g_dbg.write_off = b->next_off;
-        g_dbg.loaded = 1;
-        g_dbg.tail_dirty = b->tail_dirty;
-        return;
-    }
-
-    soc_kv_set_default_data(&g_cache);
-    g_dbg.loaded = 0;
-
-    if (!a->tail_dirty) {
-        g_dbg.active_base = FLASH_ADR_SOC_A;
-        g_dbg.write_off = a->next_off;
-        g_dbg.tail_dirty = 0;
-        return;
-    }
-
-    if (!b->tail_dirty) {
-        g_dbg.active_base = FLASH_ADR_SOC_B;
-        g_dbg.write_off = b->next_off;
-        g_dbg.tail_dirty = 0;
-        return;
-    }
-
-    g_dbg.active_base = FLASH_ADR_SOC_A;
-    g_dbg.write_off = SOC_SECTOR_SIZE;
-    g_dbg.tail_dirty = 1;
+    (void)flash_kv32_get(&g_soc_kv, key, &value);
+    return value;
 }
 
 int soc_kv_store_init(void)
 {
-    soc_kv_sector_state_t a;
-    soc_kv_sector_state_t b;
-    u32 max_seq = 0;
+    flash_kv32_cfg_t cfg;
 
-    memset(&g_cache, 0, sizeof(g_cache));
-    memset(&g_last_logged, 0, sizeof(g_last_logged));
-    memset(&g_dbg, 0, sizeof(g_dbg));
-
-    scan_sector(FLASH_ADR_SOC_A, &a);
-    scan_sector(FLASH_ADR_SOC_B, &b);
-
-    if (a.has_valid && a.last_seq > max_seq) {
-        max_seq = a.last_seq;
+    if (SOC_KV_HOT_SECTORS < 2) {
+        return 0;
     }
 
-    if (b.has_valid && b.last_seq > max_seq) {
-        max_seq = b.last_seq;
-    }
+    soc_kv_fill_sector_addrs();
 
-    select_active_sector(&a, &b);
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.port = soc_kv_port();
+    cfg.sector_addrs = g_soc_sector_addrs;
+    cfg.keys = g_soc_keys;
+    cfg.sector_count = SOC_KV_HOT_SECTORS;
+    cfg.sector_size = SOC_KV_HOT_SECTOR_SIZE;
+    cfg.write_align = 4u;
+    cfg.key_count = (u16)(sizeof(g_soc_keys) / sizeof(g_soc_keys[0]));
 
-    g_last_logged = g_cache;
-    g_next_seq = max_seq + 1;
-    if (g_next_seq == 0) {
-        g_next_seq = 1;
-    }
-    g_dbg.next_seq = g_next_seq;
-
-    if (g_dbg.tail_dirty || (g_dbg.write_off + SOC_KV_RECORD_BYTES > SOC_SECTOR_SIZE)) {
-        if (!rollover()) {
-            return 0;
-        }
-    }
-
-    return 1;
+    return flash_kv32_init(&g_soc_kv, &cfg, g_soc_cache);
 }
 
 soc_kv_data_t soc_kv_store_get(void)
 {
-    return g_cache;
+    soc_kv_data_t data;
+
+    data.soc = soc_kv_get_value(SOC_KV_KEY_SOC, SOC_KV_DEFAULT_SOC);
+    data.dsg = soc_kv_get_value(SOC_KV_KEY_DSG, SOC_KV_DEFAULT_DSG);
+    data.cycle = soc_kv_get_value(SOC_KV_KEY_CYCLE, SOC_KV_DEFAULT_CYCLE);
+    return data;
 }
 
-int soc_kv_store_put(soc_item_t item, u16 value)
+int soc_kv_store_put(soc_item_t item, u32 value)
 {
-    if (item == SOC_ITEM_SOC) {
-        g_cache.soc = value;
-    } else if (item == SOC_ITEM_SOH) {
-        g_cache.dsg = value;
-    } else if (item == SOC_ITEM_CYCLE) {
-        g_cache.cycle = value;
-    } else {
+    u32 key = soc_kv_item_to_key(item);
+
+    if (key == 0u) {
         return 0;
     }
 
-    return persist_cache();
+    return flash_kv32_set(&g_soc_kv, key, value);
 }
 
-void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle)
+void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
 {
-    g_cache.soc = soc;
-    g_cache.dsg = dsg;
-    g_cache.cycle = cycle;
+    flash_kv32_pair_t pairs[3];
 
-    if ((g_last_logged.soc != g_cache.soc) ||
-        (g_last_logged.dsg != g_cache.dsg) ||
-        (g_last_logged.cycle != g_cache.cycle)) {
-        (void)persist_cache();
-    }
+    pairs[0].key = SOC_KV_KEY_SOC;
+    pairs[0].value = soc;
+    pairs[1].key = SOC_KV_KEY_DSG;
+    pairs[1].value = dsg;
+    pairs[2].key = SOC_KV_KEY_CYCLE;
+    pairs[2].value = cycle;
+    (void)flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])));
 }
 
 void soc_kv_store_factory_reset(void)
 {
-    flash_erase_sector_safe(FLASH_ADR_SOC_A);
-    flash_erase_sector_safe(FLASH_ADR_SOC_B);
-
-    soc_kv_set_default_data(&g_cache);
-    g_last_logged = g_cache;
-
-    memset(&g_dbg, 0, sizeof(g_dbg));
-    g_dbg.active_base = FLASH_ADR_SOC_A;
-    g_dbg.next_seq = 1;
-    g_next_seq = 1;
+    (void)flash_kv32_format(&g_soc_kv);
 }
 
 soc_kv_dbg_t soc_kv_store_get_dbg(void)
 {
-    return g_dbg;
+    flash_kv32_dbg_t kv_dbg = flash_kv32_get_dbg(&g_soc_kv);
+    soc_kv_dbg_t dbg;
+
+    memset(&dbg, 0, sizeof(dbg));
+    dbg.active_base = kv_dbg.active_base;
+    dbg.write_off = kv_dbg.write_off;
+    dbg.next_seq = kv_dbg.next_seq;
+    dbg.active_generation = kv_dbg.active_generation;
+    dbg.active_sector = kv_dbg.active_sector;
+    dbg.loaded = kv_dbg.loaded;
+    dbg.tail_dirty = kv_dbg.tail_dirty;
+    return dbg;
 }
