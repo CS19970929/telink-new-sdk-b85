@@ -30,7 +30,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   test_default
+#define FD_BMS_TYPE   D3PRO
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -134,7 +134,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       3u
+#define FW_UPGRADE_RESET_SOC_EPOCH       8u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
