@@ -34,6 +34,7 @@ typedef enum {
     BMS_COLD_CTRL_PROTECT_RESET_EPOCH = 0,
     BMS_COLD_CTRL_SYSTEM_RESET_EPOCH,
     BMS_COLD_CTRL_SOC_RESET_EPOCH,
+    BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH,
 } bms_cold_control_param_id_t;
 
 typedef struct {
