@@ -11,7 +11,6 @@
 #define FLASH_PAGE_SIZE        256
 
 #define FLASH_ADDR_USER_DATA_BASE1   0x40000   // 2 sectors: 0x70000 ~ 0x71FFF
-#define FLASH_ADDR_USER_DATA_END1    0x74000   // 2 sectors: 0x70000 ~ 0x71FFF
 
 #define FLASH_ADDR_SOFT_PROTECT_BASE   0x78000   // 2 sectors: 0x70000 ~ 0x71FFF
 
