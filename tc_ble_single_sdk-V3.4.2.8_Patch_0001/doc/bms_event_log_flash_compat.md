@@ -207,3 +207,12 @@ flowchart TD
 - 请求是否从 `0xC008` 开始
 - 请求数量是否不超过 100
 - 工程是否已经把 [bms_event_log.c](D:/telink/tc_ble_single_sdk-V3.4.2.8_Patch_0001%20(1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001%20(1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_event_log.c:1) 编进构建
+
+## 12. 休眠日志补充
+
+当前实现把 `BMS_SLEEP` 分成两条进入路径：
+
+- `app_event_log_1s_task()` 继续跟踪 `sys_time.low_power_mode`，用于记录 RTC 低功耗入口
+- 所有实际 `cpu_sleep_wakeup(DEEPSLEEP_MODE, ...)` 休眠入口，都会先调用 `bms_event_log_note_sleep()` 再进入深休眠
+
+这样可以避免只靠 1 秒轮询而错过真正的深休眠事件。
