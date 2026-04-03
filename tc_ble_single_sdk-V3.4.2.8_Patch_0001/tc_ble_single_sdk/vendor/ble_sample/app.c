@@ -49,6 +49,7 @@
 
 extern void LoadParam(void);
 extern void Param_UpgradeReset_Apply(void);
+extern void AFE_Sleep(void);
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -85,6 +86,15 @@ static void app_event_log_1s_task(void)
 	sample.cbc_err = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
+}
+
+static void app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
+{
+	bms_event_log_note_sleep();
+	if (need_afe_sleep) {
+		AFE_Sleep();
+	}
+	cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
 }
 
 void open_ctlc(void)
@@ -930,13 +940,12 @@ void blt_pm_proc(void)
 		{
 			if (gpio_read(SW_PIN))
 			{
-				if (++sleep_cnt >= 3)
+				if (++sleep_cnt >= 1)
 				{
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
 					// printf("0xkey %d\n", gpio_read(SW_PIN));
-					AFE_Sleep();
-					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+					app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 				}
 			}
 			else
@@ -953,8 +962,7 @@ void blt_pm_proc(void)
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
 				sleep_veryvlow_cnt = 0;
-				AFE_Sleep();
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
 		else if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
@@ -965,8 +973,7 @@ void blt_pm_proc(void)
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
 				sleep_vlow_cnt = 0;
-				AFE_Sleep();
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
 		else if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg))
@@ -976,8 +983,7 @@ void blt_pm_proc(void)
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
 				sleep_vnormal_cnt = 0;
-				AFE_Sleep();
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
 		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
@@ -987,8 +993,7 @@ void blt_pm_proc(void)
 				afe_comm_err_sleepcnt = 0;
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
-				AFE_Sleep();
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0); // deepsleep
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
 		else
@@ -1007,7 +1012,7 @@ void blt_pm_proc(void)
 		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
 			if(sendTerminate_before_enterDeep == 2){  //Terminate OK
 				analog_write(USED_DEEP_ANA_REG, analog_read(USED_DEEP_ANA_REG) | CONN_DEEP_FLG);
-				cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);  //deepSleep
+				app_note_sleep_and_enter_deepsleep(0u);  //deepSleep
 			}
 		#endif
 	}

@@ -425,6 +425,15 @@ void bms_event_log_note_startup(void)
     (void)bms_event_log_append(BMS_START_UP, 1);
 }
 
+void bms_event_log_note_sleep(void)
+{
+    if (!g_bms_event_log.ready && !bms_event_log_init()) {
+        return;
+    }
+
+    (void)bms_event_log_append(BMS_SLEEP, 0);
+}
+
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 {
     if (sample == NULL) {
