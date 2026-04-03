@@ -30,6 +30,12 @@ typedef enum {
     BMS_SYS_PARAM_RSVD0,
 } bms_cold_system_param_id_t;
 
+typedef enum {
+    BMS_COLD_CTRL_PROTECT_RESET_EPOCH = 0,
+    BMS_COLD_CTRL_SYSTEM_RESET_EPOCH,
+    BMS_COLD_CTRL_SOC_RESET_EPOCH,
+} bms_cold_control_param_id_t;
+
 typedef struct {
     u32 bms_type;
     u32 series_num;
@@ -48,6 +54,8 @@ int bms_cold_kv_store_get_system(bms_cold_system_params_t *system);
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system);
 int bms_cold_kv_store_get_system_value(bms_cold_system_param_id_t item, u32 *value);
 int bms_cold_kv_store_set_system_value(bms_cold_system_param_id_t item, u32 value);
+int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value);
+int bms_cold_kv_store_set_control_value(bms_cold_control_param_id_t item, u32 value);
 void bms_cold_kv_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
 void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system);
 void bms_cold_kv_store_factory_reset(void);

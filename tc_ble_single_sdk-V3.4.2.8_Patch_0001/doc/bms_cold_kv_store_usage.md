@@ -17,6 +17,14 @@
   - `init_soc`
   - 以及后续继续扩展的系统级 `u32` 参数
 
+另外，冷区现在还承担“升级后一次性重置 epoch”控制键的持久化，用来决定：
+
+- 是否在这次固件升级后重置保护参数
+- 是否在这次固件升级后重置系统参数
+- 是否在这次固件升级后重置 SOC 参数
+
+具体策略见 [upgrade_param_reset_policy.md](D:/telink/tc_ble_single_sdk-V3.4.2.8_Patch_0001%20(1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001%20(1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/doc/upgrade_param_reset_policy.md:1)。
+
 ## 2. 为什么要单独做冷区 wrapper
 
 这些参数和 `soc_kv_store` 里的热数据不同：

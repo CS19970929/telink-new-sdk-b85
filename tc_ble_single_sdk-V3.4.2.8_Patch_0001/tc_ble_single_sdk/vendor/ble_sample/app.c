@@ -45,6 +45,9 @@
 #include "btname_modbus.h"
 #include "runtime.h"
 
+extern void LoadParam(void);
+extern void Param_UpgradeReset_Apply(void);
+
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
@@ -1341,6 +1344,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		//nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();
+		Param_UpgradeReset_Apply();
 		
 		i2c_master_test_init();
 		WaitMs(100);
