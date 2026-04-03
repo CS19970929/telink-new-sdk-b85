@@ -38,12 +38,14 @@
 #include "sh367309_datadeal.h"
 
 #include "SocEnhance.h"
+#include "bms_event_log.h"
 #include "soc_kv_store.h"
 #include "sif_send.h"
 //#include "nvm_flash.h"
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
+#include <string.h>
 
 extern void LoadParam(void);
 extern void Param_UpgradeReset_Apply(void);
@@ -52,6 +54,38 @@ struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
 //nvm_cfg_t nvm_cfg;
+
+static void app_event_log_1s_task(void)
+{
+	bms_event_log_sample_t sample;
+	u8 eeprom_err;
+
+	memset(&sample, 0, sizeof(sample));
+	sample.sleep = sys_time.low_power_mode ? 1u : 0u;
+	sample.balance = ((g_stCellInfoReport.u16BalanceFlag1 != 0u) || (g_stCellInfoReport.u16BalanceFlag2 != 0u)) ? 1u : 0u;
+	sample.heat = SystemStatus.bits.b1Status_Heat ? 1u : 0u;
+	sample.cool = SystemStatus.bits.b1Status_Cool ? 1u : 0u;
+
+	sample.vcell_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp ? 1u : 0u;
+	sample.vbus_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp ? 1u : 0u;
+	sample.chg_ocp = g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp ? 1u : 0u;
+	sample.vcell_uvp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp ? 1u : 0u;
+	sample.vbus_uvp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatUvp ? 1u : 0u;
+	sample.dsg_ocp = g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp ? 1u : 0u;
+	sample.chg_utp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp ? 1u : 0u;
+	sample.dsg_utp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp ? 1u : 0u;
+	sample.chg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp ? 1u : 0u;
+	sample.dsg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
+	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
+
+	sample.afe2_err = System_ERROR_UserCallback(ERROR_STATUS_AFE2) ? 1u : 0u;
+	eeprom_err = (System_ERROR_UserCallback(ERROR_STATUS_EEPROM_STORE) ||
+				  System_ERROR_UserCallback(ERROR_STATUS_EEPROM_COM)) ? 1u : 0u;
+	sample.eeprom_err = eeprom_err;
+	sample.cbc_err = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
+
+	bms_event_log_poll_1s(&sample);
+}
 
 void open_ctlc(void)
 {
@@ -1345,6 +1379,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		init_bms_io();
 		LoadParam();
 		Param_UpgradeReset_Apply();
+		bms_event_log_init();
 		
 		i2c_master_test_init();
 		WaitMs(100);
@@ -1371,6 +1406,7 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	bus_mux_init();
 	btname_init();
+	bms_event_log_note_startup();
 
 	//todo 7day enter facmode
 	{
@@ -1584,6 +1620,7 @@ _attribute_no_inline_ void main_loop(void)
 			update_bms_info_tick = clock_time();
 			App_AFEGet();
 			app_adc_multi_sample();
+			app_event_log_1s_task();
 			
 			static u16 cnt_1min = 0;
 			if(++cnt_1min >= 60)

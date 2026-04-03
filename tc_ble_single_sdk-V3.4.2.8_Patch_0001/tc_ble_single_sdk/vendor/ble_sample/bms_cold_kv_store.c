@@ -96,7 +96,8 @@ typedef struct {
 #define BMS_COLD_CTRL_FIELD_LIST(X) \
     X(BMS_COLD_CTRL_KEY_BASE + 0x01u) \
     X(BMS_COLD_CTRL_KEY_BASE + 0x02u) \
-    X(BMS_COLD_CTRL_KEY_BASE + 0x03u)
+    X(BMS_COLD_CTRL_KEY_BASE + 0x03u) \
+    X(BMS_COLD_CTRL_KEY_BASE + 0x04u)
 
 #define BMS_COLD_FIELD_DESC_PROTECT(key, field) { key, BMS_COLD_OFFSETOF(struct PRT_E2ROM_PARAS, field) },
 #define BMS_COLD_FIELD_DESC_SYSTEM(key, field)  { key, BMS_COLD_OFFSETOF(bms_cold_system_params_t, field) },

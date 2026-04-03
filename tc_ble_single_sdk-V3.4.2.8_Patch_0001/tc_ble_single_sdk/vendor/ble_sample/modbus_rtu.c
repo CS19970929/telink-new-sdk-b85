@@ -6,6 +6,7 @@
 #include "sci_upper.h"
 #include "param.h"
 #include "SocEnhance.h"
+#include "bms_event_log.h"
 #include "sh367309_datadeal.h"
 #include "app.h"
 #include "conf.h"
@@ -17,6 +18,7 @@
 
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
+static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
 void WriteProID_Default(void);
 
 struct stCell_Info g_stCellInfoReport;
@@ -26,7 +28,7 @@ static u16 read_reg(u16 reg) {
     // TODO: 这里换成你的寄存器表
     // 先给个可见的动态值
     UINT16 u16SciTemp;
-	UINT16 i = 0, j;
+	UINT16 j;
 	INT8 k;
 	UINT8 a[4];
     u16 val;
@@ -187,6 +189,7 @@ static u16 read_reg(u16 reg) {
 }
 extern void enter_fac_mode(bool on);
 extern bool deepsleep_en;
+extern uint8_t get_soc_real(void);
 static void write_reg(u16 reg, u16 val) {
     (void)reg; (void)val;
 
@@ -198,15 +201,18 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1005)  set_soc_param(val, 1, 1);
     if(reg == 0x1102)
     {
-        if(val == 0x03) enter_fac_mode(true);
+        // if(val == 0x03) enter_fac_mode(true);
+        if(val == 0x03) sys_time.enable_current_test = true;
         if(val == 0x0A) deepsleep_en = true;
     }
     if(reg == 0x1103)
     {
-        if(val == 0x03) enter_fac_mode(false);
+        // if(val == 0x03) enter_fac_mode(false);
+        if(val == 0x03) sys_time.enable_current_test = false;
     }
     // if(reg == 0x1103)  SOC_Calculate_Element.u8SOC_Now = val;
     if(reg == 0x2319)  {SOC_Calculate_Element.u32Cycle_times = val; set_soc_param(get_soc_real(), 1, 1);}
+    if((reg == BMS_EVENT_LOG_RESET_REG) && (val == 0x0001u)) { (void)bms_event_log_factory_reset(); }
     
 
 }
@@ -263,6 +269,9 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (qty == 0 || qty > 0x7D) return 0; // 03 一次最多 125 寄存器
 
         // rsp: addr func bytecnt data... crc
+        if (read_event_log_frame(addr, func, reg, qty, rsp, rsp_len)) {
+            return (addr != 0x00);
+        }
         u32 bytes = qty * 2;
         rsp[0] = addr;
         rsp[1] = func;
@@ -332,6 +341,45 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     rsp[3]=(u8)(c & 0xFF);
     rsp[4]=(u8)(c >> 8);
     *rsp_len = 5;
+    return 1;
+}
+
+static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len)
+{
+    u16 i;
+    u16 v;
+    u32 bytes;
+    u32 l;
+    u16 c;
+
+    /*
+     * 兼容旧上位机日志协议:
+     * 旧工程以 0xC008 作为日志入口，但当前项目 0xC002~0xC032
+     * 已经用于产品信息，所以这里只对“从 0xC008 发起的日志读”
+     * 做特判，不改现有寄存器平铺逻辑。
+     */
+    if (reg != BMS_EVENT_LOG_REG_BASE) {
+        return 0;
+    }
+
+    if ((qty == 0u) || (qty > BMS_EVENT_LOG_REG_COUNT)) {
+        return 0;
+    }
+
+    bytes = (u32)qty * 2u;
+    rsp[0] = addr;
+    rsp[1] = func;
+    rsp[2] = (u8)bytes;
+    for (i = 0u; i < qty; ++i) {
+        v = bms_event_log_read_reg(i);
+        put_u16be(&rsp[3 + i * 2u], v);
+    }
+
+    l = 3u + bytes;
+    c = mb_crc16(rsp, l);
+    rsp[l + 0u] = (u8)(c & 0xFFu);
+    rsp[l + 1u] = (u8)(c >> 8);
+    *rsp_len = l + 2u;
     return 1;
 }
 

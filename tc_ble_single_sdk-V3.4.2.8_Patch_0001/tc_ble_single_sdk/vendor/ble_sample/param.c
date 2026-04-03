@@ -3,6 +3,7 @@
 #include "app.h"
 #include "param.h"
 #include "bms_cold_kv_store.h"
+#include "bms_event_log.h"
 #include "soc_kv_store.h"
 #include <string.h>
 
@@ -71,6 +72,11 @@ static void param_upgrade_apply_default_soc(void)
     soc_kv_store_update_and_log_if_changed(defaults.soc, defaults.dsg, defaults.cycle);
 }
 
+static void param_upgrade_apply_default_event_log(void)
+{
+    (void)bms_event_log_factory_reset();
+}
+
 void LoadParam(void)
 {
 #if defined(PARAM_SAVE_TO_EEPROM)
@@ -131,5 +137,10 @@ void Param_UpgradeReset_Apply(void)
     if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_SOC_RESET_EPOCH, FW_UPGRADE_RESET_SOC_EPOCH)) {
         param_upgrade_apply_default_soc();
         param_upgrade_mark_epoch(BMS_COLD_CTRL_SOC_RESET_EPOCH, FW_UPGRADE_RESET_SOC_EPOCH);
+    }
+
+    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH)) {
+        param_upgrade_apply_default_event_log();
+        param_upgrade_mark_epoch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH);
     }
 }
