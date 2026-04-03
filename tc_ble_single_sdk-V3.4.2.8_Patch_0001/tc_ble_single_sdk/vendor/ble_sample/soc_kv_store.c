@@ -107,13 +107,23 @@ int soc_kv_store_init(void)
     return flash_kv32_init(&g_soc_kv, &cfg, g_soc_cache);
 }
 
-soc_kv_data_t soc_kv_store_get(void)
+soc_kv_data_t soc_kv_store_get_default_data(void)
 {
     soc_kv_data_t data;
 
-    data.soc = soc_kv_get_value(SOC_KV_KEY_SOC, SOC_KV_DEFAULT_SOC);
-    data.dsg = soc_kv_get_value(SOC_KV_KEY_DSG, SOC_KV_DEFAULT_DSG);
-    data.cycle = soc_kv_get_value(SOC_KV_KEY_CYCLE, SOC_KV_DEFAULT_CYCLE);
+    data.soc = SOC_PARAM_DEFAULT_SOC;
+    data.dsg = SOC_PARAM_DEFAULT_DSG;
+    data.cycle = SOC_PARAM_DEFAULT_CYCLE;
+    return data;
+}
+
+soc_kv_data_t soc_kv_store_get(void)
+{
+    soc_kv_data_t data = soc_kv_store_get_default_data();
+
+    data.soc = soc_kv_get_value(SOC_KV_KEY_SOC, data.soc);
+    data.dsg = soc_kv_get_value(SOC_KV_KEY_DSG, data.dsg);
+    data.cycle = soc_kv_get_value(SOC_KV_KEY_CYCLE, data.cycle);
     return data;
 }
 

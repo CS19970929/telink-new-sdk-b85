@@ -32,16 +32,37 @@ extern "C" {
 #define SOC_KV_COLD_SECTORS   0
 #endif
 
+/*
+ * Unified SOC defaults:
+ * - empty/formatted hot KV recovery
+ * - one-shot FW upgrade SOC reset
+ * - SocEnhance factory initialization
+ *
+ * New code should use SOC_PARAM_DEFAULT_*.
+ * SOC_KV_DEFAULT_* stay as compatibility aliases only.
+ */
+#ifndef SOC_PARAM_DEFAULT_SOC
+#define SOC_PARAM_DEFAULT_SOC    ((u32)FAC_INIT_soc)
+#endif
+
+#ifndef SOC_PARAM_DEFAULT_DSG
+#define SOC_PARAM_DEFAULT_DSG    0u
+#endif
+
+#ifndef SOC_PARAM_DEFAULT_CYCLE
+#define SOC_PARAM_DEFAULT_CYCLE  100u
+#endif
+
 #ifndef SOC_KV_DEFAULT_SOC
-#define SOC_KV_DEFAULT_SOC    99
+#define SOC_KV_DEFAULT_SOC    SOC_PARAM_DEFAULT_SOC
 #endif
 
 #ifndef SOC_KV_DEFAULT_DSG
-#define SOC_KV_DEFAULT_DSG    50
+#define SOC_KV_DEFAULT_DSG    SOC_PARAM_DEFAULT_DSG
 #endif
 
 #ifndef SOC_KV_DEFAULT_CYCLE
-#define SOC_KV_DEFAULT_CYCLE  9
+#define SOC_KV_DEFAULT_CYCLE  SOC_PARAM_DEFAULT_CYCLE
 #endif
 
 typedef enum {
@@ -68,6 +89,7 @@ typedef struct {
 } soc_kv_dbg_t;
 
 int  soc_kv_store_init(void);
+soc_kv_data_t soc_kv_store_get_default_data(void);
 soc_kv_data_t soc_kv_store_get(void);
 int  soc_kv_store_put(soc_item_t item, u32 value);
 void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
