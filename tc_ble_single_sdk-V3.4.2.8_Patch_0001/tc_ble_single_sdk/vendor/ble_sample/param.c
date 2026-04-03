@@ -1,88 +1,60 @@
-/*
-*********************************************************************************************************
-*
-*	模块名称 : 应用程序参数模块
-*	文件名称 : param.c
-*	版    本 : V1.0
-*	说    明 : 读取和保存应用程序的参数
-*	修改记录 :
-*		版本号  日期        作者     说明
-*		V1.0    2013-01-01 armfly  正式发布
-*
-*	Copyright (C), 2012-2013, 安富莱电子 www.armfly.com
-*
-*********************************************************************************************************
-*/
-
-// #include "bsp.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "param.h"
+#include "bms_cold_kv_store.h"
+#include <string.h>
 
 PARAM_T g_tParam;
 
-/* 将16KB 一个扇区的空间预留出来做为参数区 For MDK */
-//const u8 para_flash_area[16*1024] __attribute__((at(ADDR_FLASH_SECTOR_3)));
+static void param_fill_default(PARAM_T *param)
+{
+    param->ParamVer = PARAM_VER;
+    bms_cold_kv_store_get_default_protect(&param->protect);
+}
 
-/*
-*********************************************************************************************************
-*	函 数 名: LoadParam
-*	功能说明: 从Flash读参数到g_tParam
-*	形    参：无
-*	返 回 值: 无
-*********************************************************************************************************
-*/
+static int param_protect_equals(const struct PRT_E2ROM_PARAS *a, const struct PRT_E2ROM_PARAS *b)
+{
+    return (memcmp(a, b, sizeof(*a)) == 0);
+}
+
 void LoadParam(void)
 {
+#if defined(PARAM_SAVE_TO_EEPROM)
+#error "bms_cold_kv_store currently supports Flash-backed param storage only"
+#endif
+    PARAM_T legacy_param;
+    struct PRT_E2ROM_PARAS default_protect;
+
+    memset(&legacy_param, 0xFF, sizeof(legacy_param));
+
 #ifdef PARAM_SAVE_TO_FLASH
-	/* 读取CPU Flash中的参数 */
-	// flash_read_page(PARAM_ADDR, (u8 *)&g_tParam, sizeof(PARAM_T));
-	flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&g_tParam);
-	printf("paramVer = %d", g_tParam.ParamVer);
-	array_printf((unsigned char *)&g_tParam, sizeof(g_tParam));
+    flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&legacy_param);
 #endif
 
-#ifdef PARAM_SAVE_TO_EEPROM
-	/* 读取EEPROM中的参数 */
-	ee_ReadBytes((u8 *)&g_tParam, PARAM_ADDR, sizeof(PARAM_T));
-#endif
+    if (!bms_cold_kv_store_init()) {
+        param_fill_default(&g_tParam);
+        return;
+    }
 
-	/* 填充缺省参数 */
-	if (g_tParam.ParamVer != PARAM_VER)
-	{
-		struct PRT_E2ROM_PARAS default_param = E2P_PROTECT_DEFAULT_PRT;
+    g_tParam.ParamVer = PARAM_VER;
+    if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
+        param_fill_default(&g_tParam);
+        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
+        return;
+    }
 
-		g_tParam.ParamVer = PARAM_VER;
-		printf("flash param, paramVer = %d", g_tParam.ParamVer);
-		// g_tParam.protect = E2P_PROTECT_DEFAULT_PRT;
-		g_tParam.protect = default_param;
-		array_printf((unsigned char *)&g_tParam, sizeof(g_tParam));
-
-		SaveParam();							/* 将新参数写入Flash */
-	}
+    bms_cold_kv_store_get_default_protect(&default_protect);
+    if ((legacy_param.ParamVer == PARAM_VER) &&
+        !param_protect_equals(&legacy_param.protect, &g_tParam.protect) &&
+        param_protect_equals(&g_tParam.protect, &default_protect)) {
+        g_tParam.protect = legacy_param.protect;
+        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
+    }
 }
 
-/*
-*********************************************************************************************************
-*	函 数 名: SaveParam
-*	功能说明: 将全局变量g_tParam 写入到CPU内部Flash
-*	形    参: 无
-*	返 回 值: 无
-*********************************************************************************************************
-*/
 void SaveParam(void)
 {
-#ifdef PARAM_SAVE_TO_FLASH
-	/* 将全局的参数变量保存到 CPU Flash */
-	flash_erase_sector(PARAM_ADDR);
-	flash_write_page(PARAM_ADDR, sizeof(PARAM_T), (unsigned char *)&g_tParam);
-#endif
-
-#ifdef PARAM_SAVE_TO_EEPROM
-	/* 将全局的参数变量保存到EEPROM */
-	ee_WriteBytes((u8 *)&g_tParam, PARAM_ADDR, sizeof(PARAM_T));
-#endif
+    g_tParam.ParamVer = PARAM_VER;
+    (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
 }
-
-/***************************** 安富莱电子 www.armfly.com (END OF FILE) *********************************/
