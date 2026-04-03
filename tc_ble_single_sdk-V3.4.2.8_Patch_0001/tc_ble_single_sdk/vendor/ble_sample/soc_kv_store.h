@@ -8,16 +8,28 @@
 extern "C" {
 #endif
 
-#ifndef FLASH_ADR_SOC_A
-#define FLASH_ADR_SOC_A   FLASH_ADDR_USER_DATA_BASE1
+#ifndef SOC_KV_HOT_BASE
+#define SOC_KV_HOT_BASE   FLASH_ADDR_RUN_KV_BASE
 #endif
 
-#ifndef FLASH_ADR_SOC_B
-#define FLASH_ADR_SOC_B   (FLASH_ADR_SOC_A + FLASH_SECTOR_SIZE)
+#ifndef SOC_KV_HOT_SECTOR_SIZE
+#define SOC_KV_HOT_SECTOR_SIZE   FLASH_SECTOR_SIZE
 #endif
 
-#ifndef SOC_SECTOR_SIZE
-#define SOC_SECTOR_SIZE   4096
+#ifndef SOC_KV_HOT_SECTORS
+#define SOC_KV_HOT_SECTORS   FLASH_ADDR_RUN_KV_SECTORS
+#endif
+
+#ifndef SOC_KV_COLD_BASE
+#define SOC_KV_COLD_BASE   0
+#endif
+
+#ifndef SOC_KV_COLD_SECTOR_SIZE
+#define SOC_KV_COLD_SECTOR_SIZE   FLASH_SECTOR_SIZE
+#endif
+
+#ifndef SOC_KV_COLD_SECTORS
+#define SOC_KV_COLD_SECTORS   0
 #endif
 
 #ifndef SOC_KV_DEFAULT_SOC
@@ -34,28 +46,31 @@ extern "C" {
 
 typedef enum {
     SOC_ITEM_SOC   = 0,
-    SOC_ITEM_SOH   = 1,
+    SOC_ITEM_DSG   = 1,
+    SOC_ITEM_SOH   = SOC_ITEM_DSG,
     SOC_ITEM_CYCLE = 2,
 } soc_item_t;
 
 typedef struct {
-    u16 soc;
-    u16 dsg;
-    u16 cycle;
+    u32 soc;
+    u32 dsg;
+    u32 cycle;
 } soc_kv_data_t;
 
 typedef struct {
     u32 active_base;
     u32 write_off;
     u32 next_seq;
+    u32 active_generation;
+    u16 active_sector;
     u8  loaded;
     u8  tail_dirty;
 } soc_kv_dbg_t;
 
 int  soc_kv_store_init(void);
 soc_kv_data_t soc_kv_store_get(void);
-int  soc_kv_store_put(soc_item_t item, u16 value);
-void soc_kv_store_update_and_log_if_changed(u16 soc, u16 dsg, u16 cycle);
+int  soc_kv_store_put(soc_item_t item, u32 value);
+void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
 void soc_kv_store_factory_reset(void);
 soc_kv_dbg_t soc_kv_store_get_dbg(void);
 
