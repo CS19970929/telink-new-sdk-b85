@@ -33,7 +33,7 @@ extern "C" {
 #endif
 
 #ifndef SOC_KV_DEFAULT_SOC
-#define SOC_KV_DEFAULT_SOC    60
+#define SOC_KV_DEFAULT_SOC    88
 #endif
 
 #ifndef SOC_KV_DEFAULT_DSG
@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 #ifndef SOC_KV_DEFAULT_CYCLE
-#define SOC_KV_DEFAULT_CYCLE  100
+#define SOC_KV_DEFAULT_CYCLE  1
 #endif
 
 typedef enum {

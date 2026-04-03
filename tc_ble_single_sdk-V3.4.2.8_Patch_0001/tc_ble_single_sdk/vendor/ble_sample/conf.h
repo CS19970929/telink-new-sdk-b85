@@ -96,7 +96,7 @@
 #else
 #define SeriesNum  (10)
 #define CapacityFactory (100)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "test"
+#define  BMS_HARDWARE_VERDION_DEFAULT   "cs_666_test"
 #define AFE_ODC2       		(400) 
 #endif
 
@@ -120,10 +120,10 @@ typedef int8_t INT8;
 #define FAC_INIT_soc (60)
 
 /*
- * 升级后一次性参数重置控制。
- * 默认值为 0，表示本次固件不触发该类参数重置。
- * 如果你想在某次升级后强制重置，把对应 epoch 改成一个新的非 0 值。
- * 设备首次运行到这版固件时会执行一次重置，并把 epoch 落盘；后续重启不会重复执行。
+ * 升级后一次性参数重�?控制�?
+ * 默�?�值为 0，表示本次固件不触发该类参数重置�?
+ * 如果你想在某次升级后强制重置，把对应 epoch 改成一�?新的�? 0 值�?
+ * 设�?��?��?�运行到这版固件时会执�?�一次重�?，并�? epoch 落盘；后�?重启不会重�?�执行�?
  */
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
 #define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
@@ -134,7 +134,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       0u
+#define FW_UPGRADE_RESET_SOC_EPOCH       3u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
