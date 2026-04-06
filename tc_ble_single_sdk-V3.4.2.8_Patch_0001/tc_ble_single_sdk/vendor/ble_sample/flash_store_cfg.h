@@ -3,7 +3,10 @@
 #include "tl_common.h"
 #include "app_config.h"
 #include "ble_flash.h"
-#include "stack/ble/service/ota/ota_server.h"
+
+#if (BLE_OTA_SERVER_ENABLE)
+u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
+#endif
 
 /*
  * Legacy addresses are kept for compatibility and data migration only.

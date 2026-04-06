@@ -7,6 +7,7 @@
 #if (APP_FLASH_PROTECTION_ENABLE)
 #include "flash_prot.h"
 extern u16 flash_lockBlock_cmd;
+int app_flash_lock_restore_enabled(void);
 #endif
 
 #ifndef FLASH_STORE_VERIFY_CHUNK
@@ -20,14 +21,18 @@ extern u16 flash_lockBlock_cmd;
 static inline void flash_store_begin_modify(void)
 {
 #if (APP_FLASH_PROTECTION_ENABLE)
-    flash_unlock();
+    if (app_flash_lock_restore_enabled()) {
+        flash_unlock();
+    }
 #endif
 }
 
 static inline void flash_store_end_modify(void)
 {
 #if (APP_FLASH_PROTECTION_ENABLE)
-    flash_lock(flash_lockBlock_cmd);
+    if (app_flash_lock_restore_enabled()) {
+        flash_lock(flash_lockBlock_cmd);
+    }
 #endif
 }
 

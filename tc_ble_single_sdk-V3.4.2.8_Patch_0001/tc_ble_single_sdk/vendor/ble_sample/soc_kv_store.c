@@ -208,9 +208,31 @@ int soc_kv_store_put(soc_item_t item, u32 value)
     return flash_kv32_set(&g_soc_kv, key, value);
 }
 
-void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
+int soc_kv_store_write_all(u32 soc, u32 dsg, u32 cycle)
 {
     flash_kv32_pair_t pairs[3];
+
+    if ((g_soc_kv.cfg.port == NULL) && !soc_kv_store_init()) {
+        return 0;
+    }
+
+    pairs[0].key = SOC_KV_KEY_SOC;
+    pairs[0].value = soc;
+    pairs[1].key = SOC_KV_KEY_DSG;
+    pairs[1].value = dsg;
+    pairs[2].key = SOC_KV_KEY_CYCLE;
+    pairs[2].value = cycle;
+
+    if (!flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])))) {
+        return 0;
+    }
+
+    g_soc_last_flush_tick = clock_time();
+    return 1;
+}
+
+void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
+{
     soc_kv_data_t current;
 
     if (g_soc_kv.cfg.port == NULL) {
@@ -223,15 +245,7 @@ void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
     }
 
     if ((current.cycle != cycle) || clock_time_exceed(g_soc_last_flush_tick, 5000000u)) {
-        pairs[0].key = SOC_KV_KEY_SOC;
-        pairs[0].value = soc;
-        pairs[1].key = SOC_KV_KEY_DSG;
-        pairs[1].value = dsg;
-        pairs[2].key = SOC_KV_KEY_CYCLE;
-        pairs[2].value = cycle;
-        if (flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])))) {
-            g_soc_last_flush_tick = clock_time();
-        }
+        (void)soc_kv_store_write_all(soc, dsg, cycle);
     }
 }
 
