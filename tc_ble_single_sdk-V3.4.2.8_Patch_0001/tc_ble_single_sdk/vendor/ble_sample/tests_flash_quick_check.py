@@ -5,12 +5,11 @@ This script does not depend on the TC32 toolchain. It verifies the flash
 layout and a few source-level safety contracts that are easy to regress.
 """
 
-from __future__ import annotations
-
 import re
 import sys
 import unittest
 from pathlib import Path
+from typing import Dict, Tuple
 
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -27,11 +26,11 @@ EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
 PARAM_C = MODULE_DIR / "param.c"
 
 
-def read_text(path: Path) -> str:
+def read_text(path):
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
-def parse_macro_int(text: str, name: str) -> int:
+def parse_macro_int(text, name):
     pattern = re.compile(
         rf"^\s*#define\s+{re.escape(name)}\s+\(?(0x[0-9A-Fa-f]+|[0-9]+)u?\)?",
         re.MULTILINE,
@@ -42,17 +41,17 @@ def parse_macro_int(text: str, name: str) -> int:
     return int(match.group(1), 0)
 
 
-def range_end(base: int, sectors: int, sector_size: int) -> int:
+def range_end(base, sectors, sector_size):
     return base + sectors * sector_size
 
 
-def overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
+def overlaps(a, b):
     return max(a[0], b[0]) < min(a[1], b[1])
 
 
 class FlashLayoutTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls):
         cls.flash_cfg_text = read_text(FLASH_CFG)
         cls.ble_flash_text = read_text(BLE_FLASH)
         cls.bms_cold_text = read_text(BMS_COLD_HDR)
@@ -62,7 +61,8 @@ class FlashLayoutTests(unittest.TestCase):
         cls.event_log_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_LOG_SECTORS")
         cls.cold_kv_sectors = parse_macro_int(cls.bms_cold_text, "BMS_COLD_KV_SECTORS")
 
-    def layout_ranges(self, prefix: str) -> dict[str, tuple[int, int]]:
+    def layout_ranges(self, prefix):
+        # type: (str) -> Dict[str, Tuple[int, int]]
         text = self.flash_cfg_text
         return {
             "btname": (
@@ -107,7 +107,8 @@ class FlashLayoutTests(unittest.TestCase):
             ),
         }
 
-    def assert_no_internal_overlap(self, ranges: dict[str, tuple[int, int]]) -> None:
+    def assert_no_internal_overlap(self, ranges):
+        # type: (Dict[str, Tuple[int, int]]) -> None
         items = list(ranges.items())
         for idx, (name_a, range_a) in enumerate(items):
             for name_b, range_b in items[idx + 1 :]:
@@ -116,7 +117,7 @@ class FlashLayoutTests(unittest.TestCase):
                     msg=f"{name_a} overlaps {name_b}: {range_a} vs {range_b}",
                 )
 
-    def test_layout_512k_no_overlap(self) -> None:
+    def test_layout_512k_no_overlap(self):
         ranges = self.layout_ranges("512K")
         self.assert_no_internal_overlap(ranges)
 
@@ -141,7 +142,7 @@ class FlashLayoutTests(unittest.TestCase):
                     msg=f"512K {app_name} overlaps reserved {reserved_name}",
                 )
 
-    def test_layout_1m_no_overlap(self) -> None:
+    def test_layout_1m_no_overlap(self):
         ranges = self.layout_ranges("1M")
         self.assert_no_internal_overlap(ranges)
         reserved = (
@@ -151,7 +152,7 @@ class FlashLayoutTests(unittest.TestCase):
         for app_name, app_range in ranges.items():
             self.assertFalse(overlaps(app_range, reserved), msg=f"1M {app_name} overlaps reserved")
 
-    def test_layout_2m_no_overlap(self) -> None:
+    def test_layout_2m_no_overlap(self):
         ranges = self.layout_ranges("2M")
         self.assert_no_internal_overlap(ranges)
         reserved = (
@@ -161,40 +162,40 @@ class FlashLayoutTests(unittest.TestCase):
         for app_name, app_range in ranges.items():
             self.assertFalse(overlaps(app_range, reserved), msg=f"2M {app_name} overlaps reserved")
 
-    def test_512k_layout_explicitly_rejects_ota_0x40000(self) -> None:
+    def test_512k_layout_explicitly_rejects_ota_0x40000(self):
         text = self.flash_cfg_text
         self.assertIn("MULTI_BOOT_ADDR_0x20000", text)
         self.assertIn("return 0;", text)
 
 
 class SourceContractTests(unittest.TestCase):
-    def test_flash_helper_does_not_restore_lock_during_stack_session(self) -> None:
+    def test_flash_helper_does_not_restore_lock_during_stack_session(self):
         text = read_text(FLASH_SAFE)
         self.assertIn("app_flash_lock_restore_enabled()", text)
         self.assertNotIn("flash_lock(flash_lockBlock_cmd);\n#endif", text)
 
-    def test_app_tracks_stack_flash_session(self) -> None:
+    def test_app_tracks_stack_flash_session(self):
         text = read_text(APP_C)
         self.assertIn("g_app_flash_stack_session_active = 1u;", text)
         self.assertIn("g_app_flash_stack_session_active = 0u;", text)
 
-    def test_runtime_same_address_migration_prefers_second_sector(self) -> None:
+    def test_runtime_same_address_migration_prefers_second_sector(self):
         text = read_text(RUNTIME_C)
         self.assertIn("flash_store_cfg_get_legacy_runtime_base() == runtime_flash_base()", text)
         self.assertIn("g_runtime_next_index = RUNTIME_RECORDS_PER_SECTOR;", text)
 
-    def test_event_log_reports_store_error(self) -> None:
+    def test_event_log_reports_store_error(self):
         text = read_text(EVENT_LOG_C)
         self.assertIn("bms_event_log_report_store_error()", text)
         self.assertIn("return BMS_EVENT_LOG_INVALID_SLOT;", text)
         self.assertIn("System_ERROR_UserCallback(ERROR_EEPROM_STORE);", text)
 
-    def test_event_log_edge_latch_depends_on_persist_success(self) -> None:
+    def test_event_log_edge_latch_depends_on_persist_success(self):
         text = read_text(EVENT_LOG_C)
         self.assertIn("if (bms_event_log_append(event, 0)) {", text)
         self.assertIn("g_bms_event_log.event_latched[event] = 1u;", text)
 
-    def test_upgrade_epoch_marking_happens_only_after_success(self) -> None:
+    def test_upgrade_epoch_marking_happens_only_after_success(self):
         text = read_text(PARAM_C)
         self.assertIn("if (param_upgrade_apply_default_protect()) {", text)
         self.assertIn("if (param_upgrade_apply_default_system()) {", text)
