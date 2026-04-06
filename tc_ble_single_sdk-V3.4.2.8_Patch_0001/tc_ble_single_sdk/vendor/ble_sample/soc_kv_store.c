@@ -14,6 +14,8 @@ static flash_kv32_cache_entry_t g_soc_cache[3];
 static u32 g_soc_sector_addrs[(SOC_KV_HOT_SECTORS > 0) ? SOC_KV_HOT_SECTORS : 1];
 static u32 g_soc_last_flush_tick = 0u;
 
+static u32 soc_kv_get_value(u32 key, u32 default_value);
+
 static const flash_kv32_key_def_t g_soc_keys[] = {
     { SOC_KV_KEY_SOC,   SOC_KV_DEFAULT_SOC   },
     { SOC_KV_KEY_DSG,   SOC_KV_DEFAULT_DSG   },
