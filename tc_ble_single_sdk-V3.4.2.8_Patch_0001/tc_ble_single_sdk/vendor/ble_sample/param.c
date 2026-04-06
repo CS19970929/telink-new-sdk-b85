@@ -5,6 +5,7 @@
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
 #include "soc_kv_store.h"
+#include "sh367309_datadeal.h"
 #include <string.h>
 
 PARAM_T g_tParam;
@@ -115,7 +116,9 @@ void LoadParam(void)
 void SaveParam(void)
 {
     g_tParam.ParamVer = PARAM_VER;
-    (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
+    if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+    }
 }
 
 void Param_UpgradeReset_Apply(void)
