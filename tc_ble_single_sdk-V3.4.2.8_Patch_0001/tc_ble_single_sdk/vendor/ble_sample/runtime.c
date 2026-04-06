@@ -279,13 +279,19 @@ void Runtime_Init(void)
             return;
         }
 
-        g_runtime_store_ready = 1u;
-        if (runtime_load_legacy_value(&legacy_runtime)) {
-            g_runtime_min = legacy_runtime;
-            g_runtime_last_saved_min = legacy_runtime;
-            (void)runtime_flash_save();
-        }
-    }
+	    g_runtime_store_ready = 1u;
+	    if (runtime_load_legacy_value(&legacy_runtime)) {
+	        g_runtime_min = legacy_runtime;
+	        g_runtime_last_saved_min = legacy_runtime;
+	        if (flash_store_cfg_get_legacy_runtime_base() == runtime_flash_base()) {
+	            /* Keep the legacy copy intact until a committed record exists in sector 1. */
+	            g_runtime_next_index = RUNTIME_RECORDS_PER_SECTOR;
+	        }
+	        if (!runtime_flash_save()) {
+	            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+	        }
+	    }
+	}
 
     if (g_runtime_min >= FACTORY_TIME_LIMIT_MIN) {
         g_mode = MODE_NORMAL;

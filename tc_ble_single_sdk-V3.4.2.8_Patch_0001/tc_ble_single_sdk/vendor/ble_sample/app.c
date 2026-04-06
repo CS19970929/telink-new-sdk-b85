@@ -1488,10 +1488,19 @@ _attribute_ram_code_ void user_init_deepRetn(void)
  * @return     none
  */
 _attribute_data_retention_ u16  flash_lockBlock_cmd = 0;
+_attribute_data_retention_ static u8 g_app_flash_stack_session_active = 0;
+
+int app_flash_lock_restore_enabled(void)
+{
+	return (g_app_flash_stack_session_active == 0u);
+}
+
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end)
 {
 	if(flash_op_evt == FLASH_OP_EVT_APP_INITIALIZATION)
 	{
+		g_app_flash_stack_session_active = 0u;
+
 		/* ignore "op addr_begin" and "op addr_end" for initialization event
 		 * must call "flash protection_init" first, will choose correct flash protection relative API according to current internal flash type in MCU */
 		flash_protection_init();
@@ -1540,6 +1549,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 #if (BLE_OTA_SERVER_ENABLE)
 	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_BEGIN)
 	{
+		g_app_flash_stack_session_active = 1u;
+
 		/* OTA clear old firmware begin event is triggered by stack, in "blc ota_initOtaServer_module", rebooting from a successful OTA.
 		 * Software will erase whole old firmware for potential next new OTA, need unlock flash if any part of flash address from
 		 * "op addr_begin" to "op addr_end" is in locking block area.
@@ -1550,6 +1561,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	}
 	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_END)
 	{
+		g_app_flash_stack_session_active = 0u;
+
 		/* ignore "op addr_begin" and "op addr_end" for END event
 		 * OTA clear old firmware end event is triggered by stack, in "blc ota_initOtaServer_module", erasing old firmware data finished.
 		 * In this sample code, we need lock flash again, because we have unlocked it at the begin event of clear old firmware */
@@ -1558,6 +1571,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	}
 	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN)
 	{
+		g_app_flash_stack_session_active = 1u;
+
 		/* OTA write new firmware begin event is triggered by stack, when receive first OTA data PDU.
 		 * Software will write data to flash on new firmware area,  need unlock flash if any part of flash address from
 		 * "op addr_begin" to "op addr_end" is in locking block area.
@@ -1568,6 +1583,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	}
 	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END)
 	{
+		g_app_flash_stack_session_active = 0u;
+
 		/* ignore "op addr_begin" and "op addr_end" for END event
 		 * OTA write new firmware end event is triggered by stack, after OTA end or an OTA error happens, writing new firmware data finished.
 		 * In this sample code, we need lock flash again, because we have unlocked it at the begin event of write new firmware */
@@ -1644,7 +1661,6 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// PM Process /////////////////////////////////
 	blt_pm_proc();
 }
-
 
 
 

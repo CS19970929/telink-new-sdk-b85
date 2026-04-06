@@ -2,6 +2,7 @@
 
 #include "drivers.h"
 #include "flash_store_safe.h"
+#include "sh367309_datadeal.h"
 #include <string.h>
 
 #define BMS_EVENT_LOG_MAGIC           0x424C4F47u
@@ -36,6 +37,11 @@ typedef struct {
 } bms_event_log_ctx_t;
 
 static bms_event_log_ctx_t g_bms_event_log;
+
+static void bms_event_log_report_store_error(void)
+{
+    System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+}
 
 static void bms_event_log_put_u16le(u8 *buf, u16 value)
 {
@@ -226,7 +232,9 @@ static u16 bms_event_log_prepare_next_slot(void)
     u16 current_sector;
 
     if (current_slot == BMS_EVENT_LOG_INVALID_SLOT) {
-        (void)bms_event_log_flash_erase_sector(0u);
+        if (!bms_event_log_flash_erase_sector(0u)) {
+            return BMS_EVENT_LOG_INVALID_SLOT;
+        }
         return 0u;
     }
 
@@ -238,7 +246,9 @@ static u16 bms_event_log_prepare_next_slot(void)
     current_sector = bms_event_log_sector_index(current_slot);
     next_sector = bms_event_log_sector_index(next_slot);
     if (next_sector != current_sector) {
-        (void)bms_event_log_flash_erase_sector(next_sector);
+        if (!bms_event_log_flash_erase_sector(next_sector)) {
+            return BMS_EVENT_LOG_INVALID_SLOT;
+        }
         return bms_event_log_sector_first_slot(next_sector);
     }
 
@@ -251,7 +261,9 @@ static u16 bms_event_log_prepare_next_slot(void)
         next_sector = 0u;
     }
 
-    (void)bms_event_log_flash_erase_sector(next_sector);
+    if (!bms_event_log_flash_erase_sector(next_sector)) {
+        return BMS_EVENT_LOG_INVALID_SLOT;
+    }
     return bms_event_log_sector_first_slot(next_sector);
 }
 
@@ -266,15 +278,22 @@ static int bms_event_log_write_snapshot(void)
     }
 
     slot_idx = bms_event_log_prepare_next_slot();
+    if (slot_idx == BMS_EVENT_LOG_INVALID_SLOT) {
+        bms_event_log_report_store_error();
+        return 0;
+    }
+
     bms_event_log_build_snapshot(buf, g_bms_event_log.next_seq);
     bms_event_log_put_u32le(commit, BMS_EVENT_LOG_COMMIT);
 
     if (!bms_event_log_flash_prog(bms_event_log_slot_addr(slot_idx), buf, BMS_EVENT_LOG_COMMIT_OFF)) {
+        bms_event_log_report_store_error();
         return 0;
     }
     if (!bms_event_log_flash_prog(bms_event_log_slot_addr(slot_idx) + BMS_EVENT_LOG_COMMIT_OFF,
                                   commit,
                                   sizeof(commit))) {
+        bms_event_log_report_store_error();
         return 0;
     }
 
@@ -302,6 +321,10 @@ static u8 bms_event_log_map_interval(u32 *seconds)
 
 static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
 {
+    u8 old_event;
+    u8 old_interval_code;
+    u16 old_write_pos;
+    u32 old_interval_s;
     u16 pos;
 
     if (!g_bms_event_log.ready) {
@@ -313,6 +336,11 @@ static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
         pos = 0u;
     }
 
+    old_write_pos = g_bms_event_log.write_pos;
+    old_interval_s = g_bms_event_log.interval_s;
+    old_event = g_bms_event_log.records[pos][0];
+    old_interval_code = g_bms_event_log.records[pos][1];
+
     g_bms_event_log.records[pos][0] = (u8)event;
     g_bms_event_log.records[pos][1] = startup_event ? 0u : bms_event_log_map_interval(&g_bms_event_log.interval_s);
 
@@ -321,7 +349,14 @@ static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
         pos = 0u;
     }
     g_bms_event_log.write_pos = pos;
-    return bms_event_log_write_snapshot();
+    if (!bms_event_log_write_snapshot()) {
+        g_bms_event_log.records[old_write_pos][0] = old_event;
+        g_bms_event_log.records[old_write_pos][1] = old_interval_code;
+        g_bms_event_log.write_pos = old_write_pos;
+        g_bms_event_log.interval_s = old_interval_s;
+        return 0;
+    }
+    return 1;
 }
 
 static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
@@ -332,8 +367,9 @@ static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
 
     if (active) {
         if (!g_bms_event_log.event_latched[event]) {
-            g_bms_event_log.event_latched[event] = 1u;
-            (void)bms_event_log_append(event, 0);
+            if (bms_event_log_append(event, 0)) {
+                g_bms_event_log.event_latched[event] = 1u;
+            }
         }
     } else {
         g_bms_event_log.event_latched[event] = 0u;
@@ -343,8 +379,9 @@ static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
 static void bms_event_log_track_change(u8 value, bms_event_log_id_t event)
 {
     if (g_bms_event_log.cbc_last != value) {
-        g_bms_event_log.cbc_last = value;
-        (void)bms_event_log_append(event, 0);
+        if (bms_event_log_append(event, 0)) {
+            g_bms_event_log.cbc_last = value;
+        }
     }
 }
 
