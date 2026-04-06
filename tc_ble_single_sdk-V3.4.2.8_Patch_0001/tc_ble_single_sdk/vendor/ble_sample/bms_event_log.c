@@ -1,6 +1,7 @@
 #include "bms_event_log.h"
 
 #include "drivers.h"
+#include "flash_store_safe.h"
 #include <string.h>
 
 #define BMS_EVENT_LOG_MAGIC           0x424C4F47u
@@ -27,6 +28,8 @@ typedef struct {
     u16 current_slot;
     u32 next_seq;
     u32 interval_s;
+    u32 flash_base;
+    u16 flash_sectors;
     u8 ready;
     u8 event_latched[EVENT_NUM];
     u8 cbc_last;
@@ -88,31 +91,14 @@ static void bms_event_log_flash_read(u32 addr, u8 *buf, u32 len)
 
 static int bms_event_log_flash_prog(u32 addr, const u8 *buf, u32 len)
 {
-    u32 page_off;
-    u32 chunk;
-
-    while (len != 0u) {
-        page_off = addr % FLASH_PAGE_SIZE;
-        chunk = FLASH_PAGE_SIZE - page_off;
-        if (chunk > len) {
-            chunk = len;
-        }
-
-        flash_write_page(addr, (int)chunk, (u8 *)buf);
-        addr += chunk;
-        buf += chunk;
-        len -= chunk;
-    }
-
-    return 1;
+    return flash_store_prog_checked(addr, buf, len);
 }
 
 static int bms_event_log_flash_erase_sector(u16 sector_idx)
 {
-    u32 addr = BMS_EVENT_LOG_FLASH_BASE + ((u32)sector_idx * BMS_EVENT_LOG_SECTOR_SIZE);
+    u32 addr = g_bms_event_log.flash_base + ((u32)sector_idx * BMS_EVENT_LOG_SECTOR_SIZE);
 
-    flash_erase_sector(addr);
-    return 1;
+    return flash_store_erase_sector_checked(addr, BMS_EVENT_LOG_SECTOR_SIZE);
 }
 
 static u16 bms_event_log_slots_per_sector(void)
@@ -122,7 +108,7 @@ static u16 bms_event_log_slots_per_sector(void)
 
 static u16 bms_event_log_total_slots(void)
 {
-    return (u16)(bms_event_log_slots_per_sector() * BMS_EVENT_LOG_FLASH_SECTORS);
+    return (u16)(bms_event_log_slots_per_sector() * g_bms_event_log.flash_sectors);
 }
 
 static u16 bms_event_log_sector_index(u16 slot_idx)
@@ -141,7 +127,7 @@ static u32 bms_event_log_slot_addr(u16 slot_idx)
     u16 sector_idx = (u16)(slot_idx / slots_per_sector);
     u16 slot_off = (u16)(slot_idx % slots_per_sector);
 
-    return BMS_EVENT_LOG_FLASH_BASE +
+    return g_bms_event_log.flash_base +
            ((u32)sector_idx * BMS_EVENT_LOG_SECTOR_SIZE) +
            ((u32)slot_off * BMS_EVENT_LOG_SNAPSHOT_BYTES);
 }
@@ -261,7 +247,7 @@ static u16 bms_event_log_prepare_next_slot(void)
     }
 
     next_sector = (u16)(next_sector + 1u);
-    if (next_sector >= BMS_EVENT_LOG_FLASH_SECTORS) {
+    if (next_sector >= g_bms_event_log.flash_sectors) {
         next_sector = 0u;
     }
 
@@ -364,8 +350,10 @@ static void bms_event_log_track_change(u8 value, bms_event_log_id_t event)
 
 int bms_event_log_init(void)
 {
+    u32 flash_base = flash_store_cfg_get_event_log_base();
+    u16 flash_sectors = flash_store_cfg_get_event_log_sectors();
     u16 slot_idx;
-    u16 total_slots = bms_event_log_total_slots();
+    u16 total_slots;
     u16 slots_per_sector = bms_event_log_slots_per_sector();
     u16 best_slot = BMS_EVENT_LOG_INVALID_SLOT;
     u16 write_pos = 0u;
@@ -375,18 +363,21 @@ int bms_event_log_init(void)
     u8 records[BMS_EVENT_LOG_ENTRY_COUNT][2];
     u8 best_records[BMS_EVENT_LOG_ENTRY_COUNT][2];
 
-    if ((BMS_EVENT_LOG_FLASH_BASE == 0u) ||
+    if ((flash_base == 0u) ||
         (BMS_EVENT_LOG_SECTOR_SIZE == 0u) ||
-        (BMS_EVENT_LOG_FLASH_SECTORS < 2u) ||
+        (flash_sectors < 2u) ||
         (slots_per_sector == 0u) ||
-        (total_slots == 0u)) {
+        ((u16)(slots_per_sector * flash_sectors) == 0u)) {
         memset(&g_bms_event_log, 0, sizeof(g_bms_event_log));
         g_bms_event_log.current_slot = BMS_EVENT_LOG_INVALID_SLOT;
         return 0;
     }
 
     memset(&g_bms_event_log, 0, sizeof(g_bms_event_log));
+    g_bms_event_log.flash_base = flash_base;
+    g_bms_event_log.flash_sectors = flash_sectors;
     g_bms_event_log.current_slot = BMS_EVENT_LOG_INVALID_SLOT;
+    total_slots = bms_event_log_total_slots();
 
     for (slot_idx = 0u; slot_idx < total_slots; ++slot_idx) {
         if (!bms_event_log_parse_snapshot(slot_idx, &seq, &write_pos, records)) {

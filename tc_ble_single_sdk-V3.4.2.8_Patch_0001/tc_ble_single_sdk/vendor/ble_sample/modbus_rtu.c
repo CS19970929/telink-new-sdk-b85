@@ -190,6 +190,11 @@ static u16 read_reg(u16 reg) {
 extern void enter_fac_mode(bool on);
 extern bool deepsleep_en;
 extern uint8_t get_soc_real(void);
+static int reg_requires_param_save(u16 reg)
+{
+    return (reg >= 0x2100u && reg <= 0x2140u);
+}
+
 static void write_reg(u16 reg, u16 val) {
     (void)reg; (void)val;
 
@@ -292,6 +297,9 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg = u16be(&req[2]);
         u16 val = u16be(&req[4]);
         write_reg(reg, val);
+        if (reg_requires_param_save(reg)) {
+            SaveParam();
+        }
 
         // 06 回包=原样回显请求（非广播）
         if (addr == 0x00) return 0;
@@ -304,6 +312,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg = u16be(&req[2]);
         u16 qty = u16be(&req[4]);
         u8  bytecnt = req[6];
+        int need_save_param = 0;
         if (qty == 0 || qty > 0x7B) return 0;          // 0x10 一次最多 123
         if (bytecnt != qty * 2) return 0;
         if (req_len < (u32)(7 + bytecnt + 2)) return 0;
@@ -312,6 +321,12 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         for (u16 i=0;i<qty;i++){
             u16 v = u16be(&pdata[i*2]);
             write_reg(reg+i, v);
+            if (reg_requires_param_save((u16)(reg + i))) {
+                need_save_param = 1;
+            }
+        }
+        if (need_save_param) {
+            SaveParam();
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
