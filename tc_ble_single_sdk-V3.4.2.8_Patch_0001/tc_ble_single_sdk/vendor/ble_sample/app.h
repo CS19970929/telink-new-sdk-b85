@@ -92,6 +92,7 @@ void proc_button(u8 e, u8 *p, int n);
  * @return     none
  */
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end);
+int app_flash_lock_restore_enabled(void);
 
 struct SYSTEM_ERROR
 {

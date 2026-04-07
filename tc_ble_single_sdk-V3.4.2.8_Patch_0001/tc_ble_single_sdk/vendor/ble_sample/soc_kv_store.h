@@ -92,6 +92,7 @@ int  soc_kv_store_init(void);
 soc_kv_data_t soc_kv_store_get_default_data(void);
 soc_kv_data_t soc_kv_store_get(void);
 int  soc_kv_store_put(soc_item_t item, u32 value);
+int  soc_kv_store_write_all(u32 soc, u32 dsg, u32 cycle);
 void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
 void soc_kv_store_factory_reset(void);
 soc_kv_dbg_t soc_kv_store_get_dbg(void);
