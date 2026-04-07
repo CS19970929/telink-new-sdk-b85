@@ -1,0 +1,5374 @@
+{
+  "bluetoothState" : "poweredOn",
+  "btLikeCount" : 1,
+  "discoveries" : [
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5B4E43E3-C704-D445-3DFC-49F6CCC91983",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -40,
+      "seenAt" : "2026-04-06T16:26:09Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A024A23B-6F45-70FD-2E53-9591784F839F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -41,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B024892F-118E-9880-C462-11B243063028",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -41,
+      "seenAt" : "2026-04-06T14:54:09Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C6FE93AC-1333-3960-698C-EC935CEDB8B9",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -43,
+      "seenAt" : "2026-04-06T23:02:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0BA63F14-4269-2310-A89D-278BFAA72FAB",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -43,
+      "seenAt" : "2026-04-06T10:11:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "134722FA-A253-C098-9CBA-392AEE2B5A87",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -45,
+      "seenAt" : "2026-04-06T20:30:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "45736CE2-0B23-A4CA-EB87-D8CF5A675F6E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00120224020711068ADB0C6751ADA34B61380F0220800170",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -46,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "4E261A5E-0B7B-F45D-B3AF-AB72587DACB8",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C000709034C010150A5012800",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -46,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6B91A37C-0EBF-7712-3F18-2F4FC873E42C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022403071106736A9891121EAEBB81128E82AF298AFE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -46,
+      "seenAt" : "2026-04-06T12:06:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "34207178-5AC4-C8E0-BF44-2900E292B5C7",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -46,
+      "seenAt" : "2026-04-06T10:28:34Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DE6046D5-A1A4-6CAA-AF73-2622F21E44E7",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0015020034",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -47,
+      "seenAt" : "2026-04-06T10:11:22Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5534E8AC-9165-20D8-7D95-8CD92E9BDC75",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0015020034",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -47,
+      "seenAt" : "2026-04-06T12:06:06Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6972EC11-937B-3B55-1E01-237BE04E416C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -47,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "ADDD6F33-B057-3398-04E7-2F4689238025",
+      "isConnectable" : true,
+      "localName" : "NZMBBz55Ptl3exqfYOaL7Utfk",
+      "manufacturerDataHex" : "4C0010073A1F677068C078",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "iPhone",
+      "rssi" : -47,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EF8A2151-3BE8-79FF-EC0B-E6511C89349A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -48,
+      "seenAt" : "2026-04-06T12:06:05Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5DC56E4D-7369-FC24-21B0-149A2CF4CFD9",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -48,
+      "seenAt" : "2026-04-06T09:03:01Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DCC15C28-D425-6AB4-AC20-B5677C7307F4",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010050A1C516629",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "陈陈思的iPad",
+      "rssi" : -48,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C3AF9042-9E2D-E3D6-9860-81D22E44CE0A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -49,
+      "seenAt" : "2026-04-06T12:52:59Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E1BBBBB0-82D7-31BB-03AB-03FEA272C08F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012026502",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -49,
+      "seenAt" : "2026-04-06T12:06:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B1540DCC-EBCC-575C-E964-E1F9ADD30D39",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00120224020711061C200C55FFFF510A0000000014D60000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "我的AirPods",
+      "rssi" : -49,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D927ACEC-107E-FA1F-AAF6-8006FA059E46",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E02071106BC2FA1B0B38B0DB483F0ECFDDADF2F9D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -50,
+      "seenAt" : "2026-04-06T12:52:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BF8EE0DE-B3D7-9E12-9228-59ABC1C22215",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012026502",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "我的AirPods",
+      "rssi" : -50,
+      "seenAt" : "2026-04-06T12:06:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D58BA11B-3437-6C53-4CD3-AD7DC4146DD9",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022C03",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -51,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "77F1C71A-3B90-26E7-32E3-4CD0BFD0973B",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -51,
+      "seenAt" : "2026-04-06T12:52:59Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "87C593CE-57FF-F7B2-2DBE-643AB874A936",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -52,
+      "seenAt" : "2026-04-06T18:58:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "38C3755A-D84B-660C-58E8-8A0F844658C6",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -52,
+      "seenAt" : "2026-04-06T20:15:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EE21A393-6950-1C10-BA96-CB96754BD99C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00121968B9BC4286B608460FA451959BD5E0317CC28F69768FF70286",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "我的AirPods",
+      "rssi" : -52,
+      "seenAt" : "2026-04-06T12:06:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C090C82E-322F-FE29-2E84-C3F0741E0CB2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C000719011B200BA98F100009095F64FFC924F5000000261C04130C1C",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "我的AirPods",
+      "rssi" : -52,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5F83739A-A10B-D015-E1D5-5692CCCB5B28",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -53,
+      "seenAt" : "2026-04-06T09:02:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7850DE98-74D7-6A2C-5933-1B87D1D15CCD",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -53,
+      "seenAt" : "2026-04-06T21:00:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "358DEC42-BF00-23C2-E810-251C34065C13",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -53,
+      "seenAt" : "2026-04-06T21:48:28Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C02BEABA-A32E-93A1-74A4-34EE731D704C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -54,
+      "seenAt" : "2026-04-06T16:56:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "54991B28-307D-EB07-2DDC-516D466DFD10",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F030A10821200B50EF083EDDC81",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -54,
+      "seenAt" : "2026-04-06T12:53:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EDBFEA1C-CFD7-FE84-637E-9D6AF31F002F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -57,
+      "seenAt" : "2026-04-06T12:06:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DE00B0B5-BC3A-928F-2A51-5FC251A910AB",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -57,
+      "seenAt" : "2026-04-06T10:11:25Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0935A608-0ED4-BA92-73F4-D165B88CC1A2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -57,
+      "seenAt" : "2026-04-06T20:47:32Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "1343D5F7-91F8-78F2-33F8-66CAB773158E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E03071106645A3762E5FACBB21E36002351221357",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -57,
+      "seenAt" : "2026-04-06T23:02:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2CF91383-ADD4-8BBB-F4B3-23C791F90734",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022501",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -58,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "486C6E78-F3AF-8977-C9D5-C574F95508D2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -59,
+      "seenAt" : "2026-04-06T22:49:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FDE847B0-F05C-6593-A039-5838B1A8AA4F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -59,
+      "seenAt" : "2026-04-06T16:56:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "15D306A5-9698-1D88-9188-5AB80E14728E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E01071106BAFC64A207F036F689480E6E6C71D834",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -60,
+      "seenAt" : "2026-04-06T20:47:36Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EFE25CFB-796A-9064-F1EF-34E0520CAA55",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -61,
+      "seenAt" : "2026-04-06T14:44:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "41A02C5D-5AF0-1DFA-770D-6BF18C04492C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -61,
+      "seenAt" : "2026-04-06T13:47:39Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A890D436-D6DA-82DD-A3E3-67BD9D67B7B8",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E00071106511A29D571E69F7576EDF836B4990BF7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -62,
+      "seenAt" : "2026-04-06T22:49:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A4DF2A08-4D4C-9BBF-58F9-58FC9A6E249E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E03071106188F735F27D68E4A4D823F866CDD7EDC",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -63,
+      "seenAt" : "2026-04-06T16:26:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "253ECD8B-B388-827B-E9C2-60BBC45C7EC9",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00121968B9BC4286B608460FA451959BD5E0317CC28F69768FF70286",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -63,
+      "seenAt" : "2026-04-06T12:06:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BFDF21C2-D9A6-E5D5-2973-C0AFC7FF8C7A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E020711067515DBC6DED48CB9322D08AB977E84C1",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -64,
+      "seenAt" : "2026-04-06T14:44:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5A1CE5B6-A65B-8E48-ABFF-11F7FE494509",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -64,
+      "seenAt" : "2026-04-06T18:46:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F19CB728-A087-8E49-EC3A-820FB788FB77",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E0107110670EFFC550A4152A6F573DA1B1689066D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -64,
+      "seenAt" : "2026-04-06T16:43:04Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "3B961869-375B-7CC2-3CA7-BE61E301EF19",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032C1134396651103041A20115262965E657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -65,
+      "seenAt" : "2026-04-06T17:29:53Z"
+    },
+    {
+      "advertisedServices" : [
+        "616C6970-6179-626F-7869-62656F706F6C",
+        "1812"
+      ],
+      "id" : "7422A4D0-CB9C-817E-DF51-03BBBB1AFC28",
+      "isConnectable" : true,
+      "localName" : "YD_53B7",
+      "manufacturerDataHex" : "4B4C4B4CC000000553B7010901000020FFFFFFFFFFFFFF01FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD_53B7",
+      "rssi" : -65,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BFB0A750-BDD8-C1E7-5CBC-43E595F780F2",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E000711064DA51547A169C3E90E290F7BC7A8D69E",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -67,
+      "seenAt" : "2026-04-06T16:10:39Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D53A768B-90FE-C7F1-38B0-78CA13D5CE89",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E020711069A2506FB1C199E40DE35FE0E9596F1D7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -67,
+      "seenAt" : "2026-04-06T20:30:50Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "46356971-218C-C08A-D0A7-D7BC970B6542",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -68,
+      "seenAt" : "2026-04-06T20:30:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EAC9A228-2C77-D931-68FA-7AEFB828DC25",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012022E0107110684D330CF6FAEC466D8DDE1C4BEDC79DA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -69,
+      "seenAt" : "2026-04-06T22:34:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "763757B5-8927-CCEF-5C79-FF3753F9DA2B",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -74,
+      "seenAt" : "2026-04-06T16:26:06Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "180F"
+      ],
+      "id" : "37A33197-590B-BD43-6148-5BA6A5CA27C6",
+      "isConnectable" : true,
+      "localName" : "BT_DEFAULT",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "BT_DEFAULT",
+      "rssi" : -74,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6EBC763B-D4AD-BF4C-6DAB-3CFE3A2ABB6C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "8F030A101318010E45823B8AD4DE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -75,
+      "seenAt" : "2026-04-06T23:29:50Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "3B978A7D-0909-E1E9-E3F2-CD1926CBFB85",
+      "isConnectable" : true,
+      "localName" : "AIMA-634399",
+      "manufacturerDataHex" : "A801B69E414DC9346C704842784F679943633322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-634399",
+      "rssi" : -75,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "180F"
+      ],
+      "id" : "16F12847-61AA-A396-9C63-10E28F8A776C",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_95EF",
+      "manufacturerDataHex" : "20006895751495EF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_95EF",
+      "rssi" : -76,
+      "seenAt" : "2026-04-06T10:28:39Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B8759CFE-51CA-505A-E3E6-00E1AD0B93F3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C56063AB5000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD56063AB5",
+      "rssi" : -76,
+      "seenAt" : "2026-04-06T22:34:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9B110E4F-F95A-E6D4-5089-0C98FA084799",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006381E4B6309970100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -77,
+      "seenAt" : "2026-04-06T12:53:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "39928981-7013-1CF3-A67A-F7CC10CF44CE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006021D64EEB438",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -77,
+      "seenAt" : "2026-04-06T12:53:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "4845328B-F9C5-25B0-9704-21A57BD7E768",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060C1D15E16E18",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -77,
+      "seenAt" : "2026-04-06T11:51:17Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "165B69D2-676A-5F97-89A2-DCF79C3F50B2",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032C1134396651103041A20115262965E657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -77,
+      "seenAt" : "2026-04-06T18:12:32Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "76E1747C-F8F2-6938-4BDB-180505BB5FFD",
+      "isConnectable" : true,
+      "localName" : "LuYuan-Smart",
+      "manufacturerDataHex" : "A14A0013B0E8",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "LuYuan-Smart",
+      "rssi" : -79,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2845EA9D-0AA3-F8BE-964D-18423FD31B72",
+      "isConnectable" : true,
+      "localName" : "ZXH_BA08V04_51041EEE  ",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ZXH_BA08V04_51041EEE  ",
+      "rssi" : -79,
+      "seenAt" : "2026-04-06T13:47:42Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "44B2F747-BBA5-C442-9EA9-836AEAE82519",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T10:28:38Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CCC9850C-E0D4-6CE4-F39C-E0AE53C4DF9A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T12:06:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F275735F-6BFD-DB84-7BE8-60613E04E5EA",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "0600010920023C9E8DB5C92BF1969CADBBAFE5D72B240BEE9C62E378F0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T14:44:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "99B83D8F-F0F9-6147-6931-EF9DFF7734D1",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T11:33:36Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B87C1846-029F-0883-912E-E45F3B5C752C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063E1E850457E80100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7E16BA1F-D28A-8EAB-0B4B-D4599BBACD01",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006051D18938168",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T15:55:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CBAF7F6F-92D7-5976-4572-563106A4F0D8",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T14:44:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "32B54FBA-CE3E-8981-9B12-34E038892B0C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T11:51:22Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D9A4D672-D2E8-8AB4-08F0-EEA1D44DDA58",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "0600010920025626E44889F00A699D1C7856A0014BAE51B9B9599CCF14",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T11:33:41Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7066480B-1208-5C79-247F-3ECF6F932894",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092002643CA0DAC0D78D6FD721FE3EC466BF8F29F1296191D307",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T12:53:04Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "5FF6A1EA-7C86-6BA7-FBD7-9C902C86F487",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032C1134396651103041A20115262965E657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T17:57:09Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEB0",
+        "1812"
+      ],
+      "id" : "16C8FF13-6C92-DFB4-7FDF-11EDD2C24E1A",
+      "isConnectable" : true,
+      "localName" : "Q_BASH_C0B10A0ED416",
+      "manufacturerDataHex" : "0012C0B10A0ED416",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Q_BASH_C0B10A0ED416",
+      "rssi" : -80,
+      "seenAt" : "2026-04-06T22:17:50Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "25D59C71-765C-37EC-E2D0-78A7EF9B539E",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T18:58:13Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E8EF22CB-E50F-40A1-4D06-AC6114F1E41A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092002BBF889F4359F9F849789CF70A826050B23E5FA11B2487F",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T10:28:38Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "22206672-B458-C73D-8553-F0FD753778EA",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T12:36:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B7C6DDF4-0478-426E-631F-3F44BDFCD064",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T12:53:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A1597245-84DB-73B0-F080-B6D8AC37098E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006371EA6E8E2C8",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "06F58216-3034-06ED-3CBF-7606B5E88502",
+      "isConnectable" : true,
+      "localName" : "HBB8904217495SOC077",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HBB8904217495SOC077",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T10:28:39Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "64C59958-D3E1-CC05-35E3-F86FDEF2783F",
+      "isConnectable" : true,
+      "localName" : "ZXH_BA04V01_01491DFE",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ZXH_BA04V01_01491DFE",
+      "rssi" : -81,
+      "seenAt" : "2026-04-06T10:28:38Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B6A97B61-E4EA-17BC-DC01-683B511B0784",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00160800A85A2244206F98",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T14:54:05Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "835BA373-7D55-269D-1DDB-FD9F10373579",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063E1E1F088DC70100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T22:49:55Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A966F648-61B0-4CB2-1865-F906A1DB7B04",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092002F58EDF7B119523CB6E9678DA509D9268F24A6CBAD18E4F",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T12:36:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "80D901B7-B1B2-C935-5C83-A23F23A0CD71",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T22:34:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "06431BC7-818A-0795-D642-4D32401F9DFE",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T17:57:08Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "3EB3B1E3-F8D1-3583-5B54-ABC1BC43E795",
+      "isConnectable" : true,
+      "localName" : "AIMA-58CBD2",
+      "manufacturerDataHex" : "A801B69E414DB2624A544C5670674DD2CB580122F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-58CBD2",
+      "rssi" : -82,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "79C303B4-BA2F-C31A-CB94-FA920FFA56D8",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006381E25E31FBD0100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T21:32:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "579329AA-0098-451F-CC22-C354C28F0CFE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006321E3C7615A5",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T18:46:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D8E2E5A0-0CB9-8D69-3FD0-D0473009AAB2",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060A1D05FF7048",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T18:12:31Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "032A0A6C-EFD3-1E79-661E-E24CAD63DD9A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006351E7A63A7CD0100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T17:57:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "ABBC7595-A9F4-CC0C-4D9F-FE04CDF15F01",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001219005897940060319057B12AEFC348DA2524179C16C31C960100",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T23:02:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CCC74CB8-409D-ACA1-A565-CFAE25E65C7C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005291C48BCEE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T19:59:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "908D60C7-2D31-0B06-5E57-B40B51AE5A0F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T16:26:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "23B04518-CA24-D9CA-098B-A8AB45D26505",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001608001A9EC96BD1D2A7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T12:53:00Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "28DEF242-DAC8-EF99-90C2-ADCA4AD8C3AC",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006371E603ED53C",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T12:53:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CE274B04-ACA0-5F17-19D3-8AE21FD5F78B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005261C9D7755",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T14:54:09Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "26568B67-AABA-9078-2106-67E18394F4B9",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060E1D88FFA838",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T10:28:33Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5B24D918-5201-F41C-1BA2-00B6C5B190DB",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060C1D18114058",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -83,
+      "seenAt" : "2026-04-06T12:06:07Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "00B5F6CF-9DBC-6C84-80E6-B83BF62E3F6C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T20:47:35Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "654847BD-918D-4669-B2FA-BDF7D2A10970",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001608000CFFAFA3219FAE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "47DA3019-5CAD-7E69-E1BE-F9EFF73FB3C1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006391EEE251766",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T20:47:34Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "47F600F2-0704-786E-F194-58B21026C149",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010067F1ED6A7C436",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T14:44:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "81237C5B-D0BB-E3B0-FC27-671F2D5FCB33",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010051F1821DD9A",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T10:11:20Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "180F"
+      ],
+      "id" : "1CAED866-5C15-3CBE-2C53-ED53E3BF110F",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_BD03",
+      "manufacturerDataHex" : "200068957511BD03",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_BD03",
+      "rssi" : -84,
+      "seenAt" : "2026-04-06T23:18:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7F945E18-DC78-7C49-BEEC-4C8A3F9260AB",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "0600010920026EF07A2A2A2BA721DFE10D8F7DB808C2F8F161118349EE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T12:06:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CC25A7BF-BD6F-CFAE-C050-A5082C56D5D3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006351E6BD514F80100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T18:58:09Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "92A912A9-F420-B580-8763-E80990CB31D3",
+      "isConnectable" : true,
+      "localName" : "AIMA-756D6A",
+      "manufacturerDataHex" : "A801B69E414DB2624A544C5670674D6A6D750122F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-756D6A",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+        "DD26"
+      ],
+      "id" : "BC32CEA0-1ECC-73BE-A19E-0E7C90F42C37",
+      "isConnectable" : true,
+      "localName" : "OPPO Watch 3 DD26",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "OPPO Watch 3 DD26",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T09:03:01Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEB0",
+        "1812"
+      ],
+      "id" : "214EAEDE-FB5C-5DA5-800F-D5092A9048BB",
+      "isConnectable" : true,
+      "localName" : "Q_BASH_DCCE329B4A87",
+      "manufacturerDataHex" : "0012DCCE329B4A87",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Q_BASH_DCCE329B4A87",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T14:54:09Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "E7810BD2"
+      ],
+      "id" : "43CCE519-833E-1B19-7ECB-2C798DA571E5",
+      "isConnectable" : true,
+      "localName" : "YD53205477",
+      "manufacturerDataHex" : "FFFFFFFFC14C53205477000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD53205477",
+      "rssi" : -85,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "85C7E282-CE8F-756C-5B69-17F282C4390C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010053E1C2CD2DC0100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T12:06:05Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2C48AB35-B594-8B52-88D2-133092FABAF1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052818656B4D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T22:49:56Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "0F3798E5-49CB-2E9E-C525-C544D62EF736",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F03211134384B4A103041A201152629C2B157010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "AE3CB8AE-737C-6788-8FFD-4095706074E9",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032C1134396651103041A20115262965E657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T18:29:42Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "F00B0F80-B970-BF6E-F7A9-717F905FFE69",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032D1134346E39103041A201152629956657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T18:12:32Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "77DA33E6-F905-C595-590F-BA7CF9464AF3",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0016080013005C063B174A",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T17:57:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "AF4D4509-AC57-BC9A-660C-F2176461EFE5",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092002BC51B5185166B30D59BF82CE184214F1E477FC72A56169",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T09:03:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "447E8C59-0BC5-2264-BCFA-91601CFAD508",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T11:51:18Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "723BCFCB-C412-9BEF-FD9F-2D5C4CDC2027",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:51Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "45DB81E7-1765-34C9-35B4-03C4199C424D",
+      "isConnectable" : true,
+      "localName" : "AIMA-5A5BF2",
+      "manufacturerDataHex" : "A801B69E414DB2624A544C5670674DF25B5A0122F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-5A5BF2",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "D5E2610E-B1D0-8078-2B77-1BB6BAA5C53C",
+      "isConnectable" : true,
+      "localName" : "AIMA-CAC872",
+      "manufacturerDataHex" : "A801B69E414DD07930574B5A47305972C8CA3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-CAC872",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "E4D48CF1-EF3C-FF1B-1435-B0D457ECB9E6",
+      "isConnectable" : true,
+      "localName" : "HBB8903113841SOC053",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HBB8903113841SOC053",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C1BA1D6C-6CD9-5680-3BD2-4964C99CC40C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C56183EDD000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD56183EDD",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "86B82964-50F8-422B-6737-98DB7AFCFDE0",
+      "isConnectable" : true,
+      "localName" : "开机插座C2 BLE-3971",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "开机插座C2 BLE-3971",
+      "rssi" : -86,
+      "seenAt" : "2026-04-06T23:29:51Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E2FB4F13-83EF-7DB2-61E0-D2EED4F7F074",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005671CA43E73",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T11:51:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "98B5CFE4-3F29-1BDD-C861-B3B71AB9D303",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "7D020904",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T09:03:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "329E67C5-D289-06B5-56CD-EAEEE9FDE7C2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "0600010920027D2DD4B6A7453529F041F3051D463D587B91D499A7DD14",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T10:11:26Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B51CE53F-3726-14BF-2788-235CDE30CC3A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005251C67E7CD",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T12:53:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "65ED6545-72EC-086B-5600-0ECF8244A9E2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T22:50:00Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6C1A2015-CE31-719A-7CED-1E51051C15E3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006021DB0B27508",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T16:26:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F5116921-DD7C-7F46-EFBA-195BCF713033",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T10:11:25Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F076D8A7-79E5-730A-E5F2-6B4034911108",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063A1EA37E807B0100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T16:43:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DEBC16C1-330C-E674-0CEE-5265EF065C69",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T12:06:02Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "8ACE7448-317E-4DE4-666A-BF6B028F6F2F",
+      "isConnectable" : true,
+      "localName" : "HBB8903083156SOC040",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HBB8903083156SOC040",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T09:03:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A9B51331-9C85-5377-5FE4-8E0BF483C49B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC1165719109C010901001A01FFFFFF26FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD5719109C",
+      "rssi" : -87,
+      "seenAt" : "2026-04-06T23:02:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F38679CB-62B9-AD66-5CE6-B0E8FBFE0DC9",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006051DCF1D8C68",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T19:59:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "91F68478-A200-E832-5C57-90E345E89BC4",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T21:00:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DD4F0DEC-D1BA-5E6E-BDB9-C95840C17671",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T17:47:37Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5EFD27D9-A1F2-075D-F944-5FFAB0FE7C77",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "4FB351A9-38D8-3E41-5098-1ED3600AA6F1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006771EBBBA5C0D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T16:26:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "970B137E-7B04-307A-AA89-6420A221CE8B",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "06000109200234732753FBD6191389B7AF2A835C5D2F7BAD2884864B21",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T13:47:36Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "4EC7FBDA-E769-D2B6-8B6F-61BD9C099E67",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006321E41C6C434",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T22:50:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7DC3314D-F10F-F573-DF2C-D849F313023E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005251C12BDBD",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5920C7F8-BB56-1718-CF83-A31402C3F545",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006391E17BF5ED8",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T14:44:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7C9628F3-D987-E5AA-5EFA-CFA2F192AEAF",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063B1E78170B32",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T20:30:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "02A6F78A-6B10-6DAE-789A-F29E0AFC7B14",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063F1E680AFCC2",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T20:47:37Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "AE855AD4-28B9-FC54-DCA0-ACE8A45FA649",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032C113462547A103041A201152629CBF257010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T10:28:38Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3068049A-D402-C60E-E9E0-347C1547262A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T13:47:41Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "87421458-8106-5F22-7C55-F30F9695293C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "06000109200207DA80A1B20BC0D81A0A657540B997B69E76E7FBD2DF93",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T11:51:21Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "316EC6C4-2053-DA9E-A961-31C2BC9B6EC3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006381E972BE755",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T12:06:00Z"
+    },
+    {
+      "advertisedServices" : [
+        "FFB0"
+      ],
+      "id" : "81B53B19-AC90-AD33-5C8F-EE9BCE5CF329",
+      "isConnectable" : true,
+      "localName" : "LEDDMX-00-073D",
+      "manufacturerDataHex" : "FFFFFFFFFFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "LEDDMX-00-073D",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T23:29:52Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEB0"
+      ],
+      "id" : "C40E92FC-D26A-EE3B-B4AA-6229E1B95271",
+      "isConnectable" : true,
+      "localName" : "Q_BASH_EFDE3456F58A",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Q_BASH_EFDE3456F58A",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T11:51:22Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "D9902FA0-547F-D67D-0A78-49D33973CC3E",
+      "isConnectable" : true,
+      "localName" : "YD34278018",
+      "manufacturerDataHex" : "FFFFFFFFC13334278018010905001202FFFFFFFFFFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD34278018",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "21A487D3-A290-BA67-21F7-4DC1E5B863D4",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "njcuk.fitting.ad1204",
+      "rssi" : -88,
+      "seenAt" : "2026-04-06T22:49:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5006337B-2198-3F67-3FBC-57467410953A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006311EBD938D850100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "461A1EC1-E070-1AE1-2500-A348E0FF1145",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F03291134335742103041A201152629672E57010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T11:51:19Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FFE22A32-3478-7923-A3DD-05E914B9DADE",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092022B20796029EBC1CED2F73C99C0682BBF4828ABAA7ED1F91",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T15:55:07Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "1E900C87-BC6C-2BB6-6F7F-FAF97BF20B82",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005231894DEA1",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T19:59:14Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "99BB1819-F4CF-1682-102C-0108ACDF8A3D",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T16:26:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E9B9A933-FB12-71D1-7AC6-2FCD2DF154FE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006381EBFD6F9C9",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T21:00:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "49399E57-ED10-AF9F-03B0-C4424582E0FE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005241C874D30",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T10:11:26Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D8D8D9B2-B860-45AB-D56D-5873A0C47092",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "7D026FDD200005171426D308080000D1EAE42BF9",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T10:11:21Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A3C62519-7830-75E2-FD2E-6460F70F52BC",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005261CF6EC24",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T11:51:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "ED8EBD6F-6722-F543-3DB6-81B63822CEF4",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060C1D6D215668",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T20:30:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B31ED166-2230-D903-D94D-1253142A6673",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052818B4BF64",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T17:12:16Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3D9BDEBE-6C72-9EE0-B39C-58470E5941D8",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060A1D16ED0208",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T13:47:41Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C005236F-DC76-0D9E-F097-C5269DD7FE4A",
+      "isConnectable" : true,
+      "localName" : "0PDAB2413J2879",
+      "manufacturerDataHex" : "4E42A0020000005D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "0PDAB2413J2879",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FD72B3A7-86E2-FBA9-237A-6A15A2FE9A59",
+      "isConnectable" : true,
+      "localName" : "0QDCH2439J0210",
+      "manufacturerDataHex" : "4E431001020000EC",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "0QDCH2439J0210",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T10:28:37Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A67D1A2E-62CB-C8B8-007F-FE8DB7B3AA93",
+      "isConnectable" : true,
+      "localName" : "0WDAL2418J0791",
+      "manufacturerDataHex" : "4E431102020000EA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "0WDAL2418J0791",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B495FD61-7888-56C2-2473-76DC9A083CA5",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C56183D12000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD56183D12",
+      "rssi" : -89,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9DEBB89C-AABD-F8BA-105C-C907B55F692C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T20:30:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "DF857680-4838-EA42-9F9A-C5B3F186D3A7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052E1C036637",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T19:32:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "528C5B8C-E3FD-7557-F8D8-F50953C56912",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0016080098D359CB59204A",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T16:26:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "63AE187D-F7EA-A762-A237-EF0A7B7B5C82",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005221CE2BD0E",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T19:16:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "AB02FB5B-2CD9-5D06-5AE9-A598E98FE1D3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F8617DCA-624E-A6C5-E0C8-F9555E448A76",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T15:55:09Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C9C90E3B-D05B-362F-ACBD-884D8D040349",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052F1C892A9E",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T16:26:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "29581448-C525-26E1-6DA9-0C5E22DAD394",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T22:01:13Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "8AC6D3C0-DBAA-3216-E6AC-A200F1D32A9C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T12:53:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2E0B07E9-128A-6B9E-4861-3CD48254E90D",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052A186AE045",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T19:32:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "AEC265AB-A69B-0FAF-8AA4-6B5A3EDD34FE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052D18A7D8D6",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T21:32:43Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F858D2D3-6B32-12E6-1069-50C0810567E3",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006031D6B44A928",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E3F549CF-626A-BF8E-DFE9-B1202BC2C323",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052F1C65CDE7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "762C49DF-8819-360C-2E70-8A1306FE33DE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006071DF190FF28",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T09:02:53Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "75595D58-0E93-772B-909D-8EDB50B428E2",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00130B1B5F21CB075F4B14842300",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:49Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C31A6B78-B86A-7B84-83EB-C4B052285361",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T20:47:35Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6DA6B11D-C86D-5D12-00BF-059EBED5D0A4",
+      "isConnectable" : true,
+      "localName" : "0PDAF2402J0681",
+      "manufacturerDataHex" : "4E42A0020000005D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "0PDAF2402J0681",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C660D551-50F9-2FB2-4D78-63AF04737A0C",
+      "isConnectable" : true,
+      "localName" : "2PDDA2528A0968",
+      "manufacturerDataHex" : "4E431108020000E4",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "2PDDA2528A0968",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:49Z"
+    },
+    {
+      "advertisedServices" : [
+        "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+      ],
+      "id" : "D0057BBB-D75B-EDDF-0AC4-700ADBA606F3",
+      "isConnectable" : true,
+      "localName" : "2VDAH2526J1451",
+      "manufacturerDataHex" : "4E43110B020000E1",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "2VDAH2526J1451",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:29:51Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0752C96E-42E9-079F-70CE-7FBE64760663",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "LYWSD03MMC",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T21:32:44Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "3C96AD68-2070-7565-3738-2B1EAD623978",
+      "isConnectable" : true,
+      "localName" : "TXZ40676(BLE)",
+      "manufacturerDataHex" : "01C0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TXZ40676(BLE)",
+      "rssi" : -90,
+      "seenAt" : "2026-04-06T23:18:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "5395A87F-AFC3-A68C-B5D5-7B0699E2E7E0",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C55103D73000B120200000E01FF26FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T23:29:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "1AF423DE-AF7F-01D6-E71A-0CF80118749D",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052C18D2712B",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T23:02:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0672803B-3339-AA65-FD32-84AC604D6ADF",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T18:58:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E56B8E0F-D7D5-5FD0-09A4-667239DF5F7A",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9DD3D273-6C08-F198-8A55-3063A152DB5E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010067C1E384A49FD",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T09:03:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BA94B711-13C0-2A8E-E2DC-D34F8149297A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005671C102886",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T14:54:06Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A3CFE785-AF0C-0EFD-FB9B-69B94145ED40",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0013081AECBC66082ADD00",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T12:53:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "952A0127-7F99-FBFA-A349-D12754FE715B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005231C2A6A76",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T17:29:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "55256961-4F0A-EB4A-E38B-593A5CB844D8",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012190064BD94D1ADDD1F8B60B073E973663A9A553FD47147B20000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T17:57:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "356EA128-CFF4-0F14-E7AE-C6C14D236C1F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T18:29:42Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B3CD4AB4-1E2C-81A5-4A05-B000E058F873",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006331E8FCBEA8D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T12:53:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C16B181F-B458-8843-A2BE-0DEEA423A677",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052D18DCC733",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T20:47:30Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B2893AE6-DE2D-45DC-97BB-B0F8D8EFFB36",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T22:49:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A1D6B7C6-C1EA-1E60-75A7-141ABAC29C9F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T20:47:35Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6E47FED4-D3D8-9FD6-F53D-E5CE274C892C",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T12:06:06Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "518A499D-64F5-B447-6D42-FF5F2A202D95",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0013081A4702EA0D594B00",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T10:11:21Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "478C8546-1446-4C3F-CF4B-CCBA9AA07803",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005231C02A8D4",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T18:58:11Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "883572D0-3351-EDE8-5BCF-F084D737F3AB",
+      "isConnectable" : true,
+      "localName" : "AIMA-5526A3",
+      "manufacturerDataHex" : "A801B69E414DDF4444435F4D314148A326550222F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-5526A3",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T23:29:54Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "E3DAC9E3-E141-D0AB-9495-9B10FA53A488",
+      "isConnectable" : true,
+      "localName" : "HBB8903090926SOC091",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HBB8903090926SOC091",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T14:54:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "37F25609-BDE4-B04A-7A15-D185FAC07C88",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0002154E35444D45323234354A30393234420101020304C3",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "N5DME2245J0924",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T14:44:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "488F2282-43AE-D5C3-B439-9BD95B3EBEDA",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_55AD",
+      "manufacturerDataHex" : "20006895751455AD",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_55AD",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T12:36:46Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "41DF6C6D-7909-EEB5-1649-1B4A6B7F7C72",
+      "isConnectable" : true,
+      "localName" : "TXZ99623(BLE)",
+      "manufacturerDataHex" : "01C0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TXZ99623(BLE)",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T23:29:49Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E5D6C0C0-3ADA-397E-9946-78ABFDB1910A",
+      "isConnectable" : true,
+      "localName" : "Y30S-8FE2",
+      "manufacturerDataHex" : "3A55E28FABA65688003C",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Y30S-8FE2",
+      "rssi" : -91,
+      "seenAt" : "2026-04-06T11:33:31Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EA8368BF-5D1C-C9A7-E16B-F673DFC72C3C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006311ECF87E896",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T16:26:13Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "48B5BF16-2493-F99F-F46D-964E72527945",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00021566238680D3C1474EA7D71833F554A08701020304B0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "5EC1BEA4-CE61-22C9-7726-1F4E55DDA04A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032D1134346E39103041A201152629956657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T17:57:07Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "357AC7E0-EA28-2BE7-AE9D-9215000D9414",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010053B1C7BC2F7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T12:52:59Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "8E0354EE-08EA-3575-35AA-CC71A033DC9D",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T12:36:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CD51B126-F488-BE3E-A507-34F68FCD66C0",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00160800A37BACB3E29A50",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T16:10:39Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A385C1D9-3925-8A66-A84D-EB6238163B81",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "370820A101286B35ED478342462D323135000000000000000000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T09:03:00Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9A273147-013E-71AE-E210-748F13B0CA74",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052318E92C99",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T12:06:07Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A9F73D9C-7A5F-6461-8E54-BE1F2C5AA591",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC1333227819B010905001202FFFFFFFFFFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:29:44Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "F6BBB336-5CBD-CDB5-3EF2-E44FD636F20F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032D1134346E39103041A201152629956657010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T20:30:52Z"
+    },
+    {
+      "advertisedServices" : [
+        "30AF",
+        "A0EB"
+      ],
+      "id" : "565B633D-97BA-D5E4-7F2F-43CA321780A9",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9BDA0500E5FC",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T10:11:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "390B1EA5-E622-DB07-881A-118923AA3789",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005261C05BF19",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T12:53:01Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "750D642A-C29A-5086-D59F-E2AE928D25D2",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E6738B038344770476E4164A8AE3B3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-3BAEA8",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEB0",
+        "1812"
+      ],
+      "id" : "35342710-7EE9-D643-2846-91DD85582538",
+      "isConnectable" : true,
+      "localName" : "Q_BASH_C39A41AA1D03",
+      "manufacturerDataHex" : "0012C39A41AA1D03",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Q_BASH_C39A41AA1D03",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T09:03:01Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F4D0DF33-2805-FCF6-1A3E-3467B7067E35",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C55073F05000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD55073F05",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "77E33330-2FCB-12BA-95CB-DED902686E94",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C560449E7000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD560449E7",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:02:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7101CDD4-136E-2506-AABD-6C4421F6437A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC1165821AD0F010901001A01FFFFFF26FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD5821AD0F",
+      "rssi" : -92,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9D317775-B949-9B71-50B7-C12A577D47F7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC11652120BD5010901001B01FFFFFF26FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T11:51:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "172E762F-0895-0A1A-0CE4-5AAFFDD1C8EC",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010053318A39890",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T19:16:07Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "B96CEAC6-5567-82AD-06B8-BE8DAAA0C5E0",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "812424007FA60107",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T12:36:42Z"
+    },
+    {
+      "advertisedServices" : [
+        "FDAA"
+      ],
+      "id" : "3006DD70-BADC-8E97-3AFA-4F124F709485",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "8F032B1134326564103041A2011526290DBB57010302",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T11:51:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F7C60966-2CF0-676B-5F5C-352D8600CBE6",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T19:32:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0ADE705C-74C2-237C-CED8-8DC05C198056",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005671CD2BDB6",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T12:53:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3DAAD031-E78F-500C-39D3-4529BAB799C8",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T10:11:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BBF98D28-2F5E-B99F-3C32-2C8CB82D7CCD",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C000C0E00A5A9FFD1C32BBBF6DB78C98A0B1006701DEA981B48",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T14:44:09Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "71A69B90-BCC8-1CC2-9398-2B80B0CB52C0",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T20:47:32Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "85990DA7-8B60-1A79-181D-253BA1500022",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010020200",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T17:12:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "E58FF916-05A6-7915-CB38-DFBA4BE5B386",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "06000109202246EEB4FA0CE83E8E2A67F3F41D400C0CB9EF58ED16DC7C",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T14:44:17Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FCABBFF8-C833-BAFE-4003-86790CBE787B",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T17:57:10Z"
+    },
+    {
+      "advertisedServices" : [
+        "30AF",
+        "A0EB"
+      ],
+      "id" : "DF492109-4B82-F15F-4C53-5364E96E230E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "96A6C703E0FA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "6BDA-ble",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T22:50:02Z"
+    },
+    {
+      "advertisedServices" : [
+        "FE8F"
+      ],
+      "id" : "55E47D59-7524-232A-ED9E-09B0E02300BF",
+      "isConnectable" : true,
+      "localName" : "ACTON II",
+      "manufacturerDataHex" : "1300",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ACTON II",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T23:02:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FF189E58-288D-48E9-F443-0A7867B10C7A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DD07930574B5A4730595FB2B93322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-B9B25F",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T22:01:15Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "37A9A7F4-8ABC-50DB-A32F-D9155F11C379",
+      "isConnectable" : true,
+      "localName" : "ECUdd45b87635ed",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ECUdd45b87635ed",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T23:29:53Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "DDE92F80-19F5-706C-96B8-35AFC228E2FD",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9527E38B4FA32FBF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "FK-E38B4FA32FBF",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T22:49:58Z"
+    },
+    {
+      "advertisedServices" : [
+        "8900"
+      ],
+      "id" : "FE40CAEA-872D-7861-F5A6-FB6AEB981CC4",
+      "isConnectable" : true,
+      "localName" : "HBB8895184234SOC088",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HBB8895184234SOC088",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T22:49:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6A157826-B1A8-C688-AAA3-E6BD97AA1A23",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00021566238680D3C1474EA7D71833F554A08701020304B0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "NIU Link B27B",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T12:52:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "AB3FBEF9-9F9E-7564-F983-698D1064C435",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_8FAF",
+      "manufacturerDataHex" : "20006895750C8FAF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_8FAF",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "75420A4A-BA21-E0EF-9C10-4B79F2D739D4",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_EFAF",
+      "manufacturerDataHex" : "200068957513EFAF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_EFAF",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T12:06:00Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "CC5BA874-FA05-F6C6-4D47-EE22DAF7FCFD",
+      "isConnectable" : true,
+      "localName" : "TXZ66790(BLE)",
+      "manufacturerDataHex" : "01C0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TXZ66790(BLE)",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B4F96655-0609-69DD-C15B-87CA297F9105",
+      "isConnectable" : true,
+      "localName" : "XDZ_BAA4VB1_3A911E06  ",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "XDZ_BAA4VB1_3A911E06  ",
+      "rssi" : -93,
+      "seenAt" : "2026-04-06T23:29:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F2BF4EEE-A267-CD0B-49B6-EE0240D5105F",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092002618E57F3C222502112A62C5AC6553569DAE957C7973106",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T12:53:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "054B1A7C-3F39-D8FD-A5A7-4DF24BEB764E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010056C1C0A8D3D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T10:28:34Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "01B32270-9056-B6C6-C04E-52D64A081D5F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "81200000AFB7",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "254BD939-4B69-6A4A-9CFE-CC52B6D09BF0",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005291C779AA2",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T12:06:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A603FB84-A002-133B-B443-CD7FF3E1D8BF",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006011DED564758",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T13:47:42Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "03EBB32A-751C-4347-E41B-3D1FDD25218A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010056B1CB25F92",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T14:44:18Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "B2A48759-7639-D582-F721-41C8A9C72F4C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010063F1ED0BFC484",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T22:49:58Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "33BA5A8E-C850-FE58-F4B9-9906F00C11C9",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "060001092022484918BE4C43ED73FD752511D5B56ABEBA809573B773A9",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T13:47:42Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "ABC07A6B-826F-3EA9-2243-4AA0ACEC7FD6",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010067B1EB94943F1",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T22:49:59Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D515DD2E-6E2A-1BD0-2A17-ADFE1C50B88D",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T12:06:03Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "CC6C0756-DE6E-F495-68EF-B1C52824EF63",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T22:01:13Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "D23493B7-88ED-3360-EB16-62FF72F9F4CB",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "00120002E1EF02061674",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T16:26:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7F88BD19-C40D-0EF8-4A66-51751B40DFE1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T11:51:20Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2E9BBD2B-6149-1AE4-DD59-C41DF6EE1024",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0016080066DE80B5B1CE44",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T18:46:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "23D9EF18-7151-39E8-5AA5-717DC05FBE03",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005071CAD8284",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T12:06:00Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "53ACCB22-06DB-5885-FCAC-BB2EF4400705",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0016080018CE0C51E7B0F9",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T21:32:44Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "88BF01E2-9B62-0D84-8E7B-6978EC7332E1",
+      "isConnectable" : true,
+      "localName" : "2PDE22521J4644",
+      "manufacturerDataHex" : "4E431108020000E4",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "2PDE22521J4644",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "73C091ED-4E4E-8D22-BB23-0CECAEEA67BC",
+      "isConnectable" : true,
+      "localName" : "2PDE32522J0310",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "2PDE32522J0310",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:51Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C10714C2-E80E-7292-DE2D-CC53377AC000",
+      "isConnectable" : true,
+      "localName" : "2PDEA2527A0060",
+      "manufacturerDataHex" : "4E431108020000E4",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "2PDEA2527A0060",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T20:47:35Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D4D95BF1-7015-69DA-07F4-9EA1CD1DB949",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E0000000000000000000000297E183322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-187E29",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:02:12Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "5E2D6CA9-C0DB-B068-7F01-F574B0119EC1",
+      "isConnectable" : true,
+      "localName" : "G38A23252ME75159",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "G38A23252ME75159",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:56Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3C27DAD6-FE36-D9A2-D23F-F145A79452A7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0002154E35444D48323333374A30353436420101020304C3",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "N5DMH2337J0546",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7DDCAE72-8EF9-B539-7425-24894574C03E",
+      "isConnectable" : true,
+      "localName" : "TB1_BA08V01_00811DFF",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TB1_BA08V01_00811DFF",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T21:00:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "946A8986-0C97-3C00-DDC5-1EA4238C3366",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "200080BC001F568E",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_568E",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T22:49:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C13B47D0-9AD4-003D-61ED-428BE3F8B3F7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "200080BC00379D74",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_9D74",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:29:49Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "180F"
+      ],
+      "id" : "8591BDC3-21C3-F360-E234-C3241C4B72EB",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_F656",
+      "manufacturerDataHex" : "20006895750EF656",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_F656",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T09:03:02Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2201D8B0-48F7-F1F7-D52A-B907B82C52C0",
+      "isConnectable" : true,
+      "localName" : "TL_GPSJLXW_436843",
+      "manufacturerDataHex" : "EEA91AB19EEE",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_GPSJLXW_436843",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T23:02:14Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "703E77E5-82FB-7F13-9D2A-8853BAC06887",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C511651DF000B120200000E01FF26FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD511651DF",
+      "rssi" : -94,
+      "seenAt" : "2026-04-06T21:00:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A10E5BD5-1659-84F6-CE96-3EAF1C32A29B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006731EA871CA26",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T12:06:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0959873D-CB46-3202-A220-86C9A5675497",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC12861022380E00B1B027C011701FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7C1F7CD2-BC21-04D8-C701-02DF58FBC49F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T12:06:06Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "97FB7EFF-0140-29E8-A5CE-E55973743007",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010056B1C254574",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T09:02:51Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "A89C9A5E-DAC8-991C-6911-B55133BE9382",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC1165B2553C0E00B1A0200011501FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T09:02:54Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "C3F2A504-F64E-A72D-2327-38335CCE21CF",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E6738B038344770476E41647257363322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T19:59:10Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7FA122BB-236E-42F0-63D4-9F08DBC6AA8E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010057D1CBDE2490100000000000000000000000000100000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T09:02:59Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "81ECA39D-C0FA-411D-C284-8BAC1B7940DA",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006001D6A4EDB18",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T12:53:00Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2499D24A-6169-025C-5398-5FCCF2DF2E3C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001005251CC45C4B",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T23:02:16Z"
+    },
+    {
+      "advertisedServices" : [
+        "30AF",
+        "A0EB"
+      ],
+      "id" : "00019BEA-92C6-ED02-122C-217D59EC4571",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "F1878C08E0FA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T22:49:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F876D6C5-28CB-3180-F2F2-C213F72A2CA3",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0013081AAF79F6E8B96000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T17:29:53Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7BF9312A-160F-8754-DCF1-F8A0688359AB",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E00000000000000000000003664153322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+        "FF78",
+        "1812"
+      ],
+      "id" : "6083305F-E147-726C-9FAD-F0C566F1A85B",
+      "isConnectable" : true,
+      "localName" : "AIMA-6AC707",
+      "manufacturerDataHex" : "A801B69E414DED6D6C664D536C734D07C76A0122F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-6AC707",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T12:06:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "8471EAEF-1955-F402-AB59-73FA1AB06FD0",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E000000000000000000000015519B3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-9B5115",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T12:06:01Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "AD882FAB-9621-6643-381B-BB7DB6ACF93E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E00008000000000000000004AC7AB3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-ABC74A",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T22:50:01Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "0808FCAC-E257-52AD-085B-F75D787D8408",
+      "isConnectable" : true,
+      "localName" : "G65C23259GE9JL7V",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "G65C23259GE9JL7V",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T23:29:55Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEFF"
+      ],
+      "id" : "B7CB2E3F-3452-0006-38C5-D4F82AB99F3D",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "HSJL-ZWZWAXCXD",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T09:02:55Z"
+    },
+    {
+      "advertisedServices" : [
+        "FEB0"
+      ],
+      "id" : "DA904236-C562-663F-7AE7-D6C552D7039C",
+      "isConnectable" : true,
+      "localName" : "Q_BASH_F077698C6F34",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "Q_BASH_F077698C6F34",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T20:47:30Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "89D642B3-6D1E-1545-98E4-B6AEB1E9525B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C55172F1E000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD55172F1E",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T23:02:14Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "23B43F10-D995-253F-0093-68692C7EE35E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "44594459D5F640F5CA29010901000126FFFFFFFFFFFFFF01FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD_CA29",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T18:12:32Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "40AC3B3D-EB3F-7629-7B74-44B1BCBF18F7",
+      "isConnectable" : true,
+      "localName" : "ZXH_BA08V04_373A1E64  ",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ZXH_BA08V04_373A1E64  ",
+      "rssi" : -95,
+      "seenAt" : "2026-04-06T10:11:26Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "648122A0-00F5-FCF8-7C32-7783B8F9BB42",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00121900487A7DC739DF4C649B88D5A4E4014AE8AEAC7D1220260300",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:52Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3ACDDF48-AAD3-6EB1-5DE3-0B949E9E37CD",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E0000000000000000000000EEC26C3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T12:06:04Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2927BDE7-2F60-80B2-8A00-AA63FF94A42E",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E6738B038644A5672663465F58B153322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2EF22DE3-82C0-44AD-2EAB-2BEEEF8416F1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B61E000000000000000000000069091F3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T22:49:56Z"
+    },
+    {
+      "advertisedServices" : [
+        "FD50"
+      ],
+      "id" : "0CCD2015-AEF4-BAC5-738C-B6F18418A222",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:02:14Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2947CA87-74D1-F710-99DB-FF80E621DE05",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DDF4444435F4D3141483B6EE50222F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:02:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "758BCE87-0A1F-FC48-87D1-7B827880A7A0",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "9A07AA00000001",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T10:11:15Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "83F58FA9-9D11-2EF3-869F-478BE9E84C76",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010053618AA3189",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T12:52:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "4D21612C-F3E1-77DA-6135-6D7535B9307B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DDF4444435F4D314148141B680222F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:53Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "FC92C80F-170E-8D9A-24DE-E09100E54255",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C57183BB7000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T12:06:06Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "77E6EE8C-91EF-C9DA-A064-8923C0BEF4AE",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010060E1DE2E3B648",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T17:57:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3F812987-E7F0-DEAA-389E-55DF843E3D54",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006051D1EB6E978",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T12:06:10Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "14D629BB-38FD-7EB1-F7D0-91A12738DD8A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "00120002E13CC306355D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "9EAA57DF-819B-25C7-F117-0613302278F1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0010052E183381C4",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T20:47:32Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "60CCC56A-A010-DD95-46E9-D08DCB68D37F",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DC548533645444B6463A1D37D3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-7DD3A1",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "78F23470-138B-B00F-3F3E-5EFE2C63D122",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DD07844724D494875331CDFCA3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-CADF1C",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T09:02:54Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "FD97F5A7-0E4C-FC82-27B5-3754A188DF4B",
+      "isConnectable" : true,
+      "localName" : "ECUd2260b6386db",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ECUd2260b6386db",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+        "30AF",
+        "A0EB"
+      ],
+      "id" : "7D000FF2-3E18-486D-828A-968732B9F6B7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4FF20903E0FA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "FAE003E2CB74-ble-sy",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:48Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "27F2489D-83A9-290F-D0E2-D452AD709D51",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A14A00007AA2",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "LuYuan-Smart",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T20:30:47Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "3C8EDF7C-9A96-0FCE-335D-E2F1D0EAF4DF",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0002154E41444142323234304A30393538420101020304C3",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "NADAB2240J0958",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T13:47:35Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "01801EEE-5B15-9E55-0DB2-9857B7C9C62A",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_4E3F",
+      "manufacturerDataHex" : "2000689575074E3F",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_4E3F",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T11:51:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D01B3E0A-0691-BE02-32EB-AE2B5450784C",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_782B",
+      "manufacturerDataHex" : "200068957547782B",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_782B",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T22:01:12Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "EE625548-353A-CA00-9359-5C32DF122870",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_AD0D",
+      "manufacturerDataHex" : "20006895750FAD0D",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_AD0D",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:46Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0853F553-B116-BD34-01A5-E769011CFA9C",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_B8A0",
+      "manufacturerDataHex" : "20006895750CB8A0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_B8A0",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T22:01:13Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "BC63EE2A-12CA-7224-F53A-A19910172113",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C53244EBA000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD53244EBA",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T23:29:49Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "560C7727-CECE-964C-0FA2-7124263A46AF",
+      "isConnectable" : true,
+      "localName" : "ZXH_BA08V04_511D1EB1  ",
+      "manufacturerDataHex" : "FFFF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "ZXH_BA08V04_511D1EB1  ",
+      "rssi" : -96,
+      "seenAt" : "2026-04-06T22:01:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "2F3D6D69-8DE2-0BF9-25CC-263031C19769",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020002",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T12:36:43Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "0C223BCD-0903-CB91-B363-DE85C951D6F1",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "370883406466393665387006097669763138650719BD8BB20F00",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T12:06:08Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "F94FD19A-0620-8362-6270-D4C9678A002C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001006361E2B737AEC",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T11:51:22Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "910964D4-1C6A-1A67-2650-2C1474F31E97",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020003",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T22:49:52Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812"
+      ],
+      "id" : "0921CE06-920A-1A1C-40A1-51A99C33C4D4",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "5A4400A9017D001000445A00",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "MOTO-07D",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T21:00:11Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "57361019-71DA-F58C-8605-39E2B52A4313",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0002154E35444C41323232384A30363333420101020304C3",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "N5DLA2228J0633",
+      "rssi" : -97,
+      "seenAt" : "2026-04-06T12:06:07Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "6C4C6304-0D27-64B0-2F62-047D61F7E967",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC13B5C16E463000B220232011101FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T09:02:56Z"
+    },
+    {
+      "advertisedServices" : [
+        "FFE0",
+        "FEE7"
+      ],
+      "id" : "8C11FA36-7443-8B94-AA06-B1FE2C72618B",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "650B88A0C84780522D6F",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T22:17:49Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "ACEA9192-584E-9D20-0B24-6362F3951012",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C001007301F798706DA18",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "514E2300-0F2B-56D3-A368-34E419ED86DB",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E0000800000000000000000155A9B3322F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T23:29:53Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "95FD2B7D-97B5-069E-0CF4-F90D2587CE66",
+      "isConnectable" : true,
+      "localName" : "0WDAL2422J4018",
+      "manufacturerDataHex" : "4E431102020000EA",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "0WDAL2422J4018",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T20:47:29Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "15E44C22-4BB1-DF3E-B5FD-C16D97E4ABD7",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E00000000000000000000005B94100122F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-10945B",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T23:29:45Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D6D38A0D-DD88-5C06-087D-6A9806DD1857",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "A801B69E414DDF4444435F4D3141480EB38C0222F10000000000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "AIMA-8CB30E",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T20:15:23Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "03107643-DF96-C63F-A249-9A8974FD165C",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "200080BC0010D3BF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_D3BF",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T18:46:22Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "25BE8733-92BA-CE62-C9D2-BA404AC03CD7",
+      "isConnectable" : true,
+      "localName" : "TL_BEUOZB_DE3A",
+      "manufacturerDataHex" : "200068957510DE3A",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "TL_BEUOZB_DE3A",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T10:28:34Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "D7E193AF-A6D9-7989-3209-3E86E85443BA",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC14C571547F8000B120200000E01FF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD571547F8",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T23:02:11Z"
+    },
+    {
+      "advertisedServices" : [
+        "1812",
+        "E7810BD2"
+      ],
+      "id" : "BA63D84D-C149-00F4-625E-AE4E7169163C",
+      "isConnectable" : true,
+      "localName" : "YD57154D69",
+      "manufacturerDataHex" : "FFFFFFFFC14C57154D69000B120200000E01FF06FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD57154D69",
+      "rssi" : -98,
+      "seenAt" : "2026-04-06T09:02:58Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "7B24821C-450F-8CB7-43A0-A6AB8E5D123A",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "4C00021566238680D3C1474EA7D71833F554A08701020304B0",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -99,
+      "seenAt" : "2026-04-06T12:52:57Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "8DCAF04C-7ABA-996F-0DAD-6BE97D2717BA",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "FFFFFFFFC1165322114E010901001A01FFFFFF16FFFFFF00FF",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "YD5322114E",
+      "rssi" : -99,
+      "seenAt" : "2026-04-06T20:47:37Z"
+    },
+    {
+      "advertisedServices" : [
+
+      ],
+      "id" : "26DE5F0D-7E05-5114-1B75-A9386F2CF04D",
+      "isConnectable" : false,
+      "localName" : "",
+      "manufacturerDataHex" : "4C0012020000",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -100,
+      "seenAt" : "2026-04-06T12:52:59Z"
+    },
+    {
+      "advertisedServices" : [
+        "AF30"
+      ],
+      "id" : "ACFC7E17-702D-664C-B43B-99093406E5CB",
+      "isConnectable" : true,
+      "localName" : "",
+      "manufacturerDataHex" : "",
+      "overflowServices" : [
+
+      ],
+      "peripheralName" : "",
+      "rssi" : -100,
+      "seenAt" : "2026-04-06T22:01:12Z"
+    }
+  ],
+  "discoveryCount" : 356,
+  "durationSeconds" : 12,
+  "finishedAt" : "2026-04-06T23:29:56Z",
+  "note" : "目标固件名字在 scan response，主广播常见 UUID 为 180F\/1812。若 iPhone 已连接，板子通常不会继续对外广播。",
+  "startedAt" : "2026-04-06T09:02:48Z",
+  "targetLikeCount" : 37
+}
