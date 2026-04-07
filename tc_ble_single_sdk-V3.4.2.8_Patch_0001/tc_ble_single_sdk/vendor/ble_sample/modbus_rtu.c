@@ -15,10 +15,28 @@
 #include "btname_modbus.h"
 
 #define MB_ADDR        0x01
+#define BMS_REALTIME_REG_BASE              0xD120u
+#define BMS_REALTIME_REG_COUNT             11u
+#define BMS_REALTIME_REG_MAGIC             0x4253u
+#define BMS_REALTIME_REG_VERSION           0x0001u
+
+#define BMS_REALTIME_REG_MAGIC_ADDR        (BMS_REALTIME_REG_BASE + 0u)
+#define BMS_REALTIME_REG_VERSION_ADDR      (BMS_REALTIME_REG_BASE + 1u)
+#define BMS_REALTIME_REG_VOLTAGE_ADDR      (BMS_REALTIME_REG_BASE + 2u)
+#define BMS_REALTIME_REG_CURRENT_ADDR      (BMS_REALTIME_REG_BASE + 3u)
+#define BMS_REALTIME_REG_SOC_ADDR          (BMS_REALTIME_REG_BASE + 4u)
+#define BMS_REALTIME_REG_TEMP_MAX_ADDR     (BMS_REALTIME_REG_BASE + 5u)
+#define BMS_REALTIME_REG_TEMP_MIN_ADDR     (BMS_REALTIME_REG_BASE + 6u)
+#define BMS_REALTIME_REG_TEMP_MOS_ADDR     (BMS_REALTIME_REG_BASE + 7u)
+#define BMS_REALTIME_REG_VCELL_MAX_ADDR    (BMS_REALTIME_REG_BASE + 8u)
+#define BMS_REALTIME_REG_VCELL_MIN_ADDR    (BMS_REALTIME_REG_BASE + 9u)
+#define BMS_REALTIME_REG_VCELL_DELTA_ADDR  (BMS_REALTIME_REG_BASE + 10u)
 
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
+static u16 read_realtime_status_reg(u16 reg);
+static u16 encode_signed_current_reg(void);
 void WriteProID_Default(void);
 
 struct stCell_Info g_stCellInfoReport;
@@ -185,11 +203,20 @@ static u16 read_reg(u16 reg) {
         // if(reg == 0xd117) return ((UINT16)(System_OnOFF_Func.all & 0x0000FFFF));
         // if(reg == 0xd118) return ((UINT16)(System_OnOFF_Func.all >> 16));
     }
+    if(reg >= BMS_REALTIME_REG_BASE && reg < (BMS_REALTIME_REG_BASE + BMS_REALTIME_REG_COUNT))
+    {
+        return read_realtime_status_reg(reg);
+    }
     return 0;
 }
 extern void enter_fac_mode(bool on);
 extern bool deepsleep_en;
 extern uint8_t get_soc_real(void);
+static int reg_requires_param_save(u16 reg)
+{
+    return (reg >= 0x2100u && reg <= 0x2140u);
+}
+
 static void write_reg(u16 reg, u16 val) {
     (void)reg; (void)val;
 
@@ -292,6 +319,9 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg = u16be(&req[2]);
         u16 val = u16be(&req[4]);
         write_reg(reg, val);
+        if (reg_requires_param_save(reg)) {
+            SaveParam();
+        }
 
         // 06 回包=原样回显请求（非广播）
         if (addr == 0x00) return 0;
@@ -304,6 +334,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg = u16be(&req[2]);
         u16 qty = u16be(&req[4]);
         u8  bytecnt = req[6];
+        int need_save_param = 0;
         if (qty == 0 || qty > 0x7B) return 0;          // 0x10 一次最多 123
         if (bytecnt != qty * 2) return 0;
         if (req_len < (u32)(7 + bytecnt + 2)) return 0;
@@ -312,6 +343,12 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         for (u16 i=0;i<qty;i++){
             u16 v = u16be(&pdata[i*2]);
             write_reg(reg+i, v);
+            if (reg_requires_param_save((u16)(reg + i))) {
+                need_save_param = 1;
+            }
+        }
+        if (need_save_param) {
+            SaveParam();
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
@@ -381,6 +418,51 @@ static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32
     rsp[l + 1u] = (u8)(c >> 8);
     *rsp_len = l + 2u;
     return 1;
+}
+
+static u16 encode_signed_current_reg(void)
+{
+    int16_t signed_current = 0;
+
+    if (g_stCellInfoReport.u16IDischg) {
+        signed_current = (int16_t)(-((int16_t)g_stCellInfoReport.u16IDischg));
+    }
+    else if (g_stCellInfoReport.u16Ichg) {
+        signed_current = (int16_t)g_stCellInfoReport.u16Ichg;
+    }
+
+    return (u16)signed_current;
+}
+
+static u16 read_realtime_status_reg(u16 reg)
+{
+    switch (reg)
+    {
+    case BMS_REALTIME_REG_MAGIC_ADDR:
+        return BMS_REALTIME_REG_MAGIC;
+    case BMS_REALTIME_REG_VERSION_ADDR:
+        return BMS_REALTIME_REG_VERSION;
+    case BMS_REALTIME_REG_VOLTAGE_ADDR:
+        return g_stCellInfoReport.u16VCellTotle;
+    case BMS_REALTIME_REG_CURRENT_ADDR:
+        return encode_signed_current_reg();
+    case BMS_REALTIME_REG_SOC_ADDR:
+        return g_stCellInfoReport.SocElement.u16Soc;
+    case BMS_REALTIME_REG_TEMP_MAX_ADDR:
+        return g_stCellInfoReport.u16TempMax;
+    case BMS_REALTIME_REG_TEMP_MIN_ADDR:
+        return g_stCellInfoReport.u16TempMin;
+    case BMS_REALTIME_REG_TEMP_MOS_ADDR:
+        return g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+    case BMS_REALTIME_REG_VCELL_MAX_ADDR:
+        return g_stCellInfoReport.u16VCellMax;
+    case BMS_REALTIME_REG_VCELL_MIN_ADDR:
+        return g_stCellInfoReport.u16VCellMin;
+    case BMS_REALTIME_REG_VCELL_DELTA_ADDR:
+        return g_stCellInfoReport.u16VCellDelta;
+    default:
+        return 0;
+    }
 }
 
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)

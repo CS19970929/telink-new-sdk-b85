@@ -1,4 +1,6 @@
 #include "bms_cold_kv_store.h"
+#include "flash_store_cfg.h"
+#include "flash_store_safe.h"
 #include <string.h>
 
 #define BMS_COLD_PROTECT_KEY_BASE  0x1000u
@@ -135,16 +137,13 @@ static void bms_cold_flash_read(void *ctx, u32 addr, u8 *buf, u32 len)
 static int bms_cold_flash_prog(void *ctx, u32 addr, const u8 *buf, u32 len)
 {
     (void)ctx;
-    flash_write_page(addr, (int)len, (u8 *)buf);
-    return 1;
+    return flash_store_prog_checked(addr, buf, len);
 }
 
 static int bms_cold_flash_erase_sector(void *ctx, u32 addr, u32 size)
 {
     (void)ctx;
-    (void)size;
-    flash_erase_sector(addr);
-    return 1;
+    return flash_store_erase_sector_checked(addr, size);
 }
 
 static const flash_kv32_port_t *bms_cold_kv_port(void)
@@ -218,9 +217,10 @@ void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system)
 static void bms_cold_fill_sector_addrs(void)
 {
     u16 i;
+    u32 base = flash_store_cfg_get_cold_kv_base();
 
     for (i = 0; i < BMS_COLD_KV_SECTORS; ++i) {
-        g_bms_cold_sector_addrs[i] = BMS_COLD_KV_BASE + ((u32)i * BMS_COLD_KV_SECTOR_SIZE);
+        g_bms_cold_sector_addrs[i] = base + ((u32)i * BMS_COLD_KV_SECTOR_SIZE);
     }
 }
 
@@ -282,7 +282,7 @@ int bms_cold_kv_store_init(void)
 {
     flash_kv32_cfg_t cfg;
 
-    if ((BMS_COLD_KV_BASE == 0u) || (BMS_COLD_KV_SECTORS < 2u)) {
+    if ((flash_store_cfg_get_cold_kv_base() == 0u) || (BMS_COLD_KV_SECTORS < 2u)) {
         return FLASH_KV32_FAILED;
     }
 
