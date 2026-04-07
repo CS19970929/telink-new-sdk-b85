@@ -9,3 +9,5 @@
 *.a
 *.bin
 *.elf
+tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/.build
+tools/lan_clipboard_sync
