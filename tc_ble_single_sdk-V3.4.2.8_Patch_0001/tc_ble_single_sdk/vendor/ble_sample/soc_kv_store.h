@@ -8,28 +8,12 @@
 extern "C" {
 #endif
 
-#ifndef SOC_KV_HOT_BASE
-#define SOC_KV_HOT_BASE   FLASH_ADDR_RUN_KV_BASE
-#endif
-
 #ifndef SOC_KV_HOT_SECTOR_SIZE
 #define SOC_KV_HOT_SECTOR_SIZE   FLASH_SECTOR_SIZE
 #endif
 
 #ifndef SOC_KV_HOT_SECTORS
 #define SOC_KV_HOT_SECTORS   FLASH_ADDR_RUN_KV_SECTORS
-#endif
-
-#ifndef SOC_KV_COLD_BASE
-#define SOC_KV_COLD_BASE   0
-#endif
-
-#ifndef SOC_KV_COLD_SECTOR_SIZE
-#define SOC_KV_COLD_SECTOR_SIZE   FLASH_SECTOR_SIZE
-#endif
-
-#ifndef SOC_KV_COLD_SECTORS
-#define SOC_KV_COLD_SECTORS   0
 #endif
 
 /*
