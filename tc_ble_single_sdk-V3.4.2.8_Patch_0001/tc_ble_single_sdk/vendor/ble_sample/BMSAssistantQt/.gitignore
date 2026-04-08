@@ -1,0 +1,9 @@
+.venv/
+build/
+dist/
+.dist/
+.DS_Store
+__pycache__/
+bmsassistantqt/__pycache__/
+bmsassistantqt/ui/__pycache__/
+*.spec
