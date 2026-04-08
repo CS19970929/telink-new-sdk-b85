@@ -17,11 +17,6 @@ static void param_fill_default(PARAM_T *param)
     bms_cold_kv_store_get_default_protect(&param->protect);
 }
 
-static int param_protect_equals(const struct PRT_E2ROM_PARAS *a, const struct PRT_E2ROM_PARAS *b)
-{
-    return (memcmp(a, b, sizeof(*a)) == 0);
-}
-
 static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
 {
     u32 applied_epoch = 0u;
@@ -85,14 +80,6 @@ void LoadParam(void)
 #if defined(PARAM_SAVE_TO_EEPROM)
 #error "bms_cold_kv_store currently supports Flash-backed param storage only"
 #endif
-    PARAM_T legacy_param;
-    struct PRT_E2ROM_PARAS default_protect;
-
-    memset(&legacy_param, 0xFF, sizeof(legacy_param));
-
-#ifdef PARAM_SAVE_TO_FLASH
-    flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&legacy_param);
-#endif
 
     if (!bms_cold_kv_store_init()) {
         param_fill_default(&g_tParam);
@@ -104,14 +91,6 @@ void LoadParam(void)
         param_fill_default(&g_tParam);
         (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
         return;
-    }
-
-    bms_cold_kv_store_get_default_protect(&default_protect);
-    if ((legacy_param.ParamVer == PARAM_VER) &&
-        !param_protect_equals(&legacy_param.protect, &g_tParam.protect) &&
-        param_protect_equals(&g_tParam.protect, &default_protect)) {
-        g_tParam.protect = legacy_param.protect;
-        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
     }
 }
 
