@@ -298,24 +298,11 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("if (param_upgrade_apply_default_runtime()) {", text)
         self.assertGreaterEqual(text.count("System_ERROR_UserCallback(ERROR_EEPROM_STORE);"), 6)
 
-    def test_soc_kv_flush_interval_is_rate_limited(self):
+    def test_soc_kv_flushes_immediately_on_any_value_change(self):
         text = read_text(MODULE_DIR / "soc_kv_store.c")
-        self.assertIn("SOC_KV_FLUSH_INTERVAL_US", text)
-        self.assertRegex(
-            text,
-            re.compile(r"^[ \t]*if\s*\(\(current\.cycle != cycle\)\s*\|\|", re.MULTILINE),
-        )
-        self.assertRegex(
-            text,
-            re.compile(
-                r"^[ \t]*clock_time_exceed\(g_soc_last_flush_tick,\s*SOC_KV_FLUSH_INTERVAL_US\)\)\s*\{",
-                re.MULTILINE,
-            ),
-        )
-        self.assertNotIn(
-            "if ((current.soc != soc) || (current.dsg != dsg) || (current.cycle != cycle)) {",
-            text,
-        )
+        self.assertNotIn("SOC_KV_FLUSH_INTERVAL_US", text)
+        self.assertNotIn("g_soc_last_flush_tick", text)
+        self.assertIn("(void)soc_kv_store_write_all(soc, dsg, cycle);", text)
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)

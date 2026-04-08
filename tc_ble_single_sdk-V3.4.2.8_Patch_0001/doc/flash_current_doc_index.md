@@ -7,6 +7,7 @@
 - `flash_full_review_and_optimization_20260408.md`
 - `project_flash_map_8251_512k.md`
 - `flash_lifetime_and_simplification_assessment_8251_512k.md`
+- `soc_kv_immediate_write_lifetime_assessment_20260408.md`
 - `bms_cold_kv_store_usage.md`
 - `flash_btname_merge_and_no_migration_changes.md`
 
