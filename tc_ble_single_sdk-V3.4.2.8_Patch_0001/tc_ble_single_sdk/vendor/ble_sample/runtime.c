@@ -38,6 +38,16 @@ static u16 g_runtime_next_index = 0u;
 static u8 g_runtime_store_ready = 0u;
 static bms_mode_t g_mode = MODE_NORMAL;
 
+static void runtime_set_initial_state(void)
+{
+    g_runtime_min = 0u;
+    g_runtime_last_saved_min = 0u;
+    g_runtime_next_seq = 1u;
+    g_runtime_next_index = 0u;
+    g_runtime_store_ready = 0u;
+    g_mode = MODE_FACTORY;
+}
+
 static u16 runtime_crc_bytes(const u8 *data, u16 len)
 {
     u16 crc = 0u;
@@ -266,11 +276,7 @@ void Runtime_Init(void)
 {
     u32 legacy_runtime = 0u;
 
-    g_runtime_min = 0u;
-    g_runtime_last_saved_min = 0u;
-    g_runtime_next_seq = 1u;
-    g_runtime_next_index = 0u;
-    g_runtime_store_ready = 0u;
+    runtime_set_initial_state();
 
     if (!runtime_scan_store()) {
         if (runtime_flash_base() == 0u) {
@@ -333,4 +339,25 @@ bms_mode_t Runtime_GetMode(void)
 u32 Runtime_Get_runtime(void)
 {
     return g_runtime_min;
+}
+
+int Runtime_FactoryReset(void)
+{
+    u16 sector_idx;
+    u32 base = runtime_flash_base();
+
+    if ((base == 0u) || (flash_store_cfg_get_runtime_sectors() < 2u)) {
+        return 0;
+    }
+
+    for (sector_idx = 0u; sector_idx < flash_store_cfg_get_runtime_sectors(); ++sector_idx) {
+        if (!flash_store_erase_sector_checked(base + ((u32)sector_idx * FLASH_SECTOR_SIZE),
+                                              FLASH_SECTOR_SIZE)) {
+            return 0;
+        }
+    }
+
+    runtime_set_initial_state();
+    g_runtime_store_ready = 1u;
+    return 1;
 }

@@ -167,6 +167,11 @@ class FlashLayoutTests(unittest.TestCase):
         self.assertIn("MULTI_BOOT_ADDR_0x20000", text)
         self.assertIn("return 0;", text)
 
+    def test_1m_layout_explicitly_rejects_ota_0x80000(self):
+        text = self.flash_cfg_text
+        self.assertIn("MULTI_BOOT_ADDR_0x80000", text)
+        self.assertIn("blc_flash_capacity == FLASH_SIZE_1M", text)
+
 
 class SourceContractTests(unittest.TestCase):
     def test_flash_helper_does_not_restore_lock_during_stack_session(self):
@@ -201,7 +206,17 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("if (param_upgrade_apply_default_system()) {", text)
         self.assertIn("if (param_upgrade_apply_default_soc()) {", text)
         self.assertIn("if (param_upgrade_apply_default_event_log()) {", text)
-        self.assertGreaterEqual(text.count("System_ERROR_UserCallback(ERROR_EEPROM_STORE);"), 5)
+        self.assertIn("if (param_upgrade_apply_default_runtime()) {", text)
+        self.assertGreaterEqual(text.count("System_ERROR_UserCallback(ERROR_EEPROM_STORE);"), 6)
+
+    def test_soc_kv_flush_interval_is_rate_limited(self):
+        text = read_text(MODULE_DIR / "soc_kv_store.c")
+        self.assertIn("SOC_KV_FLUSH_INTERVAL_US", text)
+        self.assertIn("clock_time_exceed(g_soc_last_flush_tick, SOC_KV_FLUSH_INTERVAL_US)", text)
+
+    def test_runtime_factory_reset_api_exists(self):
+        text = read_text(RUNTIME_C)
+        self.assertIn("int Runtime_FactoryReset(void)", text)
 
 
 if __name__ == "__main__":

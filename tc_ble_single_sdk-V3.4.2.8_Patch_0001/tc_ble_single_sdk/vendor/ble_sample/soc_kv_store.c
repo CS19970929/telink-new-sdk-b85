@@ -8,6 +8,7 @@
 #define SOC_KV_KEY_DSG    0x0002u
 #define SOC_KV_KEY_CYCLE  0x0003u
 #define SOC_KV_SECTOR_MAGIC 0x324B5646u
+#define SOC_KV_FLUSH_INTERVAL_US 5000000u
 
 static flash_kv32_t g_soc_kv;
 static flash_kv32_cache_entry_t g_soc_cache[3];
@@ -84,17 +85,39 @@ static int soc_kv_legacy_header_present(u32 base_addr)
     return (soc_kv_get_le32(header) == SOC_KV_SECTOR_MAGIC);
 }
 
-static void soc_kv_try_migrate_legacy(void)
+static int soc_kv_is_default_store(void)
+{
+    soc_kv_data_t current = soc_kv_store_get();
+
+    return ((current.soc == SOC_KV_DEFAULT_SOC) &&
+            (current.dsg == SOC_KV_DEFAULT_DSG) &&
+            (current.cycle == SOC_KV_DEFAULT_CYCLE));
+}
+
+static void soc_kv_erase_previous_layout(u32 base_addr, u16 sector_count)
+{
+    u16 i;
+
+    for (i = 0u; i < sector_count; ++i) {
+        (void)soc_flash_erase_sector(NULL,
+                                     base_addr + ((u32)i * SOC_KV_HOT_SECTOR_SIZE),
+                                     SOC_KV_HOT_SECTOR_SIZE);
+    }
+}
+
+static void soc_kv_try_migrate_previous_layout(void)
 {
     flash_kv32_t legacy_kv;
     flash_kv32_cache_entry_t legacy_cache[3];
     flash_kv32_cfg_t legacy_cfg;
     u32 legacy_sector_addrs[2];
     flash_kv32_pair_t pairs[3];
-    soc_kv_data_t current;
-    u32 legacy_base = flash_store_cfg_get_legacy_soc_kv_base();
+    u32 legacy_base = flash_store_cfg_get_previous_soc_kv_base();
+    u16 legacy_sector_count = flash_store_cfg_get_previous_soc_kv_sectors();
 
-    if ((legacy_base == 0u) || (legacy_base == flash_store_cfg_get_soc_kv_base())) {
+    if ((legacy_base == 0u) ||
+        (legacy_sector_count < 2u) ||
+        (legacy_base == flash_store_cfg_get_soc_kv_base())) {
         return;
     }
 
@@ -103,10 +126,7 @@ static void soc_kv_try_migrate_legacy(void)
         return;
     }
 
-    current = soc_kv_store_get();
-    if ((current.soc != SOC_KV_DEFAULT_SOC) ||
-        (current.dsg != SOC_KV_DEFAULT_DSG) ||
-        (current.cycle != SOC_KV_DEFAULT_CYCLE)) {
+    if (!soc_kv_is_default_store()) {
         return;
     }
 
@@ -116,7 +136,7 @@ static void soc_kv_try_migrate_legacy(void)
     legacy_cfg.port = soc_kv_port();
     legacy_cfg.sector_addrs = legacy_sector_addrs;
     legacy_cfg.keys = g_soc_keys;
-    legacy_cfg.sector_count = SOC_KV_HOT_SECTORS;
+    legacy_cfg.sector_count = legacy_sector_count;
     legacy_cfg.sector_size = SOC_KV_HOT_SECTOR_SIZE;
     legacy_cfg.write_align = 4u;
     legacy_cfg.key_count = (u16)(sizeof(g_soc_keys) / sizeof(g_soc_keys[0]));
@@ -134,7 +154,9 @@ static void soc_kv_try_migrate_legacy(void)
     pairs[2].value = soc_kv_get_value(SOC_KV_KEY_CYCLE, SOC_KV_DEFAULT_CYCLE);
     (void)flash_kv32_get(&legacy_kv, SOC_KV_KEY_CYCLE, &pairs[2].value);
 
-    (void)flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])));
+    if (flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])))) {
+        soc_kv_erase_previous_layout(legacy_base, legacy_sector_count);
+    }
 }
 
 static u32 soc_kv_item_to_key(soc_item_t item)
@@ -185,7 +207,7 @@ int soc_kv_store_init(void)
     }
 
     g_soc_last_flush_tick = clock_time();
-    soc_kv_try_migrate_legacy();
+    soc_kv_try_migrate_previous_layout();
     return 1;
 }
 
@@ -256,8 +278,8 @@ void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
         return;
     }
 
-    // if ((current.cycle != cycle) || clock_time_exceed(g_soc_last_flush_tick, 5000000u)) {
-    if ((current.soc != soc) || (current.dsg != dsg) || (current.cycle != cycle)) {
+    if ((current.cycle != cycle) ||
+        clock_time_exceed(g_soc_last_flush_tick, SOC_KV_FLUSH_INTERVAL_US)) {
         (void)soc_kv_store_write_all(soc, dsg, cycle);
     }
 }

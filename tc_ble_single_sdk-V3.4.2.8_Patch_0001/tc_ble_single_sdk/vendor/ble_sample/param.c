@@ -5,6 +5,7 @@
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
 #include "soc_kv_store.h"
+#include "runtime.h"
 #include "sh367309_datadeal.h"
 #include <string.h>
 
@@ -72,6 +73,11 @@ static int param_upgrade_apply_default_soc(void)
 static int param_upgrade_apply_default_event_log(void)
 {
     return bms_event_log_factory_reset();
+}
+
+static int param_upgrade_apply_default_runtime(void)
+{
+    return Runtime_FactoryReset();
 }
 
 void LoadParam(void)
@@ -150,6 +156,14 @@ void Param_UpgradeReset_Apply(void)
     if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH)) {
         if (param_upgrade_apply_default_event_log()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH);
+        } else {
+            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        }
+    }
+
+    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_RUNTIME_RESET_EPOCH, FW_UPGRADE_RESET_RUNTIME_EPOCH)) {
+        if (param_upgrade_apply_default_runtime()) {
+            param_upgrade_mark_epoch(BMS_COLD_CTRL_RUNTIME_RESET_EPOCH, FW_UPGRADE_RESET_RUNTIME_EPOCH);
         } else {
             System_ERROR_UserCallback(ERROR_EEPROM_STORE);
         }
