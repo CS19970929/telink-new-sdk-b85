@@ -1444,6 +1444,8 @@ _attribute_no_inline_ void user_init_normal(void)
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
+		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
+		App_AFEGet();
 		soc_kv_store_init();
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
@@ -1716,7 +1718,5 @@ extern void test_log_balance_first(void);
 	}
 	blt_pm_proc();
 }
-
-
 
 
