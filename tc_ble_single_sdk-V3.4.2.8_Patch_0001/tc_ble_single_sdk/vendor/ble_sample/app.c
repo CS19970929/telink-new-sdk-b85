@@ -56,6 +56,41 @@ volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
 //nvm_cfg_t nvm_cfg;
 
+#define APP_PM_TICKS_PER_SEC   32000u
+
+typedef struct
+{
+	u32 last_tick_32k;
+	u32 pending_tick_32k;
+	u8 ready;
+} app_pm_elapsed_ctx_t;
+
+static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
+{
+	u32 now_tick_32k;
+	u32 elapsed_tick_32k;
+	u32 total_tick_32k;
+	u32 elapsed_sec;
+
+	if (ctx == NULL) {
+		return 0u;
+	}
+
+	now_tick_32k = pm_get_32k_tick();
+	if (!ctx->ready) {
+		ctx->last_tick_32k = now_tick_32k;
+		ctx->ready = 1u;
+		return 0u;
+	}
+
+	elapsed_tick_32k = now_tick_32k - ctx->last_tick_32k;
+	ctx->last_tick_32k = now_tick_32k;
+	total_tick_32k = ctx->pending_tick_32k + elapsed_tick_32k;
+	elapsed_sec = total_tick_32k / APP_PM_TICKS_PER_SEC;
+	ctx->pending_tick_32k = total_tick_32k % APP_PM_TICKS_PER_SEC;
+	return elapsed_sec;
+}
+
 static void app_event_log_1s_task(void)
 {
 	bms_event_log_sample_t sample;
@@ -94,7 +129,9 @@ static void app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	if (need_afe_sleep) {
 		AFE_Sleep();
 	}
+	Runtime_PrepareForDeepSleep();
 	cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
+	Runtime_CancelPendingDeepSleep();
 }
 
 void open_ctlc(void)
@@ -932,16 +969,18 @@ void blt_pm_proc(void)
 	static u32 sleep_vlow_cnt = 0;
 	static u32 sleep_vnormal_cnt = 0;
 	static u32 afe_comm_err_sleepcnt = 0;
-	_attribute_data_retention_ static u32 sleep_tick = 0;
-	if (clock_time_exceed(sleep_tick, 1000 * 1000))
+	static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
+	u32 sleep_elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
+
+	if (sleep_elapsed_sec != 0u)
 	{
-		sleep_tick = clock_time();
 	#ifdef _DI_SWITCH_SYS_ONOFF
 		if (gpio_read(CHG_IN_PIN))
 		{
 			if (gpio_read(SW_PIN))
 			{
-				if (++sleep_cnt >= 1)
+				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
+				if (sleep_cnt >= 1u)
 				{
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
@@ -958,7 +997,8 @@ void blt_pm_proc(void)
 
 		if (g_stCellInfoReport.u16VCellMin <= 2500)
 		{
-			if (++sleep_veryvlow_cnt >= (60 * 60 * 1))
+			sleep_veryvlow_cnt += sleep_elapsed_sec;
+			if (sleep_veryvlow_cnt >= (60 * 60 * 1))
 			//if (++sleep_veryvlow_cnt >= (60 ))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
@@ -970,7 +1010,8 @@ void blt_pm_proc(void)
 		else if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
 			if(deepsleep_en) sleep_vlow_cnt = (60 * 60 * 1);
-			if (++sleep_vlow_cnt >= (60 * 60 * 1))
+			sleep_vlow_cnt += sleep_elapsed_sec;
+			if (sleep_vlow_cnt >= (60 * 60 * 1))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -980,7 +1021,8 @@ void blt_pm_proc(void)
 		}
 		else if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg))
 		{
-			if (++sleep_vnormal_cnt >= (60 * 60 * 24))
+			sleep_vnormal_cnt += sleep_elapsed_sec;
+			if (sleep_vnormal_cnt >= (60 * 60 * 24))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -990,7 +1032,8 @@ void blt_pm_proc(void)
 		}
 		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 		{
-			if(++afe_comm_err_sleepcnt >= (60 * 30))
+			afe_comm_err_sleepcnt += sleep_elapsed_sec;
+			if(afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
@@ -1619,6 +1662,7 @@ _attribute_no_inline_ void main_loop(void)
 {
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
+	Runtime_Poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 	
@@ -1645,13 +1689,7 @@ _attribute_no_inline_ void main_loop(void)
 			App_AFEGet();
 			app_adc_multi_sample();
 			app_event_log_1s_task();
-			
-			static u16 cnt_1min = 0;
-			if(++cnt_1min >= 60)
-			{
-				cnt_1min = 0;
-				Runtime_1MinTask();
-			}
+			g_stCellInfoReport.u16VCell[28] = Runtime_Get_runtime();
 		}
 
 		bus_mux_task();
