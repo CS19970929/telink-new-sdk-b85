@@ -1,29 +1,18 @@
-#ifndef _BTNAME_MODBUS_H_
+ï»¿#ifndef _BTNAME_MODBUS_H_
 #define _BTNAME_MODBUS_H_
 
 #include <stdint.h>
-#include "flash_store_cfg.h"
 
-/* ================= ÓÃ»§¿ÉÅäÖÃ ================= */
-// btname_modbus.h »ò app_config.h
-#define BTNAME_REG_COUNT        12      // 25×Ö½ÚÃû³ÆĞèÒª13¸ö¼Ä´æÆ÷ (13*2=26£¬¶àÒ»¸öÓÃÓÚÌî³ä)
+#define BTNAME_REG_COUNT        12
 
-/* ¹Ì¶¨Ò»¸ö sector ×¨ÃÅ´æÃû×Ö£¨4KB ¶ÔÆë£¡±ØĞëÈ·ÈÏ²»³åÍ»£© */
-#ifndef BTNAME_SECTOR_ADDR
-#define BTNAME_SECTOR_ADDR      FLASH_ADDR_BLE_NAME_BASE
-#endif
-
-/* ¹Ì¶¨Ç°×º£¨²»¿É±»¿Í»§ĞŞ¸Ä£© */
 #ifndef BTNAME_PREFIX
 #define BTNAME_PREFIX           "BT_"
 #endif
 
-/* ×îÖÕÀ¶ÑÀÃû×î´ó³¤¶È£¨½¨Òé <= 20~24£© */
 #ifndef BTNAME_TOTAL_MAX_LEN
 #define BTNAME_TOTAL_MAX_LEN    25u
 #endif
 
-/* Modbus holding register£º¿Í»§Ğ´ suffix£¨ÍÆ¼ö 16 words = 32 bytes£© */
 #ifndef BTNAME_REG_BASE
 #define BTNAME_REG_BASE         0x0100u
 #endif
@@ -31,13 +20,11 @@
 #define BTNAME_REG_WORDS        16u
 #endif
 
-/* ÊÇ·ñÑÏ¸ñÏŞÖÆºó×º×Ö·ûÎª [A-Za-z0-9_-] */
 #ifndef BTNAME_SUFFIX_STRICT
 #define BTNAME_SUFFIX_STRICT    1u
 #endif
 
-/* ================= ÄÚ²¿ÅÉÉúÅäÖÃ£¨±ğ¸Ä£© ================= */
-#define BTNAME_PREFIX_LEN       3u   /* "BT_" */
+#define BTNAME_PREFIX_LEN       3u
 
 #if (BTNAME_TOTAL_MAX_LEN <= BTNAME_PREFIX_LEN)
 #error "BTNAME_TOTAL_MAX_LEN must be > 3"
@@ -45,17 +32,8 @@
 
 #define BTNAME_SUFFIX_MAX_LEN   (BTNAME_TOTAL_MAX_LEN - BTNAME_PREFIX_LEN)
 
-/* ================= API ================= */
-
-/* ÉÏµçµ÷ÓÃ£º´Ó Flash ¶Á»ØÃû×Ö£¨suffix£©£¬Ó¦ÓÃµ½ BLE ¹ã²¥/É¨ÃèÏìÓ¦ */
 void btname_init(void);
-
-/* »ñÈ¡µ±Ç°×îÖÕÃû×Ö£¨ÒÔ '\0' ½áÎ²£©£¬ĞÎÈç "BT_xxx" */
 const char* btname_get(void);
-
-/* ÔÚ Modbus Ğ´±£³Ö¼Ä´æÆ÷(0x10)»Øµ÷Àïµ÷ÓÃ£º¿Í»§Ğ´ suffix
- * ·µ»Ø 1 ±íÊ¾ÒÑ´¦Àí£¬0 ±íÊ¾²»ÊÇ±¾Ä£¿éµÄµØÖ··¶Î§
- */
 int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs);
 
-#endif /* _BTNAME_MODBUS_H_ */
+#endif

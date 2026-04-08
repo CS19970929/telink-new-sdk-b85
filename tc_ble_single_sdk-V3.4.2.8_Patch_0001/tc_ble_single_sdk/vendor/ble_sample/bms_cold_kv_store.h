@@ -58,6 +58,8 @@ int bms_cold_kv_store_get_system_value(bms_cold_system_param_id_t item, u32 *val
 int bms_cold_kv_store_set_system_value(bms_cold_system_param_id_t item, u32 value);
 int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value);
 int bms_cold_kv_store_set_control_value(bms_cold_control_param_id_t item, u32 value);
+int bms_cold_kv_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
+int bms_cold_kv_store_set_bt_name_suffix(const char *suffix);
 void bms_cold_kv_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
 void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system);
 void bms_cold_kv_store_factory_reset(void);

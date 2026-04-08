@@ -93,17 +93,11 @@ static inline int flash_store_cfg_layout_supported(void)
 
 static inline u32 flash_store_cfg_get_bt_name_base(void)
 {
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_BTNAME_BASE;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_BTNAME_BASE;
-    }
-    return FLASH_ADDR_LAYOUT_512K_BTNAME_BASE;
+    /*
+     * BT name is stored inside cold_kv now.
+     * The legacy single-sector address is kept only for read-once migration.
+     */
+    return 0u;
 }
 
 static inline u32 flash_store_cfg_get_runtime_base(void)
@@ -205,7 +199,13 @@ static inline u32 flash_store_cfg_get_legacy_runtime_base(void)
 
 static inline u32 flash_store_cfg_get_legacy_bt_name_base(void)
 {
-    return FLASH_ADDR_BLE_NAME_BASE_LEGACY;
+    if (blc_flash_capacity == FLASH_SIZE_1M) {
+        return FLASH_ADDR_LAYOUT_1M_BTNAME_BASE;
+    }
+    if (blc_flash_capacity == FLASH_SIZE_2M) {
+        return FLASH_ADDR_LAYOUT_2M_BTNAME_BASE;
+    }
+    return FLASH_ADDR_LAYOUT_512K_BTNAME_BASE;
 }
 
 static inline u32 flash_store_cfg_get_legacy_soc_kv_base(void)

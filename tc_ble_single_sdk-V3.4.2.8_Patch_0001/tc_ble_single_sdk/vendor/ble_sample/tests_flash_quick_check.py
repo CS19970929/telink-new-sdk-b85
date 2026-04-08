@@ -25,6 +25,9 @@ APP_C = MODULE_DIR / "app.c"
 RUNTIME_C = MODULE_DIR / "runtime.c"
 EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
 PARAM_C = MODULE_DIR / "param.c"
+BTNAME_C = MODULE_DIR / "btname_modbus.c"
+BMS_COLD_C = MODULE_DIR / "bms_cold_kv_store.c"
+SOC_KV_C = MODULE_DIR / "soc_kv_store.c"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
 
@@ -84,8 +87,6 @@ class FlashLayoutTests(unittest.TestCase):
         cls.hot_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_RUN_KV_SECTORS")
         cls.event_log_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_LOG_SECTORS")
         cls.cold_kv_sectors = parse_macro_int(cls.bms_cold_text, "BMS_COLD_KV_SECTORS")
-        cls.prev_hot_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_PREV_RUN_KV_SECTORS")
-        cls.prev_cold_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_PREV_COLD_KV_SECTORS")
 
     def reserved_512k_profiles(self):
         # type: () -> Dict[str, Dict[str, Tuple[int, int]]]
@@ -112,14 +113,6 @@ class FlashLayoutTests(unittest.TestCase):
         # type: (str) -> Dict[str, Tuple[int, int]]
         text = self.flash_cfg_text
         return {
-            "btname": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_BTNAME_BASE"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_BTNAME_BASE"),
-                    1,
-                    self.sector_size,
-                ),
-            ),
             "runtime": (
                 parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUNTIME_BASE"),
                 range_end(
@@ -154,27 +147,11 @@ class FlashLayoutTests(unittest.TestCase):
             ),
         }
 
-    def previous_layout_ranges(self, prefix):
-        # type: (str) -> Dict[str, Tuple[int, int]]
+    def legacy_btname_range(self, prefix):
+        # type: (str) -> Tuple[int, int]
         text = self.flash_cfg_text
-        return {
-            "prev_soc_kv": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE_PREV"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE_PREV"),
-                    self.prev_hot_kv_sectors,
-                    self.sector_size,
-                ),
-            ),
-            "prev_cold_kv": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT_PREV"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT_PREV"),
-                    self.prev_cold_kv_sectors,
-                    self.sector_size,
-                ),
-            ),
-        }
+        base = parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_BTNAME_BASE")
+        return (base, range_end(base, 1, self.sector_size))
 
     def assert_no_internal_overlap(self, ranges):
         # type: (Dict[str, Tuple[int, int]]) -> None
@@ -184,18 +161,6 @@ class FlashLayoutTests(unittest.TestCase):
                 self.assertFalse(
                     overlaps(range_a, range_b),
                     msg=f"{name_a} overlaps {name_b}: {range_a} vs {range_b}",
-                )
-
-    def assert_no_cross_overlap(self, left, right):
-        # type: (Dict[str, Tuple[int, int]], Dict[str, Tuple[int, int]]) -> None
-        for left_name, left_range in left.items():
-            for right_name, right_range in right.items():
-                self.assertFalse(
-                    overlaps(left_range, right_range),
-                    msg=(
-                        f"{left_name} overlaps {right_name}: "
-                        f"{format_range(left_range)} vs {format_range(right_range)}"
-                    ),
                 )
 
     def test_layout_512k_no_overlap_for_all_reserved_profiles(self):
@@ -242,9 +207,17 @@ class FlashLayoutTests(unittest.TestCase):
         self.assertIn("MULTI_BOOT_ADDR_0x80000", text)
         self.assertIn("blc_flash_capacity == FLASH_SIZE_1M", text)
 
-    def test_current_layouts_do_not_overlap_migration_source_layouts(self):
+    def test_legacy_btname_area_stays_outside_active_layout(self):
         for prefix in ("512K", "1M", "2M"):
-            self.assert_no_cross_overlap(self.layout_ranges(prefix), self.previous_layout_ranges(prefix))
+            legacy_range = self.legacy_btname_range(prefix)
+            for name, region in self.layout_ranges(prefix).items():
+                self.assertFalse(
+                    overlaps(legacy_range, region),
+                    msg=(
+                        f"{prefix} legacy btname overlaps active {name}: "
+                        f"{format_range(legacy_range)} vs {format_range(region)}"
+                    ),
+                )
 
     def test_512k_current_layout_leaves_legacy_param_base_unused(self):
         ranges = self.layout_ranges("512K")
@@ -290,10 +263,10 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("g_app_flash_stack_session_active = 1u;", text)
         self.assertIn("g_app_flash_stack_session_active = 0u;", text)
 
-    def test_runtime_same_address_migration_prefers_second_sector(self):
+    def test_runtime_starts_clean_without_legacy_restore(self):
         text = read_text(RUNTIME_C)
-        self.assertIn("flash_store_cfg_get_legacy_runtime_base() == runtime_flash_base()", text)
-        self.assertIn("g_runtime_next_index = RUNTIME_RECORDS_PER_SECTOR;", text)
+        self.assertNotIn("flash_store_cfg_get_legacy_runtime_base()", text)
+        self.assertNotIn("runtime_load_legacy_value", text)
 
     def test_event_log_reports_store_error(self):
         text = read_text(EVENT_LOG_C)
@@ -324,12 +297,21 @@ class SourceContractTests(unittest.TestCase):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)
 
-    def test_legacy_param_area_is_read_only_compatibility_path(self):
+    def test_param_loads_only_from_cold_kv(self):
         text = read_text(PARAM_C)
-        self.assertIn("flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&legacy_param);", text)
-        self.assertNotIn("flash_write_page(PARAM_ADDR", text)
-        self.assertNotIn("flash_erase_sector(PARAM_ADDR", text)
+        self.assertNotIn("flash_read_page(PARAM_ADDR", text)
         self.assertIn("bms_cold_kv_store_set_protect(&g_tParam.protect)", text)
+
+    def test_btname_uses_cold_kv_store_only(self):
+        text = read_text(BTNAME_C)
+        self.assertIn("bms_cold_kv_store_get_bt_name_suffix", text)
+        self.assertIn("bms_cold_kv_store_set_bt_name_suffix", text)
+        self.assertNotIn("flash_store_prog_checked", text)
+        self.assertNotIn("flash_store_erase_sector_checked", text)
+
+    def test_hot_and_cold_kv_no_longer_reference_previous_layouts(self):
+        self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base()", read_text(SOC_KV_C))
+        self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base()", read_text(BMS_COLD_C))
 
 
 if __name__ == "__main__":

@@ -19,13 +19,6 @@ typedef struct
     u32 commit;
 } runtime_record_t;
 
-typedef struct
-{
-    u32 runtime_min;
-    u16 crc;
-    u16 flag;
-} runtime_legacy_store_t;
-
 #define RUNTIME_OFFSETOF(type, field)  ((u32)&(((type *)0)->field))
 #define RUNTIME_RECORD_BYTES         ((u16)sizeof(runtime_record_t))
 #define RUNTIME_RECORDS_PER_SECTOR   (FLASH_SECTOR_SIZE / RUNTIME_RECORD_BYTES)
@@ -113,27 +106,6 @@ static int runtime_record_is_erased(u16 index)
             return 0;
         }
     }
-    return 1;
-}
-
-static int runtime_load_legacy_value(u32 *runtime_min)
-{
-    runtime_legacy_store_t data;
-    u32 legacy_addr = flash_store_cfg_get_legacy_runtime_base();
-
-    if ((runtime_min == NULL) || (legacy_addr == 0u)) {
-        return 0;
-    }
-
-    flash_read_page(legacy_addr, sizeof(data), (u8 *)&data);
-    if (data.flag != RUNTIME_FLAG) {
-        return 0;
-    }
-    if (runtime_crc_bytes((u8 *)&data.runtime_min, sizeof(data.runtime_min)) != data.crc) {
-        return 0;
-    }
-
-    *runtime_min = data.runtime_min;
     return 1;
 }
 
@@ -274,8 +246,6 @@ static int runtime_flash_save(void)
 
 void Runtime_Init(void)
 {
-    u32 legacy_runtime = 0u;
-
     runtime_set_initial_state();
 
     if (!runtime_scan_store()) {
@@ -284,20 +254,8 @@ void Runtime_Init(void)
             g_mode = MODE_NORMAL;
             return;
         }
-
-	    g_runtime_store_ready = 1u;
-	    if (runtime_load_legacy_value(&legacy_runtime)) {
-	        g_runtime_min = legacy_runtime;
-	        g_runtime_last_saved_min = legacy_runtime;
-	        if (flash_store_cfg_get_legacy_runtime_base() == runtime_flash_base()) {
-	            /* Keep the legacy copy intact until a committed record exists in sector 1. */
-	            g_runtime_next_index = RUNTIME_RECORDS_PER_SECTOR;
-	        }
-	        if (!runtime_flash_save()) {
-	            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
-	        }
-	    }
-	}
+        g_runtime_store_ready = 1u;
+    }
 
     if (g_runtime_min >= FACTORY_TIME_LIMIT_MIN) {
         g_mode = MODE_NORMAL;
