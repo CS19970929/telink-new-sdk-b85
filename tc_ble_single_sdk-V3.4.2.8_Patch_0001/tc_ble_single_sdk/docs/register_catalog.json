@@ -1,0 +1,570 @@
+{
+  "schema_version": "1.0.0",
+  "project": "tc_ble_single_sdk/vendor/ble_sample",
+  "asset_role_zh": "跨平台 BMS 客户端共享寄存器真源与 BLE 约束",
+  "source_of_truth": {
+    "firmware_files": [
+      "vendor/ble_sample/app.c",
+      "vendor/ble_sample/modbus_rtu.c",
+      "vendor/ble_sample/btname_modbus.c"
+    ],
+    "client_files": [
+      "vendor/ble_sample/BMSAssistant/Sources/BMSAssistant/Protocol/BMSProtocol.swift",
+      "vendor/ble_sample/BMSAssistant/Sources/BMSAssistant/Models/AppModels.swift",
+      "vendor/ble_sample/BMSAssistantQt/bmsassistantqt/protocol.py",
+      "vendor/ble_sample/BMSAssistantQt/bmsassistantqt/models.py"
+    ]
+  },
+  "ble_transport": {
+    "advertising": {
+      "adv_service_uuids_16bit": [
+        "1812",
+        "180F"
+      ],
+      "name_location": "scan_response",
+      "advertising_interval_ms": 800,
+      "appearance": "0x0180",
+      "address_type": "public",
+      "notes_zh": [
+        "当前固件把设备名放在 scan response，不在主 ADV。",
+        "不能仅凭 1812 判断设备启用了 HID，当前项目实际业务收发走自定义 SPP Service。"
+      ]
+    },
+    "gatt": {
+      "service_uuid": "6E400001-B5A3-F393-E0A9-E50E24DCCA9E",
+      "request_characteristic_uuid": "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+      "response_characteristic_uuid": "6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
+      "request_direction": "client_write",
+      "response_direction": "device_notify",
+      "ready_condition_zh": "发现服务与特征成功，并且已写 CCCD=0x0100 订阅 response notify。"
+    },
+    "link_constraints": {
+      "default_att_mtu": 23,
+      "safe_single_request_payload_bytes": 20,
+      "response_notify_fragment_bytes": 20,
+      "request_side_reassembly_supported": false,
+      "response_side_reassembly_required": true,
+      "notes_zh": [
+        "当前客户端默认按 20 byte 安全单包请求处理。",
+        "大响应必须依赖 ResponseAccumulator 做分片重组。"
+      ]
+    }
+  },
+  "decode_rules": {
+    "pack_voltage_realtime": {
+      "raw_unit": "0.01V",
+      "formula": "packVoltage = raw / 100.0"
+    },
+    "current_signed": {
+      "raw_unit": "0.1A",
+      "formula": "current = signedInt16(raw) / 10.0"
+    },
+    "temperature_raw": {
+      "raw_unit": "0.1C_with_offset",
+      "formula": "temperature_C = raw / 10.0 - 40.0"
+    },
+    "capacity_raw": {
+      "raw_unit": "0.01Ah",
+      "formula": "capacity_Ah = raw / 100.0"
+    },
+    "cell_voltage": {
+      "raw_unit": "mV",
+      "formula": "cellVoltage_mV = raw"
+    },
+    "soc": {
+      "raw_unit": "percent",
+      "formula": "soc_percent = raw"
+    }
+  },
+  "high_level_actions": {
+    "refreshIdentity": [
+      "mac_address",
+      "product_serial",
+      "product_hardware_version",
+      "product_software_version"
+    ],
+    "refreshBatteryStatus": [
+      "legacy_cell_array",
+      "system_status",
+      "realtime_status"
+    ],
+    "readProtectPreview": [
+      "protect_preview"
+    ],
+    "readEventLogPreview": [
+      "event_log_preview"
+    ],
+    "writeSOC": [
+      "soc_write_register"
+    ],
+    "writeRegister1103": [
+      "debug_register_1103"
+    ],
+    "writeBluetoothNameSuffix": [
+      "bt_name"
+    ]
+  },
+  "register_blocks": [
+    {
+      "id": "mac_address",
+      "category": "device_identity",
+      "start_address": "0x0000",
+      "word_count": 3,
+      "access": "read",
+      "description_zh": "MAC 地址，3 个 16-bit word，共 6 byte。",
+      "decode_zh": "按大端 word 拼接成 6 byte，再格式化为 XX:XX:XX:XX:XX:XX。"
+    },
+    {
+      "id": "bt_name",
+      "category": "device_identity",
+      "start_address": "0x0100",
+      "word_count_read": 12,
+      "access": "read_write",
+      "description_zh": "蓝牙名称寄存器窗口。",
+      "write_constraints": {
+        "max_write_bytes": 10,
+        "max_write_words": 5,
+        "reason_zh": "0x10 写多寄存器总长度受当前 BLE 单包 20 byte 安全上限约束。"
+      },
+      "decode_zh": "按 UTF-8 / ASCII 文本写入，必要时补 0x00。",
+      "notes_zh": [
+        "当前工程上位机提供的是写入后缀能力，不直接覆写整段名称语义。",
+        "读取窗口 12 word，单次写入建议不超过 5 word。"
+      ]
+    },
+    {
+      "id": "product_serial",
+      "category": "device_identity",
+      "start_address": "0xC002",
+      "word_count": 16,
+      "access": "read",
+      "description_zh": "产品序列号文本区。",
+      "decode_zh": "按 16-bit big-endian word 拼成字节流，遇 0x00 截断并按 UTF-8 解码。"
+    },
+    {
+      "id": "product_hardware_version",
+      "category": "device_identity",
+      "start_address": "0xC012",
+      "word_count": 16,
+      "access": "read",
+      "description_zh": "硬件版本文本区。",
+      "decode_zh": "文本解码规则与 product_serial 相同。"
+    },
+    {
+      "id": "product_software_version",
+      "category": "device_identity",
+      "start_address": "0xC022",
+      "word_count": 16,
+      "access": "read",
+      "description_zh": "软件版本文本区。",
+      "decode_zh": "文本解码规则与 product_serial 相同。"
+    },
+    {
+      "id": "event_log_preview",
+      "category": "diagnostics",
+      "start_address": "0xC008",
+      "word_count": 20,
+      "access": "read",
+      "description_zh": "事件日志预览窗口。",
+      "decode_zh": "当前客户端只保留原始 word 预览，事件语义解码尚未统一固化。",
+      "notes_zh": [
+        "该地址在当前项目里承担日志兼容入口角色。",
+        "后续建议单独沉淀事件编码表。"
+      ]
+    },
+    {
+      "id": "system_status",
+      "category": "battery_status",
+      "start_address": "0xD115",
+      "word_count": 2,
+      "access": "read",
+      "description_zh": "系统状态字，低 16 bit 在首 word，高 16 bit 在次 word。",
+      "decode_zh": "systemStatusRaw = lowWord | (highWord << 16)。",
+      "bit_flags": [
+        {
+          "bit": 0,
+          "key": "startup",
+          "title_zh": "启动完成"
+        },
+        {
+          "bit": 1,
+          "key": "mos_pre",
+          "title_zh": "预充 MOS"
+        },
+        {
+          "bit": 2,
+          "key": "mos_chg",
+          "title_zh": "充电 MOS"
+        },
+        {
+          "bit": 3,
+          "key": "mos_dsg",
+          "title_zh": "放电 MOS"
+        },
+        {
+          "bit": 4,
+          "key": "relay_pre",
+          "title_zh": "预充继电器"
+        },
+        {
+          "bit": 5,
+          "key": "relay_chg",
+          "title_zh": "充电继电器"
+        },
+        {
+          "bit": 6,
+          "key": "relay_dsg",
+          "title_zh": "放电继电器"
+        },
+        {
+          "bit": 7,
+          "key": "relay_main",
+          "title_zh": "主继电器"
+        },
+        {
+          "bit": 8,
+          "key": "heat",
+          "title_zh": "加热"
+        },
+        {
+          "bit": 9,
+          "key": "cool",
+          "title_zh": "冷却"
+        },
+        {
+          "bit": 10,
+          "key": "afe1",
+          "title_zh": "AFE1"
+        },
+        {
+          "bit": 11,
+          "key": "afe2",
+          "title_zh": "AFE2"
+        },
+        {
+          "bit": 12,
+          "key": "balance",
+          "title_zh": "均衡"
+        },
+        {
+          "bit": 13,
+          "key": "sleep",
+          "title_zh": "待休眠"
+        },
+        {
+          "bit": 14,
+          "key": "bn_close",
+          "title_zh": "BMS 关断输出"
+        },
+        {
+          "bit": 15,
+          "key": "heat_close",
+          "title_zh": "加热关闭输出"
+        },
+        {
+          "bit": 18,
+          "key": "driver_ext",
+          "title_zh": "外部驱动控制"
+        }
+      ]
+    },
+    {
+      "id": "legacy_cell_array",
+      "category": "battery_status",
+      "start_address": "0xD000",
+      "word_count": 63,
+      "access": "read",
+      "description_zh": "旧状态兼容窗口，对应当前工程 stCell_Info 平铺视图；当前构建 SeriesNum=10。",
+      "decode_priority_zh": "实时窗口不存在时，电池状态页退回使用该块与 system_status 联合解码。",
+      "fields": [
+        {
+          "id": "cell_voltage_array",
+          "start_index": 0,
+          "word_count": 10,
+          "start_address": "0xD000",
+          "end_address": "0xD009",
+          "unit": "mV",
+          "description_zh": "Cell1~Cell10 单串电压。"
+        },
+        {
+          "id": "battery_temp_adc_mv",
+          "index": 29,
+          "address": "0xD01D",
+          "unit": "mV",
+          "description_zh": "电池温度 ADC 原始值，当前客户端仅按 mV 展示，不直接参与主温度显示。"
+        },
+        {
+          "id": "mos_temp_adc_mv",
+          "index": 30,
+          "address": "0xD01E",
+          "unit": "mV",
+          "description_zh": "MOS 温度 ADC 原始值，当前客户端仅按 mV 展示。"
+        },
+        {
+          "id": "pack_voltage_adc_mv",
+          "index": 31,
+          "address": "0xD01F",
+          "unit": "mV",
+          "description_zh": "总压 ADC 镜像值。"
+        },
+        {
+          "id": "max_cell_voltage_mv",
+          "index": 32,
+          "address": "0xD020",
+          "unit": "mV",
+          "description_zh": "最大单体电压。"
+        },
+        {
+          "id": "min_cell_voltage_mv",
+          "index": 33,
+          "address": "0xD021",
+          "unit": "mV",
+          "description_zh": "最小单体电压。"
+        },
+        {
+          "id": "max_cell_position",
+          "index": 34,
+          "address": "0xD022",
+          "unit": "index",
+          "description_zh": "最大单体位置，客户端按 Cell n 展示。"
+        },
+        {
+          "id": "min_cell_position",
+          "index": 35,
+          "address": "0xD023",
+          "unit": "index",
+          "description_zh": "最小单体位置，客户端按 Cell n 展示。"
+        },
+        {
+          "id": "cell_delta_mv",
+          "index": 36,
+          "address": "0xD024",
+          "unit": "mV",
+          "description_zh": "最大与最小单体电压差。"
+        },
+        {
+          "id": "pack_voltage_engineering_raw",
+          "index": 37,
+          "address": "0xD025",
+          "unit": "0.01V",
+          "description_zh": "总压工程量，当前客户端按 raw / 100.0 转成 V。"
+        },
+        {
+          "id": "temperature_array_raw",
+          "start_index": 38,
+          "word_count": 10,
+          "start_address": "0xD026",
+          "end_address": "0xD02F",
+          "unit": "0.1C_with_offset",
+          "description_zh": "旧布局温度数组，当前客户端没有逐项完整展开。"
+        },
+        {
+          "id": "mos_temperature_raw",
+          "index": 47,
+          "address": "0xD02F",
+          "unit": "0.1C_with_offset",
+          "description_zh": "MOS 温度工程量。注意它与 temperature_array_raw 的最后一个 word 地址重叠，当前客户端将其视为别名字段。"
+        },
+        {
+          "id": "max_temperature_raw",
+          "index": 48,
+          "address": "0xD030",
+          "unit": "0.1C_with_offset",
+          "description_zh": "最大温度，客户端按 raw / 10.0 - 40.0 显示。"
+        },
+        {
+          "id": "min_temperature_raw",
+          "index": 49,
+          "address": "0xD031",
+          "unit": "0.1C_with_offset",
+          "description_zh": "最小温度，客户端按 raw / 10.0 - 40.0 显示。"
+        },
+        {
+          "id": "charge_current_raw",
+          "index": 50,
+          "address": "0xD032",
+          "unit": "0.1A_signed",
+          "description_zh": "充电电流原始值。"
+        },
+        {
+          "id": "discharge_current_raw",
+          "index": 51,
+          "address": "0xD033",
+          "unit": "0.1A_signed",
+          "description_zh": "放电电流原始值。客户端用它与 charge_current_raw 合成 signedCurrent。"
+        },
+        {
+          "id": "soc_raw",
+          "index": 52,
+          "address": "0xD034",
+          "unit": "percent",
+          "description_zh": "SOC。"
+        },
+        {
+          "id": "soh_raw",
+          "index": 53,
+          "address": "0xD035",
+          "unit": "percent",
+          "description_zh": "SOH。"
+        },
+        {
+          "id": "capacity_now_raw",
+          "index": 54,
+          "address": "0xD036",
+          "unit": "0.01Ah",
+          "description_zh": "当前容量。"
+        },
+        {
+          "id": "capacity_full_raw",
+          "index": 55,
+          "address": "0xD037",
+          "unit": "0.01Ah",
+          "description_zh": "满充容量。"
+        },
+        {
+          "id": "capacity_factory_raw",
+          "index": 56,
+          "address": "0xD038",
+          "unit": "0.01Ah",
+          "description_zh": "出厂容量。"
+        },
+        {
+          "id": "cycle_count_raw",
+          "index": 57,
+          "address": "0xD039",
+          "unit": "count",
+          "description_zh": "循环次数。"
+        },
+        {
+          "id": "unknown_tail_words",
+          "start_index": 58,
+          "word_count": 5,
+          "start_address": "0xD03A",
+          "end_address": "0xD03E",
+          "unit": "raw",
+          "description_zh": "当前客户端未解码的尾部保留区。"
+        }
+      ]
+    },
+    {
+      "id": "realtime_status",
+      "category": "battery_status",
+      "start_address": "0xD120",
+      "word_count": 11,
+      "access": "read",
+      "description_zh": "实时状态窗口，优先级高于 legacy_cell_array。",
+      "magic_word": "0x4253",
+      "fields": [
+        {
+          "id": "magic",
+          "index": 0,
+          "address": "0xD120",
+          "unit": "raw",
+          "description_zh": "固定 magic，必须等于 0x4253 才认为窗口有效。"
+        },
+        {
+          "id": "protocol_version",
+          "index": 1,
+          "address": "0xD121",
+          "unit": "raw",
+          "description_zh": "实时窗口协议版本。"
+        },
+        {
+          "id": "pack_voltage_raw",
+          "index": 2,
+          "address": "0xD122",
+          "unit": "0.01V",
+          "description_zh": "总压工程量。"
+        },
+        {
+          "id": "signed_current_raw",
+          "index": 3,
+          "address": "0xD123",
+          "unit": "0.1A_signed",
+          "description_zh": "有符号电流工程量。"
+        },
+        {
+          "id": "soc_raw",
+          "index": 4,
+          "address": "0xD124",
+          "unit": "percent",
+          "description_zh": "SOC。"
+        },
+        {
+          "id": "max_temperature_raw",
+          "index": 5,
+          "address": "0xD125",
+          "unit": "0.1C_with_offset",
+          "description_zh": "最大温度。"
+        },
+        {
+          "id": "min_temperature_raw",
+          "index": 6,
+          "address": "0xD126",
+          "unit": "0.1C_with_offset",
+          "description_zh": "最小温度。"
+        },
+        {
+          "id": "mos_temperature_raw",
+          "index": 7,
+          "address": "0xD127",
+          "unit": "0.1C_with_offset",
+          "description_zh": "MOS 温度。"
+        },
+        {
+          "id": "max_cell_voltage_mv",
+          "index": 8,
+          "address": "0xD128",
+          "unit": "mV",
+          "description_zh": "最大单体电压。"
+        },
+        {
+          "id": "min_cell_voltage_mv",
+          "index": 9,
+          "address": "0xD129",
+          "unit": "mV",
+          "description_zh": "最小单体电压。"
+        },
+        {
+          "id": "cell_delta_mv",
+          "index": 10,
+          "address": "0xD12A",
+          "unit": "mV",
+          "description_zh": "单体压差。"
+        }
+      ]
+    },
+    {
+      "id": "protect_preview",
+      "category": "diagnostics",
+      "start_address": "0x2100",
+      "word_count": 15,
+      "access": "read",
+      "description_zh": "保护参数预览窗口，当前客户端仅按原始 word 列表展示。"
+    },
+    {
+      "id": "soc_write_register",
+      "category": "write_action",
+      "start_address": "0x1005",
+      "word_count": 1,
+      "access": "write_single",
+      "description_zh": "SOC 写入寄存器，当前客户端提供快捷写入入口。"
+    },
+    {
+      "id": "debug_register_1102",
+      "category": "write_action",
+      "start_address": "0x1102",
+      "word_count": 1,
+      "access": "reserved_in_client_catalog",
+      "description_zh": "当前客户端 RegisterCatalog 中定义了该寄存器，但 UI 尚未暴露对应动作。"
+    },
+    {
+      "id": "debug_register_1103",
+      "category": "write_action",
+      "start_address": "0x1103",
+      "word_count": 1,
+      "access": "write_single",
+      "description_zh": "调试写寄存器，当前客户端快捷动作默认写 0x0003。"
+    }
+  ]
+}

@@ -1,0 +1,369 @@
+{
+  "schema_version": "1.0.0",
+  "project": "tc_ble_single_sdk/vendor/ble_sample",
+  "asset_role_zh": "跨平台 BMS 客户端共享协议测试向量",
+  "common_assumptions": {
+    "device_address": "0x01",
+    "safe_single_ble_request_bytes": 20,
+    "response_notify_fragment_bytes": 20,
+    "unspecified_sparse_words_default_to": "0x0000",
+    "notes_zh": [
+      "请求帧来自当前客户端协议编码器实际计算结果。",
+      "部分响应帧为 synthetic_valid_example，用于做 parse、accumulator、snapshot 解码测试。"
+    ]
+  },
+  "request_vectors": [
+    {
+      "id": "read_legacy_cell_array",
+      "title_zh": "读取旧状态兼容窗口",
+      "function_code": "0x03",
+      "start_address": "0xD000",
+      "quantity": 63,
+      "request_hex": "01 03 D0 00 00 3F 3D 1A",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "read_system_status",
+      "title_zh": "读取系统状态字",
+      "function_code": "0x03",
+      "start_address": "0xD115",
+      "quantity": 2,
+      "request_hex": "01 03 D1 15 00 02 EC F3",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "read_realtime_status",
+      "title_zh": "读取实时状态窗口",
+      "function_code": "0x03",
+      "start_address": "0xD120",
+      "quantity": 11,
+      "request_hex": "01 03 D1 20 00 0B 3C FB",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "write_soc_60",
+      "title_zh": "写入 SOC=60",
+      "function_code": "0x06",
+      "register": "0x1005",
+      "value": "0x003C",
+      "request_hex": "01 06 10 05 00 3C 9D 1A",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "write_1103_0003",
+      "title_zh": "写入 0x1103=0x0003",
+      "function_code": "0x06",
+      "register": "0x1103",
+      "value": "0x0003",
+      "request_hex": "01 06 11 03 00 03 3C F7",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "echo_12345678",
+      "title_zh": "Echo 测试请求",
+      "function_code": "0x7F",
+      "payload_hex": "12 34 56 78",
+      "request_hex": "01 7F 12 34 56 78 6F 34",
+      "request_length_bytes": 8,
+      "safe_for_single_ble_packet": true
+    },
+    {
+      "id": "write_bt_name_demo",
+      "title_zh": "写入蓝牙名样例 BT_DEMO",
+      "function_code": "0x10",
+      "register": "0x0100",
+      "values_words_hex": [
+        "0x4254",
+        "0x5F44",
+        "0x454D",
+        "0x4F00"
+      ],
+      "ascii_text": "BT_DEMO",
+      "request_hex": "01 10 01 00 00 04 08 42 54 5F 44 45 4D 4F 00 69 5C",
+      "request_length_bytes": 17,
+      "safe_for_single_ble_packet": true
+    }
+  ],
+  "response_vectors": [
+    {
+      "id": "read_system_status_ok",
+      "title_zh": "读取系统状态成功响应",
+      "synthetic": true,
+      "response_hex": "01 03 04 00 03 00 01 CB F3",
+      "expected_parse": {
+        "kind": "read_holding",
+        "words_hex": [
+          "0x0003",
+          "0x0001"
+        ]
+      }
+    },
+    {
+      "id": "read_realtime_status_ok",
+      "title_zh": "读取实时状态窗口成功响应",
+      "synthetic": true,
+      "response_hex": "01 03 16 42 53 00 01 0E 42 FF 83 00 4E 02 C6 02 6C 02 BC 0C F8 0C DA 00 1E 75 F9",
+      "response_length_bytes": 27,
+      "expected_parse": {
+        "kind": "read_holding",
+        "words_hex": [
+          "0x4253",
+          "0x0001",
+          "0x0E42",
+          "0xFF83",
+          "0x004E",
+          "0x02C6",
+          "0x026C",
+          "0x02BC",
+          "0x0CF8",
+          "0x0CDA",
+          "0x001E"
+        ]
+      }
+    },
+    {
+      "id": "write_soc_ack",
+      "title_zh": "写 SOC 成功响应",
+      "synthetic": true,
+      "response_hex": "01 06 10 05 00 3C 9D 1A",
+      "expected_parse": {
+        "kind": "write_single_ack",
+        "register": "0x1005",
+        "value": "0x003C"
+      }
+    },
+    {
+      "id": "write_multiple_ack",
+      "title_zh": "写多寄存器成功响应",
+      "synthetic": true,
+      "response_hex": "01 10 01 00 00 04 C0 36",
+      "expected_parse": {
+        "kind": "write_multiple_ack",
+        "register": "0x0100",
+        "quantity": 4
+      }
+    },
+    {
+      "id": "echo_ok",
+      "title_zh": "Echo 成功响应",
+      "synthetic": true,
+      "response_hex": "01 7F 12 34 56 78 6F 34",
+      "expected_parse": {
+        "kind": "echo"
+      }
+    },
+    {
+      "id": "modbus_exception_03_02",
+      "title_zh": "0x03 功能码异常响应 code=0x02",
+      "synthetic": true,
+      "response_hex": "01 83 02 C0 F1",
+      "expected_parse": {
+        "kind": "exception",
+        "function": "0x03",
+        "code": "0x02"
+      }
+    },
+    {
+      "id": "invalid_crc_example",
+      "title_zh": "CRC 错误样例",
+      "synthetic": true,
+      "response_hex": "01 06 10 05 00 3C 9D E5",
+      "expected_error": "crc_mismatch"
+    }
+  ],
+  "accumulator_vectors": [
+    {
+      "id": "two_fragment_short_read",
+      "title_zh": "短响应两段 notify 重组",
+      "fragments_hex": [
+        "01 03 04 00",
+        "03 00 01 CB F3"
+      ],
+      "expected": {
+        "after_fragment_1": {
+          "state": "waiting",
+          "expected_length": 9
+        },
+        "after_fragment_2": {
+          "state": "completed",
+          "frame_hex": "01 03 04 00 03 00 01 CB F3"
+        }
+      }
+    },
+    {
+      "id": "two_fragment_realtime_read",
+      "title_zh": "实时窗口长响应两段 notify 重组",
+      "fragments_hex": [
+        "01 03 16 42 53 00 01 0E 42 FF 83 00 4E 02 C6 02 6C 02 BC 0C",
+        "F8 0C DA 00 1E 75 F9"
+      ],
+      "expected": {
+        "after_fragment_1": {
+          "state": "waiting",
+          "expected_length": 27
+        },
+        "after_fragment_2": {
+          "state": "completed",
+          "frame_hex": "01 03 16 42 53 00 01 0E 42 FF 83 00 4E 02 C6 02 6C 02 BC 0C F8 0C DA 00 1E 75 F9"
+        }
+      }
+    }
+  ],
+  "battery_snapshot_vectors": [
+    {
+      "id": "legacy_only_snapshot",
+      "title_zh": "仅旧寄存器兼容模式快照",
+      "synthetic": true,
+      "legacy_word_count": 63,
+      "legacy_word_overrides_hex": {
+        "0": "0x0CE4",
+        "1": "0x0CEE",
+        "2": "0x0CF8",
+        "3": "0x0D02",
+        "4": "0x0D0C",
+        "5": "0x0D16",
+        "6": "0x0CE0",
+        "7": "0x0CDA",
+        "8": "0x0CF4",
+        "9": "0x0CEE",
+        "29": "0x05AA",
+        "30": "0x05C3",
+        "31": "0x8E94",
+        "32": "0x0D16",
+        "33": "0x0CDA",
+        "34": "0x0006",
+        "35": "0x0008",
+        "36": "0x003C",
+        "37": "0x0E42",
+        "47": "0x02BC",
+        "48": "0x02C6",
+        "49": "0x026C",
+        "50": "0x007D",
+        "51": "0x0000",
+        "52": "0x004E",
+        "53": "0x0061",
+        "54": "0x04E2",
+        "55": "0x05DC",
+        "56": "0x0640",
+        "57": "0x002A"
+      },
+      "system_status_words_hex": [
+        "0x1007",
+        "0x0000"
+      ],
+      "realtime_words_hex": [],
+      "expected_decoded": {
+        "source": "legacy_registers",
+        "supports_realtime_window": false,
+        "pack_voltage_raw": 3650,
+        "signed_current_raw": 125,
+        "soc_raw": 78,
+        "max_temp_raw": 710,
+        "min_temp_raw": 620,
+        "mos_temp_raw": 700,
+        "max_cell_voltage_raw": 3350,
+        "min_cell_voltage_raw": 3290,
+        "cell_delta_raw": 60,
+        "max_cell_position": 6,
+        "min_cell_position": 8,
+        "soh_raw": 97,
+        "capacity_now_raw": 1250,
+        "capacity_full_raw": 1500,
+        "capacity_factory_raw": 1600,
+        "cycle_count_raw": 42,
+        "legacy_pack_voltage_raw_mv": 36500,
+        "active_status_flags": [
+          "startup",
+          "mos_pre",
+          "mos_chg",
+          "balance"
+        ]
+      }
+    },
+    {
+      "id": "realtime_window_snapshot",
+      "title_zh": "实时窗口优先模式快照",
+      "synthetic": true,
+      "legacy_word_count": 63,
+      "legacy_word_overrides_hex": {
+        "0": "0x0CE4",
+        "1": "0x0CEE",
+        "2": "0x0CF8",
+        "3": "0x0D02",
+        "4": "0x0D0C",
+        "5": "0x0D16",
+        "6": "0x0CE0",
+        "7": "0x0CDA",
+        "8": "0x0CF4",
+        "9": "0x0CEE",
+        "29": "0x05AA",
+        "30": "0x05C3",
+        "31": "0x8E94",
+        "32": "0x0D16",
+        "33": "0x0CDA",
+        "34": "0x0006",
+        "35": "0x0008",
+        "36": "0x003C",
+        "37": "0x0E42",
+        "47": "0x02BC",
+        "48": "0x02C6",
+        "49": "0x026C",
+        "50": "0x007D",
+        "51": "0x0000",
+        "52": "0x004E",
+        "53": "0x0061",
+        "54": "0x04E2",
+        "55": "0x05DC",
+        "56": "0x0640",
+        "57": "0x002A"
+      },
+      "system_status_words_hex": [
+        "0x1007",
+        "0x0000"
+      ],
+      "realtime_words_hex": [
+        "0x4253",
+        "0x0001",
+        "0x0E42",
+        "0xFF83",
+        "0x004E",
+        "0x02C6",
+        "0x026C",
+        "0x02BC",
+        "0x0CF8",
+        "0x0CDA",
+        "0x001E"
+      ],
+      "expected_decoded": {
+        "source": "realtime_window",
+        "supports_realtime_window": true,
+        "protocol_version": 1,
+        "pack_voltage_raw": 3650,
+        "signed_current_raw": -125,
+        "soc_raw": 78,
+        "max_temp_raw": 710,
+        "min_temp_raw": 620,
+        "mos_temp_raw": 700,
+        "max_cell_voltage_raw": 3320,
+        "min_cell_voltage_raw": 3290,
+        "cell_delta_raw": 30,
+        "soh_raw": 97,
+        "capacity_now_raw": 1250,
+        "capacity_full_raw": 1500,
+        "capacity_factory_raw": 1600,
+        "cycle_count_raw": 42,
+        "active_status_flags": [
+          "startup",
+          "mos_pre",
+          "mos_chg",
+          "balance"
+        ]
+      }
+    }
+  ]
+}
