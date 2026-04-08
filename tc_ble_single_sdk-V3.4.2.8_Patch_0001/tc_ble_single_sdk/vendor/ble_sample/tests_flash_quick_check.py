@@ -9,12 +9,13 @@ import re
 import sys
 import unittest
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 
 MODULE_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = MODULE_DIR.parent
 COMMON_DIR = VENDOR_DIR / "common"
+SDK_DIR = VENDOR_DIR.parent
 
 FLASH_CFG = MODULE_DIR / "flash_store_cfg.h"
 BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
@@ -24,21 +25,30 @@ APP_C = MODULE_DIR / "app.c"
 RUNTIME_C = MODULE_DIR / "runtime.c"
 EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
 PARAM_C = MODULE_DIR / "param.c"
+OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
+BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
+
+DEFAULT_OTA_FW_MAX_SIZE = 124 * 1024
+DEFAULT_OTA_BOOT_ADDR = 0x20000
 
 
 def read_text(path):
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
-def parse_macro_int(text, name):
+def parse_macro_ints(text, name):
     pattern = re.compile(
         rf"^\s*#define\s+{re.escape(name)}\s+\(?(0x[0-9A-Fa-f]+|[0-9]+)u?\)?",
         re.MULTILINE,
     )
-    match = pattern.search(text)
-    if not match:
+    values = [int(value, 0) for value in pattern.findall(text)]
+    if not values:
         raise AssertionError(f"macro not found: {name}")
-    return int(match.group(1), 0)
+    return values
+
+
+def parse_macro_int(text, name):
+    return parse_macro_ints(text, name)[0]
 
 
 def range_end(base, sectors, sector_size):
@@ -49,17 +59,54 @@ def overlaps(a, b):
     return max(a[0], b[0]) < min(a[1], b[1])
 
 
+def point_in_range(point, region):
+    return region[0] <= point < region[1]
+
+
+def unique_sorted(values):
+    # type: (Iterable[int]) -> List[int]
+    return sorted(set(values))
+
+
+def format_range(region):
+    return f"0x{region[0]:05X}-0x{region[1] - 1:05X}"
+
+
 class FlashLayoutTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.flash_cfg_text = read_text(FLASH_CFG)
         cls.ble_flash_text = read_text(BLE_FLASH)
         cls.bms_cold_text = read_text(BMS_COLD_HDR)
+        cls.ota_server_text = read_text(OTA_SERVER_H)
         cls.sector_size = parse_macro_int(cls.flash_cfg_text, "FLASH_SECTOR_SIZE")
         cls.runtime_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_RUNTIME_SECTORS")
         cls.hot_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_RUN_KV_SECTORS")
         cls.event_log_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_LOG_SECTORS")
         cls.cold_kv_sectors = parse_macro_int(cls.bms_cold_text, "BMS_COLD_KV_SECTORS")
+        cls.prev_hot_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_PREV_RUN_KV_SECTORS")
+        cls.prev_cold_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_PREV_COLD_KV_SECTORS")
+
+    def reserved_512k_profiles(self):
+        # type: () -> Dict[str, Dict[str, Tuple[int, int]]]
+        smp_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "FLASH_ADR_SMP_PAIRING_512K_FLASH"))
+        mac_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "CFG_ADR_MAC_512K_FLASH"))
+        calibration_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "CFG_ADR_CALIBRATION_512K_FLASH"))
+        self.assertEqual(len(smp_addrs), 2, "expected 2 reserved profiles for 512K flash")
+        self.assertEqual(len(mac_addrs), 2, "expected 2 MAC profiles for 512K flash")
+        self.assertEqual(len(calibration_addrs), 2, "expected 2 calibration profiles for 512K flash")
+        return {
+            "825x_827x": {
+                "smp": (smp_addrs[0], mac_addrs[0]),
+                "mac": (mac_addrs[0], calibration_addrs[0]),
+                "calibration": (calibration_addrs[0], 0x80000),
+            },
+            "tc321x": {
+                "smp": (smp_addrs[1], mac_addrs[1]),
+                "mac": (mac_addrs[1], calibration_addrs[1]),
+                "calibration": (calibration_addrs[1], 0x80000),
+            },
+        }
 
     def layout_ranges(self, prefix):
         # type: (str) -> Dict[str, Tuple[int, int]]
@@ -107,6 +154,28 @@ class FlashLayoutTests(unittest.TestCase):
             ),
         }
 
+    def previous_layout_ranges(self, prefix):
+        # type: (str) -> Dict[str, Tuple[int, int]]
+        text = self.flash_cfg_text
+        return {
+            "prev_soc_kv": (
+                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE_PREV"),
+                range_end(
+                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE_PREV"),
+                    self.prev_hot_kv_sectors,
+                    self.sector_size,
+                ),
+            ),
+            "prev_cold_kv": (
+                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT_PREV"),
+                range_end(
+                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT_PREV"),
+                    self.prev_cold_kv_sectors,
+                    self.sector_size,
+                ),
+            ),
+        }
+
     def assert_no_internal_overlap(self, ranges):
         # type: (Dict[str, Tuple[int, int]]) -> None
         items = list(ranges.items())
@@ -117,30 +186,31 @@ class FlashLayoutTests(unittest.TestCase):
                     msg=f"{name_a} overlaps {name_b}: {range_a} vs {range_b}",
                 )
 
-    def test_layout_512k_no_overlap(self):
+    def assert_no_cross_overlap(self, left, right):
+        # type: (Dict[str, Tuple[int, int]], Dict[str, Tuple[int, int]]) -> None
+        for left_name, left_range in left.items():
+            for right_name, right_range in right.items():
+                self.assertFalse(
+                    overlaps(left_range, right_range),
+                    msg=(
+                        f"{left_name} overlaps {right_name}: "
+                        f"{format_range(left_range)} vs {format_range(right_range)}"
+                    ),
+                )
+
+    def test_layout_512k_no_overlap_for_all_reserved_profiles(self):
         ranges = self.layout_ranges("512K")
         self.assert_no_internal_overlap(ranges)
-
-        reserved = {
-            "smp": (
-                parse_macro_int(self.ble_flash_text, "FLASH_ADR_SMP_PAIRING_512K_FLASH"),
-                parse_macro_int(self.ble_flash_text, "CFG_ADR_MAC_512K_FLASH"),
-            ),
-            "mac": (
-                parse_macro_int(self.ble_flash_text, "CFG_ADR_MAC_512K_FLASH"),
-                parse_macro_int(self.ble_flash_text, "CFG_ADR_CALIBRATION_512K_FLASH"),
-            ),
-            "calibration": (
-                parse_macro_int(self.ble_flash_text, "CFG_ADR_CALIBRATION_512K_FLASH"),
-                0x80000,
-            ),
-        }
-        for app_name, app_range in ranges.items():
-            for reserved_name, reserved_range in reserved.items():
-                self.assertFalse(
-                    overlaps(app_range, reserved_range),
-                    msg=f"512K {app_name} overlaps reserved {reserved_name}",
-                )
+        for profile_name, reserved in self.reserved_512k_profiles().items():
+            for app_name, app_range in ranges.items():
+                for reserved_name, reserved_range in reserved.items():
+                    self.assertFalse(
+                        overlaps(app_range, reserved_range),
+                        msg=(
+                            f"512K/{profile_name} {app_name} overlaps reserved {reserved_name}: "
+                            f"{format_range(app_range)} vs {format_range(reserved_range)}"
+                        ),
+                    )
 
     def test_layout_1m_no_overlap(self):
         ranges = self.layout_ranges("1M")
@@ -171,6 +241,42 @@ class FlashLayoutTests(unittest.TestCase):
         text = self.flash_cfg_text
         self.assertIn("MULTI_BOOT_ADDR_0x80000", text)
         self.assertIn("blc_flash_capacity == FLASH_SIZE_1M", text)
+
+    def test_current_layouts_do_not_overlap_migration_source_layouts(self):
+        for prefix in ("512K", "1M", "2M"):
+            self.assert_no_cross_overlap(self.layout_ranges(prefix), self.previous_layout_ranges(prefix))
+
+    def test_512k_current_layout_leaves_legacy_param_base_unused(self):
+        ranges = self.layout_ranges("512K")
+        legacy_param_base = parse_macro_int(self.flash_cfg_text, "FLASH_ADDR_SOFT_PROTECT_BASE")
+        for name, region in ranges.items():
+            self.assertFalse(
+                point_in_range(legacy_param_base, region),
+                msg=f"legacy PARAM_ADDR base 0x{legacy_param_base:05X} falls inside {name} {format_range(region)}",
+            )
+
+    def test_legacy_param_base_sits_in_512k_reserved_top_area(self):
+        legacy_param_base = parse_macro_int(self.flash_cfg_text, "FLASH_ADDR_SOFT_PROTECT_BASE")
+        b85_reserved = self.reserved_512k_profiles()["825x_827x"]["smp"]
+        self.assertGreaterEqual(
+            legacy_param_base,
+            b85_reserved[0],
+            msg="legacy PARAM_ADDR should remain outside the current 512K application layout",
+        )
+
+    @unittest.skipUnless(BLE_SAMPLE_BIN.exists(), "825x_ble_sample.bin not found")
+    def test_current_825x_ble_sample_bin_fits_default_ota_limit(self):
+        size = BLE_SAMPLE_BIN.stat().st_size
+        self.assertLessEqual(
+            size,
+            DEFAULT_OTA_FW_MAX_SIZE,
+            msg=(
+                f"825x_ble_sample.bin is too large for default OTA limit: "
+                f"size=0x{size:X}, max=0x{DEFAULT_OTA_FW_MAX_SIZE:X}"
+            ),
+        )
+        self.assertIn("default maximum firmware size is 124K byte", self.ota_server_text)
+        self.assertIn("default OTA new firmware boot address is 0x20000", self.ota_server_text)
 
 
 class SourceContractTests(unittest.TestCase):
@@ -217,6 +323,13 @@ class SourceContractTests(unittest.TestCase):
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)
+
+    def test_legacy_param_area_is_read_only_compatibility_path(self):
+        text = read_text(PARAM_C)
+        self.assertIn("flash_read_page(PARAM_ADDR, sizeof(PARAM_T), (u8 *)&legacy_param);", text)
+        self.assertNotIn("flash_write_page(PARAM_ADDR", text)
+        self.assertNotIn("flash_erase_sector(PARAM_ADDR", text)
+        self.assertIn("bms_cold_kv_store_set_protect(&g_tParam.protect)", text)
 
 
 if __name__ == "__main__":
