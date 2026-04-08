@@ -253,6 +253,16 @@ class FlashLayoutTests(unittest.TestCase):
 
 
 class SourceContractTests(unittest.TestCase):
+    def test_flash_cfg_no_longer_exports_migration_helpers(self):
+        text = read_text(FLASH_CFG)
+        self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base", text)
+        self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base", text)
+        self.assertNotIn("flash_store_cfg_get_legacy_runtime_base", text)
+        self.assertNotIn("flash_store_cfg_get_legacy_bt_name_base", text)
+        self.assertNotIn("flash_store_cfg_get_legacy_soc_kv_base", text)
+        self.assertNotIn("FLASH_ADDR_LAYOUT_512K_RUN_KV_BASE_PREV", text)
+        self.assertNotIn("FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT_PREV", text)
+
     def test_flash_helper_does_not_restore_lock_during_stack_session(self):
         text = read_text(FLASH_SAFE)
         self.assertIn("app_flash_lock_restore_enabled()", text)
@@ -291,7 +301,21 @@ class SourceContractTests(unittest.TestCase):
     def test_soc_kv_flush_interval_is_rate_limited(self):
         text = read_text(MODULE_DIR / "soc_kv_store.c")
         self.assertIn("SOC_KV_FLUSH_INTERVAL_US", text)
-        self.assertIn("clock_time_exceed(g_soc_last_flush_tick, SOC_KV_FLUSH_INTERVAL_US)", text)
+        self.assertRegex(
+            text,
+            re.compile(r"^[ \t]*if\s*\(\(current\.cycle != cycle\)\s*\|\|", re.MULTILINE),
+        )
+        self.assertRegex(
+            text,
+            re.compile(
+                r"^[ \t]*clock_time_exceed\(g_soc_last_flush_tick,\s*SOC_KV_FLUSH_INTERVAL_US\)\)\s*\{",
+                re.MULTILINE,
+            ),
+        )
+        self.assertNotIn(
+            "if ((current.soc != soc) || (current.dsg != dsg) || (current.cycle != cycle)) {",
+            text,
+        )
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)

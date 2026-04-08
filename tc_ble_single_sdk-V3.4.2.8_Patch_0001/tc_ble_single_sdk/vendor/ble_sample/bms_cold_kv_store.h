@@ -7,10 +7,6 @@
 extern "C" {
 #endif
 
-#ifndef BMS_COLD_KV_BASE
-#define BMS_COLD_KV_BASE   FLASH_ADDR_SOFT_PROTECT_BASE
-#endif
-
 #ifndef BMS_COLD_KV_SECTOR_SIZE
 #define BMS_COLD_KV_SECTOR_SIZE   FLASH_SECTOR_SIZE
 #endif
