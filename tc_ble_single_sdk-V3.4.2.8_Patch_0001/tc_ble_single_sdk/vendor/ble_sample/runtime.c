@@ -6,9 +6,27 @@
 #include "sh367309_datadeal.h"
 
 extern struct stCell_Info g_stCellInfoReport;
+extern void enter_fac_mode(bool on);
 
 #define RUNTIME_COMMIT_MAGIC       0x544D4F43u
-#define RUNTIME_SAVE_INTERVAL_MIN  10u
+// #define RUNTIME_SAVE_INTERVAL_MIN  10u
+#define RUNTIME_SAVE_INTERVAL_MIN  1u
+#define RUNTIME_PM_TICKS_PER_SEC   32000u
+#define RUNTIME_PM_TICKS_PER_MIN   (RUNTIME_PM_TICKS_PER_SEC * 60u)
+#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
+#define RUNTIME_SLEEP_TICK_REG0    PM_ANA_REG_WD_CLR_BUF0
+#define RUNTIME_SLEEP_TICK_REG1    PM_ANA_REG_WD_CLR_BUF1
+#define RUNTIME_SLEEP_TICK_REG2    PM_ANA_REG_WD_CLR_BUF2
+#define RUNTIME_SLEEP_TICK_REG3    PM_ANA_REG_WD_CLR_BUF3
+#define RUNTIME_SLEEP_TICK_CRC_REG PM_ANA_REG_WD_CLR_BUF4
+#else
+#define RUNTIME_SLEEP_TICK_REG0    DEEP_ANA_REG6
+#define RUNTIME_SLEEP_TICK_REG1    DEEP_ANA_REG7
+#define RUNTIME_SLEEP_TICK_REG2    DEEP_ANA_REG8
+#define RUNTIME_SLEEP_TICK_REG3    DEEP_ANA_REG9
+#define RUNTIME_SLEEP_TICK_CRC_REG DEEP_ANA_REG10
+#endif
+#define RUNTIME_SLEEP_TICK_MAGIC   0xA5u
 
 typedef struct
 {
@@ -30,6 +48,9 @@ static u32 g_runtime_next_seq = 1u;
 static u16 g_runtime_next_index = 0u;
 static u8 g_runtime_store_ready = 0u;
 static bms_mode_t g_mode = MODE_NORMAL;
+static u32 g_runtime_last_tick_32k = 0u;
+static u32 g_runtime_pending_tick_32k = 0u;
+static u8 g_runtime_tick_ready = 0u;
 
 static void runtime_set_initial_state(void)
 {
@@ -39,6 +60,9 @@ static void runtime_set_initial_state(void)
     g_runtime_next_index = 0u;
     g_runtime_store_ready = 0u;
     g_mode = MODE_FACTORY;
+    g_runtime_last_tick_32k = 0u;
+    g_runtime_pending_tick_32k = 0u;
+    g_runtime_tick_ready = 0u;
 }
 
 static u16 runtime_crc_bytes(const u8 *data, u16 len)
@@ -77,6 +101,55 @@ static int runtime_record_valid(const runtime_record_t *record)
     }
 
     return (runtime_crc_for_record(record->seq, record->runtime_min, record->flag) == record->crc);
+}
+
+static u8 runtime_sleep_tick_crc(u32 tick32k)
+{
+    return (u8)(((tick32k >> 0) & 0xFFu) ^
+                ((tick32k >> 8) & 0xFFu) ^
+                ((tick32k >> 16) & 0xFFu) ^
+                ((tick32k >> 24) & 0xFFu) ^
+                RUNTIME_SLEEP_TICK_MAGIC);
+}
+
+static void runtime_sleep_tick_clear(void)
+{
+    analog_write(RUNTIME_SLEEP_TICK_REG0, 0u);
+    analog_write(RUNTIME_SLEEP_TICK_REG1, 0u);
+    analog_write(RUNTIME_SLEEP_TICK_REG2, 0u);
+    analog_write(RUNTIME_SLEEP_TICK_REG3, 0u);
+    analog_write(RUNTIME_SLEEP_TICK_CRC_REG, 0u);
+}
+
+static void runtime_sleep_tick_store(u32 tick32k)
+{
+    analog_write(RUNTIME_SLEEP_TICK_REG0, (u8)(tick32k >> 0));
+    analog_write(RUNTIME_SLEEP_TICK_REG1, (u8)(tick32k >> 8));
+    analog_write(RUNTIME_SLEEP_TICK_REG2, (u8)(tick32k >> 16));
+    analog_write(RUNTIME_SLEEP_TICK_REG3, (u8)(tick32k >> 24));
+    analog_write(RUNTIME_SLEEP_TICK_CRC_REG, runtime_sleep_tick_crc(tick32k));
+}
+
+static int runtime_sleep_tick_load(u32 *tick32k)
+{
+    u32 stored_tick;
+    u8 stored_crc;
+
+    if (tick32k == NULL) {
+        return 0;
+    }
+
+    stored_tick = ((u32)analog_read(RUNTIME_SLEEP_TICK_REG0) << 0) |
+                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG1) << 8) |
+                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG2) << 16) |
+                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG3) << 24);
+    stored_crc = analog_read(RUNTIME_SLEEP_TICK_CRC_REG);
+    if (stored_crc != runtime_sleep_tick_crc(stored_tick)) {
+        return 0;
+    }
+
+    *tick32k = stored_tick;
+    return 1;
 }
 
 static u32 runtime_flash_base(void)
@@ -244,14 +317,73 @@ static int runtime_flash_save(void)
     return 1;
 }
 
+static void runtime_note_store_error(void)
+{
+    System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+}
+
+static void runtime_finish_factory_mode(void)
+{
+    g_mode = MODE_NORMAL;
+    if (g_runtime_store_ready && !runtime_flash_save()) {
+        runtime_note_store_error();
+    }
+    enter_fac_mode(false);
+}
+
+static void runtime_apply_elapsed_minutes(u32 elapsed_min)
+{
+    u32 remain_min;
+
+    if ((elapsed_min == 0u) || (g_mode == MODE_NORMAL)) {
+        return;
+    }
+
+    remain_min = (FACTORY_TIME_LIMIT_MIN > g_runtime_min) ?
+                 (FACTORY_TIME_LIMIT_MIN - g_runtime_min) : 0u;
+    if (elapsed_min >= remain_min) {
+        g_runtime_min = FACTORY_TIME_LIMIT_MIN;
+        runtime_finish_factory_mode();
+        return;
+    }
+
+    g_runtime_min += elapsed_min;
+    if ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN) {
+        if (!runtime_flash_save()) {
+            runtime_note_store_error();
+        }
+    }
+}
+
+static void runtime_apply_elapsed_ticks(u32 elapsed_tick_32k)
+{
+    u32 total_tick_32k;
+    u32 elapsed_min;
+
+    if ((elapsed_tick_32k == 0u) || (g_mode == MODE_NORMAL)) {
+        return;
+    }
+
+    total_tick_32k = g_runtime_pending_tick_32k + elapsed_tick_32k;
+    elapsed_min = total_tick_32k / RUNTIME_PM_TICKS_PER_MIN;
+    g_runtime_pending_tick_32k = total_tick_32k % RUNTIME_PM_TICKS_PER_MIN;
+    runtime_apply_elapsed_minutes(elapsed_min);
+}
+
 void Runtime_Init(void)
 {
+    u32 now_tick_32k;
+    u32 sleep_enter_tick_32k;
+
     runtime_set_initial_state();
 
     if (!runtime_scan_store()) {
         if (runtime_flash_base() == 0u) {
             g_runtime_min = FACTORY_TIME_LIMIT_MIN;
             g_mode = MODE_NORMAL;
+            runtime_sleep_tick_clear();
+            g_runtime_last_tick_32k = pm_get_32k_tick();
+            g_runtime_tick_ready = 1u;
             return;
         }
         g_runtime_store_ready = 1u;
@@ -262,31 +394,59 @@ void Runtime_Init(void)
     } else {
         g_mode = MODE_FACTORY;
     }
+
+    now_tick_32k = pm_get_32k_tick();
+    if (runtime_sleep_tick_load(&sleep_enter_tick_32k)) {
+        runtime_sleep_tick_clear();
+        runtime_apply_elapsed_ticks(now_tick_32k - sleep_enter_tick_32k);
+    } else {
+        runtime_sleep_tick_clear();
+    }
+
+    g_runtime_last_tick_32k = now_tick_32k;
+    g_runtime_tick_ready = 1u;
 }
 
-extern void enter_fac_mode(bool on);
 void Runtime_1MinTask(void)
 {
+    runtime_apply_elapsed_minutes(1u);
+}
+
+void Runtime_Poll(void)
+{
+    u32 now_tick_32k;
+
+    now_tick_32k = pm_get_32k_tick();
+    if (!g_runtime_tick_ready) {
+        g_runtime_last_tick_32k = now_tick_32k;
+        g_runtime_tick_ready = 1u;
+        return;
+    }
+
+    runtime_apply_elapsed_ticks(now_tick_32k - g_runtime_last_tick_32k);
+    g_runtime_last_tick_32k = now_tick_32k;
+}
+
+void Runtime_PrepareForDeepSleep(void)
+{
+    u32 now_tick_32k;
+
     if (g_mode == MODE_NORMAL) {
+        runtime_sleep_tick_clear();
         return;
     }
 
-    g_runtime_min++;
+    now_tick_32k = pm_get_32k_tick();
+    runtime_sleep_tick_store(now_tick_32k);
+    g_runtime_last_tick_32k = now_tick_32k;
+    g_runtime_tick_ready = 1u;
+}
 
-    if (g_runtime_min >= FACTORY_TIME_LIMIT_MIN) {
-        g_mode = MODE_NORMAL;
-        if (!runtime_flash_save()) {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
-        }
-        enter_fac_mode(false);
-        return;
-    }
-
-    if ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN) {
-        if (!runtime_flash_save()) {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
-        }
-    }
+void Runtime_CancelPendingDeepSleep(void)
+{
+    runtime_sleep_tick_clear();
+    g_runtime_last_tick_32k = pm_get_32k_tick();
+    g_runtime_tick_ready = 1u;
 }
 
 bms_mode_t Runtime_GetMode(void)
@@ -317,5 +477,8 @@ int Runtime_FactoryReset(void)
 
     runtime_set_initial_state();
     g_runtime_store_ready = 1u;
+    runtime_sleep_tick_clear();
+    g_runtime_last_tick_32k = pm_get_32k_tick();
+    g_runtime_tick_ready = 1u;
     return 1;
 }
