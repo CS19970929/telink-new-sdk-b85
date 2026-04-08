@@ -7,12 +7,10 @@
 #define SOC_KV_KEY_SOC    0x0001u
 #define SOC_KV_KEY_DSG    0x0002u
 #define SOC_KV_KEY_CYCLE  0x0003u
-#define SOC_KV_FLUSH_INTERVAL_US 5000000u
 
 static flash_kv32_t g_soc_kv;
 static flash_kv32_cache_entry_t g_soc_cache[3];
 static u32 g_soc_sector_addrs[(SOC_KV_HOT_SECTORS > 0) ? SOC_KV_HOT_SECTORS : 1];
-static u32 g_soc_last_flush_tick = 0u;
 
 static u32 soc_kv_get_value(u32 key, u32 default_value);
 
@@ -110,8 +108,6 @@ int soc_kv_store_init(void)
     if (!flash_kv32_init(&g_soc_kv, &cfg, g_soc_cache)) {
         return 0;
     }
-
-    g_soc_last_flush_tick = clock_time();
     return 1;
 }
 
@@ -164,8 +160,6 @@ int soc_kv_store_write_all(u32 soc, u32 dsg, u32 cycle)
     if (!flash_kv32_write_pairs(&g_soc_kv, pairs, (u16)(sizeof(pairs) / sizeof(pairs[0])))) {
         return 0;
     }
-
-    g_soc_last_flush_tick = clock_time();
     return 1;
 }
 
@@ -181,10 +175,8 @@ void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
     if ((current.soc == soc) && (current.dsg == dsg) && (current.cycle == cycle)) {
         return;
     }
-    if ((current.cycle != cycle) ||
-        clock_time_exceed(g_soc_last_flush_tick, SOC_KV_FLUSH_INTERVAL_US)) {
-        (void)soc_kv_store_write_all(soc, dsg, cycle);
-    }
+
+    (void)soc_kv_store_write_all(soc, dsg, cycle);
 }
 
 void soc_kv_store_factory_reset(void)
