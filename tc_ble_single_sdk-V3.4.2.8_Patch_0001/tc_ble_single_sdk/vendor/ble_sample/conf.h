@@ -142,6 +142,10 @@ typedef int8_t INT8;
 #define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
 #endif
 
+#ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0u
+#endif
+
 typedef enum _CUR {
 CurCHG = 0, CurDSG
 }_Cur;

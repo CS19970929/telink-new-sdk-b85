@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 #ifndef BMS_COLD_KV_SECTORS
-#define BMS_COLD_KV_SECTORS   2
+#define BMS_COLD_KV_SECTORS   4
 #endif
 
 typedef enum {
@@ -35,6 +35,7 @@ typedef enum {
     BMS_COLD_CTRL_SYSTEM_RESET_EPOCH,
     BMS_COLD_CTRL_SOC_RESET_EPOCH,
     BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH,
+    BMS_COLD_CTRL_RUNTIME_RESET_EPOCH,
 } bms_cold_control_param_id_t;
 
 typedef struct {
