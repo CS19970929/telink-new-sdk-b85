@@ -13,6 +13,7 @@
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
+// #define _DI_SWITCH_SYS_ONOFF	
 
 #define C21         0
 #define C31         1
@@ -30,7 +31,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D3PRO
+#define FD_BMS_TYPE   test_default
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -94,7 +95,7 @@
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
 #define AFE_ODC2       		(400) 
 #else
-#define SeriesNum  (10)
+#define SeriesNum  (13)
 #define CapacityFactory (100)
 #define  BMS_HARDWARE_VERDION_DEFAULT   "cs_666_test"
 #define AFE_ODC2       		(400) 
@@ -115,9 +116,9 @@ typedef int32_t INT32;
 typedef int16_t INT16;
 typedef int8_t INT8;
 
-#define __INIT_SOC__        (99)
+// #define __INIT_SOC__        (99)
 
-#define FAC_INIT_soc (60)
+#define FAC_INIT_soc (66)
 
 /*
  * 升级后一次性参数重�?控制�?
@@ -134,7 +135,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       8u
+#define FW_UPGRADE_RESET_SOC_EPOCH       0u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
@@ -187,6 +188,9 @@ typedef struct
   uint16_t enter_rtc_delay;
   bool     low_power_mode;
   bool     enable_current_test;
+  bool     enable_log_test_first;
+  bool     enable_log_test_balance;
+  bool     enable_kv_test;
 }Time_T;
 
 extern Time_T  sys_time;

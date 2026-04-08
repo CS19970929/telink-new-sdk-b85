@@ -476,8 +476,8 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 
     bms_event_log_track_edge(sample->sleep, BMS_SLEEP);
     bms_event_log_track_edge(sample->balance, BALANCE_OPEN);
-    bms_event_log_track_edge(sample->heat, HEAT_OPEN);
-    bms_event_log_track_edge(sample->cool, COOL_OPEN);
+    // bms_event_log_track_edge(sample->heat, HEAT_OPEN);
+    // bms_event_log_track_edge(sample->cool, COOL_OPEN);
     bms_event_log_track_edge(sample->vcell_ovp, VCELL_OVP);
     bms_event_log_track_edge(sample->vbus_ovp, VBUS_OVP);
     bms_event_log_track_edge(sample->chg_ocp, CHG_OCP);
@@ -489,8 +489,8 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
     bms_event_log_track_edge(sample->chg_otp, CHG_OTP);
     bms_event_log_track_edge(sample->dsg_otp, DSG_OTP);
     bms_event_log_track_edge(sample->vdelta_op, VDELTA_OP);
-    bms_event_log_track_edge(sample->afe2_err, AFE2_ERR);
-    bms_event_log_track_edge(sample->eeprom_err, EEPROM_ERR);
+    // bms_event_log_track_edge(sample->afe2_err, AFE2_ERR);
+    // bms_event_log_track_edge(sample->eeprom_err, EEPROM_ERR);
     bms_event_log_track_change(sample->cbc_err, CBC_ERR);
 }
 
@@ -563,4 +563,18 @@ bms_event_log_dbg_t bms_event_log_get_dbg(void)
     dbg.write_pos = g_bms_event_log.write_pos;
     dbg.ready = g_bms_event_log.ready;
     return dbg;
+}
+void test_log_balance_first(void)
+{
+    bms_event_log_track_edge(1, BALANCE_OPEN);
+}
+
+void test_log_app(void)
+{
+    bms_event_log_track_edge(1, VCELL_OVP);
+    bms_event_log_track_edge(1, VBUS_OVP);
+    bms_event_log_track_edge(1, CHG_OCP);
+    bms_event_log_track_edge(1, VCELL_UVP);
+    bms_event_log_track_edge(1, VBUS_UVP);
+
 }

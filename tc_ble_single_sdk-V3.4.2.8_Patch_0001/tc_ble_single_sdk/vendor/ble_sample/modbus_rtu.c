@@ -229,7 +229,10 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1102)
     {
         // if(val == 0x03) enter_fac_mode(true);
+        if(val == 0x01) sys_time.enable_log_test_balance = true;
         if(val == 0x03) sys_time.enable_current_test = true;
+        // if(val == 0x06) sys_time.enable_log_test_first = true;
+        if(val == 0x06) sys_time.enable_current_test = false;
         if(val == 0x0A) deepsleep_en = true;
     }
     if(reg == 0x1103)
@@ -259,6 +262,9 @@ u16 mb_crc16(const u8 *buf, u32 len)
 
 static u16 u16be(const u8 *p){ return ((u16)p[0] << 8) | p[1]; }
 static void put_u16be(u8 *p, u16 v){ p[0] = v >> 8; p[1] = v & 0xFF; }
+
+extern int AFE_PARAM_WRITE_Flag;
+extern void test_SH367309_UpdataAfeConfig(void);
 
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
@@ -321,6 +327,8 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         write_reg(reg, val);
         if (reg_requires_param_save(reg)) {
             SaveParam();
+            AFE_PARAM_WRITE_Flag = 1;
+            // test_SH367309_UpdataAfeConfig();
         }
 
         // 06 回包=原样回显请求（非广播）
@@ -349,6 +357,8 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         }
         if (need_save_param) {
             SaveParam();
+            AFE_PARAM_WRITE_Flag = 1;
+            // test_SH367309_UpdataAfeConfig();
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
