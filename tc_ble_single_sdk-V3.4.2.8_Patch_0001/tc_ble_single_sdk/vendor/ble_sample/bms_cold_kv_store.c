@@ -209,7 +209,7 @@ void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system)
     system->afe_odc2 = 0u;
 #endif
     system->fac_init_soc = FAC_INIT_soc;
-    system->init_soc = __INIT_SOC__;
+    system->init_soc = FAC_INIT_soc;
     system->flags = 0u;
     system->reserved0 = 0u;
 }

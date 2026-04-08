@@ -46,11 +46,11 @@ extern "C" {
 #endif
 
 #ifndef SOC_PARAM_DEFAULT_DSG
-#define SOC_PARAM_DEFAULT_DSG    0u
+#define SOC_PARAM_DEFAULT_DSG    60u
 #endif
 
 #ifndef SOC_PARAM_DEFAULT_CYCLE
-#define SOC_PARAM_DEFAULT_CYCLE  100u
+#define SOC_PARAM_DEFAULT_CYCLE  1
 #endif
 
 #ifndef SOC_KV_DEFAULT_SOC

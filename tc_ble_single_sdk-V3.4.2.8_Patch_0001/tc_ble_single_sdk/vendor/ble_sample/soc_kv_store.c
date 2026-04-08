@@ -256,7 +256,8 @@ void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
         return;
     }
 
-    if ((current.cycle != cycle) || clock_time_exceed(g_soc_last_flush_tick, 5000000u)) {
+    // if ((current.cycle != cycle) || clock_time_exceed(g_soc_last_flush_tick, 5000000u)) {
+    if ((current.soc != soc) || (current.dsg != dsg) || (current.cycle != cycle)) {
         (void)soc_kv_store_write_all(soc, dsg, cycle);
     }
 }

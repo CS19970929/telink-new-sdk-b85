@@ -4,6 +4,7 @@
 #include "conf.h"
 #include "sci_upper.h"
 #include "app.h"
+#include "param.h"
 
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
@@ -548,6 +549,141 @@ void SH367309_UpdataAfeConfig(void)
         }
     }
 }
+void load_protectParam()
+{
+    int i = 0;
+    int temp = 0;
+    u8 TR = 0;
+    u16 AFE_TEMPERATURE[8] = {0}; // 濞撯晛瀹抽敍灞炬啔濮樺繐瀹�+40閿涘矉绱�0鎼达妇娈戦崐闂磋礋40閿涳拷
+
+    if (MTPRead(0x19, 1, &TR))
+    {
+        SH367309_Reg_Store.TR_ResRef = 680 + 5 * (TR & 0x7F);
+        ucMTPBuffer[25] = TR & 0x7F;
+
+        memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
+    }
+    g_u32CS_Res_AFE = 2 * 1000 / 2;
+    // g_u32CS_Res_AFE = ((u32)g_tParam.other.u16Sys_CS_Res_Num * 1000) / g_tParam.other.u16Sys_CS_Res;
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
+
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0xff >> 6);
+    // AFE_ROM_PARAMETERS_Struction.m00H_01H = AFE_ROM_PARAMETERS_Struction.m00H_01H | 0x0c;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((g_tParam.protect.u16VcellOvp_Third / 5) >> 8) & 0x3;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (g_tParam.protect.u16VcellOvp_Third / 5) & 0x00FF;
+
+    temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
+#ifdef FAC_TEST
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0;
+#else
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+#endif // FAC_TEST
+
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((g_tParam.protect.u16VcellOvp_Rcv / 5) >> 8) & 0x3;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (g_tParam.protect.u16VcellOvp_Rcv / 5) & 0x00FF;
+
+    temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
+#ifdef FAC_TEST
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0;
+#else
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
+#endif // FAC_TEST
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (g_tParam.protect.u16VcellUvp_Third / 20) & 0x00FF;
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (g_tParam.protect.u16VcellUvp_Rcv / 20) & 0x00FF;
+
+    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
+    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = Choose_Right_Value(temp, AFE_OCD1T);
+    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = 0;
+    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = 0;
+
+    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
+    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
+
+    temp = AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = Choose_Right_Value(temp, AFE_SCT);
+    temp = AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue * 1000 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = Choose_Right_Value(temp, AFE_SCV);
+
+    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10;        /* 閸忓懐鏁告妯讳刊娣囨繃濮� */
+    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10;    /* 閸忓懐鏁告妯讳刊娣囨繃濮㈤幁銏狀槻 */
+    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10;        /* 閸忓懐鏁告担搴刊娣囨繃濮� */
+    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10;    /* 閸忓懐鏁告担搴刊娣囨繃濮㈤幁銏狀槻 */
+    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10;     /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б */
+    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10; /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б閹垹顦� */
+    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10;     /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б */
+    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10; /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б閹垹顦� */
+
+    for (i = 0; i < 8; i++)
+    {
+        temp = iSheldTemp_10K_NTC[AFE_TEMPERATURE[i]];
+        *(((u8 *)&AFE_ROM_PARAMETERS_Struction.m11H_19H) + i) = (u8)(((u32)temp << 9) / ((u32)SH367309_Reg_Store.TR_ResRef + temp));
+    }
+}
+
+void test_SH367309_UpdataAfeConfig(void)
+{
+    u8 isdiff = 0;
+
+    if (AFE_PARAM_WRITE_Flag)
+    {
+        AFE_PARAM_WRITE_Flag = 0;
+        load_protectParam();
+        {
+            int i = 0;
+            u8 temp[26] = {0};
+            u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+            printf("[!!!]flash afe param111");
+            array_printf((unsigned char *)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
+            // array_printf((unsigned char*)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
+
+            if (MTPRead(0x00, 25, temp))
+            {
+                array_printf(temp, sizeof(temp));
+                for (i = 0; i < 25; i++)
+                { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
+                    if (temp[i] != P[i])
+                    {
+                        isdiff = 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (isdiff)
+        {
+            printf("[!!!]flash afe param222");
+            // MCUO_AFE_VPRO = 1; // 鏉╂稑鍙嗛悜褍鍟撳Ο鈥崇础
+            gpio_write(GPIO_PD7, 1);
+            Delay1ms(20);
+            Feed_IWatchDog;
+
+            Write_Parameters();
+
+            Feed_IWatchDog;
+            // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
+            gpio_write(GPIO_PD7, 0);
+            Delay1ms(1);
+
+            if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
+            {
+                AFE_Reset(); // Reset IC
+                Delay1ms(5);
+                AFE_IsReady();
+                AFE_ResetFlag = 1;
+            }
+            SH367309_Enable_AFE_Wdt_Cadc_Drivers();
+        }
+        else
+        {
+            printf("[!!!] no need flash");
+        }
+    }
+}
 
 UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat)
 {
@@ -887,13 +1023,15 @@ void DataLoad_CurrentCali(void)
 }
 
 static uint8_t step = 0;
-#if 1
+#if 0
 static uint16_t CHG_current = 1000;
 static uint16_t DSG_current = 1000;
 #else
-static uint16_t CHG_current = 200;
-static uint16_t DSG_current = 400;
+static uint16_t CHG_current = 2000;
+static uint16_t DSG_current = 2000;
 #endif
+
+#if 1
 void test_Autocurrent_cycle(void)
 {
 
@@ -931,6 +1069,29 @@ void test_Autocurrent_cycle(void)
         break;
     }
 }
+#endif
+
+#if 0
+void test_Autocurrent_cycle(void)
+{
+    static bool dir = true;
+
+    if(dir)
+    {
+        if(g_stCellInfoReport.SocElement.u16Soc < 100)
+            g_stCellInfoReport.SocElement.u16Soc++;
+        else
+            dir = false;
+    }
+    else
+    {
+        if(g_stCellInfoReport.SocElement.u16Soc > 0)
+            g_stCellInfoReport.SocElement.u16Soc--;
+        else
+            dir = true;
+    }
+}
+#endif
 void DataLoad_Current(void)
 {
     // if ((SH367309_Read_AFE1.u16Current & 0x1000) == 0)

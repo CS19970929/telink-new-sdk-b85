@@ -936,6 +936,7 @@ void blt_pm_proc(void)
 	if (clock_time_exceed(sleep_tick, 1000 * 1000))
 	{
 		sleep_tick = clock_time();
+	#ifdef _DI_SWITCH_SYS_ONOFF
 		if (gpio_read(CHG_IN_PIN))
 		{
 			if (gpio_read(SW_PIN))
@@ -953,6 +954,7 @@ void blt_pm_proc(void)
 				sleep_cnt = 0;
 			}
 		}
+	#endif
 
 		if (g_stCellInfoReport.u16VCellMin <= 2500)
 		{
@@ -1657,8 +1659,23 @@ _attribute_no_inline_ void main_loop(void)
 		main_loop_modbus();
 #endif
 		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+		// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 		//nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
+	// test_SH367309_UpdataAfeConfig();
+	
+extern void test_log_app(void);
+extern void test_log_balance_first(void);
+	if(sys_time.enable_log_test_first)
+	{
+		sys_time.enable_log_test_first = false;
+		test_log_app();
+	}
+	if(sys_time.enable_log_test_balance)
+	{
+		sys_time.enable_log_test_balance = false;
+		test_log_balance_first();
+	}
 	blt_pm_proc();
 }
 
