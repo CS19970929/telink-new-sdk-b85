@@ -111,11 +111,12 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_CUV           (2750)
 #define AFE_CUV_filter     (100)
 
-#if (FD_BMS_TYPE == M25)
-#define AFE_CUV_recover     (2800)
-#else
+// #if (FD_BMS_TYPE == M25)
+// #define AFE_CUV_recover     (2800)
+// #else
+// #define AFE_CUV_recover     (3000)
+// #endif
 #define AFE_CUV_recover     (3000)
-#endif
 
 #endif // LIFEPO
 
@@ -141,8 +142,8 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1_filter  	(200)
-#define AFE_ODC2_filter  	(1)
+#define AFE_ODC1_filter  	(100)
+#define AFE_ODC2_filter  	(50)
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
 #define AFE_PARAMETERS_RS485_STRUCTION_DEFAULT  {\
