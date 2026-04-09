@@ -474,7 +474,7 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 
     g_bms_event_log.interval_s += 1u;
 
-    bms_event_log_track_edge(sample->sleep, BMS_SLEEP);
+    // bms_event_log_track_edge(sample->sleep, BMS_SLEEP);
     bms_event_log_track_edge(sample->balance, BALANCE_OPEN);
     // bms_event_log_track_edge(sample->heat, HEAT_OPEN);
     // bms_event_log_track_edge(sample->cool, COOL_OPEN);

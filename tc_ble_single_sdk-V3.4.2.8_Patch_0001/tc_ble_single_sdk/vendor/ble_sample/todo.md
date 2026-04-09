@@ -73,3 +73,5 @@ todo 分流器、过流通过宏控制
 
 APP_BATT_CHECK_ENABLE宏的作用
 测试soc逻辑
+
+3000mv下，进瞬间待机，记录sleep了？？？
