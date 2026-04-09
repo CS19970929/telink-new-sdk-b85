@@ -62,3 +62,14 @@ todo 测试过放后，休眠时间，准确性
 - 梳理soc模块逻辑，增加、优化soc策略
 
 梳理mac上位机和qt上位机的共性，逻辑、架构，主要是ble相关，我不熟悉mac、qt和ble相关，输出文档，还有为什么是python不是c++
+soc_kv_store_update_and_log_if_changed中的soc_kv_store_write_all会检查缓存，缓存一样时是否还会写flash，还是说每5s必定写flash，我想soc、dsg、cycle任意发生改变时就写flash，理论上这三个变量变化不会很快，应该是大于5s的
+
+家里的codex app和公司的codex app记录、记忆可以同步吗？
+
+
+todo 分流器、过流通过宏控制
+
+我后续用什么开发qt，如何优化功能
+
+APP_BATT_CHECK_ENABLE宏的作用
+测试soc逻辑

@@ -137,7 +137,8 @@ scripts\run.bat
 
 脚本会自动：
 
-- 创建 `.venv`
+- 在 `%LOCALAPPDATA%\BMSAssistantQt\venv` 创建虚拟环境，避免 Windows 深路径触发 `MAX_PATH` 限制
+- 自动选择 `python` 或 Windows `py -3` 启动器
 - 安装 `requirements.txt`
 - 启动 Qt 上位机
 
@@ -199,6 +200,8 @@ scripts\package-windows.bat
 .dist\docs\README.md
 .dist\docs\WINDOWS-DELIVERY.md
 ```
+
+Windows 打包脚本同样会自动选择 `python` 或 `py -3`，并把虚拟环境、`PyInstaller` 中间目录放在 `%LOCALAPPDATA%\BMSAssistantQt\` 下，避免当前工程路径较深时触发 Windows 传统路径长度限制。虚拟环境创建、依赖安装、`PyInstaller` 打包失败时脚本会直接中止，避免生成半截交付包。
 
 ## 协议边界
 

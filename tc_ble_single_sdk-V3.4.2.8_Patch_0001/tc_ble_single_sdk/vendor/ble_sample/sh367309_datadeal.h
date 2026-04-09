@@ -109,23 +109,21 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_COV_filter     100
 
 #define AFE_CUV           (2750)
-#define AFE_CUV_recover     (3000)
 #define AFE_CUV_filter     (100)
+
+#if (FD_BMS_TYPE == M25)
+#define AFE_CUV_recover     (2800)
+#else
+#define AFE_CUV_recover     (3000)
+#endif
+
 #endif // LIFEPO
 
 #define AFE_OTC           ((55 + 40) * 10)
 #define AFE_OTC_recover     ((45 + 40) * 10)
 #define AFE_OTC_filter      100
 
-#ifdef __FUNC__HEAT__
-#if (AFE_TYPE == sh36xx)
-#define UTC_3           ((-20 + 40) * 10)
-#elif (AFE_TYPE == bq76xx_afe)
-#define UTC_3           ((-28 + 40) * 10)
-#endif
-#else
 #define AFE_UTC           ((-7 + 40) * 10)
-#endif // DEBUG
 #define AFE_UTC_recover     ((0 + 40) * 10)
 #define AFE_UTC_filter      100
 
@@ -143,25 +141,8 @@ enum SYSTEM_ERROR_COMMAND {
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1       		(400) 
-#define AFE_ODC1_filter  	(100)
-
-#define AFE_ODC2_filter  	(100)
-
-#if (FD_BMS_TYPE == C21)
-#define AFE_ODC2       		(300) 
-#elif (FD_BMS_TYPE == C31)
-#define AFE_ODC2       		(400) 
-#elif (FD_BMS_TYPE == D11)
-#define AFE_ODC2       		(300) 
-#elif (FD_BMS_TYPE == D3PRO)
-#define AFE_ODC2       		(300) 
-#elif (FD_BMS_TYPE == C11_AND_C11pro)
-#define AFE_ODC2       		(400) 
-#else
-#define AFE_ODC2       		(400) 
-#endif
-
+#define AFE_ODC1_filter  	(200)
+#define AFE_ODC2_filter  	(1)
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
 #define AFE_PARAMETERS_RS485_STRUCTION_DEFAULT  {\

@@ -123,15 +123,27 @@ static void app_event_log_1s_task(void)
 	bms_event_log_poll_1s(&sample);
 }
 
-static void app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
+static int app_deepsleep_pad_wakeup_active(void)
 {
+	return !gpio_read(CHG_IN_PIN);
+}
+
+static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
+{
+	int sleep_status;
+
+	if (app_deepsleep_pad_wakeup_active()) {
+		return 0;
+	}
+
 	bms_event_log_note_sleep();
 	if (need_afe_sleep) {
 		AFE_Sleep();
 	}
 	Runtime_PrepareForDeepSleep();
-	cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
+	sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
 	Runtime_CancelPendingDeepSleep();
+	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
 void open_ctlc(void)
@@ -1016,7 +1028,10 @@ void blt_pm_proc(void)
 			sleep_vnormal_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
 
-			if(deepsleep_en && sleep_vlow_cnt < (60 * 10 * 1)) sleep_vlow_cnt = (60 * 60 * 1);
+			if(deepsleep_en) {
+				deepsleep_en = false;
+				sleep_vlow_cnt = (60 * 60 * 1);
+			}
 			sleep_vlow_cnt += sleep_elapsed_sec;
 			if (sleep_vlow_cnt >= (60 * 60 * 1))
 			{
@@ -1476,7 +1491,6 @@ _attribute_no_inline_ void user_init_normal(void)
 	btname_init();
 	bms_event_log_note_startup();
 
-	//todo 7day enter facmode
 	{
 		Runtime_Init();
 		if(MODE_FACTORY == Runtime_GetMode())

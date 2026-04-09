@@ -32,6 +32,8 @@ Windows 侧的核心目标：
 
 - Windows 10/11
 - 主机带 BLE 功能，或已接入支持 BLE 的蓝牙适配器
+- 开发/打包机器需要 Python 3.9+，推荐 Python 3.10+；如果没有 `python` 命令，脚本会自动尝试 Windows `py -3` 启动器
+- 脚本会把虚拟环境与打包中间目录放在 `%LOCALAPPDATA%\BMSAssistantQt\`，避免工程目录很深时触发 Windows 路径长度限制
 
 ### 2. 蓝牙要求
 
@@ -105,6 +107,18 @@ Windows 侧的核心目标：
 7. 手动读寄存器正常
 8. 报文日志导出正常
 9. 电池快照导出正常
+
+开发机还建议先执行：
+
+```bat
+scripts\run.bat
+```
+
+确认脚本能自动创建 `%LOCALAPPDATA%\BMSAssistantQt\venv`、安装 `PySide6/PyInstaller` 并拉起主窗口。正式打包再执行：
+
+```bat
+scripts\package-windows.bat
+```
 
 ## 当前边界
 
