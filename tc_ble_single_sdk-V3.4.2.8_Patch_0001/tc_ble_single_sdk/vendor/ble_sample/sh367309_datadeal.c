@@ -239,10 +239,13 @@ u8 CRC8cal(const u8 *data, u32 len)
     return crc;
 }
 
-#define SH309_I2C_MAX_XFER_LEN    64u
-#define SH309_I2C_RETRY_CNT       3u
+#define SH309_I2C_MAX_XFER_LEN      64u
+#define SH309_I2C_RETRY_CNT         3u
+#define SH309_AFE_PARAM_IMAGE_BYTES 25u
+#define SH309_MTP_PROGRAM_DELAY_MS  40u
 
 void Delay1ms(u8 delaycnt);
+u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf);
 
 static inline u8 sh309_is_crc_readable_addr(u8 addr)
 {
@@ -315,7 +318,7 @@ static u8 sh309_i2c_write_with_crc(u8 slave_id, u8 wr_addr, u8 length, const u8 
     tx_buf[length] = CRC8cal(crc_input, (u32)length + 2u);
 
     i2c_write_series(wr_addr, 1, (unsigned char *)tx_buf, length + 1);
-    return 1;
+    return ((reg_i2c_status & FLD_I2C_NAK) == 0u);
 }
 
 static u8 sh309_i2c_write_byte_checked(u8 slave_id, u8 wr_addr, u8 value)
@@ -327,7 +330,8 @@ static u8 sh309_i2c_write_byte_checked(u8 slave_id, u8 wr_addr, u8 value)
     {
         if (!sh309_i2c_write_with_crc(slave_id, wr_addr, 1, &value))
         {
-            return 0;
+            Delay1ms(1);
+            continue;
         }
 
         if (sh309_skip_write_verify(wr_addr, value))
@@ -410,6 +414,54 @@ u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf)
 {
     return TwiRead(AFE_ID, RdAddr, Length, RdBuf);
+}
+
+static u8 sh309_read_param_image(u8 *rd_buf)
+{
+    if (rd_buf == NULL)
+    {
+        return 0;
+    }
+
+    return MTPRead(0x00, SH309_AFE_PARAM_IMAGE_BYTES, rd_buf);
+}
+
+static int sh309_param_image_diff_state(const u8 *expected, u8 *current)
+{
+    if ((expected == NULL) || (current == NULL))
+    {
+        return -1;
+    }
+
+    if (!sh309_read_param_image(current))
+    {
+        return -1;
+    }
+
+    return (memcmp(current, expected, SH309_AFE_PARAM_IMAGE_BYTES) != 0) ? 1 : 0;
+}
+
+static u8 sh309_program_param_byte_verified(u8 wr_addr, u8 expected_value)
+{
+    u8 attempt;
+    u8 verify_value = 0;
+
+    for (attempt = 0; attempt < SH309_I2C_RETRY_CNT; ++attempt)
+    {
+        if (MTPWriteROM(wr_addr, 1, &expected_value))
+        {
+            Delay1ms(SH309_MTP_PROGRAM_DELAY_MS);
+
+            if (MTPRead(wr_addr, 1, &verify_value) && (verify_value == expected_value))
+            {
+                return 1;
+            }
+        }
+
+        Delay1ms(1);
+    }
+
+    return 0;
 }
 
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
@@ -521,23 +573,16 @@ void Refresh_Parameters(void)
 static u8 Write_Parameters(void)
 {
     int i = 0;
-    u8 temp[26] = {0};
+    u8 temp[SH309_AFE_PARAM_IMAGE_BYTES] = {0};
     u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
-    u8 verify_value = 0;
 
-    if (MTPRead(0x00, 25, temp))
+    if (sh309_read_param_image(temp))
     {
-        for (i = 0; i < 25; i++)
+        for (i = 0; i < SH309_AFE_PARAM_IMAGE_BYTES; i++)
         { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
             if (temp[i] != P[i])
             {
-                if (!MTPWriteROM(i, 1, P + i))
-                {
-                    return 0;
-                }
-                Delay1ms(40);
-
-                if (!MTPRead((u8)i, 1, &verify_value) || (verify_value != P[i]))
+                if (!sh309_program_param_byte_verified((u8)i, P[i]))
                 {
                     return 0;
                 }
@@ -549,7 +594,7 @@ static u8 Write_Parameters(void)
         return 0;
     }
 
-    return 1;
+    return (sh309_param_image_diff_state(P, temp) == 0);
 }
 
 void AFE_Reset(void)
@@ -623,37 +668,29 @@ void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 void SH367309_UpdataAfeConfig(void)
 {
     u8 isdiff = 0;
+    u8 update_ok = 0;
 
     if (AFE_PARAM_WRITE_Flag)
     {
-        AFE_PARAM_WRITE_Flag = 0;
         // load_protectParam();
         Refresh_Parameters();
         {
-            int i = 0;
-            u8 temp[26] = {0};
+            u8 temp[SH309_AFE_PARAM_IMAGE_BYTES] = {0};
             u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+            int diff_state = 0;
             printf("[!!!]flash afe param111");
             array_printf((unsigned char *)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
             // array_printf((unsigned char*)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
 
-            if (MTPRead(0x00, 25, temp))
-            {
-                array_printf(temp, sizeof(temp));
-                for (i = 0; i < 25; i++)
-                { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
-                    if (temp[i] != P[i])
-                    {
-                        isdiff = 1;
-                        break;
-                    }
-                }
-            }
-            else
+            diff_state = sh309_param_image_diff_state(P, temp);
+            if (diff_state < 0)
             {
                 System_ERROR_UserCallback(ERROR_AFE1);
-                isdiff = 1;
+                return;
             }
+
+            array_printf(temp, sizeof(temp));
+            isdiff = (u8)diff_state;
         }
 
         if (isdiff)
@@ -668,11 +705,20 @@ void SH367309_UpdataAfeConfig(void)
             {
                 System_ERROR_UserCallback(ERROR_AFE1);
             }
+            else
+            {
+                update_ok = 1;
+            }
 
             Feed_IWatchDog;
             // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
             gpio_write(GPIO_PD7, 0);
             Delay1ms(1);
+
+            if (!update_ok)
+            {
+                return;
+            }
 
             if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
             {
@@ -687,6 +733,8 @@ void SH367309_UpdataAfeConfig(void)
         {
             printf("[!!!] no need flash");
         }
+
+        AFE_PARAM_WRITE_Flag = 0;
     }
 }
 void load_protectParam()
@@ -769,36 +817,28 @@ void load_protectParam()
 void test_SH367309_UpdataAfeConfig(void)
 {
     u8 isdiff = 0;
+    u8 update_ok = 0;
 
     if (AFE_PARAM_WRITE_Flag)
     {
-        AFE_PARAM_WRITE_Flag = 0;
         load_protectParam();
         {
-            int i = 0;
-            u8 temp[26] = {0};
+            u8 temp[SH309_AFE_PARAM_IMAGE_BYTES] = {0};
             u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+            int diff_state = 0;
             printf("[!!!]flash afe param111");
             array_printf((unsigned char *)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
             // array_printf((unsigned char*)&AFE_ROM_PARAMETERS_Struction, sizeof(AFE_ROM_PARAMETERS_Struction));
 
-            if (MTPRead(0x00, 25, temp))
-            {
-                array_printf(temp, sizeof(temp));
-                for (i = 0; i < 25; i++)
-                { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
-                    if (temp[i] != P[i])
-                    {
-                        isdiff = 1;
-                        break;
-                    }
-                }
-            }
-            else
+            diff_state = sh309_param_image_diff_state(P, temp);
+            if (diff_state < 0)
             {
                 System_ERROR_UserCallback(ERROR_AFE1);
-                isdiff = 1;
+                return;
             }
+
+            array_printf(temp, sizeof(temp));
+            isdiff = (u8)diff_state;
         }
 
         if (isdiff)
@@ -813,11 +853,20 @@ void test_SH367309_UpdataAfeConfig(void)
             {
                 System_ERROR_UserCallback(ERROR_AFE1);
             }
+            else
+            {
+                update_ok = 1;
+            }
 
             Feed_IWatchDog;
             // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
             gpio_write(GPIO_PD7, 0);
             Delay1ms(1);
+
+            if (!update_ok)
+            {
+                return;
+            }
 
             if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
             {
@@ -832,6 +881,8 @@ void test_SH367309_UpdataAfeConfig(void)
         {
             printf("[!!!] no need flash");
         }
+
+        AFE_PARAM_WRITE_Flag = 0;
     }
 }
 
