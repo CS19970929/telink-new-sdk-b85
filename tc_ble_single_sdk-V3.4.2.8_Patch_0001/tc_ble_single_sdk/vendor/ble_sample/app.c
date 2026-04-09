@@ -997,9 +997,12 @@ void blt_pm_proc(void)
 
 		if (g_stCellInfoReport.u16VCellMin <= 2500)
 		{
+			sleep_vlow_cnt = 0;
+			sleep_vnormal_cnt = 0;
+			afe_comm_err_sleepcnt = 0;
+
 			sleep_veryvlow_cnt += sleep_elapsed_sec;
 			if (sleep_veryvlow_cnt >= (60 * 60 * 1))
-			//if (++sleep_veryvlow_cnt >= (60 ))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -1009,7 +1012,11 @@ void blt_pm_proc(void)
 		}
 		else if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
 		{
-			if(deepsleep_en) sleep_vlow_cnt = (60 * 60 * 1);
+			sleep_veryvlow_cnt = 0;
+			sleep_vnormal_cnt = 0;
+			afe_comm_err_sleepcnt = 0;
+
+			if(deepsleep_en && sleep_vlow_cnt < (60 * 10 * 1)) sleep_vlow_cnt = (60 * 60 * 1);
 			sleep_vlow_cnt += sleep_elapsed_sec;
 			if (sleep_vlow_cnt >= (60 * 60 * 1))
 			{
@@ -1021,8 +1028,13 @@ void blt_pm_proc(void)
 		}
 		else if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg))
 		{
+			sleep_veryvlow_cnt = 0;
+			sleep_vlow_cnt = 0;
+			afe_comm_err_sleepcnt = 0;
+
 			sleep_vnormal_cnt += sleep_elapsed_sec;
 			if (sleep_vnormal_cnt >= (60 * 60 * 24))
+			// if (sleep_vnormal_cnt >= (60 * 3))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -1032,6 +1044,10 @@ void blt_pm_proc(void)
 		}
 		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 		{
+			sleep_veryvlow_cnt = 0;
+			sleep_vlow_cnt = 0;
+			sleep_vnormal_cnt = 0;
+
 			afe_comm_err_sleepcnt += sleep_elapsed_sec;
 			if(afe_comm_err_sleepcnt >= (60 * 30))
 			{
