@@ -8,14 +8,14 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-// #define FAC_TEST
+#define FAC_TEST
 #define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
 #ifndef  FAC_TEST
-// #define _DI_SWITCH_SYS_ONOFF	
+#define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
 #define C21         0
@@ -99,8 +99,8 @@
 #elif (FD_BMS_TYPE == M25)
 #define SeriesNum  (13)
 #define CapacityFactory (145)
-#define AFE_ODC1       		(600) 
-#define AFE_ODC2       		(1000) 
+#define AFE_ODC1       		(500) 
+#define AFE_ODC2       		(800) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
 #elif (FD_BMS_TYPE == T1_AND_T2)
 #define SeriesNum  (13)

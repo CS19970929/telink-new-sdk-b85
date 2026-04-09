@@ -75,3 +75,5 @@ APP_BATT_CHECK_ENABLE宏的作用
 测试soc逻辑
 
 3000mv下，进瞬间待机，记录sleep了？？？
+
+ 整理完整逻辑、寄存器、协议、等等输出文档，方便后续做成模板，ai接管mcu和上位机、app
