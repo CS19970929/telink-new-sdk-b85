@@ -235,6 +235,9 @@ typedef struct
   bool     enable_log_test_first;
   bool     enable_log_test_balance;
   bool     enable_kv_test;
+  uint16_t cnt1;
+  uint16_t cnt2;
+  uint16_t cnt3;
 }Time_T;
 
 extern Time_T  sys_time;

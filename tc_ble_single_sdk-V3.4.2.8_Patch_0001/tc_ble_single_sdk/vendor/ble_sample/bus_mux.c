@@ -15,7 +15,7 @@
 // #define UART_DETECT_WINDOW_MS   30
 #define UART_DETECT_WINDOW_MS (600 * 30)
 #define UART_FALL_MIN_CNT 3
-#define UART_IDLE_BACK_MS (1000 * 1000 * 2) // 0 关闭回退
+#define UART_IDLE_BACK_MS (1000 * 1000 * 5) // 0 关闭回退
 
 static inline uint32_t tick_now(void) { return clock_time(); }
 // static inline int exceed_ms(uint32_t ref, uint32_t ms){ return clock_time_exceed(ref, ms * 1000 * 16); }

@@ -1,19 +1,20 @@
 #pragma once
 #include "tl_common.h"
 #include "conf.h"
-#include "build_version_auto.h"
+//#include "build_version_auto.h"
 
 u16 mb_crc16(const u8 *buf, u32 len);
 
 // å¤„ç†ä¸€å¸§ï¼š
 // - in: req/req_len
-// - out: rsp/rsp_lenï¼ˆè¿”å›?1è¡¨ç¤ºè¦å‘é€ï¼›0è¡¨ç¤ºä¸å›ï¼?
+// - out: rsp/rsp_lenï¼ˆè¿”ï¿½?1è¡¨ç¤ºè¦å‘é€ï¼›0è¡¨ç¤ºä¸å›ï¿½?
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 
 
 #define  BMS_SOFTWARE_VERSION_PREFIX    "a009-"
 #define  BMS_SOFTWARE_VERSION_SUFFIX    "-c096v1p0"
-#define  BMS_SOFTWARE_VERDION_DEFAULT   BMS_SOFTWARE_VERSION_PREFIX BMS_SOFTWARE_BUILD_TIMESTAMP BMS_SOFTWARE_VERSION_SUFFIX  //32
+// #define  BMS_SOFTWARE_VERDION_DEFAULT   BMS_SOFTWARE_VERSION_PREFIX BMS_SOFTWARE_BUILD_TIMESTAMP BMS_SOFTWARE_VERSION_SUFFIX  //32
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"c096" 
 #define  BMS_SERIAL_NUMBER_DEFAULT  	"hanstar"
 
 #define PROD_SN_REG_BASE                   0xc002   // 0xE000 ~ 0xE00F
@@ -40,18 +41,18 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define PRODUCT_ID_LENGTH_MAX 32
 
 typedef struct {
-	//¾ùÎª°¢Ë¹¿ËÂë
-	u8 BMS_SerialNumber[PRODUCT_ID_LENGTH_MAX];			//BMSĞòÁĞºÅ
-	u8 BMS_HardWareVersion[PRODUCT_ID_LENGTH_MAX];		//BMSÓ²¼ş°æ±¾ºÅ
-	u8 BMS_SoftWareVersion[PRODUCT_ID_LENGTH_MAX];		//BMSÈí¼ş°æ±¾ºÅ
+	//ï¿½ï¿½Îªï¿½ï¿½Ë¹ï¿½ï¿½ï¿½ï¿½
+	u8 BMS_SerialNumber[PRODUCT_ID_LENGTH_MAX];			//BMSï¿½ï¿½ï¿½Ğºï¿½
+	u8 BMS_HardWareVersion[PRODUCT_ID_LENGTH_MAX];		//BMSÓ²ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½
+	u8 BMS_SoftWareVersion[PRODUCT_ID_LENGTH_MAX];		//BMSï¿½ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½
 
-	// u16 BMS_SerialNumberLength;			//BMSĞòÁĞºÅµØÖ·				//ÒâÒå²»´ó£¬Ä©¶ËÈ«²¿Ìî0£¬°¢Ë¹¿ËÂëÎª¿Õ
-	// u16 BMS_HardWareVersionLength;		//BMSÓ²¼ş°æ±¾ºÅµØÖ·			//ÒâÒå²»´ó£¬Ä©¶ËÈ«²¿Ìî0£¬°¢Ë¹¿ËÂëÎª¿Õ
-	// u16 BMS_SoftWareVersionLength;		//BMSÈí¼ş°æ±¾ºÅµØÖ·			//ÒâÒå²»´ó£¬Ä©¶ËÈ«²¿Ìî0£¬°¢Ë¹¿ËÂëÎª¿Õ
+	// u16 BMS_SerialNumberLength;			//BMSï¿½ï¿½ï¿½ĞºÅµï¿½Ö·				//ï¿½ï¿½ï¿½å²»ï¿½ï¿½Ä©ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½Ë¹ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½
+	// u16 BMS_HardWareVersionLength;		//BMSÓ²ï¿½ï¿½ï¿½æ±¾ï¿½Åµï¿½Ö·			//ï¿½ï¿½ï¿½å²»ï¿½ï¿½Ä©ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½Ë¹ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½
+	// u16 BMS_SoftWareVersionLength;		//BMSï¿½ï¿½ï¿½ï¿½æ±¾ï¿½Åµï¿½Ö·			//ï¿½ï¿½ï¿½å²»ï¿½ï¿½Ä©ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½Ë¹ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½
 	
-	// u16 BMS_SerialNumberHeadAdress;		//BMSĞòÁĞºÅµØÖ·
-	// u16 BMS_HardWareVersionHeadAdress;	//BMSÓ²¼ş°æ±¾ºÅµØÖ·
-	// u16 BMS_SoftWareVersionHeadAdress;	//BMSÈí¼ş°æ±¾ºÅµØÖ·
+	// u16 BMS_SerialNumberHeadAdress;		//BMSï¿½ï¿½ï¿½ĞºÅµï¿½Ö·
+	// u16 BMS_HardWareVersionHeadAdress;	//BMSÓ²ï¿½ï¿½ï¿½æ±¾ï¿½Åµï¿½Ö·
+	// u16 BMS_SoftWareVersionHeadAdress;	//BMSï¿½ï¿½ï¿½ï¿½æ±¾ï¿½Åµï¿½Ö·
 
 	// u8 BMS_SerialNumber_WriteFlag;
 	// u8 BMS_HardWareVersion_WriteFlag;
