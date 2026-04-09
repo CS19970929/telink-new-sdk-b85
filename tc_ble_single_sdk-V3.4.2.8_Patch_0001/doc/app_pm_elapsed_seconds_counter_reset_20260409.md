@@ -35,6 +35,8 @@
 
 这不是 `app_pm_take_elapsed_seconds()` 本身的问题，而是互斥分支之间没有清掉已经不再满足条件的计数。
 
+另外，`deepsleep_en` 是 Modbus 写 `0x1102 = 0x0A` 后置位的强制深睡请求。旧逻辑每次进入 `<=2800mV` 分支时都会把 `sleep_vlow_cnt` 直接置到 1 小时阈值，如果 `cpu_sleep_wakeup()` 因唤醒脚已经处于有效电平而没有真正进入 deep sleep，就会在后续循环中反复调用 `bms_event_log_note_sleep()`，造成日志显示休眠但板子实际没有休眠。
+
 ## 本次修正
 
 本次在每个互斥分支进入时，主动清零其它分支的计数：
@@ -45,7 +47,10 @@
 - 进入 AFE 通信异常分支时，清零 `sleep_veryvlow_cnt`、`sleep_vlow_cnt`、`sleep_vnormal_cnt`。
 - 所有条件都不满足时，仍然统一清零所有计数。
 
-同时保留当前工作区中 `deepsleep_en` 分支的 10 分钟起始计数意图，但改为只在 `sleep_vlow_cnt` 低于 10 分钟时补到 10 分钟，避免每次循环都重新赋值导致计数无法继续增长。
+针对“日志记录 sleep 但板子没有实际 deep sleep”的现象，又补充了两点保护：
+
+- `deepsleep_en` 改为一次性消费，触发一次深睡尝试后立即清零，避免失败后每秒重复把 `sleep_vlow_cnt` 顶到阈值。
+- 在 `app_note_sleep_and_enter_deepsleep()` 中，先检查当前已配置为低电平唤醒的 `CHG_IN_PIN` 是否已经处于低电平；如果唤醒条件已经有效，则不写 `BMS_SLEEP` 日志，也不调用 `AFE_Sleep()` 和 `Runtime_PrepareForDeepSleep()`。
 
 ## 影响
 

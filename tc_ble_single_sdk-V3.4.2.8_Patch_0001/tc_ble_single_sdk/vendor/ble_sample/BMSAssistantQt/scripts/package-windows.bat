@@ -1,22 +1,42 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set ROOT_DIR=%~dp0..
-set VENV_DIR=%ROOT_DIR%\.venv
-set DIST_DIR=%ROOT_DIR%\.dist
-set DOCS_DIR=%DIST_DIR%\docs
-set PYTHON_BIN=python
+set "ROOT_DIR=%~dp0.."
+set "STATE_DIR=%LOCALAPPDATA%\BMSAssistantQt"
+if not defined LOCALAPPDATA set "STATE_DIR=%ROOT_DIR%\.state"
+set "VENV_DIR=%STATE_DIR%\venv"
+set "BUILD_WORK_DIR=%STATE_DIR%\build"
+set "PYINSTALLER_DIST_DIR=%STATE_DIR%\pyinstaller-dist"
+set "DIST_DIR=%ROOT_DIR%\.dist"
+set "DOCS_DIR=%DIST_DIR%\docs"
+set "PYTHON_BIN="
 
-if not exist "%VENV_DIR%" (
-  %PYTHON_BIN% -m venv "%VENV_DIR%"
+where python > nul 2> nul
+if not errorlevel 1 set "PYTHON_BIN=python"
+if not defined PYTHON_BIN (
+  where py > nul 2> nul
+  if not errorlevel 1 set "PYTHON_BIN=py -3"
 )
 
+if not defined PYTHON_BIN goto :no_python
+
+if not exist "%STATE_DIR%" mkdir "%STATE_DIR%"
+if errorlevel 1 goto :state_dir_failed
+
+if exist "%VENV_DIR%\Scripts\python.exe" goto :venv_ready
+%PYTHON_BIN% -m venv "%VENV_DIR%"
+if errorlevel 1 goto :venv_failed
+
+:venv_ready
 call "%VENV_DIR%\Scripts\activate.bat"
 python -m pip install --upgrade pip
-python -m pip install -r "%ROOT_DIR%\requirements.txt"
+if errorlevel 1 goto :pip_upgrade_failed
 
-if exist "%ROOT_DIR%\build" rmdir /s /q "%ROOT_DIR%\build"
-if exist "%ROOT_DIR%\dist" rmdir /s /q "%ROOT_DIR%\dist"
+python -m pip install -r "%ROOT_DIR%\requirements.txt"
+if errorlevel 1 goto :pip_install_failed
+
+if exist "%BUILD_WORK_DIR%" rmdir /s /q "%BUILD_WORK_DIR%"
+if exist "%PYINSTALLER_DIST_DIR%" rmdir /s /q "%PYINSTALLER_DIST_DIR%"
 if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
 if not exist "%DOCS_DIR%" mkdir "%DOCS_DIR%"
 
@@ -24,12 +44,45 @@ pyinstaller ^
   --noconfirm ^
   --windowed ^
   --name BMSAssistantQt ^
-  --collect-all PySide6 ^
+  --workpath "%BUILD_WORK_DIR%" ^
+  --distpath "%PYINSTALLER_DIST_DIR%" ^
   --hidden-import PySide6.QtBluetooth ^
   "%ROOT_DIR%\main.py"
+if errorlevel 1 goto :pyinstaller_failed
 
-xcopy /e /i /y "%ROOT_DIR%\dist\BMSAssistantQt" "%DIST_DIR%\BMSAssistantQt" > nul
+robocopy "%PYINSTALLER_DIST_DIR%\BMSAssistantQt" "%DIST_DIR%\BMSAssistantQt" /MIR > nul
+if errorlevel 8 goto :copy_failed
+
 copy /y "%ROOT_DIR%\README.md" "%DOCS_DIR%\README.md" > nul
 copy /y "%ROOT_DIR%\WINDOWS-DELIVERY.md" "%DOCS_DIR%\WINDOWS-DELIVERY.md" > nul
 copy /y "%ROOT_DIR%\scripts\launch-windows-package.bat" "%DIST_DIR%\Launch-BMSAssistantQt.bat" > nul
-echo Windows 包已生成: %DIST_DIR%\BMSAssistantQt
+echo Windows package generated: %DIST_DIR%\BMSAssistantQt
+exit /b 0
+
+:no_python
+echo Python was not found. Install Python 3.9+ or make sure the Windows py launcher is available.
+exit /b 1
+
+:state_dir_failed
+echo Failed to create the BMSAssistantQt state directory.
+exit /b 1
+
+:venv_failed
+echo Failed to create the Python virtual environment.
+exit /b 1
+
+:pip_upgrade_failed
+echo Failed to upgrade pip.
+exit /b 1
+
+:pip_install_failed
+echo Failed to install dependencies. Check network access and the Python environment.
+exit /b 1
+
+:pyinstaller_failed
+echo PyInstaller packaging failed.
+exit /b 1
+
+:copy_failed
+echo Failed to copy packaged output.
+exit /b 1
