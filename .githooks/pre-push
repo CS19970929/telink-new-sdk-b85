@@ -1,0 +1,22 @@
+#!/bin/sh
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+PENDING_FILE="$REPO_ROOT/TEST_PENDING.md"
+
+if [ ! -f "$PENDING_FILE" ]; then
+    exit 0
+fi
+
+if grep -q '^- \[ \]' "$PENDING_FILE"; then
+    printf '%s\n' ''
+    printf '%s\n' '========================================'
+    printf '%s\n' 'WARNING: 仓库中仍有待测试项'
+    printf '%s\n' "文件: $PENDING_FILE"
+    printf '%s\n' '本次 push 不会被阻止，但建议在另一台机器继续开发前先确认待测项。'
+    printf '%s\n' '未完成项摘要:'
+    grep '^- \[ \]' "$PENDING_FILE"
+    printf '%s\n' '========================================'
+    printf '%s\n' ''
+fi
+
+exit 0
