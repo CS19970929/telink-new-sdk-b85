@@ -238,23 +238,126 @@ u8 CRC8cal(const u8 *data, u32 len)
     }
     return crc;
 }
+
+#define SH309_I2C_MAX_XFER_LEN    64u
+#define SH309_I2C_RETRY_CNT       3u
+
+void Delay1ms(u8 delaycnt);
+
+static inline u8 sh309_is_crc_readable_addr(u8 addr)
+{
+    return ((addr <= MTP_TR) || (addr >= MTP_CONF && addr <= MTP_RSTSTAT));
+}
+
+static inline u8 sh309_skip_write_verify(u8 addr, u8 value)
+{
+    if (!sh309_is_crc_readable_addr(addr))
+    {
+        return 1;
+    }
+
+    if ((addr == MTP_CONF) && (value & BIT(1)))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+static u8 sh309_i2c_read_with_crc(u8 slave_id, u8 rd_addr, u8 length, u8 *rd_buf)
+{
+    u8 attempt;
+    u8 rx_buf[SH309_I2C_MAX_XFER_LEN + 1];
+    u8 crc_buf[SH309_I2C_MAX_XFER_LEN + 4];
+
+    if ((rd_buf == NULL) || (length == 0u) || (length > SH309_I2C_MAX_XFER_LEN))
+    {
+        return 0;
+    }
+
+    for (attempt = 0; attempt < SH309_I2C_RETRY_CNT; ++attempt)
+    {
+        i2c_read_series(((u16)rd_addr << 8) | length, 2, (unsigned char *)rx_buf, length + 1);
+
+        crc_buf[0] = slave_id;
+        crc_buf[1] = rd_addr;
+        crc_buf[2] = length;
+        crc_buf[3] = (u8)(slave_id | 0x01);
+        memcpy(&crc_buf[4], rx_buf, length);
+
+        if (rx_buf[length] == CRC8cal(crc_buf, (u32)length + 4u))
+        {
+            memcpy(rd_buf, rx_buf, length);
+            return 1;
+        }
+
+        Delay1ms(1);
+    }
+
+    return 0;
+}
+
+static u8 sh309_i2c_write_with_crc(u8 slave_id, u8 wr_addr, u8 length, const u8 *wr_buf)
+{
+    u8 tx_buf[SH309_I2C_MAX_XFER_LEN + 1];
+    u8 crc_input[SH309_I2C_MAX_XFER_LEN + 2];
+
+    if ((wr_buf == NULL) || (length == 0u) || (length > SH309_I2C_MAX_XFER_LEN))
+    {
+        return 0;
+    }
+
+    crc_input[0] = slave_id;
+    crc_input[1] = wr_addr;
+    memcpy(&crc_input[2], wr_buf, length);
+
+    memcpy(tx_buf, wr_buf, length);
+    tx_buf[length] = CRC8cal(crc_input, (u32)length + 2u);
+
+    i2c_write_series(wr_addr, 1, (unsigned char *)tx_buf, length + 1);
+    return 1;
+}
+
+static u8 sh309_i2c_write_byte_checked(u8 slave_id, u8 wr_addr, u8 value)
+{
+    u8 attempt;
+    u8 read_back = 0;
+
+    for (attempt = 0; attempt < SH309_I2C_RETRY_CNT; ++attempt)
+    {
+        if (!sh309_i2c_write_with_crc(slave_id, wr_addr, 1, &value))
+        {
+            return 0;
+        }
+
+        if (sh309_skip_write_verify(wr_addr, value))
+        {
+            return 1;
+        }
+
+        if (sh309_i2c_read_with_crc(slave_id, wr_addr, 1, &read_back) && (read_back == value))
+        {
+            return 1;
+        }
+
+        Delay1ms(1);
+    }
+
+    return 0;
+}
+
 void Delay1ms(u8 delaycnt)
 {
     WaitMs(delaycnt);
 }
 u8 TwiWrite(u8 SlaveID, u16 WrAddr, u8 Length, u8 *WrBuf)
 {
-    u8 i;
-    u8 TempBuf[4];
-    u8 result = 0;
+    if ((WrAddr > 0xFFu) || (Length == 0u) || (WrBuf == NULL))
+    {
+        return 0;
+    }
 
-    TempBuf[0] = SlaveID;
-    TempBuf[1] = (u8)WrAddr;
-    TempBuf[2] = *WrBuf;
-    TempBuf[3] = CRC8cal(TempBuf, 3);
-
-    // i2c_write_series(((u16)WrAddr << 8), 1, (unsigned char *)TempBuf[2], 2);
-    i2c_write_series(WrAddr, 1, (unsigned char *)&TempBuf[2], 2);
+    return sh309_i2c_write_with_crc(SlaveID, (u8)WrAddr, Length, WrBuf);
 }
 
 int Choose_Right_Value(u16 cur_Value, const u16 *AFE_list)
@@ -272,56 +375,64 @@ int Choose_Right_Value(u16 cur_Value, const u16 *AFE_list)
 
 u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
-    u8 result;
     u8 i;
     Feed_IWatchDog;
 
+    if ((Length == 0u) || (WrBuf == NULL))
+    {
+        return 0;
+    }
+
     for (i = 0; i < Length; i++)
     {
-        // result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-        TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
+        if (!sh309_i2c_write_byte_checked(AFE_ID, WrAddr, *WrBuf))
+        {
+            return 0;
+        }
 
         WrAddr++;
         WrBuf++;
         Delay1ms(1);
     }
+
+    return 1;
 }
 u8 TwiRead(u8 SlaveID, u16 RdAddr, u8 Length, u8 *RdBuf)
 {
-    i2c_read_series(((u16)RdAddr << 8) | Length, 2, (unsigned char *)RdBuf, Length + 1);
-    // modbus_uart_send(RdBuf, Length + 1);
-    u8 crc_buf[Length + 4];
-    crc_buf[0] = 0x34;
-    crc_buf[1] = 0x40;
-    crc_buf[2] = 0x32;
-    crc_buf[3] = 0x35;
-    //  memcpy(&crc_buf[4], &ram_reg_309, Length);
-    // printf("TwiRead\n");
-    // array_printf(RdBuf, Length);
+    if (RdAddr > 0xFFu)
+    {
+        return 0;
+    }
+
+    return sh309_i2c_read_with_crc(SlaveID, (u8)RdAddr, Length, RdBuf);
 }
 
 u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf)
 {
-    TwiRead(AFE_ID, RdAddr, Length, RdBuf);
-    return 1;
+    return TwiRead(AFE_ID, RdAddr, Length, RdBuf);
 }
 
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf)
 {
-    u8 result;
     u8 i;
 
-    TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    // for (i = 0; i < Length; i++)
-    // {
-    //     Feed_IWatchDog;
-    //     // result = TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    //     TwiWrite(AFE_ID, WrAddr, 1, WrBuf);
-    //     WrAddr++;
-    //     WrBuf++;
-    //     Delay1ms(40);
-    // }
-    // todo 鎬庝箞纭纭欢i2c鎴愬姛
+    if ((Length == 0u) || (WrBuf == NULL))
+    {
+        return 0;
+    }
+
+    for (i = 0; i < Length; ++i)
+    {
+        if (!TwiWrite(AFE_ID, WrAddr, 1, WrBuf))
+        {
+            return 0;
+        }
+
+        ++WrAddr;
+        ++WrBuf;
+    }
+
+    return 1;
 }
 
 uint32_t g_u32CS_Res_AFE = CS_Res_Num * 1000 / CS_Res;
@@ -339,6 +450,10 @@ void Refresh_Parameters(void)
         ucMTPBuffer[25] = TR & 0x7F;
 
         memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
+    }
+    else
+    {
+        System_ERROR_UserCallback(ERROR_AFE1);
     }
 
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
@@ -403,11 +518,12 @@ void Refresh_Parameters(void)
 }
 
 /* 濮ｅ繑顐奸弫鐗堝祦閺�鐟板綁闁�燁嚢閸欐潧om閸欏倹鏆熷В鏃囩窛娑擄拷娑撳绱濋柇锝勯嚋閸欏倹鏆熼弨鐟板綁鐏忓崬鍟撻崗銉╁亝=閸濐亙閲� */
-void Write_Parameters(void)
+static u8 Write_Parameters(void)
 {
     int i = 0;
     u8 temp[26] = {0};
     u8 *P = (u8 *)&AFE_ROM_PARAMETERS_Struction;
+    u8 verify_value = 0;
 
     if (MTPRead(0x00, 25, temp))
     {
@@ -415,11 +531,25 @@ void Write_Parameters(void)
         { // 閺堬拷閸氬簼绔存稉鐚匯娑撳秴浠涚�佃鐦�
             if (temp[i] != P[i])
             {
-                MTPWriteROM(i, 1, P + i); // 闁插秴鍟揈EPROM閻ㄥ嫬鐦庣�涙ê娅掗敍灞艰⒈濞嗭拷
+                if (!MTPWriteROM(i, 1, P + i))
+                {
+                    return 0;
+                }
                 Delay1ms(40);
+
+                if (!MTPRead((u8)i, 1, &verify_value) || (verify_value != P[i]))
+                {
+                    return 0;
+                }
             }
         }
     }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
 }
 
 void AFE_Reset(void)
@@ -444,7 +574,10 @@ void AFE_Reset(void)
         // { // 0xEA, 0xC0?A CRC
         //     MTPWrite(0xEA, 1, WrBuf);
         // }
-        MTPWrite(0xEA, 1, WrBuf);
+        if (!MTPWrite(0xEA, 1, WrBuf))
+        {
+            System_ERROR_UserCallback(ERROR_AFE1);
+        }
     }
 }
 
@@ -481,7 +614,10 @@ void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
     SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
     SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閺�鍓ф暩MOS閻㈢泧FE绾兛娆㈤幒褍鍩�
-    MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+    if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
+    {
+        System_ERROR_UserCallback(ERROR_AFE1);
+    }
 }
 
 void SH367309_UpdataAfeConfig(void)
@@ -513,6 +649,11 @@ void SH367309_UpdataAfeConfig(void)
                     }
                 }
             }
+            else
+            {
+                System_ERROR_UserCallback(ERROR_AFE1);
+                isdiff = 1;
+            }
         }
 
         if (isdiff)
@@ -523,7 +664,10 @@ void SH367309_UpdataAfeConfig(void)
             Delay1ms(20);
             Feed_IWatchDog;
 
-            Write_Parameters();
+            if (!Write_Parameters())
+            {
+                System_ERROR_UserCallback(ERROR_AFE1);
+            }
 
             Feed_IWatchDog;
             // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
@@ -558,6 +702,10 @@ void load_protectParam()
         ucMTPBuffer[25] = TR & 0x7F;
 
         memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
+    }
+    else
+    {
+        System_ERROR_UserCallback(ERROR_AFE1);
     }
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
 
@@ -646,6 +794,11 @@ void test_SH367309_UpdataAfeConfig(void)
                     }
                 }
             }
+            else
+            {
+                System_ERROR_UserCallback(ERROR_AFE1);
+                isdiff = 1;
+            }
         }
 
         if (isdiff)
@@ -656,7 +809,10 @@ void test_SH367309_UpdataAfeConfig(void)
             Delay1ms(20);
             Feed_IWatchDog;
 
-            Write_Parameters();
+            if (!Write_Parameters())
+            {
+                System_ERROR_UserCallback(ERROR_AFE1);
+            }
 
             Feed_IWatchDog;
             // MCUO_AFE_VPRO = 0; // 闁拷閸戣櫣鍎抽崘娆惸佸锟�
@@ -1421,7 +1577,10 @@ void Fault_ChangeToMCU(void)
 void AFE_Sleep(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 1;
-    MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+    if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
+    {
+        System_ERROR_UserCallback(ERROR_AFE1);
+    }
 }
 
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
@@ -1650,20 +1809,11 @@ u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
 void App_AFEGet(void)
 {
     static uint16_t cnt = 0;
-    u8 addr = 0x40;
-    u8 len = (0x71 - 0x40 + 1); 
-    //todo logi fenxiyi len+1与len
-    i2c_read_series(((u16)addr << 8) | (len), 2, (unsigned char *)&ram_reg_309, len + 1);
-    // i2c_read_series(addr, 1, (unsigned char *)&ram_reg_309, len+1);
-    // modbus_uart_send(&ram_reg_309, len + 1);
-    u8 crc_buf[0x71 - 0x40 + 1 + 4];
-    crc_buf[0] = 0x34;
-    crc_buf[1] = 0x40;
-    crc_buf[2] = 0x32;
-    crc_buf[3] = 0x35;
-    memcpy(&crc_buf[4], &ram_reg_309, len);
-    if (ram_reg_309.crc8 == CRC8cal(crc_buf, 0x71 - 0x40 + 1 + 4))
+    sh367309_ram_t ram_snapshot;
+
+    if (sh309_i2c_read_with_crc(AFE_ID, SH309_RAM_START_ADDR, SH309_RAM_LEN, (u8 *)&ram_snapshot))
     {
+        memcpy(&ram_reg_309, &ram_snapshot, sizeof(ram_reg_309));
         cnt = 0;
         UpdateVoltageFromBqMaximo();
 
