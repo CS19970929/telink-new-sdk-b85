@@ -14,7 +14,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define  BMS_SOFTWARE_VERSION_PREFIX    "a009-"
 #define  BMS_SOFTWARE_VERSION_SUFFIX    "-c096v1p0"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT   BMS_SOFTWARE_VERSION_PREFIX BMS_SOFTWARE_BUILD_TIMESTAMP BMS_SOFTWARE_VERSION_SUFFIX  //32
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"c096" 
 #define  BMS_SERIAL_NUMBER_DEFAULT  	"hanstar"
 
 #define PROD_SN_REG_BASE                   0xc002   // 0xE000 ~ 0xE00F

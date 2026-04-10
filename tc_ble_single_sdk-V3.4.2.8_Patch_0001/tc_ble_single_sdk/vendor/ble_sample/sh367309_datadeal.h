@@ -23,11 +23,6 @@
 #define AFE_CUV           (2750)
 #define AFE_CUV_filter     (100)
 
-// #if (FD_BMS_TYPE == M25)
-// #define AFE_CUV_recover     (2800)
-// #else
-// #define AFE_CUV_recover     (3000)
-// #endif
 #define AFE_CUV_recover     (3000)
 #else
 #define AFE_COV           (4200)

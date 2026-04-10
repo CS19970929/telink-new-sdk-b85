@@ -34,67 +34,75 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   C11_AND_C11pro
+#define FD_BMS_TYPE   D11
+
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
 #define CapacityFactory (58)
 #define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C21"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == C31)
 #define SeriesNum  (10)
 #define CapacityFactory (58)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(400) 
+#define AFE_ODC1       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C31"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == D11)
 #define SeriesNum  (10)
 #define CapacityFactory (116)
 #define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == D31)
 #define SeriesNum  (10)
 #define CapacityFactory (116)
 #define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "D31"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == C700)
 #define SeriesNum  (10)
 #define CapacityFactory (87)
 #define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C700"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == M1PRO)
 #define SeriesNum  (13)
 #define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(400) 
+#define AFE_ODC2       		(600) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M1PRO"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #elif (FD_BMS_TYPE == M23)
 #define SeriesNum  (10)
 #define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(400) 
+#define AFE_ODC2       		(600) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M23"
 #elif (FD_BMS_TYPE == M32)
 #define SeriesNum  (13)
 #define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(400) 
+#define AFE_ODC2       		(600) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M32"
 #elif (FD_BMS_TYPE == T3MAX)
 #define SeriesNum  (10)
 #define CapacityFactory (180)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(400) 
+#define AFE_ODC2       		(600) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T3MAX"
 #elif (FD_BMS_TYPE == T3)
 #define SeriesNum  (10)
 #define CapacityFactory (270)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(600) 
+#define AFE_ODC2       		(800) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T3"
 #elif (FD_BMS_TYPE == M25)
 #define SeriesNum  (13)
@@ -105,23 +113,22 @@
 #elif (FD_BMS_TYPE == T1_AND_T2)
 #define SeriesNum  (13)
 #define CapacityFactory (225)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC1       		(500) 
+#define AFE_ODC2       		(800) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
 #elif (FD_BMS_TYPE == D3PRO)
 #define SeriesNum  (10)
 #define CapacityFactory (78)
 #define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(300) 
+#define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
 #define CapacityFactory (104)
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D002" 
 #define AFE_ODC1       		(400) 
 #define AFE_ODC2       		(600) 
-// #define AFE_ODC1       		(200) 
-// #define AFE_ODC2       		(400) 
 #else
 #define SeriesNum  (13)
 #define CapacityFactory (100)
