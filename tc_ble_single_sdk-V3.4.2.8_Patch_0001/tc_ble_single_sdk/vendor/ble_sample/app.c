@@ -479,10 +479,12 @@ void app_adc_multi_sample(void)
     g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
 
     // ...
+	Vbat_mv = Vbat_mv * 485 / 15;
+#ifdef  FAC_TEST
 	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
 	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
-	Vbat_mv = Vbat_mv * 485 / 15;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
+#endif // ! FAC_TEST
 
 	switch (mos_state)
 	{
@@ -1726,7 +1728,6 @@ _attribute_no_inline_ void main_loop(void)
 			App_AFEGet();
 			app_adc_multi_sample();
 			app_event_log_1s_task();
-			g_stCellInfoReport.u16VCell[28] = Runtime_Get_runtime();
 		}
 
 		bus_mux_task();
