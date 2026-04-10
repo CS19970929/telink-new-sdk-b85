@@ -149,6 +149,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 void open_ctlc(void)
 {
 	gpio_write(AFE_CTL_PIN, 1);
+	// gpio_write(MCC_C_PIN, 1);
 }
 void close_ctlc(void)
 {
@@ -541,10 +542,10 @@ void app_adc_multi_sample(void)
             	FaultWarnRecord2(CellChgOTp_Third);
             	FaultWarnRecord2(CellDsgOTp_Third);
 			}
-			if((g_stCellInfoReport.u16VCellMax >= 4260) && (g_stCellInfoReport.u16VCellMin >= 1000))
+			if((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
 			{
 				++delay_cnt;
-				if(delay_cnt >= 10)
+				if(delay_cnt >= 15)
 				{
 					delay_cnt = 0;
 					state_fuse = 1;
@@ -565,13 +566,17 @@ void app_adc_multi_sample(void)
 			}
 			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
 			{
-				if(++rong_fuse >= (10))
+				if(++rong_fuse >= (15))
 				{
 					rong_fuse = 0;
 				#ifdef _UL_RENZHENG_ENABLE_
 					gpio_write(RF_EN_PIN, 1);
 				#endif
 				}
+			}
+			else
+			{
+				rong_fuse = 0;
 			}
 			break;
 		default:
@@ -992,7 +997,7 @@ void blt_pm_proc(void)
 			if (gpio_read(SW_PIN))
 			{
 				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
-				if (sleep_cnt >= 1u)
+				if (sleep_cnt >= 3u)
 				{
 					sleep_cnt = 0;
 					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));

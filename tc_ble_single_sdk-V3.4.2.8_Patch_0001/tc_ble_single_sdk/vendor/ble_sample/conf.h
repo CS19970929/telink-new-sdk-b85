@@ -8,14 +8,14 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
-#define FAC_TEST
+// #define FAC_TEST
 #define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
 #ifndef  FAC_TEST
-// #define _DI_SWITCH_SYS_ONOFF	
+#define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
 #define C21         0
@@ -158,7 +158,7 @@ typedef int8_t INT8;
 
 // #define __INIT_SOC__        (99)
 
-#define FAC_INIT_soc (66)
+#define FAC_INIT_soc (60)
 
 /*
  * 升级后一次性参数重�?控制�?
