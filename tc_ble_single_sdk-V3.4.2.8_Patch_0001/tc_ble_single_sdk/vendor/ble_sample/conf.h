@@ -34,7 +34,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   D3PRO
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 
@@ -122,6 +122,7 @@
 #define AFE_ODC1       		(300) 
 #define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D003" 
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
 #define CapacityFactory (104)
@@ -190,7 +191,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0u
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   1u
 #endif
 
 typedef enum _CUR {
