@@ -228,17 +228,17 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1005)  set_soc_param(val, 1, 1);
     if(reg == 0x1102)
     {
-        // if(val == 0x03) enter_fac_mode(true);
+        if(val == 0x03) enter_fac_mode(true);
         if(val == 0x01) sys_time.enable_log_test_balance = true;
-        if(val == 0x03) sys_time.enable_current_test = true;
+        // if(val == 0x03) sys_time.enable_current_test = true;
         // if(val == 0x06) sys_time.enable_log_test_first = true;
-        if(val == 0x06) sys_time.enable_current_test = false;
+        // if(val == 0x06) sys_time.enable_current_test = false;
         if(val == 0x0A) deepsleep_en = true;
     }
     if(reg == 0x1103)
     {
         // if(val == 0x03) enter_fac_mode(false);
-        if(val == 0x03) sys_time.enable_current_test = false;
+        // if(val == 0x03) sys_time.enable_current_test = false;
     }
     // if(reg == 0x1103)  SOC_Calculate_Element.u8SOC_Now = val;
     if(reg == 0x2319)  {SOC_Calculate_Element.u32Cycle_times = val; set_soc_param(get_soc_real(), 1, 1);}

@@ -57,7 +57,7 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 // #define SOC_100_VAL g_tParam.other.u16Soc_V_100
 // #define SOC_0_VAL g_tParam.other.u16Soc_V_0
 #define SOC_100_VAL (4180)
-#define SOC_0_VAL (3100)
+#define SOC_0_VAL (3000)
 
 #define VCELLMAX g_stCellInfoReport.u16VCellMax
 #define VCELLMIN g_stCellInfoReport.u16VCellMin
