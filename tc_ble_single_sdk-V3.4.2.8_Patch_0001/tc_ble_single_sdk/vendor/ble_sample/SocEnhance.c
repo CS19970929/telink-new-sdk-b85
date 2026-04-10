@@ -102,8 +102,8 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_OCV_CELL_DELTA_MAX_MV       120u
 #define SOC_OCV_RUNTIME_DIFF_THRESHOLD  8u
 #define SOC_OCV_RUNTIME_STEP            1u
-#define SOC_OCV_IDLE_STABLE_TICKS       1500u
-#define SOC_OCV_IDLE_ADJUST_TICKS       150u
+#define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60 * 30)
+#define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60)
 #define SOC_FULL_SYNC_MIN_MV            ((uint16_t)(SOC_100_VAL - 120u))
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 120u))
 #define SOC_FULL_LOCK_TICKS             20u
