@@ -541,10 +541,10 @@ void app_adc_multi_sample(void)
             	FaultWarnRecord2(CellChgOTp_Third);
             	FaultWarnRecord2(CellDsgOTp_Third);
 			}
-			if((g_stCellInfoReport.u16VCellMax >= 4280) && (g_stCellInfoReport.u16VCellMin >= 1000))
+			if((g_stCellInfoReport.u16VCellMax >= 4260) && (g_stCellInfoReport.u16VCellMin >= 1000))
 			{
 				++delay_cnt;
-				if(delay_cnt >= 5)
+				if(delay_cnt >= 10)
 				{
 					delay_cnt = 0;
 					state_fuse = 1;
@@ -1736,16 +1736,16 @@ _attribute_no_inline_ void main_loop(void)
 	
 extern void test_log_app(void);
 extern void test_log_balance_first(void);
-	if(sys_time.enable_log_test_first)
-	{
-		sys_time.enable_log_test_first = false;
-		test_log_app();
-	}
-	if(sys_time.enable_log_test_balance)
-	{
-		sys_time.enable_log_test_balance = false;
-		test_log_balance_first();
-	}
+	// if(sys_time.enable_log_test_first)
+	// {
+	// 	sys_time.enable_log_test_first = false;
+	// 	test_log_app();
+	// }
+	// if(sys_time.enable_log_test_balance)
+	// {
+	// 	sys_time.enable_log_test_balance = false;
+	// 	test_log_balance_first();
+	// }
 	blt_pm_proc();
 }
 

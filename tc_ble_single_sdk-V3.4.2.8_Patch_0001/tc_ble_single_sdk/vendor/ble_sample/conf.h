@@ -15,7 +15,7 @@
 #define _FUNC_UART_
 
 #ifndef  FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF	
+// #define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
 #define C21         0
@@ -117,7 +117,7 @@
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
 #define CapacityFactory (104)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
+#define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
 #define AFE_ODC1       		(400) 
 #define AFE_ODC2       		(600) 
 // #define AFE_ODC1       		(200) 
