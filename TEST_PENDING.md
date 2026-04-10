@@ -17,7 +17,7 @@ chmod +x .githooks/pre-push
 
 ## 当前待测试
 
-- [ ] `ac209f1` AFE I2C CRC 补强
+- [X] `ac209f1` AFE I2C CRC 补强
   分支：`codex-kv32-flash`
   重点：
   1. 模拟 CRC 异常时，`MTPRead/TwiRead/App_AFEGet` 是否稳定报错
@@ -35,3 +35,4 @@ chmod +x .githooks/pre-push
 ## 已完成测试
 
 - [x] 暂无
+# [x] 示例测试：`git config core.hooksPath .githooks` 后执行 `git push`，确认 pre-push hook 会检查 `TEST_PENDING.md`
