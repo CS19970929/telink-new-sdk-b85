@@ -32,6 +32,14 @@ chmod +x .githooks/pre-push
   3. 参数整包最终校验失败时，`AFE_PARAM_WRITE_Flag` 是否保留以便重试
   4. 开机 `SH367309_UpdataAfeConfig()` 成功后才清 `AFE_PARAM_WRITE_Flag`
 
+- [ ] 参数确认,休眠、soc逻辑确认、runtime测试,runtime_mode_normal_and_32k_tick_20260410.md文档阅读;
+  分支：`codex-kv32-flash`
+  重点：
+  1. `sh309_i2c_write_with_crc` 的 `NAK` 检查是否有效
+  2. `Write_Parameters()` 写后逐字节回读是否稳定
+  3. 参数整包最终校验失败时，`AFE_PARAM_WRITE_Flag` 是否保留以便重试
+  4. 开机 `SH367309_UpdataAfeConfig()` 成功后才清 `AFE_PARAM_WRITE_Flag`
+
 ## 已完成测试
 
 - [x] 暂无
