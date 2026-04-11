@@ -147,13 +147,23 @@ struct BMS_PARAM g_bms_param_default;
 typedef struct
 {
 	uint16_t idle_stable_ticks;
-	uint8_t idle_adjust_ticks;
+	uint16_t idle_adjust_ticks;
 	uint8_t startup_checked;
 	uint8_t full_lock_ticks;
 	uint8_t empty_lock_ticks;
 } soc_strategy_state_t;
 
 static soc_strategy_state_t g_soc_strategy_state;
+
+
+uint16_t get_idle_stable_ticks(void)
+{
+		return g_soc_strategy_state.idle_stable_ticks ;
+}
+uint16_t get_idle_adjust_ticks(void)
+{
+		return g_soc_strategy_state.idle_adjust_ticks ;
+}
 
 void set_dispsoc(uint8_t soc)
 {
@@ -342,6 +352,7 @@ static void soc_apply_idle_ocv_tracking(void)
 	uint8_t ocv_soc;
 	uint8_t diff;
 	uint8_t next_soc;
+
 
 	if (!soc_idle_for_ocv() || !soc_ocv_sample_valid())
 	{

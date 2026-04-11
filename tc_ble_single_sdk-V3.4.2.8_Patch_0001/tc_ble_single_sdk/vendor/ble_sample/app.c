@@ -1056,7 +1056,7 @@ void blt_pm_proc(void)
 
 			sleep_vnormal_cnt += sleep_elapsed_sec;
 			if (sleep_vnormal_cnt >= (60 * 60 * 24))
-			// if (sleep_vnormal_cnt >= (60 * 3))
+			// if (sleep_vnormal_cnt >= (60 * 30))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -1729,6 +1729,10 @@ _attribute_no_inline_ void main_loop(void)
 			app_adc_multi_sample();
 			app_event_log_1s_task();
 		}
+extern uint16_t get_idle_stable_ticks(void);
+extern uint16_t get_idle_adjust_ticks(void);
+	g_stCellInfoReport.u16VCell[30] = get_idle_stable_ticks();
+	g_stCellInfoReport.u16VCell[31] = get_idle_adjust_ticks();
 
 		bus_mux_task();
 #ifdef _FUNC_UART_
