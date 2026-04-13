@@ -538,7 +538,7 @@ int8_t get_soc_from_openVol_new(uint16_t VCell)
 
 void CorrectionTerminal_CV(enum _CUR CurrentType)
 {
-#if 0
+#if 1
 	static uint16_t su16_SocChgCal_L1_Tcnt = 0;
 	static uint16_t su16_SocChgCal_L2_Tcnt = 0;
 	static uint16_t su16_SocChgCal_L3_Tcnt = 0;

@@ -1,31 +1,41 @@
-#!/bin/sh
+#!C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+param()
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-[ -n "$REPO_ROOT" ] || exit 0
+$ErrorActionPreference = 'Stop'
 
-PENDING_FILES="$REPO_ROOT/TODO.md $REPO_ROOT/TEST_PENDING.md"
-FOUND=0
+$repoRoot = (git rev-parse --show-toplevel 2>$null).Trim()
+if (-not $repoRoot) { exit 0 }
 
-for PENDING_FILE in $PENDING_FILES; do
-    [ -f "$PENDING_FILE" ] || continue
+$pendingFiles = @(
+    (Join-Path $repoRoot 'TODO.md')
+    (Join-Path $repoRoot 'TEST_PENDING.md')
+)
 
-    if grep -q '^- \[ \]' "$PENDING_FILE"; then
-        if [ "$FOUND" -eq 0 ]; then
-            printf '%s\n' ''
-            printf '%s\n' '========================================'
-            printf '%s\n' 'WARNING: unfinished items found'
-            printf '%s\n' 'Please review the following list before push:'
-        fi
+$found = $false
 
-        printf '%s\n' "File: $PENDING_FILE"
-        grep '^- \[ \]' "$PENDING_FILE"
-        FOUND=1
-    fi
-done
+foreach ($pendingFile in $pendingFiles) {
+    if (-not (Test-Path -LiteralPath $pendingFile)) {
+        continue
+    }
 
-if [ "$FOUND" -eq 1 ]; then
-    printf '%s\n' '========================================'
-    printf '%s\n' ''
-fi
+    $matches = Select-String -LiteralPath $pendingFile -Pattern '^- \[ \]' -SimpleMatch:$false
+    if ($matches) {
+        if (-not $found) {
+            Write-Host ''
+            Write-Host '========================================'
+            Write-Host 'WARNING: unfinished items found'
+            Write-Host 'Please review the following list before push:'
+        }
+
+        Write-Host "File: $pendingFile"
+        $matches | ForEach-Object { Write-Host $_.Line }
+        $found = $true
+    }
+}
+
+if ($found) {
+    Write-Host '========================================'
+    Write-Host ''
+}
 
 exit 0
