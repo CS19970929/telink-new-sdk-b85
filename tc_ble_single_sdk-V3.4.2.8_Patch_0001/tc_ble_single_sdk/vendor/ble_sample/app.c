@@ -114,7 +114,7 @@ static void app_event_log_1s_task(void)
 	sample.dsg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
 	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
 
-	sample.afe2_err = System_ERROR_UserCallback(ERROR_STATUS_AFE2) ? 1u : 0u;
+	sample.afe2_err = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 1u : 0u;
 	eeprom_err = (System_ERROR_UserCallback(ERROR_STATUS_EEPROM_STORE) ||
 				  System_ERROR_UserCallback(ERROR_STATUS_EEPROM_COM)) ? 1u : 0u;
 	sample.eeprom_err = eeprom_err;
@@ -1014,7 +1014,7 @@ void blt_pm_proc(void)
 		}
 	#endif
 
-		if (g_stCellInfoReport.u16VCellMin <= 2500)
+		if (g_stCellInfoReport.u16VCellMin < 2550)
 		{
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
@@ -1029,18 +1029,18 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if ((g_stCellInfoReport.u16VCellMin <= 2800 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		// else if ((g_stCellInfoReport.u16VCellMin <= 2750 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
+		else if ((g_stCellInfoReport.u16VCellMin < 2750))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
-
-			if(deepsleep_en) {
-				deepsleep_en = false;
-				sleep_vlow_cnt = (60 * 60 * 1);
-			}
+			// if(deepsleep_en) {
+			// 	deepsleep_en = false;
+			// 	sleep_vlow_cnt = (60 * 60 * 1);
+			// }
 			sleep_vlow_cnt += sleep_elapsed_sec;
-			if (sleep_vlow_cnt >= (60 * 60 * 1))
+			if (sleep_vlow_cnt >= (60 * 60 * 12))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 
@@ -1048,14 +1048,14 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if ((g_stCellInfoReport.u16VCellMin <= 3000 && !g_stCellInfoReport.u16Ichg))
+		else if ((g_stCellInfoReport.u16VCellMin < 3000 && !g_stCellInfoReport.u16Ichg))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
 
 			sleep_vnormal_cnt += sleep_elapsed_sec;
-			if (sleep_vnormal_cnt >= (60 * 60 * 24))
+			if (sleep_vnormal_cnt >= (60 * 60 * 48))
 			// if (sleep_vnormal_cnt >= (60 * 30))
 			{
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
@@ -1731,8 +1731,8 @@ _attribute_no_inline_ void main_loop(void)
 		}
 extern uint16_t get_idle_stable_ticks(void);
 extern uint16_t get_idle_adjust_ticks(void);
-	g_stCellInfoReport.u16VCell[30] = get_idle_stable_ticks();
-	g_stCellInfoReport.u16VCell[31] = get_idle_adjust_ticks();
+	// g_stCellInfoReport.u16VCell[30] = get_idle_stable_ticks();
+	// g_stCellInfoReport.u16VCell[31] = get_idle_adjust_ticks();
 
 		bus_mux_task();
 #ifdef _FUNC_UART_

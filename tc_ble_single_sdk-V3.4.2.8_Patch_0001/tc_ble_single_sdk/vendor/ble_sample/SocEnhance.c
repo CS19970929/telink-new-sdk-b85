@@ -100,10 +100,10 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_OCV_VALID_MIN_MV            2500u
 #define SOC_OCV_VALID_MAX_MV            4300u
 #define SOC_OCV_CELL_DELTA_MAX_MV       120u
-#define SOC_OCV_RUNTIME_DIFF_THRESHOLD  8u
+#define SOC_OCV_RUNTIME_DIFF_THRESHOLD  5u
 #define SOC_OCV_RUNTIME_STEP            1u
 #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60 * 30)
-#define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60)
+#define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60 * 2)
 #define SOC_FULL_SYNC_MIN_MV            ((uint16_t)(SOC_100_VAL - 120u))
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 120u))
 #define SOC_FULL_LOCK_TICKS             20u
@@ -351,8 +351,6 @@ static void soc_apply_idle_ocv_tracking(void)
 	uint8_t current_soc;
 	uint8_t ocv_soc;
 	uint8_t diff;
-	uint8_t next_soc;
-
 
 	if (!soc_idle_for_ocv() || !soc_ocv_sample_valid())
 	{
@@ -376,27 +374,28 @@ static void soc_apply_idle_ocv_tracking(void)
 
 	current_soc = get_soc_real();
 	ocv_soc = soc_estimate_ocv_percent();
-	diff = (uint8_t)ModulusSub(current_soc, ocv_soc);
+
+	/* 空闲 OCV 跟踪只用于向下修正，避免静置后把 SOC 反向抬高。 */
+	if (ocv_soc >= current_soc)
+	{
+		return;
+	}
+
+	diff = (uint8_t)(current_soc - ocv_soc);
 	if (diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD)
 	{
 		return;
 	}
 
-	next_soc = current_soc;
-	if (ocv_soc > current_soc)
+	if (current_soc > SOC_OCV_RUNTIME_STEP)
 	{
-		next_soc = (uint8_t)(current_soc + SOC_OCV_RUNTIME_STEP);
-	}
-	else if (current_soc > SOC_OCV_RUNTIME_STEP)
-	{
-		next_soc = (uint8_t)(current_soc - SOC_OCV_RUNTIME_STEP);
+		soc_apply_real_value((uint8_t)(current_soc - SOC_OCV_RUNTIME_STEP), 1u);
 	}
 	else
 	{
-		next_soc = 0u;
+		soc_apply_real_value(0u, 1u);
 	}
 
-	soc_apply_real_value(next_soc, 1u);
 	soc_reset_integral_accumulator();
 }
 
