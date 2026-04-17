@@ -489,7 +489,7 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
     bms_event_log_track_edge(sample->chg_otp, CHG_OTP);
     bms_event_log_track_edge(sample->dsg_otp, DSG_OTP);
     bms_event_log_track_edge(sample->vdelta_op, VDELTA_OP);
-    // bms_event_log_track_edge(sample->afe2_err, AFE2_ERR);
+    bms_event_log_track_edge(sample->afe2_err, AFE1_ERR);
     // bms_event_log_track_edge(sample->eeprom_err, EEPROM_ERR);
     bms_event_log_track_change(sample->cbc_err, CBC_ERR);
 }
