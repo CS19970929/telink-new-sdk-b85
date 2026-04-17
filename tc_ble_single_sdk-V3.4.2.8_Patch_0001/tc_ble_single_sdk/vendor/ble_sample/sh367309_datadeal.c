@@ -1342,7 +1342,7 @@ void DataLoad_Current(void)
     u32_DsgCur_mA = u32_DsgCur_mA > 0 ? u32_DsgCur_mA : 0;
 
 #if (FD_BMS_TYPE == C11_AND_C11pro)
-    g_stCellInfoReport.u16Ichg = (UINT16)((u32_ChgCur_mA >> 10) / 10 / 12);
+    g_stCellInfoReport.u16Ichg = (UINT16)((u32_ChgCur_mA >> 10) / 100);
     g_stCellInfoReport.u16IDischg = (UINT16)((u32_DsgCur_mA >> 10) / 10 / 12);
 #else
     g_stCellInfoReport.u16Ichg = (UINT16)((u32_ChgCur_mA >> 10) / 100);
