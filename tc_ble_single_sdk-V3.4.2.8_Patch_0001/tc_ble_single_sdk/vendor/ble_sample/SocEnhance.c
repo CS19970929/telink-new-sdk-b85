@@ -98,7 +98,7 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_DSG_INT_MAX                 79u
 #define SOC_CYCLE_MAX                   65535u
 #define SOC_OCV_VALID_MIN_MV            2500u
-#define SOC_OCV_VALID_MAX_MV            4300u
+#define SOC_OCV_VALID_MAX_MV            4000u
 #define SOC_OCV_CELL_DELTA_MAX_MV       120u
 #define SOC_OCV_RUNTIME_DIFF_THRESHOLD  5u
 #define SOC_OCV_RUNTIME_STEP            1u

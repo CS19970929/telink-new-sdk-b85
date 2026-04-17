@@ -6905,30 +6905,30 @@ soc_ocv_sample_valid():
     3f4c:	6510      	tpush	{r4, lr}
     3f4e:	0b12      	tloadr	r3, [pc, #72]	; (3f98 <soc_ocv_sample_valid+0x4c>)
     3f50:	a242      	tmovs	r2, #66	; 0x42
-    3f52:	1c9a      	tloadrb	r2, [r3, r2]
-    3f54:	a143      	tmovs	r1, #67	; 0x43
-    3f56:	1c59      	tloadrb	r1, [r3, r1]
-    3f58:	f209      	tshftls	r1, r1, #8
-    3f5a:	0311      	tors	r1, r2
-    3f5c:	0a0f      	tloadr	r2, [pc, #60]	; (3f9c <soc_ocv_sample_valid+0x50>)
-    3f5e:	e88c      	tadds	r4, r1, r2
-    3f60:	a2e1      	tmovs	r2, #225	; 0xe1
-    3f62:	f0d2      	tshftls	r2, r2, #3
-    3f64:	f424      	tshftls	r4, r4, #16
-    3f66:	fc24      	tshftrs	r4, r4, #16
-    3f68:	a000      	tmovs	r0, #0
-    3f6a:	0294      	tcmp	r4, r2
-    3f6c:	c813      	tjhi.n	3f96 <soc_ocv_sample_valid+0x4a>
-    3f6e:	a240      	tmovs	r2, #64	; 0x40
-    3f70:	1c9c      	tloadrb	r4, [r3, r2]
-    3f72:	a241      	tmovs	r2, #65	; 0x41
-    3f74:	1c9a      	tloadrb	r2, [r3, r2]
-    3f76:	f212      	tshftls	r2, r2, #8
-    3f78:	0322      	tors	r2, r4
-    3f7a:	0291      	tcmp	r1, r2
-    3f7c:	c80b      	tjhi.n	3f96 <soc_ocv_sample_valid+0x4a>
-    3f7e:	0908      	tloadr	r1, [pc, #32]	; (3fa0 <soc_ocv_sample_valid+0x54>)
-    3f80:	028a      	tcmp	r2, r1
+    3f52:	1c99      	tloadrb	r1, [r3, r2]
+    3f54:	a243      	tmovs	r2, #67	; 0x43
+    3f56:	1c9a      	tloadrb	r2, [r3, r2]
+    3f58:	f212      	tshftls	r2, r2, #8
+    3f5a:	030a      	tors	r2, r1
+    3f5c:	090f      	tloadr	r1, [pc, #60]	; (3f9c <soc_ocv_sample_valid+0x50>)
+    3f5e:	e854      	tadds	r4, r2, r1
+    3f60:	f424      	tshftls	r4, r4, #16
+    3f62:	fc24      	tshftrs	r4, r4, #16
+    3f64:	a000      	tmovs	r0, #0
+    3f66:	090e      	tloadr	r1, [pc, #56]	; (3fa0 <soc_ocv_sample_valid+0x54>)
+    3f68:	028c      	tcmp	r4, r1
+    3f6a:	c814      	tjhi.n	3f96 <soc_ocv_sample_valid+0x4a>
+    3f6c:	a140      	tmovs	r1, #64	; 0x40
+    3f6e:	1c5c      	tloadrb	r4, [r3, r1]
+    3f70:	a141      	tmovs	r1, #65	; 0x41
+    3f72:	1c59      	tloadrb	r1, [r3, r1]
+    3f74:	f209      	tshftls	r1, r1, #8
+    3f76:	0321      	tors	r1, r4
+    3f78:	028a      	tcmp	r2, r1
+    3f7a:	c80c      	tjhi.n	3f96 <soc_ocv_sample_valid+0x4a>
+    3f7c:	a2fa      	tmovs	r2, #250	; 0xfa
+    3f7e:	f112      	tshftls	r2, r2, #4
+    3f80:	0291      	tcmp	r1, r2
     3f82:	c808      	tjhi.n	3f96 <soc_ocv_sample_valid+0x4a>
     3f84:	a248      	tmovs	r2, #72	; 0x48
     3f86:	1c9a      	tloadrb	r2, [r3, r2]
@@ -6942,7 +6942,7 @@ soc_ocv_sample_valid():
     3f96:	6d10      	tpop	{r4, pc}
     3f98:	00845558 	.word	0x00845558
     3f9c:	fffff63c 	.word	0xfffff63c
-    3fa0:	000010cc 	.word	0x000010cc
+    3fa0:	000005dc 	.word	0x000005dc
 
 00003fa4 <soc_estimate_ocv_percent>:
 soc_estimate_ocv_percent():
@@ -18979,7 +18979,7 @@ DataLoad_Current():
     a264:	582f      	tloadr	r7, [r5, #0]
     a266:	f2be      	tshftls	r6, r7, #10
     a268:	fab0      	tshftrs	r0, r6, #10
-    a26a:	a178      	tmovs	r1, #120	; 0x78
+    a26a:	a164      	tmovs	r1, #100	; 0x64
     a26c:	900a 994e 	tjl	1450c <__udivsi3>
     a270:	f400      	tshftls	r0, r0, #16
     a272:	fc00      	tshftrs	r0, r0, #16
