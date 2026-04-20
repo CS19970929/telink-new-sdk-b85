@@ -34,10 +34,10 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   C11_AND_C11pro
+#define FD_BMS_TYPE   M25
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260417"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260420"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -111,12 +111,14 @@
 #define AFE_ODC1       		(500) 
 #define AFE_ODC2       		(800) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D006" 
 #elif (FD_BMS_TYPE == T1_AND_T2)
 #define SeriesNum  (13)
 #define CapacityFactory (225)
 #define AFE_ODC1       		(500) 
 #define AFE_ODC2       		(800) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D007" 
 #elif (FD_BMS_TYPE == D3PRO)
 #define SeriesNum  (10)
 #define CapacityFactory (78)
@@ -142,6 +144,9 @@
 #if (FD_BMS_TYPE == C21)
 #define CS_Res			  2
 #define CS_Res_Num		2
+#elif (FD_BMS_TYPE == T1_AND_T2)
+#define CS_Res			  2
+#define CS_Res_Num		3
 #elif (FD_BMS_TYPE == M25)
 #define CS_Res			  2
 #define CS_Res_Num		3
