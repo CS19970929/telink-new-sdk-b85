@@ -480,7 +480,7 @@ void app_adc_multi_sample(void)
 
     // ...
 	Vbat_mv = Vbat_mv * 485 / 15;
-#ifdef  FAC_TEST
+#ifdef  DISP_VBAT_AND_TEMP_
 	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
 	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
