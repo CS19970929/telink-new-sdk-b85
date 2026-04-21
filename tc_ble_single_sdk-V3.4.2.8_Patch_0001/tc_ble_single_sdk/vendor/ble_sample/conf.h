@@ -9,6 +9,7 @@
 #include "flash_store_cfg.h"
 
 // #define FAC_TEST
+// #define DISP_VBAT_AND_TEMP_
 #define _UL_RENZHENG_ENABLE_
 
 #define _FUNC_SIF_
