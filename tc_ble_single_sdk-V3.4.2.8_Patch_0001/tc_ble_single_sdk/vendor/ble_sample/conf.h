@@ -19,6 +19,11 @@
 #define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
+#define __SLEEP_VNORMAL__             	(3000)
+#define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)	
+#define __SLEEP_VLOW__     		          (2800)
+#define	__SLEEP_TIMEVLOW__		          (60 * 60 * 1)
+
 #define C21         0
 #define C31         1
 #define D11         2
@@ -35,10 +40,10 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   M25
+#define FD_BMS_TYPE   D11
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260420"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260424"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
