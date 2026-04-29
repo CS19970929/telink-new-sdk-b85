@@ -108,6 +108,14 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 120u))
 #define SOC_FULL_LOCK_TICKS             20u
 #define SOC_EMPTY_LOCK_TICKS            25u
+#define SOC_DSG_TERMINAL_START_MV       ((uint16_t)(SOC_0_VAL + 300u))
+#define SOC_DSG_TERMINAL_L1_MV          ((uint16_t)(SOC_0_VAL + 200u))
+#define SOC_DSG_TERMINAL_L2_MV          ((uint16_t)(SOC_0_VAL + 150u))
+#define SOC_DSG_TERMINAL_L3_MV          ((uint16_t)(SOC_0_VAL + 50u))
+#define SOC_DSG_TERMINAL_VALID_MIN_MV   2000u
+#define SOC_DSG_TERMINAL_STEP_TICKS     5u
+#define SOC_DSG_EMPTY_LOCK_TICKS        10u
+#define SOC_TERMINAL_SYNC_STEP_TICKS    5u
 
 #define _CAL_SLOW_DOWN_CHG
 
@@ -151,6 +159,10 @@ typedef struct
 	uint8_t startup_checked;
 	uint8_t full_lock_ticks;
 	uint8_t empty_lock_ticks;
+	uint8_t full_terminal_adjust_ticks;
+	uint8_t empty_terminal_adjust_ticks;
+	uint8_t dsg_terminal_adjust_ticks;
+	uint8_t dsg_empty_lock_ticks;
 } soc_strategy_state_t;
 
 static soc_strategy_state_t g_soc_strategy_state;
@@ -249,6 +261,58 @@ static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
 	{
 		set_dispsoc(SOC_Calculate_Element.u8SOC_Now);
 	}
+}
+
+static uint8_t soc_apply_step_towards_value(uint8_t target_soc, uint8_t sync_display)
+{
+	uint8_t current_soc;
+
+	target_soc = soc_limit_percent_u32(target_soc);
+	current_soc = get_soc_real();
+	if (current_soc == target_soc)
+	{
+		return 0u;
+	}
+
+	if (current_soc < target_soc)
+	{
+		current_soc++;
+	}
+	else
+	{
+		current_soc--;
+	}
+
+	soc_apply_real_value(current_soc, sync_display);
+	return 1u;
+}
+
+static uint8_t soc_apply_step_towards_when_due(uint8_t target_soc, uint8_t *ticks, uint8_t step_ticks)
+{
+	if (get_soc_real() == soc_limit_percent_u32(target_soc))
+	{
+		*ticks = 0u;
+		return 0u;
+	}
+
+	if (*ticks < step_ticks)
+	{
+		(*ticks)++;
+	}
+
+	if (*ticks < step_ticks)
+	{
+		return 0u;
+	}
+
+	*ticks = 0u;
+	if (soc_apply_step_towards_value(target_soc, 1u))
+	{
+		soc_reset_integral_accumulator();
+		return 1u;
+	}
+
+	return 0u;
 }
 
 static void soc_sanitize_state(void)
@@ -375,27 +439,22 @@ static void soc_apply_idle_ocv_tracking(void)
 	current_soc = get_soc_real();
 	ocv_soc = soc_estimate_ocv_percent();
 
-	/* 空闲 OCV 跟踪只用于向下修正，避免静置后把 SOC 反向抬高。 */
+	/* Idle OCV tracking is bidirectional, but is limited to 1% per adjust window. */
 	if (ocv_soc >= current_soc)
 	{
-		return;
+		diff = (uint8_t)(ocv_soc - current_soc);
+	}
+	else
+	{
+		diff = (uint8_t)(current_soc - ocv_soc);
 	}
 
-	diff = (uint8_t)(current_soc - ocv_soc);
 	if (diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD)
 	{
 		return;
 	}
 
-	if (current_soc > SOC_OCV_RUNTIME_STEP)
-	{
-		soc_apply_real_value((uint8_t)(current_soc - SOC_OCV_RUNTIME_STEP), 1u);
-	}
-	else
-	{
-		soc_apply_real_value(0u, 1u);
-	}
-
+	soc_apply_step_towards_value(ocv_soc, 1u);
 	soc_reset_integral_accumulator();
 }
 
@@ -409,13 +468,15 @@ static void soc_apply_terminal_sync(void)
 		}
 		if (g_soc_strategy_state.full_lock_ticks >= SOC_FULL_LOCK_TICKS)
 		{
-			soc_apply_real_value(SOC_PERCENT_MAX, 1u);
-			soc_reset_integral_accumulator();
+			soc_apply_step_towards_when_due(SOC_PERCENT_MAX,
+											&g_soc_strategy_state.full_terminal_adjust_ticks,
+											SOC_TERMINAL_SYNC_STEP_TICKS);
 		}
 	}
 	else
 	{
 		g_soc_strategy_state.full_lock_ticks = 0u;
+		g_soc_strategy_state.full_terminal_adjust_ticks = 0u;
 	}
 
 	if (soc_idle_for_ocv() && (VCELLMIN <= SOC_0_VAL) && (VCELLMAX <= SOC_EMPTY_SYNC_MAX_MV))
@@ -426,20 +487,111 @@ static void soc_apply_terminal_sync(void)
 		}
 		if (g_soc_strategy_state.empty_lock_ticks >= SOC_EMPTY_LOCK_TICKS)
 		{
-			soc_apply_real_value(0u, 1u);
-			soc_reset_integral_accumulator();
+			soc_apply_step_towards_when_due(0u,
+											&g_soc_strategy_state.empty_terminal_adjust_ticks,
+											SOC_TERMINAL_SYNC_STEP_TICKS);
 		}
 	}
 	else
 	{
 		g_soc_strategy_state.empty_lock_ticks = 0u;
+		g_soc_strategy_state.empty_terminal_adjust_ticks = 0u;
 	}
+}
+
+static uint8_t soc_discharge_terminal_soc_ceiling(void)
+{
+	if (VCELLMIN <= SOC_0_VAL)
+	{
+		return 0u;
+	}
+
+	if (VCELLMIN <= SOC_DSG_TERMINAL_L3_MV)
+	{
+		return 1u;
+	}
+
+	if (VCELLMIN <= SOC_DSG_TERMINAL_L2_MV)
+	{
+		return 3u;
+	}
+
+	if (VCELLMIN <= SOC_DSG_TERMINAL_L1_MV)
+	{
+		return 6u;
+	}
+
+	if (VCELLMIN <= SOC_DSG_TERMINAL_START_MV)
+	{
+		return 12u;
+	}
+
+	return SOC_PERCENT_MAX;
+}
+
+static void soc_apply_discharge_terminal_tracking(void)
+{
+	uint8_t current_soc;
+	uint8_t target_soc;
+
+	if (!isDSG() || (VCELLMAX < VCELLMIN) || (VCELLMIN < SOC_DSG_TERMINAL_VALID_MIN_MV))
+	{
+		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
+		return;
+	}
+
+	target_soc = soc_discharge_terminal_soc_ceiling();
+	if (target_soc >= SOC_PERCENT_MAX)
+	{
+		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
+		return;
+	}
+
+	current_soc = get_soc_real();
+
+	if ((current_soc == 0u) && (target_soc > 0u))
+	{
+		soc_apply_real_value(1u, 1u);
+		soc_reset_integral_accumulator();
+		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
+		return;
+	}
+
+	if (target_soc == 0u)
+	{
+		if (g_soc_strategy_state.dsg_empty_lock_ticks < SOC_DSG_EMPTY_LOCK_TICKS)
+		{
+			g_soc_strategy_state.dsg_empty_lock_ticks++;
+		}
+		if (g_soc_strategy_state.dsg_empty_lock_ticks >= SOC_DSG_EMPTY_LOCK_TICKS)
+		{
+			soc_apply_step_towards_when_due(0u,
+											&g_soc_strategy_state.dsg_terminal_adjust_ticks,
+											SOC_DSG_TERMINAL_STEP_TICKS);
+		}
+		return;
+	}
+
+	g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
+	if (current_soc <= target_soc)
+	{
+		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
+		return;
+	}
+
+	soc_apply_step_towards_when_due(target_soc,
+									&g_soc_strategy_state.dsg_terminal_adjust_ticks,
+									SOC_DSG_TERMINAL_STEP_TICKS);
 }
 
 static void soc_strategy_update(void)
 {
 	soc_apply_startup_ocv_correction();
 	soc_apply_terminal_sync();
+	soc_apply_discharge_terminal_tracking();
 	soc_apply_idle_ocv_tracking();
 }
 
