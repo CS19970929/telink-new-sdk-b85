@@ -401,9 +401,8 @@ static void soc_apply_startup_ocv_correction(void)
 	ocv_soc = soc_estimate_ocv_percent();
 
 	/* E-bike 仪表更看重开机稳定性。
-	 * 启动阶段只在明显满电/空电端点做硬校正，避免中段 SOC 开机跳变。 */
-	if (((ocv_soc == 0u) && (VCELLMIN <= SOC_0_VAL) && (current_soc > 3u)) ||
-		((ocv_soc == SOC_PERCENT_MAX) && (VCELLMAX >= SOC_100_VAL) && (current_soc < 97u)))
+	 * 未充电时不向上校准，启动阶段只允许明显空电端点向下硬校正。 */
+	if ((ocv_soc == 0u) && (VCELLMIN <= SOC_0_VAL) && (current_soc > 3u))
 	{
 		soc_apply_real_value(ocv_soc, 1u);
 		soc_reset_integral_accumulator();
@@ -439,16 +438,12 @@ static void soc_apply_idle_ocv_tracking(void)
 	current_soc = get_soc_real();
 	ocv_soc = soc_estimate_ocv_percent();
 
-	/* Idle OCV tracking is bidirectional, but is limited to 1% per adjust window. */
 	if (ocv_soc >= current_soc)
 	{
-		diff = (uint8_t)(ocv_soc - current_soc);
-	}
-	else
-	{
-		diff = (uint8_t)(current_soc - ocv_soc);
+		return;
 	}
 
+	diff = (uint8_t)(current_soc - ocv_soc);
 	if (diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD)
 	{
 		return;
@@ -550,15 +545,6 @@ static void soc_apply_discharge_terminal_tracking(void)
 	}
 
 	current_soc = get_soc_real();
-
-	if ((current_soc == 0u) && (target_soc > 0u))
-	{
-		soc_apply_real_value(1u, 1u);
-		soc_reset_integral_accumulator();
-		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
-		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
-		return;
-	}
 
 	if (target_soc == 0u)
 	{
@@ -930,6 +916,13 @@ void SOC_Cont_AH_Int_DSG(void)
 		SOC_Calculate_Element.u8SOC_Now = SOC_Calculate_Element.u8SOC_Old - C_change_per;
 		if (get_soc_real() > 100)
 			SOC_Calculate_Element.u8SOC_Now = 0;
+		if ((SOC_Calculate_Element.u8SOC_Now == 0u) &&
+			(SOC_Calculate_Element.u8SOC_Old > 0u) &&
+			(VCELLMIN > SOC_0_VAL))
+		{
+			SOC_Calculate_Element.u8SOC_Now = 1u;
+			soc_recalc_now_capacity();
+		}
 		SOC_Calculate_Element.u32CapChange = (((SOC_Calculate_Element.u32CapChange * 100) % SOC_Calculate_Element.u32CapFull) + 50) / 100; // �������룬�ؼ�
 		SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0;
 
