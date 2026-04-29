@@ -116,6 +116,7 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_DSG_TERMINAL_STEP_TICKS     5u
 #define SOC_DSG_EMPTY_LOCK_TICKS        10u
 #define SOC_TERMINAL_SYNC_STEP_TICKS    5u
+#define SOC_STARTUP_OCV_CORRECTION_ENABLE 0u
 
 #define _CAL_SLOW_DOWN_CHG
 
@@ -575,7 +576,10 @@ static void soc_apply_discharge_terminal_tracking(void)
 
 static void soc_strategy_update(void)
 {
-	soc_apply_startup_ocv_correction();
+	if (SOC_STARTUP_OCV_CORRECTION_ENABLE)
+	{
+		soc_apply_startup_ocv_correction();
+	}
 	soc_apply_terminal_sync();
 	soc_apply_discharge_terminal_tracking();
 	soc_apply_idle_ocv_tracking();
