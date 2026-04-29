@@ -30,6 +30,8 @@
 
 代码位置：`tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c`
 
+开机 OCV 校准代码暂时保留但默认关闭，开关为 `SOC_STARTUP_OCV_CORRECTION_ENABLE`。当前值为 `0`，因此开机阶段不会自动校准 SOC；后续确认策略后可只改该宏恢复。
+
 新增通用低端收敛阈值均基于 `SOC_0_VAL`：
 
 | 条件 | 放电 SOC 上限 |
