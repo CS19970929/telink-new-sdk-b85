@@ -48,8 +48,6 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 }
 
 #if 1
-
-#if 1
 // #define SOC_100_VAL g_tParam.other.u16Soc_V_100
 // #define SOC_0_VAL g_tParam.other.u16Soc_V_0
 #define SOC_100_VAL (4180)
@@ -93,16 +91,32 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_PERCENT_MAX                 100u
 #define SOC_DSG_INT_MAX                 79u
 #define SOC_CYCLE_MAX                   65535u
-#define SOC_OCV_VALID_MIN_MV            2500u
+#define SOC_OCV_VALID_MIN_MV            2000u
 #define SOC_OCV_VALID_MAX_MV            4000u
-#define SOC_OCV_CELL_DELTA_MAX_MV       120u
+#define SOC_OCV_CELL_DELTA_MAX_MV       200u
 #define SOC_OCV_RUNTIME_DIFF_THRESHOLD  5u
+// 放电过程 OCV 比较修正分档：电流越大，允许的修正越保守
+#define SOC_DSG_OCV_LOW_CURR_MAX        100u
+#define SOC_DSG_OCV_MID_CURR_MAX        500u
+#define SOC_DSG_OCV_HIGH_CURR_MAX       1000u
+#define SOC_DSG_OCV_LOW_DIFF_THRESHOLD  3u
+#define SOC_DSG_OCV_MID_DIFF_THRESHOLD  5u
+#define SOC_DSG_OCV_HIGH_DIFF_THRESHOLD 8u
+#define SOC_DSG_OCV_VHIGH_DIFF_THRESHOLD 12u
+#define SOC_DSG_OCV_LOW_STABLE_TICKS    8u
+#define SOC_DSG_OCV_MID_STABLE_TICKS    12u
+#define SOC_DSG_OCV_HIGH_STABLE_TICKS   20u
+#define SOC_DSG_OCV_VHIGH_STABLE_TICKS  30u
+#define SOC_DSG_OCV_LOW_ADJUST_TICKS    3u
+#define SOC_DSG_OCV_MID_ADJUST_TICKS    5u
+#define SOC_DSG_OCV_HIGH_ADJUST_TICKS   8u
+#define SOC_DSG_OCV_VHIGH_ADJUST_TICKS  12u
 // #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60 * 30)
 // #define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60 * 2)
 #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60)
 #define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60)
-#define SOC_FULL_SYNC_MIN_MV            ((uint16_t)(SOC_100_VAL - 120u))
-#define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 120u))
+#define SOC_FULL_SYNC_MIN_MV            ((uint16_t)(SOC_100_VAL - 200u))
+#define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 200u))
 #define SOC_FULL_LOCK_TICKS             20u
 #define SOC_EMPTY_LOCK_TICKS            25u
 #define SOC_DSG_TERMINAL_START_MV       ((uint16_t)(SOC_0_VAL + 300u))
@@ -131,6 +145,8 @@ typedef struct
 {
 	uint16_t idle_stable_ticks;
 	uint16_t idle_adjust_ticks;
+	uint16_t dsg_ocv_stable_ticks;
+	uint16_t dsg_ocv_adjust_ticks;
 	uint8_t startup_checked;
 	uint8_t full_lock_ticks;
 	uint8_t empty_lock_ticks;
@@ -138,6 +154,7 @@ typedef struct
 	uint8_t empty_terminal_adjust_ticks;
 	uint8_t dsg_terminal_adjust_ticks;
 	uint8_t dsg_empty_lock_ticks;
+	uint8_t dsg_ocv_band;
 } soc_strategy_state_t;
 
 static soc_strategy_state_t g_soc_strategy_state;
@@ -332,12 +349,90 @@ static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 	return (uint8_t)(numerator / denominator);
 }
 
+static void soc_sanitize_state(void)
+{
+	SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(SOC_Calculate_Element.u8SOC_Now);
+	SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(SOC_Calculate_Element.u8DSG_SOC_Int);
+	SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(SOC_Calculate_Element.u32Cycle_times);
+	soc_recalc_full_capacity();
+	soc_recalc_now_capacity();
+	if (SOC_Calculate_Element.u32CapNow > SOC_Calculate_Element.u32CapFull)
+	{
+		SOC_Calculate_Element.u32CapNow = SOC_Calculate_Element.u32CapFull;
+	}
+}
+
 static uint8_t soc_estimate_ocv_percent(void)
 {
 	uint16_t weighted_mv;
 
 	weighted_mv = (uint16_t)((((uint32_t)VCELLMIN * 3u) + (uint32_t)VCELLMAX) / 4u);
 	return soc_estimate_percent_from_cell_mv(weighted_mv);
+}
+
+static uint8_t soc_discharge_ocv_current_band(uint16_t dsg_current)
+{
+	if (dsg_current <= SOC_DSG_OCV_LOW_CURR_MAX)
+	{
+		return 0u;
+	}
+
+	if (dsg_current <= SOC_DSG_OCV_MID_CURR_MAX)
+	{
+		return 1u;
+	}
+
+	if (dsg_current <= SOC_DSG_OCV_HIGH_CURR_MAX)
+	{
+		return 2u;
+	}
+
+	return 3u;
+}
+
+static uint8_t soc_discharge_ocv_diff_threshold(uint8_t band)
+{
+	switch (band)
+	{
+	case 0u:
+		return SOC_DSG_OCV_LOW_DIFF_THRESHOLD;
+	case 1u:
+		return SOC_DSG_OCV_MID_DIFF_THRESHOLD;
+	case 2u:
+		return SOC_DSG_OCV_HIGH_DIFF_THRESHOLD;
+	default:
+		return SOC_DSG_OCV_VHIGH_DIFF_THRESHOLD;
+	}
+}
+
+static uint8_t soc_discharge_ocv_stable_ticks(uint8_t band)
+{
+	switch (band)
+	{
+	case 0u:
+		return SOC_DSG_OCV_LOW_STABLE_TICKS;
+	case 1u:
+		return SOC_DSG_OCV_MID_STABLE_TICKS;
+	case 2u:
+		return SOC_DSG_OCV_HIGH_STABLE_TICKS;
+	default:
+		return SOC_DSG_OCV_VHIGH_STABLE_TICKS;
+	}
+}
+
+static uint8_t soc_discharge_ocv_adjust_ticks(uint8_t band)
+{
+	switch (band)
+	{
+	case 0u:
+		return SOC_DSG_OCV_LOW_ADJUST_TICKS;
+	case 1u:
+		return SOC_DSG_OCV_MID_ADJUST_TICKS;
+	case 2u:
+		return SOC_DSG_OCV_HIGH_ADJUST_TICKS;
+	default:
+		return SOC_DSG_OCV_VHIGH_ADJUST_TICKS;
+	}
 }
 
 static uint8_t soc_apply_startup_ocv_correction(void)
@@ -362,6 +457,82 @@ static uint8_t soc_apply_startup_ocv_correction(void)
 	if ((ocv_soc == 0u) && (VCELLMIN <= SOC_0_VAL) && (current_soc > 0u))
 	{
 		return soc_apply_step_towards_value(0u, 0u, 1u);
+	}
+
+	return 0u;
+}
+
+static uint8_t soc_apply_discharge_ocv_tracking(void)
+{
+	uint8_t current_soc;
+	uint8_t ocv_soc;
+	uint8_t diff;
+	uint8_t band;
+	uint8_t diff_threshold;
+	uint8_t stable_limit;
+	uint8_t adjust_limit;
+
+	if (!isDSG())
+	{
+		g_soc_strategy_state.dsg_ocv_stable_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_band = 0xFFu;
+		return 0u;
+	}
+
+	if (!soc_ocv_sample_valid())
+	{
+		g_soc_strategy_state.dsg_ocv_stable_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_band = 0xFFu;
+		return 0u;
+	}
+
+	band = soc_discharge_ocv_current_band(IDSG);
+	diff_threshold = soc_discharge_ocv_diff_threshold(band);
+	stable_limit = soc_discharge_ocv_stable_ticks(band);
+	adjust_limit = soc_discharge_ocv_adjust_ticks(band);
+
+	if (g_soc_strategy_state.dsg_ocv_band != band)
+	{
+		g_soc_strategy_state.dsg_ocv_band = band;
+		g_soc_strategy_state.dsg_ocv_stable_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+	}
+
+	if (g_soc_strategy_state.dsg_ocv_stable_ticks < stable_limit)
+	{
+		g_soc_strategy_state.dsg_ocv_stable_ticks++;
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+		return 0u;
+	}
+
+	if (++g_soc_strategy_state.dsg_ocv_adjust_ticks < adjust_limit)
+	{
+		return 0u;
+	}
+	g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+
+	current_soc = get_soc_real();
+	ocv_soc = soc_estimate_ocv_percent();
+
+	if (ocv_soc >= current_soc)
+	{
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+		return 0u;
+	}
+
+	diff = (uint8_t)(current_soc - ocv_soc);
+	if (diff < diff_threshold)
+	{
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
+		return 0u;
+	}
+
+	if (soc_apply_step_towards_value(ocv_soc, 0u, 1u))
+	{
+		soc_reset_integral_accumulator();
+		return 1u;
 	}
 
 	return 0u;
@@ -557,6 +728,11 @@ static void soc_strategy_update(void)
 	}
 
 	if (soc_apply_discharge_terminal_tracking())
+	{
+		return;
+	}
+
+	if (soc_apply_discharge_ocv_tracking())
 	{
 		return;
 	}
@@ -936,6 +1112,7 @@ uint8_t get_ocv_cali(uint8_t *arr_soc)
 _err:
 	return get_dispsoc();
 }
+#endif
 
 void APP_SOC_IntEnhance_Ctrl()
 {
@@ -958,5 +1135,3 @@ void APP_SOC_IntEnhance_Ctrl()
 
 	SOC_Result_Pass();
 }
-
-#endif
