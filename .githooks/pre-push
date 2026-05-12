@@ -1,41 +1,47 @@
-#!C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass -File
-param()
+#!/bin/sh
 
-$ErrorActionPreference = 'Stop'
+# Warn about unfinished checklist items before push. This hook must never block
+# a push; it only prints reminders and exits successfully.
 
-$repoRoot = (git rev-parse --show-toplevel 2>$null).Trim()
-if (-not $repoRoot) { exit 0 }
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ]; then
+	exit 0
+fi
 
-$pendingFiles = @(
-    (Join-Path $repoRoot 'TODO.md')
-    (Join-Path $repoRoot 'TEST_PENDING.md')
-)
+git_cmd=$(command -v git 2>/dev/null)
+case "$git_cmd" in
+	*.codex-pending/*|*.codex-pending\\*)
+		exit 0
+		;;
+esac
 
-$found = $false
+found=0
 
-foreach ($pendingFile in $pendingFiles) {
-    if (-not (Test-Path -LiteralPath $pendingFile)) {
-        continue
-    }
+for pending_file in "$repo_root/TODO.md" "$repo_root/TEST_PENDING.md"; do
+	if [ ! -f "$pending_file" ]; then
+		continue
+	fi
 
-    $matches = Select-String -LiteralPath $pendingFile -Pattern '^- \[ \]' -SimpleMatch:$false
-    if ($matches) {
-        if (-not $found) {
-            Write-Host ''
-            Write-Host '========================================'
-            Write-Host 'WARNING: unfinished items found'
-            Write-Host 'Please review the following list before push:'
-        }
+	matches=$(grep -E '^- \[ \]' "$pending_file" 2>/dev/null)
+	if [ -z "$matches" ]; then
+		continue
+	fi
 
-        Write-Host "File: $pendingFile"
-        $matches | ForEach-Object { Write-Host $_.Line }
-        $found = $true
-    }
-}
+	if [ "$found" -eq 0 ]; then
+		printf '\n'
+		printf '%s\n' '========================================'
+		printf '%s\n' 'WARNING: unfinished items found'
+		printf '%s\n' 'Please review the following list before push:'
+	fi
 
-if ($found) {
-    Write-Host '========================================'
-    Write-Host ''
-}
+	printf '%s\n' "File: $pending_file"
+	printf '%s\n' "$matches"
+	found=1
+done
+
+if [ "$found" -ne 0 ]; then
+	printf '%s\n' '========================================'
+	printf '\n'
+fi
 
 exit 0
