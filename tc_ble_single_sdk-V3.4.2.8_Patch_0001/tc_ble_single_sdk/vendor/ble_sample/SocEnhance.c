@@ -90,6 +90,8 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_INTEGRAL_PERIOD_MS          200u
 #define SOC_INTEGRAL_MS_PER_SEC         1000u
 #define SOC_CAPACITY_UNITS_PER_AH       (3600u * 10u)
+#define SOC_CAPACITY_FACTORY_UNITS_PER_AH 10u
+#define SOC_CAPACITY_UNITS_PER_FACTORY  (SOC_CAPACITY_UNITS_PER_AH / SOC_CAPACITY_FACTORY_UNITS_PER_AH)
 #define SOC_REPORT_CAPACITY_DIVISOR     360u
 
 #define SOC_PERCENT_MAX                 100u
@@ -229,7 +231,7 @@ static uint16_t soc_cycle_to_u16(uint32_t value)
 
 static void soc_recalc_full_capacity(void)
 {
-	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * SOC_CAPACITY_UNITS_PER_AH;
+	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * SOC_CAPACITY_UNITS_PER_FACTORY;
 	SOC_Calculate_Element.soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
 	SOC_Calculate_Element.u32CapFull = (SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh) / 100u;
 	if (SOC_Calculate_Element.u32CapFull == 0u)
