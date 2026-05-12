@@ -85,8 +85,12 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define BUV_VAL PRT_E2ROMParas.u16VbusUvp_Third
 #endif
 
-#define SOC_VIRTUAL_CURRENT_CHG (uint16_t)2 // A*10闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳鎰佹綈缂佸顦叅妞ゅ繐鎳忓▍銏ゆ⒑閸濆嫬鈧爼宕愰弽顐熷亾?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋?闂傚倷娴囧▔鏇㈠窗閺囥垹绀堝┑鍌氭啞閺呮煡鐓崶銊︾叆妞?.2闂傚倷娴囧▔鏇㈠窗閺嶎厼鐭楁繛宸簻缁€宀勬煃閳轰礁鏆欐い蹇氭硾閳规垿顢欑喊鍗炲壎闂佽桨鐒﹂幑鍥ь嚕椤掑嫬围闁糕剝顨忔导鎾绘⒒娴ｈ姤纭堕柛鐘冲姍瀵憡绻濆顒傤唵?
-#define SOC_VIRTUAL_CURRENT_DSG (uint16_t)2 // A*10闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳鎰佹綈缂佸顦叅妞ゅ繐鎳忓▍銏ゆ⒑閸濆嫬鈧爼宕愰弽顐熷亾?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻浣哥秺椤ユ捇宕楀鈧顐﹀箻鐠囧弶顥濋梺闈涚墕濡顢旈崼鏇熲拺閻犳亽鍔岄弸娆忊攽?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垳鈧懓瀚晶妤呭磹闁秵鐓涢柛鎰╁妿閸╋綁鏌℃担瑙勫磳鐎殿噮鍓熸俊鍫曞幢濡ゅ﹣绱﹂梻鍌欐祰濞夋洟宕伴幇鏉垮嚑濠电姵鑹剧粻?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺屾稑鈻庡Ο杞板嚱濡炪倖姊归崝娆撶嵁韫囨稒鍊婚柤鎭掑劜濞呫垽姊洪崫鍕偓鍫曞磹閺嶎偀鍋撳顒傜Ш鐎规洏鍨虹换婵嗩潩椤撶喐顏熼梻浣告惈閸婂爼宕愰弽顐熷亾濮橆剛绉洪柡灞诲姂閹垽宕ㄦ繝鍕磿闂備礁婀遍崗姗€藟閹捐绀夌憸鏃堝蓟閵娾晜鍋勯柣鎾抽缁堆勭箾閺夋垵鎮戦柤瑙勫劤閻ｇ兘鏌嗗鍡欏弳闂佺粯鏌ㄩ幉锟犳倶椤曗偓閺岀喐顦伴獮鐔哄殲G闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻浣哥秺椤ユ捇宕楀鈧顐﹀箻鐠囧弶顥濋梺闈涚墕濡顢旈崼鏇熲拺閻犳亽鍔岄弸鎴︽煛鐎ｎ亶鐓兼鐐茬箻閹粓鎳為妷锔筋仧闂備礁鎼崐鍫曞磹閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻?
+#define SOC_VIRTUAL_CURRENT_CHG         (uint16_t)0
+#define SOC_VIRTUAL_CURRENT_DSG         (uint16_t)0
+#define SOC_INTEGRAL_PERIOD_MS          200u
+#define SOC_INTEGRAL_MS_PER_SEC         1000u
+#define SOC_CAPACITY_UNITS_PER_AH       (3600u * 10u)
+#define SOC_REPORT_CAPACITY_DIVISOR     360u
 
 #define SOC_PERCENT_MAX                 100u
 #define SOC_DSG_INT_MAX                 79u
@@ -94,12 +98,12 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_OCV_VALID_MIN_MV            2000u
 #define SOC_OCV_VALID_MAX_MV            4000u
 #define SOC_OCV_CELL_DELTA_MAX_MV       200u
-#define SOC_OCV_RUNTIME_DIFF_THRESHOLD  5u
+#define SOC_OCV_RUNTIME_DIFF_THRESHOLD  3u
 // 放电过程 OCV 比较修正分档：电流越大，允许的修正越保守
-#define SOC_DSG_OCV_LOW_CURR_MAX        100u
-#define SOC_DSG_OCV_MID_CURR_MAX        500u
-#define SOC_DSG_OCV_HIGH_CURR_MAX       1000u
-#define SOC_DSG_OCV_LOW_DIFF_THRESHOLD  3u
+#define SOC_DSG_OCV_LOW_CURR_MAX        20u
+#define SOC_DSG_OCV_MID_CURR_MAX        50u
+#define SOC_DSG_OCV_HIGH_CURR_MAX       100u
+#define SOC_DSG_OCV_LOW_DIFF_THRESHOLD  1u
 #define SOC_DSG_OCV_MID_DIFF_THRESHOLD  5u
 #define SOC_DSG_OCV_HIGH_DIFF_THRESHOLD 8u
 #define SOC_DSG_OCV_VHIGH_DIFF_THRESHOLD 12u
@@ -107,10 +111,10 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_DSG_OCV_MID_STABLE_TICKS    12u
 #define SOC_DSG_OCV_HIGH_STABLE_TICKS   20u
 #define SOC_DSG_OCV_VHIGH_STABLE_TICKS  30u
-#define SOC_DSG_OCV_LOW_ADJUST_TICKS    3u
-#define SOC_DSG_OCV_MID_ADJUST_TICKS    5u
-#define SOC_DSG_OCV_HIGH_ADJUST_TICKS   8u
-#define SOC_DSG_OCV_VHIGH_ADJUST_TICKS  12u
+#define SOC_DSG_OCV_LOW_ADJUST_TICKS    (5 * 20)
+#define SOC_DSG_OCV_MID_ADJUST_TICKS    (5 * 20)
+#define SOC_DSG_OCV_HIGH_ADJUST_TICKS   (5 * 20)
+#define SOC_DSG_OCV_VHIGH_ADJUST_TICKS  (5 * 20)
 // #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60 * 30)
 // #define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60 * 2)
 #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60)
@@ -137,6 +141,13 @@ enum SOC_CALI_STATE
 	SOC_CALI_CONT_DSG,
 };
 
+enum SOC_INTEGRAL_DIR
+{
+	SOC_INTEGRAL_DIR_NONE,
+	SOC_INTEGRAL_DIR_CHG,
+	SOC_INTEGRAL_DIR_DSG,
+};
+
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;		 // 闂傚倷娴囧▔鏇㈠窗閺囩喍绻嗘い鎾跺У鐎氭氨鎲告惔锝傚亾濮橆剛绉洪柡灞诲姂閹垽宕ㄦ繝鍕磿闂備礁缍婇ˉ鎾诲礂濮椻偓瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂閸撲讲鍋撻悷鏉款仹闁煎疇娉涢埢宥夊閵堝懐顔嗛梺缁樺灱婵倝寮?
 
 enum SOC_CALI_STATE SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER; // 闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶姊洪崹顔炬啹濞撴埃鍋撻柡灞诲姂閹垽宕ㄦ繝鍕磿闂備礁缍婇ˉ鎾诲礂濮椻偓瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂閸洘鈷戦悹鎭掑妼閺嬫垿鏌＄€ｎ亶鐓兼鐐茬箻閹粓鎳為妷锔筋仧闂備礁鎼崐鍫曞磹閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻?	SOC闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁诡喒鏅犻幊婊呭枈濡桨澹曟繛鎾村焹閸嬫捇鏌℃担瑙勫磳鐎殿噮鍓熸俊鍫曞幢濡ゅ﹣绱﹂梻鍌欐祰濞夋洟宕伴幇鏉垮嚑濠电姵鑹剧粻顖炴煟閹达絽袚闁哄懏鎮傞幃宄扳枎閹邦剛鐟ㄧ紓浣瑰劶娴滎剛鍒掗悽鍨枂闁告洦鍋掓导鎾寸節濞堝灝鏋涙い鎴濐樀瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂?
@@ -158,6 +169,8 @@ typedef struct
 } soc_strategy_state_t;
 
 static soc_strategy_state_t g_soc_strategy_state;
+static enum SOC_INTEGRAL_DIR g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
+static uint16_t g_soc_integral_ms_remainder = 0u;
 
 
 
@@ -216,7 +229,7 @@ static uint16_t soc_cycle_to_u16(uint32_t value)
 
 static void soc_recalc_full_capacity(void)
 {
-	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * 3600u;
+	SOC_Calculate_Element.u32CapFactory = (UINT32)CapacityFactory * SOC_CAPACITY_UNITS_PER_AH;
 	SOC_Calculate_Element.soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
 	SOC_Calculate_Element.u32CapFull = (SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh) / 100u;
 	if (SOC_Calculate_Element.u32CapFull == 0u)
@@ -235,6 +248,140 @@ static void soc_reset_integral_accumulator(void)
 	SOC_Calculate_Element.u32CapChange = 0u;
 	SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
 	SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
+	g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
+	g_soc_integral_ms_remainder = 0u;
+}
+
+static void soc_integral_select_dir(enum SOC_INTEGRAL_DIR dir)
+{
+	if (g_soc_integral_dir != dir)
+	{
+		g_soc_integral_dir = dir;
+		g_soc_integral_ms_remainder = 0u;
+		SOC_Calculate_Element.u32CapChange = 0u;
+	}
+}
+
+static uint32_t soc_integral_delta_from_current(uint16_t current, enum SOC_INTEGRAL_DIR dir)
+{
+	uint32_t sum;
+
+	if (current == 0u)
+	{
+		return 0u;
+	}
+
+	soc_integral_select_dir(dir);
+	sum = ((uint32_t)current * SOC_INTEGRAL_PERIOD_MS) + (uint32_t)g_soc_integral_ms_remainder;
+	g_soc_integral_ms_remainder = (uint16_t)(sum % SOC_INTEGRAL_MS_PER_SEC);
+	return sum / SOC_INTEGRAL_MS_PER_SEC;
+}
+
+static uint8_t soc_percent_from_capacity_charge(uint32_t cap)
+{
+	if (cap >= SOC_Calculate_Element.u32CapFull)
+	{
+		return SOC_PERCENT_MAX;
+	}
+	return soc_limit_percent_u32((cap * SOC_PERCENT_MAX) / SOC_Calculate_Element.u32CapFull);
+}
+
+static uint8_t soc_percent_from_capacity_discharge(uint32_t cap)
+{
+	uint32_t percent;
+
+	if (cap == 0u)
+	{
+		return 0u;
+	}
+	if (cap >= SOC_Calculate_Element.u32CapFull)
+	{
+		return SOC_PERCENT_MAX;
+	}
+
+	percent = ((cap * SOC_PERCENT_MAX) + SOC_Calculate_Element.u32CapFull - 1u) / SOC_Calculate_Element.u32CapFull;
+	return soc_limit_percent_u32(percent);
+}
+
+static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
+{
+	uint16_t dsg_acc;
+
+	if (old_soc <= new_soc)
+	{
+		return;
+	}
+
+	dsg_acc = (uint16_t)SOC_Calculate_Element.u8DSG_SOC_Int + (uint16_t)(old_soc - new_soc);
+	while (dsg_acc >= 80u)
+	{
+		dsg_acc -= 80u;
+		if (SOC_Calculate_Element.u32Cycle_times < SOC_CYCLE_MAX)
+		{
+			SOC_Calculate_Element.u32Cycle_times += 1u;
+		}
+	}
+	SOC_Calculate_Element.u8DSG_SOC_Int = (uint8_t)dsg_acc;
+}
+
+static void soc_apply_integral_delta(enum SOC_INTEGRAL_DIR dir, uint32_t delta)
+{
+	uint8_t old_soc;
+	uint8_t new_soc;
+
+	if (delta == 0u)
+	{
+		return;
+	}
+
+	old_soc = get_soc_real();
+	SOC_Calculate_Element.u32CapChange += delta;
+	if (dir == SOC_INTEGRAL_DIR_CHG)
+	{
+		if ((SOC_Calculate_Element.u32CapNow >= SOC_Calculate_Element.u32CapFull) ||
+			((SOC_Calculate_Element.u32CapFull - SOC_Calculate_Element.u32CapNow) <= delta))
+		{
+			SOC_Calculate_Element.u32CapNow = SOC_Calculate_Element.u32CapFull;
+		}
+		else
+		{
+			SOC_Calculate_Element.u32CapNow += delta;
+		}
+
+		new_soc = soc_percent_from_capacity_charge(SOC_Calculate_Element.u32CapNow);
+		if (new_soc > old_soc)
+		{
+			SOC_Calculate_Element.u8SOC_Now = new_soc;
+			SOC_Calculate_Element.u32CapChange = 0u;
+		}
+		else if (SOC_Calculate_Element.u32CapNow >= SOC_Calculate_Element.u32CapFull)
+		{
+			SOC_Calculate_Element.u32CapChange = 0u;
+		}
+	}
+	else if (dir == SOC_INTEGRAL_DIR_DSG)
+	{
+		if (SOC_Calculate_Element.u32CapNow <= delta)
+		{
+			SOC_Calculate_Element.u32CapNow = 0u;
+		}
+		else
+		{
+			SOC_Calculate_Element.u32CapNow -= delta;
+		}
+
+		new_soc = soc_percent_from_capacity_discharge(SOC_Calculate_Element.u32CapNow);
+		if (new_soc < old_soc)
+		{
+			SOC_Calculate_Element.u8SOC_Now = new_soc;
+			SOC_Calculate_Element.u32CapChange = 0u;
+			soc_note_discharge_soc_drop(old_soc, new_soc);
+		}
+		else if (SOC_Calculate_Element.u32CapNow == 0u)
+		{
+			SOC_Calculate_Element.u32CapChange = 0u;
+		}
+	}
 }
 
 static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
@@ -326,7 +473,7 @@ static uint8_t soc_ocv_sample_valid(void)
 
 static uint8_t soc_idle_for_ocv(void)
 {
-	return (g_stCellInfoReport.u16Ichg == 0u) && (g_stCellInfoReport.u16IDischg == 0u);
+	return !isCHG() && !isDSG();
 }
 
 static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
@@ -752,7 +899,7 @@ void set_soc_param(uint8_t _soc_val, uint16_t _cap_factory, uint8_t disp_sync_up
 	(void)_cap_factory;
 
 	{
-		// soc_calculate.u32CapFactory = (UINT32)g_tParam.other.u16Soc_Ah * 3600;
+		// soc_calculate.u32CapFactory = (UINT32)g_tParam.other.u16Soc_Ah * SOC_CAPACITY_UNITS_PER_AH;
 		// soc_calculate.u32Cycle_times = (UINT32)g_tParam.other.u16Soc_Cycle_times * 100;
 	}
 
@@ -799,161 +946,55 @@ void soc_param_lib_init(soc_kv_data_t *_soc)
 
 void SOC_Cont_AH_Int_CHG(void)
 {
-	UINT32 C_change_per;
-	static uint8_t s_u8_CHG200msCnt = 0;
-	static uint8_t s_u8_Transfer200msCnt = 0;
-#if 1
-	if (g_stCellInfoReport.u16Ichg >= SOC_VIRTUAL_CURRENT_CHG)
-	{
-		// if(g_stCellInfoReport.u16Ichg > 0) {
-		if (++s_u8_CHG200msCnt >= 1)
-		{
-			s_u8_CHG200msCnt = 0;
-			SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 1;
-		}
-		if (s_u8_Transfer200msCnt)
-			s_u8_Transfer200msCnt = 0;
-	}
-	else
-	{
-		if (++s_u8_Transfer200msCnt >= 2)
-		{ // 闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶姊洪崹顕呭剾闁告捇绠栭弻锝夘敆婢跺﹤鈷嬮梺杞扮劍閹瑰洤顕ｉ鍕ч柛鈩冾殢娴兼捇姊绘担鑺ョ《闁哥姵鍔欏鍛婄節濮橆剛顔嗛梺缁樺灱婵倝寮查幖浣圭厸闁稿本锚閳ь剚鐗滈埀顒佽壘缂嶅﹪寮婚妸鈺傚亜闁告稑锕︽导鍕⒑瑜版帩妫戦柛蹇旓耿瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂?
-			s_u8_Transfer200msCnt = 0;
-			s_u8_CHG200msCnt = 0;
-			SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
-			return;
-		}
-		if (s_u8_CHG200msCnt)
-		{
-			--s_u8_CHG200msCnt;
-		}
-	}
-	#endif
+	uint32_t delta;
 
-	if (SOC_Calculate_Element.u8CHG_AHCalcu_Flag)
+	if (!isCHG())
 	{
-		SOC_Calculate_Element.u8SOC_Old = get_soc_real();
-		SOC_Calculate_Element.u32CapChange += (UINT32)g_stCellInfoReport.u16Ichg * 1; // As*10*100(闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш鐎殿噮鍋婂畷濂稿Ψ閿旇姤顏熼梻浣告惈閸婂爼宕愰弽顐熷亾?00)
-		SOC_Calculate_Element.u32CapNow += (UINT32)g_stCellInfoReport.u16Ichg * 1;	  // 闂備礁鎲￠幐鎾疾閻樿鏋侀柟鎹愵嚙濡﹢鏌曢崼婵囶棞妞ゅ繐鐖煎铏规崉閵娿儲鐎鹃梺鍝勵儏椤兘鐛箛娑欏€婚柤鎭掑劜濞呫垽姊洪崫鍕偓鍫曞磹閺嶎偀鍋撳顒佽础闁逞屽墮濠€閬嶅磻閻愬樊娓婚柛宀€鍋為悡銉╂煟閺傛寧鍟為柣蹇ｅ櫍閺岀喐顦版惔鈥冲箣闂佽桨鐒﹂幑鍥ь嚕椤掑嫬围闁糕剝顨忔导?
-
-		if (SOC_Calculate_Element.u32CapNow > SOC_Calculate_Element.u32CapFull)
-			SOC_Calculate_Element.u32CapNow = SOC_Calculate_Element.u32CapFull;
-		C_change_per = SOC_Calculate_Element.u32CapChange * 100 / SOC_Calculate_Element.u32CapFull;
-		SOC_Calculate_Element.u8SOC_Now = SOC_Calculate_Element.u8SOC_Old + C_change_per;
-		if (get_soc_real() > 100)
-			SOC_Calculate_Element.u8SOC_Now = 100;
-		SOC_Calculate_Element.u32CapChange = (((SOC_Calculate_Element.u32CapChange * 100) % SOC_Calculate_Element.u32CapFull) + 50) / 100;
-		SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0;
-
-		SOC_Calculate_Element.u32CapFull_Cal_As += (UINT32)g_stCellInfoReport.u16Ichg * 1;
+		SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
+		return;
 	}
+
+	SOC_Cali_Flag = SOC_CALI_CONT_CHG;
+	SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 1u;
+	SOC_Calculate_Element.u8SOC_Old = get_soc_real();
+	delta = soc_integral_delta_from_current(g_stCellInfoReport.u16Ichg, SOC_INTEGRAL_DIR_CHG);
+	soc_apply_integral_delta(SOC_INTEGRAL_DIR_CHG, delta);
+	SOC_Calculate_Element.u32CapFull_Cal_As += delta;
+	SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
 }
 
 void SOC_Cont_AH_Int_DSG(void)
 {
-	UINT32 C_change_per;
-	uint16_t dsg_acc;
-	static uint8_t s_u8_DSG200msCnt = 0;
-	static uint8_t s_u8_Transfer200msCnt = 0;
-#if 1
-	if (g_stCellInfoReport.u16IDischg >= SOC_VIRTUAL_CURRENT_DSG)
+	uint32_t delta;
+
+	if (!isDSG())
 	{
-		if (++s_u8_DSG200msCnt >= 1)
-		{
-			s_u8_DSG200msCnt = 0;
-			SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 1;
-		}
-		if (s_u8_Transfer200msCnt)
-			s_u8_Transfer200msCnt = 0;
+		SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
+		return;
 	}
-	else
-	{
-		if (++s_u8_Transfer200msCnt >= 2)
-		{
-			s_u8_Transfer200msCnt = 0;
-			s_u8_DSG200msCnt = 0;
-			SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
-			return;
-		}
-		if (s_u8_DSG200msCnt)
-		{
-			--s_u8_DSG200msCnt;
-		}
-	}
-	#endif
 
-	if (SOC_Calculate_Element.u8DSG_AHCalcu_Flag)
-	{
-
-		SOC_Calculate_Element.u8SOC_Old = get_soc_real();
-		SOC_Calculate_Element.u32CapChange += (UINT32)g_stCellInfoReport.u16IDischg * 1;
-		SOC_Calculate_Element.u32CapNow -= (UINT32)g_stCellInfoReport.u16IDischg * 1;
-
-		if (SOC_Calculate_Element.u32CapNow > SOC_Calculate_Element.u32CapFull)
-			SOC_Calculate_Element.u32CapNow = 0;
-		C_change_per = SOC_Calculate_Element.u32CapChange * 100 / SOC_Calculate_Element.u32CapFull;
-		SOC_Calculate_Element.u8SOC_Now = SOC_Calculate_Element.u8SOC_Old - C_change_per;
-		if (get_soc_real() > 100)
-			SOC_Calculate_Element.u8SOC_Now = 0;
-		SOC_Calculate_Element.u32CapChange = (((SOC_Calculate_Element.u32CapChange * 100) % SOC_Calculate_Element.u32CapFull) + 50) / 100; // 闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻浣哥秺椤ユ捇宕楀鈧顐﹀箻閼搁潧鐝板銈嗗姦閸撴稓绮堟径鎰拺閻犳亽鍔岄弸鎴︽煕閳轰焦鍣芥繛鎴犳暬閺屻劎鈧綆浜舵导?
-		SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0;
-
-		if (get_soc_real() != 0)
-		{
-			dsg_acc = (uint16_t)SOC_Calculate_Element.u8DSG_SOC_Int + (uint16_t)C_change_per;
-			SOC_Calculate_Element.u8DSG_SOC_Int = (uint8_t)dsg_acc;
-			// SOC_Calculate_Element.u8DSG_SOC_Int += 1;
-			if (SOC_Calculate_Element.u8DSG_SOC_Int >= 80)
-			{
-				SOC_Calculate_Element.u8DSG_SOC_Int = 0;
-				if (SOC_Calculate_Element.u32Cycle_times < SOC_CYCLE_MAX)
-				{
-					SOC_Calculate_Element.u32Cycle_times += 1;
-				}
-			}
-		}
-	}
+	SOC_Cali_Flag = SOC_CALI_CONT_DSG;
+	SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 1u;
+	SOC_Calculate_Element.u8SOC_Old = get_soc_real();
+	delta = soc_integral_delta_from_current(g_stCellInfoReport.u16IDischg, SOC_INTEGRAL_DIR_DSG);
+	soc_apply_integral_delta(SOC_INTEGRAL_DIR_DSG, delta);
+	SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
 }
 
 void SOC_State_Transfer(void)
 {
-	static uint8_t s_u8SOC_State_CHG = 0;
-	static uint8_t s_u8SOC_State_DSG = 0;
-	static uint8_t s_u8SOC_State_OCV = 0;
-	if (g_stCellInfoReport.u16Ichg >= SOC_VIRTUAL_CURRENT_CHG)
+	if (isCHG())
 	{
-		if (++s_u8SOC_State_CHG >= 3)
-		{
-			s_u8SOC_State_CHG = 0;
-			SOC_Cali_Flag = SOC_CALI_CONT_CHG;
-		}
-		if (s_u8SOC_State_DSG)
-			s_u8SOC_State_DSG = 0;
-		if (s_u8SOC_State_OCV)
-			s_u8SOC_State_OCV = 0;
+		SOC_Cali_Flag = SOC_CALI_CONT_CHG;
 	}
-	else if (g_stCellInfoReport.u16IDischg >= SOC_VIRTUAL_CURRENT_DSG)
+	else if (isDSG())
 	{
-		if (++s_u8SOC_State_DSG >= 3)
-		{
-			s_u8SOC_State_DSG = 0;
-			SOC_Cali_Flag = SOC_CALI_CONT_DSG;
-		}
-		if (s_u8SOC_State_CHG)
-			s_u8SOC_State_CHG = 0;
-		if (s_u8SOC_State_OCV)
-			s_u8SOC_State_OCV = 0;
+		SOC_Cali_Flag = SOC_CALI_CONT_DSG;
 	}
 	else
 	{
-		if (++s_u8SOC_State_OCV >= 3)
-		{
-			s_u8SOC_State_OCV = 0;
-		}
-		if (s_u8SOC_State_CHG)
-			s_u8SOC_State_CHG = 0;
-		if (s_u8SOC_State_DSG)
-			s_u8SOC_State_DSG = 0;
+		SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
+		soc_reset_integral_accumulator();
 	}
 }
 
@@ -962,15 +1003,15 @@ void SOC_Result_Pass(void)
 {
 #ifndef _DOUBLE_SOC_FUNC_
 	g_stCellInfoReport.SocElement.u16Soc = get_soc_real();
-	g_stCellInfoReport.SocElement.u16CapacityNow = SOC_Calculate_Element.u32CapNow * 1 / 360;
+	g_stCellInfoReport.SocElement.u16CapacityNow = SOC_Calculate_Element.u32CapNow / SOC_REPORT_CAPACITY_DIVISOR;
 #else
-	g_stCellInfoReport.real_now_Capacity = SOC_Calculate_Element.u32CapNow * 1 / 360;
+	g_stCellInfoReport.real_now_Capacity = SOC_Calculate_Element.u32CapNow / SOC_REPORT_CAPACITY_DIVISOR;
 	#endif
 	// g_stCellInfoReport.SocElement.u16Soh = 100;
 	g_stCellInfoReport.SocElement.u16Soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
 
-	g_stCellInfoReport.SocElement.u16CapacityFull = SOC_Calculate_Element.u32CapFull * 1 / 360;
-	g_stCellInfoReport.SocElement.u16CapacityFactory = SOC_Calculate_Element.u32CapFactory * 1 / 360;
+	g_stCellInfoReport.SocElement.u16CapacityFull = SOC_Calculate_Element.u32CapFull / SOC_REPORT_CAPACITY_DIVISOR;
+	g_stCellInfoReport.SocElement.u16CapacityFactory = SOC_Calculate_Element.u32CapFactory / SOC_REPORT_CAPACITY_DIVISOR;
 	g_stCellInfoReport.SocElement.u16Cycle_times = soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times);
 }
 
@@ -1116,19 +1157,17 @@ _err:
 
 void APP_SOC_IntEnhance_Ctrl()
 {
-	switch (SOC_Cali_Flag)
+	if (isCHG())
 	{
-	case SOC_CALI_STATE_TRANSFER:
-		SOC_State_Transfer();
-		break;
-	case SOC_CALI_CONT_CHG:
 		SOC_Cont_AH_Int_CHG();
-		break;
-	case SOC_CALI_CONT_DSG:
+	}
+	else if (isDSG())
+	{
 		SOC_Cont_AH_Int_DSG();
-		break;
-	default:
-		break;
+	}
+	else
+	{
+		SOC_State_Transfer();
 	}
 
 	soc_strategy_update();
