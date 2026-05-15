@@ -18,11 +18,11 @@ $hookContent = @'
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 [ -n "$REPO_ROOT" ] || exit 0
 
-PENDING_FILES="$REPO_ROOT/TODO.md $REPO_ROOT/TEST_PENDING.md"
 FOUND=0
 
-for PENDING_FILE in $PENDING_FILES; do
-    [ -f "$PENDING_FILE" ] || continue
+check_pending_file() {
+    PENDING_FILE=$1
+    [ -f "$PENDING_FILE" ] || return 0
 
     if grep -q '^- \[ \]' "$PENDING_FILE"; then
         if [ "$FOUND" -eq 0 ]; then
@@ -36,7 +36,10 @@ for PENDING_FILE in $PENDING_FILES; do
         grep '^- \[ \]' "$PENDING_FILE"
         FOUND=1
     fi
-done
+}
+
+check_pending_file "$REPO_ROOT/TODO.md"
+check_pending_file "$REPO_ROOT/TEST_PENDING.md"
 
 if [ "$FOUND" -eq 1 ]; then
     printf '%s\n' '========================================'
