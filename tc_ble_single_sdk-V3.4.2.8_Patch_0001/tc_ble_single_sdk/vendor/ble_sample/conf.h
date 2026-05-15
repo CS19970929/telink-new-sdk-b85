@@ -8,6 +8,7 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 
+// #define __VIRTURE_CURRENT__
 // #define FAC_TEST
 // #define DISP_VBAT_AND_TEMP_
 #define _UL_RENZHENG_ENABLE_
@@ -40,10 +41,10 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   T1_AND_T2
+#define FD_BMS_TYPE   D11
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260513"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260515"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
