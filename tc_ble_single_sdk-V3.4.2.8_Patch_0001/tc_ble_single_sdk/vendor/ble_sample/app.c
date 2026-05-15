@@ -41,7 +41,7 @@
 #include "bms_event_log.h"
 #include "soc_kv_store.h"
 #include "sif_send.h"
-//#include "nvm_flash.h"
+// #include "nvm_flash.h"
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
@@ -54,9 +54,9 @@ extern void AFE_Sleep(void);
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
-//nvm_cfg_t nvm_cfg;
+// nvm_cfg_t nvm_cfg;
 
-#define APP_PM_TICKS_PER_SEC   32000u
+#define APP_PM_TICKS_PER_SEC 32000u
 
 typedef struct
 {
@@ -65,6 +65,14 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 
+UINT8 IsChargerWakeupActive(void)
+{
+	return !gpio_read(CHG_IN_PIN);
+}
+UINT8 IsKeyWakeupActive(void)
+{
+	return !gpio_read(SW_PIN);
+}
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
 	u32 now_tick_32k;
@@ -72,12 +80,14 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 	u32 total_tick_32k;
 	u32 elapsed_sec;
 
-	if (ctx == NULL) {
+	if (ctx == NULL)
+	{
 		return 0u;
 	}
 
 	now_tick_32k = pm_get_32k_tick();
-	if (!ctx->ready) {
+	if (!ctx->ready)
+	{
 		ctx->last_tick_32k = now_tick_32k;
 		ctx->ready = 1u;
 		return 0u;
@@ -116,7 +126,9 @@ static void app_event_log_1s_task(void)
 
 	sample.afe2_err = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 1u : 0u;
 	eeprom_err = (System_ERROR_UserCallback(ERROR_STATUS_EEPROM_STORE) ||
-				  System_ERROR_UserCallback(ERROR_STATUS_EEPROM_COM)) ? 1u : 0u;
+				  System_ERROR_UserCallback(ERROR_STATUS_EEPROM_COM))
+					 ? 1u
+					 : 0u;
 	sample.eeprom_err = eeprom_err;
 	sample.cbc_err = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
 
@@ -132,12 +144,14 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 {
 	int sleep_status;
 
-	if (app_deepsleep_pad_wakeup_active()) {
+	if (app_deepsleep_pad_wakeup_active())
+	{
 		return 0;
 	}
 
 	bms_event_log_note_sleep();
-	if (need_afe_sleep) {
+	if (need_afe_sleep)
+	{
 		AFE_Sleep();
 	}
 	Runtime_PrepareForDeepSleep();
@@ -155,11 +169,9 @@ void close_ctlc(void)
 {
 	gpio_write(AFE_CTL_PIN, 0);
 
-	//todo 会不会存在冲突，逻辑完备？？？
+	// todo 会不会存在冲突，逻辑完备？？？
 	gpio_write(MCC_C_PIN, 0);
 }
-
-
 
 void app_timer_test_init(void)
 {
@@ -215,62 +227,59 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 	// }
 }
 
-#define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
-#define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
+#define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
+#define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
 
-#define		APP_CONN_LATENCY_NORMAL				99
-#define		APP_CONN_LATENCY_OTA				0
+#define APP_CONN_LATENCY_NORMAL 99
+#define APP_CONN_LATENCY_OTA 0
 
-#define 	MY_DIRECT_ADV_TIME					2000000
+#define MY_DIRECT_ADV_TIME 2000000
 
-
-#define 	MY_APP_ADV_CHANNEL					BLT_ENABLE_ADV_ALL
-#define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_800MS
-#define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_800MS
+#define MY_APP_ADV_CHANNEL BLT_ENABLE_ADV_ALL
+#define MY_ADV_INTERVAL_MIN ADV_INTERVAL_800MS
+#define MY_ADV_INTERVAL_MAX ADV_INTERVAL_800MS
 // #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_500MS
 // #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_500MS
 // #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
 // #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
 
-#define		MY_RF_POWER_INDEX					RF_POWER_P3dBm
+#define MY_RF_POWER_INDEX RF_POWER_P3dBm
 
-#define		BLE_DEVICE_ADDRESS_TYPE 			BLE_DEVICE_ADDRESS_PUBLIC
+#define BLE_DEVICE_ADDRESS_TYPE BLE_DEVICE_ADDRESS_PUBLIC
 
-
-_attribute_data_retention_	u8 ota_is_working = 0;
-_attribute_data_retention_	own_addr_type_t 	app_own_address_type = OWN_ADDRESS_PUBLIC;
+_attribute_data_retention_ u8 ota_is_working = 0;
+_attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PUBLIC;
 
 /**
  * @brief      LinkLayer RX & TX FIFO configuration
  */
 /* CAL_LL_ACL_RX_BUF_SIZE(maxRxOct): maxRxOct + 22, then 16 byte align */
-#define RX_FIFO_SIZE	64
+#define RX_FIFO_SIZE 64
 /* must be: 2^n, (power of 2);at least 4; recommended value: 4, 8, 16 */
-#define RX_FIFO_NUM		8
-
+#define RX_FIFO_NUM 8
 
 /* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct):  maxTxOct + 10, then 4 byte align */
-#define TX_FIFO_SIZE	40
+#define TX_FIFO_SIZE 40
 /* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
-#define TX_FIFO_NUM		16
+#define TX_FIFO_NUM 16
 
+_attribute_data_retention_ u8 blt_rxfifo_b[RX_FIFO_SIZE * RX_FIFO_NUM] = {0};
+_attribute_data_retention_ my_fifo_t blt_rxfifo = {
+	RX_FIFO_SIZE,
+	RX_FIFO_NUM,
+	0,
+	0,
+	blt_rxfifo_b,
+};
 
-_attribute_data_retention_  u8 		 	blt_rxfifo_b[RX_FIFO_SIZE * RX_FIFO_NUM] = {0};
-_attribute_data_retention_	my_fifo_t	blt_rxfifo = {
-												RX_FIFO_SIZE,
-												RX_FIFO_NUM,
-												0,
-												0,
-												blt_rxfifo_b,};
-
-
-_attribute_data_retention_  u8 		 	blt_txfifo_b[TX_FIFO_SIZE * TX_FIFO_NUM] = {0};
-_attribute_data_retention_	my_fifo_t	blt_txfifo = {
-												TX_FIFO_SIZE,
-												TX_FIFO_NUM,
-												0,
-												0,
-												blt_txfifo_b,};
+_attribute_data_retention_ u8 blt_txfifo_b[TX_FIFO_SIZE * TX_FIFO_NUM] = {0};
+_attribute_data_retention_ my_fifo_t blt_txfifo = {
+	TX_FIFO_SIZE,
+	TX_FIFO_NUM,
+	0,
+	0,
+	blt_txfifo_b,
+};
 
 u8 tbl_advData[31];
 u8 tbl_advDataLen;
@@ -315,7 +324,6 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
-
 void open_chg_close_dsg(void)
 {
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
@@ -329,6 +337,33 @@ void open_dsg_close_chg(void)
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	gpio_write(MCC_C_PIN, 0);
+}
+
+void close_chg(void)
+{
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	gpio_write(MCC_C_PIN, 0);
+}
+
+void open_dsg(void)
+{
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	gpio_write(MCC_C_PIN, 0);
+}
+
+void close_dsg(void)
+{
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
 	gpio_write(MCC_C_PIN, 0);
 }
@@ -349,10 +384,12 @@ void enter_fac_mode(bool on)
 	}
 #endif
 }
+
 extern volatile union System_Status SystemStatus;
 void charger_detect_and_keyLogi_200ms(void)
 {
 	static u8 state = 0;
+	static u8 key_state = 0;
 
 	switch (state)
 	{
@@ -362,7 +399,6 @@ void charger_detect_and_keyLogi_200ms(void)
 			state = 1;
 			open_chg_close_dsg();
 			SystemStatus.bits.b1Status_Cool = 1;
-
 		}
 		else
 		{
@@ -372,7 +408,11 @@ void charger_detect_and_keyLogi_200ms(void)
 		if (gpio_read(CHG_IN_PIN))
 		{
 			state = 0;
-			open_dsg_close_chg();
+			close_chg();
+			if(IsKeyWakeupActive())
+			{
+				open_dsg();
+			}
 			SystemStatus.bits.b1Status_Cool = 0;
 		}
 		else
@@ -383,70 +423,125 @@ void charger_detect_and_keyLogi_200ms(void)
 		state = 0;
 		break;
 	}
-}
 
+	if (!IsChargerWakeupActive())
+	{
+		switch (key_state)
+		{
+		case 0:
+			if(IsKeyWakeupActive())
+			{
+				open_dsg();
+				key_state = 1;
+			}
+			break;
+		case 1:
+			if(!IsKeyWakeupActive())
+			{
+				close_dsg();
+				key_state = 0;
+			}
+			break;
+		default:
+			key_state = 0;
+			break;
+		}
+	}
+}
 
 void adc_init_common(void)
 {
-    adc_init();
+	adc_init();
 	adc_power_on_sar_adc(1);
 }
 
-#define NTC_SETTLE_US       50u
+#define NTC_SETTLE_US 50u
 static inline void delay_us(uint32_t us)
 {
-    uint32_t t0 = clock_time();
-    while(!clock_time_exceed(t0, us)) {}
+	uint32_t t0 = clock_time();
+	while (!clock_time_exceed(t0, us))
+	{
+	}
 }
 unsigned int adc_read_gpio_mv(GPIO_PinTypeDef pin)
 {
-    // 1) 閲嶆柊鎶� ADC 杈撳叆鏄犲皠鍒拌 pin
-    //    浣犵幇鏈� adc_base_init 浼氬仛涓�鍫嗗垵濮嬪寲锛屽亸閲�
-    //    濡傛灉閲囨牱棰戠巼涓嶉珮锛堟瘮濡� 10~100ms 涓�娆★級锛岀敤瀹冩病闂
-    adc_base_init(pin);
+	// 1) 閲嶆柊鎶� ADC 杈撳叆鏄犲皠鍒拌 pin
+	//    浣犵幇鏈� adc_base_init 浼氬仛涓�鍫嗗垵濮嬪寲锛屽亸閲�
+	//    濡傛灉閲囨牱棰戠巼涓嶉珮锛堟瘮濡� 10~100ms 涓�娆★級锛岀敤瀹冩病闂
+	adc_base_init(pin);
 	// delay_us(NTC_SETTLE_US);
 
-    // 2) 涓㈠純涓�娆★紙鍒囬�氶亾鍚庣ǔ瀹氾級
-    // (void)adc_sample_and_get_result();
+	// 2) 涓㈠純涓�娆★紙鍒囬�氶亾鍚庣ǔ瀹氾級
+	// (void)adc_sample_and_get_result();
 
-    // 3) 鍙栨湁鏁堝��
-    return adc_sample_and_get_result();
+	// 3) 鍙栨湁鏁堝��
+	return adc_sample_and_get_result();
 }
 
 #define LENGTH_TBLTEMP_MCU_10K ((UINT16)60)
 // const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
 const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 	// AD		(Temp+40)*10
-	2037, 0, //-30
-	1526, 50, //-30
-	1161, 100, //-30
-	893, 150, //-25
-	694, 200, //-20
-	544, 250, //-15
-	430, 300, //-10
-	342, 350, //-5
-	275, 400, // 0
-	221, 450, // 5
-	180, 500, // 10
-	147, 550, // 15
-	121, 600, // 20
-	100, 650, // 25
-	83, 700, // 30
-	69, 750, // 35
-	58, 800, // 40
-	49, 850, // 45
-	41, 900, // 50
-	35, 950, // 55
-	30, 1000, // 60
-	26, 1050, // 65
-	22, 1100, // 70
-	19, 1150, // 75
-	16, 1200, // 80
-	14, 1250, // 85
-	12, 1300, // 90
-	11, 1350, // 95
-	9, 1400, // 100
-	8, 1450, // 105
+	2037,
+	0, //-30
+	1526,
+	50, //-30
+	1161,
+	100, //-30
+	893,
+	150, //-25
+	694,
+	200, //-20
+	544,
+	250, //-15
+	430,
+	300, //-10
+	342,
+	350, //-5
+	275,
+	400, // 0
+	221,
+	450, // 5
+	180,
+	500, // 10
+	147,
+	550, // 15
+	121,
+	600, // 20
+	100,
+	650, // 25
+	83,
+	700, // 30
+	69,
+	750, // 35
+	58,
+	800, // 40
+	49,
+	850, // 45
+	41,
+	900, // 50
+	35,
+	950, // 55
+	30,
+	1000, // 60
+	26,
+	1050, // 65
+	22,
+	1100, // 70
+	19,
+	1150, // 75
+	16,
+	1200, // 80
+	14,
+	1250, // 85
+	12,
+	1300, // 90
+	11,
+	1350, // 95
+	9,
+	1400, // 100
+	8,
+	1450, // 105
 
 };
 
@@ -456,34 +551,36 @@ void app_adc_multi_sample(void)
 	static u16 weichi_delay = 0;
 	static u8 mos_state = 0;
 	static uint32_t rong_fuse = 0;
-	#ifdef _UL_RENZHENG_ENABLE_
-		static u8 state_fuse = 0;
-		static uint32_t rong_fuse_afe_err_cnt = 0;
-	#endif
+#ifdef _UL_RENZHENG_ENABLE_
+	static u8 state_fuse = 0;
+	static uint32_t rong_fuse_afe_err_cnt = 0;
+#endif
 
-	if(sys_time.low_power_mode)
+	if (sys_time.low_power_mode)
 	{
 		mos_state = 0;
-		#ifdef _UL_RENZHENG_ENABLE_
-			state_fuse = 0;
-			rong_fuse_afe_err_cnt = 0;
-		#endif
+#ifdef _UL_RENZHENG_ENABLE_
+		state_fuse = 0;
+		rong_fuse_afe_err_cnt = 0;
+#endif
 		return;
 	}
 
-    unsigned int bat_temp_mv  = adc_read_gpio_mv(ADC_NTC_PIN);
-    unsigned int mos_temp_mv   = adc_read_gpio_mv(ADC_NMOS_PIN);
-    unsigned int Vbat_mv   = adc_read_gpio_mv(ADC_VBUS_PIN);
-	if(bat_temp_mv >= 3299) bat_temp_mv = 3299;
-	if(mos_temp_mv >= 3299) mos_temp_mv = 3299;
+	unsigned int bat_temp_mv = adc_read_gpio_mv(ADC_NTC_PIN);
+	unsigned int mos_temp_mv = adc_read_gpio_mv(ADC_NMOS_PIN);
+	unsigned int Vbat_mv = adc_read_gpio_mv(ADC_VBUS_PIN);
+	if (bat_temp_mv >= 3299)
+		bat_temp_mv = 3299;
+	if (mos_temp_mv >= 3299)
+		mos_temp_mv = 3299;
 	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
 	u32 mos_temp_r = 10 * 10 * mos_temp_mv / (3300 - mos_temp_mv);
-    g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
-    g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
+	g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
+	g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
 
-    // ...
+	// ...
 	Vbat_mv = Vbat_mv * 485 / 15;
-#ifdef  DISP_VBAT_AND_TEMP_
+#ifdef DISP_VBAT_AND_TEMP_
 	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
 	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
@@ -492,7 +589,7 @@ void app_adc_multi_sample(void)
 	switch (mos_state)
 	{
 	case 0:
-		if(g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)	
+		if (g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)
 		{
 			close_ctlc();
 			FaultWarnRecord2(MosOTp_Third);
@@ -500,7 +597,7 @@ void app_adc_multi_sample(void)
 		}
 		break;
 	case 1:
-		if(g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)	
+		if (g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)
 		{
 			open_ctlc();
 			mos_state = 0;
@@ -511,26 +608,24 @@ void app_adc_multi_sample(void)
 		break;
 	}
 
-
 #ifdef _UL_RENZHENG_ENABLE_
 
-	if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+	if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 	{
 		rong_fuse = 0;
 		state_fuse = 0;
 
 		close_ctlc();
-		//todo mcc关了，when 开
-		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
+		// todo mcc关了，when 开
+		if (Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
 		{
-			if(++rong_fuse_afe_err_cnt>= 10)
+			if (++rong_fuse_afe_err_cnt >= 10)
 			{
 				rong_fuse_afe_err_cnt = 0;
-		#ifdef _UL_RENZHENG_ENABLE_
-			gpio_write(RF_EN_PIN, 1);
-		#endif
+#ifdef _UL_RENZHENG_ENABLE_
+				gpio_write(RF_EN_PIN, 1);
+#endif
 			}
-
 		}
 	}
 	else
@@ -540,43 +635,43 @@ void app_adc_multi_sample(void)
 		switch (state_fuse)
 		{
 		case 0:
-			if((g_stCellInfoReport.u16Temperature[8] >= (80+40)*10))
+			if ((g_stCellInfoReport.u16Temperature[8] >= (80 + 40) * 10))
 			{
 				state_fuse = 1;
 				close_ctlc();
-            	FaultWarnRecord2(CellChgOTp_Third);
-            	FaultWarnRecord2(CellDsgOTp_Third);
+				FaultWarnRecord2(CellChgOTp_Third);
+				FaultWarnRecord2(CellDsgOTp_Third);
 			}
-			if((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
+			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
 			{
 				++delay_cnt;
-				if(delay_cnt >= 15)
+				if (delay_cnt >= 15)
 				{
 					delay_cnt = 0;
 					state_fuse = 1;
 					close_ctlc();
-					//是否应该强制关掉放电？？？
-            		FaultWarnRecord2(CellOvp_Third);
-            		FaultWarnRecord2(BatOvp_Third);
+					// 是否应该强制关掉放电？？？
+					FaultWarnRecord2(CellOvp_Third);
+					FaultWarnRecord2(BatOvp_Third);
 				}
 			}
 			else
 				delay_cnt = 0;
 			break;
 		case 1:
-			if((g_stCellInfoReport.u16Temperature[8] < (75+40)*10) && (g_stCellInfoReport.u16VCellMax <= 4150))
+			if ((g_stCellInfoReport.u16Temperature[8] < (75 + 40) * 10) && (g_stCellInfoReport.u16VCellMax <= 4150))
 			{
 				state_fuse = 0;
 				open_ctlc();
 			}
-			if(((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
+			if (((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
 			{
-				if(++rong_fuse >= (15))
+				if (++rong_fuse >= (15))
 				{
 					rong_fuse = 0;
-				#ifdef _UL_RENZHENG_ENABLE_
+#ifdef _UL_RENZHENG_ENABLE_
 					gpio_write(RF_EN_PIN, 1);
-				#endif
+#endif
 				}
 			}
 			else
@@ -621,9 +716,9 @@ void app_adc_multi_sample(void)
 		}
 		break;
 	case 1:
-		#ifdef _UL_RENZHENG_ENABLE_
+#ifdef _UL_RENZHENG_ENABLE_
 			gpio_write(RF_EN_PIN, 1);
-		#endif
+#endif
 		// if(Vbat_mv < 3800 * SeriesNum && g_stCellInfoReport.u16Temperature[8] <= 900)
 		// // if(Vbat_mv < 3800 * SeriesNum)
 		// {
@@ -656,55 +751,54 @@ void quit_rtc_mode(void)
 
 void init_bms_io(void)
 {
-		gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
-		gpio_set_input_en(AFE1_PRO_EN_PIN, 0);
-		gpio_set_output_en(AFE1_PRO_EN_PIN, 1);
+	gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
+	gpio_set_input_en(AFE1_PRO_EN_PIN, 0);
+	gpio_set_output_en(AFE1_PRO_EN_PIN, 1);
 
-		gpio_set_func(AFE_CTL_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-		gpio_set_input_en(AFE_CTL_PIN, 0);
-		gpio_set_output_en(AFE_CTL_PIN, 1);
-		close_ctlc();
+	gpio_set_func(AFE_CTL_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+	gpio_set_input_en(AFE_CTL_PIN, 0);
+	gpio_set_output_en(AFE_CTL_PIN, 1);
+	close_ctlc();
 
-		{
-		#ifdef _UL_RENZHENG_ENABLE_
-			gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(RF_EN_PIN, 0);
-			gpio_set_output_en(RF_EN_PIN, 1);
-			// gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
-			gpio_write(RF_EN_PIN, 0);
-		#endif // 
+	{
+#ifdef _UL_RENZHENG_ENABLE_
+		gpio_set_func(RF_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(RF_EN_PIN, 0);
+		gpio_set_output_en(RF_EN_PIN, 1);
+		// gpio_setup_up_down_resistor(RF_EN_PIN, PM_PIN_PULLDOWN_100K);
+		gpio_write(RF_EN_PIN, 0);
+#endif //
 
-			gpio_set_func(SW_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(SW_PIN, 1);
-			gpio_set_output_en(SW_PIN, 0);
-			// gpio_write(GPIO_PA1, 1);
+		gpio_set_func(SW_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(SW_PIN, 1);
+		gpio_set_output_en(SW_PIN, 0);
+		// gpio_write(GPIO_PA1, 1);
 
-			gpio_set_func(MCC_C_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(MCC_C_PIN, 0);
-			gpio_set_output_en(MCC_C_PIN, 1);
-			gpio_write(MCC_C_PIN, 0);
+		gpio_set_func(MCC_C_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(MCC_C_PIN, 0);
+		gpio_set_output_en(MCC_C_PIN, 1);
+		gpio_write(MCC_C_PIN, 0);
 
-			gpio_set_func(CHG_IN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
-			// gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_10K);
-			gpio_set_input_en(CHG_IN_PIN, 1);
-			gpio_set_output_en(CHG_IN_PIN, 0);
+		gpio_set_func(CHG_IN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
+		// gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_10K);
+		gpio_set_input_en(CHG_IN_PIN, 1);
+		gpio_set_output_en(CHG_IN_PIN, 0);
 
-			gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(CHG_WK_PIN, 1);
-			gpio_set_output_en(CHG_WK_PIN, 0);
-			
-			gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(ADC_BUSEN_PIN, 0);
-			gpio_set_output_en(ADC_BUSEN_PIN, 1);
-			gpio_write(ADC_BUSEN_PIN, 1);
+		gpio_set_func(CHG_WK_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(CHG_WK_PIN, 1);
+		gpio_set_output_en(CHG_WK_PIN, 0);
 
-			gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_set_input_en(ADC_EN_PIN, 0);
-			gpio_set_output_en(ADC_EN_PIN, 1);
-			gpio_write(ADC_EN_PIN, 1);
-		}
+		gpio_set_func(ADC_BUSEN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(ADC_BUSEN_PIN, 0);
+		gpio_set_output_en(ADC_BUSEN_PIN, 1);
+		gpio_write(ADC_BUSEN_PIN, 1);
 
+		gpio_set_func(ADC_EN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
+		gpio_set_input_en(ADC_EN_PIN, 0);
+		gpio_set_output_en(ADC_EN_PIN, 1);
+		gpio_write(ADC_EN_PIN, 1);
+	}
 }
 
 void i2c_master_test_init(void)
@@ -714,23 +808,24 @@ void i2c_master_test_init(void)
 	i2c_master_init(AFE_ID, (unsigned char)(CLOCK_SYS_CLOCK_HZ / (4 * 100000)));
 }
 
+_attribute_data_retention_ int device_in_connection_state;
 
-_attribute_data_retention_	int device_in_connection_state;
+_attribute_data_retention_ u32 advertise_begin_tick;
 
-_attribute_data_retention_	u32 advertise_begin_tick;
-
-_attribute_data_retention_	u8	sendTerminate_before_enterDeep = 0;
+_attribute_data_retention_ u8 sendTerminate_before_enterDeep = 0;
 
 void app_ble_request_normal_conn_param(void)
 {
-	if(device_in_connection_state){
+	if (device_in_connection_state)
+	{
 		bls_l2cap_requestConnParamUpdate(CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, APP_CONN_LATENCY_NORMAL, CONN_TIMEOUT_4S);
 	}
 }
 
 void app_ble_request_ota_conn_param(void)
 {
-	if(device_in_connection_state){
+	if (device_in_connection_state)
+	{
 		bls_l2cap_requestConnParamUpdate(CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, APP_CONN_LATENCY_OTA, CONN_TIMEOUT_4S);
 	}
 }
@@ -743,7 +838,7 @@ void app_ble_restore_normal_power(void)
 	app_ble_request_normal_conn_param();
 }
 
-_attribute_data_retention_	u32	latest_user_event_tick;
+_attribute_data_retention_ u32 latest_user_event_tick;
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_ENTER"
@@ -752,22 +847,16 @@ _attribute_data_retention_	u32	latest_user_event_tick;
  * @param[in]  n - data length of event
  * @return     none
  */
-void  task_sleep_enter (u8 e, u8 *p, int n)
+void task_sleep_enter(u8 e, u8 *p, int n)
 {
-	(void)e;(void)p;(void)n;
-	if( blc_ll_getCurrentState() == BLS_LINK_STATE_CONN && ((u32)(bls_pm_getSystemWakeupTick() - clock_time())) > 80 * SYSTEM_TIMER_TICK_1MS){  //suspend time > 30ms.add gpio wakeup
-		bls_pm_setWakeupSource(PM_WAKEUP_PAD);  //gpio pad wakeup suspend/deepsleep
+	(void)e;
+	(void)p;
+	(void)n;
+	if (blc_ll_getCurrentState() == BLS_LINK_STATE_CONN && ((u32)(bls_pm_getSystemWakeupTick() - clock_time())) > 80 * SYSTEM_TIMER_TICK_1MS)
+	{										   // suspend time > 30ms.add gpio wakeup
+		bls_pm_setWakeupSource(PM_WAKEUP_PAD); // gpio pad wakeup suspend/deepsleep
 	}
 }
-
-
-
-
-
-
-
-
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_ADV_DURATION_TIMEOUT"
@@ -776,25 +865,24 @@ void  task_sleep_enter (u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-void 	app_switch_to_undirected_adv(u8 e, u8 *p, int n)
+void app_switch_to_undirected_adv(u8 e, u8 *p, int n)
 {
-	(void)e;(void)p;(void)n;
-	bls_ll_setAdvParam( MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
-						ADV_TYPE_CONNECTABLE_UNDIRECTED, app_own_address_type,
-						0,  NULL,
-						MY_APP_ADV_CHANNEL,
-						ADV_FP_NONE);
+	(void)e;
+	(void)p;
+	(void)n;
+	bls_ll_setAdvParam(MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
+					   ADV_TYPE_CONNECTABLE_UNDIRECTED, app_own_address_type,
+					   0, NULL,
+					   MY_APP_ADV_CHANNEL,
+					   ADV_FP_NONE);
 
 	/* clear resolving list:
 	 * 1. delete all devices in resolving list.
 	 * 2. disable address resolution */
 	blc_ll_clearResolvingList();
 
-	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //must: set ADV enable
+	bls_ll_setAdvEnable(BLC_ADV_ENABLE); // must: set ADV enable
 }
-
-
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_CONNECT"
@@ -803,27 +891,27 @@ void 	app_switch_to_undirected_adv(u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-void	task_connect (u8 e, u8 *p, int n)
+void task_connect(u8 e, u8 *p, int n)
 {
-	(void)e;(void)p;(void)n;
+	(void)e;
+	(void)p;
+	(void)n;
 	tlk_contr_evt_connect_t *pConnEvt = (tlk_contr_evt_connect_t *)p;
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] connect, intA & advA:", pConnEvt->initA, 12);
-	device_in_connection_state = 1;//
-//	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 19, CONN_TIMEOUT_4S);  // 200mS
-	app_ble_request_normal_conn_param();  // 1 S
-//	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 149, CONN_TIMEOUT_8S);  // 1.5 S
-//	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 199, CONN_TIMEOUT_8S);  // 2 S
-//	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 249, CONN_TIMEOUT_8S);  // 2.5 S
-//	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 299, CONN_TIMEOUT_8S);  // 3 S
+	device_in_connection_state = 1;		 //
+										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 19, CONN_TIMEOUT_4S);  // 200mS
+	app_ble_request_normal_conn_param(); // 1 S
+										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 149, CONN_TIMEOUT_8S);  // 1.5 S
+										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 199, CONN_TIMEOUT_8S);  // 2 S
+										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 249, CONN_TIMEOUT_8S);  // 2.5 S
+										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 299, CONN_TIMEOUT_8S);  // 3 S
 
 	latest_user_event_tick = clock_time();
 
 #if (UI_LED_ENABLE && !TEST_CONN_CURRENT_ENABLE)
-	gpio_write(GPIO_LED_RED, LED_ON_LEVEL);  //red led on
+	gpio_write(GPIO_LED_RED, LED_ON_LEVEL); // red led on
 #endif
 }
-
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_TERMINATE"
@@ -832,48 +920,44 @@ void	task_connect (u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-void 	task_terminate(u8 e, u8 *p, int n) //*p is terminate reason
+void task_terminate(u8 e, u8 *p, int n) //*p is terminate reason
 {
-	(void)e;(void)n;
-
+	(void)e;
+	(void)n;
 
 	device_in_connection_state = 0;
 
-
 	tlk_contr_evt_terminate_t *pEvt = (tlk_contr_evt_terminate_t *)p;
-	if(pEvt->terminate_reason == HCI_ERR_CONN_TIMEOUT){
-
+	if (pEvt->terminate_reason == HCI_ERR_CONN_TIMEOUT)
+	{
 	}
-	else if(pEvt->terminate_reason == HCI_ERR_REMOTE_USER_TERM_CONN){
-
+	else if (pEvt->terminate_reason == HCI_ERR_REMOTE_USER_TERM_CONN)
+	{
 	}
-	else if(pEvt->terminate_reason == HCI_ERR_CONN_TERM_MIC_FAILURE){
-
+	else if (pEvt->terminate_reason == HCI_ERR_CONN_TERM_MIC_FAILURE)
+	{
 	}
-	else{
-
+	else
+	{
 	}
 
 	tlkapi_printf(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] disconnect, reason 0x%x\n", pEvt->terminate_reason);
 
 #if (BLE_APP_PM_ENABLE)
-	 //user has push terminate packet to BLE TX buffer before deepsleep
-	if(sendTerminate_before_enterDeep == 1 && !TEST_CONN_CURRENT_ENABLE){
+	// user has push terminate packet to BLE TX buffer before deepsleep
+	if (sendTerminate_before_enterDeep == 1 && !TEST_CONN_CURRENT_ENABLE)
+	{
 		sendTerminate_before_enterDeep = 2;
-		bls_ll_setAdvEnable(BLC_ADV_DISABLE);   //disable ADV
+		bls_ll_setAdvEnable(BLC_ADV_DISABLE); // disable ADV
 	}
 #endif
 
-
 #if (UI_LED_ENABLE && !TEST_CONN_CURRENT_ENABLE)
-	gpio_write(GPIO_LED_RED, !LED_ON_LEVEL);  //red led off
+	gpio_write(GPIO_LED_RED, !LED_ON_LEVEL); // red led off
 #endif
 
 	advertise_begin_tick = clock_time();
 }
-
-
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_EXIT"
@@ -882,12 +966,13 @@ void 	task_terminate(u8 e, u8 *p, int n) //*p is terminate reason
  * @param[in]  n - data length of event
  * @return     none
  */
-void task_suspend_exit (u8 e, u8 *p, int n)
+void task_suspend_exit(u8 e, u8 *p, int n)
 {
-	(void)e;(void)p;(void)n;
-	rf_set_power_level_index (MY_RF_POWER_INDEX);
+	(void)e;
+	(void)p;
+	(void)n;
+	rf_set_power_level_index(MY_RF_POWER_INDEX);
 }
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
@@ -896,13 +981,11 @@ void task_suspend_exit (u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-void	task_dle_exchange (u8 e, u8 *p, int n)
+void task_dle_exchange(u8 e, u8 *p, int n)
 {
-	tlk_contr_evt_dataLenExg_t* pEvt = (tlk_contr_evt_dataLenExg_t*)p;
+	tlk_contr_evt_dataLenExg_t *pEvt = (tlk_contr_evt_dataLenExg_t *)p;
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] DLE exchange", &pEvt->connEffectiveMaxRxOctets, 4);
 }
-
-
 
 /**
  * @brief      callback function of Host Event
@@ -911,94 +994,89 @@ void	task_dle_exchange (u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     0
  */
-int app_host_event_callback (u32 h, u8 *para, int n)
+int app_host_event_callback(u32 h, u8 *para, int n)
 {
 
 	u8 event = h & 0xFF;
 
-	switch(event)
+	switch (event)
 	{
-		case GAP_EVT_SMP_PAIRING_BEGIN:
-		{
-			gap_smp_pairingBeginEvt_t *pEvt = (gap_smp_pairingBeginEvt_t *)para;
-			tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring begin:", pEvt, sizeof(gap_smp_pairingBeginEvt_t));
-		}
-		break;
+	case GAP_EVT_SMP_PAIRING_BEGIN:
+	{
+		gap_smp_pairingBeginEvt_t *pEvt = (gap_smp_pairingBeginEvt_t *)para;
+		tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring begin:", pEvt, sizeof(gap_smp_pairingBeginEvt_t));
+	}
+	break;
 
-		case GAP_EVT_SMP_PAIRING_SUCCESS:
-		{
-			gap_smp_pairingSuccessEvt_t *pEvt = (gap_smp_pairingSuccessEvt_t *)para;
-			tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring success:", pEvt, sizeof(gap_smp_pairingSuccessEvt_t));
-		}
-		break;
+	case GAP_EVT_SMP_PAIRING_SUCCESS:
+	{
+		gap_smp_pairingSuccessEvt_t *pEvt = (gap_smp_pairingSuccessEvt_t *)para;
+		tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring success:", pEvt, sizeof(gap_smp_pairingSuccessEvt_t));
+	}
+	break;
 
-		case GAP_EVT_SMP_PAIRING_FAIL:
-		{
-			gap_smp_pairingFailEvt_t *pEvt = (gap_smp_pairingFailEvt_t *)para;
-			tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring fail:", pEvt, sizeof(gap_smp_pairingFailEvt_t));
-		}
-		break;
+	case GAP_EVT_SMP_PAIRING_FAIL:
+	{
+		gap_smp_pairingFailEvt_t *pEvt = (gap_smp_pairingFailEvt_t *)para;
+		tlkapi_send_string_data(APP_SMP_LOG_EN, "[APP][SMP] paring fail:", pEvt, sizeof(gap_smp_pairingFailEvt_t));
+	}
+	break;
 
-		case GAP_EVT_SMP_CONN_ENCRYPTION_DONE:
-		{
-			//gap_smp_connEncDoneEvt_t *pEvt = (gap_smp_connEncDoneEvt_t *)para;
-		}
-		break;
+	case GAP_EVT_SMP_CONN_ENCRYPTION_DONE:
+	{
+		// gap_smp_connEncDoneEvt_t *pEvt = (gap_smp_connEncDoneEvt_t *)para;
+	}
+	break;
 
-		case GAP_EVT_SMP_SECURITY_PROCESS_DONE:
-		{
-			//gap_smp_securityProcessDoneEvt_t *pEvt = (gap_smp_securityProcessDoneEvt_t *)para;
-		}
-		break;
+	case GAP_EVT_SMP_SECURITY_PROCESS_DONE:
+	{
+		// gap_smp_securityProcessDoneEvt_t *pEvt = (gap_smp_securityProcessDoneEvt_t *)para;
+	}
+	break;
 
+	case GAP_EVT_SMP_TK_DISPLAY:
+	{
+		// u32 pinCode = MAKE_U32(para[3], para[2], para[1], para[0]);
+	}
+	break;
 
-		case GAP_EVT_SMP_TK_DISPLAY:
-		{
-			//u32 pinCode = MAKE_U32(para[3], para[2], para[1], para[0]);
-		}
-		break;
+	case GAP_EVT_SMP_TK_REQUEST_PASSKEY:
+	{
+		// for this event, no data, "para" is NULL
+	}
+	break;
 
-		case GAP_EVT_SMP_TK_REQUEST_PASSKEY:
-		{
-			//for this event, no data, "para" is NULL
-		}
-		break;
+	case GAP_EVT_SMP_TK_REQUEST_OOB:
+	{
+		// for this event, no data, "para" is NULL
+	}
+	break;
 
-		case GAP_EVT_SMP_TK_REQUEST_OOB:
-		{
-			//for this event, no data, "para" is NULL
-		}
-		break;
+	case GAP_EVT_SMP_TK_NUMERIC_COMPARE:
+	{
+		// u32 pinCode = MAKE_U32(para[3], para[2], para[1], para[0]);
+	}
+	break;
 
-		case GAP_EVT_SMP_TK_NUMERIC_COMPARE:
-		{
-			//u32 pinCode = MAKE_U32(para[3], para[2], para[1], para[0]);
-		}
-		break;
+	case GAP_EVT_ATT_EXCHANGE_MTU:
+	{
+		gap_gatt_mtuSizeExchangeEvt_t *pEvt = (gap_gatt_mtuSizeExchangeEvt_t *)para;
+		tlkapi_send_string_data(APP_HOST_EVENT_LOG_EN, "[APP][MTU] mtu exchange", pEvt, sizeof(gap_gatt_mtuSizeExchangeEvt_t));
+	}
+	break;
 
-		case GAP_EVT_ATT_EXCHANGE_MTU:
-		{
-			gap_gatt_mtuSizeExchangeEvt_t *pEvt = (gap_gatt_mtuSizeExchangeEvt_t *)para;
-			tlkapi_send_string_data(APP_HOST_EVENT_LOG_EN, "[APP][MTU] mtu exchange", pEvt, sizeof(gap_gatt_mtuSizeExchangeEvt_t));
-		}
-		break;
+	case GAP_EVT_GATT_HANDLE_VALUE_CONFIRM:
+	{
+		// for this event, no data, "para" is NULL
+	}
+	break;
 
-		case GAP_EVT_GATT_HANDLE_VALUE_CONFIRM:
-		{
-			//for this event, no data, "para" is NULL
-		}
-		break;
-
-
-		default:
+	default:
 		break;
 	}
 
 	return 0;
 }
-
-
-
 
 /**
  * @brief      power management code for application
@@ -1017,17 +1095,15 @@ void blt_pm_proc(void)
 
 	if (sleep_elapsed_sec != 0u)
 	{
-	#ifdef _DI_SWITCH_SYS_ONOFF
-		if (gpio_read(CHG_IN_PIN))
+#ifdef _DI_SWITCH_SYS_ONOFF
+		if (!IsChargerWakeupActive())
 		{
-			if (gpio_read(SW_PIN))
+			if (!IsKeyWakeupActive())
 			{
 				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
 				if (sleep_cnt >= 3u)
 				{
 					sleep_cnt = 0;
-					// printf("0x5v %d\n", gpio_read(CHG_IN_PIN));
-					// printf("0xkey %d\n", gpio_read(SW_PIN));
 					app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 				}
 			}
@@ -1036,7 +1112,11 @@ void blt_pm_proc(void)
 				sleep_cnt = 0;
 			}
 		}
-	#endif
+		else
+		{
+			sleep_cnt = 0;
+		}
+#endif
 
 		if (g_stCellInfoReport.u16VCellMin < 2550)
 		{
@@ -1072,7 +1152,7 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if ((g_stCellInfoReport.u16VCellMin <  __SLEEP_VNORMAL__ && !g_stCellInfoReport.u16Ichg))
+		else if ((g_stCellInfoReport.u16VCellMin < __SLEEP_VNORMAL__ && !g_stCellInfoReport.u16Ichg))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
@@ -1088,14 +1168,14 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if(1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+		else if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
 
 			afe_comm_err_sleepcnt += sleep_elapsed_sec;
-			if(afe_comm_err_sleepcnt >= (60 * 30))
+			if (afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
 				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
@@ -1113,37 +1193,37 @@ void blt_pm_proc(void)
 	}
 
 #if 0
-#if(BLE_APP_PM_ENABLE)
+#if (BLE_APP_PM_ENABLE)
 	if(blc_ll_getCurrentState() == BLS_LINK_STATE_IDLE){ //PM module can not manage Idle state low power.
 		/* user manage BLE Idle state sleep with API "cpu_sleep_wakeup" */
-		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
+#if (!TEST_CONN_CURRENT_ENABLE) // test connection power, should disable deepSleep
 			if(sendTerminate_before_enterDeep == 2){  //Terminate OK
 				analog_write(USED_DEEP_ANA_REG, analog_read(USED_DEEP_ANA_REG) | CONN_DEEP_FLG);
 				app_note_sleep_and_enter_deepsleep(0u);  //deepSleep
 			}
-		#endif
+#endif
 	}
 	else{ //PM module manage advertising and ACL connection Slave role low power only
 
-		#if (PM_DEEPSLEEP_RETENTION_ENABLE)
+#if (PM_DEEPSLEEP_RETENTION_ENABLE)
 			bls_pm_setSuspendMask (SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
-		#else
+#else
 			bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-		#endif
+#endif
 
 
 		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
 			if(0){
 			}
-		#if (UI_KEYBOARD_ENABLE)
+#if (UI_KEYBOARD_ENABLE)
 			else if(scan_pin_need || key_not_released){
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
 			}
-		#elif (UI_BUTTON_ENABLE)
+#elif (UI_BUTTON_ENABLE)
 			else if(button_not_released){
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
 			}
-		#endif
+#endif
 			else if(ota_is_working){
 				bls_pm_setManualLatency(0);
 			}
@@ -1157,9 +1237,8 @@ void blt_pm_proc(void)
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
 			}
 
-
 #if 0
-		#if (!TEST_CONN_CURRENT_ENABLE)   //test connection power, should disable deepSleep
+#if (!TEST_CONN_CURRENT_ENABLE) // test connection power, should disable deepSleep
 			if(!ota_is_working && !blc_ll_isControllerEventPending()){  //no controller event pending
 				/* enter deepsleep mode after advertising for 60 seconds without being connected. */
 				if( blc_ll_getCurrentState() == BLS_LINK_STATE_ADV && !sendTerminate_before_enterDeep && \
@@ -1173,60 +1252,63 @@ void blt_pm_proc(void)
 					sendTerminate_before_enterDeep = 1;
 				}
 			}
-		#endif  //end of !TEST_CONN_CURRENT_ENABLE
+#endif							// end of !TEST_CONN_CURRENT_ENABLE
 #endif
 	}
-#endif  //end of BLE_APP_PM_ENABLE
-#endif  //end of BLE_APP_PM_ENABLE
+#endif // end of BLE_APP_PM_ENABLE
+#endif // end of BLE_APP_PM_ENABLE
 
-		bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-		sys_time.low_power_mode = true;
-		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
-			if(0){
-			}
-		#if (UI_KEYBOARD_ENABLE)
-			else if(scan_pin_need || key_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#elif (UI_BUTTON_ENABLE)
-			else if(button_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-		#endif
-		#if (BLE_OTA_SERVER_ENABLE)
-			else if(ota_is_working){
-				sys_time.low_power_mode = false;
-				bls_pm_setManualLatency(0);
-				bls_pm_setSuspendMask(SUSPEND_DISABLE);
-				quit_rtc_mode();
-			}
-		#endif
+	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
+	sys_time.low_power_mode = true;
+	// do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
+	if (0)
+	{
+	}
+#if (UI_KEYBOARD_ENABLE)
+	else if (scan_pin_need || key_not_released)
+	{
+		bls_pm_setSuspendMask(SUSPEND_DISABLE);
+	}
+#elif (UI_BUTTON_ENABLE)
+	else if (button_not_released)
+	{
+		bls_pm_setSuspendMask(SUSPEND_DISABLE);
+	}
+#endif
+#if (BLE_OTA_SERVER_ENABLE)
+	else if (ota_is_working)
+	{
+		sys_time.low_power_mode = false;
+		bls_pm_setManualLatency(0);
+		bls_pm_setSuspendMask(SUSPEND_DISABLE);
+		quit_rtc_mode();
+	}
+#endif
 
-			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
-			if(!gpio_read(CHG_IN_PIN) ||
-				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg || 
-				MODE_FACTORY == Runtime_GetMode()
-				)
-			// if(
-			// 	g_stCellInfoReport.u16IDischg 
-			// 	)
-			{
-				sys_time.low_power_mode = false;
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-				quit_rtc_mode();
-			}
-			else if (device_in_connection_state)
-			{
-				sys_time.low_power_mode = false;
-				quit_rtc_mode();
-			}
-			else
-			{
-				enter_rtc_mode();
-			}
+	// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
+	if (!gpio_read(CHG_IN_PIN) ||
+		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
+		g_stCellInfoReport.u16IDischg ||
+		MODE_FACTORY == Runtime_GetMode() ||
+		ota_is_working)
+	// if(
+	// 	g_stCellInfoReport.u16IDischg
+	// 	)
+	{
+		sys_time.low_power_mode = false;
+		bls_pm_setSuspendMask(SUSPEND_DISABLE);
+		quit_rtc_mode();
+	}
+	else if (device_in_connection_state)
+	{
+		sys_time.low_power_mode = false;
+		quit_rtc_mode();
+	}
+	else
+	{
+		enter_rtc_mode();
+	}
 }
-
 
 /**
  * @brief		user initialization when MCU power on or wake_up from deepSleep mode
@@ -1236,31 +1318,30 @@ void blt_pm_proc(void)
 _attribute_no_inline_ void user_init_normal(void)
 {
 
-//////////////////////////// basic hardware Initialization  Begin //////////////////////////////////
+	//////////////////////////// basic hardware Initialization  Begin //////////////////////////////////
 
 	/* random number generator must be initiated before any BLE stack initialization.
 	 * When deepSleep retention wakeUp, no need initialize again */
-#if(MCU_CORE_TYPE == MCU_CORE_825x || MCU_CORE_TYPE == MCU_CORE_827x)
-	random_generator_init();  //this is must
+#if (MCU_CORE_TYPE == MCU_CORE_825x || MCU_CORE_TYPE == MCU_CORE_827x)
+	random_generator_init(); // this is must
 #endif
 
-	//	debug init
-	#if(UART_PRINT_DEBUG_ENABLE)
-		tlkapi_debug_init();
-		blc_debug_enableStackLog(STK_LOG_DISABLE);
-	#endif
+//	debug init
+#if (UART_PRINT_DEBUG_ENABLE)
+	tlkapi_debug_init();
+	blc_debug_enableStackLog(STK_LOG_DISABLE);
+#endif
 
 	blc_readFlashSize_autoConfigCustomFlashSector();
 
 	/* attention that this function must be called after "blc_readFlashSize_autoConfigCustomFlashSector" !!!*/
 	blc_app_loadCustomizedParameters_normal();
 
-
-	/* attention that this function must be called after "blc_app_loadCustomizedParameters_normal" !!!
-	   The reason is that the low battery check need the ADC calibration parameter, and this parameter
-	   is loaded in blc_app_loadCustomizedParameters_normal.
-	 */
-	#if (APP_BATT_CHECK_ENABLE)
+/* attention that this function must be called after "blc_app_loadCustomizedParameters_normal" !!!
+   The reason is that the low battery check need the ADC calibration parameter, and this parameter
+   is loaded in blc_app_loadCustomizedParameters_normal.
+ */
+#if (APP_BATT_CHECK_ENABLE)
 	/*The SDK must do a quick low battery detect during user initialization instead of waiting
 	  until the main_loop. The reason for this process is to avoid application errors that the device
 	  has already working at low power.
@@ -1274,194 +1355,183 @@ _attribute_no_inline_ void user_init_normal(void)
 		When there is a low voltage situation, need to restore to 2.2V in order to make other functions normal,
 		this is to ensure that the power supply voltage is confirmed in the charge and has a certain amount of
 		power, then start to restore the function can be safer.*/
-		user_battery_power_check(VBAT_DEEP_THRES_MV);
-	#endif
+	user_battery_power_check(VBAT_DEEP_THRES_MV);
+#endif
 
+#if (APP_FLASH_PROTECTION_ENABLE)
+	app_flash_protection_operation(FLASH_OP_EVT_APP_INITIALIZATION, 0, 0);
+	blc_appRegisterStackFlashOperationCallback(app_flash_protection_operation); // register flash operation callback for stack
+#endif
 
-	#if (APP_FLASH_PROTECTION_ENABLE)
-		app_flash_protection_operation(FLASH_OP_EVT_APP_INITIALIZATION, 0, 0);
-		blc_appRegisterStackFlashOperationCallback(app_flash_protection_operation); //register flash operation callback for stack
-	#endif
+	//////////////////////////// basic hardware Initialization  End //////////////////////////////////
 
-
-
-//////////////////////////// basic hardware Initialization  End //////////////////////////////////
-
-
-
-
-//////////////////////////// BLE stack Initialization  Begin //////////////////////////////////
+	//////////////////////////// BLE stack Initialization  Begin //////////////////////////////////
 	//////////// Controller Initialization  Begin /////////////////////////
-	u8  mac_public[6];
-	u8  mac_random_static[6];
+	u8 mac_public[6];
+	u8 mac_random_static[6];
 	/* for 512K Flash, flash_sector_mac_address equals to 0x76000, for 1M  Flash, flash_sector_mac_address equals to 0xFF000 */
 	blc_initMacAddress(flash_sector_mac_address, mac_public, mac_random_static);
-	tlkapi_send_string_data(APP_LOG_EN,"[APP][INI]Public Address", mac_public, 6);
+	tlkapi_send_string_data(APP_LOG_EN, "[APP][INI]Public Address", mac_public, 6);
 
-	#if(BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_PUBLIC)
-		app_own_address_type = OWN_ADDRESS_PUBLIC;
-	#elif(BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_RANDOM_STATIC)
-		app_own_address_type = OWN_ADDRESS_RANDOM;
-		blc_ll_setRandomAddr(mac_random_static);
-	#endif
+#if (BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_PUBLIC)
+	app_own_address_type = OWN_ADDRESS_PUBLIC;
+#elif (BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_RANDOM_STATIC)
+	app_own_address_type = OWN_ADDRESS_RANDOM;
+	blc_ll_setRandomAddr(mac_random_static);
+#endif
 
 	for (size_t i = 0; i < 6; i++)
 	{
 		g_stCellInfoReport.mac_public[i] = mac_public[5 - i];
 	}
 
-	blc_ll_initBasicMCU();                      //mandatory
-	blc_ll_initStandby_module(mac_public);		//mandatory
-	blc_ll_initAdvertising_module(mac_public); 	//legacy advertising module: mandatory for BLE slave
-	blc_ll_initConnection_module();				//connection module  mandatory for BLE slave/master
-	blc_ll_initSlaveRole_module();				//slave module: 	 mandatory for BLE slave,
+	blc_ll_initBasicMCU();					   // mandatory
+	blc_ll_initStandby_module(mac_public);	   // mandatory
+	blc_ll_initAdvertising_module(mac_public); // legacy advertising module: mandatory for BLE slave
+	blc_ll_initConnection_module();			   // connection module  mandatory for BLE slave/master
+	blc_ll_initSlaveRole_module();			   // slave module: 	 mandatory for BLE slave,
 	//////////// Controller Initialization  End /////////////////////////
-
-
 
 	//////////// Host Initialization  Begin /////////////////////////
 	/* Host Initialization */
 	/* GAP initialization must be done before any other host feature initialization !!! */
-	blc_gap_peripheral_init();    //gap initialization
-	blc_l2cap_register_handler (blc_l2cap_packet_receive);  	//l2cap initialization
-	my_att_init(); //gatt initialization
-	blc_att_setRxMtuSize(MTU_SIZE_SETTING); //set MTU size, default MTU is 23 if not call this API
+	blc_gap_peripheral_init();							  // gap initialization
+	blc_l2cap_register_handler(blc_l2cap_packet_receive); // l2cap initialization
+	my_att_init();										  // gatt initialization
+	blc_att_setRxMtuSize(MTU_SIZE_SETTING);				  // set MTU size, default MTU is 23 if not call this API
 
-	/* SMP Initialization may involve flash write/erase(when one sector stores too much information,
-	 *   is about to exceed the sector threshold, this sector must be erased, and all useful information
-	 *   should re_stored) , so it must be done after battery check */
-	#if (BLE_APP_SECURITY_ENABLE)
-		/* attention: If this API is used, must be called before "blc smp_peripheral_init" when initialization !!! */
-		bls_smp_configPairingSecurityInfoStorageAddr(flash_sector_smp_storage);
-		blc_smp_peripheral_init();
+/* SMP Initialization may involve flash write/erase(when one sector stores too much information,
+ *   is about to exceed the sector threshold, this sector must be erased, and all useful information
+ *   should re_stored) , so it must be done after battery check */
+#if (BLE_APP_SECURITY_ENABLE)
+	/* attention: If this API is used, must be called before "blc smp_peripheral_init" when initialization !!! */
+	bls_smp_configPairingSecurityInfoStorageAddr(flash_sector_smp_storage);
+	blc_smp_peripheral_init();
 
-		/* Hid device on android7.0/7.1 or later version
-		 * New paring: send security_request immediately after connection complete
-		 * reConnect:  send security_request 1000mS after connection complete. If master start paring or encryption before 1000mS timeout, slave do not send security_request. */
-		blc_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); //if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
-	#else
-		blc_smp_setSecurityLevel(No_Security);
-	#endif
-
+	/* Hid device on android7.0/7.1 or later version
+	 * New paring: send security_request immediately after connection complete
+	 * reConnect:  send security_request 1000mS after connection complete. If master start paring or encryption before 1000mS timeout, slave do not send security_request. */
+	blc_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); // if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
+#else
+	blc_smp_setSecurityLevel(No_Security);
+#endif
 
 	/* host(GAP/SMP/GATT/ATT) event process: register host event callback and set event mask */
 	blc_gap_registerHostEventHandler(app_host_event_callback);
 	/* enable some frequently-used host event by default, user can add more host event */
-	blc_gap_setEventMask( GAP_EVT_MASK_SMP_PAIRING_BEGIN 			|  \
-						  GAP_EVT_MASK_SMP_PAIRING_SUCCESS   		|  \
-						  GAP_EVT_MASK_SMP_PAIRING_FAIL				|  \
-						  GAP_EVT_MASK_ATT_EXCHANGE_MTU);
-	//////////// Host Initialization  End /////////////////////////
+	blc_gap_setEventMask(GAP_EVT_MASK_SMP_PAIRING_BEGIN |
+						 GAP_EVT_MASK_SMP_PAIRING_SUCCESS |
+						 GAP_EVT_MASK_SMP_PAIRING_FAIL |
+						 GAP_EVT_MASK_ATT_EXCHANGE_MTU);
+//////////// Host Initialization  End /////////////////////////
 
-	//////////// Service Initialization  Begin /////////////////////////
-	#if (BLE_OTA_SERVER_ENABLE)
-		////////////////// OTA relative ////////////////////////
-		#if (UART_PRINT_DEBUG_ENABLE)
-			blc_debug_addStackLog(STK_LOG_OTA_FLOW);
-		#endif
-		blc_ota_initOtaServer_module();
+//////////// Service Initialization  Begin /////////////////////////
+#if (BLE_OTA_SERVER_ENABLE)
+////////////////// OTA relative ////////////////////////
+#if (UART_PRINT_DEBUG_ENABLE)
+	blc_debug_addStackLog(STK_LOG_OTA_FLOW);
+#endif
+	blc_ota_initOtaServer_module();
 
-		blc_ota_setOtaProcessTimeout(APP_OTA_PROCESS_TIMEOUT_S);
-		blc_ota_setOtaDataPacketTimeout(APP_OTA_DATA_PACKET_TIMEOUT_S);
-		blc_ota_registerOtaStartCmdCb(app_enter_ota_mode);
-		blc_ota_registerOtaResultIndicationCb(app_ota_end_result);
-	#endif
+	blc_ota_setOtaProcessTimeout(APP_OTA_PROCESS_TIMEOUT_S);
+	blc_ota_setOtaDataPacketTimeout(APP_OTA_DATA_PACKET_TIMEOUT_S);
+	blc_ota_registerOtaStartCmdCb(app_enter_ota_mode);
+	blc_ota_registerOtaResultIndicationCb(app_ota_end_result);
+#endif
 	//////////// Service Initialization  End   /////////////////////////
 
-//////////////////////////// BLE stack Initialization  End //////////////////////////////////
+	//////////////////////////// BLE stack Initialization  End //////////////////////////////////
 
-
-//////////////////////////// User Configuration for BLE application ////////////////////////////
+	//////////////////////////// User Configuration for BLE application ////////////////////////////
 	////////////////// config ADV packet /////////////////////
 	u8 adv_param_status = BLE_SUCCESS;
-	#if (BLE_APP_SECURITY_ENABLE)
-		u8 bond_number = blc_smp_param_getCurrentBondingDeviceNumber();  //get bonded device number
-		smp_param_save_t  bondInfo;
-		if(bond_number)   //at least 1 bonding device exist
-		{
-			bls_smp_param_loadByIndex( bond_number - 1, &bondInfo);  //get the latest bonding device (index: bond_number-1 )
+#if (BLE_APP_SECURITY_ENABLE)
+	u8 bond_number = blc_smp_param_getCurrentBondingDeviceNumber(); // get bonded device number
+	smp_param_save_t bondInfo;
+	if (bond_number) // at least 1 bonding device exist
+	{
+		bls_smp_param_loadByIndex(bond_number - 1, &bondInfo); // get the latest bonding device (index: bond_number-1 )
+	}
 
+	if (bond_number) // set direct ADV
+	{
+		/* set direct ADV
+		 * bondInfo.peer_addr_type & bondInfo.peer_addr is the address in the air packet of "CONNECT_IND" PDU stored in Flash.
+		 * if peer address is IDA(identity address), bondInfo.peer_addr is OK used here.
+		 * if peer address is RPA(resolved private address), bondInfo.peer_addr is one RPA peer device has used, it has a correct relation
+		 * with peer IRK, so it can match to peer device at any time even peer device changes it's RPA. */
+		adv_param_status = bls_ll_setAdvParam(MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
+											  ADV_TYPE_CONNECTABLE_DIRECTED_LOW_DUTY, app_own_address_type,
+											  bondInfo.peer_addr_type, bondInfo.peer_addr,
+											  MY_APP_ADV_CHANNEL,
+											  ADV_FP_NONE);
+
+		/* If IRK distributed by peer device is valid, peer device may use RPA(resolved private address) at any time,
+		 * even if it used IDA(identity address) in first pairing phase.
+		 * So here must add peer IRK to resolving list and enable address resolution, since local device should check if
+		 * "CONNECT_IND" PDU is sent by the device directed to.
+		 * attention: local RPA not used, so parameter "local_irk" set to NULL */
+		if (blc_app_isIrkValid(bondInfo.peer_irk))
+		{
+			blc_ll_addDeviceToResolvingList(bondInfo.peer_id_adrType, bondInfo.peer_id_addr, bondInfo.peer_irk, NULL);
+			blc_ll_setAddressResolutionEnable(1);
 		}
 
-		if(bond_number)   //set direct ADV
-		{
-			/* set direct ADV
-			 * bondInfo.peer_addr_type & bondInfo.peer_addr is the address in the air packet of "CONNECT_IND" PDU stored in Flash.
-			 * if peer address is IDA(identity address), bondInfo.peer_addr is OK used here.
-			 * if peer address is RPA(resolved private address), bondInfo.peer_addr is one RPA peer device has used, it has a correct relation
-			 * with peer IRK, so it can match to peer device at any time even peer device changes it's RPA. */
-			adv_param_status = bls_ll_setAdvParam( MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
-											ADV_TYPE_CONNECTABLE_DIRECTED_LOW_DUTY, app_own_address_type,
-											bondInfo.peer_addr_type,  bondInfo.peer_addr,
-											MY_APP_ADV_CHANNEL,
-											ADV_FP_NONE);
+		// it is recommended that direct ADV only last for several seconds, then switch to undirected adv
+		bls_ll_setAdvDuration(MY_DIRECT_ADV_TIME, 1);
+		bls_app_registerEventCallback(BLT_EV_FLAG_ADV_DURATION_TIMEOUT, &app_switch_to_undirected_adv);
+	}
+	else // set undirected adv
+#endif
+	{
+		adv_param_status = bls_ll_setAdvParam(MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
+											  ADV_TYPE_CONNECTABLE_UNDIRECTED, app_own_address_type,
+											  0, NULL,
+											  MY_APP_ADV_CHANNEL,
+											  ADV_FP_NONE);
+	}
 
-			/* If IRK distributed by peer device is valid, peer device may use RPA(resolved private address) at any time,
-			 * even if it used IDA(identity address) in first pairing phase.
-			 * So here must add peer IRK to resolving list and enable address resolution, since local device should check if
-			 * "CONNECT_IND" PDU is sent by the device directed to.
-			 * attention: local RPA not used, so parameter "local_irk" set to NULL */
-			if(blc_app_isIrkValid(bondInfo.peer_irk)){
-				blc_ll_addDeviceToResolvingList(bondInfo.peer_id_adrType, bondInfo.peer_id_addr, bondInfo.peer_irk, NULL);
-				blc_ll_setAddressResolutionEnable(1);
-			}
-
-			//it is recommended that direct ADV only last for several seconds, then switch to undirected adv
-			bls_ll_setAdvDuration(MY_DIRECT_ADV_TIME, 1);
-			bls_app_registerEventCallback (BLT_EV_FLAG_ADV_DURATION_TIMEOUT, &app_switch_to_undirected_adv);
-
-		}
-		else   //set undirected adv
-	#endif
-		{
-			adv_param_status = bls_ll_setAdvParam(  MY_ADV_INTERVAL_MIN, MY_ADV_INTERVAL_MAX,
-											 ADV_TYPE_CONNECTABLE_UNDIRECTED, app_own_address_type,
-											 0,  NULL,
-											 MY_APP_ADV_CHANNEL,
-											 ADV_FP_NONE);
-		}
-
-	if(adv_param_status != BLE_SUCCESS){
+	if (adv_param_status != BLE_SUCCESS)
+	{
 		tlkapi_printf(APP_LOG_EN, "[APP][INI] ADV parameters error 0x%x!!!\n", adv_param_status);
 	}
 
 	ble_build_adv_scanrsp();
-	bls_ll_setAdvData( (u8 *)tbl_advData, sizeof(tbl_advData) );
-	bls_ll_setScanRspData( (u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
-	bls_ll_setAdvEnable(BLC_ADV_ENABLE);  //ADV enable
+	bls_ll_setAdvData((u8 *)tbl_advData, sizeof(tbl_advData));
+	bls_ll_setScanRspData((u8 *)tbl_scanRsp, sizeof(tbl_scanRsp));
+	bls_ll_setAdvEnable(BLC_ADV_ENABLE); // ADV enable
 
 	/* set RF power index, user must set it after every suspend wake_up, because relative setting will be reset in suspend */
-	rf_set_power_level_index (MY_RF_POWER_INDEX);
+	rf_set_power_level_index(MY_RF_POWER_INDEX);
 
-	bls_app_registerEventCallback (BLT_EV_FLAG_CONNECT, &task_connect);
-	bls_app_registerEventCallback (BLT_EV_FLAG_TERMINATE, &task_terminate);
-	bls_app_registerEventCallback (BLT_EV_FLAG_SUSPEND_EXIT, &task_suspend_exit);
-	bls_app_registerEventCallback (BLT_EV_FLAG_DATA_LENGTH_EXCHANGE, &task_dle_exchange);
+	bls_app_registerEventCallback(BLT_EV_FLAG_CONNECT, &task_connect);
+	bls_app_registerEventCallback(BLT_EV_FLAG_TERMINATE, &task_terminate);
+	bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_EXIT, &task_suspend_exit);
+	bls_app_registerEventCallback(BLT_EV_FLAG_DATA_LENGTH_EXCHANGE, &task_dle_exchange);
 
-	///////////////////// Power Management initialization///////////////////
-	#if(BLE_APP_PM_ENABLE)
-		blc_ll_initPowerManagement_module();
+///////////////////// Power Management initialization///////////////////
+#if (BLE_APP_PM_ENABLE)
+	blc_ll_initPowerManagement_module();
 
-		#if (PM_DEEPSLEEP_RETENTION_ENABLE)
-		    blc_app_setDeepsleepRetentionSramSize(); //select DEEPSLEEP_MODE_RET_SRAM_LOW16K or DEEPSLEEP_MODE_RET_SRAM_LOW32K
-			bls_pm_setSuspendMask (SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
-			blc_pm_setDeepsleepRetentionThreshold(95, 95);
+#if (PM_DEEPSLEEP_RETENTION_ENABLE)
+	blc_app_setDeepsleepRetentionSramSize(); // select DEEPSLEEP_MODE_RET_SRAM_LOW16K or DEEPSLEEP_MODE_RET_SRAM_LOW32K
+	bls_pm_setSuspendMask(SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
+	blc_pm_setDeepsleepRetentionThreshold(95, 95);
 
-			#if(MCU_CORE_TYPE == MCU_CORE_825x || MCU_CORE_TYPE == MCU_CORE_827x)
-				blc_pm_setDeepsleepRetentionEarlyWakeupTiming(270);
-			#else
-				blc_pm_setDeepsleepRetentionEarlyWakeupTiming(340);
-			#endif
+#if (MCU_CORE_TYPE == MCU_CORE_825x || MCU_CORE_TYPE == MCU_CORE_827x)
+	blc_pm_setDeepsleepRetentionEarlyWakeupTiming(270);
+#else
+	blc_pm_setDeepsleepRetentionEarlyWakeupTiming(340);
+#endif
 
-		#else
-			bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-		#endif
+#else
+	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
+#endif
 
-		bls_app_registerEventCallback (BLT_EV_FLAG_SUSPEND_ENTER, &task_sleep_enter);
-	#else
-		bls_pm_setSuspendMask (SUSPEND_DISABLE);
-	#endif
-
+	bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_ENTER, &task_sleep_enter);
+#else
+	bls_pm_setSuspendMask(SUSPEND_DISABLE);
+#endif
 
 	// #if (UI_KEYBOARD_ENABLE)
 	// 	/////////// keyboard gpio wakeup init ////////
@@ -1480,7 +1550,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	// 	bls_app_registerEventCallback (BLT_EV_FLAG_GPIO_EARLY_WAKEUP, &proc_button);
 
 	// #endif
-////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/* Check if any Stack(Controller & Host) Initialization error after all BLE initialization done.
 	 * attention that code will stuck in "while(1)" if any error detected in initialization, user need find what error happens and then fix it */
@@ -1491,21 +1561,20 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
-		//bus_mux_task();
-		//nvm_init(&nvm_cfg);
+		// bus_mux_task();
+		// nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();
 		Param_UpgradeReset_Apply();
 		bms_event_log_init();
-		
+
 		i2c_master_test_init();
 		WaitMs(100);
 
-		//todo 待测试 , 断线检测测试
-		AFE_Reset();
+		// todo 待测试 , 断线检测测试
+		// AFE_Reset();
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
-		SH367309_Enable_AFE_Wdt_Cadc_Drivers();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
@@ -1517,29 +1586,37 @@ _attribute_no_inline_ void user_init_normal(void)
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
 		soc_param_lib_init(&d);
-
 	}
-	
+
 	app_timer_test_init();
-	open_ctlc();
 
 	bus_mux_init();
 	btname_init();
 	bms_event_log_note_startup();
 
+	Runtime_Init();
+
+	if (IsChargerWakeupActive())
 	{
-		Runtime_Init();
-		if(MODE_FACTORY == Runtime_GetMode())
+		open_chg_close_dsg();
+	}
+	else
+	{
+		if (MODE_FACTORY == Runtime_GetMode())
 		{
 			enter_fac_mode(true);
 		}
+		else
+		{
+			open_dsg_close_chg();
+		}
 	}
 
-extern void WriteProID_Default(void);
+	extern void WriteProID_Default(void);
 	WriteProID_Default();
+	// sys_time.isdebugenable = 1;
+	open_ctlc();
 }
-
-
 
 /**
  * @brief		user initialization when MCU wake_up from deepSleep_retention mode
@@ -1552,37 +1629,34 @@ _attribute_ram_code_ void user_init_deepRetn(void)
 
 	blc_app_loadCustomizedParameters_deepRetn();
 
-	blc_ll_initBasicMCU();   //mandatory
-	rf_set_power_level_index (MY_RF_POWER_INDEX);
+	blc_ll_initBasicMCU(); // mandatory
+	rf_set_power_level_index(MY_RF_POWER_INDEX);
 
 	blc_ll_recoverDeepRetention();
 
-	#if (APP_BATT_CHECK_ENABLE)
-		/* ADC settings will lost during deepsleep retention mode, so here need clear flag */
-		battery_clear_adc_setting_flag();
-	#endif
+#if (APP_BATT_CHECK_ENABLE)
+	/* ADC settings will lost during deepsleep retention mode, so here need clear flag */
+	battery_clear_adc_setting_flag();
+#endif
 
-	DBG_CHN0_HIGH;    //debug
+	DBG_CHN0_HIGH; // debug
 
 	irq_enable();
 
-	#if (UI_KEYBOARD_ENABLE)
-		/////////// keyboard GPIO wake_up initialization ////////
-		u32 pin[] = KB_DRIVE_PINS;
-		for (int i=0; i<(sizeof (pin)/sizeof(*pin)); i++)
-		{
-			cpu_set_gpio_wakeup (pin[i], Level_High,1);  //drive pin high level wake_up deepsleep
-		}
-	#elif (UI_BUTTON_ENABLE)
+#if (UI_KEYBOARD_ENABLE)
+	/////////// keyboard GPIO wake_up initialization ////////
+	u32 pin[] = KB_DRIVE_PINS;
+	for (int i = 0; i < (sizeof(pin) / sizeof(*pin)); i++)
+	{
+		cpu_set_gpio_wakeup(pin[i], Level_High, 1); // drive pin high level wake_up deepsleep
+	}
+#elif (UI_BUTTON_ENABLE)
 
-		cpu_set_gpio_wakeup (SW1_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
-		cpu_set_gpio_wakeup (SW2_GPIO, Level_Low,1);  //button pin pad low wakeUp suspend/deepSleep
-	#endif
+	cpu_set_gpio_wakeup(SW1_GPIO, Level_Low, 1); // button pin pad low wakeUp suspend/deepSleep
+	cpu_set_gpio_wakeup(SW2_GPIO, Level_Low, 1); // button pin pad low wakeUp suspend/deepSleep
+#endif
 #endif
 }
-
-
-
 
 #if (APP_FLASH_PROTECTION_ENABLE)
 
@@ -1600,7 +1674,7 @@ _attribute_ram_code_ void user_init_deepRetn(void)
  * 			   		but we use [0x10000, 0x20000):  op_addr_begin = 0x10000, op_addr_end = 0x20000
  * @return     none
  */
-_attribute_data_retention_ u16  flash_lockBlock_cmd = 0;
+_attribute_data_retention_ u16 flash_lockBlock_cmd = 0;
 _attribute_data_retention_ static u8 g_app_flash_stack_session_active = 0;
 
 int app_flash_lock_restore_enabled(void)
@@ -1610,7 +1684,7 @@ int app_flash_lock_restore_enabled(void)
 
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end)
 {
-	if(flash_op_evt == FLASH_OP_EVT_APP_INITIALIZATION)
+	if (flash_op_evt == FLASH_OP_EVT_APP_INITIALIZATION)
 	{
 		g_app_flash_stack_session_active = 0u;
 
@@ -1620,39 +1694,44 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 
 		/* just sample code here, protect all flash area for old firmware and OTA new firmware.
 		 * user can change this design if have other consideration */
-		u32  app_lockBlock = 0;
-		#if (BLE_OTA_SERVER_ENABLE)
-			u32 multiBootAddress = blc_ota_getCurrentUsedMultipleBootAddress();
-			if(multiBootAddress == MULTI_BOOT_ADDR_0x20000){
-				app_lockBlock = FLASH_LOCK_FW_LOW_256K;
+		u32 app_lockBlock = 0;
+#if (BLE_OTA_SERVER_ENABLE)
+		u32 multiBootAddress = blc_ota_getCurrentUsedMultipleBootAddress();
+		if (multiBootAddress == MULTI_BOOT_ADDR_0x20000)
+		{
+			app_lockBlock = FLASH_LOCK_FW_LOW_256K;
+		}
+		else if (multiBootAddress == MULTI_BOOT_ADDR_0x40000)
+		{
+			/* attention that 512K capacity flash can not lock all 512K area, should leave some upper sector
+			 * for system data(SMP storage data & calibration data & MAC address) and user data
+			 * will use a approximate value */
+			app_lockBlock = FLASH_LOCK_FW_LOW_512K;
+		}
+#if (MCU_CORE_TYPE == MCU_CORE_827x)
+		else if (multiBootAddress == MULTI_BOOT_ADDR_0x80000)
+		{
+			if (blc_flash_capacity < FLASH_SIZE_1M)
+			{ // for flash capacity smaller than 1M, OTA can not use 512K as multiple boot address
+				blc_flashProt.init_err = 1;
 			}
-			else if(multiBootAddress == MULTI_BOOT_ADDR_0x40000){
-				/* attention that 512K capacity flash can not lock all 512K area, should leave some upper sector
-				 * for system data(SMP storage data & calibration data & MAC address) and user data
+			else
+			{
+				/* attention that 1M capacity flash can not lock all 1M area, should leave some upper sector for
+				 * system data(SMP storage data & calibration data & MAC address) and user data
 				 * will use a approximate value */
-				app_lockBlock = FLASH_LOCK_FW_LOW_512K;
+				app_lockBlock = FLASH_LOCK_FW_LOW_1M;
 			}
-			#if(MCU_CORE_TYPE == MCU_CORE_827x)
-			else if(multiBootAddress == MULTI_BOOT_ADDR_0x80000){
-				if(blc_flash_capacity < FLASH_SIZE_1M){ //for flash capacity smaller than 1M, OTA can not use 512K as multiple boot address
-					blc_flashProt.init_err = 1;
-				}
-				else{
-					/* attention that 1M capacity flash can not lock all 1M area, should leave some upper sector for
-					 * system data(SMP storage data & calibration data & MAC address) and user data
-					 * will use a approximate value */
-					app_lockBlock = FLASH_LOCK_FW_LOW_1M;
-				}
-			}
-			#endif
-		#else
-			app_lockBlock = FLASH_LOCK_FW_LOW_256K; //just demo value, user can change this value according to application
-		#endif
-
+		}
+#endif
+#else
+		app_lockBlock = FLASH_LOCK_FW_LOW_256K; // just demo value, user can change this value according to application
+#endif
 
 		flash_lockBlock_cmd = flash_change_app_lock_block_to_flash_lock_block(app_lockBlock);
 
-		if(blc_flashProt.init_err){
+		if (blc_flashProt.init_err)
+		{
 			tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] flash protection initialization error!!!\n");
 		}
 
@@ -1660,7 +1739,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		flash_lock(flash_lockBlock_cmd);
 	}
 #if (BLE_OTA_SERVER_ENABLE)
-	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_BEGIN)
+	else if (flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_BEGIN)
 	{
 		g_app_flash_stack_session_active = 1u;
 
@@ -1672,7 +1751,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA clear old FW begin, unlock flash\n");
 		flash_unlock();
 	}
-	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_END)
+	else if (flash_op_evt == FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_END)
 	{
 		g_app_flash_stack_session_active = 0u;
 
@@ -1682,7 +1761,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA clear old FW end, restore flash locking\n");
 		flash_lock(flash_lockBlock_cmd);
 	}
-	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN)
+	else if (flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN)
 	{
 		g_app_flash_stack_session_active = 1u;
 
@@ -1694,7 +1773,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA write new FW begin, unlock flash\n");
 		flash_unlock();
 	}
-	else if(flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END)
+	else if (flash_op_evt == FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END)
 	{
 		g_app_flash_stack_session_active = 0u;
 
@@ -1708,16 +1787,11 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	/* add more flash protection operation for your application if needed */
 }
 
-
 #endif
-
-
 
 /////////////////////////////////////////////////////////////////////s
 // main loop flow
 /////////////////////////////////////////////////////////////////////
-
-
 
 _attribute_data_retention_ static u32 test_task_tick = 0;
 
@@ -1733,48 +1807,49 @@ _attribute_no_inline_ void main_loop(void)
 	Runtime_Poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
-	
 
-	#if (APP_BATT_CHECK_ENABLE)
-		/*The frequency of low battery detect is controlled by the variable lowBattDet_tick, which is executed every
-		 500ms in the demo. Users can modify this time according to their needs.*/
-		if(battery_get_detect_enable() && clock_time_exceed(lowBattDet_tick, 500000) ){
-			lowBattDet_tick = clock_time();
-			user_battery_power_check(VBAT_DEEP_THRES_MV);
-		}
-	#endif
-		if(clock_time_exceed(test_task_tick , 1000 * 200)){
-			test_task_tick  = clock_time();
-			tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
-			APP_SOC_IntEnhance_Ctrl();
-			charger_detect_and_keyLogi_200ms();
-		}
-		_attribute_data_retention_ static u32 update_bms_info_tick = 0;
-		if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
-		{
-			//todo 低功耗，时基偏移
-			update_bms_info_tick = clock_time();
-			App_AFEGet();
-			app_adc_multi_sample();
-			app_event_log_1s_task();
-		}
-extern uint16_t get_idle_stable_ticks(void);
-extern uint16_t get_idle_adjust_ticks(void);
+#if (APP_BATT_CHECK_ENABLE)
+	/*The frequency of low battery detect is controlled by the variable lowBattDet_tick, which is executed every
+	 500ms in the demo. Users can modify this time according to their needs.*/
+	if (battery_get_detect_enable() && clock_time_exceed(lowBattDet_tick, 500000))
+	{
+		lowBattDet_tick = clock_time();
+		user_battery_power_check(VBAT_DEEP_THRES_MV);
+	}
+#endif
+	if (clock_time_exceed(test_task_tick, 1000 * 200))
+	{
+		test_task_tick = clock_time();
+		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
+		APP_SOC_IntEnhance_Ctrl();
+		charger_detect_and_keyLogi_200ms();
+	}
+	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
+	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
+	{
+		// todo 低功耗，时基偏移
+		update_bms_info_tick = clock_time();
+		App_AFEGet();
+		app_adc_multi_sample();
+		app_event_log_1s_task();
+	}
+	extern uint16_t get_idle_stable_ticks(void);
+	extern uint16_t get_idle_adjust_ticks(void);
 	// g_stCellInfoReport.u16VCell[30] = get_idle_stable_ticks();
 	// g_stCellInfoReport.u16VCell[31] = get_idle_adjust_ticks();
 
-		bus_mux_task();
+	bus_mux_task();
 #ifdef _FUNC_UART_
-		main_loop_modbus();
+	main_loop_modbus();
 #endif
-		soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
-		// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
-		//nvm_process();
+	soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+	// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+	// nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
 	// test_SH367309_UpdataAfeConfig();
-	
-extern void test_log_app(void);
-extern void test_log_balance_first(void);
+
+	extern void test_log_app(void);
+	extern void test_log_balance_first(void);
 	// if(sys_time.enable_log_test_first)
 	// {
 	// 	sys_time.enable_log_test_first = false;
@@ -1787,5 +1862,3 @@ extern void test_log_balance_first(void);
 	// }
 	blt_pm_proc();
 }
-
-

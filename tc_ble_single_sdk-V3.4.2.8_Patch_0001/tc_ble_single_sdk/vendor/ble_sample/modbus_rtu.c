@@ -229,7 +229,16 @@ static void write_reg(u16 reg, u16 val) {
     if(reg == 0x1102)
     {
         if(val == 0x03) enter_fac_mode(true);
-        if(val == 0x01) sys_time.enable_log_test_balance = true;
+    #if 1
+        // if(val == 0x01) sys_time.enable_log_test_balance = true;
+    #else
+        if(val == 0x01) 
+        {
+            sys_time.CHG = 520;
+            sys_time.DSG = 0;
+
+        }
+    #endif
         // if(val == 0x03) sys_time.enable_current_test = true;
         // if(val == 0x06) sys_time.enable_log_test_first = true;
         // if(val == 0x06) sys_time.enable_current_test = false;
@@ -237,6 +246,13 @@ static void write_reg(u16 reg, u16 val) {
     }
     if(reg == 0x1103)
     {
+    #if 0
+        if(val == 0x01) 
+        {
+            sys_time.CHG = 0;
+            sys_time.DSG = 520;
+        }
+    #endif
         // if(val == 0x03) enter_fac_mode(false);
         // if(val == 0x03) sys_time.enable_current_test = false;
     }

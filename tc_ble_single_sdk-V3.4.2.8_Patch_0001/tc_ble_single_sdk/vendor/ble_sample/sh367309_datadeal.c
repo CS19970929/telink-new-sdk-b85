@@ -658,7 +658,7 @@ void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
     SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閺�鍓ф暩MOS閻㈢泧FE绾兛娆㈤幒褍鍩�
+    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閺�鍓ф暩MOS閻㈢泧FE绾兛娆㈤幒褍鍩�
     if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
     {
         System_ERROR_UserCallback(ERROR_AFE1);
@@ -875,7 +875,6 @@ void test_SH367309_UpdataAfeConfig(void)
                 AFE_IsReady();
                 AFE_ResetFlag = 1;
             }
-            SH367309_Enable_AFE_Wdt_Cadc_Drivers();
         }
         else
         {
@@ -1357,7 +1356,7 @@ void DataLoad_Current(void)
     {
         g_stCellInfoReport.u16IDischg = 0;
     }
-
+    
 #ifdef __VIRTURE_CURRENT__
     if (sys_time.isdebugenable == 1)
     {
