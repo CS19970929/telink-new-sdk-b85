@@ -218,6 +218,9 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 #define 	ADV_IDLE_ENTER_DEEP_TIME			60  //60 s
 #define 	CONN_IDLE_ENTER_DEEP_TIME			60  //60 s
 
+#define		APP_CONN_LATENCY_NORMAL				99
+#define		APP_CONN_LATENCY_OTA				0
+
 #define 	MY_DIRECT_ADV_TIME					2000000
 
 
@@ -682,7 +685,8 @@ void init_bms_io(void)
 			gpio_write(MCC_C_PIN, 0);
 
 			gpio_set_func(CHG_IN_PIN, AS_GPIO); // PA4 姒涙顓绘稉锟� GPIO 閸旂喕鍏橀敍灞藉讲娴犮儰绗夌拋鍓х枂
-			gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_10K);
+			gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
+			// gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_10K);
 			gpio_set_input_en(CHG_IN_PIN, 1);
 			gpio_set_output_en(CHG_IN_PIN, 0);
 
@@ -716,6 +720,28 @@ _attribute_data_retention_	int device_in_connection_state;
 _attribute_data_retention_	u32 advertise_begin_tick;
 
 _attribute_data_retention_	u8	sendTerminate_before_enterDeep = 0;
+
+void app_ble_request_normal_conn_param(void)
+{
+	if(device_in_connection_state){
+		bls_l2cap_requestConnParamUpdate(CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, APP_CONN_LATENCY_NORMAL, CONN_TIMEOUT_4S);
+	}
+}
+
+void app_ble_request_ota_conn_param(void)
+{
+	if(device_in_connection_state){
+		bls_l2cap_requestConnParamUpdate(CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, APP_CONN_LATENCY_OTA, CONN_TIMEOUT_4S);
+	}
+}
+
+void app_ble_restore_normal_power(void)
+{
+#if (BLE_APP_PM_ENABLE)
+	bls_pm_setManualLatency(bls_ll_getConnectionLatency());
+#endif
+	app_ble_request_normal_conn_param();
+}
 
 _attribute_data_retention_	u32	latest_user_event_tick;
 
@@ -782,17 +808,15 @@ void	task_connect (u8 e, u8 *p, int n)
 	(void)e;(void)p;(void)n;
 	tlk_contr_evt_connect_t *pConnEvt = (tlk_contr_evt_connect_t *)p;
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] connect, intA & advA:", pConnEvt->initA, 12);
+	device_in_connection_state = 1;//
 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 19, CONN_TIMEOUT_4S);  // 200mS
-	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 99, CONN_TIMEOUT_4S);  // 1 S
+	app_ble_request_normal_conn_param();  // 1 S
 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 149, CONN_TIMEOUT_8S);  // 1.5 S
 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 199, CONN_TIMEOUT_8S);  // 2 S
 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 249, CONN_TIMEOUT_8S);  // 2.5 S
 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 299, CONN_TIMEOUT_8S);  // 3 S
 
 	latest_user_event_tick = clock_time();
-
-	device_in_connection_state = 1;//
-
 
 #if (UI_LED_ENABLE && !TEST_CONN_CURRENT_ENABLE)
 	gpio_write(GPIO_LED_RED, LED_ON_LEVEL);  //red led on
@@ -1169,9 +1193,14 @@ void blt_pm_proc(void)
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
 			}
 		#endif
-			// else if(ota_is_working){
-			// 	bls_pm_setManualLatency(0);
-			// }
+		#if (BLE_OTA_SERVER_ENABLE)
+			else if(ota_is_working){
+				sys_time.low_power_mode = false;
+				bls_pm_setManualLatency(0);
+				bls_pm_setSuspendMask(SUSPEND_DISABLE);
+				quit_rtc_mode();
+			}
+		#endif
 
 			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 			if(!gpio_read(CHG_IN_PIN) ||
@@ -1332,8 +1361,8 @@ _attribute_no_inline_ void user_init_normal(void)
 		#endif
 		blc_ota_initOtaServer_module();
 
-		//blc_ota_setOtaProcessTimeout(30);   //OTA process timeout:  30 seconds
-		//blc_ota_setOtaDataPacketTimeout(4);	//OTA data packet timeout:  4 seconds
+		blc_ota_setOtaProcessTimeout(APP_OTA_PROCESS_TIMEOUT_S);
+		blc_ota_setOtaDataPacketTimeout(APP_OTA_DATA_PACKET_TIMEOUT_S);
 		blc_ota_registerOtaStartCmdCb(app_enter_ota_mode);
 		blc_ota_registerOtaResultIndicationCb(app_ota_end_result);
 	#endif

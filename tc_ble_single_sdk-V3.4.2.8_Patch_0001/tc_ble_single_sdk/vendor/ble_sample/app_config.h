@@ -58,6 +58,10 @@
 #define APP_FLASH_PROT_LOG_EN				1
 #define APP_BATT_CHECK_LOG_EN				1
 
+/////////////////////// OTA stability ////////////////////////////////////////////////
+#define APP_OTA_PROCESS_TIMEOUT_S			180
+#define APP_OTA_DATA_PACKET_TIMEOUT_S		15
+
 /////////////////////// Sample Board Select Configuration ///////////////////////////////
 #if (__PROJECT_8258_BLE_SAMPLE__)
 	//Only support BOARD_825X_EVK_C1T139A30 & BOARD_825X_DONGLE_C1T139A3
