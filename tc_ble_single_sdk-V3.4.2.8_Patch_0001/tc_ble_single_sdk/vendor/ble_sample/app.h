@@ -30,6 +30,10 @@ extern unsigned int	scan_pin_need;
 extern int button_not_released;
 extern u8 ota_is_working;
 
+void app_ble_request_normal_conn_param(void);
+void app_ble_request_ota_conn_param(void);
+void app_ble_restore_normal_power(void);
+
 
 
 /**
