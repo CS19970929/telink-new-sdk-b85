@@ -1572,7 +1572,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		WaitMs(100);
 
 		// todo 待测试 , 断线检测测试
-		// AFE_Reset();
+		AFE_Reset();
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
 

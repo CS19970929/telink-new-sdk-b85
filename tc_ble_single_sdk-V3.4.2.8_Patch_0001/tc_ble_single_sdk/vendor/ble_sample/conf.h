@@ -41,10 +41,10 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   C700
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260515"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260519"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
