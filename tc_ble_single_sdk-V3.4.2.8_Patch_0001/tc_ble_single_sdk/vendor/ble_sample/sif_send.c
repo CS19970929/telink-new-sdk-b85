@@ -536,7 +536,7 @@ void sif_send_PUBLIC_PACKETS(void)
     sif_report.public.bat_type = __public_battery_type__;
     sif_report.public.bat_mate = __public_BatteryCoreMaterial__;
     sif_report.public.Rated_voltage = __public_Rated_voltage__;
-    sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;
+    sif_report.public.CAPACITYFACTORY = CapacityFactory;
     sif_report.public.soc = g_stCellInfoReport.SocElement.u16Soc * 2;
     sif_report.public.voltage = g_stCellInfoReport.u16VCellTotle / 10;
     uint16_t current = 0;
@@ -667,7 +667,7 @@ void sif_send_PUBLIC_PACKETS(void)
     sif_report.public.bat_type = __public_battery_type__;
     sif_report.public.bat_mate = __public_BatteryCoreMaterial__;
     sif_report.public.Rated_voltage = __public_Rated_voltage__;
-    sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;
+    sif_report.public.CAPACITYFACTORY = CapacityFactory;
     sif_report.public.soc = g_stCellInfoReport.SocElement.u16Soc * 2;
     sif_report.public.voltage = g_stCellInfoReport.u16VCellTotle / 10;
     uint16_t current = 0;

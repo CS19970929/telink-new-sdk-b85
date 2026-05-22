@@ -126,7 +126,6 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 200u))
 #define SOC_FULL_LOCK_TICKS             20u
 #define SOC_EMPTY_LOCK_TICKS            25u
-#define SOC_FULL_SYNC_TAPER_CURRENT_MAX 10u
 #define SOC_DSG_TERMINAL_START_MV       ((uint16_t)(SOC_0_VAL + 300u))
 #define SOC_DSG_TERMINAL_L1_MV          ((uint16_t)(SOC_0_VAL + 200u))
 #define SOC_DSG_TERMINAL_L2_MV          ((uint16_t)(SOC_0_VAL + 150u))
@@ -793,8 +792,7 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 
 static uint8_t soc_apply_terminal_sync(void)
 {
-	if (isCHG() && (ICHG <= SOC_FULL_SYNC_TAPER_CURRENT_MAX) &&
-		(VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
+	if (isCHG() && (VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
 	{
 		if (g_soc_strategy_state.full_lock_ticks < SOC_FULL_LOCK_TICKS)
 		{

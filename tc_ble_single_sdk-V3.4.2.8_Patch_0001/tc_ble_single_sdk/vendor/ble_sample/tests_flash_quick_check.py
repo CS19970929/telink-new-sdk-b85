@@ -334,9 +334,10 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
         self.assertIn("u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
 
-    def test_sif_reports_capacity_in_soc_output_units(self):
+    def test_sif_reports_capacity_as_raw_profile_value(self):
         text = read_text(SIF_SEND_C)
-        self.assertIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
+        self.assertIn("sif_report.public.CAPACITYFACTORY = CapacityFactory;", text)
+        self.assertNotIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
