@@ -9,11 +9,36 @@
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
 extern struct stCell_Info g_stCellInfoReport;
+extern uint32_t g_u32CS_Res_AFE;
 
 UINT32 u32_ChgCur_mA = 0;
 UINT32 u32_DsgCur_mA = 0;
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
+
+static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)
+{
+    return (UINT32)((((uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE) + 10735u) / 21470u);
+}
+
+static void DataLoad_ClearCurrent(void)
+{
+    u32_ChgCur_mA = 0u;
+    u32_DsgCur_mA = 0u;
+    g_stCellInfoReport.u16Ichg = 0u;
+    g_stCellInfoReport.u16IDischg = 0u;
+}
+
+static void DataLoad_ClearAfeReportPreserveSoc(void)
+{
+    struct SOC_CAL_ELEMENT_UPPER soc = g_stCellInfoReport.SocElement;
+    u8 mac_public[sizeof(g_stCellInfoReport.mac_public)];
+
+    memcpy(mac_public, g_stCellInfoReport.mac_public, sizeof(mac_public));
+    memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport));
+    g_stCellInfoReport.SocElement = soc;
+    memcpy(g_stCellInfoReport.mac_public, mac_public, sizeof(mac_public));
+}
 
 UINT8 FaultPoint_First2;
 UINT8 FaultPoint_Second2;
@@ -1298,7 +1323,7 @@ void DataLoad_Current(void)
     if ((SH367309_Read_AFE1.u16Current & 0x8000) == 0)
     {
         // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 榛樿浣跨敤200mV鐨勮绠楁柟寮�
-        u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * g_u32CS_Res_AFE / (21470);
+        u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)SH367309_Read_AFE1.u16Current);
         // t_i32temp = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
         log_i("******************************************\n");
@@ -1310,7 +1335,7 @@ void DataLoad_Current(void)
     {
         // u32_DsgCur_mA = (UINT32)(0xFFFF - (SH367309_Read_AFE1.u16Current | 0xE000) + 1) * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // mA
         // u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * 200 * g_u32CS_Res_AFE / (21470); // mA
-        u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
+        u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1)); // mA
 
         log_i("******************************************\n");
         log_i("AFE value->%d\n", u32_DsgCur_mA);
@@ -1885,10 +1910,12 @@ void App_AFEGet(void)
     }
     else
     {
+        DataLoad_ClearCurrent();
         if(++cnt >= (10))
         {
             System_ErrFlag.u8ErrFlag_Com_AFE1 = 1;
-            memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);
+            DataLoad_ClearAfeReportPreserveSoc();
+            DataLoad_ClearCurrent();
         }
     }
 }

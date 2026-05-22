@@ -20,7 +20,7 @@
 ```c
 #define SOC_PARAM_DEFAULT_SOC    ((u32)FAC_INIT_soc)
 #define SOC_PARAM_DEFAULT_DSG    0u
-#define SOC_PARAM_DEFAULT_CYCLE  100u
+#define SOC_PARAM_DEFAULT_CYCLE  0u
 ```
 
 兼容旧代码的别名仍然保留，但它们现在只是同义映射：
