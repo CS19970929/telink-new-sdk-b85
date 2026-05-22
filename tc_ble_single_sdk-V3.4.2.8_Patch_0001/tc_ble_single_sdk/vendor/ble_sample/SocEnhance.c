@@ -95,7 +95,8 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_REPORT_CAPACITY_DIVISOR     360u
 
 #define SOC_PERCENT_MAX                 100u
-#define SOC_DSG_INT_MAX                 79u
+#define SOC_EQUIV_CYCLE_PERCENT         100u
+#define SOC_DSG_INT_MAX                 (SOC_EQUIV_CYCLE_PERCENT - 1u)
 #define SOC_CYCLE_MAX                   65535u
 #define SOC_OCV_VALID_MIN_MV            2000u
 #define SOC_OCV_VALID_MAX_MV            4000u
@@ -125,12 +126,16 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 200u))
 #define SOC_FULL_LOCK_TICKS             20u
 #define SOC_EMPTY_LOCK_TICKS            25u
+#define SOC_FULL_SYNC_TAPER_CURRENT_MAX 10u
 #define SOC_DSG_TERMINAL_START_MV       ((uint16_t)(SOC_0_VAL + 300u))
 #define SOC_DSG_TERMINAL_L1_MV          ((uint16_t)(SOC_0_VAL + 200u))
 #define SOC_DSG_TERMINAL_L2_MV          ((uint16_t)(SOC_0_VAL + 150u))
 #define SOC_DSG_TERMINAL_L3_MV          ((uint16_t)(SOC_0_VAL + 50u))
 #define SOC_DSG_TERMINAL_VALID_MIN_MV   2000u
-#define SOC_DSG_TERMINAL_STEP_TICKS     5u
+#define SOC_DSG_TERMINAL_LOW_STEP_TICKS 5u
+#define SOC_DSG_TERMINAL_MID_STEP_TICKS 10u
+#define SOC_DSG_TERMINAL_HIGH_STEP_TICKS 20u
+#define SOC_DSG_TERMINAL_VHIGH_STEP_TICKS 30u
 #define SOC_DSG_EMPTY_LOCK_TICKS        10u
 #define SOC_TERMINAL_SYNC_STEP_TICKS    5u
 
@@ -153,6 +158,29 @@ enum SOC_INTEGRAL_DIR
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;		 // 闂傚倷娴囧▔鏇㈠窗閺囩喍绻嗘い鎾跺У鐎氭氨鎲告惔锝傚亾濮橆剛绉洪柡灞诲姂閹垽宕ㄦ繝鍕磿闂備礁缍婇ˉ鎾诲礂濮椻偓瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂閸撲讲鍋撻悷鏉款仹闁煎疇娉涢埢宥夊閵堝懐顔嗛梺缁樺灱婵倝寮?
 
 enum SOC_CALI_STATE SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER; // 闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶姊洪崹顔炬啹濞撴埃鍋撻柡灞诲姂閹垽宕ㄦ繝鍕磿闂備礁缍婇ˉ鎾诲礂濮椻偓瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂閸洘鈷戦悹鎭掑妼閺嬫垿鏌＄€ｎ亶鐓兼鐐茬箻閹粓鎳為妷锔筋仧闂備礁鎼崐鍫曞磹閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻?	SOC闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁诡喒鏅犻幊婊呭枈濡桨澹曟繛鎾村焹閸嬫捇鏌℃担瑙勫磳鐎殿噮鍓熸俊鍫曞幢濡ゅ﹣绱﹂梻鍌欐祰濞夋洟宕伴幇鏉垮嚑濠电姵鑹剧粻顖炴煟閹达絽袚闁哄懏鎮傞幃宄扳枎閹邦剛鐟ㄧ紓浣瑰劶娴滎剛鍒掗悽鍨枂闁告洦鍋掓导鎾寸節濞堝灝鏋涙い鎴濐樀瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂?
+
+typedef struct
+{
+	uint16_t mv;
+	uint8_t soc;
+} soc_ocv_point_t;
+
+static const soc_ocv_point_t g_soc_ocv_points[] = {
+	{SOC_0_VAL, 0u},
+	{3200u, 5u},
+	{3300u, 10u},
+	{3400u, 15u},
+	{3500u, 25u},
+	{3600u, 35u},
+	{3650u, 45u},
+	{3700u, 55u},
+	{3750u, 65u},
+	{3800u, 75u},
+	{3900u, 85u},
+	{4000u, 92u},
+	{4100u, 97u},
+	{SOC_100_VAL, 100u},
+};
 
 typedef struct
 {
@@ -308,6 +336,7 @@ static uint8_t soc_percent_from_capacity_discharge(uint32_t cap)
 static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
 {
 	uint16_t dsg_acc;
+	uint8_t cycle_changed = 0u;
 
 	if (old_soc <= new_soc)
 	{
@@ -315,15 +344,21 @@ static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
 	}
 
 	dsg_acc = (uint16_t)SOC_Calculate_Element.u8DSG_SOC_Int + (uint16_t)(old_soc - new_soc);
-	while (dsg_acc >= 80u)
+	while (dsg_acc >= SOC_EQUIV_CYCLE_PERCENT)
 	{
-		dsg_acc -= 80u;
+		dsg_acc -= SOC_EQUIV_CYCLE_PERCENT;
 		if (SOC_Calculate_Element.u32Cycle_times < SOC_CYCLE_MAX)
 		{
 			SOC_Calculate_Element.u32Cycle_times += 1u;
+			cycle_changed = 1u;
 		}
 	}
 	SOC_Calculate_Element.u8DSG_SOC_Int = (uint8_t)dsg_acc;
+	if (cycle_changed)
+	{
+		soc_recalc_full_capacity();
+		soc_recalc_now_capacity();
+	}
 }
 
 static void soc_apply_integral_delta(enum SOC_INTEGRAL_DIR dir, uint32_t delta)
@@ -373,6 +408,11 @@ static void soc_apply_integral_delta(enum SOC_INTEGRAL_DIR dir, uint32_t delta)
 		}
 
 		new_soc = soc_percent_from_capacity_discharge(SOC_Calculate_Element.u32CapNow);
+		if ((new_soc == 0u) && (old_soc > 0u) && (VCELLMIN > SOC_0_VAL))
+		{
+			SOC_Calculate_Element.u32CapNow = (SOC_Calculate_Element.u32CapFull + SOC_PERCENT_MAX - 1u) / SOC_PERCENT_MAX;
+			new_soc = 1u;
+		}
 		if (new_soc < old_soc)
 		{
 			SOC_Calculate_Element.u8SOC_Now = new_soc;
@@ -480,22 +520,34 @@ static uint8_t soc_idle_for_ocv(void)
 
 static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 {
+	uint8_t i;
+	const soc_ocv_point_t *lo;
+	const soc_ocv_point_t *hi;
 	uint32_t numerator;
-	uint16_t denominator;
 
-	if (cell_mv <= SOC_0_VAL)
+	if (cell_mv <= g_soc_ocv_points[0].mv)
 	{
-		return 0u;
+		return g_soc_ocv_points[0].soc;
 	}
 
-	if (cell_mv >= SOC_100_VAL)
+	if (cell_mv >= g_soc_ocv_points[(sizeof(g_soc_ocv_points) / sizeof(g_soc_ocv_points[0])) - 1u].mv)
 	{
 		return SOC_PERCENT_MAX;
 	}
 
-	denominator = (uint16_t)(SOC_100_VAL - SOC_0_VAL);
-	numerator = ((uint32_t)(cell_mv - SOC_0_VAL) * SOC_PERCENT_MAX) + (denominator / 2u);
-	return (uint8_t)(numerator / denominator);
+	for (i = 1u; i < (uint8_t)(sizeof(g_soc_ocv_points) / sizeof(g_soc_ocv_points[0])); ++i)
+	{
+		if (cell_mv <= g_soc_ocv_points[i].mv)
+		{
+			lo = &g_soc_ocv_points[i - 1u];
+			hi = &g_soc_ocv_points[i];
+			numerator = ((uint32_t)(cell_mv - lo->mv) * (uint32_t)(hi->soc - lo->soc)) +
+						((uint32_t)(hi->mv - lo->mv) / 2u);
+			return (uint8_t)(lo->soc + (numerator / (uint32_t)(hi->mv - lo->mv)));
+		}
+	}
+
+	return SOC_PERCENT_MAX;
 }
 
 static void soc_sanitize_state(void)
@@ -741,7 +793,8 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 
 static uint8_t soc_apply_terminal_sync(void)
 {
-	if (isCHG() && (VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
+	if (isCHG() && (ICHG <= SOC_FULL_SYNC_TAPER_CURRENT_MAX) &&
+		(VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
 	{
 		if (g_soc_strategy_state.full_lock_ticks < SOC_FULL_LOCK_TICKS)
 		{
@@ -814,10 +867,26 @@ static uint8_t soc_discharge_terminal_soc_ceiling(void)
 	return SOC_PERCENT_MAX;
 }
 
+static uint8_t soc_discharge_terminal_step_ticks(void)
+{
+	switch (soc_discharge_ocv_current_band(IDSG))
+	{
+	case 0u:
+		return SOC_DSG_TERMINAL_LOW_STEP_TICKS;
+	case 1u:
+		return SOC_DSG_TERMINAL_MID_STEP_TICKS;
+	case 2u:
+		return SOC_DSG_TERMINAL_HIGH_STEP_TICKS;
+	default:
+		return SOC_DSG_TERMINAL_VHIGH_STEP_TICKS;
+	}
+}
+
 static uint8_t soc_apply_discharge_terminal_tracking(void)
 {
 	uint8_t current_soc;
 	uint8_t target_soc;
+	uint8_t step_ticks;
 
 	if (!isDSG() || (VCELLMAX < VCELLMIN) || (VCELLMIN < SOC_DSG_TERMINAL_VALID_MIN_MV))
 	{
@@ -841,6 +910,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 		return 0u;
 	}
 
+	step_ticks = soc_discharge_terminal_step_ticks();
 	if (target_soc == 0u)
 	{
 		if (g_soc_strategy_state.dsg_empty_lock_ticks < SOC_DSG_EMPTY_LOCK_TICKS)
@@ -850,10 +920,10 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 		if (g_soc_strategy_state.dsg_empty_lock_ticks >= SOC_DSG_EMPTY_LOCK_TICKS)
 		{
 			return soc_apply_step_towards_when_due(0u,
-														0u,
-														&g_soc_strategy_state.dsg_terminal_adjust_ticks,
-														SOC_DSG_TERMINAL_STEP_TICKS);
-			}
+													0u,
+													&g_soc_strategy_state.dsg_terminal_adjust_ticks,
+													step_ticks);
+		}
 		return 0u;
 	}
 
@@ -861,7 +931,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 	return soc_apply_step_towards_when_due(target_soc,
 											0u,
 											&g_soc_strategy_state.dsg_terminal_adjust_ticks,
-											SOC_DSG_TERMINAL_STEP_TICKS);
+											step_ticks);
 }
 
 static void soc_strategy_update(void)

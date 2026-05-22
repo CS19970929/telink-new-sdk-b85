@@ -28,6 +28,10 @@ PARAM_C = MODULE_DIR / "param.c"
 BTNAME_C = MODULE_DIR / "btname_modbus.c"
 BMS_COLD_C = MODULE_DIR / "bms_cold_kv_store.c"
 SOC_KV_C = MODULE_DIR / "soc_kv_store.c"
+SOC_KV_H = MODULE_DIR / "soc_kv_store.h"
+SOC_ENHANCE_C = MODULE_DIR / "SocEnhance.c"
+SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
+SIF_SEND_C = MODULE_DIR / "sif_send.c"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
 
@@ -303,6 +307,36 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn("SOC_KV_FLUSH_INTERVAL_US", text)
         self.assertNotIn("g_soc_last_flush_tick", text)
         self.assertIn("(void)soc_kv_store_write_all(soc, dsg, cycle);", text)
+
+    def test_soc_defaults_start_from_zero_discharge_and_cycle(self):
+        text = read_text(SOC_KV_H)
+        self.assertIn("#define SOC_PARAM_DEFAULT_DSG    0u", text)
+        self.assertIn("#define SOC_PARAM_DEFAULT_CYCLE  0u", text)
+
+    def test_soc_cycle_recalcs_capacity_after_soh_change(self):
+        text = read_text(SOC_ENHANCE_C)
+        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT         100u", text)
+        self.assertIn("while (dsg_acc >= SOC_EQUIV_CYCLE_PERCENT)", text)
+        self.assertIn("cycle_changed = 1u;", text)
+        self.assertIn("soc_recalc_full_capacity();", text)
+        self.assertIn("soc_recalc_now_capacity();", text)
+
+    def test_afe_read_failure_freezes_soc_current_and_preserves_soc_report(self):
+        text = read_text(SH367309_C)
+        self.assertIn("DataLoad_ClearCurrent();", text)
+        self.assertIn("DataLoad_ClearAfeReportPreserveSoc();", text)
+        self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
+
+    def test_current_conversion_uses_shared_rounded_64bit_formula(self):
+        text = read_text(SH367309_C)
+        self.assertIn("static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)", text)
+        self.assertIn("(uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE", text)
+        self.assertIn("u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
+        self.assertIn("u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
+
+    def test_sif_reports_capacity_in_soc_output_units(self):
+        text = read_text(SIF_SEND_C)
+        self.assertIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
