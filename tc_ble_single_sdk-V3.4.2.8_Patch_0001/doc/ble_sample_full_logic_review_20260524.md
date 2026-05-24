@@ -10,6 +10,7 @@
 
 - `ble_sample_full_logic_review_20260524.md` 作为可 diff、可长期维护的源文档。
 - `ble_sample_full_logic_review_20260524.html` 作为便于浏览、评审、归档的阅读版。
+- SOC 用户体验、校准策略和可调参数详见 `soc_user_experience_tuning_20260524.md`。
 
 ## 2. 结论摘要
 
@@ -18,7 +19,7 @@
 - `main.c` 完成 32k 时钟、wakeup、RF、GPIO、系统时钟、watchdog 初始化，然后进入 `user_init_normal()` 或 `user_init_deepRetn()`，最终无限循环调用 `main_loop()`。
 - `user_init_normal()` 先初始化 BLE stack，再初始化 BMS 外设、参数、事件日志、AFE、ADC、SOC KV、SOC 算法、通信总线、BT 名称、Runtime 老化计时，最后根据充电唤醒或 Runtime 工厂状态决定 MOS 控制策略。
 - `main_loop()` 每轮执行 BLE stack、`Runtime_Poll()`、总线任务、SOC KV 即时持久化、低功耗处理；其中 200ms 周期执行 SOC 更新和充电/key 逻辑，1s 周期采集 AFE/ADC 并刷新事件日志。
-- SOC 算法采用 “电流积分 + OCV/端点修正 + SOH/循环次数” 的组合方式，单步修正通过 `soc_apply_step_towards_value()` 控制为每次 1%。
+- SOC 算法采用 “电流积分 + 端点/OCV 修正 + real/display 分离 + SOH/循环次数” 的组合方式，真实 SOC 每次修正最多 1%，对外显示 SOC 再按约 1s/1% 平滑跟随。
 - Flash 存储分为 `flash_kv32` 通用 append-only KV、`soc_kv_store` 热数据、`bms_cold_kv_store` 冷参数、`runtime` 老化计时记录、event log 等区域。
 - 低功耗分两层：一层是主动 `DEEPSLEEP_MODE`，另一层是 BLE suspend + `enter_rtc_mode()` 关闭 ADC 相关电源。老化模式允许 deep sleep，但不允许 RTC mode，且 deep sleep 时间不补偿进老化 runtime。
 
@@ -29,7 +30,7 @@
 | BUG-001 | P0 | 全局数据/链接 | `g_stCellInfoReport` 在 `app.c` 和 `modbus_rtu.c` 中重复定义，存在链接失败或 common symbol 依赖风险。 |
 | BUG-002 | P1 | 老化工厂模式 | Modbus 写 `0x1102 = 0x0003` 只调用 `enter_fac_mode(true)`，没有重置/进入 `Runtime` 工厂计时状态；老化完成后再次写入可能只打开 MOS，不会重新计时，也不会按工厂模式禁止 RTC mode。 |
 | BUG-003 | P1 | 低功耗命令 | Modbus 写 `0x1102 = 0x000A` 只设置 `deepsleep_en = true`，但 `blt_pm_proc()` 中相关判断已注释，命令实际不触发 deep sleep。 |
-| BUG-004 | P1/P2 | SOC OCV | OCV 表覆盖到 `4180mV = 100%`，但 OCV 有效样本最大值是 `4000mV`，导致启动/静置/放电 OCV 修正在 4000mV 以上被过滤。若不是有意限制高压 OCV，这是高 SOC 段校准缺口。 |
+| BUG-004 | P1/P2 | SOC OCV | OCV 表覆盖到 `4180mV = 100%`，但 OCV 有效样本最大值是 `4000mV`，4000mV 以上 OCV 样本会被过滤。当前高 SOC 主要依赖满电端点同步，是否放开高压 OCV 需要实测确认。 |
 
 ## 3. 一页调用链
 
@@ -162,11 +163,14 @@ SOC 源文件是 `SocEnhance.c/.h`，持久化接口是 `soc_kv_store.c/.h`。
 - 电流积分周期 `SOC_INTEGRAL_PERIOD_MS = 200`：见 `SocEnhance.c:90`。
 - 容量内部单位 `SOC_CAPACITY_UNITS_PER_AH = 3600 * 10`：见 `SocEnhance.c:92`。
 - OCV 有效电压范围 `2000mV ~ 4000mV`：见 `SocEnhance.c:101-102`。
-- 静置 OCV 稳定/调整 tick 均为 `5 * 60`：见 `SocEnhance.c:121-124`。由于当前 `APP_SOC_IntEnhance_Ctrl()` 每 200ms 运行，约等于 60s。
+- 显示 SOC 跟随速度 `SOC_DISPLAY_STEP_TICKS = 5`，约 1s/1%。
+- 满电同步锁定 `SOC_FULL_LOCK_TICKS = 5 * 60`，约 60s；满电同步速度 `SOC_FULL_SYNC_STEP_TICKS = 10`，约 2s/1%。
+- 静置 OCV 稳定/目标评估 tick 均为 `5 * 60`，约 60s；长静置向下例外 `SOC_LONG_REST_DOWN_STEP_TICKS = 5 * 60 * 30`，约 30min/1%。
 
 SOC 主状态在 `SOC_Calculate_Element` 中，包含：
 
-- `u8SOC_Now`：内部真实 SOC。
+- `u8SOC_Now`：内部真实 SOC，也是 hot KV 持久化的 SOC。
+- `g_soc_display_soc`：显示 SOC，对外上报前按 `SOC_DISPLAY_STEP_TICKS` 跟随真实 SOC。
 - `u8DSG_SOC_Int`：放电累计百分比，用于换算循环次数。
 - `u32Cycle_times`：循环次数。
 - `u32CapFactory/u32CapFull/u32CapNow`：工厂容量、SOH 后满容量、当前容量。
@@ -201,29 +205,31 @@ SOC 200ms 更新入口是 `APP_SOC_IntEnhance_Ctrl()`，由 `main_loop()` 的 20
 
 ### 8.4 OCV 与端点修正
 
-当前策略顺序在 `soc_strategy_update()`，见 `SocEnhance.c:935-958`：
+当前策略顺序在 `soc_strategy_update()`：
 
 1. 启动 OCV 修正。
 2. 满电/空电端点同步。
-3. 放电端点跟踪。
-4. 放电 OCV 跟踪。
-5. 静置 OCV 跟踪。
+3. 放电低压端点表跟踪。
+4. 延迟 OCV 目标在充/放电运行中消化。
+5. 放电 OCV 跟踪。
+6. 静置 OCV 目标记录。
 
-修正节奏受 `soc_apply_step_towards_value()` 控制，每次只移动 1%，见 `SocEnhance.c:438-465`。这是体验上比较关键的约束：大多数自动修正不会一次跳很多。
+修正节奏受 `soc_apply_step_towards_value()` 控制，每次只移动 1%。这是体验上比较关键的约束：真实 SOC 自动修正不会一次跳很多，对外显示 SOC 还会再按约 1s/1% 平滑跟随。
 
 主要策略：
 
 - OCV 表：`3000mV = 0%` 到 `4180mV = 100%`，见 `SocEnhance.c:167-181`。
-- 启动 OCV：仅在样本有效且静置时执行一次；目前只在 OCV 判为 0 且最低电压低于等于 `SOC_0_VAL` 时向 0 修正，见 `SocEnhance.c:638-663`。
-- 静置 OCV：要求静置且样本有效；先等待约 60s 稳定，再每约 60s 下调 1%；不允许向上调，见 `SocEnhance.c:741-790`。
-- 放电 OCV：按放电电流分档，电流越大阈值越保守；只允许向下修正，见 `SocEnhance.c:665-739`。
-- 满电端点：充电且 `VCELLMAX >= 4180`、`VCELLMIN >= 3980`，锁定 20 tick 后向 100% 每 1% 逐步靠近，见 `SocEnhance.c:793-807`。
-- 空电端点：静置且 `VCELLMIN <= 3000`、`VCELLMAX <= 3200`，锁定 25 tick 后向 0% 逐步靠近，见 `SocEnhance.c:815-827`。
-- 放电端点天花板：最低电压低于 3300/3200/3150/3050/3000mV 时，SOC 上限分别压到 12/6/3/1/0%，见 `SocEnhance.c:838-865`。
+- 启动 OCV：仅在样本有效且静置时执行一次；目前只在 OCV 判为 0 且最低电压低于等于 `SOC_0_VAL` 时向 0 修正。
+- 满电端点：只看电压，不要求 `isCHG()`；`VCELLMAX >= 4180` 且 `VCELLMIN >= 3980` 持续约 60s 后，按约 2s/1% 向 100% 靠近。
+- 空电端点：静置且 `VCELLMIN <= 3000`、`VCELLMAX <= 3200`，锁定约 5s 后按约 1s/1% 向 0% 靠近。
+- 静置 OCV：要求静置且样本有效；稳定约 60s 后每约 60s 评估一次 OCV 目标。差值小于 3% 不修正；差值达到阈值时只记录 `deferred_ocv_target`，不在静置时快速跳变。
+- 延迟 OCV 目标：目标高于真实 SOC 时只在充电中上调，目标低于真实 SOC 时只在放电中下调，运行中约 2s/1%。长静置向下例外按约 30min/1% 慢速下调。
+- 放电 OCV：按放电电流分档，电流越大阈值越保守；只允许向下修正，并受大电流压降 holdoff 阻断。
+- 放电低压端点表：最低电压低于 3300/3200/3150/3050/3000mV 时，SOC 上限分别压到 12/6/3/1/0%；不同电流档使用不同步进速度，非 0% 规则受压降 holdoff 阻断。
 
 ### 8.5 SOC 输出与持久化
 
-`SOC_Result_Pass()` 将内部 SOC 状态同步到 `g_stCellInfoReport.SocElement`，供 BLE/Modbus/SIF 上报，见 `SocEnhance.c:1072-1086`。
+`SOC_Result_Pass()` 将 SOC 状态同步到 `g_stCellInfoReport.SocElement`，供 BLE/Modbus/SIF 上报。当前对外 `u16Soc` 使用 `get_soc_display()`，`u16CapacityNow` 使用显示 SOC 换算；真实 SOC 仍保存在 `SOC_Calculate_Element.u8SOC_Now`，并用于积分、校准和 KV 持久化。
 
 `main_loop()` 每轮调用：
 
@@ -235,6 +241,8 @@ soc_kv_store_update_and_log_if_changed(
 ```
 
 见 `app.c:1845`。`soc_kv_store_update_and_log_if_changed()` 会先读当前 KV，只有 SOC/DSG/CYCLE 变化时才写入，见 `soc_kv_store.c:166-180`。因此不是每 200ms 固定写 Flash，而是状态变化即写。
+
+SOC 体验调参表、各参数增减影响、验证场景详见 `soc_user_experience_tuning_20260524.md`。
 
 ## 9. KV 与 Flash 存储
 
@@ -452,7 +460,7 @@ UART Modbus 由 `modbus_uart.c` 管理：
 | BUG-001 | P0 | 全局数据/链接 | `app.c:54` 和 `modbus_rtu.c:42` 都定义了 `struct stCell_Info g_stCellInfoReport;` | GCC `-fno-common` 或部分工具链下可能链接失败；即使用 common symbol 合并，也依赖旧行为，不利于长期维护。 | `modbus_rtu.c` 改为 `extern struct stCell_Info g_stCellInfoReport;`，只保留 `app.c` 一个定义。 |
 | BUG-002 | P1 | 老化工厂模式 | `modbus_rtu.c:229-245` 写 `0x1102=0x03` 只调用 `enter_fac_mode(true)`；`Runtime_FactoryReset()` 已存在于 `runtime.c:381-402` 但该命令未调用；启动时老化状态依赖 `Runtime_GetMode()`，见 `app.c:1597-1612` 和 `app.c:1288-1293`。 | 老化完成后再通过上位机进入 factory，可能只打开 MOS，不会重新计时、不会到期退出，也不会按 factory 禁止 RTC mode。 | 增加明确 API，例如 `Runtime_EnterFactoryMode()` 或复用 `Runtime_FactoryReset()` 后再 `enter_fac_mode(true)`；同步定义退出命令语义。 |
 | BUG-003 | P1 | 低功耗命令 | `modbus_rtu.c:245` 设置 `deepsleep_en = true`；但 `app.c:1136-1145` 中使用 `deepsleep_en` 的判断被注释。 | 写 `0x1102=0x0A` 看似成功，但不会触发 deep sleep，容易误导产测/上位机。 | 恢复受控命令路径，或删除寄存器语义并更新上位机。建议命令入口直接调用封装后的 sleep request，而不是只置 flag。 |
-| BUG-004 | P1/P2 | SOC OCV | OCV 表到 `4180mV=100%`，见 `SocEnhance.c:167-181`；但有效样本最大值是 `4000mV`，见 `SocEnhance.c:101-102` 和 `SocEnhance.c:495-505`。 | 静置/启动/放电 OCV 在 4000mV 以上全部失效，高 SOC 区间主要依赖充电满电端点，可能导致重启或静置时高 SOC 不校准。 | 如果是规避高压平台误差，应在注释中明确；如果不是，建议把 `SOC_OCV_VALID_MAX_MV` 提高到表上限或新增策略区分启动/静置/放电。 |
+| BUG-004 | P1/P2 | SOC OCV | OCV 表到 `4180mV=100%`，但 `SOC_OCV_VALID_MAX_MV` 当前是 `4000mV`，4000mV 以上样本会被 `soc_ocv_sample_valid()` 过滤。 | 高 SOC 区间主要依赖满电端点同步；重启或静置时，4000mV 以上 OCV 不参与高 SOC 校准。 | 如果这是规避高压平台误差的有意策略，应在注释中明确；如果后续希望高压 OCV 参与，需要基于实测曲线调整 `SOC_OCV_VALID_MAX_MV` 或区分启动/静置/放电策略。 |
 | BUG-005 | P2 | Runtime 文档一致性 | `FACTORY_TIME_LIMIT_MIN (60 * 24 * 3)`，但注释仍是乱码 “7??”，见 `runtime.h:6`。 | 产测/文档容易误判老化时长。 | 修正注释为 `3 days` 或改宏为真实需求。 |
 | BUG-006 | P2 | SOC KV API | `soc_kv_store_factory_reset()` 直接 `flash_kv32_format(&g_soc_kv)`，见 `soc_kv_store.c:182-185`。 | 若在 `soc_kv_store_init()` 前调用，format 失败且无错误返回。 | 改为返回 `int` 并确保 init；或至少内部执行 `soc_kv_store_init()`。 |
 | BUG-007 | P2 | BLE SPP 文档/命名 | 手机写入的 attribute 使用 `TelinkSppDataServer2ClientUUID` 且绑定 `module_onReceiveData()`，回包 notify 使用 `SPP_CLIENT_TO_SERVER_DP_H`，见 `app_att.c:423-443`、`app_att.c:537-547`。 | 客户端对接时容易把收发方向接反。 | 文档明确“按现有实现：写 S2C UUID，监听 C2S notify”；后续可改名但要考虑兼容。 |

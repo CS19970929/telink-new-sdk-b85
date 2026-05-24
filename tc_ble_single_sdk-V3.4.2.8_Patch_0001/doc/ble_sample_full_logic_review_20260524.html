@@ -181,6 +181,7 @@
       <ul>
         <li>源文档：<code>ble_sample_full_logic_review_20260524.md</code></li>
         <li>阅读版：<code>ble_sample_full_logic_review_20260524.html</code></li>
+        <li>SOC 调参文档：<code>soc_user_experience_tuning_20260524.md</code></li>
         <li>源码真相源：<code>tc_ble_single_sdk/vendor/ble_sample</code></li>
       </ul>
     </section>
@@ -190,7 +191,7 @@
       <div class="summary">
         <div><strong>启动模型</strong><br>普通上电进入 <code>user_init_normal()</code>，初始化 BLE/BMS/AFE/SOC/Runtime，再按充电唤醒或 Runtime 模式控制 MOS。</div>
         <div><strong>调度模型</strong><br><code>main_loop()</code> 每轮跑 BLE、Runtime、通信、SOC KV 和 PM；SOC 为 200ms，AFE/event 为 1s。</div>
-        <div><strong>SOC 模型</strong><br>电流积分为主，OCV/端点修正为辅，自动修正多数按 1% 步进。</div>
+        <div><strong>SOC 模型</strong><br>电流积分为主，端点/OCV 修正为辅，真实 SOC 每次修正最多 1%，显示 SOC 再按约 1s/1% 跟随。</div>
         <div><strong>存储模型</strong><br><code>flash_kv32</code> 是 append-only transaction KV，SOC hot KV 只存 SOC/DSG/CYCLE。老化 deep sleep 不补偿，只累计 awake runtime。</div>
       </div>
       <table>
@@ -199,7 +200,7 @@
           <tr><td>BUG-001</td><td><span class="tag p0">P0</span></td><td>全局数据/链接</td><td><code>g_stCellInfoReport</code> 在 <code>app.c</code> 和 <code>modbus_rtu.c</code> 重复定义。</td></tr>
           <tr><td>BUG-002</td><td><span class="tag p1">P1</span></td><td>老化工厂模式</td><td>写 <code>0x1102=0x0003</code> 只打开 factory MOS，没有让 Runtime 重新进入 factory 计时，也不会按 factory 禁止 RTC mode。</td></tr>
           <tr><td>BUG-003</td><td><span class="tag p1">P1</span></td><td>低功耗命令</td><td>写 <code>0x1102=0x000A</code> 设置 <code>deepsleep_en</code>，但 PM 判断已注释，命令无效。</td></tr>
-          <tr><td>BUG-004</td><td><span class="tag p1">P1/P2</span></td><td>SOC OCV</td><td>OCV 表到 4180mV，但有效样本最大值是 4000mV，高 SOC OCV 修正被过滤。</td></tr>
+          <tr><td>BUG-004</td><td><span class="tag p1">P1/P2</span></td><td>SOC OCV</td><td>OCV 表到 4180mV，但有效样本最大值是 4000mV；当前高 SOC 主要依赖满电端点同步，是否放开高压 OCV 需要实测确认。</td></tr>
         </tbody>
       </table>
     </section>
@@ -274,7 +275,7 @@
     <section id="soc">
       <h2>6. SOC 模块</h2>
       <h3>状态与初始化</h3>
-      <p>SOC 主状态在 <code>SOC_Calculate_Element</code> 中，包含真实 SOC、放电累计百分比、循环次数、工厂容量、SOH 后满容量、当前容量等。启动时先 <code>App_AFEGet()</code>，再 <code>soc_kv_store_init()</code>、<code>soc_kv_store_get()</code>、<code>soc_param_lib_init()</code>。</p>
+      <p>SOC 主状态在 <code>SOC_Calculate_Element</code> 中，包含真实 SOC、放电累计百分比、循环次数、工厂容量、SOH 后满容量、当前容量等。<code>g_soc_display_soc</code> 是显示 SOC，对外上报前按 <code>SOC_DISPLAY_STEP_TICKS</code> 平滑跟随真实 SOC。启动时先 <code>App_AFEGet()</code>，再 <code>soc_kv_store_init()</code>、<code>soc_kv_store_get()</code>、<code>soc_param_lib_init()</code>。</p>
       <p>默认值来自 <code>soc_kv_store.h:28-37</code>：SOC 为 <code>FAC_INIT_soc</code>，DSG 和 cycle 为 0。</p>
       <h3>电流积分</h3>
       <ul>
@@ -284,21 +285,23 @@
         <li>放电 SOC 下降会累计 cycle，满 100% 增加 1 cycle，并重算 SOH/full capacity，见 <code>SocEnhance.c:335-360</code>。</li>
       </ul>
       <h3>OCV 与端点修正</h3>
-      <p>策略顺序见 <code>SocEnhance.c:935-958</code>：启动 OCV、端点同步、放电端点、放电 OCV、静置 OCV。自动修正通过 <code>soc_apply_step_towards_value()</code> 每次只移动 1%，见 <code>SocEnhance.c:438-465</code>。</p>
+      <p>策略顺序是：启动 OCV、满电/空电端点、放电低压端点表、延迟 OCV 目标运行中消化、放电 OCV、静置 OCV 目标记录。自动修正通过 <code>soc_apply_step_towards_value()</code> 每次只移动 1%，显示 SOC 再按约 1s/1% 跟随。</p>
       <table>
         <thead><tr><th>策略</th><th>源码位置</th><th>行为</th></tr></thead>
         <tbody>
           <tr><td>OCV 表</td><td><code>SocEnhance.c:167-181</code></td><td>3000mV = 0%，4180mV = 100%</td></tr>
-          <tr><td>启动 OCV</td><td><code>SocEnhance.c:638-663</code></td><td>仅静置且样本有效时执行一次，目前只处理向 0 修正</td></tr>
-          <tr><td>静置 OCV</td><td><code>SocEnhance.c:741-790</code></td><td>稳定约 60s 后，每约 60s 下调 1%，不向上调</td></tr>
-          <tr><td>放电 OCV</td><td><code>SocEnhance.c:665-739</code></td><td>按电流分档，只允许向下修正</td></tr>
-          <tr><td>满电端点</td><td><code>SocEnhance.c:793-807</code></td><td>充电且最高 4180mV、最低 3980mV 后逐步靠近 100%</td></tr>
-          <tr><td>空电端点</td><td><code>SocEnhance.c:815-827</code></td><td>静置且最低 3000mV、最高 3200mV 后逐步靠近 0%</td></tr>
-          <tr><td>放电端点天花板</td><td><code>SocEnhance.c:838-865</code></td><td>最低电压越低，SOC 上限越低，最低可压到 0%</td></tr>
+          <tr><td>启动 OCV</td><td><code>SocEnhance.c</code></td><td>仅静置且样本有效时执行一次，目前只处理向 0 修正</td></tr>
+          <tr><td>满电端点</td><td><code>soc_apply_terminal_sync()</code></td><td>只看电压，不要求 <code>isCHG()</code>；最高 4180mV、最低 3980mV 持续约 60s 后，按约 2s/1% 靠近 100%</td></tr>
+          <tr><td>空电端点</td><td><code>soc_apply_terminal_sync()</code></td><td>静置且最低 3000mV、最高 3200mV 后，按约 1s/1% 靠近 0%</td></tr>
+          <tr><td>静置 OCV</td><td><code>soc_apply_idle_ocv_tracking()</code></td><td>稳定约 60s 后每约 60s 评估目标，只记录 <code>deferred_ocv_target</code>，不静置快速跳变；长静置向下约 30min/1%</td></tr>
+          <tr><td>延迟 OCV 目标</td><td><code>soc_apply_deferred_ocv_step()</code></td><td>目标高于真实 SOC 时只在充电上调，目标低于真实 SOC 时只在放电下调，运行中约 2s/1%</td></tr>
+          <tr><td>放电 OCV</td><td><code>soc_apply_discharge_ocv_tracking()</code></td><td>按电流分档，只允许向下修正，并受大电流压降 holdoff 阻断</td></tr>
+          <tr><td>放电低压端点表</td><td><code>g_soc_dsg_terminal_rules[]</code></td><td>3300/3200/3150/3050/3000mV 分别约束到 12/6/3/1/0%，不同电流档使用不同步进</td></tr>
         </tbody>
       </table>
       <h3>输出与持久化</h3>
-      <p><code>SOC_Result_Pass()</code> 将内部状态同步到 <code>g_stCellInfoReport.SocElement</code>，见 <code>SocEnhance.c:1072-1086</code>。<code>main_loop()</code> 每轮调用 SOC hot KV 更新，但 <code>soc_kv_store_update_and_log_if_changed()</code> 会先比较当前 KV，只在 SOC/DSG/CYCLE 变化时写 Flash，见 <code>app.c:1845</code> 和 <code>soc_kv_store.c:166-180</code>。</p>
+      <p><code>SOC_Result_Pass()</code> 将 SOC 状态同步到 <code>g_stCellInfoReport.SocElement</code>。当前对外 <code>u16Soc</code> 使用显示 SOC，<code>u16CapacityNow</code> 使用显示 SOC 换算；真实 SOC 仍用于积分、校准和 KV 持久化。<code>main_loop()</code> 每轮调用 SOC hot KV 更新，但 <code>soc_kv_store_update_and_log_if_changed()</code> 会先比较当前 KV，只在 SOC/DSG/CYCLE 变化时写 Flash。</p>
+      <p>SOC 修改点、可调参数、增减影响和验证场景详见 <code>soc_user_experience_tuning_20260524.md</code>。</p>
     </section>
 
     <section id="kv">
