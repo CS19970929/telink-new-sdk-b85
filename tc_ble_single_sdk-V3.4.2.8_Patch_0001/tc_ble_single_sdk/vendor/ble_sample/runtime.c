@@ -13,20 +13,6 @@ extern void enter_fac_mode(bool on);
 #define RUNTIME_SAVE_INTERVAL_MIN  1u
 #define RUNTIME_PM_TICKS_PER_SEC   32000u
 #define RUNTIME_PM_TICKS_PER_MIN   (RUNTIME_PM_TICKS_PER_SEC * 60u)
-#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
-#define RUNTIME_SLEEP_TICK_REG0    PM_ANA_REG_WD_CLR_BUF0
-#define RUNTIME_SLEEP_TICK_REG1    PM_ANA_REG_WD_CLR_BUF1
-#define RUNTIME_SLEEP_TICK_REG2    PM_ANA_REG_WD_CLR_BUF2
-#define RUNTIME_SLEEP_TICK_REG3    PM_ANA_REG_WD_CLR_BUF3
-#define RUNTIME_SLEEP_TICK_CRC_REG PM_ANA_REG_WD_CLR_BUF4
-#else
-#define RUNTIME_SLEEP_TICK_REG0    DEEP_ANA_REG6
-#define RUNTIME_SLEEP_TICK_REG1    DEEP_ANA_REG7
-#define RUNTIME_SLEEP_TICK_REG2    DEEP_ANA_REG8
-#define RUNTIME_SLEEP_TICK_REG3    DEEP_ANA_REG9
-#define RUNTIME_SLEEP_TICK_CRC_REG DEEP_ANA_REG10
-#endif
-#define RUNTIME_SLEEP_TICK_MAGIC   0xA5u
 
 typedef struct
 {
@@ -101,55 +87,6 @@ static int runtime_record_valid(const runtime_record_t *record)
     }
 
     return (runtime_crc_for_record(record->seq, record->runtime_min, record->flag) == record->crc);
-}
-
-static u8 runtime_sleep_tick_crc(u32 tick32k)
-{
-    return (u8)(((tick32k >> 0) & 0xFFu) ^
-                ((tick32k >> 8) & 0xFFu) ^
-                ((tick32k >> 16) & 0xFFu) ^
-                ((tick32k >> 24) & 0xFFu) ^
-                RUNTIME_SLEEP_TICK_MAGIC);
-}
-
-static void runtime_sleep_tick_clear(void)
-{
-    analog_write(RUNTIME_SLEEP_TICK_REG0, 0u);
-    analog_write(RUNTIME_SLEEP_TICK_REG1, 0u);
-    analog_write(RUNTIME_SLEEP_TICK_REG2, 0u);
-    analog_write(RUNTIME_SLEEP_TICK_REG3, 0u);
-    analog_write(RUNTIME_SLEEP_TICK_CRC_REG, 0u);
-}
-
-static void runtime_sleep_tick_store(u32 tick32k)
-{
-    analog_write(RUNTIME_SLEEP_TICK_REG0, (u8)(tick32k >> 0));
-    analog_write(RUNTIME_SLEEP_TICK_REG1, (u8)(tick32k >> 8));
-    analog_write(RUNTIME_SLEEP_TICK_REG2, (u8)(tick32k >> 16));
-    analog_write(RUNTIME_SLEEP_TICK_REG3, (u8)(tick32k >> 24));
-    analog_write(RUNTIME_SLEEP_TICK_CRC_REG, runtime_sleep_tick_crc(tick32k));
-}
-
-static int runtime_sleep_tick_load(u32 *tick32k)
-{
-    u32 stored_tick;
-    u8 stored_crc;
-
-    if (tick32k == NULL) {
-        return 0;
-    }
-
-    stored_tick = ((u32)analog_read(RUNTIME_SLEEP_TICK_REG0) << 0) |
-                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG1) << 8) |
-                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG2) << 16) |
-                  ((u32)analog_read(RUNTIME_SLEEP_TICK_REG3) << 24);
-    stored_crc = analog_read(RUNTIME_SLEEP_TICK_CRC_REG);
-    if (stored_crc != runtime_sleep_tick_crc(stored_tick)) {
-        return 0;
-    }
-
-    *tick32k = stored_tick;
-    return 1;
 }
 
 static u32 runtime_flash_base(void)
@@ -373,7 +310,6 @@ static void runtime_apply_elapsed_ticks(u32 elapsed_tick_32k)
 void Runtime_Init(void)
 {
     u32 now_tick_32k;
-    u32 sleep_enter_tick_32k;
 
     runtime_set_initial_state();
 
@@ -381,7 +317,6 @@ void Runtime_Init(void)
         if (runtime_flash_base() == 0u) {
             g_runtime_min = FACTORY_TIME_LIMIT_MIN;
             g_mode = MODE_NORMAL;
-            runtime_sleep_tick_clear();
             g_runtime_last_tick_32k = pm_get_32k_tick();
             g_runtime_tick_ready = 1u;
             return;
@@ -396,13 +331,6 @@ void Runtime_Init(void)
     }
 
     now_tick_32k = pm_get_32k_tick();
-    if (runtime_sleep_tick_load(&sleep_enter_tick_32k)) {
-        runtime_sleep_tick_clear();
-        runtime_apply_elapsed_ticks(now_tick_32k - sleep_enter_tick_32k);
-    } else {
-        runtime_sleep_tick_clear();
-    }
-
     g_runtime_last_tick_32k = now_tick_32k;
     g_runtime_tick_ready = 1u;
 }
@@ -429,22 +357,13 @@ void Runtime_Poll(void)
 
 void Runtime_PrepareForDeepSleep(void)
 {
-    u32 now_tick_32k;
-
-    if (g_mode == MODE_NORMAL) {
-        runtime_sleep_tick_clear();
-        return;
-    }
-
-    now_tick_32k = pm_get_32k_tick();
-    runtime_sleep_tick_store(now_tick_32k);
-    g_runtime_last_tick_32k = now_tick_32k;
+    /* Aging runtime counts awake BMS execution only; deep sleep is not compensated. */
+    g_runtime_last_tick_32k = pm_get_32k_tick();
     g_runtime_tick_ready = 1u;
 }
 
 void Runtime_CancelPendingDeepSleep(void)
 {
-    runtime_sleep_tick_clear();
     g_runtime_last_tick_32k = pm_get_32k_tick();
     g_runtime_tick_ready = 1u;
 }
@@ -477,7 +396,6 @@ int Runtime_FactoryReset(void)
 
     runtime_set_initial_state();
     g_runtime_store_ready = 1u;
-    runtime_sleep_tick_clear();
     g_runtime_last_tick_32k = pm_get_32k_tick();
     g_runtime_tick_ready = 1u;
     return 1;

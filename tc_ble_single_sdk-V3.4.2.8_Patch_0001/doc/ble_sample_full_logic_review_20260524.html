@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ble_sample 项目源码逻辑全量梳理与风险审查</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #1f2933;
+      --muted: #5f6b7a;
+      --border: #d9e0e8;
+      --head: #102a43;
+      --accent: #1769aa;
+      --warn: #9a3412;
+      --bad: #b42318;
+      --good: #166534;
+      --code: #0f172a;
+      --code-bg: #eef2f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    header {
+      background: #0f2437;
+      color: #fff;
+      padding: 28px 32px;
+      border-bottom: 4px solid #2f80c0;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.25;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    header p { margin: 0; color: #c7d4e2; }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    nav {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    nav h2 { margin-top: 0; }
+    nav a {
+      display: inline-block;
+      margin: 2px 14px 2px 0;
+      color: var(--accent);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 22px 24px;
+      margin: 18px 0;
+    }
+    h2 {
+      margin: 0 0 14px;
+      color: var(--head);
+      font-size: 22px;
+      line-height: 1.35;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      color: var(--head);
+      font-size: 17px;
+    }
+    p { margin: 8px 0; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    code {
+      color: var(--code);
+      background: var(--code-bg);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 14px 16px;
+      line-height: 1.5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 4px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 9px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #edf3f8;
+      color: #102a43;
+      font-weight: 650;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .summary div {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfdff;
+    }
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .p0 { background: #fee4e2; color: var(--bad); }
+    .p1 { background: #ffedd5; color: var(--warn); }
+    .p2 { background: #e0f2fe; color: #075985; }
+    .ok { color: var(--good); font-weight: 650; }
+    .warn { color: var(--warn); font-weight: 650; }
+    .bad { color: var(--bad); font-weight: 650; }
+    .flow {
+      background: #f8fafc;
+      color: #1f2933;
+      border: 1px solid var(--border);
+    }
+    footer {
+      max-width: 1180px;
+      margin: 0 auto 32px;
+      padding: 0 20px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ble_sample 项目源码逻辑全量梳理与风险审查</h1>
+    <p>日期：2026-05-24。以 <code>tc_ble_single_sdk/vendor/ble_sample</code> 源码为准，重点覆盖 SOC、KV 存储、老化工厂模式、低功耗与通信路径。</p>
+  </header>
+  <main>
+    <nav>
+      <h2>目录</h2>
+      <a href="#position">文档定位</a>
+      <a href="#summary">结论摘要</a>
+      <a href="#flow">调用链</a>
+      <a href="#boot">启动与主循环</a>
+      <a href="#afe">AFE 数据主线</a>
+      <a href="#soc">SOC</a>
+      <a href="#kv">KV/Flash</a>
+      <a href="#factory">老化工厂模式</a>
+      <a href="#pm">低功耗</a>
+      <a href="#comm">通信</a>
+      <a href="#bugs">Bug 清单</a>
+      <a href="#verify">验证建议</a>
+    </nav>
+
+    <section id="position">
+      <h2>1. 文档定位</h2>
+      <p>本文是源码审查文档。建议以 Markdown 作为长期维护源文档，以本 HTML 作为阅读、评审和归档版本。后续改代码时优先更新 Markdown，再同步 HTML。</p>
+      <ul>
+        <li>源文档：<code>ble_sample_full_logic_review_20260524.md</code></li>
+        <li>阅读版：<code>ble_sample_full_logic_review_20260524.html</code></li>
+        <li>源码真相源：<code>tc_ble_single_sdk/vendor/ble_sample</code></li>
+      </ul>
+    </section>
+
+    <section id="summary">
+      <h2>2. 结论摘要</h2>
+      <div class="summary">
+        <div><strong>启动模型</strong><br>普通上电进入 <code>user_init_normal()</code>，初始化 BLE/BMS/AFE/SOC/Runtime，再按充电唤醒或 Runtime 模式控制 MOS。</div>
+        <div><strong>调度模型</strong><br><code>main_loop()</code> 每轮跑 BLE、Runtime、通信、SOC KV 和 PM；SOC 为 200ms，AFE/event 为 1s。</div>
+        <div><strong>SOC 模型</strong><br>电流积分为主，OCV/端点修正为辅，自动修正多数按 1% 步进。</div>
+        <div><strong>存储模型</strong><br><code>flash_kv32</code> 是 append-only transaction KV，SOC hot KV 只存 SOC/DSG/CYCLE。老化 deep sleep 不补偿，只累计 awake runtime。</div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>优先级</th><th>模块</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>BUG-001</td><td><span class="tag p0">P0</span></td><td>全局数据/链接</td><td><code>g_stCellInfoReport</code> 在 <code>app.c</code> 和 <code>modbus_rtu.c</code> 重复定义。</td></tr>
+          <tr><td>BUG-002</td><td><span class="tag p1">P1</span></td><td>老化工厂模式</td><td>写 <code>0x1102=0x0003</code> 只打开 factory MOS，没有让 Runtime 重新进入 factory 计时，也不会按 factory 禁止 RTC mode。</td></tr>
+          <tr><td>BUG-003</td><td><span class="tag p1">P1</span></td><td>低功耗命令</td><td>写 <code>0x1102=0x000A</code> 设置 <code>deepsleep_en</code>，但 PM 判断已注释，命令无效。</td></tr>
+          <tr><td>BUG-004</td><td><span class="tag p1">P1/P2</span></td><td>SOC OCV</td><td>OCV 表到 4180mV，但有效样本最大值是 4000mV，高 SOC OCV 修正被过滤。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flow">
+      <h2>3. 一页调用链</h2>
+      <pre class="flow">main()
+  ├─ user_init_normal()
+  │   ├─ BLE stack / GATT / ADV / PM init
+  │   ├─ LoadParam() + Param_UpgradeReset_Apply()
+  │   ├─ AFE_Reset() / AFE_IsReady() / SH367309_UpdataAfeConfig()
+  │   ├─ App_AFEGet()
+  │   ├─ soc_kv_store_init() + soc_param_lib_init()
+  │   ├─ bus_mux_init() + btname_init()
+  │   └─ Runtime_Init() -> Runtime_GetMode() -> enter_fac_mode/open_dsg/open_chg
+  └─ while(1)
+      └─ main_loop()
+          ├─ blt_sdk_main_loop()
+          ├─ Runtime_Poll()
+          ├─ 200ms: APP_SOC_IntEnhance_Ctrl()
+          ├─ 1s: App_AFEGet() / ADC / event log
+          ├─ bus_mux_task() / main_loop_modbus()
+          ├─ soc_kv_store_update_and_log_if_changed()
+          └─ blt_pm_proc()</pre>
+    </section>
+
+    <section id="boot">
+      <h2>4. 启动与主循环</h2>
+      <h3>关键配置</h3>
+      <table>
+        <thead><tr><th>配置</th><th>源码位置</th><th>当前值/含义</th></tr></thead>
+        <tbody>
+          <tr><td>目标型号</td><td><code>conf.h:44</code></td><td><code>FD_BMS_TYPE C700</code></td></tr>
+          <tr><td>串数/容量</td><td><code>conf.h:77-83</code></td><td><code>SeriesNum=10</code>，<code>CapacityFactory=87</code></td></tr>
+          <tr><td>工厂初始 SOC</td><td><code>conf.h:182</code></td><td><code>FAC_INIT_soc=60</code></td></tr>
+          <tr><td>低功耗阈值</td><td><code>conf.h:23-26</code></td><td><code>&lt;3000mV</code> 24h，<code>&lt;2800mV</code> 1h</td></tr>
+          <tr><td>BLE PM</td><td><code>app_config.h:28-32</code></td><td>PM 开启，deep retention 关闭，OTA 开启</td></tr>
+          <tr><td>Flash 保护</td><td><code>app_config.h:43-46</code></td><td>Flash protection 开启，battery check 关闭</td></tr>
+        </tbody>
+      </table>
+      <h3><code>main()</code></h3>
+      <p><code>main.c:53-99</code> 选择 32k 时钟，初始化 wakeup/RF/GPIO/clock/watchdog，然后根据 deep retention wakeup 分支调用 <code>user_init_deepRetn()</code> 或 <code>user_init_normal()</code>，最后无限循环清 watchdog 并调用 <code>main_loop()</code>。</p>
+      <p>IRQ 总入口在 <code>main.c:37-44</code>，依次处理 BLE SDK IRQ、Modbus UART IRQ、timer IRQ 和 bus mux GPIO IRQ。</p>
+      <h3><code>user_init_normal()</code></h3>
+      <p><code>app.c:1318-1619</code> 是普通启动主线：先初始化 BLE stack 和 PM，再初始化 BMS IO、参数、事件日志、AFE、ADC、wakeup pin。随后先取一帧 <code>App_AFEGet()</code> 快照，再初始化 SOC KV 和 SOC 算法。最后初始化 bus mux、BT name、Runtime，并按 <code>Runtime_GetMode()</code> 决定是否进入 factory MOS 策略。</p>
+      <h3><code>main_loop()</code></h3>
+      <table>
+        <thead><tr><th>频率</th><th>调用</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td>每轮</td><td><code>blt_sdk_main_loop()</code></td><td>BLE stack 主循环</td></tr>
+          <tr><td>每轮</td><td><code>Runtime_Poll()</code></td><td>32k tick 累加工厂 runtime</td></tr>
+          <tr><td>200ms</td><td><code>APP_SOC_IntEnhance_Ctrl()</code></td><td>SOC 积分与策略修正</td></tr>
+          <tr><td>200ms</td><td><code>charger_detect_and_keyLogi_200ms()</code></td><td>充电检测与 key 逻辑</td></tr>
+          <tr><td>1s</td><td><code>App_AFEGet()</code></td><td>AFE 电压/温度/电流刷新</td></tr>
+          <tr><td>每轮</td><td><code>bus_mux_task()</code> / <code>main_loop_modbus()</code></td><td>OWC/UART 复用与 Modbus</td></tr>
+          <tr><td>每轮</td><td><code>soc_kv_store_update_and_log_if_changed()</code></td><td>SOC/DSG/CYCLE 变化即落盘</td></tr>
+          <tr><td>每轮</td><td><code>blt_pm_proc()</code></td><td>deep sleep、BLE suspend、RTC mode</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="afe">
+      <h2>5. AFE 与运行数据主线</h2>
+      <p><code>g_stCellInfoReport</code> 是核心共享运行数据。<code>app.c:54</code> 定义该变量，SOC、SIF、Modbus、AFE 均围绕它读写。</p>
+      <ul>
+        <li><code>App_AFEGet()</code> 成功时读取 SH367309 RAM，刷新电压、温度、电流、MOS 状态和 fault 状态，并清 AFE 通信错误，见 <code>sh367309_datadeal.c:1889-1909</code>。</li>
+        <li>失败时立即清电流；连续 10 次失败后置 AFE 通信错误，并清空 AFE report 但保留 SOC/MAC，见 <code>sh367309_datadeal.c:1911-1919</code>。</li>
+        <li>电流经 <code>DataLoad_CurrentRawToScaled_mA()</code> 缩放，最终写入 <code>u16Ichg/u16IDischg</code>，非 C11 型号约为 0.1A 单位，<code>&lt;=2</code> 置 0，见 <code>sh367309_datadeal.c:19-30</code> 和 <code>sh367309_datadeal.c:1372-1382</code>。</li>
+      </ul>
+    </section>
+
+    <section id="soc">
+      <h2>6. SOC 模块</h2>
+      <h3>状态与初始化</h3>
+      <p>SOC 主状态在 <code>SOC_Calculate_Element</code> 中，包含真实 SOC、放电累计百分比、循环次数、工厂容量、SOH 后满容量、当前容量等。启动时先 <code>App_AFEGet()</code>，再 <code>soc_kv_store_init()</code>、<code>soc_kv_store_get()</code>、<code>soc_param_lib_init()</code>。</p>
+      <p>默认值来自 <code>soc_kv_store.h:28-37</code>：SOC 为 <code>FAC_INIT_soc</code>，DSG 和 cycle 为 0。</p>
+      <h3>电流积分</h3>
+      <ul>
+        <li><code>SOC_INTEGRAL_PERIOD_MS = 200</code>，见 <code>SocEnhance.c:90</code>。</li>
+        <li>充电积分只在新 SOC 大于旧 SOC 时更新，见 <code>SocEnhance.c:375-397</code>。</li>
+        <li>放电积分在最低电压仍高于 <code>SOC_0_VAL</code> 时不会直接打到 0，而是先钳到 1%，见 <code>SocEnhance.c:398-425</code>。</li>
+        <li>放电 SOC 下降会累计 cycle，满 100% 增加 1 cycle，并重算 SOH/full capacity，见 <code>SocEnhance.c:335-360</code>。</li>
+      </ul>
+      <h3>OCV 与端点修正</h3>
+      <p>策略顺序见 <code>SocEnhance.c:935-958</code>：启动 OCV、端点同步、放电端点、放电 OCV、静置 OCV。自动修正通过 <code>soc_apply_step_towards_value()</code> 每次只移动 1%，见 <code>SocEnhance.c:438-465</code>。</p>
+      <table>
+        <thead><tr><th>策略</th><th>源码位置</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>OCV 表</td><td><code>SocEnhance.c:167-181</code></td><td>3000mV = 0%，4180mV = 100%</td></tr>
+          <tr><td>启动 OCV</td><td><code>SocEnhance.c:638-663</code></td><td>仅静置且样本有效时执行一次，目前只处理向 0 修正</td></tr>
+          <tr><td>静置 OCV</td><td><code>SocEnhance.c:741-790</code></td><td>稳定约 60s 后，每约 60s 下调 1%，不向上调</td></tr>
+          <tr><td>放电 OCV</td><td><code>SocEnhance.c:665-739</code></td><td>按电流分档，只允许向下修正</td></tr>
+          <tr><td>满电端点</td><td><code>SocEnhance.c:793-807</code></td><td>充电且最高 4180mV、最低 3980mV 后逐步靠近 100%</td></tr>
+          <tr><td>空电端点</td><td><code>SocEnhance.c:815-827</code></td><td>静置且最低 3000mV、最高 3200mV 后逐步靠近 0%</td></tr>
+          <tr><td>放电端点天花板</td><td><code>SocEnhance.c:838-865</code></td><td>最低电压越低，SOC 上限越低，最低可压到 0%</td></tr>
+        </tbody>
+      </table>
+      <h3>输出与持久化</h3>
+      <p><code>SOC_Result_Pass()</code> 将内部状态同步到 <code>g_stCellInfoReport.SocElement</code>，见 <code>SocEnhance.c:1072-1086</code>。<code>main_loop()</code> 每轮调用 SOC hot KV 更新，但 <code>soc_kv_store_update_and_log_if_changed()</code> 会先比较当前 KV，只在 SOC/DSG/CYCLE 变化时写 Flash，见 <code>app.c:1845</code> 和 <code>soc_kv_store.c:166-180</code>。</p>
+    </section>
+
+    <section id="kv">
+      <h2>7. KV 与 Flash 存储</h2>
+      <h3>Flash 布局</h3>
+      <table>
+        <thead><tr><th>Flash</th><th>event log</th><th>btname legacy</th><th>runtime</th><th>run/SOC KV</th><th>cold/protect KV</th></tr></thead>
+        <tbody>
+          <tr><td>512K</td><td><code>0x40000</code></td><td><code>0x50000</code></td><td><code>0x51000</code></td><td><code>0x53000</code></td><td><code>0x5B000</code></td></tr>
+          <tr><td>1M</td><td><code>0xC7000</code></td><td><code>0xC0000</code></td><td><code>0xC1000</code></td><td><code>0xB0000</code></td><td><code>0xB8000</code></td></tr>
+          <tr><td>2M</td><td><code>0x1C7000</code></td><td><code>0x1C0000</code></td><td><code>0x1C1000</code></td><td><code>0x1B0000</code></td><td><code>0x1B8000</code></td></tr>
+        </tbody>
+      </table>
+      <p>runtime 2 个 sector，run/SOC KV 8 个 sector，event log 8 个 sector，见 <code>flash_store_cfg.h:21-23</code>。OTA 布局支持判断见 <code>flash_store_cfg.h:44-62</code>。</p>
+      <h3><code>flash_kv32</code></h3>
+      <ul>
+        <li>每个 sector 有 32B header，每次写入是 16B tx header + N 个 8B item + 4B commit。</li>
+        <li>写入时最后才写 commit，见 <code>flash_kv32.c:381-465</code>。</li>
+        <li>扫描 active sector 时只有 header、CRC、commit 都有效才加载，见 <code>flash_kv32.c:480-575</code>。</li>
+        <li>尾部脏或空间不足时 compact 到下一个 sector，见 <code>flash_kv32.c:605-667</code>。</li>
+        <li>值未变化不写入，见 <code>flash_kv32.c:765-820</code>。</li>
+      </ul>
+      <h3>SOC hot KV</h3>
+      <p><code>soc_kv_store.c:7-20</code> 定义 3 个 key：<code>0x0001 SOC</code>、<code>0x0002 DSG</code>、<code>0x0003 CYCLE</code>。<code>soc_kv_store_factory_reset()</code> 没有自动 init，见 <code>soc_kv_store.c:182-185</code>，作为公共 API 有边界风险。</p>
+      <h3>cold KV 与升级 epoch</h3>
+      <p><code>bms_cold_kv_store.c:7-12</code> 保存 protect/system/control/btname。<code>Param_UpgradeReset_Apply()</code> 根据 <code>FW_UPGRADE_RESET_*_EPOCH</code> 执行一次性 reset，成功后写 control epoch，见 <code>param.c:105-150</code>。</p>
+    </section>
+
+    <section id="factory">
+      <h2>8. 老化工厂模式</h2>
+      <p>Runtime 有 <code>MODE_FACTORY</code> 与 <code>MODE_NORMAL</code> 两态，见 <code>runtime.h:9-13</code>。当前 <code>FACTORY_TIME_LIMIT_MIN = 60 * 24 * 3</code>，即 3 天，但注释仍是乱码 “7??”，见 <code>runtime.h:6</code>。</p>
+      <ul>
+        <li><code>Runtime_Init()</code> 扫描 Flash 中最新有效 runtime record；没有记录但布局支持时从 factory 0 分钟开始，见 <code>runtime.c:373-408</code>。</li>
+        <li>布局不支持时强制进入 normal，避免不能持久化时长期停留 factory，见 <code>runtime.c:380-388</code>。</li>
+        <li><code>Runtime_Poll()</code> 用 <code>pm_get_32k_tick()</code> 累加 runtime，见 <code>runtime.c:415-428</code>。</li>
+        <li>每 1 分钟保存一次，达到 limit 后保存并调用 <code>enter_fac_mode(false)</code>，见 <code>runtime.c:325-355</code>。</li>
+        <li>老化模式允许 deep sleep，但 deep sleep 时间不补偿进 runtime；<code>Runtime_Init()</code> 只从 Flash 恢复已保存分钟数，重新以当前 32k tick 作为 awake 计时起点，见 <code>runtime.c:310-336</code>。</li>
+      </ul>
+      <p><code>enter_fac_mode(true)</code> 只负责 MOS/AFE 行为：设置 <code>CADCON</code>、打开 <code>CHGMOS/DSGMOS</code>、写 <code>MTP_CONF</code>、拉高 <code>MCC_C_PIN</code>，见 <code>app.c:370-385</code>。它不是 Runtime factory state 的完整入口。</p>
+    </section>
+
+    <section id="pm">
+      <h2>9. 低功耗逻辑</h2>
+      <h3>deep sleep</h3>
+      <p><code>app_note_sleep_and_enter_deepsleep()</code> 在 charger pad active 时拒绝进入；否则记录 sleep、可选 <code>AFE_Sleep()</code>、调用 <code>Runtime_PrepareForDeepSleep()</code>，再进入 <code>DEEPSLEEP_MODE</code>。如果函数返回，会调用 <code>Runtime_CancelPendingDeepSleep()</code>，见 <code>app.c:138-160</code>。</p>
+      <table>
+        <thead><tr><th>条件</th><th>触发时间</th><th>源码位置</th></tr></thead>
+        <tbody>
+          <tr><td>无 charger、无 key</td><td>3s</td><td><code>app.c:1096-1119</code></td></tr>
+          <tr><td><code>u16VCellMin &lt; 2550</code></td><td>1h</td><td><code>app.c:1121-1134</code></td></tr>
+          <tr><td><code>u16VCellMin &lt; __SLEEP_VLOW__</code></td><td>1h</td><td><code>app.c:1136-1153</code></td></tr>
+          <tr><td><code>u16VCellMin &lt; __SLEEP_VNORMAL__</code> 且无充电</td><td>24h</td><td><code>app.c:1155-1169</code></td></tr>
+          <tr><td>AFE 通信错误</td><td>30min</td><td><code>app.c:1171-1184</code></td></tr>
+        </tbody>
+      </table>
+      <h3>BLE suspend 与 RTC mode</h3>
+      <p>后半段默认允许 <code>SUSPEND_ADV | SUSPEND_CONN</code>，但 charger active、总线非 OWC idle、放电、factory mode、OTA working 都会禁用 suspend 并退出 RTC mode，见 <code>app.c:1261-1301</code>。连接态也会退出 RTC mode，见 <code>app.c:1302-1306</code>。只有这些条件都不满足时才 <code>enter_rtc_mode()</code> 关闭 ADC 相关电源，见 <code>app.c:739-749</code>。</p>
+    </section>
+
+    <section id="comm">
+      <h2>10. BLE、Modbus 与总线复用</h2>
+      <h3>BLE SPP 到 Modbus</h3>
+      <p><code>module_onReceiveData()</code> 从 ATT write packet 取 payload，调用 <code>modbus_on_frame()</code>，有响应时通过 notify 按 20B 分片回包，见 <code>app_att.c:423-443</code>。</p>
+      <p class="warn">注意：当前属性命名和方向容易混淆。手机写入入口是 <code>TelinkSppDataServer2ClientUUID</code>，回包 notify 用 <code>SPP_CLIENT_TO_SERVER_DP_H</code>，见 <code>app_att.c:537-547</code>。</p>
+      <h3>UART Modbus 与 bus mux</h3>
+      <ul>
+        <li><code>modbus_uart_init()</code> 配置 DMA RX buffer、PC2/PC3 UART、DMA IRQ，见 <code>modbus_uart.c:16-46</code>。</li>
+        <li><code>main_loop_modbus()</code> 拉取一帧后调用 <code>modbus_on_frame()</code>，不管成功失败都 reset RX，见 <code>modbus_uart.c:122-145</code>。</li>
+        <li><code>bus_mux.c</code> 初始 OWC idle，下降沿检测进入 UART Modbus，RX 高稳定进入 OWC TX，UART 空闲 5s 回 idle，见 <code>bus_mux.c:56-80</code> 和 <code>bus_mux.c:183-219</code>。</li>
+      </ul>
+    </section>
+
+    <section id="bugs">
+      <h2>11. Bug 与风险清单</h2>
+      <table>
+        <thead><tr><th>ID</th><th>优先级</th><th>模块</th><th>源码证据</th><th>影响</th><th>建议</th></tr></thead>
+        <tbody>
+          <tr><td>BUG-001</td><td><span class="tag p0">P0</span></td><td>全局数据/链接</td><td><code>app.c:54</code> 与 <code>modbus_rtu.c:42</code> 都定义 <code>g_stCellInfoReport</code></td><td>可能链接失败或依赖 common symbol 旧行为</td><td><code>modbus_rtu.c</code> 改为 <code>extern</code>，只保留一个定义</td></tr>
+          <tr><td>BUG-002</td><td><span class="tag p1">P1</span></td><td>老化工厂模式</td><td><code>modbus_rtu.c:229-245</code> 只调用 <code>enter_fac_mode(true)</code>；<code>Runtime_FactoryReset()</code> 存在但未用于该命令</td><td>重新进入老化时可能不计时、不自动退出、不按 factory 禁止 RTC mode</td><td>新增明确 Runtime factory 入口 API，并和 MOS 行为一起封装</td></tr>
+          <tr><td>BUG-003</td><td><span class="tag p1">P1</span></td><td>低功耗命令</td><td><code>modbus_rtu.c:245</code> 设置 <code>deepsleep_en</code>；<code>app.c:1136-1145</code> 判断被注释</td><td><code>0x1102=0x0A</code> 命令无实际效果</td><td>恢复受控 sleep request 或删除寄存器语义</td></tr>
+          <tr><td>BUG-004</td><td><span class="tag p1">P1/P2</span></td><td>SOC OCV</td><td>OCV 表到 4180mV；有效样本最大值 4000mV</td><td>4000mV 以上 OCV 修正全部失效</td><td>确认需求后提高上限或明确禁止高压 OCV 的原因</td></tr>
+          <tr><td>BUG-005</td><td><span class="tag p2">P2</span></td><td>Runtime 注释</td><td><code>runtime.h:6</code> 宏为 3 天，注释乱码 “7??”</td><td>产测/文档误判时长</td><td>修正注释或宏值</td></tr>
+          <tr><td>BUG-006</td><td><span class="tag p2">P2</span></td><td>SOC KV API</td><td><code>soc_kv_store.c:182-185</code> reset 不自动 init 且无返回值</td><td>初始化前调用会静默失败</td><td>改为返回 <code>int</code> 并内部确保 init</td></tr>
+          <tr><td>BUG-007</td><td><span class="tag p2">P2</span></td><td>BLE SPP 命名</td><td><code>app_att.c:423-443</code>、<code>app_att.c:537-547</code></td><td>客户端接入容易收发方向接反</td><td>文档明确现有方向，后续改名需考虑兼容</td></tr>
+          <tr><td>BUG-008</td><td><span class="tag p2">P2</span></td><td>上位机/固件语义</td><td><code>modbus_rtu.c:247-258</code> 中 <code>0x1103</code> 无有效动作</td><td>上位机快捷按钮显示成功但固件无动作</td><td>恢复功能或从上位机去掉/标记保留</td></tr>
+          <tr><td>RISK-001</td><td><span class="tag p2">P2</span></td><td>Flash 低压写入</td><td><code>APP_BATT_CHECK_ENABLE=0</code>，但运行中存在多处 Flash 写入</td><td>低压掉电下可能损坏写擦数据</td><td>板级验证低压写擦策略，必要时加业务电压门槛</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="verify">
+      <h2>12. 验证建议</h2>
+      <h3>静态验证</h3>
+      <pre>rg -n "struct stCell_Info g_stCellInfoReport" tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample
+python3 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/tests_flash_quick_check.py</pre>
+      <p>如果有可用固件工具链，还应执行 Keil/CMake/IAR 实际构建，确认 duplicate symbol、section 和 linker 行为。</p>
+      <h3>板级验证</h3>
+      <table>
+        <thead><tr><th>场景</th><th>操作</th><th>期望</th></tr></thead>
+        <tbody>
+          <tr><td>工厂模式重新进入</td><td>老化完成后写 <code>0x1102=0x0003</code></td><td>Runtime 重新进入 factory，RTC mode 被阻断，deep sleep 不补偿，到期自动退出</td></tr>
+          <tr><td>手动 deep sleep</td><td>写 <code>0x1102=0x000A</code></td><td>无 charger 时进入 deep sleep，charger active 时明确拒绝</td></tr>
+          <tr><td>SOC 高压 OCV</td><td>SOC 写低值，电芯静置在 4050-4150mV 后重启</td><td>按需求决定是否向高 SOC 修正，不能无说明地失效</td></tr>
+          <tr><td>Flash 掉电</td><td>SOC/Runtime/event log 写入中掉电</td><td>重启后只加载完整 commit，不读半写 transaction</td></tr>
+          <tr><td>AFE 失败</td><td>连续 I2C CRC 失败 10 次</td><td>清 AFE report 但保留 SOC/MAC，30min 错误可进入 deep sleep</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <footer>
+    本 HTML 为阅读版；后续维护建议以同目录 Markdown 为源。
+  </footer>
+</body>
+</html>
