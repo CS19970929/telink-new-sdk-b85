@@ -1,6 +1,13 @@
 # Flash 文档索引
 
-## 1. 当前有效文档
+## 0. ble_sample 全量梳理
+
+如果要看当前 `ble_sample` 的启动、SOC、KV、老化工厂模式、低功耗和通信全链路，请优先看：
+
+- `ble_sample_full_logic_review_20260524.md`
+- `ble_sample_full_logic_review_20260524.html`
+
+## 1. 当前有效 Flash 文档
 
 如果要看当前版本，请优先看下面几份：
 

@@ -282,6 +282,20 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn("flash_store_cfg_get_legacy_runtime_base()", text)
         self.assertNotIn("runtime_load_legacy_value", text)
 
+    def test_runtime_counts_awake_time_without_deepsleep_compensation(self):
+        text = read_text(RUNTIME_C)
+        self.assertNotIn("RUNTIME_SLEEP_TICK", text)
+        self.assertNotIn("runtime_sleep_tick", text)
+        self.assertNotIn("analog_write", text)
+        self.assertNotIn("analog_read", text)
+        self.assertIn("Aging runtime counts awake BMS execution only", text)
+
+    def test_factory_mode_disables_rtc_low_power_path(self):
+        text = read_text(APP_C)
+        self.assertIn("MODE_FACTORY == Runtime_GetMode()", text)
+        self.assertIn("quit_rtc_mode();", text)
+        self.assertIn("enter_rtc_mode();", text)
+
     def test_event_log_reports_store_error(self):
         text = read_text(EVENT_LOG_C)
         self.assertIn("bms_event_log_report_store_error()", text)
