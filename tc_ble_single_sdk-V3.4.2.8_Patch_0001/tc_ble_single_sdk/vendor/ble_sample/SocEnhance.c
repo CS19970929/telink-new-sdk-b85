@@ -118,13 +118,17 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_DSG_OCV_MID_ADJUST_TICKS    (5 * 20)
 #define SOC_DSG_OCV_HIGH_ADJUST_TICKS   (5 * 20)
 #define SOC_DSG_OCV_VHIGH_ADJUST_TICKS  (5 * 20)
+#define SOC_DSG_SAG_HOLD_CURR_MIN       SOC_DSG_OCV_MID_CURR_MAX
+#define SOC_DSG_SAG_HOLDOFF_TICKS       (5u * 30u)
 // #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60 * 30)
 // #define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60 * 2)
 #define SOC_OCV_IDLE_STABLE_TICKS       (5 * 60)
 #define SOC_OCV_IDLE_ADJUST_TICKS       (5 * 60)
+#define SOC_DEFERRED_OCV_ACTIVE_STEP_TICKS (5u * 2u)
+#define SOC_LONG_REST_DOWN_STEP_TICKS    (5u * 60u * 30u)
 #define SOC_FULL_SYNC_MIN_MV            ((uint16_t)(SOC_100_VAL - 200u))
 #define SOC_EMPTY_SYNC_MAX_MV           ((uint16_t)(SOC_0_VAL + 200u))
-#define SOC_FULL_LOCK_TICKS             20u
+#define SOC_FULL_LOCK_TICKS             (5u * 60u)
 #define SOC_EMPTY_LOCK_TICKS            25u
 #define SOC_DSG_TERMINAL_START_MV       ((uint16_t)(SOC_0_VAL + 300u))
 #define SOC_DSG_TERMINAL_L1_MV          ((uint16_t)(SOC_0_VAL + 200u))
@@ -136,7 +140,10 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
 #define SOC_DSG_TERMINAL_HIGH_STEP_TICKS 20u
 #define SOC_DSG_TERMINAL_VHIGH_STEP_TICKS 30u
 #define SOC_DSG_EMPTY_LOCK_TICKS        10u
-#define SOC_TERMINAL_SYNC_STEP_TICKS    5u
+#define SOC_FULL_SYNC_STEP_TICKS        10u
+#define SOC_EMPTY_SYNC_STEP_TICKS       5u
+#define SOC_DISPLAY_STEP_TICKS          5u
+#define SOC_DSG_TERMINAL_BAND_COUNT     4u
 
 #define _CAL_SLOW_DOWN_CHG
 
@@ -164,6 +171,14 @@ typedef struct
 	uint8_t soc;
 } soc_ocv_point_t;
 
+typedef struct
+{
+	uint16_t max_mv;
+	uint8_t target_soc;
+	uint8_t step_ticks[SOC_DSG_TERMINAL_BAND_COUNT];
+	uint8_t sag_hold_blocks;
+} soc_dsg_terminal_rule_t;
+
 static const soc_ocv_point_t g_soc_ocv_points[] = {
 	{SOC_0_VAL, 0u},
 	{3200u, 5u},
@@ -181,15 +196,33 @@ static const soc_ocv_point_t g_soc_ocv_points[] = {
 	{SOC_100_VAL, 100u},
 };
 
+static const soc_dsg_terminal_rule_t g_soc_dsg_terminal_rules[] = {
+	{SOC_0_VAL, 0u,
+	 {SOC_DSG_TERMINAL_LOW_STEP_TICKS, SOC_DSG_TERMINAL_MID_STEP_TICKS,
+	  SOC_DSG_TERMINAL_HIGH_STEP_TICKS, SOC_DSG_TERMINAL_VHIGH_STEP_TICKS}, 0u},
+	{SOC_DSG_TERMINAL_L3_MV, 1u,
+	 {SOC_DSG_TERMINAL_LOW_STEP_TICKS, SOC_DSG_TERMINAL_MID_STEP_TICKS,
+	  SOC_DSG_TERMINAL_HIGH_STEP_TICKS, SOC_DSG_TERMINAL_VHIGH_STEP_TICKS}, 1u},
+	{SOC_DSG_TERMINAL_L2_MV, 3u,
+	 {8u, 12u, SOC_DSG_TERMINAL_HIGH_STEP_TICKS, SOC_DSG_TERMINAL_VHIGH_STEP_TICKS}, 1u},
+	{SOC_DSG_TERMINAL_L1_MV, 6u, {10u, 15u, 25u, 35u}, 1u},
+	{SOC_DSG_TERMINAL_START_MV, 12u, {15u, 20u, 30u, 40u}, 1u},
+};
+
 typedef struct
 {
 	uint16_t idle_stable_ticks;
 	uint16_t idle_adjust_ticks;
+	uint16_t deferred_ocv_ticks;
+	uint16_t long_rest_down_ticks;
 	uint16_t dsg_ocv_stable_ticks;
 	uint16_t dsg_ocv_adjust_ticks;
+	uint16_t dsg_sag_hold_ticks;
+	uint8_t deferred_ocv_target;
+	uint8_t deferred_ocv_valid;
 	uint8_t startup_checked;
-	uint8_t full_lock_ticks;
-	uint8_t empty_lock_ticks;
+	uint16_t full_lock_ticks;
+	uint16_t empty_lock_ticks;
 	uint8_t full_terminal_adjust_ticks;
 	uint8_t empty_terminal_adjust_ticks;
 	uint8_t dsg_terminal_adjust_ticks;
@@ -200,12 +233,20 @@ typedef struct
 static soc_strategy_state_t g_soc_strategy_state;
 static enum SOC_INTEGRAL_DIR g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 static uint16_t g_soc_integral_ms_remainder = 0u;
+static uint8_t g_soc_display_soc = (uint8_t)SOC_PARAM_DEFAULT_SOC;
+static uint8_t g_soc_display_step_ticks = 0u;
 
 
 
 void set_dispsoc(uint8_t soc)
 {
-	g_stCellInfoReport.SocElement.u16Soc = soc;
+	if (soc > SOC_PERCENT_MAX)
+	{
+		soc = SOC_PERCENT_MAX;
+	}
+	g_soc_display_soc = soc;
+	g_soc_display_step_ticks = 0u;
+	g_stCellInfoReport.SocElement.u16Soc = g_soc_display_soc;
 }
 
 uint8_t isCHG(void)
@@ -229,6 +270,46 @@ static uint8_t soc_limit_percent_u32(uint32_t value)
 	}
 
 	return (uint8_t)value;
+}
+
+static uint8_t get_soc_display(void)
+{
+	return g_soc_display_soc;
+}
+
+static void soc_display_follow_real(void)
+{
+	uint8_t real_soc = get_soc_real();
+
+	if (g_soc_display_soc == real_soc)
+	{
+		g_soc_display_step_ticks = 0u;
+		return;
+	}
+
+	if (g_soc_display_step_ticks < SOC_DISPLAY_STEP_TICKS)
+	{
+		g_soc_display_step_ticks++;
+	}
+	if (g_soc_display_step_ticks < SOC_DISPLAY_STEP_TICKS)
+	{
+		return;
+	}
+
+	g_soc_display_step_ticks = 0u;
+	if (g_soc_display_soc < real_soc)
+	{
+		g_soc_display_soc++;
+	}
+	else
+	{
+		g_soc_display_soc--;
+	}
+}
+
+static uint32_t soc_display_capacity_now(void)
+{
+	return ((uint32_t)get_soc_display() * SOC_Calculate_Element.u32CapFull) / SOC_PERCENT_MAX;
 }
 
 static uint8_t soc_limit_dsg_u32(uint32_t value)
@@ -635,6 +716,130 @@ static uint8_t soc_discharge_ocv_adjust_ticks(uint8_t band)
 	}
 }
 
+static void soc_update_discharge_sag_hold(void)
+{
+	if (isDSG() && (IDSG > SOC_DSG_SAG_HOLD_CURR_MIN))
+	{
+		g_soc_strategy_state.dsg_sag_hold_ticks = SOC_DSG_SAG_HOLDOFF_TICKS;
+	}
+	else if (g_soc_strategy_state.dsg_sag_hold_ticks > 0u)
+	{
+		g_soc_strategy_state.dsg_sag_hold_ticks--;
+	}
+}
+
+static uint8_t soc_discharge_sag_hold_active(void)
+{
+	return g_soc_strategy_state.dsg_sag_hold_ticks > 0u;
+}
+
+static void soc_deferred_ocv_clear(void)
+{
+	g_soc_strategy_state.deferred_ocv_valid = 0u;
+	g_soc_strategy_state.deferred_ocv_ticks = 0u;
+}
+
+static void soc_deferred_ocv_set_target(uint8_t target_soc)
+{
+	target_soc = soc_limit_percent_u32(target_soc);
+	if ((!g_soc_strategy_state.deferred_ocv_valid) ||
+		(g_soc_strategy_state.deferred_ocv_target != target_soc))
+	{
+		g_soc_strategy_state.deferred_ocv_ticks = 0u;
+	}
+	g_soc_strategy_state.deferred_ocv_target = target_soc;
+	g_soc_strategy_state.deferred_ocv_valid = 1u;
+}
+
+static uint8_t soc_apply_deferred_ocv_step(void)
+{
+	uint8_t current_soc;
+	uint8_t allow_raise;
+
+	if (!g_soc_strategy_state.deferred_ocv_valid)
+	{
+		return 0u;
+	}
+
+	current_soc = get_soc_real();
+	if (current_soc == g_soc_strategy_state.deferred_ocv_target)
+	{
+		soc_deferred_ocv_clear();
+		return 0u;
+	}
+
+	if (current_soc < g_soc_strategy_state.deferred_ocv_target)
+	{
+		if (!isCHG())
+		{
+			return 0u;
+		}
+		allow_raise = 1u;
+	}
+	else
+	{
+		if (!isDSG())
+		{
+			return 0u;
+		}
+		allow_raise = 0u;
+	}
+
+	if (g_soc_strategy_state.deferred_ocv_ticks < SOC_DEFERRED_OCV_ACTIVE_STEP_TICKS)
+	{
+		g_soc_strategy_state.deferred_ocv_ticks++;
+	}
+	if (g_soc_strategy_state.deferred_ocv_ticks < SOC_DEFERRED_OCV_ACTIVE_STEP_TICKS)
+	{
+		return 0u;
+	}
+
+	g_soc_strategy_state.deferred_ocv_ticks = 0u;
+	if (soc_apply_step_towards_value(g_soc_strategy_state.deferred_ocv_target, allow_raise, 1u))
+	{
+		soc_reset_integral_accumulator();
+		return 1u;
+	}
+
+	return 0u;
+}
+
+static uint8_t soc_apply_idle_deferred_down_step(void)
+{
+	uint8_t current_soc;
+
+	if (!g_soc_strategy_state.deferred_ocv_valid)
+	{
+		g_soc_strategy_state.long_rest_down_ticks = 0u;
+		return 0u;
+	}
+
+	current_soc = get_soc_real();
+	if (g_soc_strategy_state.deferred_ocv_target >= current_soc)
+	{
+		g_soc_strategy_state.long_rest_down_ticks = 0u;
+		return 0u;
+	}
+
+	if (g_soc_strategy_state.long_rest_down_ticks < SOC_LONG_REST_DOWN_STEP_TICKS)
+	{
+		g_soc_strategy_state.long_rest_down_ticks++;
+	}
+	if (g_soc_strategy_state.long_rest_down_ticks < SOC_LONG_REST_DOWN_STEP_TICKS)
+	{
+		return 0u;
+	}
+
+	g_soc_strategy_state.long_rest_down_ticks = 0u;
+	if (soc_apply_step_towards_value(g_soc_strategy_state.deferred_ocv_target, 0u, 1u))
+	{
+		soc_reset_integral_accumulator();
+		return 1u;
+	}
+
+	return 0u;
+}
+
 static uint8_t soc_apply_startup_ocv_correction(void)
 {
 	uint8_t current_soc;
@@ -685,6 +890,13 @@ static uint8_t soc_apply_discharge_ocv_tracking(void)
 		g_soc_strategy_state.dsg_ocv_stable_ticks = 0u;
 		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
 		g_soc_strategy_state.dsg_ocv_band = 0xFFu;
+		return 0u;
+	}
+
+	if (soc_discharge_sag_hold_active())
+	{
+		g_soc_strategy_state.dsg_ocv_stable_ticks = 0u;
+		g_soc_strategy_state.dsg_ocv_adjust_ticks = 0u;
 		return 0u;
 	}
 
@@ -748,6 +960,7 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 	{
 		g_soc_strategy_state.idle_stable_ticks = 0u;
 		g_soc_strategy_state.idle_adjust_ticks = 0u;
+		g_soc_strategy_state.long_rest_down_ticks = 0u;
 		return 0u;
 	}
 
@@ -756,6 +969,11 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 		g_soc_strategy_state.idle_stable_ticks++;
 		g_soc_strategy_state.idle_adjust_ticks = 0u;
 		return 0u;
+	}
+
+	if (soc_apply_idle_deferred_down_step())
+	{
+		return 1u;
 	}
 
 	if (++g_soc_strategy_state.idle_adjust_ticks < SOC_OCV_IDLE_ADJUST_TICKS)
@@ -776,15 +994,18 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 		diff = (uint8_t)(current_soc - ocv_soc);
 	}
 
-	if ((diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD) || (ocv_soc >= current_soc))
+	if (diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD)
 	{
+		soc_deferred_ocv_clear();
+		g_soc_strategy_state.long_rest_down_ticks = 0u;
 		return 0u;
 	}
 
-	if (soc_apply_step_towards_value(ocv_soc, 0u, 1u))
+	soc_deferred_ocv_set_target(ocv_soc);
+	if (ocv_soc >= current_soc)
 	{
-		soc_reset_integral_accumulator();
-		return 1u;
+		g_soc_strategy_state.long_rest_down_ticks = 0u;
+		return 0u;
 	}
 
 	return 0u;
@@ -792,7 +1013,7 @@ static uint8_t soc_apply_idle_ocv_tracking(void)
 
 static uint8_t soc_apply_terminal_sync(void)
 {
-	if (isCHG() && (VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
+	if ((VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))
 	{
 		if (g_soc_strategy_state.full_lock_ticks < SOC_FULL_LOCK_TICKS)
 		{
@@ -803,7 +1024,7 @@ static uint8_t soc_apply_terminal_sync(void)
 			return soc_apply_step_towards_when_due(SOC_PERCENT_MAX,
 													1u,
 													&g_soc_strategy_state.full_terminal_adjust_ticks,
-													SOC_TERMINAL_SYNC_STEP_TICKS);
+													SOC_FULL_SYNC_STEP_TICKS);
 		}
 	}
 	else
@@ -823,7 +1044,7 @@ static uint8_t soc_apply_terminal_sync(void)
 			return soc_apply_step_towards_when_due(0u,
 													0u,
 													&g_soc_strategy_state.empty_terminal_adjust_ticks,
-													SOC_TERMINAL_SYNC_STEP_TICKS);
+													SOC_EMPTY_SYNC_STEP_TICKS);
 		}
 	}
 	else
@@ -835,49 +1056,28 @@ static uint8_t soc_apply_terminal_sync(void)
 	return 0u;
 }
 
-static uint8_t soc_discharge_terminal_soc_ceiling(void)
+static uint8_t soc_discharge_terminal_lookup(uint8_t *target_soc, uint8_t *step_ticks, uint8_t *sag_hold_blocks)
 {
-	if (VCELLMIN <= SOC_0_VAL)
+	uint8_t i;
+	uint8_t band = soc_discharge_ocv_current_band(IDSG);
+
+	if (band >= SOC_DSG_TERMINAL_BAND_COUNT)
 	{
-		return 0u;
+		band = SOC_DSG_TERMINAL_BAND_COUNT - 1u;
 	}
 
-	if (VCELLMIN <= SOC_DSG_TERMINAL_L3_MV)
+	for (i = 0u; i < (uint8_t)(sizeof(g_soc_dsg_terminal_rules) / sizeof(g_soc_dsg_terminal_rules[0])); ++i)
 	{
-		return 1u;
+		if (VCELLMIN <= g_soc_dsg_terminal_rules[i].max_mv)
+		{
+			*target_soc = g_soc_dsg_terminal_rules[i].target_soc;
+			*step_ticks = g_soc_dsg_terminal_rules[i].step_ticks[band];
+			*sag_hold_blocks = g_soc_dsg_terminal_rules[i].sag_hold_blocks;
+			return 1u;
+		}
 	}
 
-	if (VCELLMIN <= SOC_DSG_TERMINAL_L2_MV)
-	{
-		return 3u;
-	}
-
-	if (VCELLMIN <= SOC_DSG_TERMINAL_L1_MV)
-	{
-		return 6u;
-	}
-
-	if (VCELLMIN <= SOC_DSG_TERMINAL_START_MV)
-	{
-		return 12u;
-	}
-
-	return SOC_PERCENT_MAX;
-}
-
-static uint8_t soc_discharge_terminal_step_ticks(void)
-{
-	switch (soc_discharge_ocv_current_band(IDSG))
-	{
-	case 0u:
-		return SOC_DSG_TERMINAL_LOW_STEP_TICKS;
-	case 1u:
-		return SOC_DSG_TERMINAL_MID_STEP_TICKS;
-	case 2u:
-		return SOC_DSG_TERMINAL_HIGH_STEP_TICKS;
-	default:
-		return SOC_DSG_TERMINAL_VHIGH_STEP_TICKS;
-	}
+	return 0u;
 }
 
 static uint8_t soc_apply_discharge_terminal_tracking(void)
@@ -885,6 +1085,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 	uint8_t current_soc;
 	uint8_t target_soc;
 	uint8_t step_ticks;
+	uint8_t sag_hold_blocks;
 
 	if (!isDSG() || (VCELLMAX < VCELLMIN) || (VCELLMIN < SOC_DSG_TERMINAL_VALID_MIN_MV))
 	{
@@ -893,8 +1094,14 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 		return 0u;
 	}
 
-	target_soc = soc_discharge_terminal_soc_ceiling();
-	if (target_soc >= SOC_PERCENT_MAX)
+	if (!soc_discharge_terminal_lookup(&target_soc, &step_ticks, &sag_hold_blocks))
+	{
+		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
+		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
+		return 0u;
+	}
+
+	if (sag_hold_blocks && soc_discharge_sag_hold_active())
 	{
 		g_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;
 		g_soc_strategy_state.dsg_empty_lock_ticks = 0u;
@@ -908,7 +1115,6 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 		return 0u;
 	}
 
-	step_ticks = soc_discharge_terminal_step_ticks();
 	if (target_soc == 0u)
 	{
 		if (g_soc_strategy_state.dsg_empty_lock_ticks < SOC_DSG_EMPTY_LOCK_TICKS)
@@ -934,6 +1140,8 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 
 static void soc_strategy_update(void)
 {
+	soc_update_discharge_sag_hold();
+
 	if (soc_apply_startup_ocv_correction())
 	{
 		return;
@@ -945,6 +1153,11 @@ static void soc_strategy_update(void)
 	}
 
 	if (soc_apply_discharge_terminal_tracking())
+	{
+		return;
+	}
+
+	if (soc_apply_deferred_ocv_step())
 	{
 		return;
 	}
@@ -975,6 +1188,7 @@ void set_soc_param(uint8_t _soc_val, uint16_t _cap_factory, uint8_t disp_sync_up
 
 	set_calsoc(_soc_val);
 	soc_reset_integral_accumulator();
+	soc_deferred_ocv_clear();
 	if (disp_sync_updatae)
 	{
 		set_dispsoc(get_soc_real());
@@ -998,6 +1212,7 @@ void soc_factory_param_init_first(void)
 
 	memset(&g_soc_strategy_state, 0, sizeof(g_soc_strategy_state));
 	soc_sanitize_state();
+	set_dispsoc(get_soc_real());
 
 #endif
 }
@@ -1009,7 +1224,7 @@ void soc_param_lib_init(soc_kv_data_t *_soc)
 	SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(_soc->cycle);
 	set_calsoc(_soc->soc);
 	soc_sanitize_state();
-
+	set_dispsoc(get_soc_real());
 
 	SOC_Result_Pass();
 }
@@ -1071,9 +1286,10 @@ void SOC_State_Transfer(void)
 
 void SOC_Result_Pass(void)
 {
+	soc_display_follow_real();
 #ifndef _DOUBLE_SOC_FUNC_
-	g_stCellInfoReport.SocElement.u16Soc = get_soc_real();
-	g_stCellInfoReport.SocElement.u16CapacityNow = SOC_Calculate_Element.u32CapNow / SOC_REPORT_CAPACITY_DIVISOR;
+	g_stCellInfoReport.SocElement.u16Soc = get_soc_display();
+	g_stCellInfoReport.SocElement.u16CapacityNow = soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR;
 #else
 	g_stCellInfoReport.real_now_Capacity = SOC_Calculate_Element.u32CapNow / SOC_REPORT_CAPACITY_DIVISOR;
 	#endif

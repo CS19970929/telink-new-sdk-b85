@@ -6,6 +6,9 @@
 
 - `ble_sample_full_logic_review_20260524.md`
 - `ble_sample_full_logic_review_20260524.html`
+- `soc_user_experience_tuning_20260524.md`
+
+其中 `soc_user_experience_tuning_20260524.md` 专门整理当前 SOC 修改点、可调参数、增减影响、验证场景，以及这些参数对 BLE/Modbus/SIF、KV、deep sleep、老化 runtime 的影响边界。
 
 ## 1. 当前有效 Flash 文档
 
