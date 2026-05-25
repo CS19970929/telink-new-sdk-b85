@@ -6,9 +6,11 @@
 
 - `ble_sample_full_logic_review_20260524.md`
 - `ble_sample_full_logic_review_20260524.html`
+- `soc_current_logic_20260525.md`
 - `soc_user_experience_tuning_20260524.md`
+- `soc_ebike_discharge_experience_20260525.md`
 
-其中 `soc_user_experience_tuning_20260524.md` 专门整理当前 SOC 修改点、可调参数、增减影响、验证场景，以及这些参数对 BLE/Modbus/SIF、KV、deep sleep、老化 runtime 的影响边界。
+其中 `soc_current_logic_20260525.md` 是当前 SOC 逻辑入口文档；`soc_user_experience_tuning_20260524.md` 专门整理当前 SOC 修改点、可调参数、增减影响、验证场景，以及这些参数对 BLE/Modbus/SIF、KV、deep sleep、老化 runtime 的影响边界。`soc_ebike_discharge_experience_20260525.md` 专门说明 eBike 放电场景的容量自适应修正、静置少校准、低端 3000mV 归零和 SOH 保持 cycle 计算的边界。
 
 ## 1. 当前有效 Flash 文档
 

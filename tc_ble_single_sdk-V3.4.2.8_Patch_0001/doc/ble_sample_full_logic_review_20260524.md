@@ -1,6 +1,6 @@
 # ble_sample 项目源码逻辑全量梳理与风险审查
 
-日期：2026-05-24
+日期：2026-05-24，SOC 部分更新：2026-05-25
 
 ## 1. 文档定位
 
@@ -10,7 +10,7 @@
 
 - `ble_sample_full_logic_review_20260524.md` 作为可 diff、可长期维护的源文档。
 - `ble_sample_full_logic_review_20260524.html` 作为便于浏览、评审、归档的阅读版。
-- SOC 用户体验、校准策略和可调参数详见 `soc_user_experience_tuning_20260524.md`。
+- SOC 当前逻辑入口见 `soc_current_logic_20260525.md`；用户体验、校准策略和可调参数详见 `soc_user_experience_tuning_20260524.md`；eBike 放电体验专项说明见 `soc_ebike_discharge_experience_20260525.md`。
 
 ## 2. 结论摘要
 
@@ -19,7 +19,7 @@
 - `main.c` 完成 32k 时钟、wakeup、RF、GPIO、系统时钟、watchdog 初始化，然后进入 `user_init_normal()` 或 `user_init_deepRetn()`，最终无限循环调用 `main_loop()`。
 - `user_init_normal()` 先初始化 BLE stack，再初始化 BMS 外设、参数、事件日志、AFE、ADC、SOC KV、SOC 算法、通信总线、BT 名称、Runtime 老化计时，最后根据充电唤醒或 Runtime 工厂状态决定 MOS 控制策略。
 - `main_loop()` 每轮执行 BLE stack、`Runtime_Poll()`、总线任务、SOC KV 即时持久化、低功耗处理；其中 200ms 周期执行 SOC 更新和充电/key 逻辑，1s 周期采集 AFE/ADC 并刷新事件日志。
-- SOC 算法采用 “电流积分 + 端点/OCV 修正 + real/display 分离 + SOH/循环次数” 的组合方式，真实 SOC 每次修正最多 1%，对外显示 SOC 再按约 1s/1% 平滑跟随。
+- SOC 算法采用 “电流积分 + 端点/OCV 修正 + real/display 分离 + SOH/循环次数” 的组合方式；普通自动修正按 1% 小步收敛，对外显示 SOC 再按约 1s/1% 平滑跟随。放电到 `3000mV` 安全端点时直接同步 real/display SOC 到 0%，保证早于 `2750mV` 过放保护点。
 - Flash 存储分为 `flash_kv32` 通用 append-only KV、`soc_kv_store` 热数据、`bms_cold_kv_store` 冷参数、`runtime` 老化计时记录、event log 等区域。
 - 低功耗分两层：一层是主动 `DEEPSLEEP_MODE`，另一层是 BLE suspend + `enter_rtc_mode()` 关闭 ADC 相关电源。老化模式允许 deep sleep，但不允许 RTC mode，且 deep sleep 时间不补偿进老化 runtime。
 
@@ -165,7 +165,7 @@ SOC 源文件是 `SocEnhance.c/.h`，持久化接口是 `soc_kv_store.c/.h`。
 - OCV 有效电压范围 `2000mV ~ 4000mV`：见 `SocEnhance.c:101-102`。
 - 显示 SOC 跟随速度 `SOC_DISPLAY_STEP_TICKS = 5`，约 1s/1%。
 - 满电同步锁定 `SOC_FULL_LOCK_TICKS = 5 * 60`，约 60s；满电同步速度 `SOC_FULL_SYNC_STEP_TICKS = 10`，约 2s/1%。
-- 静置 OCV 稳定/目标评估 tick 均为 `5 * 60`，约 60s；长静置向下例外 `SOC_LONG_REST_DOWN_STEP_TICKS = 5 * 60 * 30`，约 30min/1%。
+- 静置 OCV 使用 confidence：至少稳定 `SOC_OCV_IDLE_MIN_STABLE_TICKS = 5 * 30`，目标刷新 `SOC_OCV_IDLE_TARGET_REFRESH_TICKS = 5 * 60`；误差小于 `SOC_IDLE_STATIC_DOWN_DIFF_THRESHOLD = 10%` 时静置不下修，长静置大误差例外为 `SOC_LONG_REST_DOWN_STEP_TICKS = 5 * 60 * 30`，约 30min/1%。
 
 SOC 主状态在 `SOC_Calculate_Element` 中，包含：
 
@@ -198,9 +198,9 @@ SOC 200ms 更新入口是 `APP_SOC_IntEnhance_Ctrl()`，由 `main_loop()` 的 20
 
 核心规则：
 
-- 充电：`SOC_Cont_AH_Int_CHG()` 根据 `u16Ichg` 积分，容量增加后计算新的百分比，只有新 SOC 大于旧 SOC 才更新，见 `SocEnhance.c:1017-1033` 与 `SocEnhance.c:375-397`。
-- 放电：`SOC_Cont_AH_Int_DSG()` 根据 `u16IDischg` 积分，容量减少后计算新的百分比，若电压仍高于 `SOC_0_VAL`，放电积分不会直接把 SOC 打到 0，而是先钳到 1%，见 `SocEnhance.c:398-425`。
-- 放电 SOC 下降会累计 `u8DSG_SOC_Int`，每累计 100% 增加 1 次 cycle，并根据 cycle 重新计算 SOH/full capacity，见 `SocEnhance.c:335-360`。
+- 充电：`SOC_Cont_AH_Int_CHG()` 根据 `u16Ichg` 积分，容量增加后计算新的百分比，只有新 SOC 大于旧 SOC 才更新。
+- 放电：`SOC_Cont_AH_Int_DSG()` 根据 `u16IDischg` 积分，容量减少后计算新的百分比，若电压仍高于 `SOC_0_VAL`，放电积分不会直接把 SOC 打到 0，而是先钳到 1%。
+- 放电 SOC 下降会累计 `u8DSG_SOC_Int`，每累计 100% 增加 1 次 cycle，并根据 cycle 重新计算 SOH/full capacity。
 - SOH 策略：`0~80` 次为 100%，`>=800` 次为 80%，中间分段下降，见 `SocEnhance.c:19-48`。
 
 ### 8.4 OCV 与端点修正
@@ -214,7 +214,7 @@ SOC 200ms 更新入口是 `APP_SOC_IntEnhance_Ctrl()`，由 `main_loop()` 的 20
 5. 放电 OCV 跟踪。
 6. 静置 OCV 目标记录。
 
-修正节奏受 `soc_apply_step_towards_value()` 控制，每次只移动 1%。这是体验上比较关键的约束：真实 SOC 自动修正不会一次跳很多，对外显示 SOC 还会再按约 1s/1% 平滑跟随。
+普通修正节奏受 `soc_apply_step_towards_value()` 控制，每次只移动 1%。这是体验上比较关键的约束：真实 SOC 自动修正不会一次跳很多，对外显示 SOC 还会再按约 1s/1% 平滑跟随。唯一安全例外是放电时 `VCELLMIN <= SOC_0_VAL = 3000mV` 持续约 2s，直接同步到 0%，用于保证早于 `2750mV` 过放保护点。
 
 主要策略：
 
@@ -222,10 +222,10 @@ SOC 200ms 更新入口是 `APP_SOC_IntEnhance_Ctrl()`，由 `main_loop()` 的 20
 - 启动 OCV：仅在样本有效且静置时执行一次；目前只在 OCV 判为 0 且最低电压低于等于 `SOC_0_VAL` 时向 0 修正。
 - 满电端点：只看电压，不要求 `isCHG()`；`VCELLMAX >= 4180` 且 `VCELLMIN >= 3980` 持续约 60s 后，按约 2s/1% 向 100% 靠近。
 - 空电端点：静置且 `VCELLMIN <= 3000`、`VCELLMAX <= 3200`，锁定约 5s 后按约 1s/1% 向 0% 靠近。
-- 静置 OCV：要求静置且样本有效；稳定约 60s 后每约 60s 评估一次 OCV 目标。差值小于 3% 不修正；差值达到阈值时只记录 `deferred_ocv_target`，不在静置时快速跳变。
-- 延迟 OCV 目标：目标高于真实 SOC 时只在充电中上调，目标低于真实 SOC 时只在放电中下调，运行中约 2s/1%。长静置向下例外按约 30min/1% 慢速下调。
-- 放电 OCV：按放电电流分档，电流越大阈值越保守；只允许向下修正，并受大电流压降 holdoff 阻断。
-- 放电低压端点表：最低电压低于 3300/3200/3150/3050/3000mV 时，SOC 上限分别压到 12/6/3/1/0%；不同电流档使用不同步进速度，非 0% 规则受压降 holdoff 阻断。
+- 静置 OCV：要求静置且样本有效；单体压差、weighted cell voltage 变化率和 confidence 都满足后只记录 `deferred_ocv_target`，不在静置时快速跳变；误差小于 10% 时静置不下修。
+- 延迟 OCV 目标：目标高于真实 SOC 时只在充电中上调；目标低于真实 SOC 时只在放电中下调。放电下调速度按 `36 * CapacityFactory / IDSG` 得到自然 1% 时间，再按误差大小限幅。
+- 放电 OCV：按放电电流分档，电流越大阈值越保守；只允许向下修正，并受大电流 sag/rebound holdoff 阻断；修正速度同样按 `CapacityFactory` 和 `IDSG` 自适应。
+- 放电低压端点表：最低电压低于 3300/3200/3150/3050/3000mV 时，SOC 上限分别压到 12/6/3/1/0%；3300/3200/3150mV 规则受 sag holdoff 阻断，3050mV 关键低端允许到 1%，3000mV 安全端点约 2s 后直接同步 0%。
 
 ### 8.5 SOC 输出与持久化
 
