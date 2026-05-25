@@ -386,6 +386,27 @@ void enter_fac_mode(bool on)
 }
 
 extern volatile union System_Status SystemStatus;
+static void factory_mode_apply_switch_state(void)
+{
+	if (MODE_FACTORY != Runtime_GetMode())
+	{
+		return;
+	}
+
+	if (IsChargerWakeupActive())
+	{
+		open_chg_close_dsg();
+	}
+	else if (IsKeyWakeupActive())
+	{
+		enter_fac_mode(true);
+	}
+	else
+	{
+		close_dsg();
+	}
+}
+
 void charger_detect_and_keyLogi_200ms(void)
 {
 	static u8 state = 0;
@@ -408,10 +429,17 @@ void charger_detect_and_keyLogi_200ms(void)
 		if (gpio_read(CHG_IN_PIN))
 		{
 			state = 0;
-			close_chg();
-			if(IsKeyWakeupActive())
+			if (MODE_FACTORY == Runtime_GetMode())
 			{
-				open_dsg();
+				factory_mode_apply_switch_state();
+			}
+			else
+			{
+				close_chg();
+				if(IsKeyWakeupActive())
+				{
+					open_dsg();
+				}
 			}
 			SystemStatus.bits.b1Status_Cool = 0;
 		}
@@ -422,6 +450,13 @@ void charger_detect_and_keyLogi_200ms(void)
 	default:
 		state = 0;
 		break;
+	}
+
+	if (MODE_FACTORY == Runtime_GetMode())
+	{
+		key_state = 0;
+		factory_mode_apply_switch_state();
+		return;
 	}
 
 	if (!IsChargerWakeupActive())
@@ -1604,7 +1639,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	{
 		if (MODE_FACTORY == Runtime_GetMode())
 		{
-			enter_fac_mode(true);
+			factory_mode_apply_switch_state();
 		}
 		else
 		{

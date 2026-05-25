@@ -1327,7 +1327,8 @@ void DataLoad_Current(void)
     if ((SH367309_Read_AFE1.u16Current & 0x8000) == 0)
     {
         // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 榛樿浣跨敤200mV鐨勮绠楁柟寮�
-        u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)SH367309_Read_AFE1.u16Current);
+        // u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)SH367309_Read_AFE1.u16Current);
+        u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * g_u32CS_Res_AFE / (21470);
         // t_i32temp = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
         log_i("******************************************\n");
@@ -1339,7 +1340,8 @@ void DataLoad_Current(void)
     {
         // u32_DsgCur_mA = (UINT32)(0xFFFF - (SH367309_Read_AFE1.u16Current | 0xE000) + 1) * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // mA
         // u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * 200 * g_u32CS_Res_AFE / (21470); // mA
-        u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1)); // mA
+        // u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1)); // mA
+        u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
         log_i("******************************************\n");
         log_i("AFE value->%d\n", u32_DsgCur_mA);
@@ -1377,6 +1379,8 @@ void DataLoad_Current(void)
     g_stCellInfoReport.u16IDischg = (UINT16)((u32_DsgCur_mA >> 10) / 100);
 #endif
 
+    // g_stCellInfoReport.u16Ichg = 0;
+    // g_stCellInfoReport.u16IDischg = 5 * CapacityFactory;
     if (g_stCellInfoReport.u16Ichg <= 2)
     {
         g_stCellInfoReport.u16Ichg = 0;

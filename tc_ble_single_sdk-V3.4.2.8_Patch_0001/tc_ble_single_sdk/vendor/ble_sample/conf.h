@@ -205,7 +205,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   666u
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0u
 #endif
 
 typedef enum _CUR {
