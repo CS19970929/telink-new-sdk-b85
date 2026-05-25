@@ -3,8 +3,8 @@
 
 #include "tl_common.h"
 
-#define FACTORY_TIME_LIMIT_MIN   (60 * 24 * 3)   // 7��
-// #define FACTORY_TIME_LIMIT_MIN   (1)   // 7��
+// #define FACTORY_TIME_LIMIT_MIN   (60 * 24 * 3)   // 7��
+#define FACTORY_TIME_LIMIT_MIN   (5)   // 7��
 
 typedef enum
 {
@@ -20,5 +20,6 @@ void Runtime_CancelPendingDeepSleep(void);
 bms_mode_t Runtime_GetMode(void);
 u32 Runtime_Get_runtime(void);
 int Runtime_FactoryReset(void);
+int Runtime_ReenterFactoryMode(void);
 
 #endif

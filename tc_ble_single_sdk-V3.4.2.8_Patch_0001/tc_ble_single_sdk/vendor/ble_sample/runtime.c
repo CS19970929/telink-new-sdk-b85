@@ -285,7 +285,8 @@ static void runtime_apply_elapsed_minutes(u32 elapsed_min)
     }
 
     g_runtime_min += elapsed_min;
-    if ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN) {
+    if (g_runtime_store_ready &&
+        ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN)) {
         if (!runtime_flash_save()) {
             runtime_note_store_error();
         }
@@ -315,8 +316,6 @@ void Runtime_Init(void)
 
     if (!runtime_scan_store()) {
         if (runtime_flash_base() == 0u) {
-            g_runtime_min = FACTORY_TIME_LIMIT_MIN;
-            g_mode = MODE_NORMAL;
             g_runtime_last_tick_32k = pm_get_32k_tick();
             g_runtime_tick_ready = 1u;
             return;
@@ -398,5 +397,15 @@ int Runtime_FactoryReset(void)
     g_runtime_store_ready = 1u;
     g_runtime_last_tick_32k = pm_get_32k_tick();
     g_runtime_tick_ready = 1u;
+    return 1;
+}
+
+int Runtime_ReenterFactoryMode(void)
+{
+    if (!Runtime_FactoryReset()) {
+        return 0;
+    }
+
+    enter_fac_mode(true);
     return 1;
 }

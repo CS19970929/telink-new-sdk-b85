@@ -22,6 +22,7 @@ BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
 BLE_FLASH = COMMON_DIR / "ble_flash.h"
 FLASH_SAFE = MODULE_DIR / "flash_store_safe.h"
 APP_C = MODULE_DIR / "app.c"
+MODBUS_RTU_C = MODULE_DIR / "modbus_rtu.c"
 RUNTIME_C = MODULE_DIR / "runtime.c"
 EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
 PARAM_C = MODULE_DIR / "param.c"
@@ -296,6 +297,28 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("quit_rtc_mode();", text)
         self.assertIn("enter_rtc_mode();", text)
 
+    def test_modbus_factory_command_resets_runtime(self):
+        text = read_text(MODBUS_RTU_C)
+        self.assertIn("#include \"runtime.h\"", text)
+        self.assertIn("Runtime_ReenterFactoryMode()", text)
+        self.assertNotIn("if (val == 0x03)\n            enter_fac_mode(true);", text)
+
+    def test_runtime_does_not_complete_factory_when_layout_unavailable(self):
+        text = read_text(RUNTIME_C)
+        self.assertNotIn(
+            "if (runtime_flash_base() == 0u) {\n            g_runtime_min = FACTORY_TIME_LIMIT_MIN;",
+            text,
+        )
+        self.assertIn("if (runtime_flash_base() == 0u) {", text)
+        self.assertIn("g_runtime_last_tick_32k = pm_get_32k_tick();", text)
+
+    def test_runtime_saves_only_when_store_ready(self):
+        text = read_text(RUNTIME_C)
+        self.assertIn(
+            "if (g_runtime_store_ready &&\n        ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN))",
+            text,
+        )
+
     def test_event_log_reports_store_error(self):
         text = read_text(EVENT_LOG_C)
         self.assertIn("bms_event_log_report_store_error()", text)
@@ -437,6 +460,8 @@ class SourceContractTests(unittest.TestCase):
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)
+        self.assertIn("int Runtime_ReenterFactoryMode(void)", text)
+        self.assertIn("enter_fac_mode(true);", text)
 
     def test_param_loads_only_from_cold_kv(self):
         text = read_text(PARAM_C)

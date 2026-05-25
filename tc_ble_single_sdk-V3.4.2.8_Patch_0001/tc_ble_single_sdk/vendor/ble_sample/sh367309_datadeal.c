@@ -1252,8 +1252,8 @@ static uint8_t step = 0;
 static uint16_t CHG_current = 1000;
 static uint16_t DSG_current = 1000;
 #else
-static uint16_t CHG_current = 2000;
-static uint16_t DSG_current = 2000;
+static uint16_t CHG_current = 0;
+static uint16_t DSG_current = 0;
 #endif
 
 #if 1
@@ -1266,7 +1266,9 @@ void test_Autocurrent_cycle(void)
         if (g_stCellInfoReport.SocElement.u16Soc < 99)
         {
             step = 1;
-            g_stCellInfoReport.u16Ichg = CHG_current;
+            sys_time.CHG = CapacityFactory * 5;
+            sys_time.DSG = 0;
+            g_stCellInfoReport.u16Ichg = sys_time.CHG;
             g_stCellInfoReport.u16IDischg = 0;
         }
         else
@@ -1279,8 +1281,10 @@ void test_Autocurrent_cycle(void)
         if (g_stCellInfoReport.SocElement.u16Soc >= 99)
         {
             step = 2;
+            sys_time.CHG = 0;
+            sys_time.DSG = CapacityFactory * 5;
             g_stCellInfoReport.u16Ichg = 0;
-            g_stCellInfoReport.u16IDischg = DSG_current;
+            g_stCellInfoReport.u16IDischg = sys_time.DSG;
         }
         break;
     }
@@ -1901,7 +1905,11 @@ void App_AFEGet(void)
         DataLoad_CellVoltMaxMinFind();
         DataLoad_Temperature();
         DataLoad_TemperatureMaxMinFind();
+    #ifndef __TEST_SOC__
         DataLoad_Current();
+    #else
+        test_Autocurrent_cycle();
+    #endif // !__TEST_SOC__
 
         SystemStatus.bits.b1Status_MOS_CHG = ram_reg_309.REG_BSTATUS3.bits.CHG_FET;
         SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
