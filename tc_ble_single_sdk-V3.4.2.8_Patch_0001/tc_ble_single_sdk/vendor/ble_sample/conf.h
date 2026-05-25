@@ -12,6 +12,7 @@
 // #define FAC_TEST
 // #define DISP_VBAT_AND_TEMP_
 #define _UL_RENZHENG_ENABLE_
+// #define __TEST_SOC__
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
@@ -41,10 +42,10 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   C700
+#define FD_BMS_TYPE   C11_AND_C11pro
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260519"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260525"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -204,7 +205,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0u
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   666u
 #endif
 
 typedef enum _CUR {
