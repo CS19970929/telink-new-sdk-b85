@@ -156,7 +156,7 @@
 <body>
   <header>
     <h1>ble_sample 项目源码逻辑全量梳理与风险审查</h1>
-    <p>日期：2026-05-24。以 <code>tc_ble_single_sdk/vendor/ble_sample</code> 源码为准，重点覆盖 SOC、KV 存储、老化工厂模式、低功耗与通信路径。</p>
+    <p>日期：2026-05-24，SOC 部分更新：2026-05-25。以 <code>tc_ble_single_sdk/vendor/ble_sample</code> 源码为准，重点覆盖 SOC、KV 存储、老化工厂模式、低功耗与通信路径。</p>
   </header>
   <main>
     <nav>
@@ -181,7 +181,9 @@
       <ul>
         <li>源文档：<code>ble_sample_full_logic_review_20260524.md</code></li>
         <li>阅读版：<code>ble_sample_full_logic_review_20260524.html</code></li>
+        <li>SOC 当前逻辑入口：<code>soc_current_logic_20260525.md</code></li>
         <li>SOC 调参文档：<code>soc_user_experience_tuning_20260524.md</code></li>
+        <li>eBike 放电体验专项：<code>soc_ebike_discharge_experience_20260525.md</code></li>
         <li>源码真相源：<code>tc_ble_single_sdk/vendor/ble_sample</code></li>
       </ul>
     </section>
@@ -191,7 +193,7 @@
       <div class="summary">
         <div><strong>启动模型</strong><br>普通上电进入 <code>user_init_normal()</code>，初始化 BLE/BMS/AFE/SOC/Runtime，再按充电唤醒或 Runtime 模式控制 MOS。</div>
         <div><strong>调度模型</strong><br><code>main_loop()</code> 每轮跑 BLE、Runtime、通信、SOC KV 和 PM；SOC 为 200ms，AFE/event 为 1s。</div>
-        <div><strong>SOC 模型</strong><br>电流积分为主，端点/OCV 修正为辅，真实 SOC 每次修正最多 1%，显示 SOC 再按约 1s/1% 跟随。</div>
+        <div><strong>SOC 模型</strong><br>电流积分为主，端点/OCV 修正为辅，普通修正按 1% 小步收敛；3000mV 安全端点直接同步 0%，早于 2750mV 过放保护。</div>
         <div><strong>存储模型</strong><br><code>flash_kv32</code> 是 append-only transaction KV，SOC hot KV 只存 SOC/DSG/CYCLE。老化 deep sleep 不补偿，只累计 awake runtime。</div>
       </div>
       <table>
@@ -285,7 +287,7 @@
         <li>放电 SOC 下降会累计 cycle，满 100% 增加 1 cycle，并重算 SOH/full capacity，见 <code>SocEnhance.c:335-360</code>。</li>
       </ul>
       <h3>OCV 与端点修正</h3>
-      <p>策略顺序是：启动 OCV、满电/空电端点、放电低压端点表、延迟 OCV 目标运行中消化、放电 OCV、静置 OCV 目标记录。自动修正通过 <code>soc_apply_step_towards_value()</code> 每次只移动 1%，显示 SOC 再按约 1s/1% 跟随。</p>
+      <p>策略顺序是：启动 OCV、满电/空电端点、放电低压端点表、延迟 OCV 目标运行中消化、放电 OCV、静置 OCV 目标记录。普通自动修正通过 <code>soc_apply_step_towards_value()</code> 每次只移动 1%，显示 SOC 再按约 1s/1% 跟随；放电 <code>VCELLMIN &lt;= 3000mV</code> 持续约 2s 是安全例外，会直接同步 real/display SOC 到 0%。</p>
       <table>
         <thead><tr><th>策略</th><th>源码位置</th><th>行为</th></tr></thead>
         <tbody>
@@ -293,15 +295,15 @@
           <tr><td>启动 OCV</td><td><code>SocEnhance.c</code></td><td>仅静置且样本有效时执行一次，目前只处理向 0 修正</td></tr>
           <tr><td>满电端点</td><td><code>soc_apply_terminal_sync()</code></td><td>只看电压，不要求 <code>isCHG()</code>；最高 4180mV、最低 3980mV 持续约 60s 后，按约 2s/1% 靠近 100%</td></tr>
           <tr><td>空电端点</td><td><code>soc_apply_terminal_sync()</code></td><td>静置且最低 3000mV、最高 3200mV 后，按约 1s/1% 靠近 0%</td></tr>
-          <tr><td>静置 OCV</td><td><code>soc_apply_idle_ocv_tracking()</code></td><td>稳定约 60s 后每约 60s 评估目标，只记录 <code>deferred_ocv_target</code>，不静置快速跳变；长静置向下约 30min/1%</td></tr>
-          <tr><td>延迟 OCV 目标</td><td><code>soc_apply_deferred_ocv_step()</code></td><td>目标高于真实 SOC 时只在充电上调，目标低于真实 SOC 时只在放电下调，运行中约 2s/1%</td></tr>
-          <tr><td>放电 OCV</td><td><code>soc_apply_discharge_ocv_tracking()</code></td><td>按电流分档，只允许向下修正，并受大电流压降 holdoff 阻断</td></tr>
-          <tr><td>放电低压端点表</td><td><code>g_soc_dsg_terminal_rules[]</code></td><td>3300/3200/3150/3050/3000mV 分别约束到 12/6/3/1/0%，不同电流档使用不同步进</td></tr>
+          <tr><td>静置 OCV</td><td><code>soc_apply_idle_ocv_tracking()</code></td><td>压差、变化率和 confidence 达标后只记录 <code>deferred_ocv_target</code>；误差小于 10% 时静置不下修</td></tr>
+          <tr><td>延迟 OCV 目标</td><td><code>soc_apply_deferred_ocv_step()</code></td><td>充电上修固定约 20s/1%；放电下修按 <code>36 * CapacityFactory / IDSG</code> 自适应</td></tr>
+          <tr><td>放电 OCV</td><td><code>soc_apply_discharge_ocv_tracking()</code></td><td>按电流分档，只允许向下修正，受 sag/rebound holdoff 阻断，修正速度按容量和电流自适应</td></tr>
+          <tr><td>放电低压端点表</td><td><code>g_soc_dsg_terminal_rules[]</code></td><td>3300/3200/3150/3050/3000mV 分别约束到 12/6/3/1/0%；3050mV 可到 1%，3000mV 约 2s 后直接同步 0%</td></tr>
         </tbody>
       </table>
       <h3>输出与持久化</h3>
       <p><code>SOC_Result_Pass()</code> 将 SOC 状态同步到 <code>g_stCellInfoReport.SocElement</code>。当前对外 <code>u16Soc</code> 使用显示 SOC，<code>u16CapacityNow</code> 使用显示 SOC 换算；真实 SOC 仍用于积分、校准和 KV 持久化。<code>main_loop()</code> 每轮调用 SOC hot KV 更新，但 <code>soc_kv_store_update_and_log_if_changed()</code> 会先比较当前 KV，只在 SOC/DSG/CYCLE 变化时写 Flash。</p>
-      <p>SOC 修改点、可调参数、增减影响和验证场景详见 <code>soc_user_experience_tuning_20260524.md</code>。</p>
+      <p>SOC 修改点、可调参数、增减影响和验证场景详见 <code>soc_user_experience_tuning_20260524.md</code>；eBike 放电体验专项见 <code>soc_ebike_discharge_experience_20260525.md</code>。</p>
     </section>
 
     <section id="kv">
