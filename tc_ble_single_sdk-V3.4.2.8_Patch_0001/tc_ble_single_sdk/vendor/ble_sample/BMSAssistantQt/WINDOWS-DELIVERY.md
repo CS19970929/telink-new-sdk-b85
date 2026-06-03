@@ -20,6 +20,7 @@ Windows 侧的核心目标：
 - `Launch-BMSAssistantQt.bat`
 - `docs/README.md`
 - `docs/WINDOWS-DELIVERY.md`
+- `docs/BMSWinAndroid客户端实现说明.md`
 
 其中：
 
@@ -120,8 +121,19 @@ scripts\run.bat
 scripts\package-windows.bat
 ```
 
+`package-windows.bat` 在正式打包前会先执行：
+
+```bat
+python main.py --smoke-test
+```
+
+该自检会实例化主窗口并立即退出，用于提前发现 `PySide6`、`QtBluetooth`、Qt 平台插件或运行时路径问题。脚本打包时同时使用 `--collect-all PySide6`，减少 Windows 交付包漏带 Qt 插件的风险。
+
+生成的 `.dist\docs` 目录会同时包含 Windows 交付说明和跨平台 `Windows + Android` 实现说明，方便后续现场联调按同一套协议与寄存器资产排查。
+
 ## 当前边界
 
 - 这套 Qt 工程当前是桌面上位机，不是手机 App
+- Android 工程版首版位于 `vendor/ble_sample/BMSAssistantAndroid`，与 Qt 上位机共用协议资产，但需要 JDK17、Android SDK 和安卓真机才能完成构建/安装验证
 - `iPhone/iPad` 仍建议走原生 `SwiftUI + CoreBluetooth`
 - Windows 包当前具备打包路径，但正式对外发客户前，仍建议你在公司 Windows 机器上跑一轮完整实测

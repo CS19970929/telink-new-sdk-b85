@@ -35,6 +35,9 @@ if errorlevel 1 goto :pip_upgrade_failed
 python -m pip install -r "%ROOT_DIR%\requirements.txt"
 if errorlevel 1 goto :pip_install_failed
 
+python "%ROOT_DIR%\main.py" --smoke-test
+if errorlevel 1 goto :smoke_test_failed
+
 if exist "%BUILD_WORK_DIR%" rmdir /s /q "%BUILD_WORK_DIR%"
 if exist "%PYINSTALLER_DIST_DIR%" rmdir /s /q "%PYINSTALLER_DIST_DIR%"
 if not exist "%DIST_DIR%" mkdir "%DIST_DIR%"
@@ -46,6 +49,7 @@ pyinstaller ^
   --name BMSAssistantQt ^
   --workpath "%BUILD_WORK_DIR%" ^
   --distpath "%PYINSTALLER_DIST_DIR%" ^
+  --collect-all PySide6 ^
   --hidden-import PySide6.QtBluetooth ^
   "%ROOT_DIR%\main.py"
 if errorlevel 1 goto :pyinstaller_failed
@@ -55,6 +59,9 @@ if errorlevel 8 goto :copy_failed
 
 copy /y "%ROOT_DIR%\README.md" "%DOCS_DIR%\README.md" > nul
 copy /y "%ROOT_DIR%\WINDOWS-DELIVERY.md" "%DOCS_DIR%\WINDOWS-DELIVERY.md" > nul
+for %%D in ("%ROOT_DIR%\..\..\..\docs\BMSWinAndroid*.md") do (
+  if exist "%%~fD" copy /y "%%~fD" "%DOCS_DIR%\" > nul
+)
 copy /y "%ROOT_DIR%\scripts\launch-windows-package.bat" "%DIST_DIR%\Launch-BMSAssistantQt.bat" > nul
 echo Windows package generated: %DIST_DIR%\BMSAssistantQt
 exit /b 0
@@ -77,6 +84,10 @@ exit /b 1
 
 :pip_install_failed
 echo Failed to install dependencies. Check network access and the Python environment.
+exit /b 1
+
+:smoke_test_failed
+echo Qt smoke test failed. Check PySide6, QtBluetooth, and local runtime dependencies.
 exit /b 1
 
 :pyinstaller_failed
