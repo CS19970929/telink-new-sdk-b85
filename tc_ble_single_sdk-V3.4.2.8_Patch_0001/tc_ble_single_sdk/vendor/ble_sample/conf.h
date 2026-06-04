@@ -42,7 +42,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   C11_AND_C11pro
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
 #define  BMS_SERIAL_NUMBER_DEFAULT  	"20260604"
@@ -205,7 +205,7 @@ typedef int8_t INT8;
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   9u
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   1u
 #endif
 
 typedef enum _CUR {
