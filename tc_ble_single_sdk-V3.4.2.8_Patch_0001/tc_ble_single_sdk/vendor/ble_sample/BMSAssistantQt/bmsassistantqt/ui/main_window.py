@@ -1119,14 +1119,9 @@ class MainWindow(QMainWindow):
         if geometry is not None:
             self.restoreGeometry(geometry)
 
-        scan_mode = self._settings.value("scan/mode", self.controller.scan_mode.value, type=str)
-        try:
-            self.controller.scan_mode = ScanMode(scan_mode)
-        except Exception:
-            self.controller.scan_mode = ScanMode.ALL_DEVICES
-
-        self.controller.search_text = self._settings.value("scan/search_text", "", type=str)
-        self.controller.show_only_likely_bms = self._settings.value("scan/show_only_likely_bms", False, type=bool)
+        self.controller.scan_mode = ScanMode.ALL_DEVICES
+        self.controller.search_text = ""
+        self.controller.show_only_likely_bms = False
 
         self.controller.manual_read_address = self._settings.value("debug/manual_read_address", self.controller.manual_read_address, type=str)
         self.controller.manual_read_quantity = self._settings.value("debug/manual_read_quantity", self.controller.manual_read_quantity, type=str)

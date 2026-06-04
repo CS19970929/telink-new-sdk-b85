@@ -156,3 +156,9 @@ C11_AND_C11pro这个板由于硬件问题，电流不准，目前观察到大概
 测试ota升级，5V充电改为上拉1M？
 
 把afe电流校准逻辑移植到D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)项目中，sh367309_datadeal文件中有电流计算
+
+
+阅读D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\docs 目录下文档，项目主目录是ble_sample目录，是一个bms mcu项目，现在需要实现配套的win蓝牙上位机和安卓蓝牙app
+
+
+看一下时间是否有问题，深度休眠补偿有问题？之前解决过，没记录？
