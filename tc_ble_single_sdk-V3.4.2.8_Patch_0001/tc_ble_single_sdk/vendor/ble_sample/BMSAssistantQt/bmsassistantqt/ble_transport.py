@@ -52,7 +52,7 @@ class BLETransport(QObject):
             self._discovery_agent.error.connect(self._on_scan_error)
 
         try:
-            self._discovery_agent.setLowEnergyDiscoveryTimeout(12000)
+            self._discovery_agent.setLowEnergyDiscoveryTimeout(30000)
         except Exception:
             pass
 
@@ -64,7 +64,7 @@ class BLETransport(QObject):
         try:
             if self._discovery_agent.isActive():
                 return
-            method = _discovery_method_low_energy()
+            method = _preferred_discovery_method(self._discovery_agent)
             self._discovery_agent.start(method)
             self._bluetooth_state_label = "扫描中"
             self._emit_bluetooth_state()
@@ -131,7 +131,7 @@ class BLETransport(QObject):
         for info in self._discovery_agent.discoveredDevices():
             self._emit_discovery(info)
         if self._scan_requested:
-            QTimer.singleShot(150, self._restart_scan_if_needed)
+            QTimer.singleShot(500, self._restart_scan_if_needed)
             self._bluetooth_state_label = "扫描中"
         elif self._bluetooth_state_label == "扫描中":
             self._bluetooth_state_label = "已开启"
@@ -166,7 +166,7 @@ class BLETransport(QObject):
         if self._discovery_agent.isActive():
             return
         try:
-            self._discovery_agent.start(_discovery_method_low_energy())
+            self._discovery_agent.start(_preferred_discovery_method(self._discovery_agent))
         except Exception as exc:
             self._scan_requested = False
             self._bluetooth_state_label = "异常"
