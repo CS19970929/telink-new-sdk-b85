@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
+from .protocol import afe_apply_status_text as format_afe_apply_status_text, format_register_word
+
 
 class ScanMode(str, Enum):
     TARGET_FIRMWARE = "当前固件"
@@ -195,8 +197,7 @@ class RegisterBlock:
             return "无数据"
         lines: list[str] = []
         for offset, value in enumerate(self.words):
-            address = self.start_address + offset
-            lines.append(f"0x{address:04X}: 0x{value:04X} ({value})")
+            lines.append(format_register_word(self.start_address, offset, value))
         return "\n".join(lines)
 
 
@@ -208,6 +209,10 @@ class BatteryStatusSnapshot:
     protocol_version: int = 0
     pack_voltage_raw: int = 0
     signed_current_raw: int = 0
+    pack_voltage_32_raw_mv: int = 0
+    signed_current_32_raw_ma: int = 0
+    current_unit_ma: int = 100
+    afe_apply_status_raw: int = 0
     soc_raw: int = 0
     max_temp_raw: int = 0
     min_temp_raw: int = 0
@@ -251,6 +256,10 @@ class BatteryStatusSnapshot:
         def to_int16(value: int) -> int:
             value &= 0xFFFF
             return value - 0x10000 if value & 0x8000 else value
+
+        def to_int32(value: int) -> int:
+            value &= 0xFFFFFFFF
+            return value - 0x100000000 if value & 0x80000000 else value
 
         cell_words = legacy_cell_words[: int(register_catalog.legacyCellArrayCount)]
         series_count = min(int(register_catalog.currentProjectSeriesCount), len(cell_words))
@@ -313,6 +322,21 @@ class BatteryStatusSnapshot:
             snapshot.max_cell_voltage_raw = int(realtime_words[8])
             snapshot.min_cell_voltage_raw = int(realtime_words[9])
             snapshot.cell_delta_raw = int(realtime_words[10])
+            if snapshot.protocol_version >= 2:
+                pack_mv = (
+                    (word(register_catalog.realtimePackVoltage32HighIndex, realtime_words) << 16)
+                    | word(register_catalog.realtimePackVoltage32LowIndex, realtime_words)
+                )
+                current_ma = to_int32(
+                    (word(register_catalog.realtimeCurrentMaHighIndex, realtime_words) << 16)
+                    | word(register_catalog.realtimeCurrentMaLowIndex, realtime_words)
+                )
+                snapshot.pack_voltage_32_raw_mv = pack_mv
+                snapshot.signed_current_32_raw_ma = current_ma
+                snapshot.current_unit_ma = word(register_catalog.realtimeCurrentUnitIndex, realtime_words) or 1
+                snapshot.afe_apply_status_raw = word(register_catalog.realtimeAfeApplyStatusIndex, realtime_words)
+                snapshot.pack_voltage_raw = pack_mv
+                snapshot.signed_current_raw = current_ma
 
         return snapshot
 
@@ -328,13 +352,16 @@ class BatteryStatusSnapshot:
     def pack_voltage_text(self) -> str:
         if not self.is_supported:
             return "—"
-        return f"{self.pack_voltage_raw / 100.0:.2f} V"
+        divisor = 1000.0 if self.supports_realtime_window and self.protocol_version >= 2 else 100.0
+        return f"{self.pack_voltage_raw / divisor:.2f} V"
 
     @property
     def pack_voltage_detail_text(self) -> str:
         if not self.is_supported:
             return "—"
         if self.supports_realtime_window:
+            if self.protocol_version >= 2:
+                return f"实时窗口 v{self.protocol_version} {self.pack_voltage_32_raw_mv} mV"
             return f"实时窗口 raw {self.pack_voltage_raw}"
         return f"旧寄存器 raw {self.pack_voltage_raw} / 镜像 {self.legacy_pack_voltage_raw_mv} mV"
 
@@ -342,6 +369,8 @@ class BatteryStatusSnapshot:
     def current_text(self) -> str:
         if not self.is_supported:
             return "—"
+        if self.supports_realtime_window and self.protocol_version >= 2:
+            return f"{(self.signed_current_raw * self.current_unit_ma) / 1000.0:.3f} A"
         return f"{self.signed_current_raw / 10.0:.1f} A"
 
     @property
@@ -353,6 +382,12 @@ class BatteryStatusSnapshot:
         if self.signed_current_raw < 0:
             return "放电"
         return "静置"
+
+    @property
+    def afe_apply_status_text(self) -> str:
+        if not self.supports_realtime_window or self.protocol_version < 2:
+            return "N/A"
+        return format_afe_apply_status_text(self.afe_apply_status_raw)
 
     @property
     def soc_text(self) -> str:

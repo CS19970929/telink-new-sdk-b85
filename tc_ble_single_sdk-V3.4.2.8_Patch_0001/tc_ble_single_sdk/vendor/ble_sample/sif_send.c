@@ -22,6 +22,18 @@ void sif_send_PUBLIC_PACKETS(void);
 
 extern struct stCell_Info g_stCellInfoReport;
 
+static uint16_t sif_pack_voltage_10mv(void)
+{
+    uint32_t pack_mv = g_stCellInfoReport.u32VCellTotalMv;
+
+    if (pack_mv == 0u)
+    {
+        pack_mv = g_stCellInfoReport.u16VCellTotle;
+    }
+    pack_mv = (pack_mv + 5u) / 10u;
+    return (pack_mv > 0xFFFFu) ? 0xFFFFu : (uint16_t)pack_mv;
+}
+
 #define sif_turn_off() gpio_write(OWC_TX_PIN, 0);
 #define sif_turn_on() gpio_write(OWC_TX_PIN, 1);
 #if 1
@@ -538,7 +550,7 @@ void sif_send_PUBLIC_PACKETS(void)
     sif_report.public.Rated_voltage = __public_Rated_voltage__;
     sif_report.public.CAPACITYFACTORY = CapacityFactory;
     sif_report.public.soc = g_stCellInfoReport.SocElement.u16Soc * 2;
-    sif_report.public.voltage = g_stCellInfoReport.u16VCellTotle / 10;
+    sif_report.public.voltage = sif_pack_voltage_10mv();
     uint16_t current = 0;
     if (g_stCellInfoReport.u16IDischg)
     {
@@ -669,7 +681,7 @@ void sif_send_PUBLIC_PACKETS(void)
     sif_report.public.Rated_voltage = __public_Rated_voltage__;
     sif_report.public.CAPACITYFACTORY = CapacityFactory;
     sif_report.public.soc = g_stCellInfoReport.SocElement.u16Soc * 2;
-    sif_report.public.voltage = g_stCellInfoReport.u16VCellTotle / 10;
+    sif_report.public.voltage = sif_pack_voltage_10mv();
     uint16_t current = 0;
     // if (g_stCellInfoReport.u16IDischg)
     // {
@@ -721,7 +733,7 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
     sif_report.private.realTimeInfo.len = sizeof(sif_report.private.realTimeInfo) - 3 - 1;
     sif_report.private.realTimeInfo.soc = g_stCellInfoReport.SocElement.u16Soc * 2;
     // sif_report.private.realTimeInfo.voltage = g_stCellInfoReport.u16VCellTotle / 100 * 10;
-    sif_report.private.realTimeInfo.voltage = g_stCellInfoReport.u16VCellTotle / 10;
+    sif_report.private.realTimeInfo.voltage = sif_pack_voltage_10mv();
 
     uint16_t current = 0;
     if (g_stCellInfoReport.u16IDischg)

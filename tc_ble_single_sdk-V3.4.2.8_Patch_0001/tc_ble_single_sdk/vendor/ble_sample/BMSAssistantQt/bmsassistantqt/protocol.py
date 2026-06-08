@@ -14,7 +14,14 @@ class RegisterCatalog:
 
     realtimeStatusMagic = 0x4253
     realtimeStatusStart = 0xD120
-    realtimeStatusCount = 11
+    realtimeStatusCount = 17
+    realtimeStatusVersion = 0x0002
+    realtimePackVoltage32HighIndex = 11
+    realtimePackVoltage32LowIndex = 12
+    realtimeCurrentUnitIndex = 13
+    realtimeAfeApplyStatusIndex = 14
+    realtimeCurrentMaHighIndex = 15
+    realtimeCurrentMaLowIndex = 16
 
     legacyCellArrayStart = 0xD000
     legacyCellArrayCount = 63
@@ -62,7 +69,8 @@ class RegisterCatalog:
     protectPreviewCount = 15
 
     afeParamStart = 0x2200
-    afeParamCount = 31
+    afeParamCount = 32
+    afePersistentParamCount = 31
     afeParamConfigOffset = 8
 
     socWriteRegister = 0x1005
@@ -74,6 +82,88 @@ class RegisterCatalog:
 
 class ModbusCodecError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class AfeParamMeta:
+    offset: int
+    name: str
+    access: str
+    afe_register: int | None = None
+    bits: str = ""
+
+
+AFE_PARAM_METADATA: dict[int, AfeParamMeta] = {
+    0: AfeParamMeta(0, "MODEL", "RO", None, "0x3520"),
+    1: AfeParamMeta(1, "SERIES_COUNT", "RO", None, "20S project"),
+    2: AfeParamMeta(2, "RSENSE_UOHM", "RW", None, "current sense resistor, micro-ohm"),
+    3: AfeParamMeta(3, "LAST_BSTATUS", "RO", None, "BSTATUS1 high byte, BSTATUS2 low byte"),
+    4: AfeParamMeta(4, "FLAG1", "RO", 0x58, "RST1/WK/OCC/SC/OCD2/OCD1/UV/OV"),
+    5: AfeParamMeta(5, "FLAG2", "RO", 0x59, "OTD/UTD/OTC/UTC/RST2/WDT/VADC/CADC"),
+    6: AfeParamMeta(6, "FLAG3", "RO", 0x5A, "OWD_IND/OWD"),
+    7: AfeParamMeta(7, "RESERVED", "RW", None, "reserved firmware word"),
+    8: AfeParamMeta(8, "SCONF2", "RW", 0x41, "LTCLR/PD_EN/PD_CTL/PUMP_EN/PDSG_CTL/PDSGMOS/DSGMOS/CHGMOS"),
+    9: AfeParamMeta(9, "SCONF3", "RW", 0x42, "CGR_WK/LD_WK/CRLD_EN/OWD_EN/OWD_TRG"),
+    10: AfeParamMeta(10, "SCONF4", "RW", 0x43, "PDSGT[7:5], CN[4:0]"),
+    11: AfeParamMeta(11, "SCONF5", "RW", 0x44, "MOS_EN/OCC_EN/CADC_EN/WDT_EN/WDT"),
+    12: AfeParamMeta(12, "SCONF6", "RW", 0x45, "TS4/TS3/TS2/TS1/SC/OCD/UV/OV enable"),
+    13: AfeParamMeta(13, "SCONF7", "RW", 0x46, "RLD/CADCT/CDV"),
+    14: AfeParamMeta(14, "OWV_ALARMH", "RW", 0x47, "OWV and load/VADC/CADC alarm enables"),
+    15: AfeParamMeta(15, "ALARML", "RW", 0x48, "WK/WDT/OWD/TEMP/OCC/OCD/UV/OV alarm enables"),
+    16: AfeParamMeta(16, "OVT_OVH", "RW", 0x49, "OV delay and OV[9:8]"),
+    17: AfeParamMeta(17, "OVL", "RW", 0x4A, "OV[7:0], threshold = code * 5mV"),
+    18: AfeParamMeta(18, "UVT_UVH", "RW", 0x4B, "UV delay and UV[9:8]"),
+    19: AfeParamMeta(19, "UVL", "RW", 0x4C, "UV[7:0], threshold = code * 5mV"),
+    20: AfeParamMeta(20, "OCD1", "RW", 0x4D, "OCD1T/OCD1V"),
+    21: AfeParamMeta(21, "OCD2", "RW", 0x4E, "OCD2T/OCD2V"),
+    22: AfeParamMeta(22, "SCV_SCT", "RW", 0x4F, "short-circuit voltage/time"),
+    23: AfeParamMeta(23, "OCC", "RW", 0x50, "charge over-current voltage/time"),
+    24: AfeParamMeta(24, "OTC", "RW", 0x51, "charge high temperature"),
+    25: AfeParamMeta(25, "OTD", "RW", 0x52, "discharge high temperature"),
+    26: AfeParamMeta(26, "UTC", "RW", 0x53, "charge low temperature"),
+    27: AfeParamMeta(27, "UTD", "RW", 0x54, "discharge low temperature"),
+    28: AfeParamMeta(28, "BALANCEH", "RW", 0x55, "CB20..CB17"),
+    29: AfeParamMeta(29, "BALANCEM", "RW", 0x56, "CB16..CB9"),
+    30: AfeParamMeta(30, "BALANCEL", "RW", 0x57, "CB8..CB1"),
+    31: AfeParamMeta(31, "LAST_APPLY_STATUS", "RO", None, "low byte status, high byte register/index context"),
+}
+
+
+def afe_apply_status_text(value: int) -> str:
+    status = value & 0x00FF
+    context = (value >> 8) & 0x00FF
+    if status == 0:
+        return "OK"
+    names = [
+        (0x01, "FLASH_FAIL"),
+        (0x02, "SPI_FAIL"),
+        (0x04, "INVALID_WRITE"),
+        (0x08, "READ_FAIL"),
+    ]
+    active = [name for bit, name in names if status & bit]
+    label = "|".join(active) if active else f"UNKNOWN_0x{status:02X}"
+    return f"{label}, context=0x{context:02X}"
+
+
+def format_afe_param_word(start_address: int, offset: int, value: int) -> str | None:
+    if not (RegisterCatalog.afeParamStart <= start_address < RegisterCatalog.afeParamStart + RegisterCatalog.afeParamCount):
+        return None
+    absolute_offset = start_address - RegisterCatalog.afeParamStart + offset
+    meta = AFE_PARAM_METADATA.get(absolute_offset)
+    if meta is None:
+        return None
+    address = start_address + offset
+    afe_reg = f", AFE 0x{meta.afe_register:02X}" if meta.afe_register is not None else ""
+    detail = afe_apply_status_text(value) if absolute_offset == RegisterCatalog.afePersistentParamCount else meta.bits
+    return f"0x{address:04X}: 0x{value:04X} ({value}) | {meta.name} | {meta.access}{afe_reg} | {detail}"
+
+
+def format_register_word(start_address: int, offset: int, value: int) -> str:
+    afe_line = format_afe_param_word(start_address, offset, value)
+    if afe_line is not None:
+        return afe_line
+    address = start_address + offset
+    return f"0x{address:04X}: 0x{value:04X} ({value})"
 
 
 @dataclass

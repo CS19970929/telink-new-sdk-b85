@@ -32,7 +32,12 @@ SOC_KV_C = MODULE_DIR / "soc_kv_store.c"
 SOC_KV_H = MODULE_DIR / "soc_kv_store.h"
 SOC_ENHANCE_C = MODULE_DIR / "SocEnhance.c"
 SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
+SH3673520_C = MODULE_DIR / "sh3673520_afe.c"
+SH3673520_H = MODULE_DIR / "sh3673520_afe.h"
 SIF_SEND_C = MODULE_DIR / "sif_send.c"
+SCI_UPPER_H = MODULE_DIR / "sci_upper.h"
+QT_PROTOCOL_PY = MODULE_DIR / "BMSAssistantQt" / "bmsassistantqt" / "protocol.py"
+QT_MODELS_PY = MODULE_DIR / "BMSAssistantQt" / "bmsassistantqt" / "models.py"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
 
@@ -457,6 +462,13 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("sif_report.public.CAPACITYFACTORY = CapacityFactory;", text)
         self.assertNotIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
 
+    def test_sif_voltage_uses_32bit_pack_voltage_mirror(self):
+        text = read_text(SIF_SEND_C)
+        self.assertIn("static uint16_t sif_pack_voltage_10mv(void)", text)
+        self.assertIn("uint32_t pack_mv = g_stCellInfoReport.u32VCellTotalMv;", text)
+        self.assertIn("sif_report.public.voltage = sif_pack_voltage_10mv();", text)
+        self.assertIn("sif_report.private.realTimeInfo.voltage = sif_pack_voltage_10mv();", text)
+
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)
@@ -478,6 +490,54 @@ class SourceContractTests(unittest.TestCase):
     def test_hot_and_cold_kv_no_longer_reference_previous_layouts(self):
         self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base()", read_text(SOC_KV_C))
         self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base()", read_text(BMS_COLD_C))
+
+    def test_sh3673520_defaults_match_documented_register_reset_profile(self):
+        header = read_text(SH3673520_H)
+        source = read_text(SH3673520_C)
+        self.assertIn("#define SH3673520_DEFAULT_SCONF2          0x50u", header)
+        self.assertIn("#define SH3673520_DEFAULT_SCONF5          0x38u", header)
+        self.assertIn("#define SH3673520_DEFAULT_OWV_ALARMH      0x57u", header)
+        self.assertIn("#define SH3673520_DEFAULT_OCC             0x6Fu", header)
+        self.assertIn("sh3673520_cfg_looks_legacy_blank()", source)
+        self.assertIn("sh3673520_set_default_cfg_words();", source)
+
+    def test_sh3673520_exports_apply_status_and_32bit_measurements(self):
+        header = read_text(SH3673520_H)
+        source = read_text(SH3673520_C)
+        sci = read_text(SCI_UPPER_H)
+        self.assertIn("#define SH3673520_PARAM_STATUS_WORD_COUNT (SH3673520_PARAM_WORD_COUNT + 1u)", header)
+        self.assertIn("#define SH3673520_PARAM_APPLY_STATUS      SH3673520_PARAM_WORD_COUNT", header)
+        self.assertIn("#define SH3673520_STATUS_SPI_FAIL", header)
+        self.assertIn("u16 sh3673520_get_apply_status(void);", header)
+        self.assertIn("u32 sh3673520_get_last_pack_mv(void);", header)
+        self.assertIn("report->u32VCellTotalMv = sample->pack_mv;", source)
+        self.assertIn("report->i32CurrentMa =", source)
+        self.assertIn("uint32_t\tu32VCellTotalMv;", sci)
+        self.assertIn("int32_t\t\ti32CurrentMa;", sci)
+
+    def test_modbus_realtime_window_v2_and_afe_status_are_exposed(self):
+        text = read_text(MODBUS_RTU_C)
+        self.assertIn("#define BMS_REALTIME_REG_COUNT 17u", text)
+        self.assertIn("#define BMS_REALTIME_REG_VERSION 0x0002u", text)
+        self.assertIn("#define BMS_REALTIME_REG_PACK_VOLTAGE_HI_ADDR", text)
+        self.assertIn("#define BMS_REALTIME_REG_AFE_APPLY_STATUS_ADDR", text)
+        self.assertIn("#define BMS_REALTIME_REG_CURRENT_MA_HI_ADDR", text)
+        self.assertIn("return bms_afe_get_apply_status();", text)
+        self.assertIn("return make_exception_response(addr, func, 0x03u, rsp, rsp_len);", text)
+        self.assertIn("return make_exception_response(addr, func, 0x04u, rsp, rsp_len);", text)
+
+    def test_qt_protocol_tracks_realtime_v2_and_afe_metadata(self):
+        protocol = read_text(QT_PROTOCOL_PY)
+        models = read_text(QT_MODELS_PY)
+        self.assertIn("realtimeStatusCount = 17", protocol)
+        self.assertIn("realtimeStatusVersion = 0x0002", protocol)
+        self.assertIn("afeParamCount = 32", protocol)
+        self.assertIn("afePersistentParamCount = 31", protocol)
+        self.assertIn("LAST_APPLY_STATUS", protocol)
+        self.assertIn("format_afe_param_word", protocol)
+        self.assertIn("pack_voltage_32_raw_mv", models)
+        self.assertIn("signed_current_32_raw_ma", models)
+        self.assertIn("format_register_word", models)
 
 
 if __name__ == "__main__":

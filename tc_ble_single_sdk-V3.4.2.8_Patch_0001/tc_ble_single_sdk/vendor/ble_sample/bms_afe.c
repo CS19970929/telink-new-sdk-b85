@@ -110,3 +110,43 @@ int bms_afe_param_commit_and_apply(void)
     return 1;
 #endif
 }
+
+int bms_afe_param_is_writable(u16 index)
+{
+#if (BMS_AFE_TYPE == BMS_AFE_TYPE_SH3673520)
+    return sh3673520_param_is_writable(index);
+#else
+    (void)index;
+    return 0;
+#endif
+}
+
+u16 bms_afe_get_apply_status(void)
+{
+#if (BMS_AFE_TYPE == BMS_AFE_TYPE_SH3673520)
+    return sh3673520_get_apply_status();
+#else
+    return 0u;
+#endif
+}
+
+u32 bms_afe_get_pack_voltage_mv(void)
+{
+#if (BMS_AFE_TYPE == BMS_AFE_TYPE_SH3673520)
+    return sh3673520_get_last_pack_mv();
+#else
+    return g_stCellInfoReport.u16VCellTotle;
+#endif
+}
+
+int bms_afe_get_signed_current_ma(void)
+{
+#if (BMS_AFE_TYPE == BMS_AFE_TYPE_SH3673520)
+    return sh3673520_get_last_current_ma();
+#else
+    if (g_stCellInfoReport.u16IDischg) {
+        return -((int)g_stCellInfoReport.u16IDischg * 100);
+    }
+    return (int)g_stCellInfoReport.u16Ichg * 100;
+#endif
+}

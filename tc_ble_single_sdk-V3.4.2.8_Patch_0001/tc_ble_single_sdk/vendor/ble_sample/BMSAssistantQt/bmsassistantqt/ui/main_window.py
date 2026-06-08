@@ -476,7 +476,9 @@ class MainWindow(QMainWindow):
         self.pack_voltage_mirror_label = QLabel("—", raw_box)
         self.battery_temp_adc_label = QLabel("—", raw_box)
         self.mos_temp_adc_label = QLabel("—", raw_box)
+        self.afe_apply_status_label = QLabel("N/A", raw_box)
         raw_form.addRow("Pack Voltage Mirror", self.pack_voltage_mirror_label)
+        raw_form.addRow("AFE Apply Status", self.afe_apply_status_label)
         raw_form.addRow("Battery Temp ADC", self.battery_temp_adc_label)
         raw_form.addRow("MOS Temp ADC", self.mos_temp_adc_label)
         layout.addWidget(raw_box)
@@ -638,7 +640,7 @@ class MainWindow(QMainWindow):
         register_layout.addWidget(QLabel("SH3673520 AFE 参数", register_box))
         afe_read_row = QHBoxLayout()
         self.afe_param_count_edit = QLineEdit(register_box)
-        self.afe_param_count_edit.setPlaceholderText("读取数量，默认 31")
+        self.afe_param_count_edit.setPlaceholderText("读取数量，默认 32")
         self.afe_param_read_button = QPushButton("读取 AFE 参数", register_box)
         afe_read_row.addWidget(self.afe_param_count_edit)
         afe_read_row.addWidget(self.afe_param_read_button)
@@ -653,7 +655,7 @@ class MainWindow(QMainWindow):
         register_layout.addWidget(self.afe_param_words_edit)
         register_layout.addWidget(self.afe_param_write_button)
 
-        afe_note = QLabel("AFE 参数窗口为 `0x2200` 起始：0=型号，1=串数，2=采样电阻uΩ，8起为 SH3673520 0x41~0x57 配置寄存器镜像。", register_box)
+        afe_note = QLabel("AFE 参数窗口为 `0x2200` 起始：0=型号，1=串数，2=采样电阻uΩ，8起为 SH3673520 0x41~0x57 配置寄存器镜像，31=最近一次应用状态。", register_box)
         afe_note.setWordWrap(True)
         afe_note.setProperty("role", "muted")
         register_layout.addWidget(afe_note)
@@ -964,6 +966,7 @@ class MainWindow(QMainWindow):
                 badge.set_badge(flag.title, "success" if flag.is_active else "neutral")
 
         self.pack_voltage_mirror_label.setText(snapshot.pack_voltage_detail_text)
+        self.afe_apply_status_label.setText(snapshot.afe_apply_status_text)
         self.battery_temp_adc_label.setText(snapshot.legacy_battery_temp_adc_text)
         self.mos_temp_adc_label.setText(snapshot.legacy_mos_temp_adc_text)
 

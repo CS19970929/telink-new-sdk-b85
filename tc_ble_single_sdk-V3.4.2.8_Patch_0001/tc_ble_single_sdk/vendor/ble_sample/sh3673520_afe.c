@@ -17,19 +17,6 @@
 #define SH3673520_CMD_READ                0x02u
 #define SH3673520_CMD_RESET               0x0Bu
 
-#define SH3673520_REG_SCONF1              0x40u
-#define SH3673520_REG_SCONF4              0x43u
-#define SH3673520_REG_SCONF6              0x45u
-#define SH3673520_REG_FLAG1               0x58u
-#define SH3673520_REG_FLAG2               0x59u
-#define SH3673520_REG_FLAG3               0x5Au
-#define SH3673520_REG_BSTATUS1            0x5Bu
-#define SH3673520_REG_BSTATUS2            0x5Cu
-#define SH3673520_REG_TEMP1               0x5Du
-#define SH3673520_REG_CUR                 0x67u
-#define SH3673520_REG_CELL1               0x69u
-#define SH3673520_REG_CPLUS               0x95u
-
 #define SH3673520_SAMPLE_START            SH3673520_REG_FLAG1
 #define SH3673520_SAMPLE_END              0x96u
 #define SH3673520_SAMPLE_LEN              (SH3673520_SAMPLE_END - SH3673520_SAMPLE_START + 1u)
@@ -41,6 +28,14 @@ extern const UINT16 iSheldTemp_10K_AFE[];
 
 static u16 g_sh3673520_params[SH3673520_PARAM_WORD_COUNT];
 static u8 g_sh3673520_params_loaded;
+static u16 g_sh3673520_apply_status = SH3673520_STATUS_OK;
+static u32 g_sh3673520_last_pack_mv;
+static int g_sh3673520_last_current_ma;
+
+static void sh3673520_set_status(u16 code, u8 context)
+{
+    g_sh3673520_apply_status = (u16)(code | ((u16)context << SH3673520_STATUS_CONTEXT_SHIFT));
+}
 
 static u8 sh3673520_crc8(const u8 *data, u16 len)
 {
@@ -133,21 +128,57 @@ static u16 sh3673520_u16be(const u8 *p)
     return (u16)(((u16)p[0] << 8) | p[1]);
 }
 
+static void sh3673520_set_default_cfg_words(void)
+{
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF2 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF2;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF3 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF3;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF4 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF4;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF5 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF5;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF6 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF6_BOARD;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF7 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCONF7;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OWV_ALARMH - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OWV_ALARMH;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_ALARML - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_ALARML;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OVT_OVH - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OVT_OVH;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OVL - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OVL;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_UVT_UVH - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_UVT_UVH;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_UVL - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_UVL;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OCD1 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OCD1;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OCD2 - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OCD2;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCV_SCT - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_SCV_SCT;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OCC - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OCC;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OTC - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OTC;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_OTD - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_OTD;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_UTC - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_UTC;
+    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_UTD - SH3673520_CFG_REG_START)] = SH3673520_DEFAULT_UTD;
+}
+
+static u8 sh3673520_cfg_looks_legacy_blank(void)
+{
+    u16 nonzero = 0u;
+    u16 i;
+    u16 legacy_sconf4 = (u16)(SeriesNum & 0x1Fu);
+    u16 sconf4 = g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF4 - SH3673520_CFG_REG_START)];
+    u16 sconf6 = g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF6 - SH3673520_CFG_REG_START)];
+
+    for (i = 0u; i < SH3673520_CFG_REG_COUNT; ++i) {
+        if ((g_sh3673520_params[SH3673520_PARAM_CFG_BASE + i] & 0x00FFu) != 0u) {
+            ++nonzero;
+        }
+    }
+
+    return ((nonzero == 0u) ||
+            ((nonzero <= 2u) &&
+             (sconf4 == legacy_sconf4) &&
+             (sconf6 == SH3673520_DEFAULT_SCONF6_BOARD)));
+}
+
 static void sh3673520_set_default_params(void)
 {
-    u16 i;
-
     memset(g_sh3673520_params, 0, sizeof(g_sh3673520_params));
     g_sh3673520_params[SH3673520_PARAM_MODEL] = SH3673520_MODEL_WORD;
     g_sh3673520_params[SH3673520_PARAM_SERIES_COUNT] = SeriesNum;
     g_sh3673520_params[SH3673520_PARAM_RSENSE_UOHM] = SH3673520_DEFAULT_RSENSE_UOHM;
-
-    for (i = 0u; i < SH3673520_CFG_REG_COUNT; ++i) {
-        g_sh3673520_params[SH3673520_PARAM_CFG_BASE + i] = 0u;
-    }
-
-    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF4 - SH3673520_CFG_REG_START)] = (u16)(SeriesNum & 0x1Fu);
-    g_sh3673520_params[SH3673520_PARAM_CFG_BASE + (SH3673520_REG_SCONF6 - SH3673520_CFG_REG_START)] = 0x3Fu;
+    sh3673520_set_default_cfg_words();
 }
 
 static u16 sh3673520_cfg_word_for_reg(u8 reg)
@@ -214,6 +245,10 @@ void sh3673520_param_load(void)
                 g_sh3673520_params[i] = (u16)value;
             }
         }
+        if (sh3673520_cfg_looks_legacy_blank()) {
+            sh3673520_set_default_cfg_words();
+            (void)sh3673520_param_commit();
+        }
     } else {
         (void)sh3673520_param_commit();
     }
@@ -254,17 +289,20 @@ u8 sh3673520_is_ready(void)
 u8 sh3673520_apply_params(void)
 {
     u8 reg;
-    u8 ok = 1u;
 
     if (!g_sh3673520_params_loaded) {
         sh3673520_param_load();
     }
 
     for (reg = SH3673520_CFG_REG_START; reg <= SH3673520_CFG_REG_END; ++reg) {
-        ok &= sh3673520_write_reg(reg, (u8)sh3673520_cfg_word_for_reg(reg));
+        if (!sh3673520_write_reg(reg, (u8)sh3673520_cfg_word_for_reg(reg))) {
+            sh3673520_set_status(SH3673520_STATUS_SPI_FAIL, reg);
+            return 0u;
+        }
     }
 
-    return ok;
+    sh3673520_set_status(SH3673520_STATUS_OK, 0u);
+    return 1u;
 }
 
 void sh3673520_sleep(void)
@@ -284,6 +322,7 @@ u8 sh3673520_read_sample(sh3673520_sample_t *sample)
 
     memset(sample, 0, sizeof(*sample));
     if (!sh3673520_read_regs(SH3673520_SAMPLE_START, SH3673520_SAMPLE_LEN, raw)) {
+        sh3673520_set_status(SH3673520_STATUS_READ_FAIL, SH3673520_SAMPLE_START);
         return 0u;
     }
 
@@ -317,6 +356,8 @@ u8 sh3673520_read_sample(sh3673520_sample_t *sample)
     }
 
     sample->cplus_mv = (u16)((((u32)sh3673520_u16be(&raw[SH3673520_REG_CPLUS - SH3673520_SAMPLE_START]) * 5u) >> 5) * 25u);
+    g_sh3673520_last_pack_mv = sample->pack_mv;
+    g_sh3673520_last_current_ma = (int)sample->charge_ma - (int)sample->discharge_ma;
     return 1u;
 }
 
@@ -364,6 +405,7 @@ void sh3673520_publish_to_cell_info(const sh3673520_sample_t *sample, struct stC
     }
 
     report->u16VCellTotle = (sample->pack_mv > 0xFFFFu) ? 0xFFFFu : (u16)sample->pack_mv;
+    report->u32VCellTotalMv = sample->pack_mv;
     report->u16VCellMax = max_v;
     report->u16VCellMin = (min_v == 0xFFFFu) ? 0u : min_v;
     report->u16VCellMaxPosition = max_pos;
@@ -371,6 +413,7 @@ void sh3673520_publish_to_cell_info(const sh3673520_sample_t *sample, struct stC
     report->u16VCellDelta = (max_v >= report->u16VCellMin) ? (u16)(max_v - report->u16VCellMin) : 0u;
     report->u16Ichg = sample->charge_ma;
     report->u16IDischg = sample->discharge_ma;
+    report->i32CurrentMa = (int)sample->charge_ma - (int)sample->discharge_ma;
     report->u16TempMax = max_t;
     report->u16TempMin = (min_t == 0xFFFFu) ? 0u : min_t;
 }
@@ -391,18 +434,14 @@ int sh3673520_param_write_word(u16 index, u16 value)
     if (!g_sh3673520_params_loaded) {
         sh3673520_param_load();
     }
-    if (index >= SH3673520_PARAM_WORD_COUNT) {
-        return 0;
-    }
-    if ((index == SH3673520_PARAM_MODEL) ||
-        (index == SH3673520_PARAM_SERIES_COUNT) ||
-        (index == SH3673520_PARAM_LAST_STATUS) ||
-        (index == SH3673520_PARAM_FLAG1) ||
-        (index == SH3673520_PARAM_FLAG2) ||
-        (index == SH3673520_PARAM_FLAG3)) {
+    if (!sh3673520_param_is_writable(index)) {
+        sh3673520_set_status(SH3673520_STATUS_INVALID_WRITE, (u8)index);
         return 0;
     }
 
+    if (index >= SH3673520_PARAM_CFG_BASE) {
+        value &= 0x00FFu;
+    }
     g_sh3673520_params[index] = value;
     return 1;
 }
@@ -416,9 +455,41 @@ int sh3673520_param_commit(void)
 
     for (i = 0u; i < SH3673520_PARAM_WORD_COUNT; ++i) {
         if (!bms_cold_kv_store_set_afe_param_word(i, g_sh3673520_params[i])) {
+            sh3673520_set_status(SH3673520_STATUS_FLASH_FAIL, (u8)i);
             return 0;
         }
     }
 
     return 1;
+}
+
+int sh3673520_param_is_writable(u16 index)
+{
+    if (index >= SH3673520_PARAM_WORD_COUNT) {
+        return 0;
+    }
+    if ((index == SH3673520_PARAM_MODEL) ||
+        (index == SH3673520_PARAM_SERIES_COUNT) ||
+        (index == SH3673520_PARAM_LAST_STATUS) ||
+        (index == SH3673520_PARAM_FLAG1) ||
+        (index == SH3673520_PARAM_FLAG2) ||
+        (index == SH3673520_PARAM_FLAG3)) {
+        return 0;
+    }
+    return 1;
+}
+
+u16 sh3673520_get_apply_status(void)
+{
+    return g_sh3673520_apply_status;
+}
+
+u32 sh3673520_get_last_pack_mv(void)
+{
+    return g_sh3673520_last_pack_mv;
+}
+
+int sh3673520_get_last_current_ma(void)
+{
+    return g_sh3673520_last_current_ma;
 }

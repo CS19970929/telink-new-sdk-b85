@@ -61,6 +61,8 @@ struct stCell_Info {
 	union MDLCHGFAULT_REG unMdlFault_Third;
 	uint16_t	u16BalanceFlag1;                 //��ؾ����־λ1
 	uint16_t	u16BalanceFlag2;                 //��ؾ����־λ2
+	uint32_t	u32VCellTotalMv;                 // pack voltage, mV
+	int32_t		i32CurrentMa;                    // charge positive, discharge negative, mA
 	u8  mac_public[6];
 };
 

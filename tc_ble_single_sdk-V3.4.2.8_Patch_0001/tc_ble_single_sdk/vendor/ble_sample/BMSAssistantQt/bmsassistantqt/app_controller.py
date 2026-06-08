@@ -368,7 +368,7 @@ class AppController(QObject):
         words = parse_words(self.afe_param_write_words)
         if not words:
             raise ModbusCodecError("AFE 参数写入值不能为空")
-        if offset < 0 or (offset + len(words)) > RegisterCatalog.afeParamCount:
+        if offset < 0 or (offset + len(words)) > RegisterCatalog.afePersistentParamCount:
             raise ModbusCodecError(f"AFE 参数偏移越界: offset={offset}, words={len(words)}")
 
         register = RegisterCatalog.afeParamStart + offset

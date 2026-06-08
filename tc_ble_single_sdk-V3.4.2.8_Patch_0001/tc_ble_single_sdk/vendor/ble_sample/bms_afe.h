@@ -28,6 +28,10 @@ void bms_afe_sample(void);
 u16 bms_afe_param_read_word(u16 index);
 int bms_afe_param_write_word(u16 index, u16 value);
 int bms_afe_param_commit_and_apply(void);
+int bms_afe_param_is_writable(u16 index);
+u16 bms_afe_get_apply_status(void);
+u32 bms_afe_get_pack_voltage_mv(void);
+int bms_afe_get_signed_current_ma(void);
 
 #ifdef __cplusplus
 }

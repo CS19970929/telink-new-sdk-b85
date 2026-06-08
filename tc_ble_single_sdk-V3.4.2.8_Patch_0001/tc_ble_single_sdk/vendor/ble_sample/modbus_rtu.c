@@ -19,11 +19,12 @@
 
 #define MB_ADDR 0x01
 #define BMS_REALTIME_REG_BASE 0xD120u
-#define BMS_REALTIME_REG_COUNT 11u
+#define BMS_REALTIME_REG_COUNT 17u
 #define BMS_REALTIME_REG_MAGIC 0x4253u
-#define BMS_REALTIME_REG_VERSION 0x0001u
+#define BMS_REALTIME_REG_VERSION 0x0002u
+#define BMS_REALTIME_CURRENT_UNIT_MA 1u
 #define BMS_AFE_PARAM_REG_BASE SH3673520_PARAM_REG_BASE
-#define BMS_AFE_PARAM_REG_COUNT SH3673520_PARAM_WORD_COUNT
+#define BMS_AFE_PARAM_REG_COUNT SH3673520_PARAM_STATUS_WORD_COUNT
 
 #define BMS_REALTIME_REG_MAGIC_ADDR (BMS_REALTIME_REG_BASE + 0u)
 #define BMS_REALTIME_REG_VERSION_ADDR (BMS_REALTIME_REG_BASE + 1u)
@@ -36,12 +37,24 @@
 #define BMS_REALTIME_REG_VCELL_MAX_ADDR (BMS_REALTIME_REG_BASE + 8u)
 #define BMS_REALTIME_REG_VCELL_MIN_ADDR (BMS_REALTIME_REG_BASE + 9u)
 #define BMS_REALTIME_REG_VCELL_DELTA_ADDR (BMS_REALTIME_REG_BASE + 10u)
+#define BMS_REALTIME_REG_PACK_VOLTAGE_HI_ADDR (BMS_REALTIME_REG_BASE + 11u)
+#define BMS_REALTIME_REG_PACK_VOLTAGE_LO_ADDR (BMS_REALTIME_REG_BASE + 12u)
+#define BMS_REALTIME_REG_CURRENT_UNIT_ADDR (BMS_REALTIME_REG_BASE + 13u)
+#define BMS_REALTIME_REG_AFE_APPLY_STATUS_ADDR (BMS_REALTIME_REG_BASE + 14u)
+#define BMS_REALTIME_REG_CURRENT_MA_HI_ADDR (BMS_REALTIME_REG_BASE + 15u)
+#define BMS_REALTIME_REG_CURRENT_MA_LO_ADDR (BMS_REALTIME_REG_BASE + 16u)
 
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
 static u16 read_realtime_status_reg(u16 reg);
 static u16 encode_signed_current_reg(void);
+static u16 u32_hi(u32 value);
+static u16 u32_lo(u32 value);
+static int make_exception_response(u8 addr, u8 func, u8 code, u8 *rsp, u32 *rsp_len);
+static int is_afe_param_reg(u16 reg);
+static int is_afe_persistent_param_reg(u16 reg);
+u16 mb_crc16(const u8 *buf, u32 len);
 void WriteProID_Default(void);
 
 struct stCell_Info g_stCellInfoReport;
@@ -127,9 +140,14 @@ static u16 read_reg(u16 reg)
     {
         return *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100));
     }
-    if (reg >= BMS_AFE_PARAM_REG_BASE && reg < (BMS_AFE_PARAM_REG_BASE + BMS_AFE_PARAM_REG_COUNT))
+    if (is_afe_param_reg(reg))
     {
-        return bms_afe_param_read_word((u16)(reg - BMS_AFE_PARAM_REG_BASE));
+        u16 index = (u16)(reg - BMS_AFE_PARAM_REG_BASE);
+        if (index == SH3673520_PARAM_APPLY_STATUS)
+        {
+            return bms_afe_get_apply_status();
+        }
+        return bms_afe_param_read_word(index);
     }
     if (reg >= 0xD100 && reg <= 0xD114)
     {
@@ -233,15 +251,30 @@ static int reg_requires_param_save(u16 reg)
     return (reg >= 0x2100u && reg <= 0x2140u);
 }
 
-static int reg_requires_afe_apply(u16 reg)
+static int is_afe_param_reg(u16 reg)
 {
     return (reg >= BMS_AFE_PARAM_REG_BASE && reg < (BMS_AFE_PARAM_REG_BASE + BMS_AFE_PARAM_REG_COUNT));
 }
 
-static void write_reg(u16 reg, u16 val)
+static int is_afe_persistent_param_reg(u16 reg)
+{
+    return (reg >= BMS_AFE_PARAM_REG_BASE && reg < (BMS_AFE_PARAM_REG_BASE + SH3673520_PARAM_WORD_COUNT));
+}
+
+static int reg_requires_afe_apply(u16 reg)
+{
+    return is_afe_persistent_param_reg(reg);
+}
+
+static int write_reg(u16 reg, u16 val)
 {
     (void)reg;
     (void)val;
+
+    if (is_afe_param_reg(reg) && !is_afe_persistent_param_reg(reg))
+    {
+        return 0;
+    }
 
     if (reg >= 0x2100 && reg <= 0x2140)
     {
@@ -252,6 +285,7 @@ static void write_reg(u16 reg, u16 val)
         if (!bms_afe_param_write_word((u16)(reg - BMS_AFE_PARAM_REG_BASE), val))
         {
             System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            return 0;
         }
     }
     // if(reg == 0x2318)
@@ -302,6 +336,7 @@ static void write_reg(u16 reg, u16 val)
     {
         (void)bms_event_log_factory_reset();
     }
+    return 1;
 }
 
 u16 mb_crc16(const u8 *buf, u32 len)
@@ -326,6 +361,35 @@ static void put_u16be(u8 *p, u16 v)
 {
     p[0] = v >> 8;
     p[1] = v & 0xFF;
+}
+
+static u16 u32_hi(u32 value)
+{
+    return (u16)(value >> 16);
+}
+
+static u16 u32_lo(u32 value)
+{
+    return (u16)(value & 0xFFFFu);
+}
+
+static int make_exception_response(u8 addr, u8 func, u8 code, u8 *rsp, u32 *rsp_len)
+{
+    u16 c;
+
+    if (addr == 0x00)
+    {
+        return 0;
+    }
+
+    rsp[0] = addr;
+    rsp[1] = func | 0x80u;
+    rsp[2] = code;
+    c = mb_crc16(rsp, 3);
+    rsp[3] = (u8)(c & 0xFFu);
+    rsp[4] = (u8)(c >> 8);
+    *rsp_len = 5u;
+    return 1;
 }
 
 extern int AFE_PARAM_WRITE_Flag;
@@ -402,7 +466,10 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return 0;
         u16 reg = u16be(&req[2]);
         u16 val = u16be(&req[4]);
-        write_reg(reg, val);
+        if (!write_reg(reg, val))
+        {
+            return make_exception_response(addr, func, 0x03u, rsp, rsp_len);
+        }
         if (reg_requires_param_save(reg))
         {
             SaveParam();
@@ -414,6 +481,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             if (!bms_afe_param_commit_and_apply())
             {
                 System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+                return make_exception_response(addr, func, 0x04u, rsp, rsp_len);
             }
         }
 
@@ -443,8 +511,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         const u8 *pdata = &req[7];
         for (u16 i = 0; i < qty; i++)
         {
+            u16 current_reg = (u16)(reg + i);
+            if (is_afe_param_reg(current_reg))
+            {
+                u16 afe_index = (u16)(current_reg - BMS_AFE_PARAM_REG_BASE);
+                if (!bms_afe_param_is_writable(afe_index))
+                {
+                    return make_exception_response(addr, func, 0x03u, rsp, rsp_len);
+                }
+            }
+        }
+        for (u16 i = 0; i < qty; i++)
+        {
             u16 v = u16be(&pdata[i * 2]);
-            write_reg(reg + i, v);
+            if (!write_reg(reg + i, v))
+            {
+                return make_exception_response(addr, func, 0x03u, rsp, rsp_len);
+            }
             if (reg_requires_param_save((u16)(reg + i)))
             {
                 need_save_param = 1;
@@ -465,6 +548,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             if (!bms_afe_param_commit_and_apply())
             {
                 System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+                return make_exception_response(addr, func, 0x04u, rsp, rsp_len);
             }
         }
 
@@ -490,16 +574,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     }
 
     // 不支持：异常响应（可选）
-    if (addr == 0x00)
-        return 0;
-    rsp[0] = addr;
-    rsp[1] = func | 0x80;
-    rsp[2] = 0x01; // illegal function
-    u16 c = mb_crc16(rsp, 3);
-    rsp[3] = (u8)(c & 0xFF);
-    rsp[4] = (u8)(c >> 8);
-    *rsp_len = 5;
-    return 1;
+    return make_exception_response(addr, func, 0x01u, rsp, rsp_len);
 }
 
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len)
@@ -544,20 +619,51 @@ static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32
     return 1;
 }
 
+static int realtime_signed_current_ma(void)
+{
+    int current_ma = bms_afe_get_signed_current_ma();
+
+    if (current_ma == 0)
+    {
+        current_ma = (int)g_stCellInfoReport.i32CurrentMa;
+    }
+    return current_ma;
+}
+
+static u32 realtime_pack_voltage_mv(void)
+{
+    u32 pack_mv = bms_afe_get_pack_voltage_mv();
+
+    if (pack_mv == 0u)
+    {
+        pack_mv = g_stCellInfoReport.u32VCellTotalMv;
+    }
+    if (pack_mv == 0u)
+    {
+        pack_mv = g_stCellInfoReport.u16VCellTotle;
+    }
+    return pack_mv;
+}
+
+static u16 encode_s16_sat(int value)
+{
+    if (value > 32767)
+    {
+        value = 32767;
+    }
+    if (value < -32768)
+    {
+        value = -32768;
+    }
+    return (u16)((int16_t)value);
+}
+
 static u16 encode_signed_current_reg(void)
 {
-    int16_t signed_current = 0;
+    int current_ma = realtime_signed_current_ma();
+    int current_a10 = (current_ma >= 0) ? ((current_ma + 50) / 100) : ((current_ma - 50) / 100);
 
-    if (g_stCellInfoReport.u16IDischg)
-    {
-        signed_current = (int16_t)(-((int16_t)g_stCellInfoReport.u16IDischg));
-    }
-    else if (g_stCellInfoReport.u16Ichg)
-    {
-        signed_current = (int16_t)g_stCellInfoReport.u16Ichg;
-    }
-
-    return (u16)signed_current;
+    return encode_s16_sat(current_a10);
 }
 
 static u16 read_realtime_status_reg(u16 reg)
@@ -586,6 +692,18 @@ static u16 read_realtime_status_reg(u16 reg)
         return g_stCellInfoReport.u16VCellMin;
     case BMS_REALTIME_REG_VCELL_DELTA_ADDR:
         return g_stCellInfoReport.u16VCellDelta;
+    case BMS_REALTIME_REG_PACK_VOLTAGE_HI_ADDR:
+        return u32_hi(realtime_pack_voltage_mv());
+    case BMS_REALTIME_REG_PACK_VOLTAGE_LO_ADDR:
+        return u32_lo(realtime_pack_voltage_mv());
+    case BMS_REALTIME_REG_CURRENT_UNIT_ADDR:
+        return BMS_REALTIME_CURRENT_UNIT_MA;
+    case BMS_REALTIME_REG_AFE_APPLY_STATUS_ADDR:
+        return bms_afe_get_apply_status();
+    case BMS_REALTIME_REG_CURRENT_MA_HI_ADDR:
+        return u32_hi((u32)realtime_signed_current_ma());
+    case BMS_REALTIME_REG_CURRENT_MA_LO_ADDR:
+        return u32_lo((u32)realtime_signed_current_ma());
     default:
         return 0;
     }
