@@ -11,6 +11,8 @@
 #include "app.h"
 #include "conf.h"
 #include "runtime.h"
+#include "bms_afe.h"
+#include "sh3673520_afe.h"
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
@@ -20,6 +22,8 @@
 #define BMS_REALTIME_REG_COUNT 11u
 #define BMS_REALTIME_REG_MAGIC 0x4253u
 #define BMS_REALTIME_REG_VERSION 0x0001u
+#define BMS_AFE_PARAM_REG_BASE SH3673520_PARAM_REG_BASE
+#define BMS_AFE_PARAM_REG_COUNT SH3673520_PARAM_WORD_COUNT
 
 #define BMS_REALTIME_REG_MAGIC_ADDR (BMS_REALTIME_REG_BASE + 0u)
 #define BMS_REALTIME_REG_VERSION_ADDR (BMS_REALTIME_REG_BASE + 1u)
@@ -123,6 +127,10 @@ static u16 read_reg(u16 reg)
     {
         return *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100));
     }
+    if (reg >= BMS_AFE_PARAM_REG_BASE && reg < (BMS_AFE_PARAM_REG_BASE + BMS_AFE_PARAM_REG_COUNT))
+    {
+        return bms_afe_param_read_word((u16)(reg - BMS_AFE_PARAM_REG_BASE));
+    }
     if (reg >= 0xD100 && reg <= 0xD114)
     {
         for (j = 0; j < 4; j++)
@@ -225,6 +233,11 @@ static int reg_requires_param_save(u16 reg)
     return (reg >= 0x2100u && reg <= 0x2140u);
 }
 
+static int reg_requires_afe_apply(u16 reg)
+{
+    return (reg >= BMS_AFE_PARAM_REG_BASE && reg < (BMS_AFE_PARAM_REG_BASE + BMS_AFE_PARAM_REG_COUNT));
+}
+
 static void write_reg(u16 reg, u16 val)
 {
     (void)reg;
@@ -233,6 +246,13 @@ static void write_reg(u16 reg, u16 val)
     if (reg >= 0x2100 && reg <= 0x2140)
     {
         *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100)) = val;
+    }
+    if (reg_requires_afe_apply(reg))
+    {
+        if (!bms_afe_param_write_word((u16)(reg - BMS_AFE_PARAM_REG_BASE), val))
+        {
+            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        }
     }
     // if(reg == 0x2318)
     if (reg == 0x1005)
@@ -389,6 +409,13 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             AFE_PARAM_WRITE_Flag = 1;
             // test_SH367309_UpdataAfeConfig();
         }
+        if (reg_requires_afe_apply(reg))
+        {
+            if (!bms_afe_param_commit_and_apply())
+            {
+                System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            }
+        }
 
         // 06 回包=原样回显请求（非广播）
         if (addr == 0x00)
@@ -405,6 +432,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 qty = u16be(&req[4]);
         u8 bytecnt = req[6];
         int need_save_param = 0;
+        int need_apply_afe = 0;
         if (qty == 0 || qty > 0x7B)
             return 0; // 0x10 一次最多 123
         if (bytecnt != qty * 2)
@@ -421,12 +449,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             {
                 need_save_param = 1;
             }
+            if (reg_requires_afe_apply((u16)(reg + i)))
+            {
+                need_apply_afe = 1;
+            }
         }
         if (need_save_param)
         {
             SaveParam();
             AFE_PARAM_WRITE_Flag = 1;
             // test_SH367309_UpdataAfeConfig();
+        }
+        if (need_apply_afe)
+        {
+            if (!bms_afe_param_commit_and_apply())
+            {
+                System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            }
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding

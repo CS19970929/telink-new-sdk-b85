@@ -10,7 +10,7 @@ class BMSUUIDs:
 
 
 class RegisterCatalog:
-    currentProjectSeriesCount = 10
+    currentProjectSeriesCount = 20
 
     realtimeStatusMagic = 0x4253
     realtimeStatusStart = 0xD120
@@ -60,6 +60,10 @@ class RegisterCatalog:
 
     protectStart = 0x2100
     protectPreviewCount = 15
+
+    afeParamStart = 0x2200
+    afeParamCount = 31
+    afeParamConfigOffset = 8
 
     socWriteRegister = 0x1005
     debugRegister1102 = 0x1102

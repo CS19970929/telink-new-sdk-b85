@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
 
         title = QLabel("BMS Assistant Qt")
         title.setProperty("role", "title")
-        subtitle = QLabel("Qt 跨平台 BLE 调试上位机")
+        subtitle = QLabel("Qt 跨平台 BLE / 串口调试上位机")
         subtitle.setProperty("role", "muted")
 
         title_wrap = QWidget(self)
@@ -281,8 +281,11 @@ class MainWindow(QMainWindow):
         scan_note.setProperty("role", "muted")
 
         scan_form = QFormLayout()
+        self.link_mode_combo = QComboBox(scan_box)
+        self.link_mode_combo.addItems(["BLE", "串口"])
         scan_form.addRow("扫描模式", self.scan_mode_combo)
         scan_form.addRow("设备过滤", self.search_input)
+        scan_form.addRow("连接方式", self.link_mode_combo)
         scan_layout.addLayout(scan_form)
         scan_layout.addWidget(self.only_likely_checkbox)
         scan_layout.addWidget(scan_note)
@@ -300,6 +303,18 @@ class MainWindow(QMainWindow):
         ]:
             button_row.addWidget(widget)
         scan_layout.addLayout(button_row)
+
+        serial_row = QHBoxLayout()
+        self.serial_port_combo = QComboBox(scan_box)
+        self.serial_baud_combo = QComboBox(scan_box)
+        self.serial_baud_combo.addItems(["9600", "19200", "38400", "57600", "115200", "230400"])
+        self.refresh_serial_button = QPushButton("刷新串口", scan_box)
+        self.connect_serial_button = QPushButton("打开串口", scan_box)
+        serial_row.addWidget(self.serial_port_combo)
+        serial_row.addWidget(self.serial_baud_combo)
+        serial_row.addWidget(self.refresh_serial_button)
+        serial_row.addWidget(self.connect_serial_button)
+        scan_layout.addLayout(serial_row)
 
         badge_row = QHBoxLayout()
         self.bluetooth_badge = BadgeLabel(scan_box)
@@ -523,7 +538,7 @@ class MainWindow(QMainWindow):
         left_col = QVBoxLayout()
         self.debug_device_label = QLabel("未连接", session_box)
         self.debug_device_label.setProperty("role", "title")
-        debug_desc = QLabel("面向 `vendor/ble_sample` 的 BLE 调试上位机。业务链路为 `Modbus RTU over Telink SPP`。", session_box)
+        debug_desc = QLabel("面向 `vendor/ble_sample` 的调试上位机。业务链路为 `Modbus RTU over Telink SPP / UART`。", session_box)
         debug_desc.setWordWrap(True)
         debug_desc.setProperty("role", "muted")
         left_col.addWidget(self.debug_device_label)
@@ -546,6 +561,7 @@ class MainWindow(QMainWindow):
         self.identity_button = QPushButton("刷新身份", action_box)
         self.system_status_button = QPushButton("系统状态", action_box)
         self.protect_button = QPushButton("保护参数", action_box)
+        self.afe_param_button = QPushButton("AFE 参数", action_box)
         self.event_log_button = QPushButton("事件日志", action_box)
         self.quick_manual_read_button = QPushButton("手动读寄存器", action_box)
         self.echo_button = QPushButton("Echo 测试", action_box)
@@ -553,6 +569,7 @@ class MainWindow(QMainWindow):
             self.identity_button,
             self.system_status_button,
             self.protect_button,
+            self.afe_param_button,
             self.event_log_button,
             self.quick_manual_read_button,
             self.echo_button,
@@ -617,6 +634,29 @@ class MainWindow(QMainWindow):
         write_note.setWordWrap(True)
         write_note.setProperty("role", "muted")
         register_layout.addWidget(write_note)
+
+        register_layout.addWidget(QLabel("SH3673520 AFE 参数", register_box))
+        afe_read_row = QHBoxLayout()
+        self.afe_param_count_edit = QLineEdit(register_box)
+        self.afe_param_count_edit.setPlaceholderText("读取数量，默认 31")
+        self.afe_param_read_button = QPushButton("读取 AFE 参数", register_box)
+        afe_read_row.addWidget(self.afe_param_count_edit)
+        afe_read_row.addWidget(self.afe_param_read_button)
+        register_layout.addLayout(afe_read_row)
+
+        self.afe_param_offset_edit = QLineEdit(register_box)
+        self.afe_param_offset_edit.setPlaceholderText("写入偏移，例如 8 表示配置镜像起点")
+        self.afe_param_words_edit = QLineEdit(register_box)
+        self.afe_param_words_edit.setPlaceholderText("写入值，例如 0x0014, 0x003F")
+        self.afe_param_write_button = QPushButton("写入并应用 AFE 参数", register_box)
+        register_layout.addWidget(self.afe_param_offset_edit)
+        register_layout.addWidget(self.afe_param_words_edit)
+        register_layout.addWidget(self.afe_param_write_button)
+
+        afe_note = QLabel("AFE 参数窗口为 `0x2200` 起始：0=型号，1=串数，2=采样电阻uΩ，8起为 SH3673520 0x41~0x57 配置寄存器镜像。", register_box)
+        afe_note.setWordWrap(True)
+        afe_note.setProperty("role", "muted")
+        register_layout.addWidget(afe_note)
         workbench_row.addWidget(register_box, 1)
 
         raw_box = QGroupBox("原始帧与蓝牙名", wrapper)
@@ -692,13 +732,18 @@ class MainWindow(QMainWindow):
         return scroll
 
     def _connect_signals(self) -> None:
+        self.link_mode_combo.currentTextChanged.connect(self.controller.set_link_mode)
         self.scan_mode_combo.currentTextChanged.connect(self.controller.set_scan_mode)
         self.search_input.textChanged.connect(self.controller.set_search_text)
         self.only_likely_checkbox.toggled.connect(self.controller.set_show_only_likely_bms)
+        self.serial_port_combo.currentTextChanged.connect(self.controller.set_serial_port)
+        self.serial_baud_combo.currentTextChanged.connect(self.controller.set_serial_baudrate)
 
         self.scan_button.clicked.connect(lambda: self._run_action(self.controller.toggle_scan))
         self.clear_devices_button.clicked.connect(lambda: self._run_action(self.controller.clear_devices))
         self.connect_button.clicked.connect(lambda: self._run_action(self.controller.connect_selected))
+        self.refresh_serial_button.clicked.connect(lambda: self._run_action(self.controller.refresh_serial_ports))
+        self.connect_serial_button.clicked.connect(lambda: self._run_action(self.controller.connect_serial_selected))
         self.disconnect_button.clicked.connect(lambda: self._run_action(self.controller.disconnect))
 
         self.device_tree.itemSelectionChanged.connect(self._on_device_selection_changed)
@@ -711,6 +756,7 @@ class MainWindow(QMainWindow):
         self.identity_button.clicked.connect(lambda: self._run_action(self.controller.refresh_identity))
         self.system_status_button.clicked.connect(lambda: self._run_action(self.controller.read_system_status))
         self.protect_button.clicked.connect(lambda: self._run_action(self.controller.read_protect_preview))
+        self.afe_param_button.clicked.connect(lambda: self._run_action(self.controller.read_afe_params))
         self.event_log_button.clicked.connect(lambda: self._run_action(self.controller.read_event_log_preview))
         self.echo_button.clicked.connect(lambda: self._run_action(self.controller.send_echo_test))
         self.quick_manual_read_button.clicked.connect(self._handle_manual_read)
@@ -719,6 +765,8 @@ class MainWindow(QMainWindow):
         self.manual_write_button.clicked.connect(self._handle_manual_write)
         self.quick_soc_button.clicked.connect(self._handle_quick_soc)
         self.quick_1103_button.clicked.connect(lambda: self._run_action(self.controller.write_debug_1103_shortcut))
+        self.afe_param_read_button.clicked.connect(self._handle_afe_param_read)
+        self.afe_param_write_button.clicked.connect(self._handle_afe_param_write)
         self.raw_send_button.clicked.connect(self._handle_raw_send)
         self.bt_name_button.clicked.connect(self._handle_bt_name_write)
         self.export_logs_button.clicked.connect(self._export_logs)
@@ -733,14 +781,19 @@ class MainWindow(QMainWindow):
         self.controller.responsePreviewChanged.connect(self._refresh_response_preview)
 
     def _reload_all(self) -> None:
+        self.link_mode_combo.setCurrentText(self.controller.link_mode)
         self.scan_mode_combo.setCurrentText(self.controller.scan_mode.value)
         self.search_input.setText(self.controller.search_text)
         self.only_likely_checkbox.setChecked(self.controller.show_only_likely_bms)
+        self._reload_serial_ports()
 
         self.manual_read_address_edit.setText(self.controller.manual_read_address)
         self.manual_read_quantity_edit.setText(self.controller.manual_read_quantity)
         self.manual_write_address_edit.setText(self.controller.manual_write_address)
         self.manual_write_words_edit.setText(self.controller.manual_write_words)
+        self.afe_param_count_edit.setText(self.controller.afe_param_read_count)
+        self.afe_param_offset_edit.setText(self.controller.afe_param_write_offset)
+        self.afe_param_words_edit.setText(self.controller.afe_param_write_words)
         self.quick_soc_edit.setText(self.controller.quick_soc_value)
         self.raw_frame_edit.setPlainText(self.controller.raw_hex_command)
         self.bt_name_edit.setText(self.controller.bt_name_suffix)
@@ -752,6 +805,15 @@ class MainWindow(QMainWindow):
         self._refresh_block_views()
         self._refresh_response_preview()
         self._refresh_logs()
+
+    def _reload_serial_ports(self) -> None:
+        self.serial_port_combo.blockSignals(True)
+        self.serial_port_combo.clear()
+        self.serial_port_combo.addItems(self.controller.serial_ports)
+        if self.controller.serial_port_name:
+            self.serial_port_combo.setCurrentText(self.controller.serial_port_name)
+        self.serial_port_combo.blockSignals(False)
+        self.serial_baud_combo.setCurrentText(self.controller.serial_baudrate)
 
     def _reload_device_list(self) -> None:
         selected = self.controller.selected_device_id
@@ -779,13 +841,14 @@ class MainWindow(QMainWindow):
         self._refresh_status_widgets()
 
     def _refresh_status_widgets(self) -> None:
+        self._reload_serial_ports()
         self.status_label.setText(self.controller.status_message)
         self.scan_button.setText("停止扫描" if self.controller.is_scanning else "开始扫描")
 
-        self.bluetooth_badge.set_badge(f"Bluetooth: {self.controller.bluetooth_state_label}", self._bluetooth_tone())
+        self.bluetooth_badge.set_badge(f"{self.controller.link_mode}: {self.controller.current_transport_state}", self._bluetooth_tone())
         self.connection_badge.set_badge(f"链路: {self.controller.connection_status.value}", self._connection_tone())
 
-        self.debug_bt_badge.set_badge(f"Bluetooth: {self.controller.bluetooth_state_label}", self._bluetooth_tone())
+        self.debug_bt_badge.set_badge(f"{self.controller.link_mode}: {self.controller.current_transport_state}", self._bluetooth_tone())
         self.debug_link_badge.set_badge(f"连接: {self.controller.connection_status.value}", self._connection_tone())
         self.debug_busy_label.setText(f"执行中：{self.controller.busy_command_name}" if self.controller.busy_command_name else "空闲")
 
@@ -797,8 +860,20 @@ class MainWindow(QMainWindow):
 
         selected_ok = self.controller.selected_device_id is not None
         can_send = self.controller.can_send_commands
+        ble_mode = self.controller.link_mode == "BLE"
+        serial_mode = self.controller.link_mode == "串口"
 
-        self.connect_button.setEnabled(selected_ok and self.controller.busy_command_name is None)
+        self.scan_mode_combo.setEnabled(ble_mode)
+        self.search_input.setEnabled(ble_mode)
+        self.only_likely_checkbox.setEnabled(ble_mode)
+        self.scan_button.setEnabled(ble_mode)
+        self.clear_devices_button.setEnabled(ble_mode)
+        self.device_tree.setEnabled(ble_mode)
+        self.connect_button.setEnabled(ble_mode and selected_ok and self.controller.busy_command_name is None)
+        self.serial_port_combo.setEnabled(serial_mode)
+        self.serial_baud_combo.setEnabled(serial_mode)
+        self.refresh_serial_button.setEnabled(serial_mode)
+        self.connect_serial_button.setEnabled(serial_mode and bool(self.controller.serial_port_name) and self.controller.busy_command_name is None)
         self.disconnect_button.setEnabled(self.controller.connection_status in {
             ConnectionStatus.CONNECTING,
             ConnectionStatus.CONNECTED,
@@ -810,6 +885,7 @@ class MainWindow(QMainWindow):
             self.identity_button,
             self.system_status_button,
             self.protect_button,
+            self.afe_param_button,
             self.event_log_button,
             self.quick_manual_read_button,
             self.manual_read_button,
@@ -817,6 +893,8 @@ class MainWindow(QMainWindow):
             self.manual_write_button,
             self.quick_soc_button,
             self.quick_1103_button,
+            self.afe_param_read_button,
+            self.afe_param_write_button,
             self.raw_send_button,
             self.bt_name_button,
         ]:
@@ -928,6 +1006,15 @@ class MainWindow(QMainWindow):
         self.controller.manual_write_address = self.manual_write_address_edit.text().strip()
         self.controller.manual_write_words = self.manual_write_words_edit.text().strip()
         self._run_action(self.controller.write_manual_words)
+
+    def _handle_afe_param_read(self) -> None:
+        self.controller.afe_param_read_count = self.afe_param_count_edit.text().strip()
+        self._run_action(self.controller.read_afe_params)
+
+    def _handle_afe_param_write(self) -> None:
+        self.controller.afe_param_write_offset = self.afe_param_offset_edit.text().strip()
+        self.controller.afe_param_write_words = self.afe_param_words_edit.text().strip()
+        self._run_action(self.controller.write_afe_params)
 
     def _handle_quick_soc(self) -> None:
         self.controller.quick_soc_value = self.quick_soc_edit.text().strip()
@@ -1061,6 +1148,8 @@ class MainWindow(QMainWindow):
         return "\n\n".join(sections)
 
     def _bluetooth_tone(self) -> str:
+        if self.controller.link_mode == "串口":
+            return "success" if self.controller.serial_state_label != "未打开" else "neutral"
         if self.controller.bluetooth_state_label in {"已开启", "系统托管"}:
             return "success"
         if self.controller.bluetooth_state_label == "已关闭":
@@ -1122,6 +1211,11 @@ class MainWindow(QMainWindow):
         self.controller.scan_mode = ScanMode.ALL_DEVICES
         self.controller.search_text = ""
         self.controller.show_only_likely_bms = False
+        link_mode = self._settings.value("link/mode", self.controller.link_mode, type=str)
+        if link_mode in {"BLE", "串口"}:
+            self.controller.set_link_mode(link_mode)
+        self.controller.serial_port_name = self._settings.value("serial/port", self.controller.serial_port_name, type=str)
+        self.controller.serial_baudrate = self._settings.value("serial/baudrate", self.controller.serial_baudrate, type=str)
 
         self.controller.manual_read_address = self._settings.value("debug/manual_read_address", self.controller.manual_read_address, type=str)
         self.controller.manual_read_quantity = self._settings.value("debug/manual_read_quantity", self.controller.manual_read_quantity, type=str)
@@ -1130,6 +1224,9 @@ class MainWindow(QMainWindow):
         self.controller.quick_soc_value = self._settings.value("debug/quick_soc_value", self.controller.quick_soc_value, type=str)
         self.controller.raw_hex_command = self._settings.value("debug/raw_hex_command", self.controller.raw_hex_command, type=str)
         self.controller.bt_name_suffix = self._settings.value("debug/bt_name_suffix", self.controller.bt_name_suffix, type=str)
+        self.controller.afe_param_read_count = self._settings.value("debug/afe_param_read_count", self.controller.afe_param_read_count, type=str)
+        self.controller.afe_param_write_offset = self._settings.value("debug/afe_param_write_offset", self.controller.afe_param_write_offset, type=str)
+        self.controller.afe_param_write_words = self._settings.value("debug/afe_param_write_words", self.controller.afe_param_write_words, type=str)
 
         self.auto_refresh_checkbox.setChecked(self._settings.value("battery/auto_refresh_enabled", True, type=bool))
         self._set_combo_current_data(
@@ -1148,6 +1245,9 @@ class MainWindow(QMainWindow):
         self._settings.setValue("scan/mode", self.scan_mode_combo.currentText())
         self._settings.setValue("scan/search_text", self.search_input.text())
         self._settings.setValue("scan/show_only_likely_bms", self.only_likely_checkbox.isChecked())
+        self._settings.setValue("link/mode", self.link_mode_combo.currentText())
+        self._settings.setValue("serial/port", self.serial_port_combo.currentText())
+        self._settings.setValue("serial/baudrate", self.serial_baud_combo.currentText())
 
         self._settings.setValue("battery/auto_refresh_enabled", self.auto_refresh_checkbox.isChecked())
         self._settings.setValue("battery/refresh_interval_ms", int(self.refresh_interval_combo.currentData()))
@@ -1159,6 +1259,9 @@ class MainWindow(QMainWindow):
         self._settings.setValue("debug/quick_soc_value", self.quick_soc_edit.text().strip())
         self._settings.setValue("debug/raw_hex_command", self.raw_frame_edit.toPlainText().strip())
         self._settings.setValue("debug/bt_name_suffix", self.bt_name_edit.text().strip())
+        self._settings.setValue("debug/afe_param_read_count", self.afe_param_count_edit.text().strip())
+        self._settings.setValue("debug/afe_param_write_offset", self.afe_param_offset_edit.text().strip())
+        self._settings.setValue("debug/afe_param_write_words", self.afe_param_words_edit.text().strip())
         self._settings.sync()
 
     def _set_combo_current_data(self, combo: QComboBox, expected_value: int) -> None:

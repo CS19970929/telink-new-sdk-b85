@@ -36,6 +36,7 @@
 
 #include "sci_upper.h"
 #include "sh367309_datadeal.h"
+#include "bms_afe.h"
 
 #include "SocEnhance.h"
 #include "bms_event_log.h"
@@ -49,7 +50,6 @@
 
 extern void LoadParam(void);
 extern void Param_UpgradeReset_Apply(void);
-extern void AFE_Sleep(void);
 
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
@@ -152,7 +152,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	bms_event_log_note_sleep();
 	if (need_afe_sleep)
 	{
-		AFE_Sleep();
+		bms_afe_sleep();
 	}
 	Runtime_PrepareForDeepSleep();
 	sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
@@ -1603,20 +1603,20 @@ _attribute_no_inline_ void user_init_normal(void)
 		Param_UpgradeReset_Apply();
 		bms_event_log_init();
 
-		i2c_master_test_init();
+		bms_afe_bus_init();
 		WaitMs(100);
 
 		// todo 待测试 , 断线检测测试
-		AFE_Reset();
-		AFE_IsReady();
-		SH367309_UpdataAfeConfig();
+		bms_afe_reset();
+		bms_afe_is_ready();
+		bms_afe_apply_params();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
-		App_AFEGet();
+		bms_afe_sample();
 		soc_kv_store_init();
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
@@ -1864,7 +1864,7 @@ _attribute_no_inline_ void main_loop(void)
 	{
 		// todo 低功耗，时基偏移
 		update_bms_info_tick = clock_time();
-		App_AFEGet();
+		bms_afe_sample();
 		app_adc_multi_sample();
 		app_event_log_1s_task();
 	}

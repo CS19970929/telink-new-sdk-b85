@@ -7,6 +7,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from .ble_transport import BLETransport
+from .serial_transport import SerialTransport
 from .models import (
     BatteryStatusSnapshot,
     ConnectionStatus,
@@ -76,14 +77,19 @@ class AppController(QObject):
         super().__init__(parent)
 
         self.bluetooth_state_label = "未知"
+        self.serial_state_label = "未打开"
+        self.link_mode = "BLE"
         self.connection_status = ConnectionStatus.IDLE
-        self.status_message = "等待蓝牙初始化"
+        self.status_message = "等待通信初始化"
         self.scan_mode = ScanMode.ALL_DEVICES
         self.search_text = ""
         self.show_only_likely_bms = False
         self.is_scanning = False
         self.selected_device_id: str | None = None
         self.devices: dict[str, DiscoveredDevice] = {}
+        self.serial_ports: list[str] = []
+        self.serial_port_name = ""
+        self.serial_baudrate = "115200"
 
         self.identity = DeviceIdentitySnapshot()
         self.battery_status = BatteryStatusSnapshot.empty()
@@ -94,35 +100,49 @@ class AppController(QObject):
         self.latest_event_log_block: RegisterBlock | None = None
         self.latest_realtime_block: RegisterBlock | None = None
         self.latest_status_block: RegisterBlock | None = None
+        self.latest_afe_param_block: RegisterBlock | None = None
 
         self.logs: list[ExchangeLogEntry] = []
         self.manual_read_address = "0x0000"
         self.manual_read_quantity = "3"
         self.manual_write_address = "0x1005"
         self.manual_write_words = "0x0032"
+        self.afe_param_read_count = str(RegisterCatalog.afeParamCount)
+        self.afe_param_write_offset = "8"
+        self.afe_param_write_words = ""
         self.quick_soc_value = "60"
         self.raw_hex_command = ""
         self.bt_name_suffix = ""
         self.response_preview = ""
         self.busy_command_name: str | None = None
 
-        self._transport = BLETransport(self)
+        self._ble_transport = BLETransport(self)
+        self._serial_transport = SerialTransport(self)
+        self._transport = self._ble_transport
         self._accumulator = ResponseAccumulator()
         self._pending_exchange: PendingExchange | None = None
         self._pending_sequence: PendingSequence | None = None
         self._connected_device_id: str | None = None
 
         self._wire_transport()
-        self._transport.activate()
+        self._ble_transport.activate()
+        self._serial_transport.activate()
+        self.refresh_serial_ports()
 
     @property
     def connected_device_name(self) -> str:
+        if self.link_mode == "串口" and self._connected_device_id:
+            return self._connected_device_id.replace("serial:", "")
         if not self._connected_device_id:
             return "未连接"
         device = self.devices.get(self._connected_device_id)
         if device is None:
             return "未连接"
         return device.display_name
+
+    @property
+    def current_transport_state(self) -> str:
+        return self.serial_state_label if self.link_mode == "串口" else self.bluetooth_state_label
 
     @property
     def can_send_commands(self) -> bool:
@@ -179,6 +199,39 @@ class AppController(QObject):
         self.show_only_likely_bms = enabled
         self.devicesChanged.emit()
 
+    def set_link_mode(self, value: str) -> None:
+        if value not in {"BLE", "串口"}:
+            return
+        if value == self.link_mode:
+            self._transport = self._serial_transport if value == "串口" else self._ble_transport
+            return
+        if self.connection_status in {
+            ConnectionStatus.CONNECTING,
+            ConnectionStatus.CONNECTED,
+            ConnectionStatus.READY,
+        }:
+            self.disconnect()
+        self.link_mode = value
+        self._transport = self._serial_transport if value == "串口" else self._ble_transport
+        self.connection_status = ConnectionStatus.IDLE
+        self.status_message = f"已切换到{value}连接"
+        self.statusChanged.emit()
+        self.devicesChanged.emit()
+
+    def refresh_serial_ports(self) -> None:
+        self.serial_ports = self._serial_transport.available_ports()
+        if self.serial_port_name not in self.serial_ports:
+            self.serial_port_name = self.serial_ports[0] if self.serial_ports else ""
+        self.statusChanged.emit()
+
+    def set_serial_port(self, value: str) -> None:
+        self.serial_port_name = value
+        self.statusChanged.emit()
+
+    def set_serial_baudrate(self, value: str) -> None:
+        self.serial_baudrate = value.strip() or "115200"
+        self.statusChanged.emit()
+
     def set_selected_device(self, device_id: str | None) -> None:
         self.selected_device_id = device_id
         self.devicesChanged.emit()
@@ -190,11 +243,15 @@ class AppController(QObject):
             self.start_scan()
 
     def start_scan(self) -> None:
+        if self.link_mode != "BLE":
+            self.status_message = "当前为串口模式，请切换到 BLE 后再扫描"
+            self.statusChanged.emit()
+            return
         self.is_scanning = True
         self.connection_status = ConnectionStatus.SCANNING
         self.status_message = f"正在扫描附近设备: {self.scan_mode.note}"
         self.statusChanged.emit()
-        self._transport.start_scan()
+        self._ble_transport.start_scan()
 
     def stop_scan(self) -> None:
         self.is_scanning = False
@@ -202,17 +259,26 @@ class AppController(QObject):
             self.connection_status = ConnectionStatus.IDLE
         self.status_message = "已停止扫描"
         self.statusChanged.emit()
-        self._transport.stop_scan()
+        self._ble_transport.stop_scan()
 
     def connect_selected(self) -> None:
         if self.selected_device_id:
             self.connect_to(self.selected_device_id)
 
     def connect_to(self, device_id: str) -> None:
+        self.set_link_mode("BLE")
         self.selected_device_id = device_id
         self.status_message = f"准备连接 {self.devices.get(device_id).display_name if device_id in self.devices else device_id}"
         self.statusChanged.emit()
-        self._transport.connect_device(device_id)
+        self._ble_transport.connect_device(device_id)
+
+    def connect_serial_selected(self) -> None:
+        self.set_link_mode("串口")
+        try:
+            baudrate = int(self.serial_baudrate)
+        except ValueError as exc:
+            raise ModbusCodecError(f"波特率无效: {self.serial_baudrate}") from exc
+        self._serial_transport.connect_port(self.serial_port_name, baudrate)
 
     def disconnect(self) -> None:
         self._transport.disconnect_current()
@@ -283,6 +349,46 @@ class AppController(QObject):
 
         self._start_sequence("读取保护参数预览", steps, on_complete)
 
+    def read_afe_params(self) -> None:
+        quantity = parse_address(self.afe_param_read_count)
+        if quantity <= 0 or quantity > RegisterCatalog.afeParamCount:
+            raise ModbusCodecError(f"AFE 参数读取数量必须在 1~{RegisterCatalog.afeParamCount} 之间")
+        steps = [
+            self._make_read_step("SH3673520 AFE 参数", RegisterCatalog.afeParamStart, quantity, self._assign_afe_param_block),
+        ]
+
+        def on_complete() -> None:
+            self.status_message = "已读取 SH3673520 AFE 参数"
+            self.statusChanged.emit()
+
+        self._start_sequence("读取 AFE 参数", steps, on_complete)
+
+    def write_afe_params(self) -> None:
+        offset = parse_address(self.afe_param_write_offset)
+        words = parse_words(self.afe_param_write_words)
+        if not words:
+            raise ModbusCodecError("AFE 参数写入值不能为空")
+        if offset < 0 or (offset + len(words)) > RegisterCatalog.afeParamCount:
+            raise ModbusCodecError(f"AFE 参数偏移越界: offset={offset}, words={len(words)}")
+
+        register = RegisterCatalog.afeParamStart + offset
+        request = write_single(register, words[0]) if len(words) == 1 else write_multiple(register, words)
+        self._ensure_request_length(request)
+
+        def handler(parsed: object, raw: bytes) -> None:
+            response = parse_response(raw)
+            if response.kind not in {"write_single_ack", "write_multiple_ack"}:
+                raise ModbusCodecError("AFE 参数写入响应类型错误")
+
+        steps = [CommandStep("写入 SH3673520 AFE 参数", request, handler)]
+
+        def on_complete() -> None:
+            self.status_message = "AFE 参数已写入，固件已保存并重新应用"
+            self.statusChanged.emit()
+            self.read_afe_params()
+
+        self._start_sequence("写入 AFE 参数", steps, on_complete)
+
     def read_system_status(self) -> None:
         steps = [
             self._make_read_step("系统状态", RegisterCatalog.systemStatusStart, RegisterCatalog.systemStatusCount, self._assign_status_block),
@@ -307,7 +413,7 @@ class AppController(QObject):
 
     def send_echo_test(self) -> None:
         request = echo(bytes([0x12, 0x34, 0x56, 0x78]))
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -340,7 +446,7 @@ class AppController(QObject):
             raise ModbusCodecError("写入值为空")
 
         request = write_single(register, words[0]) if len(words) == 1 else write_multiple(register, words)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -361,7 +467,7 @@ class AppController(QObject):
             raise ModbusCodecError("SOC 建议范围 0~100")
 
         request = write_single(RegisterCatalog.socWriteRegister, value)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -379,7 +485,7 @@ class AppController(QObject):
 
     def write_debug_1103_shortcut(self) -> None:
         request = write_single(RegisterCatalog.debugRegister1103, 0x0003)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -396,7 +502,7 @@ class AppController(QObject):
 
     def send_raw_command(self) -> None:
         request = parse_raw_bytes(self.raw_hex_command)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
         expected_length = len(request) if len(request) >= 2 and request[1] == 0x7F else None
 
         def handler(parsed: object, raw: bytes) -> None:
@@ -419,7 +525,7 @@ class AppController(QObject):
 
         words = encode_ascii_words(suffix)
         request = write_multiple(RegisterCatalog.btNameStart, words)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -455,18 +561,38 @@ class AppController(QObject):
         return [item for item in [self.latest_cell_array_block, self.latest_status_block, self.latest_realtime_block] if item is not None]
 
     def debug_blocks(self) -> list[RegisterBlock]:
-        return [item for item in [self.latest_status_block, self.latest_protect_block, self.latest_event_log_block, self.latest_manual_block] if item is not None]
+        return [
+            item
+            for item in [
+                self.latest_status_block,
+                self.latest_protect_block,
+                self.latest_afe_param_block,
+                self.latest_event_log_block,
+                self.latest_manual_block,
+            ]
+            if item is not None
+        ]
 
     def _wire_transport(self) -> None:
-        self._transport.bluetoothStateChanged.connect(self._on_bluetooth_state_changed)
-        self._transport.discoveryReceived.connect(self._on_discovery_received)
-        self._transport.connectionChanged.connect(self._on_connection_changed)
-        self._transport.ready.connect(self._on_transport_ready)
-        self._transport.dataReceived.connect(self._on_transport_data)
-        self._transport.errorOccurred.connect(self._on_transport_error)
+        self._ble_transport.bluetoothStateChanged.connect(self._on_bluetooth_state_changed)
+        self._ble_transport.discoveryReceived.connect(self._on_discovery_received)
+        self._ble_transport.connectionChanged.connect(self._on_connection_changed)
+        self._ble_transport.ready.connect(self._on_transport_ready)
+        self._ble_transport.dataReceived.connect(self._on_transport_data)
+        self._ble_transport.errorOccurred.connect(self._on_transport_error)
+
+        self._serial_transport.stateChanged.connect(self._on_serial_state_changed)
+        self._serial_transport.connectionChanged.connect(self._on_connection_changed)
+        self._serial_transport.ready.connect(self._on_transport_ready)
+        self._serial_transport.dataReceived.connect(self._on_transport_data)
+        self._serial_transport.errorOccurred.connect(self._on_transport_error)
 
     def _on_bluetooth_state_changed(self, label: str) -> None:
         self.bluetooth_state_label = label
+        self.statusChanged.emit()
+
+    def _on_serial_state_changed(self, label: str) -> None:
+        self.serial_state_label = label
         self.statusChanged.emit()
 
     def _on_discovery_received(self, event: object) -> None:
@@ -553,8 +679,9 @@ class AppController(QObject):
         self._connected_device_id = device_id
         self._mark_connected_device(device_id)
         self.connection_status = ConnectionStatus.READY
-        self.status_message = "SPP 通道已就绪，可直接收发 Modbus RTU"
-        self._append_log(ExchangeDirection.INFO, "BLE 就绪", "", f"已订阅响应特征 {BMSUUIDs.responseCharacteristic}")
+        self.status_message = f"{self.link_mode} 通道已就绪，可直接收发 Modbus RTU"
+        note = f"已订阅响应特征 {BMSUUIDs.responseCharacteristic}" if self.link_mode == "BLE" else self.connected_device_name
+        self._append_log(ExchangeDirection.INFO, f"{self.link_mode} 就绪", "", note)
         self.devicesChanged.emit()
         self.logsChanged.emit()
         self.statusChanged.emit()
@@ -593,7 +720,7 @@ class AppController(QObject):
         self._succeed_pending_exchange(event.frame)
 
     def _on_transport_error(self, message: str) -> None:
-        self._append_log(ExchangeDirection.ERROR, "BLE 错误", "", message)
+        self._append_log(ExchangeDirection.ERROR, f"{self.link_mode} 错误", "", message)
         self.logsChanged.emit()
         self.status_message = message
         self.statusChanged.emit()
@@ -607,7 +734,7 @@ class AppController(QObject):
         assign: Callable[[RegisterBlock], None],
     ) -> CommandStep:
         request = read_holding(start, quantity)
-        ensure_safe_ble_length(request)
+        self._ensure_request_length(request)
 
         def handler(parsed: object, raw: bytes) -> None:
             response = parse_response(raw)
@@ -625,11 +752,18 @@ class AppController(QObject):
 
         return CommandStep(title, request, handler)
 
+    def _ensure_request_length(self, request: bytes) -> None:
+        if self.link_mode == "BLE":
+            ensure_safe_ble_length(request)
+
     def _assign_manual_block(self, block: RegisterBlock) -> None:
         self.latest_manual_block = block
 
     def _assign_protect_block(self, block: RegisterBlock) -> None:
         self.latest_protect_block = block
+
+    def _assign_afe_param_block(self, block: RegisterBlock) -> None:
+        self.latest_afe_param_block = block
 
     def _assign_status_block(self, block: RegisterBlock) -> None:
         self.latest_status_block = block
@@ -648,7 +782,7 @@ class AppController(QObject):
             self.statusChanged.emit()
             return
         if self.connection_status is not ConnectionStatus.READY:
-            self.status_message = "BLE 通道尚未就绪，请先连接并完成特征发现"
+            self.status_message = "通信通道尚未就绪，请先连接设备或打开串口"
             self.statusChanged.emit()
             return
         if not steps:
@@ -700,7 +834,7 @@ class AppController(QObject):
         expected_length_hint: int | None = None,
     ) -> None:
         if self.connection_status is not ConnectionStatus.READY:
-            on_failure(ModbusCodecError("BLE 通道尚未就绪，请先连接并完成特征发现"))
+            on_failure(ModbusCodecError("通信通道尚未就绪，请先连接设备或打开串口"))
             return
         if self._pending_exchange is not None:
             on_failure(ModbusCodecError(f"当前仍有未完成请求: {self._pending_exchange.name}"))
