@@ -42,7 +42,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D11
+#define FD_BMS_TYPE   C700
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
 #define  BMS_SERIAL_NUMBER_DEFAULT  	"20260615"
@@ -83,6 +83,7 @@
 #define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C700"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D004-20260615"
 #elif (FD_BMS_TYPE == M1PRO)
 #define SeriesNum  (13)
 #define CapacityFactory (116)
