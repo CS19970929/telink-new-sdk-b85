@@ -52,6 +52,9 @@
 #define	__LOAD_RAM_SIZE__		0xc
 #endif
 
+#ifndef BMS_MCU_STARTUP_SELFTEST_ENABLE
+#define BMS_MCU_STARTUP_SELFTEST_ENABLE 0
+#endif
 
 	.code	16
 
@@ -242,6 +245,95 @@ TNOP:
 FLASH_WAKEUP_END:
 
 
+#if BMS_MCU_STARTUP_SELFTEST_ENABLE
+@********************************************************************************************************
+@                               BMS STARTUP SELF TEST BEFORE C INIT
+@********************************************************************************************************
+BMS_STARTUP_CPU_REG_TEST:
+	tloadr	r0, BMS_SELFTEST_WORDS
+	tloadr	r1, BMS_SELFTEST_WORDS + 4
+	tmov	r2, r0
+	tcmp	r2, r0
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmov	r3, r1
+	tcmp	r3, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmov	r4, r0
+	tcmp	r4, r0
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmov	r5, r1
+	tcmp	r5, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmov	r6, r0
+	tcmp	r6, r0
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmov	r7, r1
+	tcmp	r7, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tcmp	r0, r1
+	tjne	BMS_STARTUP_CPU_NE_OK
+	tj		BMS_STARTUP_SELFTEST_FAIL
+BMS_STARTUP_CPU_NE_OK:
+	tcmp	r0, r0
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+
+BMS_STARTUP_PC_TEST:
+	tmovs	r0, #0
+	tj		BMS_STARTUP_PC_STEP1
+	tj		BMS_STARTUP_SELFTEST_FAIL
+BMS_STARTUP_PC_STEP1:
+	tadd	r0, #1
+	tj		BMS_STARTUP_PC_STEP2
+	tj		BMS_STARTUP_SELFTEST_FAIL
+BMS_STARTUP_PC_STEP2:
+	tadd	r0, #1
+	tmovs	r1, #2
+	tcmp	r0, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+
+BMS_STARTUP_RAM_TEST:
+	tloadr	r2, BMS_SELFTEST_SRAM_ADDR
+	tloadr	r0, BMS_SELFTEST_WORDS
+	tstorer	r0, [r2, #0]
+	tloadr	r1, [r2, #0]
+	tloadr	r0, [r2, #0]
+	tcmp	r0, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tloadr	r3, BMS_SELFTEST_WORDS
+	tcmp	r0, r3
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tloadr	r0, BMS_SELFTEST_WORDS + 4
+	tstorer	r0, [r2, #0]
+	tloadr	r1, [r2, #0]
+	tcmp	r0, r1
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tmovs	r0, #0
+	tstorer	r0, [r2, #0]
+
+BMS_STARTUP_FLASH_TEST:
+	tloadr	r1, BMS_SELFTEST_FLASH_MAGIC_ADDR
+	tloadr	r0, [r1, #0]
+	tloadr	r2, BMS_SELFTEST_FLASH_MAGIC
+	tcmp	r0, r2
+	tjne	BMS_STARTUP_SELFTEST_FAIL
+
+BMS_STARTUP_CLOCK_TEST:
+	tloadr	r1, BMS_SELFTEST_STIMER_ADDR
+	tloadr	r0, [r1, #0]
+	tmovs	r2, #0
+	tloadr	r3, BMS_SELFTEST_CLOCK_DELAY
+BMS_STARTUP_CLOCK_DELAY_LOOP:
+	tadd	r2, #1
+	tcmp	r2, r3
+	tjle	BMS_STARTUP_CLOCK_DELAY_LOOP
+	tloadr	r2, [r1, #0]
+	tcmp	r0, r2
+	tjne	BMS_STARTUP_SELFTEST_DONE
+	tj		BMS_STARTUP_SELFTEST_FAIL
+BMS_STARTUP_SELFTEST_DONE:
+#endif
+
+
 
 
 @********************************************************************************************************
@@ -379,6 +471,138 @@ BOOT_SEL_D:
 
 FLASH_RECOVER:
 	.word	(0x80000c)                  @0
+
+#if BMS_MCU_STARTUP_SELFTEST_ENABLE
+BMS_SELFTEST_WORDS:
+	.word	(0xaaaaaaaa)
+	.word	(0x55555555)
+BMS_SELFTEST_SRAM_ADDR:
+	.word	(SRAM_SIZE - 16)
+BMS_SELFTEST_FLASH_MAGIC_ADDR:
+	.word	(0x00000008)
+BMS_SELFTEST_FLASH_MAGIC:
+	.word	(0x544c4e4b)
+BMS_SELFTEST_STIMER_ADDR:
+	.word	(0x800740)
+BMS_SELFTEST_CLOCK_DELAY:
+	.word	(0x00000400)
+BMS_FAILSAFE_PA_OEN:
+	.word	(0x800582)
+BMS_FAILSAFE_PA_OUT:
+	.word	(0x800583)
+BMS_FAILSAFE_PB_OEN:
+	.word	(0x80058a)
+BMS_FAILSAFE_PB_OUT:
+	.word	(0x80058b)
+BMS_FAILSAFE_PD_OEN:
+	.word	(0x80059a)
+BMS_FAILSAFE_PD_OUT:
+	.word	(0x80059b)
+BMS_FAILSAFE_DELAY_COUNT:
+	.word	(0x00002000)
+
+	.align 4
+	.global bms_startup_selftest_fail_safe_loop
+bms_startup_selftest_fail_safe_loop:
+BMS_STARTUP_SELFTEST_FAIL:
+	tmovs	r1, #0
+	tloadr	r0, BMS_FAILSAFE_PA_OEN
+	tstorerb	r1, [r0, #0]
+	tloadr	r0, BMS_FAILSAFE_PA_OUT
+	tstorerb	r1, [r0, #0]
+	tloadr	r0, BMS_FAILSAFE_PB_OEN
+	tstorerb	r1, [r0, #0]
+	tloadr	r0, BMS_FAILSAFE_PD_OEN
+	tstorerb	r1, [r0, #0]
+	tloadr	r0, BMS_FAILSAFE_PD_OUT
+	tstorerb	r1, [r0, #0]
+BMS_STARTUP_FAIL_ALARM_LOOP:
+	tloadr	r0, BMS_FAILSAFE_PB_OUT
+	tmovs	r1, #16
+	tstorerb	r1, [r0, #0]
+	tmovs	r2, #0
+	tloadr	r3, BMS_FAILSAFE_DELAY_COUNT
+BMS_STARTUP_FAIL_ALARM_HIGH_DELAY:
+	tadd	r2, #1
+	tcmp	r2, r3
+	tjle	BMS_STARTUP_FAIL_ALARM_HIGH_DELAY
+	tmovs	r1, #0
+	tstorerb	r1, [r0, #0]
+	tmovs	r2, #0
+	tloadr	r3, BMS_FAILSAFE_DELAY_COUNT
+BMS_STARTUP_FAIL_ALARM_LOW_DELAY:
+	tadd	r2, #1
+	tcmp	r2, r3
+	tjle	BMS_STARTUP_FAIL_ALARM_LOW_DELAY
+	tj		BMS_STARTUP_FAIL_ALARM_LOOP
+#endif
+
+	.align 4
+	.global bms_mcu_selftest_cpu_regs_asm
+	.thumb_func
+	.type bms_mcu_selftest_cpu_regs_asm, %function
+bms_mcu_selftest_cpu_regs_asm:
+	tpush	{r4-r7}
+	tloadr	r0, BMS_RUNTIME_SELFTEST_WORDS
+	tloadr	r1, BMS_RUNTIME_SELFTEST_WORDS + 4
+	tmov	r2, r0
+	tcmp	r2, r0
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmov	r3, r1
+	tcmp	r3, r1
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmov	r4, r0
+	tcmp	r4, r0
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmov	r5, r1
+	tcmp	r5, r1
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmov	r6, r0
+	tcmp	r6, r0
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmov	r7, r1
+	tcmp	r7, r1
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tcmp	r0, r1
+	tjne	BMS_RUNTIME_CPU_NE_OK
+	tj		BMS_RUNTIME_CPU_REG_FAIL
+BMS_RUNTIME_CPU_NE_OK:
+	tcmp	r0, r0
+	tjne	BMS_RUNTIME_CPU_REG_FAIL
+	tmovs	r0, #1
+	tpop	{r4-r7}
+	tjex	lr
+BMS_RUNTIME_CPU_REG_FAIL:
+	tmovs	r0, #0
+	tpop	{r4-r7}
+	tjex	lr
+
+	.align 4
+	.global bms_mcu_selftest_pc_asm
+	.thumb_func
+	.type bms_mcu_selftest_pc_asm, %function
+bms_mcu_selftest_pc_asm:
+	tmovs	r0, #0
+	tj		BMS_RUNTIME_PC_STEP1
+	tj		BMS_RUNTIME_PC_FAIL
+BMS_RUNTIME_PC_STEP1:
+	tadd	r0, #1
+	tj		BMS_RUNTIME_PC_STEP2
+	tj		BMS_RUNTIME_PC_FAIL
+BMS_RUNTIME_PC_STEP2:
+	tadd	r0, #1
+	tmovs	r1, #2
+	tcmp	r0, r1
+	tjne	BMS_RUNTIME_PC_FAIL
+	tmovs	r0, #1
+	tjex	lr
+BMS_RUNTIME_PC_FAIL:
+	tmovs	r0, #0
+	tjex	lr
+
+BMS_RUNTIME_SELFTEST_WORDS:
+	.word	(0xaaaaaaaa)
+	.word	(0x55555555)
 
 	.align 4
 __irq:

@@ -28,6 +28,7 @@
 #include "modbus_uart.h"
 #include "sh367309_datadeal.h"
 #include "bus_mux.h"
+#include "bms_mcu_selftest.h"
 
 /**
  * @brief   IRQ handler
@@ -87,6 +88,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 
     irq_enable();
 	while (1) {
+		bms_mcu_selftest_runtime_check();
 	#if (MODULE_WATCHDOG_ENABLE)
 		#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
 			if (g_chip_version != CHIP_VERSION_A0)

@@ -22,9 +22,12 @@ BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
 BLE_FLASH = COMMON_DIR / "ble_flash.h"
 FLASH_SAFE = MODULE_DIR / "flash_store_safe.h"
 APP_C = MODULE_DIR / "app.c"
+MAIN_C = MODULE_DIR / "main.c"
 MODBUS_RTU_C = MODULE_DIR / "modbus_rtu.c"
 RUNTIME_C = MODULE_DIR / "runtime.c"
 EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
+BMS_SELFTEST_C = MODULE_DIR / "bms_mcu_selftest.c"
+BMS_SELFTEST_H = MODULE_DIR / "bms_mcu_selftest.h"
 PARAM_C = MODULE_DIR / "param.c"
 BTNAME_C = MODULE_DIR / "btname_modbus.c"
 BMS_COLD_C = MODULE_DIR / "bms_cold_kv_store.c"
@@ -35,6 +38,10 @@ SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
 SIF_SEND_C = MODULE_DIR / "sif_send.c"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
+B85_STARTUP_S = SDK_DIR / "boot" / "B85" / "cstartup_825x.S"
+B85_SAMPLE_PROJECT = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample"
+B85_BOOT_SUBDIR_MK = B85_SAMPLE_PROJECT / "boot" / "B85" / "subdir.mk"
+B85_VENDOR_SUBDIR_MK = B85_SAMPLE_PROJECT / "vendor" / "ble_sample" / "subdir.mk"
 
 DEFAULT_OTA_FW_MAX_SIZE = 124 * 1024
 DEFAULT_OTA_BOOT_ADDR = 0x20000
@@ -478,6 +485,54 @@ class SourceContractTests(unittest.TestCase):
     def test_hot_and_cold_kv_no_longer_reference_previous_layouts(self):
         self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base()", read_text(SOC_KV_C))
         self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base()", read_text(BMS_COLD_C))
+
+    def test_mcu_selftest_startup_runs_before_c_runtime_init(self):
+        startup = read_text(B85_STARTUP_S)
+        boot_mk = read_text(B85_BOOT_SUBDIR_MK)
+        self.assertIn("-DBMS_MCU_STARTUP_SELFTEST_ENABLE=1", boot_mk)
+        self.assertIn("BMS_STARTUP_CPU_REG_TEST:", startup)
+        self.assertIn("BMS_STARTUP_PC_TEST:", startup)
+        self.assertIn("BMS_STARTUP_RAM_TEST:", startup)
+        self.assertIn("BMS_STARTUP_FLASH_TEST:", startup)
+        self.assertIn("BMS_STARTUP_CLOCK_TEST:", startup)
+        self.assertLess(startup.index("BMS_STARTUP_CPU_REG_TEST:"), startup.index("ZERO_BSS_BEGIN:"))
+        self.assertLess(startup.index("BMS_STARTUP_CLOCK_TEST:"), startup.index("COPY_DATA:"))
+        self.assertIn("bms_startup_selftest_fail_safe_loop", startup)
+
+    def test_mcu_selftest_runtime_is_called_each_main_loop(self):
+        main = read_text(MAIN_C)
+        self.assertIn('#include "bms_mcu_selftest.h"', main)
+        self.assertIn("while (1) {\n\t\tbms_mcu_selftest_runtime_check();", main)
+
+    def test_mcu_selftest_runtime_order_and_fail_safe_contract(self):
+        src = read_text(BMS_SELFTEST_C)
+        hdr = read_text(BMS_SELFTEST_H)
+        self.assertIn("BMS_MCU_SELFTEST_FORCE_FAIL_ITEM", hdr)
+        self.assertIn("BMS_MCU_SELFTEST_FAIL_CPU = 1", hdr)
+        self.assertIn("bms_mcu_selftest_fail_safe_loop(reason);", src)
+        ordered = [
+            "BMS_MCU_SELFTEST_FAIL_CPU",
+            "BMS_MCU_SELFTEST_FAIL_PC",
+            "BMS_MCU_SELFTEST_FAIL_CLOCK",
+            "BMS_MCU_SELFTEST_FAIL_FLASH",
+            "BMS_MCU_SELFTEST_FAIL_RAM",
+            "BMS_MCU_SELFTEST_FAIL_ADC",
+            "BMS_MCU_SELFTEST_FAIL_IRQ",
+        ]
+        positions = [src.index(token) for token in ordered]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("bms_mcu_selftest_force_outputs_off();", src)
+        self.assertIn("bms_mcu_selftest_gpio_output_low(MCC_C_PIN);", src)
+        self.assertIn("bms_mcu_selftest_gpio_output_low(AFE_CTL_PIN);", src)
+        self.assertIn("bms_mcu_selftest_gpio_output_low(ADC_BUSEN_PIN);", src)
+        self.assertIn("bms_mcu_selftest_gpio_output_low(ADC_EN_PIN);", src)
+        self.assertIn("bms_mcu_selftest_alarm_set(1);", src)
+        self.assertIn("bms_mcu_selftest_alarm_set(0);", src)
+
+    def test_mcu_selftest_is_part_of_ble_sample_build(self):
+        vendor_mk = read_text(B85_VENDOR_SUBDIR_MK)
+        self.assertIn("bms_mcu_selftest.c", vendor_mk)
+        self.assertIn("./vendor/ble_sample/bms_mcu_selftest.o", vendor_mk)
 
 
 if __name__ == "__main__":

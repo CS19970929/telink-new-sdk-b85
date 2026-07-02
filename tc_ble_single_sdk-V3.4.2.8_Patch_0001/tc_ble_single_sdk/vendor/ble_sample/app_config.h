@@ -114,6 +114,14 @@
 #define MODULE_WATCHDOG_ENABLE		1
 #define WATCHDOG_INIT_TIMEOUT		2000  //ms
 
+/////////////////// MCU safety self-test  //////////////////////////////
+#ifndef BMS_MCU_SELFTEST_ENABLE
+#define BMS_MCU_SELFTEST_ENABLE              1
+#endif
+#ifndef BMS_MCU_SELFTEST_FORCE_FAIL_ITEM
+#define BMS_MCU_SELFTEST_FORCE_FAIL_ITEM     0
+#endif
+
 
 /////////////////////////////////////// PRINT DEBUG INFO ///////////////////////////////////////
 #if (UART_PRINT_DEBUG_ENABLE)
