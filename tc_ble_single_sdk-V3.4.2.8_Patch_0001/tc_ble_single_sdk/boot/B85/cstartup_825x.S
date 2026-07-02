@@ -254,28 +254,31 @@ BMS_STARTUP_CPU_REG_TEST:
 	tloadr	r1, BMS_SELFTEST_WORDS + 4
 	tmov	r2, r0
 	tcmp	r2, r0
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tmov	r3, r1
 	tcmp	r3, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tmov	r4, r0
 	tcmp	r4, r0
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tmov	r5, r1
 	tcmp	r5, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tmov	r6, r0
 	tcmp	r6, r0
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tmov	r7, r1
 	tcmp	r7, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
 	tcmp	r0, r1
 	tjne	BMS_STARTUP_CPU_NE_OK
 	tj		BMS_STARTUP_SELFTEST_FAIL
 BMS_STARTUP_CPU_NE_OK:
 	tcmp	r0, r0
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_CPU_FAIL
+	tj		BMS_STARTUP_PC_TEST
+BMS_STARTUP_CPU_FAIL:
+	tj		BMS_STARTUP_SELFTEST_FAIL
 
 BMS_STARTUP_PC_TEST:
 	tmovs	r0, #0
@@ -289,7 +292,10 @@ BMS_STARTUP_PC_STEP2:
 	tadd	r0, #1
 	tmovs	r1, #2
 	tcmp	r0, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_PC_FAIL
+	tj		BMS_STARTUP_RAM_TEST
+BMS_STARTUP_PC_FAIL:
+	tj		BMS_STARTUP_SELFTEST_FAIL
 
 BMS_STARTUP_RAM_TEST:
 	tloadr	r2, BMS_SELFTEST_SRAM_ADDR
@@ -298,24 +304,30 @@ BMS_STARTUP_RAM_TEST:
 	tloadr	r1, [r2, #0]
 	tloadr	r0, [r2, #0]
 	tcmp	r0, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_RAM_FAIL
 	tloadr	r3, BMS_SELFTEST_WORDS
 	tcmp	r0, r3
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_RAM_FAIL
 	tloadr	r0, BMS_SELFTEST_WORDS + 4
 	tstorer	r0, [r2, #0]
 	tloadr	r1, [r2, #0]
 	tcmp	r0, r1
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_RAM_FAIL
 	tmovs	r0, #0
 	tstorer	r0, [r2, #0]
+	tj		BMS_STARTUP_FLASH_TEST
+BMS_STARTUP_RAM_FAIL:
+	tj		BMS_STARTUP_SELFTEST_FAIL
 
 BMS_STARTUP_FLASH_TEST:
 	tloadr	r1, BMS_SELFTEST_FLASH_MAGIC_ADDR
 	tloadr	r0, [r1, #0]
 	tloadr	r2, BMS_SELFTEST_FLASH_MAGIC
 	tcmp	r0, r2
-	tjne	BMS_STARTUP_SELFTEST_FAIL
+	tjne	BMS_STARTUP_FLASH_FAIL
+	tj		BMS_STARTUP_CLOCK_TEST
+BMS_STARTUP_FLASH_FAIL:
+	tj		BMS_STARTUP_SELFTEST_FAIL
 
 BMS_STARTUP_CLOCK_TEST:
 	tloadr	r1, BMS_SELFTEST_STIMER_ADDR
@@ -486,50 +498,49 @@ BMS_SELFTEST_STIMER_ADDR:
 	.word	(0x800740)
 BMS_SELFTEST_CLOCK_DELAY:
 	.word	(0x00000400)
-BMS_FAILSAFE_PA_OEN:
-	.word	(0x800582)
-BMS_FAILSAFE_PA_OUT:
-	.word	(0x800583)
-BMS_FAILSAFE_PB_OEN:
-	.word	(0x80058a)
-BMS_FAILSAFE_PB_OUT:
-	.word	(0x80058b)
-BMS_FAILSAFE_PD_OEN:
-	.word	(0x80059a)
-BMS_FAILSAFE_PD_OUT:
-	.word	(0x80059b)
-BMS_FAILSAFE_DELAY_COUNT:
-	.word	(0x00002000)
 
 	.align 4
 	.global bms_startup_selftest_fail_safe_loop
 bms_startup_selftest_fail_safe_loop:
 BMS_STARTUP_SELFTEST_FAIL:
 	tmovs	r1, #0
-	tloadr	r0, BMS_FAILSAFE_PA_OEN
-	tstorerb	r1, [r0, #0]
-	tloadr	r0, BMS_FAILSAFE_PA_OUT
-	tstorerb	r1, [r0, #0]
-	tloadr	r0, BMS_FAILSAFE_PB_OEN
-	tstorerb	r1, [r0, #0]
-	tloadr	r0, BMS_FAILSAFE_PD_OEN
-	tstorerb	r1, [r0, #0]
-	tloadr	r0, BMS_FAILSAFE_PD_OUT
-	tstorerb	r1, [r0, #0]
+	tloadr	r0, BMS_FAILSAFE_PA_BASE
+	tstorerb	r1, [r0, #2]
+	tstorerb	r1, [r0, #3]
+	tloadr	r0, BMS_FAILSAFE_PB_BASE
+	tstorerb	r1, [r0, #2]
+	tmov	r5, r0
+	tloadr	r0, BMS_FAILSAFE_PD_BASE
+	tstorerb	r1, [r0, #2]
+	tstorerb	r1, [r0, #3]
+	tloadr	r4, BMS_FAILSAFE_DELAY_COUNT
+	tj		BMS_STARTUP_FAIL_AFTER_LITERALS
+
+	.align 4
+BMS_FAILSAFE_PA_BASE:
+	.word	(0x800580)
+BMS_FAILSAFE_PB_BASE:
+	.word	(0x800588)
+BMS_FAILSAFE_PD_BASE:
+	.word	(0x800598)
+BMS_FAILSAFE_DELAY_COUNT:
+	.word	(0x00002000)
+
+BMS_STARTUP_FAIL_AFTER_LITERALS:
 BMS_STARTUP_FAIL_ALARM_LOOP:
-	tloadr	r0, BMS_FAILSAFE_PB_OUT
+	tmov	r0, r5
 	tmovs	r1, #16
-	tstorerb	r1, [r0, #0]
+	tstorerb	r1, [r0, #3]
 	tmovs	r2, #0
-	tloadr	r3, BMS_FAILSAFE_DELAY_COUNT
+	tmov	r3, r4
 BMS_STARTUP_FAIL_ALARM_HIGH_DELAY:
 	tadd	r2, #1
 	tcmp	r2, r3
 	tjle	BMS_STARTUP_FAIL_ALARM_HIGH_DELAY
 	tmovs	r1, #0
-	tstorerb	r1, [r0, #0]
+	tstorerb	r1, [r0, #3]
 	tmovs	r2, #0
-	tloadr	r3, BMS_FAILSAFE_DELAY_COUNT
+	tmov	r3, r4
 BMS_STARTUP_FAIL_ALARM_LOW_DELAY:
 	tadd	r2, #1
 	tcmp	r2, r3
