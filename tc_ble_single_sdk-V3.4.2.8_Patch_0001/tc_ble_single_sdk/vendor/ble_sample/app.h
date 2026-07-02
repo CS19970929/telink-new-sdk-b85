@@ -26,6 +26,14 @@
 
 #include "conf.h"
 
+typedef enum GPIO_TYPE {
+	GPIO_PreCHG = 0,
+	GPIO_CHG,
+	GPIO_DSG,
+	GPIO_MAIN,
+}GPIO_Type;
+
+
 extern unsigned int	scan_pin_need;
 extern int button_not_released;
 extern u8 ota_is_working;

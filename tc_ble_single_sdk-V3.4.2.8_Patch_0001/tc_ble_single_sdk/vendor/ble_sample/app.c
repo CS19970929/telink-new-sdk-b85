@@ -324,6 +324,29 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
+void SH367309_DriverMos_Ctrl(GPIO_Type Type, UINT8 OnOFF)
+{
+	switch (Type)
+	{
+	case GPIO_PreCHG:
+		SH367309_Reg_Store.REG_MTP_CONF.bits.PCHMOS = OnOFF;
+		break;
+
+	case GPIO_CHG:
+		SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = OnOFF;
+		break;
+
+	case GPIO_DSG:
+		SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = OnOFF;
+		break;
+
+	default:
+		break;
+	}
+
+	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+}
+
 void open_chg_close_dsg(void)
 {
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
@@ -579,6 +602,35 @@ const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 	1450, // 105
 
 };
+
+void software_protect(void)
+{
+	static UINT8 IchgOcp_Flag = 0;
+	static uint16_t IchgOcp_delay200ms_rcv = 0;
+
+	switch (IchgOcp_Flag)
+	{
+	case 0:
+		if (g_stCellInfoReport.u16Ichg >= 40)
+		{
+			FaultWarnRecord2(IchgOcp_First);
+			SH367309_DriverMos_Ctrl(GPIO_CHG, 0);
+			IchgOcp_Flag = 1;
+		}
+		break;
+	case 1:
+		if (g_stCellInfoReport.u16IDischg >= 10 || (++IchgOcp_delay200ms_rcv) >= (5 * 30))
+		{
+			IchgOcp_delay200ms_rcv = 0;
+			SH367309_DriverMos_Ctrl(GPIO_CHG, 1);
+			IchgOcp_Flag = 0;
+		}
+		break;
+	default:
+		break;
+	}
+	
+}
 
 void app_adc_multi_sample(void)
 {
@@ -1858,6 +1910,7 @@ _attribute_no_inline_ void main_loop(void)
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
 		APP_SOC_IntEnhance_Ctrl();
 		charger_detect_and_keyLogi_200ms();
+		software_protect();
 	}
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
