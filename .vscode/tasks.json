@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "static-analysis: BMS cppcheck report",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/run_bms_static_analysis.py"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "static-analysis: BMS cppcheck problems",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/run_bms_static_analysis.py",
+        "--vscode-problems"
+      ],
+      "group": "test",
+      "problemMatcher": "$gcc"
+    }
+  ]
+}
