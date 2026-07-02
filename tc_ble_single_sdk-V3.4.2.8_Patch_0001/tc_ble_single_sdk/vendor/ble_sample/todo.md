@@ -167,3 +167,83 @@ C11_AND_C11pro这个板由于硬件问题，电流不准，目前观察到大概
 怎么实现软件静态分析和输出静态分析报告，先给出方案
 
 telink工具链目录是在C:\TelinkSDK\opt\tc32\bin 目录，你看下是不是，如果是，直接编译一遍
+
+
+你现在在一个 Telink TLSR8251 / TLSR825x BLE 项目源码中工作。请先不要直接改代码，先完成源码分析，然后实现一个 PC 端蓝牙 OTA 升级上位机。
+
+目标：
+1. 基于当前项目源码确认是否已经启用 Telink BLE OTA Server。
+2. 找出 OTA GATT Service / Characteristic / Handle / UUID / Attribute Table 定义。
+3. 找出设备端 OTA 相关源码、宏和回调，例如：
+   - otaWrite
+   - my_OtaServiceUUID
+   - my_OtaUUID
+   - TELINK_SPP_DATA_OTA
+   - OTA_CMD_OUT_DP_H
+   - blc_ota_registerOtaStartCmdCb
+   - blc_ota_registerOtaResultIndicationCb
+   - blc_ota_setOtaProcessTimeout
+   - blc_ota_setOtaDataPacketTimeout
+   - blt_ota_procTimeout
+4. 判断项目使用 Legacy OTA 还是 Extend OTA / Big PDU / Secure Boot OTA。
+5. 在 tools/telink_ota_pc/ 下实现一个 Python + Bleak 的 PC 上位机，第一版优先支持 Legacy OTA。
+
+Telink Legacy OTA 协议要求：
+1. OTA 命令格式：
+   - Opcode 2 bytes，小端
+   - CMD_OTA_START = 0xFF01
+   - CMD_OTA_END = 0xFF02
+   - CMD_OTA_RESULT = 0xFF06
+2. OTA 数据包格式：
+   - adr_index: 2 bytes，小端
+   - data: 16 bytes
+   - crc16: 2 bytes，小端
+   - 总长度 20 bytes
+3. bin 文件处理：
+   - 读取 .bin 文件
+   - 如果长度不是 16 字节对齐，末尾补 0xFF
+   - 每 16 字节生成一个 OTA data packet
+   - adr_index 从 0 开始递增，必须连续
+4. CRC：
+   - 根据项目 SDK 或 Telink 文档中的 CRC16 算法实现
+   - 优先从当前项目源码中复用/移植 CRC16 算法，不能随便猜
+   - 为 CRC16 和 OTA packet 生成写单元测试
+5. OTA_END：
+   - 格式为：0xFF02 + adr_index_max + bitwise_not(adr_index_max)
+   - 小端
+   - OTA_END 不带 CRC16
+6. 发送方式：
+   - 优先使用 BLE Write Without Response
+   - 支持通过参数切换 Write With Response，便于调试
+   - 每发送若干包允许插入小延时，参数可配置
+7. 结果处理：
+   - 订阅 OTA result notify
+   - 解析 CMD_OTA_RESULT
+   - 打印成功或失败原因
+   - 失败时停止发送并输出错误码说明
+8. 命令行：
+   - python telink_ota.py scan
+   - python telink_ota.py list-services --name <device_name>
+   - python telink_ota.py upgrade --name <device_name> --bin <firmware.bin>
+   - python telink_ota.py upgrade --address <ble_address> --bin <firmware.bin>
+   - 参数支持：--ota-service-uuid、--ota-char-uuid、--pdu-size、--delay-ms、--timeout、--write-response
+9. 工程要求：
+   - 代码清晰、模块化
+   - 不要改动设备端 OTA boot/flash 逻辑，除非源码分析确认项目缺少必要 OTA 配置
+   - 如果设备端缺少 OTA Attribute Table 或回调，只给出最小补丁，并说明风险
+   - 输出 README.md，写清楚安装、扫描、升级、失败码、注意事项
+   - 输出一份 docs/telink_ota_analysis.md，记录从当前项目源码中找到的 OTA UUID、handle、宏、协议模式、固件分区、启动地址等信息
+
+实现步骤：
+第一步：只做源码分析，输出 plan。
+第二步：实现 Python CLI 上位机。
+第三步：补充单元测试。
+第四步：补充 README 和分析文档。
+第五步：给出实际使用命令和注意事项。
+
+注意：
+- 不要凭空假设 OTA UUID，必须优先从项目源码 Attribute Table 中提取。
+- 如果找不到 UUID，则实现 list-services 功能，让用户先连接设备枚举 GATT 服务。
+- Telink OTA 对包序号连续性很敏感，不能并发乱序发送。
+- OTA 过程中建议关闭设备低功耗，若设备端已有 OTA start callback，应确认 callback 中是否关闭 PM。
+- 上位机必须显示进度，并能在失败时输出 OTA result 错误码。
