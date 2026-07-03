@@ -105,15 +105,13 @@ typedef struct
 } PRIVATE_PACKETS_REALTIME_INFO_H;
 #pragma pack()
 
-#define snum 5
-
 #pragma pack(1)
 typedef struct
 {
     uint8_t id;
     uint8_t ver;
     uint8_t len;
-    uint16_t arrVoltage[snum];
+    uint16_t arrVoltage[SeriesNum];
 
     uint8_t verify;
 
