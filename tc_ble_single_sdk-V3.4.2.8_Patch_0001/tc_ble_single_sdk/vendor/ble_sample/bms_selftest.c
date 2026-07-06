@@ -118,6 +118,13 @@
 volatile unsigned int g_bms_selftest_irq_counter;
 
 #if BMS_SELFTEST_ENABLE
+#if BMS_SELFTEST_CPU_REG_ASM_ENABLE
+extern unsigned int BMS_SelfTest_Tc32CpuRegAsm(void);
+#endif
+#if BMS_SELFTEST_PC_ASM_ENABLE
+extern unsigned int BMS_SelfTest_Tc32PcAsm(void);
+#endif
+
 static bms_selftest_status_t g_bms_selftest_status;
 static volatile unsigned int g_bms_selftest_pc_mask;
 static unsigned int g_bms_selftest_ram_area[BMS_SELFTEST_RAM_WORDS];
@@ -210,8 +217,13 @@ static bms_selftest_result_t BMS_SelfTest_CpuRegTest(void)
 #endif
 
 #if BMS_SELFTEST_CPU_REG_ASM_ENABLE
-	/* TODO(tc32): add hand-written tc32 register save/restore test after ISA/ABI review. */
-	return BMS_SELFTEST_RESULT_UNSUPPORTED;
+	if (!BMS_SelfTest_Tc32CpuRegAsm()) {
+		return BMS_SELFTEST_RESULT_FAIL;
+	}
+	if (!BMS_SelfTest_CpuAluBasic()) {
+		return BMS_SELFTEST_RESULT_FAIL;
+	}
+	return BMS_SELFTEST_RESULT_OK;
 #else
 	if (!BMS_SelfTest_CpuAluBasic()) {
 		return BMS_SELFTEST_RESULT_FAIL;
@@ -230,9 +242,11 @@ static bms_selftest_result_t BMS_SelfTest_PcStartupTest(void)
 #endif
 
 #if BMS_SELFTEST_PC_ASM_ENABLE
-	/* TODO(tc32): add PC/link-register coverage after confirming tc32 branch semantics. */
-	return BMS_SELFTEST_RESULT_UNSUPPORTED;
-#else
+	if (!BMS_SelfTest_Tc32PcAsm()) {
+		return BMS_SELFTEST_RESULT_FAIL;
+	}
+#endif
+
 	signature ^= 0x2468ace0u;
 	signature += 0x10203040u;
 	signature = (signature << 5) | (signature >> 27);
@@ -243,7 +257,6 @@ static bms_selftest_result_t BMS_SelfTest_PcStartupTest(void)
 	}
 
 	return BMS_SELFTEST_RESULT_OK;
-#endif
 }
 
 static bms_selftest_result_t BMS_SelfTest_PcPeriodicTest(void)
@@ -253,6 +266,13 @@ static bms_selftest_result_t BMS_SelfTest_PcPeriodicTest(void)
 #if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_PC_FAIL
 	g_bms_selftest_pc_mask = 0u;
 	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
+#if BMS_SELFTEST_PC_ASM_ENABLE
+	if (!BMS_SelfTest_Tc32PcAsm()) {
+		g_bms_selftest_pc_mask = 0u;
+		return BMS_SELFTEST_RESULT_FAIL;
+	}
 #endif
 
 	g_bms_selftest_pc_mask = 0u;

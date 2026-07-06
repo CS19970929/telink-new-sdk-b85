@@ -74,7 +74,7 @@
 - `startup_done == 1`
 - 正常路径不出现 `BMS_SELFTEST_RESULT_FAIL`
 - `startup_fail_bitmap == 0`
-- CPU 寄存器汇编覆盖未实现时允许 `BMS_SELFTEST_RESULT_UNSUPPORTED`
+- CPU 寄存器汇编覆盖默认启用，应返回 `BMS_SELFTEST_RESULT_OK`，除非 r0-r11 写读/折叠校验或 C ALU sanity 失败。
 - 中断启动观察在特定时序下未增长时允许 `UNSUPPORTED`，周期自检继续验证中断活动
 
 ## 周期自检测试方法
@@ -102,8 +102,8 @@
 
 | 自检项 | 配置 | 操作 | 预期结果 |
 | --- | --- | --- | --- |
-| CPU 内部寄存器 | 注入关闭 | 上电并运行周期自检 | C ALU sanity 不 FAIL；tc32 汇编寄存器覆盖可为 `UNSUPPORTED` |
-| PC/控制流 | 注入关闭 | 正常进入主循环并运行 5 个周期 | 启动 PC 签名 OK；周期 checkpoint OK |
+| CPU 内部寄存器 | 注入关闭 | 上电并运行周期自检 | tc32 r0-r11 汇编写读/折叠校验 OK；C ALU sanity OK |
+| PC/控制流 | 注入关闭 | 正常进入主循环并运行 5 个周期 | tc32 call/branch/conditional branch/return 路径 OK；启动 PC 签名 OK；周期 checkpoint OK |
 | 内部时钟 | 注入关闭 | 正常运行，非低功耗状态读取结果 | clock tick 前进，结果 OK |
 | Flash | 注入关闭 | 正常固件启动并运行至 Flash 分片完成至少 1 轮 | 启动 CRC 记录 `flash_fw_crc_checked=1`；正常固件 `flash_fw_crc_ok=1`；周期 checksum 可更新 |
 | RAM | 注入关闭 | 正常启动并运行 8 个周期以上 | 启动 RAM 测试 OK；周期 RAM 分片 OK |
@@ -166,7 +166,7 @@ Flash 自检除软件故障注入外，可通过修改固件区 1 bit 验证 CRC
 
 说明：
 
-- CPU 内部寄存器、PC、Flash、RAM 等无法稳定物理注入或物理注入风险较高的故障，采用软件故障注入模拟等效故障。
+- CPU 内部寄存器、PC、Flash、RAM 等无法稳定物理注入或物理注入风险较高的故障，采用软件故障注入模拟等效故障。CPU/PC 正常路径使用 tc32 汇编辅助函数验证，故障路径仍使用宏注入稳定触发。
 - patch bin 方式只用于实验验证，不得作为量产包流转。
 
 ## 测试步骤

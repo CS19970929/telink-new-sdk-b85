@@ -4,7 +4,7 @@
 
 ## 目标
 
-在 Telink TLSR825x/TLSR8251 BMS BLE 工程中加入轻量自检框架，用于启动阶段和运行阶段记录 MCU/固件基础健康状态。实现参考 Class B 的分层思想，但不引入 ST/STM32 源码、HAL、SPL 或汇编实现。
+在 Telink TLSR825x/TLSR8251 BMS BLE 工程中加入轻量自检框架，用于启动阶段和运行阶段记录 MCU/固件基础健康状态。实现参考 Class B 的分层思想，但不引入 ST/STM32 源码、HAL 或 SPL。CPU/PC 覆盖使用本工程新增的 Telink tc32 汇编辅助函数。
 
 当前阶段只负责检测和记录，不直接复位、不 `while(1)`、不关闭 MOS、不改变充放电策略。上层可通过 `BMS_SelfTest_GetStatus()` 或 `BMS_SelfTest_IsHealthy()` 查询结果后自行决定策略。
 
@@ -16,6 +16,7 @@
 - `vendor/ble_sample/bms_selftest.c`
 - `vendor/ble_sample/bms_selftest_port.h`
 - `vendor/ble_sample/bms_selftest_port.c`
+- `vendor/ble_sample/bms_selftest_tc32.S`
 
 修改文件：
 
@@ -39,8 +40,8 @@
 - `BMS_SELFTEST_ADC_ENABLE`
 - `BMS_SELFTEST_INTERRUPT_ENABLE`
 - `BMS_SELFTEST_FLASH_ENFORCE`：默认 0。固件 CRC 未通过时只记录非强制状态，不把系统拉入 fail。
-- `BMS_SELFTEST_CPU_REG_ASM_ENABLE`：默认 0。tc32 寄存器汇编测试未启用。
-- `BMS_SELFTEST_PC_ASM_ENABLE`：默认 0。tc32 PC/跳转汇编测试未启用。
+- `BMS_SELFTEST_CPU_REG_ASM_ENABLE`：默认 1。启用 tc32 r0-r11 通用寄存器汇编写读/折叠校验。
+- `BMS_SELFTEST_PC_ASM_ENABLE`：默认 1。启用 tc32 call/branch/conditional branch/return 路径汇编校验。
 - `BMS_SELFTEST_PERIOD_MS`：周期任务间隔，默认 1000 ms。
 
 ## 启动位置
@@ -67,8 +68,8 @@ ADC 观察点放在 `app_adc_multi_sample()` 读取 `ADC_NTC_PIN`、`ADC_NMOS_PI
 
 | 项目 | 启动自检 | 周期自检 | 当前限制 |
 | --- | --- | --- | --- |
-| CPU 内部寄存器 | C 级 ALU sanity 检查，tc32 汇编寄存器覆盖为 `UNSUPPORTED` | 同启动 | 未实现真正通用寄存器保存/恢复测试 |
-| PC | 固定 C 控制流签名检查 | 检查主循环检查点是否按期出现 | 未实现 tc32 汇编级 PC/LR/跳转覆盖 |
+| CPU 内部寄存器 | tc32 汇编覆盖 r0-r11 写读/折叠校验，并保留 C 级 ALU sanity 检查 | 同启动 | 不破坏性测试 SP、LR、PC 本体 |
+| PC | tc32 汇编覆盖 call/branch/conditional branch/return 路径，并执行固定 C 控制流签名 | tc32 汇编路径校验 + 主循环检查点 | 不直接改写 PC/LR，只验证可控执行路径 |
 | 内部时钟 | 确认 system tick 在短延时内前进 | 同启动，低功耗状态跳过为 OK | 没有独立时钟源，不能判断频偏 |
 | Flash | 调用 SDK `flash_fw_check(0xffffffff)`，默认不强制 fail | 按片读取当前固件并滚动 checksum，结果写入 `flash_last_checksum` | 周期 checksum 当前无外部 golden 值，只能用于在线摘要和读路径覆盖 |
 | RAM | 对模块内部 64 word 测试区做 0/1/55/AA 模式检查 | 每周期检查 8 word | 不覆盖全 SRAM 和栈/堆/业务全局变量 |
@@ -104,7 +105,7 @@ ADC 观察点放在 `app_adc_multi_sample()` 读取 `ADC_NTC_PIN`、`ADC_NMOS_PI
 
 ## 后续建议
 
-1. 确认 tc32 ABI 和汇编语法后，补齐 CPU 通用寄存器保存/恢复测试和 PC/branch 覆盖测试。
+1. 在目标板上用 tc32 工具链实测汇编自检路径，并记录 r0-r11、PC 路径和故障注入结果。
 2. 为 Flash 周期 checksum 引入可信 golden 值或双区版本元数据，避免周期测试只能作为摘要。
 3. 如需要更强 SRAM 覆盖，可在启动早期增加 linker 指定测试段，并谨慎避开栈、retention、BLE controller RAM。
 4. ADC 建议结合产测基准、电阻分压容差和温度范围，定义项目专属阈值。
