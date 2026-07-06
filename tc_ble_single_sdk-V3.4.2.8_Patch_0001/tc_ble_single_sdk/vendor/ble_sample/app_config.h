@@ -31,6 +31,22 @@
 #define BLE_APP_SECURITY_ENABLE      					0	//ACL Slave device SMP, strongly recommended enabled
 #define BLE_OTA_SERVER_ENABLE							1
 
+///////////////////////// BMS self test /////////////////////////////////////////
+#define BMS_SELFTEST_ENABLE							1
+#define BMS_SELFTEST_STARTUP_ENABLE					1
+#define BMS_SELFTEST_PERIODIC_ENABLE					1
+#define BMS_SELFTEST_CPU_REG_ENABLE					1
+#define BMS_SELFTEST_PC_ENABLE						1
+#define BMS_SELFTEST_CLOCK_ENABLE						1
+#define BMS_SELFTEST_FLASH_ENABLE						1
+#define BMS_SELFTEST_RAM_ENABLE						1
+#define BMS_SELFTEST_ADC_ENABLE						1
+#define BMS_SELFTEST_INTERRUPT_ENABLE					1
+#define BMS_SELFTEST_FLASH_ENFORCE					0
+#define BMS_SELFTEST_CPU_REG_ASM_ENABLE				0
+#define BMS_SELFTEST_PC_ASM_ENABLE					0
+#define BMS_SELFTEST_PERIOD_MS						1000
+
 /* Flash Protection:
  * 1. Flash protection is enabled by default in SDK. User must enable this function on their final mass production application.
  * 2. User should use "Unlock" command in Telink BDT tool for Flash access during development and debugging phase.

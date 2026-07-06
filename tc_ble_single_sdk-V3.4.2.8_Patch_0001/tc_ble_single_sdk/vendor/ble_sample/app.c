@@ -45,6 +45,7 @@
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
+#include "bms_selftest.h"
 #include <string.h>
 
 extern void LoadParam(void);
@@ -604,6 +605,7 @@ void app_adc_multi_sample(void)
 	unsigned int bat_temp_mv = adc_read_gpio_mv(ADC_NTC_PIN);
 	unsigned int mos_temp_mv = adc_read_gpio_mv(ADC_NMOS_PIN);
 	unsigned int Vbat_mv = adc_read_gpio_mv(ADC_VBUS_PIN);
+	BMS_SelfTest_AdcObserve(bat_temp_mv, mos_temp_mv, Vbat_mv);
 	if (bat_temp_mv >= 3299)
 		bat_temp_mv = 3299;
 	if (mos_temp_mv >= 3299)
@@ -1397,6 +1399,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	app_flash_protection_operation(FLASH_OP_EVT_APP_INITIALIZATION, 0, 0);
 	blc_appRegisterStackFlashOperationCallback(app_flash_protection_operation); // register flash operation callback for stack
 #endif
+	BMS_SelfTest_Init();
 
 	//////////////////////////// basic hardware Initialization  End //////////////////////////////////
 
@@ -1624,6 +1627,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	}
 
 	app_timer_test_init();
+	BMS_SelfTest_Startup();
 
 	bus_mux_init();
 	btname_init();
@@ -1840,6 +1844,7 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
 	Runtime_Poll();
+	BMS_SelfTest_PcCheckpoint(BMS_SELFTEST_PC_CHECKPOINT_LOOP_ENTRY);
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 
@@ -1866,6 +1871,7 @@ _attribute_no_inline_ void main_loop(void)
 		update_bms_info_tick = clock_time();
 		App_AFEGet();
 		app_adc_multi_sample();
+		BMS_SelfTest_PcCheckpoint(BMS_SELFTEST_PC_CHECKPOINT_BMS_1S);
 		app_event_log_1s_task();
 	}
 	extern uint16_t get_idle_stable_ticks(void);
@@ -1895,5 +1901,7 @@ _attribute_no_inline_ void main_loop(void)
 	// 	sys_time.enable_log_test_balance = false;
 	// 	test_log_balance_first();
 	// }
+	BMS_SelfTest_PcCheckpoint(BMS_SELFTEST_PC_CHECKPOINT_LOOP_END);
+	BMS_SelfTest_PeriodicTask();
 	blt_pm_proc();
 }
