@@ -46,6 +46,14 @@
 #define BMS_SELFTEST_CPU_REG_ASM_ENABLE				0
 #define BMS_SELFTEST_PC_ASM_ENABLE					0
 #define BMS_SELFTEST_PERIOD_MS						1000
+#define BMS_SELFTEST_FAULT_INJECT_ENABLE				0
+#define BMS_SELFTEST_INJECT_CPU_REG_FAIL				0
+#define BMS_SELFTEST_INJECT_PC_FAIL					0
+#define BMS_SELFTEST_INJECT_CLOCK_FAIL				0
+#define BMS_SELFTEST_INJECT_FLASH_FAIL				0
+#define BMS_SELFTEST_INJECT_RAM_FAIL					0
+#define BMS_SELFTEST_INJECT_ADC_FAIL					0
+#define BMS_SELFTEST_INJECT_INTERRUPT_FAIL			0
 
 /* Flash Protection:
  * 1. Flash protection is enabled by default in SDK. User must enable this function on their final mass production application.

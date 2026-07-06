@@ -58,6 +58,38 @@
 #define BMS_SELFTEST_PERIOD_MS              1000u
 #endif
 
+#ifndef BMS_SELFTEST_FAULT_INJECT_ENABLE
+#define BMS_SELFTEST_FAULT_INJECT_ENABLE    0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_CPU_REG_FAIL
+#define BMS_SELFTEST_INJECT_CPU_REG_FAIL    0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_PC_FAIL
+#define BMS_SELFTEST_INJECT_PC_FAIL         0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_CLOCK_FAIL
+#define BMS_SELFTEST_INJECT_CLOCK_FAIL      0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_FLASH_FAIL
+#define BMS_SELFTEST_INJECT_FLASH_FAIL      0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_RAM_FAIL
+#define BMS_SELFTEST_INJECT_RAM_FAIL        0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_ADC_FAIL
+#define BMS_SELFTEST_INJECT_ADC_FAIL        0
+#endif
+
+#ifndef BMS_SELFTEST_INJECT_INTERRUPT_FAIL
+#define BMS_SELFTEST_INJECT_INTERRUPT_FAIL  0
+#endif
+
 #ifndef BMS_SELFTEST_RAM_WORDS
 #define BMS_SELFTEST_RAM_WORDS              64u
 #endif
@@ -173,6 +205,10 @@ static unsigned char BMS_SelfTest_CpuAluBasic(void)
 
 static bms_selftest_result_t BMS_SelfTest_CpuRegTest(void)
 {
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_CPU_REG_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 #if BMS_SELFTEST_CPU_REG_ASM_ENABLE
 	/* TODO(tc32): add hand-written tc32 register save/restore test after ISA/ABI review. */
 	return BMS_SELFTEST_RESULT_UNSUPPORTED;
@@ -188,6 +224,10 @@ static bms_selftest_result_t BMS_SelfTest_CpuRegTest(void)
 static bms_selftest_result_t BMS_SelfTest_PcStartupTest(void)
 {
 	volatile unsigned int signature = 0x13579bdfu;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_PC_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 #if BMS_SELFTEST_PC_ASM_ENABLE
 	/* TODO(tc32): add PC/link-register coverage after confirming tc32 branch semantics. */
@@ -210,6 +250,11 @@ static bms_selftest_result_t BMS_SelfTest_PcPeriodicTest(void)
 {
 	unsigned int mask = g_bms_selftest_pc_mask;
 
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_PC_FAIL
+	g_bms_selftest_pc_mask = 0u;
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 	g_bms_selftest_pc_mask = 0u;
 
 	if ((mask & BMS_SELFTEST_PC_REQUIRED_MASK) != BMS_SELFTEST_PC_REQUIRED_MASK) {
@@ -223,6 +268,10 @@ static bms_selftest_result_t BMS_SelfTest_ClockTest(void)
 {
 	unsigned int start_tick;
 	unsigned int end_tick;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_CLOCK_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 	if (BMS_SelfTest_PortInLowPower()) {
 		return BMS_SELFTEST_RESULT_OK;
@@ -242,6 +291,12 @@ static bms_selftest_result_t BMS_SelfTest_ClockTest(void)
 static bms_selftest_result_t BMS_SelfTest_FlashStartupTest(void)
 {
 	unsigned char crc_ok;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_FLASH_FAIL
+	g_bms_selftest_status.flash_fw_crc_checked = 1u;
+	g_bms_selftest_status.flash_fw_crc_ok = 0u;
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 	if (BMS_SelfTest_PortGetFirmwareSize() == 0u) {
 		return BMS_SELFTEST_RESULT_UNSUPPORTED;
@@ -282,6 +337,10 @@ static bms_selftest_result_t BMS_SelfTest_FlashPeriodicTest(void)
 	unsigned int check_size;
 	unsigned int remain;
 	unsigned int len;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_FLASH_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 	if (fw_size <= 4u) {
 		return BMS_SELFTEST_RESULT_UNSUPPORTED;
@@ -346,6 +405,10 @@ static bms_selftest_result_t BMS_SelfTest_RamStartupTest(void)
 {
 	unsigned int i;
 
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_RAM_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 	for (i = 0u; i < BMS_SELFTEST_RAM_WORDS; i++) {
 		if (!BMS_SelfTest_RamWordTest(i)) {
 			return BMS_SELFTEST_RESULT_FAIL;
@@ -358,6 +421,10 @@ static bms_selftest_result_t BMS_SelfTest_RamStartupTest(void)
 static bms_selftest_result_t BMS_SelfTest_RamPeriodicTest(void)
 {
 	unsigned int i;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_RAM_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 	for (i = 0u; i < BMS_SELFTEST_RAM_PERIOD_WORDS; i++) {
 		if (!BMS_SelfTest_RamWordTest(g_bms_selftest_ram_period_index)) {
@@ -377,6 +444,10 @@ static bms_selftest_result_t BMS_SelfTest_AdcStartupTest(void)
 {
 	unsigned int sample_mv = 0u;
 
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_ADC_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 	if (!BMS_SelfTest_PortAdcSample(&sample_mv)) {
 		return BMS_SELFTEST_RESULT_UNSUPPORTED;
 	}
@@ -390,6 +461,10 @@ static bms_selftest_result_t BMS_SelfTest_AdcStartupTest(void)
 
 static bms_selftest_result_t BMS_SelfTest_AdcPeriodicTest(void)
 {
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_ADC_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 	if (BMS_SelfTest_PortInLowPower()) {
 		return BMS_SELFTEST_RESULT_OK;
 	}
@@ -415,6 +490,10 @@ static bms_selftest_result_t BMS_SelfTest_InterruptStartupTest(void)
 {
 	unsigned int irq_counter = g_bms_selftest_irq_counter;
 
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_INTERRUPT_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
+
 	BMS_SelfTest_PortDelayUs(1200u);
 
 	if (g_bms_selftest_irq_counter == irq_counter) {
@@ -428,6 +507,10 @@ static bms_selftest_result_t BMS_SelfTest_InterruptStartupTest(void)
 static bms_selftest_result_t BMS_SelfTest_InterruptPeriodicTest(void)
 {
 	unsigned int irq_counter = g_bms_selftest_irq_counter;
+
+#if BMS_SELFTEST_FAULT_INJECT_ENABLE && BMS_SELFTEST_INJECT_INTERRUPT_FAIL
+	return BMS_SELFTEST_RESULT_FAIL;
+#endif
 
 	if (BMS_SelfTest_PortInLowPower()) {
 		g_bms_selftest_last_irq_counter = irq_counter;
