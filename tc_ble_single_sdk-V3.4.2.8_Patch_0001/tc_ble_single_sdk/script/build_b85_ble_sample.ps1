@@ -24,12 +24,18 @@ function Resolve-ToolchainDir {
         throw "TC32 toolchain not found: $RequestedDir"
     }
 
-    $candidates = @(
-        "C:\TelinkIoTStudio\opt\tc32\bin",
-        "C:\TelinkSDK\opt\tc32\bin"
-    )
+    $candidates = @()
+    if ($env:TELINK_TC32_TOOLCHAIN) {
+        $candidates += $env:TELINK_TC32_TOOLCHAIN
+    }
+    $candidates += "C:\TelinkSDK\opt\tc32\bin"
 
-    foreach ($candidate in $candidates) {
+    Get-ChildItem -LiteralPath "C:\" -Directory -Filter "Telink*" -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $candidates += (Join-Path $_.FullName "opt\tc32\bin")
+        }
+
+    foreach ($candidate in ($candidates | Select-Object -Unique)) {
         if (Test-Path -LiteralPath (Join-Path $candidate "tc32-elf-gcc.exe")) {
             return $candidate
         }

@@ -37,7 +37,7 @@ powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\
 powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\script\build_b85_ble_sample.ps1" -NoPostBuild
 ```
 
-如果 TC32 工具链不在默认位置，可以显式传入：
+脚本默认优先使用 `C:\TelinkSDK\opt\tc32\bin`，也会识别 `TELINK_TC32_TOOLCHAIN` 环境变量和常见 Telink 安装目录。如果 TC32 工具链不在默认位置，可以显式传入：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\script\build_b85_ble_sample.ps1" -ToolchainDir "C:\TelinkSDK\opt\tc32\bin"
@@ -45,18 +45,18 @@ powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\
 
 ## 手动编译命令
 
-TC32 工具链目录优先使用 Telink IDE 自带版本：
+TC32 工具链默认目录：
 
 ```powershell
-C:\TelinkIoTStudio\opt\tc32\bin
+C:\TelinkSDK\opt\tc32\bin
 ```
 
-旧 SDK 工具链目录 `C:\TelinkSDK\opt\tc32\bin` 可作为备用，但该目录中的旧版链接器可能无法正确处理当前 B85 `boot.link`。
+若使用 Telink IDE 的内置工具链，请以实际安装目录下的 `opt\tc32\bin` 为准，或通过 `-ToolchainDir` 传入。
 
 从仓库根目录执行完整编译：
 
 ```powershell
-$env:PATH = "C:\TelinkIoTStudio\opt\tc32\bin;" + $env:PATH
+$env:PATH = "C:\TelinkSDK\opt\tc32\bin;" + $env:PATH
 cd "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample"
 make clean
 make all -j4
@@ -68,7 +68,7 @@ tc32-elf-size -t tc_ble_single_sdk_B85.elf
 也可以不切目录：
 
 ```powershell
-$env:PATH = "C:\TelinkIoTStudio\opt\tc32\bin;" + $env:PATH
+$env:PATH = "C:\TelinkSDK\opt\tc32\bin;" + $env:PATH
 make -C "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample" clean
 make -C "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample" all -j4
 ```
@@ -91,6 +91,8 @@ tc32-elf-objcopy -v -O binary tc_ble_single_sdk_B85.elf 825x_ble_sample.bin
 ```
 
 不要默认提交 `.o`、`.elf`、`.lst`、`.bin` 等构建产物，除非用户明确要求。
+
+B85 工程必须包含 `project/tlsr_tc32/B85/825x_ble_sample/boot/B85/subdir.mk`，否则 `cstartup_825x.S` 不会编译并链接，命令行构建可能在 `boot.link` 中报 `_rstored_` 未定义。
 
 ## VSCode 任务
 
