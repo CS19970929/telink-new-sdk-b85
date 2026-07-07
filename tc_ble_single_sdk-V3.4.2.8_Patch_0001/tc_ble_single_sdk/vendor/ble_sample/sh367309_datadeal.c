@@ -16,6 +16,13 @@ UINT32 u32_DsgCur_mA = 0;
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
 
+#if defined(__GNUC__)
+#define SH309_UNUSED __attribute__((unused))
+#else
+#define SH309_UNUSED
+#endif
+
+static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw) SH309_UNUSED;
 static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)
 {
     return (UINT32)((((uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE) + 10735u) / 21470u);
@@ -225,6 +232,9 @@ const u8 CRC8Table[] = { // 120424-1			CRC Table
     0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
     0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3};
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+#endif
 AFE_ROM_PARAMETERS_TypeDef AFE_ROM_PARAMETERS_Struction = {0};
 AFE_Parameters_RS485_Typedef AFE_Parameters_RS485_Struction = AFE_PARAMETERS_RS485_STRUCTION_DEFAULT;
 SH367309_REG_STORE SH367309_Reg_Store;
@@ -1040,6 +1050,8 @@ UINT8 UpdateVoltageFromBqMaximo(void)
         // SH367309_Read_AFE1.i16Current = (UINT16)((UINT32)U16_SwapEndian(Registers_AFE1.Cadc)*200/(21470*RSENSE));		//TODO
         SH367309_Read_AFE1.u16Current = U16_SwapEndian(ram_reg_309.Cadc);
     }
+
+    return result;
 }
 
 void DataLoad_CellVolt(void)
@@ -1249,11 +1261,11 @@ void DataLoad_CurrentCali(void)
 
 static uint8_t step = 0;
 #if 0
-static uint16_t CHG_current = 1000;
-static uint16_t DSG_current = 1000;
+static uint16_t CHG_current SH309_UNUSED = 1000;
+static uint16_t DSG_current SH309_UNUSED = 1000;
 #else
-static uint16_t CHG_current = 0;
-static uint16_t DSG_current = 0;
+static uint16_t CHG_current SH309_UNUSED = 0;
+static uint16_t DSG_current SH309_UNUSED = 0;
 #endif
 
 #if 1
@@ -1438,6 +1450,8 @@ void Fault_ChangeToMCU(void)
     static UINT8 su8_CellChgOtp_Flag = 0;
     static UINT8 su8_CellDsgUtp_Flag = 0;
     static UINT8 su8_CellDsgOtp_Flag = 0;
+
+    (void)su8_IdischgOcp2_Flag;
 
     g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp = ram_reg_309.REG_BSTATUS1.bits.OV;
     g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp = ram_reg_309.REG_BSTATUS1.bits.UV;

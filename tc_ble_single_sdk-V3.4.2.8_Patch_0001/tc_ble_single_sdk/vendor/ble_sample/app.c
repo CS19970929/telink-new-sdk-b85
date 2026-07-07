@@ -582,8 +582,6 @@ const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 
 void app_adc_multi_sample(void)
 {
-	static u32 power_on_delay = 0;
-	static u16 weichi_delay = 0;
 	static u8 mos_state = 0;
 	static uint32_t rong_fuse = 0;
 #ifdef _UL_RENZHENG_ENABLE_

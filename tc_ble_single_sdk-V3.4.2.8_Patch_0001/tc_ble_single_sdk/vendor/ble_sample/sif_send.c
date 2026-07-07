@@ -50,7 +50,9 @@ volatile static uint8_t sif_send_length = 0; // 閿熸枻鎷烽敓鎹风殑绛�
 
 static uint8_t sif_enable = 0;
 
+#if !defined(__GNUC__)
 #pragma pack(1)
+#endif
 typedef struct
 {
     uint8_t id;
@@ -70,9 +72,13 @@ typedef struct
     uint8_t work_status;
     uint8_t verify;
 } PUBLIC_PACKETS_H;
+#if !defined(__GNUC__)
 #pragma pack()
+#endif
 
+#if !defined(__GNUC__)
 #pragma pack(1)
+#endif
 typedef struct
 {
     uint8_t id;
@@ -103,11 +109,15 @@ typedef struct
     uint8_t verify;
 
 } PRIVATE_PACKETS_REALTIME_INFO_H;
+#if !defined(__GNUC__)
 #pragma pack()
+#endif
 
 #define snum 5
 
+#if !defined(__GNUC__)
 #pragma pack(1)
+#endif
 typedef struct
 {
     uint8_t id;
@@ -118,10 +128,14 @@ typedef struct
     uint8_t verify;
 
 } PRIVATE_PACKETS_CELLVOLTAGE_H;
+#if !defined(__GNUC__)
 #pragma pack()
+#endif
 
 #define battery_code_length 10
+#if !defined(__GNUC__)
 #pragma pack(1)
+#endif
 typedef struct
 {
     uint8_t id;
@@ -132,7 +146,9 @@ typedef struct
     uint8_t verify;
 
 } PRIVATE_PACKETS_BATTARY_CODE_H;
+#if !defined(__GNUC__)
 #pragma pack()
+#endif
 
 typedef struct
 // union PRIVATE_PACKETS_H
@@ -153,14 +169,15 @@ typedef struct
 
 SIF_REPORT_H sif_report;
 
-uint8_t sum_verify(uint8_t *data, uint16_t length)
+uint8_t sum_verify(const void *data, uint16_t length)
 {
     uint16_t i;
     uint16_t res = 0;
+    const uint8_t *bytes = (const uint8_t *)data;
 
     for (i = 0; i < length; i++)
     {
-        res += data[i];
+        res += bytes[i];
     }
 
     return (uint8_t)(res & 0xff);
@@ -205,8 +222,6 @@ void sif_gpio_init()
 
 void sif_data_init(void)
 {
-    uint8_t i = 0;
-
     // length = 1;
 
 #if 0
@@ -238,10 +253,7 @@ void sif_send_data_handle(void)
     static uint8_t pubblic_frame3_cnt = 0;
     static uint16_t cnt_60s = 0;
     static uint16_t cnt = 0;
-    static uint8_t res;
     uint8_t count = SIF_SEND_COUNT;
-    static uint8_t nums = sizeof(uint8_t) * 8;
-    static uint8_t is60s = 0;
     uint8_t *p = (uint8_t *)sif_sendArray;
 
 #ifdef _FUNC_SIF_
@@ -713,8 +725,6 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
 #define __private_protocol_ver__ (0x01)
 #define __private_protocol_random_key__ __TODO__
     // #define __private_protocol_             __TODO__
-
-    static uint8_t send_status;
 
     sif_report.private.realTimeInfo.id = 0x3A;
     sif_report.private.realTimeInfo.ver = __private_protocol_ver__;

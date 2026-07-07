@@ -35,9 +35,9 @@
 	#define sprintf	 		u_sprintf
     #define array_printf	u_array_printf
 #else
-	#define printf
-	#define sprintf
-	#define array_printf
+	#define printf(...)        ((void)0)
+	#define sprintf(...)       (0)
+	#define array_printf(...)  ((void)0)
 #endif
 
 

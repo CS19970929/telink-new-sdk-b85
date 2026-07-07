@@ -31,6 +31,10 @@
 #include "modbus_rtu.h"
 #include "btname_modbus.h"
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
 typedef struct
 {
   /** Minimum value for the connection event (interval. 0x0006 - 0x0C80 * 1.25 ms) */

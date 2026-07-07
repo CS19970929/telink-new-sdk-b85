@@ -28,6 +28,7 @@
 #include "modbus_uart.h"
 #include "sh367309_datadeal.h"
 #include "bus_mux.h"
+#include "app/safety/safety_manager.h"
 
 /**
  * @brief   IRQ handler
@@ -76,6 +77,9 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		wd_start();
 	#endif
 
+	Safety_RecordResetReason((u32)deepRetWakeUp);
+	Safety_StartUpTest();
+
 	if( deepRetWakeUp ){
 		user_init_deepRetn();
 		// SystemStatus.bits.b1Status_Relay_CHG = 1;
@@ -84,9 +88,12 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		user_init_normal();
 		// SystemStatus.bits.b1Status_Relay_DSG = 1;
 	}
+	Safety_NotifyApplicationReady();
 
     irq_enable();
 	while (1) {
+		Safety_FlowCheckPoint(SAFETY_FLOW_ID_MAIN_LOOP_ENTER);
+		Safety_RuntimeTask();
 	#if (MODULE_WATCHDOG_ENABLE)
 		#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
 			if (g_chip_version != CHIP_VERSION_A0)
@@ -96,6 +103,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 			}
 	#endif
 		main_loop();
+		Safety_FlowCheckPoint(SAFETY_FLOW_ID_MAIN_LOOP_EXIT);
 	}
 }
 

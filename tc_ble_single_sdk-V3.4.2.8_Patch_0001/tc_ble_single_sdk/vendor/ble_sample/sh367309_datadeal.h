@@ -478,7 +478,9 @@ typedef struct _AFE_REG_STORE {
 #define MTP_BFLAG2			0x71
 #define MTP_RSTSTAT			0x72
 
+#if !defined(__GNUC__)
 #pragma pack(push, 1)
+#endif
 
 typedef struct
 {
@@ -511,7 +513,9 @@ typedef struct
 	uint8_t crc8;
 } sh367309_ram_t;
 
+#if !defined(__GNUC__)
 #pragma pack(pop)
+#endif
 
 struct SH367309_Read {			/* AD Read	*/
 	UINT16		u16VCell[16];   // mv
@@ -731,6 +735,10 @@ extern SH367309_REG_STORE SH367309_Reg_Store;
 void SH367309_UpdataAfeConfig(void);
 void App_AFEGet(void);
 void AFE_Reset(void);
+u8 AFE_IsReady(void);
+u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf);
+UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+void FaultWarnRecord2(enum FaultFlag num);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 
 #endif
