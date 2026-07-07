@@ -2,7 +2,7 @@ param(
     [switch]$SkipClean,
     [switch]$NoPostBuild,
     [int]$Jobs = 4,
-    [string]$ToolchainDir = "C:\TelinkSDK\opt\tc32\bin"
+    [string]$ToolchainDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,13 +12,37 @@ $SdkRoot = Split-Path -Parent $ScriptDir
 $ProjectDir = Join-Path $SdkRoot "project\tlsr_tc32\B85\825x_ble_sample"
 $PostBuildTool = Join-Path $SdkRoot "script\tl_check_fw\tl_check_fw2.exe"
 
+function Resolve-ToolchainDir {
+    param(
+        [string]$RequestedDir
+    )
+
+    if ($RequestedDir) {
+        if (Test-Path -LiteralPath (Join-Path $RequestedDir "tc32-elf-gcc.exe")) {
+            return $RequestedDir
+        }
+        throw "TC32 toolchain not found: $RequestedDir"
+    }
+
+    $candidates = @(
+        "C:\TelinkIoTStudio\opt\tc32\bin",
+        "C:\TelinkSDK\opt\tc32\bin"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath (Join-Path $candidate "tc32-elf-gcc.exe")) {
+            return $candidate
+        }
+    }
+
+    throw "TC32 toolchain not found. Install Telink IDE/toolchain or pass -ToolchainDir."
+}
+
 if (-not (Test-Path -LiteralPath $ProjectDir)) {
     throw "B85 project directory not found: $ProjectDir"
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $ToolchainDir "tc32-elf-gcc.exe"))) {
-    throw "TC32 toolchain not found: $ToolchainDir"
-}
+$ToolchainDir = Resolve-ToolchainDir -RequestedDir $ToolchainDir
 
 $env:PATH = "$ToolchainDir;$env:PATH"
 

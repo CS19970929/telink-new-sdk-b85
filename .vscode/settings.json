@@ -1,5 +1,5 @@
 {
   "terminal.integrated.env.windows": {
-    "Path": "C:\\Program Files\\Cppcheck;${env:Path}"
+    "Path": "C:\\TelinkIoTStudio\\opt\\tc32\\bin;C:\\Program Files\\Cppcheck;${env:Path}"
   }
 }

@@ -32,9 +32,11 @@ powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\
 
 ## 环境要求
 
-- TC32 工具链默认位置：`C:\TelinkSDK\opt\tc32\bin`
+- TC32 工具链默认优先使用：`C:\TelinkIoTStudio\opt\tc32\bin`
+- 备用工具链位置：`C:\TelinkSDK\opt\tc32\bin`
 - `make` 需要能从 `PATH` 找到；如果 `make.exe` 位于 TC32 工具链目录，脚本会先把该目录加入 `PATH`。
 - 如果工具链安装在其他目录，使用 `-ToolchainDir` 指定。
+- 当前 B85 工程建议使用 Telink IDE 自带工具链；旧 SDK 工具链中的链接器可能在 `boot.link` 的 `_rstored_` 符号解析上失败。
 
 示例：
 

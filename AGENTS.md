@@ -45,16 +45,18 @@ powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\
 
 ## 手动编译命令
 
-TC32 工具链目录：
+TC32 工具链目录优先使用 Telink IDE 自带版本：
 
 ```powershell
-C:\TelinkSDK\opt\tc32\bin
+C:\TelinkIoTStudio\opt\tc32\bin
 ```
+
+旧 SDK 工具链目录 `C:\TelinkSDK\opt\tc32\bin` 可作为备用，但该目录中的旧版链接器可能无法正确处理当前 B85 `boot.link`。
 
 从仓库根目录执行完整编译：
 
 ```powershell
-$env:PATH = "C:\TelinkSDK\opt\tc32\bin;" + $env:PATH
+$env:PATH = "C:\TelinkIoTStudio\opt\tc32\bin;" + $env:PATH
 cd "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample"
 make clean
 make all -j4
@@ -66,7 +68,7 @@ tc32-elf-size -t tc_ble_single_sdk_B85.elf
 也可以不切目录：
 
 ```powershell
-$env:PATH = "C:\TelinkSDK\opt\tc32\bin;" + $env:PATH
+$env:PATH = "C:\TelinkIoTStudio\opt\tc32\bin;" + $env:PATH
 make -C "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample" clean
 make -C "tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample" all -j4
 ```
