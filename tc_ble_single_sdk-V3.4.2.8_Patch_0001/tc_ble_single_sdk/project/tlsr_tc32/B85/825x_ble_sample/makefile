@@ -72,8 +72,7 @@ clean:
 	-@echo ' '
 
 post-build:
-	tc32-elf-objcopy -v -O binary tc_ble_single_sdk_B85.elf 825x_ble_sample.bin
-	"../../../../script/tl_check_fw/tl_check_fw2.exe" 825x_ble_sample.bin
+	-"D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85/../../../script/tl_check_fw/tl_check_fw.sh"   825x_ble_sample   tc_ble_single_sdk_B85
 	-@echo ' '
 
 secondary-outputs: $(LST) $(FLASH_IMAGE) $(SIZEDUMMY)
