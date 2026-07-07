@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build: B85 ble_sample full",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/build_b85_ble_sample.ps1"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "build: B85 ble_sample incremental",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/build_b85_ble_sample.ps1",
+        "-SkipClean"
+      ],
+      "group": "build",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "static-analysis: BMS cppcheck report",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/run_bms_static_analysis.py"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "static-analysis: BMS cppcheck problems",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/run_bms_static_analysis.py",
+        "--vscode-problems"
+      ],
+      "group": "test",
+      "problemMatcher": "$gcc"
+    }
+  ]
+}
