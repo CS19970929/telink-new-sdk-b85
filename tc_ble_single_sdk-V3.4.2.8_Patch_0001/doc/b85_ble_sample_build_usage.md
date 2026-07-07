@@ -37,6 +37,7 @@ powershell -ExecutionPolicy Bypass -File "tc_ble_single_sdk-V3.4.2.8_Patch_0001\
 - `make` 需要能从 `PATH` 找到；如果 `make.exe` 位于 TC32 工具链目录，脚本会先把该目录加入 `PATH`。
 - 如果工具链安装在其他目录，使用 `-ToolchainDir` 指定。
 - B85 工程需要 `project/tlsr_tc32/B85/825x_ble_sample/boot/B85/subdir.mk` 纳入版本控制，否则启动汇编对象不会进入链接，可能触发 `boot.link` 中的 `_rstored_` 未定义错误。
+- `subdir.mk` 漏提交问题、后续新增源码规则，以及跨平台/跨 MCU 统一开发环境建议见 `doc/subdir_mk_build_review_and_unified_env.md`。
 
 示例：
 
