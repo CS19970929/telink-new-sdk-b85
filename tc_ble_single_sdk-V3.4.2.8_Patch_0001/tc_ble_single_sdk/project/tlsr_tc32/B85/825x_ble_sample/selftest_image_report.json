@@ -1,0 +1,23 @@
+{
+  "image": "825x_ble_sample.bin",
+  "image_size": 96580,
+  "manifest_offset": 95820,
+  "expected_crc32": 3279475775,
+  "actual_crc32": 3279475775,
+  "manifest_crc32": 2788418491,
+  "telink_expected_crc": 3737935463,
+  "telink_actual_crc": 3737935463,
+  "test_build": false,
+  "magic_ok": true,
+  "version_ok": true,
+  "header_size_ok": true,
+  "polynomial_ok": true,
+  "manifest_crc_ok": true,
+  "range0_ok": true,
+  "range1_ok": true,
+  "raw_size_ok": true,
+  "image_crc_ok": true,
+  "telink_size_ok": true,
+  "telink_crc_ok": true,
+  "ok": true
+}

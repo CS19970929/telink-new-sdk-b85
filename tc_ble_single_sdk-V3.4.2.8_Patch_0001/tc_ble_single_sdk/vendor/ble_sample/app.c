@@ -43,6 +43,9 @@
 #include "sif_send.h"
 // #include "nvm_flash.h"
 #include "bus_mux.h"
+#include "bms_selftest/bms_selftest.h"
+#include "bms_selftest/bms_failsafe.h"
+#include "bms_selftest/bms_selftest_port.h"
 #include "btname_modbus.h"
 #include "runtime.h"
 #include <string.h>
@@ -162,6 +165,10 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 
 void open_ctlc(void)
 {
+	if (!BMS_FailSafe_AllowOutputs())
+	{
+		return;
+	}
 	gpio_write(AFE_CTL_PIN, 1);
 	// gpio_write(MCC_C_PIN, 1);
 }
@@ -209,6 +216,7 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 		sif_send_data_handle();
 		reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
 		timer0_irq_cnt++;
+		BMS_SelfTest_TimerIsrHook();
 		if (timer0_irq_cnt >= 200)
 		{
 			timer0_irq_cnt = 0;
@@ -326,6 +334,7 @@ void ble_build_adv_scanrsp(void)
 
 void open_chg_close_dsg(void)
 {
+	if (!BMS_FailSafe_AllowOutputs()) return;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -334,6 +343,7 @@ void open_chg_close_dsg(void)
 }
 void open_dsg_close_chg(void)
 {
+	if (!BMS_FailSafe_AllowOutputs()) return;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -352,6 +362,7 @@ void close_chg(void)
 
 void open_dsg(void)
 {
+	if (!BMS_FailSafe_AllowOutputs()) return;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -372,6 +383,7 @@ void enter_fac_mode(bool on)
 #if 1
 	if (on)
 	{
+		if (!BMS_FailSafe_AllowOutputs()) return;
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 		SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -604,6 +616,9 @@ void app_adc_multi_sample(void)
 	unsigned int bat_temp_mv = adc_read_gpio_mv(ADC_NTC_PIN);
 	unsigned int mos_temp_mv = adc_read_gpio_mv(ADC_NMOS_PIN);
 	unsigned int Vbat_mv = adc_read_gpio_mv(ADC_VBUS_PIN);
+	BMS_SelfTest_ReportAdcSample(0u, (u16)bat_temp_mv);
+	BMS_SelfTest_ReportAdcSample(1u, (u16)mos_temp_mv);
+	BMS_SelfTest_ReportAdcSample(2u, (u16)Vbat_mv);
 	if (bat_temp_mv >= 3299)
 		bat_temp_mv = 3299;
 	if (mos_temp_mv >= 3299)
@@ -658,7 +673,7 @@ void app_adc_multi_sample(void)
 			{
 				rong_fuse_afe_err_cnt = 0;
 #ifdef _UL_RENZHENG_ENABLE_
-				gpio_write(RF_EN_PIN, 1);
+				if (BMS_FailSafe_AllowOutputs()) gpio_write(RF_EN_PIN, 1);
 #endif
 			}
 		}
@@ -705,7 +720,7 @@ void app_adc_multi_sample(void)
 				{
 					rong_fuse = 0;
 #ifdef _UL_RENZHENG_ENABLE_
-					gpio_write(RF_EN_PIN, 1);
+					if (BMS_FailSafe_AllowOutputs()) gpio_write(RF_EN_PIN, 1);
 #endif
 				}
 			}
@@ -752,7 +767,7 @@ void app_adc_multi_sample(void)
 		break;
 	case 1:
 #ifdef _UL_RENZHENG_ENABLE_
-			gpio_write(RF_EN_PIN, 1);
+			if (BMS_FailSafe_AllowOutputs()) gpio_write(RF_EN_PIN, 1);
 #endif
 		// if(Vbat_mv < 3800 * SeriesNum && g_stCellInfoReport.u16Temperature[8] <= 900)
 		// // if(Vbat_mv < 3800 * SeriesNum)
@@ -1617,6 +1632,13 @@ _attribute_no_inline_ void user_init_normal(void)
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
 		App_AFEGet();
+		BMS_SelfTest_ReportAfeStatus(System_ErrFlag.u8ErrFlag_Com_AFE1 == 0u,
+								 BMS_Port_VerifyAfeConfiguration());
+		BMS_SelfTest_ReportMosFeedback(ram_reg_309.REG_BSTATUS3.bits.CHG_FET,
+								  ram_reg_309.REG_BSTATUS3.bits.DSG_FET,
+								  ram_reg_309.REG_BSTATUS3.bits.PCHG_FET);
+		BMS_SelfTest_ReportHeartbeat(BMS_HEARTBEAT_AFE | BMS_HEARTBEAT_PROTECTION);
+		(void)BMS_SelfTest_Startup(0u);
 		soc_kv_store_init();
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
@@ -1858,6 +1880,7 @@ _attribute_no_inline_ void main_loop(void)
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
 		APP_SOC_IntEnhance_Ctrl();
 		charger_detect_and_keyLogi_200ms();
+		BMS_SelfTest_ReportHeartbeat(BMS_HEARTBEAT_MOS);
 	}
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
@@ -1865,6 +1888,12 @@ _attribute_no_inline_ void main_loop(void)
 		// todo 低功耗，时基偏移
 		update_bms_info_tick = clock_time();
 		App_AFEGet();
+		BMS_SelfTest_ReportAfeStatus(System_ErrFlag.u8ErrFlag_Com_AFE1 == 0u,
+								 BMS_Port_VerifyAfeConfiguration());
+		BMS_SelfTest_ReportMosFeedback(ram_reg_309.REG_BSTATUS3.bits.CHG_FET,
+								  ram_reg_309.REG_BSTATUS3.bits.DSG_FET,
+								  ram_reg_309.REG_BSTATUS3.bits.PCHG_FET);
+		BMS_SelfTest_ReportHeartbeat(BMS_HEARTBEAT_AFE | BMS_HEARTBEAT_PROTECTION);
 		app_adc_multi_sample();
 		app_event_log_1s_task();
 	}

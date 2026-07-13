@@ -28,6 +28,7 @@
 #include "modbus_uart.h"
 #include "sh367309_datadeal.h"
 #include "bus_mux.h"
+#include "bms_selftest/bms_selftest.h"
 
 /**
  * @brief   IRQ handler
@@ -70,6 +71,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 	gpio_init(!deepRetWakeUp);  //analog resistance will keep available in deepSleep mode, so no need initialize again
 
 	clock_init(SYS_CLK_TYPE);
+	BMS_SelfTest_BoardInit();
 
 	#if (MODULE_WATCHDOG_ENABLE)
 		wd_set_interval_ms(WATCHDOG_INIT_TIMEOUT,CLOCK_SYS_CLOCK_1MS);
@@ -78,24 +80,28 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 
 	if( deepRetWakeUp ){
 		user_init_deepRetn();
+		(void)BMS_SelfTest_Startup(1u);
 		// SystemStatus.bits.b1Status_Relay_CHG = 1;
 	}
 	else{
 		user_init_normal();
 		// SystemStatus.bits.b1Status_Relay_DSG = 1;
 	}
+	BMS_SelfTest_RuntimeInit();
 
     irq_enable();
 	while (1) {
+		main_loop();
+		BMS_SelfTest_Process();
 	#if (MODULE_WATCHDOG_ENABLE)
 		#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
 			if (g_chip_version != CHIP_VERSION_A0)
 		#endif
+			if (BMS_SelfTest_WatchdogCanFeed())
 			{
 				wd_clear(); //clear watch dog
 			}
 	#endif
-		main_loop();
 	}
 }
 

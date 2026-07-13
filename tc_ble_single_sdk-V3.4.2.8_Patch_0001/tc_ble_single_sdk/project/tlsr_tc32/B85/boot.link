@@ -71,6 +71,14 @@ SECTIONS
 	    *(.rodata)
 	    *(.rodata.*)
 	    }
+	.bms_manifest :
+	    {
+	    . = (((. + 3) / 4)*4);
+	    _bms_manifest_start_ = .;
+	    KEEP(*(.bms_manifest));
+	    KEEP(*(.bms_manifest.*));
+	    _bms_manifest_end_ = .;
+	    }
 	
 	. = (((. + 3) / 4)*4);
 		PROVIDE(_dstored_ = . );
@@ -110,6 +118,14 @@ SECTIONS
             *(.data_no_init)
             *(.data_no_init.*)
         }
+	    .bms_stack_guard (NOLOAD) :
+	    {
+	    . = (((. + 3) / 4)*4);
+	    _bms_stack_guard_start_ = .;
+	    KEEP(*(.bms_stack_guard));
+	    KEEP(*(.bms_stack_guard.*));
+	    _bms_stack_guard_end_ = .;
+	    }
 		PROVIDE(_ram_use_end_ = .);
 		
 	    .sdk_version :

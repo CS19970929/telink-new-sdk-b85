@@ -5,12 +5,16 @@
 -include ../makefile.init
 
 RM := rm -rf
+BMS_TEST_BUILD ?= 0
+BMS_FAULT_INJECT_ENABLE ?= 0
+BMS_FAULT_INJECT_MASK ?= 0
 
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include subdir.mk
 -include vendor/common/subdir.mk
 -include vendor/ble_sample/subdir.mk
+-include vendor/ble_sample/bms_selftest/subdir.mk
 -include drivers/B85/subdir.mk
 -include drivers/B85/flash/subdir.mk
 -include drivers/B85/driver_ext/subdir.mk
@@ -42,7 +46,7 @@ all: tc_ble_single_sdk_B85.elf secondary-outputs
 tc_ble_single_sdk_B85.elf: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: TC32 C Linker'
-	tc32-elf-ld --gc-sections -L"D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\proj_lib" -T ../boot.link -o"tc_ble_single_sdk_B85.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+	tc32-elf-ld --gc-sections -Map="tc_ble_single_sdk_B85.map" -L"D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\proj_lib" -T ../boot.link -o"tc_ble_single_sdk_B85.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 	$(MAKE) --no-print-directory post-build
@@ -67,11 +71,11 @@ sizedummy: tc_ble_single_sdk_B85.elf
 
 # Other Targets
 clean:
-	-$(RM) $(FLASH_IMAGE)$(ELFS)$(OBJS)$(LST)$(SIZEDUMMY) tc_ble_single_sdk_B85.elf
+	-$(RM) $(FLASH_IMAGE)$(ELFS)$(OBJS)$(LST)$(SIZEDUMMY) tc_ble_single_sdk_B85.elf tc_ble_single_sdk_B85.map 825x_ble_sample.bin selftest_image_report.json
 	-@echo ' '
 
 post-build:
-	-"D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85/../../../script/tl_check_fw/tl_check_fw.sh"   825x_ble_sample   tc_ble_single_sdk_B85
+	powershell -NoProfile -ExecutionPolicy Bypass -File "../../../../script/build_selftest_image.ps1" -Elf "tc_ble_single_sdk_B85.elf" -Bin "825x_ble_sample.bin" -Report "selftest_image_report.json" $(if $(filter 1,$(BMS_TEST_BUILD)),-TestBuild,)
 	-@echo ' '
 
 secondary-outputs: $(LST) $(FLASH_IMAGE) $(SIZEDUMMY)

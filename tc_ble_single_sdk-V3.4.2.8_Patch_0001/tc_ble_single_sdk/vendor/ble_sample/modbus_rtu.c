@@ -11,6 +11,7 @@
 #include "app.h"
 #include "conf.h"
 #include "runtime.h"
+#include "bms_selftest/bms_diag.h"
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
@@ -52,6 +53,11 @@ static u16 read_reg(u16 reg)
     INT8 k;
     UINT8 a[4];
     u16 val;
+
+    if (BMS_Diag_ReadReg(reg, &val))
+    {
+        return val;
+    }
 
     if (reg >= 0 && reg < 3)
     {
@@ -229,6 +235,12 @@ static void write_reg(u16 reg, u16 val)
 {
     (void)reg;
     (void)val;
+
+    /* The safety diagnostic window is intentionally read-only in every build. */
+    if ((reg >= BMS_DIAG_REG_BASE) && (reg < (BMS_DIAG_REG_BASE + BMS_DIAG_REG_COUNT)))
+    {
+        return;
+    }
 
     if (reg >= 0x2100 && reg <= 0x2140)
     {

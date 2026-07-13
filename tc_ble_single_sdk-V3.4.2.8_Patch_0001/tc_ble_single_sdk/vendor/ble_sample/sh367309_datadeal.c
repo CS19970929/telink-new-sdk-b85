@@ -622,6 +622,14 @@ static u8 Write_Parameters(void)
     return (sh309_param_image_diff_state(P, temp) == 0);
 }
 
+u8 SH367309_VerifyAfeConfig(void)
+{
+    u8 current[SH309_AFE_PARAM_IMAGE_BYTES] = {0};
+    const u8 *expected = (const u8 *)&AFE_ROM_PARAMETERS_Struction;
+
+    return (sh309_param_image_diff_state(expected, current) == 0) ? 1u : 0u;
+}
+
 void AFE_Reset(void)
 {
     u8 WrBuf[2];

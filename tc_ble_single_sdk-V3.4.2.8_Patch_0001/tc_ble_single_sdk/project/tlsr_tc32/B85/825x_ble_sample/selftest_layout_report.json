@@ -1,0 +1,18 @@
+{
+  "symbols": {
+    "g_bms_image_manifest": 95820,
+    "_bms_manifest_start_": 95820,
+    "_bms_manifest_end_": 95884,
+    "_bms_stack_guard_start_": 8674608,
+    "_bms_stack_guard_end_": 8674640,
+    "_ram_use_end_": 8674640
+  },
+  "checks": {
+    "manifest_size_ok": true,
+    "manifest_symbol_ok": true,
+    "image_slot_ok": true,
+    "ram_guard_order_ok": true,
+    "ram_stack_reserve_ok": true
+  },
+  "ok": true
+}

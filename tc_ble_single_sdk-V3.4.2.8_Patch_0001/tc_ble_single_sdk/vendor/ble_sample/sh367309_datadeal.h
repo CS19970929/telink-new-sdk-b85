@@ -729,6 +729,12 @@ extern sh367309_ram_t ram_reg_309;
 extern SH367309_REG_STORE SH367309_Reg_Store;
 
 void SH367309_UpdataAfeConfig(void);
+u8 SH367309_VerifyAfeConfig(void);
+u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf);
+u8 MTPRead(u8 RdAddr, u8 Length, u8 *RdBuf);
+u8 AFE_IsReady(void);
+UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+void FaultWarnRecord2(enum FaultFlag num);
 void App_AFEGet(void);
 void AFE_Reset(void);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);

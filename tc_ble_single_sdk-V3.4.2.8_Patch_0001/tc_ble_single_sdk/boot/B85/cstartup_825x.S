@@ -101,6 +101,7 @@ __start:					@ MUST,  referenced by boot.link
 @                                   LOW-LEVEL INITIALIZATION
 @********************************************************************************************************
 	.extern  main
+	.extern  BMS_SelfTest_EarlyBoot
 
 
 
@@ -326,6 +327,7 @@ COPY_DATA:
 	tadd		r2, #4					@ r2 = r2 + 4
 	tj			COPY_DATA				@ jump to COPY_DATA_BEGIN
 COPY_DATA_END:
+	tjl	BMS_SelfTest_EarlyBoot
 
 #if 0
 SETSPISPEED:
