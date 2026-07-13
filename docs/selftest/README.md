@@ -48,6 +48,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_selftest.ps1
 
 只读诊断窗口返回状态、故障原因、执行/通过/失败位图、CRC、心跳、IRQ 计数和栈余量。致命故障时仍可读，但所有写请求不提供解除安全态或开启 MOS 的能力；日志不在中断中发送。
 
+## 可直接审阅的认证文档
+
+- `certification/TLSR8258-BMS_软件静态分析报告.md` 与同名 `.html`：已填写真实工程范围、工具、构建结果、规则检查、发现项和结论。
+- `certification/TLSR8258-BMS_软件验证规范.md` 与同名 `.html`：已填写追踪矩阵、8 个已执行软件用例和 17 个待执行目标板用例。
+
+HTML 为自包含可打印版本，由 `scripts/render_certification_html.py` 从 Markdown 生成。Word/Excel 文件仅保留作为原格式兼容副本；评审优先使用上述 Markdown/HTML 正文。
+
 ## 低功耗、OTA 与维护
 
 当前工程关闭 deep-retention，因此只验证了编译与控制流接入，未完成 retention 唤醒板测。OTA 时不对正在更新的区域做运行时扫描；新镜像在后处理和下一次启动时完整验证。修改链接布局、OTA 头、工具链、Flash 分区、启动文件或安全输出极性后，必须重新生成 Manifest、重跑全部测试并更新追踪矩阵。

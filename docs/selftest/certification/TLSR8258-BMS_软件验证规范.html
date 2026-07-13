@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TLSR8258-SH367309 BMS 软件验证规范与执行记录</title><style>
+:root { --ink:#18212b; --muted:#5d6875; --line:#cfd6de; --blue:#174d7a; --soft:#eef5fa; --warn:#fff4d6; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); font:14px/1.65 "Microsoft YaHei","Noto Sans CJK SC",Arial,sans-serif; background:#edf1f4; }
+main { width:min(1180px,calc(100% - 40px)); margin:28px auto; padding:48px 58px; background:white; box-shadow:0 3px 18px #0002; }
+h1 { margin:0 0 22px; padding-bottom:14px; color:#123e61; font-size:30px; border-bottom:3px solid var(--blue); }
+h2 { margin:34px 0 14px; color:var(--blue); font-size:22px; border-bottom:1px solid var(--line); }
+h3 { margin:24px 0 10px; color:#244f70; font-size:17px; }
+p { margin:8px 0 12px; }
+blockquote { margin:18px 0; padding:12px 16px; background:var(--warn); border-left:5px solid #c78700; }
+blockquote p { margin:0; }
+table { width:100%; margin:12px 0 22px; border-collapse:collapse; table-layout:auto; }
+th,td { padding:7px 9px; vertical-align:top; border:1px solid var(--line); overflow-wrap:anywhere; }
+th { color:#173d5c; background:var(--soft); text-align:left; }
+tr:nth-child(even) td { background:#fafbfd; }
+code { padding:1px 4px; color:#8b2e20; background:#f4f4f4; border-radius:3px; font-family:Consolas,monospace; }
+pre { padding:14px; overflow:auto; color:#e8eef4; background:#1e2933; border-radius:5px; }
+pre code { padding:0; color:inherit; background:transparent; }
+ul,ol { margin:8px 0 14px 24px; padding:0; }
+.doc-meta { margin-bottom:28px; padding:10px 14px; color:var(--muted); background:#f5f7f9; border:1px solid var(--line); }
+.footer { margin-top:42px; padding-top:10px; color:var(--muted); border-top:1px solid var(--line); font-size:12px; }
+@media print { body{background:white} main{width:auto;margin:0;padding:15mm;box-shadow:none} h2,h3{break-after:avoid} table{break-inside:avoid} @page{size:A4;margin:12mm} }
+</style></head>
+<body><main><div class="doc-meta">TLSR8258-SH367309 BMS · 认证准备资料 · 生成日期 2026-07-13</div>
+<h1>TLSR8258-SH367309 BMS 软件验证规范与执行记录</h1>
+<blockquote><p>本文同时给出验证规范、已执行的软件结果和待执行硬件项目。标注“未执行”的项目不能作为合格证据；本文不是 IEC 60335/IEC 60730 认证证书。</p></blockquote>
+<h2>1. 文档控制</h2>
+<table><thead><tr><th>项目</th><th>内容</th></tr></thead><tbody>
+<tr><td>文档编号</td><td>TLSR8258-BMS-SVV-001</td></tr>
+<tr><td>文档版本</td><td>V1.0</td></tr>
+<tr><td>项目</td><td>TLSR8258-SH367309 BMS</td></tr>
+<tr><td>被测提交</td><td><code>50c264f9ce9a04a418285f18658e875b7d69d369</code></td></tr>
+<tr><td>被测生产 BIN</td><td><code>825x_ble_sample.bin</code></td></tr>
+<tr><td>BIN SHA-256</td><td><code>759A3EC4C71029EE75E1E5B9EA2C09B913ED3086232083A0E0F5C8F83E0C9274</code></td></tr>
+<tr><td>编制日期</td><td>2026-07-13</td></tr>
+<tr><td>执行人</td><td>主机自动测试由 Codex 执行；硬件执行人待填写</td></tr>
+<tr><td>独立复核</td><td>待填写</td></tr>
+<tr><td>当前状态</td><td>主机验证通过；目标板验证未执行</td></tr>
+</tbody></table>
+<h2>2. 验证目标</h2>
+<p>验证以下安全链能够在真实工程中形成确定行为：</p>
+<ol><li>复位后危险输出先关闭。</li><li>CPU、控制流、Flash、RAM、栈、时钟和中断故障可被相应机制发现。</li><li>AFE 通信/配置、ADC 合理性和 MOS 反馈异常进入安全态。</li><li>普通任务在 Fail Safe 后不能重新开启 CHG/DSG/PCHG、均衡、CTLC 或 RF_EN。</li><li>只有关键任务健康时才能喂看门狗。</li><li>OTA、低功耗和 deep-retention 路径不绕过安全判定。</li><li>故障注入不会进入生产镜像，诊断接口不能远程解除安全态。</li></ol>
+<h2>3. 被测对象与配置</h2>
+<table><thead><tr><th>项目</th><th>配置</th></tr></thead><tbody>
+<tr><td>MCU</td><td>TLSR8258/B85</td></tr>
+<tr><td>AFE</td><td>SH367309</td></tr>
+<tr><td>主频</td><td>16 MHz</td></tr>
+<tr><td>低速时钟</td><td>内部 32 kHz RC</td></tr>
+<tr><td>SRAM</td><td>64 KiB</td></tr>
+<tr><td>看门狗</td><td>2 s</td></tr>
+<tr><td>运行自检周期</td><td>100 ms</td></tr>
+<tr><td>Flash 分块</td><td>64 B/调用</td></tr>
+<tr><td>RAM 分块</td><td>4×32 bit/周期</td></tr>
+<tr><td>Timer0</td><td>500 µs，目标约 200 次/100 ms</td></tr>
+<tr><td>deep-retention</td><td>当前 <code>PM_DEEPSLEEP_RETENTION_ENABLE=0</code></td></tr>
+<tr><td>生产故障注入</td><td><code>BMS_DIAG_TEST_BUILD=0</code>、掩码 0</td></tr>
+<tr><td>诊断接口</td><td>Modbus <code>0xD1E0</code>～<code>0xD1FF</code>，只读</td></tr>
+</tbody></table>
+<h2>4. 验证环境</h2>
+<h3>4.1 已使用软件</h3>
+<table><thead><tr><th>工具</th><th>版本/路径</th><th>用途</th></tr></thead><tbody>
+<tr><td>TC32 GCC</td><td>4.5.1-tc32-1.3</td><td>C/汇编编译</td></tr>
+<tr><td>GNU Make</td><td>4.2.1</td><td>clean build</td></tr>
+<tr><td>Python</td><td>3.12.10</td><td>CRC、布局和 unittest</td></tr>
+<tr><td>Git</td><td>2.29.2.windows.3</td><td>配置识别和提交追踪</td></tr>
+<tr><td>TC32 nm/objdump/size</td><td><code>C:\TelinkSDK\opt\tc32\bin</code></td><td>符号、反汇编和尺寸</td></tr>
+<tr><td>Telink <code>tl_check_fw2.exe</code></td><td>SDK 自带</td><td>Telink 镜像后处理/CRC</td></tr>
+</tbody></table>
+<h3>4.2 目标板测试所需硬件</h3>
+<p>Telink BMS 样板、Telink 下载器、限流可调电源、电池模拟器、电子负载、万用表、示波器、逻辑分析仪、BLE 主机、串口/RS485 工具、AFE I2C 断线开关、ADC 开短路/基准夹具和 MOS 反馈夹具。当前环境没有这些设备，因此硬件用例保持未执行。</p>
+<h2>5. 进入与退出准则</h2>
+<h3>5.1 进入准则</h3>
+<ul><li>被测提交、编译器、构建宏和 BIN 哈希已记录。</li><li>生产镜像 <code>test_build=false</code>，故障注入掩码为 0。</li><li>MAP/LST/ELF/BIN 和 JSON 校验报告均可追踪。</li><li>硬件测试使用限流电源和隔离测试固件，不连接未经评估的大容量电池。</li></ul>
+<h3>5.2 软件阶段退出准则</h3>
+<ul><li>clean build 无 error。</li><li>新增自检模块无 warning。</li><li>Manifest、镜像 CRC、Telink CRC 和地址布局全部通过。</li><li>主机测试全部通过。</li><li>未执行项、偏差和残余风险明确记录。</li></ul>
+<h3>5.3 产品认证退出准则</h3>
+<p>必须进一步完成全部硬件用例、静态分析/MISRA、检测时间和实时性、独立复核、偏差关闭以及认证实验室要求。当前不满足产品认证退出准则。</p>
+<h2>6. 需求到验证追踪</h2>
+<table><thead><tr><th>需求</th><th>验证用例</th><th>当前结果</th></tr></thead><tbody>
+<tr><td>SR-01 复位安全输出</td><td>VD-LINK-01、VD-HW-OUT-01</td><td>软件链接通过；波形未执行</td></tr>
+<tr><td>SR-02/03 CPU 寄存器/标志</td><td>VD-LINK-02、VD-HW-CPU-01</td><td>汇编链接通过；目标 FI 未执行</td></tr>
+<tr><td>SR-04 控制流</td><td>VD-HOST-05、VD-HW-CF-01</td><td>主机通过；目标 FI 未执行</td></tr>
+<tr><td>SR-05/06 Flash/链接范围</td><td>VD-HOST-01～04、VD-BUILD-01</td><td>通过</td></tr>
+<tr><td>SR-07/08 RAM</td><td>VD-HOST-05、VD-HW-RAM-01</td><td>算法检查通过；目标 FI 未执行</td></tr>
+<tr><td>SR-09 栈</td><td>VD-HOST-04、VD-HW-STACK-01</td><td>布局通过；压力测试未执行</td></tr>
+<tr><td>SR-10/11 时钟/中断</td><td>VD-HW-CLOCK-01、VD-HW-IRQ-01</td><td>未执行</td></tr>
+<tr><td>SR-12 看门狗</td><td>VD-HOST-06、VD-HW-WDT-01</td><td>门控结构通过；复位测试未执行</td></tr>
+<tr><td>SR-13/14 AFE</td><td>VD-HW-AFE-01/02</td><td>未执行</td></tr>
+<tr><td>SR-15 ADC</td><td>VD-HW-ADC-01</td><td>未执行</td></tr>
+<tr><td>SR-16/17/18/19 输出安全链</td><td>VD-HOST-06、VD-HW-MOS-01、VD-HW-OUT-01</td><td>源码门控通过；硬件未执行</td></tr>
+<tr><td>SR-20 跨复位安全</td><td>VD-HW-RESET-01</td><td>未执行</td></tr>
+<tr><td>SR-21 只读诊断</td><td>VD-HOST-06、VD-PROTO-01</td><td>静态检查通过；协议实测未执行</td></tr>
+<tr><td>SR-22 生产禁用注入</td><td>VD-BUILD-02</td><td>通过</td></tr>
+<tr><td>SR-23 OTA</td><td>VD-HOST-02、VD-HW-OTA-01</td><td>镜像通过；掉电未执行</td></tr>
+<tr><td>SR-24 retention</td><td>VD-HW-RET-01</td><td>当前配置关闭，未执行</td></tr>
+<tr><td>SR-25 实时性</td><td>VD-HW-PERF-01</td><td>未执行</td></tr>
+</tbody></table>
+<h2>7. 已执行验证用例</h2>
+<h3>7.1 VD-BUILD-01 生产 clean build 与镜像生成</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>1. 测试编号</td><td>VD-BUILD-01</td></tr>
+<tr><td>2. 测试名称</td><td>生产配置 clean build、链接和双 CRC</td></tr>
+<tr><td>3. 故障模型</td><td>构建配置错误、段遗漏、镜像长度/CRC 错误</td></tr>
+<tr><td>4. 检测机制</td><td>Make、linker MAP、Manifest、Telink CRC、校验脚本</td></tr>
+<tr><td>5. 前置条件</td><td>分析提交 <code>50c264f</code>，TC32 工具链可用</td></tr>
+<tr><td>6. 使用工具</td><td>TC32 GCC/ld/nm/objdump/size、Make、Python、<code>tl_check_fw2.exe</code></td></tr>
+<tr><td>7. 接线和设备</td><td>主机测试，无硬件接线</td></tr>
+<tr><td>8. 固件配置</td><td>生产配置；<code>BMS_DIAG_TEST_BUILD=0</code>；故障掩码 0</td></tr>
+<tr><td>9. 注入位置</td><td>无注入</td></tr>
+<tr><td>10. 操作步骤</td><td>运行 <code>powershell -ExecutionPolicy Bypass -File .\scripts\build_selftest.ps1</code></td></tr>
+<tr><td>11. 预期软件结果</td><td>clean build 成功；两套 CRC 和布局检查通过</td></tr>
+<tr><td>12. 预期硬件状态</td><td>未上板，不适用</td></tr>
+<tr><td>13. 最大允许时间</td><td>主机构建时间不作为安全检测时间</td></tr>
+<tr><td>14. 实际检测时间</td><td>不适用</td></tr>
+<tr><td>15. 复位行为</td><td>未上板</td></tr>
+<tr><td>16. 日志和证据</td><td><code>selftest_image_report.json</code>、<code>selftest_layout_report.json</code>、MAP、LST</td></tr>
+<tr><td>17. 恢复方式</td><td>修复源代码/配置后重新 clean build</td></tr>
+<tr><td>18. 判定标准</td><td>所有脚本 <code>ok=true</code>，构建退出码 0</td></tr>
+<tr><td>19. 测试结果</td><td><strong>通过</strong></td></tr>
+<tr><td>20. 残余风险</td><td>不代替烧录和目标板启动验证</td></tr>
+</tbody></table>
+<p>实际结果：BIN 96,580 B；SHA-256 <code>759A...9274</code>；Manifest <code>0x1764C</code>；生产标志 false；镜像 CRC、Manifest CRC、Telink CRC 全部一致。</p>
+<h3>7.2 VD-HOST-01 CRC 标准向量</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-01 / CRC-32 算法标准向量</td></tr>
+<tr><td>故障模型</td><td>CRC 实现多项式、初值、反射或终值错误</td></tr>
+<tr><td>检测机制</td><td>Python 与固件一致的 CRC-32 参数</td></tr>
+<tr><td>前置条件/工具</td><td>Python 3.12.10、<code>unittest</code></td></tr>
+<tr><td>操作步骤</td><td>对 ASCII <code>123456789</code> 计算 CRC</td></tr>
+<tr><td>预期结果</td><td><code>0xCBF43926</code></td></tr>
+<tr><td>实际结果</td><td><code>0xCBF43926</code></td></tr>
+<tr><td>MOS/均衡状态</td><td>主机测试，不适用</td></tr>
+<tr><td>证据</td><td><code>test_standard_crc32_vector</code></td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>主机结果不证明 MCU Flash 读取硬件正确</td></tr>
+</tbody></table>
+<h3>7.3 VD-HOST-02 Manifest 与 Telink 双 CRC</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-02 / 最终生产镜像双 CRC</td></tr>
+<tr><td>故障模型</td><td>Manifest 字段错误、镜像范围错误、Telink 尾部错误</td></tr>
+<tr><td>注入位置</td><td>无；读取最终生产 BIN</td></tr>
+<tr><td>操作步骤</td><td>从 ELF 符号定位 Manifest，解析并分别重算 Manifest、镜像和 Telink CRC</td></tr>
+<tr><td>预期软件结果</td><td>所有 magic/version/size/range/CRC 检查为 true</td></tr>
+<tr><td>实际结果</td><td><code>selftest_image_report.json</code> 中全部字段为 true</td></tr>
+<tr><td>实际检测时间</td><td>主机自动测试，不用于运行安全指标</td></tr>
+<tr><td>证据</td><td><code>test_built_image_and_telink_trailer</code></td></tr>
+<tr><td>恢复方式</td><td>后处理失败时禁止发布，重新构建</td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>CRC 不是密码学签名，不能防止恶意重算</td></tr>
+</tbody></table>
+<h3>7.4 VD-HOST-03 BIN 单比特损坏</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-03 / 覆盖区单比特损坏检测</td></tr>
+<tr><td>故障模型</td><td>程序 Flash 随机位翻转</td></tr>
+<tr><td>故障注入位置</td><td>Manifest 覆盖范围首段内偏移 <code>range0_start + 8</code></td></tr>
+<tr><td>操作步骤</td><td>复制最终 BIN、异或一位、重新运行双 CRC 校验</td></tr>
+<tr><td>预期软件结果</td><td><code>image_crc_ok=false</code> 且总体失败</td></tr>
+<tr><td>实际结果</td><td>自定义镜像 CRC 与 Telink CRC 均失败</td></tr>
+<tr><td>MOS/均衡状态</td><td>未烧录，硬件状态未执行</td></tr>
+<tr><td>证据</td><td><code>test_one_bit_corruption_is_detected</code></td></tr>
+<tr><td>恢复方式</td><td>使用原始合格镜像</td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>目标 Flash 真实位翻转和启动检测时间仍需实板测试</td></tr>
+</tbody></table>
+<h3>7.5 VD-HOST-04 地址布局、字段位置和链接符号</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-04 / Flash、Manifest、RAM guard 布局</td></tr>
+<tr><td>故障模型</td><td>链接地址越界、Manifest 尺寸错、函数被 GC 删除、栈余量不足</td></tr>
+<tr><td>检测机制</td><td>NM/MAP/LST、<code>check_memory_layout.py</code></td></tr>
+<tr><td>操作步骤</td><td>读取必需符号，检查地址顺序、64 B Manifest、应用槽上限和 SRAM guard</td></tr>
+<tr><td>预期结果</td><td>所有布局检查 true；早期和汇编函数存在</td></tr>
+<tr><td>实际结果</td><td>5 项布局检查全部 true；必需符号均存在</td></tr>
+<tr><td>证据</td><td><code>selftest_layout_report.json</code>、<code>825x_ble_sample.lst</code></td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>动态最大栈深度仍需目标板压力测试</td></tr>
+</tbody></table>
+<h3>7.6 VD-HOST-05 控制流、正反码与参数双扇区</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-05 / 安全算法结构检查</td></tr>
+<tr><td>故障模型</td><td>控制流偏离、关键变量单点损坏、参数副本无效或旧代际被选中</td></tr>
+<tr><td>检测机制</td><td>控制流签名、值/反码、有效/active/generation 选择模型</td></tr>
+<tr><td>操作步骤</td><td>运行对应 Python 模型并核对真实 C/汇编符号和表达式</td></tr>
+<tr><td>预期结果</td><td>正常序列通过；反码破坏失败；选择最高有效代际</td></tr>
+<tr><td>实际结果</td><td>相关 unittest 全部通过</td></tr>
+<tr><td>证据</td><td><code>test_control_flow_algorithm_and_assembly_are_linked</code>、<code>test_inverse_pair_algorithm</code>、<code>test_parameter_dual_sector_selection_model</code></td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>主机模型不等同 MCU 故障注入和 MC/DC</td></tr>
+</tbody></table>
+<h3>7.7 VD-HOST-06 故障码、安全门控和只读诊断</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-HOST-06 / Fail Safe 源码结构与诊断权限</td></tr>
+<tr><td>故障模型</td><td>状态码错位、Fail Safe 后重新开启 RF_EN/MOS、远程写入解除故障</td></tr>
+<tr><td>检测机制</td><td>枚举连续性、开启路径门控扫描、诊断无写 API</td></tr>
+<tr><td>操作步骤</td><td>扫描故障枚举、<code>BMS_FailSafe_AllowOutputs()</code> 和 RF_EN 高电平路径</td></tr>
+<tr><td>预期结果</td><td>18 个故障码连续；所有 RF_EN=1 受门控；诊断只读</td></tr>
+<tr><td>实际结果</td><td>自动检查通过</td></tr>
+<tr><td>证据</td><td><code>test_fault_codes_state_and_safe_output_gates</code>、<code>test_fault_injection_production_defaults</code></td></tr>
+<tr><td>判定</td><td><strong>通过</strong></td></tr>
+<tr><td>残余风险</td><td>未来新增输出路径必须重新审计，自动扫描不是形式化证明</td></tr>
+</tbody></table>
+<h3>7.8 VD-BUILD-02 认证专用故障注入构建</h3>
+<table><thead><tr><th>字段</th><th>已填写内容</th></tr></thead><tbody>
+<tr><td>测试编号/名称</td><td>VD-BUILD-02 / Flash CRC 故障注入构建与生产恢复</td></tr>
+<tr><td>故障模型</td><td>测试开关不可用或测试镜像误标为生产</td></tr>
+<tr><td>固件配置</td><td><code>-TestBuild -FaultMask 0x20</code>，对应 Flash CRC 故障 5</td></tr>
+<tr><td>操作步骤</td><td>生成测试镜像、检查 Manifest 标志和双 CRC，再重新执行生产 clean build</td></tr>
+<tr><td>预期结果</td><td>测试镜像 <code>test_build=true</code>；生产恢复后为 false</td></tr>
+<tr><td>实际结果</td><td>测试构建成功，随后生产构建成功且 <code>test_build=false</code></td></tr>
+<tr><td>MOS/均衡状态</td><td>未烧录，硬件行为未执行</td></tr>
+<tr><td>判定</td><td><strong>通过（仅构建路径）</strong></td></tr>
+<tr><td>残余风险</td><td>未证明注入后目标板输出关闭和检测时间</td></tr>
+</tbody></table>
+<h2>8. 待执行目标板用例</h2>
+<table><thead><tr><th>编号</th><th>用例</th><th>注入/设备</th><th>预期安全结果</th><th>最大允许时间</th><th>当前结果</th></tr></thead><tbody>
+<tr><td>VD-HW-OUT-01</td><td>上电至自检完成前输出</td><td>示波器监测 CHG/DSG/PCHG/均衡/CTLC/RF_EN</td><td>全部保持关闭</td><td>正常输出许可前全程</td><td>未执行</td></tr>
+<tr><td>VD-HW-CPU-01</td><td>CPU/标志注入</td><td>测试构建、下载器、示波器</td><td>致命锁存、全关、不喂狗</td><td>启动许可前或≤100 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-CF-01</td><td>控制流签名错误</td><td>测试构建</td><td>同上</td><td>≤100 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-RAM-01</td><td>RAM/反码破坏</td><td>GDB/OpenOCD 等目标调试器</td><td>RAM/内部数据故障、全关</td><td>启动前或≤100 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-STACK-01</td><td>guard 破坏/深调用</td><td>调试器、压力固件</td><td>栈故障、全关</td><td>≤100 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-CLOCK-01</td><td>时钟停止/大幅偏移</td><td>时钟夹具、逻辑分析仪</td><td>时钟故障、全关、WDT 复位</td><td>≤100 ms+WDT 2 s</td><td>未执行</td></tr>
+<tr><td>VD-HW-IRQ-01</td><td>Timer0 丢失/暴走</td><td>调试器、逻辑分析仪</td><td>IRQ 故障、全关</td><td>≤100 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-WDT-01</td><td>分别冻结 AFE/保护/MOS/自检</td><td>调试器、复位/喂狗波形</td><td>不再喂狗，2 s 内复位</td><td>≤2 s</td><td>未执行</td></tr>
+<tr><td>VD-HW-AFE-01</td><td>SDA/SCL 断线</td><td>I2C 断线开关、逻辑分析仪</td><td>AFE 通信故障，MOS/均衡全关</td><td>目标≤300 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-AFE-02</td><td>AFE 配置漂移</td><td>实验室写寄存器/调试器</td><td>配置故障，全关</td><td>启动前或目标≤300 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-ADC-01</td><td>ADC 开路/对地/对电源</td><td>ADC 夹具、万用表</td><td>ADC 故障，全关</td><td>目标≤300 ms</td><td>未执行</td></tr>
+<tr><td>VD-HW-MOS-01</td><td>命令/反馈不一致和外部粘连</td><td>MOS 夹具、负载、示波器</td><td>软件关闭命令；硬件二级保护动作</td><td>目标≤300 ms/按产品安全需求</td><td>未执行</td></tr>
+<tr><td>VD-HW-RESET-01</td><td>致命故障后热复位</td><td>复位线、断电开关</td><td>热复位保持诊断安全态；授权掉电恢复</td><td>启动许可前</td><td>未执行</td></tr>
+<tr><td>VD-PROTO-01</td><td>诊断读写权限</td><td>Modbus 主站/BLE 主机</td><td>可读状态；写诊断地址不能开 MOS/清致命故障</td><td>单次协议响应</td><td>未执行</td></tr>
+<tr><td>VD-HW-OTA-01</td><td>损坏 OTA、传输中掉电</td><td>BLE 主机、电源开关</td><td>损坏镜像不进入正常输出</td><td>下一启动许可前</td><td>未执行</td></tr>
+<tr><td>VD-HW-RET-01</td><td>retention 唤醒/数据破坏</td><td>启用目标配置、低功耗设备</td><td>未通过重检不开放输出</td><td>唤醒初始化阶段</td><td>阻塞：当前配置关闭</td></tr>
+<tr><td>VD-HW-PERF-01</td><td>BLE/保护并发实时性</td><td>示波器、BLE 主机、电子负载</td><td>无明显断连；保护时间满足产品要求</td><td>待安全需求给定</td><td>未执行</td></tr>
+</tbody></table>
+<h2>9. 硬件用例记录要求</h2>
+<p>每个目标板用例必须记录：测试编号、故障模型、前置条件、硬件版本、Flash MID、工具版本、接线图、固件宏和哈希、注入位置、逐步操作、预期/实际软件状态、MOS/均衡实际波形、最大/实际检测时间、复位行为、恢复方式、日志文件哈希、判定、偏差和残余风险。没有原始波形或日志的“通过”无效。</p>
+<h2>10. 性能与实时性验证表</h2>
+<table><thead><tr><th>指标</th><th>现有数据</th><th>目标板方法</th><th>判定</th></tr></thead><tbody>
+<tr><td>Flash 增量/镜像尺寸</td><td>最终 BIN 96,580 B，槽剩余 30,396 B</td><td>size/MAP</td><td>静态通过</td></tr>
+<tr><td>RAM 静态占用</td><td>data 4,524 B，bss 5,824 B</td><td>size/MAP</td><td>静态记录完成</td></tr>
+<tr><td>启动 CPU 自检耗时</td><td>未测</td><td>GPIO 打点/周期计数</td><td>未执行</td></tr>
+<tr><td>启动 Flash CRC 耗时</td><td>未测</td><td>GPIO 打点/逻辑分析仪</td><td>未执行</td></tr>
+<tr><td>启动 RAM/总自检耗时</td><td>未测</td><td>复位至输出许可波形</td><td>未执行</td></tr>
+<tr><td>运行 CPU/RAM/Flash 分块耗时</td><td>未测</td><td>GPIO 打点</td><td>未执行</td></tr>
+<tr><td>最大关中断时间</td><td>未测</td><td>中断延迟测试</td><td>未执行</td></tr>
+<tr><td>BLE 广播/连接影响</td><td>未测</td><td>丢包、连接间隔和断连统计</td><td>未执行</td></tr>
+<tr><td>保护响应影响</td><td>未测</td><td>故障至 MOS 关闭波形</td><td>未执行</td></tr>
+<tr><td>低功耗电流</td><td>未测</td><td>精密电流仪</td><td>未执行</td></tr>
+</tbody></table>
+<h2>11. 偏差与残余风险</h2>
+<ol><li>无独立时钟参考，只能检测 tick 停止和严重间隔异常。</li><li>CPU r12、SP、LR 没有与 r0～r11 相同的破坏性数据模式覆盖。</li><li>运行 RAM 测试只覆盖专用测试区和关键正反码，不覆盖全部应用 RAM。</li><li>BSTATUS3 反馈不能证明外部功率 MOS 没有物理粘连。</li><li>ADC 阈值未结合原理图、容差和温度完成标定。</li><li>PD7 <code>AFE1_PRO_EN</code> 安全极性、实际 Flash 容量和 reset-cause 语义待确认。</li><li>deep-retention 当前关闭，OTA 掉电/回滚未做目标板验证。</li><li>原工程历史 warning 和独立 MISRA 静态分析尚未关闭。</li></ol>
+<h2>12. 验证结论</h2>
+<p>生产 clean build、链接布局、Manifest/Telink 双 CRC、单比特损坏及 11 项主机自动测试全部通过；最终生产镜像明确关闭故障注入。已执行证据证明自检框架可编译、可链接、镜像可校验，且源码层建立了 Fail Safe 和输出门控。</p>
+<p>当前验证阶段结论：<strong>主机和构建验证通过，允许进入目标板安全验证阶段</strong>。由于所有关键硬件故障注入、实际检测时间、低功耗/OTA、MISRA 和独立认证评审尚未完成，产品级验证结论为：<strong>未完成，不得宣称 IEC 60335/IEC 60730 认证通过</strong>。</p>
+<h2>13. 签署</h2>
+<table><thead><tr><th>角色</th><th>姓名</th><th>日期</th><th>结论/签名</th></tr></thead><tbody>
+<tr><td>软件测试执行</td><td>待填写</td><td>待填写</td><td>待填写</td></tr>
+<tr><td>软件独立复核</td><td>待填写</td><td>待填写</td><td>待填写</td></tr>
+<tr><td>硬件测试执行</td><td>待填写</td><td>待填写</td><td>待填写</td></tr>
+<tr><td>安全负责人</td><td>待填写</td><td>待填写</td><td>待填写</td></tr>
+<tr><td>质量/认证</td><td>待填写</td><td>待填写</td><td>待填写</td></tr>
+</tbody></table>
+<div class="footer">由受控 Markdown 生成。未执行项不得作为认证通过证据；纸质副本使用前应核对 Git 提交和固件哈希。</div>
+</main></body></html>
