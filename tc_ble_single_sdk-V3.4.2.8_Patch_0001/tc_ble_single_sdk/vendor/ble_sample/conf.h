@@ -44,8 +44,8 @@
 
 #define FD_BMS_TYPE   C11_AND_C11pro
 
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"20260527"
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D002-20260615"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -138,7 +138,6 @@
 #define SeriesNum  (13)
 #define CapacityFactory (104)
 #define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"D002" 
 #define AFE_ODC1       		(400) 
 #define AFE_ODC2       		(600) 
 #else
