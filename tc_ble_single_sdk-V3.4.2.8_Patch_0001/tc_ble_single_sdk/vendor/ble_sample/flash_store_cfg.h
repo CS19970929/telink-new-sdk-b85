@@ -20,7 +20,8 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 
 #define FLASH_ADDR_RUNTIME_SECTORS             2u
 #define FLASH_ADDR_RUN_KV_SECTORS              8u
-#define FLASH_ADDR_LOG_SECTORS                 8u
+#define FLASH_ADDR_LOG_SECTORS                 6u
+#define FLASH_ADDR_SAFETY_LOG_SECTORS          2u
 #define RUNTIME_FLAG                           0xA5A5u
 
 #define FLASH_ADDR_LAYOUT_512K_BTNAME_BASE           0x50000u
@@ -134,4 +135,15 @@ static inline u32 flash_store_cfg_get_event_log_base(void)
 static inline u16 flash_store_cfg_get_event_log_sectors(void)
 {
     return FLASH_ADDR_LOG_SECTORS;
+}
+
+static inline u32 flash_store_cfg_get_safety_log_base(void)
+{
+    u32 base = flash_store_cfg_get_event_log_base();
+    return base ? (base + (FLASH_ADDR_LOG_SECTORS * FLASH_SECTOR_SIZE)) : 0u;
+}
+
+static inline u16 flash_store_cfg_get_safety_log_sectors(void)
+{
+    return FLASH_ADDR_SAFETY_LOG_SECTORS;
 }

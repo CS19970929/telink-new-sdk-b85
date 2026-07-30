@@ -5,6 +5,7 @@
 #include "sci_upper.h"
 #include "app.h"
 #include "param.h"
+#include "bms_safety_config.h"
 
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
@@ -266,8 +267,9 @@ u8 CRC8cal(const u8 *data, u32 len)
 
 #define SH309_I2C_MAX_XFER_LEN      64u
 #define SH309_I2C_RETRY_CNT         3u
-#define SH309_AFE_PARAM_IMAGE_BYTES 25u
+#define SH309_AFE_PARAM_IMAGE_BYTES 26u
 #define SH309_MTP_PROGRAM_DELAY_MS  40u
+#define SH309_MTP_CONF_VERIFY_MASK   0x7Cu
 
 void Delay1ms(u8 delaycnt);
 u8 MTPWriteROM(u8 WrAddr, u8 Length, u8 *WrBuf);
@@ -534,7 +536,11 @@ void Refresh_Parameters(void)
     }
 
     AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
-    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0xff >> 6);
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = BMS_AFE_CTLC_MODE;
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.DIS_PF =
+        BMS_AFE_PF_ENABLE ? 0u : 1u;
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.ENPCH =
+        BMS_PRECHARGE_HW_ENABLE ? 1u : 0u;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) >> 8) & 0x3;
     AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
 
@@ -622,9 +628,10 @@ static u8 Write_Parameters(void)
     return (sh309_param_image_diff_state(P, temp) == 0);
 }
 
-void AFE_Reset(void)
+u8 AFE_Reset(void)
 {
     u8 WrBuf[2];
+    u8 ok;
 
     WrBuf[0] = 0xC0;
     WrBuf[1] = 0xA5;
@@ -644,11 +651,13 @@ void AFE_Reset(void)
         // { // 0xEA, 0xC0?A CRC
         //     MTPWrite(0xEA, 1, WrBuf);
         // }
-        if (!MTPWrite(0xEA, 1, WrBuf))
+        ok = MTPWrite(0xEA, 1, WrBuf);
+        if (!ok)
         {
             System_ERROR_UserCallback(ERROR_AFE1);
         }
     }
+    return ok;
 }
 
 u8 AFE_IsReady(void)
@@ -681,16 +690,43 @@ u8 AFE_IsReady(void)
 }
 void SH367309_Enable_AFE_Wdt_Cadc_Drivers(void)
 {
+    SH367309_Reg_Store.REG_MTP_CONF.bits.ENWDT =
+        BMS_AFE_WATCHDOG_VERIFIED_ENABLE ? 1u : 0u;
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閺�鍓ф暩MOS閻㈢泧FE绾兛娆㈤幒褍鍩�
     if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
     {
         System_ERROR_UserCallback(ERROR_AFE1);
     }
 }
 
-void SH367309_UpdataAfeConfig(void)
+u8 SH367309_VerifyAfeConfig(void)
+{
+    u8 temp[SH309_AFE_PARAM_IMAGE_BYTES] = {0};
+    u8 conf = 0u;
+
+    Refresh_Parameters();
+    if (sh309_param_image_diff_state((u8 *)&AFE_ROM_PARAMETERS_Struction, temp) != 0)
+    {
+        return 0u;
+    }
+    if (!MTPRead(MTP_CONF, 1, &conf))
+    {
+        return 0u;
+    }
+    /*
+     * Verify watchdog/CADC/CHG/DSG/PCH control bits against the last command.
+     * CTLC mode and all protection thresholds are covered by the 0x00..0x19
+     * parameter-image comparison above.
+     */
+    if ((conf & SH309_MTP_CONF_VERIFY_MASK) !=
+        (SH367309_Reg_Store.REG_MTP_CONF.all & SH309_MTP_CONF_VERIFY_MASK))
+    {
+        return 0u;
+    }
+    return 1u;
+}
+
+u8 SH367309_UpdataAfeConfig(void)
 {
     u8 isdiff = 0;
     u8 update_ok = 0;
@@ -711,7 +747,7 @@ void SH367309_UpdataAfeConfig(void)
             if (diff_state < 0)
             {
                 System_ERROR_UserCallback(ERROR_AFE1);
-                return;
+                return 0u;
             }
 
             array_printf(temp, sizeof(temp));
@@ -742,7 +778,7 @@ void SH367309_UpdataAfeConfig(void)
 
             if (!update_ok)
             {
-                return;
+                return 0u;
             }
 
             if (!System_ERROR_UserCallback(ERROR_STATUS_AFE1))
@@ -752,15 +788,21 @@ void SH367309_UpdataAfeConfig(void)
                 AFE_IsReady();
                 AFE_ResetFlag = 1;
             }
-            SH367309_Enable_AFE_Wdt_Cadc_Drivers();
         }
         else
         {
             printf("[!!!] no need flash");
         }
 
+        /*
+         * Reset may clear the runtime CADC/FET control register even when the
+         * non-volatile parameter image already matches, so always restore the
+         * safe cached command before verifying.
+         */
+        SH367309_Enable_AFE_Wdt_Cadc_Drivers();
         AFE_PARAM_WRITE_Flag = 0;
     }
+    return SH367309_VerifyAfeConfig();
 }
 void load_protectParam()
 {
@@ -1017,6 +1059,20 @@ UINT16 U16_SwapEndian(UINT16 target)
 {
     return (((uint16_t)target & 0xFF00) >> 8) | (((uint16_t)target & 0x00FF) << 8);
 }
+
+static UINT32 sh309_temp_resistance_safe(UINT16 raw)
+{
+    UINT32 denominator;
+    if (raw >= 32760u) {
+        return 65535u;
+    }
+    denominator = 32769u - raw;
+    if (denominator < 10u) {
+        return 65535u;
+    }
+    return ((UINT32)SH367309_Reg_Store.TR_ResRef * raw) / denominator;
+}
+
 UINT8 UpdateVoltageFromBqMaximo(void)
 {
     UINT8 i, result = 0;
@@ -1027,19 +1083,21 @@ UINT8 UpdateVoltageFromBqMaximo(void)
         {
             SH367309_Read_AFE1.u16VCell[i] = ((UINT32)U16_SwapEndian(ram_reg_309.Cell[i]) * 5 >> 5); ////Vcell*5/32
         }
-        u32temp = ((UINT32)SH367309_Reg_Store.TR_ResRef * U16_SwapEndian(ram_reg_309.Temp1)) / (32769 - U16_SwapEndian(ram_reg_309.Temp1));
+        u32temp = sh309_temp_resistance_safe(U16_SwapEndian(ram_reg_309.Temp1));
         UPDNLMT16(u32temp, 65535, 0);
         SH367309_Read_AFE1.u16TempBat[0] = GetEndValue(iSheldTemp_10K_AFE, (UINT16)LENGTH_TBLTEMP_AFE_10K, u32temp);
-        u32temp = ((UINT32)SH367309_Reg_Store.TR_ResRef * U16_SwapEndian(ram_reg_309.Temp2)) / (32769 - U16_SwapEndian(ram_reg_309.Temp2));
+        u32temp = sh309_temp_resistance_safe(U16_SwapEndian(ram_reg_309.Temp2));
         UPDNLMT16(u32temp, 65535, 0);
         SH367309_Read_AFE1.u16TempBat[1] = GetEndValue(iSheldTemp_10K_AFE, (UINT16)LENGTH_TBLTEMP_AFE_10K, u32temp);
-        u32temp = ((UINT32)SH367309_Reg_Store.TR_ResRef * U16_SwapEndian(ram_reg_309.Temp3)) / (32769 - U16_SwapEndian(ram_reg_309.Temp3));
+        u32temp = sh309_temp_resistance_safe(U16_SwapEndian(ram_reg_309.Temp3));
         UPDNLMT16(u32temp, 65535, 0);
         SH367309_Read_AFE1.u16TempBat[2] = GetEndValue(iSheldTemp_10K_AFE, (UINT16)LENGTH_TBLTEMP_AFE_10K, u32temp);
         // 鐢垫祦瑕佷笉瑕佸姞婊ゆ尝1s闄や互4锛宒emo鏄繖鏍风殑锛岀幇鍦ㄥ厛瑙傚療涓�涓�
         // SH367309_Read_AFE1.i16Current = (UINT16)((UINT32)U16_SwapEndian(Registers_AFE1.Cadc)*200/(21470*RSENSE));		//TODO
         SH367309_Read_AFE1.u16Current = U16_SwapEndian(ram_reg_309.Cadc);
     }
+    result = 1u;
+    return result;
 }
 
 void DataLoad_CellVolt(void)
@@ -1894,7 +1952,7 @@ u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode)
     return result;
 }
 //todo 参数回读校验，crc，
-void App_AFEGet(void)
+u8 App_AFEGet(void)
 {
     static uint16_t cnt = 0;
     sh367309_ram_t ram_snapshot;
@@ -1919,6 +1977,7 @@ void App_AFEGet(void)
         SystemStatus.bits.b1Status_MOS_DSG = ram_reg_309.REG_BSTATUS3.bits.DSG_FET;
         Fault_ChangeToMCU();
         System_ErrFlag.u8ErrFlag_Com_AFE1 = 0;
+        return 1u;
     }
     else
     {
@@ -1929,5 +1988,6 @@ void App_AFEGet(void)
             DataLoad_ClearAfeReportPreserveSoc();
             DataLoad_ClearCurrent();
         }
+        return 0u;
     }
 }

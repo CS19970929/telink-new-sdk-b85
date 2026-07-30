@@ -45,6 +45,8 @@
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
+#include "bms_safety.h"
+#include "bms_actuator.h"
 #include <string.h>
 
 extern void LoadParam(void);
@@ -54,6 +56,7 @@ extern void AFE_Sleep(void);
 struct stCell_Info g_stCellInfoReport;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
+static u8 app_last_afe_frame_valid;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
@@ -150,6 +153,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	}
 
 	bms_event_log_note_sleep();
+	bms_safety_prepare_sleep(bms_safety_now_ms());
 	if (need_afe_sleep)
 	{
 		AFE_Sleep();
@@ -162,15 +166,14 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 
 void open_ctlc(void)
 {
-	gpio_write(AFE_CTL_PIN, 1);
-	// gpio_write(MCC_C_PIN, 1);
+	/* Compatibility request only. Safety reasons cannot be bypassed here. */
+	bms_set_global_inhibit(BMS_INHIBIT_FACTORY, 0u);
+	bms_actuator_update(bms_safety_now_ms());
 }
 void close_ctlc(void)
 {
-	gpio_write(AFE_CTL_PIN, 0);
-
-	// todo 会不会存在冲突，逻辑完备？？？
-	gpio_write(MCC_C_PIN, 0);
+	bms_set_global_inhibit(BMS_INHIBIT_FACTORY, 1u);
+	bms_actuator_update(bms_safety_now_ms());
 }
 
 void app_timer_test_init(void)
@@ -326,57 +329,39 @@ void ble_build_adv_scanrsp(void)
 
 void open_chg_close_dsg(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 1);
+	bms_actuator_request_charge(1u);
+	bms_actuator_request_discharge(0u);
 }
 void open_dsg_close_chg(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
+	bms_actuator_request_charge(0u);
+	bms_actuator_request_discharge(1u);
 }
 
 void close_chg(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
+	bms_actuator_request_charge(0u);
+	bms_actuator_request_discharge(0u);
 }
 
 void open_dsg(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
+	bms_actuator_request_charge(0u);
+	bms_actuator_request_discharge(1u);
 }
 
 void close_dsg(void)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
+	bms_actuator_request_charge(0u);
+	bms_actuator_request_discharge(0u);
 }
 void enter_fac_mode(bool on)
 {
 #if 1
 	if (on)
 	{
-		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-		SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-		SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-		MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-		gpio_write(MCC_C_PIN, 1);
+		bms_actuator_request_charge(1u);
+		bms_actuator_request_discharge(1u);
 	}
 	else
 	{
@@ -582,193 +567,44 @@ const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 
 void app_adc_multi_sample(void)
 {
-	static u32 power_on_delay = 0;
-	static u16 weichi_delay = 0;
-	static u8 mos_state = 0;
-	static uint32_t rong_fuse = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-	static u8 state_fuse = 0;
-	static uint32_t rong_fuse_afe_err_cnt = 0;
-#endif
-
 	if (sys_time.low_power_mode)
 	{
-		mos_state = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-		state_fuse = 0;
-		rong_fuse_afe_err_cnt = 0;
-#endif
+		bms_safety_prepare_sleep(bms_safety_now_ms());
 		return;
 	}
 
 	unsigned int bat_temp_mv = adc_read_gpio_mv(ADC_NTC_PIN);
 	unsigned int mos_temp_mv = adc_read_gpio_mv(ADC_NMOS_PIN);
 	unsigned int Vbat_mv = adc_read_gpio_mv(ADC_VBUS_PIN);
-	if (bat_temp_mv >= 3299)
-		bat_temp_mv = 3299;
-	if (mos_temp_mv >= 3299)
-		mos_temp_mv = 3299;
-	u32 bat_temp_r = 10 * 10 * bat_temp_mv / (3300 - bat_temp_mv);
-	u32 mos_temp_r = 10 * 10 * mos_temp_mv / (3300 - mos_temp_mv);
-	g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
-	g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
+	if (bat_temp_mv > 0u && bat_temp_mv < 3299u)
+	{
+		u32 bat_temp_r = 100u * bat_temp_mv / (3300u - bat_temp_mv);
+		g_stCellInfoReport.u16Temperature[8] =
+			GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, bat_temp_r);
+	}
+	else
+	{
+		g_stCellInfoReport.u16Temperature[8] = 0u;
+	}
+	if (mos_temp_mv > 0u && mos_temp_mv < 3299u)
+	{
+		u32 mos_temp_r = 100u * mos_temp_mv / (3300u - mos_temp_mv);
+		g_stCellInfoReport.u16Temperature[9] =
+			GetEndValue(iSheldTemp_10K_mcu, (UINT16)LENGTH_TBLTEMP_MCU_10K, mos_temp_r);
+	}
+	else
+	{
+		g_stCellInfoReport.u16Temperature[9] = 0u;
+	}
 
-	// ...
 	Vbat_mv = Vbat_mv * 485 / 15;
 #ifdef DISP_VBAT_AND_TEMP_
 	g_stCellInfoReport.u16VCell[29] = bat_temp_mv;
 	g_stCellInfoReport.u16VCell[30] = mos_temp_mv;
 	g_stCellInfoReport.u16VCell[31] = Vbat_mv;
 #endif // ! FAC_TEST
-
-	switch (mos_state)
-	{
-	case 0:
-		if (g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)
-		{
-			close_ctlc();
-			FaultWarnRecord2(MosOTp_Third);
-			mos_state = 1;
-		}
-		break;
-	case 1:
-		if (g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)
-		{
-			open_ctlc();
-			mos_state = 0;
-		}
-		break;
-	default:
-		mos_state = 0;
-		break;
-	}
-
-#ifdef _UL_RENZHENG_ENABLE_
-
-	if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
-	{
-		rong_fuse = 0;
-		state_fuse = 0;
-
-		close_ctlc();
-		// todo mcc关了，when 开
-		if (Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
-		{
-			if (++rong_fuse_afe_err_cnt >= 10)
-			{
-				rong_fuse_afe_err_cnt = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-				gpio_write(RF_EN_PIN, 1);
-#endif
-			}
-		}
-	}
-	else
-	{
-		static u16 delay_cnt = 0;
-
-		switch (state_fuse)
-		{
-		case 0:
-			if ((g_stCellInfoReport.u16Temperature[8] >= (80 + 40) * 10))
-			{
-				state_fuse = 1;
-				close_ctlc();
-				FaultWarnRecord2(CellChgOTp_Third);
-				FaultWarnRecord2(CellDsgOTp_Third);
-			}
-			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
-			{
-				++delay_cnt;
-				if (delay_cnt >= 15)
-				{
-					delay_cnt = 0;
-					state_fuse = 1;
-					close_ctlc();
-					// 是否应该强制关掉放电？？？
-					FaultWarnRecord2(CellOvp_Third);
-					FaultWarnRecord2(BatOvp_Third);
-				}
-			}
-			else
-				delay_cnt = 0;
-			break;
-		case 1:
-			if ((g_stCellInfoReport.u16Temperature[8] < (75 + 40) * 10) && (g_stCellInfoReport.u16VCellMax <= 4150))
-			{
-				state_fuse = 0;
-				open_ctlc();
-			}
-			if (((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
-			{
-				if (++rong_fuse >= (15))
-				{
-					rong_fuse = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-					gpio_write(RF_EN_PIN, 1);
-#endif
-				}
-			}
-			else
-			{
-				rong_fuse = 0;
-			}
-			break;
-		default:
-			state_fuse = 0;
-			break;
-		}
-	}
-#endif
-
-#if 0
-	if(++power_on_delay <= (60))
-	{
-		return;
-	}
-	power_on_delay = 61;
-
-	//todo fuse logi ???
-#ifdef _UL_RENZHENG_ENABLE_
-	
-
-	static u8 state_fuse = 0;
-	switch (state_fuse)
-	{
-	case 0:
-		if(Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= 1200)
-		{
-			if(++weichi_delay >= (10))
-			{
-				weichi_delay = 0;
-				close_ctlc();
-				state_fuse = 1;
-			}
-		}
-		else
-		{
-			weichi_delay = 0;
-		}
-		break;
-	case 1:
-#ifdef _UL_RENZHENG_ENABLE_
-			gpio_write(RF_EN_PIN, 1);
-#endif
-		// if(Vbat_mv < 3800 * SeriesNum && g_stCellInfoReport.u16Temperature[8] <= 900)
-		// // if(Vbat_mv < 3800 * SeriesNum)
-		// {
-		// 	gpio_write(AFE_CTL_PIN, 1);
-		// 	state_fuse = 0;
-		// }
-		//todo 冗余逻辑
-		break;
-	
-	default:
-		state_fuse = 0;
-		break;
-	}
-#endif
-#endif
+	bms_safety_sample(app_last_afe_frame_valid, (u16)bat_temp_mv,
+					  (u16)mos_temp_mv, Vbat_mv, bms_safety_now_ms());
 }
 
 void enter_rtc_mode(void)
@@ -1203,7 +1039,7 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+		else if (System_ErrFlag.u8ErrFlag_Com_AFE1 != 0u)
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
@@ -1601,22 +1437,22 @@ _attribute_no_inline_ void user_init_normal(void)
 		init_bms_io();
 		LoadParam();
 		Param_UpgradeReset_Apply();
+		LoadParam();
 		bms_event_log_init();
+		bms_safety_init(bms_safety_now_ms());
 
 		i2c_master_test_init();
 		WaitMs(100);
 
-		// todo 待测试 , 断线检测测试
-		AFE_Reset();
-		AFE_IsReady();
-		SH367309_UpdataAfeConfig();
+		(void)bms_safety_start_afe();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
-		App_AFEGet();
+		app_last_afe_frame_valid = App_AFEGet();
+		app_adc_multi_sample();
 		soc_kv_store_init();
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
@@ -1650,7 +1486,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
 	// sys_time.isdebugenable = 1;
-	open_ctlc();
+	bms_safety_poll(bms_safety_now_ms());
 }
 
 /**
@@ -1668,6 +1504,7 @@ _attribute_ram_code_ void user_init_deepRetn(void)
 	rf_set_power_level_index(MY_RF_POWER_INDEX);
 
 	blc_ll_recoverDeepRetention();
+	bms_safety_note_wakeup(bms_safety_now_ms());
 
 #if (APP_BATT_CHECK_ENABLE)
 	/* ADC settings will lost during deepsleep retention mode, so here need clear flag */
@@ -1864,7 +1701,7 @@ _attribute_no_inline_ void main_loop(void)
 	{
 		// todo 低功耗，时基偏移
 		update_bms_info_tick = clock_time();
-		App_AFEGet();
+		app_last_afe_frame_valid = App_AFEGet();
 		app_adc_multi_sample();
 		app_event_log_1s_task();
 	}
@@ -1878,6 +1715,7 @@ _attribute_no_inline_ void main_loop(void)
 	main_loop_modbus();
 #endif
 	soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+	bms_safety_poll(bms_safety_now_ms());
 	// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////

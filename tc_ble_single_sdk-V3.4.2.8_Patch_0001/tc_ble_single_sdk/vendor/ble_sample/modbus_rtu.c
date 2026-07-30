@@ -11,15 +11,21 @@
 #include "app.h"
 #include "conf.h"
 #include "runtime.h"
+#include "bms_actuator.h"
+#include "bms_safety.h"
+#include "bms_sw_protection.h"
+#include "bms_diagnostics.h"
+#include "bms_fuse.h"
+#include "bms_supervisor.h"
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
 
 #define MB_ADDR 0x01
 #define BMS_REALTIME_REG_BASE 0xD120u
-#define BMS_REALTIME_REG_COUNT 11u
+#define BMS_REALTIME_REG_COUNT 25u
 #define BMS_REALTIME_REG_MAGIC 0x4253u
-#define BMS_REALTIME_REG_VERSION 0x0001u
+#define BMS_REALTIME_REG_VERSION 0x0002u
 
 #define BMS_REALTIME_REG_MAGIC_ADDR (BMS_REALTIME_REG_BASE + 0u)
 #define BMS_REALTIME_REG_VERSION_ADDR (BMS_REALTIME_REG_BASE + 1u)
@@ -32,6 +38,20 @@
 #define BMS_REALTIME_REG_VCELL_MAX_ADDR (BMS_REALTIME_REG_BASE + 8u)
 #define BMS_REALTIME_REG_VCELL_MIN_ADDR (BMS_REALTIME_REG_BASE + 9u)
 #define BMS_REALTIME_REG_VCELL_DELTA_ADDR (BMS_REALTIME_REG_BASE + 10u)
+#define BMS_REALTIME_REG_SAFETY_STATE_ADDR (BMS_REALTIME_REG_BASE + 11u)
+#define BMS_REALTIME_REG_PRIMARY_FAULT_ADDR (BMS_REALTIME_REG_BASE + 12u)
+#define BMS_REALTIME_REG_PROTECT_LO_ADDR (BMS_REALTIME_REG_BASE + 13u)
+#define BMS_REALTIME_REG_PROTECT_HI_ADDR (BMS_REALTIME_REG_BASE + 14u)
+#define BMS_REALTIME_REG_DIAG_LO_ADDR (BMS_REALTIME_REG_BASE + 15u)
+#define BMS_REALTIME_REG_DIAG_HI_ADDR (BMS_REALTIME_REG_BASE + 16u)
+#define BMS_REALTIME_REG_CHG_INH_LO_ADDR (BMS_REALTIME_REG_BASE + 17u)
+#define BMS_REALTIME_REG_CHG_INH_HI_ADDR (BMS_REALTIME_REG_BASE + 18u)
+#define BMS_REALTIME_REG_DSG_INH_LO_ADDR (BMS_REALTIME_REG_BASE + 19u)
+#define BMS_REALTIME_REG_DSG_INH_HI_ADDR (BMS_REALTIME_REG_BASE + 20u)
+#define BMS_REALTIME_REG_GBL_INH_LO_ADDR (BMS_REALTIME_REG_BASE + 21u)
+#define BMS_REALTIME_REG_GBL_INH_HI_ADDR (BMS_REALTIME_REG_BASE + 22u)
+#define BMS_REALTIME_REG_FUSE_STATE_ADDR (BMS_REALTIME_REG_BASE + 23u)
+#define BMS_REALTIME_REG_RESET_REASON_ADDR (BMS_REALTIME_REG_BASE + 24u)
 
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
@@ -39,6 +59,7 @@ static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32
 static u16 read_realtime_status_reg(u16 reg);
 static u16 encode_signed_current_reg(void);
 void WriteProID_Default(void);
+extern int AFE_PARAM_WRITE_Flag;
 
 struct stCell_Info g_stCellInfoReport;
 PRODUCTION_ID_INFO ProductionInfor;
@@ -284,6 +305,19 @@ static void write_reg(u16 reg, u16 val)
     }
 }
 
+static int commit_one_protect_reg(u16 reg, u16 val)
+{
+    struct PRT_E2ROM_PARAS candidate = g_tParam.protect;
+    *(&candidate.u16VcellOvp_First + (reg - 0x2100u)) = val;
+    if (!Param_CommitProtect(&candidate)) {
+        return 0;
+    }
+    bms_set_global_inhibit(BMS_INHIBIT_AFE_CONFIG, 1u);
+    bms_safety_on_param_update(bms_safety_now_ms());
+    AFE_PARAM_WRITE_Flag = 1;
+    return 1;
+}
+
 u16 mb_crc16(const u8 *buf, u32 len)
 {
     u16 crc = 0xFFFF;
@@ -308,7 +342,6 @@ static void put_u16be(u8 *p, u16 v)
     p[1] = v & 0xFF;
 }
 
-extern int AFE_PARAM_WRITE_Flag;
 extern void test_SH367309_UpdataAfeConfig(void);
 
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
@@ -382,12 +415,25 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return 0;
         u16 reg = u16be(&req[2]);
         u16 val = u16be(&req[4]);
-        write_reg(reg, val);
         if (reg_requires_param_save(reg))
         {
-            SaveParam();
-            AFE_PARAM_WRITE_Flag = 1;
-            // test_SH367309_UpdataAfeConfig();
+            if (!commit_one_protect_reg(reg, val)) {
+                if (addr == 0x00) return 0;
+                rsp[0] = addr;
+                rsp[1] = (u8)(func | 0x80u);
+                rsp[2] = 0x03u;
+                {
+                    u16 ec = mb_crc16(rsp, 3u);
+                    rsp[3] = (u8)(ec & 0xFFu);
+                    rsp[4] = (u8)(ec >> 8);
+                    *rsp_len = 5u;
+                }
+                return 1;
+            }
+        }
+        else
+        {
+            write_reg(reg, val);
         }
 
         // 06 回包=原样回显请求（非广播）
@@ -405,6 +451,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 qty = u16be(&req[4]);
         u8 bytecnt = req[6];
         int need_save_param = 0;
+        struct PRT_E2ROM_PARAS candidate = g_tParam.protect;
         if (qty == 0 || qty > 0x7B)
             return 0; // 0x10 一次最多 123
         if (bytecnt != qty * 2)
@@ -416,17 +463,42 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         for (u16 i = 0; i < qty; i++)
         {
             u16 v = u16be(&pdata[i * 2]);
-            write_reg(reg + i, v);
             if (reg_requires_param_save((u16)(reg + i)))
             {
                 need_save_param = 1;
+                *(&candidate.u16VcellOvp_First + ((reg + i) - 0x2100u)) = v;
             }
         }
         if (need_save_param)
         {
-            SaveParam();
+            if (!Param_CommitProtect(&candidate)) {
+                if (addr == 0x00) return 0;
+                rsp[0] = addr;
+                rsp[1] = (u8)(func | 0x80u);
+                rsp[2] = 0x03u;
+                {
+                    u16 ec = mb_crc16(rsp, 3u);
+                    rsp[3] = (u8)(ec & 0xFFu);
+                    rsp[4] = (u8)(ec >> 8);
+                    *rsp_len = 5u;
+                }
+                return 1;
+            }
+            bms_set_global_inhibit(BMS_INHIBIT_AFE_CONFIG, 1u);
+            bms_safety_on_param_update(bms_safety_now_ms());
             AFE_PARAM_WRITE_Flag = 1;
-            // test_SH367309_UpdataAfeConfig();
+        }
+        /*
+         * Defer unrelated register side effects until the complete parameter
+         * candidate has committed.  A mixed 0x10 request therefore cannot
+         * partially change runtime state when parameter validation fails.
+         */
+        for (u16 i = 0; i < qty; i++)
+        {
+            if (!reg_requires_param_save((u16)(reg + i)))
+            {
+                write_reg((u16)(reg + i), u16be(&pdata[i * 2]));
+            }
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
@@ -547,6 +619,34 @@ static u16 read_realtime_status_reg(u16 reg)
         return g_stCellInfoReport.u16VCellMin;
     case BMS_REALTIME_REG_VCELL_DELTA_ADDR:
         return g_stCellInfoReport.u16VCellDelta;
+    case BMS_REALTIME_REG_SAFETY_STATE_ADDR:
+        return (u16)bms_supervisor_state();
+    case BMS_REALTIME_REG_PRIMARY_FAULT_ADDR:
+        return bms_sw_protection_primary_fault();
+    case BMS_REALTIME_REG_PROTECT_LO_ADDR:
+        return (u16)bms_sw_protection_active_mask();
+    case BMS_REALTIME_REG_PROTECT_HI_ADDR:
+        return (u16)(bms_sw_protection_active_mask() >> 16);
+    case BMS_REALTIME_REG_DIAG_LO_ADDR:
+        return (u16)bms_diagnostics_faults();
+    case BMS_REALTIME_REG_DIAG_HI_ADDR:
+        return (u16)(bms_diagnostics_faults() >> 16);
+    case BMS_REALTIME_REG_CHG_INH_LO_ADDR:
+        return (u16)bms_get_charge_inhibit();
+    case BMS_REALTIME_REG_CHG_INH_HI_ADDR:
+        return (u16)(bms_get_charge_inhibit() >> 16);
+    case BMS_REALTIME_REG_DSG_INH_LO_ADDR:
+        return (u16)bms_get_discharge_inhibit();
+    case BMS_REALTIME_REG_DSG_INH_HI_ADDR:
+        return (u16)(bms_get_discharge_inhibit() >> 16);
+    case BMS_REALTIME_REG_GBL_INH_LO_ADDR:
+        return (u16)bms_get_global_inhibit();
+    case BMS_REALTIME_REG_GBL_INH_HI_ADDR:
+        return (u16)(bms_get_global_inhibit() >> 16);
+    case BMS_REALTIME_REG_FUSE_STATE_ADDR:
+        return (u16)bms_fuse_get_state();
+    case BMS_REALTIME_REG_RESET_REASON_ADDR:
+        return bms_supervisor_reset_reason();
     default:
         return 0;
     }

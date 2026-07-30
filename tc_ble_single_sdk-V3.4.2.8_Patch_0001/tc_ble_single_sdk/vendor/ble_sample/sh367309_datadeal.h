@@ -520,6 +520,8 @@ struct SH367309_Read {			/* AD Read	*/
 	UINT16      u16Current;     // mA
 };
 
+extern const unsigned char SeriesSelect_AFE1[16][16];
+
 #define SH309_RAM_START_ADDR   0x40
 #define SH309_RAM_END_ADDR     0x71
 #define SH309_RAM_LEN          (SH309_RAM_END_ADDR - SH309_RAM_START_ADDR + 1)
@@ -728,9 +730,14 @@ extern UINT16 Fault_record_Third2[Record_len];
 extern sh367309_ram_t ram_reg_309;
 extern SH367309_REG_STORE SH367309_Reg_Store;
 
-void SH367309_UpdataAfeConfig(void);
-void App_AFEGet(void);
-void AFE_Reset(void);
+u8 MTPWrite(u8 WrAddr, u8 Length, u8 *WrBuf);
+UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+void FaultWarnRecord2(enum FaultFlag num);
+u8 SH367309_UpdataAfeConfig(void);
+u8 SH367309_VerifyAfeConfig(void);
+u8 App_AFEGet(void);
+u8 AFE_Reset(void);
+u8 AFE_IsReady(void);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 
 #endif

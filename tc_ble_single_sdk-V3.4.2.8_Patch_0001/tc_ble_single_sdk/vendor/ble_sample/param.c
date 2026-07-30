@@ -10,11 +10,97 @@
 #include <string.h>
 
 PARAM_T g_tParam;
+static int g_param_trusted;
+
+#define BMS_PROTECT_STRUCT_VERSION 0x0101u
+
+static u32 param_crc32(const u8 *data, u32 len)
+{
+    u32 crc = 0xFFFFFFFFu;
+    u32 i;
+    u8 bit;
+    for (i = 0u; i < len; ++i) {
+        crc ^= data[i];
+        for (bit = 0u; bit < 8u; ++bit) {
+            crc = (crc & 1u) ? ((crc >> 1) ^ 0xEDB88320u) : (crc >> 1);
+        }
+    }
+    return ~crc;
+}
+
+void Param_PrepareProtect(struct PRT_E2ROM_PARAS *protect)
+{
+    if (protect == NULL) return;
+    protect->struct_version = BMS_PROTECT_STRUCT_VERSION;
+    protect->struct_length = (u16)sizeof(*protect);
+    protect->struct_crc32 = 0u;
+    protect->struct_crc32 = param_crc32((const u8 *)protect, sizeof(*protect));
+}
+
+int Param_ValidateProtect(const struct PRT_E2ROM_PARAS *protect)
+{
+    struct PRT_E2ROM_PARAS copy;
+    u32 expected_crc;
+    const u16 *values;
+    u16 i;
+
+    if (protect == NULL ||
+        protect->struct_version != BMS_PROTECT_STRUCT_VERSION ||
+        protect->struct_length != sizeof(*protect)) return 0;
+    copy = *protect;
+    expected_crc = copy.struct_crc32;
+    copy.struct_crc32 = 0u;
+    if (param_crc32((const u8 *)&copy, sizeof(copy)) != expected_crc) return 0;
+
+    if (protect->u16VcellOvp_Rcv >= protect->u16VcellOvp_First ||
+        protect->u16VcellUvp_Rcv <= protect->u16VcellUvp_First ||
+        protect->u16VbusOvp_Rcv >= protect->u16VbusOvp_Third ||
+        protect->u16VbusUvp_Rcv <= protect->u16VbusUvp_Third) return 0;
+    if (protect->u16IdsgOcp_Second <= protect->u16IdsgOcp_First ||
+        protect->u16IdsgOcp_Third <= protect->u16IdsgOcp_Second ||
+        protect->u16IchgOcp_Second <= protect->u16IchgOcp_First ||
+        protect->u16IchgOcp_Third <= protect->u16IchgOcp_Second) return 0;
+    if ((u32)protect->u16IdsgOcp_Third >= ((u32)AFE_ODC2 * 10u)) return 0;
+    if (protect->u16TChgOTp_Rcv >= protect->u16TChgOTp_Third ||
+        protect->u16TchgUTp_Rcv <= protect->u16TchgUTp_Third ||
+        protect->u16TdischgOTp_Rcv >= protect->u16TdischgOTp_Third ||
+        protect->u16TdischgUTp_Rcv <= protect->u16TdischgUTp_Third ||
+        protect->u16TmosOTp_Rcv >= protect->u16TmosOTp_Third) return 0;
+    if (protect->u16VcellUvp_First < 1000u || protect->u16VcellOvp_Third > 5000u ||
+        protect->u16VcellUvp_First >= protect->u16VcellOvp_First) return 0;
+    if (protect->u16VbusUvp_First >= protect->u16VbusOvp_First) return 0;
+
+    values = &protect->u16VcellOvp_First;
+    for (i = 4u; i < 65u; i = (u16)(i + 5u)) {
+        if (values[i] == 0u || values[i] > 60000u) return 0;
+    }
+    return 1;
+}
+
+int Param_CommitProtect(const struct PRT_E2ROM_PARAS *protect)
+{
+    struct PRT_E2ROM_PARAS candidate;
+    if (protect == NULL) return 0;
+    candidate = *protect;
+    Param_PrepareProtect(&candidate);
+    if (!Param_ValidateProtect(&candidate)) return 0;
+    if (!bms_cold_kv_store_set_protect(&candidate)) return 0;
+    g_tParam.protect = candidate;
+    g_tParam.ParamVer = PARAM_VER;
+    g_param_trusted = 1;
+    return 1;
+}
+
+int Param_IsTrusted(void)
+{
+    return g_param_trusted;
+}
 
 static void param_fill_default(PARAM_T *param)
 {
     param->ParamVer = PARAM_VER;
     bms_cold_kv_store_get_default_protect(&param->protect);
+    Param_PrepareProtect(&param->protect);
 }
 
 static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
@@ -81,23 +167,26 @@ void LoadParam(void)
 #error "bms_cold_kv_store currently supports Flash-backed param storage only"
 #endif
 
+    g_param_trusted = 0;
     if (!bms_cold_kv_store_init()) {
         param_fill_default(&g_tParam);
         return;
     }
 
     g_tParam.ParamVer = PARAM_VER;
-    if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
+    if (!bms_cold_kv_store_get_protect(&g_tParam.protect) ||
+        !Param_ValidateProtect(&g_tParam.protect)) {
         param_fill_default(&g_tParam);
-        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
+        g_param_trusted = bms_cold_kv_store_set_protect(&g_tParam.protect);
         return;
     }
+    g_param_trusted = 1;
 }
 
 void SaveParam(void)
 {
-    g_tParam.ParamVer = PARAM_VER;
-    if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+    if (!Param_CommitProtect(&g_tParam.protect)) {
+        g_param_trusted = 0;
         System_ERROR_UserCallback(ERROR_EEPROM_STORE);
     }
 }

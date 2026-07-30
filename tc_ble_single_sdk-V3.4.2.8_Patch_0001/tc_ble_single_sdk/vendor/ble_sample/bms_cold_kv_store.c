@@ -8,6 +8,7 @@
 #define BMS_COLD_SYSTEM_KEY_BASE   0x2000u
 #define BMS_COLD_CTRL_KEY_BASE     0x3000u
 #define BMS_COLD_BTNAME_KEY_BASE   0x4000u
+#define BMS_COLD_FUSE_KEY_BASE     0x5000u
 #define BMS_COLD_BTNAME_SLOT_COUNT 6u
 #define BMS_COLD_BTNAME_MAX_BYTES  (BMS_COLD_BTNAME_SLOT_COUNT * 4u)
 
@@ -91,7 +92,10 @@ typedef struct {
     X(BMS_COLD_PROTECT_KEY_BASE + 0x3Eu, u16SocUp_Second) \
     X(BMS_COLD_PROTECT_KEY_BASE + 0x3Fu, u16SocUp_Third) \
     X(BMS_COLD_PROTECT_KEY_BASE + 0x40u, u16SocUp_Rcv) \
-    X(BMS_COLD_PROTECT_KEY_BASE + 0x41u, u16SocUp_Filter)
+    X(BMS_COLD_PROTECT_KEY_BASE + 0x41u, u16SocUp_Filter) \
+    X(BMS_COLD_PROTECT_KEY_BASE + 0x42u, struct_version) \
+    X(BMS_COLD_PROTECT_KEY_BASE + 0x43u, struct_length) \
+    X(BMS_COLD_PROTECT_KEY_BASE + 0x44u, struct_crc32)
 
 #define BMS_COLD_SYSTEM_FIELD_LIST(X) \
     X(BMS_COLD_SYSTEM_KEY_BASE + 0x01u, bms_type) \
@@ -108,7 +112,9 @@ typedef struct {
     X(BMS_COLD_CTRL_KEY_BASE + 0x02u) \
     X(BMS_COLD_CTRL_KEY_BASE + 0x03u) \
     X(BMS_COLD_CTRL_KEY_BASE + 0x04u) \
-    X(BMS_COLD_CTRL_KEY_BASE + 0x05u)
+    X(BMS_COLD_CTRL_KEY_BASE + 0x05u) \
+    X(BMS_COLD_CTRL_KEY_BASE + 0x06u) \
+    X(BMS_COLD_CTRL_KEY_BASE + 0x07u)
 
 #define BMS_COLD_BTNAME_FIELD_LIST(X) \
     X(BMS_COLD_BTNAME_KEY_BASE + 0x01u) \
@@ -141,11 +147,22 @@ static const u32 g_bms_btname_keys[] = {
     BMS_COLD_BTNAME_FIELD_LIST(BMS_COLD_CTRL_KEY_ITEM)
 };
 
+static const u32 g_bms_fuse_keys[BMS_COLD_FUSE_WORD_COUNT] = {
+    BMS_COLD_FUSE_KEY_BASE + 0x01u, BMS_COLD_FUSE_KEY_BASE + 0x02u,
+    BMS_COLD_FUSE_KEY_BASE + 0x03u, BMS_COLD_FUSE_KEY_BASE + 0x04u,
+    BMS_COLD_FUSE_KEY_BASE + 0x05u, BMS_COLD_FUSE_KEY_BASE + 0x06u,
+    BMS_COLD_FUSE_KEY_BASE + 0x07u, BMS_COLD_FUSE_KEY_BASE + 0x08u,
+    BMS_COLD_FUSE_KEY_BASE + 0x09u, BMS_COLD_FUSE_KEY_BASE + 0x0Au,
+    BMS_COLD_FUSE_KEY_BASE + 0x0Bu, BMS_COLD_FUSE_KEY_BASE + 0x0Cu,
+    BMS_COLD_FUSE_KEY_BASE + 0x0Du, BMS_COLD_FUSE_KEY_BASE + 0x0Eu,
+    BMS_COLD_FUSE_KEY_BASE + 0x0Fu, BMS_COLD_FUSE_KEY_BASE + 0x10u
+};
+
 #define BMS_COLD_PROTECT_COUNT  ((u16)(sizeof(g_bms_protect_fields) / sizeof(g_bms_protect_fields[0])))
 #define BMS_COLD_SYSTEM_COUNT   ((u16)(sizeof(g_bms_system_fields) / sizeof(g_bms_system_fields[0])))
 #define BMS_COLD_CTRL_COUNT     ((u16)(sizeof(g_bms_control_keys) / sizeof(g_bms_control_keys[0])))
 #define BMS_COLD_BTNAME_COUNT   ((u16)(sizeof(g_bms_btname_keys) / sizeof(g_bms_btname_keys[0])))
-#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT))
+#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + BMS_COLD_FUSE_WORD_COUNT))
 
 static flash_kv32_cache_entry_t g_bms_cold_cache[BMS_COLD_TOTAL_KEYS];
 static flash_kv32_key_def_t g_bms_cold_keys[BMS_COLD_TOTAL_KEYS];
@@ -182,16 +199,23 @@ static const flash_kv32_port_t *bms_cold_kv_port(void)
     return &port;
 }
 
-static u32 bms_cold_get_u16_value(const struct PRT_E2ROM_PARAS *data, u16 offset)
+static u32 bms_cold_get_protect_value(const struct PRT_E2ROM_PARAS *data, u16 offset)
 {
-    const u16 *field = (const u16 *)((const u8 *)data + offset);
-    return *field;
+    if (offset == BMS_COLD_OFFSETOF(struct PRT_E2ROM_PARAS, struct_crc32)) {
+        u32 value32;
+        memcpy(&value32, (const u8 *)data + offset, sizeof(value32));
+        return value32;
+    }
+    return *(const u16 *)((const u8 *)data + offset);
 }
 
-static void bms_cold_set_u16_value(struct PRT_E2ROM_PARAS *data, u16 offset, u32 value)
+static void bms_cold_set_protect_value(struct PRT_E2ROM_PARAS *data, u16 offset, u32 value)
 {
-    u16 *field = (u16 *)((u8 *)data + offset);
-    *field = (u16)value;
+    if (offset == BMS_COLD_OFFSETOF(struct PRT_E2ROM_PARAS, struct_crc32)) {
+        memcpy((u8 *)data + offset, &value, sizeof(value));
+    } else {
+        *(u16 *)((u8 *)data + offset) = (u16)value;
+    }
 }
 
 static u32 bms_cold_get_u32_value(const bms_cold_system_params_t *data, u16 offset)
@@ -291,7 +315,7 @@ static void bms_cold_fill_key_defs(void)
 
     for (i = 0; i < BMS_COLD_PROTECT_COUNT; ++i) {
         g_bms_cold_keys[i].key = g_bms_protect_fields[i].key;
-        g_bms_cold_keys[i].default_value = bms_cold_get_u16_value(&default_protect, g_bms_protect_fields[i].offset);
+        g_bms_cold_keys[i].default_value = bms_cold_get_protect_value(&default_protect, g_bms_protect_fields[i].offset);
     }
 
     for (i = 0; i < BMS_COLD_SYSTEM_COUNT; ++i) {
@@ -307,6 +331,12 @@ static void bms_cold_fill_key_defs(void)
     for (i = 0; i < BMS_COLD_BTNAME_COUNT; ++i) {
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].key = g_bms_btname_keys[i];
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].default_value = 0u;
+    }
+    for (i = 0; i < BMS_COLD_FUSE_WORD_COUNT; ++i) {
+        u16 index = (u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT +
+                          BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i);
+        g_bms_cold_keys[index].key = g_bms_fuse_keys[i];
+        g_bms_cold_keys[index].default_value = 0u;
     }
 }
 
@@ -383,7 +413,7 @@ int bms_cold_kv_store_get_protect(struct PRT_E2ROM_PARAS *protect)
         if (!flash_kv32_get(&g_bms_cold_kv, g_bms_protect_fields[i].key, &value)) {
             return FLASH_KV32_FAILED;
         }
-        bms_cold_set_u16_value(protect, g_bms_protect_fields[i].offset, value);
+        bms_cold_set_protect_value(protect, g_bms_protect_fields[i].offset, value);
     }
 
     return FLASH_KV32_SUCCESS;
@@ -404,7 +434,7 @@ int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
 
     for (i = 0; i < BMS_COLD_PROTECT_COUNT; ++i) {
         pairs[i].key = g_bms_protect_fields[i].key;
-        pairs[i].value = bms_cold_get_u16_value(protect, g_bms_protect_fields[i].offset);
+        pairs[i].value = bms_cold_get_protect_value(protect, g_bms_protect_fields[i].offset);
     }
 
     if (bms_cold_pairs_match_current(pairs, BMS_COLD_PROTECT_COUNT)) {
@@ -614,12 +644,43 @@ int bms_cold_kv_store_set_bt_name_suffix(const char *suffix)
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_BTNAME_COUNT);
 }
 
+int bms_cold_kv_store_get_fuse_words(u32 *words, u16 count)
+{
+    u16 i;
+    if (words == NULL || count != BMS_COLD_FUSE_WORD_COUNT ||
+        !bms_cold_ensure_ready()) return FLASH_KV32_FAILED;
+    for (i = 0u; i < count; ++i)
+        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_fuse_keys[i], &words[i]))
+            return FLASH_KV32_FAILED;
+    return FLASH_KV32_SUCCESS;
+}
+
+int bms_cold_kv_store_set_fuse_words(const u32 *words, u16 count)
+{
+    flash_kv32_pair_t pairs[BMS_COLD_FUSE_WORD_COUNT];
+    u16 i;
+    if (words == NULL || count != BMS_COLD_FUSE_WORD_COUNT ||
+        !bms_cold_ensure_ready()) return FLASH_KV32_FAILED;
+    for (i = 0u; i < count; ++i) {
+        pairs[i].key = g_bms_fuse_keys[i];
+        pairs[i].value = words[i];
+    }
+    if (bms_cold_pairs_match_current(pairs, count)) return FLASH_KV32_SUCCESS;
+    return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, count);
+}
+
 void bms_cold_kv_store_factory_reset(void)
 {
+    u32 fuse_words[BMS_COLD_FUSE_WORD_COUNT];
+    int preserve_fuse;
     if (!bms_cold_ensure_ready()) {
         return;
     }
+    preserve_fuse = bms_cold_kv_store_get_fuse_words(fuse_words, BMS_COLD_FUSE_WORD_COUNT);
     (void)flash_kv32_format(&g_bms_cold_kv);
+    if (preserve_fuse) {
+        (void)bms_cold_kv_store_set_fuse_words(fuse_words, BMS_COLD_FUSE_WORD_COUNT);
+    }
 }
 
 flash_kv32_dbg_t bms_cold_kv_store_get_dbg(void)

@@ -28,6 +28,7 @@
 #include "modbus_uart.h"
 #include "sh367309_datadeal.h"
 #include "bus_mux.h"
+#include "bms_safety.h"
 
 /**
  * @brief   IRQ handler
@@ -92,10 +93,12 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 			if (g_chip_version != CHIP_VERSION_A0)
 		#endif
 			{
-				wd_clear(); //clear watch dog
+				if (bms_safety_watchdog_allowed(bms_safety_now_ms()))
+				{
+					wd_clear();
+				}
 			}
 	#endif
 		main_loop();
 	}
 }
-

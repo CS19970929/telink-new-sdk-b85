@@ -19,7 +19,7 @@
 #include "conf.h"
 
 //typedef u16 u16;
-#define SNum (4)
+#define SNum (SeriesNum)
 
 /* 涓嬮潰2琛屽畯鍙兘閫夋嫨鍏朵竴 */
 // #define PARAM_SAVE_TO_EEPROM			/* 鍙傛暟瀛樺偍鍒板閮ㄧ殑EEPROM (AT24C128) */
@@ -114,6 +114,11 @@ struct PRT_E2ROM_PARAS {
 	u16	u16SocUp_Third;
 	u16	u16SocUp_Rcv;
 	u16	u16SocUp_Filter;
+
+	/* Transaction metadata. These fields are persisted in the same KV commit. */
+	u16	struct_version;
+	u16	struct_length;
+	u32	struct_crc32;
 };
 
 #define COV_1           3750
@@ -260,5 +265,9 @@ extern PARAM_T g_tParam;
 
 void LoadParam(void);
 void SaveParam(void);
+int Param_ValidateProtect(const struct PRT_E2ROM_PARAS *protect);
+int Param_CommitProtect(const struct PRT_E2ROM_PARAS *protect);
+void Param_PrepareProtect(struct PRT_E2ROM_PARAS *protect);
+int Param_IsTrusted(void);
 
 #endif

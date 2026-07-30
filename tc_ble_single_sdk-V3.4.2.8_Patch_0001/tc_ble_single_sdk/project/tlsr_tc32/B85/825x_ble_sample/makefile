@@ -11,6 +11,7 @@ RM := rm -rf
 -include subdir.mk
 -include vendor/common/subdir.mk
 -include vendor/ble_sample/subdir.mk
+-include vendor/ble_sample/bms_safety_sources.inc
 -include drivers/B85/subdir.mk
 -include drivers/B85/flash/subdir.mk
 -include drivers/B85/driver_ext/subdir.mk

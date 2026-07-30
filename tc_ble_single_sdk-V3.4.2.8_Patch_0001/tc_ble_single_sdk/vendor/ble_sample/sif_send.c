@@ -14,6 +14,7 @@
 
 #include "conf.h"
 #include "bus_mux.h"
+#include "bms_safety.h"
 
 void sif_send_PRIVATE_PACKETS_CELLVOLTAGE(void);
 void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void);
@@ -604,26 +605,7 @@ void sif_send_PUBLIC_PACKETS(void)
         //     sif_report.public.fault = 0x0b;
         // }
 
-        uint8_t fault = 0;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCD2)
-            fault = 0x01;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCD1)
-            fault = 0x02;
-        if (ram_reg_309.REG_BSTATUS2.bits.UTC)
-            fault = 0x03;
-        if (ram_reg_309.REG_BSTATUS2.bits.OTC)
-            fault = 0x04;
-        if (ram_reg_309.REG_BSTATUS2.bits.OTD)
-            fault = 0x05;
-        if (ram_reg_309.REG_BSTATUS1.bits.UV)
-            fault = 0x06;
-        if (ram_reg_309.REG_BSTATUS1.bits.OV)
-            fault = 0x07;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCC)
-            fault = 0x08;
-        if (ram_reg_309.REG_BSTATUS2.bits.UTD)
-            fault = 0x09;
-        sif_report.public.fault = fault;
+        sif_report.public.fault = bms_safety_primary_fault_legacy();
     }
 
     if (g_stCellInfoReport.u16IDischg)
@@ -801,26 +783,7 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
             sif_report.public.fault = 0x0b;
         }
 #endif
-        uint8_t fault = 0;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCD2)
-            fault = 0x01;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCD1)
-            fault = 0x02;
-        if (ram_reg_309.REG_BSTATUS2.bits.UTC)
-            fault = 0x03;
-        if (ram_reg_309.REG_BSTATUS2.bits.OTC)
-            fault = 0x04;
-        if (ram_reg_309.REG_BSTATUS2.bits.OTD)
-            fault = 0x05;
-        if (ram_reg_309.REG_BSTATUS1.bits.UV)
-            fault = 0x06;
-        if (ram_reg_309.REG_BSTATUS1.bits.OV)
-            fault = 0x07;
-        if (ram_reg_309.REG_BSTATUS1.bits.OCC)
-            fault = 0x08;
-        if (ram_reg_309.REG_BSTATUS2.bits.UTD)
-            fault = 0x09;
-        sif_report.private.realTimeInfo.fault = fault;
+        sif_report.private.realTimeInfo.fault = bms_safety_primary_fault_legacy();
     }
 
     if (g_stCellInfoReport.u16IDischg)

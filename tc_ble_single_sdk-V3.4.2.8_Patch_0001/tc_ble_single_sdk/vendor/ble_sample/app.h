@@ -57,6 +57,7 @@ void user_init_deepRetn(void);
  * @return     none.
  */
 void main_loop(void);
+void app_timer_test_irq_proc(void);
 
 
 
@@ -132,5 +133,7 @@ struct SYSTEM_ERROR
 };
 
 extern volatile struct SYSTEM_ERROR System_ErrFlag;
+UINT8 IsChargerWakeupActive(void);
+UINT8 IsKeyWakeupActive(void);
 
 #endif /* APP_H_ */
