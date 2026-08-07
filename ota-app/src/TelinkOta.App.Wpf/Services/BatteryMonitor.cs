@@ -137,6 +137,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
     private async Task PollLoopAsync(CancellationToken ct)
     {
         int cycle = 0;
+        BatterySnapshot? last = null; // 保留上一轮完整窗口数据，避免奇数轮字段变 "--" 闪烁
         while (!ct.IsCancellationRequested)
         {
             try
@@ -200,6 +201,13 @@ public sealed class BatteryMonitor : IAsyncDisposable
                         snap.FaultRecordsHex = BatterySnapshot.ParseFaultRecords(fault);
                     }
                 }
+
+                // 4) 用上一轮的完整窗口数据补齐本轮的缺口（Merge 只填 null，不覆盖新值）
+                if (last is not null)
+                {
+                    Merge(snap, last);
+                }
+                last = snap; // 保留最新（含完整窗口）数据供下轮补齐
 
                 if (snap.IsValid)
                 {
