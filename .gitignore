@@ -12,3 +12,8 @@
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/.build
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/build_version_auto.h
 tools/lan_clipboard_sync
+
+ota-app/**/bin/
+ota-app/**/obj/
+.vs/
+*.user
