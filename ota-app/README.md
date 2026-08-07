@@ -102,6 +102,10 @@ dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 
 
 寄存器均为 Modbus 大端 u16；0x03 一次最多 125 寄存器；响应由固件按 20 字节分片 Notify，客户端自动重组。
 
+> **重要（实机联调结论）**：SPP 写必须使用 **WriteWithResponse**。实机验证（TelinkOta.Diag）：该固件会丢弃 WriteWithoutResponse 的 SPP 写（Echo 无响应），而 WriteWithResponse 正常（与 Qt 上位机一致）。OTA 通道不受影响（按 Telink 官方规范保持 WriteWithoutResponse）。
+>
+> 若连接正常、Echo/异常响应能收到但 0x03 读完全无响应：说明**设备固件未实现 Modbus 0x03 读**（早期验证版固件只有 0x7F Echo + 异常回退），需先刷入含完整 Modbus 处理器的当前固件。
+
 ## 已知限制与后续
 
 - Windows 不公开 ATT MTU 查询接口，`MaxWriteLength` 取自 `GattSession.MaxPduSize-7`；错误超限由首包失败自动降级兜底。

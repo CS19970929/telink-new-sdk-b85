@@ -107,12 +107,18 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 }
                 else
                 {
+                    if (realtime is null)
+                        _log(LogLevel.Debug, "[BMS] 0xD120 稳定窗口读取超时/失败，尝试兼容窗口");
                     // 兼容窗口回退
                     var cells = await _client.ReadRegistersAsync(
                         BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(2), ct);
                     if (cells is not null && BatterySnapshot.ParseLegacyCells(cells) is { } legacy)
                     {
                         CopyTo(snap, legacy);
+                    }
+                    else
+                    {
+                        _log(LogLevel.Debug, "[BMS] 0xD000 兼容窗口读取失败");
                     }
                     var status = await _client.ReadRegistersAsync(
                         BmsRegisters.SystemStatusBase, BmsRegisters.SystemStatusCount, TimeSpan.FromSeconds(2), ct);
@@ -125,6 +131,10 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 if (snap.IsValid)
                 {
                     SnapshotUpdated?.Invoke(snap);
+                }
+                else
+                {
+                    _log(LogLevel.Warn, "[BMS] 本轮轮询无有效数据");
                 }
             }
             catch (OperationCanceledException)

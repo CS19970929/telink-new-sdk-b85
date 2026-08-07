@@ -211,8 +211,10 @@ public sealed class WindowsBleTransport : IBleTransport
         if (_sppWrite is null) return false;
         try
         {
+            // 实测：本设备（Telink 固件）会丢弃 WriteWithoutResponse 的 SPP 写，
+            // 必须用 WriteWithResponse（ATT 写请求触发固件 attribute 写回调；与 Qt 上位机一致）。
             var result = await _sppWrite
-                .WriteValueWithResultAsync(frame.AsBuffer(), GattWriteOption.WriteWithoutResponse)
+                .WriteValueWithResultAsync(frame.AsBuffer(), GattWriteOption.WriteWithResponse)
                 .AsTask().WaitAsync(TimeSpan.FromSeconds(5), ct);
             return result.Status == GattCommunicationStatus.Success;
         }
