@@ -11,7 +11,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-
         <!-- 顶部：设备扫描 + 固件/设置 -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
@@ -23,8 +22,10 @@
             <GroupBox Grid.Column="0" Header="设备" Margin="0,0,5,0">
                 <DockPanel Margin="5">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,5">
-                        <Button Content="扫描" Width="70" DockPanel.Dock="Left" Click="ScanButton_Click"/>
-                        <Button Content="停止" Width="70" DockPanel.Dock="Left" Margin="5,0,0,0" Click="StopScanButton_Click"/>
+                        <Button Content="扫描" Width="62" DockPanel.Dock="Left" Click="ScanButton_Click"/>
+                        <Button Content="停止" Width="62" DockPanel.Dock="Left" Margin="5,0,0,0" Click="StopScanButton_Click"/>
+                        <Button Content="连接" Width="62" DockPanel.Dock="Right" IsEnabled="{Binding CanConnectBattery}" Click="ConnectBatteryButton_Click"/>
+                        <Button Content="断开" Width="62" DockPanel.Dock="Right" Margin="0,0,5,0" IsEnabled="{Binding BatteryConnected}" Click="DisconnectBatteryButton_Click"/>
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="按名称/地址过滤（默认 BT_）"/>
                     </DockPanel>
@@ -124,9 +125,47 @@
             </StackPanel>
         </GroupBox>
 
+        <!-- 电池状态 -->
+        <GroupBox Grid.Row="2" Header="电池状态" Margin="0,4">
+            <Grid Margin="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="2*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding BatteryStateText}" FontWeight="Bold" Foreground="DodgerBlue"/>
+                    <TextBlock Text="{Binding SerialText, StringFormat=序列号: {0}}" Margin="0,3,0,0"/>
+                    <TextBlock Text="{Binding HwVersionText, StringFormat=硬件版本: {0}}"/>
+                    <TextBlock Text="{Binding SwVersionText, StringFormat=软件版本: {0}}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding PackVoltageText, StringFormat=总压: {0}}" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding PackCurrentText, StringFormat=电流: {0}}" FontWeight="Bold" Margin="0,3,0,0"/>
+                    <TextBlock Text="{Binding SocText, StringFormat=SOC: {0}}" FontWeight="Bold" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding TempsText, StringFormat=温度: {0}}"/>
+                    <TextBlock Text="{Binding CellRangeText, StringFormat=单体: {0}}" Margin="0,3,0,0"/>
+                    <TextBlock Text="{Binding StatusWordText, StringFormat=状态字: {0}}" Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding CellsText}" TextWrapping="Wrap" Foreground="Gray"/>
+            </Grid>
+        </GroupBox>
+
         <!-- 日志 -->
-        <GroupBox Grid.Row="3" Header="日志" Margin="0,4,0,0">
-            <TextBox x:Name="LogBox" Text="{Binding LogText, Mode=OneWay}" IsReadOnly="True"
+        <GroupBox Grid.Row="3" Header="日志" Margin="0,4,0,0">            <TextBox x:Name="LogBox" Text="{Binding LogText, Mode=OneWay}" IsReadOnly="True"
                      FontFamily="Consolas" FontSize="12" TextWrapping="NoWrap"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                      TextChanged="LogBox_TextChanged"/>

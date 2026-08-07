@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
 using TelinkOta.App.Wpf.Ble;
+using TelinkOta.App.Wpf.Services;
+using TelinkOta.Core.Bms;
 using TelinkOta.Core.Ota;
 
 namespace TelinkOta.App.Wpf.ViewModels;
@@ -14,6 +16,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly Dispatcher _dispatcher;
     private readonly BleScanner _scanner = new();
     private CancellationTokenSource? _otaCts;
+    private BatteryMonitor? _monitor;
+    private bool _restartMonitorAfterOta;
 
     public ObservableCollection<BleDeviceInfo> Devices { get; } = new();
 
@@ -34,7 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public BleDeviceInfo? SelectedDevice
     {
         get => _selectedDevice;
-        set { _selectedDevice = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); }
+        set { _selectedDevice = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanConnectBattery)); }
     }
 
     private string _firmwarePath = "";
@@ -60,7 +64,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsBusy
     {
         get => _isBusy;
-        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); }
+        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); OnPropertyChanged(nameof(CanConnectBattery)); }
     }
 
     private string _status = "就绪";
@@ -169,6 +173,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
+        // OTA 与电池监控互斥：暂停监控（释放设备链路），升级后自动恢复
+        if (_monitor is { IsRunning: true })
+        {
+            _restartMonitorAfterOta = true;
+            Log(LogLevel.Info, "OTA 开始，暂停电池监控");
+            await _monitor.StopAsync();
+        }
+
         _otaCts = new CancellationTokenSource();
         IsBusy = true;
         ProgressPercent = 0;
@@ -236,12 +248,137 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             Status = "已取消";
         }
+
+        // 升级结束，恢复电池监控（若之前开启）
+        if (_restartMonitorAfterOta && SelectedDevice is not null)
+        {
+            _restartMonitorAfterOta = false;
+            Log(LogLevel.Info, "OTA 结束，恢复电池监控");
+            await ConnectBatteryAsync(SelectedDevice);
+        }
     }
 
     public void CancelOta()
     {
         _otaCts?.Cancel();
         Status = "正在取消...";
+    }
+
+    // ================= 电池监控 =================
+
+    private bool _batteryConnected;
+    public bool BatteryConnected
+    {
+        get => _batteryConnected;
+        private set { _batteryConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanConnectBattery)); }
+    }
+
+    public bool CanConnectBattery => SelectedDevice is not null && !BatteryConnected && !IsBusy;
+
+    private string _batteryStateText = "未连接";
+    public string BatteryStateText { get => _batteryStateText; private set { _batteryStateText = value; OnPropertyChanged(); } }
+
+    private string _packVoltageText = "--";
+    public string PackVoltageText { get => _packVoltageText; private set { _packVoltageText = value; OnPropertyChanged(); } }
+
+    private string _packCurrentText = "--";
+    public string PackCurrentText { get => _packCurrentText; private set { _packCurrentText = value; OnPropertyChanged(); } }
+
+    private string _socText = "--";
+    public string SocText { get => _socText; private set { _socText = value; OnPropertyChanged(); } }
+
+    private string _tempsText = "--";
+    public string TempsText { get => _tempsText; private set { _tempsText = value; OnPropertyChanged(); } }
+
+    private string _cellRangeText = "--";
+    public string CellRangeText { get => _cellRangeText; private set { _cellRangeText = value; OnPropertyChanged(); } }
+
+    private string _cellsText = "--";
+    public string CellsText { get => _cellsText; private set { _cellsText = value; OnPropertyChanged(); } }
+
+    private string _statusWordText = "--";
+    public string StatusWordText { get => _statusWordText; private set { _statusWordText = value; OnPropertyChanged(); } }
+
+    private string _serialText = "--";
+    public string SerialText { get => _serialText; private set { _serialText = value; OnPropertyChanged(); } }
+
+    private string _hwVersionText = "--";
+    public string HwVersionText { get => _hwVersionText; private set { _hwVersionText = value; OnPropertyChanged(); } }
+
+    private string _swVersionText = "--";
+    public string SwVersionText { get => _swVersionText; private set { _swVersionText = value; OnPropertyChanged(); } }
+
+    public async void ConnectBattery() => await ConnectBatteryAsync(SelectedDevice);
+
+    private async Task ConnectBatteryAsync(BleDeviceInfo? device)
+    {
+        if (device is null || BatteryConnected || IsBusy)
+            return;
+
+        BatteryConnected = true; // 占用标记，避免重复
+        BatteryStateText = $"连接 {device.Name} ...";
+        Log(LogLevel.Info, $"电池监控连接：{device.Name} ({device.AddressHex})");
+
+        _monitor = new BatteryMonitor((level, msg) => Log(level, msg));
+        _monitor.SnapshotUpdated += snap => Post(() => ApplySnapshot(snap));
+        _monitor.ConnectionChanged += connected => Post(() =>
+        {
+            BatteryStateText = connected ? $"已连接 {device.Name}" : "未连接";
+        });
+
+        bool ok = await _monitor.ConnectAsync(device.Address, CancellationToken.None);
+        if (!ok)
+        {
+            BatteryConnected = false;
+            BatteryStateText = "连接失败";
+            Log(LogLevel.Error, "电池监控连接失败");
+            await _monitor.DisposeAsync();
+            _monitor = null;
+        }
+        else
+        {
+            Log(LogLevel.Info, "电池监控已连接，开始轮询");
+        }
+    }
+
+    public async void DisconnectBattery()
+    {
+        if (_monitor is not null)
+        {
+            Log(LogLevel.Info, "断开电池监控");
+            await _monitor.DisposeAsync();
+            _monitor = null;
+        }
+        BatteryConnected = false;
+        BatteryStateText = "未连接";
+        ClearBatteryPanel();
+    }
+
+    private void ApplySnapshot(BatterySnapshot snap)
+    {
+        PackVoltageText = snap.PackVoltageV is { } v ? $"{v:F2} V" : "--";
+        PackCurrentText = snap.PackCurrentA is { } a ? $"{a:F2} A" : "--";
+        SocText = snap.SocPercent is { } s ? $"{s} %" : "--";
+        TempsText = snap.MaxTempC is { } tMax
+            ? $"最高 {tMax:F1}℃ / 最低 {snap.MinTempC:F1}℃ / MOS {snap.MosTempC:F1}℃"
+            : "--";
+        CellRangeText = snap.MaxCellMv is { } mx
+            ? $"最高 {mx} mV / 最低 {snap.MinCellMv} mV / 压差 {snap.CellDeltaMv} mV"
+            : "--";
+        CellsText = snap.CellVoltagesMv.Count > 0
+            ? string.Join("  ", snap.CellVoltagesMv.Select((mv, i) => $"{i + 1}:{mv}mV"))
+            : "--";
+        StatusWordText = snap.SystemStatus is { } st ? $"0x{st:X4}" : "--";
+        if (!string.IsNullOrEmpty(snap.SerialNumber)) SerialText = snap.SerialNumber;
+        if (!string.IsNullOrEmpty(snap.HardwareVersion)) HwVersionText = snap.HardwareVersion;
+        if (!string.IsNullOrEmpty(snap.SoftwareVersion)) SwVersionText = snap.SoftwareVersion;
+    }
+
+    private void ClearBatteryPanel()
+    {
+        PackVoltageText = "--"; PackCurrentText = "--"; SocText = "--"; TempsText = "--";
+        CellRangeText = "--"; CellsText = "--"; StatusWordText = "--";
+        SerialText = "--"; HwVersionText = "--"; SwVersionText = "--";
     }
 
     // ================= 日志 =================

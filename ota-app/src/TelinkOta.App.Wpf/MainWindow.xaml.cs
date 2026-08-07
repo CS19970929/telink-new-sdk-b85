@@ -18,6 +18,7 @@ public partial class MainWindow : Window
         {
             _vm.StopScan();
             _vm.CancelOta();
+            _vm.DisconnectBattery();
         };
     }
 
@@ -43,6 +44,10 @@ public partial class MainWindow : Window
     private void StartOtaButton_Click(object sender, RoutedEventArgs e) => _vm.StartOta();
 
     private void CancelOtaButton_Click(object sender, RoutedEventArgs e) => _vm.CancelOta();
+
+    private void ConnectBatteryButton_Click(object sender, RoutedEventArgs e) => _vm.ConnectBattery();
+
+    private void DisconnectBatteryButton_Click(object sender, RoutedEventArgs e) => _vm.DisconnectBattery();
 
     private void LogBox_TextChanged(object sender, TextChangedEventArgs e)
     {
