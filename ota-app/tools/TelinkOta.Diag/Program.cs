@@ -127,6 +127,55 @@ internal static class Program
             await Task.Delay(1500);
             Console.WriteLine($"  收到: {Convert.ToHexString(acc.ToArray())}");
 
+            // ---- 连续轮询测试：0xD120(11) + 0xD000(63) + 0xD115(2) 循环 20 次 ----
+            Console.WriteLine("\n--- 连续轮询测试（20 轮，观察大窗口成功率与内容新鲜度）---");
+            int okRealtime = 0, okFull = 0, okStatus = 0;
+            byte[]? lastRealtime = null;
+            int staleCount = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                acc.Clear();
+                var r1 = BuildRead(0x01, BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount);
+                await write.WriteValueWithResultAsync(r1.AsBuffer(), GattWriteOption.WriteWithResponse);
+                var d1 = DateTime.UtcNow.AddSeconds(2);
+                while (DateTime.UtcNow < d1)
+                {
+                    await Task.Delay(30);
+                    if (ModbusRtu.TryParseReadResponse(acc.ToArray(), out var p, out _))
+                    {
+                        okRealtime++;
+                        if (lastRealtime is not null && p!.SequenceEqual(lastRealtime))
+                            staleCount++;
+                        lastRealtime = p;
+                        break;
+                    }
+                }
+
+                acc.Clear();
+                var r2 = BuildRead(0x01, BmsRegisters.CellsBase, BmsRegisters.CellsCount);
+                await write.WriteValueWithResultAsync(r2.AsBuffer(), GattWriteOption.WriteWithResponse);
+                var d2 = DateTime.UtcNow.AddSeconds(3);
+                while (DateTime.UtcNow < d2)
+                {
+                    await Task.Delay(30);
+                    if (ModbusRtu.TryParseReadResponse(acc.ToArray(), out _, out _)) { okFull++; break; }
+                }
+
+                acc.Clear();
+                var r3 = BuildRead(0x01, BmsRegisters.SystemStatusBase, BmsRegisters.SystemStatusCount);
+                await write.WriteValueWithResultAsync(r3.AsBuffer(), GattWriteOption.WriteWithResponse);
+                var d3 = DateTime.UtcNow.AddSeconds(2);
+                while (DateTime.UtcNow < d3)
+                {
+                    await Task.Delay(30);
+                    if (ModbusRtu.TryParseReadResponse(acc.ToArray(), out _, out _)) { okStatus++; break; }
+                }
+
+                if (i % 5 == 0)
+                    Console.WriteLine($"  轮 {i + 1}: realtime={okRealtime} full={okFull} status={okStatus}");
+            }
+            Console.WriteLine($"  结果: realtime {okRealtime}/20, full {okFull}/20, status {okStatus}/20, 连续相同内容 {staleCount} 次");
+
             // ---- Echo 链路确认 ----
             acc.Clear();
             var echo = new byte[] { 0x01, 0x7F, 0x12, 0x34, 0x56, 0x78, 0x6F, 0x34 };

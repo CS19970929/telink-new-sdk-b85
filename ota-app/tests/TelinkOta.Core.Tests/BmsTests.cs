@@ -209,12 +209,61 @@ public class BmsTests
         Assert.That(payload, Is.Null);
     }
 
+    [Test]
+    public async Task SppClient_DuplicateStaleFrame_ReturnsFreshData()
+    {
+        // 模拟迟到的上一帧重复通知污染下一轮累积器：第二轮必须返回新数据而非旧数据
+        var t = new FakeSppTransport
+        {
+            ResponsePayload = new byte[] { 0x41, 0x41 }, // 第一轮 "AA"
+            DuplicateLastResponse = true,                 // 第二轮先重发上一帧
+        };
+        using var client = new ModbusSppClient(t);
+
+        var first = await client.ReadRegistersAsync(0xD120, 1, TimeSpan.FromSeconds(2), CancellationToken.None);
+        Assert.That(first, Is.Not.Null);
+        Assert.That(first!.Length, Is.EqualTo(2));
+
+        // 第二轮换成 "BB"
+        t.ResponsePayload = new byte[] { 0x42, 0x42 };
+        var second = await client.ReadRegistersAsync(0xD120, 1, TimeSpan.FromSeconds(2), CancellationToken.None);
+        Assert.That(second, Is.Not.Null);
+        Assert.That(second!.Length, Is.EqualTo(2));
+        Assert.That(second, Is.EqualTo(new byte[] { 0x42, 0x42 }), "不得返回迟到的旧帧数据");
+    }
+
+    [Test]
+    public async Task SppClient_StaleFrameDifferentLength_DoesNotMatch()
+    {
+        // 上一轮是 11 寄存器（22 字节），本轮请求 1 寄存器（2 字节）——迟到帧长度不同必须被丢弃
+        var t = new FakeSppTransport
+        {
+            ResponsePayload = new byte[22], // 第一轮 22 字节
+            DuplicateLastResponse = true,
+        };
+        using var client = new ModbusSppClient(t);
+
+        var first = await client.ReadRegistersAsync(0xD120, 11, TimeSpan.FromSeconds(2), CancellationToken.None);
+        Assert.That(first, Is.Not.Null);
+
+        t.ResponsePayload = new byte[] { 0x12, 0x34 };
+        var second = await client.ReadRegistersAsync(0xD120, 1, TimeSpan.FromSeconds(2), CancellationToken.None);
+        Assert.That(second, Is.Not.Null);
+        Assert.That(second, Is.EqualTo(new byte[] { 0x12, 0x34 }));
+    }
+
     private sealed class FakeSppTransport : IBleTransport
     {
         public byte[]? ResponsePayload;
         public bool Fragmented;
         public bool NoResponse;
         public bool WriteResult = true;
+
+        /// <summary>true 时在发送本轮响应前先重发上一轮响应（模拟迟到重复帧）。</summary>
+        public bool DuplicateLastResponse;
+
+        private byte[]? _lastResponse;
+        private readonly object _lock = new();
 
         public event Action<byte[]>? OtaNotifyReceived { add { } remove { } }
         public event Action<byte[]>? SppNotifyReceived;
@@ -233,19 +282,33 @@ public class BmsTests
 
         public async Task<bool> WriteSppAsync(byte[] frame, CancellationToken ct)
         {
-            if (!WriteResult || NoResponse || ResponsePayload is null)
-                return WriteResult;
-            // 组 Modbus 0x03 响应并（可选）按 20 字节分片
-            var resp = new byte[3 + ResponsePayload.Length + 2];
-            resp[0] = 0x01;
-            resp[1] = 0x03;
-            resp[2] = (byte)ResponsePayload.Length;
-            ResponsePayload.CopyTo(resp, 3);
-            ushort crc = Crc16.Compute(resp.AsSpan(0, 3 + ResponsePayload.Length));
-            resp[^2] = (byte)(crc & 0xFF);
-            resp[^1] = (byte)(crc >> 8);
+            byte[]? resp;
+            byte[]? dup = null;
+            lock (_lock)
+            {
+                if (!WriteResult || NoResponse || ResponsePayload is null)
+                    return WriteResult;
 
-            if (Fragmented)
+                resp = BuildResponse(ResponsePayload);
+                if (DuplicateLastResponse && _lastResponse is not null)
+                {
+                    // 先重发上一帧（完整），模拟迟到重复通知
+                    dup = _lastResponse.ToArray();
+                }
+                _lastResponse = resp.ToArray();
+            }
+
+            if (dup is not null)
+            {
+                var d = dup;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1, ct);
+                    SppNotifyReceived?.Invoke(d);
+                });
+            }
+
+            if (Fragmented && resp is not null)
             {
                 for (int off = 0; off < resp.Length; off += 20)
                 {
@@ -253,14 +316,27 @@ public class BmsTests
                     var chunk = new byte[len];
                     Array.Copy(resp, off, chunk, 0, len);
                     SppNotifyReceived?.Invoke(chunk);
-                    await Task.Delay(1, ct);
+                    if (off + 20 < resp.Length) await Task.Delay(1, ct);
                 }
             }
-            else
+            else if (resp is not null)
             {
                 SppNotifyReceived?.Invoke(resp);
             }
             return true;
+        }
+
+        private static byte[] BuildResponse(byte[] payload)
+        {
+            var resp = new byte[3 + payload.Length + 2];
+            resp[0] = 0x01;
+            resp[1] = 0x03;
+            resp[2] = (byte)payload.Length;
+            payload.CopyTo(resp, 3);
+            ushort crc = Crc16.Compute(resp.AsSpan(0, 3 + payload.Length));
+            resp[^2] = (byte)(crc & 0xFF);
+            resp[^1] = (byte)(crc >> 8);
+            return resp;
         }
 
         public Task DisconnectAsync() => Task.CompletedTask;
