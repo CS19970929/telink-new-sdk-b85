@@ -62,11 +62,11 @@ internal static class Program
             Console.WriteLine($"  写 handle=0x{write.AttributeHandle:X4} 通知 handle=0x{notify.AttributeHandle:X4}");
 
             var acc = new List<byte>();
+            var _lastAcc = Array.Empty<byte>();
             notify.ValueChanged += (_, args) =>
             {
                 var data = args.CharacteristicValue.ToArray();
                 acc.AddRange(data);
-                Console.WriteLine($"    [NOTIFY {DateTime.Now:HH:mm:ss.fff}] len={data.Length} {Convert.ToHexString(data)}");
             };
 
             var cccd = await notify.WriteClientCharacteristicConfigurationDescriptorAsync(
@@ -126,6 +126,34 @@ internal static class Program
             Console.WriteLine($"  写入: {wr.Status}");
             await Task.Delay(1500);
             Console.WriteLine($"  收到: {Convert.ToHexString(acc.ToArray())}");
+
+            // ---- 单请求精确抓包：1 个实时窗口请求，3 秒内打印每条通知 ----
+            Console.WriteLine("\n--- 单请求通知流（0xD120 qty=11，重复 5 次观察投递模式）---");
+            for (int i = 0; i < 5; i++)
+            {
+                acc.Clear();
+                var rr = BuildRead(0x01, BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount);
+                Console.WriteLine($"\n  请求#{i + 1}: {Convert.ToHexString(rr)}");
+                await write.WriteValueWithResultAsync(rr.AsBuffer(), GattWriteOption.WriteWithResponse);
+                var end = DateTime.UtcNow.AddSeconds(3);
+                var chunks = new List<string>();
+                while (DateTime.UtcNow < end)
+                {
+                    await Task.Delay(50);
+                    var cur = acc.ToArray();
+                    if (cur.Length > 0 && (chunks.Count == 0 || !cur.SequenceEqual(_lastAcc)))
+                    {
+                        chunks.Add(Convert.ToHexString(cur));
+                        _lastAcc = cur;
+                    }
+                    if (ModbusRtu.TryParseReadResponse(cur, out _, out _))
+                        break;
+                }
+                foreach (var c in chunks)
+                    Console.WriteLine($"    [{DateTime.Now:HH:mm:ss.fff}] {c}");
+                Console.WriteLine($"    累计 {acc.Count} 字节");
+                await Task.Delay(500);
+            }
 
             // ---- 连续轮询测试：0xD120(11) + 0xD000(63) + 0xD115(2) 循环 20 次 ----
             Console.WriteLine("\n--- 连续轮询测试（20 轮，观察大窗口成功率与内容新鲜度）---");

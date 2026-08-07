@@ -20,6 +20,8 @@ public sealed class BatteryMonitor : IAsyncDisposable
     private readonly LogCallback _log;
 
     public bool IsRunning { get; private set; }
+    private volatile bool _staticInfoReady;
+    private int _staticRetryCount;
 
     public event Action<BatterySnapshot>? SnapshotUpdated;
     public event Action<bool>? ConnectionChanged;
@@ -55,6 +57,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
 
         // 一次性静态信息（产品信息/MAC/蓝牙名/保护参数）
         await ReadStaticInfoAsync(ct);
+        _staticInfoReady = true;
 
         _cts = new CancellationTokenSource();
         _loop = Task.Run(() => PollLoopAsync(_cts.Token));
@@ -86,6 +89,18 @@ public sealed class BatteryMonitor : IAsyncDisposable
     private async Task ReadStaticInfoAsync(CancellationToken ct)
     {
         var snap = new BatterySnapshot();
+        await ReadStaticInfoCoreAsync(snap, ct);
+
+        if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.Mac) || snap.ProtectValues.Count > 0)
+        {
+            snap.IsValid = true;
+            SnapshotUpdated?.Invoke(snap);
+        }
+    }
+
+    /// <summary>读取静态信息（产品信息/MAC/蓝牙名/保护参数）到指定快照，不发布。</summary>
+    private async Task ReadStaticInfoCoreAsync(BatterySnapshot snap, CancellationToken ct)
+    {
         try
         {
             var sn = await _client!.ReadRegistersAsync(BmsRegisters.ProdSnBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
@@ -105,12 +120,6 @@ public sealed class BatteryMonitor : IAsyncDisposable
         catch (Exception ex)
         {
             _log(LogLevel.Debug, $"[BMS] 静态信息读取部分失败：{ex.Message}");
-        }
-
-        if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.Mac) || snap.ProtectValues.Count > 0)
-        {
-            snap.IsValid = true;
-            SnapshotUpdated?.Invoke(snap);
         }
     }
 
@@ -145,8 +154,11 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 var snap = new BatterySnapshot();
 
                 // 1) 稳定窗口（每秒）
+                var sw0 = System.Diagnostics.Stopwatch.StartNew();
                 var realtime = await _client!.ReadRegistersAsync(
                     BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount, TimeSpan.FromSeconds(2), ct);
+                sw0.Stop();
+                _log(LogLevel.Debug, $"[BMS] 稳定窗口读 {sw0.ElapsedMilliseconds}ms -> {(realtime is null ? "失败" : $"{realtime.Length}B")}");
                 if (realtime is not null && BatterySnapshot.ParseRealtime(realtime) is { } rt)
                 {
                     Merge(snap, rt);
@@ -172,8 +184,11 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 // 2) 完整窗口 + 状态字（每 2 个周期）
                 if (cycle % 2 == 0)
                 {
+                    var sw1 = System.Diagnostics.Stopwatch.StartNew();
                     var legacy = await _client.ReadRegistersAsync(
                         BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(3), ct);
+                    sw1.Stop();
+                    _log(LogLevel.Debug, $"[BMS] 完整窗口读 {sw1.ElapsedMilliseconds}ms -> {(legacy is null ? "失败" : $"{legacy.Length}B")}");
                     if (legacy is not null && BatterySnapshot.ParseLegacyWindow(legacy) is { } lw)
                     {
                         Merge(snap, lw);
@@ -202,7 +217,20 @@ public sealed class BatteryMonitor : IAsyncDisposable
                     }
                 }
 
-                // 4) 用上一轮的完整窗口数据补齐本轮的缺口（Merge 只填 null，不覆盖新值）
+                // 4) 静态信息（序列号等）未取到时周期重试（每 10 个周期）
+                if (!_staticInfoReady || _staticRetryCount++ % 10 == 0)
+                {
+                    var fresh = new BatterySnapshot();
+                    await ReadStaticInfoCoreAsync(fresh, ct);
+                    if (!string.IsNullOrEmpty(fresh.SerialNumber) || !string.IsNullOrEmpty(fresh.Mac)
+                        || !string.IsNullOrEmpty(fresh.SoftwareVersion) || fresh.ProtectValues.Count > 0)
+                    {
+                        _staticInfoReady = true;
+                        Merge(snap, fresh);
+                    }
+                }
+
+                // 5) 用上一轮的完整窗口数据补齐本轮的缺口（Merge 只填 null，不覆盖新值）
                 if (last is not null)
                 {
                     Merge(snap, last);
