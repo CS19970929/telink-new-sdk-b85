@@ -31,16 +31,23 @@ public sealed class BatteryMonitor : IAsyncDisposable
         _log = log ?? ((_, _) => { });
     }
 
+    private ulong _address;
+    private volatile bool _linkLost;
+
     public async Task<bool> ConnectAsync(ulong address, CancellationToken ct)
     {
         if (IsRunning)
             return true;
 
+        _address = address;
+        _linkLost = false;
         _transport = new WindowsBleTransport(address);
         _log(LogLevel.Info, $"[BMS] 连接 {address:X12} ...");
+        _transport.ConnectionLost += OnLinkLost;
         if (!await _transport.ConnectAsync(TimeSpan.FromSeconds(15), ct))
         {
             _log(LogLevel.Error, "[BMS] 连接失败");
+            _transport.ConnectionLost -= OnLinkLost;
             await _transport.DisposeAsync();
             _transport = null;
             return false;
@@ -48,6 +55,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
         if (!await _transport.DiscoverSppServiceAsync(TimeSpan.FromSeconds(10), ct))
         {
             _log(LogLevel.Warn, "[BMS] 未发现 SPP 业务服务（无法读取电池信息）");
+            _transport.ConnectionLost -= OnLinkLost;
             await _transport.DisposeAsync();
             _transport = null;
             return false;
@@ -64,6 +72,52 @@ public sealed class BatteryMonitor : IAsyncDisposable
         IsRunning = true;
         ConnectionChanged?.Invoke(true);
         return true;
+    }
+
+    private void OnLinkLost()
+    {
+        _linkLost = true;
+        _log(LogLevel.Warn, "[BMS] 检测到链路断开，准备自动重连");
+    }
+
+    private async Task<bool> ReconnectAsync(CancellationToken ct)
+    {
+        _log(LogLevel.Info, "[BMS] 尝试自动重连 ...");
+        try
+        {
+            _client?.Dispose();
+            _client = null;
+            if (_transport is not null)
+            {
+                _transport.ConnectionLost -= OnLinkLost;
+                await _transport.DisposeAsync();
+                _transport = null;
+            }
+
+            _transport = new WindowsBleTransport(_address);
+            _transport.ConnectionLost += OnLinkLost;
+            if (!await _transport.ConnectAsync(TimeSpan.FromSeconds(15), ct))
+            {
+                _log(LogLevel.Warn, "[BMS] 重连失败（设备不可达）");
+                return false;
+            }
+            if (!await _transport.DiscoverSppServiceAsync(TimeSpan.FromSeconds(10), ct))
+            {
+                _log(LogLevel.Warn, "[BMS] 重连后 SPP 服务未发现");
+                return false;
+            }
+            await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct);
+            _client = new ModbusSppClient(_transport);
+            _staticInfoReady = false;
+            _linkLost = false;
+            _log(LogLevel.Info, "[BMS] 重连成功");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _log(LogLevel.Error, $"[BMS] 重连异常：{ex.Message}");
+            return false;
+        }
     }
 
     public async Task StopAsync()
@@ -146,23 +200,47 @@ public sealed class BatteryMonitor : IAsyncDisposable
     private async Task PollLoopAsync(CancellationToken ct)
     {
         int cycle = 0;
+        int consecutiveFailures = 0;
         BatterySnapshot? last = null; // 保留上一轮完整窗口数据，避免奇数轮字段变 "--" 闪烁
         while (!ct.IsCancellationRequested)
         {
             try
             {
+                // 链路断开：自动重连（重连期间本轮跳过）
+                if (_linkLost || _client is null)
+                {
+                    if (consecutiveFailures >= 6)
+                    {
+                        _log(LogLevel.Warn, "[BMS] 连续多轮读取失败，执行链路自愈重连");
+                        consecutiveFailures = 0;
+                        _linkLost = true;
+                    }
+                    if (_linkLost)
+                    {
+                        bool ok = await ReconnectAsync(ct);
+                        if (!ok)
+                        {
+                            _log(LogLevel.Warn, "[BMS] 重连失败，10s 后重试");
+                            try { await Task.Delay(10000, ct); } catch (OperationCanceledException) { break; }
+                            continue;
+                        }
+                    }
+                }
+
                 var snap = new BatterySnapshot();
+                bool anyOk = false;
 
                 // 1) 稳定窗口（每秒）
                 var sw0 = System.Diagnostics.Stopwatch.StartNew();
                 var realtime = await _client!.ReadRegistersAsync(
-                    BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount, TimeSpan.FromSeconds(2), ct);
+                    BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount, TimeSpan.FromSeconds(4), ct);
                 sw0.Stop();
                 _log(LogLevel.Debug, $"[BMS] 稳定窗口读 {sw0.ElapsedMilliseconds}ms -> {(realtime is null ? "失败" : $"{realtime.Length}B")}");
                 if (realtime is not null && BatterySnapshot.ParseRealtime(realtime) is { } rt)
                 {
                     Merge(snap, rt);
                     snap.UsingStableWindow = true;
+                    anyOk = true;
                 }
                 else
                 {
@@ -186,12 +264,13 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 {
                     var sw1 = System.Diagnostics.Stopwatch.StartNew();
                     var legacy = await _client.ReadRegistersAsync(
-                        BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(3), ct);
+                        BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(6), ct);
                     sw1.Stop();
                     _log(LogLevel.Debug, $"[BMS] 完整窗口读 {sw1.ElapsedMilliseconds}ms -> {(legacy is null ? "失败" : $"{legacy.Length}B")}");
                     if (legacy is not null && BatterySnapshot.ParseLegacyWindow(legacy) is { } lw)
                     {
                         Merge(snap, lw);
+                        anyOk = true;
                     }
                     else if (legacy is null)
                     {
@@ -199,10 +278,11 @@ public sealed class BatteryMonitor : IAsyncDisposable
                     }
 
                     var status = await _client.ReadRegistersAsync(
-                        BmsRegisters.SystemStatusBase, BmsRegisters.SystemStatusCount, TimeSpan.FromSeconds(2), ct);
+                        BmsRegisters.SystemStatusBase, BmsRegisters.SystemStatusCount, TimeSpan.FromSeconds(4), ct);
                     if (status is not null)
                     {
                         snap.SystemStatus = BatterySnapshot.ParseSystemStatus(status);
+                        anyOk = true;
                     }
                 }
 
@@ -210,10 +290,11 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 if (cycle % 4 == 0)
                 {
                     var fault = await _client.ReadRegistersAsync(
-                        BmsRegisters.FaultBase, BmsRegisters.FaultCount, TimeSpan.FromSeconds(2), ct);
+                        BmsRegisters.FaultBase, BmsRegisters.FaultCount, TimeSpan.FromSeconds(4), ct);
                     if (fault is not null)
                     {
                         snap.FaultRecordsHex = BatterySnapshot.ParseFaultRecords(fault);
+                        anyOk = true;
                     }
                 }
 
@@ -239,11 +320,13 @@ public sealed class BatteryMonitor : IAsyncDisposable
 
                 if (snap.IsValid)
                 {
+                    consecutiveFailures = 0;
                     SnapshotUpdated?.Invoke(snap);
                 }
                 else
                 {
-                    _log(LogLevel.Warn, "[BMS] 本轮轮询无有效数据");
+                    consecutiveFailures++;
+                    _log(LogLevel.Warn, $"[BMS] 本轮轮询无有效数据（连续失败 {consecutiveFailures}）");
                 }
             }
             catch (OperationCanceledException)

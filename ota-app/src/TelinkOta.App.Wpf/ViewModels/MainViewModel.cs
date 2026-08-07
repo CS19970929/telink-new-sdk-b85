@@ -463,6 +463,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     // ================= 日志 =================
 
+    private static readonly string LogFilePath =
+        Path.Combine(AppContext.BaseDirectory, "TelinkOta.log");
+
     private void Log(LogLevel level, string message)
     {
         string tag = level switch
@@ -473,6 +476,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _ => "ERR",
         };
         string line = $"[{DateTime.Now:HH:mm:ss.fff}][{tag}] {message}";
+        try
+        {
+            File.AppendAllText(LogFilePath, line + Environment.NewLine);
+        }
+        catch { /* 文件日志失败不影响运行 */ }
         Post(() =>
         {
             LogText += line + Environment.NewLine;
