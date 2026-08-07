@@ -95,4 +95,15 @@ public class CrcTests
         }
         return crc;
     }
+
+    [Test]
+    public void Crc16_FrameVectors()
+    {
+        // 0x03 读帧 CRC（Modbus 标准）：不同字节序必须产生不同结果
+        byte[] f1 = { 0x01, 0x03, 0x20, 0xD1, 0x0B, 0x00 };
+        byte[] f2 = { 0x01, 0x03, 0xD1, 0x20, 0x00, 0x0B };
+        Assert.That(Crc16.Compute(f1), Is.EqualTo(0x0319));
+        Assert.That(Crc16.Compute(f2), Is.EqualTo(0xFB3C));
+    }
 }
+

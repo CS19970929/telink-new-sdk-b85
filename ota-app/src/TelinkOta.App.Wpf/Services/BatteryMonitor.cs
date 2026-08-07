@@ -108,7 +108,22 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 else
                 {
                     if (realtime is null)
+                    {
                         _log(LogLevel.Debug, "[BMS] 0xD120 稳定窗口读取超时/失败，尝试兼容窗口");
+                    }
+                    else
+                    {
+                        // 有响应但 Magic 不符：全零 = 设备固件 read_reg 为空实现（早期固件）
+                        if (realtime.All(b => b == 0))
+                        {
+                            _log(LogLevel.Warn,
+                                "[BMS] 0xD120 窗口全零：设备固件未实现 Modbus 寄存器表（read_reg 空实现），请刷新当前固件。串口工具能读数据是走了 SIF/OWC 自定义总线，与 Modbus 无关。");
+                        }
+                        else
+                        {
+                            _log(LogLevel.Debug, $"[BMS] 0xD120 窗口 Magic 不符: {Convert.ToHexString(realtime)}");
+                        }
+                    }
                     // 兼容窗口回退
                     var cells = await _client.ReadRegistersAsync(
                         BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(2), ct);

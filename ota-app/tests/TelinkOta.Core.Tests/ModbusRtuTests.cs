@@ -6,13 +6,30 @@ namespace TelinkOta.Core.Tests;
 public class ModbusRtuTests
 {
     [Test]
-    public void BuildReadRequest_Format()
+    public void BuildReadRequest_Format_BigEndian()
     {
+        // 固件 u16be 解析：寄存器/数量均为大端。0xC022 → C0 22；16 → 00 10
         var frame = ModbusRtu.BuildReadRequest(0xC022, 16);
-        Assert.That(frame[..6], Is.EqualTo(new byte[] { 0x01, 0x03, 0x22, 0xC0, 0x10, 0x00 }));
+        Assert.That(frame[..6], Is.EqualTo(new byte[] { 0x01, 0x03, 0xC0, 0x22, 0x00, 0x10 }));
         ushort crc = Crc16.Compute(frame.AsSpan(0, 6));
         Assert.That(frame[6], Is.EqualTo((byte)(crc & 0xFF)));
         Assert.That(frame[7], Is.EqualTo((byte)(crc >> 8)));
+    }
+
+    [Test]
+    public void BuildReadRequest_MatchesDocExample()
+    {
+        // 对接文档示例：01 03 C0 02 00 10 D9 C6（读序列号 0xC002，16 寄存器）
+        var frame = ModbusRtu.BuildReadRequest(0xC002, 16);
+        Assert.That(frame, Is.EqualTo(new byte[] { 0x01, 0x03, 0xC0, 0x02, 0x00, 0x10, 0xD9, 0xC6 }));
+    }
+
+    [Test]
+    public void BuildReadRequest_QuantityLimit()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ModbusRtu.BuildReadRequest(0xD120, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ModbusRtu.BuildReadRequest(0xD120, 126));
+        _ = ModbusRtu.BuildReadRequest(0xD120, 125); // OK
     }
 
     [Test]
