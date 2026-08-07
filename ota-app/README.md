@@ -56,11 +56,12 @@ dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 
 ## 使用
 
 1. `dotnet run --project ota-app\src\TelinkOta.App.Wpf`（或运行生成的 exe）。
-2. 扫描（默认按名称过滤 `BT_`，可改）→ 选择设备。
-3. **电池监控**：点"连接"→ 经 SPP 以 Modbus RTU 读取 0xD120 稳定窗口（总压/电流/SOC/温度/单体极值）+ 产品信息（序列号/硬件/软件版本），每秒刷新；稳定窗口失效自动回退 0xD000 兼容窗口（单体电压 + 状态字）。
-4. 选择固件 BIN → 工具自动完成：Size/Mark/CRC32 校验；若 BIN 未带合法尾部 CRC32 会自动补齐并提示。
-5. 点击"开始 OTA"。流程：连接 → 发现 OTA 服务 → 订阅通知 → MTU/PDU 协商 → 版本协商 → Start → 有界窗口传输（默认并发 6）→ End → 等待设备 Result → 设备重启 → 自动重连 → 版本复核（OTA 协商 + 尽力读取 BMS 软件版本寄存器 0xC022）→ 判定成功。OTA 期间电池监控自动暂停，升级完成后自动恢复。
-6. 任一步失败/超时/断连都会给出明确日志与建议，**不会续传，必须从头重试**；设备双区机制保证失败不损坏旧固件。
+2. 界面分两页：
+   - **电池信息**：扫描 → 选择设备 → 点"连接"→ 每秒刷新完整电池数据（见下节）；OTA 升级在此页的设备列表上也可操作。
+   - **OTA 升级**：选择固件 BIN → 配置 → 开始/取消 OTA、进度显示。
+3. 选择固件 BIN → 工具自动完成：Size/Mark/CRC32 校验；若 BIN 未带合法尾部 CRC32 会自动补齐并提示。
+4. 点击"开始 OTA"。流程：连接 → 发现 OTA 服务 → 订阅通知 → MTU/PDU 协商 → 版本协商 → Start → 有界窗口传输（默认并发 6）→ End → 等待设备 Result → 设备重启 → 自动重连 → 版本复核（OTA 协商 + 尽力读取 BMS 软件版本寄存器 0xC022）→ 判定成功。OTA 期间电池监控自动暂停，升级完成后自动恢复。
+5. 任一步失败/超时/断连都会给出明确日志与建议，**不会续传，必须从头重试**；设备双区机制保证失败不损坏旧固件。
 
 ### 关键设置
 
@@ -89,18 +90,22 @@ dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 
 
 ## 电池信息（Modbus RTU over SPP）
 
-依据 `vendor/ble_sample/modbus_rtu.c` 实码与对接文档：
+依据 `vendor/ble_sample` 实码（modbus_rtu.c read_reg + sci_upper.h stCell_Info）：
 
 | 窗口 | 地址 | 内容 |
 |---|---|---|
-| 稳定窗口 | `0xD120` 起 11 寄存器 | Magic(0x4253)、版本、总压(V*100)、电流(int16 A*10，充电正/放电负)、SOC、最高/最低/MOS 温度((+40℃)*10)、单体最高/最低/压差(mV) |
-| 兼容窗口 | `0xD000` 起 32 寄存器 | u16VCell[32]（[29]=电池温度ADC、[30]=MOS温度ADC、[31]=总压mV） |
-| 状态字 | `0xD115` 起 2 寄存器 | SystemStatus |
+| 稳定窗口 | `0xD120` 起 11 寄存器 | Magic(0x4253)、版本、总压(V*100)、电流(int16 A*10)、SOC、最高/最低/MOS 温度((+40℃)*10)、单体最高/最低/压差(mV) |
+| 完整窗口 | `0xD000` 起 63 寄存器 | stCell_Info 平铺：32 单体(mV)、单体极值/位置/压差、总压、10 路温度、充/放电电流(A*10)、SOC/SOH(%)、容量(当前/满充/出厂，Ah*100)、循环次数、3 组故障标志、2 组均衡标志 |
+| 状态字 | `0xD115` 起 2 寄存器 | SystemStatus u32 位标志（StartUpBMS/MOS/继电器/加热/均衡/休眠/ProjectVer 等） |
+| 故障记录 | `0xD100` 起 21 寄存器 | 最近三组故障记录窗口（hex） |
+| 保护参数 | `0x2100` 起 65 寄存器 | 13 组 × 5（First/Second/Third/Rcv/Filter）：Vcell/Vbus OVP·UVP、充/放电 OCP、充/放电 OTP·UTP、Tmos OTP、Vdelta OVP、SocLow |
+| MAC | `0x0000` 起 3 寄存器 | 6 字节 MAC |
+| 蓝牙名 | `0x0100` 起 12 寄存器 | ASCII |
 | 序列号 | `0xC002` 起 16 寄存器 | ASCII |
 | 硬件版本 | `0xC012` 起 16 寄存器 | ASCII |
 | 软件版本 | `0xC022` 起 16 寄存器 | ASCII |
 
-寄存器均为 Modbus 大端 u16；0x03 一次最多 125 寄存器；响应由固件按 20 字节分片 Notify，客户端自动重组。
+寄存器均为 Modbus 大端 u16；0x03 一次最多 125 寄存器；响应由固件按 20 字节分片 Notify，客户端自动重组。轮询节奏：稳定窗口 1s、完整窗口+状态字 2s、故障记录 4s、静态信息（产品/MAC/蓝牙名/保护参数）连接时读取一次。
 
 > **重要（实机联调结论）**：SPP 写必须使用 **WriteWithResponse**。实机验证（TelinkOta.Diag）：该固件会丢弃 WriteWithoutResponse 的 SPP 写（Echo 无响应），而 WriteWithResponse 正常（与 Qt 上位机一致）。OTA 通道不受影响（按 Telink 官方规范保持 WriteWithoutResponse）。
 >

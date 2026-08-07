@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using TelinkOta.Core.Bms;
 using TelinkOta.Core.Ota;
 
@@ -61,26 +61,95 @@ public class BmsTests
     }
 
     [Test]
-    public void ParseLegacyCells_ExtractsCellsAndVbat()
+    public void ParseLegacyWindow_ExtractsCellsAndStats()
     {
-        var regs = new ushort[32];
-        for (int i = 0; i < 29; i++) regs[i] = (ushort)(4000 + i);
-        regs[31] = 42000; // Vbat_mv = 42.000V
+        // 63 寄存器完整窗口：32 单体 + 极值/位置/压差/总压 + 10 温度 + 充放电电流 + SOC/SOH/容量/循环 + 故障 + 均衡
+        var regs = new ushort[63];
+        for (int i = 0; i < 32; i++) regs[i] = (ushort)(4000 + i);   // 单体
+        regs[32] = 4031;  // max
+        regs[33] = 4000;  // min
+        regs[34] = 32;    // max pos
+        regs[35] = 1;     // min pos
+        regs[36] = 31;    // delta
+        regs[37] = 42000; // 总压 420.00V? *100 → 420.00V? 不，42000/100=420V... 用 4200 → 42.00V
+        regs[37] = 4200;
+        for (int i = 0; i < 10; i++) regs[38 + i] = (ushort)(250 + i); // (+40)*10 → -15℃ 起
+        regs[48] = 300; // temp max → -10℃
+        regs[49] = 250; // temp min → -15℃
+        regs[50] = 1234; // Ichg 123.4A
+        regs[51] = 0;    // Idischg 0
+        regs[52] = 78;   // SOC
+        regs[53] = 95;   // SOH
+        regs[54] = 1000; // CapacityNow 10.00Ah
+        regs[55] = 1100; // CapacityFull 11.00Ah
+        regs[56] = 1150; // CapacityFactory 11.50Ah
+        regs[57] = 123;  // cycles
+        regs[58] = 0x0005; // fault1: CellOvp + CellUvp
+        regs[61] = 0x0001; // balance1
+
         var data = BeWindow(regs);
-        var snap = BatterySnapshot.ParseLegacyCells(data);
+        var snap = BatterySnapshot.ParseLegacyWindow(data);
         Assert.That(snap, Is.Not.Null);
         Assert.That(snap!.UsingStableWindow, Is.False);
-        Assert.That(snap.CellVoltagesMv.Count, Is.EqualTo(29));
+        Assert.That(snap.CellVoltagesMv.Count, Is.EqualTo(32));
         Assert.That(snap.CellVoltagesMv[0], Is.EqualTo(4000));
-        Assert.That(snap.CellVoltagesMv[28], Is.EqualTo(4028));
+        Assert.That(snap.CellVoltagesMv[31], Is.EqualTo(4031));
+        Assert.That(snap.MaxCellMv, Is.EqualTo(4031));
+        Assert.That(snap.MinCellMv, Is.EqualTo(4000));
+        Assert.That(snap.MaxCellPosition, Is.EqualTo(32));
+        Assert.That(snap.MinCellPosition, Is.EqualTo(1));
+        Assert.That(snap.CellDeltaMv, Is.EqualTo(31));
         Assert.That(snap.PackVoltageV, Is.EqualTo(42.0).Within(0.001));
+        Assert.That(snap.TemperaturesC.Count, Is.EqualTo(10));
+        Assert.That(snap.TemperaturesC[0], Is.EqualTo(-15.0).Within(0.001));
+        Assert.That(snap.MaxTempC, Is.EqualTo(-10.0).Within(0.001));
+        Assert.That(snap.MinTempC, Is.EqualTo(-15.0).Within(0.001));
+        Assert.That(snap.ChargeCurrentA, Is.EqualTo(123.4).Within(0.001));
+        Assert.That(snap.SocPercent, Is.EqualTo(78));
+        Assert.That(snap.SohPercent, Is.EqualTo(95));
+        Assert.That(snap.CapacityNowAh, Is.EqualTo(10.0).Within(0.001));
+        Assert.That(snap.CapacityFullAh, Is.EqualTo(11.0).Within(0.001));
+        Assert.That(snap.CapacityFactoryAh, Is.EqualTo(11.5).Within(0.001));
+        Assert.That(snap.CycleTimes, Is.EqualTo(123));
+        Assert.That(snap.MdlFaultFirst, Is.EqualTo(0x0005));
+        Assert.That(snap.BalanceFlag1, Is.EqualTo(0x0001));
+        Assert.That(snap.PackCurrentA, Is.EqualTo(123.4).Within(0.001)); // 由充电电流推导
+    }
+
+    [Test]
+    public void SystemStatusBits_Decode()
+    {
+        // bit0 StartUpBMS + bit2 MOS_CHG + bit8 Heat + ProjectVer=1 (bits20-23)
+        uint status = 0x00100105;
+        var names = SystemStatusBits.Decode(status);
+        Assert.That(names, Does.Contain("StartUpBMS"));
+        Assert.That(names, Does.Contain("MOS_CHG"));
+        Assert.That(names, Does.Contain("Heat"));
+        Assert.That(names, Does.Contain("ProjectVer=1"));
+    }
+
+    [Test]
+    public void FaultBits_Decode()
+    {
+        var names = FaultBits.Decode(0x1003); // bit0 CellOvp + bit1 CellUvp + bit12 SocLow
+        Assert.That(names, Does.Contain("CellOvp"));
+        Assert.That(names, Does.Contain("CellUvp"));
+        Assert.That(names, Does.Contain("SocLow"));
+        Assert.That(FaultBits.Decode(0), Is.Empty);
+    }
+
+    [Test]
+    public void ParseMac_FormatsColons()
+    {
+        var data = new byte[] { 0xA4, 0xC1, 0x38, 0x16, 0x02, 0x5A };
+        Assert.That(BatterySnapshot.ParseMac(data), Is.EqualTo("A4:C1:38:16:02:5A"));
     }
 
     [Test]
     public void ParseSystemStatus_FirstWord()
     {
         var data = new byte[] { 0x12, 0x34, 0x56, 0x78 };
-        Assert.That(BatterySnapshot.ParseSystemStatus(data), Is.EqualTo((ushort)0x1234));
+        Assert.That(BatterySnapshot.ParseSystemStatus(data), Is.EqualTo(0x12345678u)); // 全 32 位
         Assert.That(BatterySnapshot.ParseSystemStatus(new byte[2]), Is.Null);
     }
 
@@ -198,3 +267,4 @@ public class BmsTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
+

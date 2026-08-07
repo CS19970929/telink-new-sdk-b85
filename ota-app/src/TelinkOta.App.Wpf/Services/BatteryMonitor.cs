@@ -6,7 +6,10 @@ namespace TelinkOta.App.Wpf.Services;
 
 /// <summary>
 /// 电池状态监控：独立连接设备，经 SPP 周期轮询 Modbus 寄存器并发布快照。
-/// 轮询为单飞（一次一请求），周期 1s；0xD120 稳定窗口失效时回退 0xD000 兼容窗口。
+///  - 每秒：0xD120 稳定窗口（Magic 校验）；
+///  - 每 2s：0xD000 完整窗口 + SystemStatus；
+///  - 每 4s：0xD100 故障记录；
+///  - 连接时一次性：产品信息（序列号/硬件/软件版本）、MAC、蓝牙名、保护参数。
 /// </summary>
 public sealed class BatteryMonitor : IAsyncDisposable
 {
@@ -50,22 +53,13 @@ public sealed class BatteryMonitor : IAsyncDisposable
         await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct);
         _client = new ModbusSppClient(_transport);
 
+        // 一次性静态信息（产品信息/MAC/蓝牙名/保护参数）
+        await ReadStaticInfoAsync(ct);
+
         _cts = new CancellationTokenSource();
         _loop = Task.Run(() => PollLoopAsync(_cts.Token));
         IsRunning = true;
         ConnectionChanged?.Invoke(true);
-
-        // 先读一次产品信息并发布（含序列号/硬件/软件版本）
-        _ = Task.Run(async () =>
-        {
-            var snap = new BatterySnapshot();
-            await ReadProductInfoAsync(snap, ct);
-            if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.SoftwareVersion))
-            {
-                snap.IsValid = true;
-                SnapshotUpdated?.Invoke(snap);
-            }
-        });
         return true;
     }
 
@@ -89,57 +83,121 @@ public sealed class BatteryMonitor : IAsyncDisposable
         ConnectionChanged?.Invoke(false);
     }
 
+    private async Task ReadStaticInfoAsync(CancellationToken ct)
+    {
+        var snap = new BatterySnapshot();
+        try
+        {
+            var sn = await _client!.ReadRegistersAsync(BmsRegisters.ProdSnBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
+            if (sn is not null) snap.SerialNumber = BatterySnapshot.ParseAsciiRegs(sn);
+            var hw = await _client.ReadRegistersAsync(BmsRegisters.ProdHwBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
+            if (hw is not null) snap.HardwareVersion = BatterySnapshot.ParseAsciiRegs(hw);
+            var sw = await _client.ReadRegistersAsync(BmsRegisters.ProdSwBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
+            if (sw is not null) snap.SoftwareVersion = BatterySnapshot.ParseAsciiRegs(sw);
+            var mac = await _client.ReadRegistersAsync(BmsRegisters.MacBase, BmsRegisters.MacCount, TimeSpan.FromSeconds(2), ct);
+            if (mac is not null) snap.Mac = BatterySnapshot.ParseMac(mac);
+            var name = await _client.ReadRegistersAsync(BmsRegisters.BtNameBase, BmsRegisters.BtNameCount, TimeSpan.FromSeconds(2), ct);
+            if (name is not null) snap.BtName = BatterySnapshot.ParseAsciiRegs(name);
+            var prot = await _client.ReadRegistersAsync(BmsRegisters.ProtectBase, BmsRegisters.ProtectCount, TimeSpan.FromSeconds(2), ct);
+            if (prot is not null) snap.ProtectValues = ParseProtect(prot);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _log(LogLevel.Debug, $"[BMS] 静态信息读取部分失败：{ex.Message}");
+        }
+
+        if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.Mac) || snap.ProtectValues.Count > 0)
+        {
+            snap.IsValid = true;
+            SnapshotUpdated?.Invoke(snap);
+        }
+    }
+
+    private static IReadOnlyList<(string Name, ushort[] Values)> ParseProtect(byte[] data)
+    {
+        var list = new List<(string, ushort[])>();
+        if (data is null || data.Length < BmsRegisters.ProtectCount * 2)
+            return list;
+        foreach (var (name, baseAddr) in ProtectParams.Groups)
+        {
+            int idx = baseAddr - BmsRegisters.ProtectBase;
+            if (idx + 5 > BmsRegisters.ProtectCount)
+                break;
+            var vals = new ushort[5];
+            for (int i = 0; i < 5; i++)
+            {
+                vals[i] = (ushort)((data[(idx + i) * 2] << 8) | data[(idx + i) * 2 + 1]);
+            }
+            list.Add((name, vals));
+        }
+        return list;
+    }
+
     private async Task PollLoopAsync(CancellationToken ct)
     {
-        var rnd = new Random();
+        int cycle = 0;
         while (!ct.IsCancellationRequested)
         {
             try
             {
                 var snap = new BatterySnapshot();
-                await ReadProductInfoAsync(snap, ct);
 
+                // 1) 稳定窗口（每秒）
                 var realtime = await _client!.ReadRegistersAsync(
                     BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount, TimeSpan.FromSeconds(2), ct);
                 if (realtime is not null && BatterySnapshot.ParseRealtime(realtime) is { } rt)
                 {
-                    CopyTo(snap, rt);
+                    Merge(snap, rt);
+                    snap.UsingStableWindow = true;
                 }
                 else
                 {
                     if (realtime is null)
                     {
-                        _log(LogLevel.Debug, "[BMS] 0xD120 稳定窗口读取超时/失败，尝试兼容窗口");
+                        _log(LogLevel.Debug, "[BMS] 0xD120 稳定窗口读取超时/失败，尝试完整窗口");
+                    }
+                    else if (realtime.All(b => b == 0))
+                    {
+                        _log(LogLevel.Warn,
+                            "[BMS] 0xD120 窗口全零：设备固件未实现 Modbus 寄存器表（read_reg 空实现），请刷新当前固件。");
                     }
                     else
                     {
-                        // 有响应但 Magic 不符：全零 = 设备固件 read_reg 为空实现（早期固件）
-                        if (realtime.All(b => b == 0))
-                        {
-                            _log(LogLevel.Warn,
-                                "[BMS] 0xD120 窗口全零：设备固件未实现 Modbus 寄存器表（read_reg 空实现），请刷新当前固件。串口工具能读数据是走了 SIF/OWC 自定义总线，与 Modbus 无关。");
-                        }
-                        else
-                        {
-                            _log(LogLevel.Debug, $"[BMS] 0xD120 窗口 Magic 不符: {Convert.ToHexString(realtime)}");
-                        }
+                        _log(LogLevel.Debug, $"[BMS] 0xD120 窗口 Magic 不符: {Convert.ToHexString(realtime)}");
                     }
-                    // 兼容窗口回退
-                    var cells = await _client.ReadRegistersAsync(
-                        BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(2), ct);
-                    if (cells is not null && BatterySnapshot.ParseLegacyCells(cells) is { } legacy)
+                }
+
+                // 2) 完整窗口 + 状态字（每 2 个周期）
+                if (cycle % 2 == 0)
+                {
+                    var legacy = await _client.ReadRegistersAsync(
+                        BmsRegisters.CellsBase, BmsRegisters.CellsCount, TimeSpan.FromSeconds(3), ct);
+                    if (legacy is not null && BatterySnapshot.ParseLegacyWindow(legacy) is { } lw)
                     {
-                        CopyTo(snap, legacy);
+                        Merge(snap, lw);
                     }
-                    else
+                    else if (legacy is null)
                     {
-                        _log(LogLevel.Debug, "[BMS] 0xD000 兼容窗口读取失败");
+                        _log(LogLevel.Debug, "[BMS] 0xD000 完整窗口读取失败");
                     }
+
                     var status = await _client.ReadRegistersAsync(
                         BmsRegisters.SystemStatusBase, BmsRegisters.SystemStatusCount, TimeSpan.FromSeconds(2), ct);
                     if (status is not null)
                     {
                         snap.SystemStatus = BatterySnapshot.ParseSystemStatus(status);
+                    }
+                }
+
+                // 3) 故障记录（每 4 个周期）
+                if (cycle % 4 == 0)
+                {
+                    var fault = await _client.ReadRegistersAsync(
+                        BmsRegisters.FaultBase, BmsRegisters.FaultCount, TimeSpan.FromSeconds(2), ct);
+                    if (fault is not null)
+                    {
+                        snap.FaultRecordsHex = BatterySnapshot.ParseFaultRecords(fault);
                     }
                 }
 
@@ -161,53 +219,45 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 _log(LogLevel.Warn, $"[BMS] 轮询异常：{ex.Message}");
             }
 
+            cycle++;
             try { await Task.Delay(1000, ct); } catch (OperationCanceledException) { break; }
         }
         _log(LogLevel.Info, "[BMS] 轮询已停止");
     }
 
-    private async Task ReadProductInfoAsync(BatterySnapshot snap, CancellationToken ct)
+    /// <summary>把一次窗口解析结果合并进快照（不覆盖已填写的静态字段）。</summary>
+    private static void Merge(BatterySnapshot dst, BatterySnapshot src)
     {
-        try
-        {
-            if (snap.SerialNumber.Length == 0)
-            {
-                var sn = await _client!.ReadRegistersAsync(BmsRegisters.ProdSnBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
-                if (sn is not null) snap.SerialNumber = BatterySnapshot.ParseAsciiRegs(sn);
-            }
-            if (snap.HardwareVersion.Length == 0)
-            {
-                var hw = await _client!.ReadRegistersAsync(BmsRegisters.ProdHwBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
-                if (hw is not null) snap.HardwareVersion = BatterySnapshot.ParseAsciiRegs(hw);
-            }
-            if (snap.SoftwareVersion.Length == 0)
-            {
-                var sw = await _client!.ReadRegistersAsync(BmsRegisters.ProdSwBase, BmsRegisters.ProdCount, TimeSpan.FromSeconds(2), ct);
-                if (sw is not null) snap.SoftwareVersion = BatterySnapshot.ParseAsciiRegs(sw);
-            }
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _log(LogLevel.Debug, $"[BMS] 产品信息读取失败：{ex.Message}");
-        }
-    }
+        dst.IsValid = true;
+        if (src.PackVoltageV is not null) dst.PackVoltageV = src.PackVoltageV;
+        if (src.PackCurrentA is not null) dst.PackCurrentA = src.PackCurrentA;
+        if (src.SocPercent is not null) dst.SocPercent = src.SocPercent;
+        if (src.MaxTempC is not null) dst.MaxTempC = src.MaxTempC;
+        if (src.MinTempC is not null) dst.MinTempC = src.MinTempC;
+        if (src.MosTempC is not null) dst.MosTempC = src.MosTempC;
+        if (src.MaxCellMv is not null) dst.MaxCellMv = src.MaxCellMv;
+        if (src.MinCellMv is not null) dst.MinCellMv = src.MinCellMv;
+        if (src.CellDeltaMv is not null) dst.CellDeltaMv = src.CellDeltaMv;
 
-    private static void CopyTo(BatterySnapshot dst, BatterySnapshot src)
-    {
-        dst.IsValid = src.IsValid;
-        dst.UsingStableWindow = src.UsingStableWindow;
-        dst.PackVoltageV = src.PackVoltageV;
-        dst.PackCurrentA = src.PackCurrentA;
-        dst.SocPercent = src.SocPercent;
-        dst.MaxTempC = src.MaxTempC;
-        dst.MinTempC = src.MinTempC;
-        dst.MosTempC = src.MosTempC;
-        dst.MaxCellMv = src.MaxCellMv;
-        dst.MinCellMv = src.MinCellMv;
-        dst.CellDeltaMv = src.CellDeltaMv;
-        dst.CellVoltagesMv = src.CellVoltagesMv;
-        dst.SystemStatus = src.SystemStatus;
+        if (src.CellVoltagesMv.Count > 0) dst.CellVoltagesMv = src.CellVoltagesMv;
+        if (src.MaxCellPosition is not null) dst.MaxCellPosition = src.MaxCellPosition;
+        if (src.MinCellPosition is not null) dst.MinCellPosition = src.MinCellPosition;
+        if (src.TemperaturesC.Count > 0) dst.TemperaturesC = src.TemperaturesC;
+        if (src.ChargeCurrentA is not null) dst.ChargeCurrentA = src.ChargeCurrentA;
+        if (src.DischargeCurrentA is not null) dst.DischargeCurrentA = src.DischargeCurrentA;
+        if (src.SohPercent is not null) dst.SohPercent = src.SohPercent;
+        if (src.CapacityNowAh is not null) dst.CapacityNowAh = src.CapacityNowAh;
+        if (src.CapacityFullAh is not null) dst.CapacityFullAh = src.CapacityFullAh;
+        if (src.CapacityFactoryAh is not null) dst.CapacityFactoryAh = src.CapacityFactoryAh;
+        if (src.CycleTimes is not null) dst.CycleTimes = src.CycleTimes;
+        if (src.MdlFaultFirst is not null) dst.MdlFaultFirst = src.MdlFaultFirst;
+        if (src.MdlFaultSecond is not null) dst.MdlFaultSecond = src.MdlFaultSecond;
+        if (src.MdlFaultThird is not null) dst.MdlFaultThird = src.MdlFaultThird;
+        if (src.BalanceFlag1 is not null) dst.BalanceFlag1 = src.BalanceFlag1;
+        if (src.BalanceFlag2 is not null) dst.BalanceFlag2 = src.BalanceFlag2;
+        if (src.SystemStatus is not null) dst.SystemStatus = src.SystemStatus;
+        if (src.FaultRecordsHex.Count > 0) dst.FaultRecordsHex = src.FaultRecordsHex;
+        if (src.ProtectValues.Count > 0) dst.ProtectValues = src.ProtectValues;
     }
 
     public async ValueTask DisposeAsync()

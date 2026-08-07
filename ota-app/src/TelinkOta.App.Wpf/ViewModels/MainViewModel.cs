@@ -308,6 +308,45 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _swVersionText = "--";
     public string SwVersionText { get => _swVersionText; private set { _swVersionText = value; OnPropertyChanged(); } }
 
+    private string _macText = "--";
+    public string MacText { get => _macText; private set { _macText = value; OnPropertyChanged(); } }
+
+    private string _btNameText = "--";
+    public string BtNameText { get => _btNameText; private set { _btNameText = value; OnPropertyChanged(); } }
+
+    private string _sohText = "--";
+    public string SohText { get => _sohText; private set { _sohText = value; OnPropertyChanged(); } }
+
+    private string _capacityText = "--";
+    public string CapacityText { get => _capacityText; private set { _capacityText = value; OnPropertyChanged(); } }
+
+    private string _cyclesText = "--";
+    public string CyclesText { get => _cyclesText; private set { _cyclesText = value; OnPropertyChanged(); } }
+
+    private string _tempsListText = "--";
+    public string TempsListText { get => _tempsListText; private set { _tempsListText = value; OnPropertyChanged(); } }
+
+    private string _currentsText = "--";
+    public string CurrentsText { get => _currentsText; private set { _currentsText = value; OnPropertyChanged(); } }
+
+    private string _cellPosText = "--";
+    public string CellPosText { get => _cellPosText; private set { _cellPosText = value; OnPropertyChanged(); } }
+
+    private string _statusBitsText = "--";
+    public string StatusBitsText { get => _statusBitsText; private set { _statusBitsText = value; OnPropertyChanged(); } }
+
+    private string _faultText = "--";
+    public string FaultText { get => _faultText; private set { _faultText = value; OnPropertyChanged(); } }
+
+    private string _balanceText = "--";
+    public string BalanceText { get => _balanceText; private set { _balanceText = value; OnPropertyChanged(); } }
+
+    private string _protectText = "--";
+    public string ProtectText { get => _protectText; private set { _protectText = value; OnPropertyChanged(); } }
+
+    private string _faultRecordsText = "--";
+    public string FaultRecordsText { get => _faultRecordsText; private set { _faultRecordsText = value; OnPropertyChanged(); } }
+
     public async void ConnectBattery() => await ConnectBatteryAsync(SelectedDevice);
 
     private async Task ConnectBatteryAsync(BleDeviceInfo? device)
@@ -359,6 +398,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         PackVoltageText = snap.PackVoltageV is { } v ? $"{v:F2} V" : "--";
         PackCurrentText = snap.PackCurrentA is { } a ? $"{a:F2} A" : "--";
         SocText = snap.SocPercent is { } s ? $"{s} %" : "--";
+        SohText = snap.SohPercent is { } soh ? $"{soh} %" : "--";
         TempsText = snap.MaxTempC is { } tMax
             ? $"最高 {tMax:F1}℃ / 最低 {snap.MinTempC:F1}℃ / MOS {snap.MosTempC:F1}℃"
             : "--";
@@ -368,10 +408,47 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CellsText = snap.CellVoltagesMv.Count > 0
             ? string.Join("  ", snap.CellVoltagesMv.Select((mv, i) => $"{i + 1}:{mv}mV"))
             : "--";
-        StatusWordText = snap.SystemStatus is { } st ? $"0x{st:X4}" : "--";
+        CellPosText = snap.MaxCellPosition is { } mxp
+            ? $"最高单体 #{mxp} / 最低单体 #{snap.MinCellPosition}"
+            : "--";
+        TempsListText = snap.TemperaturesC.Count > 0
+            ? string.Join("  ", snap.TemperaturesC.Select((t, i) => $"T{i + 1}:{t:F1}℃"))
+            : "--";
+        CurrentsText = snap.ChargeCurrentA is { } ic
+            ? $"充电 {ic:F2} A / 放电 {snap.DischargeCurrentA:F2} A"
+            : "--";
+        CapacityText = snap.CapacityNowAh is { } cn
+            ? $"当前 {cn:F2} / 满充 {snap.CapacityFullAh:F2} / 出厂 {snap.CapacityFactoryAh:F2} Ah"
+            : "--";
+        CyclesText = snap.CycleTimes is { } cy ? $"{cy}" : "--";
+        StatusWordText = snap.SystemStatus is { } st ? $"0x{st:X8}" : "--";
+        StatusBitsText = snap.SystemStatus is { } stb
+            ? (SystemStatusBits.Decode(stb).Count > 0 ? string.Join(" ", SystemStatusBits.Decode(stb)) : "(无)")
+            : "--";
+        FaultText = BuildFaultText(snap);
+        BalanceText = snap.BalanceFlag1 is { } b1
+            ? $"均衡标志1=0x{b1:X4} 标志2=0x{snap.BalanceFlag2:X4}"
+            : "--";
+        ProtectText = snap.ProtectValues.Count > 0
+            ? string.Join(Environment.NewLine,
+                snap.ProtectValues.Select(g => $"{g.Name}: " + string.Join(" / ", g.Values.Select(v => v.ToString()))))
+            : "--";
+        FaultRecordsText = snap.FaultRecordsHex.Count > 0
+            ? string.Join(Environment.NewLine, snap.FaultRecordsHex)
+            : "--";
+        if (!string.IsNullOrEmpty(snap.Mac)) MacText = snap.Mac;
+        if (!string.IsNullOrEmpty(snap.BtName)) BtNameText = snap.BtName;
         if (!string.IsNullOrEmpty(snap.SerialNumber)) SerialText = snap.SerialNumber;
         if (!string.IsNullOrEmpty(snap.HardwareVersion)) HwVersionText = snap.HardwareVersion;
         if (!string.IsNullOrEmpty(snap.SoftwareVersion)) SwVersionText = snap.SoftwareVersion;
+    }
+
+    private static string BuildFaultText(BatterySnapshot snap)
+    {
+        if (snap.MdlFaultFirst is not { } f1)
+            return "--";
+        string D(ushort f) => FaultBits.Decode(f).Count > 0 ? string.Join(" ", FaultBits.Decode(f)) : "-";
+        return $"组1[{D(f1)}]  组2[{D(snap.MdlFaultSecond ?? 0)}]  组3[{D(snap.MdlFaultThird ?? 0)}]";
     }
 
     private void ClearBatteryPanel()
@@ -379,6 +456,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         PackVoltageText = "--"; PackCurrentText = "--"; SocText = "--"; TempsText = "--";
         CellRangeText = "--"; CellsText = "--"; StatusWordText = "--";
         SerialText = "--"; HwVersionText = "--"; SwVersionText = "--";
+        MacText = "--"; BtNameText = "--"; SohText = "--"; CapacityText = "--"; CyclesText = "--";
+        TempsListText = "--"; CurrentsText = "--"; CellPosText = "--"; StatusBitsText = "--";
+        FaultText = "--"; BalanceText = "--"; ProtectText = "--"; FaultRecordsText = "--";
     }
 
     // ================= 日志 =================
