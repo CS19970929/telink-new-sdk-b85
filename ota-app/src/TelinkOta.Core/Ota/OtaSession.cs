@@ -91,7 +91,10 @@ public sealed class OtaSession
     private TaskCompletionSource<OtaNotify>? _versionRspTcs;
     private TaskCompletionSource<OtaNotify>? _resultTcs;
     private TaskCompletionSource<bool>? _disconnectTcs;
+    private CancellationTokenSource? _sessionCts;
     private volatile bool _rebootDetected;
+    private volatile bool _unexpectedDisconnect;
+    private volatile bool _successResultReceived;
 
     public event Action<OtaState>? StateChanged;
     public event Action<int, int>? ProgressChanged; // (index, total)
@@ -109,6 +112,8 @@ public sealed class OtaSession
     {
         var sw = Stopwatch.StartNew();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(userCt);
+        cts.CancelAfter(_options.TotalTimeout);
+        _sessionCts = cts;
         var ct = cts.Token;
 
         _transport.OtaNotifyReceived += OnOtaNotify;
@@ -142,7 +147,8 @@ public sealed class OtaSession
                 try { await _transport.NegotiateMtuAsync(TimeSpan.FromSeconds(5), ct); }
                 catch { /* 尽力而为 */ }
 
-                int maxPdu = Math.Min(OtaConstants.PduMax, _options.MaxWriteLength - OtaConstants.PduOverhead);
+                int maxPdu = Math.Min(OtaConstants.PduMax,
+                    _transport.MaxWriteLength - OtaConstants.PduOverhead);
                 int effective = Math.Min(_options.PduLength, maxPdu);
                 effective = Math.Clamp(effective, OtaConstants.PduMin, OtaConstants.PduMax);
                 effective -= effective % OtaConstants.PduStep;
@@ -228,6 +234,8 @@ public sealed class OtaSession
                 () => _transport.WaitForTxQueueDrainedAsync(TimeSpan.FromSeconds(8), ct));
 
             // ---- End ----
+            // 必须在发送 END 前布置等待者；设备可能在 END 写调用返回前就上报 Result。
+            _resultTcs = new TaskCompletionSource<OtaNotify>(TaskCreationOptions.RunContinuationsAsynchronously);
             await Step(OtaState.SendingEnd, async () =>
             {
                 var end = OtaPacketEncoder.BuildEnd(_encoder!.LastIndex);
@@ -239,7 +247,6 @@ public sealed class OtaSession
             OtaResult? deviceResult = null;
             bool resultOk = await StepOrFalse(OtaState.WaitingResult, async () =>
             {
-                _resultTcs = new TaskCompletionSource<OtaNotify>(TaskCreationOptions.RunContinuationsAsynchronously);
                 try
                 {
                     if (useLegacy)
@@ -270,6 +277,10 @@ public sealed class OtaSession
                 catch (TimeoutException)
                 {
                     throw FailEx(OtaState.TimedOut, "等待设备 OTA Result 超时");
+                }
+                finally
+                {
+                    _resultTcs = null;
                 }
             });
             if (!resultOk && !_sm.IsTerminal)
@@ -327,6 +338,7 @@ public sealed class OtaSession
                 Outcome = OtaOutcome.Success,
                 Message = "OTA 升级成功",
                 FinalState = OtaState.Success,
+                DeviceResult = deviceResult,
                 PacketsSent = packetsSent,
                 BytesSent = (long)packetsSent * _pdu,
                 Duration = sw.Elapsed,
@@ -341,6 +353,11 @@ public sealed class OtaSession
             {
                 FailTo(OtaState.Cancelled, "用户取消");
                 return Done(sw, OtaOutcome.Cancelled, "用户取消", packetsSent);
+            }
+            if (_unexpectedDisconnect)
+            {
+                FailTo(OtaState.Disconnected, "OTA 期间连接意外断开");
+                return Done(sw, OtaOutcome.Disconnected, "OTA 期间连接意外断开，请重新连接后从头升级", packetsSent);
             }
             FailTo(OtaState.TimedOut, "会话超时");
             return Done(sw, OtaOutcome.TimedOut, "会话超时", packetsSent);
@@ -363,6 +380,7 @@ public sealed class OtaSession
             _transport.OtaNotifyReceived -= OnOtaNotify;
             _transport.SppNotifyReceived -= OnSppNotify;
             _transport.ConnectionLost -= OnConnectionLost;
+            _sessionCts = null;
             await SafeDisconnectAsync();
         }
     }
@@ -387,6 +405,8 @@ public sealed class OtaSession
                 _versionRspTcs?.TrySetResult(notify);
                 break;
             case OtaConstants.CmdOtaResult:
+                if (notify.Result == 0)
+                    _successResultReceived = true;
                 _resultTcs?.TrySetResult(notify);
                 break;
             default:
@@ -405,7 +425,8 @@ public sealed class OtaSession
 
     private void OnConnectionLost()
     {
-        if (_sm.Current == OtaState.WaitingReboot)
+        // 部分设备在 Result 通知后立即重启，此时状态线程可能仍停在 SendingEnd/WaitingResult。
+        if (_sm.Current == OtaState.WaitingReboot || _successResultReceived)
         {
             _rebootDetected = true;
             _disconnectTcs?.TrySetResult(true);
@@ -413,6 +434,11 @@ public sealed class OtaSession
         else
         {
             _log(LogLevel.Warn, $"连接意外断开（状态 {_sm.Current}）");
+            if (!_sm.IsTerminal)
+            {
+                _unexpectedDisconnect = true;
+                _sessionCts?.Cancel();
+            }
         }
     }
 

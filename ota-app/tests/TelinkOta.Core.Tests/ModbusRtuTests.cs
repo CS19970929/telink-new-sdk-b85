@@ -79,4 +79,38 @@ public class ModbusRtuTests
         var frame = new byte[] { 0x02, 0x03, 0x02, 0x41, 0x41, 0x00, 0x00 };
         Assert.That(ModbusRtu.TryParseReadResponse(frame, out _), Is.False);
     }
+
+    [Test]
+    public void BuildWriteMultipleRequest_UsesBigEndianAndLittleEndianCrc()
+    {
+        var frame = ModbusRtu.BuildWriteMultipleRequest(0x0100,
+            new byte[] { (byte)'c', (byte)'s', (byte)'-', (byte)'1' });
+        Assert.That(frame[..7], Is.EqualTo(new byte[] { 0x01, 0x10, 0x01, 0x00, 0x00, 0x02, 0x04 }));
+        Assert.That(frame[7..11], Is.EqualTo(new byte[] { (byte)'c', (byte)'s', (byte)'-', (byte)'1' }));
+        ushort crc = Crc16.Compute(frame.AsSpan(0, frame.Length - 2));
+        Assert.That(frame[^2], Is.EqualTo((byte)(crc & 0xFF)));
+        Assert.That(frame[^1], Is.EqualTo((byte)(crc >> 8)));
+    }
+
+    [Test]
+    public void BuildWriteMultipleRequest_RejectsInvalidDataLength()
+    {
+        Assert.Throws<ArgumentException>(() => ModbusRtu.BuildWriteMultipleRequest(0x0100, Array.Empty<byte>()));
+        Assert.Throws<ArgumentException>(() => ModbusRtu.BuildWriteMultipleRequest(0x0100, new byte[3]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ModbusRtu.BuildWriteMultipleRequest(0x0100, new byte[248]));
+    }
+
+    [Test]
+    public void ParseWriteMultipleResponse_ValidatesEchoAndCrc()
+    {
+        var response = new byte[] { 0x01, 0x10, 0x01, 0x00, 0x00, 0x02, 0, 0 };
+        ushort crc = Crc16.Compute(response.AsSpan(0, 6));
+        response[6] = (byte)(crc & 0xFF);
+        response[7] = (byte)(crc >> 8);
+
+        Assert.That(ModbusRtu.TryParseWriteMultipleResponse(response, 0x0100, 2), Is.True);
+        Assert.That(ModbusRtu.TryParseWriteMultipleResponse(response, 0x0101, 2), Is.False);
+        response[7] ^= 0x01;
+        Assert.That(ModbusRtu.TryParseWriteMultipleResponse(response, 0x0100, 2), Is.False);
+    }
 }

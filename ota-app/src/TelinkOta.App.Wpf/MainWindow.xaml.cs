@@ -49,6 +49,8 @@ public partial class MainWindow : Window
 
     private void DisconnectBatteryButton_Click(object sender, RoutedEventArgs e) => _vm.DisconnectBattery();
 
+    private void ChangeBluetoothNameButton_Click(object sender, RoutedEventArgs e) => _vm.ChangeBluetoothName();
+
     private void LogBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         LogBox.ScrollToEnd();

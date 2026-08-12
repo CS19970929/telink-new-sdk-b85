@@ -15,6 +15,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly Dispatcher _dispatcher;
     private readonly BleScanner _scanner = new();
+    private CancellationTokenSource? _scanCts;
     private CancellationTokenSource? _otaCts;
     private BatteryMonitor? _monitor;
     private bool _restartMonitorAfterOta;
@@ -64,7 +65,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsBusy
     {
         get => _isBusy;
-        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); OnPropertyChanged(nameof(CanConnectBattery)); }
+        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); }
     }
 
     private string _status = "就绪";
@@ -103,6 +104,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public MainViewModel(Dispatcher dispatcher)
     {
         _dispatcher = dispatcher;
+        _scanner.ScanStopped += message => Post(() =>
+        {
+            Status = message;
+            Log(LogLevel.Warn, message + "。请确认 Windows 蓝牙已开启且应用有蓝牙权限。" );
+        });
     }
 
     // ================= 扫描 =================
@@ -110,6 +116,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public async void StartScan()
     {
         if (_scanner.IsScanning) return;
+        _scanCts?.Cancel();
+        _scanCts?.Dispose();
+        _scanCts = new CancellationTokenSource();
+        CancellationToken ct = _scanCts.Token;
         Status = "扫描中...";
         Devices.Clear();
         _scanner.Start(info =>
@@ -129,14 +139,27 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(FilteredDevices));
             });
         });
-        await Task.Delay(15000);
-        StopScan();
-        Status = "扫描完成";
+        try
+        {
+            await Task.Delay(20000, ct);
+            if (!ct.IsCancellationRequested)
+            {
+                _scanner.Stop();
+                Status = $"扫描完成，共发现 {Devices.Count} 台设备";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户停止或启动了新一轮扫描。
+        }
     }
 
     public void StopScan()
     {
+        _scanCts?.Cancel();
         if (_scanner.IsScanning) _scanner.Stop();
+        if (Status == "扫描中...")
+            Status = $"扫描已停止，共发现 {Devices.Count} 台设备";
     }
 
     // ================= 固件 =================
@@ -270,7 +293,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool BatteryConnected
     {
         get => _batteryConnected;
-        private set { _batteryConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanConnectBattery)); }
+        private set { _batteryConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); }
     }
 
     public bool CanConnectBattery => SelectedDevice is not null && !BatteryConnected && !IsBusy;
@@ -313,6 +336,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private string _btNameText = "--";
     public string BtNameText { get => _btNameText; private set { _btNameText = value; OnPropertyChanged(); } }
+
+    private string _newBluetoothName = "";
+    public string NewBluetoothName
+    {
+        get => _newBluetoothName;
+        set { _newBluetoothName = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanChangeBluetoothName)); }
+    }
+
+    private bool _isChangingBluetoothName;
+    public bool CanChangeBluetoothName => BatteryConnected && !IsBusy && !_isChangingBluetoothName &&
+                                          !string.IsNullOrWhiteSpace(NewBluetoothName);
 
     private string _sohText = "--";
     public string SohText { get => _sohText; private set { _sohText = value; OnPropertyChanged(); } }
@@ -393,49 +427,76 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ClearBatteryPanel();
     }
 
+    public async void ChangeBluetoothName()
+    {
+        if (!CanChangeBluetoothName || _monitor is null)
+            return;
+
+        _isChangingBluetoothName = true;
+        OnPropertyChanged(nameof(CanChangeBluetoothName));
+        try
+        {
+            var result = await _monitor.ChangeBluetoothNameAsync(NewBluetoothName, CancellationToken.None);
+            if (result.Success)
+            {
+                BtNameText = result.FullName!;
+                NewBluetoothName = "";
+                Status = result.Message;
+                Log(LogLevel.Info, result.Message + " 设备列表名称将在下次扫描时刷新。");
+            }
+            else
+            {
+                Status = "蓝牙名修改失败";
+                Log(LogLevel.Error, result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Status = "蓝牙名修改失败";
+            Log(LogLevel.Error, $"蓝牙名修改异常：{ex.Message}");
+        }
+        finally
+        {
+            _isChangingBluetoothName = false;
+            OnPropertyChanged(nameof(CanChangeBluetoothName));
+        }
+    }
+
     private void ApplySnapshot(BatterySnapshot snap)
     {
-        PackVoltageText = snap.PackVoltageV is { } v ? $"{v:F2} V" : "--";
-        PackCurrentText = snap.PackCurrentA is { } a ? $"{a:F2} A" : "--";
-        SocText = snap.SocPercent is { } s ? $"{s} %" : "--";
-        SohText = snap.SohPercent is { } soh ? $"{soh} %" : "--";
-        TempsText = snap.MaxTempC is { } tMax
-            ? $"最高 {tMax:F1}℃ / 最低 {snap.MinTempC:F1}℃ / MOS {snap.MosTempC:F1}℃"
-            : "--";
-        CellRangeText = snap.MaxCellMv is { } mx
-            ? $"最高 {mx} mV / 最低 {snap.MinCellMv} mV / 压差 {snap.CellDeltaMv} mV"
-            : "--";
-        CellsText = snap.CellVoltagesMv.Count > 0
-            ? string.Join("  ", snap.CellVoltagesMv.Select((mv, i) => $"{i + 1}:{mv}mV"))
-            : "--";
-        CellPosText = snap.MaxCellPosition is { } mxp
-            ? $"最高单体 #{mxp} / 最低单体 #{snap.MinCellPosition}"
-            : "--";
-        TempsListText = snap.TemperaturesC.Count > 0
-            ? string.Join("  ", snap.TemperaturesC.Select((t, i) => $"T{i + 1}:{t:F1}℃"))
-            : "--";
-        CurrentsText = snap.ChargeCurrentA is { } ic
-            ? $"充电 {ic:F2} A / 放电 {snap.DischargeCurrentA:F2} A"
-            : "--";
-        CapacityText = snap.CapacityNowAh is { } cn
-            ? $"当前 {cn:F2} / 满充 {snap.CapacityFullAh:F2} / 出厂 {snap.CapacityFactoryAh:F2} Ah"
-            : "--";
-        CyclesText = snap.CycleTimes is { } cy ? $"{cy}" : "--";
-        StatusWordText = snap.SystemStatus is { } st ? $"0x{st:X8}" : "--";
-        StatusBitsText = snap.SystemStatus is { } stb
-            ? (SystemStatusBits.Decode(stb).Count > 0 ? string.Join(" ", SystemStatusBits.Decode(stb)) : "(无)")
-            : "--";
-        FaultText = BuildFaultText(snap);
-        BalanceText = snap.BalanceFlag1 is { } b1
-            ? $"均衡标志1=0x{b1:X4} 标志2=0x{snap.BalanceFlag2:X4}"
-            : "--";
-        ProtectText = snap.ProtectValues.Count > 0
-            ? string.Join(Environment.NewLine,
-                snap.ProtectValues.Select(g => $"{g.Name}: " + string.Join(" / ", g.Values.Select(v => v.ToString()))))
-            : "--";
-        FaultRecordsText = snap.FaultRecordsHex.Count > 0
-            ? string.Join(Environment.NewLine, snap.FaultRecordsHex)
-            : "--";
+        if (snap.PackVoltageV is { } v) PackVoltageText = $"{v:F2} V";
+        if (snap.PackCurrentA is { } a) PackCurrentText = $"{a:F2} A";
+        if (snap.SocPercent is { } s) SocText = $"{s} %";
+        if (snap.SohPercent is { } soh) SohText = $"{soh} %";
+        if (snap.MaxTempC is { } tMax)
+            TempsText = $"最高 {tMax:F1}℃ / 最低 {snap.MinTempC:F1}℃ / MOS {snap.MosTempC:F1}℃";
+        if (snap.MaxCellMv is { } mx)
+            CellRangeText = $"最高 {mx} mV / 最低 {snap.MinCellMv} mV / 压差 {snap.CellDeltaMv} mV";
+        if (snap.CellVoltagesMv.Count > 0)
+            CellsText = string.Join("  ", snap.CellVoltagesMv.Select((mv, i) => $"{i + 1}:{mv}mV"));
+        if (snap.MaxCellPosition is { } mxp)
+            CellPosText = $"最高单体 #{mxp} / 最低单体 #{snap.MinCellPosition}";
+        if (snap.TemperaturesC.Count > 0)
+            TempsListText = string.Join("  ", snap.TemperaturesC.Select((t, i) => $"T{i + 1}:{t:F1}℃"));
+        if (snap.ChargeCurrentA is { } ic)
+            CurrentsText = $"充电 {ic:F2} A / 放电 {snap.DischargeCurrentA:F2} A";
+        if (snap.CapacityNowAh is { } cn)
+            CapacityText = $"当前 {cn:F2} / 满充 {snap.CapacityFullAh:F2} / 出厂 {snap.CapacityFactoryAh:F2} Ah";
+        if (snap.CycleTimes is { } cy) CyclesText = $"{cy}";
+        if (snap.SystemStatus is { } st)
+        {
+            StatusWordText = $"0x{st:X8}";
+            var decoded = SystemStatusBits.Decode(st);
+            StatusBitsText = decoded.Count > 0 ? string.Join(" ", decoded) : "(无)";
+        }
+        if (snap.MdlFaultFirst is not null) FaultText = BuildFaultText(snap);
+        if (snap.BalanceFlag1 is { } b1)
+            BalanceText = $"均衡标志1=0x{b1:X4} 标志2=0x{snap.BalanceFlag2:X4}";
+        if (snap.ProtectValues.Count > 0)
+            ProtectText = string.Join(Environment.NewLine,
+                snap.ProtectValues.Select(g => $"{g.Name}: " + string.Join(" / ", g.Values.Select(v => v.ToString()))));
+        if (snap.FaultRecordsHex.Count > 0)
+            FaultRecordsText = string.Join(Environment.NewLine, snap.FaultRecordsHex);
         if (!string.IsNullOrEmpty(snap.Mac)) MacText = snap.Mac;
         if (!string.IsNullOrEmpty(snap.BtName)) BtNameText = snap.BtName;
         if (!string.IsNullOrEmpty(snap.SerialNumber)) SerialText = snap.SerialNumber;
@@ -457,6 +518,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CellRangeText = "--"; CellsText = "--"; StatusWordText = "--";
         SerialText = "--"; HwVersionText = "--"; SwVersionText = "--";
         MacText = "--"; BtNameText = "--"; SohText = "--"; CapacityText = "--"; CyclesText = "--";
+        NewBluetoothName = "";
         TempsListText = "--"; CurrentsText = "--"; CellPosText = "--"; StatusBitsText = "--";
         FaultText = "--"; BalanceText = "--"; ProtectText = "--"; FaultRecordsText = "--";
     }

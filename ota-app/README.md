@@ -50,7 +50,7 @@ ota-app/
 
 ```powershell
 dotnet build ota-app\TelinkOta.sln
-dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 64 个用例
+dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 94 个用例
 ```
 
 ## 使用
@@ -59,6 +59,7 @@ dotnet test  ota-app\tests\TelinkOta.Core.Tests\TelinkOta.Core.Tests.csproj   # 
 2. 界面分两页：
    - **电池信息**：扫描 → 选择设备 → 点"连接"→ 每秒刷新完整电池数据（见下节）；OTA 升级在此页的设备列表上也可操作。
    - **OTA 升级**：选择固件 BIN → 配置 → 开始/取消 OTA、进度显示。
+   - 电池连接后可输入 `BT_` 完整名称或名称后缀，点击“修改蓝牙名”；上位机通过 Modbus `0x10 @ 0x0100` 写入并立即读回校验。名称仅允许字母、数字、下划线和连字符，当前兼容读回窗口的完整名称上限为 24 字符。
 3. 选择固件 BIN → 工具自动完成：Size/Mark/CRC32 校验；若 BIN 未带合法尾部 CRC32 会自动补齐并提示。
 4. 点击"开始 OTA"。流程：连接 → 发现 OTA 服务 → 订阅通知 → MTU/PDU 协商 → 版本协商 → Start → 有界窗口传输（默认并发 6）→ End → 等待设备 Result → 设备重启 → 自动重连 → 版本复核（OTA 协商 + 尽力读取 BMS 软件版本寄存器 0xC022）→ 判定成功。OTA 期间电池监控自动暂停，升级完成后自动恢复。
 5. 任一步失败/超时/断连都会给出明确日志与建议，**不会续传，必须从头重试**；设备双区机制保证失败不损坏旧固件。

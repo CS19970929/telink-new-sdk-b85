@@ -60,7 +60,14 @@ public sealed class BatteryMonitor : IAsyncDisposable
             _transport = null;
             return false;
         }
-        await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct);
+        if (!await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct))
+        {
+            _log(LogLevel.Error, "[BMS] SPP 通知订阅失败");
+            _transport.ConnectionLost -= OnLinkLost;
+            await _transport.DisposeAsync();
+            _transport = null;
+            return false;
+        }
         _client = new ModbusSppClient(_transport);
 
         // 一次性静态信息（产品信息/MAC/蓝牙名/保护参数）
@@ -106,7 +113,11 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 _log(LogLevel.Warn, "[BMS] 重连后 SPP 服务未发现");
                 return false;
             }
-            await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct);
+            if (!await _transport.EnableSppNotificationsAsync(TimeSpan.FromSeconds(10), ct))
+            {
+                _log(LogLevel.Warn, "[BMS] 重连后 SPP 通知订阅失败");
+                return false;
+            }
             _client = new ModbusSppClient(_transport);
             _staticInfoReady = false;
             _linkLost = false;
@@ -145,7 +156,9 @@ public sealed class BatteryMonitor : IAsyncDisposable
         var snap = new BatterySnapshot();
         await ReadStaticInfoCoreAsync(snap, ct);
 
-        if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.Mac) || snap.ProtectValues.Count > 0)
+        if (!string.IsNullOrEmpty(snap.SerialNumber) || !string.IsNullOrEmpty(snap.HardwareVersion) ||
+            !string.IsNullOrEmpty(snap.SoftwareVersion) || !string.IsNullOrEmpty(snap.Mac) ||
+            !string.IsNullOrEmpty(snap.BtName) || snap.ProtectValues.Count > 0)
         {
             snap.IsValid = true;
             SnapshotUpdated?.Invoke(snap);
@@ -177,6 +190,39 @@ public sealed class BatteryMonitor : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 通过固件既有的 0x10/0x0100 接口修改蓝牙名。固件保存的是后缀并自动添加 BT_；
+    /// 只有写回包成功且随后 0x03 读回完全一致，才向调用方报告成功。
+    /// </summary>
+    public async Task<BluetoothNameChangeResult> ChangeBluetoothNameAsync(string input, CancellationToken ct)
+    {
+        if (!IsRunning || _client is null)
+            return BluetoothNameChangeResult.Fail("电池监控尚未连接。请先连接设备。");
+
+        if (!BluetoothNameCodec.TryNormalize(input, out string suffix, out string fullName, out string error))
+            return BluetoothNameChangeResult.Fail(error);
+
+        byte[] data = BluetoothNameCodec.EncodeSuffix(suffix);
+        _log(LogLevel.Info, $"[BMS] 写入蓝牙名 {fullName} ...");
+        bool written = await _client.WriteMultipleRegistersAsync(
+            BmsRegisters.BtNameBase, data, TimeSpan.FromSeconds(5), ct);
+        if (!written)
+            return BluetoothNameChangeResult.Fail("设备未确认蓝牙名写入（0x10 回包缺失或不匹配）。");
+
+        // 固件写入后同步更新运行时名称；短暂等待 Flash KV 保存和响应通知完全排空。
+        await Task.Delay(100, ct);
+        byte[]? readback = await _client.ReadRegistersAsync(
+            BmsRegisters.BtNameBase, BmsRegisters.BtNameCount, TimeSpan.FromSeconds(4), ct);
+        string actual = readback is null ? "" : BatterySnapshot.ParseAsciiRegs(readback);
+        if (!string.Equals(actual, fullName, StringComparison.Ordinal))
+            return BluetoothNameChangeResult.Fail(
+                $"设备已确认写入，但读回名称不一致（期望 {fullName}，实际 {(actual.Length == 0 ? "<空>" : actual)}）。");
+
+        var snap = new BatterySnapshot { IsValid = true, BtName = actual };
+        SnapshotUpdated?.Invoke(snap);
+        return BluetoothNameChangeResult.Ok(actual);
+    }
+
     private static IReadOnlyList<(string Name, ushort[] Values)> ParseProtect(byte[] data)
     {
         var list = new List<(string, ushort[])>();
@@ -206,15 +252,15 @@ public sealed class BatteryMonitor : IAsyncDisposable
         {
             try
             {
+                if (consecutiveFailures >= 3)
+                {
+                    _log(LogLevel.Warn, "[BMS] 连续 3 轮无新数据，执行链路自愈重连");
+                    _linkLost = true;
+                }
+
                 // 链路断开：自动重连（重连期间本轮跳过）
                 if (_linkLost || _client is null)
                 {
-                    if (consecutiveFailures >= 6)
-                    {
-                        _log(LogLevel.Warn, "[BMS] 连续多轮读取失败，执行链路自愈重连");
-                        consecutiveFailures = 0;
-                        _linkLost = true;
-                    }
                     if (_linkLost)
                     {
                         bool ok = await ReconnectAsync(ct);
@@ -224,6 +270,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
                             try { await Task.Delay(10000, ct); } catch (OperationCanceledException) { break; }
                             continue;
                         }
+                        consecutiveFailures = 0;
                     }
                 }
 
@@ -238,7 +285,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 _log(LogLevel.Debug, $"[BMS] 稳定窗口读 {sw0.ElapsedMilliseconds}ms -> {(realtime is null ? "失败" : $"{realtime.Length}B")}");
                 if (realtime is not null && BatterySnapshot.ParseRealtime(realtime) is { } rt)
                 {
-                    Merge(snap, rt);
+                    Merge(snap, rt, overwrite: true);
                     snap.UsingStableWindow = true;
                     anyOk = true;
                 }
@@ -269,7 +316,8 @@ public sealed class BatteryMonitor : IAsyncDisposable
                     _log(LogLevel.Debug, $"[BMS] 完整窗口读 {sw1.ElapsedMilliseconds}ms -> {(legacy is null ? "失败" : $"{legacy.Length}B")}");
                     if (legacy is not null && BatterySnapshot.ParseLegacyWindow(legacy) is { } lw)
                     {
-                        Merge(snap, lw);
+                        // 稳定窗口优先；完整窗口只补充单体、容量、故障等缺失字段。
+                        Merge(snap, lw, overwrite: false);
                         anyOk = true;
                     }
                     else if (legacy is null)
@@ -307,19 +355,21 @@ public sealed class BatteryMonitor : IAsyncDisposable
                         || !string.IsNullOrEmpty(fresh.SoftwareVersion) || fresh.ProtectValues.Count > 0)
                     {
                         _staticInfoReady = true;
-                        Merge(snap, fresh);
+                        Merge(snap, fresh, overwrite: false);
                     }
                 }
 
                 // 5) 用上一轮的完整窗口数据补齐本轮的缺口（Merge 只填 null，不覆盖新值）
                 if (last is not null)
                 {
-                    Merge(snap, last);
+                    Merge(snap, last, overwrite: false);
                 }
-                last = snap; // 保留最新（含完整窗口）数据供下轮补齐
 
-                if (snap.IsValid)
+                // 健康判定只看本轮真实读回，绝不能让历史基线伪装成新数据。
+                if (anyOk)
                 {
+                    snap.IsValid = true;
+                    last = snap; // 仅保存至少包含一项本轮新数据的快照
                     consecutiveFailures = 0;
                     SnapshotUpdated?.Invoke(snap);
                 }
@@ -335,6 +385,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
             }
             catch (Exception ex)
             {
+                consecutiveFailures++;
                 _log(LogLevel.Warn, $"[BMS] 轮询异常：{ex.Message}");
             }
 
@@ -345,42 +396,56 @@ public sealed class BatteryMonitor : IAsyncDisposable
     }
 
     /// <summary>把一次窗口解析结果合并进快照（不覆盖已填写的静态字段）。</summary>
-    private static void Merge(BatterySnapshot dst, BatterySnapshot src)
+    private static void Merge(BatterySnapshot dst, BatterySnapshot src, bool overwrite)
     {
-        dst.IsValid = true;
-        if (src.PackVoltageV is not null) dst.PackVoltageV = src.PackVoltageV;
-        if (src.PackCurrentA is not null) dst.PackCurrentA = src.PackCurrentA;
-        if (src.SocPercent is not null) dst.SocPercent = src.SocPercent;
-        if (src.MaxTempC is not null) dst.MaxTempC = src.MaxTempC;
-        if (src.MinTempC is not null) dst.MinTempC = src.MinTempC;
-        if (src.MosTempC is not null) dst.MosTempC = src.MosTempC;
-        if (src.MaxCellMv is not null) dst.MaxCellMv = src.MaxCellMv;
-        if (src.MinCellMv is not null) dst.MinCellMv = src.MinCellMv;
-        if (src.CellDeltaMv is not null) dst.CellDeltaMv = src.CellDeltaMv;
+        dst.IsValid |= src.IsValid;
+        if (src.PackVoltageV is not null && (overwrite || dst.PackVoltageV is null)) dst.PackVoltageV = src.PackVoltageV;
+        if (src.PackCurrentA is not null && (overwrite || dst.PackCurrentA is null)) dst.PackCurrentA = src.PackCurrentA;
+        if (src.SocPercent is not null && (overwrite || dst.SocPercent is null)) dst.SocPercent = src.SocPercent;
+        if (src.MaxTempC is not null && (overwrite || dst.MaxTempC is null)) dst.MaxTempC = src.MaxTempC;
+        if (src.MinTempC is not null && (overwrite || dst.MinTempC is null)) dst.MinTempC = src.MinTempC;
+        if (src.MosTempC is not null && (overwrite || dst.MosTempC is null)) dst.MosTempC = src.MosTempC;
+        if (src.MaxCellMv is not null && (overwrite || dst.MaxCellMv is null)) dst.MaxCellMv = src.MaxCellMv;
+        if (src.MinCellMv is not null && (overwrite || dst.MinCellMv is null)) dst.MinCellMv = src.MinCellMv;
+        if (src.CellDeltaMv is not null && (overwrite || dst.CellDeltaMv is null)) dst.CellDeltaMv = src.CellDeltaMv;
 
-        if (src.CellVoltagesMv.Count > 0) dst.CellVoltagesMv = src.CellVoltagesMv;
-        if (src.MaxCellPosition is not null) dst.MaxCellPosition = src.MaxCellPosition;
-        if (src.MinCellPosition is not null) dst.MinCellPosition = src.MinCellPosition;
-        if (src.TemperaturesC.Count > 0) dst.TemperaturesC = src.TemperaturesC;
-        if (src.ChargeCurrentA is not null) dst.ChargeCurrentA = src.ChargeCurrentA;
-        if (src.DischargeCurrentA is not null) dst.DischargeCurrentA = src.DischargeCurrentA;
-        if (src.SohPercent is not null) dst.SohPercent = src.SohPercent;
-        if (src.CapacityNowAh is not null) dst.CapacityNowAh = src.CapacityNowAh;
-        if (src.CapacityFullAh is not null) dst.CapacityFullAh = src.CapacityFullAh;
-        if (src.CapacityFactoryAh is not null) dst.CapacityFactoryAh = src.CapacityFactoryAh;
-        if (src.CycleTimes is not null) dst.CycleTimes = src.CycleTimes;
-        if (src.MdlFaultFirst is not null) dst.MdlFaultFirst = src.MdlFaultFirst;
-        if (src.MdlFaultSecond is not null) dst.MdlFaultSecond = src.MdlFaultSecond;
-        if (src.MdlFaultThird is not null) dst.MdlFaultThird = src.MdlFaultThird;
-        if (src.BalanceFlag1 is not null) dst.BalanceFlag1 = src.BalanceFlag1;
-        if (src.BalanceFlag2 is not null) dst.BalanceFlag2 = src.BalanceFlag2;
-        if (src.SystemStatus is not null) dst.SystemStatus = src.SystemStatus;
-        if (src.FaultRecordsHex.Count > 0) dst.FaultRecordsHex = src.FaultRecordsHex;
-        if (src.ProtectValues.Count > 0) dst.ProtectValues = src.ProtectValues;
+        if (src.CellVoltagesMv.Count > 0 && (overwrite || dst.CellVoltagesMv.Count == 0)) dst.CellVoltagesMv = src.CellVoltagesMv;
+        if (src.MaxCellPosition is not null && (overwrite || dst.MaxCellPosition is null)) dst.MaxCellPosition = src.MaxCellPosition;
+        if (src.MinCellPosition is not null && (overwrite || dst.MinCellPosition is null)) dst.MinCellPosition = src.MinCellPosition;
+        if (src.TemperaturesC.Count > 0 && (overwrite || dst.TemperaturesC.Count == 0)) dst.TemperaturesC = src.TemperaturesC;
+        if (src.ChargeCurrentA is not null && (overwrite || dst.ChargeCurrentA is null)) dst.ChargeCurrentA = src.ChargeCurrentA;
+        if (src.DischargeCurrentA is not null && (overwrite || dst.DischargeCurrentA is null)) dst.DischargeCurrentA = src.DischargeCurrentA;
+        if (src.SohPercent is not null && (overwrite || dst.SohPercent is null)) dst.SohPercent = src.SohPercent;
+        if (src.CapacityNowAh is not null && (overwrite || dst.CapacityNowAh is null)) dst.CapacityNowAh = src.CapacityNowAh;
+        if (src.CapacityFullAh is not null && (overwrite || dst.CapacityFullAh is null)) dst.CapacityFullAh = src.CapacityFullAh;
+        if (src.CapacityFactoryAh is not null && (overwrite || dst.CapacityFactoryAh is null)) dst.CapacityFactoryAh = src.CapacityFactoryAh;
+        if (src.CycleTimes is not null && (overwrite || dst.CycleTimes is null)) dst.CycleTimes = src.CycleTimes;
+        if (src.MdlFaultFirst is not null && (overwrite || dst.MdlFaultFirst is null)) dst.MdlFaultFirst = src.MdlFaultFirst;
+        if (src.MdlFaultSecond is not null && (overwrite || dst.MdlFaultSecond is null)) dst.MdlFaultSecond = src.MdlFaultSecond;
+        if (src.MdlFaultThird is not null && (overwrite || dst.MdlFaultThird is null)) dst.MdlFaultThird = src.MdlFaultThird;
+        if (src.BalanceFlag1 is not null && (overwrite || dst.BalanceFlag1 is null)) dst.BalanceFlag1 = src.BalanceFlag1;
+        if (src.BalanceFlag2 is not null && (overwrite || dst.BalanceFlag2 is null)) dst.BalanceFlag2 = src.BalanceFlag2;
+        if (src.SystemStatus is not null && (overwrite || dst.SystemStatus is null)) dst.SystemStatus = src.SystemStatus;
+        if (src.FaultRecordsHex.Count > 0 && (overwrite || dst.FaultRecordsHex.Count == 0)) dst.FaultRecordsHex = src.FaultRecordsHex;
+        if (src.ProtectValues.Count > 0 && (overwrite || dst.ProtectValues.Count == 0)) dst.ProtectValues = src.ProtectValues;
+
+        if (!string.IsNullOrEmpty(src.Mac) && (overwrite || string.IsNullOrEmpty(dst.Mac))) dst.Mac = src.Mac;
+        if (!string.IsNullOrEmpty(src.BtName) && (overwrite || string.IsNullOrEmpty(dst.BtName))) dst.BtName = src.BtName;
+        if (!string.IsNullOrEmpty(src.SerialNumber) && (overwrite || string.IsNullOrEmpty(dst.SerialNumber))) dst.SerialNumber = src.SerialNumber;
+        if (!string.IsNullOrEmpty(src.HardwareVersion) && (overwrite || string.IsNullOrEmpty(dst.HardwareVersion))) dst.HardwareVersion = src.HardwareVersion;
+        if (!string.IsNullOrEmpty(src.SoftwareVersion) && (overwrite || string.IsNullOrEmpty(dst.SoftwareVersion))) dst.SoftwareVersion = src.SoftwareVersion;
     }
 
     public async ValueTask DisposeAsync()
     {
         await StopAsync();
     }
+}
+
+public sealed record BluetoothNameChangeResult(bool Success, string Message, string? FullName)
+{
+    public static BluetoothNameChangeResult Ok(string fullName) =>
+        new(true, $"蓝牙名已修改为 {fullName}，并已读回确认。", fullName);
+
+    public static BluetoothNameChangeResult Fail(string message) => new(false, message, null);
 }

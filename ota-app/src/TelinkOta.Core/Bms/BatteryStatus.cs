@@ -225,7 +225,9 @@ public sealed class BatterySnapshot
     {
         if (data is null || data.Length < 4)
             return null;
-        return (uint)((Be16(data, 0) << 16) | Be16(data, 1));
+        // 固件 modbus_rtu.c：0xD115 返回 SystemStatus 低 16 位，0xD116 返回高 16 位；
+        // 每个寄存器内部仍按 Modbus 大端传输。
+        return (uint)(Be16(data, 0) | (Be16(data, 1) << 16));
     }
 
     /// <summary>解析故障记录窗口（0xD100~0xD114，21 寄存器）为十六进制行。</summary>

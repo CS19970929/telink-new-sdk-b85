@@ -54,7 +54,7 @@ public class FirmwareParserTests
     [Test]
     public void Parse_BinWithValidTailCrc_VerifiesAndKeeps()
     {
-        // SDK 后处理格式：文件 = 固件 + CRC32，Size@0x18 可为 len-4（链接值）
+        // 兼容旧格式：若 Size@0x18 为 len-4，发送前必须规范化为含 CRC 的总长并重算 CRC。
         int size = 0x1000;
         var bin = BuildBin(size);
         uint crc = Crc32.Compute(bin);
@@ -69,8 +69,11 @@ public class FirmwareParserTests
             Assert.That(result.Success, Is.True, result.Error);
             Assert.That(result.Firmware!.CrcVerified, Is.True);
             Assert.That(result.Firmware.CrcWasAppended, Is.False);
-            Assert.That(result.Firmware.Payload.Length, Is.EqualTo(size + 4)); // 原样发送
-            Assert.That(result.Firmware.DeclaredSize, Is.EqualTo((uint)size));
+            Assert.That(result.Firmware.Payload.Length, Is.EqualTo(size + 4));
+            Assert.That(result.Firmware.DeclaredSize, Is.EqualTo((uint)size + 4));
+            Assert.That(BitConverter.ToUInt32(result.Firmware.Payload, 0x18), Is.EqualTo((uint)size + 4));
+            Assert.That(Crc32.Compute(result.Firmware.Payload.AsSpan(0, size)),
+                Is.EqualTo(BitConverter.ToUInt32(result.Firmware.Payload, size)));
         }
         finally { File.Delete(path); }
     }
@@ -187,6 +190,7 @@ public class FirmwareParserTests
         {
             var result = FirmwareParser.Parse(path, MaxSize);
             Assert.That(result.Success, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(FirmwareCheckCode.MarkMissing));
             Assert.That(result.Error, Does.Contain("Mark"));
         }
         finally { File.Delete(path); }

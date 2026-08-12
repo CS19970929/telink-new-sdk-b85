@@ -47,7 +47,7 @@
 | 0x10 | 4 | IRQ 向量 | `B6 80 00 00` |
 | **0x18** | **4** | **Firmware Size，小端 u32。本 SDK 后处理格式：= 文件总长（含尾部 4 字节 CRC32）**（tl_check_fw2.exe 追加 CRC 后回写；实测 0x163C4 = 91076 = 文件长度） | `C4 63 01 00` = 0x163C4 = 91076 |
 | 尾部 | 21+ | SDK 版本串 `$$$tc_ble_single_sdk_V3.4.2.8$$$` | 实测 bin 尾部 |
-| 尾部 | 4 | **可选的 CRC32（官方 bin_append 追加，LE 存储）** | 本实测 bin 无有效 CRC |
+| 尾部 | 4 | **Telink CRC32（官方后处理追加，LE 存储）** | 本工程实测 BIN 带有效 CRC，见下方向量 |
 
 结论：
 - **Firmware Mark = 偏移 0x08 的 4 字节 `0x544C4E4B`**。设备收到非此 Mark 返回 `OTA_FIRMWARE_MARK_ERR (0x0A)`。
@@ -156,7 +156,7 @@ startOta:
 |---|---|
 | 首包 Index 0 还是 1 | **0**（官方 App + 文档示例一致） |
 | Big PDU 支持 | 16~240、16 的整数倍；实际受 `MTU-7` 限制 |
-| Firmware Size 语义 | 偏移 0x18 小端，链接二进制总长，不含尾部 CRC |
+| Firmware Size 语义 | 偏移 0x18 小端，官方后处理后等于文件总长，包含尾部 4 字节 CRC32 |
 | Firmware Mark | 偏移 0x08 的 `0x544C4E4B` |
 | CRC32 | init 0xFFFFFFFF、reflected 0xEDB88320、无 final xor、尾部 4 字节 LE |
 | CRC16 | CRC-16/MODBUS（0xA001），覆盖 Index+Data+补齐，wire 低字节在前 |

@@ -1,5 +1,6 @@
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
+using Windows.Devices.Enumeration;
 
 namespace TelinkOta.App.Wpf.Ble;
 
@@ -12,6 +13,9 @@ public sealed class BleScanner : IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<ulong, BleDeviceInfo> _devices = new();
     private Action<BleDeviceInfo>? _onUpdated;
+    private bool _stopRequested;
+
+    public event Action<string>? ScanStopped;
 
     public BleScanner()
     {
@@ -23,7 +27,7 @@ public sealed class BleScanner : IDisposable
             OutOfRangeTimeout = TimeSpan.FromSeconds(10),
         };
         _watcher.Received += OnReceived;
-        _watcher.Stopped += (_, _) => { };
+        _watcher.Stopped += OnStopped;
     }
 
     public IReadOnlyList<BleDeviceInfo> Devices
@@ -36,12 +40,19 @@ public sealed class BleScanner : IDisposable
     public void Start(Action<BleDeviceInfo> onUpdated)
     {
         _onUpdated = onUpdated;
-        lock (_gate) { _devices.Clear(); }
+        _stopRequested = false;
+
+        // 先重放本进程缓存，避免“停止后立即重扫”时列表空白；同时异步加载 Windows 已知设备。
+        foreach (var cached in Devices)
+            _onUpdated(cached);
+
         _watcher.Start();
+        _ = LoadKnownDevicesAsync();
     }
 
     public void Stop()
     {
+        _stopRequested = true;
         if (IsScanning)
             _watcher.Stop();
         _onUpdated = null;
@@ -89,8 +100,69 @@ public sealed class BleScanner : IDisposable
         _onUpdated?.Invoke(info);
     }
 
+    private async Task LoadKnownDevicesAsync()
+    {
+        try
+        {
+            var known = await DeviceInformation.FindAllAsync(BluetoothLEDevice.GetDeviceSelector());
+            var tasks = known.Select(async deviceInfo =>
+            {
+                BluetoothLEDevice? device = null;
+                try
+                {
+                    device = await BluetoothLEDevice.FromIdAsync(deviceInfo.Id);
+                    if (device is null)
+                        return;
+
+                    BleDeviceInfo info;
+                    lock (_gate)
+                    {
+                        _devices.TryGetValue(device.BluetoothAddress, out var existing);
+                        string name = !string.IsNullOrWhiteSpace(device.Name)
+                            ? device.Name
+                            : !string.IsNullOrWhiteSpace(deviceInfo.Name) ? deviceInfo.Name : existing?.Name ?? "";
+                        info = new BleDeviceInfo
+                        {
+                            Address = device.BluetoothAddress,
+                            Name = name,
+                            LocalName = string.IsNullOrEmpty(name) ? existing?.LocalName : name,
+                            Rssi = existing?.Rssi ?? -127,
+                            Connectable = existing?.Connectable ?? true,
+                            ServiceUuids = existing?.ServiceUuids ?? Array.Empty<Guid>(),
+                            FirstSeen = existing?.FirstSeen ?? DateTime.Now,
+                        };
+                        _devices[info.Address] = info;
+                    }
+                    _onUpdated?.Invoke(info);
+                }
+                catch
+                {
+                    // 单个 Windows 缓存项失效不应终止实时广播扫描。
+                }
+                finally
+                {
+                    device?.Dispose();
+                }
+            });
+            await Task.WhenAll(tasks);
+        }
+        catch
+        {
+            // 已知设备枚举只是加速路径；失败时仍由 AdvertisementWatcher 正常发现。
+        }
+    }
+
+    private void OnStopped(BluetoothLEAdvertisementWatcher sender,
+        BluetoothLEAdvertisementWatcherStoppedEventArgs args)
+    {
+        if (!_stopRequested)
+            ScanStopped?.Invoke($"BLE 扫描被系统停止：{args.Error}");
+    }
+
     public void Dispose()
     {
         Stop();
+        _watcher.Received -= OnReceived;
+        _watcher.Stopped -= OnStopped;
     }
 }

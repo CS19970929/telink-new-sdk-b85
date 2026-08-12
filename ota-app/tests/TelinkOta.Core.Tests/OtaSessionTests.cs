@@ -45,6 +45,7 @@ public class OtaSessionTests
         public int MaxWrite = 20;
         public byte[]? SppResponseData;
         public int FailConnectAfterN;
+        public bool ImmediateResult;
 
         private int _connectCount;
         private int _versionReqCount;
@@ -111,6 +112,11 @@ public class OtaSessionTests
             }
             if (opcode == OtaConstants.CmdOtaEnd && ResultCode is { } code)
             {
+                if (ImmediateResult)
+                {
+                    OtaNotifyReceived?.Invoke(new byte[] { 0x06, 0xFF, code });
+                    return true;
+                }
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(5);
@@ -188,6 +194,20 @@ public class OtaSessionTests
         // END index_max = ceil(516/16)-1 = 33-1 = 32
         Assert.That(t.Writes[^2][2] | (t.Writes[^2][3] << 8), Is.EqualTo(32));
         Assert.That(t.Writes[^2][4] | (t.Writes[^2][5] << 8), Is.EqualTo(32 ^ 0xFFFF));
+    }
+
+    [Test]
+    public async Task ResultArrivesBeforeEndWriteReturns_IsNotLost()
+    {
+        var t = new FakeTransport { ResultCode = 0, ImmediateResult = true };
+        var opts = DefaultOptions();
+        opts.RebootDetectTimeout = TimeSpan.FromMilliseconds(20);
+        var session = new OtaSession(t, MakeFirmware(), opts);
+
+        var result = await session.RunAsync(CancellationToken.None);
+
+        Assert.That(result.Outcome, Is.EqualTo(OtaOutcome.Success), result.Message);
+        Assert.That(result.DeviceResult?.Code, Is.EqualTo(0));
     }
 
     [Test]

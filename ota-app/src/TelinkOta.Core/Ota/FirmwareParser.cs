@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Buffers.Binary;
 
 namespace TelinkOta.Core.Ota;
 
@@ -28,12 +29,12 @@ public static class FirmwareParser
             return ParseResult.Fail(FirmwareCheckCode.FileTooSmall,
                 $"文件过小（{file.Length} B < {OtaConstants.MinFirmwareHeader} B），不是合法的 Telink BIN。");
 
-        uint declared = BitConverter.ToUInt32(file, OtaConstants.FwSizeOffset);
+        uint declared = BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(OtaConstants.FwSizeOffset, 4));
         if (declared == 0)
             errors.Add("偏移 0x18 声明尺寸为 0。");
 
         bool markValid = file.Length >= OtaConstants.FwMarkOffset + 4 &&
-                         BitConverter.ToUInt32(file, OtaConstants.FwMarkOffset) == OtaConstants.FirmwareMark;
+                         BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(OtaConstants.FwMarkOffset, 4)) == OtaConstants.FirmwareMark;
         if (!markValid)
         {
             string markHex = file.Length >= OtaConstants.FwMarkOffset + 4
@@ -48,7 +49,7 @@ public static class FirmwareParser
         // ---- 尾部 CRC32 检测（覆盖文件前 len-4 字节）----
         bool hasValidTailCrc = file.Length >= OtaConstants.Crc32TailLength + OtaConstants.MinFirmwareHeader &&
                                Crc32.Compute(file.AsSpan(0, file.Length - 4)) ==
-                               BitConverter.ToUInt32(file, file.Length - 4);
+                               BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(file.Length - 4, 4));
 
         // ---- 语义判定：本 SDK 后处理格式要求 Size@0x18 == 文件总长（含 CRC）----
         bool sdkPostProcessed = declared == file.Length;
@@ -57,9 +58,11 @@ public static class FirmwareParser
         {
             if (hasValidTailCrc)
             {
-                // 已带合法尾部 CRC32：原样发送（Size@0x18 应为 len 或 len-4）
                 if (declared != file.Length && declared != file.Length - 4)
-                    warnings.Add($"Size@0x18=0x{declared:X} 与文件长度 0x{file.Length:X} 不一致（期望 len 或 len-4），以设备读取为准。");
+                    return ParseResult.Fail(FirmwareCheckCode.DeclaredSizeExceedsFile,
+                        $"Size@0x18=0x{declared:X} 与含 CRC 的文件长度 0x{file.Length:X} 不一致。", warnings);
+                if (declared == file.Length - 4)
+                    warnings.Add("检测到旧格式 Size 不含尾部 CRC32；发送前将回写为含 CRC 的文件总长并重新计算尾 CRC。");
             }
             else if (sdkPostProcessed && declared == file.Length)
             {
@@ -84,10 +87,11 @@ public static class FirmwareParser
         }
 
         if (errors.Count > 0)
-            return ParseResult.Fail(FirmwareCheckCode.DeclaredSizeZero, string.Join(" ", errors), warnings);
+            return ParseResult.Fail(declared == 0 ? FirmwareCheckCode.DeclaredSizeZero : FirmwareCheckCode.MarkMissing,
+                string.Join(" ", errors), warnings);
 
         // ---- 尺寸边界检查（按设备将收到的总字节数 = Size@0x18）----
-        uint effectiveSize = hasValidTailCrc ? declared : declared + 4;
+        uint effectiveSize = hasValidTailCrc ? (uint)file.Length : declared + 4;
         if (effectiveSize > maxFirmwareSize)
             return ParseResult.Fail(FirmwareCheckCode.DeclaredSizeTooBig,
                 $"声明尺寸 0x{effectiveSize:X}（{effectiveSize} B）超过目标分区上限 0x{maxFirmwareSize:X}（{maxFirmwareSize} B）。", warnings);
@@ -101,22 +105,29 @@ public static class FirmwareParser
         bool crcVerified = hasValidTailCrc;
         if (hasValidTailCrc)
         {
-            payload = file;
+            payload = file.ToArray();
+            if (declared != payload.Length)
+            {
+                BinaryPrimitives.WriteUInt32LittleEndian(
+                    payload.AsSpan(OtaConstants.FwSizeOffset, 4), (uint)payload.Length);
+                uint normalizedCrc = Crc32.Compute(payload.AsSpan(0, payload.Length - 4));
+                BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(payload.Length - 4, 4), normalizedCrc);
+            }
         }
         else
         {
             payload = new byte[file.Length + 4];
             file.CopyTo(payload, 0);
             // 先回写 Size@0x18 = 总长（与 tl_check_fw2.exe 后处理语义一致）
-            BitConverter.TryWriteBytes(payload.AsSpan(OtaConstants.FwSizeOffset, 4), (uint)payload.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(OtaConstants.FwSizeOffset, 4), (uint)payload.Length);
             // CRC32 必须覆盖最终内容（含回写后的 Size 字段）
             uint crc = Crc32.Compute(payload.AsSpan(0, payload.Length - 4));
-            BitConverter.TryWriteBytes(payload.AsSpan(payload.Length - 4, 4), crc);
+            BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(payload.Length - 4, 4), crc);
             crcWasAppended = true;
         }
 
         ushort binVersion = file.Length >= OtaConstants.FwVersionOffset + 2
-            ? BitConverter.ToUInt16(file, OtaConstants.FwVersionOffset)
+            ? BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(OtaConstants.FwVersionOffset, 2))
             : (ushort)0;
 
         return ParseResult.Ok(new OtaFirmware
@@ -129,7 +140,7 @@ public static class FirmwareParser
             CrcWasAppended = crcWasAppended,
             CrcVerified = crcVerified,
             SdkVersion = ExtractSdkVersion(file),
-            Sha256Hex = Convert.ToHexString(SHA256.HashData(file)).ToLowerInvariant(),
+            Sha256Hex = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant(),
         }, warnings);
     }
 

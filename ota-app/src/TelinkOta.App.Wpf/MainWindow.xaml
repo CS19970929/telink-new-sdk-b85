@@ -67,6 +67,14 @@
                                         <TextBlock Text="{Binding BatteryStateText}" FontWeight="Bold" Foreground="DodgerBlue"/>
                                         <TextBlock Text="{Binding MacText, StringFormat=MAC: {0}}" Margin="0,3,0,0"/>
                                         <TextBlock Text="{Binding BtNameText, StringFormat=蓝牙名: {0}}"/>
+                                        <DockPanel Margin="0,4,8,0">
+                                            <Button Content="修改蓝牙名" Width="82" DockPanel.Dock="Right"
+                                                    IsEnabled="{Binding CanChangeBluetoothName}"
+                                                    Click="ChangeBluetoothNameButton_Click"/>
+                                            <TextBox Text="{Binding NewBluetoothName, UpdateSourceTrigger=PropertyChanged}"
+                                                     Margin="0,0,6,0" MaxLength="24"
+                                                     ToolTip="输入 BT_完整名称或后缀；仅允许字母、数字、_、-"/>
+                                        </DockPanel>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="{Binding SerialText, StringFormat=序列号: {0}}"/>

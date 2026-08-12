@@ -17,12 +17,16 @@ internal static class Program
 {
     /// <summary>true 时跳过 SPP 各项扫描，只跑 OTA 尺寸探针。</summary>
     private static bool _otaOnly;
+    private static bool _full;
 
     private static async Task Main(string[] args)
     {
         Console.WriteLine("=== Telink SPP Modbus 诊断工具 v3 ===");
         _otaOnly = args.Contains("ota", StringComparer.OrdinalIgnoreCase);
-        string filter = args.FirstOrDefault(a => !a.Equals("ota", StringComparison.OrdinalIgnoreCase)) ?? "A4C13816025A";
+        _full = args.Contains("full", StringComparer.OrdinalIgnoreCase);
+        string filter = args.FirstOrDefault(a =>
+            !a.Equals("ota", StringComparison.OrdinalIgnoreCase) &&
+            !a.Equals("full", StringComparison.OrdinalIgnoreCase)) ?? "A4C13816025A";
 
         ulong? address = await ScanForDeviceAsync(filter);
         if (address is null)
@@ -78,14 +82,24 @@ internal static class Program
             notify.ValueChanged += (_, args) =>
             {
                 var data = args.CharacteristicValue.ToArray();
-                acc.AddRange(data);
+                lock (acc) acc.AddRange(data);
             };
 
             var cccd = await notify.WriteClientCharacteristicConfigurationDescriptorAsync(
                 GattClientCharacteristicConfigurationDescriptorValue.Notify);
             Console.WriteLine($"  CCCD: {cccd}");
 
-            if (!_otaOnly)
+            // 默认模式严格只读，避免诊断工具在未明确授权时执行写探针或 OTA 探针。
+            if (!_full && !_otaOnly)
+            {
+                await QuickReadAsync(write, acc);
+                await notify.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    GattClientCharacteristicConfigurationDescriptorValue.None);
+                device.Dispose();
+                return;
+            }
+
+            if (_full)
             {
             // ---- 全从机地址扫描 0x03 读（每地址 400ms）----
             Console.WriteLine("\n--- 从机地址扫描（0x01~0xFF，0xD120 qty=11）---");
@@ -218,6 +232,8 @@ internal static class Program
             Console.WriteLine($"  结果: realtime {okRealtime}/20, full {okFull}/20, status {okStatus}/20, 连续相同内容 {staleCount} 次");
             } // end if(!_otaOnly)
 
+            if (_otaOnly)
+            {
             // ---- OTA 尺寸上限探针：START_EXT + 首包（Size@0x18=X），观察设备 Result ----
             Console.WriteLine("\n--- OTA 尺寸上限探针 ---");
             Console.WriteLine("  （发送 START_EXT + 首两包携带不同 Size@0x18，设备接受则无响应/拒绝则回 0x0B）");
@@ -239,7 +255,10 @@ internal static class Program
 
                 uint[] sizes = { 0x163C4, 0x173A4, 0x173A8, 0x18000, 0x19000, 0x1E000, 0x1F000 };
                 // 使用真实 BIN 的前 32 字节作为首两包数据（Mark/结构完全真实，仅替换 Size 字段）
-                byte[] realFw = File.ReadAllBytes(FindRealBin());
+                string? realBin = FindRealBin();
+                if (realBin is null)
+                    throw new FileNotFoundException("未找到 OTA 探针所需的真实 BIN");
+                byte[] realFw = File.ReadAllBytes(realBin);
                 foreach (uint size in sizes)
                 {
                     otaAcc.Clear();
@@ -297,7 +316,9 @@ internal static class Program
                 }
             }
 
-            if (!_otaOnly)
+            } // end if(_otaOnly)
+
+            if (_full)
             {
             // ---- Echo 链路确认 ----
             acc.Clear();
@@ -331,6 +352,53 @@ internal static class Program
         {
             Console.WriteLine($"  原始: {Convert.ToHexString(payload)}");
         }
+    }
+
+    private static async Task QuickReadAsync(GattCharacteristic write, List<byte> acc)
+    {
+        Console.WriteLine("\n--- 安全只读诊断：实时数据与设备信息 ---");
+        for (int i = 0; i < 5; i++)
+        {
+            byte[]? payload = await ReadOnceAsync(write, acc, BmsRegisters.RealtimeBase,
+                BmsRegisters.RealtimeCount, TimeSpan.FromSeconds(2));
+            Console.Write($"  实时#{i + 1}: ");
+            if (payload is null) Console.WriteLine("超时");
+            else DumpPayload(payload);
+            await Task.Delay(500);
+        }
+
+        foreach (var item in new[]
+        {
+            ("序列号", BmsRegisters.ProdSnBase, BmsRegisters.ProdCount),
+            ("硬件版本", BmsRegisters.ProdHwBase, BmsRegisters.ProdCount),
+            ("软件版本", BmsRegisters.ProdSwBase, BmsRegisters.ProdCount),
+            ("蓝牙名", BmsRegisters.BtNameBase, BmsRegisters.BtNameCount),
+        })
+        {
+            byte[]? payload = await ReadOnceAsync(write, acc, item.Item2, item.Item3, TimeSpan.FromSeconds(2));
+            Console.WriteLine($"  {item.Item1}: {(payload is null ? "读取超时" : BatterySnapshot.ParseAsciiRegs(payload))}");
+        }
+    }
+
+    private static async Task<byte[]?> ReadOnceAsync(GattCharacteristic write, List<byte> acc,
+        ushort start, ushort quantity, TimeSpan timeout)
+    {
+        lock (acc) acc.Clear();
+        var request = ModbusRtu.BuildReadRequest(start, quantity);
+        var result = await write.WriteValueWithResultAsync(request.AsBuffer(), GattWriteOption.WriteWithResponse);
+        if (result.Status != GattCommunicationStatus.Success)
+            return null;
+
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+            byte[] snapshot;
+            lock (acc) snapshot = acc.ToArray();
+            if (ModbusRtu.TryParseReadResponse(snapshot, out var payload))
+                return payload;
+        }
+        return null;
     }
 
     private static byte[] BuildRead(byte addr, ushort start, ushort qty)

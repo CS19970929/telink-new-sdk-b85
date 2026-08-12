@@ -146,11 +146,33 @@ public class BmsTests
     }
 
     [Test]
-    public void ParseSystemStatus_FirstWord()
+    public void ParseSystemStatus_LowWordFirst()
     {
         var data = new byte[] { 0x12, 0x34, 0x56, 0x78 };
-        Assert.That(BatterySnapshot.ParseSystemStatus(data), Is.EqualTo(0x12345678u)); // 全 32 位
+        Assert.That(BatterySnapshot.ParseSystemStatus(data), Is.EqualTo(0x56781234u));
         Assert.That(BatterySnapshot.ParseSystemStatus(new byte[2]), Is.Null);
+    }
+
+    [TestCase("BT_cs-0604", "cs-0604")]
+    [TestCase("cs_0604", "cs_0604")]
+    public void BluetoothName_NormalizeAndEncode(string input, string expectedSuffix)
+    {
+        Assert.That(BluetoothNameCodec.TryNormalize(input, out var suffix, out _, out var error), Is.True, error);
+        Assert.That(suffix, Is.EqualTo(expectedSuffix));
+        var bytes = BluetoothNameCodec.EncodeSuffix(suffix);
+        Assert.That(bytes.Length % 2, Is.Zero);
+        Assert.That(System.Text.Encoding.ASCII.GetString(bytes).TrimEnd('\0'), Is.EqualTo(expectedSuffix));
+    }
+
+    [TestCase("")]
+    [TestCase("BT_")]
+    [TestCase("bad name")]
+    [TestCase("中文")]
+    [TestCase("1234567890123456789012")]
+    public void BluetoothName_InvalidSuffixRejected(string input)
+    {
+        Assert.That(BluetoothNameCodec.TryNormalize(input, out _, out _, out var error), Is.False);
+        Assert.That(error, Is.Not.Empty);
     }
 
     [Test]
@@ -289,7 +311,9 @@ public class BmsTests
                 if (!WriteResult || NoResponse || ResponsePayload is null)
                     return WriteResult;
 
-                resp = BuildResponse(ResponsePayload);
+                resp = frame[1] == ModbusRtu.FuncWriteMultiple
+                    ? BuildWriteResponse(frame)
+                    : BuildResponse(ResponsePayload);
                 if (DuplicateLastResponse && _lastResponse is not null)
                 {
                     // 先重发上一帧（完整），模拟迟到重复通知
@@ -337,6 +361,13 @@ public class BmsTests
             resp[^2] = (byte)(crc & 0xFF);
             resp[^1] = (byte)(crc >> 8);
             return resp;
+        }
+
+        private static byte[] BuildWriteResponse(byte[] request)
+        {
+            var resp = request[..6];
+            ushort crc = Crc16.Compute(resp);
+            return resp.Concat(new[] { (byte)(crc & 0xFF), (byte)(crc >> 8) }).ToArray();
         }
 
         public Task DisconnectAsync() => Task.CompletedTask;
