@@ -25,11 +25,14 @@ ota-app/
 │   │   └── Bms/
 │   │       ├── BatteryStatus.cs        BMS 寄存器映射 + 电池快照解析（0xD120 稳定窗口/0xD000 兼容窗口）
 │   │       └── ModbusSppClient.cs      SPP 上的 Modbus 请求/响应客户端（分片重组、单飞）
-│   └── TelinkOta.App.Wpf/       Windows 桌面 App（WPF + Windows.Devices.Bluetooth）
-│       ├── Ble/BleScanner.cs           扫描
-│       ├── Ble/WindowsBleTransport.cs  BLE 传输适配器
-│       ├── Services/BatteryMonitor.cs  电池状态轮询服务（1s 周期，稳定窗口优先）
-│       └── ViewModels/MainViewModel.cs UI 状态
+│   ├── TelinkOta.App.Wpf/       Windows 桌面 App（WPF + Windows.Devices.Bluetooth）
+│   │   ├── Ble/                         Windows BLE 扫描与传输适配器
+│   │   ├── Services/BatteryMonitor.cs   电池状态轮询服务
+│   │   └── ViewModels/MainViewModel.cs  UI 状态
+│   └── TelinkOta.Mobile/        Android/iOS 手机 App（.NET MAUI + 系统原生 BLE）
+│       ├── Ble/                         Android/iOS BLE 扫描与传输适配器
+│       ├── Services/MobileBatteryMonitor.cs
+│       └── MainPage.xaml                手机监控、改名与 OTA UI
 └── tests/
     └── TelinkOta.Core.Tests/    NUnit 单元测试（含跨平台测试向量 + 真实 BIN 集成向量）
 ```
@@ -45,6 +48,10 @@ ota-app/
 - 设备端超时：packet 15s / process 180s（App 侧取 10s / 170s，留余量）
 
 ## 构建
+
+Android/iOS 手机端的构建、安装、权限与 Apple 签名说明见
+[`docs/MOBILE_APP_GUIDE.md`](docs/MOBILE_APP_GUIDE.md)。移动端使用独立的
+`TelinkOta.Mobile.sln`，避免没有手机工作负载的桌面开发机受到影响。
 
 需要 .NET 7 SDK（`dotnet --version` ≥ 7.0.400）。
 

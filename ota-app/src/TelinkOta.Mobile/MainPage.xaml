@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TelinkOta.Mobile.MainPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F4F7FB">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <VerticalStackLayout Padding="18,14,18,8" Spacing="3" BackgroundColor="#123B62">
+            <Label Text="Telink BMS" TextColor="White" FontSize="25" FontAttributes="Bold" />
+            <Label Text="BLE 电池监控与安全 OTA" TextColor="#CFE8FF" FontSize="13" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" Padding="12,8" ColumnSpacing="8" BackgroundColor="White">
+            <Button x:Name="MonitorTabButton" Text="电池监控" Clicked="ShowMonitorClicked"
+                    BackgroundColor="#1976D2" TextColor="White" />
+            <Button Grid.Column="1" x:Name="OtaTabButton" Text="OTA 升级" Clicked="ShowOtaClicked"
+                    BackgroundColor="#E7EEF6" TextColor="#123B62" />
+        </Grid>
+
+        <ScrollView Grid.Row="2">
+            <VerticalStackLayout Padding="14" Spacing="12">
+                <Frame Padding="12" BorderColor="#D6E1EC" BackgroundColor="White">
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <Label x:Name="ConnectionLabel" Text="未连接" VerticalOptions="Center" FontAttributes="Bold" />
+                            <Button Grid.Column="1" Text="扫描" Clicked="ScanClicked" Padding="14,8" />
+                            <Button Grid.Column="2" x:Name="ConnectButton" Text="连接" Clicked="ConnectClicked" Padding="14,8" />
+                        </Grid>
+                        <CollectionView x:Name="DeviceList" HeightRequest="145" SelectionMode="Single"
+                                        SelectionChanged="DeviceSelectionChanged">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="6" RowDefinitions="Auto,Auto">
+                                        <Label Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                        <Label Grid.Row="1" Text="{Binding Display}" FontSize="11" TextColor="#62768A"
+                                               LineBreakMode="TailTruncation" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Label x:Name="StatusLabel" Text="点击扫描寻找 BT_ 设备" FontSize="12" TextColor="#52697F" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <VerticalStackLayout x:Name="MonitorPanel" Spacing="12">
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Frame Padding="10" BackgroundColor="#EAF5FF"><VerticalStackLayout><Label Text="总压" FontSize="12"/><Label x:Name="VoltageLabel" Text="--" FontSize="20" FontAttributes="Bold"/></VerticalStackLayout></Frame>
+                        <Frame Grid.Column="1" Padding="10" BackgroundColor="#EAF5FF"><VerticalStackLayout><Label Text="电流" FontSize="12"/><Label x:Name="CurrentLabel" Text="--" FontSize="20" FontAttributes="Bold"/></VerticalStackLayout></Frame>
+                        <Frame Grid.Column="2" Padding="10" BackgroundColor="#EAF5FF"><VerticalStackLayout><Label Text="SOC" FontSize="12"/><Label x:Name="SocLabel" Text="--" FontSize="20" FontAttributes="Bold"/></VerticalStackLayout></Frame>
+                    </Grid>
+
+                    <Frame Padding="12" BackgroundColor="White" BorderColor="#D6E1EC">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="100,*" RowSpacing="7">
+                            <Label Text="序列号"/><Label Grid.Column="1" x:Name="SerialLabel" Text="--"/>
+                            <Label Grid.Row="1" Text="硬件版本"/><Label Grid.Row="1" Grid.Column="1" x:Name="HardwareLabel" Text="--"/>
+                            <Label Grid.Row="2" Text="软件版本"/><Label Grid.Row="2" Grid.Column="1" x:Name="SoftwareLabel" Text="--"/>
+                            <Label Grid.Row="3" Text="蓝牙名"/><Label Grid.Row="3" Grid.Column="1" x:Name="BluetoothNameLabel" Text="--"/>
+                            <Label Grid.Row="4" Text="MAC"/><Label Grid.Row="4" Grid.Column="1" x:Name="MacLabel" Text="--"/>
+                            <Label Grid.Row="5" Text="温度"/><Label Grid.Row="5" Grid.Column="1" x:Name="TemperatureLabel" Text="--"/>
+                            <Label Grid.Row="6" Text="单体范围"/><Label Grid.Row="6" Grid.Column="1" x:Name="CellRangeLabel" Text="--"/>
+                        </Grid>
+                    </Frame>
+
+                    <Frame Padding="12" BackgroundColor="White" BorderColor="#D6E1EC">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="单体电压" FontAttributes="Bold" />
+                            <Label x:Name="CellsLabel" Text="--" FontSize="12" LineBreakMode="WordWrap" />
+                            <Label Text="容量 / 循环" FontAttributes="Bold" Margin="0,5,0,0" />
+                            <Label x:Name="CapacityLabel" Text="--" FontSize="12" />
+                            <Label Text="状态 / 故障" FontAttributes="Bold" Margin="0,5,0,0" />
+                            <Label x:Name="SystemLabel" Text="--" FontSize="12" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Frame>
+
+                    <Frame Padding="12" BackgroundColor="White" BorderColor="#D6E1EC">
+                        <VerticalStackLayout Spacing="7">
+                            <Label Text="修改蓝牙名" FontAttributes="Bold" />
+                            <Label Text="可输入完整 BT_ 名称或后缀；仅允许字母、数字、_ 和 -。当前 MTU=23 时后缀最多 10 字符。" FontSize="11" TextColor="#62768A" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Entry x:Name="BluetoothNameEntry" Placeholder="例如 cs-0604" MaxLength="13" />
+                                <Button Grid.Column="1" Text="写入并校验" Clicked="RenameClicked" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout x:Name="OtaPanel" IsVisible="False" Spacing="12">
+                    <Frame Padding="12" BackgroundColor="#FFF8E8" BorderColor="#F0C66B">
+                        <Label Text="升级时请确保电池供电稳定并保持手机靠近设备。OTA 与电池监控互斥；失败后必须从头重试。" TextColor="#805500" />
+                    </Frame>
+                    <Frame Padding="12" BackgroundColor="White" BorderColor="#D6E1EC">
+                        <VerticalStackLayout Spacing="9">
+                            <Button Text="选择 Telink 固件 BIN" Clicked="PickFirmwareClicked" />
+                            <Label x:Name="FirmwareLabel" Text="尚未选择固件" FontSize="12" LineBreakMode="WordWrap" />
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Label Text="协议" VerticalOptions="Center" />
+                                <Picker Grid.Column="1" x:Name="ProtocolPicker" SelectedIndex="0">
+                                    <Picker.Items><x:String>Auto（Extend 优先）</x:String><x:String>Extend</x:String><x:String>Legacy</x:String></Picker.Items>
+                                </Picker>
+                            </Grid>
+                            <ProgressBar x:Name="OtaProgress" Progress="0" ProgressColor="#1976D2" />
+                            <Label x:Name="OtaProgressLabel" Text="等待开始" HorizontalTextAlignment="Center" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button x:Name="StartOtaButton" Text="开始 OTA" Clicked="StartOtaClicked" BackgroundColor="#1976D2" TextColor="White" />
+                                <Button Grid.Column="1" x:Name="CancelOtaButton" Text="取消" Clicked="CancelOtaClicked" IsEnabled="False" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                    <Frame Padding="10" BackgroundColor="#102538">
+                        <VerticalStackLayout>
+                            <Label Text="运行日志" TextColor="White" FontAttributes="Bold" />
+                            <Editor x:Name="LogEditor" HeightRequest="220" IsReadOnly="True" TextColor="#D9ECFF" BackgroundColor="#102538" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
