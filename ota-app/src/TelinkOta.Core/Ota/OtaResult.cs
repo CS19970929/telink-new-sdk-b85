@@ -47,7 +47,7 @@ public sealed class OtaResult
             "Firmware Mark 错误：文件不是 Telink BLE SDK 工具链产物，或选错了产品固件。"),
         0x0B => new OtaResult(0x0B, "OTA_FW_SIZE_ERR",
             "firmware size error: no firmware_size; firmware size too small or too big",
-            "固件尺寸非法：无 Size、文件过小或超过分区上限（本设备 124K）。"),
+            "固件尺寸非法：文件过小或超过分区上限（本设备 124K）。若此前更小的固件可升级而当前文件被拒（0x0B），说明设备当前固件的 OTA 尺寸上限小于新文件——先用 BDT 直烧新固件，或确认设备固件的 OTA 配置（blc_ota_setFirmwareSizeAndBootAddress）。"),
         0x0C => new OtaResult(0x0C, "OTA_DATA_PACKET_TIMEOUT",
             "time interval between two consequent packet exceed a value(user can adjust this value)",
             "相邻数据包间隔超过设备端 15 s。蓝牙链路拥塞或写入被阻塞，请重连后重试。"),

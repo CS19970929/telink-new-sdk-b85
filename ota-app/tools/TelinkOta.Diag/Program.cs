@@ -15,10 +15,14 @@ namespace TelinkOta.Diag;
 /// </summary>
 internal static class Program
 {
+    /// <summary>true 时跳过 SPP 各项扫描，只跑 OTA 尺寸探针。</summary>
+    private static bool _otaOnly;
+
     private static async Task Main(string[] args)
     {
         Console.WriteLine("=== Telink SPP Modbus 诊断工具 v3 ===");
-        string filter = args.Length > 0 ? args[0] : "A4C13816025A";
+        _otaOnly = args.Contains("ota", StringComparer.OrdinalIgnoreCase);
+        string filter = args.FirstOrDefault(a => !a.Equals("ota", StringComparison.OrdinalIgnoreCase)) ?? "A4C13816025A";
 
         ulong? address = await ScanForDeviceAsync(filter);
         if (address is null)
@@ -41,6 +45,7 @@ internal static class Program
             var services = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
 
             GattCharacteristic? write = null, notify = null;
+            GattCharacteristic? otaWrite = null, otaNotify = null;
             foreach (var svc in services.Services)
             {
                 if (svc.Uuid == OtaConstants.SppServiceUuid)
@@ -51,7 +56,14 @@ internal static class Program
                         if (ch.Uuid == OtaConstants.SppWriteUuid) write = ch;
                         if (ch.Uuid == OtaConstants.SppNotifyUuid) notify = ch;
                     }
-                    break;
+                }
+                else if (svc.Uuid == OtaConstants.OtaServiceUuid)
+                {
+                    var chars = await svc.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+                    foreach (var ch in chars.Characteristics)
+                    {
+                        if (ch.Uuid == OtaConstants.OtaCharacteristicUuid) { otaWrite = ch; otaNotify = ch; }
+                    }
                 }
             }
             if (write is null || notify is null)
@@ -73,6 +85,8 @@ internal static class Program
                 GattClientCharacteristicConfigurationDescriptorValue.Notify);
             Console.WriteLine($"  CCCD: {cccd}");
 
+            if (!_otaOnly)
+            {
             // ---- 全从机地址扫描 0x03 读（每地址 400ms）----
             Console.WriteLine("\n--- 从机地址扫描（0x01~0xFF，0xD120 qty=11）---");
             for (int addr = 0x01; addr <= 0xFF; addr++)
@@ -128,8 +142,7 @@ internal static class Program
             Console.WriteLine($"  收到: {Convert.ToHexString(acc.ToArray())}");
 
             // ---- 单请求精确抓包：1 个实时窗口请求，3 秒内打印每条通知 ----
-            Console.WriteLine("\n--- 单请求通知流（0xD120 qty=11，重复 5 次观察投递模式）---");
-            for (int i = 0; i < 5; i++)
+            Console.WriteLine("\n--- 单请求通知流（0xD120 qty=11，重复 5 次观察投递模式）---");            for (int i = 0; i < 5; i++)
             {
                 acc.Clear();
                 var rr = BuildRead(0x01, BmsRegisters.RealtimeBase, BmsRegisters.RealtimeCount);
@@ -203,7 +216,89 @@ internal static class Program
                     Console.WriteLine($"  轮 {i + 1}: realtime={okRealtime} full={okFull} status={okStatus}");
             }
             Console.WriteLine($"  结果: realtime {okRealtime}/20, full {okFull}/20, status {okStatus}/20, 连续相同内容 {staleCount} 次");
+            } // end if(!_otaOnly)
 
+            // ---- OTA 尺寸上限探针：START_EXT + 首包（Size@0x18=X），观察设备 Result ----
+            Console.WriteLine("\n--- OTA 尺寸上限探针 ---");
+            Console.WriteLine("  （发送 START_EXT + 首两包携带不同 Size@0x18，设备接受则无响应/拒绝则回 0x0B）");
+            if (otaWrite is null || otaNotify is null)
+            {
+                Console.WriteLine("  OTA 特征未找到，跳过探针");
+            }
+            else
+            {
+                var otaAcc = new List<byte>();
+                otaNotify.ValueChanged += (_, args) =>
+                {
+                    var d = args.CharacteristicValue.ToArray();
+                    otaAcc.AddRange(d);
+                    Console.WriteLine($"    [OTA NOTIFY] {Convert.ToHexString(d)}");
+                };
+                await otaNotify.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    GattClientCharacteristicConfigurationDescriptorValue.Notify);
+
+                uint[] sizes = { 0x163C4, 0x173A4, 0x173A8, 0x18000, 0x19000, 0x1E000, 0x1F000 };
+                // 使用真实 BIN 的前 32 字节作为首两包数据（Mark/结构完全真实，仅替换 Size 字段）
+                byte[] realFw = File.ReadAllBytes(FindRealBin());
+                foreach (uint size in sizes)
+                {
+                    otaAcc.Clear();
+                    // START_EXT pdu=16 compare=0 —— 与真实流程一致用 WNR
+                    var start = OtaPacketEncoder.BuildStartExt(16, false);
+                    await otaWrite.WriteValueWithResultAsync(start.AsBuffer(), GattWriteOption.WriteWithoutResponse);
+                    // 首包：index=0，真实数据 0x00~0x0F
+                    var pkt0 = BuildRealPkt(0, realFw, 0, null);
+                    // 第二包：index=1，真实数据 0x10~0x1F，替换 Size@0x18
+                    var pkt1 = BuildRealPkt(1, realFw, 16, size);
+                    await otaWrite.WriteValueWithResultAsync(pkt0.AsBuffer(), GattWriteOption.WriteWithoutResponse);
+                    await otaWrite.WriteValueWithResultAsync(pkt1.AsBuffer(), GattWriteOption.WriteWithoutResponse);
+
+                    string result = "（无响应/接受）";
+                    var deadline = DateTime.UtcNow.AddSeconds(3);
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        await Task.Delay(50);
+                        if (otaAcc.Count >= 3)
+                        {
+                            result = $"0x{otaAcc[2]:X2}";
+                            break;
+                        }
+                    }
+                    Console.WriteLine($"  Size=0x{size:X6} ({size}) -> 设备 Result: {result}");
+                    // 断开重连，重置设备 OTA 会话
+                    await otaNotify.WriteClientCharacteristicConfigurationDescriptorAsync(
+                        GattClientCharacteristicConfigurationDescriptorValue.None);
+                    device.Dispose();
+                    await Task.Delay(500);
+                    device = await BluetoothLEDevice.FromBluetoothAddressAsync(address);
+                    services = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
+                    foreach (var svc in services.Services)
+                    {
+                        if (svc.Uuid == OtaConstants.OtaServiceUuid)
+                        {
+                            var chars = await svc.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+                            foreach (var ch in chars.Characteristics)
+                            {
+                                if (ch.Uuid == OtaConstants.OtaCharacteristicUuid) otaWrite = ch;
+                                if (ch.Uuid == OtaConstants.OtaCharacteristicUuid) otaNotify = ch;
+                            }
+                            break;
+                        }
+                    }
+                    otaAcc = new List<byte>();
+                    otaNotify.ValueChanged += (_, args) =>
+                    {
+                        var d = args.CharacteristicValue.ToArray();
+                        otaAcc.AddRange(d);
+                        Console.WriteLine($"    [OTA NOTIFY] {Convert.ToHexString(d)}");
+                    };
+                    await otaNotify.WriteClientCharacteristicConfigurationDescriptorAsync(
+                        GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                }
+            }
+
+            if (!_otaOnly)
+            {
             // ---- Echo 链路确认 ----
             acc.Clear();
             var echo = new byte[] { 0x01, 0x7F, 0x12, 0x34, 0x56, 0x78, 0x6F, 0x34 };
@@ -216,6 +311,7 @@ internal static class Program
             await notify.WriteClientCharacteristicConfigurationDescriptorAsync(
                 GattClientCharacteristicConfigurationDescriptorValue.None);
             device.Dispose();
+            } // end if(!_otaOnly)
         }
         catch (Exception ex)
         {
@@ -250,6 +346,48 @@ internal static class Program
         frame[6] = (byte)(crc & 0xFF);
         frame[7] = (byte)(crc >> 8);
         return frame;
+    }
+
+    private static string? FindRealBin()
+    {
+        string[] candidates =
+        {
+            Path.Combine(AppContext.BaseDirectory, "TestData", "real_fw.bin"),
+            @"D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\ota\c11 d002 13s 10.4Ah 20260615 test old board.bin",
+        };
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    /// <summary>用真实 BIN 数据构造 OTA 数据包；sizeOverride 非空时替换 Size@0x18（数据偏移 8）。</summary>
+    private static byte[] BuildRealPkt(ushort index, byte[] fw, int fwOffset, uint? sizeOverride)
+    {
+        var pkt = new byte[20];
+        pkt[0] = (byte)(index & 0xFF);
+        pkt[1] = (byte)(index >> 8);
+        Array.Copy(fw, fwOffset, pkt, 2, 16);
+        if (sizeOverride is { } sz)
+        {
+            BitConverter.TryWriteBytes(pkt.AsSpan(2 + 0x18 - fwOffset, 4), sz);
+        }
+        ushort crc = TelinkOta.Core.Ota.Crc16.Compute(pkt.AsSpan(0, 18));
+        pkt[18] = (byte)(crc & 0xFF);
+        pkt[19] = (byte)(crc >> 8);
+        return pkt;
+    }
+
+    private static byte[] BuildFakePkt(ushort index, Action<byte[], int> patchData)
+    {
+        var pkt = new byte[20];
+        pkt[0] = (byte)(index & 0xFF);
+        pkt[1] = (byte)(index >> 8);
+        Array.Fill(pkt, (byte)0x55, 2, 16);
+        // 数据偏移 0x08 放 Firmware Mark "TLNK"（否则设备先回 0x0A MARK_ERR）
+        pkt[2 + 0x08] = 0x4B; pkt[2 + 0x09] = 0x4E; pkt[2 + 0x0A] = 0x4C; pkt[2 + 0x0B] = 0x54;
+        patchData(pkt, 2);
+        ushort crc = TelinkOta.Core.Ota.Crc16.Compute(pkt.AsSpan(0, 18));
+        pkt[18] = (byte)(crc & 0xFF);
+        pkt[19] = (byte)(crc >> 8);
+        return pkt;
     }
 
     private static async Task<ulong?> ScanForDeviceAsync(string filter)
