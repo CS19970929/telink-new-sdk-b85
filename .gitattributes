@@ -1,0 +1,3 @@
+.githooks/* text eol=lf
+*.py text eol=lf
+bms_tools/*.mk text eol=lf
