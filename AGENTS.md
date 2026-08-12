@@ -68,4 +68,4 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 
 静态分析由 cppcheck 执行，项目代码和 SDK 分开输出到 `build/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
 
-详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`。
+详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`。
