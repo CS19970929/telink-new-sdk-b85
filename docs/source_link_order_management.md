@@ -8,7 +8,7 @@ TC32 链接器按命令行给出的对象顺序放置输入 section。即使每�
 
 ## 2. 权威输入
 
-`bms_tools/source_order.txt` 是无 IDE 构建的权威源码和链接顺序。`build/rebuild` 只读取这个文件生成 `build/bms/sources.mk`，不会在构建期间改写顺序。
+`bms_tools/source_order.txt` 是无 IDE 构建的权威源码和链接顺序。`build/rebuild` 只读取这个文件生成 `project/tlsr_tc32/B85/825x_ble_sample_cli/sources.mk`，不会在构建期间改写顺序。该目录与 IDE 的 `project/tlsr_tc32/B85/825x_ble_sample/` 是同级独立目录，不共享对象或固件。
 
 严格检查同时保证：
 

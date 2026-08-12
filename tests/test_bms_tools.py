@@ -155,5 +155,13 @@ class CommandSurfaceTests(unittest.TestCase):
         )
 
 
+class OutputPathTests(unittest.TestCase):
+    def test_cli_outputs_are_inside_project_and_separate_from_ide(self) -> None:
+        self.assertEqual(bms.BUILD_DIR.parent, bms.PROJ_DIR)
+        self.assertEqual(bms.BUILD_DIR.name, "825x_ble_sample_cli")
+        self.assertEqual(bms.IDE_BUILD_DIR.name, "825x_ble_sample")
+        self.assertNotEqual(bms.BUILD_DIR, bms.IDE_BUILD_DIR)
+
+
 if __name__ == "__main__":
     unittest.main()
