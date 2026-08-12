@@ -6,9 +6,27 @@
 
 *.o
 *.mk
+!/bms_tools/build.mk
 *.a
+!tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/proj_lib/liblt_825x.a
+!tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/proj_lib/liblt_general_stack.a
 *.bin
 *.elf
+*.lst
+*.map
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/.build
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/build_version_auto.h
 tools/lan_clipboard_sync
+
+# Python host tooling caches
+__pycache__/
+*.py[cod]
+
+# bms_tools build artifacts (portable build system; do not commit)
+/build/
+/build/bms/
+/build/bms_*/
+/build/static/
+bms_tools/build/bms/sources.mk
+# space-free Make junction (machine-local; created on demand)
+# (path is outside the repo: C:/opencode/bms_repo)
