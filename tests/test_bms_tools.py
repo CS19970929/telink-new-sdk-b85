@@ -69,6 +69,77 @@ class IntegrityPrimitiveTests(unittest.TestCase):
         self.assertFalse(bms._telink_crc_details(b"raw firmware image")["valid"])
 
 
+class SourceOrderTests(unittest.TestCase):
+    def test_discovery_is_case_sensitive_and_interleaves_c_and_assembly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sdk = Path(tmp)
+            app = sdk / "vendor" / "ble_sample"
+            common = sdk / "common"
+            nested = app / "feature"
+            nested.mkdir(parents=True)
+            common.mkdir(parents=True)
+            for path in (app / "SocEnhance.c", app / "app.c", nested / "worker.c",
+                         common / "div_mod.S", common / "sdk_version.c"):
+                path.touch()
+            groups = ((Path("vendor/ble_sample"), True), (Path("common"), False))
+            with mock.patch.object(bms, "SDK_DIR", sdk), \
+                    mock.patch.object(bms, "SOURCE_GROUPS", groups):
+                actual = bms._discover_managed_sources()
+        self.assertEqual(actual, [
+            "vendor/ble_sample/SocEnhance.c",
+            "vendor/ble_sample/app.c",
+            "vendor/ble_sample/feature/worker.c",
+            "common/div_mod.S",
+            "common/sdk_version.c",
+        ])
+
+    def test_validation_rejects_unlisted_new_source(self) -> None:
+        with self.assertRaisesRegex(bms.SourceOrderError, "unlisted new source"):
+            bms._validate_source_order(["app.c"], ["app.c", "new_file.c"])
+
+    def test_read_rejects_duplicate_case_collision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            order = Path(tmp) / "source_order.txt"
+            order.write_text("App.c\napp.c\n", encoding="utf-8")
+            with self.assertRaisesRegex(bms.SourceOrderError, "case-colliding"):
+                bms._read_source_order(order)
+
+    def test_parse_ide_order_follows_makefile_include_and_objs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sdk = root / "sdk"
+            ide = root / "ide"
+            app = sdk / "vendor" / "ble_sample"
+            common = sdk / "common"
+            app.mkdir(parents=True)
+            common.mkdir(parents=True)
+            ide.joinpath("vendor", "ble_sample").mkdir(parents=True)
+            ide.joinpath("common").mkdir(parents=True)
+            (app / "SocEnhance.c").touch()
+            (app / "app.c").touch()
+            (common / "div_mod.S").touch()
+            (ide / "makefile").write_text(
+                "-include vendor/ble_sample/subdir.mk\n-include common/subdir.mk\n",
+                encoding="utf-8",
+            )
+            (ide / "vendor" / "ble_sample" / "subdir.mk").write_text(
+                "OBJS += \\\n./vendor/ble_sample/SocEnhance.o \\\n./vendor/ble_sample/app.o \n\n",
+                encoding="utf-8",
+            )
+            (ide / "common" / "subdir.mk").write_text(
+                "OBJS += \\\n./common/div_mod.o \n\n", encoding="utf-8"
+            )
+            groups = ((Path("vendor/ble_sample"), True), (Path("common"), False))
+            with mock.patch.object(bms, "SDK_DIR", sdk), \
+                    mock.patch.object(bms, "SOURCE_GROUPS", groups):
+                actual = bms._parse_ide_source_order(ide)
+        self.assertEqual(actual, [
+            "vendor/ble_sample/SocEnhance.c",
+            "vendor/ble_sample/app.c",
+            "common/div_mod.S",
+        ])
+
+
 class CommandSurfaceTests(unittest.TestCase):
     def test_only_development_toolchain_commands_are_exposed(self) -> None:
         parser = bms.build_parser()
@@ -80,7 +151,7 @@ class CommandSurfaceTests(unittest.TestCase):
         self.assertEqual(
             commands,
             {"env", "build", "rebuild", "objcopy", "check-fw", "size", "map",
-             "manifest", "verify", "baseline", "static", "flash-help", "ci"},
+             "manifest", "verify", "baseline", "static", "flash-help", "ci", "sources"},
         )
 
 
