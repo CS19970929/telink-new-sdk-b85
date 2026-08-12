@@ -17,6 +17,7 @@
 #   python bms_tools/bms.py manifest            # firmware integrity manifest
 #   python bms_tools/bms.py verify              # verify bin against manifest
 #   python bms_tools/bms.py static              # cppcheck static analysis
+#   python bms_tools/bms.py sources --check     # validate locked link order
 #   python bms_tools/bms.py baseline <ref_bin>  # compare new build to reference
 #   python bms_tools/bms.py ci                   # complete host build pipeline
 #
@@ -65,6 +66,27 @@ RAW_BIN = BUILD_DIR / "825x_ble_sample.raw.bin"
 LST = GEN_DIR / "825x_ble_sample.lst"
 MAP = GEN_DIR / "825x_ble_sample.map"
 MANIFEST = BUILD_DIR / "fw_manifest.json"
+SOURCE_ORDER_FILE = _HERE / "source_order.txt"
+IDE_BUILD_DIR = PROJ_DIR / "825x_ble_sample"
+
+# Source group order is inherited from the Telink IDE generated makefile.  The
+# application directory is recursive so project-owned feature subdirectories
+# can be added without hand-written Make rules. Vendor/SDK directories remain
+# deliberately non-recursive to avoid silently compiling unrelated examples.
+SOURCE_GROUPS = (
+    (Path("vendor/common"), False),
+    (Path("vendor/ble_sample"), True),
+    (Path("drivers/B85"), False),
+    (Path("drivers/B85/flash"), False),
+    (Path("drivers/B85/driver_ext"), False),
+    (Path("common"), False),
+    (Path("boot/B85"), False),
+    (Path("application/usbstd"), False),
+    (Path("application/print"), False),
+    (Path("application/keyboard"), False),
+    (Path("application/audio"), False),
+    (Path("application/app"), False),
+)
 
 # --------------------------------------------------------------------------
 # Space-free junction for GNU Make.
@@ -228,6 +250,12 @@ def cmd_env(args: argparse.Namespace) -> int:
         print(f"required vendor lib   : {library}  (exists={library.exists()})")
     print(f"tl_check_fw2.exe      : {TL_CHECK_FW2}  (exists={TL_CHECK_FW2.exists()})")
     print(f"build dir              : {BUILD_DIR}")
+    try:
+        source_order = _load_source_order_strict()
+    except SourceOrderError as exc:
+        _die(str(exc))
+    print(f"source/link order     : {SOURCE_ORDER_FILE}  "
+          f"({len(source_order)} entries, sha256={_source_order_sha256(source_order)})")
     print("-" * 70)
 
     studio_version = "unknown"
@@ -300,79 +328,248 @@ def _tool_version(cmd: list[str], line: int) -> str:
 
 
 # ----------------------------------------------------------------------------
+# Source/link order management
+# ----------------------------------------------------------------------------
+class SourceOrderError(RuntimeError):
+    """The version-controlled source order is missing, stale or ambiguous."""
+
+
+def _normalised_order_bytes(entries: list[str]) -> bytes:
+    return ("\n".join(entries) + "\n").encode("utf-8")
+
+
+def _source_order_sha256(entries: list[str]) -> str:
+    return hashlib.sha256(_normalised_order_bytes(entries)).hexdigest()
+
+
+def _discover_managed_sources() -> list[str]:
+    """Return all managed .c/.S files in deterministic IDE-compatible order."""
+    entries: list[str] = []
+    seen: set[str] = set()
+    for group_rel, recursive in SOURCE_GROUPS:
+        group = SDK_DIR / group_rel
+        if not group.exists():
+            continue
+        candidates = group.rglob("*") if recursive else group.iterdir()
+        sources = sorted(
+            (path for path in candidates
+             if path.is_file() and path.suffix in (".c", ".S")),
+            key=lambda path: path.relative_to(group).as_posix(),
+        )
+        for source in sources:
+            rel = source.relative_to(SDK_DIR).as_posix()
+            folded = rel.casefold()
+            if folded in seen:
+                raise SourceOrderError(f"duplicate/case-colliding source: {rel}")
+            seen.add(folded)
+            entries.append(rel)
+    return entries
+
+
+def _read_source_order(path: Path = SOURCE_ORDER_FILE) -> list[str]:
+    if not path.exists():
+        raise SourceOrderError(f"source order file missing: {path}")
+    entries: list[str] = []
+    seen: set[str] = set()
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        value = raw.strip()
+        if not value or value.startswith("#"):
+            continue
+        normalised = Path(value.replace("\\", "/"))
+        if normalised.is_absolute() or ".." in normalised.parts:
+            raise SourceOrderError(f"unsafe source_order entry at line {number}: {value}")
+        rel = normalised.as_posix()
+        if normalised.suffix not in (".c", ".S"):
+            raise SourceOrderError(f"unsupported source suffix at line {number}: {value}")
+        folded = rel.casefold()
+        if folded in seen:
+            raise SourceOrderError(f"duplicate/case-colliding entry at line {number}: {value}")
+        seen.add(folded)
+        entries.append(rel)
+    if not entries:
+        raise SourceOrderError(f"source order file is empty: {path}")
+    return entries
+
+
+def _validate_source_order(entries: list[str], discovered: list[str] | None = None) -> None:
+    if discovered is None:
+        discovered = _discover_managed_sources()
+    listed = set(entries)
+    actual = set(discovered)
+    missing = [entry for entry in entries if entry not in actual]
+    unlisted = [entry for entry in discovered if entry not in listed]
+    if missing or unlisted:
+        details = []
+        if missing:
+            details.append("missing on disk: " + ", ".join(missing))
+        if unlisted:
+            details.append("unlisted new source: " + ", ".join(unlisted))
+        raise SourceOrderError("; ".join(details) +
+                               ". Run 'python bms_tools/bms.py sources --update' and review the Git diff.")
+
+
+def _load_source_order_strict() -> list[str]:
+    entries = _read_source_order()
+    _validate_source_order(entries)
+    return entries
+
+
+def _write_source_order(entries: list[str]) -> None:
+    header = (
+        "# TLSR8251 BMS authoritative source/link order.\n"
+        "# Generated explicitly by: python bms_tools/bms.py sources --update\n"
+        "# Review every order change in Git; build/rebuild never edits this file.\n"
+    )
+    SOURCE_ORDER_FILE.write_text(
+        header + _normalised_order_bytes(entries).decode("utf-8"), encoding="utf-8"
+    )
+
+
+def _parse_ide_source_order(ide_build_dir: Path = IDE_BUILD_DIR) -> list[str]:
+    """Read the optional Eclipse CDT generated makefiles without depending on them."""
+    makefile = ide_build_dir / "makefile"
+    if not makefile.exists():
+        raise SourceOrderError(f"IDE generated makefile missing: {makefile}")
+    include_files: list[Path] = []
+    include_re = re.compile(r"^-include\s+(.+subdir\.mk)\s*$")
+    for line in makefile.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = include_re.match(line.strip())
+        if match:
+            include_files.append(ide_build_dir / match.group(1).replace("\\", "/"))
+    if not include_files:
+        raise SourceOrderError(f"no subdir.mk includes found in {makefile}")
+
+    discovered = _discover_managed_sources()
+    object_to_source: dict[str, str] = {}
+    for source in discovered:
+        obj = Path(source).with_suffix(".o").as_posix().casefold()
+        if obj in object_to_source:
+            raise SourceOrderError(f"ambiguous IDE object target: {obj}")
+        object_to_source[obj] = source
+
+    result: list[str] = []
+    for subdir_mk in include_files:
+        if not subdir_mk.exists():
+            raise SourceOrderError(f"IDE included file missing: {subdir_mk}")
+        in_objects = False
+        for raw in subdir_mk.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = raw.strip()
+            if stripped == "OBJS += \\":
+                in_objects = True
+                continue
+            if not in_objects:
+                continue
+            value = stripped.rstrip("\\").strip().removeprefix("./").replace("\\", "/")
+            if not value:
+                in_objects = False
+                continue
+            if not value.endswith(".o"):
+                continue
+            source = object_to_source.get(value.casefold())
+            if source is None:
+                raise SourceOrderError(f"IDE object is outside managed source set: {value}")
+            result.append(source)
+    _validate_source_order(result, discovered)
+    return result
+
+
+def _print_order_diff(reference: list[str], candidate: list[str],
+                      reference_name: str, candidate_name: str) -> None:
+    mismatch_indexes = [index for index, pair in enumerate(zip(reference, candidate))
+                        if pair[0] != pair[1]]
+    if len(reference) != len(candidate):
+        mismatch_indexes.extend(range(min(len(reference), len(candidate)),
+                                      max(len(reference), len(candidate))))
+    print(f"{reference_name}: {len(reference)} entries, sha256={_source_order_sha256(reference)}")
+    print(f"{candidate_name}: {len(candidate)} entries, sha256={_source_order_sha256(candidate)}")
+    for index in mismatch_indexes[:20]:
+        left = reference[index] if index < len(reference) else "<missing>"
+        right = candidate[index] if index < len(candidate) else "<missing>"
+        print(f"  [{index:03d}] {reference_name}={left}")
+        print(f"        {candidate_name}={right}")
+    if len(mismatch_indexes) > 20:
+        print(f"  ... {len(mismatch_indexes) - 20} more order differences")
+
+
+def cmd_sources(args: argparse.Namespace) -> int:
+    try:
+        if args.source_action == "update":
+            previous = _read_source_order() if SOURCE_ORDER_FILE.exists() else []
+            updated = _discover_managed_sources()
+            _write_source_order(updated)
+            _print_order_diff(previous, updated, "previous", "updated")
+            _info(f"source order updated: {SOURCE_ORDER_FILE}; review and commit the Git diff")
+            return 0
+
+        if args.source_action == "import-ide":
+            previous = _read_source_order() if SOURCE_ORDER_FILE.exists() else []
+            imported = _parse_ide_source_order()
+            _write_source_order(imported)
+            _print_order_diff(previous, imported, "previous", "IDE")
+            _info("IDE order imported explicitly; review and commit the Git diff")
+            return 0
+
+        current = _load_source_order_strict()
+        if args.source_action == "compare-ide":
+            ide_order = _parse_ide_source_order()
+            if current != ide_order:
+                _print_order_diff(current, ide_order, "locked", "IDE")
+                _info("IDE order MISMATCH; no file was modified")
+                return 1
+            _info(f"IDE order MATCH: {len(current)} entries, sha256={_source_order_sha256(current)}")
+            return 0
+
+        _info(f"source order OK: {len(current)} entries, sha256={_source_order_sha256(current)}")
+        return 0
+    except SourceOrderError as exc:
+        _die(str(exc))
+    return 2
+
+
+# ----------------------------------------------------------------------------
 # Subcommand: build / rebuild
 # ----------------------------------------------------------------------------
 def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
-    """Generate build/bms/sources.mk with one per-object rule. Paths are
-    written via the space-free junction so GNU Make parses them correctly
-    even when the repo directory contains a literal space."""
+    """Generate compile rules in the exact version-controlled link order."""
     _ensure_junction()
     obj_dir = build_dir / "obj"
     gen_dir = build_dir / "gen"
     build_dir.mkdir(parents=True, exist_ok=True)
     obj_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        source_order = _load_source_order_strict()
+    except SourceOrderError as exc:
+        _die(str(exc))
 
     sdk_j = _junc(SDK_DIR)
     obj_j = _junc(obj_dir)
-
-    src_groups = [
-        SDK_DIR / "vendor" / "common",
-        SDK_DIR / "vendor" / "ble_sample",
-        SDK_DIR / "drivers" / "B85",
-        SDK_DIR / "drivers" / "B85" / "flash",
-        SDK_DIR / "drivers" / "B85" / "driver_ext",
-        SDK_DIR / "common",                 # contains div_mod.S (provides __udivsi3 etc)
-        SDK_DIR / "boot" / "B85",           # contains cstartup_825x.S
-        SDK_DIR / "application" / "usbstd",
-        SDK_DIR / "application" / "print",
-        SDK_DIR / "application" / "keyboard",
-        SDK_DIR / "application" / "audio",
-        SDK_DIR / "application" / "app",
+    out_lines = [
+        "# auto-generated by bms_tools/bms.py - do not edit",
+        f"# generated_at: {_now_iso()}",
+        f"# source_order_sha256: {_source_order_sha256(source_order)}",
+        f"# NOTE: paths use the space-free junction {JUNCTION} -> {REPO_ROOT}",
     ]
-    out_lines = ["# auto-generated by bms_tools/bms.py - do not edit",
-                 f"# generated_at: {_now_iso()}",
-                 f"# NOTE: paths use the space-free junction {JUNCTION} -> {REPO_ROOT}"]
     objs: list[str] = []
-    seen_obj_targets: set[str] = set()  # dedup case-insensitive collisions
     subdirs_to_create: set[Path] = set()
-    for d in src_groups:
-        if not d.exists():
-            continue
-        # C sources compiled with the full CFLAGS.
-        c_srcs = sorted(p for p in d.glob("*.c") if p.is_file())
-        # Assembly sources (.S, preprocessed; case-insensitive match picks up
-        # .S and would also pick up .s if present). Eclipse compiles these
-        # with `tc32-elf-gcc -DMCU_STARTUP_8258 -c`, i.e. the assembler defines
-        # (AFLAGS).
-        asm_srcs = sorted(p for p in d.glob("*.S") if p.is_file())
-        for src, is_asm in [(s, False) for s in c_srcs] + [(s, True) for s in asm_srcs]:
-            try:
-                rel = src.relative_to(SDK_DIR)
-            except ValueError:
-                rel = Path(src.name)
-            obj_rel = rel.with_suffix(".o")
-            obj = (obj_j / obj_rel).as_posix()
-            if obj in seen_obj_targets:
-                continue  # skip duplicate obj target (case collision guard)
-            seen_obj_targets.add(obj)
-            src_j_posix = (sdk_j / rel).as_posix()
-            objs.append(obj)
-            subdirs_to_create.add((obj_dir / obj_rel).parent)
-            out_lines.append("")
-            out_lines.append(f"{obj}: {src_j_posix}")
-            # NOTE: no `@mkdir` recipe — Python pre-creates the obj subdirs.
-            if is_asm:
-                out_lines.append(f"\t@echo 'Assembling: {src.name}'")
-                out_lines.append(f"\t$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
-            else:
-                out_lines.append(f"\t@echo 'Building: {src.name}'")
-                out_lines.append(f"\t$(CC) $(CFLAGS) -c -o\"$@\" \"$<\"")
-    out_lines.insert(3, f"OBJS := {' '.join(objs)}")
-    # Pre-create every obj subdir (and BUILD_DIR / GEN_DIR) so recipe shells
-    # never need `mkdir -p` (Windows' built-in mkdir does not support -p).
-    for sd in subdirs_to_create:
-        sd.mkdir(parents=True, exist_ok=True)
-    build_dir.mkdir(parents=True, exist_ok=True)
+    for rel_text in source_order:
+        rel = Path(rel_text)
+        src = SDK_DIR / rel
+        obj_rel = rel.with_suffix(".o")
+        obj = (obj_j / obj_rel).as_posix()
+        src_j_posix = (sdk_j / rel).as_posix()
+        objs.append(obj)
+        subdirs_to_create.add((obj_dir / obj_rel).parent)
+        out_lines.append("")
+        out_lines.append(f"{obj}: {src_j_posix}")
+        if src.suffix == ".S":
+            out_lines.append(f"\t@echo 'Assembling: {src.name}'")
+            out_lines.append(f"\t$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
+        else:
+            out_lines.append(f"\t@echo 'Building: {src.name}'")
+            out_lines.append(f"\t$(CC) $(CFLAGS) -c -o\"$@\" \"$<\"")
+    out_lines.insert(4, f"OBJS := {' '.join(objs)}")
+    for directory in subdirs_to_create:
+        directory.mkdir(parents=True, exist_ok=True)
     gen_dir.mkdir(parents=True, exist_ok=True)
     (build_dir / "sources.mk").write_text("\n".join(out_lines) + "\n", encoding="utf-8")
     _info(f"generated sources.mk: {build_dir / 'sources.mk'}  ({len(objs)} objects)")
@@ -640,6 +837,43 @@ def _git_provenance() -> dict:
     }
 
 
+def _build_input_provenance() -> dict:
+    entries = _load_source_order_strict()
+    objects = []
+    object_order: list[str] = []
+    for source in entries:
+        object_rel = (Path("build/bms/obj") / Path(source).with_suffix(".o")).as_posix()
+        object_path = REPO_ROOT / object_rel
+        if not object_path.exists():
+            raise SourceOrderError(f"compiled object missing: {object_path}; run rebuild first")
+        object_order.append(object_rel)
+        objects.append({
+            "source": source,
+            "object": object_rel,
+            "size_bytes": object_path.stat().st_size,
+            "sha256": _sha256(object_path),
+        })
+    build_mk = _HERE / "build.mk"
+    return {
+        "source_order_file": str(SOURCE_ORDER_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
+        "source_order_file_sha256": _sha256(SOURCE_ORDER_FILE),
+        "source_order_sha256": _source_order_sha256(entries),
+        "source_count": len(entries),
+        "object_order_sha256": hashlib.sha256(
+            _normalised_order_bytes(object_order)
+        ).hexdigest(),
+        "objects": objects,
+        "build_driver": {
+            "path": str(build_mk.relative_to(REPO_ROOT)).replace("\\", "/"),
+            "sha256": _sha256(build_mk),
+        },
+        "linker_script": {
+            "path": str(LINKER_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
+            "sha256": _sha256(LINKER_FILE),
+        },
+    }
+
+
 def cmd_manifest(args: argparse.Namespace) -> int:
     if not BIN.exists():
         _die(f"BIN missing: {BIN}. Run 'objcopy' first.")
@@ -647,8 +881,12 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     telink_crc = _telink_crc_details(data)
     if not telink_crc.get("valid"):
         _die("BIN is not a valid single-pass tl_check_fw2 image. Run 'check-fw' first.")
+    try:
+        build_inputs = _build_input_provenance()
+    except SourceOrderError as exc:
+        _die(str(exc))
     manifest = {
-        "format": "bms-fw-manifest/v2",
+        "format": "bms-fw-manifest/v3",
         "generated_at": _now_iso(),
         "firmware_name": "825x_ble_sample",
         "chip": "TLSR8251 / TLSR825x (B85)",
@@ -678,8 +916,9 @@ def cmd_manifest(args: argparse.Namespace) -> int:
             "tlsr8251_sram_end_in_sdk": TLSR8251_SRAM_END_IN_SDK,
             "risk": TARGET_CONFIGURATION_RISK,
         },
+        "build_inputs": build_inputs,
         "vendor_libraries": {
-            str(path.relative_to(REPO_ROOT)): {
+            str(path.relative_to(REPO_ROOT)).replace("\\", "/"): {
                 "size_bytes": path.stat().st_size,
                 "sha256": _sha256(path),
             }
@@ -717,6 +956,63 @@ def cmd_verify(args: argparse.Namespace) -> int:
     print(f"Telink trailer/residue {'OK' if trailer_ok else 'MISMATCH'}")
     ok = (ok and len(data) == m["size_bytes"] and sha == m["sha256"]
           and payload_ok and trailer_ok)
+
+    build_inputs = m.get("build_inputs", {})
+    try:
+        entries = _load_source_order_strict()
+        order_sha = _source_order_sha256(entries)
+        order_ok = order_sha == build_inputs.get("source_order_sha256")
+        order_file_ok = (_sha256(SOURCE_ORDER_FILE) ==
+                         build_inputs.get("source_order_file_sha256"))
+        build_driver = build_inputs.get("build_driver", {})
+        linker_script = build_inputs.get("linker_script", {})
+        build_driver_ok = (_sha256(_HERE / "build.mk") == build_driver.get("sha256"))
+        linker_ok = (_sha256(LINKER_FILE) == linker_script.get("sha256"))
+        object_records = build_inputs.get("objects", [])
+        object_mismatches = []
+        for record in object_records:
+            object_path = REPO_ROOT / Path(record["object"])
+            if (not object_path.exists() or
+                    _sha256(object_path) != record.get("sha256") or
+                    object_path.stat().st_size != record.get("size_bytes")):
+                object_mismatches.append(record["object"])
+        recorded_sources = [record.get("source") for record in object_records]
+        recorded_object_order = [record.get("object") for record in object_records]
+        recorded_object_order_sha = hashlib.sha256(
+            _normalised_order_bytes(recorded_object_order)
+        ).hexdigest() if all(isinstance(item, str) for item in recorded_object_order) else None
+        objects_ok = (
+            len(object_records) == len(entries)
+            and build_inputs.get("source_count") == len(entries)
+            and recorded_sources == entries
+            and recorded_object_order_sha == build_inputs.get("object_order_sha256")
+            and not object_mismatches
+        )
+        print(f"source order          {'OK' if order_ok and order_file_ok else 'MISMATCH'}")
+        print(f"build.mk              {'OK' if build_driver_ok else 'MISMATCH'}")
+        print(f"linker script         {'OK' if linker_ok else 'MISMATCH'}")
+        print(f"compiled objects      {'OK' if objects_ok else 'MISMATCH'} "
+              f"({len(object_records)} recorded, {len(object_mismatches)} mismatched)")
+        ok = (ok and order_ok and order_file_ok and build_driver_ok and linker_ok and objects_ok)
+    except (SourceOrderError, KeyError, OSError) as exc:
+        print(f"build input verification MISMATCH: {exc}")
+        ok = False
+
+    expected_libraries = m.get("vendor_libraries", {})
+    required_library_names = {
+        str(path.relative_to(REPO_ROOT)).replace("\\", "/")
+        for path in REQUIRED_VENDOR_LIBS
+    }
+    library_mismatches = []
+    if set(expected_libraries) != required_library_names:
+        library_mismatches.append("manifest library set")
+    for rel, expected in expected_libraries.items():
+        library = REPO_ROOT / Path(rel)
+        if (not library.exists() or _sha256(library) != expected.get("sha256") or
+                library.stat().st_size != expected.get("size_bytes")):
+            library_mismatches.append(rel)
+    print(f"vendor libraries      {'OK' if not library_mismatches else 'MISMATCH'}")
+    ok = ok and not library_mismatches
     _info("verify PASS" if ok else "verify FAIL")
     return 0 if ok else 1
 
@@ -897,6 +1193,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
     steps: list[tuple[str, list[str]]] = [
         ("tooling_unit_tests", [sys.executable, "-m", "unittest",
                                 "tests.test_bms_tools", "-v"]),
+        ("source_order", [sys.executable, script, "sources", "--check"]),
         ("environment", [sys.executable, script, "env"]),
         ("rebuild", [sys.executable, script, "rebuild", "--jobs", str(args.jobs)]),
         ("telink_postbuild", [sys.executable, script, "check-fw"]),
@@ -989,6 +1286,18 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("env", help="check local toolchain / paths").set_defaults(func=cmd_env)
+
+    psrc = sub.add_parser("sources", help="validate/update locked source and link order")
+    source_mode = psrc.add_mutually_exclusive_group()
+    source_mode.add_argument("--check", dest="source_action", action="store_const",
+                             const="check", help="validate the locked order (default)")
+    source_mode.add_argument("--update", dest="source_action", action="store_const",
+                             const="update", help="explicitly regenerate deterministic order")
+    source_mode.add_argument("--compare-ide", dest="source_action", action="store_const",
+                             const="compare-ide", help="compare with optional IDE subdir.mk files")
+    source_mode.add_argument("--import-ide", dest="source_action", action="store_const",
+                             const="import-ide", help="explicitly replace locked order from IDE files")
+    psrc.set_defaults(func=cmd_sources, source_action="check")
 
     pb = sub.add_parser("build", help="incremental build")
     pb.add_argument("-j", "--jobs", type=int, default=4)

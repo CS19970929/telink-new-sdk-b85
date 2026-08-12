@@ -26,6 +26,7 @@ Telink IoT Studio 当前仍作为本机 TC32 编译器和 BDT 的安装来源，
 | `AGENTS.md` | 记录 MCU、TC32 架构、SDK、工具链、构建入口、禁止修改边界和修改后的验证要求。 |
 | `bms_tools/bms.py` | 统一命令入口；完成环境检查、源码发现、Make 规则生成、构建、固件后处理、尺寸/MAP、manifest、基线比较和静态分析。 |
 | `bms_tools/build.mk` | 保存固定的编译、汇编和链接参数；它是薄层构建驱动，单个源文件规则由 `bms.py` 生成。 |
+| `bms_tools/source_order.txt` | 版本化保存参与构建的 `.c` / `.S` 及其链接顺序；它是命令行构建的权威顺序输入。 |
 | `bms_tools/static_analysis/cppcheck.cfg` | 固定 Cppcheck 分析选项，并将项目代码与 Telink SDK 分 scope 输出。 |
 | `docs/no_ide_toolchain_new_new_master.md` | 记录环境、构建、产物、校验、基线和烧录流程。 |
 | `docs/project_flash_map_8251_512k.md` | 记录当前 512 KB Flash、OTA、业务数据和 SDK 保留区域。 |
@@ -37,7 +38,7 @@ Git 查看器以红色块显示 `.a`，只是因为二进制文件不能按文�
 
 ## 3. 新增源文件如何编译
 
-每次调用 `build` 或 `rebuild` 时，`bms.py` 都会重新生成 `build/bms/sources.mk`，因此不需要为每个源文件手写 Make 规则。
+每次调用 `build` 或 `rebuild` 时，`bms.py` 都会根据 `bms_tools/source_order.txt` 重新生成 `build/bms/sources.mk`，因此不需要为每个源文件手写 Make 规则。顺序文件受 Git 管理，新增、删除或重命名源文件时，构建会先失败并列出差异，不会静默改变链接布局。
 
 当前直接扫描以下目录中的 `*.c` 和 `*.S`：
 
@@ -56,26 +57,47 @@ application/audio
 application/app
 ```
 
-例如新增：
+`vendor/ble_sample/` 会递归发现子目录中的源文件；其余 SDK 目录保持与原工程一致的非递归边界。比如新增：
 
 ```text
-vendor/ble_sample/my_feature.c
-vendor/ble_sample/my_feature.h
+vendor/ble_sample/my_feature/my_feature.c
+vendor/ble_sample/my_feature/my_feature.h
 ```
 
-执行以下命令即可自动编译和链接 `my_feature.c`：
+第一次执行检查或构建会报告 `unlisted new source`。审核文件确实应参与固件后，执行：
 
 ```powershell
+python bms_tools/bms.py sources --update
+git diff -- bms_tools/source_order.txt
+python bms_tools/bms.py sources --check
 python bms_tools/bms.py rebuild --jobs 4
 ```
 
-### 3.1 当前限制
+`--update` 只更新顺序清单，不写 Makefile；随后的构建自动生成逐文件规则。顺序变化必须随代码一起评审和提交。
 
-源码扫描使用每个目录的 `glob("*.c")` / `glob("*.S")`，不是递归扫描。因此：
+### 3.1 与可选 IDE 输出对照
 
-- 放在 `vendor/ble_sample/` 根目录的 `.c` / `.S` 会自动加入；
-- 放在新子目录（例如 `vendor/ble_sample/my_feature/my_feature.c`）的文件不会自动加入；
-- 新子目录只需加入 `bms.py` 的 `src_groups`，仍不需要手写逐文件 Make 规则；
+命令行构建不读取 IDE 工程文件。若本机恰好有 Telink Eclipse CDT 生成的 `project/tlsr_tc32/B85/825x_ble_sample/makefile` 和各目录 `subdir.mk`，可做只读对照：
+
+```powershell
+python bms_tools/bms.py sources --compare-ide
+```
+
+该命令一致时返回 0；不一致时打印前 20 个顺序差异且不修改文件。确实要采用 IDE 新顺序时，必须显式执行并审核：
+
+```powershell
+python bms_tools/bms.py sources --import-ide
+git diff -- bms_tools/source_order.txt
+```
+
+因此可以同步，但不会“自动跟随 GUI”。这是有意的安全门禁：IDE 生成文件可能陈旧或只反映某台电脑的增量状态，不能在无人审核时改写发布固件布局。
+
+### 3.2 当前限制
+
+源码发现与编译规则的边界如下：
+
+- `vendor/ble_sample/` 的 `.c` / `.S`（包括新子目录）会被发现，但必须通过 `sources --update` 明确纳入；
+- 新增全新的顶层源码组时，需要修改 `bms.py` 的 `SOURCE_GROUPS`，仍不需要手写逐文件 Make 规则；
 - 新增头文件搜索路径时，需要修改 `build.mk` 的 `INCLUDES`；
 - 新增全局宏、链接库或特殊编译参数时，需要修改 `DEFINES`、`LIBS` 或相应 flags；
 - 当前不扫描 `.cpp`，也没有为特殊源文件提供单独编译参数。
@@ -86,6 +108,7 @@ python bms_tools/bms.py rebuild --jobs 4
 
 ```powershell
 python bms_tools/bms.py env
+python bms_tools/bms.py sources --check
 python bms_tools/bms.py rebuild --jobs 4
 python bms_tools/bms.py check-fw
 python bms_tools/bms.py size
@@ -112,19 +135,38 @@ python bms_tools/bms.py static
 
 命令行工具链连续两次完整 `rebuild` 的 raw BIN 和最终 BIN SHA-256 均完全一致，说明命令行构建自身具有确定性。
 
-### 4.2 不能声称最终 BIN 已与旧 IDE 完全相同
+### 4.2 当前 IDE 差异的根因和修复验证
+
+对同一份源码的当前 IDE 与旧版命令行结果逐项比较后确认：81 个 `.o` 的 SHA-256 全部相同，924 个符号的名称和尺寸也相同；唯一差别是链接命令中的对象顺序：
+
+- IDE 在 `vendor/ble_sample` 中把 `SocEnhance.o` 放在第一项，旧脚本因 Windows 不区分大小写排序把它放在最后；
+- IDE 在 `common` 中把 `div_mod.o` 放在第一项，旧脚本把所有 `.S` 放在 `.c` 后面。
+
+用同一批 81 个对象按 IDE 顺序重新链接后，ELF 和最终 BIN 均与 IDE 字节级完全相同：
+
+| 产物 | IDE | 按 IDE 顺序的命令行重链接 |
+|---|---|---|
+| ELF SHA-256 | `2A2D24B25C0A7718D11CC474C4917E4C40F7174CDB32A68FE3FA561AB2C9E4D8` | 相同 |
+| BIN 大小 | 91,092 字节 | 91,092 字节 |
+| BIN SHA-256 | `B324353F462C15D64DFE2B9F24F63830A4AE973D320C4CC2262A9E5808FF7627` | 相同 |
+
+这证明本次同源码差异来自链接顺序，而不是编译器、编译参数、源码、`.a` 库或 `tl_check_fw2.exe`。现在 `source_order.txt` 固化该顺序，`build/rebuild` 在顺序文件与磁盘源码不一致时拒绝继续；manifest v3 还记录顺序文件、对象顺序、每个对象、`build.mk`、链接脚本和 Vendor 库的 SHA-256。
+
+“字节级一致”只对参与比较的源码状态、工具链和构建输入成立。以后新增源文件会合理改变地址与 BIN；此时应审核顺序差异、保存新基线并做硬件回归，而不是要求继续匹配旧 BIN。
+
+### 4.3 旧归档基线也已恢复字节级一致
 
 现有旧归档 `d3pro d003 V1.0 10s7.8Ah 20260715.bin` 与命令行干净重建结果如下：
 
 | 项目 | 旧归档 BIN | 命令行干净重建 BIN |
 |---|---:|---:|
-| 文件大小 | 91,076 字节 | 91,060 字节 |
-| SHA-256 | `00fc84909af4495719f6ce68b047eb62eeb9c2bc7ed66c13c2dbdee0d32a3dd3` | `ee9f3a9a91b1c326553c607e05324472ad43ffcf2b12eb9ef81f2cb06d6dccd9` |
+| 文件大小 | 91,076 字节 | 91,076 字节 |
+| SHA-256 | `00fc84909af4495719f6ce68b047eb62eeb9c2bc7ed66c13c2dbdee0d32a3dd3` | `00fc84909af4495719f6ce68b047eb62eeb9c2bc7ed66c13c2dbdee0d32a3dd3` |
 | Telink 尾部校验 | 有效 | 有效 |
 
-新文件小 16 字节，共有约 35,648 个同位置字节不同，表现为链接地址重排。旧归档没有同时保存匹配的 ELF、MAP、对象输入和完整构建日志，因此目前不能证明差异来自旧 IDE 增量对象残留，也不能证明两者行为完全等价。
+修复对象顺序后，原来 16 字节的尺寸差和地址重排全部消失，`baseline` 可判定 `BASELINE MATCH`。这进一步证明旧命令行脚本的差异来自链接顺序。
 
-准确结论是：编译器、参数、宏、启动和链接配置已经对齐，命令行构建稳定可重复且通过官方固件检查；但在真实 TLSR8251 BMS 完成回归测试前，不能承诺新 BIN 一定没有行为差异。
+准确结论是：对于该 Git 源码状态，编译器、参数、宏、启动、链接配置和对象顺序均已对齐，命令行构建稳定可重复、通过官方固件检查，并与归档 BIN 字节级一致。以后源码或顺序发生变化时需建立新的基线，不能把这次哈希当作所有未来版本的固定值。
 
 首次将命令行固件作为发布基线前，应至少验证现有的 Startup、AFE、Cell、Temperature、Current、Protection、CHG/DSG、Communication、Flash Storage、Watchdog 和 Low Power 功能，并保存 BIN、ELF、MAP、manifest 和硬件测试记录。
 

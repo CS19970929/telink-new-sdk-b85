@@ -29,6 +29,7 @@
 
 ```powershell
 python bms_tools/bms.py env
+python bms_tools/bms.py sources --check
 python bms_tools/bms.py build --jobs 4
 python bms_tools/bms.py rebuild --jobs 4
 python bms_tools/bms.py size
@@ -58,6 +59,16 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 
 不要仅为了“现代化”改用 CMake；`build.mk` 是保持旧固件编译语义的薄驱动，源文件规则由 Python 自动生成。
 
+## 源码与链接顺序
+
+`bms_tools/source_order.txt` 是参与构建的 `.c` / `.S` 和对象链接顺序的权威输入。不得依赖文件系统枚举顺序，也不得让 `build/rebuild` 静默改写它。
+
+- 新增、删除或重命名源文件后，先执行 `python bms_tools/bms.py sources --update`，审核并提交 `source_order.txt` 的 Git diff，然后执行 `sources --check` 和 `rebuild`；不需要手写逐文件 Make 规则。
+- `vendor/ble_sample/` 递归发现项目源文件；新增其他顶层源码组时需审核并修改 `SOURCE_GROUPS`。
+- 若保留 IDE 生成文件，可用 `sources --compare-ide` 只读对照；只有明确决定采用 IDE 顺序时才能执行 `sources --import-ide`。IDE 文件不是构建依赖。
+- 修改头文件后必须 `rebuild`；当前构建不依赖自动生成的头文件 `.d` 文件。
+- 顺序变化会改变链接地址和 BIN。重大变化必须比较 ELF/MAP/BIN 并做真实硬件回归。
+
 ## 修改边界和验证
 
 - `vendor/ble_sample/` 是项目代码；修改后必须执行 `rebuild`、`check-fw`、`size`、`manifest`、`verify`、`static`。
@@ -68,4 +79,4 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 
 静态分析由 cppcheck 执行，项目代码和 SDK 分开输出到 `build/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
 
-详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`。
+详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`。
