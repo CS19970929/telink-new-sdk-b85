@@ -29,7 +29,7 @@ PROJ_DIR     := $(SDK_DIR)/project/tlsr_tc32/B85
 LINKER_FILE  := $(PROJ_DIR)/boot.link
 PROJ_LIB_DIR := $(SDK_DIR)/proj_lib
 
-BUILD_DIR    ?= $(REPO_ROOT)/build/bms
+BUILD_DIR    ?= $(PROJ_DIR)/825x_ble_sample_cli
 OBJ_DIR      := $(BUILD_DIR)/obj
 GEN_DIR      := $(BUILD_DIR)/gen
 

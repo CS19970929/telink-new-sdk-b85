@@ -29,6 +29,17 @@ python bms_tools/bms.py env
 
 ## 构建
 
+命令行构建输出固定在：
+
+```text
+tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/
+└─ project/tlsr_tc32/B85/
+   ├─ 825x_ble_sample/      # Telink IDE 输出，命令行工具不写入
+   └─ 825x_ble_sample_cli/  # bms.py 独立输出
+```
+
+两个目录不共享对象、ELF、BIN、MAP 或清理操作。
+
 构建前可单独检查版本化源码/链接顺序：
 
 ```powershell
@@ -54,12 +65,12 @@ python bms_tools/bms.py rebuild --jobs 4
 
 | 文件 | 用途 |
 |---|---|
-| `build/bms/825x_ble_sample.elf` | ELF 和符号分析 |
-| `build/bms/gen/825x_ble_sample.map` | 链接 MAP |
-| `build/bms/gen/825x_ble_sample.lst` | 反汇编和源代码混合列表 |
-| `build/bms/825x_ble_sample.raw.bin` | objcopy 中间产物，不烧录 |
-| `build/bms/825x_ble_sample.bin` | 经 `tl_check_fw2.exe` 单次处理的标准烧录文件 |
-| `build/bms/fw_manifest.json` | 固件、源码/对象顺序、构建输入和官方库哈希记录 |
+| `825x_ble_sample_cli/825x_ble_sample.elf` | ELF 和符号分析 |
+| `825x_ble_sample_cli/gen/825x_ble_sample.map` | 链接 MAP |
+| `825x_ble_sample_cli/gen/825x_ble_sample.lst` | 反汇编和源代码混合列表 |
+| `825x_ble_sample_cli/825x_ble_sample.raw.bin` | objcopy 中间产物，不烧录 |
+| `825x_ble_sample_cli/825x_ble_sample.bin` | 经 `tl_check_fw2.exe` 单次处理的标准烧录文件 |
+| `825x_ble_sample_cli/fw_manifest.json` | 固件、源码/对象顺序、构建输入和官方库哈希记录 |
 
 每次 `build` / `rebuild` 都从 ELF 重新生成 raw BIN，再复制并执行一次官方后处理，避免对已带尾部信息的 BIN 重复处理。
 
@@ -76,7 +87,7 @@ python bms_tools/bms.py static
 
 `manifest` v3 记录最终 BIN 的大小、SHA-256、Telink 尾部 CRC/残值、Git 状态、目标配置、源码与对象顺序、每个对象、`build.mk`、`boot.link` 和两份官方 `.a` 库的 SHA-256。`verify` 必须在烧录前通过。
 
-Cppcheck 分为 `bms_app`、`vendor_common`、`drivers_b85`、`common` 四个 scope，输出到 `build/static/`。默认报告真实发现但不因历史 SDK 告警停止；需要门禁时使用 `static --strict`。
+Cppcheck 分为 `bms_app`、`vendor_common`、`drivers_b85`、`common` 四个 scope，输出到 `825x_ble_sample_cli/static/`。默认报告真实发现但不因历史 SDK 告警停止；需要门禁时使用 `static --strict`。
 
 一键主机流水线：
 
@@ -84,7 +95,7 @@ Cppcheck 分为 `bms_app`、`vendor_common`、`drivers_b85`、`common` 四个 sc
 python bms_tools/bms.py ci --jobs 4
 ```
 
-报告写入 `build/ci/ci_<UTC>.json` 和 `build/ci/latest.json`。该流水线不替代烧录、板级冒烟测试或硬件读回。
+报告写入 `825x_ble_sample_cli/ci/ci_<UTC>.json` 和 `825x_ble_sample_cli/ci/latest.json`。该流水线不替代烧录、板级冒烟测试或硬件读回。
 
 ## 基线比较
 
@@ -116,4 +127,4 @@ python bms_tools/bms.py baseline D:\path\reference.bin --report-only
 python bms_tools/bms.py flash-help
 ```
 
-使用 Telink BDT 将 `build/bms/825x_ble_sample.bin` 写到 `0x00000`。烧录前运行 `verify`；不得烧录 `.raw.bin`，不得全片擦除，必须保护 `0x74000..0x7FFFF` 的 SDK 配对、MAC 和校准区域。烧录后仍需在真实板上执行产品现有功能冒烟测试。
+使用 Telink BDT 将 `project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin` 写到 `0x00000`。烧录前运行 `verify`；不得烧录 `.raw.bin`，不得全片擦除，必须保护 `0x74000..0x7FFFF` 的 SDK 配对、MAC 和校准区域。烧录后仍需在真实板上执行产品现有功能冒烟测试。

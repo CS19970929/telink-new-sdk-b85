@@ -57,7 +57,10 @@ REQUIRED_VENDOR_LIBS = (
 )
 TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve()
 
-BUILD_DIR = (REPO_ROOT / "build" / "bms").resolve()
+# Keep command-line artifacts inside the Telink B85 project tree, but in a
+# dedicated sibling of the Eclipse/IDE output directory.  The two build
+# systems must never share objects or generated firmware.
+BUILD_DIR = (PROJ_DIR / "825x_ble_sample_cli").resolve()
 OBJ_DIR = BUILD_DIR / "obj"
 GEN_DIR = BUILD_DIR / "gen"
 ELF = BUILD_DIR / "825x_ble_sample.elf"
@@ -577,14 +580,9 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
 
 def _invoke_make(targets: list[str], jobs: int = 1,
                  build_dir: Path = BUILD_DIR) -> None:
-    managed_root = (REPO_ROOT / "build").resolve()
     resolved_build = build_dir.resolve()
-    try:
-        resolved_build.relative_to(managed_root)
-    except ValueError:
-        _die(f"refusing Make clean/build outside managed build root: {resolved_build}")
-    if resolved_build == managed_root:
-        _die(f"refusing to use broad build root as a target: {resolved_build}")
+    if resolved_build != BUILD_DIR:
+        _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
     make = _need_make()
     _gen_sources_mk(build_dir)
@@ -842,8 +840,8 @@ def _build_input_provenance() -> dict:
     objects = []
     object_order: list[str] = []
     for source in entries:
-        object_rel = (Path("build/bms/obj") / Path(source).with_suffix(".o")).as_posix()
-        object_path = REPO_ROOT / object_rel
+        object_path = BUILD_DIR / "obj" / Path(source).with_suffix(".o")
+        object_rel = object_path.relative_to(REPO_ROOT).as_posix()
         if not object_path.exists():
             raise SourceOrderError(f"compiled object missing: {object_path}; run rebuild first")
         object_order.append(object_rel)
@@ -1062,7 +1060,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 def cmd_static(args: argparse.Namespace) -> int:
     if not DEFAULT_CPPCHECK.exists():
         _die(f"cppcheck not found: {DEFAULT_CPPCHECK}")
-    out_dir = BUILD_DIR.parent / "static"
+    out_dir = BUILD_DIR / "static"
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg_path = _HERE / "static_analysis" / "cppcheck.cfg"
     if not cfg_path.exists():
@@ -1183,7 +1181,7 @@ def cmd_flash_help(args: argparse.Namespace) -> int:
 # Subcommand: ci  (repeatable host-side toolchain pipeline)
 # ----------------------------------------------------------------------------
 def cmd_ci(args: argparse.Namespace) -> int:
-    report_dir = REPO_ROOT / "build" / "ci"
+    report_dir = BUILD_DIR / "ci"
     report_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = report_dir / f"ci_{stamp}.json"
@@ -1236,7 +1234,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
                 report["findings"].append({
                     "type": "compiler_warnings",
                     "count": compiler_warnings,
-                    "evidence": "build/bms/gen/build.log",
+                    "evidence": (GEN_DIR / "build.log").relative_to(REPO_ROOT).as_posix(),
                 })
         if name == "static":
             issue_counts = [int(value) for value in
@@ -1246,7 +1244,8 @@ def cmd_ci(args: argparse.Namespace) -> int:
                 report["findings"].append({
                     "type": "cppcheck_findings",
                     "count": static_issues,
-                    "evidence": "build/static/*.xml and *.txt",
+                    "evidence": (BUILD_DIR / "static").relative_to(REPO_ROOT).as_posix()
+                                + "/*.xml and *.txt",
                 })
         report["steps"].append({
             "name": name,
@@ -1269,6 +1268,10 @@ def cmd_ci(args: argparse.Namespace) -> int:
         "hardware_smoke_test_completed": False,
     }
     encoded = json.dumps(report, indent=2, ensure_ascii=False)
+    # The rebuild step intentionally removes the complete CLI output tree,
+    # including the report directory created at CI startup. Recreate only the
+    # dedicated report directory after all steps have finished.
+    report_dir.mkdir(parents=True, exist_ok=True)
     report_path.write_text(encoded, encoding="utf-8")
     latest_path.write_text(encoded, encoding="utf-8")
     _info(f"ci {report['status']} -> {report_path}")

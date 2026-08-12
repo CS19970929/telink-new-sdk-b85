@@ -38,7 +38,7 @@ Git 查看器以红色块显示 `.a`，只是因为二进制文件不能按文�
 
 ## 3. 新增源文件如何编译
 
-每次调用 `build` 或 `rebuild` 时，`bms.py` 都会根据 `bms_tools/source_order.txt` 重新生成 `build/bms/sources.mk`，因此不需要为每个源文件手写 Make 规则。顺序文件受 Git 管理，新增、删除或重命名源文件时，构建会先失败并列出差异，不会静默改变链接布局。
+每次调用 `build` 或 `rebuild` 时，`bms.py` 都会根据 `bms_tools/source_order.txt` 重新生成 `project/tlsr_tc32/B85/825x_ble_sample_cli/sources.mk`，因此不需要为每个源文件手写 Make 规则。命令行输出目录与 IDE 的 `project/tlsr_tc32/B85/825x_ble_sample/` 分离。顺序文件受 Git 管理，新增、删除或重命名源文件时，构建会先失败并列出差异，不会静默改变链接布局。
 
 当前直接扫描以下目录中的 `*.c` 和 `*.S`：
 
