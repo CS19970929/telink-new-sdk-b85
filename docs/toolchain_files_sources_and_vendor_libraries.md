@@ -1,0 +1,169 @@
+# 无 Telink IDE 工具链：文件、源码发现与 Vendor 库说明
+
+本文记录 `codex-new-new-master-no-ide-toolchain` 分支建立命令行工具链时的关键事实和使用边界，避免这些信息只保留在对话记录中。
+
+## 1. 分支范围
+
+该分支基于本机 `new-new-master` 提交 `b9d4d0790cd7f163867872bf6ce7980a71dfee76`，工具链提交为 `b750a995a6ec523460526f5439c0be8075c2a6c9`。
+
+本次只增加命令行开发工具、构建输入和维护文档，没有修改 `vendor/ble_sample` 产品固件源码，没有加入诊断协议、故障注入或运行期功能。
+
+命令行构建仍使用：
+
+- Telink TC32 GCC `4.5.1-tc32-1.3`；
+- SDK `tc_ble_single_sdk V3.4.2.8_Patch_0001`；
+- 原工程的编译参数、宏、启动汇编、链接脚本和预编译库；
+- SDK 自带的 `tl_check_fw2.exe` 固件后处理程序。
+
+Telink IoT Studio 当前仍作为本机 TC32 编译器和 BDT 的安装来源，但构建不需要启动 IDE GUI。
+
+## 2. 新增文件的作用
+
+| 文件 | 作用 |
+|---|---|
+| `.gitattributes` | 固定 Python、Make 等文本文件的换行格式，减少 Windows CRLF/LF 无意义差异。 |
+| `.gitignore` | 忽略 OBJ、ELF、BIN、MAP、LST、Python 缓存和构建目录；为 `build.mk` 及两份必需的 Vendor `.a` 库设置跟踪例外。 |
+| `AGENTS.md` | 记录 MCU、TC32 架构、SDK、工具链、构建入口、禁止修改边界和修改后的验证要求。 |
+| `bms_tools/bms.py` | 统一命令入口；完成环境检查、源码发现、Make 规则生成、构建、固件后处理、尺寸/MAP、manifest、基线比较和静态分析。 |
+| `bms_tools/build.mk` | 保存固定的编译、汇编和链接参数；它是薄层构建驱动，单个源文件规则由 `bms.py` 生成。 |
+| `bms_tools/static_analysis/cppcheck.cfg` | 固定 Cppcheck 分析选项，并将项目代码与 Telink SDK 分 scope 输出。 |
+| `docs/no_ide_toolchain_new_new_master.md` | 记录环境、构建、产物、校验、基线和烧录流程。 |
+| `docs/project_flash_map_8251_512k.md` | 记录当前 512 KB Flash、OTA、业务数据和 SDK 保留区域。 |
+| `proj_lib/liblt_825x.a` | 当前 SDK 随附的 TLSR825x 预编译链接库。 |
+| `proj_lib/liblt_general_stack.a` | 当前 SDK 随附的协议栈预编译链接库。 |
+| `tests/test_bms_tools.py` | 验证工具 PATH 处理、CRC/Telink 尾部契约及允许暴露的命令集合。 |
+
+Git 查看器以红色块显示 `.a`，只是因为二进制文件不能按文本展示差异，不表示文件损坏。
+
+## 3. 新增源文件如何编译
+
+每次调用 `build` 或 `rebuild` 时，`bms.py` 都会重新生成 `build/bms/sources.mk`，因此不需要为每个源文件手写 Make 规则。
+
+当前直接扫描以下目录中的 `*.c` 和 `*.S`：
+
+```text
+vendor/common
+vendor/ble_sample
+drivers/B85
+drivers/B85/flash
+drivers/B85/driver_ext
+common
+boot/B85
+application/usbstd
+application/print
+application/keyboard
+application/audio
+application/app
+```
+
+例如新增：
+
+```text
+vendor/ble_sample/my_feature.c
+vendor/ble_sample/my_feature.h
+```
+
+执行以下命令即可自动编译和链接 `my_feature.c`：
+
+```powershell
+python bms_tools/bms.py rebuild --jobs 4
+```
+
+### 3.1 当前限制
+
+源码扫描使用每个目录的 `glob("*.c")` / `glob("*.S")`，不是递归扫描。因此：
+
+- 放在 `vendor/ble_sample/` 根目录的 `.c` / `.S` 会自动加入；
+- 放在新子目录（例如 `vendor/ble_sample/my_feature/my_feature.c`）的文件不会自动加入；
+- 新子目录只需加入 `bms.py` 的 `src_groups`，仍不需要手写逐文件 Make 规则；
+- 新增头文件搜索路径时，需要修改 `build.mk` 的 `INCLUDES`；
+- 新增全局宏、链接库或特殊编译参数时，需要修改 `DEFINES`、`LIBS` 或相应 flags；
+- 当前不扫描 `.cpp`，也没有为特殊源文件提供单独编译参数。
+
+当前生成的 Make 依赖只记录“对象文件依赖对应 `.c` / `.S`”，没有生成头文件 `.d` 依赖。只修改 `.h` 后，增量 `build` 可能不会重编所有受影响的源文件，所以修改头文件后必须使用 `rebuild`。
+
+推荐的修改后验证顺序：
+
+```powershell
+python bms_tools/bms.py env
+python bms_tools/bms.py rebuild --jobs 4
+python bms_tools/bms.py check-fw
+python bms_tools/bms.py size
+python bms_tools/bms.py map
+python bms_tools/bms.py manifest
+python bms_tools/bms.py verify
+python bms_tools/bms.py static
+```
+
+## 4. 与 Telink IDE 构建的一致性
+
+### 4.1 已确认一致的配置
+
+- 编译器：`tc32-elf-gcc 4.5.1-tc32-1.3`；
+- 优化：`-O2`；
+- 编译选项：`-ffunction-sections -fdata-sections -Wall -fpack-struct -fshort-enums -finline-small-functions -std=gnu99 -fshort-wchar -fms-extensions`；
+- 工程宏：`__PROJECT_8258_BLE_SAMPLE__=1`、`CHIP_TYPE=CHIP_TYPE_825x`；
+- Startup 汇编宏：`MCU_STARTUP_8258`；
+- 链接器：`tc32-elf-ld --gc-sections`；
+- 链接脚本：`project/tlsr_tc32/B85/boot.link`；
+- 链接库：`liblt_825x.a`、`liblt_general_stack.a`；
+- 入口：`__start`；
+- 最终 BIN 使用 SDK 自带 `tl_check_fw2.exe` 单次后处理。
+
+命令行工具链连续两次完整 `rebuild` 的 raw BIN 和最终 BIN SHA-256 均完全一致，说明命令行构建自身具有确定性。
+
+### 4.2 不能声称最终 BIN 已与旧 IDE 完全相同
+
+现有旧归档 `d3pro d003 V1.0 10s7.8Ah 20260715.bin` 与命令行干净重建结果如下：
+
+| 项目 | 旧归档 BIN | 命令行干净重建 BIN |
+|---|---:|---:|
+| 文件大小 | 91,076 字节 | 91,060 字节 |
+| SHA-256 | `00fc84909af4495719f6ce68b047eb62eeb9c2bc7ed66c13c2dbdee0d32a3dd3` | `ee9f3a9a91b1c326553c607e05324472ad43ffcf2b12eb9ef81f2cb06d6dccd9` |
+| Telink 尾部校验 | 有效 | 有效 |
+
+新文件小 16 字节，共有约 35,648 个同位置字节不同，表现为链接地址重排。旧归档没有同时保存匹配的 ELF、MAP、对象输入和完整构建日志，因此目前不能证明差异来自旧 IDE 增量对象残留，也不能证明两者行为完全等价。
+
+准确结论是：编译器、参数、宏、启动和链接配置已经对齐，命令行构建稳定可重复且通过官方固件检查；但在真实 TLSR8251 BMS 完成回归测试前，不能承诺新 BIN 一定没有行为差异。
+
+首次将命令行固件作为发布基线前，应至少验证现有的 Startup、AFE、Cell、Temperature、Current、Protection、CHG/DSG、Communication、Flash Storage、Watchdog 和 Low Power 功能，并保存 BIN、ELF、MAP、manifest 和硬件测试记录。
+
+另有一项继承自原工程的配置风险：工程声明目标是 TLSR8251，但启动汇编仍使用 `MCU_STARTUP_8258`，其 SRAM 结束配置与 SDK 中 TLSR8251 定义不同。工具链只报告该风险，没有擅自修改启动配置；更改前必须确认实际芯片和硬件基线。
+
+## 5. 两份 `.a` 文件的来源
+
+### 5.1 为什么以前 Git 中没有
+
+原 `.gitignore` 包含全局规则：
+
+```gitignore
+*.a
+```
+
+所以两份库虽然存在于原 SDK 工作目录并一直被 Telink IDE 链接，但没有进入 Git。创建新 worktree 或在新电脑克隆仓库时，Git 不会复制这些被忽略的文件，导致命令行链接缺少构建输入。
+
+为使构建可迁移，本分支为这两个固定路径增加 `.gitignore` 例外并纳入版本控制。
+
+### 5.2 Git 来源链
+
+这两个文件最早在本仓库提交 `ff94ba8e48637abe2bea09c6a322d9582dd22a20` 中进入 Git；其父提交 `7ca59c216f538a72beb8c637af534c93b4717cd1` 尚未跟踪它们。
+
+建立 `codex-new-new-master-no-ide-toolchain` 分支时，从现有 `no-telink-ide` 分支恢复相同 Git blob，没有重编、编辑或二进制补丁操作：
+
+| 文件 | Git blob |
+|---|---|
+| `liblt_825x.a` | `fa73e443e07ac17edfd3b33dde5f9250efa2ded4` |
+| `liblt_general_stack.a` | `6f20a889a5dfb912ac908a1b5118dbd590512a59` |
+
+### 5.3 大小和 SHA-256
+
+| 文件 | 大小 | SHA-256 |
+|---|---:|---|
+| `liblt_825x.a` | 484,472 字节 | `3A51224D664F9D54E1746B5DC2D9B48EEC727020D8DC038EA51B8B64390AAE17` |
+| `liblt_general_stack.a` | 950 字节 | `E0331419862BE31572B4DF5B3A4ED4B82E8C2526BFBA92FF7FC71D2C589C74A0` |
+
+只读扫描本机 `D:\telink` 后，当前工程、多个工程副本以及 `D:\telink\TLSR-8258` 下的 `V3.4.2.8_Patch_0001` SDK 副本均得到完全相同的大小和 SHA-256。旧版 `V3.4.2.1` SDK 中同名库的大小和哈希不同，本分支没有使用旧版文件。
+
+因此可以确认，本分支中的库与本机多个 `V3.4.2.8_Patch_0001` SDK 副本字节完全一致；迁移过程中没有修改或重新编译 `.a`。`manifest` 会继续记录两个文件的 SHA-256，以便发现未来的非预期变化。
+
+如果未来确实需要升级或替换 Vendor 库，必须同时记录来源 SDK、原始文件哈希、工具链版本、基线差异和真实硬件验证结果，不能直接覆盖现有 `.a`。

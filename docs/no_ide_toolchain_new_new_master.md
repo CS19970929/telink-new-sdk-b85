@@ -1,5 +1,7 @@
 # new-new-master 无 Telink IDE 工具链
 
+新增文件作用、源码自动发现限制、与旧 IDE 的一致性边界以及 Vendor `.a` 来源，详见 `toolchain_files_sources_and_vendor_libraries.md`。
+
 ## 目标与范围
 
 本工具链从本机 `new-new-master` 提交 `b9d4d0790cd7f163867872bf6ce7980a71dfee76` 建立，目标是让工程在不打开 Telink IDE 的情况下完成环境检查、编译、清理重编、固件生成、官方固件检查、尺寸/MAP 分析、完整性记录、基线比较和基础静态分析。
