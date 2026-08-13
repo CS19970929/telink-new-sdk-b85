@@ -15,5 +15,6 @@ tools/lan_clipboard_sync
 
 ota-app/**/bin/
 ota-app/**/obj/
+ota-app/artifacts/
 .vs/
 *.user

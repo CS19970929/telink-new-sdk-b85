@@ -74,7 +74,7 @@ ota-app/
 
 | 项 | 说明 |
 |---|---|
-| 扫描 | `BluetoothLEAdvertisementWatcher`（Active 模式取 Scan Response 中的设备名；设备名在 Scan Response，主广播只带 UUID 1812/180F） |
+| 扫描 | `BluetoothLEAdvertisementWatcher` Active 模式；发现阶段不使用 RSSI 状态过滤；每轮使用新 Watcher，并在 12 秒后自动增强重试一次（总扫描 30 秒） |
 | 连接 | `BluetoothLEDevice.FromBluetoothAddressAsync` **不会真正建立连接**——必须先做一次 GATT 操作（`GetGattServicesAsync`）触发连接建立，再轮询 `ConnectionStatus == Connected` |
 | 地址类型 | 当前固件为 Public 地址；`FromBluetoothAddressAsync` 假定 Public。实测目标设备 A4C13816025A 前两位 0xA4 属随机静态地址段，但 Windows 下连接正常 |
 | 服务发现 | `BluetoothCacheMode.Uncached`；按 UUID 匹配，不硬编码 Handle |
@@ -86,6 +86,11 @@ ota-app/
 
 ### 3.2 已知 Windows 特性/坑
 
+- 当前固件把设备名放在 Scan Response，主广播只带 UUID 1812/180F；Windows 收到主广播但漏收 Scan Response 时只能先显示“名称未广播”。上位机必须使用 Active 模式，后续同地址 Scan Response 到达时再补全名称；
+- `BluetoothSignalStrengthFilter` 是“进入/离开范围”的状态过滤，不是单纯 RSSI 排序。2026-08-13 本机实测旧过滤配置在弱信号环境明显减少回调，因此发现阶段已取消该过滤，列表仍按 RSSI 排序；
+- `BluetoothLEAdvertisementWatcher.Stop()` 会先进入异步 `Stopping`。复用同一实例会使快速重扫排队并让旧 `Stopped` 事件污染新状态；当前每轮创建新 Watcher、先解绑旧事件，并在扫描中途自动换新实例重试；
+- 不得在实时扫描同时并发对 Windows 缓存列表逐个调用 `BluetoothLEDevice.FromIdAsync`。当前仅读取 `DeviceInformation` 的地址/存在属性补名，避免争用蓝牙栈或误占单连接设备；
+- 2026-08-13 实机扫描验证：增强扫描发现 8 台设备，目标 `BT_cs_0812 / A4C13816025A` 被识别，RSSI 为 `-90 dBm`；
 - `FromBluetoothAddressAsync` 不发起连接（必须 GATT 操作触发）——已处理；
 - Windows 不暴露协商后的 ATT MTU——用 `MaxPduSize-7` 估计 + 首包失败降级；
 - Telink 设备为**单连接**：上位机/诊断工具/手机同时连接会互相挤掉——同一时刻只允许一个客户端；

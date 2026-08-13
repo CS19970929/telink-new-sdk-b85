@@ -144,7 +144,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Devices.Clear();
         OnPropertyChanged(nameof(FilteredDevices));
         OnPropertyChanged(nameof(VisibleDeviceCount));
-        _scanner.Start(info =>
+        Action<BleDeviceInfo> updateDevice = info =>
         {
             Post(() =>
             {
@@ -161,10 +161,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(FilteredDevices));
                 OnPropertyChanged(nameof(VisibleDeviceCount));
             });
-        });
+        };
         try
         {
-            await Task.Delay(20000, ct);
+            _scanner.Start(updateDevice);
+
+            // Windows/USB 蓝牙适配器偶尔只给某一轮扫描返回极少广播。12 秒后使用新
+            // Watcher 做一次增强重试，保留前半程结果，提升取得 Scan Response 名称的概率。
+            await Task.Delay(12000, ct);
+            _scanner.Start(updateDevice, clearPrevious: false);
+            Log(LogLevel.Info, "BLE 扫描已自动增强重试（保留已发现设备）");
+
+            await Task.Delay(18000, ct);
             if (!ct.IsCancellationRequested)
             {
                 _scanner.Stop();
@@ -175,12 +183,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             // 用户停止或启动了新一轮扫描。
         }
+        catch (Exception ex)
+        {
+            _scanner.Stop();
+            Status = $"BLE 扫描启动失败：{ex.Message}";
+            Log(LogLevel.Error, Status);
+        }
     }
 
     public void StopScan()
     {
         _scanCts?.Cancel();
-        if (_scanner.IsScanning) _scanner.Stop();
+        _scanner.Stop();
         if (Status == "扫描中...")
             Status = BuildScanSummary("扫描已停止");
     }
