@@ -49,6 +49,10 @@ dotnet build ota-app\src\TelinkOta.Mobile\TelinkOta.Mobile.csproj `
 src/TelinkOta.Mobile/bin/Debug/net7.0-android/com.telink.bms.mobile-Signed.apk
 ```
 
+项目已强制把托管程序集嵌入 Debug APK，因此这个文件可脱离 Visual Studio/`dotnet build -t:Run` 单独安装。不要分发 `obj` 目录下的中间 APK，也不要删除项目中的 `EmbedAssembliesIntoApk` 设置，否则手工侧载后会因 Fast Deployment 缺少程序集而在启动时退出。
+
+如果启动日志出现 `No assemblies found`，说明安装的是依赖 Fast Deployment 的旧 APK；如果出现 `Could not load file or assembly 'Microsoft.Extensions.*'`，需清理损坏的 NuGet/`obj` 缓存后重新还原和完整构建，并核对 APK 的 `assemblies/` 目录包含相关 DLL。仅看到“构建成功”不足以证明 APK 可以独立侧载。
+
 连接已打开 USB 调试的手机后：
 
 ```powershell
@@ -88,10 +92,11 @@ dotnet publish ota-app/src/TelinkOta.Mobile/TelinkOta.Mobile.csproj \
 ## 验证状态
 
 - `net7.0-android` Debug APK：本机完整构建通过，0 warning / 0 error；APK Manifest 已核对包名、SDK 级别与蓝牙权限。
+- 2026-08-13 已通过 ADB 在 Xiaomi `23127PN0CC`（Android 16 / API 36）安装 `versionCode=2`：冷启动成功，应用进程持续存活超过 30 秒，日志无 FATAL/程序集加载错误。测试时手机处于安全锁屏，BLE 权限交互及连接尚未纳入本次启动回归。
 - `net7.0-ios` iOS Simulator RID：本机托管代码和 XAML 编译通过，0 warning / 0 error。
 - `TelinkOta.Core.Tests`：94/94 通过。
 - Windows 只读实机基线：`BT_cs-0604 / A4C13816025A` 的 D120、SN、HW、SW、蓝牙名均已验证。
-- 当前没有通过 ADB 连接的 Android 手机，也没有 Mac/iPhone 签名环境，因此 Android/iPhone 的真实 BLE、改名持久化和 OTA 仍标记为“需手机实机验证”。在完成该验证前不得把手机端描述为量产验收通过。
+- 当前已有 Android 真机启动证据，但 Android BLE 扫描/连接、改名、OTA，以及 iPhone 签名安装仍标记为“需手机实机验证”。在完成该验证前不得把手机端描述为量产验收通过。
 
 ## 发布前必须完成
 
