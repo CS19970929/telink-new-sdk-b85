@@ -12,7 +12,8 @@ public sealed class BleDeviceInfo
     public DateTime FirstSeen { get; init; } = DateTime.Now;
 
     public string AddressHex => Address.ToString("X12");
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? "（名称未广播）" : Name;
 
     public override string ToString() =>
-        $"{Name,-24} {AddressHex} RSSI={Rssi}dBm {(Connectable ? "conn" : "noconn")}";
+        $"{DisplayName,-24} {AddressHex} RSSI={Rssi}dBm {(Connectable ? "conn" : "noconn")}";
 }

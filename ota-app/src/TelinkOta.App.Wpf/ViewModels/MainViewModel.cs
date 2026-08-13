@@ -22,18 +22,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<BleDeviceInfo> Devices { get; } = new();
 
-    private string _filterText = "BT_";
+    // 默认显示全部设备。Telink 实机的广播包可能不带 LocalName，名称通常稍后才由
+    // Scan Response/Windows 设备缓存补齐；默认按 BT_ 过滤会造成“发现 N 台但列表为空”。
+    private string _filterText = "";
     public string FilterText
     {
         get => _filterText;
-        set { _filterText = value; OnPropertyChanged(); OnPropertyChanged(nameof(FilteredDevices)); }
+        set
+        {
+            _filterText = value ?? "";
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FilteredDevices));
+            OnPropertyChanged(nameof(VisibleDeviceCount));
+        }
     }
 
-    public IReadOnlyList<BleDeviceInfo> FilteredDevices =>
-        string.IsNullOrWhiteSpace(_filterText)
-            ? Devices.ToList()
-            : Devices.Where(d => d.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase)
-                                 || d.AddressHex.Contains(_filterText)).ToList();
+    public IReadOnlyList<BleDeviceInfo> FilteredDevices
+    {
+        get
+        {
+            string filter = _filterText.Trim();
+            IEnumerable<BleDeviceInfo> matches = string.IsNullOrEmpty(filter)
+                ? Devices
+                : Devices.Where(d => d.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                                     || d.AddressHex.Contains(filter, StringComparison.OrdinalIgnoreCase));
+            return matches
+                .OrderByDescending(d => d.Name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(d => d.Rssi)
+                .ToList();
+        }
+    }
+
+    public int VisibleDeviceCount => FilteredDevices.Count;
 
     private BleDeviceInfo? _selectedDevice;
     public BleDeviceInfo? SelectedDevice
@@ -122,6 +142,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         CancellationToken ct = _scanCts.Token;
         Status = "扫描中...";
         Devices.Clear();
+        OnPropertyChanged(nameof(FilteredDevices));
+        OnPropertyChanged(nameof(VisibleDeviceCount));
         _scanner.Start(info =>
         {
             Post(() =>
@@ -137,6 +159,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     Devices.Add(info);
                 }
                 OnPropertyChanged(nameof(FilteredDevices));
+                OnPropertyChanged(nameof(VisibleDeviceCount));
             });
         });
         try
@@ -145,7 +168,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (!ct.IsCancellationRequested)
             {
                 _scanner.Stop();
-                Status = $"扫描完成，共发现 {Devices.Count} 台设备";
+                Status = BuildScanSummary("扫描完成");
             }
         }
         catch (OperationCanceledException)
@@ -159,8 +182,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _scanCts?.Cancel();
         if (_scanner.IsScanning) _scanner.Stop();
         if (Status == "扫描中...")
-            Status = $"扫描已停止，共发现 {Devices.Count} 台设备";
+            Status = BuildScanSummary("扫描已停止");
     }
+
+    private string BuildScanSummary(string prefix) =>
+        string.IsNullOrWhiteSpace(FilterText)
+            ? $"{prefix}，共发现 {Devices.Count} 台设备"
+            : $"{prefix}，共发现 {Devices.Count} 台设备，当前过滤后显示 {VisibleDeviceCount} 台";
 
     // ================= 固件 =================
 

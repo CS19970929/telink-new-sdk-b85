@@ -55,7 +55,8 @@ public sealed class BleScanner : IDisposable
         _stopRequested = true;
         if (IsScanning)
             _watcher.Stop();
-        _onUpdated = null;
+        // 不清除更新回调：LoadKnownDevicesAsync 可能晚于广播扫描结束才取得设备名称，
+        // 仍应把名称补全送到 UI。回调仅在 Dispose 时释放。
     }
 
     private void OnReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
@@ -162,6 +163,7 @@ public sealed class BleScanner : IDisposable
     public void Dispose()
     {
         Stop();
+        _onUpdated = null;
         _watcher.Received -= OnReceived;
         _watcher.Stopped -= OnStopped;
     }

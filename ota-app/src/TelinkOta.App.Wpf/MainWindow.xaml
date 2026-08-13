@@ -29,7 +29,7 @@
                                 <Button Content="连接" Width="58" DockPanel.Dock="Right" IsEnabled="{Binding CanConnectBattery}" Click="ConnectBatteryButton_Click"/>
                                 <Button Content="断开" Width="58" DockPanel.Dock="Right" Margin="0,0,4,0" IsEnabled="{Binding BatteryConnected}" Click="DisconnectBatteryButton_Click"/>
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="按名称/地址过滤（默认 BT_）"/>
+                                         ToolTip="按名称/地址过滤；留空显示全部设备"/>
                             </DockPanel>
                             <ListBox ItemsSource="{Binding FilteredDevices}" SelectedItem="{Binding SelectedDevice}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
@@ -37,7 +37,7 @@
                                     <DataTemplate>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold"/>
                                                 <TextBlock Text="  "/>
                                                 <TextBlock Text="{Binding AddressHex}" Foreground="Gray"/>
                                             </StackPanel>
@@ -169,14 +169,14 @@
                                 <Button Content="扫描" Width="62" DockPanel.Dock="Left" Click="ScanButton_Click"/>
                                 <Button Content="停止" Width="62" DockPanel.Dock="Left" Margin="5,0,0,0" Click="StopScanButton_Click"/>
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="按名称/地址过滤（默认 BT_）"/>
+                                         ToolTip="按名称/地址过滤；留空显示全部设备"/>
                             </DockPanel>
                             <ListBox ItemsSource="{Binding FilteredDevices}" SelectedItem="{Binding SelectedDevice}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold"/>
                                                 <TextBlock Text="  "/>
                                                 <TextBlock Text="{Binding AddressHex}" Foreground="Gray"/>
                                             </StackPanel>
