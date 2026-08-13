@@ -17,7 +17,9 @@ public sealed class BleScanner : IDisposable
     private readonly object _lifecycleGate = new();
     private readonly Dictionary<ulong, BleDeviceInfo> _devices = new();
     private readonly Dictionary<ulong, string> _nameCache = new();
+    private readonly Dictionary<string, DeviceInformation> _systemDevices = new();
     private BluetoothLEAdvertisementWatcher? _watcher;
+    private DeviceWatcher? _deviceWatcher;
     private Action<BleDeviceInfo>? _onUpdated;
     private int _generation;
     private bool _disposed;
@@ -34,7 +36,9 @@ public sealed class BleScanner : IDisposable
         get
         {
             lock (_lifecycleGate)
-                return _watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started;
+                return _watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started ||
+                       _deviceWatcher?.Status is DeviceWatcherStatus.Started or
+                           DeviceWatcherStatus.EnumerationCompleted;
         }
     }
 
@@ -43,6 +47,7 @@ public sealed class BleScanner : IDisposable
         ArgumentNullException.ThrowIfNull(onUpdated);
 
         BluetoothLEAdvertisementWatcher watcher;
+        DeviceWatcher deviceWatcher;
         int generation;
         lock (_lifecycleGate)
         {
@@ -50,11 +55,13 @@ public sealed class BleScanner : IDisposable
 
             // Windows 的 Stop 是异步的，旧实例可能长时间停在 Stopping。每轮扫描创建新实例，
             // 避免快速重扫被排队到旧实例停止之后，也避免旧 Stopped 事件覆盖新扫描状态。
-            StopCurrentWatcherLocked();
+            StopCurrentWatchersLocked();
             _onUpdated = onUpdated;
             generation = ++_generation;
             watcher = CreateWatcher();
+            deviceWatcher = CreateDeviceWatcher();
             _watcher = watcher;
+            _deviceWatcher = deviceWatcher;
         }
 
         if (clearPrevious)
@@ -65,8 +72,9 @@ public sealed class BleScanner : IDisposable
 
         try
         {
-            // 先启动空口扫描，不能让 Windows 缓存枚举阻塞实时广播接收。
+            // 两条 Windows 官方发现通道并行：原始广播 + 未配对设备枚举。
             watcher.Start();
+            deviceWatcher.Start();
         }
         catch
         {
@@ -74,7 +82,11 @@ public sealed class BleScanner : IDisposable
             {
                 if (ReferenceEquals(_watcher, watcher))
                     _watcher = null;
+                if (ReferenceEquals(_deviceWatcher, deviceWatcher))
+                    _deviceWatcher = null;
                 DetachWatcher(watcher);
+                DetachDeviceWatcher(deviceWatcher);
+                StopDeviceWatcher(deviceWatcher);
             }
             throw;
         }
@@ -94,7 +106,7 @@ public sealed class BleScanner : IDisposable
         lock (_lifecycleGate)
         {
             ++_generation; // 使仍在运行的缓存枚举结果失效。
-            StopCurrentWatcherLocked();
+            StopCurrentWatchersLocked();
         }
     }
 
@@ -113,23 +125,67 @@ public sealed class BleScanner : IDisposable
         return watcher;
     }
 
-    private void StopCurrentWatcherLocked()
+    private DeviceWatcher CreateDeviceWatcher()
+    {
+        string[] properties =
+        {
+            DeviceAddressProperty,
+            IsPresentProperty,
+            "System.Devices.Aep.SignalStrength",
+        };
+        var watcher = DeviceInformation.CreateWatcher(
+            BluetoothLEDevice.GetDeviceSelectorFromPairingState(false),
+            properties,
+            DeviceInformationKind.AssociationEndpoint);
+        watcher.Added += HandleDeviceAdded;
+        watcher.Updated += HandleDeviceUpdated;
+        watcher.Removed += HandleDeviceRemoved;
+        watcher.Stopped += HandleDeviceWatcherStopped;
+        return watcher;
+    }
+
+    private void StopCurrentWatchersLocked()
     {
         var watcher = _watcher;
         _watcher = null;
-        if (watcher is null)
-            return;
+        if (watcher is not null)
+        {
+            // 先解绑，旧实例的异步 Stopped 不得污染下一轮扫描。
+            DetachWatcher(watcher);
+            if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
+                watcher.Stop();
+        }
 
-        // 先解绑，旧实例的异步 Stopped 不得污染下一轮扫描。
-        DetachWatcher(watcher);
-        if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
-            watcher.Stop();
+        var deviceWatcher = _deviceWatcher;
+        _deviceWatcher = null;
+        if (deviceWatcher is not null)
+        {
+            DetachDeviceWatcher(deviceWatcher);
+            StopDeviceWatcher(deviceWatcher);
+        }
+
+        lock (_gate)
+            _systemDevices.Clear();
     }
 
     private void DetachWatcher(BluetoothLEAdvertisementWatcher watcher)
     {
         watcher.Received -= HandleReceived;
         watcher.Stopped -= HandleStopped;
+    }
+
+    private void DetachDeviceWatcher(DeviceWatcher watcher)
+    {
+        watcher.Added -= HandleDeviceAdded;
+        watcher.Updated -= HandleDeviceUpdated;
+        watcher.Removed -= HandleDeviceRemoved;
+        watcher.Stopped -= HandleDeviceWatcherStopped;
+    }
+
+    private static void StopDeviceWatcher(DeviceWatcher watcher)
+    {
+        if (watcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
+            watcher.Stop();
     }
 
     private void HandleReceived(BluetoothLEAdvertisementWatcher sender,
@@ -191,14 +247,125 @@ public sealed class BleScanner : IDisposable
     private void HandleStopped(BluetoothLEAdvertisementWatcher sender,
         BluetoothLEAdvertisementWatcherStoppedEventArgs args)
     {
+        bool noFallback;
         lock (_lifecycleGate)
         {
             if (!ReferenceEquals(sender, _watcher))
                 return;
             _watcher = null;
             DetachWatcher(sender);
+            noFallback = _deviceWatcher?.Status is not (DeviceWatcherStatus.Started or
+                DeviceWatcherStatus.EnumerationCompleted);
         }
-        ScanStopped?.Invoke($"BLE 扫描被系统停止：{args.Error}");
+        if (noFallback)
+            ScanStopped?.Invoke($"BLE 广播扫描被系统停止：{args.Error}");
+    }
+
+    private void HandleDeviceAdded(DeviceWatcher sender, DeviceInformation deviceInfo)
+    {
+        lock (_lifecycleGate)
+        {
+            if (!ReferenceEquals(sender, _deviceWatcher))
+                return;
+        }
+
+        lock (_gate)
+            _systemDevices[deviceInfo.Id] = deviceInfo;
+        PublishSystemDevice(deviceInfo);
+    }
+
+    private void HandleDeviceUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        lock (_lifecycleGate)
+        {
+            if (!ReferenceEquals(sender, _deviceWatcher))
+                return;
+        }
+
+        DeviceInformation? deviceInfo;
+        string oldName;
+        bool hadAddress;
+        lock (_gate)
+        {
+            if (!_systemDevices.TryGetValue(update.Id, out deviceInfo))
+                return;
+            oldName = deviceInfo.Name;
+            hadAddress = TryGetBluetoothAddress(deviceInfo, out _);
+            deviceInfo.Update(update);
+        }
+
+        // DeviceWatcher 会高频发送纯 RSSI 更新；原始广播通道已经负责 RSSI，不能把这些
+        // 更新全部投递到 UI。仅在地址首次补齐或名称变化时刷新设备列表。
+        if (!hadAddress || !string.Equals(oldName, deviceInfo.Name, StringComparison.Ordinal))
+            PublishSystemDevice(deviceInfo);
+    }
+
+    private void HandleDeviceRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        lock (_lifecycleGate)
+        {
+            if (!ReferenceEquals(sender, _deviceWatcher))
+                return;
+        }
+
+        // 设备可能只是瞬时漏包；本轮扫描列表保留最后一次发现，避免界面反复闪烁。
+        lock (_gate)
+            _systemDevices.Remove(update.Id);
+    }
+
+    private void HandleDeviceWatcherStopped(DeviceWatcher sender, object args)
+    {
+        bool noFallback;
+        lock (_lifecycleGate)
+        {
+            if (!ReferenceEquals(sender, _deviceWatcher))
+                return;
+            _deviceWatcher = null;
+            DetachDeviceWatcher(sender);
+            noFallback = _watcher?.Status != BluetoothLEAdvertisementWatcherStatus.Started;
+        }
+        if (noFallback)
+            ScanStopped?.Invoke("Windows BLE 设备枚举被系统停止");
+    }
+
+    private void PublishSystemDevice(DeviceInformation deviceInfo)
+    {
+        if (!TryGetBluetoothAddress(deviceInfo, out ulong address))
+            return;
+        if (deviceInfo.Properties.TryGetValue(IsPresentProperty, out object? present) &&
+            present is false)
+            return;
+
+        Action<BleDeviceInfo>? callback;
+        lock (_lifecycleGate)
+            callback = _onUpdated;
+        if (callback is null)
+            return;
+
+        BleDeviceInfo info;
+        lock (_gate)
+        {
+            _devices.TryGetValue(address, out var existing);
+            string name = !string.IsNullOrWhiteSpace(deviceInfo.Name)
+                ? deviceInfo.Name
+                : existing?.Name ?? _nameCache.GetValueOrDefault(address, "");
+            if (!string.IsNullOrWhiteSpace(name))
+                _nameCache[address] = name;
+
+            short rssi = GetSignalStrength(deviceInfo) ?? existing?.Rssi ?? -127;
+            info = new BleDeviceInfo
+            {
+                Address = address,
+                Name = name,
+                LocalName = string.IsNullOrEmpty(name) ? existing?.LocalName : name,
+                Rssi = rssi,
+                Connectable = existing?.Connectable ?? true,
+                ServiceUuids = existing?.ServiceUuids ?? Array.Empty<Guid>(),
+                FirstSeen = existing?.FirstSeen ?? DateTime.Now,
+            };
+            _devices[address] = info;
+        }
+        callback(info);
     }
 
     private async Task LoadKnownDevicesAsync(int generation)
@@ -281,6 +448,21 @@ public sealed class BleScanner : IDisposable
     private static bool TryGetBoolean(DeviceInformation deviceInfo, string propertyName) =>
         deviceInfo.Properties.TryGetValue(propertyName, out object? value) && value is true;
 
+    private static short? GetSignalStrength(DeviceInformation deviceInfo)
+    {
+        const string propertyName = "System.Devices.Aep.SignalStrength";
+        if (!deviceInfo.Properties.TryGetValue(propertyName, out object? value) || value is null)
+            return null;
+        try
+        {
+            return Convert.ToInt16(value, CultureInfo.InvariantCulture);
+        }
+        catch (Exception) when (value is not short)
+        {
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         lock (_lifecycleGate)
@@ -289,7 +471,7 @@ public sealed class BleScanner : IDisposable
                 return;
             _disposed = true;
             ++_generation;
-            StopCurrentWatcherLocked();
+            StopCurrentWatchersLocked();
             _onUpdated = null;
         }
     }
