@@ -88,6 +88,7 @@ ota-app/
 
 - 当前固件把设备名放在 Scan Response，主广播只带 UUID 1812/180F；Windows 收到主广播但漏收 Scan Response 时只能先显示“名称未广播”。上位机必须使用 Active 模式，后续同地址 Scan Response 到达时再补全名称；
 - 单靠 `BluetoothLEDevice.GetDeviceSelector()` 查询系统缓存对未配对设备无效，本机实测返回 0 台。当前按微软 GATT Client 指南并行使用 `GetDeviceSelectorFromPairingState(false)` 创建设备枚举器，该查询会请求 Windows 主动发现未配对 BLE 设备；
+- 名称缓存只用于同一地址仍在线、但某个广播包没有 LocalName 时补全显示，不代表设备在线。Windows 报告 `Removed`/`IsPresent=false` 后进入 5 秒防抖；期间无新广播则从 UI 移除，防止休眠设备永久显示；扫描完成后保留轻量 DeviceWatcher 在线状态监听，连接/OTA/手动停止时释放；
 - `BluetoothSignalStrengthFilter` 是“进入/离开范围”的状态过滤，不是单纯 RSSI 排序。2026-08-13 本机实测旧过滤配置在弱信号环境明显减少回调，因此发现阶段已取消该过滤，列表仍按 RSSI 排序；
 - `BluetoothLEAdvertisementWatcher.Stop()` 会先进入异步 `Stopping`。复用同一实例会使快速重扫排队并让旧 `Stopped` 事件污染新状态；当前每轮创建新 Watcher、先解绑旧事件，并在扫描中途自动换新实例重试；
 - 不得在实时扫描同时并发对 Windows 缓存列表逐个调用 `BluetoothLEDevice.FromIdAsync`。当前仅读取 `DeviceInformation` 的地址/存在属性补名，避免争用蓝牙栈或误占单连接设备；

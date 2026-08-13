@@ -12,11 +12,13 @@ public sealed class BleScanner : IDisposable
 {
     private const string DeviceAddressProperty = "System.Devices.Aep.DeviceAddress";
     private const string IsPresentProperty = "System.Devices.Aep.IsPresent";
+    private static readonly TimeSpan RemovalGracePeriod = TimeSpan.FromSeconds(5);
 
     private readonly object _gate = new();
     private readonly object _lifecycleGate = new();
     private readonly Dictionary<ulong, BleDeviceInfo> _devices = new();
     private readonly Dictionary<ulong, string> _nameCache = new();
+    private readonly Dictionary<ulong, DateTime> _lastSeenUtc = new();
     private readonly Dictionary<string, DeviceInformation> _systemDevices = new();
     private BluetoothLEAdvertisementWatcher? _watcher;
     private DeviceWatcher? _deviceWatcher;
@@ -25,6 +27,7 @@ public sealed class BleScanner : IDisposable
     private bool _disposed;
 
     public event Action<string>? ScanStopped;
+    public event Action<ulong>? DeviceUnavailable;
 
     public IReadOnlyList<BleDeviceInfo> Devices
     {
@@ -36,9 +39,7 @@ public sealed class BleScanner : IDisposable
         get
         {
             lock (_lifecycleGate)
-                return _watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started ||
-                       _deviceWatcher?.Status is DeviceWatcherStatus.Started or
-                           DeviceWatcherStatus.EnumerationCompleted;
+                return _watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started;
         }
     }
 
@@ -67,7 +68,10 @@ public sealed class BleScanner : IDisposable
         if (clearPrevious)
         {
             lock (_gate)
+            {
                 _devices.Clear();
+                _lastSeenUtc.Clear();
+            }
         }
 
         try
@@ -107,6 +111,23 @@ public sealed class BleScanner : IDisposable
         {
             ++_generation; // 使仍在运行的缓存枚举结果失效。
             StopCurrentWatchersLocked();
+        }
+    }
+
+    /// <summary>
+    /// 结束高频原始广播扫描，但保留 Windows 设备在线状态监听，使休眠/离场设备能从 UI 移除。
+    /// </summary>
+    public void FinishDiscovery()
+    {
+        lock (_lifecycleGate)
+        {
+            var watcher = _watcher;
+            _watcher = null;
+            if (watcher is null)
+                return;
+            DetachWatcher(watcher);
+            if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
+                watcher.Stop();
         }
     }
 
@@ -208,6 +229,7 @@ public sealed class BleScanner : IDisposable
         BleDeviceInfo info;
         lock (_gate)
         {
+            _lastSeenUtc[addr] = DateTime.UtcNow;
             if (!string.IsNullOrWhiteSpace(name))
                 _nameCache[addr] = name;
             else if (_nameCache.TryGetValue(addr, out string? cachedName))
@@ -285,6 +307,7 @@ public sealed class BleScanner : IDisposable
         DeviceInformation? deviceInfo;
         string oldName;
         bool hadAddress;
+        bool isPresent;
         lock (_gate)
         {
             if (!_systemDevices.TryGetValue(update.Id, out deviceInfo))
@@ -292,6 +315,22 @@ public sealed class BleScanner : IDisposable
             oldName = deviceInfo.Name;
             hadAddress = TryGetBluetoothAddress(deviceInfo, out _);
             deviceInfo.Update(update);
+            isPresent = !deviceInfo.Properties.TryGetValue(IsPresentProperty, out object? present) ||
+                        present is not false;
+        }
+
+        if (!isPresent)
+        {
+            lock (_gate)
+                _systemDevices.Remove(update.Id);
+            ScheduleRemoval(deviceInfo.Id, deviceInfo);
+            return;
+        }
+
+        if (TryGetBluetoothAddress(deviceInfo, out ulong address))
+        {
+            lock (_gate)
+                _lastSeenUtc[address] = DateTime.UtcNow;
         }
 
         // DeviceWatcher 会高频发送纯 RSSI 更新；原始广播通道已经负责 RSSI，不能把这些
@@ -308,9 +347,14 @@ public sealed class BleScanner : IDisposable
                 return;
         }
 
-        // 设备可能只是瞬时漏包；本轮扫描列表保留最后一次发现，避免界面反复闪烁。
+        DeviceInformation? deviceInfo;
         lock (_gate)
+        {
+            _systemDevices.TryGetValue(update.Id, out deviceInfo);
             _systemDevices.Remove(update.Id);
+        }
+        if (deviceInfo is not null)
+            ScheduleRemoval(update.Id, deviceInfo);
     }
 
     private void HandleDeviceWatcherStopped(DeviceWatcher sender, object args)
@@ -345,6 +389,7 @@ public sealed class BleScanner : IDisposable
         BleDeviceInfo info;
         lock (_gate)
         {
+            _lastSeenUtc[address] = DateTime.UtcNow;
             _devices.TryGetValue(address, out var existing);
             string name = !string.IsNullOrWhiteSpace(deviceInfo.Name)
                 ? deviceInfo.Name
@@ -366,6 +411,42 @@ public sealed class BleScanner : IDisposable
             _devices[address] = info;
         }
         callback(info);
+    }
+
+    private void ScheduleRemoval(string systemId, DeviceInformation deviceInfo)
+    {
+        if (!TryGetBluetoothAddress(deviceInfo, out ulong address))
+            return;
+
+        int generation;
+        lock (_lifecycleGate)
+            generation = _generation;
+        _ = RemoveAfterGracePeriodAsync(systemId, address, generation);
+    }
+
+    private async Task RemoveAfterGracePeriodAsync(string systemId, ulong address, int generation)
+    {
+        await Task.Delay(RemovalGracePeriod).ConfigureAwait(false);
+
+        lock (_lifecycleGate)
+        {
+            if (_disposed || generation != _generation)
+                return;
+        }
+
+        bool remove;
+        lock (_gate)
+        {
+            bool systemRediscovered = _systemDevices.ContainsKey(systemId);
+            bool recentlySeen = _lastSeenUtc.TryGetValue(address, out DateTime lastSeen) &&
+                                DateTime.UtcNow - lastSeen < RemovalGracePeriod;
+            remove = !systemRediscovered && !recentlySeen && _devices.Remove(address);
+            if (remove)
+                _lastSeenUtc.Remove(address);
+        }
+
+        if (remove)
+            DeviceUnavailable?.Invoke(address);
     }
 
     private async Task LoadKnownDevicesAsync(int generation)
@@ -413,7 +494,10 @@ public sealed class BleScanner : IDisposable
                     FirstSeen = existing?.FirstSeen ?? DateTime.Now,
                 };
                 lock (_gate)
+                {
                     _devices[address] = info;
+                    _lastSeenUtc[address] = DateTime.UtcNow;
+                }
 
                 Action<BleDeviceInfo>? callback;
                 lock (_lifecycleGate)

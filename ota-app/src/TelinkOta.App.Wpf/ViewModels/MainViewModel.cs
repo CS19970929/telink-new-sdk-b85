@@ -129,6 +129,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Status = message;
             Log(LogLevel.Warn, message + "。请确认 Windows 蓝牙已开启且应用有蓝牙权限。" );
         });
+        _scanner.DeviceUnavailable += address => Post(() =>
+        {
+            // 移除通知进入 UI 队列后设备可能已经重新广播；以扫描器最新状态为准。
+            if (_scanner.Devices.Any(d => d.Address == address))
+                return;
+            var device = Devices.FirstOrDefault(d => d.Address == address);
+            if (device is null)
+                return;
+            Devices.Remove(device);
+            if (SelectedDevice?.Address == address)
+                SelectedDevice = null;
+            OnPropertyChanged(nameof(FilteredDevices));
+            OnPropertyChanged(nameof(VisibleDeviceCount));
+            Log(LogLevel.Info, $"BLE 设备已停止广播，已从列表移除：{device.Name} ({device.AddressHex})");
+        });
     }
 
     // ================= 扫描 =================
@@ -175,7 +190,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             await Task.Delay(18000, ct);
             if (!ct.IsCancellationRequested)
             {
-                _scanner.Stop();
+                _scanner.FinishDiscovery();
                 Status = BuildScanSummary("扫描完成");
             }
         }
@@ -237,6 +252,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Status = "请先选择并校验固件";
             return;
         }
+
+        StopScan();
 
         // OTA 与电池监控互斥：暂停监控（释放设备链路），升级后自动恢复
         if (_monitor is { IsRunning: true })
@@ -429,6 +446,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         if (device is null || BatteryConnected || IsBusy)
             return;
+
+        StopScan();
 
         BatteryConnected = true; // 占用标记，避免重复
         BatteryStateText = $"连接 {device.Name} ...";
