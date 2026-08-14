@@ -93,6 +93,7 @@ ota-app/
 - `BluetoothLEAdvertisementWatcher.Stop()` 会先进入异步 `Stopping`。复用同一实例会使快速重扫排队并让旧 `Stopped` 事件污染新状态；当前每轮创建新 Watcher、先解绑旧事件，并在扫描中途自动换新实例重试；
 - 连接前同时停止 AdvertisementWatcher 与 DeviceWatcher，并最多等待 2 秒的 `Stopped` 确认，避免扫描请求仍占用 Windows BLE 请求队列；手动“停止扫描”仍为非阻塞操作；
 - 电池连接中、已连接或 OTA 进行中禁用两页的“扫描”按钮；Windows 主动扫描会与 GATT 请求争用同一适配器队列，实机已复现连接成功后并发扫描触发链路断开；
+- 主窗口关闭采用可等待的两阶段关闭：先取消本次 `Closing`，停止 watcher、取消尚未完成的连接/OTA、等待 `BatteryMonitor` 释放 GATT 句柄，再执行真正关闭；禁止在不可等待的 `Closed` 事件中调用 `async void` 清理，否则立即重开 App 会继承旧 BLE 请求；
 - 不得在实时扫描同时并发对 Windows 缓存列表逐个调用 `BluetoothLEDevice.FromIdAsync`。当前仅读取 `DeviceInformation` 的地址/存在属性补名，避免争用蓝牙栈或误占单连接设备；
 - 2026-08-13 实机扫描验证：双通道增强扫描发现 70 台设备，目标 `BT_cs_0812 / A4C13816025A` 在 `Added` 阶段即被识别；连续观测 RSSI 在 `-96~-81 dBm` 波动；
 - `FromBluetoothAddressAsync` 不发起连接（必须 GATT 操作触发）——已处理；

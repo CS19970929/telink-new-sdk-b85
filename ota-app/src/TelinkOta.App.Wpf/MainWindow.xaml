@@ -24,10 +24,14 @@
                     <GroupBox Grid.Column="0" Header="设备" Margin="0,0,6,0">
                         <DockPanel Margin="5">
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,5">
-                                <Button Content="扫描" Width="58" DockPanel.Dock="Left" IsEnabled="{Binding CanScan}" Click="ScanButton_Click"/>
-                                <Button Content="停止" Width="58" DockPanel.Dock="Left" Margin="4,0,0,0" Click="StopScanButton_Click"/>
-                                <Button Content="连接" Width="58" DockPanel.Dock="Right" IsEnabled="{Binding CanConnectBattery}" Click="ConnectBatteryButton_Click"/>
-                                <Button Content="断开" Width="58" DockPanel.Dock="Right" Margin="0,0,4,0" IsEnabled="{Binding BatteryConnected}" Click="DisconnectBatteryButton_Click"/>
+                                <Button Content="扫描" Width="58" DockPanel.Dock="Left" IsEnabled="{Binding CanScan}" Click="ScanButton_Click"
+                                        AutomationProperties.AutomationId="BatteryScanButton"/>
+                                <Button Content="停止" Width="58" DockPanel.Dock="Left" Margin="4,0,0,0" Click="StopScanButton_Click"
+                                        AutomationProperties.AutomationId="BatteryStopScanButton"/>
+                                <Button Content="连接" Width="58" DockPanel.Dock="Right" IsEnabled="{Binding CanConnectBattery}" Click="ConnectBatteryButton_Click"
+                                        AutomationProperties.AutomationId="BatteryConnectButton"/>
+                                <Button Content="断开" Width="58" DockPanel.Dock="Right" Margin="0,0,4,0" IsEnabled="{Binding BatteryConnected}" Click="DisconnectBatteryButton_Click"
+                                        AutomationProperties.AutomationId="BatteryDisconnectButton"/>
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="按名称/地址过滤；留空显示全部设备"/>
                             </DockPanel>
@@ -166,8 +170,10 @@
                     <GroupBox Grid.Column="0" Header="设备（与电池页共用）" Margin="0,0,6,0">
                         <DockPanel Margin="5">
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,5">
-                                <Button Content="扫描" Width="62" DockPanel.Dock="Left" IsEnabled="{Binding CanScan}" Click="ScanButton_Click"/>
-                                <Button Content="停止" Width="62" DockPanel.Dock="Left" Margin="5,0,0,0" Click="StopScanButton_Click"/>
+                                <Button Content="扫描" Width="62" DockPanel.Dock="Left" IsEnabled="{Binding CanScan}" Click="ScanButton_Click"
+                                        AutomationProperties.AutomationId="OtaScanButton"/>
+                                <Button Content="停止" Width="62" DockPanel.Dock="Left" Margin="5,0,0,0" Click="StopScanButton_Click"
+                                        AutomationProperties.AutomationId="OtaStopScanButton"/>
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="按名称/地址过滤；留空显示全部设备"/>
                             </DockPanel>

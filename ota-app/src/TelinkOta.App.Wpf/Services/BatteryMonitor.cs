@@ -141,7 +141,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
 
     public async Task StopAsync()
     {
-        if (!IsRunning && _cts is null)
+        if (!IsRunning && _cts is null && _transport is null)
             return;
         try { _cts?.Cancel(); } catch { }
         try { if (_loop is not null) await _loop; } catch { }

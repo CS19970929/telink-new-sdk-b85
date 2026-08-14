@@ -17,6 +17,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly BleScanner _scanner = new();
     private CancellationTokenSource? _scanCts;
     private CancellationTokenSource? _otaCts;
+    private CancellationTokenSource? _batteryConnectCts;
     private BatteryMonitor? _monitor;
     private bool _restartMonitorAfterOta;
 
@@ -464,21 +465,47 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BatteryStateText = $"连接 {device.Name} ...";
         Log(LogLevel.Info, $"电池监控连接：{device.Name} ({device.AddressHex})");
 
-        _monitor = new BatteryMonitor((level, msg) => Log(level, msg));
-        _monitor.SnapshotUpdated += snap => Post(() => ApplySnapshot(snap));
-        _monitor.ConnectionChanged += connected => Post(() =>
+        var monitor = new BatteryMonitor((level, msg) => Log(level, msg));
+        _monitor = monitor;
+        monitor.SnapshotUpdated += snap => Post(() => ApplySnapshot(snap));
+        monitor.ConnectionChanged += connected => Post(() =>
         {
             BatteryStateText = connected ? $"已连接 {device.Name}" : "未连接";
         });
 
-        bool ok = await _monitor.ConnectAsync(device, CancellationToken.None);
+        var connectCts = new CancellationTokenSource();
+        _batteryConnectCts = connectCts;
+        bool ok;
+        bool wasCanceled = false;
+        try
+        {
+            ok = await monitor.ConnectAsync(device, connectCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            ok = false;
+            wasCanceled = true;
+            Log(LogLevel.Info, "电池监控连接已取消");
+        }
+        finally
+        {
+            wasCanceled |= connectCts.IsCancellationRequested;
+            if (ReferenceEquals(_batteryConnectCts, connectCts))
+                _batteryConnectCts = null;
+            connectCts.Dispose();
+        }
+
         if (!ok)
         {
             BatteryConnected = false;
             BatteryStateText = "连接失败";
-            Log(LogLevel.Error, "电池监控连接失败");
-            await _monitor.DisposeAsync();
-            _monitor = null;
+            if (!wasCanceled)
+                Log(LogLevel.Error, "电池监控连接失败");
+            if (ReferenceEquals(_monitor, monitor))
+            {
+                _monitor = null;
+                await monitor.DisposeAsync();
+            }
         }
         else
         {
@@ -486,17 +513,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    public async void DisconnectBattery()
+    public async void DisconnectBattery() => await DisconnectBatteryAsync();
+
+    private async Task DisconnectBatteryAsync()
     {
-        if (_monitor is not null)
+        _batteryConnectCts?.Cancel();
+        var monitor = _monitor;
+        _monitor = null;
+        if (monitor is not null)
         {
             Log(LogLevel.Info, "断开电池监控");
-            await _monitor.DisposeAsync();
-            _monitor = null;
+            await monitor.DisposeAsync();
         }
         BatteryConnected = false;
         BatteryStateText = "未连接";
         ClearBatteryPanel();
+    }
+
+    public async Task ShutdownAsync()
+    {
+        _scanCts?.Cancel();
+        _otaCts?.Cancel();
+        _batteryConnectCts?.Cancel();
+        await _scanner.StopAsync(TimeSpan.FromSeconds(2));
+        await DisconnectBatteryAsync();
+        _scanner.Dispose();
+        _scanCts?.Dispose();
+        _scanCts = null;
     }
 
     public async void ChangeBluetoothName()
