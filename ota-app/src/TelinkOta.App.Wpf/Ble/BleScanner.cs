@@ -115,6 +115,34 @@ public sealed class BleScanner : IDisposable
     }
 
     /// <summary>
+    /// 停止两条扫描通道并等待 Windows 确认。连接前必须走此入口，避免扫描请求仍占用 BLE 栈队列。
+    /// </summary>
+    public async Task StopAsync(TimeSpan timeout)
+    {
+        BluetoothLEAdvertisementWatcher? watcher;
+        DeviceWatcher? deviceWatcher;
+        lock (_lifecycleGate)
+        {
+            ++_generation;
+            watcher = _watcher;
+            deviceWatcher = _deviceWatcher;
+            _watcher = null;
+            _deviceWatcher = null;
+            if (watcher is not null)
+                DetachWatcher(watcher);
+            if (deviceWatcher is not null)
+                DetachDeviceWatcher(deviceWatcher);
+        }
+
+        lock (_gate)
+            _systemDevices.Clear();
+
+        await Task.WhenAll(
+            StopAdvertisementWatcherAsync(watcher, timeout),
+            StopDeviceWatcherAsync(deviceWatcher, timeout)).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// 结束高频原始广播扫描，但保留 Windows 设备在线状态监听，使休眠/离场设备能从 UI 移除。
     /// </summary>
     public void FinishDiscovery()
@@ -126,8 +154,7 @@ public sealed class BleScanner : IDisposable
             if (watcher is null)
                 return;
             DetachWatcher(watcher);
-            if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
-                watcher.Stop();
+            StopAdvertisementWatcher(watcher);
         }
     }
 
@@ -173,8 +200,7 @@ public sealed class BleScanner : IDisposable
         {
             // 先解绑，旧实例的异步 Stopped 不得污染下一轮扫描。
             DetachWatcher(watcher);
-            if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
-                watcher.Stop();
+            StopAdvertisementWatcher(watcher);
         }
 
         var deviceWatcher = _deviceWatcher;
@@ -205,8 +231,74 @@ public sealed class BleScanner : IDisposable
 
     private static void StopDeviceWatcher(DeviceWatcher watcher)
     {
-        if (watcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
-            watcher.Stop();
+        try
+        {
+            if (watcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
+                watcher.Stop();
+        }
+        catch (Exception)
+        {
+            // Windows 可在状态检查后自行终止 watcher；停止清理必须保持幂等。
+        }
+    }
+
+    private static void StopAdvertisementWatcher(BluetoothLEAdvertisementWatcher watcher)
+    {
+        try
+        {
+            if (watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started)
+                watcher.Stop();
+        }
+        catch (Exception)
+        {
+            // 同上：生命周期竞态等价于 watcher 已停止，不得让 UI 因清理失败退出。
+        }
+    }
+
+    private static async Task StopAdvertisementWatcherAsync(
+        BluetoothLEAdvertisementWatcher? watcher, TimeSpan timeout)
+    {
+        if (watcher is null)
+            return;
+
+        try
+        {
+            StopAdvertisementWatcher(watcher);
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline &&
+                   watcher.Status is not (BluetoothLEAdvertisementWatcherStatus.Created or
+                       BluetoothLEAdvertisementWatcherStatus.Stopped or
+                       BluetoothLEAdvertisementWatcherStatus.Aborted))
+            {
+                await Task.Delay(25).ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // 状态读取与 Stop 之间 watcher 可能被系统终止；此时已经达到释放扫描资源的目的。
+        }
+    }
+
+    private static async Task StopDeviceWatcherAsync(DeviceWatcher? watcher, TimeSpan timeout)
+    {
+        if (watcher is null)
+            return;
+
+        try
+        {
+            StopDeviceWatcher(watcher);
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline &&
+                   watcher.Status is not (DeviceWatcherStatus.Created or DeviceWatcherStatus.Stopped or
+                       DeviceWatcherStatus.Aborted))
+            {
+                await Task.Delay(25).ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // DeviceWatcher 可能在状态检查后被系统终止，禁止让清理竞态使 UI 崩溃。
+        }
     }
 
     private void HandleReceived(BluetoothLEAdvertisementWatcher sender,
@@ -240,6 +332,10 @@ public sealed class BleScanner : IDisposable
                 info = new BleDeviceInfo
                 {
                     Address = addr,
+                    DeviceId = existing.DeviceId,
+                    AddressType = args.BluetoothAddressType == BluetoothAddressType.Unspecified
+                        ? existing.AddressType
+                        : args.BluetoothAddressType,
                     Name = !string.IsNullOrEmpty(name) ? name : existing.Name,
                     LocalName = !string.IsNullOrEmpty(name) ? name : existing.LocalName,
                     Rssi = args.RawSignalStrengthInDBm,
@@ -254,6 +350,9 @@ public sealed class BleScanner : IDisposable
                 info = new BleDeviceInfo
                 {
                     Address = addr,
+                    AddressType = args.BluetoothAddressType == BluetoothAddressType.Unspecified
+                        ? null
+                        : args.BluetoothAddressType,
                     Name = name,
                     LocalName = string.IsNullOrEmpty(name) ? null : name,
                     Rssi = args.RawSignalStrengthInDBm,
@@ -401,6 +500,8 @@ public sealed class BleScanner : IDisposable
             info = new BleDeviceInfo
             {
                 Address = address,
+                DeviceId = deviceInfo.Id,
+                AddressType = existing?.AddressType,
                 Name = name,
                 LocalName = string.IsNullOrEmpty(name) ? existing?.LocalName : name,
                 Rssi = rssi,
@@ -486,6 +587,8 @@ public sealed class BleScanner : IDisposable
                 var info = new BleDeviceInfo
                 {
                     Address = address,
+                    DeviceId = deviceInfo.Id,
+                    AddressType = existing?.AddressType,
                     Name = name,
                     LocalName = string.IsNullOrEmpty(name) ? existing?.LocalName : name,
                     Rssi = existing?.Rssi ?? -127,

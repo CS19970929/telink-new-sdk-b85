@@ -85,7 +85,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool IsBusy
     {
         get => _isBusy;
-        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); }
+        set { _isBusy = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanStart)); OnPropertyChanged(nameof(CanCancel)); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); OnPropertyChanged(nameof(CanScan)); }
     }
 
     private string _status = "就绪";
@@ -118,6 +118,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool CanStart => !IsBusy && SelectedDevice is not null && File.Exists(FirmwarePath);
     public bool CanCancel => IsBusy;
+    public bool CanScan => !BatteryConnected && !IsBusy;
 
     private OtaFirmware? _firmware;
 
@@ -150,7 +151,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public async void StartScan()
     {
-        if (_scanner.IsScanning) return;
+        if (!CanScan || _scanner.IsScanning) return;
         _scanCts?.Cancel();
         _scanCts?.Dispose();
         _scanCts = new CancellationTokenSource();
@@ -214,6 +215,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Status = BuildScanSummary("扫描已停止");
     }
 
+    private async Task StopScanBeforeConnectionAsync()
+    {
+        _scanCts?.Cancel();
+        await _scanner.StopAsync(TimeSpan.FromSeconds(2));
+        if (Status == "扫描中...")
+            Status = BuildScanSummary("扫描已停止");
+    }
+
     private string BuildScanSummary(string prefix) =>
         string.IsNullOrWhiteSpace(FilterText)
             ? $"{prefix}，共发现 {Devices.Count} 台设备"
@@ -253,7 +262,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        StopScan();
+        await StopScanBeforeConnectionAsync();
 
         // OTA 与电池监控互斥：暂停监控（释放设备链路），升级后自动恢复
         if (_monitor is { IsRunning: true })
@@ -286,7 +295,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         while (!_otaCts.IsCancellationRequested)
         {
             attempt++;
-            await using var transport = new WindowsBleTransport(device.Address);
+            await using var transport = new WindowsBleTransport(
+                device.Address, device.DeviceId, device.AddressType,
+                (level, message) => Log(level, message));
             options.MaxWriteLength = transport.MaxWriteLength;
             Log(LogLevel.Info, $"--- OTA 尝试 #{attempt}：{device.Name} ({device.AddressHex}) PDU={options.PduLength} ---");
 
@@ -352,7 +363,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool BatteryConnected
     {
         get => _batteryConnected;
-        private set { _batteryConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); }
+        private set { _batteryConnected = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanConnectBattery)); OnPropertyChanged(nameof(CanChangeBluetoothName)); OnPropertyChanged(nameof(CanScan)); }
     }
 
     public bool CanConnectBattery => SelectedDevice is not null && !BatteryConnected && !IsBusy;
@@ -447,7 +458,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (device is null || BatteryConnected || IsBusy)
             return;
 
-        StopScan();
+        await StopScanBeforeConnectionAsync();
 
         BatteryConnected = true; // 占用标记，避免重复
         BatteryStateText = $"连接 {device.Name} ...";
@@ -460,7 +471,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             BatteryStateText = connected ? $"已连接 {device.Name}" : "未连接";
         });
 
-        bool ok = await _monitor.ConnectAsync(device.Address, CancellationToken.None);
+        bool ok = await _monitor.ConnectAsync(device, CancellationToken.None);
         if (!ok)
         {
             BatteryConnected = false;

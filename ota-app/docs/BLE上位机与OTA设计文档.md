@@ -58,7 +58,7 @@ ota-app/
 ├── TelinkOta.sln
 ├── src/TelinkOta.Core/            协议核心（net7.0，无平台依赖）
 ├── src/TelinkOta.App.Wpf/         Windows 桌面 App（net7.0-windows10.0.19041.0）
-├── tests/TelinkOta.Core.Tests/    NUnit 单元测试（83 个用例）
+├── tests/TelinkOta.Core.Tests/    NUnit 单元测试（94 个用例）
 └── tools/TelinkOta.Diag/          实机诊断工具（SPP Modbus 协议探测/抓包）
 ```
 
@@ -75,8 +75,8 @@ ota-app/
 | 项 | 说明 |
 |---|---|
 | 扫描 | 双通道并行：`BluetoothLEAdvertisementWatcher` Active 原始广播 + `DeviceWatcher(GetDeviceSelectorFromPairingState(false))` 未配对设备枚举；12 秒后自动增强重试一次（总扫描 30 秒） |
-| 连接 | `BluetoothLEDevice.FromBluetoothAddressAsync` **不会真正建立连接**——必须先做一次 GATT 操作（`GetGattServicesAsync`）触发连接建立，再轮询 `ConnectionStatus == Connected` |
-| 地址类型 | 当前固件为 Public 地址；`FromBluetoothAddressAsync` 假定 Public。实测目标设备 A4C13816025A 前两位 0xA4 属随机静态地址段，但 Windows 下连接正常 |
+| 连接 | 扫描结果同时保留 Windows `DeviceInformation.Id` 与实时广播的 `BluetoothAddressType`；优先“地址+类型”（类型未知时用地址缓存入口），仅当地址入口无法创建设备对象时用 `FromIdAsync` 兜底。创建 `BluetoothLEDevice` **不会真正建立连接**，先执行 Uncached GATT 服务发现触发链路，成功后才创建可选 `GattSession`（避免驱动把会话请求排在连接前）；`Unreachable` 时释放句柄重试一次，全部步骤共享单一 15 秒总预算，并记录 `GattCommunicationStatus`/协议错误。 |
+| 地址类型 | 地址高位不能用于判定 Public/Random（Public MAC 的高位同样可能为 `10b`）；只采用 `BluetoothLEAdvertisementReceivedEventArgs.BluetoothAddressType` 的实测值，未收到实时广播时明确记录“地址类型未知”并退回 Windows 缓存入口。 |
 | 服务发现 | `BluetoothCacheMode.Uncached`；按 UUID 匹配，不硬编码 Handle |
 | 通知订阅 | CCCD 写 `Notify`（0x0100），同一 OTA Characteristic 收/发 |
 | MTU | Windows 无公开 ATT MTU 接口；`GattSession.MaxPduSize - 7` 作为写负载上限估计；错误超限由首包失败自动降级兜底 |
@@ -91,9 +91,13 @@ ota-app/
 - 名称缓存只用于同一地址仍在线、但某个广播包没有 LocalName 时补全显示，不代表设备在线。Windows 报告 `Removed`/`IsPresent=false` 后进入 5 秒防抖；期间无新广播则从 UI 移除，防止休眠设备永久显示；扫描完成后保留轻量 DeviceWatcher 在线状态监听，连接/OTA/手动停止时释放；
 - `BluetoothSignalStrengthFilter` 是“进入/离开范围”的状态过滤，不是单纯 RSSI 排序。2026-08-13 本机实测旧过滤配置在弱信号环境明显减少回调，因此发现阶段已取消该过滤，列表仍按 RSSI 排序；
 - `BluetoothLEAdvertisementWatcher.Stop()` 会先进入异步 `Stopping`。复用同一实例会使快速重扫排队并让旧 `Stopped` 事件污染新状态；当前每轮创建新 Watcher、先解绑旧事件，并在扫描中途自动换新实例重试；
+- 连接前同时停止 AdvertisementWatcher 与 DeviceWatcher，并最多等待 2 秒的 `Stopped` 确认，避免扫描请求仍占用 Windows BLE 请求队列；手动“停止扫描”仍为非阻塞操作；
+- 电池连接中、已连接或 OTA 进行中禁用两页的“扫描”按钮；Windows 主动扫描会与 GATT 请求争用同一适配器队列，实机已复现连接成功后并发扫描触发链路断开；
 - 不得在实时扫描同时并发对 Windows 缓存列表逐个调用 `BluetoothLEDevice.FromIdAsync`。当前仅读取 `DeviceInformation` 的地址/存在属性补名，避免争用蓝牙栈或误占单连接设备；
 - 2026-08-13 实机扫描验证：双通道增强扫描发现 70 台设备，目标 `BT_cs_0812 / A4C13816025A` 在 `Added` 阶段即被识别；连续观测 RSSI 在 `-96~-81 dBm` 波动；
 - `FromBluetoothAddressAsync` 不发起连接（必须 GATT 操作触发）——已处理；
+- 2026-08-14 对 `A4C138632D01` 的只读探测：`AdvertisementWatcher` 连续 15 秒未上报目标；经 `DeviceInformation.Id` 触发 Uncached GATT 时约 7.7 秒返回 `Unreachable`，但随后同一目标用 `FromBluetoothAddressAsync(address)` 在 1.39 秒内连接成功并发现 6 个服务。由此确认此 Windows 环境下系统 AEP ID 路径不可靠，不能把 `DeviceWatcher` ID 作为首选连接入口；“缓存中有名称/对象”本身也不证明设备可达，最终以 GATT 状态为准；
+- 2026-08-14 完整 UI 实机复核：按“扫描一次 → 等待 watcher 停止 → 地址缓存入口连接 → 不再并发扫描”执行，`A4C138632D01` 在 5.6 秒建立 GATT，约 11 秒完成 SPP/静态信息初始化，之后持续读回 22 B 稳定窗口和 126 B 完整窗口。另一次故意在连接初始化期间启动扫描可稳定触发断链与后续 `Unreachable`，确认当前设备并未休眠，问题来自本机 Windows BLE 扫描/GATT 并发争用；
 - Windows 不暴露协商后的 ATT MTU——用 `MaxPduSize-7` 估计 + 首包失败降级；
 - Telink 设备为**单连接**：上位机/诊断工具/手机同时连接会互相挤掉——同一时刻只允许一个客户端；
 - 实测通知存在**重复投递**（同一帧到达两次）——客户端按期望长度匹配帧来免疫（见 §5.3）。
@@ -252,7 +256,7 @@ ota-app/
 
 ## 7. 诊断与测试
 
-### 7.1 单元测试（83 个用例，NUnit）
+### 7.1 单元测试（94 个用例，NUnit）
 
 - CRC16/CRC32 跨平台测试向量（含真实固件 BIN 向量 `0x814C0E73`）；
 - FirmwareParser：Size/Mark/CRC 校验、自动补齐+Size 回写、异常文件（过小/零尺寸/超分区/坏 Mark/异常尾部/文件不存在）；

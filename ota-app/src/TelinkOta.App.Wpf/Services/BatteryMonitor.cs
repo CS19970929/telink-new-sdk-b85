@@ -31,18 +31,19 @@ public sealed class BatteryMonitor : IAsyncDisposable
         _log = log ?? ((_, _) => { });
     }
 
-    private ulong _address;
+    private BleDeviceInfo? _target;
     private volatile bool _linkLost;
 
-    public async Task<bool> ConnectAsync(ulong address, CancellationToken ct)
+    public async Task<bool> ConnectAsync(BleDeviceInfo target, CancellationToken ct)
     {
         if (IsRunning)
             return true;
 
-        _address = address;
+        _target = target;
         _linkLost = false;
-        _transport = new WindowsBleTransport(address);
-        _log(LogLevel.Info, $"[BMS] 连接 {address:X12} ...");
+        _transport = CreateTransport();
+        _log(LogLevel.Info,
+            $"[BMS] 连接 {target.AddressHex}，地址类型={target.AddressType?.ToString() ?? "未知"} ...");
         _transport.ConnectionLost += OnLinkLost;
         if (!await _transport.ConnectAsync(TimeSpan.FromSeconds(15), ct))
         {
@@ -101,7 +102,7 @@ public sealed class BatteryMonitor : IAsyncDisposable
                 _transport = null;
             }
 
-            _transport = new WindowsBleTransport(_address);
+            _transport = CreateTransport();
             _transport.ConnectionLost += OnLinkLost;
             if (!await _transport.ConnectAsync(TimeSpan.FromSeconds(15), ct))
             {
@@ -129,6 +130,13 @@ public sealed class BatteryMonitor : IAsyncDisposable
             _log(LogLevel.Error, $"[BMS] 重连异常：{ex.Message}");
             return false;
         }
+    }
+
+    private WindowsBleTransport CreateTransport()
+    {
+        if (_target is null)
+            throw new InvalidOperationException("尚未设置 BLE 连接目标");
+        return new WindowsBleTransport(_target.Address, _target.DeviceId, _target.AddressType, _log);
     }
 
     public async Task StopAsync()
