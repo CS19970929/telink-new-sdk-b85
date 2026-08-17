@@ -111,5 +111,7 @@ size: $(ELF)
 	$(SIZE) -t $(ELF)
 
 clean:
-	@echo 'Cleaning: $(BUILD_DIR)'
-	@rm -rf "$(BUILD_DIR)"
+	@echo 'Cleaning firmware artifacts in: $(BUILD_DIR)'
+	@rm -rf "$(OBJ_DIR)" "$(GEN_DIR)"
+	@rm -f "$(ELF)" "$(RAW_BIN)" "$(BUILD_DIR)/825x_ble_sample.bin" \
+		"$(BUILD_DIR)/fw_manifest.json" "$(BUILD_DIR)/sources.mk"

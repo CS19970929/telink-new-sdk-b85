@@ -164,6 +164,26 @@ class OutputPathTests(unittest.TestCase):
 
 
 class StaticAnalysisPrimitiveTests(unittest.TestCase):
+    def test_static_scope_accepts_only_ble_sample_paths(self) -> None:
+        self.assertTrue(bms._is_application_scope_path(
+            f"{bms.SDK_SUBDIR}/vendor/ble_sample/app.c"))
+        self.assertTrue(bms._is_application_scope_path(
+            f"{bms.SDK_SUBDIR}/vendor/ble_sample/flash_store_safe.h"))
+        self.assertFalse(bms._is_application_scope_path(
+            f"{bms.SDK_SUBDIR}/vendor/common/app_common.c"))
+        self.assertFalse(bms._is_application_scope_path(
+            f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"))
+
+    def test_scope_exclusion_partition_never_suppresses_application(self) -> None:
+        dependencies = {
+            f"{bms.SDK_SUBDIR}/vendor/ble_sample/app.h",
+            f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h",
+        }
+        excluded = sorted(
+            path for path in dependencies if not bms._is_application_scope_path(path)
+        )
+        self.assertEqual(excluded, [f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"])
+
     def test_extracts_real_compile_settings_without_manual_flag_lists(self) -> None:
         command = (
             'tc32-elf-gcc -O2 -std=gnu99 -I"C:/sdk" '

@@ -77,6 +77,6 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 - 烧录前先执行 `verify`，禁止全片擦除或擦除 `0x74000..0x7FFFF`。
 - 重大修改后用 `baseline <reference.bin>` 比较尺寸、SHA-256 和首末差异位置，并在真实 TLSR8251 板上完成现有功能冒烟测试。
 
-静态分析由 cppcheck 执行，项目代码和 SDK 分开输出到 `project/tlsr_tc32/B85/825x_ble_sample_cli/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
+静态分析由 cppcheck 执行，只检查 `vendor/ble_sample` 应用层。官方 SDK 头文件仅为保持真实类型、宏和条件编译而解析，其诊断按可追溯范围清单排除，不纳入问题统计。结果输出到 `project/tlsr_tc32/B85/825x_ble_sample_cli/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
 
 详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`。

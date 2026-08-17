@@ -37,13 +37,15 @@ Cppcheck 使用 `bms_tools/static_analysis/tc32-platform.xml` 描述 TC32 的基
 产品基线固定为 `b9d4d0790cd7f163867872bf6ce7980a71dfee76`。
 
 - 直接分析：所有实际参与编译的 `vendor/ble_sample/*.c` 翻译单元。
-- 条件纳入：相对产品基线已修改、且实际参与固件构建的 SDK/第三方 C 文件。
-- 随翻译单元解析：上述 C 文件真实引用的项目及 SDK 头文件。
-- 不直接分析：相对基线未修改的官方 SDK C 翻译单元；原因会逐项写入范围审计，
-  但被应用层引用的 SDK 头文件仍会被 Cppcheck 解析并产生可追溯告警。
+- 随翻译单元解析：应用层 C 文件真实引用的应用层头文件。
+- 官方 SDK/工具链依赖：不作为检查对象、不产生问题统计。为保持应用层类型、宏、
+  条件编译和内联调用上下文真实，Cppcheck 仍需解析被应用层包含的 SDK 头文件；
+  `bms.py` 每次根据 TC32 `-MM` 依赖结果自动生成范围排除清单，排除这些文件的诊断。
+- 不直接分析：所有官方 SDK C 翻译单元，无论相对产品基线是否修改；原因逐项写入
+  范围审计。应用层本身不使用 suppression。
 - 不适用：启动汇编 `.S`；Cppcheck 是 C/C++ 分析器，汇编文件仍保留在完整构建输入清单。
 
-若产品基线不可读取，流程不会缩小范围，而会保守分析全部实际编译的 C 翻译单元。
+产品基线不可读取时仍维持上述应用层边界，不会把 SDK 扩大纳入问题统计。
 
 ## 4. 检查策略与 MISRA 边界
 
@@ -53,8 +55,9 @@ Cppcheck 使用 `bms_tools/static_analysis/tc32-platform.xml` 描述 TC32 的基
 - `inconclusive` 和 exhaustive check level；
 - C99 解析器。真实工程仍是 GNU99，GNU 扩展和实际宏/Include Path 由编译数据库提供。
 
-初次接入不启用 suppression，也不接受源码内 inline suppression，因此不会为了降低数字
-隐藏问题。
+应用层不启用 suppression，也不接受源码内 inline suppression。自动生成的 suppression
+仅用于实现已确认的目录范围边界：SDK头文件继续解析，但SDK诊断不进入结果。每次运行
+同时保存 `sdk_scope_exclusions.json` 和文本清单，避免范围排除不可追溯。
 
 MISRA 检查与 Cppcheck 原生检查严格分开：只有检测到安装目录中的官方 `misra.py` addon
 时才运行 MISRA，并且只把 `misra-c2012-X.Y` 形式的结果计为 MISRA Rule。若 addon 缺失，
@@ -71,6 +74,8 @@ MISRA C 合规；即使安装 addon，也只能声明工具实际自动覆盖的
 - `configuration_check.log`：Cppcheck 正式运行前的配置审计；
 - `dependencies.log`：TC32 `-MM` 依赖解析记录；
 - `compiler_predefines.txt`、`compiler_predefines_applied.json`：编译器宏证据；
+- `cppcheck-sdk-scope-exclusions.txt`：本次自动生成的 SDK/工具链诊断范围排除清单；
+- `sdk_scope_exclusions.json`：排除文件、原因与 SHA-256 证据；
 - `cppcheck-native.xml`：Cppcheck 原始机器可读结果；
 - `findings.json`、`findings.csv`：去重后的可追溯问题明细；
 - `scope_audit.json`、`scope_audit.csv`：构建/分析/排除范围与 SHA-256；
@@ -80,8 +85,8 @@ MISRA C 合规；即使安装 addon，也只能声明工具实际自动覆盖的
 - `XXX-BMS_软件静态分析报告_已填写.xlsx`：基于原模板生成的新报告；
 - `report_previews/verification.json`：关键区域数据和公式错误检查结果。
 
-报告自动填写项目范围、Git Commit/脏工作区状态、工具版本、实际配置、日期、文件数量、
-问题分类、状态统计、MISRA 能力边界、Deviation 候选和初步结论。Reviewer、Approver、
+报告自动填写应用层检查范围、SDK仅解析边界、Git Commit/脏工作区状态、工具版本、
+实际配置、日期、文件数量、问题分类、状态统计、MISRA 能力边界、Deviation 候选和初步结论。Reviewer、Approver、
 责任人、批准日期、最终签核与 Deviation 最终批准保持空白，必须由人工完成。
 
 ## 6. 问题分类与 Deviation
@@ -98,20 +103,13 @@ MISRA C 合规；即使安装 addon，也只能声明工具实际自动覆盖的
 候选记录包含文件、函数、行号、规则/ID、问题描述、不修改原因建议、影响分析建议和
 规避措施建议。最终是否接受必须由 Reviewer/Approver 判断。
 
-## 7. 本次基线结果（2026-08-17）
+## 7. 结果解释
 
-- 真实构建输入：81 个（79 个 C、2 个汇编）。
-- 应用层直接分析：18 个 C 翻译单元；修改且参与构建的 SDK C 文件：0 个。
-- 经 TC32 `-MM` 核对的依赖头文件：170 个；覆盖缺口：0。
-- Cppcheck：2.21.0。
-- 原生问题：352 个去重问题，等于 352 次原始发生；9 warning、343 style。
-- 初始分类：9 个真实代码问题、117 个代码质量建议、226 个 SDK 问题。
-- MISRA：未执行，因为当前 Cppcheck 安装不含 MISRA addon；MISRA 违规数量不填 0，
-  而是明确显示“未执行”。
-- Deviation 候选：2 个，均为未修改 Telink SDK 头文件中的候选，状态均为未批准。
+每次报告只统计 `vendor/ble_sample` 应用层问题。SDK诊断数量固定表述为“不检查/不统计”，
+不能把它解释为“SDK问题为0”。报告同时给出应用层直接分析单元、应用层依赖头文件、
+SDK仅解析头文件、范围排除文件数量和覆盖缺口，便于认证审核人员复核边界。
 
-本次没有修改业务逻辑来消除告警；应优先人工复核应用层的 9 个 warning，再按风险和
-可达性整理 style 与 SDK 问题。
+MISRA addon 缺失时，MISRA 违规数量不填 0，而是明确显示“未执行”。
 
 ## 8. 环境与故障处理
 
