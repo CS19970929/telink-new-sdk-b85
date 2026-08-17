@@ -27,7 +27,7 @@ Telink IoT Studio 当前仍作为本机 TC32 编译器和 BDT 的安装来源，
 | `bms_tools/bms.py` | 统一命令入口；完成环境检查、源码发现、Make 规则生成、构建、固件后处理、尺寸/MAP、manifest、基线比较和静态分析。 |
 | `bms_tools/build.mk` | 保存固定的编译、汇编和链接参数；它是薄层构建驱动，单个源文件规则由 `bms.py` 生成。 |
 | `bms_tools/source_order.txt` | 版本化保存参与构建的 `.c` / `.S` 及其链接顺序；它是命令行构建的权威顺序输入。 |
-| `bms_tools/static_analysis/cppcheck.cfg` | 固定 Cppcheck 分析选项，并将项目代码与 Telink SDK 分 scope 输出。 |
+| `bms_tools/static_analysis/cppcheck.cfg` | 固定 Cppcheck 分析选项；只统计 `vendor/ble_sample` 应用层问题，SDK头文件仅解析并由每次运行生成的范围清单排除诊断。 |
 | `docs/no_ide_toolchain_new_new_master.md` | 记录环境、构建、产物、校验、基线和烧录流程。 |
 | `docs/project_flash_map_8251_512k.md` | 记录当前 512 KB Flash、OTA、业务数据和 SDK 保留区域。 |
 | `proj_lib/liblt_825x.a` | 当前 SDK 随附的 TLSR825x 预编译链接库。 |

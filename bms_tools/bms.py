@@ -153,6 +153,10 @@ DEFAULT_STATIC_REPORT_TEMPLATE = Path(
 )
 SDK_BASELINE_COMMIT = "b9d4d0790cd7f163867872bf6ce7980a71dfee76"
 PROJECT_SOURCE_PREFIX = "vendor/ble_sample/"
+STATIC_SCOPE_POLICY = (
+    "仅检查 vendor/ble_sample 应用层；官方 SDK/工具链文件仅为解析真实类型、宏和条件编译，"
+    "其诊断按范围策略排除"
+)
 STATIC_ANALYSIS_DIR = _HERE / "static_analysis"
 CPPCHECK_CONFIG = STATIC_ANALYSIS_DIR / "cppcheck.cfg"
 CPPCHECK_PLATFORM = STATIC_ANALYSIS_DIR / "tc32-platform.xml"
@@ -1173,6 +1177,79 @@ def _canonical_repo_path(value: str) -> tuple[str, Path | None]:
         return normal, candidate if candidate.exists() else None
 
 
+def _sdk_relative_path(value: str) -> str | None:
+    """Return an SDK-relative path for repo, junction or absolute inputs."""
+    normal = value.replace("\\", "/")
+    repo_prefix = SDK_SUBDIR.rstrip("/") + "/"
+    if normal.casefold().startswith(repo_prefix.casefold()):
+        return normal[len(repo_prefix):]
+    junction_prefix = _junc(SDK_DIR).as_posix().rstrip("/") + "/"
+    if normal.casefold().startswith(junction_prefix.casefold()):
+        return normal[len(junction_prefix):]
+    try:
+        return Path(normal).resolve().relative_to(SDK_DIR).as_posix()
+    except (OSError, ValueError):
+        return None
+
+
+def _is_application_scope_path(value: str) -> bool:
+    sdk_relative = _sdk_relative_path(value)
+    return sdk_relative is not None and sdk_relative.startswith(PROJECT_SOURCE_PREFIX)
+
+
+def _cppcheck_scope_path(value: str) -> str:
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return _junc(candidate).as_posix()
+
+
+def _write_cppcheck_scope_exclusions(dependencies: set[str], out_dir: Path) -> tuple[Path, list[str]]:
+    """Exclude dependency diagnostics outside the user-owned application.
+
+    Cppcheck must still parse SDK headers so application types, macros and
+    conditional compilation remain faithful to the real TC32 build.  This
+    generated list changes only the diagnostic boundary; no application
+    finding is suppressed.
+    """
+    excluded = sorted(path for path in dependencies if not _is_application_scope_path(path))
+    suppression_path = out_dir / "cppcheck-sdk-scope-exclusions.txt"
+    suppression_path.write_text(
+        "\n".join(f"*:{_cppcheck_scope_path(path)}" for path in excluded) + "\n",
+        encoding="utf-8",
+    )
+    evidence = []
+    for value in excluded:
+        path = Path(value)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        evidence.append({
+            "file": value,
+            "kind": "头文件" if path.suffix.lower() == ".h" else "依赖文件",
+            "reason": "不属于 vendor/ble_sample 应用层检查范围；仅为真实编译依赖解析",
+            "sha256": _sha256(path) if path.exists() and path.is_file() else "",
+        })
+    _write_json(out_dir / "sdk_scope_exclusions.json", {
+        "policy": STATIC_SCOPE_POLICY,
+        "application_prefix": PROJECT_SOURCE_PREFIX,
+        "excluded_dependency_count": len(excluded),
+        "excluded_dependencies": evidence,
+        "note": "范围排除不阻止 Cppcheck 解析 SDK 头文件；应用层诊断未使用 suppression。",
+    })
+    return suppression_path, excluded
+
+
+def _assert_application_diagnostics(rows: list[dict], evidence_path: Path) -> None:
+    outside = []
+    for row in rows:
+        locations = row.get("locations", [])
+        if locations and not _is_application_scope_path(locations[0].get("file", "")):
+            outside.append(f"{row.get('id')}:{locations[0].get('file')}:{locations[0].get('line')}")
+    if outside:
+        _die("Cppcheck emitted diagnostics outside vendor/ble_sample scope: "
+             + ", ".join(outside[:5]) + f"; see {evidence_path}")
+
+
 def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> set[str]:
     """Use the real TC32 commands in dependency-only mode to audit headers."""
     dependencies: set[str] = set()
@@ -1542,17 +1619,13 @@ def cmd_static(args: argparse.Namespace) -> int:
     full_database, source_order, _ = _capture_real_compile_database(run_dir)
     changed_sdk, baseline_error = _git_changed_sdk_paths()
     compiled_c = {rel for rel in source_order if rel.endswith(".c")}
-    if changed_sdk is None:
-        selected_sources = set(compiled_c)
-        modified_sdk: set[str] = set()
-        selection_note = "基线不可用；为避免漏扫，保守分析全部实际编译的 C 翻译单元"
-    else:
-        modified_sdk = {path for path in changed_sdk if not path.startswith(PROJECT_SOURCE_PREFIX)}
-        selected_sources = {
-            rel for rel in compiled_c
-            if rel.startswith(PROJECT_SOURCE_PREFIX) or rel in modified_sdk
-        }
-        selection_note = "应用层全部 C 翻译单元 + 相对产品基线已修改且实际参与构建的 SDK C 文件"
+    modified_sdk: set[str] = set() if changed_sdk is None else {
+        path for path in changed_sdk if not path.startswith(PROJECT_SOURCE_PREFIX)
+    }
+    selected_sources = {
+        rel for rel in compiled_c if rel.startswith(PROJECT_SOURCE_PREFIX)
+    }
+    selection_note = STATIC_SCOPE_POLICY
 
     rel_to_entry = dict(zip(source_order, full_database))
     analysis_database = [rel_to_entry[rel] for rel in source_order if rel in selected_sources]
@@ -1561,13 +1634,20 @@ def cmd_static(args: argparse.Namespace) -> int:
     dependencies.update(
         (SDK_DIR / rel).relative_to(REPO_ROOT).as_posix() for rel in selected_sources
     )
+    scope_suppression_path, excluded_dependencies = _write_cppcheck_scope_exclusions(
+        dependencies, run_dir)
     _, applied_predefs = _compiler_predefines(dependencies, run_dir)
 
     cppcheck_args = _read_cppcheck_config()
     project_arg = f"--project={_junc(run_dir / 'compile_commands_analysis.json')}"
     platform_arg = f"--platform={_junc(CPPCHECK_PLATFORM)}"
     predef_args = [f"-D{name}={value}" for name, value in sorted(applied_predefs.items())]
-    config_cmd = [str(DEFAULT_CPPCHECK), "--check-config", project_arg, platform_arg, *predef_args]
+    scope_args = [
+        f"--suppressions-list={_junc(scope_suppression_path)}",
+        "--suppress=unmatchedSuppression",
+    ]
+    config_cmd = [str(DEFAULT_CPPCHECK), "--check-config", project_arg, platform_arg,
+                  *scope_args, *predef_args]
     config_check = subprocess.run(config_cmd, cwd=str(REPO_ROOT), capture_output=True,
                                   text=True, check=False)
     (run_dir / "configuration_check.log").write_text(
@@ -1585,13 +1665,14 @@ def cmd_static(args: argparse.Namespace) -> int:
         str(DEFAULT_CPPCHECK), *cppcheck_args, project_arg, platform_arg,
         f"--cppcheck-build-dir={_junc(native_cache)}",
         f"--checkers-report={_junc(run_dir / 'cppcheck-checkers-report.txt')}",
-        "-j", str(max(1, args.jobs)), *predef_args,
+        "-j", str(max(1, args.jobs)), *scope_args, *predef_args,
     ]
     _info(f"cppcheck native: {len(analysis_database)} C translation units from real compile database")
     _run_cppcheck(native_cmd, native_xml, run_dir / "cppcheck-native.log")
     cppcheck_version, raw_native_all = _parse_cppcheck_xml(native_xml, "Cppcheck原生")
     tool_metadata = [row for row in raw_native_all if row["id"] in {"checkersReport"}]
     raw_native = [row for row in raw_native_all if row not in tool_metadata]
+    _assert_application_diagnostics(raw_native, run_dir / "sdk_scope_exclusions.json")
 
     addon = _find_misra_addon()
     raw_misra: list[dict] = []
@@ -1608,11 +1689,12 @@ def cmd_static(args: argparse.Namespace) -> int:
             str(DEFAULT_CPPCHECK), "--enable=warning", "--std=c99", "--language=c",
             project_arg, platform_arg, f"--addon={addon}",
             f"--cppcheck-build-dir={_junc(misra_cache)}",
-            "-j", str(max(1, args.jobs)), *predef_args,
+            "-j", str(max(1, args.jobs)), *scope_args, *predef_args,
         ]
         _run_cppcheck(misra_cmd, misra_xml, run_dir / "cppcheck-misra.log")
         _, addon_rows = _parse_cppcheck_xml(misra_xml, "Cppcheck MISRA addon")
         raw_misra = [row for row in addon_rows if row["misra_rule"]]
+        _assert_application_diagnostics(raw_misra, run_dir / "sdk_scope_exclusions.json")
         misra_status = {
             "executed": True,
             "addon": str(addon),
@@ -1620,7 +1702,7 @@ def cmd_static(args: argparse.Namespace) -> int:
         }
     _write_json(run_dir / "misra_capability.json", misra_status)
 
-    findings = _deduplicate_findings(raw_native + raw_misra, modified_sdk)
+    findings = _deduplicate_findings(raw_native + raw_misra, set())
     _write_json(run_dir / "findings.json", findings)
     _write_findings_csv(run_dir / "findings.csv", findings)
 
@@ -1632,19 +1714,24 @@ def cmd_static(args: argparse.Namespace) -> int:
         rel[len(SDK_SUBDIR.rstrip("/") + "/"):]
         for rel in dependencies if rel.startswith(SDK_SUBDIR.rstrip("/") + "/")
     }
+    dependency_headers = {rel for rel in dependency_sdk_rel if rel.endswith(".h")}
+    project_dependency_headers = {
+        rel for rel in dependency_headers if rel.startswith(PROJECT_SOURCE_PREFIX)
+    }
+    sdk_dependency_headers = dependency_headers - project_dependency_headers
     scope_rows = []
     for rel in source_order:
         analysed = rel in selected_sources
         reason = ("直接作为 C 翻译单元分析" if analysed else
                   "汇编源文件，Cppcheck 不支持" if rel.endswith(".S") else
-                  "官方原始 SDK C 源文件未修改；不作为主扫描翻译单元")
+                  "官方 SDK 不属于用户确认的静态检查范围")
         scope_rows.append({
             "file": rel,
             "kind": "C翻译单元" if rel.endswith(".c") else "汇编源文件",
-            "owner": "BMS应用层" if rel.startswith(PROJECT_SOURCE_PREFIX) else "Telink官方SDK",
+            "owner": "BMS应用层" if rel.startswith(PROJECT_SOURCE_PREFIX) else "Telink官方SDK（范围排除）",
             "modified_from_baseline": changed_sdk is not None and rel in changed_sdk,
             "participates_in_build": True,
-            "cppcheck_mode": "直接分析" if analysed else "未直接分析",
+            "cppcheck_mode": "直接分析" if analysed else "不检查",
             "exclusion_reason": "" if analysed else reason,
             "sha256": _sha256(SDK_DIR / rel),
         })
@@ -1660,20 +1747,17 @@ def cmd_static(args: argparse.Namespace) -> int:
             "exclusion_reason": "" if covered else "真实编译配置未引用该头文件",
             "sha256": _sha256(SDK_DIR / rel),
         })
-    if changed_sdk is not None:
-        for rel in sorted(modified_sdk):
-            if rel.endswith(".h") and rel not in project_headers:
-                covered = rel in dependency_sdk_rel
-                scope_rows.append({
-                    "file": rel,
-                    "kind": "已修改SDK头文件",
-                    "owner": "Telink官方SDK（已修改）",
-                    "modified_from_baseline": True,
-                    "participates_in_build": covered,
-                    "cppcheck_mode": "随翻译单元解析" if covered else "未覆盖",
-                    "exclusion_reason": "" if covered else "已修改 SDK 头文件未被分析翻译单元引用",
-                    "sha256": _sha256(SDK_DIR / rel) if (SDK_DIR / rel).exists() else "",
-                })
+    for rel in sorted(sdk_dependency_headers):
+        scope_rows.append({
+            "file": rel,
+            "kind": "SDK依赖头文件",
+            "owner": "Telink官方SDK（范围排除）",
+            "modified_from_baseline": changed_sdk is not None and rel in changed_sdk,
+            "participates_in_build": True,
+            "cppcheck_mode": "仅解析（诊断排除）",
+            "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+            "sha256": _sha256(SDK_DIR / rel),
+        })
     _write_json(run_dir / "scope_audit.json", scope_rows)
     with (run_dir / "scope_audit.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(scope_rows[0]))
@@ -1689,10 +1773,7 @@ def cmd_static(args: argparse.Namespace) -> int:
         id_counts[finding["id"]] = id_counts.get(finding["id"], 0) + 1
     deviation_candidates = [finding for finding in findings if finding["status"].startswith("Deviation候选")]
     uncovered_project_headers = [rel for rel in project_headers if rel not in dependency_sdk_rel]
-    uncovered_modified_headers = [] if changed_sdk is None else [
-        rel for rel in modified_sdk if rel.endswith(".h") and rel not in dependency_sdk_rel
-    ]
-    coverage_gaps = uncovered_project_headers + uncovered_modified_headers
+    coverage_gaps = uncovered_project_headers
     compile_settings = _extract_real_compile_settings(full_database[0]["command"])
     compile_settings.update({
         "target_mcu": DECLARED_MCU,
@@ -1711,15 +1792,22 @@ def cmd_static(args: argparse.Namespace) -> int:
         "sdk_baseline_commit": SDK_BASELINE_COMMIT,
         "baseline_audit_error": baseline_error,
         "selection_policy": selection_note,
+        "scope_policy": STATIC_SCOPE_POLICY,
         "cppcheck_version": cppcheck_version,
         "cppcheck_config": str(CPPCHECK_CONFIG.relative_to(REPO_ROOT)).replace("\\", "/"),
         "actual_build_source_count": len(source_order),
         "actual_build_c_count": len(compiled_c),
         "actual_build_assembly_count": len(source_order) - len(compiled_c),
         "analysis_translation_unit_count": len(analysis_database),
-        "analysis_header_dependency_count": len(dependency_sdk_rel),
+        "analysis_header_dependency_count": len(dependency_headers),
+        "application_header_dependency_count": len(project_dependency_headers),
+        "sdk_parse_only_header_count": len(sdk_dependency_headers),
+        "sdk_diagnostic_exclusion_count": len(excluded_dependencies),
         "project_c_translation_unit_count": sum(rel.startswith(PROJECT_SOURCE_PREFIX) for rel in compiled_c),
-        "modified_sdk_translation_unit_count": sum(rel in modified_sdk for rel in selected_sources),
+        "modified_sdk_translation_unit_count": 0,
+        "modified_sdk_excluded_translation_unit_count": sum(
+            rel in modified_sdk for rel in compiled_c if not rel.startswith(PROJECT_SOURCE_PREFIX)
+        ),
         "excluded_official_sdk_c_count": sum(rel.endswith(".c") and rel not in selected_sources for rel in source_order),
         "excluded_assembly_count": sum(rel.endswith(".S") for rel in source_order),
         "coverage_gap_count": len(coverage_gaps),
@@ -1729,6 +1817,7 @@ def cmd_static(args: argparse.Namespace) -> int:
         "distinct_finding_count": len(findings),
         "native_distinct_finding_count": sum(not item["misra_rule"] for item in findings),
         "misra_distinct_finding_count": sum(bool(item["misra_rule"]) for item in findings),
+        "sdk_distinct_finding_count": 0,
         "misra": misra_status,
         "severity_counts": severity_counts,
         "classification_counts": classification_counts,
@@ -1762,7 +1851,9 @@ def cmd_static(args: argparse.Namespace) -> int:
     _info(f"actual build sources: {len(source_order)} ({len(compiled_c)} C + "
           f"{len(source_order) - len(compiled_c)} assembly)")
     _info(f"cppcheck analysed translation units: {len(analysis_database)}; "
-          f"header dependencies: {len(dependency_sdk_rel)}; coverage gaps: {len(coverage_gaps)}")
+          f"application headers: {len(project_dependency_headers)}; "
+          f"SDK headers parse-only: {len(sdk_dependency_headers)}; coverage gaps: {len(coverage_gaps)}")
+    _info(f"SDK diagnostics excluded by scope policy: {len(excluded_dependencies)} dependency files")
     _info(f"total issues: {len(findings)} distinct ({len(raw_native)} raw native occurrences); "
           f"severity={severity_counts}")
     _info(f"MISRA: {'executed' if misra_status['executed'] else 'not executed'}; "

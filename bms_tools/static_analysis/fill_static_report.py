@@ -116,10 +116,10 @@ def main() -> int:
         ("vendor/ble_sample/*.c（应用层翻译单元）",
          f"{data['project_c_translation_unit_count']} files @ {short_commit}"),
         ("应用层头文件（随真实编译依赖解析）", f"{app_headers} files"),
-        ("已修改且实际编译的 SDK C 文件",
-         f"{data['modified_sdk_translation_unit_count']} files"),
+        ("官方 SDK/工具链依赖",
+         f"仅解析 {data['sdk_parse_only_header_count']} 个头文件；诊断不纳入检查结果"),
         ("完整构建输入清单", f"{data['actual_build_source_count']} sources（见“范围审计”）"),
-        ("分析结果原始证据", "cppcheck-native.xml / findings.json / findings.csv"),
+        ("范围排除证据", "sdk_scope_exclusions.json / cppcheck-sdk-scope-exclusions.txt"),
     ]
     general.get_range("B6:E14").clear({"apply_to": "contents"})
     for index, (label, value) in enumerate(scope_summary, start=6):
@@ -130,7 +130,7 @@ def main() -> int:
     put(general, "B21", "Telink tc32-elf-gcc（配置提取）")
     put(general, "E21", data["configuration"]["compiler_version"])
     put(general, "A24", "配置由 build.mk + source_order.txt 经 make -B -n 自动提取；Cppcheck 使用筛选后的 compile_commands.json、TC32 数据模型和真实编译器条件宏。")
-    put(general, "A25", f"规则：Cppcheck 原生 warning/style/performance/portability/information；不启用 suppression。MISRA：{data['misra']['coverage']}")
+    put(general, "A25", f"规则：仅统计 vendor/ble_sample 应用层；应用层不启用 suppression。SDK 头文件仅为真实编译配置解析，其诊断按范围策略排除。MISRA：{data['misra']['coverage']}")
     general.get_range("E29").formulas = [[f"=COUNTA('分析明细'!$A$2:$A${row_end})"]]
     if data["misra"]["executed"]:
         general.get_range("E30").formulas = [[f'=COUNTIF(\'分析明细\'!$I$2:$I${row_end},"<>")']]
@@ -140,7 +140,7 @@ def main() -> int:
     blocking = data.get("severity_counts", {}).get("error", 0) + data.get("severity_counts", {}).get("warning", 0)
     put(general, "E35", "需整改" if blocking else ("需评审" if findings else "通过"))
     gap_text = "未发现应用层漏扫。" if data["coverage_gap_count"] == 0 else f"存在 {data['coverage_gap_count']} 个覆盖缺口，须先处理。"
-    put(general, "E36", f"本次发现 {len(findings)} 个去重问题（原始 {data['raw_native_occurrence_count']} 条）；{blocking} 个 error/warning 建议优先整改。{gap_text} Reviewer、Approver 及 Deviation 批准信息保留人工填写。")
+    put(general, "E36", f"本次仅对应用层发现 {len(findings)} 个去重问题（原始 {data['raw_native_occurrence_count']} 条）；SDK问题不检查、不统计。{blocking} 个 error/warning 建议优先整改。{gap_text} Reviewer、Approver 及 Deviation 批准信息保留人工填写。")
     general.get_range("E:E").format.column_width = 42
     general.get_range("6:10").format.row_height = 34
     general.get_range("21:21").format.row_height = 38
@@ -208,7 +208,9 @@ def main() -> int:
         ["实际构建源文件", data["actual_build_source_count"]],
         ["实际构建 C 翻译单元", data["actual_build_c_count"]],
         ["Cppcheck 直接分析翻译单元", data["analysis_translation_unit_count"]],
-        ["真实依赖头文件", data["analysis_header_dependency_count"]],
+        ["应用层依赖头文件", data["application_header_dependency_count"]],
+        ["SDK头文件（仅解析）", data["sdk_parse_only_header_count"]],
+        ["SDK问题统计", "不检查/不统计"],
         ["覆盖缺口", data["coverage_gap_count"]],
         ["原始 Cppcheck 发生次数", data["raw_native_occurrence_count"]],
         ["去重问题数", len(findings)],
@@ -238,13 +240,14 @@ def main() -> int:
     predefines = "; ".join(f"{key}={value}" for key, value in data["configuration"]["compiler_predefines_applied"].items()) or "无"
     config_rows = [
         ["配置来源", data["configuration"]["configuration_source"]],
+        ["检查范围策略", data["scope_policy"]],
         ["源文件选择策略", data["selection_policy"]],
         ["C 标准", data["configuration"]["c_standard"]],
         ["目标 MCU", f"{data['configuration']['target_mcu']}; {data['configuration']['startup_profile']}"],
         ["Include Path", "\n".join(data["configuration"]["include_paths"])],
         ["宏定义", "; ".join(data["configuration"]["defines"])],
         ["TC32 条件宏", predefines],
-        ["Cppcheck 配置", data["cppcheck_config"]],
+        ["Cppcheck 配置", f"{data['cppcheck_config']}；SDK范围排除证据见 sdk_scope_exclusions.json"],
         ["MISRA 能力边界", data["misra"]["coverage"]],
         ["漏扫判断", "未发现：应用层实际编译 C 文件均直接分析，引用头文件均经 -MM 核对" if data["coverage_gap_count"] == 0 else f"存在 {data['coverage_gap_count']} 项：{'; '.join(data['coverage_gaps'])}"],
     ]
@@ -263,9 +266,9 @@ def main() -> int:
     if candidates:
         rows = [[item["file"], item.get("function", ""), item["line"],
                  f"MISRA C {item['misra_rule']}" if item.get("misra_rule") else item["id"],
-                 item["message"], "官方 SDK 原始代码，项目未直接修改；建议保持供应商版本一致性，待评审确认",
+                 item["message"], "应用层当前逻辑暂不修改；待评审确认保留依据",
                  "需结合调用路径判断对 BMS 安全功能、数据完整性和故障响应的实际影响",
-                 "锁定 SDK 版本与哈希；保持回归测试；升级 SDK 时重新评估",
+                 "保持针对性回归测试；相关配置或调用路径变化时重新评估",
                  "候选（未批准）", "", "", ""] for item in candidates]
         deviation_sheet.get_range_by_indexes(1, 0, len(rows), len(deviation_headers)).values = rows
         style_body(deviation_sheet.get_range(f"A2:L{len(rows) + 1}"))
@@ -319,8 +322,8 @@ def main() -> int:
         template_deviation.get_range(f"B{index}:K{index}").values = [[
             item["file"], item.get("function", ""),
             f"MISRA C {item['misra_rule']}" if item.get("misra_rule") else item["id"],
-            "官方 SDK 原始代码；待人工确认", "需评估对安全功能与运行时行为的影响",
-            "锁定版本/哈希并执行回归测试", "", "候选（未批准）", "", "",
+            "应用层候选；待人工确认", "需评估对安全功能与运行时行为的影响",
+            "执行针对性回归测试", "", "候选（未批准）", "", "",
         ]]
     for columns, width in (("B:B", 46), ("C:C", 24), ("D:D", 24), ("E:G", 40),
                            ("H:H", 18), ("I:I", 22), ("J:K", 16)):
