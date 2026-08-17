@@ -45,7 +45,6 @@
 #define FD_BMS_TYPE   D3PRO
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D003-20260715"
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -135,6 +134,7 @@
 #define AFE_ODC1       		(300) 
 #define AFE_ODC2       		(500) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D003-20260817"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D003" 
 #elif (FD_BMS_TYPE == C11_AND_C11pro)
 #define SeriesNum  (13)
@@ -184,31 +184,8 @@ typedef int8_t INT8;
 
 #define FAC_INIT_soc (60)
 
-/*
- * 升级后一次性参数重�?控制�?
- * 默�?�值为 0，表示本次固件不触发该类参数重置�?
- * 如果你想在某次升级后强制重置，把对应 epoch 改成一�?新的�? 0 值�?
- * 设�?��?��?�运行到这版固件时会执�?�一次重�?，并�? epoch 落盘；后�?重启不会重�?�执行�?
- */
-#ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
-#define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
-#endif
 
-#ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
-#define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
-#endif
 
-#ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       0u
-#endif
-
-#ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
-#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
-#endif
-
-#ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0715u
-#endif
 
 typedef enum _CUR {
 CurCHG = 0, CurDSG
@@ -265,5 +242,25 @@ typedef struct
 }Time_T;
 
 extern Time_T  sys_time;
+
+#ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
+#define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
+#endif
+
+#ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
+#define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
+#endif
+
+#ifndef FW_UPGRADE_RESET_SOC_EPOCH
+#define FW_UPGRADE_RESET_SOC_EPOCH       0u
+#endif
+
+#ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
+#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
+#endif
+
+#ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
+#endif
 
 #endif

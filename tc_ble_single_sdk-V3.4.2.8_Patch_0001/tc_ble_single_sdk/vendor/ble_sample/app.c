@@ -1139,6 +1139,7 @@ void blt_pm_proc(void)
 				if (sleep_cnt >= 3u)
 				{
 					sleep_cnt = 0;
+					cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 					app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 				}
 			}
@@ -1162,8 +1163,6 @@ void blt_pm_proc(void)
 			sleep_veryvlow_cnt += sleep_elapsed_sec;
 			if (sleep_veryvlow_cnt >= (60 * 60 * 1))
 			{
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
-
 				sleep_veryvlow_cnt = 0;
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
@@ -1181,8 +1180,6 @@ void blt_pm_proc(void)
 			sleep_vlow_cnt += sleep_elapsed_sec;
 			if (sleep_vlow_cnt >= __SLEEP_TIMEVLOW__)
 			{
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
-
 				sleep_vlow_cnt = 0;
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
@@ -1197,8 +1194,6 @@ void blt_pm_proc(void)
 			if (sleep_vnormal_cnt >= __SLEEP_TIMENORMAL__)
 			// if (sleep_vnormal_cnt >= (60 * 30))
 			{
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
-
 				sleep_vnormal_cnt = 0;
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
@@ -1213,8 +1208,7 @@ void blt_pm_proc(void)
 			if (afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
-
+				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
@@ -1324,7 +1318,7 @@ void blt_pm_proc(void)
 	if (!gpio_read(CHG_IN_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
 		g_stCellInfoReport.u16IDischg ||
-		MODE_FACTORY == Runtime_GetMode() ||
+		// MODE_FACTORY == Runtime_GetMode() ||
 		ota_is_working)
 	// if(
 	// 	g_stCellInfoReport.u16IDischg
@@ -1613,7 +1607,6 @@ _attribute_no_inline_ void user_init_normal(void)
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
-		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
 		App_AFEGet();

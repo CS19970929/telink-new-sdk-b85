@@ -21,6 +21,8 @@ tools/lan_clipboard_sync
 # Python host tooling caches
 __pycache__/
 *.py[cod]
+# Codex local investigation and generated temporary artifacts
+/.codex_tmp/
 
 # bms_tools build artifacts (portable build system; do not commit)
 /build/
