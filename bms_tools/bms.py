@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -36,6 +37,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -146,6 +148,15 @@ def _junc(p: Path) -> Path:
 DEFAULT_TC32_DIR = Path("C:/TelinkIoTStudio/opt/tc32/bin")
 DEFAULT_BDT = Path("C:/TelinkIoTStudio/tools/libusbBDT/bin/bdt.exe")
 DEFAULT_CPPCHECK = Path("C:/Program Files/cppcheck/cppcheck.exe")
+DEFAULT_STATIC_REPORT_TEMPLATE = Path(
+    "D:/c11认证文档/功能安全/13849模板/XXX-BMS 软件静态分析报告.xlsx"
+)
+SDK_BASELINE_COMMIT = "b9d4d0790cd7f163867872bf6ce7980a71dfee76"
+PROJECT_SOURCE_PREFIX = "vendor/ble_sample/"
+STATIC_ANALYSIS_DIR = _HERE / "static_analysis"
+CPPCHECK_CONFIG = STATIC_ANALYSIS_DIR / "cppcheck.cfg"
+CPPCHECK_PLATFORM = STATIC_ANALYSIS_DIR / "tc32-platform.xml"
+STATIC_REPORT_BUILDER = STATIC_ANALYSIS_DIR / "fill_static_report.py"
 
 # Flash layout (per docs/project_flash_map_8251_512k.md). Hard-coded so the
 # firmware-integrity tooling knows the protected program-flash range without
@@ -1057,96 +1068,709 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------------
 # Subcommand: static   (cppcheck)
 # ----------------------------------------------------------------------------
-def cmd_static(args: argparse.Namespace) -> int:
-    if not DEFAULT_CPPCHECK.exists():
-        _die(f"cppcheck not found: {DEFAULT_CPPCHECK}")
-    out_dir = BUILD_DIR / "static"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    cfg_path = _HERE / "static_analysis" / "cppcheck.cfg"
-    if not cfg_path.exists():
-        _die(f"cppcheck config missing: {cfg_path}")
-    cfg_args: list[str] = []
-    for raw_line in cfg_path.read_text(encoding="utf-8").splitlines():
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_cppcheck_config() -> list[str]:
+    if not CPPCHECK_CONFIG.exists():
+        _die(f"cppcheck config missing: {CPPCHECK_CONFIG}")
+    args: list[str] = []
+    for raw_line in CPPCHECK_CONFIG.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith(";") or line.startswith("#"):
             continue
-        cfg_args.extend(shlex.split(line, posix=False))
-    # Four scopes; project code and official SDK code are reported separately.
-    scopes = {
-        "bms_app": [SDK_DIR / "vendor" / "ble_sample"],     # project-owned code
-        "vendor_common": [SDK_DIR / "vendor" / "common"],   # SDK vendor sample (trusted)
-        "drivers_b85": [SDK_DIR / "drivers" / "B85"],       # SDK B85 driver (trusted)
-        "common": [SDK_DIR / "common"],                     # SDK common (trusted)
+        args.extend(shlex.split(line, posix=False))
+    return args
+
+
+def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str], str]:
+    """Capture compile commands from the same Make driver used by build/rebuild.
+
+    ``make -B -n`` expands build.mk and the generated per-source rules without
+    compiling.  This keeps Cppcheck synchronized with the real source list,
+    include paths, defines, language standard and TC32-specific compiler flags.
+    """
+    entries = _load_source_order_strict()
+    _gen_sources_mk()
+    env = _ensure_toolchain_env(dict(os.environ))
+    make = _need_make()
+    command = [
+        make, "-B", "-n", "--no-print-directory", "-f", str(_HERE / "build.mk"),
+        f"REPO_ROOT={_junc(REPO_ROOT).as_posix()}",
+        f"SDK_DIR={_junc(SDK_DIR).as_posix()}",
+        f"BUILD_DIR={_junc(BUILD_DIR).as_posix()}",
+        "all",
+    ]
+    result = subprocess.run(command, cwd=str(JUNCTION), env=env, check=False,
+                            capture_output=True, text=True)
+    dry_run = result.stdout or ""
+    (out_dir / "make_dry_run.log").write_text(dry_run, encoding="utf-8")
+    if result.returncode != 0:
+        _die(f"failed to extract real compile commands (rc={result.returncode}); "
+             f"see {out_dir / 'make_dry_run.log'}")
+    compile_lines = [line.strip() for line in dry_run.splitlines()
+                     if re.match(r"^(?:.*[/\\])?tc32-elf-gcc(?:\.exe)?\s", line.strip(), re.I)
+                     and " -c " in f" {line.strip()} "]
+    if len(compile_lines) != len(entries):
+        _die("real compile command count does not match source_order.txt: "
+             f"commands={len(compile_lines)} sources={len(entries)}")
+
+    database: list[dict] = []
+    for rel, compile_line in zip(entries, compile_lines):
+        source = _junc(SDK_DIR / rel).as_posix()
+        output = _junc(OBJ_DIR / Path(rel).with_suffix(".o")).as_posix()
+        if source.casefold() not in compile_line.replace("\\", "/").casefold():
+            _die(f"dry-run command/source order mismatch for {rel}")
+        database.append({
+            "directory": JUNCTION.as_posix(),
+            "command": compile_line,
+            "file": source,
+            "output": output,
+        })
+    _write_json(out_dir / "compile_commands_build.json", database)
+    return database, entries, dry_run
+
+
+def _git_changed_sdk_paths() -> tuple[set[str] | None, str | None]:
+    """Return SDK paths changed from the documented product baseline.
+
+    ``git diff <baseline> --`` includes committed changes and working-tree
+    changes.  If provenance cannot be established, callers conservatively scan
+    every compiled C translation unit instead of risking a missed modified SDK
+    file.
+    """
+    check = subprocess.run(["git", "cat-file", "-e", f"{SDK_BASELINE_COMMIT}^{{commit}}"],
+                           cwd=str(REPO_ROOT), capture_output=True, text=True, check=False)
+    if check.returncode != 0:
+        return None, f"baseline commit unavailable: {SDK_BASELINE_COMMIT}"
+    result = subprocess.run(
+        ["git", "diff", "--name-only", SDK_BASELINE_COMMIT, "--", SDK_SUBDIR],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        return None, (result.stderr or "git diff failed").strip()
+    prefix = SDK_SUBDIR.rstrip("/") + "/"
+    changed = {
+        line.strip().replace("\\", "/")[len(prefix):]
+        for line in result.stdout.splitlines()
+        if line.strip().replace("\\", "/").startswith(prefix)
     }
-    includes = [str(PROJ_DIR), str(SDK_DIR),
-                 str(SDK_DIR / "vendor" / "common"),
-                 str(SDK_DIR / "vendor" / "ble_sample"),
-                 str(SDK_DIR / "common"),
-                str(SDK_DIR / "drivers" / "B85")]
-    defs = ["__PROJECT_8258_BLE_SAMPLE__=1", "CHIP_TYPE=CHIP_TYPE_825x"]
-    overall_rc = 0
-    for name, roots in scopes.items():
-        out_xml = out_dir / f"{name}.xml"
-        out_txt = out_dir / f"{name}.txt"
-        # cppcheck 2.x writes the XML report to stderr by design. We capture
-        # stderr into .xml and write a small human-readable text summary into
-        # .txt (built from the XML so the two always agree).
-        cmd = [str(DEFAULT_CPPCHECK), *cfg_args, "--xml-version=2"]
-        for r in roots:
-            cmd.append(str(r))
-        for inc in includes:
-            cmd += ["-I", inc]
-        for d in defs:
-            cmd += ["-D", d]
-        _info(f"cppcheck scope={name} roots={[str(r) for r in roots]}")
-        r = subprocess.run(cmd, capture_output=True, text=True)
-        xml = r.stderr if r.stderr is not None else ""
-        out_xml.write_text(xml, encoding="utf-8")
-        # Count + summarise and include actionable file/line details.
-        parsed_entries: list[dict] = []
-        try:
-            root = ET.fromstring(xml)
-            for error in root.findall(".//error"):
-                location = error.find("location")
-                parsed_entries.append({
-                    "id": error.get("id", "unknown"),
-                    "severity": error.get("severity", "unknown"),
-                    "message": error.get("msg", ""),
-                    "file": location.get("file", "") if location is not None else "",
-                    "line": location.get("line", "") if location is not None else "",
+    return changed, None
+
+
+def _canonical_repo_path(value: str) -> tuple[str, Path | None]:
+    normal = value.replace("\\", "/")
+    junction = JUNCTION.as_posix().rstrip("/") + "/"
+    if normal.casefold().startswith(junction.casefold()):
+        normal = REPO_ROOT.as_posix().rstrip("/") + "/" + normal[len(junction):]
+    candidate = Path(normal)
+    try:
+        resolved = candidate.resolve()
+        return resolved.relative_to(REPO_ROOT).as_posix(), resolved
+    except (OSError, ValueError):
+        return normal, candidate if candidate.exists() else None
+
+
+def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> set[str]:
+    """Use the real TC32 commands in dependency-only mode to audit headers."""
+    dependencies: set[str] = set()
+    logs: list[str] = []
+    env = _ensure_toolchain_env(dict(os.environ))
+    for entry in analysis_database:
+        tokens = shlex.split(entry["command"], posix=True)
+        filtered: list[str] = [str(_tc32_tool("tc32-elf-gcc"))]
+        skip_next = False
+        for token in tokens[1:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if token == "-c":
+                continue
+            if token == "-o":
+                skip_next = True
+                continue
+            if token.startswith("-o"):
+                continue
+            if token.lower().endswith((".c", ".s")):
+                continue
+            filtered.append(token)
+        filtered.extend(["-MM", entry["file"]])
+        result = subprocess.run(filtered, cwd=entry["directory"], env=env,
+                                capture_output=True, text=True, check=False)
+        logs.append(f"# {entry['file']} rc={result.returncode}\n{result.stdout}{result.stderr}")
+        if result.returncode != 0:
+            _die(f"TC32 dependency audit failed for {entry['file']}; "
+                 f"see {out_dir / 'dependencies.log'}")
+        flattened = re.sub(r"\\\s*\r?\n", " ", result.stdout or "")
+        payload = flattened.split(":", 1)[1] if ":" in flattened else ""
+        for token in payload.split():
+            path = token.strip().replace("\\ ", " ")
+            rel, resolved = _canonical_repo_path(path)
+            if resolved is not None and resolved.exists():
+                dependencies.add(rel)
+    (out_dir / "dependencies.log").write_text("\n".join(logs), encoding="utf-8")
+    return dependencies
+
+
+def _compiler_predefines(dependency_paths: set[str], out_dir: Path) -> tuple[dict[str, str], dict[str, str]]:
+    compiler = _tc32_tool("tc32-elf-gcc")
+    result = subprocess.run([compiler, "-dM", "-E", "-x", "c", "-"], input="",
+                            capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        _die("unable to read TC32 compiler predefined macros")
+    (out_dir / "compiler_predefines.txt").write_text(result.stdout, encoding="utf-8")
+    all_defs: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        match = re.match(r"#define\s+([A-Za-z_]\w*)(?:\s+(.*))?$", line)
+        if match:
+            all_defs[match.group(1)] = (match.group(2) or "1").strip()
+
+    conditional_names: set[str] = set()
+    for rel in dependency_paths:
+        path = REPO_ROOT / rel
+        if path.suffix.lower() not in (".c", ".h") or not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            match = re.match(r"\s*#\s*(?:if|elif|ifdef|ifndef)\b(.*)$", line)
+            if match:
+                conditional_names.update(re.findall(r"\b[A-Za-z_]\w*\b", match.group(1)))
+    applied = {
+        name: value for name, value in all_defs.items()
+        if name in conditional_names and len(value) <= 80 and "\"" not in value
+    }
+    _write_json(out_dir / "compiler_predefines_applied.json", applied)
+    return all_defs, applied
+
+
+def _extract_real_compile_settings(command: str) -> dict:
+    tokens = shlex.split(command, posix=True)
+    includes = [token[2:] for token in tokens if token.startswith("-I")]
+    defines = [token[2:] for token in tokens if token.startswith("-D")]
+    standard = next((token.split("=", 1)[1] for token in tokens
+                     if token.startswith("-std=")), None)
+    compile_flags = [token for token in tokens[1:]
+                     if not token.startswith(("-I", "-D", "-o"))
+                     and token != "-c" and not token.lower().endswith((".c", ".s"))]
+    return {
+        "compiler": str(_tc32_tool("tc32-elf-gcc")),
+        "compiler_version": _tool_version([str(_tc32_tool("tc32-elf-gcc")), "--version"], 0),
+        "include_paths": includes,
+        "defines": defines,
+        "c_standard": standard,
+        "compile_flags": compile_flags,
+    }
+
+
+def _parse_cppcheck_xml(path: Path, engine: str) -> tuple[str, list[dict]]:
+    try:
+        root = ET.parse(path).getroot()
+    except (ET.ParseError, OSError) as exc:
+        _die(f"invalid Cppcheck XML {path}: {exc}")
+    version_node = root.find("cppcheck")
+    version = version_node.get("version", "unknown") if version_node is not None else "unknown"
+    rows: list[dict] = []
+    for error in root.findall(".//error"):
+        locations = []
+        for location in error.findall("location"):
+            rel, _ = _canonical_repo_path(location.get("file", ""))
+            locations.append({
+                "file": rel,
+                "line": int(location.get("line", "0") or 0),
+                "column": int(location.get("column", "0") or 0),
+                "info": location.get("info", ""),
+            })
+        analysis_unit, _ = _canonical_repo_path(error.get("file0", ""))
+        eid = error.get("id", "unknown")
+        misra_match = re.search(r"misra(?:-c)?(?:2012)?[-:]?(\d+\.\d+)", eid, re.I)
+        rows.append({
+            "engine": engine,
+            "id": eid,
+            "severity": error.get("severity", "unknown"),
+            "message": error.get("msg", ""),
+            "verbose": error.get("verbose", ""),
+            "cwe": error.get("cwe", ""),
+            "inconclusive": error.get("inconclusive", "false").lower() == "true",
+            "symbol": (error.findtext("symbol") or ""),
+            "analysis_unit": analysis_unit,
+            "misra_rule": misra_match.group(1) if misra_match else "",
+            "locations": locations,
+        })
+    return version, rows
+
+
+def _function_at_line(path: Path | None, target_line: int) -> str:
+    """Best-effort C function locator; global/header diagnostics remain explicit."""
+    if path is None or not path.exists() or target_line <= 0:
+        return "<全局/未定位>"
+    text = path.read_text(encoding="utf-8", errors="replace")
+    cleaned: list[str] = []
+    in_block = False
+    for raw in text.splitlines():
+        line: list[str] = []
+        i = 0
+        in_string: str | None = None
+        while i < len(raw):
+            pair = raw[i:i + 2]
+            if in_block:
+                if pair == "*/":
+                    in_block = False
+                    i += 2
+                else:
+                    line.append(" ")
+                    i += 1
+                continue
+            if in_string:
+                if raw[i] == "\\":
+                    line.extend("  ")
+                    i += 2
+                elif raw[i] == in_string:
+                    line.append(" ")
+                    in_string = None
+                    i += 1
+                else:
+                    line.append(" ")
+                    i += 1
+                continue
+            if pair == "/*":
+                in_block = True
+                line.extend("  ")
+                i += 2
+            elif pair == "//":
+                line.extend(" " * (len(raw) - i))
+                break
+            elif raw[i] in ('"', "'"):
+                in_string = raw[i]
+                line.append(" ")
+                i += 1
+            else:
+                line.append(raw[i])
+                i += 1
+        cleaned.append("".join(line))
+
+    depth = 0
+    current = "<全局/未定位>"
+    function_depth: int | None = None
+    signature = ""
+    controls = {"if", "for", "while", "switch", "sizeof", "return"}
+    for number, line in enumerate(cleaned, 1):
+        signature = (signature + " " + line.strip())[-1200:]
+        if "{" in line:
+            before = signature[:signature.rfind("{")]
+            candidates = re.findall(r"([A-Za-z_]\w*)\s*\([^;{}]*\)\s*$", before)
+            if candidates and candidates[-1] not in controls and not re.search(r"\btypedef\b", before):
+                current = candidates[-1]
+                function_depth = depth + 1
+            signature = signature[signature.rfind("{") + 1:]
+        depth += line.count("{") - line.count("}")
+        if function_depth is not None and depth < function_depth:
+            current = "<全局/未定位>"
+            function_depth = None
+        if number >= target_line:
+            return current
+        if ";" in line and depth == 0:
+            signature = signature[signature.rfind(";") + 1:]
+    return current
+
+
+def _finding_classification(row: dict, modified_sdk: set[str]) -> tuple[str, str, str]:
+    location = row["locations"][0] if row["locations"] else {"file": "", "line": 0}
+    file = location["file"]
+    sdk_rel = file[len(SDK_SUBDIR.rstrip("/") + "/"):] if file.startswith(SDK_SUBDIR.rstrip("/") + "/") else file
+    config_ids = {"missingInclude", "missingIncludeSystem", "syntaxError", "preprocessorErrorDirective",
+                  "toomanyconfigs", "internalAstError", "internalError", "unhandledCharLiteral"}
+    if row["misra_rule"]:
+        return "MISRA违规（待评审）", "待评审", "按规则逐项评审；需要保留时走正式 Deviation 审批"
+    if row["id"] in config_ids or not file:
+        return "配置导致的问题", "待修正配置", "先修正分析配置并重跑，不能作为代码问题关闭"
+    is_project = sdk_rel.startswith(PROJECT_SOURCE_PREFIX) or sdk_rel in modified_sdk
+    if not is_project:
+        deviation_ids = {"badBitmaskCheck", "clarifyCalculation", "invalidPointerCast",
+                         "reinterpretCast", "integerOverflow"}
+        if row["id"] in deviation_ids or row["severity"] in ("error", "warning", "portability"):
+            return "SDK问题", "Deviation候选（未批准）", "不要直接修改官方 SDK；评估影响并提交人工 Deviation 审批"
+        return "SDK问题", "待评审（SDK）", "核实是否为头文件/内联函数上下文告警；不要直接修改官方 SDK"
+    if row["severity"] in ("error", "warning"):
+        return "真实代码问题（待确认）", "待整改", "建议优先整改并执行固件与硬件回归"
+    return "代码质量建议", "待评审", "评审可维护性与风险；不修改时记录技术依据"
+
+
+def _deduplicate_findings(raw_rows: list[dict], modified_sdk: set[str]) -> list[dict]:
+    merged: dict[tuple, dict] = {}
+    for row in raw_rows:
+        location = row["locations"][0] if row["locations"] else {"file": "", "line": 0, "column": 0}
+        key = (row["engine"], row["id"], location["file"], location["line"], row["message"], row["misra_rule"])
+        if key not in merged:
+            resolved = REPO_ROOT / location["file"] if location["file"] else None
+            classification, status, recommendation = _finding_classification(row, modified_sdk)
+            merged[key] = {
+                "engine": row["engine"],
+                "file": location["file"],
+                "function": _function_at_line(resolved, location["line"]),
+                "line": location["line"],
+                "column": location.get("column", 0),
+                "id": row["id"],
+                "severity": row["severity"],
+                "message": row["message"],
+                "verbose": row["verbose"],
+                "cwe": row["cwe"],
+                "misra_rule": row["misra_rule"],
+                "inconclusive": row["inconclusive"],
+                "classification": classification,
+                "status": status,
+                "recommendation": recommendation,
+                "analysis_units": set(),
+                "occurrence_count": 0,
+            }
+        merged[key]["occurrence_count"] += 1
+        if row["analysis_unit"]:
+            merged[key]["analysis_units"].add(row["analysis_unit"])
+    findings = []
+    for value in merged.values():
+        value["analysis_units"] = sorted(value["analysis_units"])
+        findings.append(value)
+    order = {"error": 0, "warning": 1, "performance": 2, "portability": 3,
+             "style": 4, "information": 5, "debug": 6}
+    findings.sort(key=lambda item: (order.get(item["severity"], 99), item["file"], item["line"], item["id"]))
+    return findings
+
+
+def _write_findings_csv(path: Path, findings: list[dict]) -> None:
+    fields = ["file", "function", "line", "column", "id", "severity", "message", "cwe",
+              "misra_rule", "classification", "status", "recommendation", "inconclusive",
+              "occurrence_count", "analysis_units"]
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for item in findings:
+            row = {key: item.get(key, "") for key in fields}
+            row["analysis_units"] = "; ".join(item["analysis_units"])
+            writer.writerow(row)
+
+
+def _find_misra_addon() -> Path | None:
+    candidates = [
+        DEFAULT_CPPCHECK.parent / "addons" / "misra.py",
+        DEFAULT_CPPCHECK.parent / "misra.py",
+    ]
+    return next((path for path in candidates if path.exists()), None)
+
+
+def _run_cppcheck(cmd: list[str], xml_path: Path, log_path: Path) -> int:
+    full = [*cmd, f"--output-file={_junc(xml_path)}", "--xml-version=2"]
+    result = subprocess.run(full, cwd=str(REPO_ROOT), capture_output=True, text=True, check=False)
+    log_path.write_text(
+        "COMMAND:\n" + subprocess.list2cmdline(full) + "\n\nSTDOUT:\n" + (result.stdout or "")
+        + "\nSTDERR:\n" + (result.stderr or ""), encoding="utf-8",
+    )
+    if result.returncode != 0:
+        _die(f"Cppcheck failed rc={result.returncode}; see {log_path}")
+    return result.returncode
+
+
+def _resolve_artifact_runtime() -> Path:
+    python_candidates: list[Path] = []
+    if os.environ.get("BMS_ARTIFACT_PYTHON"):
+        python_candidates.append(Path(os.environ["BMS_ARTIFACT_PYTHON"]))
+    profile = os.environ.get("USERPROFILE")
+    if profile:
+        bundled = (Path(profile) / ".cache" / "codex-runtimes" / "codex-primary-runtime"
+                   / "dependencies" / "python" / "python.exe")
+        python_candidates.append(bundled)
+    python_candidates.append(Path(sys.executable))
+    probe = "import artifact_tool_v2"
+    for python in python_candidates:
+        if not python.exists():
+            continue
+        result = subprocess.run([str(python), "-c", probe], capture_output=True,
+                                text=True, check=False)
+        if result.returncode == 0:
+            return python.resolve()
+    _die("Excel report runtime unavailable. Set BMS_ARTIFACT_PYTHON to a Python "
+         "runtime containing artifact_tool_v2.")
+    raise AssertionError("unreachable")
+
+
+def _run_static_report_builder(template: Path, data_path: Path, output_path: Path,
+                               preview_dir: Path) -> None:
+    if not template.exists():
+        _die(f"static analysis report template missing: {template}")
+    if not STATIC_REPORT_BUILDER.exists():
+        _die(f"static report builder missing: {STATIC_REPORT_BUILDER}")
+    python = _resolve_artifact_runtime()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # The desktop artifact runtime owns a lifecycle for its interactive output
+    # directory. Keep that lifecycle isolated from Cppcheck evidence, then copy
+    # only completed files into the immutable run directory.
+    with tempfile.TemporaryDirectory(prefix="bms_static_report_") as temp_name:
+        temp_root = Path(temp_name)
+        temp_data = temp_root / data_path.name
+        temp_output = temp_root / output_path.name
+        temp_preview = temp_root / "report_verification"
+        shutil.copy2(data_path, temp_data)
+        result = subprocess.run(
+            [str(python), str(STATIC_REPORT_BUILDER), str(template), str(temp_data),
+             str(temp_output), str(temp_preview)],
+            cwd=str(temp_root), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", check=False,
+        )
+        if result.returncode == 0 and temp_output.exists():
+            shutil.copy2(temp_output, output_path)
+            verification = temp_preview / "verification.json"
+            if verification.exists():
+                preview_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(verification, preview_dir / verification.name)
+    (data_path.parent / "report_builder.log").write_text(
+        (result.stdout or "") + "\n" + (result.stderr or ""), encoding="utf-8")
+    if result.returncode != 0 or not output_path.exists():
+        _die(f"Excel report generation failed; see {data_path.parent / 'report_builder.log'}")
+
+
+def cmd_static(args: argparse.Namespace) -> int:
+    if not DEFAULT_CPPCHECK.exists():
+        _die(f"cppcheck not found: {DEFAULT_CPPCHECK}")
+    if not CPPCHECK_PLATFORM.exists():
+        _die(f"TC32 Cppcheck platform missing: {CPPCHECK_PLATFORM}")
+
+    started_at = _now_iso()
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    static_root = BUILD_DIR / "static"
+    run_dir = static_root / f"run_{stamp}"
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    full_database, source_order, _ = _capture_real_compile_database(run_dir)
+    changed_sdk, baseline_error = _git_changed_sdk_paths()
+    compiled_c = {rel for rel in source_order if rel.endswith(".c")}
+    if changed_sdk is None:
+        selected_sources = set(compiled_c)
+        modified_sdk: set[str] = set()
+        selection_note = "基线不可用；为避免漏扫，保守分析全部实际编译的 C 翻译单元"
+    else:
+        modified_sdk = {path for path in changed_sdk if not path.startswith(PROJECT_SOURCE_PREFIX)}
+        selected_sources = {
+            rel for rel in compiled_c
+            if rel.startswith(PROJECT_SOURCE_PREFIX) or rel in modified_sdk
+        }
+        selection_note = "应用层全部 C 翻译单元 + 相对产品基线已修改且实际参与构建的 SDK C 文件"
+
+    rel_to_entry = dict(zip(source_order, full_database))
+    analysis_database = [rel_to_entry[rel] for rel in source_order if rel in selected_sources]
+    _write_json(run_dir / "compile_commands_analysis.json", analysis_database)
+    dependencies = _analyse_dependency_graph(analysis_database, run_dir)
+    dependencies.update(
+        (SDK_DIR / rel).relative_to(REPO_ROOT).as_posix() for rel in selected_sources
+    )
+    _, applied_predefs = _compiler_predefines(dependencies, run_dir)
+
+    cppcheck_args = _read_cppcheck_config()
+    project_arg = f"--project={_junc(run_dir / 'compile_commands_analysis.json')}"
+    platform_arg = f"--platform={_junc(CPPCHECK_PLATFORM)}"
+    predef_args = [f"-D{name}={value}" for name, value in sorted(applied_predefs.items())]
+    config_cmd = [str(DEFAULT_CPPCHECK), "--check-config", project_arg, platform_arg, *predef_args]
+    config_check = subprocess.run(config_cmd, cwd=str(REPO_ROOT), capture_output=True,
+                                  text=True, check=False)
+    (run_dir / "configuration_check.log").write_text(
+        "COMMAND:\n" + subprocess.list2cmdline(config_cmd) + "\n\nSTDOUT:\n"
+        + (config_check.stdout or "") + "\nSTDERR:\n" + (config_check.stderr or ""),
+        encoding="utf-8",
+    )
+    if config_check.returncode != 0:
+        _die(f"Cppcheck configuration audit failed; see {run_dir / 'configuration_check.log'}")
+
+    native_xml = run_dir / "cppcheck-native.xml"
+    native_cache = run_dir / "cppcheck-cache-native"
+    native_cache.mkdir(parents=True, exist_ok=True)
+    native_cmd = [
+        str(DEFAULT_CPPCHECK), *cppcheck_args, project_arg, platform_arg,
+        f"--cppcheck-build-dir={_junc(native_cache)}",
+        f"--checkers-report={_junc(run_dir / 'cppcheck-checkers-report.txt')}",
+        "-j", str(max(1, args.jobs)), *predef_args,
+    ]
+    _info(f"cppcheck native: {len(analysis_database)} C translation units from real compile database")
+    _run_cppcheck(native_cmd, native_xml, run_dir / "cppcheck-native.log")
+    cppcheck_version, raw_native_all = _parse_cppcheck_xml(native_xml, "Cppcheck原生")
+    tool_metadata = [row for row in raw_native_all if row["id"] in {"checkersReport"}]
+    raw_native = [row for row in raw_native_all if row not in tool_metadata]
+
+    addon = _find_misra_addon()
+    raw_misra: list[dict] = []
+    misra_status: dict = {
+        "executed": False,
+        "addon": str(addon) if addon else None,
+        "coverage": "未执行：本机 Cppcheck 安装不包含 MISRA addon；原生告警不计为 MISRA 违规",
+    }
+    if addon is not None:
+        misra_xml = run_dir / "cppcheck-misra.xml"
+        misra_cache = run_dir / "cppcheck-cache-misra"
+        misra_cache.mkdir(parents=True, exist_ok=True)
+        misra_cmd = [
+            str(DEFAULT_CPPCHECK), "--enable=warning", "--std=c99", "--language=c",
+            project_arg, platform_arg, f"--addon={addon}",
+            f"--cppcheck-build-dir={_junc(misra_cache)}",
+            "-j", str(max(1, args.jobs)), *predef_args,
+        ]
+        _run_cppcheck(misra_cmd, misra_xml, run_dir / "cppcheck-misra.log")
+        _, addon_rows = _parse_cppcheck_xml(misra_xml, "Cppcheck MISRA addon")
+        raw_misra = [row for row in addon_rows if row["misra_rule"]]
+        misra_status = {
+            "executed": True,
+            "addon": str(addon),
+            "coverage": "Cppcheck MISRA addon 仅覆盖其实现的可自动检查规则；不代表完整 MISRA C 合规",
+        }
+    _write_json(run_dir / "misra_capability.json", misra_status)
+
+    findings = _deduplicate_findings(raw_native + raw_misra, modified_sdk)
+    _write_json(run_dir / "findings.json", findings)
+    _write_findings_csv(run_dir / "findings.csv", findings)
+
+    project_headers = sorted(
+        path.relative_to(SDK_DIR).as_posix()
+        for path in (SDK_DIR / "vendor" / "ble_sample").rglob("*.h")
+    )
+    dependency_sdk_rel = {
+        rel[len(SDK_SUBDIR.rstrip("/") + "/"):]
+        for rel in dependencies if rel.startswith(SDK_SUBDIR.rstrip("/") + "/")
+    }
+    scope_rows = []
+    for rel in source_order:
+        analysed = rel in selected_sources
+        reason = ("直接作为 C 翻译单元分析" if analysed else
+                  "汇编源文件，Cppcheck 不支持" if rel.endswith(".S") else
+                  "官方原始 SDK C 源文件未修改；不作为主扫描翻译单元")
+        scope_rows.append({
+            "file": rel,
+            "kind": "C翻译单元" if rel.endswith(".c") else "汇编源文件",
+            "owner": "BMS应用层" if rel.startswith(PROJECT_SOURCE_PREFIX) else "Telink官方SDK",
+            "modified_from_baseline": changed_sdk is not None and rel in changed_sdk,
+            "participates_in_build": True,
+            "cppcheck_mode": "直接分析" if analysed else "未直接分析",
+            "exclusion_reason": "" if analysed else reason,
+            "sha256": _sha256(SDK_DIR / rel),
+        })
+    for rel in project_headers:
+        covered = rel in dependency_sdk_rel
+        scope_rows.append({
+            "file": rel,
+            "kind": "头文件",
+            "owner": "BMS应用层",
+            "modified_from_baseline": changed_sdk is not None and rel in changed_sdk,
+            "participates_in_build": covered,
+            "cppcheck_mode": "随翻译单元解析" if covered else "未被真实构建依赖引用",
+            "exclusion_reason": "" if covered else "真实编译配置未引用该头文件",
+            "sha256": _sha256(SDK_DIR / rel),
+        })
+    if changed_sdk is not None:
+        for rel in sorted(modified_sdk):
+            if rel.endswith(".h") and rel not in project_headers:
+                covered = rel in dependency_sdk_rel
+                scope_rows.append({
+                    "file": rel,
+                    "kind": "已修改SDK头文件",
+                    "owner": "Telink官方SDK（已修改）",
+                    "modified_from_baseline": True,
+                    "participates_in_build": covered,
+                    "cppcheck_mode": "随翻译单元解析" if covered else "未覆盖",
+                    "exclusion_reason": "" if covered else "已修改 SDK 头文件未被分析翻译单元引用",
+                    "sha256": _sha256(SDK_DIR / rel) if (SDK_DIR / rel).exists() else "",
                 })
-        except ET.ParseError as exc:
-            _die(f"cppcheck emitted invalid XML for scope {name}: {exc}")
-        entries = [(entry["id"], entry["severity"]) for entry in parsed_entries]
-        txt_lines = [f"# cppcheck {name} scope summary",
-                     f"# generated_at: {_now_iso()}",
-                     f"# total issues: {len(entries)}",
-                     ""]
-        sev_counts: dict[str, int] = {}
-        id_counts: dict[str, int] = {}
-        for eid, sev in entries:
-            sev_counts[sev] = sev_counts.get(sev, 0) + 1
-            id_counts[eid] = id_counts.get(eid, 0) + 1
-        txt_lines.append("# by severity:")
-        for s, c in sorted(sev_counts.items()):
-            txt_lines.append(f"  {s:<14} {c}")
-        txt_lines.append("# by id (top 15):")
-        for eid, c in sorted(id_counts.items(), key=lambda kv: -kv[1])[:15]:
-            txt_lines.append(f"  {c:>4}  {eid}")
-        txt_lines.append("")
-        txt_lines.append("# details:")
-        for entry in parsed_entries:
-            txt_lines.append(
-                f"  {entry['severity']:<11} {entry['id']:<28} "
-                f"{entry['file']}:{entry['line']} {entry['message']}"
-            )
-        out_txt.write_text("\n".join(txt_lines) + "\n", encoding="utf-8")
-        _info(f"  total issues: {len(entries)}  ({dict(sev_counts)})  -> {out_xml.name} / {out_txt.name}")
-        if len(entries) > 0 and args.strict:
-            overall_rc = 1
-    # Always print the project-app summary regardless of strictness.
-    _info(f"static analysis complete. Reports under {out_dir}")
-    return overall_rc
+    _write_json(run_dir / "scope_audit.json", scope_rows)
+    with (run_dir / "scope_audit.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(scope_rows[0]))
+        writer.writeheader()
+        writer.writerows(scope_rows)
+
+    severity_counts: dict[str, int] = {}
+    classification_counts: dict[str, int] = {}
+    id_counts: dict[str, int] = {}
+    for finding in findings:
+        severity_counts[finding["severity"]] = severity_counts.get(finding["severity"], 0) + 1
+        classification_counts[finding["classification"]] = classification_counts.get(finding["classification"], 0) + 1
+        id_counts[finding["id"]] = id_counts.get(finding["id"], 0) + 1
+    deviation_candidates = [finding for finding in findings if finding["status"].startswith("Deviation候选")]
+    uncovered_project_headers = [rel for rel in project_headers if rel not in dependency_sdk_rel]
+    uncovered_modified_headers = [] if changed_sdk is None else [
+        rel for rel in modified_sdk if rel.endswith(".h") and rel not in dependency_sdk_rel
+    ]
+    coverage_gaps = uncovered_project_headers + uncovered_modified_headers
+    compile_settings = _extract_real_compile_settings(full_database[0]["command"])
+    compile_settings.update({
+        "target_mcu": DECLARED_MCU,
+        "startup_profile": STARTUP_PROFILE,
+        "target_configuration_risk": TARGET_CONFIGURATION_RISK,
+        "platform_model": str(CPPCHECK_PLATFORM.relative_to(REPO_ROOT)).replace("\\", "/"),
+        "compiler_predefines_applied": applied_predefs,
+        "configuration_source": "build.mk 经 make -B -n 展开 + source_order.txt",
+    })
+    summary = {
+        "format": "tlsr8251-bms-static-analysis/v2",
+        "run_id": stamp,
+        "started_at": started_at,
+        "finished_at": _now_iso(),
+        "git": _git_provenance(),
+        "sdk_baseline_commit": SDK_BASELINE_COMMIT,
+        "baseline_audit_error": baseline_error,
+        "selection_policy": selection_note,
+        "cppcheck_version": cppcheck_version,
+        "cppcheck_config": str(CPPCHECK_CONFIG.relative_to(REPO_ROOT)).replace("\\", "/"),
+        "actual_build_source_count": len(source_order),
+        "actual_build_c_count": len(compiled_c),
+        "actual_build_assembly_count": len(source_order) - len(compiled_c),
+        "analysis_translation_unit_count": len(analysis_database),
+        "analysis_header_dependency_count": len(dependency_sdk_rel),
+        "project_c_translation_unit_count": sum(rel.startswith(PROJECT_SOURCE_PREFIX) for rel in compiled_c),
+        "modified_sdk_translation_unit_count": sum(rel in modified_sdk for rel in selected_sources),
+        "excluded_official_sdk_c_count": sum(rel.endswith(".c") and rel not in selected_sources for rel in source_order),
+        "excluded_assembly_count": sum(rel.endswith(".S") for rel in source_order),
+        "coverage_gap_count": len(coverage_gaps),
+        "coverage_gaps": coverage_gaps,
+        "raw_native_occurrence_count": len(raw_native),
+        "tool_metadata": tool_metadata,
+        "distinct_finding_count": len(findings),
+        "native_distinct_finding_count": sum(not item["misra_rule"] for item in findings),
+        "misra_distinct_finding_count": sum(bool(item["misra_rule"]) for item in findings),
+        "misra": misra_status,
+        "severity_counts": severity_counts,
+        "classification_counts": classification_counts,
+        "id_counts": dict(sorted(id_counts.items(), key=lambda item: (-item[1], item[0]))),
+        "deviation_candidate_count": len(deviation_candidates),
+        "approved_deviation_count": 0,
+        "configuration": compile_settings,
+        "scope": scope_rows,
+        "findings": findings,
+        "deviation_candidates": deviation_candidates,
+        "report": None,
+    }
+    data_path = run_dir / "static_analysis_report_data.json"
+    _write_json(data_path, summary)
+
+    report_path: Path | None = None
+    if not args.no_report:
+        template = Path(args.report_template).resolve() if args.report_template else DEFAULT_STATIC_REPORT_TEMPLATE
+        report_path = run_dir / "XXX-BMS_软件静态分析报告_已填写.xlsx"
+        _run_static_report_builder(template, data_path, report_path, run_dir / "report_previews")
+        summary["report"] = report_path.relative_to(REPO_ROOT).as_posix()
+        _write_json(data_path, summary)
+
+    latest = {
+        "run_id": stamp,
+        "run_dir": run_dir.relative_to(REPO_ROOT).as_posix(),
+        "summary": data_path.relative_to(REPO_ROOT).as_posix(),
+        "report": report_path.relative_to(REPO_ROOT).as_posix() if report_path else None,
+    }
+    _write_json(static_root / "latest.json", latest)
+    _info(f"actual build sources: {len(source_order)} ({len(compiled_c)} C + "
+          f"{len(source_order) - len(compiled_c)} assembly)")
+    _info(f"cppcheck analysed translation units: {len(analysis_database)}; "
+          f"header dependencies: {len(dependency_sdk_rel)}; coverage gaps: {len(coverage_gaps)}")
+    _info(f"total issues: {len(findings)} distinct ({len(raw_native)} raw native occurrences); "
+          f"severity={severity_counts}")
+    _info(f"MISRA: {'executed' if misra_status['executed'] else 'not executed'}; "
+          f"findings={summary['misra_distinct_finding_count']}")
+    _info(f"static analysis complete -> {run_dir}")
+    if report_path:
+        _info(f"filled Excel report -> {report_path}")
+    return 1 if args.strict and findings else 0
 
 
 # ----------------------------------------------------------------------------
@@ -1325,6 +1949,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     ps = sub.add_parser("static", help="cppcheck static analysis")
     ps.add_argument("--strict", action="store_true", help="non-zero exit if any issue found")
+    ps.add_argument("-j", "--jobs", type=int, default=4,
+                    help="parallel Cppcheck jobs (default: 4)")
+    ps.add_argument("--report-template",
+                    help="Excel template path; defaults to the certified-document template on this PC")
+    ps.add_argument("--no-report", action="store_true",
+                    help="generate machine-readable analysis artifacts without the Excel report")
     ps.set_defaults(func=cmd_static)
 
     sub.add_parser("flash-help", help="human instructions for BDT burning").set_defaults(func=cmd_flash_help)

@@ -163,5 +163,76 @@ class OutputPathTests(unittest.TestCase):
         self.assertNotEqual(bms.BUILD_DIR, bms.IDE_BUILD_DIR)
 
 
+class StaticAnalysisPrimitiveTests(unittest.TestCase):
+    def test_extracts_real_compile_settings_without_manual_flag_lists(self) -> None:
+        command = (
+            'tc32-elf-gcc -O2 -std=gnu99 -I"C:/sdk" '
+            '-DPROJECT=1 -fshort-wchar -c -o"C:/out/app.o" "C:/sdk/app.c"'
+        )
+        with mock.patch.object(bms, "_tc32_tool", return_value=r"C:\tc32\tc32-elf-gcc.exe"), \
+                mock.patch.object(bms, "_tool_version", return_value="GCC 4.5.1-tc32-1.3"):
+            settings = bms._extract_real_compile_settings(command)
+        self.assertEqual(settings["c_standard"], "gnu99")
+        self.assertEqual(settings["include_paths"], ["C:/sdk"])
+        self.assertEqual(settings["defines"], ["PROJECT=1"])
+        self.assertIn("-fshort-wchar", settings["compile_flags"])
+
+    def test_function_locator_handles_multiline_c_function(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "sample.c"
+            source.write_text(
+                "static int\nexample_function(int value)\n{\n"
+                "    if (value) {\n        return value;\n    }\n    return 0;\n}\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(bms._function_at_line(source, 5), "example_function")
+
+    def test_unmodified_sdk_style_is_not_auto_approved_or_auto_deviated(self) -> None:
+        row = {
+            "id": "unusedFunction",
+            "severity": "style",
+            "misra_rule": "",
+            "locations": [{
+                "file": f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h",
+                "line": 10,
+            }],
+        }
+        classification, status, _ = bms._finding_classification(row, set())
+        self.assertEqual(classification, "SDK问题")
+        self.assertEqual(status, "待评审（SDK）")
+        self.assertNotIn("批准", status)
+
+    def test_report_runtime_is_isolated_from_static_evidence_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = root / "run"
+            run_dir.mkdir()
+            template = root / "template.xlsx"
+            template.write_bytes(b"template")
+            data_path = run_dir / "report_data.json"
+            data_path.write_text("{}", encoding="utf-8")
+            output_path = run_dir / "report.xlsx"
+            verification_dir = run_dir / "report_previews"
+
+            def fake_run(command, **_kwargs):
+                temp_output = Path(command[4])
+                temp_verification = Path(command[5])
+                temp_output.write_bytes(b"completed-report")
+                temp_verification.mkdir(parents=True)
+                (temp_verification / "verification.json").write_text(
+                    '{"formula_errors": 0}', encoding="utf-8")
+                return mock.Mock(returncode=0, stdout="ok", stderr="")
+
+            with mock.patch.object(bms, "_resolve_artifact_runtime", return_value=Path("python")), \
+                    mock.patch.object(bms.subprocess, "run", side_effect=fake_run):
+                bms._run_static_report_builder(
+                    template, data_path, output_path, verification_dir)
+
+            self.assertEqual(output_path.read_bytes(), b"completed-report")
+            self.assertTrue((verification_dir / "verification.json").exists())
+            self.assertEqual(data_path.read_text(encoding="utf-8"), "{}")
+            self.assertFalse((run_dir / "node_modules").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
