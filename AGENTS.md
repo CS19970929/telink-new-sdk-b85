@@ -44,6 +44,13 @@ python bms_tools/bms.py ci --jobs 4
 
 仓库路径含空格时，脚本会建立 `C:\opencode\bms_repo` junction 供 GNU Make 使用，不需要手工修改路径或系统 PATH。
 
+## 临时文件边界
+
+- 禁止在仓库内创建或使用 `.codex_tmp/` 存放 Codex/ChatGPT 的日志、截图、文档渲染、表格审计、解压文件或其他中间产物。
+- 此类临时文件统一放到 Windows 用户临时目录，例如 `$env:LOCALAPPDATA\CodexTemp\tlsr8251-bms\<task-id>`；任务结束后可按需清理。
+- 工程命令自身的可复现构建和静态分析证据仍按既定规则写入 `project/tlsr_tc32/B85/825x_ble_sample_cli/`，不得改为不可追溯的临时输出。
+- 需要交付给用户的正式文件应写入用户明确指定的位置；未指定时先说明目标位置，不得为了中间处理在仓库根目录新增临时目录。
+
 ## 固定编译与链接参数
 
 ```text
