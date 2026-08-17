@@ -39,13 +39,11 @@ static inline void flash_store_end_modify(void)
 static inline int flash_store_verify_bytes(u32 addr, const u8 *buf, u32 len)
 {
     u8 verify_buf[FLASH_STORE_VERIFY_CHUNK];
-    u32 chunk;
-    u32 i;
 
     while (len != 0u) {
-        chunk = (len > FLASH_STORE_VERIFY_CHUNK) ? FLASH_STORE_VERIFY_CHUNK : len;
+        u32 chunk = (len > FLASH_STORE_VERIFY_CHUNK) ? FLASH_STORE_VERIFY_CHUNK : len;
         flash_read_page(addr, (int)chunk, verify_buf);
-        for (i = 0u; i < chunk; ++i) {
+        for (u32 i = 0u; i < chunk; ++i) {
             if (verify_buf[i] != buf[i]) {
                 return 0;
             }
@@ -61,13 +59,11 @@ static inline int flash_store_verify_bytes(u32 addr, const u8 *buf, u32 len)
 static inline int flash_store_verify_erased(u32 addr, u32 len)
 {
     u8 verify_buf[FLASH_STORE_VERIFY_CHUNK];
-    u32 chunk;
-    u32 i;
 
     while (len != 0u) {
-        chunk = (len > FLASH_STORE_VERIFY_CHUNK) ? FLASH_STORE_VERIFY_CHUNK : len;
+        u32 chunk = (len > FLASH_STORE_VERIFY_CHUNK) ? FLASH_STORE_VERIFY_CHUNK : len;
         flash_read_page(addr, (int)chunk, verify_buf);
-        for (i = 0u; i < chunk; ++i) {
+        for (u32 i = 0u; i < chunk; ++i) {
             if (verify_buf[i] != 0xFFu) {
                 return 0;
             }
@@ -81,16 +77,14 @@ static inline int flash_store_verify_erased(u32 addr, u32 len)
 
 static inline int flash_store_prog_checked(u32 addr, const u8 *buf, u32 len)
 {
-    u32 page_off;
-    u32 chunk;
     u32 write_addr = addr;
     const u8 *write_buf = buf;
     u32 write_len = len;
 
     flash_store_begin_modify();
     while (write_len != 0u) {
-        page_off = write_addr % FLASH_STORE_PAGE_BYTES;
-        chunk = FLASH_STORE_PAGE_BYTES - page_off;
+        u32 page_off = write_addr % FLASH_STORE_PAGE_BYTES;
+        u32 chunk = FLASH_STORE_PAGE_BYTES - page_off;
         if (chunk > write_len) {
             chunk = write_len;
         }

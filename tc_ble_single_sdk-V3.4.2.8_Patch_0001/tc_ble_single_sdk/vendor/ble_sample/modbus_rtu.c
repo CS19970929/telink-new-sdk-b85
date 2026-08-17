@@ -47,13 +47,9 @@ static u16 read_reg(u16 reg)
 {
     // TODO: 这里换成你的寄存器表
     // 先给个可见的动态值
-    UINT16 u16SciTemp;
-    UINT16 j;
-    INT8 k;
-    UINT8 a[4];
     u16 val;
 
-    if (reg >= 0 && reg < 3)
+    if (reg < 3u)
     {
         // return *(&g_stCellInfoReport.mac_public[0] + (reg - 0x0000));
         switch (reg)
@@ -125,6 +121,11 @@ static u16 read_reg(u16 reg)
     }
     if (reg >= 0xD100 && reg <= 0xD114)
     {
+        UINT16 u16SciTemp;
+        UINT16 j;
+        INT8 k;
+        UINT8 a[4];
+
         for (j = 0; j < 4; j++)
         {
             k = FaultPoint_First2 - 1 - j;
@@ -309,7 +310,6 @@ static void put_u16be(u8 *p, u16 v)
 }
 
 extern int AFE_PARAM_WRITE_Flag;
-extern void test_SH367309_UpdataAfeConfig(void);
 
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
@@ -320,8 +320,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     if (req[0] != MB_ADDR && req[0] != 0x00)
         return 0; // 0x00广播可选
 
-    if (req_len < 4)
-        return 0;
     u16 crc_rx = ((u16)req[req_len - 1] << 8) | req[req_len - 2]; // 注意：RTU CRC低字节在前
     u16 crc = mb_crc16(req, req_len - 2);
     if (crc != crc_rx)
@@ -466,7 +464,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len)
 {
     u16 i;
-    u16 v;
     u32 bytes;
     u32 l;
     u16 c;
@@ -493,7 +490,7 @@ static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32
     rsp[2] = (u8)bytes;
     for (i = 0u; i < qty; ++i)
     {
-        v = bms_event_log_read_reg(i);
+        u16 v = bms_event_log_read_reg(i);
         put_u16be(&rsp[3 + i * 2u], v);
     }
 

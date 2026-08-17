@@ -69,8 +69,6 @@ int flash_kv32_format(flash_kv32_t *kv);
 int flash_kv32_get(const flash_kv32_t *kv, u32 key, u32 *value);
 int flash_kv32_set(flash_kv32_t *kv, u32 key, u32 value);
 int flash_kv32_write_pairs(flash_kv32_t *kv, const flash_kv32_pair_t *pairs, u16 pair_count);
-int flash_kv32_compact(flash_kv32_t *kv);
-flash_kv32_dbg_t flash_kv32_get_dbg(const flash_kv32_t *kv);
 
 #ifdef __cplusplus
 }

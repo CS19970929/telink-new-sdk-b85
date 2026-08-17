@@ -62,23 +62,6 @@ static void soc_kv_fill_sector_addrs(void)
     }
 }
 
-static u32 soc_kv_item_to_key(soc_item_t item)
-{
-    if (item == SOC_ITEM_SOC) {
-        return SOC_KV_KEY_SOC;
-    }
-
-    if ((item == SOC_ITEM_DSG) || (item == SOC_ITEM_SOH)) {
-        return SOC_KV_KEY_DSG;
-    }
-
-    if (item == SOC_ITEM_CYCLE) {
-        return SOC_KV_KEY_CYCLE;
-    }
-
-    return 0u;
-}
-
 static u32 soc_kv_get_value(u32 key, u32 default_value)
 {
     u32 value = default_value;
@@ -91,7 +74,7 @@ int soc_kv_store_init(void)
 {
     flash_kv32_cfg_t cfg;
 
-    if ((flash_store_cfg_get_soc_kv_base() == 0u) || (flash_store_cfg_get_soc_kv_sectors() < 2u)) {
+    if (flash_store_cfg_get_soc_kv_base() == 0u) {
         return 0;
     }
 
@@ -131,17 +114,6 @@ soc_kv_data_t soc_kv_store_get(void)
     return data;
 }
 
-int soc_kv_store_put(soc_item_t item, u32 value)
-{
-    u32 key = soc_kv_item_to_key(item);
-
-    if (key == 0u) {
-        return 0;
-    }
-
-    return flash_kv32_set(&g_soc_kv, key, value);
-}
-
 int soc_kv_store_write_all(u32 soc, u32 dsg, u32 cycle)
 {
     flash_kv32_pair_t pairs[3];
@@ -177,25 +149,4 @@ void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
     }
 
     (void)soc_kv_store_write_all(soc, dsg, cycle);
-}
-
-void soc_kv_store_factory_reset(void)
-{
-    (void)flash_kv32_format(&g_soc_kv);
-}
-
-soc_kv_dbg_t soc_kv_store_get_dbg(void)
-{
-    flash_kv32_dbg_t kv_dbg = flash_kv32_get_dbg(&g_soc_kv);
-    soc_kv_dbg_t dbg;
-
-    memset(&dbg, 0, sizeof(dbg));
-    dbg.active_base = kv_dbg.active_base;
-    dbg.write_off = kv_dbg.write_off;
-    dbg.next_seq = kv_dbg.next_seq;
-    dbg.active_generation = kv_dbg.active_generation;
-    dbg.active_sector = kv_dbg.active_sector;
-    dbg.loaded = kv_dbg.loaded;
-    dbg.tail_dirty = kv_dbg.tail_dirty;
-    return dbg;
 }

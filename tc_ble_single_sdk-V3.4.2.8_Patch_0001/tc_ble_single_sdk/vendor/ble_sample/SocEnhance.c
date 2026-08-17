@@ -11,11 +11,6 @@ extern struct stCell_Info g_stCellInfoReport;
 void SOC_Result_Pass(void);
 // #include "soc_module_test.h"
 
-UINT32 ModulusSub(uint32_t Data1, uint32_t Data2)
-{
-	return (UINT32)(Data1 > Data2 ? Data1 - Data2 : Data2 - Data1);
-}
-
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
     // 0~80 濠电姷鏁搁崑娑樜涚仦杞匡綁宕熼鐕佹綗闂佽皫鍕＜H 婵犵數鍋為崹鍫曞箰閸濄儳鐭撶痪鎯ь儍娴?
@@ -396,10 +391,6 @@ static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
 	}
 
 	factory_a10 = (uint16_t)CapacityFactory;
-	if (factory_a10 == 0u)
-	{
-		factory_a10 = 1u;
-	}
 
 	// CapacityFactory is Ah*10, IDSG is A*10: 1% time(s) = 36 * CapacityFactory / IDSG.
 	ticks = ((uint32_t)36u * (uint32_t)factory_a10 * (uint32_t)SOC_TICKS_PER_SECOND +
@@ -705,9 +696,6 @@ static uint8_t soc_idle_for_ocv(void)
 static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 {
 	uint8_t i;
-	const soc_ocv_point_t *lo;
-	const soc_ocv_point_t *hi;
-	uint32_t numerator;
 
 	if (cell_mv <= g_soc_ocv_points[0].mv)
 	{
@@ -723,9 +711,9 @@ static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 	{
 		if (cell_mv <= g_soc_ocv_points[i].mv)
 		{
-			lo = &g_soc_ocv_points[i - 1u];
-			hi = &g_soc_ocv_points[i];
-			numerator = ((uint32_t)(cell_mv - lo->mv) * (uint32_t)(hi->soc - lo->soc)) +
+			const soc_ocv_point_t *lo = &g_soc_ocv_points[i - 1u];
+			const soc_ocv_point_t *hi = &g_soc_ocv_points[i];
+			uint32_t numerator = ((uint32_t)(cell_mv - lo->mv) * (uint32_t)(hi->soc - lo->soc)) +
 						((uint32_t)(hi->mv - lo->mv) / 2u);
 			return (uint8_t)(lo->soc + (numerator / (uint32_t)(hi->mv - lo->mv)));
 		}
@@ -876,12 +864,9 @@ static uint8_t soc_discharge_rebound_stable_update(void)
 
 static void soc_update_discharge_sag_hold(void)
 {
-	uint16_t hold_ticks;
-	uint8_t rebound_stable;
-
 	if (isDSG() && (IDSG > SOC_DSG_SAG_HOLD_CURR_MIN))
 	{
-		hold_ticks = soc_discharge_sag_hold_ticks_for_current(IDSG);
+		uint16_t hold_ticks = soc_discharge_sag_hold_ticks_for_current(IDSG);
 		if (g_soc_strategy_state.dsg_sag_hold_ticks < hold_ticks)
 		{
 			g_soc_strategy_state.dsg_sag_hold_ticks = hold_ticks;
@@ -890,7 +875,7 @@ static void soc_update_discharge_sag_hold(void)
 	}
 	else if (g_soc_strategy_state.dsg_sag_hold_ticks > 0u)
 	{
-		rebound_stable = soc_discharge_rebound_stable_update();
+		uint8_t rebound_stable = soc_discharge_rebound_stable_update();
 		g_soc_strategy_state.dsg_sag_hold_ticks--;
 		if ((!rebound_stable) &&
 			(g_soc_strategy_state.dsg_sag_hold_ticks < SOC_DSG_REBOUND_STABLE_TICKS))
@@ -1505,28 +1490,7 @@ void set_soc_param(uint8_t _soc_val, uint16_t _cap_factory, uint8_t disp_sync_up
 	soc_recalc_now_capacity();
 }
 
-void soc_factory_param_init_first(void)
-{
-#if 1
-	SOC_Calculate_Element.u8SOC_Now = (uint8_t)SOC_PARAM_DEFAULT_SOC;
-	SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(SOC_PARAM_DEFAULT_CYCLE);
-	SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(SOC_PARAM_DEFAULT_DSG);
-
-	// {
-	// 	nvm_param_set(NVM_KEY_SOC, SOC_Calculate_Element.u8SOC_Now);
-	// 	nvm_param_set(NVM_KEY_DSGSOC_INT, 0);
-	// 	nvm_param_set(NVM_KEY_CYCLES, SOC_Calculate_Element.u32Cycle_times);
-	// 	nvm_param_set(NVM_KEY_CAPACITY, SOC_Calculate_Element.u32CapFactory);
-	// }
-
-	memset(&g_soc_strategy_state, 0, sizeof(g_soc_strategy_state));
-	soc_sanitize_state();
-	set_dispsoc(get_soc_real());
-
-#endif
-}
-
-void soc_param_lib_init(soc_kv_data_t *_soc)
+void soc_param_lib_init(const soc_kv_data_t *_soc)
 {
 	memset(&g_soc_strategy_state, 0, sizeof(g_soc_strategy_state));
 	SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(_soc->dsg);
@@ -1731,7 +1695,9 @@ uint8_t get_ocv_cali(uint8_t *arr_soc)
 		log_w("%d ", arr_soc[k]);
 	}
 #endif
-	if (ModulusSub(arr_soc[N - 1], arr_soc[0]) > 10)
+	if (((arr_soc[N - 1] > arr_soc[0]) ?
+		  (arr_soc[N - 1] - arr_soc[0]) :
+		  (arr_soc[0] - arr_soc[N - 1])) > 10)
 	{
 		log_e("maxsoc %d minsoc %d", arr_soc[N - 1], arr_soc[0]);
 		goto _err;

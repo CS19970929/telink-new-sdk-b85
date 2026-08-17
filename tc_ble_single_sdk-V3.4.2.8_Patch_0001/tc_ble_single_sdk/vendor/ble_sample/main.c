@@ -52,6 +52,9 @@ _attribute_ram_code_ void irq_handler(void)
  */
 _attribute_ram_code_ int main (void)    //must run in ramcode
 {
+	/* irq_handler 由启动汇编/中断向量调用；局部引用显式记录该外部入口。 */
+	void (*const irq_entry)(void) = irq_handler;
+	(void)irq_entry;
 
 	DBG_CHN0_LOW;   //debug
 

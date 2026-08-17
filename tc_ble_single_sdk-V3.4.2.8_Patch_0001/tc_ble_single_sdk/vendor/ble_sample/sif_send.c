@@ -16,7 +16,6 @@
 #include "bus_mux.h"
 
 void sif_send_PRIVATE_PACKETS_CELLVOLTAGE(void);
-void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void);
 void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void);
 void sif_send_PUBLIC_PACKETS(void);
 
@@ -24,7 +23,7 @@ extern struct stCell_Info g_stCellInfoReport;
 
 #define sif_turn_off() gpio_write(OWC_TX_PIN, 0);
 #define sif_turn_on() gpio_write(OWC_TX_PIN, 1);
-#if 1
+#ifdef _FUNC_SIF_
 
 #define __INTEL__LSB__
 
@@ -48,7 +47,6 @@ volatile static uint8_t byte_cnt = 0;
 static uint8_t sif_sendArray[64] = {0};      // 閿熸枻鎷疯閿熸枻鎷烽敓閰电鎷烽敓鏂ゆ嫹閿熸枻鎷�
 volatile static uint8_t sif_send_length = 0; // 閿熸枻鎷烽敓鎹风殑绛规嫹閿熸枻鎷�
 
-static uint8_t sif_enable = 0;
 
 #pragma pack(1)
 typedef struct
@@ -118,27 +116,12 @@ typedef struct
 } PRIVATE_PACKETS_CELLVOLTAGE_H;
 #pragma pack()
 
-#define battery_code_length 10
-#pragma pack(1)
-typedef struct
-{
-    uint8_t id;
-    uint8_t ver;
-    uint8_t len;
-    uint8_t arrCode[battery_code_length];
-
-    uint8_t verify;
-
-} PRIVATE_PACKETS_BATTARY_CODE_H;
-#pragma pack()
-
 typedef struct
 // union PRIVATE_PACKETS_H
 {
     // uint8_t arry[100];
     PRIVATE_PACKETS_REALTIME_INFO_H realTimeInfo;
     PRIVATE_PACKETS_CELLVOLTAGE_H vcell;
-    PRIVATE_PACKETS_BATTARY_CODE_H code;
 
 } PRIVATE_PACKETS_H;
 
@@ -151,7 +134,7 @@ typedef struct
 
 SIF_REPORT_H sif_report;
 
-uint8_t sum_verify(uint8_t *data, uint16_t length)
+uint8_t sum_verify(const uint8_t *data, uint16_t length)
 {
     uint16_t i;
     uint16_t res = 0;
@@ -164,83 +147,14 @@ uint8_t sum_verify(uint8_t *data, uint16_t length)
     return (uint8_t)(res & 0xff);
 }
 
-void sif_gpio_init()
-// void sif_gpio_init(GPIO_TypeDef *GPIOx, uint16_t _pin_scl, uint16_t _pin_sda)
-{
-#if 0
-    GPIO_InitTypeDef GPIO_InitStructure;
-
-#if 0
-	RCC_APB2PeriphClockCmd(RCC_I2C_PORT, ENABLE);	/* 閿熸枻鎷稧PIO鏃堕敓鏂ゆ嫹 */
-
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_OType_OD;	/* 閿熸枻鎷锋紡閿熸枻鎷烽敓渚ワ吉锟� */
-	
-	GPIO_InitStructure.GPIO_Pin = PIN_I2C_SCL;
-	GPIO_Init(PORT_I2C_SCL, &GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = PIN_I2C_SDA;
-	GPIO_Init(PORT_I2C_SDA, &GPIO_InitStructure);
-#endif
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_Level_1;
-
-    GPIO_InitStructure.GPIO_Pin = PIN_I2C_SDA;
-    GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
-    // GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_Init(PORT_I2C_SDA, &GPIO_InitStructure);
-
-    /* 閿熸枻鎷蜂竴閿熸枻鎷峰仠姝㈤敓鑴氱尨鎷�, 閿熸枻鎷蜂綅I2C閿熸枻鎷烽敓鏂ゆ嫹閿熻緝纰夋嫹閿熸枻鎷烽敓鏂ゆ嫹閿熷�熷閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷锋ā寮� */
-    // i2c_Stop();
-    // i2c_Stop1();
-
-    // if (_pin_scl == GPIO_Pin_10)
-    //     i2c_Stop1();
-    // else if (_pin_scl == GPIO_Pin_8)
-    //     i2c_Stop();
-#endif
-}
-
-void sif_data_init(void)
-{
-    uint8_t i = 0;
-
-    // length = 1;
-
-#if 0
-    for (i = 0; i < sizeof(result); i++)
-    {
-        result[i] = i;
-    }
-#else
-
-    sif_sendArray[0] = 0xaa;
-    sif_sendArray[1] = 0x00;
-    sif_sendArray[2] = 0xff;
-
-    sif_send_length = 3;
-#endif
-}
-
-void sif_switch(uint8_t open)
-{
-    if (open)
-        sif_enable = 1;
-    else
-        sif_enable = 0;
-}
-
 void sif_send_data_handle(void)
 {
     static bool iswakeup = true;
     static uint8_t pubblic_frame3_cnt = 0;
     static uint16_t cnt_60s = 0;
     static uint16_t cnt = 0;
-    static uint8_t res;
     uint8_t count = SIF_SEND_COUNT;
-    static uint8_t nums = sizeof(uint8_t) * 8;
-    static uint8_t is60s = 0;
-    uint8_t *p = (uint8_t *)sif_sendArray;
+    const uint8_t *p = (const uint8_t *)sif_sendArray;
 
 #ifdef _FUNC_SIF_
     if (BUS_STATE_OWC_TX != bus_mux_get_state())
@@ -553,7 +467,6 @@ void sif_send_PUBLIC_PACKETS(void)
     sif_report.public.max_temp = temp;
     temp = 40 + g_stCellInfoReport.u16TempMin / 10 - 40;
     sif_report.public.min_temp = temp;
-    temp = 40 + g_stCellInfoReport.u16Temperature[MOS_TEMP1] / 10 - 40;
     sif_report.public.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
 
     {
@@ -633,7 +546,7 @@ void sif_send_PUBLIC_PACKETS(void)
     else
         sif_report.public.work_status = 0x2;
 
-    sif_report.public.verify = sum_verify(&sif_report.public, sizeof(sif_report.public) - 1);
+    sif_report.public.verify = sum_verify((const uint8_t *)&sif_report.public, sizeof(sif_report.public) - 1);
 
     sif_send_length = sizeof(sif_report.public);
 
@@ -694,7 +607,7 @@ void sif_send_PUBLIC_PACKETS(void)
 
     sif_report.public.work_status = 5;
 
-    sif_report.public.verify = sum_verify(&sif_report.public, sizeof(sif_report.public) - 1);
+    sif_report.public.verify = sum_verify((const uint8_t *)&sif_report.public, sizeof(sif_report.public) - 1);
 
     sif_send_length = sizeof(sif_report.public);
 
@@ -711,8 +624,6 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
 #define __private_protocol_ver__ (0x01)
 #define __private_protocol_random_key__ __TODO__
     // #define __private_protocol_             __TODO__
-
-    static uint8_t send_status;
 
     sif_report.private.realTimeInfo.id = 0x3A;
     sif_report.private.realTimeInfo.ver = __private_protocol_ver__;
@@ -880,7 +791,7 @@ void sif_send_PRIVATE_PACKETS_REALTIME_INFO(void)
     sif_report.private.realTimeInfo.random_key = __TODO__;
     sif_report.private.realTimeInfo.result_key = __TODO__;
 
-    sif_report.private.realTimeInfo.verify = sum_verify(&sif_report.private.realTimeInfo, sizeof(sif_report.private.realTimeInfo) - 1);
+    sif_report.private.realTimeInfo.verify = sum_verify((const uint8_t *)&sif_report.private.realTimeInfo, sizeof(sif_report.private.realTimeInfo) - 1);
 
     // memset(&sif_report.private.realTimeInfo.id, 0xff, sizeof(sif_report.private.realTimeInfo));
     // memset(&sif_report.private.realTimeInfo.id, 0x00, sizeof(sif_report.private.realTimeInfo));
@@ -926,26 +837,6 @@ void sif_send_PRIVATE_PACKETS_CELLVOLTAGE(void)
     // sif_send_start();
 }
 
-void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void)
-{
-    // static uint16_t
-    sif_report.private.code.id = 0x3C;
-    sif_report.private.code.ver = __TODO__;
-    sif_report.private.code.len = battery_code_length;
-
-    for (uint8_t i = 0; i < battery_code_length; i++)
-        sif_report.private.code.arrCode[i] = __TODO__;
-
-    sif_report.private.code.verify = __TODO__;
-
-    sif_send_length = sizeof(sif_report.private.code);
-
-    memcpy(&sif_sendArray, &sif_report.private.code, sif_send_length);
-
-    // todo
-    // sif_send_start();
-}
-
 // void sif_run(void)
 // {
 //     static uint8_t send_index_private = 0;
@@ -979,10 +870,9 @@ void sif_send_PRIVATE_PACKETS_BATTARY_CODE_H(void)
 
 #endif
 
-void sif_sleep_conf(void)
+#else
+void sif_send_data_handle(void)
 {
-    // gpio_conf();
-    // nvic_conf();
-    // exti_conf();
+    /* 当前产品配置未启用 SIF，保留空入口以维持调度接口。 */
 }
-#endif
+#endif /* _FUNC_SIF_ */

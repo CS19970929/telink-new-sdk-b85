@@ -391,7 +391,6 @@ int bms_event_log_init(void)
     u16 flash_sectors = flash_store_cfg_get_event_log_sectors();
     u16 slot_idx;
     u16 total_slots;
-    u16 slots_per_sector = bms_event_log_slots_per_sector();
     u16 best_slot = BMS_EVENT_LOG_INVALID_SLOT;
     u16 write_pos = 0u;
     u16 best_write_pos = 0u;
@@ -401,10 +400,7 @@ int bms_event_log_init(void)
     u8 best_records[BMS_EVENT_LOG_ENTRY_COUNT][2];
 
     if ((flash_base == 0u) ||
-        (BMS_EVENT_LOG_SECTOR_SIZE == 0u) ||
-        (flash_sectors < 2u) ||
-        (slots_per_sector == 0u) ||
-        ((u16)(slots_per_sector * flash_sectors) == 0u)) {
+        (BMS_EVENT_LOG_SECTOR_SIZE == 0u)) {
         memset(&g_bms_event_log, 0, sizeof(g_bms_event_log));
         g_bms_event_log.current_slot = BMS_EVENT_LOG_INVALID_SLOT;
         return 0;
@@ -514,34 +510,6 @@ u16 bms_event_log_read_reg(u16 reg)
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) | g_bms_event_log.records[idx][1]);
 }
 
-void bms_event_log_fill_protocol_bytes(u8 *buf, u16 len)
-{
-    u16 i;
-    u16 words;
-    u16 reg;
-    u16 value;
-
-    if (buf == NULL) {
-        return;
-    }
-
-    words = (u16)(len / 2u);
-    if (words > BMS_EVENT_LOG_REG_COUNT) {
-        words = BMS_EVENT_LOG_REG_COUNT;
-    }
-
-    for (i = 0u; i < words; ++i) {
-        reg = i;
-        value = bms_event_log_read_reg(reg);
-        buf[(u16)(i * 2u)] = (u8)(value >> 8);
-        buf[(u16)(i * 2u + 1u)] = (u8)(value & 0xFFu);
-    }
-
-    if ((u16)(words * 2u) < len) {
-        memset(&buf[words * 2u], 0, len - (u16)(words * 2u));
-    }
-}
-
 int bms_event_log_factory_reset(void)
 {
     if (!g_bms_event_log.ready && !bms_event_log_init()) {
@@ -552,18 +520,6 @@ int bms_event_log_factory_reset(void)
     return bms_event_log_write_snapshot();
 }
 
-bms_event_log_dbg_t bms_event_log_get_dbg(void)
-{
-    bms_event_log_dbg_t dbg;
-
-    dbg.last_seq = (g_bms_event_log.next_seq == 0u) ? 0u : (g_bms_event_log.next_seq - 1u);
-    dbg.current_slot = g_bms_event_log.current_slot;
-    dbg.slots_per_sector = bms_event_log_slots_per_sector();
-    dbg.total_slots = bms_event_log_total_slots();
-    dbg.write_pos = g_bms_event_log.write_pos;
-    dbg.ready = g_bms_event_log.ready;
-    return dbg;
-}
 void test_log_balance_first(void)
 {
     bms_event_log_track_edge(1, BALANCE_OPEN);

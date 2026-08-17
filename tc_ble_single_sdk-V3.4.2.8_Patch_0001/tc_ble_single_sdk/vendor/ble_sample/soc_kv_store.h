@@ -49,13 +49,6 @@ extern "C" {
 #define SOC_KV_DEFAULT_CYCLE  SOC_PARAM_DEFAULT_CYCLE
 #endif
 
-typedef enum {
-    SOC_ITEM_SOC   = 0,
-    SOC_ITEM_DSG   = 1,
-    SOC_ITEM_SOH   = SOC_ITEM_DSG,
-    SOC_ITEM_CYCLE = 2,
-} soc_item_t;
-
 typedef struct {
     u32 soc;
     u32 dsg;
@@ -75,11 +68,8 @@ typedef struct {
 int  soc_kv_store_init(void);
 soc_kv_data_t soc_kv_store_get_default_data(void);
 soc_kv_data_t soc_kv_store_get(void);
-int  soc_kv_store_put(soc_item_t item, u32 value);
 int  soc_kv_store_write_all(u32 soc, u32 dsg, u32 cycle);
 void soc_kv_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
-void soc_kv_store_factory_reset(void);
-soc_kv_dbg_t soc_kv_store_get_dbg(void);
 
 #ifdef __cplusplus
 }

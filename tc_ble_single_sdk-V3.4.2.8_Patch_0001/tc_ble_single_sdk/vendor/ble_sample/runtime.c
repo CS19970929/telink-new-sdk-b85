@@ -127,7 +127,7 @@ static int runtime_scan_store(void)
     u32 best_seq = 0u;
     u8 found = 0u;
 
-    if ((runtime_flash_base() == 0u) || (flash_store_cfg_get_runtime_sectors() < 2u)) {
+    if (runtime_flash_base() == 0u) {
         return 0;
     }
 
@@ -150,10 +150,7 @@ static int runtime_scan_store(void)
     }
 
     g_runtime_last_saved_min = g_runtime_min;
-    g_runtime_next_seq = best_seq + 1u;
-    if (g_runtime_next_seq == 0u) {
-        g_runtime_next_seq = 1u;
-    }
+    g_runtime_next_seq = (best_seq == 0xFFFFFFFFu) ? 1u : (best_seq + 1u);
     g_runtime_next_index = (u16)(best_index + 1u);
     if (g_runtime_next_index >= RUNTIME_TOTAL_RECORDS) {
         g_runtime_next_index = 0u;
@@ -334,11 +331,6 @@ void Runtime_Init(void)
     g_runtime_tick_ready = 1u;
 }
 
-void Runtime_1MinTask(void)
-{
-    runtime_apply_elapsed_minutes(1u);
-}
-
 void Runtime_Poll(void)
 {
     u32 now_tick_32k;
@@ -372,17 +364,12 @@ bms_mode_t Runtime_GetMode(void)
     return g_mode;
 }
 
-u32 Runtime_Get_runtime(void)
-{
-    return g_runtime_min;
-}
-
 int Runtime_FactoryReset(void)
 {
     u16 sector_idx;
     u32 base = runtime_flash_base();
 
-    if ((base == 0u) || (flash_store_cfg_get_runtime_sectors() < 2u)) {
+    if (base == 0u) {
         return 0;
     }
 
