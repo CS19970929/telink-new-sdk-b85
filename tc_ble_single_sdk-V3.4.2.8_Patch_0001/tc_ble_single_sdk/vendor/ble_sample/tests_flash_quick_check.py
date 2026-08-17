@@ -445,12 +445,19 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("DataLoad_ClearAfeReportPreserveSoc();", text)
         self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
 
-    def test_current_conversion_uses_shared_rounded_64bit_formula(self):
+    def test_current_conversion_preserves_existing_integer_formula(self):
         text = read_text(SH367309_C)
-        self.assertIn("static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)", text)
-        self.assertIn("(uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE", text)
-        self.assertIn("u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
-        self.assertIn("u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
+        self.assertNotIn("DataLoad_CurrentRawToScaled_mA", text)
+        self.assertIn(
+            "u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * "
+            "g_u32CS_Res_AFE / (21470);",
+            text,
+        )
+        self.assertIn(
+            "u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) "
+            "* g_u32CS_Res_AFE / (21470) * 200;",
+            text,
+        )
 
     def test_sif_reports_capacity_as_raw_profile_value(self):
         text = read_text(SIF_SEND_C)

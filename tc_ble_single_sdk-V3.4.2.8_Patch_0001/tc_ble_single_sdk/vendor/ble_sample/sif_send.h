@@ -14,8 +14,6 @@ typedef enum
     STOP_SIGNAL,
 } SIF_STATE_E;
 
-void sif_switch(uint8_t open);
-void sif_sleep_conf(void);
 void sif_send_data_handle(void);
 
 // #define COM_PIN 0

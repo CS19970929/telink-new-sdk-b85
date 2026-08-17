@@ -31,18 +31,6 @@
 #include "modbus_rtu.h"
 #include "btname_modbus.h"
 
-typedef struct
-{
-  /** Minimum value for the connection event (interval. 0x0006 - 0x0C80 * 1.25 ms) */
-  u16 intervalMin;
-  /** Maximum value for the connection event (interval. 0x0006 - 0x0C80 * 1.25 ms) */
-  u16 intervalMax;
-  /** Number of LL latency connection events (0x0000 - 0x03e8) */
-  u16 latency;
-  /** Connection Timeout (0x000A - 0x0C80 * 10 ms) */
-  u16 timeout;
-} gap_periConnectParams_t;
-
 ////////////////////// SPP ////////////////////////////////////
 static const u8 TelinkSppServiceUUID[16]	      	    = WRAPPING_BRACES(TELINK_SPP_UUID_SERVICE);
 static const u8 TelinkSppDataServer2ClientUUID[16]      = WRAPPING_BRACES(TELINK_SPP_DATA_SERVER2CLIENT);
@@ -120,7 +108,8 @@ static const u16 my_appearance = GAP_APPEARE_UNKNOWN;
 
 static const u16 my_gattServiceUUID = SERVICE_UUID_GENERIC_ATTRIBUTE;
 
-static const gap_periConnectParams_t my_periConnParameters = {20, 40, 0, 1000};
+/* BLE GAP 连接参数按协议顺序编码：intervalMin、intervalMax、latency、timeout。 */
+static const u16 my_periConnParameters[4] = {20, 40, 0, 1000};
 
 _attribute_data_retention_	static u16 serviceChangeVal[2] = {0};
 
@@ -372,20 +361,6 @@ static const u8 my_OtaCharVal[19] = {
 };
 #endif
 
-extern volatile unsigned char i2c_master_rx_buff[43];
-// void update_my_batVal(void)
-// {
-// 	int temp = i2c_master_rx_buff[8];
-// 	temp = temp << 8 | i2c_master_rx_buff[9];
-// 	my_batVal[0] = temp * 5 / 32;
-// 	blc_gatt_pushHandleValueNotify(BLS_CONN_HANDLE, BATT_LEVEL_INPUT_DP_H, &my_batVal[0], sizeof(my_batVal[0]));
-// }
-void update_my_batVal(u16 val)
-{
-	my_batVal[0] = val;
-	blc_gatt_pushHandleValueNotify(BLS_CONN_HANDLE, BATT_LEVEL_INPUT_DP_H, &my_batVal[0], sizeof(my_batVal[0]));
-}
-
 /**
  * @brief      write callback of Attribute of TelinkSppDataClient2ServerUUID
  * @param[in]  para - rf_packet_att_write_t
@@ -424,14 +399,14 @@ int module_onReceiveData(void *para)
 {
 	rf_packet_att_write_t *p = (rf_packet_att_write_t*)para;
 	u8 len = p->l2capLen - 3;
-	u8 *data = (u8 *)&p->value;
+	const u8 *data = (const u8 *)&p->value;
 	if(len > 0)
 	{
 		u32 rsp_len = 0;
         int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
 		if (ok && rsp_len)
         {
-			ble_sts_t r = notify_big_packet(
+			(void)notify_big_packet(
 			BLS_CONN_HANDLE,
 			SPP_CLIENT_TO_SERVER_DP_H, 
 			ble_rsp_buf,

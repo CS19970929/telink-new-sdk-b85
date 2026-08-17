@@ -200,12 +200,6 @@ static u32 bms_cold_get_u32_value(const bms_cold_system_params_t *data, u16 offs
     return *field;
 }
 
-static void bms_cold_set_u32_value(bms_cold_system_params_t *data, u16 offset, u32 value)
-{
-    u32 *field = (u32 *)((u8 *)data + offset);
-    *field = value;
-}
-
 static u32 bms_cold_pack_le32(const u8 *buf)
 {
     return ((u32)buf[0]) |
@@ -310,16 +304,6 @@ static void bms_cold_fill_key_defs(void)
     }
 }
 
-static int bms_cold_get_system_key(bms_cold_system_param_id_t item, u32 *key)
-{
-    if ((u32)item >= BMS_COLD_SYSTEM_COUNT) {
-        return FLASH_KV32_FAILED;
-    }
-
-    *key = g_bms_system_fields[(u16)item].key;
-    return FLASH_KV32_SUCCESS;
-}
-
 static int bms_cold_get_control_key(bms_cold_control_param_id_t item, u32 *key)
 {
     if ((u32)item >= BMS_COLD_CTRL_COUNT) {
@@ -414,31 +398,6 @@ int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_PROTECT_COUNT);
 }
 
-int bms_cold_kv_store_get_system(bms_cold_system_params_t *system)
-{
-    u32 value;
-    u16 i;
-
-    if (system == NULL) {
-        return FLASH_KV32_FAILED;
-    }
-
-    if (!bms_cold_ensure_ready()) {
-        return FLASH_KV32_FAILED;
-    }
-
-    bms_cold_kv_store_get_default_system(system);
-    for (i = 0; i < BMS_COLD_SYSTEM_COUNT; ++i) {
-        value = 0u;
-        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_system_fields[i].key, &value)) {
-            return FLASH_KV32_FAILED;
-        }
-        bms_cold_set_u32_value(system, g_bms_system_fields[i].offset, value);
-    }
-
-    return FLASH_KV32_SUCCESS;
-}
-
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)
 {
     flash_kv32_pair_t pairs[BMS_COLD_SYSTEM_COUNT];
@@ -462,45 +421,6 @@ int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)
     }
 
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_SYSTEM_COUNT);
-}
-
-int bms_cold_kv_store_get_system_value(bms_cold_system_param_id_t item, u32 *value)
-{
-    u32 key;
-
-    if (value == NULL) {
-        return FLASH_KV32_FAILED;
-    }
-
-    if (!bms_cold_ensure_ready()) {
-        return FLASH_KV32_FAILED;
-    }
-
-    if (!bms_cold_get_system_key(item, &key)) {
-        return FLASH_KV32_FAILED;
-    }
-
-    return flash_kv32_get(&g_bms_cold_kv, key, value);
-}
-
-int bms_cold_kv_store_set_system_value(bms_cold_system_param_id_t item, u32 value)
-{
-    u32 key;
-    u32 current_value = 0u;
-
-    if (!bms_cold_ensure_ready()) {
-        return FLASH_KV32_FAILED;
-    }
-
-    if (!bms_cold_get_system_key(item, &key)) {
-        return FLASH_KV32_FAILED;
-    }
-
-    if (flash_kv32_get(&g_bms_cold_kv, key, &current_value) && (current_value == value)) {
-        return FLASH_KV32_SUCCESS;
-    }
-
-    return flash_kv32_set(&g_bms_cold_kv, key, value);
 }
 
 int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value)
@@ -612,23 +532,4 @@ int bms_cold_kv_store_set_bt_name_suffix(const char *suffix)
     }
 
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_BTNAME_COUNT);
-}
-
-void bms_cold_kv_store_factory_reset(void)
-{
-    if (!bms_cold_ensure_ready()) {
-        return;
-    }
-    (void)flash_kv32_format(&g_bms_cold_kv);
-}
-
-flash_kv32_dbg_t bms_cold_kv_store_get_dbg(void)
-{
-    if (!bms_cold_ensure_ready()) {
-        flash_kv32_dbg_t dbg;
-
-        memset(&dbg, 0, sizeof(dbg));
-        return dbg;
-    }
-    return flash_kv32_get_dbg(&g_bms_cold_kv);
 }

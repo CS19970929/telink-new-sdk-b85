@@ -13,12 +13,10 @@ typedef enum
 }bms_mode_t;
 
 void Runtime_Init(void);
-void Runtime_1MinTask(void);
 void Runtime_Poll(void);
 void Runtime_PrepareForDeepSleep(void);
 void Runtime_CancelPendingDeepSleep(void);
 bms_mode_t Runtime_GetMode(void);
-u32 Runtime_Get_runtime(void);
 int Runtime_FactoryReset(void);
 int Runtime_ReenterFactoryMode(void);
 

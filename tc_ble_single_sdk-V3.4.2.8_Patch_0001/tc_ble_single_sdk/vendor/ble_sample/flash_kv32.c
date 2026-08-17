@@ -133,7 +133,6 @@ static int kv_port_prog(const flash_kv32_t *kv, u32 addr, const u8 *buf, u32 len
 
     return FLASH_KV32_SUCCESS;
 }
-
 static int kv_port_erase(const flash_kv32_t *kv, u32 addr)
 {
     if ((kv == NULL) || (kv->cfg.port == NULL) || (kv->cfg.port->erase_sector == NULL)) {
@@ -348,10 +347,8 @@ static int kv_pair_has_duplicates(const flash_kv32_t *kv, const flash_kv32_pair_
 
 static u32 kv_snapshot_value(const flash_kv32_t *kv, u16 key_index, const flash_kv32_pair_t *pairs, u16 pair_count)
 {
-    u16 i;
-
     if (pairs != NULL) {
-        for (i = 0; i < pair_count; ++i) {
+        for (u16 i = 0; i < pair_count; ++i) {
             if (pairs[i].key == kv->cfg.keys[key_index].key) {
                 return pairs[i].value;
             }
@@ -484,21 +481,22 @@ static int kv_scan_active_sector(flash_kv32_t *kv, u16 sector_idx, u32 *last_seq
     u8 commit_buf[FLASH_KV32_TX_COMMIT_BYTES];
     u16 off = FLASH_KV32_SECTOR_DATA_OFF;
     u32 base = kv->cfg.sector_addrs[sector_idx];
-    u32 crc;
-    u32 calc_crc;
-    u32 stored_crc;
-    u32 seq;
-    u16 payload_len;
-    u16 total_len;
-    u16 item_count;
-    u16 i;
-    u16 key_index;
 
     kv_reset_cache_to_default(kv);
     kv->dbg.tail_dirty = 0u;
     *last_seq_out = 0u;
 
     while ((u32)off + FLASH_KV32_TX_HEADER_BYTES + FLASH_KV32_TX_COMMIT_BYTES <= kv->cfg.sector_size) {
+        u32 crc;
+        u32 calc_crc;
+        u32 stored_crc;
+        u32 seq;
+        u16 payload_len;
+        u16 total_len;
+        u16 item_count;
+        u16 i;
+        u16 key_index;
+
         kv_port_read(kv, base + off, tx_header, sizeof(tx_header));
 
         if (kv_is_erased_bytes(tx_header, sizeof(tx_header))) {
@@ -574,7 +572,7 @@ static int kv_scan_active_sector(flash_kv32_t *kv, u16 sector_idx, u32 *last_seq
     return FLASH_KV32_SUCCESS;
 }
 
-static int kv_select_active_sector(flash_kv32_t *kv, u16 *active_idx, u32 *active_generation)
+static int kv_select_active_sector(const flash_kv32_t *kv, u16 *active_idx, u32 *active_generation)
 {
     flash_kv32_sector_info_t info;
     u16 i;
@@ -697,14 +695,9 @@ int flash_kv32_init(flash_kv32_t *kv, const flash_kv32_cfg_t *cfg, flash_kv32_ca
     kv->dbg.active_generation = active_generation;
     kv->dbg.loaded = 1u;
 
-    if (!kv_scan_active_sector(kv, active_idx, &last_seq)) {
-        return FLASH_KV32_FAILED;
-    }
+    (void)kv_scan_active_sector(kv, active_idx, &last_seq);
 
-    kv->dbg.next_seq = last_seq + 1u;
-    if (kv->dbg.next_seq == 0u) {
-        kv->dbg.next_seq = 1u;
-    }
+    kv->dbg.next_seq = (last_seq == 0xFFFFFFFFu) ? 1u : (last_seq + 1u);
 
     min_tx_len = kv_calc_tx_total_len(kv, 1u);
     if (kv->dbg.tail_dirty || ((u32)kv->dbg.write_off + min_tx_len > kv->cfg.sector_size)) {
@@ -817,24 +810,4 @@ int flash_kv32_write_pairs(flash_kv32_t *kv, const flash_kv32_pair_t *pairs, u16
     kv->dbg.tail_dirty = 0u;
 
     return FLASH_KV32_SUCCESS;
-}
-
-int flash_kv32_compact(flash_kv32_t *kv)
-{
-    if (kv == NULL) {
-        return FLASH_KV32_FAILED;
-    }
-
-    return kv_compact_internal(kv, NULL, 0u);
-}
-
-flash_kv32_dbg_t flash_kv32_get_dbg(const flash_kv32_t *kv)
-{
-    flash_kv32_dbg_t dbg;
-
-    memset(&dbg, 0, sizeof(dbg));
-    if (kv != NULL) {
-        dbg = kv->dbg;
-    }
-    return dbg;
 }
