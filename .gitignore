@@ -7,6 +7,8 @@
 *.o
 *.mk
 *.a
+!tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/proj_lib/liblt_825x.a
+!tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/proj_lib/liblt_general_stack.a
 *.bin
 *.elf
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/.build
