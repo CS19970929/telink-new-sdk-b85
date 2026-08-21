@@ -37,7 +37,7 @@ export class BmsBleTransport {
     const response=characteristics.find((item:any)=>uuidEqual(item.uuid,BMSGeneratedUUIDs.RESPONSE_CHARACTERISTIC_UUID));
     if(!request)throw new BmsProtocolError('未发现 BMS Request Characteristic'); if(!response)throw new BmsProtocolError('未发现 BMS Response Characteristic');
     this.requestCharacteristicId=request.uuid; this.responseCharacteristicId=response.uuid;
-    await callWx('notifyBLECharacteristicValueChange',{state:true,deviceId,serviceId:this.serviceId,characteristicId:this.responseCharacteristicId});
+    await callWx('notifyBLECharacteristicValueChange',{state:true,type:'notification',deviceId,serviceId:this.serviceId,characteristicId:this.responseCharacteristicId});
     this.onStatus?.('ready','BMS BLE 通道 READY'); this.onLog?.('INFO','Notify 已订阅，业务通道可用');
   }
   async disconnect():Promise<void>{ if(!this.deviceId)return; const deviceId=this.deviceId; this.cleanupPending(new BmsProtocolError('主动断开连接')); try{await callWx('closeBLEConnection',{deviceId});}finally{this.clearConnection();this.onStatus?.('disconnected','已断开连接');} }
@@ -45,7 +45,7 @@ export class BmsBleTransport {
     ensureSafeBleLength(frame); if(!this.deviceId||!this.serviceId||!this.requestCharacteristicId||!this.responseCharacteristicId)throw new BmsProtocolError('BLE 通道尚未 READY'); if(this.pending)throw new BmsProtocolError('当前仍有未完成请求，V1 协议禁止并发命令');
     this.accumulator.reset(expectedLengthHint); this.onLog?.('TX','Modbus Request',spacedHex(frame));
     const responsePromise=new Promise<Uint8Array>((resolve,reject)=>{ const timer=setTimeout(()=>{this.pending=undefined;this.accumulator.reset();reject(new BmsProtocolError(`等待 BMS 响应超时 (${timeoutMs} ms)`));},timeoutMs); this.pending={resolve,reject,timer}; });
-    try{ await callWx('writeBLECharacteristicValue',{deviceId:this.deviceId,serviceId:this.serviceId,characteristicId:this.requestCharacteristicId,value:toArrayBuffer(frame)}); }catch(error){this.cleanupPending(asError(error));throw error;}
+    try{ await callWx('writeBLECharacteristicValue',{deviceId:this.deviceId,serviceId:this.serviceId,characteristicId:this.requestCharacteristicId,value:toArrayBuffer(frame),writeType:'write'}); }catch(error){this.cleanupPending(asError(error));throw error;}
     return responsePromise;
   }
   private handleDeviceFound(event:any):void{ (event.devices??[]).forEach((device:any)=>{ const name=device.localName||device.name||''; const services=(device.advertisServiceUUIDs??[]).map((item:string)=>item.toUpperCase()); const likely=name.toUpperCase().startsWith('BT_')||services.some((item:string)=>item.includes('180F')||item.includes('1812')); if(!likely)return; this.onDevice?.({deviceId:device.deviceId,name:device.name||name||device.deviceId,localName:device.localName||'',rssi:Number(device.RSSI??-127),advertisServiceUUIDs:services}); }); }
