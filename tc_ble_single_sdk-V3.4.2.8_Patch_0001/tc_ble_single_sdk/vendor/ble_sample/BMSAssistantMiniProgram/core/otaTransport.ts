@@ -91,16 +91,13 @@ export class TelinkOtaTransport {
     if (!characteristic) throw new Error(`未发现 OTA Characteristic ${OTA_CHARACTERISTIC_UUID}`)
     this.characteristicId = characteristic.uuid
 
-    try {
-      await callWx('notifyBLECharacteristicValueChange', {
-        state: true,
-        deviceId,
-        serviceId: this.serviceId,
-        characteristicId: this.characteristicId,
-      })
-    } catch (error) {
-      this.onLog?.(`OTA Notify 订阅失败，将继续尝试升级：${asError(error).message}`)
-    }
+    await callWx('notifyBLECharacteristicValueChange', {
+      state: true,
+      type: 'notification',
+      deviceId,
+      serviceId: this.serviceId,
+      characteristicId: this.characteristicId,
+    })
     this.onStatus?.('ready', 'OTA characteristic READY')
   }
 
