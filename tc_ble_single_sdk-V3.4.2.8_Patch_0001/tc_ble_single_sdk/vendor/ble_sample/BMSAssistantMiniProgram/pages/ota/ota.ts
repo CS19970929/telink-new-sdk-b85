@@ -6,6 +6,7 @@ declare const Page: any
 
 const transport = new TelinkOtaTransport()
 const deviceMap = new Map<string, OtaDiscoveredDevice>()
+let selectedFirmware: TelinkFirmwareImage | null = null
 
 Page({
   data: {
@@ -16,7 +17,7 @@ Page({
     connectedName: '',
     firmwareName: '未选择 firmware.bin',
     firmwareDetail: '',
-    firmware: null as TelinkFirmwareImage | null,
+    hasFirmware: false,
     progress: 0,
     progressText: '0%',
     busy: false,
@@ -25,6 +26,7 @@ Page({
   },
 
   async onLoad() {
+    selectedFirmware = null
     transport.onStatus = (status, note) => {
       this.setData({ status, note, ready: status === 'ready' || status === 'success' })
       this.addLog(`${status}: ${note}`)
@@ -45,6 +47,7 @@ Page({
   },
 
   async onUnload() {
+    selectedFirmware = null
     if (!this.data.busy) {
       try { await transport.disconnect() } catch (_) { /* ignore */ }
     }
@@ -90,15 +93,17 @@ Page({
           if (!file?.path) throw new Error('未获得固件临时文件路径')
           const raw = wx.getFileSystemManager().readFileSync(file.path) as ArrayBuffer
           const image = parseFirmware(new Uint8Array(raw))
+          selectedFirmware = image
           this.setData({
-            firmware: image,
+            hasFirmware: true,
             firmwareName: file.name || 'firmware.bin',
             firmwareDetail: `${image.declaredSize} bytes · ${image.packetCount} packets`,
             note: '固件校验通过',
           })
           this.addLog(`firmware loaded: ${file.name || file.path}`)
         } catch (error) {
-          this.setData({ firmware: null, firmwareName: '固件无效', firmwareDetail: '' })
+          selectedFirmware = null
+          this.setData({ hasFirmware: false, firmwareName: '固件无效', firmwareDetail: '' })
           this.showError(error)
         }
       },
@@ -110,7 +115,7 @@ Page({
   },
 
   confirmStart() {
-    if (!this.data.ready || !this.data.firmware || this.data.busy) return
+    if (!this.data.ready || !selectedFirmware || this.data.busy) return
     wx.showModal({
       title: '确认 OTA',
       content: '升级期间禁止断电。当前 BMS BLE SMP 未启用，请确认连接的是目标 BMS。',
@@ -121,7 +126,7 @@ Page({
   },
 
   async startOta() {
-    const firmware = this.data.firmware as TelinkFirmwareImage | null
+    const firmware = selectedFirmware
     if (!firmware || !this.data.ready || this.data.busy) return
     this.setData({ busy: true, progress: 0, progressText: `0% (0/${firmware.packetCount})` })
     try {
