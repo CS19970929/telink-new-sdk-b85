@@ -1,6 +1,6 @@
 # BMS Client Platform
 
-> 给开发人员和 AI/Codex 的跨平台客户端入口。普通 BLE 协议先读 `BMS_BLE_通信对接规范_V1.0.md`，OTA 先读 `BMS_OTA_通信规范_V1.0.md`。
+> 给开发人员和 AI/Codex 的跨平台客户端入口。普通 BLE 协议先读 `BMS_BLE_通信对接规范_V1.0.md`，OTA 先读 `BMS_OTA_通信规范_V1.0.md`；发布方式、费用、各端 UI 和 OTA 完成度读 `BMS_CLIENT_RELEASE_UI_GUIDE.md`。
 
 ## 1. 单一真源
 
@@ -8,10 +8,11 @@
 
 1. `docs/BMS_BLE_通信对接规范_V1.0.md`
 2. `docs/BMS_OTA_通信规范_V1.0.md`
-3. `docs/register_catalog.json`
-4. `docs/protocol_test_vectors.json`
-5. `docs/ota_test_vectors.json`
-6. `docs/generated/`
+3. `docs/BMS_CLIENT_RELEASE_UI_GUIDE.md`
+4. `docs/register_catalog.json`
+5. `docs/protocol_test_vectors.json`
+6. `docs/ota_test_vectors.json`
+7. `docs/generated/`
 
 禁止在新客户端里重新定义一套与上述文件无关的 UUID、寄存器地址、单位、状态位或 OTA wire protocol。
 
