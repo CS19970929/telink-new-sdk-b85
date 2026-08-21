@@ -1,109 +1,152 @@
-# BMSAssistant
+# BMSAssistant Apple
 
-## 目标
+## 定位
 
-`BMSAssistant` 是面向当前 `vendor/ble_sample` 固件的 macOS BLE 调试上位机，定位是你日常开发、联调、测试时的桌面工具。
+`BMSAssistant` 是 SwiftUI + CoreBluetooth 的 Apple 客户端代码库。
 
-当前实现重点：
+当前两条路径：
+
+- macOS：已有可运行的工程调试桌面 App
+- iPhone/iPad：已实现移动 UI、普通 BMS BLE 与 Telink OTA 源码，但当前仍需要正式 Xcode iOS App target / signing 配置后才能安装真机
+
+## 当前普通 BLE 能力
 
 - BLE 扫描、连接、断开
-- Telink SPP 通道发现与通知订阅
-- `Modbus RTU over BLE` 请求/响应收发
-- 独立的“电池状态”页面
-- 设备身份刷新
-- 系统状态、保护参数、事件日志预览
-- 手动读写寄存器
-- 原始帧发送
-- 原始报文日志
+- Telink SPP 通道发现与 Notify
+- Modbus RTU over BLE
+- CRC 与分片重组
+- 电池状态页面
+- 单体电压
+- SOC/SOH/容量/温度/SystemStatus
+- 设备身份
+- 保护参数/事件日志预览
+- 手动读写、Echo、Raw frame
+- 写 SOC / 0x1103 / 蓝牙名 suffix
 
-## 打开方式
+## iPhone/iPad UI
 
-推荐直接打开以下包根目录：
+移动端入口：
 
-- `vendor/ble_sample/BMSAssistant/Package.swift`
+```text
+Sources/BMSAssistant/Views/MobileContentView.swift
+```
 
-如果你更习惯从 `vendor/ble_sample` 根目录打开，也可以使用：
+Tab：
 
-- `vendor/ble_sample/Package.swift`
+```text
+设备
+电池
+工程
+OTA
+```
 
-## 构建方式
+普通 BLE 与桌面版本共用现有 AppModel / ModbusCodec / BatteryStatusSnapshot。
+
+## iPhone/iPad OTA
+
+OTA codec：
+
+```text
+Sources/BMSAssistant/Protocol/TelinkOTA.swift
+```
+
+CoreBluetooth OTA session：
+
+```text
+Sources/BMSAssistant/Models/OTAViewModel.swift
+```
+
+OTA UI：
+
+```text
+Sources/BMSAssistant/Views/OTAMobileView.swift
+```
+
+实现：
+
+- 独立 OTA CoreBluetooth session，不与普通 Modbus pending request 复用
+- 扫描、选择、连接目标 BMS
+- OTA Service/Characteristic discovery
+- OTA Notify
+- iOS file importer 选择 firmware.bin
+- `KNLT` / firmware size 校验
+- Legacy OTA 16-byte PDU
+- Write With Response 严格串行发送
+- START / DATA / END / OTA_RESULT
+- 升级进度
+- 成功后预期 BMS 断开并重启
+
+OTA Service：
+
+```text
+00010203-0405-0607-0809-0A0B0C0D1912
+```
+
+OTA Characteristic：
+
+```text
+00010203-0405-0607-0809-0A0B0C0D2B12
+```
+
+## iOS 当前缺口
+
+当前 `Package.swift` 主要服务于 macOS SwiftPM 可执行程序。虽然源码已经按 `#if os(iOS)` 提供 iPhone/iPad UI/OTA，但要形成可安装 iPhone 的 App 仍需：
+
+1. 建立正式 Xcode iOS App target/project。
+2. 设置 Bundle Identifier / Team / Signing。
+3. 配置 `NSBluetoothAlwaysUsageDescription`。
+4. 将当前 Swift Sources 接入 App target。
+5. 真机运行 CoreBluetooth。
+6. 真机验证普通 BLE 与 OTA。
+7. 最终 Archive / TestFlight / IPA 交付流程。
+
+因此当前状态应称为：
+
+```text
+iOS source implementation complete enough for integration
+real iOS application packaging/signing pending
+```
+
+而不是“已上架/已生成 iOS App”。
+
+## macOS 构建
 
 ```bash
 cd vendor/ble_sample/BMSAssistant
 swift build
 ```
 
-## 运行方式
+日常运行：
 
 ```bash
-cd vendor/ble_sample/BMSAssistant
 ./scripts/run-macos-app.sh
 ```
 
-脚本会先执行 `swift build`，再自动生成标准 macOS `.app`：
+该脚本会生成带蓝牙权限说明的 macOS `.app`。
 
-- 输出目录：`vendor/ble_sample/BMSAssistant/.dist/BMSAssistant.app`
-- 启动方式：自动 `open` 该 `.app`
+## 协议约束
 
-首次启动 macOS 会弹出蓝牙权限框，请允许访问。这里不能直接使用 `swift run BMSAssistant` 作为日常运行方式，因为 SwiftPM 默认启动的是裸可执行文件，当前会被 macOS TCC 以蓝牙隐私描述校验拒绝；包装成 `.app` 后可以正常运行。
+普通 BMS：
 
-## 当前协议约束
+```text
+Service 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+Write   6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+Notify  6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+```
 
-当前工具按现有固件事实实现，关键约束如下：
+普通请求继续按 ATT MTU 23 / 单请求 <=20 byte 基线。
 
-- 请求写入特征：`6E400002-B5A3-F393-E0A9-E50E24DCCA9E`
-- 响应通知特征：`6E400003-B5A3-F393-E0A9-E50E24DCCA9E`
-- 当前固件默认 MTU 为 `23`
-- 因此 BLE 单包安全请求长度按 `20 byte` 控制
-- `0x10` 写多寄存器建议不超过 `5 words`
-- 蓝牙名 suffix 通过 BLE 写入时，当前建议不超过 `10 ASCII byte`
+OTA：详见：
 
-## 电池状态页
+- `docs/BMS_OTA_通信规范_V1.0.md`
+- `docs/ota_test_vectors.json`
 
-电池状态页与调试工作台已经分离：
+## 自动验证
 
-- `电池状态`：用于日常查看关键状态量
-- `调试工作台`：保留原始调试能力，不放到状态页里
+`.github/workflows/bms-client-ci.yml` 当前对 `TelinkOTA.swift` 执行 `swiftc -parse`，用于拦截 Swift OTA codec 语法错误。
 
-当前电池状态页读取固件新增的实时寄存器窗口：
+CoreBluetooth 和 SwiftUI 的 iOS 行为最终必须由 Xcode/iPhone 真机验收。
 
-- 地址范围：`0xD120` ~ `0xD12A`
-- 内容包括：
-  - `Pack Voltage`
-  - `Pack Current`
-  - `SOC`
-  - `Max Temp`
-  - `Min Temp`
-  - `MOS Temp`
-  - `Cell Max`
-  - `Cell Min`
-  - `Cell Delta`
+## 安全边界
 
-如果板子还是旧固件，上位机会提示“当前固件未提供电池状态窗口，请重新刷写最新固件”。
-
-为了兼容未刷入新固件的板子，电池状态页也会同步读取旧寄存器：
-
-- `0xD000` ~ `0xD03E`
-- `0xD115` ~ `0xD116`
-
-因此旧板子现在也能直接看到：
-
-- `Cell 1 ~ Cell 10` 单串电压
-- `Pack Voltage`
-- `Pack Current`
-- `SOC`
-- `Max/Min/MOS Temp`
-- `SystemStatus` 状态字
-- 电池温度 / MOS 温度 ADC 原始值
-
-`0xD120~0xD12A` 实时窗口仍然有价值，因为它把这些业务量做成了稳定协议页，不再依赖当前工程 `stCell_Info` 的内存平铺布局。
-
-## 后续建议
-
-下一阶段建议继续补：
-
-1. 会话录包导出
-2. 常用寄存器模板与分组显示
-3. 事件日志语义化解码
-4. UART transport
-5. OTA 页面
+当前 BMS 固件 `BLE_APP_SECURITY_ENABLE=0`。iOS 工程页和 OTA 页当前均为开发/工程入口；正式客户版本必须增加危险操作授权和固件可信升级策略。
