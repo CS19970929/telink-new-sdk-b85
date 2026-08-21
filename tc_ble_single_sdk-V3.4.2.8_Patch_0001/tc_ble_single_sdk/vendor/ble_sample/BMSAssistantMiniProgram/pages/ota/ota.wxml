@@ -54,7 +54,7 @@
       type="warn"
       bindtap="confirmStart"
       loading="{{busy}}"
-      disabled="{{!ready || !firmware || busy}}"
+      disabled="{{!ready || !hasFirmware || busy}}"
     >{{busy ? '升级中...' : '开始 OTA'}}</button>
     <view class="warning">升级期间禁止断电。当前 OTA 为工程联调功能，量产前需补 BLE/应用层鉴权与固件可信校验。</view>
   </view>
