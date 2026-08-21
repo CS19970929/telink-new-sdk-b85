@@ -1,0 +1,68 @@
+<view class="page">
+  <view class="header">
+    <text class="title">BMS Telink OTA</text>
+    <text class="subtitle">Legacy OTA · 16-byte PDU · 20-byte BLE packet</text>
+  </view>
+
+  <view class="card">
+    <view class="section-title">连接</view>
+    <view class="status-row">
+      <text class="status">{{status}}</text>
+      <text class="note">{{note}}</text>
+    </view>
+    <view class="button-row">
+      <button size="mini" type="primary" bindtap="startScan" disabled="{{busy}}">扫描</button>
+      <button size="mini" bindtap="stopScan" disabled="{{busy}}">停止</button>
+      <button size="mini" type="primary" bindtap="connectSelected" disabled="{{!selectedDeviceId || busy}}">连接 OTA</button>
+    </view>
+    <view class="connected" wx:if="{{connectedName}}">当前设备：{{connectedName}}</view>
+  </view>
+
+  <view class="card device-card">
+    <view class="section-title">附近 BMS</view>
+    <view wx:if="{{devices.length === 0}}" class="empty">尚未扫描到 BT_* BMS</view>
+    <scroll-view wx:else scroll-y class="device-list">
+      <view
+        wx:for="{{devices}}"
+        wx:key="deviceId"
+        class="device {{selectedDeviceId === item.deviceId ? 'selected' : ''}}"
+        data-device-id="{{item.deviceId}}"
+        bindtap="selectDevice"
+      >
+        <view>
+          <view class="device-name">{{item.localName || item.name}}</view>
+          <view class="device-id">{{item.deviceId}}</view>
+        </view>
+        <text class="rssi">{{item.rssi}} dBm</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Firmware</view>
+    <button bindtap="chooseFirmware" disabled="{{busy}}">选择 firmware.bin</button>
+    <view class="firmware-name">{{firmwareName}}</view>
+    <view class="firmware-detail" wx:if="{{firmwareDetail}}">{{firmwareDetail}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">升级</view>
+    <progress percent="{{progress}}" stroke-width="8" activeColor="#1677ff" />
+    <view class="progress-text">{{progressText}}</view>
+    <button
+      class="ota-button"
+      type="warn"
+      bindtap="confirmStart"
+      loading="{{busy}}"
+      disabled="{{!ready || !firmware || busy}}"
+    >{{busy ? '升级中...' : '开始 OTA'}}</button>
+    <view class="warning">升级期间禁止断电。当前 OTA 为工程联调功能，量产前需补 BLE/应用层鉴权与固件可信校验。</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">OTA 日志</view>
+    <scroll-view scroll-y class="log-list">
+      <view wx:for="{{logs}}" wx:key="index" class="log-line">{{item}}</view>
+    </scroll-view>
+  </view>
+</view>
