@@ -16,6 +16,7 @@ Page({
  async writeSoc(){await this.runBusy(async()=>{await service.writeSoc(Number(this.data.socInput));wx.showToast({title:'SOC 已写入',icon:'success'});this.setData({battery:await service.refreshBatteryStatus()});});},
  onNameSuffixInput(event:any){this.setData({nameSuffixInput:event.detail.value});},
  async writeNameSuffix(){await this.runBusy(async()=>{await service.writeBluetoothNameSuffix(this.data.nameSuffixInput);wx.showToast({title:'名称已写入',icon:'success'});});},
+ async openOta(){try{if(this.data.status==='ready')await transport.disconnect();wx.navigateTo({url:'/pages/ota/ota'});}catch(error){this.showError(error);}},
  async runBusy(task:()=>Promise<void>){if(this.data.busy)return;this.setData({busy:true});try{await task();}catch(error){this.showError(error);}finally{this.setData({busy:false});}},
  showError(error:unknown){const message=error instanceof Error?error.message:String(error);transport.onLog?.('ERR',message);wx.showModal({title:'BMS 通信错误',content:message,showCancel:false});}
 });
