@@ -12,6 +12,8 @@ struct MobileContentView: View {
                 .tabItem { Label("电池", systemImage: "battery.100") }
             NavigationStack { EngineeringMobileView() }
                 .tabItem { Label("工程", systemImage: "wrench.and.screwdriver") }
+            NavigationStack { OTAMobileView() }
+                .tabItem { Label("OTA", systemImage: "arrow.triangle.2.circlepath") }
         }
         .tint(.teal)
     }
