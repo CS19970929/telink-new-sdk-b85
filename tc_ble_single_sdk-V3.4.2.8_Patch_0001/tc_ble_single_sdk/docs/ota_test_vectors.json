@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "protocol": "Telink Legacy OTA",
+  "byte_order": "little_endian",
+  "pdu_bytes": 16,
+  "packet_bytes": 20,
+  "vectors": {
+    "start": {
+      "packet_hex": "01 FF"
+    },
+    "data_0": {
+      "index": 0,
+      "data_hex": "26 80 00 00 00 00 5D 02 4B 4E 4C 54 30 04 88 00",
+      "packet_hex": "00 00 26 80 00 00 00 00 5D 02 4B 4E 4C 54 30 04 88 00 1C A3"
+    },
+    "end_14fa": {
+      "max_index": "0x14FA",
+      "packet_hex": "02 FF FA 14 05 EB"
+    },
+    "result_success": {
+      "packet_hex": "06 FF 00",
+      "result": 0
+    },
+    "result_crc_error": {
+      "packet_hex": "06 FF 03",
+      "result": 3
+    }
+  }
+}
