@@ -2,242 +2,174 @@
 
 ## 项目说明
 
-`BMSAssistantQt` 是基于 `PySide6 + QtBluetooth + QtWidgets` 的跨平台 BLE 上位机，实现目标是把当前 `BMSAssistant` 的核心功能完整迁移到 Qt：
+`BMSAssistantQt` 是 `PySide6 + QtBluetooth + QtWidgets` 的跨平台 BMS 工程上位机，覆盖 Windows/macOS/Linux。
+
+普通 BMS 功能：
 
 - BLE 扫描、连接、断开
-- `Telink SPP` 服务发现与通知订阅
-- `Modbus RTU over BLE` 收发、CRC 校验、响应分片重组
-- 独立的 `电池状态` 页面
-- 保留完整能力的 `调试工作台`
-- 手动读写寄存器
-- `写 SOC -> 0x1005`
-- `写 0x1103 = 0x0003`
-- 原始帧发送
-- 蓝牙名后缀写入
-- 响应预览、寄存器块快照、报文日志
-- `QSettings` 配置持久化
-- `CSV` 报文日志导出
-- `JSON` 电池快照导出
+- Telink SPP Service/Characteristic discovery
+- Modbus RTU over BLE
+- CRC 与 Notify 分片重组
+- 电池状态自动刷新
+- Cell 1~10、总压、电流、SOC/SOH、容量、温度、SystemStatus
+- 设备身份
+- 保护参数/事件日志预览
+- 手动读写寄存器、Echo、Raw frame
+- 写 SOC / 0x1103 / 蓝牙名 suffix
+- JSON 电池快照、CSV 报文日志
 
-## 工程结构
+OTA：
+
+- Telink Legacy OTA V1
+- 独立 OTA GUI：`ota_tool.py`
+- 16-byte firmware PDU / 20-byte OTA data packet
+- `.bin` header `KNLT` / firmware size 校验
+- START / DATA / END / OTA_RESULT
+- Write With Response 串行发送
+- OTA 进度、result code 与日志
+
+## 目录
 
 ```text
 BMSAssistantQt/
-├── main.py
-├── requirements.txt
-├── README.md
-├── scripts/
-│   ├── run.sh
-│   ├── run.bat
-│   ├── run-macos-app.sh
-│   ├── package-macos.sh
-│   ├── package-linux.sh
-│   └── package-windows.bat
-└── bmsassistantqt/
-    ├── app_controller.py
-    ├── ble_transport.py
-    ├── models.py
-    ├── protocol.py
-    └── ui/
-        └── main_window.py
+├── main.py                 # 普通 BMS 上位机
+├── ota_tool.py             # Telink OTA 工程工具
+├── bmsassistantqt/
+│   ├── app_controller.py
+│   ├── ble_transport.py
+│   ├── models.py
+│   ├── protocol.py
+│   ├── ota.py              # OTA codec / bin parser
+│   └── ui/main_window.py
+├── tests/test_ota_codec.py
+└── scripts/
+    ├── run.sh
+    ├── run.bat
+    ├── run-ota.sh
+    ├── run-ota.bat
+    ├── run-macos-app.sh
+    ├── package-macos.sh
+    ├── package-linux.sh
+    └── package-windows.bat
 ```
 
-## 功能对齐说明
+## 普通上位机运行
 
-### 1. 左侧扫描与连接
-
-- `扫描模式`
-  - `全部设备`：默认模式，先确保不漏设备
-  - `当前固件`：再按 `BT* / 180F / 1812` 过滤显示
-- 支持设备名搜索
-- 支持只显示疑似 BMS 设备
-- 支持连接所选设备与主动断开
-- 已接 `deviceDiscovered + deviceUpdated`，用于接收 `scan response` 里的名称和补充字段
-- 扫描改为 `BLE-only` 连续窗口，避免 `4s` 短扫描漏掉 `800ms` 广播设备
-- 列表会额外显示设备 `ID`，即使没拿到 `BT_DEFAULT` 名字也能定位匿名设备
-- 扫描条件会持久化到本地，下次启动自动恢复
-
-### 2. 电池状态页
-
-该页只放业务数据显示，不放调试控件。
-
-读取顺序与 Swift 版保持一致：
-
-1. `0xD000 ~ 0xD03E`
-2. `0xD115 ~ 0xD116`
-3. `0xD120 ~ 0xD12A`
-
-页面包含：
-
-- `Pack Voltage`
-- `Pack Current`
-- `SOC`
-- `Max Temp / Min Temp / MOS Temp`
-- `Cell Max / Cell Min / Cell Delta`
-- `SOH / Cycle Count / Capacity`
-- `Cell 1 ~ Cell 10`
-- `SystemStatus`
-- 兼容原始测量
-- 连接与版本信息
-- 寄存器快照
-- `自动刷新` 默认开启，且只在 `电池状态` 页工作
-- 支持导出当前 `JSON` 电池快照
-
-### 3. 调试工作台
-
-保留日常调试能力：
-
-- 刷新设备身份
-- 读取系统状态
-- 读取保护参数预览
-- 读取事件日志预览
-- 手动读寄存器
-- 手动写寄存器
-- `Echo` 链路测试
-- 原始帧发送
-- 蓝牙名后缀写入
-- 最近响应
-- 最近寄存器块
-- 报文日志
-- 支持导出 `CSV` 报文日志
-
-## 运行方式
-
-### macOS
-
-macOS 上推荐直接跑 `.app`，因为 BLE 扫描需要进程本身带有蓝牙权限描述。
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run-macos-app.sh
-```
-
-### Linux
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run.sh
-```
-
-### 开发直跑
-
-`run.sh` 适合 Linux 和 Windows，或 macOS 上只做 UI/非扫描自检。
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run.sh
-```
-
-### Windows
+Windows：
 
 ```bat
-cd /d "...\tc_ble_single_sdk\vendor\ble_sample\BMSAssistantQt"
+cd /d "...\vendor\ble_sample\BMSAssistantQt"
 scripts\run.bat
 ```
 
-脚本会自动：
-
-- 在 `%LOCALAPPDATA%\BMSAssistantQt\venv` 创建虚拟环境，避免 Windows 深路径触发 `MAX_PATH` 限制
-- 自动选择 `python` 或 Windows `py -3` 启动器
-- 安装 `requirements.txt`
-- 启动 Qt 上位机
-
-macOS 例外：
-
-- `run-macos-app.sh` 会优先打开带 `Info.plist` 的 `.app`
-- 如果 `.app` 不存在，会先自动执行一次 `package-macos.sh`
-- 如果界面提示 `error.PoweredOffError`，不要先把它理解成“系统蓝牙真的关闭”。
-  在 macOS + QtBluetooth 下，这通常也可能表示当前 App 还没有蓝牙权限。
-  先到“系统设置 -> 隐私与安全性 -> 蓝牙”里允许 `BMSAssistantQt`，然后彻底退出 App 再重开。
-
-## 打包方式
-
-### macOS
+macOS：
 
 ```bash
-./scripts/package-macos.sh
+cd vendor/ble_sample/BMSAssistantQt
+./scripts/run-macos-app.sh
 ```
 
-输出目录：
-
-```text
-.dist/BMSAssistantQt.app
-```
-
-脚本会补写蓝牙权限说明：
-
-- `NSBluetoothAlwaysUsageDescription`
-- `NSBluetoothPeripheralUsageDescription`
-
-### Linux
+Linux：
 
 ```bash
-./scripts/package-linux.sh
+cd vendor/ble_sample/BMSAssistantQt
+./scripts/run.sh
 ```
 
-输出目录：
+## OTA 运行
 
-```text
-.dist/BMSAssistantQt
-```
-
-### Windows
+Windows：
 
 ```bat
-scripts\package-windows.bat
+cd /d "...\vendor\ble_sample\BMSAssistantQt"
+scripts\run-ota.bat
 ```
 
-输出目录：
+macOS/Linux 开发运行：
+
+```bash
+cd vendor/ble_sample/BMSAssistantQt
+./scripts/run-ota.sh
+```
+
+macOS 真机 BLE 使用时仍需保证 Python/Qt 进程具备系统蓝牙权限；后续交付包可把 OTA GUI 与主上位机统一包装进同一 `.app`。
+
+## OTA 真机测试
+
+1. 启动 OTA 工具。
+2. 扫描 BMS，选择目标设备。
+3. 点击连接，必须发现：
 
 ```text
-.dist\BMSAssistantQt
+Service 00010203-0405-0607-0809-0A0B0C0D1912
+Characteristic 00010203-0405-0607-0809-0A0B0C0D2B12
 ```
 
-同时会额外生成：
+4. 选择目标 `firmware.bin`。
+5. 必须通过 `KNLT` 与 header firmware size 校验。
+6. 点击开始 OTA，确认升级期间不掉电。
+7. 工具严格按 START -> DATA -> END 顺序串行发送。
+8. 只有收到：
 
 ```text
-.dist\Launch-BMSAssistantQt.bat
-.dist\docs\README.md
-.dist\docs\WINDOWS-DELIVERY.md
+06 FF 00
 ```
 
-Windows 打包脚本同样会自动选择 `python` 或 `py -3`，并把虚拟环境、`PyInstaller` 中间目录放在 `%LOCALAPPDATA%\BMSAssistantQt\` 下，避免当前工程路径较深时触发 Windows 传统路径长度限制。虚拟环境创建、依赖安装、`PyInstaller` 打包失败时脚本会直接中止，避免生成半截交付包。
+才判定 OTA 成功。
+9. 等待 BMS 重启。
+10. 用普通上位机重新连接并读取软件版本，确认新固件运行。
 
-## 协议边界
+## 普通 BLE 协议
 
-### BLE
+```text
+Service: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+Write:   6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+Notify:  6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+```
 
-- Service: `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
-- Request Characteristic: `6E400002-B5A3-F393-E0A9-E50E24DCCA9E`
-- Response Characteristic: `6E400003-B5A3-F393-E0A9-E50E24DCCA9E`
+当前安全基线：
 
-### 当前默认单包约束
+- ATT MTU 23
+- 单请求 <=20 byte
+- `0x10` 建议 <=5 words
+- 大响应按完整 Modbus frame 长度与 CRC 重组
 
-当前仍按固件默认 `MTU=23` 的安全路径处理，单包请求长度上限为 `20 byte`。
+## OTA 协议
 
-因此：
+详见：
 
-- `0x10` 写多寄存器建议不超过 `5 words`
-- 蓝牙名写入建议不超过 `10 个 ASCII byte`
+- `docs/BMS_OTA_通信规范_V1.0.md`
+- `docs/ota_test_vectors.json`
 
-## 跨平台说明
+固定回归向量：
 
-这套实现选的是 Qt 官方技术栈：
+```text
+START
+01 FF
 
-- UI: `QtWidgets`
-- BLE: `QtBluetooth`
-- 语言绑定: `PySide6`
+DATA index=0
+00 00 26 80 00 00 00 00 5D 02 4B 4E 4C 54 30 04 88 00 1C A3
 
-这意味着一套代码可以覆盖：
+END max_index=0x14FA
+02 FF FA 14 05 EB
+```
 
-- macOS
-- Windows
-- Linux
+## 自动验证
 
-如果后续你要继续往下走，可以直接在这套工程上加：
+GitHub Actions：
 
-- 单体电压历史曲线
-- 保护状态语义化解码
-- UART transport
-- OTA 页面
-- CSV 导出与抓包归档
+```text
+.github/workflows/bms-client-ci.yml
+```
+
+Python OTA codec 固定向量会在 PR 中自动验证。
+
+## 安全边界
+
+当前 BMS 固件：
+
+```text
+BLE_APP_SECURITY_ENABLE = 0
+```
+
+因此 OTA 当前属于工程联调功能，不是最终量产安全方案。正式版本需要增加 BLE/应用层鉴权与固件可信校验。
