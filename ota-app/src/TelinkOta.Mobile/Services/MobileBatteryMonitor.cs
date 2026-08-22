@@ -12,6 +12,7 @@ public sealed class MobileBatteryMonitor : IAsyncDisposable
     private ModbusSppClient? _client;
     private CancellationTokenSource? _cts;
     private Task? _loop;
+    private Task? _initialStaticRead;
     private volatile bool _linkLost;
     private BatterySnapshot _current = new();
 
@@ -31,12 +32,20 @@ public sealed class MobileBatteryMonitor : IAsyncDisposable
         if (IsRunning) return true;
         if (!await OpenAsync(ct)) return false;
         _current = new BatterySnapshot();
-        await ReadStaticAsync(_current, ct);
         _cts = new CancellationTokenSource();
         IsRunning = true;
         ConnectionChanged?.Invoke(true);
         _loop = Task.Run(() => PollAsync(_cts.Token));
+        // BLE 链路和 SPP 已经就绪即可返回连接成功；静态信息在后台读取，避免连接界面被 5 组串行寄存器读取阻塞。
+        _initialStaticRead = ReadInitialStaticAsync(_cts.Token);
         return true;
+    }
+
+    private async Task ReadInitialStaticAsync(CancellationToken ct)
+    {
+        try { await ReadStaticAsync(_current, ct); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { _log(LogLevel.Warn, $"初始静态信息读取异常：{ex.Message}"); }
     }
 
     private async Task<bool> OpenAsync(CancellationToken ct)
@@ -181,6 +190,8 @@ public sealed class MobileBatteryMonitor : IAsyncDisposable
     {
         try { _cts?.Cancel(); } catch { }
         if (_loop is not null) { try { await _loop; } catch { } }
+        if (_initialStaticRead is not null) { try { await _initialStaticRead; } catch { } }
+        _initialStaticRead = null;
         _cts?.Dispose(); _cts = null; _loop = null;
         await CloseLinkAsync();
         IsRunning = false;

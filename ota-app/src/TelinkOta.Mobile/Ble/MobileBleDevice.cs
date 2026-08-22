@@ -26,6 +26,12 @@ public sealed class MobileBleDevice
         ? $"{Name}  {Id}  RSSI {Rssi} dBm"
         : $"{Name}  {BluetoothAddress}  RSSI {Rssi} dBm";
 
+    internal IReadOnlyList<string> IdentityTokens =>
+        new[] { Name, Id.ToString(), BluetoothAddress }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToArray();
+
     public bool MatchesQr(IReadOnlyCollection<string> tokens)
     {
         string[] candidates = { Name, Id.ToString(), BluetoothAddress ?? string.Empty };

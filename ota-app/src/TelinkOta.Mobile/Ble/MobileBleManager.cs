@@ -10,7 +10,13 @@ public sealed class MobileBleManager : IDisposable
     private readonly IAdapter _adapter = CrossBluetoothLE.Current.Adapter;
     private readonly Dictionary<Guid, MobileBleDevice> _devices = new();
     private readonly object _devicesGate = new();
+    private readonly Dictionary<Guid, (DateTimeOffset At, int Rssi)> _lastPublished = new();
+    private readonly SemaphoreSlim _scanGate = new(1, 1);
     private CancellationTokenSource? _scanCts;
+    private TaskCompletionSource<MobileBleDevice?>? _matchTcs;
+    private IReadOnlyCollection<string>? _matchTokens;
+
+    private static readonly TimeSpan DevicePublishInterval = TimeSpan.FromMilliseconds(350);
 
     public event Action<MobileBleDevice>? DeviceUpdated;
     public event Action<string>? StatusChanged;
@@ -43,15 +49,16 @@ public sealed class MobileBleManager : IDisposable
         if (_ble.State != BluetoothState.On)
             throw new InvalidOperationException($"系统蓝牙不可用：{_ble.State}");
 
-        await StopScanAsync();
-        _scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _scanCts.CancelAfter(TimeSpan.FromSeconds(20));
-        _adapter.ScanMode = ScanMode.LowLatency;
-        _adapter.ScanTimeout = 20_000;
-        StatusChanged?.Invoke("正在扫描附近 BLE 设备…");
-
+        await _scanGate.WaitAsync(ct);
         try
         {
+            await StopScanAsync();
+            _scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _scanCts.CancelAfter(TimeSpan.FromSeconds(12));
+            _adapter.ScanMode = ScanMode.LowLatency;
+            _adapter.ScanTimeout = 12_000;
+            StatusChanged?.Invoke("正在扫描附近 BLE 设备…");
+
             await _adapter.StartScanningForDevicesAsync(
                 Array.Empty<Guid>(),
                 device => device.IsConnectable || !device.SupportsIsConnectable,
@@ -60,17 +67,19 @@ public sealed class MobileBleManager : IDisposable
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            // 20 秒扫描窗口正常结束。
+            // 12 秒扫描窗口正常结束。
         }
         finally
         {
             int count;
             lock (_devicesGate) count = _devices.Count;
             StatusChanged?.Invoke($"扫描结束，共发现 {count} 个设备。");
+            _scanGate.Release();
         }
     }
 
-    public async Task<MobileBleDevice?> ScanForDeviceAsync(IReadOnlyCollection<string> tokens, CancellationToken ct)
+    public async Task<MobileBleDevice?> ScanForDeviceAsync(IReadOnlyCollection<string> tokens,
+        CancellationToken ct, TimeSpan? timeout = null)
     {
         if (tokens.Count == 0) throw new ArgumentException("扫码内容没有可识别的设备标识。", nameof(tokens));
         if (!await BlePermission.EnsureAsync())
@@ -78,26 +87,22 @@ public sealed class MobileBleManager : IDisposable
         if (_ble.State != BluetoothState.On)
             throw new InvalidOperationException($"系统蓝牙不可用：{_ble.State}");
 
-        await StopScanAsync();
+        await _scanGate.WaitAsync(ct);
         using var scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        scanCts.CancelAfter(TimeSpan.FromSeconds(20));
+        scanCts.CancelAfter(timeout ?? TimeSpan.FromSeconds(20));
         var found = new TaskCompletionSource<MobileBleDevice?>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        void HandleDevice(object? sender, DeviceEventArgs args)
-        {
-            var item = new MobileBleDevice(args.Device);
-            lock (_devicesGate) _devices[item.Id] = item;
-            DeviceUpdated?.Invoke(item);
-            if (item.MatchesQr(tokens)) found.TrySetResult(item);
-        }
-
-        _adapter.DeviceDiscovered += HandleDevice;
-        _adapter.DeviceAdvertised += HandleDevice;
-        _adapter.ScanMode = ScanMode.LowLatency;
-        _adapter.ScanTimeout = 20_000;
-        StatusChanged?.Invoke("正在扫描二维码对应的 BLE 设备…");
         try
         {
+            await StopScanAsync();
+            lock (_devicesGate)
+            {
+                _matchTcs = found;
+                _matchTokens = tokens;
+            }
+            _adapter.ScanMode = ScanMode.LowLatency;
+            _adapter.ScanTimeout = (int)(timeout ?? TimeSpan.FromSeconds(20)).TotalMilliseconds;
+            StatusChanged?.Invoke("正在扫描二维码对应的 BLE 设备…");
+
             Task scanTask = _adapter.StartScanningForDevicesAsync(
                 Array.Empty<Guid>(),
                 device => device.IsConnectable || !device.SupportsIsConnectable,
@@ -118,12 +123,16 @@ public sealed class MobileBleManager : IDisposable
         }
         finally
         {
-            _adapter.DeviceDiscovered -= HandleDevice;
-            _adapter.DeviceAdvertised -= HandleDevice;
+            lock (_devicesGate)
+            {
+                _matchTcs = null;
+                _matchTokens = null;
+            }
             try { await _adapter.StopScanningForDevicesAsync(); } catch { }
             StatusChanged?.Invoke(found.Task.IsCompletedSuccessfully
                 ? "已找到二维码对应设备。"
                 : "未找到二维码对应设备，请确认设备已上电并在附近。");
+            _scanGate.Release();
         }
     }
 
@@ -143,9 +152,34 @@ public sealed class MobileBleManager : IDisposable
 
     private void OnDevice(object? sender, DeviceEventArgs args)
     {
-        var item = new MobileBleDevice(args.Device);
-        lock (_devicesGate) _devices[item.Id] = item;
-        DeviceUpdated?.Invoke(item);
+        var item = UpsertDevice(args.Device);
+        TaskCompletionSource<MobileBleDevice?>? matchTcs;
+        IReadOnlyCollection<string>? matchTokens;
+        lock (_devicesGate)
+        {
+            matchTcs = _matchTcs;
+            matchTokens = _matchTokens;
+        }
+        if (matchTcs is not null && matchTokens is not null && item.MatchesQr(matchTokens))
+            matchTcs.TrySetResult(item);
+    }
+
+    private MobileBleDevice UpsertDevice(IDevice native)
+    {
+        var item = new MobileBleDevice(native);
+        bool publish;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        lock (_devicesGate)
+        {
+            bool hadPrevious = _devices.TryGetValue(item.Id, out MobileBleDevice? previous);
+            _devices[item.Id] = item;
+            publish = !hadPrevious || previous!.Name != item.Name;
+            if (_lastPublished.TryGetValue(item.Id, out var last))
+                publish |= now - last.At >= DevicePublishInterval || Math.Abs(item.Rssi - last.Rssi) >= 4;
+            if (publish) _lastPublished[item.Id] = (now, item.Rssi);
+        }
+        if (publish) DeviceUpdated?.Invoke(item);
+        return item;
     }
 
     public void Dispose()
@@ -154,6 +188,7 @@ public sealed class MobileBleManager : IDisposable
         _adapter.DeviceAdvertised -= OnDevice;
         try { _scanCts?.Cancel(); } catch { }
         _scanCts?.Dispose();
+        _scanGate.Dispose();
     }
 }
 

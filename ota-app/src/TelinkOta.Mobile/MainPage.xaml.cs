@@ -15,6 +15,7 @@ public partial class MainPage : ContentPage
     private OtaFirmware? _firmware;
     private CancellationTokenSource? _otaCts;
     private bool _otaRunning;
+    private bool _connectionSwitching;
 
     public MainPage()
     {
@@ -48,48 +49,68 @@ public partial class MainPage : ContentPage
 
     private async void QrConnectClicked(object sender, EventArgs e)
     {
-        if (_otaRunning) return;
-        if (_monitor?.IsRunning == true)
-        {
-            await DisplayAlert("提示", "请先断开当前设备，再使用扫码连接。", "确定");
-            return;
-        }
-
-        var scanner = new QrScannerPage();
-        await Navigation.PushModalAsync(scanner);
-        string? raw = await scanner.Result;
-        if (string.IsNullOrWhiteSpace(raw)) return;
-
-        IReadOnlyList<string> tokens = BleQrCodeParser.ExtractTokens(raw);
-        if (tokens.Count == 0)
-        {
-            await DisplayAlert("二维码无法识别", "二维码中没有蓝牙名称、MAC 地址或设备 ID。", "确定");
-            return;
-        }
-
+        if (_otaRunning || _connectionSwitching) return;
+        _connectionSwitching = true;
+        MobileBleDevice? previous = _selected;
+        bool restorePrevious = _monitor?.IsRunning == true;
         try
         {
+            if (restorePrevious)
+            {
+                await _monitor!.StopAsync();
+                ConnectionLabel.Text = "正在断开当前设备…";
+                ConnectButton.Text = "连接";
+            }
+
+            var scanner = new QrScannerPage();
+            await Navigation.PushModalAsync(scanner);
+            string? raw = await scanner.Result;
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                if (restorePrevious && previous is not null)
+                    await RestorePreviousConnectionAsync(previous);
+                return;
+            }
+
+            IReadOnlyList<string> tokens = BleQrCodeParser.ExtractTokens(raw);
+            if (tokens.Count == 0)
+            {
+                if (restorePrevious && previous is not null)
+                    await RestorePreviousConnectionAsync(previous);
+                await DisplayAlert("二维码无法识别", "二维码中没有蓝牙名称、MAC 地址或设备 ID。", "确定");
+                return;
+            }
+
             StatusLabel.Text = "正在查找二维码对应的 BLE 设备…";
             MobileBleDevice? target = await _ble.ScanForDeviceAsync(tokens, CancellationToken.None);
             if (target is null)
             {
+                if (restorePrevious && previous is not null)
+                    await RestorePreviousConnectionAsync(previous);
                 await DisplayAlert("未找到设备", "请确认二维码对应的电池已上电、蓝牙已广播，并靠近手机后重试。", "确定");
                 return;
             }
 
             _selected = target;
             DeviceList.SelectedItem = target;
-            await ConnectToDeviceAsync(target);
+            bool connected = await ConnectToDeviceAsync(target, showError: false);
+            if (!connected && restorePrevious && previous is not null)
+                await RestorePreviousConnectionAsync(previous);
+            if (!connected)
+                await DisplayAlert("扫码连接失败", "未能连接二维码对应的设备。", "确定");
         }
         catch (Exception ex)
         {
+            if (restorePrevious && previous is not null)
+                await RestorePreviousConnectionAsync(previous);
             await DisplayAlert("扫码连接失败", ex.Message, "确定");
         }
+        finally { _connectionSwitching = false; }
     }
 
     private async Task StartScanSafeAsync()
     {
-        if (_otaRunning) return;
+        if (_otaRunning || _connectionSwitching) return;
         try { await _ble.ScanAsync(CancellationToken.None); }
         catch (Exception ex) { await DisplayAlert("扫描失败", ex.Message, "确定"); }
     }
@@ -100,7 +121,12 @@ public partial class MainPage : ContentPage
         if (index >= 0) _devices[index] = device; else _devices.Add(device);
         var ordered = _devices.OrderByDescending(d => d.Name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase))
             .ThenByDescending(d => d.Rssi).ToList();
-        _devices.Clear(); foreach (var item in ordered) _devices.Add(item);
+        for (int targetIndex = 0; targetIndex < ordered.Count; targetIndex++)
+        {
+            int currentIndex = _devices.IndexOf(ordered[targetIndex]);
+            if (currentIndex >= 0 && currentIndex != targetIndex)
+                _devices.Move(currentIndex, targetIndex);
+        }
     }
 
     private void DeviceSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -111,7 +137,7 @@ public partial class MainPage : ContentPage
 
     private async void ConnectClicked(object sender, EventArgs e)
     {
-        if (_otaRunning) return;
+        if (_otaRunning || _connectionSwitching) return;
         if (_monitor?.IsRunning == true)
         {
             await _monitor.StopAsync();
@@ -123,19 +149,89 @@ public partial class MainPage : ContentPage
         await ConnectToDeviceAsync(_selected);
     }
 
-    private async Task ConnectToDeviceAsync(MobileBleDevice target)
+    private MobileBatteryMonitor CreateMonitor(MobileBleDevice target)
     {
-        if (_otaRunning || _monitor?.IsRunning == true) return;
+        var monitor = new MobileBatteryMonitor(() => _ble.CreateTransport(target), AddLog);
+        monitor.SnapshotUpdated += snapshot => MainThread.BeginInvokeOnMainThread(() => ApplySnapshot(snapshot));
+        return monitor;
+    }
+
+    private async Task<bool> StartMonitorAsync(MobileBleDevice target)
+    {
+        await _ble.StopScanAsync();
+        if (_monitor is not null)
+            await _monitor.DisposeAsync();
+
+        _monitor = CreateMonitor(target);
+        bool ok = await _monitor.StartAsync(CancellationToken.None);
+        if (!ok)
+            await _monitor.StopAsync();
+        return ok;
+    }
+
+    private async Task<bool> ConnectToDeviceAsync(MobileBleDevice target, bool showError = true)
+    {
+        if (_otaRunning || _monitor?.IsRunning == true) return false;
 
         ConnectButton.IsEnabled = false; ConnectionLabel.Text = "连接中…";
-        await _ble.StopScanAsync();
-        _monitor = new MobileBatteryMonitor(() => _ble.CreateTransport(target), AddLog);
-        _monitor.SnapshotUpdated += snapshot => MainThread.BeginInvokeOnMainThread(() => ApplySnapshot(snapshot));
-        bool ok = await _monitor.StartAsync(CancellationToken.None);
+        bool ok = await StartMonitorAsync(target);
         ConnectionLabel.Text = ok ? $"已连接 {target.Name}" : "连接失败";
         ConnectButton.Text = ok ? "断开" : "连接";
         ConnectButton.IsEnabled = true;
-        if (!ok) await DisplayAlert("连接失败", "未能连接或发现 SPP 服务。请靠近设备后重试。", "确定");
+        if (!ok && showError)
+            await DisplayAlert("连接失败", "未能连接或发现 SPP 服务。请靠近设备后重试。", "确定");
+        return ok;
+    }
+
+    private async Task<bool> RestorePreviousConnectionAsync(MobileBleDevice target)
+    {
+        ConnectionLabel.Text = "正在恢复原设备连接…";
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(attempt));
+            if (await StartMonitorAsync(target))
+            {
+                _selected = target;
+                DeviceList.SelectedItem = target;
+                ConnectionLabel.Text = $"已连接 {target.Name}";
+                ConnectButton.Text = "断开";
+                return true;
+            }
+        }
+        ConnectionLabel.Text = "原设备连接恢复失败";
+        ConnectButton.Text = "连接";
+        return false;
+    }
+
+    private async Task<bool> ReconnectAfterOtaAsync(MobileBleDevice target)
+    {
+        ConnectionLabel.Text = "正在等待设备重启并恢复连接…";
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        if (await StartMonitorAsync(target))
+        {
+            _selected = target;
+            DeviceList.SelectedItem = target;
+            return true;
+        }
+
+        // 设备重启后旧 IDevice 可能已经失效，重新扫描并获取新的平台设备对象。
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            MobileBleDevice? refreshed = await _ble.ScanForDeviceAsync(
+                target.IdentityTokens, CancellationToken.None, TimeSpan.FromSeconds(6));
+            if (refreshed is not null)
+            {
+                target = refreshed;
+                if (await StartMonitorAsync(target))
+                {
+                    _selected = target;
+                    DeviceList.SelectedItem = target;
+                    return true;
+                }
+            }
+            await Task.Delay(TimeSpan.FromSeconds(attempt + 1));
+        }
+        return false;
     }
 
     private void ApplySnapshot(BatterySnapshot s)
@@ -245,7 +341,7 @@ public partial class MainPage : ContentPage
             StartOtaButton.IsEnabled = true; CancelOtaButton.IsEnabled = false; ConnectButton.IsEnabled = true;
             if (restartMonitor && _monitor is not null)
             {
-                bool ok = await _monitor.StartAsync(CancellationToken.None);
+                bool ok = await ReconnectAfterOtaAsync(target);
                 ConnectionLabel.Text = ok ? $"已连接 {target.Name}" : "OTA 后监控重连失败";
                 ConnectButton.Text = ok ? "断开" : "连接";
             }
