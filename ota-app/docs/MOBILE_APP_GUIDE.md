@@ -103,6 +103,7 @@ dotnet publish ota-app/src/TelinkOta.Mobile/TelinkOta.Mobile.csproj \
 
 - `net7.0-android` Debug APK：本机完整构建通过，0 warning / 0 error；APK Manifest 已核对包名、SDK 级别与蓝牙权限。
 - 2026-08-22 已加入扫码连接入口、相机权限和二维码设备匹配逻辑；Debug APK 已安装到已连接的 Android 真机 `2e43123b`，冷启动成功，进程正常存活。
+- 2026-08-22 扫码体验修正：启用自动旋转与增强解码，取景框背景明确设为透明；测试包版本提升为 `1.2 / versionCode=4`。
 - 2026-08-13 已通过 ADB 在 Xiaomi `23127PN0CC`（Android 16 / API 36）安装 `versionCode=2`：冷启动成功，应用进程持续存活超过 30 秒，日志无 FATAL/程序集加载错误。测试时手机处于安全锁屏，BLE 权限交互及连接尚未纳入本次启动回归。
 - `net7.0-ios` iOS Simulator RID：本机托管代码和 XAML 编译通过，0 warning / 0 error。
 - `TelinkOta.Core.Tests`：94/94 通过。

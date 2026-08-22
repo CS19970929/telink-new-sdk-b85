@@ -15,6 +15,7 @@ public partial class QrScannerPage : ContentPage
         {
             Formats = BarcodeFormats.TwoDimensional,
             AutoRotate = true,
+            TryHarder = true,
             Multiple = false,
         };
     }

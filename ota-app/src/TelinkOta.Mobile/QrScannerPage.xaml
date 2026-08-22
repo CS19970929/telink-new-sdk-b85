@@ -15,7 +15,7 @@
         <Grid Grid.Row="1" Padding="18" BackgroundColor="Black">
             <zxing:CameraBarcodeReaderView x:Name="BarcodeReader"
                                            BarcodesDetected="BarcodesDetected" />
-            <Border Stroke="#59B8FF" StrokeThickness="2"
+            <Border BackgroundColor="Transparent" Stroke="#59B8FF" StrokeThickness="2"
                     HorizontalOptions="Center" VerticalOptions="Center"
                     WidthRequest="270" HeightRequest="270" />
         </Grid>
