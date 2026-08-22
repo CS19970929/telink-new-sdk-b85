@@ -70,6 +70,63 @@ public sealed class MobileBleManager : IDisposable
         }
     }
 
+    public async Task<MobileBleDevice?> ScanForDeviceAsync(IReadOnlyCollection<string> tokens, CancellationToken ct)
+    {
+        if (tokens.Count == 0) throw new ArgumentException("扫码内容没有可识别的设备标识。", nameof(tokens));
+        if (!await BlePermission.EnsureAsync())
+            throw new InvalidOperationException("没有蓝牙扫描/连接权限。");
+        if (_ble.State != BluetoothState.On)
+            throw new InvalidOperationException($"系统蓝牙不可用：{_ble.State}");
+
+        await StopScanAsync();
+        using var scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        scanCts.CancelAfter(TimeSpan.FromSeconds(20));
+        var found = new TaskCompletionSource<MobileBleDevice?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void HandleDevice(object? sender, DeviceEventArgs args)
+        {
+            var item = new MobileBleDevice(args.Device);
+            lock (_devicesGate) _devices[item.Id] = item;
+            DeviceUpdated?.Invoke(item);
+            if (item.MatchesQr(tokens)) found.TrySetResult(item);
+        }
+
+        _adapter.DeviceDiscovered += HandleDevice;
+        _adapter.DeviceAdvertised += HandleDevice;
+        _adapter.ScanMode = ScanMode.LowLatency;
+        _adapter.ScanTimeout = 20_000;
+        StatusChanged?.Invoke("正在扫描二维码对应的 BLE 设备…");
+        try
+        {
+            Task scanTask = _adapter.StartScanningForDevicesAsync(
+                Array.Empty<Guid>(),
+                device => device.IsConnectable || !device.SupportsIsConnectable,
+                allowDuplicatesKey: true,
+                scanCts.Token);
+            Task completed = await Task.WhenAny(scanTask, found.Task, Task.Delay(Timeout.Infinite, scanCts.Token));
+            if (completed == found.Task) return await found.Task;
+            try { await scanTask; } catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+            return await found.Task.WaitAsync(TimeSpan.Zero);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+        finally
+        {
+            _adapter.DeviceDiscovered -= HandleDevice;
+            _adapter.DeviceAdvertised -= HandleDevice;
+            try { await _adapter.StopScanningForDevicesAsync(); } catch { }
+            StatusChanged?.Invoke(found.Task.IsCompletedSuccessfully
+                ? "已找到二维码对应设备。"
+                : "未找到二维码对应设备，请确认设备已上电并在附近。");
+        }
+    }
+
     public async Task StopScanAsync()
     {
         try { _scanCts?.Cancel(); } catch { }

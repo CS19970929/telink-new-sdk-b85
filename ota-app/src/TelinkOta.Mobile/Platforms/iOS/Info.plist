@@ -8,6 +8,8 @@
 	<string>用于连接 BMS 电池、读取状态并执行用户确认的固件升级。</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>用于连接 BMS 电池并接收实时状态通知。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>用于扫描电池上的二维码并快速连接对应的蓝牙设备。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

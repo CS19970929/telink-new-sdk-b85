@@ -21,10 +21,11 @@
             <VerticalStackLayout Padding="14" Spacing="12">
                 <Frame Padding="12" BorderColor="#D6E1EC" BackgroundColor="White">
                     <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                             <Label x:Name="ConnectionLabel" Text="未连接" VerticalOptions="Center" FontAttributes="Bold" />
-                            <Button Grid.Column="1" Text="扫描" Clicked="ScanClicked" Padding="14,8" />
-                            <Button Grid.Column="2" x:Name="ConnectButton" Text="连接" Clicked="ConnectClicked" Padding="14,8" />
+                            <Button Grid.Column="1" Text="扫码连接" Clicked="QrConnectClicked" Padding="10,8" />
+                            <Button Grid.Column="2" Text="扫描" Clicked="ScanClicked" Padding="14,8" />
+                            <Button Grid.Column="3" x:Name="ConnectButton" Text="连接" Clicked="ConnectClicked" Padding="14,8" />
                         </Grid>
                         <CollectionView x:Name="DeviceList" HeightRequest="145" SelectionMode="Single"
                                         SelectionChanged="DeviceSelectionChanged">

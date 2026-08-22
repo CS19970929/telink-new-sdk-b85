@@ -11,6 +11,7 @@
 - 通过 `0x10 @ 0x0100` 修改蓝牙名，随后 `0x03` 读回完全一致才报告成功；
 - 从手机文件选择器读取 BIN，复用 `TelinkOta.Core` 的 Mark、Size、CRC32、分包、CRC16、Legacy/Extend、Result、重启重连及版本复核逻辑；
 - OTA 时自动停止电池监控，保持屏幕常亮，结束后恢复监控；支持取消与完整日志。
+- 支持使用相机扫描设备二维码，自动查找并连接对应的 BLE 设备。
 
 ## 代码结构
 
@@ -61,6 +62,15 @@ adb install -r src\TelinkOta.Mobile\bin\Debug\net7.0-android\com.telink.bms.mobi
 
 Android 12 以上首次启动会请求“附近设备”扫描与连接权限；Android 11 及以下会请求定位权限，这是旧 Android BLE 扫描 API 的系统要求。App 不使用扫描结果推断位置。
 
+扫码连接首次使用时还会请求相机权限。主页面点击“扫码连接”后，App 会识别二维码中的蓝牙名称、MAC 地址或设备 GUID，并在 20 秒内扫描附近 BLE 设备进行精确匹配；匹配成功后自动复用普通“连接”流程。支持以下二维码内容：
+
+- 直接编码蓝牙名称，例如 `BT_cs-0604`；
+- 直接编码 MAC 地址，例如 `A4:C1:38:16:02:5A`；
+- 直接编码设备 GUID；
+- JSON 或 URL 查询参数中的 `name`、`mac`、`address`、`id`、`uuid`、`guid`、`deviceId` 等字段。
+
+二维码只负责提供设备标识，设备仍必须处于上电广播状态；如果设备未广播，扫码后会提示未找到设备。
+
 正式发布必须使用项目自己的 Android keystore 签名，不能把调试签名 APK 作为量产发布包。
 
 ## iOS 构建与安装
@@ -92,11 +102,12 @@ dotnet publish ota-app/src/TelinkOta.Mobile/TelinkOta.Mobile.csproj \
 ## 验证状态
 
 - `net7.0-android` Debug APK：本机完整构建通过，0 warning / 0 error；APK Manifest 已核对包名、SDK 级别与蓝牙权限。
+- 2026-08-22 已加入扫码连接入口、相机权限和二维码设备匹配逻辑；Debug APK 已安装到已连接的 Android 真机 `2e43123b`，冷启动成功，进程正常存活。
 - 2026-08-13 已通过 ADB 在 Xiaomi `23127PN0CC`（Android 16 / API 36）安装 `versionCode=2`：冷启动成功，应用进程持续存活超过 30 秒，日志无 FATAL/程序集加载错误。测试时手机处于安全锁屏，BLE 权限交互及连接尚未纳入本次启动回归。
 - `net7.0-ios` iOS Simulator RID：本机托管代码和 XAML 编译通过，0 warning / 0 error。
 - `TelinkOta.Core.Tests`：94/94 通过。
 - Windows 只读实机基线：`BT_cs-0604 / A4C13816025A` 的 D120、SN、HW、SW、蓝牙名均已验证。
-- 当前已有 Android 真机启动证据，但 Android BLE 扫描/连接、改名、OTA，以及 iPhone 签名安装仍标记为“需手机实机验证”。在完成该验证前不得把手机端描述为量产验收通过。
+- 当前已有 Android 真机启动证据，但扫码相机识别、二维码与 BLE 设备匹配、BLE 连接、改名、OTA，以及 iPhone 签名安装仍标记为“需手机实机验证”。在完成该验证前不得把手机端描述为量产验收通过。
 
 ## 发布前必须完成
 

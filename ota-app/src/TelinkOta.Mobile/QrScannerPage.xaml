@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+             x:Class="TelinkOta.Mobile.QrScannerPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="Black">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <VerticalStackLayout Padding="18,18,18,12" Spacing="4" BackgroundColor="#123B62">
+            <Label Text="扫码连接蓝牙设备" TextColor="White" FontSize="22" FontAttributes="Bold" />
+            <Label Text="请将设备二维码放入取景框，识别后自动搜索并连接 BLE 设备。"
+                   TextColor="#CFE8FF" FontSize="13" />
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="1" Padding="18" BackgroundColor="Black">
+            <zxing:CameraBarcodeReaderView x:Name="BarcodeReader"
+                                           BarcodesDetected="BarcodesDetected" />
+            <Border Stroke="#59B8FF" StrokeThickness="2"
+                    HorizontalOptions="Center" VerticalOptions="Center"
+                    WidthRequest="270" HeightRequest="270" />
+        </Grid>
+
+        <VerticalStackLayout Grid.Row="2" Padding="18,10,18,18" Spacing="8" BackgroundColor="#102538">
+            <Label x:Name="HintLabel" Text="正在启动相机…" TextColor="#D9ECFF"
+                   HorizontalTextAlignment="Center" FontSize="13" />
+            <Button Text="取消" Clicked="CancelClicked" BackgroundColor="#E7EEF6" TextColor="#123B62" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

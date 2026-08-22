@@ -46,6 +46,47 @@ public partial class MainPage : ContentPage
 
     private async void ScanClicked(object sender, EventArgs e) => await StartScanSafeAsync();
 
+    private async void QrConnectClicked(object sender, EventArgs e)
+    {
+        if (_otaRunning) return;
+        if (_monitor?.IsRunning == true)
+        {
+            await DisplayAlert("提示", "请先断开当前设备，再使用扫码连接。", "确定");
+            return;
+        }
+
+        var scanner = new QrScannerPage();
+        await Navigation.PushModalAsync(scanner);
+        string? raw = await scanner.Result;
+        if (string.IsNullOrWhiteSpace(raw)) return;
+
+        IReadOnlyList<string> tokens = BleQrCodeParser.ExtractTokens(raw);
+        if (tokens.Count == 0)
+        {
+            await DisplayAlert("二维码无法识别", "二维码中没有蓝牙名称、MAC 地址或设备 ID。", "确定");
+            return;
+        }
+
+        try
+        {
+            StatusLabel.Text = "正在查找二维码对应的 BLE 设备…";
+            MobileBleDevice? target = await _ble.ScanForDeviceAsync(tokens, CancellationToken.None);
+            if (target is null)
+            {
+                await DisplayAlert("未找到设备", "请确认二维码对应的电池已上电、蓝牙已广播，并靠近手机后重试。", "确定");
+                return;
+            }
+
+            _selected = target;
+            DeviceList.SelectedItem = target;
+            await ConnectToDeviceAsync(target);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("扫码连接失败", ex.Message, "确定");
+        }
+    }
+
     private async Task StartScanSafeAsync()
     {
         if (_otaRunning) return;
@@ -79,9 +120,15 @@ public partial class MainPage : ContentPage
         }
         if (_selected is null) { await DisplayAlert("提示", "请先扫描并选择设备。", "确定"); return; }
 
+        await ConnectToDeviceAsync(_selected);
+    }
+
+    private async Task ConnectToDeviceAsync(MobileBleDevice target)
+    {
+        if (_otaRunning || _monitor?.IsRunning == true) return;
+
         ConnectButton.IsEnabled = false; ConnectionLabel.Text = "连接中…";
         await _ble.StopScanAsync();
-        MobileBleDevice target = _selected;
         _monitor = new MobileBatteryMonitor(() => _ble.CreateTransport(target), AddLog);
         _monitor.SnapshotUpdated += snapshot => MainThread.BeginInvokeOnMainThread(() => ApplySnapshot(snapshot));
         bool ok = await _monitor.StartAsync(CancellationToken.None);
