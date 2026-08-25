@@ -6,7 +6,6 @@
 #include "sh367309_datadeal.h"
 
 extern struct stCell_Info g_stCellInfoReport;
-extern void enter_fac_mode(bool on);
 
 #define RUNTIME_COMMIT_MAGIC       0x544D4F43u
 // #define RUNTIME_SAVE_INTERVAL_MIN  10u
@@ -262,7 +261,6 @@ static void runtime_finish_factory_mode(void)
     if (g_runtime_store_ready && !runtime_flash_save()) {
         runtime_note_store_error();
     }
-    enter_fac_mode(false);
 }
 
 static void runtime_apply_elapsed_minutes(u32 elapsed_min)
@@ -393,6 +391,5 @@ int Runtime_ReenterFactoryMode(void)
         return 0;
     }
 
-    enter_fac_mode(true);
     return 1;
 }

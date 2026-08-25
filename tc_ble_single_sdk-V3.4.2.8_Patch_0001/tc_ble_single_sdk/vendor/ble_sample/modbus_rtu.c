@@ -218,7 +218,6 @@ static u16 read_reg(u16 reg)
     }
     return 0;
 }
-extern void enter_fac_mode(bool on);
 extern bool deepsleep_en;
 extern uint8_t get_soc_real(void);
 static int reg_requires_param_save(u16 reg)
