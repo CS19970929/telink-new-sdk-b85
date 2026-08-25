@@ -71,7 +71,11 @@ UINT8 IsChargerWakeupActive(void)
 }
 UINT8 IsKeyWakeupActive(void)
 {
+#ifdef _DI_SWITCH_SYS_ONOFF
 	return !gpio_read(SW_PIN);
+#else
+	return 1;
+#endif // DEBUG
 }
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
@@ -324,165 +328,59 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
-void open_chg_close_dsg(void)
+void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 {
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1;
+	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = charge_on;
+	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
 	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 1);
-}
-void open_dsg_close_chg(void)
-{
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
-}
-
-void close_chg(void)
-{
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
-}
-
-void open_dsg(void)
-{
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
-}
-
-void close_dsg(void)
-{
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	gpio_write(MCC_C_PIN, 0);
-}
-void enter_fac_mode(bool on)
-{
-#if 1
-	if (on)
-	{
-		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
-		SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-		SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
-		MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
+	if(charge_on == 1)
 		gpio_write(MCC_C_PIN, 1);
-	}
 	else
-	{
-		open_dsg_close_chg();
-	}
-#endif
+		gpio_write(MCC_C_PIN, 0);
 }
 
 extern volatile union System_Status SystemStatus;
-static void factory_mode_apply_switch_state(void)
-{
-	if (MODE_FACTORY != Runtime_GetMode())
-	{
-		return;
-	}
 
-	if (IsChargerWakeupActive())
+void mos_update(void)
+{
+	uint8_t chg_target = 0;
+	uint8_t dsg_target = 0;
+
+	if(IsChargerWakeupActive())
 	{
-		open_chg_close_dsg();
+		chg_target = 1;
+		dsg_target = 0;
+		SystemStatus.bits.b1Status_Cool = 1;
 	}
 	else if (IsKeyWakeupActive())
 	{
-		enter_fac_mode(true);
+		SystemStatus.bits.b1Status_Cool = 0;
+		if(MODE_FACTORY == Runtime_GetMode())
+		{
+			chg_target = 1;
+			dsg_target = 1;
+		}
+		else
+		{
+			chg_target = 0;
+			dsg_target = 1;
+		}
 	}
 	else
 	{
-		close_dsg();
+		SystemStatus.bits.b1Status_Cool = 0;
+		chg_target = 0;
+		dsg_target = 0;
+	}
+
+	if(chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
+		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
+	{
+		WriteMosState(chg_target, dsg_target);
 	}
 }
 
-void charger_detect_and_keyLogi_200ms(void)
-{
-	static u8 state = 0;
-	static u8 key_state = 0;
-
-	switch (state)
-	{
-	case 0:
-		if (!gpio_read(CHG_IN_PIN))
-		{
-			state = 1;
-			open_chg_close_dsg();
-			SystemStatus.bits.b1Status_Cool = 1;
-		}
-		else
-		{
-		}
-		break;
-	case 1:
-		if (gpio_read(CHG_IN_PIN))
-		{
-			state = 0;
-			if (MODE_FACTORY == Runtime_GetMode())
-			{
-				factory_mode_apply_switch_state();
-			}
-			else
-			{
-				close_chg();
-				if(IsKeyWakeupActive())
-				{
-					open_dsg();
-				}
-			}
-			SystemStatus.bits.b1Status_Cool = 0;
-		}
-		else
-		{
-		}
-		break;
-	default:
-		state = 0;
-		break;
-	}
-
-	if (MODE_FACTORY == Runtime_GetMode())
-	{
-		key_state = 0;
-		factory_mode_apply_switch_state();
-		return;
-	}
-
-	if (!IsChargerWakeupActive())
-	{
-		switch (key_state)
-		{
-		case 0:
-			if(IsKeyWakeupActive())
-			{
-				open_dsg();
-				key_state = 1;
-			}
-			break;
-		case 1:
-			if(!IsKeyWakeupActive())
-			{
-				close_dsg();
-				key_state = 0;
-			}
-			break;
-		default:
-			key_state = 0;
-			break;
-		}
-	}
-}
 
 void adc_init_common(void)
 {
@@ -1624,21 +1522,7 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
-	if (IsChargerWakeupActive())
-	{
-		open_chg_close_dsg();
-	}
-	else
-	{
-		if (MODE_FACTORY == Runtime_GetMode())
-		{
-			factory_mode_apply_switch_state();
-		}
-		else
-		{
-			open_dsg_close_chg();
-		}
-	}
+	mos_update();
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
@@ -1849,15 +1733,15 @@ _attribute_no_inline_ void main_loop(void)
 	{
 		test_task_tick = clock_time();
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
+		App_AFEGet();
 		APP_SOC_IntEnhance_Ctrl();
-		charger_detect_and_keyLogi_200ms();
+		mos_update();
 	}
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 	{
 		// todo 低功耗，时基偏移
 		update_bms_info_tick = clock_time();
-		App_AFEGet();
 		app_adc_multi_sample();
 		app_event_log_1s_task();
 	}
