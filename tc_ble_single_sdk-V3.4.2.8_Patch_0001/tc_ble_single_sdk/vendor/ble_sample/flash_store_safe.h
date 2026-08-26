@@ -2,6 +2,7 @@
 
 #include "tl_common.h"
 #include "drivers.h"
+#include "stack/ble/ble.h"
 #include "app_config.h"
 #include "flash_store_cfg.h"
 
@@ -10,6 +11,9 @@
 extern u16 flash_lockBlock_cmd;
 int app_flash_lock_restore_enabled(void);
 #endif
+
+/* Defined by app.c.  Application NVM must not compete with OTA flash writes. */
+extern u8 ota_is_working;
 
 #ifndef FLASH_STORE_VERIFY_CHUNK
 #define FLASH_STORE_VERIFY_CHUNK  64u
@@ -31,6 +35,29 @@ int app_flash_lock_restore_enabled(void);
 #if (FLASH_STORE_PROG_CHUNK == 0u) || (FLASH_STORE_PROG_CHUNK > FLASH_STORE_PAGE_BYTES)
 #error "FLASH_STORE_PROG_CHUNK must be in range 1..FLASH_STORE_PAGE_BYTES"
 #endif
+
+static inline int flash_store_program_allowed_now(void)
+{
+    return ota_is_working ? 0 : 1;
+}
+
+static inline int flash_store_erase_allowed_now(void)
+{
+    if (ota_is_working) {
+        return 0;
+    }
+
+    /*
+     * A 4K sector erase is much longer than a small page program and can
+     * violate connection-event timing.  Stores must retry later instead of
+     * erasing synchronously while an ACL link is active.
+     */
+    if (blc_ll_getCurrentState() == BLS_LINK_STATE_CONN) {
+        return 0;
+    }
+
+    return 1;
+}
 
 static inline void flash_store_begin_modify(void)
 {
@@ -95,7 +122,9 @@ static inline int flash_store_prog_checked(u32 addr, const u8 *buf, u32 len)
     const u8 *write_buf = buf;
     u32 write_len = len;
 
-    if ((buf == NULL) || !flash_store_cfg_range_allowed(addr, len)) {
+    if ((buf == NULL) ||
+        !flash_store_program_allowed_now() ||
+        !flash_store_cfg_range_allowed(addr, len)) {
         return 0;
     }
 
@@ -125,6 +154,7 @@ static inline int flash_store_erase_sector_checked(u32 addr, u32 sector_size)
 {
     if ((sector_size != FLASH_SECTOR_SIZE) ||
         ((addr % FLASH_SECTOR_SIZE) != 0u) ||
+        !flash_store_erase_allowed_now() ||
         !flash_store_cfg_range_allowed(addr, sector_size)) {
         return 0;
     }
