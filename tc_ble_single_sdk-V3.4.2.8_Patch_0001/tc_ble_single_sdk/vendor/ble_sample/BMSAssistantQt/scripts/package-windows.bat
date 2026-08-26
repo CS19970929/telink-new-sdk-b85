@@ -54,8 +54,21 @@ pyinstaller ^
   "%ROOT_DIR%\main.py"
 if errorlevel 1 goto :pyinstaller_failed
 
+pyinstaller ^
+  --noconfirm ^
+  --windowed ^
+  --name BMSAssistantOTA ^
+  --workpath "%BUILD_WORK_DIR%" ^
+  --distpath "%PYINSTALLER_DIST_DIR%" ^
+  --collect-all PySide6 ^
+  --hidden-import PySide6.QtBluetooth ^
+  "%ROOT_DIR%\ota_tool.py"
+if errorlevel 1 goto :pyinstaller_ota_failed
+
 robocopy "%PYINSTALLER_DIST_DIR%\BMSAssistantQt" "%DIST_DIR%\BMSAssistantQt" /MIR > nul
 if errorlevel 8 goto :copy_failed
+robocopy "%PYINSTALLER_DIST_DIR%\BMSAssistantOTA" "%DIST_DIR%\BMSAssistantOTA" /MIR > nul
+if errorlevel 8 goto :copy_ota_failed
 
 copy /y "%ROOT_DIR%\README.md" "%DOCS_DIR%\README.md" > nul
 copy /y "%ROOT_DIR%\WINDOWS-DELIVERY.md" "%DOCS_DIR%\WINDOWS-DELIVERY.md" > nul
@@ -63,7 +76,11 @@ for %%D in ("%ROOT_DIR%\..\..\..\docs\BMSWinAndroid*.md") do (
   if exist "%%~fD" copy /y "%%~fD" "%DOCS_DIR%\" > nul
 )
 copy /y "%ROOT_DIR%\scripts\launch-windows-package.bat" "%DIST_DIR%\Launch-BMSAssistantQt.bat" > nul
-echo Windows package generated: %DIST_DIR%\BMSAssistantQt
+copy /y "%ROOT_DIR%\scripts\launch-windows-ota-package.bat" "%DIST_DIR%\Launch-BMSAssistantOTA.bat" > nul
+
+echo Windows packages generated:
+echo   %DIST_DIR%\BMSAssistantQt
+echo   %DIST_DIR%\BMSAssistantOTA
 exit /b 0
 
 :no_python
@@ -91,9 +108,17 @@ echo Qt smoke test failed. Check PySide6, QtBluetooth, and local runtime depende
 exit /b 1
 
 :pyinstaller_failed
-echo PyInstaller packaging failed.
+echo BMSAssistantQt PyInstaller packaging failed.
+exit /b 1
+
+:pyinstaller_ota_failed
+echo BMSAssistantOTA PyInstaller packaging failed.
 exit /b 1
 
 :copy_failed
-echo Failed to copy packaged output.
+echo Failed to copy BMSAssistantQt packaged output.
+exit /b 1
+
+:copy_ota_failed
+echo Failed to copy BMSAssistantOTA packaged output.
 exit /b 1

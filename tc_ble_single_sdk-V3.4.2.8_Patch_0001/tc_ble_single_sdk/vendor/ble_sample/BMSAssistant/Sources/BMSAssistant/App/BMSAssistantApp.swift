@@ -5,6 +5,7 @@ struct BMSAssistantApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
+#if os(macOS)
         WindowGroup("BMS Assistant") {
             ContentView()
                 .environment(model)
@@ -14,5 +15,11 @@ struct BMSAssistantApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
+#else
+        WindowGroup("BMS Assistant") {
+            MobileContentView()
+                .environment(model)
+        }
+#endif
     }
 }

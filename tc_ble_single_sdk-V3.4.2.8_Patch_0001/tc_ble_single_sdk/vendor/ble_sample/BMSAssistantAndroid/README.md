@@ -2,9 +2,9 @@
 
 ## 定位
 
-`BMSAssistantAndroid` 是配套 `vendor/ble_sample` BMS MCU 工程的 Android BLE 工程版首版。它不修改固件协议，直接复用仓库已有的 `Modbus RTU over BLE`、`docs/register_catalog.json` 与 `docs/protocol_test_vectors.json`。
+`BMSAssistantAndroid` 是配套 `vendor/ble_sample` BMS MCU 工程的 Android BLE 工程版。普通 BMS 通信直接复用仓库的 `Modbus RTU over BLE`、`docs/register_catalog.json` 与 `docs/protocol_test_vectors.json`；OTA 按 `docs/BMS_OTA_通信规范_V1.0.md` 与 `docs/ota_test_vectors.json` 实现。
 
-首版面向工程调试，包含：
+当前包含：
 
 - BLE 扫描、连接、断开
 - `6E400001` 服务发现
@@ -20,8 +20,9 @@
 - 写 `0x1103 = 0x0003`
 - 蓝牙名后缀写入
 - 报文日志与快照导出
+- Telink Legacy OTA 工程入口
 
-不包含 OTA、云同步、账号体系或固件协议改造。
+不包含云同步、账号体系；当前 OTA 仍定位为工程联调能力。
 
 ## 技术基线
 
@@ -34,26 +35,25 @@
 - `compileSdk / targetSdk`：`36`
 - `minSdk`：`26`
 
-AGP 9 使用内置 Kotlin 支持，工程未启用 `org.jetbrains.kotlin.android` 插件。
-
 ## 工程结构
 
 ```text
 BMSAssistantAndroid/
-├── app/
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── main/
-│       │   ├── AndroidManifest.xml
-│       │   ├── kotlin/bms/
-│       │   │   ├── MainActivity.kt
-│       │   │   ├── ble/
-│       │   │   ├── data/
-│       │   │   ├── domain/
-│       │   │   ├── protocol/
-│       │   │   └── ui/
-│       │   └── res/values/styles.xml
-│       └── test/kotlin/bms/BmsProtocolTest.kt
+├── app/src/main/kotlin/bms/
+│   ├── MainActivity.kt
+│   ├── ble/
+│   ├── data/
+│   ├── domain/
+│   ├── protocol/
+│   ├── ui/
+│   └── ota/
+│       ├── OtaActivity.kt
+│       ├── TelinkOtaBleClient.kt
+│       ├── TelinkOtaCodec.kt
+│       └── TelinkOtaSession.kt
+├── app/src/test/kotlin/bms/
+│   ├── BmsProtocolTest.kt
+│   └── TelinkOtaCodecTest.kt
 ├── gradle/wrapper/
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -62,11 +62,9 @@ BMSAssistantAndroid/
 └── gradlew.bat
 ```
 
-`kotlin/bms` 是为了规避当前 Windows 深层工程路径的 `MAX_PATH` 风险，Kotlin package 仍保持 `com.telink.bmsassistant.*`。
+`kotlin/bms` 用于规避 Windows 深层工程路径的 `MAX_PATH` 风险，Kotlin package 仍保持 `com.telink.bmsassistant.*`。
 
-## 运行与构建
-
-在 Android 工程目录执行：
+## 构建
 
 ```bat
 cd /d vendor\ble_sample\BMSAssistantAndroid
@@ -74,50 +72,77 @@ gradlew.bat :app:testDebugUnitTest
 gradlew.bat :app:assembleDebug
 ```
 
-调试包路径：
+APK：
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-安装到手机：
+安装：
 
 ```bat
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-当前机器如果只有 Java 1.8，或未安装 Android SDK Platform 36，上述 Gradle 命令会失败。需要先安装 JDK17、Android SDK、Build Tools，并配置 `JAVA_HOME` 与 Android SDK 路径。
+仓库同时通过 `.github/workflows/bms-client-ci.yml` 自动执行 Android unit test。
 
-## 权限
+## App 入口
 
-Manifest 已声明：
+当前工程版本在同一个 APK 中暴露两个 Launcher Activity：
 
-- Android 12+：`BLUETOOTH_SCAN`、`BLUETOOTH_CONNECT`
-- Android 11 及以下：`ACCESS_FINE_LOCATION`
-- BLE 硬件特性：`android.hardware.bluetooth_le`
+- `BMS Assistant Android`：普通 BMS 状态/工程调试
+- `BMS OTA`：独立 Telink OTA 工具
 
-App 启动后会主动请求运行时权限。若扫描不到设备，优先确认系统蓝牙已开启、权限已授予，并且同一块 BMS 板未被 Windows 上位机或其他手机长时间占用。
+这样 OTA 实机验证不会干扰普通 BMS 通信。OTA 稳定后可再把它收进主 App 的设置/升级页并移除第二个 Launcher。
 
-## 协议动作
+## OTA V1
 
-高层动作名称与共享 JSON 保持一致：
+OTA Service：
 
-- `refreshIdentity`
-- `refreshBatteryStatus`
-- `readProtectPreview`
-- `readEventLogPreview`
-- `writeSOC`
-- `writeRegister1103`
-- `writeBluetoothNameSuffix`
+```text
+00010203-0405-0607-0809-0A0B0C0D1912
+```
 
-关键协议约束：
+OTA Characteristic：
 
-- 请求帧必须完整落在单次 GATT Write 内
-- 当前安全上限为 `20 byte`
-- 响应通过 `6E400003` notify 按 `20 byte` 分片返回
-- 上层按完整 `Modbus RTU` 帧做 CRC 校验与解析
+```text
+00010203-0405-0607-0809-0A0B0C0D2B12
+```
 
-## 实机联调步骤
+实现：
+
+- `TelinkOtaCodec`：bin 校验、START/DATA/END/RESULT、CRC16
+- `TelinkOtaBleClient`：扫描、连接、OTA GATT discovery、Notify、Write With Response
+- `TelinkOtaSession`：严格串行 OTA 状态机
+- `OtaActivity`：选 bin、进度、确认、结果显示
+
+固件选择后必须通过：
+
+- offset `0x08` = `KNLT`
+- offset `0x18` firmware size 合法
+
+OTA 成功判据必须是收到：
+
+```text
+06 FF 00
+```
+
+而不是仅以所有 GATT 写操作完成判定。
+
+## OTA 真机步骤
+
+1. 安装 debug APK。
+2. 启动 `BMS OTA`。
+3. 授予 BLE 权限。
+4. 扫描并选择目标 BMS。
+5. 点击“连接 OTA”，等待 `OTA characteristic ready`。
+6. 通过 Android 系统文件选择器选择 `firmware.bin`。
+7. 确认页面显示 firmware size / packet count。
+8. 开始 OTA，禁止中途断电。
+9. 等待 `OTA_SUCCESS`。
+10. BMS 重启后回主 App，重新连接并读取软件版本确认升级结果。
+
+## 普通 BLE 实机步骤
 
 1. 手机开启蓝牙并授予 App 权限。
 2. 点击 `扫描`，优先查找 `BT*` 或广播服务含 `180F / 1812` 的设备。
@@ -126,4 +151,6 @@ App 启动后会主动请求运行时权限。若扫描不到设备，优先确�
 5. 在 `调试工作台` 执行 Echo、手动读 `0xD120`、写 SOC、写 `0x1103`。
 6. 导出电池快照 JSON 与报文日志 CSV。
 
-写寄存器能力不会在工程版隐藏，但 UI 会在执行前弹出确认。
+## 安全边界
+
+当前固件 `BLE_APP_SECURITY_ENABLE=0`。写寄存器和 OTA 当前均为工程能力；正式客户版本必须增加权限/鉴权与固件可信校验后再开放。

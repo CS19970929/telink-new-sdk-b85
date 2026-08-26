@@ -1,0 +1,83 @@
+name: BMS Client CI
+
+on:
+  push:
+    branches:
+      - codex-client-platform-v1
+    paths:
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantAndroid/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantMiniProgram/**'
+      - '.github/workflows/bms-client-ci.yml'
+  pull_request:
+    paths:
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantAndroid/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistant/**'
+      - 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantMiniProgram/**'
+      - '.github/workflows/bms-client-ci.yml'
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Python OTA codec vectors
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'vendor/ble_sample/BMSAssistantQt')
+          from bmsassistantqt.ota import build_start_packet, build_data_packet, build_end_packet, parse_result_packet
+          assert build_start_packet() == bytes.fromhex('01 FF')
+          assert build_data_packet(0, bytes.fromhex('26 80 00 00 00 00 5D 02 4B 4E 4C 54 30 04 88 00')) == bytes.fromhex('00 00 26 80 00 00 00 00 5D 02 4B 4E 4C 54 30 04 88 00 1C A3')
+          assert build_end_packet(0x14FA) == bytes.fromhex('02 FF FA 14 05 EB')
+          assert parse_result_packet(bytes.fromhex('06 FF 00')) == 0
+          assert parse_result_packet(bytes.fromhex('06 FF 03')) == 3
+          print('Python OTA vectors: PASS')
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Type-check WeChat mini program
+        working-directory: tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantMiniProgram
+        run: npx --yes -p typescript@5.8.3 tsc --noEmit -p tsconfig.json
+
+      - name: Execute WeChat OTA vectors
+        working-directory: tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantMiniProgram
+        run: |
+          rm -rf .ci-out
+          npx --yes -p typescript@5.8.3 tsc tests/ota_smoke.ts core/ota.ts --target ES2020 --module commonjs --strict --skipLibCheck --outDir .ci-out
+          node .ci-out/tests/ota_smoke.js
+
+      - name: Parse Swift OTA codec
+        run: swiftc -parse vendor/ble_sample/BMSAssistant/Sources/BMSAssistant/Protocol/TelinkOTA.swift
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantAndroid
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Run Android unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
