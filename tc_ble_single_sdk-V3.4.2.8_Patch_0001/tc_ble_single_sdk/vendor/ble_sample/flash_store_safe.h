@@ -3,6 +3,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "app_config.h"
+#include "flash_store_cfg.h"
 
 #if (APP_FLASH_PROTECTION_ENABLE)
 #include "flash_prot.h"
@@ -14,8 +15,21 @@ int app_flash_lock_restore_enabled(void);
 #define FLASH_STORE_VERIFY_CHUNK  64u
 #endif
 
+/*
+ * Telink flash programming masks interrupts.  Keep each physical program
+ * operation short enough to coexist conservatively with BLE timing instead
+ * of issuing a full 256-byte page program from application storage code.
+ */
+#ifndef FLASH_STORE_PROG_CHUNK
+#define FLASH_STORE_PROG_CHUNK    16u
+#endif
+
 #ifndef FLASH_STORE_PAGE_BYTES
 #define FLASH_STORE_PAGE_BYTES    256u
+#endif
+
+#if (FLASH_STORE_PROG_CHUNK == 0u) || (FLASH_STORE_PROG_CHUNK > FLASH_STORE_PAGE_BYTES)
+#error "FLASH_STORE_PROG_CHUNK must be in range 1..FLASH_STORE_PAGE_BYTES"
 #endif
 
 static inline void flash_store_begin_modify(void)
@@ -81,10 +95,18 @@ static inline int flash_store_prog_checked(u32 addr, const u8 *buf, u32 len)
     const u8 *write_buf = buf;
     u32 write_len = len;
 
+    if ((buf == NULL) || !flash_store_cfg_range_allowed(addr, len)) {
+        return 0;
+    }
+
     flash_store_begin_modify();
     while (write_len != 0u) {
         u32 page_off = write_addr % FLASH_STORE_PAGE_BYTES;
         u32 chunk = FLASH_STORE_PAGE_BYTES - page_off;
+
+        if (chunk > FLASH_STORE_PROG_CHUNK) {
+            chunk = FLASH_STORE_PROG_CHUNK;
+        }
         if (chunk > write_len) {
             chunk = write_len;
         }
@@ -101,6 +123,12 @@ static inline int flash_store_prog_checked(u32 addr, const u8 *buf, u32 len)
 
 static inline int flash_store_erase_sector_checked(u32 addr, u32 sector_size)
 {
+    if ((sector_size != FLASH_SECTOR_SIZE) ||
+        ((addr % FLASH_SECTOR_SIZE) != 0u) ||
+        !flash_store_cfg_range_allowed(addr, sector_size)) {
+        return 0;
+    }
+
     flash_store_begin_modify();
     flash_erase_sector(addr);
     flash_store_end_modify();

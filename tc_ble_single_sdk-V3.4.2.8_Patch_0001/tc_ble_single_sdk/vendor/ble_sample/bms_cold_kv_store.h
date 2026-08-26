@@ -2,6 +2,7 @@
 
 #include "param.h"
 #include "flash_kv32.h"
+#include "flash_store_cfg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,8 +12,17 @@ extern "C" {
 #define BMS_COLD_KV_SECTOR_SIZE   FLASH_SECTOR_SIZE
 #endif
 
+/*
+ * Two sectors are intentional: flash_kv32 uses generation switching and
+ * writes the replacement snapshot before the old generation is recycled.
+ * This gives the configuration store an A/B-style power-loss-safe layout.
+ */
 #ifndef BMS_COLD_KV_SECTORS
-#define BMS_COLD_KV_SECTORS   4
+#define BMS_COLD_KV_SECTORS   2
+#endif
+
+#if (BMS_COLD_KV_SECTORS != FLASH_ADDR_COLD_KV_SECTORS)
+#error "Cold/config KV sector count must match flash_store_cfg.h"
 #endif
 
 typedef enum {
