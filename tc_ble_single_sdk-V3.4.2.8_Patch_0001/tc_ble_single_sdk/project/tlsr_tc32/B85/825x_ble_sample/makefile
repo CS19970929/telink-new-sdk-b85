@@ -21,6 +21,18 @@ RM := rm -rf
 -include application/keyboard/subdir.mk
 -include application/audio/subdir.mk
 -include application/app/subdir.mk
+-include 825x_ble_sample_cli/obj/vendor/common/subdir.mk
+-include 825x_ble_sample_cli/obj/vendor/ble_sample/subdir.mk
+-include 825x_ble_sample_cli/obj/drivers/B85/subdir.mk
+-include 825x_ble_sample_cli/obj/drivers/B85/flash/subdir.mk
+-include 825x_ble_sample_cli/obj/drivers/B85/driver_ext/subdir.mk
+-include 825x_ble_sample_cli/obj/common/subdir.mk
+-include 825x_ble_sample_cli/obj/boot/B85/subdir.mk
+-include 825x_ble_sample_cli/obj/application/usbstd/subdir.mk
+-include 825x_ble_sample_cli/obj/application/print/subdir.mk
+-include 825x_ble_sample_cli/obj/application/keyboard/subdir.mk
+-include 825x_ble_sample_cli/obj/application/audio/subdir.mk
+-include 825x_ble_sample_cli/obj/application/app/subdir.mk
 -include objects.mk
 
 -include ../makefile.defs
