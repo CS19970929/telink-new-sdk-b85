@@ -90,9 +90,13 @@ public sealed class WindowsBleTransport : IOtaTransport
 
         try
         {
-            _session = await GattSession.FromDeviceIdAsync(service.DeviceId);
-            if (_session is not null && _session.CanMaintainConnection)
-                _session.MaintainConnection = true;
+            var device = _device;
+            if (device is not null)
+            {
+                _session = await GattSession.FromDeviceIdAsync(device.BluetoothDeviceId);
+                if (_session is not null && _session.CanMaintainConnection)
+                    _session.MaintainConnection = true;
+            }
         }
         catch
         {
