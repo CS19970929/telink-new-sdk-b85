@@ -103,13 +103,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle and apply automatic OTA discovery patches
+      - name: Reconstruct source bundle and apply fast OTA patches
         shell: bash
         run: |
           cat ota-build/src.part* | base64 -d > BmsOtaSuite.zip
           unzip -q BmsOtaSuite.zip -d src
           cp ota-build/patches/BleOtaSession.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/ble/BleOtaSession.kt
           cp ota-build/patches/MainActivity.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/MainActivity.kt
+          cp ota-build/patches/TelinkOtaController.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/ota/TelinkOtaController.kt
           cp ota-build/patches/activity_main.xml src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/res/layout/activity_main.xml
           cp ota-build/patches/AndroidManifest.xml src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/AndroidManifest.xml
 
@@ -154,6 +155,11 @@ jobs:
             echo "TelinkOtaServiceUuid=00010203-0405-0607-0809-0a0b0c0d1912"
             echo "TelinkOtaCharacteristicUuid=00010203-0405-0607-0809-0a0b0c0d2b12"
             echo "OtaGattDiscovery=automatic"
+            echo "DeviceFilter=BT_*"
+            echo "TransferMode=LegacyFast16"
+            echo "DefaultPacketDelayMs=0"
+            echo "RequestedMtu=247"
+            echo "OtaResultNotify=enabled-if-supported"
           } > dist/android/BUILD_INFO.txt
           (cd dist && zip -qr BmsOta-Android.zip android)
 
