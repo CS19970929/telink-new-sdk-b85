@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle and apply automatic OTA discovery patches
+      - name: Reconstruct source bundle and apply fast OTA patches
         shell: pwsh
         run: |
           $parts = Get-ChildItem 'ota-build/src.part*' | Sort-Object Name
@@ -30,6 +30,13 @@ jobs:
           Copy-Item ota-build/patches/WindowsBleTransport.cs src/BmsOtaSuite/Windows/Bms.Ota.Windows/Ble/WindowsBleTransport.cs -Force
           Copy-Item ota-build/patches/MainWindow.xaml src/BmsOtaSuite/Windows/Bms.Ota.Windows/MainWindow.xaml -Force
           Copy-Item ota-build/patches/MainWindow.xaml.cs src/BmsOtaSuite/Windows/Bms.Ota.Windows/MainWindow.xaml.cs -Force
+          Copy-Item ota-build/patches/IOtaTransport.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Transport/IOtaTransport.cs -Force
+          Copy-Item ota-build/patches/TelinkOtaClient.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Telink/TelinkOtaClient.cs -Force
+          Copy-Item ota-build/patches/OtaProgress.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Telink/OtaProgress.cs -Force
+          Copy-Item ota-build/patches/OtaTransferMode.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Telink/OtaTransferMode.cs -Force
+          Copy-Item ota-build/patches/OtaResult.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Telink/OtaResult.cs -Force
+          Copy-Item ota-build/patches/ExtendedPacketBuilder.cs src/BmsOtaSuite/Windows/Bms.Ota.Core/Telink/ExtendedPacketBuilder.cs -Force
+          Copy-Item ota-build/patches/Program.cs src/BmsOtaSuite/Windows/Bms.Ota.Core.SmokeTest/Program.cs -Force
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -71,6 +78,10 @@ jobs:
           TelinkOtaServiceUuid=00010203-0405-0607-0809-0a0b0c0d1912
           TelinkOtaCharacteristicUuid=00010203-0405-0607-0809-0a0b0c0d2b12
           OtaGattDiscovery=automatic
+          DefaultPacketDelayMs=0
+          ProgressUiMaxHz=10
+          TransferModes=Auto,LegacyFast,Extend64
+          Extend64MinAttMtu=71
           "@ | Set-Content dist/windows/BUILD_INFO.txt
           Compress-Archive -Path dist/windows/* -DestinationPath dist/BmsOta-Windows-x64.zip -Force
           Get-FileHash dist/BmsOta-Windows-x64.zip -Algorithm SHA256 | Format-List | Out-File dist/BmsOta-Windows-x64.sha256.txt
