@@ -95,11 +95,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle
+      - name: Reconstruct source bundle and apply BLE safety patch
         shell: bash
         run: |
           cat ota-build/src.part* | base64 -d > BmsOtaSuite.zip
           unzip -q BmsOtaSuite.zip -d src
+          cp ota-build/patches/BleOtaSession.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/ble/BleOtaSession.kt
 
       - uses: actions/setup-java@v4
         with:
