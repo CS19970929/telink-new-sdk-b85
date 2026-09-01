@@ -397,6 +397,10 @@ static UINT8 mos_command_retry_ready(UINT8 charge_on, UINT8 discharge_on)
 
 void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 {
+	/* 普通 MOS 命令不得携带过流清除/低功耗瞬态命令；这些位只能由各自专用流程控制。 */
+	SH367309_Reg_Store.REG_MTP_CONF.bits.OCRC = 0;
+	SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 0;
+	SH367309_Reg_Store.REG_MTP_CONF.bits.IDLE = 0;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = charge_on;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
