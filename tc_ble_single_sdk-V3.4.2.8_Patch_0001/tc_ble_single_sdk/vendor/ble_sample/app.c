@@ -251,12 +251,12 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 		// DBG_CHN0_TOGGLE;
 	}
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR1){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear counter
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
 	// 	timer1_irq_cnt ++;
 	// 	DBG_CHN1_TOGGLE;
 	// }
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR2){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear counter
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
 	// 	timer2_irq_cnt ++;
 	// 	DBG_CHN2_TOGGLE;
 	// }
@@ -359,15 +359,41 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
+#define MOS_WRITE_RETRY_SAFE_US   100000u
+#define MOS_WRITE_RETRY_ENABLE_US 1000000u
+
 typedef struct
 {
 	UINT8 chg;
 	UINT8 dsg;
 	UINT8 valid;
+	UINT8 write_failed;
+	u32 fail_tick;
 } mos_command_state_t;
 
 /* MCU 最近一次成功写入 AFE 的 MOS 命令。与 BSTATUS3 实际 FET 状态严格分离。 */
-static mos_command_state_t s_mos_command = {0u, 0u, 0u};
+static mos_command_state_t s_mos_command = {0u, 0u, 0u, 0u, 0u};
+
+static UINT8 mos_command_retry_ready(UINT8 charge_on, UINT8 discharge_on)
+{
+	UINT8 enables_new_path;
+	u32 retry_us;
+
+	if (!s_mos_command.write_failed)
+	{
+		return 1u;
+	}
+
+	/*
+	 * 失败后的重试按方向限频：
+	 * - 只维持/减少原有导通路径属于安全关断，允许 100ms 后重试；
+	 * - 任何新增 MOS 导通都至少等待 1s，避免故障期间高频尝试打开功率路径。
+	 */
+	enables_new_path = ((charge_on && !s_mos_command.chg) ||
+						(discharge_on && !s_mos_command.dsg)) ? 1u : 0u;
+	retry_us = enables_new_path ? MOS_WRITE_RETRY_ENABLE_US : MOS_WRITE_RETRY_SAFE_US;
+	return clock_time_exceed(s_mos_command.fail_tick, retry_us) ? 1u : 0u;
+}
 
 void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 {
@@ -376,9 +402,11 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
 	if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
 	{
-		/* MOS 命令失败后锁存 AFE 通信故障，禁止主循环/快速路径继续高频重试。 */
+		/* MOS 命令失败后锁存 AFE 通信故障，并由 retry gate 限制后续 MTP 重试频率。 */
 		gpio_write(MCC_C_PIN, 0);
 		s_mos_command.valid = 0u;
+		s_mos_command.write_failed = 1u;
+		s_mos_command.fail_tick = clock_time();
 		System_ErrFlag.u8ErrFlag_Com_AFE1 = 1u;
 		return;
 	}
@@ -386,6 +414,7 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 	s_mos_command.chg = charge_on;
 	s_mos_command.dsg = discharge_on;
 	s_mos_command.valid = 1u;
+	s_mos_command.write_failed = 0u;
 }
 
 extern volatile union System_Status SystemStatus;
@@ -776,9 +805,10 @@ void mos_update(void)
 	}
 
 	/* 只比较 MCU 最近成功命令，不比较 AFE actual FET 状态。 */
-	if (!s_mos_command.valid ||
-		chg_target != s_mos_command.chg ||
-		dsg_target != s_mos_command.dsg)
+	if ((!s_mos_command.valid ||
+		 chg_target != s_mos_command.chg ||
+		 dsg_target != s_mos_command.dsg) &&
+		mos_command_retry_ready(chg_target, dsg_target))
 	{
 		WriteMosState(chg_target, dsg_target);
 	}
@@ -804,9 +834,11 @@ static void mos_fast_shutdown_poll(void)
 		return;
 	}
 
-	if (force_dsg_off && s_mos_command.valid && s_mos_command.dsg)
+	/* 即使上次 OFF 写失败导致 valid=0，也保留最后成功命令值，在通信恢复后按退避重新尝试关 DSG。 */
+	if (force_dsg_off && s_mos_command.dsg &&
+		mos_command_retry_ready(s_mos_command.chg, 0u))
 	{
-		/* 快速路径只改变 MCU 命令缓存中的 DSG=OFF；任何开启仍回到 mos_update() 仲裁。 */
+		/* 快速路径只减少导通路径；任何重新开启仍回到 mos_update() 完整仲裁。 */
 		WriteMosState(s_mos_command.chg, 0u);
 	}
 }
