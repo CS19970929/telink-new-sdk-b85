@@ -15,9 +15,13 @@ public sealed class WindowsBleTransport : IOtaTransport
     private BluetoothLEDevice? _device;
     private GattDeviceService? _service;
     private GattCharacteristic? _characteristic;
+    private GattSession? _session;
 
     public bool IsConnected => _device is not null && _characteristic is not null;
+    public bool NotificationsEnabled { get; private set; }
+    public int? NegotiatedMtu => _session?.MaxPduSize;
     public string DiscoveryDescription { get; private set; } = "OTA GATT not discovered";
+    public event Action<ReadOnlyMemory<byte>>? NotificationReceived;
 
     public async Task ConnectAsync(ulong address)
     {
@@ -28,7 +32,6 @@ public sealed class WindowsBleTransport : IOtaTransport
         if (_device is null)
             throw new InvalidOperationException("Windows could not open the selected BLE device.");
 
-        // Preferred path: Telink's official OTA service UUID.
         var preferredServices = await _device.GetGattServicesForUuidAsync(TelinkOtaServiceUuid, BluetoothCacheMode.Uncached);
         if (preferredServices.Status == GattCommunicationStatus.Success)
         {
@@ -37,7 +40,7 @@ public sealed class WindowsBleTransport : IOtaTransport
                 var characteristic = await FindWritableOtaCharacteristicAsync(service);
                 if (characteristic is not null)
                 {
-                    Select(service, characteristic, "official Telink OTA service + characteristic");
+                    await SelectAsync(service, characteristic, "official Telink OTA service + characteristic");
                     DisposeServicesExcept(preferredServices.Services, service);
                     return;
                 }
@@ -45,8 +48,6 @@ public sealed class WindowsBleTransport : IOtaTransport
             }
         }
 
-        // Compatibility fallback: some products customize the service while retaining
-        // Telink's fixed OTA data characteristic UUID. Never hard-code an attribute handle.
         var allServices = await _device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
         if (allServices.Status != GattCommunicationStatus.Success)
             throw new InvalidOperationException($"GATT service discovery failed: {allServices.Status}");
@@ -56,7 +57,7 @@ public sealed class WindowsBleTransport : IOtaTransport
             var characteristic = await FindWritableOtaCharacteristicAsync(service);
             if (characteristic is not null)
             {
-                Select(service, characteristic, $"OTA characteristic fallback under service {service.Uuid}");
+                await SelectAsync(service, characteristic, $"OTA characteristic fallback under service {service.Uuid}");
                 DisposeServicesExcept(allServices.Services, service);
                 return;
             }
@@ -82,11 +83,52 @@ public sealed class WindowsBleTransport : IOtaTransport
         return null;
     }
 
-    private void Select(GattDeviceService service, GattCharacteristic characteristic, string description)
+    private async Task SelectAsync(GattDeviceService service, GattCharacteristic characteristic, string description)
     {
         _service = service;
         _characteristic = characteristic;
-        DiscoveryDescription = $"{description}; service={service.Uuid}; characteristic={characteristic.Uuid}";
+
+        try
+        {
+            _session = await GattSession.FromDeviceIdAsync(service.DeviceId);
+            if (_session is not null && _session.CanMaintainConnection)
+                _session.MaintainConnection = true;
+        }
+        catch
+        {
+            _session = null;
+        }
+
+        NotificationsEnabled = false;
+        var props = characteristic.CharacteristicProperties;
+        if (props.HasFlag(GattCharacteristicProperties.Notify))
+        {
+            characteristic.ValueChanged += Characteristic_ValueChanged;
+            try
+            {
+                var status = await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                NotificationsEnabled = status == GattCommunicationStatus.Success;
+                if (!NotificationsEnabled)
+                    characteristic.ValueChanged -= Characteristic_ValueChanged;
+            }
+            catch
+            {
+                characteristic.ValueChanged -= Characteristic_ValueChanged;
+                NotificationsEnabled = false;
+            }
+        }
+
+        DiscoveryDescription =
+            $"{description}; service={service.Uuid}; characteristic={characteristic.Uuid}; " +
+            $"MTU={NegotiatedMtu?.ToString() ?? "unknown"}; notify={(NotificationsEnabled ? "on" : "off")}; " +
+            $"write={(props.HasFlag(GattCharacteristicProperties.WriteWithoutResponse) ? "without-response" : "with-response")}";
+    }
+
+    private void Characteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
+    {
+        CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out byte[] bytes);
+        NotificationReceived?.Invoke(bytes);
     }
 
     private static void DisposeServicesExcept(IReadOnlyList<GattDeviceService> services, GattDeviceService selected)
@@ -116,7 +158,13 @@ public sealed class WindowsBleTransport : IOtaTransport
 
     private Task DisposeConnectionAsync()
     {
+        if (_characteristic is not null)
+            _characteristic.ValueChanged -= Characteristic_ValueChanged;
         _characteristic = null;
+        NotificationsEnabled = false;
+
+        _session?.Dispose();
+        _session = null;
         _service?.Dispose();
         _service = null;
         _device?.Dispose();
