@@ -6,7 +6,6 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
@@ -20,8 +19,6 @@ import java.util.concurrent.TimeUnit
 class BleOtaSession(
     private val context: Context,
     private val device: BluetoothDevice,
-    private val serviceUuid: UUID,
-    private val characteristicUuid: UUID,
     private val log: (String) -> Unit
 ) : AutoCloseable {
 
@@ -33,12 +30,15 @@ class BleOtaSession(
     @Volatile private var lastWriteStatus: Int = BluetoothGatt.GATT_FAILURE
 
     val isReady: Boolean get() = gatt != null && otaCharacteristic != null
+    @Volatile var discoveryDescription: String = "OTA GATT not discovered"
+        private set
 
     private fun hasConnectPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private val callback = object : BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 connectError = "GATT connection error status=$status"
@@ -73,6 +73,7 @@ class BleOtaSession(
             }
         }
 
+        @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 connectError = "Service discovery failed status=$status"
@@ -84,34 +85,39 @@ class BleOtaSession(
                 connectLatch.countDown()
                 return
             }
-            val service: BluetoothGattService? = try {
-                gatt.getService(serviceUuid)
+
+            try {
+                // Preferred path: Telink's official OTA service UUID.
+                val officialService = gatt.getService(TELINK_OTA_SERVICE_UUID)
+                val officialCharacteristic = officialService?.getCharacteristic(TELINK_OTA_CHARACTERISTIC_UUID)
+                if (officialCharacteristic != null && isWritable(officialCharacteristic)) {
+                    selectCharacteristic(officialCharacteristic, "official Telink OTA service + characteristic")
+                    connectLatch.countDown()
+                    return
+                }
+
+                // Compatibility fallback: a product may customize the service UUID while
+                // retaining Telink's fixed OTA data characteristic UUID.
+                val fallback = gatt.services
+                    .asSequence()
+                    .mapNotNull { service ->
+                        service.getCharacteristic(TELINK_OTA_CHARACTERISTIC_UUID)?.let { service to it }
+                    }
+                    .firstOrNull { (_, characteristic) -> isWritable(characteristic) }
+
+                if (fallback != null) {
+                    val (service, characteristic) = fallback
+                    selectCharacteristic(characteristic, "OTA characteristic fallback under service ${service.uuid}")
+                    connectLatch.countDown()
+                    return
+                }
+
+                connectError = "Telink OTA characteristic not found: $TELINK_OTA_CHARACTERISTIC_UUID"
+                connectLatch.countDown()
             } catch (e: SecurityException) {
-                connectError = "getService permission error: ${e.message}"
+                connectError = "GATT discovery permission error: ${e.message}"
                 connectLatch.countDown()
-                return
             }
-            if (service == null) {
-                connectError = "OTA service not found: $serviceUuid"
-                connectLatch.countDown()
-                return
-            }
-            val characteristic = service.getCharacteristic(characteristicUuid)
-            if (characteristic == null) {
-                connectError = "OTA characteristic not found: $characteristicUuid"
-                connectLatch.countDown()
-                return
-            }
-            val p = characteristic.properties
-            if ((p and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) == 0 &&
-                (p and BluetoothGattCharacteristic.PROPERTY_WRITE) == 0) {
-                connectError = "OTA characteristic is not writable"
-                connectLatch.countDown()
-                return
-            }
-            otaCharacteristic = characteristic
-            log("OTA characteristic ready; properties=0x${p.toString(16)}")
-            connectLatch.countDown()
         }
 
         @Deprecated("Deprecated in API 33 but still invoked for the legacy overload")
@@ -121,11 +127,25 @@ class BleOtaSession(
         }
     }
 
+    private fun isWritable(characteristic: BluetoothGattCharacteristic): Boolean {
+        val p = characteristic.properties
+        return (p and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0 ||
+            (p and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
+    }
+
+    private fun selectCharacteristic(characteristic: BluetoothGattCharacteristic, description: String) {
+        otaCharacteristic = characteristic
+        val p = characteristic.properties
+        discoveryDescription = "$description; characteristic=${characteristic.uuid}; properties=0x${p.toString(16)}"
+        log("OTA characteristic ready; $discoveryDescription")
+    }
+
     @SuppressLint("MissingPermission")
     fun connectAndDiscover(timeoutMs: Long = 15_000) {
         close()
         connectError = null
         otaCharacteristic = null
+        discoveryDescription = "OTA GATT not discovered"
         connectLatch = CountDownLatch(1)
         log("Connecting ${device.address} ...")
         gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -194,8 +214,17 @@ class BleOtaSession(
         otaCharacteristic = null
         writeLatch?.countDown()
         writeLatch = null
-        gatt?.disconnect()
-        gatt?.close()
+        try { gatt?.disconnect() } catch (_: SecurityException) { }
+        try { gatt?.close() } catch (_: Exception) { }
         gatt = null
+        discoveryDescription = "OTA GATT not discovered"
+    }
+
+    companion object {
+        @JvmField
+        val TELINK_OTA_SERVICE_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d1912")
+
+        @JvmField
+        val TELINK_OTA_CHARACTERISTIC_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d2b12")
     }
 }
