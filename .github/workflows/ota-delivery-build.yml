@@ -27,7 +27,6 @@ jobs:
           $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
           [IO.File]::WriteAllBytes('BmsOtaSuite.zip', [Convert]::FromBase64String($b64))
           Expand-Archive -Path BmsOtaSuite.zip -DestinationPath src -Force
-          Get-ChildItem src/BmsOtaSuite/Windows -Recurse | Select-Object FullName
 
       - name: Apply Windows compile fix
         shell: pwsh
@@ -63,7 +62,6 @@ jobs:
         run: |
           dotnet publish Bms.Ota.Windows/Bms.Ota.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $env:GITHUB_WORKSPACE/dist/windows
           if (-not (Test-Path "$env:GITHUB_WORKSPACE/dist/windows/Bms.Ota.Windows.exe")) { throw 'Windows EXE not produced' }
-          Get-ChildItem $env:GITHUB_WORKSPACE/dist/windows
 
       - name: Build info
         shell: pwsh
@@ -102,7 +100,6 @@ jobs:
         run: |
           cat ota-build/src.part* | base64 -d > BmsOtaSuite.zip
           unzip -q BmsOtaSuite.zip -d src
-          find src/BmsOtaSuite/Android/BmsOtaAndroid -maxdepth 4 -type f | sort
 
       - uses: actions/setup-java@v4
         with:
@@ -119,11 +116,10 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Test, lint and build APKs
+      - name: Build APKs first
         shell: bash
         working-directory: src/BmsOtaSuite/Android/BmsOtaAndroid
-        run: |
-          gradle --no-daemon clean test lint assembleDebug assembleRelease
+        run: gradle --no-daemon clean test assembleDebug assembleRelease
 
       - name: Collect APKs
         shell: bash
@@ -146,7 +142,8 @@ jobs:
           } > dist/android/BUILD_INFO.txt
           (cd dist && zip -qr BmsOta-Android.zip android)
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK delivery before validation
+        uses: actions/upload-artifact@v4
         with:
           name: BmsOta-Android
           path: |
@@ -154,3 +151,8 @@ jobs:
             dist/BmsOta-Android.zip
           if-no-files-found: error
           retention-days: 7
+
+      - name: Validate Android lint after delivery
+        shell: bash
+        working-directory: src/BmsOtaSuite/Android/BmsOtaAndroid
+        run: gradle --no-daemon lint
