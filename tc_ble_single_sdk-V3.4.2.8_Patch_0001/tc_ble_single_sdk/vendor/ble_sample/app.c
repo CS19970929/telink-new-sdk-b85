@@ -36,6 +36,7 @@
 
 #include "sci_upper.h"
 #include "sh367309_datadeal.h"
+#include "param.h"
 
 #include "SocEnhance.h"
 #include "bms_event_log.h"
@@ -164,16 +165,18 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
+static volatile UINT8 s_ctlc_safety_closed = 1u;
+
 void open_ctlc(void)
 {
 	gpio_write(AFE_CTL_PIN, 1);
+	s_ctlc_safety_closed = 0u;
 	// gpio_write(MCC_C_PIN, 1);
 }
 void close_ctlc(void)
 {
+	s_ctlc_safety_closed = 1u;
 	gpio_write(AFE_CTL_PIN, 0);
-
-	// todo 会不会存在冲突，逻辑完备？？？
 	gpio_write(MCC_C_PIN, 0);
 }
 
@@ -262,7 +265,7 @@ _attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PU
 /* must be: 2^n, (power of 2);at least 4; recommended value: 4, 8, 16 */
 #define RX_FIFO_NUM 8
 
-/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct):  maxTxOct + 10, then 4 byte align */
+/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct): maxTxOct + 10, then 4 byte align */
 #define TX_FIFO_SIZE 40
 /* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
 #define TX_FIFO_NUM 16
@@ -333,48 +336,329 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = charge_on;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	if(charge_on == 1)
-		gpio_write(MCC_C_PIN, 1);
-	else
+	if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
+	{
+		/* AFE 命令失败时不允许外部充电驱动保持导通，下一周期按 AFE 故障继续关断。 */
 		gpio_write(MCC_C_PIN, 0);
+		System_ERROR_UserCallback(ERROR_AFE1);
+		return;
+	}
+	gpio_write(MCC_C_PIN, charge_on ? 1 : 0);
 }
 
 extern volatile union System_Status SystemStatus;
 
+#define SOFT_PROTECT_LEVEL_COUNT 3u
+#define SOFT_PROTECT_ITEM_COUNT 13u
+
+typedef enum
+{
+	SOFT_PROTECT_CELL_OVP = 0,
+	SOFT_PROTECT_CELL_UVP,
+	SOFT_PROTECT_VBUS_OVP,
+	SOFT_PROTECT_VBUS_UVP,
+	SOFT_PROTECT_CHG_OCP,
+	SOFT_PROTECT_DSG_OCP,
+	SOFT_PROTECT_CHG_OTP,
+	SOFT_PROTECT_CHG_UTP,
+	SOFT_PROTECT_DSG_OTP,
+	SOFT_PROTECT_DSG_UTP,
+	SOFT_PROTECT_MOS_OTP,
+	SOFT_PROTECT_VDELTA,
+	SOFT_PROTECT_SOC_LOW
+} soft_protect_item_t;
+
+typedef struct
+{
+	UINT8 active[SOFT_PROTECT_LEVEL_COUNT];
+	UINT8 pending[SOFT_PROTECT_LEVEL_COUNT];
+	u32 pending_tick[SOFT_PROTECT_LEVEL_COUNT];
+} soft_protect_state_t;
+
+static soft_protect_state_t s_soft_protect[SOFT_PROTECT_ITEM_COUNT];
+
+static void soft_protect_update_level(soft_protect_item_t item,
+								  UINT8 level,
+								  UINT16 value,
+								  UINT16 threshold,
+								  UINT16 recover,
+								  UINT16 filter_ms,
+								  UINT8 high_trip)
+{
+	soft_protect_state_t *state = &s_soft_protect[(UINT8)item];
+	UINT8 trip;
+	UINT8 recovered;
+
+	/* 0 作为软件保护关闭值；关闭参数时同步清掉已锁存的软件状态。 */
+	if (threshold == 0u)
+	{
+		state->active[level] = 0u;
+		state->pending[level] = 0u;
+		return;
+	}
+
+	trip = high_trip ? (value >= threshold) : (value <= threshold);
+	recovered = high_trip ? (value <= recover) : (value >= recover);
+
+	if (state->active[level])
+	{
+		if (recovered)
+		{
+			state->active[level] = 0u;
+			state->pending[level] = 0u;
+		}
+		return;
+	}
+
+	if (!trip)
+	{
+		state->pending[level] = 0u;
+		return;
+	}
+
+	if (filter_ms == 0u)
+	{
+		state->active[level] = 1u;
+		state->pending[level] = 0u;
+		FaultWarnRecord2((enum FaultFlag)((UINT16)item + 1u + ((UINT16)level * SOFT_PROTECT_ITEM_COUNT)));
+		return;
+	}
+
+	if (!state->pending[level])
+	{
+		state->pending[level] = 1u;
+		state->pending_tick[level] = clock_time();
+		return;
+	}
+
+	if (clock_time_exceed(state->pending_tick[level], (u32)filter_ms * 1000u))
+	{
+		state->active[level] = 1u;
+		state->pending[level] = 0u;
+		FaultWarnRecord2((enum FaultFlag)((UINT16)item + 1u + ((UINT16)level * SOFT_PROTECT_ITEM_COUNT)));
+	}
+}
+
+static void soft_protect_update_item(soft_protect_item_t item,
+								 UINT16 value,
+								 UINT16 first,
+								 UINT16 second,
+								 UINT16 third,
+								 UINT16 recover,
+								 UINT16 filter_ms,
+								 UINT8 high_trip)
+{
+	soft_protect_update_level(item, 0u, value, first, recover, filter_ms, high_trip);
+	soft_protect_update_level(item, 1u, value, second, recover, filter_ms, high_trip);
+	soft_protect_update_level(item, 2u, value, third, recover, filter_ms, high_trip);
+}
+
+static void soft_protect_update_all(void)
+{
+	const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
+	UINT8 afe_ok = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 0u : 1u;
+	UINT8 voltage_valid = 0u;
+	UINT8 temperature_valid = 0u;
+
+	if (afe_ok &&
+		(g_stCellInfoReport.u16VCellMin > 0u) &&
+		(g_stCellInfoReport.u16VCellMax < 60000u) &&
+		(g_stCellInfoReport.u16VCellTotle > 0u))
+	{
+		voltage_valid = 1u;
+	}
+
+	if (afe_ok &&
+		(g_stCellInfoReport.u16TempMin > 0u) &&
+		(g_stCellInfoReport.u16TempMax > 0u))
+	{
+		temperature_valid = 1u;
+	}
+
+	/* AFE 数据无效时保持原软件保护锁存状态，不允许用清零后的测量值误恢复。 */
+	if (voltage_valid)
+	{
+		soft_protect_update_item(SOFT_PROTECT_CELL_OVP,
+			g_stCellInfoReport.u16VCellMax,
+			p->u16VcellOvp_First, p->u16VcellOvp_Second, p->u16VcellOvp_Third,
+			p->u16VcellOvp_Rcv, p->u16VcellOvp_Filter, 1u);
+		soft_protect_update_item(SOFT_PROTECT_CELL_UVP,
+			g_stCellInfoReport.u16VCellMin,
+			p->u16VcellUvp_First, p->u16VcellUvp_Second, p->u16VcellUvp_Third,
+			p->u16VcellUvp_Rcv, p->u16VcellUvp_Filter, 0u);
+		soft_protect_update_item(SOFT_PROTECT_VBUS_OVP,
+			g_stCellInfoReport.u16VCellTotle,
+			p->u16VbusOvp_First, p->u16VbusOvp_Second, p->u16VbusOvp_Third,
+			p->u16VbusOvp_Rcv, p->u16VbusOvp_Filter, 1u);
+		soft_protect_update_item(SOFT_PROTECT_VBUS_UVP,
+			g_stCellInfoReport.u16VCellTotle,
+			p->u16VbusUvp_First, p->u16VbusUvp_Second, p->u16VbusUvp_Third,
+			p->u16VbusUvp_Rcv, p->u16VbusUvp_Filter, 0u);
+		soft_protect_update_item(SOFT_PROTECT_VDELTA,
+			g_stCellInfoReport.u16VCellDelta,
+			p->u16VdeltaOvp_First, p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third,
+			p->u16VdeltaOvp_Rcv, p->u16VdeltaOvp_Filter, 1u);
+	}
+
+	if (afe_ok)
+	{
+		soft_protect_update_item(SOFT_PROTECT_CHG_OCP,
+			g_stCellInfoReport.u16Ichg,
+			p->u16IchgOcp_First, p->u16IchgOcp_Second, p->u16IchgOcp_Third,
+			p->u16IchgOcp_Rcv, p->u16IchgOcp_Filter, 1u);
+		soft_protect_update_item(SOFT_PROTECT_DSG_OCP,
+			g_stCellInfoReport.u16IDischg,
+			p->u16IdsgOcp_First, p->u16IdsgOcp_Second, p->u16IdsgOcp_Third,
+			p->u16IdsgOcp_Rcv, p->u16IdsgOcp_Filter, 1u);
+	}
+
+	if (temperature_valid)
+	{
+		soft_protect_update_item(SOFT_PROTECT_CHG_OTP,
+			g_stCellInfoReport.u16TempMax,
+			p->u16TChgOTp_First, p->u16TChgOTp_Second, p->u16TChgOTp_Third,
+			p->u16TChgOTp_Rcv, p->u16TChgOTp_Filter, 1u);
+		soft_protect_update_item(SOFT_PROTECT_CHG_UTP,
+			g_stCellInfoReport.u16TempMin,
+			p->u16TchgUTp_First, p->u16TchgUTp_Second, p->u16TchgUTp_Third,
+			p->u16TchgUTp_Rcv, p->u16TchgUTp_Filter, 0u);
+		soft_protect_update_item(SOFT_PROTECT_DSG_OTP,
+			g_stCellInfoReport.u16TempMax,
+			p->u16TdischgOTp_First, p->u16TdischgOTp_Second, p->u16TdischgOTp_Third,
+			p->u16TdischgOTp_Rcv, p->u16TdischgOTp_Filter, 1u);
+		soft_protect_update_item(SOFT_PROTECT_DSG_UTP,
+			g_stCellInfoReport.u16TempMin,
+			p->u16TdischgUTp_First, p->u16TdischgUTp_Second, p->u16TdischgUTp_Third,
+			p->u16TdischgUTp_Rcv, p->u16TdischgUTp_Filter, 0u);
+	}
+
+	/* MOS 温度来自 MCU ADC，独立于 AFE 通信；0 表示尚未取得有效采样。 */
+	if (g_stCellInfoReport.u16Temperature[MOS_TEMP1] > 0u)
+	{
+		soft_protect_update_item(SOFT_PROTECT_MOS_OTP,
+			g_stCellInfoReport.u16Temperature[MOS_TEMP1],
+			p->u16TmosOTp_First, p->u16TmosOTp_Second, p->u16TmosOTp_Third,
+			p->u16TmosOTp_Rcv, p->u16TmosOTp_Filter, 1u);
+	}
+
+	if (g_stCellInfoReport.SocElement.u16Soc <= 100u)
+	{
+		soft_protect_update_item(SOFT_PROTECT_SOC_LOW,
+			g_stCellInfoReport.SocElement.u16Soc,
+			p->u16SocUp_First, p->u16SocUp_Second, p->u16SocUp_Third,
+			p->u16SocUp_Rcv, p->u16SocUp_Filter, 0u);
+	}
+}
+
+static void soft_protect_set_report_level(union MDLCHGFAULT_REG *report, UINT8 level)
+{
+	report->bits.b1CellOvp = s_soft_protect[SOFT_PROTECT_CELL_OVP].active[level];
+	report->bits.b1CellUvp = s_soft_protect[SOFT_PROTECT_CELL_UVP].active[level];
+	report->bits.b1BatOvp = s_soft_protect[SOFT_PROTECT_VBUS_OVP].active[level];
+	report->bits.b1BatUvp = s_soft_protect[SOFT_PROTECT_VBUS_UVP].active[level];
+	report->bits.b1IchgOcp = s_soft_protect[SOFT_PROTECT_CHG_OCP].active[level];
+	report->bits.b1IdischgOcp = s_soft_protect[SOFT_PROTECT_DSG_OCP].active[level];
+	report->bits.b1CellChgOtp = s_soft_protect[SOFT_PROTECT_CHG_OTP].active[level];
+	report->bits.b1CellChgUtp = s_soft_protect[SOFT_PROTECT_CHG_UTP].active[level];
+	report->bits.b1CellDischgOtp = s_soft_protect[SOFT_PROTECT_DSG_OTP].active[level];
+	report->bits.b1CellDischgUtp = s_soft_protect[SOFT_PROTECT_DSG_UTP].active[level];
+	report->bits.b1TmosOtp = s_soft_protect[SOFT_PROTECT_MOS_OTP].active[level];
+	report->bits.b1VcellDeltaBig = s_soft_protect[SOFT_PROTECT_VDELTA].active[level];
+	report->bits.b1SocLow = s_soft_protect[SOFT_PROTECT_SOC_LOW].active[level];
+}
+
+static void soft_protect_update_report(void)
+{
+	UINT8 afe_ok = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 0u : 1u;
+
+	soft_protect_set_report_level(&g_stCellInfoReport.unMdlFault_First, 0u);
+	soft_protect_set_report_level(&g_stCellInfoReport.unMdlFault_Second, 1u);
+	soft_protect_set_report_level(&g_stCellInfoReport.unMdlFault_Third, 2u);
+
+	/* 三级对外故障位是“硬件保护 OR 软件三级保护”，但一、二级仅由软件报警生成。 */
+	if (afe_ok)
+	{
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp |= ram_reg_309.REG_BSTATUS1.bits.OV;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp |= ram_reg_309.REG_BSTATUS1.bits.UV;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp |= ram_reg_309.REG_BSTATUS1.bits.OCC;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp |= (ram_reg_309.REG_BSTATUS1.bits.OCD1 || ram_reg_309.REG_BSTATUS1.bits.OCD2);
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp |= ram_reg_309.REG_BSTATUS2.bits.OTC;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp |= ram_reg_309.REG_BSTATUS2.bits.UTC;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp |= ram_reg_309.REG_BSTATUS2.bits.OTD;
+		g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp |= ram_reg_309.REG_BSTATUS2.bits.UTD;
+	}
+}
+
 void mos_update(void)
 {
-	uint8_t chg_target = 0;
-	uint8_t dsg_target = 0;
+	UINT8 charger_active = IsChargerWakeupActive() ? 1u : 0u;
+	UINT8 key_active = IsKeyWakeupActive() ? 1u : 0u;
+	UINT8 factory_mode = (MODE_FACTORY == Runtime_GetMode()) ? 1u : 0u;
+	UINT8 chg_request = (charger_active || factory_mode) ? 1u : 0u;
+	UINT8 dsg_request = (key_active || factory_mode) ? 1u : 0u;
+	UINT8 chg_target = 0u;
+	UINT8 dsg_target = 0u;
+	UINT8 global_block;
+	UINT8 chg_non_ocp_block;
+	UINT8 dsg_non_ocp_block;
+	UINT8 chg_ocp_block;
+	UINT8 dsg_ocp_block;
+	UINT8 chg_hw_block;
+	UINT8 dsg_hw_block;
+	union MDLCHGFAULT_REG *fault3 = &g_stCellInfoReport.unMdlFault_Third;
 
-	if(IsChargerWakeupActive())
+	soft_protect_update_all();
+	soft_protect_update_report();
+
+	/* 保持现有协议含义：该状态位目前被项目作为充电器在线状态使用。 */
+	SystemStatus.bits.b1Status_Cool = charger_active;
+
+	global_block = (System_ERROR_UserCallback(ERROR_STATUS_AFE1) ||
+					System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK) ||
+					s_ctlc_safety_closed) ? 1u : 0u;
+	chg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_CHG) ? 1u : 0u;
+	dsg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
+
+	chg_ocp_block = fault3->bits.b1IchgOcp ? 1u : 0u;
+	dsg_ocp_block = fault3->bits.b1IdischgOcp ? 1u : 0u;
+
+	/* 压差三级属于全局严重不一致，充放电均禁止；MOS 过温同样双向禁止。 */
+	chg_non_ocp_block = (fault3->bits.b1CellOvp ||
+						 fault3->bits.b1BatOvp ||
+						 fault3->bits.b1CellChgOtp ||
+						 fault3->bits.b1CellChgUtp ||
+						 fault3->bits.b1TmosOtp ||
+						 fault3->bits.b1VcellDeltaBig) ? 1u : 0u;
+	dsg_non_ocp_block = (fault3->bits.b1CellUvp ||
+						 fault3->bits.b1BatUvp ||
+						 fault3->bits.b1CellDischgOtp ||
+						 fault3->bits.b1CellDischgUtp ||
+						 fault3->bits.b1TmosOtp ||
+						 fault3->bits.b1VcellDeltaBig ||
+						 fault3->bits.b1SocLow) ? 1u : 0u;
+
+	if (!global_block)
 	{
-		chg_target = 1;
-		dsg_target = 0;
-		SystemStatus.bits.b1Status_Cool = 1;
-	}
-	else if (IsKeyWakeupActive())
-	{
-		SystemStatus.bits.b1Status_Cool = 0;
-		if(MODE_FACTORY == Runtime_GetMode())
+		chg_target = (chg_request && !chg_non_ocp_block && !chg_ocp_block && !chg_hw_block) ? 1u : 0u;
+		dsg_target = (dsg_request && !dsg_non_ocp_block && !dsg_ocp_block && !dsg_hw_block) ? 1u : 0u;
+
+		/*
+		 * 过流后的反向电流恢复：
+		 * - 充电过流后检测到真实放电电流，只在没有其它充电侧/全局保护时强制打开 CHG MOS；
+		 * - 放电过流后检测到真实充电电流，只在没有其它放电侧/全局保护时强制打开 DSG MOS。
+		 * 这样可避免反向电流长期走 MOS 体二极管，同时不会绕过电压/温度/AFE 故障。
+		 */
+		if (chg_ocp_block && (g_stCellInfoReport.u16IDischg > 0u) && !chg_non_ocp_block && !chg_hw_block)
 		{
-			chg_target = 1;
-			dsg_target = 1;
+			chg_target = 1u;
 		}
-		else
+		if (dsg_ocp_block && (g_stCellInfoReport.u16Ichg > 0u) && !dsg_non_ocp_block && !dsg_hw_block)
 		{
-			chg_target = 0;
-			dsg_target = 1;
+			dsg_target = 1u;
 		}
-	}
-	else
-	{
-		SystemStatus.bits.b1Status_Cool = 0;
-		chg_target = 0;
-		dsg_target = 0;
 	}
 
-	if(chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
+	if (chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
 		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
 	{
 		WriteMosState(chg_target, dsg_target);
@@ -963,7 +1247,7 @@ int app_host_event_callback(u32 h, u8 *para, int n)
 
 	case GAP_EVT_SMP_SECURITY_PROCESS_DONE:
 	{
-		// gap_smp_securityProcessDoneEvt_t *pEvt = (gap_smp_securityProcessDoneEvt_t *)para;
+		// gap_smp_pairingSuccessEvt_t *pEvt = (gap_smp_pairingSuccessEvt_t *)para;
 	}
 	break;
 
@@ -1338,14 +1622,14 @@ _attribute_no_inline_ void user_init_normal(void)
 	/* Hid device on android7.0/7.1 or later version
 	 * New paring: send security_request immediately after connection complete
 	 * reConnect:  send security_request 1000mS after connection complete. If master start paring or encryption before 1000mS timeout, slave do not send security_request. */
-	blc_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); // if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
+	bls_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); // if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
 #else
 	blc_smp_setSecurityLevel(No_Security);
 #endif
 
 	/* host(GAP/SMP/GATT/ATT) event process: register host event callback and set event mask */
 	blc_gap_registerHostEventHandler(app_host_event_callback);
-	/* enable some frequently-used host event by default, user can add more host event */
+	/* enable some frequently-used host event by default, user can add more event */
 	blc_gap_setEventMask(GAP_EVT_MASK_SMP_PAIRING_BEGIN |
 						 GAP_EVT_MASK_SMP_PAIRING_SUCCESS |
 						 GAP_EVT_MASK_SMP_PAIRING_FAIL |
@@ -1658,7 +1942,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		/* OTA clear old firmware begin event is triggered by stack, in "blc ota_initOtaServer_module", rebooting from a successful OTA.
 		 * Software will erase whole old firmware for potential next new OTA, need unlock flash if any part of flash address from
 		 * "op addr_begin" to "op addr_end" is in locking block area.
-		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op addr_begin" and "op addr_end",
+		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op addr_begin" and "op_addr_end",
 		 * must unlock flash */
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA clear old FW begin, unlock flash\n");
 		flash_unlock();
@@ -1678,7 +1962,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 		g_app_flash_stack_session_active = 1u;
 
 		/* OTA write new firmware begin event is triggered by stack, when receive first OTA data PDU.
-		 * Software will write data to flash on new firmware area,  need unlock flash if any part of flash address from
+		 * Software will write data to flash on new firmware area, need unlock flash if any part of flash address from
 		 * "op addr_begin" to "op addr_end" is in locking block area.
 		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op addr_begin" and "op addr_end",
 		 * must unlock flash */
