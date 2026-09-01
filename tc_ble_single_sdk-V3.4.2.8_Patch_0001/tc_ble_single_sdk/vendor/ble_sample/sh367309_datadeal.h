@@ -140,7 +140,6 @@ typedef struct {
 	u8 PFV;				//二�?�过充电保护电压设置寄存�?，放大一些，不用这个
 }BYTE_0AH_0BH_TypeDef;
 
-
 typedef struct {
 	u8 OCD1T		:4;			//放电过流1保护延时
 	u8 OCD1V		:4;			//放电过流保护1保护电压
@@ -305,9 +304,11 @@ typedef struct _AFE_REG_STORE {
 }SH367309_REG_STORE;
 
 #define BIT_ENPCH	(0<<7)		//0:禁�?��?�充电功能，1：启动�?�充功能
-#define BIT_ENMOS	(1<<6)		//0:禁�?�充电MOS恢�?�，1:�?动充电MOS恢�?�控制位�?
-								//当过充电/温度保护(温度实际�?2�?)关闭充电MOS后，如果检测到放电状态，则开�?充电MOS
-								//用这�?吧，MOS应�?�会没那么热�?
+#if (BMS_PORT_MODE == BMS_PORT_MODE_COMMON)
+#define BIT_ENMOS	(1<<6)		//同口：允许 AFE 在检测到反向电流时恢复对应 MOS，避免体二极管持续导通
+#else
+#define BIT_ENMOS	(0<<6)		//分口：充放电路径独立，不需要反向电流恢复
+#endif
 #define BIT_OCPM	(0<<5)		//0:充电过流�?关闭充电MOS，放电过流只关放电MOS�?1则同时关
 #define BIT_BAL		(0<<4)		//0：平衡功能由内部SH367309控制�?1:由�?�部MCU�?
 #define BIT0_3_CN	(0)			//5-15，�?�应串数，别的为16�?
@@ -339,7 +340,7 @@ typedef struct _AFE_REG_STORE {
 #define BIT0_7_OVL				(u8)((VAL_CELL_OVP/5)&0x00FF)		//过充保护�?8�?
 #define BYTE_03H_OVL			BIT0_7_OVL
 
-#define BIT4_7_UVT				(6<<4)									//0110，过放保护延�?1s
+#define BIT4_7_UVT				(6<<4)									//0110，过放保护延时1s
 #define BIT0_1_OVR				(u8)((VAL_CELL_OVP_REC/5)>>8)		//过充保护恢�?�前2�?
 #define BYTE_04H_UVT_OVRH		BIT4_7_UVT|BIT0_1_OVR
 
