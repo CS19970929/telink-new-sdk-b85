@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
@@ -15,6 +16,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class BleOtaSession(
     private val context: Context,
@@ -28,10 +30,18 @@ class BleOtaSession(
     @Volatile private var connectLatch = CountDownLatch(1)
     @Volatile private var writeLatch: CountDownLatch? = null
     @Volatile private var lastWriteStatus: Int = BluetoothGatt.GATT_FAILURE
+    private val discoveryStarted = AtomicBoolean(false)
 
-    val isReady: Boolean get() = gatt != null && otaCharacteristic != null
+    @Volatile var negotiatedMtu: Int = 23
+        private set
+    @Volatile var notificationsEnabled: Boolean = false
+        private set
     @Volatile var discoveryDescription: String = "OTA GATT not discovered"
         private set
+
+    var notificationListener: ((ByteArray) -> Unit)? = null
+
+    val isReady: Boolean get() = gatt != null && otaCharacteristic != null
 
     private fun hasConnectPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
@@ -47,20 +57,15 @@ class BleOtaSession(
             }
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
-                    log("BLE connected; discovering services...")
-                    if (!hasConnectPermission()) {
-                        connectError = "BLUETOOTH_CONNECT permission missing during service discovery"
-                        connectLatch.countDown()
-                        return
-                    }
-                    try {
-                        if (!gatt.discoverServices()) {
-                            connectError = "discoverServices() was rejected"
-                            connectLatch.countDown()
-                        }
-                    } catch (e: SecurityException) {
-                        connectError = "discoverServices permission error: ${e.message}"
-                        connectLatch.countDown()
+                    log("BLE connected; requesting MTU...")
+                    val requested = try { gatt.requestMtu(247) } catch (_: Exception) { false }
+                    if (!requested) {
+                        discoverServicesOnce(gatt)
+                    } else {
+                        Thread {
+                            Thread.sleep(800)
+                            discoverServicesOnce(gatt)
+                        }.start()
                     }
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
@@ -71,6 +76,17 @@ class BleOtaSession(
                     }
                 }
             }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS && mtu >= 23) {
+                negotiatedMtu = mtu
+                log("MTU negotiated: $mtu")
+            } else {
+                log("MTU request not accepted; using $negotiatedMtu")
+            }
+            discoverServicesOnce(gatt)
         }
 
         @SuppressLint("MissingPermission")
@@ -87,17 +103,14 @@ class BleOtaSession(
             }
 
             try {
-                // Preferred path: Telink's official OTA service UUID.
                 val officialService = gatt.getService(TELINK_OTA_SERVICE_UUID)
                 val officialCharacteristic = officialService?.getCharacteristic(TELINK_OTA_CHARACTERISTIC_UUID)
                 if (officialCharacteristic != null && isWritable(officialCharacteristic)) {
-                    selectCharacteristic(officialCharacteristic, "official Telink OTA service + characteristic")
+                    selectCharacteristic(gatt, officialCharacteristic, "official Telink OTA service + characteristic")
                     connectLatch.countDown()
                     return
                 }
 
-                // Compatibility fallback: a product may customize the service UUID while
-                // retaining Telink's fixed OTA data characteristic UUID.
                 val fallback = gatt.services
                     .asSequence()
                     .mapNotNull { service ->
@@ -107,7 +120,7 @@ class BleOtaSession(
 
                 if (fallback != null) {
                     val (service, characteristic) = fallback
-                    selectCharacteristic(characteristic, "OTA characteristic fallback under service ${service.uuid}")
+                    selectCharacteristic(gatt, characteristic, "OTA characteristic fallback under service ${service.uuid}")
                     connectLatch.countDown()
                     return
                 }
@@ -120,10 +133,39 @@ class BleOtaSession(
             }
         }
 
+        @Deprecated("Legacy callback remains required on older Android versions")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            notificationListener?.invoke(characteristic.value?.clone() ?: return)
+        }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            notificationListener?.invoke(value.clone())
+        }
+
         @Deprecated("Deprecated in API 33 but still invoked for the legacy overload")
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             lastWriteStatus = status
             writeLatch?.countDown()
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun discoverServicesOnce(gatt: BluetoothGatt) {
+        if (!discoveryStarted.compareAndSet(false, true)) return
+        if (!hasConnectPermission()) {
+            connectError = "BLUETOOTH_CONNECT permission missing during service discovery"
+            connectLatch.countDown()
+            return
+        }
+        try {
+            log("Discovering GATT services...")
+            if (!gatt.discoverServices()) {
+                connectError = "discoverServices() was rejected"
+                connectLatch.countDown()
+            }
+        } catch (e: SecurityException) {
+            connectError = "discoverServices permission error: ${e.message}"
+            connectLatch.countDown()
         }
     }
 
@@ -133,10 +175,34 @@ class BleOtaSession(
             (p and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0
     }
 
-    private fun selectCharacteristic(characteristic: BluetoothGattCharacteristic, description: String) {
+    @SuppressLint("MissingPermission")
+    private fun selectCharacteristic(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, description: String) {
         otaCharacteristic = characteristic
+        notificationsEnabled = false
         val p = characteristic.properties
-        discoveryDescription = "$description; characteristic=${characteristic.uuid}; properties=0x${p.toString(16)}"
+
+        if ((p and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) {
+            try {
+                val localEnabled = gatt.setCharacteristicNotification(characteristic, true)
+                val cccd = characteristic.getDescriptor(CCCD_UUID)
+                val descriptorAccepted = if (localEnabled && cccd != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == BluetoothStatusCodes.SUCCESS
+                    } else {
+                        @Suppress("DEPRECATION")
+                        run {
+                            cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            gatt.writeDescriptor(cccd)
+                        }
+                    }
+                } else false
+                notificationsEnabled = localEnabled && descriptorAccepted
+            } catch (_: Exception) {
+                notificationsEnabled = false
+            }
+        }
+
+        discoveryDescription = "$description; characteristic=${characteristic.uuid}; MTU=$negotiatedMtu; notify=${if (notificationsEnabled) "on" else "off"}; write=${if ((p and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0) "without-response" else "with-response"}"
         log("OTA characteristic ready; $discoveryDescription")
     }
 
@@ -145,8 +211,11 @@ class BleOtaSession(
         close()
         connectError = null
         otaCharacteristic = null
+        negotiatedMtu = 23
+        notificationsEnabled = false
         discoveryDescription = "OTA GATT not discovered"
         connectLatch = CountDownLatch(1)
+        discoveryStarted.set(false)
         log("Connecting ${device.address} ...")
         gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
@@ -181,15 +250,22 @@ class BleOtaSession(
         writeLatch = latch
         lastWriteStatus = BluetoothGatt.GATT_FAILURE
 
-        val accepted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            currentGatt.writeCharacteristic(characteristic, data, writeType) == BluetoothStatusCodes.SUCCESS
-        } else {
-            @Suppress("DEPRECATION")
-            run {
-                characteristic.writeType = writeType
-                characteristic.value = data
-                currentGatt.writeCharacteristic(characteristic)
+        var accepted = false
+        var attempt = 0
+        val maxAttempts = if (noResponse) 8 else 1
+        while (!accepted && attempt < maxAttempts) {
+            accepted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                currentGatt.writeCharacteristic(characteristic, data, writeType) == BluetoothStatusCodes.SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                run {
+                    characteristic.writeType = writeType
+                    characteristic.value = data
+                    currentGatt.writeCharacteristic(characteristic)
+                }
             }
+            if (!accepted && noResponse && attempt < maxAttempts - 1) Thread.sleep(2)
+            attempt++
         }
 
         if (!accepted) {
@@ -212,6 +288,8 @@ class BleOtaSession(
     @SuppressLint("MissingPermission")
     override fun close() {
         otaCharacteristic = null
+        notificationsEnabled = false
+        notificationListener = null
         writeLatch?.countDown()
         writeLatch = null
         try { gatt?.disconnect() } catch (_: SecurityException) { }
@@ -221,10 +299,8 @@ class BleOtaSession(
     }
 
     companion object {
-        @JvmField
-        val TELINK_OTA_SERVICE_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d1912")
-
-        @JvmField
-        val TELINK_OTA_CHARACTERISTIC_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d2b12")
+        @JvmField val TELINK_OTA_SERVICE_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d1912")
+        @JvmField val TELINK_OTA_CHARACTERISTIC_UUID: UUID = UUID.fromString("00010203-0405-0607-0809-0a0b0c0d2b12")
+        private val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     }
 }
