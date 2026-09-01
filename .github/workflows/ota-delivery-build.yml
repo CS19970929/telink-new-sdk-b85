@@ -29,6 +29,15 @@ jobs:
           Expand-Archive -Path BmsOtaSuite.zip -DestinationPath src -Force
           Get-ChildItem src/BmsOtaSuite/Windows -Recurse | Select-Object FullName
 
+      - name: Apply Windows compile fix
+        shell: pwsh
+        run: |
+          $p = 'src/BmsOtaSuite/Windows/Bms.Ota.Windows/Ble/WindowsBleTransport.cs'
+          $text = Get-Content $p -Raw
+          if ($text -notmatch '(?m)^using System\.IO;') {
+            Set-Content -Path $p -Value ("using System.IO;`r`n" + $text) -Encoding utf8
+          }
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
