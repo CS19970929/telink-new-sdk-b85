@@ -186,6 +186,9 @@ public sealed class WindowsBleTransport : IOtaTransport
         watcher.Received += (_, args) =>
         {
             string name = args.Advertisement.LocalName ?? string.Empty;
+            if (!name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase))
+                return;
+
             onDevice(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
         };
         return watcher;
