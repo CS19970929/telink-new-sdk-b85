@@ -20,22 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle
+      - name: Reconstruct source bundle and apply automatic OTA discovery patches
         shell: pwsh
         run: |
           $parts = Get-ChildItem 'ota-build/src.part*' | Sort-Object Name
           $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
           [IO.File]::WriteAllBytes('BmsOtaSuite.zip', [Convert]::FromBase64String($b64))
           Expand-Archive -Path BmsOtaSuite.zip -DestinationPath src -Force
-
-      - name: Apply Windows compile fix
-        shell: pwsh
-        run: |
-          $p = 'src/BmsOtaSuite/Windows/Bms.Ota.Windows/Ble/WindowsBleTransport.cs'
-          $text = Get-Content $p -Raw
-          if ($text -notmatch '(?m)^using System\.IO;') {
-            Set-Content -Path $p -Value ("using System.IO;`r`n" + $text) -Encoding utf8
-          }
+          Copy-Item ota-build/patches/WindowsBleTransport.cs src/BmsOtaSuite/Windows/Bms.Ota.Windows/Ble/WindowsBleTransport.cs -Force
+          Copy-Item ota-build/patches/MainWindow.xaml src/BmsOtaSuite/Windows/Bms.Ota.Windows/MainWindow.xaml -Force
+          Copy-Item ota-build/patches/MainWindow.xaml.cs src/BmsOtaSuite/Windows/Bms.Ota.Windows/MainWindow.xaml.cs -Force
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -74,6 +68,9 @@ jobs:
           Target=net8.0-windows10.0.19041.0
           RID=win-x64
           Configuration=Release
+          TelinkOtaServiceUuid=00010203-0405-0607-0809-0a0b0c0d1912
+          TelinkOtaCharacteristicUuid=00010203-0405-0607-0809-0a0b0c0d2b12
+          OtaGattDiscovery=automatic
           "@ | Set-Content dist/windows/BUILD_INFO.txt
           Compress-Archive -Path dist/windows/* -DestinationPath dist/BmsOta-Windows-x64.zip -Force
           Get-FileHash dist/BmsOta-Windows-x64.zip -Algorithm SHA256 | Format-List | Out-File dist/BmsOta-Windows-x64.sha256.txt
@@ -95,12 +92,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle and apply Android safety patches
+      - name: Reconstruct source bundle and apply automatic OTA discovery patches
         shell: bash
         run: |
           cat ota-build/src.part* | base64 -d > BmsOtaSuite.zip
           unzip -q BmsOtaSuite.zip -d src
           cp ota-build/patches/BleOtaSession.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/ble/BleOtaSession.kt
+          cp ota-build/patches/MainActivity.kt src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/java/com/example/bmsota/MainActivity.kt
+          cp ota-build/patches/activity_main.xml src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/res/layout/activity_main.xml
           cp ota-build/patches/AndroidManifest.xml src/BmsOtaSuite/Android/BmsOtaAndroid/app/src/main/AndroidManifest.xml
 
       - uses: actions/setup-java@v4
@@ -141,6 +140,9 @@ jobs:
             echo "compileSdk=35"
             echo "targetSdk=35"
             echo "minSdk=26"
+            echo "TelinkOtaServiceUuid=00010203-0405-0607-0809-0a0b0c0d1912"
+            echo "TelinkOtaCharacteristicUuid=00010203-0405-0607-0809-0a0b0c0d2b12"
+            echo "OtaGattDiscovery=automatic"
           } > dist/android/BUILD_INFO.txt
           (cd dist && zip -qr BmsOta-Android.zip android)
 
