@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="BMS Telink Legacy OTA"
+            android:text="BMS Telink Fast OTA"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -20,32 +20,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:padding="10dp"
             android:background="#EEEEEE"
-            android:text="Telink OTA GATT：自动发现\n官方 Service UUID → OTA Characteristic；若 Service 被定制则自动遍历所有 Service。无需填写 UUID 或 Handle。" />
+            android:padding="10dp"
+            android:text="仅显示 BT_ 开头设备。Telink OTA UUID 自动发现；Legacy Fast 16B，固定包延时 0ms；自动请求 MTU 并监听 OTA_RESULT。" />
 
-        <LinearLayout
+        <EditText
+            android:id="@+id/maxImageBytes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
-            <EditText
-                android:id="@+id/maxImageBytes"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Max image bytes (0=off)"
-                android:inputType="number"
-                android:text="0" />
-            <EditText
-                android:id="@+id/packetDelayMs"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Packet delay ms"
-                android:inputType="number"
-                android:text="15" />
-        </LinearLayout>
+            android:hint="Max image bytes (0=off)"
+            android:inputType="number"
+            android:text="0" />
 
         <LinearLayout
             android:layout_width="match_parent"
