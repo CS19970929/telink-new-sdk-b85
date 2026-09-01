@@ -30,7 +30,6 @@ import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var maxImageBytesBox: EditText
-    private lateinit var packetDelayBox: EditText
     private lateinit var deviceSpinner: Spinner
     private lateinit var firmwareInfo: TextView
     private lateinit var progressBar: ProgressBar
@@ -54,7 +53,9 @@ class MainActivity : Activity() {
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name = result.scanRecord?.deviceName ?: result.device.name ?: "(unnamed)"
+            val name = result.scanRecord?.deviceName ?: result.device.name ?: return
+            if (!name.startsWith("BT_", ignoreCase = true)) return
+
             val entry = ScanEntry(result.device, name, result.rssi)
             runOnUiThread {
                 byAddress[entry.device.address] = entry
@@ -74,7 +75,6 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         maxImageBytesBox = findViewById(R.id.maxImageBytes)
-        packetDelayBox = findViewById(R.id.packetDelayMs)
         deviceSpinner = findViewById(R.id.deviceSpinner)
         firmwareInfo = findViewById(R.id.firmwareInfo)
         progressBar = findViewById(R.id.progressBar)
@@ -94,7 +94,7 @@ class MainActivity : Activity() {
         startButton.setOnClickListener { startOta() }
         cancelButton.setOnClickListener { controller?.cancel() }
 
-        appendLog("Ready. Telink OTA UUIDs are built in and GATT is discovered automatically.")
+        appendLog("Ready. Fast Legacy OTA; device filter=BT_*")
         appendLog("OTA service=${BleOtaSession.TELINK_OTA_SERVICE_UUID}")
         appendLog("OTA characteristic=${BleOtaSession.TELINK_OTA_CHARACTERISTIC_UUID}")
     }
@@ -106,13 +106,11 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun hasBlePermissions(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-        } else {
-            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        }
+    private fun hasBlePermissions(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+    } else {
+        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun requestBlePermissions(): Boolean {
@@ -135,7 +133,7 @@ class MainActivity : Activity() {
             if (!adapter.isEnabled) error("请先打开手机蓝牙")
             entries.clear(); byAddress.clear(); spinnerAdapter.notifyDataSetChanged()
             adapter.bluetoothLeScanner?.startScan(scanCallback) ?: error("BluetoothLeScanner unavailable")
-            appendLog("BLE scan started.")
+            appendLog("BLE scan started; showing BT_* devices only.")
         } catch (e: Exception) {
             showError(e)
         }
@@ -156,18 +154,17 @@ class MainActivity : Activity() {
     private fun connectSelected() {
         try {
             if (!requestBlePermissions()) return
-            val selected = deviceSpinner.selectedItem as? ScanEntry ?: error("请先扫描并选择 BLE 设备")
+            val selected = deviceSpinner.selectedItem as? ScanEntry ?: error("请先扫描并选择 BT_ 设备")
             stopScanSilently()
 
             Thread {
                 try {
-                    appendLog("Connecting ${selected.device.address} ...")
                     session?.close()
                     val newSession = BleOtaSession(this, selected.device, ::appendLog)
                     newSession.connectAndDiscover()
                     session = newSession
                     appendLog("Connected. ${newSession.discoveryDescription}")
-                    toast("OTA 已自动识别并连接")
+                    toast("OTA 已连接")
                 } catch (e: Exception) {
                     session?.close(); session = null
                     showError(e)
@@ -187,7 +184,7 @@ class MainActivity : Activity() {
         startActivityForResult(intent, REQ_OPEN_BIN)
     }
 
-    @Deprecated("Using platform Activity API intentionally to keep the sample dependency-free")
+    @Deprecated("Using platform Activity API intentionally to keep the app dependency-free")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQ_OPEN_BIN || resultCode != RESULT_OK) return
@@ -212,23 +209,27 @@ class MainActivity : Activity() {
             val image = firmware ?: error("请先选择并校验 BIN")
             val currentSession = session ?: error("请先连接 OTA GATT 特征")
             if (!currentSession.isReady) error("OTA GATT 未就绪，请重新连接")
-            val delay = parseRange(packetDelayBox.text.toString(), "Packet delay", 0, 1000)
 
             startButton.isEnabled = false
             cancelButton.isEnabled = true
             progressBar.progress = 0
             progressText.text = "Starting"
 
-            val newController = TelinkOtaController(
-                currentSession,
-                ::appendLog
-            ) { done, total, imageBytes ->
-                if (done == 1 || done == total || done % 8 == 0) {
-                    runOnUiThread {
-                        val permille = ((done.toLong() * 1000L) / total).toInt()
-                        progressBar.progress = permille
-                        progressText.text = String.format(Locale.US, "%.1f%%  %d/%d packets  %d/%d bytes", done * 100.0 / total, done, total, imageBytes, image.imageSize)
-                    }
+            val newController = TelinkOtaController(currentSession, ::appendLog) { done, total, imageBytes, bytesPerSecond ->
+                runOnUiThread {
+                    val permille = ((done.toLong() * 1000L) / total).toInt()
+                    progressBar.progress = permille
+                    val remaining = (image.imageSize - imageBytes).coerceAtLeast(0)
+                    val eta = if (bytesPerSecond > 1.0) remaining / bytesPerSecond else 0.0
+                    progressText.text = String.format(
+                        Locale.US,
+                        "%.1f%%  %d/%d  %.1f KB/s  ETA %.1fs",
+                        done * 100.0 / total,
+                        done,
+                        total,
+                        bytesPerSecond / 1024.0,
+                        eta
+                    )
                 }
             }
             controller = newController
@@ -236,7 +237,7 @@ class MainActivity : Activity() {
             Thread {
                 try {
                     appendLog("=== OTA START ===")
-                    newController.upgrade(image, delay)
+                    newController.upgrade(image, 0)
                     appendLog("=== OTA DATA COMPLETE ===")
                     runOnUiThread {
                         progressText.text = "Transfer complete; waiting for device reboot/version verification"
@@ -270,12 +271,6 @@ class MainActivity : Activity() {
     private fun parseNonNegative(value: String, field: String): Int {
         val v = value.trim().toIntOrNull() ?: error("$field 必须是整数")
         if (v < 0) error("$field 必须 >= 0")
-        return v
-    }
-
-    private fun parseRange(value: String, field: String, min: Int, max: Int): Int {
-        val v = value.trim().toIntOrNull() ?: error("$field 必须是整数")
-        if (v !in min..max) error("$field 必须在 $min..$max 范围")
         return v
     }
 
