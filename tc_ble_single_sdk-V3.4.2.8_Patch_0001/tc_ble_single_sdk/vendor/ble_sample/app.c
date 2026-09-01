@@ -165,19 +165,47 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
-static volatile UINT8 s_ctlc_safety_closed = 1u;
+#define CTLC_BLOCK_MANUAL   0x01u
+#define CTLC_BLOCK_MOS_OTP  0x02u
+#define CTLC_BLOCK_UL_GUARD 0x04u
+#define CTLC_BLOCK_AFE_COMM 0x08u
+
+static volatile UINT8 s_ctlc_block_mask = CTLC_BLOCK_MANUAL;
+
+static void ctlc_apply_block_mask(void)
+{
+	if (s_ctlc_block_mask != 0u)
+	{
+		gpio_write(AFE_CTL_PIN, 0);
+		gpio_write(MCC_C_PIN, 0);
+	}
+	else
+	{
+		gpio_write(AFE_CTL_PIN, 1);
+	}
+}
+
+static void ctlc_set_block(UINT8 reason, UINT8 active)
+{
+	if (active)
+	{
+		s_ctlc_block_mask |= reason;
+	}
+	else
+	{
+		s_ctlc_block_mask &= (UINT8)(~reason);
+	}
+	ctlc_apply_block_mask();
+}
 
 void open_ctlc(void)
 {
-	gpio_write(AFE_CTL_PIN, 1);
-	s_ctlc_safety_closed = 0u;
+	ctlc_set_block(CTLC_BLOCK_MANUAL, 0u);
 	// gpio_write(MCC_C_PIN, 1);
 }
 void close_ctlc(void)
 {
-	s_ctlc_safety_closed = 1u;
-	gpio_write(AFE_CTL_PIN, 0);
-	gpio_write(MCC_C_PIN, 0);
+	ctlc_set_block(CTLC_BLOCK_MANUAL, 1u);
 }
 
 void app_timer_test_init(void)
@@ -265,7 +293,7 @@ _attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PU
 /* must be: 2^n, (power of 2);at least 4; recommended value: 4, 8, 16 */
 #define RX_FIFO_NUM 8
 
-/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct): maxTxOct + 10, then 4 byte align */
+/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct):  maxTxOct + 10, then 4 byte align */
 #define TX_FIFO_SIZE 40
 /* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
 #define TX_FIFO_NUM 16
@@ -344,12 +372,17 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 		return;
 	}
 	gpio_write(MCC_C_PIN, charge_on ? 1 : 0);
+	/* 命令成功后先更新期望状态；下一帧 AFE 回读会再次校正为实际 FET 状态。 */
+	SystemStatus.bits.b1Status_MOS_CHG = charge_on;
+	SystemStatus.bits.b1Status_MOS_DSG = discharge_on;
 }
 
 extern volatile union System_Status SystemStatus;
 
 #define SOFT_PROTECT_LEVEL_COUNT 3u
 #define SOFT_PROTECT_ITEM_COUNT 13u
+#define SOFT_PROTECT_THIRD_LEVEL 2u
+#define SOFT_OCP_AUTO_RECOVER_US ((u32)BMS_SOFT_OCP_AUTO_RECOVER_MS * 1000u)
 
 typedef enum
 {
@@ -373,9 +406,24 @@ typedef struct
 	UINT8 active[SOFT_PROTECT_LEVEL_COUNT];
 	UINT8 pending[SOFT_PROTECT_LEVEL_COUNT];
 	u32 pending_tick[SOFT_PROTECT_LEVEL_COUNT];
+	u32 active_tick[SOFT_PROTECT_LEVEL_COUNT];
 } soft_protect_state_t;
 
 static soft_protect_state_t s_soft_protect[SOFT_PROTECT_ITEM_COUNT];
+
+static UINT8 soft_protect_is_ocp(soft_protect_item_t item)
+{
+	return ((item == SOFT_PROTECT_CHG_OCP) || (item == SOFT_PROTECT_DSG_OCP)) ? 1u : 0u;
+}
+
+static void soft_protect_activate(soft_protect_item_t item, UINT8 level)
+{
+	soft_protect_state_t *state = &s_soft_protect[(UINT8)item];
+	state->active[level] = 1u;
+	state->pending[level] = 0u;
+	state->active_tick[level] = clock_time();
+	FaultWarnRecord2((enum FaultFlag)((UINT16)item + 1u + ((UINT16)level * SOFT_PROTECT_ITEM_COUNT)));
+}
 
 static void soft_protect_update_level(soft_protect_item_t item,
 								  UINT8 level,
@@ -402,6 +450,28 @@ static void soft_protect_update_level(soft_protect_item_t item,
 
 	if (state->active[level])
 	{
+		/* 一级/二级只是实时报警，离开本级阈值即解除，不使用三级恢复值。 */
+		if (level < SOFT_PROTECT_THIRD_LEVEL)
+		{
+			if (!trip)
+			{
+				state->active[level] = 0u;
+				state->pending[level] = 0u;
+			}
+			return;
+		}
+
+		/* 软件三级过流采用固定 30s 自动重试，不使用 OCP_Rcv。 */
+		if (soft_protect_is_ocp(item))
+		{
+			if (clock_time_exceed(state->active_tick[level], SOFT_OCP_AUTO_RECOVER_US))
+			{
+				state->active[level] = 0u;
+				state->pending[level] = 0u;
+			}
+			return;
+		}
+
 		if (recovered)
 		{
 			state->active[level] = 0u;
@@ -418,9 +488,7 @@ static void soft_protect_update_level(soft_protect_item_t item,
 
 	if (filter_ms == 0u)
 	{
-		state->active[level] = 1u;
-		state->pending[level] = 0u;
-		FaultWarnRecord2((enum FaultFlag)((UINT16)item + 1u + ((UINT16)level * SOFT_PROTECT_ITEM_COUNT)));
+		soft_protect_activate(item, level);
 		return;
 	}
 
@@ -433,9 +501,7 @@ static void soft_protect_update_level(soft_protect_item_t item,
 
 	if (clock_time_exceed(state->pending_tick[level], (u32)filter_ms * 1000u))
 	{
-		state->active[level] = 1u;
-		state->pending[level] = 0u;
-		FaultWarnRecord2((enum FaultFlag)((UINT16)item + 1u + ((UINT16)level * SOFT_PROTECT_ITEM_COUNT)));
+		soft_protect_activate(item, level);
 	}
 }
 
@@ -595,7 +661,12 @@ void mos_update(void)
 	UINT8 key_active = IsKeyWakeupActive() ? 1u : 0u;
 	UINT8 factory_mode = (MODE_FACTORY == Runtime_GetMode()) ? 1u : 0u;
 	UINT8 chg_request = (charger_active || factory_mode) ? 1u : 0u;
+#if (BMS_PORT_MODE == BMS_PORT_MODE_SPLIT)
+	/* 分口：充电期间不需要 DSG MOS；充电器优先于外部放电开关。 */
+	UINT8 dsg_request = ((!charger_active) && (key_active || factory_mode)) ? 1u : 0u;
+#else
 	UINT8 dsg_request = (key_active || factory_mode) ? 1u : 0u;
+#endif
 	UINT8 chg_target = 0u;
 	UINT8 dsg_target = 0u;
 	UINT8 global_block;
@@ -615,7 +686,7 @@ void mos_update(void)
 
 	global_block = (System_ERROR_UserCallback(ERROR_STATUS_AFE1) ||
 					System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK) ||
-					s_ctlc_safety_closed) ? 1u : 0u;
+					(s_ctlc_block_mask != 0u)) ? 1u : 0u;
 	chg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_CHG) ? 1u : 0u;
 	dsg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
 
@@ -642,11 +713,10 @@ void mos_update(void)
 		chg_target = (chg_request && !chg_non_ocp_block && !chg_ocp_block && !chg_hw_block) ? 1u : 0u;
 		dsg_target = (dsg_request && !dsg_non_ocp_block && !dsg_ocp_block && !dsg_hw_block) ? 1u : 0u;
 
+#if (BMS_PORT_MODE == BMS_PORT_MODE_COMMON)
 		/*
-		 * 过流后的反向电流恢复：
-		 * - 充电过流后检测到真实放电电流，只在没有其它充电侧/全局保护时强制打开 CHG MOS；
-		 * - 放电过流后检测到真实充电电流，只在没有其它放电侧/全局保护时强制打开 DSG MOS。
-		 * 这样可避免反向电流长期走 MOS 体二极管，同时不会绕过电压/温度/AFE 故障。
+		 * 同口才需要过流后的反向电流导通，避免反向电流长期走 MOS 体二极管。
+		 * 分口硬件不执行此逻辑，充电时也不会因此打开 DSG MOS。
 		 */
 		if (chg_ocp_block && (g_stCellInfoReport.u16IDischg > 0u) && !chg_non_ocp_block && !chg_hw_block)
 		{
@@ -656,12 +726,34 @@ void mos_update(void)
 		{
 			dsg_target = 1u;
 		}
+#endif
 	}
 
 	if (chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
 		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
 	{
 		WriteMosState(chg_target, dsg_target);
+	}
+}
+
+static void mos_fast_shutdown_poll(void)
+{
+	UINT8 charger_active = IsChargerWakeupActive() ? 1u : 0u;
+	UINT8 key_active = IsKeyWakeupActive() ? 1u : 0u;
+	UINT8 force_dsg_off;
+
+#if (BMS_PORT_MODE == BMS_PORT_MODE_SPLIT)
+	/* 分口：开关断开或进入充电状态都应尽快关 DSG。 */
+	force_dsg_off = ((!key_active) || charger_active) ? 1u : 0u;
+#else
+	/* 同口：有充电器时不能因外部开关断开而强制切断充电电流路径。 */
+	force_dsg_off = ((!key_active) && (!charger_active)) ? 1u : 0u;
+#endif
+
+	if (force_dsg_off && SystemStatus.bits.b1Status_MOS_DSG)
+	{
+		/* 只做快速关断；任何重新开启都必须回到 mos_update() 完整保护仲裁。 */
+		WriteMosState(SystemStatus.bits.b1Status_MOS_CHG, 0u);
 	}
 }
 
@@ -775,11 +867,7 @@ void app_adc_multi_sample(void)
 
 	if (sys_time.low_power_mode)
 	{
-		mos_state = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-		state_fuse = 0;
-		rong_fuse_afe_err_cnt = 0;
-#endif
+		/* 保留各硬切断状态，下一次取得有效 ADC 后再按各自恢复条件解除。 */
 		return;
 	}
 
@@ -808,7 +896,7 @@ void app_adc_multi_sample(void)
 	case 0:
 		if (g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)
 		{
-			close_ctlc();
+			ctlc_set_block(CTLC_BLOCK_MOS_OTP, 1u);
 			FaultWarnRecord2(MosOTp_Third);
 			mos_state = 1;
 		}
@@ -816,7 +904,7 @@ void app_adc_multi_sample(void)
 	case 1:
 		if (g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)
 		{
-			open_ctlc();
+			ctlc_set_block(CTLC_BLOCK_MOS_OTP, 0u);
 			mos_state = 0;
 		}
 		break;
@@ -832,8 +920,7 @@ void app_adc_multi_sample(void)
 		rong_fuse = 0;
 		state_fuse = 0;
 
-		close_ctlc();
-		// todo mcc关了，when 开
+		ctlc_set_block(CTLC_BLOCK_AFE_COMM, 1u);
 		if (Vbat_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
 		{
 			if (++rong_fuse_afe_err_cnt >= 10)
@@ -848,6 +935,7 @@ void app_adc_multi_sample(void)
 	else
 	{
 		static u16 delay_cnt = 0;
+		ctlc_set_block(CTLC_BLOCK_AFE_COMM, 0u);
 
 		switch (state_fuse)
 		{
@@ -855,7 +943,7 @@ void app_adc_multi_sample(void)
 			if ((g_stCellInfoReport.u16Temperature[8] >= (80 + 40) * 10))
 			{
 				state_fuse = 1;
-				close_ctlc();
+				ctlc_set_block(CTLC_BLOCK_UL_GUARD, 1u);
 				FaultWarnRecord2(CellChgOTp_Third);
 				FaultWarnRecord2(CellDsgOTp_Third);
 			}
@@ -866,8 +954,7 @@ void app_adc_multi_sample(void)
 				{
 					delay_cnt = 0;
 					state_fuse = 1;
-					close_ctlc();
-					// 是否应该强制关掉放电？？？
+					ctlc_set_block(CTLC_BLOCK_UL_GUARD, 1u);
 					FaultWarnRecord2(CellOvp_Third);
 					FaultWarnRecord2(BatOvp_Third);
 				}
@@ -879,7 +966,7 @@ void app_adc_multi_sample(void)
 			if ((g_stCellInfoReport.u16Temperature[8] < (75 + 40) * 10) && (g_stCellInfoReport.u16VCellMax <= 4150))
 			{
 				state_fuse = 0;
-				open_ctlc();
+				ctlc_set_block(CTLC_BLOCK_UL_GUARD, 0u);
 			}
 			if (((g_stCellInfoReport.u16VCellMax >= 4280) || (Vbat_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
 			{
@@ -1247,7 +1334,7 @@ int app_host_event_callback(u32 h, u8 *para, int n)
 
 	case GAP_EVT_SMP_SECURITY_PROCESS_DONE:
 	{
-		// gap_smp_pairingSuccessEvt_t *pEvt = (gap_smp_pairingSuccessEvt_t *)para;
+		// gap_smp_securityProcessDoneEvt_t *pEvt = (gap_smp_securityProcessDoneEvt_t *)para;
 	}
 	break;
 
@@ -1622,14 +1709,14 @@ _attribute_no_inline_ void user_init_normal(void)
 	/* Hid device on android7.0/7.1 or later version
 	 * New paring: send security_request immediately after connection complete
 	 * reConnect:  send security_request 1000mS after connection complete. If master start paring or encryption before 1000mS timeout, slave do not send security_request. */
-	bls_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); // if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
+	blc_smp_configSecurityRequestSending(SecReq_IMM_SEND, SecReq_PEND_SEND, 1000); // if not set, default is:  send "security request" immediately after link layer connection established(regardless of new connection or reconnection)
 #else
 	blc_smp_setSecurityLevel(No_Security);
 #endif
 
 	/* host(GAP/SMP/GATT/ATT) event process: register host event callback and set event mask */
 	blc_gap_registerHostEventHandler(app_host_event_callback);
-	/* enable some frequently-used host event by default, user can add more event */
+	/* enable some frequently-used host event by default, user can add more host event */
 	blc_gap_setEventMask(GAP_EVT_MASK_SMP_PAIRING_BEGIN |
 						 GAP_EVT_MASK_SMP_PAIRING_SUCCESS |
 						 GAP_EVT_MASK_SMP_PAIRING_FAIL |
@@ -1725,7 +1812,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	blc_ll_initPowerManagement_module();
 
 #if (PM_DEEPSLEEP_RETENTION_ENABLE)
-	blc_app_setDeepsleepRetentionSramSize(); // select DEEPSLEEP_MODE_RET_SRAM_LOW16K or DEEPSLEEP_MODE_RET_SRAM_LOW32K
+	blc_app_setDeepsleepRetentionSramSize(); // select DEEPSLEEP_MODE_RET_SRAM_LOW16K or DEEPSLEEP_RETENTION_MODE_RET_SRAM_LOW32K
 	bls_pm_setSuspendMask(SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
 	blc_pm_setDeepsleepRetentionThreshold(95, 95);
 
@@ -1884,7 +1971,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	{
 		g_app_flash_stack_session_active = 0u;
 
-		/* ignore "op addr_begin" and "op addr_end" for initialization event
+		/* ignore "op_addr_begin" and "op_addr_end" for initialization event
 		 * must call "flash protection_init" first, will choose correct flash protection relative API according to current internal flash type in MCU */
 		flash_protection_init();
 
@@ -1941,8 +2028,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 
 		/* OTA clear old firmware begin event is triggered by stack, in "blc ota_initOtaServer_module", rebooting from a successful OTA.
 		 * Software will erase whole old firmware for potential next new OTA, need unlock flash if any part of flash address from
-		 * "op addr_begin" to "op addr_end" is in locking block area.
-		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op addr_begin" and "op_addr_end",
+		 * "op_addr_begin" to "op_addr_end" is in locking block area.
+		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op_addr_begin" and "op_addr_end",
 		 * must unlock flash */
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA clear old FW begin, unlock flash\n");
 		flash_unlock();
@@ -1951,7 +2038,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	{
 		g_app_flash_stack_session_active = 0u;
 
-		/* ignore "op addr_begin" and "op addr_end" for END event
+		/* ignore "op_addr_begin" and "op_addr_end" for END event
 		 * OTA clear old firmware end event is triggered by stack, in "blc ota_initOtaServer_module", erasing old firmware data finished.
 		 * In this sample code, we need lock flash again, because we have unlocked it at the begin event of clear old firmware */
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA clear old FW end, restore flash locking\n");
@@ -1963,8 +2050,8 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 
 		/* OTA write new firmware begin event is triggered by stack, when receive first OTA data PDU.
 		 * Software will write data to flash on new firmware area, need unlock flash if any part of flash address from
-		 * "op addr_begin" to "op addr_end" is in locking block area.
-		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op addr_begin" and "op addr_end",
+		 * "op_addr_begin" to "op_addr_end" is in locking block area.
+		 * In this sample code, we protect whole flash area for old and new firmware, so here we do not need judge "op_addr_begin" and "op_addr_end",
 		 * must unlock flash */
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA write new FW begin, unlock flash\n");
 		flash_unlock();
@@ -1973,7 +2060,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	{
 		g_app_flash_stack_session_active = 0u;
 
-		/* ignore "op addr_begin" and "op addr_end" for END event
+		/* ignore "op_addr_begin" and "op_addr_end" for END event
 		 * OTA write new firmware end event is triggered by stack, after OTA end or an OTA error happens, writing new firmware data finished.
 		 * In this sample code, we need lock flash again, because we have unlocked it at the begin event of write new firmware */
 		tlkapi_printf(APP_FLASH_PROT_LOG_EN, "[FLASH][PROT] OTA write new FW end, restore flash locking\n");
@@ -2001,6 +2088,7 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
 	Runtime_Poll();
+	mos_fast_shutdown_poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 
