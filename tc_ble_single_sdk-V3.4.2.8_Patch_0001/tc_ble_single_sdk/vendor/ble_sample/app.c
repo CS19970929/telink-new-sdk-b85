@@ -251,12 +251,12 @@ _attribute_ram_code_ void app_timer_test_irq_proc(void)
 		// DBG_CHN0_TOGGLE;
 	}
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR1){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear counter
 	// 	timer1_irq_cnt ++;
 	// 	DBG_CHN1_TOGGLE;
 	// }
 	// if(reg_tmr_sta & FLD_TMR_STA_TMR2){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
+	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear counter
 	// 	timer2_irq_cnt ++;
 	// 	DBG_CHN2_TOGGLE;
 	// }
@@ -359,6 +359,16 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
+typedef struct
+{
+	UINT8 chg;
+	UINT8 dsg;
+	UINT8 valid;
+} mos_command_state_t;
+
+/* MCU 最近一次成功写入 AFE 的 MOS 命令。与 BSTATUS3 实际 FET 状态严格分离。 */
+static mos_command_state_t s_mos_command = {0u, 0u, 0u};
+
 void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 {
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1;
@@ -366,15 +376,16 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
 	if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
 	{
-		/* AFE 命令失败时不允许外部充电驱动保持导通，下一周期按 AFE 故障继续关断。 */
+		/* MOS 命令失败后锁存 AFE 通信故障，禁止主循环/快速路径继续高频重试。 */
 		gpio_write(MCC_C_PIN, 0);
-		System_ERROR_UserCallback(ERROR_AFE1);
+		s_mos_command.valid = 0u;
+		System_ErrFlag.u8ErrFlag_Com_AFE1 = 1u;
 		return;
 	}
 	gpio_write(MCC_C_PIN, charge_on ? 1 : 0);
-	/* 命令成功后先更新期望状态；下一帧 AFE 回读会再次校正为实际 FET 状态。 */
-	SystemStatus.bits.b1Status_MOS_CHG = charge_on;
-	SystemStatus.bits.b1Status_MOS_DSG = discharge_on;
+	s_mos_command.chg = charge_on;
+	s_mos_command.dsg = discharge_on;
+	s_mos_command.valid = 1u;
 }
 
 extern volatile union System_Status SystemStatus;
@@ -414,6 +425,11 @@ static soft_protect_state_t s_soft_protect[SOFT_PROTECT_ITEM_COUNT];
 static UINT8 soft_protect_is_ocp(soft_protect_item_t item)
 {
 	return ((item == SOFT_PROTECT_CHG_OCP) || (item == SOFT_PROTECT_DSG_OCP)) ? 1u : 0u;
+}
+
+static UINT8 soft_protect_third_active(soft_protect_item_t item)
+{
+	return s_soft_protect[(UINT8)item].active[SOFT_PROTECT_THIRD_LEVEL] ? 1u : 0u;
 }
 
 static void soft_protect_activate(soft_protect_item_t item, UINT8 level)
@@ -670,13 +686,13 @@ void mos_update(void)
 	UINT8 chg_target = 0u;
 	UINT8 dsg_target = 0u;
 	UINT8 global_block;
+	UINT8 afe_comm_block;
 	UINT8 chg_non_ocp_block;
 	UINT8 dsg_non_ocp_block;
 	UINT8 chg_ocp_block;
 	UINT8 dsg_ocp_block;
 	UINT8 chg_hw_block;
 	UINT8 dsg_hw_block;
-	union MDLCHGFAULT_REG *fault3 = &g_stCellInfoReport.unMdlFault_Third;
 
 	soft_protect_update_all();
 	soft_protect_update_report();
@@ -684,53 +700,85 @@ void mos_update(void)
 	/* 保持现有协议含义：该状态位目前被项目作为充电器在线状态使用。 */
 	SystemStatus.bits.b1Status_Cool = charger_active;
 
-	global_block = (System_ERROR_UserCallback(ERROR_STATUS_AFE1) ||
-					System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK) ||
+	afe_comm_block = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 1u : 0u;
+	if (afe_comm_block)
+	{
+		/* 通信异常时不再尝试写 MOS，避免错误路径持续打 I2C；外部充电驱动立即关闭。 */
+		gpio_write(MCC_C_PIN, 0);
+		s_mos_command.valid = 0u;
+		return;
+	}
+
+	global_block = (System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK) ||
 					(s_ctlc_block_mask != 0u)) ? 1u : 0u;
-	chg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_CHG) ? 1u : 0u;
-	dsg_hw_block = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
 
-	chg_ocp_block = fault3->bits.b1IchgOcp ? 1u : 0u;
-	dsg_ocp_block = fault3->bits.b1IdischgOcp ? 1u : 0u;
-
-	/* 压差三级属于全局严重不一致，充放电均禁止；MOS 过温同样双向禁止。 */
-	chg_non_ocp_block = (fault3->bits.b1CellOvp ||
-						 fault3->bits.b1BatOvp ||
-						 fault3->bits.b1CellChgOtp ||
-						 fault3->bits.b1CellChgUtp ||
-						 fault3->bits.b1TmosOtp ||
-						 fault3->bits.b1VcellDeltaBig) ? 1u : 0u;
-	dsg_non_ocp_block = (fault3->bits.b1CellUvp ||
-						 fault3->bits.b1BatUvp ||
-						 fault3->bits.b1CellDischgOtp ||
-						 fault3->bits.b1CellDischgUtp ||
-						 fault3->bits.b1TmosOtp ||
-						 fault3->bits.b1VcellDeltaBig ||
-						 fault3->bits.b1SocLow) ? 1u : 0u;
+	/* MCU 控制只看软件三级保护；AFE 硬件保护不生成 MCU 的 OFF 请求。 */
+	chg_ocp_block = soft_protect_third_active(SOFT_PROTECT_CHG_OCP);
+	dsg_ocp_block = soft_protect_third_active(SOFT_PROTECT_DSG_OCP);
+	chg_non_ocp_block = (soft_protect_third_active(SOFT_PROTECT_CELL_OVP) ||
+						 soft_protect_third_active(SOFT_PROTECT_VBUS_OVP) ||
+						 soft_protect_third_active(SOFT_PROTECT_CHG_OTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_CHG_UTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_MOS_OTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_VDELTA)) ? 1u : 0u;
+	dsg_non_ocp_block = (soft_protect_third_active(SOFT_PROTECT_CELL_UVP) ||
+						 soft_protect_third_active(SOFT_PROTECT_VBUS_UVP) ||
+						 soft_protect_third_active(SOFT_PROTECT_DSG_OTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_DSG_UTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_MOS_OTP) ||
+						 soft_protect_third_active(SOFT_PROTECT_VDELTA) ||
+						 soft_protect_third_active(SOFT_PROTECT_SOC_LOW)) ? 1u : 0u;
 
 	if (!global_block)
 	{
-		chg_target = (chg_request && !chg_non_ocp_block && !chg_ocp_block && !chg_hw_block) ? 1u : 0u;
-		dsg_target = (dsg_request && !dsg_non_ocp_block && !dsg_ocp_block && !dsg_hw_block) ? 1u : 0u;
+		chg_target = (chg_request && !chg_non_ocp_block && !chg_ocp_block) ? 1u : 0u;
+		dsg_target = (dsg_request && !dsg_non_ocp_block && !dsg_ocp_block) ? 1u : 0u;
 
 #if (BMS_PORT_MODE == BMS_PORT_MODE_COMMON)
-		/*
-		 * 同口才需要过流后的反向电流导通，避免反向电流长期走 MOS 体二极管。
-		 * 分口硬件不执行此逻辑，充电时也不会因此打开 DSG MOS。
-		 */
-		if (chg_ocp_block && (g_stCellInfoReport.u16IDischg > 0u) && !chg_non_ocp_block && !chg_hw_block)
+		/* 同口的软件过流反向导通只属于 MCU 软件策略，AFE 硬件过流由 ENMOS/AFE 参数自行处理。 */
+		if (chg_ocp_block && (g_stCellInfoReport.u16IDischg > 0u) && !chg_non_ocp_block)
 		{
 			chg_target = 1u;
 		}
-		if (dsg_ocp_block && (g_stCellInfoReport.u16Ichg > 0u) && !dsg_non_ocp_block && !dsg_hw_block)
+		if (dsg_ocp_block && (g_stCellInfoReport.u16Ichg > 0u) && !dsg_non_ocp_block)
 		{
 			dsg_target = 1u;
 		}
 #endif
 	}
 
-	if (chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
-		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
+	/*
+	 * AFE 硬件保护只作为“禁止新的 ON 命令”门控：
+	 * - 硬件保护触发本身不要求 MCU 再发 OFF；AFE 已经自主关断。
+	 * - 若 MCU 本来就命令 ON，则保持命令缓存为 ON，不因 actual FET=OFF 周期重写。
+	 * - 若软件曾主动关断，则硬件保护未解除前禁止软件恢复时重新发 ON。
+	 */
+	chg_hw_block = (ram_reg_309.REG_BSTATUS1.bits.OV ||
+					ram_reg_309.REG_BSTATUS1.bits.OCC ||
+					ram_reg_309.REG_BSTATUS2.bits.OTC ||
+					ram_reg_309.REG_BSTATUS2.bits.UTC ||
+					System_ERROR_UserCallback(ERROR_STATUS_CBC_CHG)) ? 1u : 0u;
+	dsg_hw_block = (ram_reg_309.REG_BSTATUS1.bits.UV ||
+					ram_reg_309.REG_BSTATUS1.bits.OCD1 ||
+					ram_reg_309.REG_BSTATUS1.bits.OCD2 ||
+					ram_reg_309.REG_BSTATUS1.bits.SC ||
+					ram_reg_309.REG_BSTATUS2.bits.OTD ||
+					ram_reg_309.REG_BSTATUS2.bits.UTD ||
+					System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG)) ? 1u : 0u;
+
+	if (chg_target && chg_hw_block)
+	{
+		chg_target = s_mos_command.valid ? s_mos_command.chg : 0u;
+	}
+	if (dsg_target && dsg_hw_block)
+	{
+		dsg_target = s_mos_command.valid ? s_mos_command.dsg : 0u;
+	}
+
+	/* 只比较 MCU 最近成功命令，不比较 AFE actual FET 状态。 */
+	if (!s_mos_command.valid ||
+		chg_target != s_mos_command.chg ||
+		dsg_target != s_mos_command.dsg)
 	{
 		WriteMosState(chg_target, dsg_target);
 	}
@@ -750,10 +798,16 @@ static void mos_fast_shutdown_poll(void)
 	force_dsg_off = ((!key_active) && (!charger_active)) ? 1u : 0u;
 #endif
 
-	if (force_dsg_off && SystemStatus.bits.b1Status_MOS_DSG)
+	if (System_ERROR_UserCallback(ERROR_STATUS_AFE1))
 	{
-		/* 只做快速关断；任何重新开启都必须回到 mos_update() 完整保护仲裁。 */
-		WriteMosState(SystemStatus.bits.b1Status_MOS_CHG, 0u);
+		s_mos_command.valid = 0u;
+		return;
+	}
+
+	if (force_dsg_off && s_mos_command.valid && s_mos_command.dsg)
+	{
+		/* 快速路径只改变 MCU 命令缓存中的 DSG=OFF；任何开启仍回到 mos_update() 仲裁。 */
+		WriteMosState(s_mos_command.chg, 0u);
 	}
 }
 
