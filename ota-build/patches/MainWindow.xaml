@@ -15,21 +15,25 @@
         <GroupBox Header="OTA 参数" Grid.Row="0" Margin="0,0,0,10">
             <Grid Margin="10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/><ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/><ColumnDefinition Width="200"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Telink OTA GATT"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" Margin="6,3" VerticalAlignment="Center"
-                           Text="自动发现（官方 OTA UUID，无需填写 Handle/UUID）"/>
+                           Text="自动发现官方 OTA UUID；Handle 动态获取"/>
                 <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Text="Max image bytes"/>
                 <TextBox x:Name="MaxImageBytesBox" Grid.Row="0" Grid.Column="3" Margin="6,3" Text="0" ToolTip="0 表示不加产品层大小限制"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="发现策略"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="传输模式"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" Margin="6,3" VerticalAlignment="Center"
-                           Text="优先官方 Service；失败后全服务搜索 OTA Characteristic"/>
-                <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Text="Packet delay (ms)"/>
-                <TextBox x:Name="PacketDelayBox" Grid.Row="1" Grid.Column="3" Margin="6,3" Text="15"/>
+                           Text="Auto 优先 Extend64；链路/固件不支持时回退 Legacy Fast"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Text="Mode"/>
+                <ComboBox x:Name="TransferModeBox" Grid.Row="1" Grid.Column="3" Margin="6,3" SelectedIndex="0">
+                    <ComboBoxItem Content="Auto (推荐)" Tag="Auto"/>
+                    <ComboBoxItem Content="Legacy Fast (16B)" Tag="LegacyFast"/>
+                    <ComboBoxItem Content="Extend 64B" Tag="Extend64"/>
+                </ComboBox>
             </Grid>
         </GroupBox>
 
