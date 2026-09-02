@@ -359,45 +359,20 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
-#define MOS_WRITE_RETRY_SAFE_US   100000u
-#define MOS_WRITE_RETRY_ENABLE_US 1000000u
-
-typedef struct
-{
-	UINT8 chg;
-	UINT8 dsg;
-	UINT8 valid;
-	UINT8 write_failed;
-	u32 fail_tick;
-} mos_command_state_t;
-
-/* MCU 最近一次成功写入 AFE 的 MOS 命令。与 BSTATUS3 实际 FET 状态严格分离。 */
-static mos_command_state_t s_mos_command = {0u, 0u, 0u, 0u, 0u};
-
-static UINT8 mos_command_retry_ready(UINT8 charge_on, UINT8 discharge_on)
-{
-	UINT8 enables_new_path;
-	u32 retry_us;
-
-	if (!s_mos_command.write_failed)
-	{
-		return 1u;
-	}
-
-	/*
-	 * 失败后的重试按方向限频：
-	 * - 只维持/减少原有导通路径属于安全关断，允许 100ms 后重试；
-	 * - 任何新增 MOS 导通都至少等待 1s，避免故障期间高频尝试打开功率路径。
-	 */
-	enables_new_path = ((charge_on && !s_mos_command.chg) ||
-						(discharge_on && !s_mos_command.dsg)) ? 1u : 0u;
-	retry_us = enables_new_path ? MOS_WRITE_RETRY_ENABLE_US : MOS_WRITE_RETRY_SAFE_US;
-	return clock_time_exceed(s_mos_command.fail_tick, retry_us) ? 1u : 0u;
-}
+/*
+ * MCU 软件层最近一次计算出的 MOS 允许状态。
+ * 这里只用于开关/充电器变化时的快速安全关断，不代表 AFE 实际 FET 状态，
+ * 也不参与 AFE 硬件保护/恢复判断。
+ */
+static volatile UINT8 s_mos_sw_chg_allow = 0u;
+static volatile UINT8 s_mos_sw_dsg_allow = 0u;
 
 void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 {
-	/* 普通 MOS 命令不得携带过流清除/低功耗瞬态命令；这些位只能由各自专用流程控制。 */
+	/*
+	 * 普通 MOS 周期命令只表达 MCU 软件允许状态。
+	 * OCRC/SLEEP/IDLE 必须保持 0，禁止普通 MOS 写入清除 AFE 硬保护或携带低功耗瞬态命令。
+	 */
 	SH367309_Reg_Store.REG_MTP_CONF.bits.OCRC = 0;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.SLEEP = 0;
 	SH367309_Reg_Store.REG_MTP_CONF.bits.IDLE = 0;
@@ -406,19 +381,12 @@ void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
 	if (!MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all))
 	{
-		/* MOS 命令失败后锁存 AFE 通信故障，并由 retry gate 限制后续 MTP 重试频率。 */
+		/* 通信写失败只记录通信故障并关闭外部充电驱动；不改变软/硬件保护状态。 */
 		gpio_write(MCC_C_PIN, 0);
-		s_mos_command.valid = 0u;
-		s_mos_command.write_failed = 1u;
-		s_mos_command.fail_tick = clock_time();
 		System_ErrFlag.u8ErrFlag_Com_AFE1 = 1u;
 		return;
 	}
 	gpio_write(MCC_C_PIN, charge_on ? 1 : 0);
-	s_mos_command.chg = charge_on;
-	s_mos_command.dsg = discharge_on;
-	s_mos_command.valid = 1u;
-	s_mos_command.write_failed = 0u;
 }
 
 extern volatile union System_Status SystemStatus;
@@ -724,8 +692,6 @@ void mos_update(void)
 	UINT8 dsg_non_ocp_block;
 	UINT8 chg_ocp_block;
 	UINT8 dsg_ocp_block;
-	UINT8 chg_hw_block;
-	UINT8 dsg_hw_block;
 
 	soft_protect_update_all();
 	soft_protect_update_report();
@@ -736,9 +702,8 @@ void mos_update(void)
 	afe_comm_block = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 1u : 0u;
 	if (afe_comm_block)
 	{
-		/* 通信异常时不再尝试写 MOS，避免错误路径持续打 I2C；外部充电驱动立即关闭。 */
+		/* AFE 通信异常属于系统失效，不是硬件保护状态；停止总线写并关闭外部充电驱动。 */
 		gpio_write(MCC_C_PIN, 0);
-		s_mos_command.valid = 0u;
 		return;
 	}
 
@@ -781,41 +746,15 @@ void mos_update(void)
 	}
 
 	/*
-	 * AFE 硬件保护只作为“禁止新的 ON 命令”门控：
-	 * - 硬件保护触发本身不要求 MCU 再发 OFF；AFE 已经自主关断。
-	 * - 若 MCU 本来就命令 ON，则保持命令缓存为 ON，不因 actual FET=OFF 周期重写。
-	 * - 若软件曾主动关断，则硬件保护未解除前禁止软件恢复时重新发 ON。
+	 * 软件保护与 AFE 硬件保护完全独立：
+	 * - CHGMOS/DSGMOS 只表达 MCU 软件层是否允许对应功率路径；
+	 * - BSTATUS 硬件保护位不参与软件 target 计算，也不阻止 MCU 周期写 allow=1；
+	 * - AFE 硬件保护拥有最终关断权，并完全按 AFE 自身参数/恢复条件恢复；
+	 * - 无论软件阈值高于还是低于硬件阈值，都不会形成互锁或相互清保护。
 	 */
-	chg_hw_block = (ram_reg_309.REG_BSTATUS1.bits.OV ||
-					ram_reg_309.REG_BSTATUS1.bits.OCC ||
-					ram_reg_309.REG_BSTATUS2.bits.OTC ||
-					ram_reg_309.REG_BSTATUS2.bits.UTC ||
-					System_ERROR_UserCallback(ERROR_STATUS_CBC_CHG)) ? 1u : 0u;
-	dsg_hw_block = (ram_reg_309.REG_BSTATUS1.bits.UV ||
-					ram_reg_309.REG_BSTATUS1.bits.OCD1 ||
-					ram_reg_309.REG_BSTATUS1.bits.OCD2 ||
-					ram_reg_309.REG_BSTATUS1.bits.SC ||
-					ram_reg_309.REG_BSTATUS2.bits.OTD ||
-					ram_reg_309.REG_BSTATUS2.bits.UTD ||
-					System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG)) ? 1u : 0u;
-
-	if (chg_target && chg_hw_block)
-	{
-		chg_target = s_mos_command.valid ? s_mos_command.chg : 0u;
-	}
-	if (dsg_target && dsg_hw_block)
-	{
-		dsg_target = s_mos_command.valid ? s_mos_command.dsg : 0u;
-	}
-
-	/* 只比较 MCU 最近成功命令，不比较 AFE actual FET 状态。 */
-	if ((!s_mos_command.valid ||
-		 chg_target != s_mos_command.chg ||
-		 dsg_target != s_mos_command.dsg) &&
-		mos_command_retry_ready(chg_target, dsg_target))
-	{
-		WriteMosState(chg_target, dsg_target);
-	}
+	s_mos_sw_chg_allow = chg_target;
+	s_mos_sw_dsg_allow = dsg_target;
+	WriteMosState(chg_target, dsg_target);
 }
 
 static void mos_fast_shutdown_poll(void)
@@ -834,16 +773,18 @@ static void mos_fast_shutdown_poll(void)
 
 	if (System_ERROR_UserCallback(ERROR_STATUS_AFE1))
 	{
-		s_mos_command.valid = 0u;
+		gpio_write(MCC_C_PIN, 0);
 		return;
 	}
 
-	/* 即使上次 OFF 写失败导致 valid=0，也保留最后成功命令值，在通信恢复后按退避重新尝试关 DSG。 */
-	if (force_dsg_off && s_mos_command.dsg &&
-		mos_command_retry_ready(s_mos_command.chg, 0u))
+	/*
+	 * 快速路径只提前收紧 MCU 软件允许状态，不读取 AFE 硬件保护作为控制条件。
+	 * 写一次后将软件 DSG allow 置 0，避免在下一次 200ms 完整仲裁前主循环重复写。
+	 */
+	if (force_dsg_off && s_mos_sw_dsg_allow)
 	{
-		/* 快速路径只减少导通路径；任何重新开启仍回到 mos_update() 完整仲裁。 */
-		WriteMosState(s_mos_command.chg, 0u);
+		s_mos_sw_dsg_allow = 0u;
+		WriteMosState(s_mos_sw_chg_allow, 0u);
 	}
 }
 
