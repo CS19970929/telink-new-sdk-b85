@@ -26,6 +26,7 @@ public sealed class BmsBleTransport : IAsyncDisposable
     private GattSession? _session;
     private int _attempt;
     private string _currentStage = "Idle";
+    private ulong? _lastAddress;
 
     public bool IsConnected => _device is not null && _request is not null && _response is not null;
     public int? NegotiatedMtu => _session?.MaxPduSize;
@@ -37,6 +38,7 @@ public sealed class BmsBleTransport : IAsyncDisposable
 
     public async Task ConnectAsync(ulong address, CancellationToken ct = default)
     {
+        _lastAddress = address;
         Exception? last = null;
         var total = Stopwatch.StartNew();
         Diag($"[CONNECT] START address={address:X12}; attempts={ConnectAttempts}");
@@ -76,6 +78,15 @@ public sealed class BmsBleTransport : IAsyncDisposable
         var final = new IOException($"BMS BLE connection failed after {ConnectAttempts} automatic attempts. Failed stage={_currentStage}. Last error: {last?.Message}", last);
         DiagException($"[CONNECT] FAILED total={total.ElapsedMilliseconds}ms; finalStage={_currentStage}", final);
         throw final;
+    }
+
+    public async Task ReconnectAsync(CancellationToken ct = default)
+    {
+        ulong address = _lastAddress ?? throw new IOException("No previous BLE address is available for reconnect.");
+        Diag($"[CONNECT] FULL_RECONNECT requested address={address:X12}");
+        await DisposeConnectionAsync();
+        await Task.Delay(300, ct);
+        await ConnectAsync(address, ct);
     }
 
     private async Task ConnectOnceAsync(ulong address, CancellationToken ct)
@@ -162,8 +173,6 @@ public sealed class BmsBleTransport : IAsyncDisposable
         if (notifyStatus != GattCommunicationStatus.Success)
             throw new IOException($"Failed to subscribe BMS response notifications: {notifyStatus}");
 
-        // A successful CCCD write only confirms the descriptor transaction. Give the peripheral
-        // application and Windows BLE stack a short interval before sending the first Modbus frame.
         await StepAsync("PostNotifyReadySettle", async () =>
         {
             await Task.Delay(350, ct);
@@ -237,9 +246,6 @@ public sealed class BmsBleTransport : IAsyncDisposable
         ct.ThrowIfCancellationRequested();
         var characteristic = _request ?? throw new IOException("BMS SPP write characteristic is not connected.");
 
-        // Modbus traffic is low rate and reliability matters more than a few milliseconds. Prefer
-        // ATT Write Request/Response when the characteristic supports it. OTA uses a separate
-        // transport and remains WriteWithoutResponse for throughput.
         var option = characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write)
             ? GattWriteOption.WriteWithResponse
             : GattWriteOption.WriteWithoutResponse;
