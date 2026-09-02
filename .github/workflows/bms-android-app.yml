@@ -1,0 +1,71 @@
+name: BMS Assistant Android
+
+on:
+  push:
+    branches:
+      - build/bms-android-20260902
+    paths:
+      - 'bms-tool-android/**'
+      - '.github/workflows/bms-android-app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: yes | sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build debug and release APK
+        working-directory: bms-tool-android
+        run: gradle --no-daemon clean assembleDebug assembleRelease lint
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/android
+          cp bms-tool-android/app/build/outputs/apk/debug/app-debug.apk dist/android/BmsAssistant-debug.apk
+          cp bms-tool-android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/BmsAssistant-release-unsigned.apk
+          sha256sum dist/android/*.apk > dist/android/SHA256SUMS.txt
+          cat > dist/android/BUILD_INFO.txt <<EOF
+          GitCommit=$GITHUB_SHA
+          Package=com.cjsh.bmsassistant
+          MinSdk=26
+          TargetSdk=35
+          DeviceFilter=BT_*
+          BmsService=6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+          ModbusSlave=0x01
+          AutoRefresh=1s
+          SoftwareProtection=0x2100..0x2140
+          AfeHardware=0x2400..0x2417
+          EventLog=0xC008 qty100
+          LongTermMonitor=XLSX
+          OTA=TelinkLegacyFast16
+          EOF
+          unzip -t dist/android/BmsAssistant-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BmsAssistant-Android
+          path: dist/android/**
+          if-no-files-found: error
+          retention-days: 7
