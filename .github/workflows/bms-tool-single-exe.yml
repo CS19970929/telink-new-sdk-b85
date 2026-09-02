@@ -1,0 +1,71 @@
+name: BMS Tool Single EXE
+
+on:
+  push:
+    branches:
+      - build/bms-tool-20260902
+    paths:
+      - '.github/workflows/bms-tool-single-exe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Publish single-file Windows x64 EXE
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact validated application source
+        uses: actions/checkout@v4
+        with:
+          ref: e18b9c121f8c03cf0173f12ebfeffaef52d3839e
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        working-directory: bms-tool-windows/BmsTool.Windows
+        run: dotnet restore BmsTool.Windows.csproj
+
+      - name: Publish self-contained single EXE
+        working-directory: bms-tool-windows/BmsTool.Windows
+        shell: pwsh
+        run: |
+          dotnet publish BmsTool.Windows.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            --no-restore `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o $env:GITHUB_WORKSPACE/dist/single
+
+      - name: Validate and prepare direct EXE
+        shell: pwsh
+        run: |
+          $src = 'dist/single/BmsTool.Windows.exe'
+          if (-not (Test-Path $src)) { throw 'Single-file EXE was not produced' }
+          $files = Get-ChildItem 'dist/single' -File
+          Write-Host 'Publish output:'
+          $files | Format-Table Name,Length
+          Copy-Item $src 'dist/BmsAssistant.exe' -Force
+          $hash = Get-FileHash 'dist/BmsAssistant.exe' -Algorithm SHA256
+          "SHA256=$($hash.Hash.ToLower())" | Set-Content 'dist/BmsAssistant.sha256.txt'
+          $size = (Get-Item 'dist/BmsAssistant.exe').Length
+          if ($size -lt 1000000) { throw "EXE unexpectedly small: $size bytes" }
+          Write-Host "BmsAssistant.exe size=$size SHA256=$($hash.Hash)"
+
+      - name: Upload direct EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: BmsAssistant-Windows-x64-SingleExe
+          path: |
+            dist/BmsAssistant.exe
+            dist/BmsAssistant.sha256.txt
+          if-no-files-found: error
+          retention-days: 7
