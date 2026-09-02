@@ -1,0 +1,938 @@
+name: codex-afe-hw-param-stage
+
+on:
+  push:
+    branches:
+      - codex-afe-hw-param-stage
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply SH367309 hardware parameter implementation
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+          app_dir = root / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+
+          def read(name):
+              return (app_dir / name).read_text(encoding='utf-8')
+
+          def write(name, text):
+              (app_dir / name).write_text(text, encoding='utf-8')
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              return text.replace(old, new, 1)
+
+          # ------------------------------------------------------------------
+          # sh367309_datadeal.h: protocol addresses, canonical defaults, API
+          # ------------------------------------------------------------------
+          name = 'sh367309_datadeal.h'
+          text = read(name)
+          marker = '#include "conf.h"\n'
+          block = r'''
+
+/*
+ * SH367309 hardware-protection parameter block.
+ * Keep the 24-register layout compatible with the legacy a002-c030 project.
+ * Values are physical engineering units; writes are accepted only when the
+ * requested value is exactly representable by the SH367309 EEPROM encoding.
+ */
+#define SH309_AFE_PARAM_REG_BASE   0x2400u
+#define SH309_AFE_PARAM_REG_COUNT  24u
+#define SH309_AFE_PARAM_REG_END    (SH309_AFE_PARAM_REG_BASE + SH309_AFE_PARAM_REG_COUNT - 1u)
+
+typedef enum {
+    SH309_AFE_PARAM_VCELL_OVP = 0,
+    SH309_AFE_PARAM_VCELL_OVP_RCV,
+    SH309_AFE_PARAM_VCELL_OVP_FILTER,
+    SH309_AFE_PARAM_VCELL_UVP,
+    SH309_AFE_PARAM_VCELL_UVP_RCV,
+    SH309_AFE_PARAM_VCELL_UVP_FILTER,
+    SH309_AFE_PARAM_ICHG_OCP_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_SECOND,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_TCHG_OTP,
+    SH309_AFE_PARAM_TCHG_OTP_RCV,
+    SH309_AFE_PARAM_TCHG_UTP,
+    SH309_AFE_PARAM_TCHG_UTP_RCV,
+    SH309_AFE_PARAM_TDSG_OTP,
+    SH309_AFE_PARAM_TDSG_OTP_RCV,
+    SH309_AFE_PARAM_TDSG_UTP,
+    SH309_AFE_PARAM_TDSG_UTP_RCV,
+    SH309_AFE_PARAM_SC_CURRENT,
+    SH309_AFE_PARAM_SC_DELAY,
+} sh309_afe_param_index_t;
+
+typedef enum {
+    SH309_AFE_PARAM_RESULT_OK = 0,
+    SH309_AFE_PARAM_RESULT_INVALID = 1,
+    SH309_AFE_PARAM_RESULT_STORE_ERROR = 2,
+} sh309_afe_param_result_t;
+'''
+          text = replace_once(text, marker, marker + block, 'insert AFE protocol block')
+          text, n = re.subn(r'#define AFE_CUV\s+\(2750\)', '#define AFE_CUV           (2740)', text, count=1)
+          if n != 1:
+              raise SystemExit('canonical AFE_CUV default not found')
+          text, n = re.subn(r'#define AFE_ODC2_filter\s+\(50\)', '#define AFE_ODC2_filter  \t(60)', text, count=1)
+          if n != 1:
+              raise SystemExit('canonical AFE_ODC2_filter default not found')
+
+          typedef_end = '}AFE_Parameters_RS485_Typedef; \n'
+          api_block = r'''
+
+extern AFE_Parameters_RS485_Typedef AFE_Parameters_RS485_Struction;
+extern int AFE_PARAM_WRITE_Flag;
+
+u8 SH367309_AfeParamLoad(void);
+u8 SH367309_AfeParamReadReg(u16 reg, u16 *value);
+sh309_afe_param_result_t SH367309_AfeParamWriteRegs(u16 start_reg, const u16 *values, u16 count);
+u8 SH367309_AfeParamValidate(const AFE_Parameters_RS485_Typedef *params);
+'''
+          text = replace_once(text, typedef_end, typedef_end + api_block, 'insert AFE parameter API')
+          write(name, text)
+
+          # ------------------------------------------------------------------
+          # bms_cold_kv_store.h: 24 words packed into 12 KV32 keys
+          # ------------------------------------------------------------------
+          name = 'bms_cold_kv_store.h'
+          text = read(name)
+          marker = '#define BMS_COLD_KV_SECTORS   4\n#endif\n'
+          block = r'''
+
+#define BMS_COLD_AFE_PARAM_WORD_COUNT 24u
+'''
+          text = replace_once(text, marker, marker + block, 'insert AFE KV count')
+          marker = 'int bms_cold_kv_store_set_bt_name_suffix(const char *suffix);\n'
+          block = r'''int bms_cold_kv_store_get_afe_params(u16 *values, u16 count);
+int bms_cold_kv_store_set_afe_params(const u16 *values, u16 count);
+'''
+          text = replace_once(text, marker, marker + block, 'insert AFE KV APIs')
+          write(name, text)
+
+          # ------------------------------------------------------------------
+          # bms_cold_kv_store.c: dedicated AFE persistent key range 0x5000
+          # ------------------------------------------------------------------
+          name = 'bms_cold_kv_store.c'
+          text = read(name)
+          old = '#define BMS_COLD_BTNAME_KEY_BASE   0x4000u\n#define BMS_COLD_BTNAME_SLOT_COUNT 6u\n'
+          new = '#define BMS_COLD_BTNAME_KEY_BASE   0x4000u\n#define BMS_COLD_AFE_KEY_BASE      0x5000u\n#define BMS_COLD_BTNAME_SLOT_COUNT 6u\n#define BMS_COLD_AFE_SLOT_COUNT    (BMS_COLD_AFE_PARAM_WORD_COUNT / 2u)\n'
+          text = replace_once(text, old, new, 'AFE KV base')
+
+          old = '''static const u32 g_bms_btname_keys[] = {
+    BMS_COLD_BTNAME_FIELD_LIST(BMS_COLD_CTRL_KEY_ITEM)
+};
+'''
+          new = '''static const u32 g_bms_btname_keys[] = {
+    BMS_COLD_BTNAME_FIELD_LIST(BMS_COLD_CTRL_KEY_ITEM)
+};
+
+static const u32 g_bms_afe_keys[BMS_COLD_AFE_SLOT_COUNT] = {
+    BMS_COLD_AFE_KEY_BASE + 0x01u,
+    BMS_COLD_AFE_KEY_BASE + 0x02u,
+    BMS_COLD_AFE_KEY_BASE + 0x03u,
+    BMS_COLD_AFE_KEY_BASE + 0x04u,
+    BMS_COLD_AFE_KEY_BASE + 0x05u,
+    BMS_COLD_AFE_KEY_BASE + 0x06u,
+    BMS_COLD_AFE_KEY_BASE + 0x07u,
+    BMS_COLD_AFE_KEY_BASE + 0x08u,
+    BMS_COLD_AFE_KEY_BASE + 0x09u,
+    BMS_COLD_AFE_KEY_BASE + 0x0Au,
+    BMS_COLD_AFE_KEY_BASE + 0x0Bu,
+    BMS_COLD_AFE_KEY_BASE + 0x0Cu,
+};
+'''
+          text = replace_once(text, old, new, 'AFE KV key table')
+
+          old = '''#define BMS_COLD_BTNAME_COUNT   ((u16)(sizeof(g_bms_btname_keys) / sizeof(g_bms_btname_keys[0])))
+#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT))
+'''
+          new = '''#define BMS_COLD_BTNAME_COUNT   ((u16)(sizeof(g_bms_btname_keys) / sizeof(g_bms_btname_keys[0])))
+#define BMS_COLD_AFE_COUNT      ((u16)(sizeof(g_bms_afe_keys) / sizeof(g_bms_afe_keys[0])))
+#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + BMS_COLD_AFE_COUNT))
+'''
+          text = replace_once(text, old, new, 'AFE KV total count')
+
+          old = '''    for (i = 0; i < BMS_COLD_BTNAME_COUNT; ++i) {
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].key = g_bms_btname_keys[i];
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].default_value = 0u;
+    }
+}
+'''
+          new = '''    for (i = 0; i < BMS_COLD_BTNAME_COUNT; ++i) {
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].key = g_bms_btname_keys[i];
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].default_value = 0u;
+    }
+
+    /* 0xFFFF/0xFFFF marks an uninitialised AFE parameter pair. */
+    for (i = 0; i < BMS_COLD_AFE_COUNT; ++i) {
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i].key = g_bms_afe_keys[i];
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i].default_value = 0xFFFFFFFFu;
+    }
+}
+'''
+          text = replace_once(text, old, new, 'AFE KV defaults')
+
+          append_marker = '''int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)
+'''
+          afe_funcs = r'''int bms_cold_kv_store_get_afe_params(u16 *values, u16 count)
+{
+    u16 i;
+    u32 packed;
+
+    if ((values == NULL) || (count != BMS_COLD_AFE_PARAM_WORD_COUNT)) {
+        return FLASH_KV32_FAILED;
+    }
+    if (!bms_cold_ensure_ready()) {
+        return FLASH_KV32_FAILED;
+    }
+
+    for (i = 0u; i < BMS_COLD_AFE_COUNT; ++i) {
+        packed = 0u;
+        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_afe_keys[i], &packed)) {
+            return FLASH_KV32_FAILED;
+        }
+        values[i * 2u] = (u16)(packed & 0xFFFFu);
+        values[i * 2u + 1u] = (u16)(packed >> 16);
+    }
+    return FLASH_KV32_SUCCESS;
+}
+
+int bms_cold_kv_store_set_afe_params(const u16 *values, u16 count)
+{
+    flash_kv32_pair_t pairs[BMS_COLD_AFE_SLOT_COUNT];
+    u16 i;
+
+    if ((values == NULL) || (count != BMS_COLD_AFE_PARAM_WORD_COUNT)) {
+        return FLASH_KV32_FAILED;
+    }
+    if (!bms_cold_ensure_ready()) {
+        return FLASH_KV32_FAILED;
+    }
+
+    for (i = 0u; i < BMS_COLD_AFE_COUNT; ++i) {
+        pairs[i].key = g_bms_afe_keys[i];
+        pairs[i].value = (u32)values[i * 2u] | ((u32)values[i * 2u + 1u] << 16);
+    }
+    if (bms_cold_pairs_match_current(pairs, BMS_COLD_AFE_COUNT)) {
+        return FLASH_KV32_SUCCESS;
+    }
+    return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_AFE_COUNT);
+}
+
+'''
+          text = replace_once(text, append_marker, afe_funcs + append_marker, 'AFE KV get/set functions')
+          write(name, text)
+
+          # ------------------------------------------------------------------
+          # sh367309_datadeal.c: validation, canonical storage, exact encoding
+          # ------------------------------------------------------------------
+          name = 'sh367309_datadeal.c'
+          text = read(name)
+          text = replace_once(text, '#include "param.h"\n', '#include "param.h"\n#include "bms_cold_kv_store.h"\n', 'include AFE KV store')
+
+          tables_marker = '''const u16 AFE_OCCT_OCD2T[16] = {10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 8000, 10000, 20000};'''
+          helper_block = r'''
+
+#define SH309_ARRAY_SIZE(a) ((u16)(sizeof(a) / sizeof((a)[0])))
+
+#define SH309_AFE_PARAM_FIELD_LIST(X) \
+    X(SH309_AFE_PARAM_VCELL_OVP, u16VcellOvp) \
+    X(SH309_AFE_PARAM_VCELL_OVP_RCV, u16VcellOvp_Rcv) \
+    X(SH309_AFE_PARAM_VCELL_OVP_FILTER, u16VcellOvp_Filter) \
+    X(SH309_AFE_PARAM_VCELL_UVP, u16VcellUvp) \
+    X(SH309_AFE_PARAM_VCELL_UVP_RCV, u16VcellUvp_Rcv) \
+    X(SH309_AFE_PARAM_VCELL_UVP_FILTER, u16VcellUvp_Filter) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FIRST, u16IchgOcp_First) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST, u16IchgOcp_Filter_First) \
+    X(SH309_AFE_PARAM_ICHG_OCP_SECOND, u16IchgOcp_Second) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND, u16IchgOcp_Filter_Second) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FIRST, u16IdsgOcp_First) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FILTER_FIRST, u16IdsgOcp_Filter_First) \
+    X(SH309_AFE_PARAM_IDSG_OCP_SECOND, u16IdsgOcp_Second) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FILTER_SECOND, u16IdsgOcp_Filter_Second) \
+    X(SH309_AFE_PARAM_TCHG_OTP, u16TChgOTp) \
+    X(SH309_AFE_PARAM_TCHG_OTP_RCV, u16TChgOTp_Rcv) \
+    X(SH309_AFE_PARAM_TCHG_UTP, u16TchgUTp) \
+    X(SH309_AFE_PARAM_TCHG_UTP_RCV, u16TchgUTp_Rcv) \
+    X(SH309_AFE_PARAM_TDSG_OTP, u16TdischgOTp) \
+    X(SH309_AFE_PARAM_TDSG_OTP_RCV, u16TdischgOTp_Rcv) \
+    X(SH309_AFE_PARAM_TDSG_UTP, u16TdischgUTp) \
+    X(SH309_AFE_PARAM_TDSG_UTP_RCV, u16TdischgUTp_Rcv) \
+    X(SH309_AFE_PARAM_SC_CURRENT, u16CBC_Cur_DSG) \
+    X(SH309_AFE_PARAM_SC_DELAY, u16CBC_DelayT)
+
+static AFE_Value_Typedef *sh309_afe_param_field(AFE_Parameters_RS485_Typedef *params, u16 index)
+{
+    if (params == NULL) {
+        return NULL;
+    }
+    switch (index) {
+#define SH309_FIELD_CASE(index_value, field_name) case index_value: return &params->field_name;
+        SH309_AFE_PARAM_FIELD_LIST(SH309_FIELD_CASE)
+#undef SH309_FIELD_CASE
+    default:
+        return NULL;
+    }
+}
+
+static const AFE_Value_Typedef *sh309_afe_param_field_const(const AFE_Parameters_RS485_Typedef *params, u16 index)
+{
+    return sh309_afe_param_field((AFE_Parameters_RS485_Typedef *)params, index);
+}
+
+static void sh309_afe_params_to_words(const AFE_Parameters_RS485_Typedef *params, u16 *words)
+{
+    u16 i;
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        const AFE_Value_Typedef *field = sh309_afe_param_field_const(params, i);
+        words[i] = field->curValue;
+    }
+}
+
+static u8 sh309_afe_words_to_params(AFE_Parameters_RS485_Typedef *params, const u16 *words)
+{
+    u16 i;
+    if ((params == NULL) || (words == NULL)) {
+        return 0u;
+    }
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        AFE_Value_Typedef *field = sh309_afe_param_field(params, i);
+        if (field == NULL) {
+            return 0u;
+        }
+        field->curValue = words[i];
+    }
+    return 1u;
+}
+
+static u8 sh309_find_scaled_code(u16 value, u16 scale, const u16 *table, u16 count, u8 *code)
+{
+    u16 i;
+    u32 target = (u32)value * (u32)scale;
+    for (i = 0u; i < count; ++i) {
+        if ((u32)table[i] == target) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_find_ocp_current_code(u16 current_0p1a, const u16 *mv_table, u16 count, u8 *code)
+{
+    u16 i;
+    if (g_u32CS_Res_AFE == 0u) {
+        return 0u;
+    }
+    for (i = 0u; i < count; ++i) {
+        if (((u32)mv_table[i] * g_u32CS_Res_AFE) == ((u32)current_0p1a * 100u)) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_find_sc_current_code(u16 current_a, u8 *code)
+{
+    u16 i;
+    if (g_u32CS_Res_AFE == 0u) {
+        return 0u;
+    }
+    for (i = 0u; i < SH309_ARRAY_SIZE(AFE_SCV); ++i) {
+        if (((u32)AFE_SCV[i] * g_u32CS_Res_AFE) == ((u32)current_a * 1000u)) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_temp_value_valid(u16 value, u16 min_value, u16 max_value)
+{
+    return ((value >= min_value) && (value <= max_value) && ((value % 10u) == 0u)) ? 1u : 0u;
+}
+
+u8 SH367309_AfeParamValidate(const AFE_Parameters_RS485_Typedef *p)
+{
+    if (p == NULL) {
+        return 0u;
+    }
+
+    /* Voltage EEPROM encodings: OV/OVR 5mV/LSB, UV/UVR 20mV/LSB. */
+    if ((p->u16VcellOvp.curValue < 3600u) || (p->u16VcellOvp.curValue > 4500u) || ((p->u16VcellOvp.curValue % 5u) != 0u)) return 0u;
+    if ((p->u16VcellOvp_Rcv.curValue < 3300u) || (p->u16VcellOvp_Rcv.curValue > 4500u) || ((p->u16VcellOvp_Rcv.curValue % 5u) != 0u)) return 0u;
+    if (p->u16VcellOvp_Rcv.curValue >= p->u16VcellOvp.curValue) return 0u;
+    if (!sh309_find_scaled_code(p->u16VcellOvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), NULL)) return 0u;
+
+    if ((p->u16VcellUvp.curValue < 2000u) || (p->u16VcellUvp.curValue > 3100u) || ((p->u16VcellUvp.curValue % 20u) != 0u)) return 0u;
+    if ((p->u16VcellUvp_Rcv.curValue < 2000u) || (p->u16VcellUvp_Rcv.curValue > 3600u) || ((p->u16VcellUvp_Rcv.curValue % 20u) != 0u)) return 0u;
+    if (p->u16VcellUvp_Rcv.curValue <= p->u16VcellUvp.curValue) return 0u;
+    if (!sh309_find_scaled_code(p->u16VcellUvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), NULL)) return 0u;
+
+    /* SH367309 has one OCC stage; FIRST/SECOND registers are compatibility aliases. */
+    if (p->u16IchgOcp_First.curValue != p->u16IchgOcp_Second.curValue) return 0u;
+    if (p->u16IchgOcp_Filter_First.curValue != p->u16IchgOcp_Filter_Second.curValue) return 0u;
+    if (!sh309_find_ocp_current_code(p->u16IchgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IchgOcp_Filter_First.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), NULL)) return 0u;
+
+    if (!sh309_find_ocp_current_code(p->u16IdsgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IdsgOcp_Filter_First.curValue, 10u, AFE_OCD1T, SH309_ARRAY_SIZE(AFE_OCD1T), NULL)) return 0u;
+    if (!sh309_find_ocp_current_code(p->u16IdsgOcp_Second.curValue, AFE_OCD2V, SH309_ARRAY_SIZE(AFE_OCD2V), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IdsgOcp_Filter_Second.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), NULL)) return 0u;
+
+    /* Protocol temperature unit is (degC + 40) * 10; SH367309 supports 1degC steps. */
+    if (!sh309_temp_value_valid(p->u16TChgOTp.curValue, 850u, 1100u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TChgOTp_Rcv.curValue, 800u, 1100u) || (p->u16TChgOTp_Rcv.curValue >= p->u16TChgOTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TchgUTp.curValue, 200u, 500u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TchgUTp_Rcv.curValue, 200u, 550u) || (p->u16TchgUTp_Rcv.curValue <= p->u16TchgUTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgOTp.curValue, 850u, 1200u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgOTp_Rcv.curValue, 800u, 1200u) || (p->u16TdischgOTp_Rcv.curValue >= p->u16TdischgOTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgUTp.curValue, 0u, 500u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgUTp_Rcv.curValue, 0u, 550u) || (p->u16TdischgUTp_Rcv.curValue <= p->u16TdischgUTp.curValue)) return 0u;
+
+    if (!sh309_find_sc_current_code(p->u16CBC_Cur_DSG.curValue, NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16CBC_DelayT.curValue, 1u, AFE_SCT, SH309_ARRAY_SIZE(AFE_SCT), NULL)) return 0u;
+    return 1u;
+}
+
+static void sh309_normalize_charge_alias(AFE_Parameters_RS485_Typedef *p, u8 prefer_legacy_second)
+{
+    if (prefer_legacy_second) {
+        p->u16IchgOcp_First.curValue = p->u16IchgOcp_Second.curValue;
+        p->u16IchgOcp_Filter_First.curValue = p->u16IchgOcp_Filter_Second.curValue;
+    } else {
+        p->u16IchgOcp_Second.curValue = p->u16IchgOcp_First.curValue;
+        p->u16IchgOcp_Filter_Second.curValue = p->u16IchgOcp_Filter_First.curValue;
+    }
+}
+
+u8 SH367309_AfeParamLoad(void)
+{
+    AFE_Parameters_RS485_Typedef defaults = AFE_PARAMETERS_RS485_STRUCTION_DEFAULT;
+    AFE_Parameters_RS485_Typedef candidate = defaults;
+    u16 words[SH309_AFE_PARAM_REG_COUNT];
+    u16 canonical[SH309_AFE_PARAM_REG_COUNT];
+    u16 i;
+    u8 uninitialised = 1u;
+    u8 repaired_invalid = 0u;
+
+    if (!bms_cold_kv_store_get_afe_params(words, SH309_AFE_PARAM_REG_COUNT)) {
+        AFE_Parameters_RS485_Struction = defaults;
+        sh309_afe_params_to_words(&defaults, canonical);
+        (void)bms_cold_kv_store_set_afe_params(canonical, SH309_AFE_PARAM_REG_COUNT);
+        return 0u;
+    }
+
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        if (words[i] != 0xFFFFu) {
+            uninitialised = 0u;
+            break;
+        }
+    }
+
+    if (!uninitialised) {
+        if (!sh309_afe_words_to_params(&candidate, words)) {
+            candidate = defaults;
+            repaired_invalid = 1u;
+        } else {
+            /* Older projects treated the SECOND charge pair as the actual AFE OCC settings. */
+            sh309_normalize_charge_alias(&candidate, 1u);
+            if (!SH367309_AfeParamValidate(&candidate)) {
+                candidate = defaults;
+                repaired_invalid = 1u;
+            }
+        }
+    }
+
+    if (!SH367309_AfeParamValidate(&candidate)) {
+        /* Compiled defaults must always be representable by the real AFE. */
+        AFE_Parameters_RS485_Struction = defaults;
+        return 0u;
+    }
+
+    AFE_Parameters_RS485_Struction = candidate;
+    sh309_afe_params_to_words(&candidate, canonical);
+    if (uninitialised || repaired_invalid || (memcmp(words, canonical, sizeof(canonical)) != 0)) {
+        if (!bms_cold_kv_store_set_afe_params(canonical, SH309_AFE_PARAM_REG_COUNT)) {
+            return 0u;
+        }
+    }
+    return repaired_invalid ? 0u : 1u;
+}
+
+u8 SH367309_AfeParamReadReg(u16 reg, u16 *value)
+{
+    const AFE_Value_Typedef *field;
+    u16 index;
+    if ((value == NULL) || (reg < SH309_AFE_PARAM_REG_BASE) || (reg > SH309_AFE_PARAM_REG_END)) {
+        return 0u;
+    }
+    index = (u16)(reg - SH309_AFE_PARAM_REG_BASE);
+    field = sh309_afe_param_field_const(&AFE_Parameters_RS485_Struction, index);
+    if (field == NULL) {
+        return 0u;
+    }
+    *value = field->curValue;
+    return 1u;
+}
+
+sh309_afe_param_result_t SH367309_AfeParamWriteRegs(u16 start_reg, const u16 *values, u16 count)
+{
+    AFE_Parameters_RS485_Typedef candidate = AFE_Parameters_RS485_Struction;
+    u16 current_words[SH309_AFE_PARAM_REG_COUNT];
+    u16 candidate_words[SH309_AFE_PARAM_REG_COUNT];
+    u16 i;
+    u16 index;
+    u8 chg_current_seen = 0u;
+    u8 chg_delay_seen = 0u;
+    u16 chg_current = 0u;
+    u16 chg_delay = 0u;
+
+    if ((values == NULL) || (count == 0u) || (start_reg < SH309_AFE_PARAM_REG_BASE) ||
+        (start_reg > SH309_AFE_PARAM_REG_END) ||
+        ((u32)start_reg + (u32)count - 1u > (u32)SH309_AFE_PARAM_REG_END)) {
+        return SH309_AFE_PARAM_RESULT_INVALID;
+    }
+
+    for (i = 0u; i < count; ++i) {
+        AFE_Value_Typedef *field;
+        index = (u16)((start_reg - SH309_AFE_PARAM_REG_BASE) + i);
+        if ((index == SH309_AFE_PARAM_ICHG_OCP_FIRST) || (index == SH309_AFE_PARAM_ICHG_OCP_SECOND)) {
+            if (chg_current_seen && (chg_current != values[i])) return SH309_AFE_PARAM_RESULT_INVALID;
+            chg_current_seen = 1u;
+            chg_current = values[i];
+            continue;
+        }
+        if ((index == SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST) || (index == SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND)) {
+            if (chg_delay_seen && (chg_delay != values[i])) return SH309_AFE_PARAM_RESULT_INVALID;
+            chg_delay_seen = 1u;
+            chg_delay = values[i];
+            continue;
+        }
+        field = sh309_afe_param_field(&candidate, index);
+        if (field == NULL) return SH309_AFE_PARAM_RESULT_INVALID;
+        field->curValue = values[i];
+    }
+
+    if (chg_current_seen) {
+        candidate.u16IchgOcp_First.curValue = chg_current;
+        candidate.u16IchgOcp_Second.curValue = chg_current;
+    }
+    if (chg_delay_seen) {
+        candidate.u16IchgOcp_Filter_First.curValue = chg_delay;
+        candidate.u16IchgOcp_Filter_Second.curValue = chg_delay;
+    }
+
+    if (!SH367309_AfeParamValidate(&candidate)) {
+        return SH309_AFE_PARAM_RESULT_INVALID;
+    }
+
+    sh309_afe_params_to_words(&AFE_Parameters_RS485_Struction, current_words);
+    sh309_afe_params_to_words(&candidate, candidate_words);
+    if (memcmp(current_words, candidate_words, sizeof(candidate_words)) == 0) {
+        return SH309_AFE_PARAM_RESULT_OK;
+    }
+
+    if (!bms_cold_kv_store_set_afe_params(candidate_words, SH309_AFE_PARAM_REG_COUNT)) {
+        return SH309_AFE_PARAM_RESULT_STORE_ERROR;
+    }
+
+    AFE_Parameters_RS485_Struction = candidate;
+    AFE_PARAM_WRITE_Flag = 1;
+    return SH309_AFE_PARAM_RESULT_OK;
+}
+'''
+          text = replace_once(text, tables_marker, tables_marker + helper_block, 'insert AFE validation/storage implementation')
+
+          start = text.find('void Refresh_Parameters(void)\n{')
+          end_marker = '/* 濮ｅ繑顐奸弫鐗堝祦'
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('Refresh_Parameters region not found')
+          refresh = r'''static u8 Refresh_Parameters(void)
+{
+    int i;
+    int temp;
+    u8 TR = 0u;
+    u8 code = 0u;
+    u16 AFE_TEMPERATURE[8] = {0};
+
+    if (!SH367309_AfeParamValidate(&AFE_Parameters_RS485_Struction)) {
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        return 0u;
+    }
+    if (!MTPRead(MTP_TR, 1, &TR)) {
+        System_ERROR_UserCallback(ERROR_AFE1);
+        return 0u;
+    }
+
+    SH367309_Reg_Store.TR_ResRef = 680u + 5u * (TR & 0x7Fu);
+    ucMTPBuffer[25] = TR & 0x7Fu;
+    memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26u);
+
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16u;
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = 3u;
+
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5u) >> 8) & 0x3u;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5u) & 0xFFu;
+#ifdef FAC_TEST
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0u;
+#else
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = code;
+#endif
+
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5u) >> 8) & 0x3u;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5u) & 0xFFu;
+#ifdef FAC_TEST
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0u;
+#else
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = code;
+#endif
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20u) & 0xFFu;
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20u) & 0xFFu;
+
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_First.curValue, 10u, AFE_OCD1T, SH309_ARRAY_SIZE(AFE_OCD1T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = code;
+
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue, AFE_OCD2V, SH309_ARRAY_SIZE(AFE_OCD2V), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2V = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2T = code;
+
+    /* SH367309 exposes one charging over-current stage (OCC). */
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IchgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_First.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = code;
+
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue, 1u, AFE_SCT, SH309_ARRAY_SIZE(AFE_SCT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = code;
+    if (!sh309_find_sc_current_code(AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue, &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = code;
+
+    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10u;
+    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10u;
+    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10u;
+    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10u;
+    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10u;
+
+    for (i = 0; i < 8; ++i) {
+        temp = iSheldTemp_10K_NTC[AFE_TEMPERATURE[i]];
+        *(((u8 *)&AFE_ROM_PARAMETERS_Struction.m11H_19H) + i) =
+            (u8)(((u32)temp << 9) / ((u32)SH367309_Reg_Store.TR_ResRef + (u32)temp));
+    }
+    return 1u;
+}
+
+'''
+          text = text[:start] + refresh + text[end:]
+          text = replace_once(text, '        Refresh_Parameters();\n        diff_state = sh309_param_image_diff_state(P, temp);\n', '        if (!Refresh_Parameters())\n        {\n            return;\n        }\n        diff_state = sh309_param_image_diff_state(P, temp);\n', 'fail closed on Refresh_Parameters')
+          write(name, text)
+
+          # ------------------------------------------------------------------
+          # modbus_rtu.c: 0x2400..0x2417 read/write + exceptions; SW params independent
+          # ------------------------------------------------------------------
+          name = 'modbus_rtu.c'
+          text = read(name)
+          marker = '''    if (reg >= 0x2100 && reg <= 0x2140)
+    {
+        return *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100));
+    }
+'''
+          block = '''    if (reg >= SH309_AFE_PARAM_REG_BASE && reg <= SH309_AFE_PARAM_REG_END)
+    {
+        u16 afe_value = 0u;
+        if (SH367309_AfeParamReadReg(reg, &afe_value))
+        {
+            return afe_value;
+        }
+        return 0u;
+    }
+'''
+          text = replace_once(text, marker, marker + block, 'AFE Modbus read block')
+          text = text.replace('extern int AFE_PARAM_WRITE_Flag;\n\n', '', 1)
+
+          marker = 'static u16 u16be(const u8 *p) { return ((u16)p[0] << 8) | p[1]; }\n'
+          exception_block = r'''static int modbus_exception_response(u8 addr, u8 func, u8 exception_code, u8 *rsp, u32 *rsp_len)
+{
+    u16 c;
+    if (addr == 0x00u) {
+        *rsp_len = 0u;
+        return 0;
+    }
+    rsp[0] = addr;
+    rsp[1] = (u8)(func | 0x80u);
+    rsp[2] = exception_code;
+    c = mb_crc16(rsp, 3u);
+    rsp[3] = (u8)(c & 0xFFu);
+    rsp[4] = (u8)(c >> 8);
+    *rsp_len = 5u;
+    return 1;
+}
+
+static int modbus_afe_write_result(u8 addr, u8 func, sh309_afe_param_result_t result, u8 *rsp, u32 *rsp_len)
+{
+    if (result == SH309_AFE_PARAM_RESULT_INVALID) {
+        return modbus_exception_response(addr, func, 0x03u, rsp, rsp_len);
+    }
+    if (result == SH309_AFE_PARAM_RESULT_STORE_ERROR) {
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        return modbus_exception_response(addr, func, 0x04u, rsp, rsp_len);
+    }
+    return -1;
+}
+
+'''
+          text = replace_once(text, marker, marker + exception_block, 'Modbus exception helpers')
+
+          old = '''        u16 reg = u16be(&req[2]);
+        u16 val = u16be(&req[4]);
+        write_reg(reg, val);
+        if (reg_requires_param_save(reg))
+        {
+            SaveParam();
+            AFE_PARAM_WRITE_Flag = 1;
+            // test_SH367309_UpdataAfeConfig();
+        }
+
+        // 06 回包=原样回显请求（非广播）
+'''
+          new = '''        u16 reg = u16be(&req[2]);
+        u16 val = u16be(&req[4]);
+        if (reg >= SH309_AFE_PARAM_REG_BASE && reg <= SH309_AFE_PARAM_REG_END)
+        {
+            sh309_afe_param_result_t afe_result = SH367309_AfeParamWriteRegs(reg, &val, 1u);
+            int exception_result = modbus_afe_write_result(addr, func, afe_result, rsp, rsp_len);
+            if (exception_result >= 0)
+            {
+                return exception_result;
+            }
+        }
+        else
+        {
+            write_reg(reg, val);
+            if (reg_requires_param_save(reg))
+            {
+                /* 0x2100 software protection is intentionally independent from AFE hardware protection. */
+                SaveParam();
+            }
+        }
+
+        // 06 回包=原样回显请求（非广播）
+'''
+          text = replace_once(text, old, new, 'Modbus 0x06 AFE write')
+
+          old = '''        const u8 *pdata = &req[7];
+        for (u16 i = 0; i < qty; i++)
+        {
+            u16 v = u16be(&pdata[i * 2]);
+            write_reg(reg + i, v);
+            if (reg_requires_param_save((u16)(reg + i)))
+            {
+                need_save_param = 1;
+            }
+        }
+        if (need_save_param)
+        {
+            SaveParam();
+            AFE_PARAM_WRITE_Flag = 1;
+            // test_SH367309_UpdataAfeConfig();
+        }
+
+        // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
+'''
+          new = '''        const u8 *pdata = &req[7];
+        {
+            u32 end_reg = (u32)reg + (u32)qty - 1u;
+            u8 overlaps_afe = ((u32)reg <= (u32)SH309_AFE_PARAM_REG_END && end_reg >= (u32)SH309_AFE_PARAM_REG_BASE) ? 1u : 0u;
+            if (overlaps_afe)
+            {
+                u16 afe_values[SH309_AFE_PARAM_REG_COUNT];
+                sh309_afe_param_result_t afe_result;
+                int exception_result;
+                if ((reg < SH309_AFE_PARAM_REG_BASE) || (end_reg > (u32)SH309_AFE_PARAM_REG_END))
+                {
+                    return modbus_exception_response(addr, func, 0x02u, rsp, rsp_len);
+                }
+                for (u16 i = 0u; i < qty; ++i)
+                {
+                    afe_values[i] = u16be(&pdata[i * 2u]);
+                }
+                afe_result = SH367309_AfeParamWriteRegs(reg, afe_values, qty);
+                exception_result = modbus_afe_write_result(addr, func, afe_result, rsp, rsp_len);
+                if (exception_result >= 0)
+                {
+                    return exception_result;
+                }
+            }
+            else
+            {
+                for (u16 i = 0; i < qty; i++)
+                {
+                    u16 v = u16be(&pdata[i * 2]);
+                    write_reg(reg + i, v);
+                    if (reg_requires_param_save((u16)(reg + i)))
+                    {
+                        need_save_param = 1;
+                    }
+                }
+                if (need_save_param)
+                {
+                    /* Saving software protection parameters must not reprogram SH367309 EEPROM. */
+                    SaveParam();
+                }
+            }
+        }
+
+        // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding
+'''
+          text = replace_once(text, old, new, 'Modbus 0x10 AFE transaction')
+          write(name, text)
+
+          # ------------------------------------------------------------------
+          # app.c: load AFE params before AFE init; deferred apply after Modbus
+          # ------------------------------------------------------------------
+          name = 'app.c'
+          text = read(name)
+          old = '''\t\tinit_bms_io();
+\t\tLoadParam();
+\t\tParam_UpgradeReset_Apply();
+'''
+          new = '''\t\tinit_bms_io();
+\t\tLoadParam();
+\t\tif (!SH367309_AfeParamLoad())
+\t\t{
+\t\t\tSystem_ERROR_UserCallback(ERROR_EEPROM_STORE);
+\t\t}
+\t\tParam_UpgradeReset_Apply();
+'''
+          text = replace_once(text, old, new, 'startup AFE parameter load')
+          old = '''#ifdef _FUNC_UART_
+\tmain_loop_modbus();
+#endif
+\tsoc_kv_store_update_and_log_if_changed'''
+          new = '''#ifdef _FUNC_UART_
+\tmain_loop_modbus();
+#endif
+\t/* AFE EEPROM updates are rare and diff-only; defer them out of the Modbus parser. */
+\tif (AFE_PARAM_WRITE_Flag)
+\t{
+\t\tSH367309_UpdataAfeConfig();
+\t}
+\tsoc_kv_store_update_and_log_if_changed'''
+          text = replace_once(text, old, new, 'deferred AFE apply')
+          write(name, text)
+
+      - name: Verify source order and patch hygiene
+        run: |
+          python bms_tools/bms.py sources --check
+          git diff --check
+
+      - name: Verify SH367309 parameter invariants
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample')
+          h = (p / 'sh367309_datadeal.h').read_text(encoding='utf-8')
+          c = (p / 'sh367309_datadeal.c').read_text(encoding='utf-8')
+          mb = (p / 'modbus_rtu.c').read_text(encoding='utf-8')
+          kv = (p / 'bms_cold_kv_store.c').read_text(encoding='utf-8')
+          app = (p / 'app.c').read_text(encoding='utf-8')
+
+          assert '#define SH309_AFE_PARAM_REG_BASE   0x2400u' in h
+          assert '#define SH309_AFE_PARAM_REG_COUNT  24u' in h
+          assert 'BMS_COLD_AFE_KEY_BASE      0x5000u' in kv
+          assert 'SH367309_AfeParamWriteRegs(reg, afe_values, qty)' in mb
+          assert 'modbus_exception_response(addr, func, 0x03u' in mb
+          assert 'modbus_exception_response(addr, func, 0x04u' in mb
+          assert 'Saving software protection parameters must not reprogram SH367309 EEPROM.' in mb
+          assert 'AFE_PARAM_WRITE_Flag = 1;' not in re.search(r'static void write_reg\(.*?\n\}', mb, re.S).group(0)
+          assert 'SH367309_AfeParamLoad()' in app
+          assert 'SH367309_UpdataAfeConfig();' in app
+          assert 'if (!Refresh_Parameters())' in c
+          assert 'u16IchgOcp_First.curValue' in c and 'm0EH_0FH.OCCV' in c
+          assert 'm0CH_0DH.OCD1V' in c and 'm0CH_0DH.OCD2V' in c
+          assert 'OCRC' not in re.search(r'sh309_afe_param_result_t SH367309_AfeParamWriteRegs.*?\n\}', c, re.S).group(0)
+
+          expected_tables = {
+              'AFE_OCD1V_OCCV': [20,30,40,50,60,70,80,90,100,110,120,130,140,160,180,200],
+              'AFE_OCD2V': [30,40,50,60,70,80,90,100,120,140,160,180,200,300,400,500],
+              'AFE_SCV': [50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000],
+              'AFE_OVT_UVT': [100,200,300,400,600,800,1000,2000,3000,4000,6000,8000,10000,20000,30000,40000],
+              'AFE_SCT': [0,64,128,192,256,320,384,448,512,576,640,704,768,832,896,960],
+              'AFE_OCD1T': [50,100,200,400,600,800,1000,2000,4000,6000,8000,10000,15000,20000,30000,40000],
+              'AFE_OCCT_OCD2T': [10,20,40,60,80,100,200,400,600,800,1000,2000,4000,8000,10000,20000],
+          }
+          for name, expected in expected_tables.items():
+              m = re.search(rf'const u16 {name}\[16\] = \{{([^}}]+)\}};', c)
+              assert m, name
+              got = [int(x.strip()) for x in m.group(1).split(',')]
+              assert got == expected, (name, got)
+
+          # Pure model checks for the public engineering-unit contract.
+          ov_delay_10ms = {x // 10 for x in expected_tables['AFE_OVT_UVT']}
+          ocd1_delay_10ms = {x // 10 for x in expected_tables['AFE_OCD1T']}
+          ocd2_delay_10ms = {x // 10 for x in expected_tables['AFE_OCCT_OCD2T']}
+          assert 100 in ov_delay_10ms and 50 not in ocd2_delay_10ms and 60 in ocd2_delay_10ms
+          assert 4250 % 5 == 0 and 4251 % 5 != 0
+          assert 2740 % 20 == 0 and 2750 % 20 != 0
+          assert 256 in expected_tables['AFE_SCT'] and 250 not in expected_tables['AFE_SCT']
+          assert 850 <= 950 <= 1100 and 950 % 10 == 0
+
+          # D3PRO defaults: g_u32CS_Res_AFE = 1000, so 30.0A -> 30mV (OCD1 legal).
+          g = 1000
+          assert any(mv * g == 300 * 100 for mv in expected_tables['AFE_OCD1V_OCCV'])
+          assert not any(mv * g == 305 * 100 for mv in expected_tables['AFE_OCD1V_OCCV'])
+
+          print('SH367309 hardware parameter invariant tests: PASS')
+
+      - name: Commit staged implementation and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/modbus_rtu.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/sh367309_datadeal.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/sh367309_datadeal.h \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_cold_kv_store.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_cold_kv_store.h
+          git commit -m "feat: persist and validate SH367309 hardware protection parameters"
+          git rm .github/workflows/codex-afe-hw-param-stage.yml
+          git commit -m "chore: remove temporary AFE parameter staging workflow"
+          git push origin HEAD:codex-afe-hw-param-stage
