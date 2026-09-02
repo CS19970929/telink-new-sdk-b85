@@ -96,11 +96,38 @@ public sealed class BmsClient : IAsyncDisposable
 
     public async Task ProbeAsync(CancellationToken ct = default)
     {
-        Log?.Invoke("[MODBUS] PROBE begin");
-        ushort[] words = await ReadRegistersAsync(BmsRegisters.Realtime, 2, ct);
-        if (words.Length < 2 || words[0] != BmsRegisters.RealtimeMagic)
-            throw new IOException($"BMS Modbus probe failed: expected 0x{BmsRegisters.RealtimeMagic:X4} at 0x{BmsRegisters.Realtime:X4}.");
-        Log?.Invoke($"[MODBUS] PROBE ok magic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
+        Exception? last = null;
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 begin");
+                byte[] rsp = await TransactAsync(
+                    ModbusRtu.ReadHolding(BmsRegisters.Realtime, 2),
+                    ct,
+                    TimeSpan.FromMilliseconds(1800));
+                ushort[] words = ModbusRtu.ParseRead(rsp, 2);
+                if (words.Length < 2 || words[0] != BmsRegisters.RealtimeMagic)
+                    throw new IOException($"BMS Modbus probe failed: expected 0x{BmsRegisters.RealtimeMagic:X4} at 0x{BmsRegisters.Realtime:X4}.");
+
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok magic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 failed type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}");
+                if (attempt < 3)
+                    await Task.Delay(250 * attempt, ct);
+            }
+        }
+
+        throw new IOException("BMS GATT is connected but the application did not answer Modbus probe after 3 attempts.", last);
     }
 
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
@@ -249,7 +276,7 @@ public sealed class BmsClient : IAsyncDisposable
         return readback;
     }
 
-    private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct)
+    private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
         await _gate.WaitAsync(ct);
         try
@@ -263,16 +290,17 @@ public sealed class BmsClient : IAsyncDisposable
 
             Log?.Invoke("TX " + Convert.ToHexString(request));
             await _transport.WriteAsync(request, ct);
+            TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
             try
             {
-                byte[] rsp = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(4), ct);
+                byte[] rsp = await tcs.Task.WaitAsync(timeout, ct);
                 Log?.Invoke("RX " + Convert.ToHexString(rsp));
                 return rsp;
             }
             catch (TimeoutException ex)
             {
-                Log?.Invoke($"[MODBUS] TIMEOUT request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(_rx.ToArray())}");
-                throw new TimeoutException("Modbus response timed out after 4 seconds.", ex);
+                Log?.Invoke($"[MODBUS] TIMEOUT timeoutMs={timeout.TotalMilliseconds:F0}; request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(_rx.ToArray())}");
+                throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
             }
             finally
             {
