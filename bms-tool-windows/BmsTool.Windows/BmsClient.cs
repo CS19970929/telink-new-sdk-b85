@@ -7,6 +7,14 @@ public sealed record DeviceIdentity(string Mac, string Serial, string Hardware, 
 
 public sealed class BatterySnapshot
 {
+    private static readonly string[] ProtectionNames =
+    {
+        "单体过压", "单体欠压", "总压过压", "总压欠压",
+        "充电过流", "放电过流", "充电高温", "放电高温",
+        "充电低温", "放电低温", "单体压差过大", "温差过大",
+        "SOC过低", "MOS高温"
+    };
+
     public double PackVoltageV { get; init; }
     public double CurrentA { get; init; }
     public int SocPercent { get; init; }
@@ -26,7 +34,49 @@ public sealed class BatterySnapshot
     public uint SystemStatus { get; init; }
     public ushort ProtocolVersion { get; init; }
     public bool UsesRealtimeWindow { get; init; }
+    public ushort ProtectionLevel1Raw { get; init; }
+    public ushort ProtectionLevel2Raw { get; init; }
+    public ushort ProtectionLevel3Raw { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
+
+    public string WorkState => CurrentA > 0.05 ? "充电" : CurrentA < -0.05 ? "放电" : "静置";
+    public bool PrechargeMosOn => Bit(1);
+    public bool ChargeMosOn => Bit(2);
+    public bool DischargeMosOn => Bit(3);
+    public bool PrechargeRelayOn => Bit(4);
+    public bool ChargeRelayOn => Bit(5);
+    public bool DischargeRelayOn => Bit(6);
+    public bool MainRelayOn => Bit(7);
+    public bool HeatingOn => Bit(8);
+    public bool CoolingOn => Bit(9);
+    public bool Afe1On => Bit(10);
+    public bool Afe2On => Bit(11);
+    public bool BalancingOn => Bit(12);
+    public bool PreparingSleep => Bit(13);
+    public bool ButtonCloseIo => Bit(14);
+    public bool HeatCloseIo => Bit(15);
+    public bool SystemLimited => Bit(16);
+    public bool CbcCloseIo => Bit(17);
+    public bool DriverExternalControl => Bit(18);
+
+    public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw | ProtectionLevel3Raw) != 0;
+    public string ProtectionSummary => HasProtection ? "保护中" : "正常";
+    public string ProtectionLevel1Text => DecodeProtection(ProtectionLevel1Raw);
+    public string ProtectionLevel2Text => DecodeProtection(ProtectionLevel2Raw);
+    public string ProtectionLevel3Text => DecodeProtection(ProtectionLevel3Raw);
+
+    private bool Bit(int bit) => (SystemStatus & (1u << bit)) != 0;
+
+    private static string DecodeProtection(ushort raw)
+    {
+        if ((raw & 0x3FFF) == 0) return "无";
+        var active = new List<string>();
+        for (int i = 0; i < ProtectionNames.Length; i++)
+        {
+            if ((raw & (1u << i)) != 0) active.Add(ProtectionNames[i]);
+        }
+        return active.Count == 0 ? "无" : string.Join("、", active);
+    }
 }
 
 public sealed class BmsClient : IAsyncDisposable
@@ -46,9 +96,11 @@ public sealed class BmsClient : IAsyncDisposable
 
     public async Task ProbeAsync(CancellationToken ct = default)
     {
+        Log?.Invoke("[MODBUS] PROBE begin");
         ushort[] words = await ReadRegistersAsync(BmsRegisters.Realtime, 2, ct);
         if (words.Length < 2 || words[0] != BmsRegisters.RealtimeMagic)
             throw new IOException($"BMS Modbus probe failed: expected 0x{BmsRegisters.RealtimeMagic:X4} at 0x{BmsRegisters.Realtime:X4}.");
+        Log?.Invoke($"[MODBUS] PROBE ok magic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
     }
 
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
@@ -98,10 +150,19 @@ public sealed class BmsClient : IAsyncDisposable
         ushort[] status = await ReadRegistersAsync(BmsRegisters.SystemStatus, 2, ct);
         ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct);
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
+
         short chg = unchecked((short)legacy[50]);
         short dsg = unchecked((short)legacy[51]);
         short current = dsg > 0 ? (short)-dsg : chg;
-        ushort voltage = legacy[37], soc = legacy[52], maxTemp = legacy[48], minTemp = legacy[49], mosTemp = legacy[47], maxCell = legacy[32], minCell = legacy[33], delta = legacy[36];
+        ushort voltage = legacy[37];
+        ushort soc = legacy[52];
+        ushort maxTemp = legacy[48];
+        ushort minTemp = legacy[49];
+        ushort mosTemp = legacy[47];
+        ushort maxCell = legacy[32];
+        ushort minCell = legacy[33];
+        ushort delta = legacy[36];
+
         if (rt)
         {
             voltage = realtime[2];
@@ -136,8 +197,32 @@ public sealed class BmsClient : IAsyncDisposable
             SystemStatus = (uint)status[0] | ((uint)status[1] << 16),
             ProtocolVersion = rt ? realtime[1] : (ushort)0,
             UsesRealtimeWindow = rt,
+            ProtectionLevel1Raw = legacy[58],
+            ProtectionLevel2Raw = legacy[59],
+            ProtectionLevel3Raw = legacy[60],
             CellMillivolts = legacy.Take(BmsRegisters.SeriesCount).ToArray()
         };
+    }
+
+    public async Task<BatterySnapshot> SetSocAndVerifyAsync(ushort soc, CancellationToken ct = default)
+    {
+        if (soc > 100) throw new ArgumentOutOfRangeException(nameof(soc), "SOC must be 0..100.");
+        await WriteSingleRegisterAsync(0x1005, soc, ct);
+        await Task.Delay(180, ct);
+        BatterySnapshot snapshot = await ReadBatteryAsync(ct);
+        if (snapshot.SocPercent != soc)
+            throw new IOException($"SOC verification failed: wrote {soc}%, device reports {snapshot.SocPercent}%.");
+        return snapshot;
+    }
+
+    public async Task<BatterySnapshot> SetCycleCountAndVerifyAsync(ushort cycleCount, CancellationToken ct = default)
+    {
+        await WriteSingleRegisterAsync(0x2319, cycleCount, ct);
+        await Task.Delay(180, ct);
+        BatterySnapshot snapshot = await ReadBatteryAsync(ct);
+        if (snapshot.CycleCount != cycleCount)
+            throw new IOException($"Cycle-count verification failed: wrote {cycleCount}, device reports {snapshot.CycleCount}.");
+        return snapshot;
     }
 
     public async Task<string> ReadBluetoothNameAsync(CancellationToken ct = default) =>
@@ -164,12 +249,6 @@ public sealed class BmsClient : IAsyncDisposable
         return readback;
     }
 
-    public async Task<string> ReadProtectionPreviewAsync(CancellationToken ct = default)
-    {
-        ushort[] words = await ReadRegistersAsync(BmsRegisters.Protect, 15, ct);
-        return string.Join(Environment.NewLine, words.Select((v, i) => $"0x{BmsRegisters.Protect + i:X4} = {v} (0x{v:X4})"));
-    }
-
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
@@ -189,6 +268,11 @@ public sealed class BmsClient : IAsyncDisposable
                 byte[] rsp = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(4), ct);
                 Log?.Invoke("RX " + Convert.ToHexString(rsp));
                 return rsp;
+            }
+            catch (TimeoutException ex)
+            {
+                Log?.Invoke($"[MODBUS] TIMEOUT request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(_rx.ToArray())}");
+                throw new TimeoutException("Modbus response timed out after 4 seconds.", ex);
             }
             finally
             {
@@ -211,9 +295,15 @@ public sealed class BmsClient : IAsyncDisposable
         byte[]? frame = null;
         lock (_rxLock)
         {
-            if (_pending is null) return;
+            if (_pending is null)
+            {
+                Log?.Invoke("[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.ToArray()));
+                return;
+            }
+
             _rx.AddRange(fragment.ToArray());
             int? expected = ModbusRtu.InferExpectedLength(_rx);
+            Log?.Invoke($"[MODBUS] RX_FRAGMENT len={fragment.Length}; accumulated={_rx.Count}; expected={(expected?.ToString() ?? "unknown")}");
             if (expected is not null && _rx.Count >= expected.Value)
             {
                 frame = _rx.Take(expected.Value).ToArray();
