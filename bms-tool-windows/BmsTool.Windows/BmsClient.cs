@@ -44,11 +44,37 @@ public sealed class BmsClient : IAsyncDisposable
         _transport.DataReceived += OnData;
     }
 
+    public async Task ProbeAsync(CancellationToken ct = default)
+    {
+        ushort[] words = await ReadRegistersAsync(BmsRegisters.Realtime, 2, ct);
+        if (words.Length < 2 || words[0] != BmsRegisters.RealtimeMagic)
+            throw new IOException($"BMS Modbus probe failed: expected 0x{BmsRegisters.RealtimeMagic:X4} at 0x{BmsRegisters.Realtime:X4}.");
+    }
+
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
     {
+        if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
         byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct);
         return ModbusRtu.ParseRead(rsp, quantity);
     }
+
+    public async Task WriteSingleRegisterAsync(ushort register, ushort value, CancellationToken ct = default)
+    {
+        byte[] rsp = await TransactAsync(ModbusRtu.WriteSingle(register, value), ct);
+        ModbusRtu.ValidateWriteSingleAck(rsp, register, value);
+    }
+
+    public async Task<ushort> WriteReadableRegisterAndVerifyAsync(ushort register, ushort value, CancellationToken ct = default)
+    {
+        await WriteSingleRegisterAsync(register, value, ct);
+        ushort readback = (await ReadRegistersAsync(register, 1, ct))[0];
+        if (readback != value)
+            throw new IOException($"Register verify failed at 0x{register:X4}: wrote {value} (0x{value:X4}), read {readback} (0x{readback:X4}).");
+        return readback;
+    }
+
+    public Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct = default) =>
+        ReadRegistersAsync(BmsRegisters.Protect, BmsRegisters.ProtectCount, ct);
 
     public async Task<DeviceIdentity> ReadIdentityAsync(CancellationToken ct = default)
     {
@@ -58,7 +84,12 @@ public sealed class BmsClient : IAsyncDisposable
         ushort[] sw = await ReadRegistersAsync(BmsRegisters.Software, 16, ct);
         ushort[] name = await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct);
         byte[] macBytes = mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Take(6).ToArray();
-        return new DeviceIdentity(string.Join(":", macBytes.Select(b => b.ToString("X2"))), ModbusRtu.DecodeAscii(sn), ModbusRtu.DecodeAscii(hw), ModbusRtu.DecodeAscii(sw), ModbusRtu.DecodeAscii(name));
+        return new DeviceIdentity(
+            string.Join(":", macBytes.Select(b => b.ToString("X2"))),
+            ModbusRtu.DecodeAscii(sn),
+            ModbusRtu.DecodeAscii(hw),
+            ModbusRtu.DecodeAscii(sw),
+            ModbusRtu.DecodeAscii(name));
     }
 
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
@@ -67,33 +98,69 @@ public sealed class BmsClient : IAsyncDisposable
         ushort[] status = await ReadRegistersAsync(BmsRegisters.SystemStatus, 2, ct);
         ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct);
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
-        short chg = unchecked((short)legacy[50]); short dsg = unchecked((short)legacy[51]); short current = dsg > 0 ? (short)-dsg : chg;
+        short chg = unchecked((short)legacy[50]);
+        short dsg = unchecked((short)legacy[51]);
+        short current = dsg > 0 ? (short)-dsg : chg;
         ushort voltage = legacy[37], soc = legacy[52], maxTemp = legacy[48], minTemp = legacy[49], mosTemp = legacy[47], maxCell = legacy[32], minCell = legacy[33], delta = legacy[36];
-        if (rt) { voltage = realtime[2]; current = unchecked((short)realtime[3]); soc = realtime[4]; maxTemp = realtime[5]; minTemp = realtime[6]; mosTemp = realtime[7]; maxCell = realtime[8]; minCell = realtime[9]; delta = realtime[10]; }
+        if (rt)
+        {
+            voltage = realtime[2];
+            current = unchecked((short)realtime[3]);
+            soc = realtime[4];
+            maxTemp = realtime[5];
+            minTemp = realtime[6];
+            mosTemp = realtime[7];
+            maxCell = realtime[8];
+            minCell = realtime[9];
+            delta = realtime[10];
+        }
+
         return new BatterySnapshot
         {
-            PackVoltageV = voltage / 100.0, CurrentA = current / 10.0, SocPercent = soc, SohPercent = legacy[53],
-            MaxTempC = maxTemp / 10.0 - 40.0, MinTempC = minTemp / 10.0 - 40.0, MosTempC = mosTemp / 10.0 - 40.0,
-            MaxCellMv = maxCell, MinCellMv = minCell, CellDeltaMv = delta, MaxCellPosition = legacy[34], MinCellPosition = legacy[35],
-            CycleCount = legacy[57], CapacityNowAh = legacy[54] / 100.0, CapacityFullAh = legacy[55] / 100.0, CapacityFactoryAh = legacy[56] / 100.0,
-            SystemStatus = (uint)status[0] | ((uint)status[1] << 16), ProtocolVersion = rt ? realtime[1] : (ushort)0, UsesRealtimeWindow = rt,
+            PackVoltageV = voltage / 100.0,
+            CurrentA = current / 10.0,
+            SocPercent = soc,
+            SohPercent = legacy[53],
+            MaxTempC = maxTemp / 10.0 - 40.0,
+            MinTempC = minTemp / 10.0 - 40.0,
+            MosTempC = mosTemp / 10.0 - 40.0,
+            MaxCellMv = maxCell,
+            MinCellMv = minCell,
+            CellDeltaMv = delta,
+            MaxCellPosition = legacy[34],
+            MinCellPosition = legacy[35],
+            CycleCount = legacy[57],
+            CapacityNowAh = legacy[54] / 100.0,
+            CapacityFullAh = legacy[55] / 100.0,
+            CapacityFactoryAh = legacy[56] / 100.0,
+            SystemStatus = (uint)status[0] | ((uint)status[1] << 16),
+            ProtocolVersion = rt ? realtime[1] : (ushort)0,
+            UsesRealtimeWindow = rt,
             CellMillivolts = legacy.Take(BmsRegisters.SeriesCount).ToArray()
         };
     }
 
-    public async Task<string> ReadBluetoothNameAsync(CancellationToken ct = default) => ModbusRtu.DecodeAscii(await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct));
+    public async Task<string> ReadBluetoothNameAsync(CancellationToken ct = default) =>
+        ModbusRtu.DecodeAscii(await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct));
 
     public async Task<string> WriteBluetoothNameSuffixAsync(string suffix, CancellationToken ct = default)
     {
-        suffix = suffix.Trim(); if (suffix.StartsWith("BT_", StringComparison.OrdinalIgnoreCase)) suffix = suffix[3..];
+        suffix = suffix.Trim();
+        if (suffix.StartsWith("BT_", StringComparison.OrdinalIgnoreCase)) suffix = suffix[3..];
         if (suffix.Length == 0) throw new ArgumentException("Bluetooth name suffix cannot be empty.");
-        if (Encoding.ASCII.GetByteCount(suffix) > BmsRegisters.BtNameMaxSuffixBytesPerBleRequest) throw new ArgumentException("Current firmware BLE request supports at most 10 suffix bytes.");
-        if (suffix.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '_' || c == '-'))) throw new ArgumentException("Suffix only supports letters, digits, '_' and '-'.");
-        byte[] raw = Encoding.ASCII.GetBytes(suffix); if ((raw.Length & 1) != 0) Array.Resize(ref raw, raw.Length + 1);
+        if (Encoding.ASCII.GetByteCount(suffix) > BmsRegisters.BtNameMaxSuffixBytesPerBleRequest)
+            throw new ArgumentException("Current firmware BLE request supports at most 10 suffix bytes.");
+        if (suffix.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '_' || c == '-')))
+            throw new ArgumentException("Suffix only supports letters, digits, '_' and '-'.");
+
+        byte[] raw = Encoding.ASCII.GetBytes(suffix);
+        if ((raw.Length & 1) != 0) Array.Resize(ref raw, raw.Length + 1);
         byte[] rsp = await TransactAsync(ModbusRtu.WriteMultiple(BmsRegisters.BtName, raw), ct);
         ModbusRtu.ValidateWriteMultipleAck(rsp, BmsRegisters.BtName, checked((ushort)(raw.Length / 2)));
-        string readback = await ReadBluetoothNameAsync(ct); string expected = "BT_" + suffix;
-        if (readback != expected) throw new IOException($"Bluetooth name readback mismatch: expected '{expected}', got '{readback}'.");
+        string readback = await ReadBluetoothNameAsync(ct);
+        string expected = "BT_" + suffix;
+        if (readback != expected)
+            throw new IOException($"Bluetooth name readback mismatch: expected '{expected}', got '{readback}'.");
         return readback;
     }
 
@@ -109,24 +176,69 @@ public sealed class BmsClient : IAsyncDisposable
         try
         {
             var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_rxLock) { _rx.Clear(); _pending = tcs; }
-            Log?.Invoke("TX " + Convert.ToHexString(request)); await _transport.WriteAsync(request, ct);
-            try { byte[] rsp = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(2), ct); Log?.Invoke("RX " + Convert.ToHexString(rsp)); return rsp; }
-            finally { lock (_rxLock) { if (ReferenceEquals(_pending, tcs)) _pending = null; _rx.Clear(); } }
+            lock (_rxLock)
+            {
+                _rx.Clear();
+                _pending = tcs;
+            }
+
+            Log?.Invoke("TX " + Convert.ToHexString(request));
+            await _transport.WriteAsync(request, ct);
+            try
+            {
+                byte[] rsp = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(4), ct);
+                Log?.Invoke("RX " + Convert.ToHexString(rsp));
+                return rsp;
+            }
+            finally
+            {
+                lock (_rxLock)
+                {
+                    if (ReferenceEquals(_pending, tcs)) _pending = null;
+                    _rx.Clear();
+                }
+            }
         }
-        finally { _gate.Release(); }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private void OnData(ReadOnlyMemory<byte> fragment)
     {
-        TaskCompletionSource<byte[]>? done = null; byte[]? frame = null;
+        TaskCompletionSource<byte[]>? done = null;
+        byte[]? frame = null;
         lock (_rxLock)
         {
-            if (_pending is null) return; _rx.AddRange(fragment.ToArray()); int? expected = ModbusRtu.InferExpectedLength(_rx);
-            if (expected is not null && _rx.Count >= expected.Value) { frame = _rx.Take(expected.Value).ToArray(); done = _pending; }
+            if (_pending is null) return;
+            _rx.AddRange(fragment.ToArray());
+            int? expected = ModbusRtu.InferExpectedLength(_rx);
+            if (expected is not null && _rx.Count >= expected.Value)
+            {
+                frame = _rx.Take(expected.Value).ToArray();
+                done = _pending;
+            }
         }
-        if (frame is not null && done is not null) { try { ModbusRtu.ValidateFrame(frame); done.TrySetResult(frame); } catch (Exception ex) { done.TrySetException(ex); } }
+
+        if (frame is not null && done is not null)
+        {
+            try
+            {
+                ModbusRtu.ValidateFrame(frame);
+                done.TrySetResult(frame);
+            }
+            catch (Exception ex)
+            {
+                done.TrySetException(ex);
+            }
+        }
     }
 
-    public ValueTask DisposeAsync() { _transport.DataReceived -= OnData; _gate.Dispose(); return ValueTask.CompletedTask; }
+    public ValueTask DisposeAsync()
+    {
+        _transport.DataReceived -= OnData;
+        _gate.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }
