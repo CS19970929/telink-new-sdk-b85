@@ -114,7 +114,6 @@ public sealed class BmsBleTransport : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            // Session acquisition is diagnostic/optimization only. Service discovery can still work without it.
             DiagException("[CONNECT] GATT_SESSION_WARNING continuing without session", ex);
             _session = null;
         }
@@ -134,8 +133,8 @@ public sealed class BmsBleTransport : IAsyncDisposable
         GattCharacteristicsResult rspResult = await GetCharacteristicsRobustAsync(_service, ResponseUuid, "RX", ct);
 
         _request = reqResult.Characteristics.FirstOrDefault(c =>
-            c.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse) ||
-            c.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write));
+            c.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write) ||
+            c.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse));
         _response = rspResult.Characteristics.FirstOrDefault(c =>
             c.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify));
 
@@ -162,6 +161,14 @@ public sealed class BmsBleTransport : IAsyncDisposable
 
         if (notifyStatus != GattCommunicationStatus.Success)
             throw new IOException($"Failed to subscribe BMS response notifications: {notifyStatus}");
+
+        // A successful CCCD write only confirms the descriptor transaction. Give the peripheral
+        // application and Windows BLE stack a short interval before sending the first Modbus frame.
+        await StepAsync("PostNotifyReadySettle", async () =>
+        {
+            await Task.Delay(350, ct);
+            return true;
+        });
 
         DiscoveryDescription = $"BLE 已连接 · MTU {NegotiatedMtu?.ToString() ?? "未知"}";
         _currentStage = "GattReady";
@@ -229,9 +236,14 @@ public sealed class BmsBleTransport : IAsyncDisposable
     {
         ct.ThrowIfCancellationRequested();
         var characteristic = _request ?? throw new IOException("BMS SPP write characteristic is not connected.");
-        var option = characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse)
-            ? GattWriteOption.WriteWithoutResponse
-            : GattWriteOption.WriteWithResponse;
+
+        // Modbus traffic is low rate and reliability matters more than a few milliseconds. Prefer
+        // ATT Write Request/Response when the characteristic supports it. OTA uses a separate
+        // transport and remains WriteWithoutResponse for throughput.
+        var option = characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write)
+            ? GattWriteOption.WriteWithResponse
+            : GattWriteOption.WriteWithoutResponse;
+
         var buffer = CryptographicBuffer.CreateFromByteArray(data.ToArray());
         var sw = Stopwatch.StartNew();
         try
@@ -239,7 +251,7 @@ public sealed class BmsBleTransport : IAsyncDisposable
             var status = await characteristic.WriteValueAsync(buffer, option);
             if (status != GattCommunicationStatus.Success)
                 throw new IOException($"BMS BLE write failed: {status}");
-            Diag($"[GATT] WRITE_OK len={data.Length}; option={option}; elapsed={sw.ElapsedMilliseconds}ms");
+            Diag($"[GATT] WRITE_OK len={data.Length}; option={option}; status={status}; elapsed={sw.ElapsedMilliseconds}ms");
         }
         catch (Exception ex)
         {
