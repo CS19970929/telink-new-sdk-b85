@@ -1,0 +1,56 @@
+name: BMS Tool Source Package
+
+on:
+  push:
+    branches:
+      - build/bms-tool-20260902
+    paths:
+      - '.github/workflows/bms-tool-source-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    name: Package exact BMS Assistant source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact application source commit
+        uses: actions/checkout@v4
+        with:
+          ref: e18b9c121f8c03cf0173f12ebfeffaef52d3839e
+
+      - name: Create source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/source/BmsAssistant-Windows-Source
+          cp -a bms-tool-windows/BmsTool.Windows/. dist/source/BmsAssistant-Windows-Source/
+          cat > dist/source/BmsAssistant-Windows-Source/SOURCE_INFO.txt <<'EOF'
+          Repository=CS19970929/telink-new-sdk-b85
+          Branch=build/bms-tool-20260902
+          AppSourceCommit=e18b9c121f8c03cf0173f12ebfeffaef52d3839e
+          Project=bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj
+          Framework=net8.0-windows10.0.19041.0
+          Configuration=Release
+          Build=dotnet restore BmsTool.Windows.csproj && dotnet build BmsTool.Windows.csproj -c Release
+          Publish=dotnet publish BmsTool.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish
+          Features=BLE Modbus BMS monitor; MCU software protection parameters; SH367309 AFE hardware parameters; 100 event logs; long-term monitoring XLSX export; Telink OTA
+          EOF
+          cd dist/source
+          zip -r ../BmsAssistant-Windows-Source-e18b9c1.zip BmsAssistant-Windows-Source >/dev/null
+          cd ..
+          sha256sum BmsAssistant-Windows-Source-e18b9c1.zip > BmsAssistant-Windows-Source-e18b9c1.sha256.txt
+          unzip -t BmsAssistant-Windows-Source-e18b9c1.zip
+
+      - name: Upload source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BmsAssistant-Windows-Source-e18b9c1
+          path: |
+            dist/BmsAssistant-Windows-Source-e18b9c1.zip
+            dist/BmsAssistant-Windows-Source-e18b9c1.sha256.txt
+          if-no-files-found: error
+          retention-days: 7
