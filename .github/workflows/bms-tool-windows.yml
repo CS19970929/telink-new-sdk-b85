@@ -1,0 +1,72 @@
+name: BMS Tool Windows Build
+
+on:
+  push:
+    branches:
+      - build/bms-tool-20260902
+    paths:
+      - 'bms-tool-windows/**'
+      - '.github/workflows/bms-tool-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows x64 BMS tool
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        working-directory: bms-tool-windows/BmsTool.Windows
+        run: dotnet restore BmsTool.Windows.csproj
+
+      - name: Build Release
+        working-directory: bms-tool-windows/BmsTool.Windows
+        run: dotnet build BmsTool.Windows.csproj -c Release --no-restore
+
+      - name: Publish self-contained win-x64
+        working-directory: bms-tool-windows/BmsTool.Windows
+        run: dotnet publish BmsTool.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $env:GITHUB_WORKSPACE/dist/windows
+
+      - name: Validate output and create delivery ZIP
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/windows/BmsTool.Windows.exe')) { throw 'BmsTool.Windows.exe not produced' }
+          @"
+          GitCommit=$env:GITHUB_SHA
+          BuildUtc=$(Get-Date -AsUTC -Format o)
+          Target=net8.0-windows10.0.19041.0
+          RID=win-x64
+          Configuration=Release
+          ScanFilter=BT_
+          BmsService=6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+          BmsRequest=6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+          BmsResponse=6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+          ModbusSlave=0x01
+          RealtimeRegisters=0xD120..0xD12A
+          SoftwareVersionRegister=0xC022
+          BluetoothNameRegister=0x0100
+          OtaService=00010203-0405-0607-0809-0a0b0c0d1912
+          OtaCharacteristic=00010203-0405-0607-0809-0a0b0c0d2b12
+          OtaModes=Auto,LegacyFast,Extend64
+          "@ | Set-Content dist/windows/BUILD_INFO.txt
+          Compress-Archive -Path dist/windows/* -DestinationPath dist/BmsTool-Windows-x64.zip -Force
+          Get-FileHash dist/BmsTool-Windows-x64.zip -Algorithm SHA256 | Format-List | Out-File dist/BmsTool-Windows-x64.sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BmsTool-Windows-x64
+          path: |
+            dist/windows/**
+            dist/BmsTool-Windows-x64.zip
+            dist/BmsTool-Windows-x64.sha256.txt
+          if-no-files-found: error
+          retention-days: 7
