@@ -170,7 +170,6 @@ public partial class MainWindow
         _longTermLastRecordAt = now;
         _longTermLastUpdateToken = updateToken;
 
-        // Keep below Excel's 1,048,576 row limit including header rows.
         if (_longTermRecords.Count >= 1_000_000)
         {
             _longTermMonitoring = false;
@@ -367,8 +366,10 @@ public partial class MainWindow
 
     private static bool TryFirstDouble(string? text, out double value)
     {
+        value = 0.0;
         Match match = Regex.Match(text ?? string.Empty, @"[-+]?\d+(?:\.\d+)?");
-        return match.Success && double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+        if (!match.Success) return false;
+        return double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
 
     private static int TryRegexInt(string source, string pattern, int fallback)
