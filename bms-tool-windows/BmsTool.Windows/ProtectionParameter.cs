@@ -1,7 +1,18 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace BmsTool.Windows;
+
+public enum ProtectionValueKind
+{
+    Millivolt,
+    PackVoltageHundredthVolt,
+    CurrentTenthAmp,
+    TemperatureOffsetTenthC,
+    Percent,
+    FilterRaw
+}
 
 public sealed class ProtectionParameterRow : INotifyPropertyChanged
 {
@@ -12,9 +23,21 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
     public required string Group { get; init; }
     public required string Stage { get; init; }
     public required string FirmwareField { get; init; }
-    public required string EncodingHint { get; init; }
+    public required ProtectionValueKind ValueKind { get; init; }
 
     public string AddressText => $"0x{Address:X4}";
+    public string CustomerName => $"{Group} / {Stage}";
+    public string Unit => ValueKind switch
+    {
+        ProtectionValueKind.Millivolt => "mV",
+        ProtectionValueKind.PackVoltageHundredthVolt => "V",
+        ProtectionValueKind.CurrentTenthAmp => "A",
+        ProtectionValueKind.TemperatureOffsetTenthC => "°C",
+        ProtectionValueKind.Percent => "%",
+        _ => "滤波值"
+    };
+
+    public string Hint => ValueKind == ProtectionValueKind.FilterRaw ? "滤波参数" : Unit;
 
     public ushort DeviceValue
     {
@@ -25,11 +48,13 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
             _deviceValue = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(DeviceValueHex));
+            OnPropertyChanged(nameof(DeviceDisplayValue));
             OnPropertyChanged(nameof(IsDirty));
         }
     }
 
     public string DeviceValueHex => $"0x{DeviceValue:X4}";
+    public string DeviceDisplayValue => FormatEngineeringValue(DeviceValue);
 
     public string EditValue
     {
@@ -48,17 +73,44 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
     public void LoadFromDevice(ushort value)
     {
         DeviceValue = value;
-        _editValue = value.ToString();
+        _editValue = FormatEngineeringValue(value);
         OnPropertyChanged(nameof(EditValue));
         OnPropertyChanged(nameof(IsDirty));
     }
 
-    public bool TryParseEditedValue(out ushort value)
+    public bool TryParseEditedValue(out ushort rawValue)
     {
+        rawValue = 0;
         string text = (EditValue ?? string.Empty).Trim();
         if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            return ushort.TryParse(text[2..], System.Globalization.NumberStyles.HexNumber, null, out value);
-        return ushort.TryParse(text, out value);
+            return ushort.TryParse(text[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out rawValue);
+
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double engineering) &&
+            !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out engineering))
+            return false;
+
+        double raw = ValueKind switch
+        {
+            ProtectionValueKind.PackVoltageHundredthVolt => engineering * 100.0,
+            ProtectionValueKind.CurrentTenthAmp => engineering * 10.0,
+            ProtectionValueKind.TemperatureOffsetTenthC => (engineering + 40.0) * 10.0,
+            _ => engineering
+        };
+
+        if (raw < 0 || raw > ushort.MaxValue) return false;
+        rawValue = checked((ushort)Math.Round(raw, MidpointRounding.AwayFromZero));
+        return true;
+    }
+
+    private string FormatEngineeringValue(ushort raw)
+    {
+        return ValueKind switch
+        {
+            ProtectionValueKind.PackVoltageHundredthVolt => (raw / 100.0).ToString("F2", CultureInfo.InvariantCulture),
+            ProtectionValueKind.CurrentTenthAmp => (raw / 10.0).ToString("F1", CultureInfo.InvariantCulture),
+            ProtectionValueKind.TemperatureOffsetTenthC => (raw / 10.0 - 40.0).ToString("F1", CultureInfo.InvariantCulture),
+            _ => raw.ToString(CultureInfo.InvariantCulture)
+        };
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -106,23 +158,24 @@ public static class ProtectionParameterCatalog
                     Group = Groups[group],
                     Stage = StageNames[stage],
                     FirmwareField = FirmwareFields[group][stage],
-                    EncodingHint = GetEncodingHint(group, stage)
+                    ValueKind = GetKind(group, stage)
                 });
             }
         }
         return rows;
     }
 
-    private static string GetEncodingHint(int group, int stage)
+    private static ProtectionValueKind GetKind(int group, int stage)
     {
-        if (stage == 4) return "滤波原始值（保持与固件一致）";
+        if (stage == 4) return ProtectionValueKind.FilterRaw;
         return group switch
         {
-            0 or 1 => "mV",
-            6 or 7 or 8 or 9 or 10 => "温度编码：(°C + 40) × 10",
-            11 => "mV",
-            12 => "%",
-            _ => "原始值（按固件定义）"
+            0 or 1 or 11 => ProtectionValueKind.Millivolt,
+            2 or 3 => ProtectionValueKind.PackVoltageHundredthVolt,
+            4 or 5 => ProtectionValueKind.CurrentTenthAmp,
+            6 or 7 or 8 or 9 or 10 => ProtectionValueKind.TemperatureOffsetTenthC,
+            12 => ProtectionValueKind.Percent,
+            _ => ProtectionValueKind.FilterRaw
         };
     }
 }
