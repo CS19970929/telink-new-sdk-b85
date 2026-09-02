@@ -1,12 +1,12 @@
 <Window x:Class="BmsTool.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BMS Assistant - Telink BLE / Modbus / OTA" Height="820" Width="1180" MinHeight="700" MinWidth="1000">
+        Title="BMS Assistant - Telink BLE / Modbus / OTA" Height="860" Width="1240" MinHeight="720" MinWidth="1040">
     <Grid Margin="12">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="180"/></Grid.RowDefinitions>
         <Border Grid.Row="0" Padding="10" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
             <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="360"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="380"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Button x:Name="ScanButton" Grid.Column="0" Width="86" Margin="0,0,8,0" Click="ScanButton_Click">扫描 BT_</Button>
                 <Button x:Name="StopScanButton" Grid.Column="1" Width="70" Margin="0,0,8,0" Click="StopScanButton_Click">停止</Button>
                 <ComboBox x:Name="DeviceList" Grid.Column="2" Height="30"/>
@@ -20,7 +20,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
                     <StackPanel Orientation="Horizontal">
                         <Button Width="100" Click="RefreshBattery_Click">立即刷新</Button>
-                        <CheckBox x:Name="AutoPollCheck" Margin="16,0,0,0" VerticalAlignment="Center" Checked="AutoPollCheck_Changed" Unchecked="AutoPollCheck_Changed">2 秒自动刷新</CheckBox>
+                        <TextBlock x:Name="AutoRefreshText" Margin="16,0,0,0" VerticalAlignment="Center" Text="连接后自动刷新 · 1 秒周期"/>
                         <TextBlock x:Name="DataSourceText" Margin="20,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <UniformGrid Columns="4" Margin="0,16,0,0">
@@ -36,6 +36,47 @@
                     </UniformGrid>
                     <GroupBox Header="单体电压（当前工程 10S）" Margin="4,12,4,4"><TextBlock x:Name="CellsText" Margin="10" FontFamily="Consolas" FontSize="15" Text="—" TextWrapping="Wrap"/></GroupBox>
                 </StackPanel></ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="保护 / BMS 参数">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="保护参数来自当前固件 g_tParam.protect，地址 0x2100~0x2140，共 65 项。写入会由固件 SaveParam() 持久化并触发 AFE 参数更新。修改后必须写入才生效。" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,8">
+                            <Button Width="105" Click="ReadProtection_Click">读取全部</Button>
+                            <Button Width="115" Margin="8,0,0,0" Click="WriteSelectedProtection_Click">写入选中项</Button>
+                            <Button Width="135" Margin="8,0,0,0" Click="WriteChangedProtection_Click">写入全部修改项</Button>
+                            <TextBlock x:Name="ProtectionStatusText" Margin="14,0,0,0" VerticalAlignment="Center" Text="未读取"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="ProtectionGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" SelectionUnit="FullRow" Margin="0,0,0,10" IsReadOnly="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="地址" Binding="{Binding AddressText}" Width="76" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="保护项" Binding="{Binding Group}" Width="100" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="级别" Binding="{Binding Stage}" Width="64" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="固件字段" Binding="{Binding FirmwareField}" Width="175" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="设备值" Binding="{Binding DeviceValue}" Width="80" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="HEX" Binding="{Binding DeviceValueHex}" Width="82" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="修改值" Binding="{Binding EditValue, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                            <DataGridTextColumn Header="编码/单位" Binding="{Binding EncodingHint}" Width="*" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <GroupBox Grid.Row="2" Header="BMS 参数 / 单寄存器读写（专家模式）">
+                        <StackPanel Margin="10">
+                            <TextBlock Text="支持任意 Holding Register 的 0x03 单寄存器读取和 0x06 单寄存器写入。写操作会先弹出确认，返回 ACK 后再尝试回读；部分命令寄存器本身不可读，回读值仅作参考。常用：SOC=0x1005，CycleCount=0x2319。0x1102/0x1103 属于控制/调试寄存器，请确认固件语义后再写。" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock VerticalAlignment="Center">地址</TextBlock>
+                                <TextBox x:Name="BmsParamAddressBox" Width="95" Margin="7,0" Text="0x1005"/>
+                                <TextBlock VerticalAlignment="Center">值</TextBlock>
+                                <TextBox x:Name="BmsParamValueBox" Width="95" Margin="7,0" Text="60"/>
+                                <Button Width="82" Click="ReadBmsParameter_Click">读取</Button>
+                                <Button Width="115" Margin="8,0,0,0" Click="WriteBmsParameter_Click">写入并检查</Button>
+                                <TextBlock x:Name="BmsParamResultText" Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
             </TabItem>
 
             <TabItem Header="设备信息 / 蓝牙名">
@@ -58,12 +99,11 @@
 
             <TabItem Header="寄存器 / 诊断">
                 <StackPanel Margin="16">
-                    <TextBlock Text="默认只开放读取；保护参数写入不会在普通界面暴露，避免误改 BMS 保护阈值。" TextWrapping="Wrap"/>
+                    <TextBlock Text="原始只读诊断。保护/BMS 参数写入请使用“保护 / BMS 参数”页，写入路径带确认和回读检查。" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                         <TextBlock VerticalAlignment="Center">地址</TextBlock><TextBox x:Name="ManualAddressBox" Width="100" Margin="8,0" Text="0xD120"/>
                         <TextBlock VerticalAlignment="Center">数量</TextBlock><TextBox x:Name="ManualQuantityBox" Width="70" Margin="8,0" Text="11"/>
                         <Button Width="90" Click="ManualRead_Click">读取</Button>
-                        <Button Width="120" Margin="10,0,0,0" Click="ProtectPreview_Click">保护参数预览</Button>
                     </StackPanel>
                     <TextBox x:Name="RegisterOutput" Margin="0,12,0,0" Height="340" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
                 </StackPanel>
