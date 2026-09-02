@@ -1894,6 +1894,10 @@ _attribute_no_inline_ void user_init_normal(void)
 		// nvm_init(&nvm_cfg);
 		init_bms_io();
 		LoadParam();
+		if (!SH367309_AfeParamLoad())
+		{
+			System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+		}
 		Param_UpgradeReset_Apply();
 		bms_event_log_init();
 
@@ -2157,6 +2161,11 @@ _attribute_no_inline_ void main_loop(void)
 #ifdef _FUNC_UART_
 	main_loop_modbus();
 #endif
+	/* AFE EEPROM updates are rare and diff-only; defer them out of the Modbus parser. */
+	if (AFE_PARAM_WRITE_Flag)
+	{
+		SH367309_UpdataAfeConfig();
+	}
 	soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// nvm_process();

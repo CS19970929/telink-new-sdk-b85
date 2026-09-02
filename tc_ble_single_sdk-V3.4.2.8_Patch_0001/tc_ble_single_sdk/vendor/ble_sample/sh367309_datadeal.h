@@ -3,6 +3,50 @@
 
 #include "conf.h"
 
+/*
+ * SH367309 hardware-protection parameter block.
+ * Keep the 24-register layout compatible with the legacy a002-c030 project.
+ * Values are physical engineering units; writes are accepted only when the
+ * requested value is exactly representable by the SH367309 EEPROM encoding.
+ */
+#define SH309_AFE_PARAM_REG_BASE   0x2400u
+#define SH309_AFE_PARAM_REG_COUNT  24u
+#define SH309_AFE_PARAM_REG_END    (SH309_AFE_PARAM_REG_BASE + SH309_AFE_PARAM_REG_COUNT - 1u)
+
+typedef enum {
+    SH309_AFE_PARAM_VCELL_OVP = 0,
+    SH309_AFE_PARAM_VCELL_OVP_RCV,
+    SH309_AFE_PARAM_VCELL_OVP_FILTER,
+    SH309_AFE_PARAM_VCELL_UVP,
+    SH309_AFE_PARAM_VCELL_UVP_RCV,
+    SH309_AFE_PARAM_VCELL_UVP_FILTER,
+    SH309_AFE_PARAM_ICHG_OCP_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_SECOND,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_TCHG_OTP,
+    SH309_AFE_PARAM_TCHG_OTP_RCV,
+    SH309_AFE_PARAM_TCHG_UTP,
+    SH309_AFE_PARAM_TCHG_UTP_RCV,
+    SH309_AFE_PARAM_TDSG_OTP,
+    SH309_AFE_PARAM_TDSG_OTP_RCV,
+    SH309_AFE_PARAM_TDSG_UTP,
+    SH309_AFE_PARAM_TDSG_UTP_RCV,
+    SH309_AFE_PARAM_SC_CURRENT,
+    SH309_AFE_PARAM_SC_DELAY,
+} sh309_afe_param_index_t;
+
+typedef enum {
+    SH309_AFE_PARAM_RESULT_OK = 0,
+    SH309_AFE_PARAM_RESULT_INVALID = 1,
+    SH309_AFE_PARAM_RESULT_STORE_ERROR = 2,
+} sh309_afe_param_result_t;
+
+
 
 
 #ifdef LIFEPO
@@ -20,7 +64,7 @@
 #define AFE_COV_recover   (4150)
 #define AFE_COV_filter     100
 
-#define AFE_CUV           (2750)
+#define AFE_CUV           (2740)
 #define AFE_CUV_filter     (100)
 
 #define AFE_CUV_recover     (3000)
@@ -59,7 +103,7 @@
 #define AFE_OCC2_filter  	(10)
 
 #define AFE_ODC1_filter  	(100)
-#define AFE_ODC2_filter  	(50)
+#define AFE_ODC2_filter  	(60)
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
 #define AFE_PARAMETERS_RS485_STRUCTION_DEFAULT  {\
@@ -227,6 +271,15 @@ typedef struct{
 	AFE_Value_Typedef 	u16CBC_Cur_DSG;
 	AFE_Value_Typedef 	u16CBC_DelayT;
 }AFE_Parameters_RS485_Typedef; 
+
+extern AFE_Parameters_RS485_Typedef AFE_Parameters_RS485_Struction;
+extern int AFE_PARAM_WRITE_Flag;
+
+u8 SH367309_AfeParamLoad(void);
+u8 SH367309_AfeParamReadReg(u16 reg, u16 *value);
+sh309_afe_param_result_t SH367309_AfeParamWriteRegs(u16 start_reg, const u16 *values, u16 count);
+u8 SH367309_AfeParamValidate(const AFE_Parameters_RS485_Typedef *params);
+
 
 typedef union __MTP_REG_BSTATUS1 {
     u8 all;
