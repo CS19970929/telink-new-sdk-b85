@@ -26,9 +26,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore
+      - name: Restore win-x64
         working-directory: bms-tool-windows/BmsTool.Windows
-        run: dotnet restore BmsTool.Windows.csproj
+        run: dotnet restore BmsTool.Windows.csproj -r win-x64
 
       - name: Publish self-contained single EXE
         working-directory: bms-tool-windows/BmsTool.Windows
@@ -50,9 +50,8 @@ jobs:
         run: |
           $src = 'dist/single/BmsTool.Windows.exe'
           if (-not (Test-Path $src)) { throw 'Single-file EXE was not produced' }
-          $files = Get-ChildItem 'dist/single' -File
           Write-Host 'Publish output:'
-          $files | Format-Table Name,Length
+          Get-ChildItem 'dist/single' -File | Format-Table Name,Length
           Copy-Item $src 'dist/BmsAssistant.exe' -Force
           $hash = Get-FileHash 'dist/BmsAssistant.exe' -Algorithm SHA256
           "SHA256=$($hash.Hash.ToLower())" | Set-Content 'dist/BmsAssistant.sha256.txt'
