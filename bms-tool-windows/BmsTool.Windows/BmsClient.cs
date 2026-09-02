@@ -123,11 +123,15 @@ public sealed class BmsClient : IAsyncDisposable
                 last = ex;
                 Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 failed type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}");
                 if (attempt < 3)
-                    await Task.Delay(250 * attempt, ct);
+                {
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 requesting full BLE/GATT reconnect before retry");
+                    await _transport.ReconnectAsync(ct);
+                    await Task.Delay(250, ct);
+                }
             }
         }
 
-        throw new IOException("BMS GATT is connected but the application did not answer Modbus probe after 3 attempts.", last);
+        throw new IOException("BMS GATT was rebuilt between retries, but the application did not answer Modbus probe after 3 attempts.", last);
     }
 
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
