@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "protocol": "Modbus RTU",
+  "slave_address": 1,
+  "register_byte_order": "big-endian",
+  "crc_byte_order": "low-byte-first",
+  "functions": {
+    "read": "0x03",
+    "write_single": "0x06",
+    "write_multiple": "0x10"
+  },
+  "afe_parameter_block": {
+    "base": "0x2400",
+    "end": "0x2417",
+    "count": 24
+  },
+  "current_profile": {
+    "bms_type": "D3PRO",
+    "CS_Res_Num": 2,
+    "CS_Res": 2,
+    "K": 1000,
+    "formula": "K = CS_Res_Num * 1000 / CS_Res"
+  },
+  "discrete_tables": {
+    "ov_uv_delay_wire_10ms": [10,20,30,40,60,80,100,200,300,400,600,800,1000,2000,3000,4000],
+    "occ_ocd2_delay_wire_10ms": [1,2,4,6,8,10,20,40,60,80,100,200,400,800,1000,2000],
+    "ocd1_delay_wire_10ms": [5,10,20,40,60,80,100,200,400,600,800,1000,1500,2000,3000,4000],
+    "occ_ocd1_threshold_mV": [20,30,40,50,60,70,80,90,100,110,120,130,140,160,180,200],
+    "ocd2_threshold_mV": [30,40,50,60,70,80,90,100,120,140,160,180,200,300,400,500],
+    "short_circuit_threshold_mV": [50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000],
+    "short_circuit_delay_us": [0,64,128,192,256,320,384,448,512,576,640,704,768,832,896,960],
+    "d3pro_occ_ocd1_wire_0p1A": [200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1600,1800,2000],
+    "d3pro_ocd2_wire_0p1A": [300,400,500,600,700,800,900,1000,1200,1400,1600,1800,2000,3000,4000,5000],
+    "d3pro_short_circuit_wire_A": [50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000]
+  },
+  "registers": [
+    {"address":"0x2400","name":"cell_ovp","access":"RW","wire_unit":"mV","min":3600,"max":4500,"step":5,"default":4250,"afe_field":"OV"},
+    {"address":"0x2401","name":"cell_ovp_recovery","access":"RW","wire_unit":"mV","min":3300,"max":4500,"step":5,"default":4150,"relation":"value < cell_ovp","afe_field":"OVR"},
+    {"address":"0x2402","name":"cell_ovp_delay","access":"RW","wire_unit":"10ms","valid_table":"ov_uv_delay_wire_10ms","default":100,"decode":"milliseconds = value * 10","afe_field":"OVT"},
+    {"address":"0x2403","name":"cell_uvp","access":"RW","wire_unit":"mV","min":2000,"max":3100,"step":20,"default":2740,"afe_field":"UV"},
+    {"address":"0x2404","name":"cell_uvp_recovery","access":"RW","wire_unit":"mV","min":2000,"max":3600,"step":20,"default":3000,"relation":"value > cell_uvp","afe_field":"UVR"},
+    {"address":"0x2405","name":"cell_uvp_delay","access":"RW","wire_unit":"10ms","valid_table":"ov_uv_delay_wire_10ms","default":100,"decode":"milliseconds = value * 10","afe_field":"UVT"},
+    {"address":"0x2406","name":"charge_ocp_current_a","access":"RW","wire_unit":"0.1A","valid_table_current_profile":"d3pro_occ_ocd1_wire_0p1A","default":200,"relation":"value == charge_ocp_current_b","generic_formula":"wire_0p1A = threshold_mV * K / 100","afe_field":"OCCV","alias_of":"0x2408"},
+    {"address":"0x2407","name":"charge_ocp_delay_a","access":"RW","wire_unit":"10ms","valid_table":"occ_ocd2_delay_wire_10ms","default":10,"relation":"value == charge_ocp_delay_b","afe_field":"OCCT","alias_of":"0x2409"},
+    {"address":"0x2408","name":"charge_ocp_current_b","access":"RW","wire_unit":"0.1A","valid_table_current_profile":"d3pro_occ_ocd1_wire_0p1A","default":200,"relation":"value == charge_ocp_current_a","generic_formula":"wire_0p1A = threshold_mV * K / 100","afe_field":"OCCV","alias_of":"0x2406"},
+    {"address":"0x2409","name":"charge_ocp_delay_b","access":"RW","wire_unit":"10ms","valid_table":"occ_ocd2_delay_wire_10ms","default":10,"relation":"value == charge_ocp_delay_a","afe_field":"OCCT","alias_of":"0x2407"},
+    {"address":"0x240A","name":"discharge_ocp1_current","access":"RW","wire_unit":"0.1A","valid_table_current_profile":"d3pro_occ_ocd1_wire_0p1A","default":300,"generic_formula":"wire_0p1A = threshold_mV * K / 100","afe_field":"OCD1V"},
+    {"address":"0x240B","name":"discharge_ocp1_delay","access":"RW","wire_unit":"10ms","valid_table":"ocd1_delay_wire_10ms","default":100,"afe_field":"OCD1T"},
+    {"address":"0x240C","name":"discharge_ocp2_current","access":"RW","wire_unit":"0.1A","valid_table_current_profile":"d3pro_ocd2_wire_0p1A","default":500,"generic_formula":"wire_0p1A = threshold_mV * K / 100","afe_field":"OCD2V"},
+    {"address":"0x240D","name":"discharge_ocp2_delay","access":"RW","wire_unit":"10ms","valid_table":"occ_ocd2_delay_wire_10ms","default":60,"afe_field":"OCD2T"},
+    {"address":"0x240E","name":"charge_otp","access":"RW","wire_unit":"(C+40)*10","min":850,"max":1100,"step":10,"default":950,"decode":"C = value / 10 - 40","afe_field":"OTC"},
+    {"address":"0x240F","name":"charge_otp_recovery","access":"RW","wire_unit":"(C+40)*10","min":800,"max":1100,"step":10,"default":850,"decode":"C = value / 10 - 40","relation":"value < charge_otp","afe_field":"OTCR"},
+    {"address":"0x2410","name":"charge_utp","access":"RW","wire_unit":"(C+40)*10","min":200,"max":500,"step":10,"default":330,"decode":"C = value / 10 - 40","afe_field":"UTC"},
+    {"address":"0x2411","name":"charge_utp_recovery","access":"RW","wire_unit":"(C+40)*10","min":200,"max":550,"step":10,"default":400,"decode":"C = value / 10 - 40","relation":"value > charge_utp","afe_field":"UTCR"},
+    {"address":"0x2412","name":"discharge_otp","access":"RW","wire_unit":"(C+40)*10","min":850,"max":1200,"step":10,"default":1150,"decode":"C = value / 10 - 40","afe_field":"OTD"},
+    {"address":"0x2413","name":"discharge_otp_recovery","access":"RW","wire_unit":"(C+40)*10","min":800,"max":1200,"step":10,"default":1000,"decode":"C = value / 10 - 40","relation":"value < discharge_otp","afe_field":"OTDR"},
+    {"address":"0x2414","name":"discharge_utp","access":"RW","wire_unit":"(C+40)*10","min":0,"max":500,"step":10,"default":200,"decode":"C = value / 10 - 40","afe_field":"UTD"},
+    {"address":"0x2415","name":"discharge_utp_recovery","access":"RW","wire_unit":"(C+40)*10","min":0,"max":550,"step":10,"default":300,"decode":"C = value / 10 - 40","relation":"value > discharge_utp","afe_field":"UTDR"},
+    {"address":"0x2416","name":"short_circuit_current","access":"RW","wire_unit":"A","valid_table_current_profile":"d3pro_short_circuit_wire_A","default":200,"generic_formula":"wire_A = threshold_mV * K / 1000","afe_field":"SCV"},
+    {"address":"0x2417","name":"short_circuit_delay","access":"RW","wire_unit":"us","valid_table":"short_circuit_delay_us","default":256,"afe_field":"SCT"}
+  ],
+  "exceptions": {
+    "0x02": "Illegal Data Address: write-multiple range crosses the AFE parameter block boundary",
+    "0x03": "Illegal Data Value: unsupported discrete value, invalid range, invalid recovery relation, or inconsistent charge-OCP aliases",
+    "0x04": "Server Device Failure: MCU Flash persistence failed"
+  },
+  "write_semantics": {
+    "transactional": true,
+    "write_multiple_validation": "all requested values are applied to a RAM candidate, the complete 24-parameter set is validated, and only then is it persisted",
+    "modbus_ack": "accepted, validated and persisted in MCU Flash; SH367309 EEPROM synchronization is deferred to the main loop",
+    "afe_programming": "diff-only, byte write with readback verification, followed by whole-image verification and AFE reset",
+    "eeprom_wear_guidance": "do not write on every UI slider/key event; edit locally and commit on explicit Save/Apply"
+  }
+}
