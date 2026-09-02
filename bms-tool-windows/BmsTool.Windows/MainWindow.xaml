@@ -1,0 +1,93 @@
+<Window x:Class="BmsTool.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BMS Assistant - Telink BLE / Modbus / OTA" Height="820" Width="1180" MinHeight="700" MinWidth="1000">
+    <Grid Margin="12">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="180"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" Padding="10" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="360"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Button x:Name="ScanButton" Grid.Column="0" Width="86" Margin="0,0,8,0" Click="ScanButton_Click">扫描 BT_</Button>
+                <Button x:Name="StopScanButton" Grid.Column="1" Width="70" Margin="0,0,8,0" Click="StopScanButton_Click">停止</Button>
+                <ComboBox x:Name="DeviceList" Grid.Column="2" Height="30"/>
+                <Button x:Name="ConnectButton" Grid.Column="3" Width="90" Margin="8,0" Click="ConnectButton_Click">连接 BMS</Button>
+                <TextBlock x:Name="ConnectionText" Grid.Column="4" VerticalAlignment="Center" Text="未连接" TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="1" Margin="0,10,0,10">
+            <TabItem Header="电池状态">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Width="100" Click="RefreshBattery_Click">立即刷新</Button>
+                        <CheckBox x:Name="AutoPollCheck" Margin="16,0,0,0" VerticalAlignment="Center" Checked="AutoPollCheck_Changed" Unchecked="AutoPollCheck_Changed">2 秒自动刷新</CheckBox>
+                        <TextBlock x:Name="DataSourceText" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <UniformGrid Columns="4" Margin="0,16,0,0">
+                        <GroupBox Header="总压" Margin="4"><TextBlock x:Name="PackVoltageText" FontSize="26" FontWeight="Bold" Margin="10" Text="—"/></GroupBox>
+                        <GroupBox Header="电流" Margin="4"><TextBlock x:Name="CurrentText" FontSize="26" FontWeight="Bold" Margin="10" Text="—"/></GroupBox>
+                        <GroupBox Header="SOC / SOH" Margin="4"><TextBlock x:Name="SocText" FontSize="22" Margin="10" Text="—"/></GroupBox>
+                        <GroupBox Header="温度" Margin="4"><TextBlock x:Name="TempsText" FontSize="18" Margin="10" Text="—" TextWrapping="Wrap"/></GroupBox>
+                    </UniformGrid>
+                    <UniformGrid Columns="3" Margin="0,8,0,0">
+                        <GroupBox Header="单体极值" Margin="4"><TextBlock x:Name="CellExtremeText" Margin="10" Text="—" TextWrapping="Wrap"/></GroupBox>
+                        <GroupBox Header="容量 / 循环" Margin="4"><TextBlock x:Name="CapacityText" Margin="10" Text="—" TextWrapping="Wrap"/></GroupBox>
+                        <GroupBox Header="系统状态" Margin="4"><TextBlock x:Name="StatusWordText" Margin="10" Text="—" TextWrapping="Wrap"/></GroupBox>
+                    </UniformGrid>
+                    <GroupBox Header="单体电压（当前工程 10S）" Margin="4,12,4,4"><TextBlock x:Name="CellsText" Margin="10" FontFamily="Consolas" FontSize="15" Text="—" TextWrapping="Wrap"/></GroupBox>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="设备信息 / 蓝牙名">
+                <StackPanel Margin="16">
+                    <Button Width="120" HorizontalAlignment="Left" Click="RefreshIdentity_Click">刷新设备信息</Button>
+                    <TextBlock x:Name="IdentityText" Margin="0,14,0,20" FontFamily="Consolas" FontSize="15" Text="—"/>
+                    <GroupBox Header="修改蓝牙名">
+                        <StackPanel Margin="12">
+                            <TextBlock Text="固件固定前缀 BT_；此处输入后缀。当前 BLE 单请求按固件现状限制为最多 10 个 ASCII 字节，仅允许字母/数字/_/-。写入后 Flash 持久化并立即刷新广播名。" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock VerticalAlignment="Center" FontSize="16" Text="BT_"/>
+                                <TextBox x:Name="NameSuffixBox" Width="240" Height="30" Margin="4,0,10,0"/>
+                                <Button Width="110" Click="WriteName_Click">写入并回读</Button>
+                                <TextBlock x:Name="BtNameResultText" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="寄存器 / 诊断">
+                <StackPanel Margin="16">
+                    <TextBlock Text="默认只开放读取；保护参数写入不会在普通界面暴露，避免误改 BMS 保护阈值。" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBlock VerticalAlignment="Center">地址</TextBlock><TextBox x:Name="ManualAddressBox" Width="100" Margin="8,0" Text="0xD120"/>
+                        <TextBlock VerticalAlignment="Center">数量</TextBlock><TextBox x:Name="ManualQuantityBox" Width="70" Margin="8,0" Text="11"/>
+                        <Button Width="90" Click="ManualRead_Click">读取</Button>
+                        <Button Width="120" Margin="10,0,0,0" Click="ProtectPreview_Click">保护参数预览</Button>
+                    </StackPanel>
+                    <TextBox x:Name="RegisterOutput" Margin="0,12,0,0" Height="340" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="OTA 升级">
+                <StackPanel Margin="16">
+                    <StackPanel Orientation="Horizontal"><Button Width="100" Click="BrowseFirmware_Click">选择 BIN</Button><TextBlock x:Name="FirmwareText" Margin="12,0,0,0" VerticalAlignment="Center" Text="未选择固件"/></StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <TextBlock VerticalAlignment="Center">传输模式</TextBlock>
+                        <ComboBox x:Name="OtaModeBox" Width="170" Margin="8,0">
+                            <ComboBoxItem Content="Auto" Tag="Auto" IsSelected="True"/><ComboBoxItem Content="Legacy Fast (16B)" Tag="LegacyFast"/><ComboBoxItem Content="Extend 64B" Tag="Extend64"/>
+                        </ComboBox>
+                        <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">目标软件版本（可选）</TextBlock><TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
+                    </StackPanel>
+                    <TextBlock Margin="0,10,0,0" Text="OTA 完成后会自动等待设备重启、重新连接 SPP、读取 0xC022 软件版本并读取实时电池数据确认 APP alive。填写目标版本时会做严格版本比对。" TextWrapping="Wrap"/>
+                    <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
+                    <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0"><Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始 OTA</Button><Button x:Name="CancelOtaButton" Width="90" Margin="10,0,0,0" IsEnabled="False" Click="CancelOta_Click">取消</Button></StackPanel>
+                    <TextBlock x:Name="OtaVerifyText" Margin="0,18,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <GroupBox Grid.Row="2" Header="通信日志"><TextBox x:Name="LogBox" Margin="6" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"/></GroupBox>
+    </Grid>
+</Window>
