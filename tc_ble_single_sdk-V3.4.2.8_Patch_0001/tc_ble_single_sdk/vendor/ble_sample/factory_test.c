@@ -332,7 +332,8 @@ int factory_test_modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
         factory_put_u16be(&payload[2], factory_remaining_seconds());
         return factory_response(req[0], command, status, payload, 4u, rsp, rsp_len);
     case FACTORY_CMD_INJECT:
-        if (req_len != 10u) {
+        /* addr + func + cmd + token(2) + kind + index + value(2) + crc(2) */
+        if (req_len != 11u) {
             status = FACTORY_STATUS_BAD_REQUEST;
         } else {
             status = factory_set_injection(req[5], req[6], factory_get_u16be(&req[7]));

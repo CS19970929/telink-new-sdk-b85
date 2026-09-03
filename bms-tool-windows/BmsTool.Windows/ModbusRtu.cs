@@ -144,14 +144,18 @@ public static class ModbusRtu
         if (f == BmsRegisters.FactoryFunction)
         {
             if (buffer.Count < 4) return null;
-            if (buffer[3] != 0) return 6;
-            return buffer[2] switch
+            byte command = buffer[2];
+            byte status = buffer[3];
+            return command switch
             {
-                0x01 => 12,
-                0x02 or 0x03 => 10,
-                0x04 => 8,
+                // OPEN and STATUS return no payload for an error response.
+                0x01 => status == 0 ? 12 : 6,
+                // HEARTBEAT/INJECT/CLEAR keep their token payload when an
+                // authenticated request is rejected; AUTH_REQUIRED is short.
+                0x02 or 0x03 => status == 2 ? 6 : 10,
+                0x04 => status == 2 ? 6 : 8,
                 0x05 => 6,
-                0x06 => 38,
+                0x06 => status == 0 ? 38 : 6,
                 _ => 6
             };
         }

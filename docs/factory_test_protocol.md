@@ -26,6 +26,8 @@ Factory Session 在 BLE 建链和断链时清除，心跳超时为 8 秒，复�
 | `0x05 CLOSE` | token | 无 |
 | `0x06 STATUS` | token | 有效测量值、L1/L2/L3 故障字、MOS 状态 |
 
+`INJECT` 请求固定为 11 字节（地址、功能码、命令、token、类型、索引、值和 CRC）。带有效 token 的 `HEARTBEAT`/`INJECT`/`CLEAR` 即使返回错误状态仍保留其定义的 token 负载；鉴权失败等未进入命令处理的响应才使用无负载短帧。
+
 注入类型：`1 cell mV`、`2 pack cV`、`3 current 0.1A`（有符号 `int16` 编码，正值充电、负值放电）、`4 温度原始值`、`5 MOS 温度原始值`、`6 SOC 百分比`。单体注入会重新计算有效单体最大值、最小值、压差和总压；显式 pack 注入优先于计算总压。
 
 ## 软件保护映射
