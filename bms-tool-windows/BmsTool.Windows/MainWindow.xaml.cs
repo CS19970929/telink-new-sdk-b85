@@ -67,7 +67,7 @@ public partial class MainWindow : Window
             _watcher = BmsBleTransport.CreateWatcher(
                 d => Dispatcher.BeginInvoke(() => UpsertDevice(d)),
                 msg => AppendLog(msg, "SCAN"));
-            AppendLog($"开始 BLE 主动扫描；filter=BT_*；status(before)={_watcher.Status}", "SCAN");
+            AppendLog($"开始 BLE 主动扫描；filter=BT_/BT-；status(before)={_watcher.Status}", "SCAN");
             _watcher.Start();
             AppendLog($"扫描器已启动；status(after)={_watcher.Status}", "SCAN");
             ConnectionText.Text = "正在扫描设备...";
@@ -207,10 +207,13 @@ public partial class MainWindow : Window
     private async Task<DeviceIdentity> RefreshIdentityAsync()
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        DeviceIdentity id = await bms.ReadIdentityAsync();
+        DeviceIdentity id = await bms.ReadIdentityAsync(
+            BmsBleTransport.FormatBluetoothAddress(_connectedAddress ?? 0),
+            _connectedName);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
-        if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase))
+        if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
+            id.BluetoothName.StartsWith("BT-", StringComparison.OrdinalIgnoreCase))
             NameSuffixBox.Text = id.BluetoothName[3..];
         return id;
     }

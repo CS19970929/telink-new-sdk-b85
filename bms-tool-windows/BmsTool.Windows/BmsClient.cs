@@ -129,10 +129,29 @@ public sealed class BmsClient : IAsyncDisposable
                     ct,
                     TimeSpan.FromMilliseconds(1800));
                 ushort[] words = ModbusRtu.ParseRead(rsp, 2);
-                if (words.Length < 2 || words[0] != BmsRegisters.RealtimeMagic)
-                    throw new IOException($"BMS Modbus probe failed: expected 0x{BmsRegisters.RealtimeMagic:X4} at 0x{BmsRegisters.Realtime:X4}.");
+                if (words.Length >= 2 && words[0] == BmsRegisters.RealtimeMagic)
+                {
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok realtimeMagic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
+                    return;
+                }
 
-                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok magic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
+                // Older/deployed BMS firmware can expose the same BLE UART and
+                // Modbus map while leaving the optional realtime window at zero.
+                // A valid D120 response is not enough to identify the device, so
+                // verify the stable legacy data window before accepting it.
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 realtime window unavailable; magic=0x{words.ElementAtOrDefault(0):X4}; trying legacy D000 window");
+                ushort[] legacyHead = await ReadRegistersAsync(BmsRegisters.Legacy, 4, ct);
+                if (legacyHead.All(value => value == 0))
+                {
+                    ushort[] production = await ReadRegistersAsync(BmsRegisters.Serial, 16, ct);
+                    if (production.All(value => value == 0))
+                        throw new IOException($"BMS Modbus probe failed: D120 magic is 0x{words.ElementAtOrDefault(0):X4}, and both legacy D000 and production C002 windows are empty.");
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; production data present");
+                }
+                else
+                {
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; D000={string.Join(" ", legacyHead.Select(value => value.ToString("X4")))}");
+                }
                 return;
             }
             catch (OperationCanceledException)
@@ -233,20 +252,63 @@ public sealed class BmsClient : IAsyncDisposable
             U(20), U(22), U(24), U(26), U(28), U(30), U(32), U(34));
     }
 
-    public async Task<DeviceIdentity> ReadIdentityAsync(CancellationToken ct = default)
+    public Task<DeviceIdentity> ReadIdentityAsync(CancellationToken ct = default) =>
+        ReadIdentityAsync(string.Empty, string.Empty, ct);
+
+    public Task<DeviceIdentity> ReadIdentityAsync(string fallbackBluetoothName, CancellationToken ct = default) =>
+        ReadIdentityAsync(string.Empty, fallbackBluetoothName, ct);
+
+    public async Task<DeviceIdentity> ReadIdentityAsync(
+        string fallbackMac,
+        string fallbackBluetoothName,
+        CancellationToken ct = default)
     {
-        ushort[] mac = await ReadRegistersAsync(BmsRegisters.Mac, 3, ct);
+        string macText = fallbackMac.Trim();
+        try
+        {
+            ushort[] mac = await ReadRegistersAsync(BmsRegisters.Mac, 3, ct);
+            byte[] macBytes = mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Take(6).ToArray();
+            if (macBytes.Any(value => value != 0))
+                macText = string.Join(":", macBytes.Select(b => b.ToString("X2")));
+        }
+        catch (IOException ex)
+        {
+            // External UART/BLE modules may not expose the optional BMS MAC
+            // register. The BLE transport address remains authoritative.
+            Log?.Invoke($"[IDENTITY] MAC register 0x{BmsRegisters.Mac:X4} unavailable; using BLE address='{macText}'; message={ex.Message}");
+        }
+
         ushort[] sn = await ReadRegistersAsync(BmsRegisters.Serial, 16, ct);
         ushort[] hw = await ReadRegistersAsync(BmsRegisters.Hardware, 16, ct);
         ushort[] sw = await ReadRegistersAsync(BmsRegisters.Software, 16, ct);
-        ushort[] name = await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct);
-        byte[] macBytes = mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Take(6).ToArray();
+        string bluetoothName = fallbackBluetoothName.Trim();
+        try
+        {
+            ushort[] name = await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct);
+            bluetoothName = ModbusRtu.DecodeAscii(name);
+        }
+        catch (IOException ex)
+        {
+            // Some external UART/BLE modules own the advertised name and do
+            // not implement the optional BMS BT-name register.
+            Log?.Invoke($"[IDENTITY] BT name register 0x{BmsRegisters.BtName:X4} unavailable; using BLE advertisement name='{bluetoothName}'; message={ex.Message}");
+        }
+
+        if (string.IsNullOrWhiteSpace(bluetoothName))
+            bluetoothName = "未知";
+
+        if (string.IsNullOrWhiteSpace(macText))
+            macText = "未知";
+
+        string serial = ModbusRtu.DecodeAscii(sn);
+        string hardware = ModbusRtu.DecodeAscii(hw);
+        string software = ModbusRtu.DecodeAscii(sw);
         return new DeviceIdentity(
-            string.Join(":", macBytes.Select(b => b.ToString("X2"))),
-            ModbusRtu.DecodeAscii(sn),
-            ModbusRtu.DecodeAscii(hw),
-            ModbusRtu.DecodeAscii(sw),
-            ModbusRtu.DecodeAscii(name));
+            macText,
+            string.IsNullOrWhiteSpace(serial) ? "未知" : serial,
+            string.IsNullOrWhiteSpace(hardware) ? "未知" : hardware,
+            string.IsNullOrWhiteSpace(software) ? "未知" : software,
+            bluetoothName);
     }
 
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
