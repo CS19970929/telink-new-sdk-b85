@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<DiscoveredDevice> _devices = new();
     private readonly ObservableCollection<ProtectionParameterRow> _protectionRows = new(ProtectionParameterCatalog.Create());
+    private readonly ObservableCollection<FactoryTestStepResult> _factorySteps = new();
     private readonly Dictionary<ulong, DiscoveredDevice> _deviceMap = new();
     private readonly DispatcherTimer _pollTimer;
     private readonly SessionLogger _sessionLog = new();
@@ -37,6 +38,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         DeviceList.ItemsSource = _devices;
         ProtectionGrid.ItemsSource = _protectionRows;
+        FactoryStepGrid.ItemsSource = _factorySteps;
+        FactoryCaseBox.ItemsSource = FactoryTestEngine.AvailableCases.Select(c => c.Name).ToArray();
+        FactoryCaseBox.SelectedIndex = 0;
         LogPathText.Text = "日志文件：" + _sessionLog.FilePath;
 
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -57,14 +61,45 @@ public partial class MainWindow : Window
         AppendLog("完整诊断日志已启用：" + _sessionLog.FilePath, "APP");
     }
 
-    private async void FactoryRunButton_Click(object sender, RoutedEventArgs e)
+    private async void FactoryRunButton_Click(object sender, RoutedEventArgs e) =>
+        await RunFactoryTestAsync(null);
+
+    private async void FactorySingleRunButton_Click(object sender, RoutedEventArgs e)
+    {
+        string? selected = FactoryCaseBox.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selected))
+        {
+            MessageBox.Show("请先选择一个测试项。", "单项测试", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        await RunFactoryTestAsync(selected);
+    }
+
+    private async void FactoryRefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RefreshIdentityAsync();
+            await RefreshBatteryAsync();
+            FactoryConnectionText.Text = "连接状态：已连接；手动刷新完成";
+        }
+        catch (Exception ex) { ShowError("刷新电池信息失败", ex); }
+    }
+
+    private async Task RunFactoryTestAsync(string? onlyCaseName)
     {
         try
         {
             var bms = _bms ?? throw new InvalidOperationException("请先连接 BMS。");
-            _pollTimer.Stop();
             FactoryRunButton.IsEnabled = false;
-            FactoryResultText.Text = "测试进行中...";
+            FactorySingleRunButton.IsEnabled = false;
+            FactoryRefreshButton.IsEnabled = false;
+            FactoryResultText.Text = onlyCaseName is null ? "完整测试进行中..." : $"测试中：{onlyCaseName}";
+            FactoryReportText.Text = "正在执行；步骤结果会实时显示，结束时自动清理会话。";
+            _factorySteps.Clear();
+            FactorySessionText.Text = "会话：准备建立";
+            FactoryInjectionText.Text = "注入：无";
+            FactoryEffectiveText.Text = "有效输入：等待 STATUS";
             _factoryTestCts = new CancellationTokenSource();
             var engine = new FactoryTestEngine(message =>
             {
@@ -75,11 +110,20 @@ public partial class MainWindow : Window
                         FactoryLogText.AppendText($"{DateTime.Now:HH:mm:ss} {message}{Environment.NewLine}");
                         FactoryLogText.ScrollToEnd();
                     });
-            });
-            FactoryTestReport report = await engine.RunAsync(bms, _connectedName, IdentityText.Text, _factoryTestCts.Token);
+            }, status => Dispatcher.BeginInvoke(() => ApplyFactoryStatus(status)),
+            step => Dispatcher.BeginInvoke(() =>
+            {
+                _factorySteps.Add(step);
+                FactoryStepGrid.ScrollIntoView(step);
+            }),
+            session => Dispatcher.BeginInvoke(() => FactorySessionText.Text = "会话：" + session),
+            count => Dispatcher.BeginInvoke(() => FactoryParameterSummaryText.Text = $"正式保护参数：已读取 {count} 项\n测试过程只读，不写入"));
+            FactoryTestReport report = await engine.RunAsync(bms, _connectedName, IdentityText.Text,
+                _factoryTestCts.Token, onlyCaseName);
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BmsFactoryReports");
             Directory.CreateDirectory(root);
-            string path = Path.Combine(root, $"BMS_Factory_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+            string prefix = onlyCaseName is null ? "BMS_Factory" : "BMS_Factory_Single_" + SanitizeFileName(onlyCaseName);
+            string path = Path.Combine(root, $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}.json");
             await File.WriteAllTextAsync(path, report.ToJson());
             FactoryResultText.Text = report.Passed ? $"PASS（{report.Steps.Count} 项）" : $"FAIL（{report.Steps.Count} 项）";
             FactoryReportText.Text = $"报告：{path}；清理：{report.CleanupCompleted}";
@@ -95,6 +139,8 @@ public partial class MainWindow : Window
             _factoryTestCts?.Dispose();
             _factoryTestCts = null;
             FactoryRunButton.IsEnabled = _bms is not null;
+            FactorySingleRunButton.IsEnabled = _bms is not null;
+            FactoryRefreshButton.IsEnabled = _bms is not null;
             StartAutomaticRefresh();
         }
     }
@@ -256,6 +302,8 @@ public partial class MainWindow : Window
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         DeviceIdentity id = await bms.ReadIdentityAsync();
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
+        FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
+        FactoryConnectionText.Text = $"连接状态：已连接\n硬件：{id.Hardware}\n软件：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
         if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase))
             NameSuffixBox.Text = id.BluetoothName[3..];
@@ -306,6 +354,62 @@ public partial class MainWindow : Window
         DebugRawStatusText.Text =
             $"SystemStatus=0x{s.SystemStatus:X8}    Protocol=0x{s.ProtocolVersion:X4}    DataWindow={(s.UsesRealtimeWindow ? "Realtime" : "Legacy")}\n" +
             $"Protect L1=0x{s.ProtectionLevel1Raw:X4}    L2=0x{s.ProtectionLevel2Raw:X4}    L3=0x{s.ProtectionLevel3Raw:X4}";
+
+        FactoryPackText.Text = $"总压：{s.PackVoltageV:F2} V";
+        FactoryCurrentText.Text = $"电流：{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
+        FactorySocText.Text = $"SOC：{s.SocPercent}%";
+        FactorySohText.Text = $"SOH：{s.SohPercent}%";
+        FactoryCapacityText.Text = $"容量：{s.CapacityNowAh:F2} / {s.CapacityFullAh:F2} Ah\n工厂标称：{s.CapacityFactoryAh:F2} Ah";
+        FactoryCycleText.Text = $"循环：{s.CycleCount}";
+        FactoryCellTempText.Text = $"单体最高/最低：{s.MaxTempC:F1} / {s.MinTempC:F1} ℃";
+        FactoryMosTempText.Text = $"MOS温度：{s.MosTempC:F1} ℃";
+        FactoryCellExtremeText.Text = $"最高：{s.MaxCellMv} mV（第{s.MaxCellPosition}串）\n最低：{s.MinCellMv} mV（第{s.MinCellPosition}串）\n压差：{s.CellDeltaMv} mV";
+        FactoryUpdateText.Text = $"更新时间：{DateTime.Now:HH:mm:ss}";
+        FactoryMosText.Text = $"充电MOS：{OnOff(s.ChargeMosOn)}\n放电MOS：{OnOff(s.DischargeMosOn)}\n预充MOS：{OnOff(s.PrechargeMosOn)}";
+        FactorySystemText.Text = $"AFE：{(s.Afe1On ? "工作" : "未工作")}  均衡：{(s.BalancingOn ? "进行中" : "未进行")}\n加热：{OnOff(s.HeatingOn)}  制冷：{OnOff(s.CoolingOn)}\n系统：{(s.PreparingSleep ? "准备休眠" : "运行中")}";
+        FactoryRawText.Text = $"System=0x{s.SystemStatus:X8}\nProtocol=0x{s.ProtocolVersion:X4} · {(s.UsesRealtimeWindow ? "Realtime" : "Legacy")}";
+        FactoryProtection1Text.Text = $"一级：{s.ProtectionLevel1Text}\n0x{s.ProtectionLevel1Raw:X4}";
+        FactoryProtection2Text.Text = $"二级：{s.ProtectionLevel2Text}\n0x{s.ProtectionLevel2Raw:X4}";
+        FactoryProtection3Text.Text = $"三级：{s.ProtectionLevel3Text}\n0x{s.ProtectionLevel3Raw:X4}";
+        FactoryCellPanel.Children.Clear();
+        for (int i = 0; i < s.CellMillivolts.Count; i++)
+        {
+            int mv = s.CellMillivolts[i];
+            FactoryCellPanel.Children.Add(new Border
+            {
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.LightGray),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(2),
+                Margin = new Thickness(2),
+                Padding = new Thickness(5, 3, 5, 3),
+                Child = new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV", FontFamily = new System.Windows.Media.FontFamily("Consolas") }
+            });
+        }
+    }
+
+    private void ApplyFactoryStatus(FactoryStatus s)
+    {
+        FactoryInjectionText.Text = $"Mask=0x{s.InjectionMask:X4}\nCell/Pack/I={((s.InjectionMask & 0x0001) != 0 ? "Y" : "-")}/{((s.InjectionMask & 0x0002) != 0 ? "Y" : "-")}/{((s.InjectionMask & 0x0004) != 0 ? "Y" : "-")}\nTemp/MOS/SOC={((s.InjectionMask & 0x0008) != 0 ? "Y" : "-")}/{((s.InjectionMask & 0x0010) != 0 ? "Y" : "-")}/{((s.InjectionMask & 0x0020) != 0 ? "Y" : "-")}";
+        FactoryEffectiveText.Text = $"Cell {s.CellMinMv}~{s.CellMaxMv} mV\nΔ {s.CellDeltaMv} mV · Pack {s.PackCv / 10.0:F1} V\nChg {s.ChargeCurrentTenthA / 10.0:F1}A / Dsg {s.DischargeCurrentTenthA / 10.0:F1}A\nTemp {RawTemperature(s.TemperatureMaxRaw):F1}℃ · MOS {RawTemperature(s.MosTemperatureRaw):F1}℃ · SOC {s.SocPercent}%";
+        FactoryProtection1Text.Text = $"一级：{DecodeFactoryBits(s.ProtectionLevel1)}\n0x{s.ProtectionLevel1:X4}";
+        FactoryProtection2Text.Text = $"二级：{DecodeFactoryBits(s.ProtectionLevel2)}\n0x{s.ProtectionLevel2:X4}";
+        FactoryProtection3Text.Text = $"三级：{DecodeFactoryBits(s.ProtectionLevel3)}\n0x{s.ProtectionLevel3:X4}";
+    }
+
+    private static double RawTemperature(ushort raw) => raw / 10.0 - 40.0;
+
+    private static string DecodeFactoryBits(ushort raw)
+    {
+        if (raw == 0) return "无";
+        string[] names = { "单体过压", "单体欠压", "总压过压", "总压欠压", "充电过流", "放电过流", "充电高温", "放电高温", "充电低温", "放电低温", "压差", "温差", "SOC低", "MOS高温" };
+        var active = names.Where((_, i) => (raw & (1u << i)) != 0).ToArray();
+        return active.Length == 0 ? $"未知位 0x{raw:X4}" : string.Join("、", active);
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        foreach (char c in Path.GetInvalidFileNameChars()) value = value.Replace(c, '_');
+        return value;
     }
 
     private static string OnOff(bool value) => value ? "开启" : "关闭";
@@ -391,6 +495,7 @@ public partial class MainWindow : Window
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
         ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
+        FactoryParameterSummaryText.Text = $"正式保护参数：已读取 {values.Length} 项\n范围：0x2100..0x{0x2100 + values.Length - 1:X4}（只读）";
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 

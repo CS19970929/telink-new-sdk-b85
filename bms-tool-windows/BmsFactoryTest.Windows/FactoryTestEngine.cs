@@ -10,7 +10,11 @@ public sealed record FactoryTestStepResult(
     string Stage,
     bool Passed,
     string Detail,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    public string Result => Passed ? "PASS" : "FAIL";
+    public string LevelText => Level > 0 ? $"L{Level}" : "—";
+}
 
 public sealed class FactoryTestReport
 {
@@ -24,6 +28,8 @@ public sealed class FactoryTestReport
 
     public string ToJson() => JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
 }
+
+public sealed record FactoryTestCaseInfo(string Name, string Input, string Direction);
 
 public sealed class FactoryTestEngine
 {
@@ -56,28 +62,54 @@ public sealed class FactoryTestEngine
         new("SOC过低", 12, 1 << 12, InputKind.SocPercent, false),
     };
 
+    public static IReadOnlyList<FactoryTestCaseInfo> AvailableCases { get; } = Cases
+        .Select(c => new FactoryTestCaseInfo(c.Name, c.Input.ToString(), c.HighTrip ? "高于阈值" : "低于阈值"))
+        .ToArray();
+
     private readonly Action<string> _log;
+    private readonly Action<FactoryStatus>? _statusUpdated;
+    private readonly Action<FactoryTestStepResult>? _stepCompleted;
+    private readonly Action<string>? _sessionUpdated;
+    private readonly Action<int>? _parametersUpdated;
 
-    public FactoryTestEngine(Action<string> log) => _log = log;
+    public FactoryTestEngine(Action<string> log, Action<FactoryStatus>? statusUpdated = null,
+        Action<FactoryTestStepResult>? stepCompleted = null, Action<string>? sessionUpdated = null,
+        Action<int>? parametersUpdated = null)
+    {
+        _log = log;
+        _statusUpdated = statusUpdated;
+        _stepCompleted = stepCompleted;
+        _sessionUpdated = sessionUpdated;
+        _parametersUpdated = parametersUpdated;
+    }
 
-    public async Task<FactoryTestReport> RunAsync(BmsClient client, string device, string firmware, CancellationToken ct = default)
+    public async Task<FactoryTestReport> RunAsync(BmsClient client, string device, string firmware,
+        CancellationToken ct = default, string? onlyCaseName = null)
     {
         var report = new FactoryTestReport { StartedAt = DateTimeOffset.Now, Device = device, Firmware = firmware };
         FactorySession? session = null;
         try
         {
-            _log("进入 RAM-only Factory Session...");
+            if (onlyCaseName is not null && Cases.All(c => !string.Equals(c.Name, onlyCaseName, StringComparison.Ordinal)))
+                throw new ArgumentException($"未知的出厂测试项：{onlyCaseName}", nameof(onlyCaseName));
+
+            _log(onlyCaseName is null ? "进入 RAM-only Factory Session..." : $"进入 RAM-only Factory Session，单项测试：{onlyCaseName}...");
             session = await client.FactoryOpenAsync(ct);
             _log($"会话已建立 token=0x{session.Token:X4} timeout={session.TimeoutSeconds}s protocol=v{session.ProtocolVersion}");
+            _sessionUpdated?.Invoke($"已建立 · token=0x{session.Token:X4} · 超时 {session.TimeoutSeconds}s · 协议 v{session.ProtocolVersion}");
             ushort[] parameters = await client.ReadProtectionAllAsync(ct);
             if (parameters.Length != 65) throw new IOException($"正式保护参数数量错误：{parameters.Length}");
+            _parametersUpdated?.Invoke(parameters.Length);
             _log("已读取正式保护参数 0x2100..0x2140；测试过程不写入参数。");
 
-            FactoryStatus baseline = await client.ReadFactoryStatusAsync(session.Token, ct);
+            FactoryStatus baseline = await ReadStatusAsync(client, session.Token, ct);
             if ((baseline.ProtectionLevel1 | baseline.ProtectionLevel2 | baseline.ProtectionLevel3) != 0)
                 throw new IOException("测试前设备已有保护标志，请先排除真实故障后再测试。");
 
-            foreach (TestCase testCase in Cases)
+            IEnumerable<TestCase> selectedCases = onlyCaseName is null
+                ? Cases
+                : Cases.Where(c => string.Equals(c.Name, onlyCaseName, StringComparison.Ordinal));
+            foreach (TestCase testCase in selectedCases)
                 await RunCaseAsync(client, session.Token, parameters, baseline, testCase, report, ct);
 
             report.Passed = report.Steps.Count > 0 && report.Steps.All(x => x.Passed);
@@ -103,6 +135,7 @@ public sealed class FactoryTestEngine
                     await client.FactoryCloseAsync(session.Token, CancellationToken.None);
                     report.CleanupCompleted = true;
                     _log("finally：Factory Session 已关闭。");
+                    _sessionUpdated?.Invoke("已关闭 · 注入已清除");
                 }
                 catch (Exception ex) { _log("finally：关闭会话失败：" + ex.Message); }
             }
@@ -170,7 +203,7 @@ public sealed class FactoryTestEngine
         int timeoutMs, CancellationToken ct)
     {
         DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-        FactoryStatus last = await client.ReadFactoryStatusAsync(token, ct);
+        FactoryStatus last = await ReadStatusAsync(client, token, ct);
         while (DateTime.UtcNow < deadline)
         {
             ushort levelValue = level < 0 ? (ushort)(last.ProtectionLevel1 | last.ProtectionLevel2 | last.ProtectionLevel3) : GetLevel(last, level);
@@ -178,7 +211,7 @@ public sealed class FactoryTestEngine
             if (active == expected) return last;
             await Task.Delay(250, ct);
             await client.FactoryHeartbeatAsync(token, ct);
-            last = await client.ReadFactoryStatusAsync(token, ct);
+            last = await ReadStatusAsync(client, token, ct);
         }
         throw new TimeoutException($"等待保护 {(expected ? "触发" : "恢复")} 超时 level={(level < 0 ? "all" : (level + 1).ToString())} bit=0x{bit:X4}; L1=0x{last.ProtectionLevel1:X4}; L2=0x{last.ProtectionLevel2:X4}; L3=0x{last.ProtectionLevel3:X4}");
     }
@@ -190,6 +223,17 @@ public sealed class FactoryTestEngine
         _ => status.ProtectionLevel3
     };
 
-    private static void AddStep(FactoryTestReport report, string name, int level, string stage, bool passed, string detail) =>
-        report.Steps.Add(new FactoryTestStepResult(name, level, stage, passed, detail, DateTimeOffset.Now));
+    private void AddStep(FactoryTestReport report, string name, int level, string stage, bool passed, string detail)
+    {
+        FactoryTestStepResult result = new(name, level, stage, passed, detail, DateTimeOffset.Now);
+        report.Steps.Add(result);
+        _stepCompleted?.Invoke(result);
+    }
+
+    private async Task<FactoryStatus> ReadStatusAsync(BmsClient client, ushort token, CancellationToken ct)
+    {
+        FactoryStatus status = await client.ReadFactoryStatusAsync(token, ct);
+        _statusUpdated?.Invoke(status);
+        return status;
+    }
 }

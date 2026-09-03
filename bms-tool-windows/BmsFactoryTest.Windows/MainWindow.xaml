@@ -423,19 +423,116 @@
                 </Grid>
             </TabItem>
             <TabItem Header="出厂测试">
-                <Grid Margin="12">
+                <Grid Margin="8">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="独立工厂版测试模块：使用 RAM-only Factory Session，不写保护参数、不修改 AFE/ADC raw。" TextWrapping="Wrap" />
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,10">
-                        <Button x:Name="FactoryRunButton" Width="150" Click="FactoryRunButton_Click">开始完整测试</Button>
-                        <TextBlock x:Name="FactoryResultText" Margin="14,0,0,0" VerticalAlignment="Center" Text="未开始" FontWeight="SemiBold" />
-                        <TextBlock x:Name="FactoryReportText" Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <TextBox x:Name="FactoryLogText" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+                    <Border Grid.Row="0" Margin="0,0,0,8" Padding="8" BorderBrush="#B8C8D8" BorderThickness="1" Background="#EAF3FB" CornerRadius="3">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="出厂测试工作台" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="RAM-only Factory Session：只影响软件保护输入，不写保护参数、不修改 AFE/ADC raw、不写 Flash。" Foreground="#405468"/>
+                            </StackPanel>
+                            <Button x:Name="FactoryRunButton" Grid.Column="1" Width="150" Height="32" Margin="8,0,0,0" Click="FactoryRunButton_Click">开始完整测试</Button>
+                            <Button x:Name="FactorySingleRunButton" Grid.Column="2" Width="125" Height="32" Margin="8,0,0,0" Click="FactorySingleRunButton_Click">测试选中项</Button>
+                            <Button x:Name="FactoryRefreshButton" Grid.Column="3" Width="125" Height="32" Margin="8,0,0,0" Click="FactoryRefreshButton_Click">刷新电池信息</Button>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.35*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Margin="0,0,5,0">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <GroupBox Grid.Row="0" Header="设备身份" Style="{StaticResource CustomerGroupBox}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="FactoryIdentityText" Grid.Column="0" Text="未连接" TextWrapping="Wrap" Margin="4"/>
+                                    <TextBlock x:Name="FactoryConnectionText" Grid.Column="1" Text="连接状态：—" TextWrapping="Wrap" Margin="4"/>
+                                    <TextBlock x:Name="FactoryParameterSummaryText" Grid.Column="2" Text="正式保护参数：未读取" TextWrapping="Wrap" Margin="4"/>
+                                </Grid>
+                            </GroupBox>
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <GroupBox Grid.Column="0" Header="电气数据" Style="{StaticResource CustomerGroupBox}">
+                                    <UniformGrid Columns="2" Margin="4">
+                                        <TextBlock x:Name="FactoryPackText" Text="总压：—" Margin="3"/>
+                                        <TextBlock x:Name="FactoryCurrentText" Text="电流：—" Margin="3"/>
+                                        <TextBlock x:Name="FactorySocText" Text="SOC：—" Margin="3"/>
+                                        <TextBlock x:Name="FactorySohText" Text="SOH：—" Margin="3"/>
+                                        <TextBlock x:Name="FactoryCapacityText" Text="容量：—" Margin="3" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="FactoryCycleText" Text="循环：—" Margin="3"/>
+                                    </UniformGrid>
+                                </GroupBox>
+                                <GroupBox Grid.Column="1" Header="温度数据" Style="{StaticResource CustomerGroupBox}">
+                                    <StackPanel Margin="4">
+                                        <TextBlock x:Name="FactoryCellTempText" Text="单体最高/最低：—" Margin="3"/>
+                                        <TextBlock x:Name="FactoryMosTempText" Text="MOS温度：—" Margin="3"/>
+                                        <TextBlock x:Name="FactoryCellExtremeText" Text="压差：—" Margin="3" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="FactoryUpdateText" Text="更新时间：—" Margin="3"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Grid.Column="2" Header="MOS / 系统" Style="{StaticResource CustomerGroupBox}">
+                                    <StackPanel Margin="4">
+                                        <TextBlock x:Name="FactoryMosText" Text="MOS：—" Margin="3" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="FactorySystemText" Text="系统：—" Margin="3" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="FactoryRawText" Text="状态字：—" Margin="3" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"/>
+                                    </StackPanel>
+                                </GroupBox>
+                            </Grid>
+                            <GroupBox Grid.Row="2" Header="软件保护状态（实时）" Style="{StaticResource CustomerGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="FactoryProtection1Text" Grid.Column="0" Text="一级：—" TextWrapping="Wrap" Margin="3"/>
+                                    <TextBlock x:Name="FactoryProtection2Text" Grid.Column="1" Text="二级：—" TextWrapping="Wrap" Margin="3"/>
+                                    <TextBlock x:Name="FactoryProtection3Text" Grid.Column="2" Text="三级：—" TextWrapping="Wrap" Margin="3"/>
+                                </Grid>
+                            </GroupBox>
+                            <GroupBox Grid.Row="3" Header="每串单体电压（正式实时数据，mV）" Style="{StaticResource CustomerGroupBox}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <WrapPanel x:Name="FactoryCellPanel" Margin="5" ItemWidth="142"/>
+                                </ScrollViewer>
+                            </GroupBox>
+                        </Grid>
+
+                        <Grid Grid.Column="1" Margin="5,0,0,0">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="1.2*"/><RowDefinition Height="1.2*"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <GroupBox Grid.Row="0" Header="Factory Session / 当前有效测量" Style="{StaticResource CustomerGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="FactorySessionText" Grid.Column="0" Text="会话：未建立" TextWrapping="Wrap" Margin="3"/>
+                                    <TextBlock x:Name="FactoryInjectionText" Grid.Column="1" Text="注入：无" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Margin="3"/>
+                                    <TextBlock x:Name="FactoryEffectiveText" Grid.Column="2" Text="有效输入：—" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" Margin="3"/>
+                                </Grid>
+                            </GroupBox>
+                            <GroupBox Grid.Row="1" Header="单项测试" Style="{StaticResource CustomerGroupBox}">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="FactoryCaseBox" Grid.Column="0" Height="30"/>
+                                    <TextBlock x:Name="FactoryResultText" Grid.Column="1" Text="未开始" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                </Grid>
+                            </GroupBox>
+                            <GroupBox Grid.Row="2" Header="测试步骤结果" Style="{StaticResource CustomerGroupBox}">
+                                <DataGrid x:Name="FactoryStepGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" Margin="2">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="测试项" Binding="{Binding CaseName}" Width="120"/>
+                                        <DataGridTextColumn Header="级别" Binding="{Binding LevelText}" Width="45"/>
+                                        <DataGridTextColumn Header="阶段" Binding="{Binding Stage}" Width="65"/>
+                                        <DataGridTextColumn Header="结果" Binding="{Binding Result}" Width="55"/>
+                                        <DataGridTextColumn Header="详细信息" Binding="{Binding Detail}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </GroupBox>
+                            <GroupBox Grid.Row="3" Header="测试报告" Style="{StaticResource CustomerGroupBox}">
+                                <TextBlock x:Name="FactoryReportText" Margin="6" Text="尚未生成报告" TextWrapping="Wrap"/>
+                            </GroupBox>
+                            <GroupBox Grid.Row="4" Header="测试过程日志" Style="{StaticResource CustomerGroupBox}">
+                                <TextBox x:Name="FactoryLogText" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"/>
+                            </GroupBox>
+                        </Grid>
+                    </Grid>
                 </Grid>
             </TabItem>
         </TabControl>
