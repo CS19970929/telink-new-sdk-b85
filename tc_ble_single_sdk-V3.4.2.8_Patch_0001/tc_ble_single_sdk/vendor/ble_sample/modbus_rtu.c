@@ -14,6 +14,7 @@
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
+#include "factory_test.h"
 
 #define MB_ADDR 0x01
 #define BMS_REALTIME_REG_BASE 0xD120u
@@ -364,6 +365,11 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
     u8 addr = req[0];
     u8 func = req[1];
+
+    if (func == FACTORY_TEST_MODBUS_FUNC)
+    {
+        return factory_test_modbus_on_frame(req, req_len, rsp, rsp_len);
+    }
 
     // ====== 快速验证模式：收到什么就回什么（仅限非广播）======
     // 用来验证“收->发”链路

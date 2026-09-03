@@ -46,6 +46,7 @@
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
+#include "factory_test.h"
 #include <string.h>
 
 extern void LoadParam(void);
@@ -539,21 +540,23 @@ static void soft_protect_update_item(soft_protect_item_t item,
 static void soft_protect_update_all(void)
 {
 	const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
+	factory_test_effective_measurement_t measurement;
 	UINT8 afe_ok = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 0u : 1u;
 	UINT8 voltage_valid = 0u;
 	UINT8 temperature_valid = 0u;
+	factory_test_get_effective_measurement(&measurement);
 
 	if (afe_ok &&
-		(g_stCellInfoReport.u16VCellMin > 0u) &&
-		(g_stCellInfoReport.u16VCellMax < 60000u) &&
-		(g_stCellInfoReport.u16VCellTotle > 0u))
+		(measurement.cell_min_mv > 0u) &&
+		(measurement.cell_max_mv < 60000u) &&
+		(measurement.pack_cv > 0u))
 	{
 		voltage_valid = 1u;
 	}
 
 	if (afe_ok &&
-		(g_stCellInfoReport.u16TempMin > 0u) &&
-		(g_stCellInfoReport.u16TempMax > 0u))
+		(measurement.temp_min_deci_raw > 0u) &&
+		(measurement.temp_max_deci_raw > 0u))
 	{
 		temperature_valid = 1u;
 	}
@@ -562,23 +565,23 @@ static void soft_protect_update_all(void)
 	if (voltage_valid)
 	{
 		soft_protect_update_item(SOFT_PROTECT_CELL_OVP,
-			g_stCellInfoReport.u16VCellMax,
+			measurement.cell_max_mv,
 			p->u16VcellOvp_First, p->u16VcellOvp_Second, p->u16VcellOvp_Third,
 			p->u16VcellOvp_Rcv, p->u16VcellOvp_Filter, 1u);
 		soft_protect_update_item(SOFT_PROTECT_CELL_UVP,
-			g_stCellInfoReport.u16VCellMin,
+			measurement.cell_min_mv,
 			p->u16VcellUvp_First, p->u16VcellUvp_Second, p->u16VcellUvp_Third,
 			p->u16VcellUvp_Rcv, p->u16VcellUvp_Filter, 0u);
 		soft_protect_update_item(SOFT_PROTECT_VBUS_OVP,
-			g_stCellInfoReport.u16VCellTotle,
+			measurement.pack_cv,
 			p->u16VbusOvp_First, p->u16VbusOvp_Second, p->u16VbusOvp_Third,
 			p->u16VbusOvp_Rcv, p->u16VbusOvp_Filter, 1u);
 		soft_protect_update_item(SOFT_PROTECT_VBUS_UVP,
-			g_stCellInfoReport.u16VCellTotle,
+			measurement.pack_cv,
 			p->u16VbusUvp_First, p->u16VbusUvp_Second, p->u16VbusUvp_Third,
 			p->u16VbusUvp_Rcv, p->u16VbusUvp_Filter, 0u);
 		soft_protect_update_item(SOFT_PROTECT_VDELTA,
-			g_stCellInfoReport.u16VCellDelta,
+			measurement.cell_delta_mv,
 			p->u16VdeltaOvp_First, p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third,
 			p->u16VdeltaOvp_Rcv, p->u16VdeltaOvp_Filter, 1u);
 	}
@@ -586,11 +589,11 @@ static void soft_protect_update_all(void)
 	if (afe_ok)
 	{
 		soft_protect_update_item(SOFT_PROTECT_CHG_OCP,
-			g_stCellInfoReport.u16Ichg,
+			measurement.charge_current_tenth_a,
 			p->u16IchgOcp_First, p->u16IchgOcp_Second, p->u16IchgOcp_Third,
 			p->u16IchgOcp_Rcv, p->u16IchgOcp_Filter, 1u);
 		soft_protect_update_item(SOFT_PROTECT_DSG_OCP,
-			g_stCellInfoReport.u16IDischg,
+			measurement.discharge_current_tenth_a,
 			p->u16IdsgOcp_First, p->u16IdsgOcp_Second, p->u16IdsgOcp_Third,
 			p->u16IdsgOcp_Rcv, p->u16IdsgOcp_Filter, 1u);
 	}
@@ -598,36 +601,36 @@ static void soft_protect_update_all(void)
 	if (temperature_valid)
 	{
 		soft_protect_update_item(SOFT_PROTECT_CHG_OTP,
-			g_stCellInfoReport.u16TempMax,
+			measurement.temp_max_deci_raw,
 			p->u16TChgOTp_First, p->u16TChgOTp_Second, p->u16TChgOTp_Third,
 			p->u16TChgOTp_Rcv, p->u16TChgOTp_Filter, 1u);
 		soft_protect_update_item(SOFT_PROTECT_CHG_UTP,
-			g_stCellInfoReport.u16TempMin,
+			measurement.temp_min_deci_raw,
 			p->u16TchgUTp_First, p->u16TchgUTp_Second, p->u16TchgUTp_Third,
 			p->u16TchgUTp_Rcv, p->u16TchgUTp_Filter, 0u);
 		soft_protect_update_item(SOFT_PROTECT_DSG_OTP,
-			g_stCellInfoReport.u16TempMax,
+			measurement.temp_max_deci_raw,
 			p->u16TdischgOTp_First, p->u16TdischgOTp_Second, p->u16TdischgOTp_Third,
 			p->u16TdischgOTp_Rcv, p->u16TdischgOTp_Filter, 1u);
 		soft_protect_update_item(SOFT_PROTECT_DSG_UTP,
-			g_stCellInfoReport.u16TempMin,
+			measurement.temp_min_deci_raw,
 			p->u16TdischgUTp_First, p->u16TdischgUTp_Second, p->u16TdischgUTp_Third,
 			p->u16TdischgUTp_Rcv, p->u16TdischgUTp_Filter, 0u);
 	}
 
 	/* MOS 温度来自 MCU ADC，独立于 AFE 通信；0 表示尚未取得有效采样。 */
-	if (g_stCellInfoReport.u16Temperature[MOS_TEMP1] > 0u)
+	if (measurement.mos_temp_deci_raw > 0u)
 	{
 		soft_protect_update_item(SOFT_PROTECT_MOS_OTP,
-			g_stCellInfoReport.u16Temperature[MOS_TEMP1],
+			measurement.mos_temp_deci_raw,
 			p->u16TmosOTp_First, p->u16TmosOTp_Second, p->u16TmosOTp_Third,
 			p->u16TmosOTp_Rcv, p->u16TmosOTp_Filter, 1u);
 	}
 
-	if (g_stCellInfoReport.SocElement.u16Soc <= 100u)
+	if (measurement.soc_percent <= 100u)
 	{
 		soft_protect_update_item(SOFT_PROTECT_SOC_LOW,
-			g_stCellInfoReport.SocElement.u16Soc,
+			measurement.soc_percent,
 			p->u16SocUp_First, p->u16SocUp_Second, p->u16SocUp_Third,
 			p->u16SocUp_Rcv, p->u16SocUp_Filter, 0u);
 	}
@@ -676,7 +679,9 @@ void mos_update(void)
 {
 	UINT8 charger_active = IsChargerWakeupActive() ? 1u : 0u;
 	UINT8 key_active = IsKeyWakeupActive() ? 1u : 0u;
-	UINT8 factory_mode = (MODE_FACTORY == Runtime_GetMode()) ? 1u : 0u;
+	/* Factory session is RAM-only and provides the test harness with a controlled
+	 * MOS request without entering the persistent runtime factory mode. */
+	UINT8 factory_mode = ((MODE_FACTORY == Runtime_GetMode()) || factory_test_is_active()) ? 1u : 0u;
 	UINT8 chg_request = (charger_active || factory_mode) ? 1u : 0u;
 #if (BMS_PORT_MODE == BMS_PORT_MODE_SPLIT)
 	/* 分口：充电期间不需要 DSG MOS；充电器优先于外部放电开关。 */
@@ -1233,6 +1238,7 @@ void task_connect(u8 e, u8 *p, int n)
 	(void)n;
 	tlk_contr_evt_connect_t *pConnEvt = (tlk_contr_evt_connect_t *)p;
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] connect, intA & advA:", pConnEvt->initA, 12);
+	factory_test_clear_session();
 	device_in_connection_state = 1;		 //
 										 //	bls_l2cap_requestConnParamUpdate (CONN_INTERVAL_10MS, CONN_INTERVAL_10MS, 19, CONN_TIMEOUT_4S);  // 200mS
 	app_ble_request_normal_conn_param(); // 1 S
@@ -1261,6 +1267,7 @@ void task_terminate(u8 e, u8 *p, int n) //*p is terminate reason
 	(void)n;
 
 	device_in_connection_state = 0;
+	factory_test_clear_session();
 
 	tlk_contr_evt_terminate_t *pEvt = (tlk_contr_evt_terminate_t *)p;
 	if (pEvt->terminate_reason == HCI_ERR_CONN_TIMEOUT)
@@ -2122,6 +2129,7 @@ _attribute_no_inline_ void main_loop(void)
 {
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
+	factory_test_poll();
 	Runtime_Poll();
 	mos_fast_shutdown_poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
