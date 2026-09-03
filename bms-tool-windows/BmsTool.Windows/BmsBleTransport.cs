@@ -9,7 +9,7 @@ namespace BmsTool.Windows;
 
 public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
 {
-    public override string ToString() => $"{Name}    RSSI {Rssi} dBm";
+    public override string ToString() => $"{Name}    MAC {BmsBleTransport.FormatBluetoothAddress(Address)}    RSSI {Rssi} dBm";
 }
 
 public sealed class BmsBleTransport : IAsyncDisposable
@@ -284,12 +284,34 @@ public sealed class BmsBleTransport : IAsyncDisposable
         watcher.Received += (_, args) =>
         {
             string name = args.Advertisement.LocalName ?? string.Empty;
-            if (!name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase)) return;
+            // Existing products use BT_, while the currently deployed BMS also uses BT-.
+            // Keep a narrow BMS prefix filter and let the Modbus probe validate the device after selection.
+            if (!IsBmsName(name)) return;
             callback(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
         };
         watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] STOPPED status={watcher.Status}; error={args.Error}");
         return watcher;
     }
+
+    internal static bool IsBmsName(string name) =>
+        name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
+        name.StartsWith("BT-", StringComparison.OrdinalIgnoreCase);
+
+    public static string FormatBluetoothAddress(ulong address)
+    {
+        Span<char> result = stackalloc char[17];
+        int position = 0;
+        for (int byteIndex = 5; byteIndex >= 0; byteIndex--)
+        {
+            if (byteIndex != 5) result[position++] = ':';
+            byte value = (byte)(address >> (byteIndex * 8));
+            result[position++] = GetHex(value >> 4);
+            result[position++] = GetHex(value & 0x0F);
+        }
+        return new string(result);
+    }
+
+    private static char GetHex(int value) => (char)(value < 10 ? '0' + value : 'A' + value - 10);
 
     public async ValueTask DisposeAsync() => await DisposeConnectionAsync();
 
