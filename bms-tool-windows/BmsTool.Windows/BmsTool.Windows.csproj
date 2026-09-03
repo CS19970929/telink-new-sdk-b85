@@ -12,4 +12,10 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- 客户版不编译 AFE 硬件保护参数读写代码；工厂/工程版仍由独立项目维护。 -->
+    <Compile Remove="AfeHardwareParameters.cs" />
+    <Compile Remove="MainWindow.AfeHardwareUi.cs" />
+  </ItemGroup>
 </Project>

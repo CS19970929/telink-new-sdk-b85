@@ -35,8 +35,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         DeviceList.ItemsSource = _devices;
         ProtectionGrid.ItemsSource = _protectionRows;
-        LogPathText.Text = "日志文件：" + _sessionLog.FilePath;
-
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _pollTimer.Tick += async (_, _) => await PollTickAsync();
 
@@ -119,7 +117,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ConnectionText.Text = "连接失败";
-            ShowError("连接失败", ex, "连接阶段、耗时和 Windows BLE 错误已写入“专业调试”页的日志文件。后续请直接把该日志文件发给我。 ");
+            ShowError("连接失败", ex, "连接阶段、耗时和 Windows BLE 错误已写入本机日志文件：" + _sessionLog.FilePath);
         }
         finally
         {
@@ -258,9 +256,6 @@ public partial class MainWindow : Window
         CurrentSocParamText.Text = $"当前 SOC：{s.SocPercent}%";
         CurrentCycleParamText.Text = $"当前循环次数：{s.CycleCount}";
 
-        DebugRawStatusText.Text =
-            $"SystemStatus=0x{s.SystemStatus:X8}    Protocol=0x{s.ProtocolVersion:X4}    DataWindow={(s.UsesRealtimeWindow ? "Realtime" : "Legacy")}\n" +
-            $"Protect L1=0x{s.ProtectionLevel1Raw:X4}    L2=0x{s.ProtectionLevel2Raw:X4}    L3=0x{s.ProtectionLevel3Raw:X4}";
     }
 
     private static string OnOff(bool value) => value ? "开启" : "关闭";
@@ -477,66 +472,6 @@ public partial class MainWindow : Window
         finally { StartAutomaticRefresh(); }
     }
 
-    private async void ManualRead_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            ushort address = ParseU16(ManualAddressBox.Text);
-            ushort qty = ParseU16(ManualQuantityBox.Text);
-            if (qty is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(qty), "数量必须为 1..125。");
-            ushort[] words = await bms.ReadRegistersAsync(address, qty);
-            RegisterOutput.Text = string.Join(Environment.NewLine, words.Select((v, i) => $"0x{address + i:X4} = {v,6}    0x{v:X4}"));
-            AppendLog($"DEBUG_READ address=0x{address:X4}; qty={qty}", "DEBUG");
-        }
-        catch (Exception ex) { ShowError("寄存器读取失败", ex); }
-        finally { StartAutomaticRefresh(); }
-    }
-
-    private async void DebugWriteRegister_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            ushort address = ParseU16(DebugWriteAddressBox.Text);
-            ushort value = ParseU16(DebugWriteValueBox.Text);
-            if (MessageBox.Show($"专业调试：确认写寄存器？\n\nAddress = 0x{address:X4}\nValue = {value} (0x{value:X4})", "确认写寄存器", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-            _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            await bms.WriteSingleRegisterAsync(address, value);
-            string result;
-            try
-            {
-                ushort readback = (await bms.ReadRegistersAsync(address, 1))[0];
-                result = $"ACK 成功；readback={readback} (0x{readback:X4})";
-            }
-            catch (Exception readEx)
-            {
-                result = "ACK 成功；回读失败/该地址可能不可读：" + readEx.Message;
-            }
-            RegisterOutput.Text = result;
-            AppendLog($"DEBUG_WRITE address=0x{address:X4}; value={value}; {result}", "DEBUG");
-        }
-        catch (Exception ex) { ShowError("寄存器写入失败", ex); }
-        finally { StartAutomaticRefresh(); }
-    }
-
-    private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            string path = _sessionLog.FilePath;
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
-        }
-        catch (Exception ex) { ShowError("打开日志目录失败", ex); }
-    }
-
-    private void ClearLogView_Click(object sender, RoutedEventArgs e)
-    {
-        LogBox.Clear();
-        AppendLog("仅清空界面日志；磁盘诊断日志继续保留。", "DEBUG");
-    }
-
     private void BrowseFirmware_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -724,19 +659,6 @@ public partial class MainWindow : Window
     private void AppendLog(string text, string category = "APP")
     {
         _sessionLog.Write(category, text);
-        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
-        if (!Dispatcher.CheckAccess())
-        {
-            Dispatcher.BeginInvoke(() => AppendLogToUi(text, category));
-            return;
-        }
-        AppendLogToUi(text, category);
-    }
-
-    private void AppendLogToUi(string text, string category)
-    {
-        LogBox.AppendText($"{DateTime.Now:HH:mm:ss.fff} [{category}] {text}{Environment.NewLine}");
-        LogBox.ScrollToEnd();
     }
 
     private void ShowError(string title, Exception ex, string? extra = null)

@@ -240,8 +240,6 @@ public partial class MainWindow
 
     private void OpenNamePage_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = DeviceInfoTab;
 
-    private void OpenOtaPage_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = OtaTab;
-
     private static string ExtractValue(string source, string pattern, string fallback)
     {
         Match match = Regex.Match(source ?? string.Empty, pattern, RegexOptions.IgnoreCase);
