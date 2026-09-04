@@ -117,11 +117,15 @@ public sealed class Stm32SerialBleOtaClient
     private async Task WriteIapFrameChunkedAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
     {
         int chunkCount = (frame.Length + SerialBleChunkSize - 1) / SerialBleChunkSize;
-        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; delay={SerialBleInterChunkDelayMs}ms");
+        bool withoutResponse = _transport.SupportsWriteWithoutResponse;
+        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; delay={SerialBleInterChunkDelayMs}ms; write={(withoutResponse ? "without-response" : "with-response-fallback")}");
         for (int offset = 0; offset < frame.Length; offset += SerialBleChunkSize)
         {
             int length = Math.Min(SerialBleChunkSize, frame.Length - offset);
-            await _transport.WriteAsync(frame.Slice(offset, length), ct);
+            if (withoutResponse)
+                await _transport.WriteWithoutResponseAsync(frame.Slice(offset, length), ct);
+            else
+                await _transport.WriteAsync(frame.Slice(offset, length), ct);
             if (offset + length < frame.Length)
                 await Task.Delay(SerialBleInterChunkDelayMs, ct);
         }

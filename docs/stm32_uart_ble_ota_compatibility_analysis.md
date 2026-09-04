@@ -170,7 +170,7 @@ OTA 页面
 - Telink 和 STM32 固件格式分开加载，阻止错误架构的 BIN 进入升级流程；
 - STM32 APP BIN 最大 55 KB，按 1 KB 页补 `0xFF`；
 - 通过现有 BMS GATT 通道按 MTU 分片发送 1033 字节 Modbus IAP 扩展兼容帧（`byte count=0`、`quantity=1024`）；ENTER 应答后会等待复位并完整重连；
-- 透明串口兼容模式固定使用 20 字节 BLE 分片、20 ms 分片间隔，避免模块 UART 19200、无硬件流控时丢失连续数据；
+- 透明串口兼容模式固定使用 20 字节 BLE 分片、20 ms 分片间隔，避免模块 UART 19200、无硬件流控时丢失连续数据；若 TX 特征支持 `WriteWithoutResponse`，数据分片使用无响应写入以避免每个分片等待 BLE 往返，控制帧仍使用带响应写入；
 - `0xFFFD`、`0xFFFE`、`0xFFFF` 逐步执行，每页等待并校验 `quantity=1024` 的 `0x10` ACK；
 - 扫描不再直接显示所有无广播名称的 BLE 设备，而是先确认 Nordic UART service；若 GATT 已建立但 IAP 阶段不响应普通 BMS 探测，则允许以“仅 OTA”连接状态保留链路；
 - 响应拆包、CRC16 校验、硬超时和取消处理；旧例程没有序号，因此 ACK 超时直接终止，不自动重传造成页计数错位；
