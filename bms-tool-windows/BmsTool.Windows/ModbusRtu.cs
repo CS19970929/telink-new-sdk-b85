@@ -1,0 +1,233 @@
+using System.Buffers.Binary;
+using System.IO;
+using System.Text;
+
+namespace BmsTool.Windows;
+
+public static class BmsRegisters
+{
+    public const byte DeviceAddress = 0x01;
+    public const ushort Mac = 0x0000;
+    public const ushort BtName = 0x0100;
+    public const ushort Serial = 0xC002;
+    public const ushort Hardware = 0xC012;
+    public const ushort Software = 0xC022;
+    public const ushort Protect = 0x2100;
+    public const ushort ProtectCount = 65;
+    public const ushort Legacy = 0xD000;
+    public const ushort SystemStatus = 0xD115;
+    public const ushort Realtime = 0xD120;
+    public const ushort RealtimeMagic = 0x4253;
+    // Legacy 0xD000..0xD03E always reserves 32 cell-voltage slots.
+    // The firmware writes 61001 to an unused slot; it is not a real voltage.
+    public const int CellVoltageSlotCount = 32;
+    public const ushort MissingCellVoltageMv = 61001;
+    public const int BtNameReadWords = 12;
+    public const int BtNameMaxSuffixBytesPerBleRequest = 10;
+    public const byte FactoryFunction = 0x41;
+    public const uint FactoryUnlockMagic = 0x46414354;
+    public const ushort FactorySessionTimeoutSeconds = 8;
+}
+
+public static class ModbusRtu
+{
+    public static byte[] ReadHolding(ushort start, ushort quantity)
+    {
+        Span<byte> body = stackalloc byte[6];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = 0x03;
+        BinaryPrimitives.WriteUInt16BigEndian(body[2..4], start);
+        BinaryPrimitives.WriteUInt16BigEndian(body[4..6], quantity);
+        return Frame(body);
+    }
+
+    public static byte[] WriteSingle(ushort register, ushort value)
+    {
+        Span<byte> body = stackalloc byte[6];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = 0x06;
+        BinaryPrimitives.WriteUInt16BigEndian(body[2..4], register);
+        BinaryPrimitives.WriteUInt16BigEndian(body[4..6], value);
+        return Frame(body);
+    }
+
+    public static byte[] WriteMultiple(ushort start, ReadOnlySpan<byte> rawRegisterBytes)
+    {
+        if (rawRegisterBytes.Length == 0 || (rawRegisterBytes.Length & 1) != 0)
+            throw new ArgumentException("Register payload must contain whole words.");
+
+        ushort qty = checked((ushort)(rawRegisterBytes.Length / 2));
+        byte[] body = new byte[7 + rawRegisterBytes.Length];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = 0x10;
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(2, 2), start);
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(4, 2), qty);
+        body[6] = checked((byte)rawRegisterBytes.Length);
+        rawRegisterBytes.CopyTo(body.AsSpan(7));
+        return Frame(body);
+    }
+
+    // The supplied STM32 IAP uses a legacy extended 0x10 frame: byte-count
+    // is zero and the quantity field carries the raw byte length. This is not
+    // standard Modbus, but it is the format parsed by the supplied IAP code.
+    public static byte[] WriteLegacyByteCountZero(ushort start, ReadOnlySpan<byte> rawBytes)
+    {
+        if (rawBytes.Length == 0 || rawBytes.Length > 1033)
+            throw new ArgumentOutOfRangeException(nameof(rawBytes), "Legacy IAP payload must be 1..1033 bytes.");
+
+        byte[] body = new byte[7 + rawBytes.Length];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = 0x10;
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(2, 2), start);
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(4, 2), checked((ushort)rawBytes.Length));
+        body[6] = 0;
+        rawBytes.CopyTo(body.AsSpan(7));
+        return Frame(body);
+    }
+
+    public static byte[] FactoryOpen()
+    {
+        Span<byte> body = stackalloc byte[7];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.FactoryFunction;
+        body[2] = 0x01;
+        BinaryPrimitives.WriteUInt32BigEndian(body[3..7], BmsRegisters.FactoryUnlockMagic);
+        return Frame(body);
+    }
+
+    public static byte[] FactoryCommand(byte command, ushort token)
+    {
+        Span<byte> body = stackalloc byte[5];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.FactoryFunction;
+        body[2] = command;
+        BinaryPrimitives.WriteUInt16BigEndian(body[3..5], token);
+        return Frame(body);
+    }
+
+    public static byte[] FactoryInject(ushort token, byte kind, byte index, ushort value)
+    {
+        Span<byte> body = stackalloc byte[9];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.FactoryFunction;
+        body[2] = 0x03;
+        BinaryPrimitives.WriteUInt16BigEndian(body[3..5], token);
+        body[5] = kind;
+        body[6] = index;
+        BinaryPrimitives.WriteUInt16BigEndian(body[7..9], value);
+        return Frame(body);
+    }
+
+    public static ushort[] ParseRead(byte[] frame, ushort expectedQuantity)
+    {
+        ValidateFrame(frame);
+        if (frame[0] != BmsRegisters.DeviceAddress) throw new IOException("Unexpected Modbus slave address.");
+        if ((frame[1] & 0x80) != 0) throw new IOException($"Modbus exception function=0x{frame[1] & 0x7F:X2}, code=0x{frame[2]:X2}.");
+        if (frame[1] != 0x03) throw new IOException($"Expected function 0x03, got 0x{frame[1]:X2}.");
+        int bytes = frame[2];
+        if (bytes != expectedQuantity * 2 || frame.Length != bytes + 5) throw new IOException("Modbus read response length mismatch.");
+
+        ushort[] words = new ushort[expectedQuantity];
+        for (int i = 0; i < words.Length; i++)
+            words[i] = BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(3 + i * 2, 2));
+        return words;
+    }
+
+    public static void ValidateWriteSingleAck(byte[] frame, ushort expectedRegister, ushort expectedValue)
+    {
+        ValidateFrame(frame);
+        if ((frame[1] & 0x80) != 0) throw new IOException($"Modbus exception code=0x{frame[2]:X2}.");
+        if (frame[0] != BmsRegisters.DeviceAddress || frame[1] != 0x06 || frame.Length != 8)
+            throw new IOException("Invalid single-register write acknowledgement.");
+        if (BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(2, 2)) != expectedRegister ||
+            BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(4, 2)) != expectedValue)
+            throw new IOException("Single-register write acknowledgement mismatch.");
+    }
+
+    public static void ValidateWriteMultipleAck(byte[] frame, ushort expectedRegister, ushort expectedQuantity)
+    {
+        ValidateFrame(frame);
+        if ((frame[1] & 0x80) != 0) throw new IOException($"Modbus exception code=0x{frame[2]:X2}.");
+        if (frame[0] != BmsRegisters.DeviceAddress || frame[1] != 0x10 || frame.Length != 8)
+            throw new IOException("Invalid write acknowledgement.");
+        if (BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(2, 2)) != expectedRegister ||
+            BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(4, 2)) != expectedQuantity)
+            throw new IOException("Write acknowledgement mismatch.");
+    }
+
+    public static int? InferExpectedLength(IReadOnlyList<byte> buffer)
+    {
+        if (buffer.Count < 2) return null;
+        byte f = buffer[1];
+        if ((f & 0x80) != 0) return 5;
+        if (f == 0x03) return buffer.Count >= 3 ? buffer[2] + 5 : null;
+        if (f == 0x06 || f == 0x10) return 8;
+        if (f == BmsRegisters.FactoryFunction)
+        {
+            if (buffer.Count < 4) return null;
+            byte command = buffer[2];
+            byte status = buffer[3];
+            return command switch
+            {
+                // OPEN and STATUS return no payload for an error response.
+                0x01 => status == 0 ? 12 : 6,
+                // HEARTBEAT/INJECT/CLEAR keep their token payload when an
+                // authenticated request is rejected; AUTH_REQUIRED is short.
+                0x02 or 0x03 => status == 2 ? 6 : 10,
+                0x04 => status == 2 ? 6 : 8,
+                0x05 => 6,
+                0x06 => status == 0 ? 38 : 6,
+                _ => 6
+            };
+        }
+        return null;
+    }
+
+    public static void ValidateFactoryResponse(ReadOnlySpan<byte> frame, byte command)
+    {
+        ValidateFrame(frame);
+        if (frame.Length < 6 || frame[0] != BmsRegisters.DeviceAddress ||
+            frame[1] != BmsRegisters.FactoryFunction || frame[2] != command)
+            throw new IOException("Invalid factory-test response header.");
+        if (frame[3] != 0)
+            throw new IOException($"Factory-test command 0x{command:X2} failed with status 0x{frame[3]:X2}.");
+    }
+
+    public static byte[] Frame(ReadOnlySpan<byte> body)
+    {
+        byte[] result = new byte[body.Length + 2];
+        body.CopyTo(result);
+        ushort crc = Crc16(body);
+        result[^2] = (byte)crc;
+        result[^1] = (byte)(crc >> 8);
+        return result;
+    }
+
+    public static void ValidateFrame(ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length < 4) throw new IOException("Modbus response too short.");
+        ushort rx = (ushort)(frame[^2] | frame[^1] << 8);
+        ushort calc = Crc16(frame[..^2]);
+        if (rx != calc) throw new IOException($"Modbus CRC mismatch: rx=0x{rx:X4}, calc=0x{calc:X4}.");
+    }
+
+    public static ushort Crc16(ReadOnlySpan<byte> data)
+    {
+        ushort crc = 0xFFFF;
+        foreach (byte b in data)
+        {
+            crc ^= b;
+            for (int i = 0; i < 8; i++)
+                crc = (crc & 1) != 0 ? (ushort)((crc >> 1) ^ 0xA001) : (ushort)(crc >> 1);
+        }
+        return crc;
+    }
+
+    public static string DecodeAscii(IEnumerable<ushort> words)
+    {
+        var bytes = words.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).ToList();
+        int zero = bytes.IndexOf(0);
+        if (zero >= 0) bytes.RemoveRange(zero, bytes.Count - zero);
+        return Encoding.UTF8.GetString(bytes.ToArray()).Trim();
+    }
+}
