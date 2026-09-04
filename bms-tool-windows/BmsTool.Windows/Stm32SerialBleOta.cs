@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 
@@ -21,7 +22,9 @@ public sealed class Stm32SerialBleOtaClient
     // The supplied IAP UART is 19200 8N1 without flow control, so use the
     // conservative default ATT payload and allow the module to drain it.
     private const int SerialBleChunkSize = 20;
-    private const int SerialBleInterChunkDelayMs = 20;
+    private const int SerialBaudRate = 19200;
+    private const int SerialBitsPerByte = 10; // 8 data bits + start + stop
+    private const int SerialBleDrainSafetyMarginMs = 4;
 
     private readonly BmsBleTransport _transport;
     private readonly object _rxLock = new();
@@ -117,14 +120,26 @@ public sealed class Stm32SerialBleOtaClient
     private async Task WriteIapFrameChunkedAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
     {
         int chunkCount = (frame.Length + SerialBleChunkSize - 1) / SerialBleChunkSize;
-        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; delay={SerialBleInterChunkDelayMs}ms; write=with-response");
+        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; pacing=adaptive; baud={SerialBaudRate}; safety={SerialBleDrainSafetyMarginMs}ms; write=with-response");
         for (int offset = 0; offset < frame.Length; offset += SerialBleChunkSize)
         {
             int length = Math.Min(SerialBleChunkSize, frame.Length - offset);
+            var writeTimer = Stopwatch.StartNew();
             await _transport.WriteAsync(frame.Slice(offset, length), ct);
             if (offset + length < frame.Length)
-                await Task.Delay(SerialBleInterChunkDelayMs, ct);
+            {
+                int minimumDrainMs = CalculateMinimumDrainMs(length);
+                int remainingDrainMs = minimumDrainMs - (int)writeTimer.ElapsedMilliseconds;
+                if (remainingDrainMs > 0)
+                    await Task.Delay(remainingDrainMs, ct);
+            }
         }
+    }
+
+    private static int CalculateMinimumDrainMs(int bytes)
+    {
+        double wireMilliseconds = bytes * SerialBitsPerByte * 1000.0 / SerialBaudRate;
+        return (int)Math.Ceiling(wireMilliseconds) + SerialBleDrainSafetyMarginMs;
     }
 
     private void OnDataReceived(ReadOnlyMemory<byte> data)
