@@ -1,7 +1,7 @@
 <Window x:Class="BmsTool.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BMS Assistant" Height="900" Width="1360" MinHeight="760" MinWidth="1180"
+        Title="BMS Assistant - 内部完整测试版" Height="900" Width="1360" MinHeight="760" MinWidth="1180"
         Background="#F3F3F3" Loaded="CustomerUi_Loaded">
     <Window.Resources>
         <Style x:Key="CustomerGroupBox" TargetType="GroupBox">

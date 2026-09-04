@@ -1,6 +1,8 @@
-# BMS Factory Test Windows
+# BMS Factory Test Windows（内部完整测试版）
 
-这是从当前最新版 `BmsTool.Windows` 完整 UI、BLE、Modbus、参数、日志、长期监控和 OTA 代码派生的独立 WPF 工厂版。普通客户 EXE 不包含本页；工厂版额外提供“出厂测试”页。程序按以下顺序执行：
+这是从当前最新版 `BmsTool.Windows` 完整 UI、BLE、Modbus、参数、日志、长期监控和 OTA 代码派生的独立 WPF 内部测试版。它保留 AFE 硬件保护参数、专业调试、软件保护/BMS 参数、OTA、事件日志、长期监控和“出厂测试”等全部页面，启动后直接开放，不需要输入 `hs456`。客户版仍在 `../BmsTool.Windows` 独立维护并使用自己的功能边界。
+
+程序按以下顺序执行：
 
 1. 建立私有 `0x41` Factory Session；
 2. 读取正式保护参数（只读）；

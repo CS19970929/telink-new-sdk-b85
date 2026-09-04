@@ -2,10 +2,21 @@
 
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 
-- `BmsTool.Windows/`：客户版 BMS Assistant。
-- `BmsFactoryTest.Windows/`：工厂版 BMS Assistant，基于客户版最新版功能，额外提供“出厂测试”页和 Factory Session 测试流程。
+- `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
+- `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，基于客户版最新版功能，保留全部工程/调试/出厂测试页面，启动后不需要密码。
 
-两个项目分别构建、分别发布。客户版不包含工厂测试入口；涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+两个项目分别构建、分别发布；以后每次生成必须同时生成两个版本。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+
+## 双版本发布约定
+
+统一使用 `build-release.ps1` 发布两套 Windows x64、自包含、单文件 EXE：
+
+```text
+BmsTool.Windows\publish\customer-win-x64-<时间戳>\BmsTool.Windows.exe
+BmsFactoryTest.Windows\publish\internal-full-win-x64-<时间戳>\BmsFactoryTest.Windows.exe
+```
+
+脚本会为每次发布创建新的时间戳目录，避免覆盖正在运行的旧 EXE，并输出两套 EXE 的 SHA-256、目标框架和当前 Git commit。客户版的高级页面仍由 `hs456` 控制；内部完整测试版不设置密码门槛，仅供研发、调试和出厂测试使用，不应作为客户交付包。
 
 详细的仓库边界、构建入口和协作规则见 `../docs/bms_windows_joint_maintenance.md`。
 
