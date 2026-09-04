@@ -31,8 +31,6 @@ public sealed class BmsBleTransport : IAsyncDisposable
 
     public bool IsConnected => _device is not null && _request is not null && _response is not null;
     public int? NegotiatedMtu => _session?.MaxPduSize;
-    public bool SupportsWriteWithoutResponse => _request is not null &&
-        _request.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse);
     public string DiscoveryDescription { get; private set; } = "BMS SPP not connected";
     public string CurrentStage => _currentStage;
 
@@ -244,22 +242,14 @@ public sealed class BmsBleTransport : IAsyncDisposable
         }
     }
 
-    public Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default) =>
-        WriteCoreAsync(data, preferWithoutResponse: false, ct);
-
-    public Task WriteWithoutResponseAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default) =>
-        WriteCoreAsync(data, preferWithoutResponse: true, ct);
-
-    private async Task WriteCoreAsync(ReadOnlyMemory<byte> data, bool preferWithoutResponse, CancellationToken ct)
+    public async Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var characteristic = _request ?? throw new IOException("BMS SPP write characteristic is not connected.");
 
-        var option = preferWithoutResponse && characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse)
-            ? GattWriteOption.WriteWithoutResponse
-            : characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write)
-                ? GattWriteOption.WriteWithResponse
-                : GattWriteOption.WriteWithoutResponse;
+        var option = characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write)
+            ? GattWriteOption.WriteWithResponse
+            : GattWriteOption.WriteWithoutResponse;
 
         var buffer = CryptographicBuffer.CreateFromByteArray(data.ToArray());
         var sw = Stopwatch.StartNew();
