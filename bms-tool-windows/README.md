@@ -43,7 +43,7 @@ OTA 页默认使用 `Auto（自动识别）`：
 
 - 发现 Telink 专用 OTA service `00010203-0405-0607-0809-0a0b0c0d1912` 时，使用现有 Telink OTA START/DATA/END 流程；
 - 发现 BMS Nordic UART service `6E400001-B5A3-F393-E0A9-E50E24DCCA9E` 时，使用 STM32 串口 IAP 流程：`0xFFFD` 进入 IAP、`0xFFFE` 每页写 1024 字节、`0xFFFF` 完成；
-- STM32 APP BIN 按 `0x08001C00` APP 区使用，最大 55 KB，最后一页用 `0xFF` 补齐；
+- STM32 APP BIN 必须能通过向量表校验（初始栈指针在 SRAM、复位向量在 `0x08001C00..0x0800F800`），按 `0x08001C00` APP 区使用，最大 55 KB，最后一页用 `0xFF` 补齐；已识别为 Telink 格式的文件会被拒绝；
 - STM32 每个升级帧按当前 GATT MTU 分片发送，必须收到完整 Modbus ACK 才发送下一页；ACK 超时会停止，不会对没有序号的旧 IAP 例程盲目重传；
 - 升级后统一重连并读取软件版本、实时数据验证。
 

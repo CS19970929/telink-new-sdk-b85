@@ -19,13 +19,17 @@ public sealed record FirmwareInspection(string FileName, int FileSize, bool Look
         : LooksLikeTelink
             ? $"{FileName} · {FileSize:N0} bytes · Telink"
             : FitsStm32App
-                ? $"{FileName} · {FileSize:N0} bytes · STM32 APP BIN"
+                ? $"{FileName} · {FileSize:N0} bytes · STM32 APP BIN（向量表有效）"
                 : $"{FileName} · {FileSize:N0} bytes · 不满足已知 OTA 边界";
 }
 
 public sealed class FirmwareImage
 {
     public const int Stm32AppCapacity = 55 * 1024;
+    public const uint Stm32AppStartAddress = 0x08001C00;
+    public const uint Stm32AppEndAddress = 0x0800F800;
+    private const uint Stm32SramStartAddress = 0x20000000;
+    private const uint Stm32SramEndAddress = 0x20002000;
     public string FileName { get; }
     public byte[] Bytes { get; }
     public OtaTargetKind TargetKind { get; }
@@ -39,7 +43,8 @@ public sealed class FirmwareImage
         bool telink = all.Length >= 0x1C &&
                       BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
                       declared > 0 && declared <= all.Length;
-        return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, all.Length > 0 && all.Length <= Stm32AppCapacity);
+        bool stm32 = all.Length >= 8 && all.Length <= Stm32AppCapacity && IsValidStm32Vector(all);
+        return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, stm32);
     }
 
     public static FirmwareImage Load(string path)
@@ -64,9 +69,21 @@ public sealed class FirmwareImage
     private static FirmwareImage LoadStm32App(string path)
     {
         byte[] all = File.ReadAllBytes(path);
-        if (all.Length == 0 || all.Length > Stm32AppCapacity)
-            throw new InvalidDataException($"STM32 APP BIN must be 1..{Stm32AppCapacity} bytes; actual={all.Length}.");
+        FirmwareInspection inspection = Inspect(path);
+        if (all.Length == 0 || all.Length > Stm32AppCapacity || !inspection.FitsStm32App)
+            throw new InvalidDataException($"STM32 APP BIN 必须为有效向量表且不超过 {Stm32AppCapacity} bytes；actual={all.Length}，请确认 BIN 是从 0x{Stm32AppStartAddress:X8} 链接生成的 APP 镜像。");
+        if (inspection.LooksLikeTelink)
+            throw new InvalidDataException("文件包含 Telink 固件头部，不能作为 STM32 APP BIN 发送。");
         return new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+    }
+
+    private static bool IsValidStm32Vector(ReadOnlySpan<byte> image)
+    {
+        uint stack = BinaryPrimitives.ReadUInt32LittleEndian(image[..4]);
+        uint reset = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4, 4));
+        uint resetAddress = reset & ~1u;
+        return stack >= Stm32SramStartAddress && stack < Stm32SramEndAddress &&
+               (reset & 1u) != 0 && resetAddress >= Stm32AppStartAddress && resetAddress < Stm32AppEndAddress;
     }
 }
 
