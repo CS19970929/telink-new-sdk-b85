@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using Windows.Devices.Bluetooth;
@@ -280,18 +281,73 @@ public sealed class BmsBleTransport : IAsyncDisposable
 
     public static BluetoothLEAdvertisementWatcher CreateWatcher(Action<DiscoveredDevice> callback, Action<string>? diagnostics = null)
     {
+        var pendingServiceChecks = new ConcurrentDictionary<ulong, byte>();
         var watcher = new BluetoothLEAdvertisementWatcher { ScanningMode = BluetoothLEScanningMode.Active };
-        watcher.Received += (_, args) =>
+        watcher.Received += async (_, args) =>
         {
             string name = args.Advertisement.LocalName ?? string.Empty;
             // Existing products use BT_, while the currently deployed BMS also uses BT-.
-            // The supplied STM32 IAP may advertise an empty name after reset;
-            // keep unnamed devices visible and let GATT/Modbus validation decide.
-            if (name.Length > 0 && !IsBmsName(name)) return;
-            callback(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
+            if (IsBmsName(name))
+            {
+                callback(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
+                return;
+            }
+
+            // STM32 IAP may advertise without a local name. Do not expose every
+            // unnamed BLE peripheral; confirm the actual BMS Nordic UART service
+            // before adding it to the BMS list.
+            ulong address = args.BluetoothAddress;
+            if (!pendingServiceChecks.TryAdd(address, 0)) return;
+            await ConfirmBmsServiceAsync(address, args.RawSignalStrengthInDBm, name, callback, diagnostics, pendingServiceChecks);
         };
         watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] STOPPED status={watcher.Status}; error={args.Error}");
         return watcher;
+    }
+
+    private static async Task ConfirmBmsServiceAsync(
+        ulong address,
+        short rssi,
+        string advertisementName,
+        Action<DiscoveredDevice> callback,
+        Action<string>? diagnostics,
+        ConcurrentDictionary<ulong, byte> pendingServiceChecks)
+    {
+        try
+        {
+            using BluetoothLEDevice? device = await BluetoothLEDevice.FromBluetoothAddressAsync(address);
+            if (device is null) return;
+
+            bool hasService = await HasBmsServiceAsync(device, BluetoothCacheMode.Cached);
+            if (!hasService)
+                hasService = await HasBmsServiceAsync(device, BluetoothCacheMode.Uncached);
+            if (hasService)
+            {
+                string name = string.IsNullOrWhiteSpace(advertisementName) ? device.Name ?? string.Empty : advertisementName;
+                callback(new DiscoveredDevice(address, name, rssi));
+            }
+        }
+        catch (Exception ex)
+        {
+            diagnostics?.Invoke($"[SCAN] SERVICE_CONFIRM address={address:X12}; result=ignored; message={ex.Message}");
+        }
+        finally
+        {
+            pendingServiceChecks.TryRemove(address, out _);
+        }
+    }
+
+    private static async Task<bool> HasBmsServiceAsync(BluetoothLEDevice device, BluetoothCacheMode mode)
+    {
+        GattDeviceServicesResult result = await device.GetGattServicesForUuidAsync(ServiceUuid, mode);
+        try
+        {
+            return result.Status == GattCommunicationStatus.Success && result.Services.Count > 0;
+        }
+        finally
+        {
+            foreach (GattDeviceService service in result.Services)
+                service.Dispose();
+        }
     }
 
     public async Task WriteChunkedAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
