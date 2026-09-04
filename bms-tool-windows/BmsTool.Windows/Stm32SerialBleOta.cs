@@ -12,7 +12,9 @@ public sealed class Stm32SerialBleOtaClient
     private const ushort FlashConnect = 0xFFFD;
     private const ushort FlashUpgrade = 0xFFFE;
     private const ushort FlashComplete = 0xFFFF;
-    private const ushort PageRegisterCount = 512;
+    // The supplied IAP interprets quantity as raw byte length when byte-count
+    // is zero. A page is therefore acknowledged as quantity=1024, not 512.
+    private const ushort PageTransferLength = 1024;
     private const int PageSize = 1024;
     private const int MaxPageCount = FirmwareImage.Stm32AppCapacity / PageSize;
 
@@ -47,13 +49,16 @@ public sealed class Stm32SerialBleOtaClient
             await SendAndWaitAsync(enter, FlashConnect, 1, ct);
             Log?.Invoke("RX STM32 IAP ENTER ACK; waiting for BMS reset into IAP");
             await Task.Delay(800, ct);
+            Log?.Invoke("Reconnecting STM32 serial GATT after BMS reset");
+            await _transport.ReconnectAsync(ct);
+            Log?.Invoke($"STM32 serial IAP GATT reconnected; MTU={_transport.NegotiatedMtu?.ToString() ?? "unknown"}; {_transport.DiscoveryDescription}");
 
             for (int page = 0; page < pageCount; page++)
             {
                 ct.ThrowIfCancellationRequested();
                 byte[] frame = BuildPageFrame(image.Bytes, page);
                 Log?.Invoke($"TX STM32 IAP PAGE {page + 1}/{pageCount}; bytes={Math.Min((page + 1) * PageSize, image.ImageSize)}/{image.ImageSize}; frame={frame.Length}");
-                await SendAndWaitAsync(frame, FlashUpgrade, PageRegisterCount, ct);
+                await SendAndWaitAsync(frame, FlashUpgrade, PageTransferLength, ct);
                 int sent = Math.Min((page + 1) * PageSize, image.ImageSize);
                 Progress?.Invoke(new Stm32OtaProgress(sent * 100.0 / image.ImageSize, sent, image.ImageSize, page + 1, pageCount));
             }
@@ -139,6 +144,6 @@ public sealed class Stm32SerialBleOtaClient
         int offset = checked(page * PageSize);
         int count = Math.Min(PageSize, image.Length - offset);
         if (count > 0) Buffer.BlockCopy(image, offset, pageData, 0, count);
-        return ModbusRtu.WriteMultiple(FlashUpgrade, pageData);
+        return ModbusRtu.WriteLegacyByteCountZero(FlashUpgrade, pageData);
     }
 }

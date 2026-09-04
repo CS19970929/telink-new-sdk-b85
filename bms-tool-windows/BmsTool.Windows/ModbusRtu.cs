@@ -67,6 +67,24 @@ public static class ModbusRtu
         return Frame(body);
     }
 
+    // The supplied STM32 IAP uses a legacy extended 0x10 frame: byte-count
+    // is zero and the quantity field carries the raw byte length. This is not
+    // standard Modbus, but it is the format parsed by the supplied IAP code.
+    public static byte[] WriteLegacyByteCountZero(ushort start, ReadOnlySpan<byte> rawBytes)
+    {
+        if (rawBytes.Length == 0 || rawBytes.Length > 1033)
+            throw new ArgumentOutOfRangeException(nameof(rawBytes), "Legacy IAP payload must be 1..1033 bytes.");
+
+        byte[] body = new byte[7 + rawBytes.Length];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = 0x10;
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(2, 2), start);
+        BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(4, 2), checked((ushort)rawBytes.Length));
+        body[6] = 0;
+        rawBytes.CopyTo(body.AsSpan(7));
+        return Frame(body);
+    }
+
     public static byte[] FactoryOpen()
     {
         Span<byte> body = stackalloc byte[7];

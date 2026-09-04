@@ -58,15 +58,17 @@ IAP 在 `Include/SCI.h:31-34` 定义：
 - 写完后 `u8FlashReceiveCnt++`，没有帧序号、重传和重复帧检测；
 - `0xFFFF`：只检查写寄存器数量为 1，直接把升级标志写成 `0xFFFF`，然后复位进入 APP。
 
-所以当前例程真正期望的数据帧是标准 Modbus `0x10` 帧：
+所以当前例程真正期望的是一个带历史扩展约定的 `0x10` 帧。IAP 接收解析器使用 `u8Buffer[6]`（单字节）作为正常 byte count；当该字段为 `0` 时，改用前面的 quantity 字段作为整帧原始数据长度。因此 1024 字节页不能按标准 Modbus 填入 `byte count=0x400`，而必须使用 `byte count=0、quantity=1024`：
 
 ```text
-01 10 FF FE 02 00 04 00
+01 10 FF FE 04 00 00
 <1024 bytes APP data, last page padded by FF>
 CRC_LO CRC_HI
 ```
 
-其中 `0x0200` 是 512 个寄存器，`0x0400` 是 1024 个数据字节。完整帧长度为 1033 字节。APP 区从 `0x08001C00` 到升级标志页前共有 55 KB，因此最多需要 55 个 1 KB 数据帧。
+完整帧长度为 `7 + 1024 + 2 = 1033` 字节；上位机通过当前 GATT MTU 分片发送。IAP 回复的 8 字节 ACK 中 quantity 保留为 `0x0400`，所以 ACK 校验期望值是 1024（原始寄存器数量语义在此处实际被复用为字节长度）。
+
+其中 `0x0400` 在这套兼容约定中表示 1024 个数据字节，而不是按标准 Modbus 解释为 1024 个寄存器。完整帧长度为 1033 字节。APP 区从 `0x08001C00` 到升级标志页前共有 55 KB，因此最多需要 55 个 1 KB 数据帧。
 
 ### 2.3 IAP 完成和跳转
 
@@ -116,7 +118,7 @@ OTA 页面
 
 1. 读取并校验 STM32 APP BIN，最大 55 KB；
 2. 关闭实时轮询，使用现有 Nordic UART 通道；
-3. 发送 `0xFFFD` 进入 IAP，等待标准 `0x10` 应答；
+3. 发送 `0xFFFD` 进入 IAP，等待 `0x10` 应答；BMS 复位后释放旧 GATT 连接并重新连接 IAP 通道；
 4. 将 APP BIN 按 1024 字节补 `0xFF`，每页构造 `0xFFFE` 写多个寄存器帧；
 5. 每帧等待 8 字节 `0x10` 正应答后再发送下一页；
 6. 发送 `0xFFFF` 完成帧，等待应答；
@@ -167,8 +169,8 @@ OTA 页面
 - OTA 架构自动识别：Telink 专用 OTA service 优先；否则识别 BMS Nordic UART service；
 - Telink 和 STM32 固件格式分开加载，阻止错误架构的 BIN 进入升级流程；
 - STM32 APP BIN 最大 55 KB，按 1 KB 页补 `0xFF`；
-- 通过现有 BMS GATT 通道按 MTU 分片发送 1033 字节 Modbus IAP 帧；
-- `0xFFFD`、`0xFFFE`、`0xFFFF` 逐步执行，每页等待并校验 `0x10` ACK；
+- 通过现有 BMS GATT 通道按 MTU 分片发送 1033 字节 Modbus IAP 扩展兼容帧（`byte count=0`、`quantity=1024`）；ENTER 应答后会等待复位并完整重连；
+- `0xFFFD`、`0xFFFE`、`0xFFFF` 逐步执行，每页等待并校验 `quantity=1024` 的 `0x10` ACK；
 - 响应拆包、CRC16 校验、硬超时和取消处理；旧例程没有序号，因此 ACK 超时直接终止，不自动重传造成页计数错位；
 - 完成后沿用现有重连、版本和实时数据验证流程。
 
