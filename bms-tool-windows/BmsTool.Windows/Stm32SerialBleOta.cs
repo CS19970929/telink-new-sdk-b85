@@ -17,6 +17,11 @@ public sealed class Stm32SerialBleOtaClient
     private const ushort PageTransferLength = 1024;
     private const int PageSize = 1024;
     private const int MaxPageCount = FirmwareImage.Stm32AppCapacity / PageSize;
+    // The BLE MTU is not the same as the transparent UART buffer capacity.
+    // The supplied IAP UART is 19200 8N1 without flow control, so use the
+    // conservative default ATT payload and allow the module to drain it.
+    private const int SerialBleChunkSize = 20;
+    private const int SerialBleInterChunkDelayMs = 20;
 
     private readonly BmsBleTransport _transport;
     private readonly object _rxLock = new();
@@ -92,7 +97,7 @@ public sealed class Stm32SerialBleOtaClient
 
         try
         {
-            await _transport.WriteChunkedAsync(request, ct);
+            await WriteIapFrameChunkedAsync(request, ct);
             byte[] response = await pending.Task.WaitAsync(TimeSpan.FromSeconds(8), ct);
             ModbusRtu.ValidateWriteMultipleAck(response, expectedRegister, expectedQuantity);
         }
@@ -106,6 +111,19 @@ public sealed class Stm32SerialBleOtaClient
             {
                 if (ReferenceEquals(_pending, pending)) _pending = null;
             }
+        }
+    }
+
+    private async Task WriteIapFrameChunkedAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
+    {
+        int chunkCount = (frame.Length + SerialBleChunkSize - 1) / SerialBleChunkSize;
+        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; delay={SerialBleInterChunkDelayMs}ms");
+        for (int offset = 0; offset < frame.Length; offset += SerialBleChunkSize)
+        {
+            int length = Math.Min(SerialBleChunkSize, frame.Length - offset);
+            await _transport.WriteAsync(frame.Slice(offset, length), ct);
+            if (offset + length < frame.Length)
+                await Task.Delay(SerialBleInterChunkDelayMs, ct);
         }
     }
 

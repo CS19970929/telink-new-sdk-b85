@@ -285,8 +285,9 @@ public sealed class BmsBleTransport : IAsyncDisposable
         {
             string name = args.Advertisement.LocalName ?? string.Empty;
             // Existing products use BT_, while the currently deployed BMS also uses BT-.
-            // Keep a narrow BMS prefix filter and let the Modbus probe validate the device after selection.
-            if (!IsBmsName(name)) return;
+            // The supplied STM32 IAP may advertise an empty name after reset;
+            // keep unnamed devices visible and let GATT/Modbus validation decide.
+            if (name.Length > 0 && !IsBmsName(name)) return;
             callback(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
         };
         watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] STOPPED status={watcher.Status}; error={args.Error}");

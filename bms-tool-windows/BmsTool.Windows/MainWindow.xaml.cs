@@ -108,11 +108,19 @@ public partial class MainWindow : Window
             _connectedName = selected.Name;
             _pollFailureCount = 0;
 
-            await ConnectBmsInternalAsync(selected.Address);
-            await RefreshIdentityAsync();
-            await RefreshBatteryAsync();
-            StartAutomaticRefresh();
-            ConnectionText.Text = $"已连接：{_connectedName}";
+            bool applicationReady = await ConnectBmsInternalAsync(selected.Address, allowIapOnly: true);
+            if (applicationReady)
+            {
+                await RefreshIdentityAsync();
+                await RefreshBatteryAsync();
+                StartAutomaticRefresh();
+                ConnectionText.Text = $"已连接：{_connectedName}";
+            }
+            else
+            {
+                ConnectionText.Text = "BLE已连接（STM32 IAP模式，仅可升级）";
+                AppendLog("BLE GATT 已连接，但普通 BMS Modbus 探测无响应；按 STM32 IAP 模式保留连接，可直接执行 OTA。", "CONNECT");
+            }
         }
         catch (Exception ex)
         {
@@ -125,7 +133,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ConnectBmsInternalAsync(ulong address, CancellationToken ct = default)
+    private async Task<bool> ConnectBmsInternalAsync(ulong address, CancellationToken ct = default, bool allowIapOnly = false)
     {
         await DisposeBmsAsync();
         AppendLog($"ConnectBmsInternal START address={address:X12}", "CONNECT");
@@ -151,11 +159,22 @@ public partial class MainWindow : Window
             _connectedAddress = address;
             transport.ConnectionProgress -= OnConnectionProgress;
             AppendLog($"BMS READY total={total.ElapsedMilliseconds}ms; {transport.DiscoveryDescription}", "CONNECT");
+            return true;
         }
         catch (Exception ex)
         {
             _sessionLog.WriteException("CONNECT", "ConnectBmsInternal", ex);
             transport.ConnectionProgress -= OnConnectionProgress;
+            if (allowIapOnly && client is not null && transport.IsConnected)
+            {
+                client.Log -= OnProtocolLog;
+                await client.DisposeAsync();
+                _bmsTransport = transport;
+                _bms = null;
+                _connectedAddress = address;
+                AppendLog($"GATT READY without application probe; elapsed={total.ElapsedMilliseconds}ms; {transport.DiscoveryDescription}", "CONNECT");
+                return false;
+            }
             if (client is not null)
             {
                 client.Log -= OnProtocolLog;
