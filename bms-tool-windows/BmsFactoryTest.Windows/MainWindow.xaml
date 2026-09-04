@@ -368,8 +368,14 @@
                         <TextBlock x:Name="FirmwareText" Margin="12,0,0,0" VerticalAlignment="Center" Text="未选择固件"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <TextBlock VerticalAlignment="Center">OTA 架构</TextBlock>
+                        <ComboBox x:Name="OtaTargetBox" Width="210" Margin="8,0">
+                            <ComboBoxItem Content="Auto（自动识别）" Tag="Auto" IsSelected="True"/>
+                            <ComboBoxItem Content="Telink 专用 OTA" Tag="Telink"/>
+                            <ComboBoxItem Content="STM32 串口 IAP" Tag="Stm32SerialIap"/>
+                        </ComboBox>
                         <TextBlock VerticalAlignment="Center">传输模式</TextBlock>
-                        <ComboBox x:Name="OtaModeBox" Width="170" Margin="8,0">
+                        <ComboBox x:Name="OtaModeBox" Width="170" Margin="8,0,8,0">
                             <ComboBoxItem Content="Auto" Tag="Auto" IsSelected="True"/>
                             <ComboBoxItem Content="Legacy Fast (16B)" Tag="LegacyFast"/>
                             <ComboBoxItem Content="Extend 64B" Tag="Extend64"/>
@@ -377,7 +383,7 @@
                         <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">目标软件版本（可选）</TextBlock>
                         <TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
                     </StackPanel>
-                    <TextBlock Margin="0,10,0,0" Text="升级完成后会自动等待设备重启、重新连接并读取电池数据，确认新程序已经正常运行。填写目标版本时还会进行版本一致性校验。" TextWrapping="Wrap"/>
+                    <TextBlock Margin="0,10,0,0" Text="Auto 会按 GATT 能力识别 Telink OTA 或 STM32 串口 IAP。STM32 兼容例程每页等待 ACK，通信异常会停止而不会盲目重传；升级完成后自动等待设备重启、重新连接并读取电池数据。当前例程 IAP 仍需固件侧增加整包校验和签名后才能用于量产安全升级。" TextWrapping="Wrap"/>
                     <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
                     <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">

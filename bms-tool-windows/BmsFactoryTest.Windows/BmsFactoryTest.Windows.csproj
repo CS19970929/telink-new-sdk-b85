@@ -10,6 +10,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <Compile Remove="Ota.cs" />
+    <Compile Include="..\BmsTool.Windows\Ota.cs" Link="Shared\Ota.cs" />
+    <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
     <Compile Include="..\BmsTool.Windows\BmsBleTransport.cs" Link="Shared\BmsBleTransport.cs" />
     <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
     <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="Shared\ModbusRtu.cs" />

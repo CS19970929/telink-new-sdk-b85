@@ -293,6 +293,16 @@ public sealed class BmsBleTransport : IAsyncDisposable
         return watcher;
     }
 
+    public async Task WriteChunkedAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
+    {
+        int chunkSize = NegotiatedMtu is int mtu ? Math.Clamp(mtu - 3, 20, 244) : 20;
+        for (int offset = 0; offset < data.Length; offset += chunkSize)
+        {
+            int length = Math.Min(chunkSize, data.Length - offset);
+            await WriteAsync(data.Slice(offset, length), ct);
+        }
+    }
+
     internal static bool IsBmsName(string name) =>
         name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
         name.StartsWith("BT-", StringComparison.OrdinalIgnoreCase);

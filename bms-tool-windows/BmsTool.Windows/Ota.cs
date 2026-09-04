@@ -8,23 +8,96 @@ using Windows.Security.Cryptography;
 namespace BmsTool.Windows;
 
 public enum OtaTransferMode { Auto, LegacyFast, Extend64 }
+public enum OtaTargetKind { Auto, Telink, Stm32SerialIap }
 public sealed record OtaProgress(double Percent, int SentBytes, int TotalBytes, double BytesPerSecond, TimeSpan? Eta, OtaTransferMode Mode);
 public sealed record OtaResult(byte Code, string Name) { public bool IsSuccess => Code == 0; }
 
+public sealed record FirmwareInspection(string FileName, int FileSize, bool LooksLikeTelink, bool FitsStm32App)
+{
+    public string Description => LooksLikeTelink && FitsStm32App
+        ? $"{FileName} · {FileSize:N0} bytes · 可用于 Telink 或 STM32（按目标架构选择）"
+        : LooksLikeTelink
+            ? $"{FileName} · {FileSize:N0} bytes · Telink"
+            : FitsStm32App
+                ? $"{FileName} · {FileSize:N0} bytes · STM32 APP BIN"
+                : $"{FileName} · {FileSize:N0} bytes · 不满足已知 OTA 边界";
+}
+
 public sealed class FirmwareImage
 {
+    public const int Stm32AppCapacity = 55 * 1024;
     public string FileName { get; }
     public byte[] Bytes { get; }
+    public OtaTargetKind TargetKind { get; }
     public int ImageSize => Bytes.Length;
     public int LegacyPacketCount => (ImageSize + 15) / 16;
-    private FirmwareImage(string fileName, byte[] bytes) { FileName = fileName; Bytes = bytes; }
+    private FirmwareImage(string fileName, byte[] bytes, OtaTargetKind targetKind) { FileName = fileName; Bytes = bytes; TargetKind = targetKind; }
+
+    public static FirmwareInspection Inspect(string path)
+    {
+        byte[] all = File.ReadAllBytes(path);
+        bool telink = all.Length >= 0x1C &&
+                      BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
+                      declared > 0 && declared <= all.Length;
+        return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, all.Length > 0 && all.Length <= Stm32AppCapacity);
+    }
+
     public static FirmwareImage Load(string path)
     {
         byte[] all = File.ReadAllBytes(path);
         if (all.Length < 0x1C) throw new InvalidDataException("Firmware is too small to contain Telink size field @0x18.");
         uint declared = BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4));
         if (declared == 0 || declared > all.Length) throw new InvalidDataException($"Invalid Telink firmware size @0x18: {declared}, file={all.Length}.");
-        return new FirmwareImage(Path.GetFileName(path), all.AsSpan(0, checked((int)declared)).ToArray());
+        return new FirmwareImage(Path.GetFileName(path), all.AsSpan(0, checked((int)declared)).ToArray(), OtaTargetKind.Telink);
+    }
+
+    public static FirmwareImage LoadForTarget(string path, OtaTargetKind target)
+    {
+        return target switch
+        {
+            OtaTargetKind.Telink => Load(path),
+            OtaTargetKind.Stm32SerialIap => LoadStm32App(path),
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "OTA target must be resolved before loading firmware.")
+        };
+    }
+
+    private static FirmwareImage LoadStm32App(string path)
+    {
+        byte[] all = File.ReadAllBytes(path);
+        if (all.Length == 0 || all.Length > Stm32AppCapacity)
+            throw new InvalidDataException($"STM32 APP BIN must be 1..{Stm32AppCapacity} bytes; actual={all.Length}.");
+        return new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+    }
+}
+
+public static class OtaTargetDetector
+{
+    public static async Task<OtaTargetKind> DetectAsync(ulong address, OtaTargetKind requested, CancellationToken ct = default)
+    {
+        if (requested is OtaTargetKind.Telink or OtaTargetKind.Stm32SerialIap)
+            return requested;
+
+        ct.ThrowIfCancellationRequested();
+        using BluetoothLEDevice device = await BluetoothLEDevice.FromBluetoothAddressAsync(address)
+            ?? throw new IOException("Could not open BLE device for OTA architecture detection.");
+        GattDeviceServicesResult result = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
+        if (result.Status != GattCommunicationStatus.Success)
+            throw new IOException($"BLE service discovery failed during OTA architecture detection: {result.Status}.");
+
+        try
+        {
+            if (result.Services.Any(s => s.Uuid == OtaBleTransport.ServiceUuid))
+                return OtaTargetKind.Telink;
+            if (result.Services.Any(s => s.Uuid == BmsBleTransport.ServiceUuid))
+                return OtaTargetKind.Stm32SerialIap;
+        }
+        finally
+        {
+            foreach (GattDeviceService service in result.Services)
+                service.Dispose();
+        }
+
+        throw new IOException("未识别 OTA 架构：未发现 Telink OTA service 或 BMS Nordic UART service。");
     }
 }
 

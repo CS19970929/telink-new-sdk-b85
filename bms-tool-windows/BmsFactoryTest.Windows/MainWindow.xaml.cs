@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private BmsClient? _bms;
     private ulong? _connectedAddress;
     private string _connectedName = string.Empty;
-    private FirmwareImage? _firmware;
+    private string? _firmwarePath;
     private CancellationTokenSource? _otaCts;
     private bool _polling;
     private bool _otaRunning;
@@ -701,13 +701,16 @@ public partial class MainWindow : Window
         {
             var dlg = new OpenFileDialog { Filter = "Telink firmware (*.bin)|*.bin|All files (*.*)|*.*" };
             if (dlg.ShowDialog() != true) return;
-            _firmware = FirmwareImage.Load(dlg.FileName);
-            FirmwareText.Text = $"{_firmware.FileName} · {_firmware.ImageSize:N0} bytes";
-            AppendLog($"Firmware loaded file='{_firmware.FileName}' size={_firmware.ImageSize}", "OTA");
+            FirmwareInspection inspection = FirmwareImage.Inspect(dlg.FileName);
+            if (!inspection.LooksLikeTelink && !inspection.FitsStm32App)
+                throw new InvalidDataException("文件既不是可识别的 Telink BIN，也不在 STM32 APP 55 KB 边界内。");
+            _firmwarePath = dlg.FileName;
+            FirmwareText.Text = inspection.Description;
+            AppendLog($"Firmware candidate loaded file='{inspection.FileName}' size={inspection.FileSize}; telink={inspection.LooksLikeTelink}; stm32={inspection.FitsStm32App}", "OTA");
         }
         catch (Exception ex)
         {
-            _firmware = null;
+            _firmwarePath = null;
             ShowError("固件校验失败", ex);
         }
     }
@@ -717,7 +720,7 @@ public partial class MainWindow : Window
         if (_otaRunning) return;
         try
         {
-            var image = _firmware ?? throw new InvalidOperationException("请先选择 BIN。");
+            string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? throw new InvalidOperationException("请先连接 BMS。");
 
             _otaRunning = true;
@@ -727,6 +730,9 @@ public partial class MainWindow : Window
             OtaProgressBar.Value = 0;
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
+            OtaTargetKind target = await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
+            FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
+            AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
 
             string oldVersion = string.Empty;
             try
@@ -745,13 +751,13 @@ public partial class MainWindow : Window
 
             try
             {
-                serverConfirmed = await RunOtaOnceAsync(address, image, requested, _otaCts.Token);
+                serverConfirmed = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
             }
             catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
             {
                 AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
                 await Task.Delay(700, _otaCts.Token);
-                serverConfirmed = await RunOtaOnceAsync(address, image, OtaTransferMode.LegacyFast, _otaCts.Token);
+                serverConfirmed = await RunOtaOnceAsync(address, image, target, OtaTransferMode.LegacyFast, _otaCts.Token);
             }
 
             OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
@@ -793,8 +799,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTransferMode mode, CancellationToken ct)
+    private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
     {
+        if (target == OtaTargetKind.Stm32SerialIap)
+        {
+            await using var serialTransport = new BmsBleTransport();
+            AppendLog($"Connecting STM32 serial OTA GATT address={address:X12}", "OTA");
+            await serialTransport.ConnectAsync(address, ct);
+            AppendLog($"STM32 serial OTA GATT ready; MTU={serialTransport.NegotiatedMtu}; {serialTransport.DiscoveryDescription}", "OTA");
+            var serialClient = new Stm32SerialBleOtaClient(serialTransport);
+            serialClient.Log += m => AppendLog(m, "OTA");
+            serialClient.Progress += p => Dispatcher.BeginInvoke(() =>
+            {
+                OtaProgressBar.Value = p.Percent;
+                OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
+            });
+            return await serialClient.UpgradeAsync(image, ct);
+        }
+
         await using var transport = new OtaBleTransport();
         AppendLog($"Connecting OTA GATT address={address:X12}", "OTA");
         await transport.ConnectAsync(address);
@@ -842,6 +864,12 @@ public partial class MainWindow : Window
     {
         string tag = (OtaModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
         return Enum.TryParse(tag, out OtaTransferMode mode) ? mode : OtaTransferMode.Auto;
+    }
+
+    private OtaTargetKind GetOtaTargetKind()
+    {
+        string tag = (OtaTargetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
+        return Enum.TryParse(tag, out OtaTargetKind target) ? target : OtaTargetKind.Auto;
     }
 
     private static bool IsExtendCompatibilityFailure(Exception ex)
