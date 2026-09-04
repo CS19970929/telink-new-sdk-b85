@@ -55,6 +55,7 @@ public sealed class BatterySnapshot
     public uint SystemStatus { get; init; }
     public ushort ProtocolVersion { get; init; }
     public bool UsesRealtimeWindow { get; init; }
+    public int ValidCellCount => CellMillivolts.Count(value => value != BmsRegisters.MissingCellVoltageMv);
     public ushort ProtectionLevel1Raw { get; init; }
     public ushort ProtectionLevel2Raw { get; init; }
     public ushort ProtectionLevel3Raw { get; init; }
@@ -367,7 +368,9 @@ public sealed class BmsClient : IAsyncDisposable
             ProtectionLevel1Raw = legacy[58],
             ProtectionLevel2Raw = legacy[59],
             ProtectionLevel3Raw = legacy[60],
-            CellMillivolts = legacy.Take(BmsRegisters.SeriesCount).ToArray()
+            // The first 32 Legacy words are protocol slots, not the configured
+            // series count.  61001 marks a slot that is not physically present.
+            CellMillivolts = legacy.Take(BmsRegisters.CellVoltageSlotCount).ToArray()
         };
     }
 

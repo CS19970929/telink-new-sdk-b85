@@ -55,7 +55,7 @@ AFE 专属页面和专属诊断项
 2. Modbus `0x2400..0x2417` 是当前 SH367309 参数区；
 3. AFE 硬件保护状态直接读取 `ram_reg_309.REG_BSTATUS1/2`；
 4. Windows 的 `AfeHardwareParameters.cs` 和 `MainWindow.AfeHardwareUi.cs` 包含 SH367309 的参数目录、单位和写入约束；
-5. Windows `BmsRegisters.SeriesCount` 当前是编译期常量，不能自动使用固件 `OPEN` 返回的 `SeriesNum`；
+5. Windows 必须按公共协议读取 32 个单体电压槽位，并用固件约定的 `61001` 无效值判断实际存在的串位，不能把某个产品的串数写死为 10；
 6. 一些公共系统状态字段历史上带有项目特定语义，例如 `b1Status_Cool` 在当前 `app.c` 中被作为充电器在线状态使用。
 
 因此，模板化的重点不是重写软件保护或测试协议，而是先建立明确的 AFE 适配边界和能力描述接口。
@@ -182,7 +182,7 @@ CRC16 使用初值 `0xFFFF`、多项式 `0xA001`，低字节在前。地址当�
 
 | 偏移 | 字段 | 当前解释 |
 | ---: | --- | --- |
-| `0..SeriesCount-1` | 单体电压 | mV；当前上位机仍使用固定 `SeriesCount=10`，这是待整改的 P0 问题 |
+| `0..31` | 单体电压槽位 | mV；共 32 个协议槽位，`61001` 表示该串不存在，不能参与串数、平均值、最大值、最小值和压差计算 |
 | `32/33/36` | 单体最大/最小/压差 | mV |
 | `34/35` | 最大/最小单体位置 | 单体序号 |
 | `37` | 总压 | 备用实时值；界面同样按 `/100.0` 显示 V |
@@ -396,7 +396,7 @@ Windows 工厂版应把 `SeriesCount`、`injection_mask`、有效测量和保护
 | SH367309 参数页 | `MainWindow.AfeHardwareUi.cs` | 页面通用化，标题、参数、单位、范围、离散值由 descriptor 提供 |
 | AFE 参数地址 | `ModbusRtu.cs`/ `BmsClient.cs` 及地址常量 | 公共客户端只处理抽象 AFE 参数服务，不硬编码具体寄存器意义 |
 | AFE 状态显示 | `BatterySnapshot`/主窗口状态文字 | 使用统一 AFE 状态模型，具体芯片状态放到可选扩展区 |
-| 串数 | `BmsRegisters.SeriesCount` | 必须改为连接后使用 `OPEN.SeriesCount` 或公共 capability，不固定为某产品串数 |
+| 串数 | `BmsRegisters.CellVoltageSlotCount` / `MissingCellVoltageMv` | 固定读取 32 个协议槽位，以 `61001` 过滤实际不存在的串，并保留原始槽位编号 |
 | 保护参数工程量单位 | `ProtectionParameter.cs` | 继续使用公共保护参数单位，不随 AFE 变化 |
 
 ## 8. 模板目标：AFE 适配层接口
@@ -584,7 +584,7 @@ AFE 参数 descriptor 至少包含：
 
 ### 阶段 D：更新 Windows
 
-- 将 `BmsRegisters.SeriesCount` 改为设备连接后的动态值；
+- 按 `BmsRegisters.CellVoltageSlotCount=32` 读取全部电压槽位，并按 `MissingCellVoltageMv=61001` 过滤无效串位；
 - 公共 `BatterySnapshot` 继续保持相同字段和单位；
 - 将 SH367309 参数目录变成 descriptor provider；
 - 保留公共保护参数、软件保护状态、Factory Test、日志、OTA；
@@ -645,15 +645,16 @@ FirmwareVersion   产品固件版本
 
 按风险和收益排序：
 
-### P0：串数动态化
+### 已完成：32 槽位与无效串位处理
 
-当前 BMS `OPEN` 返回 `SeriesNum`，但 Windows `BmsRegisters.SeriesCount` 是常量。应让连接上下文保存设备实际串数，并用于：
+当前公共协议由固件 `g_stCellInfoReport.u16VCell[32]` 提供 32 个电压槽位。配置串数小于 32 时，固件将不存在的槽位写为 `61001`。Windows 已按以下规则处理：
 
-- 每串电压显示；
-- 单体数据校验；
-- Factory OPEN/STATUS 一致性校验；
-- 自动测试的单体索引边界；
-- 报告中的串数。
+- 固定读取 `0xD000..0xD01F` 的 32 个单体电压槽位；
+- `61001` 不计入有效串数、平均值、最大值、最小值和压差；
+- 保留原始槽位编号，避免中间串位缺失时发生编号压缩；
+- 客户版和工厂版均显示“有效串数 / 32”，并只显示有效串位。
+
+Factory Session 的 `OPEN.SeriesNum` 仍可用于工厂协议一致性检查，但不能替代公共电压槽位的 `61001` 有效性判断。
 
 ### P0：抽离 AFE 直接访问
 

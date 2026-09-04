@@ -18,7 +18,10 @@ public static class BmsRegisters
     public const ushort SystemStatus = 0xD115;
     public const ushort Realtime = 0xD120;
     public const ushort RealtimeMagic = 0x4253;
-    public const int SeriesCount = 10;
+    // Legacy 0xD000..0xD03E always reserves 32 cell-voltage slots.
+    // The firmware writes 61001 to an unused slot; it is not a real voltage.
+    public const int CellVoltageSlotCount = 32;
+    public const ushort MissingCellVoltageMv = 61001;
     public const int BtNameReadWords = 12;
     public const int BtNameMaxSuffixBytesPerBleRequest = 10;
     public const byte FactoryFunction = 0x41;

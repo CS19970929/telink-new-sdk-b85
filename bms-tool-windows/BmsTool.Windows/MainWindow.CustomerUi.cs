@@ -95,6 +95,7 @@ public partial class MainWindow
         CustomerMinCellText.Text = $"{min.Volts * 1000.0:F0}    {min.Index}";
         CustomerAvgCellText.Text = avgMv.ToString("F2", CultureInfo.InvariantCulture);
         CustomerDeltaCellText.Text = deltaMv.ToString("F0", CultureInfo.InvariantCulture);
+        CustomerCellCountText.Text = $"{cells.Count} / {BmsRegisters.CellVoltageSlotCount}";
 
         CustomerCellPanel.Children.Clear();
         foreach (var cell in cells.OrderBy(c => c.Index))

@@ -51,6 +51,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
                                     <TextBlock Text="最高电压" Width="76" VerticalAlignment="Center"/>
@@ -67,6 +68,10 @@
                                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
                                     <TextBlock Text="最大压差" Width="76" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="CustomerDeltaCellText" VerticalAlignment="Center" Text="—"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
+                                    <TextBlock Text="有效串数" Width="76" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="CustomerCellCountText" VerticalAlignment="Center" Text="—"/>
                                 </StackPanel>
                             </Grid>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

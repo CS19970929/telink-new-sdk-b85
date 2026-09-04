@@ -487,7 +487,7 @@ dotnet publish bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.cs
 以下项目不能由 PC 构建替代：
 
 - BLE GATT 实际通知分包和高频 STATUS 下的重组稳定性；
-- 设备实际串数与 Windows 显示串数一致性：BMS `OPEN` 会返回当前固件 `SeriesNum`，但当前 Windows `BmsRegisters.SeriesCount` 仍是编译期常量，正式支持不同串数产品前必须把两者统一或改为使用 OPEN 返回值；
+- 设备实际串数与 Windows 显示串数一致性：公共电压窗口固定传输 32 个槽位，固件以 `61001` 标记不存在的串；Windows 显示有效槽位数量并保留原始串号。BMS `OPEN` 返回的 `SeriesNum` 继续用于 Factory Session 一致性检查；
 - C11 等非默认串数产品的总压保护参数缩放和 pack 字段单位；
 - 每个产品的正式保护参数不是 0，且 L1/L2/L3 与恢复关系满足测试要求；
 - 实际滤波时间、三级过流约 30 秒恢复时间；

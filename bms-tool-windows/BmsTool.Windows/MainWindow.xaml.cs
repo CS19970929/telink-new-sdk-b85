@@ -253,7 +253,10 @@ public partial class MainWindow : Window
         TempsText.Text = $"最高温度：{s.MaxTempC:F1} °C\n最低温度：{s.MinTempC:F1} °C\nMOS 温度：{s.MosTempC:F1} °C";
         CellExtremeText.Text = $"最高：{s.MaxCellMv} mV（第 {s.MaxCellPosition} 串）\n最低：{s.MinCellMv} mV（第 {s.MinCellPosition} 串）\n压差：{s.CellDeltaMv} mV";
         CapacityText.Text = $"当前容量：{s.CapacityNowAh:F2} Ah\n满充容量：{s.CapacityFullAh:F2} Ah\n工厂容量：{s.CapacityFactoryAh:F2} Ah\n循环次数：{s.CycleCount}";
-        CellsText.Text = string.Join("    ", s.CellMillivolts.Select((mv, i) => $"第{i + 1}串 {mv / 1000.0:F3} V"));
+        CellsText.Text = string.Join("    ", s.CellMillivolts
+            .Select((mv, i) => (mv, Index: i + 1))
+            .Where(cell => cell.mv != BmsRegisters.MissingCellVoltageMv)
+            .Select(cell => $"第{cell.Index}串 {cell.mv / 1000.0:F3} V"));
 
         LastUpdateText.Text = $"最后更新：{DateTime.Now:HH:mm:ss}";
         CurrentSocParamText.Text = $"当前 SOC：{s.SocPercent}%";
