@@ -101,7 +101,7 @@ public sealed class BatterySnapshot
     }
 }
 
-public sealed class BmsClient : IAsyncDisposable
+public sealed partial class BmsClient : IAsyncDisposable
 {
     private readonly IBmsTransport _transport;
     private readonly SemaphoreSlim _gate = new(1, 1);

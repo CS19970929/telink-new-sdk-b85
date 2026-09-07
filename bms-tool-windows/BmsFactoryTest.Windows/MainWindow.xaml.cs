@@ -14,7 +14,7 @@ namespace BmsTool.Windows;
 public partial class MainWindow : Window
 {
     private FrameworkElement ShAccessSource() => this;
-    private bool ShFactoryBusy() => _factoryTestCts is not null;
+    private bool ShFactoryBusy() => _factoryTestCts is not null || _flashTestCts is not null;
 
     private enum ConnectionMode { Ble, Serial }
 
@@ -63,6 +63,7 @@ public partial class MainWindow : Window
             _watcher?.Stop();
             _otaCts?.Cancel();
             _factoryTestCts?.Cancel();
+            _flashTestCts?.Cancel();
             await DisposeBmsAsync();
             _sessionLog.Write("SESSION", "Window closed");
             _sessionLog.Dispose();

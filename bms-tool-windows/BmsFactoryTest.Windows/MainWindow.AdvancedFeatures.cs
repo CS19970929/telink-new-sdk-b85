@@ -51,6 +51,7 @@ public partial class MainWindow
         AddLongTermMonitorToolbarToMainPage();
         AddAfeHardwareTab();
         AddEventLogTab();
+        AddFlashEnduranceTab();
 
         _advancedFeatureTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _advancedFeatureTimer.Tick += (_, _) => AdvancedFeatureTimer_Tick();

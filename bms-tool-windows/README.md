@@ -98,3 +98,11 @@ BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直�
 - 两版“实时监控 → 连接区域 → 休眠”：确认后发送 `0x06`，寄存器 `0x1102`，值 `0x000A`。复用串口/BLE通信。固件先应答，等待通信及存储空闲后处理深度休眠；上位机收到ACK只表示请求被接受，随后停止轮询、取消自动重连并主动断开。按板上唤醒按键后手动连接。超时不当作成功，也不自动重发命令。
 - 协议依据当前 BMS `Sci_Upper.h`、`Sci_WrReg_0x06_BMS_FunctionON`、`LogRecord.c/Sci_WrReg_0x06_Reset_EventRecord` 和 `rtc_sleep.c/lp_process_command_sleep`。删除持久化逻辑重置标记，旧页随后复用，并非立即物理擦除全部旧数据；100/500条共用同一指令，新事件仍会正常记录。
 - 本次不修改BMS固件。通过协议组帧/ACK异常测试、100/500条分页回归及双版发布构建；尚未进行实板删除和休眠验证。最新发布标签 `log-commands-v2-20260907`。
+
+## SOC加速擦写测试（完整版）
+
+完整版新增“Flash寿命测试”页，支持SOC循环变化、重复值、小幅往返和强制保存，实时查看进度、物理页擦除及失败计数，自动保存备份、流程日志、CSV和结果JSON。需要 `FLASH_ENDURANCE_TEST_ENABLE=1` 专用BMS固件；测试真实消耗SOC页寿命，正常版固件默认不开放。客户版不接入。
+
+详见 [SOC加速擦写使用、协议及恢复说明](docs/flash_endurance.md)。测试记录在用户文档 `BmsFlashTests`。运行 `test-flash-endurance.ps1` 验证协议，`test-event-log.ps1` 回归日志。
+
+最新双版：`build-release.ps1 -ReleaseTag flash-endurance-v3-20260907`；完整版目录 `BmsFactoryTest.Windows/publish/internal-full-win-x64-flash-endurance-v3-20260907/`，客户版目录 `BmsTool.Windows/publish/customer-win-x64-flash-endurance-v3-20260907/`。测试和构建通过，未执行实板耐久测试。
