@@ -95,7 +95,7 @@ public partial class MainWindow
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
-            BmsBleTransport transport = _bmsTransport as BmsBleTransport ?? throw new InvalidOperationException("AFE硬件保护参数读写仅支持 BLE 连接；当前是直连串口。");
+            IBmsTransport transport = _bmsTransport ?? throw new InvalidOperationException("通信未就绪。");
             _afeHardwareStatus!.Text = "正在读取...";
 
             var client = new AfeHardwareClient(bms, transport);

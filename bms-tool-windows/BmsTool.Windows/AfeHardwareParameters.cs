@@ -238,9 +238,9 @@ public sealed record AfeWriteGroup(ushort StartRegister, ushort[] Values, string
 public sealed class AfeHardwareClient
 {
     private readonly BmsClient _bms;
-    private readonly BmsBleTransport _transport;
+    private readonly IBmsTransport _transport;
 
-    public AfeHardwareClient(BmsClient bms, BmsBleTransport transport)
+    public AfeHardwareClient(BmsClient bms, IBmsTransport transport)
     {
         _bms = bms;
         _transport = transport;
