@@ -72,6 +72,7 @@ public partial class MainWindow : Window
 
     private void ConnectionModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!IsInitialized) return;
         bool serial = IsSerialConnectionMode;
         DeviceList.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         SerialPortList.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
