@@ -75,3 +75,19 @@ BmsTool.Windows\publish\customer-win-x64\BmsTool.Windows.exe
 详细参数、协议及当前固件Flash容量阻碍见 [3520 参数说明](docs/3520_parameters.md)。尚未完成实板联调，不能给未升级的板子写新参数。
 BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直连串口。旧BLE、Factory Session保留；已识别3520不能使用起址不同的旧STM32 OTA。
 运行 `./test-3520-parameters.ps1` 检查共享编解码；运行 `./build-release.ps1` 同时生成两版EXE。构建中间文件转到 `%LOCALAPPDATA%/CodexTemp/bms-tool-windows`，正式EXE仍在各项目publish目录。
+
+
+## 事件日志100/500条（2026-09-07）
+
+客户版与完整版的事件日志页均可选择100或500条，默认100以兼容旧固件。请选择与设备固件相符的容量；500条固件也可只读取前100条。选择500不会自动降级成100，设备不支持或任一页读取失败时整次读取报错，保留此前显示数据。
+
+继续使用`0xC008`起始窗口，每条占一个寄存器，高字节为事件、低字节为间隔。每次读100字；500条依次读取`C008/C06C/C0D0/C134/C198`，共5帧，BLE和串口共用，未改变Modbus帧格式或OTA/Factory Session逻辑。读取期间停轮询并防止重复点击，全部成功后更新列表。
+
+`test-event-log.ps1`对两版页面一致性、真实分页读取代码的100/500条顺序、旧100条边界、短响应和中途失败进行测试，生成文件仅位于用户临时区。固件对应`Flash.h`的`FLASH_STORAGE_LOG_RECORD_COUNT`宏（100U或500U）。
+
+最新双版EXE通过`build-release.ps1 -ReleaseTag log100-500-ts4-20260907`生成：
+
+- 客户版：`BmsTool.Windows/publish/customer-win-x64-log100-500-ts4-20260907/BmsTool.Windows.exe`
+- 完整版：`BmsFactoryTest.Windows/publish/internal-full-win-x64-log100-500-ts4-20260907/BmsFactoryTest.Windows.exe`
+
+两版发布和分页测试通过；尚未进行实板串口/BLE的500条读取验证。跨帧期间BMS仍可能产生新日志，当前协议不提供冻结快照。

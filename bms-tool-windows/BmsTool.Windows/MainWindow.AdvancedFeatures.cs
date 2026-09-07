@@ -52,7 +52,7 @@ public partial class MainWindow
         _advancedFeatureTimer.Tick += (_, _) => AdvancedFeatureTimer_Tick();
         _advancedFeatureTimer.Start();
 
-        AppendLog("客户版高级功能已启用：100条设备事件日志、长期监控Excel导出。", "APP");
+        AppendLog("客户版高级功能已启用：100/500条设备事件日志、长期监控Excel导出。", "APP");
     }
 
     private async Task WaitForCommunicationIdleAsync()
