@@ -5,7 +5,7 @@ namespace BmsTool.Windows;
 
 public sealed record SerialPortEndpoint(string PortName)
 {
-    public override string ToString() => $"{PortName}    19200 8N1";
+    public override string ToString() => $"{PortName}    8N1";
 }
 
 /// <summary>
@@ -19,6 +19,7 @@ public sealed class BmsSerialTransport : IBmsTransport
     private readonly object _portLock = new();
     private SerialPort? _port;
     private string? _lastPortName;
+    private int _lastBaudRate = DefaultBaudRate;
 
     public bool IsConnected
     {
@@ -26,17 +27,20 @@ public sealed class BmsSerialTransport : IBmsTransport
     }
 
     public string DiscoveryDescription { get; private set; } = "串口未连接";
+    public int BaudRate { get; private set; } = DefaultBaudRate;
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress;
 
-    public Task ConnectAsync(string portName, CancellationToken ct = default)
+    public Task ConnectAsync(string portName, int baudRate = DefaultBaudRate, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(portName))
             throw new ArgumentException("串口号不能为空。", nameof(portName));
+        if (baudRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(baudRate), "波特率必须为正数。");
 
         DisposeConnection();
-        var port = new SerialPort(portName.Trim(), DefaultBaudRate, Parity.None, 8, StopBits.One)
+        var port = new SerialPort(portName.Trim(), baudRate, Parity.None, 8, StopBits.One)
         {
             Handshake = Handshake.None,
             DtrEnable = false,
@@ -54,9 +58,11 @@ public sealed class BmsSerialTransport : IBmsTransport
             {
                 _port = port;
                 _lastPortName = portName.Trim();
+                _lastBaudRate = baudRate;
+                BaudRate = baudRate;
             }
-            DiscoveryDescription = $"串口已连接 · {_lastPortName} · {DefaultBaudRate} 8N1";
-            ConnectionProgress?.Invoke($"[SERIAL] OPEN_OK port={_lastPortName}; baud={DefaultBaudRate}; format=8N1; flow=None");
+            DiscoveryDescription = $"串口已连接 · {_lastPortName} · {BaudRate} 8N1";
+            ConnectionProgress?.Invoke($"[SERIAL] OPEN_OK port={_lastPortName}; baud={BaudRate}; format=8N1; flow=None");
             return Task.CompletedTask;
         }
         catch
@@ -73,7 +79,7 @@ public sealed class BmsSerialTransport : IBmsTransport
         ConnectionProgress?.Invoke($"[SERIAL] RECONNECT_BEGIN port={portName}");
         DisposeConnection();
         await Task.Delay(150, ct);
-        await ConnectAsync(portName, ct);
+        await ConnectAsync(portName, _lastBaudRate, ct);
         ConnectionProgress?.Invoke($"[SERIAL] RECONNECT_OK port={portName}");
     }
 

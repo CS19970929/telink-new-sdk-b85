@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private BmsClient? _bms;
     private ulong? _connectedAddress;
     private string? _connectedSerialPort;
+    private int _serialBaudRate = BmsSerialTransport.DefaultBaudRate;
     private string _connectedName = string.Empty;
     private ConnectionMode _connectionMode = ConnectionMode.Ble;
     private string? _firmwarePath;
@@ -76,6 +77,7 @@ public partial class MainWindow : Window
         bool serial = IsSerialConnectionMode;
         DeviceList.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         SerialPortList.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
+        SerialBaudRateBox.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Content = serial ? "刷新" : "搜索";
         StopScanButton.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         if (serial)
@@ -90,7 +92,15 @@ public partial class MainWindow : Window
         if (_serialPorts.Count > 0 && SerialPortList.SelectedIndex < 0)
             SerialPortList.SelectedIndex = 0;
         ConnectionText.Text = _serialPorts.Count == 0 ? "未发现可用串口" : $"发现 {_serialPorts.Count} 个串口，请选择后连接";
-        AppendLog($"串口刷新完成；count={_serialPorts.Count}; baud={BmsSerialTransport.DefaultBaudRate}; format=8N1", "SCAN");
+        AppendLog($"串口刷新完成；count={_serialPorts.Count}; baud={_serialBaudRate}; format=8N1", "SCAN");
+    }
+
+    private int GetSerialBaudRate()
+    {
+        string text = SerialBaudRateBox.Text.Trim();
+        if (!int.TryParse(text, out int baudRate) || baudRate < 300 || baudRate > 4_000_000)
+            throw new InvalidOperationException("波特率必须是 300～4000000 之间的整数。常用值：9600、19200、38400、57600、115200。");
+        return baudRate;
     }
 
     private async void FactoryRunButton_Click(object sender, RoutedEventArgs e) =>
@@ -230,16 +240,18 @@ public partial class MainWindow : Window
                     throw new InvalidOperationException("请先刷新并选择串口。");
 
                 _connectionMode = ConnectionMode.Serial;
+                int baudRate = GetSerialBaudRate();
+                _serialBaudRate = baudRate;
                 _connectedAddress = null;
                 _connectedSerialPort = serial.PortName;
                 _connectedName = $"串口 {serial.PortName}";
                 _pollFailureCount = 0;
-                AppendLog($"用户发起串口连接；port={serial.PortName}; baud={BmsSerialTransport.DefaultBaudRate}; format=8N1", "CONNECT");
-                await ConnectSerialInternalAsync(serial.PortName);
+                AppendLog($"用户发起串口连接；port={serial.PortName}; baud={baudRate}; format=8N1", "CONNECT");
+                await ConnectSerialInternalAsync(serial.PortName, baudRate);
                 await RefreshIdentityAsync();
                 await RefreshBatteryAsync();
                 StartAutomaticRefresh();
-                ConnectionText.Text = $"已连接：{serial.PortName} · 19200 8N1";
+                ConnectionText.Text = $"已连接：{serial.PortName} · {baudRate} 8N1";
                 return;
             }
             if (DeviceList.SelectedItem is not DiscoveredDevice selected)
@@ -475,7 +487,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ConnectSerialInternalAsync(string portName, CancellationToken ct = default)
+    private async Task ConnectSerialInternalAsync(string portName, int baudRate, CancellationToken ct = default)
     {
         await DisposeBmsAsync();
         var transport = new BmsSerialTransport();
@@ -483,7 +495,7 @@ public partial class MainWindow : Window
         BmsClient? client = null;
         try
         {
-            await transport.ConnectAsync(portName, ct);
+            await transport.ConnectAsync(portName, baudRate, ct);
             client = new BmsClient(transport);
             client.Log += OnProtocolLog;
             AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
@@ -582,7 +594,7 @@ public partial class MainWindow : Window
             ConnectionText.Text = "通信异常，自动重连中...";
             AppendLog("自动重连开始：连续 3 次数据刷新失败。", "RECONNECT");
             if (_connectionMode == ConnectionMode.Serial)
-                await ConnectSerialInternalAsync(_connectedSerialPort!);
+                await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate);
             else
                 await ConnectBmsInternalAsync(_connectedAddress!.Value);
             await RefreshIdentityAsync();
@@ -934,8 +946,8 @@ public partial class MainWindow : Window
             if (_connectionMode == ConnectionMode.Serial)
             {
                 await using var serialPortTransport = new BmsSerialTransport();
-                AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={BmsSerialTransport.DefaultBaudRate}", "OTA");
-                await serialPortTransport.ConnectAsync(_connectedSerialPort!, ct);
+                AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={_serialBaudRate}", "OTA");
+                await serialPortTransport.ConnectAsync(_connectedSerialPort!, _serialBaudRate, ct);
                 AppendLog($"STM32 serial OTA port ready; {serialPortTransport.DiscoveryDescription}", "OTA");
                 var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false);
                 serialPortClient.Log += m => AppendLog(m, "OTA");
@@ -988,7 +1000,7 @@ public partial class MainWindow : Window
                 await Task.Delay(attempt == 1 ? 1200 : 900, ct);
                 AppendLog($"Post-OTA reconnect {attempt}/12", "OTA");
                 if (_connectionMode == ConnectionMode.Serial)
-                    await ConnectSerialInternalAsync(_connectedSerialPort!, ct);
+                    await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate, ct);
                 else
                     await ConnectBmsInternalAsync(address!.Value, ct);
                 DeviceIdentity id = await (_bms ?? throw new IOException("BMS client unavailable")).ReadIdentityAsync(ct);

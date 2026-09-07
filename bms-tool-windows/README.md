@@ -39,7 +39,7 @@ BLE 搜索兼容现有两种 BMS 广播名前缀：`BT_` 和 `BT-`。对于 STM3
 
 ## 直连串口
 
-通信设置左侧可切换 `BLE` / `串口`。选择串口后点击“刷新”，程序枚举 Windows 当前可用的 COM 端口；连接参数固定来自 BMS/IAP 的 SCI 初始化：`19200 baud、8 data bits、No parity、1 stop bit、No hardware flow control（19200 8N1）`。串口接收按任意长度分片交给同一套 Modbus RTU 组帧器，不依赖一次接收完整响应，因此普通监控、身份读取、BMS 软件参数和内部 Factory Session 测试均复用 BLE 相同的上层逻辑。
+通信设置左侧可切换 `BLE` / `串口`。选择串口后可在波特率框选择或输入波特率，再点击“刷新”枚举 Windows 当前可用的 COM 端口；默认参数来自 BMS/IAP 的 SCI 初始化：`19200 baud、8 data bits、No parity、1 stop bit、No hardware flow control（19200 8N1）`。波特率必须与 BMS/UART 模块两端一致。串口接收按任意长度分片交给同一套 Modbus RTU 组帧器，不依赖一次接收完整响应，因此普通监控、身份读取、BMS 软件参数和内部 Factory Session 测试均复用 BLE 相同的上层逻辑。
 
 串口连接会记录 `OPEN/WRITE/RX_FRAGMENT/READ_FAIL` 日志，并在轮询连续失败后自动重连。串口没有 BLE 地址，设备身份读取仍以 BMS 寄存器为准；如果 MAC 或蓝牙名称寄存器不存在，界面使用 `串口 COMx` 作为连接端点回退信息。AFE 硬件保护参数写入只允许 BLE 连接，防止把 BLE 专用硬件参数通道误用到直连串口。
 

@@ -188,6 +188,7 @@
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -197,13 +198,20 @@
                                     <ComboBoxItem Content="BLE"/>
                                     <ComboBoxItem Content="串口"/>
                                 </ComboBox>
-                                <ComboBox x:Name="DeviceList" Grid.Row="0" Grid.Column="1" Height="30" Margin="0,4,8,4"/>
-                                <ComboBox x:Name="SerialPortList" Grid.Row="0" Grid.Column="1" Height="30" Margin="0,4,8,4" Visibility="Collapsed"/>
-                                <Button x:Name="ScanButton" Grid.Row="0" Grid.Column="2" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="ScanButton_Click">搜索</Button>
-                                <Button x:Name="StopScanButton" Grid.Row="0" Grid.Column="3" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="StopScanButton_Click">停止</Button>
-                                <Button x:Name="ConnectButton" Grid.Row="0" Grid.Column="4" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="ConnectButton_Click">连接</Button>
+                                <ComboBox x:Name="SerialBaudRateBox" Grid.Row="0" Grid.Column="1" Width="96" Height="30" Margin="0,4,6,4" IsEditable="True" Text="19200" Visibility="Collapsed">
+                                    <ComboBoxItem Content="9600"/>
+                                    <ComboBoxItem Content="19200"/>
+                                    <ComboBoxItem Content="38400"/>
+                                    <ComboBoxItem Content="57600"/>
+                                    <ComboBoxItem Content="115200"/>
+                                </ComboBox>
+                                <ComboBox x:Name="DeviceList" Grid.Row="0" Grid.Column="2" Height="30" Margin="0,4,8,4"/>
+                                <ComboBox x:Name="SerialPortList" Grid.Row="0" Grid.Column="2" Height="30" Margin="0,4,8,4" Visibility="Collapsed"/>
+                                <Button x:Name="ScanButton" Grid.Row="0" Grid.Column="3" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="ScanButton_Click">搜索</Button>
+                                <Button x:Name="StopScanButton" Grid.Row="0" Grid.Column="4" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="StopScanButton_Click">停止</Button>
+                                <Button x:Name="ConnectButton" Grid.Row="0" Grid.Column="5" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="ConnectButton_Click">连接</Button>
 
-                                <StackPanel Grid.Row="1" Grid.ColumnSpan="5" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <StackPanel Grid.Row="1" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="CustomerDisconnect_Click">断开</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenNamePage_Click">改名</Button>
                                     <Button x:Name="ProtectedFeaturesButton" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="OpenProtectedFeatures_Click">高级功能</Button>

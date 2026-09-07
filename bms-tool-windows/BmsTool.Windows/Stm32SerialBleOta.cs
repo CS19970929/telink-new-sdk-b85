@@ -22,7 +22,7 @@ public sealed class Stm32SerialBleOtaClient
     // The supplied IAP UART is 19200 8N1 without flow control, so use the
     // conservative default ATT payload and allow the module to drain it.
     private const int SerialBleChunkSize = 20;
-    private const int SerialBaudRate = 19200;
+    private const int BleSerialBaudRate = 19200;
     private const int SerialBitsPerByte = 10; // 8 data bits + start + stop
     private const int SerialBleDrainSafetyMarginMs = 4;
 
@@ -134,12 +134,12 @@ public sealed class Stm32SerialBleOtaClient
     {
         if (!_chunkForBle)
         {
-            Log?.Invoke($"STM32 IAP direct serial frame; bytes={frame.Length}; baud={SerialBaudRate}; buffer=1200");
+            Log?.Invoke($"STM32 IAP direct serial frame; bytes={frame.Length}; baud={CurrentSerialBaudRate}; buffer=1200");
             await _transport.WriteAsync(frame, ct);
             return;
         }
         int chunkCount = (frame.Length + SerialBleChunkSize - 1) / SerialBleChunkSize;
-        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; pacing=adaptive; baud={SerialBaudRate}; safety={SerialBleDrainSafetyMarginMs}ms; write=with-response");
+        Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; pacing=adaptive; baud={BleSerialBaudRate}; safety={SerialBleDrainSafetyMarginMs}ms; write=with-response");
         for (int offset = 0; offset < frame.Length; offset += SerialBleChunkSize)
         {
             int length = Math.Min(SerialBleChunkSize, frame.Length - offset);
@@ -157,9 +157,11 @@ public sealed class Stm32SerialBleOtaClient
 
     private static int CalculateMinimumDrainMs(int bytes)
     {
-        double wireMilliseconds = bytes * SerialBitsPerByte * 1000.0 / SerialBaudRate;
+        double wireMilliseconds = bytes * SerialBitsPerByte * 1000.0 / BleSerialBaudRate;
         return (int)Math.Ceiling(wireMilliseconds) + SerialBleDrainSafetyMarginMs;
     }
+
+    private int CurrentSerialBaudRate => (_transport as BmsSerialTransport)?.BaudRate ?? BleSerialBaudRate;
 
     private void OnDataReceived(ReadOnlyMemory<byte> data)
     {

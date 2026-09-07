@@ -10,19 +10,19 @@
 
 | 项目 | 设置 |
 |---|---|
-| 波特率 | 19200 |
+| 波特率 | 默认 19200；上位机可选择或输入其他值 |
 | 数据位 | 8 |
 | 校验 | None |
 | 停止位 | 1 |
 | 硬件流控 | None |
 | 协议 | Modbus RTU，CRC16 |
 
-`BmsSerialTransport` 使用 `System.IO.Ports.SerialPort`，关闭 DTR/RTS，接收事件只负责读取当前可用字节；`BmsClient` 继续负责按 Modbus 响应长度组帧和校验 CRC。
+`BmsSerialTransport` 使用 `System.IO.Ports.SerialPort`，关闭 DTR/RTS，接收事件只负责读取当前可用字节；`BmsClient` 继续负责按 Modbus 响应长度组帧和校验 CRC。默认 19200 来自实际 BMS/IAP 源码；切换其他波特率时，BMS SCI、串口蓝牙模块和上位机必须全部一致。
 
 ## 页面行为
 
 1. 在“通信设置”选择 `串口`。
-2. 点击“刷新”枚举 COM 端口，选择目标端口后点击“连接”。
+2. 在波特率框选择或输入目标波特率（默认 19200），点击“刷新”枚举 COM 端口，选择目标端口后点击“连接”。
 3. 连接成功后依次执行原有 Modbus 探测、身份读取和实时数据读取。
 4. 轮询失败达到原有阈值时，对同一 COM 端口关闭并重新打开后重试。
 5. “断开”会释放 BMS 客户端、串口事件和串口句柄。
@@ -31,7 +31,7 @@
 
 ## STM32 串口 IAP
 
-直连 COM 时 OTA 目标固定为 STM32 Serial IAP，使用现有命令：
+直连 COM 时 OTA 目标固定为 STM32 Serial IAP，并沿用当前选择的串口波特率，使用现有命令：
 
 - `0xFFFD`：进入 IAP；
 - `0xFFFE`：写入 1024 字节页，页数据不足部分补 `0xFF`；
