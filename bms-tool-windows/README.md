@@ -85,9 +85,16 @@ BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直�
 
 `test-event-log.ps1`对两版页面一致性、真实分页读取代码的100/500条顺序、旧100条边界、短响应和中途失败进行测试，生成文件仅位于用户临时区。固件对应`Flash.h`的`FLASH_STORAGE_LOG_RECORD_COUNT`宏（100U或500U）。
 
-最新双版EXE通过`build-release.ps1 -ReleaseTag log-auto-20260907`生成：
+最新双版EXE通过`build-release.ps1 -ReleaseTag log-commands-v2-20260907`生成：
 
-- 客户版：`BmsTool.Windows/publish/customer-win-x64-log-auto-20260907/BmsTool.Windows.exe`
-- 完整版：`BmsFactoryTest.Windows/publish/internal-full-win-x64-log-auto-20260907/BmsFactoryTest.Windows.exe`
+- 客户版：`BmsTool.Windows/publish/customer-win-x64-log-commands-v2-20260907/BmsTool.Windows.exe`
+- 完整版：`BmsFactoryTest.Windows/publish/internal-full-win-x64-log-commands-v2-20260907/BmsFactoryTest.Windows.exe`
 
 两版发布和分页测试通过；尚未进行实板串口/BLE的500条读取验证。跨帧期间BMS仍可能产生新日志，当前协议不提供冻结快照。
+
+## 设备日志删除与休眠（2026-09-07）
+
+- 完整版“事件日志 → 删除设备日志”：确认后发送 Modbus `0x06`，寄存器 `0x1007`，值 `0x0001`。客户版不包含删除入口或删除处理函数。删除与读取互斥，暂停轮询，收到通过CRC、地址及值校验的成功应答才清空界面；失败保留原列表，提示重新读取核实，不自动重发。
+- 两版“实时监控 → 连接区域 → 休眠”：确认后发送 `0x06`，寄存器 `0x1102`，值 `0x000A`。复用串口/BLE通信。固件先应答，等待通信及存储空闲后处理深度休眠；上位机收到ACK只表示请求被接受，随后停止轮询、取消自动重连并主动断开。按板上唤醒按键后手动连接。超时不当作成功，也不自动重发命令。
+- 协议依据当前 BMS `Sci_Upper.h`、`Sci_WrReg_0x06_BMS_FunctionON`、`LogRecord.c/Sci_WrReg_0x06_Reset_EventRecord` 和 `rtc_sleep.c/lp_process_command_sleep`。删除持久化逻辑重置标记，旧页随后复用，并非立即物理擦除全部旧数据；100/500条共用同一指令，新事件仍会正常记录。
+- 本次不修改BMS固件。通过协议组帧/ACK异常测试、100/500条分页回归及双版发布构建；尚未进行实板删除和休眠验证。最新发布标签 `log-commands-v2-20260907`。

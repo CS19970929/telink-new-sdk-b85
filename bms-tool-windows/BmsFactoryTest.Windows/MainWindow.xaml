@@ -213,6 +213,7 @@
 
                                 <StackPanel Grid.Row="1" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="CustomerDisconnect_Click">断开</Button>
+                                    <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="SleepBms_Click">休眠</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenNamePage_Click">改名</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="OpenOtaPage_Click">OTA</Button>
                                 </StackPanel>
