@@ -78,7 +78,7 @@ public partial class MainWindow
 
     private void LockProtectedFeatures()
     {
-        if (_otaRunning)
+        if (_otaRunning || _shBusy)
         {
             MessageBox.Show("OTA 正在进行，完成后才能锁定高级功能。", "无法锁定", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
@@ -88,7 +88,7 @@ public partial class MainWindow
         ProtectionTab.Visibility = Visibility.Collapsed;
         OtaTab.Visibility = Visibility.Collapsed;
         ProtectedFeaturesButton.Content = "高级功能";
-        if (MainTabs.SelectedItem == ProtectionTab || MainTabs.SelectedItem == OtaTab)
+        if (MainTabs.SelectedItem == ProtectionTab || MainTabs.SelectedItem == OtaTab || MainTabs.SelectedItem == _sh3520Tab)
             MainTabs.SelectedIndex = 0;
         AppendLog("客户版高级功能已锁定。", "ACCESS");
     }

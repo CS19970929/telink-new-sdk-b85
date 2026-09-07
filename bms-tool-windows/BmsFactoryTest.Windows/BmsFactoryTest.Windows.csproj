@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**;publish/**</DefaultItemExcludes>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x64</Platforms>
@@ -19,5 +20,8 @@
     <Compile Include="..\BmsTool.Windows\BmsSerialTransport.cs" Link="Shared\BmsSerialTransport.cs" />
     <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
     <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="Shared\ModbusRtu.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

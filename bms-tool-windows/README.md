@@ -65,3 +65,13 @@ BmsTool.Windows\publish\customer-win-x64\BmsTool.Windows.exe
 ```
 
 使用 `dotnet publish` 生成 Windows x64、自包含、单文件 EXE。发布时应同时记录 EXE 的 SHA-256、源码 commit 和实际目标框架。
+
+
+## SH3673520 保护参数扩展（2026-09-07）
+
+客户版和完整版新增“3520 保护参数”页，共用 `Shared` 中的界面和物理单位编解码。客户版随高级功能解锁可见；此前“客户版不包含 AFE 硬件参数”的限制仅针对旧 SH367309 页面。
+连接后先读取，分别编辑和保存 MCU 软件保护、AFE 硬件保护。当前保护模式、同/分口、WDT和SPI类型只读显示；未启用的兼容软件字段只读。
+新固件通过0x2500型号/版本识别，旧0x2400寄存器含义不变。写入范围/步进/滞回由两端校验；硬件ACK还必须结合回读应用状态。
+详细参数、协议及当前固件Flash容量阻碍见 [3520 参数说明](docs/3520_parameters.md)。尚未完成实板联调，不能给未升级的板子写新参数。
+BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直连串口。旧BLE、Factory Session保留；已识别3520不能使用起址不同的旧STM32 OTA。
+运行 `./test-3520-parameters.ps1` 检查共享编解码；运行 `./build-release.ps1` 同时生成两版EXE。构建中间文件转到 `%LOCALAPPDATA%/CodexTemp/bms-tool-windows`，正式EXE仍在各项目publish目录。

@@ -175,15 +175,20 @@ public sealed class BmsClient : IAsyncDisposable
         throw new IOException("BMS GATT was rebuilt between retries, but the application did not answer Modbus probe after 3 attempts.", last);
     }
 
+    public bool IsSh3520 { get; private set; }
+
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
         byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct);
-        return ModbusRtu.ParseRead(rsp, quantity);
+        ushort[] words=ModbusRtu.ParseRead(rsp, quantity);
+        if(start==Sh3520Parameters.HardwareBase && words.Length>=2) IsSh3520=words[0]==Sh3520Parameters.Magic;
+        return words;
     }
 
     public async Task WriteSingleRegisterAsync(ushort register, ushort value, CancellationToken ct = default)
     {
+        if(register>=BmsRegisters.Protect && register<BmsRegisters.Protect+BmsRegisters.ProtectCount) await EnsureLegacyProtectionAsync(ct);
         byte[] rsp = await TransactAsync(ModbusRtu.WriteSingle(register, value), ct);
         ModbusRtu.ValidateWriteSingleAck(rsp, register, value);
     }
@@ -197,8 +202,11 @@ public sealed class BmsClient : IAsyncDisposable
         return readback;
     }
 
-    public Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct = default) =>
-        ReadRegistersAsync(BmsRegisters.Protect, BmsRegisters.ProtectCount, ct);
+    public async Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct = default)
+    {
+        await EnsureLegacyProtectionAsync(ct);
+        return await ReadRegistersAsync(BmsRegisters.Protect, BmsRegisters.ProtectCount, ct);
+    }
 
     public async Task<FactorySession> FactoryOpenAsync(CancellationToken ct = default)
     {
@@ -417,6 +425,29 @@ public sealed class BmsClient : IAsyncDisposable
         if (readback != expected)
             throw new IOException($"Bluetooth name readback mismatch: expected '{expected}', got '{readback}'.");
         return readback;
+    }
+
+    public async Task EnsureLegacyProtectionAsync(CancellationToken ct = default)
+    {
+        ushort[] identity;
+        try { identity=await ReadRegistersAsync(Sh3520Parameters.HardwareBase,2,ct); }
+        catch(BmsModbusException ex) when(ex.Function==0x03 && (ex.Code==0x01 || ex.Code==0x03)) { return; }
+        if(identity[0]==Sh3520Parameters.Magic)
+            throw new IOException("当前设备是 SH3673520，请使用 3520 保护参数页。旧 309 参数编码不适用。");
+        // A valid non-3520 reply identifies the legacy register layout.
+    }
+
+    public async Task Write3520ParametersAsync(ushort address,ushort[] words,CancellationToken ct=default)
+    {
+        if((address!=Sh3520Parameters.HardwareBase && address!=Sh3520Parameters.SoftwareBase)||words.Length!=24)
+            throw new ArgumentException("3520 参数必须整组 24 寄存器写入。");
+        Sh3520Parameters.CheckIdentity(await ReadRegistersAsync(Sh3520Parameters.HardwareBase,32,ct));
+        byte[] raw=new byte[48];
+        for(int i=0;i<24;i++) BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i*2,2),words[i]);
+        byte[] request=ModbusRtu.WriteMultiple(address,raw);
+        if(_transport is BmsBleTransport ble && (ble.NegotiatedMtu??23)<request.Length+3)
+            throw new IOException("当前 BLE MTU 无法承载 57 字节原子写入，请使用直连串口或支持 MTU ≥ 60 的透明通道；不拆帧写保护参数。");
+        ModbusRtu.ValidateWriteMultipleAck(await TransactAsync(request,ct),address,24);
     }
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)

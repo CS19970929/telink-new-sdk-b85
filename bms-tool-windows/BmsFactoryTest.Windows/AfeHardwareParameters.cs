@@ -246,11 +246,15 @@ public sealed class AfeHardwareClient
         _transport = transport;
     }
 
-    public Task<ushort[]> ReadAllAsync(CancellationToken ct = default) =>
-        _bms.ReadRegistersAsync(AfeHardwareParameterModel.BaseRegister, AfeHardwareParameterModel.RegisterCount, ct);
+    public async Task<ushort[]> ReadAllAsync(CancellationToken ct = default)
+    {
+        await _bms.EnsureLegacyProtectionAsync(ct);
+        return await _bms.ReadRegistersAsync(AfeHardwareParameterModel.BaseRegister, AfeHardwareParameterModel.RegisterCount, ct);
+    }
 
     public async Task WriteGroupAsync(AfeWriteGroup group, CancellationToken ct = default)
     {
+        await _bms.EnsureLegacyProtectionAsync(ct);
         if (group.Values.Length is < 1 or > 5)
             throw new ArgumentOutOfRangeException(nameof(group), "BLE/Modbus atomic write group must contain 1..5 registers at MTU 23.");
 

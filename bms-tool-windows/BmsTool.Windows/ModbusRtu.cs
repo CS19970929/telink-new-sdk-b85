@@ -4,6 +4,14 @@ using System.Text;
 
 namespace BmsTool.Windows;
 
+public sealed class BmsModbusException : IOException
+{
+    public byte Function { get; }
+    public byte Code { get; }
+    public BmsModbusException(byte function,byte code) : base($"Modbus exception function=0x{function:X2}, code=0x{code:X2}.")
+    { Function=function;Code=code; }
+}
+
 public static class BmsRegisters
 {
     public const byte DeviceAddress = 0x01;
@@ -122,7 +130,7 @@ public static class ModbusRtu
     {
         ValidateFrame(frame);
         if (frame[0] != BmsRegisters.DeviceAddress) throw new IOException("Unexpected Modbus slave address.");
-        if ((frame[1] & 0x80) != 0) throw new IOException($"Modbus exception function=0x{frame[1] & 0x7F:X2}, code=0x{frame[2]:X2}.");
+        if ((frame[1] & 0x80) != 0) throw new BmsModbusException((byte)(frame[1]&0x7F),frame[2]);
         if (frame[1] != 0x03) throw new IOException($"Expected function 0x03, got 0x{frame[1]:X2}.");
         int bytes = frame[2];
         if (bytes != expectedQuantity * 2 || frame.Length != bytes + 5) throw new IOException("Modbus read response length mismatch.");

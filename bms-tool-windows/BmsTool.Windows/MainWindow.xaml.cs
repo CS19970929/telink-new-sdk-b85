@@ -12,6 +12,9 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow : Window
 {
+    private FrameworkElement ShAccessSource() => ProtectionTab;
+    private bool ShFactoryBusy() => false;
+
     private enum ConnectionMode { Ble, Serial }
 
     private readonly ObservableCollection<DiscoveredDevice> _devices = new();
@@ -360,7 +363,7 @@ public partial class MainWindow : Window
 
     private async Task PollTickAsync()
     {
-        if (_polling || _otaRunning || _autoReconnectRunning) return;
+        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy) return;
 
         if (_bms is null)
         {
@@ -599,9 +602,10 @@ public partial class MainWindow : Window
 
     private async void StartOta_Click(object sender, RoutedEventArgs e)
     {
-        if (_otaRunning) return;
+        if (_otaRunning || _shBusy) return;
         try
         {
+            if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)

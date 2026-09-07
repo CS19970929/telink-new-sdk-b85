@@ -8,6 +8,7 @@ $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $customerProject = Join-Path $projectRoot "BmsTool.Windows\BmsTool.Windows.csproj"
 $internalProject = Join-Path $projectRoot "BmsFactoryTest.Windows\BmsFactoryTest.Windows.csproj"
 $customerOutput = Join-Path $projectRoot "BmsTool.Windows\publish\customer-win-x64-$ReleaseTag"
+$buildTemp = Join-Path $env:LOCALAPPDATA "CodexTemp\bms-tool-windows\$ReleaseTag"
 $internalOutput = Join-Path $projectRoot "BmsFactoryTest.Windows\publish\internal-full-win-x64-$ReleaseTag"
 
 function Invoke-Dotnet([string[]]$Arguments) {
@@ -31,25 +32,25 @@ New-PublishDirectory $internalOutput
 Invoke-Dotnet @(
     "restore", $customerProject, "-r", "win-x64",
     "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
-    "--force-evaluate"
+    "-p:BaseIntermediateOutputPath=$buildTemp\customer\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\customer\obj\", "-p:BaseOutputPath=$buildTemp\customer\bin\", "--force-evaluate"
 )
 Invoke-Dotnet @(
     "restore", $internalProject, "-r", "win-x64",
     "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
-    "-p:LangVersion=preview", "--force-evaluate"
+    "-p:LangVersion=preview", "-p:BaseIntermediateOutputPath=$buildTemp\internal\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\internal\obj\", "-p:BaseOutputPath=$buildTemp\internal\bin\", "--force-evaluate"
 )
 
 Invoke-Dotnet @(
     "publish", $customerProject, "-c", "Release", "-r", "win-x64", "--self-contained", "true",
     "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
     "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
-    "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "--no-restore", "-o", $customerOutput
+    "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "-p:BaseIntermediateOutputPath=$buildTemp\customer\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\customer\obj\", "-p:BaseOutputPath=$buildTemp\customer\bin\", "--no-restore", "-o", $customerOutput
 )
 Invoke-Dotnet @(
     "publish", $internalProject, "-c", "Release", "-r", "win-x64", "--self-contained", "true",
     "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
     "-p:LangVersion=preview", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
-    "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "--no-restore", "-o", $internalOutput
+    "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "-p:BaseIntermediateOutputPath=$buildTemp\internal\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\internal\obj\", "-p:BaseOutputPath=$buildTemp\internal\bin\", "--no-restore", "-o", $internalOutput
 )
 
 $commit = (git -C $projectRoot rev-parse --short HEAD).Trim()
