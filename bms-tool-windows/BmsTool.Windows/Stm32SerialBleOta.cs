@@ -26,7 +26,8 @@ public sealed class Stm32SerialBleOtaClient
     private const int SerialBitsPerByte = 10; // 8 data bits + start + stop
     private const int SerialBleDrainSafetyMarginMs = 4;
 
-    private readonly BmsBleTransport _transport;
+    private readonly IBmsTransport _transport;
+    private readonly bool _chunkForBle;
     private readonly object _rxLock = new();
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
@@ -34,7 +35,13 @@ public sealed class Stm32SerialBleOtaClient
     public event Action<string>? Log;
     public event Action<Stm32OtaProgress>? Progress;
 
-    public Stm32SerialBleOtaClient(BmsBleTransport transport) => _transport = transport;
+    public Stm32SerialBleOtaClient(BmsBleTransport transport) : this(transport, chunkForBle: true) { }
+
+    public Stm32SerialBleOtaClient(IBmsTransport transport, bool chunkForBle)
+    {
+        _transport = transport;
+        _chunkForBle = chunkForBle;
+    }
 
     public async Task<bool> UpgradeAsync(FirmwareImage image, CancellationToken ct)
     {
@@ -50,7 +57,10 @@ public sealed class Stm32SerialBleOtaClient
         _transport.DataReceived += OnDataReceived;
         try
         {
-            Log?.Invoke($"STM32 Serial IAP OTA; MTU={_transport.NegotiatedMtu?.ToString() ?? "unknown"}; image={image.ImageSize}; pages={pageCount}; page=1024");
+            string otaLink = _transport is BmsBleTransport
+                ? $"BLE MTU={(_transport as BmsBleTransport)?.NegotiatedMtu?.ToString() ?? "unknown"}"
+                : "Serial 19200 8N1";
+            Log?.Invoke($"STM32 Serial IAP OTA; {otaLink}; image={image.ImageSize}; pages={pageCount}; page=1024");
 
             byte[] enter = ModbusRtu.WriteMultiple(FlashConnect, new byte[] { 0x00, 0x01 });
             Log?.Invoke("TX STM32 IAP ENTER " + Convert.ToHexString(enter));
@@ -59,7 +69,10 @@ public sealed class Stm32SerialBleOtaClient
             await Task.Delay(800, ct);
             Log?.Invoke("Reconnecting STM32 serial GATT after BMS reset");
             await _transport.ReconnectAsync(ct);
-            Log?.Invoke($"STM32 serial IAP GATT reconnected; MTU={_transport.NegotiatedMtu?.ToString() ?? "unknown"}; {_transport.DiscoveryDescription}");
+            string reconnectLink = _transport is BmsBleTransport
+                ? $"BLE MTU={(_transport as BmsBleTransport)?.NegotiatedMtu?.ToString() ?? "unknown"}"
+                : "Serial 19200 8N1";
+            Log?.Invoke($"STM32 serial IAP reconnected; {reconnectLink}; {_transport.DiscoveryDescription}");
 
             for (int page = 0; page < pageCount; page++)
             {
@@ -119,6 +132,12 @@ public sealed class Stm32SerialBleOtaClient
 
     private async Task WriteIapFrameChunkedAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
     {
+        if (!_chunkForBle)
+        {
+            Log?.Invoke($"STM32 IAP direct serial frame; bytes={frame.Length}; baud={SerialBaudRate}; buffer=1200");
+            await _transport.WriteAsync(frame, ct);
+            return;
+        }
         int chunkCount = (frame.Length + SerialBleChunkSize - 1) / SerialBleChunkSize;
         Log?.Invoke($"STM32 IAP frame chunking; frame={frame.Length}; chunks={chunkCount}; chunk={SerialBleChunkSize}; pacing=adaptive; baud={SerialBaudRate}; safety={SerialBleDrainSafetyMarginMs}ms; write=with-response");
         for (int offset = 0; offset < frame.Length; offset += SerialBleChunkSize)

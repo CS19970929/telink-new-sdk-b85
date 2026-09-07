@@ -103,14 +103,14 @@ public sealed class BatterySnapshot
 
 public sealed class BmsClient : IAsyncDisposable
 {
-    private readonly BmsBleTransport _transport;
+    private readonly IBmsTransport _transport;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _rxLock = new();
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
     public event Action<string>? Log;
 
-    public BmsClient(BmsBleTransport transport)
+    public BmsClient(IBmsTransport transport)
     {
         _transport = transport;
         _transport.DataReceived += OnData;
@@ -276,7 +276,7 @@ public sealed class BmsClient : IAsyncDisposable
         {
             // External UART/BLE modules may not expose the optional BMS MAC
             // register. The BLE transport address remains authoritative.
-            Log?.Invoke($"[IDENTITY] MAC register 0x{BmsRegisters.Mac:X4} unavailable; using BLE address='{macText}'; message={ex.Message}");
+            Log?.Invoke($"[IDENTITY] MAC register 0x{BmsRegisters.Mac:X4} unavailable; using fallback='{macText}'; message={ex.Message}");
         }
 
         ushort[] sn = await ReadRegistersAsync(BmsRegisters.Serial, 16, ct);
@@ -292,7 +292,7 @@ public sealed class BmsClient : IAsyncDisposable
         {
             // Some external UART/BLE modules own the advertised name and do
             // not implement the optional BMS BT-name register.
-            Log?.Invoke($"[IDENTITY] BT name register 0x{BmsRegisters.BtName:X4} unavailable; using BLE advertisement name='{bluetoothName}'; message={ex.Message}");
+            Log?.Invoke($"[IDENTITY] BT name register 0x{BmsRegisters.BtName:X4} unavailable; using fallback name='{bluetoothName}'; message={ex.Message}");
         }
 
         if (string.IsNullOrWhiteSpace(bluetoothName))

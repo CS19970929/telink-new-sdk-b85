@@ -225,6 +225,7 @@ public partial class MainWindow
         {
             _pollTimer.Stop();
             _connectedAddress = null;
+            _connectedSerialPort = null;
             _connectedName = string.Empty;
             _pollFailureCount = 0;
             _nextReconnectUtc = DateTime.MaxValue;

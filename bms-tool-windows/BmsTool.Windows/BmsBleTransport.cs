@@ -13,7 +13,7 @@ public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
     public override string ToString() => $"{Name}    MAC {BmsBleTransport.FormatBluetoothAddress(Address)}    RSSI {Rssi} dBm";
 }
 
-public sealed class BmsBleTransport : IAsyncDisposable
+public sealed class BmsBleTransport : IBmsTransport
 {
     public static readonly Guid ServiceUuid = Guid.Parse("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
     public static readonly Guid RequestUuid = Guid.Parse("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");

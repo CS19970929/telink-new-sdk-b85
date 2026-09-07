@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -11,17 +12,22 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow : Window
 {
+    private enum ConnectionMode { Ble, Serial }
+
     private readonly ObservableCollection<DiscoveredDevice> _devices = new();
+    private readonly ObservableCollection<SerialPortEndpoint> _serialPorts = new();
     private readonly ObservableCollection<ProtectionParameterRow> _protectionRows = new(ProtectionParameterCatalog.Create());
     private readonly Dictionary<ulong, DiscoveredDevice> _deviceMap = new();
     private readonly DispatcherTimer _pollTimer;
     private readonly SessionLogger _sessionLog = new();
 
     private BluetoothLEAdvertisementWatcher? _watcher;
-    private BmsBleTransport? _bmsTransport;
+    private IBmsTransport? _bmsTransport;
     private BmsClient? _bms;
     private ulong? _connectedAddress;
+    private string? _connectedSerialPort;
     private string _connectedName = string.Empty;
+    private ConnectionMode _connectionMode = ConnectionMode.Ble;
     private string? _firmwarePath;
     private CancellationTokenSource? _otaCts;
     private bool _polling;
@@ -34,6 +40,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DeviceList.ItemsSource = _devices;
+        SerialPortList.ItemsSource = _serialPorts;
         ProtectionGrid.ItemsSource = _protectionRows;
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _pollTimer.Tick += async (_, _) => await PollTickAsync();
@@ -52,10 +59,39 @@ public partial class MainWindow : Window
         AppendLog("完整诊断日志已启用：" + _sessionLog.FilePath, "APP");
     }
 
+    private bool IsSerialConnectionMode => ConnectionModeBox.SelectedIndex == 1;
+
+    private void ConnectionModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        bool serial = IsSerialConnectionMode;
+        DeviceList.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
+        SerialPortList.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
+        ScanButton.Content = serial ? "刷新" : "搜索";
+        StopScanButton.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
+        if (serial)
+            RefreshSerialPorts();
+    }
+
+    private void RefreshSerialPorts()
+    {
+        _serialPorts.Clear();
+        foreach (string portName in SerialPort.GetPortNames().OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+            _serialPorts.Add(new SerialPortEndpoint(portName));
+        if (_serialPorts.Count > 0 && SerialPortList.SelectedIndex < 0)
+            SerialPortList.SelectedIndex = 0;
+        ConnectionText.Text = _serialPorts.Count == 0 ? "未发现可用串口" : $"发现 {_serialPorts.Count} 个串口，请选择后连接";
+        AppendLog($"串口刷新完成；count={_serialPorts.Count}; baud={BmsSerialTransport.DefaultBaudRate}; format=8N1", "SCAN");
+    }
+
     private void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
+            if (IsSerialConnectionMode)
+            {
+                RefreshSerialPorts();
+                return;
+            }
             if (_watcher is not null)
             {
                 AppendLog($"停止旧扫描器，status={_watcher.Status}", "SCAN");
@@ -92,6 +128,26 @@ public partial class MainWindow : Window
         _pollTimer.Stop();
         try
         {
+            ConnectButton.IsEnabled = false;
+            ConnectionText.Text = "正在连接设备...";
+            if (IsSerialConnectionMode)
+            {
+                if (SerialPortList.SelectedItem is not SerialPortEndpoint serial)
+                    throw new InvalidOperationException("请先刷新并选择串口。");
+
+                _connectionMode = ConnectionMode.Serial;
+                _connectedAddress = null;
+                _connectedSerialPort = serial.PortName;
+                _connectedName = $"串口 {serial.PortName}";
+                _pollFailureCount = 0;
+                AppendLog($"用户发起串口连接；port={serial.PortName}; baud={BmsSerialTransport.DefaultBaudRate}; format=8N1", "CONNECT");
+                await ConnectSerialInternalAsync(serial.PortName);
+                await RefreshIdentityAsync();
+                await RefreshBatteryAsync();
+                StartAutomaticRefresh();
+                ConnectionText.Text = $"已连接：{serial.PortName} · 19200 8N1";
+                return;
+            }
             if (DeviceList.SelectedItem is not DiscoveredDevice selected)
                 throw new InvalidOperationException("请先扫描并选择设备。");
 
@@ -102,9 +158,9 @@ public partial class MainWindow : Window
                 _watcher.Stop();
             }
 
-            ConnectButton.IsEnabled = false;
-            ConnectionText.Text = "正在连接设备...";
+            _connectionMode = ConnectionMode.Ble;
             _connectedAddress = selected.Address;
+            _connectedSerialPort = null;
             _connectedName = selected.Name;
             _pollFailureCount = 0;
 
@@ -226,9 +282,13 @@ public partial class MainWindow : Window
     private async Task<DeviceIdentity> RefreshIdentityAsync()
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        DeviceIdentity id = await bms.ReadIdentityAsync(
-            BmsBleTransport.FormatBluetoothAddress(_connectedAddress ?? 0),
-            _connectedName);
+        string fallbackMac = _connectionMode == ConnectionMode.Serial
+            ? string.Empty
+            : BmsBleTransport.FormatBluetoothAddress(_connectedAddress ?? 0);
+        string fallbackName = _connectionMode == ConnectionMode.Serial
+            ? $"串口 {_connectedSerialPort}"
+            : _connectedName;
+        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
         if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
@@ -291,7 +351,10 @@ public partial class MainWindow : Window
 
         if (_bms is null)
         {
-            if (_connectedAddress is not null && DateTime.UtcNow >= _nextReconnectUtc)
+            bool endpointAvailable = _connectionMode == ConnectionMode.Ble
+                ? _connectedAddress is not null
+                : !string.IsNullOrWhiteSpace(_connectedSerialPort);
+            if (endpointAvailable && DateTime.UtcNow >= _nextReconnectUtc)
                 await AutoReconnectAsync();
             return;
         }
@@ -317,15 +380,19 @@ public partial class MainWindow : Window
 
     private async Task AutoReconnectAsync()
     {
-        if (_autoReconnectRunning || _otaRunning || _connectedAddress is null) return;
+        if (_autoReconnectRunning || _otaRunning) return;
+        if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
+        if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
         _autoReconnectRunning = true;
         _pollTimer.Stop();
-        ulong address = _connectedAddress.Value;
         try
         {
             ConnectionText.Text = "通信异常，自动重连中...";
             AppendLog("自动重连开始：连续 3 次数据刷新失败。", "RECONNECT");
-            await ConnectBmsInternalAsync(address);
+            if (_connectionMode == ConnectionMode.Serial)
+                await ConnectSerialInternalAsync(_connectedSerialPort!);
+            else
+                await ConnectBmsInternalAsync(_connectedAddress!.Value);
             await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
@@ -523,7 +590,11 @@ public partial class MainWindow : Window
         try
         {
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
-            ulong address = _connectedAddress ?? throw new InvalidOperationException("请先连接 BMS。");
+            ulong address = _connectedAddress ?? 0;
+            if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
+                throw new InvalidOperationException("请先连接 BMS。");
+            if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort))
+                throw new InvalidOperationException("请先连接串口。");
 
             _otaRunning = true;
             _pollTimer.Stop();
@@ -532,7 +603,9 @@ public partial class MainWindow : Window
             OtaProgressBar.Value = 0;
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
-            OtaTargetKind target = await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
+            OtaTargetKind target = _connectionMode == ConnectionMode.Serial
+                ? OtaTargetKind.Stm32SerialIap
+                : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
             FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
             AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
 
@@ -563,7 +636,7 @@ public partial class MainWindow : Window
             }
 
             OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
-            DeviceIdentity post = await VerifyAfterOtaAsync(address, _otaCts.Token);
+            DeviceIdentity post = await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
             string expected = ExpectedVersionBox.Text.Trim();
             if (expected.Length > 0 && !string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase))
                 throw new IOException($"设备已重启，但软件版本不匹配：目标 {expected}，实际 {post.Software}。");
@@ -605,6 +678,22 @@ public partial class MainWindow : Window
     {
         if (target == OtaTargetKind.Stm32SerialIap)
         {
+            if (_connectionMode == ConnectionMode.Serial)
+            {
+                await using var serialPortTransport = new BmsSerialTransport();
+                AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={BmsSerialTransport.DefaultBaudRate}", "OTA");
+                await serialPortTransport.ConnectAsync(_connectedSerialPort!, ct);
+                AppendLog($"STM32 serial OTA port ready; {serialPortTransport.DiscoveryDescription}", "OTA");
+                var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false);
+                serialPortClient.Log += m => AppendLog(m, "OTA");
+                serialPortClient.Progress += p => Dispatcher.BeginInvoke(() =>
+                {
+                    OtaProgressBar.Value = p.Percent;
+                    OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
+                });
+                return await serialPortClient.UpgradeAsync(image, ct);
+            }
+
             await using var serialTransport = new BmsBleTransport();
             AppendLog($"Connecting STM32 serial OTA GATT address={address:X12}", "OTA");
             await serialTransport.ConnectAsync(address, ct);
@@ -635,7 +724,7 @@ public partial class MainWindow : Window
         return await client.UpgradeAsync(image, mode, ct);
     }
 
-    private async Task<DeviceIdentity> VerifyAfterOtaAsync(ulong address, CancellationToken ct)
+    private async Task<DeviceIdentity> VerifyAfterOtaAsync(ulong? address, CancellationToken ct)
     {
         Exception? last = null;
         for (int attempt = 1; attempt <= 12; attempt++)
@@ -645,7 +734,10 @@ public partial class MainWindow : Window
             {
                 await Task.Delay(attempt == 1 ? 1200 : 900, ct);
                 AppendLog($"Post-OTA reconnect {attempt}/12", "OTA");
-                await ConnectBmsInternalAsync(address, ct);
+                if (_connectionMode == ConnectionMode.Serial)
+                    await ConnectSerialInternalAsync(_connectedSerialPort!, ct);
+                else
+                    await ConnectBmsInternalAsync(address!.Value, ct);
                 DeviceIdentity id = await (_bms ?? throw new IOException("BMS client unavailable")).ReadIdentityAsync(ct);
                 BatterySnapshot snapshot = await _bms.ReadBatteryAsync(ct);
                 ApplyBatterySnapshot(snapshot);
@@ -706,6 +798,41 @@ public partial class MainWindow : Window
     private void AppendLog(string text, string category = "APP")
     {
         _sessionLog.Write(category, text);
+    }
+
+    private async Task ConnectSerialInternalAsync(string portName, CancellationToken ct = default)
+    {
+        await DisposeBmsAsync();
+        var transport = new BmsSerialTransport();
+        transport.ConnectionProgress += OnConnectionProgress;
+        BmsClient? client = null;
+        try
+        {
+            await transport.ConnectAsync(portName, ct);
+            client = new BmsClient(transport);
+            client.Log += OnProtocolLog;
+            AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
+            await client.ProbeAsync(ct);
+            _bmsTransport = transport;
+            _bms = client;
+            _connectedAddress = null;
+            _connectedSerialPort = portName;
+            AppendLog($"BMS READY transport=Serial; {transport.DiscoveryDescription}", "CONNECT");
+        }
+        catch
+        {
+            if (client is not null)
+            {
+                client.Log -= OnProtocolLog;
+                await client.DisposeAsync();
+            }
+            await transport.DisposeAsync();
+            throw;
+        }
+        finally
+        {
+            transport.ConnectionProgress -= OnConnectionProgress;
+        }
     }
 
     private OtaTargetKind GetOtaTargetKind()

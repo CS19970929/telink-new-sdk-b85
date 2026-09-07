@@ -10,10 +10,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <Compile Remove="Ota.cs" />
     <Compile Include="..\BmsTool.Windows\Ota.cs" Link="Shared\Ota.cs" />
     <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
     <Compile Include="..\BmsTool.Windows\BmsBleTransport.cs" Link="Shared\BmsBleTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsTransport.cs" Link="Shared\BmsTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsSerialTransport.cs" Link="Shared\BmsSerialTransport.cs" />
     <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
     <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="Shared\ModbusRtu.cs" />
   </ItemGroup>

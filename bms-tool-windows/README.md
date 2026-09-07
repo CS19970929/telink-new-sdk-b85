@@ -37,12 +37,19 @@ BLE 搜索兼容现有两种 BMS 广播名前缀：`BT_` 和 `BT-`。对于 STM3
 
 连接探测兼容已部署的串口蓝牙模块：优先检查 `0xD120` 实时窗口 magic；如果该可选窗口未启用，则继续校验稳定的 `0xD000` Legacy 数据窗口或 `0xC002` 生产信息窗口。部分外置蓝牙模块不实现 BMS 的 `0x0000` MAC、`0x0100` 蓝牙名称或空的硬件/软件版本寄存器，此时设备信息页分别使用 BLE 连接地址、BLE 广播名称和“未知”，不影响实时数据和保护数据读取。
 
+## 直连串口
+
+通信设置左侧可切换 `BLE` / `串口`。选择串口后点击“刷新”，程序枚举 Windows 当前可用的 COM 端口；连接参数固定来自 BMS/IAP 的 SCI 初始化：`19200 baud、8 data bits、No parity、1 stop bit、No hardware flow control（19200 8N1）`。串口接收按任意长度分片交给同一套 Modbus RTU 组帧器，不依赖一次接收完整响应，因此普通监控、身份读取、BMS 软件参数和内部 Factory Session 测试均复用 BLE 相同的上层逻辑。
+
+串口连接会记录 `OPEN/WRITE/RX_FRAGMENT/READ_FAIL` 日志，并在轮询连续失败后自动重连。串口没有 BLE 地址，设备身份读取仍以 BMS 寄存器为准；如果 MAC 或蓝牙名称寄存器不存在，界面使用 `串口 COMx` 作为连接端点回退信息。AFE 硬件保护参数写入只允许 BLE 连接，防止把 BLE 专用硬件参数通道误用到直连串口。
+
 ## OTA 双架构自动升级
 
 OTA 页默认使用 `Auto（自动识别）`：
 
 - 发现 Telink 专用 OTA service `00010203-0405-0607-0809-0a0b0c0d1912` 时，使用现有 Telink OTA START/DATA/END 流程；
 - 发现 BMS Nordic UART service `6E400001-B5A3-F393-E0A9-E50E24DCCA9E` 时，使用 STM32 串口 IAP 流程：`0xFFFD` 进入 IAP、`0xFFFE` 每页写 1024 字节、`0xFFFF` 完成。由于现有 IAP 的实际解析约定，页帧使用 `0x10` 的扩展兼容格式：`byte count=0`、`quantity=1024`，不能使用标准 `byte count=0x400`（单字节无法表达）；
+- 直连 `COM` 时自动选择 STM32 Serial IAP，使用同一组 `0xFFFD/0xFFFE/0xFFFF` 命令；进入 IAP 和每一页发送后都等待并校验 Modbus ACK。BLE 链路按 20 字节分片，直连串口按 IAP 缓冲区能力直接发送约 1033 字节页帧，不把 BLE 分片规则误套到 COM；ACK 超时仍立即停止，禁止对无页序号的例程盲目重传；
 - STM32 APP BIN 必须能通过向量表校验（初始栈指针在 SRAM、复位向量在 `0x08001C00..0x0800F800`），按 `0x08001C00` APP 区使用，最大 55 KB，最后一页用 `0xFF` 补齐；已识别为 Telink 格式的文件会被拒绝；
 - STM32 在 ENTER 应答后等待 BMS 复位并重新建立 GATT 连接；如果设备已经处于 IAP 且普通 Modbus 探测无响应，上位机会保留 GATT 连接并允许直接进入 OTA；之后每个升级帧按串口兼容分片发送，并对每个分片使用带响应写入，按 19200 波特率和安全余量动态排空，不重复增加固定等待，必须收到完整 Modbus ACK 才发送下一页；ACK 超时会停止，不会对没有序号的旧 IAP 例程盲目重传；
 - 升级后统一重连并读取软件版本、实时数据验证。
