@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -7,7 +7,6 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
-    private ComboBox? _eventLogCount;
     private bool _eventLogReadInProgress;
 
     private void AddEventLogTab()
@@ -21,8 +20,6 @@ public partial class MainWindow
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         var top = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-        _eventLogCount = new ComboBox { ItemsSource = new[] { 100, 500 }, SelectedIndex = 0, Width = 75, Height = 30, Margin = new Thickness(0, 0, 8, 0), ToolTip = "选择与BMS固件一致的日志条数；旧固件请选择100条。" };
-        top.Children.Add(_eventLogCount);
         var readButton = new Button { Content = "读取事件日志", Width = 120, Height = 30 };
         readButton.Click += ReadEventLogs_Click;
         top.Children.Add(readButton);
@@ -63,19 +60,31 @@ public partial class MainWindow
         if (_eventLogReadInProgress) return;
         _eventLogReadInProgress = true;
         if (sender is Button button) button.IsEnabled = false;
-        int count = _eventLogCount?.SelectedItem is int selected ? selected : 100;
         try
         {
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
-            _eventLogStatus!.Text = $"正在读取{count}条...";
+            _eventLogStatus!.Text = "正在自动识别并读取日志...";
 
+            int count = 500;
             ushort[] words = new ushort[count];
             // One item is one register. Keep each frame at the legacy 100-word size.
             for (int offset = 0; offset < count; offset += 100)
             {
-                ushort[] page = await bms.ReadRegistersAsync((ushort)(0xC008 + offset), 100);
+                ushort[] page;
+                try
+                {
+                    page = await bms.ReadRegistersAsync((ushort)(0xC008 + offset), 100);
+                }
+                // This firmware uses 0x01 for invalid address (0x02 means CRC error).
+                // Only rejection of the second page identifies a 100-record device.
+                catch (BmsModbusException ex) when (offset == 100 && ex.Function == 0x03 && ex.Code == 0x01)
+                {
+                    count = 100;
+                    Array.Resize(ref words, count);
+                    break;
+                }
                 if (page.Length != 100) throw new InvalidOperationException("日志响应长度不正确。");
                 Array.Copy(page, 0, words, offset, page.Length);
                 _eventLogStatus.Text = $"正在读取 {offset + page.Length}/{count} 条...";
@@ -96,7 +105,7 @@ public partial class MainWindow
                     populated ? "有效" : "空记录"));
             }
 
-            _eventLogStatus.Text = $"读取完成 · 有效 {valid}/{count} · {DateTime.Now:HH:mm:ss}";
+            _eventLogStatus.Text = $"读取完成 · 自动识别{count}条容量 · 有效 {valid}/{count} · {DateTime.Now:HH:mm:ss}";
             AppendLog($"EVENT_LOG_READ_OK valid={valid}/{count}", "LOG");
         }
         catch (Exception ex)
