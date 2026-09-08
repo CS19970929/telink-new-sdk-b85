@@ -17,6 +17,46 @@ static void param_fill_default(PARAM_T *param)
     bms_cold_kv_store_get_default_protect(&param->protect);
 }
 
+/*
+ * 历史版本错误地用固定 SNum=4 生成总压默认参数。
+ * 只在整组参数仍精确匹配旧默认签名时迁移，避免覆盖客户自定义值。
+ */
+static int param_migrate_legacy_4s_vbus_defaults(struct PRT_E2ROM_PARAS *protect)
+{
+    struct PRT_E2ROM_PARAS defaults;
+
+    if ((protect == NULL) || (SeriesNum == 4)) {
+        return 1;
+    }
+
+    if ((protect->u16VbusOvp_First != (350u * 4u)) ||
+        (protect->u16VbusOvp_Second != (360u * 4u)) ||
+        (protect->u16VbusOvp_Third != (365u * 4u)) ||
+        (protect->u16VbusOvp_Rcv != (350u * 4u)) ||
+        (protect->u16VbusOvp_Filter != 100u) ||
+        (protect->u16VbusUvp_First != (300u * 4u)) ||
+        (protect->u16VbusUvp_Second != (300u * 4u)) ||
+        (protect->u16VbusUvp_Third != (290u * 4u)) ||
+        (protect->u16VbusUvp_Rcv != (300u * 4u)) ||
+        (protect->u16VbusUvp_Filter != 100u)) {
+        return 1;
+    }
+
+    bms_cold_kv_store_get_default_protect(&defaults);
+    protect->u16VbusOvp_First = defaults.u16VbusOvp_First;
+    protect->u16VbusOvp_Second = defaults.u16VbusOvp_Second;
+    protect->u16VbusOvp_Third = defaults.u16VbusOvp_Third;
+    protect->u16VbusOvp_Rcv = defaults.u16VbusOvp_Rcv;
+    protect->u16VbusOvp_Filter = defaults.u16VbusOvp_Filter;
+    protect->u16VbusUvp_First = defaults.u16VbusUvp_First;
+    protect->u16VbusUvp_Second = defaults.u16VbusUvp_Second;
+    protect->u16VbusUvp_Third = defaults.u16VbusUvp_Third;
+    protect->u16VbusUvp_Rcv = defaults.u16VbusUvp_Rcv;
+    protect->u16VbusUvp_Filter = defaults.u16VbusUvp_Filter;
+
+    return bms_cold_kv_store_set_protect(protect);
+}
+
 static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
 {
     u32 applied_epoch = 0u;
@@ -91,6 +131,11 @@ void LoadParam(void)
         param_fill_default(&g_tParam);
         (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
         return;
+    }
+
+    if (!param_migrate_legacy_4s_vbus_defaults(&g_tParam.protect)) {
+        /* RAM 中已经是安全的新值，本次启动继续使用；持久化失败单独上报。 */
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
     }
 }
 

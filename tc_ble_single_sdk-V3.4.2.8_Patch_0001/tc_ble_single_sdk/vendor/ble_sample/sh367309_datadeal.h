@@ -3,6 +3,50 @@
 
 #include "conf.h"
 
+/*
+ * SH367309 hardware-protection parameter block.
+ * Keep the 24-register layout compatible with the legacy a002-c030 project.
+ * Values are physical engineering units; writes are accepted only when the
+ * requested value is exactly representable by the SH367309 EEPROM encoding.
+ */
+#define SH309_AFE_PARAM_REG_BASE   0x2400u
+#define SH309_AFE_PARAM_REG_COUNT  24u
+#define SH309_AFE_PARAM_REG_END    (SH309_AFE_PARAM_REG_BASE + SH309_AFE_PARAM_REG_COUNT - 1u)
+
+typedef enum {
+    SH309_AFE_PARAM_VCELL_OVP = 0,
+    SH309_AFE_PARAM_VCELL_OVP_RCV,
+    SH309_AFE_PARAM_VCELL_OVP_FILTER,
+    SH309_AFE_PARAM_VCELL_UVP,
+    SH309_AFE_PARAM_VCELL_UVP_RCV,
+    SH309_AFE_PARAM_VCELL_UVP_FILTER,
+    SH309_AFE_PARAM_ICHG_OCP_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_ICHG_OCP_SECOND,
+    SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_FIRST,
+    SH309_AFE_PARAM_IDSG_OCP_SECOND,
+    SH309_AFE_PARAM_IDSG_OCP_FILTER_SECOND,
+    SH309_AFE_PARAM_TCHG_OTP,
+    SH309_AFE_PARAM_TCHG_OTP_RCV,
+    SH309_AFE_PARAM_TCHG_UTP,
+    SH309_AFE_PARAM_TCHG_UTP_RCV,
+    SH309_AFE_PARAM_TDSG_OTP,
+    SH309_AFE_PARAM_TDSG_OTP_RCV,
+    SH309_AFE_PARAM_TDSG_UTP,
+    SH309_AFE_PARAM_TDSG_UTP_RCV,
+    SH309_AFE_PARAM_SC_CURRENT,
+    SH309_AFE_PARAM_SC_DELAY,
+} sh309_afe_param_index_t;
+
+typedef enum {
+    SH309_AFE_PARAM_RESULT_OK = 0,
+    SH309_AFE_PARAM_RESULT_INVALID = 1,
+    SH309_AFE_PARAM_RESULT_STORE_ERROR = 2,
+} sh309_afe_param_result_t;
+
+
 
 
 #ifdef LIFEPO
@@ -20,7 +64,7 @@
 #define AFE_COV_recover   (4150)
 #define AFE_COV_filter     100
 
-#define AFE_CUV           (2750)
+#define AFE_CUV           (2740)
 #define AFE_CUV_filter     (100)
 
 #define AFE_CUV_recover     (3000)
@@ -59,7 +103,7 @@
 #define AFE_OCC2_filter  	(10)
 
 #define AFE_ODC1_filter  	(100)
-#define AFE_ODC2_filter  	(50)
+#define AFE_ODC2_filter  	(60)
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
 #define AFE_PARAMETERS_RS485_STRUCTION_DEFAULT  {\
@@ -140,12 +184,11 @@ typedef struct {
 	u8 PFV;				//二�?�过充电保护电压设置寄存�?，放大一些，不用这个
 }BYTE_0AH_0BH_TypeDef;
 
-
 typedef struct {
 	u8 OCD1T		:4;			//放电过流1保护延时
 	u8 OCD1V		:4;			//放电过流保护1保护电压
 	u8 OCD2T		:4;			//放电过流2保护延时
-	u8 OCD2V		:4;			//放电过流保护2保护电压
+	u8 OCD2V		:4;			//放电过流2保护电压
 }BYTE_0CH_0DH_TypeDef;
 
 typedef struct {
@@ -229,6 +272,15 @@ typedef struct{
 	AFE_Value_Typedef 	u16CBC_DelayT;
 }AFE_Parameters_RS485_Typedef; 
 
+extern AFE_Parameters_RS485_Typedef AFE_Parameters_RS485_Struction;
+extern int AFE_PARAM_WRITE_Flag;
+
+u8 SH367309_AfeParamLoad(void);
+u8 SH367309_AfeParamReadReg(u16 reg, u16 *value);
+sh309_afe_param_result_t SH367309_AfeParamWriteRegs(u16 start_reg, const u16 *values, u16 count);
+u8 SH367309_AfeParamValidate(const AFE_Parameters_RS485_Typedef *params);
+
+
 typedef union __MTP_REG_BSTATUS1 {
     u8 all;
     struct _MTP_REG_BSTATUS1 {
@@ -305,9 +357,11 @@ typedef struct _AFE_REG_STORE {
 }SH367309_REG_STORE;
 
 #define BIT_ENPCH	(0<<7)		//0:禁�?��?�充电功能，1：启动�?�充功能
-#define BIT_ENMOS	(1<<6)		//0:禁�?�充电MOS恢�?�，1:�?动充电MOS恢�?�控制位�?
-								//当过充电/温度保护(温度实际�?2�?)关闭充电MOS后，如果检测到放电状态，则开�?充电MOS
-								//用这�?吧，MOS应�?�会没那么热�?
+#if (BMS_PORT_MODE == BMS_PORT_MODE_COMMON)
+#define BIT_ENMOS	(1<<6)		//同口：允许 AFE 在检测到反向电流时恢复对应 MOS，避免体二极管持续导通
+#else
+#define BIT_ENMOS	(0<<6)		//分口：充放电路径独立，不需要反向电流恢复
+#endif
 #define BIT_OCPM	(0<<5)		//0:充电过流�?关闭充电MOS，放电过流只关放电MOS�?1则同时关
 #define BIT_BAL		(0<<4)		//0：平衡功能由内部SH367309控制�?1:由�?�部MCU�?
 #define BIT0_3_CN	(0)			//5-15，�?�应串数，别的为16�?
@@ -317,10 +371,7 @@ typedef struct _AFE_REG_STORE {
 #define BIT_UV_OP	(0<<5)		//0：过放只关闭放电MOS�?1：过放关�?充放电MOS
 #define BIT_DIS_PF	(1<<4)		//0：开�?�?1：�?��??---二�?�过充电保护，同时也�?�?线�?�测功�?(奇�?了，怎么揉在一起了)
 								//这个标志位为0则开�?，会出现�?题，重新�?电上电�?�易出现全部电压�?10000mV左右，所以�?��?�掉(出问题PF引脚会输出VSS电平)
-// #define BIT2_3_CTLC	(0<<2)		//MOS由内部逻辑控制，CTL引脚无效，具体看规格�?
-#define BIT2_3_CTLC	(1<<4) | (1<<3)		//MOS由内部逻辑控制，CTL引脚无效，具体看规格�?
-// #define BIT2_3_CTLC	(12<<2)		//MOS由内部逻辑控制，CTL引脚无效，具体看规格�?
-								//2，�?�置为控制放电MOS，�?�放功能
+#define BIT2_3_CTLC	(3u<<2)		//11：CTL低电平强制关闭充电、放电和预充MOS，高电平交回AFE内部逻辑
 #define BIT_OCRA	(0<<1)		//0：不允�?��?1：允�?---“电流保护定时恢复”功能，也即意味着�?能负载释放才能解除电流保护，不能�?动恢�?
 #define BIT_EUVR	(0)			//0：过放保护状态释放与负载释放无关，意味着负载释放�?和电流保护有关了
 								//过放保护还必须负载释放才能解除�?
@@ -339,7 +390,7 @@ typedef struct _AFE_REG_STORE {
 #define BIT0_7_OVL				(u8)((VAL_CELL_OVP/5)&0x00FF)		//过充保护�?8�?
 #define BYTE_03H_OVL			BIT0_7_OVL
 
-#define BIT4_7_UVT				(6<<4)									//0110，过放保护延�?1s
+#define BIT4_7_UVT				(6<<4)									//0110，过放保护延时1s
 #define BIT0_1_OVR				(u8)((VAL_CELL_OVP_REC/5)>>8)		//过充保护恢�?�前2�?
 #define BYTE_04H_UVT_OVRH		BIT4_7_UVT|BIT0_1_OVR
 

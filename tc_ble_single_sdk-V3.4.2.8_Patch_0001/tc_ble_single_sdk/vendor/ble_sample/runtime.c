@@ -37,6 +37,19 @@ static u32 g_runtime_last_tick_32k = 0u;
 static u32 g_runtime_pending_tick_32k = 0u;
 static u8 g_runtime_tick_ready = 0u;
 
+static void runtime_sync_switch_wakeup(void)
+{
+#ifdef _DI_SWITCH_SYS_ONOFF
+    /*
+     * SW_PIN 低电平=开关 ON，高电平=开关 OFF。
+     * Telink PAD 唤醒是电平触发，因此始终配置为“当前状态的反向电平”：
+     * ON 时等待 High 捕获断开，OFF 时等待 Low 捕获闭合。
+     * 这样兼顾快速关断和低功耗，避免固定为当前有效电平导致持续唤醒。
+     */
+    cpu_set_gpio_wakeup(SW_PIN, gpio_read(SW_PIN) ? Level_Low : Level_High, 1);
+#endif
+}
+
 static void runtime_set_initial_state(void)
 {
     g_runtime_min = 0u;
@@ -308,6 +321,7 @@ void Runtime_Init(void)
     u32 now_tick_32k;
 
     runtime_set_initial_state();
+    runtime_sync_switch_wakeup();
 
     if (!runtime_scan_store()) {
         if (runtime_flash_base() == 0u) {
@@ -333,6 +347,7 @@ void Runtime_Poll(void)
 {
     u32 now_tick_32k;
 
+    runtime_sync_switch_wakeup();
     now_tick_32k = pm_get_32k_tick();
     if (!g_runtime_tick_ready) {
         g_runtime_last_tick_32k = now_tick_32k;
@@ -382,6 +397,7 @@ int Runtime_FactoryReset(void)
     g_runtime_store_ready = 1u;
     g_runtime_last_tick_32k = pm_get_32k_tick();
     g_runtime_tick_ready = 1u;
+    runtime_sync_switch_wakeup();
     return 1;
 }
 
