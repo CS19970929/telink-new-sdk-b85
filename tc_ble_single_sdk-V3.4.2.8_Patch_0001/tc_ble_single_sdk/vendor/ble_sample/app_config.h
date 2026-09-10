@@ -143,12 +143,12 @@
 #include "drivers.h"
 #include "dvc1124.h"
 
-#define App_AFEGet                  DVC1124_App_AFEGet
+#define App_AFEGet                  DVC1124_BmsApp_AFEGet
 #define AFE_Reset                   DVC1124_AFE_Reset
 #define AFE_IsReady                 DVC1124_AFE_IsReady
 #define AFE_Sleep                   DVC1124_AFE_Sleep
 #define SH367309_UpdataAfeConfig    DVC1124_UpdataAfeConfig
-#define MTPWrite                    DVC1124_CompatMTPWrite
+#define MTPWrite                    DVC1124_BmsCompatMTPWrite
 
 #define adc_base_init(pin) \
         DVC1124_CompatAdcBaseInit((unsigned int)(pin))
