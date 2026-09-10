@@ -145,11 +145,13 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
 
 /* Compatibility entry points used by app_config.h without rewriting app.c. */
 void DVC1124_App_AFEGet(void);
+void DVC1124_BmsApp_AFEGet(void);
 void DVC1124_AFE_Reset(void);
 uint8_t DVC1124_AFE_IsReady(void);
 void DVC1124_AFE_Sleep(void);
 void DVC1124_UpdataAfeConfig(void);
 uint8_t DVC1124_CompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf);
+uint8_t DVC1124_BmsCompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf);
 
 void DVC1124_CompatAdcBaseInit(unsigned int pin);
 unsigned int DVC1124_CompatAdcSample(void);
