@@ -64,6 +64,9 @@ typedef struct
 #define DVC1124_MAX_CELLS                    24u
 #define DVC1124_MAX_GP                       6u
 
+/* All board-variant defaults live in one project-owned file. */
+#include "dvc1124_project_config.h"
+
 #ifndef DVC1124_DEFAULT_MODEL
 #define DVC1124_DEFAULT_MODEL                DVC1124_MODEL_22
 #endif
