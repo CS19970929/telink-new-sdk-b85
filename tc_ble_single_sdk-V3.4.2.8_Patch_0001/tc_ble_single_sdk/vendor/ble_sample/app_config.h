@@ -137,5 +137,13 @@
  * app_config.h: this file is pulled in by gpio_default.h while driver headers
  * are still being parsed. Application compatibility aliases are activated
  * later from conf.h, after drivers.h has completed.
+ *
+ * sh367309_datadeal.h includes conf.h -> flash_store_cfg.h -> app_config.h.
+ * At that point SH367309_DATADEAL_H_ is already defined. Do not enable the DVC
+ * aliases for the legacy implementation unit itself, otherwise the preprocessor
+ * renames SH367309 function definitions into DVC1124 names and the linker sees
+ * duplicate DVC definitions.
  */
+#if !defined(SH367309_DATADEAL_H_)
 #define DVC1124_AFE_PROJECT 1
+#endif
