@@ -7,6 +7,7 @@
 #include "../../common/types.h"
 #include "stdint.h"
 #include "flash_store_cfg.h"
+#include "dvc1124.h"
 
 // #define __VIRTURE_CURRENT__
 // #define FAC_TEST
@@ -151,6 +152,17 @@
 #define AFE_ODC2       		(1000) 
 #endif
 
+/* HS-D008 is a 24S DVC1124-2 board. Keep capacity/protection product values in
+ * the existing parameter store, but make the physical cell-count identity
+ * correct for this branch. A 20S assembly can override DVC1124_DEFAULT_CELL_COUNT. */
+#define DVC1124_D008_PROJECT 1
+#if DVC1124_D008_PROJECT
+#undef SeriesNum
+#define SeriesNum  (DVC1124_DEFAULT_CELL_COUNT)
+#undef BMS_HARDWARE_VERDION_DEFAULT
+#define BMS_HARDWARE_VERDION_DEFAULT "D008"
+#endif
+
 #if (FD_BMS_TYPE == C21)
 #define CS_Res			  2
 #define CS_Res_Num		2
@@ -196,20 +208,33 @@ CurCHG = 0, CurDSG
 #define Feed_IWatchDog ;
 #define log_i(...)   ;
 
-#define  RF_EN_PIN              (GPIO_PD4)
-#define  AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define  SW_PIN                 (GPIO_PA0)
-#define  MCC_C_PIN              (GPIO_PA1)
-#define  CHG_IN_PIN              (GPIO_PB1)
-#define  ADC_NTC_PIN              (GPIO_PB4)
-#define  ADC_VBUS_PIN              (GPIO_PB5)
-#define  AFE_CTL_PIN              (GPIO_PB6)
-#define  CHG_WK_PIN              (GPIO_PB7)
-#define  OWC_TX_PIN              (GPIO_PC2)
-#define  OWC_RX_PIN              (GPIO_PC3)
-#define  ADC_NMOS_PIN              (GPIO_PC4)
-#define  ADC_BUSEN_PIN              (GPIO_PD2)
-#define  ADC_EN_PIN              (GPIO_PD3)
+/* HS-D008 physical MCU nets from the schematic. */
+#define RF_EN_PIN              (GPIO_PD4)
+#define AFE1_PRO_EN_PIN        (GPIO_PD7)
+#define SW_PIN                 (GPIO_PA0)
+#define HEATER_EN_PIN          (GPIO_PA1)
+#define CHG_IN_PIN             (GPIO_PB1)
+#define OWC_TX_PIN             (GPIO_PC2)
+#define OWC_RX_PIN             (GPIO_PC3)
+#define MCU_LDO_PIN            (GPIO_PC4)
+#define SOC25_PIN              (GPIO_PB4)
+#define SOC50_PIN              (GPIO_PB5)
+#define SOC75_PIN              (GPIO_PB7)
+#define SOC100_PIN             (GPIO_PD3)
+#define LED_BLUE_PIN           (GPIO_PB6)
+
+/*
+ * Compatibility selectors for legacy app.c. These are deliberately virtual
+ * so old SH367309 code cannot drive the HS-D008 heater/LDO/SOC LED GPIOs.
+ */
+#define MCC_C_PIN              (DVC1124_VPIN_LEGACY_MCC)
+#define AFE_CTL_PIN            (DVC1124_VPIN_AFE_CTL)
+#define CHG_WK_PIN             (CHG_IN_PIN)
+#define ADC_NTC_PIN            (DVC1124_VPIN_ADC_BAT)
+#define ADC_VBUS_PIN           (DVC1124_VPIN_ADC_PACK)
+#define ADC_NMOS_PIN           (DVC1124_VPIN_ADC_MOS)
+#define ADC_BUSEN_PIN          (DVC1124_VPIN_NOOP0)
+#define ADC_EN_PIN             (DVC1124_VPIN_NOOP1)
 
 typedef struct 
 {
