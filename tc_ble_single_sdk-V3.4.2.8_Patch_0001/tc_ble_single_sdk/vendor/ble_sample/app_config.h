@@ -131,3 +131,36 @@
 
 
 #include "vendor/common/default_config.h"
+
+/*
+ * HS-D008 DVC1124 project switch.
+ * Keep the existing application/SOC/protection framework, but route AFE access
+ * and the legacy SH367309 board-control calls to the DVC1124 compatibility
+ * layer. DVC1124_IMPLEMENTATION prevents macro recursion inside dvc1124.c.
+ */
+#define DVC1124_AFE_PROJECT 1
+#if DVC1124_AFE_PROJECT && !defined(DVC1124_IMPLEMENTATION)
+#include "drivers.h"
+#include "dvc1124.h"
+
+#define App_AFEGet                  DVC1124_App_AFEGet
+#define AFE_Reset                   DVC1124_AFE_Reset
+#define AFE_IsReady                 DVC1124_AFE_IsReady
+#define AFE_Sleep                   DVC1124_AFE_Sleep
+#define SH367309_UpdataAfeConfig    DVC1124_UpdataAfeConfig
+#define MTPWrite                    DVC1124_CompatMTPWrite
+
+#define adc_base_init(pin) \
+        DVC1124_CompatAdcBaseInit((unsigned int)(pin))
+#define adc_sample_and_get_result() \
+        DVC1124_CompatAdcSample()
+
+#define gpio_set_func(pin, func) \
+        DVC1124_CompatGpioSetFunc((unsigned int)(pin), (unsigned int)(func))
+#define gpio_set_input_en(pin, value) \
+        DVC1124_CompatGpioSetInputEn((unsigned int)(pin), (unsigned int)(value))
+#define gpio_set_output_en(pin, value) \
+        DVC1124_CompatGpioSetOutputEn((unsigned int)(pin), (unsigned int)(value))
+#define gpio_write(pin, value) \
+        DVC1124_CompatGpioWrite((unsigned int)(pin), (unsigned int)(value))
+#endif
