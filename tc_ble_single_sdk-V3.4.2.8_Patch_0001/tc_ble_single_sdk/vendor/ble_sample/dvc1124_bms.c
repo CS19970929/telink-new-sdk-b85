@@ -44,10 +44,7 @@ static uint16_t dvc_filter_samples(uint16_t filter_10ms)
     uint32_t delay_ms = (uint32_t)filter_10ms * 10u;
     uint32_t samples;
 
-    if (delay_ms == 0u)
-    {
-        return 1u;
-    }
+    if (delay_ms == 0u) return 1u;
     samples = (delay_ms + DVC_BMS_SAMPLE_PERIOD_MS - 1u) / DVC_BMS_SAMPLE_PERIOD_MS;
     if (samples == 0u) samples = 1u;
     if (samples > 65535u) samples = 65535u;
@@ -140,10 +137,7 @@ static uint8_t dvc_filter_low(dvc_bms_filter_t *state,
 
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
-    if ((gp == 0u) || (gp > 4u))
-    {
-        return 0u;
-    }
+    if ((gp == 0u) || (gp > 4u)) return 0u;
     return g_stCellInfoReport.u16Temperature[gp - 1u];
 }
 
@@ -153,10 +147,7 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
     uint8_t write_value;
     uint8_t verify;
 
-    /*
-     * COV/CUV are latched in DVC1124. Clear only after the corresponding
-     * configured recovery voltage has been reached.
-     */
+    /* COV/CUV clear only after the configured recovery voltage is reached. */
     if ((alarm & DVC_BMS_ALARM_COV) &&
         (g_tParam.protect.u16VcellOvp_Rcv != 0u) &&
         (g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv))
@@ -170,16 +161,10 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
         clear_mask |= DVC_BMS_ALARM_CUV;
     }
 
-    /*
-     * Current faults are deliberately not cleared merely because current fell
-     * to zero: the FET trip itself causes that. Require the user-side source
-     * to be removed first, preventing an automatic retry loop into the same
-     * overload/short condition.
-     */
+    /* Require removal of the source before clearing current/short latches. */
     if (gpio_read(CHG_IN_PIN))
-    {
         clear_mask |= (uint8_t)(alarm & (DVC_BMS_ALARM_OCC1 | DVC_BMS_ALARM_OCC2));
-    }
+
     if (gpio_read(SW_PIN))
     {
         clear_mask |= (uint8_t)(alarm & (DVC_BMS_ALARM_OCD1 |
@@ -187,21 +172,12 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
                                          DVC_BMS_ALARM_SCD));
     }
 
-    if (clear_mask == 0u)
-    {
-        return alarm;
-    }
+    if (clear_mask == 0u) return alarm;
 
-    /* Alarm bits are cleared by writing 0; writing 1 to a latched flag is ineffective. */
+    /* Alarm bits clear by writing 0; writing 1 is ineffective. */
     write_value = (uint8_t)(alarm & (uint8_t)~clear_mask);
-    if (!DVC1124_WriteRegisters(DVC_BMS_REG_ALARM, &write_value, 1u))
-    {
-        return alarm;
-    }
-    if (!DVC1124_ReadRegisters(DVC_BMS_REG_ALARM, &verify, 1u))
-    {
-        return alarm;
-    }
+    if (!DVC1124_WriteRegisters(DVC_BMS_REG_ALARM, &write_value, 1u)) return alarm;
+    if (!DVC1124_ReadRegisters(DVC_BMS_REG_ALARM, &verify, 1u)) return alarm;
     return verify;
 }
 
@@ -284,39 +260,48 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
     if (battery_temp != 0u)
     {
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp =
-            dvc_filter_high(&s_chg_otp,
-                            battery_temp,
+            dvc_filter_high(&s_chg_otp, battery_temp,
                             g_tParam.protect.u16TChgOTp_Third,
                             g_tParam.protect.u16TChgOTp_Rcv,
                             g_tParam.protect.u16TChgOTp_Filter);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp =
-            dvc_filter_low(&s_chg_utp,
-                           battery_temp,
+            dvc_filter_low(&s_chg_utp, battery_temp,
                            g_tParam.protect.u16TchgUTp_Third,
                            g_tParam.protect.u16TchgUTp_Rcv,
                            g_tParam.protect.u16TchgUTp_Filter);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp =
-            dvc_filter_high(&s_dsg_otp,
-                            battery_temp,
+            dvc_filter_high(&s_dsg_otp, battery_temp,
                             g_tParam.protect.u16TdischgOTp_Third,
                             g_tParam.protect.u16TdischgOTp_Rcv,
                             g_tParam.protect.u16TdischgOTp_Filter);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp =
-            dvc_filter_low(&s_dsg_utp,
-                           battery_temp,
+            dvc_filter_low(&s_dsg_utp, battery_temp,
                            g_tParam.protect.u16TdischgUTp_Third,
                            g_tParam.protect.u16TdischgUTp_Rcv,
                            g_tParam.protect.u16TdischgUTp_Filter);
+    }
+    else
+    {
+        s_chg_otp.active = s_chg_utp.active = 0u;
+        s_dsg_otp.active = s_dsg_utp.active = 0u;
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp = 0u;
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp = 0u;
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp = 0u;
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp = 0u;
     }
 
     if (mos_temp != 0u)
     {
         g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp =
-            dvc_filter_high(&s_mos_otp,
-                            mos_temp,
+            dvc_filter_high(&s_mos_otp, mos_temp,
                             g_tParam.protect.u16TmosOTp_Third,
                             g_tParam.protect.u16TmosOTp_Rcv,
                             g_tParam.protect.u16TmosOTp_Filter);
+    }
+    else
+    {
+        s_mos_otp.active = 0u;
+        g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp = 0u;
     }
 
     if (alarm & DVC_BMS_ALARM_SCD)
@@ -338,7 +323,8 @@ static uint8_t dvc_charge_blocked(void)
     const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
 
     return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
-            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp) ? 1u : 0u;
+            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
+            System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
 }
 
 static uint8_t dvc_discharge_blocked(void)
@@ -347,7 +333,8 @@ static uint8_t dvc_discharge_blocked(void)
 
     return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
             f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
-            System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG)) ? 1u : 0u;
+            System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ||
+            System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
 }
 
 void DVC1124_BmsApp_AFEGet(void)
@@ -358,10 +345,7 @@ void DVC1124_BmsApp_AFEGet(void)
 
     DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
-    if (!snapshot.valid)
-    {
-        return;
-    }
+    if (!snapshot.valid) return;
 
     DVC1124_GetConfig(&cfg);
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
@@ -372,25 +356,14 @@ uint8_t DVC1124_BmsCompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t
 {
     uint8_t value;
 
-    if ((wr_buf == NULL) || (length == 0u))
-    {
-        return 0u;
-    }
+    if ((wr_buf == NULL) || (length == 0u)) return 0u;
 
     if (wr_addr != 0x40u)
-    {
         return DVC1124_CompatMTPWrite(wr_addr, length, wr_buf);
-    }
 
     value = wr_buf[0];
     /* Legacy SH367309 MTP_CONF: bit4=CHGMOS, bit5=DSGMOS. */
-    if ((value & 0x10u) && dvc_charge_blocked())
-    {
-        value &= (uint8_t)~0x10u;
-    }
-    if ((value & 0x20u) && dvc_discharge_blocked())
-    {
-        value &= (uint8_t)~0x20u;
-    }
+    if ((value & 0x10u) && dvc_charge_blocked()) value &= (uint8_t)~0x10u;
+    if ((value & 0x20u) && dvc_discharge_blocked()) value &= (uint8_t)~0x20u;
     return DVC1124_CompatMTPWrite(wr_addr, 1u, &value);
 }
