@@ -71,7 +71,11 @@ UINT8 IsChargerWakeupActive(void)
 }
 UINT8 IsKeyWakeupActive(void)
 {
+#ifdef _DI_SWITCH_SYS_ONOFF
 	return !gpio_read(SW_PIN);
+#else
+	return true;
+#endif // _DI_SWITCH_SYS_ONOFF
 }
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
@@ -1324,7 +1328,7 @@ void blt_pm_proc(void)
 	if (!gpio_read(CHG_IN_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
 		g_stCellInfoReport.u16IDischg ||
-		MODE_FACTORY == Runtime_GetMode() ||
+		// MODE_FACTORY == Runtime_GetMode() ||
 		ota_is_working)
 	// if(
 	// 	g_stCellInfoReport.u16IDischg

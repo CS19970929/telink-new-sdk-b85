@@ -4,7 +4,7 @@
 #include "tl_common.h"
 
 #define FACTORY_TIME_LIMIT_MIN   (60 * 24 * 3)   // 7��
-// #define FACTORY_TIME_LIMIT_MIN   (3)   // 7��
+// #define FACTORY_TIME_LIMIT_MIN   (10)   // 7��
 
 typedef enum
 {

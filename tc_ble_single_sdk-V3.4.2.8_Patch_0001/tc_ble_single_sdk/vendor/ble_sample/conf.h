@@ -18,7 +18,7 @@
 #define _FUNC_UART_
 
 #ifndef  FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF	
+// #define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
 #define __SLEEP_VNORMAL__             	(3000)
@@ -42,7 +42,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   D3PRO
+#define FD_BMS_TYPE   T1_AND_T2
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
 
@@ -125,10 +125,11 @@
 #elif (FD_BMS_TYPE == T1_AND_T2)
 #define SeriesNum  (13)
 #define CapacityFactory (225)
-#define AFE_ODC1       		(500) 
-#define AFE_ODC2       		(800) 
+#define AFE_ODC1       		(600) 
+#define AFE_ODC2       		(900) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D007" 
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D007-20260910"
 #elif (FD_BMS_TYPE == D3PRO)
 #define SeriesNum  (10)
 #define CapacityFactory (78)
@@ -265,7 +266,7 @@ extern Time_T  sys_time;
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0831u
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0006u
 #endif
 
 
