@@ -288,4 +288,41 @@ extern Time_T  sys_time;
 #define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
 #endif
 
+/*
+ * DVC1124 application compatibility layer.
+ *
+ * app_config.h is included from gpio_default.h while the Telink driver headers
+ * are still being parsed, so redefining adc_* or gpio_* there corrupts SDK
+ * declarations. conf.h is included by app.h after drivers.h in the BMS
+ * application translation units. I2C_SLAVE_DEVICE_NO_START_EN is used as the
+ * marker that i2c.h (and the preceding gpio/adc headers) has already finished.
+ *
+ * sh367309_datadeal.c includes conf.h before drivers.h, therefore this block is
+ * intentionally inactive there; the legacy source keeps its own symbol names
+ * and can continue supplying shared tables/error helpers without collisions.
+ */
+#if defined(DVC1124_AFE_PROJECT) && DVC1124_AFE_PROJECT && \
+    defined(I2C_SLAVE_DEVICE_NO_START_EN) && !defined(DVC1124_IMPLEMENTATION)
+#define App_AFEGet                  DVC1124_BmsApp_AFEGet
+#define AFE_Reset                   DVC1124_AFE_Reset
+#define AFE_IsReady                 DVC1124_AFE_IsReady
+#define AFE_Sleep                   DVC1124_AFE_Sleep
+#define SH367309_UpdataAfeConfig    DVC1124_UpdataAfeConfig
+#define MTPWrite                    DVC1124_BmsCompatMTPWrite
+
+#define adc_base_init(pin) \
+        DVC1124_CompatAdcBaseInit((unsigned int)(pin))
+#define adc_sample_and_get_result() \
+        DVC1124_CompatAdcSample()
+
+#define gpio_set_func(pin, func) \
+        DVC1124_CompatGpioSetFunc((unsigned int)(pin), (unsigned int)(func))
+#define gpio_set_input_en(pin, value) \
+        DVC1124_CompatGpioSetInputEn((unsigned int)(pin), (unsigned int)(value))
+#define gpio_set_output_en(pin, value) \
+        DVC1124_CompatGpioSetOutputEn((unsigned int)(pin), (unsigned int)(value))
+#define gpio_write(pin, value) \
+        DVC1124_CompatGpioWrite((unsigned int)(pin), (unsigned int)(value))
+#endif
+
 #endif
