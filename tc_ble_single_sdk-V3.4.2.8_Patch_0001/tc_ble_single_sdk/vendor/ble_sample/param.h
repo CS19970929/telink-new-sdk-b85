@@ -19,7 +19,7 @@
 #include "conf.h"
 
 //typedef u16 u16;
-#define SNum (4)
+#define SNum (SeriesNum)
 
 /* 涓嬮潰2琛屽畯鍙兘閫夋嫨鍏朵竴 */
 // #define PARAM_SAVE_TO_EEPROM			/* 鍙傛暟瀛樺偍鍒板閮ㄧ殑EEPROM (AT24C128) */
