@@ -64,6 +64,22 @@ typedef struct
 #define DVC1124_MAX_CELLS                    24u
 #define DVC1124_MAX_GP                       6u
 
+#ifndef DVC1124_DEFAULT_MODEL
+#define DVC1124_DEFAULT_MODEL                DVC1124_MODEL_22
+#endif
+
+#ifndef DVC1124_DEFAULT_ADDR_MODE
+#define DVC1124_DEFAULT_ADDR_MODE            DVC1124_ADDR_FIXED
+#endif
+
+#ifndef DVC1124_DEFAULT_HARDWIRE_CODE
+#define DVC1124_DEFAULT_HARDWIRE_CODE        0u
+#endif
+
+#ifndef DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR
+#define DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR  DVC1124_FIXED_WRITE_ADDR
+#endif
+
 #ifndef DVC1124_DEFAULT_CELL_COUNT
 #define DVC1124_DEFAULT_CELL_COUNT           24u
 #endif
