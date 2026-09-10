@@ -174,8 +174,13 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
 
     if (clear_mask == 0u) return alarm;
 
-    /* Alarm bits clear by writing 0; writing 1 is ineffective. */
-    write_value = (uint8_t)(alarm & (uint8_t)~clear_mask);
+    /*
+     * Alarm flags are W0C: writing 0 clears, writing 1 is ineffective.
+     * Write 1 to every non-target flag instead of mirroring a stale alarm
+     * snapshot; otherwise a new fault that rises between read and write could
+     * be unintentionally cleared.
+     */
+    write_value = (uint8_t)~clear_mask;
     if (!DVC1124_WriteRegisters(DVC_BMS_REG_ALARM, &write_value, 1u)) return alarm;
     if (!DVC1124_ReadRegisters(DVC_BMS_REG_ALARM, &verify, 1u)) return alarm;
     return verify;
@@ -337,6 +342,27 @@ static uint8_t dvc_discharge_blocked(void)
             System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
 }
 
+static uint8_t dvc_enforce_fault_fet_state(void)
+{
+    uint8_t charge_on = SystemStatus.bits.b1Status_MOS_CHG ? 1u : 0u;
+    uint8_t discharge_on = SystemStatus.bits.b1Status_MOS_DSG ? 1u : 0u;
+    uint8_t requested_charge = charge_on;
+    uint8_t requested_discharge = discharge_on;
+
+    if (dvc_charge_blocked()) charge_on = 0u;
+    if (dvc_discharge_blocked()) discharge_on = 0u;
+
+    if ((charge_on == requested_charge) && (discharge_on == requested_discharge))
+        return 1u;
+
+    if (!DVC1124_SetMosState(charge_on, discharge_on))
+    {
+        (void)System_ERROR_UserCallback(ERROR_AFE1);
+        return 0u;
+    }
+    return 1u;
+}
+
 void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
@@ -350,6 +376,14 @@ void DVC1124_BmsApp_AFEGet(void)
     DVC1124_GetConfig(&cfg);
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
     dvc_publish_faults(alarm, &cfg);
+
+    /*
+     * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, but pack
+     * voltage and external-NTC protections are software-only. Enforce the
+     * fault decision immediately; do not wait for app.c mos_update() to notice
+     * a target-state change because its target is based on charger/key state.
+     */
+    (void)dvc_enforce_fault_fet_state();
 }
 
 uint8_t DVC1124_BmsCompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf)
