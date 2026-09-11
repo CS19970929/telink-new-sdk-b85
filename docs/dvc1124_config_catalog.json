@@ -1,0 +1,271 @@
+{
+  "schema_version": "1.0.0",
+  "chip": "DVC1124-2",
+  "reference": "DVC1124-2 Reference Manual V1.2",
+  "purpose": "Machine-readable DVC register/config metadata for firmware diagnostics and BLE/UART clients.",
+  "rules": {
+    "reserved_bits": "preserve",
+    "raw_read_range": "0x00..0x90",
+    "raw_write_policy": "documented stable configuration fields only; runtime/command/status fields excluded",
+    "semantic_transport_base": "0x2800",
+    "raw_transport_base": "0x2900"
+  },
+  "registers": [
+    {
+      "address": "0x51",
+      "name": "FET_CTRL",
+      "reset": "0x00",
+      "persistent": false,
+      "fields": [
+        {"bits":"7","name":"LDPU","access":"RW","meaning":"LOAD pull-up; auto clears after about 60s"},
+        {"bits":"6","name":"PDSGC","access":"RW","meaning":"PDSG output enable"},
+        {"bits":"5","name":"PCHGC","access":"RW","meaning":"PCHG output enable"},
+        {"bits":"4","name":"DSGM","access":"RW","meaning":"DSG output mode"},
+        {"bits":"3:2","name":"DSGC","access":"RW","enum":{"0":"off","1":"off_alt","2":"off_with_body_diode_auto_on","3":"on"}},
+        {"bits":"1:0","name":"CHGC","access":"RW","enum":{"0":"off","1":"off_alt","2":"off_with_body_diode_auto_on","3":"on"}}
+      ]
+    },
+    {
+      "address":"0x52",
+      "name":"DSG_PULLDOWN",
+      "reset":"0x90",
+      "fields":[
+        {"bits":"7","name":"PDWM","access":"RW","meaning":"I2C watchdog timeout effect on PDSG"},
+        {"bits":"6:5","name":"UNNAMED","access":"unknown","policy":"preserve"},
+        {"bits":"4:0","name":"DPC","access":"RW","range":"0..30","meaning":"DSG pull-down strength"}
+      ],
+      "semantic_registers":{"DPC":"0x2832"}
+    },
+    {
+      "address":"0x53",
+      "name":"DSG_MASK",
+      "reset":"0x59",
+      "fields":[
+        {"bits":"7","name":"PDDM","access":"RW"},
+        {"bits":"6","name":"PCWM","access":"RW"},
+        {"bits":"5","name":"PCCM","access":"RW"},
+        {"bits":"4","name":"PCDM","access":"RW"},
+        {"bits":"3","name":"DWM","access":"RW","meaning":"mask I2C watchdog action on DSG"},
+        {"bits":"2","name":"DDM","access":"RW"},
+        {"bits":"1","name":"DPDM","access":"RW"},
+        {"bits":"0","name":"DBDM","access":"RW"}
+      ],
+      "semantic_registers":{"I2C_TIMEOUT_CLOSE_DSG":"0x2834"}
+    },
+    {
+      "address":"0x54",
+      "name":"CHG_MASK",
+      "reset":"0xF9",
+      "fields":[
+        {"bits":"7","name":"CWM","access":"RW","meaning":"mask I2C watchdog action on CHG"},
+        {"bits":"6","name":"CO1M","access":"RW"},
+        {"bits":"5","name":"CO2M","access":"RW"},
+        {"bits":"4","name":"CSM","access":"RW"},
+        {"bits":"3","name":"CDM","access":"RW"},
+        {"bits":"2","name":"CCM","access":"RW"},
+        {"bits":"1","name":"CPCM","access":"RW"},
+        {"bits":"0","name":"CBDM","access":"RW"}
+      ],
+      "semantic_registers":{"I2C_TIMEOUT_CLOSE_CHG":"0x2833"}
+    },
+    {
+      "address":"0x55",
+      "name":"CADC_CTRL",
+      "reset":"0x2C",
+      "fields":[
+        {"bits":"7","name":"HSFM","access":"RW","meaning":"high-side FET output mask"},
+        {"bits":"6:4","name":"UNNAMED","policy":"preserve"},
+        {"bits":"3","name":"CAEW","access":"RW","meaning":"CADC enabled in work state"},
+        {"bits":"2","name":"CAES","access":"RW","meaning":"sleep current-wake engine enable"},
+        {"bits":"1","name":"UNNAMED","policy":"preserve"},
+        {"bits":"0","name":"CAMZ","access":"RW_COMMAND","meaning":"manual zero calibration; self-clearing","persistent":false}
+      ],
+      "semantic_registers":{"HSFM":"0x2810","CAEW":"0x2811","CAES":"0x2812"}
+    },
+    {
+      "address":"0x56",
+      "name":"CC1_TIMING",
+      "reset":"0xFF",
+      "fields":[
+        {"bits":"7:4","name":"UNNAMED","policy":"preserve"},
+        {"bits":"3:2","name":"C1OW","access":"RW","enum":{"0":"0.5ms","1":"1ms","2":"2ms","3":"4ms"}},
+        {"bits":"1:0","name":"C1OS","access":"RW","enum":{"0":"4ms","1":"8ms","2":"16ms","3":"32ms"}}
+      ],
+      "semantic_registers":{"C1OW":"0x2813","C1OS":"0x2814"}
+    },
+    {
+      "address":"0x59",
+      "name":"OCD1_THR",
+      "reset":"0x00",
+      "formula":"0 disables; Vsense=code*0.25mV",
+      "semantic_register":"0x2844"
+    },
+    {
+      "address":"0x5A",
+      "name":"OCC1_THR",
+      "reset":"0x00",
+      "formula":"0 disables; Vsense=code*0.25mV",
+      "semantic_register":"0x2846"
+    },
+    {
+      "address":"0x5B",
+      "name":"OCD1_DLY",
+      "reset":"0x00",
+      "formula":"(code+1)*8ms",
+      "semantic_register":"0x2845"
+    },
+    {
+      "address":"0x5C",
+      "name":"OCC1_DLY",
+      "reset":"0x00",
+      "formula":"(code+1)*8ms",
+      "semantic_register":"0x2847"
+    },
+    {
+      "address":"0x5E",
+      "name":"OCD2",
+      "reset":"0x40",
+      "fields":[
+        {"bits":"7","name":"R","access":"R","policy":"preserve"},
+        {"bits":"6","name":"OCD2E","access":"RW"},
+        {"bits":"5:0","name":"OCD2T","access":"RW","formula":"Vsense=(code+1)*4mV"}
+      ],
+      "semantic_register":"0x2848"
+    },
+    {
+      "address":"0x5F",
+      "name":"OCC2",
+      "reset":"0xC0",
+      "fields":[
+        {"bits":"7","name":"UNNAMED","access":"RW","policy":"preserve"},
+        {"bits":"6","name":"OCC2E","access":"RW"},
+        {"bits":"5:0","name":"OCC2T","access":"RW","formula":"Vsense=(code+1)*4mV"}
+      ],
+      "semantic_register":"0x284A"
+    },
+    {"address":"0x60","name":"OCD2_DLY","reset":"0x00","formula":"(code+1)*4ms","semantic_register":"0x2849"},
+    {"address":"0x61","name":"OCC2_DLY","reset":"0x00","formula":"(code+1)*4ms","semantic_register":"0x284B"},
+    {
+      "address":"0x62",
+      "name":"SCD",
+      "reset":"0x40",
+      "fields":[
+        {"bits":"7","name":"R","access":"R","policy":"preserve"},
+        {"bits":"6","name":"SCDE","access":"RW"},
+        {"bits":"5:0","name":"SCDT","access":"RW","formula":"Vsense=code*10mV"}
+      ],
+      "semantic_register":"0x284C",
+      "release_status":"TODO_VERIFY_HW"
+    },
+    {"address":"0x63","name":"SCD_DLY","reset":"0x00","formula":"code*7.81us","semantic_register":"0x284D","release_status":"TODO_VERIFY_HW"},
+    {"address":"0x65","name":"CURRENT_WAKE","reset":"0x00","formula":"0 disables; else code*10uV","semantic_register":"0x2830"},
+    {"address":"0x66","name":"BODY_DIODE","reset":"0x00","formula":"0 disables; else code*40uV","semantic_register":"0x2831","release_status":"TODO_VERIFY_HW"},
+    {"address":"0x67..0x69","name":"CELL_BALANCE","reset":"0x00","persistent":false,"meaning":"CB24..CB1; automatically clears after about 60s"},
+    {"address":"0x6A..0x6C","name":"CELL_AND_MEAS_MASK","reset":"0x00","meaning":"CM24..CM5 plus PKM/LDM/CTM/V1P8M"},
+    {
+      "address":"0x6D",
+      "name":"CP_CTRL",
+      "reset":"0x28",
+      "fields":[
+        {"bits":"7:6","name":"UNNAMED","policy":"preserve"},
+        {"bits":"5:3","name":"CPVS","access":"RW","enum":{"0":"off","1":"6V","2":"7V","3":"8V","4":"9V","5":"10V","6":"11V","7":"12V"}},
+        {"bits":"2","name":"COW","access":"RW_COMMAND","meaning":"start open-wire; auto clears after about 1s","persistent":false},
+        {"bits":"1","name":"CMM","access":"RW","meaning":"cell measurement mask"},
+        {"bits":"0","name":"CVS","access":"RW","meaning":"cell voltage data format"}
+      ],
+      "semantic_registers":{"CPVS":"0x2815","CMM":"0x2816","CVS":"0x2817"}
+    },
+    {
+      "address":"0x6E",
+      "name":"VADC_CTRL",
+      "reset":"0xCD",
+      "fields":[
+        {"bits":"7","name":"VAE","access":"RW"},
+        {"bits":"6","name":"VASM","access":"RW","meaning":"synchronize VADC with CC2"},
+        {"bits":"5:4","name":"VAMP","access":"RW","enum":{"0":"every 1 CC2","1":"every 2 CC2","2":"every 4 CC2","3":"every 8 CC2"}},
+        {"bits":"3:2","name":"UNNAMED","policy":"preserve"},
+        {"bits":"1:0","name":"VAO","access":"RW","enum":{"0":"0.79ms","1":"1.54ms","2":"3.03ms","3":"6.02ms"}}
+      ],
+      "semantic_registers":{"VAE":"0x2818","VASM":"0x2819","VAMP":"0x281A","VAO":"0x281B"}
+    },
+    {"address":"0x70..0x71","name":"COV","formula":"code=0 disables; Vtrip=code+500mV; delay code table 200ms..8s","requested_registers":["0x2840","0x2841"],"effective_registers":["0x2850","0x2851"]},
+    {"address":"0x72..0x73","name":"CUV","formula":"code=0 disables; Vtrip=code mV; delay code table 200ms..8s","requested_registers":["0x2842","0x2843"],"effective_registers":["0x2852","0x2853"]},
+    {
+      "address":"0x74",
+      "name":"GP123_MODE",
+      "reset":"0x00",
+      "fields":[
+        {"bits":"7:6","name":"GP1M","enum":{"0":"off","1":"NTC","2":"analog","3":"CON"}},
+        {"bits":"5:3","name":"GP2M","enum":{"0":"off","1":"NTC","2":"analog","3":"N/A","4":"N/A","5":"N/A","6":"INT","7":"low-side PDSG"}},
+        {"bits":"2:0","name":"GP3M","enum":{"0":"off","1":"NTC","2":"analog","3":"N/A","4":"N/A","5":"N/A","6":"INT","7":"low-side PCHG"}}
+      ],
+      "semantic_registers":{"GP1":"0x2820","GP2":"0x2821","GP3":"0x2822"}
+    },
+    {
+      "address":"0x75",
+      "name":"GP456_MODE",
+      "reset":"0x00",
+      "fields":[
+        {"bits":"7:6","name":"GP4M","enum":{"0":"off","1":"NTC","2":"analog","3":"DON"}},
+        {"bits":"5:3","name":"GP5M","enum":{"0":"off","1":"NTC","2":"analog","3":"N/A","4":"N/A","5":"N/A","6":"INT","7":"low-side CHG"}},
+        {"bits":"2:0","name":"GP6M","enum":{"0":"off","1":"NTC","2":"analog","3":"N/A","4":"N/A","5":"N/A","6":"INT","7":"low-side DSG"}}
+      ],
+      "semantic_registers":{"GP4":"0x2823","GP5":"0x2824","GP6":"0x2825"}
+    },
+    {
+      "address":"0x76",
+      "name":"CORE_OT",
+      "reset":"0x00",
+      "fields":[
+        {"bits":"7","name":"COTF","access":"RC","meaning":"core over-temperature occurred"},
+        {"bits":"6:0","name":"COTT","access":"RW","formula":"0 disables; T=(1466+COTT*2)*0.24467-271.03 C"}
+      ],
+      "semantic_register":"0x2835",
+      "release_status":"TODO_VERIFY_HW"
+    },
+    {
+      "address":"0x77",
+      "name":"I2C_WDT_V3P3",
+      "reset":"0xC0",
+      "fields":[
+        {"bits":"7","name":"V3P3ES","access":"RW"},
+        {"bits":"6","name":"V3P3EW","access":"RW"},
+        {"bits":"5","name":"V3P3M","access":"RW"},
+        {"bits":"4","name":"IWTS","access":"R","meaning":"I2C watchdog timeout status"},
+        {"bits":"3","name":"UNNAMED","policy":"preserve"},
+        {"bits":"2:0","name":"IWT","access":"RW","enum":{"0XX":"off","4":"4s","5":"8s","6":"16s","7":"32s"}}
+      ],
+      "semantic_registers":{"V3P3ES":"0x2828","V3P3EW":"0x2829","V3P3M":"0x282A","IWT":"0x282B"}
+    },
+    {
+      "address":"0x78",
+      "name":"TIMED_WAKE",
+      "reset":"0x00",
+      "fields":[
+        {"bits":"7","name":"TIWK","access":"R"},
+        {"bits":"6:4","name":"UNNAMED","policy":"preserve"},
+        {"bits":"3:0","name":"TWSE","access":"RW","enum":{"0":"off","1":"10s","2":"20s","3":"30s","4":"40s","5":"50s","6":"1min","7":"2min","8":"3min","9":"4min","10":"5min","11":"6min","12":"7min","13":"8min","14":"9min","15":"10min"}}
+      ],
+      "semantic_register":"0x282C"
+    },
+    {
+      "address":"0x79",
+      "name":"INT_MASK",
+      "reset":"0x00",
+      "fields":[
+        {"bits":"7","name":"IWM"},
+        {"bits":"6","name":"IVOM"},
+        {"bits":"5","name":"ICCM"},
+        {"bits":"4","name":"ICOM"},
+        {"bits":"3","name":"ICUM"},
+        {"bits":"2","name":"IOC1M"},
+        {"bits":"1","name":"IOC2M"},
+        {"bits":"0","name":"ISCDM"}
+      ],
+      "semantic_register":"0x282D"
+    },
+    {"address":"0x7E","name":"FRT","access":"R","formula":"Rpu=6800+FRT*25 ohm"},
+    {"address":"0x8F","name":"CHIP_VERSION","access":"R"},
+    {"address":"0x90","name":"UNNAMED_R","access":"R"}
+  ]
+}
