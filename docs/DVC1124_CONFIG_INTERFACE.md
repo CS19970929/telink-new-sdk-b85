@@ -1,10 +1,10 @@
 # DVC1124-2 配置与通信接口
 
-> 分支：`feature/dvc1124-config-registry`
+> 分支：`feature/dvc1124-22-bms`
 >
 > 芯片寄存器依据：`DVC1124-2 Reference Manual V1.2`
 >
-> 目标：让 AFE 的寄存器事实、板级默认、BMS 保护参数、BLE/UART 通信接口彼此分层；业务代码不再依赖难以理解的 `0x49`、`0x7F`、`0x28` 等 magic value。
+> 目标：让 AFE 的寄存器事实、板级默认、BMS 保护参数、持久化和 BLE/UART 通信接口彼此分层；业务代码不再依赖难以理解的 `0x49`、`0x7F`、`0x28` 等 magic value。
 
 ## 1. 分层
 
@@ -23,7 +23,11 @@ DVC1124-2 V1.2 Reference Manual
         |               |
         v               v
  semantic config     raw diagnostics
-        |               |
+        |
+        v
+ dvc1124_config_store
+ AFE-only flash KV / restore
+        |
         +-------+-------+
                 |
           Modbus register map
@@ -50,9 +54,53 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
 - self-clearing command（例如 COW/CAMZ）不能当 persistent configuration；
 - Balance / FET state 属于 runtime control，不属于 persistent configuration。
 
-## 3. 语义配置窗口
+## 3. AFE 持久化
 
-### 3.1 基本信息 `0x2800..0x2806`
+DVC1124 专属工作配置使用独立 `flash_kv32` journal：
+
+```text
+512K: 0x5F000..0x62FFF
+4 x 4KB sectors
+```
+
+对应文件：
+
+```text
+vendor/ble_sample/dvc1124_config_store.h
+vendor/ble_sample/dvc1124_config_store.c
+```
+
+保存范围包括：
+
+- CADC / CC1 timing；
+- charge pump / VADC；
+- GP1..GP6 mode；
+- V3P3 / I2C watchdog / timed wake / interrupt mask；
+- current wake threshold；
+- body-diode threshold；
+- DSG pull-down strength；
+- I2C timeout 对 CHG/DSG 的动作策略；
+- DVC core over-temperature code；
+- SCD threshold / delay。
+
+COV/CUV/OCD/OCC **不重复存储**，继续由现有 `g_tParam.protect` / `cold_kv` 作为 requested source of truth。
+
+AFE reset 后的流程为：
+
+```text
+DVC register reset
+ -> apply existing board/protection configuration
+ -> load DVC semantic config KV
+ -> validate
+ -> apply using masked RMW/readback
+ -> normal sampling
+```
+
+配置 KV 无效或 schema 不匹配时使用当前项目 defaults；不能把未知旧数据直接解释为新配置。
+
+## 4. 语义配置窗口
+
+### 4.1 基本信息 `0x2800..0x2806`
 
 | 地址 | 名称 | 单位/值 | 权限 |
 |---:|---|---|---|
@@ -64,9 +112,9 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
 | `0x2805` | shunt low word | uOhm | R |
 | `0x2806` | shunt high word | uOhm | R |
 
-`cell count` 当前写入只修改 runtime driver config；持久化策略将在 AFE NVM transaction 阶段收口，因此量产上位机暂不应依赖该写入口。
+`cell count` 属于产品 profile/板型身份，不能与普通 AFE tuning 参数混为一类；当前 runtime 写入口不作为量产持久配置接口使用。
 
-### 3.2 CADC / VADC / charge-pump `0x2810..0x281B`
+### 4.2 CADC / VADC / charge-pump `0x2810..0x281B`
 
 | 地址 | 名称 | 通信值 |
 |---:|---|---|
@@ -83,7 +131,7 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
 | `0x281A` | VADC period | 1/2/4/8 CC2 cycles |
 | `0x281B` | VADC conversion time | 790/1540/3030/6020 us |
 
-### 3.3 GP modes `0x2820..0x2825`
+### 4.3 GP modes `0x2820..0x2825`
 
 通信值直接使用 V1.2 mode code。
 
@@ -98,7 +146,7 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
 
 `3/4/5` 对 GP2/3/5/6 在 V1.2 中为 N/A，语义接口拒绝写入。
 
-### 3.4 WDT / wake / body-diode / misc `0x2828..0x2835`
+### 4.4 WDT / wake / body-diode / misc `0x2828..0x2835`
 
 | 地址 | 名称 | 通信值 |
 |---:|---|---|
@@ -117,9 +165,9 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
 
 这些项目中有多项属于产品安全策略。接口存在不等于已经得到量产参数结论；未完成硬件验证的功能继续保持 fail-safe 默认 disabled。
 
-## 4. Protection requested / effective
+## 5. Protection requested / effective
 
-### 4.1 Requested `0x2840..0x284D`
+### 5.1 Requested `0x2840..0x284D`
 
 | 地址 | 参数 | 单位 |
 |---:|---|---|
@@ -142,9 +190,9 @@ COV/CUV/OCD/OCC **不建立第二套保护参数**：它们映射现有 `g_tPara
 
 当前 BMS 参数模型只有一组充/放过流 filter，因此 OC1 和 OC2 delay alias 最终仍映射同一 filter 字段。这是当前 BMS 参数模型的约束，不应在通信层伪造两套独立持久参数。
 
-SCD 当前没有既有产品参数字段，`0x284C/0x284D` 仅作为调试阶段 runtime request；量产前必须完成硬件验证和持久化策略，不得默认开启。
+SCD 没有历史 `g_tParam` 字段，因此由 `dvc1124_config_store` 独立保存；量产前仍必须通过硬件测试确定 threshold/delay，默认保持 disabled。
 
-### 4.2 Effective `0x2850..0x285D`
+### 5.2 Effective `0x2850..0x285D`
 
 与 requested 一一对应，但值从**当前 DVC 寄存器实时反解**，只读。
 
@@ -158,7 +206,7 @@ actual/effective 20.0A   (200uOhm shunt)
 
 不能把硬件量化后的值伪装成 requested 值。
 
-## 5. Raw register mirror `0x2900..0x2990`
+## 6. Raw register mirror `0x2900..0x2990`
 
 映射：
 
@@ -182,16 +230,27 @@ Modbus/BLE 0x2900 + DVC register offset
 - Alarm、CST、FET runtime control、Balance、COW、CAMZ 等不是 persistent raw config，不经该 raw 写入口修改；
 - Raw write 是工厂/诊断能力，不应该成为普通用户参数页的首选接口；生产版本还需增加权限/模式门禁。
 
-## 6. 当前尚未完成的事项
+## 7. 当前开发状态与下一步
 
-本轮先建立**寄存器真值 + 语义配置 + BLE/UART 共用入口**。以下项目在合入量产分支前继续完成：
+已经完成：
 
-1. AFE operating config 独立 Flash KV 持久化与 transaction commit；
+1. V1.2 寄存器真值集中到 `dvc1124_reg.h`；
+2. board defaults 改成语义化配置，不再要求人工解释 `0x49/0x7F`；
+3. UART + BLE 共享 `0x2800/0x2900` AFE 窗口；
+4. requested/effective 保护值分离；
+5. 独立 DVC AFE `flash_kv32` 区与 reset 后恢复路径；
+6. SCD、WDT、GP、Body Diode 等 DVC 专属配置已有独立持久化数据模型。
+
+仍需继续闭环：
+
+1. 通信语义写入口与 AFE config KV 做原子/事务式 commit，避免 multi-write 半更新；
 2. raw/safety write 增加 Factory/Debug 权限门禁；
 3. Modbus 写失败返回明确 exception/status，而不是单纯 echo；
 4. `dvc1124.c` 内旧的局部 `DVC_REG_*` 别名迁移到 `dvc1124_reg.h` 唯一真值；
-5. `register_catalog.json` 纳入该 schema，生成 Win/macOS/Android/iOS 客户端定义；
-6. TC32 `bms.py ci` 编译、静态分析、MAP/size 对比；
-7. HS-D008 实板验证 COV/CUV/OC、SCD、WDT、Body Diode、Sleep/Wake、GP mode。
+5. `dvc1124_bms.c` 的 Alarm bit 重复定义删除；
+6. `register_catalog.json` 纳入完整 AFE schema，生成 Win/macOS/Android/iOS 客户端定义；
+7. `tests_flash_quick_check.py` 持续覆盖新 AFE KV 区；
+8. TC32 `bms.py ci` 编译、静态分析、MAP/size 对比；
+9. HS-D008 实板验证 COV/CUV/OC、SCD、WDT、Body Diode、Sleep/Wake、GP mode。
 
-在以上项目闭环前，本分支属于**开发分支，不直接作为量产 release**。
+在以上项目闭环前，本分支仍属于**开发分支，不直接作为量产 release**。
