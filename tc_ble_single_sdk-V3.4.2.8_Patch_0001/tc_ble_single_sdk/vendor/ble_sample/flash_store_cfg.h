@@ -21,24 +21,28 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #define FLASH_ADDR_RUNTIME_SECTORS             2u
 #define FLASH_ADDR_RUN_KV_SECTORS              8u
 #define FLASH_ADDR_LOG_SECTORS                 8u
+#define FLASH_ADDR_AFE_CFG_KV_SECTORS          4u
 #define RUNTIME_FLAG                           0xA5A5u
 
 #define FLASH_ADDR_LAYOUT_512K_BTNAME_BASE           0x50000u
 #define FLASH_ADDR_LAYOUT_512K_RUNTIME_BASE          0x51000u
 #define FLASH_ADDR_LAYOUT_512K_RUN_KV_BASE           0x53000u
 #define FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT          0x5B000u
+#define FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE       0x5F000u
 #define FLASH_ADDR_LAYOUT_512K_LOG_BASE              0x40000u
 
 #define FLASH_ADDR_LAYOUT_1M_BTNAME_BASE             0xC0000u
 #define FLASH_ADDR_LAYOUT_1M_RUNTIME_BASE            0xC1000u
 #define FLASH_ADDR_LAYOUT_1M_RUN_KV_BASE             0xB0000u
 #define FLASH_ADDR_LAYOUT_1M_SOFT_PROTECT            0xB8000u
+#define FLASH_ADDR_LAYOUT_1M_AFE_CFG_KV_BASE         0xBC000u
 #define FLASH_ADDR_LAYOUT_1M_LOG_BASE                0xC7000u
 
 #define FLASH_ADDR_LAYOUT_2M_BTNAME_BASE             0x1C0000u
 #define FLASH_ADDR_LAYOUT_2M_RUNTIME_BASE            0x1C1000u
 #define FLASH_ADDR_LAYOUT_2M_RUN_KV_BASE             0x1B0000u
 #define FLASH_ADDR_LAYOUT_2M_SOFT_PROTECT            0x1B8000u
+#define FLASH_ADDR_LAYOUT_2M_AFE_CFG_KV_BASE         0x1BC000u
 #define FLASH_ADDR_LAYOUT_2M_LOG_BASE                0x1C7000u
 
 static inline int flash_store_cfg_layout_supported(void)
@@ -114,6 +118,34 @@ static inline u32 flash_store_cfg_get_cold_kv_base(void)
         return FLASH_ADDR_LAYOUT_2M_SOFT_PROTECT;
     }
     return FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT;
+}
+
+/*
+ * DVC1124 semantic AFE configuration store.
+ *
+ * The four sectors immediately after the cold parameter store are kept as an
+ * independent KV journal so AFE operating fields can evolve without changing
+ * the legacy BMS parameter layout. COV/CUV/OCD/OCC remain owned by g_tParam and
+ * are therefore intentionally not duplicated in this region.
+ */
+static inline u32 flash_store_cfg_get_afe_cfg_kv_base(void)
+{
+    if (!flash_store_cfg_layout_supported()) {
+        return 0u;
+    }
+
+    if (blc_flash_capacity == FLASH_SIZE_1M) {
+        return FLASH_ADDR_LAYOUT_1M_AFE_CFG_KV_BASE;
+    }
+    if (blc_flash_capacity == FLASH_SIZE_2M) {
+        return FLASH_ADDR_LAYOUT_2M_AFE_CFG_KV_BASE;
+    }
+    return FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE;
+}
+
+static inline u16 flash_store_cfg_get_afe_cfg_kv_sectors(void)
+{
+    return FLASH_ADDR_AFE_CFG_KV_SECTORS;
 }
 
 static inline u32 flash_store_cfg_get_event_log_base(void)
