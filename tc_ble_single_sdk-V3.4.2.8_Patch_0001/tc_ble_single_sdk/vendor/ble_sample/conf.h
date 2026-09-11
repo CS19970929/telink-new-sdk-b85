@@ -8,6 +8,7 @@
 #include "stdint.h"
 #include "flash_store_cfg.h"
 #include "dvc1124.h"
+#include "dvc1124_config_store.h"
 
 // #define __VIRTURE_CURRENT__
 // #define FAC_TEST
@@ -300,14 +301,18 @@ extern Time_T  sys_time;
  * sh367309_datadeal.c includes conf.h before drivers.h, therefore this block is
  * intentionally inactive there; the legacy source keeps its own symbol names
  * and can continue supplying shared tables/error helpers without collisions.
+ *
+ * AFE reset/config/sample hooks go through dvc1124_config_store so semantic
+ * operating settings are restored after reset and remain independent from the
+ * legacy SH367309 application ABI.
  */
 #if defined(DVC1124_AFE_PROJECT) && DVC1124_AFE_PROJECT && \
     defined(I2C_SLAVE_DEVICE_NO_START_EN) && !defined(DVC1124_IMPLEMENTATION)
-#define App_AFEGet                  DVC1124_BmsApp_AFEGet
-#define AFE_Reset                   DVC1124_AFE_Reset
+#define App_AFEGet                  DVC1124_ConfigStore_BmsApp_AFEGet
+#define AFE_Reset                   DVC1124_ConfigStore_AFE_Reset
 #define AFE_IsReady                 DVC1124_AFE_IsReady
 #define AFE_Sleep                   DVC1124_AFE_Sleep
-#define SH367309_UpdataAfeConfig    DVC1124_UpdataAfeConfig
+#define SH367309_UpdataAfeConfig    DVC1124_ConfigStore_UpdataAfeConfig
 #define MTPWrite                    DVC1124_BmsCompatMTPWrite
 
 #define adc_base_init(pin) \
