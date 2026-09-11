@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Host-only DVC1124 configuration contract checks.
+"""Quick host-only DVC1124 configuration contract checks.
 
 No TC32 toolchain is required. These checks are deliberately source-level so
-that register truth, persistence boundaries and communication ownership do not
-silently regress while the target build remains tied to the vendor compiler.
+register truth, persistence boundaries and transport ownership cannot silently
+regress while the target build remains tied to the vendor compiler.
 """
 
 import re
@@ -16,6 +16,8 @@ REG_H = HERE / "dvc1124_reg.h"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
 CONFIG_STORE_C = HERE / "dvc1124_config_store.c"
+CONFIG_SERVICE_H = HERE / "dvc1124_config_service.h"
+CONFIG_SERVICE_C = HERE / "dvc1124_config_service.c"
 FLASH_CFG_H = HERE / "flash_store_cfg.h"
 MODBUS_H = HERE / "modbus_rtu.h"
 MODBUS_C = HERE / "modbus_rtu.c"
@@ -130,6 +132,39 @@ class ConfigStoreTests(unittest.TestCase):
         self.assertIn("cfg->scd_threshold_mv > 630u", self.src)
 
 
+class ConfigServiceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.hdr = read(CONFIG_SERVICE_H)
+        cls.src = read(CONFIG_SERVICE_C)
+
+    def test_field_ids_are_transport_neutral(self):
+        self.assertIn("dvc1124_config_field_t", self.hdr)
+        self.assertIn("DVC1124_ConfigServiceRead", self.hdr)
+        self.assertIn("DVC1124_ConfigServiceWrite", self.hdr)
+
+    def test_afe_write_rolls_back_when_kv_save_fails(self):
+        self.assertIn("DVC1124_ConfigStoreApply(after)", self.src)
+        self.assertIn("DVC1124_ConfigStoreSave(after)", self.src)
+        self.assertIn("DVC1124_ConfigStoreApply(before)", self.src)
+
+    def test_existing_bms_protection_store_remains_source_of_truth(self):
+        self.assertIn("struct PRT_E2ROM_PARAS candidate = g_tParam.protect", self.src)
+        self.assertIn("bms_cold_kv_store_set_protect(&candidate)", self.src)
+        self.assertIn("g_tParam.protect = candidate", self.src)
+        self.assertIn("AFE_PARAM_WRITE_Flag = 1", self.src)
+
+    def test_raw_write_is_factory_only(self):
+        self.assertIn("Runtime_GetMode() != MODE_FACTORY", self.src)
+        self.assertIn("DVC1124_CFG_ERR_FORBIDDEN", self.src)
+
+    def test_raw_write_decodes_into_semantic_config(self):
+        self.assertIn("dvc_cfg_raw_to_candidate", self.src)
+        self.assertIn("DVC1124_REG_GP123_MODE", self.src)
+        self.assertIn("DVC1124_REG_I2C_WDT", self.src)
+        self.assertIn("DVC1124_REG_CORE_OT", self.src)
+
+
 class TransportContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -139,24 +174,27 @@ class TransportContractTests(unittest.TestCase):
     def test_ble_uart_share_one_semantic_window(self):
         self.assertEqual(macro_int(self.hdr, "DVC1124_COMM_REG_BASE"), 0x2800)
         self.assertEqual(macro_int(self.hdr, "DVC1124_RAW_REG_BASE"), 0x2900)
-        self.assertIn("read_dvc1124_comm_reg", self.src)
-        self.assertIn("write_dvc1124_comm_reg", self.src)
+        self.assertIn("DVC1124_ConfigServiceRead", self.src)
+        self.assertIn("DVC1124_ConfigServiceWrite", self.src)
 
-    def test_requested_oc_uses_existing_bms_parameter_source(self):
-        self.assertIn("g_tParam.protect.u16IdsgOcp_First", self.src)
-        self.assertIn("g_tParam.protect.u16IchgOcp_First", self.src)
-        self.assertIn("SaveParam();", self.src)
-        self.assertIn("AFE_PARAM_WRITE_Flag = 1;", self.src)
+    def test_transport_no_longer_contains_dvc_register_encoding(self):
+        self.assertNotIn("dvc_current_x10_from_sense_uv", self.src)
+        self.assertNotIn("dvc_core_ot_code_from_x10", self.src)
+        self.assertNotIn("DVC1124_WriteRegisterFieldSafe", self.src)
+        self.assertNotIn("DVC1124_SetShortCircuitProtection", self.src)
 
-    @unittest.expectedFailure
     def test_semantic_write_failure_returns_modbus_exception(self):
-        """TODO: write_dvc1124_comm_reg is still void and needs status propagation."""
-        self.assertRegex(self.src, r"static\s+int\s+write_dvc1124_comm_reg")
+        self.assertIn("dvc_result_to_modbus_exception", self.src)
+        self.assertIn("MB_EX_ILLEGAL_VALUE", self.src)
+        self.assertIn("MB_EX_DEVICE_FAILURE", self.src)
+        self.assertIn("modbus_exception(addr, func, exception", self.src)
 
-    @unittest.expectedFailure
-    def test_raw_persistent_write_commits_afe_config_store(self):
-        """TODO: raw write currently changes live AFE before persistence wiring."""
-        self.assertIn("DVC1124_ConfigStoreWritePersistentRegister", self.src)
+    def test_dvc_multi_write_is_rejected_until_batch_transaction_exists(self):
+        self.assertIn("qty > 1u && dvc_comm_range_contains", self.src)
+        self.assertIn("Reject multi-field writes", self.src)
+
+    def test_raw_write_uses_factory_gated_config_service(self):
+        self.assertIn("DVC1124_ConfigServiceWriteRaw", self.src)
 
 
 if __name__ == "__main__":
