@@ -141,6 +141,16 @@
 #define DVC1124_DEFAULT_INTERRUPT_MASK           0x00u
 #endif
 
+/* R82 DPC reset default is 16. Keep it named so product tuning is explicit. */
+#ifndef DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH
+#define DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH    16u
+#endif
+
+/* COTT=0 keeps the DVC core over-temperature shutdown disabled. */
+#ifndef DVC1124_DEFAULT_CORE_OT_CODE
+#define DVC1124_DEFAULT_CORE_OT_CODE             0u
+#endif
+
 /*
  * Product safety defaults below remain disabled until the product thresholds
  * have been verified on hardware. They are defaults only; the runtime AFE
