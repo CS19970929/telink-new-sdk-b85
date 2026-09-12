@@ -27,8 +27,6 @@ _attribute_ram_code_ void sif_timer_irq_handler(void)
     }
 }
 
-extern struct stCell_Info g_stCellInfoReport;
-
 #ifdef _FUNC_SIF_
 
 static void sif_send_private_cell_voltages(void);

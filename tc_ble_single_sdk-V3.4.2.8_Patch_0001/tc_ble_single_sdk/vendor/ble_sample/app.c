@@ -35,8 +35,8 @@
 #include "modbus_rtu.h"
 
 #include "bms_afe.h"
+#include "bms_error.h"
 #include "bms_state.h"
-#include "sh367309_datadeal.h"
 
 #include "SocEnhance.h"
 #include "bms_event_log.h"
@@ -51,9 +51,7 @@
 extern void LoadParam(void);
 extern void Param_UpgradeReset_Apply(void);
 
-struct stCell_Info g_stCellInfoReport;
 Time_T sys_time;
-volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
@@ -114,8 +112,8 @@ static void app_event_log_1s_task(void)
 	memset(&sample, 0, sizeof(sample));
 	sample.sleep = sys_time.low_power_mode ? 1u : 0u;
 	sample.balance = ((g_stCellInfoReport.u16BalanceFlag1 != 0u) || (g_stCellInfoReport.u16BalanceFlag2 != 0u)) ? 1u : 0u;
-	sample.heat = SystemStatus.bits.b1Status_Heat ? 1u : 0u;
-	sample.cool = SystemStatus.bits.b1Status_Cool ? 1u : 0u;
+	sample.heat = g_bms_system_status.bits.b1Status_Heat ? 1u : 0u;
+	sample.cool = g_bms_system_status.bits.b1Status_Cool ? 1u : 0u;
 
 	sample.vcell_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp ? 1u : 0u;
 	sample.vbus_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp ? 1u : 0u;
@@ -129,13 +127,13 @@ static void app_event_log_1s_task(void)
 	sample.dsg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
 	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
 
-	sample.afe2_err = System_ERROR_UserCallback(ERROR_STATUS_AFE1) ? 1u : 0u;
-	eeprom_err = (System_ERROR_UserCallback(ERROR_STATUS_EEPROM_STORE) ||
-				  System_ERROR_UserCallback(ERROR_STATUS_EEPROM_COM))
+	sample.afe2_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
+	eeprom_err = (bms_error_get(BMS_ERROR_EEPROM_STORE) ||
+				  bms_error_get(BMS_ERROR_EEPROM_COM))
 					 ? 1u
 					 : 0u;
 	sample.eeprom_err = eeprom_err;
-	sample.cbc_err = System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ? 1u : 0u;
+	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
 }
@@ -262,8 +260,6 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
-extern volatile union System_Status SystemStatus;
-
 void mos_update(void)
 {
 	uint8_t chg_target = 0;
@@ -273,11 +269,11 @@ void mos_update(void)
 	{
 		chg_target = 1;
 		dsg_target = 0;
-		SystemStatus.bits.b1Status_Cool = 1;
+		g_bms_system_status.bits.b1Status_Cool = 1;
 	}
 	else if (IsKeyWakeupActive())
 	{
-		SystemStatus.bits.b1Status_Cool = 0;
+		g_bms_system_status.bits.b1Status_Cool = 0;
 		if(MODE_FACTORY == Runtime_GetMode())
 		{
 			chg_target = 1;
@@ -291,13 +287,13 @@ void mos_update(void)
 	}
 	else
 	{
-		SystemStatus.bits.b1Status_Cool = 0;
+		g_bms_system_status.bits.b1Status_Cool = 0;
 		chg_target = 0;
 		dsg_target = 0;
 	}
 
-	if(chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
-		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
+	if(chg_target != g_bms_system_status.bits.b1Status_MOS_CHG ||
+		dsg_target != g_bms_system_status.bits.b1Status_MOS_DSG)
 	{
 		(void)bms_afe_set_fets(chg_target, dsg_target);
 	}
@@ -306,7 +302,7 @@ void mos_update(void)
 
 #define LENGTH_TBLTEMP_MCU_10K ((UINT16)60)
 // const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
-const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
+static const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 	// AD		(Temp+40)*10
 	2037,
 	0, //-30
@@ -392,10 +388,10 @@ void app_adc_multi_sample(void)
 	}
 
 	(void)bms_afe_get_aux_measurements(&aux);
-	g_stCellInfoReport.u16Temperature[8] = GetEndValue(iSheldTemp_10K_mcu,
+	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(iSheldTemp_10K_mcu,
 											 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 											 (UINT16)aux.battery_ntc_100ohm);
-	g_stCellInfoReport.u16Temperature[9] = GetEndValue(iSheldTemp_10K_mcu,
+	g_stCellInfoReport.u16Temperature[9] = bms_lookup_u16(iSheldTemp_10K_mcu,
 											 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 											 (UINT16)aux.mos_ntc_100ohm);
 
@@ -411,7 +407,7 @@ void app_adc_multi_sample(void)
 		if (g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)
 		{
 			bms_afe_set_output_enabled(0u);
-			FaultWarnRecord2(MosOTp_Third);
+			bms_fault_history_record(BMS_FAULT_MOS_OTP_THIRD);
 			mos_state = 1;
 		}
 		break;
@@ -429,7 +425,7 @@ void app_adc_multi_sample(void)
 
 #ifdef _UL_RENZHENG_ENABLE_
 
-	if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+	if (bms_error_get(BMS_ERROR_AFE1) != 0u)
 	{
 		rong_fuse = 0;
 		state_fuse = 0;
@@ -458,8 +454,8 @@ void app_adc_multi_sample(void)
 			{
 				state_fuse = 1;
 				bms_afe_set_output_enabled(0u);
-				FaultWarnRecord2(CellChgOTp_Third);
-				FaultWarnRecord2(CellDsgOTp_Third);
+				bms_fault_history_record(BMS_FAULT_CHG_OTP_THIRD);
+				bms_fault_history_record(BMS_FAULT_DSG_OTP_THIRD);
 			}
 			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
 			{
@@ -470,8 +466,8 @@ void app_adc_multi_sample(void)
 					state_fuse = 1;
 					bms_afe_set_output_enabled(0u);
 					// 是否应该强制关掉放电？？？
-					FaultWarnRecord2(CellOvp_Third);
-					FaultWarnRecord2(BatOvp_Third);
+					bms_fault_history_record(BMS_FAULT_CELL_OVP_THIRD);
+					bms_fault_history_record(BMS_FAULT_BAT_OVP_THIRD);
 				}
 			}
 			else
@@ -883,7 +879,7 @@ void blt_pm_proc(void)
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
-		else if (1 == System_ErrFlag.u8ErrFlag_Com_AFE1)
+		else if (bms_error_get(BMS_ERROR_AFE1) != 0u)
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
@@ -1467,8 +1463,6 @@ _attribute_no_inline_ void main_loop(void)
 	// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
-	// test_SH367309_UpdataAfeConfig();
-
 	extern void test_log_app(void);
 	extern void test_log_balance_first(void);
 	// if(sys_time.enable_log_test_first)

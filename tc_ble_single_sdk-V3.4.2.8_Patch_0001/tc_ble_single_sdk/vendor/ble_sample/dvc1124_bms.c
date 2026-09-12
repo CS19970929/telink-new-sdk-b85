@@ -5,16 +5,13 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
+#include "bms_error.h"
 #include "bms_state.h"
-#include "sh367309_datadeal.h"
 #include "param.h"
 #include <string.h>
 
 /* bms_afe_sample() is scheduled every 200 ms in the current project. */
 #define DVC_BMS_SAMPLE_PERIOD_MS 200u
-
-extern struct stCell_Info g_stCellInfoReport;
-extern void FaultWarnRecord2(enum FaultFlag num);
 
 typedef struct
 {
@@ -166,20 +163,20 @@ static void dvc_record_rising_faults(union MDLCHGFAULT_REG now)
 #define DVC_RECORD_RISING(field, event) \
     do { \
         if (now.bits.field && !s_prev_managed_faults.bits.field) \
-            FaultWarnRecord2(event); \
+            bms_fault_history_record(event); \
     } while (0)
 
-    DVC_RECORD_RISING(b1CellOvp, CellOvp_Third);
-    DVC_RECORD_RISING(b1CellUvp, CellUvp_Third);
-    DVC_RECORD_RISING(b1BatOvp, BatOvp_Third);
-    DVC_RECORD_RISING(b1BatUvp, BatUvp_Third);
-    DVC_RECORD_RISING(b1IchgOcp, IchgOcp_Third);
-    DVC_RECORD_RISING(b1IdischgOcp, IdischgOcp_Third);
-    DVC_RECORD_RISING(b1CellChgOtp, CellChgOTp_Third);
-    DVC_RECORD_RISING(b1CellChgUtp, CellChgUTp_Third);
-    DVC_RECORD_RISING(b1CellDischgOtp, CellDsgOTp_Third);
-    DVC_RECORD_RISING(b1CellDischgUtp, CellDsgUTp_Third);
-    DVC_RECORD_RISING(b1TmosOtp, MosOTp_Third);
+    DVC_RECORD_RISING(b1CellOvp, BMS_FAULT_CELL_OVP_THIRD);
+    DVC_RECORD_RISING(b1CellUvp, BMS_FAULT_CELL_UVP_THIRD);
+    DVC_RECORD_RISING(b1BatOvp, BMS_FAULT_BAT_OVP_THIRD);
+    DVC_RECORD_RISING(b1BatUvp, BMS_FAULT_BAT_UVP_THIRD);
+    DVC_RECORD_RISING(b1IchgOcp, BMS_FAULT_CHG_OCP_THIRD);
+    DVC_RECORD_RISING(b1IdischgOcp, BMS_FAULT_DSG_OCP_THIRD);
+    DVC_RECORD_RISING(b1CellChgOtp, BMS_FAULT_CHG_OTP_THIRD);
+    DVC_RECORD_RISING(b1CellChgUtp, BMS_FAULT_CHG_UTP_THIRD);
+    DVC_RECORD_RISING(b1CellDischgOtp, BMS_FAULT_DSG_OTP_THIRD);
+    DVC_RECORD_RISING(b1CellDischgUtp, BMS_FAULT_DSG_UTP_THIRD);
+    DVC_RECORD_RISING(b1TmosOtp, BMS_FAULT_MOS_OTP_THIRD);
 
 #undef DVC_RECORD_RISING
     s_prev_managed_faults = now;
@@ -274,12 +271,12 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
 
     if (alarm & DVC1124_ALARM_SCD_MASK)
     {
-        if (!System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG))
-            (void)System_ERROR_UserCallback(ERROR_CBC_DSG);
+        if (!bms_error_get(BMS_ERROR_CBC_DSG))
+            bms_error_raise(BMS_ERROR_CBC_DSG);
     }
-    else if (System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG))
+    else if (bms_error_get(BMS_ERROR_CBC_DSG))
     {
-        (void)System_ERROR_UserCallback(ERROR_REMOVE_CBC_DSG);
+        bms_error_clear(BMS_ERROR_CBC_DSG);
     }
 
     managed = dvc_make_managed_fault_snapshot();
@@ -292,7 +289,7 @@ static uint8_t dvc_charge_blocked(void)
 
     return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
             f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
-            System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
+            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
 static uint8_t dvc_discharge_blocked(void)
@@ -301,8 +298,8 @@ static uint8_t dvc_discharge_blocked(void)
 
     return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
             f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
-            System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG) ||
-            System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
+            bms_error_get(BMS_ERROR_CBC_DSG) ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
 static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
@@ -322,8 +319,8 @@ static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
 
 static uint8_t dvc_enforce_fault_fet_state(void)
 {
-    uint8_t charge_on = SystemStatus.bits.b1Status_MOS_CHG ? 1u : 0u;
-    uint8_t discharge_on = SystemStatus.bits.b1Status_MOS_DSG ? 1u : 0u;
+    uint8_t charge_on = g_bms_system_status.bits.b1Status_MOS_CHG ? 1u : 0u;
+    uint8_t discharge_on = g_bms_system_status.bits.b1Status_MOS_DSG ? 1u : 0u;
     uint8_t requested_charge = charge_on;
     uint8_t requested_discharge = discharge_on;
 
@@ -335,7 +332,7 @@ static uint8_t dvc_enforce_fault_fet_state(void)
 
     if (!DVC1124_SetMosState(charge_on, discharge_on))
     {
-        (void)System_ERROR_UserCallback(ERROR_AFE1);
+        bms_error_raise(BMS_ERROR_AFE1);
         return 0u;
     }
     return 1u;
@@ -371,7 +368,7 @@ uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on)
 
     if (DVC1124_SetMosState(charge_on, discharge_on)) return 1u;
 
-    (void)System_ERROR_UserCallback(ERROR_AFE1);
+    bms_error_raise(BMS_ERROR_AFE1);
     return 0u;
 }
 

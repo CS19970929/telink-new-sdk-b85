@@ -571,6 +571,11 @@ void bms_afe_sample(void)
     }
 }
 
+uint8_t bms_afe_apply_protection_config(void)
+{
+    return DVC1124_ApplyProtectionConfig();
+}
+
 void bms_afe_sleep(void)
 {
     DVC1124_AFE_Sleep();

@@ -1,7 +1,5 @@
 # DVC1124-2 配置与通信接口
 
-> 分支：`feature/dvc1124-22-bms`
->
 > 芯片寄存器依据：`DVC1124-2 Reference Manual V1.2`
 >
 > 目标：让 AFE 的寄存器事实、板级默认、BMS 保护参数、持久化和 BLE/UART 通信接口彼此分层；业务代码不再依赖难以理解的 `0x49`、`0x7F`、`0x28` 等 magic value。
@@ -203,7 +201,7 @@ DVC register reset
 | `0x284C` | SCD sense threshold | mV |
 | `0x284D` | SCD delay | us |
 
-COV/CUV/OCD/OCC **不建立第二套保护参数**：它们映射现有 `g_tParam.protect`。当前审核发现保护参数仍是“先写 cold KV、再异步应用 AFE”，因此还不能认为这一链路已经具备完整 transaction 语义；该问题在 TASK-004/TASK-005 收口。
+COV/CUV/OCD/OCC **不建立第二套保护参数**：它们映射现有 `g_tParam.protect`。单字段写入先把 requested 值同步应用到 AFE 并读回校验，再写 cold KV；apply 或 persist 失败时恢复内存旧值并尝试重新下发，通信返回 device failure。因此成功应答代表 live AFE、内存请求值和持久化值一致。
 
 当前 BMS 参数模型只有一组充/放过流 filter，因此 OC1 和 OC2 delay alias 最终仍映射同一 filter 字段。这是当前 BMS 参数模型的约束，不应在通信层伪造两套独立持久参数。
 

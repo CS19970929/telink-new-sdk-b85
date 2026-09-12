@@ -1,15 +1,9 @@
 #include "SocEnhance.h"
-// #include "DataDeal.h"
-// #include "EEPROM.h"
-// #include "bms_state.h"
-// #include "main.h"
 #include "conf.h"
 #include "bms_state.h"
 #include "soc_kv_store.h"
 
-extern struct stCell_Info g_stCellInfoReport;
 void SOC_Result_Pass(void);
-// #include "soc_module_test.h"
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {

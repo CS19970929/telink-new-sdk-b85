@@ -3,6 +3,7 @@
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
+#include "bus_mux.h"
 #include "modbus_rtu.h"
 #include "conf.h"
 
