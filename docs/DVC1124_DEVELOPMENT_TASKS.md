@@ -49,14 +49,15 @@
 - [x] `modbus_rtu.c` 改为 `extern g_stCellInfoReport`，消除与 `app.c` 的重复定义风险；commit `08dbedee`。
 - [x] `DVC1124_WriteRegisterFieldSafe()` 改为编码前检查 `field_max`，禁止超范围值被 mask 后静默截断；commit `63782aae`。
 - [x] `dvc1124_bms.c` 删除本地 alarm 地址/bit 定义，统一使用 `dvc1124_reg.h`；commit `435f6b8b`。
-- [x] host contract test 已覆盖共享 report owner、field overflow 校验和 BMS alarm canonical names；commit `cbf35ab5`。
+- [x] `dvc1124.c` 删除本地 DVC 寄存器地址/bit 真值宏，统一引用 `dvc1124_reg.h`；commit `4a8e623d`。
+- [x] host contract test 已覆盖共享 report owner、field overflow 校验、canonical alarm 和禁止 `dvc1124.c` 重新定义寄存器真值；commit `cf1c1814`。
 
 ## 2. 当前代码审核结论
 
 ### P0 / 必须立即修复
 
 1. **`g_stCellInfoReport` 重复定义**：已修复。`app.c` 保持唯一实体，`modbus_rtu.c` 只 `extern`。
-2. **寄存器真值仍有重复源**：`dvc1124_bms.c` 的 alarm 重复定义已清理；`dvc1124.c` 仍保留大量 `DVC_REG_* / DVC_ALARM_* / DVC_CPVS_*` 局部宏，必须继续全部收口到 `dvc1124_reg.h`。
+2. **寄存器真值重复源**：`dvc1124.c` 和 `dvc1124_bms.c` 已完成首轮清理，寄存器地址/bit 统一收口到 `dvc1124_reg.h`。后续测试继续禁止重复定义回归。
 3. **字段范围检查逻辑漏洞**：已修复。旧实现先 `FIELD_PREP` 再检查，无法发现截断；现已使用 `mask >> shift` 得到 field max 后再编码。
 4. **RC 寄存器读副作用未隔离**：0x01 的 VADF/CC1F/CC2F 为 read-clear；0x76 的 COTF 为 read-clear。当前 raw read / config capture 可能清除事件。必须建立 destructive-read policy，不能把所有 `0x00..0x90` 当普通无副作用读取。
 5. **Core OT 配置路径会读取 0x76**：通用 RMW/readback 会触发 COTF read-clear。需要专用写策略或软件 sticky capture，不能让“修改阈值”无声吞掉过温历史事件。
@@ -90,20 +91,21 @@
 
 任务必须按顺序推进；前一个任务的验收未满足时，不进入依赖它的后续任务。
 
-### TASK-001 P0：建立可编译的单一真值基线 — IN PROGRESS
+### TASK-001 P0：建立可编译的单一真值基线 — SOURCE COMPLETE / TC32 BUILD PENDING
 
 目标：先消除明显 linker/重复定义/寄存器多真值问题，不改变业务行为。
 
 - [x] `modbus_rtu.c` 的 `g_stCellInfoReport` 改为 `extern`。
-- [ ] `dvc1124.c` 删除本地重复寄存器地址/bit 宏，全部切到 `dvc1124_reg.h`。
+- [x] `dvc1124.c` 删除本地重复寄存器地址/bit 宏，全部切到 `dvc1124_reg.h`。
 - [x] `dvc1124_bms.c` 删除重复 alarm 地址/bit 宏。
 - [x] 修复 `DVC1124_WriteRegisterFieldSafe()` field overflow 校验。
-- [x] 增加 host contract test 覆盖本轮已完成的 source-of-truth / ownership 修复。
-- [ ] 完成 `dvc1124.c` canonical-name 清理后，再加一条测试禁止本地 `#define DVC_REG_* 0x..` / `#define DVC_ALARM_*` 回归。
+- [x] 增加 host contract test 防止重复寄存器定义重新出现。
 
-验收：同一寄存器事实只有 `dvc1124_reg.h` 一个定义来源；旧行为寄存器写值不变。
+提交：`08dbedee`、`63782aae`、`435f6b8b`、`4a8e623d`、`cf1c1814`。
 
-### TASK-002 P0：访问属性与 destructive-read 安全层
+验收状态：源代码层面的单一寄存器真值目标已完成；固定 TC32 编译验证归入 TASK-011，当前不能标记 firmware build passed。
+
+### TASK-002 P0：访问属性与 destructive-read 安全层 — NEXT
 
 目标：让 R/RW/RC/W0C/self-clear/command 行为在驱动中可执行，而不仅是注释。
 
