@@ -64,6 +64,17 @@ python bms_tools/bms.py ci --jobs 4
 
 不要用全局 suppression 隐藏应用层问题。Vendor SDK 历史告警应按 scope 单独记录，项目新增告警必须解释或修复。
 
+GitHub Actions 的 `TC32 production build` 运行在 repository-level Windows
+self-hosted runner 上，runner 必须带有 `telink-tc32` label。仓库是 public，
+该 job 同时受 `TELINK_TC32_CI_ENABLED=1` 和事件来源门禁约束：push、手工触发
+及同仓库 PR 可以进入 runner，外部 fork PR 只能执行 GitHub-hosted 的
+`Host contract checks`，不得在本机执行代码。
+
+当前锁定的 Windows TC32 安装不提供目标端 `libgcc.a`，因此目标代码不能依赖
+`__muldi3`、`__divdi3` 等 64-bit runtime helper。高频测量换算应在给出范围证明
+后使用等价的 32-bit 定点表达式；不能混入 host、ARM 或其他 TC32 版本的
+`libgcc`。每次 clean rebuild 都以最终链接结果验证该约束。
+
 ## 6. 发布门禁
 
 每个候选 commit 至少需要：

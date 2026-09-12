@@ -1079,7 +1079,7 @@ void DVC1124_App_AFEGet(void)
     uint32_t raw20;
     int32_t cc2;
     int32_t current_ma;
-    int64_t current_num;
+    int32_t current_num;
     uint8_t write_addr;
     uint8_t configured_ntc_ok = 1u;
 
@@ -1116,8 +1116,11 @@ void DVC1124_App_AFEGet(void)
             ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
             ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
     cc2 = dvc_sign_extend20(raw20);
-    current_num = (int64_t)cc2 * 5000; /* 0.3125 uV = 5000/16 nV */
-    current_ma = (int32_t)(current_num / ((int64_t)16 * s_cfg.shunt_uohm));
+    /* 0.3125 uV = 5000/16 nV. Reduce both factors by 8 so the
+     * signed 20-bit CC2 numerator stays within int32_t:
+     * abs(cc2) * 625 <= 327680000. The quotient is unchanged. */
+    current_num = cc2 * 625;
+    current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);
     s_snapshot.current_ma = current_ma;
 
     if (current_ma >= 0)

@@ -168,7 +168,7 @@ DVC1124 采样与保护实现必须保持以下边界：
 
 禁止擅自升级编译器、SDK、ABI、启动代码、链接脚本或替换预编译库。两份 `.a` 文件属于构建输入，必须保留在 Git 中并由 manifest 记录 SHA-256。
 
-当前 `build.mk` 使用 `tc32-elf-ld` 直接链接。若编译器生成 `__muldi3`、`__divdi3` 等 runtime helper，`build.mk` 会通过当前锁定的 `tc32-elf-gcc -print-libgcc-file-name` 获取匹配 ABI 的 `libgcc.a`。禁止链接 host GCC/ARM GCC 的 `libgcc`。
+当前 `build.mk` 使用 `tc32-elf-ld` 直接链接。当前锁定的 Windows TC32 安装执行 `tc32-elf-gcc -print-libgcc-file-name` 只返回裸文件名，且安装中没有目标端 `libgcc.a`；因此量产构建不得依赖 `__muldi3`、`__divdi3` 等 64-bit runtime helper。禁止链接 host GCC、ARM GCC 或其他 TC32 版本的 `libgcc` 来掩盖问题。
 
 新增代码应尽量避免不必要的 64-bit 乘除，尤其是高频采样路径；能在明确溢出边界下用 32-bit 定点算法实现时优先使用 32-bit。但优化前后必须有数值范围证明和回归测试，不能为了减代码尺寸破坏精度或溢出安全。
 
