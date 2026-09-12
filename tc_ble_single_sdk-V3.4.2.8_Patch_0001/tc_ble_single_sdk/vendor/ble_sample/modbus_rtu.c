@@ -48,7 +48,7 @@ static u16 read_reg(u16 reg);
 static u8 write_reg(u16 reg, u16 val);
 void WriteProID_Default(void);
 
-struct stCell_Info g_stCellInfoReport;
+extern struct stCell_Info g_stCellInfoReport;
 PRODUCTION_ID_INFO ProductionInfor;
 
 static int dvc_comm_is_semantic(u16 reg)
