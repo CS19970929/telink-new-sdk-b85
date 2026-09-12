@@ -48,6 +48,7 @@ class RegisterTruthTests(unittest.TestCase):
     def setUpClass(cls):
         cls.reg = read(REG_H)
         cls.dvc_h = read(DVC_H)
+        cls.dvc_c = read(DVC_C)
         cls.dvc_bms = read(DVC_BMS_C)
 
     def test_v12_critical_masks(self):
@@ -83,6 +84,15 @@ class RegisterTruthTests(unittest.TestCase):
             "DVC1124_FIELD_PREP(mask, shift, value) & (uint8_t)~mask",
             self.dvc_h,
         )
+
+    def test_driver_has_no_local_register_truth_macros(self):
+        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_REG_")
+        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_ALARM_")
+        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_CPVS_")
+        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_OC2_")
+        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_SCD_")
+        self.assertIn("DVC1124_REG_OCD2", self.dvc_c)
+        self.assertIn("DVC1124_CPVS_MASK", self.dvc_c)
 
     def test_bms_adapter_uses_canonical_alarm_names(self):
         self.assertNotIn("DVC_BMS_REG_ALARM", self.dvc_bms)
