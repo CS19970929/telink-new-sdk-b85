@@ -4,7 +4,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
-#include "sci_upper.h"
+#include "bms_state.h"
 #include "sh367309_datadeal.h"
 #include "param.h"
 #include <string.h>

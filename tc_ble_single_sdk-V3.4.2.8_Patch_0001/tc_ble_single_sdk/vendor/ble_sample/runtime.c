@@ -2,7 +2,7 @@
 #include "drivers.h"
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
-#include "sci_upper.h"
+#include "bms_state.h"
 #include "sh367309_datadeal.h"
 
 extern struct stCell_Info g_stCellInfoReport;

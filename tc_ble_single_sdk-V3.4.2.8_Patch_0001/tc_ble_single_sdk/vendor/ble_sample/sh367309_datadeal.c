@@ -2,7 +2,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
-#include "sci_upper.h"
+#include "bms_state.h"
 #include "app.h"
 #include "param.h"
 

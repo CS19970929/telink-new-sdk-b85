@@ -27,14 +27,14 @@
 
 #include "app_config.h"
 #include "app.h"
-#include "app_ui.h"
+#include "ble_ota.h"
 #include "app_att.h"
 #include "battery_check.h"
 
 #include "modbus_uart.h"
 #include "modbus_rtu.h"
 
-#include "sci_upper.h"
+#include "bms_state.h"
 #include "sh367309_datadeal.h"
 
 #include "SocEnhance.h"
@@ -52,6 +52,7 @@ extern void Param_UpgradeReset_Apply(void);
 extern void AFE_Sleep(void);
 
 struct stCell_Info g_stCellInfoReport;
+Time_T sys_time;
 volatile struct SYSTEM_ERROR System_ErrFlag;
 bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
