@@ -78,3 +78,7 @@ When the TC32 job runs, GitHub Actions uploads the production evidence for 14 da
 For `refactor/bms-template-phase1`, require `Host contract checks` before merging. After a permanent Windows TC32 runner is available and `TELINK_TC32_CI_ENABLED=1` is enabled, also require `TC32 production build` for changes intended for release.
 
 Do not replace the TC32 production gate with `arm-none-eabi-gcc`, host GCC, or another generic compiler. Those tools do not prove that the TLSR8251 production firmware links and packages correctly.
+
+## Remote runner smoke test
+
+A same-repository pull request can be used as a non-invasive smoke test of the complete remote path: GitHub change -> Actions -> Windows `telink-tc32` runner -> TC32 production build. A documentation-only change is sufficient to exercise this path without changing firmware behavior.
