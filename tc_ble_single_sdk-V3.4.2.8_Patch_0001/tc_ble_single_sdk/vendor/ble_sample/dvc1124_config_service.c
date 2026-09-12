@@ -7,8 +7,6 @@
 #include "runtime.h"
 #include <string.h>
 
-extern int AFE_PARAM_WRITE_Flag;
-
 static dvc1124_config_result_t dvc_cfg_load(dvc1124_persistent_config_t *cfg)
 {
     if (cfg == NULL) return DVC1124_CFG_ERR_VALUE;
@@ -473,6 +471,7 @@ static dvc1124_config_result_t dvc_cfg_write_bms_protection(
     dvc1124_config_field_t field,
     u32 value)
 {
+    struct PRT_E2ROM_PARAS previous = g_tParam.protect;
     struct PRT_E2ROM_PARAS candidate = g_tParam.protect;
     dvc1124_config_t device;
     u32 sense_uv;
@@ -527,9 +526,19 @@ static dvc1124_config_result_t dvc_cfg_write_bms_protection(
         return DVC1124_CFG_ERR_ADDRESS;
     }
 
-    if (!bms_cold_kv_store_set_protect(&candidate)) return DVC1124_CFG_ERR_STORE;
     g_tParam.protect = candidate;
-    AFE_PARAM_WRITE_Flag = 1;
+    if (!DVC1124_ApplyProtectionConfig())
+    {
+        g_tParam.protect = previous;
+        (void)DVC1124_ApplyProtectionConfig();
+        return DVC1124_CFG_ERR_AFE_IO;
+    }
+    if (!bms_cold_kv_store_set_protect(&candidate))
+    {
+        g_tParam.protect = previous;
+        (void)DVC1124_ApplyProtectionConfig();
+        return DVC1124_CFG_ERR_STORE;
+    }
     return DVC1124_CFG_OK;
 }
 

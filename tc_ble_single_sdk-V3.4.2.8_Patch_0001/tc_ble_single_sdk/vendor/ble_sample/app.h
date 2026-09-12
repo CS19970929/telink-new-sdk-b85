@@ -1,136 +1,34 @@
 /********************************************************************************************************
  * @file    app.h
  *
- * @brief   This is the header file for BLE SDK
- *
- * @author  BLE GROUP
- * @date    06,2020
- *
- * @par     Copyright (c) 2020, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
- *
- *          Licensed under the Apache License, Version 2.0 (the "License");
- *          you may not use this file except in compliance with the License.
- *          You may obtain a copy of the License at
- *
- *              http://www.apache.org/licenses/LICENSE-2.0
- *
- *          Unless required by applicable law or agreed to in writing, software
- *          distributed under the License is distributed on an "AS IS" BASIS,
- *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *          See the License for the specific language governing permissions and
- *          limitations under the License.
- *
+ * @brief   BMS application/BLE lifecycle interface for the Telink B85 target.
  *******************************************************************************************************/
 #ifndef APP_H_
 #define APP_H_
 
 #include "conf.h"
+#include "bms_error.h"
 
-extern unsigned int	scan_pin_need;
-extern int button_not_released;
 extern u8 ota_is_working;
 
 void app_ble_request_normal_conn_param(void);
 void app_ble_request_ota_conn_param(void);
 void app_ble_restore_normal_power(void);
 
-
-
-/**
- * @brief		user initialization when MCU power on or wake_up from deepSleep mode
- * @param[in]	none
- * @return      none
- */
+/** User initialization on power-on or wake from deep sleep. */
 void user_init_normal(void);
 
-/**
- * @brief		user initialization when MCU wake_up from deepSleep_retention mode
- * @param[in]	none
- * @return      none
- */
+/** User initialization on deep-retention wake. */
 void user_init_deepRetn(void);
 
-
-/**
- * @brief     BLE main loop
- * @param[in]  none.
- * @return     none.
- */
+/** Main cooperative application loop. */
 void main_loop(void);
 
-
-
-
 /**
- * @brief      this function is used to detect if key pressed or released.
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
- */
-void proc_keyboard(u8 e, u8 *p, int n);
-
-
-/**
- * @brief		this function is used to detect if button pressed or released.
- * @param[in]	e - event type when this function is triggered by LinkLayer event
- * @param[in]	p - event callback data pointer for when this function is triggered by LinkLayer event
- * @param[in]	n - event callback data length when this function is triggered by LinkLayer event
- * @return      none
- */
-void proc_button(u8 e, u8 *p, int n);
-
-
-/**
- * @brief      flash protection operation, including all locking & unlocking for application
- * 			   handle all flash write & erase action for this demo code. use should add more more if they have more flash operation.
- * @param[in]  flash_op_evt - flash operation event, including application layer action and stack layer action event(OTA write & erase)
- * 			   attention 1: if you have more flash write or erase action, you should should add more type and process them
- * 			   attention 2: for "end" event, no need to pay attention on op_addr_begin & op_addr_end, we set them to 0 for
- * 			   			    stack event, such as stack OTA write new firmware end event
- * @param[in]  op_addr_begin - operating flash address range begin value
- * @param[in]  op_addr_end - operating flash address range end value
- * 			   attention that, we use: [op_addr_begin, op_addr_end)
- * 			   e.g. if we write flash sector from 0x10000 to 0x20000, actual operating flash address is 0x10000 ~ 0x1FFFF
- * 			   		but we use [0x10000, 0x20000):  op_addr_begin = 0x10000, op_addr_end = 0x20000
- * @return     none
+ * Flash protection operation callback used by application and OTA stack paths.
+ * Address range follows [op_addr_begin, op_addr_end).
  */
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end);
 int app_flash_lock_restore_enabled(void);
-
-struct SYSTEM_ERROR
-{
-	UINT8 u8ErrFlag_Com_AFE1;
-	UINT8 u8ErrFlag_Com_AFE2;
-	UINT8 u8ErrFlag_Com_Can;
-	UINT8 u8ErrFlag_Com_EEPROM;
-
-	UINT8 u8ErrFlag_Com_SPI;
-	UINT8 u8ErrFlag_Com_Upper;
-	UINT8 u8ErrFlag_Com_Client;
-	UINT8 u8ErrFlag_Com_Screen;
-
-	UINT8 u8ErrFlag_Com_Wifi;
-	UINT8 u8ErrFlag_Com_BlueTooth;
-	UINT8 u8ErrFlag_Com_App;
-	UINT8 u8ErrFlag_CBC_CHG;
-
-	UINT8 u8ErrFlag_Store_EEPROM;
-	UINT8 u8ErrFlag_HSE;
-	UINT8 u8ErrFlag_LSE;
-	UINT8 u8ErrFlag_Vdelta_OVER;
-
-	UINT8 u8ErrFlag_Balanced;
-	UINT8 u8ErrFlag_ADC;
-	UINT8 u8ErrFlag_Heat;
-	UINT8 u8ErrFlag_Cool;
-
-	UINT8 u8ErrFlag_CBC_DSG;
-	UINT8 u8ErrFlag_SOC_Cail;
-	UINT8 u8ErrFlag_TempBreak;
-	UINT8 u8ErrFlag_DsgShort;
-};
-
-extern volatile struct SYSTEM_ERROR System_ErrFlag;
 
 #endif /* APP_H_ */

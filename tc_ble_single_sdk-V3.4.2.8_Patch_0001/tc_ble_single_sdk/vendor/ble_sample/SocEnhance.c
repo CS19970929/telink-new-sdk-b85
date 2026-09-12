@@ -1,15 +1,9 @@
 #include "SocEnhance.h"
-// #include "DataDeal.h"
-// #include "EEPROM.h"
-// #include "Sci_Upper.h"
-// #include "main.h"
 #include "conf.h"
-#include "Sci_Upper.h"
+#include "bms_state.h"
 #include "soc_kv_store.h"
 
-extern struct stCell_Info g_stCellInfoReport;
 void SOC_Result_Pass(void);
-// #include "soc_module_test.h"
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
@@ -1573,148 +1567,6 @@ void SOC_Result_Pass(void)
 	g_stCellInfoReport.SocElement.u16CapacityFactory = SOC_Calculate_Element.u32CapFactory / SOC_REPORT_CAPACITY_DIVISOR;
 	g_stCellInfoReport.SocElement.u16Cycle_times = soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times);
 }
-
-#if 0
-#define LARGE_CURR 500
-#define LARGE_CURR2 100
-
-#define N 7
-
-static uint8_t ocv_state = 0;
-static uint8_t ocv_cnt = 0;
-static uint8_t arr_soc[N] = {0, 0, 0, 0, 0};
-
-static uint8_t large_curr_flag = 0;
-
-static uint32_t ocv200mscnt = 0;
-static uint32_t ocv200mscnt_large_curr = 0;
-
-void PRE_OCV(void)
-{
-#define OCV_CURRENT_THRESHOLD (10)
-	// static uint8_t state_pre_ocv = 0;
-
-	if (g_stCellInfoReport.u16Ichg >= LARGE_CURR || g_stCellInfoReport.u16IDischg >= LARGE_CURR)
-	{
-		large_curr_flag = 1;
-
-		ocv200mscnt = 0;
-		ocv200mscnt_large_curr = 0;
-
-		return;
-	}
-	else if (g_stCellInfoReport.u16Ichg >= LARGE_CURR2 || g_stCellInfoReport.u16IDischg >= LARGE_CURR2)
-	{
-		large_curr_flag = 2;
-
-		ocv200mscnt = 0;
-		ocv200mscnt_large_curr = 0;
-
-		return;
-	}
-
-	if (!large_curr_flag)
-	{
-		//!!! 闂佽绻愮换鎰崲濮椻偓瀵偊骞樼拠鍙夘棟闂侀潧鐗嗗Λ妤咁敂閸洘鈷戦悹鎭掑妼閺嬫垿鏌＄€ｎ亶鐓兼鐐茬箰閻ｏ繝骞嶉崘韫婵犻潧鍊搁幉锟犲疾缁嬭￥鈧帒顫濋妷銉ュБ濡炪倧缍嗛崳锝夌嵁韫囨稒鍊婚柤鎭掑劜濞呫垽姊洪崫鍕偓鍫曞磹閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻浣烘嚀閸㈡煡宕查弻銉﹀仾闁告洦鍨扮猾宥夋煠閸濄儲鏆╁褝绻濋弻娑㈠箣濠靛浂妫﹂梺杞扮劍閹瑰洤顕ｉ鍕ч柛鈩冾殢娴兼捇姊绘担鑺ョ《闁哥姵鍔欏鍛婄節濮橆剛顔嗙紓浣告湰缁硿闂傚倷娴囧▔鏇㈠窗閺囩姵顐芥繝闈涚墛鐎氭氨鎲告惔锝傚亾濮橆剛绉虹€?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垰顪冪€ｎ亞宀搁柍褜鍓氶敃銏ゅ蓟閵娾晜鍋勯柤濮愬€楅悰鈺呮⒑閹稿海绠撶紒缁樺灩閳ь剚鑹剧紞濠囧蓟閵娾晜鍋勯柤濮愬€楅悰鈺呮煟閻樿鲸绁版い顐㈩槺閳ь剚鑹剧紞濠囧蓟閵娾晜鍋勭紒瀣硶娴滅増绻涢幋鐐村碍缂佸缍婂顐﹀箻鐠囧弶顥濋梺闈涚墕濡顢旈崼鏇熺厱?闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垶鏌ｉ幋锝呅撻柡鍛倐閺岋繝宕掑Ο琛″亾閺嶎偀鍋撳顒傜Ш闁哄被鍔戦幃銏ゅ川婵犲嫪绱曢梻浣哥秺椤ユ捇宕楀鈧顐﹀箻閼搁潧鏋傞梺鍦劋閸ㄧ數鑺辨繝姘厵?
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD)
-		{
-			if (++ocv200mscnt >= g_debug.real_ocv_start_delay_time)
-			{
-				log_a("start real ocv cali");
-				ocv200mscnt = 0;
-				ocv_state = 1;
-			}
-		}
-		else
-		{
-			ocv200mscnt = 0;
-		}
-	}
-	else if (large_curr_flag == 1)
-	{
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD)
-		{
-			// 3闂傚倷娴囧▔鏇㈠窗閹版澘鍑犲┑鐘宠壘缁狀垳鈧懓瀚竟鍡椥掗崼銉︾厸闁告劑鍔庨崺锝夋煛娴ｈ宕岀€殿噮鍓熸俊鍫曞幢濡ゅ﹣绱﹂梻鍌欐祰濞夋洟宕伴幇鏉垮嚑濠电姵鑹剧粻顖炴煟閹达絽袚闁哄懏鎮傞弻锟犲磼濡　鍋撻弽顐熷亾?
-			if (++ocv200mscnt_large_curr >= 5 * 60 * 180)
-			{
-				ocv200mscnt_large_curr = 0;
-
-				large_curr_flag = 0;
-
-				// ocv_state = 1;
-			}
-		}
-		//!!!!!!!!!!!!???!!!!!!!!!!!!
-		// else
-		// {
-		// 	ocv200mscnt = 0;
-		// }
-	}
-	else if (large_curr_flag == 2)
-	{
-		if (g_stCellInfoReport.u16Ichg <= OCV_CURRENT_THRESHOLD && g_stCellInfoReport.u16IDischg <= OCV_CURRENT_THRESHOLD && VCELLMIN <= OCV_VOL_ENABLE)
-		{
-			if (++ocv200mscnt_large_curr >= 5 * 60 * 60)
-			{
-				ocv200mscnt_large_curr = 0;
-
-				large_curr_flag = 0;
-
-				// ocv_state = 1;
-				// log_w("large curr ocv cali real soc-> %d\n", soc_calculate.u8SOC_Now);
-			}
-		}
-	}
-}
-uint8_t get_ocv_cali(uint8_t *arr_soc)
-{
-	uint16_t sum = 0;
-	uint8_t temp = 0;
-	uint8_t ocv_soc = 0;
-
-	char count, i, j;
-	for (j = 0; j < (N - 1); j++)
-	{
-		for (i = 0; i < (N - j - 1); i++)
-		{
-			if (arr_soc[i] > arr_soc[i + 1])
-			{
-				temp = arr_soc[i];
-				arr_soc[i] = arr_soc[i + 1];
-				arr_soc[i + 1] = temp;
-			}
-		}
-	}
-// #ifdef __test__
-#if 1
-	uint8_t k = 0;
-
-	log_e("arr_soc[]: ");
-	for (k = 0; k < N; k++)
-	{
-		log_w("%d ", arr_soc[k]);
-	}
-#endif
-	if (((arr_soc[N - 1] > arr_soc[0]) ?
-		  (arr_soc[N - 1] - arr_soc[0]) :
-		  (arr_soc[0] - arr_soc[N - 1])) > 10)
-	{
-		log_e("maxsoc %d minsoc %d", arr_soc[N - 1], arr_soc[0]);
-		goto _err;
-	}
-	for (count = 1; count < N - 1; count++)
-	{
-		sum += arr_soc[count];
-	}
-	ocv_soc = (uint8_t)(sum / (N - 2));
-	log_e("ocv cali soc->%d", ocv_soc);
-
-	return ocv_soc;
-
-_err:
-	return get_dispsoc();
-}
-#endif
 
 void APP_SOC_IntEnhance_Ctrl()
 {

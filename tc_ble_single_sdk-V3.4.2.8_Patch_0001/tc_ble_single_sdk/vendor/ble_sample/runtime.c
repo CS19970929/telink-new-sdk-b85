@@ -1,11 +1,9 @@
 #include "runtime.h"
+#include "bms_error.h"
 #include "drivers.h"
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
-#include "sci_upper.h"
-#include "sh367309_datadeal.h"
-
-extern struct stCell_Info g_stCellInfoReport;
+#include "bms_state.h"
 
 #define RUNTIME_COMMIT_MAGIC       0x544D4F43u
 // #define RUNTIME_SAVE_INTERVAL_MIN  10u
@@ -252,7 +250,7 @@ static int runtime_flash_save(void)
 
 static void runtime_note_store_error(void)
 {
-    System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+    bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
 static void runtime_finish_factory_mode(void)

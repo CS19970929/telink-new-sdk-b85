@@ -1,4 +1,5 @@
 #include "dvc1124_config_store.h"
+#include "bms_afe.h"
 
 #include "tl_common.h"
 #include "drivers.h"
@@ -553,23 +554,29 @@ int DVC1124_ConfigStoreWritePersistentRegister(uint8_t reg, uint8_t requested)
     return DVC1124_ConfigStoreCaptureAndSave();
 }
 
-void DVC1124_ConfigStore_AFE_Reset(void)
+void bms_afe_init(void)
 {
     s_restore_pending = 1u;
     DVC1124_AFE_Reset();
-}
-
-void DVC1124_ConfigStore_UpdataAfeConfig(void)
-{
     DVC1124_UpdataAfeConfig();
     if (!DVC1124_ConfigStoreRestore()) s_restore_pending = 1u;
 }
 
-void DVC1124_ConfigStore_BmsApp_AFEGet(void)
+void bms_afe_sample(void)
 {
     DVC1124_BmsApp_AFEGet();
     if (s_restore_pending)
     {
         (void)DVC1124_ConfigStoreRestore();
     }
+}
+
+uint8_t bms_afe_apply_protection_config(void)
+{
+    return DVC1124_ApplyProtectionConfig();
+}
+
+void bms_afe_sleep(void)
+{
+    DVC1124_AFE_Sleep();
 }

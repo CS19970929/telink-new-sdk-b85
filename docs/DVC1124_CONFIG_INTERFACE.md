@@ -1,7 +1,5 @@
 # DVC1124-2 配置与通信接口
 
-> 分支：`feature/dvc1124-22-bms`
->
 > 芯片寄存器依据：`DVC1124-2 Reference Manual V1.2`
 >
 > 目标：让 AFE 的寄存器事实、板级默认、BMS 保护参数、持久化和 BLE/UART 通信接口彼此分层；业务代码不再依赖难以理解的 `0x49`、`0x7F`、`0x28` 等 magic value。
@@ -65,7 +63,7 @@ BLE 与串口**不实现两套 AFE 参数逻辑**。当前 BLE SPP 与 UART 都�
   COTF = RC
 ```
 
-因此普通 raw diagnostics 不直接读取这两个地址。`0x76` 的阈值读写使用 `dvc1124_core_ot.c` 专用接口，任何被该过程读取并清除的 COTF 都先保存到软件 sticky latch。
+因此普通 raw diagnostics 不直接读取这两个地址。`0x76` 的阈值读写使用 `dvc1124_special.c` 专用接口，任何被该过程读取并清除的 COTF 都先保存到软件 sticky latch。
 
 ## 3. AFE 持久化
 
@@ -203,7 +201,7 @@ DVC register reset
 | `0x284C` | SCD sense threshold | mV |
 | `0x284D` | SCD delay | us |
 
-COV/CUV/OCD/OCC **不建立第二套保护参数**：它们映射现有 `g_tParam.protect`。当前审核发现保护参数仍是“先写 cold KV、再异步应用 AFE”，因此还不能认为这一链路已经具备完整 transaction 语义；该问题在 TASK-004/TASK-005 收口。
+COV/CUV/OCD/OCC **不建立第二套保护参数**：它们映射现有 `g_tParam.protect`。单字段写入先把 requested 值同步应用到 AFE 并读回校验，再写 cold KV；apply 或 persist 失败时恢复内存旧值并尝试重新下发，通信返回 device failure。因此成功应答代表 live AFE、内存请求值和持久化值一致。
 
 当前 BMS 参数模型只有一组充/放过流 filter，因此 OC1 和 OC2 delay alias 最终仍映射同一 filter 字段。这是当前 BMS 参数模型的约束，不应在通信层伪造两套独立持久参数。
 
@@ -277,4 +275,4 @@ Raw 规则：
 9. 0x01/0x76 已进入 destructive-read 策略；
 10. Core OT 阈值访问使用专用接口并保留软件 sticky COTF。
 
-下一步严格按 `docs/DVC1124_DEVELOPMENT_TASKS.md` 执行，优先完成 access/command 分类，然后补齐 R52/R53/R54 和 0x6A..0x6C 全部公开 RW 字段。固定 TC32 编译、静态分析和实板验证尚未完成，因此当前分支仍不能作为量产 release。
+下一步按 `docs/DVC1124_DEVELOPMENT_TASKS.md` 补齐 R52/R53/R54、0x6A..0x6C 和完整 catalog，并完成多字段原子事务、固定 TC32 编译和实板验证。当前分支仍不能作为量产 release。

@@ -1,36 +1,45 @@
 #include "modbus_uart.h"
-// #include <string.h>
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
+#include "bus_mux.h"
 #include "modbus_rtu.h"
 #include "conf.h"
 
-static volatile u8  s_rx_ready = 0;
+typedef struct __attribute__((aligned(4))) {
+    u32 dma_len;
+    u8 data[MODBUS_RTU_FRAME_CAPACITY];
+} mb_dma_pkt_t;
+
+typedef char modbus_dma_packet_size_must_be_272[
+    (sizeof(mb_dma_pkt_t) == 272u) ? 1 : -1];
+
+#define MODBUS_UART_CLOCK_DIVIDER 9u
+#define MODBUS_UART_BWPC          13u
+#define MODBUS_UART_RECOVERY_US   (1u * 1000u * 1000u)
+
+static volatile u8 s_rx_ready = 0;
 
 static mb_dma_pkt_t s_rx_pkt;  // DMA RX：硬件写这里（dma_len + data）
 static mb_dma_pkt_t s_tx_pkt;  // DMA TX：我们写这里
-volatile unsigned char uart_dmairq_tx_cnt2=0;
-volatile unsigned char uart_dmairq_rx_cnt2=0;
 
 void modbus_uart_init(void)
 {
-    // WaitMs(50);
-
     // 1) 先配 DMA RX 缓冲（非常关键：照例程的顺序）
     memset((void*)&s_rx_pkt, 0, sizeof(s_rx_pkt));
     uart_recbuff_init((u8*)&s_rx_pkt, sizeof(s_rx_pkt));
 
     // 2) 配引脚（PC2 TX / PC3 RX）
-    // uart_gpio_set(UART_TX_PC2, UART_RX_PC3);
     uart_gpio_set(OWC_TX_PIN, OWC_RX_PIN);
 
     // 3) reset uart（会清 0x90~0x9f），所以 init 要在 reset 后
     uart_reset();
 
-    // 4) Modbus RTU 常用 8E1：PARITY_EVEN + STOP_BIT_ONE
-    // uart_init_baudrate(MODBUS_BAUD, MODBUS_SYSCLK_HZ, PARITY_EVEN, STOP_BIT_ONE);
-	uart_init(9, 13, PARITY_NONE, STOP_BIT_ONE);
+    // 4) 现有产品协议使用当前固定分频参数和 8N1
+    uart_init(MODBUS_UART_CLOCK_DIVIDER,
+              MODBUS_UART_BWPC,
+              PARITY_NONE,
+              STOP_BIT_ONE);
 
     // 5) 开 DMA
     uart_dma_enable(1, 1);
@@ -51,8 +60,6 @@ void modbus_uart_irq_proc(void)
 
     if (irqsrc & FLD_DMA_CHN_UART_RX) {
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX);
-		uart_dmairq_rx_cnt2++;
-
         // 此时 s_rx_pkt.dma_len 会被硬件更新
         // 做一个最轻量的标记：主循环再去读长度和内容
         if (s_rx_pkt.dma_len > 0) {
@@ -64,14 +71,13 @@ void modbus_uart_irq_proc(void)
 
     if (irqsrc & FLD_DMA_CHN_UART_TX) {
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_TX);
-        // 可选：记录 TX done
-		uart_dmairq_tx_cnt2++;
     }
 }
 
 // 主循环：拿到一帧（指针直接指向 s_rx_pkt.data）
 int modbus_uart_poll(u8 **p, u32 *len)
 {
+    if (p == NULL || len == NULL) return 0;
     if (!s_rx_ready) return 0;
 
     // 读一次长度
@@ -94,9 +100,7 @@ int modbus_uart_poll(u8 **p, u32 *len)
 
 void modbus_uart_send(const u8 *p, u32 len)
 {
-    if (len > sizeof(s_tx_pkt.data)) {
-        len = sizeof(s_tx_pkt.data);
-    }
+    if (p == NULL || len == 0u || len > sizeof(s_tx_pkt.data)) return;
 
     // 注意：DMA TX 包必须 “前4字节长度 + payload”
     s_tx_pkt.dma_len = len;
@@ -107,14 +111,14 @@ void modbus_uart_send(const u8 *p, u32 len)
 }
 
 // 处理完一帧后调用：重新 arm RX（简单粗暴但稳）
-void modbus_uart_rx_reset(void)
+static void modbus_uart_rx_reset(void)
 {
     s_rx_pkt.dma_len = 0;
     memset(s_rx_pkt.data, 0, 16); // 可选：只清头部，别全清浪费
     uart_recbuff_init((u8*)&s_rx_pkt, sizeof(s_rx_pkt));
 }
 
-static u8  rsp_buf[512];
+static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 
 static _attribute_data_retention_ u32 mb_last_ok_tick = 0;
 static _attribute_data_retention_ u32 mb_bad_cnt = 0;
@@ -145,7 +149,7 @@ void main_loop_modbus(void)
     }
 
     // ✅温和自愈：长时间没成功回应，就做一次“软恢复”（不reset uart）
-    if (clock_time_exceed(mb_last_ok_tick, 1000 * 1000)) // 1秒都没成功回包
+    if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US))
     {
         // 只做：清错误位 + 重新arm RX，不动 UART 配置
         if (uart_is_parity_error()) uart_clear_parity_error();

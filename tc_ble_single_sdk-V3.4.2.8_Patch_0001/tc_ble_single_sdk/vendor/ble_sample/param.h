@@ -259,6 +259,6 @@ PARAM_T;
 extern PARAM_T g_tParam;
 
 void LoadParam(void);
-void SaveParam(void);
+uint8_t SaveParam(void);
 
 #endif

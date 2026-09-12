@@ -2,11 +2,12 @@
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "sci_upper.h"
+#include "bms_afe.h"
+#include "bms_error.h"
+#include "bms_state.h"
 #include "param.h"
 #include "SocEnhance.h"
 #include "bms_event_log.h"
-#include "sh367309_datadeal.h"
 #include "app.h"
 #include "conf.h"
 #include "runtime.h"
@@ -48,7 +49,6 @@ static u16 read_reg(u16 reg);
 static u8 write_reg(u16 reg, u16 val);
 void WriteProID_Default(void);
 
-extern struct stCell_Info g_stCellInfoReport;
 PRODUCTION_ID_INFO ProductionInfor;
 
 static int dvc_comm_is_semantic(u16 reg)
@@ -146,6 +146,29 @@ static int dvc_comm_range_contains(u16 reg, u16 qty)
     return 0;
 }
 
+static u16 read_fault_history_reg(u16 reg)
+{
+    u16 offset;
+    uint8_t age;
+    bms_fault_level_t level;
+
+    if (reg < 0xD103u || reg > 0xD108u) return 0u;
+
+    offset = (u16)(reg - 0xD103u);
+    level = (bms_fault_level_t)(BMS_FAULT_LEVEL_FIRST + (offset / 2u));
+    age = (uint8_t)((offset % 2u) * 2u);
+    return (u16)(((u16)bms_fault_history_recent(level, age) << 8) |
+                 bms_fault_history_recent(level, (uint8_t)(age + 1u)));
+}
+
+static u16 read_error_status_reg(u16 reg)
+{
+    uint8_t first = (uint8_t)(2u * (reg - 0xD109u));
+
+    return (u16)(((u16)bms_error_get((bms_error_id_t)first) << 8) |
+                 bms_error_get((bms_error_id_t)(first + 1u)));
+}
+
 static int modbus_exception(u8 addr,
                             u8 func,
                             u8 exception,
@@ -217,71 +240,14 @@ static u16 read_reg(u16 reg)
 
     if (reg >= 0xD100u && reg <= 0xD114u)
     {
-        UINT16 u16SciTemp;
-        UINT16 j;
-        INT8 k;
-        UINT8 a[4];
-
-        for (j = 0; j < 4; j++)
-        {
-            k = FaultPoint_First2 - 1 - j;
-            if (k < 0) k = Record_len + k;
-            a[j] = (UINT8)k;
-        }
-        for (j = 0; j < 4; j++)
-        {
-            k = FaultPoint_Second2 - 1 - j;
-            if (k < 0) k = Record_len + k;
-            a[j] = (UINT8)k;
-        }
-        for (j = 0; j < 4; j++)
-        {
-            k = FaultPoint_Third2 - 1 - j;
-            if (k < 0) k = Record_len + k;
-            a[j] = (UINT8)k;
-        }
-
-        switch (reg)
-        {
-        case 0xD100u:
-        case 0xD101u:
-        case 0xD102u:
-            return 0u;
-        case 0xD103u:
-            u16SciTemp = (u16)((Fault_record_First2[a[0]] << 8) | Fault_record_First2[a[1]]);
-            return u16SciTemp;
-        case 0xD104u:
-            u16SciTemp = (u16)((Fault_record_First2[a[2]] << 8) | Fault_record_First2[a[3]]);
-            return u16SciTemp;
-        case 0xD105u:
-            u16SciTemp = (u16)((Fault_record_Second2[a[0]] << 8) | Fault_record_Second2[a[1]]);
-            return u16SciTemp;
-        case 0xD106u:
-            u16SciTemp = (u16)((Fault_record_Second2[a[2]] << 8) | Fault_record_Second2[a[3]]);
-            return u16SciTemp;
-        case 0xD107u:
-            u16SciTemp = (u16)((Fault_record_Third2[a[0]] << 8) | Fault_record_Third2[a[1]]);
-            return u16SciTemp;
-        case 0xD108u:
-            u16SciTemp = (u16)((Fault_record_Third2[a[2]] << 8) | Fault_record_Third2[a[3]]);
-            return u16SciTemp;
-        default:
-            break;
-        }
-
-        if (reg >= 0xD109u && reg <= 0xD114u)
-        {
-            return (u16)(((*(&System_ErrFlag.u8ErrFlag_Com_AFE1 +
-                              2u * (reg - 0xD109u))) << 8) |
-                         (*(&System_ErrFlag.u8ErrFlag_Com_AFE1 +
-                            2u * (reg - 0xD109u) + 1u))));
-        }
+        if (reg <= 0xD108u) return read_fault_history_reg(reg);
+        return read_error_status_reg(reg);
     }
 
     if (reg >= 0xD115u && reg <= 0xD118u)
     {
-        if (reg == 0xD115u) return (u16)(SystemStatus.all & 0x0000FFFFu);
-        if (reg == 0xD116u) return (u16)(SystemStatus.all >> 16);
+        if (reg == 0xD115u) return (u16)(g_bms_system_status.all & 0x0000FFFFu);
+        if (reg == 0xD116u) return (u16)(g_bms_system_status.all >> 16);
     }
 
     if (reg >= BMS_REALTIME_REG_BASE &&
@@ -323,7 +289,7 @@ static u8 write_reg(u16 reg, u16 val)
         {
             if (!Runtime_ReenterFactoryMode())
             {
-                System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+                bms_error_raise(BMS_ERROR_EEPROM_STORE);
                 return MB_EX_DEVICE_FAILURE;
             }
         }
@@ -367,6 +333,23 @@ static u8 write_reg(u16 reg, u16 val)
     return 0u;
 }
 
+static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *previous)
+{
+    if (!bms_afe_apply_protection_config())
+    {
+        g_tParam.protect = *previous;
+        (void)bms_afe_apply_protection_config();
+        return MB_EX_DEVICE_FAILURE;
+    }
+    if (!SaveParam())
+    {
+        g_tParam.protect = *previous;
+        (void)bms_afe_apply_protection_config();
+        return MB_EX_DEVICE_FAILURE;
+    }
+    return 0u;
+}
+
 u16 mb_crc16(const u8 *buf, u32 len)
 {
     u16 crc = 0xFFFFu;
@@ -398,8 +381,6 @@ static void put_u16be(u8 *p, u16 v)
     p[1] = (u8)(v & 0xFFu);
 }
 
-extern int AFE_PARAM_WRITE_Flag;
-
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
     u16 crc_rx;
@@ -407,9 +388,10 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     u8 addr;
     u8 func;
 
+    if (req == NULL || rsp == NULL || rsp_len == NULL) return 0;
     *rsp_len = 0u;
 
-    if (req_len < 4u) return 0;
+    if (req_len < 4u || req_len > MODBUS_RTU_FRAME_CAPACITY) return 0;
     if (req[0] != MB_ADDR && req[0] != 0x00u) return 0;
 
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
@@ -422,7 +404,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     /* Debug echo retained for existing production tools. */
     if (func == 0x7Fu && addr != 0x00u)
     {
-        if (req_len > 268u) return 0;
         memcpy(rsp, req, req_len);
         *rsp_len = req_len;
         return 1;
@@ -465,19 +446,24 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg;
         u16 val;
         u8 exception;
+        struct PRT_E2ROM_PARAS previous_protect;
+        int protect_changed;
 
         if (req_len < 8u) return 0;
         reg = u16be(&req[2]);
         val = u16be(&req[4]);
+        protect_changed = reg_requires_param_save(reg);
+        if (protect_changed) previous_protect = g_tParam.protect;
 
         exception = write_reg(reg, val);
         if (exception != 0u)
             return modbus_exception(addr, func, exception, rsp, rsp_len);
 
-        if (reg_requires_param_save(reg))
+        if (protect_changed)
         {
-            SaveParam();
-            AFE_PARAM_WRITE_Flag = 1;
+            exception = commit_protection_update(&previous_protect);
+            if (exception != 0u)
+                return modbus_exception(addr, func, exception, rsp, rsp_len);
         }
 
         if (addr == 0x00u) return 0;
@@ -495,6 +481,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 i;
         int need_save_param = 0;
         u8 exception;
+        struct PRT_E2ROM_PARAS previous_protect;
 
         if (req_len < 9u) return 0;
         reg = u16be(&req[2]);
@@ -515,6 +502,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (qty > 1u && dvc_comm_range_contains(reg, qty))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
 
+        previous_protect = g_tParam.protect;
         pdata = &req[7];
         for (i = 0u; i < qty; i++)
         {
@@ -523,15 +511,19 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
             exception = write_reg(write_addr, value);
             if (exception != 0u)
+            {
+                if (need_save_param) g_tParam.protect = previous_protect;
                 return modbus_exception(addr, func, exception, rsp, rsp_len);
+            }
 
             if (reg_requires_param_save(write_addr)) need_save_param = 1;
         }
 
         if (need_save_param)
         {
-            SaveParam();
-            AFE_PARAM_WRITE_Flag = 1;
+            exception = commit_protection_update(&previous_protect);
+            if (exception != 0u)
+                return modbus_exception(addr, func, exception, rsp, rsp_len);
         }
 
         if (reg >= BTNAME_REG_BASE && reg < (BTNAME_REG_BASE + BTNAME_REG_WORDS))

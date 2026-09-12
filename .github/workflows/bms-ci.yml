@@ -1,0 +1,126 @@
+name: Telink BMS CI
+
+on:
+  push:
+    branches:
+      - refactor/bms-template-phase1
+      - ci-telink-bms-github-actions
+  pull_request:
+    branches:
+      - refactor/bms-template-phase1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telink-bms-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-contract:
+    name: Host contract checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Validate locked source order
+        run: python bms_tools/bms.py sources --check
+
+      - name: Run BMS tooling unit tests
+        run: python -m unittest tests.test_bms_tools -v
+
+      - name: Run DVC1124 configuration contract check
+        run: python tests/dvc1124_config_quick_check.py
+
+      - name: Run Flash storage contract check
+        run: python tests/flash_quick_check.py
+
+      - name: Syntax-check Python CI tooling
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/flash_quick_check.py
+
+  tc32-production:
+    name: TC32 production build
+    # Public fork PRs are untrusted and must never execute on this repository's
+    # Windows runner. Push, workflow_dispatch, and same-repository PR events
+    # remain eligible once the repository variable explicitly enables TC32 CI.
+    if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: [self-hosted, Windows, X64, telink-tc32]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check pinned TC32 environment
+        shell: powershell
+        run: python bms_tools/bms.py env
+
+      - name: Run BMS tooling unit tests
+        shell: powershell
+        run: python -m unittest tests.test_bms_tools -v
+
+      - name: Validate locked source order
+        shell: powershell
+        run: python bms_tools/bms.py sources --check
+
+      - name: Clean rebuild with TC32
+        shell: powershell
+        run: python bms_tools/bms.py rebuild --jobs 4
+
+      - name: Validate Telink firmware image
+        shell: powershell
+        run: python bms_tools/bms.py check-fw
+
+      - name: Report firmware size
+        shell: powershell
+        run: python bms_tools/bms.py size
+
+      - name: Analyze MAP file
+        shell: powershell
+        run: python bms_tools/bms.py map
+
+      - name: Generate firmware manifest
+        shell: powershell
+        run: python bms_tools/bms.py manifest
+
+      - name: Verify firmware integrity
+        shell: powershell
+        run: python bms_tools/bms.py verify
+
+      - name: Run cppcheck without machine-specific Excel report
+        shell: powershell
+        run: python bms_tools/bms.py static --no-report
+
+      - name: Run DVC1124 configuration contract check
+        shell: powershell
+        run: python tests/dvc1124_config_quick_check.py
+
+      - name: Run Flash storage contract check
+        shell: powershell
+        run: python tests/flash_quick_check.py
+
+      - name: Upload firmware and analysis evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telink-bms-${{ github.sha }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.elf
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/fw_manifest.json
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.map
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.lst
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/build.log
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/static/**

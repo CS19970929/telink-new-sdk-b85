@@ -7,8 +7,7 @@
 #include "../../common/types.h"
 #include "stdint.h"
 #include "flash_store_cfg.h"
-#include "dvc1124.h"
-#include "dvc1124_config_store.h"
+#include "dvc1124_project_config.h"
 
 // #define __VIRTURE_CURRENT__
 // #define FAC_TEST
@@ -224,19 +223,6 @@ CurCHG = 0, CurDSG
 #define SOC100_PIN             (GPIO_PD3)
 #define LED_BLUE_PIN           (GPIO_PB6)
 
-/*
- * Compatibility selectors for legacy app.c. These are deliberately virtual
- * so old SH367309 code cannot drive the HS-D008 heater/LDO/SOC LED GPIOs.
- */
-#define MCC_C_PIN              (DVC1124_VPIN_LEGACY_MCC)
-#define AFE_CTL_PIN            (DVC1124_VPIN_AFE_CTL)
-#define CHG_WK_PIN             (CHG_IN_PIN)
-#define ADC_NTC_PIN            (DVC1124_VPIN_ADC_BAT)
-#define ADC_VBUS_PIN           (DVC1124_VPIN_ADC_PACK)
-#define ADC_NMOS_PIN           (DVC1124_VPIN_ADC_MOS)
-#define ADC_BUSEN_PIN          (DVC1124_VPIN_NOOP0)
-#define ADC_EN_PIN             (DVC1124_VPIN_NOOP1)
-
 typedef struct 
 {
    uint16_t    cnt_PA0_irq;
@@ -287,47 +273,6 @@ extern Time_T  sys_time;
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
 #define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
-#endif
-
-/*
- * DVC1124 application compatibility layer.
- *
- * app_config.h is included from gpio_default.h while the Telink driver headers
- * are still being parsed, so redefining adc_* or gpio_* there corrupts SDK
- * declarations. conf.h is included by app.h after drivers.h in the BMS
- * application translation units. I2C_SLAVE_DEVICE_NO_START_EN is used as the
- * marker that i2c.h (and the preceding gpio/adc headers) has already finished.
- *
- * sh367309_datadeal.c includes conf.h before drivers.h, therefore this block is
- * intentionally inactive there; the legacy source keeps its own symbol names
- * and can continue supplying shared tables/error helpers without collisions.
- *
- * AFE reset/config/sample hooks go through dvc1124_config_store so semantic
- * operating settings are restored after reset and remain independent from the
- * legacy SH367309 application ABI.
- */
-#if defined(DVC1124_AFE_PROJECT) && DVC1124_AFE_PROJECT && \
-    defined(I2C_SLAVE_DEVICE_NO_START_EN) && !defined(DVC1124_IMPLEMENTATION)
-#define App_AFEGet                  DVC1124_ConfigStore_BmsApp_AFEGet
-#define AFE_Reset                   DVC1124_ConfigStore_AFE_Reset
-#define AFE_IsReady                 DVC1124_AFE_IsReady
-#define AFE_Sleep                   DVC1124_AFE_Sleep
-#define SH367309_UpdataAfeConfig    DVC1124_ConfigStore_UpdataAfeConfig
-#define MTPWrite                    DVC1124_BmsCompatMTPWrite
-
-#define adc_base_init(pin) \
-        DVC1124_CompatAdcBaseInit((unsigned int)(pin))
-#define adc_sample_and_get_result() \
-        DVC1124_CompatAdcSample()
-
-#define gpio_set_func(pin, func) \
-        DVC1124_CompatGpioSetFunc((unsigned int)(pin), (unsigned int)(func))
-#define gpio_set_input_en(pin, value) \
-        DVC1124_CompatGpioSetInputEn((unsigned int)(pin), (unsigned int)(value))
-#define gpio_set_output_en(pin, value) \
-        DVC1124_CompatGpioSetOutputEn((unsigned int)(pin), (unsigned int)(value))
-#define gpio_write(pin, value) \
-        DVC1124_CompatGpioWrite((unsigned int)(pin), (unsigned int)(value))
 #endif
 
 #endif

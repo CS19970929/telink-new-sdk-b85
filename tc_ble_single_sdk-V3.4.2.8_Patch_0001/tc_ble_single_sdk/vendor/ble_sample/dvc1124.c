@@ -1,11 +1,10 @@
-#define DVC1124_IMPLEMENTATION 1
 #include "dvc1124.h"
 
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
-#include "sci_upper.h"
-#include "sh367309_datadeal.h"
+#include "bms_error.h"
+#include "bms_state.h"
 #include "param.h"
 #include <string.h>
 
@@ -18,11 +17,16 @@
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
 
-extern struct stCell_Info g_stCellInfoReport;
-extern UINT32 u32_ChgCur_mA;
-extern UINT32 u32_DsgCur_mA;
-extern const UINT16 iSheldTemp_10K_AFE[DVC_TEMP_TABLE_LEN];
-extern UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+/* NTC resistance / ((degC + 40) * 10) pairs; resistance unit is 10 ohm. */
+static const uint16_t s_ntc_10k_table[DVC_TEMP_TABLE_LEN] = {
+    11611u, 100u, 8935u, 150u, 6943u, 200u, 5442u, 250u,
+    4300u, 300u, 3422u, 350u, 2751u, 400u, 2214u, 450u,
+    1801u, 500u, 1470u, 550u, 1209u, 600u, 1000u, 650u,
+    831u, 700u, 694u, 750u, 583u, 800u, 492u, 850u,
+    416u, 900u, 355u, 950u, 303u, 1000u, 260u, 1050u,
+    224u, 1100u, 193u, 1150u, 167u, 1200u, 146u, 1250u,
+    127u, 1300u, 111u, 1350u, 98u, 1400u, 86u, 1450u,
+};
 
 static dvc1124_config_t s_cfg = {
     DVC1124_DEFAULT_MODEL,
@@ -39,9 +43,7 @@ static dvc1124_snapshot_t s_snapshot;
 static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
-static uint8_t s_legacy_output_gate;
-static unsigned int s_compat_adc_pin;
-static uint8_t s_compat_adc_virtual;
+static uint8_t s_output_enabled;
 static uint32_t s_balance_requested_mask;
 
 /* Last values actually represented by DVC hardware. Used for diagnostics. */
@@ -91,11 +93,6 @@ static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
         }
     }
     return crc;
-}
-
-static uint8_t dvc_is_virtual_pin(unsigned int pin)
-{
-    return (pin >= DVC1124_VPIN_AFE_CTL) && (pin <= DVC1124_VPIN_NOOP1);
 }
 
 static void dvc_delay_ms(uint16_t ms)
@@ -660,22 +657,29 @@ static void dvc_note_comm_result(uint8_t ok)
 {
     if (ok)
     {
-        SystemStatus.bits.b1Status_AFE1 = 1u;
-        if (System_ERROR_UserCallback(ERROR_STATUS_AFE1))
-            (void)System_ERROR_UserCallback(ERROR_REMOVE_AFE1);
+        g_bms_system_status.bits.b1Status_AFE1 = 1u;
+        bms_error_clear(BMS_ERROR_AFE1);
     }
     else
     {
-        SystemStatus.bits.b1Status_AFE1 = 0u;
-        (void)System_ERROR_UserCallback(ERROR_AFE1);
+        g_bms_system_status.bits.b1Status_AFE1 = 0u;
+        bms_error_raise(BMS_ERROR_AFE1);
     }
+}
+
+uint8_t DVC1124_ApplyProtectionConfig(void)
+{
+    uint8_t ok = dvc_apply_protection_from_params();
+
+    dvc_note_comm_result(ok);
+    return ok;
 }
 
 static uint16_t dvc_ntc_temp_report(uint32_t r_ohm)
 {
     uint32_t code = r_ohm / 10u;
     if (code > 65535u) code = 65535u;
-    return GetEndValue(iSheldTemp_10K_AFE, DVC_TEMP_TABLE_LEN, (uint16_t)code);
+    return bms_lookup_u16(s_ntc_10k_table, DVC_TEMP_TABLE_LEN, (uint16_t)code);
 }
 
 static uint8_t dvc_ntc_resistance(uint16_t gp_code,
@@ -694,15 +698,6 @@ static uint8_t dvc_ntc_resistance(uint16_t gp_code,
     denominator = (uint32_t)v1p8_code - gp_code;
     *res_ohm = ((uint32_t)gp_code * rpu_ohm) / denominator;
     return 1u;
-}
-
-static unsigned int dvc_resistance_to_legacy_adc_mv(uint32_t r_ohm)
-{
-    uint32_t mv;
-    if (r_ohm == 0u) return 0u;
-    mv = (3300u * r_ohm) / (r_ohm + 10000u);
-    if (mv > 3299u) mv = 3299u;
-    return (unsigned int)mv;
 }
 
 uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
@@ -888,13 +883,13 @@ uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t set = 0u;
 
-    if (charge_on && s_legacy_output_gate)
+    if (charge_on && s_output_enabled)
     {
         set |= DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK,
                                    DVC1124_FET_CHGC_SHIFT,
                                    DVC1124_FET_DRIVE_ON);
     }
-    if (discharge_on && s_legacy_output_gate)
+    if (discharge_on && s_output_enabled)
     {
         set |= DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK,
                                    DVC1124_FET_DSGC_SHIFT,
@@ -905,6 +900,15 @@ uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
                           (uint8_t)(DVC1124_FET_DSGC_MASK |
                                     DVC1124_FET_CHGC_MASK),
                           set);
+}
+
+void DVC1124_SetOutputEnabled(uint8_t enabled)
+{
+    s_output_enabled = enabled ? 1u : 0u;
+    if (!s_output_enabled)
+    {
+        (void)DVC1124_SetMosState(0u, 0u);
+    }
 }
 
 static uint8_t dvc_refresh_balance_state(void)
@@ -1075,7 +1079,7 @@ void DVC1124_App_AFEGet(void)
     uint32_t raw20;
     int32_t cc2;
     int32_t current_ma;
-    int64_t current_num;
+    int32_t current_num;
     uint8_t write_addr;
     uint8_t configured_ntc_ok = 1u;
 
@@ -1092,8 +1096,6 @@ void DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
-        u32_ChgCur_mA = 0u;
-        u32_DsgCur_mA = 0u;
         g_stCellInfoReport.u16Ichg = 0u;
         g_stCellInfoReport.u16IDischg = 0u;
         dvc_note_comm_result(0u);
@@ -1114,22 +1116,24 @@ void DVC1124_App_AFEGet(void)
             ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
             ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
     cc2 = dvc_sign_extend20(raw20);
-    current_num = (int64_t)cc2 * 5000; /* 0.3125 uV = 5000/16 nV */
-    current_ma = (int32_t)(current_num / ((int64_t)16 * s_cfg.shunt_uohm));
+    /* 0.3125 uV = 5000/16 nV. Reduce both factors by 8 so the
+     * signed 20-bit CC2 numerator stays within int32_t:
+     * abs(cc2) * 625 <= 327680000. The quotient is unchanged. */
+    current_num = cc2 * 625;
+    current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);
     s_snapshot.current_ma = current_ma;
 
     if (current_ma >= 0)
     {
-        u32_DsgCur_mA = (uint32_t)current_ma;
-        u32_ChgCur_mA = 0u;
-        g_stCellInfoReport.u16IDischg = (uint16_t)((u32_DsgCur_mA / 100u) > 65535u ? 65535u : (u32_DsgCur_mA / 100u));
+        uint32_t discharge_ma = (uint32_t)current_ma;
+
+        g_stCellInfoReport.u16IDischg = (uint16_t)((discharge_ma / 100u) > 65535u ? 65535u : (discharge_ma / 100u));
         g_stCellInfoReport.u16Ichg = 0u;
     }
     else
     {
         uint32_t charge_ma = (uint32_t)(-current_ma);
-        u32_ChgCur_mA = charge_ma;
-        u32_DsgCur_mA = 0u;
+
         g_stCellInfoReport.u16Ichg = (uint16_t)((charge_ma / 100u) > 65535u ? 65535u : (charge_ma / 100u));
         g_stCellInfoReport.u16IDischg = 0u;
     }
@@ -1178,12 +1182,11 @@ void DVC1124_App_AFEGet(void)
 
     if (configured_ntc_ok)
     {
-        if (System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK))
-            (void)System_ERROR_UserCallback(ERROR_REMOVE_TEMP_BREAK);
+        bms_error_clear(BMS_ERROR_TEMP_BREAK);
     }
     else
     {
-        (void)System_ERROR_UserCallback(ERROR_TEMP_BREAK);
+        bms_error_raise(BMS_ERROR_TEMP_BREAK);
     }
 
     {
@@ -1210,9 +1213,9 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
     }
 
-    SystemStatus.bits.b1Status_MOS_CHG =
+    g_bms_system_status.bits.b1Status_MOS_CHG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
-    SystemStatus.bits.b1Status_MOS_DSG =
+    g_bms_system_status.bits.b1Status_MOS_DSG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
     /* 0x67..0x69 auto-clear after 60 s; report actual AFE state, not cached request. */
@@ -1222,86 +1225,4 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16BalanceFlag2 = 0u;
     }
     dvc_note_comm_result(1u);
-}
-
-uint8_t DVC1124_CompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf)
-{
-    if ((wr_buf == NULL) || (length == 0u)) return 0u;
-
-    /* Legacy SH367309 MTP_CONF: bit4=CHGMOS, bit5=DSGMOS. */
-    if (wr_addr == 0x40u)
-    {
-        return DVC1124_SetMosState((wr_buf[0] & 0x10u) ? 1u : 0u,
-                                   (wr_buf[0] & 0x20u) ? 1u : 0u);
-    }
-    return 0u;
-}
-
-void DVC1124_CompatAdcBaseInit(unsigned int pin)
-{
-    s_compat_adc_pin = pin;
-    s_compat_adc_virtual = ((pin == DVC1124_VPIN_ADC_BAT) ||
-                            (pin == DVC1124_VPIN_ADC_PACK) ||
-                            (pin == DVC1124_VPIN_ADC_MOS)) ? 1u : 0u;
-    if (!s_compat_adc_virtual) adc_base_init((GPIO_PinTypeDef)pin);
-}
-
-unsigned int DVC1124_CompatAdcSample(void)
-{
-    uint8_t gp;
-
-    if (!s_compat_adc_virtual) return adc_sample_and_get_result();
-    if (!s_snapshot.valid) return 0u;
-
-    if (s_compat_adc_pin == DVC1124_VPIN_ADC_PACK)
-    {
-        uint32_t mv = (s_snapshot.vtop_mv * 15u) / 485u;
-        return (unsigned int)((mv > 3299u) ? 3299u : mv);
-    }
-    if (s_compat_adc_pin == DVC1124_VPIN_ADC_BAT)
-        gp = s_cfg.battery_ntc_gp;
-    else if (s_compat_adc_pin == DVC1124_VPIN_ADC_MOS)
-        gp = s_cfg.mos_ntc_gp;
-    else
-        return 0u;
-
-    if ((gp == 0u) || (gp > DVC1124_MAX_GP)) return 0u;
-    return dvc_resistance_to_legacy_adc_mv(s_snapshot.ntc_res_ohm[gp - 1u]);
-}
-
-void DVC1124_CompatGpioSetFunc(unsigned int pin, unsigned int func)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_func((GPIO_PinTypeDef)pin, (GPIO_FuncTypeDef)func);
-}
-
-void DVC1124_CompatGpioSetInputEn(unsigned int pin, unsigned int value)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_input_en((GPIO_PinTypeDef)pin, value);
-}
-
-void DVC1124_CompatGpioSetOutputEn(unsigned int pin, unsigned int value)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_output_en((GPIO_PinTypeDef)pin, value);
-}
-
-void DVC1124_CompatGpioWrite(unsigned int pin, unsigned int value)
-{
-    if (pin == DVC1124_VPIN_AFE_CTL)
-    {
-        if (value == 0u)
-        {
-            s_legacy_output_gate = 0u;
-            (void)DVC1124_SetMosState(0u, 0u);
-        }
-        else
-        {
-            s_legacy_output_gate = 1u;
-        }
-        return;
-    }
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_write((GPIO_PinTypeDef)pin, value);
 }

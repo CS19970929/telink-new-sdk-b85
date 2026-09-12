@@ -2,7 +2,9 @@
 #include "tl_common.h"
 #include "conf.h"
 #include "dvc1124_config_service.h"
-//#include "build_version_auto.h"
+
+/* Includes the proprietary 0x7F echo frame; ordinary Modbus RTU fits in 256. */
+#define MODBUS_RTU_FRAME_CAPACITY 268u
 
 u16 mb_crc16(const u8 *buf, u32 len);
 

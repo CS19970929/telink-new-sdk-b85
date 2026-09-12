@@ -15,9 +15,7 @@ typedef enum
 } SIF_STATE_E;
 
 void sif_send_data_handle(void);
-
-// #define COM_PIN 0
-// #define COM_PORT gpioPortC
-
+void sif_timer_init(void);
+void sif_timer_irq_handler(void);
 
 #endif

@@ -1,8 +1,8 @@
 #include "bms_event_log.h"
 
+#include "bms_error.h"
 #include "drivers.h"
 #include "flash_store_safe.h"
-#include "sh367309_datadeal.h"
 #include <string.h>
 
 #define BMS_EVENT_LOG_MAGIC           0x424C4F47u
@@ -40,7 +40,7 @@ static bms_event_log_ctx_t g_bms_event_log;
 
 static void bms_event_log_report_store_error(void)
 {
-    System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+    bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
 static void bms_event_log_put_u16le(u8 *buf, u16 value)

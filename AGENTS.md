@@ -1,6 +1,6 @@
 # AGENTS.md — TLSR8251 BMS / HS-D008 / DVC1124 开发规则
 
-当前开发基线为 `codex-new-new-master-no-ide-toolchain`，本分支 `feature/dvc1124-22-bms` 面向真实产品固件迁移，不再只是命令行工具链分支。当前目标硬件为 HS-D008 + TLSR8251 + DVC1124-2；默认 AFE 型号为 DVC1124-22，默认 24S，同时保留 20S 变体能力。
+当前目标硬件为 HS-D008 + TLSR8251 + DVC1124-2；默认 AFE 型号为 DVC1124-22，默认 24S，同时保留 20S 变体能力。本文档跟随项目主线能力，不绑定历史分支名。
 
 本文件是 Codex / ChatGPT / 其他 AI Agent 修改本仓库时必须遵守的长期工程约束。若代码、原理图、AFE 手册和本文件发生冲突，不得自行猜测；先指出冲突及证据，再决定修改方案。
 
@@ -52,11 +52,7 @@ DVC1124 新功能优先放置在：
 - `vendor/ble_sample/dvc1124.h`：公开 API 和数据类型；
 - `vendor/ble_sample/dvc1124_project_config.h`：板型/型号/地址/串数/Rsense/NTC 等项目配置。
 
-不得继续向 `sh367309_datadeal.c` 增加 DVC1124 专属寄存器逻辑。
-
-当前仍保留 `sh367309_datadeal.c`，是因为其中还包含历史公共数据结构、错误处理、温度表、故障记录等遗留能力。文件名含 `sh367309` 不代表当前 HS-D008 产品仍使用 SH367309。
-
-后续重构应优先逐步提取真正公共逻辑，而不是通过复制粘贴制造两套 BMS 业务代码。
+SH367309 遗留文件已从当前产品源码删除。通用 BMS 报告、系统状态、错误计数、温度查表和分级故障历史归 `bms_state.*` / `bms_error.h` 所有；禁止为新 AFE 恢复 `sh367309_datadeal.*` 或复制一套 BMS 业务代码。
 
 ## 4. DVC1124 I2C 地址规则
 
@@ -102,7 +98,7 @@ DVC1124-22 与 DVC1124-24 的硬件地址编码资源不同；不得把两者的
 
 SOC/LED、NTC、GP5/GP6 等网络若原理图和现有代码仍有待确认项，必须保持 `TODO_VERIFY_HW`，不得仅凭旧项目 pin 名推断。
 
-特别注意：旧项目的 `MCC_C_PIN`、`AFE_CTL_PIN`、`ADC_NTC_PIN`、`ADC_VBUS_PIN`、`ADC_NMOS_PIN` 等名称来自 SH367309 板型。当前兼容层使用 virtual pin 的目的，是防止这些旧代码误驱动 HS-D008 的 PA1、PC4、SOC LED 等真实引脚。不得为了“简化”把这些 virtual pin 重新直接映射到真实 GPIO。
+特别注意：旧项目的 `MCC_C_PIN`、`AFE_CTL_PIN`、`ADC_NTC_PIN`、`ADC_VBUS_PIN`、`ADC_NMOS_PIN` 等名称来自 SH367309 板型，已从 D008 应用路径删除。不得重新引入这些旧 pin 名或把它们映射到 HS-D008 的 PA1、PC4、SOC LED 等真实引脚；DVC 输出门控和辅助测量统一通过 `bms_afe.h`。
 
 ## 6. 禁止污染 Telink SDK 头文件
 
@@ -124,9 +120,7 @@ pm_*
 
 否则会把官方头文件里的函数声明本身也做宏展开，导致编译器报错或产生更隐蔽的 ABI/调用问题。
 
-应用兼容 alias 只能在确认 `drivers.h` 已完成解析后启用，并且必须确保 `sh367309_datadeal.c` 自身实现不会被重命名成 DVC1124 符号。
-
-原则上不要通过大范围宏劫持 SDK API 来实现新架构。兼容宏只允许作为迁移阶段的局部措施；长期应通过明确的 board/AFE API 调用收口。
+当前应用路径不使用旧器件函数名、虚拟 pin 或 SDK API alias。不得通过大范围宏劫持 SDK API 实现新 AFE；必须通过明确的 board/AFE API 调用收口。
 
 ## 7. 测量与保护原则
 
@@ -174,7 +168,7 @@ DVC1124 采样与保护实现必须保持以下边界：
 
 禁止擅自升级编译器、SDK、ABI、启动代码、链接脚本或替换预编译库。两份 `.a` 文件属于构建输入，必须保留在 Git 中并由 manifest 记录 SHA-256。
 
-当前 `build.mk` 使用 `tc32-elf-ld` 直接链接。若编译器生成 `__muldi3`、`__divdi3` 等 runtime helper，`build.mk` 会通过当前锁定的 `tc32-elf-gcc -print-libgcc-file-name` 获取匹配 ABI 的 `libgcc.a`。禁止链接 host GCC/ARM GCC 的 `libgcc`。
+当前 `build.mk` 使用 `tc32-elf-ld` 直接链接。当前锁定的 Windows TC32 安装执行 `tc32-elf-gcc -print-libgcc-file-name` 只返回裸文件名，且安装中没有目标端 `libgcc.a`；因此量产构建不得依赖 `__muldi3`、`__divdi3` 等 64-bit runtime helper。禁止链接 host GCC、ARM GCC 或其他 TC32 版本的 `libgcc` 来掩盖问题。
 
 新增代码应尽量避免不必要的 64-bit 乘除，尤其是高频采样路径；能在明确溢出边界下用 32-bit 定点算法实现时优先使用 32-bit。但优化前后必须有数值范围证明和回归测试，不能为了减代码尺寸破坏精度或溢出安全。
 
@@ -289,4 +283,4 @@ AFE/保护/MOS/低功耗相关修改还必须做真实硬件验证。至少覆�
 
 烧录前先执行 `verify`，禁止全片擦除或擦除 `0x74000..0x7FFFF`。重大修改后用 `baseline <reference.bin>` 比较尺寸、SHA-256 和首末差异位置，并在真实 TLSR8251 板上完成现有功能冒烟测试。
 
-详细工具链迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`；HS-D008 / DVC1124 当前适配说明见 `docs/DVC1124_HS_D008.md`。
+构建、源码顺序和发布门禁见 `docs/BUILD_AND_TEST.md`；架构与 AFE 移植边界见 `docs/ARCHITECTURE.md`；HS-D008 / DVC1124 硬件基线见 `docs/DVC1124_HS_D008.md`；未完成的实板项目统一记录在 `docs/HARDWARE_VALIDATION.md`。

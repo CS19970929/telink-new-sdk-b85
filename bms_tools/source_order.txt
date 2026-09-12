@@ -18,15 +18,13 @@ vendor/common/user_config.c
 vendor/ble_sample/SocEnhance.c
 vendor/ble_sample/app.c
 vendor/ble_sample/app_att.c
-vendor/ble_sample/app_ui.c
+vendor/ble_sample/ble_ota.c
 vendor/ble_sample/bms_cold_kv_store.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/btname_modbus.c
 vendor/ble_sample/bus_mux.c
-vendor/ble_sample/conf.c
 vendor/ble_sample/dvc1124.c
-vendor/ble_sample/dvc1124_core_ot.c
-vendor/ble_sample/dvc1124_commands.c
+vendor/ble_sample/dvc1124_special.c
 vendor/ble_sample/dvc1124_config_store.c
 vendor/ble_sample/dvc1124_config_service.c
 vendor/ble_sample/dvc1124_bms.c
@@ -36,7 +34,7 @@ vendor/ble_sample/modbus_rtu.c
 vendor/ble_sample/modbus_uart.c
 vendor/ble_sample/param.c
 vendor/ble_sample/runtime.c
-vendor/ble_sample/sh367309_datadeal.c
+vendor/ble_sample/bms_state.c
 vendor/ble_sample/sif_send.c
 vendor/ble_sample/soc_kv_store.c
 drivers/B85/adc.c

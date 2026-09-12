@@ -1,9 +1,9 @@
 ﻿#include "btname_modbus.h"
+#include "bms_error.h"
 #include "bms_cold_kv_store.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
-#include "sh367309_datadeal.h"
 
 static void *m_memcpy(void *dst, const void *src, unsigned n)
 {
@@ -172,7 +172,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     }
 
     if (!btname_save_suffix_to_store(suffix)) {
-        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 1;
     }
 
