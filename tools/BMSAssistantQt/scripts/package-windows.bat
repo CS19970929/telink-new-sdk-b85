@@ -59,9 +59,6 @@ if errorlevel 8 goto :copy_failed
 
 copy /y "%ROOT_DIR%\README.md" "%DOCS_DIR%\README.md" > nul
 copy /y "%ROOT_DIR%\WINDOWS-DELIVERY.md" "%DOCS_DIR%\WINDOWS-DELIVERY.md" > nul
-for %%D in ("%ROOT_DIR%\..\..\..\docs\BMSWinAndroid*.md") do (
-  if exist "%%~fD" copy /y "%%~fD" "%DOCS_DIR%\" > nul
-)
 copy /y "%ROOT_DIR%\scripts\launch-windows-package.bat" "%DIST_DIR%\Launch-BMSAssistantQt.bat" > nul
 echo Windows package generated: %DIST_DIR%\BMSAssistantQt
 exit /b 0

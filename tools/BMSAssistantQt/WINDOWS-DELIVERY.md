@@ -20,7 +20,6 @@ Windows 侧的核心目标：
 - `Launch-BMSAssistantQt.bat`
 - `docs/README.md`
 - `docs/WINDOWS-DELIVERY.md`
-- `docs/BMSWinAndroid客户端实现说明.md`
 
 其中：
 
