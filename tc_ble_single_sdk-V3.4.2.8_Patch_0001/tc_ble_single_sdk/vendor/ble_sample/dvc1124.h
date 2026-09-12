@@ -178,6 +178,10 @@ uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
 uint8_t DVC1124_GetCoreOtEventLatched(void);
 void DVC1124_ClearCoreOtEventLatched(void);
 
+/* W0C and self-clearing operations implemented by dvc1124_special.c. */
+uint8_t DVC1124_ClearAlarmFlags(uint8_t flag_mask);
+uint8_t DVC1124_StartCadcCalibration(void);
+
 /*
  * Register read-side-effect metadata from Reference Manual V1.2.
  *

@@ -388,9 +388,10 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     u8 addr;
     u8 func;
 
+    if (req == NULL || rsp == NULL || rsp_len == NULL) return 0;
     *rsp_len = 0u;
 
-    if (req_len < 4u) return 0;
+    if (req_len < 4u || req_len > MODBUS_RTU_FRAME_CAPACITY) return 0;
     if (req[0] != MB_ADDR && req[0] != 0x00u) return 0;
 
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
@@ -403,7 +404,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     /* Debug echo retained for existing production tools. */
     if (func == 0x7Fu && addr != 0x00u)
     {
-        if (req_len > 268u) return 0;
         memcpy(rsp, req, req_len);
         *rsp_len = req_len;
         return 1;

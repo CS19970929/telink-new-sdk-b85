@@ -132,6 +132,8 @@ class RegisterTruthTests(unittest.TestCase):
         self.assertIn("DVC1124_StartCadcCalibration", self.commands)
         self.assertIn("DVC1124_CADC_CAMZ_MASK", self.commands)
         self.assertIn("DVC1124_ClearAlarmFlags(clear_mask)", self.dvc_bms)
+        self.assertIn("uint8_t DVC1124_ClearAlarmFlags", self.dvc_h)
+        self.assertFalse((HERE / "dvc1124_commands.h").exists())
 
 
 class PersistenceLayoutTests(unittest.TestCase):

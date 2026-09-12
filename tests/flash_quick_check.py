@@ -535,6 +535,19 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn("bms_afe_request_config_reload", modbus)
         self.assertNotIn("AFE_PARAM_WRITE_Flag", modbus)
 
+    def test_modbus_transport_uses_one_bounded_frame_capacity(self):
+        rtu_h = read_text(MODULE_DIR / "modbus_rtu.h")
+        uart_c = read_text(MODULE_DIR / "modbus_uart.c")
+        att_c = read_text(MODULE_DIR / "app_att.c")
+        self.assertIn("#define MODBUS_RTU_FRAME_CAPACITY 268u", rtu_h)
+        self.assertIn("data[MODBUS_RTU_FRAME_CAPACITY]", uart_c)
+        self.assertIn("rsp_buf[MODBUS_RTU_FRAME_CAPACITY]", uart_c)
+        self.assertIn("ble_rsp_buf[MODBUS_RTU_FRAME_CAPACITY]", att_c)
+        self.assertIn("len > MODBUS_RTU_FRAME_CAPACITY", att_c)
+        self.assertIn("len > sizeof(s_tx_pkt.data)", uart_c)
+        self.assertNotIn("rsp_buf[512]", uart_c)
+        self.assertNotIn("ble_rsp_buf[512]", att_c)
+
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)

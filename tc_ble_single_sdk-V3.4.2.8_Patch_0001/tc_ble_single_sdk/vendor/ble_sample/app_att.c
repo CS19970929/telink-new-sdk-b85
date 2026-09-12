@@ -27,7 +27,6 @@
 #include "app.h"
 #include "app_att.h"
 #include "conf.h"
-#include "modbus_uart.h"
 #include "modbus_rtu.h"
 #include "btname_modbus.h"
 
@@ -366,10 +365,10 @@ static const u8 my_OtaCharVal[19] = {
  * @param[in]  para - rf_packet_att_write_t
  * @return     0
  */
-static u8  ble_rsp_buf[512];
+static u8 ble_rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 
 #define TELINK_NOTIFY_PAYLOAD 20
-ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
+static ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
 {
 	u16 offset = 0;
 
@@ -395,23 +394,28 @@ ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
 
 	return BLE_SUCCESS;
 }
-int module_onReceiveData(void *para)
+static int module_onReceiveData(void *para)
 {
 	rf_packet_att_write_t *p = (rf_packet_att_write_t*)para;
-	u8 len = p->l2capLen - 3;
-	const u8 *data = (const u8 *)&p->value;
-	if(len > 0)
+	u16 len;
+	const u8 *data;
+
+	if (p == NULL || p->l2capLen <= 3u) return 0;
+	len = (u16)(p->l2capLen - 3u);
+	if (len > MODBUS_RTU_FRAME_CAPACITY) return 0;
+	data = (const u8 *)&p->value;
+
 	{
-		u32 rsp_len = 0;
-        int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
+		u32 rsp_len = 0u;
+		int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
+
 		if (ok && rsp_len)
-        {
-			(void)notify_big_packet(
-			BLS_CONN_HANDLE,
-			SPP_CLIENT_TO_SERVER_DP_H, 
-			ble_rsp_buf,
-			rsp_len);
-        }
+		{
+			(void)notify_big_packet(BLS_CONN_HANDLE,
+							SPP_CLIENT_TO_SERVER_DP_H,
+							ble_rsp_buf,
+							(u16)rsp_len);
+		}
 	}
 
 	return 0;
@@ -557,5 +561,3 @@ void	my_att_init(void)
 {
 	bls_att_setAttributeTable((u8 *)my_Attributes);
 }
-
-
