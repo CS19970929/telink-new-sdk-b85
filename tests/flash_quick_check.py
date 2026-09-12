@@ -27,6 +27,7 @@ BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
 BLE_FLASH = COMMON_DIR / "ble_flash.h"
 FLASH_SAFE = MODULE_DIR / "flash_store_safe.h"
 APP_C = MODULE_DIR / "app.c"
+MAIN_C = MODULE_DIR / "main.c"
 MODBUS_RTU_C = MODULE_DIR / "modbus_rtu.c"
 RUNTIME_C = MODULE_DIR / "runtime.c"
 EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
@@ -36,7 +37,7 @@ BMS_COLD_C = MODULE_DIR / "bms_cold_kv_store.c"
 SOC_KV_C = MODULE_DIR / "soc_kv_store.c"
 SOC_KV_H = MODULE_DIR / "soc_kv_store.h"
 SOC_ENHANCE_C = MODULE_DIR / "SocEnhance.c"
-SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
+DVC1124_C = MODULE_DIR / "dvc1124.c"
 SIF_SEND_C = MODULE_DIR / "sif_send.c"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
@@ -447,29 +448,49 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("if (sag_hold_blocks && (target_soc > 1u) && soc_discharge_sag_hold_active())", text)
 
     def test_afe_read_failure_freezes_soc_current_and_preserves_soc_report(self):
-        text = read_text(SH367309_C)
-        self.assertIn("DataLoad_ClearCurrent();", text)
-        self.assertIn("DataLoad_ClearAfeReportPreserveSoc();", text)
+        text = read_text(DVC1124_C)
+        self.assertIn("s_snapshot.valid = 0u;", text)
+        self.assertIn("u32_ChgCur_mA = 0u;", text)
+        self.assertIn("u32_DsgCur_mA = 0u;", text)
+        self.assertIn("g_stCellInfoReport.u16Ichg = 0u;", text)
+        self.assertIn("g_stCellInfoReport.u16IDischg = 0u;", text)
         self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
 
-    def test_current_conversion_preserves_existing_integer_formula(self):
-        text = read_text(SH367309_C)
-        self.assertNotIn("DataLoad_CurrentRawToScaled_mA", text)
+    def test_current_conversion_uses_dvc_cc2_and_configured_shunt(self):
+        text = read_text(DVC1124_C)
         self.assertIn(
-            "u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * "
-            "g_u32CS_Res_AFE / (21470);",
+            "current_num = (int64_t)cc2 * 5000;",
             text,
         )
         self.assertIn(
-            "u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) "
-            "* g_u32CS_Res_AFE / (21470) * 200;",
+            "current_ma = (int32_t)(current_num / ((int64_t)16 * s_cfg.shunt_uohm));",
             text,
         )
+        self.assertIn("if (current_ma >= 0)", text)
+        self.assertIn("uint32_t charge_ma = (uint32_t)(-current_ma);", text)
 
     def test_sif_reports_capacity_as_raw_profile_value(self):
         text = read_text(SIF_SEND_C)
         self.assertIn("sif_report.public.CAPACITYFACTORY = CapacityFactory;", text)
         self.assertNotIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
+
+    def test_sif_uses_afe_independent_fault_report(self):
+        text = read_text(SIF_SEND_C)
+        self.assertIn("static uint8_t sif_fault_code(void)", text)
+        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits", text)
+        self.assertNotIn("ram_reg_309", text)
+        self.assertNotIn("sh367309_datadeal.h", text)
+
+    def test_sif_timer_is_owned_by_sif_module(self):
+        app = read_text(APP_C)
+        main = read_text(MAIN_C)
+        sif = read_text(SIF_SEND_C)
+        self.assertNotIn("app_timer_test", app)
+        self.assertNotIn("timer0_irq_cnt", app)
+        self.assertIn("#define SIF_TIMER_INTERVAL_US 500u", sif)
+        self.assertIn("void sif_timer_init(void)", sif)
+        self.assertIn("void sif_timer_irq_handler(void)", sif)
+        self.assertIn("sif_timer_irq_handler();", main)
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)

@@ -22,6 +22,12 @@ typedef struct
     uint8_t active;
 } dvc_bms_filter_t;
 
+typedef enum
+{
+    DVC_LIMIT_HIGH = 0,
+    DVC_LIMIT_LOW
+} dvc_limit_direction_t;
+
 static dvc_bms_filter_t s_bat_ovp;
 static dvc_bms_filter_t s_bat_uvp;
 static dvc_bms_filter_t s_chg_otp;
@@ -43,13 +49,16 @@ static uint16_t dvc_filter_samples(uint16_t filter_10ms)
     return (uint16_t)samples;
 }
 
-static uint8_t dvc_filter_high(dvc_bms_filter_t *state,
-                               uint16_t value,
-                               uint16_t trip,
-                               uint16_t recover,
-                               uint16_t filter_10ms)
+static uint8_t dvc_filter_update(dvc_bms_filter_t *state,
+                                 uint16_t value,
+                                 uint16_t trip,
+                                 uint16_t recover,
+                                 uint16_t filter_10ms,
+                                 dvc_limit_direction_t direction)
 {
     uint16_t required;
+    uint8_t recovered;
+    uint8_t violated;
 
     if (state == NULL) return 0u;
     if (trip == 0u)
@@ -61,7 +70,9 @@ static uint8_t dvc_filter_high(dvc_bms_filter_t *state,
 
     if (state->active)
     {
-        if (value <= recover)
+        recovered = (direction == DVC_LIMIT_HIGH) ?
+                    (value <= recover) : (value >= recover);
+        if (recovered)
         {
             state->active = 0u;
             state->assert_count = 0u;
@@ -69,49 +80,9 @@ static uint8_t dvc_filter_high(dvc_bms_filter_t *state,
         return state->active;
     }
 
-    if (value < trip)
-    {
-        state->assert_count = 0u;
-        return 0u;
-    }
-
-    required = dvc_filter_samples(filter_10ms);
-    if (state->assert_count < required) ++state->assert_count;
-    if (state->assert_count >= required)
-    {
-        state->active = 1u;
-        state->assert_count = 0u;
-    }
-    return state->active;
-}
-
-static uint8_t dvc_filter_low(dvc_bms_filter_t *state,
-                              uint16_t value,
-                              uint16_t trip,
-                              uint16_t recover,
-                              uint16_t filter_10ms)
-{
-    uint16_t required;
-
-    if (state == NULL) return 0u;
-    if (trip == 0u)
-    {
-        state->active = 0u;
-        state->assert_count = 0u;
-        return 0u;
-    }
-
-    if (state->active)
-    {
-        if (value >= recover)
-        {
-            state->active = 0u;
-            state->assert_count = 0u;
-        }
-        return state->active;
-    }
-
-    if (value > trip)
+    violated = (direction == DVC_LIMIT_HIGH) ?
+               (value >= trip) : (value <= trip);
+    if (!violated)
     {
         state->assert_count = 0u;
         return 0u;
@@ -229,17 +200,19 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
         (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) ? 1u : 0u;
 
     g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp =
-        dvc_filter_high(&s_bat_ovp,
-                        pack_x100,
-                        g_tParam.protect.u16VbusOvp_Third,
-                        g_tParam.protect.u16VbusOvp_Rcv,
-                        g_tParam.protect.u16VbusOvp_Filter);
+        dvc_filter_update(&s_bat_ovp,
+                          pack_x100,
+                          g_tParam.protect.u16VbusOvp_Third,
+                          g_tParam.protect.u16VbusOvp_Rcv,
+                          g_tParam.protect.u16VbusOvp_Filter,
+                          DVC_LIMIT_HIGH);
     g_stCellInfoReport.unMdlFault_Third.bits.b1BatUvp =
-        dvc_filter_low(&s_bat_uvp,
-                       pack_x100,
-                       g_tParam.protect.u16VbusUvp_Third,
-                       g_tParam.protect.u16VbusUvp_Rcv,
-                       g_tParam.protect.u16VbusUvp_Filter);
+        dvc_filter_update(&s_bat_uvp,
+                          pack_x100,
+                          g_tParam.protect.u16VbusUvp_Third,
+                          g_tParam.protect.u16VbusUvp_Rcv,
+                          g_tParam.protect.u16VbusUvp_Filter,
+                          DVC_LIMIT_LOW);
 
     if (cfg != NULL)
     {
@@ -250,25 +223,29 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
     if (battery_temp != 0u)
     {
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp =
-            dvc_filter_high(&s_chg_otp, battery_temp,
-                            g_tParam.protect.u16TChgOTp_Third,
-                            g_tParam.protect.u16TChgOTp_Rcv,
-                            g_tParam.protect.u16TChgOTp_Filter);
+            dvc_filter_update(&s_chg_otp, battery_temp,
+                              g_tParam.protect.u16TChgOTp_Third,
+                              g_tParam.protect.u16TChgOTp_Rcv,
+                              g_tParam.protect.u16TChgOTp_Filter,
+                              DVC_LIMIT_HIGH);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp =
-            dvc_filter_low(&s_chg_utp, battery_temp,
-                           g_tParam.protect.u16TchgUTp_Third,
-                           g_tParam.protect.u16TchgUTp_Rcv,
-                           g_tParam.protect.u16TchgUTp_Filter);
+            dvc_filter_update(&s_chg_utp, battery_temp,
+                              g_tParam.protect.u16TchgUTp_Third,
+                              g_tParam.protect.u16TchgUTp_Rcv,
+                              g_tParam.protect.u16TchgUTp_Filter,
+                              DVC_LIMIT_LOW);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp =
-            dvc_filter_high(&s_dsg_otp, battery_temp,
-                            g_tParam.protect.u16TdischgOTp_Third,
-                            g_tParam.protect.u16TdischgOTp_Rcv,
-                            g_tParam.protect.u16TdischgOTp_Filter);
+            dvc_filter_update(&s_dsg_otp, battery_temp,
+                              g_tParam.protect.u16TdischgOTp_Third,
+                              g_tParam.protect.u16TdischgOTp_Rcv,
+                              g_tParam.protect.u16TdischgOTp_Filter,
+                              DVC_LIMIT_HIGH);
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp =
-            dvc_filter_low(&s_dsg_utp, battery_temp,
-                           g_tParam.protect.u16TdischgUTp_Third,
-                           g_tParam.protect.u16TdischgUTp_Rcv,
-                           g_tParam.protect.u16TdischgUTp_Filter);
+            dvc_filter_update(&s_dsg_utp, battery_temp,
+                              g_tParam.protect.u16TdischgUTp_Third,
+                              g_tParam.protect.u16TdischgUTp_Rcv,
+                              g_tParam.protect.u16TdischgUTp_Filter,
+                              DVC_LIMIT_LOW);
     }
     else
     {
@@ -283,10 +260,11 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
     if (mos_temp != 0u)
     {
         g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp =
-            dvc_filter_high(&s_mos_otp, mos_temp,
-                            g_tParam.protect.u16TmosOTp_Third,
-                            g_tParam.protect.u16TmosOTp_Rcv,
-                            g_tParam.protect.u16TmosOTp_Filter);
+            dvc_filter_update(&s_mos_otp, mos_temp,
+                              g_tParam.protect.u16TmosOTp_Third,
+                              g_tParam.protect.u16TmosOTp_Rcv,
+                              g_tParam.protect.u16TmosOTp_Filter,
+                              DVC_LIMIT_HIGH);
     }
     else
     {

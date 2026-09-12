@@ -21,6 +21,20 @@ struct SOC_CAL_ELEMENT_UPPER {
     uint16_t u16Cycle_times;
 };
 
+typedef enum {
+    AFE1_TEMP1 = 0,
+    AFE1_TEMP2,
+    AFE1_TEMP3,
+    AFE2_TEMP1,
+    AFE2_TEMP2,
+    AFE2_TEMP3,
+    ENV_TEMP1,
+    ENV_TEMP2,
+    ENV_TEMP3,
+    MOS_TEMP1,
+    TEMP_NUM
+} bms_temperature_index_t;
+
 struct MDLCHGFAULT_BITS {
     uint8_t b1CellOvp         : 1;
     uint8_t b1CellUvp         : 1;
