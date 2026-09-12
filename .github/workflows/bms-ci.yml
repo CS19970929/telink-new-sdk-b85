@@ -51,7 +51,10 @@ jobs:
 
   tc32-production:
     name: TC32 production build
-    if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' }}
+    # Public fork PRs are untrusted and must never execute on this repository's
+    # Windows runner. Push, workflow_dispatch, and same-repository PR events
+    # remain eligible once the repository variable explicitly enables TC32 CI.
+    if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, Windows, X64, telink-tc32]
     timeout-minutes: 30
     steps:
