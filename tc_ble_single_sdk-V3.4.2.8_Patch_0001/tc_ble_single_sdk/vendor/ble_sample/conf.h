@@ -1,333 +1,143 @@
 #ifndef CONF_H_
 #define CONF_H_
 
-// #include "types.h"
-// #include "tl_common.h"
-// #include "drivers.h"
 #include "../../common/types.h"
-#include "stdint.h"
+#include <stdint.h>
+
 #include "flash_store_cfg.h"
 #include "dvc1124.h"
 #include "dvc1124_config_store.h"
 
-// #define __VIRTURE_CURRENT__
-// #define FAC_TEST
-// #define DISP_VBAT_AND_TEMP_
+/* Active product features for HS-D008. */
 #define _UL_RENZHENG_ENABLE_
-// #define __TEST_SOC__
-
 #define _FUNC_SIF_
 #define _FUNC_UART_
+#define _DI_SWITCH_SYS_ONOFF
 
-#ifndef  FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF	
-#endif // ! FAC_TEST
+#define __SLEEP_VNORMAL__      3000u
+#define __SLEEP_TIMENORMAL__   (60u * 60u * 24u)
+#define __SLEEP_VLOW__         2800u
+#define __SLEEP_TIMEVLOW__     (60u * 60u)
 
-#define __SLEEP_VNORMAL__             	(3000)
-#define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)	
-#define __SLEEP_VLOW__     		          (2800)
-#define	__SLEEP_TIMEVLOW__		          (60 * 60 * 1)
+/*
+ * Current product defaults.
+ * FD_BMS_TYPE keeps the deployed legacy protocol value (D3PRO == 12); the
+ * physical board identity and cell count are HS-D008 / DVC1124-2.
+ */
+#define FD_BMS_TYPE                     12u
+#define SeriesNum                       DVC1124_DEFAULT_CELL_COUNT
+#define CapacityFactory                 78u
+#define AFE_ODC1                        300u
+#define AFE_ODC2                        500u
+#define BMS_HARDWARE_VERDION_DEFAULT    "D008"
+#define BMS_SOFTWARE_VERDION_DEFAULT    "V1.0"
+#define BMS_SERIAL_NUMBER_DEFAULT       "D003-20260817"
 
-#define C21         0
-#define C31         1
-#define D11         2
-#define D31         3
-#define C700         4
-#define M1PRO         5
-#define M23         6
-#define M32         7
-#define T3MAX         8
-#define T3         9
-#define M25         10
-#define T1_AND_T2         11
-#define D3PRO         12
-#define C11_AND_C11pro         13
-#define test_default         14
+/* Legacy SH367309 current-sense defaults still used by the compatibility unit. */
+#define CS_Res                          2u
+#define CS_Res_Num                      2u
 
-#define FD_BMS_TYPE   D3PRO
-
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
-
-#if (FD_BMS_TYPE == C21)
-#define SeriesNum  (10)
-#define CapacityFactory (58)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C21"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == C31)
-#define SeriesNum  (10)
-#define CapacityFactory (58)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C31"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == D11)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D004-20260615"
-#elif (FD_BMS_TYPE == D31)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D31"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == C700)
-#define SeriesNum  (10)
-#define CapacityFactory (87)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C700"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D004-20260615"
-#elif (FD_BMS_TYPE == M1PRO)
-#define SeriesNum  (13)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M1PRO"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == M23)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M23"
-#elif (FD_BMS_TYPE == M32)
-#define SeriesNum  (13)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M32"
-#elif (FD_BMS_TYPE == T3MAX)
-#define SeriesNum  (10)
-#define CapacityFactory (180)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T3MAX"
-#elif (FD_BMS_TYPE == T3)
-#define SeriesNum  (10)
-#define CapacityFactory (270)
-#define AFE_ODC1       		(600) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T3"
-#elif (FD_BMS_TYPE == M25)
-#define SeriesNum  (13)
-#define CapacityFactory (145)
-#define AFE_ODC1       		(500) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D006" 
-#elif (FD_BMS_TYPE == T1_AND_T2)
-#define SeriesNum  (13)
-#define CapacityFactory (225)
-#define AFE_ODC1       		(500) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D007" 
-#elif (FD_BMS_TYPE == D3PRO)
-#define SeriesNum  (10)
-#define CapacityFactory (78)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D003-20260817"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D003" 
-#elif (FD_BMS_TYPE == C11_AND_C11pro)
-#define SeriesNum  (13)
-#define CapacityFactory (104)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D002" 
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#else
-#define SeriesNum  (13)
-#define CapacityFactory (100)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "cs_666_test"
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(1000) 
-#endif
-
-/* HS-D008 is a 24S DVC1124-2 board. Keep capacity/protection product values in
- * the existing parameter store, but make the physical cell-count identity
- * correct for this branch. A 20S assembly can override DVC1124_DEFAULT_CELL_COUNT. */
-#define DVC1124_D008_PROJECT 1
-#if DVC1124_D008_PROJECT
-#undef SeriesNum
-#define SeriesNum  (DVC1124_DEFAULT_CELL_COUNT)
-#undef BMS_HARDWARE_VERDION_DEFAULT
-#define BMS_HARDWARE_VERDION_DEFAULT "D008"
-#endif
-
-#if (FD_BMS_TYPE == C21)
-#define CS_Res			  2
-#define CS_Res_Num		2
-#elif (FD_BMS_TYPE == T1_AND_T2)
-#define CS_Res			  2
-#define CS_Res_Num		3
-#elif (FD_BMS_TYPE == M25)
-#define CS_Res			  2
-#define CS_Res_Num		3
-#else
-#define CS_Res			  2
-#define CS_Res_Num		2
-#endif
-
-// #define DEV_NAME_STR  "BT_star001"
 #define DEV_NAME_STR  "BT_FD190126F03200046_007"
-#define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
+#define DEV_NAME_LEN  (sizeof(DEV_NAME_STR) - 1u)
 
-#define DEV_NAME_STR2  "BT_FD260228F03200046_666"
-#define DEV_NAME_LEN2  (sizeof(DEV_NAME_STR2)-1)
-
+#define FAC_INIT_soc 60u
 
 typedef uint8_t  UINT8;
 typedef uint16_t UINT16;
 typedef uint32_t UINT32;
-typedef int32_t INT32;
-typedef int16_t INT16;
-typedef int8_t INT8;
+typedef int32_t  INT32;
+typedef int16_t  INT16;
+typedef int8_t   INT8;
 
-// #define __INIT_SOC__        (99)
-
-#define FAC_INIT_soc (60)
-
-
-
-
-typedef enum _CUR {
-CurCHG = 0, CurDSG
-}_Cur;
-
-#define UPDNLMT16(Var,Max,Min)	{(Var)=((Var)>=(Max))?(Max):(Var);(Var)=((Var)<=(Min))?(Min):(Var);}
-
+/* Legacy no-op hooks still referenced inside the SH367309 compatibility code. */
 #define Feed_IWatchDog ;
-#define log_i(...)   ;
+#define log_i(...)     ;
 
 /* HS-D008 physical MCU nets from the schematic. */
-#define RF_EN_PIN              (GPIO_PD4)
-#define AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define SW_PIN                 (GPIO_PA0)
-#define HEATER_EN_PIN          (GPIO_PA1)
-#define CHG_IN_PIN             (GPIO_PB1)
-#define OWC_TX_PIN             (GPIO_PC2)
-#define OWC_RX_PIN             (GPIO_PC3)
-#define MCU_LDO_PIN            (GPIO_PC4)
-#define SOC25_PIN              (GPIO_PB4)
-#define SOC50_PIN              (GPIO_PB5)
-#define SOC75_PIN              (GPIO_PB7)
-#define SOC100_PIN             (GPIO_PD3)
-#define LED_BLUE_PIN           (GPIO_PB6)
+#define RF_EN_PIN       GPIO_PD4
+#define AFE1_PRO_EN_PIN GPIO_PD7
+#define SW_PIN          GPIO_PA0
+#define HEATER_EN_PIN   GPIO_PA1
+#define CHG_IN_PIN      GPIO_PB1
+#define OWC_TX_PIN      GPIO_PC2
+#define OWC_RX_PIN      GPIO_PC3
+#define MCU_LDO_PIN     GPIO_PC4
+#define SOC25_PIN       GPIO_PB4
+#define SOC50_PIN       GPIO_PB5
+#define SOC75_PIN       GPIO_PB7
+#define SOC100_PIN      GPIO_PD3
+#define LED_BLUE_PIN    GPIO_PB6
 
 /*
- * Compatibility selectors for legacy app.c. These are deliberately virtual
- * so old SH367309 code cannot drive the HS-D008 heater/LDO/SOC LED GPIOs.
+ * Virtual compatibility selectors. Do not remap these legacy SH367309 names
+ * to unrelated HS-D008 physical pins while app.c still uses the compatibility
+ * layer.
  */
-#define MCC_C_PIN              (DVC1124_VPIN_LEGACY_MCC)
-#define AFE_CTL_PIN            (DVC1124_VPIN_AFE_CTL)
-#define CHG_WK_PIN             (CHG_IN_PIN)
-#define ADC_NTC_PIN            (DVC1124_VPIN_ADC_BAT)
-#define ADC_VBUS_PIN           (DVC1124_VPIN_ADC_PACK)
-#define ADC_NMOS_PIN           (DVC1124_VPIN_ADC_MOS)
-#define ADC_BUSEN_PIN          (DVC1124_VPIN_NOOP0)
-#define ADC_EN_PIN             (DVC1124_VPIN_NOOP1)
+#define MCC_C_PIN       DVC1124_VPIN_LEGACY_MCC
+#define AFE_CTL_PIN     DVC1124_VPIN_AFE_CTL
+#define CHG_WK_PIN      CHG_IN_PIN
+#define ADC_NTC_PIN     DVC1124_VPIN_ADC_BAT
+#define ADC_VBUS_PIN    DVC1124_VPIN_ADC_PACK
+#define ADC_NMOS_PIN    DVC1124_VPIN_ADC_MOS
+#define ADC_BUSEN_PIN   DVC1124_VPIN_NOOP0
+#define ADC_EN_PIN      DVC1124_VPIN_NOOP1
 
-typedef struct 
+/* Runtime state still shared with app.c. Keep test-only fields conditional. */
+typedef struct
 {
-   uint16_t    cnt_PA0_irq;
-  uint16_t cnt_bms1_keyirq;
-  uint16_t    bq33100_read_cnt;
-  uint16_t    pec_err_cnt;
-  
-  uint8_t isdebugenable;
-	uint16_t CHG;
-	uint16_t DSG;
+    bool low_power_mode;
+#if defined(__TEST_SOC__) || defined(__VIRTURE_CURRENT__)
+    uint16_t CHG;
+    uint16_t DSG;
+    uint8_t isdebugenable;
+#endif
+} Time_T;
 
-  uint16_t  cnt_enter_chg_open;
-  uint16_t  cnt_enter_dsg_open;
-
-   uint8_t  wakeup_reason;
-  bool     wakeup_rtc;
-  uint8_t time_enter_rtc;
-  bool power_on;
-
-  uint16_t enter_rtc_delay;
-  bool     low_power_mode;
-  bool     enable_current_test;
-  bool     enable_log_test_first;
-  bool     enable_log_test_balance;
-  bool     enable_kv_test;
-  uint16_t cnt1;
-  uint16_t cnt2;
-  uint16_t cnt3;
-}Time_T;
-
-extern Time_T  sys_time;
+extern Time_T sys_time;
 
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
 #define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
 #define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
 #define FW_UPGRADE_RESET_SOC_EPOCH       0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
 #define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001u
 #endif
 
 /*
- * DVC1124 application compatibility layer.
- *
- * app_config.h is included from gpio_default.h while the Telink driver headers
- * are still being parsed, so redefining adc_* or gpio_* there corrupts SDK
- * declarations. conf.h is included by app.h after drivers.h in the BMS
- * application translation units. I2C_SLAVE_DEVICE_NO_START_EN is used as the
- * marker that i2c.h (and the preceding gpio/adc headers) has already finished.
- *
- * sh367309_datadeal.c includes conf.h before drivers.h, therefore this block is
- * intentionally inactive there; the legacy source keeps its own symbol names
- * and can continue supplying shared tables/error helpers without collisions.
- *
- * AFE reset/config/sample hooks go through dvc1124_config_store so semantic
- * operating settings are restored after reset and remain independent from the
- * legacy SH367309 application ABI.
+ * Temporary DVC1124 compatibility aliases.
+ * app_config.h is parsed before Telink driver declarations complete, so these
+ * aliases must remain here until app.c/sh367309_datadeal.c are fully decoupled.
  */
 #if defined(DVC1124_AFE_PROJECT) && DVC1124_AFE_PROJECT && \
     defined(I2C_SLAVE_DEVICE_NO_START_EN) && !defined(DVC1124_IMPLEMENTATION)
-#define App_AFEGet                  DVC1124_ConfigStore_BmsApp_AFEGet
-#define AFE_Reset                   DVC1124_ConfigStore_AFE_Reset
-#define AFE_IsReady                 DVC1124_AFE_IsReady
-#define AFE_Sleep                   DVC1124_AFE_Sleep
-#define SH367309_UpdataAfeConfig    DVC1124_ConfigStore_UpdataAfeConfig
-#define MTPWrite                    DVC1124_BmsCompatMTPWrite
+#define App_AFEGet               DVC1124_ConfigStore_BmsApp_AFEGet
+#define AFE_Reset                DVC1124_ConfigStore_AFE_Reset
+#define AFE_IsReady              DVC1124_AFE_IsReady
+#define AFE_Sleep                DVC1124_AFE_Sleep
+#define SH367309_UpdataAfeConfig DVC1124_ConfigStore_UpdataAfeConfig
+#define MTPWrite                 DVC1124_BmsCompatMTPWrite
 
 #define adc_base_init(pin) \
-        DVC1124_CompatAdcBaseInit((unsigned int)(pin))
+    DVC1124_CompatAdcBaseInit((unsigned int)(pin))
 #define adc_sample_and_get_result() \
-        DVC1124_CompatAdcSample()
+    DVC1124_CompatAdcSample()
 
 #define gpio_set_func(pin, func) \
-        DVC1124_CompatGpioSetFunc((unsigned int)(pin), (unsigned int)(func))
+    DVC1124_CompatGpioSetFunc((unsigned int)(pin), (unsigned int)(func))
 #define gpio_set_input_en(pin, value) \
-        DVC1124_CompatGpioSetInputEn((unsigned int)(pin), (unsigned int)(value))
+    DVC1124_CompatGpioSetInputEn((unsigned int)(pin), (unsigned int)(value))
 #define gpio_set_output_en(pin, value) \
-        DVC1124_CompatGpioSetOutputEn((unsigned int)(pin), (unsigned int)(value))
+    DVC1124_CompatGpioSetOutputEn((unsigned int)(pin), (unsigned int)(value))
 #define gpio_write(pin, value) \
-        DVC1124_CompatGpioWrite((unsigned int)(pin), (unsigned int)(value))
+    DVC1124_CompatGpioWrite((unsigned int)(pin), (unsigned int)(value))
 #endif
 
-#endif
+#endif /* CONF_H_ */
