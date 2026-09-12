@@ -12,10 +12,15 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 
-MODULE_DIR = Path(__file__).resolve().parent
-VENDOR_DIR = MODULE_DIR.parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SDK_DIR = (
+    REPO_ROOT
+    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
+    / "tc_ble_single_sdk"
+)
+VENDOR_DIR = SDK_DIR / "vendor"
+MODULE_DIR = VENDOR_DIR / "ble_sample"
 COMMON_DIR = VENDOR_DIR / "common"
-SDK_DIR = VENDOR_DIR.parent
 
 FLASH_CFG = MODULE_DIR / "flash_store_cfg.h"
 BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
