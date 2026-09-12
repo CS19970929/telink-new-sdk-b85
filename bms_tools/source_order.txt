@@ -78,3 +78,11 @@ application/usbstd/usb.c
 application/usbstd/usbdesc.c
 application/print/putchar.c
 application/print/u_printf.c
+application/keyboard/keyboard.c
+application/audio/adpcm.c
+application/audio/gl_audio.c
+application/audio/tl_audio.c
+application/app/usbaud.c
+application/app/usbcdc.c
+application/app/usbkb.c
+application/app/usbmouse.c
