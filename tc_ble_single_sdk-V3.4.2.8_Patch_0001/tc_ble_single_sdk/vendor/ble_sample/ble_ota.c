@@ -2,6 +2,7 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
+#include "app_config.h"
 #include "app.h"
 #include "ble_ota.h"
 
