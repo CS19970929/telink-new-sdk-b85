@@ -10,96 +10,10 @@
 #include <string.h>
 
 /*
- * DVC1124-2 register definitions below are derived from Reference Manual V1.2.
- * The DVC11XX DemoCode V1.3 is secondary reference only; do not import
- * D-series-only or undocumented fields into this map.
+ * Register addresses/bit definitions come only from dvc1124_reg.h.
+ * Keep this file limited to driver behavior, conversion and policy plumbing.
  */
-#define DVC_REG_ALARM              0x00u
-#define DVC_REG_STATUS             0x01u
-#define DVC_REG_CC2_H              0x04u
-#define DVC_REG_CC2_M              0x05u
-#define DVC_REG_CC2_L_FLAGS        0x06u
-#define DVC_REG_VTOP_H             0x07u
-#define DVC_REG_PACK_H             0x09u
-#define DVC_REG_LOAD_H             0x0Bu
-#define DVC_REG_DIE_TEMP_H         0x0Du
-#define DVC_REG_V1P8_H             0x0Fu
-#define DVC_REG_GP1_H              0x11u
-#define DVC_REG_CELL1_H            0x1Du
-#define DVC_REG_FET_CTRL           0x51u
-#define DVC_REG_DSG_MASK           0x53u
-#define DVC_REG_CHG_MASK           0x54u
-#define DVC_REG_CADC_CTRL          0x55u
-#define DVC_REG_OCD1_THR           0x59u
-#define DVC_REG_OCC1_THR           0x5Au
-#define DVC_REG_OCD1_DLY           0x5Bu
-#define DVC_REG_OCC1_DLY           0x5Cu
-#define DVC_REG_OCD2               0x5Eu
-#define DVC_REG_OCC2               0x5Fu
-#define DVC_REG_OCD2_DLY           0x60u
-#define DVC_REG_OCC2_DLY           0x61u
-#define DVC_REG_SCD                0x62u
-#define DVC_REG_SCD_DLY            0x63u
-#define DVC_REG_CURRENT_WAKE       0x65u
-#define DVC_REG_BODY_DIODE         0x66u
-#define DVC_REG_BAL_24_17          0x67u
-#define DVC_REG_CELL_MASK_24_17    0x6Au
-#define DVC_REG_CP_MISC            0x6Du
-#define DVC_REG_VADC_CTRL          0x6Eu
-#define DVC_REG_COV_H              0x70u
-#define DVC_REG_CUV_H              0x72u
-#define DVC_REG_GP123_MODE         0x74u
-#define DVC_REG_GP456_MODE         0x75u
-#define DVC_REG_I2C_WDT            0x77u
-#define DVC_REG_FRT                0x7Eu
-#define DVC_REG_CHIP_VERSION       0x8Fu
-
-#define DVC_ALARM_COV              0x40u
-#define DVC_ALARM_CUV              0x20u
-#define DVC_ALARM_OCD1             0x10u
-#define DVC_ALARM_OCC1             0x08u
-#define DVC_ALARM_OCD2             0x04u
-#define DVC_ALARM_OCC2             0x02u
-#define DVC_ALARM_SCD              0x01u
-
-#define DVC_CST_RESET_REGS         0x0Du
-#define DVC_CST_SLEEP              0x0Eu
-#define DVC_CST_SHUTDOWN           0x0Fu
-
-#define DVC_CADC_HSFM              0x80u
-#define DVC_CADC_CAEW              0x08u
-#define DVC_CADC_CAES              0x04u
-
-/* V1.2: 0x5E/0x5F/0x62 enable is BIT6, not BIT7. */
-#define DVC_OC2_ENABLE             0x40u
-#define DVC_OC2_THR_MASK           0x3Fu
-#define DVC_SCD_ENABLE             0x40u
-#define DVC_SCD_THR_MASK           0x3Fu
-
-/* V1.2 0x6D: [5:3] CPVS, [2] COW, [1] CMM, [0] CVS. */
-#define DVC_CPVS_MASK              0x38u
-#define DVC_CPVS_SHIFT             3u
-#define DVC_COW                    0x04u
-#define DVC_CMM                    0x02u
-#define DVC_CVS                    0x01u
-
-#define DVC_VAE                    0x80u
-#define DVC_VASM                   0x40u
-#define DVC_VAMP_MASK              0x30u
-#define DVC_VAO_MASK               0x03u
-#define DVC_VAO_1P54MS             0x01u
-
-#define DVC_FET_DSGC_MASK          0x0Cu
-#define DVC_FET_CHGC_MASK          0x03u
-#define DVC_FET_DSG_ON             0x0Cu
-#define DVC_FET_CHG_ON             0x03u
-
-#define DVC_DWM                    0x08u
-#define DVC_CWM                    0x80u
-#define DVC_IWT_MASK               0x07u
-
-#define DVC_MEAS_LAST_REG          0x4Cu
-#define DVC_MEAS_BYTES             (DVC_MEAS_LAST_REG + 1u)
+#define DVC_MEAS_BYTES             (DVC1124_REG_CELL24_L + 1u)
 #define DVC_I2C_RAW_MAX            (2u * (DVC1124_MAX_REGISTER + 1u))
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
@@ -511,7 +425,7 @@ static uint8_t dvc_apply_cell_masks(void)
         else
             mask[2] |= (uint8_t)(1u << (cell - 1u));
     }
-    return dvc_write_verified_block(DVC_REG_CELL_MASK_24_17, mask, 3u);
+    return dvc_write_verified_block(DVC1124_REG_CELL_MASK_24_17, mask, 3u);
 }
 
 static uint8_t dvc_encode_current_wake(uint16_t threshold_uv, uint8_t *code)
@@ -534,11 +448,11 @@ static uint8_t dvc_i2c_watchdog_code(uint8_t seconds, uint8_t *code)
 {
     switch (seconds)
     {
-    case 0u:  *code = 0u; return 1u;
-    case 4u:  *code = 4u; return 1u;
-    case 8u:  *code = 5u; return 1u;
-    case 16u: *code = 6u; return 1u;
-    case 32u: *code = 7u; return 1u;
+    case 0u:  *code = DVC1124_I2C_WDT_OFF; return 1u;
+    case 4u:  *code = DVC1124_I2C_WDT_4S; return 1u;
+    case 8u:  *code = DVC1124_I2C_WDT_8S; return 1u;
+    case 16u: *code = DVC1124_I2C_WDT_16S; return 1u;
+    case 32u: *code = DVC1124_I2C_WDT_32S; return 1u;
     default: return 0u;
     }
 }
@@ -557,37 +471,56 @@ static uint8_t dvc_apply_basic_config(void)
     if (!dvc_i2c_watchdog_code(DVC1124_I2C_WATCHDOG_SECONDS, &watchdog_code)) return 0u;
 
     ok &= dvc_apply_cell_masks();
-    ok &= dvc_write_verified(DVC_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
-    ok &= dvc_write_verified(DVC_REG_GP456_MODE, DVC1124_GP456_MODE_VALUE);
+    ok &= dvc_write_verified(DVC1124_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
+    ok &= dvc_write_verified(DVC1124_REG_GP456_MODE, DVC1124_GP456_MODE_VALUE);
 
     /* HS-D008 uses GP5/GP6 low-side CHG/DSG. Enable CADC in work and sleep. */
-    ok &= dvc_update_reg(DVC_REG_CADC_CTRL,
-                         (uint8_t)(DVC_CADC_HSFM | DVC_CADC_CAEW | DVC_CADC_CAES),
-                         (uint8_t)(DVC_CADC_CAEW | DVC_CADC_CAES));
+    ok &= dvc_update_reg(DVC1124_REG_CADC_CTRL,
+                         (uint8_t)(DVC1124_CADC_HSFM_MASK |
+                                   DVC1124_CADC_CAEW_MASK |
+                                   DVC1124_CADC_CAES_MASK),
+                         (uint8_t)(DVC1124_CADC_CAEW_MASK |
+                                   DVC1124_CADC_CAES_MASK));
 
-    cpvs_bits = (uint8_t)((DVC1124_CHARGE_PUMP_VOLTAGE_CODE << DVC_CPVS_SHIFT) & DVC_CPVS_MASK);
-    ok &= dvc_update_reg(DVC_REG_CP_MISC,
-                         (uint8_t)(DVC_CPVS_MASK | DVC_COW | DVC_CMM | DVC_CVS),
+    cpvs_bits = DVC1124_FIELD_PREP(DVC1124_CPVS_MASK,
+                                    DVC1124_CPVS_SHIFT,
+                                    DVC1124_CHARGE_PUMP_VOLTAGE_CODE);
+    ok &= dvc_update_reg(DVC1124_REG_CP_CTRL,
+                         (uint8_t)(DVC1124_CPVS_MASK |
+                                   DVC1124_COW_MASK |
+                                   DVC1124_CMM_MASK |
+                                   DVC1124_CVS_MASK),
                          cpvs_bits); /* COW=0, CMM=0, CVS=0 */
 
     /* VADC enabled, synchronized with every CC2 cycle, 1.54 ms measurement time. */
-    ok &= dvc_update_reg(DVC_REG_VADC_CTRL,
-                         (uint8_t)(DVC_VAE | DVC_VASM | DVC_VAMP_MASK | DVC_VAO_MASK),
-                         (uint8_t)(DVC_VAE | DVC_VASM | DVC_VAO_1P54MS));
+    ok &= dvc_update_reg(DVC1124_REG_VADC_CTRL,
+                         (uint8_t)(DVC1124_VADC_ENABLE_MASK |
+                                   DVC1124_VADC_SYNC_MASK |
+                                   DVC1124_VADC_PERIOD_MASK |
+                                   DVC1124_VADC_TIME_MASK),
+                         (uint8_t)(DVC1124_VADC_ENABLE_MASK |
+                                   DVC1124_VADC_SYNC_MASK |
+                                   DVC1124_VADC_TIME_1P54MS));
 
-    ok &= dvc_write_verified(DVC_REG_CURRENT_WAKE, current_wake_code);
-    ok &= dvc_write_verified(DVC_REG_BODY_DIODE, body_diode_code);
-    ok &= dvc_update_reg(DVC_REG_I2C_WDT, DVC_IWT_MASK, watchdog_code);
+    ok &= dvc_write_verified(DVC1124_REG_CURRENT_WAKE, current_wake_code);
+    ok &= dvc_write_verified(DVC1124_REG_BODY_DIODE, body_diode_code);
+    ok &= dvc_update_reg(DVC1124_REG_I2C_WDT,
+                         DVC1124_I2C_WDT_TIME_MASK,
+                         watchdog_code);
 
 #if DVC1124_I2C_TIMEOUT_CLOSE_DSG
-    ok &= dvc_update_reg(DVC_REG_DSG_MASK, DVC_DWM, 0u);
+    ok &= dvc_update_reg(DVC1124_REG_DSG_MASK, DVC1124_DSGMASK_DWM_MASK, 0u);
 #else
-    ok &= dvc_update_reg(DVC_REG_DSG_MASK, DVC_DWM, DVC_DWM);
+    ok &= dvc_update_reg(DVC1124_REG_DSG_MASK,
+                         DVC1124_DSGMASK_DWM_MASK,
+                         DVC1124_DSGMASK_DWM_MASK);
 #endif
 #if DVC1124_I2C_TIMEOUT_CLOSE_CHG
-    ok &= dvc_update_reg(DVC_REG_CHG_MASK, DVC_CWM, 0u);
+    ok &= dvc_update_reg(DVC1124_REG_CHG_MASK, DVC1124_CHGMASK_CWM_MASK, 0u);
 #else
-    ok &= dvc_update_reg(DVC_REG_CHG_MASK, DVC_CWM, DVC_CWM);
+    ok &= dvc_update_reg(DVC1124_REG_CHG_MASK,
+                         DVC1124_CHGMASK_CWM_MASK,
+                         DVC1124_CHGMASK_CWM_MASK);
 #endif
 
     /* Start safe; existing mos_update() requests the application state later. */
@@ -628,7 +561,7 @@ static uint8_t dvc_apply_protection_from_params(void)
     dvc_note_quant(DVC_QUANT_COV_DLY, cov_req_dly, actual);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
-    ok &= dvc_write_verified_block(DVC_REG_COV_H, buf, 2u);
+    ok &= dvc_write_verified_block(DVC1124_REG_COV_H, buf, 2u);
 
     /* CUV: code 0 disables; enabled threshold = code mV. */
     if (cuv_mv == 0u)
@@ -647,70 +580,76 @@ static uint8_t dvc_apply_protection_from_params(void)
     dvc_note_quant(DVC_QUANT_CUV_DLY, cuv_req_dly, actual);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
-    ok &= dvc_write_verified_block(DVC_REG_CUV_H, buf, 2u);
+    ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, buf, 2u);
 
     code = dvc_current_to_oc1_code(g_tParam.protect.u16IdsgOcp_First, &actual);
     s_applied.ocd1_a_x10 = actual;
     dvc_note_quant(DVC_QUANT_OCD1_THR, g_tParam.protect.u16IdsgOcp_First, actual);
-    ok &= dvc_write_verified(DVC_REG_OCD1_THR, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, code);
 
     code = dvc_current_to_oc1_code(g_tParam.protect.u16IchgOcp_First, &actual);
     s_applied.occ1_a_x10 = actual;
     dvc_note_quant(DVC_QUANT_OCC1_THR, g_tParam.protect.u16IchgOcp_First, actual);
-    ok &= dvc_write_verified(DVC_REG_OCC1_THR, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCC1_THR, code);
 
     code = dvc_linear_delay_code(ocd_req_dly, 8u, &actual);
     s_applied.ocd1_delay_ms = actual;
     dvc_note_quant(DVC_QUANT_OCD1_DLY, ocd_req_dly, actual);
-    ok &= dvc_write_verified(DVC_REG_OCD1_DLY, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCD1_DLY, code);
 
     code = dvc_linear_delay_code(occ_req_dly, 8u, &actual);
     s_applied.occ1_delay_ms = actual;
     dvc_note_quant(DVC_QUANT_OCC1_DLY, occ_req_dly, actual);
-    ok &= dvc_write_verified(DVC_REG_OCC1_DLY, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCC1_DLY, code);
 
     /* OC2 enable is BIT6; preserve 0x5E/0x5F bit7 with masked RMW. */
     if (g_tParam.protect.u16IdsgOcp_Second == 0u)
     {
         s_applied.ocd2_a_x10 = 0u;
-        ok &= dvc_update_reg(DVC_REG_OCD2,
-                             (uint8_t)(DVC_OC2_ENABLE | DVC_OC2_THR_MASK), 0u);
+        ok &= dvc_update_reg(DVC1124_REG_OCD2,
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
+                                       DVC1124_OC2_THRESHOLD_MASK),
+                             0u);
     }
     else
     {
         code = dvc_current_to_oc2_code(g_tParam.protect.u16IdsgOcp_Second, &actual);
         s_applied.ocd2_a_x10 = actual;
         dvc_note_quant(DVC_QUANT_OCD2_THR, g_tParam.protect.u16IdsgOcp_Second, actual);
-        ok &= dvc_update_reg(DVC_REG_OCD2,
-                             (uint8_t)(DVC_OC2_ENABLE | DVC_OC2_THR_MASK),
-                             (uint8_t)(DVC_OC2_ENABLE | code));
+        ok &= dvc_update_reg(DVC1124_REG_OCD2,
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
+                                       DVC1124_OC2_THRESHOLD_MASK),
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
     if (g_tParam.protect.u16IchgOcp_Second == 0u)
     {
         s_applied.occ2_a_x10 = 0u;
-        ok &= dvc_update_reg(DVC_REG_OCC2,
-                             (uint8_t)(DVC_OC2_ENABLE | DVC_OC2_THR_MASK), 0u);
+        ok &= dvc_update_reg(DVC1124_REG_OCC2,
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
+                                       DVC1124_OC2_THRESHOLD_MASK),
+                             0u);
     }
     else
     {
         code = dvc_current_to_oc2_code(g_tParam.protect.u16IchgOcp_Second, &actual);
         s_applied.occ2_a_x10 = actual;
         dvc_note_quant(DVC_QUANT_OCC2_THR, g_tParam.protect.u16IchgOcp_Second, actual);
-        ok &= dvc_update_reg(DVC_REG_OCC2,
-                             (uint8_t)(DVC_OC2_ENABLE | DVC_OC2_THR_MASK),
-                             (uint8_t)(DVC_OC2_ENABLE | code));
+        ok &= dvc_update_reg(DVC1124_REG_OCC2,
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
+                                       DVC1124_OC2_THRESHOLD_MASK),
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
     code = dvc_linear_delay_code(ocd_req_dly, 4u, &actual);
     s_applied.ocd2_delay_ms = actual;
     dvc_note_quant(DVC_QUANT_OCD2_DLY, ocd_req_dly, actual);
-    ok &= dvc_write_verified(DVC_REG_OCD2_DLY, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCD2_DLY, code);
 
     code = dvc_linear_delay_code(occ_req_dly, 4u, &actual);
     s_applied.occ2_delay_ms = actual;
     dvc_note_quant(DVC_QUANT_OCC2_DLY, occ_req_dly, actual);
-    ok &= dvc_write_verified(DVC_REG_OCC2_DLY, code);
+    ok &= dvc_write_verified(DVC1124_REG_OCC2_DLY, code);
 
     ok &= DVC1124_SetShortCircuitProtection(DVC1124_HW_SCD_THRESHOLD_MV,
                                             DVC1124_HW_SCD_DELAY_US);
@@ -828,7 +767,7 @@ uint8_t DVC1124_SetAddressConfig(dvc1124_model_t model,
 uint8_t DVC1124_SetCellCount(uint8_t cell_count)
 {
     /* DVC1124-2 V1.2 explicitly supports 4..24 cells. */
-    if ((cell_count < 4u) || (cell_count > DVC1124_MAX_CELLS)) return 0u;
+    if ((cell_count < DVC1124_MIN_CELLS) || (cell_count > DVC1124_MAX_CELLS)) return 0u;
     s_cfg.cell_count = cell_count;
     s_need_config = 1u;
     return 1u;
@@ -948,10 +887,24 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
 uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t set = 0u;
-    if (charge_on && s_legacy_output_gate) set |= DVC_FET_CHG_ON;
-    if (discharge_on && s_legacy_output_gate) set |= DVC_FET_DSG_ON;
-    return dvc_update_reg(DVC_REG_FET_CTRL,
-                          (uint8_t)(DVC_FET_DSGC_MASK | DVC_FET_CHGC_MASK), set);
+
+    if (charge_on && s_legacy_output_gate)
+    {
+        set |= DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK,
+                                   DVC1124_FET_CHGC_SHIFT,
+                                   DVC1124_FET_DRIVE_ON);
+    }
+    if (discharge_on && s_legacy_output_gate)
+    {
+        set |= DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK,
+                                   DVC1124_FET_DSGC_SHIFT,
+                                   DVC1124_FET_DRIVE_ON);
+    }
+
+    return dvc_update_reg(DVC1124_REG_FET_CTRL,
+                          (uint8_t)(DVC1124_FET_DSGC_MASK |
+                                    DVC1124_FET_CHGC_MASK),
+                          set);
 }
 
 static uint8_t dvc_refresh_balance_state(void)
@@ -959,7 +912,7 @@ static uint8_t dvc_refresh_balance_state(void)
     uint8_t data[3];
     uint32_t actual;
 
-    if (!DVC1124_ReadRegisters(DVC_REG_BAL_24_17, data, 3u)) return 0u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
     actual = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2];
     if (s_cfg.cell_count < 24u) actual &= ((1uL << s_cfg.cell_count) - 1uL);
     g_stCellInfoReport.u16BalanceFlag1 = (uint16_t)(actual & 0xFFFFu);
@@ -977,7 +930,7 @@ uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
     data[0] = (uint8_t)(cell_mask >> 16);
     data[1] = (uint8_t)(cell_mask >> 8);
     data[2] = (uint8_t)cell_mask;
-    if (!dvc_write_verified_block(DVC_REG_BAL_24_17, data, 3u)) return 0u;
+    if (!dvc_write_verified_block(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
 
     s_balance_requested_mask = cell_mask;
     (void)s_balance_requested_mask; /* request must be refreshed by upper layer before 60 s timeout */
@@ -989,9 +942,9 @@ uint8_t DVC1124_StartOpenWireCheck(void)
     uint8_t reg;
 
     /* COW is self-clearing after about 1 s, so do not require persistent readback=1. */
-    if (!DVC1124_ReadRegisters(DVC_REG_CP_MISC, &reg, 1u)) return 0u;
-    reg |= DVC_COW; /* V1.2: bit2 */
-    return DVC1124_WriteRegisters(DVC_REG_CP_MISC, &reg, 1u);
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &reg, 1u)) return 0u;
+    reg |= DVC1124_COW_MASK;
+    return DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &reg, 1u);
 }
 
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us)
@@ -1006,9 +959,11 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
     {
         s_applied.scd_mv = 0u;
         s_applied.scd_delay_us = 0u;
-        ok = dvc_update_reg(DVC_REG_SCD,
-                            (uint8_t)(DVC_SCD_ENABLE | DVC_SCD_THR_MASK), 0u);
-        ok &= dvc_write_verified(DVC_REG_SCD_DLY, 0u);
+        ok = dvc_update_reg(DVC1124_REG_SCD,
+                            (uint8_t)(DVC1124_SCD_ENABLE_MASK |
+                                      DVC1124_SCD_THRESHOLD_MASK),
+                            0u);
+        ok &= dvc_write_verified(DVC1124_REG_SCD_DLY, 0u);
         return ok;
     }
 
@@ -1022,10 +977,11 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
     delay_code = (uint8_t)delay_code32;
     actual_delay_us = (uint16_t)(((uint32_t)delay_code * 781u + 50u) / 100u);
 
-    if (!dvc_write_verified(DVC_REG_SCD_DLY, delay_code)) return 0u;
-    if (!dvc_update_reg(DVC_REG_SCD,
-                        (uint8_t)(DVC_SCD_ENABLE | DVC_SCD_THR_MASK),
-                        (uint8_t)(DVC_SCD_ENABLE | threshold_code))) return 0u;
+    if (!dvc_write_verified(DVC1124_REG_SCD_DLY, delay_code)) return 0u;
+    if (!dvc_update_reg(DVC1124_REG_SCD,
+                        (uint8_t)(DVC1124_SCD_ENABLE_MASK |
+                                  DVC1124_SCD_THRESHOLD_MASK),
+                        (uint8_t)(DVC1124_SCD_ENABLE_MASK | threshold_code))) return 0u;
 
     s_applied.scd_mv = (uint16_t)threshold_code * 10u;
     s_applied.scd_delay_us = actual_delay_us;
@@ -1034,7 +990,7 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
 
 void DVC1124_AFE_Reset(void)
 {
-    uint8_t cmd = DVC_CST_RESET_REGS;
+    uint8_t cmd = (uint8_t)DVC1124_CST_RESET_REGISTERS;
 
     /* HS-D008 MCU-AFE-EN = PD7, active high. */
     gpio_set_func(GPIO_PD7, AS_GPIO);
@@ -1044,7 +1000,7 @@ void DVC1124_AFE_Reset(void)
     dvc_delay_ms(20u);
 
     dvc_bus_init();
-    (void)DVC1124_WriteRegisters(DVC_REG_STATUS, &cmd, 1u); /* CST=1101 */
+    (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* CST=1101 */
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
     memset(&s_applied, 0, sizeof(s_applied));
@@ -1060,8 +1016,8 @@ uint8_t DVC1124_AFE_IsReady(void)
     if (!s_bus_initialized) dvc_bus_init();
     for (attempt = 0u; attempt < DVC_READY_RETRY_COUNT; ++attempt)
     {
-        if (DVC1124_ReadRegisters(DVC_REG_CHIP_VERSION, &version, 1u) &&
-            DVC1124_ReadRegisters(DVC_REG_FRT, &frt, 1u))
+        if (DVC1124_ReadRegisters(DVC1124_REG_CHIP_VERSION, &version, 1u) &&
+            DVC1124_ReadRegisters(DVC1124_REG_FRT, &frt, 1u))
         {
             s_snapshot.chip_version = version;
             s_snapshot.rpu_ohm = (uint16_t)(6800u + (uint16_t)frt * 25u);
@@ -1101,8 +1057,8 @@ void DVC1124_UpdataAfeConfig(void)
 
 void DVC1124_AFE_Sleep(void)
 {
-    uint8_t cmd = DVC_CST_SLEEP; /* CST=1110, not 1111 shutdown */
-    if (!DVC1124_WriteRegisters(DVC_REG_STATUS, &cmd, 1u)) dvc_note_comm_result(0u);
+    uint8_t cmd = (uint8_t)DVC1124_CST_ENTER_SLEEP;
+    if (!DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u)) dvc_note_comm_result(0u);
 }
 
 void DVC1124_App_AFEGet(void)
@@ -1133,7 +1089,7 @@ void DVC1124_App_AFEGet(void)
         }
     }
 
-    if (!DVC1124_ReadRegisters(DVC_REG_ALARM, data, DVC_MEAS_BYTES))
+    if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
         u32_ChgCur_mA = 0u;
@@ -1146,17 +1102,17 @@ void DVC1124_App_AFEGet(void)
 
     write_addr = DVC1124_GetWriteAddress();
     s_snapshot.valid = 1u;
-    s_snapshot.alarm = data[DVC_REG_ALARM];
-    s_snapshot.status = data[DVC_REG_STATUS];
+    s_snapshot.alarm = data[DVC1124_REG_ALARM];
+    s_snapshot.status = data[DVC1124_REG_STATUS];
     s_snapshot.write_addr = write_addr;
     s_snapshot.cell_count = s_cfg.cell_count;
-    s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC_REG_VTOP_H]) * 128u + 5u) / 10u;
-    s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC_REG_PACK_H]) * 128u + 5u) / 10u;
-    s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC_REG_LOAD_H]) * 128u + 5u) / 10u;
+    s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
+    s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
+    s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
 
-    raw20 = ((uint32_t)data[DVC_REG_CC2_H] << 12) |
-            ((uint32_t)data[DVC_REG_CC2_M] << 4) |
-            ((uint32_t)data[DVC_REG_CC2_L_FLAGS] >> 4);
+    raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
+            ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
+            ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
     cc2 = dvc_sign_extend20(raw20);
     current_num = (int64_t)cc2 * 5000; /* 0.3125 uV = 5000/16 nV */
     current_ma = (int32_t)(current_num / ((int64_t)16 * s_cfg.shunt_uohm));
@@ -1180,7 +1136,7 @@ void DVC1124_App_AFEGet(void)
 
     for (i = 0u; i < s_cfg.cell_count; ++i)
     {
-        uint8_t reg = (uint8_t)(DVC_REG_CELL1_H + (uint8_t)(i * 2u));
+        uint8_t reg = (uint8_t)(DVC1124_REG_CELL1_H + (uint8_t)(i * 2u));
         uint16_t raw_cell = dvc_be16(&data[reg]);
         uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
 
@@ -1201,10 +1157,10 @@ void DVC1124_App_AFEGet(void)
     g_stCellInfoReport.u16VCellMaxPosition = (uint16_t)max_pos + 1u;
     g_stCellInfoReport.u16VCellMinPosition = (uint16_t)min_pos + 1u;
 
-    v1p8_code = dvc_be16(&data[DVC_REG_V1P8_H]);
+    v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
     for (i = 0u; i < DVC1124_MAX_GP; ++i)
     {
-        uint8_t reg = (uint8_t)(DVC_REG_GP1_H + (uint8_t)(i * 2u));
+        uint8_t reg = (uint8_t)(DVC1124_REG_GP1_H + (uint8_t)(i * 2u));
         uint16_t gp_code = dvc_be16(&data[reg]);
         uint32_t r_ohm = 0u;
         uint8_t ntc_ok;
@@ -1232,7 +1188,7 @@ void DVC1124_App_AFEGet(void)
 
     {
         /* V1.2: T = VCT*0.24467 - 271.03 C; integer unit = 0.1 C. */
-        int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC_REG_DIE_TEMP_H]) * 24467) / 10000 - 2710;
+        int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
         int32_t report_temp = die_x10 + 400;
         if (report_temp < 0) report_temp = 0;
         if (report_temp > 65535) report_temp = 65535;
@@ -1254,8 +1210,10 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
     }
 
-    SystemStatus.bits.b1Status_MOS_CHG = (data[DVC_REG_CC2_L_FLAGS] & 0x01u) ? 1u : 0u;
-    SystemStatus.bits.b1Status_MOS_DSG = (data[DVC_REG_CC2_L_FLAGS] & 0x02u) ? 1u : 0u;
+    SystemStatus.bits.b1Status_MOS_CHG =
+        (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
+    SystemStatus.bits.b1Status_MOS_DSG =
+        (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
     /* 0x67..0x69 auto-clear after 60 s; report actual AFE state, not cached request. */
     if (!dvc_refresh_balance_state())
