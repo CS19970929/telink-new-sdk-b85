@@ -287,6 +287,7 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
                                                    u32 *value)
 {
     dvc1124_config_t device;
+    dvc1124_snapshot_t snapshot;
     dvc1124_persistent_config_t cfg;
     u8 chip;
 
@@ -312,6 +313,13 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
     case DVC1124_CFG_CELL_COUNT:     *value = device.cell_count; return DVC1124_CFG_OK;
     case DVC1124_CFG_SHUNT_UOHM_LO:  *value = device.shunt_uohm & 0xFFFFu; return DVC1124_CFG_OK;
     case DVC1124_CFG_SHUNT_UOHM_HI:  *value = device.shunt_uohm >> 16; return DVC1124_CFG_OK;
+    case DVC1124_CFG_STATUS_CACHED:
+        DVC1124_GetSnapshot(&snapshot);
+        *value = snapshot.status;
+        return DVC1124_CFG_OK;
+    case DVC1124_CFG_CORE_OT_EVENT_LATCHED:
+        *value = DVC1124_GetCoreOtEventLatched();
+        return DVC1124_CFG_OK;
     default: break;
     }
 
@@ -541,6 +549,8 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
     case DVC1124_CFG_CELL_COUNT:
     case DVC1124_CFG_SHUNT_UOHM_LO:
     case DVC1124_CFG_SHUNT_UOHM_HI:
+    case DVC1124_CFG_STATUS_CACHED:
+    case DVC1124_CFG_CORE_OT_EVENT_LATCHED:
         return DVC1124_CFG_ERR_READ_ONLY;
     default:
         break;
