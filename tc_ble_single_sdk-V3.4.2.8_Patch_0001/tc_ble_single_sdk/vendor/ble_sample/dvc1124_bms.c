@@ -1,5 +1,6 @@
 #include "dvc1124.h"
 #include "dvc1124_commands.h"
+#include "bms_afe.h"
 
 #include "tl_common.h"
 #include "drivers.h"
@@ -9,7 +10,7 @@
 #include "param.h"
 #include <string.h>
 
-/* App_AFEGet is scheduled every 200 ms in the current project. */
+/* bms_afe_sample() is scheduled every 200 ms in the current project. */
 #define DVC_BMS_SAMPLE_PERIOD_MS 200u
 
 extern struct stCell_Info g_stCellInfoReport;
@@ -370,18 +371,13 @@ void DVC1124_BmsApp_AFEGet(void)
     (void)dvc_enforce_fault_fet_state();
 }
 
-uint8_t DVC1124_BmsCompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf)
+uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on)
 {
-    uint8_t value;
+    if (charge_on && dvc_charge_blocked()) charge_on = 0u;
+    if (discharge_on && dvc_discharge_blocked()) discharge_on = 0u;
 
-    if ((wr_buf == NULL) || (length == 0u)) return 0u;
+    if (DVC1124_SetMosState(charge_on, discharge_on)) return 1u;
 
-    if (wr_addr != 0x40u)
-        return DVC1124_CompatMTPWrite(wr_addr, length, wr_buf);
-
-    value = wr_buf[0];
-    /* Legacy SH367309 MTP_CONF: bit4=CHGMOS, bit5=DSGMOS. */
-    if ((value & 0x10u) && dvc_charge_blocked()) value &= (uint8_t)~0x10u;
-    if ((value & 0x20u) && dvc_discharge_blocked()) value &= (uint8_t)~0x20u;
-    return DVC1124_CompatMTPWrite(wr_addr, 1u, &value);
+    (void)System_ERROR_UserCallback(ERROR_AFE1);
+    return 0u;
 }

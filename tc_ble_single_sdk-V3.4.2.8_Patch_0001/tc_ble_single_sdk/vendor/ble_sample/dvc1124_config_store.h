@@ -46,11 +46,6 @@ int DVC1124_ConfigStoreRestore(void);
  */
 int DVC1124_ConfigStoreWritePersistentRegister(uint8_t reg, uint8_t requested);
 
-/* Legacy application compatibility wrappers used from conf.h. */
-void DVC1124_ConfigStore_AFE_Reset(void);
-void DVC1124_ConfigStore_UpdataAfeConfig(void);
-void DVC1124_ConfigStore_BmsApp_AFEGet(void);
-
 #ifdef __cplusplus
 }
 #endif

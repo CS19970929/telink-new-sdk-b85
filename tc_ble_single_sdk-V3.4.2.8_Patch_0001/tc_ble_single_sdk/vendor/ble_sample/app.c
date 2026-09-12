@@ -34,6 +34,7 @@
 #include "modbus_uart.h"
 #include "modbus_rtu.h"
 
+#include "bms_afe.h"
 #include "bms_state.h"
 #include "sh367309_datadeal.h"
 
@@ -49,7 +50,6 @@
 
 extern void LoadParam(void);
 extern void Param_UpgradeReset_Apply(void);
-extern void AFE_Sleep(void);
 
 struct stCell_Info g_stCellInfoReport;
 Time_T sys_time;
@@ -157,7 +157,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	bms_event_log_note_sleep();
 	if (need_afe_sleep)
 	{
-		AFE_Sleep();
+		bms_afe_sleep();
 	}
 	Runtime_PrepareForDeepSleep();
 	sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
@@ -329,18 +329,6 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
-void WriteMosState(UINT8 charge_on, UINT8 discharge_on)
-{
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1;
-	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = charge_on;
-	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = discharge_on;
-	MTPWrite(MTP_CONF, 1, &SH367309_Reg_Store.REG_MTP_CONF.all);
-	if(charge_on == 1)
-		gpio_write(MCC_C_PIN, 1);
-	else
-		gpio_write(MCC_C_PIN, 0);
-}
-
 extern volatile union System_Status SystemStatus;
 
 void mos_update(void)
@@ -378,7 +366,7 @@ void mos_update(void)
 	if(chg_target != SystemStatus.bits.b1Status_MOS_CHG ||
 		dsg_target != SystemStatus.bits.b1Status_MOS_DSG)
 	{
-		WriteMosState(chg_target, dsg_target);
+		(void)bms_afe_set_fets(chg_target, dsg_target);
 	}
 }
 
@@ -733,13 +721,6 @@ void init_bms_io(void)
 		gpio_set_output_en(ADC_EN_PIN, 1);
 		gpio_write(ADC_EN_PIN, 1);
 	}
-}
-
-void i2c_master_test_init(void)
-{
-	i2c_gpio_set(I2C_GPIO_GROUP_C0C1); // SDA/CK : C0/C1
-
-	i2c_master_init(AFE_ID, (unsigned char)(CLOCK_SYS_CLOCK_HZ / (4 * 100000)));
 }
 
 _attribute_data_retention_ int device_in_connection_state;
@@ -1496,19 +1477,14 @@ _attribute_no_inline_ void user_init_normal(void)
 		Param_UpgradeReset_Apply();
 		bms_event_log_init();
 
-		i2c_master_test_init();
-		WaitMs(100);
-
 		// todo 待测试 , 断线检测测试
-		AFE_Reset();
-		AFE_IsReady();
-		SH367309_UpdataAfeConfig();
+		bms_afe_init();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
-		App_AFEGet();
+		bms_afe_sample();
 		soc_kv_store_init();
 		soc_kv_data_t d = soc_kv_store_get();
 		// d.soc = 100;
@@ -1734,7 +1710,7 @@ _attribute_no_inline_ void main_loop(void)
 	{
 		test_task_tick = clock_time();
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
-		App_AFEGet();
+		bms_afe_sample();
 		APP_SOC_IntEnhance_Ctrl();
 		mos_update();
 	}

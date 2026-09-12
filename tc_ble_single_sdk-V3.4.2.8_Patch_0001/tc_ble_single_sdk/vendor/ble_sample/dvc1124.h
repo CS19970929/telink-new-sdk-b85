@@ -420,15 +420,13 @@ static inline uint8_t DVC1124_ApplyOperatingConfig(const dvc1124_operating_confi
     return ok;
 }
 
-/* Legacy application compatibility entry points. */
+/* DVC adapter entry points; application code uses bms_afe.h. */
 void DVC1124_App_AFEGet(void);
 void DVC1124_BmsApp_AFEGet(void);
 void DVC1124_AFE_Reset(void);
 uint8_t DVC1124_AFE_IsReady(void); /* legacy convention: 0 = ready */
 void DVC1124_AFE_Sleep(void);
 void DVC1124_UpdataAfeConfig(void);
-uint8_t DVC1124_CompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf);
-uint8_t DVC1124_BmsCompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf);
 
 void DVC1124_CompatAdcBaseInit(unsigned int pin);
 unsigned int DVC1124_CompatAdcSample(void);

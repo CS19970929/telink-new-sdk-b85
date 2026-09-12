@@ -1224,19 +1224,6 @@ void DVC1124_App_AFEGet(void)
     dvc_note_comm_result(1u);
 }
 
-uint8_t DVC1124_CompatMTPWrite(uint8_t wr_addr, uint8_t length, const uint8_t *wr_buf)
-{
-    if ((wr_buf == NULL) || (length == 0u)) return 0u;
-
-    /* Legacy SH367309 MTP_CONF: bit4=CHGMOS, bit5=DSGMOS. */
-    if (wr_addr == 0x40u)
-    {
-        return DVC1124_SetMosState((wr_buf[0] & 0x10u) ? 1u : 0u,
-                                   (wr_buf[0] & 0x20u) ? 1u : 0u);
-    }
-    return 0u;
-}
-
 void DVC1124_CompatAdcBaseInit(unsigned int pin)
 {
     s_compat_adc_pin = pin;
