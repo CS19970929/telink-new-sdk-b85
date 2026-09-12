@@ -4,10 +4,9 @@
 #include <stdint.h>
 
 /*
- * BMS system error flags.
- *
- * Keep the legacy structure name and field layout while moving ownership out
- * of app.h.  New code should include bms_error.h directly.
+ * Compatibility-sensitive system error layout. Modbus currently exposes this
+ * structure by field offset, so do not reorder or remove fields without an
+ * explicit protocol migration.
  */
 struct SYSTEM_ERROR
 {
@@ -43,5 +42,11 @@ struct SYSTEM_ERROR
 };
 
 extern volatile struct SYSTEM_ERROR System_ErrFlag;
+
+/* Matches legacy System_ERROR_UserCallback(ERROR_EEPROM_STORE) semantics. */
+static inline void bms_error_note_store_failure(void)
+{
+    ++System_ErrFlag.u8ErrFlag_Store_EEPROM;
+}
 
 #endif /* BMS_ERROR_H_ */

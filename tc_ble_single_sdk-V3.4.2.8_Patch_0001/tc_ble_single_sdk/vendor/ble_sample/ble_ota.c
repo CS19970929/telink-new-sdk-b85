@@ -2,10 +2,9 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
+#include "app_config.h"
 #include "app.h"
 #include "ble_ota.h"
-
-extern u32 latest_user_event_tick;
 
 #if (BLE_OTA_SERVER_ENABLE)
 void app_enter_ota_mode(void)
@@ -13,7 +12,6 @@ void app_enter_ota_mode(void)
     tlkapi_send_string_data(APP_OTA_LOG_EN, "[APP][OTA] enter ota mode", 0, 0);
 
     ota_is_working = 1;
-    latest_user_event_tick = clock_time();
     app_ble_request_ota_conn_param();
 
 #if (BLE_APP_PM_ENABLE)

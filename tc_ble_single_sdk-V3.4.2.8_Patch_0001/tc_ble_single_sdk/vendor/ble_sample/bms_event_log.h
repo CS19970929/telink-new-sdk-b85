@@ -3,21 +3,14 @@
 #include "tl_common.h"
 #include "flash_store_cfg.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define BMS_EVENT_LOG_SECTOR_SIZE  FLASH_SECTOR_SIZE
+#define BMS_EVENT_LOG_ENTRY_COUNT  100u
+#define BMS_EVENT_LOG_REG_BASE     0xC008u
+#define BMS_EVENT_LOG_REG_COUNT    BMS_EVENT_LOG_ENTRY_COUNT
+#define BMS_EVENT_LOG_RESET_REG    0x1007u
 
-#ifndef BMS_EVENT_LOG_SECTOR_SIZE
-#define BMS_EVENT_LOG_SECTOR_SIZE     FLASH_SECTOR_SIZE
-#endif
-
-#define BMS_EVENT_LOG_ENTRY_COUNT     100u
-
-#define BMS_EVENT_LOG_REG_BASE        0xC008u
-#define BMS_EVENT_LOG_REG_COUNT       BMS_EVENT_LOG_ENTRY_COUNT
-#define BMS_EVENT_LOG_RESET_REG       0x1007u
-
-typedef enum {
+typedef enum
+{
     BMS_EVENT_NULL1 = 0,
     BMS_START_UP,
     BMS_SLEEP,
@@ -42,7 +35,8 @@ typedef enum {
     EVENT_NUM
 } bms_event_log_id_t;
 
-typedef struct {
+typedef struct
+{
     u8 sleep;
     u8 balance;
     u8 heat;
@@ -63,22 +57,9 @@ typedef struct {
     u8 cbc_err;
 } bms_event_log_sample_t;
 
-typedef struct {
-    u32 last_seq;
-    u16 current_slot;
-    u16 slots_per_sector;
-    u16 total_slots;
-    u16 write_pos;
-    u8 ready;
-} bms_event_log_dbg_t;
-
 int bms_event_log_init(void);
 void bms_event_log_note_startup(void);
 void bms_event_log_note_sleep(void);
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
 u16 bms_event_log_read_reg(u16 reg);
 int bms_event_log_factory_reset(void);
-
-#ifdef __cplusplus
-}
-#endif

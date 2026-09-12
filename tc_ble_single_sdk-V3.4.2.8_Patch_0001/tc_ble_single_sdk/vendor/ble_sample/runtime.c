@@ -1,14 +1,13 @@
 #include "runtime.h"
+#include "conf.h"
 #include "drivers.h"
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
-#include "sci_upper.h"
 #include "sh367309_datadeal.h"
 
-extern struct stCell_Info g_stCellInfoReport;
+Time_T sys_time;
 
 #define RUNTIME_COMMIT_MAGIC       0x544D4F43u
-// #define RUNTIME_SAVE_INTERVAL_MIN  10u
 #define RUNTIME_SAVE_INTERVAL_MIN  1u
 #define RUNTIME_PM_TICKS_PER_SEC   32000u
 #define RUNTIME_PM_TICKS_PER_MIN   (RUNTIME_PM_TICKS_PER_SEC * 60u)
