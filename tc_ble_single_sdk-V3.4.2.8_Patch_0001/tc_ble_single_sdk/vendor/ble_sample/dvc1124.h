@@ -219,10 +219,15 @@ static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,
     uint8_t target;
     uint8_t verify;
     uint8_t owned = DVC1124_RegDocumentedWriteMask(reg);
+    uint8_t field_max;
 
-    if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u)) return 0u;
+    if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u) || (shift >= 8u)) return 0u;
     if ((mask & owned) != mask) return 0u;
-    if ((DVC1124_FIELD_PREP(mask, shift, value) & (uint8_t)~mask) != 0u) return 0u;
+
+    /* FIELD_PREP masks the value, so validate before encoding to avoid silent truncation. */
+    field_max = (uint8_t)(mask >> shift);
+    if ((field_max == 0u) || (value > field_max)) return 0u;
+
     if (!DVC1124_ReadRegisters(reg, &current, 1u)) return 0u;
 
     target = (uint8_t)((current & (uint8_t)~mask) |
