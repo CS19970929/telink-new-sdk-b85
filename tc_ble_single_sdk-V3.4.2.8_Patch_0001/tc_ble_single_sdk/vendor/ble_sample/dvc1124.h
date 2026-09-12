@@ -145,18 +145,6 @@ typedef enum
 #define DVC1124_DEFAULT_MOS_NTC_GP           1u
 #endif
 
-/*
- * Virtual pins exist only for the legacy SH367309 application compatibility
- * layer. They must never reach Telink GPIO register helpers.
- */
-#define DVC1124_VPIN_AFE_CTL                  0x7F010001u
-#define DVC1124_VPIN_LEGACY_MCC               0x7F010002u
-#define DVC1124_VPIN_ADC_BAT                  0x7F010003u
-#define DVC1124_VPIN_ADC_PACK                 0x7F010004u
-#define DVC1124_VPIN_ADC_MOS                  0x7F010005u
-#define DVC1124_VPIN_NOOP0                    0x7F010006u
-#define DVC1124_VPIN_NOOP1                    0x7F010007u
-
 uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     dvc1124_addr_mode_t mode,
                                     uint8_t hardwire_code,
@@ -175,6 +163,7 @@ uint8_t DVC1124_GetWriteAddress(void);
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len);
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
 uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
+void DVC1124_SetOutputEnabled(uint8_t enabled);
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 uint8_t DVC1124_StartOpenWireCheck(void);
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
@@ -427,13 +416,6 @@ void DVC1124_AFE_Reset(void);
 uint8_t DVC1124_AFE_IsReady(void); /* legacy convention: 0 = ready */
 void DVC1124_AFE_Sleep(void);
 void DVC1124_UpdataAfeConfig(void);
-
-void DVC1124_CompatAdcBaseInit(unsigned int pin);
-unsigned int DVC1124_CompatAdcSample(void);
-void DVC1124_CompatGpioSetFunc(unsigned int pin, unsigned int func);
-void DVC1124_CompatGpioSetInputEn(unsigned int pin, unsigned int value);
-void DVC1124_CompatGpioSetOutputEn(unsigned int pin, unsigned int value);
-void DVC1124_CompatGpioWrite(unsigned int pin, unsigned int value);
 
 #ifdef __cplusplus
 }

@@ -185,6 +185,9 @@ class ConfigStoreTests(unittest.TestCase):
         self.assertIn("bms_afe_sample();", app)
         self.assertNotIn("App_AFEGet", app)
         self.assertNotIn("MTPWrite", app)
+        self.assertNotIn("DVC1124_Compat", self.conf)
+        self.assertNotIn("#define gpio_write", self.conf)
+        self.assertNotIn("#define adc_base_init", self.conf)
         self.assertIn("DVC1124_ConfigStoreRestore()", self.src)
 
     def test_apply_orders_timeout_policy_before_watchdog_operating_config(self):

@@ -728,6 +728,8 @@ extern UINT16 Fault_record_Third2[Record_len];
 extern sh367309_ram_t ram_reg_309;
 extern SH367309_REG_STORE SH367309_Reg_Store;
 
+UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+void FaultWarnRecord2(enum FaultFlag num);
 void SH367309_UpdataAfeConfig(void);
 void App_AFEGet(void);
 void AFE_Reset(void);

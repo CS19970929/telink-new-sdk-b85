@@ -296,11 +296,13 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn("analog_read", text)
         self.assertIn("Aging runtime counts awake BMS execution only", text)
 
-    def test_factory_mode_disables_rtc_low_power_path(self):
+    def test_virtual_adc_rtc_placeholders_are_removed(self):
         text = read_text(APP_C)
         self.assertIn("MODE_FACTORY == Runtime_GetMode()", text)
-        self.assertIn("quit_rtc_mode();", text)
-        self.assertIn("enter_rtc_mode();", text)
+        self.assertNotIn("quit_rtc_mode", text)
+        self.assertNotIn("enter_rtc_mode", text)
+        self.assertNotIn("ADC_BUSEN_PIN", text)
+        self.assertNotIn("ADC_EN_PIN", text)
 
     def test_modbus_factory_command_resets_runtime(self):
         text = read_text(MODBUS_RTU_C)
@@ -473,7 +475,8 @@ class SourceContractTests(unittest.TestCase):
         text = read_text(RUNTIME_C)
         self.assertIn("int Runtime_FactoryReset(void)", text)
         self.assertIn("int Runtime_ReenterFactoryMode(void)", text)
-        self.assertIn("enter_fac_mode(true);", text)
+        self.assertIn("if (!Runtime_FactoryReset())", text)
+        self.assertNotIn("enter_fac_mode", text)
 
     def test_param_loads_only_from_cold_kv(self):
         text = read_text(PARAM_C)
