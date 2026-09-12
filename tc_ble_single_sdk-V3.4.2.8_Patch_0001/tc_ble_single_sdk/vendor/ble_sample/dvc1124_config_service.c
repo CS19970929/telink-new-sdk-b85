@@ -556,6 +556,14 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
 {
     if (value == NULL || reg > DVC1124_MAX_REGISTER) return DVC1124_CFG_ERR_ADDRESS;
+
+    /*
+     * Raw reads must not silently consume RC status. STATUS (0x01) and CORE_OT
+     * (0x76) have read-clear fields in V1.2; use explicit semantic/cached
+     * diagnostics instead of the ordinary raw mirror for those bytes.
+     */
+    if (DVC1124_RegReadHasSideEffect(reg)) return DVC1124_CFG_ERR_FORBIDDEN;
+
     return DVC1124_ReadRegisters(reg, value, 1u)
                ? DVC1124_CFG_OK
                : DVC1124_CFG_ERR_AFE_IO;
