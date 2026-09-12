@@ -4,7 +4,8 @@
 
 ## 当前状态
 
-- 应用层通过 `bms_afe.h` 使用 AFE，不再包含旧 SH367309 的 `MTPWrite`、`App_AFEGet` 或虚拟 GPIO/ADC 兼容层。
+- 应用层只通过 `bms_afe.h` 使用 AFE；旧 `sh367309_datadeal.*`、`MTPWrite`、`App_AFEGet` 和虚拟 GPIO/ADC 兼容层已删除。
+- `bms_state.*` / `bms_error.h` 统一持有 BMS 报告、系统状态、错误计数和分级故障历史，通信层不再跨文件遍历私有数组。
 - DVC1124 寄存器真值集中在 `dvc1124_reg.h`；板级默认值集中在 `dvc1124_project_config.h`。
 - BLE 与 UART 共用同一个 Modbus/AFE 配置服务。
 - 参数、SOC、runtime、事件日志和 DVC 配置使用彼此独立的 Flash 区域。

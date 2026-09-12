@@ -162,7 +162,7 @@ CPPCHECK_CONFIG = STATIC_ANALYSIS_DIR / "cppcheck.cfg"
 CPPCHECK_PLATFORM = STATIC_ANALYSIS_DIR / "tc32-platform.xml"
 STATIC_REPORT_BUILDER = STATIC_ANALYSIS_DIR / "fill_static_report.py"
 
-# Flash layout (per docs/project_flash_map_8251_512k.md). Hard-coded so the
+# Flash layout (per docs/STORAGE.md). Hard-coded so the
 # firmware-integrity tooling knows the protected program-flash range without
 # parsing the linker script.
 FW_SLOT_A_BASE = 0x00000
@@ -310,7 +310,7 @@ def cmd_env(args: argparse.Namespace) -> int:
     for name, path, ver in checks:
         print(f"{name:<20} {ver:<28} {path}")
     print("-" * 70)
-    print("Flash layout (8251 / 512K, per docs/project_flash_map_8251_512k.md):")
+    print("Flash layout (8251 / 512K, per docs/STORAGE.md):")
     print(f"  Firmware A (running) : 0x{FW_SLOT_A_BASE:05X} - 0x{FW_SLOT_A_END:05X}")
     print(f"  OTA reserved A       : 0x{OTA_META_A[0]:05X} - 0x{OTA_META_A[1]:05X}")
     print(f"  Firmware B (OTA)     : 0x{FW_SLOT_B_BASE:05X} - 0x{FW_SLOT_B_END:05X}")

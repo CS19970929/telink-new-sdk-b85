@@ -15,6 +15,8 @@
 - [x] raw write 受 Factory 门禁，并经过 semantic candidate、validation、apply/persist。
 - [x] 单字段配置在持久化失败时尝试回滚；multi-write 在原子事务实现前明确拒绝。
 - [x] 应用使用 `bms_afe.h`；旧 `App_AFEGet`、`MTPWrite`、虚拟 GPIO/ADC 和 SDK 宏 alias 已删除。
+- [x] 旧 `sh367309_datadeal.*` 已删除；共享状态、错误、故障历史和温度查表已收口到 AFE-neutral BMS 模块。
+- [x] BMS protection 单字段写入按 apply/readback -> persist 执行，失败恢复旧请求值并返回协议异常。
 - [x] host contract tests 覆盖寄存器真值、特殊访问、配置服务、协议入口和 Flash 布局。
 
 以上“完成”只代表源码/host contract 基线；固定 TC32 build 和实板测试见 `HARDWARE_VALIDATION.md`。

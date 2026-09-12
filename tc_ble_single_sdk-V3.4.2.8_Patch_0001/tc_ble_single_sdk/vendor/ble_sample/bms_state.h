@@ -35,6 +35,106 @@ typedef enum {
     TEMP_NUM
 } bms_temperature_index_t;
 
+typedef union
+{
+    uint32_t all;
+    struct
+    {
+        uint8_t b1StartUpBMS           : 1;
+        uint8_t b1Status_MOS_PRE       : 1;
+        uint8_t b1Status_MOS_CHG       : 1;
+        uint8_t b1Status_MOS_DSG       : 1;
+        uint8_t b1Status_Relay_PRE     : 1;
+        uint8_t b1Status_Relay_CHG     : 1;
+        uint8_t b1Status_Relay_DSG     : 1;
+        uint8_t b1Status_Relay_MAIN    : 1;
+
+        uint8_t b1Status_Heat          : 1;
+        uint8_t b1Status_Cool          : 1;
+        uint8_t b1Status_AFE1          : 1;
+        uint8_t b1Status_AFE2          : 1;
+        uint8_t b1Status_Balance       : 1;
+        uint8_t b1Status_ToSleep       : 1;
+        uint8_t b1Status_BnCloseIO     : 1;
+        uint8_t b1Status_HeatCloseIO   : 1;
+
+        uint8_t b1Status_SysLimits     : 1;
+        uint8_t b1Status_CBCCloseIO    : 1;
+        uint8_t b1Status_DriverExtCtrl : 1;
+        uint8_t bReserved0             : 1;
+        uint8_t b4Status_ProjectVer    : 4;
+        uint8_t bReserved1;
+    } bits;
+} bms_system_status_t;
+
+typedef char bms_system_status_size_must_be_4[
+    (sizeof(bms_system_status_t) == 4u) ? 1 : -1];
+
+extern volatile bms_system_status_t g_bms_system_status;
+
+typedef enum
+{
+    BMS_FAULT_CELL_OVP_FIRST = 1,
+    BMS_FAULT_CELL_UVP_FIRST,
+    BMS_FAULT_BAT_OVP_FIRST,
+    BMS_FAULT_BAT_UVP_FIRST,
+    BMS_FAULT_CHG_OCP_FIRST,
+    BMS_FAULT_DSG_OCP_FIRST,
+    BMS_FAULT_CHG_OTP_FIRST,
+    BMS_FAULT_CHG_UTP_FIRST,
+    BMS_FAULT_DSG_OTP_FIRST,
+    BMS_FAULT_DSG_UTP_FIRST,
+    BMS_FAULT_MOS_OTP_FIRST,
+    BMS_FAULT_VDELTA_FIRST,
+    BMS_FAULT_SOC_HIGH_FIRST,
+
+    BMS_FAULT_CELL_OVP_SECOND,
+    BMS_FAULT_CELL_UVP_SECOND,
+    BMS_FAULT_BAT_OVP_SECOND,
+    BMS_FAULT_BAT_UVP_SECOND,
+    BMS_FAULT_CHG_OCP_SECOND,
+    BMS_FAULT_DSG_OCP_SECOND,
+    BMS_FAULT_CHG_OTP_SECOND,
+    BMS_FAULT_CHG_UTP_SECOND,
+    BMS_FAULT_DSG_OTP_SECOND,
+    BMS_FAULT_DSG_UTP_SECOND,
+    BMS_FAULT_MOS_OTP_SECOND,
+    BMS_FAULT_VDELTA_SECOND,
+    BMS_FAULT_SOC_HIGH_SECOND,
+
+    BMS_FAULT_CELL_OVP_THIRD,
+    BMS_FAULT_CELL_UVP_THIRD,
+    BMS_FAULT_BAT_OVP_THIRD,
+    BMS_FAULT_BAT_UVP_THIRD,
+    BMS_FAULT_CHG_OCP_THIRD,
+    BMS_FAULT_DSG_OCP_THIRD,
+    BMS_FAULT_CHG_OTP_THIRD,
+    BMS_FAULT_CHG_UTP_THIRD,
+    BMS_FAULT_DSG_OTP_THIRD,
+    BMS_FAULT_DSG_UTP_THIRD,
+    BMS_FAULT_MOS_OTP_THIRD,
+    BMS_FAULT_VDELTA_THIRD,
+    BMS_FAULT_SOC_HIGH_THIRD
+} bms_fault_code_t;
+
+typedef char bms_fault_codes_must_match_protocol[
+    (BMS_FAULT_CELL_OVP_SECOND == 14 &&
+     BMS_FAULT_CELL_OVP_THIRD == 27 &&
+     BMS_FAULT_SOC_HIGH_THIRD == 39) ? 1 : -1];
+
+typedef enum
+{
+    BMS_FAULT_LEVEL_FIRST = 1,
+    BMS_FAULT_LEVEL_SECOND,
+    BMS_FAULT_LEVEL_THIRD
+} bms_fault_level_t;
+
+#define BMS_FAULT_HISTORY_DEPTH 10u
+
+void bms_fault_history_record(bms_fault_code_t fault);
+uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age);
+uint16_t bms_lookup_u16(const uint16_t *table, uint16_t table_size, uint16_t input);
+
 struct MDLCHGFAULT_BITS {
     uint8_t b1CellOvp         : 1;
     uint8_t b1CellUvp         : 1;
@@ -93,5 +193,7 @@ typedef struct SOC_CAL_ELEMENT_UPPER bms_soc_report_t;
 typedef struct MDLCHGFAULT_BITS bms_fault_bits_t;
 typedef union MDLCHGFAULT_REG bms_fault_reg_t;
 typedef struct stCell_Info bms_state_t;
+
+extern struct stCell_Info g_stCellInfoReport;
 
 #endif /* BMS_STATE_H_ */

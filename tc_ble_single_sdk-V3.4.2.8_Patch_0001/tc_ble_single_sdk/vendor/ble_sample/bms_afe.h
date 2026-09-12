@@ -13,6 +13,7 @@
 void bms_afe_init(void);
 void bms_afe_sample(void);
 void bms_afe_sleep(void);
+uint8_t bms_afe_apply_protection_config(void);
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
 void bms_afe_set_output_enabled(uint8_t enabled);
 

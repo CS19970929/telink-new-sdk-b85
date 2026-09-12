@@ -416,6 +416,7 @@ void DVC1124_AFE_Reset(void);
 uint8_t DVC1124_AFE_IsReady(void); /* legacy convention: 0 = ready */
 void DVC1124_AFE_Sleep(void);
 void DVC1124_UpdataAfeConfig(void);
+uint8_t DVC1124_ApplyProtectionConfig(void);
 
 #ifdef __cplusplus
 }

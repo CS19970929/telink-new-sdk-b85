@@ -2,11 +2,11 @@
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "param.h"
+#include "bms_error.h"
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
 #include "soc_kv_store.h"
 #include "runtime.h"
-#include "sh367309_datadeal.h"
 #include <string.h>
 
 PARAM_T g_tParam;
@@ -94,12 +94,14 @@ void LoadParam(void)
     }
 }
 
-void SaveParam(void)
+uint8_t SaveParam(void)
 {
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
-        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0u;
     }
+    return 1u;
 }
 
 void Param_UpgradeReset_Apply(void)
@@ -112,7 +114,7 @@ void Param_UpgradeReset_Apply(void)
         if (param_upgrade_apply_default_protect()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_PROTECT_RESET_EPOCH, FW_UPGRADE_RESET_PROTECT_EPOCH);
         } else {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
 
@@ -120,7 +122,7 @@ void Param_UpgradeReset_Apply(void)
         if (param_upgrade_apply_default_system()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_SYSTEM_RESET_EPOCH, FW_UPGRADE_RESET_SYSTEM_EPOCH);
         } else {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
 
@@ -128,7 +130,7 @@ void Param_UpgradeReset_Apply(void)
         if (param_upgrade_apply_default_soc()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_SOC_RESET_EPOCH, FW_UPGRADE_RESET_SOC_EPOCH);
         } else {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
 
@@ -136,7 +138,7 @@ void Param_UpgradeReset_Apply(void)
         if (param_upgrade_apply_default_event_log()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH);
         } else {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
 
@@ -144,7 +146,7 @@ void Param_UpgradeReset_Apply(void)
         if (param_upgrade_apply_default_runtime()) {
             param_upgrade_mark_epoch(BMS_COLD_CTRL_RUNTIME_RESET_EPOCH, FW_UPGRADE_RESET_RUNTIME_EPOCH);
         } else {
-            System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
 }

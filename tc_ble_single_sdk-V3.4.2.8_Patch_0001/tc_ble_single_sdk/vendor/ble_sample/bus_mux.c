@@ -3,7 +3,6 @@
 #include "drivers.h"
 #include "modbus_uart.h"
 #include "conf.h"
-#include "sh367309_datadeal.h"
 #include "app.h"
 
 // ===== pins =====
@@ -93,9 +92,6 @@ static void enter_owc_idle(void)
     owc_listen_init();
 
     g_rx_high_since = 0;
-    // System_ERROR_UserCallback(ERROR_EEPROM_STORE);
-    // System_ERROR_UserCallback(ERROR_REMOVE_EEPROM_COM);
-    // System_ERROR_UserCallback(ERROR_REMOVE_EEPROM_STORE);
     g_state = BUS_STATE_OWC_IDLE;
 }
 
@@ -103,9 +99,6 @@ static void enter_owc_tx(void)
 {
     owc_start_tx_only();
     g_state = BUS_STATE_OWC_TX;
-    // System_ERROR_UserCallback(ERROR_AFE2);
-    // System_ERROR_UserCallback(ERROR_REMOVE_EEPROM_COM);
-    // System_ERROR_UserCallback(ERROR_REMOVE_EEPROM_STORE);
 }
 
 static void enter_uart_modbus(void)
@@ -120,9 +113,6 @@ static void enter_uart_modbus(void)
 
     g_last_uart_rx = tick_now();
     g_state = BUS_STATE_UART_MODBUS;
-    // System_ERROR_UserCallback(ERROR_EEPROM_COM);
-    // System_ERROR_UserCallback(ERROR_REMOVE_AFE2);
-    // System_ERROR_UserCallback(ERROR_REMOVE_EEPROM_STORE);
 }
 
 bus_state_t bus_mux_get_state(void) { return g_state; }
@@ -179,7 +169,6 @@ void bus_mux_init(void)
     // 但注意：wakeup 只保证“醒来”，醒来后仍要靠本模块检测是否切UART。
 }
 
-#if 1
 void bus_mux_task(void)
 {
     // 1) OWC相关状态：优先UART活动判定
@@ -217,35 +206,4 @@ void bus_mux_task(void)
             return;
         }
     }
-    // extern volatile struct SYSTEM_ERROR System_ErrFlag;
-    // switch (g_state)
-    // {
-    // case BUS_STATE_OWC_IDLE:
-    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 1;
-    //     ;
-    //     System_ErrFlag.u8ErrFlag_Com_Can = 0;
-    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
-    //     break;
-    // case BUS_STATE_OWC_TX:
-    //     System_ErrFlag.u8ErrFlag_Com_Can = 1;
-    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
-    //     ;
-    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 0;
-    //     break;
-    // case BUS_STATE_UART_MODBUS:
-    //     System_ErrFlag.u8ErrFlag_Com_Can = 0;
-    //     System_ErrFlag.u8ErrFlag_Com_AFE2 = 0;
-    //     ;
-    //     System_ErrFlag.u8ErrFlag_Com_EEPROM = 1;
-    //     break;
-    // default:
-    //     break;
-    // }
 }
-#else
-//todo
-void bus_mux_task(void)
-{
-    enter_uart_modbus();
-}
-#endif

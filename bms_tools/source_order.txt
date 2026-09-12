@@ -34,7 +34,7 @@ vendor/ble_sample/modbus_rtu.c
 vendor/ble_sample/modbus_uart.c
 vendor/ble_sample/param.c
 vendor/ble_sample/runtime.c
-vendor/ble_sample/sh367309_datadeal.c
+vendor/ble_sample/bms_state.c
 vendor/ble_sample/sif_send.c
 vendor/ble_sample/soc_kv_store.c
 drivers/B85/adc.c

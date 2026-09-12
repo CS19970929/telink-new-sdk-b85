@@ -39,6 +39,11 @@ SOC_KV_H = MODULE_DIR / "soc_kv_store.h"
 SOC_ENHANCE_C = MODULE_DIR / "SocEnhance.c"
 DVC1124_C = MODULE_DIR / "dvc1124.c"
 SIF_SEND_C = MODULE_DIR / "sif_send.c"
+BMS_STATE_C = MODULE_DIR / "bms_state.c"
+BMS_ERROR_H = MODULE_DIR / "bms_error.h"
+SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
+SH367309_H = MODULE_DIR / "sh367309_datadeal.h"
+SOURCE_ORDER = REPO_ROOT / "bms_tools" / "source_order.txt"
 OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
 BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
 
@@ -331,7 +336,7 @@ class SourceContractTests(unittest.TestCase):
         text = read_text(EVENT_LOG_C)
         self.assertIn("bms_event_log_report_store_error()", text)
         self.assertIn("return BMS_EVENT_LOG_INVALID_SLOT;", text)
-        self.assertIn("System_ERROR_UserCallback(ERROR_EEPROM_STORE);", text)
+        self.assertIn("bms_error_raise(BMS_ERROR_EEPROM_STORE);", text)
 
     def test_event_log_edge_latch_depends_on_persist_success(self):
         text = read_text(EVENT_LOG_C)
@@ -345,7 +350,7 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("if (param_upgrade_apply_default_soc()) {", text)
         self.assertIn("if (param_upgrade_apply_default_event_log()) {", text)
         self.assertIn("if (param_upgrade_apply_default_runtime()) {", text)
-        self.assertGreaterEqual(text.count("System_ERROR_UserCallback(ERROR_EEPROM_STORE);"), 6)
+        self.assertGreaterEqual(text.count("bms_error_raise(BMS_ERROR_EEPROM_STORE);"), 6)
 
     def test_soc_kv_flushes_immediately_on_any_value_change(self):
         text = read_text(MODULE_DIR / "soc_kv_store.c")
@@ -450,10 +455,10 @@ class SourceContractTests(unittest.TestCase):
     def test_afe_read_failure_freezes_soc_current_and_preserves_soc_report(self):
         text = read_text(DVC1124_C)
         self.assertIn("s_snapshot.valid = 0u;", text)
-        self.assertIn("u32_ChgCur_mA = 0u;", text)
-        self.assertIn("u32_DsgCur_mA = 0u;", text)
         self.assertIn("g_stCellInfoReport.u16Ichg = 0u;", text)
         self.assertIn("g_stCellInfoReport.u16IDischg = 0u;", text)
+        self.assertNotIn("s_charge_current_ma", text)
+        self.assertNotIn("s_discharge_current_ma", text)
         self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
 
     def test_current_conversion_uses_dvc_cc2_and_configured_shunt(self):
@@ -491,6 +496,44 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("void sif_timer_init(void)", sif)
         self.assertIn("void sif_timer_irq_handler(void)", sif)
         self.assertIn("sif_timer_irq_handler();", main)
+
+    def test_legacy_sh367309_module_is_removed(self):
+        self.assertFalse(SH367309_C.exists())
+        self.assertFalse(SH367309_H.exists())
+        source_order = read_text(SOURCE_ORDER)
+        self.assertIn("vendor/ble_sample/bms_state.c", source_order)
+        self.assertNotIn("sh367309_datadeal", source_order)
+        for path in MODULE_DIR.glob("*.[ch]"):
+            self.assertNotIn("sh367309_datadeal.h", read_text(path))
+
+    def test_error_counters_saturate_and_use_typed_api(self):
+        state = read_text(BMS_STATE_C)
+        error_header = read_text(BMS_ERROR_H)
+        app = read_text(APP_C)
+        self.assertIn("s_error_count[error] != UINT8_MAX", state)
+        self.assertIn("void bms_error_raise(bms_error_id_t error)", state)
+        self.assertIn("BMS_ERROR_AFE1 = 0", error_header)
+        self.assertIn("bms_error_get(BMS_ERROR_AFE1) != 0u", app)
+        self.assertNotIn("System_ERROR_UserCallback", app)
+
+    def test_fault_history_has_one_owner_and_per_level_index(self):
+        state = read_text(BMS_STATE_C)
+        modbus = read_text(MODBUS_RTU_C)
+        self.assertIn("static uint8_t s_fault_history[3][BMS_FAULT_HISTORY_DEPTH]", state)
+        self.assertIn("bms_fault_history_recent(level, age)", modbus)
+        self.assertNotIn("FaultPoint_", modbus)
+        self.assertNotIn("Fault_record_", modbus)
+
+    def test_protection_write_applies_and_verifies_before_success(self):
+        dvc = read_text(DVC1124_C)
+        modbus = read_text(MODBUS_RTU_C)
+        self.assertIn("uint8_t DVC1124_ApplyProtectionConfig(void)", dvc)
+        self.assertIn("static u8 commit_protection_update", modbus)
+        self.assertIn("if (!bms_afe_apply_protection_config())", modbus)
+        self.assertIn("g_tParam.protect = *previous;", modbus)
+        self.assertIn("if (!SaveParam())", modbus)
+        self.assertNotIn("bms_afe_request_config_reload", modbus)
+        self.assertNotIn("AFE_PARAM_WRITE_Flag", modbus)
 
     def test_runtime_factory_reset_api_exists(self):
         text = read_text(RUNTIME_C)

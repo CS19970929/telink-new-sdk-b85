@@ -3,8 +3,8 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
+#include "bms_error.h"
 #include "bms_state.h"
-#include "sh367309_datadeal.h"
 #include "param.h"
 #include <string.h>
 
@@ -17,11 +17,16 @@
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
 
-extern struct stCell_Info g_stCellInfoReport;
-extern UINT32 u32_ChgCur_mA;
-extern UINT32 u32_DsgCur_mA;
-extern const UINT16 iSheldTemp_10K_AFE[DVC_TEMP_TABLE_LEN];
-extern UINT16 GetEndValue(const UINT16 *ptbl, UINT16 tblsize, UINT16 dat);
+/* NTC resistance / ((degC + 40) * 10) pairs; resistance unit is 10 ohm. */
+static const uint16_t s_ntc_10k_table[DVC_TEMP_TABLE_LEN] = {
+    11611u, 100u, 8935u, 150u, 6943u, 200u, 5442u, 250u,
+    4300u, 300u, 3422u, 350u, 2751u, 400u, 2214u, 450u,
+    1801u, 500u, 1470u, 550u, 1209u, 600u, 1000u, 650u,
+    831u, 700u, 694u, 750u, 583u, 800u, 492u, 850u,
+    416u, 900u, 355u, 950u, 303u, 1000u, 260u, 1050u,
+    224u, 1100u, 193u, 1150u, 167u, 1200u, 146u, 1250u,
+    127u, 1300u, 111u, 1350u, 98u, 1400u, 86u, 1450u,
+};
 
 static dvc1124_config_t s_cfg = {
     DVC1124_DEFAULT_MODEL,
@@ -652,22 +657,29 @@ static void dvc_note_comm_result(uint8_t ok)
 {
     if (ok)
     {
-        SystemStatus.bits.b1Status_AFE1 = 1u;
-        if (System_ERROR_UserCallback(ERROR_STATUS_AFE1))
-            (void)System_ERROR_UserCallback(ERROR_REMOVE_AFE1);
+        g_bms_system_status.bits.b1Status_AFE1 = 1u;
+        bms_error_clear(BMS_ERROR_AFE1);
     }
     else
     {
-        SystemStatus.bits.b1Status_AFE1 = 0u;
-        (void)System_ERROR_UserCallback(ERROR_AFE1);
+        g_bms_system_status.bits.b1Status_AFE1 = 0u;
+        bms_error_raise(BMS_ERROR_AFE1);
     }
+}
+
+uint8_t DVC1124_ApplyProtectionConfig(void)
+{
+    uint8_t ok = dvc_apply_protection_from_params();
+
+    dvc_note_comm_result(ok);
+    return ok;
 }
 
 static uint16_t dvc_ntc_temp_report(uint32_t r_ohm)
 {
     uint32_t code = r_ohm / 10u;
     if (code > 65535u) code = 65535u;
-    return GetEndValue(iSheldTemp_10K_AFE, DVC_TEMP_TABLE_LEN, (uint16_t)code);
+    return bms_lookup_u16(s_ntc_10k_table, DVC_TEMP_TABLE_LEN, (uint16_t)code);
 }
 
 static uint8_t dvc_ntc_resistance(uint16_t gp_code,
@@ -1084,8 +1096,6 @@ void DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
-        u32_ChgCur_mA = 0u;
-        u32_DsgCur_mA = 0u;
         g_stCellInfoReport.u16Ichg = 0u;
         g_stCellInfoReport.u16IDischg = 0u;
         dvc_note_comm_result(0u);
@@ -1112,16 +1122,15 @@ void DVC1124_App_AFEGet(void)
 
     if (current_ma >= 0)
     {
-        u32_DsgCur_mA = (uint32_t)current_ma;
-        u32_ChgCur_mA = 0u;
-        g_stCellInfoReport.u16IDischg = (uint16_t)((u32_DsgCur_mA / 100u) > 65535u ? 65535u : (u32_DsgCur_mA / 100u));
+        uint32_t discharge_ma = (uint32_t)current_ma;
+
+        g_stCellInfoReport.u16IDischg = (uint16_t)((discharge_ma / 100u) > 65535u ? 65535u : (discharge_ma / 100u));
         g_stCellInfoReport.u16Ichg = 0u;
     }
     else
     {
         uint32_t charge_ma = (uint32_t)(-current_ma);
-        u32_ChgCur_mA = charge_ma;
-        u32_DsgCur_mA = 0u;
+
         g_stCellInfoReport.u16Ichg = (uint16_t)((charge_ma / 100u) > 65535u ? 65535u : (charge_ma / 100u));
         g_stCellInfoReport.u16IDischg = 0u;
     }
@@ -1170,12 +1179,11 @@ void DVC1124_App_AFEGet(void)
 
     if (configured_ntc_ok)
     {
-        if (System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK))
-            (void)System_ERROR_UserCallback(ERROR_REMOVE_TEMP_BREAK);
+        bms_error_clear(BMS_ERROR_TEMP_BREAK);
     }
     else
     {
-        (void)System_ERROR_UserCallback(ERROR_TEMP_BREAK);
+        bms_error_raise(BMS_ERROR_TEMP_BREAK);
     }
 
     {
@@ -1202,9 +1210,9 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
     }
 
-    SystemStatus.bits.b1Status_MOS_CHG =
+    g_bms_system_status.bits.b1Status_MOS_CHG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
-    SystemStatus.bits.b1Status_MOS_DSG =
+    g_bms_system_status.bits.b1Status_MOS_DSG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
     /* 0x67..0x69 auto-clear after 60 s; report actual AFE state, not cached request. */

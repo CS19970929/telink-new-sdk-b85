@@ -229,7 +229,17 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertIn("struct PRT_E2ROM_PARAS candidate = g_tParam.protect", self.src)
         self.assertIn("bms_cold_kv_store_set_protect(&candidate)", self.src)
         self.assertIn("g_tParam.protect = candidate", self.src)
-        self.assertIn("AFE_PARAM_WRITE_Flag = 1", self.src)
+        self.assertIn("DVC1124_ApplyProtectionConfig()", self.src)
+        self.assertLess(
+            self.src.find("DVC1124_ApplyProtectionConfig()"),
+            self.src.find("bms_cold_kv_store_set_protect(&candidate)"),
+        )
+
+    def test_bms_protection_write_rolls_back_on_apply_or_store_failure(self):
+        self.assertIn("struct PRT_E2ROM_PARAS previous = g_tParam.protect", self.src)
+        self.assertGreaterEqual(self.src.count("g_tParam.protect = previous;"), 2)
+        self.assertIn("return DVC1124_CFG_ERR_AFE_IO;", self.src)
+        self.assertIn("return DVC1124_CFG_ERR_STORE;", self.src)
 
     def test_raw_write_is_factory_only(self):
         self.assertIn("Runtime_GetMode() != MODE_FACTORY", self.src)
@@ -285,8 +295,11 @@ class TransportContractTests(unittest.TestCase):
         self.assertIn("DVC1124_ConfigServiceWriteRaw", self.src)
 
     def test_bms_report_has_single_owner(self):
-        self.assertIn("struct stCell_Info g_stCellInfoReport;", self.app)
-        self.assertIn("extern struct stCell_Info g_stCellInfoReport;", self.src)
+        state_header = read(HERE / "bms_state.h")
+        state_source = read(HERE / "bms_state.c")
+        self.assertIn("struct stCell_Info g_stCellInfoReport;", state_source)
+        self.assertIn("extern struct stCell_Info g_stCellInfoReport;", state_header)
+        self.assertNotIn("struct stCell_Info g_stCellInfoReport;", self.app)
         self.assertNotRegex(self.src, r"(?m)^struct\s+stCell_Info\s+g_stCellInfoReport\s*;")
 
 
