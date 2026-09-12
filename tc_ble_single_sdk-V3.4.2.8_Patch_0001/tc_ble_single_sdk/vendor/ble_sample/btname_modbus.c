@@ -1,183 +1,165 @@
-﻿#include "btname_modbus.h"
+#include "btname_modbus.h"
+
 #include "bms_cold_kv_store.h"
-#include "tl_common.h"
-#include "drivers.h"
+#include "bms_error.h"
 #include "stack/ble/ble.h"
-#include "sh367309_datadeal.h"
+#include "tl_common.h"
+#include <string.h>
 
-static void *m_memcpy(void *dst, const void *src, unsigned n)
-{
-    unsigned char *d = (unsigned char *)dst;
-    const unsigned char *s = (const unsigned char *)src;
-    while (n--) *d++ = *s++;
-    return dst;
-}
-
-static int m_strncmp(const char *a, const char *b, unsigned n)
-{
-    while (n--) {
-        unsigned char ca = (unsigned char)*a++;
-        unsigned char cb = (unsigned char)*b++;
-        if (ca != cb) return (ca < cb) ? -1 : 1;
-        if (ca == 0) return 0;
-    }
-    return 0;
-}
-
-static char *m_strncpy(char *dst, const char *src, unsigned n)
-{
-    unsigned i = 0;
-    for (; i < n && src[i]; i++) dst[i] = src[i];
-    for (; i < n; i++) dst[i] = '\0';
-    return dst;
-}
-
-static char g_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
+static char s_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
 
 extern u8 my_devName[BTNAME_TOTAL_MAX_LEN];
 
 static void btname_ble_apply(const char *name)
 {
-    uint8_t scanrsp[31];
-    uint8_t j = 0;
-    uint8_t nlen = 0;
+    uint8_t scan_rsp[31] = {0};
+    uint8_t index = 0u;
+    uint8_t name_len = 0u;
 
-    bls_ll_setAdvEnable(0);
-
-    while (nlen < BTNAME_TOTAL_MAX_LEN && name[nlen] != '\0') nlen++;
-
-    scanrsp[j++] = (uint8_t)(1u + nlen);
-    scanrsp[j++] = 0x09;
-    m_memcpy(&scanrsp[j], name, nlen);
-    j += nlen;
-
-    bls_ll_setScanRspData(scanrsp, j);
-    m_memcpy(my_devName, name, nlen);
-    if (nlen < BTNAME_TOTAL_MAX_LEN) {
-        my_devName[nlen] = '\0';
+    while ((name_len < BTNAME_TOTAL_MAX_LEN) && (name[name_len] != '\0'))
+    {
+        ++name_len;
     }
 
-    bls_ll_setAdvEnable(1);
+    scan_rsp[index++] = (uint8_t)(name_len + 1u);
+    scan_rsp[index++] = 0x09u;
+    memcpy(&scan_rsp[index], name, name_len);
+    index = (uint8_t)(index + name_len);
+
+    bls_ll_setAdvEnable(BLC_ADV_DISABLE);
+    bls_ll_setScanRspData(scan_rsp, index);
+
+    memset(my_devName, 0, BTNAME_TOTAL_MAX_LEN);
+    memcpy(my_devName, name, name_len);
+    bls_ll_setAdvEnable(BLC_ADV_ENABLE);
 }
 
-static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTAL_MAX_LEN + 1])
+static void btname_build_full_name(const char *suffix,
+                                   char out[BTNAME_TOTAL_MAX_LEN + 1])
 {
-    uint8_t slen = 0;
+    uint8_t suffix_len = 0u;
 
-    out[0] = 'B';
-    out[1] = 'T';
-    out[2] = '_';
-
-    while (slen < BTNAME_SUFFIX_MAX_LEN && suffix[slen] != '\0') slen++;
-    m_memcpy(out + BTNAME_PREFIX_LEN, suffix, slen);
-    out[BTNAME_PREFIX_LEN + slen] = '\0';
+    memcpy(out, BTNAME_PREFIX, BTNAME_PREFIX_LEN);
+    while ((suffix_len < BTNAME_SUFFIX_MAX_LEN) && (suffix[suffix_len] != '\0'))
+    {
+        ++suffix_len;
+    }
+    memcpy(out + BTNAME_PREFIX_LEN, suffix, suffix_len);
+    out[BTNAME_PREFIX_LEN + suffix_len] = '\0';
 }
 
-static int is_allowed_suffix_char(unsigned char c)
+static int btname_suffix_char_allowed(unsigned char c)
 {
 #if (BTNAME_SUFFIX_STRICT)
-    if (c >= '0' && c <= '9') return 1;
-    if (c >= 'A' && c <= 'Z') return 1;
-    if (c >= 'a' && c <= 'z') return 1;
-    if (c == '_' || c == '-') return 1;
+    if ((c >= '0') && (c <= '9')) return 1;
+    if ((c >= 'A') && (c <= 'Z')) return 1;
+    if ((c >= 'a') && (c <= 'z')) return 1;
+    if ((c == '_') || (c == '-')) return 1;
     return 0;
 #else
-    return (c >= 0x20 && c <= 0x7E);
+    return ((c >= 0x20u) && (c <= 0x7Eu));
 #endif
 }
 
-static uint8_t sanitize_suffix(char *s)
+static uint8_t btname_sanitize_suffix(char *suffix)
 {
-    uint8_t w = 0;
-    uint8_t r;
+    uint8_t read_index;
+    uint8_t write_index = 0u;
 
-    for (r = 0; r < BTNAME_SUFFIX_MAX_LEN; r++) {
-        unsigned char c = (unsigned char)s[r];
-        if (c == 0) break;
-        if (!is_allowed_suffix_char(c)) continue;
-        s[w++] = (char)c;
+    for (read_index = 0u; read_index < BTNAME_SUFFIX_MAX_LEN; ++read_index)
+    {
+        unsigned char c = (unsigned char)suffix[read_index];
+        if (c == 0u) break;
+        if (!btname_suffix_char_allowed(c)) continue;
+        suffix[write_index++] = (char)c;
     }
-    s[w] = '\0';
-    return w;
+    suffix[write_index] = '\0';
+    return write_index;
 }
 
-static void btname_set_default_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
+static void btname_default_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
-    m_strncpy(suffix, "DEFAULT", BTNAME_SUFFIX_MAX_LEN);
-    suffix[BTNAME_SUFFIX_MAX_LEN] = '\0';
+    memset(suffix, 0, BTNAME_SUFFIX_MAX_LEN + 1u);
+    strncpy(suffix, "DEFAULT", BTNAME_SUFFIX_MAX_LEN);
 }
 
-static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
+static int btname_load_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
-    if (!bms_cold_kv_store_get_bt_name_suffix(suffix, BTNAME_SUFFIX_MAX_LEN + 1u)) {
+    if (!bms_cold_kv_store_get_bt_name_suffix(suffix,
+                                               BTNAME_SUFFIX_MAX_LEN + 1u))
+    {
         return 0;
     }
 
-    sanitize_suffix(suffix);
-    return (suffix[0] != '\0');
-}
-
-static int btname_save_suffix_to_store(const char *suffix)
-{
-    return bms_cold_kv_store_set_bt_name_suffix(suffix);
+    btname_sanitize_suffix(suffix);
+    return suffix[0] != '\0';
 }
 
 void btname_init(void)
 {
     char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
 
-    if (!btname_load_suffix_from_store(suffix)) {
-        btname_set_default_suffix(suffix);
+    if (!btname_load_suffix(suffix))
+    {
+        btname_default_suffix(suffix);
     }
 
-    build_full_name_from_suffix(suffix, g_name);
-    btname_ble_apply(g_name);
+    btname_build_full_name(suffix, s_name);
+    btname_ble_apply(s_name);
 }
 
 const char *btname_get(void)
 {
-    return g_name;
+    return s_name;
 }
 
-int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs)
+int btname_modbus_on_write_holding(uint16_t addr,
+                                   uint16_t qty,
+                                   const uint16_t *regs)
 {
     const uint8_t *bytes = (const uint8_t *)regs;
     uint16_t byte_len = (uint16_t)(qty * 2u);
     char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
-    char new_full[BTNAME_TOTAL_MAX_LEN + 1];
-    uint16_t bi = 0;
-    uint16_t i;
+    char new_name[BTNAME_TOTAL_MAX_LEN + 1];
+    uint16_t byte_index = 0u;
+    uint16_t index;
 
     (void)addr;
-
-    if ((qty == 0u) || (regs == 0)) {
+    if ((qty == 0u) || (regs == NULL))
+    {
         return 1;
     }
 
-    for (i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
-        uint8_t c = bytes[i];
+    for (index = 0u;
+         (index < byte_len) && (byte_index < BTNAME_SUFFIX_MAX_LEN);
+         ++index)
+    {
+        uint8_t c = bytes[index];
         if (c == 0u) break;
-        suffix[bi++] = (char)c;
+        suffix[byte_index++] = (char)c;
     }
-    suffix[bi] = '\0';
+    suffix[byte_index] = '\0';
 
-    sanitize_suffix(suffix);
-    if (suffix[0] == '\0') {
+    btname_sanitize_suffix(suffix);
+    if (suffix[0] == '\0')
+    {
         return 1;
     }
 
-    build_full_name_from_suffix(suffix, new_full);
-    if (m_strncmp(new_full, g_name, BTNAME_TOTAL_MAX_LEN) == 0) {
+    btname_build_full_name(suffix, new_name);
+    if (strncmp(new_name, s_name, BTNAME_TOTAL_MAX_LEN) == 0)
+    {
         return 1;
     }
 
-    if (!btname_save_suffix_to_store(suffix)) {
-        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+    if (!bms_cold_kv_store_set_bt_name_suffix(suffix))
+    {
+        bms_error_note_store_failure();
         return 1;
     }
 
-    m_strncpy(g_name, new_full, BTNAME_TOTAL_MAX_LEN);
-    g_name[BTNAME_TOTAL_MAX_LEN] = '\0';
-    btname_ble_apply(g_name);
+    memset(s_name, 0, sizeof(s_name));
+    strncpy(s_name, new_name, BTNAME_TOTAL_MAX_LEN);
+    btname_ble_apply(s_name);
     return 1;
 }
