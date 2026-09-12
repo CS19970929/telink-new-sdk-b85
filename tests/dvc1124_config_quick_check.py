@@ -11,12 +11,20 @@ import unittest
 from pathlib import Path
 
 
-HERE = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
+HERE = (
+    REPO_ROOT
+    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
+    / "tc_ble_single_sdk"
+    / "vendor"
+    / "ble_sample"
+)
 REG_H = HERE / "dvc1124_reg.h"
 DVC_H = HERE / "dvc1124.h"
 DVC_C = HERE / "dvc1124.c"
-CORE_OT_C = HERE / "dvc1124_core_ot.c"
-COMMANDS_C = HERE / "dvc1124_commands.c"
+SPECIAL_C = HERE / "dvc1124_special.c"
+CORE_OT_C = SPECIAL_C
+COMMANDS_C = SPECIAL_C
 DVC_BMS_C = HERE / "dvc1124_bms.c"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
