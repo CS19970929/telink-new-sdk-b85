@@ -1,11 +1,13 @@
 #pragma once
 
 #include "tl_common.h"
+#include "flash_store_cfg.h"
 
-#define BMS_EVENT_LOG_ENTRY_COUNT 100u
-#define BMS_EVENT_LOG_REG_BASE    0xC008u
-#define BMS_EVENT_LOG_REG_COUNT   BMS_EVENT_LOG_ENTRY_COUNT
-#define BMS_EVENT_LOG_RESET_REG   0x1007u
+#define BMS_EVENT_LOG_SECTOR_SIZE  FLASH_SECTOR_SIZE
+#define BMS_EVENT_LOG_ENTRY_COUNT  100u
+#define BMS_EVENT_LOG_REG_BASE     0xC008u
+#define BMS_EVENT_LOG_REG_COUNT    BMS_EVENT_LOG_ENTRY_COUNT
+#define BMS_EVENT_LOG_RESET_REG    0x1007u
 
 typedef enum
 {
