@@ -25,8 +25,7 @@ vendor/ble_sample/btname_modbus.c
 vendor/ble_sample/bus_mux.c
 vendor/ble_sample/conf.c
 vendor/ble_sample/dvc1124.c
-vendor/ble_sample/dvc1124_core_ot.c
-vendor/ble_sample/dvc1124_commands.c
+vendor/ble_sample/dvc1124_special.c
 vendor/ble_sample/dvc1124_config_store.c
 vendor/ble_sample/dvc1124_config_service.c
 vendor/ble_sample/dvc1124_bms.c
