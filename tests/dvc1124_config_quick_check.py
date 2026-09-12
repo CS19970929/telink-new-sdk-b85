@@ -26,6 +26,7 @@ SPECIAL_C = HERE / "dvc1124_special.c"
 CORE_OT_C = SPECIAL_C
 COMMANDS_C = SPECIAL_C
 DVC_BMS_C = HERE / "dvc1124_bms.c"
+BMS_AFE_H = HERE / "bms_afe.h"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
 CONFIG_STORE_C = HERE / "dvc1124_config_store.c"
@@ -176,9 +177,14 @@ class ConfigStoreTests(unittest.TestCase):
         self.assertIn("DVC1124_DEFAULT_CORE_OT_CODE", self.project)
 
     def test_reset_and_config_paths_restore_persistent_config(self):
-        self.assertIn("DVC1124_ConfigStore_AFE_Reset", self.conf)
-        self.assertIn("DVC1124_ConfigStore_UpdataAfeConfig", self.conf)
-        self.assertIn("DVC1124_ConfigStore_BmsApp_AFEGet", self.conf)
+        afe_api = read(BMS_AFE_H)
+        app = read(APP_C)
+        self.assertIn("void bms_afe_init(void);", afe_api)
+        self.assertIn("void bms_afe_sample(void);", afe_api)
+        self.assertIn("bms_afe_init();", app)
+        self.assertIn("bms_afe_sample();", app)
+        self.assertNotIn("App_AFEGet", app)
+        self.assertNotIn("MTPWrite", app)
         self.assertIn("DVC1124_ConfigStoreRestore()", self.src)
 
     def test_apply_orders_timeout_policy_before_watchdog_operating_config(self):
