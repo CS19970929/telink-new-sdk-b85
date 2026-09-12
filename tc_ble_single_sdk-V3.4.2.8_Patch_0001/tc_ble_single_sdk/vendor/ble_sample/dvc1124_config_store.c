@@ -455,10 +455,7 @@ int DVC1124_ConfigStoreApply(const dvc1124_persistent_config_t *cfg)
                                           cfg->dsg_pulldown_strength);
     ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CURRENT_WAKE, cwt);
     ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_BODY_DIODE, bdpt);
-    ok &= DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CORE_OT,
-                                          DVC1124_CORE_OT_THRESHOLD_MASK,
-                                          DVC1124_CORE_OT_THRESHOLD_SHIFT,
-                                          cfg->core_ot_code);
+    ok &= DVC1124_SetCoreOtThresholdCode(cfg->core_ot_code);
     ok &= DVC1124_SetShortCircuitProtection(cfg->scd_threshold_mv,
                                              cfg->scd_delay_us);
     ok &= DVC1124_ApplyOperatingConfig(&cfg->operating);
@@ -493,8 +490,7 @@ int DVC1124_ConfigStoreCaptureCurrent(dvc1124_persistent_config_t *cfg)
     if (!DVC1124_ReadRegisters(DVC1124_REG_DSG_MASK, &raw, 1u)) return 0;
     cfg->i2c_timeout_close_dsg = (raw & DVC1124_DSGMASK_DWM_MASK) ? 0u : 1u;
 
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CORE_OT, &raw, 1u)) return 0;
-    cfg->core_ot_code = (uint8_t)(raw & DVC1124_CORE_OT_THRESHOLD_MASK);
+    if (!DVC1124_ReadCoreOtThresholdCode(&cfg->core_ot_code)) return 0;
 
     if (!DVC1124_ReadRegisters(DVC1124_REG_SCD, &raw, 1u)) return 0;
     if ((raw & DVC1124_SCD_ENABLE_MASK) != 0u)
@@ -546,6 +542,7 @@ int DVC1124_ConfigStoreWritePersistentRegister(uint8_t reg, uint8_t requested)
     uint8_t mask = DVC1124_RegPersistentConfigMask(reg);
 
     if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u)) return 0;
+    if (!DVC1124_RegGenericRmwAllowed(reg) || DVC1124_RegReadHasSideEffect(reg)) return 0;
     if (!DVC1124_ReadRegisters(reg, &current, 1u)) return 0;
 
     target = (uint8_t)((current & (uint8_t)~mask) | (requested & mask));
