@@ -13,6 +13,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REG_H = HERE / "dvc1124_reg.h"
+DVC_H = HERE / "dvc1124.h"
+DVC_C = HERE / "dvc1124.c"
+DVC_BMS_C = HERE / "dvc1124_bms.c"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
 CONFIG_STORE_C = HERE / "dvc1124_config_store.c"
@@ -21,6 +24,7 @@ CONFIG_SERVICE_C = HERE / "dvc1124_config_service.c"
 FLASH_CFG_H = HERE / "flash_store_cfg.h"
 MODBUS_H = HERE / "modbus_rtu.h"
 MODBUS_C = HERE / "modbus_rtu.c"
+APP_C = HERE / "app.c"
 CONF_H = HERE / "conf.h"
 
 
@@ -43,6 +47,8 @@ class RegisterTruthTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.reg = read(REG_H)
+        cls.dvc_h = read(DVC_H)
+        cls.dvc_bms = read(DVC_BMS_C)
 
     def test_v12_critical_masks(self):
         self.assertEqual(macro_int(self.reg, "DVC1124_OC2_ENABLE_MASK"), 0x40)
@@ -69,6 +75,20 @@ class RegisterTruthTests(unittest.TestCase):
         self.assertNotIn("OCD1_Q", self.reg)
         self.assertNotIn("HALF_CLK", self.reg)
         self.assertNotIn("PACK_DET", self.reg)
+
+    def test_field_writer_rejects_silent_mask_truncation(self):
+        self.assertIn("field_max = (uint8_t)(mask >> shift);", self.dvc_h)
+        self.assertIn("value > field_max", self.dvc_h)
+        self.assertNotIn(
+            "DVC1124_FIELD_PREP(mask, shift, value) & (uint8_t)~mask",
+            self.dvc_h,
+        )
+
+    def test_bms_adapter_uses_canonical_alarm_names(self):
+        self.assertNotIn("DVC_BMS_REG_ALARM", self.dvc_bms)
+        self.assertNotIn("DVC_BMS_ALARM_", self.dvc_bms)
+        self.assertIn("DVC1124_REG_ALARM", self.dvc_bms)
+        self.assertIn("DVC1124_ALARM_COV_MASK", self.dvc_bms)
 
 
 class PersistenceLayoutTests(unittest.TestCase):
@@ -170,6 +190,7 @@ class TransportContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.hdr = read(MODBUS_H)
         cls.src = read(MODBUS_C)
+        cls.app = read(APP_C)
 
     def test_ble_uart_share_one_semantic_window(self):
         self.assertEqual(macro_int(self.hdr, "DVC1124_COMM_REG_BASE"), 0x2800)
@@ -195,6 +216,14 @@ class TransportContractTests(unittest.TestCase):
 
     def test_raw_write_uses_factory_gated_config_service(self):
         self.assertIn("DVC1124_ConfigServiceWriteRaw", self.src)
+
+    def test_bms_report_has_single_owner(self):
+        self.assertIn("struct stCell_Info g_stCellInfoReport;", self.app)
+        self.assertIn("extern struct stCell_Info g_stCellInfoReport;", self.src)
+        self.assertNotRegex(
+            self.src,
+            r"(?m)^struct\s+stCell_Info\s+g_stCellInfoReport\s*;",
+        )
 
 
 if __name__ == "__main__":
