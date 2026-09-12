@@ -104,6 +104,12 @@ typedef struct
     uint8_t interrupt_mask;
 } dvc1124_operating_config_t;
 
+typedef enum
+{
+    DVC1124_REG_READ_SAFE = 0u,
+    DVC1124_REG_READ_CLEAR = 1u
+} dvc1124_reg_read_effect_t;
+
 #define DVC1124_FIXED_WRITE_ADDR             0x40u
 #define DVC1124_HARDWIRE_BASE_WRITE_ADDR     0xC0u
 #define DVC1124_MAX_REGISTER                 DVC1124_REG_MAX
@@ -174,11 +180,49 @@ uint8_t DVC1124_StartOpenWireCheck(void);
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
 
 /*
- * Safe raw register access for diagnostics/communication services.
+ * 0x76 mixes an RC event flag (COTF) with RW threshold bits. Generic RMW must
+ * not be used because the mandatory read clears COTF. These APIs preserve a
+ * software sticky copy of every COTF observed while reading/writing threshold.
+ */
+uint8_t DVC1124_ReadCoreOtThresholdCode(uint8_t *threshold_code);
+uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
+uint8_t DVC1124_GetCoreOtEventLatched(void);
+void DVC1124_ClearCoreOtEventLatched(void);
+
+/*
+ * Register read-side-effect metadata from Reference Manual V1.2.
  *
- * Read is unrestricted for 0x00..0x90. Write only modifies fields documented
- * as writable by V1.2 and preserves unnamed/read-only bits. This is the only
- * raw write path that BLE/UART diagnostics should expose.
+ * 0x01: VADF/CC1F/CC2F are RC, therefore reading the byte consumes flags.
+ * 0x76: COTF is RC, therefore reading the byte consumes the hardware flag.
+ */
+static inline dvc1124_reg_read_effect_t DVC1124_RegReadEffect(uint8_t reg)
+{
+    if ((reg == DVC1124_REG_STATUS) || (reg == DVC1124_REG_CORE_OT))
+        return DVC1124_REG_READ_CLEAR;
+    return DVC1124_REG_READ_SAFE;
+}
+
+static inline uint8_t DVC1124_RegReadHasSideEffect(uint8_t reg)
+{
+    return (DVC1124_RegReadEffect(reg) != DVC1124_REG_READ_SAFE) ? 1u : 0u;
+}
+
+/* Alarm is W0C and STATUS contains commands; CORE_OT is RC+RW. */
+static inline uint8_t DVC1124_RegGenericRmwAllowed(uint8_t reg)
+{
+    if ((reg == DVC1124_REG_ALARM) ||
+        (reg == DVC1124_REG_STATUS) ||
+        (reg == DVC1124_REG_CORE_OT))
+        return 0u;
+    return 1u;
+}
+
+/*
+ * Safe field/register configuration helpers.
+ *
+ * They intentionally reject registers with destructive-read/special-write
+ * semantics. Alarm W0C, STATUS commands, CORE_OT RC+RW and self-clearing
+ * commands must use dedicated APIs.
  */
 static inline uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested)
 {
@@ -188,6 +232,8 @@ static inline uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested)
     uint8_t mask = DVC1124_RegDocumentedWriteMask(reg);
 
     if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u)) return 0u;
+    if (!DVC1124_RegGenericRmwAllowed(reg)) return 0u;
+    if (DVC1124_RegReadHasSideEffect(reg)) return 0u;
     if (!DVC1124_ReadRegisters(reg, &current, 1u)) return 0u;
 
     target = (uint8_t)((current & (uint8_t)~mask) | (requested & mask));
@@ -205,6 +251,7 @@ static inline uint8_t DVC1124_ReadRegisterField(uint8_t reg,
     uint8_t raw;
 
     if ((value == 0) || (mask == 0u) || (reg > DVC1124_MAX_REGISTER)) return 0u;
+    if (DVC1124_RegReadHasSideEffect(reg)) return 0u;
     if (!DVC1124_ReadRegisters(reg, &raw, 1u)) return 0u;
     *value = DVC1124_FIELD_GET(mask, shift, raw);
     return 1u;
@@ -223,6 +270,8 @@ static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,
 
     if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u) || (shift >= 8u)) return 0u;
     if ((mask & owned) != mask) return 0u;
+    if (!DVC1124_RegGenericRmwAllowed(reg)) return 0u;
+    if (DVC1124_RegReadHasSideEffect(reg)) return 0u;
 
     /* FIELD_PREP masks the value, so validate before encoding to avoid silent truncation. */
     field_max = (uint8_t)(mask >> shift);
