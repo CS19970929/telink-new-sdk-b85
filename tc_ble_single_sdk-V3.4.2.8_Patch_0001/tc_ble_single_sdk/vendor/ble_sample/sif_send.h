@@ -1,8 +1,5 @@
-#ifndef __SIF_SEND_H__
-#define __SIF_SEND_H__
-
-#include "stdint.h"
-#include "conf.h"
+#ifndef SIF_SEND_H_
+#define SIF_SEND_H_
 
 typedef enum
 {
@@ -16,8 +13,4 @@ typedef enum
 
 void sif_send_data_handle(void);
 
-// #define COM_PIN 0
-// #define COM_PORT gpioPortC
-
-
-#endif
+#endif /* SIF_SEND_H_ */
