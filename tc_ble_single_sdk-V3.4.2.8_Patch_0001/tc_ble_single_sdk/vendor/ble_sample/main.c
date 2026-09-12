@@ -9,15 +9,13 @@
 #include "app.h"
 #include "bus_mux.h"
 #include "modbus_uart.h"
-
-/* SIF timer service is still owned by app.c during the current migration. */
-void app_timer_test_irq_proc(void);
+#include "sif_send.h"
 
 _attribute_ram_code_ void irq_handler(void)
 {
     irq_blt_sdk_handler();
     modbus_uart_irq_proc();
-    app_timer_test_irq_proc();
+    sif_timer_irq_proc();
     bus_mux_irq_handler();
 }
 
