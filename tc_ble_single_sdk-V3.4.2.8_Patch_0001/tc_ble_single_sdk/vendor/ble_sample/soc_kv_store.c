@@ -4,6 +4,9 @@
 #include "flash_store_safe.h"
 #include <string.h>
 
+#define SOC_KV_HOT_SECTOR_SIZE  FLASH_SECTOR_SIZE
+#define SOC_KV_HOT_SECTORS      FLASH_ADDR_RUN_KV_SECTORS
+
 #define SOC_KV_KEY_SOC    0x0001u
 #define SOC_KV_KEY_DSG    0x0002u
 #define SOC_KV_KEY_CYCLE  0x0003u
@@ -12,12 +15,10 @@ static flash_kv32_t g_soc_kv;
 static flash_kv32_cache_entry_t g_soc_cache[3];
 static u32 g_soc_sector_addrs[(SOC_KV_HOT_SECTORS > 0) ? SOC_KV_HOT_SECTORS : 1];
 
-static u32 soc_kv_get_value(u32 key, u32 default_value);
-
 static const flash_kv32_key_def_t g_soc_keys[] = {
-    { SOC_KV_KEY_SOC,   SOC_KV_DEFAULT_SOC   },
-    { SOC_KV_KEY_DSG,   SOC_KV_DEFAULT_DSG   },
-    { SOC_KV_KEY_CYCLE, SOC_KV_DEFAULT_CYCLE },
+    { SOC_KV_KEY_SOC,   SOC_PARAM_DEFAULT_SOC   },
+    { SOC_KV_KEY_DSG,   SOC_PARAM_DEFAULT_DSG   },
+    { SOC_KV_KEY_CYCLE, SOC_PARAM_DEFAULT_CYCLE },
 };
 
 static void soc_flash_read(void *ctx, u32 addr, u8 *buf, u32 len)
