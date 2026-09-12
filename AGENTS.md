@@ -289,4 +289,4 @@ AFE/保护/MOS/低功耗相关修改还必须做真实硬件验证。至少覆�
 
 烧录前先执行 `verify`，禁止全片擦除或擦除 `0x74000..0x7FFFF`。重大修改后用 `baseline <reference.bin>` 比较尺寸、SHA-256 和首末差异位置，并在真实 TLSR8251 板上完成现有功能冒烟测试。
 
-详细工具链迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`；HS-D008 / DVC1124 当前适配说明见 `docs/DVC1124_HS_D008.md`。
+构建、源码顺序和发布门禁见 `docs/BUILD_AND_TEST.md`；架构与 AFE 移植边界见 `docs/ARCHITECTURE.md`；HS-D008 / DVC1124 硬件基线见 `docs/DVC1124_HS_D008.md`；未完成的实板项目统一记录在 `docs/HARDWARE_VALIDATION.md`。

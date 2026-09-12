@@ -12,11 +12,12 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parent.parent
 DOCS_DIR = ROOT / "docs"
 GENERATED_DIR = DOCS_DIR / "generated"
 REGISTER_CATALOG_PATH = DOCS_DIR / "register_catalog.json"
 PROTOCOL_VECTORS_PATH = DOCS_DIR / "protocol_test_vectors.json"
-QT_PROJECT_ROOT = ROOT / "vendor" / "ble_sample" / "BMSAssistantQt"
+QT_PROJECT_ROOT = REPO_ROOT / "tools" / "BMSAssistantQt"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
