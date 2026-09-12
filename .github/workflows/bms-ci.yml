@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - refactor/bms-template-phase1
+      - feature/**
       - ci-telink-bms-github-actions
   pull_request:
     branches:
@@ -43,11 +44,14 @@ jobs:
       - name: Run DVC1124 configuration contract check
         run: python tests/dvc1124_config_quick_check.py
 
+      - name: Run SH3673520 driver contract check
+        run: python tests/sh3673520_contract_check.py
+
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
 
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/sh3673520_contract_check.py tests/flash_quick_check.py
 
   tc32-production:
     name: TC32 production build
@@ -72,6 +76,10 @@ jobs:
       - name: Validate locked source order
         shell: powershell
         run: python bms_tools/bms.py sources --check
+
+      - name: Run SH3673520 driver contract check
+        shell: powershell
+        run: python tests/sh3673520_contract_check.py
 
       - name: Clean rebuild with TC32
         shell: powershell

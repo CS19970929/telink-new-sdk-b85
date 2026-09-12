@@ -23,6 +23,8 @@ vendor/ble_sample/bms_cold_kv_store.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/btname_modbus.c
 vendor/ble_sample/bus_mux.c
+vendor/ble_sample/sh3673520.c
+vendor/ble_sample/sh3673520_port.c
 vendor/ble_sample/dvc1124.c
 vendor/ble_sample/dvc1124_special.c
 vendor/ble_sample/dvc1124_config_store.c
