@@ -56,6 +56,9 @@ python3 -m unittest tests/test_bms_tools.py
 
 ## 5. 静态分析与 CI
 
+GitHub Actions 的完整安装、使用、Windows 服务维护、Artifact 下载、安全下线和
+故障排查见 `docs/GITHUB_ACTIONS_RUNBOOK.md`；本节只定义构建与发布门禁。
+
 ```powershell
 python bms_tools/bms.py static
 python bms_tools/bms.py static --strict
