@@ -327,6 +327,21 @@ static uint8_t dvc_discharge_blocked(void)
             System_ERROR_UserCallback(ERROR_STATUS_TEMP_BREAK)) ? 1u : 0u;
 }
 
+static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
+{
+    uint32_t mv;
+
+    if (resistance_ohm == 0u) return 0u;
+    mv = (3300u * resistance_ohm) / (resistance_ohm + 10000u);
+    return (uint16_t)((mv > 3299u) ? 3299u : mv);
+}
+
+static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
+{
+    if (adc_mv >= 3300u) adc_mv = 3299u;
+    return (100u * adc_mv) / (3300u - adc_mv);
+}
+
 static uint8_t dvc_enforce_fault_fet_state(void)
 {
     uint8_t charge_on = SystemStatus.bits.b1Status_MOS_CHG ? 1u : 0u;
@@ -380,4 +395,44 @@ uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on)
 
     (void)System_ERROR_UserCallback(ERROR_AFE1);
     return 0u;
+}
+
+void bms_afe_set_output_enabled(uint8_t enabled)
+{
+    DVC1124_SetOutputEnabled(enabled);
+}
+
+uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
+{
+    dvc1124_snapshot_t snapshot;
+    dvc1124_config_t cfg;
+    uint32_t pack_adc_mv;
+
+    if (measurements == NULL) return 0u;
+    memset(measurements, 0, sizeof(*measurements));
+
+    DVC1124_GetSnapshot(&snapshot);
+    if (!snapshot.valid) return 0u;
+    DVC1124_GetConfig(&cfg);
+
+    if ((cfg.battery_ntc_gp != 0u) && (cfg.battery_ntc_gp <= DVC1124_MAX_GP))
+    {
+        measurements->battery_ntc_mv =
+            dvc_legacy_adc_mv(snapshot.ntc_res_ohm[cfg.battery_ntc_gp - 1u]);
+        measurements->battery_ntc_100ohm =
+            dvc_legacy_resistance_100ohm(measurements->battery_ntc_mv);
+    }
+    if ((cfg.mos_ntc_gp != 0u) && (cfg.mos_ntc_gp <= DVC1124_MAX_GP))
+    {
+        measurements->mos_ntc_mv =
+            dvc_legacy_adc_mv(snapshot.ntc_res_ohm[cfg.mos_ntc_gp - 1u]);
+        measurements->mos_ntc_100ohm =
+            dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
+    }
+
+    /* Preserve the existing divider quantization used by the safety monitor. */
+    pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
+    if (pack_adc_mv > 3299u) pack_adc_mv = 3299u;
+    measurements->pack_voltage_mv = (pack_adc_mv * 485u) / 15u;
+    return 1u;
 }

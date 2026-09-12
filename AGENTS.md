@@ -102,7 +102,7 @@ DVC1124-22 与 DVC1124-24 的硬件地址编码资源不同；不得把两者的
 
 SOC/LED、NTC、GP5/GP6 等网络若原理图和现有代码仍有待确认项，必须保持 `TODO_VERIFY_HW`，不得仅凭旧项目 pin 名推断。
 
-特别注意：旧项目的 `MCC_C_PIN`、`AFE_CTL_PIN`、`ADC_NTC_PIN`、`ADC_VBUS_PIN`、`ADC_NMOS_PIN` 等名称来自 SH367309 板型。当前兼容层使用 virtual pin 的目的，是防止这些旧代码误驱动 HS-D008 的 PA1、PC4、SOC LED 等真实引脚。不得为了“简化”把这些 virtual pin 重新直接映射到真实 GPIO。
+特别注意：旧项目的 `MCC_C_PIN`、`AFE_CTL_PIN`、`ADC_NTC_PIN`、`ADC_VBUS_PIN`、`ADC_NMOS_PIN` 等名称来自 SH367309 板型，已从 D008 应用路径删除。不得重新引入这些旧 pin 名或把它们映射到 HS-D008 的 PA1、PC4、SOC LED 等真实引脚；DVC 输出门控和辅助测量统一通过 `bms_afe.h`。
 
 ## 6. 禁止污染 Telink SDK 头文件
 

@@ -1,4 +1,3 @@
-#define DVC1124_IMPLEMENTATION 1
 #include "dvc1124.h"
 
 #include "tl_common.h"
@@ -39,9 +38,7 @@ static dvc1124_snapshot_t s_snapshot;
 static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
-static uint8_t s_legacy_output_gate;
-static unsigned int s_compat_adc_pin;
-static uint8_t s_compat_adc_virtual;
+static uint8_t s_output_enabled;
 static uint32_t s_balance_requested_mask;
 
 /* Last values actually represented by DVC hardware. Used for diagnostics. */
@@ -91,11 +88,6 @@ static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
         }
     }
     return crc;
-}
-
-static uint8_t dvc_is_virtual_pin(unsigned int pin)
-{
-    return (pin >= DVC1124_VPIN_AFE_CTL) && (pin <= DVC1124_VPIN_NOOP1);
 }
 
 static void dvc_delay_ms(uint16_t ms)
@@ -696,15 +688,6 @@ static uint8_t dvc_ntc_resistance(uint16_t gp_code,
     return 1u;
 }
 
-static unsigned int dvc_resistance_to_legacy_adc_mv(uint32_t r_ohm)
-{
-    uint32_t mv;
-    if (r_ohm == 0u) return 0u;
-    mv = (3300u * r_ohm) / (r_ohm + 10000u);
-    if (mv > 3299u) mv = 3299u;
-    return (unsigned int)mv;
-}
-
 uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     dvc1124_addr_mode_t mode,
                                     uint8_t hardwire_code,
@@ -888,13 +871,13 @@ uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t set = 0u;
 
-    if (charge_on && s_legacy_output_gate)
+    if (charge_on && s_output_enabled)
     {
         set |= DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK,
                                    DVC1124_FET_CHGC_SHIFT,
                                    DVC1124_FET_DRIVE_ON);
     }
-    if (discharge_on && s_legacy_output_gate)
+    if (discharge_on && s_output_enabled)
     {
         set |= DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK,
                                    DVC1124_FET_DSGC_SHIFT,
@@ -905,6 +888,15 @@ uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
                           (uint8_t)(DVC1124_FET_DSGC_MASK |
                                     DVC1124_FET_CHGC_MASK),
                           set);
+}
+
+void DVC1124_SetOutputEnabled(uint8_t enabled)
+{
+    s_output_enabled = enabled ? 1u : 0u;
+    if (!s_output_enabled)
+    {
+        (void)DVC1124_SetMosState(0u, 0u);
+    }
 }
 
 static uint8_t dvc_refresh_balance_state(void)
@@ -1222,73 +1214,4 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16BalanceFlag2 = 0u;
     }
     dvc_note_comm_result(1u);
-}
-
-void DVC1124_CompatAdcBaseInit(unsigned int pin)
-{
-    s_compat_adc_pin = pin;
-    s_compat_adc_virtual = ((pin == DVC1124_VPIN_ADC_BAT) ||
-                            (pin == DVC1124_VPIN_ADC_PACK) ||
-                            (pin == DVC1124_VPIN_ADC_MOS)) ? 1u : 0u;
-    if (!s_compat_adc_virtual) adc_base_init((GPIO_PinTypeDef)pin);
-}
-
-unsigned int DVC1124_CompatAdcSample(void)
-{
-    uint8_t gp;
-
-    if (!s_compat_adc_virtual) return adc_sample_and_get_result();
-    if (!s_snapshot.valid) return 0u;
-
-    if (s_compat_adc_pin == DVC1124_VPIN_ADC_PACK)
-    {
-        uint32_t mv = (s_snapshot.vtop_mv * 15u) / 485u;
-        return (unsigned int)((mv > 3299u) ? 3299u : mv);
-    }
-    if (s_compat_adc_pin == DVC1124_VPIN_ADC_BAT)
-        gp = s_cfg.battery_ntc_gp;
-    else if (s_compat_adc_pin == DVC1124_VPIN_ADC_MOS)
-        gp = s_cfg.mos_ntc_gp;
-    else
-        return 0u;
-
-    if ((gp == 0u) || (gp > DVC1124_MAX_GP)) return 0u;
-    return dvc_resistance_to_legacy_adc_mv(s_snapshot.ntc_res_ohm[gp - 1u]);
-}
-
-void DVC1124_CompatGpioSetFunc(unsigned int pin, unsigned int func)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_func((GPIO_PinTypeDef)pin, (GPIO_FuncTypeDef)func);
-}
-
-void DVC1124_CompatGpioSetInputEn(unsigned int pin, unsigned int value)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_input_en((GPIO_PinTypeDef)pin, value);
-}
-
-void DVC1124_CompatGpioSetOutputEn(unsigned int pin, unsigned int value)
-{
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_set_output_en((GPIO_PinTypeDef)pin, value);
-}
-
-void DVC1124_CompatGpioWrite(unsigned int pin, unsigned int value)
-{
-    if (pin == DVC1124_VPIN_AFE_CTL)
-    {
-        if (value == 0u)
-        {
-            s_legacy_output_gate = 0u;
-            (void)DVC1124_SetMosState(0u, 0u);
-        }
-        else
-        {
-            s_legacy_output_gate = 1u;
-        }
-        return;
-    }
-    if (dvc_is_virtual_pin(pin)) return;
-    gpio_write((GPIO_PinTypeDef)pin, value);
 }
