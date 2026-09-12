@@ -2,6 +2,10 @@
 
 This repository uses a two-layer CI model so pull requests get fast feedback without pretending that a generic hosted compiler is equivalent to the Telink TC32 production toolchain.
 
+For the complete Chinese installation, daily-use, service maintenance, security,
+artifact-validation, removal, and troubleshooting runbook, see
+[GITHUB_ACTIONS_RUNBOOK.md](GITHUB_ACTIONS_RUNBOOK.md).
+
 ## 1. GitHub-hosted contract checks
 
 `Host contract checks` runs on `ubuntu-latest` for pushes and pull requests. It does not build production firmware. It verifies the repository/tooling contracts that are portable across hosts:
