@@ -6,6 +6,7 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
+#include "app_config.h"
 #include "app.h"
 #include "bus_mux.h"
 #include "modbus_uart.h"
