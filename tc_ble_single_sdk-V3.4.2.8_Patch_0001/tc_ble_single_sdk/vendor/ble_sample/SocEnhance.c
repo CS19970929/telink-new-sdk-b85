@@ -1,10 +1,10 @@
 #include "SocEnhance.h"
 // #include "DataDeal.h"
 // #include "EEPROM.h"
-// #include "Sci_Upper.h"
+// #include "bms_state.h"
 // #include "main.h"
 #include "conf.h"
-#include "Sci_Upper.h"
+#include "bms_state.h"
 #include "soc_kv_store.h"
 
 extern struct stCell_Info g_stCellInfoReport;

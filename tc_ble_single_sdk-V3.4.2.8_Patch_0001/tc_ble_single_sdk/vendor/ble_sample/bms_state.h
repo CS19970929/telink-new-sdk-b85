@@ -8,8 +8,8 @@
  *
  * Field names are intentionally kept compatible with the existing firmware so
  * this extraction does not change layout, protocol mapping or runtime logic.
- * New modules should include bms_state.h directly.  Legacy sci_upper.h remains
- * as a compatibility include during the migration.
+ * All modules include this header directly; the former sci_upper.h compatibility
+ * include has been removed so the core state has one obvious definition site.
  */
 
 struct SOC_CAL_ELEMENT_UPPER {

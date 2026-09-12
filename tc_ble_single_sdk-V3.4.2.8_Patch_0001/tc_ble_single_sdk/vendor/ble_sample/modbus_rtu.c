@@ -2,7 +2,7 @@
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "sci_upper.h"
+#include "bms_state.h"
 #include "param.h"
 #include "SocEnhance.h"
 #include "bms_event_log.h"
