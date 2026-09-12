@@ -1,4 +1,5 @@
 #include "dvc1124.h"
+#include "dvc1124_commands.h"
 
 #include "tl_common.h"
 #include "drivers.h"
@@ -134,7 +135,6 @@ static uint16_t dvc_get_configured_temperature(uint8_t gp)
 static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
 {
     uint8_t clear_mask = 0u;
-    uint8_t write_value;
     uint8_t verify;
 
     /* COV/CUV clear only after the configured recovery voltage is reached. */
@@ -164,14 +164,8 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
 
     if (clear_mask == 0u) return alarm;
 
-    /*
-     * Alarm flags are W0C: writing 0 clears, writing 1 is ineffective.
-     * Write 1 to every non-target flag instead of mirroring a stale alarm
-     * snapshot; otherwise a new fault that rises between read and write could
-     * be unintentionally cleared.
-     */
-    write_value = (uint8_t)~clear_mask;
-    if (!DVC1124_WriteRegisters(DVC1124_REG_ALARM, &write_value, 1u)) return alarm;
+    /* 0x00 is W0C and is intentionally owned by the dedicated command API. */
+    if (!DVC1124_ClearAlarmFlags(clear_mask)) return alarm;
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) return alarm;
     return verify;
 }
