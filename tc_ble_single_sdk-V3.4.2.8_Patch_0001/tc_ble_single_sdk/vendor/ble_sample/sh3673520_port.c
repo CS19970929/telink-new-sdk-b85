@@ -1,5 +1,3 @@
-#include <stddef.h>
-
 #include "tl_common.h"
 #include "drivers.h"
 #include "app_config.h"
@@ -35,7 +33,7 @@ static sh3673520_port_status_t sh3673520_port_select_group(
     SPI_GPIO_GroupTypeDef *sdk_group,
     GPIO_PinTypeDef *cs_pin)
 {
-    if ((sdk_group == NULL) || (cs_pin == NULL)) {
+    if ((sdk_group == 0) || (cs_pin == 0)) {
         return SH3673520_PORT_ERR_INVALID_PARAM;
     }
 
@@ -160,7 +158,7 @@ sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx)
     unsigned int start_tick;
     unsigned int timeout_ticks;
 
-    if (rx == NULL) {
+    if (rx == 0) {
         return SH3673520_PORT_ERR_INVALID_PARAM;
     }
     if (s_port.initialized == 0u) {
