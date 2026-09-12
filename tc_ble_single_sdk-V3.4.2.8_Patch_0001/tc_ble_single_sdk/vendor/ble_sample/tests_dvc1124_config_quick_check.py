@@ -16,6 +16,7 @@ REG_H = HERE / "dvc1124_reg.h"
 DVC_H = HERE / "dvc1124.h"
 DVC_C = HERE / "dvc1124.c"
 CORE_OT_C = HERE / "dvc1124_core_ot.c"
+COMMANDS_C = HERE / "dvc1124_commands.c"
 DVC_BMS_C = HERE / "dvc1124_bms.c"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
@@ -51,6 +52,7 @@ class RegisterTruthTests(unittest.TestCase):
         cls.dvc_h = read(DVC_H)
         cls.dvc_c = read(DVC_C)
         cls.core_ot = read(CORE_OT_C)
+        cls.commands = read(COMMANDS_C)
         cls.dvc_bms = read(DVC_BMS_C)
 
     def test_v12_critical_masks(self):
@@ -114,6 +116,13 @@ class RegisterTruthTests(unittest.TestCase):
         self.assertIn("DVC1124_ReadCoreOtThresholdCode", self.core_ot)
         self.assertIn("DVC1124_SetCoreOtThresholdCode", self.core_ot)
         self.assertIn("DVC1124_GetCoreOtEventLatched", self.core_ot)
+
+    def test_w0c_and_self_clearing_commands_have_dedicated_api(self):
+        self.assertIn("DVC1124_ClearAlarmFlags", self.commands)
+        self.assertIn("write_value = (uint8_t)~flag_mask", self.commands)
+        self.assertIn("DVC1124_StartCadcCalibration", self.commands)
+        self.assertIn("DVC1124_CADC_CAMZ_MASK", self.commands)
+        self.assertIn("DVC1124_ClearAlarmFlags(clear_mask)", self.dvc_bms)
 
 
 class PersistenceLayoutTests(unittest.TestCase):
@@ -179,14 +188,8 @@ class ConfigStoreTests(unittest.TestCase):
     def test_core_ot_uses_dedicated_rc_safe_api(self):
         self.assertIn("DVC1124_SetCoreOtThresholdCode(cfg->core_ot_code)", self.src)
         self.assertIn("DVC1124_ReadCoreOtThresholdCode(&cfg->core_ot_code)", self.src)
-        self.assertNotIn(
-            "DVC1124_ReadRegisters(DVC1124_REG_CORE_OT",
-            self.src,
-        )
-        self.assertNotIn(
-            "DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CORE_OT",
-            self.src,
-        )
+        self.assertNotIn("DVC1124_ReadRegisters(DVC1124_REG_CORE_OT", self.src)
+        self.assertNotIn("DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CORE_OT", self.src)
 
 
 class ConfigServiceTests(unittest.TestCase):
@@ -225,6 +228,12 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertIn("DVC1124_RegReadHasSideEffect(reg)", self.src)
         self.assertIn("return DVC1124_CFG_ERR_FORBIDDEN", self.src)
 
+    def test_semantic_diagnostics_expose_cached_status_and_sticky_cotf(self):
+        self.assertIn("DVC1124_CFG_STATUS_CACHED", self.hdr)
+        self.assertIn("DVC1124_CFG_CORE_OT_EVENT_LATCHED", self.hdr)
+        self.assertIn("snapshot.status", self.src)
+        self.assertIn("DVC1124_GetCoreOtEventLatched", self.src)
+
 
 class TransportContractTests(unittest.TestCase):
     @classmethod
@@ -261,10 +270,7 @@ class TransportContractTests(unittest.TestCase):
     def test_bms_report_has_single_owner(self):
         self.assertIn("struct stCell_Info g_stCellInfoReport;", self.app)
         self.assertIn("extern struct stCell_Info g_stCellInfoReport;", self.src)
-        self.assertNotRegex(
-            self.src,
-            r"(?m)^struct\s+stCell_Info\s+g_stCellInfoReport\s*;",
-        )
+        self.assertNotRegex(self.src, r"(?m)^struct\s+stCell_Info\s+g_stCellInfoReport\s*;")
 
 
 if __name__ == "__main__":
