@@ -529,20 +529,6 @@ struct SH367309_Read {			/* AD Read	*/
 _Static_assert(sizeof(sh367309_ram_t) == SH309_RAM_LEN, "sh367309_ram_t size mismatch!");
 #endif
 
-enum TempArray {
-	AFE1_TEMP1 = 0,
-	AFE1_TEMP2,
-	AFE1_TEMP3,
-	AFE2_TEMP1,
-	AFE2_TEMP2,
-	AFE2_TEMP3,
-	ENV_TEMP1,
-	ENV_TEMP2,
-	ENV_TEMP3,
-	MOS_TEMP1,
-	TEMP_NUM
-};
-
 #define SYSKMAX   		((UINT16)1536)      // 1.5
 #define SYSKDEFAULT		((UINT16)1024)      // 1
 #define SYSKMIN   		((UINT16)512)       // 0.5

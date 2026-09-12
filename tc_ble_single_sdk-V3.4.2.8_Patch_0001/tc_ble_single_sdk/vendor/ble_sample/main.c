@@ -28,6 +28,7 @@
 #include "modbus_uart.h"
 #include "sh367309_datadeal.h"
 #include "bus_mux.h"
+#include "sif_send.h"
 
 /**
  * @brief   IRQ handler
@@ -39,7 +40,7 @@ _attribute_ram_code_ void irq_handler(void)
 
 	irq_blt_sdk_handler();
 	modbus_uart_irq_proc();
-	app_timer_test_irq_proc();
+	sif_timer_irq_handler();
 	bus_mux_irq_handler();
 
 }
@@ -101,4 +102,3 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		main_loop();
 	}
 }
-

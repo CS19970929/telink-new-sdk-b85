@@ -165,60 +165,6 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
-void app_timer_test_init(void)
-{
-	// timer0 10ms interval irq
-	reg_irq_mask |= FLD_IRQ_TMR0_EN;
-	reg_tmr0_tick = 0; // clear counter
-	// reg_tmr0_capt = 1 * CLOCK_SYS_CLOCK_1MS;
-	reg_tmr0_capt = 500 * CLOCK_SYS_CLOCK_1US;
-	reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
-	reg_tmr_ctrl |= FLD_TMR0_EN;	// start timer
-#if 0
-	//timer1 15ms interval irq
-	reg_irq_mask |= FLD_IRQ_TMR1_EN;
-	reg_tmr1_tick = 0; //clear counter
-	reg_tmr1_capt = 15 * CLOCK_SYS_CLOCK_1MS;
-	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
-	reg_tmr_ctrl |= FLD_TMR1_EN;  //start timer
-
-	//timer2 20ms interval irq
-	reg_irq_mask |= FLD_IRQ_TMR2_EN;
-	reg_tmr2_tick = 0; //clear counter
-	reg_tmr2_capt = 20 * CLOCK_SYS_CLOCK_1MS;
-	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
-	reg_tmr_ctrl |= FLD_TMR2_EN;  //start timer
-#endif
-
-	irq_enable();
-}
-
-volatile int timer0_irq_cnt = 0;
-_attribute_ram_code_ void app_timer_test_irq_proc(void)
-{
-	if (reg_tmr_sta & FLD_TMR_STA_TMR0)
-	{
-		sif_send_data_handle();
-		reg_tmr_sta = FLD_TMR_STA_TMR0; // clear irq status
-		timer0_irq_cnt++;
-		if (timer0_irq_cnt >= 200)
-		{
-			timer0_irq_cnt = 0;
-		}
-		// DBG_CHN0_TOGGLE;
-	}
-	// if(reg_tmr_sta & FLD_TMR_STA_TMR1){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR1; //clear irq status
-	// 	timer1_irq_cnt ++;
-	// 	DBG_CHN1_TOGGLE;
-	// }
-	// if(reg_tmr_sta & FLD_TMR_STA_TMR2){
-	// 	reg_tmr_sta = FLD_TMR_STA_TMR2; //clear irq status
-	// 	timer2_irq_cnt ++;
-	// 	DBG_CHN2_TOGGLE;
-	// }
-}
-
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
 #define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
 
@@ -960,71 +906,6 @@ void blt_pm_proc(void)
 		}
 	}
 
-#if 0
-#if (BLE_APP_PM_ENABLE)
-	if(blc_ll_getCurrentState() == BLS_LINK_STATE_IDLE){ //PM module can not manage Idle state low power.
-		/* user manage BLE Idle state sleep with API "cpu_sleep_wakeup" */
-#if (!TEST_CONN_CURRENT_ENABLE) // test connection power, should disable deepSleep
-			if(sendTerminate_before_enterDeep == 2){  //Terminate OK
-				analog_write(USED_DEEP_ANA_REG, analog_read(USED_DEEP_ANA_REG) | CONN_DEEP_FLG);
-				app_note_sleep_and_enter_deepsleep(0u);  //deepSleep
-			}
-#endif
-	}
-	else{ //PM module manage advertising and ACL connection Slave role low power only
-
-#if (PM_DEEPSLEEP_RETENTION_ENABLE)
-			bls_pm_setSuspendMask (SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
-#else
-			bls_pm_setSuspendMask (SUSPEND_ADV | SUSPEND_CONN);
-#endif
-
-
-		//do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
-			if(0){
-			}
-#if (UI_KEYBOARD_ENABLE)
-			else if(scan_pin_need || key_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-#elif (UI_BUTTON_ENABLE)
-			else if(button_not_released){
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-#endif
-			else if(ota_is_working){
-				bls_pm_setManualLatency(0);
-			}
-
-			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
-			if(!gpio_read(CHG_IN_PIN) ||
-				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg 
-				)
-			{
-				bls_pm_setSuspendMask (SUSPEND_DISABLE);
-			}
-
-#if 0
-#if (!TEST_CONN_CURRENT_ENABLE) // test connection power, should disable deepSleep
-			if(!ota_is_working && !blc_ll_isControllerEventPending()){  //no controller event pending
-				/* enter deepsleep mode after advertising for 60 seconds without being connected. */
-				if( blc_ll_getCurrentState() == BLS_LINK_STATE_ADV && !sendTerminate_before_enterDeep && \
-					clock_time_exceed(advertise_begin_tick , ADV_IDLE_ENTER_DEEP_TIME * 1000000)){
-					cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);  //deepsleep
-				}
-				/* enter deepsleep mode after 60 seconds without any UI action(key/voice/led) in connection state. */
-				else if( device_in_connection_state && \
-						clock_time_exceed(latest_user_event_tick, CONN_IDLE_ENTER_DEEP_TIME * 1000000) ){
-					bls_ll_terminateConnection(HCI_ERR_REMOTE_USER_TERM_CONN); //push terminate command into BLE TX buffer
-					sendTerminate_before_enterDeep = 1;
-				}
-			}
-#endif							// end of !TEST_CONN_CURRENT_ENABLE
-#endif
-	}
-#endif // end of BLE_APP_PM_ENABLE
-#endif // end of BLE_APP_PM_ENABLE
 
 	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
 	sys_time.low_power_mode = true;
@@ -1342,7 +1223,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		soc_param_lib_init(&d);
 	}
 
-	app_timer_test_init();
+	sif_timer_init();
 
 	bus_mux_init();
 	btname_init();
