@@ -3,10 +3,6 @@
 #include "param.h"
 #include "flash_kv32.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef BMS_COLD_KV_SECTOR_SIZE
 #define BMS_COLD_KV_SECTOR_SIZE   FLASH_SECTOR_SIZE
 #endif
@@ -15,18 +11,8 @@ extern "C" {
 #define BMS_COLD_KV_SECTORS   4
 #endif
 
-typedef enum {
-    BMS_SYS_PARAM_BMS_TYPE = 0,
-    BMS_SYS_PARAM_SERIES_NUM,
-    BMS_SYS_PARAM_CAPACITY_FACTORY,
-    BMS_SYS_PARAM_AFE_ODC2,
-    BMS_SYS_PARAM_FAC_INIT_SOC,
-    BMS_SYS_PARAM_INIT_SOC,
-    BMS_SYS_PARAM_FLAGS,
-    BMS_SYS_PARAM_RSVD0,
-} bms_cold_system_param_id_t;
-
-typedef enum {
+typedef enum
+{
     BMS_COLD_CTRL_PROTECT_RESET_EPOCH = 0,
     BMS_COLD_CTRL_SYSTEM_RESET_EPOCH,
     BMS_COLD_CTRL_SOC_RESET_EPOCH,
@@ -34,7 +20,8 @@ typedef enum {
     BMS_COLD_CTRL_RUNTIME_RESET_EPOCH,
 } bms_cold_control_param_id_t;
 
-typedef struct {
+typedef struct
+{
     u32 bms_type;
     u32 series_num;
     u32 capacity_factory;
@@ -55,7 +42,3 @@ int bms_cold_kv_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
 int bms_cold_kv_store_set_bt_name_suffix(const char *suffix);
 void bms_cold_kv_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
 void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system);
-
-#ifdef __cplusplus
-}
-#endif
