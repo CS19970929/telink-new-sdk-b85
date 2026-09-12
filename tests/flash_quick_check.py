@@ -464,13 +464,26 @@ class SourceContractTests(unittest.TestCase):
     def test_current_conversion_uses_dvc_cc2_and_configured_shunt(self):
         text = read_text(DVC1124_C)
         self.assertIn(
-            "current_num = (int64_t)cc2 * 5000;",
+            "current_num = cc2 * 625;",
             text,
         )
         self.assertIn(
-            "current_ma = (int32_t)(current_num / ((int64_t)16 * s_cfg.shunt_uohm));",
+            "current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);",
             text,
         )
+        self.assertNotIn("int64_t current_num", text)
+        for cc2 in (-524288, -524287, -1, 0, 1, 524286, 524287):
+            for shunt_uohm in (1, 200, 65535):
+                original_num = cc2 * 5000
+                original_den = 16 * shunt_uohm
+                reduced_num = cc2 * 625
+                reduced_den = 2 * shunt_uohm
+                original = ((-1 if original_num < 0 else 1)
+                            * (abs(original_num) // original_den))
+                reduced = ((-1 if reduced_num < 0 else 1)
+                           * (abs(reduced_num) // reduced_den))
+                self.assertEqual(original, reduced)
+                self.assertLessEqual(abs(reduced_num), 327680000)
         self.assertIn("if (current_ma >= 0)", text)
         self.assertIn("uint32_t charge_ma = (uint32_t)(-current_ma);", text)
 

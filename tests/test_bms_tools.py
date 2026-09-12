@@ -10,6 +10,7 @@ from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO_ROOT / "bms_tools" / "bms.py"
+WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "bms-ci.yml"
 SPEC = importlib.util.spec_from_file_location("bms_tool", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 bms = importlib.util.module_from_spec(SPEC)
@@ -38,6 +39,23 @@ class ClientAssetPathTests(unittest.TestCase):
             REPO_ROOT / "tools" / "BMSAssistantQt",
         )
         self.assertTrue((client_assets.QT_PROJECT_ROOT / "bmsassistantqt").is_dir())
+
+
+class WorkflowSecurityTests(unittest.TestCase):
+    def test_external_fork_prs_cannot_reach_tc32_runner(self) -> None:
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        tc32_job = workflow.split("  tc32-production:\n", 1)[1]
+        self.assertIn("vars.TELINK_TC32_CI_ENABLED == '1'", tc32_job)
+        self.assertIn("github.event_name != 'pull_request'", tc32_job)
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            tc32_job,
+        )
+        self.assertIn(
+            "runs-on: [self-hosted, Windows, X64, telink-tc32]",
+            tc32_job,
+        )
+
 
 class ToolchainEnvironmentTests(unittest.TestCase):
     def test_canonicalises_windows_path_key(self) -> None:
