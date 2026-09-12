@@ -8,16 +8,6 @@
 #include "param.h"
 #include <string.h>
 
-/* DVC1124 alarm register 0x00. */
-#define DVC_BMS_REG_ALARM        0x00u
-#define DVC_BMS_ALARM_COV        0x40u
-#define DVC_BMS_ALARM_CUV        0x20u
-#define DVC_BMS_ALARM_OCD1       0x10u
-#define DVC_BMS_ALARM_OCC1       0x08u
-#define DVC_BMS_ALARM_OCD2       0x04u
-#define DVC_BMS_ALARM_OCC2       0x02u
-#define DVC_BMS_ALARM_SCD        0x01u
-
 /* App_AFEGet is scheduled every 200 ms in the current project. */
 #define DVC_BMS_SAMPLE_PERIOD_MS 200u
 
@@ -148,28 +138,28 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
     uint8_t verify;
 
     /* COV/CUV clear only after the configured recovery voltage is reached. */
-    if ((alarm & DVC_BMS_ALARM_COV) &&
+    if ((alarm & DVC1124_ALARM_COV_MASK) &&
         (g_tParam.protect.u16VcellOvp_Rcv != 0u) &&
         (g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv))
     {
-        clear_mask |= DVC_BMS_ALARM_COV;
+        clear_mask |= DVC1124_ALARM_COV_MASK;
     }
-    if ((alarm & DVC_BMS_ALARM_CUV) &&
+    if ((alarm & DVC1124_ALARM_CUV_MASK) &&
         (g_tParam.protect.u16VcellUvp_Rcv != 0u) &&
         (g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv))
     {
-        clear_mask |= DVC_BMS_ALARM_CUV;
+        clear_mask |= DVC1124_ALARM_CUV_MASK;
     }
 
     /* Require removal of the source before clearing current/short latches. */
     if (gpio_read(CHG_IN_PIN))
-        clear_mask |= (uint8_t)(alarm & (DVC_BMS_ALARM_OCC1 | DVC_BMS_ALARM_OCC2));
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
 
     if (gpio_read(SW_PIN))
     {
-        clear_mask |= (uint8_t)(alarm & (DVC_BMS_ALARM_OCD1 |
-                                         DVC_BMS_ALARM_OCD2 |
-                                         DVC_BMS_ALARM_SCD));
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK |
+                                         DVC1124_ALARM_OCD2_MASK |
+                                         DVC1124_ALARM_SCD_MASK));
     }
 
     if (clear_mask == 0u) return alarm;
@@ -181,8 +171,8 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
      * be unintentionally cleared.
      */
     write_value = (uint8_t)~clear_mask;
-    if (!DVC1124_WriteRegisters(DVC_BMS_REG_ALARM, &write_value, 1u)) return alarm;
-    if (!DVC1124_ReadRegisters(DVC_BMS_REG_ALARM, &verify, 1u)) return alarm;
+    if (!DVC1124_WriteRegisters(DVC1124_REG_ALARM, &write_value, 1u)) return alarm;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) return alarm;
     return verify;
 }
 
@@ -236,12 +226,12 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
     uint16_t pack_x100 = g_stCellInfoReport.u16VCellTotle;
     union MDLCHGFAULT_REG managed;
 
-    g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp = (alarm & DVC_BMS_ALARM_COV) ? 1u : 0u;
-    g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp = (alarm & DVC_BMS_ALARM_CUV) ? 1u : 0u;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp = (alarm & DVC1124_ALARM_COV_MASK) ? 1u : 0u;
+    g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp = (alarm & DVC1124_ALARM_CUV_MASK) ? 1u : 0u;
     g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp =
-        (alarm & (DVC_BMS_ALARM_OCD1 | DVC_BMS_ALARM_OCD2)) ? 1u : 0u;
+        (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK)) ? 1u : 0u;
     g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp =
-        (alarm & (DVC_BMS_ALARM_OCC1 | DVC_BMS_ALARM_OCC2)) ? 1u : 0u;
+        (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) ? 1u : 0u;
 
     g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp =
         dvc_filter_high(&s_bat_ovp,
@@ -309,7 +299,7 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
         g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp = 0u;
     }
 
-    if (alarm & DVC_BMS_ALARM_SCD)
+    if (alarm & DVC1124_ALARM_SCD_MASK)
     {
         if (!System_ERROR_UserCallback(ERROR_STATUS_CBC_DSG))
             (void)System_ERROR_UserCallback(ERROR_CBC_DSG);
