@@ -15,6 +15,7 @@ HERE = Path(__file__).resolve().parent
 REG_H = HERE / "dvc1124_reg.h"
 DVC_H = HERE / "dvc1124.h"
 DVC_C = HERE / "dvc1124.c"
+CORE_OT_C = HERE / "dvc1124_core_ot.c"
 DVC_BMS_C = HERE / "dvc1124_bms.c"
 PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
 CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
@@ -49,6 +50,7 @@ class RegisterTruthTests(unittest.TestCase):
         cls.reg = read(REG_H)
         cls.dvc_h = read(DVC_H)
         cls.dvc_c = read(DVC_C)
+        cls.core_ot = read(CORE_OT_C)
         cls.dvc_bms = read(DVC_BMS_C)
 
     def test_v12_critical_masks(self):
@@ -99,6 +101,19 @@ class RegisterTruthTests(unittest.TestCase):
         self.assertNotIn("DVC_BMS_ALARM_", self.dvc_bms)
         self.assertIn("DVC1124_REG_ALARM", self.dvc_bms)
         self.assertIn("DVC1124_ALARM_COV_MASK", self.dvc_bms)
+
+    def test_read_clear_metadata_names_status_and_core_ot(self):
+        self.assertIn("DVC1124_RegReadEffect", self.dvc_h)
+        self.assertIn("reg == DVC1124_REG_STATUS", self.dvc_h)
+        self.assertIn("reg == DVC1124_REG_CORE_OT", self.dvc_h)
+        self.assertIn("DVC1124_REG_READ_CLEAR", self.dvc_h)
+
+    def test_core_ot_access_preserves_read_clear_event_in_software(self):
+        self.assertIn("s_core_ot_event_latched", self.core_ot)
+        self.assertIn("DVC1124_CORE_OT_FLAG_MASK", self.core_ot)
+        self.assertIn("DVC1124_ReadCoreOtThresholdCode", self.core_ot)
+        self.assertIn("DVC1124_SetCoreOtThresholdCode", self.core_ot)
+        self.assertIn("DVC1124_GetCoreOtEventLatched", self.core_ot)
 
 
 class PersistenceLayoutTests(unittest.TestCase):
@@ -161,6 +176,18 @@ class ConfigStoreTests(unittest.TestCase):
         self.assertIn("cfg->body_diode_threshold_uv > 10200u", self.src)
         self.assertIn("cfg->scd_threshold_mv > 630u", self.src)
 
+    def test_core_ot_uses_dedicated_rc_safe_api(self):
+        self.assertIn("DVC1124_SetCoreOtThresholdCode(cfg->core_ot_code)", self.src)
+        self.assertIn("DVC1124_ReadCoreOtThresholdCode(&cfg->core_ot_code)", self.src)
+        self.assertNotIn(
+            "DVC1124_ReadRegisters(DVC1124_REG_CORE_OT",
+            self.src,
+        )
+        self.assertNotIn(
+            "DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CORE_OT",
+            self.src,
+        )
+
 
 class ConfigServiceTests(unittest.TestCase):
     @classmethod
@@ -193,6 +220,10 @@ class ConfigServiceTests(unittest.TestCase):
         self.assertIn("DVC1124_REG_GP123_MODE", self.src)
         self.assertIn("DVC1124_REG_I2C_WDT", self.src)
         self.assertIn("DVC1124_REG_CORE_OT", self.src)
+
+    def test_raw_read_refuses_read_clear_registers(self):
+        self.assertIn("DVC1124_RegReadHasSideEffect(reg)", self.src)
+        self.assertIn("return DVC1124_CFG_ERR_FORBIDDEN", self.src)
 
 
 class TransportContractTests(unittest.TestCase):
