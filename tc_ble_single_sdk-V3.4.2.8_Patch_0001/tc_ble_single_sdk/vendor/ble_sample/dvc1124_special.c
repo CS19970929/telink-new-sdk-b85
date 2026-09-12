@@ -1,5 +1,4 @@
 #include "dvc1124.h"
-#include "dvc1124_commands.h"
 
 /*
  * Special-register handling for DVC1124.

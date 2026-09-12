@@ -1,5 +1,4 @@
 #include "dvc1124.h"
-#include "dvc1124_commands.h"
 #include "bms_afe.h"
 
 #include "tl_common.h"

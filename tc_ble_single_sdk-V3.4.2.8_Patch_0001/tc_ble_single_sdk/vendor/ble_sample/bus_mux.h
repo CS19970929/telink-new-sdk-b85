@@ -17,11 +17,4 @@ void bus_mux_irq_handler(void);
 void bus_mux_on_uart_rx_byte(void);
 
 bus_state_t bus_mux_get_state(void);
-void bus_mux_set_state(bus_state_t _state);
-
-// 业务对接：你工程里实现
-void owc_start_tx_only(void);
-void owc_stop_tx(void);
-
-void modbus_uart_slave_enable(void);
-void modbus_uart_slave_disable(void);
+void bus_mux_return_to_owc_idle(void);

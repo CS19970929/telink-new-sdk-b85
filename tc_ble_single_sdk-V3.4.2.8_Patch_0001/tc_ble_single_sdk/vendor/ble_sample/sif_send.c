@@ -199,7 +199,7 @@ void sif_send_data_handle(void)
 
         if (!gpio_read(OWC_RX_PIN))
         {
-            bus_mux_set_state(BUS_STATE_OWC_IDLE);
+            bus_mux_return_to_owc_idle();
             cnt = 0;
             state_mode = SIF_IDLE;
             iswakeup = true;
