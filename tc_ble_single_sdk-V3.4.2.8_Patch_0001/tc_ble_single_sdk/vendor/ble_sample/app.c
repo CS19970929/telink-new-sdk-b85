@@ -64,18 +64,15 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 
-UINT8 IsChargerWakeupActive(void)
-{
-	return !gpio_read(CHG_IN_PIN);
-}
-UINT8 IsKeyWakeupActive(void)
+static UINT8 d011_switch_is_on(void)
 {
 #ifdef _DI_SWITCH_SYS_ONOFF
-	return !gpio_read(SW_PIN);
+	return gpio_read(D011_SWITCH_PIN) ? 0u : 1u;
 #else
-	return 1;
-#endif // DEBUG
+	return 1u;
+#endif
 }
+
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
 	u32 now_tick_32k;
@@ -140,7 +137,12 @@ static void app_event_log_1s_task(void)
 
 static int app_deepsleep_pad_wakeup_active(void)
 {
-	return !gpio_read(CHG_IN_PIN);
+	/* Only use D011 schematic-backed wake nets with verified active levels. */
+	if (d011_switch_is_on()) return 1;
+	if (gpio_read(D011_INT_WK_MCU_PIN)) return 1;      /* active high */
+	if (!gpio_read(D011_AFE_ALARM_PIN)) return 1;     /* active low */
+	if (!gpio_read(D011_AFE_RESET_OUT_PIN)) return 1; /* active low */
+	return 0;
 }
 
 static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
@@ -262,41 +264,15 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	uint8_t chg_target = 0;
-	uint8_t dsg_target = 0;
+	/* D011 has no validated dedicated CHG_IN GPIO.  Preserve the branch's
+	 * effective behavior: CHG is normally requested and protection decides
+	 * whether it may conduct; DSG additionally follows the active-low switch.
+	 * The AFE adapter owns final fail-safe arbitration. */
+	uint8_t chg_target = 1u;
+	uint8_t dsg_target = d011_switch_is_on() ? 1u : 0u;
 
-	if(IsChargerWakeupActive())
-	{
-		chg_target = 1;
-		dsg_target = 0;
-		g_bms_system_status.bits.b1Status_Cool = 1;
-	}
-	else if (IsKeyWakeupActive())
-	{
-		g_bms_system_status.bits.b1Status_Cool = 0;
-		if(MODE_FACTORY == Runtime_GetMode())
-		{
-			chg_target = 1;
-			dsg_target = 1;
-		}
-		else
-		{
-			chg_target = 0;
-			dsg_target = 1;
-		}
-	}
-	else
-	{
-		g_bms_system_status.bits.b1Status_Cool = 0;
-		chg_target = 0;
-		dsg_target = 0;
-	}
-
-	if(chg_target != g_bms_system_status.bits.b1Status_MOS_CHG ||
-		dsg_target != g_bms_system_status.bits.b1Status_MOS_DSG)
-	{
-		(void)bms_afe_set_fets(chg_target, dsg_target);
-	}
+	g_bms_system_status.bits.b1Status_Cool = 0u;
+	(void)bms_afe_set_fets(chg_target, dsg_target);
 }
 
 
@@ -369,159 +345,56 @@ static const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
 
 void app_adc_multi_sample(void)
 {
-	static u8 mos_state = 0;
-	static uint32_t rong_fuse = 0;
 	bms_afe_aux_measurements_t aux;
-#ifdef _UL_RENZHENG_ENABLE_
-	static u8 state_fuse = 0;
-	static uint32_t rong_fuse_afe_err_cnt = 0;
-#endif
 
-	if (sys_time.low_power_mode)
-	{
-		mos_state = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-		state_fuse = 0;
-		rong_fuse_afe_err_cnt = 0;
-#endif
-		return;
-	}
+	if (sys_time.low_power_mode) return;
+	if (!bms_afe_get_aux_measurements(&aux)) return;
 
-	(void)bms_afe_get_aux_measurements(&aux);
+	/* Legacy reporting mirror only.  Protection, heater control and any
+	 * irreversible fuse action belong to the D011 AFE/safety layer. */
 	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(iSheldTemp_10K_mcu,
-											 (UINT16)LENGTH_TBLTEMP_MCU_10K,
-											 (UINT16)aux.battery_ntc_100ohm);
+										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
+										 (UINT16)aux.battery_ntc_100ohm);
 	g_stCellInfoReport.u16Temperature[9] = bms_lookup_u16(iSheldTemp_10K_mcu,
-											 (UINT16)LENGTH_TBLTEMP_MCU_10K,
-											 (UINT16)aux.mos_ntc_100ohm);
+										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
+										 (UINT16)aux.mos_ntc_100ohm);
 
 #ifdef DISP_VBAT_AND_TEMP_
 	g_stCellInfoReport.u16VCell[29] = aux.battery_ntc_mv;
 	g_stCellInfoReport.u16VCell[30] = aux.mos_ntc_mv;
 	g_stCellInfoReport.u16VCell[31] = (UINT16)aux.pack_voltage_mv;
-#endif // ! FAC_TEST
-
-	switch (mos_state)
-	{
-	case 0:
-		if (g_stCellInfoReport.u16Temperature[9] >= (95 + 40) * 10)
-		{
-			bms_afe_set_output_enabled(0u);
-			bms_fault_history_record(BMS_FAULT_MOS_OTP_THIRD);
-			mos_state = 1;
-		}
-		break;
-	case 1:
-		if (g_stCellInfoReport.u16Temperature[9] <= (75 + 40) * 10)
-		{
-			bms_afe_set_output_enabled(1u);
-			mos_state = 0;
-		}
-		break;
-	default:
-		mos_state = 0;
-		break;
-	}
-
-#ifdef _UL_RENZHENG_ENABLE_
-
-	if (bms_error_get(BMS_ERROR_AFE1) != 0u)
-	{
-		rong_fuse = 0;
-		state_fuse = 0;
-
-		bms_afe_set_output_enabled(0u);
-		// todo mcc关了，when 开
-		if (aux.pack_voltage_mv >= 4280 * SeriesNum || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10)
-		{
-			if (++rong_fuse_afe_err_cnt >= 10)
-			{
-				rong_fuse_afe_err_cnt = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-				gpio_write(RF_EN_PIN, 1);
 #endif
-			}
-		}
-	}
-	else
-	{
-		static u16 delay_cnt = 0;
-
-		switch (state_fuse)
-		{
-		case 0:
-			if ((g_stCellInfoReport.u16Temperature[8] >= (80 + 40) * 10))
-			{
-				state_fuse = 1;
-				bms_afe_set_output_enabled(0u);
-				bms_fault_history_record(BMS_FAULT_CHG_OTP_THIRD);
-				bms_fault_history_record(BMS_FAULT_DSG_OTP_THIRD);
-			}
-			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
-			{
-				++delay_cnt;
-				if (delay_cnt >= 15)
-				{
-					delay_cnt = 0;
-					state_fuse = 1;
-					bms_afe_set_output_enabled(0u);
-					// 是否应该强制关掉放电？？？
-					bms_fault_history_record(BMS_FAULT_CELL_OVP_THIRD);
-					bms_fault_history_record(BMS_FAULT_BAT_OVP_THIRD);
-				}
-			}
-			else
-				delay_cnt = 0;
-			break;
-		case 1:
-			if ((g_stCellInfoReport.u16Temperature[8] < (75 + 40) * 10) && (g_stCellInfoReport.u16VCellMax <= 4150))
-			{
-				state_fuse = 0;
-				bms_afe_set_output_enabled(1u);
-			}
-			if (((g_stCellInfoReport.u16VCellMax >= 4280) || (aux.pack_voltage_mv >= 4280 * SeriesNum) || g_stCellInfoReport.u16Temperature[8] >= (85 + 40) * 10) && (g_stCellInfoReport.u16Ichg))
-			{
-				if (++rong_fuse >= (15))
-				{
-					rong_fuse = 0;
-#ifdef _UL_RENZHENG_ENABLE_
-					gpio_write(RF_EN_PIN, 1);
-#endif
-				}
-			}
-			else
-			{
-				rong_fuse = 0;
-			}
-			break;
-		default:
-			state_fuse = 0;
-			break;
-		}
-	}
-#endif
-
 }
 
 static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-#ifdef _UL_RENZHENG_ENABLE_
-	gpio_set_func(RF_EN_PIN, AS_GPIO);
-	gpio_set_input_en(RF_EN_PIN, 0);
-	gpio_set_output_en(RF_EN_PIN, 1);
-	gpio_write(RF_EN_PIN, 0);
-#endif
+	/* PB5/HT-RF-EN is an irreversible heater-fuse trigger.  Until its
+	 * complete validated firing state machine exists it is forced LOW only. */
+	gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
+	gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
+	gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
+	gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
 
-	gpio_set_func(SW_PIN, AS_GPIO);
-	gpio_set_input_en(SW_PIN, 1);
-	gpio_set_output_en(SW_PIN, 0);
+	gpio_set_func(D011_SWITCH_PIN, AS_GPIO);
+	gpio_set_input_en(D011_SWITCH_PIN, 1);
+	gpio_set_output_en(D011_SWITCH_PIN, 0);
 
-	gpio_set_func(CHG_IN_PIN, AS_GPIO);
-	gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
-	gpio_set_input_en(CHG_IN_PIN, 1);
-	gpio_set_output_en(CHG_IN_PIN, 0);
+	/* D011 PD4 controls the isolated communication 3V3 rail; it is not an
+	 * MCU-LDO/AFE-protection-enable alias.  Keep communications powered while
+	 * the normal application is running. */
+	gpio_set_func(D011_CMNT_EN_PIN, AS_GPIO);
+	gpio_write(D011_CMNT_EN_PIN, 1);
+	gpio_set_input_en(D011_CMNT_EN_PIN, 0);
+	gpio_set_output_en(D011_CMNT_EN_PIN, 1);
+
+	/* PD3 is the schematic CMNT-WK input.  Its active polarity is not yet
+	 * hardware-verified, so configure it as input but do not invent a wake
+	 * polarity here. */
+	gpio_set_func(D011_CMNT_WK_PIN, AS_GPIO);
+	gpio_set_output_en(D011_CMNT_WK_PIN, 0);
+	gpio_set_input_en(D011_CMNT_WK_PIN, 1);
 }
 
 _attribute_data_retention_ int device_in_connection_state;
@@ -812,21 +685,14 @@ void blt_pm_proc(void)
 	if (sleep_elapsed_sec != 0u)
 	{
 #ifdef _DI_SWITCH_SYS_ONOFF
-		if (!IsChargerWakeupActive())
+		if (!d011_switch_is_on() && !gpio_read(D011_INT_WK_MCU_PIN))
 		{
-			if (!IsKeyWakeupActive())
-			{
-				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
-				if (sleep_cnt >= 3u)
-				{
-					sleep_cnt = 0;
-					cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
-					app_note_sleep_and_enter_deepsleep(1u); // deepsleep
-				}
-			}
-			else
+			sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
+			if (sleep_cnt >= 3u)
 			{
 				sleep_cnt = 0;
+				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
 		else
@@ -889,7 +755,7 @@ void blt_pm_proc(void)
 			if (afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
+				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
@@ -929,8 +795,8 @@ void blt_pm_proc(void)
 	}
 #endif
 
-	// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
-	if (!gpio_read(CHG_IN_PIN) ||
+	// if(!gpio_read(D011_SWITCH_PIN) || g_stCellInfoReport.u16IDischg || )
+	if (!gpio_read(D011_SWITCH_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
 		g_stCellInfoReport.u16IDischg ||
 		// MODE_FACTORY == Runtime_GetMode() ||
@@ -1209,7 +1075,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		// todo 待测试 , 断线检测测试
 		bms_afe_init();
 
-		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
+		cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
 		bms_afe_sample();

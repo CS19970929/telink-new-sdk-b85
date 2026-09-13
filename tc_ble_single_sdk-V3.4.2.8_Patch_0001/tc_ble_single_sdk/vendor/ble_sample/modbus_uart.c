@@ -25,12 +25,12 @@ static mb_dma_pkt_t s_tx_pkt;
 
 static void modbus_rs485_receive_mode(void)
 {
-    gpio_write(RS485_EN_PIN, 0);
+    gpio_write(D011_RS485_EN_PIN, 0);
 }
 
 static void modbus_rs485_transmit_mode(void)
 {
-    gpio_write(RS485_EN_PIN, 1);
+    gpio_write(D011_RS485_EN_PIN, 1);
 }
 
 static void modbus_uart_service_tx_done(void)
@@ -51,12 +51,12 @@ void modbus_uart_init(void)
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
 
     /* HS-D011: PC2=SCI1-TX, PC3=SCI1-RX, PA1=485-EN. */
-    gpio_set_func(RS485_EN_PIN, AS_GPIO);
-    gpio_write(RS485_EN_PIN, 0);
-    gpio_set_input_en(RS485_EN_PIN, 0);
-    gpio_set_output_en(RS485_EN_PIN, 1);
+    gpio_set_func(D011_RS485_EN_PIN, AS_GPIO);
+    gpio_write(D011_RS485_EN_PIN, 0);
+    gpio_set_input_en(D011_RS485_EN_PIN, 0);
+    gpio_set_output_en(D011_RS485_EN_PIN, 1);
 
-    uart_gpio_set(OWC_TX_PIN, OWC_RX_PIN);
+    uart_gpio_set(D011_SCI1_TX_PIN, D011_SCI1_RX_PIN);
     uart_reset();
     uart_init(MODBUS_UART_CLOCK_DIVIDER,
               MODBUS_UART_BWPC,

@@ -60,7 +60,7 @@
 | 5 | PA7 | SWS-A7 | SWS1 下载/调试；保留专用 | D011_SWS_PIN |
 | 6 | PB1 | INT-WK-MCU | 外部检测电路输入；CODE 使用高有效唤醒 | D011_INT_WK_MCU_PIN |
 | 14 | PB4 | HT-CHG | 输出至 R100/Q17，加热/保护功率网络 | D011_HEATER_CHG_PIN |
-| 15 | PB5 | HT-RF-EN | 输出至 R75/Q11，加热/保护功率网络 | D011_HEATER_RF_EN_PIN |
+| 15 | PB5 | HT-RF-EN | **加热回路保险丝熔断触发输出**；正常/故障诊断阶段必须保持低，只有经验证的不可逆熔断状态机才允许拉高 | D011_HEATER_FUSE_TRIGGER_PIN |
 | 16 | PB6 | MISO | SPI 输入，经 R43 到 AFE SDO | D011_AFE_MISO_PIN |
 | 17 | PB7 | MOSI | SPI 输出，经 R44 到 AFE SDI | D011_AFE_MOSI_PIN |
 | 20 | PC0 | ALARM | 经 R51 接 AFE ALARM；CODE 配置为输入、低有效唤醒 | D011_AFE_ALARM_PIN |
@@ -137,7 +137,7 @@ TODO_VERIFY_HW：用已知方向的小电流验证符号、零点及线性，同
 - SCH：AFE DSG（37）与 CHG（38）经分立器件网络形成 DO/CO 栅极驱动；DSGD（41）、CHGD（42）也进入外围电路。
 - SCH：QD1/QD3/QD5/QD8 为一组并联功率管；QD2/QD4/QD6/QD9 为另一组，形成 B- 至 P- 的主功率通路。不可把某个 MCU GPIO 直接命名为主 CHG/DSG 栅极。
 - SCH：HT-CHG/PB4 经 R100/Q17，HT-RF-EN/PB5 经 R75/Q11，连接 Q8/Q12/QD7/F1/HT-1 周围功率网络。
-- TODO_VERIFY_HW：PB4/PB5 四种组合的真实功能、QD7 栅极电压、F1 三端器件用途、加热和熔断/保护动作之间的关系。两个 IO 同时拉高并非图纸自动证明的安全加热序列。
+- 产品语义确认：PB4/HT-CHG 是可逆加热控制；PB5/HT-RF-EN 是加热回路保险丝熔断触发。当前固件对 PB5 只允许输出低电平；在加热 MOS 温度通道、失控判据、动作持续时间、F1 动作特性及不可逆锁存流程全部验证前，禁止任何自动拉高路径。
 - SCH：R91=NC-1210、F1 周围存在短接/开窗装配备注。需记录生产 BOM 选项，不能在软件文档中默认“均已短接”。
 
 ## 9. 供电、通信与唤醒

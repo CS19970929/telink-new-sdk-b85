@@ -75,24 +75,8 @@ typedef enum _CUR {
 #define Feed_IWatchDog ;
 #define log_i(...) ;
 
-/*
- * HS-D011 physical MCU nets.
- * CHG_IN_PIN is kept as a legacy app-compatibility alias to the active-low
- * front-panel switch. The real board wake input PB1/INT-WK-MCU is owned by
- * the SH3673510 backend and is configured as an active-high wake source.
- */
-#define SW_PIN                 D011_SWITCH_PIN
-#define CHG_IN_PIN             D011_SWITCH_PIN
-#define RF_EN_PIN              D011_HEATER_RF_EN_PIN
-#define HEATER_EN_PIN          D011_HEATER_CHG_PIN
-#define OWC_TX_PIN             D011_SCI1_TX_PIN
-#define OWC_RX_PIN             D011_SCI1_RX_PIN
-#define RS485_EN_PIN           D011_RS485_EN_PIN
-#define LED_BLUE_PIN           D011_DEBUG_LED_PIN
-
-/* Kept only for old source compatibility; do not use for new board code. */
-#define AFE1_PRO_EN_PIN        D011_CMNT_EN_PIN
-#define MCU_LDO_PIN            D011_CMNT_EN_PIN
+/* D011 board code uses only canonical D011_* schematic nets from
+ * sh3673510_project_config.h. Legacy cross-board GPIO aliases are forbidden. */
 
 typedef struct
 {

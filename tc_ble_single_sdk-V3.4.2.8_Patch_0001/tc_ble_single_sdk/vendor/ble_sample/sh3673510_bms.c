@@ -15,9 +15,12 @@
 #define SH3510_LEVEL_COUNT            3u
 #define SH3510_REINIT_TRIGGER         3u
 #define SH3510_REINIT_COOLDOWN        25u /* 5 s at 200 ms */
+#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
+#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 
 typedef struct {
-    uint16_t count;
+    uint16_t trip_count;
+    uint16_t recover_count;
     uint8_t active;
 } sh3510_filter_t;
 
@@ -39,6 +42,13 @@ static uint8_t s_comm_failures;
 static uint8_t s_reinit_cooldown;
 static uint8_t s_hw_afe_error;
 static uint16_t s_balance_mask;
+static uint8_t s_requested_charge_on;
+static uint8_t s_requested_discharge_on;
+static uint8_t s_output_inhibit;
+static uint8_t s_valid_snapshot_streak;
+static uint8_t s_short_latched;
+static uint8_t s_short_clear_pending;
+static uint16_t s_short_release_count;
 
 /* Existing product 10K NTC table: R in 100 ohm, T=(degC+40)*10. */
 static const uint16_t s_ntc_table[] = {
@@ -75,17 +85,38 @@ static uint8_t filter_update(sh3510_filter_t *f, uint16_t value,
     uint8_t recovered;
     uint16_t needed;
     if (f == 0) return 0u;
-    if (trip == 0u) { f->active = 0u; f->count = 0u; return 0u; }
+    if (trip == 0u) {
+        f->active = 0u; f->trip_count = 0u; f->recover_count = 0u;
+        return 0u;
+    }
+
+    needed = filter_samples(filter_10ms);
     if (f->active) {
         recovered = high ? (value <= recover) : (value >= recover);
-        if (recovered) { f->active = 0u; f->count = 0u; }
+        if (recovered) {
+            if (f->recover_count < needed) ++f->recover_count;
+            if (f->recover_count >= needed) {
+                f->active = 0u;
+                f->trip_count = 0u;
+                f->recover_count = 0u;
+            }
+        } else {
+            f->recover_count = 0u;
+        }
         return f->active;
     }
+
     violated = high ? (value >= trip) : (value <= trip);
-    if (!violated) { f->count = 0u; return 0u; }
-    needed = filter_samples(filter_10ms);
-    if (f->count < needed) ++f->count;
-    if (f->count >= needed) { f->active = 1u; f->count = 0u; }
+    if (violated) {
+        if (f->trip_count < needed) ++f->trip_count;
+        if (f->trip_count >= needed) {
+            f->active = 1u;
+            f->trip_count = 0u;
+            f->recover_count = 0u;
+        }
+    } else if (f->trip_count != 0u) {
+        --f->trip_count;
+    }
     return f->active;
 }
 
@@ -109,6 +140,8 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
 static void note_comm_error(void)
 {
     sh3673520_comm_stats_t stats;
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
     SH3673520_GetCommStats(&stats);
     if (stats.last_error == SH3673520_ERR_SPI ||
         stats.last_error == SH3673520_ERR_TIMEOUT ||
@@ -279,9 +312,39 @@ static uint8_t discharge_blocked(void)
     const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
     return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
             f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
+            s_short_latched ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
+}
+
+static uint8_t sh3510_outputs_healthy(void)
+{
+    return (s_snapshot_valid && !s_output_inhibit && !s_hw_afe_error &&
+            !bms_error_get(BMS_ERROR_AFE1) && !bms_error_get(BMS_ERROR_SPI)) ? 1u : 0u;
+}
+
+static uint8_t sh3510_apply_requested_fets(void)
+{
+    uint8_t charge_on = 0u;
+    uint8_t discharge_on = 0u;
+    uint8_t key_on;
+
+    if (!sh3673510_control_ready()) return 0u;
+    key_on = gpio_read(D011_SWITCH_PIN) ? 0u : 1u;
+
+    if (s_output_enabled && sh3510_outputs_healthy()) {
+        charge_on = s_requested_charge_on ? 1u : 0u;
+        discharge_on = (s_requested_discharge_on && key_on) ? 1u : 0u;
+        if (charge_blocked()) charge_on = 0u;
+        if (discharge_blocked()) discharge_on = 0u;
+    }
+
+    if (!sh3673510_control_set_fets(charge_on, discharge_on)) {
+        note_comm_error();
+        return 0u;
+    }
+    return 1u;
 }
 
 static void apply_heater(void)
@@ -339,49 +402,70 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
         (s->bstatus1 & SH3673520_BSTATUS1_DSG_FET_MASK) ? 1u : 0u;
     s_hw_afe_error = (s->bstatus1 & SH3673520_BSTATUS1_E2P_ERR_MASK) ? 1u : 0u;
     if (s_hw_afe_error && !bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
+
     if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
+        s_short_latched = 1u;
+        s_short_clear_pending = 0u;
+        s_short_release_count = 0u;
         if (!bms_error_get(BMS_ERROR_DSG_SHORT)) bms_error_raise(BMS_ERROR_DSG_SHORT);
         if (!bms_error_get(BMS_ERROR_CBC_DSG)) bms_error_raise(BMS_ERROR_CBC_DSG);
-    } else if (g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv) {
-        bms_error_clear(BMS_ERROR_DSG_SHORT);
-        bms_error_clear(BMS_ERROR_CBC_DSG);
+    }
+}
+
+static void service_short_recovery(const sh3673510_control_status_t *s)
+{
+    if ((s == 0) || !s_short_latched) return;
+
+    if (s_short_clear_pending) {
+        if (((s->flag1 & SH3673520_FLAG1_SC_MASK) == 0u) &&
+            (s->bstatus2 & SH3673520_BSTATUS2_LOADOFF_MASK)) {
+            s_short_latched = 0u;
+            s_short_clear_pending = 0u;
+            s_short_release_count = 0u;
+            bms_error_clear(BMS_ERROR_DSG_SHORT);
+            bms_error_clear(BMS_ERROR_CBC_DSG);
+            return;
+        }
+        if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
+            s_short_clear_pending = 0u;
+        }
+    }
+
+    if (s->bstatus2 & SH3673520_BSTATUS2_LOADOFF_MASK) {
+        if (s_short_release_count < SH3510_SHORT_RELEASE_SAMPLES) ++s_short_release_count;
+    } else {
+        s_short_release_count = 0u;
+    }
+
+    if (!s_short_clear_pending && s_short_release_count >= SH3510_SHORT_RELEASE_SAMPLES) {
+        if (sh3673510_control_clear_flag1(SH3673520_FLAG1_SC_MASK)) {
+            s_short_clear_pending = 1u;
+            s_short_release_count = 0u;
+        }
     }
 }
 
 static void clear_recovered_flags(const sh3673510_control_status_t *s)
 {
+    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
     uint8_t c1 = 0u, c2 = 0u;
-    uint16_t bat_min = 0u, bat_max = 0u, mos_temp = 0u;
-    uint8_t temp_ok;
     if (s == 0) return;
-    temp_ok = temperature_snapshot(&bat_min, &bat_max, &mos_temp);
-    (void)mos_temp;
 
     c1 |= (uint8_t)(s->flag1 & (SH3673520_FLAG1_RST1_MASK | SH3673520_FLAG1_WK_MASK));
-    if ((s->flag1 & SH3673520_FLAG1_OV_MASK) &&
-        g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv)
-        c1 |= SH3673520_FLAG1_OV_MASK;
-    if ((s->flag1 & SH3673520_FLAG1_UV_MASK) &&
-        g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv)
-        c1 |= SH3673520_FLAG1_UV_MASK;
-    if ((s->flag1 & (SH3673520_FLAG1_OCD1_MASK | SH3673520_FLAG1_OCD2_MASK)) &&
-        g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
+    if ((s->flag1 & SH3673520_FLAG1_OV_MASK) && !f->b1CellOvp) c1 |= SH3673520_FLAG1_OV_MASK;
+    if ((s->flag1 & SH3673520_FLAG1_UV_MASK) && !f->b1CellUvp) c1 |= SH3673520_FLAG1_UV_MASK;
+    if ((s->flag1 & (SH3673520_FLAG1_OCD1_MASK | SH3673520_FLAG1_OCD2_MASK)) && !f->b1IdischgOcp)
         c1 |= (uint8_t)(s->flag1 & (SH3673520_FLAG1_OCD1_MASK | SH3673520_FLAG1_OCD2_MASK));
-    if ((s->flag1 & SH3673520_FLAG1_OCC_MASK) &&
-        g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv)
-        c1 |= SH3673520_FLAG1_OCC_MASK;
-    if ((s->flag1 & SH3673520_FLAG1_SC_MASK) &&
-        g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
-        c1 |= SH3673520_FLAG1_SC_MASK;
+    if ((s->flag1 & SH3673520_FLAG1_OCC_MASK) && !f->b1IchgOcp) c1 |= SH3673520_FLAG1_OCC_MASK;
+    /* SC is deliberately excluded. It is released only by service_short_recovery(). */
 
     c2 |= (uint8_t)(s->flag2 & SH3673520_FLAG2_RST2_MASK);
-    if (temp_ok) {
-        if ((s->flag2 & SH3673520_FLAG2_OTC_MASK) && bat_max <= g_tParam.protect.u16TChgOTp_Rcv) c2 |= SH3673520_FLAG2_OTC_MASK;
-        if ((s->flag2 & SH3673520_FLAG2_OTD_MASK) && bat_max <= g_tParam.protect.u16TdischgOTp_Rcv) c2 |= SH3673520_FLAG2_OTD_MASK;
-        if ((s->flag2 & SH3673520_FLAG2_UTC_MASK) && bat_min >= g_tParam.protect.u16TchgUTp_Rcv) c2 |= SH3673520_FLAG2_UTC_MASK;
-        if ((s->flag2 & SH3673520_FLAG2_UTD_MASK) && bat_min >= g_tParam.protect.u16TdischgUTp_Rcv) c2 |= SH3673520_FLAG2_UTD_MASK;
-    }
+    if ((s->flag2 & SH3673520_FLAG2_OTC_MASK) && !f->b1CellChgOtp) c2 |= SH3673520_FLAG2_OTC_MASK;
+    if ((s->flag2 & SH3673520_FLAG2_OTD_MASK) && !f->b1CellDischgOtp) c2 |= SH3673520_FLAG2_OTD_MASK;
+    if ((s->flag2 & SH3673520_FLAG2_UTC_MASK) && !f->b1CellChgUtp) c2 |= SH3673520_FLAG2_UTC_MASK;
+    if ((s->flag2 & SH3673520_FLAG2_UTD_MASK) && !f->b1CellDischgUtp) c2 |= SH3673520_FLAG2_UTD_MASK;
     if (s->flag2 & SH3673520_FLAG2_WDT_MASK) c2 |= SH3673520_FLAG2_WDT_MASK;
+
     if (c1) (void)sh3673510_control_clear_flag1(c1);
     if (c2) (void)sh3673510_control_clear_flag2(c2);
 }
@@ -458,6 +542,7 @@ static uint8_t publish_measurements(void)
 
     publish_hw_status(&status);
     update_faults();
+    service_short_recovery(&status);
     clear_recovered_flags(&status);
     return 1u;
 }
@@ -473,6 +558,14 @@ void sh3673510_bms_afe_init(void)
     s_heater_on = 0u;
     s_balance_mask = 0u;
     s_hw_afe_error = 0u;
+    s_requested_charge_on = 0u;
+    s_requested_discharge_on = 0u;
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
+    s_short_latched = 0u;
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
+    sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
     if (!sh3673510_control_init()) { note_comm_error(); return; }
     note_comm_ok();
@@ -480,14 +573,18 @@ void sh3673510_bms_afe_init(void)
 
 void sh3673510_bms_afe_sample(void)
 {
+    sh3673510_board_force_heater_fuse_safe();
     if (s_reinit_cooldown) --s_reinit_cooldown;
     if (!publish_measurements()) {
         s_snapshot_valid = 0u;
+        s_output_inhibit = 1u;
+        s_valid_snapshot_streak = 0u;
         s_heater_on = 0u;
         sh3673510_board_set_heater(0u);
         g_bms_system_status.bits.b1Status_Heat = 0u;
         (void)sh3673510_control_set_balance(0u);
         s_balance_mask = 0u;
+        (void)sh3673510_control_set_fets(0u, 0u);
         note_comm_error();
         if (s_comm_failures != 0xFFu) ++s_comm_failures;
         if (s_comm_failures >= SH3510_REINIT_TRIGGER && s_reinit_cooldown == 0u) {
@@ -496,11 +593,14 @@ void sh3673510_bms_afe_sample(void)
         }
         return;
     }
+
     s_snapshot_valid = 1u;
+    if (s_valid_snapshot_streak < SH3510_VALID_SNAPSHOT_RELEASE_COUNT) ++s_valid_snapshot_streak;
+    if (s_valid_snapshot_streak >= SH3510_VALID_SNAPSHOT_RELEASE_COUNT) s_output_inhibit = 0u;
     note_comm_ok();
     apply_heater();
     apply_balance();
-    (void)sh3673510_bms_afe_set_fets(1u, 1u);
+    (void)sh3510_apply_requested_fets();
 }
 
 uint8_t sh3673510_bms_afe_apply_protection_config(void)
@@ -513,22 +613,9 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void)
 uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
                                    uint8_t requested_discharge_on)
 {
-    uint8_t charge_on;
-    uint8_t discharge_on;
-    uint8_t key_on;
-    (void)requested_charge_on;
-    (void)requested_discharge_on;
-    if (!sh3673510_control_ready()) return 0u;
-
-    key_on = gpio_read(D011_SWITCH_PIN) ? 0u : 1u; /* DI1/SW1 active low. */
-    charge_on = s_output_enabled ? 1u : 0u;
-    discharge_on = (s_output_enabled && key_on) ? 1u : 0u;
-    if (charge_blocked()) charge_on = 0u;
-    if (discharge_blocked()) discharge_on = 0u;
-    if (!sh3673510_control_set_fets(charge_on, discharge_on)) {
-        note_comm_error(); return 0u;
-    }
-    return 1u;
+    s_requested_charge_on = requested_charge_on ? 1u : 0u;
+    s_requested_discharge_on = requested_discharge_on ? 1u : 0u;
+    return sh3510_apply_requested_fets();
 }
 
 void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
@@ -541,6 +628,8 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
             (void)sh3673510_control_set_balance(0u);
             (void)sh3673510_control_set_fets(0u, 0u);
         }
+    } else if (s_snapshot_valid) {
+        (void)sh3510_apply_requested_fets();
     }
 }
 
@@ -554,7 +643,10 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 
 void sh3673510_bms_afe_sleep(void)
 {
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
     s_heater_on = 0u;
+    sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
     s_balance_mask = 0u;
     (void)sh3673510_control_set_balance(0u);
