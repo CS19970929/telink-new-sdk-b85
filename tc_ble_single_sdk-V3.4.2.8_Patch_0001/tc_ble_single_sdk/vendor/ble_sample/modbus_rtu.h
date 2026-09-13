@@ -1,28 +1,27 @@
 #pragma once
 #include "tl_common.h"
 #include "conf.h"
+#include "bms_afe_backend.h"
 #include "dvc1124_config_service.h"
 
 /* Includes the proprietary 0x7F echo frame; ordinary Modbus RTU fits in 256. */
 #define MODBUS_RTU_FRAME_CAPACITY 268u
 
 u16 mb_crc16(const u8 *buf, u32 len);
-
-/*
- * Process one Modbus-compatible frame.
- * UART and BLE SPP both use this function, so DVC1124 configuration semantics
- * must not be implemented separately inside either transport.
- */
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 
 /*
- * DVC1124 shared semantic window.
- * The low byte is the transport-neutral dvc1124_config_field_t value.
+ * Legacy DVC1124 diagnostic windows are retained only when that backend is the
+ * active product. HS-D011 must never touch the DVC I2C diagnostic path because
+ * PC0/PC1 are SH3673510 ALARM/RESET nets on this board.
  */
 #define DVC1124_COMM_SCHEMA_VERSION             DVC1124_CONFIG_SCHEMA_VERSION
 #define DVC1124_COMM_REG_BASE                   0x2800u
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 #define DVC1124_COMM_REG_COUNT                  0x0060u
-
+#else
+#define DVC1124_COMM_REG_COUNT                  0x0000u
+#endif
 #define DVC1124_COMM_ADDR(field)                (DVC1124_COMM_REG_BASE + (u16)(field))
 
 #define DVC1124_COMM_SCHEMA                     DVC1124_COMM_ADDR(DVC1124_CFG_SCHEMA)
@@ -34,7 +33,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_SHUNT_UOHM_HI              DVC1124_COMM_ADDR(DVC1124_CFG_SHUNT_UOHM_HI)
 #define DVC1124_COMM_STATUS_CACHED              DVC1124_COMM_ADDR(DVC1124_CFG_STATUS_CACHED)
 #define DVC1124_COMM_CORE_OT_EVENT_LATCHED      DVC1124_COMM_ADDR(DVC1124_CFG_CORE_OT_EVENT_LATCHED)
-
 #define DVC1124_COMM_HS_FET_MASK                DVC1124_COMM_ADDR(DVC1124_CFG_HS_FET_MASK)
 #define DVC1124_COMM_CADC_WORK_ENABLE           DVC1124_COMM_ADDR(DVC1124_CFG_CADC_WORK_ENABLE)
 #define DVC1124_COMM_CURRENT_WAKE_ENABLE        DVC1124_COMM_ADDR(DVC1124_CFG_CURRENT_WAKE_ENABLE)
@@ -47,7 +45,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_VADC_SYNC                  DVC1124_COMM_ADDR(DVC1124_CFG_VADC_SYNC)
 #define DVC1124_COMM_VADC_PERIOD_CYCLES         DVC1124_COMM_ADDR(DVC1124_CFG_VADC_PERIOD_CYCLES)
 #define DVC1124_COMM_VADC_TIME_US               DVC1124_COMM_ADDR(DVC1124_CFG_VADC_TIME_US)
-
 #define DVC1124_COMM_GP1_MODE                   DVC1124_COMM_ADDR(DVC1124_CFG_GP1_MODE)
 #define DVC1124_COMM_GP2_MODE                   DVC1124_COMM_ADDR(DVC1124_CFG_GP2_MODE)
 #define DVC1124_COMM_GP3_MODE                   DVC1124_COMM_ADDR(DVC1124_CFG_GP3_MODE)
@@ -66,7 +63,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_I2C_TIMEOUT_CLOSE_CHG      DVC1124_COMM_ADDR(DVC1124_CFG_I2C_TIMEOUT_CLOSE_CHG)
 #define DVC1124_COMM_I2C_TIMEOUT_CLOSE_DSG      DVC1124_COMM_ADDR(DVC1124_CFG_I2C_TIMEOUT_CLOSE_DSG)
 #define DVC1124_COMM_CORE_OT_X10C               DVC1124_COMM_ADDR(DVC1124_CFG_CORE_OT_X10C)
-
 #define DVC1124_COMM_REQ_COV_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_REQ_COV_MV)
 #define DVC1124_COMM_REQ_COV_DELAY_MS           DVC1124_COMM_ADDR(DVC1124_CFG_REQ_COV_DELAY_MS)
 #define DVC1124_COMM_REQ_CUV_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_REQ_CUV_MV)
@@ -81,7 +77,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_REQ_OCC2_DELAY_MS          DVC1124_COMM_ADDR(DVC1124_CFG_REQ_OCC2_DELAY_MS)
 #define DVC1124_COMM_REQ_SCD_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_REQ_SCD_MV)
 #define DVC1124_COMM_REQ_SCD_DELAY_US           DVC1124_COMM_ADDR(DVC1124_CFG_REQ_SCD_DELAY_US)
-
 #define DVC1124_COMM_EFF_COV_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_EFF_COV_MV)
 #define DVC1124_COMM_EFF_COV_DELAY_MS           DVC1124_COMM_ADDR(DVC1124_CFG_EFF_COV_DELAY_MS)
 #define DVC1124_COMM_EFF_CUV_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_EFF_CUV_MV)
@@ -97,28 +92,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_EFF_SCD_MV                 DVC1124_COMM_ADDR(DVC1124_CFG_EFF_SCD_MV)
 #define DVC1124_COMM_EFF_SCD_DELAY_US           DVC1124_COMM_ADDR(DVC1124_CFG_EFF_SCD_DELAY_US)
 
-/*
- * Raw diagnostic mirror: DVC offset 0x00..0x90 -> 0x2900..0x2990.
- * Read-clear registers 0x01 and 0x76 are intentionally rejected by the raw
- * service. Use 0x2807 cached STATUS and 0x2808 sticky COTF instead.
- */
 #define DVC1124_RAW_REG_BASE                    0x2900u
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 #define DVC1124_RAW_REG_COUNT                   0x0091u
+#else
+#define DVC1124_RAW_REG_COUNT                   0x0000u
+#endif
 
-#define  BMS_SOFTWARE_VERSION_PREFIX    "a009-"
-#define  BMS_SOFTWARE_VERSION_SUFFIX    "-c096v1p0"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT   BMS_SOFTWARE_VERSION_PREFIX BMS_SOFTWARE_BUILD_TIMESTAMP BMS_SOFTWARE_VERSION_SUFFIX
+#define BMS_SOFTWARE_VERSION_PREFIX             "a011-"
+#define BMS_SOFTWARE_VERSION_SUFFIX             "-d011v1p0"
 
-#define PROD_SN_REG_BASE                   0xc002
-#define PROD_SN_REG_COUNT                  16
-
-#define PROD_HW_VER_REG_BASE               (PROD_SN_REG_BASE + 16)
-#define PROD_HW_VER_REG_COUNT              16
-
-#define PROD_SW_VER_REG_BASE               (PROD_HW_VER_REG_BASE + 16)
-#define PROD_SW_VER_REG_COUNT              16
-
-#define PRODUCT_ID_LENGTH_MAX 32
+#define PROD_SN_REG_BASE                        0xc002
+#define PROD_SN_REG_COUNT                       16
+#define PROD_HW_VER_REG_BASE                    (PROD_SN_REG_BASE + 16)
+#define PROD_HW_VER_REG_COUNT                   16
+#define PROD_SW_VER_REG_BASE                    (PROD_HW_VER_REG_BASE + 16)
+#define PROD_SW_VER_REG_COUNT                   16
+#define PRODUCT_ID_LENGTH_MAX                   32
 
 typedef struct {
     u8 BMS_SerialNumber[PRODUCT_ID_LENGTH_MAX];
