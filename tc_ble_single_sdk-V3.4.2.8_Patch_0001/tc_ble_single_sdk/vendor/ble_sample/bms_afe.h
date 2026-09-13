@@ -2,14 +2,27 @@
 #define BMS_AFE_H_
 
 #include <stdint.h>
+#include "bms_afe_backend.h"
 
 /*
  * Compile-time AFE boundary used by the BMS application.
  *
- * A product build contains one AFE adapter, so a runtime ops table would only
- * add indirection and code size.  A new AFE implements this small interface;
- * app.c and the BMS core do not include device-register APIs.
+ * A product build contains one active AFE adapter. Legacy DVC1124 sources are
+ * still compiled for reuse/contract checks, but application calls are rebound
+ * to the SH3673510 adapter on the HS-D011 profile. The DVC implementation
+ * includes dvc1124*.h before this header, so its legacy symbols are not renamed.
  */
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510) && \
+    !defined(DVC1124_H_) && !defined(DVC1124_CONFIG_STORE_H_)
+#define bms_afe_init                       sh3673510_bms_afe_init
+#define bms_afe_sample                     sh3673510_bms_afe_sample
+#define bms_afe_sleep                      sh3673510_bms_afe_sleep
+#define bms_afe_apply_protection_config    sh3673510_bms_afe_apply_protection_config
+#define bms_afe_set_fets                   sh3673510_bms_afe_set_fets
+#define bms_afe_set_output_enabled         sh3673510_bms_afe_set_output_enabled
+#define bms_afe_get_aux_measurements       sh3673510_bms_afe_get_aux_measurements
+#endif
+
 void bms_afe_init(void);
 void bms_afe_sample(void);
 void bms_afe_sleep(void);
