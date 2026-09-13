@@ -10,8 +10,6 @@
 static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
-static sh3673510_protection_actual_t s_protection_actual;
-static sh3673510_protection_actual_t s_protection_actual;
 
 /* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
 static const uint16_t s_ntc_10k_table[] = {

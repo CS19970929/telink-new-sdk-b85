@@ -100,14 +100,6 @@ require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
 require(bms, "s_output_inhibit")
 require(bms, "s_requested_charge_on")
-require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
-require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
-require(bms, "s_output_inhibit")
-require(bms, "s_requested_charge_on")
-require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
-require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
-require(bms, "s_output_inhibit")
-require(bms, "s_requested_charge_on")
 
 require(uart, "D011_RS485_EN_PIN")
 require(uart, "modbus_rs485_receive_mode")
@@ -142,5 +134,33 @@ if "FLAG1_SC_MASK" in bms and "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv" in
 require(bms, "service_short_recovery")
 require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
 require(control, "sh3673510_control_get_protection_actual")
+
+
+# Migration idempotency / compilation-safety guards.
+def require_count(src: str, needle: str, expected: int = 1) -> None:
+    actual = src.count(needle)
+    if actual != expected:
+        raise AssertionError(f"expected {expected} occurrence(s) of {needle!r}, got {actual}")
+
+control_h = text("sh3673510_control.h")
+modbus = text("modbus_rtu.c")
+require_count(control, "static sh3673510_protection_actual_t s_protection_actual;")
+require_count(control_h, "sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);")
+require_count(control_h, "sh3673510_board_force_heater_fuse_safe(void);")
+require_count(bms, "#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u")
+require_count(bms, "#define SH3510_SHORT_RELEASE_SAMPLES    10u")
+for symbol in (
+    "static uint8_t s_requested_charge_on;",
+    "static uint8_t s_requested_discharge_on;",
+    "static uint8_t s_output_inhibit;",
+    "static uint8_t s_valid_snapshot_streak;",
+    "static uint8_t s_short_latched;",
+    "static uint8_t s_short_clear_pending;",
+    "static uint16_t s_short_release_count;",
+):
+    require_count(bms, symbol)
+require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
+require_count(modbus, "#define BMS_AFE_ACTUAL_REG_COUNT 11u")
+require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 
 print("HS-D011 SH3673510 integration contract: PASS")
