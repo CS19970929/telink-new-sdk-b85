@@ -2,13 +2,11 @@
 #define SH3673520_REG_H
 
 /*
- * SH3673520 register and wire-protocol single source of truth.
- *
- * Sources:
- *   - SH36735XX CV1.0A reference manual, register map and SPI chapter.
- *   - SH3673520 + STM32F072CBT6 DemoCode V1.3 (2025-09-29).
- *
- * Do not duplicate register addresses or command bytes in .c files.
+ * SH36735xx family register/wire-protocol single source of truth.
+ * Verified against SH36735XX CV1.0A and SH3673520 STM32 demo V1.3.
+ * HS-D011 uses the SH3673510 member; addresses/protocol below are common to
+ * the documented family, while the configured cell count is limited by the
+ * product profile.
  */
 
 /* SPI protocol */
@@ -20,17 +18,12 @@
 #define SH3673520_SPI_RESPONSE_IDLE          0xFFu
 #define SH3673520_SPI_ACK                    0xA5u
 #define SH3673520_SPI_NACK                   0xFFu
-
 #define SH3673520_CRC8_POLY                  0x07u
 #define SH3673520_CRC8_INIT                  0x00u
-
 #define SH3673520_SPI_MAX_CLOCK_HZ           1000000UL
 
-/* Writable command range documented for command 0x01. */
 #define SH3673520_REG_WRITE_MIN              0x40u
 #define SH3673520_REG_WRITE_MAX              0x59u
-
-/* Documented readable register map. */
 #define SH3673520_REG_READ_MIN               0x40u
 #define SH3673520_REG_READ_MAX               0x99u
 
@@ -65,7 +58,7 @@
 #define SH3673520_REG_BSTATUS1               0x5Bu
 #define SH3673520_REG_BSTATUS2               0x5Cu
 
-/* Measurement registers: all 16-bit quantities are high byte first on the wire. */
+/* Measurement registers: high byte first. */
 #define SH3673520_REG_TEMP1H                 0x5Du
 #define SH3673520_REG_TEMP1L                 0x5Eu
 #define SH3673520_REG_TEMP2H                 0x5Fu
@@ -78,7 +71,6 @@
 #define SH3673520_REG_TEMPIL                 0x66u
 #define SH3673520_REG_CURH                   0x67u
 #define SH3673520_REG_CURL                   0x68u
-
 #define SH3673520_REG_CELL1H                 0x69u
 #define SH3673520_REG_CELL1L                 0x6Au
 #define SH3673520_REG_CELL2H                 0x6Bu
@@ -119,7 +111,6 @@
 #define SH3673520_REG_CELL19L                0x8Eu
 #define SH3673520_REG_CELL20H                0x8Fu
 #define SH3673520_REG_CELL20L                0x90u
-
 #define SH3673520_REG_CADCDH                 0x91u
 #define SH3673520_REG_CADCDL                 0x92u
 #define SH3673520_REG_VTOPH                  0x93u
@@ -130,7 +121,34 @@
 #define SH3673520_REG_OWDM                   0x98u
 #define SH3673520_REG_OWDL                   0x99u
 
+/* SCONF1 mode commands. */
+#define SH3673520_SCONF1_NORMAL              0x00u
+#define SH3673520_SCONF1_IDLE                0x55u
+#define SH3673520_SCONF1_SLEEP               0xAAu
+#define SH3673520_SCONF1_POWERDOWN           0x33u
+
+/* SCONF2 */
+#define SH3673520_SCONF2_LTCLR_MASK          0x80u
+#define SH3673520_SCONF2_PD_EN_MASK          0x40u
+#define SH3673520_SCONF2_PD_CTL_MASK         0x20u
+#define SH3673520_SCONF2_PUMP_EN_MASK        0x10u
+#define SH3673520_SCONF2_PDSG_CTL_MASK       0x08u
+#define SH3673520_SCONF2_PDSGMOS_MASK        0x04u
+#define SH3673520_SCONF2_DSGMOS_MASK         0x02u
+#define SH3673520_SCONF2_CHGMOS_MASK         0x01u
+#define SH3673520_SCONF2_FET_MASK            0x03u
+
+/* SCONF3 */
+#define SH3673520_SCONF3_CGR_WK_MASK         0x40u
+#define SH3673520_SCONF3_LD_WK_MASK          0x30u
+#define SH3673520_SCONF3_CRLD_EN_MASK        0x0Cu
+#define SH3673520_SCONF3_CRLD_CPLUS          0x04u
+#define SH3673520_SCONF3_CRLD_LOAD           0x08u
+#define SH3673520_SCONF3_OWD_EN_MASK         0x02u
+#define SH3673520_SCONF3_OWD_TRG_MASK        0x01u
+
 /* SCONF4 */
+#define SH3673520_SCONF4_PDSGT_MASK          0xE0u
 #define SH3673520_SCONF4_CELL_COUNT_MASK     0x1Fu
 
 /* SCONF5 */
@@ -140,7 +158,30 @@
 #define SH3673520_SCONF5_WDT_EN_MASK         0x04u
 #define SH3673520_SCONF5_WDT_MASK            0x03u
 
-/* FLAG1: write-0-to-clear behavior is documented; preserve this semantic. */
+/* SCONF6 */
+#define SH3673520_SCONF6_TS4_EN_MASK         0x80u
+#define SH3673520_SCONF6_TS3_EN_MASK         0x40u
+#define SH3673520_SCONF6_TS2_EN_MASK         0x20u
+#define SH3673520_SCONF6_TS1_EN_MASK         0x10u
+#define SH3673520_SCONF6_SC_EN_MASK          0x08u
+#define SH3673520_SCONF6_OCD_EN_MASK         0x04u
+#define SH3673520_SCONF6_UV_EN_MASK          0x02u
+#define SH3673520_SCONF6_OV_EN_MASK          0x01u
+#define SH3673520_SCONF6_ALL_PROTECT_MASK    0x0Fu
+
+/* Protection register fields. */
+#define SH3673520_OVUV_DELAY_MASK            0x70u
+#define SH3673520_OVUV_HI_MASK               0x03u
+#define SH3673520_OCD1_DELAY_MASK            0x70u
+#define SH3673520_OCD1_VALUE_MASK            0x0Fu
+#define SH3673520_OCD2_DELAY_MASK            0xF0u
+#define SH3673520_OCD2_VALUE_MASK            0x0Fu
+#define SH3673520_SC_VALUE_MASK              0x30u
+#define SH3673520_SC_DELAY_MASK              0x0Fu
+#define SH3673520_OCC_DELAY_MASK             0xE0u
+#define SH3673520_OCC_VALUE_MASK             0x1Fu
+
+/* FLAG1: W0C when LTCLR=1. */
 #define SH3673520_FLAG1_RST1_MASK            0x80u
 #define SH3673520_FLAG1_WK_MASK              0x40u
 #define SH3673520_FLAG1_OCC_MASK             0x20u
@@ -150,10 +191,7 @@
 #define SH3673520_FLAG1_UV_MASK              0x02u
 #define SH3673520_FLAG1_OV_MASK              0x01u
 
-/*
- * FLAG2 VADC_FLG/CADC_FLG are read-clear. Do not read FLAG2 as part of a
- * generic "status" poll unless clearing these conversion-ready flags is intended.
- */
+/* FLAG2: VADC_FLG/CADC_FLG are read-clear. */
 #define SH3673520_FLAG2_OTD_MASK             0x80u
 #define SH3673520_FLAG2_UTD_MASK             0x40u
 #define SH3673520_FLAG2_OTC_MASK             0x20u
@@ -183,5 +221,6 @@
 #define SH3673520_MAX_CELLS                  20u
 #define SH3673520_MIN_CELLS                  4u
 #define SH3673520_EXTERNAL_TEMP_COUNT        4u
+#define SH3673510_MAX_CELLS                  10u
 
 #endif /* SH3673520_REG_H */
