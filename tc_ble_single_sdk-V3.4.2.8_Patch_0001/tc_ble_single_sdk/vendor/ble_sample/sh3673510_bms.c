@@ -19,6 +19,8 @@
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 #define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
+#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
+#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 
 typedef struct {
     uint16_t trip_count;
@@ -44,6 +46,13 @@ static uint8_t s_comm_failures;
 static uint8_t s_reinit_cooldown;
 static uint8_t s_hw_afe_error;
 static uint16_t s_balance_mask;
+static uint8_t s_requested_charge_on;
+static uint8_t s_requested_discharge_on;
+static uint8_t s_output_inhibit;
+static uint8_t s_valid_snapshot_streak;
+static uint8_t s_short_latched;
+static uint8_t s_short_clear_pending;
+static uint16_t s_short_release_count;
 static uint8_t s_requested_charge_on;
 static uint8_t s_requested_discharge_on;
 static uint8_t s_output_inhibit;
@@ -149,6 +158,8 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
 static void note_comm_error(void)
 {
     sh3673520_comm_stats_t stats;
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
     s_output_inhibit = 1u;
