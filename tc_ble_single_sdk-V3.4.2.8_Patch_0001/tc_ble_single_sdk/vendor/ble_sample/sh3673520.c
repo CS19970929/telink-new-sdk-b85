@@ -1,8 +1,6 @@
 #include "sh3673520.h"
 #include "sh3673520_port.h"
 
-#include <limits.h>
-
 #define SH3673520_TRANSACTION_ATTEMPTS      5u
 #define SH3673520_RETRY_DELAY_MS            1u
 #define SH3673520_RESET_SETTLE_MS           10u
@@ -444,7 +442,8 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
     uint32_t last_reg;
     sh3673520_status_t status;
 
-    if ((buffer == NULL) || (length == 0u)) {
+    if ((buffer == NULL) || (length == 0u) ||
+        (length > (SH3673520_REG_WRITE_MAX - SH3673520_REG_WRITE_MIN + 1u))) {
         return SH3673520_ERR_INVALID_PARAM;
     }
 
@@ -601,9 +600,9 @@ sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
                                                   uint32_t rsense_uohm,
                                                   int32_t *current_ma)
 {
-    int64_t numerator;
-    int64_t denominator;
-    int64_t result;
+    uint32_t magnitude;
+    uint32_t scaled;
+    uint32_t result;
 
     if ((current_ma == NULL) ||
         (rsense_uohm == 0u) ||
@@ -612,15 +611,18 @@ sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
         return SH3673520_ERR_INVALID_PARAM;
     }
 
-    numerator = (int64_t)raw * 100000000LL;
-    denominator = 29127LL * (int64_t)rsense_uohm;
-    result = numerator / denominator;
-
-    if ((result > (int64_t)INT32_MAX) || (result < (int64_t)INT32_MIN)) {
-        return SH3673520_ERR_RANGE;
-    }
-
-    *current_ma = (int32_t)result;
+    /*
+     * Exact truncation of raw * 100000000 / (29127 * rsense_uohm),
+     * without TC32 64-bit runtime helpers. 100000000 = 3433*29127+7009.
+     * magnitude <= 32768: products <= 112492544 and 229670912;
+     * scaled <= 112500429, so every intermediate fits uint32_t.
+     * For positive integers, floor(floor(n/a)/b) == floor(n/(a*b)).
+     * Apply the sign last to preserve C's truncation toward zero.
+     */
+    magnitude = (raw < 0L) ? (uint32_t)(-raw) : (uint32_t)raw;
+    scaled = magnitude * 3433UL + (magnitude * 7009UL) / 29127UL;
+    result = scaled / rsense_uohm;
+    *current_ma = (raw < 0L) ? -(int32_t)result : (int32_t)result;
     return SH3673520_OK;
 }
 

@@ -75,6 +75,9 @@ def source_contract_checks() -> None:
         if actual != expected:
             raise AssertionError(f"{name}: expected 0x{expected:X}, got 0x{actual:X}")
 
+    if re.search(r"\b(?:u?int64_t|long\s+long)\b", driver_text):
+        raise AssertionError("TC32 driver must not require 64-bit runtime helpers")
+
     read_header = bytes((0x02, 0x5B, 0x02))
     write_frame = bytes((0x01, 0x44, 0x38))
     reset_frame = bytes((0x0B, 0xBB, 0xCC))
@@ -414,8 +417,78 @@ static int test_init_and_measurements(void)
     return 0;
 }
 
+
+static int test_current_full_range(void)
+{
+    /* Host-only 64-bit oracle; never part of the TC32 firmware. */
+    const uint32_t shunts[] = {
+        1u, 2u, 3u, 50u, 100u, 200u, 250u, 500u, 1000u,
+        29127u, 100000u, 147456u, 147457u, 112500429u,
+        112500430u, UINT32_MAX
+    };
+    int32_t raw;
+    int32_t actual;
+    unsigned index;
+
+    for (index = 0u; index < sizeof(shunts) / sizeof(shunts[0]); ++index) {
+        for (raw = -32768L; raw <= 32767L; ++raw) {
+            int32_t expected = (int32_t)(((int64_t)raw * 100000000LL) /
+                (29127LL * (int64_t)shunts[index]));
+            CHECK(SH3673520_CurrentRawToMilliAmp(raw, shunts[index], &actual) ==
+                  SH3673520_OK, "full-range current status");
+            CHECK(actual == expected, "full-range current exact truncation");
+        }
+    }
+    actual = 123L;
+    CHECK(SH3673520_CurrentRawToMilliAmp(-32769L, 200u, &actual) ==
+          SH3673520_ERR_INVALID_PARAM, "current below signed16");
+    CHECK(SH3673520_CurrentRawToMilliAmp(32768L, 200u, &actual) ==
+          SH3673520_ERR_INVALID_PARAM, "current above signed16");
+    CHECK(SH3673520_CurrentRawToMilliAmp(0L, 0u, &actual) ==
+          SH3673520_ERR_INVALID_PARAM, "current zero shunt");
+    CHECK(actual == 123L, "invalid current leaves output untouched");
+    CHECK(SH3673520_CurrentRawToMilliAmp(0L, 200u, NULL) ==
+          SH3673520_ERR_INVALID_PARAM, "current null output");
+    return 0;
+}
+
+static int test_write_length_bounds(void)
+{
+    uint8_t values[SH3673520_REG_WRITE_MAX - SH3673520_REG_WRITE_MIN + 1u];
+    size_t index;
+    const size_t invalid_lengths[] = {
+        0u, sizeof(values) + 1u, 255u, (size_t)UINT32_MAX,
+        (size_t)UINT32_MAX - 63u, (size_t)-1
+    };
+
+    mock_clear();
+    memset(values, 0x38, sizeof(values));
+    for (index = 0u; index < sizeof(invalid_lengths) / sizeof(invalid_lengths[0]); ++index) {
+        CHECK(SH3673520_WriteRegs(SH3673520_REG_WRITE_MIN, values,
+              invalid_lengths[index]) == SH3673520_ERR_INVALID_PARAM,
+              "oversized write rejected before SPI or buffer access");
+    }
+    CHECK(SH3673520_WriteRegs(SH3673520_REG_WRITE_MIN, NULL, 1u) ==
+          SH3673520_ERR_INVALID_PARAM, "null write rejected");
+    CHECK(SH3673520_WriteRegs(SH3673520_REG_WRITE_MAX, values, 2u) ==
+          SH3673520_ERR_INVALID_PARAM, "write crossing register end rejected");
+    CHECK(g_transaction == 0u && g_mismatch == 0, "invalid writes have no SPI side effects");
+
+    for (index = 0u; index < sizeof(values); ++index) {
+        script_write((uint8_t)(SH3673520_REG_WRITE_MIN + index), values[index]);
+    }
+    CHECK(SH3673520_WriteRegs(SH3673520_REG_WRITE_MIN, values, sizeof(values)) ==
+          SH3673520_OK, "maximum legal write range");
+    CHECK(g_transaction == g_script_count && g_mismatch == 0,
+          "maximum write frame count");
+    return 0;
+}
+
 int main(void)
 {
+    if (test_current_full_range() != 0 || test_write_length_bounds() != 0) {
+        return 1;
+    }
     if (test_crc_and_conversions() != 0) {
         return 1;
     }
