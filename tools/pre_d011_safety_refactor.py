@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,22 @@ line = "#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5"
 if line in text and "heater-circuit fuse trigger" not in text:
     text = text.replace(line, line + "  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */", 1)
 cfg.write_text(text, encoding="utf-8", newline="\n")
+
+# Remove the D011 compatibility-alias block explicitly. These aliases encode
+# old-board semantics that do not exist on the D011 schematic.
+conf = VENDOR / "conf.h"
+text = conf.read_text(encoding="utf-8")
+start = text.find("/*\n * HS-D011 physical MCU nets.")
+end_marker = "#define MCU_LDO_PIN            D011_CMNT_EN_PIN\n"
+if start >= 0:
+    end = text.find(end_marker, start)
+    if end < 0:
+        raise RuntimeError("legacy D011 alias block end not found")
+    end += len(end_marker)
+    text = text[:start] + """/* D011 board code uses only canonical D011_* schematic nets from
+ * sh3673510_project_config.h. Legacy cross-board GPIO aliases are forbidden. */
+""" + text[end:]
+conf.write_text(text, encoding="utf-8", newline="\n")
 
 app = VENDOR / "app.c"
 text = app.read_text(encoding="utf-8")
@@ -70,4 +87,35 @@ if old in text:
     text = text.replace(old, new, 1)
 app.write_text(text, encoding="utf-8", newline="\n")
 
-print("D011 fuse net, legacy charger alias and wake calls normalized")
+# The inactive legacy DVC backend must not depend on removed board GPIO aliases
+# either. Current latches may recover from measured current; short-circuit stays
+# latched instead of being cleared from an ambiguous GPIO/current-to-zero test.
+dvc = VENDOR / "dvc1124_bms.c"
+text = dvc.read_text(encoding="utf-8")
+old = """    /* Require removal of the source before clearing current/short latches. */
+    if (gpio_read(CHG_IN_PIN))
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
+
+    if (gpio_read(SW_PIN))
+    {
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK |
+                                         DVC1124_ALARM_OCD2_MASK |
+                                         DVC1124_ALARM_SCD_MASK));
+    }
+"""
+new = """    /* Do not inherit board-specific CHG_IN/SW GPIO assumptions here.
+     * Recover current latches only after measured current is below the configured
+     * recovery threshold. Keep SCD latched until that backend gets its own
+     * hardware-verified load-release policy. */
+    if (g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv)
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
+
+    if (g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
+"""
+if old not in text:
+    raise RuntimeError("legacy DVC GPIO recovery block not found")
+text = text.replace(old, new, 1)
+dvc.write_text(text, encoding="utf-8", newline="\n")
+
+print("D011 fuse net, legacy aliases, wake calls and inactive DVC GPIO dependencies normalized")
