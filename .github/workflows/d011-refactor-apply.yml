@@ -1,19 +1,18 @@
-name: Apply D011 Safety Refactor
+name: Finalize D011 Safety Refactor
 
 on:
   push:
     branches:
       - feature/sh3673510-d011-bms
     paths:
-      - tools/pre_d011_safety_refactor.py
-      - tools/apply_d011_safety_refactor.py
+      - tools/finalize_d011_safety_refactor.py
       - .github/workflows/d011-refactor-apply.yml
 
 permissions:
   contents: write
 
 jobs:
-  apply:
+  finalize:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -23,19 +22,16 @@ jobs:
           ref: feature/sh3673510-d011-bms
           fetch-depth: 0
 
-      - name: Normalize D011 fuse net
-        run: python tools/pre_d011_safety_refactor.py
-
-      - name: Apply deterministic refactor
-        run: python tools/apply_d011_safety_refactor.py
+      - name: Remove retry duplicates and strengthen guards
+        run: python tools/finalize_d011_safety_refactor.py
 
       - name: Run D011 contract checks
         run: |
           python tests/sh3673510_d011_integration_check.py
           python tests/sh3673520_contract_check.py
-          python -m py_compile tools/pre_d011_safety_refactor.py tools/apply_d011_safety_refactor.py tests/sh3673510_d011_integration_check.py
+          python -m py_compile tools/finalize_d011_safety_refactor.py tests/sh3673510_d011_integration_check.py
 
-      - name: Commit refactor
+      - name: Commit finalized source
         shell: bash
         run: |
           if git diff --quiet; then
@@ -45,5 +41,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: harden D011 AFE protection and GPIO safety"
+          git commit -m "fix: finalize D011 safety refactor"
           git push origin HEAD:feature/sh3673510-d011-bms
