@@ -35,6 +35,9 @@
 #define BMS_AFE_ACTUAL_REG_BASE  0x2180u
 #define BMS_AFE_ACTUAL_REG_COUNT 11u
 
+#define BMS_AFE_ACTUAL_REG_BASE  0x2180u
+#define BMS_AFE_ACTUAL_REG_COUNT 11u
+
 #define BMS_REALTIME_REG_MAGIC_ADDR        (BMS_REALTIME_REG_BASE + 0u)
 #define BMS_REALTIME_REG_VERSION_ADDR      (BMS_REALTIME_REG_BASE + 1u)
 #define BMS_REALTIME_REG_VOLTAGE_ADDR      (BMS_REALTIME_REG_BASE + 2u)
@@ -51,6 +54,7 @@ static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
 static u16 read_realtime_status_reg(u16 reg);
+static u16 read_afe_actual_reg(u16 reg);
 static u16 read_afe_actual_reg(u16 reg);
 static u16 read_afe_actual_reg(u16 reg);
 static u16 encode_signed_current_reg(void);
@@ -335,6 +339,10 @@ static u8 write_reg(u16 reg, u16 val)
         set_soc_param(get_soc_real(), 1, 1);
         return 0u;
     }
+
+    if (reg >= BMS_AFE_ACTUAL_REG_BASE &&
+        reg < (BMS_AFE_ACTUAL_REG_BASE + BMS_AFE_ACTUAL_REG_COUNT))
+        return MB_EX_ILLEGAL_ADDRESS;
 
     if (reg >= BMS_AFE_ACTUAL_REG_BASE &&
         reg < (BMS_AFE_ACTUAL_REG_BASE + BMS_AFE_ACTUAL_REG_COUNT))
