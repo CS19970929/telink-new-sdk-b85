@@ -13,9 +13,12 @@ if "D011_HEATER_FUSE_SAFE_LEVEL" not in text:
     if needle not in text:
         raise RuntimeError("D011 heater GPIO anchor not found")
     text = text.replace(needle, needle + "#define D011_HEATER_FUSE_SAFE_LEVEL               0u\n", 1)
-line = "#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5"
-if line in text and "heater-circuit fuse trigger" not in text:
-    text = text.replace(line, line + "  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */", 1)
+text = re.sub(
+    r"(?m)^#define\s+D011_HEATER_FUSE_TRIGGER_PIN\s+GPIO_PB5.*$",
+    "#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */",
+    text,
+    count=1,
+)
 cfg.write_text(text, encoding="utf-8", newline="\n")
 
 # Remove the D011 compatibility-alias block explicitly. These aliases encode
