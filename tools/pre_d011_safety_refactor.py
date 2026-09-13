@@ -17,13 +17,57 @@ if line in text and "heater-circuit fuse trigger" not in text:
     text = text.replace(line, line + "  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */", 1)
 cfg.write_text(text, encoding="utf-8", newline="\n")
 
-# D011 has no validated dedicated legacy CHG_IN net.  The old alias was PA0,
-# which is the physical active-low switch.  Normalize any residual app-level
-# reference to its real schematic net before the main refactor removes the
-# obsolete charger abstraction and rebuilds the wake/output policy.
 app = VENDOR / "app.c"
 text = app.read_text(encoding="utf-8")
+# The old CHG_IN alias is physically PA0/DI1, not a charger-detect net.
 text = text.replace("CHG_IN_PIN", "D011_SWITCH_PIN")
+
+# Remove the last behavioral dependency on the old charger/key abstractions.
+# For sleep eligibility use only schematic-backed facts: the front switch must
+# be off and the active-high PB1 external wake input must not be asserted.
+old = """#ifdef _DI_SWITCH_SYS_ONOFF
+		if (!IsChargerWakeupActive())
+		{
+			if (!IsKeyWakeupActive())
+			{
+				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
+				if (sleep_cnt >= 3u)
+				{
+					sleep_cnt = 0;
+					cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
+					app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				}
+			}
+			else
+			{
+				sleep_cnt = 0;
+			}
+		}
+		else
+		{
+			sleep_cnt = 0;
+		}
+#endif
+"""
+new = """#ifdef _DI_SWITCH_SYS_ONOFF
+		if (!d011_switch_is_on() && !gpio_read(D011_INT_WK_MCU_PIN))
+		{
+			sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
+			if (sleep_cnt >= 3u)
+			{
+				sleep_cnt = 0;
+				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
+				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+			}
+		}
+		else
+		{
+			sleep_cnt = 0;
+		}
+#endif
+"""
+if old in text:
+    text = text.replace(old, new, 1)
 app.write_text(text, encoding="utf-8", newline="\n")
 
-print("D011 fuse net and legacy charger alias normalized")
+print("D011 fuse net, legacy charger alias and wake calls normalized")
