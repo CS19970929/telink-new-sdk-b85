@@ -92,7 +92,8 @@ def patch_conf_and_safe_aliases() -> None:
  * CHG_IN_PIN, RF_EN_PIN, MCU_LDO_PIN or AFE1_PRO_EN_PIN: their old semantics do
  * not exist on D011 and previously caused unsafe cross-board behavior. */
 """
-    text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")
+    if any(token in text for token in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN")):
+        text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")
     write(conf, text)
 
 

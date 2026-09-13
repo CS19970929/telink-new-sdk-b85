@@ -35,12 +35,12 @@ static void sif_send_public_packet(void);
 
 static inline void sif_turn_off(void)
 {
-    gpio_write(OWC_TX_PIN, 0);
+    gpio_write(D011_SCI1_TX_PIN, 0);
 }
 
 static inline void sif_turn_on(void)
 {
-    gpio_write(OWC_TX_PIN, 1);
+    gpio_write(D011_SCI1_TX_PIN, 1);
 }
 
 #define __TODO__ 0Xaa
@@ -197,7 +197,7 @@ void sif_send_data_handle(void)
 
         sif_turn_on();
 
-        if (!gpio_read(OWC_RX_PIN))
+        if (!gpio_read(D011_SCI1_RX_PIN))
         {
             bus_mux_return_to_owc_idle();
             cnt = 0;

@@ -119,16 +119,15 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
         clear_mask |= DVC1124_ALARM_CUV_MASK;
     }
 
-    /* Require removal of the source before clearing current/short latches. */
-    if (gpio_read(CHG_IN_PIN))
+    /* Do not inherit board-specific charger/switch GPIO assumptions here.
+     * Recover current latches only after measured current is below the configured
+     * recovery threshold. Keep SCD latched until that backend gets its own
+     * hardware-verified load-release policy. */
+    if (g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv)
         clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
 
-    if (gpio_read(SW_PIN))
-    {
-        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK |
-                                         DVC1124_ALARM_OCD2_MASK |
-                                         DVC1124_ALARM_SCD_MASK));
-    }
+    if (g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
+        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
 
     if (clear_mask == 0u) return alarm;
 

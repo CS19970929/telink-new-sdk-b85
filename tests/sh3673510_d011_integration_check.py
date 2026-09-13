@@ -46,7 +46,7 @@ for pin in (
     "D011_SWITCH_PIN                         GPIO_PA0",
     "D011_INT_WK_MCU_PIN                     GPIO_PB1",
     "D011_HEATER_CHG_PIN                     GPIO_PB4",
-    "D011_HEATER_RF_EN_PIN                   GPIO_PB5",
+    "D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5",
 ):
     require(cfg, pin)
 
@@ -96,8 +96,12 @@ require(bms, "D011_SWITCH_PIN")
 require(bms, "sh3673510_board_wake_active")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "sh3673510_board_set_heater")
+require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
+require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
+require(bms, "s_output_inhibit")
+require(bms, "s_requested_charge_on")
 
-require(uart, "RS485_EN_PIN")
+require(uart, "D011_RS485_EN_PIN")
 require(uart, "modbus_rs485_receive_mode")
 require(uart, "modbus_rs485_transmit_mode")
 require(uart, "uart_tx_is_busy()")
@@ -105,5 +109,30 @@ require(uart, "DMA completion can precede the UART stop bit")
 
 require(modbus_h, "#define DVC1124_COMM_REG_COUNT                  0x0000u")
 require(modbus_h, "#define DVC1124_RAW_REG_COUNT                   0x0000u")
+
+
+
+# D011 safety invariants: old board aliases and accidental irreversible-fuse
+# actuation must not re-enter production code.
+production = "\n".join(text(name) for name in (
+    "conf.h", "app.c", "modbus_uart.c", "sh3673510_control.c",
+    "sh3673510_bms.c", "sh3673510_project_config.h",
+))
+for forbidden in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN",
+                  "D011_HEATER_RF_EN_PIN"):
+    if re.search(rf"\b{re.escape(forbidden)}\b", production):
+        raise AssertionError(f"obsolete/unsafe D011 alias remains: {forbidden}")
+
+require(control, "sh3673510_board_force_heater_fuse_safe")
+require(control, "D011_HEATER_FUSE_SAFE_LEVEL")
+if re.search(r"gpio_write\s*\(\s*D011_HEATER_FUSE_TRIGGER_PIN\s*,\s*1", production):
+    raise AssertionError("PB5 heater-fuse trigger must never be driven high before fuse logic is validated")
+if "(void)requested_charge_on" in bms or "(void)requested_discharge_on" in bms:
+    raise AssertionError("AFE FET API must honor caller requests")
+if "FLAG1_SC_MASK" in bms and "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv" in bms:
+    raise AssertionError("short-circuit recovery must not use current-to-zero as load-release proof")
+require(bms, "service_short_recovery")
+require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
+require(control, "sh3673510_control_get_protection_actual")
 
 print("HS-D011 SH3673510 integration contract: PASS")

@@ -11,6 +11,7 @@
 #include "app.h"
 #include "conf.h"
 #include "runtime.h"
+#include "sh3673510_control.h"
 #include "dvc1124_config_service.h"
 
 #include "stack/ble/ble.h"
@@ -28,6 +29,9 @@
 #define BMS_REALTIME_REG_MAGIC 0x4253u
 #define BMS_REALTIME_REG_VERSION 0x0001u
 
+#define BMS_AFE_ACTUAL_REG_BASE  0x2180u
+#define BMS_AFE_ACTUAL_REG_COUNT 11u
+
 #define BMS_REALTIME_REG_MAGIC_ADDR        (BMS_REALTIME_REG_BASE + 0u)
 #define BMS_REALTIME_REG_VERSION_ADDR      (BMS_REALTIME_REG_BASE + 1u)
 #define BMS_REALTIME_REG_VOLTAGE_ADDR      (BMS_REALTIME_REG_BASE + 2u)
@@ -44,6 +48,7 @@ static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
 static u16 read_realtime_status_reg(u16 reg);
+static u16 read_afe_actual_reg(u16 reg);
 static u16 encode_signed_current_reg(void);
 static u16 read_reg(u16 reg);
 static u8 write_reg(u16 reg, u16 val);
@@ -254,6 +259,10 @@ static u16 read_reg(u16 reg)
         reg < (BMS_REALTIME_REG_BASE + BMS_REALTIME_REG_COUNT))
         return read_realtime_status_reg(reg);
 
+    if (reg >= BMS_AFE_ACTUAL_REG_BASE &&
+        reg < (BMS_AFE_ACTUAL_REG_BASE + BMS_AFE_ACTUAL_REG_COUNT))
+        return read_afe_actual_reg(reg);
+
     return 0u;
 }
 
@@ -322,6 +331,10 @@ static u8 write_reg(u16 reg, u16 val)
         set_soc_param(get_soc_real(), 1, 1);
         return 0u;
     }
+
+    if (reg >= BMS_AFE_ACTUAL_REG_BASE &&
+        reg < (BMS_AFE_ACTUAL_REG_BASE + BMS_AFE_ACTUAL_REG_COUNT))
+        return MB_EX_ILLEGAL_ADDRESS;
 
     if (reg == BMS_EVENT_LOG_RESET_REG)
     {
@@ -602,6 +615,29 @@ static u16 read_realtime_status_reg(u16 reg)
     case BMS_REALTIME_REG_VCELL_MIN_ADDR:   return g_stCellInfoReport.u16VCellMin;
     case BMS_REALTIME_REG_VCELL_DELTA_ADDR: return g_stCellInfoReport.u16VCellDelta;
     default: return 0u;
+    }
+}
+
+static u16 read_afe_actual_reg(u16 reg)
+{
+    sh3673510_protection_actual_t a;
+    uint16_t offset = (uint16_t)(reg - BMS_AFE_ACTUAL_REG_BASE);
+    uint8_t valid = sh3673510_control_get_protection_actual(&a);
+
+    if (offset == 0u) return valid ? 1u : 0u;
+    if (!valid) return 0xFFFFu;
+    switch (offset) {
+    case 1u:  return a.ov_mv;
+    case 2u:  return a.uv_mv;
+    case 3u:  return a.ocd1_a10;
+    case 4u:  return a.ocd2_a10;
+    case 5u:  return a.occ_a10;
+    case 6u:  return a.ov_delay_ms;
+    case 7u:  return a.uv_delay_ms;
+    case 8u:  return a.ocd1_delay_ms;
+    case 9u:  return a.ocd2_delay_ms;
+    case 10u: return a.occ_delay_ms;
+    default:  return 0xFFFFu;
     }
 }
 

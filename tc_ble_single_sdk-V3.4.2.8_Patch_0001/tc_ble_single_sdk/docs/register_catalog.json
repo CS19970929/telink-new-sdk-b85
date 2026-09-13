@@ -538,9 +538,9 @@
       "id": "protect_preview",
       "category": "diagnostics",
       "start_address": "0x2100",
-      "word_count": 15,
-      "access": "read",
-      "description_zh": "保护参数预览窗口，当前客户端仅按原始 word 列表展示。"
+      "word_count": 65,
+      "access": "read_write",
+      "description_zh": "完整保护参数窗口：13组×5项（一级、二级、三级、恢复、滤波）。写入后固件先校验并重新量化/下发AFE，失败则回滚。"
     },
     {
       "id": "soc_write_register",
@@ -565,6 +565,14 @@
       "word_count": 1,
       "access": "write_single",
       "description_zh": "调试写寄存器，当前客户端快捷动作默认写 0x0003。"
+    },
+    {
+      "id": "afe_protection_actual",
+      "category": "diagnostics",
+      "start_address": "0x2180",
+      "word_count": 11,
+      "access": "read",
+      "description_zh": "SH3673510 实际量化后的硬件保护值。0=valid，1/2=OV/UV(mV)，3/4/5=OCD1/OCD2/OCC(0.1A)，6~10=对应延时(ms)。不可写。"
     }
   ]
 }

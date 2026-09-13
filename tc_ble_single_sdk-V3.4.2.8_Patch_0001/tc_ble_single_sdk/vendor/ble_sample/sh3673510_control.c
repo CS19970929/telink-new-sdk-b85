@@ -9,6 +9,7 @@
 
 static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
+static sh3673510_protection_actual_t s_protection_actual;
 
 /* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
 static const uint16_t s_ntc_10k_table[] = {
@@ -61,32 +62,23 @@ static uint8_t sh3510_write_verify(uint8_t reg, uint8_t value, uint8_t mask)
     return ((verify & mask) == (value & mask)) ? 1u : 0u;
 }
 
-static uint8_t sh3510_delay_code(const uint16_t *table, uint8_t count,
-                                 uint32_t requested_ms)
+static const uint16_t s_ov_delay_ms[8] = {
+    140u, 280u, 490u, 980u, 2030u, 3010u, 4970u, 10010u
+};
+static const uint16_t s_uv_delay_ms[8] = {
+    490u, 770u, 980u, 1470u, 2030u, 3010u, 4970u, 10010u
+};
+
+static uint8_t sh3510_pick_ceiling_code(const uint16_t *table, uint8_t count,
+                                         uint32_t requested)
 {
     uint8_t i;
-    uint8_t selected = 0u;
-
     if ((table == 0) || (count == 0u)) return 0u;
-    if (requested_ms <= table[0]) return 0u;
     for (i = 0u; i < count; ++i)
     {
-        if ((uint32_t)table[i] <= requested_ms) selected = i;
-        else break;
+        if (requested <= (uint32_t)table[i]) return i;
     }
-    return selected;
-}
-
-static uint8_t sh3510_ov_delay_code(uint32_t requested_ms)
-{
-    static const uint16_t table[8] = {140u, 280u, 490u, 980u, 2030u, 3010u, 4970u, 10010u};
-    return sh3510_delay_code(table, 8u, requested_ms);
-}
-
-static uint8_t sh3510_uv_delay_code(uint32_t requested_ms)
-{
-    static const uint16_t table[8] = {490u, 770u, 980u, 1470u, 2030u, 3010u, 4970u, 10010u};
-    return sh3510_delay_code(table, 8u, requested_ms);
+    return (uint8_t)(count - 1u);
 }
 
 static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
@@ -125,7 +117,6 @@ static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
     if (code == 0) return 0u;
     r100 = sh3510_temp_to_res100(temp_x10);
     denominator = (uint32_t)r100 + 100u;
-    /* code = (0.7 - RT/(10+RT))*512, RT represented in 100ohm units. */
     numerator = 700L - (3L * (int32_t)r100);
     if (numerator < 0L) return 0u;
     result = (numerator * 512L + (int32_t)(denominator * 5u)) /
@@ -146,7 +137,6 @@ static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
     r100 = sh3510_temp_to_res100(temp_x10);
     if (r100 < 100u) return 0u;
     denominator = (uint32_t)r100 + 100u;
-    /* code = (RT/(10+RT)-0.5)*512. */
     numerator = (int32_t)r100 - 100L;
     result = (numerator * 256L + (int32_t)(denominator / 2u)) /
              (int32_t)denominator;
@@ -157,20 +147,44 @@ static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
 
 static uint32_t sh3510_current_a10_to_sense_uv(uint16_t current_a10)
 {
-    /* A*10 -> mA = *100; uV = mA*uOhm/1000. */
     return ((uint32_t)current_a10 * SH3673510_D011_SHUNT_UOHM + 5u) / 10u;
 }
 
-static uint8_t sh3510_step_code_not_later(uint32_t requested_uv,
-                                          uint32_t step_uv,
-                                          uint8_t max_code)
+static uint16_t sh3510_sense_uv_to_current_a10(uint32_t sense_uv)
+{
+    uint32_t value = (sense_uv * 10u + SH3673510_D011_SHUNT_UOHM - 1u) /
+                     SH3673510_D011_SHUNT_UOHM;
+    return (uint16_t)((value > 65535u) ? 65535u : value);
+}
+
+static uint8_t sh3510_step_code_ceiling(uint32_t requested_uv,
+                                         uint32_t step_uv,
+                                         uint8_t max_code)
 {
     uint32_t steps;
     if (step_uv == 0u) return 0u;
-    steps = requested_uv / step_uv;
+    steps = (requested_uv + step_uv - 1u) / step_uv;
     if (steps == 0u) steps = 1u;
     if (steps > (uint32_t)max_code + 1u) steps = (uint32_t)max_code + 1u;
     return (uint8_t)(steps - 1u);
+}
+
+static uint8_t sh3510_validate_protection(void)
+{
+    const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
+    if ((p->u16VcellOvp_Third == 0u) || (p->u16VcellOvp_Third > 5115u)) return 0u;
+    if ((p->u16VcellUvp_Third == 0u) || (p->u16VcellUvp_Third > 5115u)) return 0u;
+    if (p->u16VcellOvp_Rcv >= p->u16VcellOvp_Third) return 0u;
+    if (p->u16VcellUvp_Rcv <= p->u16VcellUvp_Third) return 0u;
+    if (p->u16IchgOcp_Rcv >= p->u16IchgOcp_Third) return 0u;
+    if (p->u16IdsgOcp_Rcv >= p->u16IdsgOcp_Third) return 0u;
+    if (p->u16TChgOTp_Rcv >= p->u16TChgOTp_Third) return 0u;
+    if (p->u16TdischgOTp_Rcv >= p->u16TdischgOTp_Third) return 0u;
+    if (p->u16TchgUTp_Rcv <= p->u16TchgUTp_Third) return 0u;
+    if (p->u16TdischgUTp_Rcv <= p->u16TdischgUTp_Third) return 0u;
+    if ((p->u16TChgOTp_Third > 1450u) || (p->u16TdischgOTp_Third > 1450u) ||
+        (p->u16TchgUTp_Third > 1450u) || (p->u16TdischgUTp_Third > 1450u)) return 0u;
+    return 1u;
 }
 
 uint8_t sh3673510_control_apply_protection(void)
@@ -182,40 +196,47 @@ uint8_t sh3673510_control_apply_protection(void)
     uint16_t ov_code;
     uint16_t uv_code;
     uint32_t sense_uv;
+    uint32_t actual_uv;
+    uint8_t ov_dly;
+    uint8_t uv_dly;
     uint8_t regv;
     uint8_t high;
     uint8_t low;
     uint8_t code;
     uint8_t ok = 1u;
 
-    if (!s_control_ready) return 0u;
+    s_protection_actual.valid = 0u;
+    if (!s_control_ready || !sh3510_validate_protection()) return 0u;
 
-    ov_code = (uint16_t)(g_tParam.protect.u16VcellOvp_Third / 5u);
-    uv_code = (uint16_t)(g_tParam.protect.u16VcellUvp_Third / 5u);
+    ov_code = (uint16_t)(((uint32_t)g_tParam.protect.u16VcellOvp_Third + 2u) / 5u);
+    uv_code = (uint16_t)(((uint32_t)g_tParam.protect.u16VcellUvp_Third + 2u) / 5u);
     if (ov_code > 0x03FFu) ov_code = 0x03FFu;
     if (uv_code > 0x03FFu) uv_code = 0x03FFu;
+    ov_dly = sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ov_delay_ms);
+    uv_dly = sh3510_pick_ceiling_code(s_uv_delay_ms, 8u, uv_delay_ms);
 
-    high = (uint8_t)((sh3510_ov_delay_code(ov_delay_ms) << 4) |
-                     ((ov_code >> 8) & 0x03u));
+    high = (uint8_t)((ov_dly << 4) | ((ov_code >> 8) & 0x03u));
     low = (uint8_t)(ov_code & 0xFFu);
     ok &= sh3510_write_verify(SH3673520_REG_OVT_OVH, high, 0x73u);
     ok &= sh3510_write_verify(SH3673520_REG_OVL, low, 0xFFu);
 
-    high = (uint8_t)((sh3510_uv_delay_code(uv_delay_ms) << 4) |
-                     ((uv_code >> 8) & 0x03u));
+    high = (uint8_t)((uv_dly << 4) | ((uv_code >> 8) & 0x03u));
     low = (uint8_t)(uv_code & 0xFFu);
     ok &= sh3510_write_verify(SH3673520_REG_UVT_UVH, high, 0x73u);
     ok &= sh3510_write_verify(SH3673520_REG_UVL, low, 0xFFu);
 
     sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IdsgOcp_First);
-    code = sh3510_step_code_not_later(sense_uv, 5000u, 15u);
-    regv = (uint8_t)((sh3510_ov_delay_code(ocd_delay_ms) << 4) | code);
+    code = sh3510_step_code_ceiling(sense_uv, 5000u, 15u);
+    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd_delay_ms) << 4) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCD1V_OCD1T, regv, 0x7Fu);
+    actual_uv = ((uint32_t)code + 1u) * 5000u;
+    s_protection_actual.ocd1_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd1_delay_ms = s_ov_delay_ms[(regv >> 4) & 0x07u];
 
     sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IdsgOcp_Second);
-    code = sh3510_step_code_not_later(sense_uv, 10000u, 15u);
+    code = sh3510_step_code_ceiling(sense_uv, 10000u, 15u);
     {
-        uint32_t steps = ocd_delay_ms / 25u;
+        uint32_t steps = (ocd_delay_ms + 24u) / 25u;
         uint8_t dly;
         if (steps == 0u) steps = 1u;
         if (steps > 16u) steps = 16u;
@@ -223,15 +244,21 @@ uint8_t sh3673510_control_apply_protection(void)
         regv = (uint8_t)((dly << 4) | code);
     }
     ok &= sh3510_write_verify(SH3673520_REG_OCD2V_OCD2T, regv, 0xFFu);
+    actual_uv = ((uint32_t)code + 1u) * 10000u;
+    s_protection_actual.ocd2_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd2_delay_ms = (uint16_t)((((regv >> 4) & 0x0Fu) + 1u) * 25u);
 
     regv = (uint8_t)((SH3673510_D011_SC_MULTIPLIER_CODE << 4) |
                      SH3673510_D011_SC_DELAY_CODE);
     ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
 
     sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IchgOcp_First);
-    code = sh3510_step_code_not_later(sense_uv, 1375u, 31u);
-    regv = (uint8_t)((sh3510_ov_delay_code(occ_delay_ms) << 5) | code);
+    code = sh3510_step_code_ceiling(sense_uv, 1375u, 31u);
+    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, occ_delay_ms) << 5) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCCV_OCCT, regv, 0xFFu);
+    actual_uv = ((uint32_t)code + 1u) * 1375u;
+    s_protection_actual.occ_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.occ_delay_ms = s_ov_delay_ms[(regv >> 5) & 0x07u];
 
     if (!sh3510_high_temp_code(g_tParam.protect.u16TChgOTp_Third, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
@@ -242,14 +269,24 @@ uint8_t sh3673510_control_apply_protection(void)
     if (!sh3510_low_temp_code(g_tParam.protect.u16TdischgUTp_Third, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
 
-    /* Enable hardware OV/UV/OCD/SC and battery TS1/TS2 protections only.
-     * TS3 is NC; TS4 is MOS temperature with a higher software threshold. */
     ok &= sh3510_update_reg(SH3673520_REG_SCONF6, 0xFFu,
                             (uint8_t)(SH3673520_SCONF6_TS2_EN_MASK |
                                       SH3673520_SCONF6_TS1_EN_MASK |
                                       SH3673520_SCONF6_ALL_PROTECT_MASK));
 
+    s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);
+    s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);
+    s_protection_actual.ov_delay_ms = s_ov_delay_ms[ov_dly];
+    s_protection_actual.uv_delay_ms = s_uv_delay_ms[uv_dly];
+    s_protection_actual.valid = ok ? 1u : 0u;
     return ok ? 1u : 0u;
+}
+
+uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)
+{
+    if (actual == 0) return 0u;
+    *actual = s_protection_actual;
+    return s_protection_actual.valid;
 }
 
 static uint8_t sh3510_configure_runtime(void)
@@ -300,8 +337,7 @@ uint8_t sh3673510_control_init(void)
     sh3510_gpio_input(D011_INT_WK_MCU_PIN);
 
     sh3510_gpio_output_low(D011_HEATER_CHG_PIN);
-    sh3510_gpio_output_low(D011_HEATER_RF_EN_PIN);
-    sh3510_gpio_output_low(D011_CMNT_EN_PIN);
+    sh3673510_board_force_heater_fuse_safe();
 
     /* Active-high board wake and active-low AFE alarm/reset pulses. */
     cpu_set_gpio_wakeup(D011_INT_WK_MCU_PIN, Level_High, 1);
@@ -409,11 +445,19 @@ uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
     return 1u;
 }
 
+void sh3673510_board_force_heater_fuse_safe(void)
+{
+    gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
+    gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
+    gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
+    gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
+}
+
 void sh3673510_board_set_heater(uint8_t enabled)
 {
-    uint8_t on = enabled ? 1u : 0u;
-    gpio_write(D011_HEATER_CHG_PIN, on);
-    gpio_write(D011_HEATER_RF_EN_PIN, on);
+    /* PB4 is the reversible heater command. PB5 is NOT a heater enable. */
+    sh3673510_board_force_heater_fuse_safe();
+    gpio_write(D011_HEATER_CHG_PIN, enabled ? 1u : 0u);
 }
 
 uint8_t sh3673510_board_wake_active(void)
@@ -424,18 +468,16 @@ uint8_t sh3673510_board_wake_active(void)
 void sh3673510_control_sleep(void)
 {
     if (!s_control_ready) return;
-
-    /* Never put the AFE to sleep if the external active-high wake is already asserted. */
     if (sh3673510_board_wake_active()) return;
 
-    (void)sh3673510_control_set_balance(0u);
+    if (!sh3673510_control_set_balance(0u)) return;
     sh3673510_board_set_heater(0u);
-    (void)sh3673510_control_set_fets(0u, 0u);
+    sh3673510_board_force_heater_fuse_safe();
+    if (!sh3673510_control_set_fets(0u, 0u)) return;
 
-    /* Charger wake remains enabled while SLEEP disables CADC/WDT/protections/FETs. */
-    (void)sh3510_update_reg(SH3673520_REG_SCONF3,
+    if (!sh3510_update_reg(SH3673520_REG_SCONF3,
                             SH3673520_SCONF3_CGR_WK_MASK,
-                            SH3673520_SCONF3_CGR_WK_MASK);
+                            SH3673520_SCONF3_CGR_WK_MASK)) return;
     if (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_SLEEP) == SH3673520_OK)
         s_afe_sleeping = 1u;
 }
@@ -447,8 +489,11 @@ uint8_t sh3673510_control_wake(void)
     if (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_NORMAL) != SH3673520_OK)
         return 0u;
     sh3673520_port_delay_ms(10u);
+    if (!sh3510_configure_runtime()) return 0u;
+    if (!sh3673510_control_apply_protection()) return 0u;
+    if (!sh3673510_control_set_fets(0u, 0u)) return 0u;
     s_afe_sleeping = 0u;
-    return sh3510_configure_runtime() && sh3673510_control_apply_protection();
+    return 1u;
 }
 
 uint8_t sh3673510_control_ready(void)

@@ -35,7 +35,8 @@
 #define D011_SWS_PIN                            GPIO_PA7
 #define D011_INT_WK_MCU_PIN                     GPIO_PB1
 #define D011_HEATER_CHG_PIN                     GPIO_PB4
-#define D011_HEATER_RF_EN_PIN                   GPIO_PB5
+#define D011_HEATER_FUSE_SAFE_LEVEL               0u
+#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */
 #define D011_AFE_MISO_PIN                       GPIO_PB6
 #define D011_AFE_MOSI_PIN                       GPIO_PB7
 #define D011_AFE_ALARM_PIN                      GPIO_PC0
