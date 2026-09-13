@@ -10,6 +10,7 @@
 static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
+static sh3673510_protection_actual_t s_protection_actual;
 
 /* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
 static const uint16_t s_ntc_10k_table[] = {
@@ -443,6 +444,14 @@ uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
     if (SH3673520_WriteRegs(SH3673520_REG_BALANCEH, values, 3u) != SH3673520_OK)
         return 0u;
     return 1u;
+}
+
+void sh3673510_board_force_heater_fuse_safe(void)
+{
+    gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
+    gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
+    gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
+    gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
 }
 
 void sh3673510_board_force_heater_fuse_safe(void)
