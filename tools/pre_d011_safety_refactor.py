@@ -120,15 +120,12 @@ if old in text:
     text = text.replace(old, new, 1)
 dvc.write_text(text, encoding="utf-8", newline="\n")
 
-# The main one-shot script originally expected to own alias-block deletion.
-# Because this pre-pass now removes that block first, make the main step
-# idempotent instead of weakening its final zero-legacy-token verification.
+# This pre-pass already owns alias-block deletion. Make the main one-shot step
+# skip the same deletion while retaining its final strict zero-legacy check.
 main_tool = ROOT / "tools" / "apply_d011_safety_refactor.py"
 text = main_tool.read_text(encoding="utf-8")
 old = '    text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")\n    write(conf, text)'
-new = '''    if any(token in text for token in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN")):
-        text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")
-    write(conf, text)'''
+new = '    # Alias block already removed by pre_d011_safety_refactor.py.\n    write(conf, text)'
 if old in text:
     text = text.replace(old, new, 1)
 main_tool.write_text(text, encoding="utf-8", newline="\n")
