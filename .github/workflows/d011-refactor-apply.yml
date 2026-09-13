@@ -5,6 +5,7 @@ on:
     branches:
       - feature/sh3673510-d011-bms
     paths:
+      - tools/pre_d011_safety_refactor.py
       - tools/apply_d011_safety_refactor.py
       - .github/workflows/d011-refactor-apply.yml
 
@@ -22,6 +23,9 @@ jobs:
           ref: feature/sh3673510-d011-bms
           fetch-depth: 0
 
+      - name: Normalize D011 fuse net
+        run: python tools/pre_d011_safety_refactor.py
+
       - name: Apply deterministic refactor
         run: python tools/apply_d011_safety_refactor.py
 
@@ -29,7 +33,7 @@ jobs:
         run: |
           python tests/sh3673510_d011_integration_check.py
           python tests/sh3673520_contract_check.py
-          python -m py_compile tools/apply_d011_safety_refactor.py tests/sh3673510_d011_integration_check.py
+          python -m py_compile tools/pre_d011_safety_refactor.py tools/apply_d011_safety_refactor.py tests/sh3673510_d011_integration_check.py
 
       - name: Commit refactor
         shell: bash
