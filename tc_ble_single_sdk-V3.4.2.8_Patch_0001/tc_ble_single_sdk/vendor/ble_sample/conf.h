@@ -1,278 +1,141 @@
 #ifndef CONF_H_
 #define CONF_H_
 
-// #include "types.h"
-// #include "tl_common.h"
-// #include "drivers.h"
 #include "../../common/types.h"
 #include "stdint.h"
 #include "flash_store_cfg.h"
-#include "dvc1124_project_config.h"
+#include "bms_afe_backend.h"
+#include "sh3673510_project_config.h"
 
-// #define __VIRTURE_CURRENT__
-// #define FAC_TEST
-// #define DISP_VBAT_AND_TEMP_
+/* Production feature selection. */
 #define _UL_RENZHENG_ENABLE_
-// #define __TEST_SOC__
-
 #define _FUNC_SIF_
 #define _FUNC_UART_
-
-#ifndef  FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF	
-#endif // ! FAC_TEST
-
-#define __SLEEP_VNORMAL__             	(3000)
-#define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)	
-#define __SLEEP_VLOW__     		          (2800)
-#define	__SLEEP_TIMEVLOW__		          (60 * 60 * 1)
-
-#define C21         0
-#define C31         1
-#define D11         2
-#define D31         3
-#define C700         4
-#define M1PRO         5
-#define M23         6
-#define M32         7
-#define T3MAX         8
-#define T3         9
-#define M25         10
-#define T1_AND_T2         11
-#define D3PRO         12
-#define C11_AND_C11pro         13
-#define test_default         14
-
-#define FD_BMS_TYPE   D3PRO
-
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
-
-#if (FD_BMS_TYPE == C21)
-#define SeriesNum  (10)
-#define CapacityFactory (58)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C21"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == C31)
-#define SeriesNum  (10)
-#define CapacityFactory (58)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C31"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == D11)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D11"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D004-20260615"
-#elif (FD_BMS_TYPE == D31)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D31"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == C700)
-#define SeriesNum  (10)
-#define CapacityFactory (87)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C700"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D004-20260615"
-#elif (FD_BMS_TYPE == M1PRO)
-#define SeriesNum  (13)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M1PRO"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D004" 
-#elif (FD_BMS_TYPE == M23)
-#define SeriesNum  (10)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M23"
-#elif (FD_BMS_TYPE == M32)
-#define SeriesNum  (13)
-#define CapacityFactory (116)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M32"
-#elif (FD_BMS_TYPE == T3MAX)
-#define SeriesNum  (10)
-#define CapacityFactory (180)
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T3MAX"
-#elif (FD_BMS_TYPE == T3)
-#define SeriesNum  (10)
-#define CapacityFactory (270)
-#define AFE_ODC1       		(600) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T3"
-#elif (FD_BMS_TYPE == M25)
-#define SeriesNum  (13)
-#define CapacityFactory (145)
-#define AFE_ODC1       		(500) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D006" 
-#elif (FD_BMS_TYPE == T1_AND_T2)
-#define SeriesNum  (13)
-#define CapacityFactory (225)
-#define AFE_ODC1       		(500) 
-#define AFE_ODC2       		(800) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D007" 
-#elif (FD_BMS_TYPE == D3PRO)
-#define SeriesNum  (10)
-#define CapacityFactory (78)
-#define AFE_ODC1       		(300) 
-#define AFE_ODC2       		(500) 
-#define  BMS_HARDWARE_VERDION_DEFAULT   "D3PRO"
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D003-20260817"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D003" 
-#elif (FD_BMS_TYPE == C11_AND_C11pro)
-#define SeriesNum  (13)
-#define CapacityFactory (104)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "C11"
-// #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D002" 
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(600) 
-#else
-#define SeriesNum  (13)
-#define CapacityFactory (100)
-#define  BMS_HARDWARE_VERDION_DEFAULT   "cs_666_test"
-#define AFE_ODC1       		(400) 
-#define AFE_ODC2       		(1000) 
+#ifndef FAC_TEST
+#define _DI_SWITCH_SYS_ONOFF
 #endif
 
-/* HS-D008 is a 24S DVC1124-2 board. Keep capacity/protection product values in
- * the existing parameter store, but make the physical cell-count identity
- * correct for this branch. A 20S assembly can override DVC1124_DEFAULT_CELL_COUNT. */
-#define DVC1124_D008_PROJECT 1
-#if DVC1124_D008_PROJECT
-#undef SeriesNum
-#define SeriesNum  (DVC1124_DEFAULT_CELL_COUNT)
-#undef BMS_HARDWARE_VERDION_DEFAULT
-#define BMS_HARDWARE_VERDION_DEFAULT "D008"
-#endif
+#define __SLEEP_VNORMAL__             (3000)
+#define __SLEEP_TIMENORMAL__          (60 * 60 * 24)
+#define __SLEEP_VLOW__                (2800)
+#define __SLEEP_TIMEVLOW__            (60 * 60 * 1)
 
-#if (FD_BMS_TYPE == C21)
-#define CS_Res			  2
-#define CS_Res_Num		2
-#elif (FD_BMS_TYPE == T1_AND_T2)
-#define CS_Res			  2
-#define CS_Res_Num		3
-#elif (FD_BMS_TYPE == M25)
-#define CS_Res			  2
-#define CS_Res_Num		3
-#else
-#define CS_Res			  2
-#define CS_Res_Num		2
-#endif
+/* Keep legacy numeric product IDs stable for protocol/storage compatibility. */
+#define C21             0
+#define C31             1
+#define D11             2
+#define D31             3
+#define C700            4
+#define M1PRO           5
+#define M23             6
+#define M32             7
+#define T3MAX           8
+#define T3              9
+#define M25             10
+#define T1_AND_T2       11
+#define D3PRO           12
+#define C11_AND_C11pro  13
+#define test_default    14
 
-// #define DEV_NAME_STR  "BT_star001"
-#define DEV_NAME_STR  "BT_FD190126F03200046_007"
+/* HS-D011-10S50A is the active product on this branch. */
+#define FD_BMS_TYPE                    D11
+#define SeriesNum                      SH3673510_D011_CELL_COUNT
+/* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
+#define CapacityFactory                116
+#define AFE_ODC1                       300
+#define AFE_ODC2                       500
+#define BMS_HARDWARE_VERDION_DEFAULT   "D011"
+#define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
+#define BMS_SERIAL_NUMBER_DEFAULT      "D011-UNSET"
+
+/* Legacy SOC/current-sense compatibility values. */
+#define CS_Res                         2
+#define CS_Res_Num                     2
+
+#define DEV_NAME_STR  "BT_D011"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
-
-#define DEV_NAME_STR2  "BT_FD260228F03200046_666"
-#define DEV_NAME_LEN2  (sizeof(DEV_NAME_STR2)-1)
-
+#define DEV_NAME_STR2 "BT_D011_FACTORY"
+#define DEV_NAME_LEN2 (sizeof(DEV_NAME_STR2)-1)
 
 typedef uint8_t  UINT8;
 typedef uint16_t UINT16;
 typedef uint32_t UINT32;
-typedef int32_t INT32;
-typedef int16_t INT16;
-typedef int8_t INT8;
-
-// #define __INIT_SOC__        (99)
+typedef int32_t  INT32;
+typedef int16_t  INT16;
+typedef int8_t   INT8;
 
 #define FAC_INIT_soc (60)
 
-
-
-
 typedef enum _CUR {
-CurCHG = 0, CurDSG
-}_Cur;
+    CurCHG = 0,
+    CurDSG
+} _Cur;
 
-#define UPDNLMT16(Var,Max,Min)	{(Var)=((Var)>=(Max))?(Max):(Var);(Var)=((Var)<=(Min))?(Min):(Var);}
-
+#define UPDNLMT16(Var,Max,Min) {(Var)=((Var)>=(Max))?(Max):(Var);(Var)=((Var)<=(Min))?(Min):(Var);}
 #define Feed_IWatchDog ;
-#define log_i(...)   ;
+#define log_i(...) ;
 
-/* HS-D008 physical MCU nets from the schematic. */
-#define RF_EN_PIN              (GPIO_PD4)
-#define AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define SW_PIN                 (GPIO_PA0)
-#define HEATER_EN_PIN          (GPIO_PA1)
-#define CHG_IN_PIN             (GPIO_PB1)
-#define OWC_TX_PIN             (GPIO_PC2)
-#define OWC_RX_PIN             (GPIO_PC3)
-#define MCU_LDO_PIN            (GPIO_PC4)
-#define SOC25_PIN              (GPIO_PB4)
-#define SOC50_PIN              (GPIO_PB5)
-#define SOC75_PIN              (GPIO_PB7)
-#define SOC100_PIN             (GPIO_PD3)
-#define LED_BLUE_PIN           (GPIO_PB6)
+/*
+ * HS-D011 physical MCU nets.
+ * CHG_IN_PIN is kept as a legacy app-compatibility alias to the active-low
+ * front-panel switch. The real board wake input PB1/INT-WK-MCU is owned by
+ * the SH3673510 backend and is configured as an active-high wake source.
+ */
+#define SW_PIN                 D011_SWITCH_PIN
+#define CHG_IN_PIN             D011_SWITCH_PIN
+#define RF_EN_PIN              D011_HEATER_RF_EN_PIN
+#define HEATER_EN_PIN          D011_HEATER_CHG_PIN
+#define OWC_TX_PIN             D011_SCI1_TX_PIN
+#define OWC_RX_PIN             D011_SCI1_RX_PIN
+#define RS485_EN_PIN           D011_RS485_EN_PIN
+#define LED_BLUE_PIN           D011_DEBUG_LED_PIN
 
-typedef struct 
+/* Kept only for old source compatibility; do not use for new board code. */
+#define AFE1_PRO_EN_PIN        D011_CMNT_EN_PIN
+#define MCU_LDO_PIN            D011_CMNT_EN_PIN
+
+typedef struct
 {
-   uint16_t    cnt_PA0_irq;
-  uint16_t cnt_bms1_keyirq;
-  uint16_t    bq33100_read_cnt;
-  uint16_t    pec_err_cnt;
-  
-  uint8_t isdebugenable;
-	uint16_t CHG;
-	uint16_t DSG;
+    uint16_t cnt_PA0_irq;
+    uint16_t cnt_bms1_keyirq;
+    uint16_t bq33100_read_cnt;
+    uint16_t pec_err_cnt;
+    uint8_t isdebugenable;
+    uint16_t CHG;
+    uint16_t DSG;
+    uint16_t cnt_enter_chg_open;
+    uint16_t cnt_enter_dsg_open;
+    uint8_t wakeup_reason;
+    bool wakeup_rtc;
+    uint8_t time_enter_rtc;
+    bool power_on;
+    uint16_t enter_rtc_delay;
+    bool low_power_mode;
+    bool enable_current_test;
+    bool enable_log_test_first;
+    bool enable_log_test_balance;
+    bool enable_kv_test;
+    uint16_t cnt1;
+    uint16_t cnt2;
+    uint16_t cnt3;
+} Time_T;
 
-  uint16_t  cnt_enter_chg_open;
-  uint16_t  cnt_enter_dsg_open;
-
-   uint8_t  wakeup_reason;
-  bool     wakeup_rtc;
-  uint8_t time_enter_rtc;
-  bool power_on;
-
-  uint16_t enter_rtc_delay;
-  bool     low_power_mode;
-  bool     enable_current_test;
-  bool     enable_log_test_first;
-  bool     enable_log_test_balance;
-  bool     enable_kv_test;
-  uint16_t cnt1;
-  uint16_t cnt2;
-  uint16_t cnt3;
-}Time_T;
-
-extern Time_T  sys_time;
+extern Time_T sys_time;
 
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
 #define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
 #define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
 #define FW_UPGRADE_RESET_SOC_EPOCH       0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
 #define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
 #endif
-
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
 #define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
 #endif
 
-#endif
+#endif /* CONF_H_ */
