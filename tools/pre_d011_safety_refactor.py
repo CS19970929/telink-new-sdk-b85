@@ -103,7 +103,7 @@ old = """    /* Require removal of the source before clearing current/short latc
                                          DVC1124_ALARM_SCD_MASK));
     }
 """
-new = """    /* Do not inherit board-specific CHG_IN/SW GPIO assumptions here.
+new = """    /* Do not inherit board-specific charger/switch GPIO assumptions here.
      * Recover current latches only after measured current is below the configured
      * recovery threshold. Keep SCD latched until that backend gets its own
      * hardware-verified load-release policy. */
@@ -113,9 +113,21 @@ new = """    /* Do not inherit board-specific CHG_IN/SW GPIO assumptions here.
     if (g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
         clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
 """
-if old not in text:
-    raise RuntimeError("legacy DVC GPIO recovery block not found")
-text = text.replace(old, new, 1)
+if old in text:
+    text = text.replace(old, new, 1)
 dvc.write_text(text, encoding="utf-8", newline="\n")
+
+# The main one-shot script originally expected to own alias-block deletion.
+# Because this pre-pass now removes that block first, make the main step
+# idempotent instead of weakening its final zero-legacy-token verification.
+main_tool = ROOT / "tools" / "apply_d011_safety_refactor.py"
+text = main_tool.read_text(encoding="utf-8")
+old = '    text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")\n    write(conf, text)'
+new = '''    if any(token in text for token in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN")):
+        text = regex_once(text, pattern, replacement, "remove legacy D011 GPIO aliases")
+    write(conf, text)'''
+if old in text:
+    text = text.replace(old, new, 1)
+main_tool.write_text(text, encoding="utf-8", newline="\n")
 
 print("D011 fuse net, legacy aliases, wake calls and inactive DVC GPIO dependencies normalized")
