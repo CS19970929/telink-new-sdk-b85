@@ -29,8 +29,6 @@ typedef struct
 uint8_t sh3673510_control_init(void);
 uint8_t sh3673510_control_apply_protection(void);
 uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);
-uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);
-uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);
 uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on);
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status);
 uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask);
@@ -40,8 +38,6 @@ void sh3673510_control_sleep(void);
 uint8_t sh3673510_control_wake(void);
 uint8_t sh3673510_control_ready(void);
 void sh3673510_board_set_heater(uint8_t enabled);
-void sh3673510_board_force_heater_fuse_safe(void);
-void sh3673510_board_force_heater_fuse_safe(void);
 void sh3673510_board_force_heater_fuse_safe(void);
 uint8_t sh3673510_board_wake_active(void);
 
