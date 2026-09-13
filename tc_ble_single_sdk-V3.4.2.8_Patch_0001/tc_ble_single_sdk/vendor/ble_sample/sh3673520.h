@@ -1,8 +1,26 @@
 #ifndef SH3673520_H
 #define SH3673520_H
 
-#include <stddef.h>
 #include <stdint.h>
+
+/*
+ * Telink B85 common/types.h defines its own size_t before application headers.
+ * Pulling the TC32 GCC stddef.h into such a translation unit conflicts with
+ * that SDK typedef.  Keep the public ABI equal to the compiler's native
+ * __SIZE_TYPE__ without re-declaring the global size_t name.  The standalone
+ * driver translation unit and ordinary host builds still use stddef.h so the
+ * existing implementation definitions remain type-identical.
+ */
+#ifdef U32_MAX
+# ifdef __SIZE_TYPE__
+typedef __SIZE_TYPE__ sh3673520_size_t;
+# else
+typedef unsigned long sh3673520_size_t;
+# endif
+#else
+#include <stddef.h>
+typedef size_t sh3673520_size_t;
+#endif
 
 #include "sh3673520_reg.h"
 
@@ -44,36 +62,35 @@ typedef struct {
     int32_t internal_raw;
 } sh3673520_temperature_raw_t;
 
-/* Deterministic bring-up: port init -> software reset -> probe -> CADC verify. */
 sh3673520_status_t SH3673520_Init(void);
 sh3673520_status_t SH3673520_Reset(void);
 sh3673520_status_t SH3673520_Probe(void);
 uint8_t SH3673520_IsReady(void);
 
-/* Raw register transport. Multi-register writes use bounded single-register writes. */
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value);
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value);
-sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg, uint8_t *buffer, size_t length);
+sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg,
+                                      uint8_t *buffer,
+                                      sh3673520_size_t length);
 sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
-                                      const uint8_t *buffer,
-                                      size_t length);
+                                       const uint8_t *buffer,
+                                       sh3673520_size_t length);
 
-/* Semantic measurement/status interfaces. */
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_count);
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv);
 sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current);
 sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures);
 sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status);
 
-/* Pure helpers used by host contract tests and board-level scaling. */
-uint8_t SH3673520_Crc8(const uint8_t *data, size_t length);
+uint8_t SH3673520_Crc8(const uint8_t *data, sh3673520_size_t length);
 int32_t SH3673520_DecodeSigned16(uint8_t high, uint8_t low);
 int32_t SH3673520_CellRawToMilliVolt(int32_t raw);
 int32_t SH3673520_PackRawToMilliVolt(int32_t raw);
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
-                                                  uint32_t rsense_uohm,
-                                                  int32_t *current_ma);
-sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw, uint32_t *resistance_ohm);
+                                                   uint32_t rsense_uohm,
+                                                   int32_t *current_ma);
+sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,
+                                         uint32_t *resistance_ohm);
 
 void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats);
 void SH3673520_ClearCommStats(void);
