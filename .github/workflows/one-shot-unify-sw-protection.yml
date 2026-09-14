@@ -30,6 +30,15 @@ jobs:
           sed -i 's/require_count(bms, "s_short_latched = 0u;", 1)/require_count(bms, "s_short_latched = 0u;", 2)/' tests/sh3673510_d011_integration_check.py
           python - <<'PY'
           from pathlib import Path
+
+          it = Path('tests/sh3673510_d011_integration_check.py')
+          s = it.read_text(encoding='utf-8')
+          d011_only = '''require(uart, "s_rs485_tx_start_tick")\nrequire(uart, "s_rs485_tx_min_hold_us")\nrequire(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)")'''
+          d013_contract = '''require(uart, "s_rs485_tx_dma_done")\nrequire(uart, "s_rs485_tx_active")\nrequire(uart, "s_rs485_tx_dma_done && !uart_tx_is_busy()")'''
+          if d011_only in s:
+              s = s.replace(d011_only, d013_contract, 1)
+          it.write_text(s, encoding='utf-8')
+
           p = Path('tests/flash_quick_check.py')
           s = p.read_text(encoding='utf-8')
           marker = 'One-wire/SIF is not a product'
