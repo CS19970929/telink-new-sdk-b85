@@ -44,6 +44,15 @@ class SocContract(unittest.TestCase):
         self.assertIn("150u, 100u, 50u, 20u", C)
         self.assertIn("300u, 200u, 150u, 50u", C)
 
+    def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
+        start = C.index("static uint8_t soc_apply_full_anchor(void)")
+        end = C.index("static uint8_t soc_apply_forced_empty_anchor(void)", start)
+        full_fn = C[start:end]
+        self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG()", full_fn)
+        self.assertIn("if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp)", full_fn)
+        self.assertNotIn("&& !isDSG()", full_fn)
+        self.assertNotIn("soc_step_up_to", C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")])
+
     def test_soc_low_faults_are_implemented_without_mos_policy(self):
         self.assertIn("soc_update_low_faults", C)
         self.assertIn("fault->bits.b1SocLow", C)
