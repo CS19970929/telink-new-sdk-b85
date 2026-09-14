@@ -42,6 +42,7 @@ public partial class MainWindow
     private void InitializeAdvancedFeatures()
     {
         AddSh3520ParameterTab();
+        AddAfeHardwareTab();
         if (_advancedFeaturesInitialized) return;
         _advancedFeaturesInitialized = true;
 
@@ -52,7 +53,9 @@ public partial class MainWindow
         _advancedFeatureTimer.Tick += (_, _) => AdvancedFeatureTimer_Tick();
         _advancedFeatureTimer.Start();
 
-        AppendLog("客户版高级功能已启用：100/500条设备事件日志、长期监控Excel导出。", "APP");
+        AppendLog(_afeHardwareEditorLaunchEnabled
+            ? "客户版高级功能已启用；AFE硬件编辑器启动开关已打开，但仍需高级功能验证。"
+            : "客户版高级功能已启用；AFE硬件编辑器默认隐藏。", "APP");
     }
 
     private async Task WaitForCommunicationIdleAsync()
