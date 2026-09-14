@@ -77,11 +77,6 @@ sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group)
     return SH3673520_PORT_OK;
 }
 
-uint32_t SH3673520_PortGetActualClockHz(void)
-{
-    return SH3673520_PORT_SPI_CLOCK_HZ;
-}
-
 sh3673520_port_status_t sh3673520_port_init(void)
 {
     SPI_GPIO_GroupTypeDef sdk_group;
