@@ -2,6 +2,7 @@
 #define BMS_SW_PROTECTION_H_
 
 #include <stdint.h>
+#include "param.h"
 
 /*
  * AFE-independent software protection input.
@@ -18,6 +19,7 @@ typedef struct
     uint16_t mos_temp;
 } bms_sw_protection_inputs_t;
 
+uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *params);
 void bms_sw_protection_init(void);
 void bms_sw_protection_clear(void);
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs);

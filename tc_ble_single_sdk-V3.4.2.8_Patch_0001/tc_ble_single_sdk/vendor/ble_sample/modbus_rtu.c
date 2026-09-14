@@ -5,6 +5,10 @@
 #include "bms_afe.h"
 #include "bms_error.h"
 #include "bms_state.h"
+#include "bms_sw_protection.h"
+#include "bms_afe_hw_profile.h"
+#include "dvc1124.h"
+#include "dvc1124_project_config.h"
 #include "param.h"
 #include "SocEnhance.h"
 #include "bms_event_log.h"
@@ -40,6 +44,7 @@
 #define BMS_REALTIME_REG_VCELL_MIN_ADDR    (BMS_REALTIME_REG_BASE + 9u)
 #define BMS_REALTIME_REG_VCELL_DELTA_ADDR  (BMS_REALTIME_REG_BASE + 10u)
 
+static u16 u16be(const u8 *p);
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 static u16 read_production_info_reg(u16 reg);
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
@@ -50,6 +55,50 @@ static u8 write_reg(u16 reg, u16 val);
 void WriteProID_Default(void);
 
 PRODUCTION_ID_INFO ProductionInfor;
+
+static int afe_hw_profile_is_reg(u16 reg)
+{
+    return (reg >= BMS_AFE_HW_PROFILE_REG_BASE &&
+            reg < (u16)(BMS_AFE_HW_PROFILE_REG_BASE + BMS_AFE_HW_PROFILE_REG_COUNT));
+}
+
+static u16 afe_hw_profile_read_reg(u16 reg)
+{
+    bms_afe_hw_profile_t p;
+    u16 offset = (u16)(reg - BMS_AFE_HW_PROFILE_REG_BASE);
+    if (offset < BMS_AFE_HW_PROFILE_WORDS) {
+        if (!bms_afe_hw_profile_get(&p)) return 0xFFFFu;
+        return ((const u16 *)&p)[offset];
+    }
+    switch (offset) {
+    case 35u: return bms_afe_hw_profile_capabilities();
+    case 36u: return bms_afe_hw_profile_get(&p) ? 1u : 0u;
+    case 37u: return DVC1124_DEFAULT_SHUNT_UOHM;
+    case 38u: return DVC1124_DEFAULT_CELL_COUNT;
+    case 39u: return DVC1124_I2C_WATCHDOG_SECONDS;
+    default: return 0xFFFFu;
+    }
+}
+
+static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
+{
+    bms_afe_hw_profile_t before;
+    bms_afe_hw_profile_t candidate;
+    u16 i;
+    if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORDS) return MB_EX_ILLEGAL_VALUE;
+    if (!bms_afe_hw_profile_get(&before)) return MB_EX_DEVICE_FAILURE;
+    candidate = before;
+    for (i = 0u; i < qty; ++i)
+        ((u16 *)&candidate)[i] = u16be(&pdata[(u32)i * 2u]);
+    if (!bms_afe_hw_profile_validate(&candidate)) return MB_EX_ILLEGAL_VALUE;
+    if (!bms_afe_hw_profile_set(&candidate)) return MB_EX_DEVICE_FAILURE;
+    if (!bms_afe_apply_protection_config()) {
+        (void)bms_afe_hw_profile_set(&before);
+        (void)bms_afe_apply_protection_config();
+        return MB_EX_DEVICE_FAILURE;
+    }
+    return 0u;
+}
 
 static int dvc_comm_is_semantic(u16 reg)
 {
@@ -193,6 +242,8 @@ static u16 read_reg(u16 reg)
 {
     u16 val;
 
+    if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
+
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_read(reg);
 
@@ -268,6 +319,7 @@ static int reg_requires_param_save(u16 reg)
 
 static u8 write_reg(u16 reg, u16 val)
 {
+    if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_write(reg, val);
 
@@ -335,16 +387,12 @@ static u8 write_reg(u16 reg, u16 val)
 
 static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *previous)
 {
-    if (!bms_afe_apply_protection_config())
-    {
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
         g_tParam.protect = *previous;
-        (void)bms_afe_apply_protection_config();
-        return MB_EX_DEVICE_FAILURE;
+        return MB_EX_ILLEGAL_VALUE;
     }
-    if (!SaveParam())
-    {
+    if (!SaveParam()) {
         g_tParam.protect = *previous;
-        (void)bms_afe_apply_protection_config();
         return MB_EX_DEVICE_FAILURE;
     }
     return 0u;
@@ -494,16 +542,26 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
         if (req_len < (u32)(7u + bytecnt + 2u)) return 0;
 
-        /*
-         * DVC safety configuration is transactional per semantic field today.
-         * Reject multi-field writes instead of accepting a half-updated AFE
-         * when a later field fails. Use 0x06 until batch commit is implemented.
-         */
+        pdata = &req[7];
+        if (reg == BMS_AFE_HW_PROFILE_REG_BASE) {
+            if (qty != BMS_AFE_HW_PROFILE_WORDS)
+                return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
+            exception = afe_hw_profile_write_block(pdata, qty);
+            if (exception != 0u)
+                return modbus_exception(addr, func, exception, rsp, rsp_len);
+            if (addr == 0x00u) return 0;
+            rsp[0] = addr; rsp[1] = func; put_u16be(&rsp[2], reg); put_u16be(&rsp[4], qty);
+            crc = mb_crc16(rsp, 6u); rsp[6] = (u8)(crc & 0xFFu); rsp[7] = (u8)(crc >> 8); *rsp_len = 8u;
+            return 1;
+        }
+        if (afe_hw_profile_is_reg(reg) || afe_hw_profile_is_reg((u16)(reg + qty - 1u)))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+
+        /* Legacy DVC semantic multi-write remains intentionally non-atomic. */
         if (qty > 1u && dvc_comm_range_contains(reg, qty))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
 
         previous_protect = g_tParam.protect;
-        pdata = &req[7];
         for (i = 0u; i < qty; i++)
         {
             u16 write_addr = (u16)(reg + i);

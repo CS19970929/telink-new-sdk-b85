@@ -3,6 +3,7 @@
 #include "dvc1124.h"
 #include "dvc1124_config_store.h"
 #include "bms_cold_kv_store.h"
+#include "bms_afe_hw_profile.h"
 #include "param.h"
 #include "runtime.h"
 #include <string.h>
@@ -251,33 +252,35 @@ static dvc1124_config_result_t dvc_cfg_read_requested_protection(
     dvc1124_config_field_t field,
     u32 *value)
 {
-    dvc1124_persistent_config_t afe;
+    bms_afe_hw_profile_t hw;
+    dvc1124_config_t device;
+    u32 sense_uv;
 
     if (value == NULL) return DVC1124_CFG_ERR_VALUE;
+    if (!bms_afe_hw_profile_get(&hw)) return DVC1124_CFG_ERR_STORE;
+    DVC1124_GetConfig(&device);
 
     switch (field)
     {
-    case DVC1124_CFG_REQ_COV_MV:        *value = g_tParam.protect.u16VcellOvp_Third; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_COV_DELAY_MS:  *value = (u32)g_tParam.protect.u16VcellOvp_Filter * 10u; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_CUV_MV:        *value = g_tParam.protect.u16VcellUvp_Third; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_CUV_DELAY_MS:  *value = (u32)g_tParam.protect.u16VcellUvp_Filter * 10u; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCD1_X10A:     *value = g_tParam.protect.u16IdsgOcp_First; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCD1_DELAY_MS: *value = (u32)g_tParam.protect.u16IdsgOcp_Filter * 10u; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCC1_X10A:     *value = g_tParam.protect.u16IchgOcp_First; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCC1_DELAY_MS: *value = (u32)g_tParam.protect.u16IchgOcp_Filter * 10u; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCD2_X10A:     *value = g_tParam.protect.u16IdsgOcp_Second; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCD2_DELAY_MS: *value = (u32)g_tParam.protect.u16IdsgOcp_Filter * 10u; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCC2_X10A:     *value = g_tParam.protect.u16IchgOcp_Second; return DVC1124_CFG_OK;
-    case DVC1124_CFG_REQ_OCC2_DELAY_MS: *value = (u32)g_tParam.protect.u16IchgOcp_Filter * 10u; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_COV_MV:        *value = hw.cov_mv; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_COV_DELAY_MS:  *value = hw.cov_delay_ms; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_CUV_MV:        *value = hw.cuv_mv; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_CUV_DELAY_MS:  *value = hw.cuv_delay_ms; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCD1_X10A:     *value = hw.ocd1_a10; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCD1_DELAY_MS: *value = hw.ocd1_delay_ms; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCC1_X10A:     *value = hw.occ1_a10; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCC1_DELAY_MS: *value = hw.occ1_delay_ms; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCD2_X10A:     *value = hw.ocd2_a10; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCD2_DELAY_MS: *value = hw.ocd2_delay_ms; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCC2_X10A:     *value = hw.occ2_a10; return DVC1124_CFG_OK;
+    case DVC1124_CFG_REQ_OCC2_DELAY_MS: *value = hw.occ2_delay_ms; return DVC1124_CFG_OK;
     case DVC1124_CFG_REQ_SCD_MV:
-    case DVC1124_CFG_REQ_SCD_DELAY_US:
-        if (dvc_cfg_load(&afe) != DVC1124_CFG_OK) return DVC1124_CFG_ERR_STORE;
-        *value = (field == DVC1124_CFG_REQ_SCD_MV)
-                     ? afe.scd_threshold_mv
-                     : afe.scd_delay_us;
+        if (device.shunt_uohm == 0u) return DVC1124_CFG_ERR_VALUE;
+        sense_uv = ((u32)hw.sc_a10 * device.shunt_uohm) / 10u;
+        *value = sense_uv / 1000u;
         return DVC1124_CFG_OK;
-    default:
-        return DVC1124_CFG_ERR_ADDRESS;
+    case DVC1124_CFG_REQ_SCD_DELAY_US:  *value = hw.sc_delay_us; return DVC1124_CFG_OK;
+    default: return DVC1124_CFG_ERR_ADDRESS;
     }
 }
 
@@ -566,8 +569,8 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
     }
 
     if ((u8)field >= (u8)DVC1124_CFG_REQ_COV_MV &&
-        (u8)field <= (u8)DVC1124_CFG_REQ_OCC2_DELAY_MS)
-        return dvc_cfg_write_bms_protection(field, value);
+        (u8)field <= (u8)DVC1124_CFG_REQ_SCD_DELAY_US)
+        return DVC1124_CFG_ERR_READ_ONLY;
 
     return dvc_cfg_write_afe_field(field, value);
 }
@@ -618,22 +621,8 @@ static dvc1124_config_result_t dvc_cfg_raw_to_candidate(
         cfg->operating.cc1_sleep_wake_time = (dvc1124_cc1_sleep_wake_time_t)DVC1124_FIELD_GET(DVC1124_CC1_SLEEP_WAKE_TIME_MASK, DVC1124_CC1_SLEEP_WAKE_TIME_SHIFT, raw);
         break;
     case DVC1124_REG_SCD:
-        code = (u8)(raw & DVC1124_SCD_THRESHOLD_MASK);
-        if ((raw & DVC1124_SCD_ENABLE_MASK) == 0u)
-        {
-            cfg->scd_threshold_mv = 0u;
-            cfg->scd_delay_us = 0u;
-        }
-        else
-        {
-            if (code == 0u) return DVC1124_CFG_ERR_VALUE;
-            cfg->scd_threshold_mv = (u16)code * 10u;
-        }
-        break;
     case DVC1124_REG_SCD_DLY:
-        if (cfg->scd_threshold_mv == 0u && raw != 0u) return DVC1124_CFG_ERR_VALUE;
-        cfg->scd_delay_us = (u16)(((u32)raw * 781u + 50u) / 100u);
-        break;
+        return DVC1124_CFG_ERR_FORBIDDEN;
     case DVC1124_REG_CURRENT_WAKE:
         cfg->current_wake_threshold_uv = (u16)raw * 10u;
         break;

@@ -457,8 +457,7 @@ int DVC1124_ConfigStoreApply(const dvc1124_persistent_config_t *cfg)
     ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CURRENT_WAKE, cwt);
     ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_BODY_DIODE, bdpt);
     ok &= DVC1124_SetCoreOtThresholdCode(cfg->core_ot_code);
-    ok &= DVC1124_SetShortCircuitProtection(cfg->scd_threshold_mv,
-                                             cfg->scd_delay_us);
+    /* SCD is owned by bms_afe_hw_profile; this legacy store must not overwrite it. */
     ok &= DVC1124_ApplyOperatingConfig(&cfg->operating);
 
     return ok ? 1 : 0;

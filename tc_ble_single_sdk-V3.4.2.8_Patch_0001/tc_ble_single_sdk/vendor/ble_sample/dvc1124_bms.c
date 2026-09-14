@@ -7,6 +7,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
+#include "bms_afe_hw_profile.h"
 #include "param.h"
 #include <string.h>
 
@@ -16,38 +17,57 @@ static uint16_t dvc_get_configured_temperature(uint8_t gp)
     return g_stCellInfoReport.u16Temperature[gp - 1u];
 }
 
+static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
+{
+    uint16_t required;
+    if (count == 0) return 0u;
+    if (!condition) { *count = 0u; return 0u; }
+    required = (uint16_t)(((uint32_t)stable_ms + DVC_BMS_SAMPLE_PERIOD_MS - 1u) /
+                          DVC_BMS_SAMPLE_PERIOD_MS);
+    if (required == 0u) required = 1u;
+    if (*count < required) ++(*count);
+    return (*count >= required) ? 1u : 0u;
+}
+
 static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
 {
+    static uint16_t cov_count;
+    static uint16_t cuv_count;
+    static uint16_t occ_count;
+    static uint16_t ocd_count;
+    bms_afe_hw_profile_t hw;
     uint8_t clear_mask = 0u;
     uint8_t verify;
 
-    /* COV/CUV clear only after the configured recovery voltage is reached. */
-    if ((alarm & DVC1124_ALARM_COV_MASK) &&
-        (g_tParam.protect.u16VcellOvp_Rcv != 0u) &&
-        (g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv))
-    {
-        clear_mask |= DVC1124_ALARM_COV_MASK;
-    }
-    if ((alarm & DVC1124_ALARM_CUV_MASK) &&
-        (g_tParam.protect.u16VcellUvp_Rcv != 0u) &&
-        (g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv))
-    {
-        clear_mask |= DVC1124_ALARM_CUV_MASK;
-    }
+    if (!bms_afe_hw_profile_get(&hw)) return alarm;
 
-    /* Do not inherit board-specific charger/switch GPIO assumptions here.
-     * Recover current latches only after measured current is below the configured
-     * recovery threshold. Keep SCD latched until that backend gets its own
-     * hardware-verified load-release policy. */
-    if (g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv)
-        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
+    if (alarm & DVC1124_ALARM_COV_MASK) {
+        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16VCellMax <= hw.cov_recover_mv),
+                                hw.cov_recover_ms, &cov_count))
+            clear_mask |= DVC1124_ALARM_COV_MASK;
+    } else cov_count = 0u;
 
-    if (g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv)
-        clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
+    if (alarm & DVC1124_ALARM_CUV_MASK) {
+        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16VCellMin >= hw.cuv_recover_mv),
+                                hw.cuv_recover_ms, &cuv_count))
+            clear_mask |= DVC1124_ALARM_CUV_MASK;
+    } else cuv_count = 0u;
 
+    if (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) {
+        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16Ichg <= hw.occ_recover_a10),
+                                hw.occ_recover_ms, &occ_count))
+            clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
+    } else occ_count = 0u;
+
+    if (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK)) {
+        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10),
+                                hw.ocd_recover_ms, &ocd_count))
+            clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
+    } else ocd_count = 0u;
+
+    /* SCD remains hardware-latched until D008 has a hardware-verified
+     * load-removal/recovery policy. */
     if (clear_mask == 0u) return alarm;
-
-    /* 0x00 is W0C and is intentionally owned by the dedicated command API. */
     if (!DVC1124_ClearAlarmFlags(clear_mask)) return alarm;
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) return alarm;
     return verify;

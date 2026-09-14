@@ -6,6 +6,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "param.h"
+#include "bms_afe_hw_profile.h"
 #include <string.h>
 
 /*
@@ -527,28 +528,43 @@ static uint8_t dvc_apply_basic_config(void)
 
 static uint8_t dvc_apply_protection_from_params(void)
 {
-    uint16_t cov_mv = g_tParam.protect.u16VcellOvp_Third;
-    uint16_t cuv_mv = g_tParam.protect.u16VcellUvp_Third;
-    uint32_t cov_req_dly = (uint32_t)g_tParam.protect.u16VcellOvp_Filter * 10u;
-    uint32_t cuv_req_dly = (uint32_t)g_tParam.protect.u16VcellUvp_Filter * 10u;
-    uint32_t ocd_req_dly = (uint32_t)g_tParam.protect.u16IdsgOcp_Filter * 10u;
-    uint32_t occ_req_dly = (uint32_t)g_tParam.protect.u16IchgOcp_Filter * 10u;
+    bms_afe_hw_profile_t hw;
+    dvc1124_config_t cfg;
+    uint16_t cov_mv;
+    uint16_t cuv_mv;
+    uint16_t request;
+    uint32_t cov_req_dly;
+    uint32_t cuv_req_dly;
+    uint32_t ocd1_req_dly;
+    uint32_t ocd2_req_dly;
+    uint32_t occ1_req_dly;
+    uint32_t occ2_req_dly;
+    uint32_t sc_sense_uv;
+    uint16_t sc_mv;
     uint8_t buf[2];
     uint8_t code;
     uint16_t code12;
     uint16_t actual;
     uint8_t ok = 1u;
 
+    if (!bms_afe_hw_profile_get(&hw)) return 0u;
+    DVC1124_GetConfig(&cfg);
+    if (cfg.shunt_uohm == 0u) return 0u;
+
+    cov_mv = (hw.enable_mask & BMS_AFE_HW_EN_COV) ? hw.cov_mv : 0u;
+    cuv_mv = (hw.enable_mask & BMS_AFE_HW_EN_CUV) ? hw.cuv_mv : 0u;
+    cov_req_dly = hw.cov_delay_ms;
+    cuv_req_dly = hw.cuv_delay_ms;
+    ocd1_req_dly = hw.ocd1_delay_ms;
+    ocd2_req_dly = hw.ocd2_delay_ms;
+    occ1_req_dly = hw.occ1_delay_ms;
+    occ2_req_dly = hw.occ2_delay_ms;
+
     memset(&s_applied, 0, sizeof(s_applied));
 
-    /* COV: code 0 disables; enabled threshold = code + 500 mV. */
-    if (cov_mv == 0u)
-    {
+    if (cov_mv == 0u) {
         code12 = 0u;
-        s_applied.cov_mv = 0u;
-    }
-    else
-    {
+    } else {
         if ((cov_mv < 501u) || (cov_mv > 4595u)) return 0u;
         code12 = (uint16_t)(cov_mv - 500u);
         s_applied.cov_mv = (uint16_t)(code12 + 500u);
@@ -560,14 +576,9 @@ static uint8_t dvc_apply_protection_from_params(void)
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_COV_H, buf, 2u);
 
-    /* CUV: code 0 disables; enabled threshold = code mV. */
-    if (cuv_mv == 0u)
-    {
+    if (cuv_mv == 0u) {
         code12 = 0u;
-        s_applied.cuv_mv = 0u;
-    }
-    else
-    {
+    } else {
         if (cuv_mv > 4095u) return 0u;
         code12 = cuv_mv;
         s_applied.cuv_mv = code12;
@@ -579,77 +590,73 @@ static uint8_t dvc_apply_protection_from_params(void)
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, buf, 2u);
 
-    code = dvc_current_to_oc1_code(g_tParam.protect.u16IdsgOcp_First, &actual);
+    request = (hw.enable_mask & BMS_AFE_HW_EN_OCD1) ? hw.ocd1_a10 : 0u;
+    code = dvc_current_to_oc1_code(request, &actual);
     s_applied.ocd1_a_x10 = actual;
-    dvc_note_quant(DVC_QUANT_OCD1_THR, g_tParam.protect.u16IdsgOcp_First, actual);
+    dvc_note_quant(DVC_QUANT_OCD1_THR, request, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, code);
 
-    code = dvc_current_to_oc1_code(g_tParam.protect.u16IchgOcp_First, &actual);
+    request = (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? hw.occ1_a10 : 0u;
+    code = dvc_current_to_oc1_code(request, &actual);
     s_applied.occ1_a_x10 = actual;
-    dvc_note_quant(DVC_QUANT_OCC1_THR, g_tParam.protect.u16IchgOcp_First, actual);
+    dvc_note_quant(DVC_QUANT_OCC1_THR, request, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_THR, code);
 
-    code = dvc_linear_delay_code(ocd_req_dly, 8u, &actual);
+    code = dvc_linear_delay_code(ocd1_req_dly, 8u, &actual);
     s_applied.ocd1_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCD1_DLY, ocd_req_dly, actual);
+    dvc_note_quant(DVC_QUANT_OCD1_DLY, ocd1_req_dly, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_DLY, code);
 
-    code = dvc_linear_delay_code(occ_req_dly, 8u, &actual);
+    code = dvc_linear_delay_code(occ1_req_dly, 8u, &actual);
     s_applied.occ1_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCC1_DLY, occ_req_dly, actual);
+    dvc_note_quant(DVC_QUANT_OCC1_DLY, occ1_req_dly, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_DLY, code);
 
-    /* OC2 enable is BIT6; preserve 0x5E/0x5F bit7 with masked RMW. */
-    if (g_tParam.protect.u16IdsgOcp_Second == 0u)
-    {
-        s_applied.ocd2_a_x10 = 0u;
+    request = (hw.enable_mask & BMS_AFE_HW_EN_OCD2) ? hw.ocd2_a10 : 0u;
+    if (request == 0u) {
         ok &= dvc_update_reg(DVC1124_REG_OCD2,
-                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
-                                       DVC1124_OC2_THRESHOLD_MASK),
-                             0u);
-    }
-    else
-    {
-        code = dvc_current_to_oc2_code(g_tParam.protect.u16IdsgOcp_Second, &actual);
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
+    } else {
+        code = dvc_current_to_oc2_code(request, &actual);
         s_applied.ocd2_a_x10 = actual;
-        dvc_note_quant(DVC_QUANT_OCD2_THR, g_tParam.protect.u16IdsgOcp_Second, actual);
+        dvc_note_quant(DVC_QUANT_OCD2_THR, request, actual);
         ok &= dvc_update_reg(DVC1124_REG_OCD2,
-                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
-                                       DVC1124_OC2_THRESHOLD_MASK),
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
-    if (g_tParam.protect.u16IchgOcp_Second == 0u)
-    {
-        s_applied.occ2_a_x10 = 0u;
+    request = (hw.enable_mask & BMS_AFE_HW_EN_OCC2) ? hw.occ2_a10 : 0u;
+    if (request == 0u) {
         ok &= dvc_update_reg(DVC1124_REG_OCC2,
-                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
-                                       DVC1124_OC2_THRESHOLD_MASK),
-                             0u);
-    }
-    else
-    {
-        code = dvc_current_to_oc2_code(g_tParam.protect.u16IchgOcp_Second, &actual);
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
+    } else {
+        code = dvc_current_to_oc2_code(request, &actual);
         s_applied.occ2_a_x10 = actual;
-        dvc_note_quant(DVC_QUANT_OCC2_THR, g_tParam.protect.u16IchgOcp_Second, actual);
+        dvc_note_quant(DVC_QUANT_OCC2_THR, request, actual);
         ok &= dvc_update_reg(DVC1124_REG_OCC2,
-                             (uint8_t)(DVC1124_OC2_ENABLE_MASK |
-                                       DVC1124_OC2_THRESHOLD_MASK),
+                             (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
-    code = dvc_linear_delay_code(ocd_req_dly, 4u, &actual);
+    code = dvc_linear_delay_code(ocd2_req_dly, 4u, &actual);
     s_applied.ocd2_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCD2_DLY, ocd_req_dly, actual);
+    dvc_note_quant(DVC_QUANT_OCD2_DLY, ocd2_req_dly, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCD2_DLY, code);
 
-    code = dvc_linear_delay_code(occ_req_dly, 4u, &actual);
+    code = dvc_linear_delay_code(occ2_req_dly, 4u, &actual);
     s_applied.occ2_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCC2_DLY, occ_req_dly, actual);
+    dvc_note_quant(DVC_QUANT_OCC2_DLY, occ2_req_dly, actual);
     ok &= dvc_write_verified(DVC1124_REG_OCC2_DLY, code);
 
-    ok &= DVC1124_SetShortCircuitProtection(DVC1124_HW_SCD_THRESHOLD_MV,
-                                            DVC1124_HW_SCD_DELAY_US);
+    sc_mv = 0u;
+    if (hw.enable_mask & BMS_AFE_HW_EN_SC) {
+        sc_sense_uv = ((uint32_t)hw.sc_a10 * cfg.shunt_uohm) / 10u;
+        /* Floor to a 10mV code so the effective hardware trip is never above
+         * the requested physical-current threshold. */
+        sc_mv = (uint16_t)((sc_sense_uv / 10000u) * 10u);
+        if (sc_mv < 10u || sc_mv > 630u) return 0u;
+    }
+    ok &= DVC1124_SetShortCircuitProtection(sc_mv, hw.sc_delay_us);
     return ok;
 }
 

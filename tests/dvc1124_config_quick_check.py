@@ -291,7 +291,7 @@ class TransportContractTests(unittest.TestCase):
 
     def test_dvc_multi_write_is_rejected_until_batch_transaction_exists(self):
         self.assertIn("qty > 1u && dvc_comm_range_contains", self.src)
-        self.assertIn("Reject multi-field writes", self.src)
+        self.assertIn("Legacy DVC semantic multi-write remains intentionally non-atomic", self.src)
 
     def test_raw_write_uses_factory_gated_config_service(self):
         self.assertIn("DVC1124_ConfigServiceWriteRaw", self.src)
