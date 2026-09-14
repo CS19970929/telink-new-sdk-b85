@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Finalize the one-shot D011 safety refactor without reapplying it.
-
-The migration workflow was retried several times while safety assertions were
-being tightened. Some additive edits were therefore repeated. This finalizer
-removes only those known duplicates and strengthens the source contract so the
-same regression cannot silently return.
-"""
+"""Finalize the D011 safety refactor without reapplying the migration."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,9 +22,7 @@ def keep_one(text: str, needle: str, label: str) -> str:
     if count == 1:
         return text
     first = text.find(needle)
-    head = text[: first + len(needle)]
-    tail = text[first + len(needle):].replace(needle, "")
-    return head + tail
+    return text[: first + len(needle)] + text[first + len(needle):].replace(needle, "")
 
 
 def main() -> None:
@@ -41,6 +33,16 @@ def main() -> None:
         "static sh3673510_protection_actual_t s_protection_actual;\n",
         "protection actual storage",
     )
+    fuse_fn = """void sh3673510_board_force_heater_fuse_safe(void)
+{
+    gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
+    gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
+    gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
+    gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
+}
+
+"""
+    text = keep_one(text, fuse_fn, "heater fuse safe function")
     write(control, text)
 
     control_h = VENDOR / "sh3673510_control.h"
@@ -59,16 +61,8 @@ def main() -> None:
 
     bms = VENDOR / "sh3673510_bms.c"
     text = read(bms)
-    text = keep_one(
-        text,
-        "#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u\n",
-        "snapshot release macro",
-    )
-    text = keep_one(
-        text,
-        "#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */\n",
-        "short release macro",
-    )
+    text = keep_one(text, "#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u\n", "snapshot release macro")
+    text = keep_one(text, "#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */\n", "short release macro")
     for decl in (
         "static uint8_t s_requested_charge_on;\n",
         "static uint8_t s_requested_discharge_on;\n",
@@ -79,8 +73,43 @@ def main() -> None:
         "static uint16_t s_short_release_count;\n",
     ):
         text = keep_one(text, decl, decl.strip())
-    text = keep_one(text, "    s_output_inhibit = 1u;\n", "output inhibit assignment")
-    text = keep_one(text, "    s_valid_snapshot_streak = 0u;\n", "snapshot streak reset")
+
+    # Reinitialization must preserve a short-circuit latch. Static/BSS startup
+    # already initializes it to zero; clearing it inside bms_afe_init() would
+    # allow an AFE reset after a communication fault to forget a real short.
+    old_init = """    s_requested_charge_on = 0u;
+    s_requested_discharge_on = 0u;
+    s_short_latched = 0u;
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
+"""
+    new_init = """    s_requested_charge_on = 0u;
+    s_requested_discharge_on = 0u;
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
+    /* Preserve s_short_latched across AFE communication reinitialization. */
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
+"""
+    if old_init in text:
+        text = text.replace(old_init, new_init, 1)
+    elif new_init not in text:
+        raise RuntimeError("AFE init safety-state anchor missing")
+
+    old_sleep = """void sh3673510_bms_afe_sleep(void)
+{
+    s_heater_on = 0u;
+"""
+    new_sleep = """void sh3673510_bms_afe_sleep(void)
+{
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
+    s_heater_on = 0u;
+"""
+    if old_sleep in text:
+        text = text.replace(old_sleep, new_sleep, 1)
+    elif new_sleep not in text:
+        raise RuntimeError("AFE sleep safety-state anchor missing")
     write(bms, text)
 
     modbus = VENDOR / "modbus_rtu.c"
@@ -108,8 +137,9 @@ def main() -> None:
     ):
         test = keep_one(test, item, item.strip())
 
-    marker = 'require(control, "sh3673510_control_get_protection_actual")\n'
-    checks = r'''
+    if "Migration idempotency / compilation-safety guards" not in test:
+        marker = 'require(control, "sh3673510_control_get_protection_actual")\n'
+        checks = r'''
 
 # Migration idempotency / compilation-safety guards.
 def require_count(src: str, needle: str, expected: int = 1) -> None:
@@ -138,13 +168,27 @@ require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_COUNT 11u")
 require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 '''
-    if "Migration idempotency / compilation-safety guards" not in test:
         if marker not in test:
             raise RuntimeError("integration test insertion marker missing")
         test = test.replace(marker, marker + checks, 1)
+
+    extra = r'''
+
+# Function-level safety invariants that text-level dedupe must not destroy.
+require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
+require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
+require(bms, "s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
+require(bms, "void sh3673510_bms_afe_sleep(void)\n{\n    s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;")
+require_count(bms, "s_short_latched = 0u;", 1)
+'''
+    if "Function-level safety invariants" not in test:
+        marker = 'require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")\n'
+        if marker not in test:
+            raise RuntimeError("test guard append marker missing")
+        test = test.replace(marker, marker + extra, 1)
     write(TEST, test)
 
-    print("D011 post-refactor duplicates removed and guards strengthened")
+    print("D011 final source deduped with fail-safe state preserved")
 
 
 if __name__ == "__main__":
