@@ -93,6 +93,19 @@ static uint8_t filter_update(sh3510_filter_t *f, uint16_t value,
                              uint16_t trip, uint16_t recover,
                              uint16_t filter_10ms, uint8_t high)
 {
+#if !SH3673510_SW_PROTECT_ENABLE
+    (void)value;
+    (void)trip;
+    (void)recover;
+    (void)filter_10ms;
+    (void)high;
+    if (f != 0) {
+        f->active = 0u;
+        f->trip_count = 0u;
+        f->recover_count = 0u;
+    }
+    return 0u;
+#else
     uint8_t violated;
     uint8_t recovered;
     uint16_t needed;
@@ -130,6 +143,7 @@ static uint8_t filter_update(sh3510_filter_t *f, uint16_t value,
         --f->trip_count;
     }
     return f->active;
+#endif
 }
 
 static uint16_t ntc_temp(uint32_t ohm)
@@ -371,6 +385,14 @@ static uint8_t sh3510_apply_requested_fets(void)
 
 static void apply_heater(void)
 {
+#if !SH3673510_SW_PROTECT_ENABLE
+    s_heater_on = 0u;
+    s_heater_mos_overtemp = 0u;
+    sh3673510_board_set_heater(0u);
+    g_bms_system_status.bits.b1Status_Heat = 0u;
+    bms_error_clear(BMS_ERROR_HEAT);
+    return;
+#else
     uint16_t bat_min = 0u, bat_max = 0u;
     uint16_t heater_mos_temp = 0u;
     uint8_t battery_temp_ok = battery_temperature_snapshot(&bat_min, &bat_max);
@@ -411,6 +433,7 @@ static void apply_heater(void)
         sh3673510_board_set_heater(on);
     }
     g_bms_system_status.bits.b1Status_Heat = s_heater_on;
+#endif
 }
 
 static void apply_balance(void)
@@ -442,10 +465,12 @@ static void apply_balance(void)
 
 static void publish_hw_status(const sh3673510_control_status_t *s)
 {
+#if SH3673510_HW_PROTECT_ENABLE
     uint8_t chg_flag1;
     uint8_t dsg_flag1;
     uint8_t chg_flag2;
     uint8_t dsg_flag2;
+#endif
 
     if (s == 0) return;
     g_bms_system_status.bits.b1Status_MOS_CHG =
@@ -455,6 +480,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     s_hw_afe_error = (s->bstatus1 & SH3673520_BSTATUS1_E2P_ERR_MASK) ? 1u : 0u;
     if (s_hw_afe_error && !bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
 
+#if SH3673510_HW_PROTECT_ENABLE
     chg_flag1 = (uint8_t)(s->flag1 & (SH3673520_FLAG1_OV_MASK |
                                       SH3673520_FLAG1_OCC_MASK |
                                       SH3673520_FLAG1_SC_MASK));
@@ -470,6 +496,15 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
                                       SH3673520_FLAG2_WDT_MASK));
     s_hw_charge_protect = (chg_flag1 || chg_flag2) ? 1u : 0u;
     s_hw_discharge_protect = (dsg_flag1 || dsg_flag2) ? 1u : 0u;
+#else
+    s_hw_charge_protect = 0u;
+    s_hw_discharge_protect = 0u;
+    s_short_latched = 0u;
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
+    bms_error_clear(BMS_ERROR_DSG_SHORT);
+    bms_error_clear(BMS_ERROR_CBC_DSG);
+#endif
 
     /* RST1 means RAM configuration returned to reset defaults; RST2 means the
      * LDO2/SPI domain reset. Never just clear these diagnostics and continue.
@@ -481,6 +516,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
         s_valid_snapshot_streak = 0u;
     }
 
+#if SH3673510_HW_PROTECT_ENABLE
     if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
         s_short_latched = 1u;
         s_short_clear_pending = 0u;
@@ -488,6 +524,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
         if (!bms_error_get(BMS_ERROR_DSG_SHORT)) bms_error_raise(BMS_ERROR_DSG_SHORT);
         if (!bms_error_get(BMS_ERROR_CBC_DSG)) bms_error_raise(BMS_ERROR_CBC_DSG);
     }
+#endif
 }
 
 static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
@@ -774,9 +811,11 @@ static uint8_t publish_measurements(void)
     publish_hw_status(&status);
     if (!s_afe_reconfigure_required) {
         update_faults();
+#if SH3673510_HW_PROTECT_ENABLE
         merge_hw_protection_faults(&status);
         service_short_recovery(&status);
         service_hw_flag_recovery(&status);
+#endif
     }
     return 1u;
 }
