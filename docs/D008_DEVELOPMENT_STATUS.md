@@ -4,7 +4,7 @@
 
 硬件/寄存器审核入口：[HS-D008 / DVC1124 对齐 D013 框架与寄存器配置审计](HS-D008_DVC1124_D013_Framework_Audit_2026-09-14.md)。
 
-> 当前结论：D008 已从旧的“DVC 驱动直接挂业务”演进为 D013 同类的 compile-time AFE boundary，并加入通信失效 output-inhibit、连续有效快照恢复资格、有限频率重新初始化和 SOC profile 数据层。自动化构建通过只能证明源码/构建契约，没有替代 HS-D008 实板保护与功率回路验证。
+> 当前结论：D008 已从旧的“DVC 驱动直接挂业务”演进为 D013 同类的 compile-time AFE boundary，并加入通信失效 output-inhibit、连续有效快照恢复资格、有限频率重新初始化、24S LFP / 20S NMC 物理装配 Profile 和 SOC profile 数据层。自动化构建通过只能证明源码/构建契约，没有替代 HS-D008 实板保护与功率回路验证。
 
 ## 1. 分支与基线
 
@@ -23,15 +23,38 @@
 | 自动重新初始化 | 连续 3 次无效采样触发 backend init；5 s cooldown；重新初始化后仍需新 snapshot 重新资格审查 | 当前 DVC reset 路径主要使用 CST reset；PD7 真正 power-cycle 仍需实板验证 |
 | DVC register truth | `dvc1124_reg.h` 集中管理地址/mask/shift/access/side effect | 不允许业务层复制 magic value |
 | 板级默认 | `dvc1124_project_config.h` | 与产品保护阈值分开 |
+| D008 assembly profile | `d008_product_profile.h`：默认 24S LFP，可编译为 20S NMC；DVC cell count 跟随 profile | 只声明已由图纸支持的串数/化学体系；不声称容量/保护阈值已签核 |
+| Profile 兼容迁移 | 老设备新增 chemistry/profile KV 均为 AUTO 时一次性写入编译 Profile；显式配置永不被启动逻辑覆盖 | 24S↔20S 换装必须走明确 factory/system reset 或产品命令，不能靠刷固件静默改包 |
 | FET 拓扑 | D008 GP5=low-side CHG、GP6=low-side DSG；高边 CHG/DSG 默认屏蔽 | 高边脚实际 NC 的结论来自 D008 原理图 |
 | 保护配置 | requested 与实际量化值分离；写入后 readback | SCD/WDT/Body Diode 仍未签核 |
 | OC latch recovery | 去除 CHG_IN/SW 等错误板级 GPIO 假设；按实际测量电流和恢复阈值判断 | SCD 不使用“关断后零电流”直接清除 |
 | 温度断线 | 配置的 Battery/MOS NTC 无效时置 `BMS_ERROR_TEMP_BREAK` | NTC R-T 曲线仍需对应实物料号确认 |
 | Flash | protection/system/SOC/runtime/event/DVC config 分区独立 | 掉电/rollback-fail 仍需故障注入 |
-| SOC profile | LFP/NMC OCV/profile 数据从算法抽离；化学体系/profile ID 为 additive cold-KV key | 默认旧设备保持 AUTO 兼容；D008 24S/20S 产品值仍需最终签核 |
+| SOC profile | LFP/NMC OCV/profile 数据从算法抽离；化学体系/profile ID 为 additive cold-KV key | Profile 数据已分离；产品 OCV/端点与容量仍需电芯/产品签核 |
 | CI | Host contract + TC32 clean rebuild + check-fw + MAP/manifest/verify + cppcheck | CI 成功不等于实板功能通过 |
 
-## 3. 本轮明确修正的 DVC 默认值
+## 3. D008 物理 Product Profile
+
+默认编译：
+
+```c
+#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_24S_LFP
+```
+
+对应：
+
+```text
+D008_PRODUCT_PROFILE_24S_LFP -> 24S + LFP + Generic LFP SOC profile
+D008_PRODUCT_PROFILE_20S_NMC -> 20S + NMC + Generic NMC SOC profile
+```
+
+`DVC1124_DEFAULT_CELL_COUNT` 不再硬编码为 24，而是引用 `D008_PRODUCT_CELL_COUNT`。因此 20S 编译会在 DVC cell-mask 路径屏蔽上部未使用电芯通道。
+
+兼容策略：历史设备原本没有新增 chemistry/profile KV 时，Flash KV 会读出 AUTO/AUTO。`LoadParam()` 只对这个“两个字段都未设置”的状态写入当前编译 Profile；用户/工厂已经显式配置的 chemistry/profile 不会被启动逻辑覆盖。`Param_UpgradeReset_Apply()` 完成所有 reset epoch 后会再次执行同一迁移，避免 system reset 在同一启动周期把 Profile 又恢复成 AUTO。
+
+这一步只解决“物理串数 + 化学体系身份”，**没有自动修改历史容量、OV/UV、OC、温度等产品参数**。20S NMC 仍然不能因为选择了该宏就直接宣称可量产。
+
+## 4. 本轮明确修正的 DVC 默认值
 
 根据 HS-D008 原理图和 DVC1124-2 Reference Manual V1.2：
 
@@ -64,7 +87,7 @@ Body-diode auto recovery
 Core over-temperature shutdown
 ```
 
-## 4. 保护量化事实
+## 5. 保护量化事实
 
 D008 原理图十只 2 mOhm 分流器并联，等效约 200 uOhm。DVC1124 的硬件量化因此为：
 
@@ -79,13 +102,13 @@ BDPT 1 code  = 0.2 A
 
 历史 requested OC2=15 A 无法由硬件表示；若该请求仍存在，必须报告 effective=20 A 或在产品层拒绝，不能把 requested 当作硬件实际值。
 
-## 5. 发布前 P0/P1 缺口
+## 6. 发布前 P0/P1 缺口
 
 | ID | 优先级 | 缺口 | 完成判据 |
 |---|---|---|---|
 | D008-001 | P0 | SCD 仍关闭 | 基于 MOS/线束/保险丝/短路峰值完成阈值与延时实板签核 |
 | D008-002 | P0 | I2C 完全失联时软件关 FET 只能 best effort | 验证 DVC WDT 或板级 power-cycle 的物理安全路径，并与 software inhibit 无竞态 |
-| D008-003 | P0 | D008 24S LFP / 20S NMC 产品 profile 未最终定稿 | 串数、化学体系、容量、OV/UV、OC、温度、SOC profile、GP 装配整体签核 |
+| D008-003 | P0 | 24S LFP / 20S NMC **物理 Profile 框架已实现**，但产品参数未最终定稿 | 容量、OV/UV、OC、温度、SOC OCV/端点、GP2/GP3 BOM 等分别签核；20S NMC 单独验证 |
 | D008-004 | P1 | 0x53/0x54 MOS mask 仍有 reset-default 依赖 | 把 WDT、反向恢复、预充/预放、Body Diode 策略全部显式配置并 readback |
 | D008-005 | P1 | SCD release policy 尚未实现 | 外部负载移除判据 + debounce + W0C clear + readback + controlled retry 实板验证 |
 | D008-006 | P1 | GP2/GP3 外部 NTC 为 BOM 选件 | 两种产品 profile 各自明确 OFF/NTC，未装通道不得参与保护 |
@@ -94,7 +117,7 @@ BDPT 1 code  = 0.2 A
 | D008-009 | P1 | Open-Wire 只有 trigger API | 完整 trigger/wait/read/evaluate/restore 状态机 |
 | D008-010 | P1 | Flash apply-success/persist-fail/rollback-fail 无统一 inconsistent 状态 | 进入 fail-safe inhibit，记录事件，重启后完整恢复 |
 
-## 6. 实板最低验证矩阵
+## 7. 实板最低验证矩阵
 
 - **I2C/AFE**：正常、NACK、CRC 错、SDA/SCL 异常、AFE 掉电、重复 reset/reinit；确认错误有界、不会自动重开 MOS。
 - **电芯**：24S、20S mask、首/中/末通道、max/min、共模二次校准。
@@ -106,11 +129,11 @@ BDPT 1 code  = 0.2 A
 - **Balance/Open-Wire**：60 s auto-clear、续期、测量干扰和热。
 - **Flash/OTA**：擦写中掉电、配置 rollback、OTA 10/50/99% 中断。
 
-## 7. 发布原则
+## 8. 发布原则
 
 满足以下三个证据层次后才允许把状态从“代码完成”升级为“可发布”：
 
-1. **Host contracts**：寄存器真值、框架边界、Flash/SOC 合约通过；
+1. **Host contracts**：寄存器真值、框架边界、Flash/SOC/Profile 合约通过；
 2. **固定 TC32 production build**：clean rebuild、BIN check、MAP/manifest/verify、cppcheck 通过；
 3. **HS-D008 实板记录**：保护、MOS、通信故障、低功耗、Flash/OTA 的测试记录绑定到具体 commit。
 

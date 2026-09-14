@@ -182,4 +182,9 @@ void Param_UpgradeReset_Apply(void)
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
+
+    /* A system-reset epoch restores additive chemistry/profile keys to AUTO.
+     * Reapply the compiled D008 assembly identity only after all reset epochs
+     * have run so the same boot cannot undo the migration. */
+    param_apply_d008_product_identity_if_unset();
 }

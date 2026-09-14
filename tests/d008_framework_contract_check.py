@@ -114,6 +114,10 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("system.battery_chemistry = D008_PRODUCT_CHEMISTRY;", self.param)
         self.assertIn("system.soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID;", self.param)
         self.assertIn("bms_cold_kv_store_set_system(&system)", self.param)
+        self.assertGreaterEqual(
+            self.param.count("param_apply_d008_product_identity_if_unset();"), 2,
+            "profile identity must be applied after load and again after upgrade-reset epochs",
+        )
         migration = self.param.split("static void param_apply_d008_product_identity_if_unset", 1)[1]
         migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
         self.assertNotIn("system.series_num =", migration)
