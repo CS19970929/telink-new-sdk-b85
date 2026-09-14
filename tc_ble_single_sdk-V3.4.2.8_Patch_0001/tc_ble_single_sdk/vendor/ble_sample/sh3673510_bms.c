@@ -560,7 +560,9 @@ void sh3673510_bms_afe_init(void)
     s_hw_afe_error = 0u;
     s_requested_charge_on = 0u;
     s_requested_discharge_on = 0u;
-    s_short_latched = 0u;
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
+    /* Preserve s_short_latched across AFE communication reinitialization. */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
     sh3673510_board_force_heater_fuse_safe();
@@ -639,6 +641,8 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 
 void sh3673510_bms_afe_sleep(void)
 {
+    s_output_inhibit = 1u;
+    s_valid_snapshot_streak = 0u;
     s_heater_on = 0u;
     sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
