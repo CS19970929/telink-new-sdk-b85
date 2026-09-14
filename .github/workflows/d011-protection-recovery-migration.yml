@@ -6,6 +6,7 @@ on:
       - feature/sh3673510-d011-bms
     paths:
       - tools/apply_d011_protection_recovery.py
+      - tools/fix_d011_protection_contract.py
       - .github/workflows/d011-protection-recovery-migration.yml
 
 permissions:
@@ -23,10 +24,14 @@ jobs:
           fetch-depth: 0
 
       - name: Syntax-check migration
-        run: python -m py_compile tools/apply_d011_protection_recovery.py
+        run: |
+          python -m py_compile tools/apply_d011_protection_recovery.py
+          python -m py_compile tools/fix_d011_protection_contract.py
 
       - name: Apply protection recovery hardening
-        run: python tools/apply_d011_protection_recovery.py
+        run: |
+          python tools/apply_d011_protection_recovery.py
+          python tools/fix_d011_protection_contract.py
 
       - name: Run permanent contracts
         run: |
