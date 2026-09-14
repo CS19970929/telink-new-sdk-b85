@@ -17,5 +17,5 @@ assert 'return DVC1124_CFG_ERR_READ_ONLY;' in c
 assert 'SCD is owned by bms_afe_hw_profile' in store
 commit=m[m.index('static u8 commit_protection_update'):m.index('u16 mb_crc16')]
 assert 'bms_afe_apply_protection_config' not in commit
-assert 'qty != BMS_AFE_HW_PROFILE_WORDS' in m
+assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
 print('D008 independent AFE hardware protection profile contract: PASS')
