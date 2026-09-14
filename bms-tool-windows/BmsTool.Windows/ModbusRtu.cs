@@ -35,6 +35,9 @@ public static class BmsRegisters
     public const byte FactoryFunction = 0x41;
     public const uint FactoryUnlockMagic = 0x46414354;
     public const ushort FactorySessionTimeoutSeconds = 8;
+    public const byte AfeHardwareFunction = 0x42;
+    public const uint AfeHardwareUnlockMagic = 0x41464548; // "AFEH"
+    public const ushort AfeHardwareSessionTimeoutSeconds = 60;
 }
 
 public static class ModbusRtu
@@ -126,6 +129,26 @@ public static class ModbusRtu
         return Frame(body);
     }
 
+    public static byte[] AfeHardwareOpen()
+    {
+        Span<byte> body = stackalloc byte[7];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.AfeHardwareFunction;
+        body[2] = 0x01;
+        BinaryPrimitives.WriteUInt32BigEndian(body[3..7], BmsRegisters.AfeHardwareUnlockMagic);
+        return Frame(body);
+    }
+
+    public static byte[] AfeHardwareCommand(byte command, ushort token)
+    {
+        Span<byte> body = stackalloc byte[5];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.AfeHardwareFunction;
+        body[2] = command;
+        BinaryPrimitives.WriteUInt16BigEndian(body[3..5], token);
+        return Frame(body);
+    }
+
     public static ushort[] ParseRead(byte[] frame, ushort expectedQuantity)
     {
         ValidateFrame(frame);
@@ -177,14 +200,25 @@ public static class ModbusRtu
             byte status = buffer[3];
             return command switch
             {
-                // OPEN and STATUS return no payload for an error response.
                 0x01 => status == 0 ? 12 : 6,
-                // HEARTBEAT/INJECT/CLEAR keep their token payload when an
-                // authenticated request is rejected; AUTH_REQUIRED is short.
                 0x02 or 0x03 => status == 2 ? 6 : 10,
                 0x04 => status == 2 ? 6 : 8,
                 0x05 => 6,
                 0x06 => status == 0 ? 38 : 6,
+                _ => 6
+            };
+        }
+        if (f == BmsRegisters.AfeHardwareFunction)
+        {
+            if (buffer.Count < 4) return null;
+            byte command = buffer[2];
+            byte status = buffer[3];
+            if (status != 0) return 6;
+            return command switch
+            {
+                0x01 => 13,
+                0x02 or 0x04 => 10,
+                0x03 => 6,
                 _ => 6
             };
         }
@@ -199,6 +233,16 @@ public static class ModbusRtu
             throw new IOException("Invalid factory-test response header.");
         if (frame[3] != 0)
             throw new IOException($"Factory-test command 0x{command:X2} failed with status 0x{frame[3]:X2}.");
+    }
+
+    public static void ValidateAfeHardwareResponse(ReadOnlySpan<byte> frame, byte command)
+    {
+        ValidateFrame(frame);
+        if (frame.Length < 6 || frame[0] != BmsRegisters.DeviceAddress ||
+            frame[1] != BmsRegisters.AfeHardwareFunction || frame[2] != command)
+            throw new IOException("Invalid AFE hardware access response header.");
+        if (frame[3] != 0)
+            throw new IOException($"AFE hardware access command 0x{command:X2} failed with status 0x{frame[3]:X2}.");
     }
 
     public static byte[] Frame(ReadOnlySpan<byte> body)
