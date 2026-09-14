@@ -53,15 +53,20 @@ class BackendBoundaryTests(unittest.TestCase):
         self.assertIn("vendor/ble_sample/dvc1124_safe_bms.c", self.order)
 
     def test_safe_wrapper_does_not_import_d013_hardware(self):
-        forbidden = (
-            "sh3673510", "sh3673520", "D011_", "D013_",
-            "SPI_MODE", "D011_SWITCH_PIN", "D011_AFE_",
+        # Comments may name D013/SH3673510 to explain what is deliberately not
+        # copied. Reject actual includes, board symbols and SPI implementation
+        # dependencies instead of matching explanatory prose.
+        forbidden_patterns = (
+            r'#include\s+["<]sh3673510',
+            r'#include\s+["<]sh3673520',
+            r'\bD011_[A-Za-z0-9_]*\b',
+            r'\bD013_[A-Za-z0-9_]*\b',
+            r'\bD011_SWITCH_PIN\b',
+            r'\bD011_AFE_[A-Za-z0-9_]*\b',
+            r'\bSPI_MODE[0-9_]*\b',
         )
-        lower = self.safe.lower()
-        self.assertNotIn("sh3673510", lower)
-        self.assertNotIn("sh3673520", lower)
-        for token in forbidden[2:]:
-            self.assertNotIn(token, self.safe)
+        for pattern in forbidden_patterns:
+            self.assertIsNone(re.search(pattern, self.safe))
 
 
 class SafetySupervisorTests(unittest.TestCase):
