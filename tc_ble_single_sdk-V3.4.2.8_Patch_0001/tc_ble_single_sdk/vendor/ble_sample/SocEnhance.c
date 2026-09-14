@@ -901,12 +901,14 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
 
 static uint8_t soc_apply_full_anchor(void)
 {
+    /* Upward calibration is legal only while a real charging direction is
+     * confirmed. Idle/high-voltage boot states and rebound must never raise SOC. */
     uint16_t full_mv = g_soc_profile->full_sync_mv;
     uint16_t full_min = (full_mv > g_soc_profile->full_min_margin_mv) ?
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
-    uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && !isDSG();
+    uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG();
 
-    if (g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp) {
+    if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp) {
         if (get_soc_real() != SOC_PERCENT_MAX) {
             soc_apply_real_value(SOC_PERCENT_MAX, 0u);
             soc_reset_integral_accumulator();
