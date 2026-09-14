@@ -264,12 +264,11 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	/* D011 has no validated dedicated CHG_IN GPIO.  Preserve the branch's
-	 * effective behavior: CHG is normally requested and protection decides
-	 * whether it may conduct; DSG additionally follows the active-low switch.
-	 * The AFE adapter owns final fail-safe arbitration. */
+	/* D011 is a common-port BMS. In the healthy normal state both back-to-back
+	 * FETs are requested ON. The AFE adapter applies direction-specific
+	 * protection/fail-safe blocking; PA0/SW1 is not a DSG gate. */
 	uint8_t chg_target = 1u;
-	uint8_t dsg_target = d011_switch_is_on() ? 1u : 0u;
+	uint8_t dsg_target = 1u;
 
 	g_bms_system_status.bits.b1Status_Cool = 0u;
 	(void)bms_afe_set_fets(chg_target, dsg_target);
