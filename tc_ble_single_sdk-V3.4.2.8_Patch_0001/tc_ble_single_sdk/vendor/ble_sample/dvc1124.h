@@ -77,7 +77,7 @@ typedef struct
     dvc1124_openwire_state_t state;
     uint8_t valid;
     uint8_t cell_count;
-    uint16_t cell_mv[DVC1124_MAX_CELLS];
+    uint16_t cell_mv[24]; /* DVC1124 physical maximum; macro is declared below this public type. */
     uint32_t pack_mv;
 } dvc1124_openwire_result_t;
 
