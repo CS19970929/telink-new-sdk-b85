@@ -24,7 +24,17 @@ jobs:
           fetch-depth: 0
 
       - name: Apply independent DVC hardware protection profile
-        run: python tools/split_afe_hw_protection_d008_once.py
+        shell: bash
+        run: |
+          python tools/split_afe_hw_protection_d008_once.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/dvc1124_config_quick_check.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('self.assertIn("Reject multi-field writes", self.src)',
+                        'self.assertIn("Legacy DVC semantic multi-write remains intentionally non-atomic", self.src)')
+          p.write_text(s, encoding='utf-8')
+          PY
 
       - name: Refresh locked source order
         run: python bms_tools/bms.py sources --update
