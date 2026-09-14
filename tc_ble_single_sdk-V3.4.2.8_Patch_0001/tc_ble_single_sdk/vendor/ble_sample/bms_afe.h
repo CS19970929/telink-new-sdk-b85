@@ -2,14 +2,31 @@
 #define BMS_AFE_H_
 
 #include <stdint.h>
+#include "bms_afe_backend.h"
 
 /*
  * Compile-time AFE boundary used by the BMS application.
  *
- * A product build contains one AFE adapter, so a runtime ops table would only
- * add indirection and code size.  A new AFE implements this small interface;
- * app.c and the BMS core do not include device-register APIs.
+ * HS-D008 has one physical AFE (DVC1124-2). The SAFE backend keeps the
+ * existing DVC driver as the device implementation and interposes a small
+ * supervisor for communication-fault output inhibit, valid-snapshot release,
+ * reinitialization cooldown, short-circuit latching and final FET arbitration.
+ *
+ * DVC implementation files include dvc1124*.h before this header; for them the
+ * legacy bms_afe_* symbols are intentionally not renamed. Application code that
+ * only includes bms_afe.h is rebound to the safe supervisor at compile time.
  */
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124_SAFE) && \
+    !defined(DVC1124_H_) && !defined(DVC1124_CONFIG_STORE_H_)
+#define bms_afe_init                       dvc1124_safe_bms_afe_init
+#define bms_afe_sample                     dvc1124_safe_bms_afe_sample
+#define bms_afe_sleep                      dvc1124_safe_bms_afe_sleep
+#define bms_afe_apply_protection_config    dvc1124_safe_bms_afe_apply_protection_config
+#define bms_afe_set_fets                   dvc1124_safe_bms_afe_set_fets
+#define bms_afe_set_output_enabled         dvc1124_safe_bms_afe_set_output_enabled
+#define bms_afe_get_aux_measurements       dvc1124_safe_bms_afe_get_aux_measurements
+#endif
+
 void bms_afe_init(void);
 void bms_afe_sample(void);
 void bms_afe_sleep(void);
