@@ -2,7 +2,6 @@
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "bus_mux.h"
 #include "modbus_rtu.h"
 #include "conf.h"
 
@@ -18,27 +17,37 @@ typedef char modbus_dma_packet_size_must_be_272[
 #define MODBUS_UART_BWPC          13u
 #define MODBUS_UART_RECOVERY_US   (1u * 1000u * 1000u)
 
+#if ((MODBUS_RS485_ENABLE != 0) && (MODBUS_RS485_ENABLE != 1))
+#error "MODBUS_RS485_ENABLE must be 0 or 1"
+#endif
+
 static volatile u8 s_rx_ready = 0u;
 static volatile u8 s_tx_active = 0u;
 static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
+#if MODBUS_RS485_ENABLE
 static void modbus_rs485_receive_mode(void)
 {
+    /* D011 CA-IS2092A: DE and /RE share PA1, 0=receive. */
     gpio_write(D011_RS485_EN_PIN, 0);
 }
 
 static void modbus_rs485_transmit_mode(void)
 {
+    /* D011 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
     gpio_write(D011_RS485_EN_PIN, 1);
 }
+#endif
 
 static void modbus_uart_service_tx_done(void)
 {
     if (s_tx_active && !uart_tx_is_busy())
     {
-        /* CA-IS2092A DE and /RE share 485-EN: 0=RX, 1=TX. */
+#if MODBUS_RS485_ENABLE
+        /* Release the RS485 transceiver only after the UART stop bit is out. */
         modbus_rs485_receive_mode();
+#endif
         s_tx_active = 0u;
         uart_clr_tx_done();
     }
@@ -50,12 +59,15 @@ void modbus_uart_init(void)
     memset((void *)&s_tx_pkt, 0, sizeof(s_tx_pkt));
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
 
-    /* HS-D011: PC2=SCI1-TX, PC3=SCI1-RX, PA1=485-EN. */
+#if MODBUS_RS485_ENABLE
+    /* D011: PC2=TX, PC3=RX, PA1=485 DE//RE direction control. */
     gpio_set_func(D011_RS485_EN_PIN, AS_GPIO);
     gpio_write(D011_RS485_EN_PIN, 0);
     gpio_set_input_en(D011_RS485_EN_PIN, 0);
     gpio_set_output_en(D011_RS485_EN_PIN, 1);
+#endif
 
+    /* D011 and D013 both use PC2/PC3 as the fixed Modbus UART. */
     uart_gpio_set(D011_SCI1_TX_PIN, D011_SCI1_RX_PIN);
     uart_reset();
     uart_init(MODBUS_UART_CLOCK_DIVIDER,
@@ -67,7 +79,9 @@ void modbus_uart_init(void)
 
     irq_set_mask(FLD_IRQ_DMA_EN);
     dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 1);
+#if MODBUS_RS485_ENABLE
     modbus_rs485_receive_mode();
+#endif
     s_tx_active = 0u;
     irq_enable();
 }
@@ -82,14 +96,13 @@ void modbus_uart_irq_proc(void)
         if (s_rx_pkt.dma_len > 0u)
         {
             s_rx_ready = 1u;
-            bus_mux_on_uart_rx_byte();
         }
     }
 
     if (irqsrc & FLD_DMA_CHN_UART_TX)
     {
-        /* DMA completion can precede the UART stop bit. Direction is released
-         * only after FLD_UART_TX_DONE via modbus_uart_service_tx_done(). */
+        /* DMA completion can precede the UART stop bit. TX completion is
+         * finalized only after uart_tx_is_busy() clears. */
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_TX);
     }
 
@@ -126,7 +139,9 @@ void modbus_uart_send(const u8 *p, u32 len)
     s_tx_pkt.dma_len = len;
     memcpy(s_tx_pkt.data, p, len);
 
+#if MODBUS_RS485_ENABLE
     modbus_rs485_transmit_mode();
+#endif
     s_tx_active = 1u;
     uart_send_dma((u8 *)&s_tx_pkt);
 }
