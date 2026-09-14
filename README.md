@@ -1,71 +1,48 @@
-# TLSR8251 BMS 固件模板
+# HS-D008 / TLSR8251 / DVC1124 BMS
 
-本仓库当前产品目标为 **TLSR8251 + HS-D008 + DVC1124-2**。重构优先级是安全和兼容，其次才是代码量；保护阈值、协议、Flash 布局、OTA 边界和已验证时序不得在普通整理中改变。
+当前分支产品是 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。分支历史名为 `feature/sh3673510-d013-bmsdvc`，名称含 D013/SH3673510 但实际硬件不是 SH3673510。
 
-当前 D008 主开发分支为 `refactor/d008-bms-phase2`。D013 的 `feature/sh3673510-d013-bms` 仅作为软件框架、安全恢复和模块边界参考；D008 实际目标硬件仍是 **HS-D008 + DVC1124-2**，不是 SH3673510。旧分支名 `feature/sh3673510-d013-bmsdvc` 仅保留为迁移别名，不再作为后续开发入口。
+默认 Product Profile 为 **24S LFP**，另支持编译为 **20S NMC**。产品串数/化学体系与容量、OV/UV、OC、温度等最终量产参数是不同层次；后者必须单独签核。
 
-## 当前状态
+## 当前架构
 
-- 应用层只通过 `bms_afe.h` 使用 AFE；旧 `sh367309_datadeal.*`、`MTPWrite`、`App_AFEGet` 和虚拟 GPIO/ADC 兼容层已删除。
-- `bms_afe_backend.h` 固定选择 DVC1124；`bms_afe_guard.c` 统一处理 AFE 通信失效 inhibit、连续有效快照恢复资格、有限频率 backend reinit 和 FET request 仲裁。
-- `bms_state.*` / `bms_error.h` 统一持有 BMS 报告、系统状态、错误计数和分级故障历史，通信层不再跨文件遍历私有数组。
-- DVC1124 寄存器真值集中在 `dvc1124_reg.h`；板级默认值集中在 `dvc1124_project_config.h`。
-- BLE 与 UART 共用同一个 Modbus/AFE 配置服务。
-- 参数、SOC、runtime、事件日志和 DVC 配置使用彼此独立的 Flash 区域。
-- SOC 已采用与 D013 相同的数据化 profile 框架：LFP/NMC OCV/profile 与算法分离，chemistry/profile ID 使用只追加 Cold-KV key 保存；历史设备没有新 key 时保留 AUTO 兼容。
-- 主机契约测试可运行；固定 TC32 构建和 HS-D008 实板验证仍是发布前必需项。
-
-固件主目录：
-
-```text
-tc_ble_single_sdk-V3.4.2.8_Patch_0001/
-└── tc_ble_single_sdk/vendor/ble_sample/
-```
-
-## 常用命令
-
-```bash
-python3 bms_tools/bms.py sources --check
-python3 tests/dvc1124_config_quick_check.py
-python3 tests/d008_framework_contract_check.py
-python3 tests/soc_contract_check.py
-python3 tests/flash_quick_check.py
-python3 -m unittest tests/test_bms_tools.py
-```
-
-在已安装固定版 Telink TC32 工具链的 Windows 环境中：
-
-```powershell
-python bms_tools/bms.py env
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py ci --jobs 4
-python bms_tools/bms.py verify
-```
-
-新增、删除或重命名源码后，显式更新并审核链接顺序：
-
-```bash
-python3 bms_tools/bms.py sources --update
-git diff -- bms_tools/source_order.txt
-```
+- 软件保护：统一 `bms_sw_protection.*`，参数仍为 `g_tParam.protect` 的 First/Second/Third/Recover/Filter。
+- AFE 硬件保护：独立 `bms_afe_hw_profile_t`，与软件三级参数分开持久化和修改。
+- AFE backend：DVC1124；业务层通过 `bms_afe.h`。
+- AFE 通信异常：output inhibit + 有界 reinit + 连续有效 snapshot 恢复资格。
+- SOC：LFP/NMC profile 数据化；24S/20S product profile 决定物理通道。
+- Windows 工具通过统一 AFE Hardware Protection V2 读取 requested/effective，不直接暴露 raw DVC 寄存器作为普通产品参数。
 
 ## 文档入口
 
-- [D008 当前开发状态 / 发布阻断清单](docs/D008_DEVELOPMENT_STATUS.md)
-- [D008 对齐 D013 框架与 DVC1124 V1.2 完整审核](docs/HS-D008_DVC1124_D013_Framework_Audit_2026-09-14.md)
-- [D008 / D011 / D013 分支策略与清理清单](docs/BRANCH_STRATEGY.md)
-- [架构与 AFE 移植](docs/ARCHITECTURE.md)
-- [构建、测试与发布门禁](docs/BUILD_AND_TEST.md)
-- [Flash 与持久化](docs/STORAGE.md)
-- [SOC 当前行为](docs/SOC.md)
-- [待完成的硬件验证](docs/HARDWARE_VALIDATION.md)
-- [DVC1124 / HS-D008 硬件基线](docs/DVC1124_HS_D008.md)
-- [DVC1124 配置与通信接口](docs/DVC1124_CONFIG_INTERFACE.md)
-- [DVC1124 后续任务](docs/DVC1124_DEVELOPMENT_TASKS.md)
-- [配套 BMS 客户端](tools/README.md)
+当前产品配置只认以下入口：
 
-Vendor release note、patch note 和 license 文件保留在 SDK 原目录；它们不属于项目设计文档，不应随应用重构改写。
+- [D008 产品硬件与固件配置基线](docs/D008_PRODUCT_REFERENCE.md) — IO、DVC GP/寄存器、24S/20S、已知不确定项。
+- [D008 实板验证与发布阻断项](docs/HARDWARE_VALIDATION.md) — 当前唯一待测清单。
+- [BMS 软件架构与配置所有权](docs/ARCHITECTURE.md)
+- [软件三级保护](docs/SOFTWARE_PROTECTION.md)
+- [AFE Hardware Protection V2](docs/AFE_HARDWARE_PROTECTION_V2.md)
+- [SOC](docs/SOC.md)
+- [Flash / Storage](docs/STORAGE.md)
+- [构建与测试](docs/BUILD_AND_TEST.md)
+- [分支策略](docs/BRANCH_STRATEGY.md)
+
+历史日期型审计、旧 DVC 参数说明和旧任务清单已从当前文档入口移除；需要追溯时使用 Git 历史，不再把它们当设计真值。
+
+## 构建/检查
+
+```powershell
+python bms_tools/bms.py env
+python bms_tools/bms.py sources --check
+python bms_tools/bms.py rebuild --jobs 4
+python bms_tools/bms.py check-fw
+python bms_tools/bms.py map
+python bms_tools/bms.py verify
+python bms_tools/bms.py static --no-report
+```
+
+Host contracts 至少覆盖 DVC config、D008 framework、20S profile、software protection、AFE HW profile、SOC 和 Flash。
 
 ## 发布原则
 
-主机测试通过只证明源码契约未回归，不代表固件可量产。任何涉及保护、MOS、采样、低功耗、Flash 或 OTA 的版本，必须完成 TC32 编译、MAP/BIN 尺寸检查、固件校验和对应实板测试，并把结果绑定到具体 commit。
+源码、Host contracts 和 TC32 CI 通过只证明软件/构建基线。SCD、dead-bus硬件安全路径、NTC/BOM、Open-Wire/Balance、24S/20S最终产品参数仍必须按 `HARDWARE_VALIDATION.md` 完成实板证据后才能宣称量产完成。
