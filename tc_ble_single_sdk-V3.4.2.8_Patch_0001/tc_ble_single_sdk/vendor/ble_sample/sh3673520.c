@@ -93,7 +93,7 @@ static sh3673520_status_t sh3673520_record_final_failure(sh3673520_status_t stat
     return status;
 }
 
-static sh3673520_status_t sh3673520_xfer(uint8_t tx, uint8_t *rx)
+static sh3673520_status_t sh36735xx_xfer_byte(uint8_t tx, uint8_t *rx)
 {
     return sh3673520_map_port_status(sh3673520_port_xfer(tx, rx));
 }
@@ -118,7 +118,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
 
     crc = SH3673520_CRC8_INIT;
 
-    status = sh3673520_xfer(SH3673520_SPI_CMD_READ, &rx);
+    status = sh36735xx_xfer_byte(SH3673520_SPI_CMD_READ, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -128,7 +128,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
     }
     crc = sh3673520_crc8_update(crc, rx);
 
-    status = sh3673520_xfer(start_reg, &rx);
+    status = sh36735xx_xfer_byte(start_reg, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -138,7 +138,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
     }
     crc = sh3673520_crc8_update(crc, rx);
 
-    status = sh3673520_xfer(length, &rx);
+    status = sh36735xx_xfer_byte(length, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -148,7 +148,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
     }
     crc = sh3673520_crc8_update(crc, rx);
 
-    status = sh3673520_xfer(0x00u, &rx);
+    status = sh36735xx_xfer_byte(0x00u, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -159,7 +159,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
     crc = sh3673520_crc8_update(crc, rx);
 
     for (index = 0u; index < length; ++index) {
-        status = sh3673520_xfer(0x00u, &rx);
+        status = sh36735xx_xfer_byte(0x00u, &rx);
         if (status != SH3673520_OK) {
             goto finish;
         }
@@ -167,7 +167,7 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
         crc = sh3673520_crc8_update(crc, rx);
     }
 
-    status = sh3673520_xfer(0x00u, &received_crc);
+    status = sh36735xx_xfer_byte(0x00u, &received_crc);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -206,7 +206,7 @@ static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
     }
     begun = 1u;
 
-    status = sh3673520_xfer(frame[0], &rx);
+    status = sh36735xx_xfer_byte(frame[0], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -215,7 +215,7 @@ static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
         goto finish;
     }
 
-    status = sh3673520_xfer(frame[1], &rx);
+    status = sh36735xx_xfer_byte(frame[1], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -224,7 +224,7 @@ static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
         goto finish;
     }
 
-    status = sh3673520_xfer(frame[2], &rx);
+    status = sh36735xx_xfer_byte(frame[2], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -233,7 +233,7 @@ static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
         goto finish;
     }
 
-    status = sh3673520_xfer(crc, &rx);
+    status = sh36735xx_xfer_byte(crc, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -242,7 +242,7 @@ static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
         goto finish;
     }
 
-    status = sh3673520_xfer(0x00u, &rx);
+    status = sh36735xx_xfer_byte(0x00u, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -280,7 +280,7 @@ static sh3673520_status_t sh3673520_reset_once(void)
     }
     begun = 1u;
 
-    status = sh3673520_xfer(frame[0], &rx);
+    status = sh36735xx_xfer_byte(frame[0], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -289,7 +289,7 @@ static sh3673520_status_t sh3673520_reset_once(void)
         goto finish;
     }
 
-    status = sh3673520_xfer(frame[1], &rx);
+    status = sh36735xx_xfer_byte(frame[1], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -298,7 +298,7 @@ static sh3673520_status_t sh3673520_reset_once(void)
         goto finish;
     }
 
-    status = sh3673520_xfer(frame[2], &rx);
+    status = sh36735xx_xfer_byte(frame[2], &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -307,7 +307,7 @@ static sh3673520_status_t sh3673520_reset_once(void)
         goto finish;
     }
 
-    status = sh3673520_xfer(crc, &rx);
+    status = sh36735xx_xfer_byte(crc, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -316,7 +316,7 @@ static sh3673520_status_t sh3673520_reset_once(void)
         goto finish;
     }
 
-    status = sh3673520_xfer(0x00u, &rx);
+    status = sh36735xx_xfer_byte(0x00u, &rx);
     if (status != SH3673520_OK) {
         goto finish;
     }
@@ -467,6 +467,66 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
     }
 
     return SH3673520_OK;
+}
+
+
+sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count)
+{
+    uint8_t current;
+    uint8_t target;
+    uint8_t verify;
+    sh3673520_status_t status;
+
+    if ((cell_count < SH3673520_MIN_CELLS) ||
+        (cell_count > SH3673520_MAX_CELLS)) {
+        return SH3673520_ERR_RANGE;
+    }
+    if (s_ready == 0u) {
+        return SH3673520_ERR_NOT_READY;
+    }
+
+    status = SH3673520_ReadReg(SH3673520_REG_SCONF4, &current);
+    if (status != SH3673520_OK) return status;
+
+    target = (uint8_t)((current & (uint8_t)~SH3673520_SCONF4_CELL_COUNT_MASK) |
+                       (cell_count & SH3673520_SCONF4_CELL_COUNT_MASK));
+    if (target != current) {
+        status = SH3673520_WriteReg(SH3673520_REG_SCONF4, target);
+        if (status != SH3673520_OK) return status;
+    }
+
+    status = SH3673520_ReadReg(SH3673520_REG_SCONF4, &verify);
+    if (status != SH3673520_OK) return status;
+    if ((verify & SH3673520_SCONF4_CELL_COUNT_MASK) != cell_count) {
+        return SH3673520_ERR_VERIFY;
+    }
+    return SH3673520_OK;
+}
+
+sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
+                                            uint8_t cell_count)
+{
+    uint32_t valid_mask;
+    uint8_t values[3];
+
+    if ((cell_count < SH3673520_MIN_CELLS) ||
+        (cell_count > SH3673520_MAX_CELLS)) {
+        return SH3673520_ERR_RANGE;
+    }
+    if (s_ready == 0u) {
+        return SH3673520_ERR_NOT_READY;
+    }
+
+    valid_mask = (1UL << cell_count) - 1UL;
+    if ((cell_mask & ~valid_mask) != 0u) {
+        return SH3673520_ERR_RANGE;
+    }
+
+    /* Datasheet mapping: H=CB20..17, M=CB16..9, L=CB8..1. */
+    values[0] = (uint8_t)((cell_mask >> 16u) & 0x0Fu);
+    values[1] = (uint8_t)((cell_mask >> 8u) & 0xFFu);
+    values[2] = (uint8_t)(cell_mask & 0xFFu);
+    return SH3673520_WriteRegs(SH3673520_REG_BALANCEH, values, 3u);
 }
 
 sh3673520_status_t SH3673520_Reset(void)
