@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -7,12 +6,83 @@ using System.Runtime.CompilerServices;
 
 namespace BmsTool.Windows;
 
+public static class AfeHardwareProtocolMap
+{
+    public const ushort RequestedBase = 0x2500;
+    public const ushort ProfileWordCount = 35;
+    public const ushort MetadataBase = 0x2523;
+    public const ushort MetadataWordCount = 9;
+    public const ushort EffectiveBase = 0x2540;
+    public const ushort EffectiveWordCount = ProfileWordCount;
+    public const ushort InterfaceVersion = 0x0002;
+
+    public const ushort ModelDvc1124 = 0x1124;
+    public const ushort ModelSh3673510 = 0x3510;
+
+    public const ushort CapCov = 1 << 0;
+    public const ushort CapCuv = 1 << 1;
+    public const ushort CapOcd1 = 1 << 2;
+    public const ushort CapOcd2 = 1 << 3;
+    public const ushort CapOcc1 = 1 << 4;
+    public const ushort CapOcc2 = 1 << 5;
+    public const ushort CapSc = 1 << 6;
+    public const ushort CapTemp = 1 << 7;
+
+    public static string BackendName(ushort model) => model switch
+    {
+        ModelDvc1124 => "DVC1124",
+        ModelSh3673510 => "SH35xx (SH3673510/SH3673520 backend)",
+        _ => $"Unknown 0x{model:X4}"
+    };
+}
+
+public sealed record AfeHardwareDeviceInfo(
+    ushort BackendModel,
+    ushort Capabilities,
+    bool ProfileValid,
+    ushort ShuntMicroOhm,
+    ushort CellCount,
+    ushort WatchdogSeconds,
+    bool AccessActive,
+    ushort ApplyState,
+    ushort LastError,
+    ushort InterfaceVersion)
+{
+    public string BackendName => AfeHardwareProtocolMap.BackendName(BackendModel);
+    public string ApplyStateText => ApplyState switch
+    {
+        0 => "Idle",
+        1 => "OK",
+        2 => "Rollback OK",
+        3 => "CONFIG_INCONSISTENT",
+        _ => $"Unknown({ApplyState})"
+    };
+    public string ErrorText => LastError switch
+    {
+        0 => "None",
+        1 => "Authorization",
+        2 => "Validation",
+        3 => "Persistence",
+        4 => "Apply/verify",
+        5 => "Rollback",
+        _ => $"Unknown({LastError})"
+    };
+}
+
+public sealed record AfeHardwareSnapshot(
+    ushort[] Requested,
+    ushort[] Effective,
+    AfeHardwareDeviceInfo Info);
+
 public sealed class AfeParameterRow : INotifyPropertyChanged
 {
-    private string _currentValue = "—";
+    private string _requestedValue = "—";
+    private string _effectiveValue = "—";
     private string _editValue = string.Empty;
+    private string _enabledText = "—";
 
     public required int WireIndex { get; init; }
+    public required ushort CapabilityMask { get; init; }
     public required string Group { get; init; }
     public required string Name { get; init; }
     public required string Unit { get; init; }
@@ -20,10 +90,16 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public required Func<ushort, string> Decode { get; init; }
     public required Func<string, (bool Ok, ushort Wire, string Error)> Encode { get; init; }
 
-    public string CurrentValue
+    public string RequestedValue
     {
-        get => _currentValue;
-        private set { _currentValue = value; OnPropertyChanged(); }
+        get => _requestedValue;
+        private set { _requestedValue = value; OnPropertyChanged(); }
+    }
+
+    public string EffectiveValue
+    {
+        get => _effectiveValue;
+        private set { _effectiveValue = value; OnPropertyChanged(); }
     }
 
     public string EditValue
@@ -32,82 +108,78 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
         set { _editValue = value; OnPropertyChanged(); }
     }
 
-    public void Load(ushort wire)
+    public string EnabledText
     {
-        string text = Decode(wire);
-        CurrentValue = text;
-        EditValue = text;
+        get => _enabledText;
+        private set { _enabledText = value; OnPropertyChanged(); }
+    }
+
+    public void Load(ushort requested, ushort effective, ushort enableMask)
+    {
+        RequestedValue = Decode(requested);
+        EffectiveValue = Decode(effective);
+        EditValue = RequestedValue;
+        EnabledText = CapabilityMask == 0 ? "—" : ((enableMask & CapabilityMask) != 0 ? "启用" : "关闭");
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-    private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public sealed class AfeHardwareParameterModel
 {
-    public const ushort BaseRegister = 0x2400;
-    public const ushort RegisterCount = 24;
-
-    private static readonly ushort[] OvUvDelayWire = [10,20,30,40,60,80,100,200,300,400,600,800,1000,2000,3000,4000];
-    private static readonly ushort[] OccOcd2DelayWire = [1,2,4,6,8,10,20,40,60,80,100,200,400,800,1000,2000];
-    private static readonly ushort[] Ocd1DelayWire = [5,10,20,40,60,80,100,200,400,600,800,1000,1500,2000,3000,4000];
-    private static readonly ushort[] OccOcd1CurrentWire = [200,300,400,500,600,700,800,900,1000,1100,1200,1300,1400,1600,1800,2000];
-    private static readonly ushort[] Ocd2CurrentWire = [300,400,500,600,700,800,900,1000,1200,1400,1600,1800,2000,3000,4000,5000];
-    private static readonly ushort[] ShortCurrentWire = [50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000];
-    private static readonly ushort[] ShortDelayWire = [0,64,128,192,256,320,384,448,512,576,640,704,768,832,896,960];
-
-    private ushort[] _deviceRaw = new ushort[RegisterCount];
+    private ushort[] _requested = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
+    private ushort[] _effective = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
+    private AfeHardwareDeviceInfo? _deviceInfo;
 
     public ObservableCollection<AfeParameterRow> Rows { get; } = new();
-    public IReadOnlyList<ushort> DeviceRaw => _deviceRaw;
+    public IReadOnlyList<ushort> RequestedRaw => _requested;
+    public AfeHardwareDeviceInfo? DeviceInfo => _deviceInfo;
 
-    public AfeHardwareParameterModel()
+    public void Load(AfeHardwareSnapshot snapshot)
     {
-        Rows.Add(VoltageRow(0, "单体过压", "保护电压", "mV", 3600, 4500, 5));
-        Rows.Add(VoltageRow(1, "单体过压", "恢复电压", "mV", 3300, 4500, 5));
-        Rows.Add(DelayRow(2, "单体过压", "保护延时", OvUvDelayWire));
+        if (snapshot.Requested.Length != AfeHardwareProtocolMap.ProfileWordCount ||
+            snapshot.Effective.Length != AfeHardwareProtocolMap.ProfileWordCount)
+            throw new ArgumentException("AFE hardware profile must contain exactly 35 words.");
+        if (!snapshot.Info.ProfileValid)
+            throw new IOException("Device reports an invalid AFE hardware profile.");
+        if (snapshot.Info.InterfaceVersion < AfeHardwareProtocolMap.InterfaceVersion)
+            throw new IOException($"AFE hardware interface version {snapshot.Info.InterfaceVersion} is too old; v2 or newer is required.");
+        if (snapshot.Requested[0] != 1)
+            throw new IOException($"Unsupported AFE hardware profile schema {snapshot.Requested[0]}.");
+        if (snapshot.Requested[1] != snapshot.Info.BackendModel)
+            throw new IOException("AFE hardware profile backend ID does not match device metadata.");
 
-        Rows.Add(VoltageRow(3, "单体欠压", "保护电压", "mV", 2000, 3100, 20));
-        Rows.Add(VoltageRow(4, "单体欠压", "恢复电压", "mV", 2000, 3600, 20));
-        Rows.Add(DelayRow(5, "单体欠压", "保护延时", OvUvDelayWire));
+        bool rebuild = _deviceInfo is null ||
+                       _deviceInfo.BackendModel != snapshot.Info.BackendModel ||
+                       _deviceInfo.Capabilities != snapshot.Info.Capabilities;
+        _deviceInfo = snapshot.Info;
+        _requested = snapshot.Requested.ToArray();
+        _effective = snapshot.Effective.ToArray();
+        if (rebuild) BuildRows(snapshot.Info.Capabilities);
 
-        Rows.Add(CurrentRow(6, "充电过流", "硬件阈值", OccOcd1CurrentWire, "20~200A 离散档位（当前 D3PRO）"));
-        Rows.Add(DelayRow(7, "充电过流", "硬件延时", OccOcd2DelayWire));
-
-        Rows.Add(CurrentRow(10, "放电过流1", "硬件阈值", OccOcd1CurrentWire, "20~200A 离散档位（当前 D3PRO）"));
-        Rows.Add(DelayRow(11, "放电过流1", "硬件延时", Ocd1DelayWire));
-
-        Rows.Add(CurrentRow(12, "放电过流2", "硬件阈值", Ocd2CurrentWire, "30~500A 离散档位（当前 D3PRO）"));
-        Rows.Add(DelayRow(13, "放电过流2", "硬件延时", OccOcd2DelayWire));
-
-        Rows.Add(TemperatureRow(14, "充电高温", "保护温度", 45, 70));
-        Rows.Add(TemperatureRow(15, "充电高温", "恢复温度", 40, 70));
-        Rows.Add(TemperatureRow(16, "充电低温", "保护温度", -20, 10));
-        Rows.Add(TemperatureRow(17, "充电低温", "恢复温度", -20, 15));
-        Rows.Add(TemperatureRow(18, "放电高温", "保护温度", 45, 80));
-        Rows.Add(TemperatureRow(19, "放电高温", "恢复温度", 40, 80));
-        Rows.Add(TemperatureRow(20, "放电低温", "保护温度", -40, 10));
-        Rows.Add(TemperatureRow(21, "放电低温", "恢复温度", -40, 15));
-
-        Rows.Add(DiscreteDirectRow(22, "短路保护", "短路电流", "A", ShortCurrentWire, "SH367309 短路电流离散档位"));
-        Rows.Add(DiscreteDirectRow(23, "短路保护", "短路延时", "us", ShortDelayWire, "0~960us，64us/档"));
-    }
-
-    public void Load(ushort[] raw)
-    {
-        if (raw.Length != RegisterCount) throw new ArgumentException("AFE parameter block must contain 24 registers.");
-        _deviceRaw = raw.ToArray();
-        foreach (AfeParameterRow row in Rows) row.Load(raw[row.WireIndex]);
+        ushort enableMask = _requested[34];
+        foreach (AfeParameterRow row in Rows)
+            row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
     }
 
     public void ResetEditsToCurrent()
     {
-        foreach (AfeParameterRow row in Rows) row.Load(_deviceRaw[row.WireIndex]);
+        ushort enableMask = _requested[34];
+        foreach (AfeParameterRow row in Rows)
+            row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
     }
 
     public bool TryBuildCandidate(out ushort[] raw, out string error)
     {
-        raw = _deviceRaw.ToArray();
+        raw = _requested.ToArray();
+        if (_deviceInfo is null)
+        {
+            error = "请先读取设备 AFE 硬件参数。";
+            return false;
+        }
+
         foreach (AfeParameterRow row in Rows)
         {
             var encoded = row.Encode(row.EditValue);
@@ -119,195 +191,215 @@ public sealed class AfeHardwareParameterModel
             raw[row.WireIndex] = encoded.Wire;
         }
 
-        // SH367309 has only one charge-OCP threshold/delay. 0x2408/0x2409 are protocol aliases.
-        raw[8] = raw[6];
-        raw[9] = raw[7];
+        if (raw[0] != 1 || raw[1] != _deviceInfo.BackendModel)
+        {
+            error = "Schema/backend identity is immutable.";
+            return false;
+        }
+        if ((raw[34] & ~_deviceInfo.Capabilities) != 0)
+        {
+            error = "Enable mask contains a capability unsupported by this AFE.";
+            return false;
+        }
 
-        if (raw[1] >= raw[0]) { error = "单体过压恢复电压必须小于保护电压。"; return false; }
-        if (raw[4] <= raw[3]) { error = "单体欠压恢复电压必须大于保护电压。"; return false; }
-        if (raw[15] >= raw[14]) { error = "充电高温恢复温度必须低于保护温度。"; return false; }
-        if (raw[17] <= raw[16]) { error = "充电低温恢复温度必须高于保护温度。"; return false; }
-        if (raw[19] >= raw[18]) { error = "放电高温恢复温度必须低于保护温度。"; return false; }
-        if (raw[21] <= raw[20]) { error = "放电低温恢复温度必须高于保护温度。"; return false; }
+        ushort en = raw[34];
+        if ((en & AfeHardwareProtocolMap.CapCov) != 0 && (raw[2] == 0 || raw[4] >= raw[2]))
+        { error = "单体过压恢复值必须小于保护值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapCuv) != 0 && (raw[6] == 0 || raw[8] <= raw[6]))
+        { error = "单体欠压恢复值必须大于保护值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= raw[10]))
+        { error = "放电过流恢复值必须小于 OCD1 阈值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= raw[12]))
+        { error = "放电过流恢复值必须小于 OCD2 阈值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= raw[16]))
+        { error = "充电过流恢复值必须小于 OCC1 阈值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapOcc2) != 0 && (raw[18] == 0 || raw[20] >= raw[18]))
+        { error = "充电过流恢复值必须小于 OCC2 阈值。"; return false; }
+        if ((en & AfeHardwareProtocolMap.CapTemp) != 0)
+        {
+            if (raw[26] >= raw[25] || raw[30] >= raw[29] || raw[28] <= raw[27] || raw[32] <= raw[31])
+            { error = "硬件温度保护恢复阈值与触发阈值的迟滞关系不合法。"; return false; }
+        }
 
         error = string.Empty;
         return true;
     }
 
-    public IReadOnlyList<AfeWriteGroup> GetChangedWriteGroups(ushort[] candidate)
+    public bool HasChanges(ushort[] candidate) => !_requested.SequenceEqual(candidate);
+
+    private void BuildRows(ushort caps)
     {
-        if (candidate.Length != RegisterCount) throw new ArgumentException("AFE candidate must contain 24 registers.");
-        var definitions = new (int Start, int Count, string Name)[]
+        Rows.Clear();
+        if ((caps & AfeHardwareProtocolMap.CapCov) != 0)
         {
-            (0,3,"单体过压"), (3,3,"单体欠压"), (6,4,"充电过流"),
-            (10,2,"放电过流1"), (12,2,"放电过流2"),
-            (14,2,"充电高温"), (16,2,"充电低温"),
-            (18,2,"放电高温"), (20,2,"放电低温"), (22,2,"短路保护")
-        };
-        var groups = new List<AfeWriteGroup>();
-        foreach (var d in definitions)
-        {
-            bool changed = false;
-            for (int i = 0; i < d.Count; i++)
-            {
-                if (_deviceRaw[d.Start + i] != candidate[d.Start + i]) { changed = true; break; }
-            }
-            if (changed)
-                groups.Add(new AfeWriteGroup((ushort)(BaseRegister + d.Start), candidate.Skip(d.Start).Take(d.Count).ToArray(), d.Name));
+            Rows.Add(U16Row(2, AfeHardwareProtocolMap.CapCov, "单体过压", "保护电压", "mV", 1, 6000));
+            Rows.Add(U16Row(4, AfeHardwareProtocolMap.CapCov, "单体过压", "恢复电压", "mV", 1, 6000));
+            Rows.Add(U16Row(3, AfeHardwareProtocolMap.CapCov, "单体过压", "保护延时", "ms", 0, ushort.MaxValue));
+            Rows.Add(U16Row(5, AfeHardwareProtocolMap.CapCov, "单体过压", "恢复确认", "ms", 0, ushort.MaxValue));
         }
-        return groups;
+        if ((caps & AfeHardwareProtocolMap.CapCuv) != 0)
+        {
+            Rows.Add(U16Row(6, AfeHardwareProtocolMap.CapCuv, "单体欠压", "保护电压", "mV", 1, 6000));
+            Rows.Add(U16Row(8, AfeHardwareProtocolMap.CapCuv, "单体欠压", "恢复电压", "mV", 1, 6000));
+            Rows.Add(U16Row(7, AfeHardwareProtocolMap.CapCuv, "单体欠压", "保护延时", "ms", 0, ushort.MaxValue));
+            Rows.Add(U16Row(9, AfeHardwareProtocolMap.CapCuv, "单体欠压", "恢复确认", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapOcd1) != 0)
+        {
+            Rows.Add(CurrentRow(10, AfeHardwareProtocolMap.CapOcd1, "放电过流", "OCD1 阈值"));
+            Rows.Add(U16Row(11, AfeHardwareProtocolMap.CapOcd1, "放电过流", "OCD1 延时", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapOcd2) != 0)
+        {
+            Rows.Add(CurrentRow(12, AfeHardwareProtocolMap.CapOcd2, "放电过流", "OCD2 阈值"));
+            Rows.Add(U16Row(13, AfeHardwareProtocolMap.CapOcd2, "放电过流", "OCD2 延时", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & (AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2)) != 0)
+        {
+            ushort cap = (ushort)(AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2);
+            Rows.Add(CurrentRow(14, cap, "放电过流", "恢复电流"));
+            Rows.Add(U16Row(15, cap, "放电过流", "恢复确认", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapOcc1) != 0)
+        {
+            Rows.Add(CurrentRow(16, AfeHardwareProtocolMap.CapOcc1, "充电过流", "OCC1 阈值"));
+            Rows.Add(U16Row(17, AfeHardwareProtocolMap.CapOcc1, "充电过流", "OCC1 延时", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapOcc2) != 0)
+        {
+            Rows.Add(CurrentRow(18, AfeHardwareProtocolMap.CapOcc2, "充电过流", "OCC2 阈值"));
+            Rows.Add(U16Row(19, AfeHardwareProtocolMap.CapOcc2, "充电过流", "OCC2 延时", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & (AfeHardwareProtocolMap.CapOcc1 | AfeHardwareProtocolMap.CapOcc2)) != 0)
+        {
+            ushort cap = (ushort)(AfeHardwareProtocolMap.CapOcc1 | AfeHardwareProtocolMap.CapOcc2);
+            Rows.Add(CurrentRow(20, cap, "充电过流", "恢复电流"));
+            Rows.Add(U16Row(21, cap, "充电过流", "恢复确认", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapSc) != 0)
+        {
+            Rows.Add(CurrentRow(22, AfeHardwareProtocolMap.CapSc, "短路保护", "短路电流"));
+            Rows.Add(U16Row(23, AfeHardwareProtocolMap.CapSc, "短路保护", "短路延时", "us", 0, ushort.MaxValue));
+            Rows.Add(U16Row(24, AfeHardwareProtocolMap.CapSc, "短路保护", "恢复确认", "ms", 0, ushort.MaxValue));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapTemp) != 0)
+        {
+            Rows.Add(TemperatureRow(25, AfeHardwareProtocolMap.CapTemp, "充电温度", "高温保护"));
+            Rows.Add(TemperatureRow(26, AfeHardwareProtocolMap.CapTemp, "充电温度", "高温恢复"));
+            Rows.Add(TemperatureRow(27, AfeHardwareProtocolMap.CapTemp, "充电温度", "低温保护"));
+            Rows.Add(TemperatureRow(28, AfeHardwareProtocolMap.CapTemp, "充电温度", "低温恢复"));
+            Rows.Add(TemperatureRow(29, AfeHardwareProtocolMap.CapTemp, "放电温度", "高温保护"));
+            Rows.Add(TemperatureRow(30, AfeHardwareProtocolMap.CapTemp, "放电温度", "高温恢复"));
+            Rows.Add(TemperatureRow(31, AfeHardwareProtocolMap.CapTemp, "放电温度", "低温保护"));
+            Rows.Add(TemperatureRow(32, AfeHardwareProtocolMap.CapTemp, "放电温度", "低温恢复"));
+            Rows.Add(U16Row(33, AfeHardwareProtocolMap.CapTemp, "温度保护", "恢复确认", "ms", 0, ushort.MaxValue));
+        }
     }
 
-    private static AfeParameterRow VoltageRow(int index, string group, string name, string unit, int min, int max, int step) => new()
+    private static AfeParameterRow U16Row(int index, ushort cap, string group, string name, string unit, int min, int max) => new()
     {
-        WireIndex = index, Group = group, Name = name, Unit = unit,
-        Hint = $"{min}~{max}{unit}，{step}{unit}/step",
+        WireIndex = index,
+        CapabilityMask = cap,
+        Group = group,
+        Name = name,
+        Unit = unit,
+        Hint = "语义值；芯片离散档位由固件量化，实际值见“AFE有效值”。",
         Decode = v => v.ToString(CultureInfo.InvariantCulture),
-        Encode = s => EncodeIntRange(s, min, max, step, 1)
-    };
-
-    private static AfeParameterRow DelayRow(int index, string group, string name, ushort[] allowedWire) => new()
-    {
-        WireIndex = index, Group = group, Name = name, Unit = "ms",
-        Hint = "SH367309 离散延时档位",
-        Decode = v => (v * 10u).ToString(CultureInfo.InvariantCulture),
         Encode = s =>
         {
-            if (!TryParseInteger(s, out int ms)) return Fail("请输入整数毫秒值。");
-            if (ms < 0 || (ms % 10) != 0) return Fail("延时必须是 10ms 的整数倍并且属于芯片离散档位。");
-            int wire = ms / 10;
-            if (!allowedWire.Contains((ushort)wire)) return Fail("该延时不是 SH367309 支持的离散档位。");
-            return Ok((ushort)wire);
+            if (!int.TryParse(s.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) || value < min || value > max)
+                return (false, (ushort)0, $"请输入 {min}~{max} 的整数。");
+            return (true, (ushort)value, string.Empty);
         }
     };
 
-    private static AfeParameterRow CurrentRow(int index, string group, string name, ushort[] allowedWire, string hint) => new()
+    private static AfeParameterRow CurrentRow(int index, ushort cap, string group, string name) => new()
     {
-        WireIndex = index, Group = group, Name = name, Unit = "A", Hint = hint,
+        WireIndex = index,
+        CapabilityMask = cap,
+        Group = group,
+        Name = name,
+        Unit = "A",
+        Hint = "0.1A/LSB 语义值；实际硬件量化结果见“AFE有效值”。",
         Decode = v => (v / 10.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {
-            if (!double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double a)) return Fail("请输入电流值(A)。");
-            int wire = (int)Math.Round(a * 10.0, MidpointRounding.AwayFromZero);
-            if (Math.Abs(a * 10.0 - wire) > 0.0001 || wire < 0 || wire > ushort.MaxValue) return Fail("电流必须精确到 0.1A。 ");
-            if (!allowedWire.Contains((ushort)wire)) return Fail("该电流不是当前 D3PRO/SH367309 支持的离散档位。");
-            return Ok((ushort)wire);
+            if (!double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || value < 0 || value > 6553.5)
+                return (false, (ushort)0, "请输入合法电流值(A)。");
+            int wire = (int)Math.Round(value * 10.0, MidpointRounding.AwayFromZero);
+            if (Math.Abs(value * 10.0 - wire) > 0.0001)
+                return (false, (ushort)0, "电流最多保留 0.1A。 ");
+            return (true, checked((ushort)wire), string.Empty);
         }
     };
 
-    private static AfeParameterRow TemperatureRow(int index, string group, string name, int minC, int maxC) => new()
+    private static AfeParameterRow TemperatureRow(int index, ushort cap, string group, string name) => new()
     {
-        WireIndex = index, Group = group, Name = name, Unit = "℃",
-        Hint = $"{minC}~{maxC}℃，1℃/step",
-        Decode = v => (v / 10.0 - 40.0).ToString("0", CultureInfo.InvariantCulture),
+        WireIndex = index,
+        CapabilityMask = cap,
+        Group = group,
+        Name = name,
+        Unit = "℃",
+        Hint = "设备编码为 (℃+40)×10；具体 AFE 可实现范围由固件校验。",
+        Decode = v => (v / 10.0 - 40.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {
-            if (!TryParseInteger(s, out int c)) return Fail("请输入整数摄氏温度。");
-            if (c < minC || c > maxC) return Fail($"允许范围 {minC}~{maxC}℃。");
-            return Ok(checked((ushort)((c + 40) * 10)));
+            if (!double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double c) || c < -40 || c > 105)
+                return (false, (ushort)0, "请输入 -40~105℃。");
+            double raw = (c + 40.0) * 10.0;
+            int wire = (int)Math.Round(raw, MidpointRounding.AwayFromZero);
+            if (Math.Abs(raw - wire) > 0.0001)
+                return (false, (ushort)0, "温度最多保留 0.1℃。 ");
+            return (true, checked((ushort)wire), string.Empty);
         }
     };
-
-    private static AfeParameterRow DiscreteDirectRow(int index, string group, string name, string unit, ushort[] allowed, string hint) => new()
-    {
-        WireIndex = index, Group = group, Name = name, Unit = unit, Hint = hint,
-        Decode = v => v.ToString(CultureInfo.InvariantCulture),
-        Encode = s =>
-        {
-            if (!TryParseInteger(s, out int value) || value < 0 || value > ushort.MaxValue) return Fail("请输入有效整数。");
-            if (!allowed.Contains((ushort)value)) return Fail("该值不是 SH367309 支持的离散档位。");
-            return Ok((ushort)value);
-        }
-    };
-
-    private static (bool Ok, ushort Wire, string Error) EncodeIntRange(string s, int min, int max, int step, int wireScale)
-    {
-        if (!TryParseInteger(s, out int value)) return Fail("请输入整数值。");
-        if (value < min || value > max) return Fail($"允许范围 {min}~{max}。");
-        if (((value - min) % step) != 0) return Fail($"必须满足 {step} 的步进。");
-        return Ok(checked((ushort)(value * wireScale)));
-    }
-
-    private static bool TryParseInteger(string s, out int value) => int.TryParse(s.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
-    private static (bool Ok, ushort Wire, string Error) Ok(ushort wire) => (true, wire, string.Empty);
-    private static (bool Ok, ushort Wire, string Error) Fail(string error) => (false, 0, error);
 }
-
-public sealed record AfeWriteGroup(ushort StartRegister, ushort[] Values, string Name);
 
 public sealed class AfeHardwareClient
 {
     private readonly BmsClient _bms;
-    private readonly IBmsTransport _transport;
 
-    public AfeHardwareClient(BmsClient bms, IBmsTransport transport)
+    public AfeHardwareClient(BmsClient bms) => _bms = bms;
+    public AfeHardwareClient(BmsClient bms, IBmsTransport _) : this(bms) { }
+
+    public async Task<AfeHardwareSnapshot> ReadAllAsync(CancellationToken ct = default)
     {
-        _bms = bms;
-        _transport = transport;
+        ushort[] requested = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.RequestedBase, AfeHardwareProtocolMap.ProfileWordCount, ct);
+        ushort[] meta = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.MetadataBase, AfeHardwareProtocolMap.MetadataWordCount, ct);
+        ushort[] effective = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.EffectiveBase, AfeHardwareProtocolMap.EffectiveWordCount, ct);
+        var info = new AfeHardwareDeviceInfo(
+            requested[1], meta[0], meta[1] != 0, meta[2], meta[3], meta[4],
+            meta[5] != 0, meta[6], meta[7], meta[8]);
+        return new AfeHardwareSnapshot(requested, effective, info);
     }
 
-    public async Task<ushort[]> ReadAllAsync(CancellationToken ct = default)
+    public async Task<AfeHardwareSnapshot> WriteAllAsync(ushort[] candidate, CancellationToken ct = default)
     {
-        await _bms.EnsureLegacyProtectionAsync(ct);
-        return await _bms.ReadRegistersAsync(AfeHardwareParameterModel.BaseRegister, AfeHardwareParameterModel.RegisterCount, ct);
-    }
+        if (candidate.Length != AfeHardwareProtocolMap.ProfileWordCount)
+            throw new ArgumentException("AFE hardware profile write must contain exactly 35 words.", nameof(candidate));
 
-    public async Task WriteGroupAsync(AfeWriteGroup group, CancellationToken ct = default)
-    {
-        await _bms.EnsureLegacyProtectionAsync(ct);
-        if (group.Values.Length is < 1 or > 5)
-            throw new ArgumentOutOfRangeException(nameof(group), "BLE/Modbus atomic write group must contain 1..5 registers at MTU 23.");
-
-        byte[] raw = new byte[group.Values.Length * 2];
-        for (int i = 0; i < group.Values.Length; i++)
-            BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i * 2, 2), group.Values[i]);
-
-        byte[] request = ModbusRtu.WriteMultiple(group.StartRegister, raw);
-        if (request.Length > 20)
-            throw new IOException($"AFE write request is {request.Length} bytes; it exceeds the 20-byte payload supported at ATT MTU 23.");
-
-        byte[] response = await RawTransactionAsync(request, ct);
-        ModbusRtu.ValidateWriteMultipleAck(response, group.StartRegister, checked((ushort)group.Values.Length));
-    }
-
-    private async Task<byte[]> RawTransactionAsync(byte[] request, CancellationToken ct)
-    {
-        var gate = new object();
-        var rx = new List<byte>();
-        var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        void OnData(ReadOnlyMemory<byte> fragment)
-        {
-            lock (gate)
-            {
-                if (tcs.Task.IsCompleted) return;
-                rx.AddRange(fragment.ToArray());
-                int? expected = ModbusRtu.InferExpectedLength(rx);
-                if (expected is not null && rx.Count >= expected.Value)
-                {
-                    byte[] frame = rx.Take(expected.Value).ToArray();
-                    try
-                    {
-                        ModbusRtu.ValidateFrame(frame);
-                        tcs.TrySetResult(frame);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.TrySetException(ex);
-                    }
-                }
-            }
-        }
-
-        _transport.DataReceived += OnData;
+        AfeHardwareAccessSession? session = null;
         try
         {
-            await _transport.WriteAsync(request, ct);
-            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(4), ct);
+            session = await _bms.OpenAfeHardwareAccessAsync(ct);
+            if (session.BackendModel != candidate[1])
+                throw new IOException($"AFE access backend mismatch: session=0x{session.BackendModel:X4}, profile=0x{candidate[1]:X4}.");
+
+            await _bms.WriteRegistersAsync(AfeHardwareProtocolMap.RequestedBase, candidate, ct);
+            AfeHardwareSnapshot readback = await ReadAllAsync(ct);
+            if (!readback.Requested.SequenceEqual(candidate))
+            {
+                int mismatch = Enumerable.Range(0, candidate.Length).First(i => candidate[i] != readback.Requested[i]);
+                throw new IOException($"AFE硬件参数回读不一致：word[{mismatch}] target={candidate[mismatch]}, actual={readback.Requested[mismatch]}。");
+            }
+            if (readback.Info.ApplyState != 1 || readback.Info.LastError != 0)
+                throw new IOException($"AFE apply state={readback.Info.ApplyStateText}, error={readback.Info.ErrorText}.");
+            return readback;
         }
         finally
         {
-            _transport.DataReceived -= OnData;
+            if (session is not null)
+                await _bms.TryCloseAfeHardwareAccessAsync(session.Token, CancellationToken.None);
         }
     }
 }
