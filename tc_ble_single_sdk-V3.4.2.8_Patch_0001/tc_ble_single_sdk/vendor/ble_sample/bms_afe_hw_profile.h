@@ -67,6 +67,8 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *profile);
 u8 bms_afe_hw_profile_init(void);
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile);
 u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *profile);
+/* Returns the values actually represented by the active AFE after quantization. */
+u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *profile);
 void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *profile);
 
 #endif /* BMS_AFE_HW_PROFILE_H_ */
