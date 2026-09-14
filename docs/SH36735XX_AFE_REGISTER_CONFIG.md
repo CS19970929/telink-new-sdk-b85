@@ -79,7 +79,7 @@ SH3673510 支持 4~10S；SH3673520 同一字段可配置到 20S。
 | Bit | 名称 | 当前 | 当前保护归属 |
 |---:|---|---:|---|
 | 7 | TS4_EN | 0 | TS4 充放电 MOS 温度由 MCU 软件独立保护 |
-| 6 | TS3_EN | 0 | TS3 加热 MOS NTC 当前仅采样，尚未纳入保护策略 |
+| 6 | TS3_EN | 0 | TS3 不参加 AFE 共用温度保护；MCU 用 TS3 做加热 MOS 独立可逆过温截止 |
 | 5 | TS2_EN | 1 | 电池温度 2：AFE 硬件温度保护 + MCU 软件温度保护 |
 | 4 | TS1_EN | 1 | 电池温度 1：AFE 硬件温度保护 + MCU 软件温度保护 |
 | 3 | SC_EN | 1 | AFE 硬件短路保护 |
@@ -242,7 +242,7 @@ FLAG1 为锁存标志。清除流程必须先置 `SCONF2.LTCLR=1`，再以 W0C �
 | 短路 | 是 | 是，锁存/恢复监督 | AFE 256us 级切断；MCU 不重新判定短路阈值，只监督解除 |
 | 电池充/放高低温 TS1/TS2 | 是 | 是，三级 | AFE 用第三级；软件提供三级告警/保护和恢复回差 |
 | MOS 温度 TS4 | 否（TS4_EN=0） | 是，三级 | 阈值与电池温度不同，所以不让 AFE 共用 OTC/OTD/UTC/UTD 去保护 TS4 |
-| 加热 MOS 温度 TS3 | 否 | 当前未启用 | 已确认 10K，建议后续增加独立加热 MOS OT 参数和状态机 |
+| 加热 MOS 温度 TS3 | 否 | 是，可逆截止 | TS3=10K；当前复用 MOS Third/Rcv 作加热 MOS 过温/恢复阈值，只关 PB4，加热保险丝 PB5 永不自动触发 |
 | NTC 断线/温度无效 | 否 | 是 | TEMP_BREAK，fail-safe 关相关输出 |
 | 单体压差 | 否 | 是，三级 | 当前只形成软件故障/历史；还被均衡逻辑复用了一级阈值 |
 | SOC 低 | 否 | 参数存在，但当前 SH3673510 adapter 未执行 | 需要单独接入 SOC 状态机/输出策略 |
@@ -306,16 +306,14 @@ SH36735xx 对 OV/UV/OCD/OCC/SC/外部温度保护的手册恢复条件，核心�
 因此当前协调策略是：
 
 1. AFE 先用硬件阈值快速切 MOS、置 FLAG。
-2. MCU 软件三级保护同时根据采样进入 active。
-3. MCU 使用自己的 `*_Rcv + filter` 做真实恢复判定。
-4. 只有软件三级已经恢复，`clear_recovered_flags()` 才清对应 AFE FLAG。
-5. FLAG 清除后，最终能否重新开 MOS 还要经过 `sh3510_apply_requested_fets()` 的 output enabled、钥匙、通讯健康、其它软件 fault 等条件。
+2. 活动的 AFE FLAG 立即进入 MCU 的方向性 FET gate；即使软件 Third 尚未 active，也不会主动请求同方向 MOS 重开。
+3. MCU 对每一个硬件 FLAG 建立独立 recovery counter，直接检查物理量是否进入 `*_Rcv` 安全区并连续满足对应 filter 时间。
+4. OV/UV/OCD1/OCD2/OCC 除了满足软件恢复阈值，还必须越过 `sh3673510_control_get_protection_actual()` 给出的 **AFE 实际量化阈值**，避免客户配置的 recovery 值高于硬件 trip 值时形成 clear→retrip 循环。
+5. TS1/TS2 的 OTC/OTD/UTC/UTD 使用电池温度恢复阈值和 filter；TS3/TS4 不参与这些 AFE TEMP FLAG 的恢复判断。
+6. 物理恢复条件稳定后，MCU 才执行 LTCLR + W0C 清对应 AFE FLAG。
+7. FLAG 清除后仍要经过 output enabled、有效采样、通讯健康、软件 Third fault、钥匙等 FET gate；由于本周期读取到的硬件 FLAG 仍然有效，至少到下一次有效状态采样才可能重新放开。
 
-也就是说：
-
-**AFE 负责“快速独立触发”，MCU 负责“带回差和滤波的受控恢复”。**
-
-这比单纯依赖 AFE 硬件恢复更安全，也避免刚跨过阈值就反复开关 MOS。
+因此硬件 FLAG 恢复已经和软件 Third fault **解耦**：AFE 负责快速独立触发，MCU 负责按实际物理恢复窗口和硬件量化阈值受控解除。
 
 ## 8. 短路恢复是特殊路径
 
@@ -339,7 +337,7 @@ SPI CRC/协议/timeout 等错误时：
 - charge/discharge FET OFF
 - 连续通信失败达到阈值后重新初始化 AFE
 
-通信恢复后不是立即放开输出，而是要求连续 3 个有效采样快照（当前 200ms 周期，约 600ms）后才清 `output_inhibit`。
+通信恢复后不是立即放开输出，而是要求连续 3 个有效采样快照（当前 200ms 周期，约 600ms）后才清 `output_inhibit`。若检测到 `RST1_FLG` 或 `RST2_FLG`，则先禁止输出、重新执行完整 AFE 初始化/静态寄存器/保护阈值配置并清复位标志，再重新累计这 3 个有效快照；不会仅清 RST 标志后继续使用可能已经回到复位值的 RAM 配置。
 
 ## 10. 后续修改某一 bit 的正确方法
 
@@ -377,5 +375,8 @@ SPI CRC/协议/timeout 等错误时：
 - WDT 溢出和 Powerdown
 - PD_EN 低电芯 Powerdown 与充电唤醒
 - SC 的 LOADOFF 2s 受控恢复
+- OV/UV/OCD1/OCD2/OCC 在 recovery 条件未满足时 FLAG 不得被清；特别验证软件 Third 未触发但 AFE 已触发的区间
+- RST1/RST2 注入后必须先完整重配 AFE，且重新获得 3 个有效快照前 MOS 不得恢复
+- TS3 断线/高温必须关闭 PB4 加热；整个测试过程中 PB5 加热保险丝触发脚保持安全低电平
 
 以上验证完成后，才能把“代码/手册一致”提升为“实板保护行为已确认”。

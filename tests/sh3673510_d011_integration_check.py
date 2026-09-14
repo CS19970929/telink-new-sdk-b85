@@ -160,6 +160,20 @@ require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
 require(bms, "s_output_inhibit")
 require(bms, "s_requested_charge_on")
+require(bms, "service_hw_flag_recovery")
+require(bms, "hw_recovery_stable")
+require(bms, "service_afe_reconfiguration")
+require(bms, "s_hw_charge_protect")
+require(bms, "s_hw_discharge_protect")
+require(bms, "s_afe_reconfigure_required")
+require(bms, "s_heater_mos_overtemp")
+require(bms, "BMS_ERROR_HEAT")
+require(bms, "SH3673510_D011_HEATER_NTC_INDEX")
+require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
+if "clear_recovered_flags" in bms:
+    raise AssertionError("AFE flags must use physical-value recovery, not software-third state")
+if "TS3-NC" in bms:
+    raise AssertionError("D011 TS3 is a fitted 10K heater-MOS NTC, not NC")
 
 require(uart, "D011_RS485_EN_PIN")
 require(uart, "modbus_rs485_receive_mode")
@@ -189,8 +203,15 @@ if re.search(r"gpio_write\s*\(\s*D011_HEATER_FUSE_TRIGGER_PIN\s*,\s*1", producti
     raise AssertionError("PB5 heater-fuse trigger must never be driven high before fuse logic is validated")
 if "(void)requested_charge_on" in bms or "(void)requested_discharge_on" in bms:
     raise AssertionError("AFE FET API must honor caller requests")
-if "FLAG1_SC_MASK" in bms and "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv" in bms:
-    raise AssertionError("short-circuit recovery must not use current-to-zero as load-release proof")
+# Short-circuit recovery must remain a distinct LOADOFF-qualified path even
+# though normal OCD1/OCD2 FLAG recovery legitimately uses the OCP recovery current.
+short_start = bms.find("static void service_short_recovery")
+short_end = bms.find("static uint8_t hw_recovery_stable", short_start)
+if short_start < 0 or short_end <= short_start:
+    raise AssertionError("missing service_short_recovery")
+short_text = bms[short_start:short_end]
+if "u16IDischg" in short_text:
+    raise AssertionError("short-circuit recovery must not use discharge current as load-release proof")
 require(bms, "service_short_recovery")
 require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
 require(control, "sh3673510_control_get_protection_actual")
@@ -222,6 +243,11 @@ for symbol in (
     "static uint8_t s_short_latched;",
     "static uint8_t s_short_clear_pending;",
     "static uint16_t s_short_release_count;",
+    "static uint16_t s_hw_recovery_count[HW_REC_COUNT];",
+    "static uint8_t s_hw_charge_protect;",
+    "static uint8_t s_hw_discharge_protect;",
+    "static uint8_t s_afe_reconfigure_required;",
+    "static uint8_t s_heater_mos_overtemp;",
 ):
     require_count(bms, symbol)
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
@@ -235,5 +261,46 @@ require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh367351
 require(bms, "s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
 require(bms, "void sh3673510_bms_afe_sleep(void)\n{\n    s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;")
 require_count(bms, "s_short_latched = 0u;", 1)
+
+
+# Hardware FLAG recovery must be based on physical recovery windows and the
+# actual quantized AFE threshold, not software Third-level activity.
+hw_start = bms.find("static void service_hw_flag_recovery")
+hw_end = bms.find("static uint8_t service_afe_reconfiguration", hw_start)
+if hw_start < 0 or hw_end <= hw_start:
+    raise AssertionError("missing hardware FLAG recovery state machine")
+hw_text = bms[hw_start:hw_end]
+for needle in (
+    "sh3673510_control_get_protection_actual",
+    "u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv",
+    "u16VCellMax < actual.ov_mv",
+    "u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv",
+    "u16VCellMin > actual.uv_mv",
+    "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv",
+    "u16IDischg < actual.ocd1_a10",
+    "u16IDischg < actual.ocd2_a10",
+    "u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv",
+    "u16Ichg < actual.occ_a10",
+    "bat_max <= g_tParam.protect.u16TChgOTp_Rcv",
+    "bat_min >= g_tParam.protect.u16TchgUTp_Rcv",
+):
+    require(hw_text, needle)
+if "unMdlFault_Third" in hw_text:
+    raise AssertionError("hardware FLAG recovery must be independent from software Third-level activity")
+
+heater_start = bms.find("static void apply_heater")
+heater_end = bms.find("static void apply_balance", heater_start)
+if heater_start < 0 or heater_end <= heater_start:
+    raise AssertionError("missing heater control")
+heater_text = bms[heater_start:heater_end]
+for needle in (
+    "SH3673510_D011_HEATER_NTC_INDEX",
+    "u16TmosOTp_Third",
+    "u16TmosOTp_Rcv",
+    "BMS_ERROR_HEAT",
+):
+    require(heater_text, needle)
+if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:
+    raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")
 
 print("HS-D011 SH3673510 integration contract: PASS")
