@@ -109,19 +109,22 @@ static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
 
 static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
 {
-    int32_t numerator;
     uint32_t denominator;
+    uint32_t result;
     uint16_t r100;
-    int32_t result;
 
     if (code == 0) return 0u;
     r100 = sh3510_temp_to_res100(temp_x10);
     denominator = (uint32_t)r100 + 100u;
-    numerator = 700L - (3L * (int32_t)r100);
-    if (numerator < 0L) return 0u;
-    result = (numerator * 512L + (int32_t)(denominator * 5u)) /
-             (int32_t)(denominator * 10u);
-    if (result < 0L || result > 255L) return 0u;
+
+    /*
+     * SH36735xx uses a 10K reference for the external NTC divider.  High
+     * temperature thresholds use the divider ratio directly:
+     *     code = Rntc / (10K + Rntc) * 512
+     * r100 and 100 are both expressed in 100-ohm units here.
+     */
+    result = ((uint32_t)r100 * 512u + (denominator / 2u)) / denominator;
+    if (result > 255u) return 0u;
     *code = (uint8_t)result;
     return 1u;
 }
