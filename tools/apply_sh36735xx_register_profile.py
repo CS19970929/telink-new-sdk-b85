@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 CONTROL = VENDOR / "sh3673510_control.c"
+REG = VENDOR / "sh3673520_reg.h"
 TEST = ROOT / "tests" / "sh3673510_d011_integration_check.py"
 
 
@@ -14,6 +16,13 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
         raise RuntimeError(f"{label}: expected source block not found")
     return text.replace(old, new, 1)
 
+
+# Existing host contracts intentionally parse numeric register defines with a
+# strict line-oriented regex. Keep comments on their own lines so every field
+# macro remains machine-readable as well as human-readable.
+reg_text = REG.read_text(encoding="utf-8")
+reg_text = re.sub(r"(?m)^(\s*#define\s+SH3673520_[A-Z0-9_]+\s+[^/\n]+?)\s*/\*.*?\*/\s*$", r"\1", reg_text)
+REG.write_text(reg_text, encoding="utf-8", newline="\n")
 
 control = CONTROL.read_text(encoding="utf-8")
 old_runtime = '''static uint8_t sh3510_configure_runtime(void)
@@ -62,7 +71,7 @@ new_runtime = '''typedef struct {
  * against an unintended reset threshold.
  */
 static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {
-    { SH3673520_REG_SCONF1,     SH3673510_D011_SCONF1_BOOT_VALUE, SH3673520_SCONF2_ALL_MASK },
+    { SH3673520_REG_SCONF1,     SH3673510_D011_SCONF1_BOOT_VALUE, 0xFFu },
     { SH3673520_REG_SCONF2,     SH3673510_D011_SCONF2_VALUE,      SH3673520_SCONF2_ALL_MASK },
     { SH3673520_REG_SCONF3,     SH3673510_D011_SCONF3_VALUE,      SH3673520_SCONF3_CONFIG_MASK },
     { SH3673520_REG_SCONF4,     SH3673510_D011_SCONF4_VALUE,      SH3673520_SCONF4_ALL_MASK },
@@ -158,8 +167,6 @@ new_needles = '''    "SH3673510_D011_CELL_COUNT",
 '''
 test = replace_once(test, old_needles, new_needles, "control test needles")
 
-# Register truth must expose reset values and fields that were previously
-# inherited implicitly from reset state.
 reg_anchor = '''assert literal(reg, "SH3673520_FLAG1_SC_MASK") == 0x10
 '''
 reg_insert = '''assert literal(reg, "SH3673520_FLAG1_SC_MASK") == 0x10
