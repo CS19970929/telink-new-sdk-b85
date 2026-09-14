@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/windows-afe-hw-protection-editor-v2
+      - feature/windows-afe-hw-protection-editor-v2-internal-sync
     paths:
       - 'bms-tool-windows/**'
       - '.github/workflows/windows-afe-editor-ci.yml'
@@ -15,18 +16,24 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Restore
+      - name: Restore customer project
         run: dotnet restore bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj
-      - name: Build
+      - name: Restore internal project
+        run: dotnet restore bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj
+      - name: Build customer project
         run: dotnet build bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64 --no-restore
-      - name: Publish x64
+      - name: Build internal project
+        run: dotnet build bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64 --no-restore
+      - name: Publish customer x64
         run: dotnet publish bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Windows
+      - name: Publish internal x64
+        run: dotnet publish bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsFactoryTest.Windows
       - name: Protocol source contracts
         shell: powershell
         run: |
@@ -34,15 +41,26 @@ jobs:
           $c = Get-Content bms-tool-windows/BmsTool.Windows/BmsClient.AfeHardware.cs -Raw
           $a = Get-Content bms-tool-windows/BmsTool.Windows/AfeHardwareParameters.cs -Raw
           $u = Get-Content bms-tool-windows/BmsTool.Windows/MainWindow.AfeHardwareUi.cs -Raw
+          $ia = Get-Content bms-tool-windows/BmsFactoryTest.Windows/AfeHardwareParameters.cs -Raw
+          $iu = Get-Content bms-tool-windows/BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs -Raw
           if ($m -notmatch 'AfeHardwareFunction = 0x42') { throw 'missing 0x42 AFE access protocol' }
           if ($c -notmatch 'WriteRegistersAsync') { throw 'missing serial-capable atomic 0x10 writer' }
           if ($a -notmatch 'RequestedBase = 0x2500') { throw 'missing requested AFE v2 block' }
           if ($a -notmatch 'EffectiveBase = 0x2540') { throw 'missing effective AFE v2 block' }
-          if ($u -notmatch '--enable-afe-hw-editor') { throw 'AFE page is not launch-gated' }
-          if ($u -match 'BmsBleTransport transport =') { throw 'AFE editor still hard-requires BLE' }
-      - name: Upload Windows artifact
+          if ($u -notmatch '--enable-afe-hw-editor') { throw 'customer AFE page is not launch-gated' }
+          if ($u -match 'BmsBleTransport transport =') { throw 'customer AFE editor still hard-requires BLE' }
+          if ($ia -notmatch 'RequestedBase = 0x2500' -or $ia -notmatch 'EffectiveBase = 0x2540') { throw 'internal AFE model is not v2' }
+          if ($iu -notmatch '完整35-word原子写入') { throw 'internal AFE UI is not transactional v2' }
+          if ($iu -match '--enable-afe-hw-editor') { throw 'internal full AFE page should not require launch flag' }
+      - name: Upload customer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BmsTool-Windows-AFE-HW-v2-${{ github.sha }}
+          name: BmsTool-Customer-AFE-HW-v2-${{ github.sha }}
           path: bms-tool-windows/publish/BmsTool.Windows/**
+          retention-days: 14
+      - name: Upload internal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BmsTool-Internal-AFE-HW-v2-${{ github.sha }}
+          path: bms-tool-windows/publish/BmsFactoryTest.Windows/**
           retention-days: 14
