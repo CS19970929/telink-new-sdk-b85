@@ -19,6 +19,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fix temporary migration extraction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/productize_soc_profile.py')
+          t = p.read_text(encoding='utf-8')
+          start = t.index('# Remove profile data from the algorithm source.')
+          end = t.index('\nc = replace_once(', start)
+          replacement = '''# Remove profile data from the algorithm source while preserving runtime enums/state.\nprofile_types_start = c.index("typedef struct\\n{\\n    uint16_t mv;\\n    uint8_t soc;\\n} soc_ocv_point_t;")\nprofile_types_end = c.index("typedef enum\\n{\\n    SOC_INTEGRAL_DIR_NONE", profile_types_start)\nc = c[:profile_types_start] + c[profile_types_end:]\nprofile_data_start = c.index("static const soc_ocv_point_t g_soc_ocv_lfp[]")\nprofile_data_end = c.index("struct SOC_CALCULATE_ELEMENT", profile_data_start)\nc = c[:profile_data_start] + c[profile_data_end:]\n'''
+          p.write_text(t[:start] + replacement + t[end:], encoding='utf-8')
+          PY
+
       - name: Apply SOC product config/profile refactor
         run: python tools/productize_soc_profile.py
 
