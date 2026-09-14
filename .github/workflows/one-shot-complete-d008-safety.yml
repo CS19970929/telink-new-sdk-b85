@@ -1,0 +1,50 @@
+name: One-shot complete D008 safety framework
+
+on:
+  push:
+    branches:
+      - refactor/d008-afe-hw-protection-split
+    paths:
+      - tools/complete_d008_safety_framework_once.py
+      - .github/workflows/one-shot-complete-d008-safety.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final D008 safety framework
+        run: python tools/complete_d008_safety_framework_once.py
+      - name: Refresh source order
+        run: python bms_tools/bms.py sources --update
+      - name: Run D008 host contracts
+        run: |
+          python bms_tools/bms.py sources --check
+          python tests/afe_hw_profile_contract_check.py
+          python tests/afe_hw_access_contract_check.py
+          python tests/dvc1124_config_quick_check.py
+          python tests/d008_framework_contract_check.py
+          python tests/d008_20s_profile_contract_check.py
+          python tests/sw_protection_contract_check.py
+          python tests/soc_contract_check.py
+          python tests/flash_quick_check.py
+      - name: Commit completed D008 safety framework
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(d008): complete DVC safety framework and 20S contracts"
+          git push origin HEAD:${GITHUB_REF_NAME}
