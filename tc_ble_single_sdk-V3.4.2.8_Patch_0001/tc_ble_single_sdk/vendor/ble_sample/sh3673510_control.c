@@ -362,9 +362,7 @@ static uint8_t sh3510_configure_runtime(void)
 {
     uint8_t ok = 1u;
 
-    ok &= sh3510_update_reg(SH3673520_REG_SCONF4,
-                            SH3673520_SCONF4_CELL_COUNT_MASK,
-                            SH3673510_D011_CELL_COUNT);
+    ok &= (SH3673520_SetCellCount(SH3673510_D011_CELL_COUNT) == SH3673520_OK);
 
     ok &= sh3510_update_reg(SH3673520_REG_SCONF2,
                             (uint8_t)(SH3673520_SCONF2_PUMP_EN_MASK |
@@ -413,8 +411,7 @@ uint8_t sh3673510_control_init(void)
     cpu_set_gpio_wakeup(D011_AFE_ALARM_PIN, Level_Low, 1);
     cpu_set_gpio_wakeup(D011_AFE_RESET_OUT_PIN, Level_Low, 1);
 
-    port_status = SH3673520_PortConfigure(SH3673510_D011_SPI_GROUP,
-                                          SH3673510_D011_SPI_TARGET_HZ);
+    port_status = SH3673520_PortConfigure(SH3673510_D011_SPI_GROUP);
     if (port_status != SH3673520_PORT_OK) return 0u;
     if (SH3673520_Init() != SH3673520_OK) return 0u;
 
@@ -501,17 +498,9 @@ uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask)
 
 uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
 {
-    uint8_t values[3];
-    uint16_t valid = (uint16_t)(cell_mask & 0x03FFu);
     if (!s_control_ready) return 0u;
-
-    /* 10S uses CB1..CB10 only. */
-    values[0] = 0u;
-    values[1] = (uint8_t)((valid >> 8) & 0x03u); /* CB10..CB9 */
-    values[2] = (uint8_t)(valid & 0xFFu);        /* CB8..CB1 */
-    if (SH3673520_WriteRegs(SH3673520_REG_BALANCEH, values, 3u) != SH3673520_OK)
-        return 0u;
-    return 1u;
+    return (SH3673520_SetBalanceMask((uint32_t)(cell_mask & 0x03FFu),
+                                     SH3673510_D011_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
 }
 
 void sh3673510_board_force_heater_fuse_safe(void)

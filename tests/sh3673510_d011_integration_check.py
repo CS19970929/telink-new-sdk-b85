@@ -25,6 +25,8 @@ backend = text("bms_afe_backend.h")
 afe = text("bms_afe.h")
 reg = text("sh3673520_reg.h")
 port = text("sh3673520_port.c")
+port_h = text("sh3673520_port.h")
+driver = text("sh3673520.c")
 control = text("sh3673510_control.c")
 bms = text("sh3673510_bms.c")
 uart = text("modbus_uart.c")
@@ -32,7 +34,7 @@ modbus_h = text("modbus_rtu.h")
 
 assert literal(cfg, "SH3673510_D011_CELL_COUNT") == 10
 assert literal(cfg, "SH3673510_D011_SHUNT_UOHM") == 250
-assert literal(cfg, "SH3673510_D011_SPI_TARGET_HZ") == 375000
+assert literal(cfg, "SH3673510_D011_NTC_NOMINAL_OHM") == 10000
 require(cfg, "SH3673520_SPI_GROUP_B6_B7_D2_D7")
 
 for pin in (
@@ -61,6 +63,23 @@ require(port, "SPI_GPIO_GROUP_B6B7D2D7")
 require(port, "*cs_pin = GPIO_PD2")
 require(port, "SPI_MODE3")
 require(port, "FLD_SPI_BUSY")
+require(port_h, "#define SH3673520_PORT_SPI_CLOCK_HZ              500000UL")
+require(port, "#define SH3673520_PORT_SPI_DIVIDER          15u")
+require(port, "spi_master_init(SH3673520_PORT_SPI_DIVIDER, SPI_MODE3)")
+if "requested_clock_hz" in port or "requested_clock_hz" in port_h:
+    raise AssertionError("D011 SPI speed must be fixed in the port layer, not runtime-configured")
+
+assert literal(reg, "SH3673520_MAX_CELLS") == 20
+assert literal(reg, "SH3673510_MAX_CELLS") == 10
+assert literal(reg, "SH3673520_REG_CELL20H") == 0x8F
+assert literal(reg, "SH3673520_REG_CELL20L") == 0x90
+require(driver, "uint8_t raw[SH3673520_MAX_CELLS * 2u]")
+require(driver, "SH3673520_SetCellCount")
+require(driver, "SH3673520_SetBalanceMask")
+require(driver, "values[0] = (uint8_t)((cell_mask >> 16u) & 0x0Fu)")
+require(driver, "values[1] = (uint8_t)((cell_mask >> 8u) & 0xFFu)")
+require(driver, "values[2] = (uint8_t)(cell_mask & 0xFFu)")
+require(driver, "sh36735xx_xfer_byte")
 
 assert literal(reg, "SH3673520_SCONF2_CHGMOS_MASK") == 0x01
 assert literal(reg, "SH3673520_SCONF2_DSGMOS_MASK") == 0x02
@@ -76,6 +95,8 @@ if "sh3510_gpio_output_low(D011_AFE_RESET_OUT_PIN)" in control:
 
 for needle in (
     "SH3673510_D011_CELL_COUNT",
+    "SH3673520_SetCellCount",
+    "SH3673520_SetBalanceMask",
     "SH3673520_SCONF5_MOS_EN_MASK",
     "SH3673520_SCONF5_WDT_EN_MASK",
     "SH3673520_SCONF6_ALL_PROTECT_MASK",
