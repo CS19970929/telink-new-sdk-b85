@@ -170,6 +170,8 @@ require(bms, "s_heater_mos_overtemp")
 require(bms, "BMS_ERROR_HEAT")
 require(bms, "SH3673510_D011_HEATER_NTC_INDEX")
 require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
+require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
+require(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")
 if "clear_recovered_flags" in bms:
     raise AssertionError("AFE flags must use physical-value recovery, not software-third state")
 if "TS3-NC" in bms:
@@ -302,5 +304,21 @@ for needle in (
     require(heater_text, needle)
 if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:
     raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")
+
+# Realtime battery temperature extrema must be refreshed from TS1/TS2 on every
+# valid sample. MOS/heater temperatures remain independently reported.
+publish_start = bms.find("static uint8_t publish_measurements")
+publish_end = bms.find("void sh3673510_bms_afe_init", publish_start)
+if publish_start < 0 or publish_end <= publish_start:
+    raise AssertionError("missing publish_measurements")
+publish_text = bms[publish_start:publish_end]
+for needle in (
+    "battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)",
+    "g_stCellInfoReport.u16TempMin = bat_temp_min;",
+    "g_stCellInfoReport.u16TempMax = bat_temp_max;",
+    "g_stCellInfoReport.u16TempMin = 0u;",
+    "g_stCellInfoReport.u16TempMax = 0u;",
+):
+    require(publish_text, needle)
 
 print("HS-D011 SH3673510 integration contract: PASS")
