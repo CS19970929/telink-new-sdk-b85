@@ -7,10 +7,10 @@
 #include "bms_afe_backend.h"
 #include "sh3673510_project_config.h"
 
-/* Production feature selection. */
+/* Production feature selection. D013 uses fixed Modbus RTU over direct UART; SIF/one-wire is not used. */
 #define _UL_RENZHENG_ENABLE_
-#define _FUNC_SIF_
 #define _FUNC_UART_
+#define MODBUS_RS485_ENABLE              0
 #ifndef FAC_TEST
 #define _DI_SWITCH_SYS_ONOFF
 #endif
