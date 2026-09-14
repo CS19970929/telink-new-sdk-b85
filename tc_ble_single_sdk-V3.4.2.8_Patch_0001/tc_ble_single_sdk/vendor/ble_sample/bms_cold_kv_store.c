@@ -9,6 +9,7 @@
 #define BMS_COLD_SYSTEM_KEY_BASE   0x2000u
 #define BMS_COLD_CTRL_KEY_BASE     0x3000u
 #define BMS_COLD_BTNAME_KEY_BASE   0x4000u
+#define BMS_COLD_AFE_HW_KEY_BASE   0x5000u
 #define BMS_COLD_BTNAME_SLOT_COUNT 6u
 #define BMS_COLD_BTNAME_MAX_BYTES  (BMS_COLD_BTNAME_SLOT_COUNT * 4u)
 
@@ -121,8 +122,47 @@ typedef struct {
     X(BMS_COLD_BTNAME_KEY_BASE + 0x05u) \
     X(BMS_COLD_BTNAME_KEY_BASE + 0x06u)
 
+
+#define BMS_COLD_AFE_HW_FIELD_LIST(X) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x01u, schema_version) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x02u, afe_model) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x03u, cov_mv) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x04u, cov_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x05u, cov_recover_mv) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x06u, cov_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x07u, cuv_mv) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x08u, cuv_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x09u, cuv_recover_mv) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Au, cuv_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Bu, ocd1_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Cu, ocd1_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Du, ocd2_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Eu, ocd2_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x0Fu, ocd_recover_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x10u, ocd_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x11u, occ1_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x12u, occ1_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x13u, occ2_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x14u, occ2_delay_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x15u, occ_recover_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x16u, occ_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x17u, sc_a10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x18u, sc_delay_us) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x19u, sc_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Au, chg_ot_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Bu, chg_ot_recover_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Cu, chg_ut_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Du, chg_ut_recover_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Eu, dsg_ot_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x1Fu, dsg_ot_recover_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x20u, dsg_ut_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x21u, dsg_ut_recover_x10) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x22u, temp_recover_ms) \
+    X(BMS_COLD_AFE_HW_KEY_BASE + 0x23u, enable_mask)
+
 #define BMS_COLD_FIELD_DESC_PROTECT(key, field) { key, BMS_COLD_OFFSETOF(struct PRT_E2ROM_PARAS, field) },
 #define BMS_COLD_FIELD_DESC_SYSTEM(key, field)  { key, BMS_COLD_OFFSETOF(bms_cold_system_params_t, field) },
+#define BMS_COLD_FIELD_DESC_AFE_HW(key, field)  { key, BMS_COLD_OFFSETOF(bms_afe_hw_profile_t, field) },
 
 static flash_kv32_t g_bms_cold_kv;
 static u32 g_bms_cold_sector_addrs[(BMS_COLD_KV_SECTORS > 0) ? BMS_COLD_KV_SECTORS : 1];
@@ -133,6 +173,10 @@ static const bms_cold_field_desc_t g_bms_protect_fields[] = {
 
 static const bms_cold_field_desc_t g_bms_system_fields[] = {
     BMS_COLD_SYSTEM_FIELD_LIST(BMS_COLD_FIELD_DESC_SYSTEM)
+};
+
+static const bms_cold_field_desc_t g_bms_afe_hw_fields[] = {
+    BMS_COLD_AFE_HW_FIELD_LIST(BMS_COLD_FIELD_DESC_AFE_HW)
 };
 
 #define BMS_COLD_CTRL_KEY_ITEM(key)  key,
@@ -148,7 +192,8 @@ static const u32 g_bms_btname_keys[] = {
 #define BMS_COLD_SYSTEM_COUNT   ((u16)(sizeof(g_bms_system_fields) / sizeof(g_bms_system_fields[0])))
 #define BMS_COLD_CTRL_COUNT     ((u16)(sizeof(g_bms_control_keys) / sizeof(g_bms_control_keys[0])))
 #define BMS_COLD_BTNAME_COUNT   ((u16)(sizeof(g_bms_btname_keys) / sizeof(g_bms_btname_keys[0])))
-#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT))
+#define BMS_COLD_AFE_HW_COUNT   ((u16)(sizeof(g_bms_afe_hw_fields) / sizeof(g_bms_afe_hw_fields[0])))
+#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + BMS_COLD_AFE_HW_COUNT))
 
 static flash_kv32_cache_entry_t g_bms_cold_cache[BMS_COLD_TOTAL_KEYS];
 static flash_kv32_key_def_t g_bms_cold_keys[BMS_COLD_TOTAL_KEYS];
@@ -192,6 +237,18 @@ static u32 bms_cold_get_u16_value(const struct PRT_E2ROM_PARAS *data, u16 offset
 }
 
 static void bms_cold_set_u16_value(struct PRT_E2ROM_PARAS *data, u16 offset, u32 value)
+{
+    u16 *field = (u16 *)((u8 *)data + offset);
+    *field = (u16)value;
+}
+
+static u32 bms_cold_get_profile_u16(const bms_afe_hw_profile_t *data, u16 offset)
+{
+    const u16 *field = (const u16 *)((const u8 *)data + offset);
+    return *field;
+}
+
+static void bms_cold_set_profile_u16(bms_afe_hw_profile_t *data, u16 offset, u32 value)
 {
     u16 *field = (u16 *)((u8 *)data + offset);
     *field = (u16)value;
@@ -312,6 +369,14 @@ static void bms_cold_fill_key_defs(void)
     for (i = 0; i < BMS_COLD_BTNAME_COUNT; ++i) {
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].key = g_bms_btname_keys[i];
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].default_value = 0u;
+    }
+
+    for (i = 0; i < BMS_COLD_AFE_HW_COUNT; ++i) {
+        u16 index = (u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT +
+                          BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i);
+        g_bms_cold_keys[index].key = g_bms_afe_hw_fields[i].key;
+        /* Zero schema/model is the one-time migration marker. */
+        g_bms_cold_keys[index].default_value = 0u;
     }
 }
 
@@ -466,6 +531,37 @@ int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)
     }
 
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_SYSTEM_COUNT);
+}
+
+int bms_cold_kv_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)
+{
+    u32 value;
+    u16 i;
+    if (profile == NULL) return FLASH_KV32_FAILED;
+    if (!bms_cold_ensure_ready()) return FLASH_KV32_FAILED;
+    memset(profile, 0, sizeof(*profile));
+    for (i = 0u; i < BMS_COLD_AFE_HW_COUNT; ++i) {
+        value = 0u;
+        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_afe_hw_fields[i].key, &value))
+            return FLASH_KV32_FAILED;
+        bms_cold_set_profile_u16(profile, g_bms_afe_hw_fields[i].offset, value);
+    }
+    return FLASH_KV32_SUCCESS;
+}
+
+int bms_cold_kv_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile)
+{
+    flash_kv32_pair_t pairs[BMS_COLD_AFE_HW_COUNT];
+    u16 i;
+    if (profile == NULL) return FLASH_KV32_FAILED;
+    if (!bms_cold_ensure_ready()) return FLASH_KV32_FAILED;
+    for (i = 0u; i < BMS_COLD_AFE_HW_COUNT; ++i) {
+        pairs[i].key = g_bms_afe_hw_fields[i].key;
+        pairs[i].value = bms_cold_get_profile_u16(profile, g_bms_afe_hw_fields[i].offset);
+    }
+    if (bms_cold_pairs_match_current(pairs, BMS_COLD_AFE_HW_COUNT))
+        return FLASH_KV32_SUCCESS;
+    return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_AFE_HW_COUNT);
 }
 
 int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value)

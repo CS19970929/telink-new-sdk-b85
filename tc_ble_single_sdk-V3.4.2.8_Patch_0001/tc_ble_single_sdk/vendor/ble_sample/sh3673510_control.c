@@ -2,6 +2,7 @@
 #include "drivers.h"
 #include "conf.h"
 #include "param.h"
+#include "bms_afe_hw_profile.h"
 #include "sh3673520.h"
 #include "sh3673520_port.h"
 #include "sh3673510_project_config.h"
@@ -172,99 +173,19 @@ static uint8_t sh3510_step_code_ceiling(uint32_t requested_uv,
     return (uint8_t)(steps - 1u);
 }
 
-static uint8_t sh3510_validate_protection(void)
+static uint8_t sh3510_validate_protection(bms_afe_hw_profile_t *profile)
 {
-    const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
-
-    /* High-going software protection levels may be equal but never reverse. */
-    if ((p->u16VcellOvp_First > p->u16VcellOvp_Second) ||
-        (p->u16VcellOvp_Second > p->u16VcellOvp_Third) ||
-        (p->u16VbusOvp_First > p->u16VbusOvp_Second) ||
-        (p->u16VbusOvp_Second > p->u16VbusOvp_Third) ||
-        (p->u16IchgOcp_First > p->u16IchgOcp_Second) ||
-        (p->u16IchgOcp_Second > p->u16IchgOcp_Third) ||
-        (p->u16IdsgOcp_First > p->u16IdsgOcp_Second) ||
-        (p->u16IdsgOcp_Second > p->u16IdsgOcp_Third) ||
-        (p->u16TChgOTp_First > p->u16TChgOTp_Second) ||
-        (p->u16TChgOTp_Second > p->u16TChgOTp_Third) ||
-        (p->u16TdischgOTp_First > p->u16TdischgOTp_Second) ||
-        (p->u16TdischgOTp_Second > p->u16TdischgOTp_Third) ||
-        (p->u16TmosOTp_First > p->u16TmosOTp_Second) ||
-        (p->u16TmosOTp_Second > p->u16TmosOTp_Third) ||
-        (p->u16VdeltaOvp_First > p->u16VdeltaOvp_Second) ||
-        (p->u16VdeltaOvp_Second > p->u16VdeltaOvp_Third)) return 0u;
-
-    /* Low-going levels progress downward as severity increases. */
-    if ((p->u16VcellUvp_First < p->u16VcellUvp_Second) ||
-        (p->u16VcellUvp_Second < p->u16VcellUvp_Third) ||
-        (p->u16VbusUvp_First < p->u16VbusUvp_Second) ||
-        (p->u16VbusUvp_Second < p->u16VbusUvp_Third) ||
-        (p->u16TchgUTp_First < p->u16TchgUTp_Second) ||
-        (p->u16TchgUTp_Second < p->u16TchgUTp_Third) ||
-        (p->u16TdischgUTp_First < p->u16TdischgUTp_Second) ||
-        (p->u16TdischgUTp_Second < p->u16TdischgUTp_Third) ||
-        (p->u16SocUp_First < p->u16SocUp_Second) ||
-        (p->u16SocUp_Second < p->u16SocUp_Third)) return 0u;
-
-    /* Third-level trip/recovery hysteresis must have the safe direction. */
-    if ((p->u16VcellOvp_Rcv >= p->u16VcellOvp_Third) ||
-        (p->u16VbusOvp_Rcv >= p->u16VbusOvp_Third) ||
-        (p->u16IchgOcp_Rcv >= p->u16IchgOcp_Third) ||
-        (p->u16IdsgOcp_Rcv >= p->u16IdsgOcp_Third) ||
-        (p->u16TChgOTp_Rcv >= p->u16TChgOTp_Third) ||
-        (p->u16TdischgOTp_Rcv >= p->u16TdischgOTp_Third) ||
-        (p->u16TmosOTp_Rcv >= p->u16TmosOTp_Third) ||
-        (p->u16VdeltaOvp_Rcv >= p->u16VdeltaOvp_Third)) return 0u;
-    if ((p->u16VcellUvp_Rcv <= p->u16VcellUvp_Third) ||
-        (p->u16VbusUvp_Rcv <= p->u16VbusUvp_Third) ||
-        (p->u16TchgUTp_Rcv <= p->u16TchgUTp_Third) ||
-        (p->u16TdischgUTp_Rcv <= p->u16TdischgUTp_Third) ||
-        (p->u16SocUp_Rcv <= p->u16SocUp_Third)) return 0u;
-
-    /* SH36735xx OV/UV threshold field is 10-bit with 5 mV/LSB. */
-    if ((p->u16VcellOvp_First == 0u) || (p->u16VcellOvp_Third > 5115u) ||
-        (p->u16VcellUvp_First == 0u) || (p->u16VcellUvp_Third > 5115u)) return 0u;
-
-    /* D011 Rsense=250uOhm. Reject values above the AFE's highest encodable
-     * current instead of silently clamping them. Lower-than-minimum requests
-     * are allowed and their higher hardware backup threshold is reported via
-     * the 0x2180 actual-value window. */
-    if (p->u16IdsgOcp_First > 3200u) return 0u;  /* OCD1: 80mV -> 320A */
-    if (p->u16IdsgOcp_Second > 6400u) return 0u; /* OCD2: 160mV -> 640A */
-    if (p->u16IchgOcp_First > 1760u) return 0u;  /* OCC: 44mV -> 176A */
-
-    /* AFE delay encodings: OV/UV/OCD1/OCC top out at ~10.01s; OCD2 shares
-     * the discharge filter request but can encode only 25..400ms. */
-    if ((p->u16VcellOvp_Filter > 1001u) ||
-        (p->u16VcellUvp_Filter > 1001u) ||
-        (p->u16IchgOcp_Filter > 1001u) ||
-        (p->u16IdsgOcp_Filter > 40u)) return 0u;
-
-    /* Temperature format is (degC + 40) * 10 and the installed lookup table
-     * spans -40..105C. Validate every software level/recovery that uses it. */
-    if ((p->u16TChgOTp_First > 1450u) || (p->u16TChgOTp_Second > 1450u) ||
-        (p->u16TChgOTp_Third > 1450u) || (p->u16TChgOTp_Rcv > 1450u) ||
-        (p->u16TchgUTp_First > 1450u) || (p->u16TchgUTp_Second > 1450u) ||
-        (p->u16TchgUTp_Third > 1450u) || (p->u16TchgUTp_Rcv > 1450u) ||
-        (p->u16TdischgOTp_First > 1450u) || (p->u16TdischgOTp_Second > 1450u) ||
-        (p->u16TdischgOTp_Third > 1450u) || (p->u16TdischgOTp_Rcv > 1450u) ||
-        (p->u16TdischgUTp_First > 1450u) || (p->u16TdischgUTp_Second > 1450u) ||
-        (p->u16TdischgUTp_Third > 1450u) || (p->u16TdischgUTp_Rcv > 1450u) ||
-        (p->u16TmosOTp_First > 1450u) || (p->u16TmosOTp_Second > 1450u) ||
-        (p->u16TmosOTp_Third > 1450u) || (p->u16TmosOTp_Rcv > 1450u)) return 0u;
-
-    if ((p->u16SocUp_First > 100u) || (p->u16SocUp_Second > 100u) ||
-        (p->u16SocUp_Third > 100u) || (p->u16SocUp_Rcv > 100u)) return 0u;
-
-    return 1u;
+    return bms_afe_hw_profile_get(profile);
 }
 
 uint8_t sh3673510_control_apply_protection(void)
 {
-    uint32_t ov_delay_ms = (uint32_t)g_tParam.protect.u16VcellOvp_Filter * 10u;
-    uint32_t uv_delay_ms = (uint32_t)g_tParam.protect.u16VcellUvp_Filter * 10u;
-    uint32_t ocd_delay_ms = (uint32_t)g_tParam.protect.u16IdsgOcp_Filter * 10u;
-    uint32_t occ_delay_ms = (uint32_t)g_tParam.protect.u16IchgOcp_Filter * 10u;
+    bms_afe_hw_profile_t hw;
+    uint32_t ov_delay_ms;
+    uint32_t uv_delay_ms;
+    uint32_t ocd1_delay_ms;
+    uint32_t ocd2_delay_ms;
+    uint32_t occ_delay_ms;
     uint16_t ov_code;
     uint16_t uv_code;
     uint32_t sense_uv;
@@ -278,10 +199,15 @@ uint8_t sh3673510_control_apply_protection(void)
     uint8_t ok = 1u;
 
     s_protection_actual.valid = 0u;
-    if (!s_control_ready || !sh3510_validate_protection()) return 0u;
+    if (!s_control_ready || !sh3510_validate_protection(&hw)) return 0u;
+    ov_delay_ms = hw.cov_delay_ms;
+    uv_delay_ms = hw.cuv_delay_ms;
+    ocd1_delay_ms = hw.ocd1_delay_ms;
+    ocd2_delay_ms = hw.ocd2_delay_ms;
+    occ_delay_ms = hw.occ1_delay_ms;
 
-    ov_code = (uint16_t)(((uint32_t)g_tParam.protect.u16VcellOvp_Third + 2u) / 5u);
-    uv_code = (uint16_t)(((uint32_t)g_tParam.protect.u16VcellUvp_Third + 2u) / 5u);
+    ov_code = (uint16_t)(((uint32_t)hw.cov_mv + 2u) / 5u);
+    uv_code = (uint16_t)(((uint32_t)hw.cuv_mv + 2u) / 5u);
     if (ov_code > 0x03FFu) ov_code = 0x03FFu;
     if (uv_code > 0x03FFu) uv_code = 0x03FFu;
     ov_dly = sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ov_delay_ms);
@@ -297,18 +223,18 @@ uint8_t sh3673510_control_apply_protection(void)
     ok &= sh3510_write_verify(SH3673520_REG_UVT_UVH, high, 0x73u);
     ok &= sh3510_write_verify(SH3673520_REG_UVL, low, 0xFFu);
 
-    sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IdsgOcp_First);
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd1_a10);
     code = sh3510_step_code_ceiling(sense_uv, 5000u, 15u);
-    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd_delay_ms) << 4) | code);
+    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd1_delay_ms) << 4) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCD1V_OCD1T, regv, 0x7Fu);
     actual_uv = ((uint32_t)code + 1u) * 5000u;
     s_protection_actual.ocd1_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
     s_protection_actual.ocd1_delay_ms = s_ov_delay_ms[(regv >> 4) & 0x07u];
 
-    sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IdsgOcp_Second);
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd2_a10);
     code = sh3510_step_code_ceiling(sense_uv, 10000u, 15u);
     {
-        uint32_t steps = (ocd_delay_ms + 24u) / 25u;
+        uint32_t steps = (ocd2_delay_ms + 24u) / 25u;
         uint8_t dly;
         if (steps == 0u) steps = 1u;
         if (steps > 16u) steps = 16u;
@@ -320,11 +246,21 @@ uint8_t sh3673510_control_apply_protection(void)
     s_protection_actual.ocd2_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
     s_protection_actual.ocd2_delay_ms = (uint16_t)((((regv >> 4) & 0x0Fu) + 1u) * 25u);
 
-    regv = (uint8_t)((SH3673510_D011_SC_MULTIPLIER_CODE << 4) |
-                     SH3673510_D011_SC_DELAY_CODE);
-    ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
+    {
+        static const uint8_t sc_mult[4] = {2u, 3u, 4u, 6u};
+        static const uint16_t sc_delay[8] = {2u, 4u, 8u, 16u, 32u, 64u, 128u, 256u};
+        uint8_t mult_code = 0u;
+        uint8_t delay_code = 0u;
+        uint32_t base = s_protection_actual.ocd2_a10;
+        if ((hw.enable_mask & BMS_AFE_HW_EN_SC) && base != 0u) {
+            while (mult_code < 3u && (u32)base * sc_mult[mult_code] < hw.sc_a10) ++mult_code;
+            while (delay_code < 7u && sc_delay[delay_code] < hw.sc_delay_us) ++delay_code;
+        }
+        regv = (uint8_t)((mult_code << 4) | delay_code);
+        ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
+    }
 
-    sense_uv = sh3510_current_a10_to_sense_uv(g_tParam.protect.u16IchgOcp_First);
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.occ1_a10);
     code = sh3510_step_code_ceiling(sense_uv, 1375u, 31u);
     regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, occ_delay_ms) << 5) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCCV_OCCT, regv, 0xFFu);
@@ -332,19 +268,26 @@ uint8_t sh3673510_control_apply_protection(void)
     s_protection_actual.occ_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
     s_protection_actual.occ_delay_ms = s_ov_delay_ms[(regv >> 5) & 0x07u];
 
-    if (!sh3510_high_temp_code(g_tParam.protect.u16TChgOTp_Third, &code)) return 0u;
+    if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
-    if (!sh3510_high_temp_code(g_tParam.protect.u16TdischgOTp_Third, &code)) return 0u;
+    if (!sh3510_high_temp_code(hw.dsg_ot_x10, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_OTD, code, 0xFFu);
-    if (!sh3510_low_temp_code(g_tParam.protect.u16TchgUTp_Third, &code)) return 0u;
+    if (!sh3510_low_temp_code(hw.chg_ut_x10, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_UTC, code, 0xFFu);
-    if (!sh3510_low_temp_code(g_tParam.protect.u16TdischgUTp_Third, &code)) return 0u;
+    if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
 
-    /* Enable the selected hardware protections only after all thresholds are valid. */
-    ok &= sh3510_write_verify(SH3673520_REG_SCONF6,
-                              SH3673510_D011_SCONF6_VALUE,
-                              SH3673520_SCONF6_ALL_MASK);
+    /* Hardware protection enables belong to the independent AFE profile. */
+    ok &= sh3510_update_reg(SH3673520_REG_SCONF5,
+                            SH3673520_SCONF5_OCC_EN_MASK,
+                            (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? SH3673520_SCONF5_OCC_EN_MASK : 0u);
+    regv = 0u;
+    if (hw.enable_mask & BMS_AFE_HW_EN_COV)  regv |= SH3673520_SCONF6_OV_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_CUV)  regv |= SH3673520_SCONF6_UV_EN_MASK;
+    if (hw.enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) regv |= SH3673520_SCONF6_OCD_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_SC)   regv |= SH3673520_SCONF6_SC_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_TEMP) regv |= (SH3673520_SCONF6_TS1_EN_MASK | SH3673520_SCONF6_TS2_EN_MASK);
+    ok &= sh3510_write_verify(SH3673520_REG_SCONF6, regv, SH3673520_SCONF6_ALL_MASK);
 
     s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);
     s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);

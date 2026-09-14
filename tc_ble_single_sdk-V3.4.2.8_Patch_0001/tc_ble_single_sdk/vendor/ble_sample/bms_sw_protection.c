@@ -167,6 +167,53 @@ static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault)
     fault->bits.b1VcellDeltaBig = 0u;
 }
 
+uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *p)
+{
+    if (p == 0) return 0u;
+    if ((p->u16VcellOvp_First > p->u16VcellOvp_Second) ||
+        (p->u16VcellOvp_Second > p->u16VcellOvp_Third) ||
+        (p->u16VbusOvp_First > p->u16VbusOvp_Second) ||
+        (p->u16VbusOvp_Second > p->u16VbusOvp_Third) ||
+        (p->u16IchgOcp_First > p->u16IchgOcp_Second) ||
+        (p->u16IchgOcp_Second > p->u16IchgOcp_Third) ||
+        (p->u16IdsgOcp_First > p->u16IdsgOcp_Second) ||
+        (p->u16IdsgOcp_Second > p->u16IdsgOcp_Third) ||
+        (p->u16TChgOTp_First > p->u16TChgOTp_Second) ||
+        (p->u16TChgOTp_Second > p->u16TChgOTp_Third) ||
+        (p->u16TdischgOTp_First > p->u16TdischgOTp_Second) ||
+        (p->u16TdischgOTp_Second > p->u16TdischgOTp_Third) ||
+        (p->u16TmosOTp_First > p->u16TmosOTp_Second) ||
+        (p->u16TmosOTp_Second > p->u16TmosOTp_Third) ||
+        (p->u16VdeltaOvp_First > p->u16VdeltaOvp_Second) ||
+        (p->u16VdeltaOvp_Second > p->u16VdeltaOvp_Third)) return 0u;
+    if ((p->u16VcellUvp_First < p->u16VcellUvp_Second) ||
+        (p->u16VcellUvp_Second < p->u16VcellUvp_Third) ||
+        (p->u16VbusUvp_First < p->u16VbusUvp_Second) ||
+        (p->u16VbusUvp_Second < p->u16VbusUvp_Third) ||
+        (p->u16TchgUTp_First < p->u16TchgUTp_Second) ||
+        (p->u16TchgUTp_Second < p->u16TchgUTp_Third) ||
+        (p->u16TdischgUTp_First < p->u16TdischgUTp_Second) ||
+        (p->u16TdischgUTp_Second < p->u16TdischgUTp_Third)) return 0u;
+    if ((p->u16VcellOvp_Third && p->u16VcellOvp_Rcv >= p->u16VcellOvp_Third) ||
+        (p->u16VbusOvp_Third && p->u16VbusOvp_Rcv >= p->u16VbusOvp_Third) ||
+        (p->u16IchgOcp_Third && p->u16IchgOcp_Rcv >= p->u16IchgOcp_Third) ||
+        (p->u16IdsgOcp_Third && p->u16IdsgOcp_Rcv >= p->u16IdsgOcp_Third) ||
+        (p->u16TChgOTp_Third && p->u16TChgOTp_Rcv >= p->u16TChgOTp_Third) ||
+        (p->u16TdischgOTp_Third && p->u16TdischgOTp_Rcv >= p->u16TdischgOTp_Third) ||
+        (p->u16TmosOTp_Third && p->u16TmosOTp_Rcv >= p->u16TmosOTp_Third) ||
+        (p->u16VdeltaOvp_Third && p->u16VdeltaOvp_Rcv >= p->u16VdeltaOvp_Third)) return 0u;
+    if ((p->u16VcellUvp_Third && p->u16VcellUvp_Rcv <= p->u16VcellUvp_Third) ||
+        (p->u16VbusUvp_Third && p->u16VbusUvp_Rcv <= p->u16VbusUvp_Third) ||
+        (p->u16TchgUTp_Third && p->u16TchgUTp_Rcv <= p->u16TchgUTp_Third) ||
+        (p->u16TdischgUTp_Third && p->u16TdischgUTp_Rcv <= p->u16TdischgUTp_Third)) return 0u;
+    if (p->u16TChgOTp_Third > 1450u || p->u16TChgOTp_Rcv > 1450u ||
+        p->u16TchgUTp_Third > 1450u || p->u16TchgUTp_Rcv > 1450u ||
+        p->u16TdischgOTp_Third > 1450u || p->u16TdischgOTp_Rcv > 1450u ||
+        p->u16TdischgUTp_Third > 1450u || p->u16TdischgUTp_Rcv > 1450u ||
+        p->u16TmosOTp_Third > 1450u || p->u16TmosOTp_Rcv > 1450u) return 0u;
+    return 1u;
+}
+
 void bms_sw_protection_clear(void)
 {
     uint8_t level;
