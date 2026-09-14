@@ -4,12 +4,16 @@
 #include <stdint.h>
 
 /*
+ * SH36735xx family common driver.
+ * SH3673510/3514/3517/3520 share the same register/protocol behavior and
+ * differ only in the maximum supported cell count. This common layer therefore
+ * supports the family maximum (20 cells); each product profile chooses its
+ * actual series count.
+ *
  * Telink B85 common/types.h defines its own size_t before application headers.
  * Pulling the TC32 GCC stddef.h into such a translation unit conflicts with
- * that SDK typedef.  Keep the public ABI equal to the compiler's native
- * __SIZE_TYPE__ without re-declaring the global size_t name.  The standalone
- * driver translation unit and ordinary host builds still use stddef.h so the
- * existing implementation definitions remain type-identical.
+ * that SDK typedef. Keep the public ABI equal to the compiler's native
+ * __SIZE_TYPE__ without re-declaring the global size_t name.
  */
 #ifdef U32_MAX
 # ifdef __SIZE_TYPE__
@@ -75,6 +79,11 @@ sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg,
 sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
                                        const uint8_t *buffer,
                                        sh3673520_size_t length);
+
+/* Family-common configuration helpers: valid for product profiles up to 20S. */
+sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count);
+sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
+                                            uint8_t cell_count);
 
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_count);
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv);
