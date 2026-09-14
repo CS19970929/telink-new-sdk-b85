@@ -12,24 +12,24 @@ typedef enum {
 } sh3673520_port_status_t;
 
 /*
- * These are Telink B85 hardware-SPI pin groups defined by the vendor SDK.
- * Selecting a group is a board-level decision. No group is selected by default.
+ * SH36735xx SPI supports up to 1 MHz. This port deliberately uses a fixed
+ * 500 kHz clock: comfortably inside the AFE timing limit and exactly derived
+ * from the B85 16 MHz system clock. Application code does not choose a
+ * divider or requested SPI rate.
  */
+#define SH3673520_PORT_SPI_CLOCK_HZ              500000UL
+
+/* Telink B85 hardware-SPI pin groups defined by the vendor SDK. */
 typedef enum {
     SH3673520_SPI_GROUP_A2_A3_A4_D6 = 0,
     SH3673520_SPI_GROUP_B6_B7_D2_D7 = 1
 } sh3673520_spi_group_t;
 
-/*
- * Board integration must call this before SH3673520_Init().
- * Requested clock must be <= the SH3673520 1 MHz maximum.
- */
-sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group,
-                                                uint32_t requested_clock_hz);
-
+/* Board integration selects only the physical SPI pin group. */
+sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group);
 uint32_t SH3673520_PortGetActualClockHz(void);
 
-/* Driver-internal port contract. Exposed for host mocks and static testing. */
+/* Driver-internal byte/full-transaction primitives. */
 sh3673520_port_status_t sh3673520_port_init(void);
 sh3673520_port_status_t sh3673520_port_begin(void);
 sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx);
