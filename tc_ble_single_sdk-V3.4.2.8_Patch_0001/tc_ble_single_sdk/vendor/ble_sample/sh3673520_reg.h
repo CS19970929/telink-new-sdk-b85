@@ -27,8 +27,6 @@
 #define SH3673520_REG_WRITE_MAX              0x59u
 #define SH3673520_REG_READ_MIN               0x40u
 #define SH3673520_REG_READ_MAX               0x99u
-
-/* Configuration / protection / status */
 #define SH3673520_REG_SCONF1                 0x40u
 #define SH3673520_REG_SCONF2                 0x41u
 #define SH3673520_REG_SCONF3                 0x42u
@@ -58,8 +56,6 @@
 #define SH3673520_REG_FLAG3                  0x5Au
 #define SH3673520_REG_BSTATUS1               0x5Bu
 #define SH3673520_REG_BSTATUS2               0x5Cu
-
-/* Measurement registers: high byte first. */
 #define SH3673520_REG_TEMP1H                 0x5Du
 #define SH3673520_REG_TEMP1L                 0x5Eu
 #define SH3673520_REG_TEMP2H                 0x5Fu
@@ -121,8 +117,6 @@
 #define SH3673520_REG_OWDH                   0x97u
 #define SH3673520_REG_OWDM                   0x98u
 #define SH3673520_REG_OWDL                   0x99u
-
-/* Datasheet reset values for writable RAM registers (SH36735XX CV1.0A). */
 #define SH3673520_RESET_SCONF1               0x00u
 #define SH3673520_RESET_SCONF2               0x50u
 #define SH3673520_RESET_SCONF3               0x00u
@@ -149,46 +143,38 @@
 #define SH3673520_RESET_BALANCEL              0x00u
 #define SH3673520_RESET_FLAG1                 0x80u
 #define SH3673520_RESET_FLAG2                 0x00u
-
-/* SCONF1 mode command byte (bits 7:0 form one command field). */
 #define SH3673520_SCONF1_NORMAL              0x00u
 #define SH3673520_SCONF1_IDLE                0x55u
 #define SH3673520_SCONF1_SLEEP               0xAAu
 #define SH3673520_SCONF1_POWERDOWN           0x33u
-
-/* SCONF2 0x41: every bit is defined and writable. */
-#define SH3673520_SCONF2_LTCLR_MASK          0x80u /* b7 */
-#define SH3673520_SCONF2_PD_EN_MASK          0x40u /* b6 */
-#define SH3673520_SCONF2_PD_CTL_MASK         0x20u /* b5 */
-#define SH3673520_SCONF2_PUMP_EN_MASK        0x10u /* b4 */
-#define SH3673520_SCONF2_PDSG_CTL_MASK       0x08u /* b3 */
-#define SH3673520_SCONF2_PDSGMOS_MASK        0x04u /* b2 */
-#define SH3673520_SCONF2_DSGMOS_MASK         0x02u /* b1 */
-#define SH3673520_SCONF2_CHGMOS_MASK         0x01u /* b0 */
+#define SH3673520_SCONF2_LTCLR_MASK          0x80u
+#define SH3673520_SCONF2_PD_EN_MASK          0x40u
+#define SH3673520_SCONF2_PD_CTL_MASK         0x20u
+#define SH3673520_SCONF2_PUMP_EN_MASK        0x10u
+#define SH3673520_SCONF2_PDSG_CTL_MASK       0x08u
+#define SH3673520_SCONF2_PDSGMOS_MASK        0x04u
+#define SH3673520_SCONF2_DSGMOS_MASK         0x02u
+#define SH3673520_SCONF2_CHGMOS_MASK         0x01u
 #define SH3673520_SCONF2_FET_MASK            0x03u
 #define SH3673520_SCONF2_ALL_MASK            0xFFu
-
-/* SCONF3 0x42. */
 #define SH3673520_SCONF3_RESERVED7_MASK      0x80u
-#define SH3673520_SCONF3_CGR_WK_MASK         0x40u /* b6 */
-#define SH3673520_SCONF3_LD_WK_MASK          0x30u /* b5:4 */
+#define SH3673520_SCONF3_CGR_WK_MASK         0x40u
+#define SH3673520_SCONF3_LD_WK_MASK          0x30u
 #define SH3673520_SCONF3_LD_WK_SHIFT         4u
 #define SH3673520_SCONF3_LD_WK_OFF           0u
 #define SH3673520_SCONF3_LD_WK_LOAD_ON       1u
 #define SH3673520_SCONF3_LD_WK_LOAD_OFF      2u
-#define SH3673520_SCONF3_CRLD_EN_MASK        0x0Cu /* b3:2 */
+#define SH3673520_SCONF3_CRLD_EN_MASK        0x0Cu
 #define SH3673520_SCONF3_CRLD_EN_SHIFT       2u
 #define SH3673520_SCONF3_CRLD_OFF            0u
 #define SH3673520_SCONF3_CRLD_CPLUS_CODE     1u
 #define SH3673520_SCONF3_CRLD_LOAD_CODE      2u
 #define SH3673520_SCONF3_CRLD_CPLUS          0x04u
 #define SH3673520_SCONF3_CRLD_LOAD           0x08u
-#define SH3673520_SCONF3_OWD_EN_MASK         0x02u /* b1 */
-#define SH3673520_SCONF3_OWD_TRG_MASK        0x01u /* b0, trigger command */
+#define SH3673520_SCONF3_OWD_EN_MASK         0x02u
+#define SH3673520_SCONF3_OWD_TRG_MASK        0x01u
 #define SH3673520_SCONF3_CONFIG_MASK         0x7Fu
-
-/* SCONF4 0x43. */
-#define SH3673520_SCONF4_PDSGT_MASK          0xE0u /* b7:5 */
+#define SH3673520_SCONF4_PDSGT_MASK          0xE0u
 #define SH3673520_SCONF4_PDSGT_SHIFT         5u
 #define SH3673520_SCONF4_PDSGT_210MS         0u
 #define SH3673520_SCONF4_PDSGT_280MS         1u
@@ -198,99 +184,83 @@
 #define SH3673520_SCONF4_PDSGT_980MS         5u
 #define SH3673520_SCONF4_PDSGT_2030MS        6u
 #define SH3673520_SCONF4_PDSGT_3010MS        7u
-#define SH3673520_SCONF4_CELL_COUNT_MASK     0x1Fu /* b4:0 */
+#define SH3673520_SCONF4_CELL_COUNT_MASK     0x1Fu
 #define SH3673520_SCONF4_ALL_MASK            0xFFu
-
-/* SCONF5 0x44. */
-#define SH3673520_SCONF5_RESERVED_MASK       0xC0u /* b7:6 */
-#define SH3673520_SCONF5_MOS_EN_MASK         0x20u /* b5 */
-#define SH3673520_SCONF5_OCC_EN_MASK         0x10u /* b4 */
-#define SH3673520_SCONF5_CADC_EN_MASK        0x08u /* b3 */
-#define SH3673520_SCONF5_WDT_EN_MASK         0x04u /* b2 */
-#define SH3673520_SCONF5_WDT_MASK            0x03u /* b1:0 */
+#define SH3673520_SCONF5_RESERVED_MASK       0xC0u
+#define SH3673520_SCONF5_MOS_EN_MASK         0x20u
+#define SH3673520_SCONF5_OCC_EN_MASK         0x10u
+#define SH3673520_SCONF5_CADC_EN_MASK        0x08u
+#define SH3673520_SCONF5_WDT_EN_MASK         0x04u
+#define SH3673520_SCONF5_WDT_MASK            0x03u
 #define SH3673520_SCONF5_WDT_SHIFT           0u
 #define SH3673520_SCONF5_WDT_32S_CODE        0u
 #define SH3673520_SCONF5_WDT_16S_CODE        1u
 #define SH3673520_SCONF5_WDT_8S_CODE         2u
 #define SH3673520_SCONF5_WDT_4S_CODE         3u
 #define SH3673520_SCONF5_CONFIG_MASK         0x3Fu
-
-/* SCONF6 0x45. */
-#define SH3673520_SCONF6_TS4_EN_MASK         0x80u /* b7 */
-#define SH3673520_SCONF6_TS3_EN_MASK         0x40u /* b6 */
-#define SH3673520_SCONF6_TS2_EN_MASK         0x20u /* b5 */
-#define SH3673520_SCONF6_TS1_EN_MASK         0x10u /* b4 */
-#define SH3673520_SCONF6_SC_EN_MASK          0x08u /* b3 */
-#define SH3673520_SCONF6_OCD_EN_MASK         0x04u /* b2 */
-#define SH3673520_SCONF6_UV_EN_MASK          0x02u /* b1 */
-#define SH3673520_SCONF6_OV_EN_MASK          0x01u /* b0 */
+#define SH3673520_SCONF6_TS4_EN_MASK         0x80u
+#define SH3673520_SCONF6_TS3_EN_MASK         0x40u
+#define SH3673520_SCONF6_TS2_EN_MASK         0x20u
+#define SH3673520_SCONF6_TS1_EN_MASK         0x10u
+#define SH3673520_SCONF6_SC_EN_MASK          0x08u
+#define SH3673520_SCONF6_OCD_EN_MASK         0x04u
+#define SH3673520_SCONF6_UV_EN_MASK          0x02u
+#define SH3673520_SCONF6_OV_EN_MASK          0x01u
 #define SH3673520_SCONF6_ALL_PROTECT_MASK    0x0Fu
 #define SH3673520_SCONF6_ALL_MASK            0xFFu
-
-/* SCONF7 0x46. */
 #define SH3673520_SCONF7_RESERVED7_MASK      0x80u
-#define SH3673520_SCONF7_RLD_MASK            0x40u /* b6: 0=60uA, 1=500uA */
-#define SH3673520_SCONF7_CADCT_MASK          0x30u /* b5:4, IDLE only */
+#define SH3673520_SCONF7_RLD_MASK            0x40u
+#define SH3673520_SCONF7_CADCT_MASK          0x30u
 #define SH3673520_SCONF7_CADCT_SHIFT         4u
 #define SH3673520_SCONF7_CADCT_4S_CODE       0u
 #define SH3673520_SCONF7_CADCT_32S_CODE      1u
 #define SH3673520_SCONF7_CADCT_64S_CODE      2u
 #define SH3673520_SCONF7_CADCT_256S_CODE     3u
 #define SH3673520_SCONF7_RESERVED3_MASK      0x08u
-#define SH3673520_SCONF7_CDV_MASK            0x07u /* b2:0 */
+#define SH3673520_SCONF7_CDV_MASK            0x07u
 #define SH3673520_SCONF7_CDV_SHIFT           0u
 #define SH3673520_SCONF7_CONFIG_MASK         0x77u
-
-/* OWV/ALARMH 0x47. */
-#define SH3673520_OWV_MASK                   0xF0u /* b7:4 */
+#define SH3673520_OWV_MASK                   0xF0u
 #define SH3673520_OWV_SHIFT                  4u
-#define SH3673520_ALARMH_LOADON_INT_MASK     0x08u /* b3 */
-#define SH3673520_ALARMH_LOADOFF_INT_MASK    0x04u /* b2 */
-#define SH3673520_ALARMH_VADC_INT_MASK       0x02u /* b1 */
-#define SH3673520_ALARMH_CADC_INT_MASK       0x01u /* b0 */
+#define SH3673520_ALARMH_LOADON_INT_MASK     0x08u
+#define SH3673520_ALARMH_LOADOFF_INT_MASK    0x04u
+#define SH3673520_ALARMH_VADC_INT_MASK       0x02u
+#define SH3673520_ALARMH_CADC_INT_MASK       0x01u
 #define SH3673520_ALARMH_ALL_MASK            0xFFu
-
-/* ALARML 0x48. */
-#define SH3673520_ALARML_WK_INT_MASK         0x80u /* b7 */
-#define SH3673520_ALARML_WDT_INT_MASK        0x40u /* b6 */
-#define SH3673520_ALARML_OWD_INT_MASK        0x20u /* b5 */
-#define SH3673520_ALARML_TEMP_INT_MASK       0x10u /* b4 */
-#define SH3673520_ALARML_OCC_INT_MASK        0x08u /* b3 */
-#define SH3673520_ALARML_OCD_INT_MASK        0x04u /* b2: OCD1/OCD2/SC */
-#define SH3673520_ALARML_UV_INT_MASK         0x02u /* b1 */
-#define SH3673520_ALARML_OV_INT_MASK         0x01u /* b0 */
+#define SH3673520_ALARML_WK_INT_MASK         0x80u
+#define SH3673520_ALARML_WDT_INT_MASK        0x40u
+#define SH3673520_ALARML_OWD_INT_MASK        0x20u
+#define SH3673520_ALARML_TEMP_INT_MASK       0x10u
+#define SH3673520_ALARML_OCC_INT_MASK        0x08u
+#define SH3673520_ALARML_OCD_INT_MASK        0x04u
+#define SH3673520_ALARML_UV_INT_MASK         0x02u
+#define SH3673520_ALARML_OV_INT_MASK         0x01u
 #define SH3673520_ALARML_ALL_MASK            0xFFu
-
-/* Protection register fields 0x49..0x54. */
 #define SH3673520_OVUV_RESERVED7_MASK        0x80u
-#define SH3673520_OVUV_DELAY_MASK            0x70u /* b6:4 */
+#define SH3673520_OVUV_DELAY_MASK            0x70u
 #define SH3673520_OVUV_DELAY_SHIFT           4u
 #define SH3673520_OVUV_RESERVED32_MASK       0x0Cu
-#define SH3673520_OVUV_HI_MASK               0x03u /* b1:0 threshold[9:8] */
+#define SH3673520_OVUV_HI_MASK               0x03u
 #define SH3673520_OVUV_CONFIG_MASK           0x73u
 #define SH3673520_OCD1_RESERVED7_MASK        0x80u
-#define SH3673520_OCD1_DELAY_MASK            0x70u /* b6:4 */
+#define SH3673520_OCD1_DELAY_MASK            0x70u
 #define SH3673520_OCD1_DELAY_SHIFT           4u
-#define SH3673520_OCD1_VALUE_MASK            0x0Fu /* b3:0 */
-#define SH3673520_OCD2_DELAY_MASK            0xF0u /* b7:4 */
+#define SH3673520_OCD1_VALUE_MASK            0x0Fu
+#define SH3673520_OCD2_DELAY_MASK            0xF0u
 #define SH3673520_OCD2_DELAY_SHIFT           4u
-#define SH3673520_OCD2_VALUE_MASK            0x0Fu /* b3:0 */
-#define SH3673520_SC_RESERVED_MASK           0xC0u /* b7:6 */
-#define SH3673520_SC_VALUE_MASK              0x30u /* b5:4 */
+#define SH3673520_OCD2_VALUE_MASK            0x0Fu
+#define SH3673520_SC_RESERVED_MASK           0xC0u
+#define SH3673520_SC_VALUE_MASK              0x30u
 #define SH3673520_SC_VALUE_SHIFT             4u
-#define SH3673520_SC_DELAY_MASK              0x0Fu /* b3:0 */
-#define SH3673520_OCC_DELAY_MASK             0xE0u /* b7:5 */
+#define SH3673520_SC_DELAY_MASK              0x0Fu
+#define SH3673520_OCC_DELAY_MASK             0xE0u
 #define SH3673520_OCC_DELAY_SHIFT            5u
-#define SH3673520_OCC_VALUE_MASK             0x1Fu /* b4:0 */
+#define SH3673520_OCC_VALUE_MASK             0x1Fu
 #define SH3673520_TEMP_VALUE_MASK            0xFFu
-
-/* BALANCE 0x55..0x57. */
 #define SH3673520_BALANCEH_RESERVED_MASK     0xF0u
 #define SH3673520_BALANCEH_CB20_17_MASK      0x0Fu
 #define SH3673520_BALANCEM_CB16_9_MASK       0xFFu
 #define SH3673520_BALANCEL_CB8_1_MASK        0xFFu
-
-/* FLAG1 0x58: W0C when SCONF2.LTCLR=1. */
 #define SH3673520_FLAG1_RST1_MASK            0x80u
 #define SH3673520_FLAG1_WK_MASK              0x40u
 #define SH3673520_FLAG1_OCC_MASK             0x20u
@@ -300,8 +270,6 @@
 #define SH3673520_FLAG1_UV_MASK              0x02u
 #define SH3673520_FLAG1_OV_MASK              0x01u
 #define SH3673520_FLAG1_ALL_MASK             0xFFu
-
-/* FLAG2 0x59: b7:2 W0C with LTCLR=1; b1:0 are read-clear. */
 #define SH3673520_FLAG2_OTD_MASK             0x80u
 #define SH3673520_FLAG2_UTD_MASK             0x40u
 #define SH3673520_FLAG2_OTC_MASK             0x20u
@@ -311,20 +279,14 @@
 #define SH3673520_FLAG2_VADC_MASK            0x02u
 #define SH3673520_FLAG2_CADC_MASK            0x01u
 #define SH3673520_FLAG2_W0C_MASK             0xFCu
-
-/* FLAG3 0x5A: read-only open-wire conversion status. */
 #define SH3673520_FLAG3_OWD_IND_MASK         0x02u
 #define SH3673520_FLAG3_OWD_FLG_MASK         0x01u
-
-/* BSTATUS1 0x5B read-only. */
 #define SH3673520_BSTATUS1_E2P_ERR_MASK      0x40u
 #define SH3673520_BSTATUS1_HDSG_FET_MASK     0x20u
 #define SH3673520_BSTATUS1_HCHG_FET_MASK     0x10u
 #define SH3673520_BSTATUS1_PDSG_FET_MASK     0x04u
 #define SH3673520_BSTATUS1_DSG_FET_MASK      0x02u
 #define SH3673520_BSTATUS1_CHG_FET_MASK      0x01u
-
-/* BSTATUS2 0x5C read-only. */
 #define SH3673520_BSTATUS2_CHGING_MASK       0x80u
 #define SH3673520_BSTATUS2_DSGING_MASK       0x40u
 #define SH3673520_BSTATUS2_SLEEP_MASK        0x20u
