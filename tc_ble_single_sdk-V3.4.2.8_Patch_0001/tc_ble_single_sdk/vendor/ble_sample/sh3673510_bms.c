@@ -17,6 +17,7 @@
 #define SH3510_REINIT_COOLDOWN        25u /* 5 s at 200 ms */
 #define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
+#define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
 
 typedef struct {
     uint16_t trip_count;
@@ -489,6 +490,26 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     }
 }
 
+static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
+{
+    union MDLCHGFAULT_REG *f;
+    if (s == 0) return;
+
+    /* Hardware protection may act before the 200 ms software sample sees the
+     * violating value. Mirror the latched AFE protection into the Third-level
+     * report so the host never shows "no protection" while a MOS is blocked. */
+    f = &g_stCellInfoReport.unMdlFault_Third;
+    if (s->flag1 & SH3673520_FLAG1_OV_MASK) f->bits.b1CellOvp = 1u;
+    if (s->flag1 & SH3673520_FLAG1_UV_MASK) f->bits.b1CellUvp = 1u;
+    if (s->flag1 & SH3673520_FLAG1_OCC_MASK) f->bits.b1IchgOcp = 1u;
+    if (s->flag1 & (SH3673520_FLAG1_OCD1_MASK | SH3673520_FLAG1_OCD2_MASK))
+        f->bits.b1IdischgOcp = 1u;
+    if (s->flag2 & SH3673520_FLAG2_OTC_MASK) f->bits.b1CellChgOtp = 1u;
+    if (s->flag2 & SH3673520_FLAG2_UTC_MASK) f->bits.b1CellChgUtp = 1u;
+    if (s->flag2 & SH3673520_FLAG2_OTD_MASK) f->bits.b1CellDischgOtp = 1u;
+    if (s->flag2 & SH3673520_FLAG2_UTD_MASK) f->bits.b1CellDischgUtp = 1u;
+}
+
 static void service_short_recovery(const sh3673510_control_status_t *s)
 {
     if ((s == 0) || !s_short_latched) return;
@@ -544,9 +565,15 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
     uint8_t c1 = 0u, c2 = 0u;
     uint16_t bat_min = 0u, bat_max = 0u;
     uint8_t bat_temp_ok;
+    uint8_t dsg_ocp_release_ok;
     if (s == 0) return;
 
     actual_ok = sh3673510_control_get_protection_actual(&actual);
+    /* Current naturally becomes zero after OCD turns DSG off, so current alone
+     * is not proof that the external overload disappeared. Require either
+     * stable LOADOFF or a real charge-direction state before clearing OCD. */
+    dsg_ocp_release_ok = (uint8_t)(((s->bstatus2 & SH3673520_BSTATUS2_LOADOFF_MASK) ||
+                                    (s->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK)) ? 1u : 0u);
 
     /* Reset/wake events are diagnostic. RST1/RST2 are intentionally NOT
      * cleared here: service_afe_reconfiguration() owns those states. */
@@ -571,18 +598,18 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
         if (hw_recovery_stable(HW_REC_OCD1,
-                actual_ok &&
+                actual_ok && dsg_ocp_release_ok &&
                 g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
                 g_stCellInfoReport.u16IDischg < actual.ocd1_a10,
-                g_tParam.protect.u16IdsgOcp_Filter)) c1 |= SH3673520_FLAG1_OCD1_MASK;
+                SH3510_OCD_RELEASE_FILTER_10MS)) c1 |= SH3673520_FLAG1_OCD1_MASK;
     } else s_hw_recovery_count[HW_REC_OCD1] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD2_MASK) {
         if (hw_recovery_stable(HW_REC_OCD2,
-                actual_ok &&
+                actual_ok && dsg_ocp_release_ok &&
                 g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
                 g_stCellInfoReport.u16IDischg < actual.ocd2_a10,
-                g_tParam.protect.u16IdsgOcp_Filter)) c1 |= SH3673520_FLAG1_OCD2_MASK;
+                SH3510_OCD_RELEASE_FILTER_10MS)) c1 |= SH3673520_FLAG1_OCD2_MASK;
     } else s_hw_recovery_count[HW_REC_OCD2] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCC_MASK) {
@@ -747,6 +774,7 @@ static uint8_t publish_measurements(void)
     publish_hw_status(&status);
     if (!s_afe_reconfigure_required) {
         update_faults();
+        merge_hw_protection_faults(&status);
         service_short_recovery(&status);
         service_hw_flag_recovery(&status);
     }

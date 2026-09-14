@@ -163,6 +163,10 @@ require(bms, "s_output_inhibit")
 require(bms, "s_requested_charge_on")
 require(bms, "service_hw_flag_recovery")
 require(bms, "hw_recovery_stable")
+require(bms, "merge_hw_protection_faults")
+require(bms, "SH3510_OCD_RELEASE_FILTER_10MS")
+require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
+require(bms, "SH3673520_BSTATUS2_CHGING_MASK")
 require(bms, "service_afe_reconfiguration")
 require(bms, "s_hw_charge_protect")
 require(bms, "s_hw_discharge_protect")
@@ -293,9 +297,13 @@ for needle in (
     "u16VCellMax < actual.ov_mv",
     "u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv",
     "u16VCellMin > actual.uv_mv",
+    "dsg_ocp_release_ok",
+    "SH3673520_BSTATUS2_LOADOFF_MASK",
+    "SH3673520_BSTATUS2_CHGING_MASK",
     "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv",
     "u16IDischg < actual.ocd1_a10",
     "u16IDischg < actual.ocd2_a10",
+    "SH3510_OCD_RELEASE_FILTER_10MS",
     "u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv",
     "u16Ichg < actual.occ_a10",
     "bat_max <= g_tParam.protect.u16TChgOTp_Rcv",
