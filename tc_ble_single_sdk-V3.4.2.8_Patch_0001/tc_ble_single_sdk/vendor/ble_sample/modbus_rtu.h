@@ -117,3 +117,7 @@ typedef struct {
 } PRODUCTION_ID_INFO;
 
 extern PRODUCTION_ID_INFO ProductionInfor;
+
+#define BMS_AFE_HW_PROFILE_REG_BASE  0x2500u
+#define BMS_AFE_HW_PROFILE_WORDS     35u
+#define BMS_AFE_HW_PROFILE_REG_COUNT 40u

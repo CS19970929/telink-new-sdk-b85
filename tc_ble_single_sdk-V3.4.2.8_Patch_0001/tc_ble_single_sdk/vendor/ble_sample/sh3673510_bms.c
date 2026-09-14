@@ -6,6 +6,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
+#include "bms_afe_hw_profile.h"
 #include "sh3673520.h"
 #include "sh3673520_reg.h"
 #include "sh3673510_project_config.h"
@@ -394,12 +395,14 @@ static uint8_t hw_recovery_stable(sh3510_hw_recovery_id_t id,
 static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
 {
     sh3673510_protection_actual_t actual;
+    bms_afe_hw_profile_t hw;
     uint8_t actual_ok;
     uint8_t c1 = 0u, c2 = 0u;
     uint16_t bat_min = 0u, bat_max = 0u;
     uint8_t bat_temp_ok;
     uint8_t dsg_ocp_release_ok;
     if (s == 0) return;
+    if (!bms_afe_hw_profile_get(&hw)) return;
 
     actual_ok = sh3673510_control_get_protection_actual(&actual);
     /* Current naturally becomes zero after OCD turns DSG off, so current alone
@@ -416,41 +419,41 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
     if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
         if (hw_recovery_stable(HW_REC_OV,
                 actual_ok &&
-                g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv &&
+                g_stCellInfoReport.u16VCellMax <= hw.cov_recover_mv &&
                 g_stCellInfoReport.u16VCellMax < actual.ov_mv,
-                g_tParam.protect.u16VcellOvp_Filter)) c1 |= SH3673520_FLAG1_OV_MASK;
+                (u16)((hw.cov_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OV_MASK;
     } else s_hw_recovery_count[HW_REC_OV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_UV_MASK) {
         if (hw_recovery_stable(HW_REC_UV,
                 actual_ok &&
-                g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv &&
+                g_stCellInfoReport.u16VCellMin >= hw.cuv_recover_mv &&
                 g_stCellInfoReport.u16VCellMin > actual.uv_mv,
-                g_tParam.protect.u16VcellUvp_Filter)) c1 |= SH3673520_FLAG1_UV_MASK;
+                (u16)((hw.cuv_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_UV_MASK;
     } else s_hw_recovery_count[HW_REC_UV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
         if (hw_recovery_stable(HW_REC_OCD1,
                 actual_ok && dsg_ocp_release_ok &&
-                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
+                g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10 &&
                 g_stCellInfoReport.u16IDischg < actual.ocd1_a10,
-                SH3510_OCD_RELEASE_FILTER_10MS)) c1 |= SH3673520_FLAG1_OCD1_MASK;
+                (u16)((hw.ocd_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCD1_MASK;
     } else s_hw_recovery_count[HW_REC_OCD1] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD2_MASK) {
         if (hw_recovery_stable(HW_REC_OCD2,
                 actual_ok && dsg_ocp_release_ok &&
-                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
+                g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10 &&
                 g_stCellInfoReport.u16IDischg < actual.ocd2_a10,
-                SH3510_OCD_RELEASE_FILTER_10MS)) c1 |= SH3673520_FLAG1_OCD2_MASK;
+                (u16)((hw.ocd_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCD2_MASK;
     } else s_hw_recovery_count[HW_REC_OCD2] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCC_MASK) {
         if (hw_recovery_stable(HW_REC_OCC,
                 actual_ok &&
-                g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv &&
+                g_stCellInfoReport.u16Ichg <= hw.occ_recover_a10 &&
                 g_stCellInfoReport.u16Ichg < actual.occ_a10,
-                g_tParam.protect.u16IchgOcp_Filter)) c1 |= SH3673520_FLAG1_OCC_MASK;
+                (u16)((hw.occ_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCC_MASK;
     } else s_hw_recovery_count[HW_REC_OCC] = 0u;
 
     /* SCONF6 enables AFE temperature protection only for TS1/TS2, therefore
@@ -458,26 +461,26 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
     bat_temp_ok = battery_temperature_snapshot(&bat_min, &bat_max);
     if (s->flag2 & SH3673520_FLAG2_OTC_MASK) {
         if (hw_recovery_stable(HW_REC_OTC,
-                bat_temp_ok && bat_max <= g_tParam.protect.u16TChgOTp_Rcv,
-                g_tParam.protect.u16TChgOTp_Filter)) c2 |= SH3673520_FLAG2_OTC_MASK;
+                bat_temp_ok && bat_max <= hw.chg_ot_recover_x10,
+                (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_OTC_MASK;
     } else s_hw_recovery_count[HW_REC_OTC] = 0u;
 
     if (s->flag2 & SH3673520_FLAG2_OTD_MASK) {
         if (hw_recovery_stable(HW_REC_OTD,
-                bat_temp_ok && bat_max <= g_tParam.protect.u16TdischgOTp_Rcv,
-                g_tParam.protect.u16TdischgOTp_Filter)) c2 |= SH3673520_FLAG2_OTD_MASK;
+                bat_temp_ok && bat_max <= hw.dsg_ot_recover_x10,
+                (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_OTD_MASK;
     } else s_hw_recovery_count[HW_REC_OTD] = 0u;
 
     if (s->flag2 & SH3673520_FLAG2_UTC_MASK) {
         if (hw_recovery_stable(HW_REC_UTC,
-                bat_temp_ok && bat_min >= g_tParam.protect.u16TchgUTp_Rcv,
-                g_tParam.protect.u16TchgUTp_Filter)) c2 |= SH3673520_FLAG2_UTC_MASK;
+                bat_temp_ok && bat_min >= hw.chg_ut_recover_x10,
+                (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_UTC_MASK;
     } else s_hw_recovery_count[HW_REC_UTC] = 0u;
 
     if (s->flag2 & SH3673520_FLAG2_UTD_MASK) {
         if (hw_recovery_stable(HW_REC_UTD,
-                bat_temp_ok && bat_min >= g_tParam.protect.u16TdischgUTp_Rcv,
-                g_tParam.protect.u16TdischgUTp_Filter)) c2 |= SH3673520_FLAG2_UTD_MASK;
+                bat_temp_ok && bat_min >= hw.dsg_ut_recover_x10,
+                (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_UTD_MASK;
     } else s_hw_recovery_count[HW_REC_UTD] = 0u;
 
     /* SC is deliberately excluded. It is released only after stable LOADOFF. */
