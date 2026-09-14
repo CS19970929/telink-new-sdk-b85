@@ -5,20 +5,19 @@
 #include "sh3673520_port.h"
 
 /*
- * HS-D011-10S50A board / product profile.
- * Schematic: HS-D011-10S50A-V1, 2026-08-21.
+ * D013 product profile derived from the verified D011 SH3673510 implementation.
  * MCU: TLSR8251F512ET32.
- * AFE: SH3673510, 10 cells.
- * Current shunt: RS1..RS8 = eight 2mOhm parts in parallel -> 250uOhm.
+ * AFE: SH3673510, default 4 cells.
+ * Current shunt: 2mV : 20A -> 0.1mOhm = 100uOhm.
  * SPI: PB6=MISO, PB7=MOSI, PD7=SCLK, PD2=CS-M.
- * NTC: actual fitted sensors are 10K; RN3/RN4=10M on the schematic is a drawing error.
+ * NTC: actual fitted sensors are 10K; RN3/RN4=10M on the D011 schematic is a drawing error.
  *
- * The SH36735xx register definitions live in sh3673520_reg.h.  Every static
- * D011 AFE bit choice is intentionally exposed below so future products can
- * change one field without editing register-transaction code.
+ * The SH36735xx register definitions live in sh3673520_reg.h. Existing D011
+ * macro names are retained for compatibility; D013 hardware differences are
+ * intentionally kept in this project profile instead of transaction code.
  */
-#define SH3673510_D011_CELL_COUNT              10u
-#define SH3673510_D011_SHUNT_UOHM              250u
+#define SH3673510_D011_CELL_COUNT               4u
+#define SH3673510_D011_SHUNT_UOHM              100u
 #define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
