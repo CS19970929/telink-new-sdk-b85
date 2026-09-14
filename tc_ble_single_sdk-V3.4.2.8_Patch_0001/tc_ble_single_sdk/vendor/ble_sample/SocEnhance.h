@@ -3,31 +3,84 @@
 
 #include "conf.h"
 #include "soc_kv_store.h"
+#include "bms_soc_defs.h"
+
+#define BMS_SOC_OCV_WAIT_CURRENT   0u
+#define BMS_SOC_OCV_PREPARE        1u
+#define BMS_SOC_OCV_READY          2u
+#define BMS_SOC_OCV_CORRECT_DOWN   3u
+
+#define BMS_SOC_LEARNING_NONE          0u
+#define BMS_SOC_LEARNING_EMPTY_TO_FULL 1u
+#define BMS_SOC_LEARNING_FULL_TO_EMPTY 2u
+
+typedef struct
+{
+    uint8_t chemistry;                  /* AUTO/LFP/NMC */
+    uint8_t profile_id;                 /* AUTO/generic LFP/generic NMC */
+    uint16_t current_deadband_ma;       /* currents below this value are ignored */
+    uint16_t ocv_rest_prepare_s;        /* stable idle time before OCV may correct */
+    uint8_t ocv_error_band_percent;     /* +/- percentage points around OCV center */
+    uint8_t capacity_learning_enable;   /* default disabled */
+    uint8_t hide_capacity_until_learned;/* active only when learning is enabled */
+} bms_soc_config_t;
+
+typedef struct
+{
+    uint8_t chemistry;
+    uint8_t profile_id;
+    uint16_t profile_version;
+    uint8_t soc_estimate;
+    uint8_t soc_display;
+    uint8_t ocv_state;
+    uint8_t ocv_center;
+    uint8_t ocv_low;
+    uint8_t ocv_high;
+    uint8_t ocv_confidence;
+    uint8_t capacity_learned;
+    uint8_t learning_state;
+    uint16_t ocv_cell_mv;
+    uint16_t rest_seconds;
+    uint16_t learned_capacity_0p1ah;
+} bms_soc_diag_t;
 
 struct SOC_CALCULATE_ELEMENT
 {
-	UINT32 u32CapFactory; // 锟斤拷爻锟绞硷拷锟斤拷锟斤拷锟?(锟斤拷锟斤拷锟斤拷锟斤拷)As*10 =        Ah*3600*10
-	UINT32 u32CapChange; // 锟斤拷锟斤拷锟斤拷锟斤拷浠?	   As*10锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
-	uint8_t u8CHG_AHCalcu_Flag; // 锟斤拷绨彩憋拷锟斤拷挚锟绞癸拷帽锟街?
-	uint8_t u8DSG_AHCalcu_Flag; // 锟脚电安时锟斤拷锟街匡拷使锟矫憋拷志
-
-	uint8_t u8SOC_Now;	   // 锟斤拷前锟斤拷锟絊OC     0锟斤拷100 为锟斤拷锟斤拷锟斤拷锟斤拷俜直锟?
-	UINT32 u32CapNow;	   // 锟斤拷锟绞ｏ拷锟斤拷锟斤拷锟斤拷锟紸s*10
-	uint8_t u8DSG_SOC_Int; // 循锟斤拷锟斤拷锟斤拷只锟斤拷诺锟斤拷锟斤拷锟斤拷逊诺锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷俜直龋锟?90%锟斤拷一锟斤拷循锟斤拷
-	UINT32 u32Cycle_times; // 循锟斤拷锟斤拷锟斤拷*100锟斤拷锟斤拷锟斤拷只锟斤拷锟斤拷锟斤拷锟斤拷一锟斤拷锟斤拷锟斤拷直锟接碉拷锟斤拷去锟斤拷锟斤拷锟斤拷锟斤拷太锟斤拷锟紼EPROM锟斤拷锟街诧拷锟斤拷
-	UINT32 u32CapFull;	   // 锟斤拷锟剿ワ拷锟斤拷锟斤拷锟斤拷锟斤拷锟紸s*10(SOH)锟斤拷锟揭碉拷锟斤拷示SOH要锟斤拷一锟侥ｏ拷锟斤拷锟斤拷锟?
-
-	uint8_t u8SOC_Old; // 锟斤拷始SOC    0-100 为锟斤拷锟斤拷锟斤拷锟斤拷俜直锟?
-	UINT32 u32CapFull_Cal_As; // 锟斤拷锟斤拷锟斤拷锟叫ｏ拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷As*10
-	uint8_t soh;
+    UINT32 u32CapFactory;         /* As*10 */
+    UINT32 u32CapChange;          /* As*10 since the last integer SOC step */
+    uint8_t u8CHG_AHCalcu_Flag;
+    uint8_t u8DSG_AHCalcu_Flag;
+    uint8_t u8SOC_Now;            /* estimated SOC, 0..100 */
+    UINT32 u32CapNow;             /* As*10 */
+    uint8_t u8DSG_SOC_Int;        /* equivalent-discharge percent accumulator */
+    UINT32 u32Cycle_times;
+    UINT32 u32CapFull;            /* As*10 */
+    uint8_t u8SOC_Old;
+    UINT32 u32CapFull_Cal_As;
+    uint8_t soh;
 };
 
-extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;		 // 锟节诧拷锟斤拷锟斤拷峁癸拷锟?
+extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 
-void APP_SOC_IntEnhance_Ctrl();
+void bms_soc_get_default_config(bms_soc_config_t *config);
+uint8_t bms_soc_configure(const bms_soc_config_t *config);
+uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id);
+uint8_t bms_soc_get_chemistry(void);
+void bms_soc_get_diag(bms_soc_diag_t *diag);
+void bms_soc_refresh_profile_from_params(void);
 
-void set_soc_param(uint8_t _soc_val, uint16_t _cap_factory, uint8_t disp_sync_updatae);
-void soc_param_lib_init(const soc_kv_data_t* _soc);
+void APP_SOC_IntEnhance_Ctrl(void);
+void SOC_Result_Pass(void);
+void SOC_Cont_AH_Int_CHG(void);
+void SOC_Cont_AH_Int_DSG(void);
+void SOC_State_Transfer(void);
+void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display);
+void set_calsoc(uint8_t soc);
+void set_dispsoc(uint8_t soc);
+uint8_t get_soc_real(void);
+uint8_t isCHG(void);
+uint8_t isDSG(void);
+void soc_param_lib_init(const soc_kv_data_t *soc);
+uint8_t bms_soh_from_cycle(uint16_t cycle);
 
-#endif	/* SOCENHANCE_H */
-
+#endif /* SOCENHANCE_H */

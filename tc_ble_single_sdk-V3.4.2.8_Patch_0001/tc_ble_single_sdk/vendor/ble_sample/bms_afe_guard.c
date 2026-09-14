@@ -7,11 +7,14 @@
  * Rules aligned with the newer D013 framework:
  *   - any invalid snapshot inhibits both FET directions immediately;
  *   - recovery requires consecutive complete valid snapshots;
+ *   - repeated communication failures trigger a bounded backend reinit;
  *   - requested FET state is retained but cannot bypass the inhibit;
  *   - the independent product output gate remains authoritative;
  *   - protection-configuration failure also inhibits output.
  */
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT  3u
+#define BMS_AFE_REINIT_TRIGGER                3u
+#define BMS_AFE_REINIT_COOLDOWN_SAMPLES       25u /* 5 s at the current 200 ms sample period */
 
 typedef struct
 {
@@ -20,6 +23,8 @@ typedef struct
     uint8_t output_enabled;
     uint8_t comm_inhibit;
     uint8_t valid_snapshot_streak;
+    uint8_t comm_failures;
+    uint8_t reinit_cooldown;
 } bms_afe_guard_state_t;
 
 static bms_afe_guard_state_t s_guard;
@@ -60,7 +65,34 @@ static void bms_afe_guard_inhibit(void)
 {
     s_guard.comm_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
+    /* Best effort. If the bus itself is unavailable this write can fail; the
+     * inhibit still prevents any later software request from reopening FETs.
+     * Hardware-enforced communication-loss shutdown remains a separate D008
+     * validation item (DVC I2C WDT / board power-cycle policy). */
     (void)AFE_BACKEND_SET_FETS(0u, 0u);
+}
+
+static void bms_afe_guard_note_invalid_snapshot(void)
+{
+    bms_afe_guard_inhibit();
+
+    if (s_guard.comm_failures != 0xFFu)
+    {
+        ++s_guard.comm_failures;
+    }
+
+    if ((s_guard.comm_failures >= BMS_AFE_REINIT_TRIGGER) &&
+        (s_guard.reinit_cooldown == 0u))
+    {
+        /* Re-run the backend's bounded initialization/config/readback path.
+         * Do not release the inhibit here: a fresh post-reinit measurement
+         * must qualify on subsequent sample cycles. */
+        s_guard.reinit_cooldown = BMS_AFE_REINIT_COOLDOWN_SAMPLES;
+        s_guard.comm_failures = 0u;
+        AFE_BACKEND_INIT();
+        AFE_BACKEND_SET_OUTPUT_ENABLED(s_guard.output_enabled);
+        (void)AFE_BACKEND_SET_FETS(0u, 0u);
+    }
 }
 
 void bms_afe_init(void)
@@ -76,15 +108,21 @@ void bms_afe_sample(void)
 {
     bms_afe_aux_measurements_t measurements;
 
+    if (s_guard.reinit_cooldown != 0u)
+    {
+        --s_guard.reinit_cooldown;
+    }
+
     AFE_BACKEND_SAMPLE();
     memset(&measurements, 0, sizeof(measurements));
 
     if (!AFE_BACKEND_GET_AUX(&measurements))
     {
-        bms_afe_guard_inhibit();
+        bms_afe_guard_note_invalid_snapshot();
         return;
     }
 
+    s_guard.comm_failures = 0u;
     if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
     {
         ++s_guard.valid_snapshot_streak;
@@ -95,13 +133,17 @@ void bms_afe_sample(void)
         s_guard.comm_inhibit = 0u;
     }
 
-    (void)bms_afe_guard_apply_requested();
+    if (!bms_afe_guard_apply_requested())
+    {
+        bms_afe_guard_note_invalid_snapshot();
+    }
 }
 
 void bms_afe_sleep(void)
 {
     /* Do not allow a pre-sleep valid snapshot to authorize outputs after wake. */
     bms_afe_guard_inhibit();
+    s_guard.comm_failures = 0u;
     AFE_BACKEND_SLEEP();
 }
 
@@ -111,7 +153,7 @@ uint8_t bms_afe_apply_protection_config(void)
 
     if (!ok)
     {
-        bms_afe_guard_inhibit();
+        bms_afe_guard_note_invalid_snapshot();
     }
     return ok;
 }
@@ -123,7 +165,7 @@ uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on)
 
     if (!bms_afe_guard_apply_requested())
     {
-        bms_afe_guard_inhibit();
+        bms_afe_guard_note_invalid_snapshot();
         return 0u;
     }
     return 1u;
@@ -142,7 +184,7 @@ void bms_afe_set_output_enabled(uint8_t enabled)
 
     if (!bms_afe_guard_apply_requested())
     {
-        bms_afe_guard_inhibit();
+        bms_afe_guard_note_invalid_snapshot();
     }
 }
 

@@ -61,13 +61,26 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("valid_snapshot_streak", self.guard)
         self.assertIn("s_guard.comm_inhibit = 0u;", self.guard)
 
+    def test_repeated_invalid_snapshots_trigger_bounded_reinit_not_release(self):
+        self.assertEqual(macro_literal(self.guard, "BMS_AFE_REINIT_TRIGGER"), 3)
+        self.assertEqual(
+            macro_literal(self.guard, "BMS_AFE_REINIT_COOLDOWN_SAMPLES"), 25
+        )
+        self.assertIn("s_guard.comm_failures", self.guard)
+        self.assertIn("s_guard.reinit_cooldown", self.guard)
+        self.assertIn("AFE_BACKEND_INIT();", self.guard)
+        self.assertIn("fresh post-reinit measurement", self.guard)
+        recovery = self.guard.split("static void bms_afe_guard_note_invalid_snapshot", 1)[1]
+        recovery = recovery.split("void bms_afe_init", 1)[0]
+        self.assertNotIn("s_guard.comm_inhibit = 0u", recovery)
+
     def test_sleep_and_protection_apply_cannot_bypass_inhibit(self):
         self.assertRegex(
             self.guard,
             r"(?s)void\s+bms_afe_sleep\s*\([^)]*\).*?bms_afe_guard_inhibit\(\);",
         )
         self.assertIn("if (!ok)", self.guard)
-        self.assertIn("bms_afe_guard_inhibit();", self.guard)
+        self.assertIn("bms_afe_guard_note_invalid_snapshot();", self.guard)
 
     def test_d008_defaults_match_reviewed_low_side_policy(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_HIGH_SIDE_FET_MASK"), 1)

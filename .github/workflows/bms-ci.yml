@@ -48,11 +48,14 @@ jobs:
       - name: Run D008 framework contract check
         run: python tests/d008_framework_contract_check.py
 
+      - name: Run SOC profile/algorithm contract check
+        run: python tests/soc_contract_check.py
+
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
 
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
 
   tc32-production:
     name: TC32 production build
@@ -113,6 +116,10 @@ jobs:
       - name: Run D008 framework contract check
         shell: powershell
         run: python tests/d008_framework_contract_check.py
+
+      - name: Run SOC profile/algorithm contract check
+        shell: powershell
+        run: python tests/soc_contract_check.py
 
       - name: Run Flash storage contract check
         shell: powershell

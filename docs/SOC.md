@@ -1,77 +1,129 @@
-# SOC 当前行为
+# SOC 模块（当前实现）
 
-本文只记录当前源码行为；调参和实测结论应更新本文，避免继续新增按日期命名的分析文档。
+本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与 SOC/Cold KV 的真实行为。旧文件名保留用于工程兼容，但算法、产品配置、OCV 数据和持久化已经分层。
 
-源码真值：`SocEnhance.c/.h`、`soc_kv_store.c/.h`、`app.c`。主机契约位于 `tests/flash_quick_check.py`。
+## 1. 核心模型
 
-## 1. 模型和单位
+- `SOC estimate`：库仑积分主线，固定 200 ms 积分周期。
+- 电流报告单位为 0.1 A；默认 **< 200 mA 不积分**，视为静置候选。
+- `SOC display`：与 estimate 分离，每 1 s 最多变化 1%，避免对外跳变。
+- SOC hot KV 保存 estimate / 等效放电百分比 / cycle / learned capacity；显示 SOC 不保存。
+- OCV 只用于长期纠偏，不作为运行中的主 SOC。
+- 普通 OCV、开机、静置、电压回弹 **永远不得向上校准**；只有“确认正在充电 + 满电条件成立”可以主动向上校准到 100%。
 
-```text
-real SOC    = 200 ms 电流积分为主 + 端点/OCV 小步修正
-display SOC = 平滑跟随 real SOC，对外由 BLE/Modbus/SIF 上报
-SOH         = cycle 分段映射
-persistence = real SOC / DSG / cycle 完整快照
-```
+## 2. 三元 / 铁锂产品参数
 
-- `CapacityFactory` 单位为 `0.1 Ah`，不能用于补偿电流测量误差。
-- 充/放电电流报告单位为 `0.1 A`。
-- 普通自动修正每次最多移动 1%。
-- display SOC 不写 Flash，复位后从 real SOC 初始化。
-- SOC、DSG、cycle 任一发生变化才写 hot KV，不是固定每 5 秒强制写。
-
-## 2. 启动和调度
-
-正常启动先通过 `bms_afe_sample()` 获取一帧有效测量，再初始化 SOC KV 和运行状态。`APP_SOC_IntEnhance_Ctrl()` 每 200 ms 执行：
-
-1. 更新充放电状态并按实际周期积分。
-2. 执行 `soc_strategy_update()`。
-3. 通过 `SOC_Result_Pass()` 更新对外报告。
-
-策略顺序为 sag hold -> 启动 OCV -> 满/空端点 -> 放电低端 -> deferred OCV -> 放电 OCV -> 静置 OCV。调整顺序会改变安全端点和用户体验，必须单独验证。
-
-## 3. 电流积分、cycle 和 SOH
-
-- 充电只在积分结果上升时更新 SOC。
-- 放电最低单体高于 3000 mV 时，纯积分先钳在 1%，不直接归零。
-- 累计 100% 等效放电增加一个 cycle。
-- SOH：0..80 cycle 为 100%；81..500 线性到约 90%；501..799 线性到约 80%；800+ 为 80%。
-- 满容量由 `CapacityFactory * SOH` 计算；不根据 OCV、单次放电结果或传感器误差学习/改写标称容量。
-
-## 4. 端点
-
-满电：`VCELLMAX >= 4180 mV` 且 `VCELLMIN >= 3980 mV`，保持约 60 s 后以约 2 s/1% 向 100% 收敛，不要求充电状态。
-
-静置空电：空闲、`VCELLMIN <= 3000 mV` 且 `VCELLMAX <= 3200 mV`，保持约 5 s 后以约 1 s/1% 向 0% 收敛。
-
-放电安全端点：放电时最低单体持续约 2 s 达到 3000 mV，real/display SOC 直接同步到 0。这一例外在 2750 mV AFE 过放保护前预留显示余量。
-
-| 最低单体 | 目标 SOC | sag hold |
-|---:|---:|---|
-| 3300 mV | 12% | 阻断普通下修 |
-| 3200 mV | 6% | 阻断普通下修 |
-| 3150 mV | 3% | 阻断普通下修 |
-| 3050 mV | 1% | 不阻断 |
-| 3000 mV | 0% | 不阻断，安全同步 |
-
-## 5. OCV 与压降抑制
-
-OCV 使用 `(VCELLMIN * 3 + VCELLMAX) / 4` 的保守加权电压。静置校准要求空闲、压差不超过 100 mV、相邻变化不超过 8 mV，并稳定约 30 s；它只记录 deferred target。误差不足 10% 不下修，达到 10% 后仍以约 30 min/1% 慢速下修，静置不向上校准。
-
-当放电电流大于约 5 A 时启用 sag hold：约 5..10 A 保持 60 s，大于 10 A 保持 90 s；松油门后电压还需连续稳定约 10 s。它阻断 3300/3200/3150 mV 普通 OCV 下修，但不阻断 3050/3000 mV 安全端点。
-
-放电修正按容量和电流缩放：
+稳定 ID 定义位于 `bms_soc_defs.h`：
 
 ```text
-自然下降 1% 时间(s) = 36 * CapacityFactory / IDSG
+chemistry:
+0 = AUTO
+1 = LFP
+2 = NMC
+
+profile_id:
+0 = AUTO
+1 = GENERIC_LFP
+2 = GENERIC_NMC
 ```
 
-根据误差使用 2x..4x 时间系数，并限制在 10..180 s/1%。
+产品选择现在是正式 Cold KV 参数，而不是只能根据 OVP 猜：
 
-## 6. 必测场景
+- `0x2009`：`battery_chemistry`
+- `0x200A`：`soc_profile_id`
 
-1. 不同容量版型在相同倍率下的积分和 1% 修正节奏。
-2. 5 A / 10 A / 20 A 起步、爬坡、松油门和回弹。
-3. 3050 mV -> 1% 与 3000 mV -> 0% 的去抖和保护余量。
-4. 静置 10 min / 30 min / 2 h，确认不向上跳变。
-5. 复位、掉电和 deep sleep 唤醒后的 real/display/KV 一致性。
-6. 电流增益误差必须在采样校准层修正，禁止通过修改 `CapacityFactory` 掩盖。
+历史 `0x2001..0x2008` key 保持不变；这是**只追加 key**的兼容升级。旧设备 Flash 中没有 `0x2009/0x200A` 时，`flash_kv32` 使用新 key 的默认值 `AUTO/AUTO`，然后才回退到历史 OVP 推断。因此不依赖旧 `PARAM_VER`，也不会覆盖其它已出货参数。
+
+新产品推荐显式持久化：
+
+```c
+bms_soc_set_product_config(BMS_SOC_CHEMISTRY_LFP,
+                           BMS_SOC_PROFILE_GENERIC_LFP);
+```
+
+或 NMC。API 先校验 chemistry/profile 一致性，再原子保存 system KV，最后切换运行 profile。`LFP + NMC profile`、`NMC + LFP profile` 这类组合直接拒绝。
+
+`AUTO` 只用于兼容/通用固件：两项均 AUTO 时继续根据已加载的三级单体 OVP 回退判断（`<=3900 mV` LFP，`>3900 mV` NMC）。量产产品不建议长期依赖该启发式。
+
+## 3. OCV Profile 数据层
+
+OCV 曲线和端点数据已经从 `SocEnhance.c` 算法中移到 `bms_soc_profile.h`。算法只消费 `soc_profile_t`：
+
+- profile ID / version；
+- chemistry；
+- OCV 点表；
+- 有效电压范围；
+- full/empty anchor 参数；
+- 放电末端 knee 参数。
+
+当前内置：
+
+- `GENERIC_LFP`, version 1；
+- `GENERIC_NMC`, version 1。
+
+它们是**通用中心表**，不是某一型号电芯的实验标定曲线。以后拿到 32700 LFP、21700 NMC 等实际静置数据时，应新增/替换 profile 数据并提升 profile version，不改库仑积分、置信区间、Flash、显示 SOC 或保护策略。
+
+## 4. OCV 置信区间
+
+OCV 使用保守加权单体电压：
+
+```text
+V_ocv = (3 * Vcell_min + Vcell_max) / 4
+```
+
+静置校准条件：
+
+- 充/放电有效电流均低于 200 mA；
+- 单体压差 <= 100 mV；
+- 相邻 200 ms 样本变化 <= 8 mV；
+- 连续稳定 **>= 10 min**。
+
+达到条件后，由当前 profile 得到 `center SOC`，形成默认 `center ± 5 percentage points` 的 `[low, high]`：
+
+- estimate 在区间内：不修正；
+- estimate 低于 `low`：不动，绝不向上；
+- estimate 高于 `high`：每 30 min 最多下降 1%，长期回归到 `high` 边界。
+
+开机恢复 Flash SOC 后重新进入静置资格判定，不会用一次开机电压覆盖 SOC。
+
+## 5. 满 / 空锚点与低端体验
+
+满电：
+
+- **仅在确认充电方向时**，三级单体 OVP 已触发才允许强锚定 100%；或
+- **仅在确认充电方向时**，满足当前 profile 的满电电压条件稳定 60 s，之后约 2 s/1% 向 100% 收敛。
+- 静置、高电压回弹、开机高电压、非充电状态即使达到满电区也不得向上校准。
+
+空电：三级单体 UVP 可强锚定 0%；放电低端分段向 0 收敛。LFP/NMC 使用不同 knee，高电流压降有 sag hold，避免电摩起步时按瞬时端电压误杀 SOC。
+
+## 6. SOC Low 告警
+
+`g_tParam.protect.u16SocUp_First/Second/Third` 沿用历史字段名，实际按低 SOC 阈值处理，并写 First/Second/Third `b1SocLow`。当前只告警，不默认关闭 DSG；真正的安全欠压截止仍由 MCU Cell UV + AFE UV 完成。
+
+## 7. 容量学习
+
+框架已实现但默认关闭：支持 0->100 和 100->0 完整路径，中途反向电流或 MCU 重启作废；成功值限定在 nominal 50%~130%。开启 `hide_capacity_until_learned` 后首次有效学习前容量字段隐藏，SOC 百分比仍可用。
+
+## 8. 诊断接口
+
+`bms_soc_get_diag()` 当前返回：
+
+- 实际 chemistry；
+- 实际 profile ID + profile version；
+- estimate / display SOC；
+- OCV state / center / low / high / confidence；
+- OCV cell voltage、静置秒数；
+- 容量学习状态、learned capacity。
+
+因此现场可以明确区分“LFP/NMC 选错”“曲线版本不同”“OCV 未达到静置条件”和“库仑累计偏差”。协议寄存器地址应由产品协议统一分配，不在 SOC 模块里硬编码。
+
+## 9. 必测场景
+
+1. 老固件 Cold KV 升级：原 `0x2001..0x2008` 不变，新 key 缺失时 AUTO/AUTO 正常 fallback。
+2. 显式 LFP/NMC 保存、掉电重启后仍使用相同 chemistry/profile/version。
+3. chemistry/profile 冲突配置必须拒绝且不能污染 Flash。
+4. 0.1 A 不积分、0.2 A 开始积分边界。
+5. 静置 9 min 59 s 不校准；10 min 后普通 OCV 只能向下。
+6. 非充电的开机高电压/回弹绝不能使 SOC 上升；确认充满可到 100%。
+7. 充电满锚点、放电 UVP、LFP 3.30 V 平台、大电流 sag hold。
+8. SOC Low 三级告警、Flash 恢复、容量学习成功/中断/复位作废。

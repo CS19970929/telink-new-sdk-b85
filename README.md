@@ -7,11 +7,12 @@
 ## 当前状态
 
 - 应用层只通过 `bms_afe.h` 使用 AFE；旧 `sh367309_datadeal.*`、`MTPWrite`、`App_AFEGet` 和虚拟 GPIO/ADC 兼容层已删除。
-- `bms_afe_backend.h` 固定选择 DVC1124；`bms_afe_guard.c` 统一处理 AFE 通信失效 inhibit、连续有效快照恢复资格和 FET request 仲裁。
+- `bms_afe_backend.h` 固定选择 DVC1124；`bms_afe_guard.c` 统一处理 AFE 通信失效 inhibit、连续有效快照恢复资格、有限频率 backend reinit 和 FET request 仲裁。
 - `bms_state.*` / `bms_error.h` 统一持有 BMS 报告、系统状态、错误计数和分级故障历史，通信层不再跨文件遍历私有数组。
 - DVC1124 寄存器真值集中在 `dvc1124_reg.h`；板级默认值集中在 `dvc1124_project_config.h`。
 - BLE 与 UART 共用同一个 Modbus/AFE 配置服务。
 - 参数、SOC、runtime、事件日志和 DVC 配置使用彼此独立的 Flash 区域。
+- SOC 已采用与 D013 相同的数据化 profile 框架：LFP/NMC OCV/profile 与算法分离，chemistry/profile ID 使用只追加 Cold-KV key 保存；历史设备没有新 key 时保留 AUTO 兼容。
 - 主机契约测试可运行；固定 TC32 构建和 HS-D008 实板验证仍是发布前必需项。
 
 固件主目录：
@@ -27,6 +28,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/
 python3 bms_tools/bms.py sources --check
 python3 tests/dvc1124_config_quick_check.py
 python3 tests/d008_framework_contract_check.py
+python3 tests/soc_contract_check.py
 python3 tests/flash_quick_check.py
 python3 -m unittest tests/test_bms_tools.py
 ```
@@ -49,6 +51,7 @@ git diff -- bms_tools/source_order.txt
 
 ## 文档入口
 
+- [D008 当前开发状态 / 发布阻断清单](docs/D008_DEVELOPMENT_STATUS.md)
 - [D008 对齐 D013 框架与 DVC1124 V1.2 完整审核](docs/HS-D008_DVC1124_D013_Framework_Audit_2026-09-14.md)
 - [架构与 AFE 移植](docs/ARCHITECTURE.md)
 - [构建、测试与发布门禁](docs/BUILD_AND_TEST.md)
