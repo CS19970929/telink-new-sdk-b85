@@ -24,7 +24,7 @@
 
 #define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K */
 #define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K */
-#define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3, 10K near heater MOS; software policy currently does not use it */
+#define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3, 10K near heater MOS; reversible heater safety cutoff */
 #define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4, 10K near charge/discharge MOS */
 
 /* -------------------------------------------------------------------------
