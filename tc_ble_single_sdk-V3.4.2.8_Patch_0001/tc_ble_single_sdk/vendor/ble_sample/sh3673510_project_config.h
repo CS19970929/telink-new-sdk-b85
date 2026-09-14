@@ -21,6 +21,26 @@
 #define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
+/*
+ * Protection-path isolation switches.
+ * 1/1: production behavior (software + AFE hardware protection).
+ * 1/0: software-protection-only bench test.
+ * 0/1: AFE-hardware-protection-only bench test.
+ * 0/0: measurement/communication debug only; no threshold protection.
+ *
+ * Each path keeps its own trip + recovery logic together. Do not ship a
+ * production build with either path disabled.
+ */
+#ifndef SH3673510_SW_PROTECT_ENABLE
+#define SH3673510_SW_PROTECT_ENABLE             1u
+#endif
+#ifndef SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_HW_PROTECT_ENABLE             1u
+#endif
+#if ((SH3673510_SW_PROTECT_ENABLE > 1u) || (SH3673510_HW_PROTECT_ENABLE > 1u))
+#error "SH3673510 protection enable macros must be 0 or 1"
+#endif
+
 #define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K */
 #define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K */
 #define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3, 10K near heater MOS; reversible heater safety cutoff */
@@ -37,7 +57,7 @@
 
 /* SCONF2 0x41, b7..b0: LTCLR PD_EN PD_CTL PUMP_EN PDSG_CTL PDSGMOS DSGMOS CHGMOS. */
 #define SH3673510_D011_LTCLR                      0u /* runtime-only flag-clear gate */
-#define SH3673510_D011_PD_EN                      1u /* AFE autonomous low-cell Powerdown enabled */
+#define SH3673510_D011_PD_EN                      SH3673510_HW_PROTECT_ENABLE /* autonomous low-cell Powerdown belongs to the HW protection path */
 #define SH3673510_D011_PD_CTL                     0u /* no immediate MCU Powerdown command */
 #define SH3673510_D011_PUMP_EN                    1u
 #define SH3673510_D011_PDSG_CTL                   0u
@@ -74,10 +94,10 @@
      (SH3673510_D011_CELL_COUNT & SH3673520_SCONF4_CELL_COUNT_MASK))
 
 /* SCONF5 0x44: b7:6 reserved, b5 MOS_EN, b4 OCC_EN, b3 CADC_EN, b2 WDT_EN, b1:0 WDT. */
-#define SH3673510_D011_MOS_EN                     1u /* AFE opposite-current forced-FET recovery feature */
-#define SH3673510_D011_OCC_EN                     1u
-#define SH3673510_D011_CADC_EN                    1u
-#define SH3673510_D011_WDT_EN                     1u
+#define SH3673510_D011_MOS_EN                     SH3673510_HW_PROTECT_ENABLE /* isolate AFE autonomous FET recovery with HW tests */
+#define SH3673510_D011_OCC_EN                     SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_CADC_EN                    1u /* current acquisition stays on in every test mode */
+#define SH3673510_D011_WDT_EN                     SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_D011_WDT_CODE                   SH3673520_SCONF5_WDT_32S_CODE
 #define SH3673510_D011_SCONF5_VALUE \
     ((SH3673510_D011_MOS_EN ? SH3673520_SCONF5_MOS_EN_MASK : 0u) | \
@@ -89,12 +109,12 @@
 /* SCONF6 0x45: b7..b0 TS4 TS3 TS2 TS1 SC OCD UV OV protection enables. */
 #define SH3673510_D011_TS4_HW_PROTECT_EN           0u /* TS4 MOS temperature is software-protected with its own threshold */
 #define SH3673510_D011_TS3_HW_PROTECT_EN           0u /* TS3 heater-MOS sensor sampled, not part of AFE common battery-temp protection */
-#define SH3673510_D011_TS2_HW_PROTECT_EN           1u
-#define SH3673510_D011_TS1_HW_PROTECT_EN           1u
-#define SH3673510_D011_SC_HW_PROTECT_EN            1u
-#define SH3673510_D011_OCD_HW_PROTECT_EN           1u
-#define SH3673510_D011_UV_HW_PROTECT_EN            1u
-#define SH3673510_D011_OV_HW_PROTECT_EN            1u
+#define SH3673510_D011_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_SC_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_OCD_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_UV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
+#define SH3673510_D011_OV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_D011_SCONF6_VALUE \
     ((SH3673510_D011_TS4_HW_PROTECT_EN ? SH3673520_SCONF6_TS4_EN_MASK : 0u) | \
      (SH3673510_D011_TS3_HW_PROTECT_EN ? SH3673520_SCONF6_TS3_EN_MASK : 0u) | \
