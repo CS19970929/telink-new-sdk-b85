@@ -1,0 +1,47 @@
+name: SOC Productization
+
+on:
+  push:
+    branches:
+      - feature/sh3673510-d011-bms
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply SOC product config/profile refactor
+        run: python tools/productize_soc_profile.py
+
+      - name: Run SOC contract
+        run: python tests/soc_contract_check.py
+
+      - name: Run Flash contract
+        run: python tests/flash_quick_check.py
+
+      - name: Validate source order
+        run: python bms_tools/bms.py sources --check
+
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.h \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_cold_kv_store.c \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_cold_kv_store.h \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_soc_defs.h \
+                  tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_soc_profile.h \
+                  tests/soc_contract_check.py docs/SOC.md docs/STORAGE.md
+          git diff --cached --check
+          git commit -m "feat: persist SOC chemistry and profile selection"
+          git push origin HEAD:${GITHUB_REF_NAME}
