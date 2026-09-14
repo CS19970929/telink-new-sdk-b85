@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - refactor/bms-template-phase1
-      - feature/sh3673510-d013-bmsdvc
+      - refactor/d008-bms-phase2
       - ci-telink-bms-github-actions
   pull_request:
     branches:
       - refactor/bms-template-phase1
-      - feature/sh3673510-d013-bmsdvc
+      - refactor/d008-bms-phase2
   workflow_dispatch:
 
 permissions:
