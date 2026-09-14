@@ -7,6 +7,8 @@
 #include "bms_state.h"
 #include "bms_sw_protection.h"
 #include "bms_afe_hw_profile.h"
+#include "bms_afe_hw_access.h"
+#include "bms_afe_hw_modbus.h"
 #include "dvc1124.h"
 #include "dvc1124_project_config.h"
 #include "param.h"
@@ -56,47 +58,186 @@ void WriteProID_Default(void);
 
 PRODUCTION_ID_INFO ProductionInfor;
 
+static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
+static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+
+static int afe_hw_profile_is_requested_reg(u16 reg)
+{
+    return (reg >= BMS_AFE_HW_REQUESTED_REG_BASE &&
+            reg < (u16)(BMS_AFE_HW_REQUESTED_REG_BASE + BMS_AFE_HW_REQUESTED_REG_COUNT));
+}
+
+static int afe_hw_profile_is_effective_reg(u16 reg)
+{
+    return (reg >= BMS_AFE_HW_EFFECTIVE_REG_BASE &&
+            reg < (u16)(BMS_AFE_HW_EFFECTIVE_REG_BASE + BMS_AFE_HW_EFFECTIVE_REG_COUNT));
+}
+
 static int afe_hw_profile_is_reg(u16 reg)
 {
-    return (reg >= BMS_AFE_HW_PROFILE_REG_BASE &&
-            reg < (u16)(BMS_AFE_HW_PROFILE_REG_BASE + BMS_AFE_HW_PROFILE_REG_COUNT));
+    return afe_hw_profile_is_requested_reg(reg) || afe_hw_profile_is_effective_reg(reg);
+}
+
+static u16 afe_hw_profile_product_shunt_uohm(void)
+{
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    return DVC1124_DEFAULT_SHUNT_UOHM;
+#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    return SH3673510_D011_SHUNT_UOHM;
+#else
+    return 0u;
+#endif
+}
+
+static u16 afe_hw_profile_product_cell_count(void)
+{
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    return DVC1124_DEFAULT_CELL_COUNT;
+#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    return SH3673510_D011_CELL_COUNT;
+#else
+    return 0u;
+#endif
+}
+
+static u16 afe_hw_profile_product_wdt_seconds(void)
+{
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    return DVC1124_I2C_WATCHDOG_SECONDS;
+#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    return SH3673510_D011_WDT_EN ? 32u : 0u;
+#else
+    return 0u;
+#endif
 }
 
 static u16 afe_hw_profile_read_reg(u16 reg)
 {
     bms_afe_hw_profile_t p;
-    u16 offset = (u16)(reg - BMS_AFE_HW_PROFILE_REG_BASE);
-    if (offset < BMS_AFE_HW_PROFILE_WORDS) {
+    u16 offset;
+
+    if (afe_hw_profile_is_effective_reg(reg))
+    {
+        offset = (u16)(reg - BMS_AFE_HW_EFFECTIVE_REG_BASE);
+        if (offset >= BMS_AFE_HW_EFFECTIVE_REG_COUNT ||
+            !bms_afe_hw_profile_get_effective(&p)) return 0xFFFFu;
+        return ((const u16 *)&p)[offset];
+    }
+
+    if (!afe_hw_profile_is_requested_reg(reg)) return 0xFFFFu;
+    offset = (u16)(reg - BMS_AFE_HW_REQUESTED_REG_BASE);
+    if (offset < BMS_AFE_HW_PROFILE_WORD_COUNT)
+    {
         if (!bms_afe_hw_profile_get(&p)) return 0xFFFFu;
         return ((const u16 *)&p)[offset];
     }
-    switch (offset) {
-    case 35u: return bms_afe_hw_profile_capabilities();
-    case 36u: return bms_afe_hw_profile_get(&p) ? 1u : 0u;
-    case 37u: return DVC1124_DEFAULT_SHUNT_UOHM;
-    case 38u: return DVC1124_DEFAULT_CELL_COUNT;
-    case 39u: return DVC1124_I2C_WATCHDOG_SECONDS;
+
+    switch (reg)
+    {
+    case BMS_AFE_HW_META_CAPABILITIES:      return bms_afe_hw_profile_capabilities();
+    case BMS_AFE_HW_META_VALID:             return bms_afe_hw_profile_get(&p) ? 1u : 0u;
+    case BMS_AFE_HW_META_SHUNT_UOHM:        return afe_hw_profile_product_shunt_uohm();
+    case BMS_AFE_HW_META_CELL_COUNT:        return afe_hw_profile_product_cell_count();
+    case BMS_AFE_HW_META_WDT_SECONDS:       return afe_hw_profile_product_wdt_seconds();
+    case BMS_AFE_HW_META_ACCESS_ACTIVE:     return bms_afe_hw_access_is_active() ? 1u : 0u;
+    case BMS_AFE_HW_META_APPLY_STATE:       return s_afe_hw_apply_state;
+    case BMS_AFE_HW_META_LAST_ERROR:        return s_afe_hw_last_error;
+    case BMS_AFE_HW_META_INTERFACE_VERSION: return BMS_AFE_HW_INTERFACE_VERSION;
     default: return 0xFFFFu;
     }
+}
+
+static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
+                                     const bms_afe_hw_profile_t *b)
+{
+    const u16 *wa = (const u16 *)a;
+    const u16 *wb = (const u16 *)b;
+    u16 i;
+    for (i = 0u; i < BMS_AFE_HW_PROFILE_WORD_COUNT; ++i)
+        if (wa[i] != wb[i]) return 0u;
+    return 1u;
+}
+
+static u8 afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)
+{
+    bms_afe_hw_profile_t verify;
+    bms_afe_hw_profile_t effective;
+
+    if (before == 0 ||
+        !bms_afe_hw_profile_set(before) ||
+        !bms_afe_apply_protection_config() ||
+        !bms_afe_hw_profile_get(&verify) ||
+        !afe_hw_profile_words_equal(before, &verify) ||
+        !bms_afe_hw_profile_get_effective(&effective))
+    {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
+        bms_afe_hw_access_close();
+        return MB_EX_DEVICE_FAILURE;
+    }
+
+    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
+    return MB_EX_DEVICE_FAILURE;
 }
 
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
     bms_afe_hw_profile_t before;
     bms_afe_hw_profile_t candidate;
+    bms_afe_hw_profile_t verify;
+    bms_afe_hw_profile_t effective;
     u16 i;
-    if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORDS) return MB_EX_ILLEGAL_VALUE;
-    if (!bms_afe_hw_profile_get(&before)) return MB_EX_DEVICE_FAILURE;
+
+    if (!bms_afe_hw_access_is_active())
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_AUTH;
+        return MB_EX_ILLEGAL_ADDRESS;
+    }
+    if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
+        return MB_EX_ILLEGAL_VALUE;
+    }
+    if (!bms_afe_hw_profile_get(&before))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
+        return MB_EX_DEVICE_FAILURE;
+    }
+
     candidate = before;
     for (i = 0u; i < qty; ++i)
         ((u16 *)&candidate)[i] = u16be(&pdata[(u32)i * 2u]);
-    if (!bms_afe_hw_profile_validate(&candidate)) return MB_EX_ILLEGAL_VALUE;
-    if (!bms_afe_hw_profile_set(&candidate)) return MB_EX_DEVICE_FAILURE;
-    if (!bms_afe_apply_protection_config()) {
-        (void)bms_afe_hw_profile_set(&before);
-        (void)bms_afe_apply_protection_config();
+
+    if (!bms_afe_hw_profile_validate(&candidate))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
+        return MB_EX_ILLEGAL_VALUE;
+    }
+
+    if (!bms_afe_hw_profile_set(&candidate))
+    {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
         return MB_EX_DEVICE_FAILURE;
     }
+
+    if (!bms_afe_apply_protection_config())
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+        return afe_hw_profile_rollback(&before);
+    }
+
+    if (!bms_afe_hw_profile_get(&verify) ||
+        !afe_hw_profile_words_equal(&candidate, &verify) ||
+        !bms_afe_hw_profile_get_effective(&effective))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+        return afe_hw_profile_rollback(&before);
+    }
+
+    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
+    s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+    bms_afe_hw_access_close();
     return 0u;
 }
 
@@ -449,6 +590,13 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     addr = req[0];
     func = req[1];
 
+
+    if (func == BMS_AFE_HW_ACCESS_MODBUS_FUNC)
+    {
+        if (addr == 0x00u) return 0;
+        return bms_afe_hw_access_modbus_on_frame(req, req_len, rsp, rsp_len);
+    }
+
     /* Debug echo retained for existing production tools. */
     if (func == 0x7Fu && addr != 0x00u)
     {
@@ -543,8 +691,9 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (req_len < (u32)(7u + bytecnt + 2u)) return 0;
 
         pdata = &req[7];
-        if (reg == BMS_AFE_HW_PROFILE_REG_BASE) {
-            if (qty != BMS_AFE_HW_PROFILE_WORDS)
+        if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
+            if (addr == 0x00u) return 0;
+            if (qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
             exception = afe_hw_profile_write_block(pdata, qty);
             if (exception != 0u)
