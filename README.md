@@ -2,7 +2,7 @@
 
 本仓库当前产品目标为 **TLSR8251 + HS-D008 + DVC1124-2**。重构优先级是安全和兼容，其次才是代码量；保护阈值、协议、Flash 布局、OTA 边界和已验证时序不得在普通整理中改变。
 
-当前 D008/D013 对齐开发分支为 `feature/sh3673510-d013-bmsdvc`。该分支名沿用用户指定名称，**实际目标硬件仍是 HS-D008 + DVC1124-2，不是 SH3673510**。D013 仅作为软件框架、安全恢复和模块边界参考。
+当前 D008 主开发分支为 `refactor/d008-bms-phase2`。D013 的 `feature/sh3673510-d013-bms` 仅作为软件框架、安全恢复和模块边界参考；D008 实际目标硬件仍是 **HS-D008 + DVC1124-2**，不是 SH3673510。旧分支名 `feature/sh3673510-d013-bmsdvc` 仅保留为迁移别名，不再作为后续开发入口。
 
 ## 当前状态
 
@@ -53,6 +53,7 @@ git diff -- bms_tools/source_order.txt
 
 - [D008 当前开发状态 / 发布阻断清单](docs/D008_DEVELOPMENT_STATUS.md)
 - [D008 对齐 D013 框架与 DVC1124 V1.2 完整审核](docs/HS-D008_DVC1124_D013_Framework_Audit_2026-09-14.md)
+- [D008 / D011 / D013 分支策略与清理清单](docs/BRANCH_STRATEGY.md)
 - [架构与 AFE 移植](docs/ARCHITECTURE.md)
 - [构建、测试与发布门禁](docs/BUILD_AND_TEST.md)
 - [Flash 与持久化](docs/STORAGE.md)
