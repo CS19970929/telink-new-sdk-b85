@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D008/DVC1124 architecture and safety-guard source contracts."""
+"""D008/DVC1124 architecture, product-profile and safety-guard contracts."""
 
 import re
 import unittest
@@ -37,6 +37,8 @@ class D008FrameworkContract(unittest.TestCase):
         cls.api = read(HERE / "bms_afe.h")
         cls.guard = read(HERE / "bms_afe_guard.c")
         cls.cfg = read(HERE / "dvc1124_project_config.h")
+        cls.profile = read(HERE / "d008_product_profile.h")
+        cls.param = read(HERE / "param.c")
         cls.dvc_bms = read(HERE / "dvc1124_bms.c")
 
     def test_compile_time_backend_defaults_to_dvc1124(self):
@@ -86,6 +88,36 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_HIGH_SIDE_FET_MASK"), 1)
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE"), 0)
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_INTERRUPT_MASK"), 0xFF)
+
+    def test_physical_product_profile_defaults_to_24s_lfp_and_supports_20s_nmc(self):
+        self.assertEqual(macro_literal(self.profile, "D008_PRODUCT_PROFILE_24S_LFP"), 1)
+        self.assertEqual(macro_literal(self.profile, "D008_PRODUCT_PROFILE_20S_NMC"), 2)
+        self.assertRegex(
+            self.profile,
+            r"#define\s+D008_PRODUCT_PROFILE\s+D008_PRODUCT_PROFILE_24S_LFP",
+        )
+        self.assertIn("#define D008_PRODUCT_CELL_COUNT       24u", self.profile)
+        self.assertIn("#define D008_PRODUCT_CHEMISTRY        BMS_SOC_CHEMISTRY_LFP", self.profile)
+        self.assertIn("#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_LFP", self.profile)
+        self.assertIn("#define D008_PRODUCT_CELL_COUNT       20u", self.profile)
+        self.assertIn("#define D008_PRODUCT_CHEMISTRY        BMS_SOC_CHEMISTRY_NMC", self.profile)
+        self.assertIn("#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_NMC", self.profile)
+        self.assertIn(
+            "#define DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT",
+            self.cfg,
+        )
+
+    def test_additive_soc_identity_migration_only_fills_fully_unset_state(self):
+        self.assertIn("param_apply_d008_product_identity_if_unset", self.param)
+        self.assertIn("system.battery_chemistry == BMS_SOC_CHEMISTRY_AUTO", self.param)
+        self.assertIn("system.soc_profile_id == BMS_SOC_PROFILE_AUTO", self.param)
+        self.assertIn("system.battery_chemistry = D008_PRODUCT_CHEMISTRY;", self.param)
+        self.assertIn("system.soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID;", self.param)
+        self.assertIn("bms_cold_kv_store_set_system(&system)", self.param)
+        migration = self.param.split("static void param_apply_d008_product_identity_if_unset", 1)[1]
+        migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
+        self.assertNotIn("system.series_num =", migration)
+        self.assertNotIn("system.capacity_factory =", migration)
 
     def test_unverified_safety_features_remain_explicitly_disabled(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_SCD_THRESHOLD_MV"), 0)

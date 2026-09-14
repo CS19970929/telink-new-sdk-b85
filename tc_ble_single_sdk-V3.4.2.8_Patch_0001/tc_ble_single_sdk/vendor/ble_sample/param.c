@@ -5,6 +5,7 @@
 #include "bms_error.h"
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
+#include "d008_product_profile.h"
 #include "soc_kv_store.h"
 #include "runtime.h"
 #include <string.h>
@@ -15,6 +16,36 @@ static void param_fill_default(PARAM_T *param)
 {
     param->ParamVer = PARAM_VER;
     bms_cold_kv_store_get_default_protect(&param->protect);
+}
+
+/*
+ * The chemistry/profile keys were added after deployed cold-KV layouts already
+ * existed. flash_kv32 therefore reads AUTO/AUTO for an old unit that has never
+ * stored the new keys. On this D008 product branch, migrate only that fully
+ * unset state to the explicitly compiled physical assembly profile.
+ *
+ * Never overwrite a non-AUTO value here: communication/factory configuration
+ * remains authoritative after the one-time additive-key migration. A firmware
+ * image compiled for another assembly (24S LFP vs 20S NMC) must use an explicit
+ * factory/system reset or product command rather than silently reinterpreting
+ * an already configured battery.
+ */
+static void param_apply_d008_product_identity_if_unset(void)
+{
+    bms_cold_system_params_t system;
+
+    if (!bms_cold_kv_store_get_system(&system)) {
+        return;
+    }
+
+    if ((system.battery_chemistry == BMS_SOC_CHEMISTRY_AUTO) &&
+        (system.soc_profile_id == BMS_SOC_PROFILE_AUTO)) {
+        system.battery_chemistry = D008_PRODUCT_CHEMISTRY;
+        system.soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID;
+        if (!bms_cold_kv_store_set_system(&system)) {
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        }
+    }
 }
 
 static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
@@ -85,6 +116,8 @@ void LoadParam(void)
         param_fill_default(&g_tParam);
         return;
     }
+
+    param_apply_d008_product_identity_if_unset();
 
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {

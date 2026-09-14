@@ -1,14 +1,17 @@
 #ifndef DVC1124_PROJECT_CONFIG_H_
 #define DVC1124_PROJECT_CONFIG_H_
 
+#include "d008_product_profile.h"
+
 /*
  * HS-D008 / DVC1124-2 board defaults.
  *
  * Source precedence:
  *   1. DVC1124-2 Reference Manual V1.2       -> register facts/encoding
  *   2. HS-D008 schematic/BOM                 -> board wiring/assembly
- *   3. Product/BMS parameter storage          -> protection/product policy
- *   4. DVC11XX DemoCode V1.3                 -> secondary timing/example only
+ *   3. D008 product profile                  -> assembled cell count/chemistry
+ *   4. Product/BMS parameter storage          -> protection/product policy
+ *   5. DVC11XX DemoCode V1.3                 -> secondary timing/example only
  *
  * Important: this file contains DEFAULTS, not an immutable AFE preset image.
  * Runtime AFE configuration must be readable/writable through the DVC1124
@@ -28,9 +31,9 @@
 #define DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR  0x40u
 #endif
 
-/* DVC1124-2 supports 4..24 cells. HS-D008 default assembly is 24S. */
+/* Physical series count comes from the explicitly selected D008 assembly. */
 #ifndef DVC1124_DEFAULT_CELL_COUNT
-#define DVC1124_DEFAULT_CELL_COUNT           24u
+#define DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT
 #endif
 
 /* HS-D008: ten 2mOhm shunts in parallel => 0.2mOhm = 200uOhm. */
@@ -48,8 +51,9 @@
 
 /*
  * GP modes are expressed by function, not raw 0x49/0x7F magic values.
- * GP2/GP3 are routed to an external connector; product variants must override
- * these defaults when external NTCs are not assembled.
+ * GP2/GP3 are routed to an external connector; product/BOM variants must
+ * override these defaults when external NTCs are not assembled. Cell-count /
+ * chemistry selection alone must never be used to guess GP2/GP3 population.
  */
 #ifndef DVC1124_GP1_DEFAULT_MODE
 #define DVC1124_GP1_DEFAULT_MODE             DVC1124_GP14_NTC
