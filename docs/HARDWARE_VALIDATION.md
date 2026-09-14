@@ -1,47 +1,51 @@
-# 硬件验证与未决项
+# D008 实板验证与发布阻断项
 
-本文件是唯一待测清单。每次实测要记录板号、DVC1124 型号/修订、固件 commit、参数、仪器、环境和结论；不要再创建新的 `TODO_*.md` 或日期型测试记录。
+本文件只保留当前 **HS-D008 / TLSR8251 / DVC1124-2** 尚需实板证据的项目。产品配置事实见 `D008_PRODUCT_REFERENCE.md`。
 
-## 1. 发布阻断项
+## 1. P0 发布阻断
 
-- [ ] 在固定 `tc32-elf-gcc 4.5.1-tc32-1.3` 环境 clean rebuild，检查 MAP/BIN、`check-fw` 和 `verify`。
-- [ ] DVC1124 I2C 地址、CRC、超时、重试上限和通信故障 fail-safe。
-- [ ] cell/pack/current/GP/NTC 在温度、电压和电流边界的精度与符号。
-- [ ] COV/CUV/OCD1/OCC1/OCD2/OCC2 requested、量化、readback、延时、恢复和日志。
-- [ ] SCD 阈值/延时和 MOS 实际动作；未验证前保持 `TODO_VERIFY_HW`/默认禁用。
-- [ ] CHG/DSG FET、Body Diode、硬件 latch 与软件恢复无反复抢占。
-- [ ] AFE reset、配置丢失、CRC/I2C 连续失败后的恢复和安全输出状态。
-- [ ] Open Wire、Balance 60 s refresh、CADC calibration、WDT、Sleep/Wake。
-- [ ] BLE 与 UART 单字段配置、非法值、Factory raw 门禁、失败异常和掉电恢复。
-- [ ] Flash 写入中掉电、journal 切换、损坏记录、未知 schema、factory reset 和 upgrade epoch。
-- [ ] OTA A/B、124 KB 上限、升级中断恢复，并确认 `0x74000..0x7FFFF` 未被擦除。
+- [ ] 24S LFP 实板逐通道确认 VC1..VC24；20S NMC 实板确认 Cell21..24 被软件/AFE mask 且不参与 min/max/保护/SOC。
+- [ ] 用已知电流校准 200 µΩ 路径的方向、零点、增益和温漂。
+- [ ] 逐项验证 COV/CUV/OCD1/OCD2/OCC1/OCC2 的 requested -> code -> effective -> readback -> 实际关断延时和 MOS 栅极动作。
+- [ ] 确定并签核 SCD threshold/delay；未签核前保持关闭。
+- [ ] 验证 I2C dead-bus：SDA/SCL 卡死、NACK、CRC异常、AFE掉电；证明 MOS 最终安全路径。若采用 DVC WDT 或 PD7 power-cycle，必须记录时序和恢复竞态。
+- [ ] 24S LFP / 20S NMC 分别签核容量、OV/UV、OC、温度、SOC OCV/端点；不得继承 D3PRO 历史默认作为产品依据。
 
-## 2. 低功耗和时间
+## 2. IO/电源
 
-- [ ] 测量正常运行、连接、广播、浅睡和 deep sleep 电流；目标 `<100 uA` 必须注明具体模式和唤醒源。
-- [ ] 验证开关断开进入休眠，开关闭合或充电可可靠唤醒。
-- [ ] 验证低压休眠计时、tick 回绕、复位和 deep sleep 期间的计时口径。
-- [ ] 确认 runtime 只累计 awake 时间且 deep sleep 不补偿是否符合产品老化口径。
-- [ ] 验证看门狗、BLE/UART 和 AFE 在唤醒后的恢复顺序。
+- [ ] PD7 `MCU-AFE-EN`：上电、reset、sleep/wake、重复 reinit 的实际电平和 AFE 电源状态。
+- [ ] PB1 `CHG-IN`：低有效、1M pull-up、deep-sleep wake 在插拔充电器/抖动下可靠。
+- [ ] PA0 `ACC-MCU`：开关输入有效电平与去抖。
+- [ ] PD4 `MCC-EN-RF`、PA1 `MCC-EN-HT`、PC4 `MCU-LDO`：确认受控电源对象、active level 和低功耗所有权。
+- [ ] PC2/PC3 OWC 与 BLE/串口/bus mux 并发，不发生总线抢占。
+- [ ] SOC25/50/75/100 和 BLUE LED 的极性、休眠默认态和漏电。
 
-历史需求中同时出现过“单体低于 2750 mV 且无充电 12 h”“低于 3000 mV 48 h”和“低于 2550 mV 48 h”三条规则。它们的阈值覆盖关系和优先级尚不明确，不能直接全部实现；产品确认后再形成单一状态机和测试向量。
+## 3. DVC 专属
 
-## 3. SOC
+- [ ] GP1/GP4 板载 NTC 与 `SNC103B13435F0603E` R-T 数据/温箱一致；开路/短路 fail-safe。
+- [ ] 明确 GP2/GP3 BOM：若未装 NTC，Product Profile 必须改为 OFF；禁止悬空通道参与保护。
+- [ ] 0x53/0x54 mask readback 与预期一致；若未来启用 WDT timeout-close / body-diode，需要重新审核整个 mask policy。
+- [ ] Body-Diode、Current-Wake、Core-OT 等当前关闭功能只有在单独试验/产品签核后才能启用。
+- [ ] SCD fault 的负载移除、debounce、clear/readback、controlled retry 方案；当前不自动清除是预期安全行为。
 
-- [ ] 校准电流零点、增益和方向，确认不同板型的 shunt/前端参数。
-- [ ] 200 ms 积分周期与真实调度周期一致，无按 1 s 重复累计。
-- [ ] 满电、静置、5/10/20 A 动态压降、3050 mV 和 3000 mV 端点。
-- [ ] SOC/SOH/cycle 的上报单位、KV 写入频率、掉电恢复和 Flash 寿命。
-- [ ] 低功耗前后 SOC 不因无效样本或时间补偿发生跳变。
+## 4. Open-Wire / Balance
 
-## 4. 历史产品参数，仅作追溯
+- [ ] 用真实断线故障确定 Open-Wire evaluate 判据，覆盖首/中/末通道和瞬态噪声。
+- [ ] 验证 Open-Wire 期间 Balance 确实暂停并正确恢复。
+- [ ] 验证 DVC balance 约60s auto-clear 与软件45s续期，覆盖充电、停止充电、保护触发、无效采样、温升和测量干扰。
 
-以下数据来自旧项目便笺，不是 HS-D008/DVC1124 默认值，不得自动写入当前板：
+## 5. Flash / 参数事务
 
-| 型号 | 串数/电流 | OCD1 | OCD2 | OCC | SCD |
-|---|---|---:|---:|---:|---:|
-| D002 / 32002276 / C11 | 13S 20A | 40 A / 1 s | 60 A / 600 ms | 20 A / 100 ms | 200 A / 256 us |
-| D004 / 32002278 / D11 | 10S 15A | 30 A / 1 s | 50 A / 600 ms | 20 A / 100 ms | 200 A / 256 us |
-| D004 / 32002279 / C700 | 10S 15A | 30 A / 1 s | 50 A / 600 ms | 20 A / 100 ms | 200 A / 256 us |
+- [ ] AFE HW V2 完整35-word写入：正常、非法值、掉电、persist失败、apply失败、readback失败。
+- [ ] 故障注入验证 rollback 成功路径和 `CONFIG_INCONSISTENT` 路径；重启后不得把不一致状态静默当正常配置。
+- [ ] 软件三级保护参数与 AFE HW profile 独立：修改任一侧，另一侧 Flash/readback 必须保持不变。
 
-三者旧便笺还记录：COV 4250/4150 mV/1 s，CUV 2750/3000 mV/1 s，充电温度 55/45 °C 与 -7/0 °C，放电温度 75/60 °C 与 -20/-10 °C。应用前必须核对产品、传感器单位、DVC 可量化值和认证要求。
+## 6. 低功耗 / OTA / 系统
+
+- [ ] 正常运行、广播、连接、deep sleep 电流；记录唤醒源和测试条件。
+- [ ] sleep/wake 前后 AFE/FET/通信/SOC 恢复顺序，无自动重开 MOS 竞态。
+- [ ] OTA A/B 中断点、Flash 保留区、参数兼容迁移和回滚。
+
+## 7. 证据格式
+
+每次实测至少记录：板号/BOM、DVC型号与版本、固件 commit、24S/20S profile、AFE HW profile requested/effective、仪器、环境、波形/日志、结论。CI 绿色不能替代以上实板证据。
