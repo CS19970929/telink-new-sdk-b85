@@ -338,10 +338,10 @@ uint8_t sh3673510_control_apply_protection(void)
     if (!sh3510_low_temp_code(g_tParam.protect.u16TdischgUTp_Third, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
 
-    ok &= sh3510_update_reg(SH3673520_REG_SCONF6, 0xFFu,
-                            (uint8_t)(SH3673520_SCONF6_TS2_EN_MASK |
-                                      SH3673520_SCONF6_TS1_EN_MASK |
-                                      SH3673520_SCONF6_ALL_PROTECT_MASK));
+    /* Enable the selected hardware protections only after all thresholds are valid. */
+    ok &= sh3510_write_verify(SH3673520_REG_SCONF6,
+                              SH3673510_D011_SCONF6_VALUE,
+                              SH3673520_SCONF6_ALL_MASK);
 
     s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);
     s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);
@@ -358,37 +358,42 @@ uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *a
     return s_protection_actual.valid;
 }
 
+typedef struct {
+    uint8_t reg;
+    uint8_t value;
+    uint8_t verify_mask;
+} sh3510_static_reg_cfg_t;
+
+/*
+ * Deterministic D011 static AFE profile.  Protection thresholds (0x49..0x54)
+ * are applied separately from g_tParam.protect, and SCONF6 is written only
+ * after those thresholds are valid so hardware protection is never enabled
+ * against an unintended reset threshold.
+ */
+static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {
+    { SH3673520_REG_SCONF1,     SH3673510_D011_SCONF1_BOOT_VALUE, 0xFFu },
+    { SH3673520_REG_SCONF2,     SH3673510_D011_SCONF2_VALUE,      SH3673520_SCONF2_ALL_MASK },
+    { SH3673520_REG_SCONF3,     SH3673510_D011_SCONF3_VALUE,      SH3673520_SCONF3_CONFIG_MASK },
+    { SH3673520_REG_SCONF4,     SH3673510_D011_SCONF4_VALUE,      SH3673520_SCONF4_ALL_MASK },
+    { SH3673520_REG_SCONF5,     SH3673510_D011_SCONF5_VALUE,      SH3673520_SCONF5_CONFIG_MASK },
+    { SH3673520_REG_SCONF7,     SH3673510_D011_SCONF7_VALUE,      SH3673520_SCONF7_CONFIG_MASK },
+    { SH3673520_REG_OWV_ALARMH, SH3673510_D011_OWV_ALARMH_VALUE,  SH3673520_ALARMH_ALL_MASK },
+    { SH3673520_REG_ALARML,     SH3673510_D011_ALARML_VALUE,      SH3673520_ALARML_ALL_MASK },
+};
+
 static uint8_t sh3510_configure_runtime(void)
 {
-    uint8_t ok = 1u;
+    uint8_t i;
 
-    ok &= (SH3673520_SetCellCount(SH3673510_D011_CELL_COUNT) == SH3673520_OK);
+    for (i = 0u; i < (uint8_t)(sizeof(s_static_reg_cfg) / sizeof(s_static_reg_cfg[0])); ++i)
+    {
+        if (!sh3510_write_verify(s_static_reg_cfg[i].reg,
+                                 s_static_reg_cfg[i].value,
+                                 s_static_reg_cfg[i].verify_mask))
+            return 0u;
+    }
 
-    ok &= sh3510_update_reg(SH3673520_REG_SCONF2,
-                            (uint8_t)(SH3673520_SCONF2_PUMP_EN_MASK |
-                                      SH3673520_SCONF2_PDSGMOS_MASK |
-                                      SH3673520_SCONF2_FET_MASK),
-                            SH3673520_SCONF2_PUMP_EN_MASK);
-
-    ok &= sh3510_update_reg(SH3673520_REG_SCONF3,
-                            (uint8_t)(SH3673520_SCONF3_CGR_WK_MASK |
-                                      SH3673520_SCONF3_CRLD_EN_MASK |
-                                      SH3673520_SCONF3_LD_WK_MASK),
-                            (uint8_t)(SH3673520_SCONF3_CGR_WK_MASK |
-                                      SH3673520_SCONF3_CRLD_CPLUS));
-
-    ok &= sh3510_update_reg(SH3673520_REG_SCONF5,
-                            (uint8_t)(SH3673520_SCONF5_MOS_EN_MASK |
-                                      SH3673520_SCONF5_OCC_EN_MASK |
-                                      SH3673520_SCONF5_CADC_EN_MASK |
-                                      SH3673520_SCONF5_WDT_EN_MASK |
-                                      SH3673520_SCONF5_WDT_MASK),
-                            (uint8_t)(SH3673520_SCONF5_MOS_EN_MASK |
-                                      SH3673520_SCONF5_OCC_EN_MASK |
-                                      SH3673520_SCONF5_CADC_EN_MASK |
-                                      SH3673520_SCONF5_WDT_EN_MASK |
-                                      SH3673510_D011_WDT_CODE));
-    return ok;
+    return (SH3673520_SetBalanceMask(0u, SH3673510_D011_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
 }
 
 uint8_t sh3673510_control_init(void)
