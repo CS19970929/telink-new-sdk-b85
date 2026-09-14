@@ -3,10 +3,7 @@
 
 #include "conf.h"
 #include "soc_kv_store.h"
-
-#define BMS_SOC_CHEMISTRY_AUTO 0u
-#define BMS_SOC_CHEMISTRY_LFP  1u
-#define BMS_SOC_CHEMISTRY_NMC  2u
+#include "bms_soc_defs.h"
 
 #define BMS_SOC_OCV_WAIT_CURRENT   0u
 #define BMS_SOC_OCV_PREPARE        1u
@@ -20,6 +17,7 @@
 typedef struct
 {
     uint8_t chemistry;                  /* AUTO/LFP/NMC */
+    uint8_t profile_id;                 /* AUTO/generic LFP/generic NMC */
     uint16_t current_deadband_ma;       /* currents below this value are ignored */
     uint16_t ocv_rest_prepare_s;        /* stable idle time before OCV may correct */
     uint8_t ocv_error_band_percent;     /* +/- percentage points around OCV center */
@@ -30,6 +28,8 @@ typedef struct
 typedef struct
 {
     uint8_t chemistry;
+    uint8_t profile_id;
+    uint16_t profile_version;
     uint8_t soc_estimate;
     uint8_t soc_display;
     uint8_t ocv_state;
@@ -64,6 +64,7 @@ extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 
 void bms_soc_get_default_config(bms_soc_config_t *config);
 uint8_t bms_soc_configure(const bms_soc_config_t *config);
+uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id);
 uint8_t bms_soc_get_chemistry(void);
 void bms_soc_get_diag(bms_soc_diag_t *diag);
 void bms_soc_refresh_profile_from_params(void);

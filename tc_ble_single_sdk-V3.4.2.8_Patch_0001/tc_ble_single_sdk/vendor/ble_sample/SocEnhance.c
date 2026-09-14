@@ -1,4 +1,6 @@
 #include "SocEnhance.h"
+#include "bms_soc_profile.h"
+#include "bms_cold_kv_store.h"
 #include "bms_state.h"
 #include "param.h"
 #include <string.h>
@@ -57,29 +59,6 @@
 #define BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT 1u
 #endif
 
-typedef struct
-{
-    uint16_t mv;
-    uint8_t soc;
-} soc_ocv_point_t;
-
-typedef struct
-{
-    uint8_t chemistry;
-    const soc_ocv_point_t *ocv;
-    uint8_t ocv_count;
-    uint16_t valid_min_mv;
-    uint16_t valid_max_mv;
-    uint16_t full_sync_mv;
-    uint16_t full_min_margin_mv;
-    uint16_t empty_sync_mv;
-    uint16_t empty_max_margin_mv;
-    uint16_t terminal_start_offset_mv;
-    uint16_t terminal_l1_offset_mv;
-    uint16_t terminal_l2_offset_mv;
-    uint16_t terminal_l3_offset_mv;
-} soc_profile_t;
-
 typedef enum
 {
     SOC_INTEGRAL_DIR_NONE = 0,
@@ -128,40 +107,6 @@ typedef struct
     uint32_t learning_capacity_as10;
 } soc_runtime_t;
 
-static const soc_ocv_point_t g_soc_ocv_lfp[] = {
-    {2800u, 0u}, {3000u, 2u}, {3100u, 5u}, {3200u, 10u},
-    {3250u, 15u}, {3280u, 25u}, {3300u, 35u}, {3315u, 45u},
-    {3330u, 55u}, {3340u, 65u}, {3350u, 75u}, {3370u, 85u},
-    {3400u, 95u}, {3450u, 98u}, {3500u, 100u},
-};
-
-static const soc_ocv_point_t g_soc_ocv_nmc[] = {
-    {3000u, 0u}, {3300u, 5u}, {3450u, 10u}, {3550u, 20u},
-    {3650u, 30u}, {3700u, 40u}, {3750u, 50u}, {3800u, 60u},
-    {3850u, 70u}, {3900u, 80u}, {4000u, 90u}, {4100u, 96u},
-    {4180u, 100u},
-};
-
-static const soc_profile_t g_soc_profile_lfp = {
-    BMS_SOC_CHEMISTRY_LFP,
-    g_soc_ocv_lfp,
-    (uint8_t)(sizeof(g_soc_ocv_lfp) / sizeof(g_soc_ocv_lfp[0])),
-    2500u, 3800u,
-    3500u, 100u,
-    3000u, 150u,
-    150u, 100u, 50u, 20u,
-};
-
-static const soc_profile_t g_soc_profile_nmc = {
-    BMS_SOC_CHEMISTRY_NMC,
-    g_soc_ocv_nmc,
-    (uint8_t)(sizeof(g_soc_ocv_nmc) / sizeof(g_soc_ocv_nmc[0])),
-    2600u, 4300u,
-    4180u, 200u,
-    3000u, 200u,
-    300u, 200u, 150u, 50u,
-};
-
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 static soc_cali_state_t SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
 static soc_runtime_t g_soc_runtime;
@@ -172,6 +117,7 @@ static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
 static bms_soc_config_t g_soc_config = {
     BMS_SOC_CHEMISTRY_AUTO,
+    BMS_SOC_PROFILE_AUTO,
     SOC_CURRENT_DEADBAND_MA_DEFAULT,
     SOC_OCV_REST_PREPARE_SECONDS,
     SOC_OCV_ERROR_BAND_PERCENT,
@@ -205,6 +151,7 @@ void bms_soc_get_default_config(bms_soc_config_t *config)
 {
     if (config == 0) return;
     config->chemistry = BMS_SOC_CHEMISTRY_AUTO;
+    config->profile_id = BMS_SOC_PROFILE_AUTO;
     config->current_deadband_ma = SOC_CURRENT_DEADBAND_MA_DEFAULT;
     config->ocv_rest_prepare_s = SOC_OCV_REST_PREPARE_SECONDS;
     config->ocv_error_band_percent = SOC_OCV_ERROR_BAND_PERCENT;
@@ -212,10 +159,21 @@ void bms_soc_get_default_config(bms_soc_config_t *config)
     config->hide_capacity_until_learned = BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT;
 }
 
-uint8_t bms_soc_configure(const bms_soc_config_t *config)
+static uint8_t soc_product_config_valid(uint8_t chemistry, uint8_t profile_id)
+{
+    if ((chemistry > BMS_SOC_CHEMISTRY_NMC) ||
+        (profile_id > BMS_SOC_PROFILE_GENERIC_NMC)) return 0u;
+    if ((chemistry == BMS_SOC_CHEMISTRY_LFP) &&
+        (profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) return 0u;
+    if ((chemistry == BMS_SOC_CHEMISTRY_NMC) &&
+        (profile_id == BMS_SOC_PROFILE_GENERIC_LFP)) return 0u;
+    return 1u;
+}
+
+static uint8_t soc_config_valid(const bms_soc_config_t *config)
 {
     if (config == 0) return 0u;
-    if (config->chemistry > BMS_SOC_CHEMISTRY_NMC) return 0u;
+    if (!soc_product_config_valid(config->chemistry, config->profile_id)) return 0u;
     if ((config->current_deadband_ma > 2000u) ||
         (config->ocv_rest_prepare_s < 60u) ||
         (config->ocv_rest_prepare_s > 3600u) ||
@@ -223,6 +181,12 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
         (config->ocv_error_band_percent > 20u) ||
         (config->capacity_learning_enable > 1u) ||
         (config->hide_capacity_until_learned > 1u)) return 0u;
+    return 1u;
+}
+
+uint8_t bms_soc_configure(const bms_soc_config_t *config)
+{
+    if (!soc_config_valid(config)) return 0u;
 
     g_soc_config = *config;
     soc_profile_refresh();
@@ -234,32 +198,86 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
     return 1u;
 }
 
+static const soc_profile_t *soc_profile_from_id(uint8_t profile_id)
+{
+    if (profile_id == BMS_SOC_PROFILE_GENERIC_LFP) return &g_soc_profile_lfp;
+    if (profile_id == BMS_SOC_PROFILE_GENERIC_NMC) return &g_soc_profile_nmc;
+    return 0;
+}
+
 static uint8_t soc_resolve_chemistry(void)
 {
+    const soc_profile_t *selected;
     uint16_t ovp;
+
+    selected = soc_profile_from_id(g_soc_config.profile_id);
+    if (selected != 0) return selected->chemistry;
+
     if (g_soc_config.chemistry == BMS_SOC_CHEMISTRY_LFP ||
         g_soc_config.chemistry == BMS_SOC_CHEMISTRY_NMC) {
         return g_soc_config.chemistry;
     }
 
+    /* AUTO is a backward-compatible fallback for units whose old cold KV does
+     * not yet contain chemistry/profile keys. New products should persist the
+     * explicit chemistry/profile selection instead of relying on this heuristic. */
     ovp = g_tParam.protect.u16VcellOvp_Third;
     if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
     if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
 
-    /* Invalid/unconfigured protection data: preserve legacy NMC behavior, but
-     * OCV validity checks still prevent out-of-range samples from correcting. */
     return BMS_SOC_CHEMISTRY_NMC;
 }
 
 static void soc_profile_refresh(void)
 {
-    uint8_t chemistry = soc_resolve_chemistry();
-    const soc_profile_t *next = (chemistry == BMS_SOC_CHEMISTRY_LFP) ?
-        &g_soc_profile_lfp : &g_soc_profile_nmc;
+    const soc_profile_t *next = soc_profile_from_id(g_soc_config.profile_id);
+    if (next == 0) {
+        uint8_t chemistry = soc_resolve_chemistry();
+        next = (chemistry == BMS_SOC_CHEMISTRY_LFP) ?
+            &g_soc_profile_lfp : &g_soc_profile_nmc;
+    }
     if (g_soc_profile != next) {
         g_soc_profile = next;
         soc_reset_ocv_tracking();
     }
+}
+
+static void soc_load_persisted_product_config(void)
+{
+    bms_cold_system_params_t system;
+    uint8_t chemistry = BMS_SOC_CHEMISTRY_AUTO;
+    uint8_t profile_id = BMS_SOC_PROFILE_AUTO;
+
+    if (bms_cold_kv_store_get_system(&system)) {
+        if (system.battery_chemistry <= BMS_SOC_CHEMISTRY_NMC)
+            chemistry = (uint8_t)system.battery_chemistry;
+        if (system.soc_profile_id <= BMS_SOC_PROFILE_GENERIC_NMC)
+            profile_id = (uint8_t)system.soc_profile_id;
+    }
+
+    if (!soc_product_config_valid(chemistry, profile_id)) {
+        chemistry = BMS_SOC_CHEMISTRY_AUTO;
+        profile_id = BMS_SOC_PROFILE_AUTO;
+    }
+    g_soc_config.chemistry = chemistry;
+    g_soc_config.profile_id = profile_id;
+}
+
+uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id)
+{
+    bms_cold_system_params_t system;
+    bms_soc_config_t next = g_soc_config;
+
+    next.chemistry = chemistry;
+    next.profile_id = profile_id;
+    if (!soc_config_valid(&next)) return 0u;
+    if (!bms_cold_kv_store_get_system(&system)) return 0u;
+
+    system.battery_chemistry = chemistry;
+    system.soc_profile_id = profile_id;
+    if (!bms_cold_kv_store_set_system(&system)) return 0u;
+
+    return bms_soc_configure(&next);
 }
 
 void bms_soc_refresh_profile_from_params(void)
@@ -282,6 +300,8 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     if (rest_s > 65535u) rest_s = 65535u;
 
     diag->chemistry = g_soc_profile->chemistry;
+    diag->profile_id = g_soc_profile->profile_id;
+    diag->profile_version = g_soc_profile->profile_version;
     diag->soc_estimate = SOC_Calculate_Element.u8SOC_Now;
     diag->soc_display = g_soc_display_soc;
     diag->ocv_state = g_soc_runtime.ocv_state;
@@ -1120,6 +1140,7 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
 {
     soc_kv_data_t defaults;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
+    soc_load_persisted_product_config();
     soc_profile_refresh();
 
     if (soc == 0) {
