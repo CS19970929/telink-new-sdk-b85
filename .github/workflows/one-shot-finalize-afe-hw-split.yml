@@ -6,6 +6,7 @@ on:
       - refactor/d008-afe-hw-protection-split
     paths:
       - tools/finalize_afe_hw_split.py
+      - tests/afe_hw_profile_contract_check.py
       - .github/workflows/one-shot-finalize-afe-hw-split.yml
   workflow_dispatch:
 
