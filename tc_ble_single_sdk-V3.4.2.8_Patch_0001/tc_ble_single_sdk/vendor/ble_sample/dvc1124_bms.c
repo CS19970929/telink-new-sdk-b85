@@ -11,6 +11,9 @@
 #include "param.h"
 #include <string.h>
 
+/* bms_afe_sample() is scheduled every 200 ms in the current project. */
+#define DVC_BMS_SAMPLE_PERIOD_MS 200u
+
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
@@ -99,13 +102,21 @@ static void dvc_merge_hw_faults(uint8_t alarm)
 
 static uint8_t dvc_charge_blocked(void)
 {
-    return bms_sw_protection_charge_blocked();
+    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+
+    return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
+            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
 static uint8_t dvc_discharge_blocked(void)
 {
-    return (bms_sw_protection_discharge_blocked() ||
-            bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
+    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+
+    return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
+            f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
+            bms_error_get(BMS_ERROR_CBC_DSG) ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
 static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
