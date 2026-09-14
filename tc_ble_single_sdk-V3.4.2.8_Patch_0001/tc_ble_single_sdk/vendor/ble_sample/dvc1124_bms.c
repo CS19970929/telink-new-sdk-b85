@@ -10,91 +10,6 @@
 #include "param.h"
 #include <string.h>
 
-/* bms_afe_sample() is scheduled every 200 ms in the current project. */
-#define DVC_BMS_SAMPLE_PERIOD_MS 200u
-
-typedef struct
-{
-    uint16_t assert_count;
-    uint8_t active;
-} dvc_bms_filter_t;
-
-typedef enum
-{
-    DVC_LIMIT_HIGH = 0,
-    DVC_LIMIT_LOW
-} dvc_limit_direction_t;
-
-static dvc_bms_filter_t s_bat_ovp;
-static dvc_bms_filter_t s_bat_uvp;
-static dvc_bms_filter_t s_chg_otp;
-static dvc_bms_filter_t s_chg_utp;
-static dvc_bms_filter_t s_dsg_otp;
-static dvc_bms_filter_t s_dsg_utp;
-static dvc_bms_filter_t s_mos_otp;
-static union MDLCHGFAULT_REG s_prev_managed_faults;
-
-static uint16_t dvc_filter_samples(uint16_t filter_10ms)
-{
-    uint32_t delay_ms = (uint32_t)filter_10ms * 10u;
-    uint32_t samples;
-
-    if (delay_ms == 0u) return 1u;
-    samples = (delay_ms + DVC_BMS_SAMPLE_PERIOD_MS - 1u) / DVC_BMS_SAMPLE_PERIOD_MS;
-    if (samples == 0u) samples = 1u;
-    if (samples > 65535u) samples = 65535u;
-    return (uint16_t)samples;
-}
-
-static uint8_t dvc_filter_update(dvc_bms_filter_t *state,
-                                 uint16_t value,
-                                 uint16_t trip,
-                                 uint16_t recover,
-                                 uint16_t filter_10ms,
-                                 dvc_limit_direction_t direction)
-{
-    uint16_t required;
-    uint8_t recovered;
-    uint8_t violated;
-
-    if (state == NULL) return 0u;
-    if (trip == 0u)
-    {
-        state->active = 0u;
-        state->assert_count = 0u;
-        return 0u;
-    }
-
-    if (state->active)
-    {
-        recovered = (direction == DVC_LIMIT_HIGH) ?
-                    (value <= recover) : (value >= recover);
-        if (recovered)
-        {
-            state->active = 0u;
-            state->assert_count = 0u;
-        }
-        return state->active;
-    }
-
-    violated = (direction == DVC_LIMIT_HIGH) ?
-               (value >= trip) : (value <= trip);
-    if (!violated)
-    {
-        state->assert_count = 0u;
-        return 0u;
-    }
-
-    required = dvc_filter_samples(filter_10ms);
-    if (state->assert_count < required) ++state->assert_count;
-    if (state->assert_count >= required)
-    {
-        state->active = 1u;
-        state->assert_count = 0u;
-    }
-    return state->active;
-}
-
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
@@ -164,21 +79,13 @@ static void dvc_merge_hw_faults(uint8_t alarm)
 
 static uint8_t dvc_charge_blocked(void)
 {
-    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
-
-    return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
-            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
-            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
+    return bms_sw_protection_charge_blocked();
 }
 
 static uint8_t dvc_discharge_blocked(void)
 {
-    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
-
-    return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
-            f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
-            bms_error_get(BMS_ERROR_CBC_DSG) ||
-            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
+    return (bms_sw_protection_discharge_blocked() ||
+            bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
 }
 
 static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
