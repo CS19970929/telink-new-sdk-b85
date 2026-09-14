@@ -36,7 +36,6 @@ def sub_once(src: str, pattern: str, repl: str, label: str) -> str:
 if '#include "bms_sw_protection.h"' not in text:
     text = text.replace('#include "bms_state.h"\n', '#include "bms_state.h"\n#include "bms_sw_protection.h"\n', 1)
 
-# The common module owns all software threshold/filter state.
 text = sub_once(
     text,
     r'typedef struct\s*\{\s*uint16_t trip_count;\s*uint16_t recover_count;\s*uint8_t active;\s*\}\s*sh3510_filter_t;\s*',
@@ -78,8 +77,6 @@ text = sub_once(
     'remove SH software protection update',
 )
 
-# Keep hardware/short/heater policy local but delegate all software Third-level
-# blocking to the common protection core.
 text = sub_once(
     text,
     r'static uint8_t charge_blocked\(void\)\s*\{.*?\n\}',
@@ -93,8 +90,6 @@ text = sub_once(
     'replace SH discharge software blocking',
 )
 
-# publish_measurements owns a complete coherent sample; feed it to the common
-# software engine before OR-ing AFE hardware flags into Third.
 anchor = '    sh3673510_control_status_t status;\n'
 if '    bms_sw_protection_inputs_t sw;\n' not in text:
     if anchor not in text:
@@ -111,6 +106,17 @@ old_init = '    memset(s_filter, 0, sizeof(s_filter));\n    memset(s_prev_fault,
 if old_init not in text:
     raise SystemExit('SH init software-filter anchor not found')
 text = text.replace(old_init, '    bms_sw_protection_init();\n', 1)
-
 path.write_text(text, encoding="utf-8")
+
+# The older integration check asserted an obsolete comment sentence. Keep the
+# actual RS485 safety contract: DE is held until UART is idle and the computed
+# complete-frame line time has elapsed.
+it = ROOT / "tests" / "sh3673510_d011_integration_check.py"
+itext = it.read_text(encoding="utf-8")
+old_contract = 'require(uart, "DMA completion can precede the UART stop bit")'
+new_contract = '''require(uart, "s_rs485_tx_start_tick")\nrequire(uart, "s_rs485_tx_min_hold_us")\nrequire(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)")'''
+if old_contract in itext:
+    itext = itext.replace(old_contract, new_contract, 1)
+it.write_text(itext, encoding="utf-8")
+
 print("SH3673510 common software protection migration applied")
