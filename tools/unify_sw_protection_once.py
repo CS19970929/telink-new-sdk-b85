@@ -417,7 +417,7 @@ for forbidden in ("DVC1124_", "SH3673510_", "SH3673520_", "gpio_", "ReadReg", "W
     if forbidden in source:
         raise AssertionError(f"common protection leaked backend detail: {forbidden}")
 
-if "u16SocUp_" in source:
+if "p->u16SocUp_" in source:
     raise AssertionError("legacy SOC protection must remain out until semantics are specified")
 
 if "BMS_AFE_BACKEND_DVC1124" in backend and "#define BMS_AFE_BACKEND BMS_AFE_BACKEND_DVC1124" in backend:

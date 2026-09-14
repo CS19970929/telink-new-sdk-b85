@@ -133,7 +133,7 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv", self.dvc_bms)
         self.assertIn("u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv", self.dvc_bms)
         clear_block = self.dvc_bms.split("static uint8_t dvc_clear_recovered_hw_latches", 1)[1]
-        clear_block = clear_block.split("static union MDLCHGFAULT_REG", 1)[0]
+        clear_block = clear_block.split("static void dvc_merge_hw_faults", 1)[0]
         self.assertNotIn("DVC1124_ALARM_SCD_MASK", clear_block)
         self.assertNotIn("gpio_read(CHG_IN_PIN)", clear_block)
         self.assertNotIn("gpio_read(SW_PIN)", clear_block)

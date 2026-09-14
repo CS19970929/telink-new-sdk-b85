@@ -6,6 +6,7 @@
 #include "conf.h"
 #include "bms_error.h"
 #include "bms_state.h"
+#include "bms_sw_protection.h"
 #include "param.h"
 #include <string.h>
 
@@ -137,136 +138,19 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
     return verify;
 }
 
-static union MDLCHGFAULT_REG dvc_make_managed_fault_snapshot(void)
+static void dvc_merge_hw_faults(uint8_t alarm)
 {
-    union MDLCHGFAULT_REG managed;
+    bms_fault_reg_t *f = &g_stCellInfoReport.unMdlFault_Third;
 
-    managed.all = 0u;
-    managed.bits.b1CellOvp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp;
-    managed.bits.b1CellUvp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp;
-    managed.bits.b1BatOvp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp;
-    managed.bits.b1BatUvp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatUvp;
-    managed.bits.b1IchgOcp = g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp;
-    managed.bits.b1IdischgOcp = g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp;
-    managed.bits.b1CellChgOtp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp;
-    managed.bits.b1CellChgUtp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp;
-    managed.bits.b1CellDischgOtp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp;
-    managed.bits.b1CellDischgUtp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp;
-    managed.bits.b1TmosOtp = g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp;
-    return managed;
-}
+    if (alarm & DVC1124_ALARM_COV_MASK) f->bits.b1CellOvp = 1u;
+    if (alarm & DVC1124_ALARM_CUV_MASK) f->bits.b1CellUvp = 1u;
+    if (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK))
+        f->bits.b1IdischgOcp = 1u;
+    if (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK))
+        f->bits.b1IchgOcp = 1u;
 
-static void dvc_record_rising_faults(union MDLCHGFAULT_REG now)
-{
-#define DVC_RECORD_RISING(field, event) \
-    do { \
-        if (now.bits.field && !s_prev_managed_faults.bits.field) \
-            bms_fault_history_record(event); \
-    } while (0)
-
-    DVC_RECORD_RISING(b1CellOvp, BMS_FAULT_CELL_OVP_THIRD);
-    DVC_RECORD_RISING(b1CellUvp, BMS_FAULT_CELL_UVP_THIRD);
-    DVC_RECORD_RISING(b1BatOvp, BMS_FAULT_BAT_OVP_THIRD);
-    DVC_RECORD_RISING(b1BatUvp, BMS_FAULT_BAT_UVP_THIRD);
-    DVC_RECORD_RISING(b1IchgOcp, BMS_FAULT_CHG_OCP_THIRD);
-    DVC_RECORD_RISING(b1IdischgOcp, BMS_FAULT_DSG_OCP_THIRD);
-    DVC_RECORD_RISING(b1CellChgOtp, BMS_FAULT_CHG_OTP_THIRD);
-    DVC_RECORD_RISING(b1CellChgUtp, BMS_FAULT_CHG_UTP_THIRD);
-    DVC_RECORD_RISING(b1CellDischgOtp, BMS_FAULT_DSG_OTP_THIRD);
-    DVC_RECORD_RISING(b1CellDischgUtp, BMS_FAULT_DSG_UTP_THIRD);
-    DVC_RECORD_RISING(b1TmosOtp, BMS_FAULT_MOS_OTP_THIRD);
-
-#undef DVC_RECORD_RISING
-    s_prev_managed_faults = now;
-}
-
-static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
-{
-    uint16_t battery_temp = 0u;
-    uint16_t mos_temp = 0u;
-    uint16_t pack_x100 = g_stCellInfoReport.u16VCellTotle;
-    union MDLCHGFAULT_REG managed;
-
-    g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp = (alarm & DVC1124_ALARM_COV_MASK) ? 1u : 0u;
-    g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp = (alarm & DVC1124_ALARM_CUV_MASK) ? 1u : 0u;
-    g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp =
-        (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK)) ? 1u : 0u;
-    g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp =
-        (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) ? 1u : 0u;
-
-    g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp =
-        dvc_filter_update(&s_bat_ovp,
-                          pack_x100,
-                          g_tParam.protect.u16VbusOvp_Third,
-                          g_tParam.protect.u16VbusOvp_Rcv,
-                          g_tParam.protect.u16VbusOvp_Filter,
-                          DVC_LIMIT_HIGH);
-    g_stCellInfoReport.unMdlFault_Third.bits.b1BatUvp =
-        dvc_filter_update(&s_bat_uvp,
-                          pack_x100,
-                          g_tParam.protect.u16VbusUvp_Third,
-                          g_tParam.protect.u16VbusUvp_Rcv,
-                          g_tParam.protect.u16VbusUvp_Filter,
-                          DVC_LIMIT_LOW);
-
-    if (cfg != NULL)
-    {
-        battery_temp = dvc_get_configured_temperature(cfg->battery_ntc_gp);
-        mos_temp = dvc_get_configured_temperature(cfg->mos_ntc_gp);
-    }
-
-    if (battery_temp != 0u)
-    {
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp =
-            dvc_filter_update(&s_chg_otp, battery_temp,
-                              g_tParam.protect.u16TChgOTp_Third,
-                              g_tParam.protect.u16TChgOTp_Rcv,
-                              g_tParam.protect.u16TChgOTp_Filter,
-                              DVC_LIMIT_HIGH);
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp =
-            dvc_filter_update(&s_chg_utp, battery_temp,
-                              g_tParam.protect.u16TchgUTp_Third,
-                              g_tParam.protect.u16TchgUTp_Rcv,
-                              g_tParam.protect.u16TchgUTp_Filter,
-                              DVC_LIMIT_LOW);
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp =
-            dvc_filter_update(&s_dsg_otp, battery_temp,
-                              g_tParam.protect.u16TdischgOTp_Third,
-                              g_tParam.protect.u16TdischgOTp_Rcv,
-                              g_tParam.protect.u16TdischgOTp_Filter,
-                              DVC_LIMIT_HIGH);
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp =
-            dvc_filter_update(&s_dsg_utp, battery_temp,
-                              g_tParam.protect.u16TdischgUTp_Third,
-                              g_tParam.protect.u16TdischgUTp_Rcv,
-                              g_tParam.protect.u16TdischgUTp_Filter,
-                              DVC_LIMIT_LOW);
-    }
-    else
-    {
-        s_chg_otp.active = s_chg_utp.active = 0u;
-        s_dsg_otp.active = s_dsg_utp.active = 0u;
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp = 0u;
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp = 0u;
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp = 0u;
-        g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp = 0u;
-    }
-
-    if (mos_temp != 0u)
-    {
-        g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp =
-            dvc_filter_update(&s_mos_otp, mos_temp,
-                              g_tParam.protect.u16TmosOTp_Third,
-                              g_tParam.protect.u16TmosOTp_Rcv,
-                              g_tParam.protect.u16TmosOTp_Filter,
-                              DVC_LIMIT_HIGH);
-    }
-    else
-    {
-        s_mos_otp.active = 0u;
-        g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp = 0u;
-    }
-
+    /* SCD remains a hardware/backend lockout. Do not fold its release policy
+     * into the generic software-threshold state machine. */
     if (alarm & DVC1124_ALARM_SCD_MASK)
     {
         if (!bms_error_get(BMS_ERROR_CBC_DSG))
@@ -276,9 +160,6 @@ static void dvc_publish_faults(uint8_t alarm, const dvc1124_config_t *cfg)
     {
         bms_error_clear(BMS_ERROR_CBC_DSG);
     }
-
-    managed = dvc_make_managed_fault_snapshot();
-    dvc_record_rising_faults(managed);
 }
 
 static uint8_t dvc_charge_blocked(void)
@@ -340,6 +221,9 @@ void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
     dvc1124_config_t cfg;
+    bms_sw_protection_inputs_t sw;
+    uint16_t battery_temp;
+    uint16_t mos_temp;
     uint8_t alarm;
 
     DVC1124_App_AFEGet();
@@ -348,7 +232,18 @@ void DVC1124_BmsApp_AFEGet(void)
 
     DVC1124_GetConfig(&cfg);
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
-    dvc_publish_faults(alarm, &cfg);
+
+    memset(&sw, 0, sizeof(sw));
+    battery_temp = dvc_get_configured_temperature(cfg.battery_ntc_gp);
+    mos_temp = dvc_get_configured_temperature(cfg.mos_ntc_gp);
+    sw.battery_temp_valid = battery_temp ? 1u : 0u;
+    sw.mos_temp_valid = mos_temp ? 1u : 0u;
+    sw.battery_temp_min = battery_temp;
+    sw.battery_temp_max = battery_temp;
+    sw.mos_temp = mos_temp;
+    bms_sw_protection_update(&sw);
+    dvc_merge_hw_faults(alarm);
+    bms_sw_protection_record_fault_edges();
 
     /*
      * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, but pack
