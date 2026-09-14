@@ -27,7 +27,6 @@ typedef enum {
 
 /* Board integration selects only the physical SPI pin group. */
 sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group);
-uint32_t SH3673520_PortGetActualClockHz(void);
 
 /* Driver-internal byte/full-transaction primitives. */
 sh3673520_port_status_t sh3673520_port_init(void);
