@@ -53,6 +53,19 @@ for required in (
 if "bus_mux_on_uart_rx_byte" in uart or '#include "bus_mux.h"' in uart:
     raise AssertionError("UART driver must not depend on the removed mux detector")
 
+# 115200 8N1 is ~86.8 us/character. Keep at least one complete character of
+# non-blocking DE hold time after DMA done + UART busy clear so the final byte
+# and stop bit cannot be truncated by the RS485 direction switch.
+if literal(uart, "MODBUS_RS485_TX_TAIL_GUARD_US") < 87:
+    raise AssertionError("D011 RS485 DE tail guard is shorter than one UART character")
+for required in (
+    "s_rs485_tx_tail_wait",
+    "s_rs485_tx_tail_tick",
+    "clock_time_exceed(s_rs485_tx_tail_tick, MODBUS_RS485_TX_TAIL_GUARD_US)",
+):
+    if required not in uart:
+        raise AssertionError(f"missing D011 RS485 TX tail guard: {required}")
+
 # SIF source must be inert: no timer setup and no pin modulation.
 for forbidden in ("SIF_SYNC", "BUS_STATE_OWC_TX", "FLD_IRQ_TMR0_EN", "gpio_write"):
     if forbidden in sif:

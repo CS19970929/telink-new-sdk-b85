@@ -17,6 +17,15 @@ typedef char modbus_dma_packet_size_must_be_272[
 #define MODBUS_UART_BWPC          13u
 #define MODBUS_UART_RECOVERY_US   (1u * 1000u * 1000u)
 
+/*
+ * D011 RS485 tail guard.
+ * UART is 115200 8N1, so one complete character is about 86.8 us.
+ * Keep DE asserted for a little more than one character after DMA has
+ * completed and UART busy has cleared, so the final byte/stop bit is not
+ * truncated when switching the transceiver back to receive mode.
+ */
+#define MODBUS_RS485_TX_TAIL_GUARD_US 120u
+
 #if ((MODBUS_RS485_ENABLE != 0) && (MODBUS_RS485_ENABLE != 1))
 #error "MODBUS_RS485_ENABLE must be 0 or 1"
 #endif
@@ -28,6 +37,8 @@ static mb_dma_pkt_t s_tx_pkt;
 #if MODBUS_RS485_ENABLE
 static volatile u8 s_rs485_tx_dma_done = 0u;
 static volatile u8 s_rs485_tx_active = 0u;
+static volatile u8 s_rs485_tx_tail_wait = 0u;
+static volatile u32 s_rs485_tx_tail_tick = 0u;
 
 static void modbus_rs485_receive_mode(void)
 {
@@ -43,15 +54,37 @@ static void modbus_rs485_transmit_mode(void)
 
 static void modbus_rs485_service_tx_done(void)
 {
-    /* Do not look at UART busy until DMA has actually completed. This avoids
-     * releasing DE immediately after uart_send_dma() before transmission has
-     * started. */
-    if (s_rs485_tx_active && s_rs485_tx_dma_done && !uart_tx_is_busy())
+    if (!s_rs485_tx_active || !s_rs485_tx_dma_done)
     {
-        modbus_rs485_receive_mode();
-        s_rs485_tx_active = 0u;
-        s_rs485_tx_dma_done = 0u;
+        return;
     }
+
+    /*
+     * DMA done does not mean the last UART byte has physically left the pin.
+     * Also do not switch DE immediately when uart_tx_is_busy() first clears:
+     * keep the transceiver in TX for one additional character-time margin.
+     */
+    if (!s_rs485_tx_tail_wait)
+    {
+        if (uart_tx_is_busy())
+        {
+            return;
+        }
+
+        s_rs485_tx_tail_tick = clock_time();
+        s_rs485_tx_tail_wait = 1u;
+        return;
+    }
+
+    if (!clock_time_exceed(s_rs485_tx_tail_tick, MODBUS_RS485_TX_TAIL_GUARD_US))
+    {
+        return;
+    }
+
+    modbus_rs485_receive_mode();
+    s_rs485_tx_active = 0u;
+    s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_tail_wait = 0u;
 }
 #endif
 
@@ -69,6 +102,8 @@ void modbus_uart_init(void)
     gpio_set_output_en(D011_RS485_EN_PIN, 1);
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_tail_wait = 0u;
+    s_rs485_tx_tail_tick = 0u;
 #endif
 
     uart_gpio_set(D011_SCI1_TX_PIN, D011_SCI1_RX_PIN);
@@ -145,6 +180,7 @@ void modbus_uart_send(const u8 *p, u32 len)
 #if MODBUS_RS485_ENABLE
     modbus_rs485_transmit_mode();
     s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_tail_wait = 0u;
     s_rs485_tx_active = 1u;
 #endif
 
