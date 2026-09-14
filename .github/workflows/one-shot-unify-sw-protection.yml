@@ -26,7 +26,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply unified software protection patch
-        run: python tools/unify_sw_protection_once.py
+        run: |
+          sed -i 's/if "u16SocUp_" in source:/if "p->u16SocUp_" in source:/' tools/unify_sw_protection_once.py
+          python tools/unify_sw_protection_once.py
 
       - name: Refresh locked source order
         run: python bms_tools/bms.py sources --update
