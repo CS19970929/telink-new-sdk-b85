@@ -26,6 +26,7 @@ jobs:
       - run: python tests/afe_hw_access_contract_check.py
       - run: python tests/dvc1124_config_quick_check.py
       - run: python tests/d008_framework_contract_check.py
+      - run: python tests/d008_20s_profile_contract_check.py
       - run: python tests/sw_protection_contract_check.py
       - run: python tests/soc_contract_check.py
       - run: python tests/flash_quick_check.py
@@ -49,6 +50,7 @@ jobs:
           python tests/afe_hw_access_contract_check.py
           python tests/dvc1124_config_quick_check.py
           python tests/d008_framework_contract_check.py
+          python tests/d008_20s_profile_contract_check.py
           python tests/sw_protection_contract_check.py
       - name: Clean rebuild
         shell: powershell
