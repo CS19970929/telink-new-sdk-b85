@@ -705,7 +705,7 @@ static uint8_t publish_measurements(void)
         if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
         if (mv < min_mv) { min_mv = mv; min_pos = (uint8_t)(i + 1u); }
     }
-    for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 0u;
+    for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 61001u;
     g_stCellInfoReport.u16VCellMax = max_mv;
     g_stCellInfoReport.u16VCellMin = min_mv;
     g_stCellInfoReport.u16VCellMaxPosition = max_pos;
