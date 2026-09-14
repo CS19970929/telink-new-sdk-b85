@@ -34,6 +34,45 @@ jobs:
           if ! grep -q '^static u16 u16be(const u8 \*p);' "$MOD"; then
             sed -i '/static u16 read_ascii_string_reg/i static u16 u16be(const u8 *p);' "$MOD"
           fi
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/sh3673510_d011_integration_check.py')
+          s = p.read_text(encoding='utf-8')
+          if 'hw_profile = text("bms_afe_hw_profile.c")' not in s:
+              s = s.replace('bms = text("sh3673510_bms.c")\n', 'bms = text("sh3673510_bms.c")\nhw_profile = text("bms_afe_hw_profile.c")\n', 1)
+          s = s.replace('    "SH3673510_D011_SCONF6_VALUE",\n', '')
+          old = '''require(control, "p->u16IdsgOcp_First > 3200u")
+          require(control, "p->u16IdsgOcp_Second > 6400u")
+          require(control, "p->u16IchgOcp_First > 1760u")
+          require(control, "p->u16IdsgOcp_Filter > 40u")
+          require(control, "p->u16SocUp_First > 100u")
+          '''
+          new = '''require(hw_profile, "sense_uv > 80000u")
+          require(hw_profile, "sense_uv > 160000u")
+          require(hw_profile, "sense_uv > 44000u")
+          require(hw_profile, "p->ocd2_delay_ms > 400u")
+          require(hw_profile, "BMS_AFE_HW_PROFILE_SCHEMA_VERSION")
+          '''
+          if old in s:
+              s = s.replace(old, new, 1)
+          replacements = {
+              'u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv': 'u16VCellMax <= hw.cov_recover_mv',
+              'u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv': 'u16VCellMin >= hw.cuv_recover_mv',
+              'u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv': 'u16IDischg <= hw.ocd_recover_a10',
+              'SH3510_OCD_RELEASE_FILTER_10MS': 'hw.ocd_recover_ms',
+              'u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv': 'u16Ichg <= hw.occ_recover_a10',
+              'bat_max <= g_tParam.protect.u16TChgOTp_Rcv': 'bat_max <= hw.chg_ot_recover_x10',
+              'bat_min >= g_tParam.protect.u16TchgUTp_Rcv': 'bat_min >= hw.chg_ut_recover_x10',
+          }
+          hw_start = s.find('# Hardware FLAG recovery must be based on physical recovery windows')
+          hw_end = s.find('heater_start = bms.find("static void apply_heater")', hw_start)
+          if hw_start >= 0 and hw_end > hw_start:
+              block = s[hw_start:hw_end]
+              for a, b in replacements.items():
+                  block = block.replace(a, b)
+              s = s[:hw_start] + block + s[hw_end:]
+          p.write_text(s, encoding='utf-8')
+          PY
 
       - name: Refresh locked source order
         run: python bms_tools/bms.py sources --update
