@@ -1,6 +1,8 @@
 #ifndef DVC1124_PROJECT_CONFIG_H_
 #define DVC1124_PROJECT_CONFIG_H_
 
+#include "d008_product_profile.h"
+
 /*
  * HS-D008 / DVC1124-2 board defaults.
  *
@@ -28,9 +30,9 @@
 #define DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR  0x40u
 #endif
 
-/* DVC1124-2 supports 4..24 cells. HS-D008 default assembly is 24S. */
+/* DVC1124-2 supports 4..24 cells; board assembly profile owns the count. */
 #ifndef DVC1124_DEFAULT_CELL_COUNT
-#define DVC1124_DEFAULT_CELL_COUNT           24u
+#define DVC1124_DEFAULT_CELL_COUNT           D008_PROFILE_CELL_COUNT
 #endif
 
 /* HS-D008: ten 2mOhm shunts in parallel => 0.2mOhm = 200uOhm. */
@@ -83,15 +85,25 @@
                          DVC1124_GP6_DEFAULT_MODE)
 #endif
 
-/* Named operating defaults corresponding to the current validated behavior. */
+/*
+ * V1.2 0x55 HSFM: 0 allows high-side FET output; 1 masks high-side output.
+ * HS-D008 routes GP5/GP6 as the low-side CHG/DSG outputs, therefore mask the
+ * unused high-side outputs instead of leaving both drive paths enabled.
+ */
 #ifndef DVC1124_DEFAULT_HIGH_SIDE_FET_MASK
-#define DVC1124_DEFAULT_HIGH_SIDE_FET_MASK       0u
+#define DVC1124_DEFAULT_HIGH_SIDE_FET_MASK       1u
 #endif
 #ifndef DVC1124_DEFAULT_CADC_WORK_ENABLE
 #define DVC1124_DEFAULT_CADC_WORK_ENABLE         1u
 #endif
+
+/*
+ * CAES enables the sleep current-wake engine while 0x65 CWT selects its
+ * threshold. CWT=0 disables current wake, so keep CAES=0 until a product-level
+ * wake threshold has been verified on D008 hardware.
+ */
 #ifndef DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE
-#define DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE 1u
+#define DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE 0u
 #endif
 #ifndef DVC1124_DEFAULT_CC1_WORK_TIME
 #define DVC1124_DEFAULT_CC1_WORK_TIME            DVC1124_CC1_WORK_4MS
@@ -100,7 +112,7 @@
 #define DVC1124_DEFAULT_CC1_SLEEP_WAKE_TIME      DVC1124_CC1_SLEEP_WAKE_32MS
 #endif
 
-/* DVC1124-2 0x6D CPVS=101 means 10V. */
+/* DVC1124-2 V1.2 0x6D CPVS=101 means 10V. */
 #ifndef DVC1124_CHARGE_PUMP_VOLTAGE_CODE
 #define DVC1124_CHARGE_PUMP_VOLTAGE_CODE         DVC1124_CPVS_10V
 #endif
@@ -137,8 +149,14 @@
 #ifndef DVC1124_DEFAULT_TIMED_WAKE
 #define DVC1124_DEFAULT_TIMED_WAKE               DVC1124_TIMED_WAKE_OFF
 #endif
+
+/*
+ * V1.2 0x79 bits are masks: 0 = emit the corresponding 1 ms INT pulse,
+ * 1 = suppress it. HS-D008 does not assign GP2/3/5/6 to INT in the default
+ * profile, so suppress all DVC INT pulse sources rather than leaving them live.
+ */
 #ifndef DVC1124_DEFAULT_INTERRUPT_MASK
-#define DVC1124_DEFAULT_INTERRUPT_MASK           0x00u
+#define DVC1124_DEFAULT_INTERRUPT_MASK           0xFFu
 #endif
 
 /* R82 DPC reset default is 16. Keep it named so product tuning is explicit. */
@@ -173,7 +191,12 @@
 #define DVC1124_BODY_DIODE_THRESHOLD_UV      0u
 #endif
 
-/* Allowed watchdog values: 0, 4, 8, 16, 32 seconds. */
+/*
+ * Allowed watchdog values: 0, 4, 8, 16, 32 seconds.
+ * Keep the DVC-internal WDT disabled until the exact D008 power/output response
+ * is verified; the MCU-side safe supervisor independently inhibits outputs on
+ * failed samples and never assumes a successful bus transaction.
+ */
 #ifndef DVC1124_I2C_WATCHDOG_SECONDS
 #define DVC1124_I2C_WATCHDOG_SECONDS         0u
 #endif
@@ -195,6 +218,32 @@
 /* Vendor demo waits 300ms after AFE reset before normal access. */
 #ifndef DVC1124_RESET_SETTLE_MS
 #define DVC1124_RESET_SETTLE_MS              300u
+#endif
+
+/* D013-style supervisor timing, expressed in the existing 200 ms AFE cadence. */
+#ifndef DVC1124_SAFE_REINIT_TRIGGER_SAMPLES
+#define DVC1124_SAFE_REINIT_TRIGGER_SAMPLES  3u
+#endif
+#ifndef DVC1124_SAFE_REINIT_COOLDOWN_SAMPLES
+#define DVC1124_SAFE_REINIT_COOLDOWN_SAMPLES 25u
+#endif
+#ifndef DVC1124_SAFE_VALID_RELEASE_SAMPLES
+#define DVC1124_SAFE_VALID_RELEASE_SAMPLES   3u
+#endif
+
+/*
+ * V1.2 defines SCD/W0C semantics, but current D008 evidence does not identify a
+ * dedicated load-removal signal. Keep automatic software SCD recovery disabled
+ * rather than reusing ACC/SW semantics as a guessed load-off indication.
+ */
+#ifndef DVC1124_SHORT_AUTO_RECOVERY_ENABLE
+#define DVC1124_SHORT_AUTO_RECOVERY_ENABLE   0u
+#endif
+#ifndef DVC1124_SHORT_CLEAR_VALID_SAMPLES
+#define DVC1124_SHORT_CLEAR_VALID_SAMPLES    10u
+#endif
+#ifndef DVC1124_SHORT_CLEAR_CURRENT_MA
+#define DVC1124_SHORT_CLEAR_CURRENT_MA       200u
 #endif
 
 #endif /* DVC1124_PROJECT_CONFIG_H_ */
