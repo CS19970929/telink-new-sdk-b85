@@ -718,12 +718,12 @@ static uint8_t publish_measurements(void)
 
     if (current_ma < 0L) {
         uint32_t ma = (uint32_t)(-current_ma);
-        g_stCellInfoReport.u16Ichg = (uint16_t)((ma + 50u) / 100u);
-        g_stCellInfoReport.u16IDischg = 0u;
-    } else {
-        uint32_t ma = (uint32_t)current_ma;
         g_stCellInfoReport.u16IDischg = (uint16_t)((ma + 50u) / 100u);
         g_stCellInfoReport.u16Ichg = 0u;
+    } else {
+        uint32_t ma = (uint32_t)current_ma;
+        g_stCellInfoReport.u16Ichg = (uint16_t)((ma + 50u) / 100u);
+        g_stCellInfoReport.u16IDischg = 0u;
     }
 
     memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
