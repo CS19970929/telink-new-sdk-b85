@@ -22,11 +22,13 @@ typedef char modbus_dma_packet_size_must_be_272[
 #endif
 
 static volatile u8 s_rx_ready = 0u;
-static volatile u8 s_tx_active = 0u;
 static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
 #if MODBUS_RS485_ENABLE
+static volatile u8 s_rs485_tx_dma_done = 0u;
+static volatile u8 s_rs485_tx_active = 0u;
+
 static void modbus_rs485_receive_mode(void)
 {
     /* D011 CA-IS2092A: DE and /RE share PA1, 0=receive. */
@@ -38,25 +40,25 @@ static void modbus_rs485_transmit_mode(void)
     /* D011 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
     gpio_write(D011_RS485_EN_PIN, 1);
 }
-#endif
 
-static void modbus_uart_service_tx_done(void)
+static void modbus_rs485_service_tx_done(void)
 {
-    if (s_tx_active && !uart_tx_is_busy())
+    /* Do not look at UART busy until DMA has actually completed. This avoids
+     * releasing DE immediately after uart_send_dma() before transmission has
+     * started. */
+    if (s_rs485_tx_active && s_rs485_tx_dma_done && !uart_tx_is_busy())
     {
-#if MODBUS_RS485_ENABLE
-        /* Release the RS485 transceiver only after the UART stop bit is out. */
         modbus_rs485_receive_mode();
-#endif
-        s_tx_active = 0u;
-        uart_clr_tx_done();
+        s_rs485_tx_active = 0u;
+        s_rs485_tx_dma_done = 0u;
     }
 }
+#endif
 
 void modbus_uart_init(void)
 {
+    /* Keep the proven new-new-master initialization order. */
     memset((void *)&s_rx_pkt, 0, sizeof(s_rx_pkt));
-    memset((void *)&s_tx_pkt, 0, sizeof(s_tx_pkt));
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
 
 #if MODBUS_RS485_ENABLE
@@ -65,9 +67,10 @@ void modbus_uart_init(void)
     gpio_write(D011_RS485_EN_PIN, 0);
     gpio_set_input_en(D011_RS485_EN_PIN, 0);
     gpio_set_output_en(D011_RS485_EN_PIN, 1);
+    s_rs485_tx_active = 0u;
+    s_rs485_tx_dma_done = 0u;
 #endif
 
-    /* D011 and D013 both use PC2/PC3 as the fixed Modbus UART. */
     uart_gpio_set(D011_SCI1_TX_PIN, D011_SCI1_RX_PIN);
     uart_reset();
     uart_init(MODBUS_UART_CLOCK_DIVIDER,
@@ -79,10 +82,10 @@ void modbus_uart_init(void)
 
     irq_set_mask(FLD_IRQ_DMA_EN);
     dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 1);
+
 #if MODBUS_RS485_ENABLE
     modbus_rs485_receive_mode();
 #endif
-    s_tx_active = 0u;
     irq_enable();
 }
 
@@ -101,17 +104,18 @@ void modbus_uart_irq_proc(void)
 
     if (irqsrc & FLD_DMA_CHN_UART_TX)
     {
-        /* DMA completion can precede the UART stop bit. TX completion is
-         * finalized only after uart_tx_is_busy() clears. */
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_TX);
+#if MODBUS_RS485_ENABLE
+        s_rs485_tx_dma_done = 1u;
+        modbus_rs485_service_tx_done();
+#endif
     }
-
-    modbus_uart_service_tx_done();
 }
 
 int modbus_uart_poll(u8 **p, u32 *len)
 {
     u32 l;
+
     if (p == NULL || len == NULL) return 0;
     if (!s_rx_ready) return 0;
 
@@ -132,17 +136,19 @@ int modbus_uart_poll(u8 **p, u32 *len)
 
 void modbus_uart_send(const u8 *p, u32 len)
 {
-    if (p == NULL || len == 0u || len > sizeof(s_tx_pkt.data)) return;
-    modbus_uart_service_tx_done();
-    if (s_tx_active || uart_tx_is_busy()) return;
+    if (p == NULL || len == 0u) return;
+    if (len > sizeof(s_tx_pkt.data)) len = sizeof(s_tx_pkt.data);
 
     s_tx_pkt.dma_len = len;
     memcpy(s_tx_pkt.data, p, len);
 
 #if MODBUS_RS485_ENABLE
     modbus_rs485_transmit_mode();
+    s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_active = 1u;
 #endif
-    s_tx_active = 1u;
+
+    /* Proven new-new-master TX path: DMA packet is [u32 len + payload]. */
     uart_send_dma((u8 *)&s_tx_pkt);
 }
 
@@ -154,20 +160,24 @@ static void modbus_uart_rx_reset(void)
 }
 
 static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
-static _attribute_data_retention_ u32 mb_last_ok_tick = 0;
-static _attribute_data_retention_ u32 mb_bad_cnt = 0;
+static _attribute_data_retention_ u32 mb_last_ok_tick = 0u;
+static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
 
 void main_loop_modbus(void)
 {
     u8 *req = 0;
-    u32 req_len = 0;
+    u32 req_len = 0u;
 
-    modbus_uart_service_tx_done();
+#if MODBUS_RS485_ENABLE
+    modbus_rs485_service_tx_done();
+#endif
 
     if (modbus_uart_poll(&req, &req_len))
     {
-        u32 rsp_len = 0;
+        u32 rsp_len = 0u;
         int ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
+
+        /* Match the proven implementation: always re-arm RX after a frame. */
         modbus_uart_rx_reset();
 
         if (ok && rsp_len)
@@ -196,5 +206,7 @@ void main_loop_modbus(void)
         mb_bad_cnt = 0u;
     }
 
-    modbus_uart_service_tx_done();
+#if MODBUS_RS485_ENABLE
+    modbus_rs485_service_tx_done();
+#endif
 }
