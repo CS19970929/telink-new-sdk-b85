@@ -1,0 +1,59 @@
+name: One-shot unify software protection
+
+on:
+  push:
+    branches:
+      - feature/sh3673510-d011-bms
+    paths:
+      - tools/unify_sw_protection_sh_once.py
+      - .github/workflows/one-shot-unify-sw-protection.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply common software protection migration
+        run: python tools/unify_sw_protection_sh_once.py
+
+      - name: Refresh locked source order
+        run: python bms_tools/bms.py sources --update
+
+      - name: Run unified protection contract
+        run: python tests/sw_protection_contract_check.py
+
+      - name: Run existing host contracts
+        run: |
+          python bms_tools/bms.py sources --check
+          python -m unittest tests.test_bms_tools -v
+          python tests/dvc1124_config_quick_check.py
+          python tests/sh3673520_contract_check.py
+          python tests/sh3673510_d011_integration_check.py
+          python tests/sh3673510_protection_mode_check.py
+          python tests/sh3673510_temperature_encoding_check.py
+          python tests/soc_contract_check.py
+          python tests/flash_quick_check.py
+
+      - name: Commit unified protection core
+        shell: bash
+        run: |
+          git checkout -- .github/workflows/bms-ci.yml
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(bms): unify three-level software protection core"
+          git push origin HEAD:${GITHUB_REF_NAME}
