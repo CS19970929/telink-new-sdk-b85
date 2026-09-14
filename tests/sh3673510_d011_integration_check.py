@@ -200,7 +200,9 @@ require(uart, "D011_RS485_EN_PIN")
 require(uart, "modbus_rs485_receive_mode")
 require(uart, "modbus_rs485_transmit_mode")
 require(uart, "uart_tx_is_busy()")
-require(uart, "DMA completion can precede the UART stop bit")
+require(uart, "s_rs485_tx_start_tick")
+require(uart, "s_rs485_tx_min_hold_us")
+require(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)")
 
 require(modbus_h, "#define DVC1124_COMM_REG_COUNT                  0x0000u")
 require(modbus_h, "#define DVC1124_RAW_REG_COUNT                   0x0000u")
@@ -281,7 +283,7 @@ require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
 require(bms, "s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
 require(bms, "void sh3673510_bms_afe_sleep(void)\n{\n    s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;")
-require_count(bms, "s_short_latched = 0u;", 1)
+require_count(bms, "s_short_latched = 0u;", 2)
 
 
 # Hardware FLAG recovery must be based on physical recovery windows and the

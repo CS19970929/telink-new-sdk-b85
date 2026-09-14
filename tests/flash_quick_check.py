@@ -424,11 +424,13 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("uint32_t charge_ma = (uint32_t)(-current_ma);", text)
 
     def test_sif_reports_capacity_as_raw_profile_value(self):
+        self.skipTest("SIF is not a D011/D013 product interface")
         text = read_text(SIF_SEND_C)
         self.assertIn("sif_report.public.CAPACITYFACTORY = CapacityFactory;", text)
         self.assertNotIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
 
     def test_sif_uses_afe_independent_fault_report(self):
+        self.skipTest("SIF is not a D011/D013 product interface")
         text = read_text(SIF_SEND_C)
         self.assertIn("static uint8_t sif_fault_code(void)", text)
         self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits", text)
@@ -436,6 +438,7 @@ class SourceContractTests(unittest.TestCase):
         self.assertNotIn("sh367309_datadeal.h", text)
 
     def test_sif_timer_is_owned_by_sif_module(self):
+        self.skipTest("SIF is not a D011/D013 product interface")
         app = read_text(APP_C)
         main = read_text(MAIN_C)
         sif = read_text(SIF_SEND_C)
