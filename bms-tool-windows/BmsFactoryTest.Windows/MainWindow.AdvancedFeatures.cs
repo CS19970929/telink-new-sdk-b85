@@ -57,7 +57,7 @@ public partial class MainWindow
         _advancedFeatureTimer.Tick += (_, _) => AdvancedFeatureTimer_Tick();
         _advancedFeatureTimer.Start();
 
-        AppendLog("高级功能已启用：SH367309 AFE硬件保护参数、100/500条设备事件日志、长期监控Excel导出。", "APP");
+        AppendLog("内部完整版高级功能已启用：AFE硬件保护V2原子事务、100/500条设备事件日志、长期监控Excel导出。", "APP");
     }
 
     private async Task WaitForCommunicationIdleAsync()
