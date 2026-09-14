@@ -1,62 +1,44 @@
-# TLSR8251 BMS 固件模板
+# D013 / TLSR8251 / SH3673510 BMS
 
-本仓库当前产品目标为 **TLSR8251 + HS-D008 + DVC1124-2**。重构优先级是安全和兼容，其次才是代码量；保护阈值、协议、Flash 布局、OTA 边界和已验证时序不得在普通整理中改变。
+当前分支目标为 **D013 + TLSR8251F512ET32 + SH3673510**。源码 product profile 当前为 **4S / 100µΩ**，主通信配置为 direct UART (`MODBUS_RS485_ENABLE=0`)。
 
-## 当前状态
+> **当前没有在已提供资料中找到 D013 专属原理图/BOM。** 因此 D013 的 GPIO、NTC、heater/fuse、通信唤醒等板级连接尚不能按硬件事实确认。当前源码大量继承 `D011_*` 宏，只能视为 CODE，不得当作 D013 原理图结论。
 
-- 应用层只通过 `bms_afe.h` 使用 AFE；旧 `sh367309_datadeal.*`、`MTPWrite`、`App_AFEGet` 和虚拟 GPIO/ADC 兼容层已删除。
-- `bms_state.*` / `bms_error.h` 统一持有 BMS 报告、系统状态、错误计数和分级故障历史，通信层不再跨文件遍历私有数组。
-- DVC1124 寄存器真值集中在 `dvc1124_reg.h`；板级默认值集中在 `dvc1124_project_config.h`。
-- BLE 与 UART 共用同一个 Modbus/AFE 配置服务。
-- 参数、SOC、runtime、事件日志和 DVC 配置使用彼此独立的 Flash 区域。
-- 主机契约测试可运行；固定 TC32 构建和 HS-D008 实板验证仍是发布前必需项。
+## 当前架构
 
-固件主目录：
-
-```text
-tc_ble_single_sdk-V3.4.2.8_Patch_0001/
-└── tc_ble_single_sdk/vendor/ble_sample/
-```
-
-## 常用命令
-
-```bash
-python3 bms_tools/bms.py sources --check
-python3 tests/dvc1124_config_quick_check.py
-python3 tests/flash_quick_check.py
-python3 -m unittest tests/test_bms_tools.py
-```
-
-在已安装固定版 Telink TC32 工具链的 Windows 环境中：
-
-```powershell
-python bms_tools/bms.py env
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py ci --jobs 4
-python bms_tools/bms.py verify
-```
-
-新增、删除或重命名源码后，显式更新并审核链接顺序：
-
-```bash
-python3 bms_tools/bms.py sources --update
-git diff -- bms_tools/source_order.txt
-```
+- AFE backend：当前源码为 SH3673510，系列共用驱动文件仍名 `sh3673520_*`。
+- 软件保护：统一 `bms_sw_protection.*`，参数为 `g_tParam.protect` First/Second/Third/Recover/Filter。
+- AFE 硬件保护：独立 `bms_afe_hw_profile_t`；与软件保护分开修改/持久化。
+- 当前源码 profile：4S、100µΩ；但硬件事实需 D013 原理图确认。
+- AFE requested/effective 使用统一 Hardware Protection V2。
 
 ## 文档入口
 
-- [架构与 AFE 移植](docs/ARCHITECTURE.md)
-- [构建、测试与发布门禁](docs/BUILD_AND_TEST.md)
-- [Flash 与持久化](docs/STORAGE.md)
-- [SOC 当前行为](docs/SOC.md)
-- [待完成的硬件验证](docs/HARDWARE_VALIDATION.md)
-- [DVC1124 / HS-D008 硬件基线](docs/DVC1124_HS_D008.md)
-- [DVC1124 配置与通信接口](docs/DVC1124_CONFIG_INTERFACE.md)
-- [DVC1124 后续任务](docs/DVC1124_DEVELOPMENT_TASKS.md)
-- [配套 BMS 客户端](tools/README.md)
+当前 D013 配置只认以下入口：
 
-Vendor release note、patch note 和 license 文件保留在 SDK 原目录；它们不属于项目设计文档，不应随应用重构改写。
+- [D013 产品硬件与固件配置基线](docs/D013_PRODUCT_REFERENCE.md) — 明确区分源码事实与缺失的原理图证据。
+- [D013 实板验证与发布阻断项](docs/HARDWARE_VALIDATION.md) — 首要任务是补齐 D013 原理图/BOM 并重建 IO 真值。
+- [BMS 软件架构与配置所有权](docs/ARCHITECTURE.md)
+- [软件三级保护](docs/SOFTWARE_PROTECTION.md)
+- [AFE Hardware Protection V2](docs/AFE_HARDWARE_PROTECTION_V2.md)
+- [SOC](docs/SOC.md)
+- [Flash / Storage](docs/STORAGE.md)
+- [构建与测试](docs/BUILD_AND_TEST.md)
+
+D008/DVC1124 文档和 D011 原理图/状态文档不属于 D013，已从当前设计入口移除。D013 中残留的 `D011_*` 宏和 `BT_D011`/`D011` 产品身份是源码技术债，不能由文档静默改名掩盖。
+
+## 构建/检查
+
+```powershell
+python bms_tools/bms.py env
+python bms_tools/bms.py sources --check
+python bms_tools/bms.py rebuild --jobs 4
+python bms_tools/bms.py check-fw
+python bms_tools/bms.py map
+python bms_tools/bms.py verify
+python bms_tools/bms.py static --no-report
+```
 
 ## 发布原则
 
-主机测试通过只证明源码契约未回归，不代表固件可量产。任何涉及保护、MOS、采样、低功耗、Flash 或 OTA 的版本，必须完成 TC32 编译、MAP/BIN 尺寸检查、固件校验和对应实板测试，并把结果绑定到具体 commit。
+D013 当前可通过软件/TC32 构建只能证明代码基线。没有 D013 原理图/BOM时，不能宣称当前 GPIO、100µΩ、NTC、heater/fuse、UART 等已经完成硬件签核；必须先按 `HARDWARE_VALIDATION.md` 补齐证据。
