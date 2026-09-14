@@ -1,0 +1,69 @@
+name: One-shot split AFE hardware protection
+
+on:
+  push:
+    branches:
+      - feature/sh3673510-d011-bms
+    paths:
+      - tools/split_afe_hw_protection_once.py
+      - .github/workflows/one-shot-split-afe-hw-protection.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply independent AFE hardware protection profile
+        shell: bash
+        run: |
+          python tools/split_afe_hw_protection_once.py
+          MOD=tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/modbus_rtu.c
+          if ! grep -q '#include "sh3673510_project_config.h"' "$MOD"; then
+            sed -i '/#include "sh3673510_control.h"/a #include "sh3673510_project_config.h"' "$MOD"
+          fi
+          if ! grep -q '^static u16 u16be(const u8 \*p);' "$MOD"; then
+            sed -i '/static u16 read_ascii_string_reg/i static u16 u16be(const u8 *p);' "$MOD"
+          fi
+
+      - name: Refresh locked source order
+        run: python bms_tools/bms.py sources --update
+
+      - name: Run independent hardware profile contract
+        run: python tests/afe_hw_profile_contract_check.py
+
+      - name: Run existing host contracts
+        shell: bash
+        run: |
+          python bms_tools/bms.py sources --check
+          python -m unittest tests.test_bms_tools -v
+          python tests/dvc1124_config_quick_check.py
+          python tests/sh3673520_contract_check.py
+          python tests/sh3673510_d011_integration_check.py
+          python tests/sh3673510_protection_mode_check.py
+          python tests/sh3673510_temperature_encoding_check.py
+          python tests/sw_protection_contract_check.py
+          python tests/soc_contract_check.py
+          python tests/flash_quick_check.py
+
+      - name: Commit split protection architecture
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(bms): split software and AFE hardware protection parameters"
+          git push origin HEAD:${GITHUB_REF_NAME}
