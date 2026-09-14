@@ -29,6 +29,7 @@ port_h = text("sh3673520_port.h")
 driver = text("sh3673520.c")
 control = text("sh3673510_control.c")
 bms = text("sh3673510_bms.c")
+app = text("app.c")
 uart = text("modbus_uart.c")
 modbus_h = text("modbus_rtu.h")
 
@@ -152,7 +153,7 @@ require(bms, "current.cadc_raw")
 require(bms, "SH3673510_D011_SHUNT_UOHM")
 require(bms, "g_stCellInfoReport.u16Ichg")
 require(bms, "g_stCellInfoReport.u16IDischg")
-require(bms, "D011_SWITCH_PIN")
+require(app, "D011_SWITCH_PIN")
 require(bms, "sh3673510_board_wake_active")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "sh3673510_board_set_heater")
@@ -172,6 +173,20 @@ require(bms, "SH3673510_D011_HEATER_NTC_INDEX")
 require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
 require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
 require(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")
+
+# D011 is common-port: normal healthy operation requests both FETs ON.
+require(app, "uint8_t chg_target = 1u;")
+require(app, "uint8_t dsg_target = 1u;")
+if "dsg_target = d011_switch_is_on()" in app:
+    raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")
+fet_start = bms.find("static uint8_t sh3510_apply_requested_fets")
+fet_end = bms.find("static void apply_heater", fet_start)
+if fet_start < 0 or fet_end <= fet_start:
+    raise AssertionError("missing FET arbitration function")
+fet_text = bms[fet_start:fet_end]
+require(fet_text, "discharge_on = s_requested_discharge_on ? 1u : 0u;")
+if "D011_SWITCH_PIN" in fet_text or "key_on" in fet_text:
+    raise AssertionError("PA0/SW1 must not directly gate common-port CHG/DSG FETs")
 if "clear_recovered_flags" in bms:
     raise AssertionError("AFE flags must use physical-value recovery, not software-third state")
 if "TS3-NC" in bms:

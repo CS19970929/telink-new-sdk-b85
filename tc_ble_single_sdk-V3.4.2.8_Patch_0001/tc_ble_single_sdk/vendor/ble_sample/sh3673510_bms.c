@@ -351,14 +351,12 @@ static uint8_t sh3510_apply_requested_fets(void)
 {
     uint8_t charge_on = 0u;
     uint8_t discharge_on = 0u;
-    uint8_t key_on;
 
     if (!sh3673510_control_ready()) return 0u;
-    key_on = gpio_read(D011_SWITCH_PIN) ? 0u : 1u;
 
     if (s_output_enabled && sh3510_outputs_healthy()) {
         charge_on = s_requested_charge_on ? 1u : 0u;
-        discharge_on = (s_requested_discharge_on && key_on) ? 1u : 0u;
+        discharge_on = s_requested_discharge_on ? 1u : 0u;
         if (charge_blocked()) charge_on = 0u;
         if (discharge_blocked()) discharge_on = 0u;
     }
