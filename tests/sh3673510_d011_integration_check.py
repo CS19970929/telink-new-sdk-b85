@@ -29,6 +29,7 @@ port_h = text("sh3673520_port.h")
 driver = text("sh3673520.c")
 control = text("sh3673510_control.c")
 bms = text("sh3673510_bms.c")
+hw_profile = text("bms_afe_hw_profile.c")
 app = text("app.c")
 uart = text("modbus_uart.c")
 modbus_h = text("modbus_rtu.h")
@@ -140,7 +141,6 @@ for needle in (
     "SH3673510_D011_CELL_COUNT",
     "s_static_reg_cfg",
     "SH3673510_D011_SCONF5_VALUE",
-    "SH3673510_D011_SCONF6_VALUE",
     "SH3673520_SetBalanceMask",
     "SH3673520_REG_OCD1V_OCD1T",
     "SH3673520_REG_OCD2V_OCD2T",
@@ -241,11 +241,11 @@ if "u16IDischg" in short_text:
 require(bms, "service_short_recovery")
 require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
 require(control, "sh3673510_control_get_protection_actual")
-require(control, "p->u16IdsgOcp_First > 3200u")
-require(control, "p->u16IdsgOcp_Second > 6400u")
-require(control, "p->u16IchgOcp_First > 1760u")
-require(control, "p->u16IdsgOcp_Filter > 40u")
-require(control, "p->u16SocUp_First > 100u")
+require(hw_profile, "sense_uv > 80000u")
+require(hw_profile, "sense_uv > 160000u")
+require(hw_profile, "sense_uv > 44000u")
+require(hw_profile, "p->ocd2_delay_ms > 400u")
+require(hw_profile, "BMS_AFE_HW_PROFILE_SCHEMA_VERSION")
 
 
 # Migration idempotency / compilation-safety guards.
@@ -298,21 +298,21 @@ if hw_start < 0 or hw_end <= hw_start:
 hw_text = bms[hw_start:hw_end]
 for needle in (
     "sh3673510_control_get_protection_actual",
-    "u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv",
+    "u16VCellMax <= hw.cov_recover_mv",
     "u16VCellMax < actual.ov_mv",
-    "u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv",
+    "u16VCellMin >= hw.cuv_recover_mv",
     "u16VCellMin > actual.uv_mv",
     "dsg_ocp_release_ok",
     "SH3673520_BSTATUS2_LOADOFF_MASK",
     "SH3673520_BSTATUS2_CHGING_MASK",
-    "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv",
+    "u16IDischg <= hw.ocd_recover_a10",
     "u16IDischg < actual.ocd1_a10",
     "u16IDischg < actual.ocd2_a10",
-    "SH3510_OCD_RELEASE_FILTER_10MS",
-    "u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv",
+    "hw.ocd_recover_ms",
+    "u16Ichg <= hw.occ_recover_a10",
     "u16Ichg < actual.occ_a10",
-    "bat_max <= g_tParam.protect.u16TChgOTp_Rcv",
-    "bat_min >= g_tParam.protect.u16TchgUTp_Rcv",
+    "bat_max <= hw.chg_ot_recover_x10",
+    "bat_min >= hw.chg_ut_recover_x10",
 ):
     require(hw_text, needle)
 if "unMdlFault_Third" in hw_text:

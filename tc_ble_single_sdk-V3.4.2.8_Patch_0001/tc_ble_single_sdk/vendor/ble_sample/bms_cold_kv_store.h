@@ -2,6 +2,7 @@
 
 #include "param.h"
 #include "flash_kv32.h"
+#include "bms_afe_hw_profile.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +56,8 @@ int bms_cold_kv_store_get_protect(struct PRT_E2ROM_PARAS *protect);
 int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
 int bms_cold_kv_store_get_system(bms_cold_system_params_t *system);
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system);
+int bms_cold_kv_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile);
+int bms_cold_kv_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile);
 int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value);
 int bms_cold_kv_store_set_control_value(bms_cold_control_param_id_t item, u32 value);
 int bms_cold_kv_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
