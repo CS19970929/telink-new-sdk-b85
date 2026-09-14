@@ -52,7 +52,7 @@ jobs:
           python tests/d008_framework_contract_check.py
           python tests/d008_20s_profile_contract_check.py
           python tests/sw_protection_contract_check.py
-      - name: Clean rebuild
+      - name: Clean rebuild 24S LFP default
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4
       - name: Check firmware
@@ -78,11 +78,11 @@ jobs:
         run: |
           python tests/soc_contract_check.py
           python tests/flash_quick_check.py
-      - name: Upload evidence
+      - name: Upload 24S LFP evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: d008-afe-hw-split-${{ github.sha }}
+          name: d008-afe-hw-split-24s-lfp-${{ github.sha }}
           retention-days: 14
           if-no-files-found: ignore
           path: |
@@ -91,3 +91,11 @@ jobs:
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/fw_manifest.json
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.map
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/static/**
+      - name: Clean rebuild 20S NMC variant
+        shell: powershell
+        run: |
+          python -c "from pathlib import Path; p=Path(r'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/d008_product_profile.h'); s=p.read_text(encoding='utf-8'); old='#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_24S_LFP'; new='#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_20S_NMC'; assert old in s; p.write_text(s.replace(old,new,1),encoding='utf-8')"
+          python bms_tools/bms.py rebuild --jobs 4
+          python bms_tools/bms.py check-fw
+          python bms_tools/bms.py size
+          git diff -- tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/d008_product_profile.h
