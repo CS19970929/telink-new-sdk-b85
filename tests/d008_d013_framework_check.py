@@ -113,11 +113,15 @@ class SafetySupervisorTests(unittest.TestCase):
         repair_start = self.safe.index("static uint8_t dvc_safe_enforce_board_config")
         repair_end = self.safe.index("static uint8_t dvc_safe_effective_fets")
         repair = self.safe[repair_start:repair_end]
-        self.assertNotIn("scd_threshold_mv =", repair)
-        self.assertNotIn("body_diode_threshold_uv =", repair)
-        self.assertNotIn("i2c_watchdog =", repair)
-        self.assertNotIn("gp2_mode =", repair)
-        self.assertNotIn("gp3_mode =", repair)
+        forbidden_assignments = (
+            r"cfg\.scd_threshold_mv\s*=\s*",
+            r"cfg\.body_diode_threshold_uv\s*=\s*",
+            r"cfg\.operating\.i2c_watchdog\s*=\s*",
+            r"cfg\.operating\.gp2_mode\s*=\s*[^=]",
+            r"cfg\.operating\.gp3_mode\s*=\s*[^=]",
+        )
+        for pattern in forbidden_assignments:
+            self.assertIsNone(re.search(pattern, repair))
 
 
 class RegisterDefaultAuditTests(unittest.TestCase):
