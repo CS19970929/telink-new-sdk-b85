@@ -8,6 +8,8 @@
 #include "runtime.h"
 #include <string.h>
 
+static u8 s_config_inconsistent;
+
 static dvc1124_config_result_t dvc_cfg_load(dvc1124_persistent_config_t *cfg)
 {
     if (cfg == NULL) return DVC1124_CFG_ERR_VALUE;
@@ -26,15 +28,30 @@ static dvc1124_config_result_t dvc_cfg_apply_store_transaction(
     if ((before == NULL) || (after == NULL)) return DVC1124_CFG_ERR_VALUE;
     if (!DVC1124_ConfigStoreValidate(after)) return DVC1124_CFG_ERR_VALUE;
 
-    if (!DVC1124_ConfigStoreApply(after)) return DVC1124_CFG_ERR_AFE_IO;
+    if (!DVC1124_ConfigStoreApply(after))
+    {
+        /* Apply may have changed a subset of registers before failing. */
+        if (!DVC1124_ConfigStoreApply(before))
+        {
+            s_config_inconsistent = 1u;
+            return DVC1124_CFG_ERR_INCONSISTENT;
+        }
+        return DVC1124_CFG_ERR_AFE_IO;
+    }
 
     if (!DVC1124_ConfigStoreSave(after))
     {
-        /* Do not leave live AFE and persistent source-of-truth divergent. */
-        (void)DVC1124_ConfigStoreApply(before);
+        uint8_t live_ok = DVC1124_ConfigStoreApply(before) ? 1u : 0u;
+        uint8_t store_ok = DVC1124_ConfigStoreSave(before) ? 1u : 0u;
+        if (!live_ok || !store_ok)
+        {
+            s_config_inconsistent = 1u;
+            return DVC1124_CFG_ERR_INCONSISTENT;
+        }
         return DVC1124_CFG_ERR_STORE;
     }
 
+    s_config_inconsistent = 0u;
     return DVC1124_CFG_OK;
 }
 
@@ -321,6 +338,9 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
     case DVC1124_CFG_CORE_OT_EVENT_LATCHED:
         *value = DVC1124_GetCoreOtEventLatched();
         return DVC1124_CFG_OK;
+    case DVC1124_CFG_CONFIG_INCONSISTENT:
+        *value = s_config_inconsistent;
+        return DVC1124_CFG_OK;
     default: break;
     }
 
@@ -379,7 +399,10 @@ static dvc1124_config_result_t dvc_cfg_write_afe_field(dvc1124_config_field_t fi
 
     switch (field)
     {
-    case DVC1124_CFG_HS_FET_MASK: if (value > 1u) return DVC1124_CFG_ERR_VALUE; after.operating.high_side_fet_mask = (u8)value; break;
+    case DVC1124_CFG_HS_FET_MASK:
+        if (value != DVC1124_DEFAULT_HIGH_SIDE_FET_MASK) return DVC1124_CFG_ERR_FORBIDDEN;
+        after.operating.high_side_fet_mask = (u8)value;
+        break;
     case DVC1124_CFG_CADC_WORK_ENABLE: if (value > 1u) return DVC1124_CFG_ERR_VALUE; after.operating.cadc_work_enable = (u8)value; break;
     case DVC1124_CFG_CURRENT_WAKE_ENABLE: if (value > 1u) return DVC1124_CFG_ERR_VALUE; after.operating.current_wake_enable = (u8)value; break;
     case DVC1124_CFG_CC1_WORK_TIME: if (value > 3u) return DVC1124_CFG_ERR_VALUE; after.operating.cc1_work_time = (dvc1124_cc1_work_time_t)value; break;

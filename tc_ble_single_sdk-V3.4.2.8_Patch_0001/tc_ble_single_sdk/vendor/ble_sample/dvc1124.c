@@ -46,6 +46,15 @@ static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
 static uint8_t s_output_enabled;
 static uint32_t s_balance_requested_mask;
+static uint32_t s_balance_last_refresh_tick;
+static uint8_t s_balance_suspended;
+static uint32_t s_snapshot_generation;
+static uint32_t s_openwire_start_generation;
+static uint32_t s_openwire_start_tick;
+static dvc1124_openwire_result_t s_openwire_result;
+
+#define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u
+#define DVC_OPENWIRE_SETTLE_US           1200000u
 
 /* Last values actually represented by DVC hardware. Used for diagnostics. */
 typedef struct
@@ -462,6 +471,9 @@ static uint8_t dvc_apply_basic_config(void)
     uint8_t body_diode_code;
     uint8_t watchdog_code;
     uint8_t cpvs_bits;
+    uint8_t cadc_bits = 0u;
+    uint8_t dsg_mask = DVC1124_DEFAULT_DSG_MASK_POLICY;
+    uint8_t chg_mask = DVC1124_DEFAULT_CHG_MASK_POLICY;
 
     if (DVC1124_CHARGE_PUMP_VOLTAGE_CODE > 7u) return 0u;
     if (!dvc_encode_current_wake(DVC1124_CURRENT_WAKE_THRESHOLD_UV, &current_wake_code)) return 0u;
@@ -472,13 +484,17 @@ static uint8_t dvc_apply_basic_config(void)
     ok &= dvc_write_verified(DVC1124_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
     ok &= dvc_write_verified(DVC1124_REG_GP456_MODE, DVC1124_GP456_MODE_VALUE);
 
-    /* HS-D008 uses GP5/GP6 low-side CHG/DSG. Enable CADC in work and sleep. */
+    /* HS-D008 uses GP5/GP6 low-side CHG/DSG.  Apply the reviewed defaults
+     * literally so reset-time configuration cannot transiently unmask the
+     * unused high-side path or enable CAES while CWT is zero. */
+    if (DVC1124_DEFAULT_HIGH_SIDE_FET_MASK) cadc_bits |= DVC1124_CADC_HSFM_MASK;
+    if (DVC1124_DEFAULT_CADC_WORK_ENABLE) cadc_bits |= DVC1124_CADC_CAEW_MASK;
+    if (DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE) cadc_bits |= DVC1124_CADC_CAES_MASK;
     ok &= dvc_update_reg(DVC1124_REG_CADC_CTRL,
                          (uint8_t)(DVC1124_CADC_HSFM_MASK |
                                    DVC1124_CADC_CAEW_MASK |
                                    DVC1124_CADC_CAES_MASK),
-                         (uint8_t)(DVC1124_CADC_CAEW_MASK |
-                                   DVC1124_CADC_CAES_MASK));
+                         cadc_bits);
 
     cpvs_bits = DVC1124_FIELD_PREP(DVC1124_CPVS_MASK,
                                     DVC1124_CPVS_SHIFT,
@@ -507,19 +523,17 @@ static uint8_t dvc_apply_basic_config(void)
                          watchdog_code);
 
 #if DVC1124_I2C_TIMEOUT_CLOSE_DSG
-    ok &= dvc_update_reg(DVC1124_REG_DSG_MASK, DVC1124_DSGMASK_DWM_MASK, 0u);
+    dsg_mask &= (uint8_t)~DVC1124_DSGMASK_DWM_MASK;
 #else
-    ok &= dvc_update_reg(DVC1124_REG_DSG_MASK,
-                         DVC1124_DSGMASK_DWM_MASK,
-                         DVC1124_DSGMASK_DWM_MASK);
+    dsg_mask |= DVC1124_DSGMASK_DWM_MASK;
 #endif
 #if DVC1124_I2C_TIMEOUT_CLOSE_CHG
-    ok &= dvc_update_reg(DVC1124_REG_CHG_MASK, DVC1124_CHGMASK_CWM_MASK, 0u);
+    chg_mask &= (uint8_t)~DVC1124_CHGMASK_CWM_MASK;
 #else
-    ok &= dvc_update_reg(DVC1124_REG_CHG_MASK,
-                         DVC1124_CHGMASK_CWM_MASK,
-                         DVC1124_CHGMASK_CWM_MASK);
+    chg_mask |= DVC1124_CHGMASK_CWM_MASK;
 #endif
+    ok &= dvc_write_verified(DVC1124_REG_DSG_MASK, dsg_mask);
+    ok &= dvc_write_verified(DVC1124_REG_CHG_MASK, chg_mask);
 
     /* Start safe; existing mos_update() requests the application state later. */
     ok &= DVC1124_SetMosState(0u, 0u);
@@ -918,34 +932,82 @@ void DVC1124_SetOutputEnabled(uint8_t enabled)
     }
 }
 
+static uint32_t dvc_valid_cell_mask(void)
+{
+    return (s_cfg.cell_count >= 24u)
+               ? 0x00FFFFFFu
+               : ((1uL << s_cfg.cell_count) - 1uL);
+}
+
 static uint8_t dvc_refresh_balance_state(void)
 {
     uint8_t data[3];
     uint32_t actual;
 
     if (!DVC1124_ReadRegisters(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
-    actual = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2];
-    if (s_cfg.cell_count < 24u) actual &= ((1uL << s_cfg.cell_count) - 1uL);
+    actual = (((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2]) & dvc_valid_cell_mask();
     g_stCellInfoReport.u16BalanceFlag1 = (uint16_t)(actual & 0xFFFFu);
     g_stCellInfoReport.u16BalanceFlag2 = (uint16_t)((actual >> 16) & 0x00FFu);
     return 1u;
 }
 
-uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
+static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
 {
     uint8_t data[3];
-
-    cell_mask &= 0x00FFFFFFu;
-    if (s_cfg.cell_count < 24u) cell_mask &= ((1uL << s_cfg.cell_count) - 1uL);
-
+    cell_mask &= dvc_valid_cell_mask();
     data[0] = (uint8_t)(cell_mask >> 16);
     data[1] = (uint8_t)(cell_mask >> 8);
     data[2] = (uint8_t)cell_mask;
     if (!dvc_write_verified_block(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
-
-    s_balance_requested_mask = cell_mask;
-    (void)s_balance_requested_mask; /* request must be refreshed by upper layer before 60 s timeout */
     return dvc_refresh_balance_state();
+}
+
+uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
+{
+    s_balance_requested_mask = cell_mask & dvc_valid_cell_mask();
+    if (s_balance_requested_mask == 0u)
+    {
+        s_balance_suspended = 0u;
+        s_balance_last_refresh_tick = clock_time();
+        return dvc_write_balance_hw(0u);
+    }
+
+    /* A non-zero request is armed, not immediately energized.  The BMS-side
+     * service applies/renews it only while charge/fault conditions allow. */
+    s_balance_suspended = 1u;
+    return dvc_refresh_balance_state();
+}
+
+void DVC1124_BalanceService(uint8_t allow_refresh)
+{
+    if (s_balance_requested_mask == 0u)
+    {
+        (void)dvc_refresh_balance_state();
+        return;
+    }
+
+    if (!allow_refresh || (s_openwire_result.state == DVC1124_OPENWIRE_WAITING))
+    {
+        if (!s_balance_suspended)
+        {
+            if (dvc_write_balance_hw(0u)) s_balance_suspended = 1u;
+        }
+        return;
+    }
+
+    if (s_balance_suspended ||
+        clock_time_exceed(s_balance_last_refresh_tick, DVC_BALANCE_REFRESH_INTERVAL_US))
+    {
+        if (dvc_write_balance_hw(s_balance_requested_mask))
+        {
+            s_balance_suspended = 0u;
+            s_balance_last_refresh_tick = clock_time();
+        }
+    }
+    else
+    {
+        (void)dvc_refresh_balance_state();
+    }
 }
 
 uint8_t DVC1124_StartOpenWireCheck(void)
@@ -956,6 +1018,62 @@ uint8_t DVC1124_StartOpenWireCheck(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &reg, 1u)) return 0u;
     reg |= DVC1124_COW_MASK;
     return DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &reg, 1u);
+}
+
+void DVC1124_OpenWireReset(void)
+{
+    memset(&s_openwire_result, 0, sizeof(s_openwire_result));
+    s_openwire_result.state = DVC1124_OPENWIRE_IDLE;
+    s_openwire_start_tick = 0u;
+    s_openwire_start_generation = s_snapshot_generation;
+}
+
+uint8_t DVC1124_OpenWireBegin(void)
+{
+    if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING) return 0u;
+
+    if (!s_balance_suspended && s_balance_requested_mask != 0u)
+    {
+        if (!dvc_write_balance_hw(0u)) return 0u;
+        s_balance_suspended = 1u;
+    }
+
+    memset(&s_openwire_result, 0, sizeof(s_openwire_result));
+    s_openwire_result.state = DVC1124_OPENWIRE_WAITING;
+    s_openwire_start_generation = s_snapshot_generation;
+    s_openwire_start_tick = clock_time();
+    if (!DVC1124_StartOpenWireCheck())
+    {
+        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
+        return 0u;
+    }
+    return 1u;
+}
+
+void DVC1124_OpenWirePoll(void)
+{
+    uint8_t cp;
+
+    if (s_openwire_result.state != DVC1124_OPENWIRE_WAITING) return;
+    if (!clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_SETTLE_US)) return;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
+    {
+        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
+        return;
+    }
+    if (cp & DVC1124_COW_MASK) return;
+    if (!s_snapshot.valid || s_snapshot_generation == s_openwire_start_generation) return;
+
+    s_openwire_result.valid = 1u;
+    s_openwire_result.cell_count = s_snapshot.cell_count;
+    memcpy(s_openwire_result.cell_mv, s_snapshot.cell_mv, sizeof(s_openwire_result.cell_mv));
+    s_openwire_result.pack_mv = s_snapshot.pack_mv;
+    s_openwire_result.state = DVC1124_OPENWIRE_READY;
+}
+
+void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result)
+{
+    if (result != NULL) *result = s_openwire_result;
 }
 
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us)
@@ -1015,6 +1133,11 @@ void DVC1124_AFE_Reset(void)
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
     memset(&s_applied, 0, sizeof(s_applied));
+    s_balance_requested_mask = 0u;
+    s_balance_suspended = 0u;
+    s_balance_last_refresh_tick = clock_time();
+    s_snapshot_generation = 0u;
+    DVC1124_OpenWireReset();
     s_need_config = 1u;
 }
 
@@ -1045,7 +1168,8 @@ void DVC1124_UpdataAfeConfig(void)
 {
     uint8_t ok;
 
-    if (!DVC1124_SetCellCount((uint8_t)SeriesNum))
+    /* Physical D008 assembly profile is authoritative for AFE channel use. */
+    if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
     {
         dvc_note_comm_result(0u);
         return;
@@ -1224,6 +1348,9 @@ void DVC1124_App_AFEGet(void)
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
     g_bms_system_status.bits.b1Status_MOS_DSG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
+
+    ++s_snapshot_generation;
+    DVC1124_OpenWirePoll();
 
     /* 0x67..0x69 auto-clear after 60 s; report actual AFE state, not cached request. */
     if (!dvc_refresh_balance_state())

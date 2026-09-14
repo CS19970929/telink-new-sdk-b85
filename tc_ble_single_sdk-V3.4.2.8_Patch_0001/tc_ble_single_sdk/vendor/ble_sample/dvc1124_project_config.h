@@ -162,6 +162,19 @@
 #define DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH    16u
 #endif
 
+/*
+ * DVC 0x53/0x54 are entirely documented mask registers.  D008 has no signed-off
+ * product policy for the non-watchdog sources yet, therefore make the policy
+ * explicit and reset-equivalent instead of inheriting an unknown live value.
+ * The timeout bits DWM/CWM are overlaid from the persisted semantic options.
+ */
+#ifndef DVC1124_DEFAULT_DSG_MASK_POLICY
+#define DVC1124_DEFAULT_DSG_MASK_POLICY          DVC1124_DSG_MASK_RESET
+#endif
+#ifndef DVC1124_DEFAULT_CHG_MASK_POLICY
+#define DVC1124_DEFAULT_CHG_MASK_POLICY          DVC1124_CHG_MASK_RESET
+#endif
+
 /* COTT=0 keeps the DVC core over-temperature shutdown disabled. */
 #ifndef DVC1124_DEFAULT_CORE_OT_CODE
 #define DVC1124_DEFAULT_CORE_OT_CODE             0u

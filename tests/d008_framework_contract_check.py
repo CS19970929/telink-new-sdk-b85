@@ -40,6 +40,9 @@ class D008FrameworkContract(unittest.TestCase):
         cls.profile = read(HERE / "d008_product_profile.h")
         cls.param = read(HERE / "param.c")
         cls.dvc_bms = read(HERE / "dvc1124_bms.c")
+        cls.dvc = read(HERE / "dvc1124.c")
+        cls.store = read(HERE / "dvc1124_config_store.c")
+        cls.service = read(HERE / "dvc1124_config_service.c")
 
     def test_compile_time_backend_defaults_to_dvc1124(self):
         self.assertIn("BMS_AFE_BACKEND_DVC1124", self.backend)
@@ -122,6 +125,20 @@ class D008FrameworkContract(unittest.TestCase):
         migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
         self.assertNotIn("system.series_num =", migration)
         self.assertNotIn("system.capacity_factory =", migration)
+
+    def test_d008_runtime_enforces_product_cell_count_and_mask_policy(self):
+        self.assertIn("DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT)", self.dvc)
+        self.assertIn("DVC1124_DEFAULT_DSG_MASK_POLICY", self.cfg)
+        self.assertIn("DVC1124_DEFAULT_CHG_MASK_POLICY", self.cfg)
+        self.assertIn("dvc_cfg_normalize_product_policy", self.store)
+        self.assertIn("DVC1124_CFG_ERR_INCONSISTENT", self.service)
+
+    def test_openwire_is_raw_fsm_and_balance_refresh_is_safety_gated(self):
+        self.assertIn("DVC1124_OpenWireBegin", self.dvc)
+        self.assertIn("DVC1124_OpenWirePoll", self.dvc)
+        self.assertIn("DVC_BALANCE_REFRESH_INTERVAL_US 45000000u", self.dvc)
+        self.assertIn("DVC1124_BalanceService", self.dvc_bms)
+        self.assertIn("g_stCellInfoReport.u16Ichg > 0u", self.dvc_bms)
 
     def test_unverified_safety_features_remain_explicitly_disabled(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_SCD_THRESHOLD_MV"), 0)

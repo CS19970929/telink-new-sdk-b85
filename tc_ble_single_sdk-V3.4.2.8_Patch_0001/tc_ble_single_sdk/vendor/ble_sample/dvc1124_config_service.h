@@ -25,6 +25,7 @@ typedef enum
     DVC1124_CFG_SHUNT_UOHM_HI             = 0x06,
     DVC1124_CFG_STATUS_CACHED              = 0x07, /* cached 0x01; does not trigger RC read */
     DVC1124_CFG_CORE_OT_EVENT_LATCHED      = 0x08, /* sticky software copy of COTF */
+    DVC1124_CFG_CONFIG_INCONSISTENT         = 0x09, /* previous rollback failed */
 
     DVC1124_CFG_HS_FET_MASK               = 0x10,
     DVC1124_CFG_CADC_WORK_ENABLE          = 0x11,
@@ -98,6 +99,7 @@ typedef enum
     DVC1124_CFG_ERR_AFE_IO,
     DVC1124_CFG_ERR_STORE,
     DVC1124_CFG_ERR_FORBIDDEN,
+    DVC1124_CFG_ERR_INCONSISTENT,
 } dvc1124_config_result_t;
 
 #define DVC1124_CONFIG_SCHEMA_VERSION 0x0001u

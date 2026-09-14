@@ -182,6 +182,9 @@ void DVC1124_BmsApp_AFEGet(void)
     bms_sw_protection_update(&sw);
     dvc_merge_hw_faults(alarm);
     bms_sw_protection_record_fault_edges();
+    DVC1124_BalanceService((uint8_t)((g_stCellInfoReport.u16Ichg > 0u) &&
+                                     !dvc_charge_blocked() &&
+                                     !dvc_discharge_blocked()));
 
     /*
      * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, but pack

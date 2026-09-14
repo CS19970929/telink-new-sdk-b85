@@ -293,6 +293,7 @@ static u8 dvc_result_to_modbus_exception(dvc1124_config_result_t result)
         return MB_EX_ILLEGAL_VALUE;
     case DVC1124_CFG_ERR_AFE_IO:
     case DVC1124_CFG_ERR_STORE:
+    case DVC1124_CFG_ERR_INCONSISTENT:
     default:
         return MB_EX_DEVICE_FAILURE;
     }

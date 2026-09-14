@@ -29,6 +29,7 @@ static flash_kv32_key_def_t s_key_defs[DVC_CFG_KEY_COUNT];
 static flash_kv32_cache_entry_t s_cache[DVC_CFG_KEY_COUNT];
 static uint8_t s_restore_pending = 1u;
 static uint8_t s_kv_ready;
+static uint8_t s_last_load_normalized;
 
 static u32 dvc_cfg_key(dvc1124_cfg_key_index_t index)
 {
@@ -128,6 +129,41 @@ static int dvc_cfg_gp236_ok(uint8_t value)
     return ((value <= 2u) || (value == 6u) || (value == 7u)) ? 1 : 0;
 }
 
+/* Preserve unrelated legacy fields while enforcing D008 board invariants. */
+static uint8_t dvc_cfg_normalize_product_policy(dvc1124_persistent_config_t *cfg)
+{
+    uint8_t changed = 0u;
+    if (cfg == NULL) return 0u;
+
+    if (cfg->operating.high_side_fet_mask != DVC1124_DEFAULT_HIGH_SIDE_FET_MASK)
+    {
+        cfg->operating.high_side_fet_mask = DVC1124_DEFAULT_HIGH_SIDE_FET_MASK;
+        changed = 1u;
+    }
+    if ((cfg->current_wake_threshold_uv == 0u) && cfg->operating.current_wake_enable)
+    {
+        cfg->operating.current_wake_enable = 0u;
+        changed = 1u;
+    }
+    return changed;
+}
+
+static uint8_t dvc_cfg_dsg_mask_policy(const dvc1124_persistent_config_t *cfg)
+{
+    uint8_t value = DVC1124_DEFAULT_DSG_MASK_POLICY;
+    if (cfg->i2c_timeout_close_dsg) value &= (uint8_t)~DVC1124_DSGMASK_DWM_MASK;
+    else value |= DVC1124_DSGMASK_DWM_MASK;
+    return value;
+}
+
+static uint8_t dvc_cfg_chg_mask_policy(const dvc1124_persistent_config_t *cfg)
+{
+    uint8_t value = DVC1124_DEFAULT_CHG_MASK_POLICY;
+    if (cfg->i2c_timeout_close_chg) value &= (uint8_t)~DVC1124_CHGMASK_CWM_MASK;
+    else value |= DVC1124_CHGMASK_CWM_MASK;
+    return value;
+}
+
 int DVC1124_ConfigStoreValidate(const dvc1124_persistent_config_t *cfg)
 {
     uint32_t scd_code;
@@ -158,6 +194,11 @@ int DVC1124_ConfigStoreValidate(const dvc1124_persistent_config_t *cfg)
         !dvc_cfg_gp236_ok((uint8_t)cfg->operating.gp3_mode) ||
         !dvc_cfg_gp236_ok((uint8_t)cfg->operating.gp5_mode) ||
         !dvc_cfg_gp236_ok((uint8_t)cfg->operating.gp6_mode)) return 0;
+
+    /* D008 never uses the unconnected high-side FET path.  Also reject the
+     * incoherent CAES=1/CWT=0 state instead of silently enabling wake logic. */
+    if (cfg->operating.high_side_fet_mask != DVC1124_DEFAULT_HIGH_SIDE_FET_MASK) return 0;
+    if ((cfg->current_wake_threshold_uv == 0u) && cfg->operating.current_wake_enable) return 0;
 
     if (!((cfg->operating.i2c_watchdog == DVC1124_I2C_WDT_OFF) ||
           (cfg->operating.i2c_watchdog == DVC1124_I2C_WDT_4S) ||
@@ -388,6 +429,7 @@ int DVC1124_ConfigStoreLoad(dvc1124_persistent_config_t *cfg)
         !dvc_cfg_get(DVC_CFG_KEY_HW_MISC, &hw_misc) ||
         !dvc_cfg_get(DVC_CFG_KEY_SCD, &scd)) return 0;
 
+    s_last_load_normalized = 0u;
     memset(cfg, 0, sizeof(*cfg));
     dvc_cfg_unpack_operating(operating, cfg);
     dvc_cfg_unpack_gp(gp, cfg);
@@ -396,6 +438,7 @@ int DVC1124_ConfigStoreLoad(dvc1124_persistent_config_t *cfg)
     cfg->body_diode_threshold_uv = (uint16_t)body_diode;
     dvc_cfg_unpack_hw_misc(hw_misc, cfg);
     dvc_cfg_unpack_scd(scd, cfg);
+    s_last_load_normalized = dvc_cfg_normalize_product_policy(cfg);
 
     return DVC1124_ConfigStoreValidate(cfg);
 }
@@ -430,6 +473,8 @@ int DVC1124_ConfigStoreApply(const dvc1124_persistent_config_t *cfg)
 {
     uint8_t cwt;
     uint8_t bdpt;
+    uint8_t dsg_mask;
+    uint8_t chg_mask;
     uint8_t ok = 1u;
 
     if (!DVC1124_ConfigStoreValidate(cfg)) return 0;
@@ -441,15 +486,13 @@ int DVC1124_ConfigStoreApply(const dvc1124_persistent_config_t *cfg)
                ? 0u
                : (uint8_t)(cfg->body_diode_threshold_uv / 40u);
 
-    /* Configure timeout behavior before a stored non-zero I2C watchdog is enabled. */
-    ok &= DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CHG_MASK,
-                                          DVC1124_CHGMASK_CWM_MASK,
-                                          7u,
-                                          cfg->i2c_timeout_close_chg ? 0u : 1u);
-    ok &= DVC1124_WriteRegisterFieldSafe(DVC1124_REG_DSG_MASK,
-                                          DVC1124_DSGMASK_DWM_MASK,
-                                          3u,
-                                          cfg->i2c_timeout_close_dsg ? 0u : 1u);
+    /* Program the full documented 0x53/0x54 mask policy deterministically.
+     * Non-watchdog bits remain reset-equivalent until product review signs off
+     * a different policy; DWM/CWM alone follow the persisted semantic options. */
+    dsg_mask = dvc_cfg_dsg_mask_policy(cfg);
+    chg_mask = dvc_cfg_chg_mask_policy(cfg);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_DSG_MASK, dsg_mask);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CHG_MASK, chg_mask);
     ok &= DVC1124_WriteRegisterFieldSafe(DVC1124_REG_DSG_PULLDOWN,
                                           DVC1124_DPC_MASK,
                                           DVC1124_DPC_SHIFT,
@@ -505,6 +548,7 @@ int DVC1124_ConfigStoreCaptureCurrent(dvc1124_persistent_config_t *cfg)
         cfg->scd_delay_us = 0u;
     }
 
+    (void)dvc_cfg_normalize_product_policy(cfg);
     return DVC1124_ConfigStoreValidate(cfg);
 }
 
@@ -530,6 +574,12 @@ int DVC1124_ConfigStoreRestore(void)
     }
 
     if (!DVC1124_ConfigStoreApply(&cfg)) return 0;
+    if (s_last_load_normalized)
+    {
+        /* Best-effort one-time persistence of normalized legacy fields.  A
+         * later semantic write will persist the same normalized values again. */
+        (void)DVC1124_ConfigStoreSave(&cfg);
+    }
     s_restore_pending = 0u;
     return 1;
 }

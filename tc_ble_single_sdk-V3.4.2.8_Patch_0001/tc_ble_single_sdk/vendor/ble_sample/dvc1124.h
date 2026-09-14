@@ -64,6 +64,23 @@ typedef struct
     uint16_t rpu_ohm;
 } dvc1124_snapshot_t;
 
+typedef enum
+{
+    DVC1124_OPENWIRE_IDLE = 0u,
+    DVC1124_OPENWIRE_WAITING = 1u,
+    DVC1124_OPENWIRE_READY = 2u,
+    DVC1124_OPENWIRE_ERROR = 3u,
+} dvc1124_openwire_state_t;
+
+typedef struct
+{
+    dvc1124_openwire_state_t state;
+    uint8_t valid;
+    uint8_t cell_count;
+    uint16_t cell_mv[DVC1124_MAX_CELLS];
+    uint32_t pack_mv;
+} dvc1124_openwire_result_t;
+
 /*
  * Named operating configuration. This is transport-neutral and intentionally
  * uses semantic fields instead of raw magic register bytes.
@@ -165,7 +182,12 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
 uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
 void DVC1124_SetOutputEnabled(uint8_t enabled);
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
+void DVC1124_BalanceService(uint8_t allow_refresh);
 uint8_t DVC1124_StartOpenWireCheck(void);
+uint8_t DVC1124_OpenWireBegin(void);
+void DVC1124_OpenWirePoll(void);
+void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result);
+void DVC1124_OpenWireReset(void);
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
 
 /*
