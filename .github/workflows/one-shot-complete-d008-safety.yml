@@ -5,7 +5,6 @@ on:
     branches:
       - refactor/d008-afe-hw-protection-split
     paths:
-      - tools/complete_d008_safety_framework_once.py
       - .github/workflows/one-shot-complete-d008-safety.yml
   workflow_dispatch:
 
@@ -21,12 +20,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply final D008 safety framework
-        run: python tools/complete_d008_safety_framework_once.py
-      - name: Keep persistent CI workflow unchanged for bot push
-        run: git checkout -- .github/workflows/afe-hw-split-ci.yml
-      - name: Refresh source order
-        run: python bms_tools/bms.py sources --update
+      - name: Fix open-wire public result array declaration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.h')
+          s = p.read_text(encoding='utf-8')
+          old = '    uint16_t cell_mv[DVC1124_MAX_CELLS];\n'
+          new = '    uint16_t cell_mv[24]; /* DVC1124 physical maximum; macro is declared below this public type. */\n'
+          if old not in s:
+              raise SystemExit('open-wire result array anchor not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Run D008 host contracts
         run: |
           python bms_tools/bms.py sources --check
@@ -38,7 +44,7 @@ jobs:
           python tests/sw_protection_contract_check.py
           python tests/soc_contract_check.py
           python tests/flash_quick_check.py
-      - name: Commit completed D008 safety framework
+      - name: Commit header fix
         shell: bash
         run: |
           if git diff --quiet; then
@@ -47,6 +53,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "feat(d008): complete DVC safety framework and 20S contracts"
+          git add tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.h
+          git commit -m "fix(d008): compile open-wire result with TC32"
           git push origin HEAD:${GITHUB_REF_NAME}
