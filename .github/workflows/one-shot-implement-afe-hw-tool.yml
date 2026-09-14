@@ -56,3 +56,5 @@ jobs:
           git add -A
           git commit -m "feat(tool): add universal hidden AFE hardware protection editor"
           git push origin HEAD:${GITHUB_REF_NAME}
+
+# Trigger after the workflow file exists on the branch.
