@@ -16,11 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 客户版不编译 AFE 硬件保护参数读写代码；工厂/工程版仍由独立项目维护。 -->
-    <Compile Remove="AfeHardwareParameters.cs" />
-    <Compile Remove="MainWindow.AfeHardwareUi.cs" />
-  </ItemGroup>
-  <ItemGroup>
+    <!-- AFE hardware editor is compiled but remains runtime-hidden unless the
+         explicit --enable-afe-hw-editor launch flag AND protected-feature
+         authentication are both present. -->
     <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
