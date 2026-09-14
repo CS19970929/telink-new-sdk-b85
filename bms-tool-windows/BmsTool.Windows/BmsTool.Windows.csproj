@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <!-- AFE hardware editor is compiled but remains runtime-hidden unless the
-         explicit --enable-afe-hw-editor launch flag AND protected-feature
+         explicit enable-afe-hw-editor launch flag and protected-feature
          authentication are both present. -->
     <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
