@@ -8,17 +8,17 @@
  * AFE: SH3673510, 10 cells.
  * Current shunt: RS1..RS8 = eight 2mOhm parts in parallel -> 250uOhm.
  * SPI: PB6=MISO, PB7=MOSI, PD7=SCLK, PD2=CS-M.
+ * NTC: actual fitted sensors are 10K; RN3/RN4=10M on the schematic is a drawing error.
  */
 #define SH3673510_D011_CELL_COUNT              10u
 #define SH3673510_D011_SHUNT_UOHM              250u
+#define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
-/* Match the official STM32 demo bring-up operating point without exceeding it. */
-#define SH3673510_D011_SPI_TARGET_HZ            375000UL
 
-#define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1 */
-#define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2 */
-#define SH3673510_D011_UNUSED_TS3_INDEX         2u  /* TS3-NC */
-#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4-MOS */
+#define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K */
+#define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K */
+#define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3, 10K near heater MOS; currently not used by control policy */
+#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4, 10K near charge/discharge MOS */
 
 /* Deterministic short-circuit backup: reset-default 2*OCD2, 256us. */
 #define SH3673510_D011_SC_MULTIPLIER_CODE       0u
@@ -35,8 +35,8 @@
 #define D011_SWS_PIN                            GPIO_PA7
 #define D011_INT_WK_MCU_PIN                     GPIO_PB1
 #define D011_HEATER_CHG_PIN                     GPIO_PB4
-#define D011_HEATER_FUSE_SAFE_LEVEL               0u
-#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5  /* heater-circuit fuse trigger; keep LOW until a validated irreversible fuse state machine authorizes firing. */
+#define D011_HEATER_FUSE_SAFE_LEVEL             0u
+#define D011_HEATER_FUSE_TRIGGER_PIN            GPIO_PB5  /* irreversible heater-fuse trigger; keep LOW until a separately validated fuse state machine authorizes firing. */
 #define D011_AFE_MISO_PIN                       GPIO_PB6
 #define D011_AFE_MOSI_PIN                       GPIO_PB7
 #define D011_AFE_ALARM_PIN                      GPIO_PC0
