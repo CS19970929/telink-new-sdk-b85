@@ -53,6 +53,9 @@ jobs:
           if old not in test or 'app = text("app.c")' in test:
               raise SystemExit('integration test app binding pattern unexpected')
           test = test.replace(old, new, 1)
+          if 'require(bms, "D011_SWITCH_PIN")' not in test:
+              raise SystemExit('legacy D011_SWITCH_PIN contract not found')
+          test = test.replace('require(bms, "D011_SWITCH_PIN")', 'require(app, "D011_SWITCH_PIN")', 1)
 
           anchor = '''require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")\nrequire(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")\nrequire(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")\n'''
           addition = anchor + '''\n# D011 is common-port: normal healthy operation requests both FETs ON.\nrequire(app, "uint8_t chg_target = 1u;")\nrequire(app, "uint8_t dsg_target = 1u;")\nif "dsg_target = d011_switch_is_on()" in app:\n    raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")\nfet_start = bms.find("static uint8_t sh3510_apply_requested_fets")\nfet_end = bms.find("static void apply_heater", fet_start)\nif fet_start < 0 or fet_end <= fet_start:\n    raise AssertionError("missing FET arbitration function")\nfet_text = bms[fet_start:fet_end]\nrequire(fet_text, "discharge_on = s_requested_discharge_on ? 1u : 0u;")\nif "D011_SWITCH_PIN" in fet_text or "key_on" in fet_text:\n    raise AssertionError("PA0/SW1 must not directly gate common-port CHG/DSG FETs")\n'''
