@@ -24,8 +24,9 @@ jobs:
 
       - name: Apply common software protection migration
         run: |
-          git show origin/feature/sh3673510-d011-bms:tools/unify_sw_protection_sh_once.py > /tmp/unify_sw_protection_sh_once.py
-          python /tmp/unify_sw_protection_sh_once.py
+          git show origin/feature/sh3673510-d011-bms:tools/unify_sw_protection_sh_once.py > tools/unify_sw_protection_sh_once_d013.py
+          python tools/unify_sw_protection_sh_once_d013.py
+          rm -f tools/unify_sw_protection_sh_once_d013.py
           sed -i 's/require_count(bms, "s_short_latched = 0u;", 1)/require_count(bms, "s_short_latched = 0u;", 2)/' tests/sh3673510_d011_integration_check.py
           python - <<'PY'
           from pathlib import Path
