@@ -22,6 +22,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Seed AFE access source order
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('bms_tools/source_order.txt')
+          s=p.read_text(encoding='utf-8')
+          entry='vendor/ble_sample/bms_afe_hw_access.c\n'
+          if entry not in s:
+              anchor='vendor/ble_sample/bms_afe_hw_profile.c\n'
+              if anchor not in s: raise SystemExit('source-order profile anchor missing')
+              s=s.replace(anchor,entry+anchor,1)
+              p.write_text(s,encoding='utf-8')
+          PY
       - name: Apply final split architecture
         run: python tools/finalize_afe_hw_split.py
       - name: Refresh source order
