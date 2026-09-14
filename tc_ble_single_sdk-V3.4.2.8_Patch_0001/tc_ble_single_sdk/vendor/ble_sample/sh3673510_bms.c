@@ -660,6 +660,7 @@ static uint8_t publish_measurements(void)
     sh3673520_temperature_raw_t temp;
     sh3673510_control_status_t status;
     uint16_t max_mv = 0u, min_mv = 0xFFFFu;
+    uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t max_pos = 0u, min_pos = 0u, i;
 
     if (!sh3673510_control_wake()) return 0u;
@@ -715,6 +716,20 @@ static uint8_t publish_measurements(void)
         s_ntc_valid[SH3673510_D011_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_HEATER_NTC_INDEX]) : 0u;
     g_stCellInfoReport.u16Temperature[MOS_TEMP1] =
         s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX]) : 0u;
+
+    /*
+     * Realtime max/min temperature is the battery temperature range: TS1/TS2.
+     * TS3 supervises the heater MOS and TS4 supervises the power MOS, so they
+     * must not be folded into the battery extrema. Zero is the existing
+     * invalid/sensor-break sentinel (-40.0 C in the legacy encoding).
+     */
+    if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
+        g_stCellInfoReport.u16TempMin = bat_temp_min;
+        g_stCellInfoReport.u16TempMax = bat_temp_max;
+    } else {
+        g_stCellInfoReport.u16TempMin = 0u;
+        g_stCellInfoReport.u16TempMax = 0u;
+    }
 
     if (s_ntc_valid[SH3673510_D011_BAT_NTC1_INDEX] &&
         s_ntc_valid[SH3673510_D011_BAT_NTC2_INDEX])
