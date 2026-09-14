@@ -84,7 +84,7 @@ class SafetySupervisorTests(unittest.TestCase):
         self.assertIn("DVC1124_SAFE_REINIT_TRIGGER_SAMPLES", self.safe)
         self.assertIn("DVC1124_SAFE_REINIT_COOLDOWN_SAMPLES", self.safe)
         self.assertIn("DVC1124_SAFE_VALID_RELEASE_SAMPLES", self.safe)
-        self.assertIn("bms_afe_init();", self.safe)
+        self.assertIn("dvc_safe_reinitialize();", self.safe)
         self.assertIn("s_safe.output_inhibit = 0u", self.safe)
 
     def test_requested_and_effective_fet_state_are_separate(self):
@@ -96,6 +96,28 @@ class SafetySupervisorTests(unittest.TestCase):
     def test_short_auto_recovery_is_fail_safe_off_by_default(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_SHORT_AUTO_RECOVERY_ENABLE"), 0)
         self.assertIn("current D008 evidence does not identify", self.cfg)
+
+    def test_persisted_config_is_repaired_after_restore(self):
+        self.assertIn("DVC1124_ConfigStoreCaptureCurrent(&cfg)", self.safe)
+        self.assertIn("cfg.operating.high_side_fet_mask = 1u", self.safe)
+        self.assertIn("cfg.operating.gp1_mode = DVC1124_GP14_NTC", self.safe)
+        self.assertIn("cfg.operating.gp4_mode = DVC1124_GP14_NTC", self.safe)
+        self.assertIn("cfg.operating.gp5_mode = DVC1124_GP5_LOW_CHG", self.safe)
+        self.assertIn("cfg.operating.gp6_mode = DVC1124_GP6_LOW_DSG", self.safe)
+        self.assertIn("cfg.operating.current_wake_enable = 0u", self.safe)
+        self.assertIn("cfg.operating.interrupt_mask = 0xFFu", self.safe)
+        self.assertIn("DVC1124_ConfigStoreApply(&cfg)", self.safe)
+        self.assertIn("DVC1124_ConfigStoreSave(&cfg)", self.safe)
+
+    def test_board_repair_does_not_invent_unverified_safety_values(self):
+        repair_start = self.safe.index("static uint8_t dvc_safe_enforce_board_config")
+        repair_end = self.safe.index("static uint8_t dvc_safe_effective_fets")
+        repair = self.safe[repair_start:repair_end]
+        self.assertNotIn("scd_threshold_mv =", repair)
+        self.assertNotIn("body_diode_threshold_uv =", repair)
+        self.assertNotIn("i2c_watchdog =", repair)
+        self.assertNotIn("gp2_mode =", repair)
+        self.assertNotIn("gp3_mode =", repair)
 
 
 class RegisterDefaultAuditTests(unittest.TestCase):
