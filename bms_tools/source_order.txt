@@ -28,6 +28,7 @@ vendor/ble_sample/dvc1124_special.c
 vendor/ble_sample/dvc1124_config_store.c
 vendor/ble_sample/dvc1124_config_service.c
 vendor/ble_sample/dvc1124_bms.c
+vendor/ble_sample/dvc1124_safe_bms.c
 vendor/ble_sample/flash_kv32.c
 vendor/ble_sample/main.c
 vendor/ble_sample/modbus_rtu.c
