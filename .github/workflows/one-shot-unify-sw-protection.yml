@@ -53,6 +53,9 @@ jobs:
       - name: Commit unified protection core
         shell: bash
         run: |
+          # GitHub App tokens cannot update workflow files in this repository.
+          # bms-ci.yml is updated separately through the connector after the code commit.
+          git checkout -- .github/workflows/bms-ci.yml
           if git diff --quiet; then
             echo "No changes to commit"
             exit 0
