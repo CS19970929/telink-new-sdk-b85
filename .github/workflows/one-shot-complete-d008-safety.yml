@@ -23,6 +23,8 @@ jobs:
           fetch-depth: 0
       - name: Apply final D008 safety framework
         run: python tools/complete_d008_safety_framework_once.py
+      - name: Keep persistent CI workflow unchanged for bot push
+        run: git checkout -- .github/workflows/afe-hw-split-ci.yml
       - name: Refresh source order
         run: python bms_tools/bms.py sources --update
       - name: Run D008 host contracts
