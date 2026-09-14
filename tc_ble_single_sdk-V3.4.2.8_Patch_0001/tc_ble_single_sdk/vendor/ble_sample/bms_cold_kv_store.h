@@ -24,6 +24,9 @@ typedef enum {
     BMS_SYS_PARAM_INIT_SOC,
     BMS_SYS_PARAM_FLAGS,
     BMS_SYS_PARAM_RSVD0,
+    /* Additive keys: existing 0x2001..0x2008 mappings must never move. */
+    BMS_SYS_PARAM_BATTERY_CHEMISTRY,
+    BMS_SYS_PARAM_SOC_PROFILE_ID,
 } bms_cold_system_param_id_t;
 
 typedef enum {
@@ -43,11 +46,14 @@ typedef struct {
     u32 init_soc;
     u32 flags;
     u32 reserved0;
+    u32 battery_chemistry;
+    u32 soc_profile_id;
 } bms_cold_system_params_t;
 
 int bms_cold_kv_store_init(void);
 int bms_cold_kv_store_get_protect(struct PRT_E2ROM_PARAS *protect);
 int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
+int bms_cold_kv_store_get_system(bms_cold_system_params_t *system);
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system);
 int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *value);
 int bms_cold_kv_store_set_control_value(bms_cold_control_param_id_t item, u32 value);

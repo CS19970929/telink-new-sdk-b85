@@ -1,4 +1,5 @@
 #include "bms_cold_kv_store.h"
+#include "bms_soc_defs.h"
 #include "btname_modbus.h"
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
@@ -101,7 +102,9 @@ typedef struct {
     X(BMS_COLD_SYSTEM_KEY_BASE + 0x05u, fac_init_soc) \
     X(BMS_COLD_SYSTEM_KEY_BASE + 0x06u, init_soc) \
     X(BMS_COLD_SYSTEM_KEY_BASE + 0x07u, flags) \
-    X(BMS_COLD_SYSTEM_KEY_BASE + 0x08u, reserved0)
+    X(BMS_COLD_SYSTEM_KEY_BASE + 0x08u, reserved0) \
+    X(BMS_COLD_SYSTEM_KEY_BASE + 0x09u, battery_chemistry) \
+    X(BMS_COLD_SYSTEM_KEY_BASE + 0x0Au, soc_profile_id)
 
 #define BMS_COLD_CTRL_FIELD_LIST(X) \
     X(BMS_COLD_CTRL_KEY_BASE + 0x01u) \
@@ -200,6 +203,12 @@ static u32 bms_cold_get_u32_value(const bms_cold_system_params_t *data, u16 offs
     return *field;
 }
 
+static void bms_cold_set_u32_value(bms_cold_system_params_t *data, u16 offset, u32 value)
+{
+    u32 *field = (u32 *)((u8 *)data + offset);
+    *field = value;
+}
+
 static u32 bms_cold_pack_le32(const u8 *buf)
 {
     return ((u32)buf[0]) |
@@ -244,6 +253,8 @@ void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system)
     system->init_soc = FAC_INIT_soc;
     system->flags = 0u;
     system->reserved0 = 0u;
+    system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO;
+    system->soc_profile_id = BMS_SOC_PROFILE_AUTO;
 }
 
 static void bms_cold_fill_sector_addrs(void)
@@ -398,12 +409,46 @@ int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_PROTECT_COUNT);
 }
 
+int bms_cold_kv_store_get_system(bms_cold_system_params_t *system)
+{
+    u32 value;
+    u16 i;
+
+    if (system == NULL) {
+        return FLASH_KV32_FAILED;
+    }
+
+    if (!bms_cold_ensure_ready()) {
+        return FLASH_KV32_FAILED;
+    }
+
+    bms_cold_kv_store_get_default_system(system);
+    for (i = 0; i < BMS_COLD_SYSTEM_COUNT; ++i) {
+        value = 0u;
+        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_system_fields[i].key, &value)) {
+            return FLASH_KV32_FAILED;
+        }
+        bms_cold_set_u32_value(system, g_bms_system_fields[i].offset, value);
+    }
+
+    return FLASH_KV32_SUCCESS;
+}
+
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)
 {
     flash_kv32_pair_t pairs[BMS_COLD_SYSTEM_COUNT];
     u16 i;
 
     if (system == NULL) {
+        return FLASH_KV32_FAILED;
+    }
+
+    if ((system->battery_chemistry > BMS_SOC_CHEMISTRY_NMC) ||
+        (system->soc_profile_id > BMS_SOC_PROFILE_GENERIC_NMC) ||
+        ((system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP) &&
+         (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) ||
+        ((system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC) &&
+         (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP))) {
         return FLASH_KV32_FAILED;
     }
 

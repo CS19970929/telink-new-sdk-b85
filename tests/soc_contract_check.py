@@ -1,22 +1,50 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 C = (MOD / "SocEnhance.c").read_text(encoding="utf-8", errors="ignore")
 H = (MOD / "SocEnhance.h").read_text(encoding="utf-8", errors="ignore")
+PROFILE = (MOD / "bms_soc_profile.h").read_text(encoding="utf-8", errors="ignore")
+DEFS = (MOD / "bms_soc_defs.h").read_text(encoding="utf-8", errors="ignore")
+COLD_C = (MOD / "bms_cold_kv_store.c").read_text(encoding="utf-8", errors="ignore")
+COLD_H = (MOD / "bms_cold_kv_store.h").read_text(encoding="utf-8", errors="ignore")
 KV_C = (MOD / "soc_kv_store.c").read_text(encoding="utf-8", errors="ignore")
 KV_H = (MOD / "soc_kv_store.h").read_text(encoding="utf-8", errors="ignore")
 
+
 class SocContract(unittest.TestCase):
-    def test_dual_chemistry_profiles_exist(self):
-        self.assertIn("BMS_SOC_CHEMISTRY_LFP", H)
-        self.assertIn("BMS_SOC_CHEMISTRY_NMC", H)
-        self.assertIn("g_soc_ocv_lfp", C)
-        self.assertIn("g_soc_ocv_nmc", C)
+    def test_dual_chemistry_profiles_are_data_not_algorithm(self):
+        self.assertIn("BMS_SOC_CHEMISTRY_LFP", DEFS)
+        self.assertIn("BMS_SOC_CHEMISTRY_NMC", DEFS)
+        self.assertIn("g_soc_ocv_lfp", PROFILE)
+        self.assertIn("g_soc_ocv_nmc", PROFILE)
+        self.assertIn("BMS_SOC_PROFILE_GENERIC_LFP_VERSION", PROFILE)
+        self.assertIn("BMS_SOC_PROFILE_GENERIC_NMC_VERSION", PROFILE)
+        self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_lfp", C)
+        self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_nmc", C)
         self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
+
+    def test_product_chemistry_and_profile_are_persistent_additive_keys(self):
+        self.assertIn("BMS_SYS_PARAM_BATTERY_CHEMISTRY", COLD_H)
+        self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", COLD_H)
+        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x09u, battery_chemistry", COLD_C)
+        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x0Au, soc_profile_id", COLD_C)
+        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x08u, reserved0", COLD_C)
+        self.assertIn("system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO", COLD_C)
+        self.assertIn("system->soc_profile_id = BMS_SOC_PROFILE_AUTO", COLD_C)
+        self.assertIn("bms_cold_kv_store_get_system", COLD_C)
+        self.assertIn("bms_soc_set_product_config", C)
+        self.assertIn("soc_load_persisted_product_config", C)
+
+    def test_explicit_profile_wins_and_mismatches_are_rejected(self):
+        self.assertIn("soc_profile_from_id(g_soc_config.profile_id)", C)
+        self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_NMC", C)
+        self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
+        self.assertIn("soc_product_config_valid", C)
+        self.assertIn("New products should persist the", C)
+        self.assertIn("explicit chemistry/profile selection", C)
 
     def test_coulomb_integration_and_deadband(self):
         self.assertIn("SOC_INTEGRAL_PERIOD_MS              200u", C)
@@ -41,8 +69,8 @@ class SocContract(unittest.TestCase):
     def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
         self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp", C)
         self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp", C)
-        self.assertIn("150u, 100u, 50u, 20u", C)
-        self.assertIn("300u, 200u, 150u, 50u", C)
+        self.assertIn("150u, 100u, 50u, 20u", PROFILE)
+        self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 
     def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
         start = C.index("static uint8_t soc_apply_full_anchor(void)")
@@ -69,9 +97,13 @@ class SocContract(unittest.TestCase):
         self.assertIn("SOC_KV_KEY_LEARNED_CAPACITY", KV_C)
         self.assertIn("soc_kv_store_write_learning", KV_C)
 
-    def test_diag_api_exists(self):
+    def test_diag_reports_profile_identity_and_version(self):
         self.assertIn("bms_soc_diag_t", H)
-        self.assertIn("void bms_soc_get_diag", C)
+        self.assertIn("profile_id", H)
+        self.assertIn("profile_version", H)
+        self.assertIn("diag->profile_id = g_soc_profile->profile_id", C)
+        self.assertIn("diag->profile_version = g_soc_profile->profile_version", C)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

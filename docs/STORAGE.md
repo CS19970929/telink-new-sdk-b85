@@ -25,7 +25,7 @@
 
 - `flash_kv32.*`：32 位 key/value journal 引擎，负责扫描、CRC、追加和扇区轮换。
 - `soc_kv_store.*`：高频但变化缓慢的真实 SOC、DSG、cycle；任一值变化才写。
-- `bms_cold_kv_store.*`：保护参数、系统参数、升级/reset epoch 和 BT name suffix。
+- `bms_cold_kv_store.*`：保护参数、系统参数、SOC 产品 chemistry/profile、升级/reset epoch 和 BT name suffix。
 - `dvc1124_config_store.*`：DVC 工作模式、GP、ADC、WDT、SCD、Body Diode 等 AFE 专属配置。
 - `runtime.*`：独立 A/B 日志，记录累计 awake 时间和工厂/正常模式。
 - `bms_event_log.*`：100 条事件边沿记录；只有持久化成功后才更新软件 latch。
@@ -35,6 +35,10 @@ COV、CUV、OCD1/OCC1、OCD2/OCC2 的 requested 值只属于 `g_tParam.protect` 
 ```text
 g_tParam requested -> DVC encode/quantize -> live register -> effective readback
 ```
+
+### SOC 产品参数的兼容 key
+
+Cold KV 的 system key `0x2001..0x2008` 保持原映射；SOC 只在尾部新增 `0x2009=battery_chemistry`、`0x200A=soc_profile_id`。旧 Flash 无新 key 时由 `flash_kv32` key default 得到 `AUTO/AUTO`，不得因为新增 SOC 产品字段重置其它 system/protect 参数。
 
 ## 3. 一致性规则
 

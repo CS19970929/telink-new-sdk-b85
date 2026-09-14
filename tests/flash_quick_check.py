@@ -365,13 +365,15 @@ class SourceContractTests(unittest.TestCase):
 
     def test_soc_core_contracts_match_current_design(self):
         text = read_text(SOC_ENHANCE_C)
+        profile = read_text(MODULE_DIR / "bms_soc_profile.h")
         self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT             100u", text)
         self.assertIn("#define SOC_INTEGRAL_PERIOD_MS              200u", text)
         self.assertIn("#define SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", text)
         self.assertIn("#define SOC_OCV_REST_PREPARE_SECONDS        600u", text)
         self.assertIn("#define SOC_OCV_ERROR_BAND_PERCENT          5u", text)
-        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)
-        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", text)
+        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", profile)
+        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", profile)
+        self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)
         self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", text)
         self.assertIn("static uint8_t g_soc_display_soc", text)
         self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", text)
