@@ -28,6 +28,9 @@ jobs:
       - name: Apply unified software protection patch
         run: |
           sed -i 's/if "u16SocUp_" in source:/if "p->u16SocUp_" in source:/' tools/unify_sw_protection_once.py
+          if [ -f tests/d008_framework_contract_check.py ]; then
+            sed -i 's/split("static union MDLCHGFAULT_REG", 1)/split("static void dvc_merge_hw_faults", 1)/' tests/d008_framework_contract_check.py
+          fi
           python tools/unify_sw_protection_once.py
 
       - name: Refresh locked source order
