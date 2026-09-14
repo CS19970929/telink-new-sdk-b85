@@ -453,22 +453,6 @@ void sh3673510_board_force_heater_fuse_safe(void)
     gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
 }
 
-void sh3673510_board_force_heater_fuse_safe(void)
-{
-    gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
-    gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
-    gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
-    gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
-}
-
-void sh3673510_board_force_heater_fuse_safe(void)
-{
-    gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
-    gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
-    gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
-    gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
-}
-
 void sh3673510_board_set_heater(uint8_t enabled)
 {
     /* PB4 is the reversible heater command. PB5 is NOT a heater enable. */
