@@ -159,9 +159,13 @@ test = replace_once(test, anchor, insert, "profile test fields")
 old_needles = '''    "SH3673510_D011_CELL_COUNT",
     "SH3673520_SetCellCount",
     "SH3673520_SetBalanceMask",
+    "SH3673520_SCONF5_MOS_EN_MASK",
+    "SH3673520_SCONF5_WDT_EN_MASK",
+    "SH3673520_SCONF6_ALL_PROTECT_MASK",
 '''
 new_needles = '''    "SH3673510_D011_CELL_COUNT",
     "s_static_reg_cfg",
+    "SH3673510_D011_SCONF5_VALUE",
     "SH3673510_D011_SCONF6_VALUE",
     "SH3673520_SetBalanceMask",
 '''
