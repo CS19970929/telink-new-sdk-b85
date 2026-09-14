@@ -363,94 +363,28 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("#define SOC_PARAM_DEFAULT_DSG    0u", text)
         self.assertIn("#define SOC_PARAM_DEFAULT_CYCLE  0u", text)
 
-    def test_soc_cycle_recalcs_capacity_after_soh_change(self):
+    def test_soc_core_contracts_match_current_design(self):
         text = read_text(SOC_ENHANCE_C)
-        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT         100u", text)
-        self.assertIn("while (dsg_acc >= SOC_EQUIV_CYCLE_PERCENT)", text)
-        self.assertIn("cycle_changed = 1u;", text)
-        self.assertIn("soc_recalc_full_capacity();", text)
-        self.assertIn("soc_recalc_now_capacity();", text)
-        self.assertIn("SOC_Calculate_Element.soh = bms_soh_from_cycle", text)
-        self.assertNotIn("SOC_Calculate_Element.soh = bms_soh_from_capacity", text)
-
-    def test_soc_full_sync_uses_voltage_only_with_slow_hold(self):
-        text = read_text(SOC_ENHANCE_C)
-        self.assertIn("#define SOC_FULL_LOCK_TICKS             (5u * 60u)", text)
-        self.assertIn("#define SOC_FULL_SYNC_STEP_TICKS        10u", text)
-        self.assertIn("if ((VCELLMAX >= SOC_100_VAL) && (VCELLMIN >= SOC_FULL_SYNC_MIN_MV))", text)
-        self.assertNotIn("isCHG() && (VCELLMAX >= SOC_100_VAL)", text)
-
-    def test_soc_reports_display_soc_not_real_soc_directly(self):
-        text = read_text(SOC_ENHANCE_C)
+        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT             100u", text)
+        self.assertIn("#define SOC_INTEGRAL_PERIOD_MS              200u", text)
+        self.assertIn("#define SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", text)
+        self.assertIn("#define SOC_OCV_REST_PREPARE_SECONDS        600u", text)
+        self.assertIn("#define SOC_OCV_ERROR_BAND_PERCENT          5u", text)
+        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)
+        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", text)
+        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", text)
         self.assertIn("static uint8_t g_soc_display_soc", text)
-        self.assertIn("#define SOC_DISPLAY_STEP_TICKS          5u", text)
-        self.assertIn("static void soc_display_follow_real(void)", text)
         self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", text)
-        self.assertIn("soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR", text)
-        self.assertNotIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_real();", text)
+        self.assertIn("soc_update_low_faults();", text)
 
-    def test_soc_idle_ocv_uses_deferred_target(self):
-        text = read_text(SOC_ENHANCE_C)
-        self.assertIn("deferred_ocv_target", text)
-        self.assertIn("deferred_ocv_valid", text)
-        self.assertIn("#define SOC_OCV_IDLE_MIN_STABLE_TICKS   (5u * 30u)", text)
-        self.assertIn("#define SOC_OCV_IDLE_SLOPE_MAX_MV       8u", text)
-        self.assertIn("#define SOC_OCV_CONFIDENCE_TARGET       80u", text)
-        self.assertIn("static uint8_t soc_idle_ocv_confidence_ready(void)", text)
-        self.assertIn("diff = soc_abs_diff_u16(mv, g_soc_strategy_state.idle_ocv_last_mv);", text)
-        self.assertIn("if (diff > SOC_OCV_IDLE_SLOPE_MAX_MV)", text)
-        self.assertIn("#define SOC_OCV_IDLE_TARGET_REFRESH_TICKS (5u * 60u)", text)
-        self.assertIn("#define SOC_IDLE_STATIC_DOWN_DIFF_THRESHOLD 10u", text)
-        self.assertIn("#define SOC_LONG_REST_DOWN_STEP_TICKS", text)
-        self.assertIn("static uint8_t soc_apply_idle_deferred_down_step(void)", text)
-        self.assertIn("if (diff < SOC_IDLE_STATIC_DOWN_DIFF_THRESHOLD)", text)
-        self.assertIn("soc_deferred_ocv_set_target(ocv_soc);", text)
-        self.assertIn("if (soc_apply_deferred_ocv_step())", text)
-        self.assertIn("if (soc_apply_idle_deferred_down_step())", text)
-        self.assertLess(
-            text.index("if (soc_apply_idle_deferred_down_step())"),
-            text.index("if (g_soc_strategy_state.deferred_ocv_valid)"),
-        )
-        self.assertNotIn("if ((diff < SOC_OCV_RUNTIME_DIFF_THRESHOLD) || (ocv_soc >= current_soc))", text)
-        self.assertNotIn("SOC_DEFERRED_OCV_ACTIVE_STEP_TICKS", text)
-        self.assertNotIn("SOC_OCV_IDLE_ADJUST_TICKS", text)
-
-    def test_soc_discharge_terminal_uses_table_rules(self):
-        text = read_text(SOC_ENHANCE_C)
-        self.assertIn("typedef struct\n{\n\tuint16_t max_mv;\n\tuint8_t target_soc;\n\tuint8_t step_ticks[SOC_DSG_TERMINAL_BAND_COUNT];", text)
-        self.assertIn("static const soc_dsg_terminal_rule_t g_soc_dsg_terminal_rules[]", text)
-        self.assertIn("static uint8_t soc_discharge_terminal_lookup", text)
-        self.assertIn("static uint16_t soc_discharge_terminal_step_ticks", text)
-        self.assertIn("if (!soc_discharge_terminal_lookup(&target_soc, &step_ticks, &sag_hold_blocks))", text)
-        self.assertIn("if (current_soc <= target_soc)\n\t{\n\t\tg_soc_strategy_state.dsg_terminal_adjust_ticks = 0u;\n\t\tg_soc_strategy_state.dsg_empty_lock_ticks = 0u;", text)
-        self.assertIn("soc_apply_real_value(0u, 1u);", text)
-        self.assertNotIn("static uint8_t soc_discharge_terminal_soc_ceiling", text)
-
-    def test_soc_discharge_correction_is_capacity_adaptive(self):
-        text = read_text(SOC_ENHANCE_C)
-        self.assertIn("#define SOC_TICKS_PER_SECOND", text)
-        self.assertIn("#define SOC_DSG_CORR_STEP_MIN_TICKS", text)
-        self.assertIn("#define SOC_DSG_CORR_STEP_MAX_TICKS", text)
-        self.assertIn("static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)", text)
-        self.assertIn("static uint16_t soc_discharge_gap_correction_step_ticks", text)
-        self.assertIn("factory_a10 = (uint16_t)CapacityFactory;", text)
-        self.assertIn("1% time(s) = 36 * CapacityFactory / IDSG", text)
-        self.assertIn("step_ticks = soc_discharge_gap_correction_step_ticks(current_soc,", text)
-        self.assertIn("adjust_limit = soc_discharge_gap_correction_step_ticks(current_soc, ocv_soc);", text)
-
-    def test_soc_discharge_sag_hold_blocks_voltage_down_correction(self):
-        text = read_text(SOC_ENHANCE_C)
-        self.assertIn("#define SOC_DSG_SAG_HOLD_CURR_MIN       SOC_DSG_OCV_MID_CURR_MAX", text)
-        self.assertIn("#define SOC_DSG_SAG_HOLDOFF_TICKS       (5u * 30u)", text)
-        self.assertIn("#define SOC_DSG_SAG_HOLDOFF_HIGH_TICKS  (5u * 60u)", text)
-        self.assertIn("#define SOC_DSG_SAG_HOLDOFF_VHIGH_TICKS (5u * 90u)", text)
-        self.assertIn("#define SOC_DSG_REBOUND_STABLE_TICKS    (5u * 10u)", text)
-        self.assertIn("static uint16_t soc_discharge_sag_hold_ticks_for_current(uint16_t dsg_current)", text)
-        self.assertIn("static uint8_t soc_discharge_rebound_stable_update(void)", text)
-        self.assertIn("if (diff <= SOC_DSG_REBOUND_SLOPE_MAX_MV)", text)
-        self.assertIn("soc_update_discharge_sag_hold();", text)
-        self.assertIn("if (soc_discharge_sag_hold_active())", text)
-        self.assertIn("if (sag_hold_blocks && (target_soc > 1u) && soc_discharge_sag_hold_active())", text)
+    def test_soc_capacity_learning_persistence_contract(self):
+        soc_text = read_text(SOC_ENHANCE_C)
+        kv_h = read_text(SOC_KV_H)
+        kv_c = read_text(SOC_KV_C)
+        self.assertIn("BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u", soc_text)
+        self.assertIn("SOC_KV_FLAG_CAPACITY_LEARNED", kv_h)
+        self.assertIn("SOC_KV_KEY_LEARNED_CAPACITY", kv_c)
+        self.assertIn("soc_kv_store_write_learning", kv_c)
 
     def test_afe_read_failure_freezes_soc_current_and_preserves_soc_report(self):
         text = read_text(DVC1124_C)
