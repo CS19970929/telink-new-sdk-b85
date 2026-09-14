@@ -19,6 +19,7 @@
     <Compile Include="..\BmsTool.Windows\BmsTransport.cs" Link="Shared\BmsTransport.cs" />
     <Compile Include="..\BmsTool.Windows\BmsSerialTransport.cs" Link="Shared\BmsSerialTransport.cs" />
     <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsClient.AfeHardware.cs" Link="Shared\BmsClient.AfeHardware.cs" />
     <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="Shared\ModbusRtu.cs" />
   </ItemGroup>
   <ItemGroup>
