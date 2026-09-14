@@ -19,7 +19,8 @@
 #include "conf.h"
 
 //typedef u16 u16;
-#define SNum (4)
+/* 总压保护默认值必须跟随当前产品串数，不能固定按 4S 生成。 */
+#define SNum (SeriesNum)
 
 /* 涓嬮潰2琛屽畯鍙兘閫夋嫨鍏朵竴 */
 // #define PARAM_SAVE_TO_EEPROM			/* 鍙傛暟瀛樺偍鍒板閮ㄧ殑EEPROM (AT24C128) */

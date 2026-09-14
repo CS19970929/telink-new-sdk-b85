@@ -1,0 +1,33 @@
+using BmsTool.Windows;
+int checks=0;
+void Check(bool value,string message) {checks++;if(!value)throw new Exception(message);}
+void Reject(Action action,string message) {checks++;try{action();}catch(ArgumentException){return;}catch(System.IO.IOException){return;}throw new Exception(message);}
+ushort[] h={0x3520,1,850,530,0x0339,0x0707,3550,0,1935,0,27513,0,50574,1,4150,2900,50,70,5,65521,1000,5000,0x017F,0,3,1,1,0,1,2,8,24};
+var fields=Sh3520Parameters.HardwareFields(h);
+Check(fields.Count==33,"hardware field count");
+Check(Sh3520Parameters.Build(h,fields,true).SequenceEqual(h.Take(24)),"C golden vector roundtrip");
+fields.Single(f=>f.Name=="放电低温 NTC 触发电阻").Edit="123456";
+fields.Single(f=>f.Name=="放电低温恢复").Edit="-16";
+fields.Single(f=>f.Name=="短路阈值 / 放电过流 2").Edit="6";
+var changed=Sh3520Parameters.Build(h,fields,true);
+Check(changed[12]==57920 && changed[13]==1 && changed[19]==65520 && (changed[5]&0x30)==0x30,"32-bit/signed/multiplier encoding");
+fields=Sh3520Parameters.HardwareFields(h);fields[0].Edit="4251";
+Reject(()=>Sh3520Parameters.Build(h,fields,true),"voltage step");
+fields=Sh3520Parameters.HardwareFields(h);fields[1].Edit="150";
+Reject(()=>Sh3520Parameters.Build(h,fields,true),"unsupported delay");
+fields=Sh3520Parameters.HardwareFields(h);fields.Single(f=>f.Name=="过压恢复").Edit="4260";
+Reject(()=>Sh3520Parameters.Build(h,fields,true),"voltage hysteresis");
+fields=Sh3520Parameters.HardwareFields(h);fields.Single(f=>f.Name=="充电高温恢复").Edit="80";
+Reject(()=>Sh3520Parameters.Build(h,fields,true),"NTC hysteresis");
+ushort[] s={3750,3500,100,2500,2800,100,120,10,120,10,150,100,150,50,900,850,400,430,1100,1000,200,300,50,256};
+fields=Sh3520Parameters.SoftwareFields(s);
+Check(fields.Count==24 && fields.Count(f=>!f.Editable)==6,"inactive software fields");
+Check(Sh3520Parameters.Build(s,fields,false).SequenceEqual(s),"software default roundtrip");
+Check(fields[6].Current=="12.0" && fields[2].Current=="1000" && fields[20].Current=="-20.0","software physical units");
+fields[6].Edit="13.2";fields[2].Edit="1010";fields[20].Edit="-19.5";
+changed=Sh3520Parameters.Build(s,fields,false);
+Check(changed[6]==132&&changed[2]==101&&changed[20]==205,"software unit conversion");
+fields[8].Edit="999";Check(Sh3520Parameters.Build(s,fields,false)[8]==s[8],"inactive fields preserved");
+fields[1].Edit="3800";Reject(()=>Sh3520Parameters.Build(s,fields,false),"software hysteresis");
+h[1]=2;Reject(()=>Sh3520Parameters.HardwareFields(h),"future schema rejected");
+Console.WriteLine($"PASS: {checks} codec checks (shared by customer and factory builds)");

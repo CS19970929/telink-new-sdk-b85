@@ -21,6 +21,21 @@
 #define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
+/* MOS 端口拓扑：当前产品为分口；同口项目只需覆盖 BMS_PORT_MODE。 */
+#define BMS_PORT_MODE_SPLIT   0u
+#define BMS_PORT_MODE_COMMON  1u
+#ifndef BMS_PORT_MODE
+#define BMS_PORT_MODE BMS_PORT_MODE_SPLIT
+#endif
+#if ((BMS_PORT_MODE != BMS_PORT_MODE_SPLIT) && (BMS_PORT_MODE != BMS_PORT_MODE_COMMON))
+#error "Invalid BMS_PORT_MODE"
+#endif
+
+/* 软件三级充/放电过流保护固定自动重试时间。 */
+#ifndef BMS_SOFT_OCP_AUTO_RECOVER_MS
+#define BMS_SOFT_OCP_AUTO_RECOVER_MS 30000u
+#endif
+
 #define __SLEEP_VNORMAL__             	(3000)
 #define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)	
 #define __SLEEP_VLOW__     		          (2800)
@@ -248,11 +263,11 @@ extern Time_T  sys_time;
 #endif
 
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
-#define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
+#define FW_UPGRADE_RESET_SYSTEM_EPOCH   0u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       0u
+#define FW_UPGRADE_RESET_SOC_EPOCH      0u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH

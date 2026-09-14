@@ -1,0 +1,60 @@
+name: One-shot implement AFE hardware tool
+
+on:
+  push:
+    branches:
+      - codex-mos-protection-coordination
+    paths:
+      - tools/implement_afe_hw_tool_once.py
+      - .github/workflows/one-shot-implement-afe-hw-tool.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Apply upper-computer implementation
+        shell: powershell
+        run: python tools/implement_afe_hw_tool_once.py
+
+      - name: Run profile codec tests
+        shell: powershell
+        run: ./bms-tool-windows/test-afe-hardware-profile.ps1
+
+      - name: Build customer Windows tool
+        shell: powershell
+        run: dotnet build bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64
+
+      - name: Build factory Windows tool
+        shell: powershell
+        run: dotnet build bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(tool): add universal hidden AFE hardware protection editor"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+# Trigger after the workflow file exists on the branch.

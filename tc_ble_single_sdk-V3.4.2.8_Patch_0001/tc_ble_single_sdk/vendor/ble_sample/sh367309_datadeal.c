@@ -5,6 +5,7 @@
 #include "sci_upper.h"
 #include "app.h"
 #include "param.h"
+#include "bms_cold_kv_store.h"
 
 int AFE_PARAM_WRITE_Flag = 1;
 int AFE_ResetFlag = 0;
@@ -200,7 +201,293 @@ const u16 AFE_SCV[16] = {50, 80, 110, 140, 170, 200, 230, 260, 290, 320, 350, 40
 const u16 AFE_OVT_UVT[16] = {100, 200, 300, 400, 600, 800, 1000, 2000, 3000, 4000, 6000, 8000, 10000, 20000, 30000, 40000}; // 鏉╁洤甯囨担搴″竾瀵よ埖妞傞弮鍫曟？閵嗗倸宕熸担宄瑂
 const u16 AFE_SCT[16] = {0, 64, 128, 192, 256, 320, 384, 448, 512, 576, 640, 704, 768, 832, 896, 960};                      // 閻叀鐭惧鑸垫,閸楁洑缍卽s閵嗭拷
 const u16 AFE_OCD1T[16] = {50, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000, 15000, 20000, 30000, 40000};   // 閺�鍓ф暩鏉╁洦绁�1瀵よ埖妞傞妴鍌氬礋娴ｅ超s
-const u16 AFE_OCCT_OCD2T[16] = {10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 8000, 10000, 20000};         // 閺�鍓ф暩鏉╁洦绁�2閸滃苯鍘栭悽浣冪箖濞翠礁娆㈤弮韬诧拷鍌氬礋娴ｅ超s
+const u16 AFE_OCCT_OCD2T[16] = {10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 8000, 10000, 20000};
+
+#define SH309_ARRAY_SIZE(a) ((u16)(sizeof(a) / sizeof((a)[0])))
+
+#define SH309_AFE_PARAM_FIELD_LIST(X) \
+    X(SH309_AFE_PARAM_VCELL_OVP, u16VcellOvp) \
+    X(SH309_AFE_PARAM_VCELL_OVP_RCV, u16VcellOvp_Rcv) \
+    X(SH309_AFE_PARAM_VCELL_OVP_FILTER, u16VcellOvp_Filter) \
+    X(SH309_AFE_PARAM_VCELL_UVP, u16VcellUvp) \
+    X(SH309_AFE_PARAM_VCELL_UVP_RCV, u16VcellUvp_Rcv) \
+    X(SH309_AFE_PARAM_VCELL_UVP_FILTER, u16VcellUvp_Filter) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FIRST, u16IchgOcp_First) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST, u16IchgOcp_Filter_First) \
+    X(SH309_AFE_PARAM_ICHG_OCP_SECOND, u16IchgOcp_Second) \
+    X(SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND, u16IchgOcp_Filter_Second) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FIRST, u16IdsgOcp_First) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FILTER_FIRST, u16IdsgOcp_Filter_First) \
+    X(SH309_AFE_PARAM_IDSG_OCP_SECOND, u16IdsgOcp_Second) \
+    X(SH309_AFE_PARAM_IDSG_OCP_FILTER_SECOND, u16IdsgOcp_Filter_Second) \
+    X(SH309_AFE_PARAM_TCHG_OTP, u16TChgOTp) \
+    X(SH309_AFE_PARAM_TCHG_OTP_RCV, u16TChgOTp_Rcv) \
+    X(SH309_AFE_PARAM_TCHG_UTP, u16TchgUTp) \
+    X(SH309_AFE_PARAM_TCHG_UTP_RCV, u16TchgUTp_Rcv) \
+    X(SH309_AFE_PARAM_TDSG_OTP, u16TdischgOTp) \
+    X(SH309_AFE_PARAM_TDSG_OTP_RCV, u16TdischgOTp_Rcv) \
+    X(SH309_AFE_PARAM_TDSG_UTP, u16TdischgUTp) \
+    X(SH309_AFE_PARAM_TDSG_UTP_RCV, u16TdischgUTp_Rcv) \
+    X(SH309_AFE_PARAM_SC_CURRENT, u16CBC_Cur_DSG) \
+    X(SH309_AFE_PARAM_SC_DELAY, u16CBC_DelayT)
+
+static AFE_Value_Typedef *sh309_afe_param_field(AFE_Parameters_RS485_Typedef *params, u16 index)
+{
+    if (params == NULL) {
+        return NULL;
+    }
+    switch (index) {
+#define SH309_FIELD_CASE(index_value, field_name) case index_value: return &params->field_name;
+        SH309_AFE_PARAM_FIELD_LIST(SH309_FIELD_CASE)
+#undef SH309_FIELD_CASE
+    default:
+        return NULL;
+    }
+}
+
+static const AFE_Value_Typedef *sh309_afe_param_field_const(const AFE_Parameters_RS485_Typedef *params, u16 index)
+{
+    return sh309_afe_param_field((AFE_Parameters_RS485_Typedef *)params, index);
+}
+
+static void sh309_afe_params_to_words(const AFE_Parameters_RS485_Typedef *params, u16 *words)
+{
+    u16 i;
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        const AFE_Value_Typedef *field = sh309_afe_param_field_const(params, i);
+        words[i] = field->curValue;
+    }
+}
+
+static u8 sh309_afe_words_to_params(AFE_Parameters_RS485_Typedef *params, const u16 *words)
+{
+    u16 i;
+    if ((params == NULL) || (words == NULL)) {
+        return 0u;
+    }
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        AFE_Value_Typedef *field = sh309_afe_param_field(params, i);
+        if (field == NULL) {
+            return 0u;
+        }
+        field->curValue = words[i];
+    }
+    return 1u;
+}
+
+static u8 sh309_find_scaled_code(u16 value, u16 scale, const u16 *table, u16 count, u8 *code)
+{
+    u16 i;
+    u32 target = (u32)value * (u32)scale;
+    for (i = 0u; i < count; ++i) {
+        if ((u32)table[i] == target) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_find_ocp_current_code(u16 current_0p1a, const u16 *mv_table, u16 count, u8 *code)
+{
+    u16 i;
+    if (g_u32CS_Res_AFE == 0u) {
+        return 0u;
+    }
+    for (i = 0u; i < count; ++i) {
+        if (((u32)mv_table[i] * g_u32CS_Res_AFE) == ((u32)current_0p1a * 100u)) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_find_sc_current_code(u16 current_a, u8 *code)
+{
+    u16 i;
+    if (g_u32CS_Res_AFE == 0u) {
+        return 0u;
+    }
+    for (i = 0u; i < SH309_ARRAY_SIZE(AFE_SCV); ++i) {
+        if (((u32)AFE_SCV[i] * g_u32CS_Res_AFE) == ((u32)current_a * 1000u)) {
+            if (code != NULL) {
+                *code = (u8)i;
+            }
+            return 1u;
+        }
+    }
+    return 0u;
+}
+
+static u8 sh309_temp_value_valid(u16 value, u16 min_value, u16 max_value)
+{
+    return ((value >= min_value) && (value <= max_value) && ((value % 10u) == 0u)) ? 1u : 0u;
+}
+
+u8 SH367309_AfeParamValidate(const AFE_Parameters_RS485_Typedef *p)
+{
+    if (p == NULL) {
+        return 0u;
+    }
+    if ((p->u16VcellOvp.curValue < 3600u) || (p->u16VcellOvp.curValue > 4500u) || ((p->u16VcellOvp.curValue % 5u) != 0u)) return 0u;
+    if ((p->u16VcellOvp_Rcv.curValue < 3300u) || (p->u16VcellOvp_Rcv.curValue > 4500u) || ((p->u16VcellOvp_Rcv.curValue % 5u) != 0u)) return 0u;
+    if (p->u16VcellOvp_Rcv.curValue >= p->u16VcellOvp.curValue) return 0u;
+    if (!sh309_find_scaled_code(p->u16VcellOvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), NULL)) return 0u;
+    if ((p->u16VcellUvp.curValue < 2000u) || (p->u16VcellUvp.curValue > 3100u) || ((p->u16VcellUvp.curValue % 20u) != 0u)) return 0u;
+    if ((p->u16VcellUvp_Rcv.curValue < 2000u) || (p->u16VcellUvp_Rcv.curValue > 3600u) || ((p->u16VcellUvp_Rcv.curValue % 20u) != 0u)) return 0u;
+    if (p->u16VcellUvp_Rcv.curValue <= p->u16VcellUvp.curValue) return 0u;
+    if (!sh309_find_scaled_code(p->u16VcellUvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), NULL)) return 0u;
+    if (p->u16IchgOcp_First.curValue != p->u16IchgOcp_Second.curValue) return 0u;
+    if (p->u16IchgOcp_Filter_First.curValue != p->u16IchgOcp_Filter_Second.curValue) return 0u;
+    if (!sh309_find_ocp_current_code(p->u16IchgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IchgOcp_Filter_First.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), NULL)) return 0u;
+    if (!sh309_find_ocp_current_code(p->u16IdsgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IdsgOcp_Filter_First.curValue, 10u, AFE_OCD1T, SH309_ARRAY_SIZE(AFE_OCD1T), NULL)) return 0u;
+    if (!sh309_find_ocp_current_code(p->u16IdsgOcp_Second.curValue, AFE_OCD2V, SH309_ARRAY_SIZE(AFE_OCD2V), NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16IdsgOcp_Filter_Second.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), NULL)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TChgOTp.curValue, 850u, 1100u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TChgOTp_Rcv.curValue, 800u, 1100u) || (p->u16TChgOTp_Rcv.curValue >= p->u16TChgOTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TchgUTp.curValue, 200u, 500u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TchgUTp_Rcv.curValue, 200u, 550u) || (p->u16TchgUTp_Rcv.curValue <= p->u16TchgUTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgOTp.curValue, 850u, 1200u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgOTp_Rcv.curValue, 800u, 1200u) || (p->u16TdischgOTp_Rcv.curValue >= p->u16TdischgOTp.curValue)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgUTp.curValue, 0u, 500u)) return 0u;
+    if (!sh309_temp_value_valid(p->u16TdischgUTp_Rcv.curValue, 0u, 550u) || (p->u16TdischgUTp_Rcv.curValue <= p->u16TdischgUTp.curValue)) return 0u;
+    if (!sh309_find_sc_current_code(p->u16CBC_Cur_DSG.curValue, NULL)) return 0u;
+    if (!sh309_find_scaled_code(p->u16CBC_DelayT.curValue, 1u, AFE_SCT, SH309_ARRAY_SIZE(AFE_SCT), NULL)) return 0u;
+    return 1u;
+}
+
+static void sh309_normalize_charge_alias(AFE_Parameters_RS485_Typedef *p, u8 prefer_legacy_second)
+{
+    if (prefer_legacy_second) {
+        p->u16IchgOcp_First.curValue = p->u16IchgOcp_Second.curValue;
+        p->u16IchgOcp_Filter_First.curValue = p->u16IchgOcp_Filter_Second.curValue;
+    } else {
+        p->u16IchgOcp_Second.curValue = p->u16IchgOcp_First.curValue;
+        p->u16IchgOcp_Filter_Second.curValue = p->u16IchgOcp_Filter_First.curValue;
+    }
+}
+
+u8 SH367309_AfeParamLoad(void)
+{
+    AFE_Parameters_RS485_Typedef defaults = AFE_PARAMETERS_RS485_STRUCTION_DEFAULT;
+    AFE_Parameters_RS485_Typedef candidate = defaults;
+    u16 words[SH309_AFE_PARAM_REG_COUNT];
+    u16 canonical[SH309_AFE_PARAM_REG_COUNT];
+    u16 i;
+    u8 uninitialised = 1u;
+    u8 repaired_invalid = 0u;
+
+    if (!bms_cold_kv_store_get_afe_params(words, SH309_AFE_PARAM_REG_COUNT)) {
+        AFE_Parameters_RS485_Struction = defaults;
+        sh309_afe_params_to_words(&defaults, canonical);
+        (void)bms_cold_kv_store_set_afe_params(canonical, SH309_AFE_PARAM_REG_COUNT);
+        return 0u;
+    }
+    for (i = 0u; i < SH309_AFE_PARAM_REG_COUNT; ++i) {
+        if (words[i] != 0xFFFFu) {
+            uninitialised = 0u;
+            break;
+        }
+    }
+    if (!uninitialised) {
+        if (!sh309_afe_words_to_params(&candidate, words)) {
+            candidate = defaults;
+            repaired_invalid = 1u;
+        } else {
+            sh309_normalize_charge_alias(&candidate, 1u);
+            if (!SH367309_AfeParamValidate(&candidate)) {
+                candidate = defaults;
+                repaired_invalid = 1u;
+            }
+        }
+    }
+    if (!SH367309_AfeParamValidate(&candidate)) {
+        AFE_Parameters_RS485_Struction = defaults;
+        return 0u;
+    }
+    AFE_Parameters_RS485_Struction = candidate;
+    sh309_afe_params_to_words(&candidate, canonical);
+    if (uninitialised || repaired_invalid || (memcmp(words, canonical, sizeof(canonical)) != 0)) {
+        if (!bms_cold_kv_store_set_afe_params(canonical, SH309_AFE_PARAM_REG_COUNT)) {
+            return 0u;
+        }
+    }
+    return repaired_invalid ? 0u : 1u;
+}
+
+u8 SH367309_AfeParamReadReg(u16 reg, u16 *value)
+{
+    const AFE_Value_Typedef *field;
+    u16 index;
+    if ((value == NULL) || (reg < SH309_AFE_PARAM_REG_BASE) || (reg > SH309_AFE_PARAM_REG_END)) return 0u;
+    index = (u16)(reg - SH309_AFE_PARAM_REG_BASE);
+    field = sh309_afe_param_field_const(&AFE_Parameters_RS485_Struction, index);
+    if (field == NULL) return 0u;
+    *value = field->curValue;
+    return 1u;
+}
+
+sh309_afe_param_result_t SH367309_AfeParamWriteRegs(u16 start_reg, const u16 *values, u16 count)
+{
+    AFE_Parameters_RS485_Typedef candidate = AFE_Parameters_RS485_Struction;
+    u16 current_words[SH309_AFE_PARAM_REG_COUNT];
+    u16 candidate_words[SH309_AFE_PARAM_REG_COUNT];
+    u16 i;
+    u16 index;
+    u8 chg_current_seen = 0u;
+    u8 chg_delay_seen = 0u;
+    u16 chg_current = 0u;
+    u16 chg_delay = 0u;
+
+    if ((values == NULL) || (count == 0u) || (start_reg < SH309_AFE_PARAM_REG_BASE) ||
+        (start_reg > SH309_AFE_PARAM_REG_END) ||
+        ((u32)start_reg + (u32)count - 1u > (u32)SH309_AFE_PARAM_REG_END)) {
+        return SH309_AFE_PARAM_RESULT_INVALID;
+    }
+    for (i = 0u; i < count; ++i) {
+        AFE_Value_Typedef *field;
+        index = (u16)((start_reg - SH309_AFE_PARAM_REG_BASE) + i);
+        if ((index == SH309_AFE_PARAM_ICHG_OCP_FIRST) || (index == SH309_AFE_PARAM_ICHG_OCP_SECOND)) {
+            if (chg_current_seen && (chg_current != values[i])) return SH309_AFE_PARAM_RESULT_INVALID;
+            chg_current_seen = 1u;
+            chg_current = values[i];
+            continue;
+        }
+        if ((index == SH309_AFE_PARAM_ICHG_OCP_FILTER_FIRST) || (index == SH309_AFE_PARAM_ICHG_OCP_FILTER_SECOND)) {
+            if (chg_delay_seen && (chg_delay != values[i])) return SH309_AFE_PARAM_RESULT_INVALID;
+            chg_delay_seen = 1u;
+            chg_delay = values[i];
+            continue;
+        }
+        field = sh309_afe_param_field(&candidate, index);
+        if (field == NULL) return SH309_AFE_PARAM_RESULT_INVALID;
+        field->curValue = values[i];
+    }
+    if (chg_current_seen) {
+        candidate.u16IchgOcp_First.curValue = chg_current;
+        candidate.u16IchgOcp_Second.curValue = chg_current;
+    }
+    if (chg_delay_seen) {
+        candidate.u16IchgOcp_Filter_First.curValue = chg_delay;
+        candidate.u16IchgOcp_Filter_Second.curValue = chg_delay;
+    }
+    if (!SH367309_AfeParamValidate(&candidate)) return SH309_AFE_PARAM_RESULT_INVALID;
+    sh309_afe_params_to_words(&AFE_Parameters_RS485_Struction, current_words);
+    sh309_afe_params_to_words(&candidate, candidate_words);
+    if (memcmp(current_words, candidate_words, sizeof(candidate_words)) == 0) return SH309_AFE_PARAM_RESULT_OK;
+    if (!bms_cold_kv_store_set_afe_params(candidate_words, SH309_AFE_PARAM_REG_COUNT)) return SH309_AFE_PARAM_RESULT_STORE_ERROR;
+    AFE_Parameters_RS485_Struction = candidate;
+    AFE_PARAM_WRITE_Flag = 1;
+    return SH309_AFE_PARAM_RESULT_OK;
+}
+         // 閺�鍓ф暩鏉╁洦绁�2閸滃苯鍘栭悽浣冪箖濞翠礁娆㈤弮韬诧拷鍌氬礋娴ｅ超s
 
 const u8 CRC8Table[] = { // 120424-1			CRC Table
     0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
@@ -505,84 +792,80 @@ u8 MTPWriteROM(u8 WrAddr, u8 Length, const u8 *WrBuf)
 
 uint32_t g_u32CS_Res_AFE = CS_Res_Num * 1000 / CS_Res;
 // g_u32CS_Res_AFE = ((u32)g_tParam.other.u16Sys_CS_Res_Num * 1000) / g_tParam.other.u16Sys_CS_Res;
-void Refresh_Parameters(void)
+static u8 Refresh_Parameters(void)
 {
-    int i = 0;
-    int temp = 0;
-    u8 TR = 0;
-    u16 AFE_TEMPERATURE[8] = {0}; // 濞撯晛瀹抽敍灞炬啔濮樺繐瀹�+40閿涘矉绱�0鎼达妇娈戦崐闂磋礋40閿涳拷
+    int i;
+    int temp;
+    u8 TR = 0u;
+    u8 code = 0u;
+    u16 AFE_TEMPERATURE[8] = {0};
 
-    if (MTPRead(0x19, 1, &TR))
-    {
-        SH367309_Reg_Store.TR_ResRef = 680 + 5 * (TR & 0x7F);
-        ucMTPBuffer[25] = TR & 0x7F;
-
-        memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26);
+    if (!SH367309_AfeParamValidate(&AFE_Parameters_RS485_Struction)) {
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        return 0u;
     }
-    else
-    {
+    if (!MTPRead(MTP_TR, 1, &TR)) {
         System_ERROR_UserCallback(ERROR_AFE1);
+        return 0u;
     }
+    SH367309_Reg_Store.TR_ResRef = 680u + 5u * (TR & 0x7Fu);
+    ucMTPBuffer[25] = TR & 0x7Fu;
+    memcpy((u8 *)&AFE_ROM_PARAMETERS_Struction, ucMTPBuffer, 26u);
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16u;
+    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = 3u;
 
-    AFE_ROM_PARAMETERS_Struction.m00H_01H.CN = SeriesNum % 16;
-    AFE_ROM_PARAMETERS_Struction.m00H_01H.CTLC = (0xff >> 6);
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) >> 8) & 0x3;
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5) & 0x00FF;
-
-    temp = AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue * 10;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVH = ((AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5u) >> 8) & 0x3u;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVL = (AFE_Parameters_RS485_Struction.u16VcellOvp.curValue / 5u) & 0xFFu;
 #ifdef FAC_TEST
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = 0u;
 #else
-    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-#endif // FAC_TEST
-
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) >> 8) & 0x3;
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5) & 0x00FF;
-
-    temp = AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue * 10;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16VcellOvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m02H_03H.OVT = code;
+#endif
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRH = ((AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5u) >> 8) & 0x3u;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.OVRL = (AFE_Parameters_RS485_Struction.u16VcellOvp_Rcv.curValue / 5u) & 0xFFu;
 #ifdef FAC_TEST
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = 0u;
 #else
-    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = Choose_Right_Value(temp, AFE_OVT_UVT);
-#endif // FAC_TEST
-    AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20) & 0x00FF;
-    AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20) & 0x00FF;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16VcellUvp_Filter.curValue, 10u, AFE_OVT_UVT, SH309_ARRAY_SIZE(AFE_OVT_UVT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m04H_05H.UVT = code;
+#endif
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UV = (AFE_Parameters_RS485_Struction.u16VcellUvp.curValue / 20u) & 0xFFu;
+    AFE_ROM_PARAMETERS_Struction.m06H_07H.UVR = (AFE_Parameters_RS485_Struction.u16VcellUvp_Rcv.curValue / 20u) & 0xFFu;
 
-    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_First.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
-    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_First.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
-    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = Choose_Right_Value(temp, AFE_OCD1T);
-    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = 0;
-    // AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = 0;
-    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
-    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2V = Choose_Right_Value(temp, AFE_OCD2V);
-    temp = AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
-    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2T = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1V = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_First.curValue, 10u, AFE_OCD1T, SH309_ARRAY_SIZE(AFE_OCD1T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD1T = code;
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Second.curValue, AFE_OCD2V, SH309_ARRAY_SIZE(AFE_OCD2V), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2V = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IdsgOcp_Filter_Second.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0CH_0DH.OCD2T = code;
 
-    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Second.curValue * 100 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = Choose_Right_Value(temp, AFE_OCD1V_OCCV);
-    temp = AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_Second.curValue * 10; // 瑜版挸澧犵�电懓绨叉径姘毌ms
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = Choose_Right_Value(temp, AFE_OCCT_OCD2T);
+    if (!sh309_find_ocp_current_code(AFE_Parameters_RS485_Struction.u16IchgOcp_First.curValue, AFE_OCD1V_OCCV, SH309_ARRAY_SIZE(AFE_OCD1V_OCCV), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCV = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16IchgOcp_Filter_First.curValue, 10u, AFE_OCCT_OCD2T, SH309_ARRAY_SIZE(AFE_OCCT_OCD2T), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.OCCT = code;
+    if (!sh309_find_scaled_code(AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue, 1u, AFE_SCT, SH309_ARRAY_SIZE(AFE_SCT), &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = code;
+    if (!sh309_find_sc_current_code(AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue, &code)) return 0u;
+    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = code;
 
-    temp = AFE_Parameters_RS485_Struction.u16CBC_DelayT.curValue;
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCT = Choose_Right_Value(temp, AFE_SCT);
-    temp = AFE_Parameters_RS485_Struction.u16CBC_Cur_DSG.curValue * 1000 / g_u32CS_Res_AFE; // 瑜版挸澧犵�电懓绨叉径姘毌mv
-    AFE_ROM_PARAMETERS_Struction.m0EH_0FH.SCV = Choose_Right_Value(temp, AFE_SCV);
+    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10u;
+    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10u;
+    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10u;
+    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10u;
+    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10u;
+    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10u;
 
-    AFE_TEMPERATURE[0] = AFE_Parameters_RS485_Struction.u16TChgOTp.curValue / 10;        /* 閸忓懐鏁告妯讳刊娣囨繃濮� */
-    AFE_TEMPERATURE[1] = AFE_Parameters_RS485_Struction.u16TChgOTp_Rcv.curValue / 10;    /* 閸忓懐鏁告妯讳刊娣囨繃濮㈤幁銏狀槻 */
-    AFE_TEMPERATURE[2] = AFE_Parameters_RS485_Struction.u16TchgUTp.curValue / 10;        /* 閸忓懐鏁告担搴刊娣囨繃濮� */
-    AFE_TEMPERATURE[3] = AFE_Parameters_RS485_Struction.u16TchgUTp_Rcv.curValue / 10;    /* 閸忓懐鏁告担搴刊娣囨繃濮㈤幁銏狀槻 */
-    AFE_TEMPERATURE[4] = AFE_Parameters_RS485_Struction.u16TdischgOTp.curValue / 10;     /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б */
-    AFE_TEMPERATURE[5] = AFE_Parameters_RS485_Struction.u16TdischgOTp_Rcv.curValue / 10; /* 閺�鍓ф暩妤傛ɑ淇穱婵囧Б閹垹顦� */
-    AFE_TEMPERATURE[6] = AFE_Parameters_RS485_Struction.u16TdischgUTp.curValue / 10;     /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б */
-    AFE_TEMPERATURE[7] = AFE_Parameters_RS485_Struction.u16TdischgUTp_Rcv.curValue / 10; /* 閺�鍓ф暩娴ｅ孩淇穱婵囧Б閹垹顦� */
-
-    for (i = 0; i < 8; i++)
-    {
+    for (i = 0; i < 8; ++i) {
         temp = iSheldTemp_10K_NTC[AFE_TEMPERATURE[i]];
-        *(((u8 *)&AFE_ROM_PARAMETERS_Struction.m11H_19H) + i) = (u8)(((u32)temp << 9) / ((u32)SH367309_Reg_Store.TR_ResRef + temp));
+        *(((u8 *)&AFE_ROM_PARAMETERS_Struction.m11H_19H) + i) =
+            (u8)(((u32)temp << 9) / ((u32)SH367309_Reg_Store.TR_ResRef + (u32)temp));
     }
+    return 1u;
 }
 
 /* 濮ｅ繑顐奸弫鐗堝祦閺�鐟板綁闁�燁嚢閸欐潧om閸欏倹鏆熷В鏃囩窛娑擄拷娑撳绱濋柇锝勯嚋閸欏倹鏆熼弨鐟板綁鐏忓崬鍟撻崗銉╁亝=閸濐亙閲� */
@@ -689,7 +972,10 @@ void SH367309_UpdataAfeConfig(void)
         int diff_state;
 
         // load_protectParam();
-        Refresh_Parameters();
+        if (!Refresh_Parameters())
+        {
+            return;
+        }
         diff_state = sh309_param_image_diff_state(P, temp);
         if (diff_state < 0)
         {

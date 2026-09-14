@@ -15,6 +15,8 @@ extern "C" {
 #define BMS_COLD_KV_SECTORS   4
 #endif
 
+#define BMS_COLD_AFE_PARAM_WORD_COUNT 24u
+
 typedef enum {
     BMS_SYS_PARAM_BMS_TYPE = 0,
     BMS_SYS_PARAM_SERIES_NUM,
@@ -53,6 +55,8 @@ int bms_cold_kv_store_get_control_value(bms_cold_control_param_id_t item, u32 *v
 int bms_cold_kv_store_set_control_value(bms_cold_control_param_id_t item, u32 value);
 int bms_cold_kv_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
 int bms_cold_kv_store_set_bt_name_suffix(const char *suffix);
+int bms_cold_kv_store_get_afe_params(u16 *values, u16 count);
+int bms_cold_kv_store_set_afe_params(const u16 *values, u16 count);
 void bms_cold_kv_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
 void bms_cold_kv_store_get_default_system(bms_cold_system_params_t *system);
 

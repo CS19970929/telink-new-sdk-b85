@@ -14,6 +14,7 @@
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
+#include "factory_test.h"
 
 #define MB_ADDR 0x01
 #define BMS_REALTIME_REG_BASE 0xD120u
@@ -118,6 +119,15 @@ static u16 read_reg(u16 reg)
     if (reg >= 0x2100 && reg <= 0x2140)
     {
         return *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100));
+    }
+    if (reg >= SH309_AFE_PARAM_REG_BASE && reg <= SH309_AFE_PARAM_REG_END)
+    {
+        u16 afe_value = 0u;
+        if (SH367309_AfeParamReadReg(reg, &afe_value))
+        {
+            return afe_value;
+        }
+        return 0u;
     }
     if (reg >= 0xD100 && reg <= 0xD114)
     {
@@ -302,13 +312,40 @@ u16 mb_crc16(const u8 *buf, u32 len)
 }
 
 static u16 u16be(const u8 *p) { return ((u16)p[0] << 8) | p[1]; }
+static int modbus_exception_response(u8 addr, u8 func, u8 exception_code, u8 *rsp, u32 *rsp_len)
+{
+    u16 c;
+    if (addr == 0x00u) {
+        *rsp_len = 0u;
+        return 0;
+    }
+    rsp[0] = addr;
+    rsp[1] = (u8)(func | 0x80u);
+    rsp[2] = exception_code;
+    c = mb_crc16(rsp, 3u);
+    rsp[3] = (u8)(c & 0xFFu);
+    rsp[4] = (u8)(c >> 8);
+    *rsp_len = 5u;
+    return 1;
+}
+
+static int modbus_afe_write_result(u8 addr, u8 func, sh309_afe_param_result_t result, u8 *rsp, u32 *rsp_len)
+{
+    if (result == SH309_AFE_PARAM_RESULT_INVALID) {
+        return modbus_exception_response(addr, func, 0x03u, rsp, rsp_len);
+    }
+    if (result == SH309_AFE_PARAM_RESULT_STORE_ERROR) {
+        System_ERROR_UserCallback(ERROR_EEPROM_STORE);
+        return modbus_exception_response(addr, func, 0x04u, rsp, rsp_len);
+    }
+    return -1;
+}
+
 static void put_u16be(u8 *p, u16 v)
 {
     p[0] = v >> 8;
     p[1] = v & 0xFF;
 }
-
-extern int AFE_PARAM_WRITE_Flag;
 
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
@@ -328,6 +365,11 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
     u8 addr = req[0];
     u8 func = req[1];
+
+    if (func == FACTORY_TEST_MODBUS_FUNC)
+    {
+        return factory_test_modbus_on_frame(req, req_len, rsp, rsp_len);
+    }
 
     // ====== 快速验证模式：收到什么就回什么（仅限非广播）======
     // 用来验证“收->发”链路
@@ -379,12 +421,22 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return 0;
         u16 reg = u16be(&req[2]);
         u16 val = u16be(&req[4]);
-        write_reg(reg, val);
-        if (reg_requires_param_save(reg))
+        if (reg >= SH309_AFE_PARAM_REG_BASE && reg <= SH309_AFE_PARAM_REG_END)
         {
-            SaveParam();
-            AFE_PARAM_WRITE_Flag = 1;
-            // test_SH367309_UpdataAfeConfig();
+            sh309_afe_param_result_t afe_result = SH367309_AfeParamWriteRegs(reg, &val, 1u);
+            int exception_result = modbus_afe_write_result(addr, func, afe_result, rsp, rsp_len);
+            if (exception_result >= 0)
+            {
+                return exception_result;
+            }
+        }
+        else
+        {
+            write_reg(reg, val);
+            if (reg_requires_param_save(reg))
+            {
+                SaveParam();
+            }
         }
 
         // 06 回包=原样回显请求（非广播）
@@ -410,20 +462,45 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return 0;
 
         const u8 *pdata = &req[7];
-        for (u16 i = 0; i < qty; i++)
         {
-            u16 v = u16be(&pdata[i * 2]);
-            write_reg(reg + i, v);
-            if (reg_requires_param_save((u16)(reg + i)))
+            u32 end_reg = (u32)reg + (u32)qty - 1u;
+            u8 overlaps_afe = ((u32)reg <= (u32)SH309_AFE_PARAM_REG_END && end_reg >= (u32)SH309_AFE_PARAM_REG_BASE) ? 1u : 0u;
+            if (overlaps_afe)
             {
-                need_save_param = 1;
+                u16 afe_values[SH309_AFE_PARAM_REG_COUNT];
+                sh309_afe_param_result_t afe_result;
+                int exception_result;
+                if ((reg < SH309_AFE_PARAM_REG_BASE) || (end_reg > (u32)SH309_AFE_PARAM_REG_END))
+                {
+                    return modbus_exception_response(addr, func, 0x02u, rsp, rsp_len);
+                }
+                for (u16 i = 0u; i < qty; ++i)
+                {
+                    afe_values[i] = u16be(&pdata[i * 2u]);
+                }
+                afe_result = SH367309_AfeParamWriteRegs(reg, afe_values, qty);
+                exception_result = modbus_afe_write_result(addr, func, afe_result, rsp, rsp_len);
+                if (exception_result >= 0)
+                {
+                    return exception_result;
+                }
             }
-        }
-        if (need_save_param)
-        {
-            SaveParam();
-            AFE_PARAM_WRITE_Flag = 1;
-            // test_SH367309_UpdataAfeConfig();
+            else
+            {
+                for (u16 i = 0; i < qty; i++)
+                {
+                    u16 v = u16be(&pdata[i * 2]);
+                    write_reg(reg + i, v);
+                    if (reg_requires_param_save((u16)(reg + i)))
+                    {
+                        need_save_param = 1;
+                    }
+                }
+                if (need_save_param)
+                {
+                    SaveParam();
+                }
+            }
         }
 
         // 如果是蓝牙名称相关寄存器，调用btname_modbus_on_write_holding

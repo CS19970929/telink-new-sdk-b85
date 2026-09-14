@@ -8,7 +8,9 @@
 #define BMS_COLD_SYSTEM_KEY_BASE   0x2000u
 #define BMS_COLD_CTRL_KEY_BASE     0x3000u
 #define BMS_COLD_BTNAME_KEY_BASE   0x4000u
+#define BMS_COLD_AFE_KEY_BASE      0x5000u
 #define BMS_COLD_BTNAME_SLOT_COUNT 6u
+#define BMS_COLD_AFE_SLOT_COUNT    (BMS_COLD_AFE_PARAM_WORD_COUNT / 2u)
 #define BMS_COLD_BTNAME_MAX_BYTES  (BMS_COLD_BTNAME_SLOT_COUNT * 4u)
 
 #if (BTNAME_SUFFIX_MAX_LEN > BMS_COLD_BTNAME_MAX_BYTES)
@@ -141,11 +143,27 @@ static const u32 g_bms_btname_keys[] = {
     BMS_COLD_BTNAME_FIELD_LIST(BMS_COLD_CTRL_KEY_ITEM)
 };
 
+static const u32 g_bms_afe_keys[BMS_COLD_AFE_SLOT_COUNT] = {
+    BMS_COLD_AFE_KEY_BASE + 0x01u,
+    BMS_COLD_AFE_KEY_BASE + 0x02u,
+    BMS_COLD_AFE_KEY_BASE + 0x03u,
+    BMS_COLD_AFE_KEY_BASE + 0x04u,
+    BMS_COLD_AFE_KEY_BASE + 0x05u,
+    BMS_COLD_AFE_KEY_BASE + 0x06u,
+    BMS_COLD_AFE_KEY_BASE + 0x07u,
+    BMS_COLD_AFE_KEY_BASE + 0x08u,
+    BMS_COLD_AFE_KEY_BASE + 0x09u,
+    BMS_COLD_AFE_KEY_BASE + 0x0Au,
+    BMS_COLD_AFE_KEY_BASE + 0x0Bu,
+    BMS_COLD_AFE_KEY_BASE + 0x0Cu,
+};
+
 #define BMS_COLD_PROTECT_COUNT  ((u16)(sizeof(g_bms_protect_fields) / sizeof(g_bms_protect_fields[0])))
 #define BMS_COLD_SYSTEM_COUNT   ((u16)(sizeof(g_bms_system_fields) / sizeof(g_bms_system_fields[0])))
 #define BMS_COLD_CTRL_COUNT     ((u16)(sizeof(g_bms_control_keys) / sizeof(g_bms_control_keys[0])))
 #define BMS_COLD_BTNAME_COUNT   ((u16)(sizeof(g_bms_btname_keys) / sizeof(g_bms_btname_keys[0])))
-#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT))
+#define BMS_COLD_AFE_COUNT      ((u16)(sizeof(g_bms_afe_keys) / sizeof(g_bms_afe_keys[0])))
+#define BMS_COLD_TOTAL_KEYS     ((u16)(BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + BMS_COLD_AFE_COUNT))
 
 static flash_kv32_cache_entry_t g_bms_cold_cache[BMS_COLD_TOTAL_KEYS];
 static flash_kv32_key_def_t g_bms_cold_keys[BMS_COLD_TOTAL_KEYS];
@@ -302,6 +320,12 @@ static void bms_cold_fill_key_defs(void)
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].key = g_bms_btname_keys[i];
         g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + i].default_value = 0u;
     }
+
+    /* 0xFFFF/0xFFFF marks an uninitialised AFE parameter pair. */
+    for (i = 0; i < BMS_COLD_AFE_COUNT; ++i) {
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i].key = g_bms_afe_keys[i];
+        g_bms_cold_keys[BMS_COLD_PROTECT_COUNT + BMS_COLD_SYSTEM_COUNT + BMS_COLD_CTRL_COUNT + BMS_COLD_BTNAME_COUNT + i].default_value = 0xFFFFFFFFu;
+    }
 }
 
 static int bms_cold_get_control_key(bms_cold_control_param_id_t item, u32 *key)
@@ -396,6 +420,51 @@ int bms_cold_kv_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
     }
 
     return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_PROTECT_COUNT);
+}
+
+int bms_cold_kv_store_get_afe_params(u16 *values, u16 count)
+{
+    u16 i;
+    u32 packed;
+
+    if ((values == NULL) || (count != BMS_COLD_AFE_PARAM_WORD_COUNT)) {
+        return FLASH_KV32_FAILED;
+    }
+    if (!bms_cold_ensure_ready()) {
+        return FLASH_KV32_FAILED;
+    }
+
+    for (i = 0u; i < BMS_COLD_AFE_COUNT; ++i) {
+        packed = 0u;
+        if (!flash_kv32_get(&g_bms_cold_kv, g_bms_afe_keys[i], &packed)) {
+            return FLASH_KV32_FAILED;
+        }
+        values[i * 2u] = (u16)(packed & 0xFFFFu);
+        values[i * 2u + 1u] = (u16)(packed >> 16);
+    }
+    return FLASH_KV32_SUCCESS;
+}
+
+int bms_cold_kv_store_set_afe_params(const u16 *values, u16 count)
+{
+    flash_kv32_pair_t pairs[BMS_COLD_AFE_SLOT_COUNT];
+    u16 i;
+
+    if ((values == NULL) || (count != BMS_COLD_AFE_PARAM_WORD_COUNT)) {
+        return FLASH_KV32_FAILED;
+    }
+    if (!bms_cold_ensure_ready()) {
+        return FLASH_KV32_FAILED;
+    }
+
+    for (i = 0u; i < BMS_COLD_AFE_COUNT; ++i) {
+        pairs[i].key = g_bms_afe_keys[i];
+        pairs[i].value = (u32)values[i * 2u] | ((u32)values[i * 2u + 1u] << 16);
+    }
+    if (bms_cold_pairs_match_current(pairs, BMS_COLD_AFE_COUNT)) {
+        return FLASH_KV32_SUCCESS;
+    }
+    return flash_kv32_write_pairs(&g_bms_cold_kv, pairs, BMS_COLD_AFE_COUNT);
 }
 
 int bms_cold_kv_store_set_system(const bms_cold_system_params_t *system)

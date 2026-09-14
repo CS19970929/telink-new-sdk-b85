@@ -24,6 +24,7 @@ vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/btname_modbus.c
 vendor/ble_sample/bus_mux.c
 vendor/ble_sample/conf.c
+vendor/ble_sample/factory_test.c
 vendor/ble_sample/flash_kv32.c
 vendor/ble_sample/main.c
 vendor/ble_sample/modbus_rtu.c
