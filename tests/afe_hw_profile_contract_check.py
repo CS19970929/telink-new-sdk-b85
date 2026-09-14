@@ -7,7 +7,7 @@ p=text('bms_afe_hw_profile.c'); m=text('modbus_rtu.c'); c=text('sh3673510_contro
 assert 'BMS_COLD_AFE_HW_KEY_BASE   0x5000u' in kv
 assert 'BMS_AFE_HW_PROFILE_SCHEMA_VERSION' in p
 assert 'g_tParam.protect' in p  # one-time migration source only
-assert 'qty != BMS_AFE_HW_PROFILE_WORDS' in m
+assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
 assert 'bms_afe_hw_profile_set(&candidate)' in m
 commit=m[m.index('static u8 commit_protection_update'):m.index('u16 mb_crc16')]
 assert 'bms_afe_apply_protection_config' not in commit
