@@ -15,7 +15,8 @@
  *   - communication-failure output inhibit;
  *   - release only after consecutive complete valid snapshots;
  *   - bounded reinitialization cadence;
- *   - SCD software latch with fail-safe default recovery policy.
+ *   - SCD software latch with fail-safe default recovery policy;
+ *   - board-fixed D008 DVC settings that must not remain stale in persisted KV.
  */
 
 #ifndef DVC1124_SAFE_REINIT_TRIGGER_SAMPLES
@@ -42,6 +43,87 @@ static dvc1124_safe_bms_status_t s_safe;
 static uint8_t dvc_safe_u8_inc_sat(uint8_t value)
 {
     return (value == 0xFFu) ? value : (uint8_t)(value + 1u);
+}
+
+static void dvc_safe_fail_closed(void)
+{
+    s_safe.output_inhibit = 1u;
+    s_safe.snapshot_valid_streak = 0u;
+    (void)bms_afe_set_fets(0u, 0u);
+}
+
+/*
+ * Persisted DVC configuration predates this board audit. A firmware upgrade
+ * must therefore repair board-invariant fields explicitly instead of assuming
+ * that new compile-time defaults overwrite an already-valid KV record.
+ *
+ * Only facts supported by D008 wiring + DVC1124 V1.2 are enforced here:
+ *   HSFM=1       : mask unused high-side CHG/DSG path;
+ *   GP1/GP4=NTC : D008 board NTC wiring;
+ *   GP5=CHG      : low-side charge output;
+ *   GP6=DSG      : low-side discharge output;
+ *   CAES=0 when CWT=0, because a disabled threshold has no current wake;
+ *   INT mask=FF when no GP is configured as the DVC INT output.
+ *
+ * GP2/GP3, SCD, body-diode threshold, I2C WDT and product protection values
+ * are deliberately not invented here. They remain semantic configuration or
+ * product policy and require their own D008 evidence/validation.
+ */
+static uint8_t dvc_safe_enforce_board_config(void)
+{
+    dvc1124_persistent_config_t cfg;
+    uint8_t changed = 0u;
+    uint8_t has_interrupt_output;
+
+    if (!DVC1124_ConfigStoreCaptureCurrent(&cfg)) return 0u;
+
+    if (cfg.operating.high_side_fet_mask != 1u)
+    {
+        cfg.operating.high_side_fet_mask = 1u;
+        changed = 1u;
+    }
+    if (cfg.operating.gp1_mode != DVC1124_GP14_NTC)
+    {
+        cfg.operating.gp1_mode = DVC1124_GP14_NTC;
+        changed = 1u;
+    }
+    if (cfg.operating.gp4_mode != DVC1124_GP14_NTC)
+    {
+        cfg.operating.gp4_mode = DVC1124_GP14_NTC;
+        changed = 1u;
+    }
+    if (cfg.operating.gp5_mode != DVC1124_GP5_LOW_CHG)
+    {
+        cfg.operating.gp5_mode = DVC1124_GP5_LOW_CHG;
+        changed = 1u;
+    }
+    if (cfg.operating.gp6_mode != DVC1124_GP6_LOW_DSG)
+    {
+        cfg.operating.gp6_mode = DVC1124_GP6_LOW_DSG;
+        changed = 1u;
+    }
+
+    if ((cfg.current_wake_threshold_uv == 0u) &&
+        (cfg.operating.current_wake_enable != 0u))
+    {
+        cfg.operating.current_wake_enable = 0u;
+        changed = 1u;
+    }
+
+    has_interrupt_output =
+        ((cfg.operating.gp2_mode == DVC1124_GP236_INTERRUPT) ||
+         (cfg.operating.gp3_mode == DVC1124_GP236_INTERRUPT)) ? 1u : 0u;
+    if (!has_interrupt_output && (cfg.operating.interrupt_mask != 0xFFu))
+    {
+        cfg.operating.interrupt_mask = 0xFFu;
+        changed = 1u;
+    }
+
+    if (!changed) return 1u;
+    if (!DVC1124_ConfigStoreValidate(&cfg)) return 0u;
+    if (!DVC1124_ConfigStoreApply(&cfg)) return 0u;
+    if (!DVC1124_ConfigStoreSave(&cfg)) return 0u;
+    return 1u;
 }
 
 static uint8_t dvc_safe_effective_fets(uint8_t *charge_on,
@@ -87,23 +169,27 @@ static uint8_t dvc_safe_apply_requested_fets(void)
      */
     if (!bms_afe_set_fets(charge_on, discharge_on))
     {
-        s_safe.output_inhibit = 1u;
-        s_safe.snapshot_valid_streak = 0u;
+        dvc_safe_fail_closed();
         return 0u;
     }
     return 1u;
 }
 
+static void dvc_safe_reinitialize(void)
+{
+    bms_afe_init();
+    if (!dvc_safe_enforce_board_config())
+    {
+        bms_error_raise(BMS_ERROR_AFE1);
+        dvc_safe_fail_closed();
+    }
+}
+
 static void dvc_safe_note_invalid_snapshot(void)
 {
-    s_safe.output_inhibit = 1u;
-    s_safe.snapshot_valid_streak = 0u;
+    dvc_safe_fail_closed();
     s_safe.short_clear_samples = 0u;
     s_safe.comm_failure_count = dvc_safe_u8_inc_sat(s_safe.comm_failure_count);
-
-    /* Best-effort fail-safe command. A broken bus may prevent the write; the
-     * inhibit remains latched regardless and no reopen request is issued. */
-    (void)bms_afe_set_fets(0u, 0u);
 
     if (s_safe.reinit_cooldown_samples != 0u)
     {
@@ -113,9 +199,9 @@ static void dvc_safe_note_invalid_snapshot(void)
     if ((s_safe.comm_failure_count >= DVC1124_SAFE_REINIT_TRIGGER_SAMPLES) &&
         (s_safe.reinit_cooldown_samples == 0u))
     {
-        /* Existing DVC init already performs register reset, project config,
-         * protection apply and persistent DVC configuration restore. */
-        bms_afe_init();
+        /* Existing DVC init performs register reset, project config, protection
+         * apply and persistent config restore; then board invariants are fixed. */
+        dvc_safe_reinitialize();
         s_safe.comm_failure_count = 0u;
         s_safe.reinit_cooldown_samples = DVC1124_SAFE_REINIT_COOLDOWN_SAMPLES;
     }
@@ -168,8 +254,7 @@ static void dvc_safe_update_short_latch(const dvc1124_snapshot_t *snapshot)
 #else
     (void)snapshot;
     /* Fail-safe policy: no automatic software SCD unlatch without a proven
-     * D008 load-removal criterion. Power-cycle/re-init keeps outputs inhibited
-     * until fresh valid snapshots, while the existing DVC alarm path remains
+     * D008 load-removal criterion. The existing DVC alarm path remains
      * responsible for the hardware W0C operation. */
 #endif
 }
@@ -178,7 +263,7 @@ void dvc1124_safe_bms_afe_init(void)
 {
     memset(&s_safe, 0, sizeof(s_safe));
     s_safe.output_inhibit = 1u;
-    bms_afe_init();
+    dvc_safe_reinitialize();
 }
 
 void dvc1124_safe_bms_afe_sample(void)
@@ -221,9 +306,7 @@ uint8_t dvc1124_safe_bms_afe_apply_protection_config(void)
 
     if (!ok)
     {
-        s_safe.output_inhibit = 1u;
-        s_safe.snapshot_valid_streak = 0u;
-        (void)bms_afe_set_fets(0u, 0u);
+        dvc_safe_fail_closed();
     }
     return ok;
 }
