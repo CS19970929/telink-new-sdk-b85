@@ -83,15 +83,23 @@
                          DVC1124_GP6_DEFAULT_MODE)
 #endif
 
-/* Named operating defaults corresponding to the current validated behavior. */
+/*
+ * D008 uses the GP5/GP6 low-side CHG/DSG outputs. Keep the unused high-side
+ * CHG/DSG drivers masked so an unrelated register/FET request cannot energize
+ * an unverified output path. Reference Manual V1.2: HSFM=1 masks high-side FET
+ * drive; it does not select the GP5/GP6 low-side function.
+ */
 #ifndef DVC1124_DEFAULT_HIGH_SIDE_FET_MASK
-#define DVC1124_DEFAULT_HIGH_SIDE_FET_MASK       0u
+#define DVC1124_DEFAULT_HIGH_SIDE_FET_MASK       1u
 #endif
 #ifndef DVC1124_DEFAULT_CADC_WORK_ENABLE
 #define DVC1124_DEFAULT_CADC_WORK_ENABLE         1u
 #endif
+
+/* CWT=0 below disables current wake. Keep CAES consistent until a product
+ * current-wake threshold has been validated on hardware. */
 #ifndef DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE
-#define DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE 1u
+#define DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE 0u
 #endif
 #ifndef DVC1124_DEFAULT_CC1_WORK_TIME
 #define DVC1124_DEFAULT_CC1_WORK_TIME            DVC1124_CC1_WORK_4MS
@@ -137,8 +145,12 @@
 #ifndef DVC1124_DEFAULT_TIMED_WAKE
 #define DVC1124_DEFAULT_TIMED_WAKE               DVC1124_TIMED_WAKE_OFF
 #endif
+
+/* 0x79 bits are masks: 0 allows the corresponding 1ms interrupt pulse and
+ * 1 suppresses it. D008 does not currently route/consume a DVC GP interrupt,
+ * therefore mask all sources instead of using the misleading 0x00 default. */
 #ifndef DVC1124_DEFAULT_INTERRUPT_MASK
-#define DVC1124_DEFAULT_INTERRUPT_MASK           0x00u
+#define DVC1124_DEFAULT_INTERRUPT_MASK           0xFFu
 #endif
 
 /* R82 DPC reset default is 16. Keep it named so product tuning is explicit. */

@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - refactor/bms-template-phase1
+      - feature/sh3673510-d013-bmsdvc
       - ci-telink-bms-github-actions
   pull_request:
     branches:
       - refactor/bms-template-phase1
+      - feature/sh3673510-d013-bmsdvc
   workflow_dispatch:
 
 permissions:
@@ -43,11 +45,14 @@ jobs:
       - name: Run DVC1124 configuration contract check
         run: python tests/dvc1124_config_quick_check.py
 
+      - name: Run D008 framework contract check
+        run: python tests/d008_framework_contract_check.py
+
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
 
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/flash_quick_check.py
 
   tc32-production:
     name: TC32 production build
@@ -104,6 +109,10 @@ jobs:
       - name: Run DVC1124 configuration contract check
         shell: powershell
         run: python tests/dvc1124_config_quick_check.py
+
+      - name: Run D008 framework contract check
+        shell: powershell
+        run: python tests/d008_framework_contract_check.py
 
       - name: Run Flash storage contract check
         shell: powershell

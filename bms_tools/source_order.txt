@@ -19,6 +19,7 @@ vendor/ble_sample/SocEnhance.c
 vendor/ble_sample/app.c
 vendor/ble_sample/app_att.c
 vendor/ble_sample/ble_ota.c
+vendor/ble_sample/bms_afe_guard.c
 vendor/ble_sample/bms_cold_kv_store.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/btname_modbus.c

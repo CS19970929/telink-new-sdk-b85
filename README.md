@@ -2,9 +2,12 @@
 
 本仓库当前产品目标为 **TLSR8251 + HS-D008 + DVC1124-2**。重构优先级是安全和兼容，其次才是代码量；保护阈值、协议、Flash 布局、OTA 边界和已验证时序不得在普通整理中改变。
 
+当前 D008/D013 对齐开发分支为 `feature/sh3673510-d013-bmsdvc`。该分支名沿用用户指定名称，**实际目标硬件仍是 HS-D008 + DVC1124-2，不是 SH3673510**。D013 仅作为软件框架、安全恢复和模块边界参考。
+
 ## 当前状态
 
 - 应用层只通过 `bms_afe.h` 使用 AFE；旧 `sh367309_datadeal.*`、`MTPWrite`、`App_AFEGet` 和虚拟 GPIO/ADC 兼容层已删除。
+- `bms_afe_backend.h` 固定选择 DVC1124；`bms_afe_guard.c` 统一处理 AFE 通信失效 inhibit、连续有效快照恢复资格和 FET request 仲裁。
 - `bms_state.*` / `bms_error.h` 统一持有 BMS 报告、系统状态、错误计数和分级故障历史，通信层不再跨文件遍历私有数组。
 - DVC1124 寄存器真值集中在 `dvc1124_reg.h`；板级默认值集中在 `dvc1124_project_config.h`。
 - BLE 与 UART 共用同一个 Modbus/AFE 配置服务。
@@ -23,6 +26,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/
 ```bash
 python3 bms_tools/bms.py sources --check
 python3 tests/dvc1124_config_quick_check.py
+python3 tests/d008_framework_contract_check.py
 python3 tests/flash_quick_check.py
 python3 -m unittest tests/test_bms_tools.py
 ```
@@ -45,6 +49,7 @@ git diff -- bms_tools/source_order.txt
 
 ## 文档入口
 
+- [D008 对齐 D013 框架与 DVC1124 V1.2 完整审核](docs/HS-D008_DVC1124_D013_Framework_Audit_2026-09-14.md)
 - [架构与 AFE 移植](docs/ARCHITECTURE.md)
 - [构建、测试与发布门禁](docs/BUILD_AND_TEST.md)
 - [Flash 与持久化](docs/STORAGE.md)
