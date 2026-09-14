@@ -71,8 +71,11 @@ public partial class MainWindow
         _protectedFeaturesUnlocked = true;
         ProtectionTab.Visibility = Visibility.Visible;
         OtaTab.Visibility = Visibility.Visible;
+        UpdateAfeHardwareTabVisibility();
         ProtectedFeaturesButton.Content = "锁定高级功能";
-        AppendLog("客户版高级功能已解锁：软件保护/BMS 参数、OTA。", "ACCESS");
+        AppendLog(_afeHardwareEditorLaunchEnabled
+            ? "客户版高级功能已解锁：软件保护/BMS参数、OTA、授权AFE硬件保护编辑器。"
+            : "客户版高级功能已解锁：软件保护/BMS参数、OTA；AFE硬件编辑器未使用启动参数开启。", "ACCESS");
         MainTabs.SelectedItem = ProtectionTab;
     }
 
@@ -87,8 +90,10 @@ public partial class MainWindow
         _protectedFeaturesUnlocked = false;
         ProtectionTab.Visibility = Visibility.Collapsed;
         OtaTab.Visibility = Visibility.Collapsed;
+        UpdateAfeHardwareTabVisibility();
         ProtectedFeaturesButton.Content = "高级功能";
-        if (MainTabs.SelectedItem == ProtectionTab || MainTabs.SelectedItem == OtaTab || MainTabs.SelectedItem == _sh3520Tab)
+        if (MainTabs.SelectedItem == ProtectionTab || MainTabs.SelectedItem == OtaTab ||
+            MainTabs.SelectedItem == _sh3520Tab || MainTabs.SelectedItem == _afeHardwareTab)
             MainTabs.SelectedIndex = 0;
         AppendLog("客户版高级功能已锁定。", "ACCESS");
     }
