@@ -5,6 +5,7 @@
 #include "param.h"
 #include "bms_error.h"
 #include "bms_state.h"
+#include "bms_sw_protection.h"
 #include "sh3673520.h"
 #include "sh3673520_reg.h"
 #include "sh3673510_project_config.h"
@@ -12,24 +13,11 @@
 #include <string.h>
 
 #define SH3510_SAMPLE_MS              200u
-#define SH3510_LEVEL_COUNT            3u
 #define SH3510_REINIT_TRIGGER         3u
 #define SH3510_REINIT_COOLDOWN        25u /* 5 s at 200 ms */
 #define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 #define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
-
-typedef struct {
-    uint16_t trip_count;
-    uint16_t recover_count;
-    uint8_t active;
-} sh3510_filter_t;
-
-typedef enum {
-    F_CELL_OV = 0, F_CELL_UV, F_PACK_OV, F_PACK_UV,
-    F_CHG_OC, F_DSG_OC, F_CHG_OT, F_CHG_UT,
-    F_DSG_OT, F_DSG_UT, F_MOS_OT, F_VDELTA, F_COUNT
-} sh3510_filter_id_t;
 
 typedef enum {
     HW_REC_OV = 0, HW_REC_UV, HW_REC_OCD1, HW_REC_OCD2,
@@ -37,8 +25,6 @@ typedef enum {
     HW_REC_COUNT
 } sh3510_hw_recovery_id_t;
 
-static sh3510_filter_t s_filter[SH3510_LEVEL_COUNT][F_COUNT];
-static union MDLCHGFAULT_REG s_prev_fault[SH3510_LEVEL_COUNT];
 static bms_afe_aux_measurements_t s_aux;
 static uint32_t s_ntc_ohm[4];
 static uint8_t s_ntc_valid[4];
@@ -72,12 +58,6 @@ static const uint16_t s_ntc_table[] = {
     14u,1250u, 12u,1300u, 11u,1350u, 9u,1400u, 8u,1450u
 };
 
-static uint16_t level_value(uint8_t level, uint16_t first,
-                            uint16_t second, uint16_t third)
-{
-    return (level == 0u) ? first : ((level == 1u) ? second : third);
-}
-
 static uint16_t filter_samples(uint16_t filter_10ms)
 {
     uint32_t ms = (uint32_t)filter_10ms * 10u;
@@ -87,63 +67,6 @@ static uint16_t filter_samples(uint16_t filter_10ms)
     if (n == 0u) n = 1u;
     if (n > 65535u) n = 65535u;
     return (uint16_t)n;
-}
-
-static uint8_t filter_update(sh3510_filter_t *f, uint16_t value,
-                             uint16_t trip, uint16_t recover,
-                             uint16_t filter_10ms, uint8_t high)
-{
-#if !SH3673510_SW_PROTECT_ENABLE
-    (void)value;
-    (void)trip;
-    (void)recover;
-    (void)filter_10ms;
-    (void)high;
-    if (f != 0) {
-        f->active = 0u;
-        f->trip_count = 0u;
-        f->recover_count = 0u;
-    }
-    return 0u;
-#else
-    uint8_t violated;
-    uint8_t recovered;
-    uint16_t needed;
-    if (f == 0) return 0u;
-    if (trip == 0u) {
-        f->active = 0u; f->trip_count = 0u; f->recover_count = 0u;
-        return 0u;
-    }
-
-    needed = filter_samples(filter_10ms);
-    if (f->active) {
-        recovered = high ? (value <= recover) : (value >= recover);
-        if (recovered) {
-            if (f->recover_count < needed) ++f->recover_count;
-            if (f->recover_count >= needed) {
-                f->active = 0u;
-                f->trip_count = 0u;
-                f->recover_count = 0u;
-            }
-        } else {
-            f->recover_count = 0u;
-        }
-        return f->active;
-    }
-
-    violated = high ? (value >= trip) : (value <= trip);
-    if (violated) {
-        if (f->trip_count < needed) ++f->trip_count;
-        if (f->trip_count >= needed) {
-            f->active = 1u;
-            f->trip_count = 0u;
-            f->recover_count = 0u;
-        }
-    } else if (f->trip_count != 0u) {
-        --f->trip_count;
-    }
-    return f->active;
-#endif
 }
 
 static uint16_t ntc_temp(uint32_t ohm)
@@ -187,28 +110,6 @@ static void note_comm_ok(void)
     s_comm_failures = 0u;
 }
 
-static union MDLCHGFAULT_REG *fault_reg(uint8_t level)
-{
-    if (level == 0u) return &g_stCellInfoReport.unMdlFault_First;
-    if (level == 1u) return &g_stCellInfoReport.unMdlFault_Second;
-    return &g_stCellInfoReport.unMdlFault_Third;
-}
-
-static void record_rising(uint8_t level, union MDLCHGFAULT_REG now)
-{
-    union MDLCHGFAULT_REG prev = s_prev_fault[level];
-    uint8_t base = (uint8_t)(1u + 13u * level);
-#define RISE(bit, off) do { if (now.bits.bit && !prev.bits.bit) \
-    bms_fault_history_record((bms_fault_code_t)(base + (off))); } while (0)
-    RISE(b1CellOvp,0u); RISE(b1CellUvp,1u); RISE(b1BatOvp,2u);
-    RISE(b1BatUvp,3u); RISE(b1IchgOcp,4u); RISE(b1IdischgOcp,5u);
-    RISE(b1CellChgOtp,6u); RISE(b1CellChgUtp,7u);
-    RISE(b1CellDischgOtp,8u); RISE(b1CellDischgUtp,9u);
-    RISE(b1TmosOtp,10u); RISE(b1VcellDeltaBig,11u);
-#undef RISE
-    s_prev_fault[level] = now;
-}
-
 static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
                                             uint16_t *bat_max)
 {
@@ -235,125 +136,20 @@ static uint8_t temperature_snapshot(uint16_t *bat_min,
     return 1u;
 }
 
-static void update_faults(void)
-{
-    uint8_t l;
-    uint16_t bat_min = 0u, bat_max = 0u, mos_temp = 0u;
-    uint8_t temp_ok = temperature_snapshot(&bat_min, &bat_max, &mos_temp);
-
-    if (temp_ok) bms_error_clear(BMS_ERROR_TEMP_BREAK);
-    else if (!bms_error_get(BMS_ERROR_TEMP_BREAK)) bms_error_raise(BMS_ERROR_TEMP_BREAK);
-
-    for (l = 0u; l < SH3510_LEVEL_COUNT; ++l) {
-        union MDLCHGFAULT_REG *f = fault_reg(l);
-        uint16_t trip;
-
-        trip = level_value(l, g_tParam.protect.u16VcellOvp_First,
-                           g_tParam.protect.u16VcellOvp_Second,
-                           g_tParam.protect.u16VcellOvp_Third);
-        f->bits.b1CellOvp = filter_update(&s_filter[l][F_CELL_OV],
-            g_stCellInfoReport.u16VCellMax, trip, g_tParam.protect.u16VcellOvp_Rcv,
-            g_tParam.protect.u16VcellOvp_Filter, 1u);
-        trip = level_value(l, g_tParam.protect.u16VcellUvp_First,
-                           g_tParam.protect.u16VcellUvp_Second,
-                           g_tParam.protect.u16VcellUvp_Third);
-        f->bits.b1CellUvp = filter_update(&s_filter[l][F_CELL_UV],
-            g_stCellInfoReport.u16VCellMin, trip, g_tParam.protect.u16VcellUvp_Rcv,
-            g_tParam.protect.u16VcellUvp_Filter, 0u);
-
-        trip = level_value(l, g_tParam.protect.u16VbusOvp_First,
-                           g_tParam.protect.u16VbusOvp_Second,
-                           g_tParam.protect.u16VbusOvp_Third);
-        f->bits.b1BatOvp = filter_update(&s_filter[l][F_PACK_OV],
-            g_stCellInfoReport.u16VCellTotle, trip, g_tParam.protect.u16VbusOvp_Rcv,
-            g_tParam.protect.u16VbusOvp_Filter, 1u);
-        trip = level_value(l, g_tParam.protect.u16VbusUvp_First,
-                           g_tParam.protect.u16VbusUvp_Second,
-                           g_tParam.protect.u16VbusUvp_Third);
-        f->bits.b1BatUvp = filter_update(&s_filter[l][F_PACK_UV],
-            g_stCellInfoReport.u16VCellTotle, trip, g_tParam.protect.u16VbusUvp_Rcv,
-            g_tParam.protect.u16VbusUvp_Filter, 0u);
-
-        trip = level_value(l, g_tParam.protect.u16IchgOcp_First,
-                           g_tParam.protect.u16IchgOcp_Second,
-                           g_tParam.protect.u16IchgOcp_Third);
-        f->bits.b1IchgOcp = filter_update(&s_filter[l][F_CHG_OC],
-            g_stCellInfoReport.u16Ichg, trip, g_tParam.protect.u16IchgOcp_Rcv,
-            g_tParam.protect.u16IchgOcp_Filter, 1u);
-        trip = level_value(l, g_tParam.protect.u16IdsgOcp_First,
-                           g_tParam.protect.u16IdsgOcp_Second,
-                           g_tParam.protect.u16IdsgOcp_Third);
-        f->bits.b1IdischgOcp = filter_update(&s_filter[l][F_DSG_OC],
-            g_stCellInfoReport.u16IDischg, trip, g_tParam.protect.u16IdsgOcp_Rcv,
-            g_tParam.protect.u16IdsgOcp_Filter, 1u);
-
-        if (temp_ok) {
-            trip = level_value(l, g_tParam.protect.u16TChgOTp_First,
-                               g_tParam.protect.u16TChgOTp_Second,
-                               g_tParam.protect.u16TChgOTp_Third);
-            f->bits.b1CellChgOtp = filter_update(&s_filter[l][F_CHG_OT], bat_max,
-                trip, g_tParam.protect.u16TChgOTp_Rcv,
-                g_tParam.protect.u16TChgOTp_Filter, 1u);
-            trip = level_value(l, g_tParam.protect.u16TchgUTp_First,
-                               g_tParam.protect.u16TchgUTp_Second,
-                               g_tParam.protect.u16TchgUTp_Third);
-            f->bits.b1CellChgUtp = filter_update(&s_filter[l][F_CHG_UT], bat_min,
-                trip, g_tParam.protect.u16TchgUTp_Rcv,
-                g_tParam.protect.u16TchgUTp_Filter, 0u);
-            trip = level_value(l, g_tParam.protect.u16TdischgOTp_First,
-                               g_tParam.protect.u16TdischgOTp_Second,
-                               g_tParam.protect.u16TdischgOTp_Third);
-            f->bits.b1CellDischgOtp = filter_update(&s_filter[l][F_DSG_OT], bat_max,
-                trip, g_tParam.protect.u16TdischgOTp_Rcv,
-                g_tParam.protect.u16TdischgOTp_Filter, 1u);
-            trip = level_value(l, g_tParam.protect.u16TdischgUTp_First,
-                               g_tParam.protect.u16TdischgUTp_Second,
-                               g_tParam.protect.u16TdischgUTp_Third);
-            f->bits.b1CellDischgUtp = filter_update(&s_filter[l][F_DSG_UT], bat_min,
-                trip, g_tParam.protect.u16TdischgUTp_Rcv,
-                g_tParam.protect.u16TdischgUTp_Filter, 0u);
-            trip = level_value(l, g_tParam.protect.u16TmosOTp_First,
-                               g_tParam.protect.u16TmosOTp_Second,
-                               g_tParam.protect.u16TmosOTp_Third);
-            f->bits.b1TmosOtp = filter_update(&s_filter[l][F_MOS_OT], mos_temp,
-                trip, g_tParam.protect.u16TmosOTp_Rcv,
-                g_tParam.protect.u16TmosOTp_Filter, 1u);
-        } else {
-            f->bits.b1CellChgOtp = 0u; f->bits.b1CellChgUtp = 0u;
-            f->bits.b1CellDischgOtp = 0u; f->bits.b1CellDischgUtp = 0u;
-            f->bits.b1TmosOtp = 0u;
-        }
-
-        trip = level_value(l, g_tParam.protect.u16VdeltaOvp_First,
-                           g_tParam.protect.u16VdeltaOvp_Second,
-                           g_tParam.protect.u16VdeltaOvp_Third);
-        f->bits.b1VcellDeltaBig = filter_update(&s_filter[l][F_VDELTA],
-            g_stCellInfoReport.u16VCellDelta, trip,
-            g_tParam.protect.u16VdeltaOvp_Rcv,
-            g_tParam.protect.u16VdeltaOvp_Filter, 1u);
-        record_rising(l, *f);
-    }
-}
-
 static uint8_t charge_blocked(void)
 {
-    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
     return (s_hw_charge_protect ||
-            f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
-            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
-            bms_error_get(BMS_ERROR_TEMP_BREAK) || s_heater_on) ? 1u : 0u;
+            bms_sw_protection_charge_blocked() ||
+            s_heater_on) ? 1u : 0u;
 }
 
 static uint8_t discharge_blocked(void)
 {
-    const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
     return (s_hw_discharge_protect ||
-            f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
-            f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
+            bms_sw_protection_discharge_blocked() ||
             s_short_latched ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
-            bms_error_get(BMS_ERROR_CBC_DSG) ||
-            bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
+            bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
 }
 
 static uint8_t sh3510_outputs_healthy(void)
@@ -721,6 +517,7 @@ static uint8_t publish_measurements(void)
     sh3673520_current_raw_t current;
     sh3673520_temperature_raw_t temp;
     sh3673510_control_status_t status;
+    bms_sw_protection_inputs_t sw;
     uint16_t max_mv = 0u, min_mv = 0xFFFFu;
     uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t max_pos = 0u, min_pos = 0u, i;
@@ -810,20 +607,30 @@ static uint8_t publish_measurements(void)
 
     publish_hw_status(&status);
     if (!s_afe_reconfigure_required) {
-        update_faults();
+        memset(&sw, 0, sizeof(sw));
+        sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
+                                                              &sw.battery_temp_max);
+        sw.mos_temp_valid = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? 1u : 0u;
+        if (sw.mos_temp_valid)
+            sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+#if SH3673510_SW_PROTECT_ENABLE
+        bms_sw_protection_update(&sw);
+#else
+        bms_sw_protection_clear();
+#endif
 #if SH3673510_HW_PROTECT_ENABLE
         merge_hw_protection_faults(&status);
         service_short_recovery(&status);
         service_hw_flag_recovery(&status);
 #endif
+        bms_sw_protection_record_fault_edges();
     }
     return 1u;
 }
 
 void sh3673510_bms_afe_init(void)
 {
-    memset(s_filter, 0, sizeof(s_filter));
-    memset(s_prev_fault, 0, sizeof(s_prev_fault));
+    bms_sw_protection_init();
     memset(&s_aux, 0, sizeof(s_aux));
     s_snapshot_valid = 0u;
     s_comm_failures = 0u;
