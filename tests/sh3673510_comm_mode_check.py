@@ -12,7 +12,7 @@ def text(name: str) -> str:
 
 
 def literal(src: str, name: str) -> int:
-    m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+([0-9]+)(?:[uUlL]*)\s*$", src)
+    m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+([0-9]+)(?:[uUlL]*)\s*(?:/\*.*\*/)?$", src)
     if not m:
         raise AssertionError(f"missing literal macro {name}")
     return int(m.group(1), 10)
@@ -53,18 +53,22 @@ for required in (
 if "bus_mux_on_uart_rx_byte" in uart or '#include "bus_mux.h"' in uart:
     raise AssertionError("UART driver must not depend on the removed mux detector")
 
-# 115200 8N1 is ~86.8 us/character. Keep at least one complete character of
-# non-blocking DE hold time after DMA done + UART busy clear so the final byte
-# and stop bit cannot be truncated by the RS485 direction switch.
-if literal(uart, "MODBUS_RS485_TX_TAIL_GUARD_US") < 87:
-    raise AssertionError("D011 RS485 DE tail guard is shorter than one UART character")
+# DE release must be gated by both the B85 TX_DONE state and the calculated
+# complete line time for the actual response length.  A fixed post-event delay
+# alone is not sufficient evidence that a long frame has finished.
+assert literal(uart, "MODBUS_UART_BITS_PER_CHAR") == 10
+if literal(uart, "MODBUS_RS485_TX_EXTRA_GUARD_US") < 100:
+    raise AssertionError("D011 RS485 extra release guard is unexpectedly short")
 for required in (
-    "s_rs485_tx_tail_wait",
-    "s_rs485_tx_tail_tick",
-    "clock_time_exceed(s_rs485_tx_tail_tick, MODBUS_RS485_TX_TAIL_GUARD_US)",
+    "modbus_rs485_min_hold_us",
+    "s_rs485_tx_start_tick",
+    "s_rs485_tx_min_hold_us",
+    "frame_ticks = len * MODBUS_UART_BITS_PER_CHAR * ticks_per_bit;",
+    "s_rs485_tx_min_hold_us = modbus_rs485_min_hold_us(len);",
+    "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)",
 ):
     if required not in uart:
-        raise AssertionError(f"missing D011 RS485 TX tail guard: {required}")
+        raise AssertionError(f"missing D011 full-frame RS485 hold: {required}")
 
 # SIF source must be inert: no timer setup and no pin modulation.
 for forbidden in ("SIF_SYNC", "BUS_STATE_OWC_TX", "FLD_IRQ_TMR0_EN", "gpio_write"):
