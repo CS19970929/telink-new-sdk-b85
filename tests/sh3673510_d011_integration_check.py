@@ -134,6 +134,11 @@ if "FLAG1_SC_MASK" in bms and "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv" in
 require(bms, "service_short_recovery")
 require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
 require(control, "sh3673510_control_get_protection_actual")
+require(control, "p->u16IdsgOcp_First > 3200u")
+require(control, "p->u16IdsgOcp_Second > 6400u")
+require(control, "p->u16IchgOcp_First > 1760u")
+require(control, "p->u16IdsgOcp_Filter > 40u")
+require(control, "p->u16SocUp_First > 100u")
 
 
 # Migration idempotency / compilation-safety guards.
