@@ -1,0 +1,57 @@
+name: One-shot split AFE hardware protection
+
+on:
+  push:
+    branches:
+      - refactor/d008-bms-phase2
+    paths:
+      - tools/split_afe_hw_protection_d008_once.py
+      - .github/workflows/one-shot-split-afe-hw-protection.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply independent DVC hardware protection profile
+        run: python tools/split_afe_hw_protection_d008_once.py
+
+      - name: Refresh locked source order
+        run: python bms_tools/bms.py sources --update
+
+      - name: Run independent hardware profile contract
+        run: python tests/afe_hw_profile_contract_check.py
+
+      - name: Run existing host contracts
+        shell: bash
+        run: |
+          python bms_tools/bms.py sources --check
+          python -m unittest tests.test_bms_tools -v
+          python tests/dvc1124_config_quick_check.py
+          python tests/d008_framework_contract_check.py
+          python tests/sw_protection_contract_check.py
+          python tests/soc_contract_check.py
+          python tests/flash_quick_check.py
+
+      - name: Commit split protection architecture
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(d008): split software and DVC hardware protection parameters"
+          git push origin HEAD:${GITHUB_REF_NAME}
