@@ -1156,6 +1156,11 @@ void blt_pm_proc(void)
 			sleep_cnt = 0;
 		}
 #endif
+		if (deepsleep_en)
+		{
+			cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
+			app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+		}
 
 		if (g_stCellInfoReport.u16VCellMin < 2550)
 		{
