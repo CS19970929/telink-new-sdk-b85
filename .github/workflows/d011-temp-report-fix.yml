@@ -1,0 +1,71 @@
+name: D011 temperature report one-shot fix
+
+on:
+  push:
+    branches:
+      - feature/sh3673510-d011-bms
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/sh3673510-d011-bms
+          fetch-depth: 0
+
+      - name: Patch temperature extrema reporting and contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          bms_path = root / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001' / 'tc_ble_single_sdk' / 'vendor' / 'ble_sample' / 'sh3673510_bms.c'
+          test_path = root / 'tests' / 'sh3673510_d011_integration_check.py'
+
+          bms = bms_path.read_text(encoding='utf-8')
+          old_decl = '''    uint16_t max_mv = 0u, min_mv = 0xFFFFu;\n    uint8_t max_pos = 0u, min_pos = 0u, i;\n'''
+          new_decl = '''    uint16_t max_mv = 0u, min_mv = 0xFFFFu;\n    uint16_t bat_temp_min = 0u, bat_temp_max = 0u;\n    uint8_t max_pos = 0u, min_pos = 0u, i;\n'''
+          if bms.count(old_decl) != 1:
+              raise SystemExit('unexpected publish_measurements declaration shape')
+          bms = bms.replace(old_decl, new_decl, 1)
+
+          old_temp = '''    g_stCellInfoReport.u16Temperature[MOS_TEMP1] =\n        s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX]) : 0u;\n\n    if (s_ntc_valid[SH3673510_D011_BAT_NTC1_INDEX] &&\n'''
+          new_temp = '''    g_stCellInfoReport.u16Temperature[MOS_TEMP1] =\n        s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX]) : 0u;\n\n    /*\n     * Realtime max/min temperature is the battery temperature range: TS1/TS2.\n     * TS3 supervises the heater MOS and TS4 supervises the power MOS, so they\n     * must not be folded into the battery extrema. Zero is the existing\n     * invalid/sensor-break sentinel (-40.0 C in the legacy encoding).\n     */\n    if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {\n        g_stCellInfoReport.u16TempMin = bat_temp_min;\n        g_stCellInfoReport.u16TempMax = bat_temp_max;\n    } else {\n        g_stCellInfoReport.u16TempMin = 0u;\n        g_stCellInfoReport.u16TempMax = 0u;\n    }\n\n    if (s_ntc_valid[SH3673510_D011_BAT_NTC1_INDEX] &&\n'''
+          if bms.count(old_temp) != 1:
+              raise SystemExit('unexpected D011 temperature publish shape')
+          bms = bms.replace(old_temp, new_temp, 1)
+          bms_path.write_text(bms, encoding='utf-8')
+
+          test = test_path.read_text(encoding='utf-8')
+          anchor = 'require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")\n'
+          insert = '''require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")\nrequire(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")\nrequire(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")\n'''
+          if test.count(anchor) != 1:
+              raise SystemExit('unexpected D011 integration contract anchor')
+          test = test.replace(anchor, insert, 1)
+
+          final_anchor = '''if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:\n    raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")\n\nprint("HS-D011 SH3673510 integration contract: PASS")\n'''
+          final_insert = '''if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:\n    raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")\n\n# Realtime battery temperature extrema must be refreshed from TS1/TS2 on every\n# valid sample. MOS/heater temperatures remain independently reported.\npublish_start = bms.find("static uint8_t publish_measurements")\npublish_end = bms.find("void sh3673510_bms_afe_init", publish_start)\nif publish_start < 0 or publish_end <= publish_start:\n    raise AssertionError("missing publish_measurements")\npublish_text = bms[publish_start:publish_end]\nfor needle in (\n    "battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)",\n    "g_stCellInfoReport.u16TempMin = bat_temp_min;",\n    "g_stCellInfoReport.u16TempMax = bat_temp_max;",\n    "g_stCellInfoReport.u16TempMin = 0u;",\n    "g_stCellInfoReport.u16TempMax = 0u;",\n):\n    require(publish_text, needle)\n\nprint("HS-D011 SH3673510 integration contract: PASS")\n'''
+          if test.count(final_anchor) != 1:
+              raise SystemExit('unexpected D011 integration contract trailer')
+          test = test.replace(final_anchor, final_insert, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          python tests/sh3673510_d011_integration_check.py
+
+      - name: Commit fix and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/d011-temp-report-fix.yml
+          git add tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/sh3673510_bms.c tests/sh3673510_d011_integration_check.py
+          git commit -m "fix: publish D011 battery temperature extrema"
+          git push origin HEAD:feature/sh3673510-d011-bms
