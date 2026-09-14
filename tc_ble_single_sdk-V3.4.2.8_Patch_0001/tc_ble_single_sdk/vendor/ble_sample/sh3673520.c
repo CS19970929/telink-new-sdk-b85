@@ -158,6 +158,21 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
     }
     crc = sh3673520_crc8_update(crc, rx);
 
+    /*
+     * Datasheet Figure 10 inserts one invalid 0xFF pipeline byte after the
+     * length echo and before Read Data1. Clock it out, but do not include it
+     * in the read CRC (CRC covers the leading 0xFF, command, address, length,
+     * and payload bytes only).
+     */
+    status = sh36735xx_xfer_byte(0x00u, &rx);
+    if (status != SH3673520_OK) {
+        goto finish;
+    }
+    if (rx != SH3673520_SPI_RESPONSE_IDLE) {
+        status = SH3673520_ERR_PROTOCOL;
+        goto finish;
+    }
+
     for (index = 0u; index < length; ++index) {
         status = sh36735xx_xfer_byte(0x00u, &rx);
         if (status != SH3673520_OK) {
@@ -757,7 +772,6 @@ sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv)
     if (status != SH3673520_OK) {
         return status;
     }
-
     *pack_mv = SH3673520_PackRawToMilliVolt(
         SH3673520_DecodeSigned16(raw[0], raw[1]));
     return SH3673520_OK;
