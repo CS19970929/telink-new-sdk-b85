@@ -1,0 +1,52 @@
+name: One-shot finalize AFE hardware split
+
+on:
+  push:
+    branches:
+      - refactor/d011-afe-hw-protection-split
+    paths:
+      - tools/finalize_afe_hw_split.py
+      - tests/afe_hw_profile_contract_check.py
+      - .github/workflows/one-shot-finalize-afe-hw-split.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final split architecture
+        run: python tools/finalize_afe_hw_split.py
+      - name: Refresh source order
+        run: python bms_tools/bms.py sources --update
+      - name: Run contracts
+        run: |
+          python bms_tools/bms.py sources --check
+          python tests/afe_hw_profile_contract_check.py
+          python tests/afe_hw_access_contract_check.py
+          python tests/sh3673520_contract_check.py
+          python tests/sh3673510_d011_integration_check.py
+          python tests/sh3673510_protection_mode_check.py
+          python tests/sh3673510_temperature_encoding_check.py
+          python tests/sw_protection_contract_check.py
+          python tests/soc_contract_check.py
+          python tests/flash_quick_check.py
+      - name: Commit final firmware split
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(bms): finalize independent AFE hardware protection transactions"
+          git push origin HEAD:${GITHUB_REF_NAME}
