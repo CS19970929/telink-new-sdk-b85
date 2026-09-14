@@ -100,14 +100,16 @@ This preserves the intended hierarchy:
 
 ## 8. Windows tool behavior
 
-The main Windows tool supports direct serial Modbus RTU as the preferred transport. BLE remains optional when its negotiated MTU can carry the complete atomic write.
+Both Windows projects use the same V2 protocol model and the same `0x42` firmware write gate. Direct serial Modbus RTU is the preferred transport. BLE remains optional when its negotiated MTU can carry the complete atomic write.
 
-The AFE hardware page is compiled into the tool but is hidden by default. It is shown only when both conditions are met:
+Customer project `BmsTool.Windows` compiles the editor but hides it by default. The page is shown only when both conditions are met:
 
 1. the application is launched with `--enable-afe-hw-editor`;
 2. protected advanced features are unlocked.
 
-The page detects `backend_id + capabilities`, renders only supported semantic parameters, and shows requested vs effective values.
+Internal project `BmsFactoryTest.Windows` exposes the AFE hardware page directly because the whole application is already an engineering/factory tool. It still has to open the same 60-second firmware authorization session before any write; the internal UI does not bypass firmware validation or rollback.
+
+Both editors detect `backend_id + capabilities`, render only supported semantic parameters, and show requested vs effective values. The current GUI intentionally keeps `enable_mask` read-only and preserves the device's existing enable state; this prevents a generic PC tool from silently enabling an unreviewed hardware protection channel. Product-specific enable-mask changes require an explicitly reviewed engineering change.
 
 ## 9. Safety restrictions
 
