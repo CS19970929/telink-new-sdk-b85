@@ -37,7 +37,7 @@
 #define C11_AND_C11pro  13
 #define test_default    14
 
-/* HS-D011-10S50A is the active product on this branch. */
+/* D013 inherits the existing D11 protocol/storage identity on this branch. */
 #define FD_BMS_TYPE                    D11
 #define SeriesNum                      SH3673510_D011_CELL_COUNT
 /* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
@@ -48,9 +48,9 @@
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
 #define BMS_SERIAL_NUMBER_DEFAULT      "D011-UNSET"
 
-/* Legacy SOC/current-sense compatibility values. */
+/* Legacy SOC/current-sense compatibility values: 2mV : 20A. */
 #define CS_Res                         2
-#define CS_Res_Num                     2
+#define CS_Res_Num                     20
 
 #define DEV_NAME_STR  "BT_D011"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
