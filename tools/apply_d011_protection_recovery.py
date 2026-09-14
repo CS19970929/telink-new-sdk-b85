@@ -5,6 +5,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 BMS = VENDOR / "sh3673510_bms.c"
+CONFIG = VENDOR / "sh3673510_project_config.h"
 TEST = ROOT / "tests" / "sh3673510_d011_integration_check.py"
 DOC = ROOT / "docs" / "SH36735XX_AFE_REGISTER_CONFIG.md"
 
@@ -318,10 +319,14 @@ new_clear = '''static uint8_t hw_recovery_stable(sh3510_hw_recovery_id_t id,
 
 static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
 {
+    sh3673510_protection_actual_t actual;
+    uint8_t actual_ok;
     uint8_t c1 = 0u, c2 = 0u;
     uint16_t bat_min = 0u, bat_max = 0u;
     uint8_t bat_temp_ok;
     if (s == 0) return;
+
+    actual_ok = sh3673510_control_get_protection_actual(&actual);
 
     /* Reset/wake events are diagnostic. RST1/RST2 are intentionally NOT
      * cleared here: service_afe_reconfiguration() owns those states. */
@@ -330,31 +335,41 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
 
     if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
         if (hw_recovery_stable(HW_REC_OV,
-                g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv,
+                actual_ok &&
+                g_stCellInfoReport.u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv &&
+                g_stCellInfoReport.u16VCellMax < actual.ov_mv,
                 g_tParam.protect.u16VcellOvp_Filter)) c1 |= SH3673520_FLAG1_OV_MASK;
     } else s_hw_recovery_count[HW_REC_OV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_UV_MASK) {
         if (hw_recovery_stable(HW_REC_UV,
-                g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv,
+                actual_ok &&
+                g_stCellInfoReport.u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv &&
+                g_stCellInfoReport.u16VCellMin > actual.uv_mv,
                 g_tParam.protect.u16VcellUvp_Filter)) c1 |= SH3673520_FLAG1_UV_MASK;
     } else s_hw_recovery_count[HW_REC_UV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
         if (hw_recovery_stable(HW_REC_OCD1,
-                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv,
+                actual_ok &&
+                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
+                g_stCellInfoReport.u16IDischg < actual.ocd1_a10,
                 g_tParam.protect.u16IdsgOcp_Filter)) c1 |= SH3673520_FLAG1_OCD1_MASK;
     } else s_hw_recovery_count[HW_REC_OCD1] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD2_MASK) {
         if (hw_recovery_stable(HW_REC_OCD2,
-                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv,
+                actual_ok &&
+                g_stCellInfoReport.u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv &&
+                g_stCellInfoReport.u16IDischg < actual.ocd2_a10,
                 g_tParam.protect.u16IdsgOcp_Filter)) c1 |= SH3673520_FLAG1_OCD2_MASK;
     } else s_hw_recovery_count[HW_REC_OCD2] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCC_MASK) {
         if (hw_recovery_stable(HW_REC_OCC,
-                g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv,
+                actual_ok &&
+                g_stCellInfoReport.u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv &&
+                g_stCellInfoReport.u16Ichg < actual.occ_a10,
                 g_tParam.protect.u16IchgOcp_Filter)) c1 |= SH3673520_FLAG1_OCC_MASK;
     } else s_hw_recovery_count[HW_REC_OCC] = 0u;
 
@@ -529,6 +544,12 @@ bms = replace_once(bms, '''void sh3673510_bms_afe_sleep(void)
 
 BMS.write_text(bms, encoding="utf-8")
 
+cfg = CONFIG.read_text(encoding="utf-8")
+cfg = cfg.replace(
+    "/* TS3, 10K near heater MOS; software policy currently does not use it */",
+    "/* TS3, 10K near heater MOS; reversible heater safety cutoff */")
+CONFIG.write_text(cfg, encoding="utf-8")
+
 # Strengthen the permanent integration contract.
 test = TEST.read_text(encoding="utf-8")
 test = replace_once(test, '''require(bms, "s_requested_charge_on")
@@ -575,17 +596,23 @@ test = replace_once(test, '''    "static uint16_t s_short_release_count;",
 
 extra_contract = '''
 
-# Hardware FLAG recovery must be based on the physical recovery windows, not
-# on whether the software Third-level fault happened to become active.
+# Hardware FLAG recovery must be based on physical recovery windows and the
+# actual quantized AFE threshold, not software Third-level activity.
 hw_rec = re.search(r"static void service_hw_flag_recovery.*?\n}\n\nstatic uint8_t service_afe_reconfiguration", bms, re.S)
 if not hw_rec:
     raise AssertionError("missing hardware FLAG recovery state machine")
 hw_text = hw_rec.group(0)
 for needle in (
+    "sh3673510_control_get_protection_actual",
     "u16VCellMax <= g_tParam.protect.u16VcellOvp_Rcv",
+    "u16VCellMax < actual.ov_mv",
     "u16VCellMin >= g_tParam.protect.u16VcellUvp_Rcv",
+    "u16VCellMin > actual.uv_mv",
     "u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv",
+    "u16IDischg < actual.ocd1_a10",
+    "u16IDischg < actual.ocd2_a10",
     "u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv",
+    "u16Ichg < actual.occ_a10",
     "bat_max <= g_tParam.protect.u16TChgOTp_Rcv",
     "bat_min >= g_tParam.protect.u16TchgUTp_Rcv",
 ):
@@ -608,8 +635,51 @@ if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:
     raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")
 '''
 if extra_contract.strip() not in test:
-    test = test.replace('\nprint("HS-D011 SH3673510 integration contract: PASS")\n', extra_contract + '\nprint("HS-D011 SH3673510 integration contract: PASS")\n')
+    test = test.replace('\nprint("HS-D011 SH3673510 integration contract: PASS")\n',
+                        extra_contract + '\nprint("HS-D011 SH3673510 integration contract: PASS")\n')
 TEST.write_text(test, encoding="utf-8")
 
 # Keep the human audit document synchronized with the implemented policy.
-doc = DOC.read_text(encoding="utf-8")ndoc = doc
+doc = DOC.read_text(encoding="utf-8")
+doc = doc.replace(
+    "| 6 | TS3_EN | 0 | TS3 加热 MOS NTC 当前仅采样，尚未纳入保护策略 |",
+    "| 6 | TS3_EN | 0 | TS3 不参加 AFE 共用温度保护；MCU 用 TS3 做加热 MOS 独立可逆过温截止 |")
+doc = doc.replace(
+    "| 加热 MOS 温度 TS3 | 否 | 当前未启用 | 已确认 10K，建议后续增加独立加热 MOS OT 参数和状态机 |",
+    "| 加热 MOS 温度 TS3 | 否 | 是，可逆截止 | TS3=10K；当前复用 MOS Third/Rcv 作加热 MOS 过温/恢复阈值，只关 PB4，加热保险丝 PB5 永不自动触发 |")
+old_section7 = '''因此当前协调策略是：
+
+1. AFE 先用硬件阈值快速切 MOS、置 FLAG。
+2. MCU 软件三级保护同时根据采样进入 active。
+3. MCU 使用自己的 `*_Rcv + filter` 做真实恢复判定。
+4. 只有软件三级已经恢复，`clear_recovered_flags()` 才清对应 AFE FLAG。
+5. FLAG 清除后，最终能否重新开 MOS 还要经过 `sh3510_apply_requested_fets()` 的 output enabled、钥匙、通讯健康、其它软件 fault 等条件。
+
+也就是说：
+
+**AFE 负责“快速独立触发”，MCU 负责“带回差和滤波的受控恢复”。**
+
+这比单纯依赖 AFE 硬件恢复更安全，也避免刚跨过阈值就反复开关 MOS。
+'''
+new_section7 = '''因此当前协调策略是：
+
+1. AFE 先用硬件阈值快速切 MOS、置 FLAG。
+2. 活动的 AFE FLAG 立即进入 MCU 的方向性 FET gate；即使软件 Third 尚未 active，也不会主动请求同方向 MOS 重开。
+3. MCU 对每一个硬件 FLAG 建立独立 recovery counter，直接检查物理量是否进入 `*_Rcv` 安全区并连续满足对应 filter 时间。
+4. OV/UV/OCD1/OCD2/OCC 除了满足软件恢复阈值，还必须越过 `sh3673510_control_get_protection_actual()` 给出的 **AFE 实际量化阈值**，避免客户配置的 recovery 值高于硬件 trip 值时形成 clear→retrip 循环。
+5. TS1/TS2 的 OTC/OTD/UTC/UTD 使用电池温度恢复阈值和 filter；TS3/TS4 不参与这些 AFE TEMP FLAG 的恢复判断。
+6. 物理恢复条件稳定后，MCU 才执行 LTCLR + W0C 清对应 AFE FLAG。
+7. FLAG 清除后仍要经过 output enabled、有效采样、通讯健康、软件 Third fault、钥匙等 FET gate；由于本周期读取到的硬件 FLAG 仍然有效，至少到下一次有效状态采样才可能重新放开。
+
+因此硬件 FLAG 恢复已经和软件 Third fault **解耦**：AFE 负责快速独立触发，MCU 负责按实际物理恢复窗口和硬件量化阈值受控解除。
+'''
+doc = replace_once(doc, old_section7, new_section7, "update documented hardware recovery policy")
+doc = doc.replace(
+    "通信恢复后不是立即放开输出，而是要求连续 3 个有效采样快照（当前 200ms 周期，约 600ms）后才清 `output_inhibit`。",
+    "通信恢复后不是立即放开输出，而是要求连续 3 个有效采样快照（当前 200ms 周期，约 600ms）后才清 `output_inhibit`。若检测到 `RST1_FLG` 或 `RST2_FLG`，则先禁止输出、重新执行完整 AFE 初始化/静态寄存器/保护阈值配置并清复位标志，再重新累计这 3 个有效快照；不会仅清 RST 标志后继续使用可能已经回到复位值的 RAM 配置。")
+doc = doc.replace(
+    "- SC 的 LOADOFF 2s 受控恢复\n",
+    "- SC 的 LOADOFF 2s 受控恢复\n- OV/UV/OCD1/OCD2/OCC 在 recovery 条件未满足时 FLAG 不得被清；特别验证软件 Third 未触发但 AFE 已触发的区间\n- RST1/RST2 注入后必须先完整重配 AFE，且重新获得 3 个有效快照前 MOS 不得恢复\n- TS3 断线/高温必须关闭 PB4 加热；整个测试过程中 PB5 加热保险丝触发脚保持安全低电平\n")
+DOC.write_text(doc, encoding="utf-8")
+
+print("Applied D011 hardware/software protection recovery hardening")
