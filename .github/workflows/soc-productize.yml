@@ -34,6 +34,19 @@ jobs:
       - name: Apply SOC product config/profile refactor
         run: python tools/productize_soc_profile.py
 
+      - name: Align Flash contract with separated profile data
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/flash_quick_check.py')
+          t = p.read_text(encoding='utf-8')
+          old = '''    def test_soc_core_contracts_match_current_design(self):\n        text = read_text(SOC_ENHANCE_C)\n        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT             100u", text)\n        self.assertIn("#define SOC_INTEGRAL_PERIOD_MS              200u", text)\n        self.assertIn("#define SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", text)\n        self.assertIn("#define SOC_OCV_REST_PREPARE_SECONDS        600u", text)\n        self.assertIn("#define SOC_OCV_ERROR_BAND_PERCENT          5u", text)\n        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)\n        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", text)\n        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", text)\n        self.assertIn("static uint8_t g_soc_display_soc", text)\n        self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", text)\n        self.assertIn("soc_update_low_faults();", text)\n'''
+          new = '''    def test_soc_core_contracts_match_current_design(self):\n        text = read_text(SOC_ENHANCE_C)\n        profile = read_text(MODULE_DIR / "bms_soc_profile.h")\n        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT             100u", text)\n        self.assertIn("#define SOC_INTEGRAL_PERIOD_MS              200u", text)\n        self.assertIn("#define SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", text)\n        self.assertIn("#define SOC_OCV_REST_PREPARE_SECONDS        600u", text)\n        self.assertIn("#define SOC_OCV_ERROR_BAND_PERCENT          5u", text)\n        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", profile)\n        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", profile)\n        self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)\n        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", text)\n        self.assertIn("static uint8_t g_soc_display_soc", text)\n        self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", text)\n        self.assertIn("soc_update_low_faults();", text)\n'''
+          if t.count(old) != 1:
+              raise SystemExit(f'flash SOC contract block count={t.count(old)}')
+          p.write_text(t.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Run SOC contract
         run: python tests/soc_contract_check.py
 
@@ -53,7 +66,7 @@ jobs:
                   tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_cold_kv_store.h \
                   tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_soc_defs.h \
                   tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_soc_profile.h \
-                  tests/soc_contract_check.py docs/SOC.md docs/STORAGE.md
+                  tests/soc_contract_check.py tests/flash_quick_check.py docs/SOC.md docs/STORAGE.md
           git diff --cached --check
           git commit -m "feat: persist SOC chemistry and profile selection"
           git push origin HEAD:${GITHUB_REF_NAME}
