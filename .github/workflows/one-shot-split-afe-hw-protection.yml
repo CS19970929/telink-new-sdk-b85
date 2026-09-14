@@ -34,6 +34,14 @@ jobs:
           s = s.replace('self.assertIn("Reject multi-field writes", self.src)',
                         'self.assertIn("Legacy DVC semantic multi-write remains intentionally non-atomic", self.src)')
           p.write_text(s, encoding='utf-8')
+
+          p = Path('tests/d008_framework_contract_check.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('self.assertIn("u16Ichg <= g_tParam.protect.u16IchgOcp_Rcv", self.dvc_bms)',
+                        'self.assertIn("u16Ichg <= hw.occ_recover_a10", self.dvc_bms)')
+          s = s.replace('self.assertIn("u16IDischg <= g_tParam.protect.u16IdsgOcp_Rcv", self.dvc_bms)',
+                        'self.assertIn("u16IDischg <= hw.ocd_recover_a10", self.dvc_bms)')
+          p.write_text(s, encoding='utf-8')
           PY
 
       - name: Refresh locked source order
