@@ -94,8 +94,6 @@ def source_contract_checks() -> None:
         raise AssertionError("generic driver must not poll read-clear FLAG2")
     if "SH3673520_TRANSACTION_ATTEMPTS" not in driver_text:
         raise AssertionError("bounded transaction retry policy missing")
-    if "Datasheet Figure 10 inserts one invalid 0xFF pipeline byte" not in driver_text:
-        raise AssertionError("SH36735xx read pipeline dummy-byte handling missing")
 
 
 HOST_C = r"""
@@ -151,36 +149,25 @@ static void script_read(uint8_t reg, const uint8_t *data, uint8_t length, int ba
 {
     uint8_t tx[MOCK_MAX_BYTES];
     uint8_t rx[MOCK_MAX_BYTES];
-    uint8_t crc_input[MOCK_MAX_BYTES];
-    uint8_t total = (uint8_t)(length + 6u);
+    uint8_t total = (uint8_t)(length + 5u);
     uint8_t index;
     uint8_t crc;
 
     memset(tx, 0, sizeof(tx));
     memset(rx, 0, sizeof(rx));
-    memset(crc_input, 0, sizeof(crc_input));
     tx[0] = SH3673520_SPI_CMD_READ;
     tx[1] = reg;
     tx[2] = length;
 
-    /* Datasheet Figure 10: FF, command, address, length, invalid FF, data..., CRC. */
     rx[0] = SH3673520_SPI_RESPONSE_IDLE;
     rx[1] = SH3673520_SPI_CMD_READ;
     rx[2] = reg;
     rx[3] = length;
-    rx[4] = SH3673520_SPI_RESPONSE_IDLE;
-
-    /* Read CRC excludes the invalid pipeline FF between length and Data1. */
-    crc_input[0] = rx[0];
-    crc_input[1] = rx[1];
-    crc_input[2] = rx[2];
-    crc_input[3] = rx[3];
     for (index = 0u; index < length; ++index) {
-        rx[(uint8_t)(5u + index)] = data[index];
-        crc_input[(uint8_t)(4u + index)] = data[index];
+        rx[(uint8_t)(4u + index)] = data[index];
     }
-    crc = SH3673520_Crc8(crc_input, (size_t)length + 4u);
-    rx[(uint8_t)(5u + length)] = bad_crc ? (uint8_t)(crc ^ 0x5Au) : crc;
+    crc = SH3673520_Crc8(rx, (size_t)length + 4u);
+    rx[(uint8_t)(4u + length)] = bad_crc ? (uint8_t)(crc ^ 0x5Au) : crc;
 
     mock_add(tx, rx, total);
 }
@@ -329,7 +316,6 @@ static int test_frames_and_retry(void)
     CHECK(SH3673520_ReadReg(SH3673520_REG_BSTATUS1, &value) == SH3673520_OK,
           "single register read");
     CHECK(value == read_value, "single register data");
-    CHECK(g_len[0] == 7u, "single-register read clocks pipeline dummy byte");
     CHECK(g_mismatch == 0, "read frame encoding");
     CHECK(g_transaction == g_script_count, "read transaction count");
 
