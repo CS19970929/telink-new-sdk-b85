@@ -43,7 +43,9 @@
 - Vendor Demo 的 GP5/GP6 示例把 DVC GP5/GP6 **额外接回 MCU GPIO**，只是为了独立读取 LOW SIDE 输出脚状态，不是低边 MOS 控制所必需的连接，也不得据此要求 D008 增加 MCU GPIO 控制。
 - 软件至少区分 Requested、AFE Command、AFE Driver Flag、Physical Feedback 四层。当前 D008 若无已确认的 GP5/GP6/Gate/Vgs 反馈，Physical Feedback 必须标记为 unavailable/unknown。
 - `CHGF/DSGF` 不得直接命名为物理 MOS 实际状态；它们只能表示 DVC AFE driver/output flag。
-- `b1Status_MOS_CHG/DSG` 不得同时承担“目标命令”和“物理反馈”两种语义。
+- **协议中的 `b1Status_MOS_CHG/DSG` 是 AFE feedback-only 字段**：D008 只能由有效 AFE 采样中的 `0x06 CHGF/DSGF` 更新；`bms_afe_set_fets()`、`mos_update()`、保护逻辑、通信控制等软件请求路径禁止直接赋值或伪造这两个状态位。
+- FET 请求状态必须单独保存（当前公共 guard 的 `requested_charge_on/requested_discharge_on`），不得用 `b1Status_MOS_CHG/DSG` 充当目标缓存。请求成功只表示命令已提交；MOS/driver 状态必须等待后续 AFE 寄存器采样更新。
+- 同一个 Requested 状态重复提交不得因为 AFE feedback 与目标不一致而反复写 `0x51`；AFE 保护主动关闭输出时必须允许 `Requested=ON`、`AFE Driver=OFF` 同时存在，以便诊断真实保护动作。
 - 若未来需要验证 GP5/GP6 物理输出或 MOS Gate/Vgs，必须先确认原理图已有反馈路径或新增硬件反馈；禁止仅凭通信寄存器伪造 physical feedback。
 
 ## 保护参数规则
