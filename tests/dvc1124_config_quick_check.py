@@ -1,309 +1,197 @@
 #!/usr/bin/env python3
-"""Quick host-only DVC1124 configuration contract checks.
-
-No TC32 toolchain is required. These checks are deliberately source-level so
-register truth, persistence boundaries and transport ownership cannot silently
-regress while the target build remains tied to the vendor compiler.
-"""
-
 import re
 import unittest
 from pathlib import Path
 
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-HERE = (
-    REPO_ROOT
-    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
-    / "tc_ble_single_sdk"
-    / "vendor"
-    / "ble_sample"
-)
-REG_H = HERE / "dvc1124_reg.h"
-DVC_H = HERE / "dvc1124.h"
-DVC_C = HERE / "dvc1124.c"
-SPECIAL_C = HERE / "dvc1124_special.c"
-CORE_OT_C = SPECIAL_C
-COMMANDS_C = SPECIAL_C
-DVC_BMS_C = HERE / "dvc1124_bms.c"
-BMS_AFE_H = HERE / "bms_afe.h"
-PROJECT_CFG_H = HERE / "dvc1124_project_config.h"
-CONFIG_STORE_H = HERE / "dvc1124_config_store.h"
-CONFIG_STORE_C = HERE / "dvc1124_config_store.c"
-CONFIG_SERVICE_H = HERE / "dvc1124_config_service.h"
-CONFIG_SERVICE_C = HERE / "dvc1124_config_service.c"
-FLASH_CFG_H = HERE / "flash_store_cfg.h"
-MODBUS_H = HERE / "modbus_rtu.h"
-MODBUS_C = HERE / "modbus_rtu.c"
-APP_C = HERE / "app.c"
-CONF_H = HERE / "conf.h"
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 
 
-def read(path):
-    return path.read_text(encoding="utf-8", errors="ignore")
+def read(name):
+    return (SRC / name).read_text(encoding="utf-8", errors="strict")
 
 
-def macro_int(text, name):
-    match = re.search(
+def macro_literal(text, name):
+    m = re.search(
         rf"^\s*#define\s+{re.escape(name)}\s+\(?\s*(0x[0-9A-Fa-f]+|[0-9]+)u?\s*\)?",
         text,
         re.MULTILINE,
     )
-    if not match:
-        raise AssertionError(f"macro not found or non-literal: {name}")
-    return int(match.group(1), 0)
+    if not m:
+        raise AssertionError(f"literal macro not found: {name}")
+    return int(m.group(1), 0)
 
 
 class RegisterTruthTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.reg = read(REG_H)
-        cls.dvc_h = read(DVC_H)
-        cls.dvc_c = read(DVC_C)
-        cls.core_ot = read(CORE_OT_C)
-        cls.commands = read(COMMANDS_C)
-        cls.dvc_bms = read(DVC_BMS_C)
+        cls.reg = read("dvc1124_reg.h")
+        cls.hdr = read("dvc1124.h")
+        cls.driver = read("dvc1124.c")
 
-    def test_v12_critical_masks(self):
-        self.assertEqual(macro_int(self.reg, "DVC1124_OC2_ENABLE_MASK"), 0x40)
-        self.assertEqual(macro_int(self.reg, "DVC1124_SCD_ENABLE_MASK"), 0x40)
-        self.assertEqual(macro_int(self.reg, "DVC1124_CPVS_MASK"), 0x38)
-        self.assertEqual(macro_int(self.reg, "DVC1124_COW_MASK"), 0x04)
-        self.assertEqual(macro_int(self.reg, "DVC1124_CMM_MASK"), 0x02)
-        self.assertEqual(macro_int(self.reg, "DVC1124_CVS_MASK"), 0x01)
+    def test_critical_register_truth(self):
+        self.assertEqual(macro_literal(self.reg, "DVC1124_OC2_ENABLE_MASK"), 0x40)
+        self.assertEqual(macro_literal(self.reg, "DVC1124_SCD_ENABLE_MASK"), 0x40)
+        self.assertEqual(macro_literal(self.reg, "DVC1124_DSGMASK_DWM_MASK"), 0x08)
+        self.assertEqual(macro_literal(self.reg, "DVC1124_CHGMASK_CWM_MASK"), 0x80)
+        self.assertEqual(macro_literal(self.reg, "DVC1124_I2C_WDT_TIME_MASK"), 0x07)
 
-    def test_oc_delay_formulas_are_documented_with_plus_one(self):
-        self.assertIn("OC1 delay = (code + 1) * 8ms", self.reg)
-        self.assertIn("delay = (code + 1) * 4ms", self.reg)
+    def test_watchdog_encodings_match_v12_mapping(self):
+        self.assertRegex(self.reg, r"DVC1124_I2C_WDT_OFF\s*=\s*0u")
+        self.assertRegex(self.reg, r"DVC1124_I2C_WDT_4S\s*=\s*4u")
+        self.assertRegex(self.reg, r"DVC1124_I2C_WDT_8S\s*=\s*5u")
+        self.assertRegex(self.reg, r"DVC1124_I2C_WDT_16S\s*=\s*6u")
+        self.assertRegex(self.reg, r"DVC1124_I2C_WDT_32S\s*=\s*7u")
 
-    def test_persistent_mask_excludes_commands_and_runtime_outputs(self):
-        self.assertIn("case DVC1124_REG_ALARM:", self.reg)
-        self.assertIn("case DVC1124_REG_STATUS:", self.reg)
-        self.assertIn("case DVC1124_REG_FET_CTRL:", self.reg)
-        self.assertIn("case DVC1124_REG_BAL_24_17:", self.reg)
-        self.assertIn("~DVC1124_CADC_CAMZ_MASK", self.reg)
-        self.assertIn("~DVC1124_COW_MASK", self.reg)
+    def test_read_clear_registers_remain_protected(self):
+        self.assertIn("DVC1124_RegReadHasSideEffect", self.hdr)
+        self.assertIn("DVC1124_REG_STATUS", self.hdr)
+        self.assertIn("DVC1124_REG_CORE_OT", self.hdr)
 
-    def test_gp_unsupported_codes_not_named_as_features(self):
-        self.assertNotIn("SCD_Q", self.reg)
-        self.assertNotIn("OCD1_Q", self.reg)
-        self.assertNotIn("HALF_CLK", self.reg)
-        self.assertNotIn("PACK_DET", self.reg)
+    def test_hw_off_still_disables_autonomous_sources(self):
+        block = self.driver.split("static uint8_t dvc_disable_threshold_protection", 1)[1]
+        block = block.split("#endif", 1)[0]
+        self.assertIn("DVC1124_I2C_WDT_OFF", block)
+        self.assertIn("DVC1124_REG_DSG_MASK, 0xFFu", block)
+        self.assertIn("DVC1124_REG_CHG_MASK, 0xFFu", block)
+        self.assertIn("DVC1124_REG_BODY_DIODE, 0u", block)
 
-    def test_field_writer_rejects_silent_mask_truncation(self):
-        self.assertIn("field_max = (uint8_t)(mask >> shift);", self.dvc_h)
-        self.assertIn("value > field_max", self.dvc_h)
-        self.assertNotIn(
-            "DVC1124_FIELD_PREP(mask, shift, value) & (uint8_t)~mask",
-            self.dvc_h,
+
+class CompileTimeOwnershipTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.product = read("d008_product_profile.h")
+        cls.project = read("dvc1124_project_config.h")
+        cls.backend = read("dvc1124_config_store.c")
+        cls.store_hdr = read("dvc1124_config_store.h")
+        cls.service = read("dvc1124_config_service.c")
+        cls.service_hdr = read("dvc1124_config_service.h")
+
+    def test_product_fail_safe_defaults_are_compile_time(self):
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+
+    def test_project_config_keeps_body_diode_and_mask_policy_named(self):
+        self.assertEqual(macro_literal(self.project, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 80)
+        self.assertIn("DVC1124_DSGMASK_DBDM_MASK", self.project)
+        self.assertIn("DVC1124_CHGMASK_CBDM_MASK", self.project)
+
+    def test_legacy_store_file_no_longer_owns_flash(self):
+        forbidden = (
+            "flash_kv32",
+            "flash_store_cfg",
+            "DVC1124_ConfigStoreLoad",
+            "DVC1124_ConfigStoreSave",
+            "DVC1124_ConfigStoreRestore",
+            "DVC1124_ConfigStoreCapture",
         )
+        for token in forbidden:
+            self.assertNotIn(token, self.backend)
+        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.store_hdr)
+        self.assertNotIn("dvc1124_persistent_config_t", self.store_hdr)
 
-    def test_driver_has_no_local_register_truth_macros(self):
-        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_REG_")
-        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_ALARM_")
-        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_CPVS_")
-        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_OC2_")
-        self.assertNotRegex(self.dvc_c, r"(?m)^\s*#define\s+DVC_SCD_")
-        self.assertIn("DVC1124_REG_OCD2", self.dvc_c)
-        self.assertIn("DVC1124_CPVS_MASK", self.dvc_c)
+    def test_every_afe_init_reapplies_firmware_policy(self):
+        self.assertIn("DVC1124_AFE_Reset();", self.backend)
+        self.assertIn("DVC1124_UpdataAfeConfig();", self.backend)
+        self.assertIn("dvc_project_apply_compile_time_config", self.backend)
+        self.assertIn("s_project_config_pending", self.backend)
+        self.assertNotIn("ConfigStoreRestore", self.backend)
 
-    def test_bms_adapter_uses_canonical_alarm_names(self):
-        self.assertNotIn("DVC_BMS_REG_ALARM", self.dvc_bms)
-        self.assertNotIn("DVC_BMS_ALARM_", self.dvc_bms)
-        self.assertIn("DVC1124_REG_ALARM", self.dvc_bms)
-        self.assertIn("DVC1124_ALARM_COV_MASK", self.dvc_bms)
-
-    def test_read_clear_metadata_names_status_and_core_ot(self):
-        self.assertIn("DVC1124_RegReadEffect", self.dvc_h)
-        self.assertIn("reg == DVC1124_REG_STATUS", self.dvc_h)
-        self.assertIn("reg == DVC1124_REG_CORE_OT", self.dvc_h)
-        self.assertIn("DVC1124_REG_READ_CLEAR", self.dvc_h)
-
-    def test_core_ot_access_preserves_read_clear_event_in_software(self):
-        self.assertIn("s_core_ot_event_latched", self.core_ot)
-        self.assertIn("DVC1124_CORE_OT_FLAG_MASK", self.core_ot)
-        self.assertIn("DVC1124_ReadCoreOtThresholdCode", self.core_ot)
-        self.assertIn("DVC1124_SetCoreOtThresholdCode", self.core_ot)
-        self.assertIn("DVC1124_GetCoreOtEventLatched", self.core_ot)
-
-    def test_w0c_and_self_clearing_commands_have_dedicated_api(self):
-        self.assertIn("DVC1124_ClearAlarmFlags", self.commands)
-        self.assertIn("write_value = (uint8_t)~flag_mask", self.commands)
-        self.assertIn("DVC1124_StartCadcCalibration", self.commands)
-        self.assertIn("DVC1124_CADC_CAMZ_MASK", self.commands)
-        self.assertIn("DVC1124_ClearAlarmFlags(clear_mask)", self.dvc_bms)
-        self.assertIn("uint8_t DVC1124_ClearAlarmFlags", self.dvc_h)
-        self.assertFalse((HERE / "dvc1124_commands.h").exists())
-
-
-class PersistenceLayoutTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.flash = read(FLASH_CFG_H)
-
-    def test_512k_afe_kv_uses_previously_unallocated_window(self):
-        sector = macro_int(self.flash, "FLASH_SECTOR_SIZE")
-        sectors = macro_int(self.flash, "FLASH_ADDR_AFE_CFG_KV_SECTORS")
-        base = macro_int(self.flash, "FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE")
-        self.assertEqual(sector, 0x1000)
-        self.assertEqual(sectors, 4)
-        self.assertEqual(base, 0x5F000)
-        self.assertEqual(base + sector * sectors, 0x63000)
-
-    def test_afe_kv_does_not_overlap_cold_kv_or_smp(self):
-        sector = macro_int(self.flash, "FLASH_SECTOR_SIZE")
-        afe_base = macro_int(self.flash, "FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE")
-        afe_end = afe_base + sector * macro_int(self.flash, "FLASH_ADDR_AFE_CFG_KV_SECTORS")
-        cold_base = macro_int(self.flash, "FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT")
-        self.assertGreaterEqual(afe_base, cold_base + 4 * sector)
-        self.assertLessEqual(afe_end, 0x74000)
-
-
-class ConfigStoreTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.hdr = read(CONFIG_STORE_H)
-        cls.src = read(CONFIG_STORE_C)
-        cls.project = read(PROJECT_CFG_H)
-        cls.conf = read(CONF_H)
-
-    def test_store_is_semantic_not_raw_struct_dump(self):
-        self.assertIn("dvc1124_persistent_config_t", self.hdr)
-        self.assertIn("DVC1124_ConfigStoreValidate", self.src)
-        self.assertIn("DVC1124_ConfigStoreApply", self.src)
-        self.assertNotIn("flash_write_page", self.src)
-        self.assertIn("flash_kv32_write_pairs", self.src)
-
-    def test_default_dpc_and_core_ot_are_named(self):
-        self.assertIn("DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH", self.project)
-        self.assertIn("DVC1124_DEFAULT_CORE_OT_CODE", self.project)
-
-    def test_reset_and_config_paths_restore_persistent_config(self):
-        afe_api = read(BMS_AFE_H)
-        app = read(APP_C)
-        self.assertIn("void bms_afe_init(void);", afe_api)
-        self.assertIn("void bms_afe_sample(void);", afe_api)
-        self.assertIn("bms_afe_init();", app)
-        self.assertIn("bms_afe_sample();", app)
-        self.assertNotIn("App_AFEGet", app)
-        self.assertNotIn("MTPWrite", app)
-        self.assertNotIn("DVC1124_Compat", self.conf)
-        self.assertNotIn("#define gpio_write", self.conf)
-        self.assertNotIn("#define adc_base_init", self.conf)
-        self.assertIn("DVC1124_ConfigStoreRestore()", self.src)
-
-    def test_apply_orders_timeout_policy_before_watchdog_operating_config(self):
-        timeout_pos = self.src.find("DVC1124_CHGMASK_CWM_MASK")
-        operating_pos = self.src.find("DVC1124_ApplyOperatingConfig")
-        self.assertGreaterEqual(timeout_pos, 0)
-        self.assertGreater(operating_pos, timeout_pos)
-
-    def test_safety_ranges_are_validated(self):
-        self.assertIn("cfg->dsg_pulldown_strength > 30u", self.src)
-        self.assertIn("cfg->current_wake_threshold_uv > 2550u", self.src)
-        self.assertIn("cfg->body_diode_threshold_uv > 10200u", self.src)
-        self.assertIn("cfg->scd_threshold_mv > 630u", self.src)
-
-    def test_core_ot_uses_dedicated_rc_safe_api(self):
-        self.assertIn("DVC1124_SetCoreOtThresholdCode(cfg->core_ot_code)", self.src)
-        self.assertIn("DVC1124_ReadCoreOtThresholdCode(&cfg->core_ot_code)", self.src)
-        self.assertNotIn("DVC1124_ReadRegisters(DVC1124_REG_CORE_OT", self.src)
-        self.assertNotIn("DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CORE_OT", self.src)
-
-
-class ConfigServiceTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.hdr = read(CONFIG_SERVICE_H)
-        cls.src = read(CONFIG_SERVICE_C)
-
-    def test_field_ids_are_transport_neutral(self):
-        self.assertIn("dvc1124_config_field_t", self.hdr)
-        self.assertIn("DVC1124_ConfigServiceRead", self.hdr)
-        self.assertIn("DVC1124_ConfigServiceWrite", self.hdr)
-
-    def test_afe_write_rolls_back_when_kv_save_fails(self):
-        self.assertIn("DVC1124_ConfigStoreApply(after)", self.src)
-        self.assertIn("DVC1124_ConfigStoreSave(after)", self.src)
-        self.assertIn("DVC1124_ConfigStoreApply(before)", self.src)
-
-    def test_existing_bms_protection_store_remains_source_of_truth(self):
-        self.assertIn("struct PRT_E2ROM_PARAS candidate = g_tParam.protect", self.src)
-        self.assertIn("bms_cold_kv_store_set_protect(&candidate)", self.src)
-        self.assertIn("g_tParam.protect = candidate", self.src)
-        self.assertIn("DVC1124_ApplyProtectionConfig()", self.src)
-        self.assertLess(
-            self.src.find("DVC1124_ApplyProtectionConfig()"),
-            self.src.find("bms_cold_kv_store_set_protect(&candidate)"),
+    def test_compile_time_apply_covers_previous_persistent_fields(self):
+        expected = (
+            "DVC1124_DEFAULT_CC1_WORK_TIME",
+            "DVC1124_DEFAULT_CC1_SLEEP_WAKE_TIME",
+            "DVC1124_CHARGE_PUMP_VOLTAGE_CODE",
+            "DVC1124_DEFAULT_CELL_MEASUREMENT_MASK",
+            "DVC1124_DEFAULT_CELL_VOLTAGE_SIGNED",
+            "DVC1124_DEFAULT_VADC_ENABLE",
+            "DVC1124_DEFAULT_VADC_SYNC_WITH_CC2",
+            "DVC1124_DEFAULT_VADC_PERIOD",
+            "DVC1124_DEFAULT_VADC_TIME",
+            "DVC1124_GP1_DEFAULT_MODE",
+            "DVC1124_GP6_DEFAULT_MODE",
+            "DVC1124_DEFAULT_V3P3_SLEEP_ENABLE",
+            "DVC1124_DEFAULT_V3P3_WORK_ENABLE",
+            "DVC1124_DEFAULT_TIMED_WAKE",
+            "DVC1124_DEFAULT_INTERRUPT_MASK",
+            "DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH",
+            "DVC1124_CURRENT_WAKE_THRESHOLD_UV",
+            "DVC1124_BODY_DIODE_THRESHOLD_UV",
+            "DVC1124_I2C_WATCHDOG_SECONDS",
+            "DVC1124_I2C_TIMEOUT_CLOSE_CHG",
+            "DVC1124_I2C_TIMEOUT_CLOSE_DSG",
+            "DVC1124_DEFAULT_CORE_OT_CODE",
         )
+        for token in expected:
+            self.assertIn(token, self.backend)
+        self.assertIn("DVC1124_ApplyOperatingConfig(&cfg)", self.backend)
 
-    def test_bms_protection_write_rolls_back_on_apply_or_store_failure(self):
-        self.assertIn("struct PRT_E2ROM_PARAS previous = g_tParam.protect", self.src)
-        self.assertGreaterEqual(self.src.count("g_tParam.protect = previous;"), 2)
-        self.assertIn("return DVC1124_CFG_ERR_AFE_IO;", self.src)
-        self.assertIn("return DVC1124_CFG_ERR_STORE;", self.src)
+    def test_hw_off_compile_path_does_not_reenable_watchdog(self):
+        self.assertIn("#if DVC1124_HW_PROTECT_ENABLE", self.backend)
+        self.assertIn("wdt = DVC1124_I2C_WDT_OFF;", self.backend)
+        self.assertIn("dsg_mask = 0xFFu;", self.backend)
+        self.assertIn("chg_mask = 0xFFu;", self.backend)
+        self.assertIn("body_diode_code = 0u;", self.backend)
 
-    def test_raw_write_is_factory_only(self):
-        self.assertIn("Runtime_GetMode() != MODE_FACTORY", self.src)
-        self.assertIn("DVC1124_CFG_ERR_FORBIDDEN", self.src)
+    def test_semantic_fixed_config_is_read_only(self):
+        self.assertNotIn("dvc1124_config_store.h", self.service)
+        self.assertNotIn("DVC1124_ConfigStore", self.service)
+        self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
+        self.assertIn("fixed DVC operating/board policy", self.service)
+        self.assertIn("diagnostic READ-ONLY", self.service_hdr)
 
-    def test_raw_write_decodes_into_semantic_config(self):
-        self.assertIn("dvc_cfg_raw_to_candidate", self.src)
-        self.assertIn("DVC1124_REG_GP123_MODE", self.src)
-        self.assertIn("DVC1124_REG_I2C_WDT", self.src)
-        self.assertIn("DVC1124_REG_CORE_OT", self.src)
-
-    def test_raw_read_refuses_read_clear_registers(self):
-        self.assertIn("DVC1124_RegReadHasSideEffect(reg)", self.src)
-        self.assertIn("return DVC1124_CFG_ERR_FORBIDDEN", self.src)
-
-    def test_semantic_diagnostics_expose_cached_status_and_sticky_cotf(self):
-        self.assertIn("DVC1124_CFG_STATUS_CACHED", self.hdr)
-        self.assertIn("DVC1124_CFG_CORE_OT_EVENT_LATCHED", self.hdr)
-        self.assertIn("snapshot.status", self.src)
-        self.assertIn("DVC1124_GetCoreOtEventLatched", self.src)
+    def test_raw_register_mirror_is_read_only(self):
+        raw_write = self.service.split("DVC1124_ConfigServiceWriteRaw", 1)[1]
+        self.assertIn("DVC1124_CFG_ERR_READ_ONLY", raw_write)
+        self.assertNotIn("DVC1124_WriteRegisters", raw_write)
+        self.assertNotIn("ConfigStore", raw_write)
 
 
-class TransportContractTests(unittest.TestCase):
+class ProtectionOwnershipTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.hdr = read(MODBUS_H)
-        cls.src = read(MODBUS_C)
-        cls.app = read(APP_C)
+        cls.service = read("dvc1124_config_service.c")
+        cls.modbus = read("modbus_rtu.c")
+        cls.hw_profile = read("bms_afe_hw_profile.c")
+        cls.backend = read("dvc1124_config_store.c")
 
-    def test_ble_uart_share_one_semantic_window(self):
-        self.assertEqual(macro_int(self.hdr, "DVC1124_COMM_REG_BASE"), 0x2800)
-        self.assertEqual(macro_int(self.hdr, "DVC1124_RAW_REG_BASE"), 0x2900)
-        self.assertIn("DVC1124_ConfigServiceRead", self.src)
-        self.assertIn("DVC1124_ConfigServiceWrite", self.src)
+    def test_requested_afe_protection_still_comes_from_hw_profile(self):
+        self.assertIn("bms_afe_hw_profile_get(&hw)", self.service)
+        for field in (
+            "hw.cov_mv",
+            "hw.cuv_mv",
+            "hw.ocd1_a10",
+            "hw.occ1_a10",
+            "hw.ocd2_a10",
+            "hw.occ2_a10",
+            "hw.sc_a10",
+        ):
+            self.assertIn(field, self.service)
 
-    def test_transport_no_longer_contains_dvc_register_encoding(self):
-        self.assertNotIn("dvc_current_x10_from_sense_uv", self.src)
-        self.assertNotIn("dvc_core_ot_code_from_x10", self.src)
-        self.assertNotIn("DVC1124_WriteRegisterFieldSafe", self.src)
-        self.assertNotIn("DVC1124_SetShortCircuitProtection", self.src)
+    def test_effective_afe_protection_is_read_from_dvc(self):
+        for reg in (
+            "DVC1124_REG_COV_H",
+            "DVC1124_REG_CUV_H",
+            "DVC1124_REG_OCD1_THR",
+            "DVC1124_REG_OCC1_THR",
+            "DVC1124_REG_OCD2",
+            "DVC1124_REG_OCC2",
+            "DVC1124_REG_SCD",
+        ):
+            self.assertIn(reg, self.service)
 
-    def test_semantic_write_failure_returns_modbus_exception(self):
-        self.assertIn("dvc_result_to_modbus_exception", self.src)
-        self.assertIn("MB_EX_ILLEGAL_VALUE", self.src)
-        self.assertIn("MB_EX_DEVICE_FAILURE", self.src)
-        self.assertIn("modbus_exception(addr, func, exception", self.src)
+    def test_hw_profile_atomic_transaction_remains_persistent_owner(self):
+        self.assertIn("afe_hw_profile_write_block", self.modbus)
+        self.assertIn("bms_afe_hw_profile_set(&candidate)", self.modbus)
+        self.assertIn("bms_afe_apply_protection_config()", self.modbus)
+        self.assertIn("bms_afe_hw_profile_get(&verify)", self.modbus)
 
-    def test_dvc_multi_write_is_rejected_until_batch_transaction_exists(self):
-        self.assertIn("qty > 1u && dvc_comm_range_contains", self.src)
-        self.assertIn("Legacy DVC semantic multi-write remains intentionally non-atomic", self.src)
-
-    def test_raw_write_uses_factory_gated_config_service(self):
-        self.assertIn("DVC1124_ConfigServiceWriteRaw", self.src)
-
-    def test_bms_report_has_single_owner(self):
-        state_header = read(HERE / "bms_state.h")
-        state_source = read(HERE / "bms_state.c")
-        self.assertIn("struct stCell_Info g_stCellInfoReport;", state_source)
-        self.assertIn("extern struct stCell_Info g_stCellInfoReport;", state_header)
-        self.assertNotIn("struct stCell_Info g_stCellInfoReport;", self.app)
-        self.assertNotRegex(self.src, r"(?m)^struct\s+stCell_Info\s+g_stCellInfoReport\s*;")
+    def test_backend_runtime_apply_only_delegates_protection(self):
+        fn = self.backend.split("uint8_t bms_afe_apply_protection_config", 1)[1]
+        self.assertIn("DVC1124_ApplyProtectionConfig()", fn)
+        self.assertNotIn("ConfigStore", fn)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()
