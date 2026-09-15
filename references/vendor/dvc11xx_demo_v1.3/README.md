@@ -5,6 +5,7 @@ This directory stores a curated source reference derived from the user-provided 
 - Original archive SHA-256: `2431315de30ee2669e75bb09ae811d04935258054ec3e0044f34508888fc38bd`
 - Reviewed package: DVC11XX DemoCode V1.3 for STM32F103
 - The original package also contains many generated Keil/debug/HEX artifacts; only source files relevant to DVC1124/FET/GP low-side behavior are committed here.
+- Files under `vendor_demo/` are UTF-8 normalized/curated review copies; `DVC1124_low_side_excerpt.h` is a focused excerpt, not a replacement for the official DVC1124-2 reference manual or the original vendor header.
 
 ## Mandatory source precedence
 
@@ -81,6 +82,6 @@ For HS-D008, where GP5 is low-side CHG and GP6 is low-side DSG and the high-side
 - `vendor_demo/17.GP5/`
 - `vendor_demo/18.GP6/`
 - `vendor_demo/19.GPn Plus/`
-- `vendor_demo/FWLIB/HARDWARE/DVC1124.h`
+- `vendor_demo/FWLIB/HARDWARE/DVC1124_low_side_excerpt.h`
 - `vendor_demo/FWLIB/HARDWARE/DVC11XX.h`
 - `vendor_demo/ReadMe.txt`
