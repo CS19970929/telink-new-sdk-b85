@@ -70,12 +70,14 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("s_guard.reinit_cooldown", self.guard)
         self.assertRegex(self.guard, r"AFE_(?:BACKEND_)?INIT\s*\(\s*\)\s*;")
         # A reinit remains inhibited; only the valid-snapshot streak releases it.
+        # The guard is intentionally compact/minified, so locate the function by
+        # semantic boundaries instead of depending on a newline before its final brace.
         invalid_fn = re.search(
-            r"(?s)static\s+void\s+(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\([^)]*\)\s*\{(.*?)\n\}",
+            r"(?s)static\s+void\s+(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\([^)]*\).*?(?=void\s+bms_afe_init\s*\()",
             self.guard,
         )
         self.assertIsNotNone(invalid_fn)
-        self.assertNotRegex(invalid_fn.group(1), r"comm_inhibit\s*=\s*0u")
+        self.assertNotRegex(invalid_fn.group(0), r"comm_inhibit\s*=\s*0u")
 
     def test_sleep_and_protection_apply_cannot_bypass_inhibit(self):
         self.assertRegex(
