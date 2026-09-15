@@ -6,11 +6,14 @@
 #include "sh3673520_reg.h"
 #include <string.h>
 
-#define SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u
+#define SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u /* 20 s @ 200 ms, below 30.38 s HW timeout */
+#define SH_CHARGER_PRESENT_ON_MV   2100u
+#define SH_CHARGER_PRESENT_OFF_MV   900u
 
 static uint32_t s_balance_requested;
 static uint32_t s_balance_effective;
 static uint16_t s_balance_refresh_count;
+static uint8_t s_charger_present;
 static uint8_t s_ow_busy;
 static uint8_t s_ow_seen_odd;
 static uint8_t s_ow_seen_even;
@@ -26,6 +29,16 @@ static uint8_t sh_ntc_valid(int32_t raw)
 {
     uint32_t ohm = 0u;
     return (SH3673520_NtcRawToOhm(raw, &ohm) == SH3673520_OK && ohm != 0u) ? 1u : 0u;
+}
+
+static uint8_t sh_read_balance_mask(uint32_t *mask)
+{
+    uint8_t data[3];
+    if (mask == 0) return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_BALANCEH, data, 3u) != SH3673520_OK) return 0u;
+    *mask = ((((uint32_t)data[0] & 0x0Fu) << 16) |
+             ((uint32_t)data[1] << 8) | data[2]) & sh_valid_cell_mask();
+    return 1u;
 }
 
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
@@ -51,32 +64,57 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     return 1u;
 }
 
+uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
+{
+    uint8_t data[2];
+    int16_t raw;
+    uint32_t mv;
+    if (present == 0) return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_VCHGRH, data, 2u) != SH3673520_OK) return 0u;
+    raw = (int16_t)(((uint16_t)data[0] << 8) | data[1]);
+    mv = (raw > 0) ? (((uint32_t)(uint16_t)raw * 125u + 16u) / 32u) : 0u;
+    if (s_charger_present) {
+        if (mv <= SH_CHARGER_PRESENT_OFF_MV) s_charger_present = 0u;
+    } else if (mv >= SH_CHARGER_PRESENT_ON_MV) {
+        s_charger_present = 1u;
+    }
+    *present = s_charger_present;
+    return 1u;
+}
+
 uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
 {
+    uint32_t actual;
     cell_mask &= sh_valid_cell_mask();
+    if (!sh_read_balance_mask(&actual)) return 0u;
+
     if (cell_mask == 0u) {
         s_balance_refresh_count = 0u;
-        if (s_balance_requested != 0u || s_balance_effective != 0u) {
-            if (!sh3673510_control_set_balance(0u)) return 0u;
-        }
+        if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
+        if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
         s_balance_requested = 0u;
         s_balance_effective = 0u;
         return 1u;
     }
+
     if (s_balance_refresh_count < SH_FEATURE_BALANCE_REFRESH_SAMPLES) ++s_balance_refresh_count;
-    if (cell_mask != s_balance_requested || s_balance_refresh_count >= SH_FEATURE_BALANCE_REFRESH_SAMPLES) {
+    if (actual != cell_mask || cell_mask != s_balance_requested ||
+        s_balance_refresh_count >= SH_FEATURE_BALANCE_REFRESH_SAMPLES) {
         if (!sh3673510_control_set_balance((uint16_t)cell_mask)) return 0u;
-        s_balance_requested = cell_mask;
-        s_balance_effective = cell_mask;
+        if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
         s_balance_refresh_count = 0u;
     }
+    s_balance_requested = cell_mask;
+    s_balance_effective = actual;
     return 1u;
 }
 
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
 {
-    if (cell_mask == 0) return 0u;
-    *cell_mask = s_balance_effective;
+    uint32_t actual;
+    if (cell_mask == 0 || !sh_read_balance_mask(&actual)) return 0u;
+    s_balance_effective = actual;
+    *cell_mask = actual;
     return 1u;
 }
 
@@ -103,11 +141,7 @@ static uint8_t sh_ow_trigger(void)
 static void sh_ow_abort(void)
 {
     (void)sh_ow_enable(0u);
-    s_ow_busy = 0u;
-    s_ow_seen_odd = 0u;
-    s_ow_seen_even = 0u;
-    s_ow_attempts = 0u;
-    s_ow_mask = 0u;
+    s_ow_busy = 0u; s_ow_seen_odd = 0u; s_ow_seen_even = 0u; s_ow_attempts = 0u; s_ow_mask = 0u;
 }
 
 uint8_t sh3673510_backend_openwire_start(void)
@@ -133,10 +167,8 @@ bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *
     ++s_ow_attempts;
     if (s_ow_seen_odd && s_ow_seen_even) {
         if (out != 0) {
-            memset(out, 0, sizeof(*out));
-            out->valid = 1u; out->determinate = 1u;
-            out->cell_count = SH3673510_D011_CELL_COUNT;
-            out->open_cell_mask = s_ow_mask & valid_mask;
+            memset(out, 0, sizeof(*out)); out->valid = 1u; out->determinate = 1u;
+            out->cell_count = SH3673510_D011_CELL_COUNT; out->open_cell_mask = s_ow_mask & valid_mask;
             for (i = 0u; i < SH3673510_D011_CELL_COUNT; ++i) out->diagnostic_cell_mv[i] = g_stCellInfoReport.u16VCell[i];
         }
         (void)sh_ow_enable(0u); s_ow_busy = 0u; s_ow_attempts = 0u;
