@@ -1,6 +1,6 @@
 # D008 产品硬件与固件配置基线
 
-> 适用分支：`feature/sh3673510-d013-bmsdvc`（历史名称；实际产品为 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**）。
+> 适用分支：`refactor/d008-common-bms-features`。历史产品分支名曾包含 `sh3673510-d013-bmsdvc`，但本产品实际为 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
 >
 > 本文是 D008 当前唯一产品级配置说明。结论优先来自当前源码、用户提供的 `HS-D008-24S100A-V1(2).pdf`、DVC1124-2 Reference Manual V1.2。没有证据的内容明确标为 **未确认**，不得由常见 BMS 经验补齐。
 
@@ -52,6 +52,8 @@
 | PB7 | `SOC75` | `SOC75_PIN` | 当前 `conf.h` 定义 | 同上 |
 | PC0 | `SDA` | DVC I2C SDA | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
 | PC1 | `SCL` | DVC I2C SCL | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
+| PC2 | `OWC-TX` | `OWC_TX_PIN` | One-wire/UART 业务网络 | 已对照；具体复用状态由 bus mux 控制 |
+| PC3 | `OWC-RX` | DVC I2C SCL | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
 | PC2 | `OWC-TX` | `OWC_TX_PIN` | One-wire/UART 业务网络 | 已对照；具体复用状态由 bus mux 控制 |
 | PC3 | `OWC-RX` | `OWC_RX_PIN` | One-wire/UART 业务网络 | 已对照 |
 | PC4 | `MCU-LDO` | `MCU_LDO_PIN` | 当前 `conf.h` 定义 | 网络已对照；本文不推断其上电时序 |
@@ -130,7 +132,24 @@
 
 AFE profile 使用统一 V2 协议：requested 35 words、metadata、effective 35 words。首次迁移可从旧参数初始化一次，此后两套参数独立演进；修改软件保护不得自动改 AFE 硬件保护。
 
-### 7.1 DVC 量化规则（按 V1.2 + 当前代码）
+### 7.1 软件/硬件保护编译隔离
+
+D008 使用两个独立编译开关，语义与 D011/D013 的保护隔离模式一致：
+
+| `DVC1124_SW_PROTECT_ENABLE` | `DVC1124_HW_PROTECT_ENABLE` | 用途 |
+|---:|---:|---|
+| 1 | 1 | 正常产品：软件三级保护 + DVC 硬件保护 |
+| 1 | 0 | 软件保护台架验证；DVC COV/CUV/OCD/OCC/SCD 等硬保护真实关闭 |
+| 0 | 1 | DVC 硬件保护台架验证；软件保护状态机停止并清除软件保护状态 |
+| 0 | 0 | 仅采样/通信/状态调试；阈值保护关闭 |
+
+两个宏默认均为 `1`，且只允许取 `0/1`。任何带 `0` 的组合都属于开发/认证隔离测试，不是量产配置。
+
+`HW=0` 时不是“忽略 alarm”：驱动会把 COV/CUV/OC1 阈值置为 disable、清 OC2/SCD enable，关闭 current-wake/body-diode/core-OT/I2C-WDT 相关动作，并把 CHG/DSG autonomous close mask 置为全屏蔽。Requested AFE Hardware Profile 仍保存在 Flash，可继续读取/编辑；Effective profile 必须显示当前硬件保护未启用，重新以 `HW=1` 编译后继续使用原 Requested 参数。
+
+无论保护宏组合如何，基础 I2C、单体/总压/电流/温度采样和 `0x06 CHGF/DSGF` AFE driver feedback 都必须保留。CI 对 `1/0`、`0/1`、`0/0` 做独立 TC32 clean rebuild，最后重新构建默认 `1/1` 作为正式固件产物。
+
+### 7.2 DVC 量化规则（按 V1.2 + 当前代码）
 
 | 保护 | 硬件量化事实 |
 |---|---|
