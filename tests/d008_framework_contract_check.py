@@ -108,8 +108,8 @@ class D008FrameworkContract(unittest.TestCase):
             self.guard,
         )
         self.assertIsNotNone(set_fets)
-        self.assertNotIn("b1Status_MOS_CHG", set_fets.group(0))
-        self.assertNotIn("b1Status_MOS_DSG", set_fets.group(0))
+        self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_CHG\s*=")
+        self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_DSG\s*=")
         # Application may compare feedback to target, but it must not assign the feedback bits.
         self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
         self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
