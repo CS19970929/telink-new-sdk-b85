@@ -6,11 +6,11 @@
 /*
  * HS-D008 physical product assembly profile.
  *
- * This file owns compile-time product facts and fixed fail-safe policy.  These
- * values are firmware policy, not customer parameters, and must not be restored
- * from historical Flash configuration.
+ * This file intentionally owns only assembly identity that varies with the
+ * selected battery build: physical series count and chemistry/SOC profile.
  *
- * Protection thresholds remain runtime/persistent parameters:
+ * Fixed DVC1124 board/fail-safe policy lives in dvc1124_project_config.h.
+ * Runtime/persistent protection parameters remain in their dedicated stores:
  *   - software protection: g_tParam.protect
  *   - AFE hardware protection: bms_afe_hw_profile_t
  */
@@ -38,18 +38,5 @@
 #if ((D008_PRODUCT_CELL_COUNT < 4u) || (D008_PRODUCT_CELL_COUNT > 24u))
 #error "D008 product cell count is outside DVC1124-2 range"
 #endif
-
-/*
- * Fixed DVC fail-safe policy.
- * DVC1124 project_config.h uses #ifndef for these symbols, so defining them
- * here makes the product profile authoritative without creating a second
- * runtime/Flash owner.
- *
- * 4 s is the shortest DVC1124-2 I2C watchdog period.  On timeout both CHG and
- * DSG autonomous-close sources are enabled (mask bit cleared by the driver).
- */
-#define DVC1124_I2C_WATCHDOG_SECONDS     4u
-#define DVC1124_I2C_TIMEOUT_CLOSE_CHG    1u
-#define DVC1124_I2C_TIMEOUT_CLOSE_DSG    1u
 
 #endif /* D008_PRODUCT_PROFILE_H_ */
