@@ -5,6 +5,7 @@ on:
     branches:
       - refactor/bms-template-phase1
       - refactor/d008-bms-phase2
+      - feature/ci-d008-common-bms-features
       - ci-telink-bms-github-actions
   pull_request:
     branches:
