@@ -24,7 +24,7 @@ kv = text('bms_cold_kv_store.c')
 d = text('dvc1124.c')
 b = text('dvc1124_bms.c')
 c = text('dvc1124_config_service.c')
-store = text('dvc1124_config_store.c')
+backend = text('dvc1124_config_store.c')
 m = text('modbus_rtu.c')
 params = text('param.h')
 
@@ -38,11 +38,21 @@ assert 'bms_afe_hw_profile_get(&hw)' in apply
 assert 'hw.sc_a10' in apply
 assert 'g_tParam.protect.u16VcellOvp_Rcv' not in b
 assert 'hw.cov_recover_mv' in b and 'hw.ocd_recover_a10' in b
-assert 'return DVC1124_CFG_ERR_READ_ONLY;' in c
-assert 'SCD is owned by bms_afe_hw_profile' in store
+
+# Fixed DVC operating configuration is firmware-owned and read-only. The
+# hardware-protection profile remains the only persistent AFE protection owner.
+assert 'DVC1124_ConfigStore' not in c
+assert 'DVC1124_CFG_ERR_READ_ONLY' in c
+assert 'flash_kv32' not in backend
+assert 'ConfigStoreRestore' not in backend
+assert 'Only protection parameters are runtime/Flash-owned.' in backend
+assert 'DVC1124_ApplyProtectionConfig()' in backend
+
 commit = m[m.index('static u8 commit_protection_update'):m.index('u16 mb_crc16')]
 assert 'bms_afe_apply_protection_config' not in commit
 assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
+assert 'bms_afe_hw_profile_set(&candidate)' in m
+assert 'bms_afe_apply_protection_config()' in m
 
 # Regression: the historical D008 defaults previously produced a migration
 # profile that failed the profile's own validator. In particular:
@@ -74,8 +84,6 @@ profile = {
     'occ2_delay_ms': macro_int(params, 'OCC_filter3') * 10,
 }
 
-# Mirror only the DVC migration normalization rules relevant to current D008
-# defaults, then assert the exact validator invariants that caused the field bug.
 profile['cov_delay_ms'] = min(profile['cov_delay_ms'], 8000)
 profile['cuv_delay_ms'] = min(profile['cuv_delay_ms'], 8000)
 profile['ocd1_delay_ms'] = min(profile['ocd1_delay_ms'], 2048)
