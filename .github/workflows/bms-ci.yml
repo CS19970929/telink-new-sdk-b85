@@ -60,7 +60,7 @@ jobs:
     name: TC32 production build
     if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, Windows, X64, telink-tc32]
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,7 +79,31 @@ jobs:
       - name: Run common heater/balance/open-wire contract check
         shell: powershell
         run: python tests/common_feature_policy_contract_check.py
-      - name: Clean rebuild with TC32
+
+      # D008 protection-isolation builds use command-line -D overrides only.
+      # Each step performs a clean rebuild, so no objects from one mode can
+      # leak into the next. The final build below has no override and therefore
+      # regenerates the normal production 1/1 artifact that gets uploaded.
+      - name: Compile D008 SW-only protection mode (1/0)
+        if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
+        shell: powershell
+        env:
+          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=1 -DDVC1124_HW_PROTECT_ENABLE=0
+        run: python bms_tools/bms.py rebuild --jobs 4
+      - name: Compile D008 HW-only protection mode (0/1)
+        if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
+        shell: powershell
+        env:
+          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=0 -DDVC1124_HW_PROTECT_ENABLE=1
+        run: python bms_tools/bms.py rebuild --jobs 4
+      - name: Compile D008 measurement/debug protection mode (0/0)
+        if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
+        shell: powershell
+        env:
+          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=0 -DDVC1124_HW_PROTECT_ENABLE=0
+        run: python bms_tools/bms.py rebuild --jobs 4
+
+      - name: Clean rebuild with TC32 (production 1/1)
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4
       - name: Validate Telink firmware image
