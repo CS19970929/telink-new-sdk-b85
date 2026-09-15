@@ -348,6 +348,26 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
             if (DVC1124_DEFAULT_SHUNT_UOHM == 0u) return 0u;
             p->sc_a10 = (u16)(((u32)sc_mv * 10000u) / DVC1124_DEFAULT_SHUNT_UOHM);
         }
+#if !DVC1124_HW_PROTECT_ENABLE
+        /* Requested settings stay persisted and readable.  Effective state,
+         * however, must reflect the compile-time bench isolation: no DVC
+         * threshold protection is actually enabled in hardware. */
+        p->enable_mask = 0u;
+        p->cov_mv = 0u;
+        p->cov_delay_ms = 0u;
+        p->cuv_mv = 0u;
+        p->cuv_delay_ms = 0u;
+        p->ocd1_a10 = 0u;
+        p->ocd1_delay_ms = 0u;
+        p->ocd2_a10 = 0u;
+        p->ocd2_delay_ms = 0u;
+        p->occ1_a10 = 0u;
+        p->occ1_delay_ms = 0u;
+        p->occ2_a10 = 0u;
+        p->occ2_delay_ms = 0u;
+        p->sc_a10 = 0u;
+        p->sc_delay_us = 0u;
+#endif
     }
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     {
