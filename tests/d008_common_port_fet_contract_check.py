@@ -34,13 +34,36 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("if ((cfg->body_diode_threshold_uv < 40u) ||", store)
         self.assertNotIn("if ((cfg->body_diode_threshold_uv != 0u) &&", store)
 
-    def test_one_sided_protection_uses_auto_diode(self):
+    def test_one_sided_protection_uses_auto_diode_without_hard_off_transition(self):
         bms = read("dvc1124_bms.c")
-        self.assertIn("dvc_apply_common_port_fet_state", bms)
-        self.assertIn("charge_blocked && !discharge_blocked", bms)
-        self.assertIn("discharge_blocked && !charge_blocked", bms)
-        self.assertGreaterEqual(bms.count("DVC1124_FET_DRIVE_AUTO_DIODE"), 2)
-        self.assertNotIn("dvc_enforce_fault_fet_state", bms)
+        policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
+        policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+        self.assertIn("charge_blocked && !discharge_blocked", policy)
+        self.assertIn("discharge_blocked && !charge_blocked", policy)
+        self.assertGreaterEqual(policy.count("DVC1124_FET_DRIVE_AUTO_DIODE"), 2)
+        self.assertIn("dvc_set_fet_modes_if_changed(charge_mode, discharge_mode)", policy)
+        self.assertNotIn("DVC1124_SetMosState", policy)
+        self.assertNotIn("DVC1124_WriteRegisterFieldSafe", policy)
+        self.assertNotIn("effective_charge", policy)
+        self.assertNotIn("effective_discharge", policy)
+
+    def test_steady_auto_diode_mode_does_not_rewrite_r81_every_200ms(self):
+        bms = read("dvc1124_bms.c")
+        helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
+        helper = helper.split("static uint8_t dvc_apply_common_port_fet_state", 1)[0]
+        self.assertIn("DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL", helper)
+        self.assertIn("DVC1124_FET_CHGC_MASK", helper)
+        self.assertIn("DVC1124_FET_DSGC_MASK", helper)
+        self.assertRegex(helper, r"if\s*\(.*?charge_mode.*?discharge_mode.*?\)\s*\{\s*return\s+1u;", re.S)
+        self.assertEqual(helper.count("DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL"), 1)
+
+    def test_single_r81_write_encodes_final_chg_and_dsg_modes(self):
+        bms = read("dvc1124_bms.c")
+        helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
+        helper = helper.split("static uint8_t dvc_apply_common_port_fet_state", 1)[0]
+        self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK", helper)
+        self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK", helper)
+        self.assertNotIn("DVC1124_WriteRegisterFieldSafe", helper)
 
     def test_guard_hard_off_paths_are_preserved(self):
         guard = read("bms_afe_guard.c")
