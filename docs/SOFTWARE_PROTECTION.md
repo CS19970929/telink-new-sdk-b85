@@ -1,56 +1,60 @@
-# D008 / D011 / D013 统一软件保护框架
+# D008 / D011 / D013 统一软件保护
 
-更新日期：2026-09-14。
+## 1. 参数所有权
 
-## 目标
+三个产品的 MCU 软件保护参数都来自 `g_tParam.protect`，字段结构保持 First / Second / Third / Recover / Filter。共同算法位于 `bms_sw_protection.c/.h`；AFE backend 不再各自实现一套软件阈值状态机。
 
-三个产品共享同一份 `bms_sw_protection.c/.h`。AFE backend 只负责采样、寄存器量化、硬件保护状态和硬件锁存恢复；软件阈值判断、三级滤波、恢复滤波和软件故障历史不再按 AFE 各写一套。
+- First：一级告警/报告，不直接作为最终 MOS 关闭级。
+- Second：二级告警/报告，不直接作为最终 MOS 关闭级。
+- Third：软件保护级，进入 CHG/DSG 阻断。
+- Recover：恢复阈值/回差。
+- Filter：触发与恢复确认时间的来源；当前公共算法按实际调度周期换算计数。
 
-## 三级语义
+## 2. 当前公共算法覆盖
 
-- **First**：一级告警/报告，不直接关闭 MOS。
-- **Second**：二级告警/报告，预留降额/策略升级，不直接关闭 MOS。
-- **Third**：软件保护级，参与 CHG/DSG MOS 禁止。
-- **AFE Hardware Protection**：独立安全后备，可以因芯片量化和硬件时序早于软件 Third 动作；backend 将有效硬件保护状态 OR 到 Third，再统一记录故障边沿。
+1. Cell OV / UV；
+2. Pack OV / UV；
+3. Charge OC / Discharge OC；
+4. Charge OT / UT；
+5. Discharge OT / UT；
+6. MOS OT；
+7. Cell delta large。
 
-软件三级与硬件保护不是“谁覆盖谁”，而是并行保护通道。软件层不能读写 AFE 寄存器，硬件层不能重新定义 First/Second/Third 的软件语义。
+触发和恢复都要经过连续样本确认；不再使用旧 D008 “达到恢复值一次即清除”的行为。
 
-## 当前统一的软件保护项
+## 3. 当前参数表中的 SOC legacy 字段
 
-1. 单体过压 / 欠压；
-2. 总压过压 / 欠压；
-3. 充电过流 / 放电过流；
-4. 充电高温 / 低温；
-5. 放电高温 / 低温；
-6. MOS 高温；
-7. 单体压差过大。
+`g_tParam.protect` / PC 工具参数表仍保留 `u16SocUp_First/Second/Third/Rcv/Filter` 这一组兼容字段，但当前 `bms_sw_protection` 没有把它加入统一保护状态机。历史命名同时存在 `SocUp`、`SocLow` 等冲突，产品语义未得到足够证据前不能静默赋予新行为。
 
-参数仍来自 `g_tParam.protect`，采样节拍按 200 ms。触发和恢复都使用同一参数滤波时间转换为采样次数；恢复必须连续满足恢复条件，不再出现 D008 旧逻辑“单次达到恢复值立即清故障”的差异。
+因此：**参数存在/可存储 != 当前保护算法正在使用。**
 
-## 温度断线
+## 4. 温度输入有效性
 
-backend 向公共层提供 Battery min/max、MOS 温度以及有效性。任一必需温度无效时置 `BMS_ERROR_TEMP_BREAK`，软件温度阈值状态清零，MOS 由既有 fail-safe 门控禁止；恢复有效后再重新经过正常温度保护滤波。
+backend 向公共保护层提供 Battery min/max、MOS 温度和 valid 标志。必需温度无效时触发 `BMS_ERROR_TEMP_BREAK` / fail-safe 路径，不能继续用旧温度样本判断恢复；重新有效后重新经过保护滤波。
 
-## 硬件保护仍保持产品/AFE差异
+## 5. 与 AFE Hardware Protection 的关系
 
-本轮不统一以下内容：
+AFE Hardware Protection V2 使用独立 `bms_afe_hw_profile_t`，不属于软件 First/Second/Third。软件参数写入不得重写 AFE hardware profile，反之亦然。
 
-- DVC1124 与 SH3673510 的寄存器、量化步进和硬件延时；
-- SCD/SC 的硬件阈值与恢复条件；
-- AFE WDT；
-- Load Detect / LOADOFF；
-- Body Diode；
-- OpenWire / Balance；
-- 产品 GPIO、Rsense、NTC 和 FET 拓扑。
+硬件保护可以因为 AFE 芯片速度/量化先于软件 Third 关 MOS；其硬件 flag/latch 由 backend 映射到 BMS fault/lockout。不同 AFE 的 SC/SCD、WDT、load detect、body diode、Open-Wire、Balance、寄存器量化和恢复条件继续保留产品差异。
 
-这些属于 backend / Product Profile，不应为了“代码看起来一样”强行采用同一寄存器配置。
+## 6. 最终输出语义
 
-## 暂不纳入的 SOC 保护
+三个产品虽然 backend 代码组织不同，最终安全语义必须同时受以下门控：
 
-历史结构同时存在 `u16SocUp_*`、`b1SocLow` 和 `BMS_FAULT_SOC_HIGH_*` 三套互相矛盾的命名。当前代码没有足够证据确定其产品语义，因此 v1 明确不把 SOC 阈值加入公共保护状态机。待协议/产品语义确认后再单独迁移，避免静默改变已出货行为。
+```text
+product CHG/DSG request
+AND output-enable
+AND communication-qualified
+AND no software Third block
+AND no AFE hardware block/lockout
+```
 
-## 后续
+实际 GPIO/FET寄存器、硬件 latch clear 和故障移除判据见各分支 `*_PRODUCT_REFERENCE.md` 与 backend 源码。
 
-统一软件保护以后，下一阶段应统一 `bms_output_arbiter` 和硬件故障恢复语义，使最终 MOS 决策固定为：
+## 7. 修改规则
 
-`product request × output enable × communication health × software Third × hardware protection × hardware lockout/recovery`
+- 新增保护项优先进入公共软件层，除非它明确是某个 AFE 的硬件特性。
+- 不在 AFE driver 中复制 First/Second/Third 状态机。
+- 不为了“统一参数”把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_tParam.protect`。
+- 每次改变保护语义都必须补 contract test 和实板触发/恢复测试。
