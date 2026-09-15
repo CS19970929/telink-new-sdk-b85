@@ -48,6 +48,16 @@
 - 同一个 Requested 状态重复提交不得因为 AFE feedback 与目标不一致而反复写 `0x51`；AFE 保护主动关闭输出时必须允许 `Requested=ON`、`AFE Driver=OFF` 同时存在，以便诊断真实保护动作。
 - 若未来需要验证 GP5/GP6 物理输出或 MOS Gate/Vgs，必须先确认原理图已有反馈路径或新增硬件反馈；禁止仅凭通信寄存器伪造 physical feedback。
 
+## 保护路径编译开关
+
+- D008 使用 `DVC1124_SW_PROTECT_ENABLE` 与 `DVC1124_HW_PROTECT_ENABLE`，默认必须为 `1/1`。其语义与 D011/D013 的 `SH3673510_SW_PROTECT_ENABLE` / `SH3673510_HW_PROTECT_ENABLE` 一致，只有 AFE backend 实现不同。
+- `1/1`：正常产品模式，软件三级保护 + DVC AFE 硬件保护同时有效。
+- `1/0`：软件保护台架模式；必须真实关闭 DVC COV/CUV/OCD1/OCD2/OCC1/OCC2/SCD 等硬件保护与相关自主关断源，不能仅忽略 alarm flag。
+- `0/1`：DVC 硬件保护台架模式；软件保护状态机必须停止并清除软件管理的保护状态，AFE 硬件告警/恢复仍工作。
+- `0/0`：采样/通信调试模式；阈值保护关闭。I2C、单体/总压/电流/温度采样以及 `0x06 CHGF/DSGF` AFE 状态反馈仍必须正常。
+- `HW=0` 不得删除或改写 Flash 中的 Requested AFE Hardware Profile；上位机仍可读取/编辑 Requested，Effective 必须反映实际硬件已关闭（enable mask/阈值为 disabled）。重新用 `HW=1` 编译后继续使用原 Requested 参数。
+- `SW=0` / `HW=0` 都只允许开发、认证或台架隔离测试，**不得作为量产配置**。任何保护路径修改必须同时验证默认 `1/1` 与 `1/0、0/1、0/0` 三种非量产组合至少能通过 TC32 编译。
+
 ## 保护参数规则
 
 - `g_tParam.protect` 只属于软件 First/Second/Third/Recover/Filter。
