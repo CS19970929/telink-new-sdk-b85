@@ -1,243 +1,190 @@
 # BMSAssistantQt
 
-## 项目说明
-
-`BMSAssistantQt` 是基于 `PySide6 + QtBluetooth + QtWidgets` 的跨平台 BLE 上位机，实现目标是把当前 `BMSAssistant` 的核心功能完整迁移到 Qt：
-
-- BLE 扫描、连接、断开
-- `Telink SPP` 服务发现与通知订阅
-- `Modbus RTU over BLE` 收发、CRC 校验、响应分片重组
-- 独立的 `电池状态` 页面
-- 保留完整能力的 `调试工作台`
-- 手动读写寄存器
-- `写 SOC -> 0x1005`
-- `写 0x1103 = 0x0003`
-- 原始帧发送
-- 蓝牙名后缀写入
-- 响应预览、寄存器块快照、报文日志
-- `QSettings` 配置持久化
-- `CSV` 报文日志导出
-- `JSON` 电池快照导出
-
-## 工程结构
+`BMSAssistantQt` 是当前仓库实际存在的桌面 BLE 上位机，技术栈：
 
 ```text
-BMSAssistantQt/
-├── main.py
-├── requirements.txt
-├── README.md
-├── scripts/
-│   ├── run.sh
-│   ├── run.bat
-│   ├── run-macos-app.sh
-│   ├── package-macos.sh
-│   ├── package-linux.sh
-│   └── package-windows.bat
-└── bmsassistantqt/
-    ├── app_controller.py
-    ├── ble_transport.py
-    ├── models.py
-    ├── protocol.py
-    └── ui/
-        └── main_window.py
+Python 3.9+
+PySide6 >=6.8,<7
+QtBluetooth
+QtWidgets
+PyInstaller >=6.10,<7
 ```
 
-## 功能对齐说明
+主要能力：BLE扫描/连接、Telink SPP、Modbus RTU over BLE、电池状态、保护参数预览、手动读写寄存器、原始帧、BT name suffix、CSV/JSON导出。
 
-### 1. 左侧扫描与连接
+> 当前没有 direct-serial transport，也没有专用 AFE Hardware Protection V2 编辑器。完整35-word AFE HW profile不能通过当前BLE单包路径安全提交。
 
-- `扫描模式`
-  - `全部设备`：默认模式，先确保不漏设备
-  - `当前固件`：再按 `BT* / 180F / 1812` 过滤显示
-- 支持设备名搜索
-- 支持只显示疑似 BMS 设备
-- 支持连接所选设备与主动断开
-- 已接 `deviceDiscovered + deviceUpdated`，用于接收 `scan response` 里的名称和补充字段
-- 扫描改为 `BLE-only` 连续窗口，避免 `4s` 短扫描漏掉 `800ms` 广播设备
-- 列表会额外显示设备 `ID`，即使没拿到 `BT_DEFAULT` 名字也能定位匿名设备
-- 扫描条件会持久化到本地，下次启动自动恢复
+## 1. 从 GitHub 拉代码
 
-### 2. 电池状态页
-
-该页只放业务数据显示，不放调试控件。
-
-读取顺序与 Swift 版保持一致：
-
-1. `0xD000 ~ 0xD03E`
-2. `0xD115 ~ 0xD116`
-3. `0xD120 ~ 0xD12A`
-
-页面包含：
-
-- `Pack Voltage`
-- `Pack Current`
-- `SOC`
-- `Max Temp / Min Temp / MOS Temp`
-- `Cell Max / Cell Min / Cell Delta`
-- `SOH / Cycle Count / Capacity`
-- `Cell 1 ~ Cell 10`
-- `SystemStatus`
-- 兼容原始测量
-- 连接与版本信息
-- 寄存器快照
-- `自动刷新` 默认开启，且只在 `电池状态` 页工作
-- 支持导出当前 `JSON` 电池快照
-
-### 3. 调试工作台
-
-保留日常调试能力：
-
-- 刷新设备身份
-- 读取系统状态
-- 读取保护参数预览
-- 读取事件日志预览
-- 手动读寄存器
-- 手动写寄存器
-- `Echo` 链路测试
-- 原始帧发送
-- 蓝牙名后缀写入
-- 最近响应
-- 最近寄存器块
-- 报文日志
-- 支持导出 `CSV` 报文日志
-
-## 运行方式
-
-### macOS
-
-macOS 上推荐直接跑 `.app`，因为 BLE 扫描需要进程本身带有蓝牙权限描述。
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run-macos-app.sh
-```
-
-### Linux
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run.sh
-```
-
-### 开发直跑
-
-`run.sh` 适合 Linux 和 Windows，或 macOS 上只做 UI/非扫描自检。
-
-```bash
-cd "/Users/cs/Downloads/work/todo/tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/BMSAssistantQt"
-./scripts/run.sh
-```
-
-### Windows
+### D008
 
 ```bat
-cd /d "...\tc_ble_single_sdk\vendor\ble_sample\BMSAssistantQt"
+git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
+cd /d D008-BMS\tools\BMSAssistantQt
+```
+
+### D011
+
+```bat
+git clone --single-branch --branch feature/sh3673510-d011-bms https://github.com/CS19970929/telink-new-sdk-b85.git D011-BMS
+cd /d D011-BMS\tools\BMSAssistantQt
+```
+
+### D013
+
+```bat
+git clone --single-branch --branch feature/sh3673510-d013-bms https://github.com/CS19970929/telink-new-sdk-b85.git D013-BMS
+cd /d D013-BMS\tools\BMSAssistantQt
+```
+
+## 2. 先确认上位机串数
+
+文件：
+
+```text
+bmsassistantqt/protocol.py
+```
+
+当前代码：
+
+```python
+class RegisterCatalog:
+    currentProjectSeriesCount = 10
+```
+
+按产品修改：
+
+| 分支/产品 | 值 |
+|---|---:|
+| D008 24S LFP | 24 |
+| D008 20S NMC | 20 |
+| D011 | 10 |
+| D013 当前代码profile | 4 |
+
+当前工具还没有从设备metadata自动读取串数，所以 D008/D013 打包前必须核对这个值。
+
+## 3. Windows开发直跑
+
+```bat
 scripts\run.bat
 ```
 
-脚本会自动：
+脚本自动：
 
-- 在 `%LOCALAPPDATA%\BMSAssistantQt\venv` 创建虚拟环境，避免 Windows 深路径触发 `MAX_PATH` 限制
-- 自动选择 `python` 或 Windows `py -3` 启动器
-- 安装 `requirements.txt`
-- 启动 Qt 上位机
+1. 查找 `python`，失败再尝试 `py -3`；
+2. 在 `%LOCALAPPDATA%\BMSAssistantQt\venv` 创建虚拟环境；
+3. 安装 `requirements.txt`；
+4. 启动 `main.py`。
 
-macOS 例外：
-
-- `run-macos-app.sh` 会优先打开带 `Info.plist` 的 `.app`
-- 如果 `.app` 不存在，会先自动执行一次 `package-macos.sh`
-- 如果界面提示 `error.PoweredOffError`，不要先把它理解成“系统蓝牙真的关闭”。
-  在 macOS + QtBluetooth 下，这通常也可能表示当前 App 还没有蓝牙权限。
-  先到“系统设置 -> 隐私与安全性 -> 蓝牙”里允许 `BMSAssistantQt`，然后彻底退出 App 再重开。
-
-## 打包方式
-
-### macOS
-
-```bash
-./scripts/package-macos.sh
-```
-
-输出目录：
+依赖文件：
 
 ```text
-.dist/BMSAssistantQt.app
+PySide6>=6.8,<7
+PyInstaller>=6.10,<7
 ```
 
-脚本会补写蓝牙权限说明：
-
-- `NSBluetoothAlwaysUsageDescription`
-- `NSBluetoothPeripheralUsageDescription`
-
-### Linux
-
-```bash
-./scripts/package-linux.sh
-```
-
-输出目录：
-
-```text
-.dist/BMSAssistantQt
-```
-
-### Windows
+## 4. Windows打包
 
 ```bat
 scripts\package-windows.bat
 ```
 
-输出目录：
+脚本先运行：
 
-```text
-.dist\BMSAssistantQt
+```bat
+python main.py --smoke-test
 ```
 
-同时会额外生成：
+然后使用 PyInstaller：
 
 ```text
+--windowed
+--name BMSAssistantQt
+--collect-all PySide6
+--hidden-import PySide6.QtBluetooth
+```
+
+输出：
+
+```text
+.dist\BMSAssistantQt\BMSAssistantQt.exe
 .dist\Launch-BMSAssistantQt.bat
 .dist\docs\README.md
 .dist\docs\WINDOWS-DELIVERY.md
 ```
 
-Windows 打包脚本同样会自动选择 `python` 或 `py -3`，并把虚拟环境、`PyInstaller` 中间目录放在 `%LOCALAPPDATA%\BMSAssistantQt\` 下，避免当前工程路径较深时触发 Windows 传统路径长度限制。虚拟环境创建、依赖安装、`PyInstaller` 打包失败时脚本会直接中止，避免生成半截交付包。
+客户侧推荐入口：
 
-## 协议边界
+```text
+Launch-BMSAssistantQt.bat
+```
 
-### BLE
+## 5. macOS
 
-- Service: `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
-- Request Characteristic: `6E400002-B5A3-F393-E0A9-E50E24DCCA9E`
-- Response Characteristic: `6E400003-B5A3-F393-E0A9-E50E24DCCA9E`
+```bash
+cd <repo>/tools/BMSAssistantQt
+./scripts/package-macos.sh
+./scripts/run-macos-app.sh
+```
 
-### 当前默认单包约束
+输出：
 
-当前仍按固件默认 `MTU=23` 的安全路径处理，单包请求长度上限为 `20 byte`。
+```text
+.dist/BMSAssistantQt.app
+```
 
-因此：
+macOS BLE扫描需要 App 蓝牙权限；首次运行在“系统设置 -> 隐私与安全性 -> 蓝牙”授权。
 
-- `0x10` 写多寄存器建议不超过 `5 words`
-- 蓝牙名写入建议不超过 `10 个 ASCII byte`
+## 6. Linux
 
-## 跨平台说明
+```bash
+cd <repo>/tools/BMSAssistantQt
+./scripts/run.sh
+./scripts/package-linux.sh
+```
 
-这套实现选的是 Qt 官方技术栈：
+输出：
 
-- UI: `QtWidgets`
-- BLE: `QtBluetooth`
-- 语言绑定: `PySide6`
+```text
+.dist/BMSAssistantQt
+```
 
-这意味着一套代码可以覆盖：
+## 7. BLE/协议边界
 
-- macOS
-- Windows
-- Linux
+```text
+Service    6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+Request    6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+Response   6E400003-B5A3-F393-E0A9-E50E24DCCA9E
+```
 
-如果后续你要继续往下走，可以直接在这套工程上加：
+默认 ATT MTU=23，当前安全单请求上限20 byte。大响应由客户端分片重组；request端没有通用大包reassembly。
 
-- 单体电压历史曲线
-- 保护状态语义化解码
-- UART transport
-- OTA 页面
-- CSV 导出与抓包归档
+因此普通BLE `0x10` 写多寄存器建议不超过5 words。AFE Hardware Protection V2要求完整35-word原子写，当前BLE Qt工具不具备这一安全路径。
+
+## 8. 协议资产
+
+共享协议资料：
+
+```text
+tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/register_catalog.json
+tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/protocol_test_vectors.json
+```
+
+生成工具：
+
+```bash
+python3 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/bms_client_asset_tool.py all
+```
+
+`generated/` 文件不要直接手改。注意当前 `register_catalog.json` 仍含部分历史 10S 描述；D008/D013 产品显示以对应分支固件源码和 `currentProjectSeriesCount` 为准，修改协议资产时要同步清理这些产品相关常量。
+
+## 9. 建议交付包名
+
+```text
+BMSAssistantQt_HS-D008_24S-LFP_<date>_<shortsha>.zip
+BMSAssistantQt_HS-D008_20S-NMC_<date>_<shortsha>.zip
+BMSAssistantQt_HS-D011_10S_<date>_<shortsha>.zip
+BMSAssistantQt_D013_CODEPROFILE_4S_<date>_<shortsha>.zip
+```
+
+D013硬件资料确认后再把 `CODEPROFILE` 去掉。
