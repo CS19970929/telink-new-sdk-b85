@@ -1,198 +1,292 @@
 # D008 产品硬件与固件配置基线
 
-> 适用分支：`refactor/d008-common-bms-features`。历史产品分支名曾包含 `sh3673510-d013-bmsdvc`，但本产品实际为 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
+> 适用分支：`refactor/d008-common-bms-features`。
 >
-> 本文是 D008 当前唯一产品级配置说明。结论优先来自当前源码、用户提供的 `HS-D008-24S100A-V1(2).pdf`、DVC1124-2 Reference Manual V1.2。没有证据的内容明确标为 **未确认**，不得由常见 BMS 经验补齐。
+> 产品：**HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
+>
+> 本文只记录当前源码、D008 原理图/BOM、DVC1124-2 Reference Manual V1.2 能支持的结论。资料不足的项目保持未确认，不用“常见 BMS 做法”补齐。
 
 ## 1. 证据优先级
 
-1. 用户提供的 HS-D008 原理图/BOM：板级网络、器件连接、装配事实。
-2. DVC1124-2 Reference Manual V1.2：AFE 寄存器、bit、时序、量化和状态语义。
-3. 当前分支源码：实际固件配置与运行行为。
-4. DVC DemoCode：仅作为辅助实现/时序参考，不能覆盖 V1.2 手册。
+1. HS-D008 原理图/BOM：板级连接、装配事实。
+2. DVC1124-2 Reference Manual V1.2：寄存器、bit、量化、时序、芯片行为。
+3. 当前分支源码：固件当前实际策略。
+4. `references/vendor/dvc11xx_demo_v1.3/`：调用方式和交叉验证，仅作二级参考。
 
-若原理图、手册和源码不一致，本文分别记录“硬件事实”和“当前代码事实”，不自行选一个当成已验证量产结论。
+Demo 与官方手册冲突时以官方手册为准。
 
-## 2. 当前产品身份
+## 2. 产品身份
 
-| 项目 | 当前事实 |
+| 项目 | 当前配置/事实 |
 |---|---|
 | MCU | TLSR8251F512ET32 |
-| AFE | DVC1124-2，源码默认 `DVC1124_MODEL_22` |
+| AFE | DVC1124-2；源码默认 `DVC1124_MODEL_22` |
 | 默认装配 | 24S LFP |
-| 可选装配 | 20S NMC；由 `D008_PRODUCT_PROFILE` 编译选择 |
+| 可选装配 | 20S NMC，由 `D008_PRODUCT_PROFILE` 编译选择 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
-| DVC transfer write address | `0x40`；读地址由驱动使用 `0x41` |
-| 分流器 | 原理图 RS1..RS10 为 10 × 2 mΩ 并联；全部装配时等效约 200 µΩ |
-| 板载 NTC | NTC1/NTC2 型号标注 `SNC103B13435F0603E` |
+| DVC 地址 | `0x40` write / `0x41` read transfer address |
+| Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
+| 板载 NTC | NTC1/NTC2 标注 `SNC103B13435F0603E` |
 
-### 2.1 必须保留的源码事实/技术债
+`conf.h` 仍有历史 D3PRO 产品参数依赖，因此历史容量、部分 OV/UV/OC/温度默认值不能仅凭当前源码视为 D008 已签核产品参数。
 
-`conf.h` 目前仍先选择历史 `FD_BMS_TYPE D3PRO`，因此容量和部分历史产品默认值仍来自 D3PRO 分支；随后 D008 只覆盖 `SeriesNum=DVC1124_DEFAULT_CELL_COUNT` 和硬件版本字符串为 `D008`。因此：
+## 3. MCU IO 基线
 
-- `CapacityFactory`、历史 `AFE_ODC1/AFE_ODC2` 等 **不能作为 D008 已签核产品参数**；
-- 24S/20S Product Profile 只解决物理串数、化学体系/SOC profile 身份，不自动证明容量、OV/UV、OC、温度阈值正确；
-- 后续产品参数签核应消除 `FD_BMS_TYPE D3PRO` 对 D008 的残留依赖。
+| MCU GPIO | D008 网络 | 当前用途 |
+|---|---|---|
+| PD7 | `MCU-AFE-EN` | DVC reset/enable |
+| PA0 | `ACC-MCU` | key，低有效 |
+| PB1 | `CHG-IN` | charger detect，低有效；同时用于低电平唤醒 |
+| PC0 | `SDA` | DVC I2C SDA |
+| PC1 | `SCL` | DVC I2C SCL |
+| PC2 | `OWC-TX` | One-wire/UART 业务网络 |
+| PC3 | `OWC-RX` | One-wire/UART 业务网络 |
+| PA7 | `SWS-A7` | Telink SWS 下载/调试 |
+| PB4/PB5/PB7/PD3 | SOC25/50/75/100 | SOC LED |
+| PB6 | `LED_BLUE` | 蓝色 LED |
 
-## 3. MCU IO：原理图与源码对照
+GP2/GP3 是否在所有 BOM 版本都实际装外部 NTC 仍需按具体 BOM 确认。
 
-下表只把能在 D008 原理图和当前源码中对应起来的网络列为“已对照”。方向为当前源码可证明的方向；未检查到明确 GPIO 初始化的项不推断方向。
+## 4. DVC GP / FET 拓扑
 
-| GPIO | 原理图网络 | 当前代码符号/用途 | 当前代码方向/电平 | 结论 |
-|---|---|---|---|---|
-| PD4 | `MCC-EN-RF` | `RF_EN_PIN` | `board_init()` 配置 GPIO 输出，启动写 0 | 已对照；网络具体受控电路功能不从名字扩展推断 |
-| PD7 | `MCU-AFE-EN` | `AFE1_PRO_EN_PIN`；`DVC1124_AFE_Reset()` 直接使用 PD7 | 输出；AFE reset 路径拉高，源码注释为 active high | 已对照 |
-| PA0 | `ACC-MCU` | `SW_PIN` / key | 输入；`IsKeyWakeupActive()` 低有效 | 已对照 |
-| PA1 | `MCC-EN-HT` | `HEATER_EN_PIN` | 源码有板级符号；本文未把未检查到的初始化方式写成事实 | 网络已对照，运行方向需实板/调用链复核 |
-| PA7 | `SWS-A7` | Telink SWS | 调试/下载专用 | 已对照；禁止普通业务复用 |
-| PB1 | `CHG-IN` | `CHG_IN_PIN` | 输入，1 MΩ pull-up；低有效；同时作为低电平深睡唤醒源 | 已对照 |
-| PB4 | `SOC25` | `SOC25_PIN` | 当前 `conf.h` 定义 | 原理图/代码网络已对照；具体 LED 驱动极性需按实际调用确认 |
-| PB5 | `SOC50` | `SOC50_PIN` | 当前 `conf.h` 定义 | 同上 |
-| PB6 | `LED_BLUE` | `LED_BLUE_PIN` | 当前 `conf.h` 定义 | 同上 |
-| PB7 | `SOC75` | `SOC75_PIN` | 当前 `conf.h` 定义 | 同上 |
-| PC0 | `SDA` | DVC I2C SDA | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
-| PC1 | `SCL` | DVC I2C SCL | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
-| PC2 | `OWC-TX` | `OWC_TX_PIN` | One-wire/UART 业务网络 | 已对照；具体复用状态由 bus mux 控制 |
-| PC3 | `OWC-RX` | `OWC_RX_PIN` | One-wire/UART 业务网络 | 已对照 |
-| PC4 | `MCU-LDO` | `MCU_LDO_PIN` | 当前 `conf.h` 定义 | 网络已对照；本文不推断其上电时序 |
-| PD3 | `SOC100` | `SOC100_PIN` | 当前 `conf.h` 定义 | 原理图/代码网络已对照 |
+当前 `dvc1124_project_config.h`：
 
-### 3.1 D008 原理图仍需明确的板级项
-
-- GP2/GP3 被引到外部连接器，当前产品/BOM 是否实际安装外部 NTC **没有从现有原理图材料得到唯一结论**。
-- `MCC-EN-HT`、`MCU-LDO` 的完整电源所有权和低功耗时序需结合调用链/实板测量确认。
-- 原理图支持 24S LFP 与 20S NMC 两种装配，但 BOM 差异（尤其 GP2/GP3）不能由化学体系自动推断。
-
-## 4. DVC GP 配置：当前源码实际值
-
-`dvc1124_project_config.h` 当前默认：
-
-| GP | 当前功能 | 编码 |
+| DVC GP | 功能 | code |
 |---|---|---:|
-| GP1 | NTC；源码指定为 MOS NTC | 1 |
+| GP1 | NTC / MOS NTC | 1 |
 | GP2 | NTC | 1 |
 | GP3 | NTC | 1 |
-| GP4 | NTC；源码指定为 Battery NTC | 1 |
-| GP5 | low-side CHG | 7 |
-| GP6 | low-side DSG | 7 |
+| GP4 | NTC / Battery NTC | 1 |
+| GP5 | CHG low-side | 7 |
+| GP6 | DSG low-side | 7 |
 
-因此当前 GP 寄存器语义编码为：
+编码：
 
-- `0x74 GP123_MODE = 0x49`；
-- `0x75 GP456_MODE = 0x7F`。
+- `0x74 GP123_MODE = 0x49`
+- `0x75 GP456_MODE = 0x7F`
 
-**注意：GP2/GP3 配成 NTC 是当前源码默认，不等于已证明所有 D008 BOM 都装 NTC。** 若 BOM 未装，应通过产品 profile 明确改为 OFF，而不是继续沿用默认。
+D008 正常控制路径：
 
-## 5. DVC 静态工作配置
+```text
+TLSR8251
+  -> I2C
+  -> DVC R81 CHGC/DSGC
+  -> DVC internal FET logic
+  -> GP5/GP6 low-side output
+  -> external CHG/DSG driver chain
+```
 
-以下是当前源码直接可证明的默认/owned-field 配置。寄存器中有保留/未命名位时，驱动采用 read-modify-write 保留它们，因此不把整个字节伪装成固定镜像。
+MCU 不直接 GPIO 控制 GP5/GP6。
 
-| 项目 | 当前配置 | 寄存器/说明 |
-|---|---|---|
-| High-side FET mask | 1 | 0x55 `HSFM=1`；D008 使用 GP5/GP6 low-side CHG/DSG |
-| CADC work | 1 | 0x55 `CAEW=1` |
-| Current-wake engine | 0 | 0x55 `CAES=0`，同时 CWT=0 |
-| CC1 work time | 4 ms | 0x56 code 3 |
-| CC1 sleep wake time | 32 ms | 0x56 code 3 |
-| Charge pump | 10 V | 0x6D `CPVS=101` |
-| Cell signed mode | 0 | 0x6D `CVS=0` |
-| VADC | enable | 0x6E bit7=1 |
-| VADC sync CC2 | enable | 0x6E bit6=1 |
-| VADC period | every 1 CC2 | period code 0 |
-| VADC time | 1.54 ms | time code 1 |
-| V3P3 sleep/work | enable/enable | 0x77 bits7/6=1 |
-| I2C timeout restart V3P3 | 0 | 0x77 bit5=0 |
-| I2C watchdog | 0 s / disabled | 0x77 watchdog code disabled by product policy |
-| Timed wake | OFF | 0x78 |
-| Interrupt mask | `0xFF` | 0x79；1 表示屏蔽；当前不消费 DVC GP interrupt |
-| DSG pull-down DPC | 16 | 0x52 named DPC field |
-| Core OT shutdown | 0 / disabled | 0x76 threshold code 0 |
-| Current-wake threshold | 0 / disabled | 0x65 |
-| Body-diode threshold | 0 / disabled | 0x66 |
-| SCD threshold/delay | 0 / disabled | 0x62/0x63，等待产品实板签核 |
-| I2C timeout close CHG/DSG | 0/0 | 由 0x53/0x54 mask policy 表达 |
+`R81.CHGC/DSGC` 是命令模式；`R6.CHGF/DSGF` 是 DVC driver/output flag，不等同于 MOS 物理导通反馈。
 
-0x53/0x54 使用 V1.2 的 reset-equivalent 完整 mask policy：默认分别以 `0x59` / `0xF9` 为基线，并由已持久化的 watchdog timeout-close 语义项覆盖对应位。mask 的语义是 **1=屏蔽该来源对输出的动作，0=允许**。
+## 5. 配置所有权：当前强制架构
 
-## 6. 电芯通道与 24S/20S
+D008 已取消 DVC operating-config Flash owner。**固定 DVC 配置全部来自编译期宏，每次 AFE reset/init 后重新下发。历史 operating-config KV 即使 Flash 中仍残留，也不会再读取或覆盖当前固件策略。**
 
-- DVC1124-2 支持 4..24S；当前默认 24S。
-- 20S 编译时 `D008_PRODUCT_CELL_COUNT=20`，源码会把未使用的 Cell21..Cell24 加入 measurement mask。
-- 24S 编译不屏蔽上部通道。
-- 物理串数由 compile-time Product Profile 决定，不再依赖历史 `SeriesNum` 去决定 AFE 通道连接。
+### 5.1 编译期固定配置
 
-## 7. AFE 硬件保护：独立于软件三级参数
+唯一主要入口：
 
-当前保护分为两套独立参数：
+```text
+dvc1124_project_config.h
+```
 
-- 软件保护：`g_tParam.protect`，First / Second / Third / Recover / Filter；
-- AFE 硬件保护：`bms_afe_hw_profile_t`，没有 First/Second/Third。
+包括：
 
-AFE profile 使用统一 V2 协议：requested 35 words、metadata、effective 35 words。首次迁移可从旧参数初始化一次，此后两套参数独立演进；修改软件保护不得自动改 AFE 硬件保护。
+- DVC model/address
+- physical cell count / Rsense
+- GP1..GP6 mode
+- high-side mask / low-side topology
+- CADC / CC1 / VADC
+- Charge Pump
+- V3P3 / timed wake / interrupt mask
+- DPC
+- current-wake 固定策略
+- Body-Diode / DBDM / CBDM
+- DVC I2C watchdog
+- I2C timeout close CHG/DSG
+- fixed Core-OT policy
 
-### 7.1 软件/硬件保护编译隔离
+`d008_product_profile.h` 只负责 24S LFP / 20S NMC 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。
 
-D008 使用两个独立编译开关，语义与 D011/D013 的保护隔离模式一致：
+### 5.2 Flash 中保留的保护参数
 
-| `DVC1124_SW_PROTECT_ENABLE` | `DVC1124_HW_PROTECT_ENABLE` | 用途 |
+仅保护参数保留运行时持久化：
+
+1. MCU 软件保护：`g_tParam.protect`
+   - First / Second / Third
+   - Recover
+   - Filter
+   - OV/UV/OC/温度等软件保护参数
+2. AFE 硬件保护：`bms_afe_hw_profile_t`
+   - COV / CUV
+   - OCD1 / OCD2
+   - OCC1 / OCC2
+   - SCD
+   - delay / recover / enable mask
+
+SOC、容量、事件日志等仍由各自独立存储模块管理，但不属于 DVC operating-config。
+
+### 5.3 通信接口
+
+- `0x2800` DVC semantic window：固定配置只读诊断。
+- `0x2900` DVC raw mirror：只读诊断。
+- 固定配置写入返回 READ_ONLY / Modbus exception。
+- AFE HW protection 修改必须走 `bms_afe_hw_profile` 的完整原子事务。
+- 软件保护修改继续走软件参数接口。
+
+## 6. 当前固定 DVC 工作配置
+
+| 项目 | 当前值 | 说明 |
+|---|---:|---|
+| High-side FET mask | 1 | D008 使用 GP5/GP6 low-side |
+| CADC work | 1 | work enable |
+| Current-wake engine | 0 | 当前关闭 |
+| CC1 work time | 4 ms | code 3 |
+| CC1 sleep wake | 32 ms | code 3 |
+| Charge Pump | 10 V | CPVS=5 |
+| Cell signed mode | 0 | unsigned cell voltage |
+| VADC | enable | 使能 |
+| VADC sync CC2 | enable | 使能 |
+| VADC period | every 1 CC2 | code 0 |
+| VADC time | 1.54 ms | code 1 |
+| V3P3 sleep/work | 1 / 1 | enable / enable |
+| V3P3 timeout restart | 0 | disabled |
+| Timed wake | OFF | fixed |
+| Interrupt mask | `0xFF` | 当前不消费 DVC interrupt |
+| DSG pull-down DPC | 16 | reset-equivalent named policy |
+| Core OT fixed policy | 0 | disabled |
+| Current wake threshold | 0 µV | disabled |
+| Body diode threshold | **80 µV** | BDPT=2；200 µΩ 下名义约 0.4 A |
+| I2C watchdog | **4 s** | DVC hardware watchdog |
+| timeout close CHG | **1** | WDT timeout 允许关闭 CHG |
+| timeout close DSG | **1** | WDT timeout 允许关闭 DSG |
+
+Body-Diode 80 µV 来自当前 D008 common-port 固件策略；仍需继续结合实板电流、噪声、MOS 行为验证其最终量产裕量。
+
+## 7. Common-port CHG/DSG 策略
+
+正常工作不按当前方向选择单个 MOS：
+
+```text
+Normal / charge / discharge:
+CHG = ON
+DSG = ON
+```
+
+发生单侧保护：
+
+```text
+charge-side protection only:
+CHG = AUTO_DIODE (10b)
+DSG = ON (11b)
+
+discharge-side protection only:
+CHG = ON (11b)
+DSG = AUTO_DIODE (10b)
+```
+
+DVC 根据 body-diode/reverse-current 条件自主重新开启受保护侧 driver，MCU 不轮询电流方向强制开 MOS。
+
+软件必须一次性写最终 R81 模式；禁止：
+
+```text
+hard OFF -> AUTO_DIODE
+```
+
+这种两阶段切换，也禁止每 200 ms 重复写同一个 AUTO_DIODE 模式，否则会破坏 DVC 自主续流状态。
+
+共同故障、通信 inhibit、sleep、open-wire、output disable 等仍保持 CHG+DSG hard OFF 语义。
+
+## 8. I2C watchdog 与 fail-safe
+
+必须区分两套 timeout：
+
+### MCU transaction timeout
+
+```text
+DVC1124_I2C_CMD_TIMEOUT_US = 5000 µs
+```
+
+它只是 TLSR8251 等待一次 I2C BUSY/transaction 的上限，不负责 DVC 自主关 MOS。
+
+### DVC hardware I2C watchdog
+
+```text
+DVC1124_I2C_WATCHDOG_SECONDS  = 4
+DVC1124_I2C_TIMEOUT_CLOSE_CHG = 1
+DVC1124_I2C_TIMEOUT_CLOSE_DSG = 1
+```
+
+真实 I2C dead-bus 后，MCU 再通过 I2C 下发 `FETS(0,0)` 只能 best-effort，因为总线已经不可用。最终 fail-safe 必须依靠失联前已配置好的 DVC hardware watchdog。
+
+当前 production `HW_PROTECT_ENABLE=1` 下关键寄存器预期：
+
+- R77 watchdog bits `[2:0] = 100b`（4 s）；在当前 V3P3 policy 下超时前通常读到约 `0xC4`，状态位可能影响完整字节显示。
+- R53 `DWM=0`，允许 I2C WDT 关闭 DSG；结合当前 mask policy 通常为 `0x50`。
+- R54 `CWM=0`，允许 I2C WDT 关闭 CHG；结合当前 mask policy 通常为 `0x78`。
+- R66 `BDPT=2`，即 80 µV。
+
+R53/R54 mask 语义：**0 = 允许该来源动作；1 = 屏蔽该来源。**
+
+## 9. 保护编译隔离
+
+| SW | HW | 行为 |
 |---:|---:|---|
-| 1 | 1 | 正常产品：软件三级保护 + DVC 硬件保护 |
-| 1 | 0 | 软件保护台架验证；DVC COV/CUV/OCD/OCC/SCD 等硬保护真实关闭 |
-| 0 | 1 | DVC 硬件保护台架验证；软件保护状态机停止并清除软件保护状态 |
-| 0 | 0 | 仅采样/通信/状态调试；阈值保护关闭 |
+| 1 | 1 | production：软件保护 + DVC HW protection + 固定 fail-safe |
+| 1 | 0 | 软件保护台架；DVC autonomous protection/fail-safe 主动关闭 |
+| 0 | 1 | DVC HW protection 台架；软件保护状态清除，固定 fail-safe 保留 |
+| 0 | 0 | 测量/通信调试；DVC autonomous protection/fail-safe 主动关闭 |
 
-两个宏默认均为 `1`，且只允许取 `0/1`。任何带 `0` 的组合都属于开发/认证隔离测试，不是量产配置。
+`HW=0` 时会主动：
 
-`HW=0` 时不是“忽略 alarm”：驱动会把 COV/CUV/OC1 阈值置为 disable、清 OC2/SCD enable，关闭 current-wake/body-diode/core-OT/I2C-WDT 相关动作，并把 CHG/DSG autonomous close mask 置为全屏蔽。Requested AFE Hardware Profile 仍保存在 Flash，可继续读取/编辑；Effective profile 必须显示当前硬件保护未启用，重新以 `HW=1` 编译后继续使用原 Requested 参数。
+- disable COV/CUV/OC/SCD application
+- I2C WDT = OFF
+- current wake = OFF
+- Body-Diode = OFF
+- Core-OT = OFF
+- R53/R54 autonomous-close mask = `0xFF`
 
-无论保护宏组合如何，基础 I2C、单体/总压/电流/温度采样和 `0x06 CHGF/DSGF` AFE driver feedback 都必须保留。CI 对 `1/0`、`0/1`、`0/0` 做独立 TC32 clean rebuild，最后重新构建默认 `1/1` 作为正式固件产物。
+因此不能用 `HW=0` 验证 I2C watchdog 关 MOS。
 
-### 7.2 DVC 量化规则（按 V1.2 + 当前代码）
+Requested AFE Hardware Profile 仍保存在 Flash；重新用 `HW=1` 构建后继续使用原 requested profile。
 
-| 保护 | 硬件量化事实 |
+## 10. AFE Hardware Protection 参数
+
+软件保护与 AFE hardware protection 是两套独立参数：
+
+```text
+g_tParam.protect
+    = software First/Second/Third/Recover/Filter
+
+bms_afe_hw_profile_t
+    = DVC COV/CUV/OCD/OCC/SCD hardware profile
+```
+
+修改一套不得副作用重写另一套。
+
+AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不能伪装成用户输入值。
+
+主要量化事实：
+
+| Protection | DVC 量化 |
 |---|---|
-| COV/CUV | 12-bit threshold；delay 离散 200..8000 ms，当前编码选择不晚于请求的支持值 |
-| OC1 | threshold code × 0.25 mV；code 0=disable；delay=(code+1)×8 ms |
-| OC2 | enable bit6；threshold=(code+1)×4 mV；delay=(code+1)×4 ms |
-| SCD | enable bit6；threshold=code×10 mV；delay=code×7.81 µs |
-| Current wake | 0=off，否则 code×10 µV |
-| Body diode | 0=off，否则 code×40 µV |
+| COV/CUV | 12-bit threshold；delay 200..8000 ms 离散 |
+| OC1 | threshold code × 0.25 mV；delay=(code+1)×8 ms |
+| OC2 | threshold=(code+1)×4 mV；delay=(code+1)×4 ms |
+| SCD | threshold=code×10 mV；delay=code×7.81 µs |
 
-对 200 µΩ shunt，硬件可表示的电流档位必须由 sense voltage / Rsense 换算；上位机显示 requested 与 effective，不能把请求值当成芯片实际值。
+物理电流阈值按 sense voltage / 200 µΩ Rsense 换算。
 
-## 8. 采样、通信与 fail-safe
+## 11. 实板验证重点
 
-- I2C 使用 PC0/PC1、100 kHz；每次硬件 BUSY 等待有 `DVC1124_I2C_CMD_TIMEOUT_US=5000` µs 上限。
-- 失败重试次数默认 3；总线恢复会 reset I2C module 并重新初始化。
-- AFE reset 后等待 300 ms 再进入正常访问。
-- 公共 AFE guard 在无效 snapshot 时立即 inhibit 输出；连续异常会有界 reinit，恢复后仍要求连续有效 snapshot 才允许重新输出。
-- 软件侧 FET off 在物理 I2C dead-bus 时只能 best effort；DVC WDT/PD7 power-cycle 的最终安全策略仍必须实板验证。
+固定配置或 FET 策略修改后至少验证：
 
-## 9. Balance / Open-Wire
-
-- DVC 0x67..0x69 balance bit 约 60 s 自动清除；当前软件用 45 s 条件续期。
-- 续期要求有效采样、存在充电电流、无充/放保护阻断；Open-Wire 流程期间暂停 Balance。
-- Open-Wire 已实现 trigger/wait/fresh-snapshot/raw-result 状态机，但“哪些测量特征判定真实开线”的最终 evaluate 阈值仍需依据手册和实板开线实验签核。
-
-## 10. 当前明确未签核项
-
-1. DVC SCD 产品阈值、延时和恢复策略；默认保持关闭。
-2. DVC I2C WDT / PD7 AFE power-cycle 的最终 dead-bus 安全路径。
-3. Body-Diode 自动恢复策略。
-4. GP2/GP3 实际 BOM 选件状态。
-5. `SNC103B13435F0603E` NTC R-T 与温箱校准；当前软件表是历史 10K 表，不等于该料号已验证。
-6. 24S LFP 与 20S NMC 的最终容量、OV/UV、OC、温度、SOC OCV/端点。
-7. Open-Wire 判定、Balance 温升/采样干扰、Flash/断电故障注入。
-
-## 11. 当前权威源码入口
-
-- `vendor/ble_sample/conf.h`：D008 MCU 网络名、历史产品参数兼容层。
-- `vendor/ble_sample/d008_product_profile.h`：24S LFP / 20S NMC 物理 profile。
-- `vendor/ble_sample/dvc1124_project_config.h`：DVC 板级默认配置。
-- `vendor/ble_sample/dvc1124_reg.h`：DVC1124-2 V1.2 寄存器真值。
-- `vendor/ble_sample/dvc1124.c`：I2C、量化、采样、静态配置、Balance/Open-Wire。
-- `vendor/ble_sample/dvc1124_bms.c`：BMS 故障/FET/恢复适配。
-- `vendor/ble_sample/bms_sw_protection.*`：统一软件三级保护。
-- `vendor/ble_sample/bms_afe_hw_profile.*`：独立 AFE 硬件保护 profile。
-
-本文只描述当前源码和现有证据；任何未列出的“常见配置”都不是本产品事实。
+1. 上电后读回固定配置寄存器，确认没有旧 Flash 覆盖。
+2. CHG protection -> 放电：CHG AUTO_DIODE 自动恢复后持续导通，不得出现 200 ms 周期关断脉冲。
+3. DSG protection -> 充电：同理验证 DSG。
+4. I2C 正常时确认 R77/R53/R54/R66 符合当前 compile-time policy。
+5. 真正停止 MCU↔DVC I2C 通信，约 4 s 后验证 CHG/DSG driver 均被 DVC 自主关闭。
+6. `SW/HW = 1/0、0/1、0/0、1/1` 均需 TC32 clean build；production 最终使用 `1/1`。
+7. 任何 safety change 继续通过 source-order、Host contracts、firmware check、MAP、verify、cppcheck；这些不能替代实板测试。
