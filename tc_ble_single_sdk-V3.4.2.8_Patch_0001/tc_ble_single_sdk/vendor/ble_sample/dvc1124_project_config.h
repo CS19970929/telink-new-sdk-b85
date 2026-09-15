@@ -4,18 +4,24 @@
 #include "d008_product_profile.h"
 
 /*
- * HS-D008 / DVC1124-2 board defaults.
+ * HS-D008 / DVC1124-2 fixed board and fail-safe configuration.
  *
  * Source precedence:
  *   1. DVC1124-2 Reference Manual V1.2       -> register facts/encoding
  *   2. HS-D008 schematic/BOM                 -> board wiring/assembly
  *   3. D008 product profile                  -> assembled cell count/chemistry
- *   4. Product/BMS parameter storage          -> protection/product policy
- *   5. DVC11XX DemoCode V1.3                 -> secondary timing/example only
+ *   4. This file                             -> fixed DVC board/fail-safe policy
+ *   5. Runtime Flash parameters              -> protection thresholds only
+ *   6. DVC11XX DemoCode V1.3                 -> secondary timing/example only
  *
- * Important: this file contains DEFAULTS, not an immutable AFE preset image.
- * Runtime AFE configuration must be readable/writable through the DVC1124
- * semantic API. Protection thresholds are owned by the BMS parameter layer.
+ * IMPORTANT OWNERSHIP RULE:
+ * Values in this file are firmware-owned product policy. They are applied after
+ * every AFE reset and are not restored from historical DVC operating-config
+ * Flash. The 0x2800 semantic window exposes them for diagnostics only.
+ *
+ * Runtime-persistent protection parameters are owned separately by:
+ *   - g_tParam.protect: software protection
+ *   - bms_afe_hw_profile_t: DVC hardware protection thresholds/delays
  */
 
 #ifndef DVC1124_DEFAULT_MODEL
@@ -42,18 +48,17 @@
 #endif
 
 /*
- * Protection-path isolation switches.  These deliberately mirror the
- * SH3673510 SW/HW switches used by D011/D013 while keeping DVC naming local to
- * this backend.
+ * Protection-path isolation switches.
  *
  * 1/1: production behavior (software + DVC hardware protection).
- * 1/0: software-protection-only bench test; DVC COV/CUV/OC/SCD are disabled.
+ * 1/0: software-protection-only bench test; DVC autonomous HW protection and
+ *      fail-safe sources are deliberately disabled.
  * 0/1: DVC-hardware-protection-only bench test; software state is cleared.
  * 0/0: threshold-protection-off measurement/communication debug mode.
  *
- * Measurement, I2C communication and CHGF/DSGF AFE status sampling remain
- * active in every mode.  The requested AFE hardware profile remains stored;
- * disabling HW protection changes only what is applied to the DVC.
+ * Measurement, I2C communication and CHGF/DSGF sampling remain active in all
+ * modes. The requested AFE hardware protection profile remains stored even when
+ * HW=0; only its application to DVC is disabled in that bench mode.
  */
 #ifndef DVC1124_SW_PROTECT_ENABLE
 #define DVC1124_SW_PROTECT_ENABLE            1u
@@ -74,10 +79,9 @@
 #endif
 
 /*
- * GP modes are expressed by function, not raw 0x49/0x7F magic values.
- * GP2/GP3 are routed to an external connector; product/BOM variants must
- * override these defaults when external NTCs are not assembled. Cell-count /
- * chemistry selection alone must never be used to guess GP2/GP3 population.
+ * GP modes are firmware-owned board routing. GP2/GP3 are routed to the external
+ * connector; BOM variants must explicitly override these compile-time values if
+ * those NTCs are not assembled. Cell-count/chemistry alone must not guess BOM.
  */
 #ifndef DVC1124_GP1_DEFAULT_MODE
 #define DVC1124_GP1_DEFAULT_MODE             DVC1124_GP14_NTC
@@ -111,12 +115,7 @@
                          DVC1124_GP6_DEFAULT_MODE)
 #endif
 
-/*
- * D008 uses the GP5/GP6 low-side CHG/DSG outputs. Keep the unused high-side
- * CHG/DSG drivers masked so an unrelated register/FET request cannot energize
- * an unverified output path. Reference Manual V1.2: HSFM=1 masks high-side FET
- * drive; it does not select the GP5/GP6 low-side function.
- */
+/* D008 uses GP5/GP6 low-side CHG/DSG; unused high-side FET drive is masked. */
 #ifndef DVC1124_DEFAULT_HIGH_SIDE_FET_MASK
 #define DVC1124_DEFAULT_HIGH_SIDE_FET_MASK       1u
 #endif
@@ -124,8 +123,7 @@
 #define DVC1124_DEFAULT_CADC_WORK_ENABLE         1u
 #endif
 
-/* CWT=0 below disables current wake. Keep CAES consistent until a product
- * current-wake threshold has been validated on hardware. */
+/* CWT=0 disables current wake; keep CAES consistent with that fixed policy. */
 #ifndef DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE
 #define DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE 0u
 #endif
@@ -174,24 +172,21 @@
 #define DVC1124_DEFAULT_TIMED_WAKE               DVC1124_TIMED_WAKE_OFF
 #endif
 
-/* 0x79 bits are masks: 0 allows the corresponding 1ms interrupt pulse and
- * 1 suppresses it. D008 does not currently route/consume a DVC GP interrupt,
- * therefore mask all sources instead of using the misleading 0x00 default. */
+/* D008 does not currently consume a DVC GP interrupt: mask all sources. */
 #ifndef DVC1124_DEFAULT_INTERRUPT_MASK
 #define DVC1124_DEFAULT_INTERRUPT_MASK           0xFFu
 #endif
 
-/* R82 DPC reset default is 16. Keep it named so product tuning is explicit. */
+/* R82 DPC reset default is 16. */
 #ifndef DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH
 #define DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH    16u
 #endif
 
 /*
- * DVC 0x53/0x54 are mask registers. HS-D008 is common-port, therefore
- * DBDM/CBDM must be 0 so R81 AUTO_DIODE (10b) can reopen the protected
- * FET when current reverses through the opposite direction. Keep every
- * other non-watchdog source reset-equivalent; DWM/CWM are overlaid from
- * the persisted semantic options below.
+ * DVC 0x53/0x54 are mask registers. HS-D008 is common-port, therefore DBDM /
+ * CBDM are cleared so R81 AUTO_DIODE (10b) can reopen the protected FET after
+ * current reversal. DWM/CWM are overlaid below by the compile-time I2C timeout
+ * close policy. Mask semantics: 0 = source may act, 1 = source is masked.
  */
 #ifndef DVC1124_DEFAULT_DSG_MASK_POLICY
 #define DVC1124_DEFAULT_DSG_MASK_POLICY \
@@ -202,15 +197,15 @@
     ((uint8_t)(DVC1124_CHG_MASK_RESET & (uint8_t)~DVC1124_CHGMASK_CBDM_MASK))
 #endif
 
-/* COTT=0 keeps the DVC core over-temperature shutdown disabled. */
+/* COTT=0 keeps DVC core over-temperature shutdown disabled. */
 #ifndef DVC1124_DEFAULT_CORE_OT_CODE
 #define DVC1124_DEFAULT_CORE_OT_CODE             0u
 #endif
 
 /*
- * Product safety defaults below remain disabled until the product thresholds
- * have been verified on hardware. They are defaults only; the runtime AFE
- * configuration service must be able to override them deliberately.
+ * SCD itself is a runtime AFE hardware-protection parameter and is applied from
+ * bms_afe_hw_profile_t. These legacy zero defaults remain only as a conservative
+ * compile-time fallback and are not an operating-config Flash owner.
  */
 #ifndef DVC1124_HW_SCD_THRESHOLD_MV
 #define DVC1124_HW_SCD_THRESHOLD_MV          0u
@@ -219,33 +214,36 @@
 #define DVC1124_HW_SCD_DELAY_US              0u
 #endif
 
-/* 0 disables; otherwise CWT * 10uV. */
+/* Fixed current-wake policy: 0 disables; otherwise CWT * 10uV. */
 #ifndef DVC1124_CURRENT_WAKE_THRESHOLD_UV
 #define DVC1124_CURRENT_WAKE_THRESHOLD_UV    0u
 #endif
 
 /*
- * Common-port reverse-current recovery threshold. DVC11XX vendor FET
- * control example uses 80uV (BDPT=2). With the HS-D008 200uOhm shunt
- * this corresponds to a nominal 0.4A reverse-current release threshold.
- * 0 is not valid for D008 because it disables AUTO_DIODE recovery.
+ * Common-port reverse-current recovery threshold. Vendor FETControl example
+ * uses 80uV (BDPT=2). With the HS-D008 200uOhm shunt this is nominally 0.4A.
+ * This is topology/fail-safe policy rather than a customer protection setting.
  */
 #ifndef DVC1124_BODY_DIODE_THRESHOLD_UV
 #define DVC1124_BODY_DIODE_THRESHOLD_UV      80u
 #endif
 
-/* Allowed watchdog values: 0, 4, 8, 16, 32 seconds. */
+/*
+ * DVC hardware I2C watchdog fail-safe. 4s is the shortest supported watchdog
+ * period. When it expires both CHG and DSG autonomous-close sources are enabled.
+ * These values are firmware-owned and must not be restored from Flash.
+ */
 #ifndef DVC1124_I2C_WATCHDOG_SECONDS
-#define DVC1124_I2C_WATCHDOG_SECONDS         0u
+#define DVC1124_I2C_WATCHDOG_SECONDS         4u
 #endif
 #ifndef DVC1124_I2C_TIMEOUT_CLOSE_CHG
-#define DVC1124_I2C_TIMEOUT_CLOSE_CHG        0u
+#define DVC1124_I2C_TIMEOUT_CLOSE_CHG        1u
 #endif
 #ifndef DVC1124_I2C_TIMEOUT_CLOSE_DSG
-#define DVC1124_I2C_TIMEOUT_CLOSE_DSG        0u
+#define DVC1124_I2C_TIMEOUT_CLOSE_DSG        1u
 #endif
 
-/* Telink-side I2C robustness. Never allow an unbounded BUSY wait. */
+/* Telink-side transaction timeout/retry; independent of DVC hardware watchdog. */
 #ifndef DVC1124_I2C_CMD_TIMEOUT_US
 #define DVC1124_I2C_CMD_TIMEOUT_US           5000u
 #endif
