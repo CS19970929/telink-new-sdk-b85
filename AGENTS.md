@@ -17,6 +17,8 @@
 - 厂商 Demo：`references/vendor/dvc11xx_demo_v1.3/`，只用于调用方式、时序和交叉验证，**不得覆盖 DVC1124-2 官方参考手册**。
 - 当前软件行为：本分支源码。
 
+`references/vendor/` 仅存放参考资料，不得加入 `bms_tools/source_order.txt`、固件 Makefile/链接输入或产品运行代码；参考资料的存在不得改变现有固件行为。
+
 资料不足时明确写 `TODO_VERIFY_HW`；禁止用 SH36735xx、BQ769xx、旧 SH367309 或“常见BMS做法”猜 DVC 寄存器和安全参数。Demo 与官方 DVC1124-2 参考手册冲突时，以官方参考手册为准；Demo 自身存在型号默认值和示例代码不一致项，禁止直接复制到量产逻辑。
 
 ## 当前源码边界
@@ -31,13 +33,18 @@
 
 应用层不得直接复制 DVC 寄存器 magic value。涉及 safety register 的写入必须按 mask/shift、范围、量化、readback 审核。
 
-## D008 低边 FET 状态规则
+## D008 低边 FET 状态与控制规则
 
-- D008 使用 `GP5=CHG_LS`、`GP6=DSG_LS`，高边输出被 mask。
+- `GP5` / `GP6` 指 **DVC1124 的 GP5/GP6 引脚**，不是 TLSR8251 MCU GPIO。
+- D008 使用 `DVC GP5=CHG_LS`、`DVC GP6=DSG_LS`，高边输出被 mask；前提是 D008 原理图/BOM 确认这些 DVC 引脚实际连接到低边 CHG/DSG 驱动链。
+- MCU **不需要、也不应新增两个 GPIO 直接控制 GP5/GP6**。正常控制路径必须是：`TLSR8251 -> I2C -> DVC 0x51 CHGC/DSGC -> DVC 内部驱动逻辑 -> GP5/GP6 low-side output -> 外部 MOS 驱动链`。
+- `0x75 GP5M/GP6M=111` 只负责把 DVC 的 CHG/DSG 驱动逻辑路由到 GP5/GP6 低边输出；MCU 日常开关 MOS 仍通过 I2C 修改 `0x51 CHGC/DSGC`，不直接操作 GP5/GP6。
 - `0x51 CHGC/DSGC` 是驱动命令；`0x06 CHGF/DSGF` 是 AFE 驱动输出标志。
-- Vendor Demo 的 GP5/GP6 示例把 GP5/GP6 **额外接回 MCU GPIO** 才读取“LOW SIDE CHG/DSG on”，因此 `CHGF/DSGF` 不得直接命名为物理 MOS 实际状态。
+- Vendor Demo 的 GP5/GP6 示例把 DVC GP5/GP6 **额外接回 MCU GPIO**，只是为了独立读取 LOW SIDE 输出脚状态，不是低边 MOS 控制所必需的连接，也不得据此要求 D008 增加 MCU GPIO 控制。
 - 软件至少区分 Requested、AFE Command、AFE Driver Flag、Physical Feedback 四层。当前 D008 若无已确认的 GP5/GP6/Gate/Vgs 反馈，Physical Feedback 必须标记为 unavailable/unknown。
+- `CHGF/DSGF` 不得直接命名为物理 MOS 实际状态；它们只能表示 DVC AFE driver/output flag。
 - `b1Status_MOS_CHG/DSG` 不得同时承担“目标命令”和“物理反馈”两种语义。
+- 若未来需要验证 GP5/GP6 物理输出或 MOS Gate/Vgs，必须先确认原理图已有反馈路径或新增硬件反馈；禁止仅凭通信寄存器伪造 physical feedback。
 
 ## 保护参数规则
 
