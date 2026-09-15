@@ -265,25 +265,22 @@ void mos_update(void)
 	uint8_t chg_target = 0;
 	uint8_t dsg_target = 0;
 
+	/*
+	 * HS-D008 is a common-port pack. Current direction must not be used
+	 * to select only CHG or only DSG. In normal enabled operation both
+	 * FETs are requested ON; protection decides which side is blocked.
+	 */
 	if(IsChargerWakeupActive())
 	{
 		chg_target = 1;
-		dsg_target = 0;
+		dsg_target = 1;
 		g_bms_system_status.bits.b1Status_Cool = 1;
 	}
 	else if (IsKeyWakeupActive())
 	{
 		g_bms_system_status.bits.b1Status_Cool = 0;
-		if(MODE_FACTORY == Runtime_GetMode())
-		{
-			chg_target = 1;
-			dsg_target = 1;
-		}
-		else
-		{
-			chg_target = 0;
-			dsg_target = 1;
-		}
+		chg_target = 1;
+		dsg_target = 1;
 	}
 	else
 	{

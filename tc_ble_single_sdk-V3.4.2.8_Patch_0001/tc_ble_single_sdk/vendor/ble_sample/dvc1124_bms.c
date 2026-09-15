@@ -136,31 +136,48 @@ static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
     return (100u * adc_mv) / (3300u - adc_mv);
 }
 
-static uint8_t dvc_enforce_fault_fet_state(void)
+static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
+                                              uint8_t discharge_on)
 {
-    uint8_t requested_charge = 0u;
-    uint8_t requested_discharge = 0u;
-    uint8_t charge_on;
-    uint8_t discharge_on;
+    uint8_t charge_blocked = dvc_charge_blocked();
+    uint8_t discharge_blocked = dvc_discharge_blocked();
+    uint8_t effective_charge = charge_on ? 1u : 0u;
+    uint8_t effective_discharge = discharge_on ? 1u : 0u;
 
-    /* Requested command and AFE feedback are deliberately separate.  Never
-     * reconstruct the requested state from CHGF/DSGF: those bits report the
-     * DVC driver state and may be OFF precisely because protection acted. */
-    bms_afe_get_requested_fets(&requested_charge, &requested_discharge);
-    charge_on = requested_charge;
-    discharge_on = requested_discharge;
+    if (charge_blocked) effective_charge = 0u;
+    if (discharge_blocked) effective_discharge = 0u;
 
-    if (dvc_charge_blocked()) charge_on = 0u;
-    if (dvc_discharge_blocked()) discharge_on = 0u;
-
-    if ((charge_on == requested_charge) && (discharge_on == requested_discharge))
-        return 1u;
-
-    if (!DVC1124_SetMosState(charge_on, discharge_on))
-    {
-        bms_error_raise(BMS_ERROR_AFE1);
+    /* First apply the conservative hard state. This preserves the
+     * semantics of explicit OFF, AFE communication inhibit, sleep and
+     * open-wire diagnostics. */
+    if (!DVC1124_SetMosState(effective_charge, effective_discharge))
         return 0u;
+
+    /* Normal D008 operation requests both FETs ON. If exactly one
+     * protection direction is blocked, change only that protected FET
+     * from hard-OFF to DVC AUTO_DIODE (R81=10b). The DVC then reopens
+     * it in hardware after reverse current exceeds BDPT; the MCU does
+     * not poll current direction or force the opposite FET open. */
+    if (charge_on && discharge_on)
+    {
+        if (charge_blocked && !discharge_blocked)
+        {
+            return DVC1124_WriteRegisterFieldSafe(DVC1124_REG_FET_CTRL,
+                                                  DVC1124_FET_CHGC_MASK,
+                                                  DVC1124_FET_CHGC_SHIFT,
+                                                  DVC1124_FET_DRIVE_AUTO_DIODE);
+        }
+        if (discharge_blocked && !charge_blocked)
+        {
+            return DVC1124_WriteRegisterFieldSafe(DVC1124_REG_FET_CTRL,
+                                                  DVC1124_FET_DSGC_MASK,
+                                                  DVC1124_FET_DSGC_SHIFT,
+                                                  DVC1124_FET_DRIVE_AUTO_DIODE);
+        }
     }
+
+    /* A fault shared by charge and discharge (for example MOS OT or
+     * TEMP_BREAK) remains a true two-FET hard shutdown. */
     return 1u;
 }
 
@@ -212,20 +229,14 @@ void DVC1124_BmsApp_AFEGet(void)
                                      !dvc_charge_blocked() &&
                                      !dvc_discharge_blocked()));
 
-    /*
-     * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, while the
-     * software path closes outputs through the requested/effective arbitration.
-     * Use the requested command as the target source; CHGF/DSGF remain feedback.
-     */
-    (void)dvc_enforce_fault_fet_state();
+    /* FET arbitration is applied by bms_afe_guard immediately after
+     * this sample. Keeping it there preserves communication/open-wire hard
+     * inhibit semantics while this function only updates fault state. */
 }
 
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on)
 {
-    if (charge_on && dvc_charge_blocked()) charge_on = 0u;
-    if (discharge_on && dvc_discharge_blocked()) discharge_on = 0u;
-
-    if (DVC1124_SetMosState(charge_on, discharge_on)) return 1u;
+    if (dvc_apply_common_port_fet_state(charge_on, discharge_on)) return 1u;
 
     bms_error_raise(BMS_ERROR_AFE1);
     return 0u;

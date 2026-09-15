@@ -145,6 +145,13 @@ static uint8_t dvc_cfg_normalize_product_policy(dvc1124_persistent_config_t *cfg
         cfg->operating.current_wake_enable = 0u;
         changed = 1u;
     }
+    /* Common-port FET recovery is a D008 topology invariant. Upgrade
+     * legacy configs that were saved while BDPT=0 meant disabled. */
+    if (cfg->body_diode_threshold_uv == 0u)
+    {
+        cfg->body_diode_threshold_uv = DVC1124_BODY_DIODE_THRESHOLD_UV;
+        changed = 1u;
+    }
     return changed;
 }
 
@@ -212,10 +219,9 @@ int DVC1124_ConfigStoreValidate(const dvc1124_persistent_config_t *cfg)
          (cfg->current_wake_threshold_uv > 2550u) ||
          ((cfg->current_wake_threshold_uv % 10u) != 0u))) return 0;
 
-    if ((cfg->body_diode_threshold_uv != 0u) &&
-        ((cfg->body_diode_threshold_uv < 40u) ||
-         (cfg->body_diode_threshold_uv > 10200u) ||
-         ((cfg->body_diode_threshold_uv % 40u) != 0u))) return 0;
+    if ((cfg->body_diode_threshold_uv < 40u) ||
+        (cfg->body_diode_threshold_uv > 10200u) ||
+        ((cfg->body_diode_threshold_uv % 40u) != 0u)) return 0;
 
     if (cfg->dsg_pulldown_strength > 30u || cfg->core_ot_code > 127u) return 0;
 

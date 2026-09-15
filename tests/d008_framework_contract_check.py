@@ -114,11 +114,11 @@ class D008FrameworkContract(unittest.TestCase):
         # Application/backend control must not assign the feedback bits either.
         self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
         self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
-        enforce = self.dvc_bms.split("static uint8_t dvc_enforce_fault_fet_state", 1)[1]
-        enforce = enforce.split("void DVC1124_BmsApp_AFEGet", 1)[0]
-        self.assertIn("bms_afe_get_requested_fets", enforce)
-        self.assertNotIn("b1Status_MOS_CHG", enforce)
-        self.assertNotIn("b1Status_MOS_DSG", enforce)
+        policy = self.dvc_bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
+        policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+        self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
+        self.assertNotIn("b1Status_MOS_CHG", policy)
+        self.assertNotIn("b1Status_MOS_DSG", policy)
 
     def test_repeated_same_fet_request_does_not_rewrite_afe_command(self):
         set_fets = re.search(
@@ -236,7 +236,9 @@ class D008FrameworkContract(unittest.TestCase):
     def test_unverified_safety_features_remain_explicitly_disabled(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_SCD_THRESHOLD_MV"), 0)
         self.assertEqual(macro_literal(self.cfg, "DVC1124_CURRENT_WAKE_THRESHOLD_UV"), 0)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 0)
+        # D008 common-port reverse-current recovery is now an explicit
+        # topology requirement; vendor FETControl uses BDPT=80uV.
+        self.assertEqual(macro_literal(self.cfg, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 80)
         self.assertEqual(macro_literal(self.cfg, "DVC1124_I2C_WATCHDOG_SECONDS"), 0)
 
     def test_current_latch_recovery_is_measurement_based_and_scd_stays_latched(self):

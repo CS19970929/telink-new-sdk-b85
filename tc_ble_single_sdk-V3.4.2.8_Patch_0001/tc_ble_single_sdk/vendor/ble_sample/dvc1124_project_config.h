@@ -187,16 +187,19 @@
 #endif
 
 /*
- * DVC 0x53/0x54 are entirely documented mask registers.  D008 has no signed-off
- * product policy for the non-watchdog sources yet, therefore make the policy
- * explicit and reset-equivalent instead of inheriting an unknown live value.
- * The timeout bits DWM/CWM are overlaid from the persisted semantic options.
+ * DVC 0x53/0x54 are mask registers. HS-D008 is common-port, therefore
+ * DBDM/CBDM must be 0 so R81 AUTO_DIODE (10b) can reopen the protected
+ * FET when current reverses through the opposite direction. Keep every
+ * other non-watchdog source reset-equivalent; DWM/CWM are overlaid from
+ * the persisted semantic options below.
  */
 #ifndef DVC1124_DEFAULT_DSG_MASK_POLICY
-#define DVC1124_DEFAULT_DSG_MASK_POLICY          DVC1124_DSG_MASK_RESET
+#define DVC1124_DEFAULT_DSG_MASK_POLICY \
+    ((uint8_t)(DVC1124_DSG_MASK_RESET & (uint8_t)~DVC1124_DSGMASK_DBDM_MASK))
 #endif
 #ifndef DVC1124_DEFAULT_CHG_MASK_POLICY
-#define DVC1124_DEFAULT_CHG_MASK_POLICY          DVC1124_CHG_MASK_RESET
+#define DVC1124_DEFAULT_CHG_MASK_POLICY \
+    ((uint8_t)(DVC1124_CHG_MASK_RESET & (uint8_t)~DVC1124_CHGMASK_CBDM_MASK))
 #endif
 
 /* COTT=0 keeps the DVC core over-temperature shutdown disabled. */
@@ -221,9 +224,14 @@
 #define DVC1124_CURRENT_WAKE_THRESHOLD_UV    0u
 #endif
 
-/* 0 disables; otherwise BDPT * 40uV. */
+/*
+ * Common-port reverse-current recovery threshold. DVC11XX vendor FET
+ * control example uses 80uV (BDPT=2). With the HS-D008 200uOhm shunt
+ * this corresponds to a nominal 0.4A reverse-current release threshold.
+ * 0 is not valid for D008 because it disables AUTO_DIODE recovery.
+ */
 #ifndef DVC1124_BODY_DIODE_THRESHOLD_UV
-#define DVC1124_BODY_DIODE_THRESHOLD_UV      0u
+#define DVC1124_BODY_DIODE_THRESHOLD_UV      80u
 #endif
 
 /* Allowed watchdog values: 0, 4, 8, 16, 32 seconds. */
