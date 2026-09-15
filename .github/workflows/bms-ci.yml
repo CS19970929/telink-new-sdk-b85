@@ -43,6 +43,8 @@ jobs:
         run: python tests/dvc1124_config_quick_check.py
       - name: Run D008 framework contract check
         run: python tests/d008_framework_contract_check.py
+      - name: Run D008 common-port FET contract check
+        run: python tests/d008_common_port_fet_contract_check.py
       - name: Run unified software protection contract check
         run: python tests/sw_protection_contract_check.py
       - name: Run common heater/balance/open-wire contract check
@@ -54,7 +56,7 @@ jobs:
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/d008_common_port_fet_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
 
   tc32-production:
     name: TC32 production build
@@ -130,6 +132,9 @@ jobs:
       - name: Run D008 framework contract check
         shell: powershell
         run: python tests/d008_framework_contract_check.py
+      - name: Run D008 common-port FET contract check
+        shell: powershell
+        run: python tests/d008_common_port_fet_contract_check.py
       - name: Run unified software protection contract check
         shell: powershell
         run: python tests/sw_protection_contract_check.py
