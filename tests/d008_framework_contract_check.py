@@ -155,7 +155,6 @@ class D008FrameworkContract(unittest.TestCase):
             "DVC1124_REG_OCC1_THR",
             "DVC1124_REG_OCD2",
             "DVC1124_REG_OCC2",
-            "DVC1124_REG_SCD",
             "DVC1124_REG_CURRENT_WAKE",
             "DVC1124_REG_BODY_DIODE",
             "DVC1124_REG_I2C_WDT",
@@ -163,6 +162,7 @@ class D008FrameworkContract(unittest.TestCase):
             "DVC1124_REG_CHG_MASK",
         ):
             self.assertIn(reg, disabled)
+        self.assertIn("DVC1124_SetShortCircuitProtection(0u, 0u)", disabled)
         self.assertIn("DVC1124_SetCoreOtThresholdCode(0u)", disabled)
         self.assertIn("DVC1124_ClearAlarmFlags", disabled)
         apply_fn = self.dvc.split("static uint8_t dvc_apply_protection_from_params", 1)[1]
