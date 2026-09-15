@@ -67,6 +67,94 @@ static u16 sh_sc_delay_us(void)
 #endif
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+static u16 dvc_clamp_u16_max(u16 value, u16 max_value)
+{
+    return (value > max_value) ? max_value : value;
+}
+
+static u16 dvc_min_enabled_trip(u16 enable_mask,
+                                u16 bit1, u16 value1,
+                                u16 bit2, u16 value2)
+{
+    u16 min_value = 0u;
+
+    if ((enable_mask & bit1) && value1 != 0u) min_value = value1;
+    if ((enable_mask & bit2) && value2 != 0u && (min_value == 0u || value2 < min_value))
+        min_value = value2;
+    return min_value;
+}
+
+/*
+ * One-time migration only: historical BMS software parameters were not
+ * constrained to the independent DVC hardware-profile wire format. Adapt
+ * them to values that the DVC1124-2 can actually represent so a legacy board
+ * cannot boot with ProfileValid=0 and consequently block normal AFE sampling.
+ *
+ * Explicit AFE profile writes are NOT normalized here; they still pass the
+ * strict validator unchanged. This preserves the V2 protocol contract while
+ * making the legacy -> V2 bootstrap deterministic and non-bricking.
+ */
+static void dvc_normalize_migration_profile(bms_afe_hw_profile_t *p)
+{
+    u16 min_trip;
+    u32 max_a10;
+
+    if (p == 0) return;
+
+    if (p->cov_mv == 0u) {
+        p->enable_mask &= (u16)~BMS_AFE_HW_EN_COV;
+    } else {
+        if (p->cov_mv < 501u) p->cov_mv = 501u;
+        if (p->cov_mv > 4595u) p->cov_mv = 4595u;
+        if (p->cov_recover_mv >= p->cov_mv)
+            p->cov_recover_mv = (u16)(p->cov_mv - 1u);
+    }
+
+    if (p->cuv_mv == 0u) {
+        p->enable_mask &= (u16)~BMS_AFE_HW_EN_CUV;
+    } else {
+        if (p->cuv_mv > 4095u) p->cuv_mv = 4095u;
+        if (p->cuv_recover_mv <= p->cuv_mv)
+            p->cuv_recover_mv = (p->cuv_mv < 65535u) ? (u16)(p->cuv_mv + 1u) : p->cuv_mv;
+    }
+
+    p->cov_delay_ms = dvc_clamp_u16_max(p->cov_delay_ms, 8000u);
+    p->cuv_delay_ms = dvc_clamp_u16_max(p->cuv_delay_ms, 8000u);
+    p->ocd1_delay_ms = dvc_clamp_u16_max(p->ocd1_delay_ms, 2048u);
+    p->occ1_delay_ms = dvc_clamp_u16_max(p->occ1_delay_ms, 2048u);
+    p->ocd2_delay_ms = dvc_clamp_u16_max(p->ocd2_delay_ms, 1024u);
+    p->occ2_delay_ms = dvc_clamp_u16_max(p->occ2_delay_ms, 1024u);
+
+    if (DVC1124_DEFAULT_SHUNT_UOHM != 0u) {
+        max_a10 = (63750u * 10u) / DVC1124_DEFAULT_SHUNT_UOHM;
+        if ((u32)p->ocd1_a10 > max_a10) p->ocd1_a10 = (u16)max_a10;
+        if ((u32)p->occ1_a10 > max_a10) p->occ1_a10 = (u16)max_a10;
+
+        max_a10 = (256000u * 10u) / DVC1124_DEFAULT_SHUNT_UOHM;
+        if ((u32)p->ocd2_a10 > max_a10) p->ocd2_a10 = (u16)max_a10;
+        if ((u32)p->occ2_a10 > max_a10) p->occ2_a10 = (u16)max_a10;
+    }
+
+    if (p->ocd1_a10 == 0u) p->enable_mask &= (u16)~BMS_AFE_HW_EN_OCD1;
+    if (p->ocd2_a10 == 0u) p->enable_mask &= (u16)~BMS_AFE_HW_EN_OCD2;
+    if (p->occ1_a10 == 0u) p->enable_mask &= (u16)~BMS_AFE_HW_EN_OCC1;
+    if (p->occ2_a10 == 0u) p->enable_mask &= (u16)~BMS_AFE_HW_EN_OCC2;
+
+    min_trip = dvc_min_enabled_trip(p->enable_mask,
+                                    BMS_AFE_HW_EN_OCD1, p->ocd1_a10,
+                                    BMS_AFE_HW_EN_OCD2, p->ocd2_a10);
+    if (min_trip != 0u && p->ocd_recover_a10 >= min_trip)
+        p->ocd_recover_a10 = (u16)(min_trip - 1u);
+
+    min_trip = dvc_min_enabled_trip(p->enable_mask,
+                                    BMS_AFE_HW_EN_OCC1, p->occ1_a10,
+                                    BMS_AFE_HW_EN_OCC2, p->occ2_a10);
+    if (min_trip != 0u && p->occ_recover_a10 >= min_trip)
+        p->occ_recover_a10 = (u16)(min_trip - 1u);
+}
+#endif
+
 void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
 {
     const struct PRT_E2ROM_PARAS *s = &g_tParam.protect;
@@ -104,6 +192,7 @@ void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
                            BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
                            BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_OCC2);
     if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
+    dvc_normalize_migration_profile(p);
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     p->ocd_recover_ms = 2000u;
     p->occ_recover_ms = ms10_to_ms(s->u16IchgOcp_Filter);
