@@ -8,11 +8,14 @@ extern "C" {
 #endif
 
 /*
- * Transport-neutral semantic field IDs.
+ * Transport-neutral DVC1124 diagnostic/configuration field IDs.
  *
- * The numeric values intentionally match the low byte of the current 0x2800
- * communication window, but UART/BLE code must call this service rather than
- * touching DVC registers or g_tParam directly.
+ * 0x2800 fixed operating/board fields are now diagnostic READ-ONLY values
+ * derived from compile-time product policy.  They are not persisted in Flash.
+ *
+ * Runtime-persistent protection ownership is separate:
+ *   - software protection parameters: existing g_tParam.protect interface
+ *   - AFE hardware protection parameters: BMS_AFE_HW profile transaction
  */
 typedef enum
 {
@@ -23,9 +26,9 @@ typedef enum
     DVC1124_CFG_CELL_COUNT                = 0x04,
     DVC1124_CFG_SHUNT_UOHM_LO             = 0x05,
     DVC1124_CFG_SHUNT_UOHM_HI             = 0x06,
-    DVC1124_CFG_STATUS_CACHED              = 0x07, /* cached 0x01; does not trigger RC read */
-    DVC1124_CFG_CORE_OT_EVENT_LATCHED      = 0x08, /* sticky software copy of COTF */
-    DVC1124_CFG_CONFIG_INCONSISTENT         = 0x09, /* previous rollback failed */
+    DVC1124_CFG_STATUS_CACHED              = 0x07,
+    DVC1124_CFG_CORE_OT_EVENT_LATCHED      = 0x08,
+    DVC1124_CFG_CONFIG_INCONSISTENT        = 0x09,
 
     DVC1124_CFG_HS_FET_MASK               = 0x10,
     DVC1124_CFG_CADC_WORK_ENABLE          = 0x11,
@@ -59,6 +62,8 @@ typedef enum
     DVC1124_CFG_I2C_TIMEOUT_CLOSE_DSG     = 0x34,
     DVC1124_CFG_CORE_OT_X10C              = 0x35,
 
+    /* Requested/effective AFE protection diagnostics.  Writes use the
+     * dedicated atomic AFE HW profile interface rather than this window. */
     DVC1124_CFG_REQ_COV_MV                = 0x40,
     DVC1124_CFG_REQ_COV_DELAY_MS          = 0x41,
     DVC1124_CFG_REQ_CUV_MV                = 0x42,
@@ -81,11 +86,11 @@ typedef enum
     DVC1124_CFG_EFF_OCD1_X10A             = 0x54,
     DVC1124_CFG_EFF_OCD1_DELAY_MS         = 0x55,
     DVC1124_CFG_EFF_OCC1_X10A             = 0x56,
-    DVC1124_CFG_EFF_OCC1_DELAY_MS         = 0x57,
+    DVC1124_CFG_EFF_OCC1_DELAY_MS          = 0x57,
     DVC1124_CFG_EFF_OCD2_X10A             = 0x58,
-    DVC1124_CFG_EFF_OCD2_DELAY_MS         = 0x59,
+    DVC1124_CFG_EFF_OCD2_DELAY_MS          = 0x59,
     DVC1124_CFG_EFF_OCC2_X10A             = 0x5A,
-    DVC1124_CFG_EFF_OCC2_DELAY_MS         = 0x5B,
+    DVC1124_CFG_EFF_OCC2_DELAY_MS          = 0x5B,
     DVC1124_CFG_EFF_SCD_MV                = 0x5C,
     DVC1124_CFG_EFF_SCD_DELAY_US           = 0x5D,
 } dvc1124_config_field_t;
@@ -109,19 +114,9 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
                                                     u32 value);
 
-/*
- * Raw register diagnostics. Offsets 0x00..0x90 are addressable, but registers
- * containing read-clear fields are intentionally rejected by ordinary raw
- * read. Use semantic cached/sticky diagnostics for those registers.
- */
+/* Raw mirror is diagnostic READ-ONLY.  Registers with read-clear side effects
+ * are rejected and must use cached/sticky semantic diagnostics instead. */
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value);
-
-/*
- * Raw write is factory-only. It is intentionally narrower than semantic write:
- * product protections that already have semantic/BMS parameter ownership must
- * be changed through the semantic API, not by bypassing requested/effective
- * bookkeeping.
- */
 dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value);
 
 #ifdef __cplusplus
