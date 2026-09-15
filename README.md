@@ -25,9 +25,8 @@
 - [SOC](docs/SOC.md)
 - [Flash / Storage](docs/STORAGE.md)
 - [构建与测试](docs/BUILD_AND_TEST.md)
-- [分支策略](docs/BRANCH_STRATEGY.md)
 
-历史日期型审计、旧 DVC 参数说明和旧任务清单已从当前文档入口移除；需要追溯时使用 Git 历史，不再把它们当设计真值。
+历史日期型审计、旧 DVC 参数说明、旧任务清单和旧分支迁移说明已移除；需要追溯时使用 Git 历史，不再把它们当设计真值。
 
 ## 构建/检查
 
