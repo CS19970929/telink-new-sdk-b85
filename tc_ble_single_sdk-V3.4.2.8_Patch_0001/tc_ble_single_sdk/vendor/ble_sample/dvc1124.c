@@ -540,8 +540,58 @@ static uint8_t dvc_apply_basic_config(void)
     return ok;
 }
 
+#if !DVC1124_HW_PROTECT_ENABLE
+static uint8_t dvc_disable_threshold_protection(void)
+{
+    static const uint8_t disabled_vprot[2] = {0u, 0u};
+    const uint8_t alarm_mask = (uint8_t)(DVC1124_ALARM_COV_MASK |
+                                         DVC1124_ALARM_CUV_MASK |
+                                         DVC1124_ALARM_OCD1_MASK |
+                                         DVC1124_ALARM_OCC1_MASK |
+                                         DVC1124_ALARM_OCD2_MASK |
+                                         DVC1124_ALARM_OCC2_MASK |
+                                         DVC1124_ALARM_SCD_MASK);
+    uint8_t ok = 1u;
+
+    /* V1.2 documents zero threshold/code as disabled for COV/CUV and OC1;
+     * OC2/SCD use explicit enable bits.  Also mask every autonomous FET-close
+     * source and disable watchdog/body-diode/current-wake/core-OT behavior so
+     * HW=0 really is a software-only bench mode rather than an ignore-flags
+     * mode.  Direct 0x51 CHGC/DSGC control remains available. */
+    memset(&s_applied, 0, sizeof(s_applied));
+    ok &= dvc_write_verified_block(DVC1124_REG_COV_H, disabled_vprot, 2u);
+    ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, disabled_vprot, 2u);
+    ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_OCC1_THR, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_OCD1_DLY, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_OCC1_DLY, 0u);
+    ok &= dvc_update_reg(DVC1124_REG_OCD2,
+                         (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
+                         0u);
+    ok &= dvc_update_reg(DVC1124_REG_OCC2,
+                         (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
+                         0u);
+    ok &= dvc_write_verified(DVC1124_REG_OCD2_DLY, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_OCC2_DLY, 0u);
+    ok &= DVC1124_SetShortCircuitProtection(0u, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_CURRENT_WAKE, 0u);
+    ok &= dvc_write_verified(DVC1124_REG_BODY_DIODE, 0u);
+    ok &= DVC1124_SetCoreOtThresholdCode(0u);
+    ok &= dvc_update_reg(DVC1124_REG_I2C_WDT,
+                         DVC1124_I2C_WDT_TIME_MASK,
+                         DVC1124_I2C_WDT_OFF);
+    ok &= dvc_write_verified(DVC1124_REG_DSG_MASK, 0xFFu);
+    ok &= dvc_write_verified(DVC1124_REG_CHG_MASK, 0xFFu);
+    if (ok) ok &= DVC1124_ClearAlarmFlags(alarm_mask);
+    return ok;
+}
+#endif
+
 static uint8_t dvc_apply_protection_from_params(void)
 {
+#if !DVC1124_HW_PROTECT_ENABLE
+    return dvc_disable_threshold_protection();
+#else
     bms_afe_hw_profile_t hw;
     dvc1124_config_t cfg;
     uint16_t cov_mv;
@@ -672,6 +722,7 @@ static uint8_t dvc_apply_protection_from_params(void)
     }
     ok &= DVC1124_SetShortCircuitProtection(sc_mv, hw.sc_delay_us);
     return ok;
+#endif
 }
 
 static void dvc_note_comm_result(uint8_t ok)
