@@ -1,116 +1,158 @@
 # AFE Hardware Protection V2
 
-## 1. Purpose
+## 1. 目的
 
-Software protection and AFE hardware protection are independent safety channels.
+软件三级保护与 AFE 芯片硬件保护是两条独立安全通道：
 
-- MCU software protection continues to use `g_tParam.protect` with First / Second / Third levels.
-- AFE hardware protection uses `bms_afe_hw_profile_t` and has no First / Second / Third concept.
-- Updating software protection must not rewrite AFE hardware protection.
-- Updating AFE hardware protection must not rewrite `g_tParam.protect`.
+- 软件保护：`g_tParam.protect`，First / Second / Third / Recover / Filter；
+- AFE硬件保护：`bms_afe_hw_profile_t`，没有 First/Second/Third；
+- 修改软件保护不得副作用重写 AFE HW profile；
+- 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-On the first firmware version containing this split, an empty AFE profile is initialized once from the legacy protection parameters and persisted. After that migration, the two parameter sets evolve independently.
+首次升级到该架构时，如果持久 profile 为空（schema/model均为0），固件允许从历史软件参数建立一次 migration default；保存成功后两套参数独立演进。
 
-## 2. Product backends
+## 2. Backend
 
-- D008: DVC1124 (`afe_model = 0x1124`).
-- D011 / D013: SH35xx backend (`afe_model = 0x3510`), implemented by the current SH3673510/SH3673520 stack.
+- D008：DVC1124，`afe_model=0x1124`；
+- D011 / D013：SH3673510 backend，`afe_model=0x3510`。
 
-Raw AFE register values are never part of the common PC protocol. Each backend validates, quantizes and applies semantic values using its own chip rules.
+公共协议只传语义值。DVC/SH 的寄存器、Rsense、步进、delay、capability由各自backend校验和量化。
 
-## 3. Persisted profile
+## 3. 35-word profile
 
-The persisted profile is 35 unsigned 16-bit semantic words:
-
-| Word | Meaning | Unit |
+| Word | 内容 | 单位 |
 |---:|---|---|
 | 0 | schema version | - |
 | 1 | AFE model | - |
-| 2..9 | cell OV/UV trip, delay, recovery and recovery confirmation | mV / ms |
-| 10..15 | discharge OC1/OC2 and common recovery | 0.1 A / ms |
-| 16..21 | charge OC1/OC2 and common recovery | 0.1 A / ms |
-| 22..24 | short circuit trip, delay and recovery confirmation | 0.1 A / us / ms |
-| 25..33 | hardware temperature trip/recovery and recovery confirmation | `(degC+40)*10` / ms |
-| 34 | enable mask | bitmap |
+| 2..9 | COV/CUV trip、delay、recover、recover confirm | mV / ms |
+| 10..15 | OCD1/OCD2 与公共恢复 | 0.1A / ms |
+| 16..21 | OCC1/OCC2 与公共恢复 | 0.1A / ms |
+| 22..24 | SC/SCD trip、delay、recover confirm | 0.1A / us / ms |
+| 25..33 | HW temperature trip/recover | `(°C+40)*10` / ms |
+| 34 | enable_mask | bitmap |
 
-Unsupported capability bits are rejected rather than silently ignored.
+不支持的 capability bit 必须拒绝，不能静默忽略。
 
 ## 4. Modbus map
 
-### Requested / persisted values
+### Requested / persisted
 
-- `0x2500..0x2522`: 35-word requested profile.
-- Writing is allowed only as one complete 35-word Modbus `0x10` transaction.
-- Partial writes are rejected.
+```text
+0x2500..0x2522 : 35 words
+```
+
+写入只接受完整 35-word Modbus 0x10 transaction；partial write拒绝。
 
 ### Metadata
 
-- `0x2523`: capability bitmap
-- `0x2524`: persisted profile valid
-- `0x2525`: product shunt resistance in uOhm
-- `0x2526`: product cell count
-- `0x2527`: AFE watchdog seconds
-- `0x2528`: privileged AFE session active
-- `0x2529`: apply state
-- `0x252A`: last error
-- `0x252B`: interface version (`2`)
+```text
+0x2523 capabilities
+0x2524 profile valid
+0x2525 product shunt uOhm
+0x2526 product cell count
+0x2527 AFE watchdog seconds
+0x2528 privileged session active
+0x2529 apply state
+0x252A last error
+0x252B interface version (=2)
+```
 
-### Effective values
+### Effective
 
-- `0x2540..0x2562`: 35-word effective profile after AFE quantization.
-- These registers are read-only.
-- The PC tool displays both requested and effective values so a user can see chip quantization explicitly.
+```text
+0x2540..0x2562 : 35 words, read-only
+```
 
-## 5. Privileged write session
+上位机/测试工具必须同时显示 requested 与 effective，不能把芯片量化后的值伪装成用户输入值。
 
-Custom Modbus function `0x42` gates AFE hardware writes.
+## 5. 写授权会话
 
-- OPEN `0x01`
-- HEARTBEAT `0x02`
-- CLOSE `0x03`
-- STATUS `0x04`
-- Session timeout: 60 seconds
-- Successful hardware-profile commit closes the session automatically.
+Custom Modbus function `0x42`：
 
-The session is a deliberate write gate, not a cryptographic security boundary. Customer builds additionally hide the editor UI by default.
+```text
+OPEN      0x01
+HEARTBEAT 0x02
+CLOSE     0x03
+STATUS    0x04
+```
 
-## 6. Transaction semantics
+Session timeout：60 s。成功commit后会自动关闭会话。
 
-A hardware write executes as one safety transaction:
+该会话是写门禁，不是密码学安全机制。
 
-1. Read and retain previous persisted profile.
-2. Validate the complete candidate profile and capability mask.
-3. Persist the candidate profile.
-4. Apply it through the active AFE backend.
-5. Read back the requested profile.
-6. Read back the effective/quantized AFE representation.
-7. Mark success only when all checks complete.
+## 6. Transaction语义
 
-On apply or verification failure, firmware restores and reapplies the previous profile. If rollback itself fails, `apply_state` becomes `CONFIG_INCONSISTENT`; the PC tool reports this state and must not present the write as successful.
+一次硬件保护写入：
 
-## 7. Software protection remains independent
+```text
+read previous
+ -> validate complete candidate
+ -> persist candidate
+ -> apply backend
+ -> read back requested
+ -> read back effective
+ -> verify
+ -> success
+```
 
-The normal protection parameter path updates only `g_tParam.protect`. It does not call `bms_afe_apply_protection_config()` as a side effect of software parameter updates.
+apply/verify失败时恢复并重新apply previous profile；rollback本身失败则：
 
-This preserves the intended hierarchy:
+```text
+apply_state = CONFIG_INCONSISTENT
+```
 
-- software First / Second: warning / reporting policy;
-- software Third: MCU protection / MOS blocking policy;
-- AFE hardware protection: independent chip-level backup or fast primary protection where appropriate (for example short circuit).
+此时工具不得显示“写入成功”。
 
-## 8. Windows tool behavior
+## 7. 当前仓库上位机真实能力
 
-Both Windows projects use the same V2 protocol model and the same `0x42` firmware write gate. Direct serial Modbus RTU is the preferred transport. BLE remains optional when its negotiated MTU can carry the complete atomic write.
+当前仓库实际存在的桌面Qt上位机是：
 
-Customer project `BmsTool.Windows` compiles the editor but hides it by default. The page is shown only when both conditions are met:
+```text
+tools/BMSAssistantQt
+```
 
-1. the application is launched with `--enable-afe-hw-editor`;
-2. protected advanced features are unlocked.
+它当前实现：
 
-Internal project `BmsFactoryTest.Windows` exposes the AFE hardware page directly because the whole application is already an engineering/factory tool. It still has to open the same 60-second firmware authorization session before any write; the internal UI does not bypass firmware validation or rollback.
+- BLE扫描/连接；
+- Telink SPP；
+- Modbus RTU over BLE；
+- 电池状态；
+- 软件保护参数预览；
+- 手动读写普通寄存器；
+- 原始帧；
+- BT name suffix；
+- CSV/JSON导出。
 
-Both editors detect `backend_id + capabilities`, render only supported semantic parameters, and show requested vs effective values. The current GUI intentionally keeps `enable_mask` read-only and preserves the device's existing enable state; this prevents a generic PC tool from silently enabling an unreviewed hardware protection channel. Product-specific enable-mask changes require an explicitly reviewed engineering change.
+**当前 `BMSAssistantQt` 尚未实现专用 AFE Hardware Protection V2 编辑器，也没有 direct-serial transport。** `protocol.py` 中也没有完整 `0x2500/0x2540/0x42` 的产品化编辑流程。
 
-## 9. Safety restrictions
+因此旧文档中曾出现的：
 
-This architecture does not authorize unreviewed product values. In particular, D008 SCD, AFE watchdog, body-diode recovery, load-detect policy and other hardware-specific options remain at their reviewed defaults unless separately validated on hardware. The common interface unifies parameter semantics and transaction handling; it does not force the same raw AFE configuration across different chips or products.
+```text
+BmsTool.Windows
+BmsFactoryTest.Windows
+--enable-afe-hw-editor
+```
+
+不是当前仓库可构建的工程/入口，不再作为本项目说明。
+
+### 当前正确做法
+
+- 读取/调试普通状态：可用 `BMSAssistantQt`；
+- 正式写 AFE HW profile：使用实现了 `0x42 + 35-word atomic write + requested/effective readback + rollback状态显示` 的工程工具；
+- 如果希望统一到当前 Qt 上位机，应在 `tools/BMSAssistantQt` 增加专用 AFE HW 页面和transport能力，而不是通过普通“手动写单寄存器”绕过事务。
+
+BLE默认ATT MTU=23，安全单请求20 byte；完整35-word 0x10写远超当前BLE单包限制，因此当前 BLE Qt 工具不能安全替代完整AFE HW事务。
+
+## 8. 修改默认值的位置
+
+- Common profile结构/validation/migration：`bms_afe_hw_profile.h/.c`；
+- 持久化：`bms_cold_kv_store.c`；
+- D008量化/应用：DVC1124 backend；
+- D011/D013量化/应用：`sh3673510_control.c`；
+- 产品板级静态安全配置：各分支 `dvc1124_project_config.h` 或 `sh3673510_project_config.h`。
+
+普通产品阈值调整不要改寄存器真值头文件。
+
+## 9. 安全限制
+
+公共接口只统一语义和事务，不授权未评审产品值。D008 SCD/WDT/Body-Diode、D011/D013 SC/温度、Rsense、GPIO、NTC、load/wake策略等仍需按各产品 `*_PRODUCT_REFERENCE.md` 和 `HARDWARE_VALIDATION.md` 完成硬件签核。
