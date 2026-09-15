@@ -6,41 +6,66 @@
 
 ## 当前架构
 
-- 软件保护：统一 `bms_sw_protection.*`，参数仍为 `g_tParam.protect` 的 First/Second/Third/Recover/Filter。
+- 软件保护：统一 `bms_sw_protection.*`，参数为 `g_tParam.protect` 的 First/Second/Third/Recover/Filter。
 - AFE 硬件保护：独立 `bms_afe_hw_profile_t`，与软件三级参数分开持久化和修改。
 - AFE backend：DVC1124；业务层通过 `bms_afe.h`。
 - AFE 通信异常：output inhibit + 有界 reinit + 连续有效 snapshot 恢复资格。
 - SOC：LFP/NMC profile 数据化；24S/20S product profile 决定物理通道。
-- Windows 工具通过统一 AFE Hardware Protection V2 读取 requested/effective，不直接暴露 raw DVC 寄存器作为普通产品参数。
+- 当前桌面上位机为 `tools/BMSAssistantQt`，主要通过 BLE SPP + Modbus 调试；专用 AFE HW V2 编辑器尚未实现在该 Qt 工程中。
 
 ## 文档入口
 
-当前产品配置只认以下入口：
+建议阅读顺序：
 
-- [D008 产品硬件与固件配置基线](docs/D008_PRODUCT_REFERENCE.md) — IO、DVC GP/寄存器、24S/20S、已知不确定项。
-- [D008 实板验证与发布阻断项](docs/HARDWARE_VALIDATION.md) — 当前唯一待测清单。
-- [BMS 软件架构与配置所有权](docs/ARCHITECTURE.md)
-- [软件三级保护](docs/SOFTWARE_PROTECTION.md)
-- [AFE Hardware Protection V2](docs/AFE_HARDWARE_PROTECTION_V2.md)
-- [SOC](docs/SOC.md)
-- [Flash / Storage](docs/STORAGE.md)
-- [构建与测试](docs/BUILD_AND_TEST.md)
+1. [D008 配置修改、拉代码、固件编译与上位机构建指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md) — 想改什么、改哪儿、具体怎么改，以及完整 clone/build/package 命令。
+2. [D008 产品硬件与固件配置基线](docs/D008_PRODUCT_REFERENCE.md) — IO、DVC GP/寄存器、24S/20S、已知不确定项。
+3. [D008 实板验证与发布阻断项](docs/HARDWARE_VALIDATION.md) — 当前唯一待测清单。
+4. [BMS 软件架构与配置所有权](docs/ARCHITECTURE.md)
+5. [软件三级保护](docs/SOFTWARE_PROTECTION.md)
+6. [AFE Hardware Protection V2](docs/AFE_HARDWARE_PROTECTION_V2.md)
+7. [SOC](docs/SOC.md)
+8. [Flash / Storage](docs/STORAGE.md)
+9. [构建与测试](docs/BUILD_AND_TEST.md)
+10. [Windows/macOS/Linux Qt 上位机](tools/BMSAssistantQt/README.md)
 
-历史日期型审计、旧 DVC 参数说明、旧任务清单和旧分支迁移说明已移除；需要追溯时使用 Git 历史，不再把它们当设计真值。
+历史日期型审计、旧 DVC 参数说明、旧任务清单和旧分支迁移说明已移除；需要追溯时使用 Git 历史。
 
-## 构建/检查
+## 快速拉取
+
+```bash
+git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
+cd D008-BMS
+```
+
+## 固件构建
 
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check
 python bms_tools/bms.py rebuild --jobs 4
 python bms_tools/bms.py check-fw
+python bms_tools/bms.py size
 python bms_tools/bms.py map
+python bms_tools/bms.py manifest
 python bms_tools/bms.py verify
 python bms_tools/bms.py static --no-report
 ```
 
-Host contracts 至少覆盖 DVC config、D008 framework、20S profile、software protection、AFE HW profile、SOC 和 Flash。
+最终烧录文件：
+
+```text
+tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
+```
+
+## Windows Qt 上位机
+
+```bat
+cd /d D008-BMS\tools\BMSAssistantQt
+scripts\run.bat
+scripts\package-windows.bat
+```
+
+D008 打包前必须在 `bmsassistantqt/protocol.py` 把 `currentProjectSeriesCount` 设置为24（24S LFP）或20（20S NMC）。完整说明见 `docs/CONFIGURATION_AND_BUILD_GUIDE.md`。
 
 ## 发布原则
 
