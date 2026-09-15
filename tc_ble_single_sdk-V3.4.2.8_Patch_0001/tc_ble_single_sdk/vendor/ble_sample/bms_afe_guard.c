@@ -18,6 +18,7 @@ static bms_afe_guard_state_t s_guard;
 #define AFE_OUTPUT(e) dvc1124_backend_set_output_enabled((e))
 #define AFE_AUX(m) dvc1124_backend_get_aux_measurements((m))
 #define AFE_FEATURE(s) dvc1124_backend_get_feature_snapshot((s))
+#define AFE_CHARGER(p) dvc1124_backend_get_charge_source_present((p))
 #define AFE_BAL_SET(m) dvc1124_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
 #define AFE_OW_START() dvc1124_backend_openwire_start()
@@ -31,6 +32,7 @@ static bms_afe_guard_state_t s_guard;
 #define AFE_OUTPUT(e) sh3673510_bms_afe_set_output_enabled((e))
 #define AFE_AUX(m) sh3673510_bms_afe_get_aux_measurements((m))
 #define AFE_FEATURE(s) sh3673510_backend_get_feature_snapshot((s))
+#define AFE_CHARGER(p) sh3673510_backend_get_charge_source_present((p))
 #define AFE_BAL_SET(m) sh3673510_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) sh3673510_backend_get_balance_mask((m))
 #define AFE_OW_START() sh3673510_backend_openwire_start()
@@ -55,6 +57,7 @@ uint8_t bms_afe_set_fets(uint8_t c,uint8_t d){s_guard.requested_charge_on=c?1u:0
 void bms_afe_set_output_enabled(uint8_t e){s_guard.output_enabled=e?1u:0u;AFE_OUTPUT(s_guard.output_enabled);if(!s_guard.output_enabled){bms_features_on_afe_invalid();(void)AFE_BAL_SET(0u);(void)AFE_FETS(0u,0u);return;}if(!apply_requested())note_invalid();}
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){if(!m)return 0u;if(!AFE_AUX(m)){memset(m,0,sizeof(*m));return 0u;}return 1u;}
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){if(!s||s_guard.comm_inhibit)return 0u;return AFE_FEATURE(s);}
+uint8_t bms_afe_get_charge_source_present(uint8_t *p){if(!p||s_guard.comm_inhibit)return 0u;return AFE_CHARGER(p);}
 uint8_t bms_afe_set_balance_mask(uint32_t m){if(m&&s_guard.comm_inhibit)return 0u;return AFE_BAL_SET(m);}
 uint8_t bms_afe_get_balance_mask(uint32_t *m){return AFE_BAL_GET(m);}
 uint8_t bms_afe_openwire_start(void){if(s_guard.comm_inhibit)return 0u;(void)AFE_BAL_SET(0u);if(!AFE_FETS(0u,0u))return 0u;return AFE_OW_START();}
