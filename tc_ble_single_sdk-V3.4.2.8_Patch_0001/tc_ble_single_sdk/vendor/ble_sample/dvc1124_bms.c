@@ -20,6 +20,7 @@ static uint16_t dvc_get_configured_temperature(uint8_t gp)
     return g_stCellInfoReport.u16Temperature[gp - 1u];
 }
 
+#if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
 {
     uint16_t required;
@@ -99,6 +100,7 @@ static void dvc_merge_hw_faults(uint8_t alarm)
         bms_error_clear(BMS_ERROR_CBC_DSG);
     }
 }
+#endif
 
 static uint8_t dvc_charge_blocked(void)
 {
@@ -136,10 +138,17 @@ static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
 
 static uint8_t dvc_enforce_fault_fet_state(void)
 {
-    uint8_t charge_on = g_bms_system_status.bits.b1Status_MOS_CHG ? 1u : 0u;
-    uint8_t discharge_on = g_bms_system_status.bits.b1Status_MOS_DSG ? 1u : 0u;
-    uint8_t requested_charge = charge_on;
-    uint8_t requested_discharge = discharge_on;
+    uint8_t requested_charge = 0u;
+    uint8_t requested_discharge = 0u;
+    uint8_t charge_on;
+    uint8_t discharge_on;
+
+    /* Requested command and AFE feedback are deliberately separate.  Never
+     * reconstruct the requested state from CHGF/DSGF: those bits report the
+     * DVC driver state and may be OFF precisely because protection acted. */
+    bms_afe_get_requested_fets(&requested_charge, &requested_discharge);
+    charge_on = requested_charge;
+    discharge_on = requested_discharge;
 
     if (dvc_charge_blocked()) charge_on = 0u;
     if (dvc_discharge_blocked()) discharge_on = 0u;
@@ -158,19 +167,22 @@ static uint8_t dvc_enforce_fault_fet_state(void)
 void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
+#if DVC1124_SW_PROTECT_ENABLE
     dvc1124_config_t cfg;
     bms_sw_protection_inputs_t sw;
     uint16_t battery_temp;
     uint16_t mos_temp;
+#endif
+#if DVC1124_HW_PROTECT_ENABLE
     uint8_t alarm;
+#endif
 
     DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return;
 
+#if DVC1124_SW_PROTECT_ENABLE
     DVC1124_GetConfig(&cfg);
-    alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
-
     memset(&sw, 0, sizeof(sw));
     battery_temp = dvc_get_configured_temperature(cfg.battery_ntc_gp);
     mos_temp = dvc_get_configured_temperature(cfg.mos_ntc_gp);
@@ -180,17 +192,30 @@ void DVC1124_BmsApp_AFEGet(void)
     sw.battery_temp_max = battery_temp;
     sw.mos_temp = mos_temp;
     bms_sw_protection_update(&sw);
+#else
+    /* Match D011/D013 isolation semantics: disabling the SW path also clears
+     * any previously latched software-managed fault bits and TEMP_BREAK. */
+    bms_sw_protection_clear();
+#endif
+
+#if DVC1124_HW_PROTECT_ENABLE
+    alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
     dvc_merge_hw_faults(alarm);
+#else
+    /* SCD/COV/CUV/OC flags are not protection inputs in HW-off bench mode.
+     * The low-level driver also programs their DVC hardware enables OFF. */
+    bms_error_clear(BMS_ERROR_CBC_DSG);
+#endif
+
     bms_sw_protection_record_fault_edges();
     DVC1124_BalanceService((uint8_t)((g_stCellInfoReport.u16Ichg > 0u) &&
                                      !dvc_charge_blocked() &&
                                      !dvc_discharge_blocked()));
 
     /*
-     * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, but pack
-     * voltage and external-NTC protections are software-only. Enforce the
-     * fault decision immediately; do not wait for app.c mos_update() to notice
-     * a target-state change because its target is based on charger/key state.
+     * Hardware COV/CUV/OC/SCD can close DVC outputs autonomously, while the
+     * software path closes outputs through the requested/effective arbitration.
+     * Use the requested command as the target source; CHGF/DSGF remain feedback.
      */
     (void)dvc_enforce_fault_fet_state();
 }
