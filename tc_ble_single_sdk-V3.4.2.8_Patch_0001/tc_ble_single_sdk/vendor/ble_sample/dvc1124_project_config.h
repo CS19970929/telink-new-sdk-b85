@@ -41,6 +41,30 @@
 #define DVC1124_DEFAULT_SHUNT_UOHM           200u
 #endif
 
+/*
+ * Protection-path isolation switches.  These deliberately mirror the
+ * SH3673510 SW/HW switches used by D011/D013 while keeping DVC naming local to
+ * this backend.
+ *
+ * 1/1: production behavior (software + DVC hardware protection).
+ * 1/0: software-protection-only bench test; DVC COV/CUV/OC/SCD are disabled.
+ * 0/1: DVC-hardware-protection-only bench test; software state is cleared.
+ * 0/0: threshold-protection-off measurement/communication debug mode.
+ *
+ * Measurement, I2C communication and CHGF/DSGF AFE status sampling remain
+ * active in every mode.  The requested AFE hardware profile remains stored;
+ * disabling HW protection changes only what is applied to the DVC.
+ */
+#ifndef DVC1124_SW_PROTECT_ENABLE
+#define DVC1124_SW_PROTECT_ENABLE            1u
+#endif
+#ifndef DVC1124_HW_PROTECT_ENABLE
+#define DVC1124_HW_PROTECT_ENABLE            1u
+#endif
+#if ((DVC1124_SW_PROTECT_ENABLE > 1u) || (DVC1124_HW_PROTECT_ENABLE > 1u))
+#error "DVC1124 protection enable macros must be 0 or 1"
+#endif
+
 /* HS-D008 schematic: NTC1 -> GP4, NTC2 -> GP1. */
 #ifndef DVC1124_DEFAULT_BATTERY_NTC_GP
 #define DVC1124_DEFAULT_BATTERY_NTC_GP       4u
