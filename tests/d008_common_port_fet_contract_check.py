@@ -54,7 +54,12 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL", helper)
         self.assertIn("DVC1124_FET_CHGC_MASK", helper)
         self.assertIn("DVC1124_FET_DSGC_MASK", helper)
-        self.assertRegex(helper, r"if\s*\(.*?charge_mode.*?discharge_mode.*?\)\s*\{\s*return\s+1u;", re.S)
+        same_mode_return = re.search(
+            r"if\s*\(.*?charge_mode.*?discharge_mode.*?\)\s*\{\s*return\s+1u;",
+            helper,
+            re.S,
+        )
+        self.assertIsNotNone(same_mode_return)
         self.assertEqual(helper.count("DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL"), 1)
 
     def test_single_r81_write_encodes_final_chg_and_dsg_modes(self):
