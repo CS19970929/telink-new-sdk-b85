@@ -22,17 +22,23 @@ class D008CommonPortFetContract(unittest.TestCase):
             self.assertIn("dsg_target = 1;", branch)
         self.assertNotIn("Runtime_GetMode()", body)
 
-    def test_dvc_body_diode_recovery_is_enabled(self):
+    def test_dvc_body_diode_recovery_is_compile_time_policy(self):
         cfg = read("dvc1124_project_config.h")
+        backend = read("dvc1124_config_store.c")
         self.assertRegex(cfg, r"#define\s+DVC1124_BODY_DIODE_THRESHOLD_UV\s+80u")
         self.assertIn("DVC1124_DSGMASK_DBDM_MASK", cfg)
         self.assertIn("DVC1124_CHGMASK_CBDM_MASK", cfg)
+        self.assertIn("DVC1124_BODY_DIODE_THRESHOLD_UV", backend)
+        self.assertIn("dvc_project_encode_body_diode", backend)
 
-    def test_persisted_zero_bdpt_is_migrated_and_rejected(self):
-        store = read("dvc1124_config_store.c")
-        self.assertIn("cfg->body_diode_threshold_uv = DVC1124_BODY_DIODE_THRESHOLD_UV;", store)
-        self.assertIn("if ((cfg->body_diode_threshold_uv < 40u) ||", store)
-        self.assertNotIn("if ((cfg->body_diode_threshold_uv != 0u) &&", store)
+    def test_body_diode_policy_has_no_operating_config_flash_owner(self):
+        backend = read("dvc1124_config_store.c")
+        header = read("dvc1124_config_store.h")
+        self.assertNotIn("body_diode_threshold_uv", header)
+        self.assertNotIn("ConfigStoreLoad", backend)
+        self.assertNotIn("ConfigStoreSave", backend)
+        self.assertNotIn("flash_kv32", backend)
+        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", header)
 
     def test_one_sided_protection_uses_auto_diode_without_hard_off_transition(self):
         bms = read("dvc1124_bms.c")
