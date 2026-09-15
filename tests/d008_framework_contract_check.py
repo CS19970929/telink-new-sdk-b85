@@ -141,10 +141,11 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", raw)
         self.assertNotIn("DVC1124_WriteRegisters", raw)
 
-    def test_fail_safe_watchdog_policy_is_product_compile_time(self):
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+    def test_fail_safe_watchdog_policy_is_project_compile_time(self):
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+        self.assertNotIn("DVC1124_I2C_WATCHDOG_SECONDS", self.product)
         self.assertIn("DVC1124_DSGMASK_DWM_MASK", self.fixed_backend)
         self.assertIn("DVC1124_CHGMASK_CWM_MASK", self.fixed_backend)
 
