@@ -4,23 +4,16 @@
 #include <stdint.h>
 #include "bms_afe_backend.h"
 
-/*
- * Compile-time AFE boundary used by the BMS application.
- *
- * A product build contains one active AFE adapter. Legacy DVC1124 sources are
- * still compiled for reuse/contract checks, but application calls are rebound
- * to the SH3673510 adapter on the HS-D011 profile. The DVC implementation
- * includes dvc1124*.h before this header, so its legacy symbols are not renamed.
- */
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510) && \
-    !defined(DVC1124_H_) && !defined(DVC1124_CONFIG_STORE_H_)
-#define bms_afe_init                       sh3673510_bms_afe_init
-#define bms_afe_sample                     sh3673510_bms_afe_sample
-#define bms_afe_sleep                      sh3673510_bms_afe_sleep
-#define bms_afe_apply_protection_config    sh3673510_bms_afe_apply_protection_config
-#define bms_afe_set_fets                   sh3673510_bms_afe_set_fets
-#define bms_afe_set_output_enabled         sh3673510_bms_afe_set_output_enabled
-#define bms_afe_get_aux_measurements       sh3673510_bms_afe_get_aux_measurements
+/* Stable compile-time AFE boundary used by the BMS application. */
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124) && \
+    (defined(DVC1124_H_) || defined(DVC1124_CONFIG_STORE_H_))
+#define bms_afe_init                       dvc1124_backend_init
+#define bms_afe_sample                     dvc1124_backend_sample
+#define bms_afe_sleep                      dvc1124_backend_sleep
+#define bms_afe_apply_protection_config    dvc1124_backend_apply_protection_config
+#define bms_afe_set_fets                   dvc1124_backend_set_fets
+#define bms_afe_set_output_enabled         dvc1124_backend_set_output_enabled
+#define bms_afe_get_aux_measurements       dvc1124_backend_get_aux_measurements
 #endif
 
 void bms_afe_init(void);
@@ -30,16 +23,78 @@ uint8_t bms_afe_apply_protection_config(void);
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
 void bms_afe_set_output_enabled(uint8_t enabled);
 
-typedef struct
-{
+typedef struct {
     uint16_t battery_ntc_mv;
     uint16_t mos_ntc_mv;
     uint32_t battery_ntc_100ohm;
     uint32_t mos_ntc_100ohm;
     uint32_t pack_voltage_mv;
 } bms_afe_aux_measurements_t;
-
-/* Returns 1 for a valid snapshot; a failed snapshot is returned as all zeros. */
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements);
+
+#define BMS_AFE_FEATURE_MAX_CELLS 24u
+
+typedef struct {
+    uint8_t valid;
+    uint8_t cell_count;
+    uint8_t battery_temp_valid;
+    uint8_t heater_temp_valid;
+    uint8_t mos_temp_valid;
+    uint16_t battery_temp_min_x10;
+    uint16_t battery_temp_max_x10;
+    uint16_t heater_temp_x10;
+    uint16_t mos_temp_x10;
+} bms_afe_feature_snapshot_t;
+
+typedef enum {
+    BMS_AFE_DIAG_IDLE = 0u,
+    BMS_AFE_DIAG_BUSY = 1u,
+    BMS_AFE_DIAG_READY = 2u,
+    BMS_AFE_DIAG_ERROR = 3u
+} bms_afe_diag_state_t;
+
+typedef struct {
+    uint8_t valid;
+    uint8_t determinate;
+    uint8_t cell_count;
+    uint32_t open_cell_mask;
+    uint16_t diagnostic_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
+} bms_afe_openwire_result_t;
+
+uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
+uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
+uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
+uint8_t bms_afe_openwire_start(void);
+bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *result);
+
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+void dvc1124_backend_init(void);
+void dvc1124_backend_sample(void);
+void dvc1124_backend_sleep(void);
+uint8_t dvc1124_backend_apply_protection_config(void);
+uint8_t dvc1124_backend_set_fets(uint8_t charge_on, uint8_t discharge_on);
+void dvc1124_backend_set_output_enabled(uint8_t enabled);
+uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measurements);
+uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
+uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask);
+uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask);
+uint8_t dvc1124_backend_openwire_start(void);
+bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *result);
+#elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+void sh3673510_bms_afe_init(void);
+void sh3673510_bms_afe_sample(void);
+void sh3673510_bms_afe_sleep(void);
+uint8_t sh3673510_bms_afe_apply_protection_config(void);
+uint8_t sh3673510_bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
+void sh3673510_bms_afe_set_output_enabled(uint8_t enabled);
+uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements);
+uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
+uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask);
+uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask);
+uint8_t sh3673510_backend_openwire_start(void);
+bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *result);
+#else
+#error "Unsupported BMS_AFE_BACKEND"
+#endif
 
 #endif /* BMS_AFE_H_ */
