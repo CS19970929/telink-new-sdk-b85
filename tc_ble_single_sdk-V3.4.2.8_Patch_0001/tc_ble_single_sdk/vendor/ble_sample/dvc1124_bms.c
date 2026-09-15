@@ -136,49 +136,92 @@ static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
     return (100u * adc_mv) / (3300u - adc_mv);
 }
 
+/*
+ * R81 CHGC/DSGC are mode commands, while CHGF/DSGF report the resulting DVC
+ * driver outputs. A protected AUTO_DIODE command may therefore remain 10b
+ * while the DVC autonomously re-opens the physical driver after reverse
+ * current exceeds BDPT. Do not re-submit the same R81 mode every 200 ms: a
+ * repeated write can disturb that autonomous state even though the requested
+ * BMS state has not changed.
+ */
+static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
+                                            dvc1124_fet_drive_t discharge_mode)
+{
+    uint8_t current;
+    uint8_t target;
+
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u))
+        return 0u;
+
+    if ((DVC1124_FIELD_GET(DVC1124_FET_CHGC_MASK,
+                           DVC1124_FET_CHGC_SHIFT,
+                           current) == (uint8_t)charge_mode) &&
+        (DVC1124_FIELD_GET(DVC1124_FET_DSGC_MASK,
+                           DVC1124_FET_DSGC_SHIFT,
+                           current) == (uint8_t)discharge_mode))
+    {
+        return 1u;
+    }
+
+    target = (uint8_t)(current &
+                       (uint8_t)~(DVC1124_FET_CHGC_MASK |
+                                  DVC1124_FET_DSGC_MASK));
+    target |= DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK,
+                                  DVC1124_FET_CHGC_SHIFT,
+                                  charge_mode);
+    target |= DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK,
+                                  DVC1124_FET_DSGC_SHIFT,
+                                  discharge_mode);
+
+    /* One combined R81 write only: never transition through hard-OFF before
+     * AUTO_DIODE. DVC1124_WriteRegisterSafe() preserves unrelated fields and
+     * verifies the documented writable bits. */
+    return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
+}
+
 static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
                                               uint8_t discharge_on)
 {
     uint8_t charge_blocked = dvc_charge_blocked();
     uint8_t discharge_blocked = dvc_discharge_blocked();
-    uint8_t effective_charge = charge_on ? 1u : 0u;
-    uint8_t effective_discharge = discharge_on ? 1u : 0u;
+    dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF;
+    dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF;
 
-    if (charge_blocked) effective_charge = 0u;
-    if (discharge_blocked) effective_discharge = 0u;
-
-    /* First apply the conservative hard state. This preserves the
-     * semantics of explicit OFF, AFE communication inhibit, sleep and
-     * open-wire diagnostics. */
-    if (!DVC1124_SetMosState(effective_charge, effective_discharge))
-        return 0u;
-
-    /* Normal D008 operation requests both FETs ON. If exactly one
-     * protection direction is blocked, change only that protected FET
-     * from hard-OFF to DVC AUTO_DIODE (R81=10b). The DVC then reopens
-     * it in hardware after reverse current exceeds BDPT; the MCU does
-     * not poll current direction or force the opposite FET open. */
+    /* Normal D008 operation requests both FETs ON. If exactly one direction
+     * is protected, command the blocked FET directly to AUTO_DIODE and keep
+     * the opposite FET ON. The DVC then handles reverse-current reopening in
+     * hardware; the MCU does not poll current direction or repeatedly toggle
+     * the protected FET. */
     if (charge_on && discharge_on)
     {
         if (charge_blocked && !discharge_blocked)
         {
-            return DVC1124_WriteRegisterFieldSafe(DVC1124_REG_FET_CTRL,
-                                                  DVC1124_FET_CHGC_MASK,
-                                                  DVC1124_FET_CHGC_SHIFT,
-                                                  DVC1124_FET_DRIVE_AUTO_DIODE);
+            charge_mode = DVC1124_FET_DRIVE_AUTO_DIODE;
+            discharge_mode = DVC1124_FET_DRIVE_ON;
         }
-        if (discharge_blocked && !charge_blocked)
+        else if (discharge_blocked && !charge_blocked)
         {
-            return DVC1124_WriteRegisterFieldSafe(DVC1124_REG_FET_CTRL,
-                                                  DVC1124_FET_DSGC_MASK,
-                                                  DVC1124_FET_DSGC_SHIFT,
-                                                  DVC1124_FET_DRIVE_AUTO_DIODE);
+            charge_mode = DVC1124_FET_DRIVE_ON;
+            discharge_mode = DVC1124_FET_DRIVE_AUTO_DIODE;
         }
+        else if (!charge_blocked && !discharge_blocked)
+        {
+            charge_mode = DVC1124_FET_DRIVE_ON;
+            discharge_mode = DVC1124_FET_DRIVE_ON;
+        }
+        /* Both directions blocked remains a true two-FET hard shutdown. */
+    }
+    else
+    {
+        /* Explicit OFF / AFE communication inhibit / sleep / open-wire paths
+         * remain hard OFF and must never be upgraded to AUTO_DIODE. */
+        if (charge_on && !charge_blocked)
+            charge_mode = DVC1124_FET_DRIVE_ON;
+        if (discharge_on && !discharge_blocked)
+            discharge_mode = DVC1124_FET_DRIVE_ON;
     }
 
-    /* A fault shared by charge and discharge (for example MOS OT or
-     * TEMP_BREAK) remains a true two-FET hard shutdown. */
-    return 1u;
+    return dvc_set_fet_modes_if_changed(charge_mode, discharge_mode);
 }
 
 void DVC1124_BmsApp_AFEGet(void)
