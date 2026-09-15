@@ -6,15 +6,13 @@
 /*
  * HS-D008 physical product assembly profile.
  *
- * This file intentionally contains only facts that differ with the assembled
- * battery topology/chemistry and are already supported by the D008 schematic:
- *  - 24S LFP
- *  - 20S NMC
+ * This file owns compile-time product facts and fixed fail-safe policy.  These
+ * values are firmware policy, not customer parameters, and must not be restored
+ * from historical Flash configuration.
  *
- * Capacity, current limits, OV/UV values, temperature limits and other product
- * policy remain in the existing parameter store until separately signed off.
- * Selecting 20S NMC therefore does NOT claim that the historical protection
- * defaults are production-ready for NMC.
+ * Protection thresholds remain runtime/persistent parameters:
+ *   - software protection: g_tParam.protect
+ *   - AFE hardware protection: bms_afe_hw_profile_t
  */
 #define D008_PRODUCT_PROFILE_24S_LFP  1u
 #define D008_PRODUCT_PROFILE_20S_NMC  2u
@@ -40,5 +38,18 @@
 #if ((D008_PRODUCT_CELL_COUNT < 4u) || (D008_PRODUCT_CELL_COUNT > 24u))
 #error "D008 product cell count is outside DVC1124-2 range"
 #endif
+
+/*
+ * Fixed DVC fail-safe policy.
+ * DVC1124 project_config.h uses #ifndef for these symbols, so defining them
+ * here makes the product profile authoritative without creating a second
+ * runtime/Flash owner.
+ *
+ * 4 s is the shortest DVC1124-2 I2C watchdog period.  On timeout both CHG and
+ * DSG autonomous-close sources are enabled (mask bit cleared by the driver).
+ */
+#define DVC1124_I2C_WATCHDOG_SECONDS     4u
+#define DVC1124_I2C_TIMEOUT_CLOSE_CHG    1u
+#define DVC1124_I2C_TIMEOUT_CLOSE_DSG    1u
 
 #endif /* D008_PRODUCT_PROFILE_H_ */
