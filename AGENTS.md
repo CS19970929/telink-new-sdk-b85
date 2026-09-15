@@ -8,14 +8,16 @@
 2. `docs/HARDWARE_VALIDATION.md`：当前唯一实板未决清单。
 3. `docs/ARCHITECTURE.md`：软件边界/参数所有权。
 4. `docs/SOFTWARE_PROTECTION.md` 与 `docs/AFE_HARDWARE_PROTECTION_V2.md`：软/硬件保护分层。
+5. `references/vendor/dvc11xx_demo_v1.3/README.md`：DVC11XX DemoCode V1.3 的审查结论与低边 FET 示例索引，仅作二级参考。
 
 ## 权威依据
 
 - 板级连接：用户提供的 `HS-D008-24S100A-V1(2).pdf` / 对应 BOM。
 - DVC寄存器/bit/量化/时序：DVC1124-2 Reference Manual V1.2。
+- 厂商 Demo：`references/vendor/dvc11xx_demo_v1.3/`，只用于调用方式、时序和交叉验证，**不得覆盖 DVC1124-2 官方参考手册**。
 - 当前软件行为：本分支源码。
 
-资料不足时明确写 `TODO_VERIFY_HW`；禁止用 SH36735xx、BQ769xx、旧 SH367309 或“常见BMS做法”猜 DVC 寄存器和安全参数。
+资料不足时明确写 `TODO_VERIFY_HW`；禁止用 SH36735xx、BQ769xx、旧 SH367309 或“常见BMS做法”猜 DVC 寄存器和安全参数。Demo 与官方 DVC1124-2 参考手册冲突时，以官方参考手册为准；Demo 自身存在型号默认值和示例代码不一致项，禁止直接复制到量产逻辑。
 
 ## 当前源码边界
 
@@ -28,6 +30,14 @@
 - `bms_afe_hw_profile.*`：独立 AFE 硬件保护参数。
 
 应用层不得直接复制 DVC 寄存器 magic value。涉及 safety register 的写入必须按 mask/shift、范围、量化、readback 审核。
+
+## D008 低边 FET 状态规则
+
+- D008 使用 `GP5=CHG_LS`、`GP6=DSG_LS`，高边输出被 mask。
+- `0x51 CHGC/DSGC` 是驱动命令；`0x06 CHGF/DSGF` 是 AFE 驱动输出标志。
+- Vendor Demo 的 GP5/GP6 示例把 GP5/GP6 **额外接回 MCU GPIO** 才读取“LOW SIDE CHG/DSG on”，因此 `CHGF/DSGF` 不得直接命名为物理 MOS 实际状态。
+- 软件至少区分 Requested、AFE Command、AFE Driver Flag、Physical Feedback 四层。当前 D008 若无已确认的 GP5/GP6/Gate/Vgs 反馈，Physical Feedback 必须标记为 unavailable/unknown。
+- `b1Status_MOS_CHG/DSG` 不得同时承担“目标命令”和“物理反馈”两种语义。
 
 ## 保护参数规则
 
