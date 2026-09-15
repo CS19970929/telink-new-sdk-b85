@@ -24,14 +24,43 @@
 ## 当前源码边界
 
 - `dvc1124_reg.h`：DVC1124 V1.2 芯片真值。
-- `dvc1124_project_config.h`：D008 DVC 板级默认。
-- `d008_product_profile.h`：24S LFP / 20S NMC 物理 profile。
-- `dvc1124.c`：I2C、寄存器、量化、采样、Balance/Open-Wire。
+- `dvc1124_project_config.h`：D008 DVC **最终固定板级/Fail-safe 编译期配置**，不是 Flash 默认值。
+- `d008_product_profile.h`：24S LFP / 20S NMC 物理 profile，只负责装配串数和化学体系/SOC身份。
+- `dvc1124.c`：I2C、寄存器、量化、采样、Balance/Open-Wire、AFE硬件保护应用。
 - `dvc1124_bms.c`：BMS/FET/故障适配。
+- `dvc1124_config_store.c`：历史文件名保留以维持固定 source order；当前只负责 DVC backend 生命周期和编译期固定配置重申，**不得重新加入 DVC operating-config Flash KV**。
+- `dvc1124_config_service.*`：固定配置/原始寄存器诊断只读；不得成为第二配置 owner。
 - `bms_sw_protection.*`：统一软件三级保护。
-- `bms_afe_hw_profile.*`：独立 AFE 硬件保护参数。
+- `bms_afe_hw_profile.*`：独立 AFE 硬件保护参数及其 Flash 持久化。
 
 应用层不得直接复制 DVC 寄存器 magic value。涉及 safety register 的写入必须按 mask/shift、范围、量化、readback 审核。
+
+## DVC 固定配置与 Flash 所有权（强制）
+
+D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏只是默认值、再由 DVC operating-config Flash 覆盖”的架构：
+
+- **编译期固定配置**：DVC 型号/地址、cell count/Rsense、GP 模式、low-side topology、high-side mask、Charge Pump、CC1/VADC、V3P3、Timed Wake、interrupt mask、DPC、current-wake policy、Body-Diode/DBDM/CBDM、DVC I2C watchdog、I2C timeout close CHG/DSG、Core-OT 固定策略等。
+- **Flash 可配置的软件保护**：`g_tParam.protect`，First/Second/Third/Recover/Filter。
+- **Flash 可配置的 AFE 硬件保护**：`bms_afe_hw_profile_t`，COV/CUV/OCD/OCC/SCD 及 delay/recover/enable mask。
+- 其他 SOC、容量、事件等各自按既有模块持久化，不属于 DVC operating-config。
+
+固定 DVC 配置必须在每次 AFE reset/init 后由固件重新下发；历史 `0x5F000...` DVC operating-config KV 即使残留，也不得读取、恢复或覆盖当前宏。
+
+通信规则：
+
+- `0x2800` DVC semantic window 中的固定字段是 **read-only diagnostics**，写入必须返回 READ_ONLY/Modbus illegal address。
+- `0x2900` raw DVC mirror 仅用于只读诊断；不得允许 factory raw write 绕过配置所有权或保护事务。
+- 修改 AFE 硬件保护必须走 `bms_afe_hw_profile` 的完整事务；修改软件保护走既有软件参数事务。
+
+当前 production Fail-safe 固定值：
+
+- `DVC1124_I2C_WATCHDOG_SECONDS = 4`；
+- `DVC1124_I2C_TIMEOUT_CLOSE_CHG = 1`；
+- `DVC1124_I2C_TIMEOUT_CLOSE_DSG = 1`；
+- `DVC1124_BODY_DIODE_THRESHOLD_UV = 80`；
+- R53/R54 mask 语义始终牢记：`0=允许该来源动作`，`1=屏蔽`。
+
+注意：`DVC1124_I2C_CMD_TIMEOUT_US=5000` 是 MCU 单次 I2C BUSY 等待上限，不是 DVC 4s 硬件 watchdog。真实 dead-bus 后软件 I2C 关 MOS 只能 best-effort，最终 fail-safe 依赖 DVC 在失联前已正确配置的硬件 watchdog/mask。
 
 ## D008 低边 FET 状态与控制规则
 
@@ -46,23 +75,26 @@
 - **协议中的 `b1Status_MOS_CHG/DSG` 是 AFE feedback-only 字段**：D008 只能由有效 AFE 采样中的 `0x06 CHGF/DSGF` 更新；`bms_afe_set_fets()`、`mos_update()`、保护逻辑、通信控制等软件请求路径禁止直接赋值或伪造这两个状态位。
 - FET 请求状态必须单独保存（当前公共 guard 的 `requested_charge_on/requested_discharge_on`），不得用 `b1Status_MOS_CHG/DSG` 充当目标缓存。请求成功只表示命令已提交；MOS/driver 状态必须等待后续 AFE 寄存器采样更新。
 - 同一个 Requested 状态重复提交不得因为 AFE feedback 与目标不一致而反复写 `0x51`；AFE 保护主动关闭输出时必须允许 `Requested=ON`、`AFE Driver=OFF` 同时存在，以便诊断真实保护动作。
+- 单侧保护的 common-port 续流必须一次性写最终 `AUTO_DIODE + opposite ON` 模式；禁止每 200ms 先硬关再切 AUTO_DIODE，也禁止稳态重复写相同 R81 模式。
 - 若未来需要验证 GP5/GP6 物理输出或 MOS Gate/Vgs，必须先确认原理图已有反馈路径或新增硬件反馈；禁止仅凭通信寄存器伪造 physical feedback。
 
 ## 保护路径编译开关
 
-- D008 使用 `DVC1124_SW_PROTECT_ENABLE` 与 `DVC1124_HW_PROTECT_ENABLE`，默认必须为 `1/1`。其语义与 D011/D013 的 `SH3673510_SW_PROTECT_ENABLE` / `SH3673510_HW_PROTECT_ENABLE` 一致，只有 AFE backend 实现不同。
-- `1/1`：正常产品模式，软件三级保护 + DVC AFE 硬件保护同时有效。
-- `1/0`：软件保护台架模式；必须真实关闭 DVC COV/CUV/OCD1/OCD2/OCC1/OCC2/SCD 等硬件保护与相关自主关断源，不能仅忽略 alarm flag。
-- `0/1`：DVC 硬件保护台架模式；软件保护状态机必须停止并清除软件管理的保护状态，AFE 硬件告警/恢复仍工作。
-- `0/0`：采样/通信调试模式；阈值保护关闭。I2C、单体/总压/电流/温度采样以及 `0x06 CHGF/DSGF` AFE 状态反馈仍必须正常。
-- `HW=0` 不得删除或改写 Flash 中的 Requested AFE Hardware Profile；上位机仍可读取/编辑 Requested，Effective 必须反映实际硬件已关闭（enable mask/阈值为 disabled）。重新用 `HW=1` 编译后继续使用原 Requested 参数。
-- `SW=0` / `HW=0` 都只允许开发、认证或台架隔离测试，**不得作为量产配置**。任何保护路径修改必须同时验证默认 `1/1` 与 `1/0、0/1、0/0` 三种非量产组合至少能通过 TC32 编译。
+- D008 使用 `DVC1124_SW_PROTECT_ENABLE` 与 `DVC1124_HW_PROTECT_ENABLE`，默认必须为 `1/1`。
+- `1/1`：正常产品模式，软件三级保护 + DVC AFE 硬件保护 + 固定硬件 Fail-safe 策略有效。
+- `1/0`：软件保护台架模式；必须真实关闭 DVC COV/CUV/OCD1/OCD2/OCC1/OCC2/SCD、I2C WDT、Body-Diode、current-wake、Core-OT 及相关自主关断源，不能仅忽略 alarm flag。
+- `0/1`：DVC 硬件保护台架模式；软件保护状态机必须停止并清除软件管理的保护状态，AFE 硬件告警/恢复和固定 Fail-safe 策略仍工作。
+- `0/0`：采样/通信调试模式；阈值保护和 DVC 自主安全动作关闭。I2C、单体/总压/电流/温度采样以及 `0x06 CHGF/DSGF` AFE 状态反馈仍必须正常。
+- `HW=0` 不得删除或改写 Flash 中的 Requested AFE Hardware Profile；Effective 必须反映实际硬件已关闭。重新用 `HW=1` 编译后继续使用原 Requested 参数。
+- `SW=0` / `HW=0` 都只允许开发、认证或台架隔离测试，**不得作为量产配置**。任何保护/固定安全配置修改必须验证默认 `1/1` 与 `1/0、0/1、0/0` 三种非量产组合至少能通过 TC32 clean build。
 
 ## 保护参数规则
 
 - `g_tParam.protect` 只属于软件 First/Second/Third/Recover/Filter。
 - AFE hardware profile 独立，不得由软件参数写入副作用修改。
-- SCD、DVC WDT、Body-Diode、GP2/GP3 BOM、NTC R-T 在未完成硬件签核前不得为了“功能完整”擅自启用/猜值。
+- COV/CUV/OCD/OCC/SCD 等可调硬件保护阈值/delay/recover 只能由 `bms_afe_hw_profile` 持久化。
+- GP2/GP3 BOM、NTC R-T、尚未签核的保护阈值不得为了“功能完整”擅自猜值。
+- DVC WDT/timeout-close 与 Body-Diode 当前已成为明确的 D008 固件固定策略；若要修改，改 `dvc1124_project_config.h` 并重新做实板验证，不得改成 Flash 可写参数。
 
 ## IO规则
 
