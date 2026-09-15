@@ -41,6 +41,7 @@ class D008FrameworkContract(unittest.TestCase):
         cls.param = read(HERE / "param.c")
         cls.dvc_bms = read(HERE / "dvc1124_bms.c")
         cls.dvc = read(HERE / "dvc1124.c")
+        cls.hw_profile = read(HERE / "bms_afe_hw_profile.c")
         cls.store = read(HERE / "dvc1124_config_store.c")
         cls.service = read(HERE / "dvc1124_config_service.c")
         cls.features = read(HERE / "bms_features.c")
@@ -110,9 +111,14 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIsNotNone(set_fets)
         self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_CHG\s*=")
         self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_DSG\s*=")
-        # Application may compare feedback to target, but it must not assign the feedback bits.
+        # Application/backend control must not assign the feedback bits either.
         self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
         self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
+        enforce = self.dvc_bms.split("static uint8_t dvc_enforce_fault_fet_state", 1)[1]
+        enforce = enforce.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+        self.assertIn("bms_afe_get_requested_fets", enforce)
+        self.assertNotIn("b1Status_MOS_CHG", enforce)
+        self.assertNotIn("b1Status_MOS_DSG", enforce)
 
     def test_repeated_same_fet_request_does_not_rewrite_afe_command(self):
         set_fets = re.search(
@@ -124,6 +130,63 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("requested_charge_on == requested_c", body)
         self.assertIn("requested_discharge_on == requested_d", body)
         self.assertRegex(body, r"return\s+1u\s*;")
+
+    def test_protection_path_switches_default_to_production(self):
+        self.assertEqual(macro_literal(self.cfg, "DVC1124_SW_PROTECT_ENABLE"), 1)
+        self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_PROTECT_ENABLE"), 1)
+        self.assertIn("DVC1124 protection enable macros must be 0 or 1", self.cfg)
+
+    def test_software_protection_switch_clears_disabled_path(self):
+        sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
+        sample = sample.split("uint8_t bms_afe_set_fets", 1)[0]
+        self.assertIn("#if DVC1124_SW_PROTECT_ENABLE", sample)
+        self.assertIn("bms_sw_protection_update(&sw);", sample)
+        self.assertIn("bms_sw_protection_clear();", sample)
+
+    def test_hardware_protection_switch_disables_real_dvc_sources(self):
+        self.assertIn("#if !DVC1124_HW_PROTECT_ENABLE", self.dvc)
+        self.assertIn("dvc_disable_threshold_protection", self.dvc)
+        disabled = self.dvc.split("static uint8_t dvc_disable_threshold_protection", 1)[1]
+        disabled = disabled.split("#endif", 1)[0]
+        for reg in (
+            "DVC1124_REG_COV_H",
+            "DVC1124_REG_CUV_H",
+            "DVC1124_REG_OCD1_THR",
+            "DVC1124_REG_OCC1_THR",
+            "DVC1124_REG_OCD2",
+            "DVC1124_REG_OCC2",
+            "DVC1124_REG_SCD",
+            "DVC1124_REG_CURRENT_WAKE",
+            "DVC1124_REG_BODY_DIODE",
+            "DVC1124_REG_I2C_WDT",
+            "DVC1124_REG_DSG_MASK",
+            "DVC1124_REG_CHG_MASK",
+        ):
+            self.assertIn(reg, disabled)
+        self.assertIn("DVC1124_SetCoreOtThresholdCode(0u)", disabled)
+        self.assertIn("DVC1124_ClearAlarmFlags", disabled)
+        apply_fn = self.dvc.split("static uint8_t dvc_apply_protection_from_params", 1)[1]
+        apply_fn = apply_fn.split("static void dvc_note_comm_result", 1)[0]
+        self.assertRegex(
+            apply_fn,
+            r"#if\s+!DVC1124_HW_PROTECT_ENABLE\s+return\s+dvc_disable_threshold_protection\(\);",
+        )
+        self.assertIn("#if DVC1124_HW_PROTECT_ENABLE", self.dvc_bms)
+        self.assertIn("dvc_merge_hw_faults(alarm);", self.dvc_bms)
+
+    def test_hw_off_preserves_requested_profile_and_marks_effective_disabled(self):
+        # Requested profile API remains the stored/validated profile.
+        requested_get = self.hw_profile.split("u8 bms_afe_hw_profile_get(", 1)[1]
+        requested_get = requested_get.split("u8 bms_afe_hw_profile_set", 1)[0]
+        self.assertNotIn("DVC1124_HW_PROTECT_ENABLE", requested_get)
+        effective = self.hw_profile.split("u8 bms_afe_hw_profile_get_effective", 1)[1]
+        self.assertIn("#if !DVC1124_HW_PROTECT_ENABLE", effective)
+        self.assertIn("p->enable_mask = 0u;", effective)
+        self.assertIn("p->cov_mv = 0u;", effective)
+        self.assertIn("p->cuv_mv = 0u;", effective)
+        self.assertIn("p->ocd1_a10 = 0u;", effective)
+        self.assertIn("p->occ1_a10 = 0u;", effective)
+        self.assertIn("p->sc_a10 = 0u;", effective)
 
     def test_d008_defaults_match_reviewed_low_side_policy(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_HIGH_SIDE_FET_MASK"), 1)
