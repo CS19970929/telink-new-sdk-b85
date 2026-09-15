@@ -1,138 +1,171 @@
-# BMSAssistantQt Windows 交付说明
+# BMSAssistantQt Windows 编译与交付说明
 
-## 交付定位
+## 1. 当前工程
 
-`BMSAssistantQt` 当前定位为 `Windows/macOS/Linux` 共用的一套 BLE 上位机。
+Windows 桌面上位机实际工程：
 
-Windows 侧的核心目标：
+```text
+tools/BMSAssistantQt
+```
 
-- 扫描并连接当前 `vendor/ble_sample` 固件广播出来的 BLE 设备
-- 通过 `Telink SPP` 收发 `Modbus RTU over BLE`
-- 查看电池状态页
-- 执行调试工作台里的读写寄存器、原始帧、写 `SOC`、写 `0x1103`
-- 导出报文日志与电池快照，便于售后与远程排查
+技术栈：Python + PySide6 + QtBluetooth + QtWidgets；使用 PyInstaller 生成 Windows 目录包。
 
-## 当前 Windows 包内容
+当前功能：BLE扫描/连接、Telink SPP、Modbus RTU over BLE、电池状态、软件保护参数预览、手动寄存器/原始帧、BT name suffix、CSV/JSON导出。
 
-`package-windows.bat` 打出来的目录中，建议直接交付这些内容：
+当前边界：**没有 direct-serial transport，也没有专用 AFE Hardware Protection V2 编辑器。**
 
-- `BMSAssistantQt/`
-- `Launch-BMSAssistantQt.bat`
-- `docs/README.md`
-- `docs/WINDOWS-DELIVERY.md`
+## 2. 从 GitHub 拉对应产品
 
-其中：
+### D008
 
-- `Launch-BMSAssistantQt.bat` 是客户侧推荐入口
-- `BMSAssistantQt/BMSAssistantQt.exe` 是主程序
+```bat
+git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
+cd /d D008-BMS\tools\BMSAssistantQt
+```
 
-## 首次运行要求
+### D011
 
-### 1. 系统要求
+```bat
+git clone --single-branch --branch feature/sh3673510-d011-bms https://github.com/CS19970929/telink-new-sdk-b85.git D011-BMS
+cd /d D011-BMS\tools\BMSAssistantQt
+```
 
-- Windows 10/11
-- 主机带 BLE 功能，或已接入支持 BLE 的蓝牙适配器
-- 开发/打包机器需要 Python 3.9+，推荐 Python 3.10+；如果没有 `python` 命令，脚本会自动尝试 Windows `py -3` 启动器
-- 脚本会把虚拟环境与打包中间目录放在 `%LOCALAPPDATA%\BMSAssistantQt\`，避免工程目录很深时触发 Windows 路径长度限制
+### D013
 
-### 2. 蓝牙要求
+```bat
+git clone --single-branch --branch feature/sh3673510-d013-bms https://github.com/CS19970929/telink-new-sdk-b85.git D013-BMS
+cd /d D013-BMS\tools\BMSAssistantQt
+```
 
-- 设备管理器中蓝牙适配器工作正常
-- Windows 蓝牙功能已开启
-- 不要让手机 App 长时间占着同一块板子
+## 3. 打包前必须核对串数
 
-## 使用建议
+文件：
 
-### 1. 扫描
+```text
+bmsassistantqt\protocol.py
+```
 
-- 默认用 `全部设备`
-- 先不要勾 `只显示疑似 BMS`
-- 找不到名称时，优先看是否存在带 `180F / 1812` 的设备
+字段：
 
-### 2. 自动刷新
+```python
+RegisterCatalog.currentProjectSeriesCount
+```
 
-- `电池状态` 页默认开启 `自动刷新`
-- 自动刷新只在 `电池状态` 页工作
-- 切到 `调试工作台` 时，自动刷新会停掉，避免和手动调试命令互相抢链路
+产品值：
 
-### 3. 配置持久化
+| 产品 | 值 |
+|---|---:|
+| D008 24S LFP | 24 |
+| D008 20S NMC | 20 |
+| D011 | 10 |
+| D013 当前代码 profile | 4 |
 
-程序会自动记住这些内容：
+当前 Qt 工具还没有从设备 metadata 自动读取串数，因此 D008/D013 打包前必须人工确认该值；否则单体显示数量错误。
 
-- 扫描模式
-- 搜索关键字
-- 是否只显示疑似 BMS
-- 自动刷新开关与周期
-- 当前页签
-- 手动读写寄存器输入框
-- 原始帧输入框
-- 蓝牙名写入输入框
+## 4. 开发运行
 
-这部分通过 `QSettings` 持久化，Windows 下通常保存在当前用户配置区。
+要求：Windows 10/11、BLE适配器、Python 3.9+。
 
-## 导出能力
-
-### 1. 导出报文日志
-
-适用场景：
-
-- 客户反馈“偶现读不到数据”
-- 需要把现场收发帧发回研发分析
-
-导出结果：
-
-- `CSV`
-
-### 2. 导出电池快照
-
-适用场景：
-
-- 保存当前页面关键指标
-- 保存当前寄存器块与原始响应
-
-导出结果：
-
-- `JSON`
-
-## 建议交付前验证
-
-至少完成一次 Windows 实机联调，确认：
-
-1. 能扫描到 `BT_*` 设备
-2. 能连接并进入 `READY`
-3. 电池状态页自动刷新正常
-4. 单次手动刷新正常
-5. `写 SOC -> 0x1005` 正常
-6. `写 0x1103 = 0x0003` 正常
-7. 手动读寄存器正常
-8. 报文日志导出正常
-9. 电池快照导出正常
-
-开发机还建议先执行：
+直接执行：
 
 ```bat
 scripts\run.bat
 ```
 
-确认脚本能自动创建 `%LOCALAPPDATA%\BMSAssistantQt\venv`、安装 `PySide6/PyInstaller` 并拉起主窗口。正式打包再执行：
+脚本自动：
+
+```text
+查找 python 或 py -3
+创建 %LOCALAPPDATA%\BMSAssistantQt\venv
+升级 pip
+安装 requirements.txt
+启动 main.py
+```
+
+当前依赖：
+
+```text
+PySide6>=6.8,<7
+PyInstaller>=6.10,<7
+```
+
+## 5. 正式打包
 
 ```bat
 scripts\package-windows.bat
 ```
 
-`package-windows.bat` 在正式打包前会先执行：
+脚本会先执行：
 
 ```bat
 python main.py --smoke-test
 ```
 
-该自检会实例化主窗口并立即退出，用于提前发现 `PySide6`、`QtBluetooth`、Qt 平台插件或运行时路径问题。脚本打包时同时使用 `--collect-all PySide6`，减少 Windows 交付包漏带 Qt 插件的风险。
+再调用 PyInstaller：
 
-生成的 `.dist\docs` 目录会同时包含 Windows 交付说明和跨平台 `Windows + Android` 实现说明，方便后续现场联调按同一套协议与寄存器资产排查。
+```text
+--windowed
+--name BMSAssistantQt
+--collect-all PySide6
+--hidden-import PySide6.QtBluetooth
+```
 
-## 当前边界
+虚拟环境、build和PyInstaller中间目录放在：
 
-- 这套 Qt 工程当前是桌面上位机，不是手机 App
-- Android 工程版首版位于 `vendor/ble_sample/BMSAssistantAndroid`，与 Qt 上位机共用协议资产，但需要 JDK17、Android SDK 和安卓真机才能完成构建/安装验证
-- `iPhone/iPad` 仍建议走原生 `SwiftUI + CoreBluetooth`
-- Windows 包当前具备打包路径，但正式对外发客户前，仍建议你在公司 Windows 机器上跑一轮完整实测
+```text
+%LOCALAPPDATA%\BMSAssistantQt\
+```
+
+避免深目录触发传统 Windows MAX_PATH 问题。
+
+## 6. 生成结果
+
+项目目录下：
+
+```text
+.dist\BMSAssistantQt\BMSAssistantQt.exe
+.dist\Launch-BMSAssistantQt.bat
+.dist\docs\README.md
+.dist\docs\WINDOWS-DELIVERY.md
+```
+
+客户/测试人员优先运行：
+
+```text
+Launch-BMSAssistantQt.bat
+```
+
+## 7. 建议交付文件名
+
+```text
+BMSAssistantQt_HS-D008_24S-LFP_<YYYYMMDD>_<shortsha>.zip
+BMSAssistantQt_HS-D008_20S-NMC_<YYYYMMDD>_<shortsha>.zip
+BMSAssistantQt_HS-D011_10S_<YYYYMMDD>_<shortsha>.zip
+BMSAssistantQt_D013_CODEPROFILE_4S_<YYYYMMDD>_<shortsha>.zip
+```
+
+D013 原理图/BOM确认后，再把 `CODEPROFILE` 改成真实硬件标识。
+
+获取 short SHA：
+
+```bat
+git rev-parse --short HEAD
+```
+
+## 8. 交付前最小验证
+
+1. `git branch --show-current` 确认产品分支；
+2. `git rev-parse HEAD` 记录源码版本；
+3. 核对 `currentProjectSeriesCount`；
+4. `scripts\run.bat` 能启动；
+5. `scripts\package-windows.bat` 成功；
+6. 用生成包重新启动；
+7. 实机扫描、连接到目标BMS；
+8. 电池状态刷新、手动读寄存器、日志/快照导出正常；
+9. 不使用普通单寄存器UI绕过 AFE Hardware Protection V2 的35-word事务。
+
+## 9. BLE协议限制
+
+当前默认 ATT MTU=23，安全单请求20 byte；response支持分片重组，request没有通用大包重组。因此普通 BLE Modbus 0x10 建议最多5 words。
+
+AFE Hardware Protection V2 要求完整35-word原子写，当前 Qt BLE 工具不具备这条正式写路径。
