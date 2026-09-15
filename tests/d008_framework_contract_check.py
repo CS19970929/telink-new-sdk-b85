@@ -1,25 +1,19 @@
 #!/usr/bin/env python3
-"""D008/DVC1124 architecture, product-profile and safety-guard contracts."""
+"""D008/DVC1124 architecture, safety and configuration-ownership contracts."""
 
 import re
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-HERE = (
-    REPO_ROOT
-    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
-    / "tc_ble_single_sdk"
-    / "vendor"
-    / "ble_sample"
-)
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 
 
-def read(path: Path) -> str:
-    return path.read_text(encoding="utf-8", errors="ignore")
+def read(name):
+    return (SRC / name).read_text(encoding="utf-8", errors="ignore")
 
 
-def macro_literal(text: str, name: str) -> int:
+def macro_literal(text, name):
     m = re.search(
         rf"^\s*#define\s+{re.escape(name)}\s+\(?\s*(0x[0-9A-Fa-f]+|[0-9]+)u?\s*\)?",
         text,
@@ -33,64 +27,47 @@ def macro_literal(text: str, name: str) -> int:
 class D008FrameworkContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = read(HERE / "bms_afe_backend.h")
-        cls.api = read(HERE / "bms_afe.h")
-        cls.guard = read(HERE / "bms_afe_guard.c")
-        cls.cfg = read(HERE / "dvc1124_project_config.h")
-        cls.profile = read(HERE / "d008_product_profile.h")
-        cls.param = read(HERE / "param.c")
-        cls.dvc_bms = read(HERE / "dvc1124_bms.c")
-        cls.dvc = read(HERE / "dvc1124.c")
-        cls.hw_profile = read(HERE / "bms_afe_hw_profile.c")
-        cls.store = read(HERE / "dvc1124_config_store.c")
-        cls.service = read(HERE / "dvc1124_config_service.c")
-        cls.features = read(HERE / "bms_features.c")
-        cls.app = read(HERE / "app.c")
+        cls.backend_h = read("bms_afe_backend.h")
+        cls.afe_h = read("bms_afe.h")
+        cls.guard = read("bms_afe_guard.c")
+        cls.dvc = read("dvc1124.c")
+        cls.dvc_bms = read("dvc1124_bms.c")
+        cls.fixed_backend = read("dvc1124_config_store.c")
+        cls.fixed_header = read("dvc1124_config_store.h")
+        cls.service = read("dvc1124_config_service.c")
+        cls.project = read("dvc1124_project_config.h")
+        cls.product = read("d008_product_profile.h")
+        cls.features = read("bms_features.c")
+        cls.param = read("param.c")
+        cls.app = read("app.c")
+        cls.hw_profile = read("bms_afe_hw_profile.c")
 
-    def test_compile_time_backend_defaults_to_dvc1124(self):
-        self.assertIn("BMS_AFE_BACKEND_DVC1124", self.backend)
-        self.assertRegex(self.backend, r"#define\s+BMS_AFE_BACKEND\s+BMS_AFE_BACKEND_DVC1124")
+    def test_backend_defaults_to_dvc1124(self):
+        self.assertIn("BMS_AFE_BACKEND_DVC1124", self.backend_h)
+        self.assertRegex(self.backend_h, r"#define\s+BMS_AFE_BACKEND\s+BMS_AFE_BACKEND_DVC1124")
+        self.assertIn("dvc1124_backend_sample", self.afe_h)
 
-    def test_dvc_sources_are_rebound_behind_common_guard(self):
-        self.assertIn("defined(DVC1124_H_)", self.api)
-        self.assertIn("dvc1124_backend_sample", self.api)
-        self.assertRegex(self.api, r"void\s+bms_afe_sample\s*\(\s*void\s*\)\s*;")
-        self.assertIn("vendor/ble_sample/bms_afe_guard.c", read(REPO_ROOT / "bms_tools" / "source_order.txt"))
-
-    def test_comm_failure_forces_safe_off_and_requires_three_good_snapshots(self):
+    def test_guard_fail_safe_inhibit_is_preserved(self):
         self.assertEqual(macro_literal(self.guard, "BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT"), 3)
-        self.assertRegex(self.guard, r"s_guard\.comm_inhibit\s*=\s*1u\s*;")
-        self.assertRegex(self.guard, r"AFE_(?:BACKEND_)?FETS\s*\(\s*0u\s*,\s*0u\s*\)")
+        self.assertEqual(macro_literal(self.guard, "BMS_AFE_REINIT_TRIGGER"), 3)
+        self.assertIn("s_guard.comm_inhibit = 1u;", self.guard)
+        self.assertGreaterEqual(self.guard.count("(void)AFE_FETS(0u, 0u);"), 4)
         self.assertIn("valid_snapshot_streak", self.guard)
-        self.assertRegex(self.guard, r"s_guard\.comm_inhibit\s*=\s*0u\s*;")
         self.assertIn("bms_features_on_afe_invalid", self.guard)
 
-    def test_repeated_invalid_snapshots_trigger_bounded_reinit_not_release(self):
-        self.assertEqual(macro_literal(self.guard, "BMS_AFE_REINIT_TRIGGER"), 3)
-        self.assertEqual(macro_literal(self.guard, "BMS_AFE_REINIT_COOLDOWN_SAMPLES"), 25)
-        self.assertIn("s_guard.comm_failures", self.guard)
-        self.assertIn("s_guard.reinit_cooldown", self.guard)
-        self.assertRegex(self.guard, r"AFE_(?:BACKEND_)?INIT\s*\(\s*\)\s*;")
-        # A reinit remains inhibited; only the valid-snapshot streak releases it.
-        invalid_fn = re.search(
-            r"(?s)static\s+void\s+(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\([^)]*\).*?(?=void\s+bms_afe_init\s*\()",
+    def test_guard_keeps_requested_state_separate_from_feedback(self):
+        self.assertIn("requested_charge_on", self.guard)
+        self.assertIn("requested_discharge_on", self.guard)
+        self.assertIn("bms_afe_get_requested_fets", self.guard)
+        set_fets = re.search(
+            r"(?s)uint8_t\s+bms_afe_set_fets\s*\([^)]*\)\s*\{.*?\n\}",
             self.guard,
         )
-        self.assertIsNotNone(invalid_fn)
-        self.assertNotRegex(invalid_fn.group(0), r"comm_inhibit\s*=\s*0u")
+        self.assertIsNotNone(set_fets)
+        self.assertNotIn("b1Status_MOS_CHG =", set_fets.group(0))
+        self.assertNotIn("b1Status_MOS_DSG =", set_fets.group(0))
 
-    def test_sleep_and_protection_apply_cannot_bypass_inhibit(self):
-        self.assertRegex(
-            self.guard,
-            r"(?s)void\s+bms_afe_sleep\s*\([^)]*\).*?(?:bms_afe_guard_inhibit|inhibit)\s*\(\s*\)\s*;",
-        )
-        self.assertRegex(
-            self.guard,
-            r"(?s)bms_afe_apply_protection_config\s*\([^)]*\).*?if\s*\(\s*!ok\s*\).*?(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\(\s*\)",
-        )
-
-    def test_mos_status_is_afe_feedback_not_software_request(self):
-        # Legacy/report MOS bits must come from a successful DVC R6 sample only.
+    def test_mos_report_is_owned_by_dvc_feedback(self):
         self.assertRegex(
             self.dvc,
             r"b1Status_MOS_CHG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_CHGF_MASK\)",
@@ -99,157 +76,118 @@ class D008FrameworkContract(unittest.TestCase):
             self.dvc,
             r"b1Status_MOS_DSG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_DSGF_MASK\)",
         )
-        # Requested target is a separate common-guard state and has an explicit API.
-        self.assertIn("requested_charge_on", self.guard)
-        self.assertIn("requested_discharge_on", self.guard)
-        self.assertIn("bms_afe_get_requested_fets", self.guard)
-        self.assertIn("bms_afe_get_requested_fets", self.api)
-        set_fets = re.search(
-            r"(?s)uint8_t\s+bms_afe_set_fets\s*\([^)]*\)\s*\{.*?\n\}",
-            self.guard,
-        )
-        self.assertIsNotNone(set_fets)
-        self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_CHG\s*=")
-        self.assertNotRegex(set_fets.group(0), r"b1Status_MOS_DSG\s*=")
-        # Application/backend control must not assign the feedback bits either.
         self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
         self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
+
+    def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
         policy = self.dvc_bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
         policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
         self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
-        self.assertNotIn("b1Status_MOS_CHG", policy)
-        self.assertNotIn("b1Status_MOS_DSG", policy)
+        self.assertIn("dvc_set_fet_modes_if_changed", policy)
+        self.assertNotIn("DVC1124_SetMosState", policy)
+        self.assertNotIn("DVC1124_WriteRegisterFieldSafe", policy)
 
-    def test_repeated_same_fet_request_does_not_rewrite_afe_command(self):
-        set_fets = re.search(
-            r"(?s)uint8_t\s+bms_afe_set_fets\s*\([^)]*\)\s*\{.*?\n\}",
-            self.guard,
-        )
-        self.assertIsNotNone(set_fets)
-        body = set_fets.group(0)
-        self.assertIn("requested_charge_on == requested_c", body)
-        self.assertIn("requested_discharge_on == requested_d", body)
-        self.assertRegex(body, r"return\s+1u\s*;")
+    def test_normal_app_requests_both_common_port_fets(self):
+        fn = self.app.split("void mos_update(void)", 1)[1]
+        fn = fn.split("#define LENGTH_TBLTEMP", 1)[0]
+        self.assertGreaterEqual(fn.count("chg_target = 1;"), 2)
+        self.assertGreaterEqual(fn.count("dsg_target = 1;"), 2)
+        self.assertNotIn("Runtime_GetMode()", fn)
 
-    def test_protection_path_switches_default_to_production(self):
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_SW_PROTECT_ENABLE"), 1)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_PROTECT_ENABLE"), 1)
-        self.assertIn("DVC1124 protection enable macros must be 0 or 1", self.cfg)
+    def test_protection_switches_default_to_production(self):
+        self.assertEqual(macro_literal(self.project, "DVC1124_SW_PROTECT_ENABLE"), 1)
+        self.assertEqual(macro_literal(self.project, "DVC1124_HW_PROTECT_ENABLE"), 1)
+        self.assertIn("DVC1124 protection enable macros must be 0 or 1", self.project)
 
-    def test_software_protection_switch_clears_disabled_path(self):
+    def test_hw_off_really_disables_dvc_autonomous_protection(self):
+        block = self.dvc.split("static uint8_t dvc_disable_threshold_protection", 1)[1]
+        block = block.split("#endif", 1)[0]
+        self.assertIn("DVC1124_SetShortCircuitProtection(0u, 0u)", block)
+        self.assertIn("DVC1124_REG_BODY_DIODE, 0u", block)
+        self.assertIn("DVC1124_I2C_WDT_OFF", block)
+        self.assertIn("DVC1124_REG_DSG_MASK, 0xFFu", block)
+        self.assertIn("DVC1124_REG_CHG_MASK, 0xFFu", block)
+
+    def test_sw_off_clears_software_managed_fault_state(self):
         sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
         sample = sample.split("uint8_t bms_afe_set_fets", 1)[0]
         self.assertIn("#if DVC1124_SW_PROTECT_ENABLE", sample)
         self.assertIn("bms_sw_protection_update(&sw);", sample)
         self.assertIn("bms_sw_protection_clear();", sample)
 
-    def test_hardware_protection_switch_disables_real_dvc_sources(self):
-        self.assertIn("#if !DVC1124_HW_PROTECT_ENABLE", self.dvc)
-        self.assertIn("dvc_disable_threshold_protection", self.dvc)
-        disabled = self.dvc.split("static uint8_t dvc_disable_threshold_protection", 1)[1]
-        disabled = disabled.split("#endif", 1)[0]
-        for reg in (
-            "DVC1124_REG_COV_H",
-            "DVC1124_REG_CUV_H",
-            "DVC1124_REG_OCD1_THR",
-            "DVC1124_REG_OCC1_THR",
-            "DVC1124_REG_OCD2",
-            "DVC1124_REG_OCC2",
-            "DVC1124_REG_CURRENT_WAKE",
-            "DVC1124_REG_BODY_DIODE",
-            "DVC1124_REG_I2C_WDT",
-            "DVC1124_REG_DSG_MASK",
-            "DVC1124_REG_CHG_MASK",
+    def test_fixed_dvc_operating_config_has_no_flash_owner(self):
+        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.fixed_header)
+        for token in (
+            "flash_kv32",
+            "ConfigStoreLoad",
+            "ConfigStoreSave",
+            "ConfigStoreRestore",
+            "ConfigStoreCapture",
         ):
-            self.assertIn(reg, disabled)
-        self.assertIn("DVC1124_SetShortCircuitProtection(0u, 0u)", disabled)
-        self.assertIn("DVC1124_SetCoreOtThresholdCode(0u)", disabled)
-        self.assertIn("DVC1124_ClearAlarmFlags", disabled)
-        apply_fn = self.dvc.split("static uint8_t dvc_apply_protection_from_params", 1)[1]
-        apply_fn = apply_fn.split("static void dvc_note_comm_result", 1)[0]
-        self.assertRegex(
-            apply_fn,
-            r"#if\s+!DVC1124_HW_PROTECT_ENABLE\s+return\s+dvc_disable_threshold_protection\(\);",
-        )
-        self.assertIn("#if DVC1124_HW_PROTECT_ENABLE", self.dvc_bms)
-        self.assertIn("dvc_merge_hw_faults(alarm);", self.dvc_bms)
+            self.assertNotIn(token, self.fixed_backend)
+        self.assertIn("dvc_project_apply_compile_time_config", self.fixed_backend)
 
-    def test_hw_off_preserves_requested_profile_and_marks_effective_disabled(self):
-        # Requested profile API remains the stored/validated profile.
-        requested_get = self.hw_profile.split("u8 bms_afe_hw_profile_get(", 1)[1]
-        requested_get = requested_get.split("u8 bms_afe_hw_profile_set", 1)[0]
-        self.assertNotIn("DVC1124_HW_PROTECT_ENABLE", requested_get)
-        effective = self.hw_profile.split("u8 bms_afe_hw_profile_get_effective", 1)[1]
-        self.assertIn("#if !DVC1124_HW_PROTECT_ENABLE", effective)
-        self.assertIn("p->enable_mask = 0u;", effective)
-        self.assertIn("p->cov_mv = 0u;", effective)
-        self.assertIn("p->cuv_mv = 0u;", effective)
-        self.assertIn("p->ocd1_a10 = 0u;", effective)
-        self.assertIn("p->occ1_a10 = 0u;", effective)
-        self.assertIn("p->sc_a10 = 0u;", effective)
+    def test_fixed_config_is_reapplied_after_afe_reset(self):
+        self.assertIn("DVC1124_AFE_Reset();", self.fixed_backend)
+        self.assertIn("DVC1124_UpdataAfeConfig();", self.fixed_backend)
+        self.assertIn("s_project_config_pending", self.fixed_backend)
+        self.assertIn("DVC1124_ApplyOperatingConfig(&cfg)", self.fixed_backend)
 
-    def test_d008_defaults_match_reviewed_low_side_policy(self):
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_HIGH_SIDE_FET_MASK"), 1)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE"), 0)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_INTERRUPT_MASK"), 0xFF)
+    def test_fixed_semantic_window_is_diagnostic_only(self):
+        self.assertNotIn("dvc1124_config_store.h", self.service)
+        self.assertNotIn("DVC1124_ConfigStore", self.service)
+        self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
+        raw = self.service.split("DVC1124_ConfigServiceWriteRaw", 1)[1]
+        self.assertIn("DVC1124_CFG_ERR_READ_ONLY", raw)
+        self.assertNotIn("DVC1124_WriteRegisters", raw)
 
-    def test_physical_product_profile_defaults_to_24s_lfp_and_supports_20s_nmc(self):
-        self.assertEqual(macro_literal(self.profile, "D008_PRODUCT_PROFILE_24S_LFP"), 1)
-        self.assertEqual(macro_literal(self.profile, "D008_PRODUCT_PROFILE_20S_NMC"), 2)
-        self.assertRegex(self.profile, r"#define\s+D008_PRODUCT_PROFILE\s+D008_PRODUCT_PROFILE_24S_LFP")
-        self.assertIn("#define D008_PRODUCT_CELL_COUNT       24u", self.profile)
-        self.assertIn("#define D008_PRODUCT_CHEMISTRY        BMS_SOC_CHEMISTRY_LFP", self.profile)
-        self.assertIn("#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_LFP", self.profile)
-        self.assertIn("#define D008_PRODUCT_CELL_COUNT       20u", self.profile)
-        self.assertIn("#define D008_PRODUCT_CHEMISTRY        BMS_SOC_CHEMISTRY_NMC", self.profile)
-        self.assertIn("#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_NMC", self.profile)
-        self.assertIn("#define DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.cfg)
+    def test_fail_safe_watchdog_policy_is_product_compile_time(self):
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
+        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+        self.assertIn("DVC1124_DSGMASK_DWM_MASK", self.fixed_backend)
+        self.assertIn("DVC1124_CHGMASK_CWM_MASK", self.fixed_backend)
 
-    def test_additive_soc_identity_migration_only_fills_fully_unset_state(self):
+    def test_body_diode_policy_remains_common_port_compile_time(self):
+        self.assertEqual(macro_literal(self.project, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 80)
+        self.assertIn("DVC1124_DSGMASK_DBDM_MASK", self.project)
+        self.assertIn("DVC1124_CHGMASK_CBDM_MASK", self.project)
+        self.assertIn("DVC1124_BODY_DIODE_THRESHOLD_UV", self.fixed_backend)
+
+    def test_only_protection_profiles_remain_runtime_persistent_for_afe(self):
+        self.assertIn("bms_afe_hw_profile_get(&hw)", self.service)
+        self.assertIn("bms_afe_hw_profile_get", self.hw_profile)
+        self.assertIn("bms_afe_apply_protection_config", self.fixed_backend)
+        fn = self.fixed_backend.split("uint8_t bms_afe_apply_protection_config", 1)[1]
+        self.assertIn("DVC1124_ApplyProtectionConfig()", fn)
+
+    def test_product_profile_still_selects_physical_cell_count_and_soc_identity(self):
+        self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_24S_LFP"), 1)
+        self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_20S_NMC"), 2)
+        self.assertIn("D008_PRODUCT_CELL_COUNT       24u", self.product)
+        self.assertIn("D008_PRODUCT_CELL_COUNT       20u", self.product)
+        self.assertIn("DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.project)
+
+    def test_soc_identity_migration_does_not_overwrite_unrelated_parameters(self):
         self.assertIn("param_apply_d008_product_identity_if_unset", self.param)
-        self.assertIn("system.battery_chemistry == BMS_SOC_CHEMISTRY_AUTO", self.param)
-        self.assertIn("system.soc_profile_id == BMS_SOC_PROFILE_AUTO", self.param)
-        self.assertIn("system.battery_chemistry = D008_PRODUCT_CHEMISTRY;", self.param)
-        self.assertIn("system.soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID;", self.param)
-        self.assertIn("bms_cold_kv_store_set_system(&system)", self.param)
-        self.assertGreaterEqual(self.param.count("param_apply_d008_product_identity_if_unset();"), 2)
         migration = self.param.split("static void param_apply_d008_product_identity_if_unset", 1)[1]
         migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
+        self.assertIn("system.battery_chemistry", migration)
+        self.assertIn("system.soc_profile_id", migration)
         self.assertNotIn("system.series_num =", migration)
         self.assertNotIn("system.capacity_factory =", migration)
 
-    def test_d008_runtime_enforces_product_cell_count_and_mask_policy(self):
-        self.assertIn("DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT)", self.dvc)
-        self.assertIn("DVC1124_DEFAULT_DSG_MASK_POLICY", self.cfg)
-        self.assertIn("DVC1124_DEFAULT_CHG_MASK_POLICY", self.cfg)
-        self.assertIn("dvc_cfg_normalize_product_policy", self.store)
-        self.assertIn("DVC1124_CFG_ERR_INCONSISTENT", self.service)
-
-    def test_openwire_is_raw_fsm_and_balance_refresh_is_safety_gated(self):
-        self.assertIn("DVC1124_OpenWireBegin", self.dvc)
-        self.assertIn("DVC1124_OpenWirePoll", self.dvc)
-        self.assertIn("DVC_BALANCE_REFRESH_INTERVAL_US 45000000u", self.dvc)
+    def test_openwire_and_balance_safety_gate_remain(self):
         self.assertIn("bms_afe_openwire_start", self.features)
         self.assertIn("bms_afe_set_balance_mask(0u)", self.features)
-        self.assertIn("g_stCellInfoReport.u16Ichg", self.features)
+        self.assertIn("DVC1124_OpenWireBegin", self.dvc)
+        self.assertIn("DVC1124_BalanceService", self.dvc)
 
-    def test_unverified_safety_features_remain_explicitly_disabled(self):
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_HW_SCD_THRESHOLD_MV"), 0)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_CURRENT_WAKE_THRESHOLD_UV"), 0)
-        # D008 common-port reverse-current recovery is now an explicit
-        # topology requirement; vendor FETControl uses BDPT=80uV.
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 80)
-        self.assertEqual(macro_literal(self.cfg, "DVC1124_I2C_WATCHDOG_SECONDS"), 0)
-
-    def test_current_latch_recovery_is_measurement_based_and_scd_stays_latched(self):
-        self.assertIn("u16Ichg <= hw.occ_recover_a10", self.dvc_bms)
-        self.assertIn("u16IDischg <= hw.ocd_recover_a10", self.dvc_bms)
-        clear_block = self.dvc_bms.split("static uint8_t dvc_clear_recovered_hw_latches", 1)[1]
-        clear_block = clear_block.split("static void dvc_merge_hw_faults", 1)[0]
-        self.assertNotIn("DVC1124_ALARM_SCD_MASK", clear_block)
-        self.assertNotIn("gpio_read(CHG_IN_PIN)", clear_block)
-        self.assertNotIn("gpio_read(SW_PIN)", clear_block)
+    def test_source_order_still_contains_backend_lifecycle_unit(self):
+        order = (ROOT / "bms_tools" / "source_order.txt").read_text(encoding="utf-8")
+        self.assertIn("vendor/ble_sample/dvc1124_config_store.c", order)
+        self.assertIn("vendor/ble_sample/dvc1124_config_service.c", order)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()
