@@ -5,6 +5,8 @@ on:
     branches:
       - refactor/bms-template-phase1
       - refactor/d008-bms-phase2
+      - refactor/d008-common-bms-features
+      - feature/sh3673510-d013-bmsdvc
       - ci-telink-bms-github-actions
   pull_request:
     branches:
@@ -43,6 +45,8 @@ jobs:
         run: python tests/d008_framework_contract_check.py
       - name: Run unified software protection contract check
         run: python tests/sw_protection_contract_check.py
+      - name: Run common heater/balance/open-wire contract check
+        run: python tests/common_feature_policy_contract_check.py
       - name: Run independent AFE hardware profile contract check
         run: python tests/afe_hw_profile_contract_check.py
       - name: Run SOC profile/algorithm contract check
@@ -50,7 +54,7 @@ jobs:
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/sw_protection_contract_check.py tests/afe_hw_profile_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
 
   tc32-production:
     name: TC32 production build
@@ -72,6 +76,9 @@ jobs:
       - name: Run independent AFE hardware profile contract check
         shell: powershell
         run: python tests/afe_hw_profile_contract_check.py
+      - name: Run common heater/balance/open-wire contract check
+        shell: powershell
+        run: python tests/common_feature_policy_contract_check.py
       - name: Clean rebuild with TC32
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4
