@@ -13,6 +13,20 @@ extern uint32_t g_u32CS_Res_AFE;
 
 UINT32 u32_ChgCur_mA = 0;
 UINT32 u32_DsgCur_mA = 0;
+
+#define BOOT_CURRENT_ZERO_SAMPLE_COUNT       8u
+#define BOOT_CURRENT_ZERO_SETTLE_MS          50u
+#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS 20u
+
+/*
+ * Boot-only signed CADC zero offset. It is captured before either CHG/DSG MOS
+ * is enabled and retained across deep-retention wakeups. It is never learned
+ * again during normal operation.
+ */
+_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRaw = 0;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroValid = 0u;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroAttempted = 0u;
+
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
 
@@ -1321,14 +1335,90 @@ void test_Autocurrent_cycle(void)
     }
 }
 #endif
+static UINT16 DataLoad_CurrentApplyBootZero(UINT16 raw)
+{
+    INT32 corrected;
+
+    if (!g_u8BootCurrentZeroValid)
+    {
+        return raw;
+    }
+
+    corrected = (INT32)(INT16)raw - g_i32BootCurrentZeroRaw;
+    if (corrected > 32767)
+    {
+        corrected = 32767;
+    }
+    else if (corrected < -32768)
+    {
+        corrected = -32768;
+    }
+
+    return (UINT16)(INT16)corrected;
+}
+
+UINT8 DataLoad_BootCurrentZeroCapture(void)
+{
+    sh367309_ram_t ram_snapshot;
+    INT32 raw_sum = 0;
+    UINT8 i;
+
+    /* One attempt per real power-on. Never retry after MOS operation starts. */
+    if (g_u8BootCurrentZeroAttempted)
+    {
+        return g_u8BootCurrentZeroValid;
+    }
+
+    g_u8BootCurrentZeroAttempted = 1u;
+    g_u8BootCurrentZeroValid = 0u;
+    g_i32BootCurrentZeroRaw = 0;
+
+    /* Let CADC settle after CTL-C/MOS are forced off by user_init_normal(). */
+    Delay1ms(BOOT_CURRENT_ZERO_SETTLE_MS);
+
+    for (i = 0u; i < BOOT_CURRENT_ZERO_SAMPLE_COUNT; ++i)
+    {
+        Feed_IWatchDog;
+
+        if (!sh309_i2c_read_with_crc(AFE_ID, SH309_RAM_START_ADDR, SH309_RAM_LEN, (u8 *)&ram_snapshot))
+        {
+            log_i("[BOOT][CUR_ZERO] AFE read failed\n");
+            return 0u;
+        }
+
+        /*
+         * Hard requirement: every calibration sample must be taken while the
+         * actual charge and discharge FET states reported by the AFE are OFF.
+         */
+        if (ram_snapshot.REG_BSTATUS3.bits.CHG_FET || ram_snapshot.REG_BSTATUS3.bits.DSG_FET)
+        {
+            log_i("[BOOT][CUR_ZERO] MOS is not off, calibration rejected\n");
+            return 0u;
+        }
+
+        raw_sum += (INT32)(INT16)U16_SwapEndian(ram_snapshot.Cadc);
+
+        if ((i + 1u) < BOOT_CURRENT_ZERO_SAMPLE_COUNT)
+        {
+            Delay1ms(BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS);
+        }
+    }
+
+    g_i32BootCurrentZeroRaw = raw_sum / (INT32)BOOT_CURRENT_ZERO_SAMPLE_COUNT;
+    g_u8BootCurrentZeroValid = 1u;
+    log_i("[BOOT][CUR_ZERO] raw offset=%d\n", g_i32BootCurrentZeroRaw);
+    return 1u;
+}
+
 void DataLoad_Current(void)
 {
+    UINT16 current_raw = DataLoad_CurrentApplyBootZero(SH367309_Read_AFE1.u16Current);
     // if ((SH367309_Read_AFE1.u16Current & 0x1000) == 0)
-    if ((SH367309_Read_AFE1.u16Current & 0x8000) == 0)
+    if ((current_raw & 0x8000) == 0)
     {
         // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 榛樿浣跨敤200mV鐨勮绠楁柟寮�
         // u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)SH367309_Read_AFE1.u16Current);
-        u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * g_u32CS_Res_AFE / (21470);
+        u32_ChgCur_mA = (UINT32)current_raw * 200 * g_u32CS_Res_AFE / (21470);
         // t_i32temp = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
         log_i("******************************************\n");
@@ -1341,7 +1431,7 @@ void DataLoad_Current(void)
         // u32_DsgCur_mA = (UINT32)(0xFFFF - (SH367309_Read_AFE1.u16Current | 0xE000) + 1) * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // mA
         // u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * 200 * g_u32CS_Res_AFE / (21470); // mA
         // u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1)); // mA
-        u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
+        u32_DsgCur_mA = (UINT32)(0xFFFF - current_raw + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
 
         log_i("******************************************\n");
         log_i("AFE value->%d\n", u32_DsgCur_mA);
