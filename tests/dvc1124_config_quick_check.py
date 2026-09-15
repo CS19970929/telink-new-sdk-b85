@@ -67,10 +67,11 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         cls.service = read("dvc1124_config_service.c")
         cls.service_hdr = read("dvc1124_config_service.h")
 
-    def test_product_fail_safe_defaults_are_compile_time(self):
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
-        self.assertEqual(macro_literal(self.product, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+    def test_project_fail_safe_defaults_are_compile_time(self):
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_WATCHDOG_SECONDS"), 4)
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_TIMEOUT_CLOSE_CHG"), 1)
+        self.assertEqual(macro_literal(self.project, "DVC1124_I2C_TIMEOUT_CLOSE_DSG"), 1)
+        self.assertNotIn("DVC1124_I2C_WATCHDOG_SECONDS", self.product)
 
     def test_project_config_keeps_body_diode_and_mask_policy_named(self):
         self.assertEqual(macro_literal(self.project, "DVC1124_BODY_DIODE_THRESHOLD_UV"), 80)
