@@ -34,11 +34,13 @@ static uint8_t major_fault(void)
 static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
-    if (on != s_feature.heater_on) {
-        bms_board_heater_set(on);
-        s_feature.heater_on = on;
-    }
-    g_bms_system_status.bits.b1Status_Heat = s_feature.heater_on;
+    /* Write the physical output every feature cycle. During migration the SH
+     * backend still contains its old local heater policy; the common policy is
+     * authoritative and must overwrite any legacy write before final FET
+     * arbitration. Once the legacy block is deleted this remains harmless. */
+    bms_board_heater_set(on);
+    s_feature.heater_on = on;
+    g_bms_system_status.bits.b1Status_Heat = on;
 }
 
 static void service_heater(const bms_afe_feature_snapshot_t *s)
@@ -71,8 +73,11 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
 
     if (s_feature.heater_on) {
         if (s->battery_temp_min_x10 >= BMS_HEATER_STOP_TEMP_X10) set_heater(0u);
+        else set_heater(1u);
     } else if (s->battery_temp_min_x10 < BMS_HEATER_START_TEMP_X10) {
         set_heater(1u);
+    } else {
+        set_heater(0u);
     }
 }
 
