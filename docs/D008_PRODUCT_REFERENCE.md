@@ -53,8 +53,6 @@
 | PC0 | `SDA` | DVC I2C SDA | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
 | PC1 | `SCL` | DVC I2C SCL | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
 | PC2 | `OWC-TX` | `OWC_TX_PIN` | One-wire/UART 业务网络 | 已对照；具体复用状态由 bus mux 控制 |
-| PC3 | `OWC-RX` | DVC I2C SCL | `i2c_gpio_set(I2C_GPIO_GROUP_C0C1)` | 已对照 |
-| PC2 | `OWC-TX` | `OWC_TX_PIN` | One-wire/UART 业务网络 | 已对照；具体复用状态由 bus mux 控制 |
 | PC3 | `OWC-RX` | `OWC_RX_PIN` | One-wire/UART 业务网络 | 已对照 |
 | PC4 | `MCU-LDO` | `MCU_LDO_PIN` | 当前 `conf.h` 定义 | 网络已对照；本文不推断其上电时序 |
 | PD3 | `SOC100` | `SOC100_PIN` | 当前 `conf.h` 定义 | 原理图/代码网络已对照 |
