@@ -44,6 +44,7 @@ class D008FrameworkContract(unittest.TestCase):
         cls.store = read(HERE / "dvc1124_config_store.c")
         cls.service = read(HERE / "dvc1124_config_service.c")
         cls.features = read(HERE / "bms_features.c")
+        cls.app = read(HERE / "app.c")
 
     def test_compile_time_backend_defaults_to_dvc1124(self):
         self.assertIn("BMS_AFE_BACKEND_DVC1124", self.backend)
@@ -70,8 +71,6 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("s_guard.reinit_cooldown", self.guard)
         self.assertRegex(self.guard, r"AFE_(?:BACKEND_)?INIT\s*\(\s*\)\s*;")
         # A reinit remains inhibited; only the valid-snapshot streak releases it.
-        # The guard is intentionally compact/minified, so locate the function by
-        # semantic boundaries instead of depending on a newline before its final brace.
         invalid_fn = re.search(
             r"(?s)static\s+void\s+(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\([^)]*\).*?(?=void\s+bms_afe_init\s*\()",
             self.guard,
@@ -88,6 +87,43 @@ class D008FrameworkContract(unittest.TestCase):
             self.guard,
             r"(?s)bms_afe_apply_protection_config\s*\([^)]*\).*?if\s*\(\s*!ok\s*\).*?(?:bms_afe_guard_note_invalid_snapshot|note_invalid)\s*\(\s*\)",
         )
+
+    def test_mos_status_is_afe_feedback_not_software_request(self):
+        # Legacy/report MOS bits must come from a successful DVC R6 sample only.
+        self.assertRegex(
+            self.dvc,
+            r"b1Status_MOS_CHG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_CHGF_MASK\)",
+        )
+        self.assertRegex(
+            self.dvc,
+            r"b1Status_MOS_DSG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_DSGF_MASK\)",
+        )
+        # Requested target is a separate common-guard state and has an explicit API.
+        self.assertIn("requested_charge_on", self.guard)
+        self.assertIn("requested_discharge_on", self.guard)
+        self.assertIn("bms_afe_get_requested_fets", self.guard)
+        self.assertIn("bms_afe_get_requested_fets", self.api)
+        set_fets = re.search(
+            r"(?s)uint8_t\s+bms_afe_set_fets\s*\([^)]*\)\s*\{.*?\n\}",
+            self.guard,
+        )
+        self.assertIsNotNone(set_fets)
+        self.assertNotIn("b1Status_MOS_CHG", set_fets.group(0))
+        self.assertNotIn("b1Status_MOS_DSG", set_fets.group(0))
+        # Application may compare feedback to target, but it must not assign the feedback bits.
+        self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
+        self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
+
+    def test_repeated_same_fet_request_does_not_rewrite_afe_command(self):
+        set_fets = re.search(
+            r"(?s)uint8_t\s+bms_afe_set_fets\s*\([^)]*\)\s*\{.*?\n\}",
+            self.guard,
+        )
+        self.assertIsNotNone(set_fets)
+        body = set_fets.group(0)
+        self.assertIn("requested_charge_on == requested_c", body)
+        self.assertIn("requested_discharge_on == requested_d", body)
+        self.assertRegex(body, r"return\s+1u\s*;")
 
     def test_d008_defaults_match_reviewed_low_side_policy(self):
         self.assertEqual(macro_literal(self.cfg, "DVC1124_DEFAULT_HIGH_SIDE_FET_MASK"), 1)
