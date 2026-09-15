@@ -34,11 +34,9 @@ static uint8_t major_fault(void)
 static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
-    if (on != s_feature.heater_on) {
-        bms_board_heater_set(on);
-        s_feature.heater_on = on;
-    }
-    g_bms_system_status.bits.b1Status_Heat = s_feature.heater_on;
+    bms_board_heater_set(on);
+    s_feature.heater_on = on;
+    g_bms_system_status.bits.b1Status_Heat = on;
 }
 
 static void service_heater(const bms_afe_feature_snapshot_t *s)
@@ -67,8 +65,11 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         bms_error_get(BMS_ERROR_TEMP_BREAK)) { set_heater(0u); return; }
     if (s_feature.heater_on) {
         if (s->battery_temp_min_x10 >= BMS_HEATER_STOP_TEMP_X10) set_heater(0u);
+        else set_heater(1u);
     } else if (s->battery_temp_min_x10 < BMS_HEATER_START_TEMP_X10) {
         set_heater(1u);
+    } else {
+        set_heater(0u);
     }
 }
 
@@ -101,18 +102,11 @@ static void service_openwire(void)
     }
     if (s_feature.openwire_cooldown_samples != 0u) { --s_feature.openwire_cooldown_samples; return; }
     if (!openwire_eligible()) { s_feature.openwire_idle_samples = 0u; return; }
-    if (s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES) {
-        ++s_feature.openwire_idle_samples; return;
-    }
+    if (s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES) { ++s_feature.openwire_idle_samples; return; }
     (void)bms_afe_set_balance_mask(0u);
     s_feature.balance_requested_mask = 0u;
-    if (bms_afe_openwire_start()) {
-        s_feature.openwire_active = 1u;
-        s_feature.openwire_idle_samples = 0u;
-    } else {
-        s_feature.openwire_idle_samples = 0u;
-        s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
-    }
+    if (bms_afe_openwire_start()) { s_feature.openwire_active = 1u; s_feature.openwire_idle_samples = 0u; }
+    else { s_feature.openwire_idle_samples = 0u; s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES; }
 }
 
 static void publish_balance(uint32_t mask)
@@ -127,15 +121,12 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
     uint16_t threshold;
     uint32_t desired = 0u, effective = 0u;
     uint8_t i;
-    if (s != 0 && s->valid && !s_feature.openwire_active && !s_feature.heater_on &&
-        !major_fault() && g_stCellInfoReport.u16Ichg != 0u) {
+    if (s != 0 && s->valid && !s_feature.openwire_active && !s_feature.heater_on && !major_fault() && g_stCellInfoReport.u16Ichg != 0u) {
         threshold = g_tParam.protect.u16VdeltaOvp_First;
         if (threshold != 0u && g_stCellInfoReport.u16VCellDelta >= threshold) {
             for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i) {
                 uint16_t cell = g_stCellInfoReport.u16VCell[i];
-                if (cell >= g_stCellInfoReport.u16VCellMin &&
-                    (uint16_t)(cell - g_stCellInfoReport.u16VCellMin) >= threshold)
-                    desired |= (1uL << i);
+                if (cell >= g_stCellInfoReport.u16VCellMin && (uint16_t)(cell - g_stCellInfoReport.u16VCellMin) >= threshold) desired |= (1uL << i);
             }
         }
     }
@@ -163,9 +154,7 @@ void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t snapshot;
     memset(&snapshot, 0, sizeof(snapshot));
-    if (!bms_afe_get_feature_snapshot(&snapshot) || !snapshot.valid) {
-        bms_features_on_afe_invalid(); return;
-    }
+    if (!bms_afe_get_feature_snapshot(&snapshot) || !snapshot.valid) { bms_features_on_afe_invalid(); return; }
     service_heater(&snapshot);
     service_openwire();
     service_balance(&snapshot);
