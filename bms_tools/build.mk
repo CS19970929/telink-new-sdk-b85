@@ -59,6 +59,11 @@ DEFINES := \
 	-D__PROJECT_8258_BLE_SAMPLE__=1 \
 	-DCHIP_TYPE=CHIP_TYPE_825x
 
+# Optional CI/bench-only compile-time overrides. Empty by default, so the
+# production build remains exactly on the reviewed project configuration.
+# bms.py only populates this from BMS_EXTRA_DEFINES when explicitly requested.
+EXTRA_DEFINES ?=
+
 # ---- Compile flags (EXACT match to Eclipse-generated subdir.mk) ----------
 CFLAGS_BASE := \
 	-ffunction-sections -fdata-sections \
@@ -70,7 +75,7 @@ CFLAGS_BASE := \
 # the canonical command is `tc32-elf-gcc -DMCU_STARTUP_8258 -c`).
 AFLAGS_BASE := -DMCU_STARTUP_8258
 
-CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES)
+CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES) $(EXTRA_DEFINES)
 AFLAGS := $(AFLAGS_BASE)
 
 # ---- Link flags (exact match to Eclipse makefile + objects.mk) -------------
