@@ -19,10 +19,13 @@ vendor/ble_sample/SocEnhance.c
 vendor/ble_sample/app.c
 vendor/ble_sample/app_att.c
 vendor/ble_sample/ble_ota.c
+vendor/ble_sample/bms_afe_guard.c
 vendor/ble_sample/bms_afe_hw_access.c
 vendor/ble_sample/bms_afe_hw_profile.c
+vendor/ble_sample/bms_board.c
 vendor/ble_sample/bms_cold_kv_store.c
 vendor/ble_sample/bms_event_log.c
+vendor/ble_sample/bms_features.c
 vendor/ble_sample/bms_state.c
 vendor/ble_sample/bms_sw_protection.c
 vendor/ble_sample/btname_modbus.c
@@ -40,6 +43,7 @@ vendor/ble_sample/param.c
 vendor/ble_sample/runtime.c
 vendor/ble_sample/sh3673510_bms.c
 vendor/ble_sample/sh3673510_control.c
+vendor/ble_sample/sh3673510_feature_backend.c
 vendor/ble_sample/sh3673520.c
 vendor/ble_sample/sh3673520_port.c
 vendor/ble_sample/sif_send.c
