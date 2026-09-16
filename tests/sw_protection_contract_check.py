@@ -43,6 +43,19 @@ for forbidden in ("DVC1124_", "SH3673510_", "SH3673520_", "gpio_", "ReadReg", "W
 if "p->u16SocUp_" in source:
     raise AssertionError("legacy SOC protection must remain out until semantics are specified")
 
+# Battery OTP/UTP and MOS OTP have different sensor ownership. One invalid NTC
+# must not erase the other sensor's protection filters/fault state.
+for token in (
+    "if (inputs->battery_temp_valid)",
+    "if (inputs->mos_temp_valid)",
+    "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_MOS_OT])",
+    "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT])",
+):
+    if token not in source:
+        raise AssertionError(f"independent temperature validity missing: {token}")
+if "if (temp_valid)" in source:
+    raise AssertionError("battery and MOS temperature protections must not share one combined validity gate")
+
 if "BMS_AFE_BACKEND_DVC1124" in backend and "#define BMS_AFE_BACKEND BMS_AFE_BACKEND_DVC1124" in backend:
     dvc = (HERE / "dvc1124_bms.c").read_text(encoding="utf-8", errors="ignore")
     for token in ("bms_sw_protection_update(&sw);", "dvc_merge_hw_faults(alarm);", "bms_sw_protection_record_fault_edges();"):

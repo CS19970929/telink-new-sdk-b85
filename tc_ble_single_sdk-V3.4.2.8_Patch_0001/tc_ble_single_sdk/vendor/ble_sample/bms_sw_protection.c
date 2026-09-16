@@ -233,12 +233,16 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
 {
     const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
     uint8_t level;
-    uint8_t temp_valid;
 
     if (inputs == 0) return;
-    temp_valid = (inputs->battery_temp_valid && inputs->mos_temp_valid) ? 1u : 0u;
-    if (temp_valid) bms_error_clear(BMS_ERROR_TEMP_BREAK);
-    else bms_error_raise(BMS_ERROR_TEMP_BREAK);
+
+    /* Sensor-break handling remains fail-safe at the system level, but each
+     * temperature protection group is evaluated only from the sensor it owns.
+     * A missing MOS NTC must not erase battery OTP/UTP state, and vice versa. */
+    if (inputs->battery_temp_valid && inputs->mos_temp_valid)
+        bms_error_clear(BMS_ERROR_TEMP_BREAK);
+    else
+        bms_error_raise(BMS_ERROR_TEMP_BREAK);
 
     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)
     {
@@ -281,7 +285,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
             g_stCellInfoReport.u16IDischg, trip, p->u16IdsgOcp_Rcv,
             p->u16IdsgOcp_Filter, BMS_SW_HIGH);
 
-        if (temp_valid)
+        if (inputs->battery_temp_valid)
         {
             trip = bms_sw_level_value(level, p->u16TChgOTp_First,
                                       p->u16TChgOTp_Second, p->u16TChgOTp_Third);
@@ -306,7 +310,21 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
             f->bits.b1CellDischgUtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_UT],
                 inputs->battery_temp_min, trip, p->u16TdischgUTp_Rcv,
                 p->u16TdischgUTp_Filter, BMS_SW_LOW);
+        }
+        else
+        {
+            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT]);
+            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_UT]);
+            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_OT]);
+            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_UT]);
+            f->bits.b1CellChgOtp = 0u;
+            f->bits.b1CellChgUtp = 0u;
+            f->bits.b1CellDischgOtp = 0u;
+            f->bits.b1CellDischgUtp = 0u;
+        }
 
+        if (inputs->mos_temp_valid)
+        {
             trip = bms_sw_level_value(level, p->u16TmosOTp_First,
                                       p->u16TmosOTp_Second, p->u16TmosOTp_Third);
             f->bits.b1TmosOtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_MOS_OT],
@@ -315,15 +333,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
         }
         else
         {
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_UT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_OT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_UT]);
             bms_sw_filter_reset(&s_filter[level][BMS_SW_F_MOS_OT]);
-            f->bits.b1CellChgOtp = 0u;
-            f->bits.b1CellChgUtp = 0u;
-            f->bits.b1CellDischgOtp = 0u;
-            f->bits.b1CellDischgUtp = 0u;
             f->bits.b1TmosOtp = 0u;
         }
 

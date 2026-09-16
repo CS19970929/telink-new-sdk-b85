@@ -34,6 +34,35 @@ static uint8_t dvc_configured_ntc_valid(const dvc1124_snapshot_t *snapshot,
     return (snapshot->ntc_res_ohm[index] != 0u) ? 1u : 0u;
 }
 
+static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
+{
+    if (sw == 0) return;
+
+    /*
+     * D008 temperature has one owner: DVC1124 GP measurement/conversion.
+     * Keep legacy report slots populated from that same engineering value so
+     * existing Modbus/upper-computer readers do not need a second NTC lookup.
+     *
+     * ENV_TEMP3 (index 8) is retained only as the historical battery-temperature
+     * mirror. MOS_TEMP1 (index 9) is the existing realtime MOS-temperature slot.
+     */
+    g_stCellInfoReport.u16Temperature[ENV_TEMP3] =
+        sw->battery_temp_valid ? sw->battery_temp_max : 0u;
+    g_stCellInfoReport.u16Temperature[MOS_TEMP1] =
+        sw->mos_temp_valid ? sw->mos_temp : 0u;
+
+    if (sw->battery_temp_valid)
+    {
+        g_stCellInfoReport.u16TempMin = sw->battery_temp_min;
+        g_stCellInfoReport.u16TempMax = sw->battery_temp_max;
+    }
+    else
+    {
+        g_stCellInfoReport.u16TempMin = 0u;
+        g_stCellInfoReport.u16TempMax = 0u;
+    }
+}
+
 #if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
 {
@@ -241,12 +270,10 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
 void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
-#if DVC1124_SW_PROTECT_ENABLE
     dvc1124_config_t cfg;
     bms_sw_protection_inputs_t sw;
     uint16_t battery_temp;
     uint16_t mos_temp;
-#endif
 #if DVC1124_HW_PROTECT_ENABLE
     uint8_t alarm;
 #endif
@@ -255,7 +282,6 @@ void DVC1124_BmsApp_AFEGet(void)
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return;
 
-#if DVC1124_SW_PROTECT_ENABLE
     DVC1124_GetConfig(&cfg);
     memset(&sw, 0, sizeof(sw));
     battery_temp = dvc_get_configured_temperature(cfg.battery_ntc_gp);
@@ -265,6 +291,11 @@ void DVC1124_BmsApp_AFEGet(void)
     sw.battery_temp_min = battery_temp;
     sw.battery_temp_max = battery_temp;
     sw.mos_temp = mos_temp;
+
+    /* Measurement/reporting remains active in every protection-isolation mode. */
+    dvc_publish_temperature_report(&sw);
+
+#if DVC1124_SW_PROTECT_ENABLE
     bms_sw_protection_update(&sw);
 #else
     /* Match D011/D013 isolation semantics: disabling the SW path also clears
@@ -332,7 +363,7 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
             dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
     }
 
-    /* Preserve the existing divider quantization used by the safety monitor. */
+    /* Legacy diagnostic representation only; no MCU ADC is used here. */
     pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
     if (pack_adc_mv > 3299u) pack_adc_mv = 3299u;
     measurements->pack_voltage_mv = (pack_adc_mv * 485u) / 15u;

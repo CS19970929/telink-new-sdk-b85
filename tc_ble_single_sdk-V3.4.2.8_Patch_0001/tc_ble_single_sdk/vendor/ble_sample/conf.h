@@ -12,7 +12,6 @@
 // #define __VIRTURE_CURRENT__
 // #define FAC_TEST
 // #define DISP_VBAT_AND_TEMP_
-#define _UL_RENZHENG_ENABLE_
 // #define __TEST_SOC__
 
 #define _FUNC_SIF_

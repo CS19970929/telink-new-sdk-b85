@@ -40,6 +40,7 @@ class D008FrameworkContract(unittest.TestCase):
         cls.features = read("bms_features.c")
         cls.param = read("param.c")
         cls.app = read("app.c")
+        cls.conf = read("conf.h")
         cls.hw_profile = read("bms_afe_hw_profile.c")
 
     def test_backend_defaults_to_dvc1124(self):
@@ -96,10 +97,33 @@ class D008FrameworkContract(unittest.TestCase):
 
     def test_normal_app_requests_both_common_port_fets(self):
         fn = self.app.split("void mos_update(void)", 1)[1]
-        fn = fn.split("#define LENGTH_TBLTEMP", 1)[0]
+        fn = fn.split("static void board_init", 1)[0]
         self.assertGreaterEqual(fn.count("chg_target = 1;"), 2)
         self.assertGreaterEqual(fn.count("dsg_target = 1;"), 2)
         self.assertNotIn("Runtime_GetMode()", fn)
+
+    def test_app_has_no_legacy_mcu_adc_or_cert_temperature_path(self):
+        self.assertNotIn("app_adc_multi_sample", self.app)
+        self.assertNotIn("iSheldTemp_10K_mcu", self.app)
+        self.assertNotIn("battery_check.h", self.app)
+        self.assertNotIn("user_battery_power_check", self.app)
+        self.assertNotIn("battery_clear_adc_setting_flag", self.app)
+        self.assertNotIn("_UL_RENZHENG_ENABLE_", self.app)
+        self.assertNotIn("_UL_RENZHENG_ENABLE_", self.conf)
+        self.assertNotIn("BMS_FAULT_MOS_OTP_THIRD", self.app)
+        self.assertIn("gpio_write(RF_EN_PIN, 0);", self.app)
+
+    def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
+        sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
+        sample = sample.split("uint8_t bms_afe_set_fets", 1)[0]
+        self.assertIn("battery_temp = dvc_get_configured_temperature", sample)
+        self.assertIn("mos_temp = dvc_get_configured_temperature", sample)
+        self.assertIn("dvc_publish_temperature_report(&sw);", sample)
+        self.assertIn("bms_sw_protection_update(&sw);", sample)
+        self.assertIn("u16Temperature[ENV_TEMP3]", self.dvc_bms)
+        self.assertIn("u16Temperature[MOS_TEMP1]", self.dvc_bms)
+        self.assertIn("u16TempMin = sw->battery_temp_min", self.dvc_bms)
+        self.assertIn("u16TempMax = sw->battery_temp_max", self.dvc_bms)
 
     def test_protection_switches_default_to_production(self):
         self.assertEqual(macro_literal(self.project, "DVC1124_SW_PROTECT_ENABLE"), 1)
@@ -121,6 +145,8 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("#if DVC1124_SW_PROTECT_ENABLE", sample)
         self.assertIn("bms_sw_protection_update(&sw);", sample)
         self.assertIn("bms_sw_protection_clear();", sample)
+        self.assertLess(sample.index("dvc_publish_temperature_report(&sw);"),
+                        sample.index("#if DVC1124_SW_PROTECT_ENABLE"))
 
     def test_fixed_dvc_operating_config_has_no_flash_owner(self):
         self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.fixed_header)
