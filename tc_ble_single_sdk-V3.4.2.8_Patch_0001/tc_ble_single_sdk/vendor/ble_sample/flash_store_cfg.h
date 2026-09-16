@@ -8,162 +8,79 @@
 u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #endif
 
-#define FLASH_SECTOR_SIZE                      4096u
-#define FLASH_PAGE_SIZE                        256u
+#define FLASH_SECTOR_SIZE                 4096u
+#define FLASH_PAGE_SIZE                   256u
 
-/*
- * Historical compatibility anchors that remain documented on purpose:
- * - PARAM_ADDR still points at the old top-of-flash parameter base.
- * - Legacy btname single-sector bases stay here as explicit vacant regions.
- */
-#define FLASH_ADDR_SOFT_PROTECT_BASE           0x78000u
+/* Storage V1 persistent domains. Old KV/runtime data is intentionally not migrated. */
+#define FLASH_ADDR_EVENT_SECTORS          8u
+#define FLASH_ADDR_STATE_SECTORS          8u
+#define FLASH_ADDR_CONFIG_SECTORS         4u
+#define FLASH_ADDR_FACTORY_SECTORS        2u
 
-#define FLASH_ADDR_RUNTIME_SECTORS             2u
-#define FLASH_ADDR_RUN_KV_SECTORS              8u
-#define FLASH_ADDR_LOG_SECTORS                 8u
-#define FLASH_ADDR_AFE_CFG_KV_SECTORS          4u
-#define RUNTIME_FLAG                           0xA5A5u
+#define FLASH_ADDR_LAYOUT_512K_EVENT_BASE    0x40000u
+#define FLASH_ADDR_LAYOUT_512K_STATE_BASE    0x53000u
+#define FLASH_ADDR_LAYOUT_512K_CONFIG_BASE   0x5B000u
+#define FLASH_ADDR_LAYOUT_512K_FACTORY_BASE  0x5F000u
 
-#define FLASH_ADDR_LAYOUT_512K_BTNAME_BASE           0x50000u
-#define FLASH_ADDR_LAYOUT_512K_RUNTIME_BASE          0x51000u
-#define FLASH_ADDR_LAYOUT_512K_RUN_KV_BASE           0x53000u
-#define FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT          0x5B000u
-#define FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE       0x5F000u
-#define FLASH_ADDR_LAYOUT_512K_LOG_BASE              0x40000u
+#define FLASH_ADDR_LAYOUT_1M_EVENT_BASE      0xC7000u
+#define FLASH_ADDR_LAYOUT_1M_STATE_BASE      0xB0000u
+#define FLASH_ADDR_LAYOUT_1M_CONFIG_BASE     0xB8000u
+#define FLASH_ADDR_LAYOUT_1M_FACTORY_BASE    0xBC000u
 
-#define FLASH_ADDR_LAYOUT_1M_BTNAME_BASE             0xC0000u
-#define FLASH_ADDR_LAYOUT_1M_RUNTIME_BASE            0xC1000u
-#define FLASH_ADDR_LAYOUT_1M_RUN_KV_BASE             0xB0000u
-#define FLASH_ADDR_LAYOUT_1M_SOFT_PROTECT            0xB8000u
-#define FLASH_ADDR_LAYOUT_1M_AFE_CFG_KV_BASE         0xBC000u
-#define FLASH_ADDR_LAYOUT_1M_LOG_BASE                0xC7000u
+#define FLASH_ADDR_LAYOUT_2M_EVENT_BASE      0x1C7000u
+#define FLASH_ADDR_LAYOUT_2M_STATE_BASE      0x1B0000u
+#define FLASH_ADDR_LAYOUT_2M_CONFIG_BASE     0x1B8000u
+#define FLASH_ADDR_LAYOUT_2M_FACTORY_BASE    0x1BC000u
 
-#define FLASH_ADDR_LAYOUT_2M_BTNAME_BASE             0x1C0000u
-#define FLASH_ADDR_LAYOUT_2M_RUNTIME_BASE            0x1C1000u
-#define FLASH_ADDR_LAYOUT_2M_RUN_KV_BASE             0x1B0000u
-#define FLASH_ADDR_LAYOUT_2M_SOFT_PROTECT            0x1B8000u
-#define FLASH_ADDR_LAYOUT_2M_AFE_CFG_KV_BASE         0x1BC000u
-#define FLASH_ADDR_LAYOUT_2M_LOG_BASE                0x1C7000u
+/* param.h still exports PARAM_ADDR; runtime persistence must never use it directly. */
+#define FLASH_ADDR_SOFT_PROTECT_BASE         FLASH_ADDR_LAYOUT_512K_CONFIG_BASE
 
 static inline int flash_store_cfg_layout_supported(void)
 {
 #if (BLE_OTA_SERVER_ENABLE)
     u32 multi_boot_addr = blc_ota_getCurrentUsedMultipleBootAddress();
-
     if ((blc_flash_capacity == FLASH_SIZE_512K) &&
-        (multi_boot_addr != MULTI_BOOT_ADDR_0x20000)) {
-        return 0;
-    }
-
+        (multi_boot_addr != MULTI_BOOT_ADDR_0x20000)) return 0;
 #if (MCU_CORE_TYPE == MCU_CORE_827x || MCU_CORE_TYPE == MCU_CORE_TC321X)
     if ((blc_flash_capacity == FLASH_SIZE_1M) &&
-        (multi_boot_addr == MULTI_BOOT_ADDR_0x80000)) {
-        return 0;
-    }
+        (multi_boot_addr == MULTI_BOOT_ADDR_0x80000)) return 0;
 #endif
 #endif
     return 1;
 }
 
-static inline u32 flash_store_cfg_get_runtime_base(void)
+static inline u32 flash_store_cfg_get_state_base(void)
 {
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_RUNTIME_BASE;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_RUNTIME_BASE;
-    }
-    return FLASH_ADDR_LAYOUT_512K_RUNTIME_BASE;
+    if (!flash_store_cfg_layout_supported()) return 0u;
+    if (blc_flash_capacity == FLASH_SIZE_1M) return FLASH_ADDR_LAYOUT_1M_STATE_BASE;
+    if (blc_flash_capacity == FLASH_SIZE_2M) return FLASH_ADDR_LAYOUT_2M_STATE_BASE;
+    return FLASH_ADDR_LAYOUT_512K_STATE_BASE;
 }
+static inline u16 flash_store_cfg_get_state_sectors(void) { return FLASH_ADDR_STATE_SECTORS; }
 
-static inline u16 flash_store_cfg_get_runtime_sectors(void)
+static inline u32 flash_store_cfg_get_config_base(void)
 {
-    return FLASH_ADDR_RUNTIME_SECTORS;
+    if (!flash_store_cfg_layout_supported()) return 0u;
+    if (blc_flash_capacity == FLASH_SIZE_1M) return FLASH_ADDR_LAYOUT_1M_CONFIG_BASE;
+    if (blc_flash_capacity == FLASH_SIZE_2M) return FLASH_ADDR_LAYOUT_2M_CONFIG_BASE;
+    return FLASH_ADDR_LAYOUT_512K_CONFIG_BASE;
 }
+static inline u16 flash_store_cfg_get_config_sectors(void) { return FLASH_ADDR_CONFIG_SECTORS; }
 
-static inline u32 flash_store_cfg_get_soc_kv_base(void)
+static inline u32 flash_store_cfg_get_factory_base(void)
 {
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_RUN_KV_BASE;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_RUN_KV_BASE;
-    }
-    return FLASH_ADDR_LAYOUT_512K_RUN_KV_BASE;
+    if (!flash_store_cfg_layout_supported()) return 0u;
+    if (blc_flash_capacity == FLASH_SIZE_1M) return FLASH_ADDR_LAYOUT_1M_FACTORY_BASE;
+    if (blc_flash_capacity == FLASH_SIZE_2M) return FLASH_ADDR_LAYOUT_2M_FACTORY_BASE;
+    return FLASH_ADDR_LAYOUT_512K_FACTORY_BASE;
 }
-
-static inline u16 flash_store_cfg_get_soc_kv_sectors(void)
-{
-    return FLASH_ADDR_RUN_KV_SECTORS;
-}
-
-static inline u32 flash_store_cfg_get_cold_kv_base(void)
-{
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_SOFT_PROTECT;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_SOFT_PROTECT;
-    }
-    return FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT;
-}
-
-/*
- * DVC1124 semantic AFE configuration store.
- *
- * The four sectors immediately after the cold parameter store are kept as an
- * independent KV journal so AFE operating fields can evolve without changing
- * the legacy BMS parameter layout. COV/CUV/OCD/OCC remain owned by g_tParam and
- * are therefore intentionally not duplicated in this region.
- */
-static inline u32 flash_store_cfg_get_afe_cfg_kv_base(void)
-{
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_AFE_CFG_KV_BASE;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_AFE_CFG_KV_BASE;
-    }
-    return FLASH_ADDR_LAYOUT_512K_AFE_CFG_KV_BASE;
-}
-
-static inline u16 flash_store_cfg_get_afe_cfg_kv_sectors(void)
-{
-    return FLASH_ADDR_AFE_CFG_KV_SECTORS;
-}
+static inline u16 flash_store_cfg_get_factory_sectors(void) { return FLASH_ADDR_FACTORY_SECTORS; }
 
 static inline u32 flash_store_cfg_get_event_log_base(void)
 {
-    if (!flash_store_cfg_layout_supported()) {
-        return 0u;
-    }
-
-    if (blc_flash_capacity == FLASH_SIZE_1M) {
-        return FLASH_ADDR_LAYOUT_1M_LOG_BASE;
-    }
-    if (blc_flash_capacity == FLASH_SIZE_2M) {
-        return FLASH_ADDR_LAYOUT_2M_LOG_BASE;
-    }
-    return FLASH_ADDR_LAYOUT_512K_LOG_BASE;
+    if (!flash_store_cfg_layout_supported()) return 0u;
+    if (blc_flash_capacity == FLASH_SIZE_1M) return FLASH_ADDR_LAYOUT_1M_EVENT_BASE;
+    if (blc_flash_capacity == FLASH_SIZE_2M) return FLASH_ADDR_LAYOUT_2M_EVENT_BASE;
+    return FLASH_ADDR_LAYOUT_512K_EVENT_BASE;
 }
-
-static inline u16 flash_store_cfg_get_event_log_sectors(void)
-{
-    return FLASH_ADDR_LOG_SECTORS;
-}
+static inline u16 flash_store_cfg_get_event_log_sectors(void) { return FLASH_ADDR_EVENT_SECTORS; }

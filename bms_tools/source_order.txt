@@ -23,10 +23,12 @@ vendor/ble_sample/bms_afe_guard.c
 vendor/ble_sample/bms_afe_hw_access.c
 vendor/ble_sample/bms_afe_hw_profile.c
 vendor/ble_sample/bms_board.c
-vendor/ble_sample/bms_cold_kv_store.c
+vendor/ble_sample/bms_config_store.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/bms_features.c
 vendor/ble_sample/bms_state.c
+vendor/ble_sample/bms_state_store.c
+vendor/ble_sample/bms_storage_platform_telink.c
 vendor/ble_sample/bms_sw_protection.c
 vendor/ble_sample/btname_modbus.c
 vendor/ble_sample/bus_mux.c
@@ -35,7 +37,6 @@ vendor/ble_sample/dvc1124_bms.c
 vendor/ble_sample/dvc1124_config_service.c
 vendor/ble_sample/dvc1124_config_store.c
 vendor/ble_sample/dvc1124_special.c
-vendor/ble_sample/flash_kv32.c
 vendor/ble_sample/main.c
 vendor/ble_sample/modbus_rtu.c
 vendor/ble_sample/modbus_uart.c
@@ -47,7 +48,7 @@ vendor/ble_sample/sh3673510_feature_backend.c
 vendor/ble_sample/sh3673520.c
 vendor/ble_sample/sh3673520_port.c
 vendor/ble_sample/sif_send.c
-vendor/ble_sample/soc_kv_store.c
+vendor/ble_sample/storage_record.c
 drivers/B85/adc.c
 drivers/B85/aes.c
 drivers/B85/analog.c

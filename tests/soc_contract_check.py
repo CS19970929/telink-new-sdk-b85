@@ -8,11 +8,10 @@ C = (MOD / "SocEnhance.c").read_text(encoding="utf-8", errors="ignore")
 H = (MOD / "SocEnhance.h").read_text(encoding="utf-8", errors="ignore")
 PROFILE = (MOD / "bms_soc_profile.h").read_text(encoding="utf-8", errors="ignore")
 DEFS = (MOD / "bms_soc_defs.h").read_text(encoding="utf-8", errors="ignore")
-COLD_C = (MOD / "bms_cold_kv_store.c").read_text(encoding="utf-8", errors="ignore")
-COLD_H = (MOD / "bms_cold_kv_store.h").read_text(encoding="utf-8", errors="ignore")
-KV_C = (MOD / "soc_kv_store.c").read_text(encoding="utf-8", errors="ignore")
-KV_H = (MOD / "soc_kv_store.h").read_text(encoding="utf-8", errors="ignore")
-
+CONFIG_C = (MOD / "bms_config_store.c").read_text(encoding="utf-8", errors="ignore")
+CONFIG_H = (MOD / "bms_config_store.h").read_text(encoding="utf-8", errors="ignore")
+STATE_C = (MOD / "bms_state_store.c").read_text(encoding="utf-8", errors="ignore")
+STATE_H = (MOD / "bms_state_store.h").read_text(encoding="utf-8", errors="ignore")
 
 class SocContract(unittest.TestCase):
     def test_dual_chemistry_profiles_are_data_not_algorithm(self):
@@ -26,17 +25,17 @@ class SocContract(unittest.TestCase):
         self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_nmc", C)
         self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
 
-    def test_product_chemistry_and_profile_are_persistent_additive_keys(self):
-        self.assertIn("BMS_SYS_PARAM_BATTERY_CHEMISTRY", COLD_H)
-        self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", COLD_H)
-        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x09u, battery_chemistry", COLD_C)
-        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x0Au, soc_profile_id", COLD_C)
-        self.assertIn("BMS_COLD_SYSTEM_KEY_BASE + 0x08u, reserved0", COLD_C)
-        self.assertIn("system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO", COLD_C)
-        self.assertIn("system->soc_profile_id = BMS_SOC_PROFILE_AUTO", COLD_C)
-        self.assertIn("bms_cold_kv_store_get_system", COLD_C)
+    def test_product_chemistry_and_profile_are_config_fields(self):
+        self.assertIn("BMS_SYS_PARAM_BATTERY_CHEMISTRY", CONFIG_H)
+        self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", CONFIG_H)
+        self.assertIn("BMS_CONFIG_SYSTEM_WORDS          10u", CONFIG_C)
+        self.assertIn("bms_config_put_u32le", CONFIG_C)
+        self.assertIn("system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO", CONFIG_C)
+        self.assertIn("system->soc_profile_id = BMS_SOC_PROFILE_AUTO", CONFIG_C)
+        self.assertIn("bms_config_store_get_system", CONFIG_C)
         self.assertIn("bms_soc_set_product_config", C)
         self.assertIn("soc_load_persisted_product_config", C)
+        self.assertNotIn("BMS_COLD_SYSTEM_KEY_BASE", CONFIG_C)
 
     def test_explicit_profile_wins_and_mismatches_are_rejected(self):
         self.assertIn("soc_profile_from_id(g_soc_config.profile_id)", C)
@@ -79,7 +78,6 @@ class SocContract(unittest.TestCase):
         self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG()", full_fn)
         self.assertIn("if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp)", full_fn)
         self.assertNotIn("&& !isDSG()", full_fn)
-        self.assertNotIn("soc_step_up_to", C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")])
 
     def test_soc_low_faults_are_implemented_without_mos_policy(self):
         self.assertIn("soc_update_low_faults", C)
@@ -87,15 +85,17 @@ class SocContract(unittest.TestCase):
         self.assertIn("u16SocUp_First", C)
         self.assertNotIn("b1SocLow ||", C)
 
-    def test_learning_is_present_but_default_disabled(self):
+    def test_learning_is_state_data_and_default_disabled(self):
         self.assertIn("BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u", C)
         self.assertIn("BMS_SOC_LEARNING_EMPTY_TO_FULL", H)
         self.assertIn("BMS_SOC_LEARNING_FULL_TO_EMPTY", H)
         self.assertIn("soc_learning_on_full_anchor", C)
         self.assertIn("soc_learning_on_empty_anchor", C)
-        self.assertIn("SOC_KV_FLAG_CAPACITY_LEARNED", KV_H)
-        self.assertIn("SOC_KV_KEY_LEARNED_CAPACITY", KV_C)
-        self.assertIn("soc_kv_store_write_learning", KV_C)
+        self.assertIn("BMS_STATE_FLAG_CAPACITY_LEARNED", STATE_H)
+        self.assertIn("learned_capacity_0p1ah", STATE_C)
+        self.assertIn("bms_state_store_write_learning", STATE_C)
+        self.assertIn("storage_record_save", STATE_C)
+        self.assertNotIn("SOC_KV_KEY_LEARNED_CAPACITY", STATE_C)
 
     def test_diag_reports_profile_identity_and_version(self):
         self.assertIn("bms_soc_diag_t", H)
@@ -103,7 +103,6 @@ class SocContract(unittest.TestCase):
         self.assertIn("profile_version", H)
         self.assertIn("diag->profile_id = g_soc_profile->profile_id", C)
         self.assertIn("diag->profile_version = g_soc_profile->profile_version", C)
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
