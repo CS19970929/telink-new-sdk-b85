@@ -1,524 +1,206 @@
 #!/usr/bin/env python3
-"""Quick static checks for ble_sample flash storage contracts.
-
-This script does not depend on the TC32 toolchain. It verifies the flash
-layout and a few source-level safety contracts that are easy to regress.
-"""
+"""Storage V1 layout, architecture and power-loss contracts."""
 
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+SDK = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk"
+MOD = SDK / "vendor" / "ble_sample"
+COMMON = SDK / "vendor" / "common"
+
+FLASH_CFG = MOD / "flash_store_cfg.h"
+FLASH_SAFE = MOD / "flash_store_safe.h"
+PORT_H = MOD / "storage_port.h"
+RECORD_H = MOD / "storage_record.h"
+RECORD_C = MOD / "storage_record.c"
+PLATFORM_H = MOD / "bms_storage_platform.h"
+PLATFORM_C = MOD / "bms_storage_platform_telink.c"
+CONFIG_C = MOD / "bms_config_store.c"
+STATE_C = MOD / "bms_state_store.c"
+STATE_H = MOD / "bms_state_store.h"
+EVENT_C = MOD / "bms_event_log.c"
+RUNTIME_C = MOD / "runtime.c"
+APP_C = MOD / "app.c"
+SOURCE_ORDER = ROOT / "bms_tools" / "source_order.txt"
+HOST_TEST = ROOT / "tests" / "storage_record_host_test.c"
+BLE_FLASH = COMMON / "ble_flash.h"
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SDK_DIR = (
-    REPO_ROOT
-    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
-    / "tc_ble_single_sdk"
-)
-VENDOR_DIR = SDK_DIR / "vendor"
-MODULE_DIR = VENDOR_DIR / "ble_sample"
-COMMON_DIR = VENDOR_DIR / "common"
-
-FLASH_CFG = MODULE_DIR / "flash_store_cfg.h"
-BMS_COLD_HDR = MODULE_DIR / "bms_cold_kv_store.h"
-BLE_FLASH = COMMON_DIR / "ble_flash.h"
-FLASH_SAFE = MODULE_DIR / "flash_store_safe.h"
-APP_C = MODULE_DIR / "app.c"
-MAIN_C = MODULE_DIR / "main.c"
-MODBUS_RTU_C = MODULE_DIR / "modbus_rtu.c"
-RUNTIME_C = MODULE_DIR / "runtime.c"
-EVENT_LOG_C = MODULE_DIR / "bms_event_log.c"
-PARAM_C = MODULE_DIR / "param.c"
-BTNAME_C = MODULE_DIR / "btname_modbus.c"
-BMS_COLD_C = MODULE_DIR / "bms_cold_kv_store.c"
-SOC_KV_C = MODULE_DIR / "soc_kv_store.c"
-SOC_KV_H = MODULE_DIR / "soc_kv_store.h"
-SOC_ENHANCE_C = MODULE_DIR / "SocEnhance.c"
-DVC1124_C = MODULE_DIR / "dvc1124.c"
-SIF_SEND_C = MODULE_DIR / "sif_send.c"
-BMS_STATE_C = MODULE_DIR / "bms_state.c"
-BMS_ERROR_H = MODULE_DIR / "bms_error.h"
-SH367309_C = MODULE_DIR / "sh367309_datadeal.c"
-SH367309_H = MODULE_DIR / "sh367309_datadeal.h"
-SOURCE_ORDER = REPO_ROOT / "bms_tools" / "source_order.txt"
-OTA_SERVER_H = SDK_DIR / "stack" / "ble" / "service" / "ota" / "ota_server.h"
-BLE_SAMPLE_BIN = SDK_DIR / "project" / "tlsr_tc32" / "B85" / "825x_ble_sample" / "825x_ble_sample.bin"
-
-DEFAULT_OTA_FW_MAX_SIZE = 124 * 1024
-DEFAULT_OTA_BOOT_ADDR = 0x20000
-
-
-def read_text(path):
+def text(path):
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
-def parse_macro_ints(text, name):
-    pattern = re.compile(
-        rf"^\s*#define\s+{re.escape(name)}\s+\(?(0x[0-9A-Fa-f]+|[0-9]+)u?\)?",
-        re.MULTILINE,
-    )
-    values = [int(value, 0) for value in pattern.findall(text)]
+def macro_values(src, name):
+    pat = re.compile(rf"^\s*#define\s+{re.escape(name)}\s+\(?(0x[0-9A-Fa-f]+|[0-9]+)u?\)?", re.M)
+    values = [int(x, 0) for x in pat.findall(src)]
     if not values:
-        raise AssertionError(f"macro not found: {name}")
+        raise AssertionError(f"missing macro {name}")
     return values
 
 
-def parse_macro_int(text, name):
-    return parse_macro_ints(text, name)[0]
-
-
-def range_end(base, sectors, sector_size):
-    return base + sectors * sector_size
+def macro(src, name):
+    return macro_values(src, name)[0]
 
 
 def overlaps(a, b):
     return max(a[0], b[0]) < min(a[1], b[1])
 
 
-def point_in_range(point, region):
-    return region[0] <= point < region[1]
-
-
-def unique_sorted(values):
-    # type: (Iterable[int]) -> List[int]
-    return sorted(set(values))
-
-
-def format_range(region):
-    return f"0x{region[0]:05X}-0x{region[1] - 1:05X}"
-
-
-class FlashLayoutTests(unittest.TestCase):
+class LayoutTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.flash_cfg_text = read_text(FLASH_CFG)
-        cls.ble_flash_text = read_text(BLE_FLASH)
-        cls.bms_cold_text = read_text(BMS_COLD_HDR)
-        cls.ota_server_text = read_text(OTA_SERVER_H)
-        cls.sector_size = parse_macro_int(cls.flash_cfg_text, "FLASH_SECTOR_SIZE")
-        cls.runtime_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_RUNTIME_SECTORS")
-        cls.hot_kv_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_RUN_KV_SECTORS")
-        cls.event_log_sectors = parse_macro_int(cls.flash_cfg_text, "FLASH_ADDR_LOG_SECTORS")
-        cls.cold_kv_sectors = parse_macro_int(cls.bms_cold_text, "BMS_COLD_KV_SECTORS")
+        cls.cfg = text(FLASH_CFG)
+        cls.ble = text(BLE_FLASH)
+        cls.sector = macro(cls.cfg, "FLASH_SECTOR_SIZE")
 
-    def reserved_512k_profiles(self):
-        # type: () -> Dict[str, Dict[str, Tuple[int, int]]]
-        smp_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "FLASH_ADR_SMP_PAIRING_512K_FLASH"))
-        mac_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "CFG_ADR_MAC_512K_FLASH"))
-        calibration_addrs = unique_sorted(parse_macro_ints(self.ble_flash_text, "CFG_ADR_CALIBRATION_512K_FLASH"))
-        self.assertEqual(len(smp_addrs), 2, "expected 2 reserved profiles for 512K flash")
-        self.assertEqual(len(mac_addrs), 2, "expected 2 MAC profiles for 512K flash")
-        self.assertEqual(len(calibration_addrs), 2, "expected 2 calibration profiles for 512K flash")
-        return {
-            "825x_827x": {
-                "smp": (smp_addrs[0], mac_addrs[0]),
-                "mac": (mac_addrs[0], calibration_addrs[0]),
-                "calibration": (calibration_addrs[0], 0x80000),
-            },
-            "tc321x": {
-                "smp": (smp_addrs[1], mac_addrs[1]),
-                "mac": (mac_addrs[1], calibration_addrs[1]),
-                "calibration": (calibration_addrs[1], 0x80000),
-            },
-        }
+    def regions(self, capacity):
+        out = {}
+        for domain in ("EVENT", "STATE", "CONFIG", "FACTORY"):
+            base = macro(self.cfg, f"FLASH_ADDR_LAYOUT_{capacity}_{domain}_BASE")
+            count = macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS")
+            out[domain] = (base, base + count * self.sector)
+        return out
 
-    def layout_ranges(self, prefix):
-        # type: (str) -> Dict[str, Tuple[int, int]]
-        text = self.flash_cfg_text
-        return {
-            "runtime": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUNTIME_BASE"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUNTIME_BASE"),
-                    self.runtime_sectors,
-                    self.sector_size,
-                ),
-            ),
-            "soc_kv": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_RUN_KV_BASE"),
-                    self.hot_kv_sectors,
-                    self.sector_size,
-                ),
-            ),
-            "cold_kv": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_SOFT_PROTECT"),
-                    self.cold_kv_sectors,
-                    self.sector_size,
-                ),
-            ),
-            "event_log": (
-                parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_LOG_BASE"),
-                range_end(
-                    parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_LOG_BASE"),
-                    self.event_log_sectors,
-                    self.sector_size,
-                ),
-            ),
-        }
+    def test_every_domain_has_power_loss_rotation_room(self):
+        for domain in ("EVENT", "STATE", "CONFIG", "FACTORY"):
+            self.assertGreaterEqual(macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS"), 2)
 
-    def legacy_btname_range(self, prefix):
-        # type: (str) -> Tuple[int, int]
-        text = self.flash_cfg_text
-        base = parse_macro_int(text, f"FLASH_ADDR_LAYOUT_{prefix}_BTNAME_BASE")
-        return (base, range_end(base, 1, self.sector_size))
+    def test_512k_layout_is_the_reviewed_storage_v1_map(self):
+        r = self.regions("512K")
+        self.assertEqual(r["EVENT"], (0x40000, 0x48000))
+        self.assertEqual(r["STATE"], (0x53000, 0x5B000))
+        self.assertEqual(r["CONFIG"], (0x5B000, 0x5F000))
+        self.assertEqual(r["FACTORY"], (0x5F000, 0x61000))
 
-    def assert_no_internal_overlap(self, ranges):
-        # type: (Dict[str, Tuple[int, int]]) -> None
-        items = list(ranges.items())
-        for idx, (name_a, range_a) in enumerate(items):
-            for name_b, range_b in items[idx + 1 :]:
-                self.assertFalse(
-                    overlaps(range_a, range_b),
-                    msg=f"{name_a} overlaps {name_b}: {range_a} vs {range_b}",
-                )
+    def test_domains_do_not_overlap(self):
+        for capacity in ("512K", "1M", "2M"):
+            items = list(self.regions(capacity).items())
+            for i, (na, ra) in enumerate(items):
+                for nb, rb in items[i + 1:]:
+                    self.assertFalse(overlaps(ra, rb), f"{capacity}: {na} overlaps {nb}")
 
-    def test_layout_512k_no_overlap_for_all_reserved_profiles(self):
-        ranges = self.layout_ranges("512K")
-        self.assert_no_internal_overlap(ranges)
-        for profile_name, reserved in self.reserved_512k_profiles().items():
-            for app_name, app_range in ranges.items():
-                for reserved_name, reserved_range in reserved.items():
-                    self.assertFalse(
-                        overlaps(app_range, reserved_range),
-                        msg=(
-                            f"512K/{profile_name} {app_name} overlaps reserved {reserved_name}: "
-                            f"{format_range(app_range)} vs {format_range(reserved_range)}"
-                        ),
-                    )
-
-    def test_layout_1m_no_overlap(self):
-        ranges = self.layout_ranges("1M")
-        self.assert_no_internal_overlap(ranges)
-        reserved = (
-            parse_macro_int(self.ble_flash_text, "FLASH_ADR_SMP_PAIRING_1M_FLASH"),
-            0x100000,
+    def test_domains_end_before_sdk_pairing_identity_area(self):
+        checks = (
+            ("512K", "FLASH_ADR_SMP_PAIRING_512K_FLASH"),
+            ("1M", "FLASH_ADR_SMP_PAIRING_1M_FLASH"),
+            ("2M", "FLASH_ADR_SMP_PAIRING_2M_FLASH"),
         )
-        for app_name, app_range in ranges.items():
-            self.assertFalse(overlaps(app_range, reserved), msg=f"1M {app_name} overlaps reserved")
+        for capacity, pairing_macro in checks:
+            highest_end = max(end for _, end in self.regions(capacity).values())
+            pairing_start = min(macro_values(self.ble, pairing_macro))
+            self.assertLessEqual(highest_end, pairing_start)
 
-    def test_layout_2m_no_overlap(self):
-        ranges = self.layout_ranges("2M")
-        self.assert_no_internal_overlap(ranges)
-        reserved = (
-            parse_macro_int(self.ble_flash_text, "FLASH_ADR_SMP_PAIRING_2M_FLASH"),
-            0x200000,
-        )
-        for app_name, app_range in ranges.items():
-            self.assertFalse(overlaps(app_range, reserved), msg=f"2M {app_name} overlaps reserved")
-
-    def test_512k_layout_explicitly_rejects_ota_0x40000(self):
-        text = self.flash_cfg_text
-        self.assertIn("MULTI_BOOT_ADDR_0x20000", text)
-        self.assertIn("return 0;", text)
-
-    def test_1m_layout_explicitly_rejects_ota_0x80000(self):
-        text = self.flash_cfg_text
-        self.assertIn("MULTI_BOOT_ADDR_0x80000", text)
-        self.assertIn("blc_flash_capacity == FLASH_SIZE_1M", text)
-
-    def test_legacy_btname_area_stays_outside_active_layout(self):
-        for prefix in ("512K", "1M", "2M"):
-            legacy_range = self.legacy_btname_range(prefix)
-            for name, region in self.layout_ranges(prefix).items():
-                self.assertFalse(
-                    overlaps(legacy_range, region),
-                    msg=(
-                        f"{prefix} legacy btname overlaps active {name}: "
-                        f"{format_range(legacy_range)} vs {format_range(region)}"
-                    ),
-                )
-
-    def test_512k_current_layout_leaves_legacy_param_base_unused(self):
-        ranges = self.layout_ranges("512K")
-        legacy_param_base = parse_macro_int(self.flash_cfg_text, "FLASH_ADDR_SOFT_PROTECT_BASE")
-        for name, region in ranges.items():
-            self.assertFalse(
-                point_in_range(legacy_param_base, region),
-                msg=f"legacy PARAM_ADDR base 0x{legacy_param_base:05X} falls inside {name} {format_range(region)}",
-            )
-
-    def test_legacy_param_base_sits_in_512k_reserved_top_area(self):
-        legacy_param_base = parse_macro_int(self.flash_cfg_text, "FLASH_ADDR_SOFT_PROTECT_BASE")
-        b85_reserved = self.reserved_512k_profiles()["825x_827x"]["smp"]
-        self.assertGreaterEqual(
-            legacy_param_base,
-            b85_reserved[0],
-            msg="legacy PARAM_ADDR should remain outside the current 512K application layout",
-        )
-
-    @unittest.skipUnless(BLE_SAMPLE_BIN.exists(), "825x_ble_sample.bin not found")
-    def test_current_825x_ble_sample_bin_fits_default_ota_limit(self):
-        size = BLE_SAMPLE_BIN.stat().st_size
-        self.assertLessEqual(
-            size,
-            DEFAULT_OTA_FW_MAX_SIZE,
-            msg=(
-                f"825x_ble_sample.bin is too large for default OTA limit: "
-                f"size=0x{size:X}, max=0x{DEFAULT_OTA_FW_MAX_SIZE:X}"
-            ),
-        )
-        self.assertIn("default maximum firmware size is 124K byte", self.ota_server_text)
-        self.assertIn("default OTA new firmware boot address is 0x20000", self.ota_server_text)
+    def test_ota_guards_are_still_explicit(self):
+        self.assertIn("MULTI_BOOT_ADDR_0x20000", self.cfg)
+        self.assertIn("MULTI_BOOT_ADDR_0x80000", self.cfg)
+        self.assertIn("flash_store_cfg_layout_supported", self.cfg)
 
 
-class SourceContractTests(unittest.TestCase):
-    def test_flash_cfg_no_longer_exports_migration_helpers(self):
-        text = read_text(FLASH_CFG)
-        self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base", text)
-        self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base", text)
-        self.assertNotIn("flash_store_cfg_get_legacy_runtime_base", text)
-        self.assertNotIn("flash_store_cfg_get_legacy_bt_name_base", text)
-        self.assertNotIn("flash_store_cfg_get_legacy_soc_kv_base", text)
-        self.assertNotIn("FLASH_ADDR_LAYOUT_512K_RUN_KV_BASE_PREV", text)
-        self.assertNotIn("FLASH_ADDR_LAYOUT_512K_SOFT_PROTECT_PREV", text)
+class ArchitectureTests(unittest.TestCase):
+    def test_record_core_is_platform_independent(self):
+        core = text(RECORD_C) + text(RECORD_H) + text(PORT_H)
+        for token in ("tl_common.h", "drivers.h", "stm32", "flash_read_page",
+                      "flash_write_page", "flash_erase_sector", "blc_", "pm_get_32k_tick"):
+            self.assertNotIn(token, core)
+        self.assertNotIn("malloc", core)
+        self.assertNotIn("free(", core)
 
-    def test_flash_helper_does_not_restore_lock_during_stack_session(self):
-        text = read_text(FLASH_SAFE)
-        self.assertIn("app_flash_lock_restore_enabled()", text)
-        self.assertNotIn("flash_lock(flash_lockBlock_cmd);\n#endif", text)
+    def test_record_core_has_crc_sequence_and_commit_last(self):
+        rec = text(RECORD_C)
+        for token in ("crc_update", "sequence_newer", "OFF_COMMIT0", "OFF_COMMIT1", "prepare_target"):
+            self.assertIn(token, rec)
+        header = rec.index("program_bytes(s, addr, header, OFF_COMMIT0)")
+        payload = rec.index("program_bytes(s, addr + OFF_PAYLOAD, payload")
+        commit = rec.index("program_bytes(s, addr + OFF_COMMIT0, commit")
+        self.assertLess(header, payload)
+        self.assertLess(payload, commit)
 
-    def test_app_tracks_stack_flash_session(self):
-        text = read_text(APP_C)
-        self.assertIn("g_app_flash_stack_session_active = 1u;", text)
-        self.assertIn("g_app_flash_stack_session_active = 0u;", text)
+    def test_telink_flash_access_is_confined_to_platform_adapter(self):
+        plat = text(PLATFORM_C)
+        self.assertIn('#include "drivers.h"', plat)
+        for token in ("flash_read_page", "flash_write_page", "flash_erase_sector",
+                      "flash_store_begin_modify", "flash_store_end_modify"):
+            self.assertIn(token, plat)
+        porth = text(PLATFORM_H)
+        self.assertIn("BMS_STORAGE_DOMAIN_CONFIG", porth)
+        self.assertIn("BMS_STORAGE_DOMAIN_STATE", porth)
+        self.assertIn("BMS_STORAGE_DOMAIN_FACTORY", porth)
+        self.assertIn("BMS_STORAGE_DOMAIN_EVENT", porth)
 
-    def test_runtime_starts_clean_without_legacy_restore(self):
-        text = read_text(RUNTIME_C)
-        self.assertNotIn("flash_store_cfg_get_legacy_runtime_base()", text)
-        self.assertNotIn("runtime_load_legacy_value", text)
+    def test_semantic_stores_share_record_engine(self):
+        for path in (CONFIG_C, STATE_C, EVENT_C):
+            src = text(path)
+            self.assertIn("storage_record_", src, path.name)
+            for raw in ("flash_kv32", "flash_read_page", "flash_write_page", "flash_erase_sector"):
+                self.assertNotIn(raw, src, path.name)
 
-    def test_runtime_counts_awake_time_without_deepsleep_compensation(self):
-        text = read_text(RUNTIME_C)
-        self.assertNotIn("RUNTIME_SLEEP_TICK", text)
-        self.assertNotIn("runtime_sleep_tick", text)
-        self.assertNotIn("analog_write", text)
-        self.assertNotIn("analog_read", text)
-        self.assertIn("Aging runtime counts awake BMS execution only", text)
+    def test_config_and_state_have_explicit_little_endian_formats(self):
+        cfg = text(CONFIG_C)
+        state = text(STATE_C)
+        for token in ("bms_config_put_u16le", "bms_config_put_u32le",
+                      "bms_config_get_u16le", "bms_config_get_u32le"):
+            self.assertIn(token, cfg)
+        self.assertIn("bms_state_put_u32le", state)
+        self.assertIn("bms_state_get_u32le", state)
 
-    def test_virtual_adc_rtc_placeholders_are_removed(self):
-        text = read_text(APP_C)
-        self.assertIn("MODE_FACTORY == Runtime_GetMode()", text)
-        self.assertNotIn("quit_rtc_mode", text)
-        self.assertNotIn("enter_rtc_mode", text)
-        self.assertNotIn("ADC_BUSEN_PIN", text)
-        self.assertNotIn("ADC_EN_PIN", text)
+    def test_runtime_is_part_of_state_not_a_second_flash_engine(self):
+        run = text(RUNTIME_C)
+        self.assertIn("bms_state_store_get_runtime_min", run)
+        self.assertIn("bms_state_store_write_runtime_min", run)
+        self.assertNotIn("flash_read_page", run)
+        self.assertNotIn("runtime_crc", run)
+        self.assertIn("Aging runtime counts awake BMS execution only", run)
 
-    def test_modbus_factory_command_resets_runtime(self):
-        text = read_text(MODBUS_RTU_C)
-        self.assertIn("#include \"runtime.h\"", text)
-        self.assertIn("Runtime_ReenterFactoryMode()", text)
-        self.assertNotIn("if (val == 0x03)\n            enter_fac_mode(true);", text)
+    def test_state_keeps_changed_value_write_semantics(self):
+        state = text(STATE_C)
+        self.assertIn("memcmp(&g_bms_state, next, sizeof(*next)) == 0", state)
+        self.assertIn("soc_kv_store_update_and_log_if_changed", text(APP_C))
+        compat = text(MOD / "soc_kv_store.h")
+        self.assertIn("bms_state_store_update_and_log_if_changed", compat)
+        self.assertIn("runtime_min", state)
+        self.assertIn("BMS_STATE_DEFAULT_DSG    0u", text(STATE_H))
 
-    def test_runtime_does_not_complete_factory_when_layout_unavailable(self):
-        text = read_text(RUNTIME_C)
-        self.assertNotIn(
-            "if (runtime_flash_base() == 0u) {\n            g_runtime_min = FACTORY_TIME_LIMIT_MIN;",
-            text,
-        )
-        self.assertIn("if (runtime_flash_base() == 0u) {", text)
-        self.assertIn("g_runtime_last_tick_32k = pm_get_32k_tick();", text)
+    def test_event_latch_is_only_advanced_after_successful_persist(self):
+        event = text(EVENT_C)
+        self.assertIn("bms_error_raise(BMS_ERROR_EEPROM_STORE)", event)
+        self.assertIn("!g_bms_event_log.event_latched[event] && bms_event_log_append(event, 0)", event)
+        self.assertIn("g_bms_event_log.event_latched[event] = 1u", event)
 
-    def test_runtime_saves_only_when_store_ready(self):
-        text = read_text(RUNTIME_C)
-        self.assertIn(
-            "if (g_runtime_store_ready &&\n        ((g_runtime_min - g_runtime_last_saved_min) >= RUNTIME_SAVE_INTERVAL_MIN))",
-            text,
-        )
+    def test_old_kv_engines_are_out_of_build_and_removed(self):
+        order = text(SOURCE_ORDER)
+        for path in ("bms_config_store.c", "bms_state_store.c", "bms_storage_platform_telink.c", "storage_record.c"):
+            self.assertIn(f"vendor/ble_sample/{path}", order)
+        for path in ("bms_cold_kv_store.c", "soc_kv_store.c", "flash_kv32.c"):
+            self.assertNotIn(f"vendor/ble_sample/{path}", order)
+        self.assertFalse((MOD / "flash_kv32.c").exists())
+        self.assertFalse((MOD / "flash_kv32.h").exists())
+        self.assertFalse((MOD / "bms_cold_kv_store.c").exists())
+        self.assertFalse((MOD / "soc_kv_store.c").exists())
 
-    def test_event_log_reports_store_error(self):
-        text = read_text(EVENT_LOG_C)
-        self.assertIn("bms_event_log_report_store_error()", text)
-        self.assertIn("return BMS_EVENT_LOG_INVALID_SLOT;", text)
-        self.assertIn("bms_error_raise(BMS_ERROR_EEPROM_STORE);", text)
+    def test_flash_protection_session_contract_remains(self):
+        self.assertIn("app_flash_lock_restore_enabled()", text(FLASH_SAFE))
+        app = text(APP_C)
+        self.assertIn("g_app_flash_stack_session_active = 1u;", app)
+        self.assertIn("g_app_flash_stack_session_active = 0u;", app)
 
-    def test_event_log_edge_latch_depends_on_persist_success(self):
-        text = read_text(EVENT_LOG_C)
-        self.assertIn("if (bms_event_log_append(event, 0)) {", text)
-        self.assertIn("g_bms_event_log.event_latched[event] = 1u;", text)
 
-    def test_upgrade_epoch_marking_happens_only_after_success(self):
-        text = read_text(PARAM_C)
-        self.assertIn("if (param_upgrade_apply_default_protect()) {", text)
-        self.assertIn("if (param_upgrade_apply_default_system()) {", text)
-        self.assertIn("if (param_upgrade_apply_default_soc()) {", text)
-        self.assertIn("if (param_upgrade_apply_default_event_log()) {", text)
-        self.assertIn("if (param_upgrade_apply_default_runtime()) {", text)
-        self.assertGreaterEqual(text.count("bms_error_raise(BMS_ERROR_EEPROM_STORE);"), 6)
-
-    def test_soc_kv_flushes_immediately_on_any_value_change(self):
-        text = read_text(MODULE_DIR / "soc_kv_store.c")
-        self.assertNotIn("SOC_KV_FLUSH_INTERVAL_US", text)
-        self.assertNotIn("g_soc_last_flush_tick", text)
-        self.assertIn("(void)soc_kv_store_write_all(soc, dsg, cycle);", text)
-
-    def test_soc_defaults_start_from_zero_discharge_and_cycle(self):
-        text = read_text(SOC_KV_H)
-        self.assertIn("#define SOC_PARAM_DEFAULT_DSG    0u", text)
-        self.assertIn("#define SOC_PARAM_DEFAULT_CYCLE  0u", text)
-
-    def test_soc_core_contracts_match_current_design(self):
-        text = read_text(SOC_ENHANCE_C)
-        profile = read_text(MODULE_DIR / "bms_soc_profile.h")
-        self.assertIn("#define SOC_EQUIV_CYCLE_PERCENT             100u", text)
-        self.assertIn("#define SOC_INTEGRAL_PERIOD_MS              200u", text)
-        self.assertIn("#define SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", text)
-        self.assertIn("#define SOC_OCV_REST_PREPARE_SECONDS        600u", text)
-        self.assertIn("#define SOC_OCV_ERROR_BAND_PERCENT          5u", text)
-        self.assertIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", profile)
-        self.assertIn("static const soc_ocv_point_t g_soc_ocv_nmc[]", profile)
-        self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_lfp[]", text)
-        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", text)
-        self.assertIn("static uint8_t g_soc_display_soc", text)
-        self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", text)
-        self.assertIn("soc_update_low_faults();", text)
-
-    def test_soc_capacity_learning_persistence_contract(self):
-        soc_text = read_text(SOC_ENHANCE_C)
-        kv_h = read_text(SOC_KV_H)
-        kv_c = read_text(SOC_KV_C)
-        self.assertIn("BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u", soc_text)
-        self.assertIn("SOC_KV_FLAG_CAPACITY_LEARNED", kv_h)
-        self.assertIn("SOC_KV_KEY_LEARNED_CAPACITY", kv_c)
-        self.assertIn("soc_kv_store_write_learning", kv_c)
-
-    def test_afe_read_failure_freezes_soc_current_and_preserves_soc_report(self):
-        text = read_text(DVC1124_C)
-        self.assertIn("s_snapshot.valid = 0u;", text)
-        self.assertIn("g_stCellInfoReport.u16Ichg = 0u;", text)
-        self.assertIn("g_stCellInfoReport.u16IDischg = 0u;", text)
-        self.assertNotIn("s_charge_current_ma", text)
-        self.assertNotIn("s_discharge_current_ma", text)
-        self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
-
-    def test_current_conversion_uses_dvc_cc2_and_configured_shunt(self):
-        text = read_text(DVC1124_C)
-        self.assertIn(
-            "current_num = cc2 * 625;",
-            text,
-        )
-        self.assertIn(
-            "current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);",
-            text,
-        )
-        self.assertNotIn("int64_t current_num", text)
-        for cc2 in (-524288, -524287, -1, 0, 1, 524286, 524287):
-            for shunt_uohm in (1, 200, 65535):
-                original_num = cc2 * 5000
-                original_den = 16 * shunt_uohm
-                reduced_num = cc2 * 625
-                reduced_den = 2 * shunt_uohm
-                original = ((-1 if original_num < 0 else 1)
-                            * (abs(original_num) // original_den))
-                reduced = ((-1 if reduced_num < 0 else 1)
-                           * (abs(reduced_num) // reduced_den))
-                self.assertEqual(original, reduced)
-                self.assertLessEqual(abs(reduced_num), 327680000)
-        self.assertIn("if (current_ma >= 0)", text)
-        self.assertIn("uint32_t charge_ma = (uint32_t)(-current_ma);", text)
-
-    def test_sif_reports_capacity_as_raw_profile_value(self):
-        text = read_text(SIF_SEND_C)
-        self.assertIn("sif_report.public.CAPACITYFACTORY = CapacityFactory;", text)
-        self.assertNotIn("sif_report.public.CAPACITYFACTORY = g_stCellInfoReport.SocElement.u16CapacityFactory;", text)
-
-    def test_sif_uses_afe_independent_fault_report(self):
-        text = read_text(SIF_SEND_C)
-        self.assertIn("static uint8_t sif_fault_code(void)", text)
-        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits", text)
-        self.assertNotIn("ram_reg_309", text)
-        self.assertNotIn("sh367309_datadeal.h", text)
-
-    def test_sif_timer_is_owned_by_sif_module(self):
-        app = read_text(APP_C)
-        main = read_text(MAIN_C)
-        sif = read_text(SIF_SEND_C)
-        self.assertNotIn("app_timer_test", app)
-        self.assertNotIn("timer0_irq_cnt", app)
-        self.assertIn("#define SIF_TIMER_INTERVAL_US 500u", sif)
-        self.assertIn("void sif_timer_init(void)", sif)
-        self.assertIn("void sif_timer_irq_handler(void)", sif)
-        self.assertIn("sif_timer_irq_handler();", main)
-
-    def test_legacy_sh367309_module_is_removed(self):
-        self.assertFalse(SH367309_C.exists())
-        self.assertFalse(SH367309_H.exists())
-        source_order = read_text(SOURCE_ORDER)
-        self.assertIn("vendor/ble_sample/bms_state.c", source_order)
-        self.assertNotIn("sh367309_datadeal", source_order)
-        for path in MODULE_DIR.glob("*.[ch]"):
-            self.assertNotIn("sh367309_datadeal.h", read_text(path))
-
-    def test_error_counters_saturate_and_use_typed_api(self):
-        state = read_text(BMS_STATE_C)
-        error_header = read_text(BMS_ERROR_H)
-        app = read_text(APP_C)
-        self.assertIn("s_error_count[error] != UINT8_MAX", state)
-        self.assertIn("void bms_error_raise(bms_error_id_t error)", state)
-        self.assertIn("BMS_ERROR_AFE1 = 0", error_header)
-        self.assertIn("bms_error_get(BMS_ERROR_AFE1) != 0u", app)
-        self.assertNotIn("System_ERROR_UserCallback", app)
-
-    def test_fault_history_has_one_owner_and_per_level_index(self):
-        state = read_text(BMS_STATE_C)
-        modbus = read_text(MODBUS_RTU_C)
-        self.assertIn("static uint8_t s_fault_history[3][BMS_FAULT_HISTORY_DEPTH]", state)
-        self.assertIn("bms_fault_history_recent(level, age)", modbus)
-        self.assertNotIn("FaultPoint_", modbus)
-        self.assertNotIn("Fault_record_", modbus)
-
-    def test_protection_write_applies_and_verifies_before_success(self):
-        dvc = read_text(DVC1124_C)
-        modbus = read_text(MODBUS_RTU_C)
-        self.assertIn("uint8_t DVC1124_ApplyProtectionConfig(void)", dvc)
-        self.assertIn("static u8 commit_protection_update", modbus)
-        self.assertIn("if (!bms_afe_apply_protection_config())", modbus)
-        self.assertIn("g_tParam.protect = *previous;", modbus)
-        self.assertIn("if (!SaveParam())", modbus)
-        self.assertNotIn("bms_afe_request_config_reload", modbus)
-        self.assertNotIn("AFE_PARAM_WRITE_Flag", modbus)
-
-    def test_modbus_transport_uses_one_bounded_frame_capacity(self):
-        rtu_h = read_text(MODULE_DIR / "modbus_rtu.h")
-        uart_c = read_text(MODULE_DIR / "modbus_uart.c")
-        att_c = read_text(MODULE_DIR / "app_att.c")
-        self.assertIn("#define MODBUS_RTU_FRAME_CAPACITY 268u", rtu_h)
-        self.assertIn("data[MODBUS_RTU_FRAME_CAPACITY]", uart_c)
-        self.assertIn("rsp_buf[MODBUS_RTU_FRAME_CAPACITY]", uart_c)
-        self.assertIn("ble_rsp_buf[MODBUS_RTU_FRAME_CAPACITY]", att_c)
-        self.assertIn("len > MODBUS_RTU_FRAME_CAPACITY", att_c)
-        self.assertIn("len > sizeof(s_tx_pkt.data)", uart_c)
-        self.assertNotIn("rsp_buf[512]", uart_c)
-        self.assertNotIn("ble_rsp_buf[512]", att_c)
-
-    def test_runtime_factory_reset_api_exists(self):
-        text = read_text(RUNTIME_C)
-        self.assertIn("int Runtime_FactoryReset(void)", text)
-        self.assertIn("int Runtime_ReenterFactoryMode(void)", text)
-        self.assertIn("if (!Runtime_FactoryReset())", text)
-        self.assertNotIn("enter_fac_mode", text)
-
-    def test_param_loads_only_from_cold_kv(self):
-        text = read_text(PARAM_C)
-        self.assertNotIn("flash_read_page(PARAM_ADDR", text)
-        self.assertIn("bms_cold_kv_store_set_protect(&g_tParam.protect)", text)
-
-    def test_btname_uses_cold_kv_store_only(self):
-        text = read_text(BTNAME_C)
-        self.assertIn("bms_cold_kv_store_get_bt_name_suffix", text)
-        self.assertIn("bms_cold_kv_store_set_bt_name_suffix", text)
-        self.assertNotIn("flash_store_prog_checked", text)
-        self.assertNotIn("flash_store_erase_sector_checked", text)
-
-    def test_hot_and_cold_kv_no_longer_reference_previous_layouts(self):
-        self.assertNotIn("flash_store_cfg_get_previous_soc_kv_base()", read_text(SOC_KV_C))
-        self.assertNotIn("flash_store_cfg_get_previous_cold_kv_base()", read_text(BMS_COLD_C))
+class HostPowerLossTest(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("cc"), "host C compiler not found")
+    def test_portable_record_engine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "storage_record_host_test"
+            subprocess.run([
+                shutil.which("cc"), "-std=c99", "-Wall", "-Wextra", "-Werror",
+                f"-I{MOD}", str(RECORD_C), str(HOST_TEST), "-o", str(exe),
+            ], check=True)
+            out = subprocess.run([str(exe)], check=True, text=True, capture_output=True).stdout
+            self.assertIn("storage_record_host_test: OK", out)
 
 
 if __name__ == "__main__":

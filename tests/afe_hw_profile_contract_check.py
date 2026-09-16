@@ -5,10 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001' / 'tc_ble_single_sdk' / 'vendor' / 'ble_sample'
 
-
-def text(name):
-    return (HERE / name).read_text(encoding='utf-8')
-
+def text(name): return (HERE / name).read_text(encoding='utf-8')
 
 def macro_int(src, name):
     match = re.search(rf'^\s*#define\s+{re.escape(name)}\s+(.+?)\s*$', src, re.MULTILINE)
@@ -18,9 +15,8 @@ def macro_int(src, name):
     assert re.fullmatch(r'[0-9()\s+*/-]+', expr), f'unsupported macro expression {name}={expr!r}'
     return int(eval(expr, {'__builtins__': {}}, {}))
 
-
 p = text('bms_afe_hw_profile.c')
-kv = text('bms_cold_kv_store.c')
+config = text('bms_config_store.c')
 d = text('dvc1124.c')
 b = text('dvc1124_bms.c')
 c = text('dvc1124_config_service.c')
@@ -28,7 +24,9 @@ backend = text('dvc1124_config_store.c')
 m = text('modbus_rtu.c')
 params = text('param.h')
 
-assert 'BMS_COLD_AFE_HW_KEY_BASE   0x5000u' in kv
+assert 'BMS_CONFIG_AFE_WORDS             35u' in config
+assert 'storage_record_save(&g_bms_config_store' in config
+assert 'flash_kv32' not in config
 assert 'BMS_AFE_HW_MODEL_DVC1124' in p
 assert 'sense_uv < 10000u || sense_uv > 630000u' in p
 
@@ -38,9 +36,6 @@ assert 'bms_afe_hw_profile_get(&hw)' in apply
 assert 'hw.sc_a10' in apply
 assert 'g_tParam.protect.u16VcellOvp_Rcv' not in b
 assert 'hw.cov_recover_mv' in b and 'hw.ocd_recover_a10' in b
-
-# Fixed DVC operating configuration is firmware-owned and read-only. The
-# hardware-protection profile remains the only persistent AFE protection owner.
 assert 'DVC1124_ConfigStore' not in c
 assert 'DVC1124_CFG_ERR_READ_ONLY' in c
 assert 'flash_kv32' not in backend
@@ -54,11 +49,6 @@ assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
 assert 'bms_afe_hw_profile_set(&candidate)' in m
 assert 'bms_afe_apply_protection_config()' in m
 
-# Regression: the historical D008 defaults previously produced a migration
-# profile that failed the profile's own validator. In particular:
-#   CUV_filter3=1000 -> 10000 ms > DVC 8000 ms maximum
-#   ODC/OCC recover == First threshold -> invalid hysteresis
-# The one-time bootstrap must normalize these legacy values before validation.
 assert 'static void dvc_normalize_migration_profile' in p
 assert p.count('dvc_normalize_migration_profile(p);') == 1
 assert 'p->cuv_delay_ms = dvc_clamp_u16_max(p->cuv_delay_ms, 8000u);' in p
@@ -83,7 +73,6 @@ profile = {
     'occ1_delay_ms': macro_int(params, 'OCC_filter3') * 10,
     'occ2_delay_ms': macro_int(params, 'OCC_filter3') * 10,
 }
-
 profile['cov_delay_ms'] = min(profile['cov_delay_ms'], 8000)
 profile['cuv_delay_ms'] = min(profile['cuv_delay_ms'], 8000)
 profile['ocd1_delay_ms'] = min(profile['ocd1_delay_ms'], 2048)
@@ -108,5 +97,4 @@ assert profile['occ_recover_a10'] < profile['occ2_a10']
 assert profile['cuv_delay_ms'] == 8000
 assert profile['ocd_recover_a10'] == 99
 assert profile['occ_recover_a10'] == 99
-
 print('D008 independent AFE hardware protection profile contract: PASS')
