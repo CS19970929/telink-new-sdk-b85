@@ -18,8 +18,9 @@ assert 'storage_record_save(&g_bms_config_store' in config
 assert 'flash_kv32' not in config
 assert 'BMS_AFE_HW_PROFILE_SCHEMA_VERSION' in p
 assert 'g_tParam.protect' in p  # one-time migration/default source only
-assert 'bms_cold_kv_store_get_afe_hw_profile(&persisted)' in p
-assert 'bms_cold_kv_store_set_afe_hw_profile(candidate)' in p
+assert 'bms_cold_kv_store_get_afe_hw_profile(&p)' in p
+assert 'bms_cold_kv_store_set_afe_hw_profile(&p)' in p
+assert 'return bms_cold_kv_store_set_afe_hw_profile(p)' in p
 assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
 assert 'bms_afe_hw_profile_set(&candidate)' in m
 commit = m[m.index('static u8 commit_protection_update'):m.index('u16 mb_crc16')]
