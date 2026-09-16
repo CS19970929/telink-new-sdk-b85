@@ -32,6 +32,17 @@ sys.modules[CLIENT_ASSET_SPEC.name] = client_assets
 CLIENT_ASSET_SPEC.loader.exec_module(client_assets)
 
 
+class GitProvenanceTests(unittest.TestCase):
+    def test_clean_modified_and_unavailable_status_are_distinct(self):
+        for returncode, output, expected in ((0, "", False), (0, " M app.c\n", True), (1, "", None)):
+            with self.subTest(expected=expected):
+                results = [mock.Mock(returncode=returncode, stdout=output),
+                           mock.Mock(returncode=0, stdout="a" * 40),
+                           mock.Mock(returncode=0, stdout="branch")]
+                with mock.patch.object(bms.subprocess, "run", side_effect=results):
+                    self.assertIs(bms._git_provenance()["dirty"], expected)
+
+
 class ClientAssetPathTests(unittest.TestCase):
     def test_qt_project_path_follows_repository_tools_layout(self) -> None:
         # Firmware keeps the client-generation destination stable, but the

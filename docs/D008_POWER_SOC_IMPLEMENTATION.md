@@ -39,3 +39,13 @@ PC4 LOW 后若调试器等仍反向供电，主循环只进入有界 SDK suspend
 `TODO_VERIFY_HW`：实际整机掉电/外部唤醒、I2C 唤醒波形、MOS Gate/Vgs、32k 精度、±500 mA 校准、调度最坏延迟、Flash 掉电失败、20S 装配/NTC。统一见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)。
 
 [原审核](D008_FULL_MODULE_AUDIT_2026-09-17.md)固定证据保持不改。此次移除了 F01 的请求与反馈比较路径，阻断 F04 的 OTA 关机路径，并对 F05 无效样本误校准增加运行测试。其他审核缺陷不在本次范围，尤其 F02 配置回滚与 F08 写失败计数问题不能据此宣称已解决。当前提交不构成量产放行，不执行烧录、合并或发布。
+
+## 已取得的构建证据
+
+固件提交 `094c1f6e5fc5c5c32d476126f23f13ca47173b31` 的 [Actions #354](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/35149511287) 已通过 Host 和 TC32 两个 job：八种 clean build/check-fw/size/MAP/manifest/verify 全部通过；默认 24S 1/1 cppcheck 覆盖 30 个 C 编译单元、41 个应用头文件，coverage gaps=0。执行机器 `DESKTOP-UU5VC9R-telink-tc32`，TC32 `4.5.1-tc32-1.3`。
+
+默认生产 BIN 101540 bytes，124 KiB 槽位余量 25436 bytes；SHA-256 `6930bdabde7fbff1a1cc9201c5a20c2e1523710d86aae247202b63ee31715d4b`。20S 1/1 同为 101540 bytes，SHA-256 `5448a459fdf12b388a17f4633ce0fd6bd4d9f597ffcc0cae063c30da488f9dab`。其余变体 97492..99860 bytes。证据来自 runner manifest 输出和 verify PASS；[原始产物](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/35149511287/artifacts/10468841732) 保留期 14 天。
+
+该轮 manifest 的 git.dirty 有 null/true：既有工具把干净状态的空输出误判为未知，随后归档目录被算成未跟踪文件。本次后续修正 capture 对空成功输出的处理并忽略 variant-evidence/，不改变编译输入；增加 clean/modified/unavailable 三种测试。后续同分支 Actions 验证该元数据修正。上述结果只对应明确的固件 SHA，不把历史结果当成后续提交通过。
+
+另：manifest 继续提示继承的 MCU_STARTUP_8258 SRAM profile 与声明 TLSR8251 的差异，未在本轮擅改 startup/linker；这是既有硬件/内存身份未决项，构建通过不关闭此项。

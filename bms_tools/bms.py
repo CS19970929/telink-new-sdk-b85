@@ -833,16 +833,16 @@ def _telink_crc_details(data: bytes) -> dict:
 
 
 def _git_provenance() -> dict:
-    def capture(argv: list[str]) -> str | None:
+    def capture(argv: list[str], allow_empty: bool = False) -> str | None:
         try:
             result = subprocess.run(argv, cwd=str(REPO_ROOT), capture_output=True,
                                     text=True, check=False, timeout=10)
             value = result.stdout.strip()
-            return value if result.returncode == 0 and value else None
+            return value if result.returncode == 0 and (value or allow_empty) else None
         except Exception:
             return None
 
-    status = capture(["git", "status", "--porcelain"])
+    status = capture(["git", "status", "--porcelain"], allow_empty=True)
     return {
         "commit": capture(["git", "rev-parse", "HEAD"]),
         "branch": capture(["git", "branch", "--show-current"]),

@@ -210,7 +210,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h
 ```c
 #define RF_EN_PIN              (GPIO_PD4)
 #define AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define SW_PIN                 (GPIO_PA0)
+#define ACC_MCU_PIN            (GPIO_PA0)
 #define HEATER_EN_PIN          (GPIO_PA1)
 #define CHG_IN_PIN             (GPIO_PB1)
 #define OWC_TX_PIN             (GPIO_PC2)
@@ -222,6 +222,8 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h
 #define SOC100_PIN             (GPIO_PD3)
 #define LED_BLUE_PIN           (GPIO_PB6)
 ```
+
+D008 没有独立开关；ACC/PB1 保留输入，当前不承载 key/charger/负载业务策略。PC4 控制 MCU 电源保持，关断与 suspend/SOC 实现见 [D008_POWER_SOC_IMPLEMENTATION.md](D008_POWER_SOC_IMPLEMENTATION.md)。
 
 ### 修改规则
 

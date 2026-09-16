@@ -80,7 +80,7 @@ validate candidate
 
 ## 5. FET 与保护仲裁
 
-最终输出不能只由 charger/key 请求决定。逻辑上必须同时满足：
+最终输出不能只由产品请求决定。D008 不再读取历史 charger/key；正常提交 CHG+DSG ON，由以下条件仲裁：
 
 ```text
 product request
