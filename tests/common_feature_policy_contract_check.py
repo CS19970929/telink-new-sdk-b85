@@ -6,7 +6,7 @@ def text(name):
     p=APP/name
     if not p.exists(): raise AssertionError(f"missing {p}")
     return p.read_text(encoding="utf-8",errors="replace")
-features_h=text("bms_features.h");features_c=text("bms_features.c");board_c=text("bms_board.c");guard_c=text("bms_afe_guard.c");afe_h=text("bms_afe.h");dvc=text("dvc1124_feature_backend.c");dvc_service=text("dvc1124_config_service.c")
+features_h=text("bms_features.h");features_c=text("bms_features.c");board_h=text("bms_board.h");board_c=text("bms_board.c");guard_c=text("bms_afe_guard.c");afe_h=text("bms_afe.h");dvc=text("dvc1124_feature_backend.c");dvc_bms=text("dvc1124_bms.c");dvc_service=text("dvc1124_config_service.c");project=text("dvc1124_project_config.h")
 assert "#define BMS_HEATER_START_TEMP_X10 400u" in features_h
 assert "#define BMS_HEATER_STOP_TEMP_X10 450u" in features_h
 assert "bms_afe_get_charge_source_present" in afe_h and "bms_afe_get_charge_source_present" in guard_c
@@ -19,6 +19,33 @@ assert "out->determinate = 0u" in dvc
 assert "bms_afe_set_balance_mask(0u)" in features_c
 assert "bms_afe_openwire_start" in features_c and "bms_afe_openwire_poll" in features_c
 charge_block=guard_c.index("bms_features_charge_blocked");fet_write=guard_c.index("AFE_FETS",charge_block);assert charge_block<fet_write
+
+# D008 final temperature ownership: GP1 heater MOS, GP2/GP3 battery, GP4 power MOS.
+assert "#define DVC1124_DEFAULT_HEATER_NTC_GP        1u" in project
+assert "#define DVC1124_DEFAULT_BATTERY_NTC_GP       2u" in project
+assert "#define DVC1124_DEFAULT_BATTERY_NTC2_GP      3u" in project
+assert "#define DVC1124_DEFAULT_MOS_NTC_GP           4u" in project
+assert "DVC1124_DEFAULT_BATTERY_NTC2_GP" in dvc_bms
+assert "*min_temp = (t1 <= t2) ? t1 : t2;" in dvc_bms
+assert "*max_temp = (t1 >= t2) ? t1 : t2;" in dvc_bms
+assert "DVC1124_DEFAULT_HEATER_NTC_GP" in dvc
+assert "DVC1124_DEFAULT_MOS_NTC_GP" in dvc
+assert "out->heater_temp_x10" in dvc and "out->mos_temp_x10" in dvc
+assert "out->battery_temp_min_x10 = (bat1 <= bat2) ? bat1 : bat2;" in dvc
+assert "out->battery_temp_max_x10 = (bat1 >= bat2) ? bat1 : bat2;" in dvc
+
+# Heater fail-safe is independent from normal power-MOS OTP parameters.
+assert "#define DVC1124_HEATER_OFF_FAULT_TEMP_X10    1350u" in project
+assert "#define DVC1124_HEATER_OFF_FAULT_CONFIRM_MS  10000u" in project
+assert "bms_board_heater_fuse_supported" in board_h
+assert "bms_board_heater_fuse_fire" in board_h
+assert "gpio_write(RF_EN_PIN, 1u);" in board_c
+assert "heater_circuit_safe" in features_c
+assert "bms_board_heater_fuse_fire();" in features_c
+assert "heater_off_hot_samples" in features_c
+heater_fn=features_c.split("static void service_heater",1)[1].split("static uint8_t openwire_eligible",1)[0]
+assert "battery_temp_min_x10" in heater_fn
+assert "u16TmosOTp" not in heater_fn
 
 # Communication-loss fail-safe contract: one bounded software OFF attempt, then
 # a completely silent AFE bus while the hardware watchdog owns final MOS safety.
