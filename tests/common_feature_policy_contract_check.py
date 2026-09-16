@@ -6,7 +6,7 @@ def text(name):
     p=APP/name
     if not p.exists(): raise AssertionError(f"missing {p}")
     return p.read_text(encoding="utf-8",errors="replace")
-features_h=text("bms_features.h");features_c=text("bms_features.c");board_c=text("bms_board.c");guard_c=text("bms_afe_guard.c");afe_h=text("bms_afe.h");dvc=text("dvc1124_feature_backend.c")
+features_h=text("bms_features.h");features_c=text("bms_features.c");board_c=text("bms_board.c");guard_c=text("bms_afe_guard.c");afe_h=text("bms_afe.h");dvc=text("dvc1124_feature_backend.c");dvc_service=text("dvc1124_config_service.c")
 assert "#define BMS_HEATER_START_TEMP_X10 400u" in features_h
 assert "#define BMS_HEATER_STOP_TEMP_X10 450u" in features_h
 assert "bms_afe_get_charge_source_present" in afe_h and "bms_afe_get_charge_source_present" in guard_c
@@ -29,6 +29,9 @@ assert "if (service_failsafe_wait()) return;" in guard_c
 assert "Absolutely no AFE I2C/SPI access while the hardware watchdog is timing." in guard_c
 assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
 assert "s_guard.bus_silenced = 1u;" in guard_c
+assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
+assert "bms_afe_bus_access_allowed" in dvc_service
+assert dvc_service.count("if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;") >= 2
 assert "AFE_INIT();" in guard_c and "AFE_OUTPUT(s_guard.output_enabled);" in guard_c
 apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
 assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in apply
