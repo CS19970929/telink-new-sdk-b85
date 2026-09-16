@@ -72,6 +72,24 @@ uint8_t bms_board_heater_fuse_supported(void)
 #endif
 }
 
+uint16_t bms_board_heater_off_fault_temp_x10(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    return (uint16_t)DVC1124_HEATER_OFF_FAULT_TEMP_X10;
+#else
+    return 0u;
+#endif
+}
+
+uint16_t bms_board_heater_off_fault_confirm_ms(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    return (uint16_t)DVC1124_HEATER_OFF_FAULT_CONFIRM_MS;
+#else
+    return 0u;
+#endif
+}
+
 void bms_board_heater_fuse_fire(void)
 {
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
