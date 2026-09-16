@@ -359,7 +359,7 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
     if (!g_soc_input_valid) return dir;
     /* Widen before negation so even INT32_MIN cannot invoke signed overflow. */
     magnitude_ma = (g_soc_input_current_ma < 0) ?
-        (uint32_t)(-(int64_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
+        (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
     if (magnitude_ma == 0u || magnitude_ma < g_soc_config.current_deadband_ma) return dir;
     dir = (g_soc_input_current_ma < 0) ? SOC_INTEGRAL_DIR_CHG : SOC_INTEGRAL_DIR_DSG;
     if (magnitude_a10 != 0)
@@ -464,18 +464,33 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
 
 static uint32_t soc_integral_delta_from_current(uint16_t current_a10, soc_integral_dir_t dir)
 {
-    uint64_t sum;
     uint32_t magnitude_ma;
+    uint32_t ticks_left;
+    uint32_t delta;
+    uint32_t fractional_ma;
     const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
     (void)current_a10; /* coarse current is retained only for legacy sag tables */
     if (!g_soc_input_valid || g_soc_interval_32k == 0u) return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
-        (uint32_t)(-(int64_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
-    /* Max input magnitude * 12800 fits in uint64_t. No float or new Flash state. */
-    sum = (uint64_t)magnitude_ma * g_soc_interval_32k + g_soc_integral_tick_remainder;
-    g_soc_integral_tick_remainder = (uint32_t)(sum % denominator);
-    return (uint32_t)(sum / denominator);
+        (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
+    /* The pinned TC32 linker has no 64-bit multiply/divide helpers. Split
+     * magnitude into whole denominator units and bounded fractional chunks.
+     * Whole result <= 671 * 12800; each sum < 3200000 * 1025 < UINT32_MAX.
+     * At most 13 iterations for the accepted 400 ms interval, with exactly
+     * the same quotient/remainder as mA * ticks / denominator. */
+    delta = (magnitude_ma / denominator) * g_soc_interval_32k;
+    fractional_ma = magnitude_ma % denominator;
+    ticks_left = g_soc_interval_32k;
+    while (ticks_left != 0u)
+    {
+        uint32_t chunk = (ticks_left > 1024u) ? 1024u : ticks_left;
+        uint32_t sum = fractional_ma * chunk + g_soc_integral_tick_remainder;
+        delta += sum / denominator;
+        g_soc_integral_tick_remainder = sum % denominator;
+        ticks_left -= chunk;
+    }
+    return delta;
 }
 
 static uint8_t soc_percent_from_capacity_charge(uint32_t cap)
