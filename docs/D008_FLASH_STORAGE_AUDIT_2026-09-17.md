@@ -138,3 +138,8 @@ Event 对故障上升沿去重，但解除后再次发生会再写；CBC 值变�
 保留原始 snapshot mA 作诊断及 suspend 500 mA 判断，不伪造 ADC 样本，不改 DVC 硬件阈值。共享 floor 在 `conf.h`；SOC 即使配置更低 deadband 也不能绕过产品不可靠区间。测试覆盖正负 199/200/201、零、极值饱和、200 mA 可积累静置资格及无效帧清除资格。
 
 本轮 Flash 交付是本报告、开发约束和新增 journal 验证；ST-01..03 及独立硬件参数升级仍待后续整改，不因电流修复或 CI 通过而关闭。
+
+
+## 后续整改状态
+
+本报告固定 SHA 的证据与计算保留不改。后续 Config/State/Event schema 2、ST-01/02/03 整改、独立 OTA revision、节流与验证边界见 [存储升级实现](D008_STORAGE_UPGRADE_IMPLEMENTATION.md)；新 payload 导致 State/Event slot 数变化，应使用新几何评估寿命。

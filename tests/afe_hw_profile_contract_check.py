@@ -49,8 +49,8 @@ assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in m
 assert 'bms_afe_hw_profile_set(&candidate)' in m
 assert 'bms_afe_apply_protection_config()' in m
 
-assert 'static void dvc_normalize_migration_profile' in p
-assert p.count('dvc_normalize_migration_profile(p);') == 1
+assert 'static void dvc_normalize_default_profile' in p
+assert p.count('dvc_normalize_default_profile(p);') == 1
 assert 'p->cuv_delay_ms = dvc_clamp_u16_max(p->cuv_delay_ms, 8000u);' in p
 assert 'p->ocd_recover_a10 = (u16)(min_trip - 1u);' in p
 assert 'p->occ_recover_a10 = (u16)(min_trip - 1u);' in p

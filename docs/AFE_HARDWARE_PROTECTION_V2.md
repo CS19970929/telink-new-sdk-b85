@@ -9,7 +9,7 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-首次升级到该架构时，如果持久 profile 为空（schema/model均为0），固件允许从历史软件参数建立一次 migration default；保存成功后两套参数独立演进。
+开发期不迁移旧参数。Config schema 2 初始化或独立 AFE revision 改变时，从编译期默认构造 Requested 并原子保存；详见 [存储升级实现](D008_STORAGE_UPGRADE_IMPLEMENTATION.md)。
 
 ## 2. Backend
 
@@ -123,7 +123,7 @@ Assistant 客户端均已废弃，不得作为实现、构建或测试依据。
 
 ## 8. 修改默认值的位置
 
-- Common profile结构/validation/migration：`bms_afe_hw_profile.h/.c`；
+- Common profile结构/validation/default：`bms_afe_hw_profile.h/.c`；
 - 持久化：`bms_cold_kv_store.c`；
 - D008量化/应用：DVC1124 backend；
 - D011/D013量化/应用：`sh3673510_control.c`；

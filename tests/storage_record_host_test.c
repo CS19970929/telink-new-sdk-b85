@@ -132,11 +132,11 @@ static void test_sector_rotation_power_loss(void)
 
 static void test_real_domain_geometry_and_wear(void)
 {
-    const uint16_t payloads[] = {284u, 24u, 202u};
+    const uint16_t payloads[] = {300u, 32u, 406u};
     const uint16_t sectors[] = {4u, 8u, 8u};
-    const uint16_t slots[] = {12u, 73u, 17u};
-    uint8_t payload[284];
-    uint8_t loaded[284];
+    const uint16_t slots[] = {12u, 64u, 9u};
+    uint8_t payload[406];
+    uint8_t loaded[406];
     unsigned domain, i;
     for (domain = 0; domain < 3u; ++domain) {
         storage_record_store_t store, reopened;

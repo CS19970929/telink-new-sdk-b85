@@ -63,6 +63,7 @@ struct SOC_CALCULATE_ELEMENT
 extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 
 void bms_soc_get_default_config(bms_soc_config_t *config);
+uint8_t bms_soc_config_valid(const bms_soc_config_t *config);
 uint8_t bms_soc_configure(const bms_soc_config_t *config);
 uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id);
 uint8_t bms_soc_get_chemistry(void);

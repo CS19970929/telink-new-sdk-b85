@@ -256,23 +256,35 @@ typedef struct
 extern Time_T  sys_time;
 
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
-#define FW_UPGRADE_RESET_PROTECT_EPOCH   0u
+#define FW_UPGRADE_RESET_PROTECT_EPOCH   1u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
-#define FW_UPGRADE_RESET_SYSTEM_EPOCH    0u
+#define FW_UPGRADE_RESET_SYSTEM_EPOCH    1u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       0u
+#define FW_UPGRADE_RESET_SOC_EPOCH       1u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
-#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 0u
+#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 1u
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
 #define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
 #endif
+
+/* Independent semantic revisions: equal preserves values, different resets only
+ * the named category. Zero is a revision too, not an enable/disable switch. */
+#ifndef FW_UPGRADE_RESET_AFE_HW_EPOCH
+#define FW_UPGRADE_RESET_AFE_HW_EPOCH 1u
+#endif
+#ifndef FW_UPGRADE_RESET_SOC_CONFIG_EPOCH
+#define FW_UPGRADE_RESET_SOC_CONFIG_EPOCH 1u
+#endif
+#define BMS_STATE_SAVE_INTERVAL_32K (60u * 32000u)
+#define BMS_STORAGE_RETRY_INTERVAL_32K (5u * 32000u)
+#define BMS_EVENT_SAVE_INTERVAL_32K (60u * 32000u)
 
 #endif

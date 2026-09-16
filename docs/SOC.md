@@ -1,6 +1,6 @@
 # SOC 模块（当前实现）
 
-本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与 Storage V1 的当前行为。2026-09-17 第 10 节要求已接入源码，主机数值/状态轨迹测试见 `tests/d008_power_soc_host_check.py`；实板验收待完成。旧兼容 API 名中含 KV 不代表仍使用旧 KV 引擎。
+本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与当前 payload schema 2 的行为。2026-09-17 第 10 节要求已接入源码，主机数值/状态轨迹测试见 `tests/d008_power_soc_host_check.py`；实板验收待完成。旧兼容 API 名中含 KV 不代表仍使用旧 KV 引擎。
 
 ## 1. 核心模型
 
@@ -27,9 +27,9 @@ profile_id:
 2 = GENERIC_NMC
 ```
 
-产品选择保存在当前 Config 域的 system/SOC identity 字段。固件 C API `bms_soc_set_product_config()` 可保存 chemistry/profile；当前 `modbus_rtu.c` 没有将历史文档中的 `0x2009/0x200A` 路由到这两个字段，不能把它们标为已经可用的通信参数接口。独立 OTA 更新能力及缺口见 [Flash 审核](D008_FLASH_STORAGE_AUDIT_2026-09-17.md)。
+产品选择保存在当前 Config 域的 system/SOC identity 字段。固件 C API `bms_soc_set_product_config()` 可保存 chemistry/profile；当前 `modbus_rtu.c` 没有将历史文档中的 `0x2009/0x200A` 路由到这两个字段，不能把它们标为已经可用的通信参数接口。独立 OTA 更新、参数持久化和 State 节流见 [存储升级实现](D008_STORAGE_UPGRADE_IMPLEMENTATION.md)。
 
-当前 Storage V1 使用显式版本/编码与 Config/State 语义域，**不迁移旧 `flash_kv32`、SOC/Cold KV**；没有可读 V1 记录时加载默认值。这是当前开发期存储策略，不能把它描述成对所有旧设备“仅追加 key、无损升级”。详见 [STORAGE.md](STORAGE.md)。
+当前 payload schema 2 使用显式版本/编码与 Config/State 语义域，**不迁移旧 `flash_kv32`、SOC/Cold KV**；没有可读当前格式记录时在启动门禁内持久化默认值。这是当前开发期存储策略，不能把它描述成对所有旧设备“仅追加 key、无损升级”。详见 [STORAGE.md](STORAGE.md)。
 
 新产品推荐显式持久化：
 
@@ -40,7 +40,7 @@ bms_soc_set_product_config(BMS_SOC_CHEMISTRY_LFP,
 
 或 NMC。API 先校验 chemistry/profile 一致性，再保存 Config 域 system 参数，最后切换运行 profile。`LFP + NMC profile`、`NMC + LFP profile` 这类组合直接拒绝。
 
-`AUTO` 只用于兼容/通用固件：两项均 AUTO 时继续根据已加载的三级单体 OVP 回退判断（`<=3900 mV` LFP，`>3900 mV` NMC）。量产产品不建议长期依赖该启发式。
+`AUTO` 为显式通用选择：两项均 AUTO 时继续根据已加载的三级单体 OVP 回退判断（`<=3900 mV` LFP，`>3900 mV` NMC）。量产产品不建议长期依赖该启发式。
 
 ## 3. OCV Profile 数据层
 

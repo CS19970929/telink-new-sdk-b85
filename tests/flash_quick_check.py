@@ -166,7 +166,7 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("runtime_min", state)
         self.assertIn("BMS_STATE_DEFAULT_DSG    0u", text(STATE_H))
 
-    def test_event_latch_is_only_advanced_after_successful_persist(self):
+    def test_event_latch_tracks_accepted_pending_ring(self):
         event = text(EVENT_C)
         self.assertIn("bms_error_raise(BMS_ERROR_EEPROM_STORE)", event)
         self.assertIn("!g_bms_event_log.event_latched[event] && bms_event_log_append(event, 0)", event)

@@ -1,6 +1,6 @@
-# Flash 与持久化 — D008 / Storage V1
+# Flash 与持久化 — D008 / Journal V1、payload schema 2
 
-详细审核、分区容量/寿命模型与 OTA 独立更新缺口见 [2026-09-17 Flash 审核](D008_FLASH_STORAGE_AUDIT_2026-09-17.md)。当前独立硬件保护 epoch 尚未实现；不可将 reset epoch 框架等同完整参数升级机制。
+当前分类 OTA 更新、失败一致性、保存节流和新几何见 [存储升级实现](D008_STORAGE_UPGRADE_IMPLEMENTATION.md)。[原始 Flash 审核](D008_FLASH_STORAGE_AUDIT_2026-09-17.md) 保留旧提交证据，不代表当前未修复状态。
 
 ## 1. 目标与边界
 
@@ -51,17 +51,17 @@ BMS business
 
 **Config** 表示“设备应该怎样工作”：当前包含 `g_tParam.protect`、system/SOC identity、独立 AFE Hardware Protection requested profile、reset/control epoch 与蓝牙名称后缀。Flash payload 使用显式 little-endian encode/decode，不直接把 C struct 原样 memcpy 到 Flash。D008 的 DVC1124 固定 operating/board 配置仍由编译期配置拥有，只有语义化 requested protection profile 进入 Config。
 
-**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`runtime.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 仍保持值变化才保存的现有语义。
+**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`runtime.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 和学习数据变化先合并 pending，正常 60 s checkpoint；受控关机同步刷新。
 
 **Factory** 已拥有独立物理区域，但当前不创建无实际需求的业务 writer。后续 SN、生产日期、板级校准等进入该域，Factory Reset 不得清除此域。
 
-**Event** 保留 100 条逻辑 ring，物理持久化复用同一 Record Journal。只有快照保存成功后才更新 event latch。
+**Event** 保留 100 条逻辑 ring，物理持久化复用同一 Record Journal。事件接受到 pending 后更新 latch，写失败保留 pending；相邻重复事件合并次数，60 s checkpoint，关机同步刷新。
 
 ## 5. 开发期格式策略
 
-当前三个项目仍在开发，因此不迁移旧 Flash 内容。旧 `flash_kv32`、旧 runtime journal、SOC KV 和 cold KV 不再解释；Storage V1 使用新的 magic/schema，读取不到 V1 数据时加载编译期默认值，首次正常保存时建立 V1 记录。
+当前三个项目仍在开发，因此不迁移旧 Flash 内容。旧 `flash_kv32`、旧 runtime journal、SOC KV 和 cold KV 不再解释；当前 payload schema 为 2，读取不到当前格式时在启动门禁内初始化默认并持久化；不迁移 schema 1 的旧名称或参数。
 
-Firmware version 与 Storage/Config schema 分离。正式出货后若只需修改少量客户参数，应使用独立 config patch 机制，而不是用 firmware version 重置整套参数。
+Firmware version 与 Storage/Config schema 分离。当前以独立分类 revision 控制 OTA 默认覆盖；同 revision 保留用户值，改 firmware version 本身不重置。字段级补丁不属于本次接口。
 
 ## 6. 验证约束
 

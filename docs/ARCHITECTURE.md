@@ -44,7 +44,7 @@ app / BLE / Modbus / product logic
 - backend 负责根据具体芯片/Rsense 做 validation、量化、寄存器编码和 readback。
 - requested 与 effective 必须分开，禁止把芯片量化后的 effective 反写成用户 requested。
 
-首次引入独立 AFE profile 时允许从历史软件参数初始化一次；完成迁移后两套参数不再联动。
+AFE 默认仅来自编译期常量，Config 的独立 AFE revision 负责初始化/更新；不读取运行时软件参数做迁移。
 
 ## 3. AFE Hardware Protection V2
 

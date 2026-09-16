@@ -757,8 +757,8 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	{
 		board_init();
-		LoadParam();
 		Param_UpgradeReset_Apply();
+		LoadParam();
 		bms_event_log_init();
 
 		bms_afe_init();

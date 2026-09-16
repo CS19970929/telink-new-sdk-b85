@@ -30,8 +30,8 @@ class SocContract(unittest.TestCase):
         self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", CONFIG_H)
         self.assertIn("BMS_CONFIG_SYSTEM_WORDS          10u", CONFIG_C)
         self.assertIn("bms_config_put_u32le", CONFIG_C)
-        self.assertIn("system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO", CONFIG_C)
-        self.assertIn("system->soc_profile_id = BMS_SOC_PROFILE_AUTO", CONFIG_C)
+        self.assertIn("system->battery_chemistry = D008_PRODUCT_CHEMISTRY", CONFIG_C)
+        self.assertIn("system->soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
         self.assertIn("bms_config_store_get_system", CONFIG_C)
         self.assertIn("bms_soc_set_product_config", C)
         self.assertIn("soc_load_persisted_product_config", C)
@@ -42,8 +42,8 @@ class SocContract(unittest.TestCase):
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_NMC", C)
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
         self.assertIn("soc_product_config_valid", C)
-        self.assertIn("New products should persist the", C)
-        self.assertIn("explicit chemistry/profile selection", C)
+        self.assertIn("assembly identity; no old Flash migration", C)
+        self.assertIn("bms_config_store_set_soc(config)", C)
 
     def test_coulomb_integration_and_deadband(self):
         self.assertIn("SOC_INTEGRAL_PERIOD_MS              200u", C)

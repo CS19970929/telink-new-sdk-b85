@@ -10,8 +10,8 @@ typedef uint32_t u32;
 typedef struct { uint32_t soc,dsg,cycle,learned_capacity_0p1ah,flags; } soc_kv_data_t;
 static soc_kv_data_t soc_kv_store_get_default_data(void) {soc_kv_data_t d={60,0,0,0,0};return d;}
 static int soc_kv_store_write_learning(u32 c,u32 f){return 1;}
-typedef struct {uint32_t battery_chemistry,soc_profile_id;} bms_cold_system_params_t;
-static bms_cold_system_params_t stored_profile={1,1};
+typedef struct {uint32_t battery_chemistry,soc_profile_id,capacity_factory;} bms_cold_system_params_t;
+static bms_cold_system_params_t stored_profile={1,1,1000};
 static int bms_cold_kv_store_get_system(bms_cold_system_params_t*p){*p=stored_profile;return 1;}
 static int bms_cold_kv_store_set_system(const bms_cold_system_params_t*p){stored_profile=*p;return 1;}
 typedef enum {BMS_FAULT_SOC_HIGH_FIRST,BMS_FAULT_SOC_HIGH_SECOND,BMS_FAULT_SOC_HIGH_THIRD} bms_fault_code_t;

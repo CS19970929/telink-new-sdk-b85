@@ -220,14 +220,10 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("D008_PRODUCT_CELL_COUNT       20u", self.product)
         self.assertIn("DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.project)
 
-    def test_soc_identity_migration_does_not_overwrite_unrelated_parameters(self):
-        self.assertIn("param_apply_d008_product_identity_if_unset", self.param)
-        migration = self.param.split("static void param_apply_d008_product_identity_if_unset", 1)[1]
-        migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
-        self.assertIn("system.battery_chemistry", migration)
-        self.assertIn("system.soc_profile_id", migration)
-        self.assertNotIn("system.series_num =", migration)
-        self.assertNotIn("system.capacity_factory =", migration)
+    def test_no_legacy_parameter_migration(self):
+        self.assertNotIn("param_apply_d008_product_identity_if_unset", self.param)
+        self.assertNotIn("param_migrate_temperature_protection_v1", self.param)
+        self.assertIn("bms_config_store_apply_revisions()", self.param)
 
     def test_invalid_software_protection_params_block_outputs(self):
         self.assertIn("static uint8_t s_protection_params_valid", self.param)
@@ -236,15 +232,10 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("s_protection_params_valid = 1u;", self.param)
         self.assertIn("!bms_protection_params_valid()", self.features)
 
-    def test_temperature_migration_validates_before_persisting(self):
-        migration = self.param.split("static int param_migrate_temperature_protection_v1", 1)[1]
-        migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
-        validate = migration.index("bms_sw_protection_validate_params(&candidate)")
-        persist = migration.index("bms_cold_kv_store_set_protect(&candidate)")
-        marker = migration.index("system.reserved0 |= PARAM_MIGRATION_TEMP_PROTECT_V1")
-        self.assertLess(validate, persist)
-        self.assertLess(validate, marker)
-        self.assertIn("candidate = g_tParam.protect;", migration)
+    def test_startup_update_failure_has_separate_gate(self):
+        self.assertIn("s_protection_params_valid && s_storage_upgrade_valid", self.param)
+        self.assertIn("s_storage_upgrade_valid = 0u", self.param)
+        self.assertNotIn("param_upgrade_mark_epoch", self.param)
 
     def test_openwire_and_balance_safety_gate_remain(self):
         self.assertIn("bms_afe_openwire_start", self.features)

@@ -1,4 +1,5 @@
 #include "SocEnhance.h"
+#include "bms_config_store.h"
 #include "bms_soc_profile.h"
 #include "bms_cold_kv_store.h"
 #include "bms_state.h"
@@ -178,7 +179,7 @@ static uint8_t soc_product_config_valid(uint8_t chemistry, uint8_t profile_id)
     return 1u;
 }
 
-static uint8_t soc_config_valid(const bms_soc_config_t *config)
+uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
 {
     if (config == 0) return 0u;
     if (!soc_product_config_valid(config->chemistry, config->profile_id)) return 0u;
@@ -194,8 +195,9 @@ static uint8_t soc_config_valid(const bms_soc_config_t *config)
 
 uint8_t bms_soc_configure(const bms_soc_config_t *config)
 {
-    if (!soc_config_valid(config)) return 0u;
+    if (!bms_soc_config_valid(config)) return 0u;
 
+    if (!bms_config_store_set_soc(config)) return 0u;
     g_soc_config = *config;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
@@ -227,9 +229,8 @@ static uint8_t soc_resolve_chemistry(void)
         return g_soc_config.chemistry;
     }
 
-    /* AUTO is a backward-compatible fallback for units whose old cold KV does
-     * not yet contain chemistry/profile keys. New products should persist the
-     * explicit chemistry/profile selection instead of relying on this heuristic. */
+    /* AUTO is an explicit generic selection. D008 defaults use the compiled
+     * assembly identity; no old Flash migration is performed. */
     ovp = g_tParam.protect.u16VcellOvp_Third;
     if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
     if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
@@ -253,39 +254,14 @@ static void soc_profile_refresh(void)
 
 static void soc_load_persisted_product_config(void)
 {
-    bms_cold_system_params_t system;
-    uint8_t chemistry = BMS_SOC_CHEMISTRY_AUTO;
-    uint8_t profile_id = BMS_SOC_PROFILE_AUTO;
-
-    if (bms_cold_kv_store_get_system(&system)) {
-        if (system.battery_chemistry <= BMS_SOC_CHEMISTRY_NMC)
-            chemistry = (uint8_t)system.battery_chemistry;
-        if (system.soc_profile_id <= BMS_SOC_PROFILE_GENERIC_NMC)
-            profile_id = (uint8_t)system.soc_profile_id;
-    }
-
-    if (!soc_product_config_valid(chemistry, profile_id)) {
-        chemistry = BMS_SOC_CHEMISTRY_AUTO;
-        profile_id = BMS_SOC_PROFILE_AUTO;
-    }
-    g_soc_config.chemistry = chemistry;
-    g_soc_config.profile_id = profile_id;
+    (void)bms_config_store_get_soc(&g_soc_config);
 }
 
 uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id)
 {
-    bms_cold_system_params_t system;
     bms_soc_config_t next = g_soc_config;
-
     next.chemistry = chemistry;
     next.profile_id = profile_id;
-    if (!soc_config_valid(&next)) return 0u;
-    if (!bms_cold_kv_store_get_system(&system)) return 0u;
-
-    system.battery_chemistry = chemistry;
-    system.soc_profile_id = profile_id;
-    if (!bms_cold_kv_store_set_system(&system)) return 0u;
-
     return bms_soc_configure(&next);
 }
 
@@ -419,9 +395,17 @@ static uint32_t soc_display_capacity_now(void)
     return ((uint32_t)get_soc_display() * SOC_Calculate_Element.u32CapFull) / SOC_PERCENT_MAX;
 }
 
+static uint32_t soc_nominal_capacity_0p1ah(void)
+{
+    bms_cold_system_params_t system;
+    if (bms_cold_kv_store_get_system(&system) && system.capacity_factory > 0u &&
+        system.capacity_factory <= 10000u) return system.capacity_factory;
+    return (uint32_t)CapacityFactory;
+}
+
 static void soc_recalc_full_capacity(void)
 {
-    uint32_t factory = (uint32_t)CapacityFactory;
+    uint32_t factory = soc_nominal_capacity_0p1ah();
     SOC_Calculate_Element.u32CapFactory = factory * SOC_CAPACITY_UNITS_PER_FACTORY;
 
     if (g_soc_runtime.capacity_learned && g_soc_runtime.learned_capacity_0p1ah != 0u) {
@@ -547,12 +531,12 @@ static void soc_learning_add(uint32_t delta)
 
 static void soc_learning_accept(void)
 {
-    uint32_t nominal = (uint32_t)CapacityFactory;
+    uint32_t nominal = soc_nominal_capacity_0p1ah();
     uint32_t learned = (g_soc_runtime.learning_capacity_as10 + 1800u) / 3600u;
     uint32_t min_cap = (nominal * SOC_LEARNED_CAP_MIN_PERCENT) / 100u;
     uint32_t max_cap = (nominal * SOC_LEARNED_CAP_MAX_PERCENT) / 100u;
 
-    if ((nominal == 0u) || (learned < min_cap) || (learned > max_cap) || (learned > 65535u)) {
+    if ((nominal == 0u) || (learned < min_cap) || (learned > max_cap) || (learned > 10000u)) {
         soc_learning_abort();
         return;
     }
@@ -806,7 +790,7 @@ static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
     uint16_t factory_a10;
     uint32_t ticks;
     if (dsg_current < SOC_DSG_CURRENT_MIN_A10) dsg_current = SOC_DSG_CURRENT_MIN_A10;
-    factory_a10 = (uint16_t)CapacityFactory;
+    factory_a10 = (uint16_t)soc_nominal_capacity_0p1ah();
     /* CapacityFactory is Ah*10, current is A*10: 1% time(s) = 36 * CapacityFactory / current. */
     ticks = ((uint32_t)36u * factory_a10 * SOC_TICKS_PER_SECOND + ((uint32_t)dsg_current / 2u)) /
         (uint32_t)dsg_current;

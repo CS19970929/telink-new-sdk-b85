@@ -58,7 +58,7 @@ git pull --ff-only origin refactor/d008-common-bms-features
 | Modbus 从站地址 | `vendor/ble_sample/modbus_rtu.c` 的 `MB_ADDR` | 是 | 固件更新后变化 |
 | BLE 广播周期/RF功率/连接延迟 | `vendor/ble_sample/app.c` | 是 | 固件更新后变化 |
 | Flash 区域 | `vendor/ble_sample/flash_store_cfg.h` | 是，兼容性高风险 | 不允许随意改 |
-| 固件升级重置 epoch | `vendor/ble_sample/conf.h` 的 `FW_UPGRADE_RESET_*_EPOCH` | 部分 | 软件保护/system/SOC三计数/Event/runtime；尚无独立 AFE HW epoch，见 Flash 审核 |
+| 固件升级重置 epoch | `vendor/ble_sample/conf.h` 的 `FW_UPGRADE_RESET_*_EPOCH` | 是 | 软件保护/AFE HW/SOC config/system/SOC state/Event/runtime 独立 revision，见存储升级实现 |
 
 本文路径中的 `vendor/ble_sample/` 完整前缀是：
 
@@ -326,15 +326,15 @@ enable_mask
 
 D008 backend 会按 200 µΩ 和 DVC 量化规则产生 effective 值。
 
-### 修改新设备第一次迁移默认
+### 修改默认值与 OTA 分类 revision
 
 入口：
 
 ```c
-bms_afe_hw_profile_build_migration_default()
+bms_afe_hw_profile_build_default()
 ```
 
-但要注意：这只对 `schema_version==0 && afe_model==0` 的空 profile 做一次 migration。已保存 profile 的设备不会因为你修改这个函数自动改变。
+已保存 profile 不会仅因函数变化而改变；同时修改 `FW_UPGRADE_RESET_AFE_HW_EPOCH` 才覆盖该类参数。完整操作与边界见 [存储升级实现](D008_STORAGE_UPGRADE_IMPLEMENTATION.md)。
 
 ### 修改现场设备
 

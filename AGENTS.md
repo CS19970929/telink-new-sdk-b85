@@ -111,7 +111,7 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 ## 当前开发期存储与电流约束
 
 - 用户确认项目处于持续迭代开发期，后续不要求兼容旧版代码/迁移旧参数；格式变化可明确提升 schema 并恢复新默认，不新增历史迁移器。当前格式掉电一致性、错误传播、各参数域独立更新仍须保证。
-- Flash 审核与 OTA 参数能力现状见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`，未实现项不能写成已完成。
+- Flash 原审核见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`；当前 schema 2、分类 revision、保存/退避与 OTA 操作以 `docs/D008_STORAGE_UPGRADE_IMPLEMENTATION.md` 为准。不得分开写数据与 revision；不得由 SaveParam 解除启动升级失败门禁。
 - D008 `abs(current_ma) <= 200 mA` 为不可靠区间，充放电显示屏蔽且 SOC 不积分；用户允许其作为静置候选，仍须满足有效/新鲜电压、压差及稳定时间。原始诊断 mA 保留；suspend 退出仍为双向 >=500 mA。
 
 ## 构建

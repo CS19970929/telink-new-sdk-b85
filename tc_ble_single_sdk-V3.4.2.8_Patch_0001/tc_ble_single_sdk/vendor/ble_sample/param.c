@@ -11,233 +11,22 @@
 #include "runtime.h"
 #include <string.h>
 
-#define PARAM_MIGRATION_TEMP_PROTECT_V1 (1uL << 0)
+#include "bms_config_store.h"
+#include "bms_state_store.h"
 
 PARAM_T g_tParam;
 static uint8_t s_protection_params_valid;
+static uint8_t s_storage_upgrade_valid;
 
 uint8_t bms_protection_params_valid(void)
 {
-    return s_protection_params_valid;
+    return s_protection_params_valid && s_storage_upgrade_valid;
 }
 
 static void param_fill_default(PARAM_T *param)
 {
     param->ParamVer = PARAM_VER;
     bms_cold_kv_store_get_default_protect(&param->protect);
-}
-
-/*
- * The chemistry/profile keys were added after deployed cold-KV layouts already
- * existed. flash_kv32 therefore reads AUTO/AUTO for an old unit that has never
- * stored the new keys. On this D008 product branch, migrate only that fully
- * unset state to the explicitly compiled physical assembly profile.
- *
- * Never overwrite a non-AUTO value here: communication/factory configuration
- * remains authoritative after the one-time additive-key migration. A firmware
- * image compiled for another assembly (24S LFP vs 20S NMC) must use an explicit
- * factory/system reset or product command rather than silently reinterpreting
- * an already configured battery.
- */
-static void param_apply_d008_product_identity_if_unset(void)
-{
-    bms_cold_system_params_t system;
-
-    if (!bms_cold_kv_store_get_system(&system)) {
-        return;
-    }
-
-    if ((system.battery_chemistry == BMS_SOC_CHEMISTRY_AUTO) &&
-        (system.soc_profile_id == BMS_SOC_PROFILE_AUTO)) {
-        system.battery_chemistry = D008_PRODUCT_CHEMISTRY;
-        system.soc_profile_id = D008_PRODUCT_SOC_PROFILE_ID;
-        if (!bms_cold_kv_store_set_system(&system)) {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-}
-
-static uint8_t param_temp_group_unset(uint16_t first,
-                                      uint16_t second,
-                                      uint16_t third,
-                                      uint16_t recover,
-                                      uint16_t filter)
-{
-    return ((first == 0u) && (second == 0u) && (third == 0u) &&
-            (recover == 0u) && (filter == 0u)) ? 1u : 0u;
-}
-
-/*
- * Early deployed images may contain a valid protection record whose newly
- * introduced temperature groups are all zero. In the common protection state
- * machine a zero trip threshold intentionally means "disabled", so retaining
- * that legacy state silently removes temperature protection after an upgrade.
- *
- * Migrate only a completely unset five-word temperature group. Any group with
- * at least one configured value is left untouched. The persistent migration
- * bit makes this a one-time compatibility repair: after it has run, a customer
- * may intentionally change or disable a temperature group through the normal
- * communication path and firmware will not restore defaults on the next boot.
- *
- * reserved0 is already part of Storage V1, so using one bit does not change the
- * record payload/schema and therefore cannot invalidate existing records.
- */
-static int param_migrate_temperature_protection_v1(void)
-{
-    bms_cold_system_params_t system;
-    struct PRT_E2ROM_PARAS defaults;
-    struct PRT_E2ROM_PARAS candidate;
-    uint8_t changed = 0u;
-
-    if (!bms_cold_kv_store_get_system(&system)) {
-        return 0;
-    }
-    if ((system.reserved0 & PARAM_MIGRATION_TEMP_PROTECT_V1) != 0u) {
-        return 1;
-    }
-
-    bms_cold_kv_store_get_default_protect(&defaults);
-    candidate = g_tParam.protect;
-
-    if (param_temp_group_unset(candidate.u16TChgOTp_First,
-                               candidate.u16TChgOTp_Second,
-                               candidate.u16TChgOTp_Third,
-                               candidate.u16TChgOTp_Rcv,
-                               candidate.u16TChgOTp_Filter)) {
-        candidate.u16TChgOTp_First = defaults.u16TChgOTp_First;
-        candidate.u16TChgOTp_Second = defaults.u16TChgOTp_Second;
-        candidate.u16TChgOTp_Third = defaults.u16TChgOTp_Third;
-        candidate.u16TChgOTp_Rcv = defaults.u16TChgOTp_Rcv;
-        candidate.u16TChgOTp_Filter = defaults.u16TChgOTp_Filter;
-        changed = 1u;
-    }
-
-    if (param_temp_group_unset(candidate.u16TchgUTp_First,
-                               candidate.u16TchgUTp_Second,
-                               candidate.u16TchgUTp_Third,
-                               candidate.u16TchgUTp_Rcv,
-                               candidate.u16TchgUTp_Filter)) {
-        candidate.u16TchgUTp_First = defaults.u16TchgUTp_First;
-        candidate.u16TchgUTp_Second = defaults.u16TchgUTp_Second;
-        candidate.u16TchgUTp_Third = defaults.u16TchgUTp_Third;
-        candidate.u16TchgUTp_Rcv = defaults.u16TchgUTp_Rcv;
-        candidate.u16TchgUTp_Filter = defaults.u16TchgUTp_Filter;
-        changed = 1u;
-    }
-
-    if (param_temp_group_unset(candidate.u16TdischgOTp_First,
-                               candidate.u16TdischgOTp_Second,
-                               candidate.u16TdischgOTp_Third,
-                               candidate.u16TdischgOTp_Rcv,
-                               candidate.u16TdischgOTp_Filter)) {
-        candidate.u16TdischgOTp_First = defaults.u16TdischgOTp_First;
-        candidate.u16TdischgOTp_Second = defaults.u16TdischgOTp_Second;
-        candidate.u16TdischgOTp_Third = defaults.u16TdischgOTp_Third;
-        candidate.u16TdischgOTp_Rcv = defaults.u16TdischgOTp_Rcv;
-        candidate.u16TdischgOTp_Filter = defaults.u16TdischgOTp_Filter;
-        changed = 1u;
-    }
-
-    if (param_temp_group_unset(candidate.u16TdischgUTp_First,
-                               candidate.u16TdischgUTp_Second,
-                               candidate.u16TdischgUTp_Third,
-                               candidate.u16TdischgUTp_Rcv,
-                               candidate.u16TdischgUTp_Filter)) {
-        candidate.u16TdischgUTp_First = defaults.u16TdischgUTp_First;
-        candidate.u16TdischgUTp_Second = defaults.u16TdischgUTp_Second;
-        candidate.u16TdischgUTp_Third = defaults.u16TdischgUTp_Third;
-        candidate.u16TdischgUTp_Rcv = defaults.u16TdischgUTp_Rcv;
-        candidate.u16TdischgUTp_Filter = defaults.u16TdischgUTp_Filter;
-        changed = 1u;
-    }
-
-    if (param_temp_group_unset(candidate.u16TmosOTp_First,
-                               candidate.u16TmosOTp_Second,
-                               candidate.u16TmosOTp_Third,
-                               candidate.u16TmosOTp_Rcv,
-                               candidate.u16TmosOTp_Filter)) {
-        candidate.u16TmosOTp_First = defaults.u16TmosOTp_First;
-        candidate.u16TmosOTp_Second = defaults.u16TmosOTp_Second;
-        candidate.u16TmosOTp_Third = defaults.u16TmosOTp_Third;
-        candidate.u16TmosOTp_Rcv = defaults.u16TmosOTp_Rcv;
-        candidate.u16TmosOTp_Filter = defaults.u16TmosOTp_Filter;
-        changed = 1u;
-    }
-
-    /* Validate the complete candidate before either the protection record or
-     * migration marker is changed. Invalid legacy data remains byte-for-byte
-     * untouched in Flash for diagnosis and keeps the runtime fail-safe set. */
-    if (!bms_sw_protection_validate_params(&candidate)) {
-        return 0;
-    }
-    if (changed && !bms_cold_kv_store_set_protect(&candidate)) {
-        return 0;
-    }
-    if (changed) g_tParam.protect = candidate;
-
-    system.reserved0 |= PARAM_MIGRATION_TEMP_PROTECT_V1;
-    if (!bms_cold_kv_store_set_system(&system)) {
-        return 0;
-    }
-    return 1;
-}
-
-static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
-{
-    u32 applied_epoch = 0u;
-
-    if (desired_epoch == 0u) {
-        return 0;
-    }
-
-    if (!bms_cold_kv_store_get_control_value(item, &applied_epoch)) {
-        applied_epoch = 0u;
-    }
-
-    return (applied_epoch != desired_epoch);
-}
-
-static void param_upgrade_mark_epoch(bms_cold_control_param_id_t item, u32 desired_epoch)
-{
-    if (desired_epoch != 0u) {
-        (void)bms_cold_kv_store_set_control_value(item, desired_epoch);
-    }
-}
-
-static int param_upgrade_apply_default_protect(void)
-{
-    param_fill_default(&g_tParam);
-    return bms_cold_kv_store_set_protect(&g_tParam.protect);
-}
-
-static int param_upgrade_apply_default_system(void)
-{
-    bms_cold_system_params_t system;
-
-    bms_cold_kv_store_get_default_system(&system);
-    return bms_cold_kv_store_set_system(&system);
-}
-
-static int param_upgrade_apply_default_soc(void)
-{
-    soc_kv_data_t defaults = soc_kv_store_get_default_data();
-
-    if (!soc_kv_store_init()) {
-        return 0;
-    }
-
-    /* 升级重置只需要覆盖当前值，不需要额外整区擦除。 */
-    return soc_kv_store_write_all(defaults.soc, defaults.dsg, defaults.cycle);
-}
-
-static int param_upgrade_apply_default_event_log(void)
-{
-    return bms_event_log_factory_reset();
-}
-
-static int param_upgrade_apply_default_runtime(void)
-{
-    return Runtime_FactoryReset();
 }
 
 void LoadParam(void)
@@ -254,7 +43,6 @@ void LoadParam(void)
         return;
     }
 
-    param_apply_d008_product_identity_if_unset();
 
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
@@ -263,11 +51,6 @@ void LoadParam(void)
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
             return;
         }
-    }
-
-    if (!param_migrate_temperature_protection_v1()) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return;
     }
 
     /* Communication writes are validated before SaveParam(). Validate loaded
@@ -298,52 +81,13 @@ uint8_t SaveParam(void)
 
 void Param_UpgradeReset_Apply(void)
 {
-    if (!bms_cold_kv_store_init()) {
+    /* A failed boot update remains inhibited until reboot/retry through this
+     * startup path. A later communication SaveParam cannot clear this gate. */
+    s_storage_upgrade_valid = 0u;
+    if (!bms_config_store_apply_revisions() || !bms_state_store_init() ||
+        !bms_event_log_init()) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
-
-    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_PROTECT_RESET_EPOCH, FW_UPGRADE_RESET_PROTECT_EPOCH)) {
-        if (param_upgrade_apply_default_protect()) {
-            param_upgrade_mark_epoch(BMS_COLD_CTRL_PROTECT_RESET_EPOCH, FW_UPGRADE_RESET_PROTECT_EPOCH);
-        } else {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-
-    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_SYSTEM_RESET_EPOCH, FW_UPGRADE_RESET_SYSTEM_EPOCH)) {
-        if (param_upgrade_apply_default_system()) {
-            param_upgrade_mark_epoch(BMS_COLD_CTRL_SYSTEM_RESET_EPOCH, FW_UPGRADE_RESET_SYSTEM_EPOCH);
-        } else {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-
-    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_SOC_RESET_EPOCH, FW_UPGRADE_RESET_SOC_EPOCH)) {
-        if (param_upgrade_apply_default_soc()) {
-            param_upgrade_mark_epoch(BMS_COLD_CTRL_SOC_RESET_EPOCH, FW_UPGRADE_RESET_SOC_EPOCH);
-        } else {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-
-    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH)) {
-        if (param_upgrade_apply_default_event_log()) {
-            param_upgrade_mark_epoch(BMS_COLD_CTRL_EVENT_LOG_RESET_EPOCH, FW_UPGRADE_RESET_EVENT_LOG_EPOCH);
-        } else {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-
-    if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_RUNTIME_RESET_EPOCH, FW_UPGRADE_RESET_RUNTIME_EPOCH)) {
-        if (param_upgrade_apply_default_runtime()) {
-            param_upgrade_mark_epoch(BMS_COLD_CTRL_RUNTIME_RESET_EPOCH, FW_UPGRADE_RESET_RUNTIME_EPOCH);
-        } else {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        }
-    }
-
-    /* A system-reset epoch restores additive chemistry/profile keys to AUTO.
-     * Reapply the compiled D008 assembly identity only after all reset epochs
-     * have run so the same boot cannot undo the migration. */
-    param_apply_d008_product_identity_if_unset();
+    s_storage_upgrade_valid = 1u;
 }

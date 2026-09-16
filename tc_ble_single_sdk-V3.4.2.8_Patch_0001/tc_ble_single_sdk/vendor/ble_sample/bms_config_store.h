@@ -2,6 +2,7 @@
 
 #include "param.h"
 #include "bms_afe_hw_profile.h"
+#include "SocEnhance.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,9 +24,11 @@ typedef enum {
 typedef enum {
     BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH = 0,
     BMS_CONFIG_CTRL_SYSTEM_RESET_EPOCH,
-    BMS_CONFIG_CTRL_SOC_RESET_EPOCH,
-    BMS_CONFIG_CTRL_EVENT_LOG_RESET_EPOCH,
-    BMS_CONFIG_CTRL_RUNTIME_RESET_EPOCH,
+    BMS_CONFIG_CTRL_SOC_RESET_EPOCH,       /* reserved, State owns its revision */
+    BMS_CONFIG_CTRL_EVENT_LOG_RESET_EPOCH, /* reserved, Event owns its revision */
+    BMS_CONFIG_CTRL_RUNTIME_RESET_EPOCH,   /* reserved, State owns its revision */
+    BMS_CONFIG_CTRL_AFE_HW_RESET_EPOCH,
+    BMS_CONFIG_CTRL_SOC_CONFIG_RESET_EPOCH,
     BMS_CONFIG_CTRL_COUNT
 } bms_config_control_param_id_t;
 
@@ -44,6 +47,9 @@ typedef struct {
 
 /* Storage V1 Config owner: user/system/software-protection/AFE requested data. */
 int bms_config_store_init(void);
+int bms_config_store_apply_revisions(void);
+int bms_config_store_get_soc(bms_soc_config_t *config);
+int bms_config_store_set_soc(const bms_soc_config_t *config);
 int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect);
 int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
 int bms_config_store_get_system(bms_config_system_params_t *system);

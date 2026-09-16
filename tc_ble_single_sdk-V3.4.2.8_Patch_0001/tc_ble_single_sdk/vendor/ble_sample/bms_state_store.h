@@ -39,6 +39,7 @@ int  bms_state_store_init(void);
 bms_state_store_data_t bms_state_store_get_default_data(void);
 bms_state_store_data_t bms_state_store_get(void);
 int  bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle);
+/* Queue learning in RAM; periodic checkpoint and write_all flush include it. */
 int  bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags);
 void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
 u32 bms_state_store_get_runtime_min(void);

@@ -85,17 +85,10 @@ static u16 dvc_min_enabled_trip(u16 enable_mask,
     return min_value;
 }
 
-/*
- * One-time migration only: historical BMS software parameters were not
- * constrained to the independent DVC hardware-profile wire format. Adapt
- * them to values that the DVC1124-2 can actually represent so a legacy board
- * cannot boot with ProfileValid=0 and consequently block normal AFE sampling.
- *
- * Explicit AFE profile writes are NOT normalized here; they still pass the
- * strict validator unchanged. This preserves the V2 protocol contract while
- * making the legacy -> V2 bootstrap deterministic and non-bricking.
- */
-static void dvc_normalize_migration_profile(bms_afe_hw_profile_t *p)
+/* Normalize compiled seed defaults to the existing DVC representable bounds.
+ * Customer writes always use strict validation without normalization. No legacy
+ * Flash or runtime software-protection values are used here. */
+static void dvc_normalize_default_profile(bms_afe_hw_profile_t *p)
 {
     u16 min_trip;
     u32 max_a10;
@@ -155,9 +148,10 @@ static void dvc_normalize_migration_profile(bms_afe_hw_profile_t *p)
 }
 #endif
 
-void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
+void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 {
-    const struct PRT_E2ROM_PARAS *s = &g_tParam.protect;
+    const struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;
+    const struct PRT_E2ROM_PARAS *s = &defaults;
     if (p == 0) return;
     memset(p, 0, sizeof(*p));
     p->schema_version = BMS_AFE_HW_PROFILE_SCHEMA_VERSION;
@@ -192,7 +186,7 @@ void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
                            BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
                            BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_OCC2);
     if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
-    dvc_normalize_migration_profile(p);
+    dvc_normalize_default_profile(p);
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     p->ocd_recover_ms = 2000u;
     p->occ_recover_ms = ms10_to_ms(s->u16IchgOcp_Filter);
@@ -288,11 +282,6 @@ u8 bms_afe_hw_profile_init(void)
 {
     bms_afe_hw_profile_t p;
     if (!bms_cold_kv_store_get_afe_hw_profile(&p)) return 0u;
-    if (p.schema_version == 0u && p.afe_model == 0u) {
-        bms_afe_hw_profile_build_migration_default(&p);
-        if (!bms_afe_hw_profile_validate(&p)) return 0u;
-        return bms_cold_kv_store_set_afe_hw_profile(&p) ? 1u : 0u;
-    }
     return bms_afe_hw_profile_validate(&p);
 }
 

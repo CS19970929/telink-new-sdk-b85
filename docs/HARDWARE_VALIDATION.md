@@ -67,3 +67,12 @@
 - [ ] Flash 失败与 I2C shutdown 失败均保持 PC4 高；重复失败限速，不能产生密集擦写。
 - [ ] 24S LFP 与 20S NMC 数值回放及断电恢复，不补算未知时间，不继承静置资格；低功耗电流实测。
 - [ ] PB1/ACC 电平变化不触发 MOS/key/charger 策略；没有独立充电源资格时自动加热保持关闭。
+
+## 存储 schema 2 实板验收（TODO_VERIFY_HW）
+
+- [ ] 精确 Flash MID/BOM、温压条件、program/erase 最大耗时与 200 ms 采样/BLE 的干扰；采集 `bms_storage_platform_get_diagnostics()`，不以 mock 时间作为实测。
+- [ ] OTA 单独提高 SW/AFE/SOC-config/system/SOC-state/Event/runtime revision；验证保留无关域和重复启动。schema 1→2 按开发期策略重置，无旧参数迁移。
+- [ ] 每个域写入/擦除/commit 时断电；分别验证 Config 完成而 State/Event 未完成时的启动输出门禁。
+- [ ] State/Event pending 时突发掉电与受控 PC4 断电；受控路径失败保持 PC4 高。记录正常约 60 s 合并窗口和失败期间更长的丢失窗口。
+- [ ] AFE 应用/readback 失败、新三帧资格、实际 MOS Gate；失败时不能仅凭 Requested 或 CHGF/DSGF 声称物理关断。
+- [ ] 连续事件风暴、反复启动、手动参数写入、写校验失败 5 s 退避与日擦写量，按 schema 2 几何重新评估寿命。
