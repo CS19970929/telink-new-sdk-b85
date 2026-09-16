@@ -70,18 +70,46 @@
 #error "DVC1124 protection enable macros must be 0 or 1"
 #endif
 
-/* HS-D008 schematic: NTC1 -> GP4, NTC2 -> GP1. */
+/*
+ * HS-D008 final temperature-role definition:
+ *   GP1 = heater MOS / heater circuit temperature
+ *   GP2 = battery temperature #1
+ *   GP3 = battery temperature #2
+ *   GP4 = power MOS temperature
+ *
+ * battery_ntc_gp in dvc1124_config_t remains the primary battery channel for
+ * legacy diagnostics. Product protection always uses both GP2 and GP3.
+ */
+#ifndef DVC1124_DEFAULT_HEATER_NTC_GP
+#define DVC1124_DEFAULT_HEATER_NTC_GP        1u
+#endif
 #ifndef DVC1124_DEFAULT_BATTERY_NTC_GP
-#define DVC1124_DEFAULT_BATTERY_NTC_GP       4u
+#define DVC1124_DEFAULT_BATTERY_NTC_GP       2u
+#endif
+#ifndef DVC1124_DEFAULT_BATTERY_NTC2_GP
+#define DVC1124_DEFAULT_BATTERY_NTC2_GP      3u
 #endif
 #ifndef DVC1124_DEFAULT_MOS_NTC_GP
-#define DVC1124_DEFAULT_MOS_NTC_GP           1u
+#define DVC1124_DEFAULT_MOS_NTC_GP           4u
 #endif
 
 /*
- * GP modes are firmware-owned board routing. GP2/GP3 are routed to the external
- * connector; BOM variants must explicitly override these compile-time values if
- * those NTCs are not assembled. Cell-count/chemistry alone must not guess BOM.
+ * Independent irreversible heater-circuit fail-safe.
+ * Temperature encoding is (degC + 40) * 10, therefore 95C == 1350.
+ * If software commands the heater OFF while GP1 remains at/above 95C for 10s,
+ * the heater circuit is considered stuck/abnormal and PD4/MCC-EN-RF is fired.
+ * This is intentionally independent of the normal power-MOS OTP parameters.
+ */
+#ifndef DVC1124_HEATER_OFF_FAULT_TEMP_X10
+#define DVC1124_HEATER_OFF_FAULT_TEMP_X10    1350u
+#endif
+#ifndef DVC1124_HEATER_OFF_FAULT_CONFIRM_MS
+#define DVC1124_HEATER_OFF_FAULT_CONFIRM_MS  10000u
+#endif
+
+/*
+ * GP modes are firmware-owned board routing. GP1..GP4 are populated NTC inputs
+ * with product roles defined above; GP5/GP6 are low-side FET controls.
  */
 #ifndef DVC1124_GP1_DEFAULT_MODE
 #define DVC1124_GP1_DEFAULT_MODE             DVC1124_GP14_NTC
