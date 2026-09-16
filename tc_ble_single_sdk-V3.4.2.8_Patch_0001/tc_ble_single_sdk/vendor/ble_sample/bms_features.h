@@ -27,6 +27,7 @@ void bms_features_service(void);
 void bms_features_on_afe_invalid(void);
 
 uint8_t bms_features_heater_on(void);
+uint8_t bms_features_heater_fuse_fired(void);
 uint8_t bms_features_charge_blocked(void);
 uint8_t bms_features_discharge_blocked(void);
 uint8_t bms_features_openwire_active(void);
