@@ -34,17 +34,39 @@ static uint8_t dvc_configured_ntc_valid(const dvc1124_snapshot_t *snapshot,
     return (snapshot->ntc_res_ohm[index] != 0u) ? 1u : 0u;
 }
 
+static uint8_t dvc_get_battery_temperature_range(const dvc1124_snapshot_t *snapshot,
+                                                  uint16_t *min_temp,
+                                                  uint16_t *max_temp)
+{
+    uint16_t t1;
+    uint16_t t2;
+
+    if ((snapshot == 0) || (min_temp == 0) || (max_temp == 0)) return 0u;
+    if (!dvc_configured_ntc_valid(snapshot, DVC1124_DEFAULT_BATTERY_NTC_GP) ||
+        !dvc_configured_ntc_valid(snapshot, DVC1124_DEFAULT_BATTERY_NTC2_GP))
+    {
+        *min_temp = 0u;
+        *max_temp = 0u;
+        return 0u;
+    }
+
+    t1 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC_GP);
+    t2 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC2_GP);
+    *min_temp = (t1 <= t2) ? t1 : t2;
+    *max_temp = (t1 >= t2) ? t1 : t2;
+    return 1u;
+}
+
 static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
 {
     if (sw == 0) return;
 
     /*
      * D008 temperature has one owner: DVC1124 GP measurement/conversion.
-     * Keep legacy report slots populated from that same engineering value so
+     * GP2/GP3 are battery temperatures; GP4 is power-MOS temperature.
+     * Keep legacy report slots populated from those same engineering values so
      * existing Modbus/upper-computer readers do not need a second NTC lookup.
-     *
-     * ENV_TEMP3 (index 8) is retained only as the historical battery-temperature
-     * mirror. MOS_TEMP1 (index 9) is the existing realtime MOS-temperature slot.
+     * ENV_TEMP3 is the battery maximum-temperature mirror and MOS_TEMP1 is GP4.
      */
     g_stCellInfoReport.u16Temperature[ENV_TEMP3] =
         sw->battery_temp_valid ? sw->battery_temp_max : 0u;
@@ -270,10 +292,7 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
 void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
-    dvc1124_config_t cfg;
     bms_sw_protection_inputs_t sw;
-    uint16_t battery_temp;
-    uint16_t mos_temp;
 #if DVC1124_HW_PROTECT_ENABLE
     uint8_t alarm;
 #endif
@@ -282,15 +301,13 @@ void DVC1124_BmsApp_AFEGet(void)
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return;
 
-    DVC1124_GetConfig(&cfg);
     memset(&sw, 0, sizeof(sw));
-    battery_temp = dvc_get_configured_temperature(cfg.battery_ntc_gp);
-    mos_temp = dvc_get_configured_temperature(cfg.mos_ntc_gp);
-    sw.battery_temp_valid = dvc_configured_ntc_valid(&snapshot, cfg.battery_ntc_gp);
-    sw.mos_temp_valid = dvc_configured_ntc_valid(&snapshot, cfg.mos_ntc_gp);
-    sw.battery_temp_min = battery_temp;
-    sw.battery_temp_max = battery_temp;
-    sw.mos_temp = mos_temp;
+    sw.battery_temp_valid = dvc_get_battery_temperature_range(
+        &snapshot, &sw.battery_temp_min, &sw.battery_temp_max);
+    sw.mos_temp_valid = dvc_configured_ntc_valid(
+        &snapshot, DVC1124_DEFAULT_MOS_NTC_GP);
+    sw.mos_temp = sw.mos_temp_valid ?
+        dvc_get_configured_temperature(DVC1124_DEFAULT_MOS_NTC_GP) : 0u;
 
     /* Measurement/reporting remains active in every protection-isolation mode. */
     dvc_publish_temperature_report(&sw);
@@ -338,7 +355,6 @@ void bms_afe_set_output_enabled(uint8_t enabled)
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
 {
     dvc1124_snapshot_t snapshot;
-    dvc1124_config_t cfg;
     uint32_t pack_adc_mv;
 
     if (measurements == NULL) return 0u;
@@ -346,22 +362,17 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
 
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return 0u;
-    DVC1124_GetConfig(&cfg);
 
-    if ((cfg.battery_ntc_gp != 0u) && (cfg.battery_ntc_gp <= DVC1124_MAX_GP))
-    {
-        measurements->battery_ntc_mv =
-            dvc_legacy_adc_mv(snapshot.ntc_res_ohm[cfg.battery_ntc_gp - 1u]);
-        measurements->battery_ntc_100ohm =
-            dvc_legacy_resistance_100ohm(measurements->battery_ntc_mv);
-    }
-    if ((cfg.mos_ntc_gp != 0u) && (cfg.mos_ntc_gp <= DVC1124_MAX_GP))
-    {
-        measurements->mos_ntc_mv =
-            dvc_legacy_adc_mv(snapshot.ntc_res_ohm[cfg.mos_ntc_gp - 1u]);
-        measurements->mos_ntc_100ohm =
-            dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
-    }
+    /* Legacy diagnostic representation only. Battery uses primary GP2;
+     * protection uses both GP2/GP3. MOS diagnostic is the real power-MOS GP4. */
+    measurements->battery_ntc_mv =
+        dvc_legacy_adc_mv(snapshot.ntc_res_ohm[DVC1124_DEFAULT_BATTERY_NTC_GP - 1u]);
+    measurements->battery_ntc_100ohm =
+        dvc_legacy_resistance_100ohm(measurements->battery_ntc_mv);
+    measurements->mos_ntc_mv =
+        dvc_legacy_adc_mv(snapshot.ntc_res_ohm[DVC1124_DEFAULT_MOS_NTC_GP - 1u]);
+    measurements->mos_ntc_100ohm =
+        dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
 
     /* Legacy diagnostic representation only; no MCU ADC is used here. */
     pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
