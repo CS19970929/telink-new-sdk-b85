@@ -143,6 +143,41 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
     return state->active;
 }
 
+/*
+ * Battery-temperature faults are directional: a charge OTP/UTP can start only
+ * while charge current exists, and a discharge OTP/UTP can start only while
+ * discharge current exists.
+ *
+ * The current gate is intentionally applied only while qualifying a NEW fault.
+ * Once active, protection usually removes that current; clearing the fault just
+ * because current became zero would immediately re-open the FET and create an
+ * on/off loop. Active faults therefore recover only from temperature + recovery
+ * filter, independent of current after the trip.
+ */
+static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
+                                         uint8_t trip_enabled,
+                                         uint16_t value,
+                                         uint16_t trip,
+                                         uint16_t recover,
+                                         uint16_t filter_10ms,
+                                         bms_sw_direction_t direction)
+{
+    if (state == 0) return 0u;
+
+    if (!state->active && !trip_enabled)
+    {
+        /* Temperature and matching current direction must coexist throughout
+         * qualification. Never carry a partial trip count through idle/current
+         * reversal periods. */
+        state->trip_count = 0u;
+        state->recover_count = 0u;
+        return 0u;
+    }
+
+    return bms_sw_filter_update(state, value, trip, recover,
+                                filter_10ms, direction);
+}
+
 static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
 {
     if (level == 0u) return &g_stCellInfoReport.unMdlFault_First;
@@ -233,8 +268,13 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
 {
     const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
     uint8_t level;
+    uint8_t charge_current_present;
+    uint8_t discharge_current_present;
 
     if (inputs == 0) return;
+
+    charge_current_present = (g_stCellInfoReport.u16Ichg > 0u) ? 1u : 0u;
+    discharge_current_present = (g_stCellInfoReport.u16IDischg > 0u) ? 1u : 0u;
 
     /* Sensor-break handling remains fail-safe at the system level, but each
      * temperature protection group is evaluated only from the sensor it owns.
@@ -289,26 +329,26 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
         {
             trip = bms_sw_level_value(level, p->u16TChgOTp_First,
                                       p->u16TChgOTp_Second, p->u16TChgOTp_Third);
-            f->bits.b1CellChgOtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OT],
-                inputs->battery_temp_max, trip, p->u16TChgOTp_Rcv,
+            f->bits.b1CellChgOtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_OT],
+                charge_current_present, inputs->battery_temp_max, trip, p->u16TChgOTp_Rcv,
                 p->u16TChgOTp_Filter, BMS_SW_HIGH);
 
             trip = bms_sw_level_value(level, p->u16TchgUTp_First,
                                       p->u16TchgUTp_Second, p->u16TchgUTp_Third);
-            f->bits.b1CellChgUtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_UT],
-                inputs->battery_temp_min, trip, p->u16TchgUTp_Rcv,
+            f->bits.b1CellChgUtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_UT],
+                charge_current_present, inputs->battery_temp_min, trip, p->u16TchgUTp_Rcv,
                 p->u16TchgUTp_Filter, BMS_SW_LOW);
 
             trip = bms_sw_level_value(level, p->u16TdischgOTp_First,
                                       p->u16TdischgOTp_Second, p->u16TdischgOTp_Third);
-            f->bits.b1CellDischgOtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OT],
-                inputs->battery_temp_max, trip, p->u16TdischgOTp_Rcv,
+            f->bits.b1CellDischgOtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_OT],
+                discharge_current_present, inputs->battery_temp_max, trip, p->u16TdischgOTp_Rcv,
                 p->u16TdischgOTp_Filter, BMS_SW_HIGH);
 
             trip = bms_sw_level_value(level, p->u16TdischgUTp_First,
                                       p->u16TdischgUTp_Second, p->u16TdischgUTp_Third);
-            f->bits.b1CellDischgUtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_UT],
-                inputs->battery_temp_min, trip, p->u16TdischgUTp_Rcv,
+            f->bits.b1CellDischgUtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_UT],
+                discharge_current_present, inputs->battery_temp_min, trip, p->u16TdischgUTp_Rcv,
                 p->u16TdischgUTp_Filter, BMS_SW_LOW);
         }
         else
