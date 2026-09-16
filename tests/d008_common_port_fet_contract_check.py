@@ -76,12 +76,27 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK", helper)
         self.assertNotIn("DVC1124_WriteRegisterFieldSafe", helper)
 
-    def test_guard_hard_off_paths_are_preserved(self):
+    def test_controlled_off_is_preserved_but_comm_loss_uses_wdt(self):
         guard = read("bms_afe_guard.c")
-        self.assertIn("static void inhibit(void)", guard)
-        self.assertGreaterEqual(guard.count("(void)AFE_FETS(0u, 0u);"), 4)
-        self.assertIn("if (!s_guard.output_enabled)", guard)
+        bms = read("dvc1124_bms.c")
+
+        # When communication is healthy, an explicit 0/0 request still maps to
+        # the true DVC OFF/OFF command; open-wire can also request controlled off.
+        policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
+        policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+        self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
+        self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
         self.assertIn("bms_afe_openwire_start", guard)
+        self.assertIn("if (!AFE_FETS(0u, 0u)) return 0u;", guard)
+
+        # Communication loss is different: make only one best-effort off
+        # attempt, then keep the bus silent so the DVC hardware WDT can fire.
+        self.assertIn("static void best_effort_shutdown(void)", guard)
+        self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", guard)
+        self.assertIn("s_guard.bus_silenced = 1u;", guard)
+        self.assertIn("if (service_failsafe_wait()) return;", guard)
+        self.assertIn("if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;", guard)
+        self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)
 
 if __name__ == "__main__":
     unittest.main()
