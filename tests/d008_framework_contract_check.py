@@ -47,13 +47,20 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertRegex(self.backend_h, r"#define\s+BMS_AFE_BACKEND\s+BMS_AFE_BACKEND_DVC1124")
         self.assertIn("dvc1124_backend_sample", self.afe_h)
 
-    def test_guard_fail_safe_inhibit_is_preserved(self):
+    def test_guard_comm_loss_uses_hardware_watchdog_silence(self):
         self.assertEqual(macro_literal(self.guard, "BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT"), 3)
-        self.assertEqual(macro_literal(self.guard, "BMS_AFE_REINIT_TRIGGER"), 3)
+        self.assertEqual(macro_literal(self.guard, "BMS_AFE_COMM_FAILS_BEFORE_SILENCE"), 2)
+        self.assertEqual(macro_literal(self.guard, "BMS_AFE_FAILSAFE_WAIT_SAMPLES"), 25)
         self.assertIn("s_guard.comm_inhibit = 1u;", self.guard)
-        self.assertGreaterEqual(self.guard.count("(void)AFE_FETS(0u, 0u);"), 4)
+        self.assertIn("s_guard.bus_silenced = 1u;", self.guard)
+        self.assertIn("if (service_failsafe_wait()) return;", self.guard)
+        self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", self.guard)
+        self.assertIn("AFE_INIT();", self.guard)
+        self.assertNotIn("BMS_AFE_REINIT_TRIGGER", self.guard)
+        self.assertNotIn("BMS_AFE_REINIT_COOLDOWN_SAMPLES", self.guard)
         self.assertIn("valid_snapshot_streak", self.guard)
         self.assertIn("bms_features_on_afe_invalid", self.guard)
+        self.assertIn("bms_afe_bus_access_allowed", self.guard)
 
     def test_guard_keeps_requested_state_separate_from_feedback(self):
         self.assertIn("requested_charge_on", self.guard)
@@ -137,6 +144,7 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertNotIn("dvc1124_config_store.h", self.service)
         self.assertNotIn("DVC1124_ConfigStore", self.service)
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
+        self.assertIn("bms_afe_bus_access_allowed", self.service)
         raw = self.service.split("DVC1124_ConfigServiceWriteRaw", 1)[1]
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", raw)
         self.assertNotIn("DVC1124_WriteRegisters", raw)
