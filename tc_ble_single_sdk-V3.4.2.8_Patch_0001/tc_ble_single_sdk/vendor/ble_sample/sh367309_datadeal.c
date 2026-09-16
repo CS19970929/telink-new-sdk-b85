@@ -13,12 +13,94 @@ extern uint32_t g_u32CS_Res_AFE;
 
 UINT32 u32_ChgCur_mA = 0;
 UINT32 u32_DsgCur_mA = 0;
+
+/* SH367309 V1.1: CADC is a signed 16-bit, 4 Hz converter. */
+#define SH309_CADC_FLG_MASK                   0x20u
+#define SH309_CADC_FULL_SCALE_MV              200ULL
+#define SH309_CADC_DENOMINATOR                21470ULL
+#define BOOT_CURRENT_ZERO_DISCARD_COUNT       1u
+#define BOOT_CURRENT_ZERO_SAMPLE_COUNT        4u
+#define BOOT_CURRENT_ZERO_POLL_MS             10u
+#define BOOT_CURRENT_ZERO_TIMEOUT_MS          400u
+
+/*
+ * Boot-only CADC offset in signed raw-code domain. Capture is performed only
+ * while CHG/DSG/PCHG FETs are physically reported OFF. The offset is retained
+ * across deep-retention wakeups and is never relearned during normal running.
+ */
+_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRaw = 0;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroValid = 0u;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroAttempted = 0u;
+
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
 
-static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)
+static INT32 DataLoad_CurrentRawToSigned(UINT16 raw)
 {
-    return (UINT32)((((uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE) + 10735u) / 21470u);
+    return (INT32)(INT16)raw;
+}
+
+static UINT32 DataLoad_CurrentAbsRaw(INT32 raw)
+{
+    return (raw < 0) ? (UINT32)(-raw) : (UINT32)raw;
+}
+
+/*
+ * Datasheet CADC model:
+ *   I[mA] = raw * 200 / (21470 * Rsense[ohm])
+ * For N identical shunts of R_mOhm in parallel:
+ *   Rsense = R_mOhm / (1000 * N)
+ * Keep the complete ratio until the final division to avoid precision loss
+ * from the legacy precomputed integer reciprocal g_u32CS_Res_AFE.
+ */
+static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw_abs)
+{
+    uint64_t numerator;
+    uint64_t denominator;
+    uint64_t current_mA;
+
+    if ((raw_abs == 0u) || (CS_Res_Num == 0u) || (CS_Res == 0u))
+    {
+        return 0u;
+    }
+
+    numerator = (uint64_t)raw_abs * SH309_CADC_FULL_SCALE_MV * 1000ULL * (uint64_t)CS_Res_Num;
+    denominator = SH309_CADC_DENOMINATOR * (uint64_t)CS_Res;
+    current_mA = (numerator + (denominator / 2ULL)) / denominator;
+
+    if (current_mA > 0xFFFFFFFFULL)
+    {
+        return 0xFFFFFFFFu;
+    }
+
+    return (UINT32)current_mA;
+}
+
+static UINT8 DataLoad_WaitNewCadcConversion(void)
+{
+    UINT16 waited_ms = 0u;
+    UINT8 bflag2 = 0u;
+
+    while (waited_ms < BOOT_CURRENT_ZERO_TIMEOUT_MS)
+    {
+        Feed_IWatchDog;
+
+        if (!MTPRead(MTP_BFLAG2, 1u, &bflag2))
+        {
+            return 0u;
+        }
+
+        if ((bflag2 & SH309_CADC_FLG_MASK) != 0u)
+        {
+            return 1u;
+        }
+
+        Delay1ms(BOOT_CURRENT_ZERO_POLL_MS);
+        waited_ms += BOOT_CURRENT_ZERO_POLL_MS;
+    }
+
+    log_i("[BOOT][CUR_ZERO] CADC conversion timeout\n");
+    return 0u;
 }
 
 static void DataLoad_ClearCurrent(void)
@@ -1321,33 +1403,128 @@ void test_Autocurrent_cycle(void)
     }
 }
 #endif
+static INT32 DataLoad_CurrentApplyBootZero(UINT16 raw)
+{
+    INT32 corrected = DataLoad_CurrentRawToSigned(raw);
+
+    if (g_u8BootCurrentZeroValid)
+    {
+        corrected -= g_i32BootCurrentZeroRaw;
+    }
+
+    /* Difference of two signed 16-bit codes fits safely in INT32. */
+    return corrected;
+}
+
+UINT8 DataLoad_BootCurrentZeroCapture(void)
+{
+    sh367309_ram_t ram_snapshot;
+    INT32 raw_sum = 0;
+    UINT8 bflag2 = 0u;
+    UINT8 sample_index = 0u;
+    UINT8 total_index;
+
+    /* One attempt per real power-on. Never retry after MOS operation starts. */
+    if (g_u8BootCurrentZeroAttempted)
+    {
+        return g_u8BootCurrentZeroValid;
+    }
+
+    g_u8BootCurrentZeroAttempted = 1u;
+    g_u8BootCurrentZeroValid = 0u;
+    g_i32BootCurrentZeroRaw = 0;
+
+    /*
+     * CTL-C is already low in user_init_normal(). Also force all three AFE
+     * FET-control bits off and enable CADC explicitly. BSTATUS3 is checked on
+     * every fresh sample, so calibration cannot silently run with a FET on.
+     */
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.PCHMOS = 0u;
+    if (!MTPWrite(MTP_CONF, 1u, &SH367309_Reg_Store.REG_MTP_CONF.all))
+    {
+        log_i("[BOOT][CUR_ZERO] failed to force FET off / enable CADC\n");
+        return 0u;
+    }
+
+    /* BFLAG2 read clears a stale CADC_FLG before waiting for new conversions. */
+    if (!MTPRead(MTP_BFLAG2, 1u, &bflag2))
+    {
+        log_i("[BOOT][CUR_ZERO] failed to clear stale CADC flag\n");
+        return 0u;
+    }
+
+    for (total_index = 0u;
+         total_index < (BOOT_CURRENT_ZERO_DISCARD_COUNT + BOOT_CURRENT_ZERO_SAMPLE_COUNT);
+         ++total_index)
+    {
+        if (!DataLoad_WaitNewCadcConversion())
+        {
+            return 0u;
+        }
+
+        if (!sh309_i2c_read_with_crc(AFE_ID, SH309_RAM_START_ADDR,
+                                     SH309_RAM_LEN, (u8 *)&ram_snapshot))
+        {
+            log_i("[BOOT][CUR_ZERO] AFE read failed\n");
+            return 0u;
+        }
+
+        if (ram_snapshot.REG_BSTATUS3.bits.CHG_FET ||
+            ram_snapshot.REG_BSTATUS3.bits.DSG_FET ||
+            ram_snapshot.REG_BSTATUS3.bits.PCHG_FET)
+        {
+            log_i("[BOOT][CUR_ZERO] FET is not off, calibration rejected\n");
+            return 0u;
+        }
+
+        /* Ignore the first fresh conversion after CADC enable/boot settling. */
+        if (total_index < BOOT_CURRENT_ZERO_DISCARD_COUNT)
+        {
+            continue;
+        }
+
+        raw_sum += DataLoad_CurrentRawToSigned(U16_SwapEndian(ram_snapshot.Cadc));
+        ++sample_index;
+    }
+
+    if (sample_index != BOOT_CURRENT_ZERO_SAMPLE_COUNT)
+    {
+        return 0u;
+    }
+
+    g_i32BootCurrentZeroRaw = raw_sum / (INT32)sample_index;
+    g_u8BootCurrentZeroValid = 1u;
+    log_i("[BOOT][CUR_ZERO] raw offset=%d samples=%u\n",
+          g_i32BootCurrentZeroRaw, sample_index);
+    return 1u;
+}
+
 void DataLoad_Current(void)
 {
-    // if ((SH367309_Read_AFE1.u16Current & 0x1000) == 0)
-    if ((SH367309_Read_AFE1.u16Current & 0x8000) == 0)
+    INT32 corrected_raw = DataLoad_CurrentApplyBootZero(SH367309_Read_AFE1.u16Current);
+    UINT32 current_mA = DataLoad_CurrentRawToScaled_mA(DataLoad_CurrentAbsRaw(corrected_raw));
+
+    u32_ChgCur_mA = 0u;
+    u32_DsgCur_mA = 0u;
+
+    if (corrected_raw > 0)
     {
-        // u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // 榛樿浣跨敤200mV鐨勮绠楁柟寮�
-        // u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)SH367309_Read_AFE1.u16Current);
-        u32_ChgCur_mA = (UINT32)SH367309_Read_AFE1.u16Current * 200 * g_u32CS_Res_AFE / (21470);
-        // t_i32temp = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
-
-        log_i("******************************************\n");
-        log_i("AFE value->%d\n", u32_ChgCur_mA);
-
-        u32_DsgCur_mA = 0;
+        u32_ChgCur_mA = current_mA;
     }
-    else
+    else if (corrected_raw < 0)
     {
-        // u32_DsgCur_mA = (UINT32)(0xFFFF - (SH367309_Read_AFE1.u16Current | 0xE000) + 1) * 1000 * g_u32CS_Res_AFE / gu32_CurCoefficient; // mA
-        // u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * 200 * g_u32CS_Res_AFE / (21470); // mA
-        // u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA((UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1)); // mA
-        u32_DsgCur_mA = (UINT32)(0xFFFF - SH367309_Read_AFE1.u16Current + 1) * g_u32CS_Res_AFE / (21470) * 200; // mA
-
-        log_i("******************************************\n");
-        log_i("AFE value->%d\n", u32_DsgCur_mA);
-
-        u32_ChgCur_mA = 0;
+        u32_DsgCur_mA = current_mA;
     }
+
+    log_i("******************************************\n");
+    log_i("AFE raw=%d zero=%d current=%d mA\n",
+          corrected_raw,
+          g_u8BootCurrentZeroValid ? g_i32BootCurrentZeroRaw : 0,
+          (corrected_raw < 0) ? -(INT32)current_mA : (INT32)current_mA);
+
     // DataLoad_CurrentCali();
     if (u32_DsgCur_mA > 2000)
     {

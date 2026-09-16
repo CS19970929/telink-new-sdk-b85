@@ -1615,6 +1615,17 @@ _attribute_no_inline_ void user_init_normal(void)
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
 
+		/*
+		 * Boot-only zero-current calibration window. CTL-C must stay low and
+		 * both CHG/DSG MOS must be OFF until the AFE zero offset is captured.
+		 * DataLoad_BootCurrentZeroCapture() also verifies the actual AFE FET
+		 * status for every sample. Failure is non-blocking and is never retried
+		 * after normal MOS operation starts.
+		 */
+		close_ctlc();
+		close_chg();
+		(void)DataLoad_BootCurrentZeroCapture();
+
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
