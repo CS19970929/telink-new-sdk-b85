@@ -26,7 +26,8 @@ static uint8_t s_project_config_pending = 1u;
  * pads; only after SDA is released again does DVC1124_AFE_Reset() configure the
  * pins as hardware I2C and start normal communication.
  */
-#define DVC1124_I2C_WAKE_PULSE_US 1000u
+#define DVC1124_I2C_WAKE_PULSE_US       1000u
+#define DVC1124_AFE_ENABLE_SETTLE_US   20000u
 #if (DVC1124_I2C_WAKE_PULSE_US < 500u)
 #error "DVC1124 shutdown I2C wake pulse must be at least 500 us"
 #endif
@@ -39,6 +40,17 @@ static void dvc_project_delay_us(uint32_t delay_us)
     {
         Feed_IWatchDog;
     }
+}
+
+static void dvc_project_enable_afe_interface(void)
+{
+    /* HS-D008 MCU-AFE-EN / AFE1-PRO-EN is PD7, active high. Bring the AFE
+     * interface up before applying the PC0/PC1 shutdown-wake condition. */
+    gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
+    gpio_write(AFE1_PRO_EN_PIN, 1u);
+    gpio_set_input_en(AFE1_PRO_EN_PIN, 0u);
+    gpio_set_output_en(AFE1_PRO_EN_PIN, 1u);
+    dvc_project_delay_us(DVC1124_AFE_ENABLE_SETTLE_US);
 }
 
 static void dvc_project_i2c_wake_pulse(void)
@@ -215,6 +227,7 @@ static uint8_t dvc_project_apply_compile_time_config(void)
 
 static void dvc_project_reset_with_shutdown_wake(void)
 {
+    dvc_project_enable_afe_interface();
     dvc_project_i2c_wake_pulse();
     DVC1124_AFE_Reset();
 }
