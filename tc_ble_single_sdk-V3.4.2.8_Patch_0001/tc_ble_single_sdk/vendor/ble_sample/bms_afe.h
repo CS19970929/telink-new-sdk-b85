@@ -13,6 +13,9 @@
 #endif
 void bms_afe_init(void); void bms_afe_sample(void); void bms_afe_sleep(void);
 uint8_t bms_afe_apply_protection_config(void); uint8_t bms_afe_set_fets(uint8_t,uint8_t); void bms_afe_get_requested_fets(uint8_t *,uint8_t *); void bms_afe_set_output_enabled(uint8_t);
+/* Returns 0 only during the deliberate watchdog wait window. Diagnostic/raw
+ * paths that bypass the normal guard must honor this gate and avoid AFE I/O. */
+uint8_t bms_afe_bus_access_allowed(void);
 typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_ntc_100ohm; uint32_t mos_ntc_100ohm; uint32_t pack_voltage_mv; } bms_afe_aux_measurements_t;
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
