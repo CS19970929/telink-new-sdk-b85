@@ -4,6 +4,7 @@
 #include "storage_record.h"
 #include "drivers.h"
 #include "bms_error.h"
+#include "bms_soc_defs.h"
 #include <string.h>
 
 #define BMS_STATE_RECORD_MAGIC        0x53544131u /* STA1 */
@@ -140,7 +141,7 @@ int bms_state_store_init(void)
         next.runtime_min = 0u;
         next.runtime_revision = FW_UPGRADE_RESET_RUNTIME_EPOCH;
     }
-    if (next.soc > 100u || next.dsg > 100u || next.learned_capacity_0p1ah > 10000u ||
+    if (next.soc > 100u || next.dsg > 100u || next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
         (next.flags & ~BMS_STATE_FLAG_CAPACITY_LEARNED) != 0u) goto invalid;
     if (!bms_state_save(&next)) return 0;
     g_bms_state_pending = g_bms_state;

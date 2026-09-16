@@ -227,7 +227,7 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
         ((system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) ||
         ((system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP))) return 0;
     if (memcmp(&g_bms_config.system, system, sizeof(*system)) == 0) return 1;
-    if (system->capacity_factory == 0u || system->capacity_factory > 10000u) return 0;
+    if (system->capacity_factory == 0u || system->capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
     next = g_bms_config; next.system = *system;
     next.soc.chemistry = (u8)system->battery_chemistry;
     next.soc.profile_id = (u8)system->soc_profile_id;
@@ -330,7 +330,7 @@ int bms_config_store_apply_revisions(void)
     }
     if (!bms_sw_protection_validate_params(&next.protect) ||
         !bms_afe_hw_profile_validate(&next.afe_hw) || !bms_soc_config_valid(&next.soc) ||
-        next.system.capacity_factory == 0u || next.system.capacity_factory > 10000u) return 0;
+        next.system.capacity_factory == 0u || next.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
     if (g_bms_config_store.has_latest && memcmp(&next, &g_bms_config, sizeof(next)) == 0) return 1;
     return bms_config_save_cache(&next);
 }

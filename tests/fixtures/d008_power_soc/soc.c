@@ -23,6 +23,7 @@ static struct {
  MDLCHGFAULT_REG unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
  struct{uint16_t u16Soc,u16Soh,u16Cycle_times,u16CapacityNow,u16CapacityFull,u16CapacityFactory;}SocElement;
 }g_stCellInfoReport;
+static int config_store_write_ok=1;
 /* CURRENT_FLOOR */
 /* PRODUCTION_SOURCE */
 static uint32_t tick;
@@ -44,6 +45,16 @@ static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned co
  return ma>0?before-after:after-before;
 }
 int main(void){
+ setup(1,100,3330);stored_profile.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH;
+ soc_recalc_full_capacity();soc_recalc_now_capacity();SOC_Result_Pass();
+ assert(g_stCellInfoReport.SocElement.u16CapacityFactory==65530);
+ assert(SOC_Calculate_Element.u32CapNow==6553u*3600u);
+ stored_profile.capacity_factory=1000;
+ bms_soc_config_t configured=g_soc_config;configured.ocv_rest_prepare_s=900;
+ config_store_write_ok=0;assert(!bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==600);
+ config_store_write_ok=1;assert(bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==900);
+
+
  /* Host-only 64-bit oracle, including INT32_MIN and retained remainders. */
  setup(1,60,3330);
  uint32_t random_state=17,ref_remainder=0;

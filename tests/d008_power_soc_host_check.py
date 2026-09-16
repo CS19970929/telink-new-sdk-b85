@@ -40,7 +40,7 @@ def main():
         for name, code in {
             'soc': source('bms_soc_defs.h') + '\n' + source('SocEnhance.h') + '\n' +
                    source('bms_soc_profile.h') + '\n' +
-                   'static int bms_config_store_set_soc(const bms_soc_config_t *c){stored_profile.battery_chemistry=c->chemistry;stored_profile.soc_profile_id=c->profile_id;return 1;}\n'
+                   'static int bms_config_store_set_soc(const bms_soc_config_t *c){if(!config_store_write_ok)return 0;stored_profile.battery_chemistry=c->chemistry;stored_profile.soc_profile_id=c->profile_id;return 1;}\n'
                    'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('SocEnhance.c'),
             'power': '\n'.join(function('app.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',

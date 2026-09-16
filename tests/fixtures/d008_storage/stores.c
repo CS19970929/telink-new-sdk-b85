@@ -45,7 +45,10 @@ static void reboot(void){
 }
 static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();Param_UpgradeReset_Apply();LoadParam();assert(bms_protection_params_valid());}
 static void test_config_atomic_revisions(void){
- fresh(); bms_config_cache_t custom=g_bms_config;
+ fresh(); bms_config_system_params_t cap=g_bms_config.system;
+ cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
+ assert(g_bms_config.system.capacity_factory==1000);
+ bms_config_cache_t custom=g_bms_config;
  custom.protect.u16VcellOvp_Third=3999;custom.afe_hw.cov_mv=4100;
  custom.soc.ocv_rest_prepare_s=777;custom.system.flags=55;
  strcpy(custom.bt_name_suffix,"persist-name");
@@ -104,10 +107,18 @@ static void test_events(void){
  puts("PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic reset, byte cuts");
 }
 static void test_boot_gate(void){
- fresh();bms_config_cache_t old=g_bms_config;old.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH]=0;assert(bms_config_save_cache(&old));
- reboot();cut=0;Param_UpgradeReset_Apply();LoadParam();assert(!bms_protection_params_valid());
+ fresh();bms_config_cache_t old=g_bms_config;old.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH]=0;old.protect.u16VcellOvp_Third=3999;assert(bms_config_save_cache(&old));
+ reboot();cut=0;Param_UpgradeReset_Apply();LoadParam();assert(!bms_protection_params_valid());assert(g_tParam.protect.u16VcellOvp_Third==3999);
  cut=-1;assert(SaveParam());assert(!bms_protection_params_valid());
  reboot();Param_UpgradeReset_Apply();LoadParam();assert(bms_protection_params_valid());
- puts("PASS startup: failed upgrade cannot be cleared by communication SaveParam");
+ for(unsigned domain=0;domain<2;domain++){
+  fresh();
+  if(domain==0){bms_state_persist_t state=g_bms_state;state.soc_revision=0;assert(bms_state_save(&state));}
+  else {g_bms_event_log.revision=0;assert(bms_event_log_write_snapshot());}
+  reboot();cut=0;Param_UpgradeReset_Apply();LoadParam();assert(!bms_protection_params_valid());
+  cut=-1;assert(SaveParam());assert(!bms_protection_params_valid());
+  reboot();Param_UpgradeReset_Apply();LoadParam();assert(bms_protection_params_valid());
+ }
+ puts("PASS startup: Config/State/Event failure gates, RAM protection retained, SaveParam cannot bypass");
 }
 int main(void){test_config_atomic_revisions();test_state();test_events();test_boot_gate();return 0;}

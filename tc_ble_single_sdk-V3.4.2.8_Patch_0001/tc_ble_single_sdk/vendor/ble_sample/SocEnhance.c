@@ -399,7 +399,7 @@ static uint32_t soc_nominal_capacity_0p1ah(void)
 {
     bms_cold_system_params_t system;
     if (bms_cold_kv_store_get_system(&system) && system.capacity_factory > 0u &&
-        system.capacity_factory <= 10000u) return system.capacity_factory;
+        system.capacity_factory <= BMS_SOC_CAPACITY_MAX_0P1AH) return system.capacity_factory;
     return (uint32_t)CapacityFactory;
 }
 
@@ -536,7 +536,7 @@ static void soc_learning_accept(void)
     uint32_t min_cap = (nominal * SOC_LEARNED_CAP_MIN_PERCENT) / 100u;
     uint32_t max_cap = (nominal * SOC_LEARNED_CAP_MAX_PERCENT) / 100u;
 
-    if ((nominal == 0u) || (learned < min_cap) || (learned > max_cap) || (learned > 10000u)) {
+    if ((nominal == 0u) || (learned < min_cap) || (learned > max_cap) || (learned > BMS_SOC_CAPACITY_MAX_0P1AH)) {
         soc_learning_abort();
         return;
     }

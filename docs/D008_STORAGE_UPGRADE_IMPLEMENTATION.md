@@ -58,7 +58,7 @@ DVC 型号、串数/Rsense、GPIO、WDT、Body-Diode 等固定板级配置仍在
 
 正常且存储成功时，非受控断电可能丢失最近不足约 60 s 的 pending SOC/事件；发生写失败、OTA 占用或调度延迟时窗口可能更长，**不保证 60 s 是绝对最大丢失量**。断电后的未知时间不补积分或静置计时。
 
-SOC 参数由 Config 持久化，`bms_soc_configure()` 保存成功才发布运行配置；`bms_soc_set_product_config()` 复用同一事务。实际额定容量读取 Config.system，范围 1..10000（0.1 Ah），学习容量同样限制到 10000，以约束既有 32-bit SOC 运算。OCV 曲线仍为编译期数据，OTA 替换代码即可更新，未扩展为可写曲线协议。历史 `0x2009/0x200A` 未接入，不能当作本次新增接口。
+SOC 参数由 Config 持久化，`bms_soc_configure()` 保存成功才发布运行配置；`bms_soc_set_product_config()` 复用同一事务。实际额定容量读取 Config.system，范围 1..6553（0.1 Ah），学习容量同样限制到 6553，以避免 uint16 的 0.01 Ah 容量报告溢出，并约束既有 32-bit SOC 运算。OCV 曲线仍为编译期数据，OTA 替换代码即可更新，未扩展为可写曲线协议。历史 `0x2009/0x200A` 未接入，不能当作本次新增接口。
 
 电流策略保持：`abs(current_ma)<=200 mA` 双向显示为零、SOC 不积分，但允许作为静置候选，须满足有效新鲜电压和稳定时间；原始 mA 诊断保留。suspend 退出为双向 >=500 mA。
 
