@@ -1,6 +1,9 @@
 #include "dvc1124_config_store.h"
 #include "bms_afe.h"
 
+#include "tl_common.h"
+#include "drivers.h"
+#include "conf.h"
 #include "dvc1124_project_config.h"
 #include <string.h>
 
@@ -13,6 +16,60 @@
  * bms_afe_hw_profile remain persistent runtime protection data.
  */
 static uint8_t s_project_config_pending = 1u;
+
+/*
+ * DVC1124-2 shutdown I2C wake requirement:
+ *   SCL must be at least 2 V above SDA for >= 500 us.
+ *
+ * HS-D008 uses PC0=SDA and PC1=SCL. Use 1 ms for margin. The wake pulse is
+ * generated while the Telink I2C peripheral is reset/disconnected from the
+ * pads; only after SDA is released again does DVC1124_AFE_Reset() configure the
+ * pins as hardware I2C and start normal communication.
+ */
+#define DVC1124_I2C_WAKE_PULSE_US 1000u
+#if (DVC1124_I2C_WAKE_PULSE_US < 500u)
+#error "DVC1124 shutdown I2C wake pulse must be at least 500 us"
+#endif
+
+static void dvc_project_delay_us(uint32_t delay_us)
+{
+    uint32_t tick = clock_time();
+
+    while (!clock_time_exceed(tick, delay_us))
+    {
+        Feed_IWatchDog;
+    }
+}
+
+static void dvc_project_i2c_wake_pulse(void)
+{
+    /* Ensure the peripheral cannot drive PC0/PC1 while GPIO owns the pulse. */
+    reset_i2c_module();
+
+    /* SCL/PC1: released high through the same 10K pull-up used by the SDK I2C
+     * setup. Do not push-pull high an open-drain bus. */
+    gpio_set_func(GPIO_PC1, AS_GPIO);
+    gpio_write(GPIO_PC1, 1u);
+    gpio_set_output_en(GPIO_PC1, 0u);
+    gpio_set_input_en(GPIO_PC1, 1u);
+    gpio_setup_up_down_resistor(GPIO_PC1, PM_PIN_PULLUP_10K);
+
+    /* SDA/PC0: actively pull low while SCL remains released high. Program the
+     * output latch before enabling output to avoid a high-going glitch. */
+    gpio_set_func(GPIO_PC0, AS_GPIO);
+    gpio_write(GPIO_PC0, 0u);
+    gpio_setup_up_down_resistor(GPIO_PC0, PM_PIN_PULLUP_10K);
+    gpio_set_input_en(GPIO_PC0, 0u);
+    gpio_set_output_en(GPIO_PC0, 1u);
+
+    dvc_project_delay_us(DVC1124_I2C_WAKE_PULSE_US);
+
+    /* Release SDA. Both lines are now idle-high before the hardware I2C mux is
+     * enabled later by dvc_bus_init()->i2c_gpio_set(). */
+    gpio_set_output_en(GPIO_PC0, 0u);
+    gpio_set_input_en(GPIO_PC0, 1u);
+    gpio_write(GPIO_PC0, 1u);
+}
 
 static uint8_t dvc_project_wdt_code(uint8_t seconds,
                                     dvc1124_i2c_wdt_code_t *code)
@@ -156,10 +213,16 @@ static uint8_t dvc_project_apply_compile_time_config(void)
     return ok ? 1u : 0u;
 }
 
+static void dvc_project_reset_with_shutdown_wake(void)
+{
+    dvc_project_i2c_wake_pulse();
+    DVC1124_AFE_Reset();
+}
+
 void bms_afe_init(void)
 {
     s_project_config_pending = 1u;
-    DVC1124_AFE_Reset();
+    dvc_project_reset_with_shutdown_wake();
 
     /* dvc1124.c applies the safety baseline and persistent HW protection
      * profile.  The first valid sample below then finalizes every fixed
@@ -185,9 +248,11 @@ void bms_afe_sample(void)
     }
 
     /* Never release communication inhibit with a partially-applied fixed
-     * product configuration.  Reset invalidates the snapshot; the common guard
-     * will remain inhibited and retry through the normal re-init path. */
-    DVC1124_AFE_Reset();
+     * product configuration. Reset invalidates the snapshot; the common guard
+     * will remain inhibited and retry through the normal re-init path. The
+     * shutdown wake pulse is repeated so recovery also covers an AFE that has
+     * independently entered shutdown. */
+    dvc_project_reset_with_shutdown_wake();
 }
 
 uint8_t bms_afe_apply_protection_config(void)
