@@ -1,40 +1,73 @@
-# Flash 与持久化 — D011
+# Flash 与持久化 — D011 / Storage V1
 
-## 1. TLSR8251 512 KB 当前布局
+## 1. 设计目标
 
-`flash_store_cfg.h` 当前定义：Firmware A/B 位于 `0x00000..0x3FFFF`；event log `0x40000..0x47FFF`；runtime `0x51000..0x52FFF`；SOC KV `0x53000..0x5AFFF`；cold KV `0x5B000..0x5EFFF`；另保留 AFE-config KV 地址 `0x5F000..0x62FFF`；`0x74000..0x7FFFF` 属于 SDK pairing/MAC/calibration 保护区。
+Storage V1 只保留四个 BMS 持久化域：`Config`、`State`、`Factory`、`Event`。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。
 
-## 2. 当前 D011 参数实际存储所有权
+通用 `storage_record.c/.h` 仅依赖 `stdint.h` 与 `storage_port.h`，不 include Telink/STM32 SDK，可移植到其他 MCU 内部 Flash、SPI Flash 或其他块设备。
 
-### 软件保护
+## 2. TLSR8251 512 KB 当前布局
 
-`g_tParam.protect` 的 First/Second/Third/Recover/Filter 由 cold KV 保存，是 MCU 软件保护参数。
+| 区域 | 地址 | 大小 | 所有者 |
+|---|---:|---:|---|
+| Firmware A | `0x00000..0x1EFFF` | 124 KB | 当前镜像 |
+| OTA A meta | `0x1F000..0x1FFFF` | 4 KB | SDK OTA |
+| Firmware B | `0x20000..0x3EFFF` | 124 KB | OTA 镜像 |
+| OTA B meta | `0x3F000..0x3FFFF` | 4 KB | SDK OTA |
+| Event | `0x40000..0x47FFF` | 32 KB | Event ring snapshot journal |
+| 保留 | `0x48000..0x52FFF` | 44 KB | 未分配 |
+| State | `0x53000..0x5AFFF` | 32 KB | SOC / DSG / cycle / learning / runtime |
+| Config | `0x5B000..0x5EFFF` | 16 KB | 软件保护 / system / AFE profile / BT name / control |
+| Factory | `0x5F000..0x60FFF` | 8 KB | 预留给 SN/校准/生产身份，当前无 writer |
+| 保留 | `0x61000..0x73FFF` | 76 KB | 未分配 |
+| SDK/pairing | `0x74000..0x7EFFF` | SDK 定义 | BLE SDK |
+| MAC/calibration | `0x7F000..0x7FFFF` | 4 KB | 芯片身份/校准 |
 
-### AFE Hardware Protection V2
+1 MB / 2 MB 使用相同逻辑域，地址由 `flash_store_cfg.h` 唯一定义，并由 `tests/flash_quick_check.py` 检查与 SDK 保留区冲突。
 
-当前 `bms_afe_hw_profile.c` 通过 `bms_cold_kv_store_get_afe_hw_profile()` / `set_afe_hw_profile()` 持久化独立 35-word AFE hardware profile。因此 D011 的 OV/UV/OCD/OCC/SC/HW temperature requested 值 **不应描述为长期从 `g_tParam.protect` 直接驱动**。
+## 3. 软件分层
 
-只有第一次发现 AFE profile 为空（schema/model 都为0）时，固件从旧软件参数建立一次 migration default；随后两套参数独立。
+```text
+BMS business
+  +-- Config
+  +-- State
+  +-- Factory (reserved)
+  +-- Event
+          |
+     storage_record
+          |
+      storage_port
+          |
+ bms_storage_platform_telink
+          |
+    Telink Flash driver
+```
 
-### `0x5F000..0x62FFF` 保留区
+`storage_record` 使用固定 little-endian 元数据、CRC32、sequence 和 commit-last；每个持久化域至少跨两个 erase sector。sector 切换时先在新 sector 形成完整有效记录，因此任意写入阶段掉电都保留上一份完整记录。
 
-`flash_store_cfg.h` 仍保留名为 `AFE_CFG_KV` 的 4-sector 区，并带有历史 DVC 注释。这是仓库继承布局；当前 SH3673510 Hardware Protection V2 profile实际存于 cold KV。不要把该保留区误写成 D011 SH profile 的当前所有者。若未来复用该区，必须先审核兼容性和迁移策略。
+## 4. 数据所有权
 
-## 3. 其它 Store
+**Config** 表示“设备应该怎样工作”：当前包含软件保护、system/SOC identity、独立 AFE Hardware Protection requested profile、reset/control epoch 与蓝牙名称后缀。Flash payload 使用显式 little-endian encode/decode，不直接把 C struct 原样 memcpy 到 Flash。D011 的 SH3673510/SH3673520 寄存器编码不进入 Flash，由 backend 把语义化 requested profile 转换并应用。
 
-- `soc_kv_store.*`：真实SOC/累计放电量/cycle。
-- `runtime.*`：累计运行时间。
-- `bms_event_log.*`：事件日志。
-- `bms_cold_kv_store.*`：软件保护/system/SOC产品身份/AFE HW V2 profile等低频参数。
+**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`runtime.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 仍保持值变化才保存的现有语义。
 
-## 4. 一致性要求
+**Factory** 已拥有独立物理区域，但当前不创建无实际需求的业务 writer。后续 SN、生产日期、板级校准等进入该域，Factory Reset 不得清除此域。
 
-- 软件保护写入不得改 AFE HW profile。
-- AFE HW profile 采用完整事务：validate -> persist -> apply SH3673510 -> requested/effective readback -> verify。
-- apply/verify失败必须回滚；rollback失败报告 `CONFIG_INCONSISTENT`。
-- schema/epoch 变化必须明确迁移，禁止拼接不同代记录。
-- Flash写擦不在ISR执行；遵守Telink BLE Flash约束。
+**Event** 保留 100 条逻辑 ring，物理持久化复用同一 Record Journal。只有持久化成功后才更新 event latch。
 
-## 5. OTA / 发布
+## 5. 开发期格式策略
 
-最终 BIN、multiple-boot 地址和保留区以当前 linker、`bms_tools`、`flash_store_cfg.h` 为准。每次布局变化必须跑 `flash_quick_check.py`、MAP/manifest/verify，并实测掉电/journal/OTA中断恢复。禁止全片擦除 `0x74000..0x7FFFF`。
+当前项目仍在开发，因此不迁移旧 Flash 内容。旧 `flash_kv32`、旧 runtime journal、SOC KV 和 cold KV 不再解释；Storage V1 使用新的 magic/schema，读取不到 V1 数据时加载编译期默认值，首次正常保存时建立 V1 记录。
+
+Firmware version 与 Storage/Config schema 分离。正式出货后若只需修改少量客户参数，应使用独立 config patch 机制，而不是用 firmware version 重置整套参数。
+
+## 6. 验证约束
+
+- Storage Core 不依赖 MCU SDK、RTOS 或动态内存。
+- ISR 禁止 erase/program。
+- BMS Flash 地址只由 `flash_store_cfg.h` 拥有。
+- 业务模块禁止直接调用 `flash_read_page` / `flash_write_page` / `flash_erase_sector`。
+- 不重新引入业务专用 KV engine。
+- Host test 使用 RAM 模拟 Flash `1 -> 0` program 规则，并覆盖普通写入、commit 中断和 sector rotation 中断恢复。
+- 每次 layout/schema 修改必须运行 `tests/flash_quick_check.py`；TC32 发布继续执行 clean rebuild、firmware check、MAP/manifest/verify。
+- 禁止擦除 SDK/pairing/MAC/calibration 保留区。
