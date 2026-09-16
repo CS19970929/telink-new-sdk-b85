@@ -162,14 +162,17 @@
     {
       "id": "event_log_preview",
       "category": "diagnostics",
-      "start_address": "0xC008",
+      "start_address": "0xD200",
+      "legacy_start_address": "0xC008",
       "word_count": 20,
+      "full_word_count": 100,
       "access": "read",
-      "description_zh": "事件日志预览窗口。",
+      "description_zh": "事件日志分页预览窗口，按 newest-first 顺序读取。",
       "decode_zh": "当前客户端只保留原始 word 预览，事件语义解码尚未统一固化。",
       "notes_zh": [
-        "该地址在当前项目里承担日志兼容入口角色。",
-        "后续建议单独沉淀事件编码表。"
+        "0xD200..0xD263 为无重叠分页窗口，寄存器偏移直接对应日志索引 0..99。",
+        "0xC008 保留为旧上位机精确起始兼容入口，不应把 C008+offset 当作普通日志窗口。",
+        "BLE 客户端建议每次读取 20 word，避免一次返回 205 byte 的 100 条长响应。"
       ]
     },
     {

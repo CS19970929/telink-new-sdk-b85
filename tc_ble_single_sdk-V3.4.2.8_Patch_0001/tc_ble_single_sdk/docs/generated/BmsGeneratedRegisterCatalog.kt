@@ -25,7 +25,7 @@ object BMSGeneratedRegisterCatalog {
     const val PRODUCT_HARDWARE_VERSION_WORD_COUNT: Int = 0x0010
     const val PRODUCT_SOFTWARE_VERSION_START: Int = 0xC022
     const val PRODUCT_SOFTWARE_VERSION_WORD_COUNT: Int = 0x0010
-    const val EVENT_LOG_PREVIEW_START: Int = 0xC008
+    const val EVENT_LOG_PREVIEW_START: Int = 0xD200
     const val EVENT_LOG_PREVIEW_WORD_COUNT: Int = 0x0014
     const val SYSTEM_STATUS_START: Int = 0xD115
     const val SYSTEM_STATUS_WORD_COUNT: Int = 0x0002

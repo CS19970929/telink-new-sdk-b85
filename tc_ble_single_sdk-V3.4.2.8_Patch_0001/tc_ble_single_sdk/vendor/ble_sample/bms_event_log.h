@@ -6,10 +6,28 @@
 extern "C" {
 #endif
 
-#define BMS_EVENT_LOG_ENTRY_COUNT     100u
-#define BMS_EVENT_LOG_REG_BASE        0xC008u
-#define BMS_EVENT_LOG_REG_COUNT       BMS_EVENT_LOG_ENTRY_COUNT
-#define BMS_EVENT_LOG_RESET_REG       0x1007u
+#define BMS_EVENT_LOG_ENTRY_COUNT        100u
+
+/*
+ * Legacy compatibility entry point.
+ * Historical upper-computer software reads the complete newest-first log by
+ * starting exactly at 0xC008. Keep this address unchanged because it overlaps
+ * the old production-ID window and therefore must not be treated as a normal
+ * offsettable register range.
+ */
+#define BMS_EVENT_LOG_REG_BASE           0xC008u
+#define BMS_EVENT_LOG_REG_COUNT          BMS_EVENT_LOG_ENTRY_COUNT
+
+/*
+ * Non-overlapping pageable event window for current/future clients.
+ * 0xD200..0xD263 maps one-to-one to event index 0..99, newest first, so BLE
+ * clients can read 10/20 entries at a time without requiring a 205-byte
+ * response. Storage V1 and the on-Flash event payload are not affected.
+ */
+#define BMS_EVENT_LOG_PAGED_REG_BASE     0xD200u
+#define BMS_EVENT_LOG_PAGED_REG_COUNT    BMS_EVENT_LOG_ENTRY_COUNT
+
+#define BMS_EVENT_LOG_RESET_REG          0x1007u
 
 typedef enum {
     BMS_EVENT_NULL1 = 0,

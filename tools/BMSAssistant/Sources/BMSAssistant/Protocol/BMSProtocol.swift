@@ -50,8 +50,10 @@ enum RegisterCatalog {
     static let productHardwareStart: UInt16 = 0xC012
     static let productSoftwareStart: UInt16 = 0xC022
 
-    static let eventLogStart: UInt16 = 0xC008
+    static let eventLogStart: UInt16 = 0xD200
+    static let eventLogLegacyStart: UInt16 = 0xC008
     static let eventLogPreviewCount: UInt16 = 20
+    static let eventLogCount: UInt16 = 100
 
     static let systemStatusStart: UInt16 = 0xD115
     static let systemStatusCount: UInt16 = 2

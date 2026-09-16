@@ -591,7 +591,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     addr = req[0];
     func = req[1];
 
-
     if (func == BMS_AFE_HW_ACCESS_MODBUS_FUNC)
     {
         if (addr == 0x00u) return 0;
@@ -759,20 +758,44 @@ static int read_event_log_frame(u8 addr,
                                 u8 *rsp,
                                 u32 *rsp_len)
 {
+    u16 first_index;
     u16 i;
     u32 bytes;
     u32 l;
     u16 crc;
 
-    if (reg != BMS_EVENT_LOG_REG_BASE) return 0;
-    if ((qty == 0u) || (qty > BMS_EVENT_LOG_REG_COUNT)) return 0;
+    /*
+     * C008 is the historical compatibility entry point and is intentionally
+     * recognized only when the request starts exactly there because C008 lies
+     * inside the old product-ID address range. D200..D263 is the new ordinary
+     * pageable window where the register offset maps directly to the event
+     * index. Both expose the same newest-first RAM view backed by Storage V1.
+     */
+    if (reg == BMS_EVENT_LOG_REG_BASE)
+    {
+        first_index = 0u;
+    }
+    else if (reg >= BMS_EVENT_LOG_PAGED_REG_BASE &&
+             reg < (u16)(BMS_EVENT_LOG_PAGED_REG_BASE + BMS_EVENT_LOG_PAGED_REG_COUNT))
+    {
+        first_index = (u16)(reg - BMS_EVENT_LOG_PAGED_REG_BASE);
+    }
+    else
+    {
+        return 0;
+    }
+
+    if ((qty == 0u) ||
+        ((u32)first_index + (u32)qty > (u32)BMS_EVENT_LOG_REG_COUNT))
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
     bytes = (u32)qty * 2u;
     rsp[0] = addr;
     rsp[1] = func;
     rsp[2] = (u8)bytes;
     for (i = 0u; i < qty; ++i)
-        put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
+        put_u16be(&rsp[3u + (u32)i * 2u],
+                  bms_event_log_read_reg((u16)(first_index + i)));
 
     l = 3u + bytes;
     crc = mb_crc16(rsp, l);

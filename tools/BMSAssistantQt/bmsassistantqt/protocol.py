@@ -52,8 +52,12 @@ class RegisterCatalog:
     productHardwareStart = 0xC012
     productSoftwareStart = 0xC022
 
-    eventLogStart = 0xC008
+    # New clients use the non-overlapping pageable window. The historical
+    # 0xC008 start address remains available in firmware for legacy tools.
+    eventLogStart = 0xD200
+    eventLogLegacyStart = 0xC008
     eventLogPreviewCount = 20
+    eventLogCount = 100
 
     systemStatusStart = 0xD115
     systemStatusCount = 2
