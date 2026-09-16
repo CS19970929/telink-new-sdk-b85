@@ -25,6 +25,22 @@ assert charge_block < fet_write
 assert "bms_features_service();" in guard_c and "bms_features_on_afe_invalid();" in guard_c
 for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask","bms_afe_openwire_start","bms_afe_openwire_poll"): assert symbol in afe_h
 
+# Communication-loss fail-safe contract. SH36735xx WDT is ~32 s in the
+# production profile, so the common guard must leave the SPI bus silent for a
+# full 35 s margin before a single bounded recovery attempt.
+assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
+assert "#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u" in guard_c
+assert "if (service_failsafe_wait()) return;" in guard_c
+assert "Absolutely no AFE I2C/SPI access while the hardware watchdog is timing." in guard_c
+assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
+assert "s_guard.bus_silenced = 1u;" in guard_c
+apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in apply
+sleep=guard_c.split("void bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
+assert sleep.index("if (s_guard.bus_silenced) return;") < sleep.index("AFE_SLEEP();")
+setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in setfets
+
 sh=text("sh3673510_feature_backend.c")
 for token in (
     "SH3673520_REG_VCHGRH","SH_CHARGER_PRESENT_ON_MV","SH_CHARGER_PRESENT_OFF_MV",
