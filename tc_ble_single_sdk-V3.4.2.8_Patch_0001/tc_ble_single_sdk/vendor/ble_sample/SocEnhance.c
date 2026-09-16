@@ -111,7 +111,14 @@ struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 static soc_cali_state_t SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
 static soc_runtime_t g_soc_runtime;
 static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
-static uint16_t g_soc_integral_ms_remainder;
+/* mA * 32k-ticks remainder, denominator 100 mA per As*10 unit. */
+static uint32_t g_soc_integral_tick_remainder;
+static int32_t g_soc_input_current_ma;
+static uint32_t g_soc_sample_tick_32k;
+static uint32_t g_soc_interval_32k;
+static uint32_t g_soc_strategy_pending_32k;
+static uint8_t g_soc_input_valid;
+static uint8_t g_soc_input_ready;
 static uint8_t g_soc_display_soc = (uint8_t)SOC_PARAM_DEFAULT_SOC;
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
@@ -130,6 +137,7 @@ static void soc_recalc_full_capacity(void);
 static void soc_recalc_now_capacity(void);
 static void soc_reset_ocv_tracking(void);
 static void soc_profile_refresh(void);
+static void soc_invalidate_sample_interval(void);
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
@@ -189,6 +197,7 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
     if (!soc_config_valid(config)) return 0u;
 
     g_soc_config = *config;
+    soc_invalidate_sample_interval();
     soc_profile_refresh();
     soc_reset_ocv_tracking();
     if (g_soc_initialized) {
@@ -341,39 +350,24 @@ static uint16_t soc_abs_diff_u16(uint16_t a, uint16_t b)
     return (a >= b) ? (uint16_t)(a - b) : (uint16_t)(b - a);
 }
 
-static uint16_t soc_current_deadband_a10(void)
-{
-    uint32_t a10 = ((uint32_t)g_soc_config.current_deadband_ma + 99u) / 100u;
-    if (a10 > 65535u) a10 = 65535u;
-    return (uint16_t)a10;
-}
-
 static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
 {
-    uint16_t deadband = soc_current_deadband_a10();
-    uint16_t chg = ICHG;
-    uint16_t dsg = IDSG;
-    uint16_t diff;
-
-    if (chg < deadband) chg = 0u;
-    if (dsg < deadband) dsg = 0u;
-
-    if (chg > dsg) {
-        diff = (uint16_t)(chg - dsg);
-        if (diff >= deadband) {
-            if (magnitude_a10 != 0) *magnitude_a10 = diff;
-            return SOC_INTEGRAL_DIR_CHG;
-        }
-    } else if (dsg > chg) {
-        diff = (uint16_t)(dsg - chg);
-        if (diff >= deadband) {
-            if (magnitude_a10 != 0) *magnitude_a10 = diff;
-            return SOC_INTEGRAL_DIR_DSG;
-        }
-    }
+    uint32_t magnitude_ma;
+    soc_integral_dir_t dir = SOC_INTEGRAL_DIR_NONE;
 
     if (magnitude_a10 != 0) *magnitude_a10 = 0u;
-    return SOC_INTEGRAL_DIR_NONE;
+    if (!g_soc_input_valid) return dir;
+    /* Widen before negation so even INT32_MIN cannot invoke signed overflow. */
+    magnitude_ma = (g_soc_input_current_ma < 0) ?
+        (uint32_t)(-(int64_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
+    if (magnitude_ma == 0u || magnitude_ma < g_soc_config.current_deadband_ma) return dir;
+    dir = (g_soc_input_current_ma < 0) ? SOC_INTEGRAL_DIR_CHG : SOC_INTEGRAL_DIR_DSG;
+    if (magnitude_a10 != 0)
+    {
+        uint32_t a10 = magnitude_ma / 100u;
+        *magnitude_a10 = (a10 > 65535u) ? 65535u : (uint16_t)a10;
+    }
+    return dir;
 }
 
 uint8_t isCHG(void)
@@ -456,26 +450,32 @@ static void soc_reset_integral_accumulator(void)
     SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
     SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
     g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
-    g_soc_integral_ms_remainder = 0u;
+    g_soc_integral_tick_remainder = 0u;
 }
 
 static void soc_integral_select_dir(soc_integral_dir_t dir)
 {
     if (g_soc_integral_dir != dir) {
         g_soc_integral_dir = dir;
-        g_soc_integral_ms_remainder = 0u;
+        g_soc_integral_tick_remainder = 0u;
         SOC_Calculate_Element.u32CapChange = 0u;
     }
 }
 
 static uint32_t soc_integral_delta_from_current(uint16_t current_a10, soc_integral_dir_t dir)
 {
-    uint32_t sum;
-    if (current_a10 == 0u) return 0u;
+    uint64_t sum;
+    uint32_t magnitude_ma;
+    const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
+    (void)current_a10; /* coarse current is retained only for legacy sag tables */
+    if (!g_soc_input_valid || g_soc_interval_32k == 0u) return 0u;
     soc_integral_select_dir(dir);
-    sum = ((uint32_t)current_a10 * SOC_INTEGRAL_PERIOD_MS) + g_soc_integral_ms_remainder;
-    g_soc_integral_ms_remainder = (uint16_t)(sum % SOC_INTEGRAL_MS_PER_SEC);
-    return sum / SOC_INTEGRAL_MS_PER_SEC;
+    magnitude_ma = (g_soc_input_current_ma < 0) ?
+        (uint32_t)(-(int64_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
+    /* Max input magnitude * 12800 fits in uint64_t. No float or new Flash state. */
+    sum = (uint64_t)magnitude_ma * g_soc_interval_32k + g_soc_integral_tick_remainder;
+    g_soc_integral_tick_remainder = (uint32_t)(sum % denominator);
+    return (uint32_t)(sum / denominator);
 }
 
 static uint8_t soc_percent_from_capacity_charge(uint32_t cap)
@@ -1130,6 +1130,7 @@ void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
 {
     (void)cap_factory;
     set_calsoc(soc);
+    soc_invalidate_sample_interval();
     soc_reset_integral_accumulator();
     soc_reset_ocv_tracking();
     if (sync_display) set_dispsoc(get_soc_real());
@@ -1140,6 +1141,7 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
 {
     soc_kv_data_t defaults;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
+    soc_invalidate_sample_interval();
     soc_load_persisted_product_config();
     soc_profile_refresh();
 
@@ -1233,14 +1235,95 @@ void SOC_Result_Pass(void)
     }
 }
 
-void APP_SOC_IntEnhance_Ctrl(void)
+static void soc_invalidate_sample_interval(void)
 {
-    soc_integral_dir_t dir = soc_current_direction(0);
+    g_soc_input_valid = 0u;
+    g_soc_input_ready = 0u;
+    g_soc_interval_32k = 0u;
+    g_soc_strategy_pending_32k = 0u;
+    soc_reset_ocv_tracking();
+    g_soc_runtime.full_lock_ticks = 0u;
+    g_soc_runtime.full_adjust_ticks = 0u;
+    g_soc_runtime.full_anchor_latched = 0u;
+    g_soc_runtime.empty_lock_ticks = 0u;
+    g_soc_runtime.empty_adjust_ticks = 0u;
+    g_soc_runtime.empty_anchor_latched = 0u;
+    g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+    g_soc_runtime.dsg_empty_lock_ticks = 0u;
+    g_soc_display_step_ticks = 0u;
+    memset(g_soc_runtime.soc_low_trip_count, 0, sizeof(g_soc_runtime.soc_low_trip_count));
+    memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
+    soc_learning_abort();
+}
+
+void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_tick_32k)
+{
+    uint32_t elapsed_32k;
+    const uint32_t quantum_32k = BMS_SOC_TIME_TICKS_PER_SECOND / SOC_TICKS_PER_SECOND;
+    soc_integral_dir_t dir;
+    soc_integral_dir_t previous_dir;
+
+    if (!g_soc_initialized || !valid)
+    {
+        soc_invalidate_sample_interval();
+        return;
+    }
+    if (!g_soc_input_ready)
+    {
+        g_soc_sample_tick_32k = sample_tick_32k;
+        g_soc_input_current_ma = current_ma;
+        g_soc_input_valid = 1u;
+        g_soc_input_ready = 1u;
+        return; /* the first new sample cannot prove the preceding interval */
+    }
+    elapsed_32k = sample_tick_32k - g_soc_sample_tick_32k;
+    if (elapsed_32k == 0u) return; /* duplicate cached read is not new evidence */
+    g_soc_sample_tick_32k = sample_tick_32k;
+    if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
+    {
+        soc_invalidate_sample_interval();
+        /* Current frame starts a new interval; never fill a blind gap. */
+        g_soc_sample_tick_32k = sample_tick_32k;
+        g_soc_input_current_ma = current_ma;
+        g_soc_input_valid = 1u;
+        g_soc_input_ready = 1u;
+        return;
+    }
+    previous_dir = soc_current_direction(0);
+    g_soc_input_current_ma = current_ma;
+    g_soc_input_valid = 1u;
+    g_soc_interval_32k = elapsed_32k;
+    dir = soc_current_direction(0);
     if (dir == SOC_INTEGRAL_DIR_CHG) SOC_Cont_AH_Int_CHG();
     else if (dir == SOC_INTEGRAL_DIR_DSG) SOC_Cont_AH_Int_DSG();
     else SOC_State_Transfer();
 
-    soc_strategy_update();
-    soc_update_low_faults();
-    SOC_Result_Pass();
+    if (dir != previous_dir)
+    {
+        /* An interval straddling a current-state transition proves neither
+         * continuous rest nor a continuous full/empty anchor condition. */
+        soc_reset_ocv_tracking();
+        g_soc_runtime.full_lock_ticks = 0u;
+        g_soc_runtime.full_adjust_ticks = 0u;
+        g_soc_runtime.empty_lock_ticks = 0u;
+        g_soc_runtime.empty_adjust_ticks = 0u;
+        g_soc_runtime.dsg_empty_lock_ticks = 0u;
+        g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+        g_soc_strategy_pending_32k = 0u;
+        g_soc_interval_32k = 0u;
+        return;
+    }
+
+    /* Existing calibration thresholds stay in 200 ms quanta, but credit comes
+     * from measured time. At most two quanta per new bounded-gap sample.
+     * The 8 mV slope check is kept conservative at longer intervals. */
+    g_soc_strategy_pending_32k += elapsed_32k;
+    while (g_soc_strategy_pending_32k >= quantum_32k)
+    {
+        g_soc_strategy_pending_32k -= quantum_32k;
+        soc_strategy_update();
+        soc_update_low_faults();
+        SOC_Result_Pass();
+    }
+    g_soc_interval_32k = 0u; /* cannot integrate this sample twice through legacy APIs */
 }

@@ -20,10 +20,13 @@ uint8_t bms_afe_bus_access_allowed(void);
 /* Guarded D008 bench lifecycle. Entering shutdown preserves the requested FET
  * state but blocks all AFE traffic. Wake performs full init and requires fresh
  * sample qualification before the request can reach hardware again. */
+/* Returns success only after balance OFF, FET command OFF and shutdown ACK.
+ * No further AFE access is allowed until cold boot / guarded wake. */
+uint8_t bms_afe_enter_shutdown(void);
 uint8_t bms_afe_test_enter_shutdown(void);
 uint8_t bms_afe_test_wake(void);
 #endif
-typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_ntc_100ohm; uint32_t mos_ntc_100ohm; uint32_t pack_voltage_mv; } bms_afe_aux_measurements_t;
+typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_ntc_100ohm; uint32_t mos_ntc_100ohm; uint32_t pack_voltage_mv; int32_t current_ma; uint32_t sample_tick_32k; } bms_afe_aux_measurements_t;
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
 typedef struct { uint8_t valid; uint8_t cell_count; uint8_t battery_temp_valid; uint8_t heater_temp_valid; uint8_t mos_temp_valid; uint16_t battery_temp_min_x10; uint16_t battery_temp_max_x10; uint16_t heater_temp_x10; uint16_t mos_temp_x10; } bms_afe_feature_snapshot_t;

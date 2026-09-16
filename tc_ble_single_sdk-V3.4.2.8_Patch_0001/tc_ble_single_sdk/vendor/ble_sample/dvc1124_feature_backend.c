@@ -67,9 +67,8 @@ uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 
 uint8_t dvc1124_backend_get_charge_source_present(uint8_t *present)
 {
-    /* D008 has a schematic-proven active-low CHG-IN/PB1 board input. The DVC
-     * backend deliberately reports 'unsupported' so common policy falls back
-     * to bms_board_charge_source_present(). */
+    /* No approved charger-presence source. PB1 is load detection; the board
+     * fallback also returns absent until a separate product policy exists. */
     if (present != 0) *present = 0u;
     return 0u;
 }

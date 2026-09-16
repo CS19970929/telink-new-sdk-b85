@@ -112,8 +112,8 @@ class D008FrameworkContract(unittest.TestCase):
     def test_normal_app_requests_both_common_port_fets(self):
         fn = self.app.split("void mos_update(void)", 1)[1]
         fn = fn.split("static void board_init", 1)[0]
-        self.assertGreaterEqual(fn.count("chg_target = 1;"), 2)
-        self.assertGreaterEqual(fn.count("dsg_target = 1;"), 2)
+        self.assertIn("bms_afe_set_fets(1u, 1u)", fn)
+        self.assertNotIn("IsKeyWakeupActive", fn)
         self.assertNotIn("Runtime_GetMode()", fn)
 
     def test_app_has_no_legacy_mcu_adc_or_cert_temperature_path(self):

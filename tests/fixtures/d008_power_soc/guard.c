@@ -1,0 +1,55 @@
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+typedef uint8_t u8; typedef uint16_t u16;
+#define BMS_AFE_BACKEND 1
+#define BMS_AFE_BACKEND_DVC1124 1
+#define BMS_ERROR_AFE1 1
+typedef struct {int dummy;} bms_afe_aux_measurements_t;
+typedef struct {int dummy;} bms_afe_feature_snapshot_t;
+typedef struct {int dummy;} bms_afe_openwire_result_t;
+typedef int bms_afe_diag_state_t;
+#define BMS_AFE_DIAG_ERROR 3
+static int err,block,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
+static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
+static uint8_t bms_error_get(int x){return err;}
+static void bms_error_raise(int x){err=1;}
+static void bms_features_on_afe_invalid(void){}
+static void bms_features_init(void){}
+static void bms_features_service(void){}
+static int bms_features_charge_blocked(void){return block;}
+static int bms_features_discharge_blocked(void){return block;}
+static void dvc1124_backend_init(void){}
+static void dvc1124_backend_sample(void){sample_calls++;err=0;}
+static void dvc1124_backend_sleep(void){}
+static int dvc1124_backend_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
+static int dvc1124_backend_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
+static void dvc1124_backend_set_output_enabled(int x){}
+static int dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t*x){return 1;}
+static int dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
+static int dvc1124_backend_get_charge_source_present(uint8_t*x){return 0;}
+static int dvc1124_backend_set_balance_mask(uint32_t x){return balance_ok;}
+static int dvc1124_backend_get_balance_mask(uint32_t*x){return 1;}
+static int dvc1124_backend_openwire_start(void){return 1;}
+static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
+static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
+struct {struct {uint8_t b1Status_MOS_CHG,b1Status_MOS_DSG,b1Status_Cool;}bits;}g_bms_system_status;
+
+/* PRODUCTION_SOURCE */
+static void reset(void){
+ balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
+ bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
+}
+int main(void){
+ reset();balance_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
+ reset();fet_fail=1;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
+ reset();shutdown_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
+ reset();assert(bms_afe_enter_shutdown());assert(shutdown_calls==1&&s_guard.test_shutdown_hold);
+ assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_bus_access_allowed());
+ int samples=sample_calls;for(int i=0;i<100;i++)bms_afe_sample();assert(sample_calls==samples);
+ assert(bms_afe_set_fets(1,1));assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_apply_protection_config());
+ assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1);
+ puts("PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold");
+}

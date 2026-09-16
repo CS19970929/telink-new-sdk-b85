@@ -45,7 +45,7 @@ typedef struct {
 
 int bms_event_log_init(void);
 void bms_event_log_note_startup(void);
-void bms_event_log_note_sleep(void);
+int bms_event_log_note_sleep(void);
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
 u16 bms_event_log_read_reg(u16 reg);
 int bms_event_log_factory_reset(void);

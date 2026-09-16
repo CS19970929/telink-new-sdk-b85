@@ -15,11 +15,11 @@ class D008CommonPortFetContract(unittest.TestCase):
         m = re.search(r"void mos_update\(void\)\n\{(.*?)\n\}\n", app, re.S)
         self.assertIsNotNone(m)
         body = m.group(1)
-        charger = re.search(r"if\(IsChargerWakeupActive\(\)\)(.*?)(?:else if)", body, re.S).group(1)
-        key = re.search(r"else if \(IsKeyWakeupActive\(\)\)(.*?)(?:else\n)", body, re.S).group(1)
-        for branch in (charger, key):
-            self.assertIn("chg_target = 1;", branch)
-            self.assertIn("dsg_target = 1;", branch)
+        self.assertIn("bms_afe_set_fets(1u, 1u)", body)
+        self.assertNotIn("IsChargerWakeupActive", body)
+        self.assertNotIn("IsKeyWakeupActive", body)
+        self.assertNotIn("b1Status_MOS_CHG", body)
+        self.assertNotIn("b1Status_MOS_DSG", body)
         self.assertNotIn("Runtime_GetMode()", body)
 
     def test_dvc_body_diode_recovery_is_compile_time_policy(self):

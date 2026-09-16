@@ -72,6 +72,13 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 
 	gpio_init(!deepRetWakeUp);  //analog resistance will keep available in deepSleep mode, so no need initialize again
 
+	/* Establish the D008 supply hold immediately after GPIO reset defaults.
+	 * Program the latch before output-enable: a low pulse cuts MCU power. */
+	gpio_set_func(MCU_LDO_PIN, AS_GPIO);
+	gpio_write(MCU_LDO_PIN, 1u);
+	gpio_set_input_en(MCU_LDO_PIN, 0u);
+	gpio_set_output_en(MCU_LDO_PIN, 1u);
+
 	clock_init(SYS_CLK_TYPE);
 
 	#if (MODULE_WATCHDOG_ENABLE)

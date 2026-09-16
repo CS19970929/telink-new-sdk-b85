@@ -347,13 +347,19 @@ bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
 }
 
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-uint8_t bms_afe_test_enter_shutdown(void)
+uint8_t bms_afe_enter_shutdown(void)
 {
     if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
         return 0u;
 
     inhibit_local();
-    best_effort_shutdown();
+    /* Unlike dead-bus best effort, intentional power-off must propagate each
+     * OFF/readback failure. Never cut MCU power after a failed preparation. */
+    if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))
+    {
+        note_invalid();
+        return 0u;
+    }
     if (!AFE_TEST_SHUTDOWN())
     {
         note_invalid();
@@ -363,6 +369,11 @@ uint8_t bms_afe_test_enter_shutdown(void)
     s_guard.test_shutdown_hold = 1u;
     s_guard.comm_failures = 0u;
     return 1u;
+}
+
+uint8_t bms_afe_test_enter_shutdown(void)
+{
+    return bms_afe_enter_shutdown();
 }
 
 uint8_t bms_afe_test_wake(void)

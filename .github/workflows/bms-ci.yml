@@ -59,10 +59,12 @@ jobs:
         run: python tests/afe_hw_profile_contract_check.py
       - name: Run SOC profile/algorithm contract check
         run: python tests/soc_contract_check.py
+      - name: Execute D008 power and SOC C host tests
+        run: python tests/d008_power_soc_host_check.py
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/d008_common_port_fet_contract_check.py tests/d008_20s_profile_contract_check.py tests/d008_documentation_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/afe_hw_access_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/d008_common_port_fet_contract_check.py tests/d008_20s_profile_contract_check.py tests/d008_documentation_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/afe_hw_access_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py tests/d008_power_soc_host_check.py
 
   tc32-production:
     name: TC32 production build
@@ -88,28 +90,30 @@ jobs:
         shell: powershell
         run: python tests/common_feature_policy_contract_check.py
 
-      # D008 protection-isolation builds use command-line -D overrides only.
-      # Each step performs a clean rebuild, so no objects from one mode can
-      # leak into the next. The final build below has no override and therefore
-      # regenerates the normal production 1/1 artifact that gets uploaded.
-      - name: Compile D008 SW-only protection mode (1/0)
+      # Seven isolated builds, then the default 24S production build below.
+      # Preserve each variant before the next clean rebuild removes its output.
+      - name: Clean build and verify D008 24S/20S protection variants
         if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
         shell: powershell
-        env:
-          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=1 -DDVC1124_HW_PROTECT_ENABLE=0
-        run: python bms_tools/bms.py rebuild --jobs 4
-      - name: Compile D008 HW-only protection mode (0/1)
-        if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
-        shell: powershell
-        env:
-          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=0 -DDVC1124_HW_PROTECT_ENABLE=1
-        run: python bms_tools/bms.py rebuild --jobs 4
-      - name: Compile D008 measurement/debug protection mode (0/0)
-        if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
-        shell: powershell
-        env:
-          EXTRA_DEFINES: -DDVC1124_SW_PROTECT_ENABLE=0 -DDVC1124_HW_PROTECT_ENABLE=0
-        run: python bms_tools/bms.py rebuild --jobs 4
+        run: |
+          $out = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli"
+          foreach ($profile in @("24S", "20S")) {
+            foreach ($mode in @("11", "10", "01", "00")) {
+              if ($profile -eq "24S" -and $mode -eq "11") { continue }
+              $env:EXTRA_DEFINES = "-DDVC1124_SW_PROTECT_ENABLE=$($mode[0]) -DDVC1124_HW_PROTECT_ENABLE=$($mode[1])"
+              if ($profile -eq "20S") { $env:EXTRA_DEFINES += " -DD008_PRODUCT_PROFILE=D008_PRODUCT_PROFILE_20S_NMC" }
+              python bms_tools/bms.py rebuild --jobs 4
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              foreach ($check in @("check-fw", "size", "map", "manifest", "verify")) {
+                python bms_tools/bms.py $check
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              }
+              $dest = "variant-evidence/$profile-$mode"
+              New-Item -ItemType Directory -Force -Path $dest | Out-Null
+              Copy-Item "$out/825x_ble_sample.bin", "$out/825x_ble_sample.elf", "$out/fw_manifest.json", "$out/gen/825x_ble_sample.map", "$out/gen/build.log" -Destination $dest
+            }
+          }
+          Remove-Item Env:EXTRA_DEFINES
 
       - name: Clean rebuild with TC32 (production 1/1)
         shell: powershell
@@ -167,6 +171,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           path: |
+            variant-evidence/**
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.elf
             tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/fw_manifest.json

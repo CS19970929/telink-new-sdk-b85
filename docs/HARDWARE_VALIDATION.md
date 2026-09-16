@@ -57,3 +57,13 @@
 ## 7. 证据格式
 
 每次实测至少记录：板号/BOM、DVC型号与版本、固件 commit、24S/20S profile、AFE HW profile requested/effective、仪器、环境、波形/日志、结论。CI 绿色不能替代以上实板证据。
+## 2026-09-17 低功耗实现后的验收补充
+
+源码路径与主机测试见 [D008_POWER_SOC_IMPLEMENTATION.md](D008_POWER_SOC_IMPLEMENTATION.md)。下列事项仍全部为 `TODO_VERIFY_HW`，不得由 CI 通过自动勾选：
+
+- [ ] 示波器同步记录 PC4/3V3/PD7/SDA/SCL：冷启动电源保持、AFE shutdown 命令完成、PC4 最后拉低、整机真正掉电，排除调试器/串口反向供电。
+- [ ] 外部唤醒后 MCU 冷启动，经既有 I2C 唤醒/reset/固定配置读回及三帧 guard 资格，再恢复 MOS 请求；验证连续循环及失败分支。
+- [ ] ±199/200/499/500/501 mA 实际电流校准、32k 计时误差、广播/连接/总线/Flash 负载下最坏采样间隔及退出 suspend 延迟；周期目标 200 ms，软件拒收 >400 ms 间隔。
+- [ ] Flash 失败与 I2C shutdown 失败均保持 PC4 高；重复失败限速，不能产生密集擦写。
+- [ ] 24S LFP 与 20S NMC 数值回放及断电恢复，不补算未知时间，不继承静置资格；低功耗电流实测。
+- [ ] PB1/ACC 电平变化不触发 MOS/key/charger 策略；没有独立充电源资格时自动加热保持关闭。

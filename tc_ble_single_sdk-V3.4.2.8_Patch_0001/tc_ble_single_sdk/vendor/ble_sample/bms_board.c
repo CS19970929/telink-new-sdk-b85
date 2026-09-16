@@ -33,8 +33,9 @@ void bms_board_features_init(void)
 uint8_t bms_board_charge_source_present(void)
 {
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-    /* D008 CHG-IN/PB1 is active low in the current schematic and application. */
-    return gpio_read(CHG_IN_PIN) ? 0u : 1u;
+    /* CHG-IN/PB1 is load detection, not proof of a charger. ACC and load
+     * policy are intentionally unimplemented; do not authorize heating. */
+    return 0u;
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
     return sh3673510_board_wake_active();
 #else

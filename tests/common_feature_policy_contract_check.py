@@ -12,7 +12,7 @@ assert "#define BMS_HEATER_STOP_TEMP_X10 450u" in features_h
 assert "bms_afe_get_charge_source_present" in afe_h and "bms_afe_get_charge_source_present" in guard_c
 assert "charge_source_present" in features_c
 assert "openwire_fault_latched" in features_c
-assert "CHG_IN_PIN" in board_c
+assert "gpio_read(CHG_IN_PIN)" not in board_c
 assert "dvc1124_backend_get_charge_source_present" in dvc and "return 0u" in dvc
 assert "DVC1124_BalanceService" in dvc and "DVC1124_OpenWireBegin" in dvc
 assert "out->determinate = 0u" in dvc

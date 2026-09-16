@@ -17,9 +17,7 @@
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-#ifndef  FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF	
-#endif // ! FAC_TEST
+/* D008 has no discrete switch; ACC-MCU is reserved, not a power request. */
 
 #define __SLEEP_VNORMAL__             	(3000)
 #define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)	
@@ -210,7 +208,7 @@ CurCHG = 0, CurDSG
 /* HS-D008 physical MCU nets from the schematic. */
 #define RF_EN_PIN              (GPIO_PD4)
 #define AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define SW_PIN                 (GPIO_PA0)
+#define ACC_MCU_PIN            (GPIO_PA0)
 #define HEATER_EN_PIN          (GPIO_PA1)
 #define CHG_IN_PIN             (GPIO_PB1)
 #define OWC_TX_PIN             (GPIO_PC2)

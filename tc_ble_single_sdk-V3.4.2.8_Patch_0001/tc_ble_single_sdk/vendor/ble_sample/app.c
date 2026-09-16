@@ -55,6 +55,30 @@ bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
+#define APP_SAMPLE_PERIOD_US 200000u
+#define APP_SUSPEND_EXIT_CURRENT_MA 500
+#define APP_POWER_OFF_RETRY_SECONDS 5u
+extern int device_in_connection_state;
+static u8 s_power_off_committed;
+static u8 s_power_off_retry_ready;
+static u32 s_power_off_retry_tick;
+static u32 s_sample_tick;
+static volatile u8 s_sample_due;
+
+static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
+{
+    if (!bms_afe_get_aux_measurements(m)) return 0u;
+    return ((u32)(pm_get_32k_tick() - m->sample_tick_32k) <=
+            BMS_SOC_MAX_SAMPLE_GAP_32K) ? 1u : 0u;
+}
+
+/* SDK low-power callback only schedules work. I2C, SOC and Flash stay in the
+ * cooperative main loop, including when invoked from a suspend callback. */
+static void app_sample_wakeup(int type)
+{
+    (void)type;
+    s_sample_due = 1u;
+}
 
 typedef struct
 {
@@ -63,18 +87,6 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 
-UINT8 IsChargerWakeupActive(void)
-{
-	return !gpio_read(CHG_IN_PIN);
-}
-UINT8 IsKeyWakeupActive(void)
-{
-#ifdef _DI_SWITCH_SYS_ONOFF
-	return !gpio_read(SW_PIN);
-#else
-	return 1;
-#endif // DEBUG
-}
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
 	u32 now_tick_32k;
@@ -137,29 +149,34 @@ static void app_event_log_1s_task(void)
 	bms_event_log_poll_1s(&sample);
 }
 
-static int app_deepsleep_pad_wakeup_active(void)
+static int app_enter_power_off(void)
 {
-	return !gpio_read(CHG_IN_PIN);
-}
+    bms_afe_aux_measurements_t m;
+    u32 now = pm_get_32k_tick();
 
-static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
-{
-	int sleep_status;
+    if (s_power_off_committed || ota_is_working ||
+        !app_flash_lock_restore_enabled() || device_in_connection_state ||
+        BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
+        !app_get_fresh_measurements(&m)) return 0;
+    if (s_power_off_retry_ready &&
+        (u32)(now - s_power_off_retry_tick) <
+            APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
+    s_power_off_retry_ready = 1u;
+    s_power_off_retry_tick = now;
 
-	if (app_deepsleep_pad_wakeup_active())
-	{
-		return 0;
-	}
+    /* No Flash operation can be deferred until after PC4 drops. The sleep
+     * event records the attempt; a failed shutdown never cuts the supply. */
+    if (!soc_kv_store_write_all(SOC_Calculate_Element.u8SOC_Now,
+                               SOC_Calculate_Element.u8DSG_SOC_Int,
+                               SOC_Calculate_Element.u32Cycle_times) ||
+        !bms_event_log_note_sleep()) return 0;
+    if (!bms_afe_enter_shutdown()) return 0;
 
-	bms_event_log_note_sleep();
-	if (need_afe_sleep)
-	{
-		bms_afe_sleep();
-	}
-	Runtime_PrepareForDeepSleep();
-	sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
-	Runtime_CancelPendingDeepSleep();
-	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
+    s_power_off_committed = 1u;
+    bls_pm_setAppWakeupLowPower(0u, 0u);
+    sys_time.low_power_mode = true;
+    gpio_write(MCU_LDO_PIN, 0u); /* final hardware action: whole MCU loses power */
+    return 1;
 }
 
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
@@ -257,54 +274,26 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	uint8_t chg_target = 0;
-	uint8_t dsg_target = 0;
-
-	/*
-	 * HS-D008 is a common-port pack. Current direction must not be used
-	 * to select only CHG or only DSG. In normal enabled operation both
-	 * FETs are requested ON; protection decides which side is blocked.
-	 */
-	if(IsChargerWakeupActive())
-	{
-		chg_target = 1;
-		dsg_target = 1;
-		g_bms_system_status.bits.b1Status_Cool = 1;
-	}
-	else if (IsKeyWakeupActive())
-	{
-		g_bms_system_status.bits.b1Status_Cool = 0;
-		chg_target = 1;
-		dsg_target = 1;
-	}
-	else
-	{
-		g_bms_system_status.bits.b1Status_Cool = 0;
-		chg_target = 0;
-		dsg_target = 0;
-	}
-
-	if(chg_target != g_bms_system_status.bits.b1Status_MOS_CHG ||
-		dsg_target != g_bms_system_status.bits.b1Status_MOS_DSG)
-	{
-		(void)bms_afe_set_fets(chg_target, dsg_target);
-	}
+    /* D008 has no discrete key. ACC/PB1 have no business policy yet. The
+     * existing output-enable, protection and guard own final authorization;
+     * never compare a product request with driver feedback. */
+    g_bms_system_status.bits.b1Status_Cool = 0u;
+    (void)bms_afe_set_fets(1u, 1u);
 }
 
 static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-	/* PD4/RF-EN belonged to the retired certification/fuse path. Keep it at
-	 * the inactive level in production firmware; no runtime code may fire it. */
+	/* PD4 is the heater fuse drive, not BLE RF power. Safe inactive boot. */
 	gpio_set_func(RF_EN_PIN, AS_GPIO);
 	gpio_set_input_en(RF_EN_PIN, 0);
 	gpio_set_output_en(RF_EN_PIN, 1);
 	gpio_write(RF_EN_PIN, 0);
 
-	gpio_set_func(SW_PIN, AS_GPIO);
-	gpio_set_input_en(SW_PIN, 1);
-	gpio_set_output_en(SW_PIN, 0);
+	gpio_set_func(ACC_MCU_PIN, AS_GPIO);
+	gpio_set_input_en(ACC_MCU_PIN, 1);
+	gpio_set_output_en(ACC_MCU_PIN, 0);
 
 	gpio_set_func(CHG_IN_PIN, AS_GPIO);
 	gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
@@ -353,13 +342,10 @@ _attribute_data_retention_ u32 latest_user_event_tick;
  */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
-	(void)e;
-	(void)p;
-	(void)n;
-	if (blc_ll_getCurrentState() == BLS_LINK_STATE_CONN && ((u32)(bls_pm_getSystemWakeupTick() - clock_time())) > 80 * SYSTEM_TIMER_TICK_1MS)
-	{
-		bls_pm_setWakeupSource(PM_WAKEUP_PAD);
-	}
+    (void)e;
+    (void)p;
+    (void)n;
+    /* No ACC/load PAD wake policy. SDK application timer bounds sampling. */
 }
 
 /**
@@ -545,138 +531,66 @@ int app_host_event_callback(u32 h, u8 *para, int n)
  */
 void blt_pm_proc(void)
 {
-	static u16 sleep_cnt = 0;
-	static u32 sleep_veryvlow_cnt = 0;
-	static u32 sleep_vlow_cnt = 0;
-	static u32 sleep_vnormal_cnt = 0;
-	static u32 afe_comm_err_sleepcnt = 0;
-	static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
-	u32 sleep_elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
+    static u32 low_voltage_seconds;
+    static u8 low_voltage_region;
+    static app_pm_elapsed_ctx_t elapsed_ctx;
+    bms_afe_aux_measurements_t m;
+    u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
+    u32 limit_seconds = 0u;
+    u8 region = 0u;
+    u8 valid = app_get_fresh_measurements(&m);
+    u8 busy = ota_is_working || !app_flash_lock_restore_enabled() ||
+              BUS_STATE_OWC_IDLE != bus_mux_get_state() || device_in_connection_state;
 
-	if (sleep_elapsed_sec != 0u)
-	{
-#ifdef _DI_SWITCH_SYS_ONOFF
-		if (!IsChargerWakeupActive())
-		{
-			if (!IsKeyWakeupActive())
-			{
-				sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
-				if (sleep_cnt >= 3u)
-				{
-					sleep_cnt = 0;
-					cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
-					app_note_sleep_and_enter_deepsleep(1u);
-				}
-			}
-			else
-			{
-				sleep_cnt = 0;
-			}
-		}
-		else
-		{
-			sleep_cnt = 0;
-		}
-#endif
+    /* Preserve voltage thresholds/timeouts, but only qualified samples may
+     * accumulate them. No key, load-detect or communication-error shutdown. */
+    if (valid && !busy)
+    {
+        if (g_stCellInfoReport.u16VCellMin < 2550u)
+        {
+            region = 1u;
+            limit_seconds = 3600u;
+        }
+        else if (g_stCellInfoReport.u16VCellMin < __SLEEP_VLOW__)
+        {
+            region = 2u;
+            limit_seconds = __SLEEP_TIMEVLOW__;
+        }
+        else if (g_stCellInfoReport.u16VCellMin < __SLEEP_VNORMAL__ && m.current_ma >= 0)
+        {
+            region = 3u;
+            limit_seconds = __SLEEP_TIMENORMAL__;
+        }
+    }
+    if (!region || region != low_voltage_region)
+    {
+        low_voltage_seconds = 0u;
+        s_power_off_retry_ready = 0u;
+    }
+    low_voltage_region = region;
+    if (region && elapsed_sec != 0u)
+    {
+        if (elapsed_sec >= limit_seconds - low_voltage_seconds)
+            low_voltage_seconds = limit_seconds;
+        else
+            low_voltage_seconds += elapsed_sec;
+        if (low_voltage_seconds >= limit_seconds && app_enter_power_off()) return;
+    }
 
-		if (g_stCellInfoReport.u16VCellMin < 2550)
-		{
-			sleep_vlow_cnt = 0;
-			sleep_vnormal_cnt = 0;
-			afe_comm_err_sleepcnt = 0;
-
-			sleep_veryvlow_cnt += sleep_elapsed_sec;
-			if (sleep_veryvlow_cnt >= (60 * 60 * 1))
-			{
-				sleep_veryvlow_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u);
-			}
-		}
-		else if ((g_stCellInfoReport.u16VCellMin < __SLEEP_VLOW__))
-		{
-			sleep_veryvlow_cnt = 0;
-			sleep_vnormal_cnt = 0;
-			afe_comm_err_sleepcnt = 0;
-			sleep_vlow_cnt += sleep_elapsed_sec;
-			if (sleep_vlow_cnt >= __SLEEP_TIMEVLOW__)
-			{
-				sleep_vlow_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u);
-			}
-		}
-		else if ((g_stCellInfoReport.u16VCellMin < __SLEEP_VNORMAL__ && !g_stCellInfoReport.u16Ichg))
-		{
-			sleep_veryvlow_cnt = 0;
-			sleep_vlow_cnt = 0;
-			afe_comm_err_sleepcnt = 0;
-
-			sleep_vnormal_cnt += sleep_elapsed_sec;
-			if (sleep_vnormal_cnt >= __SLEEP_TIMENORMAL__)
-			{
-				sleep_vnormal_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u);
-			}
-		}
-		else if (bms_error_get(BMS_ERROR_AFE1) != 0u)
-		{
-			sleep_veryvlow_cnt = 0;
-			sleep_vlow_cnt = 0;
-			sleep_vnormal_cnt = 0;
-
-			afe_comm_err_sleepcnt += sleep_elapsed_sec;
-			if (afe_comm_err_sleepcnt >= (60 * 30))
-			{
-				afe_comm_err_sleepcnt = 0;
-				cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
-				app_note_sleep_and_enter_deepsleep(1u);
-			}
-		}
-		else
-		{
-			sleep_veryvlow_cnt = 0;
-			sleep_vlow_cnt = 0;
-			sleep_vnormal_cnt = 0;
-			afe_comm_err_sleepcnt = 0;
-		}
-	}
-
-	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
-	sys_time.low_power_mode = true;
-	if (0)
-	{
-	}
-#if (UI_KEYBOARD_ENABLE)
-	else if (scan_pin_need || key_not_released)
-	{
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
-#elif (UI_BUTTON_ENABLE)
-	else if (button_not_released)
-	{
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
-#endif
-#if (BLE_OTA_SERVER_ENABLE)
-	else if (ota_is_working)
-	{
-		sys_time.low_power_mode = false;
-		bls_pm_setManualLatency(0);
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
-#endif
-
-	if (!gpio_read(CHG_IN_PIN) ||
-		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
-		g_stCellInfoReport.u16IDischg ||
-		ota_is_working)
-	{
-		sys_time.low_power_mode = false;
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
-	else if (device_in_connection_state)
-	{
-		sys_time.low_power_mode = false;
-	}
+    /* Exact signed mA avoids the old 0.1 A truncation and checks both sides.
+     * Invalid data forces active recovery instead of pretending to be idle. */
+    if (!valid || busy || m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
+        m.current_ma <= -APP_SUSPEND_EXIT_CURRENT_MA || s_sample_due)
+    {
+        sys_time.low_power_mode = false;
+        bls_pm_setSuspendMask(SUSPEND_DISABLE);
+        if (ota_is_working) bls_pm_setManualLatency(0);
+    }
+    else
+    {
+        sys_time.low_power_mode = true;
+        bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
+    }
 }
 
 /**
@@ -848,7 +762,8 @@ _attribute_no_inline_ void user_init_normal(void)
 		bms_event_log_init();
 
 		bms_afe_init();
-		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
+        cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 0);
+        cpu_set_gpio_wakeup(ACC_MCU_PIN, Level_Low, 0);
 
 		/* One AFE snapshot supplies startup voltage/current/temperature state. */
 		bms_afe_sample();
@@ -862,6 +777,9 @@ _attribute_no_inline_ void user_init_normal(void)
 	btname_init();
 	bms_event_log_note_startup();
 	Runtime_Init();
+    s_sample_tick = clock_time();
+    bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);
+    bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
 	mos_update();
 
 	extern void WriteProID_Default(void);
@@ -980,26 +898,44 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 	(void)op_addr_end;
 }
 
+#else
+int app_flash_lock_restore_enabled(void)
+{
+    return 1;
+}
 #endif
-
-_attribute_data_retention_ static u32 test_task_tick = 0;
 
 /**
  * @brief		This is main_loop function
  */
 _attribute_no_inline_ void main_loop(void)
 {
+    if (s_power_off_committed)
+    {
+        /* If external power holds 3V3 up (e.g. a debugger), remain quiescent.
+         * Do not spin, retry I2C, or write Flash after a successful shutdown. */
+        cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
+                         clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
+        return;
+    }
 	blt_sdk_main_loop();
 	Runtime_Poll();
 
-	if (clock_time_exceed(test_task_tick, 1000 * 200))
-	{
-		test_task_tick = clock_time();
-		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
-		bms_afe_sample();
-		APP_SOC_IntEnhance_Ctrl();
-		mos_update();
-	}
+    if (s_sample_due || clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
+    {
+        bms_afe_aux_measurements_t m;
+        u8 valid;
+        s_sample_due = 0u;
+        s_sample_tick = clock_time();
+        bms_afe_sample();
+        valid = app_get_fresh_measurements(&m);
+        APP_SOC_IntEnhance_Ctrl(valid, valid ? m.current_ma : 0,
+                               valid ? m.sample_tick_32k : pm_get_32k_tick());
+        mos_update();
+        /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
+        if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
+        bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+    }
 
 	_attribute_data_retention_ static u32 event_log_tick = 0;
 	if (clock_time_exceed(event_log_tick, 1000 * 1000))

@@ -1400,6 +1400,7 @@ void DVC1124_App_AFEGet(void)
     g_bms_system_status.bits.b1Status_MOS_DSG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
+    s_snapshot.sample_tick_32k = pm_get_32k_tick();
     ++s_snapshot_generation;
     DVC1124_OpenWirePoll();
 

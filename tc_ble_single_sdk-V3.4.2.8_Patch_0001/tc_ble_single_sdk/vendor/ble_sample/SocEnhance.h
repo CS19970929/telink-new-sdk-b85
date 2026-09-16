@@ -69,7 +69,11 @@ uint8_t bms_soc_get_chemistry(void);
 void bms_soc_get_diag(bms_soc_diag_t *diag);
 void bms_soc_refresh_profile_from_params(void);
 
-void APP_SOC_IntEnhance_Ctrl(void);
+/* 400 ms = two nominal samples. Longer/unobserved intervals are not integrated
+ * or counted as rest. SDK 32k clock wraps by unsigned subtraction. */
+#define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
+#define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
+void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_tick_32k);
 void SOC_Result_Pass(void);
 void SOC_Cont_AH_Int_CHG(void);
 void SOC_Cont_AH_Int_DSG(void);
