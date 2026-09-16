@@ -3,12 +3,15 @@
 #include "app.h"
 #include "param.h"
 #include "bms_error.h"
+#include "bms_sw_protection.h"
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
 #include "d008_product_profile.h"
 #include "soc_kv_store.h"
 #include "runtime.h"
 #include <string.h>
+
+#define PARAM_MIGRATION_TEMP_PROTECT_V1 (1uL << 0)
 
 PARAM_T g_tParam;
 
@@ -46,6 +49,122 @@ static void param_apply_d008_product_identity_if_unset(void)
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
+}
+
+static uint8_t param_temp_group_unset(uint16_t first,
+                                      uint16_t second,
+                                      uint16_t third,
+                                      uint16_t recover,
+                                      uint16_t filter)
+{
+    return ((first == 0u) && (second == 0u) && (third == 0u) &&
+            (recover == 0u) && (filter == 0u)) ? 1u : 0u;
+}
+
+/*
+ * Early deployed images may contain a valid protection record whose newly
+ * introduced temperature groups are all zero. In the common protection state
+ * machine a zero trip threshold intentionally means "disabled", so retaining
+ * that legacy state silently removes temperature protection after an upgrade.
+ *
+ * Migrate only a completely unset five-word temperature group. Any group with
+ * at least one configured value is left untouched. The persistent migration
+ * bit makes this a one-time compatibility repair: after it has run, a customer
+ * may intentionally change or disable a temperature group through the normal
+ * communication path and firmware will not restore defaults on the next boot.
+ *
+ * reserved0 is already part of Storage V1, so using one bit does not change the
+ * record payload/schema and therefore cannot invalidate existing records.
+ */
+static int param_migrate_temperature_protection_v1(void)
+{
+    bms_cold_system_params_t system;
+    struct PRT_E2ROM_PARAS defaults;
+    uint8_t changed = 0u;
+
+    if (!bms_cold_kv_store_get_system(&system)) {
+        return 0;
+    }
+    if ((system.reserved0 & PARAM_MIGRATION_TEMP_PROTECT_V1) != 0u) {
+        return 1;
+    }
+
+    bms_cold_kv_store_get_default_protect(&defaults);
+
+    if (param_temp_group_unset(g_tParam.protect.u16TChgOTp_First,
+                               g_tParam.protect.u16TChgOTp_Second,
+                               g_tParam.protect.u16TChgOTp_Third,
+                               g_tParam.protect.u16TChgOTp_Rcv,
+                               g_tParam.protect.u16TChgOTp_Filter)) {
+        g_tParam.protect.u16TChgOTp_First = defaults.u16TChgOTp_First;
+        g_tParam.protect.u16TChgOTp_Second = defaults.u16TChgOTp_Second;
+        g_tParam.protect.u16TChgOTp_Third = defaults.u16TChgOTp_Third;
+        g_tParam.protect.u16TChgOTp_Rcv = defaults.u16TChgOTp_Rcv;
+        g_tParam.protect.u16TChgOTp_Filter = defaults.u16TChgOTp_Filter;
+        changed = 1u;
+    }
+
+    if (param_temp_group_unset(g_tParam.protect.u16TchgUTp_First,
+                               g_tParam.protect.u16TchgUTp_Second,
+                               g_tParam.protect.u16TchgUTp_Third,
+                               g_tParam.protect.u16TchgUTp_Rcv,
+                               g_tParam.protect.u16TchgUTp_Filter)) {
+        g_tParam.protect.u16TchgUTp_First = defaults.u16TchgUTp_First;
+        g_tParam.protect.u16TchgUTp_Second = defaults.u16TchgUTp_Second;
+        g_tParam.protect.u16TchgUTp_Third = defaults.u16TchgUTp_Third;
+        g_tParam.protect.u16TchgUTp_Rcv = defaults.u16TchgUTp_Rcv;
+        g_tParam.protect.u16TchgUTp_Filter = defaults.u16TchgUTp_Filter;
+        changed = 1u;
+    }
+
+    if (param_temp_group_unset(g_tParam.protect.u16TdischgOTp_First,
+                               g_tParam.protect.u16TdischgOTp_Second,
+                               g_tParam.protect.u16TdischgOTp_Third,
+                               g_tParam.protect.u16TdischgOTp_Rcv,
+                               g_tParam.protect.u16TdischgOTp_Filter)) {
+        g_tParam.protect.u16TdischgOTp_First = defaults.u16TdischgOTp_First;
+        g_tParam.protect.u16TdischgOTp_Second = defaults.u16TdischgOTp_Second;
+        g_tParam.protect.u16TdischgOTp_Third = defaults.u16TdischgOTp_Third;
+        g_tParam.protect.u16TdischgOTp_Rcv = defaults.u16TdischgOTp_Rcv;
+        g_tParam.protect.u16TdischgOTp_Filter = defaults.u16TdischgOTp_Filter;
+        changed = 1u;
+    }
+
+    if (param_temp_group_unset(g_tParam.protect.u16TdischgUTp_First,
+                               g_tParam.protect.u16TdischgUTp_Second,
+                               g_tParam.protect.u16TdischgUTp_Third,
+                               g_tParam.protect.u16TdischgUTp_Rcv,
+                               g_tParam.protect.u16TdischgUTp_Filter)) {
+        g_tParam.protect.u16TdischgUTp_First = defaults.u16TdischgUTp_First;
+        g_tParam.protect.u16TdischgUTp_Second = defaults.u16TdischgUTp_Second;
+        g_tParam.protect.u16TdischgUTp_Third = defaults.u16TdischgUTp_Third;
+        g_tParam.protect.u16TdischgUTp_Rcv = defaults.u16TdischgUTp_Rcv;
+        g_tParam.protect.u16TdischgUTp_Filter = defaults.u16TdischgUTp_Filter;
+        changed = 1u;
+    }
+
+    if (param_temp_group_unset(g_tParam.protect.u16TmosOTp_First,
+                               g_tParam.protect.u16TmosOTp_Second,
+                               g_tParam.protect.u16TmosOTp_Third,
+                               g_tParam.protect.u16TmosOTp_Rcv,
+                               g_tParam.protect.u16TmosOTp_Filter)) {
+        g_tParam.protect.u16TmosOTp_First = defaults.u16TmosOTp_First;
+        g_tParam.protect.u16TmosOTp_Second = defaults.u16TmosOTp_Second;
+        g_tParam.protect.u16TmosOTp_Third = defaults.u16TmosOTp_Third;
+        g_tParam.protect.u16TmosOTp_Rcv = defaults.u16TmosOTp_Rcv;
+        g_tParam.protect.u16TmosOTp_Filter = defaults.u16TmosOTp_Filter;
+        changed = 1u;
+    }
+
+    if (changed && !bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+        return 0;
+    }
+
+    system.reserved0 |= PARAM_MIGRATION_TEMP_PROTECT_V1;
+    if (!bms_cold_kv_store_set_system(&system)) {
+        return 0;
+    }
+    return 1;
 }
 
 static int param_upgrade_epoch_mismatch(bms_cold_control_param_id_t item, u32 desired_epoch)
@@ -122,8 +241,21 @@ void LoadParam(void)
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
         param_fill_default(&g_tParam);
-        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
-        return;
+        if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
+            return;
+        }
+    }
+
+    if (!param_migrate_temperature_protection_v1()) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+    }
+
+    /* Communication writes are validated before SaveParam(). Validate loaded
+     * Flash data as well, but do not replace unrelated customer parameters with
+     * defaults merely because an old/corrupt record is detected. */
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
     }
 }
 

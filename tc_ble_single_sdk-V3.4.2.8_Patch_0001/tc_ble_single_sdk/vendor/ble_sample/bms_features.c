@@ -157,6 +157,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
 void bms_features_init(void)
 {
     memset(&s_feature, 0, sizeof(s_feature));
+    bms_sw_protection_init();
     s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
     bms_board_features_init();
     bms_board_heater_set(0u);

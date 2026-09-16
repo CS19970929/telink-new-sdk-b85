@@ -20,6 +20,20 @@ static uint16_t dvc_get_configured_temperature(uint8_t gp)
     return g_stCellInfoReport.u16Temperature[gp - 1u];
 }
 
+static uint8_t dvc_configured_ntc_valid(const dvc1124_snapshot_t *snapshot,
+                                        uint8_t gp)
+{
+    uint8_t index;
+
+    /* Temperature conversion/reporting is currently implemented for GP1..GP4.
+     * Do not infer validity from the encoded temperature value itself: 0 is a
+     * valid engineering value for -40.0 C in the legacy (degC + 40) * 10
+     * encoding. Use the NTC measurement validity represented by resistance. */
+    if ((snapshot == 0) || (gp == 0u) || (gp > 4u)) return 0u;
+    index = (uint8_t)(gp - 1u);
+    return (snapshot->ntc_res_ohm[index] != 0u) ? 1u : 0u;
+}
+
 #if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
 {
@@ -246,8 +260,8 @@ void DVC1124_BmsApp_AFEGet(void)
     memset(&sw, 0, sizeof(sw));
     battery_temp = dvc_get_configured_temperature(cfg.battery_ntc_gp);
     mos_temp = dvc_get_configured_temperature(cfg.mos_ntc_gp);
-    sw.battery_temp_valid = battery_temp ? 1u : 0u;
-    sw.mos_temp_valid = mos_temp ? 1u : 0u;
+    sw.battery_temp_valid = dvc_configured_ntc_valid(&snapshot, cfg.battery_ntc_gp);
+    sw.mos_temp_valid = dvc_configured_ntc_valid(&snapshot, cfg.mos_ntc_gp);
     sw.battery_temp_min = battery_temp;
     sw.battery_temp_max = battery_temp;
     sw.mos_temp = mos_temp;
