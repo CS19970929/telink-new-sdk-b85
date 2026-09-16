@@ -27,6 +27,7 @@ assert "if (service_failsafe_wait()) return;" in guard_c
 assert "Absolutely no AFE I2C/SPI access while the hardware watchdog is timing." in guard_c
 assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
 assert "s_guard.bus_silenced = 1u;" in guard_c
+assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
 apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
 assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in apply
 sleep=guard_c.split("void bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
