@@ -56,6 +56,34 @@ for token in (
 if "if (temp_valid)" in source:
     raise AssertionError("battery and MOS temperature protections must not share one combined validity gate")
 
+# Charge/discharge battery-temperature faults must not start from temperature
+# alone. New charge faults require charge current, new discharge faults require
+# discharge current. Once active, recovery must remain temperature-driven so the
+# current dropping to zero after FET shutdown cannot immediately clear the fault.
+for token in (
+    "static uint8_t bms_sw_temp_filter_update",
+    "charge_current_present = (g_stCellInfoReport.u16Ichg > 0u)",
+    "discharge_current_present = (g_stCellInfoReport.u16IDischg > 0u)",
+    "if (!state->active && !trip_enabled)",
+    "state->trip_count = 0u;",
+    "charge_current_present, inputs->battery_temp_max",
+    "charge_current_present, inputs->battery_temp_min",
+    "discharge_current_present, inputs->battery_temp_max",
+    "discharge_current_present, inputs->battery_temp_min",
+):
+    if token not in source:
+        raise AssertionError(f"directional temperature trigger gate missing: {token}")
+
+battery_block = source.split("if (inputs->battery_temp_valid)", 1)[1].split("else", 1)[0]
+if battery_block.count("bms_sw_temp_filter_update") != 4:
+    raise AssertionError("all four battery temperature faults must use the directional trigger gate")
+
+mos_block = source.split("if (inputs->mos_temp_valid)", 1)[1].split("else", 1)[0]
+if "bms_sw_temp_filter_update" in mos_block:
+    raise AssertionError("power-MOS OTP must remain independent of charge/discharge current direction")
+if "bms_sw_filter_update" not in mos_block:
+    raise AssertionError("power-MOS OTP filter missing")
+
 if "BMS_AFE_BACKEND_DVC1124" in backend and "#define BMS_AFE_BACKEND BMS_AFE_BACKEND_DVC1124" in backend:
     dvc = (HERE / "dvc1124_bms.c").read_text(encoding="utf-8", errors="ignore")
     for token in ("bms_sw_protection_update(&sw);", "dvc_merge_hw_faults(alarm);", "bms_sw_protection_record_fault_edges();"):
