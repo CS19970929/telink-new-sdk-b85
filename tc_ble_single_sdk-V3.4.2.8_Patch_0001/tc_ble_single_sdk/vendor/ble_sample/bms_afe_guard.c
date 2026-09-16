@@ -39,6 +39,11 @@ typedef struct
 
 static bms_afe_guard_state_t s_guard;
 
+uint8_t bms_afe_bus_access_allowed(void)
+{
+    return s_guard.bus_silenced ? 0u : 1u;
+}
+
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 #define AFE_INIT() dvc1124_backend_init()
 #define AFE_SAMPLE() dvc1124_backend_sample()
