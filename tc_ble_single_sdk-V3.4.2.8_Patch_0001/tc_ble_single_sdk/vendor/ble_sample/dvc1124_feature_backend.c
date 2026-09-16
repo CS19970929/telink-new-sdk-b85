@@ -11,12 +11,24 @@ static uint32_t dvc_balance_report_mask(void)
            g_stCellInfoReport.u16BalanceFlag1;
 }
 
+static uint8_t dvc_ntc_valid(const dvc1124_snapshot_t *s, uint8_t gp)
+{
+    if ((s == 0) || (gp == 0u) || (gp > 4u)) return 0u;
+    return (s->ntc_res_ohm[gp - 1u] != 0u) ? 1u : 0u;
+}
+
+static uint16_t dvc_temp(uint8_t gp)
+{
+    if ((gp == 0u) || (gp > 4u)) return 0u;
+    return g_stCellInfoReport.u16Temperature[gp - 1u];
+}
+
 uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     dvc1124_snapshot_t s;
     dvc1124_config_t cfg;
-    uint8_t bat_index;
-    uint8_t mos_index;
+    uint16_t bat1;
+    uint16_t bat2;
 
     if (out == 0) return 0u;
     memset(out, 0, sizeof(*out));
@@ -26,19 +38,29 @@ uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 
     out->valid = 1u;
     out->cell_count = cfg.cell_count;
-    bat_index = (cfg.battery_ntc_gp != 0u) ? (uint8_t)(cfg.battery_ntc_gp - 1u) : 0xFFu;
-    mos_index = (cfg.mos_ntc_gp != 0u) ? (uint8_t)(cfg.mos_ntc_gp - 1u) : 0xFFu;
 
-    if (bat_index < 4u && s.ntc_res_ohm[bat_index] != 0u) {
+    /* HS-D008 temperature ownership:
+     * GP1 heater MOS, GP2/GP3 battery, GP4 power MOS. */
+    if (dvc_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC_GP) &&
+        dvc_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC2_GP))
+    {
+        bat1 = dvc_temp(DVC1124_DEFAULT_BATTERY_NTC_GP);
+        bat2 = dvc_temp(DVC1124_DEFAULT_BATTERY_NTC2_GP);
         out->battery_temp_valid = 1u;
-        out->battery_temp_min_x10 = g_stCellInfoReport.u16Temperature[bat_index];
-        out->battery_temp_max_x10 = g_stCellInfoReport.u16Temperature[bat_index];
+        out->battery_temp_min_x10 = (bat1 <= bat2) ? bat1 : bat2;
+        out->battery_temp_max_x10 = (bat1 >= bat2) ? bat1 : bat2;
     }
-    if (mos_index < 4u && s.ntc_res_ohm[mos_index] != 0u) {
+
+    if (dvc_ntc_valid(&s, DVC1124_DEFAULT_HEATER_NTC_GP))
+    {
         out->heater_temp_valid = 1u;
+        out->heater_temp_x10 = dvc_temp(DVC1124_DEFAULT_HEATER_NTC_GP);
+    }
+
+    if (dvc_ntc_valid(&s, DVC1124_DEFAULT_MOS_NTC_GP))
+    {
         out->mos_temp_valid = 1u;
-        out->heater_temp_x10 = g_stCellInfoReport.u16Temperature[mos_index];
-        out->mos_temp_x10 = out->heater_temp_x10;
+        out->mos_temp_x10 = dvc_temp(DVC1124_DEFAULT_MOS_NTC_GP);
     }
     return 1u;
 }
