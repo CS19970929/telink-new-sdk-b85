@@ -1,6 +1,7 @@
 #include "dvc1124_config_service.h"
 
 #include "dvc1124.h"
+#include "bms_afe.h"
 #include "bms_afe_hw_profile.h"
 
 static u16 dvc_cfg_vadc_time_us(dvc1124_vadc_time_t code)
@@ -216,6 +217,7 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
     u8 chip;
 
     if (value == 0) return DVC1124_CFG_ERR_VALUE;
+    if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;
 
     if ((u8)field >= (u8)DVC1124_CFG_EFF_COV_MV &&
         (u8)field <= (u8)DVC1124_CFG_EFF_SCD_DELAY_US)
@@ -352,6 +354,7 @@ dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
 {
     if (value == 0 || reg > DVC1124_MAX_REGISTER)
         return DVC1124_CFG_ERR_ADDRESS;
+    if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;
 
     /* STATUS and CORE_OT contain read-clear fields. */
     if (DVC1124_RegReadHasSideEffect(reg))
