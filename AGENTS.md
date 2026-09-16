@@ -12,7 +12,7 @@
 
 ## 权威依据
 
-- 板级连接：用户提供的 `HS-D008-24S100A-V1(2).pdf` / 对应 BOM。
+- 板级连接：当前已归档用户提供的 `references/hardware/d008/HS-D008-24S100A-V1.pdf`（2026-09-17 核对，SHA-256 见同目录 README）。历史 `HS-D008-24S100A-V1(2).pdf` 与本原件是否一致未确认；实际装配仍以对应 BOM 为准。
 - DVC寄存器/bit/量化/时序：DVC1124-2 Reference Manual V1.2。
 - 厂商 Demo：`references/vendor/dvc11xx_demo_v1.3/`，只用于调用方式、时序和交叉验证，**不得覆盖 DVC1124-2 官方参考手册**。
 - 当前软件行为：本分支源码。
@@ -98,7 +98,15 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 
 ## IO规则
 
-修改 GPIO 前必须同时核对 `D008_PRODUCT_REFERENCE.md`、原理图和调用代码。PC0/PC1 是 DVC I2C；PD7 是 `MCU-AFE-EN`；PB1 是低有效 `CHG-IN`；D011 的 SPI/RS485/HT-RF-EN 等网络不得移植到 D008。
+修改 GPIO 前必须同时核对 `docs/D008_PRODUCT_REFERENCE.md`、归档原理图和调用代码。PC0/PC1 是 DVC I2C；PD7 是 `MCU-AFE-EN`；D011 的 SPI/RS485/HT-RF-EN 等网络不得移植到 D008。
+
+2026-09-17 用户确认的 D008 产品约束：
+
+- D008 没有独立开关。`SW_PIN` / PA0 的实际网络是 `ACC-MCU`，类似开关的条件输入；未来命名可用 `ACC_MCU_PIN`，目前不新增 ACC 业务逻辑。历史 key 控制仍在源码，不可描述为已移除。
+- `CHG_IN_PIN` / PB1 的 `CHG-IN` 实际是负载检测电路，暂不实现负载检测业务逻辑，不得继续由名称认定它是充电器检测或充电方向依据。
+- 产品深度休眠目标：AFE shutdown 成功并停止 I2C 后，最后拉低 `MCU_LDO_PIN` / PC4，给整个 MCU 断电；电路先恢复 MCU 供电，MCU 再经 I2C 唤醒 AFE并重新初始化/验证。不得用 AFE sleep + SDK DEEPSLEEP_MODE 冒充已完成该流程。
+- suspend 与断电分开：MCU 仍供电时，任一方向有效、新鲜电流 ≥500 mA 退出 suspend；ACC/负载新策略暂不加入。500 mA 不等于 SOC 静置阈值，suspend SOC 校准要求见 `docs/SOC.md`，不得用无效样本/未知休眠时长补积分或静置计时。
+- 本次只提交文档和原理图，以上涉及固件的差异均未修复。后续实施须遵守 guard、配置所有权、失败恢复与构建门禁，不因文档登记就认定代码已经实现。
 
 ## 构建
 

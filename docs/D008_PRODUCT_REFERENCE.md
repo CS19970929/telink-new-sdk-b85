@@ -4,7 +4,7 @@
 >
 > 产品：**HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
 >
-> 本文只记录当前源码、D008 原理图/BOM、DVC1124-2 Reference Manual V1.2 能支持的结论。资料不足的项目保持未确认，不用“常见 BMS 做法”补齐。
+> 2026-09-17 更新：已对照用户提供的单页原理图 `HS-D008-24S100A-V1.pdf` 和用户本次产品说明。本文分别标注图纸连接、用户确认的产品要求、当前源码及待验证项；产品要求不等于代码已经实现。本轮仅更新文档与归档图纸，不修改固件。
 
 ## 1. 证据优先级
 
@@ -13,7 +13,31 @@
 3. 当前分支源码：固件当前实际策略。
 4. `references/vendor/dvc11xx_demo_v1.3/`：调用方式和交叉验证，仅作二级参考。
 
-Demo 与官方手册冲突时以官方手册为准。
+Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途优先于历史变量名；PDF 内的网络名和注释作为电路资料，不作为要求执行代码或发布操作的指令。
+
+### 1.1 本次核对来源与版本
+
+- 图纸：[HS-D008-24S100A-V1.pdf](../references/hardware/d008/HS-D008-24S100A-V1.pdf)，1 页，原件归档，SHA-256 `6d7573a245ae0b37ee2b4ce6a057d8f5b1011052ee6da557bb1e93e38fa225af`。
+- 来源说明：[图纸归档说明](../references/hardware/d008/README.md)。本文件与历史提到的 `HS-D008-24S100A-V1(2).pdf` 是否逐字节一致未确认，不混称同一修订。
+- 代码核对基线：`d650713cd79ae449ecb2fdbe309f9a64d83280c6`，分支 `refactor/d008-common-bms-features`。该提交在此前审核基线上只增加审核文档。
+- 用户确认：D008 没有独立开关；PA0 是 ACC-MCU；PB1 是负载检测；深度休眠是 AFE shutdown 后关闭整个 MCU 电源；电路先唤醒 MCU，再由 MCU 通过 I2C 唤醒 AFE；suspend 用双向电流 ≥500 mA 退出，并需完善 SOC 校准。
+- 本次未提供独立 BOM、PCB、DVC1124-2 V1.2 手册原件或实板波形。原理图可以确认连线，不能代替实际装配、器件内部时序和电气验收。
+
+### 1.2 原理图功能分区（均在 PDF 第 1 页）
+
+| 区域 | 连接与器件依据 | 维护结论 |
+|---|---|---|
+| 左侧单体采样/均衡 | C0..C24、VC0..VC24、RB/CB、Q1..Q24 及 68 Ω 支路 | 24S 图纸；20S 的短接/装配方案仍需 BOM，不由宏推定 |
+| 中左 AFE | DVC1124、VTOP/VREG/VBASE、Q36/Q38/Q39、D24/D25 | AFE 供电/使能与 MCU 3V3 电源不是同一网络；PD7 参与 MCU-AFE-EN，不能等同整个 MCU 断电控制 |
+| 左上 MCU 电源 | Q25..Q30、D5..D10、MCU-LDO、U2 HT7533-3.3V、VCC→3V3 | MCU-LDO 接电源控制链；用户确认拉低后 MCU 断电，实际保持/唤醒波形待测 |
+| 中右 MCU | U1 TLSR8251F512ET32、24 MHz Y1、SWS、射频匹配/AT1 | GPIO 映射见第 3 节；SWS-A7 是下载调试网络，不是开关 |
+| 中右负载检测 | C−→D28/R102→Q40 栅极，R103/D29 对 B−，Q40 漏极经 R105→CHG-IN，R104 上拉 3V3 | 该网络接 PB1；其用途由用户确认为负载检测，不可由 CHG 名称推断充电器在位 |
+| 右上 ACC/OWC | CN3、Q57/R152/R153/R154/R155、Q51..Q56、OWC-TX/RX；部分 R156..R158/R160 标 NC | ACC-MCU 是隔离于 MCU 侧的条件输入；OWC 有电平转换及 UART 接口；选装支路以实际 BOM 为准 |
+| 下方功率回路 | RS1..RS10、QD1..QD6、QC1..QC6；GP6-DSG→Q47..Q50→DO，GP5-CHG→Q42..Q45→CO | 图纸确认 DVC GP5/GP6 驱动外部低边链；DVC 高边 CHG/DSG 引脚标未连接 |
+| 下方加热/熔断 | PA1/MCC-EN-HT→Q34/Q33/Q35→QH1；PD4/MCC-EN-RF→Q32/Q31→D15/R74→F1 | 与射频 AT1 无关；熔断支路含 NC 标记，必须核对装配后再认定实物功能 |
+| 温度 | GP1 经 R71 接 NTC2；GP4 接 NTC1；CN4 引出 GP2/GP3，R163/R164 各 3 MΩ | GP1/GP4 板载路径可见；GP2/GP3 外接探头型号、是否接入仍需线束/BOM；传感器实际热位置还需 PCB/实物 |
+
+图纸中的 `B−`、`BAT−`、`BS−`、`C−` 不可任意互换；采样电阻、负载检测及驱动的参考节点须按实际网络核对。
 
 ## 2. 产品身份
 
@@ -30,22 +54,27 @@ Demo 与官方手册冲突时以官方手册为准。
 
 `conf.h` 仍有历史 D3PRO 产品参数依赖，因此历史容量、部分 OV/UV/OC/温度默认值不能仅凭当前源码视为 D008 已签核产品参数。
 
-## 3. MCU IO 基线
+## 3. MCU IO 基线与代码核对
 
-| MCU GPIO | D008 网络 | 当前用途 |
-|---|---|---|
-| PD7 | `MCU-AFE-EN` | DVC reset/enable |
-| PA0 | `ACC-MCU` | key，低有效 |
-| PB1 | `CHG-IN` | charger detect，低有效；同时用于低电平唤醒 |
-| PC0 | `SDA` | DVC I2C SDA |
-| PC1 | `SCL` | DVC I2C SCL |
-| PC2 | `OWC-TX` | One-wire/UART 业务网络 |
-| PC3 | `OWC-RX` | One-wire/UART 业务网络 |
-| PA7 | `SWS-A7` | Telink SWS 下载/调试 |
-| PB4/PB5/PB7/PD3 | SOC25/50/75/100 | SOC LED |
-| PB6 | `LED_BLUE` | 蓝色 LED |
+**结论：下面已命名 GPIO 的引脚号与本次图纸相符；主要差异是业务语义和未接入的电源控制流程。D008 没有独立开关，不能继续从 `SW_PIN` 名字推导“关钥匙后关机”。**
 
-GP2/GP3 是否在所有 BOM 版本都实际装外部 NTC 仍需按具体 BOM 确认。
+| MCU GPIO / U1 引脚 | 原理图网络 | 当前代码符号/用途 | 本次确认与维护要求 |
+|---|---|---|---|
+| PD7 / 2 | `MCU-AFE-EN` | `AFE1_PRO_EN_PIN`，AFE init 拉高 | 参与 AFE 供电/接口使能；不是 MCU 总电源开关，也不是 DVC 独立 RESET 引脚 |
+| PA0 / 3 | `ACC-MCU` | `SW_PIN`，低有效 key，参与 MOS/深睡眠 | 按 ACC-MCU 维护，类似开关的条件输入；当前不新增 ACC 业务逻辑。未来 C 符号可用 `ACC_MCU_PIN`，不能用带连字符的 `ACC-MCU` 作为 C 标识符；本次不改宏 |
+| PB1 / 6 | `CHG-IN` | `CHG_IN_PIN`，低有效 charger，GPIO 唤醒 | 实际为负载检测。Q40 导通时输出低；不等于已验证所有负载场景的逻辑。暂不实现负载判定、去抖或策略，也不能据此证明正在充电 |
+| PC4 / 24 | `MCU-LDO` | `MCU_LDO_PIN`，仅定义宏 | 用户确认低电平切断整个 MCU 电源；必须纳入后续断电时序和启动保持评估，当前尚无控制路径 |
+| PC0 / 20 | `SDA` | DVC I2C SDA | 经 R96=100 Ω；与图纸一致 |
+| PC1 / 21 | `SCL` | DVC I2C SCL | 经 R95=100 Ω；与图纸一致；SDA/SCL 各有 4.7 kΩ 上拉至 MCU 3V3 |
+| PC2 / 22 | `OWC-TX` | `OWC_TX_PIN` | 图纸同时接 UART/单线转换路径；复用由 bus mux 管理 |
+| PC3 / 23 | `OWC-RX` | `OWC_RX_PIN` | 同上，不移植 D011 RS485/SPI 网络 |
+| PA1 / 4 | `MCC-EN-HT` | `HEATER_EN_PIN`，启动低、加热时高 | 加热控制链，图纸连线对应；热控制参数仍须验证 |
+| PD4 / 1 | `MCC-EN-RF` | `RF_EN_PIN`，启动低、熔断请求高 | F1 相关支路；不能按 RF 名称理解成 BLE 射频供电 |
+| PA7 / 5 | `SWS-A7` | SWS 下载/调试 | 保留 SDK 调试用途 |
+| PB4 / 14、PB5 / 15、PB7 / 17、PD3 / 32 | `SOC25/50/75/100` | 对应 SOC LED 宏 | 网络映射一致；外接显示负载、极性仍按实物核对 |
+| PB6 / 16 | `BLUE` | `LED_BLUE_PIN` | 经 R165=3.3 kΩ 接 LED1 至 B−；代码别名不改变原图网络名 |
+
+“暂不写逻辑”是本次开发范围，不表示旧逻辑已禁用。当前 `SW_PIN`/`CHG_IN_PIN` 的历史调用仍在代码中，见第 12 节；本轮文档提交不会改变设备行为。
 
 ## 4. DVC GP / FET 拓扑
 
@@ -76,7 +105,7 @@ TLSR8251
   -> external CHG/DSG driver chain
 ```
 
-MCU 不直接 GPIO 控制 GP5/GP6。
+本次图纸已确认 GP5-CHG→CO、GP6-DSG→DO 的外部驱动连线；未发现 GP5/GP6 或 MOS Gate 独立回读到 MCU 的线路。MCU 不直接 GPIO 控制 GP5/GP6。图纸连通不等于已测得栅极动作，仍保留 Physical Feedback unavailable/unknown。
 
 `R81.CHGC/DSGC` 是命令模式；`R6.CHGF/DSGF` 是 DVC driver/output flag，不等同于 MOS 物理导通反馈。
 
@@ -304,3 +333,66 @@ AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不�
 5. 真正停止 MCU↔DVC I2C 通信，约 4 s 后验证 CHG/DSG driver 均被 DVC 自主关闭。
 6. `SW/HW = 1/0、0/1、0/0、1/1` 均需 TC32 clean build；production 最终使用 `1/1`。
 7. 任何 safety change 继续通过 source-order、Host contracts、firmware check、MAP、verify、cppcheck；这些不能替代实板测试。
+
+## 12. 2026-09-17 代码差异清单（待实现，非本次修复）
+
+| 编号 | 当前代码证据 | 与确认产品定义的差异 | 后续最小工作边界 |
+|---|---|---|---|
+| IO-01 | [conf.h:21](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h#L21)；[app.c:66](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L66)；[app.c:258](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L258)；[app.c:556](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L556) | _DI_SWITCH_SYS_ONOFF 已定义；PA0 被当成 key，参与 MOS 请求和无 key/charger 3 s 后深睡眠 | 按 ACC 输入重新梳理旧依赖；暂不实现 ACC 开关策略，不能只改宏名就视为完成 |
+| IO-02 | [bms_board.c:33](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_board.c#L33)；[dvc1124_feature_backend.c:68](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_feature_backend.c#L68)；[bms_features.c:40](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_features.c#L40)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L668) | PB1 被当成 charger，影响 MOS、加热资格、suspend 禁止和 PAD 唤醒 | 先剥离错误充电器语义；负载检测新逻辑保持待实现，不能将 PB1 低直接当充电 |
+| PM-01 | [conf.h:218](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h#L218)；[app.c:145](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L145)；[dvc1124.c:1244](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.c#L1244) | MCU_LDO_PIN 无业务引用；现路径为 AFE ENTER_SLEEP + cpu_sleep_wakeup(DEEPSLEEP_MODE)，不是 AFE shutdown + MCU 断电 | 建立受控关机事务，shutdown 成功后最后拉低 PC4；失败分支不得无条件断电 |
+| PM-02 | [dvc1124_config_store.c:45](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L45)；[dvc1124_config_store.c:56](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L56)；[dvc1124_config_store.c:238](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L238)；[bms_afe_guard.c:350](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_afe_guard.c#L350) | 已有 PD7 使能、I2C 唤醒脉冲、reset/reinit 和 guard 台架 shutdown/wake；尚未接入产品 PC4 断电流程 | 复用驱动生命周期；MCU 断电后从冷启动恢复，不假定 RAM 中 test_shutdown_hold 或 Requested 保留 |
+| PM-03 | [app.c:643](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L643)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L668)；[dvc1124.c:1308](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.c#L1308) | suspend 退出仍是 PB1 低、OWC 忙、任意非零放电报告、OTA；没有双向 ≥500 mA 判定 | 用有效且新鲜的电流判断两方向，保持通信/OTA/故障的独立约束；不从 PB1 推定方向 |
+| SOC-01 | [SocEnhance.c:13](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L13)；[SocEnhance.c:657](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L657)；[SocEnhance.c:722](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L722)；[app.c:990](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L990) | SOC 使用固定 200 ms 调用计数；电压范围检查不代表 AFE 样本新鲜；当前无 suspend 专属资格 | 按 SOC.md 第 10 节实现时间、样本资格和断电边界；不能把 sleep 标志当静置证据 |
+
+### 12.1 suspend 与 MCU 断电是不同状态
+
+| 状态 | MCU / AFE | 退出或恢复 | SOC 边界 |
+|---|---|---|---|
+| Active | MCU 执行业务，AFE 提供有效测量 | 满足后续定义的静置/通信条件才允许 suspend | 正常积分、保护与端点处理 |
+| Suspend | MCU 仍供电，使用 SDK suspend；AFE 保持能提供测量的配置 | 任一方向电流 ≥500 mA 退出；通信/OTA/故障按已有安全边界处理 | 只有合格样本和可靠时间才允许积分/静置资格累计 |
+| Shutdown prepare | MCU 仍供电，完成必要持久化及输出控制，然后 AFE shutdown | 失败则留在受控故障/恢复路径 | 在失去测量与电源前完成所需 State 提交 |
+| MCU power off | AFE 已 shutdown，PC4 低关闭 MCU 电源，MCU 无执行能力 | 外部硬件电路恢复 MCU 供电 | 不能读取电流、计时、校准或继续写 Flash |
+| Cold boot / AFE recovery | 电路先唤醒 MCU，MCU 再走 I2C 唤醒和 AFE 初始化 | 固定配置、硬件保护、有效样本资格和输出门控都满足后才能进入正常业务 | 恢复已保存状态，重新累计静置资格；不推算未知断电时长 |
+
+SDK 的短暂定时唤醒用于重新采样，不等于产品已退出 suspend 状态。周期、最坏响应时间、进入延时和迟滞尚未由用户给定，保持待确认；本轮不擅自增加阈值。
+
+### 12.2 深度休眠目标时序（用户确认，尚未接入产品逻辑）
+
+```text
+满足已确认关机条件（不得继续以不存在的独立开关推导）
+ -> 结束/阻止冲突的 OTA、参数事务与 Flash 操作
+ -> 必要 State/Event 保存成功，冻结新的业务输出请求
+ -> 受控关闭加热/均衡与 CHG/DSG，核对关闭结果
+ -> 通过 guard 管理的 AFE shutdown 命令
+ -> 停止所有会重新唤醒 AFE 的 I2C/诊断/重试
+ -> MCU_LDO_PIN / PC4 拉低（最后一步）
+ -> MCU 整体断电
+ -> 外部硬件电路恢复 MCU 电源
+ -> 冷启动与电源保持，安全 GPIO 初值
+ -> PD7 接口使能，PC0/PC1 I2C 唤醒 AFE
+ -> reset/init，重新应用固定配置及持久化 AFE hardware profile
+ -> 配置一致且新样本/保护资格满足后，恢复允许的业务输出
+```
+
+本图没有规定新的关机延时/电压阈值。既有协议请求及保护结果仍参与最终输出仲裁；ACC/PB1 暂不增加业务含义。
+
+- 当前 `DVC1124_CST_ENTER_SHUTDOWN` 与 `ENTER_SLEEP` 是不同命令。已有 backend 在 shutdown 后不读回 STATUS，避免重新通信；不能强行加“shutdown 后读回成功”验收。
+- 当前 I2C 唤醒实现释放 SCL、拉低 SDA 1000 µs，再释放 SDA；代码注释记载 SCL 比 SDA 高至少 2 V、超过 50 µs。这里仅记录现有实现，手册原件未在本次提供，幅值、时序及 PD7 配合仍需官方资料与实测确认。
+- PC4 拉低后不能再安排依赖 MCU 执行的 Flash/I2C/日志步骤。PC4 开机保持时点、掉电是否被调试器/串口/I2C 反向供电、外部电路的具体唤醒条件与最短脉宽保持 `TODO_VERIFY_HW`。
+- 本版图纸可见独立 MCU 电源控制与负载相关电路，但“哪些外部动作在所有状态都能恢复供电”不能仅由网络名判定；不得把 PB1 PAD 唤醒等同于整机断电唤醒。
+
+### 12.3 ≥500 mA 退出 suspend 的判定边界
+
+- “500 mA 以上”按包含边界记录：有效测量 `current_ma >= 500`（源码正方向为放电）或 `current_ma <= -500`（负方向为充电）；实板校准仍需确认正负方向。
+- 优先使用带有效性/新鲜度的 mA 测量。当前内部 `dvc1124_snapshot_t.current_ma` 有 mA 值，但公共 `bms_afe` 辅助/功能快照没有电流与时间戳组合契约；后续需在既有边界内明确传递方式，不直接让应用层依赖私有寄存器。
+- 当前 `u16Ichg/u16IDischg` 单位 0.1 A，先截断再比较不能验证 499/500/501 mA 的精确边界，更不能把采样失败时被清零的电流当静置。
+- 200..499 mA 即使尚不要求退出 suspend，也不能自动进入 OCV 静置校准。SOC 积分死区与 suspend 退出门槛分别维护，详见 [SOC.md](SOC.md)。
+- 当前 AFE current-wake engine 关闭，interrupt mask 为 0xFF；本要求不等于授权直接打开 AFE current-wake 或改变固定配置。须先用真实调度确认周期采样/唤醒能达到响应预算，并同时满足 4 s I2C watchdog。
+- 无效、陈旧、读写故障样本不能保持“已确认静置”资格；后续设计应转入受控采样/故障处理。不能为了省电关闭保护或掩盖通信故障。
+
+## 13. 文档交付与后续验证
+
+本次交付为图纸原件、IO/电源对照、SOC 待实现要求及实板清单。未修改 `.c/.h`、协议、保护参数、Flash 布局或构建输入；没有新增 ACC/负载控制逻辑，也没有宣称新低功耗流程已完成。
+
+[前次全模块审核](D008_FULL_MODULE_AUDIT_2026-09-17.md)保留其固定 SHA 的代码证据；本次图纸补足了部分连接证据，修正历史 charger/key 用途，但不自动关闭原审核的软件缺陷或实板未决项。实测统一记录在 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)，SOC 算法要求统一记录在 [SOC.md](SOC.md)，避免产生第二套 IO 真源。

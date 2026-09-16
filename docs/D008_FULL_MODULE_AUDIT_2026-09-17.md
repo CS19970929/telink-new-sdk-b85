@@ -1,5 +1,7 @@
 # D008 BMS 全模块逻辑审核报告
 
+> 2026-09-17 后续资料补充（不改动原固定 SHA 审核证据）：用户已提供 D008 原理图，并确认 PB1 是负载检测、PA0 是 ACC-MCU、产品无独立开关、深度休眠采用 AFE shutdown 后 PC4 关闭整个 MCU 电源。新的连线、产品定义及代码差异统一见 [D008_PRODUCT_REFERENCE.md](D008_PRODUCT_REFERENCE.md)。下文“key/charger”是在描述基线代码的历史语义，不是对硬件用途的最终认定；“本次未提供原理图”是原审核时的资料状态，现已补充图纸，BOM/手册原件/实板证据仍未补齐。文档更新未修复 F01..F08。
+
 审核日期：2026-09-17（Asia/Shanghai）  
 仓库：CS19970929/telink-new-sdk-b85  
 分支：refactor/d008-common-bms-features  
