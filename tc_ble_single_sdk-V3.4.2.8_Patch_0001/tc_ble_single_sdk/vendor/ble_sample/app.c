@@ -713,7 +713,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_send_string_data(APP_LOG_EN, "[APP][INI]Public Address", mac_public, 6);
 
 #if (BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_PUBLIC)
-	app_own_address_type = BLE_DEVICE_ADDRESS_PUBLIC;
+	app_own_address_type = OWN_ADDRESS_PUBLIC;
 #elif (BLE_DEVICE_ADDRESS_TYPE == BLE_DEVICE_ADDRESS_RANDOM_STATIC)
 	app_own_address_type = OWN_ADDRESS_RANDOM;
 	blc_ll_setRandomAddr(mac_random_static);

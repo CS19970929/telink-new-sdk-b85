@@ -34,11 +34,12 @@ CLIENT_ASSET_SPEC.loader.exec_module(client_assets)
 
 class ClientAssetPathTests(unittest.TestCase):
     def test_qt_project_path_follows_repository_tools_layout(self) -> None:
+        # Firmware keeps the client-generation destination stable, but the
+        # upper-computer project itself is intentionally not owned by this repo.
         self.assertEqual(
             client_assets.QT_PROJECT_ROOT,
             REPO_ROOT / "tools" / "BMSAssistantQt",
         )
-        self.assertTrue((client_assets.QT_PROJECT_ROOT / "bmsassistantqt").is_dir())
 
 
 class WorkflowSecurityTests(unittest.TestCase):
