@@ -14,7 +14,8 @@
 
 typedef struct {
     uint8_t heater_on;
-    uint8_t heater_overtemp_latched;
+    uint8_t heater_fuse_fired;
+    uint16_t heater_off_hot_samples;
     uint8_t openwire_active;
     uint8_t openwire_fault_latched;
     uint16_t openwire_idle_samples;
@@ -49,34 +50,117 @@ static void set_heater(uint8_t on)
     g_bms_system_status.bits.b1Status_Heat = on;
 }
 
+static uint16_t heater_confirm_samples(void)
+{
+    uint32_t confirm_ms = bms_board_heater_off_fault_confirm_ms();
+    uint32_t samples;
+
+    if (confirm_ms == 0u) return 1u;
+    samples = (confirm_ms + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) /
+              BMS_FEATURE_SERVICE_PERIOD_MS;
+    if (samples == 0u) samples = 1u;
+    if (samples > 65535u) samples = 65535u;
+    return (uint16_t)samples;
+}
+
+static void fire_heater_fuse(void)
+{
+    set_heater(0u);
+    if (!s_feature.heater_fuse_fired)
+    {
+        bms_board_heater_fuse_fire();
+        s_feature.heater_fuse_fired = 1u;
+    }
+    if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
+}
+
+/*
+ * Heater-circuit safety is independent of normal power-MOS OTP.
+ *
+ * D008 GP1 measures the heater MOS area. If software commands PA1/MCC-EN-HT
+ * OFF but GP1 remains abnormally hot for the board-defined confirmation time,
+ * the heater power path is treated as stuck/failed and PD4/MCC-EN-RF fires the
+ * irreversible heater fuse. A hot GP1 while heating first forces the command
+ * OFF; only continued heat while OFF can progress to the irreversible action.
+ */
+static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
+{
+    uint16_t trip;
+    uint16_t required;
+
+    if (s_feature.heater_fuse_fired)
+    {
+        set_heater(0u);
+        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
+        return 0u;
+    }
+
+    if ((s == 0) || !s->heater_temp_valid)
+    {
+        s_feature.heater_off_hot_samples = 0u;
+        set_heater(0u);
+        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
+        return 0u;
+    }
+
+    trip = bms_board_heater_off_fault_temp_x10();
+    if (!bms_board_heater_fuse_supported() || (trip == 0u))
+    {
+        s_feature.heater_off_hot_samples = 0u;
+        bms_error_clear(BMS_ERROR_HEAT);
+        return 1u;
+    }
+
+    if (s->heater_temp_x10 < trip)
+    {
+        s_feature.heater_off_hot_samples = 0u;
+        bms_error_clear(BMS_ERROR_HEAT);
+        return 1u;
+    }
+
+    /* GP1 is already too hot. A commanded heater must be shut down first. */
+    if (s_feature.heater_on)
+    {
+        s_feature.heater_off_hot_samples = 0u;
+        set_heater(0u);
+        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
+        return 0u;
+    }
+
+    /* Heater command is OFF but the heater-MOS area stays hot: confirm before
+     * the irreversible fuse action so one noisy sample cannot fire PD4. */
+    required = heater_confirm_samples();
+    if (s_feature.heater_off_hot_samples < required)
+        ++s_feature.heater_off_hot_samples;
+    if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
+    set_heater(0u);
+
+    if (s_feature.heater_off_hot_samples >= required)
+        fire_heater_fuse();
+    return 0u;
+}
+
 static void service_heater(const bms_afe_feature_snapshot_t *s)
 {
     uint8_t charger;
-    uint16_t trip = g_tParam.protect.u16TmosOTp_Third;
-    uint16_t recover = g_tParam.protect.u16TmosOTp_Rcv;
 
-    if (s == 0 || !s->valid || !bms_board_heater_supported()) { set_heater(0u); return; }
+    if (s == 0 || !s->valid || !bms_board_heater_supported())
+    {
+        set_heater(0u);
+        return;
+    }
+
+    if (!heater_circuit_safe(s)) return;
+
     charger = charge_source_present();
-
-    if (!s->heater_temp_valid) {
-        s_feature.heater_overtemp_latched = 1u;
-        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
-        set_heater(0u); return;
-    }
-    if (s_feature.heater_overtemp_latched) {
-        if (recover == 0u || s->heater_temp_x10 <= recover) s_feature.heater_overtemp_latched = 0u;
-    } else if (trip != 0u && s->heater_temp_x10 >= trip) {
-        s_feature.heater_overtemp_latched = 1u;
-    }
-    if (s_feature.heater_overtemp_latched) {
-        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
-        set_heater(0u); return;
-    }
-    bms_error_clear(BMS_ERROR_HEAT);
-
     if (!charger || !s->battery_temp_valid || bms_error_get(BMS_ERROR_AFE1) ||
-        bms_error_get(BMS_ERROR_TEMP_BREAK)) { set_heater(0u); return; }
+        bms_error_get(BMS_ERROR_TEMP_BREAK))
+    {
+        set_heater(0u);
+        return;
+    }
 
+    /* Battery heating always uses the colder of GP2/GP3. */
     if (s_feature.heater_on)
         set_heater((s->battery_temp_min_x10 < BMS_HEATER_STOP_TEMP_X10) ? 1u : 0u);
     else
@@ -164,16 +248,36 @@ void bms_features_init(void)
     g_bms_system_status.bits.b1Status_Heat = 0u;
     publish_balance(0u);
 }
+
 void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t s;
-    memset(&s,0,sizeof(s));
-    if(!bms_afe_get_feature_snapshot(&s)||!s.valid){bms_features_on_afe_invalid();return;}
-    service_heater(&s); service_openwire(); service_balance(&s);
+    memset(&s, 0, sizeof(s));
+    if (!bms_afe_get_feature_snapshot(&s) || !s.valid)
+    {
+        bms_features_on_afe_invalid();
+        return;
+    }
+    service_heater(&s);
+    service_openwire();
+    service_balance(&s);
 }
-void bms_features_on_afe_invalid(void){set_heater(0u);s_feature.balance_requested_mask=0u;s_feature.openwire_active=0u;s_feature.openwire_idle_samples=0u;publish_balance(0u);}
-uint8_t bms_features_heater_on(void){return s_feature.heater_on;}
-uint8_t bms_features_charge_blocked(void){return (s_feature.heater_on||s_feature.openwire_active||s_feature.openwire_fault_latched)?1u:0u;}
-uint8_t bms_features_discharge_blocked(void){return (s_feature.openwire_active||s_feature.openwire_fault_latched)?1u:0u;}
-uint8_t bms_features_openwire_active(void){return s_feature.openwire_active;}
-void bms_features_get_openwire_result(bms_afe_openwire_result_t *r){if(r)*r=s_feature.openwire_result;}
+
+void bms_features_on_afe_invalid(void)
+{
+    set_heater(0u);
+    s_feature.heater_off_hot_samples = 0u;
+    s_feature.balance_requested_mask = 0u;
+    s_feature.openwire_active = 0u;
+    s_feature.openwire_idle_samples = 0u;
+    publish_balance(0u);
+    if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
+        bms_error_raise(BMS_ERROR_HEAT);
+}
+
+uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
+uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
+uint8_t bms_features_charge_blocked(void) { return (s_feature.heater_on || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
+uint8_t bms_features_discharge_blocked(void) { return (s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
+uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
+void bms_features_get_openwire_result(bms_afe_openwire_result_t *r) { if (r) *r = s_feature.openwire_result; }
