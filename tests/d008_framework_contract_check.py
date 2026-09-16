@@ -116,10 +116,13 @@ class D008FrameworkContract(unittest.TestCase):
     def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
         sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
         sample = sample.split("uint8_t bms_afe_set_fets", 1)[0]
-        self.assertIn("battery_temp = dvc_get_configured_temperature", sample)
-        self.assertIn("mos_temp = dvc_get_configured_temperature", sample)
+        self.assertIn("dvc_get_battery_temperature_range", sample)
+        self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP", sample)
         self.assertIn("dvc_publish_temperature_report(&sw);", sample)
         self.assertIn("bms_sw_protection_update(&sw);", sample)
+        self.assertIn("DVC1124_DEFAULT_BATTERY_NTC_GP       2u", self.project)
+        self.assertIn("DVC1124_DEFAULT_BATTERY_NTC2_GP      3u", self.project)
+        self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP           4u", self.project)
         self.assertIn("u16Temperature[ENV_TEMP3]", self.dvc_bms)
         self.assertIn("u16Temperature[MOS_TEMP1]", self.dvc_bms)
         self.assertIn("u16TempMin = sw->battery_temp_min", self.dvc_bms)
