@@ -19,18 +19,17 @@ static uint8_t s_project_config_pending = 1u;
 
 /*
  * DVC1124-2 shutdown I2C wake requirement:
- *   SCL must be at least 2 V above SDA for >= 500 us.
+ *   SCL must be at least 2 V above SDA for more than 50 us.
  *
  * HS-D008 uses PC0=SDA and PC1=SCL. Use 1 ms for margin. The wake pulse is
  * generated while the Telink I2C peripheral is reset/disconnected from the
  * pads; only after SDA is released again does normal hardware I2C resume.
  */
 #define DVC1124_I2C_WAKE_PULSE_US       1000u
+#define DVC1124_I2C_WAKE_MIN_US           50u
 #define DVC1124_AFE_ENABLE_SETTLE_US   20000u
-#define DVC1124_WAKE_READY_RETRY_COUNT    20u
-#define DVC1124_WAKE_READY_RETRY_US     5000u
-#if (DVC1124_I2C_WAKE_PULSE_US < 500u)
-#error "DVC1124 shutdown I2C wake pulse must be at least 500 us"
+#if (DVC1124_I2C_WAKE_PULSE_US <= DVC1124_I2C_WAKE_MIN_US)
+#error "DVC1124 shutdown I2C wake pulse must be greater than 50 us"
 #endif
 
 static void dvc_project_delay_us(uint32_t delay_us)
@@ -84,31 +83,7 @@ static void dvc_project_i2c_wake_pulse(void)
     gpio_write(GPIO_PC0, 1u);
 }
 
-static uint8_t dvc_project_resolve_write_address(uint8_t *write_addr)
-{
-    dvc1124_config_t cfg;
-
-    if (write_addr == 0) return 0u;
-    DVC1124_GetConfig(&cfg);
-    return DVC1124_ResolveWriteAddress(cfg.model,
-                                       cfg.addr_mode,
-                                       cfg.hardwire_code,
-                                       cfg.explicit_write_addr,
-                                       write_addr);
-}
-
-static uint8_t dvc_project_i2c_hw_init(void)
-{
-    uint8_t write_addr = DVC1124_FIXED_WRITE_ADDR;
-
-    if (!dvc_project_resolve_write_address(&write_addr)) return 0u;
-    i2c_gpio_set(I2C_GPIO_GROUP_C0C1);
-    i2c_master_init(write_addr,
-                    (unsigned char)(CLOCK_SYS_CLOCK_HZ / (4u * 100000u)));
-    return 1u;
-}
-
-uint8_t DVC1124_AFE_Shutdown(void)
+uint8_t dvc1124_backend_enter_shutdown(void)
 {
     uint8_t cmd = (uint8_t)DVC1124_CST_ENTER_SHUTDOWN;
 
@@ -116,33 +91,6 @@ uint8_t DVC1124_AFE_Shutdown(void)
      * STATUS afterwards because a successful shutdown intentionally removes
      * the AFE from normal I2C communication. */
     return DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u);
-}
-
-uint8_t DVC1124_AFE_WakeupFromShutdown(void)
-{
-    uint8_t attempt;
-    uint8_t version;
-    uint8_t frt;
-
-    /* This is intentionally NOT bms_afe_init(): preserve the common BMS guard,
-     * requested FET state and output authorization while bench-testing only the
-     * DVC shutdown-wake mechanism. */
-    dvc_project_enable_afe_interface();
-    dvc_project_i2c_wake_pulse();
-    if (!dvc_project_i2c_hw_init()) return 0u;
-
-    /* Confirm that normal register communication really returned. Use two
-     * ordinary, non-destructive registers just like the normal DVC ready check. */
-    for (attempt = 0u; attempt < DVC1124_WAKE_READY_RETRY_COUNT; ++attempt)
-    {
-        if (DVC1124_ReadRegisters(DVC1124_REG_CHIP_VERSION, &version, 1u) &&
-            DVC1124_ReadRegisters(DVC1124_REG_FRT, &frt, 1u))
-        {
-            return 1u;
-        }
-        dvc_project_delay_us(DVC1124_WAKE_READY_RETRY_US);
-    }
-    return 0u;
 }
 
 static uint8_t dvc_project_wdt_code(uint8_t seconds,

@@ -1,6 +1,6 @@
 # D008 配置修改、拉代码、固件编译与上位机构建指南
 
-> 适用分支：`feature/sh3673510-d013-bmsdvc`
+> 适用分支：`refactor/d008-common-bms-features`
 >
 > 实际产品：HS-D008 + TLSR8251F512ET32 + DVC1124-2。分支名中的 `sh3673510-d013` 是历史命名，不代表硬件。
 
@@ -18,7 +18,7 @@
 推荐单独目录，不与 D011/D013 混用：
 
 ```bash
-git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
+git clone --single-branch --branch refactor/d008-common-bms-features https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
 git -C D008-BMS branch --show-current
 git -C D008-BMS rev-parse HEAD
 ```
@@ -26,7 +26,7 @@ git -C D008-BMS rev-parse HEAD
 预期当前分支：
 
 ```text
-feature/sh3673510-d013-bmsdvc
+refactor/d008-common-bms-features
 ```
 
 以后更新：
@@ -34,8 +34,8 @@ feature/sh3673510-d013-bmsdvc
 ```bash
 cd D008-BMS
 git fetch origin
-git switch feature/sh3673510-d013-bmsdvc
-git pull --ff-only origin feature/sh3673510-d013-bmsdvc
+git switch refactor/d008-common-bms-features
+git pull --ff-only origin refactor/d008-common-bms-features
 ```
 
 不要直接 `git pull` 后不确认当前分支。
@@ -347,7 +347,10 @@ Custom function 0x42  privileged session
 
 必须整块原子写，不允许分段伪造成功。
 
-当前仓库的 `BMSAssistantQt` **还没有专用 AFE Hardware Protection V2 编辑页，也没有 direct-serial transport**。不要把旧文档中的 `BmsTool.Windows/BmsFactoryTest.Windows` 当成当前仓库存在的工程。当前 Qt 工具可用于 BLE 状态、软件参数预览、手动寄存器和原始帧调试；AFE HW profile 正式写入应使用实现了 `0x42 + 35-word atomic write + requested/effective readback` 的工程工具，或先补齐 Qt 端该功能。
+Windows 工具唯一真源在分支 `feature/windows-afe-hw-protection-editor-v2`
+的 `bms-tool-windows/`。客户版 `BmsTool.Windows/` 与内部测试版
+`BmsFactoryTest.Windows/` 必须通过 `0x42 + 35-word atomic write +
+requested/effective readback` 完成正式写入；本产品分支不维护客户端副本。
 
 ---
 
@@ -543,147 +546,27 @@ HS-D008_TLSR8251_DVC1124_20S-NMC_<SWVER>_<shortsha>.bin
 
 ---
 
-# 13. Windows Qt 上位机：从拉代码到打包
+# 13. Windows 上位机真源与构建边界
 
-当前桌面上位机完整路径：
-
-```text
-tools/BMSAssistantQt
-```
-
-技术栈：
+唯一真源：
 
 ```text
-Python 3.9+
-PySide6 >=6.8,<7
-PyInstaller >=6.10,<7
-QtBluetooth
-QtWidgets
+branch: feature/windows-afe-hw-protection-editor-v2
+bms-tool-windows/BmsTool.Windows/
+bms-tool-windows/BmsFactoryTest.Windows/
 ```
 
-## 13.1 单独拉 D008 并直接运行上位机
+本产品固件分支不复制或构建上位机。需要修改、运行或打包 Windows 工具时，
+先切换到上述分支，并同时维护客户版和内部测试版的公共能力。历史
+`tools/` 下的旧 Qt 客户端及其 macOS/Linux 打包说明全部作废，不得恢复。
 
-```bat
-git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
-cd /d D008-BMS\tools\BMSAssistantQt
-scripts\run.bat
-```
-
-`run.bat` 会自动：
-
-```text
-使用 python 或 py -3
-创建 %LOCALAPPDATA%\BMSAssistantQt\venv
-pip install requirements.txt
-启动 main.py
-```
-
-## 13.2 D008 上位机串数
-
-当前 Qt 客户端在：
-
-```text
-tools/BMSAssistantQt/bmsassistantqt/protocol.py
-```
-
-有：
-
-```python
-class RegisterCatalog:
-    currentProjectSeriesCount = 10
-```
-
-这个值目前仍是共享工具历史默认，**D008 打包前必须改**：
-
-24S：
-
-```python
-currentProjectSeriesCount = 24
-```
-
-20S：
-
-```python
-currentProjectSeriesCount = 20
-```
-
-否则电池状态页单体显示数量会错误。
-
-这也是当前上位机的已知产品化技术债；后续更合理的做法是由设备 metadata 自动读取串数，而不是每个包手改常量。
-
-## 13.3 Windows 打包
-
-```bat
-cd /d D:\work\D008-BMS\tools\BMSAssistantQt
-scripts\package-windows.bat
-```
-
-脚本先执行：
-
-```text
-python main.py --smoke-test
-```
-
-然后用 PyInstaller：
-
-```text
---windowed
---name BMSAssistantQt
---collect-all PySide6
---hidden-import PySide6.QtBluetooth
-```
-
-最终输出：
-
-```text
-tools/BMSAssistantQt/.dist/BMSAssistantQt/BMSAssistantQt.exe
-tools/BMSAssistantQt/.dist/Launch-BMSAssistantQt.bat
-tools/BMSAssistantQt/.dist/docs/README.md
-tools/BMSAssistantQt/.dist/docs/WINDOWS-DELIVERY.md
-```
-
-客户侧推荐启动：
-
-```text
-Launch-BMSAssistantQt.bat
-```
-
-### 建议交付包名
-
-```text
-BMSAssistantQt_HS-D008_24S-LFP_<date>_<shortsha>.zip
-BMSAssistantQt_HS-D008_20S-NMC_<date>_<shortsha>.zip
-```
+上位机读取串数、AFE interface version、requested/effective profile 和事务状态
+时应使用现有固件寄存器，不得为了 UI 便利修改协议、Flash 布局或 AFE 配置
+所有权。具体 Windows 构建与交付命令以该分支内说明为准。
 
 ---
 
-## 14. macOS / Linux 上位机
-
-macOS：
-
-```bash
-cd D008-BMS/tools/BMSAssistantQt
-./scripts/package-macos.sh
-./scripts/run-macos-app.sh
-```
-
-输出：
-
-```text
-.dist/BMSAssistantQt.app
-```
-
-Linux：
-
-```bash
-cd D008-BMS/tools/BMSAssistantQt
-./scripts/run.sh
-./scripts/package-linux.sh
-```
-
----
-
-## 15. 修改配置后的最小检查顺序
+## 14. 修改配置后的最小检查顺序
 
 ```text
 1. git diff -- 只确认预期文件

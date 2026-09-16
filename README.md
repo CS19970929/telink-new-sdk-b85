@@ -1,6 +1,6 @@
 # HS-D008 / TLSR8251 / DVC1124 BMS
 
-当前分支产品是 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。分支历史名为 `feature/sh3673510-d013-bmsdvc`，名称含 D013/SH3673510 但实际硬件不是 SH3673510。
+当前分支 `refactor/d008-common-bms-features` 的产品是 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
 
 默认 Product Profile 为 **24S LFP**，另支持编译为 **20S NMC**。产品串数/化学体系与容量、OV/UV、OC、温度等最终量产参数是不同层次；后者必须单独签核。
 
@@ -11,7 +11,7 @@
 - AFE backend：DVC1124；业务层通过 `bms_afe.h`。
 - AFE 通信异常：output inhibit + 有界 reinit + 连续有效 snapshot 恢复资格。
 - SOC：LFP/NMC profile 数据化；24S/20S product profile 决定物理通道。
-- 当前桌面上位机为 `tools/BMSAssistantQt`，主要通过 BLE SPP + Modbus 调试；专用 AFE HW V2 编辑器尚未实现在该 Qt 工程中。
+- Windows 上位机唯一真源位于分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`；本固件分支不维护客户端副本。
 
 ## 文档入口
 
@@ -26,14 +26,14 @@
 7. [SOC](docs/SOC.md)
 8. [Flash / Storage](docs/STORAGE.md)
 9. [构建与测试](docs/BUILD_AND_TEST.md)
-10. [Windows/macOS/Linux Qt 上位机](tools/BMSAssistantQt/README.md)
+10. Windows 上位机：切换到 `feature/windows-afe-hw-protection-editor-v2`，使用 `bms-tool-windows/` 下的客户版与内部测试版。
 
 历史日期型审计、旧 DVC 参数说明、旧任务清单和旧分支迁移说明已移除；需要追溯时使用 Git 历史。
 
 ## 快速拉取
 
 ```bash
-git clone --single-branch --branch feature/sh3673510-d013-bmsdvc https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
+git clone --single-branch --branch refactor/d008-common-bms-features https://github.com/CS19970929/telink-new-sdk-b85.git D008-BMS
 cd D008-BMS
 ```
 
@@ -57,15 +57,13 @@ python bms_tools/bms.py static --no-report
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
 ```
 
-## Windows Qt 上位机
+## Windows 上位机
 
-```bat
-cd /d D008-BMS\tools\BMSAssistantQt
-scripts\run.bat
-scripts\package-windows.bat
-```
-
-D008 打包前必须在 `bmsassistantqt/protocol.py` 把 `currentProjectSeriesCount` 设置为24（24S LFP）或20（20S NMC）。完整说明见 `docs/CONFIGURATION_AND_BUILD_GUIDE.md`。
+切换到 `feature/windows-afe-hw-protection-editor-v2`，以
+`bms-tool-windows/BmsTool.Windows/` 和
+`bms-tool-windows/BmsFactoryTest.Windows/` 为唯一构建、测试和发布依据。
+历史 `tools/` 客户端不得恢复或用于协议判断。完整边界见
+`docs/CONFIGURATION_AND_BUILD_GUIDE.md`。
 
 ## 发布原则
 

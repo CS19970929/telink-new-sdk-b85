@@ -17,14 +17,8 @@
  */
 #define DVC1124_FIXED_CONFIG_COMPILE_TIME 1u
 
-/*
- * D008 shutdown/wake test helpers.
- *
- * These are deliberately AFE-local APIs.  They do not reset the common BMS
- * guard state and therefore are suitable for bench-testing the DVC1124
- * shutdown -> I2C-wake mechanism without calling bms_afe_init().
- */
-uint8_t DVC1124_AFE_Shutdown(void);
-uint8_t DVC1124_AFE_WakeupFromShutdown(void);
+/* Backend-only primitive. Product/test code must use the guarded
+ * bms_afe_test_enter_shutdown()/bms_afe_test_wake() lifecycle. */
+uint8_t dvc1124_backend_enter_shutdown(void);
 
 #endif /* DVC1124_CONFIG_STORE_H_ */

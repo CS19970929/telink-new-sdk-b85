@@ -27,7 +27,9 @@ jobs:
       - run: python tests/dvc1124_config_quick_check.py
       - run: python tests/d008_framework_contract_check.py
       - run: python tests/d008_20s_profile_contract_check.py
+      - run: python tests/d008_documentation_contract_check.py
       - run: python tests/sw_protection_contract_check.py
+      - run: python tests/common_feature_policy_contract_check.py
       - run: python tests/soc_contract_check.py
       - run: python tests/flash_quick_check.py
 
@@ -51,7 +53,9 @@ jobs:
           python tests/dvc1124_config_quick_check.py
           python tests/d008_framework_contract_check.py
           python tests/d008_20s_profile_contract_check.py
+          python tests/d008_documentation_contract_check.py
           python tests/sw_protection_contract_check.py
+          python tests/common_feature_policy_contract_check.py
       - name: Clean rebuild 24S LFP default
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4

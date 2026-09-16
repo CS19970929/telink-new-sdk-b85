@@ -28,7 +28,8 @@ static bms_feature_state_t s_feature;
 
 static uint8_t major_fault(void)
 {
-    return (bms_sw_protection_charge_blocked() ||
+    return (!bms_protection_params_valid() ||
+            bms_sw_protection_charge_blocked() ||
             bms_sw_protection_discharge_blocked() ||
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
@@ -277,7 +278,7 @@ void bms_features_on_afe_invalid(void)
 
 uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
 uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
-uint8_t bms_features_charge_blocked(void) { return (s_feature.heater_on || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
-uint8_t bms_features_discharge_blocked(void) { return (s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
+uint8_t bms_features_charge_blocked(void) { return (!bms_protection_params_valid() || s_feature.heater_on || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
+uint8_t bms_features_discharge_blocked(void) { return (!bms_protection_params_valid() || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
 void bms_features_get_openwire_result(bms_afe_openwire_result_t *r) { if (r) *r = s_feature.openwire_result; }

@@ -699,7 +699,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             exception = afe_hw_profile_write_block(pdata, qty);
             if (exception != 0u)
                 return modbus_exception(addr, func, exception, rsp, rsp_len);
-            if (addr == 0x00u) return 0;
             rsp[0] = addr; rsp[1] = func; put_u16be(&rsp[2], reg); put_u16be(&rsp[4], qty);
             crc = mb_crc16(rsp, 6u); rsp[6] = (u8)(crc & 0xFFu); rsp[7] = (u8)(crc >> 8); *rsp_len = 8u;
             return 1;

@@ -63,6 +63,20 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("bms_features_on_afe_invalid", self.guard)
         self.assertIn("bms_afe_bus_access_allowed", self.guard)
 
+    def test_guard_owns_shutdown_wake_test_lifecycle(self):
+        for token in (
+            "test_shutdown_hold",
+            "bms_afe_test_enter_shutdown",
+            "bms_afe_test_wake",
+            "if (s_guard.test_shutdown_hold) return;",
+            "AFE_TEST_SHUTDOWN()",
+            "AFE_INIT();",
+            "s_guard.valid_snapshot_streak = 0u;",
+        ):
+            self.assertIn(token, self.guard)
+        self.assertNotIn("DVC1124_AFE_WakeupFromShutdown", self.fixed_backend)
+        self.assertNotIn("DVC1124_AFE_Shutdown", self.fixed_header)
+
     def test_guard_keeps_requested_state_separate_from_feedback(self):
         self.assertIn("requested_charge_on", self.guard)
         self.assertIn("requested_discharge_on", self.guard)
@@ -214,6 +228,23 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("system.soc_profile_id", migration)
         self.assertNotIn("system.series_num =", migration)
         self.assertNotIn("system.capacity_factory =", migration)
+
+    def test_invalid_software_protection_params_block_outputs(self):
+        self.assertIn("static uint8_t s_protection_params_valid", self.param)
+        self.assertIn("uint8_t bms_protection_params_valid(void)", self.param)
+        self.assertIn("s_protection_params_valid = 0u;", self.param)
+        self.assertIn("s_protection_params_valid = 1u;", self.param)
+        self.assertIn("!bms_protection_params_valid()", self.features)
+
+    def test_temperature_migration_validates_before_persisting(self):
+        migration = self.param.split("static int param_migrate_temperature_protection_v1", 1)[1]
+        migration = migration.split("static int param_upgrade_epoch_mismatch", 1)[0]
+        validate = migration.index("bms_sw_protection_validate_params(&candidate)")
+        persist = migration.index("bms_cold_kv_store_set_protect(&candidate)")
+        marker = migration.index("system.reserved0 |= PARAM_MIGRATION_TEMP_PROTECT_V1")
+        self.assertLess(validate, persist)
+        self.assertLess(validate, marker)
+        self.assertIn("candidate = g_tParam.protect;", migration)
 
     def test_openwire_and_balance_safety_gate_remain(self):
         self.assertIn("bms_afe_openwire_start", self.features)

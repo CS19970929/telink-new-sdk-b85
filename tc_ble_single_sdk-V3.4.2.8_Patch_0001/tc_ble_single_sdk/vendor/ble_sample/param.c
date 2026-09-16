@@ -14,6 +14,12 @@
 #define PARAM_MIGRATION_TEMP_PROTECT_V1 (1uL << 0)
 
 PARAM_T g_tParam;
+static uint8_t s_protection_params_valid;
+
+uint8_t bms_protection_params_valid(void)
+{
+    return s_protection_params_valid;
+}
 
 static void param_fill_default(PARAM_T *param)
 {
@@ -80,6 +86,7 @@ static int param_migrate_temperature_protection_v1(void)
 {
     bms_cold_system_params_t system;
     struct PRT_E2ROM_PARAS defaults;
+    struct PRT_E2ROM_PARAS candidate;
     uint8_t changed = 0u;
 
     if (!bms_cold_kv_store_get_system(&system)) {
@@ -90,75 +97,83 @@ static int param_migrate_temperature_protection_v1(void)
     }
 
     bms_cold_kv_store_get_default_protect(&defaults);
+    candidate = g_tParam.protect;
 
-    if (param_temp_group_unset(g_tParam.protect.u16TChgOTp_First,
-                               g_tParam.protect.u16TChgOTp_Second,
-                               g_tParam.protect.u16TChgOTp_Third,
-                               g_tParam.protect.u16TChgOTp_Rcv,
-                               g_tParam.protect.u16TChgOTp_Filter)) {
-        g_tParam.protect.u16TChgOTp_First = defaults.u16TChgOTp_First;
-        g_tParam.protect.u16TChgOTp_Second = defaults.u16TChgOTp_Second;
-        g_tParam.protect.u16TChgOTp_Third = defaults.u16TChgOTp_Third;
-        g_tParam.protect.u16TChgOTp_Rcv = defaults.u16TChgOTp_Rcv;
-        g_tParam.protect.u16TChgOTp_Filter = defaults.u16TChgOTp_Filter;
+    if (param_temp_group_unset(candidate.u16TChgOTp_First,
+                               candidate.u16TChgOTp_Second,
+                               candidate.u16TChgOTp_Third,
+                               candidate.u16TChgOTp_Rcv,
+                               candidate.u16TChgOTp_Filter)) {
+        candidate.u16TChgOTp_First = defaults.u16TChgOTp_First;
+        candidate.u16TChgOTp_Second = defaults.u16TChgOTp_Second;
+        candidate.u16TChgOTp_Third = defaults.u16TChgOTp_Third;
+        candidate.u16TChgOTp_Rcv = defaults.u16TChgOTp_Rcv;
+        candidate.u16TChgOTp_Filter = defaults.u16TChgOTp_Filter;
         changed = 1u;
     }
 
-    if (param_temp_group_unset(g_tParam.protect.u16TchgUTp_First,
-                               g_tParam.protect.u16TchgUTp_Second,
-                               g_tParam.protect.u16TchgUTp_Third,
-                               g_tParam.protect.u16TchgUTp_Rcv,
-                               g_tParam.protect.u16TchgUTp_Filter)) {
-        g_tParam.protect.u16TchgUTp_First = defaults.u16TchgUTp_First;
-        g_tParam.protect.u16TchgUTp_Second = defaults.u16TchgUTp_Second;
-        g_tParam.protect.u16TchgUTp_Third = defaults.u16TchgUTp_Third;
-        g_tParam.protect.u16TchgUTp_Rcv = defaults.u16TchgUTp_Rcv;
-        g_tParam.protect.u16TchgUTp_Filter = defaults.u16TchgUTp_Filter;
+    if (param_temp_group_unset(candidate.u16TchgUTp_First,
+                               candidate.u16TchgUTp_Second,
+                               candidate.u16TchgUTp_Third,
+                               candidate.u16TchgUTp_Rcv,
+                               candidate.u16TchgUTp_Filter)) {
+        candidate.u16TchgUTp_First = defaults.u16TchgUTp_First;
+        candidate.u16TchgUTp_Second = defaults.u16TchgUTp_Second;
+        candidate.u16TchgUTp_Third = defaults.u16TchgUTp_Third;
+        candidate.u16TchgUTp_Rcv = defaults.u16TchgUTp_Rcv;
+        candidate.u16TchgUTp_Filter = defaults.u16TchgUTp_Filter;
         changed = 1u;
     }
 
-    if (param_temp_group_unset(g_tParam.protect.u16TdischgOTp_First,
-                               g_tParam.protect.u16TdischgOTp_Second,
-                               g_tParam.protect.u16TdischgOTp_Third,
-                               g_tParam.protect.u16TdischgOTp_Rcv,
-                               g_tParam.protect.u16TdischgOTp_Filter)) {
-        g_tParam.protect.u16TdischgOTp_First = defaults.u16TdischgOTp_First;
-        g_tParam.protect.u16TdischgOTp_Second = defaults.u16TdischgOTp_Second;
-        g_tParam.protect.u16TdischgOTp_Third = defaults.u16TdischgOTp_Third;
-        g_tParam.protect.u16TdischgOTp_Rcv = defaults.u16TdischgOTp_Rcv;
-        g_tParam.protect.u16TdischgOTp_Filter = defaults.u16TdischgOTp_Filter;
+    if (param_temp_group_unset(candidate.u16TdischgOTp_First,
+                               candidate.u16TdischgOTp_Second,
+                               candidate.u16TdischgOTp_Third,
+                               candidate.u16TdischgOTp_Rcv,
+                               candidate.u16TdischgOTp_Filter)) {
+        candidate.u16TdischgOTp_First = defaults.u16TdischgOTp_First;
+        candidate.u16TdischgOTp_Second = defaults.u16TdischgOTp_Second;
+        candidate.u16TdischgOTp_Third = defaults.u16TdischgOTp_Third;
+        candidate.u16TdischgOTp_Rcv = defaults.u16TdischgOTp_Rcv;
+        candidate.u16TdischgOTp_Filter = defaults.u16TdischgOTp_Filter;
         changed = 1u;
     }
 
-    if (param_temp_group_unset(g_tParam.protect.u16TdischgUTp_First,
-                               g_tParam.protect.u16TdischgUTp_Second,
-                               g_tParam.protect.u16TdischgUTp_Third,
-                               g_tParam.protect.u16TdischgUTp_Rcv,
-                               g_tParam.protect.u16TdischgUTp_Filter)) {
-        g_tParam.protect.u16TdischgUTp_First = defaults.u16TdischgUTp_First;
-        g_tParam.protect.u16TdischgUTp_Second = defaults.u16TdischgUTp_Second;
-        g_tParam.protect.u16TdischgUTp_Third = defaults.u16TdischgUTp_Third;
-        g_tParam.protect.u16TdischgUTp_Rcv = defaults.u16TdischgUTp_Rcv;
-        g_tParam.protect.u16TdischgUTp_Filter = defaults.u16TdischgUTp_Filter;
+    if (param_temp_group_unset(candidate.u16TdischgUTp_First,
+                               candidate.u16TdischgUTp_Second,
+                               candidate.u16TdischgUTp_Third,
+                               candidate.u16TdischgUTp_Rcv,
+                               candidate.u16TdischgUTp_Filter)) {
+        candidate.u16TdischgUTp_First = defaults.u16TdischgUTp_First;
+        candidate.u16TdischgUTp_Second = defaults.u16TdischgUTp_Second;
+        candidate.u16TdischgUTp_Third = defaults.u16TdischgUTp_Third;
+        candidate.u16TdischgUTp_Rcv = defaults.u16TdischgUTp_Rcv;
+        candidate.u16TdischgUTp_Filter = defaults.u16TdischgUTp_Filter;
         changed = 1u;
     }
 
-    if (param_temp_group_unset(g_tParam.protect.u16TmosOTp_First,
-                               g_tParam.protect.u16TmosOTp_Second,
-                               g_tParam.protect.u16TmosOTp_Third,
-                               g_tParam.protect.u16TmosOTp_Rcv,
-                               g_tParam.protect.u16TmosOTp_Filter)) {
-        g_tParam.protect.u16TmosOTp_First = defaults.u16TmosOTp_First;
-        g_tParam.protect.u16TmosOTp_Second = defaults.u16TmosOTp_Second;
-        g_tParam.protect.u16TmosOTp_Third = defaults.u16TmosOTp_Third;
-        g_tParam.protect.u16TmosOTp_Rcv = defaults.u16TmosOTp_Rcv;
-        g_tParam.protect.u16TmosOTp_Filter = defaults.u16TmosOTp_Filter;
+    if (param_temp_group_unset(candidate.u16TmosOTp_First,
+                               candidate.u16TmosOTp_Second,
+                               candidate.u16TmosOTp_Third,
+                               candidate.u16TmosOTp_Rcv,
+                               candidate.u16TmosOTp_Filter)) {
+        candidate.u16TmosOTp_First = defaults.u16TmosOTp_First;
+        candidate.u16TmosOTp_Second = defaults.u16TmosOTp_Second;
+        candidate.u16TmosOTp_Third = defaults.u16TmosOTp_Third;
+        candidate.u16TmosOTp_Rcv = defaults.u16TmosOTp_Rcv;
+        candidate.u16TmosOTp_Filter = defaults.u16TmosOTp_Filter;
         changed = 1u;
     }
 
-    if (changed && !bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+    /* Validate the complete candidate before either the protection record or
+     * migration marker is changed. Invalid legacy data remains byte-for-byte
+     * untouched in Flash for diagnosis and keeps the runtime fail-safe set. */
+    if (!bms_sw_protection_validate_params(&candidate)) {
         return 0;
     }
+    if (changed && !bms_cold_kv_store_set_protect(&candidate)) {
+        return 0;
+    }
+    if (changed) g_tParam.protect = candidate;
 
     system.reserved0 |= PARAM_MIGRATION_TEMP_PROTECT_V1;
     if (!bms_cold_kv_store_set_system(&system)) {
@@ -231,8 +246,11 @@ void LoadParam(void)
 #error "bms_cold_kv_store currently supports Flash-backed param storage only"
 #endif
 
+    s_protection_params_valid = 0u;
+
     if (!bms_cold_kv_store_init()) {
         param_fill_default(&g_tParam);
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
 
@@ -249,6 +267,7 @@ void LoadParam(void)
 
     if (!param_migrate_temperature_protection_v1()) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return;
     }
 
     /* Communication writes are validated before SaveParam(). Validate loaded
@@ -256,16 +275,24 @@ void LoadParam(void)
      * defaults merely because an old/corrupt record is detected. */
     if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return;
     }
+    s_protection_params_valid = 1u;
 }
 
 uint8_t SaveParam(void)
 {
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
+        s_protection_params_valid = 0u;
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0u;
+    }
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
     }
+    s_protection_params_valid = 1u;
     return 1u;
 }
 

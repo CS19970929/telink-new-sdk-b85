@@ -43,6 +43,22 @@ for forbidden in ("DVC1124_", "SH3673510_", "SH3673520_", "gpio_", "ReadReg", "W
 if "p->u16SocUp_" in source:
     raise AssertionError("legacy SOC protection must remain out until semantics are specified")
 
+# Every enabled level shares one recovery threshold, so hysteresis must be
+# valid against First/Second/Third rather than Third only. Invalid loaded Flash
+# parameters must never enter the runtime state machine.
+for token in (
+    "bms_sw_high_recovery_valid",
+    "bms_sw_low_recovery_valid",
+    "first && recover >= first",
+    "second && recover >= second",
+    "first && recover <= first",
+    "second && recover <= second",
+    "if (!bms_protection_params_valid())",
+    "bms_sw_protection_clear();",
+):
+    if token not in source:
+        raise AssertionError(f"software protection fail-safe missing: {token}")
+
 # Battery OTP/UTP and MOS OTP have different sensor ownership. One invalid NTC
 # must not erase the other sensor's protection filters/fault state.
 for token in (

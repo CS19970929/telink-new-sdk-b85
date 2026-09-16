@@ -53,10 +53,10 @@ GP2/GP3 是否在所有 BOM 版本都实际装外部 NTC 仍需按具体 BOM 确
 
 | DVC GP | 功能 | code |
 |---|---|---:|
-| GP1 | NTC / MOS NTC | 1 |
-| GP2 | NTC | 1 |
-| GP3 | NTC | 1 |
-| GP4 | NTC / Battery NTC | 1 |
+| GP1 | heater NTC | 1 |
+| GP2 | battery NTC #1 | 1 |
+| GP3 | battery NTC #2 | 1 |
+| GP4 | power MOS NTC | 1 |
 | GP5 | CHG low-side | 7 |
 | GP6 | DSG low-side | 7 |
 
@@ -119,6 +119,10 @@ dvc1124_project_config.h
    - Recover
    - Filter
    - OV/UV/OC/温度等软件保护参数
+
+软件保护记录在启动时必须通过完整参数校验。校验失败时保留原 Flash
+内容用于诊断，但 `bms_protection_params_valid()` 保持 false，公共 AFE
+输出门禁同时禁止 CHG/DSG；只有完整有效参数成功持久化后才解除该门禁。
 2. AFE 硬件保护：`bms_afe_hw_profile_t`
    - COV / CUV
    - OCD1 / OCD2
@@ -229,6 +233,16 @@ DVC1124_I2C_TIMEOUT_CLOSE_DSG = 1
 - R66 `BDPT=2`，即 80 µV。
 
 R53/R54 mask 语义：**0 = 允许该来源动作；1 = 屏蔽该来源。**
+
+### 8.1 受控 Shutdown/Wake 台架接口
+
+禁止直接从产品代码调用 DVC 私有 Shutdown/Wake 原语。D008 仅公开公共
+guard 管理的 `bms_afe_test_enter_shutdown()` / `bms_afe_test_wake()`：
+
+1. Shutdown 前清均衡、CHG/DSG hard-off，并进入无 I2C 的 hold 状态；
+2. Wake 走完整 AFE init，重新应用固定配置和 AFE HW profile；
+3. 旧 snapshot/通信资格作废，连续 3 帧新有效采样后才允许恢复请求；
+4. Requested、R81 command、R6 driver flag 与物理 Gate 反馈仍分别记录。
 
 ## 9. 保护编译隔离
 

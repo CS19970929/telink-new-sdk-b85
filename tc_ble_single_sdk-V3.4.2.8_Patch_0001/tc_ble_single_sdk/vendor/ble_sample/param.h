@@ -260,5 +260,9 @@ extern PARAM_T g_tParam;
 
 void LoadParam(void);
 uint8_t SaveParam(void);
+/* False means the loaded software-protection record is not safe to execute.
+ * The record remains readable for diagnosis, but the common AFE guard blocks
+ * both CHG and DSG until a complete valid record is persisted. */
+uint8_t bms_protection_params_valid(void);
 
 #endif

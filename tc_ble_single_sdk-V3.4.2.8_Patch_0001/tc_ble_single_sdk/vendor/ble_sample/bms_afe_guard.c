@@ -34,6 +34,7 @@ typedef struct
     uint8_t valid_snapshot_streak;
     uint8_t comm_failures;
     uint8_t bus_silenced;
+    uint8_t test_shutdown_hold;
     uint16_t failsafe_wait_samples;
 } bms_afe_guard_state_t;
 
@@ -41,7 +42,7 @@ static bms_afe_guard_state_t s_guard;
 
 uint8_t bms_afe_bus_access_allowed(void)
 {
-    return s_guard.bus_silenced ? 0u : 1u;
+    return (s_guard.bus_silenced || s_guard.test_shutdown_hold) ? 0u : 1u;
 }
 
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
@@ -58,6 +59,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
 #define AFE_OW_START() dvc1124_backend_openwire_start()
 #define AFE_OW_POLL(r) dvc1124_backend_openwire_poll((r))
+#define AFE_TEST_SHUTDOWN() dvc1124_backend_enter_shutdown()
 #else
 #define AFE_INIT() sh3673510_bms_afe_init()
 #define AFE_SAMPLE() sh3673510_bms_afe_sample()
@@ -84,7 +86,7 @@ static void inhibit_local(void)
 
 static void best_effort_shutdown(void)
 {
-    if (s_guard.bus_silenced) return;
+    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
 
     /*
      * This is NOT the communication-loss safety guarantee. It is only a final
@@ -137,7 +139,7 @@ static uint8_t apply_requested(void)
 
     /* During communication inhibit the MCU owns authorization only; it must
      * not repeatedly write OFF commands and accidentally feed the AFE WDT. */
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
@@ -179,6 +181,9 @@ void bms_afe_sample(void)
 {
     bms_afe_aux_measurements_t m;
 
+    /* Intentional DVC shutdown is a hard no-I2C hold. Only the paired guarded
+     * wake API may leave this state. */
+    if (s_guard.test_shutdown_hold) return;
     if (service_failsafe_wait()) return;
 
     AFE_SAMPLE();
@@ -214,7 +219,7 @@ void bms_afe_sleep(void)
 
     /* If the bus is intentionally silent after a communication fault, do not
      * touch it again before MCU deep sleep. The AFE watchdog owns MOS safety. */
-    if (s_guard.bus_silenced) return;
+    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
 
     best_effort_shutdown();
     AFE_SLEEP();
@@ -224,7 +229,7 @@ uint8_t bms_afe_apply_protection_config(void)
 {
     uint8_t ok;
 
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) return 0u;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
     ok = AFE_APPLY();
     if (!ok) note_invalid();
     return ok;
@@ -246,7 +251,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
 
     /* Cache the product request while communication is unqualified. Never use
      * a requested state change as a reason to touch a silenced AFE bus. */
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;
 
     if (!apply_requested())
     {
@@ -266,24 +271,24 @@ void bms_afe_set_output_enabled(uint8_t e)
 {
     s_guard.output_enabled = e ? 1u : 0u;
 
-    if (!s_guard.bus_silenced)
+    if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold)
         AFE_OUTPUT(s_guard.output_enabled);
 
     if (!s_guard.output_enabled)
     {
         bms_features_on_afe_invalid();
-        if (!s_guard.bus_silenced) best_effort_shutdown();
+        if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) best_effort_shutdown();
         return;
     }
 
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) return;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
     if (!apply_requested()) note_invalid();
 }
 
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!m) return 0u;
-    if (s_guard.comm_inhibit || s_guard.bus_silenced)
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
     {
         memset(m, 0, sizeof(*m));
         return 0u;
@@ -298,19 +303,19 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
-    if (!s || s_guard.comm_inhibit || s_guard.bus_silenced) return 0u;
+    if (!s || s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
     return AFE_FEATURE(s);
 }
 
 uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 {
-    if (!p || s_guard.comm_inhibit || s_guard.bus_silenced) return 0u;
+    if (!p || s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
     return AFE_CHARGER(p);
 }
 
 uint8_t bms_afe_set_balance_mask(uint32_t m)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced)
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
         return (m == 0u) ? 1u : 0u;
     return AFE_BAL_SET(m);
 }
@@ -318,7 +323,7 @@ uint8_t bms_afe_set_balance_mask(uint32_t m)
 uint8_t bms_afe_get_balance_mask(uint32_t *m)
 {
     if (!m) return 0u;
-    if (s_guard.comm_inhibit || s_guard.bus_silenced)
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
     {
         *m = 0u;
         return 0u;
@@ -328,7 +333,7 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
 
 uint8_t bms_afe_openwire_start(void)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) return 0u;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
     (void)AFE_BAL_SET(0u);
     if (!AFE_FETS(0u, 0u)) return 0u;
     return AFE_OW_START();
@@ -336,7 +341,47 @@ uint8_t bms_afe_openwire_start(void)
 
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced)
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
         return BMS_AFE_DIAG_ERROR;
     return AFE_OW_POLL(r);
 }
+
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+uint8_t bms_afe_test_enter_shutdown(void)
+{
+    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
+        return 0u;
+
+    inhibit_local();
+    best_effort_shutdown();
+    if (!AFE_TEST_SHUTDOWN())
+    {
+        note_invalid();
+        return 0u;
+    }
+
+    s_guard.test_shutdown_hold = 1u;
+    s_guard.comm_failures = 0u;
+    return 1u;
+}
+
+uint8_t bms_afe_test_wake(void)
+{
+    if (!s_guard.test_shutdown_hold) return 0u;
+
+    s_guard.test_shutdown_hold = 0u;
+    s_guard.comm_inhibit = 1u;
+    s_guard.valid_snapshot_streak = 0u;
+    s_guard.comm_failures = 0u;
+    s_guard.bus_silenced = 0u;
+    s_guard.failsafe_wait_samples = 0u;
+
+    /* The normal backend init owns the full shutdown-wake/reset sequence,
+     * persistent HW profile, compile-time policy and readback. Output requests
+     * remain blocked until the common guard qualifies three fresh samples. */
+    AFE_INIT();
+    AFE_OUTPUT(s_guard.output_enabled);
+    if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
+    return 1u;
+}
+#endif

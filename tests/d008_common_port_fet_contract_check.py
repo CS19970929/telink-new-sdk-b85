@@ -95,7 +95,7 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", guard)
         self.assertIn("s_guard.bus_silenced = 1u;", guard)
         self.assertIn("if (service_failsafe_wait()) return;", guard)
-        self.assertIn("if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;", guard)
+        self.assertIn("if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;", guard)
         self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)
 
 if __name__ == "__main__":

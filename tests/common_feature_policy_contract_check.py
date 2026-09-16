@@ -61,10 +61,10 @@ assert "bms_afe_bus_access_allowed" in dvc_service
 assert dvc_service.count("if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;") >= 2
 assert "AFE_INIT();" in guard_c and "AFE_OUTPUT(s_guard.output_enabled);" in guard_c
 apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
-assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in apply
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in apply
 sleep=guard_c.split("void bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
-assert sleep.index("if (s_guard.bus_silenced) return;") < sleep.index("AFE_SLEEP();")
+assert sleep.index("if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;") < sleep.index("AFE_SLEEP();")
 setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
-assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in setfets
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in setfets
 
 print("common feature policy contract: PASS")
