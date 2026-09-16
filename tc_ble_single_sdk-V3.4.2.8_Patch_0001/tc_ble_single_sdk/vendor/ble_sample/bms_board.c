@@ -13,11 +13,16 @@
 void bms_board_features_init(void)
 {
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-    /* HS-D008 schematic: PA1 = MCC-EN-HT. Keep heater off at boot. */
+    /* HS-D008: PA1 = MCC-EN-HT, PD4 = MCC-EN-RF. Keep both inactive at boot. */
     gpio_set_func(HEATER_EN_PIN, AS_GPIO);
     gpio_write(HEATER_EN_PIN, 0u);
     gpio_set_input_en(HEATER_EN_PIN, 0u);
     gpio_set_output_en(HEATER_EN_PIN, 1u);
+
+    gpio_set_func(RF_EN_PIN, AS_GPIO);
+    gpio_write(RF_EN_PIN, 0u);
+    gpio_set_input_en(RF_EN_PIN, 0u);
+    gpio_set_output_en(RF_EN_PIN, 1u);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
     /* D011 profile: PB4 is reversible HT-CHG; PB5 is irreversible fuse fire. */
     sh3673510_board_force_heater_fuse_safe();
@@ -31,15 +36,6 @@ uint8_t bms_board_charge_source_present(void)
     /* D008 CHG-IN/PB1 is active low in the current schematic and application. */
     return gpio_read(CHG_IN_PIN) ? 0u : 1u;
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /*
-     * Preserve the current D011 product input used by the existing heater path:
-     * INT-WK-MCU is active high.  D013 still needs its own schematic/BOM proof;
-     * until then this is a CODE-profile fact, not a claimed D013 PCB fact.
-     *
-     * This board predicate is intentionally isolated so a future product can
-     * replace it with a CHGD/VCHGR-based charger-presence implementation without
-     * changing common heater policy.
-     */
     return sh3673510_board_wake_active();
 #else
     return 0u;
@@ -61,9 +57,25 @@ void bms_board_heater_set(uint8_t enabled)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     gpio_write(HEATER_EN_PIN, enabled ? 1u : 0u);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /* This API never authorizes the irreversible PB5 heater-fuse trigger. */
     sh3673510_board_set_heater(enabled ? 1u : 0u);
 #else
     (void)enabled;
+#endif
+}
+
+uint8_t bms_board_heater_fuse_supported(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    return 1u;
+#else
+    return 0u;
+#endif
+}
+
+void bms_board_heater_fuse_fire(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    /* HS-D008 irreversible heater-circuit fail-safe: PD4 / MCC-EN-RF high. */
+    gpio_write(RF_EN_PIN, 1u);
 #endif
 }
