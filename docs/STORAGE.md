@@ -1,5 +1,7 @@
 # Flash 与持久化 — D008 / Storage V1
 
+详细审核、分区容量/寿命模型与 OTA 独立更新缺口见 [2026-09-17 Flash 审核](D008_FLASH_STORAGE_AUDIT_2026-09-17.md)。当前独立硬件保护 epoch 尚未实现；不可将 reset epoch 框架等同完整参数升级机制。
+
 ## 1. 目标与边界
 
 Storage V1 把 BMS 持久化固定为四个语义域：`Config`、`State`、`Factory`、`Event`。业务代码不拥有物理 Flash 地址；MCU 相关的 read/program/erase、Flash lock 和 BLE session 约束全部收口到 `bms_storage_platform_telink.c`。

@@ -357,10 +357,11 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
 
     if (magnitude_a10 != 0) *magnitude_a10 = 0u;
     if (!g_soc_input_valid) return dir;
-    /* Widen before negation so even INT32_MIN cannot invoke signed overflow. */
+    /* Unsigned subtraction handles INT32_MIN without signed overflow. */
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
-    if (magnitude_ma == 0u || magnitude_ma < g_soc_config.current_deadband_ma) return dir;
+    if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        magnitude_ma <= g_soc_config.current_deadband_ma) return dir;
     dir = (g_soc_input_current_ma < 0) ? SOC_INTEGRAL_DIR_CHG : SOC_INTEGRAL_DIR_DSG;
     if (magnitude_a10 != 0)
     {

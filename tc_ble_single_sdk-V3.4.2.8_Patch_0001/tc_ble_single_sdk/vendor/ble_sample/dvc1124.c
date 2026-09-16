@@ -1247,6 +1247,23 @@ void DVC1124_AFE_Sleep(void)
     if (!DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u)) dvc_note_comm_result(0u);
 }
 
+static void dvc_publish_current_report(int32_t current_ma)
+{
+    uint32_t magnitude_ma = (current_ma < 0) ?
+        (0u - (uint32_t)current_ma) : (uint32_t)current_ma;
+    uint32_t a10;
+
+    g_stCellInfoReport.u16Ichg = 0u;
+    g_stCellInfoReport.u16IDischg = 0u;
+    /* Apply the reliability floor in mA before the legacy 0.1 A conversion.
+     * Keep snapshot.current_ma unmasked for diagnostics and PM/SOC policy. */
+    if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA) return;
+    a10 = magnitude_ma / 100u;
+    if (a10 > 65535u) a10 = 65535u;
+    if (current_ma < 0) g_stCellInfoReport.u16Ichg = (uint16_t)a10;
+    else g_stCellInfoReport.u16IDischg = (uint16_t)a10;
+}
+
 void DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
@@ -1305,20 +1322,7 @@ void DVC1124_App_AFEGet(void)
     current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);
     s_snapshot.current_ma = current_ma;
 
-    if (current_ma >= 0)
-    {
-        uint32_t discharge_ma = (uint32_t)current_ma;
-
-        g_stCellInfoReport.u16IDischg = (uint16_t)((discharge_ma / 100u) > 65535u ? 65535u : (discharge_ma / 100u));
-        g_stCellInfoReport.u16Ichg = 0u;
-    }
-    else
-    {
-        uint32_t charge_ma = (uint32_t)(-current_ma);
-
-        g_stCellInfoReport.u16Ichg = (uint16_t)((charge_ma / 100u) > 65535u ? 65535u : (charge_ma / 100u));
-        g_stCellInfoReport.u16IDischg = 0u;
-    }
+    dvc_publish_current_report(current_ma);
 
     for (i = 0u; i < s_cfg.cell_count; ++i)
     {

@@ -33,6 +33,9 @@ def function(name, signature):
 
 
 def main():
+    floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
+                      (MOD / 'conf.h').read_text(), re.M)
+    assert floor is not None, "missing D008 current reliability floor"
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         for name, code in {
             'soc': source('bms_soc_defs.h') + '\n' + source('SocEnhance.h') + '\n' +
@@ -41,11 +44,13 @@ def main():
                 'static uint8_t app_get_fresh_measurements(',
                 'static int app_enter_power_off(', 'void blt_pm_proc(void)')),
             'guard': source('bms_afe_guard.c'),
+            'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
         }.items():
             fixture = (FIX / (name + '.c')).read_text()
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')
-            path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code))
+            path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)
+                           .replace('/* CURRENT_FLOOR */', floor.group(0)))
             executable = Path(directory) / name
             subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=c99', '-Wall', '-Wextra', '-Werror',

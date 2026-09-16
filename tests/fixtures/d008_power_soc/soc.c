@@ -23,6 +23,7 @@ static struct {
  MDLCHGFAULT_REG unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
  struct{uint16_t u16Soc,u16Soh,u16Cycle_times,u16CapacityNow,u16CapacityFull,u16CapacityFactory;}SocElement;
 }g_stCellInfoReport;
+/* CURRENT_FLOOR */
 /* PRODUCTION_SOURCE */
 static uint32_t tick;
 static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
@@ -64,9 +65,11 @@ int main(void){
   assert(integrate(chemistry,499,12800,50)==99);
   assert(integrate(chemistry,-499,6400,100)==99);
   assert(integrate(chemistry,199,6400,100)==0);
-  assert(integrate(chemistry,200,6400,100)==40);
+  assert(integrate(chemistry,200,6400,100)==0);
+  assert(integrate(chemistry,201,6400,100)==40);
   assert(integrate(chemistry,-199,6400,100)==0);
-  assert(integrate(chemistry,-200,6400,100)==40);
+  assert(integrate(chemistry,-200,6400,100)==0);
+  assert(integrate(chemistry,-201,6400,100)==40);
   assert(integrate(chemistry,-500,6400,100)==100);
   assert(integrate(chemistry,501,6400,100)==100);
   assert(integrate(chemistry,-501,6400,100)==100);
@@ -83,6 +86,12 @@ int main(void){
   setup(chemistry,60,chemistry==1?3330:3800);tick=UINT32_MAX-3200;sample(1,500,0);
   before=SOC_Calculate_Element.u32CapNow;sample(1,500,6400);
   assert(SOC_Calculate_Element.u32CapNow==before-1);
+  /* The unreliable floor is still an idle candidate (user policy), but
+   * invalid frames cannot qualify and a reliable excursion resets rest. */
+  setup(chemistry,60,chemistry==1?3330:3800);sample(1,200,1);
+  for(int i=0;i<3010;i++)sample(1,200,6400);
+  assert(g_soc_runtime.ocv_confidence==100);
+  sample(0,200,6400);assert(g_soc_runtime.idle_stable_ticks==0);
   /* Fresh zero current enables rest, an observed excursion resets it. */
   setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);
   for(int i=0;i<2995;i++)sample(1,0,6400);

@@ -108,6 +108,12 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 - suspend 与断电分开：MCU 仍供电时，任一方向有效、新鲜电流 ≥500 mA 退出 suspend；ACC/负载新策略暂不加入。500 mA 不等于 SOC 静置阈值，suspend SOC 校准要求见 `docs/SOC.md`，不得用无效样本/未知休眠时长补积分或静置计时。
 - 当前实现与验证范围见 `docs/D008_POWER_SOC_IMPLEMENTATION.md`。主机测试/远程编译不能关闭 `TODO_VERIFY_HW`；禁止将 PB1 重新用作加热的充电源资格。
 
+## 当前开发期存储与电流约束
+
+- 用户确认项目处于持续迭代开发期，后续不要求兼容旧版代码/迁移旧参数；格式变化可明确提升 schema 并恢复新默认，不新增历史迁移器。当前格式掉电一致性、错误传播、各参数域独立更新仍须保证。
+- Flash 审核与 OTA 参数能力现状见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`，未实现项不能写成已完成。
+- D008 `abs(current_ma) <= 200 mA` 为不可靠区间，充放电显示屏蔽且 SOC 不积分；用户允许其作为静置候选，仍须满足有效/新鲜电压、压差及稳定时间。原始诊断 mA 保留；suspend 退出仍为双向 >=500 mA。
+
 ## 构建
 
 保持 Telink SDK `tc_ble_single_sdk V3.4.2.8_Patch_0001` 和固定 TC32 工具链/ABI。修改源码顺序时显式更新 `bms_tools/source_order.txt`。任何安全相关修改至少通过 source-order、Host contracts、TC32 clean rebuild/check-fw/MAP/verify/cppcheck；这些仍不能替代实板验证。

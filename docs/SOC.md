@@ -5,7 +5,7 @@
 ## 1. 核心模型
 
 - `SOC estimate`：库仑积分主线，目标 200 ms 采样，按新样本的 32k 时标实际间隔积分。
-- 协议电流报告仍为 0.1 A，算法使用带符号 mA；默认 **< 200 mA 不积分**，视为静置候选。
+- 协议电流报告仍为 0.1 A，算法使用带符号 mA；默认 **≤ 200 mA 不积分**，视为静置候选。
 - `SOC display`：与 estimate 分离，每 1 s 最多变化 1%，避免对外跳变。
 - State 域保存整数 SOC estimate / 等效放电百分比 / cycle / learned capacity、flag 和 runtime；显示 SOC、积分小数余量及 OCV 静置计时不作为独立持久化字段。来源为 `bms_state_store.c`，不新增存储布局。
 - OCV 只用于长期纠偏，不作为运行中的主 SOC。
@@ -27,10 +27,7 @@ profile_id:
 2 = GENERIC_NMC
 ```
 
-产品选择是当前 Config 域的 system/SOC identity 参数；以下是既有参数接口地址，不是新的 Flash key：
-
-- `0x2009`：`battery_chemistry`
-- `0x200A`：`soc_profile_id`
+产品选择保存在当前 Config 域的 system/SOC identity 字段。固件 C API `bms_soc_set_product_config()` 可保存 chemistry/profile；当前 `modbus_rtu.c` 没有将历史文档中的 `0x2009/0x200A` 路由到这两个字段，不能把它们标为已经可用的通信参数接口。独立 OTA 更新能力及缺口见 [Flash 审核](D008_FLASH_STORAGE_AUDIT_2026-09-17.md)。
 
 当前 Storage V1 使用显式版本/编码与 Config/State 语义域，**不迁移旧 `flash_kv32`、SOC/Cold KV**；没有可读 V1 记录时加载默认值。这是当前开发期存储策略，不能把它描述成对所有旧设备“仅追加 key、无损升级”。详见 [STORAGE.md](STORAGE.md)。
 
@@ -73,7 +70,7 @@ V_ocv = (3 * Vcell_min + Vcell_max) / 4
 
 静置校准条件：
 
-- 充/放电有效电流均低于 200 mA；
+- 充/放电有效电流均不高于 200 mA；
 - 单体压差 <= 100 mV；
 - 有界相邻样本变化 <= 8 mV（目标 200 ms，允许间隔最多 400 ms）；
 - 连续稳定 **>= 10 min**。
@@ -122,7 +119,7 @@ V_ocv = (3 * Vcell_min + Vcell_max) / 4
 1. Storage V1 缺失/损坏/掉电恢复：加载规则与 [STORAGE.md](STORAGE.md) 一致，不误读旧 KV；确认 chemistry/profile 的默认与显式配置路径。
 2. 显式 LFP/NMC 保存、掉电重启后仍使用相同 chemistry/profile/version。
 3. chemistry/profile 冲突配置必须拒绝且不能污染 Flash。
-4. 0.1 A 不积分、0.2 A 开始积分边界。
+4. 0.1 A 不积分、0.2 A 不积分、原始 201 mA 开始积分边界。
 5. 静置 9 min 59 s 不校准；10 min 后普通 OCV 只能向下。
 6. 非充电的开机高电压/回弹绝不能使 SOC 上升；确认充满可到 100%。
 7. 充电满锚点、放电 UVP、LFP 3.30 V 平台、大电流 sag hold。
@@ -134,12 +131,12 @@ V_ocv = (3 * Vcell_min + Vcell_max) / 4
 
 电源时序和 IO 的唯一依据是 [D008_PRODUCT_REFERENCE.md](D008_PRODUCT_REFERENCE.md) 第 12 节：suspend 期间 MCU 仍供电；深度休眠则先 AFE shutdown，再将 PC4/MCU_LDO_PIN 拉低，MCU 完全断电。电路恢复 MCU 供电后再通过 I2C 唤醒 AFE。
 
-**suspend 不自动等于电池静置，MCU 断电也不等于获得了一段有效静置记录。** 双向 ≥500 mA 是退出 suspend 的产品门槛，不能替代 SOC 默认 <200 mA 的静置/积分死区。两者由不同用途决定，不合并成一个参数。
+**suspend 不自动等于电池静置，MCU 断电也不等于获得了一段有效静置记录。** 双向 ≥500 mA 是退出 suspend 的产品门槛，不能替代 SOC 默认 ≤200 mA 的静置/积分死区。两者由不同用途决定，不合并成一个参数。
 
 | 输入状态 | 电源要求 | SOC 实现要求 |
 |---|---|---|
-| 新鲜有效样本，两方向均低于当前 SOC 死区（默认 200 mA） | 允许按独立条件保持 suspend | 同时满足电压、压差、稳定性才累计 OCV 静置资格 |
-| 有效电流 200..499 mA | 单靠电流还未达到退出门槛 | 不满足默认静置条件；按合格测量和实际时间积分，清除静置资格 |
+| 新鲜有效样本，两方向均不高于当前 SOC 死区（默认 200 mA） | 允许按独立条件保持 suspend | 同时满足电压、压差、稳定性才累计 OCV 静置资格 |
+| 有效电流 201..499 mA | 单靠电流还未达到退出门槛 | 不满足默认静置条件；按合格测量和实际时间积分，清除静置资格 |
 | 任一方向 ≥500 mA（含 500） | 退出 suspend，恢复正常采样/业务节奏 | 清除静置资格，按实际方向积分；不得丢失状态切换前后的有效时间 |
 | 无效/陈旧样本、AFE reset/通信故障 | 进入受控采样或故障路径 | 冻结无法证明有效的积分/端点/OCV校准，清除静置资格；失败清零不等于零电流 |
 | AFE shutdown / MCU 断电 | 不再执行测量和算法 | 事先保存必要 State；复电读取已提交状态，不补算未知时长、不继承静置资格 |

@@ -18,7 +18,7 @@ typedef struct
 {
     uint8_t chemistry;                  /* AUTO/LFP/NMC */
     uint8_t profile_id;                 /* AUTO/generic LFP/generic NMC */
-    uint16_t current_deadband_ma;       /* currents below this value are ignored */
+    uint16_t current_deadband_ma;       /* currents at/below this value are ignored; D008 floor also applies */
     uint16_t ocv_rest_prepare_s;        /* stable idle time before OCV may correct */
     uint8_t ocv_error_band_percent;     /* +/- percentage points around OCV center */
     uint8_t capacity_learning_enable;   /* default disabled */

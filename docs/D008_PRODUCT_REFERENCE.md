@@ -389,7 +389,7 @@ SDK 的短暂定时唤醒用于重新采样，不等于产品已退出 suspend �
 - “500 mA 以上”按包含边界记录：有效测量 `current_ma >= 500`（源码正方向为放电）或 `current_ma <= -500`（负方向为充电）；实板校准仍需确认正负方向。
 - 优先使用带有效性/新鲜度的 mA 测量。公共 `bms_afe_aux_measurements_t` 现传递精确 `current_ma` 与 `sample_tick_32k`；应用必须经 guard 读取，不直接依赖私有寄存器。
 - 当前 `u16Ichg/u16IDischg` 单位 0.1 A，先截断再比较不能验证 499/500/501 mA 的精确边界，更不能把采样失败时被清零的电流当静置。
-- 200..499 mA 即使尚不要求退出 suspend，也不能自动进入 OCV 静置校准。SOC 积分死区与 suspend 退出门槛分别维护，详见 [SOC.md](SOC.md)。
+- 201..499 mA 即使尚不要求退出 suspend，也不能自动进入 OCV 静置校准。SOC 积分死区与 suspend 退出门槛分别维护，详见 [SOC.md](SOC.md)。
 - 当前 AFE current-wake engine 关闭，interrupt mask 为 0xFF；本要求不等于授权直接打开 AFE current-wake 或改变固定配置。须先用真实调度确认周期采样/唤醒能达到响应预算，并同时满足 4 s I2C watchdog。
 - 无效、陈旧、读写故障样本不能保持“已确认静置”资格；后续设计应转入受控采样/故障处理。不能为了省电关闭保护或掩盖通信故障。
 

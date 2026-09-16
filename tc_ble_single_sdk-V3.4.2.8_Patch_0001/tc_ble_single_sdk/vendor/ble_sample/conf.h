@@ -14,6 +14,9 @@
 // #define DISP_VBAT_AND_TEMP_
 // #define __TEST_SOC__
 
+/* D008 measurement floor: |I| <= 200 mA is not reliable for reporting/integration. */
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
+
 #define _FUNC_SIF_
 #define _FUNC_UART_
 

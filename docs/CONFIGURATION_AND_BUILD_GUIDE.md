@@ -58,7 +58,7 @@ git pull --ff-only origin refactor/d008-common-bms-features
 | Modbus 从站地址 | `vendor/ble_sample/modbus_rtu.c` 的 `MB_ADDR` | 是 | 固件更新后变化 |
 | BLE 广播周期/RF功率/连接延迟 | `vendor/ble_sample/app.c` | 是 | 固件更新后变化 |
 | Flash 区域 | `vendor/ble_sample/flash_store_cfg.h` | 是，兼容性高风险 | 不允许随意改 |
-| 固件升级重置 epoch | `vendor/ble_sample/conf.h` 的 `FW_UPGRADE_RESET_*_EPOCH` | 是 | 只对对应 store 生效 |
+| 固件升级重置 epoch | `vendor/ble_sample/conf.h` 的 `FW_UPGRADE_RESET_*_EPOCH` | 部分 | 软件保护/system/SOC三计数/Event/runtime；尚无独立 AFE HW epoch，见 Flash 审核 |
 
 本文路径中的 `vendor/ble_sample/` 完整前缀是：
 
