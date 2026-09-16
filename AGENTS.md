@@ -74,7 +74,7 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 - `vendor/ble_sample/` 递归发现项目源文件；新增其他顶层源码组时需审核并修改 `SOURCE_GROUPS`。
 - 若保留 IDE 生成文件，可用 `sources --compare-ide` 只读对照；只有明确决定采用 IDE 顺序时才能执行 `sources --import-ide`。IDE 文件不是构建依赖。
 - 修改头文件后必须 `rebuild`；当前构建不依赖自动生成的头文件 `.d` 文件。
-- 顺序变化会改变链接地址和 BIN。重大变化必须比较 ELF/MAP/BIN 并做真实硬件回归。
+- 顺序变化会改变链接地址和 BIN。重大变化必须比较 ELF/MAP/BIN并做真实硬件回归。
 
 ## 修改边界和验证
 
@@ -87,3 +87,12 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 静态分析由 cppcheck 执行，只检查 `vendor/ble_sample` 应用层。官方 SDK 头文件仅为保持真实类型、宏和条件编译而解析，其诊断按可追溯范围清单排除，不纳入问题统计。结果输出到 `project/tlsr_tc32/B85/825x_ble_sample_cli/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
 
 详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`。
+
+## Windows 上位机单一真源（强制）
+
+- D008、D011、D013 实际共同使用的 Windows 上位机**唯一真源**就是本分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`。
+- `bms-tool-windows/BmsTool.Windows/` 是客户版；`bms-tool-windows/BmsFactoryTest.Windows/` 是内部完整测试版。公共功能（实时数据、事件日志、协议解析等）必须同步维护两版；工厂专用功能只存在完整版。
+- 三个产品分支中的历史 `tools/BMSAssistant/`、`tools/BMSAssistantQt/`、`tools/BMSAssistantAndroid/` 已废弃并应删除；不得从这些目录复制实现、协议常量或测试回本上位机。
+- 收到“上位机、Windows工具、事件日志、参数编辑、AFE编辑器”等需求时，默认只修改 `bms-tool-windows/`。除非用户明确要求，**不得顺带修改 D008/D011/D013 固件协议、寄存器地址、Flash 布局、Storage 架构或创建新的跨平台客户端**。
+- 先按现有固件协议完成客户端适配；只有现有协议确实无法满足需求且用户明确同意时，才能提出固件协议变更。
+- 上位机修改坚持最小范围：先定位实际在用项目和实际调用路径，再改最少文件；禁止为了一个 UI/读取问题扩展成协议重构、固件重构或无关客户端同步。

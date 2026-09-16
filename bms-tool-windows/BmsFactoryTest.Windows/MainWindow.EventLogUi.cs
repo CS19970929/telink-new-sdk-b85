@@ -9,6 +9,8 @@ public partial class MainWindow
 {
     // Reading and deleting share the same operation guard.
     private bool _eventLogReadInProgress;
+    private const ushort EventLogRegister = 0xC008;
+    private const ushort EventLogCount = 100;
     private const ushort ResetEventRecordRegister = 0x1007;
     private const ushort ResetEventRecordValue = 0x0001;
 
@@ -71,30 +73,12 @@ public partial class MainWindow
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
-            _eventLogStatus!.Text = "正在自动识别并读取日志...";
+            _eventLogStatus!.Text = $"正在读取 {EventLogCount} 条日志...";
 
-            int count = 500;
-            ushort[] words = new ushort[count];
-            // One item is one register. Keep each frame at the legacy 100-word size.
-            for (int offset = 0; offset < count; offset += 100)
-            {
-                ushort[] page;
-                try
-                {
-                    page = await bms.ReadRegistersAsync((ushort)(0xC008 + offset), 100);
-                }
-                // This firmware uses 0x01 for invalid address (0x02 means CRC error).
-                // Only rejection of the second page identifies a 100-record device.
-                catch (BmsModbusException ex) when (offset == 100 && ex.Function == 0x03 && ex.Code == 0x01)
-                {
-                    count = 100;
-                    Array.Resize(ref words, count);
-                    break;
-                }
-                if (page.Length != 100) throw new InvalidOperationException("日志响应长度不正确。");
-                Array.Copy(page, 0, words, offset, page.Length);
-                _eventLogStatus.Text = $"正在读取 {offset + page.Length}/{count} 条...";
-            }
+            ushort[] words = await bms.ReadRegistersAsync(EventLogRegister, EventLogCount);
+            if (words.Length != EventLogCount)
+                throw new InvalidOperationException($"日志响应长度不正确：期望 {EventLogCount}，实际 {words.Length}。");
+
             _deviceEventLogs.Clear();
             int valid = 0;
             for (int i = 0; i < words.Length; i++)
@@ -111,8 +95,8 @@ public partial class MainWindow
                     populated ? "有效" : "空记录"));
             }
 
-            _eventLogStatus.Text = $"读取完成 · 自动识别{count}条容量 · 有效 {valid}/{count} · {DateTime.Now:HH:mm:ss}";
-            AppendLog($"EVENT_LOG_READ_OK valid={valid}/{count}", "LOG");
+            _eventLogStatus.Text = $"读取完成 · 有效 {valid}/{EventLogCount} · {DateTime.Now:HH:mm:ss}";
+            AppendLog($"EVENT_LOG_READ_OK valid={valid}/{EventLogCount}", "LOG");
         }
         catch (Exception ex)
         {
