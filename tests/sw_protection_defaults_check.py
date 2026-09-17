@@ -105,6 +105,15 @@ def main():
     with tempfile.TemporaryDirectory(prefix='d008-protect-defaults-') as directory:
         src = Path(directory) / 'defaults.c'
         exe = Path(directory) / ('defaults.exe' if os.name == 'nt' else 'defaults')
+        invalid_defaults = code
+        for name, value in (('CUV_1', 3000), ('CUV_2', 3000), ('CUV_3', 3200), ('CUV_recover', 3300)):
+            invalid_defaults = re.sub(r'^#define ' + name + r'\s+[^\n]+',
+                                      f'#define {name} {value}', invalid_defaults, flags=re.M)
+        rejected = subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
+                                  ['-x', 'c', '-fsyntax-only', '-'], input=invalid_defaults,
+                                  text=True, capture_output=True)
+        assert rejected.returncode != 0 and 'CUV defaults require' in rejected.stderr
+        print('PASS compile-time rejection of 3000/3000/3200/3300 defaults', flush=True)
         src.write_text(code, encoding='utf-8')
         subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
                        ['-std=c99', '-Wall', '-Wextra', '-Werror', str(src), '-o', str(exe)],
