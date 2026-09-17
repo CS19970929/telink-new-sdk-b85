@@ -18,3 +18,15 @@ ACC高期间不再累计自动低压断电时间。低电平恢复不绕过保�
 Host tests执行实际app.c PM函数，覆盖高电平去抖/取消/回绕、PC4保持、低电平PAD、OTA/Flash/总线/BLE待发与断连、保存/事件/AFE失败、5秒重试、shutdown/入睡瞬间低电平重启、显式断电指令优先和原PM/SOC回归。SDK和GPIO由mock替代，不能代替真实唤醒、PC4保持及电流测量。
 
 TODO_VERIFY_HW：PA0实际电平/抖动、深睡眠PC4和3V3保持、PAD低电平最小保持时间、唤醒后AFE初始化/物理MOS、睡眠电流、watchdog及外部反向供电。未进行烧录或设备故障注入。
+
+## 本轮验证及交付
+
+2026-09-17，源码基线a89bd1f8，原refactor/d008-common-bms-features分支。未创建开发分支，保留用户脏文件，未推送或烧录。
+
+- source-order 94 objects；15项Host/contract、22项tooling unittest、当前16S参数校验/启动测试通过。
+- 默认SW/HW=1/1及1/0、0/1、0/0四种TC32 clean build/check-fw/MAP/manifest/verify通过；当前16S SW0/HW1另行通过。
+- cppcheck：31应用单元，覆盖缺口0；0 error/warning，94 style，MISRA未执行。
+- 默认1/1 text=102280、data=4000、bss=7156 bytes；比上一版增加Flash464、静态RAM8bytes，MAP约束通过；最坏运行栈尚未实测。
+- 正式交付：outputs/d008-acc-sleep-20260917/D008_16S_SW0_HW1_ACC_SLEEP.bin；保留当前16S SW0/HW1、已确认欠压参数和已有LED设置，为台架配置。Build ID为a89bd1f8，精确工作区差异和manifest在evidence。
+
+无需更新Windows上位机。先确认ACC输入能够可靠拉低再升级测试；上电时ACC持续高也会在初始化后进入此休眠。验证高/低电平循环、BLE连接及OTA期间的延后，再用示波器和电流表确认PC4保持及真实深睡眠电流。实板未决项保持TODO_VERIFY_HW。
