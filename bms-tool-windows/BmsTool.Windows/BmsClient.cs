@@ -165,6 +165,10 @@ public sealed partial class BmsClient : IAsyncDisposable
             {
                 throw new TimeoutException("串口已打开，但 BMS 在 20 秒内未响应。已等待一线通切换 Modbus，请检查接线、波特率和设备供电。", last);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 last = ex;
