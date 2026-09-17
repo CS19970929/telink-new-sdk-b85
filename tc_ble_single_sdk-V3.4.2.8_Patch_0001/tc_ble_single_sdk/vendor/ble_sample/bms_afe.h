@@ -17,6 +17,12 @@ uint8_t bms_afe_apply_protection_config(void); uint8_t bms_afe_set_fets(uint8_t,
  * paths that bypass the normal guard must honor this gate and avoid AFE I/O. */
 uint8_t bms_afe_bus_access_allowed(void);
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+/* Main-loop, read-only RAM query. No I2C or FET commands. */
+uint8_t bms_afe_current_recovery_pending(void);
+#else
+static inline uint8_t bms_afe_current_recovery_pending(void) { return 0u; }
+#endif
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 /* Guarded D008 bench lifecycle. Entering shutdown preserves the requested FET
  * state but blocks all AFE traffic. Wake performs full init and requires fresh
  * sample qualification before the request can reach hardware again. */

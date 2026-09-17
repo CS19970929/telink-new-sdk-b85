@@ -33,6 +33,11 @@ static struct {
     uint8_t hw_pending;
 } s_current_recovery;
 
+uint8_t bms_afe_current_recovery_pending(void)
+{
+    return (s_current_recovery.charge || s_current_recovery.discharge) ? 1u : 0u;
+}
+
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;

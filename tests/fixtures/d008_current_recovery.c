@@ -28,7 +28,7 @@ int main(void) {
     reset(); step(100,0,1,1,0,1); assert(s_current_recovery.discharge);
     dvc_apply_common_port_fet_state(1,1); assert(chg_mode==DVC1124_FET_DRIVE_ON && dsg_mode==DVC1124_FET_DRIVE_AUTO_DIODE);
     step(99999,0,1,1,0,0); assert(s_current_recovery.discharge); /* GPIO high while ON ignored */
-    step(100000,0,0,0,0,0); step(200000,0,0,0,0,0); assert(s_current_recovery.discharge); /* zero current no release */
+    step(100000,0,0,0,0,0); step(200000,0,0,0,0,0); assert(s_current_recovery.discharge); assert(bms_afe_current_recovery_pending()); /* zero current no release */
     step(210000,0,1,0,0,0); step(216399,0,1,0,0,0); assert(s_current_recovery.discharge);
     step(216400,0,0,0,0,0); step(220000,0,1,0,0,0); assert(s_current_recovery.discharge);
     step(226400,0,1,0,0,0); assert(!s_current_recovery.discharge);
@@ -58,5 +58,11 @@ int main(void) {
     reset(); step(0,0,1,0,0,1);
     step(32000,0,1,0,0,0); assert(s_current_recovery.discharge); /* acquisition gap */
     step(38400,0,1,0,0,0); assert(!s_current_recovery.discharge);
+    reset(); step(0,0,0,0,0,1);
+    /* Reproduce BLE-only 800 ms cadence: qualification keeps restarting. */
+    for(uint32_t t=25600;t<=102400;t+=25600) step(t,0,1,0,0,0);
+    assert(bms_afe_current_recovery_pending());
+    /* A recovery-only 200 ms deadline completes qualification without BLE. */
+    step(108800,0,1,0,0,0); assert(!bms_afe_current_recovery_pending());
     return 0;
 }
