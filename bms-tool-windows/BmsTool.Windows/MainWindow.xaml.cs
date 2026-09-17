@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
         DeviceList.ItemsSource = _devices;
         SerialPortList.ItemsSource = _serialPorts;
         ProtectionGrid.ItemsSource = _protectionRows;
@@ -602,7 +603,7 @@ public partial class MainWindow : Window
 
     private async void StartOta_Click(object sender, RoutedEventArgs e)
     {
-        if (_otaRunning || _shBusy) return;
+        if (_otaRunning || _shBusy || _diagBusy) return;
         try
         {
             if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
