@@ -25,3 +25,17 @@
 验证入口：`python tests/sw_protection_defaults_check.py --series-num 16 --boot-check` 使用真实软件校验器及存储事务；新增有效旧Flash+非法新CUV候选复现，检查门禁=1、revision未发布、SaveParam不能绕过，纠正默认值并重启后门禁=3。AFE/SOC校验器在该Host夹具中仍为stub，不声称覆盖实板或这些默认值。通用存储Host tests另覆盖掉电和多阶段失败。
 
 用户已确认恢复CUV First/Second/Third/Recover=3000/3000/2200/3100mV。本次仅恢复该阈值组合，不修改其他保护参数或AFE revision；工作区现有滤波设置保留。
+
+## 本次验证和交付（2026-09-17）
+
+- 固件源码基线：`6f31806f`，原分支refactor/d008-common-bms-features；Windows：`a95f71a`，原分支feature/windows-afe-hw-protection-editor-v2。均本地提交，未推送/烧录。
+- 增加CUV默认值编译期检查，3000/3000/3200/3300组合被编译器拒绝；恢复后16S/20S/24S真实validator及启动Host测试通过。保留既有严格门禁，不通过SaveParam直接解锁。
+- source-order=94 objects；15项相关Host/contract、22项tooling unittest通过。默认1/1及1/0、0/1、0/0四种TC32 clean rebuild/check-fw/MAP/manifest/verify通过；用户当前16S、SW0/HW1配置单独通过。
+- cppcheck覆盖31个应用编译单元，无覆盖缺口，0 error/warning，94 style。MISRA未执行。
+- Windows客户/内部两版net8自包含x64发布；diagnostics与AFE fragments/serial host tests通过。新详情capability缺失时明确显示旧固件未提供。
+- 默认1/1 text=101736、data=4000、bss=7148 bytes；相对上一版MTU23固件text增加224，静态RAM不变。MAP保留检查通过，实板栈高水位未测。
+- 交付目录：`outputs/d008-upgrade-gate-20260917/`。主BIN `D008_16S_SW0_HW1_CUV2200.bin` 保留工作区16S/SW0/HW1、LED及其他已有设置，属于台架配置；附current-settings.patch、各组合manifest/MAP/ELF、测试日志和SHA256。Build ID显示6f31806f表示源码基线，精确工作区配置以patch和manifest为准。
+
+升级后验收：用配套EXE读取诊断，应显示“启动升级阶段=完成”“运行保护参数/存储升级=True/True”，升级阻断位清除；MOS最终是否打开还取决于其他保护/AFE条件。若仍失败，新诊断应直接显示失败阶段和无效类别。不要擦除全部Flash或绕过门禁。正常软件参数升级不改变AFE硬件参数revision，已保存的SCD使能应保持。
+
+TODO_VERIFY_HW：实板编译来源与诊断包Build ID未知，不能把Host复现当成实板根因已最终证明；更新后的门禁、有效AFE参数、充放电输出仍须回读及物理验证。
