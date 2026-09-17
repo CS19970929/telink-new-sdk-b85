@@ -132,6 +132,11 @@ struct PRT_E2ROM_PARAS {
 #define CUV_filter2     100
 #define CUV_filter3     1000
 
+/* Reject unsafe compiled defaults before a revision update can inhibit startup. */
+#if (CUV_1 < CUV_2) || (CUV_2 < CUV_3) || ((CUV_3 != 0) && (CUV_recover <= CUV_3))
+#error "CUV defaults require First >= Second >= Third and Recover > Third (unless Third=0)"
+#endif
+
 #define BOV_1           (350 * SNum)
 #define BOV_2           (360 * SNum)
 #define BOV_3           (365 * SNum)
