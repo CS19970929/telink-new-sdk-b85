@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "bms_features.h"
 
 #include "bms_board.h"
@@ -282,3 +283,11 @@ uint8_t bms_features_charge_blocked(void) { return (!bms_protection_params_valid
 uint8_t bms_features_discharge_blocked(void) { return (!bms_protection_params_valid() || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
 void bms_features_get_openwire_result(bms_afe_openwire_result_t *r) { if (r) *r = s_feature.openwire_result; }
+
+uint32_t bms_features_diag_reasons(uint8_t charge)
+{
+    uint32_t reason = 0u;
+    if (s_feature.openwire_active || s_feature.openwire_fault_latched) reason |= DIAG_BLOCK_OPENWIRE;
+    if (charge && s_feature.heater_on) reason |= DIAG_BLOCK_HEATER;
+    return reason;
+}

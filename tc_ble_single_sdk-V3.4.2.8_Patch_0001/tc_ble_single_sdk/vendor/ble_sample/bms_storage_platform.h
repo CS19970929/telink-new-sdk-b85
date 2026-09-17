@@ -24,6 +24,8 @@ typedef struct {
     uint32_t max_program_ticks_32k;
     uint32_t max_erase_ticks_32k;
 } bms_storage_diagnostics_t;
+void bms_storage_platform_diag_boot(void);
+void bms_storage_platform_diag_poll(void);
 void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out);
 const storage_port_t *bms_storage_platform_port(void);
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region);

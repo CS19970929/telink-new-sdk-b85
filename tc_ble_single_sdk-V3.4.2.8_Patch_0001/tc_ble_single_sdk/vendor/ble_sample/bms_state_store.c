@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "bms_state_store.h"
 
 #include "bms_storage_platform.h"
@@ -121,14 +122,18 @@ int bms_state_store_init(void)
     u8 payload[BMS_STATE_PAYLOAD_BYTES];
     bms_state_persist_t next, defaults;
     if (g_bms_state_ready) return 1;
+    bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
     if (g_bms_state_attempted && g_bms_state_last_failed &&
-        (u32)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
+        (u32)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
-    if ((port == 0) || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region) ||
-        !storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
-                             BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) goto invalid;
+    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
+    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }
+    if (!storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
+                             BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); goto invalid;
+    }
     if (storage_record_load(&g_bms_state_store, payload)) bms_state_decode(&g_bms_state, payload);
-    else bms_state_defaults(&g_bms_state);
+    else { bms_state_defaults(&g_bms_state); bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS); }
     next = g_bms_state;
     bms_state_defaults(&defaults);
     if (next.soc_revision != FW_UPGRADE_RESET_SOC_EPOCH) {
@@ -142,12 +147,13 @@ int bms_state_store_init(void)
         next.runtime_revision = FW_UPGRADE_RESET_RUNTIME_EPOCH;
     }
     if (next.soc > 100u || next.dsg > 100u || next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        (next.flags & ~BMS_STATE_FLAG_CAPACITY_LEARNED) != 0u) goto invalid;
-    if (!bms_state_save(&next)) return 0;
+        (next.flags & ~BMS_STATE_FLAG_CAPACITY_LEARNED) != 0u) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid; }
+    if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
     g_bms_state_pending = g_bms_state;
     g_bms_state_last_attempt_32k = pm_get_32k_tick();
     g_bms_state_attempted = 1u;
     g_bms_state_ready = 1u;
+    bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 invalid:
     g_bms_state_attempted = 1u;

@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "bms_afe.h"
 #include "bms_features.h"
 #include "bms_error.h"
@@ -396,3 +397,21 @@ uint8_t bms_afe_test_wake(void)
     return 1u;
 }
 #endif
+
+void bms_afe_diag_poll(void)
+{
+    uint32_t c = bms_features_diag_reasons(1u), d = bms_features_diag_reasons(0u);
+    uint32_t common = 0u;
+    uint16_t params = bms_diag_cached_word(144u);
+    if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;
+    if (!(params & 2u)) common |= DIAG_BLOCK_UPGRADE;
+    if (!s_guard.output_enabled) common |= DIAG_BLOCK_OUTPUT;
+    if (s_guard.comm_inhibit || s_guard.bus_silenced) common |= DIAG_BLOCK_COMM;
+    if (s_guard.test_shutdown_hold) common |= DIAG_BLOCK_SHUTDOWN;
+    c |= bms_diag_cached_word(146u); d |= bms_diag_cached_word(147u);
+    bms_diag_mos((uint16_t)(s_guard.requested_charge_on | (s_guard.requested_discharge_on << 1)), c | common, d | common);
+    if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
+        bms_diag_driver(0u, 0u);
+        bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
+    }
+}

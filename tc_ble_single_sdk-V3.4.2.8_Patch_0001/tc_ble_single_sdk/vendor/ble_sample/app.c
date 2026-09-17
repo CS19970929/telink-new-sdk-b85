@@ -1,3 +1,5 @@
+#include "bms_diag.h"
+#include "bms_storage_platform.h"
 /********************************************************************************************************
  * @file    app.c
  *
@@ -756,6 +758,9 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
+		bms_diag_init();
+		bms_storage_platform_diag_boot();
+        bms_diag_boot_word(13u, (DVC1124_SW_PROTECT_ENABLE ? 1u : 0u) | (DVC1124_HW_PROTECT_ENABLE ? 2u : 0u));
 		board_init();
 		Param_UpgradeReset_Apply();
 		LoadParam();
@@ -785,6 +790,10 @@ _attribute_no_inline_ void user_init_normal(void)
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
 	bms_afe_set_output_enabled(1u);
+    bms_param_diag_poll();
+    bms_storage_platform_diag_poll();
+    bms_afe_diag_poll();
+    bms_diag_freeze_boot();
 }
 
 /**
@@ -910,6 +919,9 @@ int app_flash_lock_restore_enabled(void)
  */
 _attribute_no_inline_ void main_loop(void)
 {
+    bms_param_diag_poll();
+    bms_storage_platform_diag_poll();
+    bms_afe_diag_poll();
     if (s_power_off_committed)
     {
         /* If external power holds 3V3 up (e.g. a debugger), remain quiescent.

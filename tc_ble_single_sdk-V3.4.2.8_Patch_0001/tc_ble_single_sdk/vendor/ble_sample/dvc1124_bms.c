@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "dvc1124.h"
 #include "bms_afe.h"
 
@@ -214,9 +215,12 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
 {
     uint8_t current;
     uint8_t target;
+    uint8_t ok;
 
-    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u))
-        return 0u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) {
+        bms_diag_command(0u, 0u); return 0u;
+    }
+    bms_diag_command(current, 1u);
 
     if ((DVC1124_FIELD_GET(DVC1124_FET_CHGC_MASK,
                            DVC1124_FET_CHGC_SHIFT,
@@ -241,7 +245,9 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
     /* One combined R81 write only: never transition through hard-OFF before
      * AUTO_DIODE. DVC1124_WriteRegisterSafe() preserves unrelated fields and
      * verifies the documented writable bits. */
-    return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
+    ok = DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
+    bms_diag_command(target, ok);
+    return ok;
 }
 
 static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
@@ -297,9 +303,11 @@ void DVC1124_BmsApp_AFEGet(void)
     uint8_t alarm;
 #endif
 
+    uint16_t diag_c = 0u, diag_d = 0u;
+
     DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
-    if (!snapshot.valid) return;
+    if (!snapshot.valid) { bms_diag_driver(0u, 0u); return; }
 
     memset(&sw, 0, sizeof(sw));
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
@@ -314,6 +322,8 @@ void DVC1124_BmsApp_AFEGet(void)
 
 #if DVC1124_SW_PROTECT_ENABLE
     bms_sw_protection_update(&sw);
+    if (bms_sw_protection_charge_blocked()) diag_c |= DIAG_BLOCK_SW;
+    if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
 #else
     /* Match D011/D013 isolation semantics: disabling the SW path also clears
      * any previously latched software-managed fault bits and TEMP_BREAK. */
@@ -323,12 +333,18 @@ void DVC1124_BmsApp_AFEGet(void)
 #if DVC1124_HW_PROTECT_ENABLE
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
     dvc_merge_hw_faults(alarm);
+    if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
+    if (alarm & (DVC1124_ALARM_CUV_MASK | DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)) diag_d |= DIAG_BLOCK_HW;
 #else
     /* SCD/COV/CUV/OC flags are not protection inputs in HW-off bench mode.
      * The low-level driver also programs their DVC hardware enables OFF. */
     bms_error_clear(BMS_ERROR_CBC_DSG);
 #endif
 
+    if (bms_error_get(BMS_ERROR_TEMP_BREAK)) { diag_c |= DIAG_BLOCK_TEMP; diag_d |= DIAG_BLOCK_TEMP; }
+    if (dvc_charge_blocked() && !diag_c) diag_c |= DIAG_BLOCK_BACKEND;
+    if (dvc_discharge_blocked() && !diag_d) diag_d |= DIAG_BLOCK_BACKEND;
+    bms_diag_backend(diag_c, diag_d);
     bms_sw_protection_record_fault_edges();
     DVC1124_BalanceService((uint8_t)((g_stCellInfoReport.u16Ichg > 0u) &&
                                      !dvc_charge_blocked() &&

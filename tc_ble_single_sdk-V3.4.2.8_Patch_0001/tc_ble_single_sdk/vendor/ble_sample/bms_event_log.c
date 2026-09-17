@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "bms_event_log.h"
 
 #include "bms_error.h"
@@ -167,25 +168,28 @@ int bms_event_log_init(void)
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];
     int loaded;
     if (g_bms_event_log.ready) return 1;
+    bms_diag_attempt(BMS_STORAGE_DOMAIN_EVENT);
     if (g_bms_event_log.attempted && g_bms_event_log.last_failed &&
-        (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
+        (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
-    if ((port == 0) ||
-        !bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region) ||
-        !storage_record_open(&g_bms_event_log.store, port, region,
-                             BMS_EVENT_RECORD_MAGIC, BMS_EVENT_SCHEMA_VERSION,
-                             BMS_EVENT_PAYLOAD_BYTES)) return 0;
+    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
+    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
+    if (!storage_record_open(&g_bms_event_log.store, port, region, BMS_EVENT_RECORD_MAGIC,
+                             BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OPEN); return 0;
+    }
     loaded = storage_record_load(&g_bms_event_log.store, payload) && bms_event_log_decode(payload);
-    if (!loaded) bms_event_log_reset_ram_only();
+    if (!loaded) { bms_event_log_reset_ram_only(); bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_DEFAULTS); }
     g_bms_event_log.ready = 1u;
     if (!loaded ||
         g_bms_event_log.revision != FW_UPGRADE_RESET_EVENT_LOG_EPOCH) {
         bms_event_log_reset_ram_only();
         g_bms_event_log.revision = FW_UPGRADE_RESET_EVENT_LOG_EPOCH;
-        if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u; return 0; }
+        if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u; bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_SAVE); return 0; }
     }
     g_bms_event_log.last_attempt_32k = pm_get_32k_tick();
     bms_event_log_clear_runtime_flags();
+    bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OK);
     return 1;
 }
 

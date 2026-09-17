@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "bms_config_store.h"
 
 #include "bms_soc_defs.h"
@@ -169,7 +170,9 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
     bms_config_encode(cfg, payload);
-    if (!storage_record_save(&g_bms_config_store, payload)) return 0;
+    if (!storage_record_save(&g_bms_config_store, payload)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
+    }
     g_bms_config = *cfg;
     return 1;
 }
@@ -185,13 +188,18 @@ int bms_config_store_init(void)
     storage_region_t region;
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
     if (g_bms_config_ready) return 1;
+    bms_diag_attempt(BMS_STORAGE_DOMAIN_CONFIG);
     port = bms_storage_platform_port();
-    if ((port == 0) || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_CONFIG, &region) ||
-        !storage_record_open(&g_bms_config_store, port, region, BMS_CONFIG_RECORD_MAGIC,
-                             BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) return 0;
+    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_PORT); return 0; }
+    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_CONFIG, &region)) { return 0; }
+    if (!storage_record_open(&g_bms_config_store, port, region, BMS_CONFIG_RECORD_MAGIC,
+                             BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OPEN); return 0;
+    }
     if (storage_record_load(&g_bms_config_store, payload)) bms_config_decode(&g_bms_config, payload);
-    else bms_config_defaults(&g_bms_config);
+    else { bms_config_defaults(&g_bms_config); bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS); }
     g_bms_config_ready = 1u;
+    bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OK);
     return 1;
 }
 

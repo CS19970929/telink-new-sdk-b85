@@ -18,7 +18,7 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t
 /* TYPES */
 typedef struct {u16 ParamVer;struct PRT_E2ROM_PARAS protect;} PARAM_T;
 static u32 now, errors, programs, erases;
-static int cut=-1, begin_ok=1;
+static int cut=-1, begin_ok=1, region_ok=1;
 static u8 flash[20u*4096u];
 static u8 backup[sizeof(flash)];
 static u32 pm_get_32k_tick(void){return now;}
@@ -35,9 +35,11 @@ static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<
 static int erase(void*c,u32 a,u32 n){(void)c;++erases;assert(a+n<=sizeof(flash));memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
-int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=8*4096;}else return 0;return 1;}
+int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=8*4096;}else return 0;return 1;}
+uint32_t bms_diag_tick(void){return now;}
 /* PRODUCTION */
 static void reboot(void){
+ bms_diag_init();region_ok=1;
  g_bms_config_ready=0;g_bms_state_ready=0;
  g_bms_state_attempted=0;g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
@@ -62,7 +64,8 @@ static void test_config_atomic_revisions(void){
    assert(g_bms_config.control[ids[category]]==0);assert(g_bms_config.protect.u16VcellOvp_Third==3999);
    reboot();assert(bms_config_store_init());assert(g_bms_config.control[ids[category]]==0);
    assert(bms_config_store_apply_revisions());
-   assert(g_bms_config.control[ids[category]]==1);
+   unsigned expected[]={FW_UPGRADE_RESET_PROTECT_EPOCH,FW_UPGRADE_RESET_AFE_HW_EPOCH,FW_UPGRADE_RESET_SOC_CONFIG_EPOCH,FW_UPGRADE_RESET_SYSTEM_EPOCH};
+   assert(g_bms_config.control[ids[category]]==expected[category]);
    assert(g_bms_config.protect.u16VcellOvp_Third==(category==0?0:3999));
    assert(g_bms_config.afe_hw.cov_mv==(category==1?3650:4100));
    assert(g_bms_config.soc.ocv_rest_prepare_s==(category==2?600:777));
@@ -101,7 +104,7 @@ static void test_events(void){
  g_bms_event_log.revision=0;assert(bms_event_log_write_snapshot());memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_EVENT_PAYLOAD_BYTES+8);byte++){
   memcpy(flash,backup,sizeof(flash));reboot();cut=byte;assert(!bms_event_log_init());
-  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0 && g_bms_event_log.revision==1);
+  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0 && g_bms_event_log.revision==FW_UPGRADE_RESET_EVENT_LOG_EPOCH);
   count=programs;assert(bms_event_log_init());assert(programs==count);
  }
  puts("PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic reset, byte cuts");
@@ -121,4 +124,17 @@ static void test_boot_gate(void){
  }
  puts("PASS startup: Config/State/Event failure gates, RAM protection retained, SaveParam cannot bypass");
 }
-int main(void){test_config_atomic_revisions();test_state();test_events();test_boot_gate();return 0;}
+static void test_diag_boot(void){
+ fresh();reboot();region_ok=0;u32 before=errors;
+ Param_UpgradeReset_Apply();LoadParam();
+ assert(errors-before==2);assert(bms_diag_cached_word(36)==2);
+ assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
+ assert(bms_diag_cached_word(52)==0 && bms_diag_cached_word(84)==0);
+ assert(!bms_event_log_init());assert(bms_diag_cached_word(84)==1);
+ bms_param_diag_poll();assert(bms_diag_cached_word(144)==0);
+ bms_diag_freeze_boot();region_ok=1;assert(bms_config_store_init());
+ assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
+ fresh();assert(bms_diag_cached_word(39)==1 && bms_diag_cached_word(37)==0);
+ puts("PASS diagnostics: two Config failures, short circuit, independent Event attempt, frozen first failure, blank defaults");
+}
+int main(void){test_diag_boot();test_config_atomic_revisions();test_state();test_events();test_boot_gate();return 0;}

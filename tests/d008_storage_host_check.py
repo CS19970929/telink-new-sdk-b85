@@ -19,12 +19,12 @@ def main():
     code=fixture.replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
     with tempfile.TemporaryDirectory(prefix='d008-storage-') as d:
         p=Path(d)/'stores.c';p.write_text(code); exe=Path(d)/'stores'
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',str(MOD),str(p),str(MOD/'storage_record.c'),'-o',str(exe)],check=True)
+        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',str(MOD),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
         platform=(ROOT/'tests/fixtures/d008_storage/platform.c').read_text()
         platform=platform.replace('/* MACROS */',macros).replace('/* TYPES */',source('bms_storage_platform.h'))
         unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]
         p.write_text(platform.replace('/* PRODUCTION */',unit))
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-include',str(MOD/'storage_port.h'),str(p),'-o',str(exe)],check=True)
+        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-include',str(MOD/'storage_port.h'),str(p),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
 if __name__=='__main__': main()

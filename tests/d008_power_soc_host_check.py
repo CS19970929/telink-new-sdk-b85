@@ -57,7 +57,7 @@ def main():
             subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=c99', '-Wall', '-Wextra', '-Werror',
                 '-Wno-unused-function', '-Wno-unused-parameter',
-                str(path), '-o', str(executable)], check=True)
+                str(path), *(['-I',str(MOD),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
             subprocess.run([str(executable)], check=True)
 
 

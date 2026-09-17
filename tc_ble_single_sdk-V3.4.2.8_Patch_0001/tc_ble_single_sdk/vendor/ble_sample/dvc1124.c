@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "dvc1124.h"
 
 #include "tl_common.h"
@@ -1218,17 +1219,20 @@ uint8_t DVC1124_AFE_IsReady(void)
 void DVC1124_UpdataAfeConfig(void)
 {
     uint8_t ok;
+    bms_diag_boot_word(25u, DIAG_STARTED);
 
     /* Physical D008 assembly profile is authoritative for AFE channel use. */
     if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
     {
+        bms_diag_boot_word(25u, DIAG_INVALID);
         dvc_note_comm_result(0u);
         return;
     }
-    if (DVC1124_AFE_IsReady() != 0u) return;
+    if (DVC1124_AFE_IsReady() != 0u) { bms_diag_boot_word(25u, DIAG_INVALID); return; }
 
     ok = dvc_apply_basic_config();
     ok &= dvc_apply_protection_from_params();
+    bms_diag_boot_word(25u, ok ? DIAG_OK : DIAG_INVALID);
     if (ok)
     {
         s_need_config = 0u;
@@ -1404,6 +1408,7 @@ void DVC1124_App_AFEGet(void)
     g_bms_system_status.bits.b1Status_MOS_DSG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
+    bms_diag_driver(data[DVC1124_REG_CC2_L_FLAGS], 1u);
     s_snapshot.sample_tick_32k = pm_get_32k_tick();
     ++s_snapshot_generation;
     DVC1124_OpenWirePoll();

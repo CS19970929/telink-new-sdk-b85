@@ -1,3 +1,4 @@
+#include "bms_diag.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
@@ -36,8 +37,10 @@ void LoadParam(void)
 #endif
 
     s_protection_params_valid = 0u;
+    bms_diag_boot_word(26u, DIAG_STARTED);
 
     if (!bms_cold_kv_store_init()) {
+        bms_diag_boot_word(26u, DIAG_INVALID);
         param_fill_default(&g_tParam);
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
@@ -48,6 +51,7 @@ void LoadParam(void)
     if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
         param_fill_default(&g_tParam);
         if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+            bms_diag_boot_word(26u, DIAG_SAVE);
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
             return;
         }
@@ -57,9 +61,11 @@ void LoadParam(void)
      * Flash data as well, but do not replace unrelated customer parameters with
      * defaults merely because an old/corrupt record is detected. */
     if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
+        bms_diag_boot_word(26u, DIAG_INVALID);
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
+    bms_diag_boot_word(26u, DIAG_OK);
     s_protection_params_valid = 1u;
 }
 
@@ -90,4 +96,9 @@ void Param_UpgradeReset_Apply(void)
         return;
     }
     s_storage_upgrade_valid = 1u;
+}
+
+void bms_param_diag_poll(void)
+{
+    bms_diag_params(s_protection_params_valid, s_storage_upgrade_valid);
 }

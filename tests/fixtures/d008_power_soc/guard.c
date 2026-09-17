@@ -37,12 +37,24 @@ static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
 static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t b1Status_MOS_CHG,b1Status_MOS_DSG,b1Status_Cool;}bits;}g_bms_system_status;
 
+uint32_t bms_diag_tick(void){return 0u;}
+static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u;}
 /* PRODUCTION_SOURCE */
 static void reset(void){
  balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
 }
 int main(void){
+ bms_diag_init();reset();bms_afe_set_fets(1,1);bms_diag_params(0,0);
+ bms_diag_backend(DIAG_BLOCK_HW,DIAG_BLOCK_SW);bms_afe_diag_poll();
+ assert(bms_diag_cached_word(128)==3 && bms_diag_cached_word(129)==0);
+ assert(bms_diag_cached_word(136)==(DIAG_BLOCK_PARAMS|DIAG_BLOCK_UPGRADE|DIAG_BLOCK_HW));
+ assert(bms_diag_cached_word(138)==(DIAG_BLOCK_PARAMS|DIAG_BLOCK_UPGRADE|DIAG_BLOCK_SW));
+ bms_diag_params(1,1);bms_diag_backend(0,0);bms_diag_driver(0,1);bms_afe_diag_poll();
+ assert(bms_diag_cached_word(129)==3 && bms_diag_cached_word(132)==0 && bms_diag_cached_word(133)==1);
+ s_guard.comm_inhibit=1;bms_afe_diag_poll();assert(bms_diag_cached_word(133)==0);
+ puts("PASS MOS diagnostics: simultaneous independent reasons, requested ON/driver OFF, invalid feedback");
+
  reset();balance_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
  reset();fet_fail=1;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
  reset();shutdown_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
