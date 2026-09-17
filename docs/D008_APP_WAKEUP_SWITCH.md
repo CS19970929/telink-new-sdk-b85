@@ -23,3 +23,11 @@
 现在宏0仅取消正常运行的固定周期唤醒：D008充电过流或放电过流/短路锁存期间，临时维持200 ms应用唤醒。负载移除/可靠充电/30秒恢复仍走原有判定和clear/readback；锁存解除后自动取消临时唤醒。没有修改保护条件、去抖时间、PB1极性或增加GPIO唤醒。等待故障恢复期间功耗会高于无故障suspend，这是保证独立于BLE恢复的代价。MCU复位及ACC深睡眠保持既有语义。
 
 新增RAM只读接口 `bms_afe_current_recovery_pending()`；不访问AFE，不发MOS命令。Host测试复现800 ms不断重置，并验证200 ms恢复、宏0/1调度、解除后取消以及tick回绕；仍需实板确认功耗和无BLE恢复时序。
+
+## 50da0e6 修复验证与产物
+
+当前16S工作区输入保持不变（包括原有epoch=5、LED及默认值修改），未烧录、未实测。宏关闭下SW/HW四组合及宏开启SW1/HW1均通过source-order、TC32 clean rebuild、check-fw、MAP、manifest、verify。cppcheck为0 error/warning、95条style；恢复、唤醒策略、power/SOC及温度分组Host测试通过。
+
+- `D008_16S_SW1_HW1_WAKEUP0_RECOVERY_50da0e6.bin`: SHA256 `2e5912dcb6ad8860a3d755fb61ddb8d785764016430d695835422195110d3e23`
+
+- `D008_16S_SW1_HW1_WAKEUP1_RECOVERY_50da0e6.bin`: SHA256 `ff149269dcd14128b702691a465d06755ad377d3b72b5b38c88eaaf6bf952a52`
