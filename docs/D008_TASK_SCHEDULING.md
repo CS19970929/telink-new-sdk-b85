@@ -154,3 +154,13 @@ Requested、AFE Command、AFE Driver Flag 分开；没有物理反馈时保持 u
 - 同工具链同配置比较：text 102904 → 102920 字节（+16），data 4016、bss 7160 字节均不变；BIN 107092 字节。没有为了压缩字节数增加难读代码。
 - MAP 静态 RAM 边界检查通过，未测动态栈高水位。manifest 继续提示既有 TLSR8251 / MCU_STARTUP_8258 SRAM profile 差异，本次未改启动文件或内存边界；不得据此宣称实板栈余量已验证。
 - 未烧录，未进行板端电流、首帧、BLE 稳定性或保护动作实测。
+
+### 交付
+
+实现提交：`496d196`，仍在原分支。
+
+- [16S 当前测试配置 BIN](../outputs/d008-task-scheduling-20260918/D008_16S_TASK_SCHEDULING_496d196.bin)：AppWakeup=0，保留当前保护默认值与蓝灯行为。
+- [BUILD_INFO.json](../outputs/d008-task-scheduling-20260918/BUILD_INFO.json)：完整提交号、SHA-256、编译开关、硬件验证边界。
+- [验证证据 ZIP](../outputs/d008-task-scheduling-20260918/validation-evidence.zip)：Host/基线失败/编译矩阵日志、MAP、原始 manifest 与外部构建脚本；原始 manifest 路径指向临时构建位置。
+
+交付 BIN 注入诊断 build ID `0x496d196` 后再次 clean rebuild/check-fw/MAP/manifest/verify，text=102936，data=4016，bss=7160，BIN=107108 字节。上面的 +16 字节对比使用相同编译定义；注入 build ID 另增加 16 字节。SHA-256：`eab88577484b110fdc56af22c9422971db865602f8e340cc80e6c51b0fce27c2`。没有自动烧录或更改当前参数。
