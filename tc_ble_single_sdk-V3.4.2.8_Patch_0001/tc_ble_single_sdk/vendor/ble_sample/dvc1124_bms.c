@@ -15,6 +15,24 @@
 /* bms_afe_sample() is scheduled every 200 ms in the current project. */
 #define DVC_BMS_SAMPLE_PERIOD_MS 200u
 
+/* D008 recovery owner: survives AFE reinitialization, not MCU reset.
+ * PB1 is meaningful only with a valid DSGF=0 sample. 200 ms high confirmation
+ * rejects a single sample/glitch; elapsed SDK 32k time is wrap-safe. */
+#define DVC_OCC_RECOVERY_TICKS (30u * 32000u)
+#define DVC_LOAD_REMOVED_TICKS (200u * 32u)
+#define DVC_OCC_ALARMS (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)
+#define DVC_DSG_ALARMS (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)
+static struct {
+    uint32_t charge_started;
+    uint32_t removed_started;
+    uint32_t last_sample;
+    uint8_t sample_seen;
+    uint8_t charge;
+    uint8_t discharge;
+    uint8_t removed_pending;
+    uint8_t hw_pending;
+} s_current_recovery;
+
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
@@ -103,8 +121,6 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
 {
     static uint16_t cov_count;
     static uint16_t cuv_count;
-    static uint16_t occ_count;
-    static uint16_t ocd_count;
     bms_afe_hw_profile_t hw;
     uint8_t clear_mask = 0u;
     uint8_t verify;
@@ -123,20 +139,6 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
             clear_mask |= DVC1124_ALARM_CUV_MASK;
     } else cuv_count = 0u;
 
-    if (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) {
-        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16Ichg <= hw.occ_recover_a10),
-                                hw.occ_recover_ms, &occ_count))
-            clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK));
-    } else occ_count = 0u;
-
-    if (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK)) {
-        if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10),
-                                hw.ocd_recover_ms, &ocd_count))
-            clear_mask |= (uint8_t)(alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK));
-    } else ocd_count = 0u;
-
-    /* SCD remains hardware-latched until D008 has a hardware-verified
-     * load-removal/recovery policy. */
     if (clear_mask == 0u) return alarm;
     if (!DVC1124_ClearAlarmFlags(clear_mask)) return alarm;
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) return alarm;
@@ -167,6 +169,94 @@ static void dvc_merge_hw_faults(uint8_t alarm)
     }
 }
 #endif
+
+/* Called after the software state machine publishes its own Third bits and
+ * before HW faults are merged. Never feed last cycle's merged bits back in. */
+static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
+                                         uint8_t alarm, uint8_t load_removed)
+{
+    uint32_t now = snapshot->sample_tick_32k;
+    uint8_t sw_charge = g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp;
+    uint8_t sw_discharge = g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp;
+    uint8_t charge_ready = 0u, discharge_ready = 0u;
+    uint8_t release_reason = 0u;
+    uint8_t before = (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1));
+#if DVC1124_HW_PROTECT_ENABLE
+    uint8_t clear_mask, verify;
+    s_current_recovery.hw_pending |= (uint8_t)(alarm & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
+#endif
+    /* Do not count an unobserved acquisition/reinit gap as continuous proof. */
+    if (s_current_recovery.sample_seen &&
+        (uint32_t)(now - s_current_recovery.last_sample) > 2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u)
+        s_current_recovery.removed_pending = 0u;
+    s_current_recovery.sample_seen = 1u;
+    s_current_recovery.last_sample = now;
+    if (!s_current_recovery.charge && (sw_charge || (alarm & DVC_OCC_ALARMS))) {
+        s_current_recovery.charge = 1u;
+        s_current_recovery.charge_started = now;
+    }
+    if (sw_discharge || (alarm & DVC_DSG_ALARMS))
+        s_current_recovery.discharge = 1u;
+
+    /* A still-active software threshold remains an independent inhibit. */
+    if (s_current_recovery.charge && !sw_charge &&
+        (uint32_t)(now - s_current_recovery.charge_started) >= DVC_OCC_RECOVERY_TICKS)
+        charge_ready = 1u;
+    /* Negative current is charge; the existing +/-200 mA unreliable zone is
+     * not evidence of charging. AUTO_DIODE permits reverse charging while the
+     * discharge fault remains latched. PB1 alone is ignored while DSGF=1. */
+    if (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+        release_reason = 2u;
+    else if (load_removed && !(snapshot->status & DVC1124_CC2_DSGF_MASK))
+        release_reason = 1u;
+    if (s_current_recovery.discharge && release_reason) {
+        if (s_current_recovery.removed_pending != release_reason) {
+            s_current_recovery.removed_pending = release_reason;
+            s_current_recovery.removed_started = now;
+        } else if (!sw_discharge &&
+                   (uint32_t)(now - s_current_recovery.removed_started) >= DVC_LOAD_REMOVED_TICKS) {
+            discharge_ready = 1u;
+        }
+    } else s_current_recovery.removed_pending = 0u;
+
+#if DVC1124_HW_PROTECT_ENABLE
+    clear_mask = (uint8_t)(s_current_recovery.hw_pending &
+                 ((charge_ready ? DVC_OCC_ALARMS : 0u) |
+                  (discharge_ready ? DVC_DSG_ALARMS : 0u)));
+    if (clear_mask) {
+        /* Keep the software lock until BOTH W1C and readback succeed, including
+         * after AFE reinit has already cleared its volatile alarm register. */
+        if (!DVC1124_ClearAlarmFlags(clear_mask) ||
+            !DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) {
+            charge_ready = discharge_ready = 0u;
+        } else {
+            alarm = verify;
+            s_current_recovery.hw_pending &= (uint8_t)~(clear_mask & (uint8_t)~verify);
+            if (verify & DVC_OCC_ALARMS) charge_ready = 0u;
+            if (verify & DVC_DSG_ALARMS) discharge_ready = 0u;
+            /* A different current fault appearing during readback is retained. */
+            s_current_recovery.hw_pending |= (uint8_t)(verify & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
+            if (verify & DVC_DSG_ALARMS) s_current_recovery.discharge = 1u;
+            if ((verify & DVC_OCC_ALARMS) && !s_current_recovery.charge) {
+                s_current_recovery.charge = 1u;
+                s_current_recovery.charge_started = now;
+            }
+        }
+    }
+#endif
+    if (charge_ready) s_current_recovery.charge = 0u;
+    if (discharge_ready) {
+        s_current_recovery.discharge = 0u;
+        s_current_recovery.removed_pending = 0u;
+    }
+    if (before != (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)))
+        bms_diag_trace(DIAG_EV_CURRENT_RECOVERY,
+            (uint32_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)),
+            (uint32_t)alarm | ((uint32_t)load_removed << 8) | ((uint32_t)snapshot->status << 16) | ((uint32_t)release_reason << 24));
+    if (s_current_recovery.charge) g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp = 1u;
+    if (s_current_recovery.discharge) g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp = 1u;
+    return (uint8_t)(alarm | s_current_recovery.hw_pending);
+}
 
 static uint8_t dvc_charge_blocked(void)
 {
@@ -299,15 +389,16 @@ void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
-#if DVC1124_HW_PROTECT_ENABLE
-    uint8_t alarm;
-#endif
+    uint8_t alarm = 0u;
 
     uint16_t diag_c = 0u, diag_d = 0u;
 
     DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
-    if (!snapshot.valid) { bms_diag_driver(0u, 0u); return; }
+    if (!snapshot.valid) {
+        s_current_recovery.removed_pending = 0u;
+        bms_diag_driver(0u, 0u); return;
+    }
 
     memset(&sw, 0, sizeof(sw));
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
@@ -332,6 +423,10 @@ void DVC1124_BmsApp_AFEGet(void)
 
 #if DVC1124_HW_PROTECT_ENABLE
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
+#endif
+    alarm = dvc_recover_current_faults(&snapshot, alarm,
+                                      (uint8_t)(gpio_read(CHG_IN_PIN) != 0u));
+#if DVC1124_HW_PROTECT_ENABLE
     dvc_merge_hw_faults(alarm);
     if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
     if (alarm & (DVC1124_ALARM_CUV_MASK | DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)) diag_d |= DIAG_BLOCK_HW;

@@ -67,6 +67,7 @@ jobs:
       - name: Run SOC profile/algorithm contract check
         run: python tests/soc_contract_check.py
       - name: Execute D008 power and SOC C host tests
+        run: python tests/d008_current_recovery_host_check.py
         run: python tests/d008_power_soc_host_check.py
       - name: Execute D008 storage transaction C host tests
         run: python tests/d008_storage_host_check.py

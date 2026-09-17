@@ -35,7 +35,9 @@ assert 'g_tParam.protect' not in apply
 assert 'bms_afe_hw_profile_get(&hw)' in apply
 assert 'hw.sc_a10' in apply
 assert 'g_tParam.protect.u16VcellOvp_Rcv' not in b
-assert 'hw.cov_recover_mv' in b and 'hw.ocd_recover_a10' in b
+assert 'hw.cov_recover_mv' in b
+assert 'hw.ocd_recover_a10' not in b  # D008 release requires load removal/charging.
+assert 'DVC_OCC_RECOVERY_TICKS' in b and 'dvc_recover_current_faults' in b
 assert 'DVC1124_ConfigStore' not in c
 assert 'DVC1124_CFG_ERR_READ_ONLY' in c
 assert 'flash_kv32' not in backend

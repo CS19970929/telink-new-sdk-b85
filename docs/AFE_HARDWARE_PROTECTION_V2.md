@@ -153,3 +153,7 @@ SCD 通过 enable_mask bit6 配置，Windows 只新增此位的显式0/1编辑�
 串口连接保持端口打开，用只读 D120 探测等待一线通自动切换；单次650ms、间隔100ms、最多24次且总截止20秒。有效身份/兼容窗口应答才判定连接，支持取消。串口不再沿用 BLE重建/GATT错误。未改变固件一线通调度或5秒UART空闲回退。
 
 验证：`python tests/afe_hw_fragment_host_check.py` 执行实际会话代码；Windows `test-afe-fragments.ps1` 验证客户端分片/确认/取消与延迟串口应答。实板 BLE 丢包/断连、SCD动作、电流阈值及一线通切换仍为 TODO_VERIFY_HW；Host测试不能证明物理短路保护效果。
+
+## 2026-09-17 电流保护恢复更新
+
+用户最新授权替代此前“PB1 暂不实现负载检测”和“SCD 不自动清除”的限制：PB1 低=负载在、高=负载移除，仅在有效 DSGF=0 时判定；软件三级/硬件放电过流及短路在负载移除或可靠充电后恢复，充电过流等待 30 s。保留单侧 AUTO_DIODE 续流；运行期间锁存不因 AFE reinit 丢失，MCU 复位按原启动策略。见 [恢复实现](D008_CURRENT_RECOVERY.md)。实板仍为 TODO_VERIFY_HW。

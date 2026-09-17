@@ -59,3 +59,6 @@ AND no AFE hardware block/lockout
 - 不在 AFE driver 中复制 First/Second/Third 状态机。
 - 不为了“统一参数”把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_tParam.protect`。
 - 每次改变保护语义都必须补 contract test 和实板触发/恢复测试。
+## 2026-09-17 电流保护恢复更新
+
+用户最新授权替代此前“PB1 暂不实现负载检测”和“SCD 不自动清除”的限制：PB1 低=负载在、高=负载移除，仅在有效 DSGF=0 时判定；软件三级/硬件放电过流及短路在负载移除或可靠充电后恢复，充电过流等待 30 s。保留单侧 AUTO_DIODE 续流；运行期间锁存不因 AFE reinit 丢失，MCU 复位按原启动策略。见 [恢复实现](D008_CURRENT_RECOVERY.md)。实板仍为 TODO_VERIFY_HW。
