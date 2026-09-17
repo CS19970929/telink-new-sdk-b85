@@ -1,3 +1,4 @@
+#include "bms_afe_hw_access.h"
 #include "bms_diag.h"
 #include "bms_storage_platform.h"
 /********************************************************************************************************
@@ -418,6 +419,7 @@ void task_terminate(u8 e, u8 *p, int n)
 	{
 	}
 
+    bms_afe_hw_access_close(); /* Drop incomplete fragments and authorization on disconnect. */
 	tlkapi_printf(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] disconnect, reason 0x%x\n", pEvt->terminate_reason);
 
 #if (BLE_APP_PM_ENABLE)

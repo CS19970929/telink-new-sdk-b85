@@ -134,3 +134,22 @@ Assistant 客户端均已废弃，不得作为实现、构建或测试依据。
 ## 9. 安全限制
 
 公共接口只统一语义和事务，不授权未评审产品值。D008 SCD/WDT/Body-Diode、D011/D013 SC/温度、Rsense、GPIO、NTC、load/wake策略等仍需按各产品 `*_PRODUCT_REFERENCE.md` 和 `HARDWARE_VALIDATION.md` 完成硬件签核。
+
+## 10. MTU=23 分片事务（access protocol version 2）
+
+2026-09-17：经用户授权扩展现有 0x42 会话，保留原 0x10/0x2500 完整写入路径、寄存器和 Flash 布局。无需协商更大 MTU。OPEN 回应中的 protocol version 为 2；旧固件小 MTU 时 Windows 拒绝发送参数帧，需更新配套固件或使用串口。
+
+所有多字节字段大端，CRC16/Modbus 低字节在前：
+
+- STAGE 请求：`01 42 05 tokenHi tokenLo offset count data CRClo CRChi`。data 为原 79-byte Modbus 0x10 完整帧片段；count=1..11，每包最多20字节。
+- STAGE 成功回应：`01 42 05 00 tokenHi tokenLo nextOffset CRClo CRChi`。
+- COMMIT 请求：`01 42 06 tokenHi tokenLo CRClo CRChi`；成功回应 `01 42 06 00 CRClo CRChi`。
+- 错误回应为 `addr 42 command status CRClo CRChi`；status=1 授权失败、2 非法请求、3 不支持、4 完整事务失败（需读 apply_state/last_error）。
+
+片段须严格按 offset 连续写入，逐包确认；每次 OPEN 清空暂存并产生新 token。片段间隔超过5秒、关闭/过期会话、BLE断开均丢弃未提交数据。暂存固定79字节，不分片写 Flash 或 AFE。只有收齐并验证完整帧 CRC、地址2500、35words 后才调用既有参数事务。COMMIT 消耗暂存，失败和应答丢失不得重放；上位机重新读 Requested/Effective/apply_state 后再由用户决定下一步。会话是操作门禁，不是安全认证。
+
+SCD 通过 enable_mask bit6 配置，Windows 只新增此位的显式0/1编辑，不修改其他位。启用前必须输入已确认电流/延时。DVC1124 电流按板级 Rsense 换算到10..630mV、10mV档位；延时7.81us档位，Windows启用检查8..1999us，实际以 Effective 为准。不得默认开启或猜测安全阈值。HW=0编译时 Effective仍为关闭，修改 Requested不会绕过编译开关。
+
+串口连接保持端口打开，用只读 D120 探测等待一线通自动切换；单次650ms、间隔100ms、最多24次且总截止20秒。有效身份/兼容窗口应答才判定连接，支持取消。串口不再沿用 BLE重建/GATT错误。未改变固件一线通调度或5秒UART空闲回退。
+
+验证：`python tests/afe_hw_fragment_host_check.py` 执行实际会话代码；Windows `test-afe-fragments.ps1` 验证客户端分片/确认/取消与延迟串口应答。实板 BLE 丢包/断连、SCD动作、电流阈值及一线通切换仍为 TODO_VERIFY_HW；Host测试不能证明物理短路保护效果。

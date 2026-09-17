@@ -242,6 +242,18 @@ static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
     return 0u;
 }
 
+/* The fragmented transport can only submit a complete AFE 0x10 frame.
+ * It cannot dispatch arbitrary Modbus commands or partially apply a profile. */
+u8 bms_afe_hw_write_complete_frame(const u8 *frame, u32 length)
+{
+    if (frame == 0 || length != 79u || frame[0] != 1u || frame[1] != 0x10u ||
+        u16be(&frame[2]) != BMS_AFE_HW_REQUESTED_REG_BASE ||
+        u16be(&frame[4]) != BMS_AFE_HW_PROFILE_WORD_COUNT || frame[6] != 70u ||
+        mb_crc16(frame, 77u) != (u16)((u16)frame[77] | ((u16)frame[78] << 8)))
+        return MB_EX_ILLEGAL_VALUE;
+    return afe_hw_profile_write_block(&frame[7], BMS_AFE_HW_PROFILE_WORD_COUNT);
+}
+
 static int dvc_comm_is_semantic(u16 reg)
 {
     return (reg >= DVC1124_COMM_REG_BASE &&

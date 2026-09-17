@@ -49,6 +49,8 @@ jobs:
         run: python tests/d008_20s_profile_contract_check.py
       - name: Run AFE hardware access contract check
         run: python tests/afe_hw_access_contract_check.py
+      - name: AFE MTU23 staged transaction host tests
+        run: python tests/afe_hw_fragment_host_check.py
       - name: Run D008 documentation contract check
         run: python tests/d008_documentation_contract_check.py
       - name: Run unified software protection contract check
@@ -158,6 +160,8 @@ jobs:
       - name: Run AFE hardware access contract check
         shell: powershell
         run: python tests/afe_hw_access_contract_check.py
+      - name: AFE MTU23 staged transaction host tests
+        run: python tests/afe_hw_fragment_host_check.py
       - name: Run D008 documentation contract check
         shell: powershell
         run: python tests/d008_documentation_contract_check.py

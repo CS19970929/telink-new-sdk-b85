@@ -4,6 +4,12 @@
 static u16 s_token;
 static u32 s_last_activity_tick;
 static u8 s_active;
+static u16 s_generation;
+#define ACCESS_FRAME_BYTES 79u
+#define ACCESS_CHUNK_BYTES 11u
+static u8 s_frame[ACCESS_FRAME_BYTES];
+static u8 s_received;
+static u32 s_fragment_tick;
 
 static u16 access_crc16(const u8 *data, u32 len)
 {
@@ -45,6 +51,7 @@ static u8 access_expired(void)
 
 void bms_afe_hw_access_close(void)
 {
+    s_received = 0u;
     s_active = 0u;
     s_token = 0u;
     s_last_activity_tick = 0u;
@@ -52,6 +59,7 @@ void bms_afe_hw_access_close(void)
 
 void bms_afe_hw_access_poll(void)
 {
+    if (s_received && clock_time_exceed(s_fragment_tick, 5000000u)) s_received = 0u;
     if (s_active && access_expired()) bms_afe_hw_access_close();
 }
 
@@ -75,8 +83,9 @@ u16 bms_afe_hw_access_remaining_seconds(void)
 
 static u16 access_new_token(void)
 {
-    u16 token = (u16)((clock_time() ^ ((u32)bms_afe_hw_profile_expected_model() << 3) ^ 0xAFE1u) & 0xFFFFu);
-    return token ? token : 1u;
+    ++s_generation;
+    if (!s_generation) ++s_generation;
+    return s_generation;
 }
 
 static u8 access_session_valid(u16 token)
@@ -130,7 +139,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
 
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
     crc_calc = access_crc16(req, req_len - 2u);
-    if (crc_rx != crc_calc) return 0;
+    if (crc_rx != crc_calc) { s_received = 0u; return 0; }
 
     command = req[2];
     if (command == BMS_AFE_HW_ACCESS_CMD_OPEN)
@@ -139,6 +148,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
             return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_AUTH_REQUIRED,
                                    0, 0u, rsp, rsp_len);
 
+        s_received = 0u;
         s_token = access_new_token();
         s_last_activity_tick = clock_time();
         s_active = 1u;
@@ -150,15 +160,36 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
                                payload, 7u, rsp, rsp_len);
     }
 
-    if (req_len != 7u)
-        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST,
-                               0, 0u, rsp, rsp_len);
-
+    if (req_len < 7u || (command != BMS_AFE_HW_ACCESS_CMD_STAGE && req_len != 7u)) {
+        s_received = 0u;
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST, 0, 0u, rsp, rsp_len);
+    }
     token = access_u16be(&req[3]);
-    if (!access_session_valid(token))
-        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_AUTH_REQUIRED,
-                               0, 0u, rsp, rsp_len);
-
+    if (!access_session_valid(token)) {
+        s_received = 0u;
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_AUTH_REQUIRED, 0, 0u, rsp, rsp_len);
+    }
+    if (command == BMS_AFE_HW_ACCESS_CMD_STAGE) {
+        u8 count;
+        u8 i;
+        if (req_len < 10u) goto bad_fragment;
+        count = req[6];
+        if (!count || count > ACCESS_CHUNK_BYTES || req_len != (u32)(9u + count) ||
+            req[5] != s_received || (u16)s_received + count > ACCESS_FRAME_BYTES) goto bad_fragment;
+        for (i = 0u; i < count; ++i) s_frame[s_received + i] = req[7u + i];
+        s_received = (u8)(s_received + count);
+        s_fragment_tick = clock_time();
+        access_put_u16be(payload, s_token); payload[2] = s_received;
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_OK, payload, 3u, rsp, rsp_len);
+    }
+    if (command == BMS_AFE_HW_ACCESS_CMD_COMMIT) {
+        u8 error;
+        if (s_received != ACCESS_FRAME_BYTES || s_frame[0] != req[0]) goto bad_fragment;
+        s_received = 0u; /* Consume once, even if persistence/apply fails. */
+        error = bms_afe_hw_write_complete_frame(s_frame, ACCESS_FRAME_BYTES);
+        return access_response(req[0], command, error ? BMS_AFE_HW_ACCESS_STATUS_APPLY_FAILED :
+                               BMS_AFE_HW_ACCESS_STATUS_OK, 0, 0u, rsp, rsp_len);
+    }
     switch (command)
     {
     case BMS_AFE_HW_ACCESS_CMD_HEARTBEAT:
@@ -177,4 +208,8 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_UNSUPPORTED,
                                0, 0u, rsp, rsp_len);
     }
+bad_fragment:
+    s_received = 0u;
+    return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST, 0, 0u, rsp, rsp_len);
+
 }
