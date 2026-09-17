@@ -53,6 +53,11 @@ jobs:
         run: python tests/d008_documentation_contract_check.py
       - name: Run unified software protection contract check
         run: python tests/sw_protection_contract_check.py
+      - name: Execute real software defaults and boot gate checks
+        run: |
+          python tests/sw_protection_defaults_check.py --series-num 16 --boot-check
+          python tests/sw_protection_defaults_check.py --series-num 20 --boot-check
+          python tests/sw_protection_defaults_check.py --series-num 24 --boot-check
       - name: Run common heater/balance/open-wire contract check
         run: python tests/common_feature_policy_contract_check.py
       - name: Run independent AFE hardware profile contract check

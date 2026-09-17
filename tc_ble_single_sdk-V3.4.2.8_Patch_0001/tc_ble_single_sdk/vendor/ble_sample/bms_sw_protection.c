@@ -57,24 +57,16 @@ typedef enum
 static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 
-static uint8_t bms_sw_high_recovery_valid(uint16_t first,
-                                          uint16_t second,
-                                          uint16_t third,
-                                          uint16_t recover)
+/* Recover belongs exclusively to Third (the MOS-blocking protection level).
+ * First/Second are filtered alarms and clear when their own trip is absent. */
+static uint8_t bms_sw_high_recovery_valid(uint16_t third, uint16_t recover)
 {
-    return !((first && recover >= first) ||
-             (second && recover >= second) ||
-             (third && recover >= third));
+    return !third || recover < third;
 }
 
-static uint8_t bms_sw_low_recovery_valid(uint16_t first,
-                                         uint16_t second,
-                                         uint16_t third,
-                                         uint16_t recover)
+static uint8_t bms_sw_low_recovery_valid(uint16_t third, uint16_t recover)
 {
-    return !((first && recover <= first) ||
-             (second && recover <= second) ||
-             (third && recover <= third));
+    return !third || recover > third;
 }
 
 static uint16_t bms_sw_level_value(uint8_t level,
@@ -111,7 +103,8 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                                     uint16_t trip,
                                     uint16_t recover,
                                     uint16_t filter_10ms,
-                                    bms_sw_direction_t direction)
+                                    bms_sw_direction_t direction,
+                                    uint8_t use_recovery)
 {
     uint16_t required;
     uint8_t violated;
@@ -127,8 +120,12 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
     required = bms_sw_filter_samples(filter_10ms);
     if (state->active)
     {
-        recovered = (direction == BMS_SW_HIGH) ?
-                    (value <= recover) : (value >= recover);
+        if (use_recovery)
+            recovered = (direction == BMS_SW_HIGH) ?
+                        (value <= recover) : (value >= recover);
+        else
+            recovered = (direction == BMS_SW_HIGH) ?
+                        (value < trip) : (value > trip);
         if (recovered)
         {
             if (state->recover_count < required) ++state->recover_count;
@@ -180,7 +177,8 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                          uint16_t trip,
                                          uint16_t recover,
                                          uint16_t filter_10ms,
-                                         bms_sw_direction_t direction)
+                                         bms_sw_direction_t direction,
+                                         uint8_t use_recovery)
 {
     if (state == 0) return 0u;
 
@@ -195,7 +193,7 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
     }
 
     return bms_sw_filter_update(state, value, trip, recover,
-                                filter_10ms, direction);
+                                filter_10ms, direction, use_recovery);
 }
 
 static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
@@ -249,30 +247,18 @@ uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *p)
         (p->u16TchgUTp_Second < p->u16TchgUTp_Third) ||
         (p->u16TdischgUTp_First < p->u16TdischgUTp_Second) ||
         (p->u16TdischgUTp_Second < p->u16TdischgUTp_Third)) return 0u;
-    if (!bms_sw_high_recovery_valid(p->u16VcellOvp_First, p->u16VcellOvp_Second,
-                                    p->u16VcellOvp_Third, p->u16VcellOvp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16VbusOvp_First, p->u16VbusOvp_Second,
-                                    p->u16VbusOvp_Third, p->u16VbusOvp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16IchgOcp_First, p->u16IchgOcp_Second,
-                                    p->u16IchgOcp_Third, p->u16IchgOcp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16IdsgOcp_First, p->u16IdsgOcp_Second,
-                                    p->u16IdsgOcp_Third, p->u16IdsgOcp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16TChgOTp_First, p->u16TChgOTp_Second,
-                                    p->u16TChgOTp_Third, p->u16TChgOTp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16TdischgOTp_First, p->u16TdischgOTp_Second,
-                                    p->u16TdischgOTp_Third, p->u16TdischgOTp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16TmosOTp_First, p->u16TmosOTp_Second,
-                                    p->u16TmosOTp_Third, p->u16TmosOTp_Rcv) ||
-        !bms_sw_high_recovery_valid(p->u16VdeltaOvp_First, p->u16VdeltaOvp_Second,
-                                    p->u16VdeltaOvp_Third, p->u16VdeltaOvp_Rcv)) return 0u;
-    if (!bms_sw_low_recovery_valid(p->u16VcellUvp_First, p->u16VcellUvp_Second,
-                                   p->u16VcellUvp_Third, p->u16VcellUvp_Rcv) ||
-        !bms_sw_low_recovery_valid(p->u16VbusUvp_First, p->u16VbusUvp_Second,
-                                   p->u16VbusUvp_Third, p->u16VbusUvp_Rcv) ||
-        !bms_sw_low_recovery_valid(p->u16TchgUTp_First, p->u16TchgUTp_Second,
-                                   p->u16TchgUTp_Third, p->u16TchgUTp_Rcv) ||
-        !bms_sw_low_recovery_valid(p->u16TdischgUTp_First, p->u16TdischgUTp_Second,
-                                   p->u16TdischgUTp_Third, p->u16TdischgUTp_Rcv)) return 0u;
+    if (!bms_sw_high_recovery_valid(p->u16VcellOvp_Third, p->u16VcellOvp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16VbusOvp_Third, p->u16VbusOvp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16IchgOcp_Third, p->u16IchgOcp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16IdsgOcp_Third, p->u16IdsgOcp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16TChgOTp_Third, p->u16TChgOTp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16TdischgOTp_Third, p->u16TdischgOTp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16TmosOTp_Third, p->u16TmosOTp_Rcv) ||
+        !bms_sw_high_recovery_valid(p->u16VdeltaOvp_Third, p->u16VdeltaOvp_Rcv)) return 0u;
+    if (!bms_sw_low_recovery_valid(p->u16VcellUvp_Third, p->u16VcellUvp_Rcv) ||
+        !bms_sw_low_recovery_valid(p->u16VbusUvp_Third, p->u16VbusUvp_Rcv) ||
+        !bms_sw_low_recovery_valid(p->u16TchgUTp_Third, p->u16TchgUTp_Rcv) ||
+        !bms_sw_low_recovery_valid(p->u16TdischgUTp_Third, p->u16TdischgUTp_Rcv)) return 0u;
     if (p->u16TChgOTp_Third > 1450u || p->u16TChgOTp_Rcv > 1450u ||
         p->u16TchgUTp_Third > 1450u || p->u16TchgUTp_Rcv > 1450u ||
         p->u16TdischgOTp_Third > 1450u || p->u16TdischgOTp_Rcv > 1450u ||
@@ -330,37 +316,37 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
                                   p->u16VcellOvp_Second, p->u16VcellOvp_Third);
         f->bits.b1CellOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
             g_stCellInfoReport.u16VCellMax, trip, p->u16VcellOvp_Rcv,
-            p->u16VcellOvp_Filter, BMS_SW_HIGH);
+            p->u16VcellOvp_Filter, BMS_SW_HIGH, level == 2u);
 
         trip = bms_sw_level_value(level, p->u16VcellUvp_First,
                                   p->u16VcellUvp_Second, p->u16VcellUvp_Third);
         f->bits.b1CellUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
             g_stCellInfoReport.u16VCellMin, trip, p->u16VcellUvp_Rcv,
-            p->u16VcellUvp_Filter, BMS_SW_LOW);
+            p->u16VcellUvp_Filter, BMS_SW_LOW, level == 2u);
 
         trip = bms_sw_level_value(level, p->u16VbusOvp_First,
                                   p->u16VbusOvp_Second, p->u16VbusOvp_Third);
         f->bits.b1BatOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
             g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusOvp_Rcv,
-            p->u16VbusOvp_Filter, BMS_SW_HIGH);
+            p->u16VbusOvp_Filter, BMS_SW_HIGH, level == 2u);
 
         trip = bms_sw_level_value(level, p->u16VbusUvp_First,
                                   p->u16VbusUvp_Second, p->u16VbusUvp_Third);
         f->bits.b1BatUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
             g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusUvp_Rcv,
-            p->u16VbusUvp_Filter, BMS_SW_LOW);
+            p->u16VbusUvp_Filter, BMS_SW_LOW, level == 2u);
 
         trip = bms_sw_level_value(level, p->u16IchgOcp_First,
                                   p->u16IchgOcp_Second, p->u16IchgOcp_Third);
         f->bits.b1IchgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
             g_stCellInfoReport.u16Ichg, trip, p->u16IchgOcp_Rcv,
-            p->u16IchgOcp_Filter, BMS_SW_HIGH);
+            p->u16IchgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
         trip = bms_sw_level_value(level, p->u16IdsgOcp_First,
                                   p->u16IdsgOcp_Second, p->u16IdsgOcp_Third);
         f->bits.b1IdischgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
             g_stCellInfoReport.u16IDischg, trip, p->u16IdsgOcp_Rcv,
-            p->u16IdsgOcp_Filter, BMS_SW_HIGH);
+            p->u16IdsgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
         if (inputs->battery_temp_valid)
         {
@@ -368,25 +354,25 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
                                       p->u16TChgOTp_Second, p->u16TChgOTp_Third);
             f->bits.b1CellChgOtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_OT],
                 charge_current_present, inputs->battery_temp_max, trip, p->u16TChgOTp_Rcv,
-                p->u16TChgOTp_Filter, BMS_SW_HIGH);
+                p->u16TChgOTp_Filter, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16TchgUTp_First,
                                       p->u16TchgUTp_Second, p->u16TchgUTp_Third);
             f->bits.b1CellChgUtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_UT],
                 charge_current_present, inputs->battery_temp_min, trip, p->u16TchgUTp_Rcv,
-                p->u16TchgUTp_Filter, BMS_SW_LOW);
+                p->u16TchgUTp_Filter, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16TdischgOTp_First,
                                       p->u16TdischgOTp_Second, p->u16TdischgOTp_Third);
             f->bits.b1CellDischgOtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_OT],
                 discharge_current_present, inputs->battery_temp_max, trip, p->u16TdischgOTp_Rcv,
-                p->u16TdischgOTp_Filter, BMS_SW_HIGH);
+                p->u16TdischgOTp_Filter, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16TdischgUTp_First,
                                       p->u16TdischgUTp_Second, p->u16TdischgUTp_Third);
             f->bits.b1CellDischgUtp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_UT],
                 discharge_current_present, inputs->battery_temp_min, trip, p->u16TdischgUTp_Rcv,
-                p->u16TdischgUTp_Filter, BMS_SW_LOW);
+                p->u16TdischgUTp_Filter, BMS_SW_LOW, level == 2u);
         }
         else
         {
@@ -406,7 +392,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
                                       p->u16TmosOTp_Second, p->u16TmosOTp_Third);
             f->bits.b1TmosOtp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_MOS_OT],
                 inputs->mos_temp, trip, p->u16TmosOTp_Rcv,
-                p->u16TmosOTp_Filter, BMS_SW_HIGH);
+                p->u16TmosOTp_Filter, BMS_SW_HIGH, level == 2u);
         }
         else
         {
@@ -418,7 +404,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
                                   p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third);
         f->bits.b1VcellDeltaBig = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
             g_stCellInfoReport.u16VCellDelta, trip, p->u16VdeltaOvp_Rcv,
-            p->u16VdeltaOvp_Filter, BMS_SW_HIGH);
+            p->u16VdeltaOvp_Filter, BMS_SW_HIGH, level == 2u);
     }
 }
 

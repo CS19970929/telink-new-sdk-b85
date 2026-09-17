@@ -43,16 +43,15 @@ for forbidden in ("DVC1124_", "SH3673510_", "SH3673520_", "gpio_", "ReadReg", "W
 if "p->u16SocUp_" in source:
     raise AssertionError("legacy SOC protection must remain out until semantics are specified")
 
-# Every enabled level shares one recovery threshold, so hysteresis must be
-# valid against First/Second/Third rather than Third only. Invalid loaded Flash
-# parameters must never enter the runtime state machine.
+# Recover applies only to Third. First/Second alarms clear outside their own
+# threshold after filtering; equality remains active (no boundary oscillation).
 for token in (
     "bms_sw_high_recovery_valid",
     "bms_sw_low_recovery_valid",
-    "first && recover >= first",
-    "second && recover >= second",
-    "first && recover <= first",
-    "second && recover <= second",
+    "return !third || recover < third;",
+    "return !third || recover > third;",
+    "(value < trip) : (value > trip)",
+    "level == 2u",
     "if (!bms_protection_params_valid())",
     "bms_sw_protection_clear();",
 ):
