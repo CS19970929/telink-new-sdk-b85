@@ -55,3 +55,11 @@ PC4 LOW 后若调试器等仍反向供电，主循环只进入有界 SDK suspend
 连接状态不再计入suspend的busy条件，使用原有`SUSPEND_CONN`让SDK在连接事件之间休眠并定时唤醒维持连接。连接本身仍阻止自动低压断电计时；显式关机、ACC睡眠保持原逻辑。OTA、Flash会话、总线忙、无效/陈旧采样、待采样及双向>=500mA仍禁止suspend。没有更改连接参数、slave latency、MTU或加入deep retention。
 
 应用定时唤醒宏及过流/短路恢复专用200ms唤醒保持有效。`sys_time.low_power_mode`表示应用允许低功耗，不证明MCU一直睡眠或实测电流。实板需验证连接保活、连续读写、OTA、恢复唤醒及平均功耗；TODO_VERIFY_HW。
+
+### BLE连接suspend构建验证（c8954af）
+
+按用户当前16S工作区构建，保留原有epoch=5、LED与默认值修改。唤醒宏0/1均通过source-order、TC32 clean rebuild、check-fw、MAP、manifest、verify。cppcheck无error/warning，95条style。power/SOC与恢复唤醒Host测试通过；未烧录，连接保活/通信/功耗待实板验证。
+
+- `D008_16S_BLE_SUSPEND_WAKEUP0_c8954af.bin` SHA256 `fdac0ec7cf82413b8a503ed6f74e5c45018b22d9ae4427892eb6e65bccc10dac`
+
+- `D008_16S_BLE_SUSPEND_WAKEUP1_c8954af.bin` SHA256 `a880916cec32b70ef44cd48b086af0524a29ce15737648fb9ddea5bdbe67329c`
