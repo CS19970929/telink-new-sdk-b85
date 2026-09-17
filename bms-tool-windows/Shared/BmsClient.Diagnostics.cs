@@ -64,6 +64,8 @@ public sealed partial class BmsClient
                 try {c.Identity[item.Item1]=ModbusRtu.DecodeAscii(await Read(item.Item2,16));}
                 catch(Exception ex) {c.Errors.Add(item.Item1+": "+ex.Message);if(ct.IsCancellationRequested)break;}
             }
+            if(!ct.IsCancellationRequested)try {c.SoftwareProtectionWords=await Read(0x2100,65);}
+            catch(Exception ex){c.Errors.Add("SoftwareProtection: "+ex.Message);}
             if(!ct.IsCancellationRequested)try {c.Events=await Read(0xC008,100);}catch(Exception ex){c.Errors.Add("Events: "+ex.Message);}
         }
         if(c.Errors.Count!=0 && c.Status=="诊断读取完成")c.Status="部分诊断可用";

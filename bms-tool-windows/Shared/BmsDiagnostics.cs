@@ -23,6 +23,7 @@ public sealed class DiagnosticCapture
     public List<DiagnosticTrace> Trace { get; } = new();
     public Dictionary<string,string> Identity { get; } = new();
     public ushort[]? Events { get; set; }
+    public ushort[]? SoftwareProtectionWords { get; set; }
     public List<string> Errors { get; } = new();
     public List<DiagnosticFrame> Frames { get; } = new();
 }
@@ -115,6 +116,9 @@ public static class BmsDiagnostics
             firmware_git_commit=c.Words is null || U32(c.Words,22)==0 ? "unknown" : U32(c.Words,22).ToString("x8"), physical_feedback="unavailable"});
         Add("boot.json",c.Boot);Add("storage.json",c.Storage);Add("mos.json",c.Mos);
         Add("runtime.json",new {c.Words});Add("trace.json",c.Trace);Add("events.json",c.Events);
+        Add("software_protection.json",new {start_register="0x2100", word_count=65,
+            recovery_semantics="Recover applies to Third only; First/Second are threshold alarms",
+            words=c.SoftwareProtectionWords});
         Add("raw_frames.json",c.Frames);
     }
 }
