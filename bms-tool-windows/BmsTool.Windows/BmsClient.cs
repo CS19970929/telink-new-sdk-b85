@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.IO;
 using System.Text;
 
@@ -118,21 +118,27 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task ProbeAsync(CancellationToken ct = default)
     {
+        // Keep COM open: the first requests wake the shared one-wire/UART pin.
+        bool serial = _transport.RequiresSerialWakeup;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (serial) deadline.CancelAfter(TimeSpan.FromSeconds(20));
+        CancellationToken probeToken = deadline.Token;
+        int attempts = serial ? 24 : 3;
         Exception? last = null;
-        for (int attempt = 1; attempt <= 3; attempt++)
+        for (int attempt = 1; attempt <= attempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 begin");
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} begin");
                 byte[] rsp = await TransactAsync(
                     ModbusRtu.ReadHolding(BmsRegisters.Realtime, 2),
-                    ct,
-                    TimeSpan.FromMilliseconds(1800));
+                    probeToken,
+                    TimeSpan.FromMilliseconds(serial ? 650 : 1800));
                 ushort[] words = ModbusRtu.ParseRead(rsp, 2);
                 if (words.Length >= 2 && words[0] == BmsRegisters.RealtimeMagic)
                 {
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok realtimeMagic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok realtimeMagic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
                     return;
                 }
 
@@ -140,39 +146,47 @@ public sealed partial class BmsClient : IAsyncDisposable
                 // Modbus map while leaving the optional realtime window at zero.
                 // A valid D120 response is not enough to identify the device, so
                 // verify the stable legacy data window before accepting it.
-                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 realtime window unavailable; magic=0x{words.ElementAtOrDefault(0):X4}; trying legacy D000 window");
-                ushort[] legacyHead = await ReadRegistersAsync(BmsRegisters.Legacy, 4, ct);
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} realtime window unavailable; magic=0x{words.ElementAtOrDefault(0):X4}; trying legacy D000 window");
+                ushort[] legacyHead = await ReadRegistersAsync(BmsRegisters.Legacy, 4, probeToken);
                 if (legacyHead.All(value => value == 0))
                 {
-                    ushort[] production = await ReadRegistersAsync(BmsRegisters.Serial, 16, ct);
+                    ushort[] production = await ReadRegistersAsync(BmsRegisters.Serial, 16, probeToken);
                     if (production.All(value => value == 0))
                         throw new IOException($"BMS Modbus probe failed: D120 magic is 0x{words.ElementAtOrDefault(0):X4}, and both legacy D000 and production C002 windows are empty.");
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; production data present");
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; production data present");
                 }
                 else
                 {
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; D000={string.Join(" ", legacyHead.Select(value => value.ToString("X4")))}");
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; D000={string.Join(" ", legacyHead.Select(value => value.ToString("X4")))}");
                 }
                 return;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested && serial)
             {
-                throw;
+                throw new TimeoutException("串口已打开，但 BMS 在 20 秒内未响应。已等待一线通切换 Modbus，请检查接线、波特率和设备供电。", last);
             }
             catch (Exception ex)
             {
                 last = ex;
-                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 failed type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}");
-                if (attempt < 3)
+                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} failed type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}");
+                if (attempt < attempts)
                 {
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/3 requesting full BLE/GATT reconnect before retry");
-                    await _transport.ReconnectAsync(ct);
-                    await Task.Delay(250, ct);
+                    ct.ThrowIfCancellationRequested();
+                    if (!serial)
+                    {
+                        Log?.Invoke("[MODBUS] rebuilding BLE/GATT before retry");
+                        await _transport.ReconnectAsync(ct);
+                    }
+                    else if (!_transport.IsConnected)
+                        throw new IOException("串口已断开。", ex);
+                    await Task.Delay(serial ? 100 : 250, ct);
                 }
             }
         }
 
-        throw new IOException("BMS GATT was rebuilt between retries, but the application did not answer Modbus probe after 3 attempts.", last);
+        throw new IOException(serial
+            ? "串口已打开，但等待一线通切换后仍未收到有效 Modbus 响应，请检查接线、波特率和设备供电。"
+            : "BLE/GATT 已重建，但 BMS 在 3 次探测后仍未响应 Modbus。", last);
     }
 
     public bool IsSh3520 { get; private set; }

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Ports;
 
 namespace BmsTool.Windows;
@@ -21,6 +21,7 @@ public sealed class BmsSerialTransport : IBmsTransport
     private string? _lastPortName;
     private int _lastBaudRate = DefaultBaudRate;
 
+    public bool RequiresSerialWakeup => true;
     public bool IsConnected
     {
         get { lock (_portLock) return _port?.IsOpen == true; }

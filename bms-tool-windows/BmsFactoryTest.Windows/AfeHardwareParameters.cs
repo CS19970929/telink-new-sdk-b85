@@ -221,6 +221,12 @@ public sealed class AfeHardwareParameterModel
             { error = "硬件温度保护恢复阈值与触发阈值的迟滞关系不合法。"; return false; }
         }
 
+        if ((en & AfeHardwareProtocolMap.CapSc)!=0 && _deviceInfo.BackendModel==AfeHardwareProtocolMap.ModelDvc1124) {
+            uint senseUv=(uint)raw[22]*_deviceInfo.ShuntMicroOhm/10u;
+            if (_deviceInfo.ShuntMicroOhm==0 || senseUv<10000u || senseUv>630000u || raw[23]<8 || raw[23]>1999) {
+                error="DVC 短路启用需有效电流（分流压降 10~630 mV）及 8~1999 us 延时；按芯片档位向下量化，请核对有效值。";return false;
+            }
+        }
         error = string.Empty;
         return true;
     }
@@ -278,6 +284,17 @@ public sealed class AfeHardwareParameterModel
         }
         if ((caps & AfeHardwareProtocolMap.CapSc) != 0)
         {
+            Rows.Add(new AfeParameterRow {
+                WireIndex=34, CapabilityMask=AfeHardwareProtocolMap.CapSc,
+                Group="短路保护", Name="SCD 使能", Unit="0/1",
+                Hint="0=关闭，1=启用；仅改变短路位，其他保护使能保持不变。",
+                Decode=v=>(v&AfeHardwareProtocolMap.CapSc)!=0?"1":"0",
+                Encode=text=>text.Trim() switch {
+                    "0"=>(true,(ushort)(_requested[34]&~AfeHardwareProtocolMap.CapSc),string.Empty),
+                    "1"=>(true,(ushort)(_requested[34]|AfeHardwareProtocolMap.CapSc),string.Empty),
+                    _=>(false,(ushort)0,"短路使能只能输入 0 或 1。")
+                }
+            });
             Rows.Add(CurrentRow(22, AfeHardwareProtocolMap.CapSc, "短路保护", "短路电流"));
             Rows.Add(U16Row(23, AfeHardwareProtocolMap.CapSc, "短路保护", "短路延时", "us", 0, ushort.MaxValue));
             Rows.Add(U16Row(24, AfeHardwareProtocolMap.CapSc, "短路保护", "恢复确认", "ms", 0, ushort.MaxValue));
@@ -385,7 +402,7 @@ public sealed class AfeHardwareClient
             if (session.BackendModel != candidate[1])
                 throw new IOException($"AFE access backend mismatch: session=0x{session.BackendModel:X4}, profile=0x{candidate[1]:X4}.");
 
-            await _bms.WriteRegistersAsync(AfeHardwareProtocolMap.RequestedBase, candidate, ct);
+            await _bms.WriteAfeProfileAsync(candidate, session, ct);
             AfeHardwareSnapshot readback = await ReadAllAsync(ct);
             if (!readback.Requested.SequenceEqual(candidate))
             {

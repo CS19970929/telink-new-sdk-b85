@@ -22,15 +22,39 @@ public sealed partial class BmsClient
             BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i * 2, 2), values[i]);
 
         byte[] request = ModbusRtu.WriteMultiple(start, raw);
-        if (_transport is BmsBleTransport ble)
-        {
-            int mtu = ble.NegotiatedMtu ?? 23;
-            if (mtu < request.Length + 3)
-                throw new IOException($"当前 BLE MTU={mtu} 无法承载 {request.Length} 字节 AFE 原子写入。请使用直连串口，或使用 MTU ≥ {request.Length + 3} 的透明 BLE 通道；硬件保护参数禁止拆帧写入。");
-        }
+        if (_transport is BmsBleTransport ble && (ble.NegotiatedMtu ?? 23) < request.Length + 3)
+            throw new IOException("设备尚未支持此写入路径；请使用完整 AFE 参数事务或直连串口，无需修改 MTU。");
 
         byte[] rsp = await TransactAsync(request, ct);
         ModbusRtu.ValidateWriteMultipleAck(rsp, start, checked((ushort)values.Length));
+    }
+
+    public async Task WriteAfeProfileAsync(ushort[] values, AfeHardwareAccessSession session, CancellationToken ct=default)
+    {
+        if(values.Length!=35) throw new ArgumentException("AFE 参数必须为完整 35 words。");
+        if(_transport is not BmsBleTransport ble || (ble.NegotiatedMtu ?? 23)>=82) {
+            await WriteRegistersAsync(0x2500,values,ct);return;
+        }
+        if(session.ProtocolVersion<2)
+            throw new IOException("当前固件不支持 MTU=23 的 AFE 分片事务，参数帧未发送。请升级配套固件或使用直连串口，无需修改 MTU。");
+        byte[] raw=new byte[70];
+        for(int i=0;i<35;i++) BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i*2,2),values[i]);
+        byte[] frame=ModbusRtu.WriteMultiple(0x2500,raw);
+        for(int offset=0;offset<frame.Length;offset+=11) {
+            int count=Math.Min(11,frame.Length-offset);
+            byte[] body=new byte[7+count];body[0]=1;body[1]=0x42;body[2]=5;
+            BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3,2),session.Token);
+            body[5]=(byte)offset;body[6]=(byte)count;
+            Array.Copy(frame,offset,body,7,count);
+            byte[] ack=await TransactAsync(ModbusRtu.Frame(body),ct);
+            ModbusRtu.ValidateAfeHardwareResponse(ack,5);
+            if(ack.Length!=9 || BinaryPrimitives.ReadUInt16BigEndian(ack.AsSpan(4,2))!=session.Token || ack[6]!=offset+count)
+                throw new IOException("AFE 分片确认不匹配；未提交参数，请重新读取设备。");
+        }
+        // No automatic retry: a lost COMMIT response has an unknown outcome.
+        byte[] committed=await TransactAsync(ModbusRtu.AfeHardwareCommand(6,session.Token),ct);
+        ModbusRtu.ValidateAfeHardwareResponse(committed,6);
+        if(committed.Length!=6) throw new IOException("AFE 提交确认长度错误；请重新读取设备。");
     }
 
     public async Task<AfeHardwareAccessSession> OpenAfeHardwareAccessAsync(CancellationToken ct = default)

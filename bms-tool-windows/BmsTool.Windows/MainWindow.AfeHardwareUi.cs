@@ -100,7 +100,7 @@ public partial class MainWindow
 
         var bottom = new TextBlock
         {
-            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；enable-mask 当前只读并保持设备现状。DVC1124 的 SCD/WDT/Body-Diode 等未经产品签核的功能不会由上位机擅自启用。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
+            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；仅允许显式编辑 SCD 使能（0/1），其他使能位保持现状；启用前必须确认短路电流和延时。WDT/Body-Diode 保持固定配置。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray
         };
@@ -188,7 +188,7 @@ public partial class MainWindow
                     $"通信：{transportText}\n" +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
-                    "建议优先使用直连串口。是否继续？",
+                    "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",
                     "确认修改AFE硬件保护参数",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
@@ -211,7 +211,7 @@ public partial class MainWindow
         {
             if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = "保存失败 / 请重新读取状态";
             ShowError("保存AFE硬件参数失败", ex,
-                "固件具有回滚与 CONFIG_INCONSISTENT 状态。写入失败后请先重新读取 apply_state/last_error，确认设备状态后再继续操作。");
+                "以下为本次失败原因；此提示不代表设备已进入 CONFIG_INCONSISTENT。若提交结果不确定，请重新读取 requested/effective 和 apply_state/last_error，不要直接重复写入。");
         }
         finally
         {
