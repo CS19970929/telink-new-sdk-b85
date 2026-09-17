@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.IO.Compression;
 using BmsTool.Windows;
 
@@ -10,6 +10,14 @@ static class Test
         var t=new FakeTransport();await using var b=new BmsClient(t);
         var capture=await b.ReadDiagnosticsAsync(true,"mock");
         Check(capture.Supported&&capture.SnapshotConsistent&&capture.TraceConsistent,"capability/snapshot");
+        Check(capture.Boot.Any(f=>f.Value.Contains("旧固件未提供")),"legacy upgrade detail unavailable");
+        var upgradeWords=capture.Words!.ToArray();upgradeWords[2]|=16;
+        upgradeWords[27]=3;upgradeWords[28]=3;upgradeWords[98]=2200;upgradeWords[102]=3200;
+        upgradeWords[106]=1;upgradeWords[108]=2;
+        var upgrade=new DiagnosticCapture();BmsDiagnostics.Decode(upgrade,upgradeWords);
+        Check(upgrade.Boot.Any(f=>f.Value=="候选参数校验失败"),"upgrade stage");
+        Check(upgrade.Boot.Any(f=>f.Value=="软件保护参数；AFE 硬件参数"),"multiple validation failures");
+        Check(upgrade.Boot.Any(f=>f.Field.StartsWith("升级候选 CUV")&&f.Value.Contains("3200")),"candidate snapshot");
         Check(capture.Errors.Count==0,"unexpected errors: "+string.Join(";",capture.Errors));
         Check(capture.Storage.Any(f=>f.Value.Contains("布局拒绝")),"storage failure explanation");
         Check(capture.Mos.Any(f=>f.Value.Contains("启动存储升级未完成")),"MOS reason");

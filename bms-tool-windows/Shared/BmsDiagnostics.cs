@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
 
@@ -64,6 +64,20 @@ public static class BmsDiagnostics
         B("启动保护参数 / 存储升级",$"{(w[24]&1)!=0} / {(w[24]&2)!=0}");
         B("AFE 配置初始化",Result(w[25]));
         B("参数加载/校验",Result(w[26]));
+        if ((w[2] & 16) != 0) {
+            string[] stages={"未执行","开始","Config 加载失败","候选参数校验失败","Config 保存失败","Config 完成","State 初始化失败","Event 初始化失败","完成"};
+            string stage=w[27]<stages.Length?stages[w[27]]:$"未知({w[27]})";
+            var invalid=new List<string>();
+            if((w[28]&1)!=0) invalid.Add("软件保护参数");
+            if((w[28]&2)!=0) invalid.Add("AFE 硬件参数");
+            if((w[28]&4)!=0) invalid.Add("SOC 配置");
+            if((w[28]&8)!=0) invalid.Add("容量");
+            B("启动升级阶段",stage);
+            B("升级校验失败项",invalid.Count==0?"无":string.Join("；",invalid));
+            B("软件参数 revision：存储 / 固件",$"{U32(w,106)} / {U32(w,108)}");
+            B("启动原有 CUV：First/Second/Third/Recover",$"{w[96]}/{w[97]}/{w[98]}/{w[99]} mV");
+            B("升级候选 CUV：First/Second/Third/Recover",$"{w[100]}/{w[101]}/{w[102]}/{w[103]} mV");
+        } else B("启动升级详细原因","旧固件未提供，不能由存储初始化成功推断升级成功");
         B("Firmware Build ID",U32(w,22)==0?"未知":$"{U32(w,22):x8}");
         string[] domains={"CONFIG","STATE","FACTORY","EVENT"};
         for(int i=0;i<4;i++) {
@@ -93,7 +107,7 @@ public static class BmsDiagnostics
     public static List<DiagnosticTrace> DecodeTrace(ushort[] w,uint last,ushort count)
     {
         if(w.Length!=768 || count>64) throw new InvalidDataException("Trace 长度/条数错误");
-        string[] names={"Unknown","BOOT","INIT","STORAGE","PARAMS","MOS","AFE","BOOT_DONE","DRIVER"};
+        string[] names={"Unknown","BOOT","INIT","STORAGE","PARAMS","MOS","AFE","BOOT_DONE","DRIVER","UPGRADE"};
         var entries=new List<DiagnosticTrace>();
         for(int slot=0;slot<64;slot++) {
             int a=slot*12;uint seq=U32(w,a);
