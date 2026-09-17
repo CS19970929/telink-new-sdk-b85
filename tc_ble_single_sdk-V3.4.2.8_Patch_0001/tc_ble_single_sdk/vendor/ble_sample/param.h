@@ -119,6 +119,8 @@ struct PRT_E2ROM_PARAS {
 #define COV_1           3750
 #define COV_2           3750
 #define COV_3           3750
+// #define COV_3           4250
+// #define COV_recover     4150
 #define COV_recover     3500
 #define COV_filter1      100
 #define COV_filter2     100
@@ -126,11 +128,12 @@ struct PRT_E2ROM_PARAS {
 
 #define CUV_1           3000
 #define CUV_2           3000
+// #define CUV_3           3000
 #define CUV_3           2200
 #define CUV_recover     3100
 #define CUV_filter1      100
 #define CUV_filter2     100
-#define CUV_filter3     1000
+#define CUV_filter3     100
 
 /* Reject unsafe compiled defaults before a revision update can inhibit startup. */
 #if (CUV_1 < CUV_2) || (CUV_2 < CUV_3) || ((CUV_3 != 0) && (CUV_recover <= CUV_3))

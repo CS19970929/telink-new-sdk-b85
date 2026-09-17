@@ -384,6 +384,10 @@ static void board_init(void)
 	gpio_set_input_en(CHG_IN_PIN, 1);
 	gpio_set_output_en(CHG_IN_PIN, 0);
 
+	gpio_set_func(LED_BLUE_PIN, AS_GPIO);
+	gpio_set_input_en(LED_BLUE_PIN, 0);
+	gpio_set_output_en(LED_BLUE_PIN, 1);
+	gpio_write(LED_BLUE_PIN, 1);
 }
 
 _attribute_data_retention_ int device_in_connection_state;
@@ -1060,6 +1064,7 @@ _attribute_no_inline_ void main_loop(void)
         /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
         if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
         app_schedule_sample_wakeup();
+		gpio_toggle(LED_BLUE_PIN);
     }
 
 	_attribute_data_retention_ static u32 event_log_tick = 0;

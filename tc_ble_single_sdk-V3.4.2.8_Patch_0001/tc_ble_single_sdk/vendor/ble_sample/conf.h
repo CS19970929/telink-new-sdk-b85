@@ -18,7 +18,7 @@
  * Sampling then depends on other wake events/main-loop execution and may be
  * delayed. Keep 1 for normal protection/SOC timing. Rebuild after changing. */
 #ifndef BMS_APP_SAMPLE_WAKEUP_ENABLE
-#define BMS_APP_SAMPLE_WAKEUP_ENABLE 1u
+#define BMS_APP_SAMPLE_WAKEUP_ENABLE 0u
 #endif
 #if (BMS_APP_SAMPLE_WAKEUP_ENABLE != 0u) && (BMS_APP_SAMPLE_WAKEUP_ENABLE != 1u)
 #error "BMS_APP_SAMPLE_WAKEUP_ENABLE must be 0 or 1"
@@ -231,7 +231,7 @@ CurCHG = 0, CurDSG
 #define SOC50_PIN              (GPIO_PB5)
 #define SOC75_PIN              (GPIO_PB7)
 #define SOC100_PIN             (GPIO_PD3)
-#define LED_BLUE_PIN           (GPIO_PB6)
+#define LED_BLUE_PIN           (GPIO_PB4)
 
 typedef struct 
 {
@@ -266,7 +266,7 @@ typedef struct
 extern Time_T  sys_time;
 
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
-#define FW_UPGRADE_RESET_PROTECT_EPOCH   1u
+#define FW_UPGRADE_RESET_PROTECT_EPOCH   5u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
@@ -288,7 +288,7 @@ extern Time_T  sys_time;
 /* Independent semantic revisions: equal preserves values, different resets only
  * the named category. Zero is a revision too, not an enable/disable switch. */
 #ifndef FW_UPGRADE_RESET_AFE_HW_EPOCH
-#define FW_UPGRADE_RESET_AFE_HW_EPOCH 1u
+#define FW_UPGRADE_RESET_AFE_HW_EPOCH 0x0001u
 #endif
 #ifndef FW_UPGRADE_RESET_SOC_CONFIG_EPOCH
 #define FW_UPGRADE_RESET_SOC_CONFIG_EPOCH 1u
