@@ -133,7 +133,7 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("dvc_get_battery_temperature_range", sample)
         self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP", sample)
         self.assertIn("dvc_publish_temperature_report(&sw);", sample)
-        self.assertIn("bms_sw_protection_update(&sw);", sample)
+        self.assertIn("bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,", sample)
         self.assertIn("DVC1124_DEFAULT_BATTERY_NTC_GP       2u", self.project)
         self.assertIn("DVC1124_DEFAULT_BATTERY_NTC2_GP      3u", self.project)
         self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP           4u", self.project)
@@ -159,11 +159,11 @@ class D008FrameworkContract(unittest.TestCase):
     def test_sw_off_clears_software_managed_fault_state(self):
         sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
         sample = sample.split("uint8_t bms_afe_set_fets", 1)[0]
-        self.assertIn("#if DVC1124_SW_PROTECT_ENABLE", sample)
-        self.assertIn("bms_sw_protection_update(&sw);", sample)
-        self.assertIn("bms_sw_protection_clear();", sample)
+        self.assertIn("DVC1124_SW_TEMP_PROTECT_ENABLE", sample)
+        self.assertIn("bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,", sample)
+        self.assertNotIn("bms_sw_protection_clear();", sample)
         self.assertLess(sample.index("dvc_publish_temperature_report(&sw);"),
-                        sample.index("#if DVC1124_SW_PROTECT_ENABLE"))
+                        sample.index("bms_sw_protection_update_groups"))
 
     def test_fixed_dvc_operating_config_has_no_flash_owner(self):
         self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.fixed_header)

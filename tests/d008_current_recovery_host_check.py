@@ -13,7 +13,7 @@ fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
 code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc_apply_common_port_fet_state'))
 # Failed samples must break PB1 qualification, before returning from acquisition.
 assert re.search(r'if \(!snapshot.valid\) \{\s*s_current_recovery.removed_pending = 0u;', s)
-assert s.index('bms_sw_protection_update(&sw)') < s.index('alarm = dvc_recover_current_faults(&snapshot')
+assert s.index('bms_sw_protection_update_groups(&sw') < s.index('alarm = dvc_recover_current_faults(&snapshot')
 with tempfile.TemporaryDirectory(prefix='d008-current-') as tmp:
     c = Path(tmp) / 'check.c'; c.write_text(code)
     for hw in (0,1):

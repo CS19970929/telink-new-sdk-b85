@@ -53,8 +53,9 @@
  * 1/1: production behavior (software + DVC hardware protection).
  * 1/0: software-protection-only bench test; DVC autonomous HW protection and
  *      fail-safe sources are deliberately disabled.
- * 0/1: DVC-hardware-protection-only bench test; software state is cleared.
- * 0/0: threshold-protection-off measurement/communication debug mode.
+ * 0/1: DVC hardware with software voltage/current disabled; temperature stays independent.
+ * 0/0: voltage/current threshold isolation; temperature defaults ON.
+ * DVC1124_SW_TEMP_PROTECT_ENABLE controls all software temperature protections.
  *
  * Measurement, I2C communication and CHGF/DSGF sampling remain active in all
  * modes. The requested AFE hardware protection profile remains stored even when
@@ -63,10 +64,15 @@
 #ifndef DVC1124_SW_PROTECT_ENABLE
 #define DVC1124_SW_PROTECT_ENABLE            1u
 #endif
+/* Battery OTP/UTP, MOS OTP and required NTC validity remain independent
+ * of voltage/current isolation. No external-temperature HW backup exists. */
+#ifndef DVC1124_SW_TEMP_PROTECT_ENABLE
+#define DVC1124_SW_TEMP_PROTECT_ENABLE       1u
+#endif
 #ifndef DVC1124_HW_PROTECT_ENABLE
 #define DVC1124_HW_PROTECT_ENABLE            1u
 #endif
-#if ((DVC1124_SW_PROTECT_ENABLE > 1u) || (DVC1124_HW_PROTECT_ENABLE > 1u))
+#if ((DVC1124_SW_PROTECT_ENABLE > 1u) || (DVC1124_HW_PROTECT_ENABLE > 1u) || (DVC1124_SW_TEMP_PROTECT_ENABLE > 1u))
 #error "DVC1124 protection enable macros must be 0 or 1"
 #endif
 

@@ -1370,7 +1370,7 @@ void DVC1124_App_AFEGet(void)
             configured_ntc_ok = 0u;
     }
 
-    if (configured_ntc_ok)
+    if (!DVC1124_SW_TEMP_PROTECT_ENABLE || configured_ntc_ok)
     {
         bms_error_clear(BMS_ERROR_TEMP_BREAK);
     }

@@ -284,6 +284,13 @@ void bms_sw_protection_init(void)
 
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
 {
+    bms_sw_protection_update_groups(inputs, 1u, 1u);
+}
+
+void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
+                                     uint8_t voltage_current_enabled,
+                                     uint8_t temperature_enabled)
+{
     const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
     uint8_t level;
     uint8_t charge_current_present;
@@ -302,7 +309,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
     /* Sensor-break handling remains fail-safe at the system level, but each
      * temperature protection group is evaluated only from the sensor it owns.
      * A missing MOS NTC must not erase battery OTP/UTP state, and vice versa. */
-    if (inputs->battery_temp_valid && inputs->mos_temp_valid)
+    if (!temperature_enabled || (inputs->battery_temp_valid && inputs->mos_temp_valid))
         bms_error_clear(BMS_ERROR_TEMP_BREAK);
     else
         bms_error_raise(BMS_ERROR_TEMP_BREAK);
@@ -312,43 +319,53 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
         bms_fault_reg_t *f = bms_sw_fault_reg(level);
         uint16_t trip;
 
-        trip = bms_sw_level_value(level, p->u16VcellOvp_First,
-                                  p->u16VcellOvp_Second, p->u16VcellOvp_Third);
-        f->bits.b1CellOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
-            g_stCellInfoReport.u16VCellMax, trip, p->u16VcellOvp_Rcv,
-            p->u16VcellOvp_Filter, BMS_SW_HIGH, level == 2u);
+        if (voltage_current_enabled) {
+            trip = bms_sw_level_value(level, p->u16VcellOvp_First,
+                                      p->u16VcellOvp_Second, p->u16VcellOvp_Third);
+            f->bits.b1CellOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
+                g_stCellInfoReport.u16VCellMax, trip, p->u16VcellOvp_Rcv,
+                p->u16VcellOvp_Filter, BMS_SW_HIGH, level == 2u);
 
-        trip = bms_sw_level_value(level, p->u16VcellUvp_First,
-                                  p->u16VcellUvp_Second, p->u16VcellUvp_Third);
-        f->bits.b1CellUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
-            g_stCellInfoReport.u16VCellMin, trip, p->u16VcellUvp_Rcv,
-            p->u16VcellUvp_Filter, BMS_SW_LOW, level == 2u);
+            trip = bms_sw_level_value(level, p->u16VcellUvp_First,
+                                      p->u16VcellUvp_Second, p->u16VcellUvp_Third);
+            f->bits.b1CellUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
+                g_stCellInfoReport.u16VCellMin, trip, p->u16VcellUvp_Rcv,
+                p->u16VcellUvp_Filter, BMS_SW_LOW, level == 2u);
 
-        trip = bms_sw_level_value(level, p->u16VbusOvp_First,
-                                  p->u16VbusOvp_Second, p->u16VbusOvp_Third);
-        f->bits.b1BatOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
-            g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusOvp_Rcv,
-            p->u16VbusOvp_Filter, BMS_SW_HIGH, level == 2u);
+            trip = bms_sw_level_value(level, p->u16VbusOvp_First,
+                                      p->u16VbusOvp_Second, p->u16VbusOvp_Third);
+            f->bits.b1BatOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
+                g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusOvp_Rcv,
+                p->u16VbusOvp_Filter, BMS_SW_HIGH, level == 2u);
 
-        trip = bms_sw_level_value(level, p->u16VbusUvp_First,
-                                  p->u16VbusUvp_Second, p->u16VbusUvp_Third);
-        f->bits.b1BatUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
-            g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusUvp_Rcv,
-            p->u16VbusUvp_Filter, BMS_SW_LOW, level == 2u);
+            trip = bms_sw_level_value(level, p->u16VbusUvp_First,
+                                      p->u16VbusUvp_Second, p->u16VbusUvp_Third);
+            f->bits.b1BatUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
+                g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusUvp_Rcv,
+                p->u16VbusUvp_Filter, BMS_SW_LOW, level == 2u);
 
-        trip = bms_sw_level_value(level, p->u16IchgOcp_First,
-                                  p->u16IchgOcp_Second, p->u16IchgOcp_Third);
-        f->bits.b1IchgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
-            g_stCellInfoReport.u16Ichg, trip, p->u16IchgOcp_Rcv,
-            p->u16IchgOcp_Filter, BMS_SW_HIGH, level == 2u);
+            trip = bms_sw_level_value(level, p->u16IchgOcp_First,
+                                      p->u16IchgOcp_Second, p->u16IchgOcp_Third);
+            f->bits.b1IchgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
+                g_stCellInfoReport.u16Ichg, trip, p->u16IchgOcp_Rcv,
+                p->u16IchgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
-        trip = bms_sw_level_value(level, p->u16IdsgOcp_First,
-                                  p->u16IdsgOcp_Second, p->u16IdsgOcp_Third);
-        f->bits.b1IdischgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
-            g_stCellInfoReport.u16IDischg, trip, p->u16IdsgOcp_Rcv,
-            p->u16IdsgOcp_Filter, BMS_SW_HIGH, level == 2u);
+            trip = bms_sw_level_value(level, p->u16IdsgOcp_First,
+                                      p->u16IdsgOcp_Second, p->u16IdsgOcp_Third);
+            f->bits.b1IdischgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
+                g_stCellInfoReport.u16IDischg, trip, p->u16IdsgOcp_Rcv,
+                p->u16IdsgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
-        if (inputs->battery_temp_valid)
+        } else {
+            uint8_t id;
+            for (id = BMS_SW_F_CELL_OV; id <= BMS_SW_F_DSG_OC; ++id)
+                bms_sw_filter_reset(&s_filter[level][id]);
+            f->bits.b1CellOvp = f->bits.b1CellUvp = 0u;
+            f->bits.b1BatOvp = f->bits.b1BatUvp = 0u;
+            f->bits.b1IchgOcp = f->bits.b1IdischgOcp = 0u;
+        }
+
+        if (temperature_enabled && inputs->battery_temp_valid)
         {
             trip = bms_sw_level_value(level, p->u16TChgOTp_First,
                                       p->u16TChgOTp_Second, p->u16TChgOTp_Third);
@@ -386,7 +403,7 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
             f->bits.b1CellDischgUtp = 0u;
         }
 
-        if (inputs->mos_temp_valid)
+        if (temperature_enabled && inputs->mos_temp_valid)
         {
             trip = bms_sw_level_value(level, p->u16TmosOTp_First,
                                       p->u16TmosOTp_Second, p->u16TmosOTp_Third);
@@ -400,11 +417,16 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
             f->bits.b1TmosOtp = 0u;
         }
 
-        trip = bms_sw_level_value(level, p->u16VdeltaOvp_First,
-                                  p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third);
-        f->bits.b1VcellDeltaBig = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
-            g_stCellInfoReport.u16VCellDelta, trip, p->u16VdeltaOvp_Rcv,
-            p->u16VdeltaOvp_Filter, BMS_SW_HIGH, level == 2u);
+        if (voltage_current_enabled) {
+            trip = bms_sw_level_value(level, p->u16VdeltaOvp_First,
+                                      p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third);
+            f->bits.b1VcellDeltaBig = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
+                g_stCellInfoReport.u16VCellDelta, trip, p->u16VdeltaOvp_Rcv,
+                p->u16VdeltaOvp_Filter, BMS_SW_HIGH, level == 2u);
+        } else {
+            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_VDELTA]);
+            f->bits.b1VcellDeltaBig = 0u;
+        }
     }
 }
 

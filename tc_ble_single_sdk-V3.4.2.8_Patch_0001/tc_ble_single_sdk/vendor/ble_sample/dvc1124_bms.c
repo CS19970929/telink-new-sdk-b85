@@ -411,15 +411,10 @@ void DVC1124_BmsApp_AFEGet(void)
     /* Measurement/reporting remains active in every protection-isolation mode. */
     dvc_publish_temperature_report(&sw);
 
-#if DVC1124_SW_PROTECT_ENABLE
-    bms_sw_protection_update(&sw);
+    bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,
+                                    DVC1124_SW_TEMP_PROTECT_ENABLE);
     if (bms_sw_protection_charge_blocked()) diag_c |= DIAG_BLOCK_SW;
     if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
-#else
-    /* Match D011/D013 isolation semantics: disabling the SW path also clears
-     * any previously latched software-managed fault bits and TEMP_BREAK. */
-    bms_sw_protection_clear();
-#endif
 
 #if DVC1124_HW_PROTECT_ENABLE
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);

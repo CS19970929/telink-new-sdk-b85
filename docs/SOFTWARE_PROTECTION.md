@@ -62,3 +62,7 @@ AND no AFE hardware block/lockout
 ## 2026-09-17 电流保护恢复更新
 
 用户最新授权替代此前“PB1 暂不实现负载检测”和“SCD 不自动清除”的限制：PB1 低=负载在、高=负载移除，仅在有效 DSGF=0 时判定；软件三级/硬件放电过流及短路在负载移除或可靠充电后恢复，充电过流等待 30 s。保留单侧 AUTO_DIODE 续流；运行期间锁存不因 AFE reinit 丢失，MCU 复位按原启动策略。见 [恢复实现](D008_CURRENT_RECOVERY.md)。实板仍为 TODO_VERIFY_HW。
+
+## 软件温度保护开关更新
+
+`DVC1124_SW_PROTECT_ENABLE` 仅控制软件电压、电流及压差；新增默认开启的 `DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制电池温度、MOS温度及必需NTC失效保护，不能用HW开关替代外部温度保护。旧SW/HW四组合说明按此更新；详情见 [实现说明](D008_PROTECTION_GROUPS.md)。
