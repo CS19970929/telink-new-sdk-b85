@@ -23,3 +23,5 @@
 只记录数据，不改变存储/保护事务、短路执行顺序、参数所有权或失败门禁。全部初始化成功不再被UI当作升级成功的替代证据。
 
 验证入口：`python tests/sw_protection_defaults_check.py --series-num 16 --boot-check` 使用真实软件校验器及存储事务；新增有效旧Flash+非法新CUV候选复现，检查门禁=1、revision未发布、SaveParam不能绕过，纠正默认值并重启后门禁=3。AFE/SOC校验器在该Host夹具中仍为stub，不声称覆盖实板或这些默认值。通用存储Host tests另覆盖掉电和多阶段失败。
+
+用户已确认恢复CUV First/Second/Third/Recover=3000/3000/2200/3100mV。本次仅恢复该阈值组合，不修改其他保护参数或AFE revision；工作区现有滤波设置保留。
