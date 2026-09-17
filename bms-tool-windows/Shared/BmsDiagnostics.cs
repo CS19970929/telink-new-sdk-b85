@@ -45,6 +45,7 @@ public static class BmsDiagnostics
         return items.Count==0 ? "无" : string.Join("；",items);
     }
     private static string On(bool v)=>v?"ON":"OFF";
+    private static string Mode(int code)=>code switch {2=>"AUTO_DIODE",3=>"ON",_=>"OFF"};
     public static void Decode(DiagnosticCapture c, ushort[] w)
     {
         if(w.Length!=256 || w[0]!=Magic || w[1]!=Schema) throw new InvalidDataException("诊断长度/magic/schema 不匹配");
@@ -81,6 +82,8 @@ public static class BmsDiagnostics
         M("软件允许 CHG / DSG",$"{On((w[129]&1)!=0)} / {On((w[129]&2)!=0)}（不代表物理导通）");
         M("CHG 阻断原因",Reasons(U32(w,136)));M("DSG 阻断原因",Reasons(U32(w,138)));
         M("AFE Command R81",w[131]!=0?$"0x{w[130]:X2}（最近成功命令/读回）":"未知/无效");
+        M("AFE Command CHG / DSG",w[131]!=0?$"{Mode(w[130]&3)} / {Mode((w[130]>>2)&3)}":"未知/无效");
+        M("AFE Driver CHGF / DSGF",w[133]!=0?$"{On((w[132]&1)!=0)} / {On((w[132]&2)!=0)}":"未知/无效");
         M("AFE Driver R6",w[133]!=0?$"0x{w[132]:X2}（CHGF/DSGF，非物理反馈）":"未知/无效");
         M("AFE 采样年龄",$"{unchecked(U32(w,6)-U32(w,140))} ticks32k；有效位={w[133]}");
         M("Physical Feedback","不可用 / unknown");

@@ -25,6 +25,8 @@ static class Test
         t.ExceptionCode=0;t.FailEvents=true;var partial=await b.ReadDiagnosticsAsync(true,"partial");
         Check(partial.Supported&&partial.Errors.Any(e=>e.StartsWith("Events:")),"optional error preserves snapshot");
         t.FailEvents=false;t.Timeout=true;
+        var timedOut=await b.ReadDiagnosticsAsync(false,"timeout");
+        Check(timedOut.Status=="诊断通信/解码失败"&&timedOut.Errors.Any(e=>e.Contains("TimeoutException")),"real timeout");
         using var cancel=new CancellationTokenSource(100);
         var failed=await b.ReadDiagnosticsAsync(false,"timeout",cancel.Token);
         Check(!failed.Status.Contains("不支持")&&failed.Errors.Count>0,"timeout is not unsupported");
