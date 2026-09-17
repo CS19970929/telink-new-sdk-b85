@@ -308,7 +308,17 @@ int bms_config_store_apply_revisions(void)
 {
     bms_config_cache_t next;
     bms_config_system_params_t defaults;
-    if (!bms_config_ensure_ready()) return 0;
+    u16 invalid_mask = 0u;
+    bms_diag_upgrade(DIAG_UPGRADE_STARTED, 0u);
+    if (!bms_config_ensure_ready()) {
+        bms_diag_upgrade(DIAG_UPGRADE_CONFIG_LOAD, 0u); return 0;
+    }
+    bms_diag_boot_u32(106u, g_bms_config.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH]);
+    bms_diag_boot_u32(108u, FW_UPGRADE_RESET_PROTECT_EPOCH);
+    bms_diag_boot_word(96u, g_bms_config.protect.u16VcellUvp_First);
+    bms_diag_boot_word(97u, g_bms_config.protect.u16VcellUvp_Second);
+    bms_diag_boot_word(98u, g_bms_config.protect.u16VcellUvp_Third);
+    bms_diag_boot_word(99u, g_bms_config.protect.u16VcellUvp_Rcv);
     next = g_bms_config;
     bms_config_store_get_default_system(&defaults);
     if (next.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH] != FW_UPGRADE_RESET_PROTECT_EPOCH) {
@@ -336,11 +346,25 @@ int bms_config_store_apply_revisions(void)
         next.system.capacity_factory = CapacityFactory;
         next.control[BMS_CONFIG_CTRL_SOC_CONFIG_RESET_EPOCH] = FW_UPGRADE_RESET_SOC_CONFIG_EPOCH;
     }
-    if (!bms_sw_protection_validate_params(&next.protect) ||
-        !bms_afe_hw_profile_validate(&next.afe_hw) || !bms_soc_config_valid(&next.soc) ||
-        next.system.capacity_factory == 0u || next.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
-    if (g_bms_config_store.has_latest && memcmp(&next, &g_bms_config, sizeof(next)) == 0) return 1;
-    return bms_config_save_cache(&next);
+    bms_diag_boot_word(100u, next.protect.u16VcellUvp_First);
+    bms_diag_boot_word(101u, next.protect.u16VcellUvp_Second);
+    bms_diag_boot_word(102u, next.protect.u16VcellUvp_Third);
+    bms_diag_boot_word(103u, next.protect.u16VcellUvp_Rcv);
+    /* Evaluate each pure validator so simultaneous failures remain visible. */
+    if (!bms_sw_protection_validate_params(&next.protect)) invalid_mask |= DIAG_UPGRADE_BAD_SW;
+    if (!bms_afe_hw_profile_validate(&next.afe_hw)) invalid_mask |= DIAG_UPGRADE_BAD_AFE;
+    if (!bms_soc_config_valid(&next.soc)) invalid_mask |= DIAG_UPGRADE_BAD_SOC;
+    if (next.system.capacity_factory == 0u || next.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH)
+        invalid_mask |= DIAG_UPGRADE_BAD_CAPACITY;
+    if (invalid_mask) {
+        bms_diag_upgrade(DIAG_UPGRADE_VALIDATION, invalid_mask); return 0;
+    }
+    if (!(g_bms_config_store.has_latest && memcmp(&next, &g_bms_config, sizeof(next)) == 0) &&
+        !bms_config_save_cache(&next)) {
+        bms_diag_upgrade(DIAG_UPGRADE_SAVE, 0u); return 0;
+    }
+    bms_diag_upgrade(DIAG_UPGRADE_CONFIG_OK, 0u);
+    return 1;
 }
 
 int bms_config_store_get_soc(bms_soc_config_t *config)

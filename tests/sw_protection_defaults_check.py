@@ -87,6 +87,10 @@ def main():
     for name, direction in groups:
         fields = ', '.join('p.u16' + name + suffix for suffix in
                            ('_First', '_Second', '_Third', '_Rcv'))
+        order = '>' if direction == 'high' else '<'
+        checks.append(f'''if (p.u16{name}_First {order} p.u16{name}_Second || p.u16{name}_Second {order} p.u16{name}_Third) {{
+            printf("INVALID ORDER {name}: First=%u Second=%u Third=%u Recover=%u\\n", {fields});
+        }}''')
         recovery_fields = f'p.u16{name}_Third, p.u16{name}_Rcv'
         checks.append(f'''if (!bms_sw_{direction}_recovery_valid({recovery_fields})) {{
             printf("INVALID {name}: First=%u Second=%u Third=%u Recover=%u ({direction})\\n", {fields});
@@ -127,6 +131,10 @@ def main():
                 'bms_cold_kv_store.h', 'bms_event_log.h', 'bms_storage_platform.h'))
             units = '\n'.join(store_source(n) for n in (
                 'bms_config_store.c', 'bms_state_store.c', 'bms_event_log.c', 'param.c'))
+            units = units.replace('struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;',
+                'struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT; '
+                'if (force_bad_default) { defaults.u16VcellUvp_First=3000; defaults.u16VcellUvp_Second=3000; defaults.u16VcellUvp_Third=3200; defaults.u16VcellUvp_Rcv=3300; }')
+            units = 'static int force_bad_default;\n' + units
             fixture = fixture.replace('/* MACROS */', macros).replace('/* TYPES */', header + '\n' + headers).replace('/* PRODUCTION */', units)
             fixture += '''
 int main(void) {
@@ -147,6 +155,30 @@ int main(void) {
     assert(errors == (valid ? 0u : 2u));
     assert(bms_diag_cached_word(144) == (valid ? 3u : 0u));
     if (valid) {
+        /* Reproduce the supplied evidence: valid old Flash + rejected new defaults.
+         * Do not publish the failed revision or let a later SaveParam clear it. */
+        g_bms_config.protect.u16VcellUvp_First=3000;
+        g_bms_config.protect.u16VcellUvp_Second=3000;
+        g_bms_config.protect.u16VcellUvp_Third=2200;
+        g_bms_config.protect.u16VcellUvp_Rcv=3100;
+        g_bms_config.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH]=FW_UPGRADE_RESET_PROTECT_EPOCH+1u;
+        assert(bms_config_save_cache(&g_bms_config));
+        reboot(); force_bad_default=1; errors=0;
+        Param_UpgradeReset_Apply(); LoadParam();
+        assert(bms_state_store_init()); assert(bms_event_log_init());
+        bms_param_diag_poll();
+        assert(errors==1 && bms_diag_cached_word(144)==1);
+        assert(bms_diag_cached_word(27)==DIAG_UPGRADE_VALIDATION);
+        assert(bms_diag_cached_word(28)==DIAG_UPGRADE_BAD_SW);
+        assert(bms_diag_cached_word(98)==2200 && bms_diag_cached_word(102)==3200);
+        assert(g_bms_config.control[BMS_CONFIG_CTRL_PROTECT_RESET_EPOCH]==FW_UPGRADE_RESET_PROTECT_EPOCH+1u);
+        assert(SaveParam() && !bms_protection_params_valid());
+        bms_diag_freeze_boot(); bms_diag_upgrade(DIAG_UPGRADE_OK,0);
+        assert(bms_diag_cached_word(27)==DIAG_UPGRADE_VALIDATION);
+        reboot(); force_bad_default=0;
+        Param_UpgradeReset_Apply(); LoadParam(); bms_param_diag_poll();
+        assert(bms_diag_cached_word(27)==DIAG_UPGRADE_OK && bms_diag_cached_word(144)==3);
+        puts("PASS old valid Flash + invalid CUV defaults: exact gate=1 reproduction, frozen evidence, corrected defaults recover after reboot");
         /* A genuinely invalid Third recovery must still fail closed. */
         g_bms_config.protect.u16TChgOTp_Rcv = g_bms_config.protect.u16TChgOTp_Third;
         assert(bms_config_save_cache(&g_bms_config));

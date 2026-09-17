@@ -34,7 +34,7 @@ void bms_diag_init(void)
 {
     memset(s_words, 0, sizeof(s_words)); memset(s_trace, 0, sizeof(s_trace));
     s_sequence = 0u; s_trace_sequence = 0u; s_next = 0u; s_frozen = 0u;
-    s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = 15u;
+    s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = 31u;
     put32(&s_words[22], BMS_DIAG_BUILD_ID);
     s_words[14] = 0x1124u; s_words[15] = 0x8251u;
     bms_diag_trace(DIAG_EV_BOOT, 0u, 0u);
@@ -46,6 +46,12 @@ void bms_diag_boot_word(uint16_t offset, uint16_t value)
 void bms_diag_boot_u32(uint16_t offset, uint32_t value)
 {
     if (!s_frozen && offset >= 13u && offset < 127u) { put32(&s_words[offset], value); changed(); }
+}
+void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask)
+{
+    if (s_frozen) return;
+    s_words[27] = stage; s_words[28] = invalid_mask;
+    bms_diag_trace(DIAG_EV_UPGRADE, stage, invalid_mask);
 }
 void bms_diag_freeze_boot(void)
 {

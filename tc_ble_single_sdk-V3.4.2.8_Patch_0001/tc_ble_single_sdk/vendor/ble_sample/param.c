@@ -90,12 +90,18 @@ void Param_UpgradeReset_Apply(void)
     /* A failed boot update remains inhibited until reboot/retry through this
      * startup path. A later communication SaveParam cannot clear this gate. */
     s_storage_upgrade_valid = 0u;
-    if (!bms_config_store_apply_revisions() || !bms_state_store_init() ||
-        !bms_event_log_init()) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return;
+    if (!bms_config_store_apply_revisions()) goto failed;
+    if (!bms_state_store_init()) {
+        bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u); goto failed;
+    }
+    if (!bms_event_log_init()) {
+        bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u); goto failed;
     }
     s_storage_upgrade_valid = 1u;
+    bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);
+    return;
+failed:
+    bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
 void bms_param_diag_poll(void)
