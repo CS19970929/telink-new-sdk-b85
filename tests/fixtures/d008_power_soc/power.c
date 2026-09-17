@@ -116,6 +116,18 @@ int main(void){
   assert(mask==(active?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
   assert(sys_time.low_power_mode==!active);
  }
+ /* A live BLE connection is not itself an active-mode request. */
+ reset();device_in_connection_state=1;blt_pm_proc();
+ assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&sys_time.low_power_mode);
+ elapsed=7200;g_stCellInfoReport.u16VCellMin=2400;blt_pm_proc();assert(!cut_calls);
+ ota_is_working=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ ota_is_working=0;bus_busy=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ bus_busy=0;flash_ready=0;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ flash_ready=1;s_sample_due=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ s_sample_due=0;measurement.current_ma=500;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ measurement.current_ma=-500;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ measurement.current_ma=0;valid=0;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
+ puts("PASS connected suspend: link retained; OTA/bus/Flash/sample/current/invalid gates and no automatic power-off");
  reset();valid=0;blt_pm_proc();assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
  reset();now+=12801;blt_pm_proc();assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
  reset();ota_is_working=1;elapsed=3600;g_stCellInfoReport.u16VCellMin=2400;blt_pm_proc();assert(!cut_calls);assert(mask==0);

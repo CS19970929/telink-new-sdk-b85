@@ -13,7 +13,7 @@
 | 关机失败 | 任一步返回失败不切 MCU 电源；重试至少间隔 5 s，走既有 guard 恢复 | Flash/AFE 电气失败注入待板测 |
 | 启动 | `gpio_init` 后尽早 PC4 HIGH 保持电源；复用 PD7/I2C 唤醒、reset、配置/读回及三帧 guard 资格 | 不改变现有厂商唤醒脉冲时序；电源保持时点待测 |
 | suspend | SDK application wakeup 请求 200 ms 采样周期；callback 只置标志，I2C/SOC/Flash 留在主循环 | 固定 AFE current-wake/interrupt 策略不变；实际最坏延迟待测 |
-| 退出 suspend | 精确有符号 mA，`>=500` 或 `<=-500`；无效/陈旧样本、OTA/Flash stack session、OWC 总线忙、BLE 连接、采样待处理也保持 active | 没有新增 GPIO 唤醒/阈值迟滞；电流噪声待实测 |
+| 退出 suspend | 精确有符号 mA，`>=500` 或 `<=-500`；无效/陈旧样本、OTA/Flash stack session、OWC 总线忙、采样待处理也保持 active；BLE连接本身允许事件间suspend | 没有新增 GPIO 唤醒/阈值迟滞；电流噪声待实测 |
 | SOC | guard 合格快照传递 mA/32k timestamp；实际时间积分；无效、重复、长间隔不能充当静置证据 | 最大年龄/间隔 400 ms 是两个名义采样周期的保守软件界限 |
 
 既有低压关机电压及持续时间保留：<2550 mV 1 h；其余按 `__SLEEP_VLOW__/__SLEEP_TIMEVLOW__`、`__SLEEP_VNORMAL__/__SLEEP_TIMENORMAL__`。不再保留无 key/charger 或 AFE 失联后直接深睡眠路径。OTA、连接、总线事务、未合格测量阻断关机计时。PB1不触发关机。用户后续授权的ACC保电深睡眠独立实现，不使用PC4断电，详见D008_ACC_SLEEP.md。
@@ -49,3 +49,9 @@ PC4 LOW 后若调试器等仍反向供电，主循环只进入有界 SDK suspend
 该轮 manifest 的 git.dirty 有 null/true：既有工具把干净状态的空输出误判为未知，随后归档目录被算成未跟踪文件。本次后续修正 capture 对空成功输出的处理并忽略 variant-evidence/，不改变编译输入；增加 clean/modified/unavailable 三种测试。后续同分支 Actions 验证该元数据修正。上述结果只对应明确的固件 SHA，不把历史结果当成后续提交通过。
 
 另：manifest 继续提示继承的 MCU_STARTUP_8258 SRAM profile 与声明 TLSR8251 的差异，未在本轮擅改 startup/linker；这是既有硬件/内存身份未决项，构建通过不关闭此项。
+
+## BLE连接期间suspend
+
+连接状态不再计入suspend的busy条件，使用原有`SUSPEND_CONN`让SDK在连接事件之间休眠并定时唤醒维持连接。连接本身仍阻止自动低压断电计时；显式关机、ACC睡眠保持原逻辑。OTA、Flash会话、总线忙、无效/陈旧采样、待采样及双向>=500mA仍禁止suspend。没有更改连接参数、slave latency、MTU或加入deep retention。
+
+应用定时唤醒宏及过流/短路恢复专用200ms唤醒保持有效。`sys_time.low_power_mode`表示应用允许低功耗，不证明MCU一直睡眠或实测电流。实板需验证连接保活、连续读写、OTA、恢复唤醒及平均功耗；TODO_VERIFY_HW。

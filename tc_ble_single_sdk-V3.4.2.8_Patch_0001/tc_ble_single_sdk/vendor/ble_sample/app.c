@@ -626,7 +626,7 @@ void blt_pm_proc(void)
     u8 region = 0u;
     u8 valid = app_get_fresh_measurements(&m);
     u8 busy = ota_is_working || !app_flash_lock_restore_enabled() ||
-              BUS_STATE_OWC_IDLE != bus_mux_get_state() || device_in_connection_state;
+              BUS_STATE_OWC_IDLE != bus_mux_get_state();
 
     /* 0x1102=0x000A is a latched power-off request, not an idle-suspend hint.
      * Keep it pending across OTA/bus/persistence/AFE failures. Return here so
@@ -653,7 +653,9 @@ void blt_pm_proc(void)
 
     /* Preserve voltage thresholds/timeouts, but only qualified samples may
      * accumulate them. No key, load-detect or communication-error shutdown. */
-    if (valid && !busy)
+    /* A BLE link permits between-event suspend, but still prevents automatic
+     * low-voltage power-off. The SDK schedules connection-event wakeups. */
+    if (valid && !busy && !device_in_connection_state)
     {
         if (g_stCellInfoReport.u16VCellMin < 2550u)
         {
