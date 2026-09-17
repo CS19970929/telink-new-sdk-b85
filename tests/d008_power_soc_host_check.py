@@ -44,7 +44,8 @@ def main():
                    'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('SocEnhance.c'),
             'power': '\n'.join(function('app.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
-                'static int app_enter_power_off(', 'void blt_pm_proc(void)')),
+                'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',
+                'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void blt_pm_proc(void)')),
             'guard': source('bms_afe_guard.c'),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
         }.items():

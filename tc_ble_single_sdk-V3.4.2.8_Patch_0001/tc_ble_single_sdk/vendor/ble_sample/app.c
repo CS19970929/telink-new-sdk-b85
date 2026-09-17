@@ -61,10 +61,13 @@ bool deepsleep_en = false;
 #define APP_SAMPLE_PERIOD_US 200000u
 #define APP_SUSPEND_EXIT_CURRENT_MA 500
 #define APP_POWER_OFF_RETRY_SECONDS 5u
+#define APP_ACC_HIGH_STABLE_TICKS (APP_PM_TICKS_PER_SEC / 5u)
 extern int device_in_connection_state;
 static u8 s_power_off_committed;
 static u8 s_power_off_retry_ready;
 static u32 s_power_off_retry_tick;
+static u8 s_acc_high_seen, s_acc_sleep_committed, s_acc_retry_ready, s_acc_disconnect_sent;
+static u32 s_acc_high_tick, s_acc_retry_tick;
 static u32 s_sample_tick;
 static volatile u8 s_sample_due;
 
@@ -189,6 +192,67 @@ static int app_enter_power_off(void)
     return 1;
 }
 
+/* ACC sleep keeps PC4 high. Deep sleep wakes through a full normal boot;
+ * never resume sampling against the intentionally shutdown AFE. */
+static void app_acc_sleep_hold(void)
+{
+    if (!gpio_read(ACC_MCU_PIN)) {
+        start_reboot();
+        return;
+    }
+    cpu_set_gpio_wakeup(ACC_MCU_PIN, Level_Low, 1);
+    cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
+    /* PAD may become active between the check and sleep entry. */
+    if (!gpio_read(ACC_MCU_PIN)) start_reboot();
+}
+
+static int app_acc_sleep_requested(void)
+{
+    u32 now = pm_get_32k_tick();
+    if (!gpio_read(ACC_MCU_PIN)) {
+        s_acc_high_seen = s_acc_retry_ready = s_acc_disconnect_sent = 0u;
+        return 0;
+    }
+    if (!s_acc_high_seen) {
+        s_acc_high_seen = 1u; s_acc_high_tick = now;
+    }
+    return (u32)(now - s_acc_high_tick) >= APP_ACC_HIGH_STABLE_TICKS;
+}
+
+static int app_enter_acc_sleep(void)
+{
+    u32 now = pm_get_32k_tick();
+    if (!gpio_read(ACC_MCU_PIN) || ota_is_working ||
+        !app_flash_lock_restore_enabled() || BUS_STATE_OWC_IDLE != bus_mux_get_state()) return 0;
+    if (device_in_connection_state) {
+        if (!s_acc_disconnect_sent && blc_ll_getTxFifoNumber() == 0u &&
+            bls_ll_terminateConnection(HCI_ERR_REMOTE_USER_TERM_CONN) == BLE_SUCCESS)
+            s_acc_disconnect_sent = 1u;
+        return 0;
+    }
+    if (s_acc_retry_ready && (u32)(now - s_acc_retry_tick) <
+        APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
+    s_acc_retry_ready = 1u; s_acc_retry_tick = now;
+    if (!soc_kv_store_write_all(SOC_Calculate_Element.u8SOC_Now,
+                               SOC_Calculate_Element.u8DSG_SOC_Int,
+                               SOC_Calculate_Element.u32Cycle_times) ||
+        !bms_event_log_note_sleep()) return 0;
+    if (!gpio_read(ACC_MCU_PIN)) return 0;
+    if (bls_ll_setAdvEnable(BLC_ADV_DISABLE) != BLE_SUCCESS) return 0;
+    if (!bms_afe_enter_shutdown()) {
+        bls_ll_setAdvEnable(BLC_ADV_ENABLE);
+        return 0;
+    }
+    s_acc_sleep_committed = 1u;
+    bls_pm_setSuspendMask(SUSPEND_DISABLE);
+    bls_pm_setAppWakeupLowPower(0u, 0u);
+    sys_time.low_power_mode = true;
+    gpio_write(MCU_LDO_PIN, 1u);
+    cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 0);
+    app_acc_sleep_hold();
+    return 1;
+}
+
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
 #define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
 
@@ -309,6 +373,7 @@ static void board_init(void)
 	gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
 	gpio_set_input_en(CHG_IN_PIN, 1);
 	gpio_set_output_en(CHG_IN_PIN, 0);
+
 }
 
 _attribute_data_retention_ int device_in_connection_state;
@@ -559,6 +624,17 @@ void blt_pm_proc(void)
     if (deepsleep_en)
     {
         if (app_enter_power_off()) return;
+        sys_time.low_power_mode = false;
+        bls_pm_setSuspendMask(SUSPEND_DISABLE);
+        if (ota_is_working) bls_pm_setManualLatency(0);
+        return;
+    }
+
+    if (app_acc_sleep_requested())
+    {
+        low_voltage_seconds = 0u;
+        low_voltage_region = 0u;
+        if (app_enter_acc_sleep()) return;
         sys_time.low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
@@ -940,6 +1016,10 @@ int app_flash_lock_restore_enabled(void)
  */
 _attribute_no_inline_ void main_loop(void)
 {
+    if (s_acc_sleep_committed) {
+        app_acc_sleep_hold();
+        return;
+    }
     bms_param_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();

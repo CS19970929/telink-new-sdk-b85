@@ -102,10 +102,10 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 
 2026-09-17 用户确认的 D008 产品约束：
 
-- D008 没有独立开关。PA0 的实际网络是 `ACC-MCU`，C 符号为 `ACC_MCU_PIN`。已移除历史 key 控制；目前不新增 ACC 业务逻辑。
+- D008 没有独立开关。PA0 的实际网络是 `ACC-MCU`，C 符号为 `ACC_MCU_PIN`。已移除历史 key 控制。用户最新授权：ACC低电平正常运行，高电平稳定200ms进入独立ACC休眠（AFE shutdown + MCU DEEPSLEEP_MODE），PC4保持高，PA0低电平PAD唤醒后完整启动。
 - `CHG_IN_PIN` / PB1 的 `CHG-IN` 实际是负载检测电路，暂不实现负载检测业务逻辑，不得继续由名称认定它是充电器检测或充电方向依据。
-- 产品深度休眠目标：AFE shutdown 成功并停止 I2C 后，最后拉低 `MCU_LDO_PIN` / PC4，给整个 MCU 断电；电路先恢复 MCU 供电，MCU 再经 I2C 唤醒 AFE并重新初始化/验证。不得用 AFE sleep + SDK DEEPSLEEP_MODE 冒充已完成该流程。
-- suspend 与断电分开：MCU 仍供电时，任一方向有效、新鲜电流 ≥500 mA 退出 suspend；ACC/负载新策略暂不加入。500 mA 不等于 SOC 静置阈值，suspend SOC 校准要求见 `docs/SOC.md`，不得用无效样本/未知休眠时长补积分或静置计时。
+- 显式指令/自动低压断电路径：AFE shutdown 成功并停止 I2C 后，最后拉低 `MCU_LDO_PIN` / PC4，给整个 MCU 断电；电路先恢复 MCU 供电，MCU 再经 I2C 唤醒 AFE并重新初始化/验证。不得用 AFE sleep + SDK DEEPSLEEP_MODE 冒充已完成该流程。
+- suspend 与断电分开：MCU 仍供电时，任一方向有效、新鲜电流 ≥500 mA 退出 suspend；ACC另走上述独立深睡眠；负载新策略暂不加入。500 mA 不等于 SOC 静置阈值，suspend SOC 校准要求见 `docs/SOC.md`，不得用无效样本/未知休眠时长补积分或静置计时。
 - 当前实现与验证范围见 `docs/D008_POWER_SOC_IMPLEMENTATION.md`。主机测试/远程编译不能关闭 `TODO_VERIFY_HW`；禁止将 PB1 重新用作加热的充电源资格。
 
 ## 当前开发期存储与电流约束

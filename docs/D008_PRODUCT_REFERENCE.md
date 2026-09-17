@@ -61,7 +61,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | MCU GPIO / U1 引脚 | 原理图网络 | 当前代码符号/用途 | 本次确认与维护要求 |
 |---|---|---|---|
 | PD7 / 2 | `MCU-AFE-EN` | `AFE1_PRO_EN_PIN`，AFE init 拉高 | 参与 AFE 供电/接口使能；不是 MCU 总电源开关，也不是 DVC 独立 RESET 引脚 |
-| PA0 / 3 | `ACC-MCU` | `ACC_MCU_PIN`，输入保留 | 已移除 key 业务路径；不新增 ACC 业务逻辑 |
+| PA0 / 3 | `ACC-MCU` | `ACC_MCU_PIN`，低有效运行开关 | 用户最新授权独立ACC深睡眠，详见 D008_ACC_SLEEP.md |
 | PB1 / 6 | `CHG-IN` | `CHG_IN_PIN`，保留输入，无业务读取/PAD 唤醒 | 实际为负载检测。Q40 导通时输出低；不等于已验证所有负载场景的逻辑。暂不实现负载判定、去抖或策略，也不能据此证明正在充电 |
 | PC4 / 24 | `MCU-LDO` | `MCU_LDO_PIN`，启动保持高、关机事务最后拉低 | 已接入控制路径；实测保持时点、掉电与复电时序仍为 TODO_VERIFY_HW |
 | PC0 / 20 | `SDA` | DVC I2C SDA | 经 R96=100 Ω；与图纸一致 |
@@ -74,7 +74,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | PB4 / 14、PB5 / 15、PB7 / 17、PD3 / 32 | `SOC25/50/75/100` | 对应 SOC LED 宏 | 网络映射一致；外接显示负载、极性仍按实物核对 |
 | PB6 / 16 | `BLUE` | `LED_BLUE_PIN` | 经 R165=3.3 kΩ 接 LED1 至 B−；代码别名不改变原图网络名 |
 
-“暂不写逻辑”指不新增 ACC/负载检测策略。当前已剥离错误的 key/charger 业务读取；正常产品请求为 CHG+DSG ON，由原 guard/保护/输出授权仲裁。PB1 不再提供自动加热的充电源资格，因此自动加热暂不启动，待独立来源确认。
+历史“暂不写逻辑”约束已由最新ACC开关授权部分替代：ACC高电平进入独立深睡眠，PC4不拉低，低电平唤醒；负载检测仍不新增策略。当前已剥离错误的 key/charger 业务读取；正常产品请求为 CHG+DSG ON，由原 guard/保护/输出授权仲裁。PB1 不再提供自动加热的充电源资格，因此自动加热暂不启动，待独立来源确认。
 
 ## 4. DVC GP / FET 拓扑
 
@@ -398,3 +398,7 @@ SDK 的短暂定时唤醒用于重新采样，不等于产品已退出 suspend �
 图纸归档提交之后，用户授权继续修改代码。当前已实现 IO 语义纠正、AFE shutdown→PC4 断电、周期采样下双向 500 mA suspend 门槛及有效时间 SOC；详见 [实现与验证说明](D008_POWER_SOC_IMPLEMENTATION.md)。协议、保护参数、Flash 布局和 source order 未变；没有新增 ACC/负载业务逻辑。软件路径完成不等于实板电气流程已验证。
 
 [前次全模块审核](D008_FULL_MODULE_AUDIT_2026-09-17.md)保留其固定 SHA 的代码证据；本次图纸补足了部分连接证据，修正历史 charger/key 用途，但不自动关闭原审核的软件缺陷或实板未决项。实测统一记录在 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)，SOC 算法要求统一记录在 [SOC.md](SOC.md)，避免产生第二套 IO 真源。
+
+## 2026-09-17 后续授权：ACC 独立休眠
+
+本页此前“不新增ACC逻辑”属于历史基线，已由用户新要求替代。PA0低电平运行；高电平稳定200ms后完成保存、AFE shutdown，再以PA0低电平为PAD唤醒源进入MCU DEEPSLEEP_MODE。PC4保持高，与既有PC4断电路径分开。实现/失败处理见 [D008_ACC_SLEEP.md](D008_ACC_SLEEP.md)，实板仍待验证。
