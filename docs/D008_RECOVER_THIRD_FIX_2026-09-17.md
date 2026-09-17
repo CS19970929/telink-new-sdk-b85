@@ -25,3 +25,13 @@
 新增告警阈值等号/解除、三级恢复滤波、低向恢复、温度无电流保持、禁用阈值和 uint16 边界测试。CI 接入 16/20/24S 默认值与启动测试，弥补旧存储测试把校验器 stub 成仅非空检查的覆盖缺口。
 
 TODO_VERIFY_HW：更新与当前装配一致的固件后重启，读取新诊断包确认参数结果成功、两项启动门禁通过；如仍失败，用新增 65 words 核对实际参数。检查一级/二级告警与三级实际触发恢复、Gate/Vgs。未自动烧录、未清空 Flash；Host 通过不代表板上故障已经消失。
+
+## 验证完成记录
+
+- 固件功能提交 `bd617648`，Windows 功能提交 `721b0b1`，均为本地提交，未 push。
+- 16/20/24S 实际默认值 + 启动链通过；另外构造 Third 恢复值等于触发值的非法记录，仍产生两次错误并保持门禁。普通 SaveParam 修正参数不能解除启动门禁，重启通过升级流程后才恢复有效。
+- 14 项 Host/contract、22 项构建工具单测、source-order 通过。当前工作区原有 16S/SW=0 不满足“24S/SW=1 默认产品”静态断言；同提交干净默认配置的 24 项 framework 断言全部通过，未为通过检查改动台架配置。
+- 四种 SW/HW 组合及原工作区 16S/SW=0/HW=1 均 clean rebuild/check-fw/MAP/manifest/verify 通过。默认构建诊断 Build ID 为 `bd617648`；台架包含原有脏配置/LED 修改，Build ID 保持 0，用交付 SHA-256 和清单识别。
+- cppcheck：31 个 C 单元，coverage gaps=0，0 error/warning、94 style。默认 text/data/bss 为 100984/3996/7056 bytes，和上版诊断固件相同；不是栈高水位或实时性证明。
+- 两版 Windows net8/win-x64 自包含 EXE 发布成功，无编译 warning/error；实际 BmsClient 模拟传输的参数采集、原始帧、ZIP、失败保留、超时/取消测试通过。
+- 正式交付位于 `outputs/d008-recover-third-bd617648/`，包含两版 EXE、四组合与 16S 台架 BIN/ELF/MAP/manifest、日志和 SHA-256。临时编译输入/缓存均位于用户级 CodexTemp。

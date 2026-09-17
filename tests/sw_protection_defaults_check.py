@@ -146,6 +146,20 @@ int main(void) {
     assert(bms_diag_cached_word(37) == 0 && bms_diag_cached_word(39) == 0);
     assert(errors == (valid ? 0u : 2u));
     assert(bms_diag_cached_word(144) == (valid ? 3u : 0u));
+    if (valid) {
+        /* A genuinely invalid Third recovery must still fail closed. */
+        g_bms_config.protect.u16TChgOTp_Rcv = g_bms_config.protect.u16TChgOTp_Third;
+        assert(bms_config_save_cache(&g_bms_config));
+        reboot(); errors = 0;
+        Param_UpgradeReset_Apply(); LoadParam(); bms_param_diag_poll();
+        assert(errors == 2 && bms_diag_cached_word(144) == 0);
+        assert(bms_diag_cached_word(26) == DIAG_INVALID);
+        bms_config_store_get_default_protect(&g_tParam.protect);
+        assert(SaveParam()); assert(!bms_protection_params_valid());
+        reboot(); Param_UpgradeReset_Apply(); LoadParam();
+        assert(bms_protection_params_valid());
+        puts("PASS invalid Third persisted record: two errors, SaveParam cannot bypass startup gate, reboot recovery");
+    }
     return valid ? 0 : 1;
 }
 '''
