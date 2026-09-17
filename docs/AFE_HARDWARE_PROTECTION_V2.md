@@ -144,7 +144,7 @@ Assistant 客户端均已废弃，不得作为实现、构建或测试依据。
 - STAGE 请求：`01 42 05 tokenHi tokenLo offset count data CRClo CRChi`。data 为原 79-byte Modbus 0x10 完整帧片段；count=1..11，每包最多20字节。
 - STAGE 成功回应：`01 42 05 00 tokenHi tokenLo nextOffset CRClo CRChi`。
 - COMMIT 请求：`01 42 06 tokenHi tokenLo CRClo CRChi`；成功回应 `01 42 06 00 CRClo CRChi`。
-- 错误回应为 `addr 42 command status CRClo CRChi`；status=1 授权失败、2 非法请求、3 不支持、4 完整事务失败（需读 apply_state/last_error）。
+- 错误回应为 `addr 42 command status CRClo CRChi`；status=1 非法请求、2 授权失败、3 不支持、4 完整事务失败（需读 apply_state/last_error）。
 
 片段须严格按 offset 连续写入，逐包确认；每次 OPEN 清空暂存并产生新 token。片段间隔超过5秒、关闭/过期会话、BLE断开均丢弃未提交数据。暂存固定79字节，不分片写 Flash 或 AFE。只有收齐并验证完整帧 CRC、地址2500、35words 后才调用既有参数事务。COMMIT 消耗暂存，失败和应答丢失不得重放；上位机重新读 Requested/Effective/apply_state 后再由用户决定下一步。会话是操作门禁，不是安全认证。
 
