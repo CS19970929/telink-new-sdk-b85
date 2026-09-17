@@ -48,9 +48,9 @@ OCD/OCC 恢复确认和 SC 恢复确认字段默认 0 ms。上述是 profile 语
 
 ## 短路配置
 
-当前 `DVC1124_HW_SCD_THRESHOLD_MV=0`、`DVC1124_HW_SCD_DELAY_US=0`，因此 SCD 关闭。Windows AFE 硬件保护页已有短路使能、电流和延时字段；可通过既有事务配置，不需要新增协议。
+当前 `DVC1124_HW_SCD_THRESHOLD_MV=0`、`DVC1124_HW_SCD_DELAY_US=0`，因此 SCD 关闭。Windows AFE 硬件保护页已有短路电流和延时字段，但 enable-mask 当前只读：修改数值不会把关闭的 SCD 自动启用。当前从关闭改为启用应走固件默认宏 + AFE revision 更新；将来可在已有完整参数事务上增加明确的使能编辑，无需新增协议。
 
-当前 Rsense=200 µΩ。DVC 驱动支持检测电压 10..630 mV、10 mV 步进，对应 50..3150 A、50 A 步进；这只是当前驱动可编码范围，不是推荐电流。延时按 7.81 µs 步进量化，code 0..255，最大实际约 1992 µs，以 Effective 为准。配置不合适的电流步进可能通过语义范围检查后在硬件应用阶段被拒绝，不应忽略返回结果。
+当前 Rsense=200 µΩ。DVC 驱动支持检测电压 10..630 mV、10 mV 步进，对应 50..3150 A、50 A 步进；这只是当前驱动可编码范围，不是推荐电流。延时按 7.81 µs 步进量化，code 0..255，最大实际约 1992 µs，以 Effective 为准。非档位电流会向下量化到 50 A 档位，使 Effective 不高于 Requested；延时也向下量化。超出硬件可编码范围可能在应用阶段被拒绝，必须核对事务结果和 Effective。
 
 OTA 修改短路默认：设置这两个宏并提升 AFE HW revision。必须使用已确认的短路电流/延时，本文不猜测产品安全值，也不自动启用 SCD。
 
@@ -73,3 +73,12 @@ MCU 保持供电、每 200 ms 采样。有效新鲜电流在 (-500,+500) mA 且�
 顺序：保存 SOC/State → 记录关机尝试 → AFE shutdown（既有安全关输出流程）→ 停止采样唤醒 → 最后拉低 PC4/MCU_LDO，切断 MCU 供电。保存或 AFE shutdown 失败不切电，至少间隔 5 s 重试。成功后即使调试器维持 MCU 供电也保持静默，不继续业务 I2C/Flash。唤醒需要外部电路先恢复 MCU 供电，再由 MCU 完成 AFE 初始化。
 
 Host 验证覆盖连接中响应排空、过期采样、OTA/总线/Flash 等待、保存失败、AFE失败、重试和最终 PC4 顺序。TODO_VERIFY_HW：BLE/UART 响应实际到达、PC4 断电、AFE 关断与复电唤醒波形；不自动发休眠指令或烧录。
+
+## 本轮交付验证
+
+- 功能提交 `02b09093`，直接位于既有 `refactor/d008-common-bms-features`；保留原工作区参数及 LED 修改，不提交这些无关脏文件。
+- 14 项 Host/contract 通过；命令断电用例执行真实 `app_enter_power_off()` 和 `blt_pm_proc()`，硬件接口为可控 mock。
+- 默认 24S 的 SW/HW=1/1、1/0、0/1、0/0 及原工作区 16S/SW=0/HW=1 均 clean build、check-fw、MAP、manifest、verify 通过，固定 source-order=94。
+- cppcheck 31 个 C 单元、coverage gaps=0、0 error/warning、94 style；按 file/id/message 与上版比较新增/移除均为 0。
+- 交付 `outputs/d008-sleep-command-02b09093/`：含 BIN/ELF/MAP/manifest、验证日志和 SHA-256 清单。台架镜像保留脏配置，诊断 Build ID=0；默认构建 Build ID=02b09093。没有重新发布 Windows，继续使用上轮包含参数导出的 EXE。
+- 未自动烧录、未实板执行休眠指令，实板验收仍为 TODO_VERIFY_HW。
