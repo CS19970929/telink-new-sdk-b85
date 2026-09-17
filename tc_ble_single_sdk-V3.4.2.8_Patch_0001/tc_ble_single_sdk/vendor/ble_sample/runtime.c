@@ -84,7 +84,11 @@ void Runtime_Init(void)
 
 void Runtime_Poll(void)
 {
-    u32 now_tick_32k = pm_get_32k_tick();
+    u32 now_tick_32k;
+    /* Factory aging is finished. Reentry/reset initializes its own time base;
+     * normal operation needs neither a PM-clock read nor elapsed arithmetic. */
+    if (g_mode == MODE_NORMAL) return;
+    now_tick_32k = pm_get_32k_tick();
     if (!g_runtime_tick_ready) {
         g_runtime_last_tick_32k = now_tick_32k;
         g_runtime_tick_ready = 1u;

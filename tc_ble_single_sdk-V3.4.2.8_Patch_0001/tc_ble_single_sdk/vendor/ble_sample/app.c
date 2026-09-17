@@ -135,6 +135,10 @@ static void app_event_log_1s_task(void)
 {
 	bms_event_log_sample_t sample;
 	u8 eeprom_err;
+    _attribute_data_retention_ static u32 event_log_tick = 0;
+
+    if (!clock_time_exceed(event_log_tick, 1000 * 1000)) return;
+    event_log_tick = clock_time();
 
 	memset(&sample, 0, sizeof(sample));
 	sample.sleep = sys_time.low_power_mode ? 1u : 0u;
@@ -1027,6 +1031,29 @@ int app_flash_lock_restore_enabled(void)
 }
 #endif
 
+/* One acquisition owns the complete protection/SOC/output sequence. Keep this
+ * order and coalesce overdue work: repeated catch-up samples would distort
+ * sample-count filters and starve BLE/UART. The wake callback only sets due. */
+static void app_sample_task(void)
+{
+    bms_afe_aux_measurements_t m;
+    u8 valid;
+
+    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
+
+    s_sample_due = 0u;
+    s_sample_tick = clock_time();
+    bms_afe_sample();
+    valid = app_get_fresh_measurements(&m);
+    APP_SOC_IntEnhance_Ctrl(valid, valid ? m.current_ma : 0,
+                           valid ? m.sample_tick_32k : pm_get_32k_tick());
+    mos_update();
+    /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
+    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
+    app_schedule_sample_wakeup();
+    gpio_toggle(LED_BLUE_PIN);
+}
+
 /**
  * @brief		This is main_loop function
  */
@@ -1047,32 +1074,13 @@ _attribute_no_inline_ void main_loop(void)
                          clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
         return;
     }
+    /* Cooperative order: service BLE, acquire once if due, then communication
+     * and persistence. Evaluate suspend last using the resulting state. */
 	blt_sdk_main_loop();
 	Runtime_Poll();
 
-    if (s_sample_due || clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
-    {
-        bms_afe_aux_measurements_t m;
-        u8 valid;
-        s_sample_due = 0u;
-        s_sample_tick = clock_time();
-        bms_afe_sample();
-        valid = app_get_fresh_measurements(&m);
-        APP_SOC_IntEnhance_Ctrl(valid, valid ? m.current_ma : 0,
-                               valid ? m.sample_tick_32k : pm_get_32k_tick());
-        mos_update();
-        /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
-        if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
-        app_schedule_sample_wakeup();
-		gpio_toggle(LED_BLUE_PIN);
-    }
-
-	_attribute_data_retention_ static u32 event_log_tick = 0;
-	if (clock_time_exceed(event_log_tick, 1000 * 1000))
-	{
-		event_log_tick = clock_time();
-		app_event_log_1s_task();
-	}
+    app_sample_task();
+    app_event_log_1s_task();
 
 	bus_mux_task();
 #ifdef _FUNC_UART_

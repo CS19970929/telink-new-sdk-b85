@@ -6,7 +6,8 @@ MOD=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sam
 s=(MOD/'app.c').read_text(encoding='utf-8')
 a=s.index('static void app_schedule_sample_wakeup(');b=s.index('\n}',a)+2
 policy=s[a:b]
-assert 'app_schedule_sample_wakeup();' in s[s.index('void main_loop'):]
+assert 'app_sample_task();' in s[s.index('void main_loop'):]
+assert 'app_schedule_sample_wakeup();' in s[s.index('static void app_sample_task'):]
 assert 'bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);' in s
 code="""
 #include <stdint.h>

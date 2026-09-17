@@ -121,3 +121,7 @@ AND no active AFE hardware block/lockout
 - 实板未完成项只在 `HARDWARE_VALIDATION.md` 维护。
 - 历史审计、旧任务列表、跨产品硬件说明不得继续作为当前设计入口。
 - 文档与源码冲突时，以源码为“当前软件事实”，同时标出与原理图/手册的冲突，不静默修正。
+
+## 调度与维护入口
+
+D008 的实际任务周期、IRQ、采样调用链、时钟与功耗边界见 [D008_TASK_SCHEDULING.md](D008_TASK_SCHEDULING.md)。

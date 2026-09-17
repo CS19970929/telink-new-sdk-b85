@@ -70,6 +70,8 @@ jobs:
         run: python tests/sw_temperature_groups_host_check.py
       - name: Execute recovery wakeup policy
         run: python tests/app_recovery_wakeup_host_check.py
+      - name: Execute application scheduler host tests
+        run: python tests/app_scheduler_host_check.py
       - name: Execute current recovery host tests
         run: python tests/d008_current_recovery_host_check.py
       - name: Execute D008 power and SOC C host tests
