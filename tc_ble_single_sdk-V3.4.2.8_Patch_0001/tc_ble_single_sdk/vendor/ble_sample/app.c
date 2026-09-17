@@ -80,11 +80,13 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 
 /* SDK low-power callback only schedules work. I2C, SOC and Flash stay in the
  * cooperative main loop, including when invoked from a suspend callback. */
+#if BMS_APP_SAMPLE_WAKEUP_ENABLE
 static void app_sample_wakeup(int type)
 {
     (void)type;
     s_sample_due = 1u;
 }
+#endif
 
 typedef struct
 {
@@ -880,8 +882,12 @@ _attribute_no_inline_ void user_init_normal(void)
 	bms_event_log_note_startup();
 	Runtime_Init();
     s_sample_tick = clock_time();
+#if BMS_APP_SAMPLE_WAKEUP_ENABLE
     bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);
     bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+#else
+    bls_pm_setAppWakeupLowPower(0u, 0u);
+#endif
 	mos_update();
 
 	extern void WriteProID_Default(void);
@@ -1047,7 +1053,9 @@ _attribute_no_inline_ void main_loop(void)
         mos_update();
         /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
         if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
+#if BMS_APP_SAMPLE_WAKEUP_ENABLE
         bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+#endif
     }
 
 	_attribute_data_retention_ static u32 event_log_tick = 0;
