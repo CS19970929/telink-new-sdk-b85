@@ -157,9 +157,16 @@ static int app_enter_power_off(void)
     u32 now = pm_get_32k_tick();
 
     if (s_power_off_committed || ota_is_working ||
-        !app_flash_lock_restore_enabled() || device_in_connection_state ||
-        BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
-        !app_get_fresh_measurements(&m)) return 0;
+        !app_flash_lock_restore_enabled() ||
+        BUS_STATE_OWC_IDLE != bus_mux_get_state()) return 0;
+    /* An explicit sleep command does not require low voltage, a disconnected
+     * BLE link or valid current sampling. Drain its response before cutting
+     * power; automatic low-voltage shutdown retains its original qualifiers. */
+    if (deepsleep_en)
+    {
+        if (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u) return 0;
+    }
+    else if (device_in_connection_state || !app_get_fresh_measurements(&m)) return 0;
     if (s_power_off_retry_ready &&
         (u32)(now - s_power_off_retry_tick) <
             APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
@@ -543,6 +550,18 @@ void blt_pm_proc(void)
     u8 valid = app_get_fresh_measurements(&m);
     u8 busy = ota_is_working || !app_flash_lock_restore_enabled() ||
               BUS_STATE_OWC_IDLE != bus_mux_get_state() || device_in_connection_state;
+
+    /* 0x1102=0x000A is a latched power-off request, not an idle-suspend hint.
+     * Keep it pending across OTA/bus/persistence/AFE failures. Return here so
+     * the automatic low-voltage timer cannot reset the five-second retry gate. */
+    if (deepsleep_en)
+    {
+        if (app_enter_power_off()) return;
+        sys_time.low_power_mode = false;
+        bls_pm_setSuspendMask(SUSPEND_DISABLE);
+        if (ota_is_working) bls_pm_setManualLatency(0);
+        return;
+    }
 
     /* Preserve voltage thresholds/timeouts, but only qualified samples may
      * accumulate them. No key, load-detect or communication-error shutdown. */

@@ -23,6 +23,9 @@ static u8 s_power_off_committed,s_power_off_retry_ready,s_sample_due;
 static u32 s_power_off_retry_tick,now,elapsed;
 static int valid=1,flash_ready=1,ota_is_working,device_in_connection_state,bus_busy,mask;
 static int storage_ok=1,event_ok=1,shutdown_ok=1,cut_calls,seq[8],seq_len;
+static bool deepsleep_en;
+static u8 ble_tx_pending;
+static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
 static bms_afe_aux_measurements_t measurement;
 static struct{bool low_power_mode;}sys_time;
 static struct{uint16_t u16VCellMin;}g_stCellInfoReport={3300};
@@ -41,6 +44,7 @@ static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}
 /* PRODUCTION_SOURCE */
 static void reset(void){
+ deepsleep_en=false;ble_tx_pending=0;
  s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
@@ -72,5 +76,20 @@ int main(void){
  reset();s_power_off_retry_ready=1;s_power_off_retry_tick=UINT32_MAX-32000;
  now=s_power_off_retry_tick+160000u;measurement.sample_tick_32k=now;
  assert(app_enter_power_off());assert(cut_calls==1);
+ /* Explicit command works at normal voltage while connected and with stale
+  * sampling. Its acknowledgement must drain; busy/failed work stays pending. */
+ reset();deepsleep_en=true;device_in_connection_state=1;valid=0;ble_tx_pending=1;
+ blt_pm_proc();assert(!cut_calls && seq_len==0 && deepsleep_en);
+ ble_tx_pending=0;ota_is_working=1;blt_pm_proc();assert(!cut_calls);
+ ota_is_working=0;bus_busy=1;blt_pm_proc();assert(!cut_calls);
+ bus_busy=0;flash_ready=0;blt_pm_proc();assert(!cut_calls);
+ flash_ready=1;storage_ok=0;blt_pm_proc();assert(seq_len==1 && !cut_calls);
+ for(int i=0;i<10;i++)blt_pm_proc();assert(seq_len==1);
+ now+=160000u;seq_len=0;storage_ok=1;shutdown_ok=0;
+ blt_pm_proc();assert(seq_len==3 && !cut_calls && deepsleep_en);
+ now+=160000u;seq_len=0;shutdown_ok=1;
+ blt_pm_proc();assert(cut_calls==1 && seq_len==5 && s_power_off_committed);
+ for(int i=0;i<5;i++)assert(seq[i]==i+1);
+ puts("PASS commanded shutdown: BLE response drain, connected/stale samples, OTA/bus/Flash wait, retry, final PC4 cut");
  puts("PASS PM: +/-500 mA, invalid/stale, OTA/bus/Flash gates, persistence/AFE failures, ordered cut-off, retry/wrap");
 }
