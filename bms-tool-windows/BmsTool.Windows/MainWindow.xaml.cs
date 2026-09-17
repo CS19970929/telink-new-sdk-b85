@@ -501,7 +501,7 @@ public partial class MainWindow : Window
             }
 
             if (MessageBox.Show(
-                    $"确认写入 {changed.Count} 个已修改保护参数？\n\n每项都会写入后立即回读校验。",
+                    $"确认写入 {changed.Count} 个已修改保护参数？\n\n同一保护项目的5个参数整组写入并回读校验；不同项目依次提交。",
                     "确认批量修改",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
@@ -509,14 +509,14 @@ public partial class MainWindow : Window
 
             _pollTimer.Stop();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            for (int i = 0; i < changed.Count; i++)
-            {
-                var item = changed[i];
-                ProtectionStatusText.Text = $"正在写入 {i + 1}/{changed.Count}：{item.Row.CustomerName}";
-                ushort readback = await bms.WriteReadableRegisterAndVerifyAsync(item.Row.Address, item.Parsed);
-                item.Row.LoadFromDevice(readback);
-                AppendLog($"PROTECTION_WRITE_OK name='{item.Row.CustomerName}'; address=0x{item.Row.Address:X4}; raw={readback}", "PARAM");
-            }
+            await bms.WriteProtectionChangesAsync(
+                changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
+                (address, values) => {
+                    for (int j = 0; j < values.Length; j++)
+                        _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
+                    ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
+                    AppendLog($"PROTECTION_GROUP_WRITE_OK address=0x{address:X4}; words=5", "PARAM");
+                });
             ProtectionStatusText.Text = $"{changed.Count} 项全部写入并校验成功";
         }
         catch (Exception ex) { ShowError("批量写保护参数失败", ex); }
