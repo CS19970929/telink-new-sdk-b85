@@ -26,6 +26,7 @@ static class Test
         Check(capture.Current.Any(f=>f.Field=="持久化 gain"&&f.Value.Contains("1000000")),"parameter calibration evidence");
         Check(capture.Soc.Any(f=>f.Field=="SOC estimate"&&f.Value.Contains("73")),"runtime SOC");
         Check(capture.Power.Any(f=>f.Field=="阻断原因"&&f.Value.Contains("电流达到suspend门槛")),"PM reason decode");
+        Check(capture.Power.Any(f=>f.Field=="设备运行模式"&&f.Value.Contains("FACTORY")),"factory runtime mode");
         Check(capture.Protection.Any(f=>f.Value.Contains("放电过流")),"runtime protection decode");
         Check(capture.Trace.Count==1&&capture.Trace[0].Arg0==0x12345678,"trace/endian");
         Check(capture.SoftwareProtectionWords?.Length==65 && capture.SoftwareProtectionWords[0]==3750 && capture.SoftwareProtectionWords[64]==100,"software parameter read/endian");
@@ -93,7 +94,7 @@ sealed class FakeTransport:IBmsTransport
             w[198]=90;w[199]=0;w[200]=200;w[202]=73;w[203]=72;w[204]=2;w[205]=74;w[206]=69;w[207]=79;
             w[208]=90;w[209]=600;w[210]=1;w[211]=1;w[212]=580;
             w[213]=16;w[214]=0;w[215]=0;w[216]=3;w[217]=120;w[219]=1;w[220]=0;w[221]=500;
-            w[222]=0;w[223]=0;w[224]=0x20;
+            w[222]=0;w[223]=0;w[224]=0x20;w[225]=1;
             w[256]=(ushort)traceSeq;w[260]=3;w[262]=0x5678;w[263]=0x1234;
         }
         if(Unstable&&start==0x2A00)traceSeq++;
