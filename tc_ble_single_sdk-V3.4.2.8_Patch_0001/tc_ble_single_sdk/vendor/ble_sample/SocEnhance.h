@@ -32,6 +32,7 @@ typedef struct
     uint16_t profile_version;
     uint8_t soc_estimate;
     uint8_t soc_display;
+    uint16_t current_deadband_ma;
     uint8_t ocv_state;
     uint8_t ocv_center;
     uint8_t ocv_low;
