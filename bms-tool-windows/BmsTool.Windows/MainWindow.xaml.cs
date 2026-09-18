@@ -702,7 +702,7 @@ public partial class MainWindow : Window
                                   post.Software.Length > 0 &&
                                   !string.Equals(oldVersion, post.Software, StringComparison.OrdinalIgnoreCase);
             bool buildChanged = oldBuildId.HasValue && postBuildId.HasValue && oldBuildId.Value != postBuildId.Value;
-            bool positivelyVerified = serverConfirmed || expectedMatched || versionChanged || buildChanged;
+            bool positivelyVerified = serverConfirmed || versionChanged || buildChanged;
 
             string buildNote = oldBuildId.HasValue || postBuildId.HasValue
                 ? $"Build ID {(oldBuildId?.ToString("x8") ?? "unknown")} → {(postBuildId?.ToString("x8") ?? "unknown")}"
@@ -716,7 +716,7 @@ public partial class MainWindow : Window
             ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
             if (!positivelyVerified)
             {
-                OtaVerifyText.Text = $"升级结果未完全确认：设备已恢复通信和实时数据，但未收到 OTA_SUCCESS，版本也未变化，且没有可证明新固件启动的 Build ID 变化。{versionNote}；{buildNote}。";
+                OtaVerifyText.Text = $"升级结果未完全确认：设备已恢复通信和实时数据，但未收到 OTA_SUCCESS，软件版本未发生变化，且没有可证明新固件启动的 Build ID 变化。即使目标版本文本匹配，也不能单独证明同版本重刷成功。{versionNote}；{buildNote}。";
                 AppendLog("OTA UNCONFIRMED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
                 MessageBox.Show(OtaVerifyText.Text, "OTA 需人工确认", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
