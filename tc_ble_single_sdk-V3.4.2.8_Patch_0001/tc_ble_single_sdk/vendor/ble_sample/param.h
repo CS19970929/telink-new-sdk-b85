@@ -260,5 +260,6 @@ extern PARAM_T g_tParam;
 
 void LoadParam(void);
 uint8_t SaveParam(void);
+uint8_t bms_protection_params_valid(void);
 
 #endif
