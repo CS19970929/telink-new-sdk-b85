@@ -88,6 +88,7 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t ble_connected, uint8_t sample_pending,
                          uint16_t suspend_current_threshold_ma);
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3);
+void bms_diag_runtime_mode(uint8_t factory_mode);
 int bms_diag_overlaps(uint16_t start, uint16_t count);
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 #endif
