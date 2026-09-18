@@ -39,8 +39,8 @@ internal sealed class CliOptions
 {
     private readonly Dictionary<string, string?> _values = new(StringComparer.OrdinalIgnoreCase);
 
-    public string Command { get; private init; } = "help";
-    public IReadOnlyList<string> Positionals { get; private init; } = Array.Empty<string>();
+    public string Command { get; private set; } = "help";
+    public IReadOnlyList<string> Positionals { get; private set; } = Array.Empty<string>();
     public bool Json => Has("json");
     public bool Verbose => Has("verbose");
 
