@@ -51,6 +51,13 @@ public partial class MainWindow
         Button("保存循环次数",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2319,new[]{ushort.Parse(_parameterCycle.Text)},false,t)));
         Field("设备 SN（ASCII，最多32字符）",_parameterSn);
 #if BMS_FACTORY_APP
+        Button("进入设备 Factory Mode",()=>{
+            if(MessageBox.Show(this,
+                "进入 Factory Mode 会把设备工厂计时持久状态重置为 0，重新开启工厂窗口。仅用于返工、SN写入和电流校准。是否继续？",
+                "进入 Factory Mode",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)
+                return Task.CompletedTask;
+            return ParameterRunAsync((c,t)=>c.EnterD008FactoryModeAsync(t));
+        });
         Button("保存 SN",()=>ParameterRunAsync((c,t)=>c.WriteD008SerialAsync(_parameterSn.Text,t)));
 #else
         _parameterSn.IsReadOnly=true;
@@ -64,7 +71,7 @@ public partial class MainWindow
             return c.WriteD008VerifiedAsync(0x2E20,new[]{(ushort)(_parameterHeatEnable.IsChecked==true?1:0),start,stop},false,t);
         }));
 #if BMS_FACTORY_APP
-        root.Children.Add(new TextBlock{Text="工厂电流校准：放电为正、充电为负，单位 mA。零点采集前须确认无实际电流；已知电流由外部仪表提供。先计算候选，再单独保存。硬件 AFE 保护量化不受软件校准替代。",TextWrapping=TextWrapping.Wrap});
+        root.Children.Add(new TextBlock{Text="工厂电流校准：设备必须处于 Factory Mode。放电为正、充电为负，单位 mA。零点采集前须确认无实际电流；已知电流由外部仪表提供。先计算候选，再单独保存。硬件 AFE 保护量化不受软件校准替代。",TextWrapping=TextWrapping.Wrap});
         Field("零点偏移 / mA",_parameterOffset);Field("增益 / ppm（1000000=1倍）",_parameterGain);Field("外部参考电流 / mA",_parameterReference);
         Button("采集10个新鲜样本，生成零点候选",()=>ParameterRunAsync(async(c,t)=>{
             var sample=await c.ReadD008CalibrationSamplesAsync(t);
