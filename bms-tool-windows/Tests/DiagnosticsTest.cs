@@ -22,8 +22,14 @@ static class Test
         Check(capture.Storage.Any(f=>f.Value.Contains("布局拒绝")),"storage failure explanation");
         Check(capture.Mos.Any(f=>f.Value.Contains("启动存储升级未完成")),"MOS reason");
         Check(capture.Mos.Any(f=>f.Value=="不可用 / unknown"),"physical feedback");
+        Check(capture.Current.Any(f=>f.Field=="AFE 原始电流"&&f.Value.Contains("-123")),"runtime raw current");
+        Check(capture.Current.Any(f=>f.Field=="持久化 gain"&&f.Value.Contains("1000000")),"parameter calibration evidence");
+        Check(capture.Soc.Any(f=>f.Field=="SOC estimate"&&f.Value.Contains("73")),"runtime SOC");
+        Check(capture.Power.Any(f=>f.Field=="阻断原因"&&f.Value.Contains("电流达到suspend门槛")),"PM reason decode");
+        Check(capture.Protection.Any(f=>f.Value.Contains("放电过流")),"runtime protection decode");
         Check(capture.Trace.Count==1&&capture.Trace[0].Arg0==0x12345678,"trace/endian");
         Check(capture.SoftwareProtectionWords?.Length==65 && capture.SoftwareProtectionWords[0]==3750 && capture.SoftwareProtectionWords[64]==100,"software parameter read/endian");
+        Check(capture.EvidenceBlocks.ContainsKey("AfeRequested")&&capture.EvidenceBlocks["AfeRequested"].Length==35,"AFE evidence capture");
         Check(t.Writes==0,"diagnostic must be read-only");
         t.Unstable=true;var moving=await b.ReadDiagnosticsAsync(true,"mock");
         Check(!moving.TraceConsistent&&moving.Errors.Any(e=>e.Contains("分页")),"moving trace must be flagged");
@@ -46,7 +52,9 @@ static class Test
         try {
             var path=Path.Combine(dir,"fault.zip");BmsDiagnostics.Export(path,partial);
             using var zip=ZipFile.OpenRead(path);
-            Check(zip.GetEntry("manifest.json")!=null&&zip.GetEntry("raw_frames.json")!=null&&zip.GetEntry("storage.json")!=null,"bundle members");
+            Check(zip.GetEntry("manifest.json")!=null&&zip.GetEntry("raw_frames.json")!=null&&zip.GetEntry("storage.json")!=null&&
+                zip.GetEntry("summary.md")!=null&&zip.GetEntry("current.json")!=null&&zip.GetEntry("power.json")!=null&&
+                zip.GetEntry("parameters.json")!=null&&zip.GetEntry("afe.json")!=null&&zip.GetEntry("evidence.json")!=null,"bundle members");
             using(var reader=new StreamReader(zip.GetEntry("software_protection.json")!.Open())) {
                 var text=reader.ReadToEnd();Check(text.Contains("3750") && text.Contains("0x2100"),"parameter ZIP content");
             }
@@ -55,7 +63,7 @@ static class Test
         var malformed=new DiagnosticCapture();bool rejected=false;
         try {BmsDiagnostics.Decode(malformed,new ushort[2]);}catch(InvalidDataException){rejected=true;}
         Check(rejected,"short snapshot");
-        Console.WriteLine("PASS Windows diagnostics: actual client+fragmented transport, decode, legacy/exceptions, timeout/cancel, bounded trace retry, partial ZIP and read-only frame capture");
+        Console.WriteLine("PASS Windows diagnostics: runtime current/SOC/PM/protection decode, parameter+AFE evidence, legacy/exceptions, timeout/cancel, bounded trace retry, AI ZIP and read-only frames");
     }
 }
 sealed class FakeTransport:IBmsTransport
@@ -78,13 +86,42 @@ sealed class FakeTransport:IBmsTransport
         if(ExceptionCode!=0 || (FailEvents&&start==0xC008) || (FailProtection&&start==0x2100)) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,ExceptionCode==0?(byte)2:ExceptionCode}));return Task.CompletedTask;}
         var w=new ushort[1024];
         if(!Legacy) {
-            w[0]=0x4447;w[1]=1;w[2]=15;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
+            w[0]=0x4447;w[1]=1;w[2]=63;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
             w[18]=0x5678;w[19]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
+            w[192]=1;w[193]=3;
+            w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;
+            w[198]=90;w[199]=0;w[200]=200;w[202]=73;w[203]=72;w[204]=2;w[205]=74;w[206]=69;w[207]=79;
+            w[208]=90;w[209]=600;w[210]=1;w[211]=1;w[212]=580;
+            w[213]=16;w[214]=0;w[215]=0;w[216]=3;w[217]=120;w[219]=1;w[220]=0;w[221]=500;
+            w[222]=0;w[223]=0;w[224]=0x20;
             w[256]=(ushort)traceSeq;w[260]=3;w[262]=0x5678;w[263]=0x1234;
         }
         if(Unstable&&start==0x2A00)traceSeq++;
         var body=new byte[3+count*2];body[0]=1;body[1]=3;body[2]=(byte)(count*2);
-        for(int i=0;i<count;i++) {int at=start-0x2A00+i;ushort value=at>=0&&at<w.Length?w[at]:(ushort)0;if(start==0x2100)value=i==0?(ushort)3750:(ushort)100;BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+i*2,2),value);}
+        for(int i=0;i<count;i++) {
+            int at=start-0x2A00+i;ushort address=(ushort)(start+i);
+            ushort value=at>=0&&at<w.Length?w[at]:(ushort)0;
+            if(start==0x2100)value=i==0?(ushort)3750:(ushort)100;
+            if(address==0x2E00)value=0xD008;
+            else if(address==0x2E01)value=1;
+            else if(address==0x2E02)value=0x003F;
+            else if(address==0x2E05)value=3;
+            else if(address==0x2E24)value=unchecked((ushort)-12);
+            else if(address==0x2E25)value=0xFFFF;
+            else if(address==0x2E26)value=0x4240;
+            else if(address==0x2E27)value=0x000F;
+            else if(address==0x2E28)value=unchecked((ushort)-123);
+            else if(address==0x2E29)value=0xFFFF;
+            else if(address==0x2E2A)value=456;
+            else if(address==0x2E2B)value=0;
+            else if(address==0x2E2C)value=1;
+            else if(address==0x2E2D)value=90;
+            else if(address==0x2E2E)value=0;
+            else if(address>=0x2500&&address<0x2523)value=(ushort)(address-0x2500+1);
+            else if(address>=0x2523&&address<0x252C)value=(ushort)(address-0x2523+100);
+            else if(address>=0x2540&&address<0x2563)value=(ushort)(address-0x2540+200);
+            BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+i*2,2),value);
+        }
         Emit(ModbusRtu.Frame(body));return Task.CompletedTask;
     }
     private void Emit(byte[] frame) {for(int i=0;i<frame.Length;i+=7)DataReceived?.Invoke(frame.AsMemory(i,Math.Min(7,frame.Length-i)));}
