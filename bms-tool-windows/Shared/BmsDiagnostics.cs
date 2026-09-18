@@ -164,6 +164,7 @@ public static class BmsDiagnostics
             P("BLE连接",w[219]!=0?"是":"否（不是suspend阻断条件）");
             P("Sample pending",w[220]!=0?"是":"否");
             P("低压关机 Region / 累计",$"{w[216]} / {U32(w,217)} s");
+            P("设备运行模式",w[225]!=0?"FACTORY（允许受控工厂操作）":"NORMAL");
 
             F("Level 1",$"0x{w[222]:X4} · {ProtectionText(w[222])}");
             F("Level 2",$"0x{w[223]:X4} · {ProtectionText(w[223])}");
