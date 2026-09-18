@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <AssemblyName>bms-cli</AssemblyName>
+    <RootNamespace>BmsTool.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\BmsTool.Windows\BmsTransport.cs" Link="Shared\BmsTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsBleTransport.cs" Link="Shared\BmsBleTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsSerialTransport.cs" Link="Shared\BmsSerialTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="Shared\ModbusRtu.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
+    <Compile Include="..\BmsTool.Windows\Ota.cs" Link="Shared\Ota.cs" />
+    <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="Shared\TelinkOtaProtocol.cs" />
+    <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
+    <Compile Include="..\Shared\BmsDiagnostics.cs" Link="Shared\BmsDiagnostics.cs" />
+    <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />
+    <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />
+  </ItemGroup>
+</Project>

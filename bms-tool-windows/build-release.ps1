@@ -7,9 +7,11 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $customerProject = Join-Path $projectRoot "BmsTool.Windows\BmsTool.Windows.csproj"
 $internalProject = Join-Path $projectRoot "BmsFactoryTest.Windows\BmsFactoryTest.Windows.csproj"
+$cliProject = Join-Path $projectRoot "BmsTool.Cli\BmsTool.Cli.csproj"
 $customerOutput = Join-Path $projectRoot "BmsTool.Windows\publish\customer-win-x64-$ReleaseTag"
 $buildTemp = Join-Path $env:LOCALAPPDATA "CodexTemp\bms-tool-windows\$ReleaseTag"
 $internalOutput = Join-Path $projectRoot "BmsFactoryTest.Windows\publish\internal-full-win-x64-$ReleaseTag"
+$cliOutput = Join-Path $projectRoot "BmsTool.Cli\publish\cli-win-x64-$ReleaseTag"
 
 function Invoke-Dotnet([string[]]$Arguments) {
     & dotnet @Arguments
@@ -25,9 +27,10 @@ function New-PublishDirectory([string]$Path) {
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
 }
 
-Write-Host "发布客户版和内部完整测试版：$TargetFramework / win-x64 / $ReleaseTag"
+Write-Host "发布客户版、内部完整测试版和 CLI：$TargetFramework / win-x64 / $ReleaseTag"
 New-PublishDirectory $customerOutput
 New-PublishDirectory $internalOutput
+New-PublishDirectory $cliOutput
 
 Invoke-Dotnet @(
     "restore", $customerProject, "-r", "win-x64",
@@ -38,6 +41,11 @@ Invoke-Dotnet @(
     "restore", $internalProject, "-r", "win-x64",
     "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
     "-p:LangVersion=preview", "-p:BaseIntermediateOutputPath=$buildTemp\internal\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\internal\obj\", "-p:BaseOutputPath=$buildTemp\internal\bin\", "--force-evaluate"
+)
+Invoke-Dotnet @(
+    "restore", $cliProject, "-r", "win-x64",
+    "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
+    "-p:BaseIntermediateOutputPath=$buildTemp\cli\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\cli\obj\", "-p:BaseOutputPath=$buildTemp\cli\bin\", "--force-evaluate"
 )
 
 Invoke-Dotnet @(
@@ -52,13 +60,20 @@ Invoke-Dotnet @(
     "-p:LangVersion=preview", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
     "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "-p:BaseIntermediateOutputPath=$buildTemp\internal\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\internal\obj\", "-p:BaseOutputPath=$buildTemp\internal\bin\", "--no-restore", "-o", $internalOutput
 )
+Invoke-Dotnet @(
+    "publish", $cliProject, "-c", "Release", "-r", "win-x64", "--self-contained", "true",
+    "-p:TargetFrameworks=$TargetFramework", "-p:TargetFramework=$TargetFramework",
+    "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
+    "-p:EnableCompressionInSingleFile=true", "-p:DebugType=None", "-p:BaseIntermediateOutputPath=$buildTemp\cli\obj\", "-p:MSBuildProjectExtensionsPath=$buildTemp\cli\obj\", "-p:BaseOutputPath=$buildTemp\cli\bin\", "--no-restore", "-o", $cliOutput
+)
 
 $commit = (git -C $projectRoot rev-parse --short HEAD).Trim()
 $customerExe = Join-Path $customerOutput "BmsTool.Windows.exe"
 $internalExe = Join-Path $internalOutput "BmsFactoryTest.Windows.exe"
+$cliExe = Join-Path $cliOutput "bms-cli.exe"
 Write-Host ""
-Write-Host "双版本发布完成："
-Get-Item -LiteralPath $customerExe, $internalExe | ForEach-Object {
+Write-Host "三入口发布完成："
+Get-Item -LiteralPath $customerExe, $internalExe, $cliExe | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     Write-Host ("{0}`n  SHA256={1}`n  Commit={2}" -f $_.FullName, $hash, $commit)
 }

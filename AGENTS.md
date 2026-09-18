@@ -96,3 +96,11 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 - 收到“上位机、Windows工具、事件日志、参数编辑、AFE编辑器”等需求时，默认只修改 `bms-tool-windows/`。除非用户明确要求，**不得顺带修改 D008/D011/D013 固件协议、寄存器地址、Flash 布局、Storage 架构或创建新的跨平台客户端**。
 - 先按现有固件协议完成客户端适配；只有现有协议确实无法满足需求且用户明确同意时，才能提出固件协议变更。
 - 上位机修改坚持最小范围：先定位实际在用项目和实际调用路径，再改最少文件；禁止为了一个 UI/读取问题扩展成协议重构、固件重构或无关客户端同步。
+
+## Windows CLI / AI 实板接口
+
+- `bms-tool-windows/BmsTool.Cli/` 是现有 Windows 上位机的无 UI 入口，不得复制或另写一套 Modbus、Telink OTA、STM32 IAP 或 Diagnostics 协议；必须复用 `BmsTool.Windows/` 与 `Shared/` 的真源。
+- AI/Codex 与实板交互时优先使用 `bms-cli ... --json`，不要通过 UI 自动点击或解析界面文字。需要完整故障证据时使用 `bms-cli diag ... --json` 或 `--output <zip>`。
+- 自动 OTA 必须显式使用 `--yes`；`--auto` 只有扫描到唯一兼容 BMS 时才允许继续，出现多设备必须让调用者指定 MAC/名称。
+- CLI stdout 的 JSON schema 和 exit code 属于自动化接口，修改时必须兼容现有脚本或同步更新 `bms-tool-windows/docs/CLI.md` 和 CI smoke test。
+- 上位机/CLI 修改后必须同时构建客户 WPF、内部 WPF 和 CLI；OTA 修改还必须执行 `test-ota-protocol.ps1`。

@@ -4,21 +4,44 @@
 
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
 - `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，基于客户版最新版功能，保留全部工程/调试/出厂测试页面，启动后不需要密码。
+- `BmsTool.Cli/`：无 UI 命令行版，面向快速 OTA、脚本和 AI/Codex 实板诊断。
 
-两个项目分别构建、分别发布；以后每次生成必须同时生成两个版本。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+三个入口共用同一套底层协议源码并同步构建、发布；以后每次生成必须同时验证客户版、内部完整版和 CLI。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
 
-## 双版本发布约定
+## 三入口发布约定
 
-统一使用 `build-release.ps1` 发布两套 Windows x64、自包含、单文件 EXE：
+统一使用 `build-release.ps1` 发布 Windows x64、自包含、单文件 EXE：
 
 ```text
 BmsTool.Windows\publish\customer-win-x64-<时间戳>\BmsTool.Windows.exe
 BmsFactoryTest.Windows\publish\internal-full-win-x64-<时间戳>\BmsFactoryTest.Windows.exe
+BmsTool.Cli\publish\cli-win-x64-<时间戳>\bms-cli.exe
 ```
 
-脚本会为每次发布创建新的时间戳目录，避免覆盖正在运行的旧 EXE，并输出两套 EXE 的 SHA-256、目标框架和当前 Git commit。客户版的高级页面仍由 `hs456` 控制；内部完整测试版不设置密码门槛，仅供研发、调试和出厂测试使用，不应作为客户交付包。
+脚本会为每次发布创建新的时间戳目录，避免覆盖正在运行的旧 EXE，并输出三套 EXE 的 SHA-256、目标框架和当前 Git commit。客户版的高级页面仍由 `hs456` 控制；内部完整测试版不设置密码门槛，仅供研发、调试和出厂测试使用，不应作为客户交付包。
 
 详细的仓库边界、构建入口和协作规则见 `../docs/bms_windows_joint_maintenance.md`。
+
+## 命令行版 / AI 接口
+
+`BmsTool.Cli` 提供 `scan / info / ota / diag`。它直接复用 WPF 上位机的 BLE、串口、BmsClient、Telink OTA、STM32 IAP 和 D008 Diagnostics 源码，不维护第二套协议。
+
+快速 OTA：
+
+```powershell
+bms-cli ota .\firmware.bin --auto --yes
+```
+
+AI/Codex：
+
+```powershell
+bms-cli scan --json
+bms-cli info --auto --json
+bms-cli ota .\firmware.bin --mac A4:C1:38:12:34:56 --yes --json
+bms-cli diag --mac A4:C1:38:12:34:56 --output .\D008_diag.zip --json
+```
+
+`--json` 的 stdout 是稳定 JSON 契约，通信细节只在 `--verbose` 时写到 stderr；自动 OTA 使用 `--yes`，不会弹 UI 或等待图形交互。完整说明见 [BMS CLI：快速 OTA 与 AI 实板诊断](docs/CLI.md)。
 
 ## 客户版功能边界
 

@@ -26,10 +26,16 @@ jobs:
         run: dotnet restore bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj
       - name: Restore internal project
         run: dotnet restore bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj
+      - name: Restore CLI project
+        run: dotnet restore bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj
       - name: Build customer project
         run: dotnet build bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64 --no-restore
       - name: Build internal project
         run: dotnet build bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64 --no-restore
+      - name: Build CLI project
+        run: dotnet build bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release -p:Platform=x64 --no-restore
+      - name: CLI smoke test
+        run: dotnet run --project bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release --no-build -- help
       - name: Telink OTA protocol tests
         shell: powershell
         run: ./bms-tool-windows/test-ota-protocol.ps1
@@ -37,6 +43,8 @@ jobs:
         run: dotnet publish bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Windows
       - name: Publish internal x64
         run: dotnet publish bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsFactoryTest.Windows
+      - name: Publish CLI x64
+        run: dotnet publish bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Cli
       - name: Protocol source contracts
         shell: powershell
         run: |
@@ -66,4 +74,10 @@ jobs:
         with:
           name: BmsTool-Internal-AFE-HW-v2-${{ github.sha }}
           path: bms-tool-windows/publish/BmsFactoryTest.Windows/**
+          retention-days: 14
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BmsTool-CLI-${{ github.sha }}
+          path: bms-tool-windows/publish/BmsTool.Cli/**
           retention-days: 14
