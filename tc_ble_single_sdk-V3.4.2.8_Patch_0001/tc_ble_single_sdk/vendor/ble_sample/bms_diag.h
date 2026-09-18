@@ -4,7 +4,13 @@
 
 /* Schema 1. Main-loop only: no ISR producers, no I/O in the read path. */
 #ifndef BMS_DIAG_BUILD_ID
-#define BMS_DIAG_BUILD_ID 0u /* 0 means unavailable; official builds supply commit prefix. */
+#define BMS_DIAG_BUILD_ID 0u /* 0 means unavailable; bms.py supplies commit prefix. */
+#endif
+#ifndef BMS_DIAG_BUILD_DIRTY
+#define BMS_DIAG_BUILD_DIRTY 0
+#endif
+#if (BMS_DIAG_BUILD_DIRTY != 0) && (BMS_DIAG_BUILD_DIRTY != 1)
+#error "BMS_DIAG_BUILD_DIRTY must be 0 or 1"
 #endif
 #define BMS_DIAG_BASE 0x2A00u
 #define BMS_DIAG_TRACE_BASE 0x2B00u
