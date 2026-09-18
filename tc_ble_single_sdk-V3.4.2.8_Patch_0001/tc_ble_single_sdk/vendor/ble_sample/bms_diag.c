@@ -192,7 +192,8 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint16_t suspend_current_threshold_ma)
 {
     uint32_t previous_mask = get32(&s_words[213]);
-    uint16_t previous_allowed = s_words[215];
+    uint32_t previous_trace_mask = previous_mask & (uint32_t)~DIAG_PM_BLOCK_SAMPLE_PENDING;
+    uint32_t trace_mask = block_mask & (uint32_t)~DIAG_PM_BLOCK_SAMPLE_PENDING;
     uint8_t dirty = 0u;
     dirty |= update32(213u, block_mask);
     dirty |= update16(215u, suspend_allowed ? 1u : 0u);
@@ -201,13 +202,14 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
     dirty |= update16(219u, ble_connected ? 1u : 0u);
     dirty |= update16(220u, sample_pending ? 1u : 0u);
     dirty |= update16(221u, suspend_current_threshold_ma);
-    if (previous_mask != block_mask || previous_allowed != (suspend_allowed ? 1u : 0u))
+    /* sample_pending is a normal 200 ms scheduling edge. Keep it visible in
+     * the live snapshot, but do not let it churn the 64-entry trace. */
+    if (previous_trace_mask != trace_mask)
         bms_diag_trace(DIAG_EV_PM_STATE,
-            (uint32_t)(suspend_allowed ? 1u : 0u) |
+            (uint32_t)(trace_mask == 0u ? 1u : 0u) |
             ((uint32_t)low_voltage_region << 8) |
-            ((uint32_t)(ble_connected ? 1u : 0u) << 16) |
-            ((uint32_t)(sample_pending ? 1u : 0u) << 24),
-            block_mask);
+            ((uint32_t)(ble_connected ? 1u : 0u) << 16),
+            trace_mask);
     else if (dirty)
         changed();
 }
