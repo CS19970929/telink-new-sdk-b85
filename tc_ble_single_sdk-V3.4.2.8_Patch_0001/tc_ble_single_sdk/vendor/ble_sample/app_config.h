@@ -162,7 +162,14 @@
 	#endif
 #endif
 
+#ifndef BMS_DIAG_BUILD_DIRTY
+#define BMS_DIAG_BUILD_DIRTY 0
+#endif
+
 #if BMS_PRODUCTION_BUILD
+	#if BMS_DIAG_BUILD_DIRTY
+		#error "Production build requires a clean Git worktree"
+	#endif
 	#ifdef __TEST_SOC__
 		#error "Production build forbids __TEST_SOC__ command hooks"
 	#endif
