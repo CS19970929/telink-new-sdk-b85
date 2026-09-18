@@ -162,11 +162,17 @@
 	#endif
 #endif
 
+#ifndef BMS_DIAG_BUILD_ID
+#define BMS_DIAG_BUILD_ID 0u
+#endif
 #ifndef BMS_DIAG_BUILD_DIRTY
 #define BMS_DIAG_BUILD_DIRTY 0
 #endif
 
 #if BMS_PRODUCTION_BUILD
+	#if (BMS_DIAG_BUILD_ID == 0u)
+		#error "Production build requires a nonzero Git diagnostic build ID"
+	#endif
 	#if BMS_DIAG_BUILD_DIRTY
 		#error "Production build requires a clean Git worktree"
 	#endif
