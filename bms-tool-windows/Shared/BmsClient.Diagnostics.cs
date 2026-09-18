@@ -31,6 +31,8 @@ public sealed partial class BmsClient
             Array.Copy(header,words,16);
             Array.Copy(await Read(0x2A10,112),0,words,16,112);
             Array.Copy(await Read(0x2A80,64),0,words,128,64);
+            if((header[2]&BmsDiagnostics.RuntimeCapability)!=0)
+                Array.Copy(await Read(BmsDiagnostics.RuntimeBase,64),0,words,192,64);
             ushort[] tail=await Read(BmsDiagnostics.Base,16);
             Array.Copy(tail,words,16);
             BmsDiagnostics.Decode(c,words);
@@ -66,7 +68,31 @@ public sealed partial class BmsClient
             }
             if(!ct.IsCancellationRequested)try {c.SoftwareProtectionWords=await Read(0x2100,65);}
             catch(Exception ex){c.Errors.Add("SoftwareProtection: "+ex.Message);}
-            if(!ct.IsCancellationRequested)try {c.Events=await Read(0xC008,100);}catch(Exception ex){c.Errors.Add("Events: "+ex.Message);}
+            if(!ct.IsCancellationRequested)try {c.Events=await Read(0xC008,100);}
+            catch(Exception ex){c.Errors.Add("Events: "+ex.Message);}
+
+            async Task<ushort[]?> Evidence(string name,ushort address,ushort count,bool optionalUnsupported=true) {
+                if(ct.IsCancellationRequested)return null;
+                try {
+                    var value=await Read(address,count);c.EvidenceBlocks[name]=value;return value;
+                }
+                catch(BmsModbusException ex) when(optionalUnsupported && ex.Function==0x03 && ex.Code is 1 or 2) {
+                    return null;
+                }
+                catch(Exception ex) {c.Errors.Add(name+": "+ex.Message);return null;}
+            }
+            await Evidence("Realtime",BmsRegisters.Realtime,11);
+            await Evidence("Legacy",BmsRegisters.Legacy,63);
+            await Evidence("SystemStatus",BmsRegisters.SystemStatus,2);
+            var d008=await Evidence("D008Capability",0x2E00,12);
+            if(d008 is {Length:>=2} && d008[0]==0xD008 && d008[1]==1) {
+                foreach(var block in new (string Name,ushort Address,ushort Count)[]{
+                    ("CapacityCycle",0x2318,2),("SOC",0x1005,1),("Heater",0x2E20,3),
+                    ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16),
+                    ("AfeRequested",0x2500,35),("AfeMeta",0x2523,9),("AfeEffective",0x2540,35)})
+                    await Evidence(block.Name,block.Address,block.Count,false);
+            }
+            BmsDiagnostics.ApplyEvidence(c);
         }
         if(c.Errors.Count!=0 && c.Status=="诊断读取完成")c.Status="部分诊断可用";
         c.FinishedUtc=DateTimeOffset.UtcNow;
