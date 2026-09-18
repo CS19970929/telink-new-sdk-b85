@@ -589,12 +589,7 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
 
 
 def _firmware_git_build_id() -> str:
-    """Return the first 32 bits of HEAD as an unsigned C literal.
-
-    This is diagnostic provenance only; the full commit and dirty state remain
-    in fw_manifest.json. A source archive without Git metadata stays explicit
-    as zero rather than inventing an identity.
-    """
+    """Return the first 32 bits of HEAD as an unsigned C literal."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--verify", "HEAD"],
@@ -608,6 +603,20 @@ def _firmware_git_build_id() -> str:
     return "0u"
 
 
+def _firmware_git_dirty() -> int:
+    """Return 1 when HEAD alone cannot reproduce the current worktree."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=10,
+        )
+        if result.returncode == 0:
+            return 1 if result.stdout.strip() else 0
+    except Exception:
+        pass
+    return 0
+
+
 def _invoke_make(targets: list[str], jobs: int = 1,
                  build_dir: Path = BUILD_DIR) -> None:
     resolved_build = build_dir.resolve()
@@ -615,11 +624,14 @@ def _invoke_make(targets: list[str], jobs: int = 1,
         _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
     extra_defines = env.get("EXTRA_DEFINES", "").strip()
+    build_id = _firmware_git_build_id()
+    dirty = _firmware_git_dirty()
     if "BMS_DIAG_BUILD_ID" not in extra_defines:
-        build_id = _firmware_git_build_id()
         extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_ID={build_id}").strip()
-        env["EXTRA_DEFINES"] = extra_defines
-        _info(f"firmware diagnostic build id: {build_id}")
+    if "BMS_DIAG_BUILD_DIRTY" not in extra_defines:
+        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_DIRTY={dirty}").strip()
+    env["EXTRA_DEFINES"] = extra_defines
+    _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
     make = _need_make()
     _gen_sources_mk(build_dir)
     # Pass all Make-facing paths via the junction (space-free).
