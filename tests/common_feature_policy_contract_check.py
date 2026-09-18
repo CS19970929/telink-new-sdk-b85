@@ -42,6 +42,29 @@ assert sleep.index("if (s_guard.bus_silenced) return;") < sleep.index("AFE_SLEEP
 setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
 assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in setfets
 
+sh_bms=text("sh3673510_bms.c")
+for forbidden in (
+    "static void apply_heater",
+    "static void apply_balance",
+    "SH3510_REINIT_TRIGGER",
+    "SH3510_REINIT_COOLDOWN",
+):
+    assert forbidden not in sh_bms, forbidden
+
+sample = sh_bms.split("void sh3673510_bms_afe_sample(void)", 1)[1].split(
+    "uint8_t sh3673510_bms_afe_apply_protection_config", 1
+)[0]
+for forbidden in (
+    "apply_heater();",
+    "apply_balance();",
+    "sh3510_apply_requested_fets();",
+    "sh3673510_control_init()",
+):
+    assert forbidden not in sample, forbidden
+
+assert "comm_fault_latched" in guard_c
+assert "else if (s_guard.comm_fault_latched)" in guard_c
+
 sh=text("sh3673510_feature_backend.c")
 for token in (
     "SH3673520_REG_VCHGRH","SH_CHARGER_PRESENT_ON_MV","SH_CHARGER_PRESENT_OFF_MV",
