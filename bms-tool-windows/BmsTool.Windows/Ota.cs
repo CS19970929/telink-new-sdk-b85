@@ -35,6 +35,7 @@ public sealed class FirmwareImage
     public OtaTargetKind TargetKind { get; }
     public int ImageSize => Bytes.Length;
     public int LegacyPacketCount => (ImageSize + 15) / 16;
+    public bool HasD008TlnkStartupMarker => TargetKind == OtaTargetKind.Telink && TelinkOtaProtocol.HasD008TlnkStartupMarker(Bytes);
     private FirmwareImage(string fileName, byte[] bytes, OtaTargetKind targetKind) { FileName = fileName; Bytes = bytes; TargetKind = targetKind; }
 
     public static FirmwareInspection Inspect(string path)
@@ -42,7 +43,7 @@ public sealed class FirmwareImage
         byte[] all = File.ReadAllBytes(path);
         bool telink = all.Length >= 0x1C &&
                       BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
-                      declared > 0 && declared <= all.Length;
+                      declared >= 0x20 && declared <= all.Length;
         bool stm32 = all.Length >= 8 && all.Length <= Stm32AppCapacity && IsValidStm32Vector(all);
         return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, stm32);
     }
@@ -52,7 +53,7 @@ public sealed class FirmwareImage
         byte[] all = File.ReadAllBytes(path);
         if (all.Length < 0x1C) throw new InvalidDataException("Firmware is too small to contain Telink size field @0x18.");
         uint declared = BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4));
-        if (declared == 0 || declared > all.Length) throw new InvalidDataException($"Invalid Telink firmware size @0x18: {declared}, file={all.Length}.");
+        if (declared < 0x20 || declared > all.Length) throw new InvalidDataException($"Invalid Telink firmware size @0x18: {declared}, file={all.Length}.");
         return new FirmwareImage(Path.GetFileName(path), all.AsSpan(0, checked((int)declared)).ToArray(), OtaTargetKind.Telink);
     }
 
@@ -128,11 +129,15 @@ public sealed class OtaBleTransport : IAsyncDisposable
     public int? NegotiatedMtu => _session?.MaxPduSize;
     public event Action<ReadOnlyMemory<byte>>? NotificationReceived;
 
-    public async Task ConnectAsync(ulong address)
+    public async Task ConnectAsync(ulong address, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         await DisposeConnectionAsync();
+        ct.ThrowIfCancellationRequested();
         _device = await BluetoothLEDevice.FromBluetoothAddressAsync(address) ?? throw new IOException("Could not open BLE device for OTA.");
+        ct.ThrowIfCancellationRequested();
         var preferred = await _device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached);
+        ct.ThrowIfCancellationRequested();
         if (preferred.Status == GattCommunicationStatus.Success)
         {
             foreach (var service in preferred.Services)
@@ -143,6 +148,7 @@ public sealed class OtaBleTransport : IAsyncDisposable
             }
         }
         var all = await _device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
+        ct.ThrowIfCancellationRequested();
         if (all.Status == GattCommunicationStatus.Success)
         {
             foreach (var service in all.Services)
@@ -206,29 +212,40 @@ public sealed class TelinkOtaClient
         int count = (image.ImageSize + payload - 1) / payload; _latestResult = null; _resultTcs = new(TaskCreationOptions.RunContinuationsAsynchronously); _transport.NotificationReceived += OnNotification;
         try
         {
-            Log?.Invoke($"Mode={mode}; MTU={_transport.NegotiatedMtu?.ToString() ?? "unknown"}; notify={_transport.NotificationsEnabled}; payload={payload}; delay=0ms");
-            byte[] start = mode == OtaTransferMode.Extend64 ? new byte[]{0x03,0xFF,64,0x00} : new byte[]{0x01,0xFF};
-            Log?.Invoke("TX OTA START " + Convert.ToHexString(start)); await _transport.WriteAsync(start, ct);
+            Log?.Invoke($"Mode={mode}; MTU={_transport.NegotiatedMtu?.ToString() ?? "unknown"}; notify={_transport.NotificationsEnabled}; payload={payload}; startDelay={TelinkOtaProtocol.StartPreparationDelay.TotalMilliseconds:F0}ms");
+            byte[] start = mode == OtaTransferMode.Extend64
+                ? TelinkOtaProtocol.BuildExtendedStart(payload, versionCompare: false)
+                : TelinkOtaProtocol.BuildLegacyStart();
+            Log?.Invoke("TX OTA START " + Convert.ToHexString(start));
+            await _transport.WriteAsync(start, ct);
             if (mode == OtaTransferMode.Extend64 && _transport.NotificationsEnabled)
             {
-                var early = await WaitResultAsync(TimeSpan.FromMilliseconds(250), ct); if (early is not null && !early.IsSuccess) throw ResultException(early, "START_EXT");
+                var early = await WaitResultAsync(TimeSpan.FromMilliseconds(250), ct);
+                if (early is not null && !early.IsSuccess) throw ResultException(early, "START_EXT");
+            }
+            else
+            {
+                await Task.Delay(TelinkOtaProtocol.StartPreparationDelay, ct);
             }
             var sw = Stopwatch.StartNew(); long lastTicks = 0;
             for (int i=0;i<count;i++)
             {
-                ct.ThrowIfCancellationRequested(); ThrowIfRejected(); byte[] packet = BuildData(image, i, payload, mode == OtaTransferMode.Extend64); await _transport.WriteAsync(packet, ct);
+                ct.ThrowIfCancellationRequested(); ThrowIfRejected(); byte[] packet = TelinkOtaProtocol.BuildData(image.Bytes, i, payload, mode == OtaTransferMode.Extend64); await _transport.WriteAsync(packet, ct);
                 int sent = Math.Min((i+1)*payload, image.ImageSize); long now=sw.ElapsedTicks;
                 if (i==count-1 || lastTicks==0 || now-lastTicks >= Stopwatch.Frequency/10)
                 {
                     lastTicks=now; double rate=sw.Elapsed.TotalSeconds>0?sent/sw.Elapsed.TotalSeconds:0; TimeSpan? eta=rate>0?TimeSpan.FromSeconds((image.ImageSize-sent)/rate):null; Progress?.Invoke(new OtaProgress(sent*100.0/image.ImageSize,sent,image.ImageSize,rate,eta,mode));
                 }
                 if (i==0 || i==count-1 || (i+1)%256==0) Log?.Invoke($"TX DATA index={(mode==OtaTransferMode.Extend64?i+1:i)} bytes={sent}/{image.ImageSize}");
-                if ((i & 0x3F)==0x3F) await Task.Yield();
+                if ((i & 0x1F)==0x1F) await Task.Delay(1, ct);
             }
-            ThrowIfRejected(); ushort lastIndex = mode == OtaTransferMode.Extend64 ? checked((ushort)count) : checked((ushort)(count-1)); byte[] end=BuildEnd(lastIndex);
+            ThrowIfRejected();
+            await Task.Delay(TelinkOtaProtocol.EndDrainDelay, ct);
+            ushort lastIndex = mode == OtaTransferMode.Extend64 ? checked((ushort)count) : checked((ushort)(count-1));
+            byte[] end=TelinkOtaProtocol.BuildEnd(lastIndex);
             Log?.Invoke($"TX OTA END index={lastIndex}"); await _transport.WriteAsync(end,ct);
             if (!_transport.NotificationsEnabled) { Log?.Invoke("OTA_RESULT unavailable; transfer complete but server result unconfirmed."); return false; }
-            var final=await WaitResultAsync(TimeSpan.FromSeconds(2),ct); if(final is null){Log?.Invoke("OTA_RESULT timeout; transfer complete but server result unconfirmed.");return false;} if(!final.IsSuccess) throw ResultException(final,"OTA_END"); Log?.Invoke("RX OTA_RESULT 0x00 OTA_SUCCESS"); return true;
+            var final=await WaitResultAsync(TimeSpan.FromSeconds(3),ct); if(final is null){Log?.Invoke("OTA_RESULT timeout; transfer complete but server result unconfirmed.");return false;} if(!final.IsSuccess) throw ResultException(final,"OTA_END"); Log?.Invoke("RX OTA_RESULT 0x00 OTA_SUCCESS"); return true;
         }
         finally { _transport.NotificationReceived -= OnNotification; _resultTcs=null; }
     }
@@ -240,13 +257,6 @@ public sealed class TelinkOtaClient
         return requested==OtaTransferMode.Extend64 || extend ? OtaTransferMode.Extend64 : OtaTransferMode.LegacyFast;
     }
 
-    private static byte[] BuildData(FirmwareImage image,int index,int payload,bool extended)
-    {
-        int offset=index*payload, actual=Math.Min(payload,image.ImageSize-offset), padded=extended?Math.Max(16,((actual+15)/16)*16):16; byte[] packet=new byte[2+padded+2];
-        ushort wireIndex=checked((ushort)(extended?index+1:index)); BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(0,2),wireIndex); packet.AsSpan(2,padded).Fill(0xFF); image.Bytes.AsSpan(offset,actual).CopyTo(packet.AsSpan(2,actual));
-        ushort crc=ModbusRtu.Crc16(packet.AsSpan(0,2+padded)); BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(2+padded,2),crc); return packet;
-    }
-    private static byte[] BuildEnd(ushort last){ushort inv=(ushort)~last;return new[]{(byte)0x02,(byte)0xFF,(byte)last,(byte)(last>>8),(byte)inv,(byte)(inv>>8)};}
     private void OnNotification(ReadOnlyMemory<byte> data){var s=data.Span;if(s.Length<3||s[0]!=0x06||s[1]!=0xFF)return;var r=new OtaResult(s[2],ResultName(s[2]));_latestResult=r;Log?.Invoke($"RX OTA_RESULT 0x{r.Code:X2} {r.Name}");_resultTcs?.TrySetResult(r);}
     private void ThrowIfRejected(){if(_latestResult is { IsSuccess:false } r)throw ResultException(r,"DATA");}
     private async Task<OtaResult?> WaitResultAsync(TimeSpan timeout,CancellationToken ct){var t=_resultTcs;if(t is null)return null;if(t.Task.IsCompleted)return await t.Task;var delay=Task.Delay(timeout,ct);var winner=await Task.WhenAny(t.Task,delay);if(winner==t.Task)return await t.Task;ct.ThrowIfCancellationRequested();return null;}

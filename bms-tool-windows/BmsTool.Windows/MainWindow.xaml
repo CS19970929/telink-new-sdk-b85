@@ -395,10 +395,10 @@
                             <ComboBoxItem Content="Legacy Fast (16B)" Tag="LegacyFast"/>
                             <ComboBoxItem Content="Extend 64B" Tag="Extend64"/>
                         </ComboBox>
-                        <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">目标软件版本（可选）</TextBlock>
+                        <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">目标软件版本（建议填写）</TextBlock>
                         <TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
                     </StackPanel>
-                    <TextBlock Margin="0,10,0,0" Text="Auto 会按 GATT 能力识别 Telink OTA 或 STM32 串口 IAP。STM32 兼容例程每页等待 ACK，通信异常会停止而不会盲目重传；升级完成后自动等待设备重启、重新连接并读取电池数据。当前例程 IAP 仍需固件侧增加整包校验和签名后才能用于量产安全升级。" TextWrapping="Wrap"/>
+                    <TextBlock Margin="0,10,0,0" Text="Auto 会按 GATT 能力识别 Telink OTA 或 STM32 串口 IAP。当前 D008 默认 MTU=23，Auto 会使用 Telink Legacy 16B；Extend64 仅在实际 MTU 足够时启用。升级后必须有 OTA_SUCCESS、目标版本匹配、版本变化或 Firmware Build ID 变化之一，单纯恢复通信不再判定为升级成功。CRC/ACK 只保证传输完整性，不等于固件签名认证。" TextWrapping="Wrap"/>
                     <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
                     <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">

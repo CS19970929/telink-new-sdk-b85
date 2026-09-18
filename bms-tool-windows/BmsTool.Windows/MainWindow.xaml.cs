@@ -628,14 +628,50 @@ public partial class MainWindow : Window
             AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
 
             string oldVersion = string.Empty;
+            DeviceIdentity? preIdentity = null;
+            BatterySnapshot? preBattery = null;
+            uint? oldBuildId = null;
+            bool isD008 = false;
             try
             {
-                if (_bms is not null) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
+                if (_bms is not null)
+                {
+                    preIdentity = await _bms.ReadIdentityAsync(_otaCts.Token);
+                    oldVersion = preIdentity.Software;
+                    oldBuildId = await TryReadFirmwareBuildIdAsync(_bms, _otaCts.Token);
+                    isD008 = await TryDetectD008Async(_bms, _otaCts.Token);
+                    try { preBattery = await _bms.ReadBatteryAsync(_otaCts.Token); }
+                    catch (Exception ex) { AppendLog("Pre-OTA battery read warning: " + ex.Message, "OTA"); }
+                }
             }
             catch (Exception ex)
             {
-                AppendLog("Pre-OTA version read warning: " + ex.Message, "OTA");
+                AppendLog("Pre-OTA identity/build read warning: " + ex.Message, "OTA");
             }
+
+            if (target == OtaTargetKind.Telink && isD008)
+            {
+                if (!image.HasD008TlnkStartupMarker)
+                    throw new InvalidDataException("已识别 D008，但所选 Telink BIN 缺少 D008 当前启动格式的 TLNK marker @0x08，已拒绝升级以降低刷错固件风险。");
+                if (image.ImageSize > TelinkOtaProtocol.D008DefaultMaxFirmwareBytes)
+                    throw new InvalidDataException($"已识别 D008，但固件 {image.ImageSize:N0} bytes 超过当前 Telink OTA Server 默认 124 KiB 边界。");
+            }
+
+            string endpointText = preIdentity is null
+                ? (_connectionMode == ConnectionMode.Serial ? _connectedSerialPort ?? "Serial" : $"{address:X12}")
+                : $"{preIdentity.Hardware} / {preIdentity.Software} / {preIdentity.Serial}";
+            string batteryText = preBattery is null
+                ? "电池状态：未能预读"
+                : $"电池状态：{preBattery.PackVoltageV:F2} V，最低单体 {preBattery.MinCellMv} mV";
+            string d008Text = target == OtaTargetKind.Telink
+                ? $"D008识别：{(isD008 ? "是" : "否/旧固件不支持识别")}；TLNK marker：{(image.HasD008TlnkStartupMarker ? "有" : "无")}"
+                : "非 Telink OTA";
+            if (MessageBox.Show(
+                    $"确认开始 OTA？\n\n目标：{endpointText}\n架构：{target}\n固件：{image.FileName}\n大小：{image.ImageSize:N0} bytes\n{d008Text}\n{batteryText}\n\n升级期间请保持电池供电和 PC 蓝牙稳定，不要关闭程序或断电。",
+                    "确认 OTA 升级",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                throw new OperationCanceledException(_otaCts.Token);
 
             await DisposeBmsAsync();
             ConnectionText.Text = "正在升级...";
@@ -655,19 +691,39 @@ public partial class MainWindow : Window
 
             OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
             DeviceIdentity post = await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
+            uint? postBuildId = _bms is null ? null : await TryReadFirmwareBuildIdAsync(_bms, _otaCts.Token);
             string expected = ExpectedVersionBox.Text.Trim();
-            if (expected.Length > 0 && !string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase))
+            bool expectedProvided = expected.Length > 0;
+            bool expectedMatched = expectedProvided && string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase);
+            if (expectedProvided && !expectedMatched)
                 throw new IOException($"设备已重启，但软件版本不匹配：目标 {expected}，实际 {post.Software}。");
 
-            string versionNote = expected.Length > 0
-                ? $"版本 {post.Software} 校验通过"
-                : oldVersion.Length > 0 && oldVersion != post.Software
+            bool versionChanged = oldVersion.Length > 0 &&
+                                  post.Software.Length > 0 &&
+                                  !string.Equals(oldVersion, post.Software, StringComparison.OrdinalIgnoreCase);
+            bool buildChanged = oldBuildId.HasValue && postBuildId.HasValue && oldBuildId.Value != postBuildId.Value;
+            bool positivelyVerified = serverConfirmed || expectedMatched || versionChanged || buildChanged;
+
+            string buildNote = oldBuildId.HasValue || postBuildId.HasValue
+                ? $"Build ID {(oldBuildId?.ToString("x8") ?? "unknown")} → {(postBuildId?.ToString("x8") ?? "unknown")}"
+                : "Build ID 不可用";
+            string versionNote = expectedMatched
+                ? $"目标版本 {post.Software} 校验通过"
+                : versionChanged
                     ? $"版本 {oldVersion} → {post.Software}"
                     : $"当前版本 {post.Software}";
 
-            OtaVerifyText.Text = $"升级成功：设备已重启，BMS 通信和实时数据正常；{versionNote}。";
             ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
-            AppendLog("OTA VERIFIED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
+            if (!positivelyVerified)
+            {
+                OtaVerifyText.Text = $"升级结果未完全确认：设备已恢复通信和实时数据，但未收到 OTA_SUCCESS，版本也未变化，且没有可证明新固件启动的 Build ID 变化。{versionNote}；{buildNote}。";
+                AppendLog("OTA UNCONFIRMED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
+                MessageBox.Show(OtaVerifyText.Text, "OTA 需人工确认", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            OtaVerifyText.Text = $"升级成功：设备已重启，BMS 通信和实时数据正常；{versionNote}；{buildNote}。";
+            AppendLog("OTA VERIFIED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}; versionChanged={versionChanged}; buildChanged={buildChanged}", "OTA");
             MessageBox.Show(OtaVerifyText.Text, "OTA 验证完成", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (OperationCanceledException)
@@ -728,7 +784,7 @@ public partial class MainWindow : Window
 
         await using var transport = new OtaBleTransport();
         AppendLog($"Connecting OTA GATT address={address:X12}", "OTA");
-        await transport.ConnectAsync(address);
+        await transport.ConnectAsync(address, ct);
         AppendLog($"OTA GATT ready; MTU={transport.NegotiatedMtu}; notify={transport.NotificationsEnabled}", "OTA");
 
         var client = new TelinkOtaClient(transport);
@@ -770,6 +826,39 @@ public partial class MainWindow : Window
             }
         }
         throw new IOException("OTA 数据已发送，但设备重启后未恢复到可读取的 BMS 通信状态。", last);
+    }
+
+    private async Task<uint?> TryReadFirmwareBuildIdAsync(BmsClient client, CancellationToken ct)
+    {
+        try
+        {
+            ushort[] words = await client.ReadRegistersAsync(BmsDiagnostics.Base, 24, ct);
+            if (words.Length < 24 || words[0] != BmsDiagnostics.Magic || words[1] != BmsDiagnostics.Schema)
+                return null;
+            uint buildId = BmsDiagnostics.U32(words, 22);
+            return buildId == 0 ? null : buildId;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppendLog("Firmware Build ID unavailable: " + ex.Message, "OTA");
+            return null;
+        }
+    }
+
+    private async Task<bool> TryDetectD008Async(BmsClient client, CancellationToken ct)
+    {
+        try
+        {
+            ushort[] words = await client.ReadRegistersAsync(0x2E00, 2, ct);
+            return words.Length >= 2 && words[0] == 0xD008 && words[1] == 1;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppendLog("D008 capability probe unavailable: " + ex.Message, "OTA");
+            return false;
+        }
     }
 
     private OtaTransferMode GetOtaMode()

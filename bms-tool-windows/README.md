@@ -45,6 +45,8 @@ BLE 搜索兼容现有两种 BMS 广播名前缀：`BT_` 和 `BT-`。对于 STM3
 
 ## OTA 双架构自动升级
 
+Telink OTA 已按仓库内 `tc_ble_single_sdk V3.4.2.8` 的官方 Master/Server 协议重新核对，并加入协议单元测试与 CI 门禁。详细来源、协议字段、D008 Server 状态、Windows 审计结论、修复项和实板验收清单见 [Telink OTA Master、D008 OTA Server 与 Windows OTA](docs/TELINK_OTA_MASTER_AND_WINDOWS_OTA.md)。修改 OTA 代码后必须运行 `./test-ota-protocol.ps1`。
+
 OTA 页默认使用 `Auto（自动识别）`：
 
 - 发现 Telink 专用 OTA service `00010203-0405-0607-0809-0a0b0c0d1912` 时，使用现有 Telink OTA START/DATA/END 流程；
