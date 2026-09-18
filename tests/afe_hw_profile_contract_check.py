@@ -96,7 +96,7 @@ assert profile['ocd_recover_a10'] < profile['ocd1_a10']
 assert profile['ocd_recover_a10'] < profile['ocd2_a10']
 assert profile['occ_recover_a10'] < profile['occ1_a10']
 assert profile['occ_recover_a10'] < profile['occ2_a10']
-assert profile['cuv_delay_ms'] == 8000
+assert profile['cuv_delay_ms'] == min(macro_int(params, 'CUV_filter3') * 10, 8000)
 assert profile['ocd_recover_a10'] == 99
 assert profile['occ_recover_a10'] == 99
 print('D008 independent AFE hardware protection profile contract: PASS')
