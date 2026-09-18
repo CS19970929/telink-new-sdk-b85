@@ -116,7 +116,9 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 
 ## 构建
 
-保持 Telink SDK `tc_ble_single_sdk V3.4.2.8_Patch_0001` 和固定 TC32 工具链/ABI。修改源码顺序时显式更新 `bms_tools/source_order.txt`。任何安全相关修改至少通过 source-order、Host contracts、TC32 clean rebuild/check-fw/MAP/verify/cppcheck；这些仍不能替代实板验证。
+保持 Telink SDK `tc_ble_single_sdk V3.4.2.8_Patch_0001` 和固定 TC32 工具链/ABI。实际 MCU 为 **TLSR8251 / 32 KiB SRAM**：`boot/B85/cstartup_825x.S` 必须以 `MCU_STARTUP_8251` 编译，栈顶/`__SRAM_SIZE` 必须为 `0x848000`；禁止为了复刻历史 8258 sample 工程重新使用 `MCU_STARTUP_8258`。MAP 必须满足 `_ram_use_end_ < 0x848000 - 600`。
+
+修改源码顺序时显式更新 `bms_tools/source_order.txt`。任何安全相关修改至少通过 source-order、Host contracts、TC32 clean rebuild/check-fw/MAP/verify/cppcheck；这些仍不能替代实板验证。
 
 ## Windows 上位机单一真源（强制）
 
