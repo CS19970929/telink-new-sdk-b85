@@ -40,6 +40,8 @@ class D008FrameworkContract(unittest.TestCase):
         cls.features = read("bms_features.c")
         cls.param = read("param.c")
         cls.app = read("app.c")
+        cls.app_config = read("app_config.h")
+        cls.parameter_access = read("bms_parameter_access.c")
         cls.conf = read("conf.h")
         cls.hw_profile = read("bms_afe_hw_profile.c")
 
@@ -225,12 +227,15 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.project)
 
     def test_production_build_blocks_debug_and_protection_isolation(self):
-        app_config = (HERE / "app_config.h").read_text(encoding="utf-8")
-        self.assertIn("BMS_PRODUCTION_BUILD", app_config)
-        self.assertIn("Production build forbids current-test, debug GPIO and UART debug output", app_config)
-        self.assertIn("Production build requires SDK flash protection", app_config)
-        self.assertIn("Production build requires watchdog", app_config)
+        self.assertIn("BMS_PRODUCTION_BUILD", self.app_config)
+        self.assertIn("Production build forbids __TEST_SOC__ command hooks", self.app_config)
+        self.assertIn("Production build forbids current-test, debug GPIO and UART debug output", self.app_config)
+        self.assertIn("Production build requires SDK flash protection", self.app_config)
+        self.assertIn("Production build requires watchdog", self.app_config)
         self.assertIn("Production build requires software, hardware and temperature protection enabled", self.project)
+        self.assertIn("sensitive_factory_write_allowed", self.parameter_access)
+        self.assertIn("Runtime_GetMode() == MODE_FACTORY", self.parameter_access)
+        self.assertGreaterEqual(self.parameter_access.count("sensitive_factory_write_allowed()"), 3)
 
     def test_no_legacy_parameter_migration(self):
         self.assertNotIn("param_apply_d008_product_identity_if_unset", self.param)
