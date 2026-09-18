@@ -18,6 +18,8 @@ assert "charge_source_present" in features_c
 assert "BMS_HEATER_START_TEMP_X10" in features_c and "BMS_HEATER_STOP_TEMP_X10" in features_c
 assert "openwire_fault_latched" in features_c
 assert "bms_board_heater_set" in board_h and "bms_board_charge_source_present" in board_h
+assert "bms_board_heater_allowed" in board_h
+assert "bms_board_heater_allowed()" in features_c
 assert "service_balance" in features_c and "bms_afe_set_balance_mask(0u)" in features_c
 assert "service_openwire" in features_c and "bms_afe_openwire_start" in features_c and "bms_afe_openwire_poll" in features_c
 charge_block=guard_c.index("bms_features_charge_blocked"); fet_write=guard_c.index("AFE_FETS",charge_block)
