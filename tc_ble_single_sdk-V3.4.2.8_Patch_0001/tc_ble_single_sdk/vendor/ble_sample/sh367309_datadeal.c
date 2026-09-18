@@ -25,6 +25,7 @@ void Delay1ms(u8 ms);
 #define BOOT_CURRENT_ZERO_RETRY_DELAY_MS       100u
 #define BOOT_CURRENT_CADC_DATA_LENGTH          2u
 #define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    6
+#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS       10
 #define BOOT_CURRENT_FET_STATUS_MASK           0x07u
 #define BOOT_CURRENT_ACTIVITY_STATUS_MASK      0xC0u
 #define CURRENT_ZERO_SAMPLE_SCALE              BOOT_CURRENT_ZERO_SAMPLE_COUNT
@@ -1456,6 +1457,7 @@ static UINT8 DataLoad_BootCurrentZeroStatusRetryable(UINT8 status)
     case BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR:
     case BOOT_CURRENT_ZERO_FET_ACTIVE:
     case BOOT_CURRENT_ZERO_UNSTABLE:
+    case BOOT_CURRENT_ZERO_OUT_OF_RANGE:
         return 1u;
 
     default:
@@ -1583,6 +1585,24 @@ static UINT8 DataLoad_BootCurrentZeroTryCapture(void)
     {
         log_i("[BOOT][CUR_ZERO] unstable CADCD min=%d max=%d\n", raw_min, raw_max);
         g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_UNSTABLE;
+        return 0u;
+    }
+
+    /*
+     * Reject an implausibly large "zero" even when it is stable. This protects
+     * against a physical current path being learned as offset. The threshold is
+     * deliberately looser than the expected AFE offset but remains below the
+     * 0.2 A calibrated deadband on the current T1/T2 hardware.
+     */
+    if (DataLoad_CurrentAbsRaw(raw_sum)
+        > ((UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS
+           * (UINT32)BOOT_CURRENT_ZERO_SAMPLE_COUNT))
+    {
+        log_i("[BOOT][CUR_ZERO] offset out of range sum=%d limit=%u\n",
+              raw_sum,
+              (UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS
+                  * (UINT32)BOOT_CURRENT_ZERO_SAMPLE_COUNT);
+        g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_OUT_OF_RANGE;
         return 0u;
     }
 
