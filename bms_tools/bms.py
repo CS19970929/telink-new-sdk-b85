@@ -747,16 +747,25 @@ def cmd_map(args: argparse.Namespace) -> int:
         for name, addr in found[:10]:
             print(f"    .{name:<22} @ 0x{int(addr, 16):08x}")
 
-    m = re.search(r"__SRAM_SIZE\s*=\s*(0x[0-9a-fA-F]+|\d+)", text)
-    if not m:
-        _die("MAP missing __SRAM_SIZE; cannot validate TLSR8251 RAM limit")
-    sram_size = int(m.group(1), 0)
-    print(f"  __SRAM_SIZE           = 0x{sram_size:06x}")
-    if sram_size != STARTUP_SRAM_END:
-        _die(
-            f"startup SRAM mismatch: MAP=0x{sram_size:06X}, "
-            f"expected TLSR8251=0x{STARTUP_SRAM_END:06X}"
-        )
+    # tc32-elf-ld does not print the absolute __SRAM_SIZE assembler symbol
+    # into the GNU-style MAP. Verify the real startup compile command instead.
+    build_log = GEN_DIR / "build.log"
+    if not build_log.exists():
+        _die(f"build log missing: {build_log}; cannot validate startup profile")
+    build_text = build_log.read_text(encoding="utf-8", errors="replace")
+    startup_lines = [
+        line for line in build_text.splitlines()
+        if "cstartup_825x.S" in line and "tc32-elf-gcc" in line
+    ]
+    if not startup_lines:
+        _die("build log missing cstartup_825x.S compile command")
+    startup_cmd = startup_lines[-1]
+    if "-DMCU_STARTUP_8251" not in startup_cmd:
+        _die(f"wrong startup profile in build command: {startup_cmd}")
+    if "-DMCU_STARTUP_8258" in startup_cmd:
+        _die(f"TLSR8258 startup macro leaked into TLSR8251 build: {startup_cmd}")
+    print("  startup compile       = MCU_STARTUP_8251")
+    print(f"  SRAM ceiling          = 0x{STARTUP_SRAM_END:06x}")
 
     ram_end = symbols.get("_ram_use_end_")
     if ram_end is None:
