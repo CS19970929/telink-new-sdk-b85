@@ -47,6 +47,13 @@
 #define DVC1124_DEFAULT_SHUNT_UOHM           200u
 #endif
 
+#ifndef BMS_PRODUCTION_BUILD
+#define BMS_PRODUCTION_BUILD                 0u
+#endif
+#if (BMS_PRODUCTION_BUILD > 1u)
+#error "BMS_PRODUCTION_BUILD must be 0 or 1"
+#endif
+
 /*
  * Protection-path isolation switches.
  *
@@ -74,6 +81,11 @@
 #endif
 #if ((DVC1124_SW_PROTECT_ENABLE > 1u) || (DVC1124_HW_PROTECT_ENABLE > 1u) || (DVC1124_SW_TEMP_PROTECT_ENABLE > 1u))
 #error "DVC1124 protection enable macros must be 0 or 1"
+#endif
+#if BMS_PRODUCTION_BUILD && ((DVC1124_SW_PROTECT_ENABLE != 1u) || \
+                             (DVC1124_HW_PROTECT_ENABLE != 1u) || \
+                             (DVC1124_SW_TEMP_PROTECT_ENABLE != 1u))
+#error "Production build requires software, hardware and temperature protection enabled"
 #endif
 
 /*
