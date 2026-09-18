@@ -156,7 +156,6 @@ require(bms, "g_stCellInfoReport.u16IDischg")
 require(app, "D011_SWITCH_PIN")
 require(bms, "sh3673510_board_wake_active")
 require(bms, "sh3673510_control_set_balance")
-require(bms, "sh3673510_board_set_heater")
 require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
 require(bms, "s_output_inhibit")
@@ -171,8 +170,6 @@ require(bms, "service_afe_reconfiguration")
 require(bms, "s_hw_charge_protect")
 require(bms, "s_hw_discharge_protect")
 require(bms, "s_afe_reconfigure_required")
-require(bms, "s_heater_mos_overtemp")
-require(bms, "BMS_ERROR_HEAT")
 require(bms, "SH3673510_D011_HEATER_NTC_INDEX")
 require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
 require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
@@ -184,7 +181,7 @@ require(app, "uint8_t dsg_target = 1u;")
 if "dsg_target = d011_switch_is_on()" in app:
     raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")
 fet_start = bms.find("static uint8_t sh3510_apply_requested_fets")
-fet_end = bms.find("static void apply_heater", fet_start)
+fet_end = bms.find("static void publish_hw_status", fet_start)
 if fet_start < 0 or fet_end <= fet_start:
     raise AssertionError("missing FET arbitration function")
 fet_text = bms[fet_start:fet_end]
@@ -270,7 +267,6 @@ for symbol in (
     "static uint8_t s_hw_charge_protect;",
     "static uint8_t s_hw_discharge_protect;",
     "static uint8_t s_afe_reconfigure_required;",
-    "static uint8_t s_heater_mos_overtemp;",
 ):
     require_count(bms, symbol)
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
@@ -315,20 +311,22 @@ for needle in (
 if "unMdlFault_Third" in hw_text:
     raise AssertionError("hardware FLAG recovery must be independent from software Third-level activity")
 
-heater_start = bms.find("static void apply_heater")
-heater_end = bms.find("static void apply_balance", heater_start)
-if heater_start < 0 or heater_end <= heater_start:
-    raise AssertionError("missing heater control")
-heater_text = bms[heater_start:heater_end]
-for needle in (
-    "SH3673510_D011_HEATER_NTC_INDEX",
-    "u16TmosOTp_Third",
-    "u16TmosOTp_Rcv",
-    "BMS_ERROR_HEAT",
-):
-    require(heater_text, needle)
-if "D011_HEATER_FUSE_TRIGGER_PIN" in heater_text:
-    raise AssertionError("reversible heater safety must never actuate the irreversible fuse trigger")
+# Heater and balance policy belong to common bms_features; the SH backend only
+# publishes measurements and exposes hardware primitives.
+for forbidden in ("static void apply_heater", "static void apply_balance",
+                  "SH3510_REINIT_TRIGGER", "SH3510_REINIT_COOLDOWN"):
+    if forbidden in bms:
+        raise AssertionError(f"SH backend owns common policy: {forbidden}")
+
+sample_start = bms.find("void sh3673510_bms_afe_sample(void)")
+sample_end = bms.find("uint8_t sh3673510_bms_afe_apply_protection_config", sample_start)
+if sample_start < 0 or sample_end <= sample_start:
+    raise AssertionError("missing SH sample function")
+sample_text = bms[sample_start:sample_end]
+for forbidden in ("apply_heater();", "apply_balance();",
+                  "sh3510_apply_requested_fets();", "sh3673510_control_init()"):
+    if forbidden in sample_text:
+        raise AssertionError(f"SH sample bypasses common owner: {forbidden}")
 
 # Realtime battery temperature extrema must be refreshed from TS1/TS2 on every
 # valid sample. MOS/heater temperatures remain independently reported.
