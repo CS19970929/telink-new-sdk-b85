@@ -100,6 +100,58 @@ class ToolchainEnvironmentTests(unittest.TestCase):
         self.assertEqual(actual, str(expected))
 
 
+    def test_tlsr8251_startup_profile_uses_32k_sram(self) -> None:
+        build_mk = (bms._HERE / "build.mk").read_text(encoding="utf-8")
+        self.assertEqual(bms.DECLARED_MCU, "TLSR8251")
+        self.assertEqual(bms.STARTUP_PROFILE, "MCU_STARTUP_8251")
+        self.assertEqual(bms.STARTUP_SRAM_END, 0x848000)
+        self.assertEqual(bms.TLSR8251_SRAM_END_IN_SDK, 0x848000)
+        self.assertEqual(bms.MAIN_STACK_RESERVE_BYTES, 600)
+        self.assertIn("AFLAGS_BASE := -DMCU_STARTUP_8251", build_mk)
+        self.assertNotIn("AFLAGS_BASE := -DMCU_STARTUP_8258", build_mk)
+
+
+class MapLimitTests(unittest.TestCase):
+    def test_map_accepts_tlsr8251_sram_with_stack_headroom(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            map_path = Path(tmp) / "fw.map"
+            map_path.write_text(
+                "_bin_size_ = 0x0001A000\n"
+                "_ram_use_end_ = 0x00846000\n"
+                "__SRAM_SIZE = 0x00848000\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(bms, "MAP", map_path):
+                self.assertEqual(bms.cmd_map(bms.argparse.Namespace()), 0)
+
+    def test_map_rejects_8258_startup_sram(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            map_path = Path(tmp) / "fw.map"
+            map_path.write_text(
+                "_bin_size_ = 0x0001A000\n"
+                "_ram_use_end_ = 0x00846000\n"
+                "__SRAM_SIZE = 0x00850000\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(bms, "MAP", map_path):
+                with self.assertRaises(SystemExit):
+                    bms.cmd_map(bms.argparse.Namespace())
+
+    def test_map_rejects_ram_end_inside_reserved_stack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            map_path = Path(tmp) / "fw.map"
+            limit = bms.STARTUP_SRAM_END - bms.MAIN_STACK_RESERVE_BYTES
+            map_path.write_text(
+                "_bin_size_ = 0x0001A000\n"
+                f"_ram_use_end_ = 0x{limit:08X}\n"
+                "__SRAM_SIZE = 0x00848000\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(bms, "MAP", map_path):
+                with self.assertRaises(SystemExit):
+                    bms.cmd_map(bms.argparse.Namespace())
+
+
 class IntegrityPrimitiveTests(unittest.TestCase):
     def test_crc32_known_vector(self) -> None:
         self.assertEqual(bms._crc32(b"123456789"), 0xCBF43926)
