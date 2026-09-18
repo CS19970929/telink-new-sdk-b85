@@ -45,8 +45,9 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 |---|---|
 | MCU | TLSR8251F512ET32 |
 | AFE | DVC1124-2；源码默认 `DVC1124_MODEL_22` |
-| 默认装配 | 24S LFP |
-| 可选装配 | 20S NMC，由 `D008_PRODUCT_PROFILE` 编译选择 |
+| 当前默认固件 profile | **16S LFP**，`D008_PRODUCT_PROFILE_16S_LFP` |
+| 可选编译 profile | 20S NMC；历史 24S LFP 仍保留显式选择 |
+| 原理图能力 | 图纸为 24S（C0..C24）；当前 16S 实际装配/短接必须以对应 BOM/实板为准 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
 | DVC 地址 | `0x40` write / `0x41` read transfer address |
 | Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
@@ -137,7 +138,7 @@ dvc1124_project_config.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 只负责 24S LFP / 20S NMC 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。
+`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。当前分支默认选择 16S LFP；24S 图纸事实与当前默认装配必须明确区分。
 
 ### 5.2 Flash 中保留的保护参数
 
