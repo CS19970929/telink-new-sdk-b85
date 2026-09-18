@@ -14,23 +14,29 @@ extern uint32_t g_u32CS_Res_AFE;
 UINT32 u32_ChgCur_mA = 0;
 UINT32 u32_DsgCur_mA = 0;
 
+void Delay1ms(u8 ms);
+
 /* SH367309 V1.1: CADC is a signed 16-bit, 4 Hz converter. */
-#define SH309_CADC_FLG_MASK                   0x20u
-#define SH309_CADC_FULL_SCALE_MV              200ULL
-#define SH309_CADC_DENOMINATOR                21470ULL
-#define BOOT_CURRENT_ZERO_DISCARD_COUNT       1u
+#define SH309_CADC_NUMERATOR_REDUCED          20000u
+#define SH309_CADC_DENOMINATOR_REDUCED         2147u
 #define BOOT_CURRENT_ZERO_SAMPLE_COUNT        4u
-#define BOOT_CURRENT_ZERO_POLL_MS             10u
-#define BOOT_CURRENT_ZERO_TIMEOUT_MS          400u
+#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS  300u
+#define BOOT_CURRENT_CADC_DATA_LENGTH          2u
+#define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    3
+#define BOOT_CURRENT_FET_STATUS_MASK           0x07u
+#define BOOT_CURRENT_ACTIVITY_STATUS_MASK      0xC0u
+#define CURRENT_ZERO_SAMPLE_SCALE              BOOT_CURRENT_ZERO_SAMPLE_COUNT
+#define CURRENT_MA_X4_SCALE                    BOOT_CURRENT_ZERO_SAMPLE_COUNT
+#define CURRENT_REPORT_MA_PER_LSB              100u
 
 /*
- * Boot-only CADC offset in signed raw-code domain. Capture is performed only
- * while CHG/DSG/PCHG FETs are physically reported OFF. The offset is retained
- * across deep-retention wakeups and is never relearned during normal running.
+ * Keep the four-sample sum instead of an integer average so the correction
+ * retains 0.25 CADC-count resolution. Status also records why calibration
+ * failed on a target that cannot be inspected with an online debugger.
  */
-_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRaw = 0;
-_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroValid = 0u;
-_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroAttempted = 0u;
+_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawSum = 0;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroStatus =
+    BOOT_CURRENT_ZERO_NOT_ATTEMPTED;
 
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
@@ -53,54 +59,66 @@ static UINT32 DataLoad_CurrentAbsRaw(INT32 raw)
  * Keep the complete ratio until the final division to avoid precision loss
  * from the legacy precomputed integer reciprocal g_u32CS_Res_AFE.
  */
-static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw_abs)
+static UINT32 DataLoad_CurrentRawX4ToScaled_mA_X4(UINT32 raw_abs_x4)
 {
-    uint64_t numerator;
-    uint64_t denominator;
-    uint64_t current_mA;
+    UINT32 numerator_scale;
+    UINT32 denominator;
+    UINT32 quotient;
+    UINT32 remainder;
 
-    if ((raw_abs == 0u) || (CS_Res_Num == 0u) || (CS_Res == 0u))
+    if ((raw_abs_x4 == 0u) || (CS_Res_Num == 0u) || (CS_Res == 0u))
     {
         return 0u;
     }
 
-    numerator = (uint64_t)raw_abs * SH309_CADC_FULL_SCALE_MV * 1000ULL * (uint64_t)CS_Res_Num;
-    denominator = SH309_CADC_DENOMINATOR * (uint64_t)CS_Res;
-    current_mA = (numerator + (denominator / 2ULL)) / denominator;
+    /*
+     * Exact reduction of 200000 / 21470 to 20000 / 2147 avoids TC32's
+     * unavailable 64-bit divide helpers. Quotient/remainder ordering keeps
+     * every intermediate within UINT32 for the configured SH367309 range.
+     */
+    numerator_scale = SH309_CADC_NUMERATOR_REDUCED * (UINT32)CS_Res_Num;
+    denominator = SH309_CADC_DENOMINATOR_REDUCED * (UINT32)CS_Res;
+    quotient = raw_abs_x4 / denominator;
+    remainder = raw_abs_x4 % denominator;
 
-    if (current_mA > 0xFFFFFFFFULL)
-    {
-        return 0xFFFFFFFFu;
-    }
-
-    return (UINT32)current_mA;
+    return quotient * numerator_scale
+           + (remainder * numerator_scale + (denominator / 2u)) / denominator;
 }
 
-static UINT8 DataLoad_WaitNewCadcConversion(void)
+static UINT32 DataLoad_Current_mA_X4To_mA(UINT32 current_mA_x4)
 {
-    UINT16 waited_ms = 0u;
-    UINT8 bflag2 = 0u;
+    return (current_mA_x4 + (CURRENT_MA_X4_SCALE / 2u)) / CURRENT_MA_X4_SCALE;
+}
 
-    while (waited_ms < BOOT_CURRENT_ZERO_TIMEOUT_MS)
+static UINT16 DataLoad_Current_mA_X4ToReport(UINT32 current_mA_x4,
+                                             UINT16 report_divisor_mA)
+{
+    UINT32 divisor;
+    UINT32 report_value;
+
+    divisor = CURRENT_MA_X4_SCALE * (UINT32)report_divisor_mA;
+    report_value = (current_mA_x4 + (divisor / 2u)) / divisor;
+    if (report_value > 0xFFFFu)
     {
-        Feed_IWatchDog;
-
-        if (!MTPRead(MTP_BFLAG2, 1u, &bflag2))
-        {
-            return 0u;
-        }
-
-        if ((bflag2 & SH309_CADC_FLG_MASK) != 0u)
-        {
-            return 1u;
-        }
-
-        Delay1ms(BOOT_CURRENT_ZERO_POLL_MS);
-        waited_ms += BOOT_CURRENT_ZERO_POLL_MS;
+        return 0xFFFFu;
     }
 
-    log_i("[BOOT][CUR_ZERO] CADC conversion timeout\n");
-    return 0u;
+    return (UINT16)report_value;
+}
+
+static void DataLoad_CurrentDelayMs(UINT16 delay_ms)
+{
+    while (delay_ms >= 100u)
+    {
+        Feed_IWatchDog;
+        Delay1ms(100u);
+        delay_ms -= 100u;
+    }
+    if (delay_ms > 0u)
+    {
+        Feed_IWatchDog;
+        Delay1ms((UINT8)delay_ms);
+    }
 }
 
 static void DataLoad_ClearCurrent(void)
@@ -1403,36 +1421,40 @@ void test_Autocurrent_cycle(void)
     }
 }
 #endif
-static INT32 DataLoad_CurrentApplyBootZero(UINT16 raw)
+static INT32 DataLoad_CurrentApplyBootZeroX4(UINT16 raw)
 {
-    INT32 corrected = DataLoad_CurrentRawToSigned(raw);
+    INT32 corrected_raw_x4 = DataLoad_CurrentRawToSigned(raw)
+                               * (INT32)CURRENT_ZERO_SAMPLE_SCALE;
 
-    if (g_u8BootCurrentZeroValid)
+    if (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID)
     {
-        corrected -= g_i32BootCurrentZeroRaw;
+        corrected_raw_x4 -= g_i32BootCurrentZeroRawSum;
     }
 
     /* Difference of two signed 16-bit codes fits safely in INT32. */
-    return corrected;
+    return corrected_raw_x4;
 }
 
 UINT8 DataLoad_BootCurrentZeroCapture(void)
 {
-    sh367309_ram_t ram_snapshot;
+    MTP_REG_CONF confirmed_conf;
     INT32 raw_sum = 0;
-    UINT8 bflag2 = 0u;
-    UINT8 sample_index = 0u;
-    UINT8 total_index;
+    INT32 raw_signed;
+    INT32 raw_min = 32767;
+    INT32 raw_max = -32768;
+    UINT16 raw_current;
+    UINT8 bstatus3 = 0u;
+    UINT8 cadc_data[BOOT_CURRENT_CADC_DATA_LENGTH];
+    UINT8 sample_index;
 
     /* One attempt per real power-on. Never retry after MOS operation starts. */
-    if (g_u8BootCurrentZeroAttempted)
+    if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
     {
-        return g_u8BootCurrentZeroValid;
+        return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
     }
 
-    g_u8BootCurrentZeroAttempted = 1u;
-    g_u8BootCurrentZeroValid = 0u;
-    g_i32BootCurrentZeroRaw = 0;
+    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_IN_PROGRESS;
+    g_i32BootCurrentZeroRawSum = 0;
 
     /*
      * CTL-C is already low in user_init_normal(). Also force all three AFE
@@ -1446,127 +1468,145 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
     if (!MTPWrite(MTP_CONF, 1u, &SH367309_Reg_Store.REG_MTP_CONF.all))
     {
         log_i("[BOOT][CUR_ZERO] failed to force FET off / enable CADC\n");
+        g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR;
         return 0u;
     }
 
-    /* BFLAG2 read clears a stale CADC_FLG before waiting for new conversions. */
-    if (!MTPRead(MTP_BFLAG2, 1u, &bflag2))
+    confirmed_conf.all = 0u;
+    if (!MTPRead(MTP_CONF, 1u, &confirmed_conf.all)
+        || !confirmed_conf.bits.CADCON
+        || confirmed_conf.bits.CHGMOS
+        || confirmed_conf.bits.DSGMOS
+        || confirmed_conf.bits.PCHMOS)
     {
-        log_i("[BOOT][CUR_ZERO] failed to clear stale CADC flag\n");
+        log_i("[BOOT][CUR_ZERO] FET-off command readback failed\n");
+        g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR;
         return 0u;
     }
 
-    for (total_index = 0u;
-         total_index < (BOOT_CURRENT_ZERO_DISCARD_COUNT + BOOT_CURRENT_ZERO_SAMPLE_COUNT);
-         ++total_index)
+    /*
+     * CADC updates every 250 ms. Waiting 300 ms before every read skips the
+     * pre-enable value and guarantees that all four samples are independent.
+     */
+    for (sample_index = 0u;
+         sample_index < BOOT_CURRENT_ZERO_SAMPLE_COUNT;
+         ++sample_index)
     {
-        if (!DataLoad_WaitNewCadcConversion())
+        DataLoad_CurrentDelayMs(BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS);
+
+        if (!MTPRead(MTP_BSTATUS3, 1u, &bstatus3))
         {
+            log_i("[BOOT][CUR_ZERO] BSTATUS3 read failed\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR;
             return 0u;
         }
 
-        if (!sh309_i2c_read_with_crc(AFE_ID, SH309_RAM_START_ADDR,
-                                     SH309_RAM_LEN, (u8 *)&ram_snapshot))
-        {
-            log_i("[BOOT][CUR_ZERO] AFE read failed\n");
-            return 0u;
-        }
-
-        if (ram_snapshot.REG_BSTATUS3.bits.CHG_FET ||
-            ram_snapshot.REG_BSTATUS3.bits.DSG_FET ||
-            ram_snapshot.REG_BSTATUS3.bits.PCHG_FET)
+        if ((bstatus3 & BOOT_CURRENT_FET_STATUS_MASK) != 0u)
         {
             log_i("[BOOT][CUR_ZERO] FET is not off, calibration rejected\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_FET_ACTIVE;
             return 0u;
         }
 
-        /* Ignore the first fresh conversion after CADC enable/boot settling. */
-        if (total_index < BOOT_CURRENT_ZERO_DISCARD_COUNT)
+        if ((bstatus3 & BOOT_CURRENT_ACTIVITY_STATUS_MASK) != 0u)
         {
-            continue;
+            log_i("[BOOT][CUR_ZERO] current activity detected, calibration rejected\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_CURRENT_ACTIVE;
+            return 0u;
         }
 
-        raw_sum += DataLoad_CurrentRawToSigned(U16_SwapEndian(ram_snapshot.Cadc));
-        ++sample_index;
+        if (!MTPRead(MTP_ADC2, BOOT_CURRENT_CADC_DATA_LENGTH, cadc_data))
+        {
+            log_i("[BOOT][CUR_ZERO] CADCD read failed\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR;
+            return 0u;
+        }
+
+        raw_current = ((UINT16)cadc_data[0] << 8) | (UINT16)cadc_data[1];
+        raw_signed = DataLoad_CurrentRawToSigned(raw_current);
+        raw_sum += raw_signed;
+        if (raw_signed < raw_min)
+        {
+            raw_min = raw_signed;
+        }
+        if (raw_signed > raw_max)
+        {
+            raw_max = raw_signed;
+        }
     }
 
-    if (sample_index != BOOT_CURRENT_ZERO_SAMPLE_COUNT)
+    if ((raw_max - raw_min) > BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS)
     {
+        log_i("[BOOT][CUR_ZERO] unstable CADCD min=%d max=%d\n", raw_min, raw_max);
+        g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_UNSTABLE;
         return 0u;
     }
 
-    g_i32BootCurrentZeroRaw = raw_sum / (INT32)sample_index;
-    g_u8BootCurrentZeroValid = 1u;
-    log_i("[BOOT][CUR_ZERO] raw offset=%d samples=%u\n",
-          g_i32BootCurrentZeroRaw, sample_index);
+    g_i32BootCurrentZeroRawSum = raw_sum;
+    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_VALID;
+    log_i("[BOOT][CUR_ZERO] CADCD sum=%d samples=%u min=%d max=%d\n",
+          raw_sum, sample_index, raw_min, raw_max);
     return 1u;
+}
+
+UINT8 DataLoad_IsBootCurrentZeroValid(void)
+{
+    return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
+}
+
+UINT8 DataLoad_GetBootCurrentZeroStatus(void)
+{
+    return g_u8BootCurrentZeroStatus;
+}
+
+INT32 DataLoad_GetBootCurrentZeroRawSum(void)
+{
+    return g_i32BootCurrentZeroRawSum;
 }
 
 void DataLoad_Current(void)
 {
-    INT32 corrected_raw = DataLoad_CurrentApplyBootZero(SH367309_Read_AFE1.u16Current);
-    UINT32 current_mA = DataLoad_CurrentRawToScaled_mA(DataLoad_CurrentAbsRaw(corrected_raw));
+    INT32 corrected_raw_x4 = DataLoad_CurrentApplyBootZeroX4(
+        SH367309_Read_AFE1.u16Current);
+    UINT32 current_mA_x4 = DataLoad_CurrentRawX4ToScaled_mA_X4(
+        DataLoad_CurrentAbsRaw(corrected_raw_x4));
 
     u32_ChgCur_mA = 0u;
     u32_DsgCur_mA = 0u;
 
-    if (corrected_raw > 0)
+    if (corrected_raw_x4 > 0)
     {
-        u32_ChgCur_mA = current_mA;
+        u32_ChgCur_mA = DataLoad_Current_mA_X4To_mA(current_mA_x4);
     }
-    else if (corrected_raw < 0)
+    else if (corrected_raw_x4 < 0)
     {
-        u32_DsgCur_mA = current_mA;
+        u32_DsgCur_mA = DataLoad_Current_mA_X4To_mA(current_mA_x4);
     }
 
     log_i("******************************************\n");
-    log_i("AFE raw=%d zero=%d current=%d mA\n",
-          corrected_raw,
-          g_u8BootCurrentZeroValid ? g_i32BootCurrentZeroRaw : 0,
-          (corrected_raw < 0) ? -(INT32)current_mA : (INT32)current_mA);
-
-    // DataLoad_CurrentCali();
-    if (u32_DsgCur_mA > 2000)
-    {
-        u32_DsgCur_mA = ((u32_DsgCur_mA * SYSKDEFAULT)) + (INT32)SYSBDEFAULT * 1000; // B鍊兼槸鍩轰簬A涓哄崟浣嶈绠楀嚭鏉ョ殑
-    }
-    else
-    {
-        u32_DsgCur_mA = ((u32_DsgCur_mA * 1024));
-    }
-
-    if (u32_ChgCur_mA > 2000)
-    {
-        u32_ChgCur_mA = ((u32_ChgCur_mA * SYSKDEFAULT)) + (INT32)SYSBDEFAULT * 1000;
-    }
-    else
-    {
-        u32_ChgCur_mA = ((u32_ChgCur_mA * 1024));
-    }
-
-    // 鏀逛负INT32
-    u32_ChgCur_mA = u32_ChgCur_mA > 0 ? u32_ChgCur_mA : 0;
-    u32_DsgCur_mA = u32_DsgCur_mA > 0 ? u32_DsgCur_mA : 0;
+    log_i("AFE raw_x4=%d zero_sum=%d current_mA_x4=%d\n",
+          corrected_raw_x4,
+          DataLoad_IsBootCurrentZeroValid() ? g_i32BootCurrentZeroRawSum : 0,
+          (corrected_raw_x4 < 0) ? -(INT32)current_mA_x4 : (INT32)current_mA_x4);
 
 #if (FD_BMS_TYPE == C11_AND_C11pro)
-    g_stCellInfoReport.u16Ichg = (UINT16)((u32_ChgCur_mA >> 10) / 100);
-    g_stCellInfoReport.u16IDischg = (UINT16)((u32_DsgCur_mA >> 10) / 10 / 12);
+    g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(
+        (corrected_raw_x4 > 0) ? current_mA_x4 : 0u,
+        CURRENT_REPORT_MA_PER_LSB);
+    g_stCellInfoReport.u16IDischg = DataLoad_Current_mA_X4ToReport(
+        (corrected_raw_x4 < 0) ? current_mA_x4 : 0u,
+        120u);
 #else
-    g_stCellInfoReport.u16Ichg = (UINT16)((u32_ChgCur_mA >> 10) / 100);
-    g_stCellInfoReport.u16IDischg = (UINT16)((u32_DsgCur_mA >> 10) / 100);
+    g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(
+        (corrected_raw_x4 > 0) ? current_mA_x4 : 0u,
+        CURRENT_REPORT_MA_PER_LSB);
+    g_stCellInfoReport.u16IDischg = DataLoad_Current_mA_X4ToReport(
+        (corrected_raw_x4 < 0) ? current_mA_x4 : 0u,
+        CURRENT_REPORT_MA_PER_LSB);
 #endif
 
     // g_stCellInfoReport.u16Ichg = 0;
     // g_stCellInfoReport.u16IDischg = 5 * CapacityFactory;
-    if (g_stCellInfoReport.u16Ichg <= 2)
-    {
-        g_stCellInfoReport.u16Ichg = 0;
-    }
-    if (g_stCellInfoReport.u16IDischg <= 2)
-    {
-        g_stCellInfoReport.u16IDischg = 0;
-    }
-    
 #ifdef __VIRTURE_CURRENT__
     if (sys_time.isdebugenable == 1)
     {
