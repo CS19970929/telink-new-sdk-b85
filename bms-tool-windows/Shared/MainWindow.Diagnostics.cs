@@ -14,6 +14,10 @@ public partial class MainWindow
     private DiagnosticCapture? _diagCapture;
     private TextBlock _diagStatus = new();
     private CheckBox _diagAuto = new() {Content="每 5 秒刷新状态"};
+    private readonly DataGrid _diagCurrent = DiagnosticGrid();
+    private readonly DataGrid _diagSoc = DiagnosticGrid();
+    private readonly DataGrid _diagPower = DiagnosticGrid();
+    private readonly DataGrid _diagProtection = DiagnosticGrid();
     private readonly DataGrid _diagBoot = DiagnosticGrid();
     private readonly DataGrid _diagStorage = DiagnosticGrid();
     private readonly DataGrid _diagMos = DiagnosticGrid();
@@ -39,11 +43,13 @@ public partial class MainWindow
         };
         controls.Children.Add(read);controls.Children.Add(stop);controls.Children.Add(export);controls.Children.Add(_diagAuto);
         DockPanel.SetDock(controls,Dock.Top);root.Children.Add(controls);
-        _diagStatus.Text="连接后自动探测；完整 Trace 和事件记录请点击读取。物理 MOS 反馈不可用。";
+        _diagStatus.Text="连接后自动探测运行状态；完整 Trace、事件、参数和 AFE 证据请点击读取。诊断只读，物理 MOS 反馈不可用。";
         _diagStatus.TextWrapping=TextWrapping.Wrap;_diagStatus.Margin=new Thickness(4);
         DockPanel.SetDock(_diagStatus,Dock.Top);root.Children.Add(_diagStatus);
         var tabs=new TabControl();
-        foreach(var item in new[]{("启动",_diagBoot),("存储",_diagStorage),("MOS 决策",_diagMos),("RAM Trace",_diagTrace)})
+        foreach(var item in new[]{
+            ("电流",_diagCurrent),("SOC",_diagSoc),("低功耗",_diagPower),("保护",_diagProtection),
+            ("MOS 决策",_diagMos),("启动",_diagBoot),("存储",_diagStorage),("RAM Trace",_diagTrace)})
             tabs.Items.Add(new TabItem {Header=item.Item1,Content=item.Item2});
         root.Children.Add(tabs);MainTabs.Items.Add(new TabItem {Header="BMS 诊断",Content=root});
         _diagTimer=new DispatcherTimer {Interval=TimeSpan.FromSeconds(1)};
@@ -72,6 +78,8 @@ public partial class MainWindow
             var result=await client.ReadDiagnosticsAsync(full,ConnectionText.Text,_diagCts.Token);
             if(!ReferenceEquals(client,_bms)) { result.Errors.Add("采集期间连接改变");result.Status="旧连接的部分证据"; }
             _diagCapture=result;_diagProbedClient=client;
+            _diagCurrent.ItemsSource=result.Current;_diagSoc.ItemsSource=result.Soc;
+            _diagPower.ItemsSource=result.Power;_diagProtection.ItemsSource=result.Protection;
             _diagBoot.ItemsSource=result.Boot;_diagStorage.ItemsSource=result.Storage;
             _diagMos.ItemsSource=result.Mos;_diagTrace.ItemsSource=result.Trace;
             _diagStatus.Text=$"{result.Status} · {result.FinishedUtc.ToLocalTime():HH:mm:ss} · "+string.Join("；",result.Errors);
