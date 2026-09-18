@@ -1301,13 +1301,21 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 
 static void app_sample_task(void)
 {
+    bms_afe_aux_measurements_t sample;
+
     if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
         return;
 
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     bms_afe_sample();
-    APP_SOC_IntEnhance_Ctrl();
+
+    /* Do not advance coulomb/OCV/filter time from a cached pre-fault sample.
+     * The common guard exposes auxiliary data only after communication and
+     * fresh-snapshot qualification have both succeeded. */
+    if (bms_afe_get_aux_measurements(&sample))
+        APP_SOC_IntEnhance_Ctrl();
+
     mos_update();
 
     /* Coalesce an overrun instead of executing multiple catch-up samples:
