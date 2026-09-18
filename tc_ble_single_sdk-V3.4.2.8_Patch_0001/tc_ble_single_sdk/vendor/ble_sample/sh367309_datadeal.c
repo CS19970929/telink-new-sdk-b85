@@ -28,6 +28,8 @@ void Delay1ms(u8 ms);
 #define CURRENT_ZERO_SAMPLE_SCALE              BOOT_CURRENT_ZERO_SAMPLE_COUNT
 #define CURRENT_MA_X4_SCALE                    BOOT_CURRENT_ZERO_SAMPLE_COUNT
 #define CURRENT_REPORT_MA_PER_LSB              100u
+#define CURRENT_DEADBAND_CALIBRATED_MA          200u
+#define CURRENT_DEADBAND_FALLBACK_MA            500u
 
 /*
  * Keep the four-sample sum instead of an integer average so the correction
@@ -88,6 +90,13 @@ static UINT32 DataLoad_CurrentRawX4ToScaled_mA_X4(UINT32 raw_abs_x4)
 static UINT32 DataLoad_Current_mA_X4To_mA(UINT32 current_mA_x4)
 {
     return (current_mA_x4 + (CURRENT_MA_X4_SCALE / 2u)) / CURRENT_MA_X4_SCALE;
+}
+
+static UINT32 DataLoad_CurrentDeadband_mA(void)
+{
+    return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID)
+               ? CURRENT_DEADBAND_CALIBRATED_MA
+               : CURRENT_DEADBAND_FALLBACK_MA;
 }
 
 static UINT16 DataLoad_Current_mA_X4ToReport(UINT32 current_mA_x4,
@@ -1561,7 +1570,12 @@ UINT8 DataLoad_GetBootCurrentZeroStatus(void)
 
 INT32 DataLoad_GetBootCurrentZeroRawSum(void)
 {
-    return g_i32BootCurrentZeroRawSum;
+    return DataLoad_IsBootCurrentZeroValid() ? g_i32BootCurrentZeroRawSum : 0;
+}
+
+UINT32 DataLoad_GetDsgCurrent_mA(void)
+{
+    return u32_DsgCur_mA;
 }
 
 void DataLoad_Current(void)
@@ -1570,6 +1584,21 @@ void DataLoad_Current(void)
         SH367309_Read_AFE1.u16Current);
     UINT32 current_mA_x4 = DataLoad_CurrentRawX4ToScaled_mA_X4(
         DataLoad_CurrentAbsRaw(corrected_raw_x4));
+    UINT32 deadband_mA = DataLoad_CurrentDeadband_mA();
+
+    /*
+     * Apply the deadband before report-unit conversion so SOC, work-state and
+     * power-management users all see the same current decision.
+     *
+     * Valid boot zero:    |I| < 0.2 A -> 0
+     * Calibration failed: |I| < 0.5 A -> 0, with effective zero offset = 0
+     *
+     * The boundary itself remains valid current (0.2 A / 0.5 A).
+     */
+    if (current_mA_x4 < (deadband_mA * CURRENT_MA_X4_SCALE))
+    {
+        current_mA_x4 = 0u;
+    }
 
     u32_ChgCur_mA = 0u;
     u32_DsgCur_mA = 0u;
@@ -1584,10 +1613,11 @@ void DataLoad_Current(void)
     }
 
     log_i("******************************************\n");
-    log_i("AFE raw_x4=%d zero_sum=%d current_mA_x4=%d\n",
+    log_i("AFE raw_x4=%d zero_sum=%d current_mA_x4=%d deadband=%u mA\n",
           corrected_raw_x4,
-          DataLoad_IsBootCurrentZeroValid() ? g_i32BootCurrentZeroRawSum : 0,
-          (corrected_raw_x4 < 0) ? -(INT32)current_mA_x4 : (INT32)current_mA_x4);
+          DataLoad_GetBootCurrentZeroRawSum(),
+          (corrected_raw_x4 < 0) ? -(INT32)current_mA_x4 : (INT32)current_mA_x4,
+          deadband_mA);
 
 #if (FD_BMS_TYPE == C11_AND_C11pro)
     g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(

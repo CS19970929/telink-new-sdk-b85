@@ -745,6 +745,7 @@ UINT8 DataLoad_BootCurrentZeroCapture(void);
 UINT8 DataLoad_IsBootCurrentZeroValid(void);
 UINT8 DataLoad_GetBootCurrentZeroStatus(void);
 INT32 DataLoad_GetBootCurrentZeroRawSum(void);
+UINT32 DataLoad_GetDsgCurrent_mA(void);
 void App_AFEGet(void);
 void AFE_Reset(void);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);

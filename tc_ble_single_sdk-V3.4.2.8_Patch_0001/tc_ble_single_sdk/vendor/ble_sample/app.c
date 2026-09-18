@@ -57,6 +57,7 @@ bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
+#define APP_PM_DSG_SUSPEND_BLOCK_MA 500u
 
 typedef struct
 {
@@ -166,13 +167,6 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 
 void open_ctlc(void)
 {
-	if (!DataLoad_IsBootCurrentZeroValid())
-	{
-		gpio_write(AFE_CTL_PIN, 0);
-		gpio_write(MCC_C_PIN, 0);
-		return;
-	}
-
 	gpio_write(AFE_CTL_PIN, 1);
 	// gpio_write(MCC_C_PIN, 1);
 }
@@ -337,11 +331,6 @@ void ble_build_adv_scanrsp(void)
 
 void open_chg_close_dsg(void)
 {
-	if (!DataLoad_IsBootCurrentZeroValid())
-	{
-		return;
-	}
-
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -350,11 +339,6 @@ void open_chg_close_dsg(void)
 }
 void open_dsg_close_chg(void)
 {
-	if (!DataLoad_IsBootCurrentZeroValid())
-	{
-		return;
-	}
-
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -373,11 +357,6 @@ void close_chg(void)
 
 void open_dsg(void)
 {
-	if (!DataLoad_IsBootCurrentZeroValid())
-	{
-		return;
-	}
-
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -1292,7 +1271,7 @@ void blt_pm_proc(void)
 			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 			if(!gpio_read(CHG_IN_PIN) ||
 				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg 
+				DataLoad_GetDsgCurrent_mA() >= APP_PM_DSG_SUSPEND_BLOCK_MA
 				)
 			{
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
@@ -1349,7 +1328,7 @@ void blt_pm_proc(void)
 	// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 	if (!gpio_read(CHG_IN_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
-		g_stCellInfoReport.u16IDischg ||
+		DataLoad_GetDsgCurrent_mA() >= APP_PM_DSG_SUSPEND_BLOCK_MA ||
 		// MODE_FACTORY == Runtime_GetMode() ||
 		ota_is_working)
 	// if(
@@ -1641,8 +1620,9 @@ _attribute_no_inline_ void user_init_normal(void)
 		 * Boot-only zero-current calibration window. CTL-C must stay low and
 		 * both CHG/DSG MOS must be OFF until the AFE zero offset is captured.
 		 * DataLoad_BootCurrentZeroCapture() also verifies the actual AFE FET
-		 * status and current activity for every sample. A failed calibration
-		 * keeps the power path closed while BLE remains available for diagnosis.
+		 * status and current activity for every sample. Calibration is best-effort:
+		 * failure uses zero offset = 0 and a 0.5 A deadband, and never blocks the
+		 * normal power-path startup.
 		 */
 		close_ctlc();
 		close_chg();
@@ -1670,12 +1650,11 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	if (!DataLoad_IsBootCurrentZeroValid())
 	{
-		close_chg();
-		close_ctlc();
-		log_i("[BOOT][CUR_ZERO] power path held off, status=%u\n",
+		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u\n",
 			  DataLoad_GetBootCurrentZeroStatus());
 	}
-	else if (IsChargerWakeupActive())
+
+	if (IsChargerWakeupActive())
 	{
 		open_chg_close_dsg();
 	}
@@ -1694,10 +1673,7 @@ _attribute_no_inline_ void user_init_normal(void)
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
 	// sys_time.isdebugenable = 1;
-	if (DataLoad_IsBootCurrentZeroValid())
-	{
-		open_ctlc();
-	}
+	open_ctlc();
 }
 
 /**
