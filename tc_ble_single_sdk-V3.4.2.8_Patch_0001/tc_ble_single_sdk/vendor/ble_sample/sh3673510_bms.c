@@ -119,17 +119,6 @@ static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
     return 1u;
 }
 
-static uint8_t temperature_snapshot(uint16_t *bat_min,
-                                    uint16_t *bat_max,
-                                    uint16_t *mos_temp)
-{
-    if (mos_temp == 0) return 0u;
-    if (!battery_temperature_snapshot(bat_min, bat_max)) return 0u;
-    if (!s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX]) return 0u;
-    *mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
-    return 1u;
-}
-
 static uint8_t charge_blocked(void)
 {
     return (s_hw_charge_protect ||
@@ -549,7 +538,6 @@ void sh3673510_bms_afe_init(void)
     bms_sw_protection_init();
     memset(&s_aux, 0, sizeof(s_aux));
     s_snapshot_valid = 0u;
-    s_comm_failures = 0u;
     s_balance_mask = 0u;
     s_hw_afe_error = 0u;
     s_requested_charge_on = 0u;
