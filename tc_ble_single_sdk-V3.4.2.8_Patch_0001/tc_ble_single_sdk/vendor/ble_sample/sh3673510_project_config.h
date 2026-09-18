@@ -188,6 +188,12 @@
 #define D011_SCI1_TX_PIN                        GPIO_PC2
 #define D011_SCI1_RX_PIN                        GPIO_PC3
 #define D011_DEBUG_LED_PIN                      GPIO_PC4
+#ifndef D011_DEBUG_LED_ENABLE
+#define D011_DEBUG_LED_ENABLE                   0u
+#endif
+#if (D011_DEBUG_LED_ENABLE > 1u)
+#error "D011_DEBUG_LED_ENABLE must be 0 or 1"
+#endif
 #define D011_CMNT_WK_PIN                        GPIO_PD3
 #define D011_AFE_CS_PIN                         GPIO_PD2
 
