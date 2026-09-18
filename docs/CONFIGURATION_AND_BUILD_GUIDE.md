@@ -46,7 +46,7 @@ git pull --ff-only origin refactor/d008-common-bms-features
 
 | 想改的内容 | 应改位置 | 是否属于产品编译配置 | 已有设备是否自动变化 |
 |---|---|---:|---:|
-| 24S LFP / 20S NMC | `vendor/ble_sample/d008_product_profile.h` | 是 | 否，已持久化 chemistry/profile 不会被静默覆盖 |
+| 16S LFP / 20S NMC / 24S LFP | `vendor/ble_sample/d008_product_profile.h` | 是 | 否，已持久化 chemistry/profile 不会被静默覆盖 |
 | DVC cell count / Rsense / GP1..GP6 / ADC / WDT 等板级默认 | `vendor/ble_sample/dvc1124_project_config.h` | 是 | 视 DVC config store 是否已有持久值；不要假设默认会覆盖现场值 |
 | MCU GPIO 网络 | `vendor/ble_sample/conf.h` + 实际调用代码 | 是 | 固件更新后变化 |
 | 软件三级保护默认值 | `vendor/ble_sample/param.h` | 是 | **不会自动覆盖已保存参数** |
@@ -68,7 +68,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/
 
 ---
 
-## 3. D008 24S / 20S 怎么改
+## 3. D008 16S / 20S / 24S 怎么改
 
 文件：
 
@@ -76,52 +76,31 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/d008_product_profile.h
 ```
 
-当前定义：
+当前 profile ID 保留历史兼容：
 
 ```c
 #define D008_PRODUCT_PROFILE_24S_LFP  1u
 #define D008_PRODUCT_PROFILE_20S_NMC  2u
+#define D008_PRODUCT_PROFILE_16S_LFP  3u
 
 #ifndef D008_PRODUCT_PROFILE
-#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_24S_LFP
+#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_16S_LFP
 #endif
 ```
 
-### 默认 24S LFP
-
-保持：
-
-```c
-#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_24S_LFP
-```
-
-实际得到：
+### 当前默认：16S LFP
 
 ```text
-cell_count = 24
+cell_count = 16
 chemistry = LFP
 SOC profile = GENERIC_LFP
+product name = D008-16S-LFP
 ```
 
-### 改成 20S NMC
+20S NMC 或历史 24S LFP 必须显式通过 `D008_PRODUCT_PROFILE` 选择。保留 24S 的数值 ID=1 是为了避免破坏已有外部构建脚本，但它不再是本分支默认量产身份。
 
-改为：
+**切换串数/化学体系不等于产品参数已签核。** 容量、OV/UV、OC、温度、SOC OCV/端点仍需对应 SKU 单独验证。编译后的 profile 必须与实际装配串数一致，禁止出现“宏名24S、实际16S”这种身份漂移。
 
-```c
-#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_20S_NMC
-```
-
-实际得到：
-
-```text
-cell_count = 20
-chemistry = NMC
-SOC profile = GENERIC_NMC
-```
-
-**只改这个宏不代表 20S NMC 产品参数完成。** 容量、OV/UV、OC、温度、SOC OCV/端点仍需要单独签核。
-
-对已经保存过 chemistry/profile 的设备，源码 `param_apply_d008_product_identity_if_unset()` 只在 Cold KV 为 `AUTO/AUTO` 时应用编译 profile，不会强制把已配置设备从 24S/LFP 改成 20S/NMC。
 
 ---
 
@@ -535,7 +514,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/82
 源码实际产物名保持 `825x_ble_sample.bin`，交付时建议复制成：
 
 ```text
-HS-D008_TLSR8251_DVC1124_24S-LFP_<SWVER>_<shortsha>.bin
+HS-D008_TLSR8251_DVC1124_16S-LFP_<SWVER>_<shortsha>.bin
 ```
 
 20S版本：
