@@ -46,8 +46,8 @@ for needle in (
 ):
     require(bms, needle)
 
-# The HW-only test must not be masked by the software heater state machine.
-require(bms, "sh3673510_board_set_heater(0u);")
-require(bms, "bms_error_clear(BMS_ERROR_HEAT);")
+# The HW-only test must not be masked by a backend-owned heater state machine.
+if "static void apply_heater" in bms or "s_heater_mos_overtemp" in bms:
+    raise AssertionError("SH backend must not own heater policy")
 
 print("SH3673510 protection mode contract: PASS")
