@@ -32,6 +32,15 @@ internal static class Program
             CliReporter.WriteError(options?.Json ?? args.Contains("--json"), "cancelled", ExitCodes.Cancelled, "Operation cancelled.");
             return ExitCodes.Cancelled;
         }
+        catch (TimeoutException ex)
+        {
+            CliReporter.WriteError(
+                options?.Json ?? args.Contains("--json"),
+                "connect_failed",
+                ExitCodes.ConnectFailed,
+                $"BMS communication timed out: {ex.Message}");
+            return ExitCodes.ConnectFailed;
+        }
         catch (CliException ex)
         {
             CliReporter.WriteError(options?.Json ?? args.Contains("--json"), ex.Kind, ex.ExitCode, ex.Message, ex.Details);
