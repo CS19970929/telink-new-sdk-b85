@@ -631,16 +631,32 @@ void blt_pm_proc(void)
     bms_afe_aux_measurements_t m;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
     u32 limit_seconds = 0u;
+    u32 pm_block = 0u;
     u8 region = 0u;
     u8 valid = app_get_fresh_measurements(&m);
-    u8 busy = ota_is_working || !app_flash_lock_restore_enabled() ||
-              BUS_STATE_OWC_IDLE != bus_mux_get_state();
+    u8 ota_busy = ota_is_working ? 1u : 0u;
+    u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
+    u8 bus_busy = (BUS_STATE_OWC_IDLE != bus_mux_get_state()) ? 1u : 0u;
+    u8 busy = (uint8_t)(ota_busy || flash_busy || bus_busy);
+
+    if (!valid) pm_block |= DIAG_PM_BLOCK_SAMPLE_INVALID;
+    if (ota_busy) pm_block |= DIAG_PM_BLOCK_OTA;
+    if (flash_busy) pm_block |= DIAG_PM_BLOCK_FLASH;
+    if (bus_busy) pm_block |= DIAG_PM_BLOCK_BUS;
+    if (valid && (m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
+                  m.current_ma <= -APP_SUSPEND_EXIT_CURRENT_MA))
+        pm_block |= DIAG_PM_BLOCK_CURRENT;
+    if (s_sample_due) pm_block |= DIAG_PM_BLOCK_SAMPLE_PENDING;
 
     /* 0x1102=0x000A is a latched power-off request, not an idle-suspend hint.
      * Keep it pending across OTA/bus/persistence/AFE failures. Return here so
      * the automatic low-voltage timer cannot reset the five-second retry gate. */
     if (deepsleep_en)
     {
+        pm_block |= DIAG_PM_BLOCK_POWER_OFF;
+        bms_diag_runtime_pm(0u, pm_block, low_voltage_region, low_voltage_seconds,
+                            (uint8_t)(device_in_connection_state != 0),
+                            s_sample_due, APP_SUSPEND_EXIT_CURRENT_MA);
         if (app_enter_power_off()) return;
         sys_time.low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -652,6 +668,10 @@ void blt_pm_proc(void)
     {
         low_voltage_seconds = 0u;
         low_voltage_region = 0u;
+        pm_block |= DIAG_PM_BLOCK_ACC_SLEEP;
+        bms_diag_runtime_pm(0u, pm_block, low_voltage_region, low_voltage_seconds,
+                            (uint8_t)(device_in_connection_state != 0),
+                            s_sample_due, APP_SUSPEND_EXIT_CURRENT_MA);
         if (app_enter_acc_sleep()) return;
         sys_time.low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -698,17 +718,22 @@ void blt_pm_proc(void)
 
     /* Exact signed mA avoids the old 0.1 A truncation and checks both sides.
      * Invalid data forces active recovery instead of pretending to be idle. */
-    if (!valid || busy || m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
-        m.current_ma <= -APP_SUSPEND_EXIT_CURRENT_MA || s_sample_due)
+    if (pm_block != 0u)
     {
         sys_time.low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
+        bms_diag_runtime_pm(0u, pm_block, low_voltage_region, low_voltage_seconds,
+                            (uint8_t)(device_in_connection_state != 0),
+                            s_sample_due, APP_SUSPEND_EXIT_CURRENT_MA);
     }
     else
     {
         sys_time.low_power_mode = true;
         bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
+        bms_diag_runtime_pm(1u, 0u, low_voltage_region, low_voltage_seconds,
+                            (uint8_t)(device_in_connection_state != 0),
+                            s_sample_due, APP_SUSPEND_EXIT_CURRENT_MA);
     }
 }
 
@@ -1037,6 +1062,7 @@ int app_flash_lock_restore_enabled(void)
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
+    bms_soc_diag_t soc_diag;
     u8 valid;
 
     if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
@@ -1048,6 +1074,24 @@ static void app_sample_task(void)
     APP_SOC_IntEnhance_Ctrl(valid, valid ? m.current_ma : 0,
                            valid ? m.sample_tick_32k : pm_get_32k_tick());
     mos_update();
+
+    bms_diag_runtime_sample(valid,
+                            valid ? m.raw_current_ma : 0,
+                            valid ? m.current_ma : 0,
+                            valid ? m.sample_tick_32k : pm_get_32k_tick(),
+                            bms_afe_current_recovery_pending());
+    bms_soc_get_diag(&soc_diag);
+    bms_diag_runtime_soc(soc_diag.soc_estimate, soc_diag.soc_display,
+                         soc_diag.ocv_state, soc_diag.ocv_center,
+                         soc_diag.ocv_low, soc_diag.ocv_high,
+                         soc_diag.ocv_confidence, soc_diag.rest_seconds,
+                         soc_diag.learning_state, soc_diag.capacity_learned,
+                         soc_diag.learned_capacity_0p1ah,
+                         soc_diag.current_deadband_ma);
+    bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
+                            g_stCellInfoReport.unMdlFault_Second.all,
+                            g_stCellInfoReport.unMdlFault_Third.all);
+
     /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
