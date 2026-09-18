@@ -463,6 +463,9 @@ static uint8_t publish_measurements(void)
     s_aux.pack_voltage_mv = (uint32_t)pack_mv;
     g_stCellInfoReport.u16VCellTotle = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
 
+    s_aux.current_ma = current_ma;
+    s_aux.sample_tick_32k = pm_get_32k_tick();
+
     if (current_ma < 0L) {
         uint32_t ma = (uint32_t)(-current_ma);
         g_stCellInfoReport.u16IDischg = (uint16_t)((ma + 50u) / 100u);
