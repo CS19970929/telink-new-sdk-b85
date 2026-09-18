@@ -1,0 +1,60 @@
+name: Telink BMS TC32 Validation
+
+on:
+  push:
+    branches:
+      - feature/boot-zero-current-calibration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boot-zero-current-tc32-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tc32-build:
+    name: TC32 TLSR8251 build
+    runs-on: [self-hosted, Windows, X64, telink-tc32]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check TC32 and target identity
+        shell: powershell
+        run: python bms_tools/bms.py env
+
+      - name: Validate source order
+        shell: powershell
+        run: python bms_tools/bms.py sources --check
+
+      - name: Clean rebuild with TC32
+        shell: powershell
+        run: python bms_tools/bms.py rebuild --jobs 4
+
+      - name: Validate firmware image
+        shell: powershell
+        run: python bms_tools/bms.py check-fw
+
+      - name: Analyze size
+        shell: powershell
+        run: python bms_tools/bms.py size
+
+      - name: Enforce TLSR8251 MAP limits
+        shell: powershell
+        run: python bms_tools/bms.py map
+
+      - name: Upload firmware and MAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-zero-current-tc32-${{ github.sha }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.elf
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.map
+            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/build.log
