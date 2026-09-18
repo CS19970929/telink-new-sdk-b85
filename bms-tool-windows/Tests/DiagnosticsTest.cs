@@ -11,6 +11,7 @@ static class Test
         var capture=await b.ReadDiagnosticsAsync(true,"mock");
         Check(capture.Supported&&capture.SnapshotConsistent&&capture.TraceConsistent,"capability/snapshot");
         Check(capture.Boot.Any(f=>f.Value.Contains("旧固件未提供")),"legacy upgrade detail unavailable");
+        Check(capture.Boot.Any(f=>f.Field=="Git 工作区"&&f.Value=="CLEAN"),"clean firmware provenance");
         var upgradeWords=capture.Words!.ToArray();upgradeWords[2]|=16;
         upgradeWords[27]=3;upgradeWords[28]=3;upgradeWords[98]=2200;upgradeWords[102]=3200;
         upgradeWords[106]=1;upgradeWords[108]=2;
