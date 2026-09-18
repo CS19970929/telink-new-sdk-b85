@@ -55,6 +55,12 @@ int main(void){
  assert(bms_diag_cached_word(200)==200u&&bms_diag_cached_word(202)==73u&&bms_diag_cached_word(203)==72u);
  assert(bms_diag_cached_word(215)==0u&&bms_diag_cached_word(221)==500u);
  assert(bms_diag_cached_word(222)==1u&&bms_diag_cached_word(223)==2u&&bms_diag_cached_word(224)==4u);
+ bms_diag_runtime_pm(1u,0u,0u,0u,1u,0u,500u);
+ { uint32_t trace_before=(uint32_t)bms_diag_cached_word(8)|((uint32_t)bms_diag_cached_word(9)<<16);
+   bms_diag_runtime_pm(0u,DIAG_PM_BLOCK_SAMPLE_PENDING,0u,0u,1u,1u,500u);
+   bms_diag_runtime_pm(1u,0u,0u,0u,1u,0u,500u);
+   assert(((uint32_t)bms_diag_cached_word(8)|((uint32_t)bms_diag_cached_word(9)<<16))==trace_before);
+ }
  n=request(q,1,3,0x2a12,2);assert(modbus_on_frame(q,n,r,&l));
  assert(l==9 && r[3]==0x56 && r[4]==0x78 && r[5]==0x12 && r[6]==0x34);
  u16 seq=bms_diag_cached_word(4);for(int i=0;i<100;i++)assert(modbus_on_frame(q,n,r,&l));
