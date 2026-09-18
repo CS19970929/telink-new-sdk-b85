@@ -119,44 +119,52 @@ class ToolchainEnvironmentTests(unittest.TestCase):
 
 
 class MapLimitTests(unittest.TestCase):
+    @staticmethod
+    def _write_fixture(root: Path, sram_end: int, ram_end: int) -> tuple[Path, Path]:
+        map_path = root / "fw.map"
+        lst_path = root / "fw.lst"
+        map_path.write_text(
+            "                0x%08x                PROVIDE (_ram_use_end_, .)\n"
+            "                0x0001a000                PROVIDE (_bin_size_, expr)\n"
+            % ram_end,
+            encoding="utf-8",
+        )
+        lst_path.write_text(
+            f"{sram_end:08x} g       *ABS*\t00000000 __SRAM_SIZE\n",
+            encoding="utf-8",
+        )
+        return map_path, lst_path
+
     def test_map_accepts_tlsr8251_sram_with_stack_headroom(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            map_path = Path(tmp) / "fw.map"
-            map_path.write_text(
-                "_bin_size_ = 0x0001A000\n"
-                "_ram_use_end_ = 0x00846000\n"
-                "__SRAM_SIZE = 0x00848000\n",
-                encoding="utf-8",
-            )
-            with mock.patch.object(bms, "MAP", map_path):
+            map_path, lst_path = self._write_fixture(Path(tmp), 0x848000, 0x846000)
+            with mock.patch.object(bms, "MAP", map_path), mock.patch.object(bms, "LST", lst_path):
                 self.assertEqual(bms.cmd_map(bms.argparse.Namespace()), 0)
 
     def test_map_rejects_8258_startup_sram(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            map_path = Path(tmp) / "fw.map"
-            map_path.write_text(
-                "_bin_size_ = 0x0001A000\n"
-                "_ram_use_end_ = 0x00846000\n"
-                "__SRAM_SIZE = 0x00850000\n",
-                encoding="utf-8",
-            )
-            with mock.patch.object(bms, "MAP", map_path):
+            map_path, lst_path = self._write_fixture(Path(tmp), 0x850000, 0x846000)
+            with mock.patch.object(bms, "MAP", map_path), mock.patch.object(bms, "LST", lst_path):
                 with self.assertRaises(SystemExit):
                     bms.cmd_map(bms.argparse.Namespace())
 
     def test_map_rejects_ram_end_inside_reserved_stack(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            map_path = Path(tmp) / "fw.map"
             limit = bms.STARTUP_SRAM_END - bms.MAIN_STACK_RESERVE_BYTES
-            map_path.write_text(
-                "_bin_size_ = 0x0001A000\n"
-                f"_ram_use_end_ = 0x{limit:08X}\n"
-                "__SRAM_SIZE = 0x00848000\n",
-                encoding="utf-8",
-            )
-            with mock.patch.object(bms, "MAP", map_path):
+            map_path, lst_path = self._write_fixture(Path(tmp), 0x848000, limit)
+            with mock.patch.object(bms, "MAP", map_path), mock.patch.object(bms, "LST", lst_path):
                 with self.assertRaises(SystemExit):
                     bms.cmd_map(bms.argparse.Namespace())
+
+    def test_real_tc32_map_symbol_formats_are_supported(self) -> None:
+        map_text = (
+            "                0x008460d0                PROVIDE (_ram_use_end_, .)\n"
+            "                0x0001b004                PROVIDE (_bin_size_, expr)\n"
+        )
+        listing = "00848000 g       *ABS*\t00000000 __SRAM_SIZE\n"
+        self.assertEqual(bms._map_symbol_value(map_text, "_ram_use_end_"), 0x8460D0)
+        self.assertEqual(bms._map_symbol_value(map_text, "_bin_size_"), 0x1B004)
+        self.assertEqual(bms._listing_abs_symbol_value(listing, "__SRAM_SIZE"), 0x848000)
 
 
 class IntegrityPrimitiveTests(unittest.TestCase):
