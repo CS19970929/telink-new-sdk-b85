@@ -730,7 +730,19 @@ def cmd_map(args: argparse.Namespace) -> int:
     symbols = {}
     for sym in ("_bin_size_", "_code_size_", "_ram_use_end_", "_start_bss_",
                 "_end_bss_", "_start_data_", "_end_data_", "_retention_size_"):
-        m = re.search(rf"\b{re.escape(sym)}\b\s*=\s*0x([0-9a-fA-F]+)", text)
+        # Old TC32 GNU ld prints linker-script PROVIDE symbols as:
+        #   0x00845b0c  PROVIDE (_ram_use_end_, .)
+        # Some toolchains instead print: symbol = 0x....
+        m = re.search(
+            rf"^\s*0x([0-9a-fA-F]+)\s+PROVIDE\s*\(\s*{re.escape(sym)}\s*,",
+            text,
+            re.M,
+        )
+        if m is None:
+            m = re.search(
+                rf"\b{re.escape(sym)}\b\s*=\s*0x([0-9a-fA-F]+)",
+                text,
+            )
         if m:
             value = int(m.group(1), 16)
             symbols[sym] = value
