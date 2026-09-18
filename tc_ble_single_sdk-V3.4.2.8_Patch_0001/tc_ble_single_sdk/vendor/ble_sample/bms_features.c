@@ -1,5 +1,6 @@
 #include "bms_diag.h"
 #include "bms_features.h"
+#include "bms_config_store.h"
 
 #include "bms_board.h"
 #include "bms_error.h"
@@ -145,6 +146,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
 static void service_heater(const bms_afe_feature_snapshot_t *s)
 {
     uint8_t charger;
+    bms_user_params_t config;
 
     if (s == 0 || !s->valid || !bms_board_heater_supported())
     {
@@ -154,6 +156,9 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
 
     if (!heater_circuit_safe(s)) return;
 
+    if (!bms_config_get_user(&config) || !config.heater_enable) {
+        set_heater(0u); return;
+    }
     charger = charge_source_present();
     if (!charger || !s->battery_temp_valid || bms_error_get(BMS_ERROR_AFE1) ||
         bms_error_get(BMS_ERROR_TEMP_BREAK))
@@ -164,9 +169,9 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
 
     /* Battery heating always uses the colder of GP2/GP3. */
     if (s_feature.heater_on)
-        set_heater((s->battery_temp_min_x10 < BMS_HEATER_STOP_TEMP_X10) ? 1u : 0u);
+        set_heater((s->battery_temp_min_x10 < config.heater_stop_x10) ? 1u : 0u);
     else
-        set_heater((s->battery_temp_min_x10 < BMS_HEATER_START_TEMP_X10) ? 1u : 0u);
+        set_heater((s->battery_temp_min_x10 < config.heater_start_x10) ? 1u : 0u);
 }
 
 static uint8_t openwire_eligible(void)

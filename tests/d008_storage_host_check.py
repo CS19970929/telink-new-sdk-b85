@@ -16,7 +16,7 @@ def main():
     headers='\n'.join(source(n) for n in ['bms_soc_defs.h','bms_state_store.h','soc_kv_store.h','SocEnhance.h','bms_afe_hw_profile.h','bms_config_store.h','bms_cold_kv_store.h','bms_event_log.h','bms_storage_platform.h'])
     units='\n'.join(source(n) for n in ['bms_config_store.c','bms_state_store.c','bms_event_log.c','param.c'])
     fixture=(ROOT/'tests/fixtures/d008_storage/stores.c').read_text()
-    code=fixture.replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
+    code=fixture.replace('/* PARAMETER_PROTOCOL */',source('bms_parameter_access.c')).replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
     with tempfile.TemporaryDirectory(prefix='d008-storage-') as d:
         p=Path(d)/'stores.c';p.write_text(code); exe=Path(d)/'stores'
         subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',str(MOD),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)

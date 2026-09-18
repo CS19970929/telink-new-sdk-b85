@@ -6,6 +6,8 @@
 typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t UINT32;
 #define FAC_INIT_soc 60u
 #define CapacityFactory 1000u
+#define BMS_HEATER_START_TEMP_X10 400u
+#define BMS_HEATER_STOP_TEMP_X10 450u
 #define FD_BMS_TYPE 8u
 #define SeriesNum 24u
 #define BTNAME_SUFFIX_MAX_LEN 23u
@@ -137,4 +139,70 @@ static void test_diag_boot(void){
  fresh();assert(bms_diag_cached_word(39)==1 && bms_diag_cached_word(37)==0);
  puts("PASS diagnostics: two Config failures, short circuit, independent Event attempt, frozen first failure, blank defaults");
 }
-int main(void){test_diag_boot();test_config_atomic_revisions();test_state();test_events();test_boot_gate();return 0;}
+static int access_active=1;static unsigned identity_updates,capacity_updates;
+static u8 live_soc=60;
+struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
+typedef struct {int32_t raw_current_ma,current_ma;u32 sample_tick_32k;u8 valid;} dvc1124_snapshot_t;
+static void DVC1124_GetSnapshot(dvc1124_snapshot_t*s){memset(s,0,sizeof(*s));}
+static u8 bms_afe_hw_access_is_active(void){return access_active;}
+u8 get_soc_real(void){return live_soc;}
+void set_soc_param(u8 soc,u16 cap,u8 sync){(void)cap;(void)sync;live_soc=soc;}
+void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
+static int Runtime_ReenterFactoryMode(void){return 1;}
+static u8 bms_reset_software_parameters(void){return 0;}
+static u8 bms_reset_afe_parameters(void){return access_active?0:2;}
+void WriteProID_Default(void){identity_updates++;}
+/* PARAMETER_PROTOCOL */
+static void test_parameter_protocol(void){
+ fresh();u8 heat[]={0,1,1,134,1,194},begin[]={0,0},chunk[8]={'S','N','0','1',0,0,0,0};
+ assert(bms_parameter_read(0x2e00)==0xd008);assert(bms_parameter_write(0x2e20,1,heat)==3);
+ assert(bms_parameter_write(0x2e20,3,heat)==0);assert(bms_parameter_read(0x2e21)==390);
+ cut=0;heat[0]=0;heat[1]=0;assert(bms_parameter_write(0x2e20,3,heat)==4);assert(bms_parameter_read(0x2e20)==1);cut=-1;
+ access_active=0;assert(bms_parameter_write(0x2e40,1,begin)==2);access_active=1;
+ u32 before=programs;assert(bms_parameter_write(0x2e40,1,begin)==0);
+ u16 gen=bms_parameter_read(0x2e06);u8 commit[]={(u8)(gen>>8),(u8)gen};
+ assert(bms_parameter_write(0x2e40,1,commit)==3);
+ for(u16 i=0;i<16;i+=4)assert(bms_parameter_write(0x2e50+i,4,chunk)==0);
+ assert(programs==before);assert(bms_parameter_write(0x2e40,1,commit)==0);assert(identity_updates==1);
+ reboot();assert(bms_parameter_read(0x2e30)==0x534e);
+ now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*32000u;
+ assert(bms_parameter_write(0x2e50,4,chunk)==3);
+ assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
+ u8 soc[]={0,88};cut=0;assert(bms_parameter_write(0x1005,1,soc)==4);assert(live_soc==60);cut=-1;
+ puts("PASS parameter protocol: atomic heater, failed-save rollback, SN authorization/full bitmap/commit/reboot/expiry/wrap, no staging Flash, null/zero length, SOC RAM unchanged on failure");
+}
+static void test_user_parameters(void){
+ fresh();bms_user_params_t v,old;assert(bms_config_get_user(&old));
+ assert(old.heater_enable==1 && old.heater_start_x10==400 && old.heater_stop_x10==450);
+ v=old;v.heater_start_x10=460;assert(!bms_config_set_user(&v));
+ v=old;v.current_offset_ma=-123;v.current_gain_ppm=1100000;strcpy(v.serial,"D008-TEST");
+ assert(bms_config_set_user(&v));reboot();assert(bms_config_get_user(&old));assert(!memcmp(&old,&v,sizeof(v)));
+ memcpy(backup,flash,sizeof(flash));
+ for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);byte++){
+  memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_get_user(&old));
+  bms_user_params_t next=old;next.heater_enable=0;cut=byte;assert(!bms_config_set_user(&next));
+  assert(bms_config_get_user(&next));assert(next.heater_enable==1);
+  reboot();assert(bms_config_get_user(&next));assert(next.heater_enable==1 && !strcmp(next.serial,"D008-TEST"));
+ }
+ assert(bms_config_reset_business());assert(bms_config_get_user(&old));assert(old.current_offset_ma==-123 && !strcmp(old.serial,"D008-TEST"));
+ uint32_t rng=19;
+ for(unsigned i=0;i<10000;i++){
+  rng=rng*1664525u+1013904223u;int32_t raw=(int32_t)rng;
+  rng=rng*1664525u+1013904223u;v.current_offset_ma=(int32_t)(rng%2000001)-1000000;
+  rng=rng*1664525u+1013904223u;v.current_gain_ppm=100000+rng%9900001;
+  g_bms_config.user=v;
+  int64_t delta=(int64_t)raw-v.current_offset_ma;
+  if(delta>INT32_MAX)delta=INT32_MAX;
+  if(delta<-INT32_MAX)delta=-INT32_MAX;
+  int64_t expected=delta*v.current_gain_ppm/1000000;
+  if(expected>INT32_MAX)expected=INT32_MAX;
+  if(expected<-INT32_MAX)expected=-INT32_MAX;
+  assert(bms_config_calibrate_current(raw)==expected);
+ }
+ fresh();bms_state_persist_t state=g_bms_state;cut=0;
+ assert(!bms_state_store_set_soc_cycle(88,9,999));assert(g_bms_state.soc==state.soc);
+ cut=-1;assert(g_bms_state_pending.soc==state.soc);reboot();assert(bms_state_store_init());assert(g_bms_state.soc==state.soc);
+ assert(bms_state_store_set_soc_cycle(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
+ puts("PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback");
+}
+int main(void){test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_atomic_revisions();test_state();test_events();test_boot_gate();return 0;}

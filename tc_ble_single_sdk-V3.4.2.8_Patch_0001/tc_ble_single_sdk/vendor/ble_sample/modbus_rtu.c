@@ -9,6 +9,8 @@
 #include "bms_sw_protection.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_afe_hw_access.h"
+#include "bms_parameter_access.h"
+#include "bms_config_store.h"
 #include "bms_afe_hw_modbus.h"
 #include "dvc1124.h"
 #include "dvc1124_project_config.h"
@@ -336,20 +338,6 @@ static u8 dvc_comm_write(u16 reg, u16 val)
     return MB_EX_ILLEGAL_ADDRESS;
 }
 
-static int dvc_comm_range_contains(u16 reg, u16 qty)
-{
-    u32 end;
-
-    if (qty == 0u) return 0;
-    end = (u32)reg + qty;
-
-    if (dvc_comm_is_semantic(reg))
-        return end <= (u32)DVC1124_COMM_REG_BASE + DVC1124_COMM_REG_COUNT;
-    if (dvc_comm_is_raw(reg))
-        return end <= (u32)DVC1124_RAW_REG_BASE + DVC1124_RAW_REG_COUNT;
-    return 0;
-}
-
 static u16 read_fault_history_reg(u16 reg)
 {
     u16 offset;
@@ -393,9 +381,19 @@ static int modbus_exception(u8 addr,
     return 1;
 }
 
+static int read_address_supported(u16 r)
+{
+    return bms_parameter_readable(r) || r<3u ||
+           (r>=BTNAME_REG_BASE && r<BTNAME_REG_BASE+BTNAME_REG_COUNT) ||
+           (r>=0xC002u && r<0xC032u) || (r>=0xD000u && r<=0xD03Eu) ||
+           (r>=0x2100u && r<=0x2140u) || (r>=0xD100u && r<=0xD116u) ||
+           (r>=BMS_REALTIME_REG_BASE && r<BMS_REALTIME_REG_BASE+BMS_REALTIME_REG_COUNT) ||
+           afe_hw_profile_is_reg(r) || dvc_comm_is_semantic(r) || dvc_comm_is_raw(r);
+}
+
 static u16 read_reg(u16 reg)
 {
-    u16 val;
+    if (bms_parameter_readable(reg)) return bms_parameter_read(reg);
 
     if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
 
@@ -468,7 +466,7 @@ extern uint8_t get_soc_real(void);
 
 static int reg_requires_param_save(u16 reg)
 {
-    /* DVC 0x2800 semantic writes persist inside dvc1124_config_service. */
+    /* Fixed DVC semantic diagnostics are read-only. */
     return (reg >= 0x2100u && reg <= 0x2140u);
 }
 
@@ -484,60 +482,25 @@ static u8 write_reg(u16 reg, u16 val)
         return 0u;
     }
 
-    if (reg == 0x1005u)
-    {
-        set_soc_param(val, 1, 1);
-        return 0u;
+    if (reg==0x1005u || reg==0x2318u || reg==0x2319u || (reg>=0x2E00u && reg<0x2F00u)) {
+        u8 bytes[2]={(u8)(val>>8),(u8)val};
+        return bms_parameter_write(reg,1u,bytes);
     }
-
-    if (reg == 0x1102u)
-    {
-        if (val == 0x03u)
-        {
-            if (!Runtime_ReenterFactoryMode())
-            {
-                bms_error_raise(BMS_ERROR_EEPROM_STORE);
-                return MB_EX_DEVICE_FAILURE;
-            }
-        }
+    if (reg==0x1102u && val==0x0Au) { deepsleep_en=true; return 0u; }
 #ifdef __TEST_SOC__
-        if (val == 0x01u)
-        {
-            sys_time.CHG = CapacityFactory * 5;
-            sys_time.DSG = 0;
-        }
+    if ((reg==0x1102u || reg==0x1103u) && val==1u) {
+        sys_time.CHG=(reg==0x1102u) ? CapacityFactory*5 : 0;
+        sys_time.DSG=(reg==0x1103u) ? CapacityFactory*5 : 0;
+        return 0u;
+    }
 #endif
-        if (val == 0x0Au) deepsleep_en = true;
-        return 0u;
-    }
-
-    if (reg == 0x1103u)
-    {
-#ifdef __TEST_SOC__
-        if (val == 0x01u)
-        {
-            sys_time.CHG = 0;
-            sys_time.DSG = CapacityFactory * 5;
-        }
-#endif
-        return 0u;
-    }
-
-    if (reg == 0x2319u)
-    {
-        SOC_Calculate_Element.u32Cycle_times = val;
-        set_soc_param(get_soc_real(), 1, 1);
-        return 0u;
-    }
-
     if (reg == BMS_EVENT_LOG_RESET_REG)
     {
         if (val != 0x0001u) return MB_EX_ILLEGAL_VALUE;
         return bms_event_log_factory_reset() ? 0u : MB_EX_DEVICE_FAILURE;
     }
 
-    /* Preserve historical behavior for unhandled legacy write addresses. */
-    return 0u;
+    return MB_EX_ILLEGAL_ADDRESS;
 }
 
 static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *previous)
@@ -627,7 +590,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u32 l;
         u16 i;
 
-        if (req_len < 8u) return 0;
+        if (req_len != 8u) return 0;
         reg = u16be(&req[2]);
         qty = u16be(&req[4]);
         if (qty == 0u || qty > 0x7Du)
@@ -636,7 +599,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if ((u32)reg + qty > 65536u)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         if (bms_diag_overlaps(reg, qty)) {
-            if (req_len != 8u || !bms_diag_read(reg, qty, &rsp[3]))
+            if (!bms_diag_read(reg, qty, &rsp[3]))
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
             rsp[0] = addr; rsp[1] = func; rsp[2] = (u8)(qty * 2u);
             l = 3u + (u32)qty * 2u; crc = mb_crc16(rsp, l);
@@ -646,6 +609,9 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (read_event_log_frame(addr, func, reg, qty, rsp, rsp_len))
             return (addr != 0x00u);
 
+        for (i=0u;i<qty;++i)
+            if (!read_address_supported((u16)(reg+i)))
+                return modbus_exception(addr,func,MB_EX_ILLEGAL_ADDRESS,rsp,rsp_len);
         bytes = (u32)qty * 2u;
         rsp[0] = addr;
         rsp[1] = func;
@@ -669,7 +635,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         struct PRT_E2ROM_PARAS previous_protect;
         int protect_changed;
 
-        if (req_len < 8u) return 0;
+        if (req_len != 8u) return 0;
         reg = u16be(&req[2]);
         val = u16be(&req[4]);
         if (bms_diag_overlaps(reg, 1u))
@@ -701,7 +667,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u8 bytecnt;
         const u8 *pdata;
         u16 i;
-        int need_save_param = 0;
         u8 exception;
         struct PRT_E2ROM_PARAS previous_protect;
 
@@ -716,7 +681,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
         if (bytecnt != (u8)(qty * 2u))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-        if (req_len < (u32)(7u + bytecnt + 2u)) return 0;
+        if (req_len != (u32)(7u + bytecnt + 2u)) return 0;
 
         pdata = &req[7];
         if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
@@ -733,35 +698,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (afe_hw_profile_is_reg(reg) || afe_hw_profile_is_reg((u16)(reg + qty - 1u)))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
-        /* Legacy DVC semantic multi-write remains intentionally non-atomic. */
-        if (qty > 1u && dvc_comm_range_contains(reg, qty))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-
-        previous_protect = g_tParam.protect;
-        for (i = 0u; i < qty; i++)
-        {
-            u16 write_addr = (u16)(reg + i);
-            u16 value = u16be(&pdata[(u32)i * 2u]);
-
-            exception = write_reg(write_addr, value);
-            if (exception != 0u)
-            {
-                if (need_save_param) g_tParam.protect = previous_protect;
-                return modbus_exception(addr, func, exception, rsp, rsp_len);
+        /* Preflight the entire range. A frame may change exactly one owner;
+         * reject crossing/unknown writes before executing any side effect. */
+        if (reg>=0x2E00u && reg<0x2F00u) {
+            exception=bms_parameter_write(reg,qty,pdata);
+        } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
+            exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
+        } else if (reg>=0x2100u && (u32)reg+qty<=0x2141u) {
+            previous_protect=g_tParam.protect;
+            for (i=0u;i<qty;++i) {
+                u16 value=u16be(&pdata[i*2u]);
+                memcpy((u8 *)&g_tParam.protect+(reg-0x2100u+i)*2u,&value,sizeof(value));
             }
-
-            if (reg_requires_param_save(write_addr)) need_save_param = 1;
-        }
-
-        if (need_save_param)
-        {
-            exception = commit_protection_update(&previous_protect);
-            if (exception != 0u)
-                return modbus_exception(addr, func, exception, rsp, rsp_len);
-        }
-
-        if (reg >= BTNAME_REG_BASE && reg < (BTNAME_REG_BASE + BTNAME_REG_WORDS))
-            btname_modbus_on_write_holding(addr, qty, (const uint16_t *)pdata);
+            exception=commit_protection_update(&previous_protect);
+        } else if (qty==1u) {
+            exception=write_reg(reg,u16be(pdata));
+        } else exception=MB_EX_ILLEGAL_ADDRESS;
+        if (exception) return modbus_exception(addr,func,exception,rsp,rsp_len);
 
         if (addr == 0x00u) return 0;
         rsp[0] = addr;
@@ -873,6 +826,7 @@ static u16 read_production_info_reg(u16 reg)
 
 void WriteProID_Default(void)
 {
+    bms_user_params_t user;
     UINT8 hardwareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
                               ? PRODUCT_ID_LENGTH_MAX
                               : sizeof(BMS_HARDWARE_VERDION_DEFAULT);
@@ -887,4 +841,24 @@ void WriteProID_Default(void)
     memcpy(&ProductionInfor.BMS_HardWareVersion[0], BMS_HARDWARE_VERDION_DEFAULT, hardwareCount);
     memcpy(&ProductionInfor.BMS_SoftWareVersion[0], BMS_SOFTWARE_VERDION_DEFAULT, softwareCount);
     memcpy(&ProductionInfor.BMS_SerialNumber[0], BMS_SERIAL_NUMBER_DEFAULT, serialNumberCount);
+    if (bms_config_get_user(&user) && user.serial[0])
+        memcpy(ProductionInfor.BMS_SerialNumber,user.serial,sizeof(user.serial));
+}
+
+u8 bms_reset_software_parameters(void)
+{
+    struct PRT_E2ROM_PARAS before=g_tParam.protect, defaults;
+    bms_config_store_get_default_protect(&defaults);
+    if (!bms_sw_protection_validate_params(&defaults)) return MB_EX_ILLEGAL_VALUE;
+    g_tParam.protect=defaults;
+    return commit_protection_update(&before);
+}
+u8 bms_reset_afe_parameters(void)
+{
+    bms_afe_hw_profile_t defaults;
+    u8 payload[70];
+    u16 i;
+    bms_afe_hw_profile_build_default(&defaults);
+    for (i=0u;i<BMS_AFE_HW_PROFILE_WORD_COUNT;++i) put_u16be(payload+i*2u,((u16 *)&defaults)[i]);
+    return afe_hw_profile_write_block(payload,BMS_AFE_HW_PROFILE_WORD_COUNT);
 }

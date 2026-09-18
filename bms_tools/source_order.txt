@@ -27,6 +27,7 @@ vendor/ble_sample/bms_config_store.c
 vendor/ble_sample/bms_diag.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/bms_features.c
+vendor/ble_sample/bms_parameter_access.c
 vendor/ble_sample/bms_state.c
 vendor/ble_sample/bms_state_store.c
 vendor/ble_sample/bms_storage_platform_telink.c

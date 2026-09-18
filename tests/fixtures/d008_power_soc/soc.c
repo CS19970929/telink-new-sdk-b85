@@ -45,6 +45,13 @@ static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned co
  return ma>0?before-after:after-before;
 }
 int main(void){
+ setup(1,60,3330);soc_kv_data_t learned={60,0,5,900,1u|(1000u<<16)};
+ soc_param_lib_init(&learned);assert(g_soc_runtime.capacity_learned);
+ stored_profile.capacity_factory=1200;bms_soc_nominal_capacity_changed();
+ assert(!g_soc_runtime.capacity_learned && get_soc_real()==60 && SOC_Calculate_Element.u32Cycle_times==5);
+ soc_param_lib_init(&learned);assert(!g_soc_runtime.capacity_learned);
+ stored_profile.capacity_factory=1000;
+
  setup(1,100,3330);stored_profile.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH;
  soc_recalc_full_capacity();soc_recalc_now_capacity();SOC_Result_Pass();
  assert(g_stCellInfoReport.SocElement.u16CapacityFactory==65530);

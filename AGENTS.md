@@ -111,7 +111,7 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 ## 当前开发期存储与电流约束
 
 - 用户确认项目处于持续迭代开发期，后续不要求兼容旧版代码/迁移旧参数；格式变化可明确提升 schema 并恢复新默认，不新增历史迁移器。当前格式掉电一致性、错误传播、各参数域独立更新仍须保证。
-- Flash 原审核见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`；当前 schema 2、分类 revision、保存/退避与 OTA 操作以 `docs/D008_STORAGE_UPGRADE_IMPLEMENTATION.md` 为准。不得分开写数据与 revision；不得由 SaveParam 解除启动升级失败门禁。
+- Flash 原审核见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`；当前 schema 3、分类 revision、保存/退避与 OTA 操作以 `docs/D008_STORAGE_UPGRADE_IMPLEMENTATION.md` 为准。不得分开写数据与 revision；不得由 SaveParam 解除启动升级失败门禁。
 - D008 `abs(current_ma) <= 200 mA` 为不可靠区间，充放电显示屏蔽且 SOC 不积分；用户允许其作为静置候选，仍须满足有效/新鲜电压、压差及稳定时间。原始诊断 mA 保留；suspend 退出仍为双向 >=500 mA。
 
 ## 构建
@@ -133,3 +133,7 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 ## 软件温度保护开关更新
 
 `DVC1124_SW_PROTECT_ENABLE` 仅控制软件电压、电流及压差；新增默认开启的 `DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制电池温度、MOS温度及必需NTC失效保护，不能用HW开关替代外部温度保护。旧SW/HW四组合说明按此更新；详情见 [实现说明](docs/D008_PROTECTION_GROUPS.md)。
+
+## 2026-09-18 参数协议更新
+
+Config schema 3 新增 SN、加热业务参数、电流软件校准；容量沿用 system owner，SOC/循环同步保存后确认。新增 0x2E00 参数能力窗口，0x1102=3 明确拒绝；详见 [参数协议及升级注意](docs/D008_PARAMETERS_V1.md)。Windows 两版共享参数页，电流校准写入 UI 仅内部版；旧固件可导出已有参数，不发送新增写命令。

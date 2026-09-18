@@ -46,6 +46,8 @@ u32 bms_state_store_get_runtime_min(void);
 int bms_state_store_write_runtime_min(u32 runtime_min);
 int bms_state_store_reset_runtime(void);
 
+int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle);
+
 #ifdef __cplusplus
 }
 #endif

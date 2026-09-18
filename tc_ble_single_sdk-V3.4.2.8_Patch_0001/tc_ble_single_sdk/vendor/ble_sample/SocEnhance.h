@@ -88,4 +88,6 @@ uint8_t isDSG(void);
 void soc_param_lib_init(const soc_kv_data_t *soc);
 uint8_t bms_soh_from_cycle(uint16_t cycle);
 
+void bms_soc_nominal_capacity_changed(void);
+
 #endif /* SOCENHANCE_H */

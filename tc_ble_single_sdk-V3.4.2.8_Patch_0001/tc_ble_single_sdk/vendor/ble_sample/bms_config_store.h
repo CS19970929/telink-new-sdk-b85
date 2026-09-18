@@ -8,6 +8,22 @@
 extern "C" {
 #endif
 
+/* User-editable values remain in the existing Config record, not a new KV. */
+typedef struct {
+    u16 heater_enable;
+    u16 heater_start_x10; /* legacy temperature encoding: (degC + 40) * 10 */
+    u16 heater_stop_x10;
+    int32_t current_offset_ma; /* subtract before gain; raw DVC sign */
+    u32 current_gain_ppm;
+    char serial[32];
+} bms_user_params_t;
+void bms_config_user_defaults(bms_user_params_t *value);
+int bms_config_user_valid(const bms_user_params_t *value);
+int bms_config_get_user(bms_user_params_t *value);
+int bms_config_set_user(const bms_user_params_t *value);
+int bms_config_reset_business(void);
+int32_t bms_config_calibrate_current(int32_t raw_ma);
+
 typedef enum {
     BMS_SYS_PARAM_BMS_TYPE = 0,
     BMS_SYS_PARAM_SERIES_NUM,

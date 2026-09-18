@@ -1,5 +1,6 @@
 #include "bms_diag.h"
 #include "dvc1124.h"
+#include "bms_config_store.h"
 
 #include "tl_common.h"
 #include "drivers.h"
@@ -1324,6 +1325,8 @@ void DVC1124_App_AFEGet(void)
      * abs(cc2) * 625 <= 327680000. The quotient is unchanged. */
     current_num = cc2 * 625;
     current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);
+    s_snapshot.raw_current_ma = current_ma;
+    current_ma = bms_config_calibrate_current(current_ma);
     s_snapshot.current_ma = current_ma;
 
     dvc_publish_current_report(current_ma);

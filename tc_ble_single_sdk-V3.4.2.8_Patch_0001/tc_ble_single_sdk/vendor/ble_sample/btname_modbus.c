@@ -151,7 +151,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     (void)addr;
 
     if ((qty == 0u) || (regs == 0)) {
-        return 1;
+        return 0;
     }
 
     for (i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
@@ -163,7 +163,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     sanitize_suffix(suffix);
     if (suffix[0] == '\0') {
-        return 1;
+        return 0;
     }
 
     build_full_name_from_suffix(suffix, new_full);
@@ -173,7 +173,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     if (!btname_save_suffix_to_store(suffix)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return 1;
+        return 0;
     }
 
     m_strncpy(g_name, new_full, BTNAME_TOTAL_MAX_LEN);

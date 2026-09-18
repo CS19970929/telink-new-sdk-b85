@@ -229,3 +229,14 @@ int bms_state_store_reset_runtime(void)
 {
     return bms_state_store_write_runtime_min(0u);
 }
+
+int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle)
+{
+    bms_state_persist_t next;
+    if (soc > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
+    next = g_bms_state_pending;
+    next.soc = soc; next.dsg = dsg; next.cycle = cycle;
+    if (!bms_state_save(&next)) return 0;
+    g_bms_state_pending = next;
+    return 1;
+}

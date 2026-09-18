@@ -544,7 +544,7 @@ static void soc_learning_accept(void)
     g_soc_runtime.learned_capacity_0p1ah = (uint16_t)learned;
     g_soc_runtime.capacity_learned = 1u;
     (void)soc_kv_store_write_learning((u32)g_soc_runtime.learned_capacity_0p1ah,
-                                      SOC_KV_FLAG_CAPACITY_LEARNED);
+                                      SOC_KV_FLAG_CAPACITY_LEARNED | (soc_nominal_capacity_0p1ah() << 16));
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
     soc_learning_abort();
@@ -1153,7 +1153,8 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
     SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
     SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
     SOC_Calculate_Element.u32CapFull_Cal_As = 0u;
-    if ((soc->flags & SOC_KV_FLAG_CAPACITY_LEARNED) && soc->learned_capacity_0p1ah != 0u) {
+    if ((soc->flags & SOC_KV_FLAG_CAPACITY_LEARNED) &&
+        (soc->flags >> 16) == soc_nominal_capacity_0p1ah() && soc->learned_capacity_0p1ah != 0u) {
         g_soc_runtime.capacity_learned = 1u;
         g_soc_runtime.learned_capacity_0p1ah =
             (soc->learned_capacity_0p1ah > 65535u) ? 65535u : (uint16_t)soc->learned_capacity_0p1ah;
@@ -1326,4 +1327,14 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
         SOC_Result_Pass();
     }
     g_soc_interval_32k = 0u; /* cannot integrate this sample twice through legacy APIs */
+}
+
+void bms_soc_nominal_capacity_changed(void)
+{
+    g_soc_runtime.capacity_learned = 0u;
+    g_soc_runtime.learned_capacity_0p1ah = 0u;
+    (void)soc_kv_store_write_learning(0u, 0u);
+    soc_recalc_full_capacity();
+    set_soc_param(get_soc_real(), 0u, 1u);
+    SOC_Result_Pass();
 }

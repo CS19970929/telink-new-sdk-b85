@@ -4,23 +4,25 @@
 #include "bms_soc_defs.h"
 #include "d008_product_profile.h"
 #include "bms_sw_protection.h"
+#include "bms_features.h"
 #include "btname_modbus.h"
 #include "bms_storage_platform.h"
 #include "storage_record.h"
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464731u /* CFG1 */
-#define BMS_CONFIG_SCHEMA_VERSION        2u
+#define BMS_CONFIG_SCHEMA_VERSION        3u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          10u
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
+#define BMS_CONFIG_USER_BYTES            46u
 
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
 #define BMS_CONFIG_AFE_BYTES             (BMS_CONFIG_AFE_WORDS * 2u)
 #define BMS_CONFIG_CONTROL_BYTES         ((u16)BMS_CONFIG_CTRL_COUNT * 4u)
-#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES + 8u)
+#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES + 8u + BMS_CONFIG_USER_BYTES)
 
 #if (BTNAME_SUFFIX_MAX_LEN >= BMS_CONFIG_BTNAME_BYTES)
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
@@ -36,6 +38,7 @@ typedef struct {
     bms_afe_hw_profile_t afe_hw;
     u32 control[BMS_CONFIG_CTRL_COUNT];
     bms_soc_config_t soc;
+    bms_user_params_t user;
     char bt_name_suffix[BMS_CONFIG_BTNAME_BYTES];
 } bms_config_cache_t;
 
@@ -101,6 +104,7 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
     cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
     cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
     bms_afe_hw_profile_build_default(&cfg->afe_hw);
+    bms_config_user_defaults(&cfg->user);
 }
 
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
@@ -129,7 +133,13 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     payload[off++] = cfg->soc.ocv_error_band_percent;
     payload[off++] = cfg->soc.capacity_learning_enable;
     payload[off++] = cfg->soc.hide_capacity_until_learned;
-    payload[off] = 0u;
+    payload[off++] = 0u;
+    bms_config_put_u16le(&payload[off], cfg->user.heater_enable); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.heater_start_x10); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.heater_stop_x10); off += 2u;
+    bms_config_put_u32le(&payload[off], (u32)cfg->user.current_offset_ma); off += 4u;
+    bms_config_put_u32le(&payload[off], cfg->user.current_gain_ppm); off += 4u;
+    memcpy(&payload[off], cfg->user.serial, sizeof(cfg->user.serial));
 
 }
 
@@ -162,7 +172,14 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->soc.ocv_rest_prepare_s = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->soc.ocv_error_band_percent = payload[off++];
     cfg->soc.capacity_learning_enable = payload[off++];
-    cfg->soc.hide_capacity_until_learned = payload[off];
+    cfg->soc.hide_capacity_until_learned = payload[off++];
+    off++; /* reserved */
+    cfg->user.heater_enable = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.heater_start_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.heater_stop_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.current_offset_ma = (int32_t)bms_config_get_u32le(&payload[off]); off += 4u;
+    cfg->user.current_gain_ppm = bms_config_get_u32le(&payload[off]); off += 4u;
+    memcpy(cfg->user.serial, &payload[off], sizeof(cfg->user.serial));
 
 }
 
@@ -356,6 +373,7 @@ int bms_config_store_apply_revisions(void)
     if (!bms_soc_config_valid(&next.soc)) invalid_mask |= DIAG_UPGRADE_BAD_SOC;
     if (next.system.capacity_factory == 0u || next.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH)
         invalid_mask |= DIAG_UPGRADE_BAD_CAPACITY;
+    if (!bms_config_user_valid(&next.user)) invalid_mask |= DIAG_UPGRADE_BAD_SW;
     if (invalid_mask) {
         bms_diag_upgrade(DIAG_UPGRADE_VALIDATION, invalid_mask); return 0;
     }
@@ -390,4 +408,82 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
         g_bms_config.soc.capacity_learning_enable == config->capacity_learning_enable &&
         g_bms_config.soc.hide_capacity_until_learned == config->hide_capacity_until_learned) return 1;
     return bms_config_save_cache(&next);
+}
+
+void bms_config_user_defaults(bms_user_params_t *v)
+{
+    memset(v, 0, sizeof(*v));
+    v->heater_enable = 1u;
+    v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;
+    v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
+    v->current_gain_ppm = 1000000u;
+    /* Empty SN uses the compiled identity until factory provisioning. */
+}
+
+int bms_config_user_valid(const bms_user_params_t *v)
+{
+    u16 i;
+    if (!v || v->heater_enable > 1u || v->heater_start_x10 >= v->heater_stop_x10 ||
+        v->heater_stop_x10 > 1650u) return 0;
+    /* Arithmetic/configuration bounds, not protection thresholds. */
+    if (v->current_offset_ma < -1000000 || v->current_offset_ma > 1000000 ||
+        v->current_gain_ppm < 100000u || v->current_gain_ppm > 10000000u) return 0;
+    for (i=0u; i<sizeof(v->serial); ++i)
+        if (v->serial[i] && ((u8)v->serial[i] < 32u || (u8)v->serial[i] > 126u)) return 0;
+    return 1;
+}
+int bms_config_get_user(bms_user_params_t *v)
+{
+    if (!v || !bms_config_ensure_ready()) return 0;
+    *v = g_bms_config.user;
+    return bms_config_user_valid(v);
+}
+int bms_config_set_user(const bms_user_params_t *v)
+{
+    bms_config_cache_t next;
+    if (!bms_config_user_valid(v) || !bms_config_ensure_ready()) return 0;
+    next = g_bms_config; next.user = *v;
+    if (!memcmp(&next, &g_bms_config, sizeof(next))) return 1;
+    return bms_config_save_cache(&next);
+}
+int bms_config_reset_business(void)
+{
+    bms_config_cache_t next;
+    if (!bms_config_ensure_ready()) return 0;
+    next = g_bms_config;
+    next.system.capacity_factory = CapacityFactory;
+    next.user.heater_enable = 1u;
+    next.user.heater_start_x10 = BMS_HEATER_START_TEMP_X10;
+    next.user.heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
+    return bms_config_save_cache(&next);
+}
+/* Exact floor(magnitude * gain / 1000000), without 64-bit runtime helpers
+ * absent from the pinned TC32 ABI. Each of 32 steps keeps remainder < 1e6;
+ * gain <= 1e7 makes the intermediate <= 11999998. Saturate before overflow. */
+static u32 current_scale_ppm(u32 magnitude, u32 gain)
+{
+    u32 quotient=0u, remainder=0u;
+    int bit;
+    if (gain==1000000u) return magnitude>2147483647u ? 2147483647u : magnitude;
+    for (bit=31; bit>=0; --bit) {
+        u32 next=remainder*2u + (((magnitude>>bit)&1u) ? gain : 0u);
+        u32 add=next/1000000u;
+        remainder=next%1000000u;
+        if (quotient>(2147483647u-add)/2u) return 2147483647u;
+        quotient=quotient*2u+add;
+    }
+    return quotient;
+}
+int32_t bms_config_calibrate_current(int32_t raw_ma)
+{
+    int32_t offset, delta;
+    u32 magnitude, scaled;
+    if (!g_bms_config_ready || !bms_config_user_valid(&g_bms_config.user)) return raw_ma;
+    offset=g_bms_config.user.current_offset_ma;
+    if (offset>0 && raw_ma < -2147483647+offset) delta=-2147483647;
+    else if (offset<0 && raw_ma > 2147483647+offset) delta=2147483647;
+    else delta=raw_ma-offset;
+    magnitude=delta<0 ? 0u-(u32)delta : (u32)delta;
+    scaled=current_scale_ppm(magnitude,g_bms_config.user.current_gain_ppm);
+    return delta<0 ? -(int32_t)scaled : (int32_t)scaled;
 }

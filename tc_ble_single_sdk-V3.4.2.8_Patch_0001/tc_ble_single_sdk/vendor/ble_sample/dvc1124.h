@@ -54,6 +54,7 @@ typedef struct
     uint8_t write_addr;
     uint8_t cell_count;
     uint32_t sample_tick_32k;    /* acquisition time, modulo 32-bit SDK 32k clock */
+    int32_t raw_current_ma;     /* Before software factory calibration. */
     int32_t current_ma;          /* positive = discharge, negative = charge */
     uint32_t vtop_mv;
     uint32_t pack_mv;
