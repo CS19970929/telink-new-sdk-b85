@@ -904,7 +904,8 @@ _attribute_no_inline_ void user_init_normal(void)
 		bms_storage_platform_diag_boot();
         bms_diag_boot_word(13u, (DVC1124_SW_PROTECT_ENABLE ? 1u : 0u) |
                                  (DVC1124_HW_PROTECT_ENABLE ? 2u : 0u) |
-                                 (BMS_PRODUCTION_BUILD ? 4u : 0u));
+                                 (BMS_PRODUCTION_BUILD ? 4u : 0u) |
+                                 (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
 		board_init();
 		Param_UpgradeReset_Apply();
 		LoadParam();
