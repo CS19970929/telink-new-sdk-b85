@@ -136,7 +136,8 @@ public partial class MainWindow
 #if BMS_FACTORY_APP
         _parameterOffset.Clear();_parameterGain.Clear();
 #endif
-        _parameterStatus.Text=c.Status+"；"+string.Join("；",c.Errors);
+        string mode=c.Blocks.TryGetValue("FactoryMode",out var factoryMode) ? (factoryMode[0]!=0?"FACTORY":"NORMAL") : "未知";
+        _parameterStatus.Text=c.Status+"；设备模式="+mode+"；"+string.Join("；",c.Errors);
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
         if(c.Blocks.TryGetValue("Serial",out var sn))_parameterSn.Text=D008Parameters.Serial(sn);
