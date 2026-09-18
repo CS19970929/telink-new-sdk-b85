@@ -56,6 +56,22 @@ bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
+#define APP_SAMPLE_PERIOD_US  200000u
+
+static u32 s_sample_tick;
+static volatile u8 s_sample_due;
+
+static void app_sample_wakeup(int type)
+{
+    (void)type;
+    s_sample_due = 1u;
+}
+
+static void app_schedule_sample_wakeup(void)
+{
+    bls_pm_setAppWakeupLowPower(
+        s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+}
 
 typedef struct
 {
@@ -1092,6 +1108,14 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
+    /* Protection/SOC depend on a real 200 ms acquisition cadence even while
+     * BLE suspend is enabled. The PM callback only marks work due; AFE/SOC
+     * operations remain in the cooperative main loop. */
+    s_sample_tick = clock_time();
+    s_sample_due = 0u;
+    bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);
+    app_schedule_sample_wakeup();
+
 	mos_update();
 
 	extern void WriteProID_Default(void);
@@ -1275,7 +1299,23 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 // main loop flow
 /////////////////////////////////////////////////////////////////////
 
-_attribute_data_retention_ static u32 test_task_tick = 0;
+static void app_sample_task(void)
+{
+    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
+        return;
+
+    s_sample_due = 0u;
+    s_sample_tick = clock_time();
+    bms_afe_sample();
+    APP_SOC_IntEnhance_Ctrl();
+    mos_update();
+
+    /* Coalesce an overrun instead of executing multiple catch-up samples:
+     * software protection filters are sample-count based at 200 ms. */
+    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
+        s_sample_due = 1u;
+    app_schedule_sample_wakeup();
+}
 
 /**
  * @brief		This is main_loop function
@@ -1299,14 +1339,7 @@ _attribute_no_inline_ void main_loop(void)
 		user_battery_power_check(VBAT_DEEP_THRES_MV);
 	}
 #endif
-	if (clock_time_exceed(test_task_tick, 1000 * 200))
-	{
-		test_task_tick = clock_time();
-		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
-		bms_afe_sample();
-		APP_SOC_IntEnhance_Ctrl();
-		mos_update();
-	}
+    app_sample_task();
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 	{
