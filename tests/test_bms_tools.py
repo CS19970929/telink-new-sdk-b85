@@ -109,6 +109,13 @@ class ToolchainEnvironmentTests(unittest.TestCase):
         self.assertEqual(bms.MAIN_STACK_RESERVE_BYTES, 600)
         self.assertIn("AFLAGS_BASE := -DMCU_STARTUP_8251", build_mk)
         self.assertNotIn("AFLAGS_BASE := -DMCU_STARTUP_8258", build_mk)
+        cproject = (bms.PROJ_DIR / ".cproject").read_text(encoding="utf-8", errors="replace")
+        sample_option = (
+            'id="com.telink.tc32eclipse.asm.option.flags.960620651" '
+            'name="Other GCC Flags" superClass="com.telink.tc32eclipse.asm.option.flags" '
+            'value="-DMCU_STARTUP_8251"'
+        )
+        self.assertIn(sample_option, cproject)
 
 
 class MapLimitTests(unittest.TestCase):
