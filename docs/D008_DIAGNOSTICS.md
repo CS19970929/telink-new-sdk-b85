@@ -84,6 +84,7 @@ TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误
 | 217..218 | u32 | 当前 region 累积秒数 |
 | 219,220,221 | u16 | BLE connected、sample pending、suspend 电流门槛 mA |
 | 222,223,224 | u16 | 软件保护 Level1/Level2/Level3 当前位图 |
+| 225 | u16 | 1=MODE_FACTORY，0=MODE_NORMAL |
 
 PM 阻断位：bit0 无有效/新鲜采样，bit1 OTA，bit2 Flash stack session，bit3 OWC/bus busy，bit4 双向绝对电流达到 suspend 门槛，bit5 sample pending，bit6 显式关机流程，bit7 ACC sleep 流程。该位图只解释既有 `blt_pm_proc()` 决策，不参与或改变低功耗策略。
 
