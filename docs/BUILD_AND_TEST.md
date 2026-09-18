@@ -4,6 +4,8 @@
 
 正式固件使用项目锁定的 `tc32-elf-gcc 4.5.1-tc32-1.3`、Telink B85 Vendor 库、现有 `boot.link` 和 `tl_check_fw2.exe`。不得用 host GCC/clang、ARM GCC 或其他 ABI 的成功结果替代 TC32 production build。
 
+开发/日常验证构建：
+
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check
@@ -15,6 +17,22 @@ python bms_tools/bms.py manifest
 python bms_tools/bms.py verify
 python bms_tools/bms.py static --no-report
 ```
+
+D008 正式量产候选必须显式启用生产门禁：
+
+```powershell
+$env:EXTRA_DEFINES="-DBMS_PRODUCTION_BUILD=1"
+python bms_tools/bms.py rebuild --jobs 4
+python bms_tools/bms.py check-fw
+python bms_tools/bms.py size
+python bms_tools/bms.py map
+python bms_tools/bms.py manifest
+python bms_tools/bms.py verify
+python bms_tools/bms.py static --no-report
+Remove-Item Env:EXTRA_DEFINES
+```
+
+`BMS_PRODUCTION_BUILD=1` 会在编译期拒绝 SW/HW/温度保护关闭、Watchdog/Flash protection 关闭、UART debug、DEBUG GPIO 和连接功耗测试。保护隔离 `1/0、0/1、0/0` 仅属于开发/台架构建。默认 D008 product profile 为 16S LFP。
 
 命令行产物位于 `project/tlsr_tc32/B85/825x_ble_sample_cli/`；不要把 `.raw.bin` 当最终烧录文件。
 
