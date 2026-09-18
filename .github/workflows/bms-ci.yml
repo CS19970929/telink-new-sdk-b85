@@ -107,16 +107,16 @@ jobs:
         shell: powershell
         run: python tests/common_feature_policy_contract_check.py
 
-      # Seven isolated builds, then the default 24S production build below.
-      # Preserve each variant before the next clean rebuild removes its output.
-      - name: Clean build and verify D008 24S/20S protection variants
+      # Seven isolated development/test builds, then the default 16S production build below.
+      # Protection-isolation variants intentionally do NOT set BMS_PRODUCTION_BUILD.
+      - name: Clean build and verify D008 16S/20S protection variants
         if: ${{ github.ref == 'refs/heads/refactor/d008-common-bms-features' }}
         shell: powershell
         run: |
           $out = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli"
-          foreach ($profile in @("24S", "20S")) {
+          foreach ($profile in @("16S", "20S")) {
             foreach ($mode in @("11", "10", "01", "00")) {
-              if ($profile -eq "24S" -and $mode -eq "11") { continue }
+              if ($profile -eq "16S" -and $mode -eq "11") { continue }
               $env:EXTRA_DEFINES = "-DDVC1124_SW_PROTECT_ENABLE=$($mode[0]) -DDVC1124_HW_PROTECT_ENABLE=$($mode[1])"
               if ($profile -eq "20S") { $env:EXTRA_DEFINES += " -DD008_PRODUCT_PROFILE=D008_PRODUCT_PROFILE_20S_NMC" }
               python bms_tools/bms.py rebuild --jobs 4
@@ -132,7 +132,10 @@ jobs:
           }
           Remove-Item Env:EXTRA_DEFINES
 
-      - name: Clean rebuild with TC32 (production 1/1)
+      - name: Select production-safe build profile
+        shell: powershell
+        run: '"EXTRA_DEFINES=-DBMS_PRODUCTION_BUILD=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append'
+      - name: Clean rebuild with TC32 (production 16S / protection 1/1)
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4
       - name: Validate Telink firmware image
