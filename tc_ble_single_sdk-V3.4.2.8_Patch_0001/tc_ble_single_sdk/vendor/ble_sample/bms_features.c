@@ -59,7 +59,8 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     uint16_t trip;
     uint16_t recover;
 
-    if (s == 0 || !s->valid || !bms_board_heater_supported()) {
+    if (s == 0 || !s->valid || !bms_board_heater_supported() ||
+        !bms_board_heater_allowed()) {
         set_heater(0u);
         return;
     }
