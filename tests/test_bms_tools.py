@@ -52,6 +52,13 @@ class GitProvenanceTests(unittest.TestCase):
         with mock.patch.object(bms.subprocess, "run", return_value=result):
             self.assertEqual(bms._firmware_git_build_id(), "0u")
 
+    def test_firmware_dirty_flag_distinguishes_clean_and_modified_worktree(self):
+        for output, expected in (("", 0), (" M vendor/ble_sample/app.c\n", 1)):
+            with self.subTest(expected=expected):
+                result = mock.Mock(returncode=0, stdout=output)
+                with mock.patch.object(bms.subprocess, "run", return_value=result):
+                    self.assertEqual(bms._firmware_git_dirty(), expected)
+
 
 class ClientAssetPathTests(unittest.TestCase):
     def test_qt_project_path_follows_repository_tools_layout(self) -> None:
