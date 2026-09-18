@@ -33,12 +33,12 @@ public partial class MainWindow
         read.Click+=async (_,_)=>await CaptureDiagnosticsAsync(true);
         var stop=new Button {Content="停止采集",Margin=new Thickness(4)};
         stop.Click+=(_,_)=>{_diagAuto.IsChecked=false;_diagCts?.Cancel();};
-        var export=new Button {Content="导出诊断 ZIP",Margin=new Thickness(4)};
+        var export=new Button {Content="导出 AI 诊断包",Margin=new Thickness(4)};
         export.Click+=(_,_)=> {
             if(_diagCapture is null) {_diagStatus.Text="请先读取诊断";return;}
-            var dialog=new SaveFileDialog {Filter="诊断包 (*.zip)|*.zip",FileName=$"D008_diag_{DateTime.Now:yyyyMMdd_HHmmss}.zip"};
+            var dialog=new SaveFileDialog {Filter="诊断包 (*.zip)|*.zip",FileName=$"D008_AI_diag_{DateTime.Now:yyyyMMdd_HHmmss}.zip"};
             if(dialog.ShowDialog(this)!=true)return;
-            try {BmsDiagnostics.Export(dialog.FileName,_diagCapture);_diagStatus.Text="诊断包已保存";}
+            try {BmsDiagnostics.Export(dialog.FileName,_diagCapture);_diagStatus.Text="AI 诊断包已保存";}
             catch(Exception ex){ShowError("诊断导出失败",ex);}
         };
         controls.Children.Add(read);controls.Children.Add(stop);controls.Children.Add(export);controls.Children.Add(_diagAuto);
