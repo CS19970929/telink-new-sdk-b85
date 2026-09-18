@@ -36,6 +36,16 @@ Remove-Item Env:EXTRA_DEFINES
 
 命令行产物位于 `project/tlsr_tc32/B85/825x_ble_sample_cli/`；不要把 `.raw.bin` 当最终烧录文件。
 
+### TLSR8251 启动/RAM 门禁
+
+D008 实际 MCU 为 TLSR8251，SDK `cstartup_825x.S` 必须以 `MCU_STARTUP_8251` 编译。该宏决定初始 SP 和 linker 导出的 `__SRAM_SIZE`：
+
+- SRAM：`0x840000..0x847FFF`（32 KiB）
+- 栈顶：`0x848000`
+- linker 保留主栈余量：600 B
+
+`bms.py map` 会强制验证 `__SRAM_SIZE == 0x848000`，并要求 `_ram_use_end_ < 0x848000 - 600`。若误用 `MCU_STARTUP_8258`，构建即使能链接，MAP 门禁也必须失败，禁止作为候选固件。
+
 ## 2. Source-order
 
 `bms_tools/source_order.txt` 是版本化链接顺序清单。只有源码集合确实变化时才运行：
