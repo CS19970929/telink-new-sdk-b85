@@ -71,9 +71,10 @@ CFLAGS_BASE := \
 	-fpack-struct -fshort-enums -finline-small-functions \
 	-std=gnu99 -fshort-wchar -fms-extensions
 
-# Assembler defines (exact match to Eclipse-generated subdir.mk for boot/B85:
-# the canonical command is `tc32-elf-gcc -DMCU_STARTUP_8258 -c`).
-AFLAGS_BASE := -DMCU_STARTUP_8258
+# The populated MCU is TLSR8251 (32 KiB SRAM).  The generic 825x startup
+# source selects the stack top and exports __SRAM_SIZE from this define.
+# Never inherit the sample project's 8258/64 KiB startup profile here.
+AFLAGS_BASE := -DMCU_STARTUP_8251
 
 CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES) $(EXTRA_DEFINES)
 AFLAGS := $(AFLAGS_BASE)
