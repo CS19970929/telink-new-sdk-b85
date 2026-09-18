@@ -719,10 +719,35 @@ def cmd_size(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------------
 # Subcommand: map
 # ----------------------------------------------------------------------------
+def _map_symbol_value(text: str, symbol: str) -> int | None:
+    patterns = (
+        rf"\b{re.escape(symbol)}\b\s*=\s*0x([0-9a-fA-F]+)",
+        rf"^\s*0x([0-9a-fA-F]+)\s+PROVIDE\s*\(\s*{re.escape(symbol)}\s*,",
+        rf"^\s*0x([0-9a-fA-F]+)\s+{re.escape(symbol)}\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.M)
+        if match:
+            return int(match.group(1), 16)
+    return None
+
+
+def _listing_abs_symbol_value(text: str, symbol: str) -> int | None:
+    match = re.search(
+        rf"^\s*([0-9a-fA-F]+)\s+\S+\s+\*ABS\*\s+[0-9a-fA-F]+\s+{re.escape(symbol)}\s*$",
+        text,
+        re.M,
+    )
+    return int(match.group(1), 16) if match else None
+
+
 def cmd_map(args: argparse.Namespace) -> int:
     if not MAP.exists():
         _die(f"MAP missing: {MAP}. Run 'build' first.")
+    if not LST.exists():
+        _die(f"LST missing: {LST}. Run 'build' first.")
     text = MAP.read_text(encoding="utf-8", errors="replace")
+    listing = LST.read_text(encoding="utf-8", errors="replace")
     print("MAP analysis:")
     print(f"  file: {MAP}")
     print(f"  size: {MAP.stat().st_size} bytes")
@@ -730,9 +755,8 @@ def cmd_map(args: argparse.Namespace) -> int:
     symbols = {}
     for sym in ("_bin_size_", "_code_size_", "_ram_use_end_", "_start_bss_",
                 "_end_bss_", "_start_data_", "_end_data_", "_retention_size_"):
-        m = re.search(rf"\b{re.escape(sym)}\b\s*=\s*0x([0-9a-fA-F]+)", text)
-        if m:
-            value = int(m.group(1), 16)
+        value = _map_symbol_value(text, sym)
+        if value is not None:
             symbols[sym] = value
             print(f"  {sym:<22} = 0x{value:x}")
 
@@ -747,14 +771,13 @@ def cmd_map(args: argparse.Namespace) -> int:
         for name, addr in found[:10]:
             print(f"    .{name:<22} @ 0x{int(addr, 16):08x}")
 
-    m = re.search(r"__SRAM_SIZE\s*=\s*(0x[0-9a-fA-F]+|\d+)", text)
-    if not m:
-        _die("MAP missing __SRAM_SIZE; cannot validate TLSR8251 RAM limit")
-    sram_size = int(m.group(1), 0)
+    sram_size = _listing_abs_symbol_value(listing, "__SRAM_SIZE")
+    if sram_size is None:
+        _die("LST missing __SRAM_SIZE absolute symbol; cannot validate TLSR8251 startup")
     print(f"  __SRAM_SIZE           = 0x{sram_size:06x}")
     if sram_size != STARTUP_SRAM_END:
         _die(
-            f"startup SRAM mismatch: MAP=0x{sram_size:06X}, "
+            f"startup SRAM mismatch: ELF/LST=0x{sram_size:06X}, "
             f"expected TLSR8251=0x{STARTUP_SRAM_END:06X}"
         )
 
