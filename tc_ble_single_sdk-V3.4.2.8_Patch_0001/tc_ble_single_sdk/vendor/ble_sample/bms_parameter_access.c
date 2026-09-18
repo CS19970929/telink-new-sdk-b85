@@ -19,6 +19,16 @@ static u16 word(const u8 *p) { return ((u16)p[0] << 8) | p[1]; }
 static u32 dword(const u8 *p) { return (u32)word(p) | ((u32)word(p+2) << 16); }
 static u8 finish(u8 result) { s_result=result; if (!result) ++s_sequence; return result; }
 
+static u8 sensitive_factory_write_allowed(void)
+{
+    if (!bms_afe_hw_access_is_active()) return 0u;
+#if BMS_PRODUCTION_BUILD
+    return (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u;
+#else
+    return 1u;
+#endif
+}
+
 int bms_parameter_readable(u16 r)
 {
     return (r>=0x2E00u && r<=0x2E0Bu) ||
@@ -120,10 +130,10 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         v.heater_enable=value; v.heater_start_x10=word(data+2); v.heater_stop_x10=word(data+4);
     } else if (r==0x2E24u) {
         if (qty!=4u) return finish(3u);
-        if (!bms_afe_hw_access_is_active()) return finish(2u);
+        if (!sensitive_factory_write_allowed()) return finish(2u);
         v.current_offset_ma=(int32_t)dword(data); v.current_gain_ppm=dword(data+4);
     } else if (r==0x2E40u) {
-        if (qty!=1u || !bms_afe_hw_access_is_active()) return finish(2u);
+        if (qty!=1u || !sensitive_factory_write_allowed()) return finish(2u);
         if (value==0u) {
             if (++s_sn_generation==0u) ++s_sn_generation;
             s_sn_mask=0u; s_sn_active=1u; s_sn_tick=pm_get_32k_tick();
@@ -134,7 +144,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         s_sn_active=0u;
         memcpy(v.serial,s_sn_stage,sizeof(v.serial));
     } else if (r>=0x2E50u && r<=0x2E5Fu) {
-        if (!bms_afe_hw_access_is_active()) return finish(2u);
+        if (!sensitive_factory_write_allowed()) return finish(2u);
         if (!s_sn_active || (u32)(pm_get_32k_tick()-s_sn_tick)>60u*32000u ||
             qty>4u || (u32)r+qty>0x2E60u) return finish(3u);
         for (i=0u;i<qty;++i) {
