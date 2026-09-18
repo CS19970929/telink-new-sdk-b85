@@ -228,6 +228,7 @@ class D008FrameworkContract(unittest.TestCase):
 
     def test_production_build_blocks_debug_and_protection_isolation(self):
         self.assertIn("BMS_PRODUCTION_BUILD", self.app_config)
+        self.assertIn("Production build requires a nonzero Git diagnostic build ID", self.app_config)
         self.assertIn("Production build requires a clean Git worktree", self.app_config)
         self.assertIn("Production build forbids __TEST_SOC__ command hooks", self.app_config)
         self.assertIn("Production build forbids current-test, debug GPIO and UART debug output", self.app_config)
