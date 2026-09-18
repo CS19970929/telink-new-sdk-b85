@@ -16,29 +16,9 @@ assert SPEC is not None and SPEC.loader is not None
 bms = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bms)
 
-CLIENT_ASSET_MODULE_PATH = (
-    REPO_ROOT
-    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
-    / "tc_ble_single_sdk"
-    / "script"
-    / "bms_client_asset_tool.py"
-)
-CLIENT_ASSET_SPEC = importlib.util.spec_from_file_location(
-    "bms_client_asset_tool", CLIENT_ASSET_MODULE_PATH
-)
-assert CLIENT_ASSET_SPEC is not None and CLIENT_ASSET_SPEC.loader is not None
-client_assets = importlib.util.module_from_spec(CLIENT_ASSET_SPEC)
-sys.modules[CLIENT_ASSET_SPEC.name] = client_assets
-CLIENT_ASSET_SPEC.loader.exec_module(client_assets)
-
-
 class ClientAssetPathTests(unittest.TestCase):
-    def test_qt_project_path_follows_repository_tools_layout(self) -> None:
-        self.assertEqual(
-            client_assets.QT_PROJECT_ROOT,
-            REPO_ROOT / "tools" / "BMSAssistantQt",
-        )
-        self.assertTrue((client_assets.QT_PROJECT_ROOT / "bmsassistantqt").is_dir())
+    def test_product_branch_does_not_require_legacy_qt_client(self) -> None:
+        self.assertFalse((REPO_ROOT / "tools" / "BMSAssistantQt").exists())
 
 
 class WorkflowSecurityTests(unittest.TestCase):
