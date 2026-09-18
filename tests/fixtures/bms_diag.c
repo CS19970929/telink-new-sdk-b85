@@ -43,6 +43,18 @@ static u32 request(u8*q,u8 addr,u8 f,u16 start,u16 count){
 int main(void){
  u8 q[256],r[256],bytes[250];u32 n,l;
  bms_diag_init();bms_diag_boot_u32(18,0x12345678u);
+ assert(bms_diag_cached_word(2)==BMS_DIAG_CAPABILITIES);
+ assert(bms_diag_cached_word(BMS_DIAG_RUNTIME_OFFSET)==BMS_DIAG_RUNTIME_VERSION);
+ bms_diag_runtime_sample(1u,-123,456,0x11223344u,1u);
+ bms_diag_runtime_soc(73u,72u,2u,74u,69u,79u,90u,600u,1u,1u,580u,200u);
+ bms_diag_runtime_pm(0u,DIAG_PM_BLOCK_CURRENT|DIAG_PM_BLOCK_BUS,3u,120u,1u,0u,500u);
+ bms_diag_runtime_faults(1u,2u,4u);
+ assert(bms_diag_cached_word(193)==3u);
+ assert((int32_t)((uint32_t)bms_diag_cached_word(194)|((uint32_t)bms_diag_cached_word(195)<<16))==-123);
+ assert((int32_t)((uint32_t)bms_diag_cached_word(196)|((uint32_t)bms_diag_cached_word(197)<<16))==456);
+ assert(bms_diag_cached_word(200)==200u&&bms_diag_cached_word(202)==73u&&bms_diag_cached_word(203)==72u);
+ assert(bms_diag_cached_word(215)==0u&&bms_diag_cached_word(221)==500u);
+ assert(bms_diag_cached_word(222)==1u&&bms_diag_cached_word(223)==2u&&bms_diag_cached_word(224)==4u);
  n=request(q,1,3,0x2a12,2);assert(modbus_on_frame(q,n,r,&l));
  assert(l==9 && r[3]==0x56 && r[4]==0x78 && r[5]==0x12 && r[6]==0x34);
  u16 seq=bms_diag_cached_word(4);for(int i=0;i<100;i++)assert(modbus_on_frame(q,n,r,&l));
