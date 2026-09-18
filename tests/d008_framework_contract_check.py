@@ -224,6 +224,14 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn('D008_PRODUCT_PROFILE_NAME     "D008-16S-LFP"', self.product)
         self.assertIn("DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.project)
 
+    def test_production_build_blocks_debug_and_protection_isolation(self):
+        app_config = (HERE / "app_config.h").read_text(encoding="utf-8")
+        self.assertIn("BMS_PRODUCTION_BUILD", app_config)
+        self.assertIn("Production build forbids current-test, debug GPIO and UART debug output", app_config)
+        self.assertIn("Production build requires SDK flash protection", app_config)
+        self.assertIn("Production build requires watchdog", app_config)
+        self.assertIn("Production build requires software, hardware and temperature protection enabled", self.project)
+
     def test_no_legacy_parameter_migration(self):
         self.assertNotIn("param_apply_d008_product_identity_if_unset", self.param)
         self.assertNotIn("param_migrate_temperature_protection_v1", self.param)
