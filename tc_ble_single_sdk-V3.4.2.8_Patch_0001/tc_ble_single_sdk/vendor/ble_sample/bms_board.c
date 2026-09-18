@@ -48,6 +48,19 @@ uint8_t bms_board_heater_supported(void)
 #endif
 }
 
+uint8_t bms_board_heater_allowed(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    return 1u;
+#elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+    /* D011 preserves its product wake/switch qualification without letting
+     * the SH backend own the heater state machine. */
+    return sh3673510_board_wake_active() ? 1u : 0u;
+#else
+    return 0u;
+#endif
+}
+
 void bms_board_heater_set(uint8_t enabled)
 {
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
