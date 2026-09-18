@@ -17,7 +17,7 @@ public sealed partial class BmsClient
         } catch(BmsModbusException ex) when(ex.Code is 1 or 2) {c.Status="固件不支持参数协议，仅备份已有参数";}
         catch(Exception ex) {c.Status="能力读取失败";c.Errors.Add(ex.Message);return c;}
         foreach(var b in new (string Name,ushort Address,ushort Count)[]{
-            ("Capacity",0x2318,2),("SOC",0x1005,1),("Heater",0x2E20,3),
+            ("FactoryMode",0x2AE1,1),("Capacity",0x2318,2),("SOC",0x1005,1),("Heater",0x2E20,3),
             ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16),
             ("SoftwareProtection",0x2100,65),("AfeRequested",0x2500,35),("AfeEffective",0x2540,35),
             ("BluetoothName",0x0100,12),("DeviceSerial",0xC002,16),("Hardware",BmsRegisters.Hardware,16),("Software",BmsRegisters.Software,16)}) {
