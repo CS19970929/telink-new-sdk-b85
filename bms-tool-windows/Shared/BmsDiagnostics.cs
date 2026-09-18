@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 
 namespace BmsTool.Windows;
@@ -20,8 +21,13 @@ public sealed class DiagnosticCapture
     public List<DiagnosticField> Boot { get; } = new();
     public List<DiagnosticField> Storage { get; } = new();
     public List<DiagnosticField> Mos { get; } = new();
+    public List<DiagnosticField> Current { get; } = new();
+    public List<DiagnosticField> Soc { get; } = new();
+    public List<DiagnosticField> Power { get; } = new();
+    public List<DiagnosticField> Protection { get; } = new();
     public List<DiagnosticTrace> Trace { get; } = new();
     public Dictionary<string,string> Identity { get; } = new();
+    public Dictionary<string,ushort[]> EvidenceBlocks { get; } = new();
     public ushort[]? Events { get; set; }
     public ushort[]? SoftwareProtectionWords { get; set; }
     public List<string> Errors { get; } = new();
@@ -29,8 +35,10 @@ public sealed class DiagnosticCapture
 }
 public static class BmsDiagnostics
 {
-    public const ushort Base = 0x2A00, TraceBase = 0x2B00, Magic = 0x4447, Schema = 1;
+    public const ushort Base = 0x2A00, TraceBase = 0x2B00, RuntimeBase = 0x2AC0, Magic = 0x4447, Schema = 1;
+    public const ushort RuntimeCapability = 0x0020;
     public static uint U32(ushort[] w, int at) => (uint)w[at] | ((uint)w[at+1] << 16);
+    public static int I32(ushort[] w, int at) => unchecked((int)U32(w,at));
     public static string Result(ushort n) => n switch {
         0=>"未执行",1=>"成功",2=>"PORT 不可用",3=>"布局拒绝",4=>"区域无效",5=>"record_open 失败",
         6=>"未加载有效记录，使用默认值（不等于硬件故障）",7=>"保存失败（查看底层原因）",
@@ -47,6 +55,25 @@ public static class BmsDiagnostics
     }
     private static string On(bool v)=>v?"ON":"OFF";
     private static string Mode(int code)=>code switch {2=>"AUTO_DIODE",3=>"ON",_=>"OFF"};
+    private static string OcvState(ushort value)=>value switch {0=>"WAIT_CURRENT",1=>"PREPARE",2=>"READY",3=>"CORRECT_DOWN",_=>$"未知({value})"};
+    private static string LearningState(ushort value)=>value switch {0=>"NONE",1=>"EMPTY_TO_FULL",2=>"FULL_TO_EMPTY",_=>$"未知({value})"};
+    public static string PmReasons(uint bits)
+    {
+        string[] names={"采样无效/过期","OTA进行中","Flash事务未恢复","OWC/总线忙",
+            "电流达到suspend门槛","采样待处理","显式关机流程","ACC休眠流程"};
+        var items=new List<string>();
+        for(int i=0;i<names.Length;i++) if((bits&(1u<<i))!=0) items.Add(names[i]);
+        if((bits&~0xFFu)!=0) items.Add($"未知位 0x{bits&~0xFFu:X8}");
+        return items.Count==0?"无":string.Join("；",items);
+    }
+    private static string ProtectionText(ushort bits)
+    {
+        string[] names={"单体过压","单体欠压","总压过压","总压欠压","充电过流","放电过流",
+            "充电高温","放电高温","充电低温","放电低温","单体压差过大","温差过大","SOC过低","MOS高温"};
+        var items=new List<string>();
+        for(int i=0;i<names.Length;i++) if((bits&(1u<<i))!=0)items.Add(names[i]);
+        return items.Count==0?"无":string.Join("、",items);
+    }
     public static void Decode(DiagnosticCapture c, ushort[] w)
     {
         if(w.Length!=256 || w[0]!=Magic || w[1]!=Schema) throw new InvalidDataException("诊断长度/magic/schema 不匹配");
@@ -103,19 +130,92 @@ public static class BmsDiagnostics
         M("AFE 采样年龄",$"{unchecked(U32(w,6)-U32(w,140))} ticks32k；有效位={w[133]}");
         M("Physical Feedback","不可用 / unknown");
         M("Trace 条数 / 覆盖次数",$"{w[12]} / {U32(w,10)}");
+
+        c.Current.Clear();c.Soc.Clear();c.Power.Clear();c.Protection.Clear();
+        if((w[2]&RuntimeCapability)!=0 && w[192]>=1) {
+            void C(string k,string v)=>c.Current.Add(new(k,v));
+            void O(string k,string v)=>c.Soc.Add(new(k,v));
+            void P(string k,string v)=>c.Power.Add(new(k,v));
+            void F(string k,string v)=>c.Protection.Add(new(k,v));
+            bool sampleValid=(w[193]&1)!=0;
+            C("Runtime Version",w[192].ToString());
+            C("采样有效/新鲜",sampleValid?"是":"否");
+            C("AFE 原始电流",$"{I32(w,194)} mA");
+            C("业务电流",$"{I32(w,196)} mA");
+            C("采样年龄",$"{unchecked(U32(w,6)-U32(w,198))} ticks32k");
+            C("SOC deadband",$"{w[200]} mA（另有D008固定≤200mA不可靠区）");
+            C("过流恢复 pending",(w[193]&2)!=0?"是":"否");
+
+            O("SOC estimate",$"{w[202]} %");
+            O("SOC display",$"{w[203]} %");
+            O("OCV state",OcvState(w[204]));
+            O("OCV center / band",$"{w[205]} / {w[206]}..{w[207]} %");
+            O("OCV confidence",w[208].ToString());
+            O("静置累计",$"{w[209]} s");
+            O("容量学习",LearningState(w[210]));
+            O("容量已学习",w[211]!=0?"是":"否");
+            O("学习容量",$"{w[212]/10.0:F1} Ah");
+
+            uint pm=U32(w,213);
+            P("Suspend",w[215]!=0?"允许":"阻止");
+            P("阻断原因",PmReasons(pm));
+            P("电流门槛",$"±{w[221]} mA");
+            P("BLE连接",w[219]!=0?"是":"否（不是suspend阻断条件）");
+            P("Sample pending",w[220]!=0?"是":"否");
+            P("低压关机 Region / 累计",$"{w[216]} / {U32(w,217)} s");
+
+            F("Level 1",$"0x{w[222]:X4} · {ProtectionText(w[222])}");
+            F("Level 2",$"0x{w[223]:X4} · {ProtectionText(w[223])}");
+            F("Level 3",$"0x{w[224]:X4} · {ProtectionText(w[224])}");
+        }
     }
+    private static string TraceName(ushort id,uint arg0,uint arg1) => id switch {
+        1=>"BOOT",2=>"INIT",3=>"STORAGE",4=>"PARAMS",5=>"MOS",6=>"AFE",7=>"BOOT_DONE",8=>"DRIVER",9=>"UPGRADE",
+        10=>$"CURRENT_RECOVERY chg={(arg0&1)!=0} dsg={(arg0&2)!=0} release={(arg1>>24)&0xFF}",
+        11=>(arg0&1)!=0?"PM_ALLOW":$"PM_BLOCK · {PmReasons(arg1)}",
+        12=>$"PROTECTION L1=0x{arg0&0xFFFF:X4} L2=0x{arg0>>16:X4} L3=0x{arg1&0xFFFF:X4}",
+        13=>(arg0&1)!=0?"SAMPLE_VALID":"SAMPLE_INVALID",
+        _=>$"Unknown({id})"
+    };
     public static List<DiagnosticTrace> DecodeTrace(ushort[] w,uint last,ushort count)
     {
         if(w.Length!=768 || count>64) throw new InvalidDataException("Trace 长度/条数错误");
-        string[] names={"Unknown","BOOT","INIT","STORAGE","PARAMS","MOS","AFE","BOOT_DONE","DRIVER","UPGRADE"};
         var entries=new List<DiagnosticTrace>();
         for(int slot=0;slot<64;slot++) {
             int a=slot*12;uint seq=U32(w,a);
             // Modulo subtraction also orders entries across sequence rollover.
             if(unchecked(last-seq)>=count) continue;
-            ushort id=w[a+4]; entries.Add(new(seq,U32(w,a+2),id,id<names.Length?names[id]:"Unknown",U32(w,a+6),U32(w,a+8)));
+            ushort id=w[a+4];uint arg0=U32(w,a+6),arg1=U32(w,a+8);
+            entries.Add(new(seq,U32(w,a+2),id,TraceName(id,arg0,arg1),arg0,arg1));
         }
         return entries.OrderByDescending(e=>unchecked(last-e.Sequence)).ToList();
+    }
+    public static void ApplyEvidence(DiagnosticCapture c)
+    {
+        if(c.EvidenceBlocks.TryGetValue("Current",out var current) && current.Length>=7) {
+            c.Current.Add(new("参数窗口原始电流",$"{I32(current,0)} mA"));
+            c.Current.Add(new("参数窗口校准电流",$"{I32(current,2)} mA"));
+            c.Current.Add(new("参数窗口有效/新鲜",current[4]!=0?"是":"否"));
+        }
+        if(c.EvidenceBlocks.TryGetValue("Calibration",out var cal) && cal.Length>=4) {
+            c.Current.Add(new("持久化 offset",$"{I32(cal,0)} mA"));
+            c.Current.Add(new("持久化 gain",$"{U32(cal,2)} ppm"));
+        }
+    }
+    private static string Summary(DiagnosticCapture c)
+    {
+        var b=new StringBuilder();
+        b.AppendLine("# BMS Diagnostic Summary");
+        b.AppendLine($"Status: {c.Status}");
+        b.AppendLine($"Endpoint: {c.Endpoint}");
+        b.AppendLine($"Started UTC: {c.StartedUtc:O}");
+        b.AppendLine($"Finished UTC: {c.FinishedUtc:O}");
+        foreach(var group in new[]{("Current",c.Current),("SOC",c.Soc),("Power",c.Power),("MOS",c.Mos),("Protection",c.Protection)}) {
+            b.AppendLine();b.AppendLine("## "+group.Item1);
+            foreach(var field in group.Item2)b.AppendLine($"- {field.Field}: {field.Value}");
+        }
+        if(c.Errors.Count!=0){b.AppendLine();b.AppendLine("## Errors");foreach(var e in c.Errors)b.AppendLine("- "+e);}
+        return b.ToString();
     }
     public static void Export(string path,DiagnosticCapture c)
     {
@@ -125,11 +225,26 @@ public static class BmsDiagnostics
             using var stream=zip.CreateEntry(name).Open();
             JsonSerializer.Serialize(stream,data,new JsonSerializerOptions {WriteIndented=true});
         }
-        Add("manifest.json",new {bundle_schema=1,c.StartedUtc,c.FinishedUtc,c.Endpoint,c.Status,c.Supported,
+        void AddText(string name,string data) {
+            using var stream=zip.CreateEntry(name).Open();
+            using var writer=new StreamWriter(stream,new UTF8Encoding(false));writer.Write(data);
+        }
+        ushort[]? Block(string name)=>c.EvidenceBlocks.TryGetValue(name,out var value)?value:null;
+        Add("manifest.json",new {bundle_schema=2,c.StartedUtc,c.FinishedUtc,c.Endpoint,c.Status,c.Supported,
             c.SnapshotConsistent,c.TraceConsistent,c.Identity,c.Errors,tool_version=typeof(BmsDiagnostics).Assembly.GetName().Version?.ToString(),
-            firmware_git_commit=c.Words is null || U32(c.Words,22)==0 ? "unknown" : U32(c.Words,22).ToString("x8"), physical_feedback="unavailable"});
+            firmware_git_commit=c.Words is null || U32(c.Words,22)==0 ? "unknown" : U32(c.Words,22).ToString("x8"),
+            physical_feedback="unavailable",raw_frames_scope="all reads performed by this diagnostic capture"});
+        AddText("summary.md",Summary(c));
         Add("boot.json",c.Boot);Add("storage.json",c.Storage);Add("mos.json",c.Mos);
+        Add("current.json",new {runtime=c.Current,raw_window=Block("Current")});
+        Add("soc.json",c.Soc);Add("power.json",c.Power);Add("protection_runtime.json",c.Protection);
         Add("runtime.json",new {c.Words});Add("trace.json",c.Trace);Add("events.json",c.Events);
+        Add("evidence.json",c.EvidenceBlocks);
+        Add("parameters.json",new {
+            capability=Block("D008Capability"),capacity_cycle=Block("CapacityCycle"),soc=Block("SOC"),
+            heater=Block("Heater"),calibration=Block("Calibration"),serial=Block("Serial"),
+            software_protection=c.SoftwareProtectionWords});
+        Add("afe.json",new {requested=Block("AfeRequested"),meta=Block("AfeMeta"),effective=Block("AfeEffective")});
         Add("software_protection.json",new {start_register="0x2100", word_count=65,
             recovery_semantics="Recover applies to Third only; First/Second are threshold alarms",
             words=c.SoftwareProtectionWords});
