@@ -588,12 +588,38 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
     _info(f"generated sources.mk: {build_dir / 'sources.mk'}  ({len(objs)} objects)")
 
 
+def _firmware_git_build_id() -> str:
+    """Return the first 32 bits of HEAD as an unsigned C literal.
+
+    This is diagnostic provenance only; the full commit and dirty state remain
+    in fw_manifest.json. A source archive without Git metadata stays explicit
+    as zero rather than inventing an identity.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=10,
+        )
+        sha = result.stdout.strip().lower()
+        if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha):
+            return f"0x{sha[:8]}u"
+    except Exception:
+        pass
+    return "0u"
+
+
 def _invoke_make(targets: list[str], jobs: int = 1,
                  build_dir: Path = BUILD_DIR) -> None:
     resolved_build = build_dir.resolve()
     if resolved_build != BUILD_DIR:
         _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
+    extra_defines = env.get("EXTRA_DEFINES", "").strip()
+    if "BMS_DIAG_BUILD_ID" not in extra_defines:
+        build_id = _firmware_git_build_id()
+        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_ID={build_id}").strip()
+        env["EXTRA_DEFINES"] = extra_defines
+        _info(f"firmware diagnostic build id: {build_id}")
     make = _need_make()
     _gen_sources_mk(build_dir)
     # Pass all Make-facing paths via the junction (space-free).
