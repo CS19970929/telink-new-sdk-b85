@@ -1124,6 +1124,7 @@ _attribute_no_inline_ void main_loop(void)
      * and persistence. Evaluate suspend last using the resulting state. */
 	blt_sdk_main_loop();
 	Runtime_Poll();
+    bms_diag_runtime_mode((Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 
     app_sample_task();
     app_event_log_1s_task();
