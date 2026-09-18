@@ -489,6 +489,7 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
     pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
     if (pack_adc_mv > 3299u) pack_adc_mv = 3299u;
     measurements->pack_voltage_mv = (pack_adc_mv * 485u) / 15u;
+    measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
     return 1u;
