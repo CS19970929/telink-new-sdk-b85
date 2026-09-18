@@ -14,8 +14,6 @@
 #include <string.h>
 
 #define SH3510_SAMPLE_MS              200u
-#define SH3510_REINIT_TRIGGER         3u
-#define SH3510_REINIT_COOLDOWN        25u /* 5 s at 200 ms */
 #define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 #define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
@@ -30,10 +28,7 @@ static bms_afe_aux_measurements_t s_aux;
 static uint32_t s_ntc_ohm[4];
 static uint8_t s_ntc_valid[4];
 static uint8_t s_output_enabled;
-static uint8_t s_heater_on;
 static uint8_t s_snapshot_valid;
-static uint8_t s_comm_failures;
-static uint8_t s_reinit_cooldown;
 static uint8_t s_hw_afe_error;
 static uint16_t s_balance_mask;
 static uint8_t s_requested_charge_on;
@@ -47,7 +42,6 @@ static uint16_t s_hw_recovery_count[HW_REC_COUNT];
 static uint8_t s_hw_charge_protect;
 static uint8_t s_hw_discharge_protect;
 static uint8_t s_afe_reconfigure_required;
-static uint8_t s_heater_mos_overtemp;
 
 /* Existing product 10K NTC table: R in 100 ohm, T=(degC+40)*10. */
 static const uint16_t s_ntc_table[] = {
@@ -108,7 +102,6 @@ static void note_comm_ok(void)
     bms_error_clear(BMS_ERROR_SPI);
     if (!s_hw_afe_error) bms_error_clear(BMS_ERROR_AFE1);
     g_bms_system_status.bits.b1Status_AFE1 = s_hw_afe_error ? 0u : 1u;
-    s_comm_failures = 0u;
 }
 
 static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
@@ -140,8 +133,7 @@ static uint8_t temperature_snapshot(uint16_t *bat_min,
 static uint8_t charge_blocked(void)
 {
     return (s_hw_charge_protect ||
-            bms_sw_protection_charge_blocked() ||
-            s_heater_on) ? 1u : 0u;
+            bms_sw_protection_charge_blocked()) ? 1u : 0u;
 }
 
 static uint8_t discharge_blocked(void)
@@ -178,86 +170,6 @@ static uint8_t sh3510_apply_requested_fets(void)
         return 0u;
     }
     return 1u;
-}
-
-static void apply_heater(void)
-{
-#if !SH3673510_SW_PROTECT_ENABLE
-    s_heater_on = 0u;
-    s_heater_mos_overtemp = 0u;
-    sh3673510_board_set_heater(0u);
-    g_bms_system_status.bits.b1Status_Heat = 0u;
-    bms_error_clear(BMS_ERROR_HEAT);
-    return;
-#else
-    uint16_t bat_min = 0u, bat_max = 0u;
-    uint16_t heater_mos_temp = 0u;
-    uint8_t battery_temp_ok = battery_temperature_snapshot(&bat_min, &bat_max);
-    uint8_t heater_temp_ok = s_ntc_valid[SH3673510_D011_HEATER_NTC_INDEX];
-    uint8_t on = s_heater_on;
-    (void)bat_max;
-
-    if (heater_temp_ok)
-        heater_mos_temp = g_stCellInfoReport.u16Temperature[AFE1_TEMP3];
-
-    /* TS3 is the reversible heater-MOS safety cutoff. Until a dedicated
-     * heater-MOS parameter group is added, reuse the existing MOS third/recover
-     * thresholds. This path NEVER authorizes the irreversible PB5 fuse trigger. */
-    if (!heater_temp_ok) {
-        s_heater_mos_overtemp = 1u;
-    } else if (s_heater_mos_overtemp) {
-        if (heater_mos_temp <= g_tParam.protect.u16TmosOTp_Rcv)
-            s_heater_mos_overtemp = 0u;
-    } else if (heater_mos_temp >= g_tParam.protect.u16TmosOTp_Third) {
-        s_heater_mos_overtemp = 1u;
-    }
-
-    if (!heater_temp_ok || s_heater_mos_overtemp) {
-        if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
-        on = 0u;
-    } else {
-        bms_error_clear(BMS_ERROR_HEAT);
-    }
-
-    if (!s_output_enabled || !sh3673510_board_wake_active() ||
-        !battery_temp_ok || bms_error_get(BMS_ERROR_AFE1)) on = 0u;
-    else if (on && bat_min >= g_tParam.protect.u16TchgUTp_Rcv) on = 0u;
-    else if (!on && !s_heater_mos_overtemp &&
-             bat_min <= g_tParam.protect.u16TchgUTp_Third) on = 1u;
-
-    if (on != s_heater_on) {
-        s_heater_on = on;
-        sh3673510_board_set_heater(on);
-    }
-    g_bms_system_status.bits.b1Status_Heat = s_heater_on;
-#endif
-}
-
-static void apply_balance(void)
-{
-    uint16_t threshold = g_tParam.protect.u16VdeltaOvp_First;
-    uint16_t mask = 0u;
-    uint8_t i;
-    if (s_output_enabled && threshold && g_stCellInfoReport.u16Ichg &&
-        g_stCellInfoReport.u16VCellDelta >= threshold && !charge_blocked()) {
-        for (i = 0u; i < SH3673510_D011_CELL_COUNT; ++i) {
-            if ((uint16_t)(g_stCellInfoReport.u16VCell[i] -
-                           g_stCellInfoReport.u16VCellMin) >= threshold)
-                mask |= (uint16_t)(1u << i);
-        }
-    }
-    /* SH36735xx balance bits time out, so refresh a nonzero mask every sample. */
-    if (mask != s_balance_mask || mask != 0u) {
-        if (sh3673510_control_set_balance(mask)) bms_error_clear(BMS_ERROR_BALANCE);
-        else {
-            if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
-            mask = 0u;
-        }
-        s_balance_mask = mask;
-    }
-    g_stCellInfoReport.u16BalanceFlag1 = s_balance_mask;
-    g_stCellInfoReport.u16BalanceFlag2 = 0u;
-    g_bms_system_status.bits.b1Status_Balance = s_balance_mask ? 1u : 0u;
 }
 
 static void publish_hw_status(const sh3673510_control_status_t *s)
@@ -495,8 +407,6 @@ static uint8_t service_afe_reconfiguration(void)
     s_snapshot_valid = 0u;
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
-    s_heater_on = 0u;
-    sh3673510_board_set_heater(0u);
     (void)sh3673510_control_set_balance(0u);
     s_balance_mask = 0u;
     (void)sh3673510_control_set_fets(0u, 0u);
@@ -637,8 +547,6 @@ void sh3673510_bms_afe_init(void)
     memset(&s_aux, 0, sizeof(s_aux));
     s_snapshot_valid = 0u;
     s_comm_failures = 0u;
-    s_reinit_cooldown = 0u;
-    s_heater_on = 0u;
     s_balance_mask = 0u;
     s_hw_afe_error = 0u;
     s_requested_charge_on = 0u;
@@ -652,7 +560,6 @@ void sh3673510_bms_afe_init(void)
     s_hw_charge_protect = 0u;
     s_hw_discharge_protect = 0u;
     s_afe_reconfigure_required = 0u;
-    s_heater_mos_overtemp = 0u;
     sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
     if (!sh3673510_control_init()) { note_comm_error(); return; }
@@ -662,26 +569,10 @@ void sh3673510_bms_afe_init(void)
 void sh3673510_bms_afe_sample(void)
 {
     sh3673510_board_force_heater_fuse_safe();
-    if (s_reinit_cooldown) --s_reinit_cooldown;
     if (!publish_measurements()) {
+        /* Common bms_afe_guard owns OFF, WDT silence and bounded re-init. */
         s_snapshot_valid = 0u;
-                s_heater_on = 0u;
-        sh3673510_board_set_heater(0u);
-        g_bms_system_status.bits.b1Status_Heat = 0u;
-        (void)sh3673510_control_set_balance(0u);
-        s_balance_mask = 0u;
-        (void)sh3673510_control_set_fets(0u, 0u);
         note_comm_error();
-        if (s_comm_failures != 0xFFu) ++s_comm_failures;
-        if (s_comm_failures >= SH3510_REINIT_TRIGGER && s_reinit_cooldown == 0u) {
-            s_reinit_cooldown = SH3510_REINIT_COOLDOWN;
-            if (sh3673510_control_init()) {
-                memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
-                s_hw_charge_protect = 0u;
-                s_hw_discharge_protect = 0u;
-                note_comm_ok();
-            }
-        }
         return;
     }
 
@@ -694,9 +585,7 @@ void sh3673510_bms_afe_sample(void)
     if (s_valid_snapshot_streak < SH3510_VALID_SNAPSHOT_RELEASE_COUNT) ++s_valid_snapshot_streak;
     if (s_valid_snapshot_streak >= SH3510_VALID_SNAPSHOT_RELEASE_COUNT) s_output_inhibit = 0u;
     note_comm_ok();
-    apply_heater();
-    apply_balance();
-    (void)sh3510_apply_requested_fets();
+    /* Common features owns heater/balance; common guard owns final FET apply. */
 }
 
 uint8_t sh3673510_bms_afe_apply_protection_config(void)
@@ -719,8 +608,6 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
 {
     s_output_enabled = enabled ? 1u : 0u;
     if (!s_output_enabled) {
-        s_heater_on = 0u;
-        sh3673510_board_set_heater(0u);
         if (sh3673510_control_ready()) {
             (void)sh3673510_control_set_balance(0u);
             (void)sh3673510_control_set_fets(0u, 0u);
@@ -743,9 +630,7 @@ void sh3673510_bms_afe_sleep(void)
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
-    s_heater_on = 0u;
     sh3673510_board_force_heater_fuse_safe();
-    sh3673510_board_set_heater(0u);
     s_balance_mask = 0u;
     (void)sh3673510_control_set_balance(0u);
     sh3673510_control_sleep();
