@@ -51,6 +51,8 @@ jobs:
         run: python tests/afe_hw_access_contract_check.py
       - name: AFE MTU23 staged transaction host tests
         run: python tests/afe_hw_fragment_host_check.py
+      - name: Execute D008 diagnostics C host tests
+        run: python tests/bms_diag_host_check.py
       - name: Run D008 documentation contract check
         run: python tests/d008_documentation_contract_check.py
       - name: Run unified software protection contract check
@@ -81,7 +83,7 @@ jobs:
       - name: Run Flash storage contract check
         run: python tests/flash_quick_check.py
       - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/d008_common_port_fet_contract_check.py tests/d008_20s_profile_contract_check.py tests/d008_documentation_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/afe_hw_access_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py tests/d008_power_soc_host_check.py tests/d008_storage_host_check.py
+        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/d008_framework_contract_check.py tests/d008_common_port_fet_contract_check.py tests/d008_20s_profile_contract_check.py tests/bms_diag_host_check.py tests/d008_documentation_contract_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/afe_hw_access_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py tests/d008_power_soc_host_check.py tests/d008_storage_host_check.py
 
   tc32-production:
     name: TC32 production build
