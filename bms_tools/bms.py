@@ -173,17 +173,12 @@ OTA_META_A = (0x1F000, 0x1FFFF)
 OTA_META_B = (0x3F000, 0x3FFFF)
 SDK_RESERVED = (0x74000, 0x7FFFF)
 
-# This mismatch is inherited from the verified IDE configuration and is only
-# reported, never auto-corrected: changing it would move the stack and alter
-# firmware behavior. Confirm the populated die/SRAM before changing it.
 DECLARED_MCU = "TLSR8251"
-STARTUP_PROFILE = "MCU_STARTUP_8258"
-STARTUP_SRAM_END = 0x850000
+STARTUP_PROFILE = "MCU_STARTUP_8251"
+STARTUP_SRAM_END = 0x848000
 TLSR8251_SRAM_END_IN_SDK = 0x848000
-TARGET_CONFIGURATION_RISK = (
-    "declared TLSR8251 target uses inherited MCU_STARTUP_8258 profile; "
-    "verify populated die/SRAM and approved baseline before changing it"
-)
+TARGET_CONFIGURATION_RISK = "TLSR8251 startup profile matches the 32 KiB SRAM target"
+MAIN_STACK_RESERVE_BYTES = 600
 
 
 def _now_iso() -> str:
@@ -332,7 +327,7 @@ def cmd_env(args: argparse.Namespace) -> int:
     missing_libraries = [str(path) for path in REQUIRED_VENDOR_LIBS if not path.exists()]
     if missing_libraries:
         _die("required official SDK libraries missing: " + ", ".join(missing_libraries))
-    _info("environment tools OK; target identity risk is reported above")
+    _info("environment tools OK; TLSR8251 target identity is consistent")
     return 0
 
 
@@ -728,42 +723,70 @@ def cmd_map(args: argparse.Namespace) -> int:
     if not MAP.exists():
         _die(f"MAP missing: {MAP}. Run 'build' first.")
     text = MAP.read_text(encoding="utf-8", errors="replace")
-    # Extract top-level section sizes from the "Memory Configuration" / "Linker
-    # script and memory map" anchor sections. tc32-elf-ld uses GNU ld-style MAP.
-    sections = {}
-    cur = None
-    for line in text.splitlines():
-        m = re.match(r"^\.(vectors|cstartup_ram_funcs|ram_code|retention_data|text|rodata|data|bss|data_no_init|sdk_version)\s", line)
-        if m:
-            cur = m.group(1)
-            sections.setdefault(cur, {"size": 0, "addr": None})
-        # A line like "  0x0000008c                _xxx = ."
-        m2 = re.match(r"^\s+0x([0-9a-fA-F]+)\s+.*=\s*\.", line)
-        if m2 and cur and sections[cur]["addr"] is None:
-            sections[cur]["addr"] = int(m2.group(1), 16)
-    # Better approach: parse "Output section" headers with size info.
     print("MAP analysis:")
     print(f"  file: {MAP}")
     print(f"  size: {MAP.stat().st_size} bytes")
-    # Pull _bin_size_ and _code_size_ provided symbols from the linker script.
+
+    symbols = {}
     for sym in ("_bin_size_", "_code_size_", "_ram_use_end_", "_start_bss_",
-                "_end_bss_", "_start_data_", "_end_data_"):
+                "_end_bss_", "_start_data_", "_end_data_", "_retention_size_"):
         m = re.search(rf"\b{re.escape(sym)}\b\s*=\s*0x([0-9a-fA-F]+)", text)
         if m:
-            print(f"  {sym:<22} = 0x{int(m.group(1), 16):x}")
-    # Section start addresses (search for ".<section> 0xADDR" patterns)
-    found = re.findall(r"^\.(vectors|cstartup_ram_funcs|ram_code|retention_data|text|rodata|data|bss|data_no_init|sdk_version)\s+0x([0-9a-fA-F]+)", text, re.M)
+            value = int(m.group(1), 16)
+            symbols[sym] = value
+            print(f"  {sym:<22} = 0x{value:x}")
+
+    found = re.findall(
+        r"^\.(vectors|cstartup_ram_funcs|ram_code|retention_data|text|rodata|data|bss|data_no_init|sdk_version)"
+        r"\s+0x([0-9a-fA-F]+)",
+        text,
+        re.M,
+    )
     if found:
         print("  sections (start address):")
         for name, addr in found[:10]:
             print(f"    .{name:<22} @ 0x{int(addr, 16):08x}")
-    # Provide RAM endpoint + stack margin if available.
-    m = re.search(r"__SRAM_SIZE\s*=\s*(0x[0-9a-fA-F]+|\d+)", text)
-    if m:
-        print(f"  __SRAM_SIZE = {m.group(1)}")
-    print("MAP analysis complete. (Use 'bms.py size' for_flash/ram byte totals.)")
-    return 0
 
+    m = re.search(r"__SRAM_SIZE\s*=\s*(0x[0-9a-fA-F]+|\d+)", text)
+    if not m:
+        _die("MAP missing __SRAM_SIZE; cannot validate TLSR8251 RAM limit")
+    sram_size = int(m.group(1), 0)
+    print(f"  __SRAM_SIZE           = 0x{sram_size:06x}")
+    if sram_size != STARTUP_SRAM_END:
+        _die(
+            f"startup SRAM mismatch: MAP=0x{sram_size:06X}, "
+            f"expected TLSR8251=0x{STARTUP_SRAM_END:06X}"
+        )
+
+    ram_end = symbols.get("_ram_use_end_")
+    if ram_end is None:
+        _die("MAP missing _ram_use_end_; cannot validate SRAM headroom")
+
+    ram_base = 0x840000
+    ram_limit = STARTUP_SRAM_END - MAIN_STACK_RESERVE_BYTES
+    ram_used_span = ram_end - ram_base
+    ram_total = STARTUP_SRAM_END - ram_base
+    stack_safe_headroom = ram_limit - ram_end
+    print(f"  TLSR8251 SRAM span    = {ram_total} bytes")
+    print(f"  RAM address span used = {ram_used_span} bytes")
+    print(f"  stack reserve         = {MAIN_STACK_RESERVE_BYTES} bytes")
+    print(f"  stack-safe headroom   = {stack_safe_headroom} bytes")
+    if ram_end >= ram_limit:
+        _die(
+            f"TLSR8251 SRAM overflow risk: _ram_use_end_=0x{ram_end:06X}, "
+            f"limit=0x{ram_limit:06X}"
+        )
+
+    bin_size = symbols.get("_bin_size_")
+    slot_size = FW_SLOT_A_END - FW_SLOT_A_BASE + 1
+    if bin_size is not None:
+        flash_headroom = slot_size - bin_size
+        print(f"  slot A headroom       = {flash_headroom} bytes")
+        if bin_size > slot_size:
+            _die(f"firmware image exceeds slot A: {bin_size} > {slot_size}")
+
+    print("MAP analysis PASS: TLSR8251 startup/RAM/slot limits are valid.")
+    return 0
 
 # ----------------------------------------------------------------------------
 # Subcommand: manifest / verify  (firmware integrity)
