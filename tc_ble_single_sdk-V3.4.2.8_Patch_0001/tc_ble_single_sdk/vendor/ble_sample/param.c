@@ -3,6 +3,7 @@
 #include "app.h"
 #include "param.h"
 #include "bms_error.h"
+#include "bms_sw_protection.h"
 #include "bms_cold_kv_store.h"
 #include "bms_event_log.h"
 #include "soc_kv_store.h"
@@ -10,6 +11,12 @@
 #include <string.h>
 
 PARAM_T g_tParam;
+static uint8_t s_protection_params_valid;
+
+uint8_t bms_protection_params_valid(void)
+{
+    return s_protection_params_valid;
+}
 
 static void param_fill_default(PARAM_T *param)
 {
@@ -42,6 +49,7 @@ static void param_upgrade_mark_epoch(bms_cold_control_param_id_t item, u32 desir
 static int param_upgrade_apply_default_protect(void)
 {
     param_fill_default(&g_tParam);
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) return 0;
     return bms_cold_kv_store_set_protect(&g_tParam.protect);
 }
 
@@ -81,39 +89,57 @@ void LoadParam(void)
 #error "bms_cold_kv_store currently supports Flash-backed param storage only"
 #endif
 
+    s_protection_params_valid = 0u;
     if (!bms_cold_kv_store_init()) {
         param_fill_default(&g_tParam);
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
 
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_get_protect(&g_tParam.protect)) {
         param_fill_default(&g_tParam);
-        (void)bms_cold_kv_store_set_protect(&g_tParam.protect);
+        if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
+            return;
+        }
+    }
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
+    s_protection_params_valid = 1u;
 }
 
 uint8_t SaveParam(void)
 {
+    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
+        s_protection_params_valid = 0u;
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0u;
+    }
     g_tParam.ParamVer = PARAM_VER;
     if (!bms_cold_kv_store_set_protect(&g_tParam.protect)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
     }
+    s_protection_params_valid = 1u;
     return 1u;
 }
 
 void Param_UpgradeReset_Apply(void)
 {
     if (!bms_cold_kv_store_init()) {
+        s_protection_params_valid = 0u;
         return;
     }
 
     if (param_upgrade_epoch_mismatch(BMS_COLD_CTRL_PROTECT_RESET_EPOCH, FW_UPGRADE_RESET_PROTECT_EPOCH)) {
         if (param_upgrade_apply_default_protect()) {
+            s_protection_params_valid = 1u;
             param_upgrade_mark_epoch(BMS_COLD_CTRL_PROTECT_RESET_EPOCH, FW_UPGRADE_RESET_PROTECT_EPOCH);
         } else {
+            s_protection_params_valid = 0u;
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
         }
     }
