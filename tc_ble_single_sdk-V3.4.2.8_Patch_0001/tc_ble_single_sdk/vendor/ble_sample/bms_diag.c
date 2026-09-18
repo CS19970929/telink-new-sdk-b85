@@ -16,6 +16,18 @@ static uint32_t get32(const uint16_t *p)
     return (uint32_t)p[0] | ((uint32_t)p[1] << 16);
 }
 static void changed(void) { ++s_sequence; put32(&s_words[4], s_sequence); }
+static uint8_t update16(uint16_t offset, uint16_t value)
+{
+    if (s_words[offset] == value) return 0u;
+    s_words[offset] = value;
+    return 1u;
+}
+static uint8_t update32(uint16_t offset, uint32_t value)
+{
+    if (get32(&s_words[offset]) == value) return 0u;
+    put32(&s_words[offset], value);
+    return 1u;
+}
 
 void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 {
@@ -34,7 +46,8 @@ void bms_diag_init(void)
 {
     memset(s_words, 0, sizeof(s_words)); memset(s_trace, 0, sizeof(s_trace));
     s_sequence = 0u; s_trace_sequence = 0u; s_next = 0u; s_frozen = 0u;
-    s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = 31u;
+    s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = BMS_DIAG_CAPABILITIES;
+    s_words[BMS_DIAG_RUNTIME_OFFSET] = BMS_DIAG_RUNTIME_VERSION;
     put32(&s_words[22], BMS_DIAG_BUILD_ID);
     s_words[14] = 0x1124u; s_words[15] = 0x8251u;
     bms_diag_trace(DIAG_EV_BOOT, 0u, 0u);
@@ -130,6 +143,87 @@ void bms_diag_counter(uint16_t index, uint32_t value)
         put32(&s_words[160u + 2u * index], value); changed();
     }
 }
+
+void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
+                             int32_t current_ma, uint32_t sample_tick_32k,
+                             uint8_t current_recovery_pending)
+{
+    uint16_t old_flags = s_words[193];
+    uint16_t flags = (uint16_t)((valid ? 1u : 0u) |
+                                (current_recovery_pending ? 2u : 0u));
+    uint8_t dirty = 0u;
+    dirty |= update16(193u, flags);
+    dirty |= update32(194u, (uint32_t)raw_current_ma);
+    dirty |= update32(196u, (uint32_t)current_ma);
+    dirty |= update32(198u, sample_tick_32k);
+    if ((old_flags & 1u) != (flags & 1u))
+        bms_diag_trace(DIAG_EV_SAMPLE_STATE, flags & 1u, (uint32_t)current_ma);
+    else if (dirty)
+        changed();
+}
+
+void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
+                          uint8_t ocv_state, uint8_t ocv_center,
+                          uint8_t ocv_low, uint8_t ocv_high,
+                          uint8_t ocv_confidence, uint16_t rest_seconds,
+                          uint8_t learning_state, uint8_t capacity_learned,
+                          uint16_t learned_capacity_0p1ah,
+                          uint16_t current_deadband_ma)
+{
+    uint8_t dirty = 0u;
+    dirty |= update16(200u, current_deadband_ma);
+    dirty |= update16(202u, soc_estimate);
+    dirty |= update16(203u, soc_display);
+    dirty |= update16(204u, ocv_state);
+    dirty |= update16(205u, ocv_center);
+    dirty |= update16(206u, ocv_low);
+    dirty |= update16(207u, ocv_high);
+    dirty |= update16(208u, ocv_confidence);
+    dirty |= update16(209u, rest_seconds);
+    dirty |= update16(210u, learning_state);
+    dirty |= update16(211u, capacity_learned);
+    dirty |= update16(212u, learned_capacity_0p1ah);
+    if (dirty) changed();
+}
+
+void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
+                         uint8_t low_voltage_region, uint32_t low_voltage_seconds,
+                         uint8_t ble_connected, uint8_t sample_pending,
+                         uint16_t suspend_current_threshold_ma)
+{
+    uint32_t previous_mask = get32(&s_words[213]);
+    uint16_t previous_allowed = s_words[215];
+    uint8_t dirty = 0u;
+    dirty |= update32(213u, block_mask);
+    dirty |= update16(215u, suspend_allowed ? 1u : 0u);
+    dirty |= update16(216u, low_voltage_region);
+    dirty |= update32(217u, low_voltage_seconds);
+    dirty |= update16(219u, ble_connected ? 1u : 0u);
+    dirty |= update16(220u, sample_pending ? 1u : 0u);
+    dirty |= update16(221u, suspend_current_threshold_ma);
+    if (previous_mask != block_mask || previous_allowed != (suspend_allowed ? 1u : 0u))
+        bms_diag_trace(DIAG_EV_PM_STATE,
+            (uint32_t)(suspend_allowed ? 1u : 0u) |
+            ((uint32_t)low_voltage_region << 8) |
+            ((uint32_t)(ble_connected ? 1u : 0u) << 16) |
+            ((uint32_t)(sample_pending ? 1u : 0u) << 24),
+            block_mask);
+    else if (dirty)
+        changed();
+}
+
+void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
+{
+    if (s_words[222] == level1 && s_words[223] == level2 && s_words[224] == level3)
+        return;
+    s_words[222] = level1;
+    s_words[223] = level2;
+    s_words[224] = level3;
+    bms_diag_trace(DIAG_EV_PROTECTION,
+                   (uint32_t)level1 | ((uint32_t)level2 << 16),
+                   level3);
+}
+
 int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
