@@ -85,6 +85,7 @@ public static class BmsDiagnostics
         B("启动快照",(w[3]&1)!=0?"已冻结":"启动未完成");
         B("MCU / AFE",$"0x{w[15]:X4} / 0x{w[14]:X4}");
         B("SW/HW 编译开关",$"{w[13]&1}/{(w[13]>>1)&1}");
+        B("构建类型",(w[13]&4)!=0?"PRODUCTION":"DEVELOPMENT / TEST");
         B("Flash 容量",$"{U32(w,20)} bytes（SDK code 0x{w[16]:X2}；0 bytes 表示未知）");
         B("Boot Address",$"0x{U32(w,18):X8}（FFFFFFFF=不可用）");
         B("布局允许",w[17]!=0?"是":"否");
