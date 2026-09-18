@@ -88,7 +88,7 @@ sealed class FakeTransport:IBmsTransport
         if(ExceptionCode!=0 || (FailEvents&&start==0xC008) || (FailProtection&&start==0x2100)) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,ExceptionCode==0?(byte)2:ExceptionCode}));return Task.CompletedTask;}
         var w=new ushort[1024];
         if(!Legacy) {
-            w[0]=0x4447;w[1]=1;w[2]=63;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
+            w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
             w[18]=0x5678;w[19]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
             w[192]=1;w[193]=3;
             w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;
