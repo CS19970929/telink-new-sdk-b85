@@ -98,9 +98,12 @@ Safety:
             BmsDiagnostics.Export(outputPath, capture);
         }
 
-        uint? buildId = capture.Words is { Length: >= 24 } words
-            ? BmsDiagnostics.U32(words, 22) is uint id && id != 0 ? id : null
-            : null;
+        uint? buildId = null;
+        if (capture.Words is { Length: >= 24 } words)
+        {
+            uint rawBuildId = BmsDiagnostics.U32(words, 22);
+            if (rawBuildId != 0) buildId = rawBuildId;
+        }
 
         var data = new
         {
