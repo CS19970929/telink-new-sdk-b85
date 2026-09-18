@@ -289,6 +289,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->profile_version = g_soc_profile->profile_version;
     diag->soc_estimate = SOC_Calculate_Element.u8SOC_Now;
     diag->soc_display = g_soc_display_soc;
+    diag->current_deadband_ma = g_soc_config.current_deadband_ma;
     diag->ocv_state = g_soc_runtime.ocv_state;
     diag->ocv_center = g_soc_runtime.ocv_center;
     diag->ocv_low = g_soc_runtime.ocv_low;
