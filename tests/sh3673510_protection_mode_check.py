@@ -36,7 +36,8 @@ for needle in (
     require(cfg, needle)
 
 for needle in (
-    "#if !SH3673510_SW_PROTECT_ENABLE",
+    "#if SH3673510_SW_PROTECT_ENABLE",
+    "bms_sw_protection_clear();",
     "#if SH3673510_HW_PROTECT_ENABLE",
     "merge_hw_protection_faults(&status);",
     "service_short_recovery(&status);",
