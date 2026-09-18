@@ -92,6 +92,7 @@ for pin in (
 require(backend, "BMS_AFE_BACKEND_SH3673510")
 require(backend, "#define BMS_AFE_BACKEND BMS_AFE_BACKEND_SH3673510")
 require(afe, "sh3673510_bms_afe_init")
+require(afe, "int32_t current_ma; uint32_t sample_tick_32k;")
 require(conf, "#define FD_BMS_TYPE                    D11")
 require(conf, "#define SeriesNum                      SH3673510_D011_CELL_COUNT")
 require(conf, 'BMS_HARDWARE_VERDION_DEFAULT   "D011"')
