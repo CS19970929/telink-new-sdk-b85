@@ -16,7 +16,7 @@
 
 | Offset | 类型 | 含义 |
 |---|---|---|
-| 0,1,2,3 | u16 | magic=0x4447、schema=1、capabilities=0x000F、boot frozen bit0 |
+| 0,1,2,3 | u16 | magic=0x4447、schema=1、capabilities=0x003F、boot frozen bit0 |
 | 4..5 | u32 | RAM 快照变更序号，模 2^32 |
 | 6..7 | u32 | 读取帧时 SDK 32k tick，模 2^32 |
 | 8..9,10..11,12 | u32,u32,u16 | Trace 最新序号、覆盖次数（饱和）、有效条数 |
@@ -36,7 +36,7 @@
 | 176,177,178..179 | u16,u16,u32 | 底层首次失败、最近失败、最近失败地址 |
 | 180..183,184..185 | u16[4],u32 | 各域最近运行结果、底层首次失败地址 |
 
-capabilities bit0=Boot，bit1=Trace，bit2=Storage，bit3=MOS。有效位为 0 时不展示成功/正常；Flash 大小取当前 SDK 识别值，不是重新检测芯片。
+capabilities bit0=Boot，bit1=Trace，bit2=Storage，bit3=MOS，bit4=启动升级详情，bit5=Runtime Diagnostics。有效位为 0 时不展示成功/正常；Flash 大小取当前 SDK 识别值，不是重新检测芯片。
 
 域记录相对 offset：0..1 base，2..3 配置 size，4 初始化尝试次数（饱和），5 启动首次失败原因，6 启动最近结果，7 是否使用过默认值，8..9 首次失败 tick。初始化已 ready 的短路返回不算新尝试；退避拒绝算尝试。FACTORY 当前没有本流程初始化，保持 NOT_RUN。布局拒绝时 base=0，配置 size 仍可非零。
 
@@ -44,7 +44,7 @@ capabilities bit0=Boot，bit1=Trace，bit2=Storage，bit3=MOS。有效位为 0 �
 
 原因位 bit0..10：参数无效、启动升级未完成、输出未授权、通信未通过资格确认、软件保护、AFE 硬件保护、Open-Wire、加热、关机保持、温度无效、其他 backend 阻断。多个原因并列，不改变原保护决策。软件/硬件通路均关闭也不解除存储/通信门禁。
 
-Trace：64 个物理槽，每槽 12 words，地址 `0x2B00 + slot*12`。偏移 0..1 sequence，2..3 tick32k，4 event，5 reserved，6..7 arg0，8..9 arg1，10..11 reserved。事件 1 BOOT、2 INIT(domain,result)、3 STORAGE(reason,address)、4 PARAMS(bits,0)、5 MOS(charge_reason | requested<<16,discharge_reason)、6 AFE(R81,valid)、7 BOOT_DONE(param_bits,afe_result)、8 DRIVER(CHGF/DSGF,valid)。同一 Requested/阻断状态不重复记录；断电丢失，覆盖次数可见。32k 为 SDK 时基，不假定 32768 Hz 或硬件实测精度。
+Trace：64 个物理槽，每槽 12 words，地址 `0x2B00 + slot*12`。偏移 0..1 sequence，2..3 tick32k，4 event，5 reserved，6..7 arg0，8..9 arg1，10..11 reserved。事件 1 BOOT、2 INIT(domain,result)、3 STORAGE(reason,address)、4 PARAMS(bits,0)、5 MOS(charge_reason | requested<<16,discharge_reason)、6 AFE(R81,valid)、7 BOOT_DONE(param_bits,afe_result)、8 DRIVER(CHGF/DSGF,valid)、9 UPGRADE、10 CURRENT_RECOVERY、11 PM_STATE、12 PROTECTION、13 SAMPLE_STATE。同一 Requested/阻断状态不重复记录；断电丢失，覆盖次数可见。32k 为 SDK 时基，不假定 32768 Hz 或硬件实测精度。
 
 单帧不会与主循环生产者交错；跨帧并非全局同一时刻。Windows 分别读取冻结启动块及单帧运行块，保存原始帧时间；Trace 前后读 sequence，改变后最多完整重读一次，再变化则标明可能缺失。启动未冻结/明显重启标明不一致，不无限重试。
 
@@ -63,3 +63,28 @@ Host：`tests/bms_diag_host_check.py` 执行真实诊断核心与 Modbus 入口�
 正式交付执行 source-order、TC32 clean build/check-fw/MAP/manifest/verify、cppcheck，SW/HW=1/1、1/0、0/1、0/0。用户工作区已有参数、16S 台架配置、SW=0 等修改不纳入诊断提交，交付构建与工作区台架 BIN 必须区分。
 
 TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误根因、BLE 负载对 200ms 采样的最坏延迟、运行栈高水位、MOS Gate/Vgs、异常供电/Flash 时序。Host 和构建通过不能关闭这些项。未自动烧录、未新增故障注入/CLI/Panic 持久化。
+
+
+## Runtime Diagnostics（capability bit5）
+
+保持 schema 1，不改已有 offset；使用此前保留的 `0x2AC0..0x2AFF`（offset 192..255），因此不新增第二份 Snapshot RAM。该区仍只读、主循环生产，不执行 AFE/Flash I/O。
+
+| Offset | 类型 | 含义 |
+|---|---|---|
+| 192 | u16 | runtime version=1 |
+| 193 | u16 | bit0 采样有效且新鲜，bit1 当前过流恢复状态 pending |
+| 194..195 | i32 | AFE 原始电流 mA（软件工厂校准前） |
+| 196..197 | i32 | 业务实际使用电流 mA（软件校准后） |
+| 198..199 | u32 | 最近采样 32k tick |
+| 200 | u16 | SOC 当前 deadband mA；仍与 D008 固定 ≤200mA 不可靠区间共同生效 |
+| 202..212 | u16 | soc_est、soc_display、OCV state/center/low/high/confidence、rest seconds、learning state、capacity learned、learned capacity 0.1Ah |
+| 213..214 | u32 | suspend 阻断原因位图 |
+| 215 | u16 | 当前应用是否允许 suspend |
+| 216 | u16 | 自动低压关机 region |
+| 217..218 | u32 | 当前 region 累积秒数 |
+| 219,220,221 | u16 | BLE connected、sample pending、suspend 电流门槛 mA |
+| 222,223,224 | u16 | 软件保护 Level1/Level2/Level3 当前位图 |
+
+PM 阻断位：bit0 无有效/新鲜采样，bit1 OTA，bit2 Flash stack session，bit3 OWC/bus busy，bit4 双向绝对电流达到 suspend 门槛，bit5 sample pending，bit6 显式关机流程，bit7 ACC sleep 流程。该位图只解释既有 `blt_pm_proc()` 决策，不参与或改变低功耗策略。
+
+Runtime Snapshot 由 AFE/SOC/PM 各 owner 在原有主循环路径更新；`PM_STATE`、`PROTECTION`、`SAMPLE_STATE` 仅在状态边沿写 RAM Trace，避免按 200ms 周期刷满环形缓冲。
