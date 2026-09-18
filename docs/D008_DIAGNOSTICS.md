@@ -20,10 +20,10 @@
 | 4..5 | u32 | RAM 快照变更序号，模 2^32 |
 | 6..7 | u32 | 读取帧时 SDK 32k tick，模 2^32 |
 | 8..9,10..11,12 | u32,u32,u16 | Trace 最新序号、覆盖次数（饱和）、有效条数 |
-| 13,14,15 | u16 | bit0 SW/bit1 HW/bit2 Production Build、AFE=0x1124、MCU=0x8251 |
+| 13,14,15 | u16 | bit0 SW/bit1 HW/bit2 Production Build/bit3 Git DIRTY、AFE=0x1124、MCU=0x8251 |
 | 16,17 | u16 | Flash SDK capacity code、实际 layout_supported 判定 |
 | 18..19,20..21 | u32 | boot address（FFFFFFFF=不可用）、Flash bytes（0=未知） |
-| 22..23 | u32 | BMS_DIAG_BUILD_ID；`bms.py` 自动注入当前 Git SHA 前 8 位，缺少 Git 元数据时为 0 |
+| 22..23 | u32 | BMS_DIAG_BUILD_ID；`bms.py` 自动注入当前 Git SHA 前 8 位，缺少 Git 元数据时为 0；bit3 DIRTY 表示该 SHA 不能单独复现当前工作区 |
 | 24,25,26 | u16 | 启动 bit0 参数有效/bit1 升级完成、AFE 配置初始化结果、参数加载校验结果 |
 | 32+16*d | 16 words/domain | d=0 CONFIG，1 STATE，2 FACTORY，3 EVENT，见下表 |
 | 128,129 | u16 | bit0 CHG/bit1 DSG：Requested、软件允许 |
