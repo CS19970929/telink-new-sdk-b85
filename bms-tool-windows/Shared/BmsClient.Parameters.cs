@@ -29,12 +29,38 @@ public sealed partial class BmsClient
         if(c.Supported)c.Status=c.Errors.Count==0 ? "参数读取完成" : "部分参数读取失败，可导出已读内容";
         return c;
     }
+    public async Task<bool> ReadD008FactoryModeAsync(CancellationToken ct=default)
+    {
+        await RequireD008Async(ct);
+        try { return (await ReadRegistersAsync(0x2AE1,1,ct))[0]!=0; }
+        catch(BmsModbusException ex) when(ex.Function==0x03 && ex.Code is 1 or 2) {
+            throw new NotSupportedException("设备固件未提供 Factory Mode 运行态诊断，请升级固件后再执行工厂写操作。",ex);
+        }
+    }
+    public async Task EnterD008FactoryModeAsync(CancellationToken ct=default)
+    {
+        await RequireD008Async(ct);
+        var session=await OpenAfeHardwareAccessAsync(ct);
+        try { await WriteSingleRegisterAsync(0x2E10,6,ct); }
+        finally { await TryCloseAfeHardwareAccessAsync(session.Token,CancellationToken.None); }
+        await Task.Delay(120,ct);
+        if(!await ReadD008FactoryModeAsync(ct))
+            throw new IOException("设备未确认进入 Factory Mode；未继续执行工厂参数写入。");
+    }
+    private async Task RequireD008FactoryModeAsync(CancellationToken ct)
+    {
+        if(!await ReadD008FactoryModeAsync(ct))
+            throw new InvalidOperationException("设备当前为 NORMAL Mode。请先在内部测试版显式进入 Factory Mode，再执行 SN/电流校准。");
+    }
     public async Task WriteD008VerifiedAsync(ushort address,ushort[] values,bool factory,CancellationToken ct=default)
     {
         await RequireD008Async(ct);
         AfeHardwareAccessSession? session=null;
         try {
-            if(factory)session=await OpenAfeHardwareAccessAsync(ct);
+            if(factory) {
+                await RequireD008FactoryModeAsync(ct);
+                session=await OpenAfeHardwareAccessAsync(ct);
+            }
             if(values.Length==1)await WriteSingleRegisterAsync(address,values[0],ct);
             else await WriteRegistersAsync(address,values,ct);
             var actual=await ReadRegistersAsync(address,(ushort)values.Length,ct);
@@ -50,6 +76,7 @@ public sealed partial class BmsClient
     public async Task WriteD008SerialAsync(string text,CancellationToken ct=default)
     {
         var words=D008Parameters.SerialWords(text);await RequireD008Async(ct);
+        await RequireD008FactoryModeAsync(ct);
         var session=await OpenAfeHardwareAccessAsync(ct);
         try {
             await WriteSingleRegisterAsync(0x2E40,0,ct);
