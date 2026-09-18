@@ -50,7 +50,12 @@ public partial class MainWindow
         Field("循环次数",_parameterCycle);
         Button("保存循环次数",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2319,new[]{ushort.Parse(_parameterCycle.Text)},false,t)));
         Field("设备 SN（ASCII，最多32字符）",_parameterSn);
+#if BMS_FACTORY_APP
         Button("保存 SN",()=>ParameterRunAsync((c,t)=>c.WriteD008SerialAsync(_parameterSn.Text,t)));
+#else
+        _parameterSn.IsReadOnly=true;
+        root.Children.Add(new TextBlock{Text="SN 为工厂身份字段；客户版只读，写入请使用内部完整测试版并进入设备 Factory Mode。",TextWrapping=TextWrapping.Wrap});
+#endif
         root.Children.Add(_parameterHeatEnable);
         Field("加热启动温度 / ℃",_parameterHeatStart);Field("加热停止温度 / ℃",_parameterHeatStop);
         Button("保存整组加热参数",()=>ParameterRunAsync((c,t)=>{
