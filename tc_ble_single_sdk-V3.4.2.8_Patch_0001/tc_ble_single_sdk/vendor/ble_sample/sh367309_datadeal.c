@@ -24,7 +24,7 @@ void Delay1ms(u8 ms);
 #define BOOT_CURRENT_ZERO_RETRY_COUNT          2u
 #define BOOT_CURRENT_ZERO_RETRY_DELAY_MS       100u
 #define BOOT_CURRENT_CADC_DATA_LENGTH          2u
-#define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    3
+#define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    6
 #define BOOT_CURRENT_FET_STATUS_MASK           0x07u
 #define BOOT_CURRENT_ACTIVITY_STATUS_MASK      0xC0u
 #define CURRENT_ZERO_SAMPLE_SCALE              BOOT_CURRENT_ZERO_SAMPLE_COUNT
@@ -41,6 +41,7 @@ void Delay1ms(u8 ms);
 _attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawSum = 0;
 _attribute_data_retention_ static UINT8 g_u8BootCurrentZeroStatus =
     BOOT_CURRENT_ZERO_NOT_ATTEMPTED;
+_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroBusy = 0u;
 
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
@@ -1606,10 +1607,13 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
         return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
     }
 
+    g_u8BootCurrentZeroBusy = 1u;
+
     for (attempt = 0u; attempt < BOOT_CURRENT_ZERO_RETRY_COUNT; ++attempt)
     {
         if (DataLoad_BootCurrentZeroTryCapture())
         {
+            g_u8BootCurrentZeroBusy = 0u;
             return 1u;
         }
 
@@ -1631,7 +1635,13 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
      * the 0.5 A fallback deadband for every non-VALID status.
      */
     g_i32BootCurrentZeroRawSum = 0;
+    g_u8BootCurrentZeroBusy = 0u;
     return 0u;
+}
+
+UINT8 DataLoad_IsBootCurrentZeroBusy(void)
+{
+    return g_u8BootCurrentZeroBusy;
 }
 
 UINT8 DataLoad_IsBootCurrentZeroValid(void)
@@ -1695,21 +1705,13 @@ void DataLoad_Current(void)
           (corrected_raw_x4 < 0) ? -(INT32)current_mA_x4 : (INT32)current_mA_x4,
           deadband_mA);
 
-#if (FD_BMS_TYPE == C11_AND_C11pro)
-    g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(
-        (corrected_raw_x4 > 0) ? current_mA_x4 : 0u,
-        CURRENT_REPORT_MA_PER_LSB);
-    g_stCellInfoReport.u16IDischg = DataLoad_Current_mA_X4ToReport(
-        (corrected_raw_x4 < 0) ? current_mA_x4 : 0u,
-        120u);
-#else
+    /* All projects use 0.1 A/LSB for SOC and protocol current fields. */
     g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(
         (corrected_raw_x4 > 0) ? current_mA_x4 : 0u,
         CURRENT_REPORT_MA_PER_LSB);
     g_stCellInfoReport.u16IDischg = DataLoad_Current_mA_X4ToReport(
         (corrected_raw_x4 < 0) ? current_mA_x4 : 0u,
         CURRENT_REPORT_MA_PER_LSB);
-#endif
 
     // g_stCellInfoReport.u16Ichg = 0;
     // g_stCellInfoReport.u16IDischg = 5 * CapacityFactory;

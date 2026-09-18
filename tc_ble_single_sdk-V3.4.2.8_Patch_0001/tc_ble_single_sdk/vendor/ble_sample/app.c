@@ -167,6 +167,13 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 
 void open_ctlc(void)
 {
+	if (DataLoad_IsBootCurrentZeroBusy())
+	{
+		gpio_write(AFE_CTL_PIN, 0);
+		gpio_write(MCC_C_PIN, 0);
+		return;
+	}
+
 	gpio_write(AFE_CTL_PIN, 1);
 	// gpio_write(MCC_C_PIN, 1);
 }
@@ -331,6 +338,12 @@ void ble_build_adv_scanrsp(void)
 
 void open_chg_close_dsg(void)
 {
+	if (DataLoad_IsBootCurrentZeroBusy())
+	{
+		gpio_write(MCC_C_PIN, 0);
+		return;
+	}
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -339,6 +352,12 @@ void open_chg_close_dsg(void)
 }
 void open_dsg_close_chg(void)
 {
+	if (DataLoad_IsBootCurrentZeroBusy())
+	{
+		gpio_write(MCC_C_PIN, 0);
+		return;
+	}
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -357,6 +376,12 @@ void close_chg(void)
 
 void open_dsg(void)
 {
+	if (DataLoad_IsBootCurrentZeroBusy())
+	{
+		gpio_write(MCC_C_PIN, 0);
+		return;
+	}
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -375,6 +400,13 @@ void close_dsg(void)
 void enter_fac_mode(bool on)
 {
 #if 1
+	if (on && DataLoad_IsBootCurrentZeroBusy())
+	{
+		gpio_write(AFE_CTL_PIN, 0);
+		gpio_write(MCC_C_PIN, 0);
+		return;
+	}
+
 	if (on)
 	{
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
