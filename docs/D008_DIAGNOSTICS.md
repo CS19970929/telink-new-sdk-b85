@@ -20,10 +20,10 @@
 | 4..5 | u32 | RAM 快照变更序号，模 2^32 |
 | 6..7 | u32 | 读取帧时 SDK 32k tick，模 2^32 |
 | 8..9,10..11,12 | u32,u32,u16 | Trace 最新序号、覆盖次数（饱和）、有效条数 |
-| 13,14,15 | u16 | bit0 SW/bit1 HW 编译开关、AFE=0x1124、MCU=0x8251 |
+| 13,14,15 | u16 | bit0 SW/bit1 HW/bit2 Production Build、AFE=0x1124、MCU=0x8251 |
 | 16,17 | u16 | Flash SDK capacity code、实际 layout_supported 判定 |
 | 18..19,20..21 | u32 | boot address（FFFFFFFF=不可用）、Flash bytes（0=未知） |
-| 22..23 | u32 | BMS_DIAG_BUILD_ID，交付构建注入 commit 前 8 位；0=未知 |
+| 22..23 | u32 | BMS_DIAG_BUILD_ID；`bms.py` 自动注入当前 Git SHA 前 8 位，缺少 Git 元数据时为 0 |
 | 24,25,26 | u16 | 启动 bit0 参数有效/bit1 升级完成、AFE 配置初始化结果、参数加载校验结果 |
 | 32+16*d | 16 words/domain | d=0 CONFIG，1 STATE，2 FACTORY，3 EVENT，见下表 |
 | 128,129 | u16 | bit0 CHG/bit1 DSG：Requested、软件允许 |
@@ -54,7 +54,7 @@ Trace：64 个物理槽，每槽 12 words，地址 `0x2B00 + slot*12`。偏移 0
 2. 打开“BMS 诊断”，点击“读取完整诊断”。完整读取会关闭周期刷新，保留此次 Trace 供导出；周期刷新只读状态，默认关闭，每 5 秒一次。OTA/工厂操作期间不开始采集；正在采集时 OTA 入口等待用户结束采集。
 3. 查看 CONFIG 启动尝试/首次失败；同时检查 boot address、capacity code、layout_supported 和参数/升级门禁。两次失败不证明启动地址错误，必须匹配实际数据。
 4. EVENT 有独立初始化调用，不能从 Config 的短路结果推断其未执行。
-5. 导出 ZIP，提供 boot/storage/mos/runtime/trace/events、manifest、仅本次只读请求的原始帧及每个失败项。失败和取消也可保留部分证据。包内不包含授权/密码/写帧。
+5. 点击“导出 AI 诊断包”，提供 boot/storage/mos/current/SOC/power/protection/runtime/trace/events、参数/AFE证据、manifest、summary 及仅本次采集的原始读帧。失败和取消也可保留部分证据；包内不包含授权/密码/写帧。
 
 ## 验证与未决
 
