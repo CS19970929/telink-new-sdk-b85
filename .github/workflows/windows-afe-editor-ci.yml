@@ -35,7 +35,7 @@ jobs:
       - name: Build CLI project
         run: dotnet build bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release -p:Platform=x64 --no-restore
       - name: CLI smoke test
-        run: dotnet run --project bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release --no-build -- help
+        run: dotnet bms-tool-windows/BmsTool.Cli/bin/x64/Release/net8.0-windows10.0.19041.0/bms-cli.dll help
       - name: Telink OTA protocol tests
         shell: powershell
         run: ./bms-tool-windows/test-ota-protocol.ps1
@@ -44,7 +44,7 @@ jobs:
       - name: Publish internal x64
         run: dotnet publish bms-tool-windows/BmsFactoryTest.Windows/BmsFactoryTest.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsFactoryTest.Windows
       - name: Publish CLI x64
-        run: dotnet publish bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Cli
+        run: dotnet publish bms-tool-windows/BmsTool.Cli/BmsTool.Cli.csproj -c Release -p:Platform=x64 -r win-x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Cli
       - name: Protocol source contracts
         shell: powershell
         run: |
