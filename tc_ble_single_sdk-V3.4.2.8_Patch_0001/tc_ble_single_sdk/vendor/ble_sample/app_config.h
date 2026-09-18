@@ -163,6 +163,9 @@
 #endif
 
 #if BMS_PRODUCTION_BUILD
+	#ifdef __TEST_SOC__
+		#error "Production build forbids __TEST_SOC__ command hooks"
+	#endif
 	#if TEST_CONN_CURRENT_ENABLE || DEBUG_GPIO_ENABLE || UART_PRINT_DEBUG_ENABLE
 		#error "Production build forbids current-test, debug GPIO and UART debug output"
 	#endif
