@@ -62,7 +62,7 @@ static void test_startup_qualification(void){
  /* Repeated failures still silence the bus for the hardware watchdog window. */
  aux_ok=0;bms_afe_sample();bms_afe_sample();assert(s_guard.bus_silenced && err);
  int before=sample_calls;aux_ok=1;
- for(int i=0;i<25;i++)bms_afe_sample();assert(sample_calls==before && s_guard.bus_silenced);
+ for(int i=0;i<25;i++){bms_afe_sample();} assert(sample_calls==before && s_guard.bus_silenced);
  bms_afe_sample();assert(sample_calls==before && err && s_guard.comm_inhibit);
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}
  bms_afe_sample();assert(!err && !s_guard.comm_inhibit);
@@ -89,7 +89,7 @@ int main(void){
  reset();shutdown_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
  reset();assert(bms_afe_enter_shutdown());assert(shutdown_calls==1&&s_guard.test_shutdown_hold);
  assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_bus_access_allowed());
- int samples=sample_calls;for(int i=0;i<100;i++)bms_afe_sample();assert(sample_calls==samples);
+ int samples=sample_calls;for(int i=0;i<100;i++){bms_afe_sample();} assert(sample_calls==samples);
  assert(bms_afe_set_fets(1,1));assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_apply_protection_config());
  assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1);
  puts("PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold");
