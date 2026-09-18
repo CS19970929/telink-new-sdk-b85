@@ -226,6 +226,11 @@ void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
                    level3);
 }
 
+void bms_diag_runtime_mode(uint8_t factory_mode)
+{
+    if (update16(225u, factory_mode ? 1u : 0u)) changed();
+}
+
 int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
