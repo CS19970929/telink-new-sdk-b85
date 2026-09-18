@@ -37,6 +37,14 @@ static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
 #define __SLEEP_VNORMAL__ 3000
 #define __SLEEP_TIMEVLOW__ 10000u
 #define __SLEEP_TIMENORMAL__ 10000u
+#define DIAG_PM_BLOCK_SAMPLE_INVALID 1u
+#define DIAG_PM_BLOCK_OTA 2u
+#define DIAG_PM_BLOCK_FLASH 4u
+#define DIAG_PM_BLOCK_BUS 8u
+#define DIAG_PM_BLOCK_CURRENT 16u
+#define DIAG_PM_BLOCK_SAMPLE_PENDING 32u
+#define DIAG_PM_BLOCK_POWER_OFF 64u
+#define DIAG_PM_BLOCK_ACC_SLEEP 128u
 typedef struct{uint32_t sample_tick_32k;int32_t current_ma;}bms_afe_aux_measurements_t;
 typedef struct{int unused;}app_pm_elapsed_ctx_t;
 static u8 s_power_off_committed,s_power_off_retry_ready,s_sample_due;
@@ -62,6 +70,9 @@ static void gpio_write(int pin,int level){assert(pin==MCU_LDO_PIN);if(level)ldo_
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t*c){return elapsed;}
 static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}
+static void bms_diag_runtime_pm(u8 allowed,u32 reason,u8 region,u32 seconds,u8 connected,u8 pending,uint16_t threshold){
+ (void)allowed;(void)reason;(void)region;(void)seconds;(void)connected;(void)pending;assert(threshold==APP_SUSPEND_EXIT_CURRENT_MA);
+}
 /* PRODUCTION_SOURCE */
 static void reset(void){
  acc_high=acc_wake=deep_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
@@ -153,7 +164,7 @@ int main(void){
  ota_is_working=0;bus_busy=1;blt_pm_proc();assert(!cut_calls);
  bus_busy=0;flash_ready=0;blt_pm_proc();assert(!cut_calls);
  flash_ready=1;storage_ok=0;blt_pm_proc();assert(seq_len==1 && !cut_calls);
- for(int i=0;i<10;i++)blt_pm_proc();assert(seq_len==1);
+ for(int i=0;i<10;i++){blt_pm_proc();} assert(seq_len==1);
  now+=160000u;seq_len=0;storage_ok=1;shutdown_ok=0;
  blt_pm_proc();assert(seq_len==3 && !cut_calls && deepsleep_en);
  now+=160000u;seq_len=0;shutdown_ok=1;
