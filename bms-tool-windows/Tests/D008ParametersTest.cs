@@ -23,7 +23,7 @@ class Program {
  }
 }
 namespace BmsTool.Windows {
- public sealed class BmsModbusException:IOException{public byte Code{get;init;}}
+ public sealed class BmsModbusException:IOException{public byte Function{get;init;}public byte Code{get;init;}}
  public sealed record AfeHardwareAccessSession(ushort Token);
  public static class BmsRegisters{public const ushort Hardware=0xc012,Software=0xc022;}
  public sealed partial class BmsClient {
