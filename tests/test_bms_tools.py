@@ -42,6 +42,16 @@ class GitProvenanceTests(unittest.TestCase):
                 with mock.patch.object(bms.subprocess, "run", side_effect=results):
                     self.assertIs(bms._git_provenance()["dirty"], expected)
 
+    def test_firmware_build_id_uses_first_32_bits_of_git_head(self):
+        result = mock.Mock(returncode=0, stdout="12ab34cd" + "e" * 32 + "\n")
+        with mock.patch.object(bms.subprocess, "run", return_value=result):
+            self.assertEqual(bms._firmware_git_build_id(), "0x12ab34cdu")
+
+    def test_firmware_build_id_is_zero_without_git_metadata(self):
+        result = mock.Mock(returncode=1, stdout="")
+        with mock.patch.object(bms.subprocess, "run", return_value=result):
+            self.assertEqual(bms._firmware_git_build_id(), "0u")
+
 
 class ClientAssetPathTests(unittest.TestCase):
     def test_qt_project_path_follows_repository_tools_layout(self) -> None:
