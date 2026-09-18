@@ -32,7 +32,7 @@ python bms_tools/bms.py static --no-report
 Remove-Item Env:EXTRA_DEFINES
 ```
 
-`BMS_PRODUCTION_BUILD=1` 会在编译期拒绝 SW/HW/温度保护关闭、Watchdog/Flash protection 关闭、UART debug、DEBUG GPIO 和连接功耗测试。保护隔离 `1/0、0/1、0/0` 仅属于开发/台架构建。默认 D008 product profile 为 16S LFP。
+`BMS_PRODUCTION_BUILD=1` 会在编译期拒绝：SW/HW/温度保护关闭、Watchdog/Flash protection 关闭、UART debug、DEBUG GPIO、连接功耗测试、`__TEST_SOC__`、Git 工作区 dirty，以及缺少非零 `BMS_DIAG_BUILD_ID`。`bms.py` 自动把当前 Git SHA 前 8 位编入固件；无 Git 元数据的源码包不能直接生成正式 Production 候选。保护隔离 `1/0、0/1、0/0` 仅属于开发/台架构建。默认 D008 product profile 为 16S LFP。
 
 命令行产物位于 `project/tlsr_tc32/B85/825x_ble_sample_cli/`；不要把 `.raw.bin` 当最终烧录文件。
 
