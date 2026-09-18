@@ -2,7 +2,7 @@
 
 当前分支 `refactor/d008-common-bms-features` 的产品是 **HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
 
-默认 Product Profile 为 **24S LFP**，另支持编译为 **20S NMC**。产品串数/化学体系与容量、OV/UV、OC、温度等最终量产参数是不同层次；后者必须单独签核。
+默认 Product Profile 为 **16S LFP**；另保留 **20S NMC** 与历史 **24S LFP** 编译 profile。产品串数/化学体系与容量、OV/UV、OC、温度等最终量产参数是不同层次；后者必须单独签核。
 
 ## 当前架构
 
@@ -10,7 +10,7 @@
 - AFE 硬件保护：独立 `bms_afe_hw_profile_t`，与软件三级参数分开持久化和修改。
 - AFE backend：DVC1124；业务层通过 `bms_afe.h`。
 - AFE 通信异常：output inhibit + 有界 reinit + 连续有效 snapshot 恢复资格。
-- SOC：LFP/NMC profile 数据化；24S/20S product profile 决定物理通道。
+- SOC：LFP/NMC profile 数据化；16S/20S/24S product profile 决定物理通道。
 - Windows 上位机唯一真源位于分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`；本固件分支不维护客户端副本。
 
 ## 文档入口
@@ -18,7 +18,7 @@
 建议阅读顺序：
 
 1. [D008 配置修改、拉代码、固件编译与上位机构建指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md) — 想改什么、改哪儿、具体怎么改，以及完整 clone/build/package 命令。
-2. [D008 产品硬件与固件配置基线](docs/D008_PRODUCT_REFERENCE.md) — IO、DVC GP/寄存器、24S/20S、已知不确定项。
+2. [D008 产品硬件与固件配置基线](docs/D008_PRODUCT_REFERENCE.md) — IO、DVC GP/寄存器、16S/20S/24S、已知不确定项。
 3. [D008 实板验证与发布阻断项](docs/HARDWARE_VALIDATION.md) — 当前唯一待测清单。
 4. [BMS 软件架构与配置所有权](docs/ARCHITECTURE.md)
 5. [软件三级保护](docs/SOFTWARE_PROTECTION.md)
@@ -67,4 +67,4 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/82
 
 ## 发布原则
 
-源码、Host contracts 和 TC32 CI 通过只证明软件/构建基线。SCD、dead-bus硬件安全路径、NTC/BOM、Open-Wire/Balance、24S/20S最终产品参数仍必须按 `HARDWARE_VALIDATION.md` 完成实板证据后才能宣称量产完成。
+源码、Host contracts 和 TC32 CI 通过只证明软件/构建基线。SCD、dead-bus硬件安全路径、NTC/BOM、Open-Wire/Balance、16S量产参数及其他可选profile参数仍必须按 `HARDWARE_VALIDATION.md` 完成实板证据后才能宣称量产完成。
