@@ -21,6 +21,8 @@ void Delay1ms(u8 ms);
 #define SH309_CADC_DENOMINATOR_REDUCED         2147u
 #define BOOT_CURRENT_ZERO_SAMPLE_COUNT        4u
 #define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS  300u
+#define BOOT_CURRENT_ZERO_RETRY_COUNT          2u
+#define BOOT_CURRENT_ZERO_RETRY_DELAY_MS       100u
 #define BOOT_CURRENT_CADC_DATA_LENGTH          2u
 #define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    3
 #define BOOT_CURRENT_FET_STATUS_MASK           0x07u
@@ -1444,7 +1446,23 @@ static INT32 DataLoad_CurrentApplyBootZeroX4(UINT16 raw)
     return corrected_raw_x4;
 }
 
-UINT8 DataLoad_BootCurrentZeroCapture(void)
+static UINT8 DataLoad_BootCurrentZeroStatusRetryable(UINT8 status)
+{
+    switch (status)
+    {
+    case BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR:
+    case BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR:
+    case BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR:
+    case BOOT_CURRENT_ZERO_FET_ACTIVE:
+    case BOOT_CURRENT_ZERO_UNSTABLE:
+        return 1u;
+
+    default:
+        return 0u;
+    }
+}
+
+static UINT8 DataLoad_BootCurrentZeroTryCapture(void)
 {
     MTP_REG_CONF confirmed_conf;
     INT32 raw_sum = 0;
@@ -1456,19 +1474,12 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
     UINT8 cadc_data[BOOT_CURRENT_CADC_DATA_LENGTH];
     UINT8 sample_index;
 
-    /* One attempt per real power-on. Never retry after MOS operation starts. */
-    if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
-    {
-        return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
-    }
-
     g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_IN_PROGRESS;
     g_i32BootCurrentZeroRawSum = 0;
 
     /*
      * CTL-C is already low in user_init_normal(). Also force all three AFE
-     * FET-control bits off and enable CADC explicitly. BSTATUS3 is checked on
-     * every fresh sample, so calibration cannot silently run with a FET on.
+     * FET-control bits off and enable CADC explicitly.
      */
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1u;
     SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0u;
@@ -1495,7 +1506,9 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
 
     /*
      * CADC updates every 250 ms. Waiting 300 ms before every read skips the
-     * pre-enable value and guarantees that all four samples are independent.
+     * pre-enable value and keeps the four samples on separate conversions.
+     * BSTATUS3 is checked both before and after CADCD so a current/FET
+     * transition cannot be accepted inside the sample window.
      */
     for (sample_index = 0u;
          sample_index < BOOT_CURRENT_ZERO_SAMPLE_COUNT;
@@ -1505,7 +1518,7 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
 
         if (!MTPRead(MTP_BSTATUS3, 1u, &bstatus3))
         {
-            log_i("[BOOT][CUR_ZERO] BSTATUS3 read failed\n");
+            log_i("[BOOT][CUR_ZERO] BSTATUS3 pre-read failed\n");
             g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR;
             return 0u;
         }
@@ -1519,7 +1532,7 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
 
         if ((bstatus3 & BOOT_CURRENT_ACTIVITY_STATUS_MASK) != 0u)
         {
-            log_i("[BOOT][CUR_ZERO] current activity detected, calibration rejected\n");
+            log_i("[BOOT][CUR_ZERO] current activity detected, calibration skipped\n");
             g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_CURRENT_ACTIVE;
             return 0u;
         }
@@ -1528,6 +1541,27 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
         {
             log_i("[BOOT][CUR_ZERO] CADCD read failed\n");
             g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR;
+            return 0u;
+        }
+
+        if (!MTPRead(MTP_BSTATUS3, 1u, &bstatus3))
+        {
+            log_i("[BOOT][CUR_ZERO] BSTATUS3 post-read failed\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR;
+            return 0u;
+        }
+
+        if ((bstatus3 & BOOT_CURRENT_FET_STATUS_MASK) != 0u)
+        {
+            log_i("[BOOT][CUR_ZERO] FET changed during sample, calibration rejected\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_FET_ACTIVE;
+            return 0u;
+        }
+
+        if ((bstatus3 & BOOT_CURRENT_ACTIVITY_STATUS_MASK) != 0u)
+        {
+            log_i("[BOOT][CUR_ZERO] current changed during sample, calibration skipped\n");
+            g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_CURRENT_ACTIVE;
             return 0u;
         }
 
@@ -1556,6 +1590,48 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
     log_i("[BOOT][CUR_ZERO] CADCD sum=%d samples=%u min=%d max=%d\n",
           raw_sum, sample_index, raw_min, raw_max);
     return 1u;
+}
+
+UINT8 DataLoad_BootCurrentZeroCapture(void)
+{
+    UINT8 attempt;
+
+    /*
+     * Boot calibration is best-effort and runs only before normal MOS startup.
+     * Retry transient/config/unstable failures once. A real current activity
+     * indication is not retried, because zero-current conditions are not met.
+     */
+    if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
+    {
+        return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
+    }
+
+    for (attempt = 0u; attempt < BOOT_CURRENT_ZERO_RETRY_COUNT; ++attempt)
+    {
+        if (DataLoad_BootCurrentZeroTryCapture())
+        {
+            return 1u;
+        }
+
+        log_i("[BOOT][CUR_ZERO] attempt=%u failed status=%u\n",
+              (UINT8)(attempt + 1u), g_u8BootCurrentZeroStatus);
+
+        if ((attempt + 1u >= BOOT_CURRENT_ZERO_RETRY_COUNT)
+            || !DataLoad_BootCurrentZeroStatusRetryable(g_u8BootCurrentZeroStatus))
+        {
+            break;
+        }
+
+        DataLoad_CurrentDelayMs(BOOT_CURRENT_ZERO_RETRY_DELAY_MS);
+    }
+
+    /*
+     * Failure is a measurement-quality degradation, not a power-path fault.
+     * Keep the effective zero at 0; DataLoad_Current() automatically selects
+     * the 0.5 A fallback deadband for every non-VALID status.
+     */
+    g_i32BootCurrentZeroRawSum = 0;
+    return 0u;
 }
 
 UINT8 DataLoad_IsBootCurrentZeroValid(void)
