@@ -7,6 +7,10 @@
 #include <string.h>
 
 #define SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u /* 20 s @ 200 ms, below 30.38 s HW timeout */
+/* SH36735XX CV1.0A specifies charger wake VCHGD=0.9..2.1V and explicitly
+ * allows VCHGR/C+ ADC data to judge charger connection/release. Use the full
+ * guaranteed band as hysteresis: only assert above max VCHGD and release below
+ * min VCHGD. */
 #define SH_CHARGER_PRESENT_ON_MV   2100u
 #define SH_CHARGER_PRESENT_OFF_MV   900u
 
@@ -67,17 +71,36 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
 {
     uint8_t data[2];
+    uint8_t status[2];
     int16_t raw;
     uint32_t mv;
+
     if (present == 0) return 0u;
-    if (SH3673520_ReadRegs(SH3673520_REG_VCHGRH, data, 2u) != SH3673520_OK) return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_VCHGRH, data, 2u) != SH3673520_OK)
+        return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, status, 2u) != SH3673520_OK)
+        return 0u;
+
     raw = (int16_t)(((uint16_t)data[0] << 8) | data[1]);
+    /* SH36735XX provides both a C+/VCHGR measurement and the independent
+     * CHGING direction state. CHGING is authoritative positive evidence while
+     * normal current flows; VCHGR remains available when Charge-UTP or software
+     * has already closed CHG, which is the key preheat use-case. */
     mv = (raw > 0) ? (((uint32_t)(uint16_t)raw * 125u + 16u) / 32u) : 0u;
-    if (s_charger_present) {
-        if (mv <= SH_CHARGER_PRESENT_OFF_MV) s_charger_present = 0u;
-    } else if (mv >= SH_CHARGER_PRESENT_ON_MV) {
+
+    if (status[1] & SH3673520_BSTATUS2_CHGING_MASK)
+    {
         s_charger_present = 1u;
     }
+    else if (s_charger_present)
+    {
+        if (mv <= SH_CHARGER_PRESENT_OFF_MV) s_charger_present = 0u;
+    }
+    else if (mv >= SH_CHARGER_PRESENT_ON_MV)
+    {
+        s_charger_present = 1u;
+    }
+
     *present = s_charger_present;
     return 1u;
 }
