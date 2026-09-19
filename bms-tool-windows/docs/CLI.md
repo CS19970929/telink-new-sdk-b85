@@ -16,6 +16,8 @@
 ```powershell
 bms-cli scan
 bms-cli info --auto
+bms-cli soc --auto
+bms-cli monitor soc --auto --interval 5
 bms-cli diag --auto
 bms-cli ota firmware.bin --auto
 ```
@@ -73,6 +75,17 @@ bms-cli info --auto --json
 ```powershell
 bms-cli diag --auto --json
 ```
+
+只读取 typed SOC Runtime Diagnostics v2：
+
+```powershell
+bms-cli soc --auto
+bms-cli soc --auto --json
+bms-cli monitor soc --auto --interval 5 --count 12
+bms-cli monitor soc --auto --interval 5 --count 0 --json
+```
+
+`--count 0` 表示持续监视，Ctrl+C 停止。`monitor soc --json` 每个样本输出一行独立 JSON，便于日志采集；字段名和单次 `soc --json` 一致。SOC 输出包含 estimate/display、nominal/effective/remaining capacity、chemistry/profile、OCV band/confidence、endpoint、filtered current/variation、TTE/TTF、ETA state/direction/confidence、SOH source/confidence，以及容量学习 candidate/count/reject。固件 runtime version <2 时明确返回 `soc_diagnostics_unavailable`，不会把保留零解释成有效数据。
 
 同时生成现有 AI 诊断包：
 

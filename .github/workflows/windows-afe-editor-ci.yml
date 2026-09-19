@@ -39,6 +39,9 @@ jobs:
       - name: Telink OTA protocol tests
         shell: powershell
         run: ./bms-tool-windows/test-ota-protocol.ps1
+      - name: Diagnostics and typed SOC tests
+        shell: powershell
+        run: ./bms-tool-windows/test-diagnostics.ps1
       - name: Publish customer x64
         run: dotnet publish bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj -c Release -p:Platform=x64 --self-contained false -o bms-tool-windows/publish/BmsTool.Windows
       - name: Publish internal x64

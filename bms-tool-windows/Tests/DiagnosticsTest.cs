@@ -26,6 +26,16 @@ static class Test
         Check(capture.Current.Any(f=>f.Field=="AFE 原始电流"&&f.Value.Contains("-123")),"runtime raw current");
         Check(capture.Current.Any(f=>f.Field=="持久化 gain"&&f.Value.Contains("1000000")),"parameter calibration evidence");
         Check(capture.Soc.Any(f=>f.Field=="SOC estimate"&&f.Value.Contains("73")),"runtime SOC");
+        Check(capture.Soc.Any(f=>f.Field=="Time To Empty"&&f.Value.Contains("180")),"runtime TTE");
+        Check(capture.Soc.Any(f=>f.Field=="Last Learning Reject Reason"&&f.Value.Contains("CANDIDATE_INCONSISTENT")),"learning rejection decode");
+        var soc=BmsDiagnostics.DecodeSocSnapshot(capture.Words!);
+        Check(soc.SocEstimate==73&&soc.SocDisplay==72&&soc.TimeToEmptyMinutes==180,"typed SOC diagnostics");
+        Check(soc.EtaValid&&soc.EtaDirection=="DISCHARGE"&&soc.FilteredCurrentMa==10000,"typed ETA diagnostics");
+        Check(soc.TimeToFullMinutes is null,"unavailable ETA sentinel");
+        Check(soc.CandidateCapacityAh==91.0&&soc.LastLearningRejectReason=="CANDIDATE_INCONSISTENT","typed learning diagnostics");
+        var runtimeV1=capture.Words!.ToArray();runtimeV1[192]=1;bool oldSocRejected=false;
+        try {BmsDiagnostics.DecodeSocSnapshot(runtimeV1);}catch(InvalidDataException){oldSocRejected=true;}
+        Check(oldSocRejected,"runtime v1 must not be decoded as SOC v2");
         Check(capture.Power.Any(f=>f.Field=="阻断原因"&&f.Value.Contains("电流达到suspend门槛")),"PM reason decode");
         Check(capture.Power.Any(f=>f.Field=="设备运行模式"&&f.Value.Contains("FACTORY")),"factory runtime mode");
         Check(capture.Protection.Any(f=>f.Value.Contains("放电过流")),"runtime protection decode");
@@ -90,12 +100,16 @@ sealed class FakeTransport:IBmsTransport
         if(!Legacy) {
             w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
             w[18]=0x5678;w[19]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
-            w[192]=1;w[193]=3;
+            w[192]=2;w[193]=3;
             w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;
             w[198]=90;w[199]=0;w[200]=200;w[202]=73;w[203]=72;w[204]=2;w[205]=74;w[206]=69;w[207]=79;
             w[208]=90;w[209]=600;w[210]=1;w[211]=1;w[212]=580;
             w[213]=16;w[214]=0;w[215]=0;w[216]=3;w[217]=120;w[219]=1;w[220]=0;w[221]=500;
             w[222]=0;w[223]=0;w[224]=0x20;w[225]=1;
+            w[226]=1;w[227]=1;w[228]=2;w[229]=1;w[230]=0x0307;
+            w[231]=1000;w[232]=950;w[233]=700;w[234]=10000;w[235]=0;w[236]=100;
+            w[237]=180;w[238]=0xFFFF;w[239]=(ushort)(2|(2<<4)|(90<<8));
+            w[240]=95;w[241]=2;w[242]=100;w[243]=910;w[244]=4;w[245]=2;w[246]=12;w[247]=75;w[248]=3400;
             w[256]=(ushort)traceSeq;w[260]=3;w[262]=0x5678;w[263]=0x1234;
         }
         if(Unstable&&start==0x2A00)traceSeq++;

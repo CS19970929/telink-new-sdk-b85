@@ -1,15 +1,21 @@
 using BmsTool.Windows;
+using System.Text.Json;
 
 namespace BmsTool.Cli;
 
 internal static class CliCommands
 {
+    private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
+
     public const string HelpText =
 @"bms-cli - BMS command-line tool for humans, scripts and AI agents
 
 Usage:
   bms-cli scan [--scan-seconds 4] [--json]
   bms-cli info (--mac MAC | --name NAME | --auto | --serial COMx) [--baud 19200] [--json]
+  bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
+  bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx)
+                  [--interval 5] [--count 0] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
   bms-cli ota <firmware.bin> (--mac MAC | --name NAME | --auto | --serial COMx)
               [--target auto|telink|stm32] [--mode auto|legacy|extend64]
@@ -31,6 +37,8 @@ Safety:
         {
             "scan" => ScanAsync(options, reporter, ct),
             "info" => InfoAsync(options, reporter, ct),
+            "soc" => SocAsync(options, reporter, ct),
+            "monitor" => MonitorAsync(options, reporter, ct),
             "diag" => DiagAsync(options, reporter, ct),
             "ota" => OtaAsync(options, reporter, ct),
             _ => throw new CliException(ExitCodes.Usage, "usage", $"Unknown command '{options.Command}'. Run bms-cli help.")
@@ -75,6 +83,73 @@ Safety:
         if (!reporter.Json)
             PrintSnapshot(snapshot);
         return ExitCodes.Success;
+    }
+
+    private static async Task<int> SocAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        SocDiagnosticSnapshot soc = await ReadSocAsync(connection, endpoint, ct);
+        var data = new { endpoint = endpoint.Display, capturedUtc = DateTimeOffset.UtcNow, soc };
+        reporter.Success("soc", data);
+        if (!reporter.Json) PrintSoc(soc);
+        return ExitCodes.Success;
+    }
+
+    private static async Task<int> MonitorAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        if (options.Positionals.Count != 1 ||
+            !string.Equals(options.Positionals[0], "soc", StringComparison.OrdinalIgnoreCase))
+            throw new CliException(ExitCodes.Usage, "usage", "monitor currently requires the 'soc' subcommand.");
+        int interval = options.GetInt("interval", 5, 1, 3600);
+        int count = options.GetInt("count", 0, 0, 1000000);
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        int sample = 0;
+        try {
+            while (count == 0 || sample < count)
+            {
+                SocDiagnosticSnapshot soc = await ReadSocAsync(connection, endpoint, ct);
+                sample++;
+                var row = new { schema = 1, ok = true, command = "monitor soc",
+                    data = new { endpoint = endpoint.Display, sample, capturedUtc = DateTimeOffset.UtcNow, soc } };
+                if (reporter.Json) Console.WriteLine(JsonSerializer.Serialize(row, StreamJsonOptions));
+                else { Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] sample {sample}"); PrintSoc(soc); }
+                if (count != 0 && sample >= count) break;
+                await Task.Delay(TimeSpan.FromSeconds(interval), ct);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return ExitCodes.Success;
+        }
+        return ExitCodes.Success;
+    }
+
+    private static async Task<SocDiagnosticSnapshot> ReadSocAsync(
+        CliBmsConnection connection, CliEndpoint endpoint, CancellationToken ct)
+    {
+        DiagnosticCapture capture = await connection.Client.ReadDiagnosticsAsync(false, endpoint.Display, ct);
+        if (!capture.Supported || capture.Words is null)
+            throw new CliException(ExitCodes.ConnectFailed, "soc_diagnostics_unavailable", capture.Status);
+        try { return BmsDiagnostics.DecodeSocSnapshot(capture.Words); }
+        catch (InvalidDataException ex) {
+            throw new CliException(ExitCodes.ConnectFailed, "soc_diagnostics_unavailable", ex.Message, inner: ex);
+        }
+    }
+
+    private static void PrintSoc(SocDiagnosticSnapshot s)
+    {
+        Console.WriteLine($"SOC:       estimate {s.SocEstimate}% / display {s.SocDisplay}% / endpoint {s.EndpointState}");
+        Console.WriteLine($"Capacity:  remaining {s.RemainingCapacityAh:F1} Ah / effective {s.EffectiveCapacityAh:F1} Ah / nominal {s.NominalCapacityAh:F1} Ah");
+        Console.WriteLine($"Profile:   {s.Chemistry} / {s.ProfileId} v{s.ProfileVersion}; OCV {s.OcvCenter}% [{s.OcvLow}..{s.OcvHigh}] confidence {s.OcvConfidence}%");
+        Console.WriteLine($"Current:   filtered {s.FilteredCurrentMa} mA / variation {s.CurrentVariationMa} mA");
+        Console.WriteLine($"ETA:       {s.EtaState} {s.EtaDirection} confidence {s.EtaConfidence}% / TTE {s.TimeToEmptyMinutes?.ToString() ?? "unavailable"} min / TTF {s.TimeToFullMinutes?.ToString() ?? "unavailable"} min");
+        Console.WriteLine($"SOH:       {s.Soh}% / {s.SohSource} / confidence {s.SohConfidence}%");
+        Console.WriteLine($"Learning:  enabled={s.CapacityLearningEnable}, state={s.LearningState}, candidate={s.CandidateCapacityAh:F1} Ah, accepted={s.LearnedCapacityAh:F1} Ah, confidence={s.LearningConfidence}%");
+        Console.WriteLine($"Rejects:   valid {s.ValidLearningCount} / rejected {s.RejectedLearningCount} / last {s.LastLearningRejectReason}");
     }
 
     private static async Task<int> DiagAsync(CliOptions options, CliReporter reporter, CancellationToken ct)

@@ -63,3 +63,22 @@ Host：`tests/bms_diag_host_check.py` 执行真实诊断核心与 Modbus 入口�
 正式交付执行 source-order、TC32 clean build/check-fw/MAP/manifest/verify、cppcheck，SW/HW=1/1、1/0、0/1、0/0。用户工作区已有参数、16S 台架配置、SW=0 等修改不纳入诊断提交，交付构建与工作区台架 BIN 必须区分。
 
 TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误根因、BLE 负载对 200ms 采样的最坏延迟、运行栈高水位、MOS Gate/Vgs、异常供电/Flash 时序。Host 和构建通过不能关闭这些项。未自动烧录、未新增故障注入/CLI/Panic 持久化。
+
+## SOC Runtime Diagnostics v2
+
+固件诊断 schema 和旧 runtime offset 保持不变；`word[192]` 从 1 升到 2，并使用原保留 `word[226..248]`：
+
+| Offset | 内容 |
+|---:|---|
+| 226..228 | chemistry、profile ID/version |
+| 229 | endpoint state |
+| 230 | learning/candidate/ETA valid flags + endpoint events |
+| 231..233 | nominal/effective/remaining capacity（0.1 Ah） |
+| 234..235、236 | filtered current i32 mA、variation mA |
+| 237、238 | TTE/TTF min，`0xFFFF`=unavailable |
+| 239 | ETA state/direction/confidence packed word |
+| 240..242 | SOH、source、confidence |
+| 243..247 | candidate capacity、valid/rejected count、last reject、learning confidence |
+| 248 | OCV weighted cell mV |
+
+`Shared/BmsDiagnostics.cs` 提供唯一 typed `SocDiagnosticSnapshot` decoder，客户版、内部版、`diag`、`soc` 与 `monitor soc` 共用；不另写 Modbus 协议。ETA 必须连同 valid/state/confidence 解读，且说明 based on recent current。cycle model SOH 明确显示 estimated，不能等同容量学习 SOH。

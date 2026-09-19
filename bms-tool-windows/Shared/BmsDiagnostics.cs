@@ -8,6 +8,45 @@ namespace BmsTool.Windows;
 public sealed record DiagnosticField(string Field, string Value);
 public sealed record DiagnosticTrace(uint Sequence, uint Tick32k, ushort EventId, string Event, uint Arg0, uint Arg1);
 public sealed record DiagnosticFrame(DateTimeOffset Time, string Direction, string Hex);
+public sealed record SocDiagnosticSnapshot(
+    ushort RuntimeVersion,
+    string Chemistry,
+    ushort ProfileId,
+    ushort ProfileVersion,
+    ushort SocEstimate,
+    ushort SocDisplay,
+    double NominalCapacityAh,
+    double EffectiveCapacityAh,
+    double RemainingCapacityAh,
+    string OcvState,
+    ushort OcvCenter,
+    ushort OcvLow,
+    ushort OcvHigh,
+    ushort OcvConfidence,
+    ushort OcvCellMv,
+    ushort RestSeconds,
+    string EndpointState,
+    ushort EndpointEventFlags,
+    int FilteredCurrentMa,
+    ushort CurrentVariationMa,
+    int? TimeToEmptyMinutes,
+    int? TimeToFullMinutes,
+    string EtaState,
+    string EtaDirection,
+    ushort EtaConfidence,
+    bool EtaValid,
+    ushort Soh,
+    string SohSource,
+    ushort SohConfidence,
+    bool CapacityLearningEnable,
+    string LearningState,
+    bool CandidateValid,
+    double CandidateCapacityAh,
+    double LearnedCapacityAh,
+    ushort LearningConfidence,
+    ushort ValidLearningCount,
+    ushort RejectedLearningCount,
+    string LastLearningRejectReason);
 public sealed class DiagnosticCapture
 {
     public DateTimeOffset StartedUtc { get; } = DateTimeOffset.UtcNow;
@@ -57,6 +96,44 @@ public static class BmsDiagnostics
     private static string Mode(int code)=>code switch {2=>"AUTO_DIODE",3=>"ON",_=>"OFF"};
     private static string OcvState(ushort value)=>value switch {0=>"WAIT_CURRENT",1=>"PREPARE",2=>"READY",3=>"CORRECT_DOWN",_=>$"未知({value})"};
     private static string LearningState(ushort value)=>value switch {0=>"NONE",1=>"EMPTY_TO_FULL",2=>"FULL_TO_EMPTY",_=>$"未知({value})"};
+    private static string EndpointState(ushort value)=>value switch {0=>"NORMAL",1=>"FULL_APPROACH",2=>"CONFIRMED_FULL",3=>"EMPTY_APPROACH",4=>"CONFIRMED_EMPTY",_=>$"未知({value})"};
+    private static string EtaState(ushort value)=>value switch {0=>"INVALID",1=>"STABILIZING",2=>"VALID",3=>"LOW_CONFIDENCE",_=>$"未知({value})"};
+    private static string EtaDirection(ushort value)=>value switch {0=>"NONE",1=>"CHARGE",2=>"DISCHARGE",_=>$"未知({value})"};
+    private static string SohSource(ushort value)=>value switch {1=>"SOH_ESTIMATED / cycle model",2=>"SOH_CAPACITY_LEARNED",_=>$"未知({value})"};
+    private static string LearningReject(ushort value)=>value switch {
+        0=>"NONE",1=>"INVALID_SAMPLE",2=>"SAMPLE_GAP",3=>"REBOOT",4=>"DIRECTION_REVERSE",
+        5=>"OPEN_WIRE",6=>"CELL_IMBALANCE",7=>"TEMPERATURE",8=>"PROTECTION",
+        9=>"LOW_QUALITY_EMPTY",10=>"LOW_QUALITY_FULL",11=>"CAPACITY_RANGE",
+        12=>"CANDIDATE_INCONSISTENT",13=>"AFE_COMMUNICATION",
+        14=>"CALIBRATION_CHANGED",_=>$"未知({value})"};
+    private static string EndpointEvents(ushort flags)
+    {
+        var values=new List<string>();
+        if((flags&1)!=0)values.Add("unexpected early UVP");
+        if((flags&2)!=0)values.Add("large sag");
+        if((flags&4)!=0)values.Add("cell imbalance / weak cell");
+        if((flags&8)!=0)values.Add("capacity mismatch / SOC estimation error");
+        if((flags&16)!=0)values.Add("capacity learning rejected");
+        return values.Count==0?"无":string.Join("；",values);
+    }
+    private static string EtaMinutes(ushort value)=>value==0xFFFF?"unavailable":$"{value} min（based on recent current）";
+
+    public static SocDiagnosticSnapshot DecodeSocSnapshot(ushort[] w)
+    {
+        if(w.Length!=256 || w[0]!=Magic || w[1]!=Schema || (w[2]&RuntimeCapability)==0 || w[192]<2)
+            throw new InvalidDataException("固件未提供 SOC diagnostics runtime v2");
+        ushort flags=w[230],eta=w[239];
+        return new SocDiagnosticSnapshot(
+            w[192],w[226] switch {1=>"LFP",2=>"NMC",_=>"AUTO/UNKNOWN"},w[227],w[228],
+            w[202],w[203],w[231]/10.0,w[232]/10.0,w[233]/10.0,
+            OcvState(w[204]),w[205],w[206],w[207],w[208],w[248],w[209],
+            EndpointState(w[229]),(ushort)(flags>>8),I32(w,234),w[236],
+            w[237]==0xFFFF?null:(int?)w[237],w[238]==0xFFFF?null:(int?)w[238],
+            EtaState((ushort)(eta&0x0F)),EtaDirection((ushort)((eta>>4)&0x0F)),
+            (ushort)(eta>>8),(flags&4)!=0,w[240],SohSource(w[241]),w[242],
+            (flags&1)!=0,LearningState(w[210]),(flags&2)!=0,w[243]/10.0,w[212]/10.0,
+            w[247],w[244],w[245],LearningReject(w[246]));
+    }
     public static string PmReasons(uint bits)
     {
         string[] names={"采样无效/过期","OTA进行中","Flash事务未恢复","OWC/总线忙",
@@ -157,6 +234,23 @@ public static class BmsDiagnostics
             O("容量学习",LearningState(w[210]));
             O("容量已学习",w[211]!=0?"是":"否");
             O("学习容量",$"{w[212]/10.0:F1} Ah");
+            if(w[192]>=2) {
+                ushort flags=w[230],eta=w[239],endpointFlags=(ushort)(flags>>8);
+                O("Chemistry / Profile",$"{(w[226]==1?"LFP":w[226]==2?"NMC":"AUTO/UNKNOWN")} / {w[227]} v{w[228]}");
+                O("Nominal / Effective / Remaining Capacity",$"{w[231]/10.0:F1} / {w[232]/10.0:F1} / {w[233]/10.0:F1} Ah");
+                O("OCV cell voltage",$"{w[248]} mV");
+                O("Full/Empty Endpoint State",EndpointState(w[229]));
+                O("Endpoint diagnostic",EndpointEvents(endpointFlags));
+                O("Filtered Current / Variation",$"{I32(w,234)} / {w[236]} mA");
+                O("Time To Empty",EtaMinutes(w[237]));
+                O("Time To Full",EtaMinutes(w[238]));
+                O("ETA State / Direction / Confidence",$"{EtaState((ushort)(eta&0x0F))} / {EtaDirection((ushort)((eta>>4)&0x0F))} / {eta>>8}%");
+                O("SOH / Source / Confidence",$"{w[240]}% / {SohSource(w[241])} / {w[242]}%");
+                O("Capacity Learning Enable",(flags&1)!=0?"是":"否（默认策略）");
+                O("Candidate Capacity",$"{w[243]/10.0:F1} Ah · valid={(flags&2)!=0}");
+                O("Learning Confidence / Valid / Rejected",$"{w[247]}% / {w[244]} / {w[245]}");
+                O("Last Learning Reject Reason",LearningReject(w[246]));
+            }
 
             uint pm=U32(w,213);
             P("Suspend",w[215]!=0?"允许":"阻止");
