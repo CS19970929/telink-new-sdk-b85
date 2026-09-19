@@ -8,17 +8,18 @@
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464731u /* CFG1 */
-#define BMS_CONFIG_SCHEMA_VERSION        1u
+#define BMS_CONFIG_SCHEMA_VERSION        2u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          10u
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
+#define BMS_CONFIG_FEATURE_BYTES         14u
 
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
 #define BMS_CONFIG_AFE_BYTES             (BMS_CONFIG_AFE_WORDS * 2u)
 #define BMS_CONFIG_CONTROL_BYTES         ((u16)BMS_CONFIG_CTRL_COUNT * 4u)
-#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES)
+#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_FEATURE_BYTES)
 
 #if (BTNAME_SUFFIX_MAX_LEN >= BMS_CONFIG_BTNAME_BYTES)
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
@@ -66,58 +67,6 @@ static u32 bms_config_get_u32le(const u8 *buf)
            ((u32)buf[2] << 16) | ((u32)buf[3] << 24);
 }
 
-
-/*
- * D011 preserves Config schema 1. The previously reserved system flags/reserved0
- * words now own the compact Heater/Balance feature record so deployed software
- * protection and AFE profile records are not invalidated by this feature.
- *
- * flags:
- *   bit0      heater_enable
- *   bits1:11  heater_start_x10
- *   bits12:22 heater_stop_x10
- *   bit23     balance_enable
- *   bits24:31 balance_start_mv[7:0]
- * reserved0:
- *   bits0:4   balance_start_mv[12:8]
- *   bits5:14  balance_start_delta_mv
- *   bits15:24 balance_stop_delta_mv
- */
-static void bms_feature_pack(bms_config_system_params_t *system,
-                             const bms_feature_params_t *value)
-{
-    u32 flags;
-    u32 reserved0;
-    if (system == 0 || value == 0) return;
-    flags = ((u32)(value->heater_enable & 1u)) |
-            (((u32)value->heater_start_x10 & 0x07FFu) << 1) |
-            (((u32)value->heater_stop_x10 & 0x07FFu) << 12) |
-            (((u32)(value->balance_enable & 1u)) << 23) |
-            (((u32)value->balance_start_mv & 0x00FFu) << 24);
-    reserved0 = (((u32)value->balance_start_mv >> 8) & 0x1Fu) |
-                (((u32)value->balance_start_delta_mv & 0x03FFu) << 5) |
-                (((u32)value->balance_stop_delta_mv & 0x03FFu) << 15);
-    system->flags = flags;
-    system->reserved0 = reserved0;
-}
-
-static void bms_feature_unpack(const bms_config_system_params_t *system,
-                               bms_feature_params_t *value)
-{
-    u32 flags;
-    u32 reserved0;
-    if (system == 0 || value == 0) return;
-    flags = system->flags;
-    reserved0 = system->reserved0;
-    value->heater_enable = (u16)(flags & 1u);
-    value->heater_start_x10 = (u16)((flags >> 1) & 0x07FFu);
-    value->heater_stop_x10 = (u16)((flags >> 12) & 0x07FFu);
-    value->balance_enable = (u16)((flags >> 23) & 1u);
-    value->balance_start_mv = (u16)(((flags >> 24) & 0xFFu) |
-                                   ((reserved0 & 0x1Fu) << 8));
-    value->balance_start_delta_mv = (u16)((reserved0 >> 5) & 0x03FFu);
-    value->balance_stop_delta_mv = (u16)((reserved0 >> 15) & 0x03FFu);
-}
 
 void bms_config_feature_defaults(bms_feature_params_t *value)
 {
@@ -178,7 +127,6 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
     bms_config_feature_defaults(&cfg->feature);
-    bms_feature_pack(&cfg->system, &cfg->feature);
 }
 
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
@@ -202,6 +150,13 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
         bms_config_put_u32le(&payload[off], cfg->control[i]); off = (u16)(off + 4u);
     }
     for (i = 0u; i < BMS_CONFIG_BTNAME_BYTES; ++i) payload[off++] = (u8)cfg->bt_name_suffix[i];
+    bms_config_put_u16le(&payload[off], cfg->feature.heater_enable); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.heater_start_x10); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.heater_stop_x10); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.balance_enable); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.balance_start_mv); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.balance_start_delta_mv); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->feature.balance_stop_delta_mv); off += 2u;
 }
 
 static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
@@ -227,7 +182,13 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     }
     for (i = 0u; i < BMS_CONFIG_BTNAME_BYTES; ++i) cfg->bt_name_suffix[i] = (char)payload[off++];
     cfg->bt_name_suffix[BMS_CONFIG_BTNAME_BYTES - 1u] = '\0';
-    bms_feature_unpack(&cfg->system, &cfg->feature);
+    cfg->feature.heater_enable = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.heater_start_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.heater_stop_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.balance_enable = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.balance_start_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.balance_start_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->feature.balance_stop_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
 }
 
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
@@ -256,10 +217,8 @@ int bms_config_store_init(void)
                              BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) return 0;
     if (storage_record_load(&g_bms_config_store, payload)) {
         bms_config_decode(&g_bms_config, payload);
-        if (!bms_config_feature_valid(&g_bms_config.feature)) {
+        if (!bms_config_feature_valid(&g_bms_config.feature))
             bms_config_feature_defaults(&g_bms_config.feature);
-            bms_feature_pack(&g_bms_config.system, &g_bms_config.feature);
-        }
     } else bms_config_defaults(&g_bms_config);
     g_bms_config_ready = 1u;
     return 1;
@@ -299,8 +258,6 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
     if (memcmp(&g_bms_config.system, system, sizeof(*system)) == 0) return 1;
     next = g_bms_config;
     next.system = *system;
-    /* flags/reserved0 are owned by feature config on D011. */
-    bms_feature_pack(&next.system, &next.feature);
     return bms_config_save_cache(&next);
 }
 
@@ -382,6 +339,5 @@ int bms_config_set_features(const bms_feature_params_t *value)
     if (memcmp(&g_bms_config.feature, value, sizeof(*value)) == 0) return 1;
     next = g_bms_config;
     next.feature = *value;
-    bms_feature_pack(&next.system, &next.feature);
     return bms_config_save_cache(&next);
 }
