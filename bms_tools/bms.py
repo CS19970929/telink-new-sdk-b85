@@ -1334,6 +1334,22 @@ def _assert_application_diagnostics(rows: list[dict], evidence_path: Path) -> No
              + ", ".join(outside[:5]) + f"; see {evidence_path}")
 
 
+def _dependency_runtime_token(value: str) -> str:
+    """Map Make-only junction paths back to the current checkout.
+
+    GNU Make needs the fixed, space-free junction, but dependency probing is
+    invoked through subprocess argv and can safely use the real checkout path.
+    Avoiding the shared junction here also prevents a persistent/concurrent
+    Windows runner from auditing a stale checkout.
+    """
+    normal = value.replace("\\", "/")
+    junction = JUNCTION.as_posix().rstrip("/")
+    index = normal.casefold().find(junction.casefold())
+    if index < 0:
+        return value
+    return normal[:index] + REPO_ROOT.as_posix().rstrip("/") + normal[index + len(junction):]
+
+
 def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> set[str]:
     """Use the real TC32 commands in dependency-only mode to audit headers."""
     dependencies: set[str] = set()
@@ -1356,12 +1372,18 @@ def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> s
                 continue
             if token.lower().endswith((".c", ".s")):
                 continue
-            filtered.append(token)
-        filtered.extend(["-MM", entry["file"]])
-        result = subprocess.run(filtered, cwd=entry["directory"], env=env,
+            filtered.append(_dependency_runtime_token(token))
+        runtime_file = _dependency_runtime_token(entry["file"])
+        runtime_dir = _dependency_runtime_token(entry["directory"])
+        filtered.extend(["-MM", runtime_file])
+        result = subprocess.run(filtered, cwd=runtime_dir, env=env,
                                 capture_output=True, text=True, check=False)
-        logs.append(f"# {entry['file']} rc={result.returncode}\n{result.stdout}{result.stderr}")
+        logs.append(f"# {entry['file']} rc={result.returncode}\n"
+                    f"cwd={runtime_dir}\n"
+                    f"command={subprocess.list2cmdline(filtered)}\n"
+                    f"{result.stdout}{result.stderr}")
         if result.returncode != 0:
+            (out_dir / "dependencies.log").write_text("\n".join(logs), encoding="utf-8")
             _die(f"TC32 dependency audit failed for {entry['file']}; "
                  f"see {out_dir / 'dependencies.log'}")
         flattened = re.sub(r"\\\s*\r?\n", " ", result.stdout or "")
