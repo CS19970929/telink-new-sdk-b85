@@ -19,6 +19,14 @@
 #define SH3673510_D011_CELL_COUNT               4u
 #define SH3673510_D011_SHUNT_UOHM              100u
 #define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
+
+/*
+ * D013 heater/balance policy is implemented, but the D013 schematic/BOM is
+ * still missing. Keep physical actions disabled until the real PB4/PB5/TS3/TS4
+ * and cell-balance wiring are verified. Flip these only with D013 evidence.
+ */
+#define SH3673510_PRODUCT_HEATER_SUPPORTED       0u /* TODO_VERIFY_HW */
+#define SH3673510_PRODUCT_BALANCE_SUPPORTED      0u /* TODO_VERIFY_HW */
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
 /*
