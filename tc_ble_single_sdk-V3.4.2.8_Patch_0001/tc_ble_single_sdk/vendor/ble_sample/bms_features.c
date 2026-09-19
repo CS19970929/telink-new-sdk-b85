@@ -185,8 +185,20 @@ static uint8_t heater_hard_fault(void)
 static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
                              const bms_user_params_t *config)
 {
+    uint16_t charge_utp_trip;
+
     if ((s == 0) || (config == 0) || !s->battery_temp_valid) return 0u;
+
+    /* Do not wait for the filtered Charge-UTP fault bit before preheating.
+     * The product must stop a low-temperature charge attempt on the first
+     * reliable current sample. HeaterStart is user policy, while the Third UTP
+     * threshold remains the absolute software charge-permission boundary. */
+    charge_utp_trip = g_tParam.protect.u16TchgUTp_Third;
+    if ((charge_utp_trip != 0u) &&
+        (s->battery_temp_min_x10 <= charge_utp_trip))
+        return 1u;
     if (g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp) return 1u;
+
     if (s_feature.heater_state == BMS_HEATER_ACTIVE)
         return (s->battery_temp_min_x10 < config->heater_stop_x10) ? 1u : 0u;
     return (s->battery_temp_min_x10 < config->heater_start_x10) ? 1u : 0u;
@@ -476,6 +488,34 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
         (s_feature.balance_trust_samples >= required) ? 1u : 0u;
 }
 
+static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
+{
+    uint16_t charge_ot_recover;
+    uint16_t charge_ut_recover;
+    uint16_t mos_ot_recover;
+
+    if ((s == 0) || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
+
+    /* Balancing is a heat-producing maintenance action. Use the existing
+     * protection recovery boundary as a conservative admission window instead
+     * of relying on direction-gated fault bits that may be clear at zero
+     * current. Zero means the corresponding protection threshold is disabled. */
+    charge_ot_recover = g_tParam.protect.u16TChgOTp_Rcv;
+    charge_ut_recover = g_tParam.protect.u16TchgUTp_Rcv;
+    mos_ot_recover = g_tParam.protect.u16TmosOTp_Rcv;
+
+    if ((charge_ot_recover != 0u) &&
+        (s->battery_temp_max_x10 >= charge_ot_recover))
+        return 0u;
+    if ((charge_ut_recover != 0u) &&
+        (s->battery_temp_min_x10 <= charge_ut_recover))
+        return 0u;
+    if ((mos_ot_recover != 0u) &&
+        (s->mos_temp_x10 >= mos_ot_recover))
+        return 0u;
+    return 1u;
+}
+
 static uint8_t balance_hard_fault(void)
 {
     const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
@@ -511,6 +551,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
                         !s_feature.openwire_suspected &&
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
                         s_feature.charge_session_active &&
+                        balance_temperature_safe(s) &&
                         !balance_hard_fault());
 
     if (allowed)
