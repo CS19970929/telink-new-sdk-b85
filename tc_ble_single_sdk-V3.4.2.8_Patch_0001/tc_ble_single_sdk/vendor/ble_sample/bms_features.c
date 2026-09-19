@@ -244,10 +244,19 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     {
         if (demand)
         {
-            /* ARMING first blocks the charge direction. Heater power is not
-             * enabled until a following fresh sample proves charge current has
-             * disappeared. This prevents low-temperature charge + heat overlap. */
-            s_feature.heater_state = BMS_HEATER_ARMING;
+            /* A latched charge session is intentionally allowed to survive
+             * Ichg=0 after PREHEAT closes the charge direction. It is NOT,
+             * however, sufficient evidence to start a new heat cycle from
+             * IDLE: after an ordinary charge the charger may have been removed
+             * while the pack stayed unloaded, leaving no observable current
+             * transition to clear the session. Require fresh charge-direction
+             * evidence (or a future approved physical charger-present source)
+             * before arming. Once ARMING has been entered, zero current is the
+             * expected proof that the charge path has been blocked. */
+            if ((g_stCellInfoReport.u16Ichg != 0u) || charge_source_present())
+            {
+                s_feature.heater_state = BMS_HEATER_ARMING;
+            }
             set_heater(0u);
         }
         else
