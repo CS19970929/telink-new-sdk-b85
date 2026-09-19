@@ -186,6 +186,44 @@ void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
     if (dirty) changed();
 }
 
+void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
+{
+    uint16_t flags;
+    uint16_t eta;
+    uint8_t dirty = 0u;
+    if (soc == 0) return;
+    flags = (uint16_t)((soc->capacity_learning_enable ? 1u : 0u) |
+                       (soc->capacity_learning_candidate_valid ? 2u : 0u) |
+                       (soc->eta_valid ? 4u : 0u) |
+                       ((soc->endpoint_event_flags & 0x00FFu) << 8));
+    eta = (uint16_t)((soc->eta_state & 0x000Fu) |
+                     ((soc->eta_direction & 0x000Fu) << 4) |
+                     ((soc->eta_confidence & 0x00FFu) << 8));
+    dirty |= update16(226u, soc->chemistry);
+    dirty |= update16(227u, soc->profile_id);
+    dirty |= update16(228u, soc->profile_version);
+    dirty |= update16(229u, soc->endpoint_state);
+    dirty |= update16(230u, flags);
+    dirty |= update16(231u, soc->nominal_capacity_0p1ah);
+    dirty |= update16(232u, soc->effective_capacity_0p1ah);
+    dirty |= update16(233u, soc->remaining_capacity_0p1ah);
+    dirty |= update32(234u, (uint32_t)soc->filtered_current_ma);
+    dirty |= update16(236u, soc->current_variation_ma);
+    dirty |= update16(237u, soc->time_to_empty_min);
+    dirty |= update16(238u, soc->time_to_full_min);
+    dirty |= update16(239u, eta);
+    dirty |= update16(240u, soc->soh);
+    dirty |= update16(241u, soc->soh_source);
+    dirty |= update16(242u, soc->soh_confidence);
+    dirty |= update16(243u, soc->candidate_capacity_0p1ah);
+    dirty |= update16(244u, soc->valid_learning_count);
+    dirty |= update16(245u, soc->rejected_learning_count);
+    dirty |= update16(246u, soc->last_learning_reject_reason);
+    dirty |= update16(247u, soc->capacity_learning_confidence);
+    dirty |= update16(248u, soc->ocv_cell_mv);
+    if (dirty) changed();
+}
+
 void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t low_voltage_region, uint32_t low_voltage_seconds,
                          uint8_t ble_connected, uint8_t sample_pending,

@@ -71,7 +71,7 @@ TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误
 
 | Offset | 类型 | 含义 |
 |---|---|---|
-| 192 | u16 | runtime version=1 |
+| 192 | u16 | runtime version=2；v1 offset 193..225 保持兼容 |
 | 193 | u16 | bit0 采样有效且新鲜，bit1 当前过流恢复状态 pending |
 | 194..195 | i32 | AFE 原始电流 mA（软件工厂校准前） |
 | 196..197 | i32 | 业务实际使用电流 mA（软件校准后） |
@@ -85,7 +85,22 @@ TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误
 | 219,220,221 | u16 | BLE connected、sample pending、suspend 电流门槛 mA |
 | 222,223,224 | u16 | 软件保护 Level1/Level2/Level3 当前位图 |
 | 225 | u16 | 1=MODE_FACTORY，0=MODE_NORMAL |
+| 226,227,228 | u16 | chemistry、profile ID、profile version |
+| 229 | u16 | endpoint state：0 normal、1 full approach、2 confirmed full、3 empty approach、4 confirmed empty |
+| 230 | u16 | bit0 learning enable、bit1 candidate valid、bit2 ETA valid；bit8..12 endpoint event（early UVP、large sag、imbalance、capacity mismatch、learning rejected） |
+| 231,232,233 | u16 | nominal、effective、remaining capacity，单位 0.1 Ah |
+| 234..235 | i32 | ETA filtered current mA |
+| 236 | u16 | current variation mA（饱和） |
+| 237,238 | u16 | TTE / TTF min；`0xFFFF`=unavailable |
+| 239 | u16 | bit0..3 ETA state、bit4..7 direction、bit8..15 confidence |
+| 240,241,242 | u16 | SOH %、source（1 cycle estimated / 2 capacity learned）、confidence |
+| 243 | u16 | capacity learning candidate，0.1 Ah |
+| 244,245 | u16 | valid / rejected learning count（饱和） |
+| 246,247 | u16 | last learning reject reason、learning confidence |
+| 248 | u16 | OCV weighted cell mV |
 
 PM 阻断位：bit0 无有效/新鲜采样，bit1 OTA，bit2 Flash stack session，bit3 OWC/bus busy，bit4 双向绝对电流达到 suspend 门槛，bit5 sample pending，bit6 显式关机流程，bit7 ACC sleep 流程。该位图只解释既有 `blt_pm_proc()` 决策，不参与或改变低功耗策略。
 
 Runtime Snapshot 由 AFE/SOC/PM 各 owner 在原有主循环路径更新；`PM_STATE`、`PROTECTION`、`SAMPLE_STATE` 仅在状态边沿写 RAM Trace，避免按 200ms 周期刷满环形缓冲。
+
+Runtime v2 只扩展此前保留 words，不改变诊断 schema、地址或已有字段。Windows typed decoder 在 runtime version <2 时不解释新字段；ETA 必须同时检查 valid/state/confidence，不能把 `0xFFFF` 显示成真实分钟数。`SOH source=cycle estimated` 不是容量实测 SOH。

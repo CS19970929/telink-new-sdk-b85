@@ -79,22 +79,27 @@ static void test_config_atomic_revisions(void){
  puts("PASS Config: all byte cuts, four independent revisions, retained name, idempotence");
 }
 static void test_state(void){
- fresh();assert(bms_state_store_write_learning(900,1));
+ fresh();assert(bms_state_store_write_learning_meta(900,
+  BMS_STATE_FLAG_CAPACITY_LEARNED|BMS_STATE_FLAG_LEARNING_META|(1000u<<BMS_STATE_FLAG_NOMINAL_SHIFT),
+  890,3,2,12,1));
  bms_state_store_update_and_log_if_changed(61,2,3);assert(g_bms_state.soc==60);
  now=60*32000;cut=0;bms_state_store_update_and_log_if_changed(62,4,5);u32 count=programs;
  for(unsigned i=0;i<100;i++)bms_state_store_update_and_log_if_changed(63,6,7);
  assert(programs==count);assert(errors);now+=5*32000;cut=-1;
  bms_state_store_update_and_log_if_changed(64,8,9);assert(g_bms_state.soc==64);assert(g_bms_state.learned_capacity_0p1ah==900);
+ assert(g_bms_state.candidate_capacity_0p1ah==890&&g_bms_state.valid_learning_count==3);
+ assert(g_bms_state.rejected_learning_count==2&&g_bms_state.last_learning_reject_reason==12);
  assert(bms_state_store_write_all(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
+ assert(g_bms_state.candidate_match_count==1);
  bms_state_persist_t old=g_bms_state;old.soc_revision=0;old.runtime_min=33;assert(bms_state_save(&old));memcpy(backup,flash,sizeof(flash));
- for(int byte=0;byte<64;byte++){
+ for(int byte=0;byte<(int)(24+BMS_STATE_PAYLOAD_BYTES+8);byte++){
   memcpy(flash,backup,sizeof(flash));reboot();cut=byte;assert(!bms_state_store_init());
   reboot();assert(bms_state_store_init());assert(g_bms_state.soc==60 && g_bms_state.flags==0 && g_bms_state.learned_capacity_0p1ah==0);assert(g_bms_state.runtime_min==33);
  }
  old=g_bms_state;old.runtime_revision=0;old.soc=77;old.runtime_min=44;assert(bms_state_save(&old));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==77 && g_bms_state.runtime_min==0);
  now=UINT32_MAX-32000;g_bms_state_last_attempt_32k=now;
  bms_state_store_update_and_log_if_changed(78,0,0);now+=(60*32000);bms_state_store_update_and_log_if_changed(79,0,0);assert(g_bms_state.soc==79);
- puts("PASS State: coalescing, failure/backoff, learning flush, reset independence, byte cuts, wrap");
+ puts("PASS State: coalescing, failure/backoff, learning metadata/flags, reset independence, all byte cuts, wrap");
 }
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;

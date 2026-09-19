@@ -4,12 +4,12 @@
 
 ## 1. P0 发布阻断
 
-- [ ] 24S LFP 实板逐通道确认 VC1..VC24；20S NMC 实板确认 Cell21..24 被软件/AFE mask 且不参与 min/max/保护/SOC。
+- [ ] 当前默认 16S LFP 实板逐通道确认 VC1..VC16，未装 Cell17..24 不参与 min/max/保护/SOC；可选 20S NMC / 24S LFP profile 分别按实际装配验证对应通道与 mask。
 - [ ] 用已知电流校准 200 µΩ 路径的方向、零点、增益和温漂。
 - [ ] 逐项验证 COV/CUV/OCD1/OCD2/OCC1/OCC2 的 requested -> code -> effective -> readback -> 实际关断延时和 MOS 栅极动作。
 - [ ] 确定并签核 SCD threshold/delay；未签核前保持关闭。
 - [ ] 验证 I2C dead-bus：SDA/SCL 卡死、NACK、CRC异常、AFE掉电；证明 MOS 最终安全路径。若采用 DVC WDT 或 PD7 power-cycle，必须记录时序和恢复竞态。
-- [ ] 24S LFP / 20S NMC 分别签核容量、OV/UV、OC、温度、SOC OCV/端点；不得继承 D3PRO 历史默认作为产品依据。
+- [ ] 当前默认 16S LFP 及可选 20S NMC / 24S LFP 分别签核容量、OV/UV、OC、温度、SOC OCV/端点；不得继承 D3PRO 历史默认作为产品依据。
 
 ## 2. IO/电源
 
@@ -51,6 +51,10 @@
 - [ ] suspend 双向电流退出：两方向分别测试 0/199/200/499/500/501 mA、跨零、噪声、短脉冲；500 mA 包含边界；记录精度、延迟、阈值抖动和采样间隔。
 - [ ] suspend 内 AFE 测量周期、4 s watchdog、保护处理及 LED/OWC/BLE 活动兼容；无效样本不得当作零电流静置。进入延时、迟滞与响应预算尚待定义。
 - [ ] SOC：有效静置不足/达到 10 min、200..499 mA 非静置、丢样/陈旧帧、AFE 重初始化、不同 suspend 间隔、计数器回绕；校准遵守 [SOC.md](SOC.md) 的方向和速率限制。
+- [ ] SOC endpoint：LFP/NMC 正常满充从 80%/90% estimate 软着陆到 estimate/display 100%；弱单体提前 OVP、静置高压和回弹不得伪造 Full；正常放电在 UVP 前平顺经过 5/3/1%，大电流 sag 不误拉 0，early UVP event 与 weak-cell/imbalance/sag 证据一致。
+- [ ] ETA：5/10/20 A 稳定充放电、Ebike 加速/巡航/停车、储能变化负载、跨零与 CV/taper；比对 filtered current、TTE/TTF、state/confidence 和真实到端时间，确认低 confidence/unavailable 不显示假精度。
+- [ ] 容量学习（量产默认仍关闭）：在可控工装上分别验证高质量 Empty->Full / Full->Empty、低温、大倍率 UVP、弱单体、严重不均衡、提前停充、方向反转、AFE/MCU reset、Open-Wire 与丢样；错误 endpoint 不得改变 accepted capacity，每组 accepted update 不得超过 5%。
+- [ ] SOH：核对 cycle-estimated 与 capacity-learned source/confidence，不把经验 cycle SOH 当容量实测；验证 nominal capacity 变更清空旧 candidate/accepted evidence。
 - [ ] MCU 断电恢复：不继承 RAM 静置计时，不用未知关机时长补积分/OCV；保存失败与重启应保持可解释的 State 恢复行为。
 - [ ] OTA A/B 中断点、Flash 保留区、参数兼容迁移和回滚；OTA/参数持久化进行中不能被旧 key/charger 路径直接切断电源。
 
@@ -71,14 +75,14 @@
 - [ ] 验证最小支持充电器的初始充电电流高于 D008 当前可靠方向检测下限（abs(current)<=200 mA 为不可靠区）；若产品要求支持无法稳定超过该检测下限的弱充电器，当前“仅靠电流建立 session”方案不得量产。
 - [ ] 验证弱充电器/限流/打嗝电源：Heater 不能造成电池持续反向供能、MCU反复重启或低温充电降级；需要功率降额或第二电源证据时，以实测结果追加产品策略。
 
-## 存储 schema 2 实板验收（TODO_VERIFY_HW）
+## 存储 Config 4 / State 3 / Event 2 实板验收（TODO_VERIFY_HW）
 
 - [ ] 精确 Flash MID/BOM、温压条件、program/erase 最大耗时与 200 ms 采样/BLE 的干扰；采集 `bms_storage_platform_get_diagnostics()`，不以 mock 时间作为实测。
-- [ ] OTA 单独提高 SW/AFE/SOC-config/system/SOC-state/Event/runtime revision；验证保留无关域和重复启动。schema 1→2 按开发期策略重置，无旧参数迁移。
+- [ ] OTA 单独提高 SW/AFE/SOC-config/system/SOC-state/Event/runtime revision；验证保留无关域和重复启动。开发期旧 schema 按策略重置，无旧参数迁移；State 2→3 必须按默认重建，不得误读旧 payload。
 - [ ] 每个域写入/擦除/commit 时断电；分别验证 Config 完成而 State/Event 未完成时的启动输出门禁。
 - [ ] State/Event pending 时突发掉电与受控 PC4 断电；受控路径失败保持 PC4 高。记录正常约 60 s 合并窗口和失败期间更长的丢失窗口。
 - [ ] AFE 应用/readback 失败、新三帧资格、实际 MOS Gate；失败时不能仅凭 Requested 或 CHGF/DSGF 声称物理关断。
-- [ ] 连续事件风暴、反复启动、手动参数写入、写校验失败 5 s 退避与日擦写量，按 schema 2 几何重新评估寿命。
+- [ ] 连续事件风暴、反复启动、手动参数写入、写校验失败 5 s 退避与日擦写量，按 Config 4 / State 3 / Event 2 当前几何重新评估寿命。
 
 ## ACC 保电深睡眠（TODO_VERIFY_HW）
 

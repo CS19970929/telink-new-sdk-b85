@@ -12,6 +12,7 @@ CONFIG_C = (MOD / "bms_config_store.c").read_text(encoding="utf-8", errors="igno
 CONFIG_H = (MOD / "bms_config_store.h").read_text(encoding="utf-8", errors="ignore")
 STATE_C = (MOD / "bms_state_store.c").read_text(encoding="utf-8", errors="ignore")
 STATE_H = (MOD / "bms_state_store.h").read_text(encoding="utf-8", errors="ignore")
+DIAG_H = (MOD / "bms_diag.h").read_text(encoding="utf-8", errors="ignore")
 
 class SocContract(unittest.TestCase):
     def test_dual_chemistry_profiles_are_data_not_algorithm(self):
@@ -75,7 +76,9 @@ class SocContract(unittest.TestCase):
         start = C.index("static uint8_t soc_apply_full_anchor(void)")
         end = C.index("static uint8_t soc_apply_forced_empty_anchor(void)", start)
         full_fn = C[start:end]
-        self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG()", full_fn)
+        self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min)", full_fn)
+        self.assertIn("g_soc_profile->full_cell_delta_max_mv", full_fn)
+        self.assertIn("&& isCHG()", full_fn)
         self.assertIn("if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp)", full_fn)
         self.assertNotIn("&& !isDSG()", full_fn)
 
@@ -99,8 +102,8 @@ class SocContract(unittest.TestCase):
 
     def test_diag_reports_profile_identity_and_version(self):
         self.assertIn("bms_soc_diag_t", H)
-        self.assertIn("profile_id", H)
-        self.assertIn("profile_version", H)
+        self.assertIn("profile_id", DIAG_H)
+        self.assertIn("profile_version", DIAG_H)
         self.assertIn("diag->profile_id = g_soc_profile->profile_id", C)
         self.assertIn("diag->profile_version = g_soc_profile->profile_version", C)
 

@@ -24,6 +24,13 @@ typedef struct {int raw_current_ma;int current_ma;u32 sample_tick_32k;} bms_afe_
 typedef struct {
  u8 chemistry,profile_id,profile_version,soc_estimate,soc_display,ocv_state,ocv_center,ocv_low,ocv_high,ocv_confidence,capacity_learned,learning_state;
  uint16_t current_deadband_ma,ocv_cell_mv,rest_seconds,learned_capacity_0p1ah;
+ uint16_t nominal_capacity_0p1ah,effective_capacity_0p1ah,remaining_capacity_0p1ah;
+ u8 endpoint_state,endpoint_event_flags;int32_t filtered_current_ma;
+ uint16_t current_variation_ma,time_to_empty_min,time_to_full_min;
+ u8 eta_state,eta_direction,eta_confidence,eta_valid,soh,soh_source,soh_confidence;
+ u8 capacity_learning_enable,capacity_learning_candidate_valid,capacity_learning_confidence;
+ uint16_t candidate_capacity_0p1ah,valid_learning_count,rejected_learning_count;
+ u8 last_learning_reject_reason;
 } bms_soc_diag_t;
 typedef union {uint16_t all;} diag_fault_t;
 static struct {diag_fault_t unMdlFault_First,unMdlFault_Second,unMdlFault_Third;} g_stCellInfoReport;
@@ -33,6 +40,7 @@ static u8 bms_afe_current_recovery_pending(void){return 0;}
 static void bms_soc_get_diag(bms_soc_diag_t *d){memset(d,0,sizeof(*d));d->soc_estimate=50;d->soc_display=50;d->current_deadband_ma=200;}
 static void bms_diag_runtime_sample(u8 v,int raw,int current,u32 tick,u8 recovery){(void)v;(void)raw;(void)current;(void)tick;(void)recovery;}
 static void bms_diag_runtime_soc(u8 a,u8 b,u8 c,u8 d,u8 e,u8 f,u8 g,uint16_t h,u8 i,u8 j,uint16_t k,uint16_t deadband){(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;(void)i;(void)j;(void)k;(void)deadband;}
+static void bms_diag_runtime_soc_extended(const bms_soc_diag_t *d){(void)d;}
 static void bms_diag_runtime_faults(uint16_t a,uint16_t b,uint16_t c){(void)a;(void)b;(void)c;}
 static void APP_SOC_IntEnhance_Ctrl(u8 v,int ma,u32 tick){note('S');assert(v==valid);assert(ma==(v?-700:0));assert(tick==(v?99u:77u));}
 static void mos_update(void){note('M');}

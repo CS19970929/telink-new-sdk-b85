@@ -4,12 +4,12 @@
 
 ## 1. 分区与格式
 
-物理地址、OTA A/B、Factory、SDK pairing/MAC 保留区全部保持 [STORAGE.md](STORAGE.md) 的布局。通用 Journal 仍为显式 little-endian、CRC32、sequence、commit-last。Config/State/Event 的 payload schema 升为 **2**；读不到当前格式时初始化该域默认值并持久化。首次从 schema 1 升级会重置三个域，**Config 中的旧蓝牙名称也不迁移**；后续同 schema 的分类 revision 更新保留名称。Factory 无 writer，不受影响。
+物理地址、OTA A/B、Factory、SDK pairing/MAC 保留区全部保持 [STORAGE.md](STORAGE.md) 的布局。通用 Journal 仍为显式 little-endian、CRC32、sequence、commit-last。当前格式为 Config schema 4、State schema 3、Event schema 2；读不到对应当前格式时初始化该域默认值并持久化。开发期不做旧 schema 迁移，**Config 中的旧蓝牙名称也不迁移**；后续同 schema 的分类 revision 更新保留名称。Factory 无 writer，不受影响。
 
 | 域 | payload / 对齐后 slot | 每扇区记录 | 扇区数 | 理想完整轮转记录 |
 |---|---:|---:|---:|---:|
-| Config | 300 / 332 bytes | 12 | 4 | 48 |
-| State | 32 / 64 bytes | 64 | 8 | 512 |
+| Config | 354 / 388 bytes | 10 | 4 | 40 |
+| State | 52 / 84 bytes | 48 | 8 | 384 |
 | Event | 406 / 440 bytes | 9 | 8 | 72 |
 
 Config 保留 3 个不用的历史 control 槽位作为 reserved；SOC 状态、Event、runtime 的升级标记已由各自域拥有，不读取这些 reserved 槽位。保留源码 facade 名称不代表支持旧 Flash 格式。
@@ -24,7 +24,7 @@ Config 保留 3 个不用的历史 control 槽位作为 reserved；SOC 状态、
 | `FW_UPGRADE_RESET_AFE_HW_EPOCH` | AFE Requested hardware protection | Config | `bms_afe_hw_profile_build_default()` |
 | `FW_UPGRADE_RESET_SOC_CONFIG_EPOCH` | chemistry/profile、额定容量、deadband、OCV 静置时间/误差带、学习开关/显示策略 | Config | `bms_soc_get_default_config()`、`d008_product_profile.h`、`CapacityFactory` |
 | `FW_UPGRADE_RESET_SYSTEM_EPOCH` | 其余 system 字段 | Config | `bms_config_store_get_default_system()` |
-| `FW_UPGRADE_RESET_SOC_EPOCH` | SOC、DSG、cycle、learned capacity、learning flags | State | `BMS_STATE_DEFAULT_*` |
+| `FW_UPGRADE_RESET_SOC_EPOCH` | SOC、DSG、cycle、accepted/candidate capacity、learning qualification/flags | State | `BMS_STATE_DEFAULT_*` 与 learning metadata 零值 |
 | `FW_UPGRADE_RESET_RUNTIME_EPOCH` | aging runtime minutes | State | 0 min |
 | `FW_UPGRADE_RESET_EVENT_LOG_EPOCH` | 清空事件和重复次数 | Event | 空 ring |
 
@@ -50,7 +50,7 @@ DVC 型号、串数/Rsense、GPIO、WDT、Body-Diode 等固定板级配置仍在
 
 ## 4. SOC、事件与掉电取舍
 
-正常主循环将最新 SOC/DSG/cycle 合并到 State pending，默认至少 60 s 才尝试一次有变化的 checkpoint。学习结果也加入 pending。`write_all()` 同步刷新时包含 pending learning；runtime 保存也带上当前 pending 值。未变化不写。通信显式保存、工厂复位、runtime 的既有定时保存和受控关机不受普通 SOC 合并间隔限制，但受失败退避限制。
+正常主循环将最新 SOC/DSG/cycle 合并到 State pending，默认至少 60 s 才尝试一次有变化的 checkpoint。accepted capacity、candidate、有效/拒绝计数、拒绝原因和 active-session marker 也加入同一个 pending record。`write_all()` 同步刷新时包含 pending learning；runtime 保存也带上当前 pending 值。未变化不写。通信显式保存、工厂复位、runtime 的既有定时保存和受控关机不受普通 SOC 合并间隔限制，但受失败退避限制。重启不继续容量学习 session；若 active marker 已持久化，启动将其转成 REBOOT reject 后清除。
 
 事件在 RAM ring 中先接受，latch 表示已接受到 pending。相邻同类事件在未保存且 60 s 窗口内合并，重复计数饱和到 65535；多个不同事件保留顺序。默认每 60 s 保存脏快照，写失败保留 pending；最多 100 条，持续风暴可能覆盖更早事件。原 Modbus event code/interval 编码不变；读取展示 RAM 当前快照，未必已持久化。`bms_event_log_read_repeat()` 为 C 诊断入口，本次未新增通信寄存器。
 
@@ -68,7 +68,7 @@ State/Event 保存失败后至少 5 s 再尝试。平台层对 program/erase 校
 
 新增 `bms_storage_platform_get_diagnostics()`：本次上电以来 program/erase 次数、校验失败次数、推迟次数，以及 program/erase（含读回校验）最大 SDK 32k tick 耗时。计数饱和，诊断不自己写 Flash。可用调试器/C API 采集；不增加 Modbus 接口。时间基准沿用 `pm_get_32k_tick()`，不是假设 32768 Hz。
 
-以原审核的 **100k 擦除寿命假设**计算，新几何理想预算为 Config 4.8M、State 51.2M、Event 7.2M 条成功记录。若 State/Event 持续每分钟写一次，数学磨损时间约 97.4/13.7 年；按 10% 工程折减约 9.74/1.37 年。该折减不是厂商保证，也不能把数学值理解为超过保持寿命的产品寿命。事件风暴、失败后的脏 slot、反复上电、手动参数写入都会改变结果。应根据实测日写入/擦除次数评估，不宣称已验证整机寿命。
+以原审核的 **100k 擦除寿命假设**计算，当前几何理想预算为 Config 4.0M、State 38.4M、Event 7.2M 条成功记录。若 State/Event 持续每分钟写一次，数学磨损时间约 73.1/13.7 年；按 10% 工程折减约 7.31/1.37 年。该折减不是厂商保证，也不能把数学值理解为超过保持寿命的产品寿命。事件风暴、失败后的脏 slot、反复上电、手动参数写入都会改变结果。应根据实测日写入/擦除次数评估，不宣称已验证整机寿命。
 
 本次未实现预擦除或 BLE 安全时间窗调度，未改 SDK Flash driver；增加测量入口后，应先在实际 Flash MID/BOM 和温度/电压条件下测最坏擦除延迟。SDK 擦除可能影响 200 ms 采样和 BLE，软件已有 >400 ms 样本间隔拒收不等于实时性风险已消除。
 

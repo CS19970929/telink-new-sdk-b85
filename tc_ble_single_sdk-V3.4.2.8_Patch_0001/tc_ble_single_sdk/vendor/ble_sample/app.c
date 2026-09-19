@@ -1091,6 +1091,7 @@ static void app_sample_task(void)
                          soc_diag.learning_state, soc_diag.capacity_learned,
                          soc_diag.learned_capacity_0p1ah,
                          soc_diag.current_deadband_ma);
+    bms_diag_runtime_soc_extended(&soc_diag);
     bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
                             g_stCellInfoReport.unMdlFault_Second.all,
                             g_stCellInfoReport.unMdlFault_Third.all);

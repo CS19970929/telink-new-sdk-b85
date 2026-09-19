@@ -2,6 +2,8 @@
 #include "bms_config_store.h"
 #include "bms_soc_profile.h"
 #include "bms_cold_kv_store.h"
+#include "bms_features.h"
+#include "bms_error.h"
 #include "bms_state.h"
 #include "param.h"
 #include <string.h>
@@ -35,6 +37,8 @@
 #define SOC_EMPTY_LOCK_TICKS                (SOC_TICKS_PER_SECOND * 5u)
 #define SOC_EMPTY_SYNC_STEP_TICKS           SOC_TICKS_PER_SECOND
 #define SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND
+#define SOC_DISPLAY_APPROACH_STEP_TICKS     4u
+#define SOC_DISPLAY_CONFIRMED_FULL_TICKS    2u
 #define SOC_DSG_EMPTY_LOCK_TICKS            (SOC_TICKS_PER_SECOND * 2u)
 #define SOC_DSG_SAG_HOLD_CURR_MIN_A10       50u
 #define SOC_DSG_SAG_HOLDOFF_TICKS           (SOC_TICKS_PER_SECOND * 60u)
@@ -52,6 +56,23 @@
 #define SOC_AUTO_LFP_OVP_MAX_MV              3900u
 #define SOC_LEARNED_CAP_MIN_PERCENT          50u
 #define SOC_LEARNED_CAP_MAX_PERCENT          130u
+#define SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT 5u
+#define SOC_LEARNING_UPDATE_MAX_PERCENT      5u
+#define SOC_LEARNING_CONFIRM_CYCLES          2u
+#define SOC_ETA_FILTER_SHIFT                 3u
+#define SOC_ETA_STABLE_SECONDS               30u
+#define SOC_ETA_STABLE_TICKS                 (SOC_TICKS_PER_SECOND * SOC_ETA_STABLE_SECONDS)
+#define SOC_ETA_VARIATION_MIN_MA             250u
+#define SOC_ETA_VARIATION_PERCENT            20u
+#define SOC_ETA_TAPER_PERCENT                60u
+#define SOC_ENDPOINT_EVENT_EARLY_UVP         0x01u
+#define SOC_ENDPOINT_EVENT_LARGE_SAG         0x02u
+#define SOC_ENDPOINT_EVENT_IMBALANCE         0x04u
+#define SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH 0x08u
+#define SOC_ENDPOINT_EVENT_LEARNING_REJECTED 0x10u
+#define SOC_LEARNING_TEMP_FAULT_MASK         0x2BC0u
+#define SOC_LEARNING_CURRENT_FAULT_MASK      0x0030u
+#define SOC_LEARNING_PACK_FAULT_MASK         0x000Cu
 
 #ifndef BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT
 #define BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u
@@ -106,6 +127,30 @@ typedef struct
     uint16_t learned_capacity_0p1ah;
     uint8_t learning_state;
     uint32_t learning_capacity_as10;
+    uint16_t candidate_capacity_0p1ah;
+    uint16_t valid_learning_count;
+    uint16_t rejected_learning_count;
+    uint8_t candidate_match_count;
+    uint8_t last_learning_reject_reason;
+    uint8_t learning_confidence;
+    int32_t learning_current_offset_ma;
+    uint32_t learning_current_gain_ppm;
+
+    int32_t eta_filtered_current_ma;
+    uint32_t eta_variation_ma;
+    uint32_t eta_peak_current_ma;
+    uint16_t eta_stable_ticks;
+    uint16_t time_to_empty_min;
+    uint16_t time_to_full_min;
+    uint8_t eta_state;
+    uint8_t eta_direction;
+    uint8_t eta_confidence;
+    uint8_t eta_valid;
+
+    uint8_t endpoint_state;
+    uint8_t endpoint_event_flags;
+    uint8_t soh_source;
+    uint8_t soh_confidence;
 } soc_runtime_t;
 
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
@@ -139,6 +184,10 @@ static void soc_recalc_now_capacity(void);
 static void soc_reset_ocv_tracking(void);
 static void soc_profile_refresh(void);
 static void soc_invalidate_sample_interval(void);
+static void soc_learning_abort(void);
+static void soc_learning_persist(void);
+static uint8_t soc_learning_full_quality(void);
+static uint8_t soc_learning_empty_quality(void);
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
@@ -199,6 +248,11 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
 
     if (!bms_config_store_set_soc(config)) return 0u;
     g_soc_config = *config;
+    if (!g_soc_config.capacity_learning_enable &&
+        g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE) {
+        soc_learning_abort();
+        soc_learning_persist();
+    }
     soc_invalidate_sample_interval();
     soc_profile_refresh();
     soc_reset_ocv_tracking();
@@ -300,6 +354,34 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->ocv_cell_mv = g_soc_runtime.ocv_mv;
     diag->rest_seconds = (uint16_t)rest_s;
     diag->learned_capacity_0p1ah = g_soc_runtime.learned_capacity_0p1ah;
+    diag->nominal_capacity_0p1ah = (uint16_t)(SOC_Calculate_Element.u32CapFactory /
+                                               SOC_CAPACITY_UNITS_PER_FACTORY);
+    diag->effective_capacity_0p1ah = (uint16_t)(SOC_Calculate_Element.u32CapFull /
+                                                 SOC_CAPACITY_UNITS_PER_FACTORY);
+    diag->remaining_capacity_0p1ah = (uint16_t)(SOC_Calculate_Element.u32CapNow /
+                                                 SOC_CAPACITY_UNITS_PER_FACTORY);
+    diag->endpoint_state = g_soc_runtime.endpoint_state;
+    diag->endpoint_event_flags = g_soc_runtime.endpoint_event_flags;
+    diag->filtered_current_ma = g_soc_runtime.eta_filtered_current_ma;
+    diag->current_variation_ma = (g_soc_runtime.eta_variation_ma > 65535u) ?
+        65535u : (uint16_t)g_soc_runtime.eta_variation_ma;
+    diag->time_to_empty_min = g_soc_runtime.time_to_empty_min;
+    diag->time_to_full_min = g_soc_runtime.time_to_full_min;
+    diag->eta_state = g_soc_runtime.eta_state;
+    diag->eta_direction = g_soc_runtime.eta_direction;
+    diag->eta_confidence = g_soc_runtime.eta_confidence;
+    diag->eta_valid = g_soc_runtime.eta_valid;
+    diag->soh = SOC_Calculate_Element.soh;
+    diag->soh_source = g_soc_runtime.soh_source;
+    diag->soh_confidence = g_soc_runtime.soh_confidence;
+    diag->capacity_learning_enable = g_soc_config.capacity_learning_enable;
+    diag->capacity_learning_candidate_valid =
+        (g_soc_runtime.candidate_match_count != 0u) ? 1u : 0u;
+    diag->capacity_learning_confidence = g_soc_runtime.learning_confidence;
+    diag->candidate_capacity_0p1ah = g_soc_runtime.candidate_capacity_0p1ah;
+    diag->valid_learning_count = g_soc_runtime.valid_learning_count;
+    diag->rejected_learning_count = g_soc_runtime.rejected_learning_count;
+    diag->last_learning_reject_reason = g_soc_runtime.last_learning_reject_reason;
 }
 
 static uint8_t soc_limit_percent_u32(uint32_t value)
@@ -378,13 +460,20 @@ void set_dispsoc(uint8_t soc)
 static void soc_display_follow_real(void)
 {
     uint8_t real_soc = get_soc_real();
+    uint8_t step_ticks = SOC_DISPLAY_STEP_TICKS;
     if (g_soc_display_soc == real_soc) {
         g_soc_display_step_ticks = 0u;
         return;
     }
 
-    if (g_soc_display_step_ticks < SOC_DISPLAY_STEP_TICKS) g_soc_display_step_ticks++;
-    if (g_soc_display_step_ticks < SOC_DISPLAY_STEP_TICKS) return;
+    if (g_soc_runtime.endpoint_state == BMS_SOC_ENDPOINT_CONFIRMED_FULL)
+        step_ticks = SOC_DISPLAY_CONFIRMED_FULL_TICKS;
+    else if (g_soc_runtime.endpoint_state == BMS_SOC_ENDPOINT_FULL_APPROACH ||
+             g_soc_runtime.endpoint_state == BMS_SOC_ENDPOINT_EMPTY_APPROACH)
+        step_ticks = SOC_DISPLAY_APPROACH_STEP_TICKS;
+
+    if (g_soc_display_step_ticks < step_ticks) g_soc_display_step_ticks++;
+    if (g_soc_display_step_ticks < step_ticks) return;
     g_soc_display_step_ticks = 0u;
 
     if (g_soc_display_soc < real_soc) g_soc_display_soc++;
@@ -415,10 +504,14 @@ static void soc_recalc_full_capacity(void)
         if (soh > 100u) soh = 100u;
         SOC_Calculate_Element.soh = (uint8_t)soh;
         SOC_Calculate_Element.u32CapFull = learned * SOC_CAPACITY_UNITS_PER_FACTORY;
+        g_soc_runtime.soh_source = BMS_SOC_SOH_SOURCE_CAPACITY;
+        g_soc_runtime.soh_confidence = 100u;
     } else {
         SOC_Calculate_Element.soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
         SOC_Calculate_Element.u32CapFull =
             (SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh) / 100u;
+        g_soc_runtime.soh_source = BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE;
+        g_soc_runtime.soh_confidence = 25u;
     }
 
     if (SOC_Calculate_Element.u32CapFull == 0u) SOC_Calculate_Element.u32CapFull = 1u;
@@ -522,6 +615,75 @@ static void soc_learning_abort(void)
     g_soc_runtime.learning_capacity_as10 = 0u;
 }
 
+static uint16_t soc_sat_inc_u16(uint16_t value)
+{
+    return (value == 65535u) ? value : (uint16_t)(value + 1u);
+}
+
+static uint32_t soc_learning_persist_flags(void)
+{
+    uint32_t flags = SOC_KV_FLAG_LEARNING_META |
+        (soc_nominal_capacity_0p1ah() << SOC_KV_FLAG_NOMINAL_SHIFT);
+    if (g_soc_runtime.capacity_learned) flags |= SOC_KV_FLAG_CAPACITY_LEARNED;
+    if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
+        flags |= SOC_KV_FLAG_LEARNING_ACTIVE;
+    return flags;
+}
+
+static void soc_learning_update_confidence(void)
+{
+    uint16_t confidence;
+    if (g_soc_runtime.capacity_learned) {
+        g_soc_runtime.learning_confidence = 100u;
+        return;
+    }
+    confidence = (uint16_t)g_soc_runtime.candidate_match_count *
+        (100u / SOC_LEARNING_CONFIRM_CYCLES);
+    if (confidence > 99u) confidence = 99u;
+    g_soc_runtime.learning_confidence = (uint8_t)confidence;
+}
+
+static void soc_learning_persist(void)
+{
+    (void)soc_kv_store_write_learning_meta(
+        (u32)g_soc_runtime.learned_capacity_0p1ah,
+        soc_learning_persist_flags(),
+        (u32)g_soc_runtime.candidate_capacity_0p1ah,
+        (u32)g_soc_runtime.valid_learning_count,
+        (u32)g_soc_runtime.rejected_learning_count,
+        (u32)g_soc_runtime.last_learning_reject_reason,
+        (u32)g_soc_runtime.candidate_match_count);
+}
+
+static void soc_learning_reject(uint8_t reason)
+{
+    if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
+        g_soc_runtime.rejected_learning_count =
+            soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
+    g_soc_runtime.last_learning_reject_reason = reason;
+    g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LEARNING_REJECTED;
+    soc_learning_abort();
+    soc_learning_update_confidence();
+    soc_learning_persist();
+}
+
+static void soc_learning_start(uint8_t state)
+{
+    bms_user_params_t user;
+    if (!bms_config_get_user(&user)) {
+        g_soc_runtime.last_learning_reject_reason =
+            BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED;
+        soc_learning_abort();
+        soc_learning_persist();
+        return;
+    }
+    g_soc_runtime.learning_state = state;
+    g_soc_runtime.learning_capacity_as10 = 0u;
+    g_soc_runtime.learning_current_offset_ma = user.current_offset_ma;
+    g_soc_runtime.learning_current_gain_ppm = user.current_gain_ppm;
+    soc_learning_persist();
+}
+
 static void soc_learning_add(uint32_t delta)
 {
     if ((0xFFFFFFFFu - g_soc_runtime.learning_capacity_as10) < delta)
@@ -530,25 +692,65 @@ static void soc_learning_add(uint32_t delta)
         g_soc_runtime.learning_capacity_as10 += delta;
 }
 
-static void soc_learning_accept(void)
+static uint8_t soc_learning_accept_candidate(void)
 {
     uint32_t nominal = soc_nominal_capacity_0p1ah();
-    uint32_t learned = (g_soc_runtime.learning_capacity_as10 + 1800u) / 3600u;
+    uint32_t candidate = (g_soc_runtime.learning_capacity_as10 + 1800u) / 3600u;
     uint32_t min_cap = (nominal * SOC_LEARNED_CAP_MIN_PERCENT) / 100u;
     uint32_t max_cap = (nominal * SOC_LEARNED_CAP_MAX_PERCENT) / 100u;
+    uint32_t tolerance;
 
-    if ((nominal == 0u) || (learned < min_cap) || (learned > max_cap) || (learned > BMS_SOC_CAPACITY_MAX_0P1AH)) {
-        soc_learning_abort();
-        return;
+    if ((nominal == 0u) || (candidate < min_cap) || (candidate > max_cap) ||
+        (candidate > BMS_SOC_CAPACITY_MAX_0P1AH)) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CAPACITY_RANGE);
+        return 0u;
     }
 
-    g_soc_runtime.learned_capacity_0p1ah = (uint16_t)learned;
-    g_soc_runtime.capacity_learned = 1u;
-    (void)soc_kv_store_write_learning((u32)g_soc_runtime.learned_capacity_0p1ah,
-                                      SOC_KV_FLAG_CAPACITY_LEARNED | (soc_nominal_capacity_0p1ah() << 16));
-    soc_recalc_full_capacity();
-    soc_recalc_now_capacity();
+    g_soc_runtime.valid_learning_count = soc_sat_inc_u16(g_soc_runtime.valid_learning_count);
+    if (g_soc_runtime.candidate_match_count == 0u) {
+        g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)candidate;
+        g_soc_runtime.candidate_match_count = 1u;
+    } else {
+        tolerance = ((uint32_t)g_soc_runtime.candidate_capacity_0p1ah *
+                     SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT) / 100u;
+        if (tolerance == 0u) tolerance = 1u;
+        if (soc_abs_diff_u16((uint16_t)candidate,
+                             g_soc_runtime.candidate_capacity_0p1ah) > tolerance) {
+            g_soc_runtime.rejected_learning_count =
+                soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
+            g_soc_runtime.last_learning_reject_reason =
+                BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT;
+            g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LEARNING_REJECTED;
+            g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)candidate;
+            g_soc_runtime.candidate_match_count = 1u;
+        } else {
+            uint32_t averaged = ((uint32_t)g_soc_runtime.candidate_capacity_0p1ah +
+                                 candidate + 1u) / 2u;
+            g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)averaged;
+            if (g_soc_runtime.candidate_match_count < 255u)
+                g_soc_runtime.candidate_match_count++;
+        }
+    }
+
+    if (g_soc_runtime.candidate_match_count >= SOC_LEARNING_CONFIRM_CYCLES) {
+        uint32_t base = g_soc_runtime.capacity_learned ?
+            g_soc_runtime.learned_capacity_0p1ah : nominal;
+        uint32_t max_step = (base * SOC_LEARNING_UPDATE_MAX_PERCENT) / 100u;
+        uint32_t target = g_soc_runtime.candidate_capacity_0p1ah;
+        if (max_step == 0u) max_step = 1u;
+        if (target > base + max_step) target = base + max_step;
+        else if (target + max_step < base) target = base - max_step;
+        g_soc_runtime.learned_capacity_0p1ah = (uint16_t)target;
+        g_soc_runtime.capacity_learned = 1u;
+        g_soc_runtime.candidate_match_count = 0u;
+        soc_recalc_full_capacity();
+        soc_recalc_now_capacity();
+    }
+
     soc_learning_abort();
+    soc_learning_update_confidence();
+    soc_learning_persist();
+    return 1u;
 }
 
 static void soc_learning_on_delta(soc_integral_dir_t dir, uint32_t delta)
@@ -557,29 +759,39 @@ static void soc_learning_on_delta(soc_integral_dir_t dir, uint32_t delta)
 
     if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_EMPTY_TO_FULL) {
         if (dir == SOC_INTEGRAL_DIR_CHG) soc_learning_add(delta);
-        else if (dir == SOC_INTEGRAL_DIR_DSG) soc_learning_abort();
+        else if (dir == SOC_INTEGRAL_DIR_DSG)
+            soc_learning_reject(BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
     } else if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_FULL_TO_EMPTY) {
         if (dir == SOC_INTEGRAL_DIR_DSG) soc_learning_add(delta);
-        else if (dir == SOC_INTEGRAL_DIR_CHG) soc_learning_abort();
+        else if (dir == SOC_INTEGRAL_DIR_CHG)
+            soc_learning_reject(BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
     }
 }
 
 static void soc_learning_on_full_anchor(void)
 {
+    uint8_t quality;
     if (!g_soc_config.capacity_learning_enable) return;
-    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_EMPTY_TO_FULL)
-        soc_learning_accept();
-    g_soc_runtime.learning_state = BMS_SOC_LEARNING_FULL_TO_EMPTY;
-    g_soc_runtime.learning_capacity_as10 = 0u;
+    quality = soc_learning_full_quality();
+    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_EMPTY_TO_FULL) {
+        if (quality) (void)soc_learning_accept_candidate();
+        else soc_learning_reject(BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL);
+    }
+    if (quality) soc_learning_start(BMS_SOC_LEARNING_FULL_TO_EMPTY);
+    else soc_learning_abort();
 }
 
 static void soc_learning_on_empty_anchor(void)
 {
+    uint8_t quality;
     if (!g_soc_config.capacity_learning_enable) return;
-    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_FULL_TO_EMPTY)
-        soc_learning_accept();
-    g_soc_runtime.learning_state = BMS_SOC_LEARNING_EMPTY_TO_FULL;
-    g_soc_runtime.learning_capacity_as10 = 0u;
+    quality = soc_learning_empty_quality();
+    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_FULL_TO_EMPTY) {
+        if (quality) (void)soc_learning_accept_candidate();
+        else soc_learning_reject(BMS_SOC_LEARNING_REJECT_LOW_QUALITY_EMPTY);
+    }
+    if (quality) soc_learning_start(BMS_SOC_LEARNING_EMPTY_TO_FULL);
+    else soc_learning_abort();
 }
 
 static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
@@ -695,6 +907,8 @@ static void soc_update_ocv_band(uint16_t cell_mv)
 {
     uint8_t center = soc_estimate_percent_from_cell_mv(cell_mv);
     uint8_t band = g_soc_config.ocv_error_band_percent;
+    if (band < g_soc_profile->ocv_min_error_band_percent)
+        band = g_soc_profile->ocv_min_error_band_percent;
     g_soc_runtime.ocv_mv = cell_mv;
     g_soc_runtime.ocv_center = center;
     g_soc_runtime.ocv_low = (center > band) ? (uint8_t)(center - band) : 0u;
@@ -843,13 +1057,225 @@ static uint16_t soc_uvp_trip_mv(void)
     return uvp;
 }
 
+static uint32_t soc_abs_i32(int32_t value)
+{
+    return (value < 0) ? (0u - (uint32_t)value) : (uint32_t)value;
+}
+
+static uint32_t soc_learning_endpoint_current_max_ma(void)
+{
+    return (soc_nominal_capacity_0p1ah() *
+            g_soc_profile->learning_endpoint_max_c_rate_x1000) / 10u;
+}
+
+static uint8_t soc_learning_common_quality(soc_integral_dir_t required_dir)
+{
+    uint16_t faults = g_stCellInfoReport.unMdlFault_Third.all;
+    if (!g_soc_input_valid || !soc_ocv_sample_valid() ||
+        g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv ||
+        bms_error_get(BMS_ERROR_AFE1) ||
+        bms_features_openwire_active() || bms_features_openwire_suspected() ||
+        (faults & (SOC_LEARNING_TEMP_FAULT_MASK | SOC_LEARNING_CURRENT_FAULT_MASK |
+                   SOC_LEARNING_PACK_FAULT_MASK)) != 0u ||
+        soc_current_direction(0) != required_dir ||
+        soc_abs_i32(g_soc_input_current_ma) > soc_learning_endpoint_current_max_ma())
+        return 0u;
+    return 1u;
+}
+
+static uint8_t soc_learning_full_quality(void)
+{
+    uint16_t full_min = (g_soc_profile->full_sync_mv > g_soc_profile->full_min_margin_mv) ?
+        (uint16_t)(g_soc_profile->full_sync_mv - g_soc_profile->full_min_margin_mv) : 0u;
+    return (soc_learning_common_quality(SOC_INTEGRAL_DIR_CHG) &&
+            VCELLMAX >= g_soc_profile->full_sync_mv && VCELLMIN >= full_min &&
+            g_stCellInfoReport.u16VCellDelta <= g_soc_profile->full_cell_delta_max_mv) ? 1u : 0u;
+}
+
+static uint8_t soc_learning_empty_quality(void)
+{
+    uint16_t empty_limit = (uint16_t)(soc_uvp_trip_mv() +
+                                      g_soc_profile->terminal_l3_offset_mv);
+    return (soc_learning_common_quality(SOC_INTEGRAL_DIR_DSG) &&
+            VCELLMIN <= empty_limit && !soc_discharge_sag_hold_active()) ? 1u : 0u;
+}
+
+static void soc_learning_monitor_quality(void)
+{
+    bms_user_params_t user;
+    uint16_t faults;
+    if (!g_soc_config.capacity_learning_enable ||
+        g_soc_runtime.learning_state == BMS_SOC_LEARNING_NONE) return;
+    if (bms_error_get(BMS_ERROR_AFE1)) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION); return;
+    }
+    if (!bms_config_get_user(&user) ||
+        user.current_offset_ma != g_soc_runtime.learning_current_offset_ma ||
+        user.current_gain_ppm != g_soc_runtime.learning_current_gain_ppm) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED); return;
+    }
+    if (bms_features_openwire_active() || bms_features_openwire_suspected()) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_OPEN_WIRE); return;
+    }
+    if (g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE); return;
+    }
+    faults = g_stCellInfoReport.unMdlFault_Third.all;
+    if ((faults & SOC_LEARNING_TEMP_FAULT_MASK) != 0u) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_TEMPERATURE); return;
+    }
+    if ((faults & (SOC_LEARNING_CURRENT_FAULT_MASK | SOC_LEARNING_PACK_FAULT_MASK)) != 0u)
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_PROTECTION);
+}
+
+static void soc_eta_reset(void)
+{
+    g_soc_runtime.eta_filtered_current_ma = 0;
+    g_soc_runtime.eta_variation_ma = 0u;
+    g_soc_runtime.eta_peak_current_ma = 0u;
+    g_soc_runtime.eta_stable_ticks = 0u;
+    g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
+    g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
+    g_soc_runtime.eta_state = BMS_SOC_ETA_INVALID;
+    g_soc_runtime.eta_direction = BMS_SOC_ETA_DIR_NONE;
+    g_soc_runtime.eta_confidence = 0u;
+    g_soc_runtime.eta_valid = 0u;
+}
+
+static int32_t soc_eta_filter_step(int32_t filtered, int32_t sample)
+{
+    if (sample > filtered) {
+        uint32_t difference = (uint32_t)sample - (uint32_t)filtered;
+        return filtered + (int32_t)(difference >> SOC_ETA_FILTER_SHIFT);
+    }
+    if (sample < filtered) {
+        uint32_t difference = (uint32_t)filtered - (uint32_t)sample;
+        return filtered - (int32_t)(difference >> SOC_ETA_FILTER_SHIFT);
+    }
+    return filtered;
+}
+
+static uint16_t soc_eta_minutes(uint32_t capacity_as10, uint32_t current_ma)
+{
+    uint32_t numerator;
+    uint32_t denominator;
+    uint32_t remainder;
+    uint32_t minutes;
+    if (current_ma == 0u) return BMS_SOC_ETA_MINUTES_INVALID;
+    /* minutes = capacity_as10 * 100 / current_ma / 60.  Reduce to 5/3
+     * before multiplying so the maximum supported capacity stays within
+     * 32 bits and no TC32 64-bit runtime helper is introduced. */
+    if (capacity_as10 > (0xFFFFFFFFu / 5u))
+        return BMS_SOC_ETA_MINUTES_INVALID - 1u;
+    if (current_ma > (0xFFFFFFFFu / 3u)) return 0u;
+    numerator = capacity_as10 * 5u;
+    denominator = current_ma * 3u;
+    minutes = numerator / denominator;
+    remainder = numerator % denominator;
+    if (remainder >= ((denominator / 2u) + (denominator & 1u))) minutes++;
+    if (minutes >= BMS_SOC_ETA_MINUTES_INVALID) minutes = BMS_SOC_ETA_MINUTES_INVALID - 1u;
+    return (uint16_t)minutes;
+}
+
+static void soc_eta_update(void)
+{
+    soc_integral_dir_t dir = soc_current_direction(0);
+    uint8_t eta_dir;
+    uint32_t magnitude;
+    uint32_t deviation;
+    uint32_t variation_limit;
+    uint32_t confidence_drop;
+
+    if (dir == SOC_INTEGRAL_DIR_NONE) {
+        soc_eta_reset(); return;
+    }
+    eta_dir = (dir == SOC_INTEGRAL_DIR_CHG) ? BMS_SOC_ETA_DIR_CHARGE :
+        BMS_SOC_ETA_DIR_DISCHARGE;
+    if (g_soc_runtime.eta_direction != eta_dir) {
+        soc_eta_reset();
+        g_soc_runtime.eta_direction = eta_dir;
+        g_soc_runtime.eta_filtered_current_ma = g_soc_input_current_ma;
+        g_soc_runtime.eta_peak_current_ma = soc_abs_i32(g_soc_input_current_ma);
+        g_soc_runtime.eta_stable_ticks = 1u;
+        g_soc_runtime.eta_state = BMS_SOC_ETA_STABILIZING;
+        return;
+    }
+
+    g_soc_runtime.eta_filtered_current_ma =
+        soc_eta_filter_step(g_soc_runtime.eta_filtered_current_ma, g_soc_input_current_ma);
+    deviation = (g_soc_input_current_ma >= g_soc_runtime.eta_filtered_current_ma) ?
+        ((uint32_t)g_soc_input_current_ma -
+         (uint32_t)g_soc_runtime.eta_filtered_current_ma) :
+        ((uint32_t)g_soc_runtime.eta_filtered_current_ma -
+         (uint32_t)g_soc_input_current_ma);
+    if (deviation > g_soc_runtime.eta_variation_ma)
+        g_soc_runtime.eta_variation_ma +=
+            (deviation - g_soc_runtime.eta_variation_ma) >> SOC_ETA_FILTER_SHIFT;
+    else
+        g_soc_runtime.eta_variation_ma -=
+            (g_soc_runtime.eta_variation_ma - deviation) >> SOC_ETA_FILTER_SHIFT;
+    magnitude = soc_abs_i32(g_soc_runtime.eta_filtered_current_ma);
+    if (magnitude > g_soc_runtime.eta_peak_current_ma)
+        g_soc_runtime.eta_peak_current_ma = magnitude;
+    if (g_soc_runtime.eta_stable_ticks < 65535u) g_soc_runtime.eta_stable_ticks++;
+    if (g_soc_runtime.eta_stable_ticks < SOC_ETA_STABLE_TICKS) {
+        g_soc_runtime.eta_state = BMS_SOC_ETA_STABILIZING; return;
+    }
+
+    variation_limit = (magnitude * SOC_ETA_VARIATION_PERCENT) / 100u;
+    if (variation_limit < SOC_ETA_VARIATION_MIN_MA)
+        variation_limit = SOC_ETA_VARIATION_MIN_MA;
+    if (magnitude <= BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        magnitude <= g_soc_config.current_deadband_ma ||
+        g_soc_runtime.eta_variation_ma > variation_limit ||
+        g_soc_runtime.endpoint_state != BMS_SOC_ENDPOINT_NORMAL) {
+        g_soc_runtime.eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
+        g_soc_runtime.eta_valid = 0u;
+        g_soc_runtime.eta_confidence = 20u;
+        g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
+        g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
+        return;
+    }
+
+    if (eta_dir == BMS_SOC_ETA_DIR_CHARGE &&
+        VCELLMAX + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv &&
+        g_soc_runtime.eta_peak_current_ma > 0u &&
+        magnitude < (g_soc_runtime.eta_peak_current_ma / 100u) * SOC_ETA_TAPER_PERCENT) {
+        g_soc_runtime.eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
+        g_soc_runtime.eta_valid = 0u;
+        g_soc_runtime.eta_confidence = 10u;
+        g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
+        g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
+        return;
+    }
+
+    confidence_drop = (magnitude < 100u) ? 100u :
+        g_soc_runtime.eta_variation_ma / (magnitude / 100u);
+    if (confidence_drop > 80u) confidence_drop = 80u;
+    g_soc_runtime.eta_confidence = (uint8_t)(100u - confidence_drop);
+    g_soc_runtime.eta_state = BMS_SOC_ETA_VALID;
+    g_soc_runtime.eta_valid = 1u;
+    g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
+    g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
+    if (eta_dir == BMS_SOC_ETA_DIR_DISCHARGE)
+        g_soc_runtime.time_to_empty_min =
+            soc_eta_minutes(SOC_Calculate_Element.u32CapNow, magnitude);
+    else
+        g_soc_runtime.time_to_full_min =
+            soc_eta_minutes(SOC_Calculate_Element.u32CapFull -
+                            SOC_Calculate_Element.u32CapNow, magnitude);
+}
+
 static uint8_t soc_terminal_lookup(uint8_t *target_soc, uint8_t *sag_hold_blocks)
 {
     uint16_t uvp = soc_uvp_trip_mv();
     if ((target_soc == 0) || (sag_hold_blocks == 0) || (VCELLMAX < VCELLMIN)) return 0u;
 
     if (VCELLMIN <= uvp) {
-        *target_soc = 0u; *sag_hold_blocks = 0u; return 1u;
+        /* Raw voltage at/below UVP is not itself the protection decision.
+         * A high-current sag remains held here; the independently filtered
+         * Third Cell UVP path above still forces the final safety anchor. */
+        *target_soc = 0u; *sag_hold_blocks = 1u; return 1u;
     }
     if (VCELLMIN <= (uint16_t)(uvp + g_soc_profile->terminal_l3_offset_mv)) {
         *target_soc = 1u; *sag_hold_blocks = 0u; return 1u;
@@ -884,6 +1310,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
         g_soc_runtime.dsg_empty_lock_ticks = 0u;
         return 0u;
     }
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_EMPTY_APPROACH;
     if (sag_hold_blocks && soc_discharge_sag_hold_active()) {
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
         return 0u;
@@ -906,6 +1333,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
                 g_soc_runtime.empty_anchor_latched = 1u;
                 soc_learning_on_empty_anchor();
             }
+            g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
             return 1u;
         }
         return 0u;
@@ -927,7 +1355,8 @@ static uint8_t soc_apply_full_anchor(void)
     uint16_t full_mv = g_soc_profile->full_sync_mv;
     uint16_t full_min = (full_mv > g_soc_profile->full_min_margin_mv) ?
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
-    uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG();
+    uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) &&
+        (g_stCellInfoReport.u16VCellDelta <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
 
     if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp) {
         if (get_soc_real() != SOC_PERCENT_MAX) {
@@ -939,6 +1368,7 @@ static uint8_t soc_apply_full_anchor(void)
             g_soc_runtime.empty_anchor_latched = 0u;
             soc_learning_on_full_anchor();
         }
+        g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
         return 1u;
     }
 
@@ -949,6 +1379,8 @@ static uint8_t soc_apply_full_anchor(void)
         return 0u;
     }
 
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_FULL_APPROACH;
+
     if (g_soc_runtime.full_lock_ticks < SOC_FULL_LOCK_TICKS) g_soc_runtime.full_lock_ticks++;
     if (g_soc_runtime.full_lock_ticks < SOC_FULL_LOCK_TICKS) return 0u;
 
@@ -958,6 +1390,7 @@ static uint8_t soc_apply_full_anchor(void)
             g_soc_runtime.empty_anchor_latched = 0u;
             soc_learning_on_full_anchor();
         }
+        g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
         return 0u;
     }
 
@@ -971,6 +1404,8 @@ static uint8_t soc_apply_full_anchor(void)
             g_soc_runtime.empty_anchor_latched = 0u;
             soc_learning_on_full_anchor();
         }
+        if (get_soc_real() == SOC_PERCENT_MAX)
+            g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
         return 1u;
     }
     return 0u;
@@ -978,7 +1413,15 @@ static uint8_t soc_apply_full_anchor(void)
 
 static uint8_t soc_apply_forced_empty_anchor(void)
 {
+    uint8_t before;
     if (!g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp) return 0u;
+    before = get_soc_real();
+    if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
+    if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
+    if (soc_discharge_sag_hold_active())
+        g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LARGE_SAG;
+    if (g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv)
+        g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_IMBALANCE;
     if (get_soc_real() != 0u) {
         soc_apply_real_value(0u, 1u);
         soc_reset_integral_accumulator();
@@ -988,6 +1431,7 @@ static uint8_t soc_apply_forced_empty_anchor(void)
         g_soc_runtime.full_anchor_latched = 0u;
         soc_learning_on_empty_anchor();
     }
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
     return 1u;
 }
 
@@ -1002,6 +1446,8 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         return 0u;
     }
 
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_EMPTY_APPROACH;
+
     if (g_soc_runtime.empty_lock_ticks < SOC_EMPTY_LOCK_TICKS) g_soc_runtime.empty_lock_ticks++;
     if (g_soc_runtime.empty_lock_ticks < SOC_EMPTY_LOCK_TICKS) return 0u;
     if (get_soc_real() == 0u) {
@@ -1010,6 +1456,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
             g_soc_runtime.full_anchor_latched = 0u;
             soc_learning_on_empty_anchor();
         }
+        g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
         return 0u;
     }
 
@@ -1023,6 +1470,8 @@ static uint8_t soc_apply_idle_empty_anchor(void)
             g_soc_runtime.full_anchor_latched = 0u;
             soc_learning_on_empty_anchor();
         }
+        if (get_soc_real() == 0u)
+            g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
         return 1u;
     }
     return 0u;
@@ -1111,13 +1560,21 @@ static void soc_update_low_faults(void)
 static void soc_strategy_update(void)
 {
     soc_profile_refresh();
+    /* Keep CONFIRMED_FULL active long enough for display SOC to finish its
+     * soft landing even if charge current disappears immediately afterward. */
+    g_soc_runtime.endpoint_state =
+        (g_soc_runtime.full_anchor_latched && get_soc_real() == SOC_PERCENT_MAX &&
+         get_soc_display() < SOC_PERCENT_MAX) ?
+        BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_NORMAL;
     soc_update_discharge_sag_hold();
 
-    if (soc_apply_full_anchor()) return;
-    if (soc_apply_forced_empty_anchor()) return;
-    if (soc_apply_discharge_terminal_tracking()) return;
-    if (soc_apply_idle_empty_anchor()) return;
+    if (soc_apply_full_anchor()) { soc_eta_update(); return; }
+    if (soc_apply_forced_empty_anchor()) { soc_eta_update(); return; }
+    soc_learning_monitor_quality();
+    if (soc_apply_discharge_terminal_tracking()) { soc_eta_update(); return; }
+    if (soc_apply_idle_empty_anchor()) { soc_eta_update(); return; }
     (void)soc_idle_ocv_tracking();
+    soc_eta_update();
 }
 
 void set_calsoc(uint8_t soc)
@@ -1141,6 +1598,7 @@ void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
 void soc_param_lib_init(const soc_kv_data_t *soc)
 {
     soc_kv_data_t defaults;
+    uint8_t learning_meta_changed = 0u;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
     soc_invalidate_sample_interval();
     soc_load_persisted_product_config();
@@ -1154,11 +1612,30 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
     SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
     SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
     SOC_Calculate_Element.u32CapFull_Cal_As = 0u;
-    if ((soc->flags & SOC_KV_FLAG_CAPACITY_LEARNED) &&
-        (soc->flags >> 16) == soc_nominal_capacity_0p1ah() && soc->learned_capacity_0p1ah != 0u) {
-        g_soc_runtime.capacity_learned = 1u;
-        g_soc_runtime.learned_capacity_0p1ah =
-            (soc->learned_capacity_0p1ah > 65535u) ? 65535u : (uint16_t)soc->learned_capacity_0p1ah;
+    if ((soc->flags >> SOC_KV_FLAG_NOMINAL_SHIFT) == soc_nominal_capacity_0p1ah()) {
+        if ((soc->flags & SOC_KV_FLAG_CAPACITY_LEARNED) &&
+            soc->learned_capacity_0p1ah != 0u) {
+            g_soc_runtime.capacity_learned = 1u;
+            g_soc_runtime.learned_capacity_0p1ah =
+                (soc->learned_capacity_0p1ah > 65535u) ?
+                65535u : (uint16_t)soc->learned_capacity_0p1ah;
+        }
+        if (soc->flags & SOC_KV_FLAG_LEARNING_META) {
+            g_soc_runtime.candidate_capacity_0p1ah =
+                (uint16_t)soc->candidate_capacity_0p1ah;
+            g_soc_runtime.valid_learning_count = (uint16_t)soc->valid_learning_count;
+            g_soc_runtime.rejected_learning_count = (uint16_t)soc->rejected_learning_count;
+            g_soc_runtime.last_learning_reject_reason =
+                (uint8_t)soc->last_learning_reject_reason;
+            g_soc_runtime.candidate_match_count = (uint8_t)soc->candidate_match_count;
+        }
+        if (soc->flags & SOC_KV_FLAG_LEARNING_ACTIVE) {
+            g_soc_runtime.rejected_learning_count =
+                soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
+            g_soc_runtime.last_learning_reject_reason =
+                BMS_SOC_LEARNING_REJECT_REBOOT;
+            learning_meta_changed = 1u;
+        }
     }
 
     SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(soc->soc);
@@ -1167,7 +1644,11 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
     set_dispsoc(get_soc_real());
     soc_reset_integral_accumulator();
     soc_reset_ocv_tracking();
+    soc_eta_reset();
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
+    soc_learning_update_confidence();
     g_soc_initialized = 1u;
+    if (learning_meta_changed) soc_learning_persist();
     SOC_Result_Pass();
 }
 
@@ -1252,6 +1733,8 @@ static void soc_invalidate_sample_interval(void)
     g_soc_runtime.empty_anchor_latched = 0u;
     g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
     g_soc_runtime.dsg_empty_lock_ticks = 0u;
+    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
+    soc_eta_reset();
     g_soc_display_step_ticks = 0u;
     memset(g_soc_runtime.soc_low_trip_count, 0, sizeof(g_soc_runtime.soc_low_trip_count));
     memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
@@ -1267,6 +1750,9 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
 
     if (!g_soc_initialized || !valid)
     {
+        if (g_soc_initialized && !valid &&
+            g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
+            soc_learning_reject(BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
         soc_invalidate_sample_interval();
         return;
     }
@@ -1283,6 +1769,8 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
     g_soc_sample_tick_32k = sample_tick_32k;
     if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
     {
+        if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
+            soc_learning_reject(BMS_SOC_LEARNING_REJECT_SAMPLE_GAP);
         soc_invalidate_sample_interval();
         /* Current frame starts a new interval; never fill a blind gap. */
         g_soc_sample_tick_32k = sample_tick_32k;
@@ -1311,6 +1799,7 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
         g_soc_runtime.empty_adjust_ticks = 0u;
         g_soc_runtime.dsg_empty_lock_ticks = 0u;
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+        soc_eta_reset();
         g_soc_strategy_pending_32k = 0u;
         g_soc_interval_32k = 0u;
         return;
@@ -1334,7 +1823,14 @@ void bms_soc_nominal_capacity_changed(void)
 {
     g_soc_runtime.capacity_learned = 0u;
     g_soc_runtime.learned_capacity_0p1ah = 0u;
-    (void)soc_kv_store_write_learning(0u, 0u);
+    g_soc_runtime.candidate_capacity_0p1ah = 0u;
+    g_soc_runtime.candidate_match_count = 0u;
+    g_soc_runtime.valid_learning_count = 0u;
+    g_soc_runtime.rejected_learning_count = 0u;
+    g_soc_runtime.last_learning_reject_reason = BMS_SOC_LEARNING_REJECT_NONE;
+    g_soc_runtime.learning_confidence = 0u;
+    soc_learning_abort();
+    (void)soc_kv_store_write_learning_meta(0u, 0u, 0u, 0u, 0u, 0u, 0u);
     soc_recalc_full_capacity();
     set_soc_param(get_soc_real(), 0u, 1u);
     SOC_Result_Pass();

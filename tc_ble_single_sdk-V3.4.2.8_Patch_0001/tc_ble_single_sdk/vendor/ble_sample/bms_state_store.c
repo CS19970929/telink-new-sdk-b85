@@ -9,8 +9,8 @@
 #include <string.h>
 
 #define BMS_STATE_RECORD_MAGIC        0x53544131u /* STA1 */
-#define BMS_STATE_SCHEMA_VERSION      2u
-#define BMS_STATE_PAYLOAD_WORDS       8u
+#define BMS_STATE_SCHEMA_VERSION      3u
+#define BMS_STATE_PAYLOAD_WORDS       13u
 #define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u)
 
 typedef struct {
@@ -22,6 +22,11 @@ typedef struct {
     u32 runtime_min;
     u32 soc_revision;
     u32 runtime_revision;
+    u32 candidate_capacity_0p1ah;
+    u32 valid_learning_count;
+    u32 rejected_learning_count;
+    u32 last_learning_reject_reason;
+    u32 candidate_match_count;
 } bms_state_persist_t;
 
 static storage_record_store_t g_bms_state_store;
@@ -54,6 +59,11 @@ bms_state_store_data_t bms_state_store_get_default_data(void)
     data.cycle = BMS_STATE_DEFAULT_CYCLE;
     data.learned_capacity_0p1ah = BMS_STATE_DEFAULT_LEARNED_CAPACITY;
     data.flags = BMS_STATE_DEFAULT_FLAGS;
+    data.candidate_capacity_0p1ah = 0u;
+    data.valid_learning_count = 0u;
+    data.rejected_learning_count = 0u;
+    data.last_learning_reject_reason = 0u;
+    data.candidate_match_count = 0u;
     return data;
 }
 
@@ -68,6 +78,11 @@ static void bms_state_defaults(bms_state_persist_t *state)
     state->runtime_min = 0u;
     state->soc_revision = FW_UPGRADE_RESET_SOC_EPOCH;
     state->runtime_revision = FW_UPGRADE_RESET_RUNTIME_EPOCH;
+    state->candidate_capacity_0p1ah = soc.candidate_capacity_0p1ah;
+    state->valid_learning_count = soc.valid_learning_count;
+    state->rejected_learning_count = soc.rejected_learning_count;
+    state->last_learning_reject_reason = soc.last_learning_reject_reason;
+    state->candidate_match_count = soc.candidate_match_count;
 }
 
 static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
@@ -80,6 +95,11 @@ static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
     bms_state_put_u32le(&payload[20], state->runtime_min);
     bms_state_put_u32le(&payload[24], state->soc_revision);
     bms_state_put_u32le(&payload[28], state->runtime_revision);
+    bms_state_put_u32le(&payload[32], state->candidate_capacity_0p1ah);
+    bms_state_put_u32le(&payload[36], state->valid_learning_count);
+    bms_state_put_u32le(&payload[40], state->rejected_learning_count);
+    bms_state_put_u32le(&payload[44], state->last_learning_reject_reason);
+    bms_state_put_u32le(&payload[48], state->candidate_match_count);
 }
 
 static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
@@ -92,6 +112,11 @@ static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
     state->runtime_min = bms_state_get_u32le(&payload[20]);
     state->soc_revision = bms_state_get_u32le(&payload[24]);
     state->runtime_revision = bms_state_get_u32le(&payload[28]);
+    state->candidate_capacity_0p1ah = bms_state_get_u32le(&payload[32]);
+    state->valid_learning_count = bms_state_get_u32le(&payload[36]);
+    state->rejected_learning_count = bms_state_get_u32le(&payload[40]);
+    state->last_learning_reject_reason = bms_state_get_u32le(&payload[44]);
+    state->candidate_match_count = bms_state_get_u32le(&payload[48]);
 }
 
 static int bms_state_save(const bms_state_persist_t *next)
@@ -140,14 +165,29 @@ int bms_state_store_init(void)
         next.soc = defaults.soc; next.dsg = defaults.dsg; next.cycle = defaults.cycle;
         next.learned_capacity_0p1ah = defaults.learned_capacity_0p1ah;
         next.flags = defaults.flags;
+        next.candidate_capacity_0p1ah = defaults.candidate_capacity_0p1ah;
+        next.valid_learning_count = defaults.valid_learning_count;
+        next.rejected_learning_count = defaults.rejected_learning_count;
+        next.last_learning_reject_reason = defaults.last_learning_reject_reason;
+        next.candidate_match_count = defaults.candidate_match_count;
         next.soc_revision = FW_UPGRADE_RESET_SOC_EPOCH;
     }
     if (next.runtime_revision != FW_UPGRADE_RESET_RUNTIME_EPOCH) {
         next.runtime_min = 0u;
         next.runtime_revision = FW_UPGRADE_RESET_RUNTIME_EPOCH;
     }
-    if (next.soc > 100u || next.dsg > 100u || next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        (next.flags & ~BMS_STATE_FLAG_CAPACITY_LEARNED) != 0u) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid; }
+    if (next.soc > 100u || next.dsg > 100u ||
+        next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
+        next.candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
+        (next.flags & ~(BMS_STATE_FLAG_LOW_MASK | BMS_STATE_FLAG_NOMINAL_MASK)) != 0u ||
+        (next.flags & BMS_STATE_FLAG_LOW_MASK &
+         ~(BMS_STATE_FLAG_CAPACITY_LEARNED | BMS_STATE_FLAG_LEARNING_META |
+           BMS_STATE_FLAG_LEARNING_ACTIVE)) != 0u ||
+        (next.flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) > BMS_SOC_CAPACITY_MAX_0P1AH ||
+        next.valid_learning_count > 65535u || next.rejected_learning_count > 65535u ||
+        next.last_learning_reject_reason > 255u || next.candidate_match_count > 255u) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
+    }
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
     g_bms_state_pending = g_bms_state;
     g_bms_state_last_attempt_32k = pm_get_32k_tick();
@@ -172,6 +212,11 @@ bms_state_store_data_t bms_state_store_get(void)
     data.cycle = g_bms_state.cycle;
     data.learned_capacity_0p1ah = g_bms_state.learned_capacity_0p1ah;
     data.flags = g_bms_state.flags;
+    data.candidate_capacity_0p1ah = g_bms_state.candidate_capacity_0p1ah;
+    data.valid_learning_count = g_bms_state.valid_learning_count;
+    data.rejected_learning_count = g_bms_state.rejected_learning_count;
+    data.last_learning_reject_reason = g_bms_state.last_learning_reject_reason;
+    data.candidate_match_count = g_bms_state.candidate_match_count;
     return data;
 }
 
@@ -194,6 +239,32 @@ int bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags)
     next.flags = flags;
     g_bms_state_pending = next;
     /* Queued checkpoint; the main loop persists it, shutdown flush includes it. */
+    return 1;
+}
+
+int bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
+                                        u32 candidate_capacity_0p1ah,
+                                        u32 valid_learning_count,
+                                        u32 rejected_learning_count,
+                                        u32 last_learning_reject_reason,
+                                        u32 candidate_match_count)
+{
+    bms_state_persist_t next;
+    if (!bms_state_store_init()) return 0;
+    if (learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
+        candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
+        valid_learning_count > 65535u || rejected_learning_count > 65535u ||
+        last_learning_reject_reason > 255u || candidate_match_count > 255u)
+        return 0;
+    next = g_bms_state_pending;
+    next.learned_capacity_0p1ah = learned_capacity_0p1ah;
+    next.flags = flags;
+    next.candidate_capacity_0p1ah = candidate_capacity_0p1ah;
+    next.valid_learning_count = valid_learning_count;
+    next.rejected_learning_count = rejected_learning_count;
+    next.last_learning_reject_reason = last_learning_reject_reason;
+    next.candidate_match_count = candidate_match_count;
+    g_bms_state_pending = next;
     return 1;
 }
 

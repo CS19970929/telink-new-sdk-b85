@@ -28,8 +28,49 @@
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME)
 
-#define BMS_DIAG_RUNTIME_VERSION 1u
+#define BMS_DIAG_RUNTIME_VERSION 2u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
+typedef struct {
+    uint8_t chemistry;
+    uint8_t profile_id;
+    uint16_t profile_version;
+    uint8_t soc_estimate;
+    uint8_t soc_display;
+    uint16_t current_deadband_ma;
+    uint8_t ocv_state;
+    uint8_t ocv_center;
+    uint8_t ocv_low;
+    uint8_t ocv_high;
+    uint8_t ocv_confidence;
+    uint8_t capacity_learned;
+    uint8_t learning_state;
+    uint16_t ocv_cell_mv;
+    uint16_t rest_seconds;
+    uint16_t learned_capacity_0p1ah;
+    uint16_t nominal_capacity_0p1ah;
+    uint16_t effective_capacity_0p1ah;
+    uint16_t remaining_capacity_0p1ah;
+    uint8_t endpoint_state;
+    uint8_t endpoint_event_flags;
+    int32_t filtered_current_ma;
+    uint16_t current_variation_ma;
+    uint16_t time_to_empty_min;
+    uint16_t time_to_full_min;
+    uint8_t eta_state;
+    uint8_t eta_direction;
+    uint8_t eta_confidence;
+    uint8_t eta_valid;
+    uint8_t soh;
+    uint8_t soh_source;
+    uint8_t soh_confidence;
+    uint8_t capacity_learning_enable;
+    uint8_t capacity_learning_candidate_valid;
+    uint8_t capacity_learning_confidence;
+    uint16_t candidate_capacity_0p1ah;
+    uint16_t valid_learning_count;
+    uint16_t rejected_learning_count;
+    uint8_t last_learning_reject_reason;
+} bms_soc_diag_t;
 enum { DIAG_NOT_RUN=0, DIAG_OK=1, DIAG_PORT=2, DIAG_LAYOUT=3,
     DIAG_REGION=4, DIAG_OPEN=5, DIAG_DEFAULTS=6, DIAG_SAVE=7,
     DIAG_PROGRAM_VERIFY=8, DIAG_ERASE_VERIFY=9, DIAG_OTA=10,
@@ -89,6 +130,7 @@ void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
                           uint8_t learning_state, uint8_t capacity_learned,
                           uint16_t learned_capacity_0p1ah,
                           uint16_t current_deadband_ma);
+void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc);
 void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t low_voltage_region, uint32_t low_voltage_seconds,
                          uint8_t ble_connected, uint8_t sample_pending,

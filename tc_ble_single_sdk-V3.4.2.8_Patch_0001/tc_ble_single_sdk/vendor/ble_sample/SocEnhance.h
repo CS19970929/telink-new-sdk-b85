@@ -4,6 +4,7 @@
 #include "conf.h"
 #include "soc_kv_store.h"
 #include "bms_soc_defs.h"
+#include "bms_diag.h"
 
 #define BMS_SOC_OCV_WAIT_CURRENT   0u
 #define BMS_SOC_OCV_PREPARE        1u
@@ -13,6 +14,40 @@
 #define BMS_SOC_LEARNING_NONE          0u
 #define BMS_SOC_LEARNING_EMPTY_TO_FULL 1u
 #define BMS_SOC_LEARNING_FULL_TO_EMPTY 2u
+
+#define BMS_SOC_ENDPOINT_NORMAL          0u
+#define BMS_SOC_ENDPOINT_FULL_APPROACH   1u
+#define BMS_SOC_ENDPOINT_CONFIRMED_FULL  2u
+#define BMS_SOC_ENDPOINT_EMPTY_APPROACH  3u
+#define BMS_SOC_ENDPOINT_CONFIRMED_EMPTY 4u
+
+#define BMS_SOC_ETA_INVALID        0u
+#define BMS_SOC_ETA_STABILIZING    1u
+#define BMS_SOC_ETA_VALID          2u
+#define BMS_SOC_ETA_LOW_CONFIDENCE 3u
+#define BMS_SOC_ETA_DIR_NONE       0u
+#define BMS_SOC_ETA_DIR_CHARGE     1u
+#define BMS_SOC_ETA_DIR_DISCHARGE  2u
+#define BMS_SOC_ETA_MINUTES_INVALID 0xFFFFu
+
+#define BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE 1u
+#define BMS_SOC_SOH_SOURCE_CAPACITY       2u
+
+#define BMS_SOC_LEARNING_REJECT_NONE                   0u
+#define BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE         1u
+#define BMS_SOC_LEARNING_REJECT_SAMPLE_GAP             2u
+#define BMS_SOC_LEARNING_REJECT_REBOOT                  3u
+#define BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE       4u
+#define BMS_SOC_LEARNING_REJECT_OPEN_WIRE               5u
+#define BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE          6u
+#define BMS_SOC_LEARNING_REJECT_TEMPERATURE              7u
+#define BMS_SOC_LEARNING_REJECT_PROTECTION               8u
+#define BMS_SOC_LEARNING_REJECT_LOW_QUALITY_EMPTY        9u
+#define BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL        10u
+#define BMS_SOC_LEARNING_REJECT_CAPACITY_RANGE          11u
+#define BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT  12u
+#define BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION       13u
+#define BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED     14u
 
 typedef struct
 {
@@ -24,26 +59,6 @@ typedef struct
     uint8_t capacity_learning_enable;   /* default disabled */
     uint8_t hide_capacity_until_learned;/* active only when learning is enabled */
 } bms_soc_config_t;
-
-typedef struct
-{
-    uint8_t chemistry;
-    uint8_t profile_id;
-    uint16_t profile_version;
-    uint8_t soc_estimate;
-    uint8_t soc_display;
-    uint16_t current_deadband_ma;
-    uint8_t ocv_state;
-    uint8_t ocv_center;
-    uint8_t ocv_low;
-    uint8_t ocv_high;
-    uint8_t ocv_confidence;
-    uint8_t capacity_learned;
-    uint8_t learning_state;
-    uint16_t ocv_cell_mv;
-    uint16_t rest_seconds;
-    uint16_t learned_capacity_0p1ah;
-} bms_soc_diag_t;
 
 struct SOC_CALCULATE_ELEMENT
 {
