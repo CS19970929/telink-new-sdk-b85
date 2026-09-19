@@ -354,8 +354,10 @@ uint8_t sh3673510_control_init(void)
     sh3510_gpio_input(D011_AFE_ALARM_PIN);
     sh3510_gpio_input(D011_INT_WK_MCU_PIN);
 
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
     sh3510_gpio_output_low(D011_HEATER_CHG_PIN);
     sh3673510_board_force_heater_fuse_safe();
+#endif
 
     /* Active-high board wake and active-low AFE alarm/reset pulses. */
     cpu_set_gpio_wakeup(D011_INT_WK_MCU_PIN, Level_High, 1);
@@ -456,17 +458,23 @@ uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
 
 void sh3673510_board_force_heater_fuse_safe(void)
 {
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
     gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
     gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
     gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
     gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
+#endif
 }
 
 void sh3673510_board_set_heater(uint8_t enabled)
 {
-    /* PB4 is the reversible heater command. PB5 is NOT a heater enable. */
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    /* Physical D013 heater wiring must be verified before enabling this path. */
     sh3673510_board_force_heater_fuse_safe();
     gpio_write(D011_HEATER_CHG_PIN, enabled ? 1u : 0u);
+#else
+    (void)enabled;
+#endif
 }
 
 uint8_t sh3673510_board_wake_active(void)
