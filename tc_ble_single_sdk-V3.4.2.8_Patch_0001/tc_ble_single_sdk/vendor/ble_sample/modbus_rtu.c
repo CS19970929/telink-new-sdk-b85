@@ -7,6 +7,7 @@
 #include "bms_state.h"
 #include "bms_sw_protection.h"
 #include "bms_afe_hw_profile.h"
+#include "bms_config_store.h"
 #include "bms_afe_hw_access.h"
 #include "bms_afe_hw_modbus.h"
 #include "param.h"
@@ -36,6 +37,11 @@
 
 #define BMS_AFE_ACTUAL_REG_BASE  0x2180u
 #define BMS_AFE_ACTUAL_REG_COUNT 11u
+
+#define BMS_FEATURE_HEATER_REG_BASE  0x2E20u
+#define BMS_FEATURE_HEATER_REG_COUNT 3u
+#define BMS_FEATURE_BAL_REG_BASE     0x2E70u
+#define BMS_FEATURE_BAL_REG_COUNT    4u
 
 
 
@@ -436,6 +442,27 @@ static u16 read_reg(u16 reg)
     if (reg >= 0x2100u && reg <= 0x2140u)
         return *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100u));
 
+    if (reg >= BMS_FEATURE_HEATER_REG_BASE &&
+        reg < (BMS_FEATURE_HEATER_REG_BASE + BMS_FEATURE_HEATER_REG_COUNT))
+    {
+        bms_feature_params_t feature;
+        if (!bms_config_get_features(&feature)) return 0xFFFFu;
+        if (reg == 0x2E20u) return feature.heater_enable;
+        if (reg == 0x2E21u) return feature.heater_start_x10;
+        return feature.heater_stop_x10;
+    }
+
+    if (reg >= BMS_FEATURE_BAL_REG_BASE &&
+        reg < (BMS_FEATURE_BAL_REG_BASE + BMS_FEATURE_BAL_REG_COUNT))
+    {
+        bms_feature_params_t feature;
+        if (!bms_config_get_features(&feature)) return 0xFFFFu;
+        if (reg == 0x2E70u) return feature.balance_enable;
+        if (reg == 0x2E71u) return feature.balance_start_mv;
+        if (reg == 0x2E72u) return feature.balance_start_delta_mv;
+        return feature.balance_stop_delta_mv;
+    }
+
     if (reg >= 0xD100u && reg <= 0xD114u)
     {
         if (reg <= 0xD108u) return read_fault_history_reg(reg);
@@ -479,6 +506,14 @@ static u8 write_reg(u16 reg, u16 val)
         *(&g_tParam.protect.u16VcellOvp_First + (reg - 0x2100u)) = val;
         return 0u;
     }
+
+    /* Heater and balance settings are cross-field safety records. Reject
+     * single-register writes; function 0x10 must update each record atomically. */
+    if ((reg >= BMS_FEATURE_HEATER_REG_BASE &&
+         reg < (BMS_FEATURE_HEATER_REG_BASE + BMS_FEATURE_HEATER_REG_COUNT)) ||
+        (reg >= BMS_FEATURE_BAL_REG_BASE &&
+         reg < (BMS_FEATURE_BAL_REG_BASE + BMS_FEATURE_BAL_REG_COUNT)))
+        return MB_EX_ILLEGAL_ADDRESS;
 
     if (reg == 0x1005u)
     {
@@ -582,6 +617,46 @@ static void put_u16be(u8 *p, u16 v)
 {
     p[0] = (u8)(v >> 8);
     p[1] = (u8)(v & 0xFFu);
+}
+
+static u8 feature_config_write_block(u16 reg, const u8 *pdata, u16 qty)
+{
+    bms_feature_params_t feature;
+    if (pdata == 0 || !bms_config_get_features(&feature))
+        return MB_EX_DEVICE_FAILURE;
+
+    if (reg == BMS_FEATURE_HEATER_REG_BASE)
+    {
+        if (qty != BMS_FEATURE_HEATER_REG_COUNT) return MB_EX_ILLEGAL_VALUE;
+        feature.heater_enable = u16be(&pdata[0]);
+        feature.heater_start_x10 = u16be(&pdata[2]);
+        feature.heater_stop_x10 = u16be(&pdata[4]);
+    }
+    else if (reg == BMS_FEATURE_BAL_REG_BASE)
+    {
+        if (qty != BMS_FEATURE_BAL_REG_COUNT) return MB_EX_ILLEGAL_VALUE;
+        feature.balance_enable = u16be(&pdata[0]);
+        feature.balance_start_mv = u16be(&pdata[2]);
+        feature.balance_start_delta_mv = u16be(&pdata[4]);
+        feature.balance_stop_delta_mv = u16be(&pdata[6]);
+    }
+    else
+    {
+        return MB_EX_ILLEGAL_ADDRESS;
+    }
+
+    if (!bms_config_feature_valid(&feature)) return MB_EX_ILLEGAL_VALUE;
+    return bms_config_set_features(&feature) ? 0u : MB_EX_DEVICE_FAILURE;
+}
+
+static uint8_t feature_config_range_overlaps(u16 reg, u16 qty)
+{
+    u32 end = (u32)reg + qty;
+    return (uint8_t)(
+        ((u32)reg < (u32)(BMS_FEATURE_HEATER_REG_BASE + BMS_FEATURE_HEATER_REG_COUNT) &&
+         end > BMS_FEATURE_HEATER_REG_BASE) ||
+        ((u32)reg < (u32)(BMS_FEATURE_BAL_REG_BASE + BMS_FEATURE_BAL_REG_COUNT) &&
+         end > BMS_FEATURE_BAL_REG_BASE));
 }
 
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
@@ -713,6 +788,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
 
         pdata = &req[7];
+
+        if (reg == BMS_FEATURE_HEATER_REG_BASE || reg == BMS_FEATURE_BAL_REG_BASE)
+        {
+            exception = feature_config_write_block(reg, pdata, qty);
+            if (exception != 0u)
+                return modbus_exception(addr, func, exception, rsp, rsp_len);
+            if (addr == 0x00u) return 0;
+            rsp[0] = addr; rsp[1] = func;
+            put_u16be(&rsp[2], reg); put_u16be(&rsp[4], qty);
+            crc = mb_crc16(rsp, 6u);
+            rsp[6] = (u8)(crc & 0xFFu); rsp[7] = (u8)(crc >> 8);
+            *rsp_len = 8u;
+            return 1;
+        }
+        if (feature_config_range_overlaps(reg, qty))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+
         if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
             if (addr == 0x00u) return 0;
             if (qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
