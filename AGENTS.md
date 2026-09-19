@@ -41,6 +41,12 @@ PC1 `RESET` 的宏名含 `OUT` 不等于当前运行方向已经硬件签核；�
 
 保持 Telink SDK、TC32工具链和 ABI。安全相关修改至少通过 SH driver/integration/protection/temp、unified software protection、independent AFE HW profile、SOC/Flash contracts，以及 TC32 clean rebuild/check-fw/MAP/verify/cppcheck。CI不能替代实板验证。
 
+## 当前开发期存储策略
+
+- 本分支处于持续开发阶段，当前不要求兼容旧 Config schema / 旧 Heater / Balance 参数布局。
+- Heater / Balance 参数结构变化时允许显式提升 schema 并恢复新默认；不要为未发布旧格式增加迁移器。
+- 当前格式仍必须保证掉电一致性、参数校验、错误传播与安全默认。
+
 ## Windows 上位机单一真源（强制）
 
 - D008/D011/D013 当前实际使用的上位机**唯一真源**是本仓库分支 `feature/windows-afe-hw-protection-editor-v2` 下的 `bms-tool-windows/`。
