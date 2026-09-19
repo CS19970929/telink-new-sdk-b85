@@ -228,7 +228,7 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     for (i = 0u; i < BMS_CONFIG_BTNAME_BYTES; ++i) cfg->bt_name_suffix[i] = (char)payload[off++];
     cfg->bt_name_suffix[BMS_CONFIG_BTNAME_BYTES - 1u] = '\0';
     bms_feature_unpack(&cfg->system, &cfg->feature);
-
+}
 
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
@@ -376,6 +376,9 @@ int bms_config_set_features(const bms_feature_params_t *value)
 {
     bms_config_cache_t next;
     if (!bms_config_feature_valid(value) || !bms_config_ensure_ready()) return 0;
+    /* Avoid a heater-stop / charge-UTP recovery dead zone. */
+    if (g_tParam.protect.u16TchgUTp_Rcv != 0u &&
+        value->heater_stop_x10 < g_tParam.protect.u16TchgUTp_Rcv) return 0;
     if (memcmp(&g_bms_config.feature, value, sizeof(*value)) == 0) return 1;
     next = g_bms_config;
     next.feature = *value;
