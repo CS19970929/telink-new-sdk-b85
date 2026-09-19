@@ -20,6 +20,8 @@ static void bms_error_raise(int x){err=1;raised++;}
 static void bms_features_on_afe_invalid(void){}
 static void bms_features_init(void){}
 static void bms_features_service(void){}
+static int bms_features_charge_hard_blocked(void){return block;}
+static int bms_features_charge_direction_blocked(void){return 0;}
 static int bms_features_charge_blocked(void){return block;}
 static int bms_features_discharge_blocked(void){return block;}
 static void dvc1124_backend_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
