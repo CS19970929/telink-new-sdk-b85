@@ -54,8 +54,9 @@ assert "gpio_write(RF_EN_PIN, 1u);" in board_c
 assert "heater_circuit_safe" in features_c
 assert "bms_board_heater_fuse_fire();" in features_c
 assert "heater_off_hot_samples" in features_c
+heater_demand_fn=features_c.split("static uint8_t heater_demand",1)[1].split("static void service_heater",1)[0]
 heater_fn=features_c.split("static void service_heater",1)[1].split("static uint8_t openwire_hard_fault",1)[0]
-assert "battery_temp_min_x10" in heater_fn
+assert "battery_temp_min_x10" in heater_demand_fn
 assert "BMS_HEATER_ARMING" in heater_fn
 assert "g_stCellInfoReport.u16Ichg != 0u" in heater_fn
 assert "set_heater(1u)" in heater_fn
