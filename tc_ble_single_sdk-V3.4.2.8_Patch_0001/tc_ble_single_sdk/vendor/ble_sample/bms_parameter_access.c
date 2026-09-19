@@ -31,10 +31,12 @@ static u8 sensitive_factory_write_allowed(void)
 
 int bms_parameter_readable(u16 r)
 {
-    return (r>=0x2E00u && r<=0x2E0Bu) ||
+    return (r>=0x2E00u && r<=0x2E0Fu) ||
            (r>=0x2E20u && r<=0x2E22u) ||
            (r>=0x2E24u && r<=0x2E2Eu) ||
-           (r>=0x2E30u && r<=0x2E3Fu) || r==0x1005u || r==0x2318u || r==0x2319u;
+           (r>=0x2E30u && r<=0x2E3Fu) ||
+           (r>=0x2E70u && r<=0x2E73u) ||
+           r==0x1005u || r==0x2318u || r==0x2319u;
 }
 
 u16 bms_parameter_read(u16 r)
@@ -43,17 +45,21 @@ u16 bms_parameter_read(u16 r)
     bms_config_system_params_t system;
     dvc1124_snapshot_t sample;
     if (r==0x2E00u) return 0xD008u;
-    if (r==0x2E01u) return 1u;
-    if (r==0x2E02u) return 0x003Fu; /* capacity,SN,heat,calibration,reset,sync State */
+    if (r==0x2E01u) return 2u;
+    if (r==0x2E02u) return 0x007Fu; /* capacity,SN,heat,calibration,reset,sync State,balance */
     if (r==0x2E03u) return s_result;
     if (r==0x2E04u) return s_sequence;
-    if (r==0x2E05u) return 3u; /* Config schema */
+    if (r==0x2E05u) return 4u; /* Config schema */
     if (r==0x2E06u) return s_sn_generation;
     if (r==0x2E07u) return 1u; /* 1102=3 is forbidden; factory reset uses 2E10=6 */
     if (r==0x2E08u) return CapacityFactory;
     if (r==0x2E09u) return 1u;
     if (r==0x2E0Au) return BMS_HEATER_START_TEMP_X10;
     if (r==0x2E0Bu) return BMS_HEATER_STOP_TEMP_X10;
+    if (r==0x2E0Cu) return BMS_BALANCE_ENABLE_DEFAULT;
+    if (r==0x2E0Du) return BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
+    if (r==0x2E0Eu) return BMS_BALANCE_START_DELTA_MV_DEFAULT;
+    if (r==0x2E0Fu) return BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     if (r==0x1005u) return get_soc_real();
     if (r==0x2319u) return (u16)SOC_Calculate_Element.u32Cycle_times;
     if (r==0x2318u) return bms_config_store_get_system(&system) ? (u16)system.capacity_factory : 0xFFFFu;
@@ -72,6 +78,10 @@ u16 bms_parameter_read(u16 r)
     if (r==0x2E20u) return v.heater_enable;
     if (r==0x2E21u) return v.heater_start_x10;
     if (r==0x2E22u) return v.heater_stop_x10;
+    if (r==0x2E70u) return v.balance_enable;
+    if (r==0x2E71u) return v.balance_start_mv;
+    if (r==0x2E72u) return v.balance_start_delta_mv;
+    if (r==0x2E73u) return v.balance_stop_delta_mv;
     if (r==0x2E24u) return (u16)v.current_offset_ma;
     if (r==0x2E25u) return (u16)((u32)v.current_offset_ma>>16);
     if (r==0x2E26u) return (u16)v.current_gain_ppm;
@@ -128,6 +138,12 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     if (r==0x2E20u) {
         if (qty!=3u) return finish(3u);
         v.heater_enable=value; v.heater_start_x10=word(data+2); v.heater_stop_x10=word(data+4);
+    } else if (r==0x2E70u) {
+        if (qty!=4u) return finish(3u);
+        v.balance_enable=value;
+        v.balance_start_mv=word(data+2);
+        v.balance_start_delta_mv=word(data+4);
+        v.balance_stop_delta_mv=word(data+6);
     } else if (r==0x2E24u) {
         if (qty!=4u) return finish(3u);
         if (!sensitive_factory_write_allowed()) return finish(2u);
