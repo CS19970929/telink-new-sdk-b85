@@ -13,6 +13,10 @@ typedef struct {
     u16 heater_enable;
     u16 heater_start_x10; /* legacy temperature encoding: (degC + 40) * 10 */
     u16 heater_stop_x10;
+    u16 balance_enable;
+    u16 balance_start_mv;
+    u16 balance_start_delta_mv;
+    u16 balance_stop_delta_mv;
     int32_t current_offset_ma; /* subtract before gain; raw DVC sign */
     u32 current_gain_ppm;
     char serial[32];
