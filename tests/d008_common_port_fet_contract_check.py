@@ -53,6 +53,19 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertNotIn("effective_charge", policy)
         self.assertNotIn("effective_discharge", policy)
 
+    def test_heater_directional_block_uses_auto_diode_not_guard_hard_off(self):
+        guard = read("bms_afe_guard.c")
+        bms = read("dvc1124_bms.c")
+        self.assertIn("bms_features_charge_hard_blocked()", guard)
+        self.assertIn("bms_features_charge_direction_blocked()", guard)
+        self.assertIn("#if (BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124)", guard)
+        charge = bms.split("static uint8_t dvc_charge_blocked", 1)[1].split("static uint8_t dvc_discharge_blocked", 1)[0]
+        self.assertIn("bms_features_charge_direction_blocked()", charge)
+        policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
+        policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+        self.assertIn("charge_blocked && !discharge_blocked", policy)
+        self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
+
     def test_steady_auto_diode_mode_does_not_rewrite_r81_every_200ms(self):
         bms = read("dvc1124_bms.c")
         helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
