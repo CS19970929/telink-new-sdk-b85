@@ -15,7 +15,7 @@ assert "#define BMS_HEATER_STOP_TEMP_X10 450u" in features_h
 assert "bms_afe_get_charge_source_present" in afe_h
 assert "bms_afe_get_charge_source_present" in guard_c
 assert "charge_source_present" in features_c
-assert "BMS_HEATER_START_TEMP_X10" in features_c and "BMS_HEATER_STOP_TEMP_X10" in features_c
+assert "BMS_HEATER_START_TEMP_X10" in config_c and "BMS_HEATER_STOP_TEMP_X10" in config_c
 assert "#define BMS_BALANCE_START_DELTA_MV_DEFAULT 50u" in features_h
 assert "#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u" in features_h
 assert "openwire_fault_latched" in features_c and "openwire_suspected" in features_c
