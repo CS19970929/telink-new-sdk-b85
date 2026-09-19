@@ -31,6 +31,7 @@ typedef struct
     uint8_t requested_discharge_on;
     uint8_t output_enabled;
     uint8_t comm_inhibit;
+    uint8_t comm_fault_latched;
     uint8_t valid_snapshot_streak;
     uint8_t comm_failures;
     uint8_t bus_silenced;
@@ -76,6 +77,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 
 static void inhibit_local(void)
 {
+    s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
     bms_features_on_afe_invalid();
@@ -146,8 +148,12 @@ static uint8_t apply_requested(void)
         c = 0u;
         d = 0u;
     }
-    if (bms_features_charge_blocked()) c = 0u;
+    if (bms_features_charge_hard_blocked()) c = 0u;
     if (bms_features_discharge_blocked()) d = 0u;
+#if (BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124) && \
+    (BMS_AFE_BACKEND != BMS_AFE_BACKEND_SH3673510)
+    if (bms_features_charge_direction_blocked()) c = 0u;
+#endif
     return AFE_FETS(c, d);
 }
 
@@ -173,6 +179,7 @@ void bms_afe_init(void)
     (void)AFE_FETS(0u, 0u);
     bms_features_init();
     (void)AFE_BAL_SET(0u);
+    s_guard.comm_fault_latched = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
 }
 
 void bms_afe_sample(void)
@@ -181,6 +188,8 @@ void bms_afe_sample(void)
 
     if (service_failsafe_wait()) return;
 
+    /* Preserve a genuine prior communication fault while fresh samples qualify recovery. */
+    if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
     AFE_SAMPLE();
     memset(&m, 0, sizeof(m));
     if (!AFE_AUX(&m))
@@ -196,10 +205,11 @@ void bms_afe_sample(void)
     if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
     {
         s_guard.comm_inhibit = 0u;
+        s_guard.comm_fault_latched = 0u;
     }
-    else
+    else if (s_guard.comm_fault_latched)
     {
-        /* A single recovered frame is not enough to re-authorize outputs. */
+        /* Healthy boot is only output-inhibited; do not fabricate AFE1. */
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     }
 
