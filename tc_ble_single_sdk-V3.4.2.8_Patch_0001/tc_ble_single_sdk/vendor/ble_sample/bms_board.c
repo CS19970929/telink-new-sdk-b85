@@ -40,9 +40,21 @@ uint8_t bms_board_charge_source_present(void)
 
 uint8_t bms_board_heater_supported(void)
 {
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124) || \
-    (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     return 1u;
+#elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+    return SH3673510_PRODUCT_HEATER_SUPPORTED ? 1u : 0u;
+#else
+    return 0u;
+#endif
+}
+
+uint8_t bms_board_balance_supported(void)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
+    return 1u;
+#elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+    return SH3673510_PRODUCT_BALANCE_SUPPORTED ? 1u : 0u;
 #else
     return 0u;
 #endif
@@ -53,9 +65,10 @@ uint8_t bms_board_heater_allowed(void)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     return 1u;
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /* D011 preserves its product wake/switch qualification without letting
-     * the SH backend own the heater state machine. */
-    return sh3673510_board_wake_active() ? 1u : 0u;
+    /* Charger presence and temperature safety are owned by the common policy.
+     * INT-WK-MCU is not a charger-present truth and must not create a hidden
+     * "charger detected but heater still forbidden" liveness failure. */
+    return SH3673510_PRODUCT_HEATER_SUPPORTED ? 1u : 0u;
 #else
     return 0u;
 #endif
