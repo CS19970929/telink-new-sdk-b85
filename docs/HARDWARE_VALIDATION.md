@@ -32,9 +32,9 @@
 
 ## 4. Open-Wire / Balance
 
-- [ ] 用真实断线故障确定 Open-Wire evaluate 判据，覆盖首/中/末通道和瞬态噪声。
-- [ ] 验证 Open-Wire 期间 Balance 确实暂停并正确恢复。
-- [ ] 验证 DVC balance 约60s auto-clear 与软件45s续期，覆盖充电、停止充电、保护触发、无效采样、温升和测量干扰。
+- [ ] 用真实断线验证 DVC COW 诊断：约 200 ms 时仍在约 1 s 的 100 uA 下拉窗口内；首/中/末通道断线时对应诊断值应按手册流程表现为 0 mV，覆盖瞬态噪声、接触不良和 COW 提前结束。若实板与手册流程不符，量产前必须重新签核判据，禁止放宽成猜测阈值。
+- [ ] 验证 Open-Wire active/suspected/confirmed 期间 Balance 全部停止；断线/单体突跳/异常大压差先失去 voltage-trusted，再触发诊断；确认健康后需重新累计稳定样本才能恢复。
+- [ ] 验证 DVC balance 约60s auto-clear 与软件45s续期，覆盖 start delta 49/50/51 mV、stop delta 回差、可调 start voltage、COV 停充后继续泄放、充电会话、小电流/零电流、AFE写失败与 actual mask 读回、无效采样、温升和测量干扰。
 
 ## 5. Flash / 参数事务
 
@@ -66,7 +66,10 @@
 - [ ] ±199/200/499/500/501 mA 实际电流校准、32k 计时误差、广播/连接/总线/Flash 负载下最坏采样间隔及退出 suspend 延迟；周期目标 200 ms，软件拒收 >400 ms 间隔。
 - [ ] Flash 失败与 I2C shutdown 失败均保持 PC4 高；重复失败限速，不能产生密集擦写。
 - [ ] 24S LFP 与 20S NMC 数值回放及断电恢复，不补算未知时间，不继承静置资格；低功耗电流实测。
-- [ ] PB1 电平变化不触发 MOS/key/charger 策略；ACC按最新独立休眠规则验收；没有独立充电源资格时自动加热保持关闭。
+- [ ] PB1 电平变化不触发 charger/heater 资格；ACC按最新独立休眠规则验收。D008 以可靠充电电流建立 charge session：低温插充电器应先 ARMING、CHG=AUTO_DIODE/DSG=ON，再在下一新鲜样本确认 Ichg 消失后开 Heater；加热中出现可靠放电电流必须立即关 Heater 并可正常放电。
+- [ ] 验证“充电器拔出且完全空载”的边界：仅靠零电流无法区分 charger 仍接与已拔。必须实测加热供电路径不会由电池反供，或补充第二 charger-present 物理证据；未完成前不得宣称拔插场景完全闭环。
+- [ ] 验证最小支持充电器的初始充电电流高于 D008 当前可靠方向检测下限（abs(current)<=200 mA 为不可靠区）；若产品要求支持无法稳定超过该检测下限的弱充电器，当前“仅靠电流建立 session”方案不得量产。
+- [ ] 验证弱充电器/限流/打嗝电源：Heater 不能造成电池持续反向供能、MCU反复重启或低温充电降级；需要功率降额或第二电源证据时，以实测结果追加产品策略。
 
 ## 存储 schema 2 实板验收（TODO_VERIFY_HW）
 
