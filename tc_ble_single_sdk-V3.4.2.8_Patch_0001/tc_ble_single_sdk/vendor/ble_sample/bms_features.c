@@ -557,7 +557,11 @@ uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspec
 
 uint8_t bms_features_charge_hard_blocked(void)
 {
-    return (s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u;
+    /* Suspected open-wire means cell voltage control data is not trustworthy.
+     * Stop energy flow first; the next zero-current sample can then run OWD. */
+    return (s_feature.openwire_active ||
+            s_feature.openwire_suspected ||
+            s_feature.openwire_fault_latched) ? 1u : 0u;
 }
 
 uint8_t bms_features_charge_direction_blocked(void)
@@ -574,7 +578,9 @@ uint8_t bms_features_charge_blocked(void)
 
 uint8_t bms_features_discharge_blocked(void)
 {
-    return (s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u;
+    return (s_feature.openwire_active ||
+            s_feature.openwire_suspected ||
+            s_feature.openwire_fault_latched) ? 1u : 0u;
 }
 
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
@@ -586,7 +592,9 @@ void bms_features_get_openwire_result(bms_afe_openwire_result_t *r)
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {
     uint32_t reason = 0u;
-    if (s_feature.openwire_active || s_feature.openwire_fault_latched)
+    if (s_feature.openwire_active ||
+        s_feature.openwire_suspected ||
+        s_feature.openwire_fault_latched)
         reason |= DIAG_BLOCK_OPENWIRE;
     if (charge && bms_features_charge_direction_blocked())
         reason |= DIAG_BLOCK_HEATER;
