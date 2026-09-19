@@ -56,7 +56,7 @@ static uint32_t s_openwire_start_tick;
 static dvc1124_openwire_result_t s_openwire_result;
 
 #define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u
-#define DVC_OPENWIRE_SETTLE_US           1200000u
+#define DVC_OPENWIRE_SETTLE_US            200000u
 
 /* Last values actually represented by DVC hardware. Used for diagnostics. */
 typedef struct
@@ -1109,18 +1109,37 @@ void DVC1124_OpenWirePoll(void)
 
     if (s_openwire_result.state != DVC1124_OPENWIRE_WAITING) return;
     if (!clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_SETTLE_US)) return;
+
+    /* COW enables the 100 uA cell-input pull-downs for about 1 s. The
+     * diagnostic sample must therefore be captured while COW is still active;
+     * waiting for auto-clear would read the ordinary cell voltage again and
+     * make an open wire indistinguishable from a healthy input. */
+    if (!s_snapshot.valid || s_snapshot_generation == s_openwire_start_generation) return;
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
         s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
         return;
     }
-    if (cp & DVC1124_COW_MASK) return;
-    if (!s_snapshot.valid || s_snapshot_generation == s_openwire_start_generation) return;
+    if (!(cp & DVC1124_COW_MASK))
+    {
+        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
+        return;
+    }
 
     s_openwire_result.valid = 1u;
     s_openwire_result.cell_count = s_snapshot.cell_count;
     memcpy(s_openwire_result.cell_mv, s_snapshot.cell_mv, sizeof(s_openwire_result.cell_mv));
     s_openwire_result.pack_mv = s_snapshot.pack_mv;
+
+    /* Stop the stimulus as soon as the diagnostic sample has been captured.
+     * COW is a command bit, so ordinary persistent-config readback rules do not
+     * apply here. */
+    cp &= (uint8_t)~DVC1124_COW_MASK;
+    if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
+    {
+        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
+        return;
+    }
     s_openwire_result.state = DVC1124_OPENWIRE_READY;
 }
 
