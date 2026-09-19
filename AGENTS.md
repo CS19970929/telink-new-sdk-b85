@@ -37,6 +37,12 @@
 
 软件 `g_tParam.protect` 与 AFE hardware profile 独立。任何产品参数/IO改动先补 D013 原理图证据，再通过 SH driver/integration/protection/temp、software protection、AFE HW profile、SOC/Flash contracts 及 TC32 clean rebuild/check-fw/MAP/verify/cppcheck。CI不能替代硬件确认。
 
+## 当前开发期存储策略
+
+- 本分支处于持续开发阶段，当前不要求兼容旧 Config schema / 旧 Heater / Balance 参数布局。
+- Heater / Balance 参数结构变化时允许显式提升 schema 并恢复新默认；不要为未发布旧格式增加迁移器。
+- 当前格式仍必须保证掉电一致性、参数校验、错误传播与安全默认。
+
 ## Windows 上位机单一真源（强制）
 
 - D008/D011/D013 当前实际使用的上位机**唯一真源**是本仓库分支 `feature/windows-afe-hw-protection-editor-v2` 下的 `bms-tool-windows/`。
