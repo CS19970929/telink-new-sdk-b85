@@ -11,12 +11,12 @@
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464731u /* CFG1 */
-#define BMS_CONFIG_SCHEMA_VERSION        3u
+#define BMS_CONFIG_SCHEMA_VERSION        4u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          10u
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
-#define BMS_CONFIG_USER_BYTES            46u
+#define BMS_CONFIG_USER_BYTES            54u
 
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
@@ -137,6 +137,10 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     bms_config_put_u16le(&payload[off], cfg->user.heater_enable); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->user.heater_start_x10); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->user.heater_stop_x10); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.balance_enable); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.balance_start_mv); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.balance_start_delta_mv); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->user.balance_stop_delta_mv); off += 2u;
     bms_config_put_u32le(&payload[off], (u32)cfg->user.current_offset_ma); off += 4u;
     bms_config_put_u32le(&payload[off], cfg->user.current_gain_ppm); off += 4u;
     memcpy(&payload[off], cfg->user.serial, sizeof(cfg->user.serial));
@@ -177,6 +181,10 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->user.heater_enable = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->user.heater_start_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->user.heater_stop_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.balance_enable = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.balance_start_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.balance_start_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->user.balance_stop_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->user.current_offset_ma = (int32_t)bms_config_get_u32le(&payload[off]); off += 4u;
     cfg->user.current_gain_ppm = bms_config_get_u32le(&payload[off]); off += 4u;
     memcpy(cfg->user.serial, &payload[off], sizeof(cfg->user.serial));
@@ -416,6 +424,10 @@ void bms_config_user_defaults(bms_user_params_t *v)
     v->heater_enable = 1u;
     v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
+    v->balance_enable = BMS_BALANCE_ENABLE_DEFAULT;
+    v->balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
+    v->balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
+    v->balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     v->current_gain_ppm = 1000000u;
     /* Empty SN uses the compiled identity until factory provisioning. */
 }
@@ -425,6 +437,13 @@ int bms_config_user_valid(const bms_user_params_t *v)
     u16 i;
     if (!v || v->heater_enable > 1u || v->heater_start_x10 >= v->heater_stop_x10 ||
         v->heater_stop_x10 > 1650u) return 0;
+    if (v->balance_enable > 1u ||
+        v->balance_start_mv < BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV ||
+        v->balance_start_mv > 4500u ||
+        v->balance_start_delta_mv == 0u ||
+        v->balance_start_delta_mv > BMS_BALANCE_SUSPECT_DELTA_MV ||
+        v->balance_stop_delta_mv >= v->balance_start_delta_mv)
+        return 0;
     /* Arithmetic/configuration bounds, not protection thresholds. */
     if (v->current_offset_ma < -1000000 || v->current_offset_ma > 1000000 ||
         v->current_gain_ppm < 100000u || v->current_gain_ppm > 10000000u) return 0;
@@ -455,6 +474,10 @@ int bms_config_reset_business(void)
     next.user.heater_enable = 1u;
     next.user.heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     next.user.heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
+    next.user.balance_enable = BMS_BALANCE_ENABLE_DEFAULT;
+    next.user.balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
+    next.user.balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
+    next.user.balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     return bms_config_save_cache(&next);
 }
 /* Exact floor(magnitude * gain / 1000000), without 64-bit runtime helpers
