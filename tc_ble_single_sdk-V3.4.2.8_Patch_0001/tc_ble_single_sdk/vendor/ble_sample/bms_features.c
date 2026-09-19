@@ -622,7 +622,18 @@ void bms_features_on_afe_invalid(void)
     s_feature.openwire_active = 0u;
     s_feature.openwire_suspected = 1u;
     s_feature.openwire_idle_samples = 0u;
-    publish_balance(0u);
+
+    /* A dead AFE bus makes the physical balance state unknown. Do not publish
+     * the desired OFF state as though it were confirmed hardware feedback.
+     * Keep the last readback visible until communication recovers; DVC's
+     * independent balance timer remains the hardware fallback. */
+    if ((g_stCellInfoReport.u16BalanceFlag1 != 0u) ||
+        (g_stCellInfoReport.u16BalanceFlag2 != 0u))
+    {
+        if (!bms_error_get(BMS_ERROR_BALANCE))
+            bms_error_raise(BMS_ERROR_BALANCE);
+    }
+
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
         bms_error_raise(BMS_ERROR_HEAT);
 }
