@@ -75,7 +75,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | PB4 / 14、PB5 / 15、PB7 / 17、PD3 / 32 | `SOC25/50/75/100` | 对应 SOC LED 宏 | 网络映射一致；外接显示负载、极性仍按实物核对 |
 | PB6 / 16 | `BLUE` | `LED_BLUE_PIN` | 经 R165=3.3 kΩ 接 LED1 至 B−；代码别名不改变原图网络名 |
 
-历史“暂不写逻辑”约束已由最新ACC开关授权部分替代：ACC高电平进入独立深睡眠，PC4不拉低，低电平唤醒；负载检测仍不新增策略。当前已剥离错误的 key/charger 业务读取；正常产品请求为 CHG+DSG ON，由原 guard/保护/输出授权仲裁。PB1 不再提供自动加热的充电源资格，因此自动加热暂不启动，待独立来源确认。
+历史“暂不写逻辑”约束已由最新ACC开关授权部分替代：ACC高电平进入独立深睡眠，PC4不拉低，低电平唤醒；PB1只按已授权的负载移除/电流保护恢复策略使用。当前已剥离错误的 key/charger 业务读取；正常产品请求为 CHG+DSG ON，由 guard/保护/输出授权仲裁。**PB1 不提供自动加热的充电源资格。D008 以可靠充电电流作为 charger-session 的进入事件，进入后因预热主动关闭 CHG 导致的零电流不会清除 session，可靠放电电流会立即退出 session 并关闭 Heater。**
 
 ## 4. DVC GP / FET 拓扑
 
@@ -411,3 +411,55 @@ SDK 的短暂定时唤醒用于重新采样，不等于产品已退出 suspend �
 ## 软件温度保护开关更新
 
 `DVC1124_SW_PROTECT_ENABLE` 仅控制软件电压、电流及压差；新增默认开启的 `DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制电池温度、MOS温度及必需NTC失效保护，不能用HW开关替代外部温度保护。旧SW/HW四组合说明按此更新；详情见 [实现说明](D008_PROTECTION_GROUPS.md)。
+
+## 14. 2026-09-19 Heater / Balance 产品策略
+
+### 14.1 低温充电加热闭环
+
+D008 当前产品策略使用 DVC 电流方向作为充电会话入口，而不是 PB1：
+
+1. 普通低温静置时不因为温度本身提前 hard-off CHG；D008 软件温度保护的新故障本来就要求存在对应方向电流。
+2. 检测到可靠充电电流后锁存 charge session。
+3. 若低于 Heater start 或充电低温保护已进入 Third，则 Heater 先进入 `ARMING`。
+4. `ARMING` 只禁止充电方向，不立即给加热膜上电；DVC common-port 将该方向映射为 `CHG=AUTO_DIODE, DSG=ON`。
+5. 后续新鲜采样确认 `Ichg=0` 后才进入 `ACTIVE` 并拉高 PA1。
+6. Heater Active 期间 `Ichg=0` 是预期行为，不得据此判定充电器移除。
+7. 出现可靠放电电流时立即退出 charge session、关闭 Heater；DVC AUTO_DIODE 负责保留合法放电方向的续流恢复。
+8. 达到 Heater stop 且充电低温故障已恢复后退出 Active，恢复普通充电仲裁。
+9. AFE/NTC/参数/Heater 回路异常、OpenWire confirmed、严重高温/短路等安全条件失败时 Heater fail-safe OFF；低温保护本身不得成为 Heater hard fault。
+
+仅靠电流无法区分“CHG 已主动关闭且充电器仍连接”和“充电器已拔出且系统完全空载”。因此拔充电器空载时 Heater 物理供电路径、是否可能由电池反供、以及必要的第二在位证据仍为 `TODO_VERIFY_HW`。
+
+### 14.2 均衡独立参数
+
+Balance 不再复用软件压差保护参数。Config schema 4 独立保存：
+
+- `balance_enable`
+- `balance_start_mv`：可调均衡起始电压；
+- `balance_start_delta_mv`：默认 50 mV；
+- `balance_stop_delta_mv`：默认 30 mV，必须小于 start delta。
+
+当前默认 16S LFP 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
+
+### 14.3 均衡数据可信门禁
+
+在计算 balance mask 前必须先确认单体数据可信：
+
+- AFE snapshot / cell count 有效；
+- 每节单体落在测量合理范围；
+- 软件重算的 min/max/delta 与发布值一致；
+- 单节相邻采样不存在超过 sanity limit 的异常跳变；
+- 总压差没有进入明显异常/疑似断线区；
+- 连续稳定样本达到确认时间；
+- OpenWire active / suspected / confirmed 均禁止均衡；
+- Heater ARMING / ACTIVE 均禁止均衡。
+
+任何可信度失败先请求 Balance OFF，并置 `openwire_suspected`；条件允许时优先执行 DVC COW 断线诊断，确认无断线后重新累计可信样本才能恢复均衡。
+
+### 14.4 DVC COW 断线诊断
+
+DVC COW 开启后约 1 s 内 100 uA 下拉有效，因此诊断采样必须发生在 COW 仍为 1 的窗口内。当前实现约 200 ms 后使用新的 AFE snapshot 捕获诊断电压并主动清 COW；使用官方流程中的确定性判据：诊断窗口内使用中的 cell 输入为 0 mV 时标记对应 open bit，不另外猜测非零阈值。
+
+### 14.5 Balance 与 COV
+
+Cell OVP 不被一刀切作为 Balance hard-block：在电压数据可信、温度/AFE/OpenWire 条件正常且 charge session 有效时，CHG 可因高单体停充，同时继续对高单体被动泄放，形成 `停充 -> 均衡 -> COV recover -> 继续充电` 的恢复闭环。CUV、总压异常、过流、温度故障、短路等仍阻止均衡。
