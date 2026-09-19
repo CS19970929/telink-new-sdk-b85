@@ -64,7 +64,8 @@ static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned co
  return ma>0?before-after:after-before;
 }
 static uint16_t lfp_mv_from_soc(double soc){
- if(soc<=0)return 2800;if(soc>=100)return 3500;
+ if(soc<=0)return 2800;
+ if(soc>=100)return 3500;
  for(unsigned i=1;i<sizeof(g_soc_ocv_lfp)/sizeof(g_soc_ocv_lfp[0]);i++)if(soc<=g_soc_ocv_lfp[i].soc){
   const soc_ocv_point_t *a=&g_soc_ocv_lfp[i-1],*b=&g_soc_ocv_lfp[i];
   double f=(soc-a->soc)/(double)(b->soc-a->soc);
@@ -77,7 +78,8 @@ static void model_voltage(double true_soc,int32_t ma,uint32_t noise){
  int32_t sag=ma>0?ma/100:ma/200;
  int32_t min_mv=center-sag+(int32_t)(noise%5u)-2;
  uint16_t delta=(uint16_t)(5u+(noise%16u));
- if(min_mv<2500)min_mv=2500;if(min_mv>3800)min_mv=3800;
+ if(min_mv<2500)min_mv=2500;
+ if(min_mv>3800)min_mv=3800;
  g_stCellInfoReport.u16VCellMin=(uint16_t)min_mv;
  g_stCellInfoReport.u16VCellMax=(uint16_t)(min_mv+delta);
  g_stCellInfoReport.u16VCellDelta=delta;
@@ -116,12 +118,15 @@ static void run_long_duration_checks(void){
   int32_t choices[]={-10000,-5000,0,150,5000,10000,20000};
   int32_t ma=choices[random_state%7u];
   if((true_ah<=0.0&&ma>0)||(true_ah>=100.0&&ma<0))ma=0;
-  true_ah-=ma*0.4/3600000.0;if(true_ah<0)true_ah=0;if(true_ah>100)true_ah=100;
+  true_ah-=ma*0.4/3600000.0;
+  if(true_ah<0)true_ah=0;
+  if(true_ah>100)true_ah=100;
   model_voltage(true_ah,ma,random_state+n);
   if(n&&n%(13u*steps_per_hour)==0u)sample(0,0,step_ticks);else sample(1,ma,step_ticks);
   if(n&&n%(7u*24u*steps_per_hour)==0u)simulated_reboot();
   if(n%150u==0u){
-   double error=(double)get_soc_real()-true_ah;if(error<0.0)error=-error;
+   double error=(double)get_soc_real()-true_ah;
+   if(error<0.0)error=-error;
    assert(error<=15.0);check_invariants();
   }
  }
@@ -139,7 +144,8 @@ static void run_long_duration_checks(void){
   sample(1,ma,step_ticks);
   if(n&&n%(15u*24u*steps_per_hour)==0u)simulated_reboot();
   if(n%150u==0u){
-   double error=(double)get_soc_real()-true_ah;if(error<0.0)error=-error;
+   double error=(double)get_soc_real()-true_ah;
+   if(error<0.0)error=-error;
    assert(error<=8.0);check_invariants();
   }
  }
@@ -157,11 +163,14 @@ static int write_trajectory(void){
   else if(hour<12u)ma=0;
   else ma=-5000;
   if((true_ah<=5.0&&ma>0)||(true_ah>=95.0&&ma<0))ma=0;
-  true_ah-=ma*0.4/3600000.0;if(true_ah<0)true_ah=0;if(true_ah>100)true_ah=100;
+  true_ah-=ma*0.4/3600000.0;
+  if(true_ah<0)true_ah=0;
+  if(true_ah>100)true_ah=100;
   random_state=random_state*1664525u+1013904223u;
   model_voltage(true_ah,ma,random_state);
   int missing=(n&&n%(6u*steps_per_hour)==0u);int reset=(n&&n%(2u*24u*steps_per_hour)==0u);
-  sample(missing?0:1,ma,step_ticks);if(reset)simulated_reboot();
+  sample(missing?0:1,ma,step_ticks);
+  if(reset)simulated_reboot();
   if(n%150u==0u){
    bms_soc_diag_t d;bms_soc_get_diag(&d);
    printf("%u,%d,%u,%u,%u,25,%u,0,%d,%d,%.3f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
@@ -372,7 +381,8 @@ int main(int argc,char **argv){
     g_soc_runtime.learning_capacity_as10=(uint32_t)targets[cycle]*3600u;
     assert(soc_learning_accept_candidate());
    }
-   assert(previous-g_soc_runtime.learned_capacity_0p1ah<=(previous*5u)/100u);
+   assert((uint32_t)(previous-g_soc_runtime.learned_capacity_0p1ah)<=
+          ((uint32_t)previous*5u)/100u);
    previous=g_soc_runtime.learned_capacity_0p1ah;
   }
   assert(g_soc_runtime.learned_capacity_0p1ah>=850u &&
