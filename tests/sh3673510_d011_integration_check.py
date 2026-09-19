@@ -168,8 +168,10 @@ main = text("main.c")
 require(main, "#if D011_DEBUG_LED_ENABLE")
 if "hello World!!!" in app or "test_task_tick" in app:
     raise AssertionError("D011 production scheduler still contains demo sampling path")
-require(board, "sh3673510_board_wake_active")
 require(board, "bms_board_heater_allowed")
+require(board, "bms_board_balance_supported")
+require(cfg, "#define SH3673510_PRODUCT_HEATER_SUPPORTED       1u")
+require(cfg, "#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
@@ -201,6 +203,9 @@ if fet_start < 0 or fet_end <= fet_start:
     raise AssertionError("missing FET arbitration function")
 fet_text = bms[fet_start:fet_end]
 require(fet_text, "discharge_on = s_requested_discharge_on ? 1u : 0u;")
+require(fet_text, "SH3673520_BSTATUS2_DSGING_MASK")
+require(fet_text, "SH3673520_BSTATUS2_CHGING_MASK")
+require(fet_text, "s_fet_command_valid")
 if "D011_SWITCH_PIN" in fet_text or "key_on" in fet_text:
     raise AssertionError("PA0/SW1 must not directly gate common-port CHG/DSG FETs")
 if "clear_recovered_flags" in bms:
