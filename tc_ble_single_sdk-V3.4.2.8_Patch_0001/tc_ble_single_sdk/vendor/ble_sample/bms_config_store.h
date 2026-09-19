@@ -3,6 +3,18 @@
 #include "param.h"
 #include "bms_afe_hw_profile.h"
 
+/* Heater/balance business parameters are independent of software protection. */
+typedef struct {
+    u16 heater_enable;
+    u16 heater_start_x10;
+    u16 heater_stop_x10;
+    u16 balance_enable;
+    u16 balance_start_mv;
+    u16 balance_start_delta_mv;
+    u16 balance_stop_delta_mv;
+} bms_feature_params_t;
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,7 +54,7 @@ typedef struct {
     u32 soc_profile_id;
 } bms_config_system_params_t;
 
-/* Storage V1 Config owner: user/system/software-protection/AFE requested data. */
+/* Storage Config owner: system/software-protection/AFE requested/feature data. */
 int bms_config_store_init(void);
 int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect);
 int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
@@ -53,6 +65,10 @@ int bms_config_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile);
 int bms_config_store_get_control_value(bms_config_control_param_id_t item, u32 *value);
 int bms_config_store_set_control_value(bms_config_control_param_id_t item, u32 value);
 int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
+int bms_config_get_features(bms_feature_params_t *value);
+int bms_config_set_features(const bms_feature_params_t *value);
+void bms_config_feature_defaults(bms_feature_params_t *value);
+int bms_config_feature_valid(const bms_feature_params_t *value);
 int bms_config_store_set_bt_name_suffix(const char *suffix);
 void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
 void bms_config_store_get_default_system(bms_config_system_params_t *system);
