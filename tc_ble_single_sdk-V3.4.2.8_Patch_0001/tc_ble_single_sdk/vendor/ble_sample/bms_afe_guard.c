@@ -151,8 +151,14 @@ static uint8_t apply_requested(void)
         c = 0u;
         d = 0u;
     }
-    if (bms_features_charge_blocked()) c = 0u;
+    if (bms_features_charge_hard_blocked()) c = 0u;
     if (bms_features_discharge_blocked()) d = 0u;
+#if (BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124)
+    /* Backends without an explicit reverse-current mode keep the legacy hard
+     * directional block. D008/DVC receives the original ON/ON request and maps
+     * heater charge-inhibit to CHG=AUTO_DIODE in its common-port arbiter. */
+    if (bms_features_charge_direction_blocked()) c = 0u;
+#endif
     return AFE_FETS(c, d);
 }
 
