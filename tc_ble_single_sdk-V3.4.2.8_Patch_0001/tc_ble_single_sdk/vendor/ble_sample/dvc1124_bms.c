@@ -8,6 +8,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
+#include "bms_features.h"
 #include "bms_afe_hw_profile.h"
 #include "param.h"
 #include <string.h>
@@ -269,6 +270,7 @@ static uint8_t dvc_charge_blocked(void)
 
     return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
             f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
+            bms_features_charge_direction_blocked() ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
@@ -441,9 +443,10 @@ void DVC1124_BmsApp_AFEGet(void)
     if (dvc_discharge_blocked() && !diag_d) diag_d |= DIAG_BLOCK_BACKEND;
     bms_diag_backend(diag_c, diag_d);
     bms_sw_protection_record_fault_edges();
-    DVC1124_BalanceService((uint8_t)((g_stCellInfoReport.u16Ichg > 0u) &&
-                                     !dvc_charge_blocked() &&
-                                     !dvc_discharge_blocked()));
+
+    /* Balance authorization is owned by bms_features. The backend balance
+     * setter performs the DVC 60 s lease refresh only after common policy has
+     * validated voltage/open-wire/heater/charge-session conditions. */
 
     /* FET arbitration is applied by bms_afe_guard immediately after
      * this sample. Keeping it there preserves communication/open-wire hard
