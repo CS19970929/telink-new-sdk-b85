@@ -20,6 +20,12 @@
 #define SH3673510_D011_CELL_COUNT              10u
 #define SH3673510_D011_SHUNT_UOHM              250u
 #define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
+
+/* D011 schematic/BOM evidence exists for PB4 heater command, TS3 heater NTC
+ * and the SH cell-balance path. D013 overrides these until its own schematic
+ * evidence is available. */
+#define SH3673510_PRODUCT_HEATER_SUPPORTED       1u
+#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
 /*
