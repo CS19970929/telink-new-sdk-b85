@@ -48,8 +48,8 @@ typedef struct {
     u32 afe_odc2;
     u32 fac_init_soc;
     u32 init_soc;
-    u32 flags;     /* D011 feature config packed storage; see bms_config_store.c */
-    u32 reserved0; /* D011 feature config packed storage; see bms_config_store.c */
+    u32 flags;
+    u32 reserved0;
     u32 battery_chemistry;
     u32 soc_profile_id;
 } bms_config_system_params_t;
