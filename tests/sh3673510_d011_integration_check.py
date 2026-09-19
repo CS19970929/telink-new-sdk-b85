@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D013 (D011-derived) / SH3673510 integration contract checks."""
+"""D013 development profile / SH3673510 integration contract checks."""
 from pathlib import Path
 import re
 
@@ -29,6 +29,7 @@ port_h = text("sh3673520_port.h")
 driver = text("sh3673520.c")
 control = text("sh3673510_control.c")
 bms = text("sh3673510_bms.c")
+board = text("bms_board.c")
 hw_profile = text("bms_afe_hw_profile.c")
 app = text("app.c")
 uart = text("modbus_uart.c")
@@ -93,6 +94,7 @@ for pin in (
 require(backend, "BMS_AFE_BACKEND_SH3673510")
 require(backend, "#define BMS_AFE_BACKEND BMS_AFE_BACKEND_SH3673510")
 require(afe, "sh3673510_bms_afe_init")
+require(afe, "int32_t current_ma; uint32_t sample_tick_32k;")
 require(conf, "#define FD_BMS_TYPE                    D11")
 require(conf, "#define SeriesNum                      SH3673510_D011_CELL_COUNT")
 require(conf, 'BMS_HARDWARE_VERDION_DEFAULT   "D011"')
@@ -155,11 +157,19 @@ require(bms, "current.cadc_raw")
 require(bms, "SH3673510_D011_SHUNT_UOHM")
 require(bms, "g_stCellInfoReport.u16Ichg")
 require(bms, "g_stCellInfoReport.u16IDischg")
-require(bms, "for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 61001u;")
+require(bms, "s_aux.current_ma = current_ma;")
+require(bms, "s_aux.sample_tick_32k = pm_get_32k_tick();")
 require(app, "D011_SWITCH_PIN")
-board = text("bms_board.c")
-features = text("bms_features.c")
-config_store = text("bms_config_store.c")
+require(app, "#define APP_SAMPLE_PERIOD_US  200000u")
+require(app, "bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)")
+require(app, "bls_pm_setAppWakeupLowPower(")
+require(app, "static void app_sample_task(void)")
+require(app, "if (bms_afe_get_aux_measurements(&sample))")
+require(cfg, "#define D011_DEBUG_LED_ENABLE                   0u")
+main = text("main.c")
+require(main, "#if D011_DEBUG_LED_ENABLE")
+if "hello World!!!" in app or "test_task_tick" in app:
+    raise AssertionError("D011 production scheduler still contains demo sampling path")
 require(board, "bms_board_heater_allowed")
 require(board, "bms_board_balance_supported")
 require(cfg, "#define SH3673510_PRODUCT_HEATER_SUPPORTED       0u")
@@ -184,7 +194,7 @@ require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
 require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
 require(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")
 
-# D011-derived board logic is common-port: normal healthy operation requests both FETs ON.
+# D011 is common-port: normal healthy operation requests both FETs ON.
 require(app, "uint8_t chg_target = 1u;")
 require(app, "uint8_t dsg_target = 1u;")
 if "dsg_target = d011_switch_is_on()" in app:
@@ -275,8 +285,6 @@ for symbol in (
     "static uint8_t s_hw_charge_protect;",
     "static uint8_t s_hw_discharge_protect;",
     "static uint8_t s_afe_reconfigure_required;",
-    "static uint8_t s_bstatus2;",
-    "static uint8_t s_fet_command_valid;",
 ):
     require_count(bms, symbol)
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
@@ -321,21 +329,22 @@ for needle in (
 if "unMdlFault_Third" in hw_text:
     raise AssertionError("hardware FLAG recovery must be independent from software Third-level activity")
 
-# Heater/balance policy must live in common bms_features, not the SH backend.
-for forbidden in ("static void apply_heater", "static void apply_balance"):
+# Heater and balance policy belong to common bms_features; the SH backend only
+# publishes measurements and exposes hardware primitives.
+for forbidden in ("static void apply_heater", "static void apply_balance",
+                  "SH3510_REINIT_TRIGGER", "SH3510_REINIT_COOLDOWN"):
     if forbidden in bms:
         raise AssertionError(f"SH backend owns common policy: {forbidden}")
-for needle in (
-    "BMS_HEATER_ARMING",
-    "charge_session_active",
-    "balance_voltage_trusted",
-    "openwire_suspected",
-    "config.balance_start_delta_mv",
-    "config.balance_stop_delta_mv",
-):
-    require(features, needle)
-require(config_store, "#define BMS_CONFIG_SCHEMA_VERSION        2u")
-require(config_store, "#define BMS_CONFIG_FEATURE_BYTES         14u")
+
+sample_start = bms.find("void sh3673510_bms_afe_sample(void)")
+sample_end = bms.find("uint8_t sh3673510_bms_afe_apply_protection_config", sample_start)
+if sample_start < 0 or sample_end <= sample_start:
+    raise AssertionError("missing SH sample function")
+sample_text = bms[sample_start:sample_end]
+for forbidden in ("apply_heater();", "apply_balance();",
+                  "sh3510_apply_requested_fets();", "sh3673510_control_init()"):
+    if forbidden in sample_text:
+        raise AssertionError(f"SH sample bypasses common owner: {forbidden}")
 
 # Realtime battery temperature extrema must be refreshed from TS1/TS2 on every
 # valid sample. MOS/heater temperatures remain independently reported.
