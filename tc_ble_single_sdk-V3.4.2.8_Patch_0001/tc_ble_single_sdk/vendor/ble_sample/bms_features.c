@@ -175,6 +175,7 @@ static uint8_t heater_hard_fault(void)
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
+            bms_error_get(BMS_ERROR_CBC_DSG) ||
             f->b1CellOvp || f->b1BatOvp ||
             f->b1IchgOcp || f->b1IdischgOcp ||
             f->b1CellChgOtp || f->b1CellDischgOtp ||
@@ -284,7 +285,8 @@ static uint8_t openwire_hard_fault(void)
     return (!bms_protection_params_valid() ||
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
-            bms_error_get(BMS_ERROR_DSG_SHORT)) ? 1u : 0u;
+            bms_error_get(BMS_ERROR_DSG_SHORT) ||
+            bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
 }
 
 static uint8_t openwire_eligible(void)
@@ -484,6 +486,7 @@ static uint8_t balance_hard_fault(void)
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
+            bms_error_get(BMS_ERROR_CBC_DSG) ||
             f->b1CellUvp || f->b1BatUvp || f->b1BatOvp ||
             f->b1IchgOcp || f->b1IdischgOcp ||
             f->b1CellChgOtp || f->b1CellChgUtp ||
