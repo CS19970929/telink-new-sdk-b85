@@ -22,7 +22,7 @@ void bms_afe_set_output_enabled(uint8_t enabled);
 /* Returns 0 only during the deliberate watchdog wait window. Diagnostic/raw
  * paths that bypass the normal guard must honor this gate and avoid AFE I/O. */
 uint8_t bms_afe_bus_access_allowed(void);
-typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_ntc_100ohm; uint32_t mos_ntc_100ohm; uint32_t pack_voltage_mv; } bms_afe_aux_measurements_t;
+typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_ntc_100ohm; uint32_t mos_ntc_100ohm; uint32_t pack_voltage_mv; int32_t current_ma; uint32_t sample_tick_32k; } bms_afe_aux_measurements_t;
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements);
 
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
@@ -31,6 +31,8 @@ typedef enum { BMS_AFE_DIAG_IDLE=0u, BMS_AFE_DIAG_BUSY=1u, BMS_AFE_DIAG_READY=2u
 typedef struct { uint8_t valid; uint8_t determinate; uint8_t cell_count; uint32_t open_cell_mask; uint16_t diagnostic_cell_mv[BMS_AFE_FEATURE_MAX_CELLS]; } bms_afe_openwire_result_t;
 
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
+/* Returns 1 when this AFE/backend has a validated charger-presence detector;
+ * returns 0 when the product must fall back to a board GPIO detector. */
 uint8_t bms_afe_get_charge_source_present(uint8_t *present);
 uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
