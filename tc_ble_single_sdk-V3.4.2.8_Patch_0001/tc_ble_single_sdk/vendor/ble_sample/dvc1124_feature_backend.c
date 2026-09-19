@@ -117,13 +117,18 @@ bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *ou
         memset(out, 0, sizeof(*out));
         out->valid = raw.valid;
         out->cell_count = raw.cell_count;
-        /* V1.2 specifies the stimulus/timing but not a universal final decision
-         * threshold. Keep raw diagnostics and no fault verdict until D008 fixture
-         * tests sign off a product criterion. */
-        out->determinate = 0u;
+        out->determinate = raw.valid ? 1u : 0u;
         out->open_cell_mask = 0u;
         for (i = 0u; i < raw.cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
+        {
             out->diagnostic_cell_mv[i] = raw.cell_mv[i];
+            /* DVC COW applies a 100 uA pull-down to every used cell input.
+             * Per the DVC open-wire procedure, a disconnected sampling input is
+             * pulled to 0 V during the active diagnostic window. Use the exact
+             * documented 0 mV verdict rather than inventing a product threshold. */
+            if (raw.valid && raw.cell_mv[i] == 0u)
+                out->open_cell_mask |= (1uL << i);
+        }
     }
     DVC1124_OpenWireReset();
     return BMS_AFE_DIAG_READY;
