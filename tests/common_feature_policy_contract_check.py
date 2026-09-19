@@ -59,6 +59,12 @@ heater_fn=features_c.split("static void service_heater",1)[1].split("static uint
 assert "battery_temp_min_x10" in heater_demand_fn
 assert "BMS_HEATER_ARMING" in heater_fn
 assert "g_stCellInfoReport.u16Ichg != 0u" in heater_fn
+assert "charge_source_present()" in heater_fn
+idle_block=heater_fn.split("if (s_feature.heater_state == BMS_HEATER_IDLE)",1)[1].split("if (s_feature.heater_state == BMS_HEATER_ARMING)",1)[0]
+assert "g_stCellInfoReport.u16Ichg != 0u" in idle_block
+assert "charge_source_present()" in idle_block
+assert "s_feature.heater_state = BMS_HEATER_ARMING;" in idle_block
+assert "set_heater(1u)" not in idle_block
 assert "set_heater(1u)" in heater_fn
 
 # Balance owns independent business parameters; protection Vdelta must never be
