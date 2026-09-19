@@ -323,6 +323,49 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
         )
         self.assertEqual(excluded, [f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"])
 
+    def test_dependency_audit_maps_make_junction_back_to_checkout(self) -> None:
+        with mock.patch.object(bms, "JUNCTION", Path("C:/opencode/bms_repo")), \
+                mock.patch.object(bms, "REPO_ROOT", Path("D:/runner/repo with space")):
+            self.assertEqual(
+                bms._dependency_runtime_token(
+                    "-IC:/opencode/bms_repo/sdk/vendor/ble_sample"),
+                "-ID:/runner/repo with space/sdk/vendor/ble_sample",
+            )
+            self.assertEqual(
+                bms._dependency_runtime_token(
+                    "c:/OPENCODE/BMS_REPO/sdk/app.c"),
+                "D:/runner/repo with space/sdk/app.c",
+            )
+            self.assertEqual(
+                bms._dependency_runtime_token("-DPROJECT=1"),
+                "-DPROJECT=1",
+            )
+
+    def test_dependency_audit_writes_failure_log_before_abort(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            entry = {
+                "directory": "C:/opencode/bms_repo",
+                "command": (
+                    'tc32-elf-gcc -I"C:/opencode/bms_repo/sdk" '
+                    '-DPROJECT=1 -c -o"C:/opencode/bms_repo/out.o" '
+                    '"C:/opencode/bms_repo/app.c"'
+                ),
+                "file": "C:/opencode/bms_repo/app.c",
+            }
+            failed = mock.Mock(returncode=1, stdout="", stderr="missing header")
+            with mock.patch.object(bms, "JUNCTION", Path("C:/opencode/bms_repo")), \
+                    mock.patch.object(bms, "REPO_ROOT", Path("D:/runner/repo with space")), \
+                    mock.patch.object(bms, "_tc32_tool", return_value="tc32-elf-gcc"), \
+                    mock.patch.object(bms, "_ensure_toolchain_env", side_effect=lambda env: env), \
+                    mock.patch.object(bms.subprocess, "run", return_value=failed):
+                with self.assertRaises(SystemExit):
+                    bms._analyse_dependency_graph([entry], out_dir)
+            log = (out_dir / "dependencies.log").read_text(encoding="utf-8")
+            self.assertIn("missing header", log)
+            self.assertIn("D:/runner/repo with space/app.c", log)
+            self.assertIn("cwd=D:/runner/repo with space", log)
+
     def test_extracts_real_compile_settings_without_manual_flag_lists(self) -> None:
         command = (
             'tc32-elf-gcc -O2 -std=gnu99 -I"C:/sdk" '
