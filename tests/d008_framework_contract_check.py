@@ -258,7 +258,10 @@ class D008FrameworkContract(unittest.TestCase):
 
     def test_openwire_and_balance_safety_gate_remain(self):
         self.assertIn("bms_afe_openwire_start", self.features)
-        self.assertIn("bms_afe_set_balance_mask(0u)", self.features)
+        self.assertIn("apply_balance_mask(0u)", self.features)
+        self.assertIn("openwire_suspected", self.features)
+        self.assertIn("balance_voltage_trusted", self.features)
+        self.assertNotIn("u16VdeltaOvp_First", self.features)
         self.assertIn("DVC1124_OpenWireBegin", self.dvc)
         self.assertIn("DVC1124_BalanceService", self.dvc)
 
