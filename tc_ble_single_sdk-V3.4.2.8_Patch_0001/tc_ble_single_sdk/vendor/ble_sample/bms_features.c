@@ -115,7 +115,8 @@ static uint8_t heater_hard_fault(void)
 
     /* Charge/discharge UTP are intentionally excluded: low temperature is the
      * recoverable condition preheat exists to fix. */
-    return (s_feature.openwire_fault_latched ||
+    return (!bms_protection_params_valid() ||
+            s_feature.openwire_fault_latched ||
             s_feature.openwire_suspected ||
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
@@ -159,8 +160,10 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     if (!heater_circuit_safe(s)) return;
 
     if (!bms_config_get_features(&config) || !config.heater_enable ||
-        !s->battery_temp_valid || heater_hard_fault() ||
-        !s_feature.charge_session_active)
+        !s->battery_temp_valid ||
+        (g_tParam.protect.u16TchgUTp_Rcv != 0u &&
+         config.heater_stop_x10 < g_tParam.protect.u16TchgUTp_Rcv) ||
+        heater_hard_fault() || !s_feature.charge_session_active)
     {
         heater_idle();
         return;
@@ -210,7 +213,8 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
 
 static uint8_t openwire_hard_fault(void)
 {
-    return (bms_error_get(BMS_ERROR_AFE1) ||
+    return (!bms_protection_params_valid() ||
+            bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
             bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
@@ -220,6 +224,10 @@ static uint8_t openwire_eligible(void)
 {
     if (s_feature.heater_on) return 0u;
     if (g_stCellInfoReport.u16Ichg || g_stCellInfoReport.u16IDischg) return 0u;
+    /* Do not interrupt an ordinary charge session for the periodic diagnostic.
+     * A suspected open wire is different: it has priority over charge/heating
+     * and must be diagnosed before voltage-dependent actions may resume. */
+    if (!s_feature.openwire_suspected && s_feature.charge_session_active) return 0u;
     return openwire_hard_fault() ? 0u : 1u;
 }
 
@@ -433,7 +441,8 @@ static uint8_t balance_hard_fault(void)
 
     /* Cell OVP is intentionally excluded: after charge is blocked, verified
      * passive bleed remains a valid recovery path. */
-    return (bms_error_get(BMS_ERROR_AFE1) ||
+    return (!bms_protection_params_valid() ||
+            bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
