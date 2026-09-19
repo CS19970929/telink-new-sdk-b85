@@ -8,7 +8,7 @@
 
 /* Temperature encoding: (degC + 40) * 10. */
 #ifndef BMS_HEATER_ENABLE_DEFAULT
-#define BMS_HEATER_ENABLE_DEFAULT 1u
+#define BMS_HEATER_ENABLE_DEFAULT 0u /* D013 board heater wiring TODO_VERIFY_HW */
 #endif
 #ifndef BMS_HEATER_START_TEMP_X10
 #define BMS_HEATER_START_TEMP_X10 400u
@@ -20,7 +20,7 @@
 /* Independent balance business defaults. These must never reuse Vdelta
  * protection parameters. Start voltage is runtime configurable. */
 #ifndef BMS_BALANCE_ENABLE_DEFAULT
-#define BMS_BALANCE_ENABLE_DEFAULT 1u
+#define BMS_BALANCE_ENABLE_DEFAULT 0u /* D013 cell/balance wiring TODO_VERIFY_HW */
 #endif
 #ifndef BMS_BALANCE_START_VOLTAGE_MV_DEFAULT
 #define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT 3400u
