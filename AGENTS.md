@@ -103,7 +103,8 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 2026-09-17 用户确认的 D008 产品约束：
 
 - D008 没有独立开关。PA0 的实际网络是 `ACC-MCU`，C 符号为 `ACC_MCU_PIN`。已移除历史 key 控制。用户最新授权：ACC低电平正常运行，高电平稳定200ms进入独立ACC休眠（AFE shutdown + MCU DEEPSLEEP_MODE），PC4保持高，PA0低电平PAD唤醒后完整启动。
-- `CHG_IN_PIN` / PB1 的 `CHG-IN` 实际是负载检测电路，暂不实现负载检测业务逻辑，不得继续由名称认定它是充电器检测或充电方向依据。
+- `CHG_IN_PIN` / PB1 的 `CHG-IN` 实际是负载检测电路，不得由名称认定它是充电器检测或充电方向依据。PB1 只按已授权的负载移除/电流保护恢复策略使用。
+- **D008 加热充电会话**：DVC 没有外部电池 NTC 硬件低温关 CHG 的产品路径，可靠充电电流（现有 >200 mA 有效区）可作为 charger-session 的进入事件；进入后因预热主动关闭 CHG 导致 `Ichg=0` 不能清除 session，出现可靠放电电流才立即退出并关闭 Heater。PB1 仍禁止作为 charger-present。
 - 显式指令/自动低压断电路径：AFE shutdown 成功并停止 I2C 后，最后拉低 `MCU_LDO_PIN` / PC4，给整个 MCU 断电；电路先恢复 MCU 供电，MCU 再经 I2C 唤醒 AFE并重新初始化/验证。不得用 AFE sleep + SDK DEEPSLEEP_MODE 冒充已完成该流程。
 - suspend 与断电分开：MCU 仍供电时，任一方向有效、新鲜电流 ≥500 mA 退出 suspend；ACC另走上述独立深睡眠；负载新策略暂不加入。500 mA 不等于 SOC 静置阈值，suspend SOC 校准要求见 `docs/SOC.md`，不得用无效样本/未知休眠时长补积分或静置计时。
 - 当前实现与验证范围见 `docs/D008_POWER_SOC_IMPLEMENTATION.md`。主机测试/远程编译不能关闭 `TODO_VERIFY_HW`；禁止将 PB1 重新用作加热的充电源资格。
@@ -111,7 +112,7 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 ## 当前开发期存储与电流约束
 
 - 用户确认项目处于持续迭代开发期，后续不要求兼容旧版代码/迁移旧参数；格式变化可明确提升 schema 并恢复新默认，不新增历史迁移器。当前格式掉电一致性、错误传播、各参数域独立更新仍须保证。
-- Flash 原审核见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`；当前 schema 3、分类 revision、保存/退避与 OTA 操作以 `docs/D008_STORAGE_UPGRADE_IMPLEMENTATION.md` 为准。不得分开写数据与 revision；不得由 SaveParam 解除启动升级失败门禁。
+- Flash 原审核见 `docs/D008_FLASH_STORAGE_AUDIT_2026-09-17.md`；当前 schema 4、分类 revision、保存/退避与 OTA 操作以 `docs/D008_STORAGE_UPGRADE_IMPLEMENTATION.md` 和 `docs/D008_PARAMETERS_V1.md` 为准。不得分开写数据与 revision；不得由 SaveParam 解除启动升级失败门禁。
 - D008 `abs(current_ma) <= 200 mA` 为不可靠区间，充放电显示屏蔽且 SOC 不积分；用户允许其作为静置候选，仍须满足有效/新鲜电压、压差及稳定时间。原始诊断 mA 保留；suspend 退出仍为双向 >=500 mA。
 
 ## 构建
@@ -139,3 +140,15 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 ## 2026-09-18 参数协议更新
 
 Config schema 3 新增 SN、加热业务参数、电流软件校准；容量沿用 system owner，SOC/循环同步保存后确认。新增 0x2E00 参数能力窗口，0x1102=3 明确拒绝；详见 [参数协议及升级注意](docs/D008_PARAMETERS_V1.md)。Windows 两版共享参数页，电流校准写入 UI 仅内部版；旧固件可导出已有参数，不发送新增写命令。
+
+
+## 2026-09-19 加热 / 均衡安全闭环更新
+
+- D008 Heater 使用 `IDLE -> ARMING -> ACTIVE`：检测到低温充电会话后先 ARMING，先禁止充电方向；下一帧确认充电电流已消失才允许 PA1 加热，禁止“低温充电与加热同时存在”。
+- Heater 的充电方向禁止在 DVC common-port 下必须映射为 `CHG=AUTO_DIODE, DSG=ON`，不是 hard-off；这样预热期间用户转为放电时仍保留 DVC 反向续流路径。OpenWire、通信 inhibit、shutdown 等 hard block 仍为双 FET hard-off。
+- 加热中出现可靠放电电流立即清除 charge session 并关闭 Heater。没有第二个 charger-present 物理量时，“拔充电器且完全空载”的在位判定仍属于 `TODO_VERIFY_HW`；不得声称仅靠零电流能区分。
+- Balance 参数与 `g_tParam.protect.u16VdeltaOvp_*` 完全解耦。默认 start delta = 50 mV、stop delta = 30 mV；start voltage 可配置，当前默认 3400 mV，量产值仍需实板/电芯确认。
+- Balance 之前必须通过电压可信门禁：有效 cell count、单体物理合理范围、报告 min/max/delta 自洽、单帧跳变限制、连续稳定确认；任何异常先停均衡并标记 OpenWire suspected。
+- DVC COW 断线检测必须在约 1 s 下拉有效窗口内采样；断线诊断电压为 0 mV 的通道才按文档判为 open，不自行发明非零阈值。OpenWire active/confirmed 均禁止均衡。
+- Balance requested mask 与 AFE actual mask 分离；写失败不得把软件期望的 OFF 伪装成硬件已经 OFF。
+- Config schema 4 / 参数协议版本 2 新增 balance enable/start voltage/start delta/stop delta；开发期不做旧 schema 迁移。
