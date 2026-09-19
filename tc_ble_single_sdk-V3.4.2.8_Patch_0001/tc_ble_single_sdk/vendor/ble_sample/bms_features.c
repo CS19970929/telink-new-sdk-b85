@@ -13,30 +13,33 @@
     ((BMS_OPENWIRE_FIRST_IDLE_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
 #define BMS_OPENWIRE_PERIOD_SAMPLES \
     ((BMS_OPENWIRE_PERIOD_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
+#define BMS_BALANCE_TRUST_CONFIRM_SAMPLES \
+    ((BMS_BALANCE_TRUST_CONFIRM_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
 
 typedef struct {
     uint8_t heater_on;
     uint8_t heater_fuse_fired;
+    bms_heater_state_t heater_state;
     uint16_t heater_off_hot_samples;
+
+    uint8_t charge_session_active;
+
     uint8_t openwire_active;
     uint8_t openwire_fault_latched;
+    uint8_t openwire_suspected;
     uint16_t openwire_idle_samples;
     uint16_t openwire_cooldown_samples;
-    uint32_t balance_requested_mask;
     bms_afe_openwire_result_t openwire_result;
+
+    uint8_t balance_active;
+    uint8_t balance_voltage_trusted;
+    uint16_t balance_trust_samples;
+    uint8_t balance_prev_cell_count;
+    uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
+    uint32_t balance_requested_mask;
 } bms_feature_state_t;
 
 static bms_feature_state_t s_feature;
-
-static uint8_t major_fault(void)
-{
-    return (!bms_protection_params_valid() ||
-            bms_sw_protection_charge_blocked() ||
-            bms_sw_protection_discharge_blocked() ||
-            bms_error_get(BMS_ERROR_AFE1) ||
-            bms_error_get(BMS_ERROR_TEMP_BREAK) ||
-            bms_error_get(BMS_ERROR_DSG_SHORT)) ? 1u : 0u;
-}
 
 static uint8_t charge_source_present(void)
 {
@@ -45,12 +48,31 @@ static uint8_t charge_source_present(void)
     return bms_board_charge_source_present() ? 1u : 0u;
 }
 
+static void update_charge_session(void)
+{
+    /* D008 has no AFE hardware charge-UTP shutdown before current detection.
+     * A reliable charge-current sample therefore arms the session. Once CHG is
+     * intentionally blocked for preheat the current disappears, so zero current
+     * must not clear the session. A real discharge direction is authoritative
+     * evidence that the product has left the charging use-case. */
+    if (g_stCellInfoReport.u16IDischg != 0u)
+        s_feature.charge_session_active = 0u;
+    else if ((g_stCellInfoReport.u16Ichg != 0u) || charge_source_present())
+        s_feature.charge_session_active = 1u;
+}
+
 static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
     bms_board_heater_set(on);
     s_feature.heater_on = on;
     g_bms_system_status.bits.b1Status_Heat = on;
+}
+
+static void heater_idle(void)
+{
+    set_heater(0u);
+    s_feature.heater_state = BMS_HEATER_IDLE;
 }
 
 static uint16_t heater_confirm_samples(void)
@@ -68,7 +90,7 @@ static uint16_t heater_confirm_samples(void)
 
 static void fire_heater_fuse(void)
 {
-    set_heater(0u);
+    heater_idle();
     if (!s_feature.heater_fuse_fired)
     {
         bms_board_heater_fuse_fire();
@@ -93,7 +115,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
 
     if (s_feature.heater_fuse_fired)
     {
-        set_heater(0u);
+        heater_idle();
         if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
         return 0u;
     }
@@ -101,7 +123,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
     if ((s == 0) || !s->heater_temp_valid)
     {
         s_feature.heater_off_hot_samples = 0u;
-        set_heater(0u);
+        heater_idle();
         if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
         return 0u;
     }
@@ -121,7 +143,6 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
         return 1u;
     }
 
-    /* GP1 is already too hot. A commanded heater must be shut down first. */
     if (s_feature.heater_on)
     {
         s_feature.heater_off_hot_samples = 0u;
@@ -130,8 +151,6 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
         return 0u;
     }
 
-    /* Heater command is OFF but the heater-MOS area stays hot: confirm before
-     * the irreversible fuse action so one noisy sample cannot fire PD4. */
     required = heater_confirm_samples();
     if (s_feature.heater_off_hot_samples < required)
         ++s_feature.heater_off_hot_samples;
@@ -143,72 +162,136 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
     return 0u;
 }
 
+static uint8_t heater_hard_fault(void)
+{
+    const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+
+    /* Charge/discharge UTP are intentionally not heater hard faults: low
+     * temperature is exactly the recoverable condition preheat is meant to fix.
+     * CUV is also not a heater hard fault because preheat may be required before
+     * a deeply discharged pack can safely accept charge. */
+    return (!bms_protection_params_valid() ||
+            s_feature.openwire_fault_latched ||
+            bms_error_get(BMS_ERROR_AFE1) ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK) ||
+            bms_error_get(BMS_ERROR_DSG_SHORT) ||
+            f->b1CellOvp || f->b1BatOvp ||
+            f->b1IchgOcp || f->b1IdischgOcp ||
+            f->b1CellChgOtp || f->b1CellDischgOtp ||
+            f->b1TmosOtp) ? 1u : 0u;
+}
+
+static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
+                             const bms_user_params_t *config)
+{
+    if ((s == 0) || (config == 0) || !s->battery_temp_valid) return 0u;
+    if (g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp) return 1u;
+    if (s_feature.heater_state == BMS_HEATER_ACTIVE)
+        return (s->battery_temp_min_x10 < config->heater_stop_x10) ? 1u : 0u;
+    return (s->battery_temp_min_x10 < config->heater_start_x10) ? 1u : 0u;
+}
+
 static void service_heater(const bms_afe_feature_snapshot_t *s)
 {
-    uint8_t charger;
     bms_user_params_t config;
+    uint8_t demand;
 
-    if (s == 0 || !s->valid || !bms_board_heater_supported())
+    if ((s == 0) || !s->valid || !bms_board_heater_supported())
     {
-        set_heater(0u);
+        heater_idle();
         return;
     }
 
     if (!heater_circuit_safe(s)) return;
 
-    if (!bms_config_get_user(&config) || !config.heater_enable) {
-        set_heater(0u); return;
+    if (!bms_config_get_user(&config) || !config.heater_enable ||
+        !s->battery_temp_valid || heater_hard_fault())
+    {
+        heater_idle();
+        return;
     }
-    charger = charge_source_present();
-    if (!charger || !s->battery_temp_valid || bms_error_get(BMS_ERROR_AFE1) ||
-        bms_error_get(BMS_ERROR_TEMP_BREAK))
+
+    if (!s_feature.charge_session_active)
+    {
+        heater_idle();
+        return;
+    }
+
+    /* Open-wire diagnosis owns a short hard-isolation window. If preheat was
+     * already armed, keep that request pending and resume after diagnosis. */
+    if (s_feature.openwire_active)
     {
         set_heater(0u);
         return;
     }
 
-    /* Battery heating always uses the colder of GP2/GP3. */
-    if (s_feature.heater_on)
-        set_heater((s->battery_temp_min_x10 < config.heater_stop_x10) ? 1u : 0u);
-    else
-        set_heater((s->battery_temp_min_x10 < config.heater_start_x10) ? 1u : 0u);
+    demand = heater_demand(s, &config);
+
+    if (s_feature.heater_state == BMS_HEATER_IDLE)
+    {
+        if (demand)
+        {
+            /* ARMING first blocks the charge direction. Heater power is not
+             * enabled until a following fresh sample proves charge current has
+             * disappeared. This prevents low-temperature charge + heat overlap. */
+            s_feature.heater_state = BMS_HEATER_ARMING;
+            set_heater(0u);
+        }
+        else
+        {
+            set_heater(0u);
+        }
+        return;
+    }
+
+    if (s_feature.heater_state == BMS_HEATER_ARMING)
+    {
+        if (!demand)
+        {
+            heater_idle();
+            return;
+        }
+        if (g_stCellInfoReport.u16Ichg != 0u)
+        {
+            set_heater(0u);
+            return;
+        }
+        set_heater(1u);
+        s_feature.heater_state = BMS_HEATER_ACTIVE;
+        return;
+    }
+
+    if (!demand)
+    {
+        heater_idle();
+        return;
+    }
+
+    /* A discharge event clears charge_session before this service runs. If an
+     * inconsistent report reaches here anyway, fail safe and remove heat. */
+    if (g_stCellInfoReport.u16IDischg != 0u)
+    {
+        s_feature.charge_session_active = 0u;
+        heater_idle();
+        return;
+    }
+
+    set_heater(1u);
+}
+
+static uint8_t openwire_hard_fault(void)
+{
+    return (!bms_protection_params_valid() ||
+            bms_error_get(BMS_ERROR_AFE1) ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK) ||
+            bms_error_get(BMS_ERROR_DSG_SHORT)) ? 1u : 0u;
 }
 
 static uint8_t openwire_eligible(void)
 {
-    if (s_feature.heater_on || charge_source_present()) return 0u;
+    if (s_feature.heater_on) return 0u;
     if (g_stCellInfoReport.u16Ichg || g_stCellInfoReport.u16IDischg) return 0u;
-    return major_fault() ? 0u : 1u;
-}
-
-static void service_openwire(void)
-{
-    bms_afe_diag_state_t state;
-    bms_afe_openwire_result_t result;
-    if (s_feature.openwire_active) {
-        memset(&result, 0, sizeof(result));
-        state = bms_afe_openwire_poll(&result);
-        if (state == BMS_AFE_DIAG_READY) {
-            s_feature.openwire_result = result;
-            if (result.valid && result.determinate)
-                s_feature.openwire_fault_latched = result.open_cell_mask ? 1u : 0u;
-            s_feature.openwire_active = 0u;
-            s_feature.openwire_idle_samples = 0u;
-            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_PERIOD_SAMPLES;
-        } else if (state == BMS_AFE_DIAG_ERROR) {
-            s_feature.openwire_active = 0u;
-            s_feature.openwire_idle_samples = 0u;
-            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_PERIOD_SAMPLES;
-        }
-        return;
-    }
-    if (s_feature.openwire_cooldown_samples != 0u) { --s_feature.openwire_cooldown_samples; return; }
-    if (!openwire_eligible()) { s_feature.openwire_idle_samples = 0u; return; }
-    if (s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES) { ++s_feature.openwire_idle_samples; return; }
-    (void)bms_afe_set_balance_mask(0u);
-    s_feature.balance_requested_mask = 0u;
-    if (bms_afe_openwire_start()) { s_feature.openwire_active = 1u; s_feature.openwire_idle_samples = 0u; }
-    else { s_feature.openwire_idle_samples = 0u; s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES; }
+    return openwire_hard_fault() ? 0u : 1u;
 }
 
 static void publish_balance(uint32_t mask)
@@ -218,31 +301,239 @@ static void publish_balance(uint32_t mask)
     g_bms_system_status.bits.b1Status_Balance = mask ? 1u : 0u;
 }
 
+static uint8_t apply_balance_mask(uint32_t desired)
+{
+    uint32_t actual;
+
+    s_feature.balance_requested_mask = desired;
+    if (!bms_afe_set_balance_mask(desired))
+    {
+        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        if (bms_afe_get_balance_mask(&actual)) publish_balance(actual);
+        return 0u;
+    }
+
+    if (!bms_afe_get_balance_mask(&actual))
+    {
+        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        return 0u;
+    }
+
+    bms_error_clear(BMS_ERROR_BALANCE);
+    publish_balance(actual);
+    return 1u;
+}
+
+static void service_openwire(void)
+{
+    bms_afe_diag_state_t state;
+    bms_afe_openwire_result_t result;
+
+    if (s_feature.openwire_active)
+    {
+        memset(&result, 0, sizeof(result));
+        state = bms_afe_openwire_poll(&result);
+        if (state == BMS_AFE_DIAG_READY)
+        {
+            s_feature.openwire_result = result;
+            if (result.valid && result.determinate)
+            {
+                s_feature.openwire_fault_latched = result.open_cell_mask ? 1u : 0u;
+                s_feature.openwire_suspected = s_feature.openwire_fault_latched;
+                if (!s_feature.openwire_fault_latched)
+                {
+                    s_feature.balance_voltage_trusted = 0u;
+                    s_feature.balance_trust_samples = 0u;
+                    s_feature.balance_prev_cell_count = 0u;
+                }
+            }
+            else
+            {
+                s_feature.openwire_suspected = 1u;
+            }
+            s_feature.openwire_active = 0u;
+            s_feature.openwire_idle_samples = 0u;
+            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_PERIOD_SAMPLES;
+        }
+        else if (state == BMS_AFE_DIAG_ERROR)
+        {
+            s_feature.openwire_suspected = 1u;
+            s_feature.openwire_active = 0u;
+            s_feature.openwire_idle_samples = 0u;
+            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
+        }
+        return;
+    }
+
+    if (!s_feature.openwire_suspected && s_feature.openwire_cooldown_samples != 0u)
+    {
+        --s_feature.openwire_cooldown_samples;
+        return;
+    }
+
+    if (!openwire_eligible())
+    {
+        s_feature.openwire_idle_samples = 0u;
+        return;
+    }
+
+    if (!s_feature.openwire_suspected &&
+        s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES)
+    {
+        ++s_feature.openwire_idle_samples;
+        return;
+    }
+
+    s_feature.balance_active = 0u;
+    if (!apply_balance_mask(0u))
+    {
+        s_feature.openwire_idle_samples = 0u;
+        return;
+    }
+
+    if (bms_afe_openwire_start())
+    {
+        s_feature.openwire_active = 1u;
+        s_feature.openwire_idle_samples = 0u;
+    }
+    else
+    {
+        s_feature.openwire_suspected = 1u;
+        s_feature.openwire_idle_samples = 0u;
+        s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
+    }
+}
+
+static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
+{
+    uint16_t vmin = 0xFFFFu;
+    uint16_t vmax = 0u;
+    uint8_t i;
+
+    if ((s == 0) || !s->valid || (s->cell_count == 0u) ||
+        (s->cell_count > BMS_AFE_FEATURE_MAX_CELLS))
+        return 0u;
+
+    for (i = 0u; i < s->cell_count; ++i)
+    {
+        uint16_t cell = g_stCellInfoReport.u16VCell[i];
+        if (cell < BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV ||
+            cell > BMS_BALANCE_CELL_PLAUSIBLE_MAX_MV)
+            return 0u;
+
+        if (s_feature.balance_prev_cell_count == s->cell_count)
+        {
+            uint16_t previous = s_feature.balance_prev_cell_mv[i];
+            uint16_t step = (cell >= previous) ?
+                            (uint16_t)(cell - previous) :
+                            (uint16_t)(previous - cell);
+            if (step > BMS_BALANCE_CELL_MAX_STEP_MV) return 0u;
+        }
+
+        if (cell < vmin) vmin = cell;
+        if (cell > vmax) vmax = cell;
+    }
+
+    if ((uint16_t)(vmax - vmin) > BMS_BALANCE_SUSPECT_DELTA_MV) return 0u;
+    if (g_stCellInfoReport.u16VCellMin != vmin ||
+        g_stCellInfoReport.u16VCellMax != vmax ||
+        g_stCellInfoReport.u16VCellDelta != (uint16_t)(vmax - vmin))
+        return 0u;
+
+    for (i = 0u; i < s->cell_count; ++i)
+        s_feature.balance_prev_cell_mv[i] = g_stCellInfoReport.u16VCell[i];
+    s_feature.balance_prev_cell_count = s->cell_count;
+    return 1u;
+}
+
+static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
+{
+    uint16_t required = (uint16_t)BMS_BALANCE_TRUST_CONFIRM_SAMPLES;
+
+    if (required == 0u) required = 1u;
+
+    if (!balance_sample_plausible(s))
+    {
+        s_feature.balance_voltage_trusted = 0u;
+        s_feature.balance_trust_samples = 0u;
+        s_feature.balance_active = 0u;
+        s_feature.openwire_suspected = 1u;
+        return;
+    }
+
+    if (s_feature.openwire_suspected || s_feature.openwire_fault_latched)
+    {
+        s_feature.balance_voltage_trusted = 0u;
+        s_feature.balance_trust_samples = 0u;
+        return;
+    }
+
+    if (s_feature.balance_trust_samples < required)
+        ++s_feature.balance_trust_samples;
+    s_feature.balance_voltage_trusted =
+        (s_feature.balance_trust_samples >= required) ? 1u : 0u;
+}
+
+static uint8_t balance_hard_fault(void)
+{
+    const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+
+    /* Cell OVP is intentionally not listed: with charge already blocked,
+     * verified passive bleed is a valid recovery path for a high cell. */
+    return (!bms_protection_params_valid() ||
+            bms_error_get(BMS_ERROR_AFE1) ||
+            bms_error_get(BMS_ERROR_TEMP_BREAK) ||
+            bms_error_get(BMS_ERROR_DSG_SHORT) ||
+            f->b1CellUvp || f->b1BatUvp || f->b1BatOvp ||
+            f->b1IchgOcp || f->b1IdischgOcp ||
+            f->b1CellChgOtp || f->b1CellChgUtp ||
+            f->b1CellDischgOtp || f->b1CellDischgUtp ||
+            f->b1TmosOtp) ? 1u : 0u;
+}
+
 static void service_balance(const bms_afe_feature_snapshot_t *s)
 {
+    bms_user_params_t config;
     uint16_t threshold;
-    uint32_t desired = 0u, effective = 0u;
+    uint32_t desired = 0u;
     uint8_t i;
-    if (s != 0 && s->valid && !s_feature.openwire_active && !s_feature.openwire_fault_latched &&
-        !s_feature.heater_on && !major_fault() && g_stCellInfoReport.u16Ichg != 0u) {
-        threshold = g_tParam.protect.u16VdeltaOvp_First;
-        if (threshold != 0u && g_stCellInfoReport.u16VCellDelta >= threshold) {
-            for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i) {
+    uint8_t allowed;
+
+    allowed = (uint8_t)((s != 0) && s->valid &&
+                        bms_config_get_user(&config) &&
+                        config.balance_enable &&
+                        s_feature.balance_voltage_trusted &&
+                        !s_feature.openwire_active &&
+                        !s_feature.openwire_fault_latched &&
+                        !s_feature.openwire_suspected &&
+                        (s_feature.heater_state == BMS_HEATER_IDLE) &&
+                        s_feature.charge_session_active &&
+                        !balance_hard_fault());
+
+    if (allowed)
+    {
+        threshold = s_feature.balance_active ?
+                    config.balance_stop_delta_mv :
+                    config.balance_start_delta_mv;
+
+        if (g_stCellInfoReport.u16VCellMax >= config.balance_start_mv &&
+            g_stCellInfoReport.u16VCellDelta >= threshold)
+        {
+            for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
+            {
                 uint16_t cell = g_stCellInfoReport.u16VCell[i];
-                if (cell >= g_stCellInfoReport.u16VCellMin &&
+                if (cell >= config.balance_start_mv &&
+                    cell >= g_stCellInfoReport.u16VCellMin &&
                     (uint16_t)(cell - g_stCellInfoReport.u16VCellMin) >= threshold)
                     desired |= (1uL << i);
             }
         }
     }
-    if (!bms_afe_set_balance_mask(desired)) {
-        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
-        publish_balance(0u); return;
-    }
-    s_feature.balance_requested_mask = desired;
-    if (!bms_afe_get_balance_mask(&effective)) effective = desired;
-    bms_error_clear(BMS_ERROR_BALANCE);
-    publish_balance(effective);
+
+    if (apply_balance_mask(desired))
+        s_feature.balance_active = desired ? 1u : 0u;
+    else
+        s_feature.balance_active = 0u;
 }
 
 void bms_features_init(void)
@@ -259,23 +550,33 @@ void bms_features_init(void)
 void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t s;
+
     memset(&s, 0, sizeof(s));
     if (!bms_afe_get_feature_snapshot(&s) || !s.valid)
     {
         bms_features_on_afe_invalid();
         return;
     }
-    service_heater(&s);
+
+    update_charge_session();
+    update_balance_voltage_trust(&s);
     service_openwire();
+    service_heater(&s);
     service_balance(&s);
 }
 
 void bms_features_on_afe_invalid(void)
 {
-    set_heater(0u);
+    heater_idle();
     s_feature.heater_off_hot_samples = 0u;
+    s_feature.charge_session_active = 0u;
     s_feature.balance_requested_mask = 0u;
+    s_feature.balance_active = 0u;
+    s_feature.balance_voltage_trusted = 0u;
+    s_feature.balance_trust_samples = 0u;
+    s_feature.balance_prev_cell_count = 0u;
     s_feature.openwire_active = 0u;
+    s_feature.openwire_suspected = 1u;
     s_feature.openwire_idle_samples = 0u;
     publish_balance(0u);
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
@@ -284,15 +585,49 @@ void bms_features_on_afe_invalid(void)
 
 uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
 uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
-uint8_t bms_features_charge_blocked(void) { return (!bms_protection_params_valid() || s_feature.heater_on || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
-uint8_t bms_features_discharge_blocked(void) { return (!bms_protection_params_valid() || s_feature.openwire_active || s_feature.openwire_fault_latched) ? 1u : 0u; }
+bms_heater_state_t bms_features_heater_state(void) { return s_feature.heater_state; }
+uint8_t bms_features_charge_session_active(void) { return s_feature.charge_session_active; }
+uint8_t bms_features_balance_voltage_trusted(void) { return s_feature.balance_voltage_trusted; }
+uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspected; }
+
+uint8_t bms_features_charge_hard_blocked(void)
+{
+    return (!bms_protection_params_valid() ||
+            s_feature.openwire_active ||
+            s_feature.openwire_fault_latched) ? 1u : 0u;
+}
+
+uint8_t bms_features_charge_direction_blocked(void)
+{
+    return (s_feature.heater_state == BMS_HEATER_ARMING ||
+            s_feature.heater_state == BMS_HEATER_ACTIVE) ? 1u : 0u;
+}
+
+uint8_t bms_features_charge_blocked(void)
+{
+    return (bms_features_charge_hard_blocked() ||
+            bms_features_charge_direction_blocked()) ? 1u : 0u;
+}
+
+uint8_t bms_features_discharge_blocked(void)
+{
+    return (!bms_protection_params_valid() ||
+            s_feature.openwire_active ||
+            s_feature.openwire_fault_latched) ? 1u : 0u;
+}
+
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
-void bms_features_get_openwire_result(bms_afe_openwire_result_t *r) { if (r) *r = s_feature.openwire_result; }
+void bms_features_get_openwire_result(bms_afe_openwire_result_t *r)
+{
+    if (r) *r = s_feature.openwire_result;
+}
 
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {
     uint32_t reason = 0u;
-    if (s_feature.openwire_active || s_feature.openwire_fault_latched) reason |= DIAG_BLOCK_OPENWIRE;
-    if (charge && s_feature.heater_on) reason |= DIAG_BLOCK_HEATER;
+    if (s_feature.openwire_active || s_feature.openwire_fault_latched)
+        reason |= DIAG_BLOCK_OPENWIRE;
+    if (charge && bms_features_charge_direction_blocked())
+        reason |= DIAG_BLOCK_HEATER;
     return reason;
 }
