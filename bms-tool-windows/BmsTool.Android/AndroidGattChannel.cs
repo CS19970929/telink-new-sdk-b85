@@ -284,9 +284,11 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
             _gatt = null;
             if (gatt is not null)
             {
+                Log?.Invoke($"[GATT] DISCONNECT mac={_mac}");
                 try { gatt.Disconnect(); } catch { }
                 gatt.Close();
                 gatt.Dispose();
+                Log?.Invoke($"[GATT] CLOSED mac={_mac}");
             }
         }
         finally

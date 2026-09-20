@@ -42,6 +42,7 @@ static class Test
         Check(capture.Trace.Count==1&&capture.Trace[0].Arg0==0x12345678,"trace/endian");
         Check(capture.SoftwareProtectionWords?.Length==65 && capture.SoftwareProtectionWords[0]==3750 && capture.SoftwareProtectionWords[64]==100,"software parameter read/endian");
         Check(capture.EvidenceBlocks.ContainsKey("AfeRequested")&&capture.EvidenceBlocks["AfeRequested"].Length==35,"AFE evidence capture");
+        Check(capture.EvidenceBlocks.ContainsKey("D008CapabilityTail")&&capture.EvidenceBlocks.ContainsKey("Balance"),"D008 protocol v2 evidence capture");
         Check(t.Writes==0,"diagnostic must be read-only");
         t.Unstable=true;var moving=await b.ReadDiagnosticsAsync(true,"mock");
         Check(!moving.TraceConsistent&&moving.Errors.Any(e=>e.Contains("分页")),"moving trace must be flagged");
@@ -119,9 +120,13 @@ sealed class FakeTransport:IBmsTransport
             ushort value=at>=0&&at<w.Length?w[at]:(ushort)0;
             if(start==0x2100)value=i==0?(ushort)3750:(ushort)100;
             if(address==0x2E00)value=0xD008;
-            else if(address==0x2E01)value=1;
-            else if(address==0x2E02)value=0x003F;
-            else if(address==0x2E05)value=3;
+            else if(address==0x2E01)value=2;
+            else if(address==0x2E02)value=0x007F;
+            else if(address==0x2E05)value=4;
+            else if(address==0x2E0C)value=1;
+            else if(address==0x2E0D)value=3400;
+            else if(address==0x2E0E)value=50;
+            else if(address==0x2E0F)value=30;
             else if(address==0x2E24)value=unchecked((ushort)-12);
             else if(address==0x2E25)value=0xFFFF;
             else if(address==0x2E26)value=0x4240;
@@ -133,6 +138,10 @@ sealed class FakeTransport:IBmsTransport
             else if(address==0x2E2C)value=1;
             else if(address==0x2E2D)value=90;
             else if(address==0x2E2E)value=0;
+            else if(address==0x2E70)value=1;
+            else if(address==0x2E71)value=3400;
+            else if(address==0x2E72)value=50;
+            else if(address==0x2E73)value=30;
             else if(address>=0x2500&&address<0x2523)value=(ushort)(address-0x2500+1);
             else if(address>=0x2523&&address<0x252C)value=(ushort)(address-0x2523+100);
             else if(address>=0x2540&&address<0x2563)value=(ushort)(address-0x2540+200);

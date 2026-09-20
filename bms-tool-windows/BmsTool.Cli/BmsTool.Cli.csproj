@@ -26,6 +26,7 @@
     <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="Shared\BmsDiagnostics.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />
+    <Compile Include="..\Shared\D008Parameters.cs" Link="Shared\D008Parameters.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />
   </ItemGroup>
 </Project>

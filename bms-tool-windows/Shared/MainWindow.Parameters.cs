@@ -137,7 +137,9 @@ public partial class MainWindow
         _parameterOffset.Clear();_parameterGain.Clear();
 #endif
         string mode=c.Blocks.TryGetValue("FactoryMode",out var factoryMode) ? (factoryMode[0]!=0?"FACTORY":"NORMAL") : "未知";
-        _parameterStatus.Text=c.Status+"；设备模式="+mode+"；"+string.Join("；",c.Errors);
+        string balance=c.Blocks.TryGetValue("Balance",out var bal)
+            ? $"；均衡={(bal[0]!=0?"开启":"关闭")} {bal[1]}mV Δ{bal[2]}/{bal[3]}mV" : "";
+        _parameterStatus.Text=c.Status+"；设备模式="+mode+balance+"；"+string.Join("；",c.Errors);
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
         if(c.Blocks.TryGetValue("Serial",out var sn))_parameterSn.Text=D008Parameters.Serial(sn);

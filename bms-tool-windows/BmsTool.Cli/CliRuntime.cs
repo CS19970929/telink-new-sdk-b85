@@ -246,7 +246,9 @@ internal static class CliRuntime
         try
         {
             ushort[] words = await client.ReadRegistersAsync(0x2E00, 2, ct);
-            return words.Length >= 2 && words[0] == 0xD008 && words[1] == 1;
+            return words.Length >= 2 &&
+                words[0] == D008Parameters.Magic &&
+                D008Parameters.SupportsProtocol(words[1]);
         }
         catch (OperationCanceledException) { throw; }
         catch { return false; }

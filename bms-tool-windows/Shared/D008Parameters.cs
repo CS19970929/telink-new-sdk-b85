@@ -11,13 +11,16 @@ public sealed class D008ParameterCapture
     public DateTimeOffset CapturedUtc { get; set; } = DateTimeOffset.UtcNow;
     public string Status { get; set; } = "未读取";
     public bool Supported { get; set; }
+    public ushort ProtocolVersion { get; set; }
     public Dictionary<string, ushort[]> Blocks { get; } = new();
     public List<string> Errors { get; } = new();
 }
 
 public static class D008Parameters
 {
-    public const ushort Base=0x2E00, Magic=0xD008, Schema=1;
+    public const ushort Base=0x2E00, Magic=0xD008, MinimumProtocolVersion=1, CurrentProtocolVersion=2;
+    public const ushort BalanceCapability=0x0040;
+    public static bool SupportsProtocol(ushort version)=>version is >=MinimumProtocolVersion and <=CurrentProtocolVersion;
     public static uint U32(ushort[] w,int i)=>(uint)w[i]|((uint)w[i+1]<<16);
     public static int I32(ushort[] w,int i)=>unchecked((int)U32(w,i));
     public static ushort[] Calibration(int offset,uint gain)=>new[]{unchecked((ushort)offset),unchecked((ushort)(offset>>16)),(ushort)gain,(ushort)(gain>>16)};

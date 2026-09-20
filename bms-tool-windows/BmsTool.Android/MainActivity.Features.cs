@@ -115,7 +115,7 @@ public sealed partial class MainActivity
         _transport = null;
         _connectedMac = null;
         if (client is not null) await client.DisposeAsync();
-        else if (transport is not null) await transport.DisposeAsync();
+        if (transport is not null) await transport.DisposeAsync();
     }
 
     private async Task RefreshLoopAsync(CancellationToken ct)
@@ -280,7 +280,11 @@ public sealed partial class MainActivity
 
     private void ShowParameters(D008ParameterCapture capture)
     {
-        _parameterStatus!.Text = capture.Status + (capture.Errors.Count == 0 ? "" : "\n" + string.Join("\n", capture.Errors));
+        var status = new StringBuilder(capture.Status);
+        if (capture.Blocks.TryGetValue("Balance", out ushort[]? balance))
+            status.Append($"\n均衡：{(balance[0] != 0 ? "开启" : "关闭")} · 起始 {balance[1]} mV · 启/停压差 {balance[2]}/{balance[3]} mV");
+        if (capture.Errors.Count != 0) status.Append('\n').AppendJoin('\n', capture.Errors);
+        _parameterStatus!.Text = status.ToString();
         if (capture.Blocks.TryGetValue("Capacity", out ushort[]? cap)) { _capacityInput!.Text = (cap[0] / 10m).ToString(CultureInfo.CurrentCulture); _cycleInput!.Text = cap[1].ToString(); }
         if (capture.Blocks.TryGetValue("SOC", out ushort[]? soc)) _socInput!.Text = soc[0].ToString();
         if (capture.Blocks.TryGetValue("Serial", out ushort[]? serial)) _serialInput!.Text = D008Parameters.Serial(serial);
