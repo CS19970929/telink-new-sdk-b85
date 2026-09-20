@@ -280,7 +280,7 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	/* D011 is a common-port BMS. In the healthy normal state both back-to-back
+	/* D014 is a common-port BMS. In the healthy normal state both back-to-back
 	 * FETs are requested ON. The AFE adapter applies direction-specific
 	 * protection/fail-safe blocking; PA0/SW1 is not a DSG gate. */
 	uint8_t chg_target = 1u;
