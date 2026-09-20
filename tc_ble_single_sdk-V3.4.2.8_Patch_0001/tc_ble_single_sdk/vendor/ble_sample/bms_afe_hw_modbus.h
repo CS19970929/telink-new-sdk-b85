@@ -2,10 +2,10 @@
 #define BMS_AFE_HW_MODBUS_H_
 
 #include "tl_common.h"
+#include "bms_afe_hw_profile.h"
 
 /* 0x2500..0x2522: requested/persisted 35-word profile. */
 #define BMS_AFE_HW_REQUESTED_REG_BASE           0x2500u
-#define BMS_AFE_HW_PROFILE_WORD_COUNT           35u
 
 /* 0x2523..0x252B: read-only metadata. */
 #define BMS_AFE_HW_META_CAPABILITIES             0x2523u

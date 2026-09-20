@@ -395,8 +395,6 @@ static int modbus_exception(u8 addr,
 
 static u16 read_reg(u16 reg)
 {
-    u16 val;
-
     if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_read(reg);

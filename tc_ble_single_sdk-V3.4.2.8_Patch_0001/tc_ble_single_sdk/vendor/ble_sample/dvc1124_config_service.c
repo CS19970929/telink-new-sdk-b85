@@ -19,6 +19,7 @@ static u16 dvc_cfg_timed_wake_seconds(dvc1124_timed_wake_t code)
     return table[(u8)code & 0x0Fu];
 }
 
+#if DVC1124_HW_PROTECT_ENABLE
 static u16 dvc_cfg_core_ot_x10_from_code(u8 code)
 {
     s32 value;
@@ -28,6 +29,7 @@ static u16 dvc_cfg_core_ot_x10_from_code(u8 code)
     if (value > 0xFFFF) value = 0xFFFF;
     return (u16)value;
 }
+#endif
 
 static u16 dvc_cfg_current_x10_from_sense_uv(u32 sense_uv)
 {
