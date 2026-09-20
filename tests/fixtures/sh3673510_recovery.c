@@ -33,7 +33,7 @@ static uint8_t sh3673510_control_clear_flag1(uint8_t mask) {
 }
 static uint8_t sh3673510_control_clear_flag2(uint8_t mask) { (void)mask; return clear_ok; }
 static void sh3673510_board_force_heater_fuse_safe(void) {}
-static void sh3673510_control_sleep(void) {}
+static uint8_t sh3673510_control_sleep(void) { return 1; }
 
 /* PRODUCTION */
 

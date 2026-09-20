@@ -34,7 +34,9 @@ uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status);
 uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask);
 uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask);
 uint8_t sh3673510_control_set_balance(uint16_t cell_mask);
-void sh3673510_control_sleep(void);
+/* 1: all preparatory writes and the SLEEP command succeeded.
+ * This is transport evidence, not a measurement of AFE sleep current. */
+uint8_t sh3673510_control_sleep(void);
 uint8_t sh3673510_control_wake(void);
 uint8_t sh3673510_control_ready(void);
 void sh3673510_board_set_heater(uint8_t enabled);
