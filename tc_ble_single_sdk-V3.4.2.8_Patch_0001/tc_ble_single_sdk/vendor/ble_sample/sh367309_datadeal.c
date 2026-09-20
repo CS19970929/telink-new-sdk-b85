@@ -17,32 +17,30 @@ UINT32 u32_DsgCur_mA = 0;
 /* SH367309 V1.1: CADC is a signed 16-bit, 4 Hz converter. */
 #define SH309_CADC_NUMERATOR_REDUCED          20000u
 #define SH309_CADC_DENOMINATOR_REDUCED         2147u
-#define BOOT_CURRENT_ZERO_SAMPLE_COUNT        4u
-#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_US  300000u
-#define BOOT_CURRENT_ZERO_TOTAL_TIMEOUT_US    3000000u
-#define BOOT_CURRENT_CADC_DATA_LENGTH          2u
-#define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    6
-#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS       10
-#define BOOT_CURRENT_FET_STATUS_MASK           0x07u
-#define BOOT_CURRENT_ACTIVITY_STATUS_MASK      0xC0u
-#define CURRENT_ZERO_SAMPLE_SCALE              BOOT_CURRENT_ZERO_SAMPLE_COUNT
-#define CURRENT_MA_X4_SCALE                    BOOT_CURRENT_ZERO_SAMPLE_COUNT
+#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_US       300000u
+#define BOOT_CURRENT_ZERO_TOTAL_TIMEOUT_US         3000000u
+#define BOOT_CURRENT_CADC_DATA_LENGTH               2u
+#define BOOT_CURRENT_ZERO_FAST_ABS_COUNTS           20
+#define BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS        40
+#define BOOT_CURRENT_ZERO_CONFIRM_DELTA_COUNTS       6
+#define BOOT_CURRENT_FET_STATUS_MASK              0x07u
+#define CURRENT_ZERO_SAMPLE_SCALE                    4u
+#define CURRENT_MA_X4_SCALE                          4u
 #define CURRENT_REPORT_MA_PER_LSB              100u
 #define CURRENT_DEADBAND_CALIBRATED_MA          200u
 #define CURRENT_DEADBAND_FALLBACK_MA            500u
 
 /*
- * Keep the four-sample sum instead of an integer average so the correction
- * retains 0.25 CADC-count resolution. Status also records why calibration
- * failed on a target that cannot be inspected with an online debugger.
+ * Store the learned zero in raw-count x4 units so the current path keeps
+ * quarter-count resolution regardless of whether calibration uses one sample
+ * or the optional second confirmation sample.
  */
 _attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawSum = 0;
+_attribute_data_retention_ static INT32 g_i32BootCurrentZeroFirstRaw = 0;
 _attribute_data_retention_ static UINT8 g_u8BootCurrentZeroStatus =
     BOOT_CURRENT_ZERO_NOT_ATTEMPTED;
 _attribute_data_retention_ static UINT8 g_u8BootCurrentZeroBusy = 0u;
 _attribute_data_retention_ static UINT8 g_u8BootCurrentZeroSampleCount = 0u;
-_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawMin = 32767;
-_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawMax = -32768;
 _attribute_data_retention_ static UINT32 g_u32BootCurrentZeroStartTick = 0u;
 _attribute_data_retention_ static UINT32 g_u32BootCurrentZeroSampleTick = 0u;
 
@@ -1438,7 +1436,41 @@ static INT32 DataLoad_CurrentApplyBootZeroX4(UINT16 raw)
 static void DataLoad_BootCurrentZeroFail(UINT8 status)
 {
     g_i32BootCurrentZeroRawSum = 0;
+    g_i32BootCurrentZeroFirstRaw = 0;
+    g_u8BootCurrentZeroSampleCount = 0u;
     g_u8BootCurrentZeroStatus = status;
+    g_u8BootCurrentZeroBusy = 0u;
+}
+
+static UINT8 DataLoad_BootCurrentZeroForceFetsOff(void)
+{
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0u;
+    SH367309_Reg_Store.REG_MTP_CONF.bits.PCHMOS = 0u;
+
+    if (!MTPWrite(MTP_CONF, 1u, &SH367309_Reg_Store.REG_MTP_CONF.all))
+    {
+        log_i("[BOOT][CUR_ZERO] failed to force FET off / enable CADC\n");
+        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR);
+        return 0u;
+    }
+
+    return 1u;
+}
+
+static void DataLoad_BootCurrentZeroRestartWindow(void)
+{
+    g_i32BootCurrentZeroRawSum = 0;
+    g_i32BootCurrentZeroFirstRaw = 0;
+    g_u8BootCurrentZeroSampleCount = 0u;
+    g_u32BootCurrentZeroSampleTick = clock_time();
+}
+
+static void DataLoad_BootCurrentZeroAcceptX4(INT32 zero_raw_x4)
+{
+    g_i32BootCurrentZeroRawSum = zero_raw_x4;
+    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_VALID;
     g_u8BootCurrentZeroBusy = 0u;
 }
 
@@ -1448,8 +1480,8 @@ UINT8 DataLoad_BootCurrentZeroStart(void)
     UINT32 now_tick;
 
     /*
-     * Boot zero calibration is asynchronous. It only arms the calibration
-     * window here; samples are collected later from main_loop().
+     * Boot zero calibration is asynchronous. CTL-C is held low by app.c and
+     * all AFE power-path FET-control bits are forced off before sampling.
      * No delay and no watchdog feed is allowed in this module.
      */
     if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
@@ -1459,23 +1491,10 @@ UINT8 DataLoad_BootCurrentZeroStart(void)
 
     g_u8BootCurrentZeroBusy = 1u;
     g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_IN_PROGRESS;
-    g_i32BootCurrentZeroRawSum = 0;
-    g_u8BootCurrentZeroSampleCount = 0u;
-    g_i32BootCurrentZeroRawMin = 32767;
-    g_i32BootCurrentZeroRawMax = -32768;
+    DataLoad_BootCurrentZeroRestartWindow();
 
-    /*
-     * CTL-C is already low in user_init_normal(). Also force all three AFE
-     * FET-control bits off and enable CADC explicitly.
-     */
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1u;
-    SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0u;
-    SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0u;
-    SH367309_Reg_Store.REG_MTP_CONF.bits.PCHMOS = 0u;
-    if (!MTPWrite(MTP_CONF, 1u, &SH367309_Reg_Store.REG_MTP_CONF.all))
+    if (!DataLoad_BootCurrentZeroForceFetsOff())
     {
-        log_i("[BOOT][CUR_ZERO] failed to force FET off / enable CADC\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR);
         return 0u;
     }
 
@@ -1495,13 +1514,16 @@ UINT8 DataLoad_BootCurrentZeroStart(void)
     g_u32BootCurrentZeroStartTick = now_tick;
     g_u32BootCurrentZeroSampleTick = now_tick;
 
-    log_i("[BOOT][CUR_ZERO] async calibration started\n");
+    log_i("[BOOT][CUR_ZERO] fast async calibration started\n");
     return 1u;
 }
 
 void DataLoad_BootCurrentZeroTask(void)
 {
+    MTP_REG_CONF confirmed_conf;
     INT32 raw_signed;
+    INT32 delta;
+    UINT32 raw_abs;
     UINT16 raw_current;
     UINT8 bstatus3 = 0u;
     UINT8 cadc_data[BOOT_CURRENT_CADC_DATA_LENGTH];
@@ -1511,11 +1533,6 @@ void DataLoad_BootCurrentZeroTask(void)
         return;
     }
 
-    /*
-     * Timeout is a fail-open condition for normal BMS startup: zero offset
-     * falls back to 0 and the application releases the normal MOS startup
-     * path. The task itself never blocks and never feeds the watchdog.
-     */
     if (clock_time_exceed(g_u32BootCurrentZeroStartTick,
                           BOOT_CURRENT_ZERO_TOTAL_TIMEOUT_US))
     {
@@ -1532,11 +1549,32 @@ void DataLoad_BootCurrentZeroTask(void)
     }
 
     /*
-     * CADC updates every 250 ms. Sampling no faster than every 300 ms keeps
-     * each accepted sample on a separate conversion. BSTATUS3 is checked
-     * before and after CADCD so a FET/current transition is rejected.
+     * Before every sample, verify the software FET-control bits are still OFF.
+     * If anything changed, force all three FETs OFF again and restart the
+     * 300 ms quiet window. This prevents learning any sample taken while the
+     * charge/discharge/precharge path may have been active.
      */
-    g_u32BootCurrentZeroSampleTick = clock_time();
+    confirmed_conf.all = 0u;
+    if (!MTPRead(MTP_CONF, 1u, &confirmed_conf.all))
+    {
+        log_i("[BOOT][CUR_ZERO] MTP_CONF readback failed\n");
+        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR);
+        return;
+    }
+
+    if (!confirmed_conf.bits.CADCON
+        || confirmed_conf.bits.CHGMOS
+        || confirmed_conf.bits.DSGMOS
+        || confirmed_conf.bits.PCHMOS)
+    {
+        log_i("[BOOT][CUR_ZERO] FET control changed; force OFF and restart window\n");
+        if (!DataLoad_BootCurrentZeroForceFetsOff())
+        {
+            return;
+        }
+        DataLoad_BootCurrentZeroRestartWindow();
+        return;
+    }
 
     if (!MTPRead(MTP_BSTATUS3, 1u, &bstatus3))
     {
@@ -1547,15 +1585,12 @@ void DataLoad_BootCurrentZeroTask(void)
 
     if ((bstatus3 & BOOT_CURRENT_FET_STATUS_MASK) != 0u)
     {
-        log_i("[BOOT][CUR_ZERO] FET is not off, calibration rejected\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
-        return;
-    }
-
-    if ((bstatus3 & BOOT_CURRENT_ACTIVITY_STATUS_MASK) != 0u)
-    {
-        log_i("[BOOT][CUR_ZERO] current activity detected, calibration skipped\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CURRENT_ACTIVE);
+        log_i("[BOOT][CUR_ZERO] actual FET active; force OFF and restart window\n");
+        if (!DataLoad_BootCurrentZeroForceFetsOff())
+        {
+            return;
+        }
+        DataLoad_BootCurrentZeroRestartWindow();
         return;
     }
 
@@ -1575,70 +1610,82 @@ void DataLoad_BootCurrentZeroTask(void)
 
     if ((bstatus3 & BOOT_CURRENT_FET_STATUS_MASK) != 0u)
     {
-        log_i("[BOOT][CUR_ZERO] FET changed during sample, calibration rejected\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
-        return;
-    }
-
-    if ((bstatus3 & BOOT_CURRENT_ACTIVITY_STATUS_MASK) != 0u)
-    {
-        log_i("[BOOT][CUR_ZERO] current changed during sample, calibration skipped\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CURRENT_ACTIVE);
+        log_i("[BOOT][CUR_ZERO] FET changed during sample; discard and restart\n");
+        if (!DataLoad_BootCurrentZeroForceFetsOff())
+        {
+            return;
+        }
+        DataLoad_BootCurrentZeroRestartWindow();
         return;
     }
 
     raw_current = ((UINT16)cadc_data[0] << 8) | (UINT16)cadc_data[1];
     raw_signed = DataLoad_CurrentRawToSigned(raw_current);
-    g_i32BootCurrentZeroRawSum += raw_signed;
+    raw_abs = DataLoad_CurrentAbsRaw(raw_signed);
 
-    if (raw_signed < g_i32BootCurrentZeroRawMin)
+    /*
+     * Fast path: one clean sample is enough when the offset is within the
+     * normal acceptance band. Store raw x4 so current conversion keeps the
+     * existing quarter-count correction scale.
+     */
+    if (g_u8BootCurrentZeroSampleCount == 0u)
     {
-        g_i32BootCurrentZeroRawMin = raw_signed;
-    }
-    if (raw_signed > g_i32BootCurrentZeroRawMax)
-    {
-        g_i32BootCurrentZeroRawMax = raw_signed;
-    }
+        if (raw_abs <= (UINT32)BOOT_CURRENT_ZERO_FAST_ABS_COUNTS)
+        {
+            DataLoad_BootCurrentZeroAcceptX4(
+                raw_signed * (INT32)CURRENT_ZERO_SAMPLE_SCALE);
+            log_i("[BOOT][CUR_ZERO] fast valid raw=%d\n", raw_signed);
+            return;
+        }
 
-    ++g_u8BootCurrentZeroSampleCount;
-    if (g_u8BootCurrentZeroSampleCount < BOOT_CURRENT_ZERO_SAMPLE_COUNT)
-    {
+        if (raw_abs > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS)
+        {
+            log_i("[BOOT][CUR_ZERO] offset out of range raw=%d limit=%u\n",
+                  raw_signed,
+                  (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS);
+            DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
+            return;
+        }
+
+        /*
+         * Borderline but plausible offset: wait for exactly one independent
+         * CADC conversion and require the two readings to agree.
+         */
+        g_i32BootCurrentZeroFirstRaw = raw_signed;
+        g_u8BootCurrentZeroSampleCount = 1u;
+        g_u32BootCurrentZeroSampleTick = clock_time();
+        log_i("[BOOT][CUR_ZERO] confirm raw1=%d\n", raw_signed);
         return;
     }
 
-    if ((g_i32BootCurrentZeroRawMax - g_i32BootCurrentZeroRawMin)
-        > BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS)
+    if (raw_abs > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS)
     {
-        log_i("[BOOT][CUR_ZERO] unstable CADCD min=%d max=%d\n",
-              g_i32BootCurrentZeroRawMin,
-              g_i32BootCurrentZeroRawMax);
+        log_i("[BOOT][CUR_ZERO] confirm offset out of range raw2=%d limit=%u\n",
+              raw_signed,
+              (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS);
+        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
+        return;
+    }
+
+    delta = raw_signed - g_i32BootCurrentZeroFirstRaw;
+    if (DataLoad_CurrentAbsRaw(delta)
+        > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_DELTA_COUNTS)
+    {
+        log_i("[BOOT][CUR_ZERO] confirm unstable raw1=%d raw2=%d delta=%d\n",
+              g_i32BootCurrentZeroFirstRaw, raw_signed, delta);
         DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_UNSTABLE);
         return;
     }
 
     /*
-     * Reject an implausibly large "zero" even when it is stable. This protects
-     * against a physical current path being learned as offset.
+     * Average two signed raw samples and keep x4 precision:
+     * ((raw1 + raw2) / 2) * 4 == (raw1 + raw2) * 2.
      */
-    if (DataLoad_CurrentAbsRaw(g_i32BootCurrentZeroRawSum)
-        > ((UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS
-           * (UINT32)BOOT_CURRENT_ZERO_SAMPLE_COUNT))
-    {
-        log_i("[BOOT][CUR_ZERO] offset out of range sum=%d limit=%u\n",
-              g_i32BootCurrentZeroRawSum,
-              (UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS
-                  * (UINT32)BOOT_CURRENT_ZERO_SAMPLE_COUNT);
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
-        return;
-    }
-
-    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_VALID;
-    g_u8BootCurrentZeroBusy = 0u;
-    log_i("[BOOT][CUR_ZERO] CADCD sum=%d samples=%u min=%d max=%d\n",
-          g_i32BootCurrentZeroRawSum,
-          g_u8BootCurrentZeroSampleCount,
-          g_i32BootCurrentZeroRawMin,
-          g_i32BootCurrentZeroRawMax);
+    DataLoad_BootCurrentZeroAcceptX4(
+        (g_i32BootCurrentZeroFirstRaw + raw_signed) * 2);
+    g_u8BootCurrentZeroSampleCount = 2u;
+    log_i("[BOOT][CUR_ZERO] confirm valid raw1=%d raw2=%d\n",
+          g_i32BootCurrentZeroFirstRaw, raw_signed);
 }
 
 UINT8 DataLoad_IsBootCurrentZeroBusy(void)

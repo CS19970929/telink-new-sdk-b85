@@ -469,6 +469,15 @@ static void app_boot_zero_poll(void)
 {
 	UINT8 status;
 
+	/*
+	 * CTL-C is the hardware gate for the calibration window. Keep asserting
+	 * it low for the whole learning period; open_ctlc() is also busy-gated.
+	 */
+	if (DataLoad_IsBootCurrentZeroBusy())
+	{
+		close_ctlc();
+	}
+
 	DataLoad_BootCurrentZeroTask();
 
 	if (!g_u8BootZeroPowerPathPending || DataLoad_IsBootCurrentZeroBusy())
@@ -1709,8 +1718,8 @@ _attribute_no_inline_ void user_init_normal(void)
 
 		/*
 		 * Boot-only zero-current calibration window. Keep all power-path FETs
-		 * off, then arm the asynchronous sampler. BLE/UART/main_loop/watchdog
-		 * are not held up by the 4 x 300 ms sampling window.
+		 * off, then arm the asynchronous 1+1 sampler. Normal boards finish after
+		 * one fresh CADC sample; only borderline offsets need one confirmation.
 		 */
 		close_ctlc();
 		close_chg();
