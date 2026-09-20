@@ -65,6 +65,8 @@ Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连�
 .\publish-android-deployer.ps1
 ```
 
+使用 VS Code 时按 `Ctrl+Shift+B` 即可执行默认任务 `BMS: 编译并发送固件到 Android`。它直接完成固件 `rebuild/check-fw`、严格 Telink BIN 预检、ADB 分片发送、手机端 SHA-256 导入确认和 OTA 页面唤起，不经过 Windows 图形发送器。如果固件已经编译，使用 `Tasks: Run Task` 选择 `BMS: 发送现有固件到 Android`。两者都使用 `bms.py` 的标准输出 `tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample_cli\825x_ble_sample.bin`；检测到多台手机时会拒绝自动选择，发送完成后仍需在手机上明确选择 `BT_` / `BT-` 设备并确认 OTA。
+
 ## 三入口发布约定
 
 统一使用 `build-release.ps1` 发布 Windows x64、自包含、单文件 EXE：
