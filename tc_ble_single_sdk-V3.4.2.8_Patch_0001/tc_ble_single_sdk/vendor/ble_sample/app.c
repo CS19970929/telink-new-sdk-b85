@@ -460,6 +460,9 @@ static void app_boot_zero_apply_startup_power_path(void)
 	{
 		open_dsg_close_chg();
 	}
+
+	/* Match the original startup order: release CTL-C only after MOS policy. */
+	open_ctlc();
 }
 
 static void app_boot_zero_poll(void)
@@ -1742,7 +1745,6 @@ _attribute_no_inline_ void user_init_normal(void)
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
 	// sys_time.isdebugenable = 1;
-	open_ctlc();
 }
 
 /**
