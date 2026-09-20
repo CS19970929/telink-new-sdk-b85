@@ -29,7 +29,7 @@ static class Test {
  }
 }
 namespace BmsTool.Windows {
- sealed class BmsBleTransport:IBmsTransport {
+ sealed class BmsBleTransport:IBmsTransport,IBmsMtuTransport {
   public int? NegotiatedMtu=>23;public bool IsConnected=>true;public bool RequiresSerialWakeup=>Serial;
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage;public CancellationTokenSource? Stop;
   public int Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();

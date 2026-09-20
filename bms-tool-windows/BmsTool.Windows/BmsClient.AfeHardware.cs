@@ -22,7 +22,7 @@ public sealed partial class BmsClient
             BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i * 2, 2), values[i]);
 
         byte[] request = ModbusRtu.WriteMultiple(start, raw);
-        if (_transport is BmsBleTransport ble && (ble.NegotiatedMtu ?? 23) < request.Length + 3)
+        if (_transport is IBmsMtuTransport mtuTransport && (mtuTransport.NegotiatedMtu ?? 23) < request.Length + 3)
             throw new IOException("设备尚未支持此写入路径；请使用完整 AFE 参数事务或直连串口，无需修改 MTU。");
 
         byte[] rsp = await TransactAsync(request, ct);
@@ -32,7 +32,7 @@ public sealed partial class BmsClient
     public async Task WriteAfeProfileAsync(ushort[] values, AfeHardwareAccessSession session, CancellationToken ct=default)
     {
         if(values.Length!=35) throw new ArgumentException("AFE 参数必须为完整 35 words。");
-        if(_transport is not BmsBleTransport ble || (ble.NegotiatedMtu ?? 23)>=82) {
+        if(_transport is not IBmsMtuTransport mtuTransport || (mtuTransport.NegotiatedMtu ?? 23)>=82) {
             await WriteRegistersAsync(0x2500,values,ct);return;
         }
         if(session.ProtocolVersion<2)

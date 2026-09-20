@@ -22,7 +22,17 @@ dotnet build .\BmsTool.Android\BmsTool.Android.csproj -c Release
 adb install -r .\BmsTool.Android\bin\Release\net10.0-android\com.cs.bmstool.android-Signed.apk
 ```
 
-App 提供 `Read info` 和 `OTA + Serial verify`，Info 会同时尝试读取 Firmware Build ID。每次启动会在 Android App 专属外部 `files/` 目录生成带时间戳的完整日志，也可用 ADB 进行可重复的实板测试：
+Android 使用独立的手机信息架构和原生控件，不复用或修改 Windows XAML。主导航分为“概览 / 保护 / 参数 / 诊断 / 工具”，当前覆盖：
+
+- `BT_` / `BT-` 扫描、明确 MAC 连接、断开和 5 秒实时刷新；
+- 电压、电流、SOC/SOH、容量、温度、单体、MOS、系统状态和三级保护；
+- 65 words 软件保护整组校验写入、AFE Requested/Effective 原子事务；
+- D008 容量/SOC/循环/加热参数和分组恢复，SN 在客户页面只读；
+- 快速/完整诊断、AI 诊断 ZIP、100 条事件、通信日志；
+- 长期监控 CSV、蓝牙名、休眠、受二次确认保护的原始寄存器读写；
+- Android 文件选择器、严格 Telink BIN 预检、OTA_RESULT、重连与 Serial 回读确认。
+
+每次启动会在 Android App 专属外部 `files/` 目录生成带时间戳的完整日志，也可用 ADB 进行可重复的实板测试：
 
 ```powershell
 adb shell am start -n com.cs.bmstool.android/<MainActivity> `
@@ -35,6 +45,8 @@ adb shell am start -n com.cs.bmstool.android/<MainActivity> `
 `<MainActivity>` 用 `adb shell cmd package resolve-activity --brief com.cs.bmstool.android` 获取。日志位于 `/sdcard/Android/data/com.cs.bmstool.android/files/`，可直接用 `adb pull` 导出。OTA 不会把“能重连”单独当成成功；自动测试同时要求服务器 `OTA_RESULT=OTA_SUCCESS` 和升级后 Serial 回读匹配，并记录升级前后 Firmware Build ID。修改共享 OTA 代码后必须运行 `./test-ota-protocol.ps1`，并同时构建 `BmsTool.Cli`、`BmsTool.Windows`、`BmsFactoryTest.Windows`和 `BmsTool.Android`。
 
 Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连接阶段的瞬态 `status=22`、timeout 或 I/O 失败最多重试 3 次；数据阶段仍由共享 `BmsClient` 的有界 probe/reconnect 逻辑处理。
+
+完整页面、共享源码、安全边界、构建和真机测试结果见 [Android BMS Tool](docs/ANDROID.md)。Android 当前只提供 BLE；Windows 的 COM 直连和 STM32 Serial IAP 不伪装为 Android 功能。
 
 ## 三入口发布约定
 
