@@ -151,6 +151,16 @@ typedef struct
     uint8_t endpoint_event_flags;
     uint8_t soh_source;
     uint8_t soh_confidence;
+
+    uint8_t last_sample_state;
+    uint8_t last_integral_direction;
+    uint8_t last_soc_action;
+    uint8_t last_soc_before;
+    uint8_t last_soc_after;
+    uint8_t last_soc_target;
+    uint8_t last_decision_detail;
+    uint32_t last_sample_elapsed_32k;
+    uint32_t last_integral_delta_as10;
 } soc_runtime_t;
 
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
@@ -188,6 +198,31 @@ static void soc_learning_abort(void);
 static void soc_learning_persist(void);
 static uint8_t soc_learning_full_quality(void);
 static uint8_t soc_learning_empty_quality(void);
+
+static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
+                                 uint32_t elapsed_32k)
+{
+    uint8_t soc = get_soc_real();
+    g_soc_runtime.last_sample_state = state;
+    g_soc_runtime.last_integral_direction = (uint8_t)dir;
+    g_soc_runtime.last_sample_elapsed_32k = elapsed_32k;
+    g_soc_runtime.last_integral_delta_as10 = 0u;
+    g_soc_runtime.last_soc_action = BMS_SOC_ACTION_NONE;
+    g_soc_runtime.last_soc_before = soc;
+    g_soc_runtime.last_soc_after = soc;
+    g_soc_runtime.last_soc_target = soc;
+    g_soc_runtime.last_decision_detail = 0u;
+}
+
+static void soc_diag_note_action(uint8_t action, uint8_t before,
+                                 uint8_t target, uint8_t detail)
+{
+    g_soc_runtime.last_soc_action = action;
+    g_soc_runtime.last_soc_before = before;
+    g_soc_runtime.last_soc_after = get_soc_real();
+    g_soc_runtime.last_soc_target = target;
+    g_soc_runtime.last_decision_detail = detail;
+}
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
@@ -382,6 +417,15 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->valid_learning_count = g_soc_runtime.valid_learning_count;
     diag->rejected_learning_count = g_soc_runtime.rejected_learning_count;
     diag->last_learning_reject_reason = g_soc_runtime.last_learning_reject_reason;
+    diag->last_sample_state = g_soc_runtime.last_sample_state;
+    diag->last_integral_direction = g_soc_runtime.last_integral_direction;
+    diag->last_soc_action = g_soc_runtime.last_soc_action;
+    diag->last_soc_before = g_soc_runtime.last_soc_before;
+    diag->last_soc_after = g_soc_runtime.last_soc_after;
+    diag->last_soc_target = g_soc_runtime.last_soc_target;
+    diag->last_decision_detail = g_soc_runtime.last_decision_detail;
+    diag->last_sample_elapsed_32k = g_soc_runtime.last_sample_elapsed_32k;
+    diag->last_integral_delta_as10 = g_soc_runtime.last_integral_delta_as10;
 }
 
 static uint8_t soc_limit_percent_u32(uint32_t value)
@@ -798,9 +842,11 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 {
     uint8_t old_soc;
     uint8_t new_soc;
+    old_soc = get_soc_real();
+    g_soc_runtime.last_integral_delta_as10 = delta;
+    soc_diag_note_action(BMS_SOC_ACTION_INTEGRATE, old_soc, old_soc, 0u);
     if (delta == 0u) return;
 
-    old_soc = get_soc_real();
     SOC_Calculate_Element.u32CapChange += delta;
     soc_learning_on_delta(dir, delta);
 
@@ -833,6 +879,7 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
             soc_note_discharge_soc_drop(old_soc, new_soc);
         }
     }
+    g_soc_runtime.last_soc_after = get_soc_real();
 }
 
 static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
@@ -997,7 +1044,13 @@ static uint8_t soc_idle_ocv_tracking(void)
     if (g_soc_runtime.ocv_down_ticks < SOC_LONG_REST_DOWN_STEP_TICKS) return 0u;
 
     g_soc_runtime.ocv_down_ticks = 0u;
-    return soc_step_down_to(g_soc_runtime.ocv_high);
+    if (soc_step_down_to(g_soc_runtime.ocv_high)) {
+        soc_diag_note_action(BMS_SOC_ACTION_OCV_DOWN, current_soc,
+                             g_soc_runtime.ocv_high,
+                             g_soc_runtime.ocv_confidence);
+        return 1u;
+    }
+    return 0u;
 }
 
 static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
@@ -1329,6 +1382,8 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
         if (g_soc_runtime.dsg_empty_lock_ticks >= SOC_DSG_EMPTY_LOCK_TICKS) {
             soc_apply_real_value(0u, 0u);
             soc_reset_integral_accumulator();
+            soc_diag_note_action(BMS_SOC_ACTION_TERMINAL_DOWN,
+                                 current_soc, 0u, sag_hold_blocks);
             if (!g_soc_runtime.empty_anchor_latched) {
                 g_soc_runtime.empty_anchor_latched = 1u;
                 soc_learning_on_empty_anchor();
@@ -1345,7 +1400,12 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
         g_soc_runtime.dsg_terminal_adjust_ticks++;
     if (g_soc_runtime.dsg_terminal_adjust_ticks < step_ticks) return 0u;
     g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
-    return soc_step_down_to(target_soc);
+    if (soc_step_down_to(target_soc)) {
+        soc_diag_note_action(BMS_SOC_ACTION_TERMINAL_DOWN,
+                             current_soc, target_soc, sag_hold_blocks);
+        return 1u;
+    }
+    return 0u;
 }
 
 static uint8_t soc_apply_full_anchor(void)
@@ -1357,8 +1417,10 @@ static uint8_t soc_apply_full_anchor(void)
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
     uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) &&
         (g_stCellInfoReport.u16VCellDelta <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
+    uint8_t before;
 
     if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp) {
+        before = get_soc_real();
         if (get_soc_real() != SOC_PERCENT_MAX) {
             soc_apply_real_value(SOC_PERCENT_MAX, 0u);
             soc_reset_integral_accumulator();
@@ -1369,6 +1431,8 @@ static uint8_t soc_apply_full_anchor(void)
             soc_learning_on_full_anchor();
         }
         g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
+        soc_diag_note_action(BMS_SOC_ACTION_FULL_ANCHOR, before,
+                             SOC_PERCENT_MAX, 1u);
         return 1u;
     }
 
@@ -1398,6 +1462,7 @@ static uint8_t soc_apply_full_anchor(void)
         g_soc_runtime.full_adjust_ticks++;
     if (g_soc_runtime.full_adjust_ticks < SOC_FULL_SYNC_STEP_TICKS) return 0u;
     g_soc_runtime.full_adjust_ticks = 0u;
+    before = get_soc_real();
     if (soc_step_up_to(SOC_PERCENT_MAX)) {
         if (get_soc_real() == SOC_PERCENT_MAX && !g_soc_runtime.full_anchor_latched) {
             g_soc_runtime.full_anchor_latched = 1u;
@@ -1406,6 +1471,8 @@ static uint8_t soc_apply_full_anchor(void)
         }
         if (get_soc_real() == SOC_PERCENT_MAX)
             g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
+        soc_diag_note_action(BMS_SOC_ACTION_FULL_ANCHOR, before,
+                             SOC_PERCENT_MAX, 2u);
         return 1u;
     }
     return 0u;
@@ -1426,6 +1493,8 @@ static uint8_t soc_apply_forced_empty_anchor(void)
         soc_apply_real_value(0u, 1u);
         soc_reset_integral_accumulator();
     }
+    soc_diag_note_action(BMS_SOC_ACTION_FORCED_EMPTY, before, 0u,
+                         g_soc_runtime.endpoint_event_flags);
     if (!g_soc_runtime.empty_anchor_latched) {
         g_soc_runtime.empty_anchor_latched = 1u;
         g_soc_runtime.full_anchor_latched = 0u;
@@ -1439,6 +1508,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
 {
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
     uint16_t empty_max = (uint16_t)(empty_mv + g_soc_profile->empty_max_margin_mv);
+    uint8_t before;
     if (!soc_idle_for_ocv() || (VCELLMIN > empty_mv) || (VCELLMAX > empty_max)) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
@@ -1464,6 +1534,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         g_soc_runtime.empty_adjust_ticks++;
     if (g_soc_runtime.empty_adjust_ticks < SOC_EMPTY_SYNC_STEP_TICKS) return 0u;
     g_soc_runtime.empty_adjust_ticks = 0u;
+    before = get_soc_real();
     if (soc_step_down_to(0u)) {
         if (get_soc_real() == 0u && !g_soc_runtime.empty_anchor_latched) {
             g_soc_runtime.empty_anchor_latched = 1u;
@@ -1472,6 +1543,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         }
         if (get_soc_real() == 0u)
             g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
+        soc_diag_note_action(BMS_SOC_ACTION_IDLE_EMPTY, before, 0u, 0u);
         return 1u;
     }
     return 0u;
@@ -1586,6 +1658,7 @@ void set_calsoc(uint8_t soc)
 
 void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
 {
+    uint8_t before = get_soc_real();
     (void)cap_factory;
     set_calsoc(soc);
     soc_invalidate_sample_interval();
@@ -1593,6 +1666,8 @@ void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
     soc_reset_ocv_tracking();
     if (sync_display) set_dispsoc(get_soc_real());
     soc_recalc_now_capacity();
+    soc_diag_note_action(BMS_SOC_ACTION_PARAMETER_SET, before,
+                         soc_limit_percent_u32(soc), sync_display);
 }
 
 void soc_param_lib_init(const soc_kv_data_t *soc)
@@ -1646,6 +1721,9 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
     soc_reset_ocv_tracking();
     soc_eta_reset();
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
+    soc_diag_note_action(BMS_SOC_ACTION_STATE_RESTORE,
+                         SOC_Calculate_Element.u8SOC_Now,
+                         SOC_Calculate_Element.u8SOC_Now, 0u);
     soc_learning_update_confidence();
     g_soc_initialized = 1u;
     if (learning_meta_changed) soc_learning_persist();
@@ -1750,6 +1828,7 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
 
     if (!g_soc_initialized || !valid)
     {
+        soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
         if (g_soc_initialized && !valid &&
             g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
             soc_learning_reject(BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
@@ -1758,6 +1837,8 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
     }
     if (!g_soc_input_ready)
     {
+        soc_diag_note_sample(BMS_SOC_SAMPLE_FIRST,
+                             SOC_INTEGRAL_DIR_NONE, 0u);
         g_soc_sample_tick_32k = sample_tick_32k;
         g_soc_input_current_ma = current_ma;
         g_soc_input_valid = 1u;
@@ -1765,10 +1846,16 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
         return; /* the first new sample cannot prove the preceding interval */
     }
     elapsed_32k = sample_tick_32k - g_soc_sample_tick_32k;
-    if (elapsed_32k == 0u) return; /* duplicate cached read is not new evidence */
+    if (elapsed_32k == 0u) {
+        soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE,
+                             soc_current_direction(0), 0u);
+        return; /* duplicate cached read is not new evidence */
+    }
     g_soc_sample_tick_32k = sample_tick_32k;
     if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
     {
+        soc_diag_note_sample(BMS_SOC_SAMPLE_GAP,
+                             SOC_INTEGRAL_DIR_NONE, elapsed_32k);
         if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
             soc_learning_reject(BMS_SOC_LEARNING_REJECT_SAMPLE_GAP);
         soc_invalidate_sample_interval();
@@ -1784,12 +1871,14 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
     g_soc_input_valid = 1u;
     g_soc_interval_32k = elapsed_32k;
     dir = soc_current_direction(0);
+    soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
     if (dir == SOC_INTEGRAL_DIR_CHG) SOC_Cont_AH_Int_CHG();
     else if (dir == SOC_INTEGRAL_DIR_DSG) SOC_Cont_AH_Int_DSG();
     else SOC_State_Transfer();
 
     if (dir != previous_dir)
     {
+        g_soc_runtime.last_sample_state = BMS_SOC_SAMPLE_DIRECTION_CHANGE;
         /* An interval straddling a current-state transition proves neither
          * continuous rest nor a continuous full/empty anchor condition. */
         soc_reset_ocv_tracking();

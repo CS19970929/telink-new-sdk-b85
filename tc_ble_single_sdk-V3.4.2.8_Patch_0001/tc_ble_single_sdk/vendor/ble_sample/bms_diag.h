@@ -28,7 +28,7 @@
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME)
 
-#define BMS_DIAG_RUNTIME_VERSION 2u
+#define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
 typedef struct {
     uint8_t chemistry;
@@ -70,7 +70,30 @@ typedef struct {
     uint16_t valid_learning_count;
     uint16_t rejected_learning_count;
     uint8_t last_learning_reject_reason;
+    uint8_t last_sample_state;
+    uint8_t last_integral_direction;
+    uint8_t last_soc_action;
+    uint8_t last_soc_before;
+    uint8_t last_soc_after;
+    uint8_t last_soc_target;
+    uint8_t last_decision_detail;
+    uint32_t last_sample_elapsed_32k;
+    uint32_t last_integral_delta_as10;
 } bms_soc_diag_t;
+
+enum {
+    BMS_SOC_SAMPLE_NONE=0, BMS_SOC_SAMPLE_INVALID=1,
+    BMS_SOC_SAMPLE_FIRST=2, BMS_SOC_SAMPLE_DUPLICATE=3,
+    BMS_SOC_SAMPLE_GAP=4, BMS_SOC_SAMPLE_ACCEPTED=5,
+    BMS_SOC_SAMPLE_DIRECTION_CHANGE=6
+};
+enum {
+    BMS_SOC_ACTION_NONE=0, BMS_SOC_ACTION_INTEGRATE=1,
+    BMS_SOC_ACTION_OCV_DOWN=2, BMS_SOC_ACTION_TERMINAL_DOWN=3,
+    BMS_SOC_ACTION_FULL_ANCHOR=4, BMS_SOC_ACTION_FORCED_EMPTY=5,
+    BMS_SOC_ACTION_IDLE_EMPTY=6, BMS_SOC_ACTION_PARAMETER_SET=7,
+    BMS_SOC_ACTION_STATE_RESTORE=8
+};
 enum { DIAG_NOT_RUN=0, DIAG_OK=1, DIAG_PORT=2, DIAG_LAYOUT=3,
     DIAG_REGION=4, DIAG_OPEN=5, DIAG_DEFAULTS=6, DIAG_SAVE=7,
     DIAG_PROGRAM_VERIFY=8, DIAG_ERASE_VERIFY=9, DIAG_OTA=10,

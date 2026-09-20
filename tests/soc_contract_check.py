@@ -57,7 +57,8 @@ class SocContract(unittest.TestCase):
         self.assertIn("SOC_OCV_ERROR_BAND_PERCENT          5u", C)
         self.assertIn("g_soc_runtime.ocv_low", C)
         self.assertIn("g_soc_runtime.ocv_high", C)
-        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", C)
+        self.assertIn("soc_step_down_to(g_soc_runtime.ocv_high)", C)
+        self.assertIn("BMS_SOC_ACTION_OCV_DOWN", C)
         ocv_fn = C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")]
         self.assertNotIn("soc_step_up_to", ocv_fn)
 

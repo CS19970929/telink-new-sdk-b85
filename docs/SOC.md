@@ -138,8 +138,9 @@ SOH 来源可见：未形成可靠容量学习时为 `SOH_ESTIMATED_CYCLE`（con
 - filtered current / variation、TTE/TTF、ETA state/direction/confidence/valid；
 - SOH value/source/confidence；
 - 容量学习 enable/state、candidate/accepted capacity、confidence、valid/rejected count 与 last reject reason。
+- 最近样本判定、实际间隔、积分方向/增量，以及最近 SOC 动作的 before/after/target/detail。
 
-这些字段映射到 Runtime Diagnostics v2 的 `0x2A00 + 226..248`，旧 v1 offset 保持不变。Windows 两版与 CLI 复用同一个 typed decoder；详见 [D008_DIAGNOSTICS.md](D008_DIAGNOSTICS.md)。
+这些字段映射到 Runtime Diagnostics v3 的 `0x2A00 + 226..255`，旧 v1/v2 offset 保持不变。Windows 两版与 CLI 复用同一个 typed decoder；详见 [D008_DIAGNOSTICS.md](D008_DIAGNOSTICS.md)。
 
 ## 10. 自动验证与必测场景
 

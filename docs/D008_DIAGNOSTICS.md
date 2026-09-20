@@ -71,7 +71,7 @@ TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误
 
 | Offset | 类型 | 含义 |
 |---|---|---|
-| 192 | u16 | runtime version=2；v1 offset 193..225 保持兼容 |
+| 192 | u16 | runtime version=3；v1 offset 193..225、v2 offset 226..248 保持兼容 |
 | 193 | u16 | bit0 采样有效且新鲜，bit1 当前过流恢复状态 pending |
 | 194..195 | i32 | AFE 原始电流 mA（软件工厂校准前） |
 | 196..197 | i32 | 业务实际使用电流 mA（软件校准后） |
@@ -98,9 +98,16 @@ TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误
 | 244,245 | u16 | valid / rejected learning count（饱和） |
 | 246,247 | u16 | last learning reject reason、learning confidence |
 | 248 | u16 | OCV weighted cell mV |
+| 249 | u16 | bit0..3 最近采样判定，bit4..7 积分方向，bit8..15 最近 SOC 动作 |
+| 250..251 | u32 | 最近样本间隔，单位 32k tick；GAP 时保留实际盲区长度 |
+| 252..253 | u32 | 最近一次库仑积分增量，单位 0.1 As；未积分为 0 |
+| 254 | u16 | bit0..7 动作前 SOC，bit8..15 动作后 SOC |
+| 255 | u16 | bit0..7 动作目标 SOC，bit8..15 动作 detail |
 
 PM 阻断位：bit0 无有效/新鲜采样，bit1 OTA，bit2 Flash stack session，bit3 OWC/bus busy，bit4 双向绝对电流达到 suspend 门槛，bit5 sample pending，bit6 显式关机流程，bit7 ACC sleep 流程。该位图只解释既有 `blt_pm_proc()` 决策，不参与或改变低功耗策略。
 
 Runtime Snapshot 由 AFE/SOC/PM 各 owner 在原有主循环路径更新；`PM_STATE`、`PROTECTION`、`SAMPLE_STATE` 仅在状态边沿写 RAM Trace，避免按 200ms 周期刷满环形缓冲。
 
-Runtime v2 只扩展此前保留 words，不改变诊断 schema、地址或已有字段。Windows typed decoder 在 runtime version <2 时不解释新字段；ETA 必须同时检查 valid/state/confidence，不能把 `0xFFFF` 显示成真实分钟数。`SOH source=cycle estimated` 不是容量实测 SOH。
+Runtime v3 仍只扩展此前保留 words，不改变诊断 schema、地址或 v1/v2 字段。采样判定为 `INVALID/FIRST/DUPLICATE/GAP/ACCEPTED/DIRECTION_CHANGE`；SOC 动作为 `NONE/INTEGRATE/OCV_DOWN/TERMINAL_DOWN/FULL_ANCHOR/FORCED_EMPTY/IDLE_EMPTY/PARAMETER_SET/STATE_RESTORE`。因此主机能区分“通信读到了 SOC”与“固件为什么接受、拒绝或校正本次 SOC”。`detail` 只按动作解释：OCV 为 confidence，terminal 为 sag-hold 标志，full anchor 为 1=Third OVP/2=稳定满电，forced empty 为 endpoint event flags，parameter set 为 sync-display 标志。
+
+Windows typed decoder 对 runtime v2 保持兼容，v3 不可用时把新字段标记为 `UNAVAILABLE_V2`；ETA 必须同时检查 valid/state/confidence，不能把 `0xFFFF` 显示成真实分钟数。`SOH source=cycle estimated` 不是容量实测 SOH。

@@ -221,6 +221,15 @@ void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
     dirty |= update16(246u, soc->last_learning_reject_reason);
     dirty |= update16(247u, soc->capacity_learning_confidence);
     dirty |= update16(248u, soc->ocv_cell_mv);
+    dirty |= update16(249u, (uint16_t)((soc->last_sample_state & 0x0Fu) |
+                                       ((soc->last_integral_direction & 0x0Fu) << 4) |
+                                       ((uint16_t)soc->last_soc_action << 8)));
+    dirty |= update32(250u, soc->last_sample_elapsed_32k);
+    dirty |= update32(252u, soc->last_integral_delta_as10);
+    dirty |= update16(254u, (uint16_t)(soc->last_soc_before |
+                                       ((uint16_t)soc->last_soc_after << 8)));
+    dirty |= update16(255u, (uint16_t)(soc->last_soc_target |
+                                       ((uint16_t)soc->last_decision_detail << 8)));
     if (dirty) changed();
 }
 
