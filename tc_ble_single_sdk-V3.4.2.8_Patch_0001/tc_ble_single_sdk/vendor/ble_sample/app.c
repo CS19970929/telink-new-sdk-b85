@@ -423,6 +423,8 @@ void enter_fac_mode(bool on)
 }
 
 extern volatile union System_Status SystemStatus;
+_attribute_data_retention_ static UINT8 g_u8BootZeroPowerPathPending = 0u;
+
 static void factory_mode_apply_switch_state(void)
 {
 	if (MODE_FACTORY != Runtime_GetMode())
@@ -442,6 +444,60 @@ static void factory_mode_apply_switch_state(void)
 	{
 		close_dsg();
 	}
+}
+
+static void app_boot_zero_apply_startup_power_path(void)
+{
+	if (IsChargerWakeupActive())
+	{
+		open_chg_close_dsg();
+	}
+	else if (MODE_FACTORY == Runtime_GetMode())
+	{
+		factory_mode_apply_switch_state();
+	}
+	else
+	{
+		open_dsg_close_chg();
+	}
+}
+
+static void app_boot_zero_poll(void)
+{
+	UINT8 status;
+
+	DataLoad_BootCurrentZeroTask();
+
+	if (!g_u8BootZeroPowerPathPending || DataLoad_IsBootCurrentZeroBusy())
+	{
+		return;
+	}
+
+	status = DataLoad_GetBootCurrentZeroStatus();
+	if ((status == BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
+		|| (status == BOOT_CURRENT_ZERO_IN_PROGRESS))
+	{
+		return;
+	}
+
+	g_u8BootZeroPowerPathPending = 0u;
+
+	if (DataLoad_IsBootCurrentZeroValid())
+	{
+		log_i("[BOOT][CUR_ZERO] valid raw_sum=%d, release startup MOS\n",
+			  DataLoad_GetBootCurrentZeroRawSum());
+	}
+	else
+	{
+		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u; release startup MOS\n",
+			  status);
+	}
+
+	/*
+	 * Calibration quality must never prevent normal power-path startup.
+	 * Success and every failure/timeout converge here.
+	 */
+	app_boot_zero_apply_startup_power_path();
 }
 
 void charger_detect_and_keyLogi_200ms(void)
@@ -1649,16 +1705,14 @@ _attribute_no_inline_ void user_init_normal(void)
 		SH367309_UpdataAfeConfig();
 
 		/*
-		 * Boot-only zero-current calibration window. CTL-C must stay low and
-		 * both CHG/DSG MOS must be OFF until the AFE zero offset is captured.
-		 * DataLoad_BootCurrentZeroCapture() also verifies the actual AFE FET
-		 * status and current activity for every sample. Calibration is best-effort:
-		 * failure uses zero offset = 0 and a 0.5 A deadband, and never blocks the
-		 * normal power-path startup.
+		 * Boot-only zero-current calibration window. Keep all power-path FETs
+		 * off, then arm the asynchronous sampler. BLE/UART/main_loop/watchdog
+		 * are not held up by the 4 x 300 ms sampling window.
 		 */
 		close_ctlc();
 		close_chg();
-		(void)DataLoad_BootCurrentZeroCapture();
+		g_u8BootZeroPowerPathPending = 1u;
+		(void)DataLoad_BootCurrentZeroStart();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
@@ -1680,27 +1734,10 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
-	if (!DataLoad_IsBootCurrentZeroValid())
-	{
-		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u\n",
-			  DataLoad_GetBootCurrentZeroStatus());
-	}
-
-	if (IsChargerWakeupActive())
-	{
-		open_chg_close_dsg();
-	}
-	else
-	{
-		if (MODE_FACTORY == Runtime_GetMode())
-		{
-			factory_mode_apply_switch_state();
-		}
-		else
-		{
-			open_dsg_close_chg();
-		}
-	}
+	/*
+	 * Startup MOS release is deferred to app_boot_zero_poll() in main_loop.
+	 * Even calibration failure/timeout releases the same normal startup path.
+	 */
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
@@ -1895,6 +1932,7 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
 	Runtime_Poll();
+	app_boot_zero_poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 
