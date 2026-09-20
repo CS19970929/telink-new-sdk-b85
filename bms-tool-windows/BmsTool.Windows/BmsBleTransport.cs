@@ -20,6 +20,7 @@ public sealed class BmsBleTransport : IBmsTransport
     public static readonly Guid ResponseUuid = Guid.Parse("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
 
     private const int ConnectAttempts = 4;
+    private static readonly TimeSpan ConnectionReadyTimeout = TimeSpan.FromSeconds(15);
     private BluetoothLEDevice? _device;
     private GattDeviceService? _service;
     private GattCharacteristic? _request;
@@ -197,9 +198,64 @@ public sealed class BmsBleTransport : IBmsTransport
         var uncached = await StepAsync("ServiceDiscovery.Uncached", async () =>
             await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached));
         Diag($"[CONNECT] SERVICE uncached status={uncached.Status}; count={uncached.Services.Count}");
-        if (uncached.Status != GattCommunicationStatus.Success || uncached.Services.Count == 0)
-            throw new IOException($"BMS SPP service not found; cached={cached.Status}, uncached={uncached.Status}");
-        return uncached;
+        if (uncached.Status == GattCommunicationStatus.Success && uncached.Services.Count > 0)
+            return uncached;
+
+        // Slow peripherals may finish the physical BLE connection only after the
+        // first service query has returned Unreachable. Keep this attempt alive
+        // long enough to observe that transition instead of disposing the device
+        // and immediately starting another connection from scratch.
+        bool connected = await StepAsync("WaitForConnectedAfterServiceUnreachable", async () =>
+            await WaitForConnectedAsync(device, ConnectionReadyTimeout, ct));
+        Diag($"[CONNECT] CONNECTION_WAIT connected={connected}; status={device.ConnectionStatus}; timeout={ConnectionReadyTimeout.TotalSeconds:0}s");
+
+        if (connected)
+        {
+            ct.ThrowIfCancellationRequested();
+            var retry = await StepAsync("ServiceDiscovery.RetryAfterConnected", async () =>
+                await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached));
+            Diag($"[CONNECT] SERVICE retry-after-connected status={retry.Status}; count={retry.Services.Count}");
+            if (retry.Status == GattCommunicationStatus.Success && retry.Services.Count > 0)
+                return retry;
+        }
+
+        throw new IOException($"BMS SPP service not found; cached={cached.Status}, uncached={uncached.Status}, connected={connected}");
+    }
+
+    private static async Task<bool> WaitForConnectedAsync(
+        BluetoothLEDevice device,
+        TimeSpan timeout,
+        CancellationToken ct)
+    {
+        if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
+            return true;
+
+        var connected = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnStatusChanged(BluetoothLEDevice sender, object args)
+        {
+            if (sender.ConnectionStatus == BluetoothConnectionStatus.Connected)
+                connected.TrySetResult(true);
+        }
+
+        device.ConnectionStatusChanged += OnStatusChanged;
+        try
+        {
+            // Close the race between the first status check and event hookup.
+            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
+                return true;
+
+            Task timeoutTask = Task.Delay(timeout, ct);
+            Task completed = await Task.WhenAny(connected.Task, timeoutTask);
+            if (completed == connected.Task)
+                return true;
+
+            ct.ThrowIfCancellationRequested();
+            return device.ConnectionStatus == BluetoothConnectionStatus.Connected;
+        }
+        finally
+        {
+            device.ConnectionStatusChanged -= OnStatusChanged;
+        }
     }
 
     private async Task<GattCharacteristicsResult> GetCharacteristicsRobustAsync(
