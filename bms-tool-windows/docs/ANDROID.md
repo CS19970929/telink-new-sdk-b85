@@ -95,6 +95,30 @@ VS Code 已提供四个仓库任务：按 `Ctrl+Shift+B` 会执行默认的 `BMS
 
 ADB 导入 receiver 要求 `android.permission.DUMP`，普通第三方 App 不能调用；分片总大小限制为 2 MiB，任一分片、offset 或最终 SHA-256 不匹配都会删除临时文件。普通发送入口导入成功后仍要求 App 内确认；只有研发默认构建任务的 `--auto-ota` 会在 App 已保持目标 BMS 连接时授权自动写 Flash，严格 BIN 预检、`OTA_SUCCESS` 和升级后身份回读要求不变。
 
+## 无线 ADB 日常使用
+
+首次启用时可用 USB 完成 Android 开发者选项、无线调试配对和 APK 安装。配对成功且 PC/手机位于同一可信局域网后，日常编译、固件发送、日志导出和 OTA 不需要 USB 线。
+
+日常检查：
+
+```powershell
+adb devices -l
+adb mdns services
+```
+
+`adb devices -l` 中出现 `<phone-ip>:<dynamic-port> device` 即可断开 USB。IP 和 ADB TLS 端口都是动态状态，禁止写入 VS Code Task、脚本或 `AGENTS.md`。`BMS: 连接 Android 无线调试` 与 Sender 使用官方 `_adb-tls-connect` mDNS 服务恢复连接；同一手机切换无线调试后可能短暂残留旧端口，Sender 会按同一 mDNS instance 逐个验证，但检测到不同手机时仍会拒绝自动选择。
+
+已配对手机的恢复顺序：
+
+1. 确认 PC 和手机位于同一局域网，路由器未开启 AP/client isolation；
+2. 手机解锁后点击系统快捷设置中的“无线调试”磁贴；
+3. 运行 VS Code 任务 `BMS: 连接 Android 无线调试`，或直接再次执行默认发送任务；
+4. 仅在配对记录被删除、开发者选项被重置、系统更新破坏授权或 mDNS 始终无法发现时，再使用 USB 恢复配对。
+
+部分 Android ROM（已验证的 HyperOS 机型即如此）会在手机重启后关闭无线调试开关，但保留快捷设置磁贴和已授权 PC。因此重启后需要手工点击一次磁贴，这是系统安全行为，不应由 App 或脚本绕过。
+
+2026-09-20 实机验证：无线调试磁贴完整“关闭 -> 开启 -> mDNS 新端口 -> TLS 重连 -> 读取手机 serial”循环 `4/4 PASS`；手机重启后磁贴保留，点击一次后无需重新输入配对码即恢复无线 ADB。同日已通过明确无线 device id 完成一轮 `rebuild/check-fw -> 分片发送 -> 自动 OTA -> OTA_SUCCESS -> 重连/身份回读`。
+
 ## 客户固件交付方向
 
 固件收件箱解决开发、售后和离线升级。正式在线客户升级不应让客户寻找裸 BIN，后续按独立阶段增加：

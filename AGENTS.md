@@ -88,14 +88,24 @@ link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
 
 详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`。
 
-## Windows 上位机单一真源（强制）
+## Windows / CLI / Android 单一真源（强制）
 
-- D008、D011、D013 实际共同使用的 Windows 上位机**唯一真源**就是本分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`。
+- D008、D011、D013 实际共同使用的 Windows 上位机、CLI 和 Android BMS Tool **唯一真源**就是本分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`。
 - `bms-tool-windows/BmsTool.Windows/` 是客户版；`bms-tool-windows/BmsFactoryTest.Windows/` 是内部完整测试版。公共功能（实时数据、事件日志、协议解析等）必须同步维护两版；工厂专用功能只存在完整版。
+- `BmsTool.Core/` 与 `Shared/` 是 Modbus、身份读取、诊断、Telink BIN 预检和 OTA 状态机的公共实现；Windows、CLI 和 Android 只保留各自传输/UI 边界，禁止复制第二套协议或 OTA 成功判定。
 - 三个产品分支中的历史 `tools/BMSAssistant/`、`tools/BMSAssistantQt/`、`tools/BMSAssistantAndroid/` 已废弃并应删除；不得从这些目录复制实现、协议常量或测试回本上位机。
-- 收到“上位机、Windows工具、事件日志、参数编辑、AFE编辑器”等需求时，默认只修改 `bms-tool-windows/`。除非用户明确要求，**不得顺带修改 D008/D011/D013 固件协议、寄存器地址、Flash 布局、Storage 架构或创建新的跨平台客户端**。
+- 收到“上位机、Windows/Android 工具、CLI、事件日志、参数编辑、AFE 编辑器”等需求时，默认只修改 `bms-tool-windows/`。除非用户明确要求，**不得顺带修改 D008/D011/D013 固件协议、寄存器地址、Flash 布局或 Storage 架构**。
 - 先按现有固件协议完成客户端适配；只有现有协议确实无法满足需求且用户明确同意时，才能提出固件协议变更。
 - 上位机修改坚持最小范围：先定位实际在用项目和实际调用路径，再改最少文件；禁止为了一个 UI/读取问题扩展成协议重构、固件重构或无关客户端同步。
+
+## Android / VS Code / 无线 ADB 开发规则
+
+- `bms-tool-windows/BmsTool.Android/` 是 Android App；`BmsTool.Android.Sender/` 和 `BmsTool.Android.Deployer/` 是 PC 固件发送入口。实现和文档以 `bms-tool-windows/docs/ANDROID.md` 为准，不得恢复历史 Android 客户端或另建一套 OTA 逻辑。
+- VS Code 默认构建任务 `BMS: 编译并发送固件到 Android` 必须先执行产品标准 `rebuild/check-fw`，且只允许发送标准 `825x_ble_sample.bin`；禁止发送 `*.raw.bin`。
+- 自动 OTA 只能沿用 App 在任务开始前已明确连接的 BMS 及其 MAC；未连接、连接已变化或存在多设备歧义时只能导入固件，禁止自动扫描后选择第一台设备。
+- 自动 OTA 必须经过 TLNK marker、size、CRC trailer 和 SHA-256 预检，并使用一次性导入授权。成功证据必须包含 `OTA_RESULT=OTA_SUCCESS` 及升级后身份/通信回读；不得仅因“重新连上”判定成功。
+- Android 无线调试不得写死手机 IP 或 ADB TLS 端口；优先使用已连接 device id，断线时通过官方 `_adb-tls-connect` mDNS 服务重连。同一手机短暂残留多个历史端点可逐个验证，发现不同手机必须拒绝自动选择。
+- USB 只是首次配对和无线调试失效后的恢复手段，不是日常发送固件的必需条件。不得假设手机重启后无线调试开关仍为开启；应允许用户通过系统“无线调试”快捷设置磁贴恢复，不得为此绕过 Android 系统授权。
 
 ## Windows CLI / AI 实板接口
 
