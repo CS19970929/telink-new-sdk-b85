@@ -121,14 +121,17 @@ D008 已明确采用以下单一所有权模型，后续不得恢复旧的“宏
 
 修改源码顺序时显式更新 `bms_tools/source_order.txt`。任何安全相关修改至少通过 source-order、Host contracts、TC32 clean rebuild/check-fw/MAP/verify/cppcheck；这些仍不能替代实板验证。
 
-## Windows 上位机单一真源（强制）
+## Windows / CLI / Android 工具单一真源（强制）
 
-- D008/D011/D013 当前实际使用的上位机**唯一真源**是本仓库分支 `feature/windows-afe-hw-protection-editor-v2` 下的 `bms-tool-windows/`。
+- D008/D011/D013 当前实际使用的 Windows 上位机、CLI 和 Android BMS Tool **唯一真源**是本仓库分支 `feature/windows-afe-hw-protection-editor-v2` 下的 `bms-tool-windows/`。
 - 客户版为 `bms-tool-windows/BmsTool.Windows/`；内部完整测试版为 `bms-tool-windows/BmsFactoryTest.Windows/`。公共功能变更必须同步维护两版。
 - 本产品分支历史 `tools/BMSAssistant/`、`tools/BMSAssistantQt/`、`tools/BMSAssistantAndroid/` 均为废弃客户端，不得再作为实现、协议或测试依据，也不得恢复。
-- 收到“上位机、Windows 工具、事件日志、参数编辑、AFE 编辑器”等任务时，应先切到上述 Windows 上位机分支修改 `bms-tool-windows/`，不得在产品固件分支里另造客户端。
+- 收到“上位机、Windows/Android 工具、CLI、事件日志、参数编辑、AFE 编辑器”等任务时，应先切到上述工具分支修改 `bms-tool-windows/`，不得在产品固件分支里另造客户端或复制 OTA/协议逻辑。
 - **默认只改上位机。** 除非用户明确要求修改固件，或已证明现有固件协议无法完成需求并得到用户同意，否则不得为了适配 UI/读取逻辑而修改固件协议、寄存器地址、Flash 布局或持久化架构。
 - 上位机任务遵循最小改动原则：先复用现有固件协议和寄存器；不要因为客户端读取问题扩展为固件重构、跨平台客户端同步或新协议设计。
+- Android 日常固件测试使用 VS Code 默认任务 `BMS: 编译并发送固件到 Android`；必须先通过本分支 `rebuild/check-fw`，且只允许发送正式 `825x_ble_sample.bin`，禁止 `*.raw.bin`。
+- 自动 OTA 只能沿用 App 事先明确连接的 BMS/MAC，不得自动选择扫描结果中的第一台。成功证据必须包含 `OTA_RESULT=OTA_SUCCESS` 与升级后身份/通信回读，不得仅凭重连判定成功。
+- USB 只用于 Android 首次配对或授权恢复；日常发送固件可使用同一局域网下的无线 ADB。禁止在仓库脚本或文档写死手机 IP/ADB 动态端口；手机重启后必须允许用系统“无线调试”磁贴恢复，不得绕过 Android 授权。具体操作与故障恢复以工具分支 `bms-tool-windows/docs/ANDROID.md` 为准。
 ## 2026-09-17 电流保护恢复更新
 
 用户最新授权替代此前“PB1 暂不实现负载检测”和“SCD 不自动清除”的限制：PB1 低=负载在、高=负载移除，仅在有效 DSGF=0 时判定；软件三级/硬件放电过流及短路在负载移除或可靠充电后恢复，充电过流等待 30 s。保留单侧 AUTO_DIODE 续流；运行期间锁存不因 AFE reinit 丢失，MCU 复位按原启动策略。见 [恢复实现](docs/D008_CURRENT_RECOVERY.md)。实板仍为 TODO_VERIFY_HW。
