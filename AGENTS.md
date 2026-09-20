@@ -1,57 +1,73 @@
-# AGENTS.md — D011 / TLSR8251 / SH3673510
+# AGENTS.md — D014 / TLSR8251 / SH3673510
 
-本分支产品是 **HS-D011-10S50A-V1 + TLSR8251F512ET32 + SH3673510，10S**。禁止套用 D008/DVC1124 的 IO、I2C、寄存器和产品参数。
+本分支目标是 **HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S**。实现基线来自 `refactor/d011-common-bms-features`，但所有板级事实必须以 D014 原理图/BOM 为准，不能把 D011 独有 heater/fuse 硬件继续带入。
 
 ## 开发前必读
 
-1. `docs/D011_PRODUCT_REFERENCE.md`：当前唯一 D011 IO/AFE 配置真值入口。
-2. `docs/HARDWARE_VALIDATION.md`：当前唯一实板未决清单。
-3. `docs/ARCHITECTURE.md`：通用软件边界。
+1. `docs/D014_PRODUCT_REFERENCE.md`：D014 原理图事实、代码配置和未签核参数。
+2. `docs/HARDWARE_VALIDATION.md`：实板发布阻断项。
+3. `docs/ARCHITECTURE.md`。
 4. `docs/SOFTWARE_PROTECTION.md`、`docs/AFE_HARDWARE_PROTECTION_V2.md`。
+5. `tests/sh3673510_d014_integration_check.py`：D014 板级静态 contract。
 
-## 权威依据
+## D014 已确认配置
 
-- 板级连接：用户提供的 `hs-d011-10s50a-v1.pdf` / 实际 BOM。
-- AFE寄存器/协议：`SH36735XX CV1.0A`。
-- 当前软件行为：本分支源码。
+- MCU：TLSR8251F512ET32。
+- AFE：SH3673510。
+- 有效 cell：8S，VC0..VC8 / B0..B8。
+- Rsense：RS1/RS2/RS3 = 2mΩ 并联；软件整数模型 667µΩ。
+- SPI：PB6 MISO / PB7 MOSI / PD7 SCLK / PD2 CS，Mode 3 / 500kHz。
+- RS485：PA1 485-EN，PC2 SCI1-TX，PC3 SCI1-RX；PD4 CMNT-EN，PD3 CMNT-WK。
+- TS1/TS2：10K-3435。
+- TS3：NC，因此 D014 heater 必须 disabled。
+- TS4：标为 MOS，但 RN4 图纸为 10M；BOM/实板确认前不得启用 10K MOS NTC 保护。
+- Balance：B1..B8 有物理均衡通道，允许启用公共 balance 策略。
 
-SH3673510/3514/3517/3520 共用手册寄存器/协议模型，仓库系列驱动仍名 `sh3673520_*`；不得由文件名把板上器件改写成 SH3673520。
+## 关键安全边界
 
-## 当前源码边界
+- `SH3673510_PRODUCT_HEATER_SUPPORTED=0`。不得在 D014 上配置或驱动 D011 的 PB4/HT-CHG、PB5/HT-RF-EN 路径。
+- `SH3673510_PRODUCT_HEATER_NTC_SUPPORTED=0`。
+- `SH3673510_PRODUCT_MOS_NTC_SUPPORTED=0`，直到 RN4 BOM/温度点验证完成。
+- 软件保护 `g_tParam.protect` 与 AFE hardware profile 必须继续独立。
+- SC/OCD/OCC 恢复必须依赖物理恢复窗口/AFE 状态，不能仅凭关 MOS 后电流为 0。
+- 通信失败、AFE 重配失败、wake 失败都必须保持 fail-safe。
+- 8S 之外 VC9..VC20 不得进入 cell min/max、SOC、保护、balance 或 open-wire。
 
-- `sh3673510_project_config.h`：D011 10S/250µΩ、IO、AFE静态产品配置。
-- `sh3673520_reg.h`：SH36735xx CV1.0A寄存器/协议真值。
-- `sh3673520*.c`：SPI事务。
-- `sh3673510_control.c`：AFE配置、硬件保护量化、FET/温度控制。
-- `sh3673510_bms.c`：BMS适配、恢复和通信fail-safe。
-- `bms_sw_protection.*`：软件三级保护。
-- `bms_afe_hw_profile.*`：独立 AFE HW profile。
+## 命名兼容
 
-## 保护参数规则
+`sh3673510_project_config.h` 当前保留部分 `SH3673510_D011_*` 和 `D011_*` 兼容别名，是为了最小风险复用已验证公共实现。D014 新增代码必须优先使用 `D014_*` 板级宏；不要把兼容别名当成 D011 硬件事实。
 
-软件 `g_tParam.protect` 与 AFE hardware profile 已独立。不得恢复“修改软件三级参数同时重写AFE硬件参数”的旧行为。SC/OCD/OCC等最终产品阈值必须有产品/实板依据。
+## 产品参数边界
 
-## IO安全规则
+原理图不能确定额定容量和最终保护参数。当前 `CapacityFactory=116`、`AFE_ODC1/2` 是继承迁移默认；不要在文档或发布说明里称为 D014 已签核值。D14 暂时与历史 D11 共享 numeric wire/storage ID，修改该 ID 前必须同步 Windows 上位机和兼容策略。
 
-D011 PB5 `HT-RF-EN` 当前认定为不可逆加热保险丝触发路径，普通运行必须保持安全低电平；没有完整硬件状态机和测试不得拉高。RN3/RN4 原理图标10M，但用户确认实装10K；文档/代码必须明确区分原图与实际BOM确认，不能静默改写原图事实。
+## 构建与验证
 
-PC1 `RESET` 的宏名含 `OUT` 不等于当前运行方向已经硬件签核；供电、RS485/CMNT-WK、sleep/wake 仍需按验证清单测试。
+至少运行：
 
-## 构建
+```text
+python bms_tools/bms.py sources --check
+python tests/sh3673520_contract_check.py
+python tests/sh3673510_d014_integration_check.py
+python tests/sh3673510_protection_mode_check.py
+python tests/sh3673510_temperature_encoding_check.py
+python tests/sw_protection_contract_check.py
+python tests/common_feature_policy_contract_check.py
+python tests/afe_hw_profile_contract_check.py
+python tests/afe_hw_access_contract_check.py
+python tests/soc_contract_check.py
+python tests/flash_quick_check.py
+python bms_tools/bms.py rebuild --jobs 4
+python bms_tools/bms.py check-fw
+python bms_tools/bms.py size
+python bms_tools/bms.py map
+python bms_tools/bms.py manifest
+python bms_tools/bms.py verify
+python bms_tools/bms.py static --no-report
+```
 
-保持 Telink SDK、TC32工具链和 ABI。安全相关修改至少通过 SH driver/integration/protection/temp、unified software protection、independent AFE HW profile、SOC/Flash contracts，以及 TC32 clean rebuild/check-fw/MAP/verify/cppcheck。CI不能替代实板验证。
+Host contract/CI 通过不能替代实板验证。
 
-## 当前开发期存储策略
+## Windows 上位机
 
-- 本分支处于持续开发阶段，当前不要求兼容旧 Config schema / 旧 Heater / Balance 参数布局。
-- Heater / Balance 参数结构变化时允许显式提升 schema 并恢复新默认；不要为未发布旧格式增加迁移器。
-- 当前格式仍必须保证掉电一致性、参数校验、错误传播与安全默认。
-
-## Windows 上位机单一真源（强制）
-
-- D008/D011/D013 当前实际使用的上位机**唯一真源**是本仓库分支 `feature/windows-afe-hw-protection-editor-v2` 下的 `bms-tool-windows/`。
-- 客户版为 `bms-tool-windows/BmsTool.Windows/`；内部完整测试版为 `bms-tool-windows/BmsFactoryTest.Windows/`。公共功能变更必须同步维护两版。
-- 本产品分支历史 `tools/BMSAssistant/`、`tools/BMSAssistantQt/`、`tools/BMSAssistantAndroid/` 均为废弃客户端，不得再作为实现、协议或测试依据，也不得恢复。
-- 收到“上位机、Windows 工具、事件日志、参数编辑、AFE 编辑器”等任务时，应先切到上述 Windows 上位机分支修改 `bms-tool-windows/`，不得在产品固件分支里另造客户端。
-- **默认只改上位机。** 除非用户明确要求修改固件，或已证明现有固件协议无法完成需求并得到用户同意，否则不得为了适配 UI/读取逻辑而修改固件协议、寄存器地址、Flash 布局或持久化架构。
-- 上位机任务遵循最小改动原则：先复用现有固件协议和寄存器；不要因为客户端读取问题扩展为固件重构、跨平台客户端同步或新协议设计。
+D008/D011/D013/D014 的 Windows 工具继续以分支 `feature/windows-afe-hw-protection-editor-v2` 下 `bms-tool-windows/` 为单一真源。默认不要为了 UI 便利修改固件协议。若后续给 D014 分配独立 numeric product ID，必须同步上位机并保留兼容处理。
