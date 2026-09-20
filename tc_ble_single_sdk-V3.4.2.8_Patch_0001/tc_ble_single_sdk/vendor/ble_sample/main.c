@@ -55,7 +55,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 {
 	/* irq_handler 由启动汇编/中断向量调用；局部引用显式记录该外部入口。 */
 	void (*const irq_entry)(void) = irq_handler;
-#if D011_DEBUG_LED_ENABLE
+#if D014_DEBUG_LED_ENABLE
 	u32 debug_led_tick;
 	u8 debug_led_level = 0u;
 #endif
@@ -91,11 +91,11 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		user_init_normal();
 	}
 
-#if D011_DEBUG_LED_ENABLE
-	gpio_set_func(D011_DEBUG_LED_PIN, AS_GPIO);
-	gpio_set_input_en(D011_DEBUG_LED_PIN, 0);
-	gpio_write(D011_DEBUG_LED_PIN, debug_led_level);
-	gpio_set_output_en(D011_DEBUG_LED_PIN, 1);
+#if D014_DEBUG_LED_ENABLE
+	gpio_set_func(D014_DEBUG_LED_PIN, AS_GPIO);
+	gpio_set_input_en(D014_DEBUG_LED_PIN, 0);
+	gpio_write(D014_DEBUG_LED_PIN, debug_led_level);
+	gpio_set_output_en(D014_DEBUG_LED_PIN, 1);
 	debug_led_tick = clock_time();
 #endif
 
@@ -109,11 +109,11 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 				wd_clear(); //clear watch dog
 			}
 	#endif
-#if D011_DEBUG_LED_ENABLE
+#if D014_DEBUG_LED_ENABLE
 		if (clock_time_exceed(debug_led_tick, 200 * 1000)) {
 			debug_led_tick = clock_time();
 			debug_led_level ^= 1u;
-			gpio_write(D011_DEBUG_LED_PIN, debug_led_level);
+			gpio_write(D014_DEBUG_LED_PIN, debug_led_level);
 		}
 #endif
 		main_loop();
