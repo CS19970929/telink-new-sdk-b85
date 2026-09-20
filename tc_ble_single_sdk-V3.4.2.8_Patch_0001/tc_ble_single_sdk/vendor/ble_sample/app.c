@@ -35,6 +35,7 @@
 #include "modbus_rtu.h"
 
 #include "bms_afe.h"
+#include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
 
@@ -1080,6 +1081,10 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
+		bms_diag_init();
+		bms_diag_set_build_flags((SH3673510_SW_PROTECT_ENABLE ? 1u : 0u) |
+		                         (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
+		                         (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
 		// bus_mux_task();
 		// nvm_init(&nvm_cfg);
 		board_init();
@@ -1117,6 +1122,10 @@ _attribute_no_inline_ void user_init_normal(void)
     app_schedule_sample_wakeup();
 
 	mos_update();
+	bms_diag_set_boot_result(
+		g_bms_system_status.bits.b1Status_AFE1 ? DIAG_OK : DIAG_INVALID,
+		bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
+	bms_diag_freeze_boot();
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
@@ -1302,6 +1311,7 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t sample;
+    u8 sample_valid;
 
     if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
         return;
@@ -1313,10 +1323,15 @@ static void app_sample_task(void)
     /* Do not advance coulomb/OCV/filter time from a cached pre-fault sample.
      * The common guard exposes auxiliary data only after communication and
      * fresh-snapshot qualification have both succeeded. */
-    if (bms_afe_get_aux_measurements(&sample))
+    sample_valid = bms_afe_get_aux_measurements(&sample);
+    if (sample_valid)
         APP_SOC_IntEnhance_Ctrl();
 
     mos_update();
+    bms_diag_poll_runtime(sample_valid,
+                          sample_valid ? sample.current_ma : 0,
+                          sample_valid ? sample.sample_tick_32k : pm_get_32k_tick(),
+                          (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 
     /* Coalesce an overrun instead of executing multiple catch-up samples:
      * software protection filters are sample-count based at 200 ms. */

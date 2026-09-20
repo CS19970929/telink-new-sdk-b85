@@ -9,7 +9,7 @@
 - AFE 硬件保护：独立 `bms_afe_hw_profile_t`；与软件保护分开修改/持久化。
 - 产品 profile：10S、250µΩ；SPI PB6/PB7/PD7/PD2。
 - 主通信：Modbus RTU over RS485，`MODBUS_RS485_ENABLE=1`。
-- 当前桌面上位机为 `tools/BMSAssistantQt`；它主要通过 BLE SPP + Modbus 调试，专用 AFE HW V2 编辑器尚未实现在该 Qt 工程中。
+- Windows/Android/CLI 上位机唯一真源为 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`；本分支内历史客户端均已废弃。
 
 ## 文档入口
 
@@ -24,14 +24,14 @@
 7. [SOC](docs/SOC.md)
 8. [Flash / Storage](docs/STORAGE.md)
 9. [构建与测试](docs/BUILD_AND_TEST.md)
-10. [Windows/macOS/Linux Qt 上位机](tools/BMSAssistantQt/README.md)
+10. [D011 统一上位机诊断适配](docs/D011_DIAGNOSTICS.md)
 
 DVC1124/D008 文档不属于 D011；历史 D011 状态/硬件重复说明已合并到 `D011_PRODUCT_REFERENCE.md`，后续追溯使用 Git 历史。
 
 ## 快速拉取
 
 ```bash
-git clone --single-branch --branch feature/sh3673510-d011-bms https://github.com/CS19970929/telink-new-sdk-b85.git D011-BMS
+git clone --single-branch --branch refactor/d011-common-bms-features https://github.com/CS19970929/telink-new-sdk-b85.git D011-BMS
 cd D011-BMS
 ```
 
@@ -55,15 +55,9 @@ python bms_tools/bms.py static --no-report
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
 ```
 
-## Windows Qt 上位机
+## 统一上位机
 
-```bat
-cd /d D011-BMS\tools\BMSAssistantQt
-scripts\run.bat
-scripts\package-windows.bat
-```
-
-D011 当前 `currentProjectSeriesCount=10` 与10S匹配，通常无需改。完整说明见 `docs/CONFIGURATION_AND_BUILD_GUIDE.md`。
+切换到 `feature/windows-afe-hw-protection-editor-v2`，构建 `bms-tool-windows/` 下的 Windows 客户版、内部测试版、CLI 或 Android App。协议与诊断命令见 [D011 诊断适配](docs/D011_DIAGNOSTICS.md)。
 
 ## 发布原则
 

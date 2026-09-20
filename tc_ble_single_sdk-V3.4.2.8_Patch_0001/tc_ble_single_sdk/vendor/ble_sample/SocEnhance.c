@@ -314,6 +314,8 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->ocv_cell_mv = g_soc_runtime.ocv_mv;
     diag->rest_seconds = (uint16_t)rest_s;
     diag->learned_capacity_0p1ah = g_soc_runtime.learned_capacity_0p1ah;
+    diag->current_deadband_ma = g_soc_config.current_deadband_ma;
+    diag->capacity_learning_enable = g_soc_config.capacity_learning_enable;
 }
 
 static uint8_t soc_limit_percent_u32(uint32_t value)

@@ -1,5 +1,9 @@
 # D011 配置修改、拉代码、固件编译与上位机构建指南
 
+> 上位机章节中的历史 Qt 路径已废弃。当前唯一真源是
+> `feature/windows-afe-hw-protection-editor-v2:bms-tool-windows/`；诊断与命令以
+> `docs/D011_DIAGNOSTICS.md` 及该分支最新文档为准。
+
 > 适用分支：`feature/sh3673510-d011-bms`
 >
 > 产品：HS-D011-10S50A-V1 + TLSR8251F512ET32 + SH3673510 + 10S + 250 µΩ。
