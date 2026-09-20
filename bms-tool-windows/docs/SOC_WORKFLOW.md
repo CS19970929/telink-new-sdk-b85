@@ -6,6 +6,8 @@
 
 `record soc --inputs` 对开发固件读取每次 SOC 调用保存的完整输入，包括 tick、mA、电压、温度valid、fault、balance/heater/openwire、charger/load known、容量/化学体系/配置。三产品固件必须以 `EXTRA_DEFINES=-DBMS_SOC_RECORD_ENABLE=1` clean build，默认release没有此窗口和RAM缓冲；不支持时明确失败，不自动降级成伪Replay。
 
+2026-09-21工程审核确认：完整输入窗口当前分别位于 `codex-soc-framework-validation`（D008）、`codex-soc-d011-validation`、`codex-soc-d013-validation`。四个 `refactor/dxxx-common-bms-features` 主产品分支尚无 `BMS_SOC_RECORD_ENABLE` 实现；仅给主产品分支传宏不能生成此能力。D014也不能因支持Runtime diagnostics就被视为支持完整输入录制。validation分支同时包含SOC算法修正，合入前必须与主产品分支新增的恢复/低功耗修复共同回归；不要为获得录制功能直接覆盖主产品源码。
+
 ```powershell
 bms-cli record soc --inputs --serial COM7 --count 300 --output C:\capture\soc-input.csv --json
 # BLE替换为 --mac 已确认MAC。必须显式端点，拒绝 --auto。
