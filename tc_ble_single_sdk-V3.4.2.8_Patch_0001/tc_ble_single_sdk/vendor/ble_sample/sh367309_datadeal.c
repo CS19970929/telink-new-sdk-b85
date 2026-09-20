@@ -21,8 +21,6 @@ void Delay1ms(u8 ms);
 #define SH309_CADC_DENOMINATOR_REDUCED         2147u
 #define BOOT_CURRENT_ZERO_SAMPLE_COUNT        4u
 #define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS  300u
-#define BOOT_CURRENT_ZERO_RETRY_COUNT          2u
-#define BOOT_CURRENT_ZERO_RETRY_DELAY_MS       100u
 #define BOOT_CURRENT_CADC_DATA_LENGTH          2u
 #define BOOT_CURRENT_ZERO_MAX_SPREAD_COUNTS    6
 #define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS       10
@@ -1448,23 +1446,6 @@ static INT32 DataLoad_CurrentApplyBootZeroX4(UINT16 raw)
     return corrected_raw_x4;
 }
 
-static UINT8 DataLoad_BootCurrentZeroStatusRetryable(UINT8 status)
-{
-    switch (status)
-    {
-    case BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR:
-    case BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR:
-    case BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR:
-    case BOOT_CURRENT_ZERO_FET_ACTIVE:
-    case BOOT_CURRENT_ZERO_UNSTABLE:
-    case BOOT_CURRENT_ZERO_OUT_OF_RANGE:
-        return 1u;
-
-    default:
-        return 0u;
-    }
-}
-
 static UINT8 DataLoad_BootCurrentZeroTryCapture(void)
 {
     MTP_REG_CONF confirmed_conf;
@@ -1615,12 +1596,11 @@ static UINT8 DataLoad_BootCurrentZeroTryCapture(void)
 
 UINT8 DataLoad_BootCurrentZeroCapture(void)
 {
-    UINT8 attempt;
-
     /*
      * Boot calibration is best-effort and runs only before normal MOS startup.
-     * Retry transient/config/unstable failures once. A real current activity
-     * indication is not retried, because zero-current conditions are not met.
+     * Never retry synchronously here: BLE IRQ handling, UART service and the
+     * rest of normal startup cannot run until user_init_normal() returns.
+     * Any failure therefore falls back immediately to zero offset = 0.
      */
     if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
     {
@@ -1629,25 +1609,14 @@ UINT8 DataLoad_BootCurrentZeroCapture(void)
 
     g_u8BootCurrentZeroBusy = 1u;
 
-    for (attempt = 0u; attempt < BOOT_CURRENT_ZERO_RETRY_COUNT; ++attempt)
+    if (DataLoad_BootCurrentZeroTryCapture())
     {
-        if (DataLoad_BootCurrentZeroTryCapture())
-        {
-            g_u8BootCurrentZeroBusy = 0u;
-            return 1u;
-        }
-
-        log_i("[BOOT][CUR_ZERO] attempt=%u failed status=%u\n",
-              (UINT8)(attempt + 1u), g_u8BootCurrentZeroStatus);
-
-        if ((attempt + 1u >= BOOT_CURRENT_ZERO_RETRY_COUNT)
-            || !DataLoad_BootCurrentZeroStatusRetryable(g_u8BootCurrentZeroStatus))
-        {
-            break;
-        }
-
-        DataLoad_CurrentDelayMs(BOOT_CURRENT_ZERO_RETRY_DELAY_MS);
+        g_u8BootCurrentZeroBusy = 0u;
+        return 1u;
     }
+
+    log_i("[BOOT][CUR_ZERO] failed status=%u; continue startup with zero=0\n",
+          g_u8BootCurrentZeroStatus);
 
     /*
      * Failure is a measurement-quality degradation, not a power-path fault.
