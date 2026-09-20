@@ -1,5 +1,9 @@
 # 构建、测试与发布门禁
 
+## 跨产品分支契约
+
+在本D008工作树运行 `python tools/audit_product_branches.py --check`，只读核对四个主产品分支的已提交公共核心、SH采样接入和Git provenance。允许重复 `--ref D013=<revision>` 等覆盖指定产品版本。该工具不自动同步源码、不检查脏文件、不能替代各产品Host/TC32/实板验证；产品差异与本轮结果见 [工程续审](BMS_ENGINEERING_FOLLOWUP_2026-09-21.md)。
+
 ## 1. 固定目标环境
 
 正式固件使用项目锁定的 `tc32-elf-gcc 4.5.1-tc32-1.3`、Telink B85 Vendor 库、现有 `boot.link` 和 `tl_check_fw2.exe`。不得用 host GCC/clang、ARM GCC 或其他 ABI 的成功结果替代 TC32 production build。
