@@ -557,8 +557,12 @@ static uint8_t publish_measurements(void)
     else if (s_ntc_valid[SH3673510_D011_BAT_NTC2_INDEX])
         s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_D011_BAT_NTC2_INDEX] / 100u;
     else s_aux.battery_ntc_100ohm = 0u;
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     s_aux.mos_ntc_100ohm = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ?
         s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX] / 100u : 0u;
+#else
+    s_aux.mos_ntc_100ohm = 0u;
+#endif
     s_aux.battery_ntc_mv = legacy_adc_mv(s_aux.battery_ntc_100ohm * 100u);
     s_aux.mos_ntc_mv = legacy_adc_mv(s_aux.mos_ntc_100ohm * 100u);
 
@@ -567,9 +571,14 @@ static uint8_t publish_measurements(void)
         memset(&sw, 0, sizeof(sw));
         sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                               &sw.battery_temp_max);
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
         sw.mos_temp_valid = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? 1u : 0u;
         if (sw.mos_temp_valid)
             sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+#else
+        sw.mos_temp_valid = 0u;
+        sw.mos_temp = 0u;
+#endif
 #if SH3673510_SW_PROTECT_ENABLE
         bms_sw_protection_update(&sw);
 #else
