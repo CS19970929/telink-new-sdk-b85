@@ -253,3 +253,6 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 ## 持续只读诊断会话
 
 新增 capture 命令，支持固定设备、持续写盘、缺口和保守分段、异常前后证据。使用方法、JSONL schema、退出码与局限见 [只读诊断会话 v1](DIAGNOSTIC_SESSION.md)。
+
+
+开发固件的完整 SOC 输入采集：`record soc --inputs --mac MAC --count 300 --output inputs.csv --json`。要求显式MAC/serial；只读、默认release不支持。见 [SOC工作流](SOC_WORKFLOW.md)，包含缺口/退出码、GUI导入、生产C Replay及A/B限制。

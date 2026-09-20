@@ -34,6 +34,7 @@ Usage:
                   [--output monitor.jsonl] [--json]
   bms-cli record soc (--mac MAC | --name NAME | --auto | --serial COMx)
                   --output soc_record.csv [--interval 5] [--count 0] [--json]
+                  [--inputs: development firmware, explicit MAC/serial, count defaults to 300]
   bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
   bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx)
@@ -285,6 +286,7 @@ Safety:
 
     private static async Task<int> RecordAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {
+        if (options.Has("inputs")) return await RecordSocInputsAsync(options, reporter, ct);
         if (options.Positionals.Count != 1 ||
             !string.Equals(options.Positionals[0], "soc", StringComparison.OrdinalIgnoreCase))
             throw new CliException(ExitCodes.Usage, "usage", "record currently requires the 'soc' subcommand.");
@@ -315,6 +317,60 @@ Safety:
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         reporter.Success("record soc", new { endpoint = endpoint.Display, output, samples });
         if (!reporter.Json) Console.WriteLine($"SOC record saved: {output} ({samples} samples)");
+        return ExitCodes.Success;
+    }
+
+    private static async Task<int> RecordSocInputsAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        if (options.Positionals.Count != 1 || options.Positionals[0] != "soc" ||
+            options.Has("auto") || !(options.Has("mac") || options.Has("serial")))
+            throw new CliException(ExitCodes.Usage, "usage", "record soc --inputs requires explicit --mac or --serial and --output.");
+        string output = Path.GetFullPath(options.RequireValue("output"));
+        int count = options.GetInt("count", 300, 1, 1000000);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        var identity = await connection.Client.ReadIdentityAsync(ct);
+        uint? firmwareBuildId = await connection.Client.TryReadFirmwareBuildIdAsync(ct);
+        uint latest = await SocInputRecording.ReadSequenceAsync(connection.Client, ct);
+        uint next = latest == 0 ? 1u : latest; // begin at newest, not uninitialized ring slots
+        int samples = 0;
+        var idle = Stopwatch.StartNew();
+        string? failure = null;
+        await using var writer = new StreamWriter(new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.Read));
+        await writer.WriteLineAsync(SocInputRecording.CsvHeader);
+        try
+        {
+            while (samples < count)
+            {
+                using var round = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                round.CancelAfter(TimeSpan.FromSeconds(20));
+                latest = await SocInputRecording.ReadSequenceAsync(connection.Client, round.Token);
+                uint available = unchecked(latest - next + 1);
+                if (available > 32) throw new InvalidDataException("SOC input overflow or reboot; start a new segment.");
+                if (available == 0) {
+                    if (idle.Elapsed > TimeSpan.FromSeconds(20)) throw new IOException("No SOC input for 20 seconds; device may be suspended.");
+                    await Task.Delay(50, round.Token); continue;
+                }
+                ushort[] words = await SocInputRecording.ReadSampleAsync(connection.Client, next, round.Token);
+                await writer.WriteLineAsync(SocInputRecording.ToCsv(words, next, samples));
+                await writer.FlushAsync(round.Token);
+                next = unchecked(next + 1); samples++; idle.Restart();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or InvalidDataException)
+        { failure = ex.Message; }
+        bool complete = samples == count && failure is null;
+        var report = new { schema = "soc-input-capture/v1", endpoint = endpoint.Display, identity, firmwareBuildId,
+            samples, requestedSamples = count, complete, failure, checkpointRestored = false,
+            initialization = "seeded estimate; rest/learning/ETA history not restored", output };
+        await File.WriteAllTextAsync(output + ".json", JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+        if (ct.IsCancellationRequested)
+            throw new CliException(ExitCodes.Cancelled, "cancelled", "SOC input capture cancelled; partial evidence preserved.", report);
+        if (!complete)
+            throw new CliException(ExitCodes.TestFailed, "soc_input_partial", "SOC input capture incomplete; inspect sidecar and start a new segment.", report);
+        reporter.Success("record soc inputs", report);
+        if (!reporter.Json) Console.WriteLine($"SOC inputs saved: {output} ({samples} samples)");
         return ExitCodes.Success;
     }
 

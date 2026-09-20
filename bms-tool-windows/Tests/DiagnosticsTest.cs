@@ -7,6 +7,7 @@ static class Test
     static void Check(bool ok,string why) {if(!ok)throw new Exception(why);}
     static async Task Main()
     {
+        await SocInputRecordingTest.RunAsync();
         await DiagnosticSessionTest.RunAsync();
         var t=new FakeTransport();await using var b=new BmsClient(t);
         var capture=await b.ReadDiagnosticsAsync(true,"mock");
@@ -89,7 +90,7 @@ static class Test
                 MinCellMv=3290,MaxCellMv=3310,CellDeltaMv=20,SystemStatus=(1u<<8)|(1u<<12),
                 CellMillivolts=new ushort[]{3290,3300,3310},ProtectionLevel2Raw=0x20};
             var record=SocRecord.From(capture,soc,battery) with {Timestamp32k=0xF1234567,SocEvent="RESET,manual"};
-            Check(record.CurrentMa==-1500&&record.ChargerState=="PRESENT/CHARGE","SOC record current sign");
+            Check(record.CurrentMa==456&&record.LoadState=="PRESENT/DISCHARGE","SOC record current sign");
             Check(record.BalancingActive=="1"&&record.HeatingActive=="1","SOC record feature flags");
             var csv=Path.Combine(dir,"soc.csv");SocRecord.WriteCsv(csv,new[]{record});
             var restored=SocRecord.ReadCsv(csv);
@@ -137,6 +138,7 @@ sealed class FakeTransport:IBmsTransport
     public bool Legacy,Unstable,FailEvents,FailProtection,Timeout,NonD008;
     public byte ExceptionCode;
     public int Writes;
+    public ushort[]? SocInputWords;
     public uint Tick = 100;
     public string Serial = "SN001";
     private uint traceSeq=1;
@@ -201,6 +203,10 @@ sealed class FakeTransport:IBmsTransport
             if (start == BmsRegisters.Serial || start == BmsRegisters.Hardware || start == BmsRegisters.Software) {
                 string text = start == BmsRegisters.Serial ? Serial : start == BmsRegisters.Hardware ? "D008" : "V1";
                 text = text.PadRight(32, '\0'); value = (ushort)((text[i*2] << 8) | text[i*2+1]);
+            }
+            if(SocInputWords is not null) {
+                if(address>=0x3000 && address<0x3006) value=new ushort[]{0x5343,1,32,32,0,7}[address-0x3000];
+                else if(address>=0x3100 && address<0x3120) value=SocInputWords[address-0x3100];
             }
             BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+i*2,2),value);
         }

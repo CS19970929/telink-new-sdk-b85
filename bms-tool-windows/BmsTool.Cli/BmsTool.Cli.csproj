@@ -28,6 +28,7 @@
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="Shared\BmsDiagnostics.cs" />
     <Compile Include="..\Shared\BmsHealth.cs" Link="Shared\BmsHealth.cs" />
     <Compile Include="..\Shared\BmsTestEngine.cs" Link="Shared\BmsTestEngine.cs" />
+    <Compile Include="..\Shared\SocInputRecording.cs" Link="Shared\SocInputRecording.cs" />
     <Compile Include="..\Shared\SocRecording.cs" Link="Shared\SocRecording.cs" />
     <Compile Include="..\Shared\ProductSupport.cs" Link="Shared\ProductSupport.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />

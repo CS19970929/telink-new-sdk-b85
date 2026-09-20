@@ -83,7 +83,12 @@ public partial class MainWindow
             if(dialog.ShowDialog(this)!=true)return;
             try {
                 _socRecording=false;_socRecords.Clear();_socRecords.AddRange(SocRecord.ReadCsv(dialog.FileName));
-                _socRecordStatus.Text=$"离线回放：已载入 {_socRecords.Count} 个样本（不会连接或写入 BMS）。";
+                int gaps=0, duplicates=0;
+                for(int i=1;i<_socRecords.Count;i++) {
+                    uint dt=unchecked(_socRecords[i].Timestamp32k-_socRecords[i-1].Timestamp32k);
+                    if(dt>12800)gaps++;if(dt==0)duplicates++;
+                }
+                _socRecordStatus.Text=$"离线查看 {_socRecords.Count} 帧 · >400ms 间隔 {gaps} · 重复时间戳 {duplicates}；此处显示记录曲线，算法对比使用 SOC simulator。";
                 RenderSocChart();
             } catch(Exception ex){ShowError("SOC CSV 载入失败",ex);}
         };
@@ -209,7 +214,7 @@ public partial class MainWindow
         AddSocSeries(Brushes.RoyalBlue,r=>r.FirmwareSocEst,2.2);
         AddSocSeries(Brushes.SeaGreen,r=>r.FirmwareSocDisplay,1.8);
         AddSocSeries(Brushes.DarkOrange,r=>r.OcvSoc,1.4);
-        double maxCurrent=Math.Max(500,_socRecords.Max(r=>Math.Abs(r.CurrentMa)));
+        double maxCurrent=Math.Max(500,_socRecords.Max(r=>Math.Abs((double)r.CurrentMa)));
         var currentLine=new Polyline {Stroke=Brushes.MediumVioletRed,StrokeThickness=1.2,StrokeDashArray=new DoubleCollection {4,3}};
         for(int i=0;i<_socRecords.Count;i++) {
             double scaled=50+45*Math.Clamp(_socRecords[i].CurrentMa/maxCurrent,-1.0,1.0);

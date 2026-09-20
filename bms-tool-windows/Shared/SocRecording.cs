@@ -43,9 +43,8 @@ public sealed record SocRecord(
     public static SocRecord From(DiagnosticCapture capture, SocDiagnosticSnapshot soc, BatterySnapshot battery)
     {
         ushort[] words = capture.Words ?? throw new InvalidDataException("SOC diagnostics words unavailable");
-        // The public realtime window reports charge-positive/discharge-negative;
-        // the SOC core contract is the inverse: charge-negative/discharge-positive.
-        int currentMa = -(int)Math.Round(battery.CurrentA * 1000.0, MidpointRounding.AwayFromZero);
+        // Preserve the actual signed mA fed to SOC; public CurrentA is rounded to 0.1 A.
+        int currentMa = BmsDiagnostics.I32(words, 196);
         string action = soc.LastSocAction == "NONE" ? "" : soc.LastSocAction;
         if (soc.EndpointState is "CONFIRMED_FULL" or "CONFIRMED_EMPTY")
             action = string.IsNullOrEmpty(action) ? soc.EndpointState : action + ";" + soc.EndpointState;
@@ -125,7 +124,7 @@ public sealed record SocRecord(
                 int.TryParse(Get(v, "tte_min"), out int tte) ? tte : null,
                 int.TryParse(Get(v, "ttf_min"), out int ttf) ? ttf : null,
                 Get(v, "charger_state"), Get(v, "load_state"), Get(v, "protection_flags"),
-                Get(v, "balancing_active", "UNKNOWN"), Get(v, "heating_active", "UNKNOWN"),
+                Get(v, "balancing_active", Get(v, "balancing", "UNKNOWN")), Get(v, "heating_active", Get(v, "heating", "UNKNOWN")),
                 Get(v, "soc_event")));
         }
         return records;

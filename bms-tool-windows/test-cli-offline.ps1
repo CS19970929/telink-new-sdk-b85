@@ -37,6 +37,10 @@ try {
         throw "Static catalog must not masquerade as a live device probe"
     }
     if ($CliDll) {
+        $socInvalid = & dotnet $CliDll record soc --inputs --auto --output (Join-Path $testRoot 'soc.csv') --json
+        if ($LASTEXITCODE -ne 2 -or ($socInvalid | Out-String | ConvertFrom-Json).ok) {
+            throw 'SOC input capture must reject unpinned targets with JSON ok=false'
+        }
         $invalid = & dotnet $CliDll capture --auto --output $testRoot --json
         if ($LASTEXITCODE -ne 2 -or ($invalid | Out-String | ConvertFrom-Json).error.kind -ne 'usage') {
             throw 'Capture must reject an unpinned target before device access'
