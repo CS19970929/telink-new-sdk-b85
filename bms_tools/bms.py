@@ -173,16 +173,14 @@ OTA_META_A = (0x1F000, 0x1FFFF)
 OTA_META_B = (0x3F000, 0x3FFFF)
 SDK_RESERVED = (0x74000, 0x7FFFF)
 
-# This mismatch is inherited from the verified IDE configuration and is only
-# reported, never auto-corrected: changing it would move the stack and alter
-# firmware behavior. Confirm the populated die/SRAM before changing it.
+# The product uses TLSR8251 with 32 KiB SRAM. Keep this manifest identity in
+# lockstep with build.mk and the startup assembly define.
 DECLARED_MCU = "TLSR8251"
-STARTUP_PROFILE = "MCU_STARTUP_8258"
-STARTUP_SRAM_END = 0x850000
+STARTUP_PROFILE = "MCU_STARTUP_8251"
+STARTUP_SRAM_END = 0x848000
 TLSR8251_SRAM_END_IN_SDK = 0x848000
 TARGET_CONFIGURATION_RISK = (
-    "declared TLSR8251 target uses inherited MCU_STARTUP_8258 profile; "
-    "verify populated die/SRAM and approved baseline before changing it"
+    "TLSR8251 profile required; verify MAP remains below 0x848000 minus the stack reserve"
 )
 
 
@@ -593,12 +591,51 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
     _info(f"generated sources.mk: {build_dir / 'sources.mk'}  ({len(objs)} objects)")
 
 
+def _firmware_git_build_id() -> str:
+    """Return the first 32 bits of HEAD as an unsigned C literal."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True,
+            check=False, timeout=10,
+        )
+        sha = result.stdout.strip().lower()
+        if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha):
+            return f"0x{sha[:8]}u"
+    except Exception:
+        pass
+    return "0u"
+
+
+def _firmware_git_dirty() -> int:
+    """Return 1 when HEAD alone cannot reproduce the current worktree."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=str(REPO_ROOT),
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+        if result.returncode == 0:
+            return 1 if result.stdout.strip() else 0
+    except Exception:
+        pass
+    return 0
+
+
 def _invoke_make(targets: list[str], jobs: int = 1,
                  build_dir: Path = BUILD_DIR) -> None:
     resolved_build = build_dir.resolve()
     if resolved_build != BUILD_DIR:
         _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
+    extra_defines = env.get("EXTRA_DEFINES", "").strip()
+    build_id = _firmware_git_build_id()
+    dirty = _firmware_git_dirty()
+    if "BMS_DIAG_BUILD_ID" not in extra_defines:
+        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_ID={build_id}").strip()
+    if "BMS_DIAG_BUILD_DIRTY" not in extra_defines:
+        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_DIRTY={dirty}").strip()
+    env["EXTRA_DEFINES"] = extra_defines
+    _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
     make = _need_make()
     _gen_sources_mk(build_dir)
     # Pass all Make-facing paths via the junction (space-free).

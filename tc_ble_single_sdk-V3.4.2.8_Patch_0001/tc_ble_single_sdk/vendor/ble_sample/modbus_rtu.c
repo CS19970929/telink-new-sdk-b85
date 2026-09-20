@@ -1,4 +1,5 @@
 #include "modbus_rtu.h"
+#include "bms_diag.h"
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -708,6 +709,23 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (qty == 0u || qty > 0x7Du)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
 
+        if ((u32)reg + qty > 65536u)
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        if (bms_diag_overlaps(reg, qty))
+        {
+            if (!bms_diag_read(reg, qty, &rsp[3]))
+                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+            rsp[0] = addr;
+            rsp[1] = func;
+            rsp[2] = (u8)(qty * 2u);
+            l = 3u + (u32)qty * 2u;
+            crc = mb_crc16(rsp, l);
+            rsp[l] = (u8)(crc & 0xFFu);
+            rsp[l + 1u] = (u8)(crc >> 8);
+            *rsp_len = l + 2u;
+            return (addr != 0x00u);
+        }
+
         if (read_event_log_frame(addr, func, reg, qty, rsp, rsp_len))
             return (addr != 0x00u);
 
@@ -737,6 +755,8 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (req_len < 8u) return 0;
         reg = u16be(&req[2]);
         val = u16be(&req[4]);
+        if (bms_diag_overlaps(reg, 1u))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         protect_changed = reg_requires_param_save(reg);
         if (protect_changed) previous_protect = g_tParam.protect;
 
@@ -771,6 +791,8 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (req_len < 9u) return 0;
         reg = u16be(&req[2]);
         qty = u16be(&req[4]);
+        if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         bytecnt = req[6];
 
         if (qty == 0u || qty > 0x7Bu)

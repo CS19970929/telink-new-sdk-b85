@@ -42,6 +42,8 @@ typedef struct
     uint16_t ocv_cell_mv;
     uint16_t rest_seconds;
     uint16_t learned_capacity_0p1ah;
+    uint16_t current_deadband_ma;
+    uint8_t capacity_learning_enable;
 } bms_soc_diag_t;
 
 struct SOC_CALCULATE_ELEMENT

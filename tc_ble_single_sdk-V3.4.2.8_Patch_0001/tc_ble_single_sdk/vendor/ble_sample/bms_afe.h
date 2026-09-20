@@ -46,6 +46,7 @@ uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *); uint
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
 void sh3673510_bms_afe_init(void); void sh3673510_bms_afe_sample(void); void sh3673510_bms_afe_sleep(void);
 uint8_t sh3673510_bms_afe_apply_protection_config(void); uint8_t sh3673510_bms_afe_set_fets(uint8_t,uint8_t); void sh3673510_bms_afe_set_output_enabled(uint8_t); uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
+uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *, uint8_t *, uint8_t *, uint8_t *);
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *); uint8_t sh3673510_backend_get_charge_source_present(uint8_t *); uint8_t sh3673510_backend_set_balance_mask(uint32_t); uint8_t sh3673510_backend_get_balance_mask(uint32_t *); uint8_t sh3673510_backend_openwire_start(void); bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *);
 #else
 #error "Unsupported BMS_AFE_BACKEND"

@@ -14,6 +14,7 @@
 - TS3：NC，因此 heater 整体强制关闭。
 - TS4：MOS 通道，但 RN4 图纸为 10M；BOM 确认前不作为可信 MOS NTC。
 - 8 路 cell balance 启用公共 balance 策略。
+- Windows/Android/CLI 上位机唯一真源为 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`。
 
 详细证据、差异和未签核项见 [D014_PRODUCT_REFERENCE.md](docs/D014_PRODUCT_REFERENCE.md)。
 
@@ -22,6 +23,7 @@
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check
+python tests/bms_diag_contract_check.py
 python tests/sh3673520_contract_check.py
 python tests/sh3673510_d014_integration_check.py
 python tests/sh3673510_protection_mode_check.py
@@ -46,6 +48,10 @@ python bms_tools/bms.py static --no-report
 ```text
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
 ```
+
+## 统一上位机
+
+切换到 `feature/windows-afe-hw-protection-editor-v2`，构建 `bms-tool-windows/` 下的 Windows 客户版、内部测试版、CLI 或 Android App。协议与诊断命令见 [D014 诊断适配](docs/D014_DIAGNOSTICS.md)。
 
 ## 当前发布阻断项
 
