@@ -18,8 +18,13 @@ void bms_board_features_init(void)
     gpio_set_input_en(HEATER_EN_PIN, 0u);
     gpio_set_output_en(HEATER_EN_PIN, 1u);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    sh3673510_board_force_heater_fuse_safe();
-    sh3673510_board_set_heater(0u);
+    /* D014 has no verified heater/fuse output path. Never touch the legacy
+     * PB4/PB5 D011 pins when heater support is disabled. */
+    if (SH3673510_PRODUCT_HEATER_SUPPORTED)
+    {
+        sh3673510_board_force_heater_fuse_safe();
+        sh3673510_board_set_heater(0u);
+    }
 #endif
 }
 
@@ -28,10 +33,9 @@ uint8_t bms_board_charge_source_present(void)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     return gpio_read(CHG_IN_PIN) ? 0u : 1u;
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /* D011 charger presence is provided by SH3673510 C+/VCHGR ADC through the
-     * AFE semantic API. INT-WK-MCU is a wake circuit and is not used as the
-     * charging-source truth. If the AFE detector cannot be read, fail safe: do
-     * not start charge heating. */
+    /* D014 has no separate schematic-backed charger-present GPIO. Charger
+     * detection for generic policy must come from a validated AFE/current
+     * semantic source. Fail safe here; heater is disabled on D014 anyway. */
     return 0u;
 #else
     return 0u;
@@ -65,9 +69,7 @@ uint8_t bms_board_heater_allowed(void)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     return 1u;
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /* Charger presence and temperature safety are owned by the common policy.
-     * INT-WK-MCU is not a charger-present truth and must not create a hidden
-     * "charger detected but heater still forbidden" liveness failure. */
+    /* Physical heater capability is the only board-level allow gate. */
     return SH3673510_PRODUCT_HEATER_SUPPORTED ? 1u : 0u;
 #else
     return 0u;
@@ -79,8 +81,10 @@ void bms_board_heater_set(uint8_t enabled)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
     gpio_write(HEATER_EN_PIN, enabled ? 1u : 0u);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
-    /* PB5 heater-fuse trigger remains outside this reversible heater API. */
-    sh3673510_board_set_heater(enabled ? 1u : 0u);
+    if (SH3673510_PRODUCT_HEATER_SUPPORTED)
+        sh3673510_board_set_heater(enabled ? 1u : 0u);
+    else
+        (void)enabled;
 #else
     (void)enabled;
 #endif
