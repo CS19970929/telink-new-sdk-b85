@@ -13,3 +13,8 @@ public interface IBmsTransport : IAsyncDisposable
     Task ReconnectAsync(CancellationToken ct = default);
     Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default);
 }
+
+public interface IBmsMtuTransport
+{
+    int? NegotiatedMtu { get; }
+}

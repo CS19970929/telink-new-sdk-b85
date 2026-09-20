@@ -5,8 +5,36 @@
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
 - `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，基于客户版最新版功能，保留全部工程/调试/出厂测试页面，启动后不需要密码。
 - `BmsTool.Cli/`：无 UI 命令行版，面向快速 OTA、脚本和 AI/Codex 实板诊断。
+- `BmsTool.Core/`：跨平台 C# 核心，单一保存 Modbus、BMS 身份读取、Telink BIN 预检和 OTA 状态机。
+- `BmsTool.Android/`：新的 .NET Android App，通过 `BluetoothGatt` 复用 `BmsTool.Core`，不使用或复制历史 Kotlin Android 客户端。
 
-三个入口共用同一套底层协议源码并同步构建、发布；以后每次生成必须同时验证客户版、内部完整版和 CLI。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+
+## Android 共享核心版
+
+Android 版不是对 Windows 流程的第二份翻译。`BmsTool.Core` 编译同一份 `BmsClient.cs`、诊断读取、`ModbusRtu.cs`、`TelinkOtaProtocol.cs` 和 `Shared/TelinkOtaCore.cs`；Windows WinRT 与 Android `BluetoothGatt` 只实现各自的传输接口。OTA 的 START/DATA/END、packet CRC16、BIN 尺寸/TLNK marker/Telink CRC32 trailer 预检、`*.raw.bin` 拒绝、`OTA_RESULT` 解码和成功判定都只有一份源码。
+
+Android 构建：
+
+```powershell
+dotnet workload install android
+dotnet build .\BmsTool.Android\BmsTool.Android.csproj -c Release
+adb install -r .\BmsTool.Android\bin\Release\net10.0-android\com.cs.bmstool.android-Signed.apk
+```
+
+App 提供 `Read info` 和 `OTA + Serial verify`，Info 会同时尝试读取 Firmware Build ID。每次启动会在 Android App 专属外部 `files/` 目录生成带时间戳的完整日志，也可用 ADB 进行可重复的实板测试：
+
+```powershell
+adb shell am start -n com.cs.bmstool.android/<MainActivity> `
+  --es operation ota `
+  --es mac A4:C1:38:00:30:CF `
+  --es firmware /data/user/0/com.cs.bmstool.android/files/firmware.bin `
+  --es expected_serial D007-OTA-R1
+```
+
+`<MainActivity>` 用 `adb shell cmd package resolve-activity --brief com.cs.bmstool.android` 获取。日志位于 `/sdcard/Android/data/com.cs.bmstool.android/files/`，可直接用 `adb pull` 导出。OTA 不会把“能重连”单独当成成功；自动测试同时要求服务器 `OTA_RESULT=OTA_SUCCESS` 和升级后 Serial 回读匹配，并记录升级前后 Firmware Build ID。修改共享 OTA 代码后必须运行 `./test-ota-protocol.ps1`，并同时构建 `BmsTool.Cli`、`BmsTool.Windows`、`BmsFactoryTest.Windows`和 `BmsTool.Android`。
+
+Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连接阶段的瞬态 `status=22`、timeout 或 I/O 失败最多重试 3 次；数据阶段仍由共享 `BmsClient` 的有界 probe/reconnect 逻辑处理。
 
 ## 三入口发布约定
 

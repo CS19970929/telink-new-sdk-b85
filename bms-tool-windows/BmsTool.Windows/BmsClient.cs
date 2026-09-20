@@ -463,7 +463,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         byte[] raw=new byte[48];
         for(int i=0;i<24;i++) BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i*2,2),words[i]);
         byte[] request=ModbusRtu.WriteMultiple(address,raw);
-        if(_transport is BmsBleTransport ble && (ble.NegotiatedMtu??23)<request.Length+3)
+        if(_transport is IBmsMtuTransport ble && (ble.NegotiatedMtu??23)<request.Length+3)
             throw new IOException("当前 BLE MTU 无法承载 57 字节原子写入，请使用直连串口或支持 MTU ≥ 60 的透明通道；不拆帧写保护参数。");
         ModbusRtu.ValidateWriteMultipleAck(await TransactAsync(request,ct),address,24);
     }

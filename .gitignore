@@ -31,5 +31,11 @@ __pycache__/
 /build/static/
 bms_tools/build/bms/sources.mk
 /tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/
+
+# .NET desktop/CLI/Android build outputs
+/bms-tool-windows/**/bin/
+/bms-tool-windows/**/obj/
+/bms-tool-windows/**/publish/
+
 # space-free Make junction (machine-local; created on demand)
 # (path is outside the repo: C:/opencode/bms_repo)

@@ -19,9 +19,6 @@ public static class TelinkOtaProtocol
     // Telink OTA Server keeps the SDK default maximum firmware size (124 KiB).
     public const int D008DefaultMaxFirmwareBytes = 124 * 1024;
 
-    public static readonly TimeSpan StartPreparationDelay = TimeSpan.FromMilliseconds(60);
-    public static readonly TimeSpan EndDrainDelay = TimeSpan.FromMilliseconds(50);
-
     public static byte[] BuildLegacyStart() => new byte[] { 0x01, 0xFF };
 
     public static byte[] BuildExtendedStart(int pduLength, bool versionCompare = false)
@@ -84,6 +81,28 @@ public static class TelinkOtaProtocol
     {
         return image.Length >= 12 &&
                BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(8, 4)) == 0x544C4E4B;
+    }
+
+    public static bool HasValidTelinkCrcTrailer(ReadOnlySpan<byte> image)
+    {
+        if (image.Length < 4) return false;
+        uint actual = BinaryPrimitives.ReadUInt32LittleEndian(image[^4..]);
+        uint expected = CalculateTelinkCrcTrailer(image[..^4]);
+        return actual == expected;
+    }
+
+    public static uint CalculateTelinkCrcTrailer(ReadOnlySpan<byte> payload)
+    {
+        uint crc = 0xFFFFFFFFu;
+        foreach (byte value in payload)
+        {
+            crc ^= value;
+            for (int bit = 0; bit < 8; bit++)
+                crc = (crc & 1u) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+        }
+
+        uint standardCrc32 = crc ^ 0xFFFFFFFFu;
+        return ~standardCrc32;
     }
 
     public static void ValidateExtendedPayloadLength(int pduLength)

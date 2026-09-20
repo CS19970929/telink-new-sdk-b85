@@ -239,18 +239,7 @@ internal static class CliRuntime
     }
 
     public static async Task<uint?> TryReadFirmwareBuildIdAsync(BmsClient client, CancellationToken ct)
-    {
-        try
-        {
-            ushort[] words = await client.ReadRegistersAsync(BmsDiagnostics.Base, 24, ct);
-            if (words.Length < 24 || words[0] != BmsDiagnostics.Magic || words[1] != BmsDiagnostics.Schema)
-                return null;
-            uint value = BmsDiagnostics.U32(words, 22);
-            return value == 0 ? null : value;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch { return null; }
-    }
+        => await client.TryReadFirmwareBuildIdAsync(ct);
 
     public static async Task<bool> TryDetectD008Async(BmsClient client, CancellationToken ct)
     {

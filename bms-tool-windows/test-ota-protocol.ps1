@@ -5,6 +5,7 @@ New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 foreach ($file in @(
     "BmsTool.Windows/TelinkOtaProtocol.cs",
     "BmsTool.Windows/ModbusRtu.cs",
+    "Shared/TelinkOtaCore.cs",
     "Tests/OtaProtocolTest.cs"
 )) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination $testRoot

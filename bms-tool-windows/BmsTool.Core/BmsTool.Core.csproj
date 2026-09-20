@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\BmsTool.Windows\BmsTransport.cs" Link="BmsTransport.cs" />
+    <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="ModbusRtu.cs" />
+    <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="BmsClient.cs" />
+    <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="TelinkOtaProtocol.cs" />
+    <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Sh3673520Parameters.cs" />
+    <Compile Include="..\Shared\BmsDiagnostics.cs" Link="BmsDiagnostics.cs" />
+    <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="BmsClient.Diagnostics.cs" />
+    <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
+  </ItemGroup>
+</Project>

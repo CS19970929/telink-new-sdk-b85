@@ -2,6 +2,20 @@ using System.IO;
 namespace BmsTool.Windows;
 public sealed partial class BmsClient
 {
+    public async Task<uint?> TryReadFirmwareBuildIdAsync(CancellationToken ct=default)
+    {
+        try
+        {
+            ushort[] words=await ReadRegistersAsync(BmsDiagnostics.Base,24,ct);
+            if(words.Length<24 || words[0]!=BmsDiagnostics.Magic || words[1]!=BmsDiagnostics.Schema)
+                return null;
+            uint value=BmsDiagnostics.U32(words,22);
+            return value==0?null:value;
+        }
+        catch(OperationCanceledException) { throw; }
+        catch { return null; }
+    }
+
     // Reuses TransactAsync/_gate. Frames are captured explicitly here so an
     // unrelated write/authorization transaction can never enter the bundle.
     public async Task<DiagnosticCapture> ReadDiagnosticsAsync(bool includeTrace, string endpoint,

@@ -22,6 +22,7 @@
     <Compile Include="..\BmsTool.Windows\BmsClient.cs" Link="Shared\BmsClient.cs" />
     <Compile Include="..\BmsTool.Windows\Ota.cs" Link="Shared\Ota.cs" />
     <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="Shared\TelinkOtaProtocol.cs" />
+    <Compile Include="..\Shared\TelinkOtaCore.cs" Link="Shared\TelinkOtaCore.cs" />
     <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="Shared\BmsDiagnostics.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />
