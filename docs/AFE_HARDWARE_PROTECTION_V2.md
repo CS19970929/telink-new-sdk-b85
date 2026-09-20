@@ -103,45 +103,19 @@ apply_state = CONFIG_INCONSISTENT
 
 此时工具不得显示“写入成功”。
 
-## 7. 当前仓库上位机真实能力
+## 7. 当前上位机真实能力
 
-当前仓库实际存在的桌面Qt上位机是：
+唯一真源是 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`：
 
-```text
-tools/BMSAssistantQt
-```
+- `BmsTool.Windows`：客户版；
+- `BmsFactoryTest.Windows`：内部完整测试版；
+- `BmsTool.Cli`：自动化、诊断与 OTA；
+- `BmsTool.Android`：移动端。
 
-它当前实现：
-
-- BLE扫描/连接；
-- Telink SPP；
-- Modbus RTU over BLE；
-- 电池状态；
-- 软件保护参数预览；
-- 手动读写普通寄存器；
-- 原始帧；
-- BT name suffix；
-- CSV/JSON导出。
-
-**当前 `BMSAssistantQt` 尚未实现专用 AFE Hardware Protection V2 编辑器，也没有 direct-serial transport。** `protocol.py` 中也没有完整 `0x2500/0x2540/0x42` 的产品化编辑流程。
-
-因此旧文档中曾出现的：
-
-```text
-BmsTool.Windows
-BmsFactoryTest.Windows
---enable-afe-hw-editor
-```
-
-不是当前仓库可构建的工程/入口，不再作为本项目说明。
-
-### 当前正确做法
-
-- 读取/调试普通状态：可用 `BMSAssistantQt`；
-- 正式写 AFE HW profile：使用实现了 `0x42 + 35-word atomic write + requested/effective readback + rollback状态显示` 的工程工具；
-- 如果希望统一到当前 Qt 上位机，应在 `tools/BMSAssistantQt` 增加专用 AFE HW 页面和transport能力，而不是通过普通“手动写单寄存器”绕过事务。
-
-BLE默认ATT MTU=23，安全单请求20 byte；完整35-word 0x10写远超当前BLE单包限制，因此当前 BLE Qt 工具不能安全替代完整AFE HW事务。
+四个入口复用同一协议/诊断/OTA核心。AFE Hardware Protection V2 使用 `0x42` 授权、35-word
+原子写入以及 requested/effective readback；不得用普通单寄存器写入绕过事务。完整诊断还会独立读取
+`0x2500/0x2523/0x2540`，不依赖 D008 参数能力窗口。D011 固件诊断适配见
+`docs/D014_DIAGNOSTICS.md`。
 
 ## 8. 修改默认值的位置
 

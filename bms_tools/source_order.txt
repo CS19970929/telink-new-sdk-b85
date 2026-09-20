@@ -24,6 +24,7 @@ vendor/ble_sample/bms_afe_hw_access.c
 vendor/ble_sample/bms_afe_hw_profile.c
 vendor/ble_sample/bms_board.c
 vendor/ble_sample/bms_config_store.c
+vendor/ble_sample/bms_diag.c
 vendor/ble_sample/bms_event_log.c
 vendor/ble_sample/bms_features.c
 vendor/ble_sample/bms_state.c

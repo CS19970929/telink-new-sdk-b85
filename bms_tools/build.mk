@@ -59,6 +59,8 @@ DEFINES := \
 	-D__PROJECT_8258_BLE_SAMPLE__=1 \
 	-DCHIP_TYPE=CHIP_TYPE_825x
 
+EXTRA_DEFINES ?=
+
 # ---- Compile flags (EXACT match to Eclipse-generated subdir.mk) ----------
 CFLAGS_BASE := \
 	-ffunction-sections -fdata-sections \
@@ -66,11 +68,11 @@ CFLAGS_BASE := \
 	-fpack-struct -fshort-enums -finline-small-functions \
 	-std=gnu99 -fshort-wchar -fms-extensions
 
-# Assembler defines (exact match to Eclipse-generated subdir.mk for boot/B85:
-# the canonical command is `tc32-elf-gcc -DMCU_STARTUP_8258 -c`).
-AFLAGS_BASE := -DMCU_STARTUP_8258
+# The populated MCU is TLSR8251 with 32 KiB SRAM. The inherited 8258 startup
+# would place the stack outside physical SRAM.
+AFLAGS_BASE := -DMCU_STARTUP_8251
 
-CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES)
+CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES) $(EXTRA_DEFINES)
 AFLAGS := $(AFLAGS_BASE)
 
 # ---- Link flags (exact match to Eclipse makefile + objects.mk) -------------

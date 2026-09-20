@@ -3,6 +3,10 @@
 > 分支：`refactor/d014-common-bms-features`  
 > 产品：HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S。
 
+> 上位机章节中的历史 Qt 路径已废弃。当前唯一真源是
+> `feature/windows-afe-hw-protection-editor-v2:bms-tool-windows/`；诊断与命令以
+> `docs/D014_DIAGNOSTICS.md` 及该分支最新文档为准。
+
 硬件事实和未签核项先看 `D014_PRODUCT_REFERENCE.md`，不要从文件名“15A”反推保护阈值或额定容量。
 
 ## 1. 拉取分支
