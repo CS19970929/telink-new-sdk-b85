@@ -10,7 +10,7 @@
 - 软件保护：统一 `bms_sw_protection.*`，参数为 `g_tParam.protect` First/Second/Third/Recover/Filter。
 - AFE 硬件保护：独立 `bms_afe_hw_profile_t`；与软件保护分开修改/持久化。
 - 当前源码 profile：4S、100µΩ；但硬件事实需 D013 原理图确认。
-- 当前桌面上位机为 `tools/BMSAssistantQt`；主要通过 BLE SPP + Modbus 调试，专用 AFE HW V2 编辑器尚未实现在该 Qt 工程中。
+- Windows/Android/CLI 上位机唯一真源为 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`；本分支内历史客户端均已废弃。
 
 ## 文档入口
 
@@ -25,14 +25,14 @@
 7. [SOC](docs/SOC.md)
 8. [Flash / Storage](docs/STORAGE.md)
 9. [构建与测试](docs/BUILD_AND_TEST.md)
-10. [Windows/macOS/Linux Qt 上位机](tools/BMSAssistantQt/README.md)
+10. [D013 统一上位机诊断适配](docs/D013_DIAGNOSTICS.md)
 
 D008/DVC1124 文档和 D011 原理图/状态文档不属于 D013。D013 中残留的 `D011_*` 宏和 `BT_D011`/`D011` 产品身份是源码技术债，不能由文档静默改名掩盖。
 
 ## 快速拉取
 
 ```bash
-git clone --single-branch --branch feature/sh3673510-d013-bms https://github.com/CS19970929/telink-new-sdk-b85.git D013-BMS
+git clone --single-branch --branch refactor/d013-common-bms-features https://github.com/CS19970929/telink-new-sdk-b85.git D013-BMS
 cd D013-BMS
 ```
 
@@ -41,6 +41,7 @@ cd D013-BMS
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check
+python tests/bms_diag_contract_check.py
 python bms_tools/bms.py rebuild --jobs 4
 python bms_tools/bms.py check-fw
 python bms_tools/bms.py size
@@ -56,15 +57,9 @@ python bms_tools/bms.py static --no-report
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
 ```
 
-## Windows Qt 上位机
+## 统一上位机
 
-```bat
-cd /d D013-BMS\tools\BMSAssistantQt
-scripts\run.bat
-scripts\package-windows.bat
-```
-
-D013 当前代码 profile 为4S，因此打包前必须在 `bmsassistantqt/protocol.py` 把 `currentProjectSeriesCount` 改为4；当前共享工具历史默认仍是10。完整说明见 `docs/CONFIGURATION_AND_BUILD_GUIDE.md`。
+切换到 `feature/windows-afe-hw-protection-editor-v2`，构建 `bms-tool-windows/` 下的 Windows 客户版、内部测试版、CLI 或 Android App。协议与诊断命令见 [D013 诊断适配](docs/D013_DIAGNOSTICS.md)。
 
 ## 发布原则
 

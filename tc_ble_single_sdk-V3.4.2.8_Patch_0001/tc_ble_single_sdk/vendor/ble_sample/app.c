@@ -35,6 +35,7 @@
 #include "modbus_rtu.h"
 
 #include "bms_afe.h"
+#include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
 
@@ -1064,6 +1065,10 @@ _attribute_no_inline_ void user_init_normal(void)
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
 	{
+		bms_diag_init();
+		bms_diag_set_build_flags((SH3673510_SW_PROTECT_ENABLE ? 1u : 0u) |
+		                         (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
+		                         (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
 		// bus_mux_task();
 		// nvm_init(&nvm_cfg);
 		board_init();
@@ -1093,6 +1098,10 @@ _attribute_no_inline_ void user_init_normal(void)
 	Runtime_Init();
 
 	mos_update();
+	bms_diag_set_boot_result(
+		g_bms_system_status.bits.b1Status_AFE1 ? DIAG_OK : DIAG_INVALID,
+		bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
+	bms_diag_freeze_boot();
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
@@ -1301,11 +1310,18 @@ _attribute_no_inline_ void main_loop(void)
 #endif
 	if (clock_time_exceed(test_task_tick, 1000 * 200))
 	{
+		bms_afe_aux_measurements_t sample;
+		u8 sample_valid;
 		test_task_tick = clock_time();
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
 		bms_afe_sample();
-		APP_SOC_IntEnhance_Ctrl();
+		sample_valid = bms_afe_get_aux_measurements(&sample);
+		if (sample_valid) APP_SOC_IntEnhance_Ctrl();
 		mos_update();
+		bms_diag_poll_runtime(sample_valid,
+		                      sample_valid ? sample.current_ma : 0,
+		                      sample_valid ? sample.sample_tick_32k : pm_get_32k_tick(),
+		                      (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 	}
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))

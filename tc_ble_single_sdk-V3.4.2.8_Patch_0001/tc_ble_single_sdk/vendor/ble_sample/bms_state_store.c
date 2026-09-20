@@ -1,4 +1,5 @@
 #include "bms_state_store.h"
+#include "bms_diag.h"
 
 #include "bms_storage_platform.h"
 #include "storage_record.h"
@@ -83,8 +84,12 @@ static int bms_state_save(const bms_state_persist_t *next)
     u8 payload[BMS_STATE_PAYLOAD_BYTES];
     if (memcmp(&g_bms_state, next, sizeof(*next)) == 0) return 1;
     bms_state_encode(next, payload);
-    if (!storage_record_save(&g_bms_state_store, payload)) return 0;
+    if (!storage_record_save(&g_bms_state_store, payload)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE);
+        return 0;
+    }
     g_bms_state = *next;
+    bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 }
 
@@ -94,12 +99,23 @@ int bms_state_store_init(void)
     storage_region_t region;
     u8 payload[BMS_STATE_PAYLOAD_BYTES];
     if (g_bms_state_ready) return 1;
+    bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
     port = bms_storage_platform_port();
-    if ((port == 0) || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region) ||
-        !storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
-                             BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) return 0;
-    if (storage_record_load(&g_bms_state_store, payload)) bms_state_decode(&g_bms_state, payload);
-    else bms_state_defaults(&g_bms_state);
+    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); return 0; }
+    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_REGION); return 0;
+    }
+    if (!storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
+                             BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); return 0;
+    }
+    if (storage_record_load(&g_bms_state_store, payload)) {
+        bms_state_decode(&g_bms_state, payload);
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
+    } else {
+        bms_state_defaults(&g_bms_state);
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS);
+    }
     g_bms_state_ready = 1u;
     return 1;
 }

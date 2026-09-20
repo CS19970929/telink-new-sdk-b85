@@ -1,6 +1,10 @@
 # D013 配置修改、拉代码、固件编译与上位机构建指南
 
-> 适用分支：`feature/sh3673510-d013-bms`
+> 上位机章节中的历史 Qt 路径已废弃。当前唯一真源是
+> `feature/windows-afe-hw-protection-editor-v2:bms-tool-windows/`；诊断与命令以
+> `docs/D013_DIAGNOSTICS.md` 及该分支最新文档为准。
+
+> 适用分支：`refactor/d013-common-bms-features`
 >
 > 当前源码 profile：TLSR8251F512ET32 + SH3673510 + 4S + 100 µΩ。
 >

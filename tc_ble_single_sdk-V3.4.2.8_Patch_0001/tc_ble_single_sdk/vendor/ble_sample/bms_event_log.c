@@ -1,4 +1,5 @@
 #include "bms_event_log.h"
+#include "bms_diag.h"
 
 #include "bms_error.h"
 #include "bms_storage_platform.h"
@@ -145,15 +146,23 @@ int bms_event_log_init(void)
     const storage_port_t *port;
     storage_region_t region;
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];
+    bms_diag_attempt(BMS_STORAGE_DOMAIN_EVENT);
     memset(&g_bms_event_log, 0, sizeof(g_bms_event_log));
     port = bms_storage_platform_port();
-    if ((port == 0) ||
-        !bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region) ||
-        !storage_record_open(&g_bms_event_log.store, port, region,
+    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
+    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_REGION); return 0;
+    }
+    if (!storage_record_open(&g_bms_event_log.store, port, region,
                              BMS_EVENT_RECORD_MAGIC, BMS_EVENT_SCHEMA_VERSION,
-                             BMS_EVENT_PAYLOAD_BYTES)) return 0;
+                             BMS_EVENT_PAYLOAD_BYTES)) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OPEN); return 0;
+    }
     if (!storage_record_load(&g_bms_event_log.store, payload) ||
-        !bms_event_log_decode(payload)) bms_event_log_reset_ram_only();
+        !bms_event_log_decode(payload)) {
+        bms_event_log_reset_ram_only();
+        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_DEFAULTS);
+    } else bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OK);
     g_bms_event_log.ready = 1u;
     bms_event_log_clear_runtime_flags();
     return 1;

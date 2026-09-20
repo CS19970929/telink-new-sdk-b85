@@ -663,6 +663,22 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     return 1u;
 }
 
+uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
+                                               uint8_t *command_valid,
+                                               uint8_t *driver_bits,
+                                               uint8_t *driver_valid)
+{
+    if ((command_bits == 0) || (command_valid == 0) ||
+        (driver_bits == 0) || (driver_valid == 0)) return 0u;
+    *command_bits = (uint8_t)((s_last_charge_command ? 1u : 0u) |
+                              (s_last_discharge_command ? 2u : 0u));
+    *command_valid = s_fet_command_valid;
+    *driver_bits = (uint8_t)((g_bms_system_status.bits.b1Status_MOS_CHG ? 1u : 0u) |
+                             (g_bms_system_status.bits.b1Status_MOS_DSG ? 2u : 0u));
+    *driver_valid = s_snapshot_valid;
+    return 1u;
+}
+
 void sh3673510_bms_afe_sleep(void)
 {
     s_output_inhibit = 1u;
