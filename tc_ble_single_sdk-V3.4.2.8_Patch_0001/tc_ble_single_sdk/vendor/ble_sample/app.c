@@ -1753,6 +1753,16 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
+
+	/*
+	 * Opportunistically finish boot-zero calibration during initialization.
+	 * This call never waits: if the 300 ms CADC quiet window has already
+	 * elapsed naturally, the first sample is taken here and the normal startup
+	 * MOS path can be released before entering main_loop(). Otherwise it returns
+	 * immediately and main_loop() continues the same state machine.
+	 */
+	app_boot_zero_poll();
+
 	// sys_time.isdebugenable = 1;
 }
 
