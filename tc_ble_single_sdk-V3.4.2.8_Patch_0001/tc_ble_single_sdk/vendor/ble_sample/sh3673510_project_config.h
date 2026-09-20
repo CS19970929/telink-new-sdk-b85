@@ -5,26 +5,30 @@
 #include "sh3673520_port.h"
 
 /*
- * HS-D011-10S50A board / product profile.
- * Schematic: HS-D011-10S50A-V1, 2026-08-21.
+ * HS-D014-8S15A board / product profile.
+ * Schematic: HS-D014-8S15A, 2026-09-04.
  * MCU: TLSR8251F512ET32.
- * AFE: SH3673510, 10 cells.
- * Current shunt: RS1..RS8 = eight 2mOhm parts in parallel -> 250uOhm.
+ * AFE: SH3673510, 8 active cells (VC0..VC8).
+ * Current shunt: RS1..RS3 = three 2mOhm parts in parallel -> 666.7uOhm nominal.
+ * The current-conversion API accepts integer uOhm, so this profile uses 667uOhm
+ * (about +0.05% resistance-model error before resistor tolerance/calibration).
  * SPI: PB6=MISO, PB7=MOSI, PD7=SCLK, PD2=CS-M.
- * NTC: actual fitted sensors are 10K; RN3/RN4=10M on the schematic is a drawing error.
+ * Temperature: TS1/TS2 use 10K-3435 networks; TS3 is marked NC; TS4 is
+ * marked MOS but RN4 is drawn as 10M, so TS4 must not be treated as a
+ * qualified 10K MOS NTC until BOM/board measurement confirms it.
  *
  * The SH36735xx register definitions live in sh3673520_reg.h.  Every static
  * D011 AFE bit choice is intentionally exposed below so future products can
  * change one field without editing register-transaction code.
  */
-#define SH3673510_D011_CELL_COUNT              10u
-#define SH3673510_D011_SHUNT_UOHM              250u
+#define SH3673510_D011_CELL_COUNT               8u
+#define SH3673510_D011_SHUNT_UOHM              667u
 #define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
 
-/* D011 schematic/BOM evidence exists for PB4 heater command, TS3 heater NTC
- * and the SH cell-balance path. D013 overrides these until its own schematic
- * evidence is available. */
-#define SH3673510_PRODUCT_HEATER_SUPPORTED       1u
+/* D014 has no verified heater command path: PB4/PB5 are not assigned to the
+ * D011 heater/fuse nets and TS3 is marked NC. Keep heater actions hard-disabled.
+ * Eight cell-balance transistor channels are present for B1..B8. */
+#define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
@@ -48,10 +52,10 @@
 #error "SH3673510 protection enable macros must be 0 or 1"
 #endif
 
-#define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K */
-#define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K */
-#define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3, 10K near heater MOS; reversible heater safety cutoff */
-#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4, 10K near charge/discharge MOS */
+#define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K-3435 */
+#define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K-3435 */
+#define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3-NC on D014; never enables heater policy */
+#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4-MOS; RN4=10M on schematic, BOM verification required */
 
 /* -------------------------------------------------------------------------
  * Static SH3673510 register profile, SH36735XX CV1.0A sections 10.2.1-10.2.9.
@@ -177,30 +181,58 @@
 #define SH3673510_D011_SC_MULTIPLIER_CODE           0u
 #define SH3673510_D011_SC_DELAY_CODE                7u
 
-/* Board GPIO truth. */
-#define D011_CMNT_EN_PIN                        GPIO_PD4
-#define D011_AFE_SCLK_PIN                       GPIO_PD7
-#define D011_SWITCH_PIN                         GPIO_PA0
-#define D011_RS485_EN_PIN                       GPIO_PA1
-#define D011_SWS_PIN                            GPIO_PA7
-#define D011_INT_WK_MCU_PIN                     GPIO_PB1
+/* D014 board GPIO truth from HS-D014-8S15A schematic. */
+#define D014_CMNT_EN_PIN                        GPIO_PD4
+#define D014_AFE_SCLK_PIN                       GPIO_PD7
+#define D014_SWITCH_PIN                         GPIO_PA0
+#define D014_RS485_EN_PIN                       GPIO_PA1
+#define D014_SWS_PIN                            GPIO_PA7
+#define D014_INT_WK_MCU_PIN                     GPIO_PB1
+#define D014_AFE_MISO_PIN                       GPIO_PB6
+#define D014_AFE_MOSI_PIN                       GPIO_PB7
+#define D014_AFE_ALARM_PIN                      GPIO_PC0
+#define D014_AFE_RESET_OUT_PIN                  GPIO_PC1
+#define D014_SCI1_TX_PIN                        GPIO_PC2
+#define D014_SCI1_RX_PIN                        GPIO_PC3
+#define D014_DEBUG_LED_PIN                      GPIO_PC4
+#define D014_CMNT_WK_PIN                        GPIO_PD3
+#define D014_AFE_CS_PIN                         GPIO_PD2
+
+#ifndef D014_DEBUG_LED_ENABLE
+#define D014_DEBUG_LED_ENABLE                   0u
+#endif
+#if (D014_DEBUG_LED_ENABLE > 1u)
+#error "D014_DEBUG_LED_ENABLE must be 0 or 1"
+#endif
+
+/*
+ * Transitional aliases keep the verified D011 SH3673510 common implementation
+ * source-compatible while D014 is introduced. New D014-specific code should use
+ * the D014_* names above. PB4/PB5 aliases exist only so the disabled legacy
+ * heater functions still compile; D014 production code must never drive them.
+ */
+#define D011_CMNT_EN_PIN                        D014_CMNT_EN_PIN
+#define D011_AFE_SCLK_PIN                       D014_AFE_SCLK_PIN
+#define D011_SWITCH_PIN                         D014_SWITCH_PIN
+#define D011_RS485_EN_PIN                       D014_RS485_EN_PIN
+#define D011_SWS_PIN                            D014_SWS_PIN
+#define D011_INT_WK_MCU_PIN                     D014_INT_WK_MCU_PIN
+#define D011_AFE_MISO_PIN                       D014_AFE_MISO_PIN
+#define D011_AFE_MOSI_PIN                       D014_AFE_MOSI_PIN
+#define D011_AFE_ALARM_PIN                      D014_AFE_ALARM_PIN
+#define D011_AFE_RESET_OUT_PIN                  D014_AFE_RESET_OUT_PIN
+#define D011_SCI1_TX_PIN                        D014_SCI1_TX_PIN
+#define D011_SCI1_RX_PIN                        D014_SCI1_RX_PIN
+#define D011_DEBUG_LED_PIN                      D014_DEBUG_LED_PIN
+#define D011_DEBUG_LED_ENABLE                   D014_DEBUG_LED_ENABLE
+#define D011_CMNT_WK_PIN                        D014_CMNT_WK_PIN
+#define D011_AFE_CS_PIN                         D014_AFE_CS_PIN
 #define D011_HEATER_CHG_PIN                     GPIO_PB4
-#define D011_HEATER_FUSE_SAFE_LEVEL               0u
-#define D011_HEATER_FUSE_TRIGGER_PIN              GPIO_PB5  /* irreversible heater-fuse trigger; keep LOW until a separately validated fuse state machine authorizes firing. */
-#define D011_AFE_MISO_PIN                       GPIO_PB6
-#define D011_AFE_MOSI_PIN                       GPIO_PB7
-#define D011_AFE_ALARM_PIN                      GPIO_PC0
-#define D011_AFE_RESET_OUT_PIN                  GPIO_PC1
-#define D011_SCI1_TX_PIN                        GPIO_PC2
-#define D011_SCI1_RX_PIN                        GPIO_PC3
-#define D011_DEBUG_LED_PIN                      GPIO_PC4
-#ifndef D011_DEBUG_LED_ENABLE
-#define D011_DEBUG_LED_ENABLE                   0u
+#define D011_HEATER_FUSE_SAFE_LEVEL             0u
+#define D011_HEATER_FUSE_TRIGGER_PIN            GPIO_PB5
+
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+#error "D014 heater is not schematic-verified; do not enable it without a new board review"
 #endif
-#if (D011_DEBUG_LED_ENABLE > 1u)
-#error "D011_DEBUG_LED_ENABLE must be 0 or 1"
-#endif
-#define D011_CMNT_WK_PIN                        GPIO_PD3
-#define D011_AFE_CS_PIN                         GPIO_PD2
 
 #endif /* SH3673510_PROJECT_CONFIG_H_ */
