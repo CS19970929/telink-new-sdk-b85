@@ -91,7 +91,7 @@ App 的“工具 → OTA 升级 → 固件收件箱”会列出最近 20 个 BIN
 
 PC 已编译好固件后，研发人员可直接运行独立的 `BmsTool.Android.Deployer.exe`，选择/拖入正式 BIN、选择已连接手机并点击发送。它在后台使用 ADB receiver 导入，不显示命令行、不要求填写 BMS MAC、不自动开始 OTA；App 打开固件页后，仍由用户从 `BT_` / `BT-` 列表明确选择目标设备。
 
-VS Code 已提供两个仓库任务：按 `Ctrl+Shift+B` 会执行默认的 `BMS: 编译并发送固件到 Android`，先运行 `bms.py rebuild/check-fw`，再直接预检并发送标准输出 BIN；`BMS: 发送现有固件到 Android` 跳过固件构建。两者都不经过 Windows 图形发送器，而是调用无 UI 的 `BmsTool.Android.Sender` 完成 ADB 分片发送、手机端 SHA-256 导入确认并打开 OTA 页面。仅连接一台已授权手机时自动使用该手机；检测到多台手机时拒绝自动选择。写 Flash 前仍需在手机上明确选择 `BT_` / `BT-` 设备并确认。
+VS Code 已提供三个仓库任务：按 `Ctrl+Shift+B` 会执行默认的 `BMS: 编译并发送固件到 Android`，先运行 `bms.py rebuild/check-fw`，再直接预检并发送标准输出 BIN；`BMS: 发送现有固件到 Android` 跳过固件构建；`BMS: 选择 BIN 并发送到 Android` 只弹出系统文件选择框，可发送任意位置的正式 BIN。三个任务都不经过 Windows 图形发送器，而是调用无 UI 的 `BmsTool.Android.Sender` 完成严格预检、ADB 分片发送、手机端 SHA-256 导入确认并打开 OTA 页面。仅连接一台已授权手机时自动使用该手机；检测到多台手机时拒绝自动选择。写 Flash 前仍需在手机上明确选择 `BT_` / `BT-` 设备并确认。
 
 ADB 导入 receiver 要求 `android.permission.DUMP`，普通第三方 App 不能调用；分片总大小限制为 2 MiB，任一分片、offset 或最终 SHA-256 不匹配都会删除临时文件。导入成功也不会自动写 Flash，仍必须经过 App 内 OTA 预检和用户确认。
 

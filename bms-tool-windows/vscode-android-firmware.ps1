@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$BuildFirmware,
+    [switch]$SelectFirmware,
     [string]$FirmwarePath
 )
 
@@ -22,7 +23,23 @@ if ($BuildFirmware) {
     finally { Pop-Location }
 }
 
-$firmware = if ([string]::IsNullOrWhiteSpace($FirmwarePath)) { $defaultFirmware } else { $FirmwarePath }
+if ($SelectFirmware) {
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = 'Select a Telink OTA firmware BIN to send to Android'
+    $dialog.Filter = 'Firmware BIN (*.bin)|*.bin|All files (*.*)|*.*'
+    $dialog.CheckFileExists = $true
+    $defaultDirectory = Split-Path -Parent $defaultFirmware
+    $dialog.InitialDirectory = if (Test-Path -LiteralPath $defaultDirectory) { $defaultDirectory } else { $repositoryRoot }
+    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+        Write-Host 'Selection cancelled. No firmware was sent.'
+        return
+    }
+    $firmware = $dialog.FileName
+}
+else {
+    $firmware = if ([string]::IsNullOrWhiteSpace($FirmwarePath)) { $defaultFirmware } else { $FirmwarePath }
+}
 if (-not (Test-Path -LiteralPath $firmware -PathType Leaf)) {
     throw "Firmware was not found. Run the build task first: $firmware"
 }

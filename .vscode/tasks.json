@@ -57,6 +57,33 @@
       "runOptions": {
         "instanceLimit": 1
       }
+    },
+    {
+      "label": "BMS: 选择 BIN 并发送到 Android",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\bms-tool-windows\\vscode-android-firmware.ps1",
+        "-SelectFirmware"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
     }
   ]
 }
