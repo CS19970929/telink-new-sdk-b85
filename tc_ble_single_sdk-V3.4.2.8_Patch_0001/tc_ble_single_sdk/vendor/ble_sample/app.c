@@ -1318,7 +1318,7 @@ _attribute_no_inline_ void main_loop(void)
 		bms_afe_sample();
 		sample_valid = bms_afe_get_aux_measurements(&sample);
 		APP_SOC_IntEnhance_Ctrl(sample_valid,
-		                       sample_valid ? sample.current_ma : 0,
+		                       sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0,
 		                       sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
 		mos_update();
 		bms_diag_poll_runtime(sample_valid,

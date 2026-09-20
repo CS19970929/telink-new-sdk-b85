@@ -15,7 +15,7 @@ assert "#define BMS_HEATER_STOP_TEMP_X10 450u" in features_h
 assert "bms_afe_get_charge_source_present" in afe_h
 assert "bms_afe_get_charge_source_present" in guard_c
 assert "charge_source_present" in features_c
-assert "BMS_HEATER_START_TEMP_X10" in features_c and "BMS_HEATER_STOP_TEMP_X10" in features_c
+assert "BMS_HEATER_START_TEMP_X10" in config_c and "BMS_HEATER_STOP_TEMP_X10" in config_c
 assert "#define BMS_BALANCE_START_DELTA_MV_DEFAULT 50u" in features_h
 assert "#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u" in features_h
 assert "openwire_fault_latched" in features_c and "openwire_suspected" in features_c
@@ -83,7 +83,7 @@ for token in (
 
 for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
     assert token in config_h and token in config_c and token in features_c
-assert "#define BMS_CONFIG_SCHEMA_VERSION        2u" in config_c
+assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
 assert "#define BMS_CONFIG_FEATURE_BYTES         14u" in config_c
 assert "0x2E20u" in modbus and "0x2E70u" in modbus
 assert "feature_config_write_block" in modbus

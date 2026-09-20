@@ -21,7 +21,7 @@ def main() -> int:
     order = (ROOT / "bms_tools" / "source_order.txt").read_text(encoding="utf-8")
     build = (ROOT / "bms_tools" / "build.mk").read_text(encoding="utf-8")
 
-    for token in ("0x2A00u", "0x2B00u", "0x2E00u", "BMS_DIAG_RUNTIME_VERSION 2u"):
+    for token in ("0x2A00u", "0x2B00u", "0x2E00u", "BMS_DIAG_RUNTIME_VERSION 3u"):
         require(header, token, "bms_diag.h")
     for token in ("s_words[0] = 0x4447u", "s_words[14] = 0x3510u",
                   "s_words[15] = 0x8251u", "BMS_DIAG_BUILD_ID"):

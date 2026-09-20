@@ -58,6 +58,7 @@ static const uint16_t s_ntc_table[] = {
     14u,1250u, 12u,1300u, 11u,1350u, 9u,1400u, 8u,1450u
 };
 
+#if SH3673510_HW_PROTECT_ENABLE
 static uint16_t filter_samples(uint16_t filter_10ms)
 {
     uint32_t ms = (uint32_t)filter_10ms * 10u;
@@ -68,6 +69,8 @@ static uint16_t filter_samples(uint16_t filter_10ms)
     if (n > 65535u) n = 65535u;
     return (uint16_t)n;
 }
+
+#endif
 
 static uint16_t ntc_temp(uint32_t ohm)
 {
@@ -91,6 +94,12 @@ static void note_comm_error(void)
     sh3673520_comm_stats_t stats;
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
+    /* Recovery requires consecutive valid samples, never evidence spanning a
+     * communication gap. Preserve fault latches, discard only qualification. */
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
+    memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
+    s_fet_command_valid = 0u;
     SH3673520_GetCommStats(&stats);
     if (stats.last_error == SH3673520_ERR_SPI ||
         stats.last_error == SH3673520_ERR_TIMEOUT ||
@@ -259,15 +268,20 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 
 #if SH3673510_HW_PROTECT_ENABLE
     if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
+        /* A latched hardware flag remains set throughout LOADOFF qualification.
+         * Re-observing it must not restart the recovery window every frame. */
+        if (!s_short_latched) {
+            s_short_clear_pending = 0u;
+            s_short_release_count = 0u;
+        }
         s_short_latched = 1u;
-        s_short_clear_pending = 0u;
-        s_short_release_count = 0u;
         if (!bms_error_get(BMS_ERROR_DSG_SHORT)) bms_error_raise(BMS_ERROR_DSG_SHORT);
         if (!bms_error_get(BMS_ERROR_CBC_DSG)) bms_error_raise(BMS_ERROR_CBC_DSG);
     }
 #endif
 }
 
+#if SH3673510_HW_PROTECT_ENABLE
 static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
 {
     union MDLCHGFAULT_REG *f;
@@ -302,9 +316,10 @@ static void service_short_recovery(const sh3673510_control_status_t *s)
             bms_error_clear(BMS_ERROR_CBC_DSG);
             return;
         }
-        if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
-            s_short_clear_pending = 0u;
-        }
+        /* SC reassertion or load reattachment invalidates the pending clear.
+         * Require a complete new LOADOFF window before another attempt. */
+        s_short_clear_pending = 0u;
+        s_short_release_count = 0u;
     }
 
     if (s->bstatus2 & SH3673520_BSTATUS2_LOADOFF_MASK) {
@@ -432,10 +447,16 @@ static void service_hw_flag_recovery(const sh3673510_control_status_t *s)
     if (c2) (void)sh3673510_control_clear_flag2(c2);
 }
 
+#endif
+
 static uint8_t service_afe_reconfiguration(void)
 {
     if (!s_afe_reconfigure_required) return 1u;
 
+    /* Configuration and direct OFF below bypass the normal command cache. */
+    s_fet_command_valid = 0u;
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
     s_snapshot_valid = 0u;
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
@@ -646,9 +667,10 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
 {
     s_output_enabled = enabled ? 1u : 0u;
     if (!s_output_enabled) {
+        s_fet_command_valid = 0u;
         if (sh3673510_control_ready()) {
             (void)sh3673510_control_set_balance(0u);
-            (void)sh3673510_control_set_fets(0u, 0u);
+            if (!sh3673510_control_set_fets(0u, 0u)) note_comm_error();
         }
     } else if (s_snapshot_valid) {
         (void)sh3510_apply_requested_fets();
@@ -681,6 +703,8 @@ uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
 
 void sh3673510_bms_afe_sleep(void)
 {
+    s_short_clear_pending = 0u;
+    s_short_release_count = 0u;
     s_output_inhibit = 1u;
     s_valid_snapshot_streak = 0u;
     s_fet_command_valid = 0u;

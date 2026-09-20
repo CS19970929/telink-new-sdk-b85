@@ -36,7 +36,8 @@ for needle in (
     require(cfg, needle)
 
 for needle in (
-    "#if !SH3673510_SW_PROTECT_ENABLE",
+    "#if SH3673510_SW_PROTECT_ENABLE",
+    "bms_sw_protection_clear();",
     "#if SH3673510_HW_PROTECT_ENABLE",
     "merge_hw_protection_faults(&status);",
     "service_short_recovery(&status);",
@@ -46,8 +47,8 @@ for needle in (
 ):
     require(bms, needle)
 
-# The HW-only test must not be masked by the software heater state machine.
-require(bms, "sh3673510_board_set_heater(0u);")
-require(bms, "bms_error_clear(BMS_ERROR_HEAT);")
+# The HW-only test must not be masked by a backend-owned heater state machine.
+if "static void apply_heater" in bms or "s_heater_mos_overtemp" in bms:
+    raise AssertionError("SH backend must not own heater policy")
 
 print("SH3673510 protection mode contract: PASS")

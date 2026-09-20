@@ -13,6 +13,8 @@ CONFIG_H = (MOD / "bms_config_store.h").read_text(encoding="utf-8", errors="igno
 STATE_C = (MOD / "bms_state_store.c").read_text(encoding="utf-8", errors="ignore")
 STATE_H = (MOD / "bms_state_store.h").read_text(encoding="utf-8", errors="ignore")
 
+DIAG_H = (MOD / "bms_diag.h").read_text(encoding="utf-8")
+
 class SocContract(unittest.TestCase):
     def test_dual_chemistry_profiles_are_data_not_algorithm(self):
         self.assertIn("BMS_SOC_CHEMISTRY_LFP", DEFS)
@@ -42,21 +44,21 @@ class SocContract(unittest.TestCase):
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_NMC", C)
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
         self.assertIn("soc_product_config_valid", C)
-        self.assertIn("New products should persist the", C)
-        self.assertIn("explicit chemistry/profile selection", C)
+        self.assertIn("assembly identity; no old Flash migration", C)
+        self.assertIn("bms_config_store_set_soc(config)", C)
 
     def test_coulomb_integration_and_deadband(self):
         self.assertIn("SOC_INTEGRAL_PERIOD_MS              200u", C)
         self.assertIn("SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", C)
         self.assertIn("soc_current_direction", C)
-        self.assertIn("g_soc_integral_ms_remainder", C)
+        self.assertIn("g_soc_integral_tick_remainder", C)
 
     def test_ocv_requires_ten_minutes_and_uses_band(self):
         self.assertIn("SOC_OCV_REST_PREPARE_SECONDS        600u", C)
         self.assertIn("SOC_OCV_ERROR_BAND_PERCENT          5u", C)
         self.assertIn("g_soc_runtime.ocv_low", C)
         self.assertIn("g_soc_runtime.ocv_high", C)
-        self.assertIn("return soc_step_down_to(g_soc_runtime.ocv_high);", C)
+        self.assertIn("soc_step_down_to(g_soc_runtime.ocv_high)", C)
         ocv_fn = C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")]
         self.assertNotIn("soc_step_up_to", ocv_fn)
 
@@ -75,13 +77,14 @@ class SocContract(unittest.TestCase):
         start = C.index("static uint8_t soc_apply_full_anchor(void)")
         end = C.index("static uint8_t soc_apply_forced_empty_anchor(void)", start)
         full_fn = C[start:end]
-        self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min) && isCHG()", full_fn)
-        self.assertIn("if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp)", full_fn)
+        self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min)", full_fn)
+        self.assertIn("(g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG()", full_fn)
+        self.assertIn("if (isCHG() && g_soc_input.third_cell_ovp)", full_fn)
         self.assertNotIn("&& !isDSG()", full_fn)
 
     def test_soc_low_faults_are_implemented_without_mos_policy(self):
         self.assertIn("soc_update_low_faults", C)
-        self.assertIn("fault->bits.b1SocLow", C)
+        self.assertIn("soc_fault_reg(level)->bits.b1SocLow", C)
         self.assertIn("u16SocUp_First", C)
         self.assertNotIn("b1SocLow ||", C)
 
@@ -99,8 +102,8 @@ class SocContract(unittest.TestCase):
 
     def test_diag_reports_profile_identity_and_version(self):
         self.assertIn("bms_soc_diag_t", H)
-        self.assertIn("profile_id", H)
-        self.assertIn("profile_version", H)
+        self.assertIn("profile_id", DIAG_H)
+        self.assertIn("profile_version", DIAG_H)
         self.assertIn("diag->profile_id = g_soc_profile->profile_id", C)
         self.assertIn("diag->profile_version = g_soc_profile->profile_version", C)
 
