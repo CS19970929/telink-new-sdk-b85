@@ -48,6 +48,43 @@
 #define BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT  12u
 #define BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION       13u
 #define BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED     14u
+#define BMS_SOC_LEARNING_REJECT_BALANCING               15u
+#define BMS_SOC_LEARNING_REJECT_HEATING                 16u
+#define BMS_SOC_LEARNING_REJECT_CHARGER_CHANGE          17u
+#define BMS_SOC_LEARNING_REJECT_LOAD_CHANGE             18u
+
+/* Hardware-neutral SOC input. Units are part of the ABI: voltage in mV,
+ * current in mA, temperature in the existing (degC + 40) * 10 encoding and
+ * time in the SDK 32 kHz domain. AFE adapters populate this structure; the
+ * SOC core never needs DVC/SH registers or transport details. */
+typedef struct
+{
+    uint32_t timestamp_32k;
+    uint32_t pack_voltage_mv;
+    int32_t current_ma;             /* negative=charge, positive=discharge */
+    uint16_t cell_min_mv;
+    uint16_t cell_max_mv;
+    uint16_t cell_delta_mv;
+    uint16_t temperature_min_x10;
+    uint16_t temperature_max_x10;
+    uint8_t sample_valid;
+    uint8_t voltage_valid;
+    uint8_t temperature_valid;
+    uint8_t balancing_active;
+    uint8_t heating_active;
+    uint8_t open_wire_active;
+    uint8_t open_wire_suspected;
+    uint8_t afe_fault;
+    uint8_t temperature_fault;
+    uint8_t current_fault;
+    uint8_t pack_fault;
+    uint8_t third_cell_ovp;
+    uint8_t third_cell_uvp;
+    uint8_t charger_state_known;
+    uint8_t charger_present;
+    uint8_t load_state_known;
+    uint8_t load_present;
+} bms_soc_sample_t;
 
 typedef struct
 {
@@ -90,6 +127,7 @@ void bms_soc_refresh_profile_from_params(void);
  * or counted as rest. SDK 32k clock wraps by unsigned subtraction. */
 #define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
+void bms_soc_process_sample(const bms_soc_sample_t *sample);
 void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_tick_32k);
 void SOC_Result_Pass(void);
 void SOC_Cont_AH_Int_CHG(void);

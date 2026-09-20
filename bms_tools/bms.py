@@ -1397,8 +1397,13 @@ def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> s
                  f"see {out_dir / 'dependencies.log'}")
         flattened = re.sub(r"\\\s*\r?\n", " ", result.stdout or "")
         payload = flattened.split(":", 1)[1] if ":" in flattened else ""
-        for token in payload.split():
-            path = token.strip().replace("\\ ", " ")
+        # GCC emits Makefile syntax where spaces are escaped as ``\ ``.  A
+        # plain split truncates every dependency at the first escaped space
+        # and can accidentally suppress a parent directory instead of the
+        # exact SDK header.  shlex removes the Make escape while preserving
+        # the complete path as one token.
+        for token in shlex.split(payload, posix=True):
+            path = token.strip()
             rel, resolved = _canonical_repo_path(path)
             if resolved is not None and resolved.exists():
                 dependencies.add(rel)

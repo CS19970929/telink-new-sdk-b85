@@ -651,6 +651,7 @@ uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
 uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
 bms_heater_state_t bms_features_heater_state(void) { return s_feature.heater_state; }
 uint8_t bms_features_charge_session_active(void) { return s_feature.charge_session_active; }
+uint8_t bms_features_balance_active(void) { return s_feature.balance_active; }
 uint8_t bms_features_balance_voltage_trusted(void) { return s_feature.balance_voltage_trusted; }
 uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspected; }
 

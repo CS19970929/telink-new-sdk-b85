@@ -69,6 +69,7 @@ uint8_t bms_features_heater_on(void);
 uint8_t bms_features_heater_fuse_fired(void);
 bms_heater_state_t bms_features_heater_state(void);
 uint8_t bms_features_charge_session_active(void);
+uint8_t bms_features_balance_active(void);
 uint8_t bms_features_balance_voltage_trusted(void);
 uint8_t bms_features_openwire_suspected(void);
 uint32_t bms_features_diag_reasons(uint8_t charge);

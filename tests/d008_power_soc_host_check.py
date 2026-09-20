@@ -37,6 +37,8 @@ def main():
     parser = argparse.ArgumentParser(description="Run D008 production SOC/PM host checks")
     parser.add_argument('--trajectory', type=Path,
                         help='also write a 7-day production-C SOC trajectory CSV')
+    parser.add_argument('--compile-soc-executable', type=Path,
+                        help='compile the production-C replay executable and stop')
     args = parser.parse_args()
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                       (MOD / 'conf.h').read_text(), re.M)
@@ -59,11 +61,18 @@ def main():
             path = Path(directory) / (name + '.c')
             path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)
                            .replace('/* CURRENT_FLOOR */', floor.group(0)))
-            executable = Path(directory) / name
+            if args.compile_soc_executable is not None and name != 'soc':
+                continue
+            executable = (args.compile_soc_executable if
+                          args.compile_soc_executable is not None else Path(directory) / name)
+            executable.parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                 '-std=c99', '-Wall', '-Wextra', '-Werror',
                 '-Wno-unused-function', '-Wno-unused-parameter',
                 str(path), *(['-I',str(MOD),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
+            if args.compile_soc_executable is not None:
+                print(f"WROTE production SOC replay executable: {executable}")
+                return
             subprocess.run([str(executable)], check=True)
             if name == 'soc' and args.trajectory is not None:
                 trajectory = subprocess.run([str(executable), '--trajectory'],

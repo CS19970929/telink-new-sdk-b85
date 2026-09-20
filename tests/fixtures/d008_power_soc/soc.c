@@ -19,8 +19,14 @@ static soc_kv_data_t soc_kv_store_get_default_data(void) {soc_kv_data_t d={60,0,
 static int soc_kv_store_write_learning(u32 c,u32 f){return 1;}
 static int soc_kv_store_write_learning_meta(u32 a,u32 b,u32 c,u32 d,u32 e,u32 f,u32 g){return 1;}
 static int openwire_active,openwire_suspected;
+static int balance_active,heater_on,charge_session_active,temp_valid=1;
 static uint8_t bms_features_openwire_active(void){return (uint8_t)openwire_active;}
 static uint8_t bms_features_openwire_suspected(void){return (uint8_t)openwire_suspected;}
+static uint8_t bms_features_balance_active(void){return (uint8_t)balance_active;}
+static uint8_t bms_features_heater_on(void){return (uint8_t)heater_on;}
+static uint8_t bms_features_charge_session_active(void){return (uint8_t)charge_session_active;}
+typedef struct {uint8_t valid,cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
+static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->valid=1;s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
 typedef struct {uint32_t battery_chemistry,soc_profile_id,capacity_factory;} bms_cold_system_params_t;
 static bms_cold_system_params_t stored_profile={1,1,1000};
 static int bms_cold_kv_store_get_system(bms_cold_system_params_t*p){*p=stored_profile;return 1;}
@@ -28,6 +34,7 @@ static int bms_cold_kv_store_set_system(const bms_cold_system_params_t*p){stored
 typedef struct {int32_t current_offset_ma;uint32_t current_gain_ppm;} bms_user_params_t;
 static bms_user_params_t stored_user={0,1000000};
 static int bms_config_get_user(bms_user_params_t*p){*p=stored_user;return 1;}
+static int bms_config_get_current_calibration(int32_t*o,uint32_t*g){*o=stored_user.current_offset_ma;*g=stored_user.current_gain_ppm;return 1;}
 #define BMS_ERROR_AFE1 0
 static int afe_error;
 static uint8_t bms_error_get(int error){(void)error;return (uint8_t)afe_error;}
@@ -51,9 +58,16 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_tParam.protect.u16VcellOvp_Third=chemistry==1?3650:4250;
  g_tParam.protect.u16VcellUvp_Third=2500;
  g_stCellInfoReport.u16VCellMin=voltage;g_stCellInfoReport.u16VCellMax=voltage;
- openwire_active=0;openwire_suspected=0;
+ openwire_active=0;openwire_suspected=0;balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
  soc_kv_data_t d={soc,0,0,0,0,0,0,0,0,0};soc_param_lib_init(&d);tick=0;
+ memset(&g_soc_input,0,sizeof(g_soc_input));g_soc_input.sample_valid=1;g_soc_input.voltage_valid=1;
+ g_soc_input.temperature_valid=1;g_soc_input.temperature_min_x10=650;g_soc_input.temperature_max_x10=650;
+ g_soc_input.cell_min_mv=voltage;g_soc_input.cell_max_mv=voltage;
+}
+static void set_core_voltage(uint16_t min_mv,uint16_t max_mv,uint16_t delta){
+ g_stCellInfoReport.u16VCellMin=min_mv;g_stCellInfoReport.u16VCellMax=max_mv;g_stCellInfoReport.u16VCellDelta=delta;
+ g_soc_input.cell_min_mv=min_mv;g_soc_input.cell_max_mv=max_mv;g_soc_input.cell_delta_mv=delta;
 }
 static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;APP_SOC_IntEnhance_Ctrl(valid,ma,tick);}
 static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned count){
@@ -184,8 +198,44 @@ static int write_trajectory(void){
  }
  return 0;
 }
+static int replay_csv(const char *input_path,const char *output_path){
+ FILE *in=fopen(input_path,"r"),*out=fopen(output_path,"w");char line[1024];int initialized=0;
+ if(!in||!out){if(in)fclose(in);if(out)fclose(out);return 2;}
+ fprintf(out,"scenario,step,timestamp_32k,current_ma,cell_min_mv,cell_max_mv,pack_voltage_mv,true_soc,soc_est,soc_display,remaining_0p1ah,full_0p1ah,ocv_state,ocv_center,ocv_low,ocv_high,ocv_confidence,rest_seconds,endpoint_state,endpoint_flags,learning_state,learning_reject,eta_direction,eta_state,eta_confidence,tte_min,ttf_min,last_action,sample_state,integral_delta_as10\n");
+ while(fgets(line,sizeof(line),in)){
+  unsigned scenario,step,min_mv,max_mv,delta_mv,pack_mv,tmin,tmax;
+  unsigned sample_valid,voltage_valid,balance,heat,owa,ows,afe,tf,cf,pf,ovp,uvp,ck,cp,lk,lp,event,seed_soc;
+  unsigned long timestamp;int current_ma;double true_soc;bms_soc_sample_t s;bms_soc_diag_t d;
+  if(line[0]<'0'||line[0]>'9')continue;
+  if(sscanf(line,"%u,%u,%lu,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lf,%u",
+   &scenario,&step,&timestamp,&current_ma,&min_mv,&max_mv,&delta_mv,&pack_mv,&tmin,&tmax,
+   &sample_valid,&voltage_valid,&balance,&heat,&owa,&ows,&afe,&tf,&cf,&pf,&ovp,&uvp,
+   &ck,&cp,&lk,&lp,&event,&true_soc,&seed_soc)!=29)continue;
+  if(!initialized||event==2u){setup(1u,(uint8_t)seed_soc,min_mv);initialized=1;}
+  else if(event==1u||event==3u)simulated_reboot();
+  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;
+  s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
+  s.pack_voltage_mv=(uint32_t)pack_mv;s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
+  s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
+  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.open_wire_active=(uint8_t)owa;
+  s.open_wire_suspected=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
+  s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
+  s.charger_state_known=(uint8_t)ck;s.charger_present=(uint8_t)cp;s.load_state_known=(uint8_t)lk;s.load_present=(uint8_t)lp;
+  g_stCellInfoReport.u16VCellMin=s.cell_min_mv;g_stCellInfoReport.u16VCellMax=s.cell_max_mv;
+  g_stCellInfoReport.u16VCellDelta=s.cell_delta_mv;g_stCellInfoReport.u16VCellTotle=(uint16_t)(pack_mv/10u);
+  bms_soc_process_sample(&s);bms_soc_get_diag(&d);
+  fprintf(out,"%u,%u,%lu,%d,%u,%u,%u,%.6f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lu\n",
+   scenario,step,timestamp,current_ma,min_mv,max_mv,pack_mv,true_soc,d.soc_estimate,d.soc_display,
+   d.remaining_capacity_0p1ah,d.effective_capacity_0p1ah,d.ocv_state,d.ocv_center,d.ocv_low,d.ocv_high,
+   d.ocv_confidence,d.rest_seconds,d.endpoint_state,d.endpoint_event_flags,d.learning_state,
+   d.last_learning_reject_reason,d.eta_direction,d.eta_state,d.eta_confidence,d.time_to_empty_min,
+   d.time_to_full_min,d.last_soc_action,d.last_sample_state,(unsigned long)d.last_integral_delta_as10);
+ }
+ fclose(in);fclose(out);return 0;
+}
 int main(int argc,char **argv){
  if(argc==2&&!strcmp(argv[1],"--trajectory"))return write_trajectory();
+ if(argc==4&&!strcmp(argv[1],"--replay"))return replay_csv(argv[2],argv[3]);
  setup(1,60,3330);soc_kv_data_t learned={60,0,5,900,1u|(1000u<<16),0,0,0,0,0};
  soc_param_lib_init(&learned);assert(g_soc_runtime.capacity_learned);
  stored_profile.capacity_factory=1200;bms_soc_nominal_capacity_changed();
@@ -268,6 +318,14 @@ int main(int argc,char **argv){
   sample(1,300,3200);sample(1,0,3200);assert(g_soc_runtime.idle_stable_ticks==0);
   for(int i=0;i<12010;i++)sample(1,0,6400);
   assert(get_soc_real()==79); /* 10 min prepare + 30 min downward step */
+  setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);balance_active=1;
+  for(int i=0;i<3100;i++)sample(1,0,6400);
+  assert(g_soc_runtime.idle_stable_ticks==0&&g_soc_runtime.ocv_state==BMS_SOC_OCV_WAIT_CURRENT);
+  balance_active=0;heater_on=1;for(int i=0;i<100;i++)sample(1,0,6400);
+  assert(g_soc_runtime.idle_stable_ticks==0);heater_on=0;temp_valid=0;
+  for(int i=0;i<100;i++)sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
+  temp_valid=1;for(int i=0;i<100;i++)sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks>0);
+  charge_session_active=1;sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
   setup(chemistry,20,chemistry==1?3350:3900);sample(1,0,1);
   for(int i=0;i<12100;i++)sample(1,0,6400);
   assert(get_soc_real()==20); /* OCV never calibrates upward */
@@ -367,12 +425,12 @@ int main(int argc,char **argv){
  soc_learning_on_full_anchor();
  assert(g_soc_runtime.learning_state==BMS_SOC_LEARNING_FULL_TO_EMPTY);
  g_soc_runtime.learning_capacity_as10=900u*3600u;
- g_soc_input_current_ma=1000;g_stCellInfoReport.u16VCellMin=2500;g_stCellInfoReport.u16VCellMax=2500;
+ g_soc_input_current_ma=1000;set_core_voltage(2500,2500,0);
  soc_learning_on_empty_anchor();
  assert(g_soc_runtime.candidate_capacity_0p1ah==900 && g_soc_runtime.candidate_match_count==1);
  assert(!g_soc_runtime.capacity_learned && g_soc_runtime.valid_learning_count==1);
  g_soc_runtime.learning_capacity_as10=910u*3600u;
- g_soc_input_current_ma=-1000;g_stCellInfoReport.u16VCellMin=3500;g_stCellInfoReport.u16VCellMax=3500;
+ g_soc_input_current_ma=-1000;set_core_voltage(3500,3500,0);
  soc_learning_on_full_anchor();
  assert(g_soc_runtime.capacity_learned && g_soc_runtime.learned_capacity_0p1ah==950);
  assert(g_soc_runtime.valid_learning_count==2 && g_soc_runtime.learning_confidence==100);
@@ -402,7 +460,7 @@ int main(int argc,char **argv){
  uint16_t rejected_before=g_soc_runtime.rejected_learning_count;
  g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
  g_soc_runtime.learning_capacity_as10=700u*3600u;
- g_soc_input_current_ma=10000;g_stCellInfoReport.u16VCellMin=2500;g_stCellInfoReport.u16VCellMax=2500;
+ g_soc_input_current_ma=10000;set_core_voltage(2500,2500,0);
  soc_learning_on_empty_anchor();
  assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
  assert(g_soc_runtime.rejected_learning_count==rejected_before+1);
@@ -414,7 +472,7 @@ int main(int argc,char **argv){
  g_soc_runtime.candidate_capacity_0p1ah=1000;g_soc_runtime.candidate_match_count=1;
  g_soc_runtime.learning_state=BMS_SOC_LEARNING_EMPTY_TO_FULL;
  g_soc_runtime.learning_capacity_as10=800u*3600u;
- g_soc_input_current_ma=-1000;g_stCellInfoReport.u16VCellMin=3500;g_stCellInfoReport.u16VCellMax=3500;
+ g_soc_input_current_ma=-1000;set_core_voltage(3500,3500,0);
  soc_learning_on_full_anchor();
  assert(!g_soc_runtime.capacity_learned && g_soc_runtime.candidate_capacity_0p1ah==800);
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT);
@@ -427,8 +485,7 @@ int main(int argc,char **argv){
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
  g_soc_runtime.learning_state=BMS_SOC_LEARNING_EMPTY_TO_FULL;
  g_soc_runtime.learning_capacity_as10=850u*3600u;g_soc_input_valid=1;
- g_soc_input_current_ma=-1000;g_stCellInfoReport.u16VCellMin=3400;
- g_stCellInfoReport.u16VCellMax=3600;g_stCellInfoReport.u16VCellDelta=200;
+ g_soc_input_current_ma=-1000;set_core_voltage(3400,3600,200);
  soc_learning_on_full_anchor();
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL);
  assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
@@ -436,21 +493,27 @@ int main(int argc,char **argv){
  /* Independent quality gates reject open-wire, imbalance, temperature and
   * missing samples without changing the accepted effective capacity. */
  learned_before=g_soc_runtime.learned_capacity_0p1ah;
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;openwire_suspected=1;
+ g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;g_soc_input.open_wire_suspected=1;
  soc_learning_monitor_quality();assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_OPEN_WIRE);
- openwire_suspected=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_stCellInfoReport.u16VCellDelta=51;soc_learning_monitor_quality();
+ g_soc_input.open_wire_suspected=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ set_core_voltage(g_soc_input.cell_min_mv,g_soc_input.cell_max_mv,51);soc_learning_monitor_quality();
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE);
- g_stCellInfoReport.u16VCellDelta=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_stCellInfoReport.unMdlFault_Third.all=0x40;soc_learning_monitor_quality();
+ set_core_voltage(g_soc_input.cell_min_mv,g_soc_input.cell_max_mv,0);g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ g_soc_input.temperature_fault=1;soc_learning_monitor_quality();
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_TEMPERATURE);
- g_stCellInfoReport.unMdlFault_Third.all=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ g_soc_input.temperature_fault=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ g_soc_input.balancing_active=1;soc_learning_monitor_quality();
+ assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_BALANCING);
+ g_soc_input.balancing_active=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ g_soc_input.heating_active=1;soc_learning_monitor_quality();
+ assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_HEATING);
+ g_soc_input.heating_active=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
  sample(0,0,6400);assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
  assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
 
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;afe_error=1;
+ g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;g_soc_input.afe_fault=1;
  soc_learning_monitor_quality();assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION);
- afe_error=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
+ g_soc_input.afe_fault=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
  g_soc_runtime.learning_current_offset_ma=0;g_soc_runtime.learning_current_gain_ppm=1000000;
  stored_user.current_offset_ma=1;soc_learning_monitor_quality();
  assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED);

@@ -24,6 +24,7 @@ typedef struct {
 void bms_config_user_defaults(bms_user_params_t *value);
 int bms_config_user_valid(const bms_user_params_t *value);
 int bms_config_get_user(bms_user_params_t *value);
+int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm);
 int bms_config_set_user(const bms_user_params_t *value);
 int bms_config_reset_business(void);
 int32_t bms_config_calibrate_current(int32_t raw_ma);

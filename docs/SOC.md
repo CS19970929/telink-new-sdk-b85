@@ -1,5 +1,7 @@
 # SOC 模块（当前实现）
 
+工程总览、PC 仿真、Windows 记录/回放和本轮验证结果分别见 [SOC_ARCHITECTURE.md](SOC_ARCHITECTURE.md)、[SOC_SIMULATION.md](SOC_SIMULATION.md)、[SOC_HOST_TOOL.md](SOC_HOST_TOOL.md) 与 [SOC_VALIDATION_REPORT.md](SOC_VALIDATION_REPORT.md)。
+
 本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h`、State schema 3 与 Runtime Diagnostics v2 的行为。当前实现直接延续原有生产 SOC：没有复制算法或建立第二套 SOC framework。主机数值、状态与长周期轨迹测试见 `tests/d008_power_soc_host_check.py`；实板验收待完成。旧兼容 API 名中含 KV 不代表仍使用旧 KV 引擎。
 
 ## 1. 核心模型

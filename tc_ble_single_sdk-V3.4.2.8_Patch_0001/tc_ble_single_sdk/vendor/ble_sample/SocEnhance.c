@@ -8,8 +8,8 @@
 #include "param.h"
 #include <string.h>
 
-#define VCELLMAX g_stCellInfoReport.u16VCellMax
-#define VCELLMIN g_stCellInfoReport.u16VCellMin
+#define VCELLMAX g_soc_input.cell_max_mv
+#define VCELLMIN g_soc_input.cell_min_mv
 #define ICHG     g_stCellInfoReport.u16Ichg
 #define IDSG     g_stCellInfoReport.u16IDischg
 
@@ -73,12 +73,17 @@
 #define SOC_LEARNING_TEMP_FAULT_MASK         0x2BC0u
 #define SOC_LEARNING_CURRENT_FAULT_MASK      0x0030u
 #define SOC_LEARNING_PACK_FAULT_MASK         0x000Cu
+#define SOC_OCV_TEMP_MIN_X10                 200u  /* -20 degC */
+#define SOC_OCV_TEMP_MAX_X10                 1000u /* +60 degC */
 
 #ifndef BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT
 #define BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u
 #endif
 #ifndef BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT
 #define BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT 1u
+#endif
+#ifndef BMS_CURRENT_UNRELIABLE_MAX_MA
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #endif
 
 typedef enum
@@ -170,11 +175,16 @@ static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 /* mA * 32k-ticks remainder, denominator 100 mA per As*10 unit. */
 static uint32_t g_soc_integral_tick_remainder;
 static int32_t g_soc_input_current_ma;
+static bms_soc_sample_t g_soc_input;
 static uint32_t g_soc_sample_tick_32k;
 static uint32_t g_soc_interval_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
 static uint8_t g_soc_input_ready;
+static uint8_t g_soc_charger_state_ready;
+static uint8_t g_soc_last_charger_present;
+static uint8_t g_soc_load_state_ready;
+static uint8_t g_soc_last_load_present;
 static uint8_t g_soc_display_soc = (uint8_t)SOC_PARAM_DEFAULT_SOC;
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
@@ -713,8 +723,9 @@ static void soc_learning_reject(uint8_t reason)
 
 static void soc_learning_start(uint8_t state)
 {
-    bms_user_params_t user;
-    if (!bms_config_get_user(&user)) {
+    int32_t offset_ma;
+    uint32_t gain_ppm;
+    if (!bms_config_get_current_calibration(&offset_ma, &gain_ppm)) {
         g_soc_runtime.last_learning_reject_reason =
             BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED;
         soc_learning_abort();
@@ -723,8 +734,8 @@ static void soc_learning_start(uint8_t state)
     }
     g_soc_runtime.learning_state = state;
     g_soc_runtime.learning_capacity_as10 = 0u;
-    g_soc_runtime.learning_current_offset_ma = user.current_offset_ma;
-    g_soc_runtime.learning_current_gain_ppm = user.current_gain_ppm;
+    g_soc_runtime.learning_current_offset_ma = offset_ma;
+    g_soc_runtime.learning_current_gain_ppm = gain_ppm;
     soc_learning_persist();
 }
 
@@ -742,7 +753,6 @@ static uint8_t soc_learning_accept_candidate(void)
     uint32_t candidate = (g_soc_runtime.learning_capacity_as10 + 1800u) / 3600u;
     uint32_t min_cap = (nominal * SOC_LEARNED_CAP_MIN_PERCENT) / 100u;
     uint32_t max_cap = (nominal * SOC_LEARNED_CAP_MAX_PERCENT) / 100u;
-    uint32_t tolerance;
 
     if ((nominal == 0u) || (candidate < min_cap) || (candidate > max_cap) ||
         (candidate > BMS_SOC_CAPACITY_MAX_0P1AH)) {
@@ -755,6 +765,7 @@ static uint8_t soc_learning_accept_candidate(void)
         g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)candidate;
         g_soc_runtime.candidate_match_count = 1u;
     } else {
+        uint32_t tolerance;
         tolerance = ((uint32_t)g_soc_runtime.candidate_capacity_0p1ah *
                      SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT) / 100u;
         if (tolerance == 0u) tolerance = 1u;
@@ -920,7 +931,26 @@ static uint8_t soc_ocv_sample_valid(void)
     if ((VCELLMIN < g_soc_profile->valid_min_mv) ||
         (VCELLMAX > g_soc_profile->valid_max_mv) ||
         (VCELLMAX < VCELLMIN) ||
-        (g_stCellInfoReport.u16VCellDelta > SOC_OCV_CELL_DELTA_MAX_MV)) return 0u;
+        (g_soc_input.cell_delta_mv > SOC_OCV_CELL_DELTA_MAX_MV)) return 0u;
+    return 1u;
+}
+
+static uint8_t soc_temperature_reasonable(void)
+{
+    if (!g_soc_input.temperature_valid) return 0u;
+    if ((g_soc_input.temperature_min_x10 < SOC_OCV_TEMP_MIN_X10) ||
+        (g_soc_input.temperature_max_x10 > SOC_OCV_TEMP_MAX_X10) ||
+        (g_soc_input.temperature_max_x10 < g_soc_input.temperature_min_x10)) return 0u;
+    return 1u;
+}
+
+static uint8_t soc_rest_context_valid(void)
+{
+    if (!g_soc_input.voltage_valid || !soc_temperature_reasonable() ||
+        g_soc_input.balancing_active || g_soc_input.heating_active ||
+        g_soc_input.open_wire_active || g_soc_input.open_wire_suspected ||
+        g_soc_input.afe_fault || g_soc_input.temperature_fault ||
+        g_soc_input.current_fault || g_soc_input.pack_fault) return 0u;
     return 1u;
 }
 
@@ -989,8 +1019,9 @@ static uint8_t soc_idle_ocv_tracking(void)
     uint32_t confidence;
     uint8_t current_soc;
 
-    if (!soc_idle_for_ocv() || !soc_ocv_sample_valid() ||
-        (g_stCellInfoReport.u16VCellDelta > SOC_OCV_IDLE_CELL_DELTA_MAX_MV)) {
+    if (!soc_idle_for_ocv() || !soc_rest_context_valid() ||
+        !soc_ocv_sample_valid() ||
+        (g_soc_input.cell_delta_mv > SOC_OCV_IDLE_CELL_DELTA_MAX_MV)) {
         soc_reset_ocv_tracking();
         return 0u;
     }
@@ -1123,13 +1154,13 @@ static uint32_t soc_learning_endpoint_current_max_ma(void)
 
 static uint8_t soc_learning_common_quality(soc_integral_dir_t required_dir)
 {
-    uint16_t faults = g_stCellInfoReport.unMdlFault_Third.all;
     if (!g_soc_input_valid || !soc_ocv_sample_valid() ||
-        g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv ||
-        bms_error_get(BMS_ERROR_AFE1) ||
-        bms_features_openwire_active() || bms_features_openwire_suspected() ||
-        (faults & (SOC_LEARNING_TEMP_FAULT_MASK | SOC_LEARNING_CURRENT_FAULT_MASK |
-                   SOC_LEARNING_PACK_FAULT_MASK)) != 0u ||
+        !soc_temperature_reasonable() ||
+        g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv ||
+        g_soc_input.afe_fault || g_soc_input.open_wire_active ||
+        g_soc_input.open_wire_suspected || g_soc_input.balancing_active ||
+        g_soc_input.heating_active || g_soc_input.temperature_fault ||
+        g_soc_input.current_fault || g_soc_input.pack_fault ||
         soc_current_direction(0) != required_dir ||
         soc_abs_i32(g_soc_input_current_ma) > soc_learning_endpoint_current_max_ma())
         return 0u;
@@ -1142,7 +1173,7 @@ static uint8_t soc_learning_full_quality(void)
         (uint16_t)(g_soc_profile->full_sync_mv - g_soc_profile->full_min_margin_mv) : 0u;
     return (soc_learning_common_quality(SOC_INTEGRAL_DIR_CHG) &&
             VCELLMAX >= g_soc_profile->full_sync_mv && VCELLMIN >= full_min &&
-            g_stCellInfoReport.u16VCellDelta <= g_soc_profile->full_cell_delta_max_mv) ? 1u : 0u;
+            g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) ? 1u : 0u;
 }
 
 static uint8_t soc_learning_empty_quality(void)
@@ -1155,29 +1186,34 @@ static uint8_t soc_learning_empty_quality(void)
 
 static void soc_learning_monitor_quality(void)
 {
-    bms_user_params_t user;
-    uint16_t faults;
+    int32_t offset_ma;
+    uint32_t gain_ppm;
     if (!g_soc_config.capacity_learning_enable ||
         g_soc_runtime.learning_state == BMS_SOC_LEARNING_NONE) return;
-    if (bms_error_get(BMS_ERROR_AFE1)) {
+    if (g_soc_input.afe_fault) {
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION); return;
     }
-    if (!bms_config_get_user(&user) ||
-        user.current_offset_ma != g_soc_runtime.learning_current_offset_ma ||
-        user.current_gain_ppm != g_soc_runtime.learning_current_gain_ppm) {
+    if (!bms_config_get_current_calibration(&offset_ma, &gain_ppm) ||
+        offset_ma != g_soc_runtime.learning_current_offset_ma ||
+        gain_ppm != g_soc_runtime.learning_current_gain_ppm) {
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED); return;
     }
-    if (bms_features_openwire_active() || bms_features_openwire_suspected()) {
+    if (g_soc_input.open_wire_active || g_soc_input.open_wire_suspected) {
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_OPEN_WIRE); return;
     }
-    if (g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE); return;
+    if (g_soc_input.balancing_active) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_BALANCING); return;
     }
-    faults = g_stCellInfoReport.unMdlFault_Third.all;
-    if ((faults & SOC_LEARNING_TEMP_FAULT_MASK) != 0u) {
+    if (g_soc_input.heating_active) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_HEATING); return;
+    }
+    if (!soc_temperature_reasonable() || g_soc_input.temperature_fault) {
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_TEMPERATURE); return;
     }
-    if ((faults & (SOC_LEARNING_CURRENT_FAULT_MASK | SOC_LEARNING_PACK_FAULT_MASK)) != 0u)
+    if (g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv) {
+        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE); return;
+    }
+    if (g_soc_input.current_fault || g_soc_input.pack_fault)
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_PROTECTION);
 }
 
@@ -1302,8 +1338,7 @@ static void soc_eta_update(void)
         return;
     }
 
-    confidence_drop = (magnitude < 100u) ? 100u :
-        g_soc_runtime.eta_variation_ma / (magnitude / 100u);
+    confidence_drop = g_soc_runtime.eta_variation_ma / (magnitude / 100u);
     if (confidence_drop > 80u) confidence_drop = 80u;
     g_soc_runtime.eta_confidence = (uint8_t)(100u - confidence_drop);
     g_soc_runtime.eta_state = BMS_SOC_ETA_VALID;
@@ -1416,10 +1451,10 @@ static uint8_t soc_apply_full_anchor(void)
     uint16_t full_min = (full_mv > g_soc_profile->full_min_margin_mv) ?
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
     uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) &&
-        (g_stCellInfoReport.u16VCellDelta <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
+        (g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
     uint8_t before;
 
-    if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp) {
+    if (isCHG() && g_soc_input.third_cell_ovp) {
         before = get_soc_real();
         if (get_soc_real() != SOC_PERCENT_MAX) {
             soc_apply_real_value(SOC_PERCENT_MAX, 0u);
@@ -1481,13 +1516,13 @@ static uint8_t soc_apply_full_anchor(void)
 static uint8_t soc_apply_forced_empty_anchor(void)
 {
     uint8_t before;
-    if (!g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp) return 0u;
+    if (!g_soc_input.third_cell_uvp) return 0u;
     before = get_soc_real();
     if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
     if (soc_discharge_sag_hold_active())
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LARGE_SAG;
-    if (g_stCellInfoReport.u16VCellDelta > g_soc_profile->learning_cell_delta_max_mv)
+    if (g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv)
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_IMBALANCE;
     if (get_soc_real() != 0u) {
         soc_apply_real_value(0u, 1u);
@@ -1590,13 +1625,12 @@ static void soc_update_low_faults(void)
     for (level = 0u; level < 3u; ++level) {
         uint16_t trip = soc_fault_threshold(level);
         uint16_t recover = g_tParam.protect.u16SocUp_Rcv;
-        union MDLCHGFAULT_REG *fault = soc_fault_reg(level);
 
         if (trip == 0u || trip > SOC_PERCENT_MAX) {
             g_soc_runtime.soc_low_active[level] = 0u;
             g_soc_runtime.soc_low_trip_count[level] = 0u;
             g_soc_runtime.soc_low_recover_count[level] = 0u;
-            fault->bits.b1SocLow = 0u;
+            soc_fault_reg(level)->bits.b1SocLow = 0u;
             continue;
         }
         if (recover <= trip) recover = (trip < SOC_PERCENT_MAX) ? (uint16_t)(trip + 1u) : SOC_PERCENT_MAX;
@@ -1625,7 +1659,7 @@ static void soc_update_low_faults(void)
                 g_soc_runtime.soc_low_trip_count[level] = 0u;
             }
         }
-        fault->bits.b1SocLow = g_soc_runtime.soc_low_active[level];
+        soc_fault_reg(level)->bits.b1SocLow = g_soc_runtime.soc_low_active[level];
     }
 }
 
@@ -1800,6 +1834,8 @@ static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
     g_soc_input_ready = 0u;
+    g_soc_charger_state_ready = 0u;
+    g_soc_load_state_ready = 0u;
     g_soc_interval_32k = 0u;
     g_soc_strategy_pending_32k = 0u;
     soc_reset_ocv_tracking();
@@ -1819,17 +1855,55 @@ static void soc_invalidate_sample_interval(void)
     soc_learning_abort();
 }
 
-void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_tick_32k)
+static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample,
+                                          uint8_t *reason)
+{
+    uint8_t changed = 0u;
+    *reason = BMS_SOC_LEARNING_REJECT_NONE;
+    if (sample->charger_state_known) {
+        if (g_soc_charger_state_ready &&
+            g_soc_last_charger_present != sample->charger_present) {
+            changed = 1u;
+            *reason = BMS_SOC_LEARNING_REJECT_CHARGER_CHANGE;
+        }
+        g_soc_last_charger_present = sample->charger_present;
+        g_soc_charger_state_ready = 1u;
+    }
+    if (sample->load_state_known) {
+        if (g_soc_load_state_ready &&
+            g_soc_last_load_present != sample->load_present) {
+            changed = 1u;
+            if (*reason == BMS_SOC_LEARNING_REJECT_NONE)
+                *reason = BMS_SOC_LEARNING_REJECT_LOAD_CHANGE;
+        }
+        g_soc_last_load_present = sample->load_present;
+        g_soc_load_state_ready = 1u;
+    }
+    return changed;
+}
+
+void bms_soc_process_sample(const bms_soc_sample_t *sample)
 {
     uint32_t elapsed_32k;
     const uint32_t quantum_32k = BMS_SOC_TIME_TICKS_PER_SECOND / SOC_TICKS_PER_SECOND;
     soc_integral_dir_t dir;
     soc_integral_dir_t previous_dir;
+    uint8_t external_change;
+    uint8_t learning_reject_reason;
 
-    if (!g_soc_initialized || !valid)
+    if (sample == 0) {
+        soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
+        soc_invalidate_sample_interval();
+        return;
+    }
+    g_soc_input = *sample;
+    external_change = soc_external_state_changed(sample, &learning_reject_reason);
+
+    if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
-        if (g_soc_initialized && !valid &&
+        if (g_soc_initialized &&
+            (!sample->sample_valid || !sample->voltage_valid) &&
             g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
             soc_learning_reject(BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
         soc_invalidate_sample_interval();
@@ -1839,19 +1913,19 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_FIRST,
                              SOC_INTEGRAL_DIR_NONE, 0u);
-        g_soc_sample_tick_32k = sample_tick_32k;
-        g_soc_input_current_ma = current_ma;
+        g_soc_sample_tick_32k = sample->timestamp_32k;
+        g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
         g_soc_input_ready = 1u;
         return; /* the first new sample cannot prove the preceding interval */
     }
-    elapsed_32k = sample_tick_32k - g_soc_sample_tick_32k;
+    elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
     if (elapsed_32k == 0u) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE,
                              soc_current_direction(0), 0u);
         return; /* duplicate cached read is not new evidence */
     }
-    g_soc_sample_tick_32k = sample_tick_32k;
+    g_soc_sample_tick_32k = sample->timestamp_32k;
     if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_GAP,
@@ -1860,18 +1934,28 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
             soc_learning_reject(BMS_SOC_LEARNING_REJECT_SAMPLE_GAP);
         soc_invalidate_sample_interval();
         /* Current frame starts a new interval; never fill a blind gap. */
-        g_soc_sample_tick_32k = sample_tick_32k;
-        g_soc_input_current_ma = current_ma;
+        g_soc_sample_tick_32k = sample->timestamp_32k;
+        g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
         g_soc_input_ready = 1u;
         return;
     }
     previous_dir = soc_current_direction(0);
-    g_soc_input_current_ma = current_ma;
+    g_soc_input_current_ma = sample->current_ma;
     g_soc_input_valid = 1u;
     g_soc_interval_32k = elapsed_32k;
     dir = soc_current_direction(0);
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
+
+    if (external_change) {
+        soc_reset_ocv_tracking();
+        g_soc_runtime.full_lock_ticks = 0u;
+        g_soc_runtime.full_adjust_ticks = 0u;
+        g_soc_runtime.empty_lock_ticks = 0u;
+        g_soc_runtime.empty_adjust_ticks = 0u;
+        if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
+            soc_learning_reject(learning_reject_reason);
+    }
     if (dir == SOC_INTEGRAL_DIR_CHG) SOC_Cont_AH_Int_CHG();
     else if (dir == SOC_INTEGRAL_DIR_DSG) SOC_Cont_AH_Int_DSG();
     else SOC_State_Transfer();
@@ -1906,6 +1990,50 @@ void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma, uint32_t sample_
         SOC_Result_Pass();
     }
     g_soc_interval_32k = 0u; /* cannot integrate this sample twice through legacy APIs */
+}
+
+void APP_SOC_IntEnhance_Ctrl(uint8_t valid, int32_t current_ma,
+                             uint32_t sample_tick_32k)
+{
+    bms_afe_feature_snapshot_t feature;
+    bms_soc_sample_t sample;
+    uint16_t third_faults = g_stCellInfoReport.unMdlFault_Third.all;
+    memset(&sample, 0, sizeof(sample));
+    memset(&feature, 0, sizeof(feature));
+
+    sample.timestamp_32k = sample_tick_32k;
+    sample.current_ma = current_ma;
+    sample.pack_voltage_mv = (uint32_t)g_stCellInfoReport.u16VCellTotle * 10u;
+    sample.cell_min_mv = g_stCellInfoReport.u16VCellMin;
+    sample.cell_max_mv = g_stCellInfoReport.u16VCellMax;
+    sample.cell_delta_mv = g_stCellInfoReport.u16VCellDelta;
+    sample.sample_valid = valid ? 1u : 0u;
+    sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
+                            sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
+    if (valid && bms_afe_get_feature_snapshot(&feature) &&
+        feature.valid && feature.battery_temp_valid) {
+        sample.temperature_valid = 1u;
+        sample.temperature_min_x10 = feature.battery_temp_min_x10;
+        sample.temperature_max_x10 = feature.battery_temp_max_x10;
+    }
+    sample.balancing_active = bms_features_balance_active();
+    sample.heating_active = bms_features_heater_on();
+    sample.open_wire_active = bms_features_openwire_active();
+    sample.open_wire_suspected = bms_features_openwire_suspected();
+    sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
+    sample.temperature_fault =
+        ((third_faults & SOC_LEARNING_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.current_fault =
+        ((third_faults & SOC_LEARNING_CURRENT_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.pack_fault =
+        ((third_faults & SOC_LEARNING_PACK_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.third_cell_ovp =
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp;
+    sample.third_cell_uvp =
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp;
+    sample.charger_state_known = 1u;
+    sample.charger_present = bms_features_charge_session_active();
+    bms_soc_process_sample(&sample);
 }
 
 void bms_soc_nominal_capacity_changed(void)

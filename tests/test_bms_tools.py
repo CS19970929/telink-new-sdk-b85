@@ -319,6 +319,15 @@ class OutputPathTests(unittest.TestCase):
 
 
 class StaticAnalysisPrimitiveTests(unittest.TestCase):
+    def test_make_dependency_paths_keep_escaped_spaces(self) -> None:
+        payload = (r"D:/runner/repo\ with\ space/sdk/app.c "
+                   r"D:/runner/repo\ with\ space/sdk/driver.h")
+        self.assertEqual(
+            bms.shlex.split(payload, posix=True),
+            ["D:/runner/repo with space/sdk/app.c",
+             "D:/runner/repo with space/sdk/driver.h"],
+        )
+
     def test_static_scope_accepts_only_ble_sample_paths(self) -> None:
         self.assertTrue(bms._is_application_scope_path(
             f"{bms.SDK_SUBDIR}/vendor/ble_sample/app.c"))

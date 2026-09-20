@@ -457,6 +457,14 @@ int bms_config_get_user(bms_user_params_t *v)
     *v = g_bms_config.user;
     return bms_config_user_valid(v);
 }
+int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
+{
+    bms_user_params_t user;
+    if (!offset_ma || !gain_ppm || !bms_config_get_user(&user)) return 0;
+    *offset_ma = user.current_offset_ma;
+    *gain_ppm = user.current_gain_ppm;
+    return 1;
+}
 int bms_config_set_user(const bms_user_params_t *v)
 {
     bms_config_cache_t next;
