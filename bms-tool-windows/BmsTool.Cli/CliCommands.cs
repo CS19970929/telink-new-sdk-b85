@@ -30,6 +30,8 @@ Usage:
   bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--interval 5] [--count 0] [--reconnect] [--max-reconnects 10]
                   [--output monitor.jsonl] [--json]
+  bms-cli record soc (--mac MAC | --name NAME | --auto | --serial COMx)
+                  --output soc_record.csv [--interval 5] [--count 0] [--json]
   bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
   bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx)
@@ -66,6 +68,7 @@ Safety:
             "info" => InfoAsync(options, reporter, ct),
             "soc" => SocAsync(options, reporter, ct),
             "monitor" => MonitorAsync(options, reporter, ct),
+            "record" => RecordAsync(options, reporter, ct),
             "health" => HealthAsync(options, reporter, ct),
             "diag" => DiagAsync(options, reporter, ct),
             "test" => TestAsync(options, reporter, ct),
@@ -261,13 +264,55 @@ Safety:
     private static async Task<SocDiagnosticSnapshot> ReadSocAsync(
         CliBmsConnection connection, CliEndpoint endpoint, CancellationToken ct)
     {
+        var result = await ReadSocCaptureAsync(connection, endpoint, ct);
+        return result.Soc;
+    }
+
+    private static async Task<(DiagnosticCapture Capture, SocDiagnosticSnapshot Soc)> ReadSocCaptureAsync(
+        CliBmsConnection connection, CliEndpoint endpoint, CancellationToken ct)
+    {
         DiagnosticCapture capture = await connection.Client.ReadDiagnosticsAsync(false, endpoint.Display, ct);
         if (!capture.Supported || capture.Words is null)
             throw new CliException(ExitCodes.ConnectFailed, "soc_diagnostics_unavailable", capture.Status);
-        try { return BmsDiagnostics.DecodeSocSnapshot(capture.Words); }
+        try { return (capture, BmsDiagnostics.DecodeSocSnapshot(capture.Words)); }
         catch (InvalidDataException ex) {
             throw new CliException(ExitCodes.ConnectFailed, "soc_diagnostics_unavailable", ex.Message, inner: ex);
         }
+    }
+
+    private static async Task<int> RecordAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        if (options.Positionals.Count != 1 ||
+            !string.Equals(options.Positionals[0], "soc", StringComparison.OrdinalIgnoreCase))
+            throw new CliException(ExitCodes.Usage, "usage", "record currently requires the 'soc' subcommand.");
+        string output = Path.GetFullPath(options.RequireValue("output"));
+        int interval = options.GetInt("interval", 5, 1, 3600);
+        int count = options.GetInt("count", 0, 0, 1000000);
+        Directory.CreateDirectory(Path.GetDirectoryName(output) ?? ".");
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        int samples = 0;
+        await using var writer = new StreamWriter(output, false, new System.Text.UTF8Encoding(false));
+        await writer.WriteLineAsync(SocRecord.CsvHeader);
+        try
+        {
+            while (count == 0 || samples < count)
+            {
+                var result = await ReadSocCaptureAsync(connection, endpoint, ct);
+                BatterySnapshot battery = await connection.Client.ReadBatteryAsync(ct);
+                await writer.WriteLineAsync(SocRecord.From(result.Capture, result.Soc, battery).ToCsvLine());
+                await writer.FlushAsync(ct);
+                samples++;
+                reporter.Status($"SOC record {samples}: est={result.Soc.SocEstimate}% display={result.Soc.SocDisplay}%");
+                if (count != 0 && samples >= count) break;
+                await Task.Delay(TimeSpan.FromSeconds(interval), ct);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        reporter.Success("record soc", new { endpoint = endpoint.Display, output, samples });
+        if (!reporter.Json) Console.WriteLine($"SOC record saved: {output} ({samples} samples)");
+        return ExitCodes.Success;
     }
 
     private static void PrintSoc(SocDiagnosticSnapshot s)

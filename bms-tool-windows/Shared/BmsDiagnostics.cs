@@ -117,7 +117,8 @@ public static class BmsDiagnostics
         5=>"OPEN_WIRE",6=>"CELL_IMBALANCE",7=>"TEMPERATURE",8=>"PROTECTION",
         9=>"LOW_QUALITY_EMPTY",10=>"LOW_QUALITY_FULL",11=>"CAPACITY_RANGE",
         12=>"CANDIDATE_INCONSISTENT",13=>"AFE_COMMUNICATION",
-        14=>"CALIBRATION_CHANGED",_=>$"未知({value})"};
+        14=>"CALIBRATION_CHANGED",15=>"BALANCING",16=>"HEATING",
+        17=>"CHARGER_CHANGE",18=>"LOAD_CHANGE",_=>$"未知({value})"};
     private static string SocSampleState(ushort value)=>value switch {
         0=>"NONE",1=>"INVALID",2=>"FIRST",3=>"DUPLICATE",4=>"GAP",
         5=>"ACCEPTED",6=>"DIRECTION_CHANGE",_=>$"未知({value})"};

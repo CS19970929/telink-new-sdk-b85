@@ -20,6 +20,7 @@ bms-cli info --auto
 bms-cli health --auto
 bms-cli soc --auto
 bms-cli monitor soc --auto --interval 5
+bms-cli record soc --auto --output soc_record.csv --interval 5 --count 0
 bms-cli diag --auto
 bms-cli test connection --auto --count 10 --output connection-test.json
 bms-cli test soc --auto --count 10 --output soc-test.json
@@ -82,6 +83,8 @@ bms-cli info --auto --json
 ```powershell
 bms-cli diag --auto --json
 ```
+
+`record soc` 与 Windows 双版本的 SOC 记录/曲线、CSV 字段和生产 C 离线回放见 [SOC_ENGINEERING.md](SOC_ENGINEERING.md)。
 
 统一健康评估（默认同时采集完整诊断证据）：
 

@@ -84,6 +84,15 @@ static class Test
         Check(!failed.Status.Contains("不支持")&&failed.Errors.Count>0,"timeout is not unsupported");
         var dir=Path.Combine(Path.GetTempPath(),"diag-export-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
         try {
+            var battery=new BatterySnapshot {PackVoltageV=52.8,CurrentA=1.5,MinTempC=20,MaxTempC=30,
+                MinCellMv=3290,MaxCellMv=3310,CellDeltaMv=20,SystemStatus=(1u<<8)|(1u<<12),
+                CellMillivolts=new ushort[]{3290,3300,3310},ProtectionLevel2Raw=0x20};
+            var record=SocRecord.From(capture,soc,battery) with {Timestamp32k=0xF1234567,SocEvent="RESET,manual"};
+            Check(record.CurrentMa==-1500&&record.ChargerState=="PRESENT/CHARGE","SOC record current sign");
+            Check(record.BalancingActive=="1"&&record.HeatingActive=="1","SOC record feature flags");
+            var csv=Path.Combine(dir,"soc.csv");SocRecord.WriteCsv(csv,new[]{record});
+            var restored=SocRecord.ReadCsv(csv);
+            Check(restored.Count==1&&restored[0].Timestamp32k==0xF1234567&&restored[0].SocEvent=="RESET,manual","SOC record CSV roundtrip");
             var path=Path.Combine(dir,"fault.zip");BmsDiagnostics.Export(path,partial);
             using var zip=ZipFile.OpenRead(path);
             Check(zip.GetEntry("manifest.json")!=null&&zip.GetEntry("raw_frames.json")!=null&&zip.GetEntry("storage.json")!=null&&zip.GetEntry("health.json")!=null&&
