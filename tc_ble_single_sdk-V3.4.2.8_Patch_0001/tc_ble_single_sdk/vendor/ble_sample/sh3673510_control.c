@@ -350,9 +350,9 @@ uint8_t sh3673510_control_init(void)
     s_afe_sleeping = 0u;
 
     /* RESET and ALARM are open-drain outputs from the AFE, never MCU outputs. */
-    sh3510_gpio_input(D011_AFE_RESET_OUT_PIN);
-    sh3510_gpio_input(D011_AFE_ALARM_PIN);
-    sh3510_gpio_input(D011_INT_WK_MCU_PIN);
+    sh3510_gpio_input(D014_AFE_RESET_OUT_PIN);
+    sh3510_gpio_input(D014_AFE_ALARM_PIN);
+    sh3510_gpio_input(D014_INT_WK_MCU_PIN);
 
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
     sh3510_gpio_output_low(D011_HEATER_CHG_PIN);
@@ -360,9 +360,9 @@ uint8_t sh3673510_control_init(void)
 #endif
 
     /* Active-high board wake and active-low AFE alarm/reset pulses. */
-    cpu_set_gpio_wakeup(D011_INT_WK_MCU_PIN, Level_High, 1);
-    cpu_set_gpio_wakeup(D011_AFE_ALARM_PIN, Level_Low, 1);
-    cpu_set_gpio_wakeup(D011_AFE_RESET_OUT_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(D014_INT_WK_MCU_PIN, Level_High, 1);
+    cpu_set_gpio_wakeup(D014_AFE_ALARM_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(D014_AFE_RESET_OUT_PIN, Level_Low, 1);
 
     port_status = SH3673520_PortConfigure(SH3673510_D011_SPI_GROUP);
     if (port_status != SH3673520_PORT_OK) return 0u;
@@ -479,7 +479,7 @@ void sh3673510_board_set_heater(uint8_t enabled)
 
 uint8_t sh3673510_board_wake_active(void)
 {
-    return gpio_read(D011_INT_WK_MCU_PIN) ? 1u : 0u;
+    return gpio_read(D014_INT_WK_MCU_PIN) ? 1u : 0u;
 }
 
 void sh3673510_control_sleep(void)
