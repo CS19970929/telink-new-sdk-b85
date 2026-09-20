@@ -25,6 +25,8 @@ internal static class CliCommands
 Usage:
   bms-cli capabilities [--json]
   bms-cli scan [--scan-seconds 4] [--json]
+  bms-cli capture (--mac MAC | --serial COMx) --output DIRECTORY
+                  [--count 0] [--interval 5] [--reconnect] [--max-reconnects 10] [--json]
   bms-cli info (--mac MAC | --name NAME | --auto | --serial COMx) [--baud 19200] [--json]
   bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx)
@@ -65,6 +67,7 @@ Safety:
         {
             "capabilities" => CapabilitiesAsync(options, reporter, ct),
             "scan" => ScanAsync(options, reporter, ct),
+            "capture" => CliCapture.RunAsync(options, reporter, ct),
             "info" => InfoAsync(options, reporter, ct),
             "soc" => SocAsync(options, reporter, ct),
             "monitor" => MonitorAsync(options, reporter, ct),
@@ -462,6 +465,8 @@ Safety:
         var data = new
         {
             schema = ProductSupportMatrix.Schema,
+            source = "client_support_catalog",
+            deviceProbed = false,
             products = ProductSupportMatrix.Products
         };
         reporter.Success("capabilities", data);

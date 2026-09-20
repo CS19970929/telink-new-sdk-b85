@@ -135,6 +135,7 @@ internal static class CliRuntime
             {
                 await serial.ConnectAsync(endpoint.PortName!, endpoint.BaudRate, ct);
             }
+            catch (OperationCanceledException) { await serial.DisposeAsync(); throw; }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 await serial.DisposeAsync();
@@ -150,6 +151,7 @@ internal static class CliRuntime
             {
                 await ble.ConnectAsync(endpoint.Address!.Value, ct);
             }
+            catch (OperationCanceledException) { await ble.DisposeAsync(); throw; }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 await ble.DisposeAsync();
@@ -164,6 +166,12 @@ internal static class CliRuntime
         {
             await client.ProbeAsync(ct);
             return new CliBmsConnection(endpoint, transport, client);
+        }
+        catch (OperationCanceledException)
+        {
+            try { await client.DisposeAsync(); }
+            finally { await transport.DisposeAsync(); }
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

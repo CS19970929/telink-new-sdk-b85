@@ -23,15 +23,15 @@ public static class ProductSupportMatrix
                 "firmware build, host contracts, unified diagnostics and client protocol",
                 "D008 board link exists; protection timing and physical MOS/Gate still require the hardware checklist"),
             new(
-                "D011", "SH3673510", "0x3510", 1, 2, true, null,
+                "D011", "SH3673510", "0x3510", 1, 3, true, null,
                 "firmware build, host contracts and unified diagnostics",
                 "not validated on a D011 board in the current cycle"),
             new(
-                "D013", "SH3673510", "0x3510", 1, 2, true, null,
+                "D013", "SH3673510", "0x3510", 1, 3, true, null,
                 "firmware build and unified diagnostics protocol",
                 "D013 schematic/BOM and board validation are unavailable; inherited D011 pin names are not hardware proof"),
             new(
-                "D014", "SH3673510", "0x3510", 1, 2, true, null,
+                "D014", "SH3673510", "0x3510", 1, 3, true, null,
                 "firmware build, host contracts and unified diagnostics",
                 "not validated on a D014 board in the current cycle"),
         };

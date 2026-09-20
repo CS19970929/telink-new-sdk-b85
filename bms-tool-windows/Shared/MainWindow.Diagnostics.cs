@@ -48,7 +48,7 @@ public partial class MainWindow
         var diagTest=new Button {Content="诊断一致性测试",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};
         diagTest.Click+=async (_,_)=>await RunDiagnosticTestAsync(false);
         var stop=new Button {Content="停止采集",Margin=new Thickness(4)};
-        stop.Click+=(_,_)=>{_diagAuto.IsChecked=false;_diagCts?.Cancel();};
+        stop.Click+=(_,_)=>{_diagAuto.IsChecked=false;_diagCts?.Cancel();StopObservationSession("cancelled");};
         var export=new Button {Content="导出 AI 诊断包",Margin=new Thickness(4)};
         export.Click+=(_,_)=> {
             if(_diagCapture is null) {_diagStatus.Text="请先读取诊断";return;}
@@ -67,7 +67,7 @@ public partial class MainWindow
         var stopSoc=new Button {Content="停止 SOC 记录",Margin=new Thickness(4)};
         stopSoc.Click+=(_,_)=> {
             _socRecording=false;_diagAuto.IsChecked=false;
-            _socRecordStatus.Text=$"记录已停止，共 {_socRecords.Count} 个样本；可导出后交给 PC 仿真器复现。";
+            _socRecordStatus.Text=$"记录已停止，共 {_socRecords.Count} 个观察样本；稀疏 CSV 用于趋势查看，不能直接精确重演算法。";
         };
         var exportSoc=new Button {Content="导出 SOC CSV",Margin=new Thickness(4)};
         exportSoc.Click+=(_,_)=> {
@@ -90,6 +90,7 @@ public partial class MainWindow
         controls.Children.Add(health);controls.Children.Add(read);controls.Children.Add(socTest);controls.Children.Add(diagTest);
         controls.Children.Add(stop);controls.Children.Add(export);controls.Children.Add(recordSoc);controls.Children.Add(stopSoc);
         controls.Children.Add(exportSoc);controls.Children.Add(loadSoc);controls.Children.Add(_diagAuto);
+        AddObservationControls(controls);
         DockPanel.SetDock(controls,Dock.Top);root.Children.Add(controls);
         _diagStatus.Text="连接后自动探测运行状态；完整 Trace、事件、参数和 AFE 证据请点击读取。诊断只读，物理 MOS 反馈不可用。";
         _diagStatus.TextWrapping=TextWrapping.Wrap;_diagStatus.Margin=new Thickness(4);
@@ -108,35 +109,43 @@ public partial class MainWindow
         _socChart.SizeChanged+=(_,_)=>RenderSocChart();
         _diagTimer=new DispatcherTimer {Interval=TimeSpan.FromSeconds(1)};
         _diagTimer.Tick+=async (_,_)=> {
-            if(_bms is null) { _diagProbedClient=null;_diagCts?.Cancel();return; }
+            if(_bms is null) { _diagProbedClient=null;_diagCts?.Cancel();ObservationGap("disconnected");return; }
+            if(_observationSession is not null && !_diagBusy && (_otaRunning || _autoReconnectRunning || _shBusy || ShFactoryBusy()))
+                ObservationGap("paused_for_other_operation");
             if(_otaRunning || _autoReconnectRunning || _diagBusy || _eventLogReadInProgress || _shBusy || ShFactoryBusy())return;
             bool first=!ReferenceEquals(_diagProbedClient,_bms);
             if(first || (_diagAuto.IsChecked==true && DateTime.UtcNow>=_diagNextUtc))
                 await CaptureDiagnosticsAsync(false);
         };
         _diagTimer.Start();
-        Closed+=(_,_)=>{_diagTimer.Stop();_diagCts?.Cancel();};
+        Closed+=(_,_)=>{_diagTimer.Stop();_diagCts?.Cancel();StopObservationSession("window_closed");};
     }
     private async Task CaptureDiagnosticsAsync(bool full)
     {
         if(_diagBusy || _eventLogReadInProgress || _otaRunning || _shBusy || ShFactoryBusy())return;
         var client=_bms;
         if(client is null){_diagStatus.Text="请先连接 BMS";return;}
-        if(full)_diagAuto.IsChecked=false;
+        if(_observationSession is not null && !ReferenceEquals(client,_observationClient)) {
+            ObservationGap("GUI connection replaced; start a new session on the selected device");
+            StopObservationSession("connection_replaced");return;
+        }
+        if(full && _observationSession is null)_diagAuto.IsChecked=false;
         _diagBusy=true;_eventLogReadInProgress=true;
         _diagCts=new CancellationTokenSource(TimeSpan.FromSeconds(60));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
             if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
             _diagStatus.Text="读取中；可停止，部分证据也可导出";
-            var result=await client.ReadDiagnosticsAsync(full,ConnectionText.Text,_diagCts.Token);
-            DeviceIdentity? identity=null;BatterySnapshot? battery=null;
-            if(full && result.Supported) {
+            var observed = _observationSession is null ? null :
+                await _observationSession.CaptureAsync(client,_diagCts.Token,full);
+            var result=observed?.Capture ?? await client.ReadDiagnosticsAsync(full,ConnectionText.Text,_diagCts.Token);
+            DeviceIdentity? identity=observed?.Identity;BatterySnapshot? battery=null;
+            if(full && result.Supported && identity is null) {
                 identity=await client.ReadIdentityAsync("","",_diagCts.Token);
             }
             if((full || _socRecording) && result.Supported)
                 battery=await client.ReadBatteryAsync(_diagCts.Token);
-            if(!ReferenceEquals(client,_bms)) { result.Errors.Add("采集期间连接改变");result.Status="旧连接的部分证据"; }
+            if(!ReferenceEquals(client,_bms)) { result.Errors.Add("采集期间连接改变");result.Status="旧连接的部分证据";ObservationGap("connection_changed_during_capture"); }
             var health=BmsHealth.Evaluate(result,identity,battery);
             _diagCapture=result;_diagHealthReport=health;_diagProbedClient=client;
             _diagHealth.ItemsSource=health.Checks;
@@ -154,11 +163,15 @@ public partial class MainWindow
                 } catch(InvalidDataException ex) {_socRecordStatus.Text="SOC 记录不可用："+ex.Message;}
             }
             _diagStatus.Text=$"健康={health.Overall} · {health.Summary} · {result.Status} · {result.FinishedUtc.ToLocalTime():HH:mm:ss} · "+string.Join("；",result.Errors);
-            if(!result.Supported)_diagAuto.IsChecked=false;
+            if(_observationSession is not null) _diagStatus.Text += " · 会话写盘："+_observationSession.DirectoryPath;
+            if(!result.Supported) { _diagAuto.IsChecked=false;StopObservationSession("unsupported_or_unavailable"); }
         }
-        catch(Exception ex) {_diagStatus.Text="诊断读取失败："+ex.Message;}
+        catch(DiagnosticSessionReadException ex) {ObservationGap(ex.Message);_diagStatus.Text="会话读取失败："+ex.Message;}
+        catch(OperationCanceledException) {ObservationGap("capture_cancelled_or_timeout");}
+        catch(Exception ex) {StopObservationSession("failed");_diagStatus.Text="诊断读取失败："+ex.Message;}
         finally {
             _diagCts.Dispose();_diagCts=null;_diagBusy=false;_eventLogReadInProgress=false;
+            FinishObservationSession();
             _diagNextUtc=DateTime.UtcNow.AddSeconds(5);StartAutomaticRefresh();
         }
     }
@@ -234,6 +247,7 @@ public partial class MainWindow
         catch(Exception ex){_diagStatus.Text="自动测试失败："+ex.Message;}
         finally {
             _diagCts.Dispose();_diagCts=null;_diagBusy=false;_eventLogReadInProgress=false;
+            FinishObservationSession();
             _diagNextUtc=DateTime.UtcNow.AddSeconds(5);StartAutomaticRefresh();
         }
     }

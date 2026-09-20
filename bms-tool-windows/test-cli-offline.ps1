@@ -1,3 +1,4 @@
+param([string]$CliDll)
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = $PSScriptRoot
@@ -21,7 +22,8 @@ function New-DiagnosticBundle([string]$Path, [string]$BuildId, [int]$Soc) {
 }
 
 function Invoke-CliJson([string[]]$Arguments) {
-    $text = & dotnet run --project $project -c Release --no-build -- @Arguments
+    if ($CliDll) { $text = & dotnet $CliDll @Arguments }
+    else { $text = & dotnet run --project $project -c Release --no-build -- @Arguments }
     if ($LASTEXITCODE -ne 0) { throw "CLI failed with exit code ${LASTEXITCODE}: $Arguments" }
     return ($text | Out-String | ConvertFrom-Json)
 }
@@ -30,6 +32,15 @@ try {
     $capabilities = Invoke-CliJson @("capabilities", "--json")
     if (-not $capabilities.ok -or $capabilities.data.products.Count -ne 4) {
         throw "Capabilities JSON contract failed"
+    }
+    if ($capabilities.data.source -ne 'client_support_catalog' -or $capabilities.data.deviceProbed) {
+        throw "Static catalog must not masquerade as a live device probe"
+    }
+    if ($CliDll) {
+        $invalid = & dotnet $CliDll capture --auto --output $testRoot --json
+        if ($LASTEXITCODE -ne 2 -or ($invalid | Out-String | ConvertFrom-Json).error.kind -ne 'usage') {
+            throw 'Capture must reject an unpinned target before device access'
+        }
     }
 
     $before = Join-Path $testRoot "before.zip"

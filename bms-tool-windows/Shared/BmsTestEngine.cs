@@ -171,17 +171,19 @@ public static class BmsTestEngine
                 await Task.Delay(interval, ct);
         }
 
-        Add(checks, "diag.supported", captures.All(x => x.Supported && x.Words is not null) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
+        Add(checks, "diag.samples", samples.Count(x => x.Success) == count ? BmsTestStatus.Pass : BmsTestStatus.Fail,
+            "诊断样本完整", $"{samples.Count(x => x.Success)}/{count} 次成功读取", "缺失或失败轮次不能判为通过。");
+        Add(checks, "diag.supported", captures.Count == count && captures.All(x => x.Supported && x.Words is not null) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
             "诊断协议", $"{captures.Count(x => x.Supported && x.Words is not null)}/{count} 次可用",
             "失败时检查固件版本和通信错误。 ");
-        Add(checks, "diag.snapshot", captures.All(x => x.SnapshotConsistent) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
+        Add(checks, "diag.snapshot", captures.Count == count && captures.All(x => x.SnapshotConsistent) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
             "快照一致性", $"{captures.Count(x => x.SnapshotConsistent)}/{count} 次一致",
             "不一致表示采集期间可能发生重启或快照尚未冻结。 ");
         if (full)
-            Add(checks, "diag.trace", captures.All(x => x.TraceConsistent) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
+            Add(checks, "diag.trace", captures.Count == count && captures.All(x => x.TraceConsistent) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
                 "Trace 一致性", $"{captures.Count(x => x.TraceConsistent)}/{count} 次一致",
                 "Trace 分页变化时保留证据并重采。 ");
-        Add(checks, "diag.errors", captures.All(x => x.Errors.Count == 0) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
+        Add(checks, "diag.errors", captures.Count == count && captures.All(x => x.Errors.Count == 0) ? BmsTestStatus.Pass : BmsTestStatus.Fail,
             "诊断错误", $"总计 {captures.Sum(x => x.Errors.Count)} 条错误",
             "检查每轮 Errors；可单独导出失败轮诊断包。 ");
 

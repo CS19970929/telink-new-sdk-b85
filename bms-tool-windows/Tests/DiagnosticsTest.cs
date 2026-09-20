@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.IO.Compression;
 using BmsTool.Windows;
 
@@ -7,6 +7,7 @@ static class Test
     static void Check(bool ok,string why) {if(!ok)throw new Exception(why);}
     static async Task Main()
     {
+        await DiagnosticSessionTest.RunAsync();
         var t=new FakeTransport();await using var b=new BmsClient(t);
         var capture=await b.ReadDiagnosticsAsync(true,"mock");
         Check(capture.Supported&&capture.SnapshotConsistent&&capture.TraceConsistent,"capability/snapshot");
@@ -136,6 +137,8 @@ sealed class FakeTransport:IBmsTransport
     public bool Legacy,Unstable,FailEvents,FailProtection,Timeout,NonD008;
     public byte ExceptionCode;
     public int Writes;
+    public uint Tick = 100;
+    public string Serial = "SN001";
     private uint traceSeq=1;
     public Task ReconnectAsync(CancellationToken ct=default)=>Task.CompletedTask;
     public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
@@ -148,7 +151,7 @@ sealed class FakeTransport:IBmsTransport
         if(ExceptionCode!=0 || (FailEvents&&start==0xC008) || (FailProtection&&start==0x2100)) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,ExceptionCode==0?(byte)2:ExceptionCode}));return Task.CompletedTask;}
         var w=new ushort[1024];
         if(!Legacy) {
-            w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;w[14]=0x1124;w[15]=0x8251;
+            w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=(ushort)Tick;w[7]=(ushort)(Tick>>16);w[8]=(ushort)traceSeq;w[12]=1;w[14]=0x1124;w[15]=0x8251;
             w[18]=0x5678;w[19]=0x1234;w[22]=0x5678;w[23]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
             w[192]=3;w[193]=3;
             w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;
@@ -195,6 +198,10 @@ sealed class FakeTransport:IBmsTransport
             else if(address>=0x2500&&address<0x2523)value=(ushort)(address-0x2500+1);
             else if(address>=0x2523&&address<0x252C)value=(ushort)(address-0x2523+100);
             else if(address>=0x2540&&address<0x2563)value=(ushort)(address-0x2540+200);
+            if (start == BmsRegisters.Serial || start == BmsRegisters.Hardware || start == BmsRegisters.Software) {
+                string text = start == BmsRegisters.Serial ? Serial : start == BmsRegisters.Hardware ? "D008" : "V1";
+                text = text.PadRight(32, '\0'); value = (ushort)((text[i*2] << 8) | text[i*2+1]);
+            }
             BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+i*2,2),value);
         }
         Emit(ModbusRtu.Frame(body));return Task.CompletedTask;

@@ -249,3 +249,7 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 ```
 
 正式发布由 `build-release.ps1` 与 GitHub Actions 同时生成 UI、内部完整版和 CLI。
+
+## 持续只读诊断会话
+
+新增 capture 命令，支持固定设备、持续写盘、缺口和保守分段、异常前后证据。使用方法、JSONL schema、退出码与局限见 [只读诊断会话 v1](DIAGNOSTIC_SESSION.md)。
