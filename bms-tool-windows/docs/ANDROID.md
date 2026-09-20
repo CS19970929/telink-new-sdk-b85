@@ -91,7 +91,7 @@ App 的“工具 → OTA 升级 → 固件收件箱”会列出最近 20 个 BIN
 
 PC 已编译好固件后，研发人员可直接运行独立的 `BmsTool.Android.Deployer.exe`，选择/拖入正式 BIN、选择已连接手机并点击发送。它在后台使用 ADB receiver 导入，不显示命令行、不要求填写 BMS MAC、不自动开始 OTA；App 打开固件页后，仍由用户从 `BT_` / `BT-` 列表明确选择目标设备。
 
-VS Code 已提供四个仓库任务：按 `Ctrl+Shift+B` 会执行默认的 `BMS: 编译并发送固件到 Android`，先运行 `bms.py rebuild/check-fw`，再预检并发送标准输出 BIN。仅这个默认任务携带 `--auto-ota`：App 必须已经连接明确的 BMS，且连接对象和 MAC 在 OTA 开始前仍一致，才会跳过确认框直接使用现有共享 Telink OTA 流程；否则只导入固件并记录 `AUTO_OTA_SKIPPED`，不会自动扫描、自动连接或选择第一台设备。自动请求还必须匹配受 `android.permission.DUMP` 保护的导入 Receiver 生成的五分钟一次性 `upload_id + SHA-256` 授权，授权在检查时立即消费。`BMS: 发送现有固件到 Android`、`BMS: 选择 BIN 并发送到 Android` 和 Windows 图形发送器继续要求手机端人工确认。`BMS: 连接 Android 无线调试` 只恢复无线 ADB 连接。Sender 在没有活动设备时会重试 mDNS，自动连接唯一的官方 `_adb-tls-connect` 服务，因此手机重启或重新进入可信局域网后无需记忆动态端口。检测到多台手机或多个无线服务时拒绝自动选择。
+VS Code 已提供四个仓库任务：按 `Ctrl+Shift+B` 会执行默认的 `BMS: 编译并发送固件到 Android`，先运行 `bms.py rebuild/check-fw`，再预检并发送标准输出 BIN。仅这个默认任务携带 `--auto-ota`：App 必须已经连接明确的 BMS，且连接对象和 MAC 在 OTA 开始前仍一致，才会跳过确认框直接使用现有共享 Telink OTA 流程；否则只导入固件并记录 `AUTO_OTA_SKIPPED`，不会自动扫描、自动连接或选择第一台设备。自动请求还必须匹配受 `android.permission.DUMP` 保护的导入 Receiver 生成的五分钟一次性 `upload_id + SHA-256` 授权，授权在检查时立即消费。`BMS: 发送现有固件到 Android`、`BMS: 选择 BIN 并发送到 Android` 和 Windows 图形发送器继续要求手机端人工确认。`BMS: 连接 Android 无线调试` 只恢复无线 ADB 连接。Sender 在没有活动设备时会重试 mDNS，自动连接唯一的官方 `_adb-tls-connect` 设备；同一手机切换无线调试后短暂残留的历史端点会逐个验证，不会被误判为多台手机。检测到不同手机时仍拒绝自动选择。
 
 ADB 导入 receiver 要求 `android.permission.DUMP`，普通第三方 App 不能调用；分片总大小限制为 2 MiB，任一分片、offset 或最终 SHA-256 不匹配都会删除临时文件。普通发送入口导入成功后仍要求 App 内确认；只有研发默认构建任务的 `--auto-ota` 会在 App 已保持目标 BMS 连接时授权自动写 Flash，严格 BIN 预检、`OTA_SUCCESS` 和升级后身份回读要求不变。
 

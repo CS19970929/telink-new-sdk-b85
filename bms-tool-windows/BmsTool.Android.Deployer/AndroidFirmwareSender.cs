@@ -48,21 +48,34 @@ public sealed class AndroidFirmwareSender(string adbPath)
             AdbResult mdns = await RunAsync(null, new[] { "mdns", "services" }, ct);
             if (mdns.ExitCode == 0)
             {
-                string[] endpoints = Regex.Matches(mdns.Output, @"_adb-tls-connect\._tcp\s+(?<endpoint>\S+)")
-                    .Select(match => match.Groups["endpoint"].Value)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-                if (endpoints.Length > 1)
-                    throw new InvalidOperationException("发现多台可配对的无线 Android 设备，为避免误连已拒绝自动选择：" +
-                                                        string.Join(", ", endpoints));
-                if (endpoints.Length == 1)
-                {
-                    AdbResult connect = await RunAsync(null, new[] { "connect", endpoints[0] }, ct);
-                    if (connect.ExitCode == 0)
+                var services = Regex.Matches(mdns.Output,
+                        @"^(?<instance>.+?)\s+_adb-tls-connect\._tcp\s+(?<endpoint>\S+)\s*$",
+                        RegexOptions.Multiline)
+                    .Select(match => new
                     {
-                        await Task.Delay(500, ct);
-                        devices = await ReadDevicesAsync(ct);
-                        if (devices.Count > 0) return devices;
+                        Instance = Regex.Replace(match.Groups["instance"].Value.Trim(), @"\s+\(\d+\)$", ""),
+                        Endpoint = match.Groups["endpoint"].Value
+                    })
+                    .ToArray();
+                var deviceGroups = services
+                    .GroupBy(service => service.Instance, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                if (deviceGroups.Length > 1)
+                    throw new InvalidOperationException("发现多台可配对的无线 Android 设备，为避免误连已拒绝自动选择：" +
+                                                        string.Join(", ", deviceGroups.Select(group => group.Key)));
+                if (deviceGroups.Length == 1)
+                {
+                    foreach (string endpoint in deviceGroups[0]
+                                 .Select(service => service.Endpoint)
+                                 .Distinct(StringComparer.OrdinalIgnoreCase))
+                    {
+                        AdbResult connect = await RunAsync(null, new[] { "connect", endpoint }, ct);
+                        if (connect.ExitCode == 0)
+                        {
+                            await Task.Delay(500, ct);
+                            devices = await ReadDevicesAsync(ct);
+                            if (devices.Count > 0) return devices;
+                        }
                     }
                 }
             }
