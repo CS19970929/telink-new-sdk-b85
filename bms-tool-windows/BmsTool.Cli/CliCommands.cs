@@ -1,10 +1,21 @@
 using BmsTool.Windows;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace BmsTool.Cli;
 
 internal static class CliCommands
 {
+    private sealed record ConnectionTestAttempt(
+        int Attempt,
+        bool Success,
+        long DurationMs,
+        string? Hardware,
+        string? Software,
+        string? FirmwareBuildId,
+        bool? D008,
+        string? Error);
+
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
     public const string HelpText =
@@ -16,7 +27,10 @@ Usage:
   bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--interval 5] [--count 0] [--json]
+  bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
+  bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx)
+                  [--count 10] [--delay-ms 500] [--json]
   bms-cli ota <firmware.bin> (--mac MAC | --name NAME | --auto | --serial COMx)
               [--target auto|telink|stm32] [--mode auto|legacy|extend64]
               [--expected-version VERSION] [--yes] [--json]
@@ -39,7 +53,9 @@ Safety:
             "info" => InfoAsync(options, reporter, ct),
             "soc" => SocAsync(options, reporter, ct),
             "monitor" => MonitorAsync(options, reporter, ct),
+            "health" => HealthAsync(options, reporter, ct),
             "diag" => DiagAsync(options, reporter, ct),
+            "test" => TestAsync(options, reporter, ct),
             "ota" => OtaAsync(options, reporter, ct),
             _ => throw new CliException(ExitCodes.Usage, "usage", $"Unknown command '{options.Command}'. Run bms-cli help.")
         };
@@ -220,6 +236,114 @@ Safety:
             if (outputPath is not null) Console.WriteLine("Diagnostic bundle: " + outputPath);
         }
         return ExitCodes.Success;
+    }
+
+    private static async Task<int> HealthAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        DeviceSnapshot snapshot = await CliRuntime.ReadSnapshotAsync(connection, ct);
+        bool full = !options.Has("quick");
+        reporter.Status(full ? "Collecting full health evidence..." : "Collecting quick health evidence...");
+        DiagnosticCapture capture = await connection.Client.ReadDiagnosticsAsync(full, endpoint.Display, ct);
+        BmsHealthReport health = BmsHealth.Evaluate(capture, snapshot.Identity, snapshot.Battery);
+
+        string? output = options.Get("output");
+        string? outputPath = null;
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            outputPath = Path.GetFullPath(output);
+            string? dir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
+            BmsDiagnostics.Export(outputPath, capture, health);
+        }
+
+        var data = new
+        {
+            endpoint = endpoint.Display,
+            full,
+            identity = snapshot.Identity,
+            firmwareBuildId = snapshot.FirmwareBuildId?.ToString("x8"),
+            d008 = snapshot.IsD008,
+            battery = snapshot.Battery,
+            health,
+            capture.SnapshotConsistent,
+            capture.TraceConsistent,
+            capture.Errors,
+            output = outputPath
+        };
+        reporter.Success("health", data);
+        if (!reporter.Json)
+        {
+            Console.WriteLine($"Health: {health.Overall} - {health.Summary}");
+            foreach (BmsHealthCheck check in health.Checks)
+                Console.WriteLine($"[{check.Status.ToUpperInvariant()}] {check.Category}/{check.Title}: {check.Evidence}");
+            if (outputPath is not null) Console.WriteLine("Health bundle: " + outputPath);
+        }
+        return ExitCodes.Success;
+    }
+
+    private static async Task<int> TestAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        if (options.Positionals.Count != 1 ||
+            !string.Equals(options.Positionals[0], "connection", StringComparison.OrdinalIgnoreCase))
+            throw new CliException(ExitCodes.Usage, "usage", "test currently requires the 'connection' subcommand.");
+
+        int count = options.GetInt("count", 10, 1, 1000);
+        int delayMs = options.GetInt("delay-ms", 500, 0, 60000);
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        var attempts = new List<ConnectionTestAttempt>(count);
+
+        for (int attempt = 1; attempt <= count; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            reporter.Status($"Connection test {attempt}/{count}: {endpoint.Display}");
+            var timer = Stopwatch.StartNew();
+            try
+            {
+                await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+                DeviceSnapshot snapshot = await CliRuntime.ReadSnapshotAsync(connection, ct);
+                timer.Stop();
+                attempts.Add(new ConnectionTestAttempt(attempt, true, timer.ElapsedMilliseconds,
+                    snapshot.Identity.Hardware, snapshot.Identity.Software,
+                    snapshot.FirmwareBuildId?.ToString("x8"), snapshot.IsD008, null));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                timer.Stop();
+                attempts.Add(new ConnectionTestAttempt(attempt, false, timer.ElapsedMilliseconds,
+                    null, null, null, null, ex.GetType().Name + ": " + ex.Message));
+            }
+
+            if (attempt < count && delayMs != 0)
+                await Task.Delay(delayMs, ct);
+        }
+
+        int succeeded = attempts.Count(x => x.Success);
+        int failed = attempts.Count - succeeded;
+        double? averageMs = succeeded == 0 ? null : attempts.Where(x => x.Success).Average(x => x.DurationMs);
+        var data = new
+        {
+            endpoint = endpoint.Display,
+            count,
+            delayMs,
+            succeeded,
+            failed,
+            successRatePercent = Math.Round(succeeded * 100.0 / count, 2),
+            averageSuccessDurationMs = averageMs is null ? (double?)null : Math.Round(averageMs.Value, 1),
+            attempts
+        };
+        reporter.Success("test connection", data);
+        if (!reporter.Json)
+        {
+            foreach (ConnectionTestAttempt attempt in attempts)
+                Console.WriteLine($"#{attempt.Attempt}: {(attempt.Success ? "PASS" : "FAIL")} {attempt.DurationMs} ms" +
+                    (attempt.Error is null ? $" {attempt.Hardware}/{attempt.Software} {attempt.FirmwareBuildId}" : " " + attempt.Error));
+            Console.WriteLine($"Connection test: {succeeded}/{count} passed, success rate {succeeded * 100.0 / count:F2}%");
+        }
+        return failed == 0 ? ExitCodes.Success : ExitCodes.TestFailed;
     }
 
     private static async Task<int> OtaAsync(CliOptions options, CliReporter reporter, CancellationToken ct)

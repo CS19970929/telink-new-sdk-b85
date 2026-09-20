@@ -37,8 +37,9 @@
 
 ### 诊断
 
+- “设备健康检查”使用与 Windows/CLI 相同的 `BmsHealth` 模型，输出固件来源、启动/存储、采样、保护、身份和 D008 capability 的 `pass / info / warning / critical / unknown` 结论及建议。
 - 快速诊断读取运行状态；完整诊断额外读取 Trace、Evidence、原始帧、事件和保护参数。
-- 显示 `SnapshotConsistent` / `TraceConsistent`，可导出与 CLI 相同结构的 AI 诊断 ZIP。
+- 显示 `SnapshotConsistent` / `TraceConsistent`，可导出与 CLI 相同结构且包含 `health.json` 的 AI 诊断 ZIP。
 - 读取 100 条设备事件并解释事件类型和相邻事件间隔。
 - App 通信日志同时显示在页面并写入 App 专属外部目录。
 

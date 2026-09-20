@@ -16,6 +16,7 @@
     <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="TelinkOtaProtocol.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Sh3673520Parameters.cs" />
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="BmsDiagnostics.cs" />
+    <Compile Include="..\Shared\BmsHealth.cs" Link="BmsHealth.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="BmsClient.Diagnostics.cs" />
     <Compile Include="..\Shared\D008Parameters.cs" Link="D008Parameters.cs" />
     <Compile Include="..\Shared\BmsClient.Parameters.cs" Link="BmsClient.Parameters.cs" />

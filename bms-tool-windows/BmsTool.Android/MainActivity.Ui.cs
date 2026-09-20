@@ -25,6 +25,7 @@ public sealed partial class MainActivity
     private TextView? _afeStatus;
     private TextView? _parameterStatus;
     private TextView? _eventView;
+    private TextView? _healthView;
     private TextView? _diagnosticView;
     private TextView? _monitorStatus;
     private TextView? _firmwareInboxStatus;
@@ -195,6 +196,9 @@ public sealed partial class MainActivity
         LinearLayout page = Page();
         page.AddView(SectionTitle("BMS 诊断"));
         page.AddView(Note("快速诊断读取启动、存储、MOS、电流、SOC、功耗和保护；完整诊断额外采集 Trace、Evidence、原始帧并可导出 AI 诊断包。"));
+        page.AddView(ActionButton("设备健康检查", ReadHealthAsync));
+        _healthView = DataBlock("未检查");
+        page.AddView(_healthView);
         var diagButtons = Row();
         diagButtons.AddView(ActionButton("快速诊断", () => ReadDiagnosticsAsync(false)));
         diagButtons.AddView(ActionButton("完整诊断", () => ReadDiagnosticsAsync(true)));

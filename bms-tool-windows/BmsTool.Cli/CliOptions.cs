@@ -17,6 +17,7 @@ internal static class ExitCodes
     public const int OtaUnconfirmed = 33;
     public const int ReconnectFailed = 40;
     public const int VersionMismatch = 41;
+    public const int TestFailed = 50;
     public const int Cancelled = 130;
 }
 

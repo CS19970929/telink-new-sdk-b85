@@ -15,7 +15,9 @@ public sealed partial class MainActivity
     private AfeHardwareParameterModel? _afeModel;
     private D008ParameterCapture? _parameterCapture;
     private DiagnosticCapture? _diagnosticCapture;
+    private BmsHealthReport? _healthReport;
     private BatterySnapshot? _lastSnapshot;
+    private DeviceIdentity? _lastIdentity;
 
     private async Task ScanAsync()
     {
@@ -149,6 +151,7 @@ public sealed partial class MainActivity
         DeviceIdentity? deviceIdentity = identity
             ? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct)
             : null;
+        if (deviceIdentity is not null) _lastIdentity = deviceIdentity;
         uint? buildId = identity ? await client.TryReadFirmwareBuildIdAsync(ct) : null;
         RunOnUiThread(() =>
         {
@@ -351,9 +354,46 @@ public sealed partial class MainActivity
     {
         DiagnosticCapture capture = await client.ReadDiagnosticsAsync(full, _macInput?.Text?.Trim() ?? "Android BLE", ct);
         _diagnosticCapture = capture;
-        RunOnUiThread(() => _diagnosticView!.Text = FormatDiagnostics(capture));
+        BmsHealthReport health = BmsHealth.Evaluate(capture, _lastIdentity, _lastSnapshot);
+        _healthReport = health;
+        RunOnUiThread(() =>
+        {
+            _diagnosticView!.Text = FormatDiagnostics(capture);
+            _healthView!.Text = FormatHealth(health);
+        });
         SetStatus(capture.Status, capture.Errors.Count != 0);
     }, full ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(60));
+
+    private Task ReadHealthAsync() => WithClientAsync("设备健康检查", async (client, ct) =>
+    {
+        DeviceIdentity identity = _lastIdentity ?? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct);
+        BatterySnapshot battery = await client.ReadBatteryAsync(ct);
+        _lastIdentity = identity;
+        _lastSnapshot = battery;
+        DiagnosticCapture capture = await client.ReadDiagnosticsAsync(true, _macInput?.Text?.Trim() ?? "Android BLE", ct);
+        _diagnosticCapture = capture;
+        BmsHealthReport health = BmsHealth.Evaluate(capture, identity, battery);
+        _healthReport = health;
+        RunOnUiThread(() =>
+        {
+            _healthView!.Text = FormatHealth(health);
+            _diagnosticView!.Text = FormatDiagnostics(capture);
+        });
+        SetStatus("健康检查完成：" + health.Summary, health.CriticalCount != 0);
+    }, TimeSpan.FromMinutes(3));
+
+    private static string FormatHealth(BmsHealthReport report)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"总体：{report.Overall} · {report.Summary}");
+        foreach (BmsHealthCheck check in report.Checks)
+        {
+            builder.AppendLine($"\n[{check.Status.ToUpperInvariant()}] {check.Title}");
+            builder.AppendLine(check.Evidence);
+            if (!string.IsNullOrWhiteSpace(check.Recommendation)) builder.AppendLine("建议：" + check.Recommendation);
+        }
+        return builder.ToString();
+    }
 
     private static string FormatDiagnostics(DiagnosticCapture capture)
     {
@@ -376,7 +416,7 @@ public sealed partial class MainActivity
         try
         {
             string path = OutputPath($"BMS_diag_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.zip");
-            BmsDiagnostics.Export(path, _diagnosticCapture);
+            BmsDiagnostics.Export(path, _diagnosticCapture, _healthReport);
             SetStatus("诊断包已导出：" + path);
         }
         catch (Exception ex) { SetStatus("导出失败：" + ex.Message, true); }

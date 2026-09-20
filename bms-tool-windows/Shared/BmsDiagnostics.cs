@@ -314,7 +314,7 @@ public static class BmsDiagnostics
         if(c.Errors.Count!=0){b.AppendLine();b.AppendLine("## Errors");foreach(var e in c.Errors)b.AppendLine("- "+e);}
         return b.ToString();
     }
-    public static void Export(string path,DiagnosticCapture c)
+    public static void Export(string path,DiagnosticCapture c,BmsHealthReport? health=null)
     {
         using var file=new FileStream(path,FileMode.Create,FileAccess.Write,FileShare.None);
         using var zip=new ZipArchive(file,ZipArchiveMode.Create);
@@ -337,6 +337,7 @@ public static class BmsDiagnostics
         Add("soc.json",c.Soc);Add("power.json",c.Power);Add("protection_runtime.json",c.Protection);
         Add("runtime.json",new {c.Words});Add("trace.json",c.Trace);Add("events.json",c.Events);
         Add("evidence.json",c.EvidenceBlocks);
+        Add("health.json",health??BmsHealth.Evaluate(c));
         Add("parameters.json",new {
             capability=Block("D008Capability"),capacity_cycle=Block("CapacityCycle"),soc=Block("SOC"),
             heater=Block("Heater"),calibration=Block("Calibration"),serial=Block("Serial"),

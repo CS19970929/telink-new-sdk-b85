@@ -43,6 +43,9 @@ static class Test
         Check(capture.SoftwareProtectionWords?.Length==65 && capture.SoftwareProtectionWords[0]==3750 && capture.SoftwareProtectionWords[64]==100,"software parameter read/endian");
         Check(capture.EvidenceBlocks.ContainsKey("AfeRequested")&&capture.EvidenceBlocks["AfeRequested"].Length==35,"AFE evidence capture");
         Check(capture.EvidenceBlocks.ContainsKey("D008CapabilityTail")&&capture.EvidenceBlocks.ContainsKey("Balance"),"D008 protocol v2 evidence capture");
+        var health=BmsHealth.Evaluate(capture,new DeviceIdentity("AA","SN","D008","V1","BT_D008"),new BatterySnapshot{
+            MinCellMv=3000,MaxCellMv=3200,CellDeltaMv=200,CellMillivolts=new ushort[]{3000,3200}});
+        Check(health.Overall==BmsHealthStatus.Critical&&health.Checks.Any(x=>x.Id=="d008.protocol"&&x.Status==BmsHealthStatus.Pass),"health assessment and D008 capability");
         Check(t.Writes==0,"diagnostic must be read-only");
         t.Unstable=true;var moving=await b.ReadDiagnosticsAsync(true,"mock");
         Check(!moving.TraceConsistent&&moving.Errors.Any(e=>e.Contains("分页")),"moving trace must be flagged");
@@ -65,7 +68,7 @@ static class Test
         try {
             var path=Path.Combine(dir,"fault.zip");BmsDiagnostics.Export(path,partial);
             using var zip=ZipFile.OpenRead(path);
-            Check(zip.GetEntry("manifest.json")!=null&&zip.GetEntry("raw_frames.json")!=null&&zip.GetEntry("storage.json")!=null&&
+            Check(zip.GetEntry("manifest.json")!=null&&zip.GetEntry("raw_frames.json")!=null&&zip.GetEntry("storage.json")!=null&&zip.GetEntry("health.json")!=null&&
                 zip.GetEntry("summary.md")!=null&&zip.GetEntry("current.json")!=null&&zip.GetEntry("power.json")!=null&&
                 zip.GetEntry("parameters.json")!=null&&zip.GetEntry("afe.json")!=null&&zip.GetEntry("evidence.json")!=null,"bundle members");
             using(var reader=new StreamReader(zip.GetEntry("software_protection.json")!.Open())) {

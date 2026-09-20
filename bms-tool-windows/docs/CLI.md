@@ -16,9 +16,11 @@
 ```powershell
 bms-cli scan
 bms-cli info --auto
+bms-cli health --auto
 bms-cli soc --auto
 bms-cli monitor soc --auto --interval 5
 bms-cli diag --auto
+bms-cli test connection --auto --count 10
 bms-cli ota firmware.bin --auto
 ```
 
@@ -75,6 +77,22 @@ bms-cli info --auto --json
 ```powershell
 bms-cli diag --auto --json
 ```
+
+统一健康评估（默认同时采集完整诊断证据）：
+
+```powershell
+bms-cli health --mac A4:C1:38:12:34:56 --output .\health.zip --json
+```
+
+健康评估只根据固件明确声明的保护、采样、启动、存储、构建来源及数据自洽性给出 `pass / info / warning / critical / unknown`，不会自行发明产品安全阈值，也不会把 `CHGF/DSGF` 当作物理 MOS 反馈。
+
+多轮真实连接/读取/断开测试：
+
+```powershell
+bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --delay-ms 500 --json
+```
+
+每轮都会重新建立 transport、完成 Modbus probe、读取身份/实时状态/Build ID/D008 capability，然后释放连接。任一轮失败时仍输出全部尝试记录，并以 exit code 50 结束。
 
 只读取 typed SOC Runtime Diagnostics v2：
 
@@ -164,6 +182,7 @@ CLI 本身不调用 LLM；它负责给 AI 提供稳定、可重复、机器可�
 | 33 | OTA 后设备恢复，但没有足够的新固件启动证据 |
 | 40 | OTA 后无法恢复 BMS 通信 |
 | 41 | 目标软件版本不匹配 |
+| 50 | 测试命令完成，但至少一个测试项失败 |
 | 130 | 用户或 Ctrl+C 取消 |
 
 ## OTA 成功标准
