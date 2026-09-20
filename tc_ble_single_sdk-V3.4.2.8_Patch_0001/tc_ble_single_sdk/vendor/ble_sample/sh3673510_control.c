@@ -350,17 +350,19 @@ uint8_t sh3673510_control_init(void)
     s_afe_sleeping = 0u;
 
     /* RESET and ALARM are open-drain outputs from the AFE, never MCU outputs. */
-    sh3510_gpio_input(D011_AFE_RESET_OUT_PIN);
-    sh3510_gpio_input(D011_AFE_ALARM_PIN);
-    sh3510_gpio_input(D011_INT_WK_MCU_PIN);
+    sh3510_gpio_input(D014_AFE_RESET_OUT_PIN);
+    sh3510_gpio_input(D014_AFE_ALARM_PIN);
+    sh3510_gpio_input(D014_INT_WK_MCU_PIN);
 
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
     sh3510_gpio_output_low(D011_HEATER_CHG_PIN);
     sh3673510_board_force_heater_fuse_safe();
+#endif
 
     /* Active-high board wake and active-low AFE alarm/reset pulses. */
-    cpu_set_gpio_wakeup(D011_INT_WK_MCU_PIN, Level_High, 1);
-    cpu_set_gpio_wakeup(D011_AFE_ALARM_PIN, Level_Low, 1);
-    cpu_set_gpio_wakeup(D011_AFE_RESET_OUT_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(D014_INT_WK_MCU_PIN, Level_High, 1);
+    cpu_set_gpio_wakeup(D014_AFE_ALARM_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(D014_AFE_RESET_OUT_PIN, Level_Low, 1);
 
     port_status = SH3673520_PortConfigure(SH3673510_D011_SPI_GROUP);
     if (port_status != SH3673520_PORT_OK) return 0u;
@@ -456,22 +458,28 @@ uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
 
 void sh3673510_board_force_heater_fuse_safe(void)
 {
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
     gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
     gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
     gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
     gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
+#endif
 }
 
 void sh3673510_board_set_heater(uint8_t enabled)
 {
-    /* PB4 is the reversible heater command. PB5 is NOT a heater enable. */
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    /* Legacy D011 heater implementation. D014 compiles this path out. */
     sh3673510_board_force_heater_fuse_safe();
     gpio_write(D011_HEATER_CHG_PIN, enabled ? 1u : 0u);
+#else
+    (void)enabled;
+#endif
 }
 
 uint8_t sh3673510_board_wake_active(void)
 {
-    return gpio_read(D011_INT_WK_MCU_PIN) ? 1u : 0u;
+    return gpio_read(D014_INT_WK_MCU_PIN) ? 1u : 0u;
 }
 
 void sh3673510_control_sleep(void)
@@ -480,8 +488,10 @@ void sh3673510_control_sleep(void)
     if (sh3673510_board_wake_active()) return;
 
     if (!sh3673510_control_set_balance(0u)) return;
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
     sh3673510_board_set_heater(0u);
     sh3673510_board_force_heater_fuse_safe();
+#endif
     if (!sh3673510_control_set_fets(0u, 0u)) return;
 
     if (!sh3510_update_reg(SH3673520_REG_SCONF3,

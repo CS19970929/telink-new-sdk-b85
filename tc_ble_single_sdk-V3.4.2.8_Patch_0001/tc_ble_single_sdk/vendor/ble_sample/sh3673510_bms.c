@@ -519,16 +519,25 @@ static uint8_t publish_measurements(void)
         s_ntc_valid[SH3673510_D011_BAT_NTC1_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_BAT_NTC1_INDEX]) : 0u;
     g_stCellInfoReport.u16Temperature[AFE1_TEMP2] =
         s_ntc_valid[SH3673510_D011_BAT_NTC2_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_BAT_NTC2_INDEX]) : 0u;
+#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
     g_stCellInfoReport.u16Temperature[AFE1_TEMP3] =
         s_ntc_valid[SH3673510_D011_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_HEATER_NTC_INDEX]) : 0u;
+#else
+    g_stCellInfoReport.u16Temperature[AFE1_TEMP3] = 0u;
+#endif
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     g_stCellInfoReport.u16Temperature[MOS_TEMP1] =
         s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX]) : 0u;
+#else
+    g_stCellInfoReport.u16Temperature[MOS_TEMP1] = 0u;
+#endif
 
     /*
-     * Realtime max/min temperature is the battery temperature range: TS1/TS2.
-     * TS3 supervises the heater MOS and TS4 supervises the power MOS, so they
-     * must not be folded into the battery extrema. Zero is the existing
-     * invalid/sensor-break sentinel (-40.0 C in the legacy encoding).
+     * Realtime max/min temperature is the validated battery range TS1/TS2.
+     * D014 marks TS3 NC and does not yet qualify TS4/RN4 as a 10K NTC, so
+     * those auxiliary channels are not folded into battery extrema or
+     * published as trusted temperatures until BOM/board evidence exists.
+     * Zero remains the legacy invalid/sensor-break sentinel.
      */
     if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
         g_stCellInfoReport.u16TempMin = bat_temp_min;
@@ -548,8 +557,12 @@ static uint8_t publish_measurements(void)
     else if (s_ntc_valid[SH3673510_D011_BAT_NTC2_INDEX])
         s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_D011_BAT_NTC2_INDEX] / 100u;
     else s_aux.battery_ntc_100ohm = 0u;
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     s_aux.mos_ntc_100ohm = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ?
         s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX] / 100u : 0u;
+#else
+    s_aux.mos_ntc_100ohm = 0u;
+#endif
     s_aux.battery_ntc_mv = legacy_adc_mv(s_aux.battery_ntc_100ohm * 100u);
     s_aux.mos_ntc_mv = legacy_adc_mv(s_aux.mos_ntc_100ohm * 100u);
 
@@ -558,9 +571,14 @@ static uint8_t publish_measurements(void)
         memset(&sw, 0, sizeof(sw));
         sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                               &sw.battery_temp_max);
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
         sw.mos_temp_valid = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX] ? 1u : 0u;
         if (sw.mos_temp_valid)
             sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+#else
+        sw.mos_temp_valid = 0u;
+        sw.mos_temp = 0u;
+#endif
 #if SH3673510_SW_PROTECT_ENABLE
         bms_sw_protection_update(&sw);
 #else

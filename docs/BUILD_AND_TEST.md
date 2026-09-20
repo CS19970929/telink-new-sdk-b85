@@ -43,6 +43,23 @@ python tests/flash_quick_check.py
 ### D013 / SH3673510 4S
 使用当前分支 `.github/workflows/bms-ci.yml` 指定的 D013 integration contract，加 SH family、software protection、AFE HW profile、SOC、Flash contracts。工作流文件是测试入口的最终事实。
 
+### D014 / SH3673510 8S
+
+```bash
+python tests/sh3673520_contract_check.py
+python tests/sh3673510_d014_integration_check.py
+python tests/sh3673510_protection_mode_check.py
+python tests/sh3673510_temperature_encoding_check.py
+python tests/sw_protection_contract_check.py
+python tests/common_feature_policy_contract_check.py
+python tests/afe_hw_profile_contract_check.py
+python tests/afe_hw_access_contract_check.py
+python tests/soc_contract_check.py
+python tests/flash_quick_check.py
+```
+
+D014 integration contract 固定 8S、667µΩ、RS485、D014 GPIO、heater 禁用、balance 启用和 TS3/TS4 可信度边界。
+
 ## 4. CI 的含义
 
 Host contracts 主要验证源码结构、常量、映射和协议契约；TC32 job 验证真实目标编译/link/check-fw/MAP/manifest/verify/cppcheck。两者都不能替代原理图核对、AFE寄存器readback、MOS/短路/温度/低功耗实板验证和最终产品参数签核。

@@ -80,10 +80,10 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 
-static UINT8 d011_switch_is_on(void)
+static UINT8 d014_switch_is_on(void)
 {
 #ifdef _DI_SWITCH_SYS_ONOFF
-	return gpio_read(D011_SWITCH_PIN) ? 0u : 1u;
+	return gpio_read(D014_SWITCH_PIN) ? 0u : 1u;
 #else
 	return 1u;
 #endif
@@ -153,11 +153,11 @@ static void app_event_log_1s_task(void)
 
 static int app_deepsleep_pad_wakeup_active(void)
 {
-	/* Only use D011 schematic-backed wake nets with verified active levels. */
-	if (d011_switch_is_on()) return 1;
-	if (gpio_read(D011_INT_WK_MCU_PIN)) return 1;      /* active high */
-	if (!gpio_read(D011_AFE_ALARM_PIN)) return 1;     /* active low */
-	if (!gpio_read(D011_AFE_RESET_OUT_PIN)) return 1; /* active low */
+	/* Only use D014 schematic-backed wake nets with verified active levels. */
+	if (d014_switch_is_on()) return 1;
+	if (gpio_read(D014_INT_WK_MCU_PIN)) return 1;      /* active high */
+	if (!gpio_read(D014_AFE_ALARM_PIN)) return 1;     /* active low */
+	if (!gpio_read(D014_AFE_RESET_OUT_PIN)) return 1; /* active low */
 	return 0;
 }
 
@@ -280,7 +280,7 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	/* D011 is a common-port BMS. In the healthy normal state both back-to-back
+	/* D014 is a common-port BMS. In the healthy normal state both back-to-back
 	 * FETs are requested ON. The AFE adapter applies direction-specific
 	 * protection/fail-safe blocking; PA0/SW1 is not a DSG gate. */
 	uint8_t chg_target = 1u;
@@ -365,8 +365,8 @@ void app_adc_multi_sample(void)
 	if (sys_time.low_power_mode) return;
 	if (!bms_afe_get_aux_measurements(&aux)) return;
 
-	/* Legacy reporting mirror only.  Protection, heater control and any
-	 * irreversible fuse action belong to the D011 AFE/safety layer. */
+	/* Legacy reporting mirror only. Protection and board features belong to
+	 * the SH3673510/common BMS layers; D014 has no enabled heater output. */
 	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(iSheldTemp_10K_mcu,
 										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 										 (UINT16)aux.battery_ntc_100ohm);
@@ -385,31 +385,27 @@ static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-	/* PB5/HT-RF-EN is an irreversible heater-fuse trigger.  Until its
-	 * complete validated firing state machine exists it is forced LOW only. */
-	gpio_set_func(D011_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
-	gpio_write(D011_HEATER_FUSE_TRIGGER_PIN, D011_HEATER_FUSE_SAFE_LEVEL);
-	gpio_set_input_en(D011_HEATER_FUSE_TRIGGER_PIN, 0);
-	gpio_set_output_en(D011_HEATER_FUSE_TRIGGER_PIN, 1);
+	/* D014 schematic does not assign PB4/PB5 to the D011 heater/fuse path.
+	 * Heater GPIO ownership therefore remains completely disabled. */
 
-	gpio_set_func(D011_SWITCH_PIN, AS_GPIO);
-	gpio_set_input_en(D011_SWITCH_PIN, 1);
-	gpio_set_output_en(D011_SWITCH_PIN, 0);
+	gpio_set_func(D014_SWITCH_PIN, AS_GPIO);
+	gpio_set_input_en(D014_SWITCH_PIN, 1);
+	gpio_set_output_en(D014_SWITCH_PIN, 0);
 
-	/* D011 PD4 controls the isolated communication 3V3 rail; it is not an
+	/* D014 PD4 controls the isolated communication 3V3 rail; it is not an
 	 * MCU-LDO/AFE-protection-enable alias.  Keep communications powered while
 	 * the normal application is running. */
-	gpio_set_func(D011_CMNT_EN_PIN, AS_GPIO);
-	gpio_write(D011_CMNT_EN_PIN, 1);
-	gpio_set_input_en(D011_CMNT_EN_PIN, 0);
-	gpio_set_output_en(D011_CMNT_EN_PIN, 1);
+	gpio_set_func(D014_CMNT_EN_PIN, AS_GPIO);
+	gpio_write(D014_CMNT_EN_PIN, 1);
+	gpio_set_input_en(D014_CMNT_EN_PIN, 0);
+	gpio_set_output_en(D014_CMNT_EN_PIN, 1);
 
 	/* PD3 is the schematic CMNT-WK input.  Its active polarity is not yet
 	 * hardware-verified, so configure it as input but do not invent a wake
 	 * polarity here. */
-	gpio_set_func(D011_CMNT_WK_PIN, AS_GPIO);
-	gpio_set_output_en(D011_CMNT_WK_PIN, 0);
-	gpio_set_input_en(D011_CMNT_WK_PIN, 1);
+	gpio_set_func(D014_CMNT_WK_PIN, AS_GPIO);
+	gpio_set_output_en(D014_CMNT_WK_PIN, 0);
+	gpio_set_input_en(D014_CMNT_WK_PIN, 1);
 }
 
 _attribute_data_retention_ int device_in_connection_state;
@@ -700,13 +696,13 @@ void blt_pm_proc(void)
 	if (sleep_elapsed_sec != 0u)
 	{
 #ifdef _DI_SWITCH_SYS_ONOFF
-		if (!d011_switch_is_on() && !gpio_read(D011_INT_WK_MCU_PIN))
+		if (!d014_switch_is_on() && !gpio_read(D014_INT_WK_MCU_PIN))
 		{
 			sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
 			if (sleep_cnt >= 3u)
 			{
 				sleep_cnt = 0;
-				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
+				cpu_set_gpio_wakeup(D014_SWITCH_PIN, Level_Low, 1);
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
@@ -770,7 +766,7 @@ void blt_pm_proc(void)
 			if (afe_comm_err_sleepcnt >= (60 * 30))
 			{
 				afe_comm_err_sleepcnt = 0;
-				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
+				cpu_set_gpio_wakeup(D014_SWITCH_PIN, Level_Low, 1);
 				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 			}
 		}
@@ -810,8 +806,8 @@ void blt_pm_proc(void)
 	}
 #endif
 
-	// if(!gpio_read(D011_SWITCH_PIN) || g_stCellInfoReport.u16IDischg || )
-	if (!gpio_read(D011_SWITCH_PIN) ||
+	// if(!gpio_read(D014_SWITCH_PIN) || g_stCellInfoReport.u16IDischg || )
+	if (!gpio_read(D014_SWITCH_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
 		g_stCellInfoReport.u16IDischg ||
 		// MODE_FACTORY == Runtime_GetMode() ||
@@ -1090,7 +1086,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		// todo 待测试 , 断线检测测试
 		bms_afe_init();
 
-		cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
+		cpu_set_gpio_wakeup(D014_SWITCH_PIN, Level_Low, 1);
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
 		bms_afe_sample();
