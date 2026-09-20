@@ -47,6 +47,7 @@
 #include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
+#include "param.h"
 #include <string.h>
 
 extern void LoadParam(void);

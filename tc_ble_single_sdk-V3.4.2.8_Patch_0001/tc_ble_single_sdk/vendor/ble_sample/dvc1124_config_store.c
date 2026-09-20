@@ -14,6 +14,7 @@
  */
 static uint8_t s_project_config_pending = 1u;
 
+#if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_project_wdt_code(uint8_t seconds,
                                     dvc1124_i2c_wdt_code_t *code)
 {
@@ -60,6 +61,7 @@ static uint8_t dvc_project_encode_body_diode(uint16_t threshold_uv,
     *code = (uint8_t)(threshold_uv / 40u);
     return 1u;
 }
+#endif
 
 static uint8_t dvc_project_apply_compile_time_config(void)
 {
