@@ -296,7 +296,7 @@ require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
 require(bms, "s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
-require(bms, "void sh3673510_bms_afe_sleep(void)\n{\n    s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;")
+require(bms, "uint8_t sh3673510_bms_afe_sleep(void)\n{\n    s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;")
 require_count(bms, "s_short_latched = 0u;", 2)
 
 

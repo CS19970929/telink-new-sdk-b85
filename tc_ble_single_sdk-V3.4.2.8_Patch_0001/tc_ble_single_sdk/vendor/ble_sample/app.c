@@ -58,6 +58,22 @@ bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
+#define APP_SAMPLE_PERIOD_US  200000u
+
+static u32 s_sample_tick;
+static volatile u8 s_sample_due;
+
+static void app_sample_wakeup(int type)
+{
+    (void)type;
+    s_sample_due = 1u;
+}
+
+static void app_schedule_sample_wakeup(void)
+{
+    bls_pm_setAppWakeupLowPower(
+        s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+}
 
 typedef struct
 {
@@ -149,24 +165,40 @@ static int app_deepsleep_pad_wakeup_active(void)
 
 static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 {
-	int sleep_status;
+    static u32 last_attempt_tick_32k;
+    static u8 attempt_ready;
+    u32 now_tick_32k = pm_get_32k_tick();
+    int sleep_status;
 
-	if (app_deepsleep_pad_wakeup_active())
-	{
-		return 0;
-	}
+    /* These gates must precede every explicit deep-sleep entry, not just the
+     * BLE suspend policy below. Never interrupt OTA/unlocked Flash or UART. */
+    if (ota_is_working || !app_flash_lock_restore_enabled() ||
+        BUS_STATE_OWC_IDLE != bus_mux_get_state() || uart_tx_is_busy() ||
+        app_deepsleep_pad_wakeup_active()) return 0;
 
-	bms_event_log_note_sleep();
-	if (need_afe_sleep)
-	{
-		bms_afe_sleep();
-	}
-	Runtime_PrepareForDeepSleep();
-	sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
-	Runtime_CancelPendingDeepSleep();
-	return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
+    /* Keep an expired sleep request pending, but never spin on failed SPI/PM. */
+    if (attempt_ready && (u32)(now_tick_32k - last_attempt_tick_32k) <
+        3u * APP_PM_TICKS_PER_SEC) return 0;
+    last_attempt_tick_32k = now_tick_32k;
+    attempt_ready = 1u;
+
+    if (need_afe_sleep && !bms_afe_sleep()) return 0;
+    /* GPIO may change during the AFE transaction. The next normal sample
+     * wakes/restores the AFE after an aborted MCU transition. */
+    if (app_deepsleep_pad_wakeup_active()) return 0;
+
+    bms_event_log_note_sleep();
+    Runtime_PrepareForDeepSleep();
+    sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
+    Runtime_CancelPendingDeepSleep();
+    return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
+static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
+{
+    if (elapsed >= limit || increment >= limit - elapsed) return limit;
+    return elapsed + increment;
+}
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
 #define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
 
@@ -688,12 +720,11 @@ void blt_pm_proc(void)
 #ifdef _DI_SWITCH_SYS_ONOFF
 		if (!d011_switch_is_on() && !gpio_read(D011_INT_WK_MCU_PIN))
 		{
-			sleep_cnt = (u16)(sleep_cnt + sleep_elapsed_sec);
+			sleep_cnt = app_pm_elapsed_limit(sleep_cnt, sleep_elapsed_sec, 3u);
 			if (sleep_cnt >= 3u)
 			{
-				sleep_cnt = 0;
 				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
-				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_cnt = 0;
 			}
 		}
 		else
@@ -708,11 +739,10 @@ void blt_pm_proc(void)
 			sleep_vnormal_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
 
-			sleep_veryvlow_cnt += sleep_elapsed_sec;
+			sleep_veryvlow_cnt = app_pm_elapsed_limit(sleep_veryvlow_cnt, sleep_elapsed_sec, (60 * 60 * 1));
 			if (sleep_veryvlow_cnt >= (60 * 60 * 1))
 			{
-				sleep_veryvlow_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_veryvlow_cnt = 0;
 			}
 		}
 		// else if ((g_stCellInfoReport.u16VCellMin <= 2750 && !g_stCellInfoReport.u16Ichg) || deepsleep_en)
@@ -725,11 +755,10 @@ void blt_pm_proc(void)
 			// 	deepsleep_en = false;
 			// 	sleep_vlow_cnt = (60 * 60 * 1);
 			// }
-			sleep_vlow_cnt += sleep_elapsed_sec;
+			sleep_vlow_cnt = app_pm_elapsed_limit(sleep_vlow_cnt, sleep_elapsed_sec, __SLEEP_TIMEVLOW__);
 			if (sleep_vlow_cnt >= __SLEEP_TIMEVLOW__)
 			{
-				sleep_vlow_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_vlow_cnt = 0;
 			}
 		}
 		else if ((g_stCellInfoReport.u16VCellMin < __SLEEP_VNORMAL__ && !g_stCellInfoReport.u16Ichg))
@@ -738,12 +767,11 @@ void blt_pm_proc(void)
 			sleep_vlow_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
 
-			sleep_vnormal_cnt += sleep_elapsed_sec;
+			sleep_vnormal_cnt = app_pm_elapsed_limit(sleep_vnormal_cnt, sleep_elapsed_sec, __SLEEP_TIMENORMAL__);
 			if (sleep_vnormal_cnt >= __SLEEP_TIMENORMAL__)
 			// if (sleep_vnormal_cnt >= (60 * 30))
 			{
-				sleep_vnormal_cnt = 0;
-				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_vnormal_cnt = 0;
 			}
 		}
 		else if (bms_error_get(BMS_ERROR_AFE1) != 0u)
@@ -752,12 +780,11 @@ void blt_pm_proc(void)
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
 
-			afe_comm_err_sleepcnt += sleep_elapsed_sec;
+			afe_comm_err_sleepcnt = app_pm_elapsed_limit(afe_comm_err_sleepcnt, sleep_elapsed_sec, (60 * 30));
 			if (afe_comm_err_sleepcnt >= (60 * 30))
 			{
-				afe_comm_err_sleepcnt = 0;
 				cpu_set_gpio_wakeup(D011_SWITCH_PIN, Level_Low, 1);
-				app_note_sleep_and_enter_deepsleep(1u); // deepsleep
+				if (app_note_sleep_and_enter_deepsleep(1u)) afe_comm_err_sleepcnt = 0;
 			}
 		}
 		else
@@ -1098,6 +1125,14 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
+    /* Protection/SOC depend on a real 200 ms acquisition cadence even while
+     * BLE suspend is enabled. The PM callback only marks work due; AFE/SOC
+     * operations remain in the cooperative main loop. */
+    s_sample_tick = clock_time();
+    s_sample_due = 0u;
+    bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);
+    app_schedule_sample_wakeup();
+
 	mos_update();
 	bms_diag_set_boot_result(
 		g_bms_system_status.bits.b1Status_AFE1 ? DIAG_OK : DIAG_INVALID,
@@ -1285,7 +1320,39 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 // main loop flow
 /////////////////////////////////////////////////////////////////////
 
-_attribute_data_retention_ static u32 test_task_tick = 0;
+static void app_sample_task(void)
+{
+    bms_afe_aux_measurements_t sample;
+    u8 sample_valid;
+
+    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
+        return;
+
+    s_sample_due = 0u;
+    s_sample_tick = clock_time();
+    bms_afe_sample();
+
+    /* Do not advance coulomb/OCV/filter time from a cached pre-fault sample.
+     * The common guard exposes auxiliary data only after communication and
+     * fresh-snapshot qualification have both succeeded. */
+    sample_valid = bms_afe_get_aux_measurements(&sample);
+    APP_SOC_IntEnhance_Ctrl(sample_valid,
+                            sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0,
+                            sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
+
+    mos_update();
+    bms_diag_poll_runtime(sample_valid,
+                          sample_valid ? sample.current_ma : 0,
+                          sample_valid ? sample.sample_tick_32k : pm_get_32k_tick(),
+                          (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
+
+    /* Coalesce an overrun instead of executing multiple catch-up samples:
+     * software protection filters are sample-count based at 200 ms. */
+    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
+        s_sample_due = 1u;
+    app_schedule_sample_wakeup();
+}
+
 
 /**
  * @brief		This is main_loop function
@@ -1309,23 +1376,7 @@ _attribute_no_inline_ void main_loop(void)
 		user_battery_power_check(VBAT_DEEP_THRES_MV);
 	}
 #endif
-	if (clock_time_exceed(test_task_tick, 1000 * 200))
-	{
-		bms_afe_aux_measurements_t sample;
-		u8 sample_valid;
-		test_task_tick = clock_time();
-		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
-		bms_afe_sample();
-		sample_valid = bms_afe_get_aux_measurements(&sample);
-		APP_SOC_IntEnhance_Ctrl(sample_valid,
-		                       sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0,
-		                       sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
-		mos_update();
-		bms_diag_poll_runtime(sample_valid,
-		                      sample_valid ? sample.current_ma : 0,
-		                      sample_valid ? sample.sample_tick_32k : pm_get_32k_tick(),
-		                      (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
-	}
+    app_sample_task();
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 	{

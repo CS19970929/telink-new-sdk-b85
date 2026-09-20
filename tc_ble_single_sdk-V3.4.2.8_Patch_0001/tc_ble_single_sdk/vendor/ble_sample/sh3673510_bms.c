@@ -701,7 +701,7 @@ uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
     return 1u;
 }
 
-void sh3673510_bms_afe_sleep(void)
+uint8_t sh3673510_bms_afe_sleep(void)
 {
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -709,8 +709,12 @@ void sh3673510_bms_afe_sleep(void)
     s_valid_snapshot_streak = 0u;
     s_fet_command_valid = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
-    sh3673510_board_force_heater_fuse_safe();
+    /* Even an aborted transition invalidates the old driver/sample evidence. */
+    s_snapshot_valid = 0u;
+    if (!sh3673510_control_sleep()) {
+        note_comm_error();
+        return 0u;
+    }
     s_balance_mask = 0u;
-    (void)sh3673510_control_set_balance(0u);
-    sh3673510_control_sleep();
+    return 1u;
 }

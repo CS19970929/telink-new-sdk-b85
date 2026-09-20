@@ -47,3 +47,6 @@
 ## 7. 证据格式
 
 每项测试必须记录 D013 原理图/BOM版本、板号、固件 commit、AFE型号/版本、Rsense、requested/effective、仪器、环境、波形/日志和结论。在原理图未补齐前，不允许把当前编译成功描述为 D013 硬件验收完成。
+## 2026-09-21 低功耗失败闭环
+
+- [ ] 按 [SH低功耗修复说明](SH_LOW_POWER_FAILURE_HANDLING.md) 验证逐级休眠失败、SLEEP ACK丢失、SPI持续失联功耗、OTA/UART互锁、PAD竞争及BLE下200ms采样周期；Host通过不关闭此项。

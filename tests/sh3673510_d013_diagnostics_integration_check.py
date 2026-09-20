@@ -19,7 +19,9 @@ def main() -> int:
     afe = (BLE / "sh3673510_bms.c").read_text(encoding="utf-8", errors="ignore")
 
     for token in (
-        "clock_time_exceed(test_task_tick, 1000 * 200)",
+        "app_sample_task();",
+        "bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)",
+        "bls_pm_setAppWakeupLowPower(",
         "sample_valid = bms_afe_get_aux_measurements(&sample);",
         "bms_diag_poll_runtime(sample_valid,",
         "sample_valid ? sample.current_ma : 0",
