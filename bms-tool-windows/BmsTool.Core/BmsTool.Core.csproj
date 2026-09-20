@@ -18,6 +18,7 @@
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="BmsDiagnostics.cs" />
     <Compile Include="..\Shared\BmsHealth.cs" Link="BmsHealth.cs" />
     <Compile Include="..\Shared\BmsTestEngine.cs" Link="BmsTestEngine.cs" />
+    <Compile Include="..\Shared\ProductSupport.cs" Link="ProductSupport.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="BmsClient.Diagnostics.cs" />
     <Compile Include="..\Shared\D008Parameters.cs" Link="D008Parameters.cs" />
     <Compile Include="..\Shared\BmsClient.Parameters.cs" Link="BmsClient.Parameters.cs" />

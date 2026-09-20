@@ -96,9 +96,12 @@ static class Test
             var before=Path.Combine(dir,"before.zip");var after=Path.Combine(dir,"after.zip");
             CreateComparisonBundle(before,"8af89d22",73);CreateComparisonBundle(after,"12345678",74);
             var comparison=DiagnosticBundleComparer.Compare(before,after);
-            Check(comparison.Differences.Any(x=>x.Entry=="manifest.json"&&x.Path=="$.firmware_git_commit")&&
-                comparison.Differences.Any(x=>x.Entry=="soc.json"&&x.Path=="$[field=SOC estimate].value"),"offline diagnostic bundle comparison");
+            Check(comparison.Differences.Any(x=>x.Category=="identity"&&x.Entry=="manifest.json"&&x.Path=="$.firmware_git_commit")&&
+                comparison.Differences.Any(x=>x.Category=="runtime"&&x.Entry=="soc.json"&&x.Path=="$[field=SOC estimate].value"),"offline diagnostic bundle comparison");
+            var runtimeComparison=DiagnosticBundleComparer.Filter(comparison,"runtime");
+            Check(runtimeComparison.DifferenceCount==1&&runtimeComparison.Differences[0].Entry=="soc.json","diagnostic comparison category filter");
         } finally {Directory.Delete(dir,true);}
+        Check(ProductSupportMatrix.Products.Count==4&&ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix");
         var malformed=new DiagnosticCapture();bool rejected=false;
         try {BmsDiagnostics.Decode(malformed,new ushort[2]);}catch(InvalidDataException){rejected=true;}
         Check(rejected,"short snapshot");

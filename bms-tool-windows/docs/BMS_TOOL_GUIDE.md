@@ -27,6 +27,8 @@ Windows、Android 和 CLI 不应各自复制协议或 OTA 成功逻辑。平台�
 
 功能选择必须根据 capability、magic、schema 和 AFE model，不能根据广播名或分支名猜测。D008 专用参数页不得向其他产品发送 `0x2E00` 写命令。
 
+该矩阵同时由共享 `ProductSupportMatrix` 提供给 Windows、Android/Core 和 CLI。自动化使用 `bms-cli capabilities --json` 获取版本与证据边界，避免脚本复制一份容易过期的表。
+
 ## 3. 通信与发现
 
 - BLE 只显示 `BT_`、`BT-`，以及经 Nordic UART service 验证的兼容无名设备。
@@ -79,18 +81,19 @@ AFE Hardware V2 的 Requested、Metadata、Effective 是所有已适配产品的
 ## 6. CLI 命令
 
 ```powershell
+bms-cli capabilities --json
 bms-cli scan [--scan-seconds 4] [--json]
 bms-cli info (--mac MAC | --name NAME | --auto | --serial COMx) [--baud 19200] [--json]
 bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
 bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx) --interval 5 --count 0 --reconnect --output monitor.jsonl --json
 bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
 bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output diag.zip] [--json]
-bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx) --count 20 --delay-ms 500 --json
+bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx) --count 20 --delay-ms 500 --output connection-test.json --json
 bms-cli test soc (--mac MAC | --name NAME | --auto | --serial COMx) --count 10 --interval 1 --output soc-test.json --json
 bms-cli test diag (--mac MAC | --name NAME | --auto | --serial COMx) --count 3 --interval 1 --full --output diag-test.json --json
 bms-cli parameters get (--mac MAC | --name NAME | --auto | --serial COMx) --json
 bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx) --output parameters.zip --json
-bms-cli compare before-diag.zip after-diag.zip --json
+bms-cli compare before-diag.zip after-diag.zip --scope all --output compare.md --json
 bms-cli ota firmware.bin (--mac MAC | --name NAME | --auto | --serial COMx) --target auto --mode auto --yes --json
 ```
 
@@ -98,11 +101,11 @@ bms-cli ota firmware.bin (--mac MAC | --name NAME | --auto | --serial COMx) --ta
 
 ## 7. 自动测试与判定
 
-- `test connection`：每轮新建 transport、probe、读身份/Build ID、释放连接，记录成功率和耗时。
+- `test connection`：每轮新建 transport、probe、读身份/Build ID、释放连接，记录逐轮 UTC、失败类型、成功率以及 min/P50/P95/max 耗时；`--output` 保存独立 JSON 报告。
 - `test soc`：检查读取完整性、SOC/SOH 范围、容量关系、profile、ETA 一致性和 Build ID 稳定性。
 - `test diag`：检查 snapshot、trace、errors、Build ID 以及多轮稳定性；`--full` 读取完整证据。
 - `health`：只依据 capability 声明和真实数据输出 `pass/info/warning/critical/unknown`，不硬编码未知产品安全阈值。
-- `compare`：离线比较升级前后 ZIP，按字段对齐，忽略采集时间。
+- `compare`：离线比较升级前后 ZIP，按字段对齐，忽略采集时间；差异分为 `identity / configuration / runtime`，可用 `--scope` 过滤并用 `--output` 生成 Markdown 报告。
 
 exit code 0 表示命令成功；2 参数/确认错误；10 未找到设备；11 多设备拒绝自动选择；12 连接失败；20/21/22 为 BIN/产品/尺寸预检失败；30 OTA 传输失败；33 OTA 证据不足；40 OTA 后通信恢复失败；41 目标版本不匹配；50 自动测试存在失败项；130 取消。
 

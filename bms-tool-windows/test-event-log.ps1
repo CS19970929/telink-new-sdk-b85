@@ -32,6 +32,6 @@ static class Test {
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $testRoot "Test.cs") -Encoding UTF8
-'<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net7.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>' | Set-Content -LiteralPath (Join-Path $testRoot "Test.csproj") -Encoding UTF8
+'<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>' | Set-Content -LiteralPath (Join-Path $testRoot "Test.csproj") -Encoding UTF8
 & dotnet run --project (Join-Path $testRoot "Test.csproj") -c Release
 if ($LASTEXITCODE -ne 0) { throw "事件日志协议测试失败" }

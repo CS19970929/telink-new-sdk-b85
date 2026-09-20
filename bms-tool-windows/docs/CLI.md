@@ -14,17 +14,18 @@
 ## 命令
 
 ```powershell
+bms-cli capabilities
 bms-cli scan
 bms-cli info --auto
 bms-cli health --auto
 bms-cli soc --auto
 bms-cli monitor soc --auto --interval 5
 bms-cli diag --auto
-bms-cli test connection --auto --count 10
+bms-cli test connection --auto --count 10 --output connection-test.json
 bms-cli test soc --auto --count 10 --output soc-test.json
 bms-cli test diag --auto --count 3 --full --output diag-test.json
 bms-cli parameters export --auto --output parameters.zip
-bms-cli compare before.zip after.zip
+bms-cli compare before.zip after.zip --scope all --output compare.md
 bms-cli ota firmware.bin --auto
 ```
 
@@ -98,6 +99,8 @@ bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --delay-ms 500 --json
 
 每轮都会重新建立 transport、完成 Modbus probe、读取身份/实时状态/Build ID；D008 capability 是可选证据，然后释放连接。任一轮失败时仍输出全部尝试记录，并以 exit code 50 结束。
 
+报告包含每轮 UTC、错误类型、成功率、平均值以及 min/P50/P95/max 成功耗时。`--output` 保存独立 JSON，便于长稳回归留档；原有 JSON 顶层字段保持兼容，新指标只做追加。当前统计的是“连接 + probe + 身份/实时读取”的端到端耗时；RSSI、GATT status、首帧与断开阶段耗时仍属于后续 transport instrumentation。
+
 只读取 typed SOC Runtime Diagnostics v2：
 
 ```powershell
@@ -116,10 +119,18 @@ bms-cli test soc --mac A4:C1:38:12:34:56 --count 10 --interval 1 --output .\soc-
 bms-cli test diag --mac A4:C1:38:12:34:56 --count 3 --interval 1 --full --output .\diag-test.json --json
 bms-cli parameters get --mac A4:C1:38:12:34:56 --json
 bms-cli parameters export --mac A4:C1:38:12:34:56 --output .\parameters.zip --json
-bms-cli compare .\before-diag.zip .\after-diag.zip --json
+bms-cli compare .\before-diag.zip .\after-diag.zip --scope configuration --output .\compare.md --json
 ```
 
-`test soc/diag` 的 exit code 50 表示测试完成但至少一个检查项失败；JSON 报告仍保存全部逐轮证据。`compare` 按 `Id/Field` 对齐数组项并忽略采集时间，只报告真实字段差异。
+`test soc/diag` 的 exit code 50 表示测试完成但至少一个检查项失败；JSON 报告仍保存全部逐轮证据。`compare` 按 `Id/Field` 对齐数组项并忽略采集时间，只报告真实字段差异；原有 `beforePath / afterPath / differenceCount / differences` 保持顶层兼容，新增 `categoryCounts / scope / output`。`--scope` 可选择 `all / identity / configuration / runtime`，`--output` 输出适合审查与归档的 Markdown。
+
+无需连接设备即可读取统一产品矩阵：
+
+```powershell
+bms-cli capabilities --json
+```
+
+该输出同时说明 Diagnostics/Runtime/参数协议版本和当前硬件证据边界；“软件已适配”不等于“对应实板已验收”。
 
 同时生成现有 AI 诊断包：
 

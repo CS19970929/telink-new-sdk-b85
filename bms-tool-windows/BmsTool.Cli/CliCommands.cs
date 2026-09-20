@@ -8,6 +8,7 @@ internal static class CliCommands
 {
     private sealed record ConnectionTestAttempt(
         int Attempt,
+        DateTimeOffset StartedUtc,
         bool Success,
         long DurationMs,
         string? Hardware,
@@ -22,6 +23,7 @@ internal static class CliCommands
 @"bms-cli - BMS command-line tool for humans, scripts and AI agents
 
 Usage:
+  bms-cli capabilities [--json]
   bms-cli scan [--scan-seconds 4] [--json]
   bms-cli info (--mac MAC | --name NAME | --auto | --serial COMx) [--baud 19200] [--json]
   bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
@@ -31,12 +33,13 @@ Usage:
   bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
   bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx)
-                  [--count 10] [--delay-ms 500] [--json]
+                  [--count 10] [--delay-ms 500] [--output report.json] [--json]
   bms-cli test soc (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--count 10] [--interval 1] [--output report.json] [--json]
   bms-cli test diag (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--count 3] [--interval 1] [--full] [--output report.json] [--json]
-  bms-cli compare <before-diag.zip> <after-diag.zip> [--json]
+  bms-cli compare <before-diag.zip> <after-diag.zip>
+                  [--scope all|identity|configuration|runtime] [--output report.md] [--json]
   bms-cli parameters get (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx)
                   --output parameters.zip [--json]
@@ -58,6 +61,7 @@ Safety:
     public static Task<int> ExecuteAsync(CliOptions options, CliReporter reporter, CancellationToken ct) =>
         options.Command switch
         {
+            "capabilities" => CapabilitiesAsync(options, reporter, ct),
             "scan" => ScanAsync(options, reporter, ct),
             "info" => InfoAsync(options, reporter, ct),
             "soc" => SocAsync(options, reporter, ct),
@@ -393,6 +397,7 @@ Safety:
             capture.Errors,
             output = outputPath
         };
+
         reporter.Success("health", data);
         if (!reporter.Json)
         {
@@ -402,6 +407,30 @@ Safety:
             if (outputPath is not null) Console.WriteLine("Health bundle: " + outputPath);
         }
         return ExitCodes.Success;
+    }
+
+    private static Task<int> CapabilitiesAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (options.Positionals.Count != 0)
+            throw new CliException(ExitCodes.Usage, "usage", "capabilities does not accept positional arguments.");
+        var data = new
+        {
+            schema = ProductSupportMatrix.Schema,
+            products = ProductSupportMatrix.Products
+        };
+        reporter.Success("capabilities", data);
+        if (!reporter.Json)
+        {
+            foreach (ProductSupportProfile product in ProductSupportMatrix.Products)
+            {
+                string parameters = product.D008ParametersVersion is int version ? $"v{version}" : "n/a";
+                Console.WriteLine($"{product.Product}: {product.Afe} {product.AfeModel}; diagnostics v{product.DiagnosticsSchema}; runtime v{product.RuntimeVersion}; AFE HW V2={product.AfeHardwareV2}; D008 params={parameters}");
+                Console.WriteLine("  Software: " + product.SoftwareEvidence);
+                Console.WriteLine("  Hardware: " + product.HardwareEvidence);
+            }
+        }
+        return Task.FromResult(ExitCodes.Success);
     }
 
     private static async Task<int> TestAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
@@ -419,18 +448,20 @@ Safety:
         int delayMs = options.GetInt("delay-ms", 500, 0, 60000);
         CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
         var attempts = new List<ConnectionTestAttempt>(count);
+        DateTimeOffset startedUtc = DateTimeOffset.UtcNow;
 
         for (int attempt = 1; attempt <= count; attempt++)
         {
             ct.ThrowIfCancellationRequested();
             reporter.Status($"Connection test {attempt}/{count}: {endpoint.Display}");
+            DateTimeOffset attemptStartedUtc = DateTimeOffset.UtcNow;
             var timer = Stopwatch.StartNew();
             try
             {
                 await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
                 DeviceSnapshot snapshot = await CliRuntime.ReadSnapshotAsync(connection, ct);
                 timer.Stop();
-                attempts.Add(new ConnectionTestAttempt(attempt, true, timer.ElapsedMilliseconds,
+                attempts.Add(new ConnectionTestAttempt(attempt, attemptStartedUtc, true, timer.ElapsedMilliseconds,
                     snapshot.Identity.Hardware, snapshot.Identity.Software,
                     snapshot.FirmwareBuildId?.ToString("x8"), snapshot.IsD008, null));
             }
@@ -438,7 +469,7 @@ Safety:
             catch (Exception ex)
             {
                 timer.Stop();
-                attempts.Add(new ConnectionTestAttempt(attempt, false, timer.ElapsedMilliseconds,
+                attempts.Add(new ConnectionTestAttempt(attempt, attemptStartedUtc, false, timer.ElapsedMilliseconds,
                     null, null, null, null, ex.GetType().Name + ": " + ex.Message));
             }
 
@@ -448,17 +479,56 @@ Safety:
 
         int succeeded = attempts.Count(x => x.Success);
         int failed = attempts.Count - succeeded;
-        double? averageMs = succeeded == 0 ? null : attempts.Where(x => x.Success).Average(x => x.DurationMs);
-        var data = new
+        long[] successfulDurations = attempts.Where(x => x.Success).Select(x => x.DurationMs).Order().ToArray();
+        double? averageMs = successfulDurations.Length == 0 ? null : successfulDurations.Average();
+        DateTimeOffset finishedUtc = DateTimeOffset.UtcNow;
+        var report = new
         {
+            schema = 1,
+            test = "connection",
             endpoint = endpoint.Display,
+            startedUtc,
+            finishedUtc,
+            durationMs = (long)(finishedUtc - startedUtc).TotalMilliseconds,
             count,
             delayMs,
             succeeded,
             failed,
+            passed = failed == 0,
             successRatePercent = Math.Round(succeeded * 100.0 / count, 2),
             averageSuccessDurationMs = averageMs is null ? (double?)null : Math.Round(averageMs.Value, 1),
+            minSuccessDurationMs = successfulDurations.Length == 0 ? (long?)null : successfulDurations[0],
+            p50SuccessDurationMs = Percentile(successfulDurations, 0.50),
+            p95SuccessDurationMs = Percentile(successfulDurations, 0.95),
+            maxSuccessDurationMs = successfulDurations.Length == 0 ? (long?)null : successfulDurations[^1],
+            failureKinds = attempts.Where(x => !x.Success)
+                .GroupBy(x => x.Error?.Split(':', 2)[0] ?? "Unknown", StringComparer.Ordinal)
+                .ToDictionary(x => x.Key, x => x.Count(), StringComparer.Ordinal),
             attempts
+        };
+        string? outputPath = SaveJsonOutput(options.Get("output"), report);
+        var data = new
+        {
+            report.schema,
+            report.test,
+            report.endpoint,
+            report.startedUtc,
+            report.finishedUtc,
+            report.durationMs,
+            report.count,
+            report.delayMs,
+            report.succeeded,
+            report.failed,
+            report.passed,
+            report.successRatePercent,
+            report.averageSuccessDurationMs,
+            report.minSuccessDurationMs,
+            report.p50SuccessDurationMs,
+            report.p95SuccessDurationMs,
+            report.maxSuccessDurationMs,
+            report.failureKinds,
+            report.attempts,
+            output = outputPath
         };
         reporter.Success("test connection", data);
         if (!reporter.Json)
@@ -467,8 +537,18 @@ Safety:
                 Console.WriteLine($"#{attempt.Attempt}: {(attempt.Success ? "PASS" : "FAIL")} {attempt.DurationMs} ms" +
                     (attempt.Error is null ? $" {attempt.Hardware}/{attempt.Software} {attempt.FirmwareBuildId}" : " " + attempt.Error));
             Console.WriteLine($"Connection test: {succeeded}/{count} passed, success rate {succeeded * 100.0 / count:F2}%");
+            if (successfulDurations.Length != 0)
+                Console.WriteLine($"Latency: min {successfulDurations[0]} ms / P50 {Percentile(successfulDurations, 0.50)} ms / P95 {Percentile(successfulDurations, 0.95)} ms / max {successfulDurations[^1]} ms");
+            if (outputPath is not null) Console.WriteLine("Connection test report: " + outputPath);
         }
         return failed == 0 ? ExitCodes.Success : ExitCodes.TestFailed;
+    }
+
+    private static long? Percentile(long[] sortedValues, double percentile)
+    {
+        if (sortedValues.Length == 0) return null;
+        int index = (int)Math.Ceiling(percentile * sortedValues.Length) - 1;
+        return sortedValues[Math.Clamp(index, 0, sortedValues.Length - 1)];
     }
 
     private static async Task<int> RunSharedTestAsync(
@@ -517,21 +597,80 @@ Safety:
         string after = Path.GetFullPath(options.Positionals[1]);
         if (!File.Exists(before) || !File.Exists(after))
             throw new CliException(ExitCodes.Usage, "bundle_not_found", "Both diagnostic ZIP files must exist.");
+        string scope = (options.Get("scope") ?? "all").Trim().ToLowerInvariant();
         DiagnosticBundleComparison comparison;
-        try { comparison = DiagnosticBundleComparer.Compare(before, after); }
+        try
+        {
+            comparison = DiagnosticBundleComparer.Filter(
+                DiagnosticBundleComparer.Compare(before, after), scope);
+        }
         catch (Exception ex) when (ex is InvalidDataException or IOException)
         {
             throw new CliException(ExitCodes.Usage, "bundle_invalid", ex.Message, inner: ex);
         }
-        reporter.Success("compare", comparison);
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new CliException(ExitCodes.Usage, "usage", ex.Message, inner: ex);
+        }
+        string? outputPath = SaveComparisonMarkdown(options.Get("output"), comparison, scope);
+        reporter.Success("compare", new
+        {
+            comparison.BeforePath,
+            comparison.AfterPath,
+            comparison.DifferenceCount,
+            comparison.Differences,
+            comparison.CategoryCounts,
+            scope,
+            output = outputPath
+        });
         if (!reporter.Json)
         {
-            Console.WriteLine($"Diagnostic differences: {comparison.DifferenceCount}");
+            Console.WriteLine($"Diagnostic differences ({scope}): {comparison.DifferenceCount}");
             foreach (DiagnosticBundleDifference difference in comparison.Differences)
-                Console.WriteLine($"{difference.Entry} {difference.Path}: {difference.Before ?? "<missing>"} -> {difference.After ?? "<missing>"}");
+                Console.WriteLine($"[{difference.Category}] {difference.Entry} {difference.Path}: {difference.Before ?? "<missing>"} -> {difference.After ?? "<missing>"}");
+            if (outputPath is not null) Console.WriteLine("Comparison report: " + outputPath);
         }
         return Task.FromResult(ExitCodes.Success);
     }
+
+    private static string? SaveComparisonMarkdown(
+        string? output,
+        DiagnosticBundleComparison comparison,
+        string scope)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return null;
+        string path = Path.GetFullPath(output);
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        var lines = new List<string>
+        {
+            "# BMS diagnostic comparison",
+            "",
+            $"- Scope: `{scope}`",
+            $"- Before: `{comparison.BeforePath}`",
+            $"- After: `{comparison.AfterPath}`",
+            $"- Differences: {comparison.DifferenceCount}",
+            ""
+        };
+        foreach (IGrouping<string, DiagnosticBundleDifference> group in
+                 comparison.Differences.GroupBy(x => x.Category, StringComparer.OrdinalIgnoreCase))
+        {
+            lines.Add("## " + group.Key);
+            lines.Add("");
+            lines.Add("| Entry | Path | Before | After |");
+            lines.Add("|---|---|---|---|");
+            foreach (DiagnosticBundleDifference difference in group)
+                lines.Add($"| {MarkdownCell(difference.Entry)} | {MarkdownCell(difference.Path)} | {MarkdownCell(difference.Before)} | {MarkdownCell(difference.After)} |");
+            lines.Add("");
+        }
+        if (comparison.DifferenceCount == 0)
+            lines.Add("No differences in the selected scope.");
+        File.WriteAllLines(path, lines, new System.Text.UTF8Encoding(false));
+        return path;
+    }
+
+    private static string MarkdownCell(string? value) =>
+        (value ?? "<missing>").Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
     private static async Task<int> ParametersAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {

@@ -43,6 +43,6 @@ static class Tests {
 }
 '@
 $source.Replace('__SAMPLE__',$sample).Replace('__DECODE__',$decode) | Set-Content -LiteralPath (Join-Path $out 'Tests.cs') -Encoding UTF8
-'<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net7.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>' | Set-Content -LiteralPath (Join-Path $out 'Tests.csproj') -Encoding UTF8
+'<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup></Project>' | Set-Content -LiteralPath (Join-Path $out 'Tests.csproj') -Encoding UTF8
 & dotnet run --project (Join-Path $out 'Tests.csproj') -c Release
 if($LASTEXITCODE -ne 0){throw "Flash endurance protocol test failed"}

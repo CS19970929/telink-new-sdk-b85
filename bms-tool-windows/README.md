@@ -97,14 +97,15 @@ AI/Codex：
 bms-cli scan --json
 bms-cli info --auto --json
 bms-cli health --mac A4:C1:38:12:34:56 --output .\D008_health.zip --json
-bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --json
+bms-cli capabilities --json
+bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --output .\connection-test.json --json
 bms-cli test soc --mac A4:C1:38:12:34:56 --count 10 --output .\soc-test.json --json
 bms-cli test diag --mac A4:C1:38:12:34:56 --count 3 --full --output .\diag-test.json --json
 bms-cli monitor soc --mac A4:C1:38:12:34:56 --reconnect --output .\soc-monitor.jsonl --json
 bms-cli parameters export --mac A4:C1:38:12:34:56 --output .\parameters.zip --json
 bms-cli ota .\firmware.bin --mac A4:C1:38:12:34:56 --evidence-dir .\ota-evidence --yes --json
 bms-cli diag --mac A4:C1:38:12:34:56 --output .\D008_diag.zip --json
-bms-cli compare .\before.zip .\after.zip --json
+bms-cli compare .\before.zip .\after.zip --scope all --output .\compare.md --json
 ```
 
 `--json` 的 stdout 是稳定 JSON 契约，通信细节只在 `--verbose` 时写到 stderr；自动 OTA 使用 `--yes`，不会弹 UI 或等待图形交互。完整说明见 [BMS CLI：快速 OTA 与 AI 实板诊断](docs/CLI.md)。

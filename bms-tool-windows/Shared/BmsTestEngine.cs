@@ -223,6 +223,7 @@ public static class BmsTestEngine
 }
 
 public sealed record DiagnosticBundleDifference(
+    string Category,
     string Entry,
     string Path,
     string? Before,
@@ -234,6 +235,9 @@ public sealed class DiagnosticBundleComparison
     public string AfterPath { get; init; } = "";
     public int DifferenceCount => Differences.Count;
     public IReadOnlyList<DiagnosticBundleDifference> Differences { get; init; } = Array.Empty<DiagnosticBundleDifference>();
+    public IReadOnlyDictionary<string, int> CategoryCounts => Differences
+        .GroupBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(x => x.Key, x => x.Count(), StringComparer.OrdinalIgnoreCase);
 }
 
 public static class DiagnosticBundleComparer
@@ -267,7 +271,8 @@ public static class DiagnosticBundleComparer
                 left.TryGetValue(path, out string? oldValue);
                 right.TryGetValue(path, out string? newValue);
                 if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
-                    differences.Add(new DiagnosticBundleDifference(entryName, path, oldValue, newValue));
+                    differences.Add(new DiagnosticBundleDifference(
+                        CategoryForEntry(entryName), entryName, path, oldValue, newValue));
             }
         }
 
@@ -278,6 +283,33 @@ public static class DiagnosticBundleComparer
             Differences = differences
         };
     }
+
+    public static DiagnosticBundleComparison Filter(
+        DiagnosticBundleComparison comparison,
+        string category)
+    {
+        category = category.Trim().ToLowerInvariant();
+        if (category == "all")
+            return comparison;
+        if (category is not ("identity" or "configuration" or "runtime"))
+            throw new ArgumentOutOfRangeException(nameof(category), category,
+                "Category must be all, identity, configuration or runtime.");
+        return new DiagnosticBundleComparison
+        {
+            BeforePath = comparison.BeforePath,
+            AfterPath = comparison.AfterPath,
+            Differences = comparison.Differences
+                .Where(x => string.Equals(x.Category, category, StringComparison.OrdinalIgnoreCase))
+                .ToArray()
+        };
+    }
+
+    private static string CategoryForEntry(string entryName) => entryName switch
+    {
+        "manifest.json" or "boot.json" => "identity",
+        "storage.json" or "parameters.json" or "afe.json" => "configuration",
+        _ => "runtime"
+    };
 
     private static Dictionary<string, string?> ReadFlat(ZipArchive zip, string entryName)
     {
