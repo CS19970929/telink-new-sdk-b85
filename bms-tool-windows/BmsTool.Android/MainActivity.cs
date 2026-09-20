@@ -10,6 +10,12 @@ using System.Text;
 namespace BmsTool.Android;
 
 [Activity(Label = "BMS Tool", MainLauncher = true, Exported = true, ScreenOrientation = ScreenOrientation.Portrait)]
+[IntentFilter(new[] { Intent.ActionView },
+    Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
+    DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
+[IntentFilter(new[] { Intent.ActionSend },
+    Categories = new[] { Intent.CategoryDefault },
+    DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
 public sealed partial class MainActivity : Activity
 {
     private const string LogTag = "BmsTool.Android";
@@ -35,6 +41,7 @@ public sealed partial class MainActivity : Activity
         BuildUi();
         ApplyIntentValues();
         _ = RefreshFirmwareInboxAsync();
+        _ = HandleIncomingFirmwareIntentAsync(Intent);
         RequestBluetoothPermissions();
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
@@ -49,6 +56,14 @@ public sealed partial class MainActivity : Activity
         if (operation is not ("ota" or "info")) return;
         _intentStarted = true;
         _ = RunIntentOperationAsync(operation);
+    }
+
+    protected override void OnNewIntent(Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        if (intent is null) return;
+        Intent = intent;
+        _ = HandleIncomingFirmwareIntentAsync(intent);
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
@@ -73,12 +88,48 @@ public sealed partial class MainActivity : Activity
         string? firmware = Intent.GetStringExtra("firmware");
         string? firmwareInboxName = Intent.GetStringExtra("firmware_inbox_name");
         string? expectedSerial = Intent.GetStringExtra("expected_serial");
-        if (!string.IsNullOrWhiteSpace(mac)) _macInput!.Text = mac;
+        string rememberedMac = GetPreferences(FileCreationMode.Private)?.GetString("last_bms_mac", string.Empty)
+            ?? string.Empty;
+        _macInput!.Text = !string.IsNullOrWhiteSpace(mac)
+            ? mac
+            : rememberedMac;
         if (!string.IsNullOrWhiteSpace(firmwareInboxName) && AndroidFirmwareInbox.IsValidFileName(firmwareInboxName))
             _firmwareInput!.Text = Path.Combine(FirmwareInboxDirectory(), firmwareInboxName);
         else if (!string.IsNullOrWhiteSpace(firmware))
             _firmwareInput!.Text = firmware;
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
+    }
+
+    private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)
+    {
+        global::Android.Net.Uri? uri = null;
+        if (intent?.Action == Intent.ActionView)
+            uri = intent.Data;
+        else if (intent?.Action == Intent.ActionSend)
+        {
+            if (intent.ClipData?.ItemCount > 0)
+                uri = intent.ClipData.GetItemAt(0)?.Uri;
+            if (uri is null && OperatingSystem.IsAndroidVersionAtLeast(33))
+                uri = intent.GetParcelableExtra(Intent.ExtraStream,
+                    Java.Lang.Class.FromType(typeof(global::Android.Net.Uri))) as global::Android.Net.Uri;
+            else if (uri is null)
+            {
+#pragma warning disable CA1422
+                uri = intent.GetParcelableExtra(Intent.ExtraStream) as global::Android.Net.Uri;
+#pragma warning restore CA1422
+            }
+        }
+        if (uri is null) return;
+
+        string? name = ReadDisplayName(uri);
+        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            SetStatus("已拒绝外部文件：只接受 .bin 固件", true);
+            return;
+        }
+
+        ShowPage(4);
+        await ImportFirmwareAsync(uri);
     }
 
     private async Task RunIntentOperationAsync(string operation)

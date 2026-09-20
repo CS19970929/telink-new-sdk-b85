@@ -105,7 +105,7 @@ public sealed partial class MainActivity
     {
         LinearLayout page = Page();
         page.AddView(SectionTitle("设备连接"));
-        _macInput = Input("BLE MAC", "A4:C1:38:00:30:CF");
+        _macInput = Input("BLE MAC", "");
         page.AddView(_macInput);
         var actions = Row();
         actions.AddView(ActionButton("扫描", ScanAsync));
@@ -233,6 +233,7 @@ public sealed partial class MainActivity
 
         page.AddView(SectionTitle("OTA 升级"));
         page.AddView(Note("仅接受通过 Telink marker、尺寸和 CRC 预检的 BIN。OTA_SUCCESS 后会重连并核对 Serial；不能只凭重新连上判定成功。"));
+        page.AddView(Note("无需命令行：在微信、浏览器或文件管理器中打开/分享 .bin，选择 BMS Tool 即可自动导入并进入本页。"));
         page.AddView(Note("日常测试可由 android-ota-test.ps1 自动导入固件收件箱；App 无需每轮重新安装。"));
         var inboxButtons = Row();
         inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync));

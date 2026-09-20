@@ -21,7 +21,7 @@ public sealed partial class MainActivity
     {
         if (!HasBluetoothPermissions()) { RequestBluetoothPermissions(); return; }
         _scanResults!.RemoveAllViews();
-        SetStatus("正在扫描 BT_ / BT- 设备…");
+        SetStatus("正在扫描附近 BLE 设备…");
         var seen = new Dictionary<string, AndroidScanDevice>(StringComparer.OrdinalIgnoreCase);
         try
         {
@@ -31,7 +31,7 @@ public sealed partial class MainActivity
                 seen[device.Mac] = device;
                 RenderScanResults(seen.Values.OrderByDescending(item => item.Rssi));
             }), cts.Token);
-            SetStatus(seen.Count == 0 ? "未发现兼容 BMS；请确认设备未被其他手机/电脑连接" : $"扫描完成，共 {seen.Count} 台设备", seen.Count == 0);
+            SetStatus(seen.Count == 0 ? "未发现 BLE 设备；请确认蓝牙和定位权限已开启" : $"扫描完成，共 {seen.Count} 台设备", seen.Count == 0);
         }
         catch (OperationCanceledException) { SetStatus($"扫描结束，共 {seen.Count} 台设备"); }
         catch (Exception ex) { SetStatus("扫描失败：" + ex.Message, true); }
@@ -42,7 +42,8 @@ public sealed partial class MainActivity
         _scanResults!.RemoveAllViews();
         foreach (AndroidScanDevice device in devices)
         {
-            var button = new Button(this) { Text = $"{device.Name}   {device.Mac}   {device.Rssi} dBm", TextSize = 12 };
+            string name = string.IsNullOrWhiteSpace(device.Name) ? "（未命名 BLE）" : device.Name;
+            var button = new Button(this) { Text = $"{name}   {device.Mac}   {device.Rssi} dBm", TextSize = 12 };
             button.Click += async (_, _) =>
             {
                 _macInput!.Text = device.Mac;
@@ -76,6 +77,9 @@ public sealed partial class MainActivity
             _parameterCapture = null;
             _protectionModel = null;
             _afeModel = null;
+            var preferenceEditor = GetPreferences(FileCreationMode.Private)?.Edit();
+            preferenceEditor?.PutString("last_bms_mac", mac);
+            preferenceEditor?.Apply();
             RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
             SetStatus("连接成功，正在读取实时数据");
             await RefreshOverviewCoreAsync(client, cts.Token);
