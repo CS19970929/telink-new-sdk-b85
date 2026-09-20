@@ -123,3 +123,9 @@ extern Time_T sys_time;
 #endif
 
 #endif /* CONF_H_ */
+#ifndef BMS_STATE_SAVE_INTERVAL_32K
+#define BMS_STATE_SAVE_INTERVAL_32K (60u * 32000u)
+#endif
+#ifndef BMS_STORAGE_RETRY_INTERVAL_32K
+#define BMS_STORAGE_RETRY_INTERVAL_32K (5u * 32000u)
+#endif

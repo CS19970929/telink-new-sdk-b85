@@ -1317,7 +1317,9 @@ _attribute_no_inline_ void main_loop(void)
 		tlkapi_printf(APP_LOG_EN, "hello World!!!\n");
 		bms_afe_sample();
 		sample_valid = bms_afe_get_aux_measurements(&sample);
-		if (sample_valid) APP_SOC_IntEnhance_Ctrl();
+		APP_SOC_IntEnhance_Ctrl(sample_valid,
+		                       sample_valid ? sample.current_ma : 0,
+		                       sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
 		mos_update();
 		bms_diag_poll_runtime(sample_valid,
 		                      sample_valid ? sample.current_ma : 0,
