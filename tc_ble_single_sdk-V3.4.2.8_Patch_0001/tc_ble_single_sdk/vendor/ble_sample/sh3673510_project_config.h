@@ -18,7 +18,7 @@
  * qualified 10K MOS NTC until BOM/board measurement confirms it.
  *
  * The SH36735xx register definitions live in sh3673520_reg.h.  Every static
- * D011 AFE bit choice is intentionally exposed below so future products can
+ * AFE bit choice inherited from the D011 baseline is intentionally exposed below so future products can
  * change one field without editing register-transaction code.
  */
 #define SH3673510_D011_CELL_COUNT               8u
@@ -120,8 +120,8 @@
      ((SH3673510_D011_WDT_CODE << SH3673520_SCONF5_WDT_SHIFT) & SH3673520_SCONF5_WDT_MASK))
 
 /* SCONF6 0x45: b7..b0 TS4 TS3 TS2 TS1 SC OCD UV OV protection enables. */
-#define SH3673510_D011_TS4_HW_PROTECT_EN           0u /* TS4 MOS temperature is software-protected with its own threshold */
-#define SH3673510_D011_TS3_HW_PROTECT_EN           0u /* TS3 heater-MOS sensor sampled, not part of AFE common battery-temp protection */
+#define SH3673510_D011_TS4_HW_PROTECT_EN           0u /* D014 TS4/RN4 is unqualified; software MOS temperature is also held invalid */
+#define SH3673510_D011_TS3_HW_PROTECT_EN           0u /* D014 TS3 is NC */
 #define SH3673510_D011_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_D011_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_D011_SC_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
