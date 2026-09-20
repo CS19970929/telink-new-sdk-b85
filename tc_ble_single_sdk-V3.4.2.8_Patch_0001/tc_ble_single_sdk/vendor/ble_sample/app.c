@@ -1990,5 +1990,13 @@ _attribute_no_inline_ void main_loop(void)
 	// 	sys_time.enable_log_test_balance = false;
 	// 	test_log_balance_first();
 	// }
-	blt_pm_proc();
+	/*
+	 * Keep the MCU awake only during the short boot-zero sampling window.
+	 * BLE/main_loop keep running normally; once calibration succeeds/fails,
+	 * normal suspend/deep-retention policy resumes immediately.
+	 */
+	if (!DataLoad_IsBootCurrentZeroBusy())
+	{
+		blt_pm_proc();
+	}
 }
