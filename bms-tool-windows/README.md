@@ -65,7 +65,7 @@ Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连�
 .\publish-android-deployer.ps1
 ```
 
-使用 VS Code 时按 `Ctrl+Shift+B` 即可执行默认任务 `BMS: 编译并发送固件到 Android`。它直接完成固件 `rebuild/check-fw`、严格 Telink BIN 预检、ADB 分片发送、手机端 SHA-256 导入确认和 OTA 页面唤起，不经过 Windows 图形发送器。如果固件已经编译，使用 `Tasks: Run Task` 选择 `BMS: 发送现有固件到 Android`；要发送任意位置的 BIN，则选择 `BMS: 选择 BIN 并发送到 Android`，只会弹出系统文件选择框。`BMS: 连接 Android 无线调试` 会在没有活动设备时通过 mDNS 自动发现并连接唯一的官方 `_adb-tls-connect` 设备，可用于手机重启或重新进入可信局域网后的恢复。默认任务使用 `bms.py` 的标准输出 `tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample_cli\825x_ble_sample.bin`；检测到多台手机或多个无线服务时会拒绝自动选择，发送完成后仍需在手机上明确选择 `BT_` / `BT-` 设备并确认 OTA。
+使用 VS Code 时按 `Ctrl+Shift+B` 即可执行默认任务 `BMS: 编译并发送固件到 Android`。它直接完成固件 `rebuild/check-fw`、严格 Telink BIN 预检、ADB 分片发送和手机端 SHA-256 导入确认；若 App 在任务开始前已经连接明确的 BMS，导入后会跳过手机确认框并直接沿用该连接的 MAC 执行 OTA。未连接、连接已变化或 MAC 不一致时只导入并打开 OTA 页面，绝不自动扫描或选择设备。`Tasks: Run Task` 中的 `BMS: 发送现有固件到 Android`、`BMS: 选择 BIN 并发送到 Android` 以及 Windows 图形发送器仍保持人工确认模式。`BMS: 连接 Android 无线调试` 会在没有活动设备时通过 mDNS 自动发现并连接唯一的官方 `_adb-tls-connect` 设备。默认任务使用 `bms.py` 的标准输出 `tc_ble_single_sdk-V3.4.2.8_Patch_0001\tc_ble_single_sdk\project\tlsr_tc32\B85\825x_ble_sample_cli\825x_ble_sample.bin`；检测到多台手机或多个无线服务时会拒绝自动选择。
 
 ## 三入口发布约定
 

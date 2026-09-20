@@ -56,5 +56,7 @@ if (-not (Test-Path -LiteralPath $firmware -PathType Leaf)) {
 }
 $firmware = (Resolve-Path -LiteralPath $firmware).Path
 
-& dotnet $senderDll --firmware $firmware
+$senderArguments = @('--firmware', $firmware)
+if ($BuildFirmware) { $senderArguments += '--auto-ota' }
+& dotnet $senderDll @senderArguments
 if ($LASTEXITCODE -ne 0) { throw "Android direct sender failed (exit $LASTEXITCODE)." }

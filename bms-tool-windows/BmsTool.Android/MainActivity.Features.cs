@@ -73,6 +73,7 @@ public sealed partial class MainActivity
             await client.ProbeAsync(cts.Token);
             _transport = transport;
             _client = client;
+            _connectedMac = mac;
             _parameterCapture = null;
             _protectionModel = null;
             _afeModel = null;
@@ -112,6 +113,7 @@ public sealed partial class MainActivity
         AndroidBmsBleTransport? transport = _transport;
         _client = null;
         _transport = null;
+        _connectedMac = null;
         if (client is not null) await client.DisposeAsync();
         else if (transport is not null) await transport.DisposeAsync();
     }
@@ -557,16 +559,26 @@ public sealed partial class MainActivity
         return Task.CompletedTask;
     }
 
-    private async Task StartOtaAsync()
+    private Task StartOtaAsync() => StartOtaAsync(skipConfirmation: false, requireExistingConnection: false);
+
+    private async Task StartOtaAsync(bool skipConfirmation, bool requireExistingConnection)
     {
         string mac = _macInput?.Text?.Trim() ?? string.Empty;
         string firmware = _firmwareInput?.Text?.Trim() ?? string.Empty;
         string expectedSerial = _expectedSerialInput?.Text?.Trim() ?? string.Empty;
+        if (requireExistingConnection && (_client is null || _transport is null ||
+            !string.Equals(mac, _connectedMac, StringComparison.OrdinalIgnoreCase)))
+        {
+            SetStatus("自动 OTA 已取消：目标 BMS 连接已失效", true);
+            AppendLog("AUTO_OTA_SKIPPED reason=connection_changed_before_preflight");
+            return;
+        }
         FirmwareImage image;
         try { image = FirmwareImage.LoadStrictTelink(firmware); }
         catch (Exception ex) { SetStatus("OTA 预检拒绝：" + ex.Message, true); return; }
         if (string.IsNullOrWhiteSpace(mac)) { SetStatus("OTA 必须明确指定 MAC", true); return; }
-        if (!await ConfirmAsync("开始 OTA", $"目标 {mac}\n固件 {image.FileName}\n大小 {image.ImageSize} bytes\n升级期间请保持电池供电。是否继续？")) return;
+        if (!skipConfirmation && !await ConfirmAsync("开始 OTA", $"目标 {mac}\n固件 {image.FileName}\n大小 {image.ImageSize} bytes\n升级期间请保持电池供电。是否继续？")) return;
+        if (skipConfirmation) AppendLog($"AUTO_OTA_CONFIRMED_BY_VSCODE mac={mac} file={image.FileName}");
         SetBusy(true);
         SetStatus("等待当前刷新结束后开始 OTA…");
         await _operationGate.WaitAsync();
@@ -575,6 +587,9 @@ public sealed partial class MainActivity
         _operationCts = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         try
         {
+            if (requireExistingConnection && (_client is null || _transport is null ||
+                !string.Equals(mac, _connectedMac, StringComparison.OrdinalIgnoreCase)))
+                throw new IOException("目标 BMS 连接在 OTA 开始前已失效，未执行写入。");
             DeviceIdentity? before = null;
             if (_client is not null) before = await _client.ReadIdentityAsync(mac, "", _operationCts.Token);
             await DisposeConnectionCoreAsync();
@@ -639,6 +654,7 @@ public sealed partial class MainActivity
         await client.ProbeAsync(ct);
         _transport = transport;
         _client = client;
+        _connectedMac = mac;
         await RefreshOverviewCoreAsync(client, ct);
         RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
     }

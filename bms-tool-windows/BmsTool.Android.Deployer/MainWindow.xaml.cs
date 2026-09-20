@@ -130,7 +130,7 @@ public partial class MainWindow : Window
                 SetStatus(value.Message);
                 AppendLog(value.Message);
             });
-            DeploymentResult result = await _sender.SendAsync(device.Id, path, progress, _sendCts.Token);
+            DeploymentResult result = await _sender.SendAsync(device.Id, path, false, progress, _sendCts.Token);
             SendProgress.Value = 100;
             SetStatus($"发送完成：{result.RemoteName}。手机已打开固件页，请在 App 内选择 BT_ / BT- 设备并确认 OTA。");
             AppendLog($"DONE bytes={result.Size} sha256={result.Sha256} remote={result.RemoteName}");

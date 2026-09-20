@@ -9,7 +9,8 @@ using System.Text;
 
 namespace BmsTool.Android;
 
-[Activity(Label = "BMS Tool", MainLauncher = true, Exported = true, ScreenOrientation = ScreenOrientation.Portrait)]
+[Activity(Label = "BMS Tool", MainLauncher = true, Exported = true,
+    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
 [IntentFilter(new[] { Intent.ActionView },
     Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
@@ -31,7 +32,9 @@ public sealed partial class MainActivity : Activity
     private CancellationTokenSource? _refreshCts;
     private CancellationTokenSource? _monitorCts;
     private string? _logFilePath;
+    private string? _connectedMac;
     private bool _intentStarted;
+    private bool _connectedAutoOtaRunning;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -46,6 +49,7 @@ public sealed partial class MainActivity : Activity
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
         _ = RefreshLoopAsync(_refreshCts.Token);
+        _ = HandleConnectedAutoOtaIntentAsync(Intent);
     }
 
     protected override void OnResume()
@@ -65,6 +69,52 @@ public sealed partial class MainActivity : Activity
         Intent = intent;
         ApplyIntentValues();
         _ = HandleIncomingFirmwareIntentAsync(intent);
+        _ = HandleConnectedAutoOtaIntentAsync(intent);
+    }
+
+    private async Task HandleConnectedAutoOtaIntentAsync(Intent? intent)
+    {
+        if (intent is null || !intent.GetBooleanExtra("auto_ota_if_connected", false)) return;
+        intent.RemoveExtra("auto_ota_if_connected");
+        if (_connectedAutoOtaRunning) return;
+
+        string uploadId = intent.GetStringExtra("auto_ota_upload_id") ?? string.Empty;
+        string sha256 = intent.GetStringExtra("auto_ota_sha256") ?? string.Empty;
+        string fileName = intent.GetStringExtra("firmware_inbox_name") ?? string.Empty;
+        ISharedPreferences? authorization = GetSharedPreferences(
+            AndroidFirmwareInbox.AutomationAuthorizationPreferences, FileCreationMode.Private);
+        string authorizedUploadId = authorization?.GetString("upload_id", string.Empty) ?? string.Empty;
+        string authorizedFileName = authorization?.GetString("file_name", string.Empty) ?? string.Empty;
+        string authorizedSha256 = authorization?.GetString("sha256", string.Empty) ?? string.Empty;
+        long expiresUtcMs = authorization?.GetLong("expires_utc_ms", 0) ?? 0;
+        authorization?.Edit()?.Clear()?.Apply();
+        bool authorized = expiresUtcMs >= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() &&
+            string.Equals(uploadId, authorizedUploadId, StringComparison.Ordinal) &&
+            string.Equals(fileName, authorizedFileName, StringComparison.Ordinal) &&
+            string.Equals(sha256, authorizedSha256, StringComparison.OrdinalIgnoreCase);
+        if (!authorized)
+        {
+            SetStatus("已拒绝自动 OTA：本次固件导入授权无效或已过期", true);
+            AppendLog("AUTO_OTA_SKIPPED reason=invalid_or_expired_import_authorization");
+            return;
+        }
+
+        string requestedMac = _macInput?.Text?.Trim() ?? string.Empty;
+        if (_client is null || _transport is null || string.IsNullOrWhiteSpace(_connectedMac) ||
+            !string.Equals(requestedMac, _connectedMac, StringComparison.OrdinalIgnoreCase))
+        {
+            SetStatus("固件已导入；当前没有保持连接的目标 BMS，已跳过自动 OTA", true);
+            AppendLog($"AUTO_OTA_SKIPPED reason=no_matching_active_bms_connection requested='{requestedMac}' connected='{_connectedMac}'");
+            return;
+        }
+
+        _connectedAutoOtaRunning = true;
+        try
+        {
+            AppendLog($"AUTO_OTA_ACCEPTED mac={_connectedMac}");
+            await StartOtaAsync(skipConfirmation: true, requireExistingConnection: true);
+        }
+        finally { _connectedAutoOtaRunning = false; }
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)

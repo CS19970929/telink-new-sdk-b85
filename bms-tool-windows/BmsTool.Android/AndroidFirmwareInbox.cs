@@ -9,6 +9,7 @@ namespace BmsTool.Android;
 internal static class AndroidFirmwareInbox
 {
     public const string ImportAction = "com.cs.bmstool.android.IMPORT_FIRMWARE";
+    public const string AutomationAuthorizationPreferences = "firmware_automation_authorization";
     public const int MaxImageBytes = 2 * 1024 * 1024;
 
     public static string GetDirectory(Context context)
@@ -70,6 +71,14 @@ internal sealed class FirmwareImportReceiver : BroadcastReceiver
             if (!actualSha256.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Firmware import SHA-256 mismatch: expected={expectedSha256}, actual={actualSha256}.");
             File.Move(temporary, target, true);
+            ISharedPreferencesEditor? authorization = context
+                .GetSharedPreferences(AndroidFirmwareInbox.AutomationAuthorizationPreferences, FileCreationMode.Private)
+                ?.Edit();
+            authorization?.PutString("upload_id", uploadId);
+            authorization?.PutString("file_name", fileName);
+            authorization?.PutString("sha256", actualSha256);
+            authorization?.PutLong("expires_utc_ms", DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds());
+            authorization?.Apply();
             Log.Info(LogTag, $"FIRMWARE_IMPORT_OK upload={uploadId} path={target} bytes={bytes.Length} sha256={actualSha256}");
         }
         catch (Exception ex)

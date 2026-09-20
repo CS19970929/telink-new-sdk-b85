@@ -88,7 +88,7 @@ public sealed class AndroidFirmwareSender(string adbPath)
         return devices;
     }
 
-    public async Task<DeploymentResult> SendAsync(string deviceId, string firmwarePath,
+    public async Task<DeploymentResult> SendAsync(string deviceId, string firmwarePath, bool autoOtaIfConnected,
         IProgress<DeploymentProgress>? progress, CancellationToken ct)
     {
         FirmwareImage image = FirmwareImage.LoadStrictTelink(firmwarePath);
@@ -101,6 +101,15 @@ public sealed class AndroidFirmwareSender(string adbPath)
         AdbResult package = await RunAsync(deviceId, new[] { "shell", "pm", "path", PackageName }, ct);
         if (package.ExitCode != 0 || !package.Output.Contains("package:", StringComparison.Ordinal))
             throw new InvalidOperationException("手机尚未安装 BMS Tool Android v0.3.1 或更高版本。");
+        if (autoOtaIfConnected)
+        {
+            AdbResult packageInfo = await RunAsync(deviceId,
+                new[] { "shell", "dumpsys", "package", PackageName }, ct);
+            EnsureSuccess(packageInfo, "检查手机 BMS Tool 版本");
+            Match version = Regex.Match(packageInfo.Output, @"versionCode=(?<code>\d+)");
+            if (!version.Success || !int.TryParse(version.Groups["code"].Value, out int versionCode) || versionCode < 5)
+                throw new InvalidOperationException("自动 OTA 需要 BMS Tool Android v0.3.2 或更高版本。");
+        }
 
         AdbResult resolve = await RunAsync(deviceId,
             new[] { "shell", "cmd", "package", "resolve-activity", "--brief", PackageName }, ct);
@@ -140,13 +149,30 @@ public sealed class AndroidFirmwareSender(string adbPath)
         if (!log.Output.Contains($"FIRMWARE_IMPORT_OK upload={uploadId}", StringComparison.Ordinal))
             throw new IOException("手机未确认固件导入成功。请检查手机空间、BMS Tool 版本和日志。");
 
-        progress?.Report(new DeploymentProgress(95, "导入校验通过，正在打开手机固件页…"));
-        await RunCheckedAsync(deviceId, new[]
+        progress?.Report(new DeploymentProgress(95, autoOtaIfConnected
+            ? "导入校验通过，正在请求已连接设备自动 OTA…"
+            : "导入校验通过，正在打开手机固件页…"));
+        var launchArguments = new List<string>
         {
             "shell", "am", "start", "-f", "0x20000000", "-n", activity,
             "--es", "firmware_inbox_name", remoteName, "--ez", "show_tools", "true"
-        }, "打开手机固件页", ct);
-        progress?.Report(new DeploymentProgress(100, "固件已发送，手机端等待选择设备和人工确认。"));
+        };
+        if (autoOtaIfConnected)
+        {
+            launchArguments.Add("--ez");
+            launchArguments.Add("auto_ota_if_connected");
+            launchArguments.Add("true");
+            launchArguments.Add("--es");
+            launchArguments.Add("auto_ota_upload_id");
+            launchArguments.Add(uploadId);
+            launchArguments.Add("--es");
+            launchArguments.Add("auto_ota_sha256");
+            launchArguments.Add(sha256);
+        }
+        await RunCheckedAsync(deviceId, launchArguments, "打开手机固件页", ct);
+        progress?.Report(new DeploymentProgress(100, autoOtaIfConnected
+            ? "固件已发送；App 仅在目标 BMS 已保持连接时自动 OTA。"
+            : "固件已发送，手机端等待选择设备和人工确认。"));
         return new DeploymentResult(remoteName, image.ImageSize, sha256);
     }
 

@@ -21,12 +21,16 @@ internal static class Program
             }
 
             string firmware = GetRequiredValue(args, "--firmware");
+            bool autoOta = args.Any(argument =>
+                string.Equals(argument, "--auto-ota", StringComparison.OrdinalIgnoreCase));
             var progress = new InlineProgress(value =>
                 Console.WriteLine($"SEND {value.Percent,6:F1}% {value.Message}"));
             DeploymentResult result = await sender.SendAsync(
-                device.Id, firmware, progress, CancellationToken.None);
+                device.Id, firmware, autoOta, progress, CancellationToken.None);
             Console.WriteLine($"SEND_OK file={result.RemoteName} bytes={result.Size} sha256={result.Sha256}");
-            Console.WriteLine("手机已打开 OTA 页面，请选择明确的 BT_ / BT- 设备并确认升级。");
+            Console.WriteLine(autoOta
+                ? "已请求自动 OTA；仅当 App 原本已连接明确的 BMS 时才会直接升级。"
+                : "手机已打开 OTA 页面，请选择明确的 BT_ / BT- 设备并确认升级。");
             return 0;
         }
         catch (Exception ex)
