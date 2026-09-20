@@ -32,6 +32,22 @@ sys.modules[CLIENT_ASSET_SPEC.name] = client_assets
 CLIENT_ASSET_SPEC.loader.exec_module(client_assets)
 
 
+class WorktreeJunctionTests(unittest.TestCase):
+    def test_junction_is_stable_and_unique_per_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            first = Path(tmp) / "first"
+            second = Path(tmp) / "second"
+            first.mkdir()
+            second.mkdir()
+
+            self.assertEqual(bms._worktree_junction(first), bms._worktree_junction(first))
+            self.assertNotEqual(bms._worktree_junction(first), bms._worktree_junction(second))
+            self.assertRegex(
+                bms._worktree_junction(first).name,
+                r"^bms_repo_[0-9a-f]{12}$",
+            )
+
+
 class GitProvenanceTests(unittest.TestCase):
     def test_clean_modified_and_unavailable_status_are_distinct(self):
         for returncode, output, expected in ((0, "", False), (0, " M app.c\n", True), (1, "", None)):
