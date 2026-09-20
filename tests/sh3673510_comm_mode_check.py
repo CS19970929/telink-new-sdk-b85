@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D011 fixed Modbus-RS485 communication contract checks."""
+"""D014 fixed Modbus-RS485 communication contract checks."""
 from pathlib import Path
 import re
 
@@ -25,9 +25,9 @@ sif = text("sif_send.c")
 
 assert literal(conf, "MODBUS_RS485_ENABLE") == 1
 if re.search(r"(?m)^\s*#define\s+_FUNC_SIF_\b", conf):
-    raise AssertionError("D011 must not enable one-wire/SIF")
+    raise AssertionError("D014 must not enable one-wire/SIF")
 if not re.search(r"(?m)^\s*#define\s+_FUNC_UART_\b", conf):
-    raise AssertionError("D011 Modbus UART must be enabled")
+    raise AssertionError("D014 Modbus UART must be enabled")
 
 # Historical mux API is now only a fixed-UART compatibility shim.
 assert "modbus_uart_init();" in bus
@@ -40,16 +40,16 @@ for forbidden in (
     if forbidden in bus:
         raise AssertionError(f"one-wire bus switching remains: {forbidden}")
 
-# D011 retains DE//RE control around each Modbus response.
+# D014 retains DE//RE control around each Modbus response.
 for required in (
     "#if MODBUS_RS485_ENABLE",
-    "D011_RS485_EN_PIN",
+    "D014_RS485_EN_PIN",
     "modbus_rs485_receive_mode",
     "modbus_rs485_transmit_mode",
     "uart_tx_is_busy()",
 ):
     if required not in uart:
-        raise AssertionError(f"missing D011 RS485 contract: {required}")
+        raise AssertionError(f"missing D014 RS485 contract: {required}")
 if "bus_mux_on_uart_rx_byte" in uart or '#include "bus_mux.h"' in uart:
     raise AssertionError("UART driver must not depend on the removed mux detector")
 
@@ -58,7 +58,7 @@ if "bus_mux_on_uart_rx_byte" in uart or '#include "bus_mux.h"' in uart:
 # alone is not sufficient evidence that a long frame has finished.
 assert literal(uart, "MODBUS_UART_BITS_PER_CHAR") == 10
 if literal(uart, "MODBUS_RS485_TX_EXTRA_GUARD_US") < 100:
-    raise AssertionError("D011 RS485 extra release guard is unexpectedly short")
+    raise AssertionError("D014 RS485 extra release guard is unexpectedly short")
 for required in (
     "modbus_rs485_min_hold_us",
     "s_rs485_tx_start_tick",
@@ -68,11 +68,11 @@ for required in (
     "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)",
 ):
     if required not in uart:
-        raise AssertionError(f"missing D011 full-frame RS485 hold: {required}")
+        raise AssertionError(f"missing D014 full-frame RS485 hold: {required}")
 
 # SIF source must be inert: no timer setup and no pin modulation.
 for forbidden in ("SIF_SYNC", "BUS_STATE_OWC_TX", "FLD_IRQ_TMR0_EN", "gpio_write"):
     if forbidden in sif:
         raise AssertionError(f"active SIF implementation remains: {forbidden}")
 
-print("D011 fixed Modbus RS485 communication contract: PASS")
+print("D014 fixed Modbus RS485 communication contract: PASS")

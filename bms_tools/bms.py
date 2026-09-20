@@ -1952,8 +1952,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
 
     script = str(Path(__file__).resolve())
     steps: list[tuple[str, list[str]]] = [
-        ("tooling_unit_tests", [sys.executable, "-m", "unittest",
-                                "tests.test_bms_tools", "-v"]),
+        ("host_regression", [sys.executable, "tests/run_host_regression.py"]),
         ("source_order", [sys.executable, script, "sources", "--check"]),
         ("environment", [sys.executable, script, "env"]),
         ("rebuild", [sys.executable, script, "rebuild", "--jobs", str(args.jobs)]),

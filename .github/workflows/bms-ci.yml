@@ -37,30 +37,8 @@ jobs:
         run: python --version
       - name: Validate locked source order
         run: python bms_tools/bms.py sources --check
-      - name: Run BMS tooling unit tests
-        run: python -m unittest tests.test_bms_tools -v
-      - name: Run DVC1124 configuration contract check
-        run: python tests/dvc1124_config_quick_check.py
-      - name: Run SH3673520 driver contract check
-        run: python tests/sh3673520_contract_check.py
-      - name: Run HS-D014 SH3673510 integration contract check
-        run: python tests/sh3673510_d014_integration_check.py
-      - name: Run SH3673510 protection-mode contract check
-        run: python tests/sh3673510_protection_mode_check.py
-      - name: Run SH3673510 temperature contract check
-        run: python tests/sh3673510_temperature_encoding_check.py
-      - name: Run unified software protection contract check
-        run: python tests/sw_protection_contract_check.py
-      - name: Run common heater/balance/open-wire contract check
-        run: python tests/common_feature_policy_contract_check.py
-      - name: Run independent AFE hardware profile contract check
-        run: python tests/afe_hw_profile_contract_check.py
-      - name: Run SOC module contract check
-        run: python tests/soc_contract_check.py
-      - name: Run Flash storage contract check
-        run: python tests/flash_quick_check.py
-      - name: Syntax-check Python CI tooling
-        run: python -m py_compile bms_tools/bms.py tests/test_bms_tools.py tests/dvc1124_config_quick_check.py tests/sh3673520_contract_check.py tests/sh3673510_d014_integration_check.py tests/sh3673510_protection_mode_check.py tests/sh3673510_temperature_encoding_check.py tests/sw_protection_contract_check.py tests/common_feature_policy_contract_check.py tests/afe_hw_profile_contract_check.py tests/soc_contract_check.py tests/flash_quick_check.py
+      - name: Run all product host checks and production-C fault injection
+        run: python tests/run_host_regression.py
 
   tc32-production:
     name: TC32 production build

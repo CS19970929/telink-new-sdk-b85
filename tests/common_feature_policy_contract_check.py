@@ -83,7 +83,7 @@ for token in (
 
 for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
     assert token in config_h and token in config_c and token in features_c
-assert "#define BMS_CONFIG_SCHEMA_VERSION        2u" in config_c
+assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
 assert "#define BMS_CONFIG_FEATURE_BYTES         14u" in config_c
 assert "0x2E20u" in modbus and "0x2E70u" in modbus
 assert "feature_config_write_block" in modbus

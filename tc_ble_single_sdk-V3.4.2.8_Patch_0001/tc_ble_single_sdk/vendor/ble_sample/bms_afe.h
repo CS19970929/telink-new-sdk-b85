@@ -4,6 +4,21 @@
 #include <stdint.h>
 #include "bms_afe_backend.h"
 
+/* Keep the AFE/public measurement convention intact. Only the SOC boundary
+ * uses negative charge / positive discharge; SH reports the opposite sign. */
+static inline int32_t bms_afe_current_to_soc_ma(int32_t current_ma)
+{
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+    /* Unreachable for the SH ADC range, but avoid signed overflow on bad input. */
+    if (current_ma == INT32_MIN) return INT32_MAX;
+    return -current_ma;
+#else
+    return current_ma;
+#endif
+}
+
+
+
 #if defined(DVC1124_H_) || defined(DVC1124_CONFIG_STORE_H_)
 #define bms_afe_init                       dvc1124_backend_init
 #define bms_afe_sample                     dvc1124_backend_sample
