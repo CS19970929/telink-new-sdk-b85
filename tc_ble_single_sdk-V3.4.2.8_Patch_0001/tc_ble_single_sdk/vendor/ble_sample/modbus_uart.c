@@ -41,14 +41,14 @@ static volatile u32 s_rs485_tx_min_hold_us = 0u;
 
 static void modbus_rs485_receive_mode(void)
 {
-    /* D011 CA-IS2092A: DE and /RE share PA1, 0=receive. */
-    gpio_write(D011_RS485_EN_PIN, 0);
+    /* D014 CA-IS2092A: DE and /RE share PA1, 0=receive. */
+    gpio_write(D014_RS485_EN_PIN, 0);
 }
 
 static void modbus_rs485_transmit_mode(void)
 {
-    /* D011 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
-    gpio_write(D011_RS485_EN_PIN, 1);
+    /* D014 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
+    gpio_write(D014_RS485_EN_PIN, 1);
 }
 
 static u32 modbus_rs485_min_hold_us(u32 len)
@@ -114,18 +114,18 @@ void modbus_uart_init(void)
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
 
 #if MODBUS_RS485_ENABLE
-    /* D011: PC2=TX, PC3=RX, PA1=485 DE//RE direction control. */
-    gpio_set_func(D011_RS485_EN_PIN, AS_GPIO);
-    gpio_write(D011_RS485_EN_PIN, 0);
-    gpio_set_input_en(D011_RS485_EN_PIN, 0);
-    gpio_set_output_en(D011_RS485_EN_PIN, 1);
+    /* D014: PC2=TX, PC3=RX, PA1=485 DE//RE direction control. */
+    gpio_set_func(D014_RS485_EN_PIN, AS_GPIO);
+    gpio_write(D014_RS485_EN_PIN, 0);
+    gpio_set_input_en(D014_RS485_EN_PIN, 0);
+    gpio_set_output_en(D014_RS485_EN_PIN, 1);
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
     s_rs485_tx_start_tick = 0u;
     s_rs485_tx_min_hold_us = 0u;
 #endif
 
-    uart_gpio_set(D011_SCI1_TX_PIN, D011_SCI1_RX_PIN);
+    uart_gpio_set(D014_SCI1_TX_PIN, D014_SCI1_RX_PIN);
     uart_reset();
     uart_init(MODBUS_UART_CLOCK_DIVIDER,
               MODBUS_UART_BWPC,
