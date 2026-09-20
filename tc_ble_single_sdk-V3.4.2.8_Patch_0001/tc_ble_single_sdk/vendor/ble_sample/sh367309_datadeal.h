@@ -743,8 +743,7 @@ enum BOOT_CURRENT_ZERO_STATUS_E {
 };
 
 void SH367309_UpdataAfeConfig(void);
-UINT8 DataLoad_BootCurrentZeroStart(void);
-void DataLoad_BootCurrentZeroTask(void);
+UINT8 DataLoad_BootCurrentZeroCapture(void);
 UINT8 DataLoad_IsBootCurrentZeroBusy(void);
 UINT8 DataLoad_IsBootCurrentZeroValid(void);
 UINT8 DataLoad_GetBootCurrentZeroStatus(void);

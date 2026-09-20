@@ -423,30 +423,7 @@ void enter_fac_mode(bool on)
 }
 
 extern volatile union System_Status SystemStatus;
-_attribute_data_retention_ static UINT8 g_u8BootZeroPowerPathPending = 0u;
-
-static void factory_mode_apply_switch_state(void)
-{
-	if (MODE_FACTORY != Runtime_GetMode())
-	{
-		return;
-	}
-
-	if (IsChargerWakeupActive())
-	{
-		open_chg_close_dsg();
-	}
-	else if (IsKeyWakeupActive())
-	{
-		enter_fac_mode(true);
-	}
-	else
-	{
-		close_dsg();
-	}
-}
-
-static void app_boot_zero_apply_startup_power_path(void)
+static void app_apply_startup_power_path(void)
 {
 	if (IsChargerWakeupActive())
 	{
@@ -460,56 +437,6 @@ static void app_boot_zero_apply_startup_power_path(void)
 	{
 		open_dsg_close_chg();
 	}
-
-	/* Match the original startup order: release CTL-C only after MOS policy. */
-	open_ctlc();
-}
-
-static void app_boot_zero_poll(void)
-{
-	UINT8 status;
-
-	/*
-	 * CTL-C is the hardware gate for the calibration window. Keep asserting
-	 * it low for the whole learning period; open_ctlc() is also busy-gated.
-	 */
-	if (DataLoad_IsBootCurrentZeroBusy())
-	{
-		close_ctlc();
-	}
-
-	DataLoad_BootCurrentZeroTask();
-
-	if (!g_u8BootZeroPowerPathPending || DataLoad_IsBootCurrentZeroBusy())
-	{
-		return;
-	}
-
-	status = DataLoad_GetBootCurrentZeroStatus();
-	if ((status == BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
-		|| (status == BOOT_CURRENT_ZERO_IN_PROGRESS))
-	{
-		return;
-	}
-
-	g_u8BootZeroPowerPathPending = 0u;
-
-	if (DataLoad_IsBootCurrentZeroValid())
-	{
-		log_i("[BOOT][CUR_ZERO] valid raw_sum=%d, release startup MOS\n",
-			  DataLoad_GetBootCurrentZeroRawSum());
-	}
-	else
-	{
-		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u; release startup MOS\n",
-			  status);
-	}
-
-	/*
-	 * Calibration quality must never prevent normal power-path startup.
-	 * Success and every failure/timeout converge here.
-	 */
-	app_boot_zero_apply_startup_power_path();
 }
 
 void charger_detect_and_keyLogi_200ms(void)
@@ -1717,14 +1644,14 @@ _attribute_no_inline_ void user_init_normal(void)
 		SH367309_UpdataAfeConfig();
 
 		/*
-		 * Boot-only zero-current calibration window. Keep all power-path FETs
-		 * off, then arm the asynchronous 1+1 sampler. Normal boards finish after
-		 * one fresh CADC sample; only borderline offsets need one confirmation.
+		 * Boot-only synchronous 1+1 zero-current calibration.
+		 * CTL-C and all AFE power-path FETs stay OFF for the whole learning
+		 * window. Normal boards take one fresh CADC sample (~300 ms); only a
+		 * borderline 20..40 count offset takes one confirmation (~600 ms total).
 		 */
 		close_ctlc();
 		close_chg();
-		g_u8BootZeroPowerPathPending = 1u;
-		(void)DataLoad_BootCurrentZeroStart();
+		(void)DataLoad_BootCurrentZeroCapture();
 
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
@@ -1746,24 +1673,18 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
-	/*
-	 * Startup MOS release is deferred to app_boot_zero_poll() in main_loop.
-	 * Even calibration failure/timeout releases the same normal startup path.
-	 */
+	if (!DataLoad_IsBootCurrentZeroValid())
+	{
+		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u\n",
+			  DataLoad_GetBootCurrentZeroStatus());
+	}
+
+	app_apply_startup_power_path();
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
-
-	/*
-	 * Opportunistically finish boot-zero calibration during initialization.
-	 * This call never waits: if the 300 ms CADC quiet window has already
-	 * elapsed naturally, the first sample is taken here and the normal startup
-	 * MOS path can be released before entering main_loop(). Otherwise it returns
-	 * immediately and main_loop() continues the same state machine.
-	 */
-	app_boot_zero_poll();
-
 	// sys_time.isdebugenable = 1;
+	open_ctlc();
 }
 
 /**
@@ -1953,7 +1874,6 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// BLE entry /////////////////////////////////
 	blt_sdk_main_loop();
 	Runtime_Poll();
-	app_boot_zero_poll();
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 
@@ -2009,13 +1929,5 @@ _attribute_no_inline_ void main_loop(void)
 	// 	sys_time.enable_log_test_balance = false;
 	// 	test_log_balance_first();
 	// }
-	/*
-	 * Keep the MCU awake only during the short boot-zero sampling window.
-	 * BLE/main_loop keep running normally; once calibration succeeds/fails,
-	 * normal suspend/deep-retention policy resumes immediately.
-	 */
-	if (!DataLoad_IsBootCurrentZeroBusy())
-	{
-		blt_pm_proc();
-	}
+	blt_pm_proc();
 }
