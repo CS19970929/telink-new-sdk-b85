@@ -31,6 +31,7 @@ static void sh3510_gpio_input(GPIO_PinTypeDef pin)
     gpio_set_input_en(pin, 1);
 }
 
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
 static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
 {
     gpio_set_func(pin, AS_GPIO);
@@ -38,6 +39,7 @@ static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
     gpio_set_input_en(pin, 0);
     gpio_set_output_en(pin, 1);
 }
+#endif
 
 static uint8_t sh3510_update_reg(uint8_t reg, uint8_t mask, uint8_t bits)
 {

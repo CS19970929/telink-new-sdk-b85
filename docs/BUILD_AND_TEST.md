@@ -4,6 +4,8 @@
 
 正式固件使用项目锁定的 `tc32-elf-gcc 4.5.1-tc32-1.3`、Telink B85 Vendor 库、现有 `boot.link` 和 `tl_check_fw2.exe`。不得用 host GCC/clang、ARM GCC 或其他 ABI 的成功结果替代 TC32 production build。
 
+`bms.py build/rebuild` 对 compiler warning 执行零容忍门禁；任何 `warning:` 都会使构建返回非零并保留 `gen/build.log`。不得通过提高 warning 基线绕过隐式声明、重复宏或条件编译死代码问题。
+
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check

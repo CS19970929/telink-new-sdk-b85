@@ -671,6 +671,8 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     print("\n".join(tail))
     if r.returncode != 0:
         raise subprocess.CalledProcessError(r.returncode, cmd, output=r.stdout)
+    if warning_count != 0:
+        _die(f"compiler warning gate failed: warnings={warning_count}; see {log_path}")
 
 
 def cmd_build(args: argparse.Namespace) -> int:
