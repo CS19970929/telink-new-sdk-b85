@@ -33,7 +33,45 @@
 /* word 29 describes optional semantics without changing schema 1. */
 #define BMS_DIAG_INFO_GENERIC_FET_BITS 0x0001u
 
-#define BMS_DIAG_RUNTIME_VERSION 2u
+#define BMS_DIAG_RUNTIME_VERSION 3u
+#define BMS_DIAG_RUNTIME_OFFSET  192u
+
+typedef struct {
+    uint8_t chemistry, profile_id;
+    uint16_t profile_version;
+    uint8_t soc_estimate, soc_display;
+    uint16_t current_deadband_ma;
+    uint8_t ocv_state, ocv_center, ocv_low, ocv_high, ocv_confidence;
+    uint8_t capacity_learned, learning_state;
+    uint16_t ocv_cell_mv, rest_seconds, learned_capacity_0p1ah;
+    uint16_t nominal_capacity_0p1ah, effective_capacity_0p1ah, remaining_capacity_0p1ah;
+    uint8_t endpoint_state, endpoint_event_flags;
+    int32_t filtered_current_ma;
+    uint16_t current_variation_ma, time_to_empty_min, time_to_full_min;
+    uint8_t eta_state, eta_direction, eta_confidence, eta_valid;
+    uint8_t soh, soh_source, soh_confidence;
+    uint8_t capacity_learning_enable, capacity_learning_candidate_valid;
+    uint8_t capacity_learning_confidence;
+    uint16_t candidate_capacity_0p1ah, valid_learning_count, rejected_learning_count;
+    uint8_t last_learning_reject_reason, last_sample_state;
+    uint8_t last_integral_direction, last_soc_action;
+    uint8_t last_soc_before, last_soc_after, last_soc_target, last_decision_detail;
+    uint32_t last_sample_elapsed_32k, last_integral_delta_as10;
+} bms_soc_diag_t;
+
+enum {
+    BMS_SOC_SAMPLE_NONE=0, BMS_SOC_SAMPLE_INVALID=1,
+    BMS_SOC_SAMPLE_FIRST=2, BMS_SOC_SAMPLE_DUPLICATE=3,
+    BMS_SOC_SAMPLE_GAP=4, BMS_SOC_SAMPLE_ACCEPTED=5,
+    BMS_SOC_SAMPLE_DIRECTION_CHANGE=6
+};
+enum {
+    BMS_SOC_ACTION_NONE=0, BMS_SOC_ACTION_INTEGRATE=1,
+    BMS_SOC_ACTION_OCV_DOWN=2, BMS_SOC_ACTION_TERMINAL_DOWN=3,
+    BMS_SOC_ACTION_FULL_ANCHOR=4, BMS_SOC_ACTION_FORCED_EMPTY=5,
+    BMS_SOC_ACTION_IDLE_EMPTY=6, BMS_SOC_ACTION_PARAMETER_SET=7,
+    BMS_SOC_ACTION_STATE_RESTORE=8
+};
 
 enum {
     DIAG_NOT_RUN=0, DIAG_OK=1, DIAG_PORT=2, DIAG_LAYOUT=3,

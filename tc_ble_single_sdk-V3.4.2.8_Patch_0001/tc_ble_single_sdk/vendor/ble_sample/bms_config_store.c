@@ -9,18 +9,19 @@
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464731u /* CFG1 */
-#define BMS_CONFIG_SCHEMA_VERSION        2u
+#define BMS_CONFIG_SCHEMA_VERSION        3u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          10u
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
 #define BMS_CONFIG_FEATURE_BYTES         14u
+#define BMS_CONFIG_SOC_BYTES             7u
 
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
 #define BMS_CONFIG_AFE_BYTES             (BMS_CONFIG_AFE_WORDS * 2u)
 #define BMS_CONFIG_CONTROL_BYTES         ((u16)BMS_CONFIG_CTRL_COUNT * 4u)
-#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_FEATURE_BYTES)
+#define BMS_CONFIG_PAYLOAD_BYTES         (BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_CONTROL_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_FEATURE_BYTES + BMS_CONFIG_SOC_BYTES)
 
 #if (BTNAME_SUFFIX_MAX_LEN >= BMS_CONFIG_BTNAME_BYTES)
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
@@ -37,6 +38,7 @@ typedef struct {
     u32 control[BMS_CONFIG_CTRL_COUNT];
     char bt_name_suffix[BMS_CONFIG_BTNAME_BYTES];
     bms_feature_params_t feature;
+    bms_soc_config_t soc;
 } bms_config_cache_t;
 
 static storage_record_store_t g_bms_config_store;
@@ -128,6 +130,9 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
     bms_config_feature_defaults(&cfg->feature);
+    bms_soc_get_default_config(&cfg->soc);
+    cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
+    cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
 }
 
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
@@ -158,6 +163,11 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     bms_config_put_u16le(&payload[off], cfg->feature.balance_start_mv); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->feature.balance_start_delta_mv); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->feature.balance_stop_delta_mv); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->soc.current_deadband_ma); off += 2u;
+    bms_config_put_u16le(&payload[off], cfg->soc.ocv_rest_prepare_s); off += 2u;
+    payload[off++] = cfg->soc.ocv_error_band_percent;
+    payload[off++] = cfg->soc.capacity_learning_enable;
+    payload[off++] = cfg->soc.hide_capacity_until_learned;
 }
 
 static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
@@ -190,6 +200,13 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->feature.balance_start_mv = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->feature.balance_start_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->feature.balance_stop_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
+    cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
+    cfg->soc.current_deadband_ma = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->soc.ocv_rest_prepare_s = bms_config_get_u16le(&payload[off]); off += 2u;
+    cfg->soc.ocv_error_band_percent = payload[off++];
+    cfg->soc.capacity_learning_enable = payload[off++];
+    cfg->soc.hide_capacity_until_learned = payload[off++];
 }
 
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
@@ -230,6 +247,11 @@ int bms_config_store_init(void)
         bms_config_decode(&g_bms_config, payload);
         if (!bms_config_feature_valid(&g_bms_config.feature))
             bms_config_feature_defaults(&g_bms_config.feature);
+        if (!bms_soc_config_valid(&g_bms_config.soc)) {
+            bms_soc_get_default_config(&g_bms_config.soc);
+            g_bms_config.soc.chemistry = (u8)g_bms_config.system.battery_chemistry;
+            g_bms_config.soc.profile_id = (u8)g_bms_config.system.soc_profile_id;
+        }
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OK);
     } else {
         bms_config_defaults(&g_bms_config);
@@ -270,10 +292,41 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
         (system->soc_profile_id > BMS_SOC_PROFILE_GENERIC_NMC) ||
         ((system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) ||
         ((system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP))) return 0;
+    if (system->capacity_factory == 0u ||
+        system->capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
     if (memcmp(&g_bms_config.system, system, sizeof(*system)) == 0) return 1;
     next = g_bms_config;
     next.system = *system;
+    next.soc.chemistry = (u8)system->battery_chemistry;
+    next.soc.profile_id = (u8)system->soc_profile_id;
     return bms_config_save_cache(&next);
+}
+
+int bms_config_store_get_soc(bms_soc_config_t *config)
+{
+    if (!config || !bms_config_ensure_ready()) return 0;
+    *config = g_bms_config.soc;
+    return bms_soc_config_valid(config);
+}
+
+int bms_config_store_set_soc(const bms_soc_config_t *config)
+{
+    bms_config_cache_t next;
+    if (!bms_soc_config_valid(config) || !bms_config_ensure_ready()) return 0;
+    if (memcmp(&g_bms_config.soc, config, sizeof(*config)) == 0) return 1;
+    next = g_bms_config;
+    next.soc = *config;
+    next.system.battery_chemistry = config->chemistry;
+    next.system.soc_profile_id = config->profile_id;
+    return bms_config_save_cache(&next);
+}
+
+int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
+{
+    if (!offset_ma || !gain_ppm) return 0;
+    *offset_ma = 0;
+    *gain_ppm = 1000000u;
+    return 1;
 }
 
 int bms_config_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)

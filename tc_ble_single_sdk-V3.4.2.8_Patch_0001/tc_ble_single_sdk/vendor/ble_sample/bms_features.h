@@ -68,6 +68,7 @@ void bms_features_on_afe_invalid(void);
 uint8_t bms_features_heater_on(void);
 bms_heater_state_t bms_features_heater_state(void);
 uint8_t bms_features_charge_session_active(void);
+uint8_t bms_features_balance_active(void);
 uint8_t bms_features_balance_voltage_trusted(void);
 uint8_t bms_features_openwire_suspected(void);
 uint8_t bms_features_charge_hard_blocked(void);

@@ -27,6 +27,10 @@ typedef struct
     uint16_t full_min_margin_mv;
     uint16_t empty_sync_mv;
     uint16_t empty_max_margin_mv;
+    uint8_t ocv_min_error_band_percent;
+    uint16_t full_cell_delta_max_mv;
+    uint16_t learning_cell_delta_max_mv;
+    uint16_t learning_endpoint_max_c_rate_x1000;
     uint16_t terminal_start_offset_mv;
     uint16_t terminal_l1_offset_mv;
     uint16_t terminal_l2_offset_mv;
@@ -57,6 +61,7 @@ static const soc_profile_t g_soc_profile_lfp = {
     2500u, 3800u,
     3500u, 100u,
     3000u, 150u,
+    7u, 80u, 50u, 50u,
     150u, 100u, 50u, 20u,
 };
 
@@ -69,5 +74,6 @@ static const soc_profile_t g_soc_profile_nmc = {
     2600u, 4300u,
     4180u, 200u,
     3000u, 200u,
+    5u, 80u, 50u, 50u,
     300u, 200u, 150u, 50u,
 };
