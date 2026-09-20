@@ -7,7 +7,7 @@
 #include "bms_afe_backend.h"
 #include "sh3673510_project_config.h"
 
-/* Production feature selection. D011 uses fixed Modbus RTU over RS485; SIF/one-wire is not used. */
+/* Production feature selection. D014 uses fixed Modbus RTU over isolated RS485; SIF/one-wire is not used. */
 #define _UL_RENZHENG_ENABLE_
 #define _FUNC_UART_
 #define MODBUS_RS485_ENABLE              1
@@ -24,6 +24,9 @@
 #define C21             0
 #define C31             1
 #define D11             2
+/* D014 temporarily shares the legacy D11 numeric wire/storage ID. Allocate a
+ * new protocol ID only together with host-tool compatibility handling. */
+#define D14             D11
 #define D31             3
 #define C700            4
 #define M1PRO           5
@@ -37,24 +40,31 @@
 #define C11_AND_C11pro  13
 #define test_default    14
 
-/* HS-D011-10S50A is the active product on this branch. */
-#define FD_BMS_TYPE                    D11
+/* HS-D014-8S15A is the active product on this branch. */
+#define FD_BMS_TYPE                    D14
 #define SeriesNum                      SH3673510_D011_CELL_COUNT
-/* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
+
+/*
+ * Product requirements not present on the schematic are intentionally not
+ * invented here. CapacityFactory/AFE_ODC1/AFE_ODC2 remain inherited migration
+ * defaults until D014 product parameters are signed off; protection is still
+ * governed by the persisted software profile + independent AFE HW profile.
+ */
 #define CapacityFactory                116
 #define AFE_ODC1                       300
 #define AFE_ODC2                       500
-#define BMS_HARDWARE_VERDION_DEFAULT   "D011"
+#define BMS_HARDWARE_VERDION_DEFAULT   "D014"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
-#define BMS_SERIAL_NUMBER_DEFAULT      "D011-UNSET"
+#define BMS_SERIAL_NUMBER_DEFAULT      "D014-UNSET"
 
-/* Legacy SOC/current-sense compatibility values. */
+/* Legacy SOC/current-sense compatibility fields; SH3673510 current conversion
+ * uses SH3673510_D011_SHUNT_UOHM (667uOhm) directly. */
 #define CS_Res                         2
 #define CS_Res_Num                     2
 
-#define DEV_NAME_STR  "BT_D011"
+#define DEV_NAME_STR  "BT_D014"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
-#define DEV_NAME_STR2 "BT_D011_FACTORY"
+#define DEV_NAME_STR2 "BT_D014_FACTORY"
 #define DEV_NAME_LEN2 (sizeof(DEV_NAME_STR2)-1)
 
 typedef uint8_t  UINT8;
@@ -75,8 +85,8 @@ typedef enum _CUR {
 #define Feed_IWatchDog ;
 #define log_i(...) ;
 
-/* D011 board code uses only canonical D011_* schematic nets from
- * sh3673510_project_config.h. Legacy cross-board GPIO aliases are forbidden. */
+/* D014 board truth is defined in sh3673510_project_config.h. The D011_*
+ * compatibility aliases there are transitional implementation aliases only. */
 
 typedef struct
 {
