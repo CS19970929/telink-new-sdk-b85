@@ -16,6 +16,23 @@ assert SPEC is not None and SPEC.loader is not None
 bms = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bms)
 
+
+class WorktreeJunctionTests(unittest.TestCase):
+    def test_junction_is_stable_and_unique_per_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            first = Path(tmp) / "first"
+            second = Path(tmp) / "second"
+            first.mkdir()
+            second.mkdir()
+
+            self.assertEqual(bms._worktree_junction(first), bms._worktree_junction(first))
+            self.assertNotEqual(bms._worktree_junction(first), bms._worktree_junction(second))
+            self.assertRegex(
+                bms._worktree_junction(first).name,
+                r"^bms_repo_[0-9a-f]{12}$",
+            )
+
+
 class ClientAssetPathTests(unittest.TestCase):
     def test_product_branch_does_not_require_legacy_qt_client(self) -> None:
         self.assertFalse((REPO_ROOT / "tools" / "BMSAssistantQt").exists())

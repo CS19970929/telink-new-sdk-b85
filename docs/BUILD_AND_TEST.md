@@ -20,6 +20,10 @@ python bms_tools/bms.py static --no-report
 
 `bms_tools/source_order.txt` 是版本化链接顺序清单。源码集合改变时才运行 `python bms_tools/bms.py sources --update`，并人工检查 diff。
 
+### 多 worktree 并行构建
+
+`bms.py` 会按当前 worktree 绝对路径生成独立的 `C:\opencode\bms_repo_<hash>` junction。不同产品分支可以并行构建，不能改回所有分支共用一个固定 junction，否则 Make 可能读取另一 worktree 的源码并污染 OBJ/MAP/BIN。单个 worktree 的输出目录仍是唯一的，同一 worktree 不应同时启动两个 clean/build。
+
 ## 3. Host contracts：按产品运行
 
 ### D008 / DVC1124

@@ -97,12 +97,21 @@ SOURCE_GROUPS = (
 # Space-free junction for GNU Make.
 # The repo directory contains a literal space ("..._Patch_0001 (1)") that
 # breaks GNU Make's whitespace tokenizer on Windows regardless of escaping.
-# We transparently create a junction from a space-free path to the repo root,
-# and give Make all paths via that junction. The on-disk build artifacts are
+# We transparently create a worktree-specific junction from a space-free path
+# to the repo root, and give Make all paths via that junction. A fixed shared
+# junction is unsafe: concurrent builds from different Git worktrees can
+# silently switch each other's source roots. The on-disk build artifacts are
 # identical (the junction resolves to the same directory); it is purely a
 # Make-facing path rewrite.
 # --------------------------------------------------------------------------
-JUNCTION = Path("C:/opencode/bms_repo")
+def _worktree_junction(repo_root: Path) -> Path:
+    """Return a deterministic, space-free junction unique to one worktree."""
+    identity = repo_root.resolve().as_posix().casefold().encode("utf-8")
+    suffix = hashlib.sha256(identity).hexdigest()[:12]
+    return Path("C:/opencode") / f"bms_repo_{suffix}"
+
+
+JUNCTION = _worktree_junction(REPO_ROOT)
 _junction_ok = False
 
 
