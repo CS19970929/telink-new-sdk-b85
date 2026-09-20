@@ -27,10 +27,12 @@ public sealed partial class MainActivity
     private TextView? _eventView;
     private TextView? _diagnosticView;
     private TextView? _monitorStatus;
+    private TextView? _firmwareInboxStatus;
     private TextView? _logView;
     private LinearLayout? _scanResults;
     private LinearLayout? _protectionRows;
     private LinearLayout? _afeRows;
+    private LinearLayout? _firmwareInbox;
     private EditText? _macInput;
     private EditText? _capacityInput;
     private EditText? _socInput;
@@ -231,8 +233,16 @@ public sealed partial class MainActivity
 
         page.AddView(SectionTitle("OTA 升级"));
         page.AddView(Note("仅接受通过 Telink marker、尺寸和 CRC 预检的 BIN。OTA_SUCCESS 后会重连并核对 Serial；不能只凭重新连上判定成功。"));
+        page.AddView(Note("日常测试可由 android-ota-test.ps1 自动导入固件收件箱；App 无需每轮重新安装。"));
+        var inboxButtons = Row();
+        inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync));
+        inboxButtons.AddView(ActionButton("导入 BIN", PickFirmware));
+        page.AddView(inboxButtons);
+        _firmwareInboxStatus = DataBlock("固件收件箱为空");
+        page.AddView(_firmwareInboxStatus);
+        _firmwareInbox = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        page.AddView(_firmwareInbox);
         _firmwareInput = LabeledInput(page, "固件路径", "");
-        page.AddView(ActionButton("选择 BIN", PickFirmware));
         _expectedSerialInput = LabeledInput(page, "升级后期望 Serial（可选）", "");
         _otaButton = ActionButton("开始 OTA 并验证", StartOtaAsync);
         page.AddView(_otaButton);
@@ -347,10 +357,32 @@ public sealed partial class MainActivity
             var builder = new AlertDialog.Builder(this);
             builder.SetTitle(title);
             builder.SetMessage(message);
-            builder.SetNegativeButton("取消", (_, _) => tcs.TrySetResult(false));
-            builder.SetPositiveButton("确认", (_, _) => tcs.TrySetResult(true));
+            // Builder button callbacks were observed firing immediately on one Android vendor build.
+            // Install the real handlers only after Show(), so merely creating the dialog can never
+            // authorize a write or OTA operation.
+            builder.SetNegativeButton("取消", (_, _) => { });
+            builder.SetPositiveButton("确认", (_, _) => { });
             builder.SetOnCancelListener(new DialogCancelListener(() => tcs.TrySetResult(false)));
-            builder.Show();
+            AlertDialog? dialog = builder.Create();
+            if (dialog is null)
+            {
+                tcs.TrySetException(new InvalidOperationException("无法创建确认对话框。"));
+                return;
+            }
+            dialog.Show();
+            AppendLog($"CONFIRM_SHOWN title='{title}'");
+            dialog.GetButton((int)DialogButtonType.Negative)!.Click += (_, _) =>
+            {
+                AppendLog($"CONFIRM_CANCEL title='{title}'");
+                tcs.TrySetResult(false);
+                dialog.Dismiss();
+            };
+            dialog.GetButton((int)DialogButtonType.Positive)!.Click += (_, _) =>
+            {
+                AppendLog($"CONFIRM_ACCEPT title='{title}'");
+                tcs.TrySetResult(true);
+                dialog.Dismiss();
+            };
         });
         return tcs.Task;
     }

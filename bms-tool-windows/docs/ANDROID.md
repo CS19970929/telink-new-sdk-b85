@@ -49,11 +49,63 @@
 - OTA 必须明确 MAC 并二次确认。成功必须有 `OTA_RESULT=OTA_SUCCESS`；随后重连并读取 Serial，设置期望 Serial 时还必须完全匹配。仅“重新连上”不会判定成功。
 - 原始寄存器读取，以及每次均需二次确认的单寄存器写入/读回。保护和 AFE 参数不能借此页面绕过专用事务。
 
+## 一键 Android OTA 测试
+
+App 只需安装一次。后续修改的是 BMS 固件时，不需要重新构建或发送 APK，也不需要在手机文件选择器中逐层寻找 BIN。
+
+从指定固件工作树 clean rebuild：
+
+```powershell
+.\android-ota-test.ps1 `
+  -FirmwareRoot 'D:\path\to\feature-worktree' `
+  -Mac A4:C1:38:00:30:CF `
+  -ExpectedSerial D007-OTA-R4
+```
+
+脚本依次执行：
+
+1. 核对固件工作树并记录 `HEAD`；
+2. 执行 `python bms_tools/bms.py rebuild` 和 `check-fw`；
+3. 拒绝 `*.raw.bin`，计算正式 BIN 的 size 和 SHA-256；
+4. 自动选择唯一的 ADB 手机，或用 `-DeviceId` 明确指定；
+5. 通过仅 ADB/system shell 可调用的导入入口，将 BIN 分片写入 App 私有 `FirmwareInbox`，并由 App 校验完整文件的 SHA-256；
+6. 启动 App，填入 MAC、固件路径和期望 Serial；
+7. 用户在手机核对目标、供电和文件后作最终确认；
+8. 等待 `OTA_SUCCESS`、升级后重连和身份回读；
+9. 将 `logcat`、App 日志和 `summary.json` 拉回 `%LOCALAPPDATA%\CodexTemp\bms-android-ota\`。
+
+已经有可烧录 BIN：
+
+```powershell
+.\android-ota-test.ps1 `
+  -Bin .\project\tlsr_tc32\B85\825x_ble_sample_cli\825x_ble_sample.bin `
+  -Mac A4:C1:38:00:30:CF `
+  -ExpectedSerial D007-OTA-R4
+```
+
+首次安装或 App 已更新时增加 `-InstallApp`；平常固件测试不要加。只导入固件、打开确认页但不在脚本中等待结果时可使用 `-NoWait`。多台手机连接时必须指定 `-DeviceId`。
+
+App 的“工具 → OTA 升级 → 固件收件箱”会列出最近 20 个 BIN，并逐个执行与正式 OTA 相同的严格 Telink 预检。通过系统文件选择器导入的 BIN 也会复制到该收件箱，之后可直接复用。
+
+ADB 导入 receiver 要求 `android.permission.DUMP`，普通第三方 App 不能调用；分片总大小限制为 2 MiB，任一分片、offset 或最终 SHA-256 不匹配都会删除临时文件。导入成功也不会自动写 Flash，仍必须经过 App 内 OTA 预检和用户确认。
+
+## 客户固件交付方向
+
+固件收件箱解决开发、售后和离线升级。正式在线客户升级不应让客户寻找裸 BIN，后续按独立阶段增加：
+
+- HTTPS 固件清单，按产品、Hardware、Software、Build ID 和发布渠道匹配；
+- App 私有缓存、断点/失败清理、SHA-256 和签名清单验证；
+- 更新说明、版本回退策略、分批发布和明确的用户确认；
+- `OTA_SUCCESS + Build ID/版本变化` 作为客户成功证据，修改 Serial 只用于研发测试。
+
+当前 Telink marker、CRC trailer 和 SHA-256 都不是发布者身份认证。面向客户发布前至少需要签名清单；如需抵抗本地恶意镜像，最终还应由 Bootloader 验证固件签名。
+
 ## Android 平台边界
 
 - 当前只支持 Android BLE，不提供 Windows COM 直连。
 - 当前 OTA 只开放共享 Telink OTA；Windows 的 STM32 Serial IAP 没有冒充为 Android 功能。
 - 导出文件位于 `/sdcard/Android/data/com.cs.bmstool.android/files/Documents/`；运行日志位于同一 App 外部目录的 `files/` 根目录。
+- 固件收件箱位于 App 私有内部存储，文件管理器和其他 App 不能直接访问；请通过 App 的“导入 BIN”或 `android-ota-test.ps1` 导入。
 - Android 12 及以上请求 `BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT`；旧系统扫描请求定位权限。
 
 ## 构建与安装

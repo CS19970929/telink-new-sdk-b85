@@ -38,15 +38,26 @@ Android 使用独立的手机信息架构和原生控件，不复用或修改 Wi
 adb shell am start -n com.cs.bmstool.android/<MainActivity> `
   --es operation ota `
   --es mac A4:C1:38:00:30:CF `
-  --es firmware /data/user/0/com.cs.bmstool.android/files/firmware.bin `
+  --es firmware_inbox_name ota-20260920-153827-640D7AC7.bin `
   --es expected_serial D007-OTA-R1
 ```
 
-`<MainActivity>` 用 `adb shell cmd package resolve-activity --brief com.cs.bmstool.android` 获取。日志位于 `/sdcard/Android/data/com.cs.bmstool.android/files/`，可直接用 `adb pull` 导出。OTA 不会把“能重连”单独当成成功；自动测试同时要求服务器 `OTA_RESULT=OTA_SUCCESS` 和升级后 Serial 回读匹配，并记录升级前后 Firmware Build ID。修改共享 OTA 代码后必须运行 `./test-ota-protocol.ps1`，并同时构建 `BmsTool.Cli`、`BmsTool.Windows`、`BmsFactoryTest.Windows`和 `BmsTool.Android`。
+`firmware_inbox_name` 必须是已经由 App 或 `android-ota-test.ps1` 导入私有收件箱的文件名；不要直接向 App 私有目录执行 `adb push`。`<MainActivity>` 用 `adb shell cmd package resolve-activity --brief com.cs.bmstool.android` 获取。日志位于 `/sdcard/Android/data/com.cs.bmstool.android/files/`，可直接用 `adb pull` 导出。OTA 不会把“能重连”单独当成成功；自动测试同时要求服务器 `OTA_RESULT=OTA_SUCCESS` 和升级后 Serial 回读匹配，并记录升级前后 Firmware Build ID。修改共享 OTA 代码后必须运行 `./test-ota-protocol.ps1`，并同时构建 `BmsTool.Cli`、`BmsTool.Windows`、`BmsFactoryTest.Windows`和 `BmsTool.Android`。
 
 Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连接阶段的瞬态 `status=22`、timeout 或 I/O 失败最多重试 3 次；数据阶段仍由共享 `BmsClient` 的有界 probe/reconnect 逻辑处理。
 
 完整页面、共享源码、安全边界、构建和真机测试结果见 [Android BMS Tool](docs/ANDROID.md)。Android 当前只提供 BLE；Windows 的 COM 直连和 STM32 Serial IAP 不伪装为 Android 功能。
+
+日常固件 OTA 不需要重新构建或重新安装 App。App 安装一次后，可用一条命令完成固件构建、`check-fw`、ADB 安全导入、打开 OTA 确认页、等待结果和拉取证据：
+
+```powershell
+.\android-ota-test.ps1 `
+  -FirmwareRoot 'D:\path\to\firmware-worktree' `
+  -Mac A4:C1:38:00:30:CF `
+  -ExpectedSerial D007-OTA-R4
+```
+
+已有 BIN 时改用 `-Bin .\825x_ble_sample.bin`。只有首次安装或 App 本身更新时才加 `-InstallApp`。脚本不会绕过手机端最终确认，也不会接受 `raw.bin`。
 
 ## 三入口发布约定
 

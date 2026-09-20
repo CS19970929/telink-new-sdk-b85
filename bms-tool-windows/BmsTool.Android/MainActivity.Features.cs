@@ -440,6 +440,120 @@ public sealed partial class MainActivity
         return Task.CompletedTask;
     }
 
+    private string FirmwareInboxDirectory()
+    {
+        return AndroidFirmwareInbox.GetDirectory(this);
+    }
+
+    private async Task ImportFirmwareAsync(global::Android.Net.Uri uri)
+    {
+        string? target = null;
+        try
+        {
+            string name = ReadDisplayName(uri) ?? $"firmware-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.bin";
+            name = string.Concat(Path.GetFileName(name).Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
+            if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) name += ".bin";
+            target = Path.Combine(FirmwareInboxDirectory(), name);
+            if (File.Exists(target))
+                target = Path.Combine(FirmwareInboxDirectory(), $"{Path.GetFileNameWithoutExtension(name)}-{DateTimeOffset.Now:HHmmss}.bin");
+            await using (Stream input = ContentResolver!.OpenInputStream(uri)
+                ?? throw new IOException("无法读取所选固件。"))
+            await using (FileStream output = File.Create(target))
+            {
+                byte[] buffer = new byte[81920];
+                int total = 0;
+                while (true)
+                {
+                    int count = await input.ReadAsync(buffer);
+                    if (count == 0) break;
+                    total = checked(total + count);
+                    if (total > AndroidFirmwareInbox.MaxImageBytes)
+                        throw new InvalidDataException("固件超过 App 支持的最大大小。");
+                    await output.WriteAsync(buffer.AsMemory(0, count));
+                }
+            }
+            _firmwareInput!.Text = target;
+            await RefreshFirmwareInboxAsync();
+            try
+            {
+                FirmwareImage image = FirmwareImage.LoadStrictTelink(target);
+                SetStatus($"固件已导入并通过预检：{image.FileName} · {image.ImageSize} bytes");
+            }
+            catch (Exception ex) { SetStatus("固件已导入，但 OTA 预检不通过：" + ex.Message, true); }
+        }
+        catch (Exception ex)
+        {
+            if (target is not null)
+            {
+                try { File.Delete(target); }
+                catch { }
+            }
+            SetStatus("导入固件失败：" + ex.Message, true);
+        }
+    }
+
+    private string? ReadDisplayName(global::Android.Net.Uri uri)
+    {
+        try
+        {
+            using global::Android.Database.ICursor? cursor = ContentResolver?.Query(
+                uri, new[] { global::Android.Provider.IOpenableColumns.DisplayName }, null, null, null);
+            if (cursor?.MoveToFirst() == true)
+            {
+                int column = cursor.GetColumnIndex(global::Android.Provider.IOpenableColumns.DisplayName);
+                if (column >= 0) return cursor.GetString(column);
+            }
+        }
+        catch { }
+        return uri.LastPathSegment;
+    }
+
+    private Task RefreshFirmwareInboxAsync()
+    {
+        try
+        {
+            var files = new DirectoryInfo(FirmwareInboxDirectory()).EnumerateFiles("*.bin")
+                .OrderByDescending(file => file.LastWriteTimeUtc).Take(20).ToArray();
+            RunOnUiThread(() =>
+            {
+                _firmwareInbox!.RemoveAllViews();
+                _firmwareInboxStatus!.Text = files.Length == 0
+                    ? "固件收件箱为空"
+                    : $"共 {files.Length} 个固件；点击一项即可选择";
+                foreach (FileInfo file in files)
+                {
+                    string detail;
+                    bool valid;
+                    try
+                    {
+                        FirmwareImage image = FirmwareImage.LoadStrictTelink(file.FullName);
+                        valid = true;
+                        detail = $"可升级 · {image.ImageSize} bytes";
+                    }
+                    catch (Exception ex)
+                    {
+                        valid = false;
+                        detail = "预检不通过 · " + ex.Message;
+                    }
+                    var button = new Button(this)
+                    {
+                        Text = $"{(valid ? "✓" : "!")} {file.Name}\n{detail}",
+                        TextSize = 11
+                    };
+                    button.SetAllCaps(false);
+                    button.Click += (_, _) =>
+                    {
+                        _firmwareInput!.Text = file.FullName;
+                        SetStatus($"已选择：{file.Name}");
+                    };
+                    _firmwareInbox.AddView(button);
+                }
+            });
+        }
+        catch (Exception ex) { SetStatus("刷新固件收件箱失败：" + ex.Message, true); }
+        return Task.CompletedTask;
+    }
+
     private async Task StartOtaAsync()
     {
         string mac = _macInput?.Text?.Trim() ?? string.Empty;

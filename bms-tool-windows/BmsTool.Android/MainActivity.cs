@@ -34,6 +34,7 @@ public sealed partial class MainActivity : Activity
         _logFilePath = Path.Combine(logDirectory, $"bms-tool-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         BuildUi();
         ApplyIntentValues();
+        _ = RefreshFirmwareInboxAsync();
         RequestBluetoothPermissions();
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
@@ -62,17 +63,7 @@ public sealed partial class MainActivity : Activity
     {
         base.OnActivityResult(requestCode, resultCode, data);
         if (requestCode != FirmwarePickerRequest || resultCode != Result.Ok || data?.Data is null) return;
-        try
-        {
-            string target = Path.Combine(CacheDir!.AbsolutePath, $"selected-{DateTimeOffset.Now:yyyyMMddHHmmss}.bin");
-            using Stream input = ContentResolver!.OpenInputStream(data.Data)
-                ?? throw new IOException("无法读取所选固件。");
-            using FileStream output = File.Create(target);
-            input.CopyTo(output);
-            _firmwareInput!.Text = target;
-            SetStatus($"已选择固件：{Path.GetFileName(target)}");
-        }
-        catch (Exception ex) { SetStatus("读取固件失败：" + ex.Message, true); }
+        _ = ImportFirmwareAsync(data.Data);
     }
 
     private void ApplyIntentValues()
@@ -80,16 +71,24 @@ public sealed partial class MainActivity : Activity
         if (Intent is null) return;
         string? mac = Intent.GetStringExtra("mac");
         string? firmware = Intent.GetStringExtra("firmware");
+        string? firmwareInboxName = Intent.GetStringExtra("firmware_inbox_name");
         string? expectedSerial = Intent.GetStringExtra("expected_serial");
         if (!string.IsNullOrWhiteSpace(mac)) _macInput!.Text = mac;
-        if (!string.IsNullOrWhiteSpace(firmware)) _firmwareInput!.Text = firmware;
+        if (!string.IsNullOrWhiteSpace(firmwareInboxName) && AndroidFirmwareInbox.IsValidFileName(firmwareInboxName))
+            _firmwareInput!.Text = Path.Combine(FirmwareInboxDirectory(), firmwareInboxName);
+        else if (!string.IsNullOrWhiteSpace(firmware))
+            _firmwareInput!.Text = firmware;
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
     }
 
     private async Task RunIntentOperationAsync(string operation)
     {
         await ConnectSelectedAsync();
-        if (_client is null) return;
+        if (_client is null)
+        {
+            AppendLog("TEST_RESULT FAIL type=ConnectionError message=Unable to connect and probe the selected BMS.");
+            return;
+        }
         if (operation == "ota") await StartOtaAsync();
         else AppendLog("TEST_RESULT INFO_OK");
     }
