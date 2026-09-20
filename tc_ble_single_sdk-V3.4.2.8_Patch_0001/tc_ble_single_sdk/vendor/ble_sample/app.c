@@ -423,6 +423,27 @@ void enter_fac_mode(bool on)
 }
 
 extern volatile union System_Status SystemStatus;
+static void factory_mode_apply_switch_state(void)
+{
+	if (MODE_FACTORY != Runtime_GetMode())
+	{
+		return;
+	}
+
+	if (IsChargerWakeupActive())
+	{
+		open_chg_close_dsg();
+	}
+	else if (IsKeyWakeupActive())
+	{
+		enter_fac_mode(true);
+	}
+	else
+	{
+		close_dsg();
+	}
+}
+
 static void app_apply_startup_power_path(void)
 {
 	if (IsChargerWakeupActive())
