@@ -216,7 +216,7 @@ void bms_diag_poll_runtime(uint8_t sample_valid, int32_t current_ma,
 
     dirty |= update16(193u, sample_valid ? 1u : 0u);
     dirty |= update32(194u, (uint32_t)current_ma);
-    dirty |= update32(196u, (uint32_t)current_ma);
+    dirty |= update32(196u, (uint32_t)bms_afe_current_to_soc_ma(current_ma));
     dirty |= update32(198u, sample_tick_32k);
     dirty |= update16(200u, soc.current_deadband_ma);
     dirty |= update16(202u, soc.soc_estimate);
