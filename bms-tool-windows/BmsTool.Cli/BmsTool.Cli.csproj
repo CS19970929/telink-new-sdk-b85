@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x64</Platforms>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**;publish/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
