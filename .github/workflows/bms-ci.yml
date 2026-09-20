@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - refactor/bms-template-phase1
+      - refactor/d011-common-bms-features
   workflow_dispatch:
 
 permissions:
