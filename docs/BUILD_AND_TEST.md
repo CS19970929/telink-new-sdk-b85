@@ -4,6 +4,8 @@
 
 正式固件使用项目锁定的 `tc32-elf-gcc 4.5.1-tc32-1.3`、Telink B85 Vendor 库、现有 `boot.link` 和 `tl_check_fw2.exe`。不得用 host GCC/clang、ARM GCC 或其他 ABI 的成功结果替代 TC32 production build。
 
+`bms.py build/rebuild` 对 compiler warning 执行零容忍门禁；任何 `warning:` 都会使构建返回非零并保留 `gen/build.log`。不得通过提高 warning 基线绕过隐式声明、重复宏或条件编译死代码问题。
+
 ```powershell
 python bms_tools/bms.py env
 python bms_tools/bms.py sources --check
@@ -35,6 +37,8 @@ python bms_tools/bms.py static --no-report
 ### D013 / SH3673510 4S
 
 使用当前 `.github/workflows/bms-ci.yml` 里的 D013 integration contract，加 SH family、software protection、AFE HW profile/access、SOC、Flash contracts。工作流文件是测试入口的最终事实；不要因为源码仍有 `D011_*` 命名而运行错产品逻辑。
+
+当前 D013 门禁使用 `sh3673510_d013_diagnostics_integration_check.py`，不再误跑 D011 scheduler/IO contract。`sh3673510_protection_mode_check.py` 和 `common_feature_policy_contract_check.py` 所要求的四组合保护隔离及 Heater/Balance/Open-Wire 公共策略尚未完整移植到 D013，因此明确作为待实现缺口，不得通过在 CI 中误跑失败的 D011 契约或伪造通过来掩盖。
 
 ## 4. CI 的含义
 
