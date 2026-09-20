@@ -50,6 +50,17 @@ static class Test
         Check(capture.SoftwareProtectionWords?.Length==65 && capture.SoftwareProtectionWords[0]==3750 && capture.SoftwareProtectionWords[64]==100,"software parameter read/endian");
         Check(capture.EvidenceBlocks.ContainsKey("AfeRequested")&&capture.EvidenceBlocks["AfeRequested"].Length==35,"AFE evidence capture");
         Check(capture.EvidenceBlocks.ContainsKey("D008CapabilityTail")&&capture.EvidenceBlocks.ContainsKey("Balance"),"D008 protocol v2 evidence capture");
+        var shWords=capture.Words!.ToArray();shWords[14]=0x3510;shWords[29]=BmsDiagnostics.GenericFetBitsInfo;
+        shWords[2]=(ushort)(BmsDiagnostics.BootCapability|BmsDiagnostics.TraceCapability|BmsDiagnostics.StorageCapability|BmsDiagnostics.MosCapability|BmsDiagnostics.RuntimeCapability);
+        shWords[130]=3;shWords[131]=1;shWords[132]=2;shWords[133]=1;
+        var shCapture=new DiagnosticCapture();BmsDiagnostics.Decode(shCapture,shWords);
+        Check(shCapture.Boot.Any(f=>f.Field=="MCU / AFE"&&f.Value.Contains("SH3673510")),"SH AFE identity");
+        Check(shCapture.Mos.Any(f=>f.Field=="AFE Command bits"&&f.Value.Contains("SH command"))&&!shCapture.Mos.Any(f=>f.Field.Contains("R81")),"SH FET command semantics");
+        Check(shCapture.Mos.Any(f=>f.Field=="AFE Status bits"&&f.Value.Contains("BSTATUS1"))&&!shCapture.Mos.Any(f=>f.Field.Contains("R6")),"SH FET status semantics");
+        Check(shCapture.Current.Any(f=>f.Field=="AFE 换算电流（无独立 raw）"),"SH current semantics");
+        Check(shCapture.Power.Any(f=>f.Value.Contains("未声明 D008 PM")),"SH reserved PM fields");
+        t.NonD008=true;var nonD008=await b.ReadDiagnosticsAsync(true,"sh-product");t.NonD008=false;
+        Check(!nonD008.EvidenceBlocks.ContainsKey("D008Capability")&&nonD008.EvidenceBlocks.ContainsKey("AfeRequested"),"AFE evidence must not depend on D008 capability");
         var health=BmsHealth.Evaluate(capture,new DeviceIdentity("AA","SN","D008","V1","BT_D008"),new BatterySnapshot{
             MinCellMv=3000,MaxCellMv=3200,CellDeltaMv=200,CellMillivolts=new ushort[]{3000,3200}});
         Check(health.Overall==BmsHealthStatus.Critical&&health.Checks.Any(x=>x.Id=="d008.protocol"&&x.Status==BmsHealthStatus.Pass),"health assessment and D008 capability");
@@ -110,7 +121,7 @@ sealed class FakeTransport:IBmsTransport
     public string DiscoveryDescription=>"test";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress {add{}remove{}}
-    public bool Legacy,Unstable,FailEvents,FailProtection,Timeout;
+    public bool Legacy,Unstable,FailEvents,FailProtection,Timeout,NonD008;
     public byte ExceptionCode;
     public int Writes;
     private uint traceSeq=1;
@@ -121,10 +132,11 @@ sealed class FakeTransport:IBmsTransport
         var q=data.Span;if(q[1]!=3)Writes++;
         if(Timeout)return Task.CompletedTask;
         ushort start=BinaryPrimitives.ReadUInt16BigEndian(q[2..4]);ushort count=BinaryPrimitives.ReadUInt16BigEndian(q[4..6]);
+        if(NonD008&&start==0x2E00) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,2}));return Task.CompletedTask;}
         if(ExceptionCode!=0 || (FailEvents&&start==0xC008) || (FailProtection&&start==0x2100)) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,ExceptionCode==0?(byte)2:ExceptionCode}));return Task.CompletedTask;}
         var w=new ushort[1024];
         if(!Legacy) {
-            w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
+            w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;w[14]=0x1124;w[15]=0x8251;
             w[18]=0x5678;w[19]=0x1234;w[22]=0x5678;w[23]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
             w[192]=3;w[193]=3;
             w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;

@@ -83,7 +83,7 @@ BmsTool.Cli\publish\cli-win-x64-<时间戳>\bms-cli.exe
 
 ## 命令行版 / AI 接口
 
-`BmsTool.Cli` 提供 `scan / info / soc / monitor / health / diag / parameters / test / compare / ota`。它直接复用 WPF 上位机的 BLE、串口、BmsClient、Telink OTA、STM32 IAP、健康评估、自动测试和 D008 Diagnostics 源码，不维护第二套协议。Windows 与 Android 的诊断页也使用同一个 `BmsHealth` 和 `BmsTestEngine` 结论模型。
+`BmsTool.Cli` 提供 `scan / info / soc / monitor / health / diag / parameters / test / compare / ota`。它直接复用 WPF 上位机的 BLE、串口、BmsClient、Telink OTA、STM32 IAP、健康评估、自动测试和统一 Diagnostics 源码，不维护第二套协议。Windows 与 Android 的诊断页也使用同一个 `BmsHealth` 和 `BmsTestEngine` 结论模型。D008/D011/D013/D014 的功能矩阵、协议窗口、命令和验证边界见 [BMS 上位机、App、CLI 功能与协议指南](docs/BMS_TOOL_GUIDE.md)。
 
 快速 OTA：
 

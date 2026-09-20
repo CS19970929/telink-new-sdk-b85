@@ -1,12 +1,12 @@
 # BMS CLI：快速 OTA 与 AI 实板诊断
 
-`BmsTool.Cli` 是 Windows 上位机的无 UI 入口。它不复制另一套 BMS 协议，而是直接复用当前上位机的 BLE、串口、Modbus、Telink OTA、STM32 IAP 和 D008 Diagnostics 源码。
+`BmsTool.Cli` 是 Windows 上位机的无 UI 入口。它不复制另一套 BMS 协议，而是直接复用当前上位机的 BLE、串口、Modbus、Telink OTA、STM32 IAP 和统一 Diagnostics 源码。完整的跨产品功能、协议窗口与验证边界见 [BMS 上位机、App、CLI 功能与协议指南](BMS_TOOL_GUIDE.md)。
 
 ## 目标
 
 典型使用场景：
 
-- 不打开 WPF，快速给桌面上一块 D008 OTA。
+- 不打开 WPF，快速给桌面上一块明确识别的兼容 BMS OTA。
 - Codex/AI 在 Windows 机器上自动执行 `scan -> info -> ota -> diag`。
 - 远程终端、PowerShell、CI 或批处理调用。
 - 出问题时直接取得结构化 JSON 和 AI 诊断 ZIP，而不是截图 UI。
@@ -88,7 +88,7 @@ bms-cli diag --auto --json
 bms-cli health --mac A4:C1:38:12:34:56 --output .\health.zip --json
 ```
 
-健康评估只根据固件明确声明的保护、采样、启动、存储、构建来源及数据自洽性给出 `pass / info / warning / critical / unknown`，不会自行发明产品安全阈值，也不会把 `CHGF/DSGF` 当作物理 MOS 反馈。
+健康评估只根据固件明确声明的保护、采样、启动、存储、构建来源及数据自洽性给出 `pass / info / warning / critical / unknown`，不会自行发明产品安全阈值，也不会把 DVC `CHGF/DSGF` 或 SH `BSTATUS1` 当作物理 MOS 反馈。
 
 多轮真实连接/读取/断开测试：
 
@@ -96,7 +96,7 @@ bms-cli health --mac A4:C1:38:12:34:56 --output .\health.zip --json
 bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --delay-ms 500 --json
 ```
 
-每轮都会重新建立 transport、完成 Modbus probe、读取身份/实时状态/Build ID/D008 capability，然后释放连接。任一轮失败时仍输出全部尝试记录，并以 exit code 50 结束。
+每轮都会重新建立 transport、完成 Modbus probe、读取身份/实时状态/Build ID；D008 capability 是可选证据，然后释放连接。任一轮失败时仍输出全部尝试记录，并以 exit code 50 结束。
 
 只读取 typed SOC Runtime Diagnostics v2：
 
@@ -124,7 +124,7 @@ bms-cli compare .\before-diag.zip .\after-diag.zip --json
 同时生成现有 AI 诊断包：
 
 ```powershell
-bms-cli diag --auto --output .\D008_diag.zip --json
+bms-cli diag --auto --output .\BMS_diag.zip --json
 ```
 
 AI 可以直接使用 JSON 中的：
@@ -141,11 +141,11 @@ AI 可以直接使用 JSON 中的：
 因此推荐 AI 调试闭环：
 
 ```text
-修改源码
+修改对应产品源码
   -> python bms_tools/bms.py build
   -> bms-cli ota <bin> --mac <target> --yes --json
   -> bms-cli diag --mac <target> --json
-  -> 分析保护 / SOC / PM / Storage / Trace
+  -> 按 capability 分析保护 / SOC / Power / Storage / Trace
   -> 下一轮修改
 ```
 

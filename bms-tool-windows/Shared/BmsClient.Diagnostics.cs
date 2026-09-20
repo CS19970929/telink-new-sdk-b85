@@ -98,13 +98,15 @@ public sealed partial class BmsClient
             await Evidence("Realtime",BmsRegisters.Realtime,11);
             await Evidence("Legacy",BmsRegisters.Legacy,63);
             await Evidence("SystemStatus",BmsRegisters.SystemStatus,2);
+            foreach(var block in new (string Name,ushort Address,ushort Count)[]{
+                ("AfeRequested",0x2500,35),("AfeMeta",0x2523,9),("AfeEffective",0x2540,35)})
+                await Evidence(block.Name,block.Address,block.Count);
             var d008=await Evidence("D008Capability",0x2E00,12);
             if(d008 is {Length:>=3} && d008[0]==D008Parameters.Magic && D008Parameters.SupportsProtocol(d008[1])) {
                 if(d008[1]>=2)await Evidence("D008CapabilityTail",0x2E0C,4,false);
                 foreach(var block in new (string Name,ushort Address,ushort Count)[]{
                     ("CapacityCycle",0x2318,2),("SOC",0x1005,1),("Heater",0x2E20,3),
-                    ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16),
-                    ("AfeRequested",0x2500,35),("AfeMeta",0x2523,9),("AfeEffective",0x2540,35)})
+                    ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16)})
                     await Evidence(block.Name,block.Address,block.Count,false);
                 if((d008[2]&D008Parameters.BalanceCapability)!=0)
                     await Evidence("Balance",0x2E70,4,false);

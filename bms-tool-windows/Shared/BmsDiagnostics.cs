@@ -84,7 +84,10 @@ public sealed class DiagnosticCapture
 public static class BmsDiagnostics
 {
     public const ushort Base = 0x2A00, TraceBase = 0x2B00, RuntimeBase = 0x2AC0, Magic = 0x4447, Schema = 1;
+    public const ushort BootCapability = 0x0001, TraceCapability = 0x0002, StorageCapability = 0x0004,
+        MosCapability = 0x0008, UpgradeCapability = 0x0010;
     public const ushort RuntimeCapability = 0x0020;
+    public const ushort GenericFetBitsInfo = 0x0001;
     public static uint U32(ushort[] w, int at) => (uint)w[at] | ((uint)w[at+1] << 16);
     public static int I32(ushort[] w, int at) => unchecked((int)U32(w,at));
     public static string Result(ushort n) => n switch {
@@ -184,7 +187,9 @@ public static class BmsDiagnostics
         void M(string k,string v)=>c.Mos.Add(new(k,v));
         B("Schema / Capabilities",$"{w[1]} / 0x{w[2]:X4}");
         B("启动快照",(w[3]&1)!=0?"已冻结":"启动未完成");
-        B("MCU / AFE",$"0x{w[15]:X4} / 0x{w[14]:X4}");
+        bool genericFetBits=(w[29]&GenericFetBitsInfo)!=0 || w[14]==0x3510;
+        string afeName=w[14] switch {0x1124=>"DVC1124",0x3510=>"SH3673510",_=>$"unknown 0x{w[14]:X4}"};
+        B("MCU / AFE",$"0x{w[15]:X4} / {afeName}");
         B("SW/HW 编译开关",$"{w[13]&1}/{(w[13]>>1)&1}");
         B("构建类型",(w[13]&4)!=0?"PRODUCTION":"DEVELOPMENT / TEST");
         B("Git 工作区",(w[13]&8)!=0?"DIRTY（提交号不足以唯一复现）":"CLEAN");
@@ -209,30 +214,45 @@ public static class BmsDiagnostics
             B("升级候选 CUV：First/Second/Third/Recover",$"{w[100]}/{w[101]}/{w[102]}/{w[103]} mV");
         } else B("启动升级详细原因","旧固件未提供，不能由存储初始化成功推断升级成功");
         B("Firmware Build ID",U32(w,22)==0?"未知":$"{U32(w,22):x8}");
-        string[] domains={"CONFIG","STATE","FACTORY","EVENT"};
-        for(int i=0;i<4;i++) {
-            int a=32+16*i;
-            S(domains[i]+" 地址/大小",$"0x{U32(w,a):X8} / {U32(w,a+2)} bytes（配置大小，非有效性证明）");
-            S(domains[i]+" 启动尝试/最近结果",$"{w[a+4]} / {Result(w[a+6])}");
-            S(domains[i]+" 启动首次失败",w[a+5]==0?"无":$"{Result(w[a+5])} @ {U32(w,a+8)} ticks32k");
-            S(domains[i]+" 使用过默认值",w[a+7]!=0?"是":"否");
-            S(domains[i]+" 运行最近结果",Result(w[180+i]));
+        if((w[2]&StorageCapability)!=0) {
+            string[] domains={"CONFIG","STATE","FACTORY","EVENT"};
+            for(int i=0;i<4;i++) {
+                int a=32+16*i;
+                S(domains[i]+" 地址/大小",$"0x{U32(w,a):X8} / {U32(w,a+2)} bytes（配置大小，非有效性证明）");
+                S(domains[i]+" 启动尝试/最近结果",$"{w[a+4]} / {Result(w[a+6])}");
+                S(domains[i]+" 启动首次失败",w[a+5]==0?"无":$"{Result(w[a+5])} @ {U32(w,a+8)} ticks32k");
+                S(domains[i]+" 使用过默认值",w[a+7]!=0?"是":"否");
+                S(domains[i]+" 运行最近结果",Result(w[180+i]));
+            }
+            string[] counters={"Program calls","Erase calls","Verify failures","Deferred writes","Max program ticks32k","Max erase ticks32k"};
+            for(int i=0;i<6;i++) S(counters[i],U32(w,160+2*i).ToString());
+            S("底层首次失败",w[176]==0?"无":$"{Result(w[176])} @ 0x{U32(w,184):X8}");
+            S("底层最近失败",w[177]==0?"无":$"{Result(w[177])} @ 0x{U32(w,178):X8}");
+        } else {
+            S("Storage diagnostics","固件未声明该 capability");
         }
-        string[] counters={"Program calls","Erase calls","Verify failures","Deferred writes","Max program ticks32k","Max erase ticks32k"};
-        for(int i=0;i<6;i++) S(counters[i],U32(w,160+2*i).ToString());
-        S("底层首次失败",w[176]==0?"无":$"{Result(w[176])} @ 0x{U32(w,184):X8}");
-        S("底层最近失败",w[177]==0?"无":$"{Result(w[177])} @ 0x{U32(w,178):X8}");
-        M("运行保护参数 / 存储升级",$"{(w[144]&1)!=0} / {(w[144]&2)!=0}");
-        M("Requested CHG / DSG",$"{On((w[128]&1)!=0)} / {On((w[128]&2)!=0)}");
-        M("软件允许 CHG / DSG",$"{On((w[129]&1)!=0)} / {On((w[129]&2)!=0)}（不代表物理导通）");
-        M("CHG 阻断原因",Reasons(U32(w,136)));M("DSG 阻断原因",Reasons(U32(w,138)));
-        M("AFE Command R81",w[131]!=0?$"0x{w[130]:X2}（最近成功命令/读回）":"未知/无效");
-        M("AFE Command CHG / DSG",w[131]!=0?$"{Mode(w[130]&3)} / {Mode((w[130]>>2)&3)}":"未知/无效");
-        M("AFE Driver CHGF / DSGF",w[133]!=0?$"{On((w[132]&1)!=0)} / {On((w[132]&2)!=0)}":"未知/无效");
-        M("AFE Driver R6",w[133]!=0?$"0x{w[132]:X2}（CHGF/DSGF，非物理反馈）":"未知/无效");
-        M("AFE 采样年龄",$"{unchecked(U32(w,6)-U32(w,140))} ticks32k；有效位={w[133]}");
-        M("Physical Feedback","不可用 / unknown");
-        M("Trace 条数 / 覆盖次数",$"{w[12]} / {U32(w,10)}");
+        if((w[2]&MosCapability)!=0) {
+            M("运行保护参数 / 存储升级",$"{(w[144]&1)!=0} / {(w[144]&2)!=0}");
+            M("Requested CHG / DSG",$"{On((w[128]&1)!=0)} / {On((w[128]&2)!=0)}");
+            M("软件允许 CHG / DSG",$"{On((w[129]&1)!=0)} / {On((w[129]&2)!=0)}（不代表物理导通）");
+            M("CHG 阻断原因",Reasons(U32(w,136)));M("DSG 阻断原因",Reasons(U32(w,138)));
+            if(genericFetBits) {
+                M("AFE Command CHG / DSG",w[131]!=0?$"{On((w[130]&1)!=0)} / {On((w[130]&2)!=0)}":"未知/无效");
+                M("AFE Command bits",w[131]!=0?$"0x{w[130]:X2}（最近成功 SH command）":"未知/无效");
+                M("AFE Status CHG / DSG",w[133]!=0?$"{On((w[132]&1)!=0)} / {On((w[132]&2)!=0)}":"未知/无效");
+                M("AFE Status bits",w[133]!=0?$"0x{w[132]:X2}（SH BSTATUS1，非物理反馈）":"未知/无效");
+            } else {
+                M("AFE Command R81",w[131]!=0?$"0x{w[130]:X2}（最近成功命令/读回）":"未知/无效");
+                M("AFE Command CHG / DSG",w[131]!=0?$"{Mode(w[130]&3)} / {Mode((w[130]>>2)&3)}":"未知/无效");
+                M("AFE Driver CHGF / DSGF",w[133]!=0?$"{On((w[132]&1)!=0)} / {On((w[132]&2)!=0)}":"未知/无效");
+                M("AFE Driver R6",w[133]!=0?$"0x{w[132]:X2}（CHGF/DSGF，非物理反馈）":"未知/无效");
+            }
+            M("AFE 采样年龄",$"{unchecked(U32(w,6)-U32(w,140))} ticks32k；有效位={w[133]}");
+            M("Physical Feedback","不可用 / unknown");
+            M("Trace 条数 / 覆盖次数",$"{w[12]} / {U32(w,10)}");
+        } else {
+            M("MOS diagnostics","固件未声明该 capability");
+        }
 
         c.Current.Clear();c.Soc.Clear();c.Power.Clear();c.Protection.Clear();
         if((w[2]&RuntimeCapability)!=0 && w[192]>=1) {
@@ -243,10 +263,10 @@ public static class BmsDiagnostics
             bool sampleValid=(w[193]&1)!=0;
             C("Runtime Version",w[192].ToString());
             C("采样有效/新鲜",sampleValid?"是":"否");
-            C("AFE 原始电流",$"{I32(w,194)} mA");
+            C(genericFetBits?"AFE 换算电流（无独立 raw）":"AFE 原始电流",$"{I32(w,194)} mA");
             C("业务电流",$"{I32(w,196)} mA");
             C("采样年龄",$"{unchecked(U32(w,6)-U32(w,198))} ticks32k");
-            C("SOC deadband",$"{w[200]} mA（另有D008固定≤200mA不可靠区）");
+            C("SOC deadband",genericFetBits?$"{w[200]} mA（由当前 SH 产品固件上报）":$"{w[200]} mA（D008 另有固定≤200mA不可靠区）");
             C("过流恢复 pending",(w[193]&2)!=0?"是":"否");
 
             O("SOC estimate",$"{w[202]} %");
@@ -282,14 +302,18 @@ public static class BmsDiagnostics
                 }
             }
 
-            uint pm=U32(w,213);
-            P("Suspend",w[215]!=0?"允许":"阻止");
-            P("阻断原因",PmReasons(pm));
-            P("电流门槛",$"±{w[221]} mA");
-            P("BLE连接",w[219]!=0?"是":"否（不是suspend阻断条件）");
-            P("Sample pending",w[220]!=0?"是":"否");
-            P("低压关机 Region / 累计",$"{w[216]} / {U32(w,217)} s");
-            P("设备运行模式",w[225]!=0?"FACTORY（允许受控工厂操作）":"NORMAL");
+            if(w[14]==0x1124) {
+                uint pm=U32(w,213);
+                P("Suspend",w[215]!=0?"允许":"阻止");
+                P("阻断原因",PmReasons(pm));
+                P("电流门槛",$"±{w[221]} mA");
+                P("BLE连接",w[219]!=0?"是":"否（不是suspend阻断条件）");
+                P("Sample pending",w[220]!=0?"是":"否");
+                P("低压关机 Region / 累计",$"{w[216]} / {U32(w,217)} s");
+                P("设备运行模式",w[225]!=0?"FACTORY（允许受控工厂操作）":"NORMAL");
+            } else {
+                P("Power Management","当前固件未声明 D008 PM 字段；不把保留的 0 值解释为实际状态");
+            }
 
             F("Level 1",$"0x{w[222]:X4} · {ProtectionText(w[222])}");
             F("Level 2",$"0x{w[223]:X4} · {ProtectionText(w[223])}");

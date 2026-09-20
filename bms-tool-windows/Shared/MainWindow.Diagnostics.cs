@@ -45,7 +45,7 @@ public partial class MainWindow
         var export=new Button {Content="导出 AI 诊断包",Margin=new Thickness(4)};
         export.Click+=(_,_)=> {
             if(_diagCapture is null) {_diagStatus.Text="请先读取诊断";return;}
-            var dialog=new SaveFileDialog {Filter="诊断包 (*.zip)|*.zip",FileName=$"D008_AI_diag_{DateTime.Now:yyyyMMdd_HHmmss}.zip"};
+            var dialog=new SaveFileDialog {Filter="诊断包 (*.zip)|*.zip",FileName=$"BMS_AI_diag_{DateTime.Now:yyyyMMdd_HHmmss}.zip"};
             if(dialog.ShowDialog(this)!=true)return;
             try {BmsDiagnostics.Export(dialog.FileName,_diagCapture,_diagHealthReport);_diagStatus.Text="AI 诊断包已保存";}
             catch(Exception ex){ShowError("诊断导出失败",ex);}

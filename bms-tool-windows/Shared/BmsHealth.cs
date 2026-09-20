@@ -80,21 +80,29 @@ public static class BmsHealth
             buildId == 0 ? "Build ID 不可用" : "Build ID 可用",
             buildId == 0 ? "0" : buildId.ToString("x8"));
 
-        Add("boot.afe", "启动", words[25] == 1 ? BmsHealthStatus.Pass : BmsHealthStatus.Critical,
-            words[25] == 1 ? "AFE 配置初始化成功" : "AFE 配置初始化异常",
-            BmsDiagnostics.Result(words[25]), "检查 AFE 通信、固定配置下发和 readback。 ");
-        Add("boot.parameters", "启动", words[26] == 1 ? BmsHealthStatus.Pass : BmsHealthStatus.Critical,
-            words[26] == 1 ? "参数加载/校验成功" : "参数加载/校验异常",
-            BmsDiagnostics.Result(words[26]), "检查 Config 记录、schema 和参数校验失败项。 ");
-
-        foreach (var domain in new[] { (Name: "CONFIG", Word: 180), (Name: "STATE", Word: 181), (Name: "EVENT", Word: 183) })
+        if ((words[2] & BmsDiagnostics.BootCapability) != 0)
         {
-            ushort result = words[domain.Word];
-            string status = result == 1 ? BmsHealthStatus.Pass : result == 0 ? BmsHealthStatus.Info : BmsHealthStatus.Warning;
-            Add("storage." + domain.Name.ToLowerInvariant(), "存储", status,
-                domain.Name + (result == 1 ? " 最近操作成功" : " 最近操作需要检查"),
-                BmsDiagnostics.Result(result), result is 0 or 1 ? "" : "检查底层首次/最近失败地址和 Flash 供电。 ");
+            Add("boot.afe", "启动", words[25] == 1 ? BmsHealthStatus.Pass : BmsHealthStatus.Critical,
+                words[25] == 1 ? "AFE 配置初始化成功" : "AFE 配置初始化异常",
+                BmsDiagnostics.Result(words[25]), "检查 AFE 通信、固定配置下发和 readback。 ");
+            Add("boot.parameters", "启动", words[26] == 1 ? BmsHealthStatus.Pass : BmsHealthStatus.Critical,
+                words[26] == 1 ? "参数加载/校验成功" : "参数加载/校验异常",
+                BmsDiagnostics.Result(words[26]), "检查 Config 记录、schema 和参数校验失败项。 ");
         }
+        else Add("boot", "启动", BmsHealthStatus.Unknown, "启动诊断未声明", "firmware capability 未包含 Boot");
+
+        if ((words[2] & BmsDiagnostics.StorageCapability) != 0)
+        {
+            foreach (var domain in new[] { (Name: "CONFIG", Word: 180), (Name: "STATE", Word: 181), (Name: "EVENT", Word: 183) })
+            {
+                ushort result = words[domain.Word];
+                string status = result == 1 ? BmsHealthStatus.Pass : result == 0 ? BmsHealthStatus.Info : BmsHealthStatus.Warning;
+                Add("storage." + domain.Name.ToLowerInvariant(), "存储", status,
+                    domain.Name + (result == 1 ? " 最近操作成功" : " 最近操作需要检查"),
+                    BmsDiagnostics.Result(result), result is 0 or 1 ? "" : "检查底层首次/最近失败地址和 Flash 供电。 ");
+            }
+        }
+        else Add("storage", "存储", BmsHealthStatus.Unknown, "存储诊断未声明", "firmware capability 未包含 Storage");
 
         if ((words[2] & BmsDiagnostics.RuntimeCapability) != 0 && words[192] >= 1)
         {
@@ -110,13 +118,17 @@ public static class BmsHealth
                 "固件未声明 runtime diagnostics capability");
         }
 
-        ushort level1 = words[222], level2 = words[223], level3 = words[224];
-        string protectionStatus = level3 != 0 ? BmsHealthStatus.Critical :
-            level2 != 0 || level1 != 0 ? BmsHealthStatus.Warning : BmsHealthStatus.Pass;
-        Add("protection.runtime", "保护", protectionStatus,
-            protectionStatus == BmsHealthStatus.Pass ? "当前无软件保护" : "当前存在软件保护",
-            $"L1=0x{level1:X4}, L2=0x{level2:X4}, L3=0x{level3:X4}",
-            protectionStatus == BmsHealthStatus.Pass ? "" : "结合 protection_runtime、单体和温度原始值核对触发原因。 ");
+        if ((words[2] & BmsDiagnostics.RuntimeCapability) != 0 && words[192] >= 1)
+        {
+            ushort level1 = words[222], level2 = words[223], level3 = words[224];
+            string protectionStatus = level3 != 0 ? BmsHealthStatus.Critical :
+                level2 != 0 || level1 != 0 ? BmsHealthStatus.Warning : BmsHealthStatus.Pass;
+            Add("protection.runtime", "保护", protectionStatus,
+                protectionStatus == BmsHealthStatus.Pass ? "当前无软件保护" : "当前存在软件保护",
+                $"L1=0x{level1:X4}, L2=0x{level2:X4}, L3=0x{level3:X4}",
+                protectionStatus == BmsHealthStatus.Pass ? "" : "结合 protection_runtime、单体和温度原始值核对触发原因。 ");
+        }
+        else Add("protection.runtime", "保护", BmsHealthStatus.Unknown, "运行保护证据不可用", "firmware capability 未包含 Runtime");
 
         if (battery is not null)
         {
@@ -155,9 +167,14 @@ public static class BmsHealth
             }
         }
 
-        Add("mos.physical_feedback", "MOS", BmsHealthStatus.Info, "物理 MOS 反馈不可用",
-            "当前只有 Requested、AFE Command 和 CHGF/DSGF；没有 Gate/Vgs 物理反馈",
-            "需要确认 MOS 实际导通时必须使用硬件测量或新增反馈电路。 ");
+        if ((words[2] & BmsDiagnostics.MosCapability) != 0)
+        {
+            string afeStatus = words[14] == 0x3510 ? "SH BSTATUS1" : "DVC CHGF/DSGF";
+            Add("mos.physical_feedback", "MOS", BmsHealthStatus.Info, "物理 MOS 反馈不可用",
+                $"当前只有 Requested、AFE Command 和 {afeStatus}；没有 Gate/Vgs 物理反馈",
+                "需要确认 MOS 实际导通时必须使用硬件测量或新增反馈电路。 ");
+        }
+        else Add("mos", "MOS", BmsHealthStatus.Unknown, "MOS 诊断未声明", "firmware capability 未包含 MOS");
 
         return Build(checks);
     }
