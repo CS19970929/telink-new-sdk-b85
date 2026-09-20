@@ -80,12 +80,12 @@ class SocContract(unittest.TestCase):
         self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min)", full_fn)
         self.assertIn("g_soc_profile->full_cell_delta_max_mv", full_fn)
         self.assertIn("&& isCHG()", full_fn)
-        self.assertIn("if (isCHG() && g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp)", full_fn)
+        self.assertIn("if (isCHG() && g_soc_input.third_cell_ovp)", full_fn)
         self.assertNotIn("&& !isDSG()", full_fn)
 
     def test_soc_low_faults_are_implemented_without_mos_policy(self):
         self.assertIn("soc_update_low_faults", C)
-        self.assertIn("fault->bits.b1SocLow", C)
+        self.assertIn("soc_fault_reg(level)->bits.b1SocLow", C)
         self.assertIn("u16SocUp_First", C)
         self.assertNotIn("b1SocLow ||", C)
 

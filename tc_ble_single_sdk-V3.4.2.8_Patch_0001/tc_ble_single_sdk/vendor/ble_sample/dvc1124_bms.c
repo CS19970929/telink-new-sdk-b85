@@ -123,15 +123,33 @@ static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16
     return (*count >= required) ? 1u : 0u;
 }
 
-static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm)
+static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
+                                             uint8_t sample_valid,
+                                             uint32_t sample_tick_32k)
 {
     static uint16_t cov_count;
     static uint16_t cuv_count;
+    static uint32_t last_sample_tick;
+    static uint8_t sample_seen;
     bms_afe_hw_profile_t hw;
     uint8_t clear_mask = 0u;
     uint8_t verify;
 
-    if (!bms_afe_hw_profile_get(&hw)) return alarm;
+    /* Consecutive recovery evidence cannot span invalid acquisition, AFE
+     * reinitialization or a long unsampled sleep/scheduler interval. */
+    if (!sample_valid || !bms_afe_hw_profile_get(&hw)) {
+        cov_count = 0u;
+        cuv_count = 0u;
+        sample_seen = 0u;
+        return alarm;
+    }
+    if (sample_seen && (uint32_t)(sample_tick_32k - last_sample_tick) >
+        2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u) {
+        cov_count = 0u;
+        cuv_count = 0u;
+    }
+    sample_seen = 1u;
+    last_sample_tick = sample_tick_32k;
 
     if (alarm & DVC1124_ALARM_COV_MASK) {
         if (dvc_recovery_stable((uint8_t)(g_stCellInfoReport.u16VCellMax <= hw.cov_recover_mv),
@@ -404,6 +422,9 @@ void DVC1124_BmsApp_AFEGet(void)
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) {
         s_current_recovery.removed_pending = 0u;
+#if DVC1124_HW_PROTECT_ENABLE
+        (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u);
+#endif
         bms_diag_driver(0u, 0u); return;
     }
 
@@ -424,7 +445,8 @@ void DVC1124_BmsApp_AFEGet(void)
     if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
 
 #if DVC1124_HW_PROTECT_ENABLE
-    alarm = dvc_clear_recovered_hw_latches(snapshot.alarm);
+    alarm = dvc_clear_recovered_hw_latches(snapshot.alarm, 1u,
+                                          snapshot.sample_tick_32k);
 #endif
     alarm = dvc_recover_current_faults(&snapshot, alarm,
                                       (uint8_t)(gpio_read(CHG_IN_PIN) != 0u));
