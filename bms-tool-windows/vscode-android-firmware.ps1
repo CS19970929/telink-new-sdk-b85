@@ -2,6 +2,7 @@
 param(
     [switch]$BuildFirmware,
     [switch]$SelectFirmware,
+    [switch]$ConnectOnly,
     [string]$FirmwarePath
 )
 
@@ -21,6 +22,16 @@ if ($BuildFirmware) {
         if ($LASTEXITCODE -ne 0) { throw 'Firmware check-fw failed.' }
     }
     finally { Pop-Location }
+}
+
+& dotnet build $senderProject -c Release --nologo
+if ($LASTEXITCODE -ne 0) { throw 'Android direct sender build failed.' }
+if (-not (Test-Path -LiteralPath $senderDll)) { throw "Sender was not generated: $senderDll" }
+
+if ($ConnectOnly) {
+    & dotnet $senderDll --connect-only
+    if ($LASTEXITCODE -ne 0) { throw "Android wireless connection failed (exit $LASTEXITCODE)." }
+    return
 }
 
 if ($SelectFirmware) {
@@ -44,10 +55,6 @@ if (-not (Test-Path -LiteralPath $firmware -PathType Leaf)) {
     throw "Firmware was not found. Run the build task first: $firmware"
 }
 $firmware = (Resolve-Path -LiteralPath $firmware).Path
-
-& dotnet build $senderProject -c Release --nologo
-if ($LASTEXITCODE -ne 0) { throw 'Android direct sender build failed.' }
-if (-not (Test-Path -LiteralPath $senderDll)) { throw "Sender was not generated: $senderDll" }
 
 & dotnet $senderDll --firmware $firmware
 if ($LASTEXITCODE -ne 0) { throw "Android direct sender failed (exit $LASTEXITCODE)." }

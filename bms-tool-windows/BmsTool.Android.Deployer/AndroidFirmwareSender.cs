@@ -40,6 +40,40 @@ public sealed class AndroidFirmwareSender(string adbPath)
 
     public async Task<IReadOnlyList<AndroidDeviceInfo>> ListDevicesAsync(CancellationToken ct)
     {
+        IReadOnlyList<AndroidDeviceInfo> devices = await ReadDevicesAsync(ct);
+        if (devices.Count > 0) return devices;
+
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            AdbResult mdns = await RunAsync(null, new[] { "mdns", "services" }, ct);
+            if (mdns.ExitCode == 0)
+            {
+                string[] endpoints = Regex.Matches(mdns.Output, @"_adb-tls-connect\._tcp\s+(?<endpoint>\S+)")
+                    .Select(match => match.Groups["endpoint"].Value)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                if (endpoints.Length > 1)
+                    throw new InvalidOperationException("发现多台可配对的无线 Android 设备，为避免误连已拒绝自动选择：" +
+                                                        string.Join(", ", endpoints));
+                if (endpoints.Length == 1)
+                {
+                    AdbResult connect = await RunAsync(null, new[] { "connect", endpoints[0] }, ct);
+                    if (connect.ExitCode == 0)
+                    {
+                        await Task.Delay(500, ct);
+                        devices = await ReadDevicesAsync(ct);
+                        if (devices.Count > 0) return devices;
+                    }
+                }
+            }
+            if (attempt < 5) await Task.Delay(TimeSpan.FromSeconds(1), ct);
+        }
+
+        return Array.Empty<AndroidDeviceInfo>();
+    }
+
+    private async Task<IReadOnlyList<AndroidDeviceInfo>> ReadDevicesAsync(CancellationToken ct)
+    {
         AdbResult result = await RunAsync(null, new[] { "devices", "-l" }, ct);
         EnsureSuccess(result, "读取 Android 设备列表");
         var devices = new List<AndroidDeviceInfo>();

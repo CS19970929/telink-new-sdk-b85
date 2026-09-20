@@ -8,13 +8,19 @@ internal static class Program
     {
         try
         {
-            string firmware = GetRequiredValue(args, "--firmware");
             string? requestedDevice = GetOptionalValue(args, "--device");
             var sender = new AndroidFirmwareSender(AndroidFirmwareSender.FindAdb());
             IReadOnlyList<AndroidDeviceInfo> devices = await sender.ListDevicesAsync(CancellationToken.None);
             AndroidDeviceInfo device = SelectDevice(devices, requestedDevice);
 
             Console.WriteLine($"PHONE {device.DisplayName}");
+            if (args.Any(argument => string.Equals(argument, "--connect-only", StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine("WIRELESS_READY " + device.Id);
+                return 0;
+            }
+
+            string firmware = GetRequiredValue(args, "--firmware");
             var progress = new InlineProgress(value =>
                 Console.WriteLine($"SEND {value.Percent,6:F1}% {value.Message}"));
             DeploymentResult result = await sender.SendAsync(
