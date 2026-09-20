@@ -7,6 +7,9 @@
 typedef bms_state_store_data_t soc_kv_data_t;
 
 #define SOC_KV_FLAG_CAPACITY_LEARNED      BMS_STATE_FLAG_CAPACITY_LEARNED
+#define SOC_KV_FLAG_LEARNING_META         BMS_STATE_FLAG_LEARNING_META
+#define SOC_KV_FLAG_LEARNING_ACTIVE       BMS_STATE_FLAG_LEARNING_ACTIVE
+#define SOC_KV_FLAG_NOMINAL_SHIFT          BMS_STATE_FLAG_NOMINAL_SHIFT
 #define SOC_PARAM_DEFAULT_SOC              BMS_STATE_DEFAULT_SOC
 #define SOC_PARAM_DEFAULT_DSG              BMS_STATE_DEFAULT_DSG
 #define SOC_PARAM_DEFAULT_CYCLE            BMS_STATE_DEFAULT_CYCLE
@@ -18,6 +21,7 @@ typedef bms_state_store_data_t soc_kv_data_t;
 #define soc_kv_store_get_default_data      bms_state_store_get_default_data
 #define soc_kv_store_write_all             bms_state_store_write_all
 #define soc_kv_store_write_learning        bms_state_store_write_learning
+#define soc_kv_store_write_learning_meta   bms_state_store_write_learning_meta
 #define soc_kv_store_update_and_log_if_changed bms_state_store_update_and_log_if_changed
 #define soc_kv_store_get_runtime_min       bms_state_store_get_runtime_min
 #define soc_kv_store_write_runtime_min     bms_state_store_write_runtime_min

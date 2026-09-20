@@ -2,6 +2,7 @@
 
 #include "param.h"
 #include "bms_afe_hw_profile.h"
+#include "SocEnhance.h"
 
 /* Heater/balance business parameters are independent of software protection. */
 typedef struct {
@@ -56,6 +57,9 @@ typedef struct {
 
 /* Storage Config owner: system/software-protection/AFE requested/feature data. */
 int bms_config_store_init(void);
+int bms_config_store_get_soc(bms_soc_config_t *config);
+int bms_config_store_set_soc(const bms_soc_config_t *config);
+int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm);
 int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect);
 int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
 int bms_config_store_get_system(bms_config_system_params_t *system);

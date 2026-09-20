@@ -1,5 +1,7 @@
 # SOC 模块（当前实现）
 
+本轮 D014 同步统一 core、存储/诊断版本和验证边界见 [SOC_UNIFIED_CORE_2026-09-21.md](SOC_UNIFIED_CORE_2026-09-21.md)。
+
 本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与 SOC/Cold KV 的真实行为。旧文件名保留用于工程兼容，但算法、产品配置、OCV 数据和持久化已经分层。
 
 ## 1. 核心模型

@@ -169,13 +169,6 @@ void bms_diag_storage_error(uint16_t reason, uint32_t address)
     trace(DIAG_EV_STORAGE, reason, address);
 }
 
-static uint16_t capacity_0p1ah(uint32_t as10)
-{
-    uint32_t value = (as10 + BMS_DIAG_CAPACITY_AS10_PER_0P1AH / 2u) /
-                     BMS_DIAG_CAPACITY_AS10_PER_0P1AH;
-    return (uint16_t)((value > 65535u) ? 65535u : value);
-}
-
 static void poll_fets(void)
 {
     uint8_t requested_c = 0u, requested_d = 0u;
@@ -214,7 +207,7 @@ void bms_diag_poll_runtime(uint8_t sample_valid, int32_t current_ma,
 {
     bms_soc_diag_t soc;
     uint16_t flags;
-    uint16_t soh_source;
+    uint16_t eta;
     uint8_t dirty = 0u;
     uint16_t old_sample = s_words[193];
 
@@ -241,21 +234,41 @@ void bms_diag_poll_runtime(uint8_t sample_valid, int32_t current_ma,
     dirty |= update16(226u, soc.chemistry);
     dirty |= update16(227u, soc.profile_id);
     dirty |= update16(228u, soc.profile_version);
-    flags = soc.capacity_learning_enable ? 1u : 0u;
+    dirty |= update16(229u, soc.endpoint_state);
+    flags = (uint16_t)((soc.capacity_learning_enable ? 1u : 0u) |
+                       (soc.capacity_learning_candidate_valid ? 2u : 0u) |
+                       (soc.eta_valid ? 4u : 0u) |
+                       ((soc.endpoint_event_flags & 0x00FFu) << 8));
     dirty |= update16(230u, flags);
-    dirty |= update16(231u, capacity_0p1ah(SOC_Calculate_Element.u32CapFactory));
-    dirty |= update16(232u, capacity_0p1ah(SOC_Calculate_Element.u32CapFull));
-    dirty |= update16(233u, capacity_0p1ah(SOC_Calculate_Element.u32CapNow));
-    dirty |= update32(234u, (uint32_t)current_ma);
-    dirty |= update16(236u, 0u);
-    dirty |= update16(237u, 0xFFFFu);
-    dirty |= update16(238u, 0xFFFFu);
-    dirty |= update16(239u, 0u);
-    dirty |= update16(240u, SOC_Calculate_Element.soh);
-    soh_source = soc.capacity_learned ? 2u : 1u;
-    dirty |= update16(241u, soh_source);
-    dirty |= update16(242u, soc.capacity_learned ? 100u : 50u);
+    dirty |= update16(231u, soc.nominal_capacity_0p1ah);
+    dirty |= update16(232u, soc.effective_capacity_0p1ah);
+    dirty |= update16(233u, soc.remaining_capacity_0p1ah);
+    dirty |= update32(234u, (uint32_t)soc.filtered_current_ma);
+    dirty |= update16(236u, soc.current_variation_ma);
+    dirty |= update16(237u, soc.time_to_empty_min);
+    dirty |= update16(238u, soc.time_to_full_min);
+    eta = (uint16_t)((soc.eta_state & 0x0Fu) |
+                     ((soc.eta_direction & 0x0Fu) << 4) |
+                     ((uint16_t)soc.eta_confidence << 8));
+    dirty |= update16(239u, eta);
+    dirty |= update16(240u, soc.soh);
+    dirty |= update16(241u, soc.soh_source);
+    dirty |= update16(242u, soc.soh_confidence);
+    dirty |= update16(243u, soc.candidate_capacity_0p1ah);
+    dirty |= update16(244u, soc.valid_learning_count);
+    dirty |= update16(245u, soc.rejected_learning_count);
+    dirty |= update16(246u, soc.last_learning_reject_reason);
+    dirty |= update16(247u, soc.capacity_learning_confidence);
     dirty |= update16(248u, soc.ocv_cell_mv);
+    dirty |= update16(249u, (uint16_t)((soc.last_sample_state & 0x0Fu) |
+                                       ((soc.last_integral_direction & 0x0Fu) << 4) |
+                                       ((uint16_t)soc.last_soc_action << 8)));
+    dirty |= update32(250u, soc.last_sample_elapsed_32k);
+    dirty |= update32(252u, soc.last_integral_delta_as10);
+    dirty |= update16(254u, (uint16_t)(soc.last_soc_before |
+                                       ((uint16_t)soc.last_soc_after << 8)));
+    dirty |= update16(255u, (uint16_t)(soc.last_soc_target |
+                                       ((uint16_t)soc.last_decision_detail << 8)));
 
     if (s_words[222] != g_stCellInfoReport.unMdlFault_First.all ||
         s_words[223] != g_stCellInfoReport.unMdlFault_Second.all ||
