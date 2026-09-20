@@ -53,3 +53,7 @@
 ## 7. 发布证据
 
 每项测试记录至少包含：板号/BOM、固件 commit、AFE 批次、分流实测、参数 requested/effective、仪器、环境、波形/日志、结论。Host contract、TC32 编译、MAP 和 cppcheck 通过不等于实板安全验收。
+
+## 2026-09-21 低功耗失败闭环
+
+- [ ] 按 [SH低功耗修复说明](SH_LOW_POWER_FAILURE_HANDLING.md) 验证逐级休眠失败、SLEEP ACK丢失、SPI持续失联功耗、OTA/UART互锁、PAD竞争及BLE下200ms采样周期；Host通过不关闭此项。

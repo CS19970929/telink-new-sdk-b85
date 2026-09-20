@@ -484,23 +484,26 @@ uint8_t sh3673510_board_wake_active(void)
     return gpio_read(D014_INT_WK_MCU_PIN) ? 1u : 0u;
 }
 
-void sh3673510_control_sleep(void)
+uint8_t sh3673510_control_sleep(void)
 {
-    if (!s_control_ready) return;
-    if (sh3673510_board_wake_active()) return;
+    if (!s_control_ready) return 0u;
+    if (sh3673510_board_wake_active()) return 0u;
 
-    if (!sh3673510_control_set_balance(0u)) return;
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
     sh3673510_board_set_heater(0u);
     sh3673510_board_force_heater_fuse_safe();
 #endif
-    if (!sh3673510_control_set_fets(0u, 0u)) return;
+    if (!sh3673510_control_set_balance(0u)) return 0u;
+    if (!sh3673510_control_set_fets(0u, 0u)) return 0u;
 
     if (!sh3510_update_reg(SH3673520_REG_SCONF3,
                             SH3673520_SCONF3_CGR_WK_MASK,
-                            SH3673520_SCONF3_CGR_WK_MASK)) return;
-    if (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_SLEEP) == SH3673520_OK)
-        s_afe_sleeping = 1u;
+                            SH3673520_SCONF3_CGR_WK_MASK)) return 0u;
+    /* A lost acknowledgement does not prove the AFE rejected SLEEP. Force
+     * NORMAL + runtime/protection restore before the next measurement. */
+    s_afe_sleeping = 1u;
+    return (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_SLEEP) ==
+            SH3673520_OK) ? 1u : 0u;
 }
 
 uint8_t sh3673510_control_wake(void)

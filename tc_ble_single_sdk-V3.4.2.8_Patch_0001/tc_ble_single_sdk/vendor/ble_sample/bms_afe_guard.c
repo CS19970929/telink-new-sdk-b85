@@ -217,6 +217,23 @@ void bms_afe_sample(void)
     if (!apply_requested()) note_invalid();
 }
 
+#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
+uint8_t bms_afe_sleep(void)
+{
+    /* A silent bus is not evidence of AFE sleep. Keep servicing the bounded
+     * watchdog wait/recovery; do not feed it or restart its countdown here. */
+    if (s_guard.bus_silenced) return 0u;
+
+    inhibit_local();
+    if (!AFE_SLEEP())
+    {
+        note_invalid();
+        return 0u;
+    }
+    s_guard.comm_failures = 0u;
+    return 1u;
+}
+#else
 void bms_afe_sleep(void)
 {
     inhibit_local();
@@ -229,6 +246,7 @@ void bms_afe_sleep(void)
     best_effort_shutdown();
     AFE_SLEEP();
 }
+#endif
 
 uint8_t bms_afe_apply_protection_config(void)
 {
