@@ -30,6 +30,8 @@
  * Eight cell-balance transistor channels are present for B1..B8. */
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
+#define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u /* TS3-NC */
+#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      0u /* TS4/RN4 value requires BOM verification */
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
 /*
