@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**;publish/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="ModbusRtu.cs" />
+    <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="TelinkOtaProtocol.cs" />
+    <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
+  </ItemGroup>
+</Project>

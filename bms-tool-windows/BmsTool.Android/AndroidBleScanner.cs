@@ -19,6 +19,8 @@ internal sealed class AndroidBleScanner : ScanCallback
         base.OnScanResult(callbackType, result);
         if (result?.Device?.Address is not string mac) return;
         string name = result.ScanRecord?.DeviceName ?? result.Device.Name ?? string.Empty;
+        if (!name.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) &&
+            !name.StartsWith("BT-", StringComparison.OrdinalIgnoreCase)) return;
         var device = new AndroidScanDevice(name, mac, result.Rssi);
         lock (_devices) _devices[mac] = device;
         _found(device);

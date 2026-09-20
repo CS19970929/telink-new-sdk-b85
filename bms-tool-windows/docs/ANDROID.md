@@ -15,7 +15,7 @@
 
 ### 概览
 
-- 扫描附近全部 BLE 广播，不以 `BT_` / `BT-` 名称过滤；显示名称、MAC、RSSI，未命名设备也会显示，不会静默选择第一台。
+- 扫描并显示所有 `BT_` / `BT-` 设备的名称、MAC、RSSI；不会绑定某个固定 MAC，也不会静默选择第一台。
 - 成功完成 BMS 协议 probe 后才记住该 MAC，下次仅作为默认值；随时可以扫描并选择其他设备。
 - 明确 MAC 连接和断开，连接后执行 Modbus probe。
 - 显示 Pack Voltage、Current、SOC、SOH、容量、循环、温度、单体 min/max/delta、有效单体列表。
@@ -88,6 +88,8 @@ App 只需安装一次。后续修改的是 BMS 固件时，不需要重新构�
 首次安装或 App 已更新时增加 `-InstallApp`；平常固件测试不要加。只导入固件、打开确认页但不在脚本中等待结果时可使用 `-NoWait`。多台手机连接时必须指定 `-DeviceId`。
 
 App 的“工具 → OTA 升级 → 固件收件箱”会列出最近 20 个 BIN，并逐个执行与正式 OTA 相同的严格 Telink 预检。通过系统文件选择器导入的 BIN 也会复制到该收件箱，之后可直接复用。
+
+PC 已编译好固件后，研发人员可直接运行独立的 `BmsTool.Android.Deployer.exe`，选择/拖入正式 BIN、选择已连接手机并点击发送。它在后台使用 ADB receiver 导入，不显示命令行、不要求填写 BMS MAC、不自动开始 OTA；App 打开固件页后，仍由用户从 `BT_` / `BT-` 列表明确选择目标设备。
 
 ADB 导入 receiver 要求 `android.permission.DUMP`，普通第三方 App 不能调用；分片总大小限制为 2 MiB，任一分片、offset 或最终 SHA-256 不匹配都会删除临时文件。导入成功也不会自动写 Flash，仍必须经过 App 内 OTA 预检和用户确认。
 

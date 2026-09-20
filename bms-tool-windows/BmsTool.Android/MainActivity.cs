@@ -63,6 +63,7 @@ public sealed partial class MainActivity : Activity
         base.OnNewIntent(intent);
         if (intent is null) return;
         Intent = intent;
+        ApplyIntentValues();
         _ = HandleIncomingFirmwareIntentAsync(intent);
     }
 
@@ -98,6 +99,7 @@ public sealed partial class MainActivity : Activity
         else if (!string.IsNullOrWhiteSpace(firmware))
             _firmwareInput!.Text = firmware;
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
+        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(4);
     }
 
     private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)

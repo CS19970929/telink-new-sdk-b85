@@ -59,6 +59,12 @@ Android GATT 在 CCCD 成功后固定等待 300 ms 再发送首帧，并对连�
 
 已有 BIN 时改用 `-Bin .\825x_ble_sample.bin`。只有首次安装或 App 本身更新时才加 `-InstallApp`。脚本不会绕过手机端最终确认，也不会接受 `raw.bin`。
 
+不希望使用命令行时，运行独立的 `BmsTool.Android.Deployer.exe`：选择或拖入 PC 已编译的正式 BIN，选择已授权的 Android 手机，点击“发送到手机并打开 BMS Tool”。发送器在后台调用 ADB，不弹出命令窗口，不要求填写 BMS MAC，也不会自动开始 OTA；手机端继续只显示 `BT_` / `BT-`，由用户明确选择目标设备并最终确认。发布命令：
+
+```powershell
+.\publish-android-deployer.ps1
+```
+
 ## 三入口发布约定
 
 统一使用 `build-release.ps1` 发布 Windows x64、自包含、单文件 EXE：
