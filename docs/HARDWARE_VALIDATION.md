@@ -1,53 +1,55 @@
-# D011 实板验证与发布阻断项
+# D014 实板验证与发布阻断项
 
-本文件只保留 **HS-D011-10S50A-V1 / TLSR8251 / SH3673510** 的未完成实板证据。硬件/源码配置见 `D011_PRODUCT_REFERENCE.md`。
+本文件只记录 **HS-D014-8S15A / TLSR8251 / SH3673510** 仍需要实板或 BOM 证据关闭的项目。板级静态事实见 `D014_PRODUCT_REFERENCE.md`。
 
-## 1. P0/P1 发布阻断
+## 1. P0：首次上板
 
-- [ ] 10S VC1..VC10 逐通道电压、上部 VC11..VC20 处理、断线和噪声验证。
-- [ ] 250 µΩ 电流路径的零点、方向、增益、温漂；确认 SOC 积分方向。
-- [ ] OV/UV/OCD1/OCD2/OCC/SC 逐项 requested -> code -> effective -> readback -> 实际延时/MOS 栅极波形。
-- [ ] SC 在持续短路下不得形成“clear -> 重开 -> 再短路”循环；必须验证 LOADOFF/负载移除、稳定时间和 readback。
-- [ ] SH WDT code0（约32.34s）触发、FLAG2/WDT_FLG清除窗口和 Powerdown 行为按手册实测。
-- [ ] C-3V3/`CMNT-EN` 供电、RS485 DE//RE、PD3 `CMNT-WK` 唤醒形成完整状态机。
+- [ ] VC1..VC8 逐通道电压正确；VC9..VC20 未使用通道不会进入 min/max、保护、SOC、balance、open-wire。
+- [ ] 3×2mΩ 并联分流路径实测；确认等效阻值、Kelvin 采样方向、零点、增益和温漂。当前软件模型为 667µΩ。
+- [ ] 充电/放电电流符号与 `u16Ichg/u16IDischg` 一致；SOC 积分方向正确。
+- [ ] AFE SPI Mode 3 / 500kHz：初始化、连续采样、CRC/ACK、异常恢复。
+- [ ] CHG/DSG 正常开关、上电默认安全态、通信失效 fail-safe。
+- [ ] RS485：PA1方向控制、PC2 TX、PC3 RX、PD4 CMNT-EN；最后停止位发完后再切回接收。
 
-## 2. GPIO/板级
+## 2. AFE 保护
 
-- [ ] PD4 `CMNT-EN`：上电/关电/休眠的 active level、C-3V3 稳定时间。
-- [ ] PA1 `485-EN`：最后停止位发送完后再释放方向，连续帧/异常帧下不截断。
-- [ ] PB1 `INT-WK-MCU`、PC0 `ALARM`、PD3 `CMNT-WK`：有效电平、去抖、重复唤醒、通信进行中禁止休眠。
-- [ ] PC1 `RESET`：确认 MCU 侧实际方向和 SH RESET 电气行为；不要根据宏名 `RESET_OUT` 直接认定。
-- [ ] PB4 `HT-CHG` 加热输出及功率回路。
-- [ ] PB5 `HT-RF-EN`：验证为不可逆保险丝触发路径；量产普通运行必须保持 LOW，只有独立签核状态机可允许触发。
-- [ ] PC4 `DB-LED1` 极性和休眠默认态。
+- [ ] COV/CUV requested -> code -> effective -> readback -> 实际 MOS 波形。
+- [ ] OCD1/OCD2/OCC requested -> code -> effective 使用 667µΩ，而不是 D011 的 250µΩ。
+- [ ] SC 阈值/延时/LOADOFF 恢复；持续短路不能出现 clear -> reopen -> short 循环。
+- [ ] WDT、FLAG2/WDT_FLG、Powerdown 行为按 SH36735xx 手册实测。
+- [ ] 软件三级保护与 AFE HW profile 独立修改、独立持久化、rollback 行为回归。
 
-## 3. 温度/BOM
+## 3. 温度
 
-- [ ] TS1/TS2 10K-3435 温度精度、开路、短路。
-- [ ] 对 RN3/RN4 做生产资料闭环：原理图标10M、用户确认实际装10K；以 BOM/实物料留证并修订图纸。
-- [ ] TS3 heater-MOS 与 TS4 power-MOS 的物理位置、热耦合和独立软件保护阈值。
-- [ ] AFE HW TEMP 当前只启用 TS1/TS2 时，确认 TS3/TS4 软件保护不会被遗漏。
+- [ ] TS1/RN6 10K-3435 温度点、开路、短路。
+- [ ] TS2/RN5 10K-3435 温度点、开路、短路。
+- [ ] 确认 TS3 的确为 NC；固件 heater 必须保持 disabled。
+- [ ] 核对 TS4/RN4 BOM：图纸标 `TS4-MOS`，RN4=10M。确认实装器件后再决定是否启用 MOS NTC 软件保护。
+- [ ] 在 TS4 未签核前确认软件不会把该通道当作可信 MOS 温度。
 
-## 4. SH3673510 保护/恢复
+## 4. Balance / Open-Wire
 
-- [ ] SCONF1..7、0x47/0x48 上电实际 readback 与 `D011_PRODUCT_REFERENCE.md` 一致。
-- [ ] AFE HW V2 enable_mask 对 SCONF5 OCC_EN / SCONF6 OV/UV/OCD/SC/TS1/TS2 的实际覆盖。
-- [ ] OCD/OCC 恢复必须验证实际故障已移除，而不是仅凭关 MOS 后的0A。
-- [ ] Sleep `0xAA` 后 CADC/WDT/保护/FET/charge pump/balance 状态与手册一致；wake失败必须保持 fail-safe。
+- [ ] B1..B8 balance mask 与物理 cell 一一对应。
+- [ ] 同时均衡限制、温升、采样扰动、起停压差、充电会话条件。
+- [ ] Open-Wire 对 8S 有效通道正确，不误判未使用 VC9..VC20。
+- [ ] 断线或异常压差时 balance 不得误开。
 
-## 5. 软件/硬件保护参数独立性
+## 5. 低功耗 / 唤醒
 
-- [ ] 修改 `g_tParam.protect` 的 65 个软件参数之一，AFE HW profile requested/effective 不变。
-- [ ] 修改 AFE HW 35-word profile，软件三级参数不变。
-- [ ] 非法 profile、掉电、persist/apply/readback 失败时验证 rollback；rollback失败必须暴露 `CONFIG_INCONSISTENT`。
+- [ ] PA0/DI1/SW1 有效电平和去抖。
+- [ ] PB1/INT-WK-MCU、PC0/ALARM、PC1/RESET 的有效电平与重复唤醒。
+- [ ] PD3/CMNT-WK 的有效电平；通信进行中不得错误进入 deep sleep。
+- [ ] SH3673510 Sleep/Wake 与 MCU deep sleep 无竞态，wake 失败保持 fail-safe。
+- [ ] BLE connected/advertising/idle 三种状态的 suspend/deep-sleep 电流。
 
-## 6. Balance / Open-Wire / 通信 / OTA
+## 6. 产品参数发布签核
 
-- [ ] 10S balance mask、同时均衡约束、温升、采样干扰、停止条件。
-- [ ] Open-Wire 判定与实际断线试验。
-- [ ] RS485 19200 等实际产品通信参数、DMA/方向控制、错帧、超时、唤醒。
-- [ ] BLE/Modbus 参数、Factory Session、OTA、Flash 掉电恢复端到端回归。
+- [ ] 额定容量；当前 `CapacityFactory=116` 仅为继承迁移默认，不得直接作为 D014 量产值。
+- [ ] 软件 OV/UV/OC/温度/压差 First/Second/Third/Recover/Filter。
+- [ ] AFE HW OC/SC/温度 requested/effective。
+- [ ] D014 独立产品 numeric ID 是否需要从历史 D11 wire/storage ID 分离，并同步 Windows 上位机。
+- [ ] BLE 名称、硬件版本、序列号策略。
 
-## 7. 证据格式
+## 7. 发布证据
 
-记录板号/BOM、固件 commit、SH3673510 批次/版本、Rsense实测、AFE requested/effective、仪器、环境、波形/日志和结论。源码契约/TC32 CI 成功不等于实板安全验收。
+每项测试记录至少包含：板号/BOM、固件 commit、AFE 批次、分流实测、参数 requested/effective、仪器、环境、波形/日志、结论。Host contract、TC32 编译、MAP 和 cppcheck 通过不等于实板安全验收。
