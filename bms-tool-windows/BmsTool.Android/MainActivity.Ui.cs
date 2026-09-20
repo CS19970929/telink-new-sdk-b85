@@ -27,6 +27,7 @@ public sealed partial class MainActivity
     private TextView? _eventView;
     private TextView? _healthView;
     private TextView? _diagnosticView;
+    private TextView? _testView;
     private TextView? _monitorStatus;
     private TextView? _firmwareInboxStatus;
     private TextView? _logView;
@@ -206,6 +207,15 @@ public sealed partial class MainActivity
         page.AddView(ActionButton("导出最近诊断 ZIP", ExportDiagnosticsAsync));
         _diagnosticView = DataBlock("未采集");
         page.AddView(_diagnosticView);
+        page.AddView(SectionTitle("自动测试"));
+        page.AddView(Note("SOC 测试连续采样并检查范围、容量关系、ETA、Build ID 与跳变；诊断测试重复采集并检查快照、Trace、错误与 Build ID 一致性。报告会自动保存为 JSON。"));
+        var testButtons = Row();
+        testButtons.AddView(ActionButton("SOC 自动测试", () => RunAutomatedTestAsync("soc")));
+        testButtons.AddView(ActionButton("诊断一致性测试", () => RunAutomatedTestAsync("diag")));
+        page.AddView(testButtons);
+        page.AddView(ActionButton("取消自动测试", () => { CancelCurrentOperation(); return Task.CompletedTask; }));
+        _testView = DataBlock("未测试");
+        page.AddView(_testView);
         page.AddView(SectionTitle("设备事件日志"));
         page.AddView(ActionButton("读取 100 条事件", ReadEventsAsync));
         _eventView = DataBlock("未读取");

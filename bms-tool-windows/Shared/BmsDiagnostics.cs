@@ -46,7 +46,16 @@ public sealed record SocDiagnosticSnapshot(
     ushort LearningConfidence,
     ushort ValidLearningCount,
     ushort RejectedLearningCount,
-    string LastLearningRejectReason);
+    string LastLearningRejectReason,
+    string LastSampleState,
+    string LastIntegralDirection,
+    string LastSocAction,
+    uint LastSampleElapsed32k,
+    uint LastIntegralDeltaAs10,
+    ushort LastSocBefore,
+    ushort LastSocAfter,
+    ushort LastSocTarget,
+    ushort LastDecisionDetail);
 public sealed class DiagnosticCapture
 {
     public DateTimeOffset StartedUtc { get; } = DateTimeOffset.UtcNow;
@@ -106,6 +115,13 @@ public static class BmsDiagnostics
         9=>"LOW_QUALITY_EMPTY",10=>"LOW_QUALITY_FULL",11=>"CAPACITY_RANGE",
         12=>"CANDIDATE_INCONSISTENT",13=>"AFE_COMMUNICATION",
         14=>"CALIBRATION_CHANGED",_=>$"未知({value})"};
+    private static string SocSampleState(ushort value)=>value switch {
+        0=>"NONE",1=>"INVALID",2=>"FIRST",3=>"DUPLICATE",4=>"GAP",
+        5=>"ACCEPTED",6=>"DIRECTION_CHANGE",_=>$"未知({value})"};
+    private static string SocAction(ushort value)=>value switch {
+        0=>"NONE",1=>"INTEGRATE",2=>"OCV_DOWN",3=>"TERMINAL_DOWN",
+        4=>"FULL_ANCHOR",5=>"FORCED_EMPTY",6=>"IDLE_EMPTY",
+        7=>"PARAMETER_SET",8=>"STATE_RESTORE",_=>$"未知({value})"};
     private static string EndpointEvents(ushort flags)
     {
         var values=new List<string>();
@@ -122,7 +138,7 @@ public static class BmsDiagnostics
     {
         if(w.Length!=256 || w[0]!=Magic || w[1]!=Schema || (w[2]&RuntimeCapability)==0 || w[192]<2)
             throw new InvalidDataException("固件未提供 SOC diagnostics runtime v2");
-        ushort flags=w[230],eta=w[239];
+        ushort flags=w[230],eta=w[239],decision=w[192]>=3?w[249]:(ushort)0;
         return new SocDiagnosticSnapshot(
             w[192],w[226] switch {1=>"LFP",2=>"NMC",_=>"AUTO/UNKNOWN"},w[227],w[228],
             w[202],w[203],w[231]/10.0,w[232]/10.0,w[233]/10.0,
@@ -132,7 +148,15 @@ public static class BmsDiagnostics
             EtaState((ushort)(eta&0x0F)),EtaDirection((ushort)((eta>>4)&0x0F)),
             (ushort)(eta>>8),(flags&4)!=0,w[240],SohSource(w[241]),w[242],
             (flags&1)!=0,LearningState(w[210]),(flags&2)!=0,w[243]/10.0,w[212]/10.0,
-            w[247],w[244],w[245],LearningReject(w[246]));
+            w[247],w[244],w[245],LearningReject(w[246]),
+            w[192]>=3?SocSampleState((ushort)(decision&0x0F)):"UNAVAILABLE_V2",
+            w[192]>=3?EtaDirection((ushort)((decision>>4)&0x0F)):"UNAVAILABLE_V2",
+            w[192]>=3?SocAction((ushort)(decision>>8)):"UNAVAILABLE_V2",
+            w[192]>=3?U32(w,250):0u,w[192]>=3?U32(w,252):0u,
+            w[192]>=3?(ushort)(w[254]&0xFF):(ushort)0,
+            w[192]>=3?(ushort)(w[254]>>8):(ushort)0,
+            w[192]>=3?(ushort)(w[255]&0xFF):(ushort)0,
+            w[192]>=3?(ushort)(w[255]>>8):(ushort)0);
     }
     public static string PmReasons(uint bits)
     {
@@ -250,6 +274,12 @@ public static class BmsDiagnostics
                 O("Candidate Capacity",$"{w[243]/10.0:F1} Ah · valid={(flags&2)!=0}");
                 O("Learning Confidence / Valid / Rejected",$"{w[247]}% / {w[244]} / {w[245]}");
                 O("Last Learning Reject Reason",LearningReject(w[246]));
+                if(w[192]>=3) {
+                    ushort decision=w[249];
+                    O("Last Sample Decision",$"{SocSampleState((ushort)(decision&0x0F))} / {EtaDirection((ushort)((decision>>4)&0x0F))} / elapsed={U32(w,250)} ticks32k");
+                    O("Last SOC Action",$"{SocAction((ushort)(decision>>8))} · {w[254]&0xFF}% -> {w[254]>>8}% · target={w[255]&0xFF}% · detail={w[255]>>8}");
+                    O("Last Integral Delta",$"{U32(w,252)} × 0.1 As");
+                }
             }
 
             uint pm=U32(w,213);

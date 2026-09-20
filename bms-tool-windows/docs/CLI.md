@@ -21,6 +21,10 @@ bms-cli soc --auto
 bms-cli monitor soc --auto --interval 5
 bms-cli diag --auto
 bms-cli test connection --auto --count 10
+bms-cli test soc --auto --count 10 --output soc-test.json
+bms-cli test diag --auto --count 3 --full --output diag-test.json
+bms-cli parameters export --auto --output parameters.zip
+bms-cli compare before.zip after.zip
 bms-cli ota firmware.bin --auto
 ```
 
@@ -100,10 +104,22 @@ bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --delay-ms 500 --json
 bms-cli soc --auto
 bms-cli soc --auto --json
 bms-cli monitor soc --auto --interval 5 --count 12
-bms-cli monitor soc --auto --interval 5 --count 0 --json
+bms-cli monitor soc --auto --interval 5 --count 0 --reconnect --output .\soc-monitor.jsonl --json
 ```
 
-`--count 0` 表示持续监视，Ctrl+C 停止。`monitor soc --json` 每个样本输出一行独立 JSON，便于日志采集；字段名和单次 `soc --json` 一致。SOC 输出包含 estimate/display、nominal/effective/remaining capacity、chemistry/profile、OCV band/confidence、endpoint、filtered current/variation、TTE/TTF、ETA state/direction/confidence、SOH source/confidence，以及容量学习 candidate/count/reject。固件 runtime version <2 时明确返回 `soc_diagnostics_unavailable`，不会把保留零解释成有效数据。
+`--count 0` 表示持续监视，Ctrl+C 停止。`monitor soc --json` 每个样本输出一行独立 JSON；`--output` 同步保存 JSONL。`--reconnect` 仅在显式指定时启用，采样错误也会写入 JSONL，旧连接会先释放，再按 `--max-reconnects` 的上限尝试恢复。SOC 输出包含 estimate/display、nominal/effective/remaining capacity、chemistry/profile、OCV band/confidence、endpoint、filtered current/variation、TTE/TTF、ETA state/direction/confidence、SOH source/confidence，以及容量学习 candidate/count/reject。固件 runtime version <2 时明确返回 `soc_diagnostics_unavailable`，不会把保留零解释成有效数据；runtime v3 还包含最近一次采样判定、积分方向、SOC 动作、动作前后值、目标/原因、elapsed 和积分增量。
+
+自动测试和参数备份：
+
+```powershell
+bms-cli test soc --mac A4:C1:38:12:34:56 --count 10 --interval 1 --output .\soc-test.json --json
+bms-cli test diag --mac A4:C1:38:12:34:56 --count 3 --interval 1 --full --output .\diag-test.json --json
+bms-cli parameters get --mac A4:C1:38:12:34:56 --json
+bms-cli parameters export --mac A4:C1:38:12:34:56 --output .\parameters.zip --json
+bms-cli compare .\before-diag.zip .\after-diag.zip --json
+```
+
+`test soc/diag` 的 exit code 50 表示测试完成但至少一个检查项失败；JSON 报告仍保存全部逐轮证据。`compare` 按 `Id/Field` 对齐数组项并忽略采集时间，只报告真实字段差异。
 
 同时生成现有 AI 诊断包：
 
@@ -196,6 +212,15 @@ CLI 与 WPF 使用同一套 Telink OTA 实现。CLI 不把“设备重新连上�
 - Firmware Build ID 实际变化。
 
 `--expected-version` 用于“不匹配即失败”，但同版本文本匹配不会单独证明重刷成功。
+
+需要完整升级证据时使用：
+
+```powershell
+bms-cli ota .\825x_ble_sample.bin --mac A4:C1:38:12:34:56 --target telink --mode auto `
+  --evidence-dir .\ota-evidence --yes --json
+```
+
+证据目录包含固件路径/大小/SHA-256、升级前后 `snapshot.json`、完整诊断 ZIP、参数 ZIP、每阶段证据采集状态以及 `ota-result.json`。证据采集失败会被明确记录，不会伪装成成功；OTA 本身仍以 `OTA_SUCCESS`、版本变化或 Build ID 变化为准。
 
 ## 构建
 

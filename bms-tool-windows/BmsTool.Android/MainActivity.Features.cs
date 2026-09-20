@@ -423,6 +423,41 @@ public sealed partial class MainActivity
         return Task.CompletedTask;
     }
 
+    private Task RunAutomatedTestAsync(string kind) => WithClientAsync(
+        kind == "soc" ? "SOC 自动测试" : "诊断一致性测试",
+        async (client, ct) =>
+        {
+            BmsTestReport report = kind == "soc"
+                ? await BmsTestEngine.RunSocAsync(client, _connectedMac ?? "Android BLE", 10,
+                    TimeSpan.FromSeconds(1), ct)
+                : await BmsTestEngine.RunDiagnosticsAsync(client, _connectedMac ?? "Android BLE", 3,
+                    full: true, TimeSpan.FromSeconds(1), ct);
+            string path = OutputPath($"BMS_{kind}_test_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.json");
+            File.WriteAllText(path, JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                WriteIndented = true
+            }), new UTF8Encoding(false));
+            RunOnUiThread(() => _testView!.Text = FormatTestReport(report) + "\n\n报告：" + path);
+            SetStatus(report.Summary, !report.Passed);
+        },
+        kind == "soc" ? TimeSpan.FromMinutes(2) : TimeSpan.FromMinutes(5));
+
+    private static string FormatTestReport(BmsTestReport report)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(report.Summary);
+        builder.AppendLine($"设备：{report.Endpoint}");
+        builder.AppendLine($"样本：{report.SuccessfulSamples}/{report.RequestedSamples} · Build ID：{report.FirmwareBuildId ?? "unknown"}");
+        foreach (BmsTestCheck check in report.Checks)
+        {
+            builder.AppendLine($"\n[{check.Status.ToUpperInvariant()}] {check.Title}");
+            builder.AppendLine(check.Evidence);
+            if (!string.IsNullOrWhiteSpace(check.Recommendation))
+                builder.AppendLine("建议：" + check.Recommendation);
+        }
+        return builder.ToString();
+    }
+
     private Task ReadEventsAsync() => WithClientAsync("读取事件日志", async (client, ct) =>
     {
         ushort[] words = await client.ReadRegistersAsync(0xC008, 100, ct);

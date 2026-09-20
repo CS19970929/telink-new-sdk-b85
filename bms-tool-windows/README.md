@@ -28,7 +28,7 @@ Android 使用独立的手机信息架构和原生控件，不复用或修改 Wi
 - 电压、电流、SOC/SOH、容量、温度、单体、MOS、系统状态和三级保护；
 - 65 words 软件保护整组校验写入、AFE Requested/Effective 原子事务；
 - D008 容量/SOC/循环/加热参数和分组恢复，SN 在客户页面只读；
-- 共享设备健康检查、快速/完整诊断、含 `health.json` 的 AI 诊断 ZIP、100 条事件、通信日志；
+- 共享设备健康检查、快速/完整诊断、SOC/诊断自动测试、含 `health.json` 的 AI 诊断 ZIP、100 条事件、通信日志；
 - 长期监控 CSV、蓝牙名、休眠、受二次确认保护的原始寄存器读写；
 - Android 文件选择器、严格 Telink BIN 预检、OTA_RESULT、重连与 Serial 回读确认。
 
@@ -83,7 +83,7 @@ BmsTool.Cli\publish\cli-win-x64-<时间戳>\bms-cli.exe
 
 ## 命令行版 / AI 接口
 
-`BmsTool.Cli` 提供 `scan / info / health / test connection / ota / diag`。它直接复用 WPF 上位机的 BLE、串口、BmsClient、Telink OTA、STM32 IAP、健康评估和 D008 Diagnostics 源码，不维护第二套协议。Windows 与 Android 的诊断页也使用同一个 `BmsHealth` 结论模型。
+`BmsTool.Cli` 提供 `scan / info / soc / monitor / health / diag / parameters / test / compare / ota`。它直接复用 WPF 上位机的 BLE、串口、BmsClient、Telink OTA、STM32 IAP、健康评估、自动测试和 D008 Diagnostics 源码，不维护第二套协议。Windows 与 Android 的诊断页也使用同一个 `BmsHealth` 和 `BmsTestEngine` 结论模型。
 
 快速 OTA：
 
@@ -98,8 +98,13 @@ bms-cli scan --json
 bms-cli info --auto --json
 bms-cli health --mac A4:C1:38:12:34:56 --output .\D008_health.zip --json
 bms-cli test connection --mac A4:C1:38:12:34:56 --count 20 --json
-bms-cli ota .\firmware.bin --mac A4:C1:38:12:34:56 --yes --json
+bms-cli test soc --mac A4:C1:38:12:34:56 --count 10 --output .\soc-test.json --json
+bms-cli test diag --mac A4:C1:38:12:34:56 --count 3 --full --output .\diag-test.json --json
+bms-cli monitor soc --mac A4:C1:38:12:34:56 --reconnect --output .\soc-monitor.jsonl --json
+bms-cli parameters export --mac A4:C1:38:12:34:56 --output .\parameters.zip --json
+bms-cli ota .\firmware.bin --mac A4:C1:38:12:34:56 --evidence-dir .\ota-evidence --yes --json
 bms-cli diag --mac A4:C1:38:12:34:56 --output .\D008_diag.zip --json
+bms-cli compare .\before.zip .\after.zip --json
 ```
 
 `--json` 的 stdout 是稳定 JSON 契约，通信细节只在 `--verbose` 时写到 stderr；自动 OTA 使用 `--yes`，不会弹 UI 或等待图形交互。完整说明见 [BMS CLI：快速 OTA 与 AI 实板诊断](docs/CLI.md)。

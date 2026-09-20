@@ -26,14 +26,23 @@ Usage:
   bms-cli info (--mac MAC | --name NAME | --auto | --serial COMx) [--baud 19200] [--json]
   bms-cli soc (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli monitor soc (--mac MAC | --name NAME | --auto | --serial COMx)
-                  [--interval 5] [--count 0] [--json]
+                  [--interval 5] [--count 0] [--reconnect] [--max-reconnects 10]
+                  [--output monitor.jsonl] [--json]
   bms-cli health (--mac MAC | --name NAME | --auto | --serial COMx) [--quick] [--output health.zip] [--json]
   bms-cli diag (--mac MAC | --name NAME | --auto | --serial COMx) [--output diag.zip] [--quick] [--json]
   bms-cli test connection (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--count 10] [--delay-ms 500] [--json]
+  bms-cli test soc (--mac MAC | --name NAME | --auto | --serial COMx)
+                  [--count 10] [--interval 1] [--output report.json] [--json]
+  bms-cli test diag (--mac MAC | --name NAME | --auto | --serial COMx)
+                  [--count 3] [--interval 1] [--full] [--output report.json] [--json]
+  bms-cli compare <before-diag.zip> <after-diag.zip> [--json]
+  bms-cli parameters get (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
+  bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx)
+                  --output parameters.zip [--json]
   bms-cli ota <firmware.bin> (--mac MAC | --name NAME | --auto | --serial COMx)
               [--target auto|telink|stm32] [--mode auto|legacy|extend64]
-              [--expected-version VERSION] [--yes] [--json]
+              [--expected-version VERSION] [--evidence-dir DIR] [--yes] [--json]
 
 Common:
   --json          stdout contains only the final JSON envelope; suitable for Codex/scripts
@@ -56,6 +65,8 @@ Safety:
             "health" => HealthAsync(options, reporter, ct),
             "diag" => DiagAsync(options, reporter, ct),
             "test" => TestAsync(options, reporter, ct),
+            "compare" => CompareAsync(options, reporter, ct),
+            "parameters" => ParametersAsync(options, reporter, ct),
             "ota" => OtaAsync(options, reporter, ct),
             _ => throw new CliException(ExitCodes.Usage, "usage", $"Unknown command '{options.Command}'. Run bms-cli help.")
         };
@@ -120,26 +131,125 @@ Safety:
             throw new CliException(ExitCodes.Usage, "usage", "monitor currently requires the 'soc' subcommand.");
         int interval = options.GetInt("interval", 5, 1, 3600);
         int count = options.GetInt("count", 0, 0, 1000000);
+        bool reconnect = options.Has("reconnect");
+        int maxReconnects = options.GetInt("max-reconnects", 10, 1, 1000000);
+        string? output = options.Get("output");
+        string? outputPath = null;
+        StreamWriter? evidenceWriter = null;
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            outputPath = Path.GetFullPath(output);
+            string? outputDirectory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(outputDirectory))
+                Directory.CreateDirectory(outputDirectory);
+            evidenceWriter = new StreamWriter(outputPath, append: false, new System.Text.UTF8Encoding(false));
+        }
+
         CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
-        reporter.Status("Connecting " + endpoint.Display + "...");
-        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        CliBmsConnection? connection = null;
         int sample = 0;
-        try {
+        int reconnectCount = 0;
+        int consecutiveFailures = 0;
+
+        async Task EmitAsync(object row)
+        {
+            string line = JsonSerializer.Serialize(row, StreamJsonOptions);
+            if (reporter.Json) Console.WriteLine(line);
+            if (evidenceWriter is not null)
+            {
+                await evidenceWriter.WriteLineAsync(line.AsMemory(), ct);
+                await evidenceWriter.FlushAsync(ct);
+            }
+        }
+
+        try
+        {
             while (count == 0 || sample < count)
             {
-                SocDiagnosticSnapshot soc = await ReadSocAsync(connection, endpoint, ct);
-                sample++;
-                var row = new { schema = 1, ok = true, command = "monitor soc",
-                    data = new { endpoint = endpoint.Display, sample, capturedUtc = DateTimeOffset.UtcNow, soc } };
-                if (reporter.Json) Console.WriteLine(JsonSerializer.Serialize(row, StreamJsonOptions));
-                else { Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] sample {sample}"); PrintSoc(soc); }
-                if (count != 0 && sample >= count) break;
-                await Task.Delay(TimeSpan.FromSeconds(interval), ct);
+                try
+                {
+                    if (connection is null)
+                    {
+                        reporter.Status((reconnectCount == 0 ? "Connecting " : "Reconnecting ") + endpoint.Display + "...");
+                        connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+                    }
+
+                    SocDiagnosticSnapshot soc = await ReadSocAsync(connection, endpoint, ct);
+                    sample++;
+                    consecutiveFailures = 0;
+                    var row = new
+                    {
+                        schema = 1,
+                        ok = true,
+                        command = "monitor soc",
+                        data = new
+                        {
+                            endpoint = endpoint.Display,
+                            sample,
+                            capturedUtc = DateTimeOffset.UtcNow,
+                            reconnectCount,
+                            soc
+                        }
+                    };
+                    await EmitAsync(row);
+                    if (!reporter.Json)
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] sample {sample} (reconnects {reconnectCount})");
+                        PrintSoc(soc);
+                    }
+                    if (count != 0 && sample >= count) break;
+                    await Task.Delay(TimeSpan.FromSeconds(interval), ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (reconnect)
+                {
+                    reconnectCount++;
+                    consecutiveFailures++;
+                    var row = new
+                    {
+                        schema = 1,
+                        ok = false,
+                        command = "monitor soc",
+                        error = new
+                        {
+                            kind = "sample_error",
+                            message = ex.Message,
+                            endpoint = endpoint.Display,
+                            sample = sample + 1,
+                            capturedUtc = DateTimeOffset.UtcNow,
+                            reconnectCount,
+                            consecutiveFailures
+                        }
+                    };
+                    await EmitAsync(row);
+                    reporter.Status($"SOC monitor sample failed: {ex.Message}");
+
+                    if (connection is not null)
+                    {
+                        await connection.DisposeAsync();
+                        connection = null;
+                    }
+                    if (consecutiveFailures >= maxReconnects)
+                        throw new CliException(ExitCodes.ConnectFailed, "reconnect_exhausted",
+                            $"SOC monitor failed {consecutiveFailures} consecutive reconnect attempts.",
+                            new { endpoint = endpoint.Display, reconnectCount, output = outputPath }, ex);
+                    await Task.Delay(TimeSpan.FromSeconds(1), ct);
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return ExitCodes.Success;
+        }
+        finally
+        {
+            if (connection is not null)
+                await connection.DisposeAsync();
+            if (evidenceWriter is not null)
+                await evidenceWriter.DisposeAsync();
         }
         return ExitCodes.Success;
     }
@@ -177,6 +287,15 @@ Safety:
         bool full = !options.Has("quick");
         reporter.Status(full ? "Collecting full diagnostic snapshot..." : "Collecting quick diagnostic snapshot...");
         DiagnosticCapture capture = await connection.Client.ReadDiagnosticsAsync(full, endpoint.Display, ct);
+        DeviceIdentity? healthIdentity = null;
+        if (capture.Identity.Count != 0)
+        {
+            capture.Identity.TryGetValue("Serial", out string? serial);
+            capture.Identity.TryGetValue("Hardware", out string? hardware);
+            capture.Identity.TryGetValue("Software", out string? software);
+            healthIdentity = new DeviceIdentity(endpoint.Display, serial ?? "", hardware ?? "", software ?? "", "");
+        }
+        BmsHealthReport health = BmsHealth.Evaluate(capture, healthIdentity);
 
         string? output = options.Get("output");
         string? outputPath = null;
@@ -186,7 +305,7 @@ Safety:
             string? dir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrWhiteSpace(dir))
                 Directory.CreateDirectory(dir);
-            BmsDiagnostics.Export(outputPath, capture);
+            BmsDiagnostics.Export(outputPath, capture, health);
         }
 
         uint? buildId = null;
@@ -215,6 +334,7 @@ Safety:
             capture.Storage,
             capture.Trace,
             capture.Errors,
+            health,
             evidence = capture.EvidenceBlocks,
             rawFrames = capture.Frames,
             output = outputPath
@@ -286,9 +406,14 @@ Safety:
 
     private static async Task<int> TestAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {
-        if (options.Positionals.Count != 1 ||
-            !string.Equals(options.Positionals[0], "connection", StringComparison.OrdinalIgnoreCase))
-            throw new CliException(ExitCodes.Usage, "usage", "test currently requires the 'connection' subcommand.");
+        if (options.Positionals.Count != 1)
+            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc or diag.");
+
+        string test = options.Positionals[0].ToLowerInvariant();
+        if (test == "soc" || test == "diag")
+            return await RunSharedTestAsync(test, options, reporter, ct);
+        if (test != "connection")
+            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc or diag.");
 
         int count = options.GetInt("count", 10, 1, 1000);
         int delayMs = options.GetInt("delay-ms", 500, 0, 60000);
@@ -344,6 +469,121 @@ Safety:
             Console.WriteLine($"Connection test: {succeeded}/{count} passed, success rate {succeeded * 100.0 / count:F2}%");
         }
         return failed == 0 ? ExitCodes.Success : ExitCodes.TestFailed;
+    }
+
+    private static async Task<int> RunSharedTestAsync(
+        string test, CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        int defaultCount = test == "soc" ? 10 : 3;
+        int count = options.GetInt("count", defaultCount, 1, 1000);
+        int interval = options.GetInt("interval", 1, 0, 3600);
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        BmsTestReport report;
+        if (test == "soc")
+        {
+            reporter.Status($"Running SOC diagnostics test: {count} sample(s)...");
+            report = await BmsTestEngine.RunSocAsync(connection.Client, endpoint.Display, count,
+                TimeSpan.FromSeconds(interval), ct);
+        }
+        else
+        {
+            bool full = options.Has("full");
+            reporter.Status($"Running {(full ? "full" : "quick")} diagnostics test: {count} capture(s)...");
+            report = await BmsTestEngine.RunDiagnosticsAsync(connection.Client, endpoint.Display, count,
+                full, TimeSpan.FromSeconds(interval), ct);
+        }
+
+        string? outputPath = SaveJsonOutput(options.Get("output"), report);
+        var data = new { endpoint = endpoint.Display, report, output = outputPath };
+        reporter.Success("test " + test, data);
+        if (!reporter.Json)
+        {
+            Console.WriteLine(report.Summary);
+            foreach (BmsTestCheck check in report.Checks)
+                Console.WriteLine($"[{check.Status.ToUpperInvariant()}] {check.Title}: {check.Evidence}");
+            if (outputPath is not null) Console.WriteLine("Test report: " + outputPath);
+        }
+        return report.Passed ? ExitCodes.Success : ExitCodes.TestFailed;
+    }
+
+    private static Task<int> CompareAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (options.Positionals.Count != 2)
+            throw new CliException(ExitCodes.Usage, "usage", "compare requires before and after diagnostic ZIP paths.");
+        string before = Path.GetFullPath(options.Positionals[0]);
+        string after = Path.GetFullPath(options.Positionals[1]);
+        if (!File.Exists(before) || !File.Exists(after))
+            throw new CliException(ExitCodes.Usage, "bundle_not_found", "Both diagnostic ZIP files must exist.");
+        DiagnosticBundleComparison comparison;
+        try { comparison = DiagnosticBundleComparer.Compare(before, after); }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            throw new CliException(ExitCodes.Usage, "bundle_invalid", ex.Message, inner: ex);
+        }
+        reporter.Success("compare", comparison);
+        if (!reporter.Json)
+        {
+            Console.WriteLine($"Diagnostic differences: {comparison.DifferenceCount}");
+            foreach (DiagnosticBundleDifference difference in comparison.Differences)
+                Console.WriteLine($"{difference.Entry} {difference.Path}: {difference.Before ?? "<missing>"} -> {difference.After ?? "<missing>"}");
+        }
+        return Task.FromResult(ExitCodes.Success);
+    }
+
+    private static async Task<int> ParametersAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
+    {
+        if (options.Positionals.Count != 1 ||
+            options.Positionals[0].ToLowerInvariant() is not ("get" or "export"))
+            throw new CliException(ExitCodes.Usage, "usage", "parameters requires get or export.");
+        string action = options.Positionals[0].ToLowerInvariant();
+        CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
+        reporter.Status("Connecting " + endpoint.Display + "...");
+        await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+        D008ParameterCapture capture = await connection.Client.ReadD008ParametersAsync(ct);
+        string? outputPath = null;
+        if (action == "export")
+        {
+            string output = options.RequireValue("output");
+            outputPath = Path.GetFullPath(output);
+            string? directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            D008Parameters.Export(outputPath, capture);
+        }
+        var data = new
+        {
+            endpoint = endpoint.Display,
+            capture.Status,
+            capture.Supported,
+            capture.ProtocolVersion,
+            capture.Blocks,
+            capture.Errors,
+            output = outputPath
+        };
+        reporter.Success("parameters " + action, data);
+        if (!reporter.Json)
+        {
+            Console.WriteLine(capture.Status);
+            Console.WriteLine($"Protocol v{capture.ProtocolVersion}; supported={capture.Supported}; blocks={capture.Blocks.Count}; errors={capture.Errors.Count}");
+            foreach (string error in capture.Errors) Console.WriteLine("WARN: " + error);
+            if (outputPath is not null) Console.WriteLine("Parameter bundle: " + outputPath);
+        }
+        return capture.Blocks.Count == 0 ? ExitCodes.ConnectFailed : ExitCodes.Success;
+    }
+
+    private static string? SaveJsonOutput(string? output, object value)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return null;
+        string path = Path.GetFullPath(output);
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllText(path, JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        }));
+        return path;
     }
 
     private static async Task<int> OtaAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
@@ -436,6 +676,27 @@ Safety:
                 throw new OperationCanceledException(ct);
         }
 
+        string? evidenceDirectory = options.Get("evidence-dir");
+        if (!string.IsNullOrWhiteSpace(evidenceDirectory))
+        {
+            evidenceDirectory = Path.GetFullPath(evidenceDirectory);
+            Directory.CreateDirectory(evidenceDirectory);
+            WriteJsonFile(Path.Combine(evidenceDirectory, "firmware.json"), new
+            {
+                capturedUtc = DateTimeOffset.UtcNow,
+                path = firmwarePath,
+                file = Path.GetFileName(firmwarePath),
+                bytes = image.ImageSize,
+                sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(firmwarePath))).ToLowerInvariant(),
+                image.HasD008TlnkStartupMarker,
+                architecture = target.ToString(),
+                mode = mode.ToString()
+            });
+            if (pre is not null)
+                WriteJsonFile(Path.Combine(evidenceDirectory, "before-snapshot.json"), SnapshotData(pre));
+            await CollectOtaEvidenceAsync(endpoint, pre, evidenceDirectory, "before", reporter, ct);
+        }
+
         reporter.Status($"Starting OTA: {Path.GetFileName(firmwarePath)} -> {endpoint.Display}");
         bool serverConfirmed;
         try
@@ -449,6 +710,11 @@ Safety:
         }
 
         DeviceSnapshot post = await CliRuntime.VerifyAfterOtaAsync(endpoint, reporter, ct);
+        if (evidenceDirectory is not null)
+        {
+            WriteJsonFile(Path.Combine(evidenceDirectory, "after-snapshot.json"), SnapshotData(post));
+            await CollectOtaEvidenceAsync(endpoint, post, evidenceDirectory, "after", reporter, ct);
+        }
 
         if (!string.IsNullOrWhiteSpace(expectedVersion) &&
             !string.Equals(post.Identity.Software, expectedVersion, StringComparison.OrdinalIgnoreCase))
@@ -491,6 +757,7 @@ Safety:
             versionChanged,
             buildChanged,
             d008 = post.IsD008,
+            evidenceDirectory,
             battery = new
             {
                 post.Battery.PackVoltageV,
@@ -501,12 +768,17 @@ Safety:
 
         if (!(serverConfirmed || versionChanged || buildChanged))
         {
+            if (evidenceDirectory is not null)
+                WriteJsonFile(Path.Combine(evidenceDirectory, "ota-result.json"), result);
             throw new CliException(
                 ExitCodes.OtaUnconfirmed,
                 "ota_unconfirmed",
                 "Device returned to normal communication, but there is no positive evidence that new firmware started. OTA_SUCCESS was not received and version/Build ID did not change.",
                 result);
         }
+
+        if (evidenceDirectory is not null)
+            WriteJsonFile(Path.Combine(evidenceDirectory, "ota-result.json"), result);
 
         reporter.Success("ota", result);
         if (!reporter.Json)
@@ -517,6 +789,63 @@ Safety:
             Console.WriteLine($"Evidence: server={serverConfirmed}, versionChanged={versionChanged}, buildChanged={buildChanged}");
         }
         return ExitCodes.Success;
+    }
+
+    private static async Task CollectOtaEvidenceAsync(
+        CliEndpoint endpoint,
+        DeviceSnapshot? snapshot,
+        string directory,
+        string prefix,
+        CliReporter reporter,
+        CancellationToken ct)
+    {
+        var errors = new List<string>();
+        try
+        {
+            await using CliBmsConnection connection = await CliRuntime.ConnectBmsAsync(endpoint, reporter, ct);
+            try
+            {
+                DiagnosticCapture capture = await connection.Client.ReadDiagnosticsAsync(true, endpoint.Display, ct);
+                BmsHealthReport health = BmsHealth.Evaluate(capture, snapshot?.Identity, snapshot?.Battery);
+                BmsDiagnostics.Export(Path.Combine(directory, prefix + "-diag.zip"), capture, health);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                errors.Add("diagnostics: " + ex.GetType().Name + ": " + ex.Message);
+            }
+
+            try
+            {
+                D008ParameterCapture parameters = await connection.Client.ReadD008ParametersAsync(ct);
+                D008Parameters.Export(Path.Combine(directory, prefix + "-parameters.zip"), parameters);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                errors.Add("parameters: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            errors.Add("connection: " + ex.GetType().Name + ": " + ex.Message);
+        }
+
+        WriteJsonFile(Path.Combine(directory, prefix + "-evidence-status.json"), new
+        {
+            capturedUtc = DateTimeOffset.UtcNow,
+            ok = errors.Count == 0,
+            errors
+        });
+    }
+
+    private static void WriteJsonFile(string path, object value)
+    {
+        File.WriteAllText(path, JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        }), new System.Text.UTF8Encoding(false));
     }
 
     private static async Task<bool> RunOtaWithFallbackAsync(

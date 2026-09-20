@@ -33,6 +33,13 @@ static class Test
         Check(soc.EtaValid&&soc.EtaDirection=="DISCHARGE"&&soc.FilteredCurrentMa==10000,"typed ETA diagnostics");
         Check(soc.TimeToFullMinutes is null,"unavailable ETA sentinel");
         Check(soc.CandidateCapacityAh==91.0&&soc.LastLearningRejectReason=="CANDIDATE_INCONSISTENT","typed learning diagnostics");
+        Check(soc.RuntimeVersion==3&&soc.LastSampleState=="ACCEPTED"&&soc.LastIntegralDirection=="DISCHARGE"&&
+            soc.LastSocAction=="INTEGRATE"&&soc.LastSocBefore==74&&soc.LastSocAfter==73&&soc.LastIntegralDeltaAs10==42,"typed SOC decision diagnostics");
+        var socTest=await BmsTestEngine.RunSocAsync(b,"mock",2,TimeSpan.Zero);
+        Check(socTest.Passed&&socTest.Endpoint=="mock"&&socTest.RequestedSamples==2&&socTest.SuccessfulSamples==2&&
+            socTest.FirmwareBuildId=="12345678"&&socTest.Checks.Any(x=>x.Id=="soc.capacity"&&x.Status==BmsTestStatus.Pass),"shared SOC test engine");
+        var diagTest=await BmsTestEngine.RunDiagnosticsAsync(b,"mock",2,true,TimeSpan.Zero);
+        Check(diagTest.Passed&&diagTest.SuccessfulSamples==2&&diagTest.Checks.Any(x=>x.Id=="diag.trace"&&x.Status==BmsTestStatus.Pass),"shared diagnostics test engine");
         var runtimeV1=capture.Words!.ToArray();runtimeV1[192]=1;bool oldSocRejected=false;
         try {BmsDiagnostics.DecodeSocSnapshot(runtimeV1);}catch(InvalidDataException){oldSocRejected=true;}
         Check(oldSocRejected,"runtime v1 must not be decoded as SOC v2");
@@ -75,11 +82,26 @@ static class Test
                 var text=reader.ReadToEnd();Check(text.Contains("3750") && text.Contains("0x2100"),"parameter ZIP content");
             }
             Check(partial.Frames.All(f=>f.Direction!="TX" || f.Hex.StartsWith("0103")),"no privileged frames");
+            var before=Path.Combine(dir,"before.zip");var after=Path.Combine(dir,"after.zip");
+            CreateComparisonBundle(before,"8af89d22",73);CreateComparisonBundle(after,"12345678",74);
+            var comparison=DiagnosticBundleComparer.Compare(before,after);
+            Check(comparison.Differences.Any(x=>x.Entry=="manifest.json"&&x.Path=="$.firmware_git_commit")&&
+                comparison.Differences.Any(x=>x.Entry=="soc.json"&&x.Path=="$[field=SOC estimate].value"),"offline diagnostic bundle comparison");
         } finally {Directory.Delete(dir,true);}
         var malformed=new DiagnosticCapture();bool rejected=false;
         try {BmsDiagnostics.Decode(malformed,new ushort[2]);}catch(InvalidDataException){rejected=true;}
         Check(rejected,"short snapshot");
         Console.WriteLine("PASS Windows diagnostics: runtime current/SOC/PM/protection decode, parameter+AFE evidence, legacy/exceptions, timeout/cancel, bounded trace retry, AI ZIP and read-only frames");
+    }
+
+    static void CreateComparisonBundle(string path,string build,int soc)
+    {
+        using var zip=ZipFile.Open(path,ZipArchiveMode.Create);
+        foreach(string name in new[]{"manifest.json","boot.json","storage.json","current.json","soc.json","power.json","protection_runtime.json","parameters.json","afe.json","health.json"}) {
+            using var writer=new StreamWriter(zip.CreateEntry(name).Open());
+            writer.Write(name=="manifest.json"?$"{{\"firmware_git_commit\":\"{build}\"}}":
+                name=="soc.json"?$"[{{\"field\":\"SOC estimate\",\"value\":{soc}}}]":"{}");
+        }
     }
 }
 sealed class FakeTransport:IBmsTransport
@@ -103,8 +125,8 @@ sealed class FakeTransport:IBmsTransport
         var w=new ushort[1024];
         if(!Legacy) {
             w[0]=0x4447;w[1]=1;w[2]=0x002F;w[3]=1;w[6]=100;w[8]=(ushort)traceSeq;w[12]=1;
-            w[18]=0x5678;w[19]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
-            w[192]=2;w[193]=3;
+            w[18]=0x5678;w[19]=0x1234;w[22]=0x5678;w[23]=0x1234;w[36]=2;w[37]=3;w[38]=3;w[128]=3;w[136]=3;w[138]=2;
+            w[192]=3;w[193]=3;
             w[194]=unchecked((ushort)-123);w[195]=0xFFFF;w[196]=456;w[197]=0;
             w[198]=90;w[199]=0;w[200]=200;w[202]=73;w[203]=72;w[204]=2;w[205]=74;w[206]=69;w[207]=79;
             w[208]=90;w[209]=600;w[210]=1;w[211]=1;w[212]=580;
@@ -114,6 +136,7 @@ sealed class FakeTransport:IBmsTransport
             w[231]=1000;w[232]=950;w[233]=700;w[234]=10000;w[235]=0;w[236]=100;
             w[237]=180;w[238]=0xFFFF;w[239]=(ushort)(2|(2<<4)|(90<<8));
             w[240]=95;w[241]=2;w[242]=100;w[243]=910;w[244]=4;w[245]=2;w[246]=12;w[247]=75;w[248]=3400;
+            w[249]=(ushort)(5|(2<<4)|(1<<8));w[250]=6400;w[252]=42;w[254]=(ushort)(74|(73<<8));w[255]=73;
             w[256]=(ushort)traceSeq;w[260]=3;w[262]=0x5678;w[263]=0x1234;
         }
         if(Unstable&&start==0x2A00)traceSeq++;

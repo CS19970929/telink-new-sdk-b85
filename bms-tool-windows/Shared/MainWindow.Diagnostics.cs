@@ -24,6 +24,7 @@ public partial class MainWindow
     private readonly DataGrid _diagMos = DiagnosticGrid();
     private readonly DataGrid _diagTrace = DiagnosticGrid();
     private readonly DataGrid _diagHealth = DiagnosticGrid();
+    private readonly DataGrid _diagTests = DiagnosticGrid();
     private static DataGrid DiagnosticGrid()=>new() {IsReadOnly=true,AutoGenerateColumns=true,
         CanUserAddRows=false,CanUserDeleteRows=false,Margin=new Thickness(4)};
     private void AddDiagnosticTab()
@@ -35,6 +36,10 @@ public partial class MainWindow
         read.Click+=async (_,_)=>await CaptureDiagnosticsAsync(true);
         var health=new Button {Content="设备健康检查",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};
         health.Click+=async (_,_)=>await CaptureDiagnosticsAsync(true);
+        var socTest=new Button {Content="SOC 自动测试",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};
+        socTest.Click+=async (_,_)=>await RunDiagnosticTestAsync(true);
+        var diagTest=new Button {Content="诊断一致性测试",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};
+        diagTest.Click+=async (_,_)=>await RunDiagnosticTestAsync(false);
         var stop=new Button {Content="停止采集",Margin=new Thickness(4)};
         stop.Click+=(_,_)=>{_diagAuto.IsChecked=false;_diagCts?.Cancel();};
         var export=new Button {Content="导出 AI 诊断包",Margin=new Thickness(4)};
@@ -45,14 +50,15 @@ public partial class MainWindow
             try {BmsDiagnostics.Export(dialog.FileName,_diagCapture,_diagHealthReport);_diagStatus.Text="AI 诊断包已保存";}
             catch(Exception ex){ShowError("诊断导出失败",ex);}
         };
-        controls.Children.Add(health);controls.Children.Add(read);controls.Children.Add(stop);controls.Children.Add(export);controls.Children.Add(_diagAuto);
+        controls.Children.Add(health);controls.Children.Add(read);controls.Children.Add(socTest);controls.Children.Add(diagTest);
+        controls.Children.Add(stop);controls.Children.Add(export);controls.Children.Add(_diagAuto);
         DockPanel.SetDock(controls,Dock.Top);root.Children.Add(controls);
         _diagStatus.Text="连接后自动探测运行状态；完整 Trace、事件、参数和 AFE 证据请点击读取。诊断只读，物理 MOS 反馈不可用。";
         _diagStatus.TextWrapping=TextWrapping.Wrap;_diagStatus.Margin=new Thickness(4);
         DockPanel.SetDock(_diagStatus,Dock.Top);root.Children.Add(_diagStatus);
         var tabs=new TabControl();
         foreach(var item in new[]{
-            ("健康",_diagHealth),("电流",_diagCurrent),("SOC",_diagSoc),("低功耗",_diagPower),("保护",_diagProtection),
+            ("健康",_diagHealth),("自动测试",_diagTests),("电流",_diagCurrent),("SOC",_diagSoc),("低功耗",_diagPower),("保护",_diagProtection),
             ("MOS 决策",_diagMos),("启动",_diagBoot),("存储",_diagStorage),("RAM Trace",_diagTrace)})
             tabs.Items.Add(new TabItem {Header=item.Item1,Content=item.Item2});
         root.Children.Add(tabs);MainTabs.Items.Add(new TabItem {Header="BMS 诊断",Content=root});
@@ -97,6 +103,31 @@ public partial class MainWindow
             if(!result.Supported)_diagAuto.IsChecked=false;
         }
         catch(Exception ex) {_diagStatus.Text="诊断读取失败："+ex.Message;}
+        finally {
+            _diagCts.Dispose();_diagCts=null;_diagBusy=false;_eventLogReadInProgress=false;
+            _diagNextUtc=DateTime.UtcNow.AddSeconds(5);StartAutomaticRefresh();
+        }
+    }
+
+    private async Task RunDiagnosticTestAsync(bool socTest)
+    {
+        if(_diagBusy || _eventLogReadInProgress || _otaRunning || _shBusy || ShFactoryBusy())return;
+        var client=_bms;
+        if(client is null){_diagStatus.Text="请先连接 BMS";return;}
+        _diagAuto.IsChecked=false;_diagBusy=true;_eventLogReadInProgress=true;
+        _diagCts=new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        try {
+            _pollTimer.Stop();await WaitForCommunicationIdleAsync();
+            if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
+            _diagStatus.Text=socTest?"正在采集 10 组 SOC 诊断样本…":"正在执行 3 轮完整诊断一致性测试…";
+            BmsTestReport report=socTest
+                ? await BmsTestEngine.RunSocAsync(client,ConnectionText.Text,10,TimeSpan.FromSeconds(1),_diagCts.Token)
+                : await BmsTestEngine.RunDiagnosticsAsync(client,ConnectionText.Text,3,true,TimeSpan.FromSeconds(1),_diagCts.Token);
+            _diagTests.ItemsSource=report.Checks;
+            _diagStatus.Text=$"{(socTest?"SOC":"诊断")}自动测试：{report.Summary} · {report.FinishedUtc.ToLocalTime():HH:mm:ss}";
+        }
+        catch(OperationCanceledException){_diagStatus.Text="自动测试已停止";}
+        catch(Exception ex){_diagStatus.Text="自动测试失败："+ex.Message;}
         finally {
             _diagCts.Dispose();_diagCts=null;_diagBusy=false;_eventLogReadInProgress=false;
             _diagNextUtc=DateTime.UtcNow.AddSeconds(5);StartAutomaticRefresh();
