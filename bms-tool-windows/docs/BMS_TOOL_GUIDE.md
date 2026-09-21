@@ -109,6 +109,12 @@ bms-cli ota firmware.bin (--mac MAC | --name NAME | --auto | --serial COMx) --ta
 
 exit code 0 表示命令成功；2 参数/确认错误；10 未找到设备；11 多设备拒绝自动选择；12 连接失败；20/21/22 为 BIN/产品/尺寸预检失败；30 OTA 传输失败；33 OTA 证据不足；40 OTA 后通信恢复失败；41 目标版本不匹配；50 自动测试存在失败项；130 取消。
 
+## 电流方向统一约定
+
+应用层、D008 固件内部、SOC、诊断和工厂电流校准统一使用：**正值=放电，负值=充电**。`BatterySnapshot.CurrentA`、CLI、长期监控和内部完整测试版均使用这一约定。
+
+`0xD120` realtime protocol v1 为兼容历史设备保留旧 wire convention：**正值=充电，负值=放电**。该差异只允许存在于 `BmsClient` 协议边界，读取 v1 后立即反转为应用层统一方向；Legacy D000 的独立充/放电幅值也在同一边界转换。不要在 UI、SOC、诊断或校准逻辑中再次翻转符号。未来若定义 D120 v2，应直接采用应用层统一方向。
+
 ## 8. 诊断 ZIP
 
 ZIP 至少包含 manifest、boot、storage、MOS、current、SOC、power、runtime protection、software protection、AFE、health、trace、raw frames 和 errors。`SnapshotConsistent`、`TraceConsistent` 以及 `errors` 必须随报告保存，不能只导出看似正常的解析值。
