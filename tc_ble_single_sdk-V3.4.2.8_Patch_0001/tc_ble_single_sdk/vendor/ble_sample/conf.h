@@ -266,29 +266,29 @@ typedef struct
 extern Time_T  sys_time;
 
 #ifndef FW_UPGRADE_RESET_PROTECT_EPOCH
-#define FW_UPGRADE_RESET_PROTECT_EPOCH   5u
+#define FW_UPGRADE_RESET_PROTECT_EPOCH   1u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SYSTEM_EPOCH
-#define FW_UPGRADE_RESET_SYSTEM_EPOCH    1u
+#define FW_UPGRADE_RESET_SYSTEM_EPOCH    2u
 #endif
 
 #ifndef FW_UPGRADE_RESET_SOC_EPOCH
-#define FW_UPGRADE_RESET_SOC_EPOCH       1u
+#define FW_UPGRADE_RESET_SOC_EPOCH       2u
 #endif
 
 #ifndef FW_UPGRADE_RESET_EVENT_LOG_EPOCH
-#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 1u
+#define FW_UPGRADE_RESET_EVENT_LOG_EPOCH 2u
 #endif
 
 #ifndef FW_UPGRADE_RESET_RUNTIME_EPOCH
-#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0001
+#define FW_UPGRADE_RESET_RUNTIME_EPOCH   0x0002
 #endif
 
 /* Independent semantic revisions: equal preserves values, different resets only
  * the named category. Zero is a revision too, not an enable/disable switch. */
 #ifndef FW_UPGRADE_RESET_AFE_HW_EPOCH
-#define FW_UPGRADE_RESET_AFE_HW_EPOCH 0x0001u
+#define FW_UPGRADE_RESET_AFE_HW_EPOCH 0x0002u
 #endif
 #ifndef FW_UPGRADE_RESET_SOC_CONFIG_EPOCH
 #define FW_UPGRADE_RESET_SOC_CONFIG_EPOCH 1u
