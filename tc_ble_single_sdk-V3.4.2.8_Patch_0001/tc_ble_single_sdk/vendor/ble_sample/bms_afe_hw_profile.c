@@ -45,6 +45,7 @@ u16 bms_afe_hw_profile_capabilities(void)
 #endif
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 static u16 sh_sc_multiplier(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
@@ -66,6 +67,8 @@ static u16 sh_sc_delay_us(void)
     return 0u;
 #endif
 }
+
+#endif
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 static u16 dvc_clamp_u16_max(u16 value, u16 max_value)

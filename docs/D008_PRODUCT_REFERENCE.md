@@ -45,9 +45,9 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 |---|---|
 | MCU | TLSR8251F512ET32 |
 | AFE | DVC1124-2；源码默认 `DVC1124_MODEL_22` |
-| 当前默认固件 profile | **16S LFP**，`D008_PRODUCT_PROFILE_16S_LFP` |
+| 当前默认固件 profile | **24S LFP**，`D008_PRODUCT_PROFILE_24S_LFP` |
 | 可选编译 profile | 20S NMC；历史 24S LFP 仍保留显式选择 |
-| 原理图能力 | 图纸为 24S（C0..C24）；当前 16S 实际装配/短接必须以对应 BOM/实板为准 |
+| 原理图能力 | 图纸为 24S（C0..C24）；默认固件配置为 24S，实际装配仍须核对对应 BOM/实板 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
 | DVC 地址 | `0x40` write / `0x41` read transfer address |
 | Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
@@ -138,7 +138,7 @@ dvc1124_project_config.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。当前分支默认选择 16S LFP；24S 图纸事实与当前默认装配必须明确区分。
+`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。2026-09-21 用户确认默认选择已有 24S LFP profile；16S LFP 与 20S NMC 继续保留为显式编译选项。
 
 ### 5.2 Flash 中保留的保护参数
 
@@ -439,7 +439,7 @@ Balance 不再复用软件压差保护参数。Config schema 4 独立保存：
 - `balance_start_delta_mv`：默认 50 mV；
 - `balance_stop_delta_mv`：默认 30 mV，必须小于 start delta。
 
-当前默认 16S LFP 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
+当前默认 24S LFP 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
 
 ### 14.3 均衡数据可信门禁
 

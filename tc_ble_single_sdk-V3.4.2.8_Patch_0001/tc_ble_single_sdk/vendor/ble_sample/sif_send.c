@@ -60,7 +60,6 @@ static uint8_t sif_sendArray[64] = {0};
 volatile static uint8_t sif_send_length = 0;
 
 
-#pragma pack(1)
 typedef struct
 {
     uint8_t id;
@@ -80,9 +79,7 @@ typedef struct
     uint8_t work_status;
     uint8_t verify;
 } PUBLIC_PACKETS_H;
-#pragma pack()
 
-#pragma pack(1)
 typedef struct
 {
     uint8_t id;
@@ -111,9 +108,7 @@ typedef struct
     uint8_t verify;
 
 } PRIVATE_PACKETS_REALTIME_INFO_H;
-#pragma pack()
 
-#pragma pack(1)
 typedef struct
 {
     uint8_t id;
@@ -124,7 +119,6 @@ typedef struct
     uint8_t verify;
 
 } PRIVATE_PACKETS_CELLVOLTAGE_H;
-#pragma pack()
 
 typedef struct
 {

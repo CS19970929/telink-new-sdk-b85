@@ -311,6 +311,7 @@ static uint8_t dvc_update_reg(uint8_t reg, uint8_t clear_mask, uint8_t set_mask)
     return 0u;
 }
 
+#if DVC1124_HW_PROTECT_ENABLE
 /* Choose the largest supported voltage-protection delay not exceeding request. */
 static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms)
 {
@@ -417,6 +418,8 @@ static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual)
 {
     if (requested != actual) s_applied.quantized_mask |= bit;
 }
+
+#endif
 
 static uint8_t dvc_apply_cell_masks(void)
 {

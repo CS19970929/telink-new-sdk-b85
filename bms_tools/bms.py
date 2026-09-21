@@ -187,7 +187,7 @@ STARTUP_PROFILE = "MCU_STARTUP_8251"
 STARTUP_SRAM_END = 0x848000
 TLSR8251_SRAM_END_IN_SDK = 0x848000
 TARGET_CONFIGURATION_RISK = "TLSR8251 startup profile matches the 32 KiB SRAM target"
-MAIN_STACK_RESERVE_BYTES = 600
+MAIN_STACK_RESERVE_BYTES = 3072
 
 
 def _now_iso() -> str:
@@ -582,7 +582,7 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
         objs.append(obj)
         subdirs_to_create.add((obj_dir / obj_rel).parent)
         out_lines.append("")
-        out_lines.append(f"{obj}: {src_j_posix}")
+        out_lines.append(f"{obj}: {src_j_posix} {(_junc(gen_dir) / 'compile-inputs.json').as_posix()}")
         if src.suffix == ".S":
             out_lines.append(f"\t@echo 'Assembling: {src.name}'")
             out_lines.append(f"\t$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
@@ -626,12 +626,49 @@ def _firmware_git_dirty() -> int:
     return 0
 
 
+def _capture_compile_inputs(extra_defines: str) -> dict:
+    """Conservative header closure: extra unused headers may rebuild, none go stale."""
+    paths = {SDK_DIR / rel for rel in _load_source_order_strict()}
+    paths.update(SDK_DIR.rglob("*.h"))
+    paths.update(SDK_DIR.rglob("*.inc"))
+    paths.update((SOURCE_ORDER_FILE, LINKER_FILE, _HERE / "build.mk", _HERE / "bms.py"))
+    paths.update(REQUIRED_VENDOR_LIBS)
+    files = {p.relative_to(REPO_ROOT).as_posix(): _sha256(p) for p in sorted(paths)}
+    executables = [_tc32_tool(n) for n in ("tc32-elf-gcc", "tc32-elf-as", "tc32-elf-ld", "tc32-elf-objcopy", "tc32-elf-objdump")]
+    gcc = Path(executables[0])
+    executables += [str(p) for p in (gcc.parent.parent / "libexec/gcc").rglob("cc1*") if p.is_file()]
+    executables.append(str(TL_CHECK_FW2))
+    return {"schema": "bms-compile-inputs/v1", "files": files,
+            "tools": {str(Path(p).resolve()): _sha256(Path(p)) for p in executables},
+            "extra_defines": extra_defines,
+            "git_build_id": _firmware_git_build_id(), "git_dirty": _firmware_git_dirty()}
+
+
+def _write_compile_inputs(extra_defines: str) -> None:
+    path = GEN_DIR / "compile-inputs.json"
+    content = json.dumps(_capture_compile_inputs(extra_defines), sort_keys=True, indent=2)+"\n"
+    if not path.exists() or path.read_text(encoding="utf-8") != content:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+
+def _read_compile_inputs() -> dict:
+    path = GEN_DIR / "compile-inputs.json"
+    if not path.exists():
+        _die("Build input receipt missing; rebuild required")
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    if receipt != _capture_compile_inputs(receipt.get("extra_defines", "")):
+        _die("Source/header/toolchain/build configuration changed since build; rebuild required")
+    return receipt
+
+
 def _invoke_make(targets: list[str], jobs: int = 1,
                  build_dir: Path = BUILD_DIR) -> None:
     resolved_build = build_dir.resolve()
     if resolved_build != BUILD_DIR:
         _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
+    env["PATH"] = str(Path(_tc32_tool("tc32-elf-gcc")).parent) + os.pathsep + env["PATH"]
     extra_defines = env.get("EXTRA_DEFINES", "").strip()
     build_id = _firmware_git_build_id()
     dirty = _firmware_git_dirty()
@@ -643,6 +680,8 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
     make = _need_make()
     _gen_sources_mk(build_dir)
+    if "all" in targets:
+        _write_compile_inputs(extra_defines)
     # Pass all Make-facing paths via the junction (space-free).
     repo_j = _junc(REPO_ROOT).as_posix()
     sdk_j = _junc(SDK_DIR).as_posix()
@@ -667,6 +706,8 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     print("\n".join(tail))
     if r.returncode != 0:
         raise subprocess.CalledProcessError(r.returncode, cmd, output=r.stdout)
+    if warning_count != 0:
+        _die(f"compiler warning gate failed: warnings={warning_count}; see {log_path}")
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -841,7 +882,7 @@ def cmd_map(args: argparse.Namespace) -> int:
     print(f"  RAM address span used = {ram_used_span} bytes")
     print(f"  stack reserve         = {MAIN_STACK_RESERVE_BYTES} bytes")
     print(f"  stack-safe headroom   = {stack_safe_headroom} bytes")
-    if ram_end >= ram_limit:
+    if ram_end < ram_base or ram_end >= ram_limit:
         _die(
             f"TLSR8251 SRAM overflow risk: _ram_use_end_=0x{ram_end:06X}, "
             f"limit=0x{ram_limit:06X}"
@@ -849,12 +890,51 @@ def cmd_map(args: argparse.Namespace) -> int:
 
     bin_size = symbols.get("_bin_size_")
     slot_size = FW_SLOT_A_END - FW_SLOT_A_BASE + 1
-    if bin_size is not None:
-        flash_headroom = slot_size - bin_size
-        print(f"  slot A headroom       = {flash_headroom} bytes")
-        if bin_size > slot_size:
-            _die(f"firmware image exceeds slot A: {bin_size} > {slot_size}")
-
+    if bin_size is None or bin_size <= 0:
+        _die("MAP missing valid _bin_size_; cannot validate image")
+    if not BIN.exists():
+        _die("Canonical BIN missing; run check-fw before map")
+    canonical_size = BIN.stat().st_size
+    # SDK checker pads to a 16-byte payload boundary then appends a CRC word.
+    expected_size = ((bin_size + 15) // 16) * 16 + 4
+    if canonical_size != expected_size:
+        _die(f"MAP/BIN size mismatch: aligned {bin_size} + CRC != {canonical_size}")
+    if canonical_size > slot_size:
+        _die(f"firmware image exceeds slot A: {canonical_size} > {slot_size}")
+    flash_headroom = slot_size - canonical_size
+    report = {
+        "schema": "bms-resources/v1", "git": _git_provenance(),
+        "elf_sha256": _sha256(ELF) if ELF.exists() else None,
+        "bin_sha256": _sha256(BIN), "map_sha256": _sha256(MAP),
+        "flash_bytes": canonical_size, "flash_limit_bytes": slot_size,
+        "flash_free_bytes": flash_headroom, "ram_span_bytes": ram_used_span,
+        "ram_total_bytes": ram_total, "main_stack_gap_bytes": ram_total-ram_used_span,
+        "main_stack_reserve_bytes": MAIN_STACK_RESERVE_BYTES,
+        "ram_growth_headroom_bytes": stack_safe_headroom,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {m.group(1): {"address": int(m.group(2),16), "bytes": int(m.group(3),16)}
+            for m in re.finditer(r"^\.(vectors|ram_code|retention_data|text|cstartup_ram_funcs|rodata|data|bss|data_no_init|sdk_version)\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)", text, re.M)},
+        "warnings": [],
+    }
+    if flash_headroom < 8192:
+        report["warnings"].append("Flash free below 8 KiB: review feature budget")
+    if stack_safe_headroom < 2048:
+        report["warnings"].append("RAM growth headroom below 2 KiB after main stack reserve")
+    baseline = getattr(args, "baseline", None)
+    if baseline:
+        old = json.loads(Path(baseline).read_text(encoding="utf-8"))
+        if old.get("schema") != report["schema"]:
+            _die("Unsupported resource baseline schema")
+        report["delta"] = {k: report[k]-old[k] for k in ("flash_bytes", "ram_span_bytes")}
+        if report["delta"]["flash_bytes"] > 1024 or report["delta"]["ram_span_bytes"] > 256:
+            report["warnings"].append("Change exceeds +1 KiB Flash or +256 B RAM: review resource delta")
+    output = Path(getattr(args, "output", None) or (GEN_DIR / "resources.json"))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2, ensure_ascii=False)+"\n", encoding="utf-8")
+    print(f"  canonical BIN         = {canonical_size} bytes; free {flash_headroom}")
+    for warning in report["warnings"]:
+        print("  WARNING: " + warning)
+    print(f"Resource report: {output}")
     print("MAP analysis PASS: TLSR8251 startup/RAM/slot limits are valid.")
     return 0
 
@@ -945,6 +1025,7 @@ def _git_provenance() -> dict:
 
 def _build_input_provenance() -> dict:
     entries = _load_source_order_strict()
+    receipt = _read_compile_inputs()
     objects = []
     object_order: list[str] = []
     for source in entries:
@@ -961,6 +1042,8 @@ def _build_input_provenance() -> dict:
         })
     build_mk = _HERE / "build.mk"
     return {
+        "compile_inputs": receipt,
+        "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST, RAW_BIN)},
         "source_order_file": str(SOURCE_ORDER_FILE.relative_to(REPO_ROOT)).replace("\\", "/"),
         "source_order_file_sha256": _sha256(SOURCE_ORDER_FILE),
         "source_order_sha256": _source_order_sha256(entries),
@@ -1040,6 +1123,7 @@ def cmd_manifest(args: argparse.Namespace) -> int:
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
+    cmd_map(argparse.Namespace())
     if not MANIFEST.exists():
         _die(f"manifest missing: {MANIFEST}. Run 'manifest' first.")
     if not BIN.exists():
@@ -1064,6 +1148,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
           and payload_ok and trailer_ok)
 
     build_inputs = m.get("build_inputs", {})
+    receipt = _read_compile_inputs()
+    provenance_ok = receipt == build_inputs.get("compile_inputs")
+    artifacts_ok = build_inputs.get("artifacts") == {p.name: _sha256(p) for p in (ELF, MAP, LST, RAW_BIN)}
+    print(f"source/header/tools   {'OK' if provenance_ok else 'MISMATCH'}")
+    print(f"ELF/MAP/LST/raw BIN    {'OK' if artifacts_ok else 'MISMATCH'}")
+    ok = ok and provenance_ok and artifacts_ok
     try:
         entries = _load_source_order_strict()
         order_sha = _source_order_sha256(entries)
@@ -2147,7 +2237,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("objcopy", help="generate .bin from .elf").set_defaults(func=cmd_objcopy)
     sub.add_parser("check-fw", help="run tl_check_fw2.exe on the .bin").set_defaults(func=cmd_check_fw)
     sub.add_parser("size", help="text/data/bss size report").set_defaults(func=cmd_size)
-    sub.add_parser("map", help="MAP file analysis").set_defaults(func=cmd_map)
+    map_parser = sub.add_parser("map", help="Validate SRAM/image budgets and emit resources.json")
+    map_parser.add_argument("--baseline", help="Previous resources.json for byte deltas")
+    map_parser.add_argument("--output", help="Resource report destination")
+    map_parser.set_defaults(func=cmd_map)
     sub.add_parser("manifest", help="write firmware integrity manifest").set_defaults(func=cmd_manifest)
     sub.add_parser("verify", help="verify .bin against manifest").set_defaults(func=cmd_verify)
 

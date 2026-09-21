@@ -139,7 +139,7 @@ class ToolchainEnvironmentTests(unittest.TestCase):
         self.assertEqual(bms.STARTUP_PROFILE, "MCU_STARTUP_8251")
         self.assertEqual(bms.STARTUP_SRAM_END, 0x848000)
         self.assertEqual(bms.TLSR8251_SRAM_END_IN_SDK, 0x848000)
-        self.assertEqual(bms.MAIN_STACK_RESERVE_BYTES, 600)
+        self.assertEqual(bms.MAIN_STACK_RESERVE_BYTES, 3072)
         self.assertIn("AFLAGS_BASE := -DMCU_STARTUP_8251", build_mk)
         self.assertNotIn("AFLAGS_BASE := -DMCU_STARTUP_8258", build_mk)
         cproject = (bms.PROJ_DIR / ".cproject").read_text(encoding="utf-8", errors="replace")
@@ -152,6 +152,17 @@ class ToolchainEnvironmentTests(unittest.TestCase):
 
 
 class MapLimitTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        image = root / "fw.bin"
+        image.write_bytes(bytes(0x1a004))
+        for name, value in (("BIN", image), ("GEN_DIR", root), ("ELF", root/"absent.elf")):
+            patcher = mock.patch.object(bms, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     @staticmethod
     def _write_fixture(root: Path, sram_end: int, ram_end: int) -> tuple[Path, Path]:
         map_path = root / "fw.map"

@@ -93,6 +93,7 @@ uint8_t dvc1124_backend_enter_shutdown(void)
     return DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u);
 }
 
+#if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_project_wdt_code(uint8_t seconds,
                                     dvc1124_i2c_wdt_code_t *code)
 {
@@ -107,7 +108,9 @@ static uint8_t dvc_project_wdt_code(uint8_t seconds,
     default: return 0u;
     }
 }
+#endif
 
+#if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_project_encode_current_wake(uint16_t threshold_uv,
                                                uint8_t *code)
 {
@@ -123,7 +126,9 @@ static uint8_t dvc_project_encode_current_wake(uint16_t threshold_uv,
     *code = (uint8_t)(threshold_uv / 10u);
     return 1u;
 }
+#endif
 
+#if DVC1124_HW_PROTECT_ENABLE
 static uint8_t dvc_project_encode_body_diode(uint16_t threshold_uv,
                                              uint8_t *code)
 {
@@ -139,6 +144,7 @@ static uint8_t dvc_project_encode_body_diode(uint16_t threshold_uv,
     *code = (uint8_t)(threshold_uv / 40u);
     return 1u;
 }
+#endif
 
 static uint8_t dvc_project_apply_compile_time_config(void)
 {

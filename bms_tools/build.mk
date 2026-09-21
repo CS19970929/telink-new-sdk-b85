@@ -61,7 +61,7 @@ DEFINES := \
 
 # Optional CI/bench-only compile-time overrides. Empty by default, so the
 # production build remains exactly on the reviewed project configuration.
-# bms.py only populates this from BMS_EXTRA_DEFINES when explicitly requested.
+# bms.py reads EXTRA_DEFINES from the caller environment and fingerprints it.
 EXTRA_DEFINES ?=
 
 # ---- Compile flags (EXACT match to Eclipse-generated subdir.mk) ----------

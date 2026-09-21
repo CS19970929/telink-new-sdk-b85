@@ -219,7 +219,7 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_24S_LFP"), 1)
         self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_20S_NMC"), 2)
         self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_16S_LFP"), 3)
-        self.assertIn("#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_16S_LFP", self.product)
+        self.assertIn("#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_24S_LFP", self.product)
         self.assertIn("D008_PRODUCT_CELL_COUNT       16u", self.product)
         self.assertIn("D008_PRODUCT_CELL_COUNT       20u", self.product)
         self.assertIn("D008_PRODUCT_CELL_COUNT       24u", self.product)

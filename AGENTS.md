@@ -25,7 +25,7 @@
 
 - `dvc1124_reg.h`：DVC1124 V1.2 芯片真值。
 - `dvc1124_project_config.h`：D008 DVC **最终固定板级/Fail-safe 编译期配置**，不是 Flash 默认值。
-- `d008_product_profile.h`：当前默认 **16S LFP**；另保留 20S NMC / 24S LFP 编译 profile，只负责装配串数和化学体系/SOC身份。24S 原理图能力与当前 16S 默认装配必须区分。
+- `d008_product_profile.h`：当前默认 **24S LFP**；另保留 16S LFP / 20S NMC 编译 profile，只负责装配串数和化学体系/SOC身份。24S 原理图能力与当前 24S 默认配置必须区分。
 - `dvc1124.c`：I2C、寄存器、量化、采样、Balance/Open-Wire、AFE硬件保护应用。
 - `dvc1124_bms.c`：BMS/FET/故障适配。
 - `dvc1124_config_store.c`：历史文件名保留以维持固定 source order；当前只负责 DVC backend 生命周期和编译期固定配置重申，**不得重新加入 DVC operating-config Flash KV**。
