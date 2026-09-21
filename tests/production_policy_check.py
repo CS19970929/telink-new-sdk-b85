@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix='bms-production-') as d:
  p.write_text('#include "app_config.h"\n#include "'+('sh3673510_project_config.h' if sh else 'dvc1124_project_config.h')+'"\n')
  base=[bms._tc32_tool('tc32-elf-gcc'),'-E','-x','c','-I'+str(SDK),'-I'+str(APP),'-D__PROJECT_8258_BLE_SAMPLE__=1','-DCHIP_TYPE=CHIP_TYPE_825x','-DBMS_PRODUCTION_BUILD=1']
  cases=[([],True),(['-DDEBUG_GPIO_ENABLE=1'],False),(['-D__TEST_SOC__=1'],False),(['-DTEST_CONN_CURRENT_ENABLE=1'],False),(['-DBMS_DIAG_BUILD_DIRTY=1'],False),(['-DBMS_DIAG_BUILD_ID=0'],False),(['-D'+prefix+'_SW_PROTECT_ENABLE=0'],False),(['-D'+prefix+'_HW_PROTECT_ENABLE=0'],False)]
- if sh:cases.append((['-DD011_DEBUG_LED_ENABLE=1'],False))
+ if sh:cases.append((['-DD014_DEBUG_LED_ENABLE=1'],False))
  for extra,ok in cases:
   flags=[]
   if not any('BMS_DIAG_BUILD_ID=' in x for x in extra):flags+=['-DBMS_DIAG_BUILD_ID=1']
