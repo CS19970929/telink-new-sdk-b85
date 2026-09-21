@@ -44,7 +44,7 @@
 
 #define FD_BMS_TYPE   T1_AND_T2
 
-#define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
+#define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.3" 
 
 #if (FD_BMS_TYPE == C21)
 #define SeriesNum  (10)
@@ -129,7 +129,7 @@
 #define AFE_ODC2       		(900) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "T1/T2"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D007" 
-#define  BMS_SERIAL_NUMBER_DEFAULT  	"D007-20260910"
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D007-20260921"
 #elif (FD_BMS_TYPE == D3PRO)
 #define SeriesNum  (10)
 #define CapacityFactory (78)

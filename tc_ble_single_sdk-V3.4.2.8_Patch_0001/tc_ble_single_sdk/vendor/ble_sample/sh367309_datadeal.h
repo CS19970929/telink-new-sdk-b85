@@ -517,7 +517,6 @@ struct SH367309_Read {			/* AD Read	*/
 	UINT16		u16VCell[16];   // mv
 	UINT16		u16TempBat[3];					
 	UINT32		u32VBat;       	// mv
-	UINT16      u16Current;     // mA
 };
 
 #define SH309_RAM_START_ADDR   0x40
@@ -728,7 +727,23 @@ extern UINT16 Fault_record_Third2[Record_len];
 extern sh367309_ram_t ram_reg_309;
 extern SH367309_REG_STORE SH367309_Reg_Store;
 
+enum BOOT_CURRENT_ZERO_STATUS_E {
+	BOOT_CURRENT_ZERO_NOT_RUN = 0,
+	BOOT_CURRENT_ZERO_VALID,
+	BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR,
+	BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR,
+	BOOT_CURRENT_ZERO_SAMPLE_READ_ERROR,
+	BOOT_CURRENT_ZERO_FET_ACTIVE,
+	BOOT_CURRENT_ZERO_UNSTABLE,
+	BOOT_CURRENT_ZERO_OUT_OF_RANGE
+};
+
 void SH367309_UpdataAfeConfig(void);
+UINT8 BmsCurrent_BootZeroCalibrate(void);
+UINT8 BmsCurrent_IsBootZeroValid(void);
+UINT8 BmsCurrent_GetBootZeroStatus(void);
+INT32 BmsCurrent_GetBootZeroRawX4(void);
+INT32 BmsCurrent_GetCurrent_mA(void);
 void App_AFEGet(void);
 void AFE_Reset(void);
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);

@@ -57,6 +57,7 @@ bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
 #define APP_PM_TICKS_PER_SEC 32000u
+#define APP_PM_DSG_SUSPEND_BLOCK_MA 500u
 
 typedef struct
 {
@@ -166,6 +167,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 
 void open_ctlc(void)
 {
+
 	gpio_write(AFE_CTL_PIN, 1);
 	// gpio_write(MCC_C_PIN, 1);
 }
@@ -330,6 +332,7 @@ void ble_build_adv_scanrsp(void)
 
 void open_chg_close_dsg(void)
 {
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -338,6 +341,7 @@ void open_chg_close_dsg(void)
 }
 void open_dsg_close_chg(void)
 {
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -356,6 +360,7 @@ void close_chg(void)
 
 void open_dsg(void)
 {
+
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
 	SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
 	SH367309_Reg_Store.REG_MTP_CONF.bits.DSGMOS = 1; // 閸忓懐鏁窶OS閻㈢泧FE绾兛娆㈤幒褍鍩�
@@ -374,6 +379,7 @@ void close_dsg(void)
 void enter_fac_mode(bool on)
 {
 #if 1
+
 	if (on)
 	{
 		SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1; // 瀵拷閸氱枌ADC
@@ -408,6 +414,22 @@ static void factory_mode_apply_switch_state(void)
 	else
 	{
 		close_dsg();
+	}
+}
+
+static void app_apply_startup_power_path(void)
+{
+	if (IsChargerWakeupActive())
+	{
+		open_chg_close_dsg();
+	}
+	else if (MODE_FACTORY == Runtime_GetMode())
+	{
+		factory_mode_apply_switch_state();
+	}
+	else
+	{
+		open_dsg_close_chg();
 	}
 }
 
@@ -1156,11 +1178,12 @@ void blt_pm_proc(void)
 			sleep_cnt = 0;
 		}
 #endif
-		if (deepsleep_en)
+		if(deepsleep_en)
 		{
 			cpu_set_gpio_wakeup(SW_PIN, Level_Low, 0);
 			app_note_sleep_and_enter_deepsleep(1u); // deepsleep
 		}
+
 
 		if (g_stCellInfoReport.u16VCellMin < 2550)
 		{
@@ -1275,7 +1298,7 @@ void blt_pm_proc(void)
 			// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 			if(!gpio_read(CHG_IN_PIN) ||
 				BUS_STATE_OWC_IDLE != bus_mux_get_state() || 
-				g_stCellInfoReport.u16IDischg 
+				BmsCurrent_GetCurrent_mA() <= -(INT32)APP_PM_DSG_SUSPEND_BLOCK_MA
 				)
 			{
 				bls_pm_setSuspendMask (SUSPEND_DISABLE);
@@ -1332,7 +1355,7 @@ void blt_pm_proc(void)
 	// if(!gpio_read(CHG_IN_PIN) || g_stCellInfoReport.u16IDischg || )
 	if (!gpio_read(CHG_IN_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
-		g_stCellInfoReport.u16IDischg ||
+		BmsCurrent_GetCurrent_mA() <= -(INT32)APP_PM_DSG_SUSPEND_BLOCK_MA ||
 		// MODE_FACTORY == Runtime_GetMode() ||
 		ota_is_working)
 	// if(
@@ -1620,6 +1643,14 @@ _attribute_no_inline_ void user_init_normal(void)
 		AFE_IsReady();
 		SH367309_UpdataAfeConfig();
 
+		/*
+		 * Boot-only synchronous two-sample zero-current calibration.
+		 * CTL-C stays OFF here; the current module forces SH309 CHG/DSG/PCH
+		 * OFF, verifies the actual FET state, and completes in about 600 ms.
+		 */
+		close_ctlc();
+		(void)BmsCurrent_BootZeroCalibrate();
+
 		adc_init_common();
 		cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 1);
 		cpu_set_gpio_wakeup(SW_PIN, Level_Low, 1);
@@ -1640,21 +1671,13 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	Runtime_Init();
 
-	if (IsChargerWakeupActive())
+	if (!BmsCurrent_IsBootZeroValid())
 	{
-		open_chg_close_dsg();
+		log_i("[BOOT][CUR_ZERO] fallback zero=0, deadband=500mA, status=%u\n",
+			  BmsCurrent_GetBootZeroStatus());
 	}
-	else
-	{
-		if (MODE_FACTORY == Runtime_GetMode())
-		{
-			factory_mode_apply_switch_state();
-		}
-		else
-		{
-			open_dsg_close_chg();
-		}
-	}
+
+	app_apply_startup_power_path();
 
 	extern void WriteProID_Default(void);
 	WriteProID_Default();
