@@ -113,6 +113,11 @@ static class Test
             Check(runtimeComparison.DifferenceCount==1&&runtimeComparison.Differences[0].Entry=="soc.json","diagnostic comparison category filter");
         } finally {Directory.Delete(dir,true);}
         Check(ProductSupportMatrix.Products.Count==4&&ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix");
+        t.Timeout=false;
+        var setSoc=await b.SetSocAndVerifyAsync(64);
+        Check(setSoc.SocPercent==64&&t.LastWriteAddress==0x1005&&t.LastWriteValue==64,"generic SOC write and readback");
+        bool invalidSocRejected=false;try{await b.SetSocAndVerifyAsync(101);}catch(ArgumentOutOfRangeException){invalidSocRejected=true;}
+        Check(invalidSocRejected&&t.LastWriteValue==64,"generic SOC range guard");
         var malformed=new DiagnosticCapture();bool rejected=false;
         try {BmsDiagnostics.Decode(malformed,new ushort[2]);}catch(InvalidDataException){rejected=true;}
         Check(rejected,"short snapshot");
@@ -138,6 +143,8 @@ sealed class FakeTransport:IBmsTransport
     public bool Legacy,Unstable,FailEvents,FailProtection,Timeout,NonD008;
     public byte ExceptionCode;
     public int Writes;
+    public ushort LastWriteAddress,LastWriteValue;
+    public ushort CurrentSoc=73;
     public ushort[]? SocInputWords;
     public uint Tick = 100;
     public string Serial = "SN001";
@@ -146,9 +153,14 @@ sealed class FakeTransport:IBmsTransport
     public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
     public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default)
     {
-        var q=data.Span;if(q[1]!=3)Writes++;
+        var q=data.Span;
         if(Timeout)return Task.CompletedTask;
         ushort start=BinaryPrimitives.ReadUInt16BigEndian(q[2..4]);ushort count=BinaryPrimitives.ReadUInt16BigEndian(q[4..6]);
+        if(q[1]==6) {
+            Writes++;LastWriteAddress=start;LastWriteValue=count;
+            if(start==0x1005)CurrentSoc=count;
+            Emit(q.ToArray());return Task.CompletedTask;
+        }
         if(NonD008&&start==0x2E00) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,2}));return Task.CompletedTask;}
         if(ExceptionCode!=0 || (FailEvents&&start==0xC008) || (FailProtection&&start==0x2100)) {Emit(ModbusRtu.Frame(new byte[]{1,0x83,ExceptionCode==0?(byte)2:ExceptionCode}));return Task.CompletedTask;}
         var w=new ushort[1024];
@@ -200,6 +212,7 @@ sealed class FakeTransport:IBmsTransport
             else if(address>=0x2500&&address<0x2523)value=(ushort)(address-0x2500+1);
             else if(address>=0x2523&&address<0x252C)value=(ushort)(address-0x2523+100);
             else if(address>=0x2540&&address<0x2563)value=(ushort)(address-0x2540+200);
+            else if(address==BmsRegisters.Legacy+52)value=CurrentSoc;
             if (start == BmsRegisters.Serial || start == BmsRegisters.Hardware || start == BmsRegisters.Software) {
                 string text = start == BmsRegisters.Serial ? Serial : start == BmsRegisters.Hardware ? "D008" : "V1";
                 text = text.PadRight(32, '\0'); value = (ushort)((text[i*2] << 8) | text[i*2+1]);

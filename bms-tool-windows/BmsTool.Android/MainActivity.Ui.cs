@@ -123,6 +123,11 @@ public sealed partial class MainActivity
         page.AddView(ActionButton("立即刷新", () => RefreshOverviewAsync(true)));
         _summaryView = DataBlock("电压、电流、SOC 等待连接后显示");
         page.AddView(_summaryView);
+        page.AddView(SectionTitle("设置当前 SOC（通用）"));
+        page.AddView(Note("适用于支持公共 0x1005 SOC 写入的 BMS，不依赖 D008 参数协议。写入范围 0～100%，随后读取实时数据核对。"));
+        _socInput = LabeledInput(page, "目标 SOC / %", "");
+        _socInput.InputType = global::Android.Text.InputTypes.ClassNumber;
+        page.AddView(ActionButton("设置并回读 SOC", SaveSocAsync));
         page.AddView(SectionTitle("单体电压"));
         _cellsView = DataBlock("—");
         page.AddView(_cellsView);
@@ -172,8 +177,6 @@ public sealed partial class MainActivity
         page.AddView(_parameterStatus);
         _capacityInput = LabeledInput(page, "额定容量 / Ah", "");
         page.AddView(ActionButton("保存额定容量", SaveCapacityAsync));
-        _socInput = LabeledInput(page, "当前 SOC / %", "");
-        page.AddView(ActionButton("设置并保存 SOC", SaveSocAsync));
         _cycleInput = LabeledInput(page, "循环次数", "");
         page.AddView(ActionButton("保存循环次数", SaveCycleAsync));
         _serialInput = LabeledInput(page, "设备 SN（只读）", "");

@@ -289,7 +289,6 @@ public sealed partial class MainActivity
         if (capture.Errors.Count != 0) status.Append('\n').AppendJoin('\n', capture.Errors);
         _parameterStatus!.Text = status.ToString();
         if (capture.Blocks.TryGetValue("Capacity", out ushort[]? cap)) { _capacityInput!.Text = (cap[0] / 10m).ToString(CultureInfo.CurrentCulture); _cycleInput!.Text = cap[1].ToString(); }
-        if (capture.Blocks.TryGetValue("SOC", out ushort[]? soc)) _socInput!.Text = soc[0].ToString();
         if (capture.Blocks.TryGetValue("Serial", out ushort[]? serial)) _serialInput!.Text = D008Parameters.Serial(serial);
         if (capture.Blocks.TryGetValue("Heater", out ushort[]? heater))
         {
@@ -307,10 +306,21 @@ public sealed partial class MainActivity
     }
 
     private Task SaveCapacityAsync() => SaveParameterAsync("额定容量", 0x2318, new[] { D008Parameters.Capacity(_capacityInput?.Text ?? "") });
-    private Task SaveSocAsync()
+    private async Task SaveSocAsync()
     {
-        if (!ushort.TryParse(_socInput?.Text, out ushort value) || value > 100) { SetStatus("SOC 必须为 0..100", true); return Task.CompletedTask; }
-        return SaveParameterAsync("SOC", 0x1005, new[] { value });
+        if (!ushort.TryParse(_socInput?.Text?.Trim(), out ushort value) || value > 100)
+        {
+            SetStatus("SOC 必须为 0～100 的整数", true);
+            return;
+        }
+        if (!await ConfirmAsync("设置当前 SOC", $"将当前 BMS 的 SOC 设置为 {value}%，并立即读取实时数据核对。是否继续？")) return;
+        await WithClientAsync("设置 SOC", async (client, ct) =>
+        {
+            BatterySnapshot snapshot = await client.SetSocAndVerifyAsync(value, ct);
+            _lastSnapshot = snapshot;
+            RunOnUiThread(() => _socInput!.Text = snapshot.SocPercent.ToString(CultureInfo.InvariantCulture));
+            SetStatus($"SOC 已写入并回读确认：{snapshot.SocPercent}%");
+        }, TimeSpan.FromSeconds(30));
     }
     private Task SaveCycleAsync()
     {
