@@ -1,3 +1,4 @@
+#include "sh3673510_ntc.h"
 #include "bms_afe.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -49,14 +50,7 @@ static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
 
 /* Existing product 10K NTC table: R in 100 ohm, T=(degC+40)*10. */
-static const uint16_t s_ntc_table[] = {
-    2037u,0u, 1526u,50u, 1161u,100u, 893u,150u, 694u,200u,
-    544u,250u, 430u,300u, 342u,350u, 275u,400u, 221u,450u,
-    180u,500u, 147u,550u, 121u,600u, 100u,650u, 83u,700u,
-    69u,750u, 58u,800u, 49u,850u, 41u,900u, 35u,950u,
-    30u,1000u, 26u,1050u, 22u,1100u, 19u,1150u, 16u,1200u,
-    14u,1250u, 12u,1300u, 11u,1350u, 9u,1400u, 8u,1450u
-};
+
 
 #if SH3673510_HW_PROTECT_ENABLE
 static uint16_t filter_samples(uint16_t filter_10ms)
@@ -76,8 +70,8 @@ static uint16_t ntc_temp(uint32_t ohm)
 {
     uint32_t r100 = (ohm + 50u) / 100u;
     if (r100 > 65535u) r100 = 65535u;
-    return bms_lookup_u16(s_ntc_table,
-                          (uint16_t)(sizeof(s_ntc_table) / sizeof(s_ntc_table[0])),
+    return bms_lookup_u16(sh3673510_ntc_10k,
+                          (uint16_t)(sizeof(sh3673510_ntc_10k) / sizeof(sh3673510_ntc_10k[0])),
                           (uint16_t)r100);
 }
 

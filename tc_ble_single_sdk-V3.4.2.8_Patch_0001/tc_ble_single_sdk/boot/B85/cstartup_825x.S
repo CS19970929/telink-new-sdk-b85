@@ -336,10 +336,43 @@ SETSPISPEED:
 	tstorerb	r0, [r1, #1]
 #endif
 
+
+@ Paint only unused main-stack gap and dedicated IRQ stack, before first C call.
+@ No C frame exists yet. Do not include .data/.bss/.noinit or SDK cache RAM.
+    tloadr r0, BMS_STACK_PAINT_DATA
+    tloadr r1, BMS_STACK_PAINT_DATA + 4
+    tloadr r2, BMS_STACK_PAINT_DATA + 8
+BMS_PAINT_MAIN:
+    tcmp r1, r2
+    tjge BMS_PAINT_IRQ_BEGIN
+    tstorer r0, [r1, #0]
+    tadd r1, #4
+    tj BMS_PAINT_MAIN
+BMS_PAINT_IRQ_BEGIN:
+    tloadr r1, BMS_STACK_PAINT_DATA + 12
+    tloadr r2, BMS_STACK_PAINT_DATA + 16
+BMS_PAINT_IRQ:
+    tcmp r1, r2
+    tjge BMS_PAINT_DONE
+    tstorer r0, [r1, #0]
+    tadd r1, #4
+    tj BMS_PAINT_IRQ
+BMS_PAINT_DONE:
+
 	tjl	main
 END:	tj	END
 
 	.balign	4
+    .balign 4
+BMS_STACK_PAINT_DATA:
+    .word 0xA5A5A5A5
+    .word _bms_main_stack_bottom_
+    .word SRAM_SIZE
+    .word irq_stk
+    .word (irq_stk + IRQ_STK_SIZE)
+    .global bms_irq_stack_bottom, bms_irq_stack_top
+    .set bms_irq_stack_bottom, irq_stk
+    .set bms_irq_stack_top, (irq_stk + IRQ_STK_SIZE)
 DAT0:
 	.word	0x12			    @IRQ    @0
 	.word	0x13			    @SVC    @4

@@ -23,6 +23,10 @@ uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *params);
 void bms_sw_protection_init(void);
 void bms_sw_protection_clear(void);
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs);
+/* Independent policy groups; disabled groups clear their owned state. */
+void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
+                                     uint8_t voltage_current_enabled,
+                                     uint8_t temperature_enabled);
 void bms_sw_protection_record_fault_edges(void);
 uint8_t bms_sw_protection_charge_blocked(void);
 uint8_t bms_sw_protection_discharge_blocked(void);

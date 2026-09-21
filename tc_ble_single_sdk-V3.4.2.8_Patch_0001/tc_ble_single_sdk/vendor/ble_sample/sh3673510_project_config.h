@@ -194,8 +194,15 @@
 #define D011_AFE_RESET_OUT_PIN                  GPIO_PC1
 #define D011_SCI1_TX_PIN                        GPIO_PC2
 #define D011_SCI1_RX_PIN                        GPIO_PC3
+#ifndef D011_DEBUG_LED_ENABLE
+#define D011_DEBUG_LED_ENABLE 0
+#endif
 #define D011_DEBUG_LED_PIN                      GPIO_PC4
 #define D011_CMNT_WK_PIN                        GPIO_PD3
 #define D011_AFE_CS_PIN                         GPIO_PD2
 
+
+#if BMS_PRODUCTION_BUILD && (!SH3673510_SW_PROTECT_ENABLE || !SH3673510_HW_PROTECT_ENABLE || D011_DEBUG_LED_ENABLE)
+#error "Production requires software/hardware protection and no debug LED"
+#endif
 #endif /* SH3673510_PROJECT_CONFIG_H_ */

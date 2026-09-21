@@ -44,3 +44,6 @@ AND no AFE hardware block/lockout
 - 不在 AFE driver 复制三级状态机；
 - 不把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_tParam.protect`；
 - 保护语义变化必须补 contract 和实板触发/恢复测试。
+## 2026-09-21 公共核心一致性
+
+First/Second 在离开本级阈值后按 Filter 恢复（等于阈值仍 active），Recover 仅用于 Third。新电池温度故障要求对应充/放电方向资格；已有故障按恢复门限清除。电池 NTC 与 MOS NTC 独立有效性。板级输入/IO/AFE 参数不随公共核心同步而修改，实板触发/恢复仍 TODO_VERIFY_HW。详见 [资源及验证约定](RESOURCE_BUDGET_AND_VALIDATION.md)。
