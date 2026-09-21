@@ -14,7 +14,7 @@
 - Flash 剩余 <8 KiB、预留栈后 RAM 可增长空间 <2 KiB 为工程告警。单次 >1 KiB Flash 或 >256 B RAM 增长要求资源 review；这些阈值不应机械阻止必要安全功能。
 - 默认及保护组合构建均要求零编译 warning。未改变 TC32 ABI、O2、SDK 库、OTA/Flash 分区。
 
-构建新增 `gen/compile-inputs.json`：记录编译源、SDK 头文件/汇编 include、宏、Git 身份、linker、脚本、SDK 库和工具可执行文件 hash；全部对象依赖该指纹。头文件/宏/工具变化会触发保守重编译，无变化不改指纹时间。manifest 保存输入与 ELF/MAP/LST/raw BIN hash，verify 拒绝陈旧源码或被替换产物。旧 manifest 缺少新证据时必须重建。
+构建新增 `gen/compile-inputs.json`：记录编译源、SDK 头文件/汇编 include、宏、Git 身份、linker、脚本、SDK 库和工具可执行文件 hash；全部对象依赖该指纹。头文件/宏/工具变化会触发保守重编译，无变化不改指纹时间。manifest 保存输入与 ELF/MAP/LST/raw BIN hash，verify 拒绝陈旧源码或被替换产物。只有 make 和 warning 门禁成功才写 `build-completed.json`；开始构建先作废完成凭据，失败/中断不能用新指纹给旧 ELF 背书。旧 manifest 缺少新证据时必须重建。
 
 ## 主栈与 IRQ 栈观测
 

@@ -22,7 +22,7 @@ SHARED_FILES = ('SocEnhance.c', 'SocEnhance.h', 'storage_record.c', 'bms_state_s
                 'bms_stack_monitor.c', 'bms_stack_monitor.h')
 SH_FILES = ('bms_features.c', 'bms_afe_guard.c', 'bms_event_log.c',
             'bms_storage_platform_telink.c', 'sh3673510_ntc.c', 'sh3673510_ntc.h')
-TOOL_FUNCTIONS = ('_git_provenance', '_map_symbol_value', '_listing_abs_symbol_value', 'cmd_map', '_capture_compile_inputs', '_read_compile_inputs', '_write_compile_inputs')
+TOOL_FUNCTIONS = ('_git_provenance', '_map_symbol_value', '_listing_abs_symbol_value', 'cmd_map', '_capture_compile_inputs', '_read_compile_inputs', '_write_compile_inputs', '_mark_build_complete')
 
 
 def git(*args):
