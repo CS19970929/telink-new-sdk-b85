@@ -49,19 +49,29 @@ internal static class CliSocHil
         DateTimeOffset startedUtc = DateTimeOffset.UtcNow;
         byte sequence = 0;
 
-        async Task<SceneResult> RunSceneAsync(string name, SocHilInput input, int seconds)
+        async Task<SceneResult> RunSceneAsync(string name, SocHilInput input, int sampleCount)
         {
             SocHilStatus before = await connection.Client.SocHilReadStatusAsync(session!.Token, ct);
-            sequence++;
-            await connection.Client.SocHilSetSampleAsync(session.Token, sequence, input, ct);
             var captures = new List<SocHilStatus>();
             DateTimeOffset sceneStarted = DateTimeOffset.UtcNow;
-            for (int i = 0; i < seconds; i++)
+            for (int i = 0; i < sampleCount; i++)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), ct);
-                SocHilStatus status = await connection.Client.SocHilReadStatusAsync(session.Token, ct);
+                sequence++;
+                uint appliedBefore = await connection.Client.SocHilSetSampleAsync(
+                    session.Token, sequence, input, ct);
+                DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(3);
+                SocHilStatus status;
+                do
+                {
+                    await Task.Delay(50, ct);
+                    status = await connection.Client.SocHilReadStatusAsync(session.Token, ct);
+                    if (status.Sequence == sequence && status.AppliedCount > appliedBefore) break;
+                }
+                while (DateTimeOffset.UtcNow < deadline);
+                if (status.Sequence != sequence || status.AppliedCount <= appliedBefore)
+                    throw new TimeoutException($"SOC HIL sample {sequence} was not applied within 3 seconds.");
                 captures.Add(status);
-                reporter.Status($"SOC HIL {name} {i + 1}/{seconds}: est={status.SocEstimate}% display={status.SocDisplay}% state={status.LastSampleState} applied={status.AppliedCount}");
+                reporter.Status($"SOC HIL {name} {i + 1}/{sampleCount}: est={status.SocEstimate}% display={status.SocDisplay}% state={status.LastSampleState} applied={status.AppliedCount}");
             }
             SocHilStatus after = captures[^1];
             var result = new SceneResult(name, input, sceneStarted, DateTimeOffset.UtcNow, before, after, captures);
