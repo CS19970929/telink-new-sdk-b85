@@ -302,4 +302,28 @@
 #define DVC1124_RESET_SETTLE_MS              300u
 #endif
 
+/*
+ * Boot-only residual current-zero calibration.
+ * CC2 has a fixed 256 ms conversion period; 270 ms gives one fresh conversion
+ * per sample without adding a main-loop learner or periodic Flash writes.
+ */
+#ifndef DVC1124_BOOT_ZERO_ENABLE
+#define DVC1124_BOOT_ZERO_ENABLE              1u
+#endif
+#ifndef DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS
+#define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS  270u
+#endif
+#ifndef DVC1124_BOOT_ZERO_MAX_ABS_MA
+#define DVC1124_BOOT_ZERO_MAX_ABS_MA          1500u
+#endif
+#ifndef DVC1124_BOOT_ZERO_MAX_SPREAD_MA
+#define DVC1124_BOOT_ZERO_MAX_SPREAD_MA       200u
+#endif
+#if (DVC1124_BOOT_ZERO_ENABLE > 1u)
+#error "DVC1124_BOOT_ZERO_ENABLE must be 0 or 1"
+#endif
+#if DVC1124_BOOT_ZERO_ENABLE && (DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS < 256u)
+#error "DVC1124 boot-zero interval must cover one complete CC2 conversion"
+#endif
+
 #endif /* DVC1124_PROJECT_CONFIG_H_ */

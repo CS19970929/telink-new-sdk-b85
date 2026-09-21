@@ -257,6 +257,14 @@ void bms_afe_init(void)
      * profile.  The first valid sample below then finalizes every fixed
      * operating field from compile-time product policy. */
     DVC1124_UpdataAfeConfig();
+
+    /*
+     * Boot-only current-zero learning stays inside initialization. The low-level
+     * routine independently disables and verifies every DVC power-path output,
+     * runs CAMZ, then learns a two-sample residual offset in RAM. Failure is
+     * fail-open for startup: persistent factory offset/gain remain active.
+     */
+    (void)DVC1124_BootCurrentZeroCalibrate();
 }
 
 void bms_afe_sample(void)

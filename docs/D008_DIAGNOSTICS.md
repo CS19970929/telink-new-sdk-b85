@@ -25,6 +25,12 @@
 | 18..19,20..21 | u32 | boot address（FFFFFFFF=不可用）、Flash bytes（0=未知） |
 | 22..23 | u32 | BMS_DIAG_BUILD_ID；`bms.py` 自动注入当前 Git SHA 前 8 位，缺少 Git 元数据时为 0；bit3 DIRTY 表示该 SHA 不能单独复现当前工作区 |
 | 24,25,26 | u16 | 启动 bit0 参数有效/bit1 升级完成、AFE 配置初始化结果、参数加载校验结果 |
+| 110,111 | u16 | DVC boot-zero 状态、成功读取的零点样本数 |
+| 112..113 | i32 | boot-zero 学到的 residual offset mA（已应用持久化 factory offset/gain 后） |
+| 114..117 | i32,i32 | 两个零点样本的 AFE raw current mA（factory 校准前） |
+| 118..121 | i32,i32 | 两个零点样本应用持久化 factory offset/gain 后的 mA |
+| 122..123,124..125 | i32,u32 | 持久化 factory current offset mA、gain ppm |
+| 126,127 | u16,u16 | DVC shunt uOhm（饱和到 65535）、两个校准样本 spread mA |
 | 32+16*d | 16 words/domain | d=0 CONFIG，1 STATE，2 FACTORY，3 EVENT，见下表 |
 | 128,129 | u16 | bit0 CHG/bit1 DSG：Requested、软件允许 |
 | 130,131 | u16 | 最近 R81 command/readback、有效标记；失联/关机后无效 |
@@ -64,6 +70,16 @@ Host：`tests/bms_diag_host_check.py` 执行真实诊断核心与 Modbus 入口�
 
 TODO_VERIFY_HW：UART/BLE 实机导出、实际启动地址与两次存储错误根因、BLE 负载对 200ms 采样的最坏延迟、运行栈高水位、MOS Gate/Vgs、异常供电/Flash 时序。Host 和构建通过不能关闭这些项。未自动烧录、未新增故障注入/CLI/Panic 持久化。
 
+
+## DVC boot-zero 电流校准
+
+冷启动的 DVC backend 配置完成后、正常 MOS 输出授权前执行一次。固件先强制并回读 R81 的 PDSG/PCHG/DSG/CHG 命令全 OFF，并要求采样帧 R6 的四个 driver flag 全为 0；随后执行 DVC CAMZ。CC2 固定 256 ms 周期，固件以 270 ms 间隔读取两个独立样本，整个正常路径约 540 ms，不在 main loop 中持续学习、不写 Flash。
+
+零漂只学习“持久化 factory offset/gain 之后仍剩余的 residual offset”，因此工厂 gain/offset 仍保留，运行时关系为：`final_current = factory_calibrated_current - boot_residual_offset`。两个样本任一绝对值超过 1500 mA 或 spread 超过 200 mA 时拒绝学习，runtime residual offset 回退为 0；失败不阻止后续启动。
+
+现有 deadband 不在此流程内改变。Runtime offset 194..195 始终保留未 deadband 的 AFE raw mA，196..197 保留业务最终使用的校准后 mA；传统 `u16Ichg/u16IDischg` 的 <=200 mA reporting floor 仍然存在，SOC deadband 仍由 SOC 配置独立控制。这样实板可以先观察完整原始/校准数据，再决定最终 deadband。
+
+状态码：0 NOT_ATTEMPTED、1 IN_PROGRESS、2 VALID、3 DISABLED、4 FET_IO_ERROR、5 FET_ACTIVE、6 CAMZ_ERROR、7 SAMPLE_IO_ERROR、8 OUT_OF_RANGE、9 UNSTABLE。
 
 ## Runtime Diagnostics（capability bit5）
 

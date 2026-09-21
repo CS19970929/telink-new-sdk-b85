@@ -68,6 +68,32 @@ typedef struct
 
 typedef enum
 {
+    DVC1124_BOOT_ZERO_NOT_ATTEMPTED = 0u,
+    DVC1124_BOOT_ZERO_IN_PROGRESS = 1u,
+    DVC1124_BOOT_ZERO_VALID = 2u,
+    DVC1124_BOOT_ZERO_DISABLED = 3u,
+    DVC1124_BOOT_ZERO_FET_IO_ERROR = 4u,
+    DVC1124_BOOT_ZERO_FET_ACTIVE = 5u,
+    DVC1124_BOOT_ZERO_CAMZ_ERROR = 6u,
+    DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR = 7u,
+    DVC1124_BOOT_ZERO_OUT_OF_RANGE = 8u,
+    DVC1124_BOOT_ZERO_UNSTABLE = 9u
+} dvc1124_boot_zero_status_t;
+
+typedef struct
+{
+    dvc1124_boot_zero_status_t status;
+    uint8_t sample_count;
+    int32_t learned_offset_ma;      /* residual after persistent offset/gain */
+    int32_t raw_sample1_ma;         /* before persistent factory calibration */
+    int32_t raw_sample2_ma;
+    int32_t calibrated_sample1_ma;  /* persistent offset/gain applied */
+    int32_t calibrated_sample2_ma;
+    uint16_t spread_ma;
+} dvc1124_boot_zero_diag_t;
+
+typedef enum
+{
     DVC1124_OPENWIRE_IDLE = 0u,
     DVC1124_OPENWIRE_WAITING = 1u,
     DVC1124_OPENWIRE_READY = 2u,
@@ -205,6 +231,8 @@ void DVC1124_ClearCoreOtEventLatched(void);
 /* W0C and self-clearing operations implemented by dvc1124_special.c. */
 uint8_t DVC1124_ClearAlarmFlags(uint8_t flag_mask);
 uint8_t DVC1124_StartCadcCalibration(void);
+uint8_t DVC1124_BootCurrentZeroCalibrate(void);
+void DVC1124_GetBootCurrentZeroDiag(dvc1124_boot_zero_diag_t *diag);
 
 /*
  * Register read-side-effect metadata from Reference Manual V1.2.

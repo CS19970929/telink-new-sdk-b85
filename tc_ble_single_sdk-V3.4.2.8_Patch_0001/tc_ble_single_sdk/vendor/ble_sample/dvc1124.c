@@ -58,6 +58,21 @@ static dvc1124_openwire_result_t s_openwire_result;
 #define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u
 #define DVC_OPENWIRE_SETTLE_US            200000u
 
+/* Frozen boot diagnostics, relative to BMS_DIAG_BASE. */
+#define DVC_BOOT_ZERO_DIAG_STATUS          110u
+#define DVC_BOOT_ZERO_DIAG_SAMPLE_COUNT    111u
+#define DVC_BOOT_ZERO_DIAG_OFFSET_MA       112u
+#define DVC_BOOT_ZERO_DIAG_RAW1_MA         114u
+#define DVC_BOOT_ZERO_DIAG_RAW2_MA         116u
+#define DVC_BOOT_ZERO_DIAG_CAL1_MA         118u
+#define DVC_BOOT_ZERO_DIAG_CAL2_MA         120u
+#define DVC_BOOT_ZERO_DIAG_FACTORY_OFF_MA  122u
+#define DVC_BOOT_ZERO_DIAG_FACTORY_GAIN    124u
+#define DVC_BOOT_ZERO_DIAG_SHUNT_UOHM      126u
+#define DVC_BOOT_ZERO_DIAG_SPREAD_MA       127u
+
+static dvc1124_boot_zero_diag_t s_boot_zero;
+
 /* Last values actually represented by DVC hardware. Used for diagnostics. */
 typedef struct
 {
@@ -229,6 +244,214 @@ static int32_t dvc_sign_extend20(uint32_t raw)
     raw &= 0x000FFFFFu;
     if ((raw & 0x00080000u) != 0u) raw |= 0xFFF00000u;
     return (int32_t)raw;
+}
+
+static uint32_t dvc_abs_i32(int32_t value)
+{
+    return (value < 0) ? (0u - (uint32_t)value) : (uint32_t)value;
+}
+
+static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2)
+{
+    int32_t current_num;
+
+    if (s_cfg.shunt_uohm == 0u) return 0;
+    /* CC2 LSB = 0.3125 uV. Reduced ratio keeps signed 20-bit math in int32. */
+    current_num = cc2 * 625;
+    return current_num / ((int32_t)s_cfg.shunt_uohm * 2);
+}
+
+static int32_t dvc_apply_boot_zero(int32_t calibrated_ma)
+{
+    if (s_boot_zero.status != DVC1124_BOOT_ZERO_VALID) return calibrated_ma;
+    return calibrated_ma - s_boot_zero.learned_offset_ma;
+}
+
+static void dvc_boot_zero_publish_diag(void)
+{
+    int32_t factory_offset = 0;
+    uint32_t factory_gain = 1000000u;
+    uint32_t shunt = s_cfg.shunt_uohm;
+    (void)bms_config_get_current_calibration(&factory_offset, &factory_gain);
+
+    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_STATUS, (uint16_t)s_boot_zero.status);
+    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SAMPLE_COUNT, s_boot_zero.sample_count);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_OFFSET_MA, (uint32_t)s_boot_zero.learned_offset_ma);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_RAW1_MA, (uint32_t)s_boot_zero.raw_sample1_ma);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_RAW2_MA, (uint32_t)s_boot_zero.raw_sample2_ma);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_CAL1_MA, (uint32_t)s_boot_zero.calibrated_sample1_ma);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_CAL2_MA, (uint32_t)s_boot_zero.calibrated_sample2_ma);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_FACTORY_OFF_MA, (uint32_t)factory_offset);
+    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_FACTORY_GAIN, factory_gain);
+    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SHUNT_UOHM,
+                       (uint16_t)((shunt > 65535u) ? 65535u : shunt));
+    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SPREAD_MA, s_boot_zero.spread_ma);
+}
+
+static void dvc_boot_zero_wait_fresh_cc2(void)
+{
+    uint16_t remaining = DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS;
+
+    while (remaining != 0u)
+    {
+        uint16_t slice = (remaining > 90u) ? 90u : remaining;
+#if (MODULE_WATCHDOG_ENABLE)
+        wd_clear();
+#endif
+        dvc_delay_ms(slice);
+        remaining = (uint16_t)(remaining - slice);
+    }
+#if (MODULE_WATCHDOG_ENABLE)
+    wd_clear();
+#endif
+}
+
+static uint8_t dvc_boot_zero_force_all_fets_off(void)
+{
+    uint8_t current;
+    uint8_t target;
+    const uint8_t path_mask = (uint8_t)(DVC1124_FET_PDSGC_MASK |
+                                        DVC1124_FET_PCHGC_MASK |
+                                        DVC1124_FET_DSGC_MASK |
+                                        DVC1124_FET_CHGC_MASK);
+
+    DVC1124_SetOutputEnabled(0u);
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) return 0u;
+    target = (uint8_t)(current & (uint8_t)~path_mask);
+    return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
+}
+
+static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
+                                         int32_t *calibrated_ma,
+                                         dvc1124_boot_zero_status_t *failure)
+{
+    uint8_t ctrl;
+    uint8_t cc2_data[3];
+    uint32_t raw20;
+    int32_t cc2;
+    const uint8_t command_mask = (uint8_t)(DVC1124_FET_PDSGC_MASK |
+                                           DVC1124_FET_PCHGC_MASK |
+                                           DVC1124_FET_DSGC_MASK |
+                                           DVC1124_FET_CHGC_MASK);
+    const uint8_t flag_mask = (uint8_t)(DVC1124_CC2_PDSGF_MASK |
+                                        DVC1124_CC2_PCHGF_MASK |
+                                        DVC1124_CC2_DSGF_MASK |
+                                        DVC1124_CC2_CHGF_MASK);
+
+    if ((raw_ma == 0) || (calibrated_ma == 0) || (failure == 0)) return 0u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &ctrl, 1u))
+    {
+        *failure = DVC1124_BOOT_ZERO_FET_IO_ERROR;
+        return 0u;
+    }
+    if ((ctrl & command_mask) != 0u)
+    {
+        *failure = DVC1124_BOOT_ZERO_FET_ACTIVE;
+        return 0u;
+    }
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CC2_H, cc2_data, 3u))
+    {
+        *failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
+        return 0u;
+    }
+    if ((cc2_data[2] & flag_mask) != 0u)
+    {
+        *failure = DVC1124_BOOT_ZERO_FET_ACTIVE;
+        return 0u;
+    }
+
+    raw20 = ((uint32_t)cc2_data[0] << 12) |
+            ((uint32_t)cc2_data[1] << 4) |
+            ((uint32_t)cc2_data[2] >> 4);
+    cc2 = dvc_sign_extend20(raw20);
+    *raw_ma = dvc_cc2_to_raw_current_ma(cc2);
+    *calibrated_ma = bms_config_calibrate_current(*raw_ma);
+    return 1u;
+}
+
+void DVC1124_GetBootCurrentZeroDiag(dvc1124_boot_zero_diag_t *diag)
+{
+    if (diag != 0) *diag = s_boot_zero;
+}
+
+uint8_t DVC1124_BootCurrentZeroCalibrate(void)
+{
+    dvc1124_boot_zero_status_t failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
+    int32_t sum;
+    uint32_t spread;
+
+    if (s_boot_zero.status != DVC1124_BOOT_ZERO_NOT_ATTEMPTED)
+        return (s_boot_zero.status == DVC1124_BOOT_ZERO_VALID ||
+                s_boot_zero.status == DVC1124_BOOT_ZERO_DISABLED) ? 1u : 0u;
+
+#if !DVC1124_BOOT_ZERO_ENABLE
+    s_boot_zero.status = DVC1124_BOOT_ZERO_DISABLED;
+    dvc_boot_zero_publish_diag();
+    return 1u;
+#else
+    memset(&s_boot_zero, 0, sizeof(s_boot_zero));
+    s_boot_zero.status = DVC1124_BOOT_ZERO_IN_PROGRESS;
+    dvc_boot_zero_publish_diag();
+
+    if (!dvc_boot_zero_force_all_fets_off())
+    {
+        s_boot_zero.status = DVC1124_BOOT_ZERO_FET_IO_ERROR;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+    if (!DVC1124_StartCadcCalibration())
+    {
+        s_boot_zero.status = DVC1124_BOOT_ZERO_CAMZ_ERROR;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+
+    dvc_boot_zero_wait_fresh_cc2();
+    if (!dvc_boot_zero_read_sample(&s_boot_zero.raw_sample1_ma,
+                                   &s_boot_zero.calibrated_sample1_ma,
+                                   &failure))
+    {
+        s_boot_zero.status = failure;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+    s_boot_zero.sample_count = 1u;
+
+    dvc_boot_zero_wait_fresh_cc2();
+    if (!dvc_boot_zero_read_sample(&s_boot_zero.raw_sample2_ma,
+                                   &s_boot_zero.calibrated_sample2_ma,
+                                   &failure))
+    {
+        s_boot_zero.status = failure;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+    s_boot_zero.sample_count = 2u;
+
+    if ((dvc_abs_i32(s_boot_zero.calibrated_sample1_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA) ||
+        (dvc_abs_i32(s_boot_zero.calibrated_sample2_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA))
+    {
+        s_boot_zero.status = DVC1124_BOOT_ZERO_OUT_OF_RANGE;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+
+    spread = dvc_abs_i32(s_boot_zero.calibrated_sample2_ma -
+                         s_boot_zero.calibrated_sample1_ma);
+    s_boot_zero.spread_ma = (uint16_t)((spread > 65535u) ? 65535u : spread);
+    if (spread > DVC1124_BOOT_ZERO_MAX_SPREAD_MA)
+    {
+        s_boot_zero.status = DVC1124_BOOT_ZERO_UNSTABLE;
+        dvc_boot_zero_publish_diag();
+        return 0u;
+    }
+
+    sum = s_boot_zero.calibrated_sample1_ma + s_boot_zero.calibrated_sample2_ma;
+    s_boot_zero.learned_offset_ma = (sum >= 0) ? ((sum + 1) / 2) : ((sum - 1) / 2);
+    s_boot_zero.status = DVC1124_BOOT_ZERO_VALID;
+    dvc_boot_zero_publish_diag();
+    return 1u;
+#endif
 }
 
 /* V1.2 page 32 common-mode correction lookup, K * 10000. */
@@ -1305,7 +1528,7 @@ void DVC1124_App_AFEGet(void)
     uint32_t raw20;
     int32_t cc2;
     int32_t current_ma;
-    int32_t current_num;
+    int32_t factory_current_ma;
     uint8_t write_addr;
     uint8_t configured_ntc_ok = 1u;
 
@@ -1342,13 +1565,10 @@ void DVC1124_App_AFEGet(void)
             ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
             ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
     cc2 = dvc_sign_extend20(raw20);
-    /* 0.3125 uV = 5000/16 nV. Reduce both factors by 8 so the
-     * signed 20-bit CC2 numerator stays within int32_t:
-     * abs(cc2) * 625 <= 327680000. The quotient is unchanged. */
-    current_num = cc2 * 625;
-    current_ma = current_num / ((int32_t)s_cfg.shunt_uohm * 2);
+    current_ma = dvc_cc2_to_raw_current_ma(cc2);
     s_snapshot.raw_current_ma = current_ma;
-    current_ma = bms_config_calibrate_current(current_ma);
+    factory_current_ma = bms_config_calibrate_current(current_ma);
+    current_ma = dvc_apply_boot_zero(factory_current_ma);
     s_snapshot.current_ma = current_ma;
 
     dvc_publish_current_report(current_ma);
