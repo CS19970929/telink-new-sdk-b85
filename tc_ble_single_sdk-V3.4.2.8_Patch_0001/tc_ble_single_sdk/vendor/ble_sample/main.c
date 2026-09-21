@@ -25,6 +25,7 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
+#include "bms_stack_monitor.h"
 #include "modbus_uart.h"
 #include "bus_mux.h"
 #include "sif_send.h"
@@ -117,5 +118,6 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		}
 #endif
 		main_loop();
+		bms_stack_monitor_poll();
 	}
 }

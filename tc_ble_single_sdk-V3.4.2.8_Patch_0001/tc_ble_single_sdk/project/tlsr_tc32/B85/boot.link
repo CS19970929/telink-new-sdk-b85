@@ -111,6 +111,7 @@ SECTIONS
             *(.data_no_init.*)
         }
 		PROVIDE(_ram_use_end_ = .);
+        _bms_main_stack_bottom_ = ALIGN(_ram_use_end_, 4);
 		
 	    .sdk_version :
 	    AT ( _sstored_ )
@@ -128,4 +129,5 @@ SECTIONS
 		PROVIDE(_retention_size_ = _retention_use_size_div_16_ * 16);
 }
 ASSERT(_retention_size_ * __PM_DEEPSLEEP_RETENTION_ENABLE < 0x8000, "Error: Retention RAM size overflow.");
-ASSERT(_ram_use_end_<(__SRAM_SIZE - 600), "Error: RAM size maybe overflow.");/*600byte is the stack size used when secure connect is not enabled.*/
+ASSERT(__SRAM_SIZE == 0x848000, "Error: TLSR8251 startup required.");
+ASSERT(_ram_use_end_<(__SRAM_SIZE - 3072), "Error: main stack reserve below 3 KiB.");

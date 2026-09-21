@@ -237,4 +237,8 @@
 #error "D014 heater is not schematic-verified; do not enable it without a new board review"
 #endif
 
+
+#if BMS_PRODUCTION_BUILD && (!SH3673510_SW_PROTECT_ENABLE || !SH3673510_HW_PROTECT_ENABLE || D011_DEBUG_LED_ENABLE)
+#error "Production requires software/hardware protection and no debug LED"
+#endif
 #endif /* SH3673510_PROJECT_CONFIG_H_ */

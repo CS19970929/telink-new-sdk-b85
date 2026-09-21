@@ -23,11 +23,24 @@
  *******************************************************************************************************/
 #pragma once
 
+/* Development is the default. Official release builds pass
+ * -DBMS_PRODUCTION_BUILD=1 so unsafe debug/test options fail at compile time. */
+#ifndef BMS_PRODUCTION_BUILD
+#define BMS_PRODUCTION_BUILD 0
+#endif
+#if (BMS_PRODUCTION_BUILD != 0) && (BMS_PRODUCTION_BUILD != 1)
+#error "BMS_PRODUCTION_BUILD must be 0 or 1"
+#endif
+
+
+
 
 ///////////////////////// Feature Configuration////////////////////////////////////////////////
 #define BLE_APP_PM_ENABLE								1
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
+#ifndef TEST_CONN_CURRENT_ENABLE
 #define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
+#endif
 #define BLE_APP_SECURITY_ENABLE      					0	//ACL Slave device SMP, strongly recommended enabled
 #define BLE_OTA_SERVER_ENABLE							1
 
@@ -46,17 +59,39 @@
 #define APP_BATT_CHECK_ENABLE							0
 
 ///////////////////////// DEBUG  Configuration ////////////////////////////////////////////////
-#define DEBUG_GPIO_ENABLE					1
-#define UART_PRINT_DEBUG_ENABLE				0
-#define APP_LOG_EN							1
-#define APP_SMP_LOG_EN						0
-#define APP_KEY_LOG_EN						1
-#define APP_CONTR_EVENT_LOG_EN				1  //controller event log
-#define APP_HOST_EVENT_LOG_EN				1  //host event log
-#define APP_OTA_LOG_EN						1
-#define APP_FLASH_INIT_LOG_EN				1
-#define APP_FLASH_PROT_LOG_EN				1
-#define APP_BATT_CHECK_LOG_EN				1
+#ifndef DEBUG_GPIO_ENABLE
+#define DEBUG_GPIO_ENABLE                    (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef UART_PRINT_DEBUG_ENABLE
+#define UART_PRINT_DEBUG_ENABLE              0
+#endif
+#ifndef APP_LOG_EN
+#define APP_LOG_EN                           (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_SMP_LOG_EN
+#define APP_SMP_LOG_EN                       0
+#endif
+#ifndef APP_KEY_LOG_EN
+#define APP_KEY_LOG_EN                       (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_CONTR_EVENT_LOG_EN
+#define APP_CONTR_EVENT_LOG_EN               (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_HOST_EVENT_LOG_EN
+#define APP_HOST_EVENT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_OTA_LOG_EN
+#define APP_OTA_LOG_EN                       (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_FLASH_INIT_LOG_EN
+#define APP_FLASH_INIT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_FLASH_PROT_LOG_EN
+#define APP_FLASH_PROT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
+#ifndef APP_BATT_CHECK_LOG_EN
+#define APP_BATT_CHECK_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#endif
 
 /////////////////////// OTA stability ////////////////////////////////////////////////
 #define APP_OTA_PROCESS_TIMEOUT_S			180
@@ -129,5 +164,26 @@
 	#endif
 #endif
 
+
+#if BMS_PRODUCTION_BUILD
+	#if (BMS_DIAG_BUILD_ID == 0u)
+		#error "Production build requires a nonzero Git diagnostic build ID"
+	#endif
+	#if BMS_DIAG_BUILD_DIRTY
+		#error "Production build requires a clean Git worktree"
+	#endif
+	#ifdef __TEST_SOC__
+		#error "Production build forbids __TEST_SOC__ command hooks"
+	#endif
+	#if TEST_CONN_CURRENT_ENABLE || DEBUG_GPIO_ENABLE || UART_PRINT_DEBUG_ENABLE
+		#error "Production build forbids current-test, debug GPIO and UART debug output"
+	#endif
+	#if !APP_FLASH_PROTECTION_ENABLE
+		#error "Production build requires SDK flash protection"
+	#endif
+	#if !MODULE_WATCHDOG_ENABLE
+		#error "Production build requires watchdog"
+	#endif
+#endif
 
 #include "vendor/common/default_config.h"
