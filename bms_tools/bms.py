@@ -652,10 +652,22 @@ def _write_compile_inputs(extra_defines: str) -> None:
         path.write_text(content, encoding="utf-8")
 
 
+def _mark_build_complete() -> None:
+    receipt = {"inputs_sha256": _sha256(GEN_DIR / "compile-inputs.json"),
+               "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST, RAW_BIN)}}
+    (GEN_DIR / "build-completed.json").write_text(json.dumps(receipt, sort_keys=True), encoding="utf-8")
+
+
 def _read_compile_inputs() -> dict:
     path = GEN_DIR / "compile-inputs.json"
     if not path.exists():
         _die("Build input receipt missing; rebuild required")
+    complete_path = GEN_DIR / "build-completed.json"
+    if not complete_path.exists():
+        _die("No successful completed build receipt; rebuild required")
+    complete = json.loads(complete_path.read_text(encoding="utf-8"))
+    if complete != {"inputs_sha256": _sha256(path), "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST, RAW_BIN)}}:
+        _die("Build receipt/artifacts differ from successful build; rebuild required")
     receipt = json.loads(path.read_text(encoding="utf-8"))
     if receipt != _capture_compile_inputs(receipt.get("extra_defines", "")):
         _die("Source/header/toolchain/build configuration changed since build; rebuild required")
@@ -682,6 +694,7 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     _gen_sources_mk(build_dir)
     if "all" in targets:
         _write_compile_inputs(extra_defines)
+        (GEN_DIR / "build-completed.json").unlink(missing_ok=True)
     # Pass all Make-facing paths via the junction (space-free).
     repo_j = _junc(REPO_ROOT).as_posix()
     sdk_j = _junc(SDK_DIR).as_posix()
@@ -708,6 +721,8 @@ def _invoke_make(targets: list[str], jobs: int = 1,
         raise subprocess.CalledProcessError(r.returncode, cmd, output=r.stdout)
     if warning_count != 0:
         _die(f"compiler warning gate failed: warnings={warning_count}; see {log_path}")
+    if "all" in targets:
+        _mark_build_complete()
 
 
 def cmd_build(args: argparse.Namespace) -> int:
