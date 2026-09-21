@@ -323,8 +323,15 @@ int main(int argc,char **argv){
   assert(g_soc_runtime.idle_stable_ticks==0&&g_soc_runtime.ocv_state==BMS_SOC_OCV_WAIT_CURRENT);
   balance_active=0;heater_on=1;for(int i=0;i<100;i++)sample(1,0,6400);
   assert(g_soc_runtime.idle_stable_ticks==0);heater_on=0;temp_valid=0;
-  for(int i=0;i<100;i++)sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
-  temp_valid=1;for(int i=0;i<100;i++)sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks>0);
+  for(int i=0;i<100;i++){
+   sample(1,0,6400);
+  }
+  assert(g_soc_runtime.idle_stable_ticks==0);
+  temp_valid=1;
+  for(int i=0;i<100;i++){
+   sample(1,0,6400);
+  }
+  assert(g_soc_runtime.idle_stable_ticks>0);
   charge_session_active=1;sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
   setup(chemistry,20,chemistry==1?3350:3900);sample(1,0,1);
   for(int i=0;i<12100;i++)sample(1,0,6400);
