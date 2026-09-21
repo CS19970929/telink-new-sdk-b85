@@ -26,7 +26,7 @@ UINT32 u32_DsgCur_mA = 0;
 #define CURRENT_ZERO_SAMPLE_SCALE                    4u
 #define CURRENT_MA_X4_SCALE                          4u
 #define CURRENT_REPORT_MA_PER_LSB              100u
-#define CURRENT_DEADBAND_CALIBRATED_MA          200u
+#define CURRENT_DEADBAND_CALIBRATED_MA          0u
 #define CURRENT_DEADBAND_FALLBACK_MA            500u
 
 /*
