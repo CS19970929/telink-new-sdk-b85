@@ -11,57 +11,54 @@ int AFE_ResetFlag = 0;
 extern struct stCell_Info g_stCellInfoReport;
 extern uint32_t g_u32CS_Res_AFE;
 
-UINT32 u32_ChgCur_mA = 0;
-UINT32 u32_DsgCur_mA = 0;
-
 /* SH367309 V1.1: CADC is a signed 16-bit, 4 Hz converter. */
 #define SH309_CADC_NUMERATOR_REDUCED          20000u
 #define SH309_CADC_DENOMINATOR_REDUCED         2147u
-#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS          300u
-#define BOOT_CURRENT_CADC_DATA_LENGTH                    2u
-#define BOOT_CURRENT_ZERO_FAST_ABS_COUNTS           20
-#define BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS        40
-#define BOOT_CURRENT_ZERO_CONFIRM_DELTA_COUNTS       6
+#define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS    300u
+#define BOOT_CURRENT_CADC_DATA_LENGTH              2u
+#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS           40
+#define BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS          6
 #define BOOT_CURRENT_FET_STATUS_MASK              0x07u
-#define CURRENT_ZERO_SAMPLE_SCALE                    4u
-#define CURRENT_MA_X4_SCALE                          4u
-#define CURRENT_REPORT_MA_PER_LSB              100u
-#define CURRENT_DEADBAND_CALIBRATED_MA          0u
-#define CURRENT_DEADBAND_FALLBACK_MA            500u
+#define CURRENT_FIXED_SCALE                          4u
+#define CURRENT_REPORT_MA_PER_LSB                  100u
+#define CURRENT_DEADBAND_CALIBRATED_MA               0u
+#define CURRENT_DEADBAND_FALLBACK_MA               500u
 
 /*
- * Store the learned zero in raw-count x4 units so the current path keeps
- * quarter-count resolution regardless of whether calibration uses one sample
- * or the optional second confirmation sample.
+ * Runtime current has one canonical representation:
+ *   positive mA = charge, negative mA = discharge.
+ *
+ * The learned boot zero stays in raw-count x4 units so averaging two signed
+ * CADC samples keeps 0.5-count resolution without floating point.
  */
-_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawSum = 0;
-_attribute_data_retention_ static INT32 g_i32BootCurrentZeroFirstRaw = 0;
+_attribute_data_retention_ static INT32 g_i32BootCurrentZeroRawX4 = 0;
 _attribute_data_retention_ static UINT8 g_u8BootCurrentZeroStatus =
-    BOOT_CURRENT_ZERO_NOT_ATTEMPTED;
-_attribute_data_retention_ static UINT8 g_u8BootCurrentZeroBusy = 0u;
+    BOOT_CURRENT_ZERO_NOT_RUN;
+static INT32 g_i32Current_mA = 0;
 
 u32 System_ERROR_UserCallback(enum SYSTEM_ERROR_COMMAND errorCode);
 volatile union System_Status SystemStatus;
 
-static INT32 DataLoad_CurrentRawToSigned(UINT16 raw)
+static INT32 BmsCurrent_RawToSigned(UINT16 raw)
 {
     return (INT32)(INT16)raw;
 }
 
-static UINT32 DataLoad_CurrentAbsRaw(INT32 raw)
+static UINT32 BmsCurrent_AbsI32(INT32 value)
 {
-    return (raw < 0) ? (UINT32)(-raw) : (UINT32)raw;
+    return (value < 0) ? (UINT32)(-value) : (UINT32)value;
 }
 
 /*
- * Datasheet CADC model:
+ * SH367309 CADC model:
  *   I[mA] = raw * 200 / (21470 * Rsense[ohm])
  * For N identical shunts of R_mOhm in parallel:
  *   Rsense = R_mOhm / (1000 * N)
- * Keep the complete ratio until the final division to avoid precision loss
- * from the legacy precomputed integer reciprocal g_u32CS_Res_AFE.
+ *
+ * Input/output are both x4 scaled. Quotient/remainder ordering avoids TC32
+ * 64-bit divide helpers while retaining the existing rounded result.
  */
-static UINT32 DataLoad_CurrentRawX4ToScaled_mA_X4(UINT32 raw_abs_x4)
+static UINT32 SH309_CurrentRawX4To_mAX4(UINT32 raw_abs_x4)
 {
     UINT32 numerator_scale;
     UINT32 denominator;
@@ -73,11 +70,6 @@ static UINT32 DataLoad_CurrentRawX4ToScaled_mA_X4(UINT32 raw_abs_x4)
         return 0u;
     }
 
-    /*
-     * Exact reduction of 200000 / 21470 to 20000 / 2147 avoids TC32's
-     * unavailable 64-bit divide helpers. Quotient/remainder ordering keeps
-     * every intermediate within UINT32 for the configured SH367309 range.
-     */
     numerator_scale = SH309_CADC_NUMERATOR_REDUCED * (UINT32)CS_Res_Num;
     denominator = SH309_CADC_DENOMINATOR_REDUCED * (UINT32)CS_Res;
     quotient = raw_abs_x4 / denominator;
@@ -87,25 +79,25 @@ static UINT32 DataLoad_CurrentRawX4ToScaled_mA_X4(UINT32 raw_abs_x4)
            + (remainder * numerator_scale + (denominator / 2u)) / denominator;
 }
 
-static UINT32 DataLoad_Current_mA_X4To_mA(UINT32 current_mA_x4)
+static UINT32 BmsCurrent_mAX4To_mA(UINT32 current_mA_x4)
 {
-    return (current_mA_x4 + (CURRENT_MA_X4_SCALE / 2u)) / CURRENT_MA_X4_SCALE;
+    return (current_mA_x4 + (CURRENT_FIXED_SCALE / 2u)) / CURRENT_FIXED_SCALE;
 }
 
-static UINT32 DataLoad_CurrentDeadband_mA(void)
+static UINT32 BmsCurrent_Deadband_mA(void)
 {
     return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID)
                ? CURRENT_DEADBAND_CALIBRATED_MA
                : CURRENT_DEADBAND_FALLBACK_MA;
 }
 
-static UINT16 DataLoad_Current_mA_X4ToReport(UINT32 current_mA_x4,
-                                             UINT16 report_divisor_mA)
+static UINT16 BmsCurrent_mAX4ToReport(UINT32 current_mA_x4,
+                                     UINT16 report_divisor_mA)
 {
     UINT32 divisor;
     UINT32 report_value;
 
-    divisor = CURRENT_MA_X4_SCALE * (UINT32)report_divisor_mA;
+    divisor = CURRENT_FIXED_SCALE * (UINT32)report_divisor_mA;
     report_value = (current_mA_x4 + (divisor / 2u)) / divisor;
     if (report_value > 0xFFFFu)
     {
@@ -117,8 +109,7 @@ static UINT16 DataLoad_Current_mA_X4ToReport(UINT32 current_mA_x4,
 
 static void DataLoad_ClearCurrent(void)
 {
-    u32_ChgCur_mA = 0u;
-    u32_DsgCur_mA = 0u;
+    g_i32Current_mA = 0;
     g_stCellInfoReport.u16Ichg = 0u;
     g_stCellInfoReport.u16IDischg = 0u;
 }
@@ -1130,9 +1121,6 @@ UINT8 UpdateVoltageFromBqMaximo(void)
         u32temp = ((UINT32)SH367309_Reg_Store.TR_ResRef * U16_SwapEndian(ram_reg_309.Temp3)) / (32769 - U16_SwapEndian(ram_reg_309.Temp3));
         UPDNLMT16(u32temp, 65535, 0);
         SH367309_Read_AFE1.u16TempBat[2] = GetEndValue(iSheldTemp_10K_AFE, (UINT16)LENGTH_TBLTEMP_AFE_10K, u32temp);
-        // 鐢垫祦瑕佷笉瑕佸姞婊ゆ尝1s闄や互4锛宒emo鏄繖鏍风殑锛岀幇鍦ㄥ厛瑙傚療涓�涓�
-        // SH367309_Read_AFE1.i16Current = (UINT16)((UINT32)U16_SwapEndian(Registers_AFE1.Cadc)*200/(21470*RSENSE));		//TODO
-        SH367309_Read_AFE1.u16Current = U16_SwapEndian(ram_reg_309.Cadc);
     }
 }
 
@@ -1289,58 +1277,6 @@ void DataLoad_TemperatureMaxMinFind(void)
     g_stCellInfoReport.u16TempMin = t_u16VcellMinTemp; // min temp
 }
 
-void DataLoad_CurrentCali(void)
-{
-#if 0
-	static UINT8 su8_StartUpFlag = 4;
-
-	// todo 棰勭暀涓婁綅鏈烘牎鍑嗘帴鍙ｏ紝浠ラ槻涓囦竴
-	// if (sci_cali_falg)
-	// 	DataLoad_CurrentCali_startup();
-
-	if (OffsetValue_CHG)
-	{
-		su8_StartUpFlag = 4;
-	}
-	else
-	{
-		su8_StartUpFlag = 5;
-	}
-
-	switch (su8_StartUpFlag)
-	{
-	// 鍏呯數鍋忕疆
-	case 4:
-		if (u32_ChgCur_mA > OffsetValue_CHG)
-		{
-			u32_ChgCur_mA = u32_ChgCur_mA - OffsetValue_CHG;
-		}
-		else
-		{
-			// u32_ChgCur_mA = 0;	//涓嶈兘鍏堢疆0鍟婏紝涓嶇劧閿欎簡
-			u32_DsgCur_mA = u32_DsgCur_mA + OffsetValue_CHG - u32_ChgCur_mA;
-			u32_ChgCur_mA = 0;
-		}
-		break;
-	case 5:
-
-		if (u32_DsgCur_mA > OffsetValue_DSG)
-		{
-			u32_DsgCur_mA = u32_DsgCur_mA - OffsetValue_DSG;
-		}
-		else
-		{
-			// u32_DsgCur_mA = 0;
-			u32_ChgCur_mA = u32_ChgCur_mA + OffsetValue_DSG - u32_DsgCur_mA;
-			u32_DsgCur_mA = 0;
-		}
-		break;
-	default:
-		break;
-	}
-#endif
-}
-
 static uint8_t step = 0;
 #if 0
 static uint16_t CHG_current = 1000;
@@ -1415,36 +1351,31 @@ void test_Autocurrent_cycle(void)
     }
 }
 #endif
-static INT32 DataLoad_CurrentApplyBootZeroX4(UINT16 raw)
+static INT32 BmsCurrent_ApplyBootZeroX4(INT32 raw_signed)
 {
-    INT32 corrected_raw_x4 = DataLoad_CurrentRawToSigned(raw)
-                               * (INT32)CURRENT_ZERO_SAMPLE_SCALE;
+    INT32 corrected_raw_x4 = raw_signed * (INT32)CURRENT_FIXED_SCALE;
 
     if (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID)
     {
-        corrected_raw_x4 -= g_i32BootCurrentZeroRawSum;
+        corrected_raw_x4 -= g_i32BootCurrentZeroRawX4;
     }
 
-    /* Difference of two signed 16-bit codes fits safely in INT32. */
     return corrected_raw_x4;
 }
 
-static void DataLoad_BootCurrentZeroFail(UINT8 status)
+static void BmsCurrent_BootZeroFail(UINT8 status)
 {
-    g_i32BootCurrentZeroRawSum = 0;
-    g_i32BootCurrentZeroFirstRaw = 0;
+    g_i32BootCurrentZeroRawX4 = 0;
     g_u8BootCurrentZeroStatus = status;
-    g_u8BootCurrentZeroBusy = 0u;
 }
 
-static void DataLoad_BootCurrentZeroWaitFreshCadc(void)
+static void SH309_CurrentWaitFreshSample(void)
 {
     UINT16 remain_ms = BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS;
 
     /*
-     * Calibration runs before normal main_loop watchdog servicing starts.
-     * Keep the existing 2 s watchdog alive during this bounded 300 ms wait
-     * without changing watchdog configuration or hiding an unbounded loop.
+     * Calibration runs synchronously before the normal main loop starts.
+     * Feed the existing watchdog during each bounded fresh-sample wait.
      */
     while (remain_ms > 0u)
     {
@@ -1460,7 +1391,7 @@ static void DataLoad_BootCurrentZeroWaitFreshCadc(void)
 #endif
 }
 
-static UINT8 DataLoad_BootCurrentZeroForceFetsOff(void)
+static UINT8 SH309_CurrentPrepareBootZero(void)
 {
     SH367309_Reg_Store.REG_MTP_CONF.bits.CADCON = 1u;
     SH367309_Reg_Store.REG_MTP_CONF.bits.CHGMOS = 0u;
@@ -1470,14 +1401,14 @@ static UINT8 DataLoad_BootCurrentZeroForceFetsOff(void)
     if (!MTPWrite(MTP_CONF, 1u, &SH367309_Reg_Store.REG_MTP_CONF.all))
     {
         log_i("[BOOT][CUR_ZERO] failed to force FET off / enable CADC\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_CONFIG_WRITE_ERROR);
         return 0u;
     }
 
     return 1u;
 }
 
-static UINT8 DataLoad_BootCurrentZeroCheckFetsOff(void)
+static UINT8 SH309_CurrentCheckBootZeroSafe(void)
 {
     MTP_REG_CONF confirmed_conf;
     UINT8 bstatus3 = 0u;
@@ -1486,7 +1417,7 @@ static UINT8 DataLoad_BootCurrentZeroCheckFetsOff(void)
     if (!MTPRead(MTP_CONF, 1u, &confirmed_conf.all))
     {
         log_i("[BOOT][CUR_ZERO] MTP_CONF readback failed\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_CONFIG_READBACK_ERROR);
         return 0u;
     }
 
@@ -1496,237 +1427,182 @@ static UINT8 DataLoad_BootCurrentZeroCheckFetsOff(void)
         || confirmed_conf.bits.PCHMOS)
     {
         log_i("[BOOT][CUR_ZERO] FET control is not OFF during calibration\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
         return 0u;
     }
 
     if (!MTPRead(MTP_BSTATUS3, 1u, &bstatus3))
     {
         log_i("[BOOT][CUR_ZERO] BSTATUS3 read failed\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_SAMPLE_READ_ERROR);
         return 0u;
     }
 
     if ((bstatus3 & BOOT_CURRENT_FET_STATUS_MASK) != 0u)
     {
         log_i("[BOOT][CUR_ZERO] actual FET is active during calibration\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_FET_ACTIVE);
         return 0u;
     }
 
     return 1u;
 }
 
-static UINT8 DataLoad_BootCurrentZeroReadSample(INT32 *raw_signed)
+static UINT8 SH309_CurrentReadRaw(INT32 *raw_signed)
 {
     UINT16 raw_current;
     UINT8 cadc_data[BOOT_CURRENT_CADC_DATA_LENGTH];
 
-    if ((raw_signed == 0) || !DataLoad_BootCurrentZeroCheckFetsOff())
+    if (raw_signed == 0)
     {
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_SAMPLE_READ_ERROR);
         return 0u;
     }
 
     if (!MTPRead(MTP_ADC2, BOOT_CURRENT_CADC_DATA_LENGTH, cadc_data))
     {
         log_i("[BOOT][CUR_ZERO] CADCD read failed\n");
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_SNAPSHOT_READ_ERROR);
-        return 0u;
-    }
-
-    /*
-     * Confirm actual FET state again after the CADC read. A sample is never
-     * learned unless CHG/DSG/PCH are OFF both before and after the read.
-     */
-    if (!DataLoad_BootCurrentZeroCheckFetsOff())
-    {
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_SAMPLE_READ_ERROR);
         return 0u;
     }
 
     raw_current = ((UINT16)cadc_data[0] << 8) | (UINT16)cadc_data[1];
-    *raw_signed = DataLoad_CurrentRawToSigned(raw_current);
+    *raw_signed = BmsCurrent_RawToSigned(raw_current);
     return 1u;
 }
 
-static void DataLoad_BootCurrentZeroAcceptX4(INT32 zero_raw_x4)
-{
-    g_i32BootCurrentZeroRawSum = zero_raw_x4;
-    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_VALID;
-    g_u8BootCurrentZeroBusy = 0u;
-}
-
-UINT8 DataLoad_BootCurrentZeroCapture(void)
+UINT8 BmsCurrent_BootZeroCalibrate(void)
 {
     INT32 raw1;
     INT32 raw2;
     INT32 delta;
-    UINT32 raw_abs;
 
-    if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_ATTEMPTED)
+    if (g_u8BootCurrentZeroStatus != BOOT_CURRENT_ZERO_NOT_RUN)
     {
         return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
     }
 
-    g_u8BootCurrentZeroBusy = 1u;
-    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_IN_PROGRESS;
-    g_i32BootCurrentZeroRawSum = 0;
-    g_i32BootCurrentZeroFirstRaw = 0;
+    g_i32BootCurrentZeroRawX4 = 0;
 
     /*
-     * CTL-C is held low by app.c. Force all AFE power-path FETs OFF before
-     * waiting for a fresh 4 Hz CADC conversion.
+     * One synchronous boot-only calibration:
+     *   1. force CHG/DSG/PCH OFF and enable CADC once;
+     *   2. take exactly two fresh samples;
+     *   3. verify actual FET state before and after each sample;
+     *   4. accept only bounded and stable zero-current samples.
      */
-    if (!DataLoad_BootCurrentZeroForceFetsOff())
+    if (!SH309_CurrentPrepareBootZero())
     {
         return 0u;
     }
 
-    DataLoad_BootCurrentZeroWaitFreshCadc();
-
-    if (!DataLoad_BootCurrentZeroReadSample(&raw1))
+    SH309_CurrentWaitFreshSample();
+    if (!SH309_CurrentCheckBootZeroSafe()
+        || !SH309_CurrentReadRaw(&raw1)
+        || !SH309_CurrentCheckBootZeroSafe())
     {
         return 0u;
     }
 
-    raw_abs = DataLoad_CurrentAbsRaw(raw1);
-    if (raw_abs <= (UINT32)BOOT_CURRENT_ZERO_FAST_ABS_COUNTS)
-    {
-        DataLoad_BootCurrentZeroAcceptX4(
-            raw1 * (INT32)CURRENT_ZERO_SAMPLE_SCALE);
-        log_i("[BOOT][CUR_ZERO] fast valid raw=%d\n", raw1);
-        return 1u;
-    }
-
-    if (raw_abs > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS)
-    {
-        log_i("[BOOT][CUR_ZERO] offset out of range raw=%d limit=%u\n",
-              raw1, (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS);
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
-        return 0u;
-    }
-
-    /*
-     * Borderline 20..40 count offset: take exactly one second fresh sample.
-     * Reassert OFF before the second quiet window. No normal software task can
-     * run here because calibration is still inside user_init_normal().
-     */
-    g_i32BootCurrentZeroFirstRaw = raw1;
-    if (!DataLoad_BootCurrentZeroForceFetsOff())
+    SH309_CurrentWaitFreshSample();
+    if (!SH309_CurrentCheckBootZeroSafe()
+        || !SH309_CurrentReadRaw(&raw2)
+        || !SH309_CurrentCheckBootZeroSafe())
     {
         return 0u;
     }
 
-    DataLoad_BootCurrentZeroWaitFreshCadc();
-
-    if (!DataLoad_BootCurrentZeroReadSample(&raw2))
+    if ((BmsCurrent_AbsI32(raw1) > (UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS)
+        || (BmsCurrent_AbsI32(raw2) > (UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS))
     {
-        return 0u;
-    }
-
-    raw_abs = DataLoad_CurrentAbsRaw(raw2);
-    if (raw_abs > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS)
-    {
-        log_i("[BOOT][CUR_ZERO] confirm offset out of range raw2=%d limit=%u\n",
-              raw2, (UINT32)BOOT_CURRENT_ZERO_CONFIRM_ABS_COUNTS);
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
+        log_i("[BOOT][CUR_ZERO] offset out of range raw1=%d raw2=%d limit=%u\n",
+              raw1, raw2, (UINT32)BOOT_CURRENT_ZERO_MAX_ABS_COUNTS);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_OUT_OF_RANGE);
         return 0u;
     }
 
     delta = raw2 - raw1;
-    if (DataLoad_CurrentAbsRaw(delta)
-        > (UINT32)BOOT_CURRENT_ZERO_CONFIRM_DELTA_COUNTS)
+    if (BmsCurrent_AbsI32(delta) > (UINT32)BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS)
     {
-        log_i("[BOOT][CUR_ZERO] confirm unstable raw1=%d raw2=%d delta=%d\n",
-              raw1, raw2, delta);
-        DataLoad_BootCurrentZeroFail(BOOT_CURRENT_ZERO_UNSTABLE);
+        log_i("[BOOT][CUR_ZERO] unstable raw1=%d raw2=%d delta=%d limit=%u\n",
+              raw1, raw2, delta, (UINT32)BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS);
+        BmsCurrent_BootZeroFail(BOOT_CURRENT_ZERO_UNSTABLE);
         return 0u;
     }
 
-    /*
-     * Average two signed raw samples and keep x4 precision:
-     * ((raw1 + raw2) / 2) * 4 == (raw1 + raw2) * 2.
-     */
-    DataLoad_BootCurrentZeroAcceptX4((raw1 + raw2) * 2);
-    log_i("[BOOT][CUR_ZERO] confirm valid raw1=%d raw2=%d\n", raw1, raw2);
+    /* ((raw1 + raw2) / 2) * 4 == (raw1 + raw2) * 2. */
+    g_i32BootCurrentZeroRawX4 = (raw1 + raw2) * 2;
+    g_u8BootCurrentZeroStatus = BOOT_CURRENT_ZERO_VALID;
+
+    log_i("[BOOT][CUR_ZERO] valid raw1=%d raw2=%d zero_x4=%d\n",
+          raw1, raw2, g_i32BootCurrentZeroRawX4);
     return 1u;
 }
 
-UINT8 DataLoad_IsBootCurrentZeroBusy(void)
-{
-    return g_u8BootCurrentZeroBusy;
-}
-
-UINT8 DataLoad_IsBootCurrentZeroValid(void)
+UINT8 BmsCurrent_IsBootZeroValid(void)
 {
     return (g_u8BootCurrentZeroStatus == BOOT_CURRENT_ZERO_VALID) ? 1u : 0u;
 }
 
-UINT8 DataLoad_GetBootCurrentZeroStatus(void)
+UINT8 BmsCurrent_GetBootZeroStatus(void)
 {
     return g_u8BootCurrentZeroStatus;
 }
 
-INT32 DataLoad_GetBootCurrentZeroRawSum(void)
+INT32 BmsCurrent_GetBootZeroRawX4(void)
 {
-    return DataLoad_IsBootCurrentZeroValid() ? g_i32BootCurrentZeroRawSum : 0;
+    return BmsCurrent_IsBootZeroValid() ? g_i32BootCurrentZeroRawX4 : 0;
 }
 
-UINT32 DataLoad_GetDsgCurrent_mA(void)
+INT32 BmsCurrent_GetCurrent_mA(void)
 {
-    return u32_DsgCur_mA;
+    return g_i32Current_mA;
 }
 
-void DataLoad_Current(void)
+void BmsCurrent_Update(void)
 {
-    INT32 corrected_raw_x4 = DataLoad_CurrentApplyBootZeroX4(
-        SH367309_Read_AFE1.u16Current);
-    UINT32 current_mA_x4 = DataLoad_CurrentRawX4ToScaled_mA_X4(
-        DataLoad_CurrentAbsRaw(corrected_raw_x4));
-    UINT32 deadband_mA = DataLoad_CurrentDeadband_mA();
+    INT32 raw_signed = BmsCurrent_RawToSigned(U16_SwapEndian(ram_reg_309.Cadc));
+    INT32 corrected_raw_x4 = BmsCurrent_ApplyBootZeroX4(raw_signed);
+    UINT32 current_mA_x4 = SH309_CurrentRawX4To_mAX4(
+        BmsCurrent_AbsI32(corrected_raw_x4));
+    UINT32 deadband_mA = BmsCurrent_Deadband_mA();
+    UINT32 current_mA;
 
-    /*
-     * Apply the deadband before report-unit conversion so SOC, work-state and
-     * power-management users all see the same current decision.
-     *
-     * Valid boot zero:    |I| < 0.2 A -> 0
-     * Calibration failed: |I| < 0.5 A -> 0, with effective zero offset = 0
-     *
-     * The boundary itself remains valid current (0.2 A / 0.5 A).
-     */
-    if (current_mA_x4 < (deadband_mA * CURRENT_MA_X4_SCALE))
+    if (current_mA_x4 < (deadband_mA * CURRENT_FIXED_SCALE))
     {
         current_mA_x4 = 0u;
     }
 
-    u32_ChgCur_mA = 0u;
-    u32_DsgCur_mA = 0u;
-
-    if (corrected_raw_x4 > 0)
+    current_mA = BmsCurrent_mAX4To_mA(current_mA_x4);
+    if (current_mA_x4 == 0u)
     {
-        u32_ChgCur_mA = DataLoad_Current_mA_X4To_mA(current_mA_x4);
+        g_i32Current_mA = 0;
     }
-    else if (corrected_raw_x4 < 0)
+    else if (corrected_raw_x4 > 0)
     {
-        u32_DsgCur_mA = DataLoad_Current_mA_X4To_mA(current_mA_x4);
+        g_i32Current_mA = (INT32)current_mA;
+    }
+    else
+    {
+        g_i32Current_mA = -(INT32)current_mA;
     }
 
     log_i("******************************************\n");
-    log_i("AFE raw_x4=%d zero_sum=%d current_mA_x4=%d deadband=%u mA\n",
+    log_i("AFE raw=%d corrected_x4=%d zero_x4=%d current=%d mA deadband=%u mA\n",
+          raw_signed,
           corrected_raw_x4,
-          DataLoad_GetBootCurrentZeroRawSum(),
-          (corrected_raw_x4 < 0) ? -(INT32)current_mA_x4 : (INT32)current_mA_x4,
+          BmsCurrent_GetBootZeroRawX4(),
+          g_i32Current_mA,
           deadband_mA);
 
-    /* All projects use 0.1 A/LSB for SOC and protocol current fields. */
-    g_stCellInfoReport.u16Ichg = DataLoad_Current_mA_X4ToReport(
-        (corrected_raw_x4 > 0) ? current_mA_x4 : 0u,
+    /* Existing SOC/protocol compatibility fields stay at 0.1 A/LSB. */
+    g_stCellInfoReport.u16Ichg = BmsCurrent_mAX4ToReport(
+        (g_i32Current_mA > 0) ? current_mA_x4 : 0u,
         CURRENT_REPORT_MA_PER_LSB);
-    g_stCellInfoReport.u16IDischg = DataLoad_Current_mA_X4ToReport(
-        (corrected_raw_x4 < 0) ? current_mA_x4 : 0u,
+    g_stCellInfoReport.u16IDischg = BmsCurrent_mAX4ToReport(
+        (g_i32Current_mA < 0) ? current_mA_x4 : 0u,
         CURRENT_REPORT_MA_PER_LSB);
 
-    // g_stCellInfoReport.u16Ichg = 0;
-    // g_stCellInfoReport.u16IDischg = 5 * CapacityFactory;
 #ifdef __VIRTURE_CURRENT__
     if (sys_time.isdebugenable == 1)
     {
@@ -2247,7 +2123,7 @@ void App_AFEGet(void)
         DataLoad_Temperature();
         DataLoad_TemperatureMaxMinFind();
     #ifndef __TEST_SOC__
-        DataLoad_Current();
+        BmsCurrent_Update();
     #else
         test_Autocurrent_cycle();
     #endif // !__TEST_SOC__

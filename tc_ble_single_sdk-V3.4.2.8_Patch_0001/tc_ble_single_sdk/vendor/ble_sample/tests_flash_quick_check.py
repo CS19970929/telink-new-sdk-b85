@@ -445,12 +445,23 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("DataLoad_ClearAfeReportPreserveSoc();", text)
         self.assertNotIn("memset(&g_stCellInfoReport, 0, sizeof(g_stCellInfoReport) - 6);", text)
 
-    def test_current_conversion_uses_shared_rounded_64bit_formula(self):
+    def test_current_path_uses_one_signed_ma_source_of_truth(self):
         text = read_text(SH367309_C)
-        self.assertIn("static UINT32 DataLoad_CurrentRawToScaled_mA(UINT32 raw)", text)
-        self.assertIn("(uint64_t)raw * 200u * (uint64_t)g_u32CS_Res_AFE", text)
-        self.assertIn("u32_ChgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
-        self.assertIn("u32_DsgCur_mA = DataLoad_CurrentRawToScaled_mA", text)
+        self.assertIn("static INT32 g_i32Current_mA = 0;", text)
+        self.assertIn("INT32 BmsCurrent_GetCurrent_mA(void)", text)
+        self.assertIn("static UINT32 SH309_CurrentRawX4To_mAX4", text)
+        self.assertNotIn("u32_ChgCur_mA", text)
+        self.assertNotIn("u32_DsgCur_mA", text)
+        self.assertNotIn("(uint64_t)", text)
+
+    def test_boot_zero_is_synchronous_fixed_two_sample_flow(self):
+        text = read_text(SH367309_C)
+        self.assertIn("#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS", text)
+        self.assertIn("#define BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS", text)
+        self.assertIn("g_i32BootCurrentZeroRawX4 = (raw1 + raw2) * 2;", text)
+        self.assertEqual(text.count("SH309_CurrentWaitFreshSample();"), 2)
+        self.assertNotIn("BOOT_CURRENT_ZERO_FAST_ABS_COUNTS", text)
+        self.assertNotIn("g_u8BootCurrentZeroBusy", text)
 
     def test_sif_reports_capacity_as_raw_profile_value(self):
         text = read_text(SIF_SEND_C)
