@@ -12,6 +12,28 @@ public sealed class BmsModbusException : IOException
     { Function=function;Code=code; }
 }
 
+public sealed class SocHilProtocolException : IOException
+{
+    public byte Command { get; }
+    public byte Status { get; }
+    public SocHilProtocolException(byte command, byte status)
+        : base($"SOC HIL command 0x{command:X2} failed with status 0x{status:X2} ({StatusText(status)}).")
+    {
+        Command = command;
+        Status = status;
+    }
+
+    private static string StatusText(byte status) => status switch
+    {
+        1 => "bad_request",
+        2 => "auth_required_or_expired",
+        3 => "unsupported",
+        4 => "unsafe_real_current",
+        5 => "real_sample_invalid",
+        _ => "unknown"
+    };
+}
+
 public static class BmsRegisters
 {
     public const byte DeviceAddress = 0x01;
@@ -38,6 +60,9 @@ public static class BmsRegisters
     public const byte AfeHardwareFunction = 0x42;
     public const uint AfeHardwareUnlockMagic = 0x41464548; // "AFEH"
     public const ushort AfeHardwareSessionTimeoutSeconds = 60;
+    public const byte SocHilFunction = 0x43;
+    public const uint SocHilUnlockMagic = 0x534F4348; // "SOCH"
+    public const ushort SocHilSessionTimeoutSeconds = 8;
 }
 
 public static class ModbusRtu
@@ -149,6 +174,49 @@ public static class ModbusRtu
         return Frame(body);
     }
 
+    public static byte[] SocHilOpen(byte seedSoc, bool learningEnable)
+    {
+        Span<byte> body = stackalloc byte[9];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.SocHilFunction;
+        body[2] = 0x01;
+        BinaryPrimitives.WriteUInt32BigEndian(body[3..7], BmsRegisters.SocHilUnlockMagic);
+        body[7] = seedSoc;
+        body[8] = learningEnable ? (byte)1 : (byte)0;
+        return Frame(body);
+    }
+
+    public static byte[] SocHilCommand(byte command, ushort token)
+    {
+        Span<byte> body = stackalloc byte[5];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.SocHilFunction;
+        body[2] = command;
+        BinaryPrimitives.WriteUInt16BigEndian(body[3..5], token);
+        return Frame(body);
+    }
+
+    // Exactly 20 bytes including CRC: safe on the D008 legacy MTU=23 link.
+    public static byte[] SocHilSetSample(ushort token, byte sequence, int currentMa,
+        ushort cellMinMv, ushort cellMaxMv, byte temperatureRawDiv10, uint flags)
+    {
+        if (flags > 0x00FF_FFFFu) throw new ArgumentOutOfRangeException(nameof(flags));
+        Span<byte> body = stackalloc byte[18];
+        body[0] = BmsRegisters.DeviceAddress;
+        body[1] = BmsRegisters.SocHilFunction;
+        body[2] = 0x03;
+        BinaryPrimitives.WriteUInt16BigEndian(body[3..5], token);
+        body[5] = sequence;
+        BinaryPrimitives.WriteInt32BigEndian(body[6..10], currentMa);
+        BinaryPrimitives.WriteUInt16BigEndian(body[10..12], cellMinMv);
+        BinaryPrimitives.WriteUInt16BigEndian(body[12..14], cellMaxMv);
+        body[14] = temperatureRawDiv10;
+        body[15] = (byte)(flags >> 16);
+        body[16] = (byte)(flags >> 8);
+        body[17] = (byte)flags;
+        return Frame(body);
+    }
+
     public static ushort[] ParseRead(byte[] frame, ushort expectedQuantity)
     {
         ValidateFrame(frame);
@@ -223,6 +291,22 @@ public static class ModbusRtu
                 _ => 6
             };
         }
+        if (f == BmsRegisters.SocHilFunction)
+        {
+            if (buffer.Count < 4) return null;
+            byte command = buffer[2];
+            byte status = buffer[3];
+            if (status != 0) return 6;
+            return command switch
+            {
+                0x01 => 12,
+                0x02 => 10,
+                0x03 => 13,
+                0x04 => 44,
+                0x05 => 6,
+                _ => 6
+            };
+        }
         return null;
     }
 
@@ -244,6 +328,16 @@ public static class ModbusRtu
             throw new IOException("Invalid AFE hardware access response header.");
         if (frame[3] != 0)
             throw new IOException($"AFE hardware access command 0x{command:X2} failed with status 0x{frame[3]:X2}.");
+    }
+
+    public static void ValidateSocHilResponse(ReadOnlySpan<byte> frame, byte command)
+    {
+        ValidateFrame(frame);
+        if (frame.Length < 6 || frame[0] != BmsRegisters.DeviceAddress ||
+            frame[1] != BmsRegisters.SocHilFunction || frame[2] != command)
+            throw new IOException("Invalid SOC HIL response header.");
+        if (frame[3] != 0)
+            throw new SocHilProtocolException(command, frame[3]);
     }
 
     public static byte[] Frame(ReadOnlySpan<byte> body)

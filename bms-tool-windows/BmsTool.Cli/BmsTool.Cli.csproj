@@ -32,6 +32,7 @@
     <Compile Include="..\Shared\SocRecording.cs" Link="Shared\SocRecording.cs" />
     <Compile Include="..\Shared\ProductSupport.cs" Link="Shared\ProductSupport.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />
+    <Compile Include="..\Shared\BmsClient.SocHil.cs" Link="Shared\BmsClient.SocHil.cs" />
     <Compile Include="..\Shared\D008Parameters.cs" Link="Shared\D008Parameters.cs" />
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="Shared\BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />

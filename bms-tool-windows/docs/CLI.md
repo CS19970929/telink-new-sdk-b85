@@ -256,3 +256,5 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 
 
 开发固件的完整 SOC 输入采集：`record soc --inputs --mac MAC --count 300 --output inputs.csv --json`。要求显式MAC/serial；只读、默认release不支持。见 [SOC工作流](SOC_WORKFLOW.md)，包含缺口/退出码、GUI导入、生产C Replay及A/B限制。
+
+需要在真实 D008 MCU/200 ms 调度器上主动注入 SOC 场景时，使用 `test soc-hil --mac MAC --suite all --yes --output report.json --json`。该命令只支持专用开发固件，拒绝自动选设备，并在结束、异常、断链或超时后恢复原 SOC RAM 状态；协议与安全边界见 [SOC HIL CLI](SOC_HIL_CLI.md)。

@@ -41,6 +41,8 @@ Usage:
                   [--count 10] [--delay-ms 500] [--output report.json] [--json]
   bms-cli test soc (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--count 10] [--interval 1] [--output report.json] [--json]
+  bms-cli test soc-hil (--mac MAC | --serial COMx) --yes
+                  [--suite basic|all] [--seed 1..99] [--output report.json] [--json]
   bms-cli test diag (--mac MAC | --name NAME | --auto | --serial COMx)
                   [--count 3] [--interval 1] [--full] [--output report.json] [--json]
   bms-cli compare <before-diag.zip> <after-diag.zip>
@@ -542,13 +544,15 @@ Safety:
     private static async Task<int> TestAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {
         if (options.Positionals.Count != 1)
-            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc or diag.");
+            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc, soc-hil or diag.");
 
         string test = options.Positionals[0].ToLowerInvariant();
+        if (test == "soc-hil")
+            return await CliSocHil.RunAsync(options, reporter, ct);
         if (test == "soc" || test == "diag")
             return await RunSharedTestAsync(test, options, reporter, ct);
         if (test != "connection")
-            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc or diag.");
+            throw new CliException(ExitCodes.Usage, "usage", "test requires connection, soc, soc-hil or diag.");
 
         int count = options.GetInt("count", 10, 1, 1000);
         int delayMs = options.GetInt("delay-ms", 500, 0, 60000);
