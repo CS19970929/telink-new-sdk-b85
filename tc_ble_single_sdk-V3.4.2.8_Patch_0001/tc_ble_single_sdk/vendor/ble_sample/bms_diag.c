@@ -206,11 +206,21 @@ void bms_diag_poll_runtime(uint8_t sample_valid, int32_t current_ma,
                            uint32_t sample_tick_32k, uint8_t factory_mode)
 {
     bms_soc_diag_t soc;
+    bms_storage_diagnostics_t flash_diag;
+    uint8_t counter_changed = 0u;
     uint16_t flags;
     uint16_t eta;
     uint8_t dirty = 0u;
     uint16_t old_sample = s_words[193];
 
+    bms_storage_platform_get_diagnostics(&flash_diag);
+    counter_changed |= update32(160u, flash_diag.program_calls);
+    counter_changed |= update32(162u, flash_diag.erase_calls);
+    counter_changed |= update32(164u, flash_diag.verify_failures);
+    counter_changed |= update32(166u, flash_diag.deferred_writes);
+    counter_changed |= update32(168u, flash_diag.max_program_ticks_32k);
+    counter_changed |= update32(170u, flash_diag.max_erase_ticks_32k);
+    if (counter_changed) changed();
     memset(&soc, 0, sizeof(soc));
     bms_soc_get_diag(&soc);
 

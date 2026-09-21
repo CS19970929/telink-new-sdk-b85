@@ -137,5 +137,6 @@ extern Time_T sys_time;
 #define BMS_STATE_SAVE_INTERVAL_32K (60u * 32000u)
 #endif
 #ifndef BMS_STORAGE_RETRY_INTERVAL_32K
+#define BMS_EVENT_SAVE_INTERVAL_32K (60u * 32000u)
 #define BMS_STORAGE_RETRY_INTERVAL_32K (5u * 32000u)
 #endif

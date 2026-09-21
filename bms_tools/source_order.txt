@@ -39,12 +39,14 @@ vendor/ble_sample/dvc1124_config_service.c
 vendor/ble_sample/dvc1124_config_store.c
 vendor/ble_sample/dvc1124_special.c
 vendor/ble_sample/main.c
+vendor/ble_sample/bms_stack_monitor.c
 vendor/ble_sample/modbus_rtu.c
 vendor/ble_sample/modbus_uart.c
 vendor/ble_sample/param.c
 vendor/ble_sample/runtime.c
 vendor/ble_sample/sh3673510_bms.c
 vendor/ble_sample/sh3673510_control.c
+vendor/ble_sample/sh3673510_ntc.c
 vendor/ble_sample/sh3673510_feature_backend.c
 vendor/ble_sample/sh3673520.c
 vendor/ble_sample/sh3673520_port.c

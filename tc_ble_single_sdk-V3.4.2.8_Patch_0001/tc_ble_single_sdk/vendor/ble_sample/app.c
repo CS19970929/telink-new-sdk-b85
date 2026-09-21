@@ -1,3 +1,4 @@
+#include "sh3673510_ntc.h"
 /********************************************************************************************************
  * @file    app.c
  *
@@ -311,70 +312,7 @@ void mos_update(void)
 
 #define LENGTH_TBLTEMP_MCU_10K ((UINT16)60)
 // const UINT16 iSheldTemp_10K[LENGTH_TBLTEMP_PORT_10K] = {
-static const UINT16 iSheldTemp_10K_mcu[LENGTH_TBLTEMP_MCU_10K] = {
-	// AD		(Temp+40)*10
-	2037,
-	0, //-30
-	1526,
-	50, //-30
-	1161,
-	100, //-30
-	893,
-	150, //-25
-	694,
-	200, //-20
-	544,
-	250, //-15
-	430,
-	300, //-10
-	342,
-	350, //-5
-	275,
-	400, // 0
-	221,
-	450, // 5
-	180,
-	500, // 10
-	147,
-	550, // 15
-	121,
-	600, // 20
-	100,
-	650, // 25
-	83,
-	700, // 30
-	69,
-	750, // 35
-	58,
-	800, // 40
-	49,
-	850, // 45
-	41,
-	900, // 50
-	35,
-	950, // 55
-	30,
-	1000, // 60
-	26,
-	1050, // 65
-	22,
-	1100, // 70
-	19,
-	1150, // 75
-	16,
-	1200, // 80
-	14,
-	1250, // 85
-	12,
-	1300, // 90
-	11,
-	1350, // 95
-	9,
-	1400, // 100
-	8,
-	1450, // 105
 
-};
 
 void app_adc_multi_sample(void)
 {
@@ -385,10 +323,10 @@ void app_adc_multi_sample(void)
 
 	/* Legacy reporting mirror only. Protection and board features belong to
 	 * the SH3673510/common BMS layers; D014 has no enabled heater output. */
-	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(iSheldTemp_10K_mcu,
+	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(sh3673510_ntc_10k,
 										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 										 (UINT16)aux.battery_ntc_100ohm);
-	g_stCellInfoReport.u16Temperature[9] = bms_lookup_u16(iSheldTemp_10K_mcu,
+	g_stCellInfoReport.u16Temperature[9] = bms_lookup_u16(sh3673510_ntc_10k,
 										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 										 (UINT16)aux.mos_ntc_100ohm);
 

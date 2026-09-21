@@ -1,3 +1,4 @@
+#include "sh3673510_ntc.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
@@ -13,16 +14,7 @@ static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
 
 /* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
-static const uint16_t s_ntc_10k_table[] = {
-    2037u, 0u, 1526u, 50u, 1161u, 100u, 893u, 150u,
-    694u, 200u, 544u, 250u, 430u, 300u, 342u, 350u,
-    275u, 400u, 221u, 450u, 180u, 500u, 147u, 550u,
-    121u, 600u, 100u, 650u, 83u, 700u, 69u, 750u,
-    58u, 800u, 49u, 850u, 41u, 900u, 35u, 950u,
-    30u, 1000u, 26u, 1050u, 22u, 1100u, 19u, 1150u,
-    16u, 1200u, 14u, 1250u, 12u, 1300u, 11u, 1350u,
-    9u, 1400u, 8u, 1450u
-};
+
 
 static void sh3510_gpio_input(GPIO_PinTypeDef pin)
 {
@@ -87,18 +79,18 @@ static uint8_t sh3510_pick_ceiling_code(const uint16_t *table, uint8_t count,
 static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
 {
     uint8_t i;
-    const uint8_t pairs = (uint8_t)(sizeof(s_ntc_10k_table) / sizeof(s_ntc_10k_table[0]) / 2u);
+    const uint8_t pairs = (uint8_t)(sizeof(sh3673510_ntc_10k) / sizeof(sh3673510_ntc_10k[0]) / 2u);
 
-    if (temp_x10 <= s_ntc_10k_table[1]) return s_ntc_10k_table[0];
-    if (temp_x10 >= s_ntc_10k_table[(pairs - 1u) * 2u + 1u])
-        return s_ntc_10k_table[(pairs - 1u) * 2u];
+    if (temp_x10 <= sh3673510_ntc_10k[1]) return sh3673510_ntc_10k[0];
+    if (temp_x10 >= sh3673510_ntc_10k[(pairs - 1u) * 2u + 1u])
+        return sh3673510_ntc_10k[(pairs - 1u) * 2u];
 
     for (i = 0u; i + 1u < pairs; ++i)
     {
-        uint16_t r1 = s_ntc_10k_table[i * 2u];
-        uint16_t t1 = s_ntc_10k_table[i * 2u + 1u];
-        uint16_t r2 = s_ntc_10k_table[(i + 1u) * 2u];
-        uint16_t t2 = s_ntc_10k_table[(i + 1u) * 2u + 1u];
+        uint16_t r1 = sh3673510_ntc_10k[i * 2u];
+        uint16_t t1 = sh3673510_ntc_10k[i * 2u + 1u];
+        uint16_t r2 = sh3673510_ntc_10k[(i + 1u) * 2u];
+        uint16_t t2 = sh3673510_ntc_10k[(i + 1u) * 2u + 1u];
         if (temp_x10 >= t1 && temp_x10 <= t2)
         {
             uint32_t dt = (uint32_t)(temp_x10 - t1);
