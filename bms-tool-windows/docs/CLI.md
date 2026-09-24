@@ -30,6 +30,8 @@ bms-cli compare before.zip after.zip --scope all --output compare.md
 bms-cli ota firmware.bin --auto
 ```
 
+`scan --verbose --json` 可查看 Windows BLE 扫描器的状态。如果扫描器被系统中止，命令返回 `scan_failed` / exit code 13；只有扫描正常完成但没有兼容设备时，才返回成功且设备列表为空。
+
 指定设备：
 
 ```powershell
@@ -205,6 +207,7 @@ CLI 本身不调用 LLM；它负责给 AI 提供稳定、可重复、机器可�
 | 10 | 未找到设备 |
 | 11 | 找到多块设备，拒绝自动选择 |
 | 12 | BLE/串口/Modbus 连接失败 |
+| 13 | Windows BLE 扫描器被中止 |
 | 20 | BIN 无效 |
 | 21 | 产品/固件预检不匹配 |
 | 22 | 固件超尺寸 |

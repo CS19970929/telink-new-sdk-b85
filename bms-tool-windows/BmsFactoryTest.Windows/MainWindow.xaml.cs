@@ -213,6 +213,12 @@ public partial class MainWindow : Window
             _watcher = BmsBleTransport.CreateWatcher(
                 d => Dispatcher.BeginInvoke(() => UpsertDevice(d)),
                 msg => AppendLog(msg, "SCAN"));
+            _watcher.Stopped += (stoppedWatcher, args) => Dispatcher.BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_watcher, stoppedWatcher) &&
+                    stoppedWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Aborted && _bms is null)
+                    ConnectionText.Text = $"BLE 扫描已中止（{args.Error}），请检查蓝牙适配器和 Windows 蓝牙服务";
+            });
             AppendLog($"开始 BLE 主动扫描；filter=BT_/BT-；status(before)={_watcher.Status}", "SCAN");
             _watcher.Start();
             AppendLog($"扫描器已启动；status(after)={_watcher.Status}", "SCAN");

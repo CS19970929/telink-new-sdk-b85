@@ -10,6 +10,7 @@ internal static class ExitCodes
     public const int DeviceNotFound = 10;
     public const int MultipleDevices = 11;
     public const int ConnectFailed = 12;
+    public const int ScanFailed = 13;
     public const int FirmwareInvalid = 20;
     public const int ProductMismatch = 21;
     public const int FirmwareTooLarge = 22;

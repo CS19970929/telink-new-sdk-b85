@@ -50,17 +50,29 @@ internal static class CliRuntime
         BluetoothLEAdvertisementWatcher watcher = BmsBleTransport.CreateWatcher(
             d => devices.AddOrUpdate(d.Address, d, (_, old) => d.Rssi >= old.Rssi ? d : old),
             reporter.VerboseLog);
+        var scanAborted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.Stopped += (sender, args) =>
+        {
+            if (sender.Status == BluetoothLEAdvertisementWatcherStatus.Aborted)
+                scanAborted.TrySetResult(args.Error.ToString());
+        };
 
         reporter.Status($"Scanning BLE for {seconds}s...");
         watcher.Start();
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(seconds), ct);
+            Task duration = Task.Delay(TimeSpan.FromSeconds(seconds), ct);
+            Task completed = await Task.WhenAny(duration, scanAborted.Task);
+            await completed;
         }
         finally
         {
             try { watcher.Stop(); } catch { }
         }
+
+        if (scanAborted.Task.IsCompletedSuccessfully)
+            throw new CliException(ExitCodes.ScanFailed, "scan_failed",
+                $"Windows BLE scan aborted (error={scanAborted.Task.Result}). Check the Bluetooth adapter and Windows Bluetooth service, then retry.");
 
         await Task.Delay(100, CancellationToken.None);
         return devices.Values
