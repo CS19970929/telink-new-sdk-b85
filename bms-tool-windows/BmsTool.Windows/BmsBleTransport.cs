@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
+using Windows.Devices.Enumeration;
 using Windows.Security.Cryptography;
 
 namespace BmsTool.Windows;
@@ -11,6 +13,125 @@ namespace BmsTool.Windows;
 public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
 {
     public override string ToString() => $"{Name}    MAC {BmsBleTransport.FormatBluetoothAddress(Address)}    RSSI {Rssi} dBm";
+}
+
+public sealed class BmsBleScanner
+{
+    private const string AepSelector = "System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\"";
+    private const string AddressProperty = "System.Devices.Aep.DeviceAddress";
+    private const string RssiProperty = "System.Devices.Aep.SignalStrength";
+
+    private readonly BluetoothLEAdvertisementWatcher _advertisementWatcher;
+    private readonly DeviceWatcher _deviceWatcher;
+    private readonly Dictionary<string, DeviceInformation> _aepDevices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _aepLock = new();
+    private readonly Action<DiscoveredDevice> _found;
+    private readonly Action<string>? _diagnostics;
+    private volatile bool _stopping;
+    private volatile bool _aepStartFailed;
+    private volatile bool _advertisementStartFailed;
+
+    public string Status => $"AEP={_deviceWatcher.Status}; advertisement={_advertisementWatcher.Status}";
+    public event Action<string>? ScanFailed;
+
+    public BmsBleScanner(Action<DiscoveredDevice> found, Action<string>? diagnostics = null)
+    {
+        _found = found;
+        _diagnostics = diagnostics;
+        _advertisementWatcher = BmsBleTransport.CreateWatcher(found, diagnostics);
+        _deviceWatcher = DeviceInformation.CreateWatcher(
+            AepSelector, new[] { AddressProperty, RssiProperty }, DeviceInformationKind.AssociationEndpoint);
+
+        _deviceWatcher.Added += (_, device) =>
+        {
+            lock (_aepLock) _aepDevices[device.Id] = device;
+            ReportAepDevice(device);
+        };
+        _deviceWatcher.Updated += (_, update) =>
+        {
+            DeviceInformation? device;
+            lock (_aepLock)
+            {
+                if (!_aepDevices.TryGetValue(update.Id, out device)) return;
+                device.Update(update);
+            }
+            ReportAepDevice(device);
+        };
+        _deviceWatcher.Removed += (_, update) =>
+        {
+            lock (_aepLock) _aepDevices.Remove(update.Id);
+        };
+        _deviceWatcher.Stopped += (_, _) =>
+        {
+            _diagnostics?.Invoke($"[SCAN] AEP_STOPPED status={_deviceWatcher.Status}");
+            ReportFailureIfUnavailable();
+        };
+        _advertisementWatcher.Stopped += (_, _) => ReportFailureIfUnavailable();
+    }
+
+    public void Start()
+    {
+        _stopping = false;
+        _aepStartFailed = false;
+        _advertisementStartFailed = false;
+        lock (_aepLock) _aepDevices.Clear();
+        Exception? aepError = null;
+        try { _deviceWatcher.Start(); }
+        catch (Exception ex)
+        {
+            aepError = ex;
+            _aepStartFailed = true;
+            _diagnostics?.Invoke($"[SCAN] AEP_START_FAIL {ex.Message}");
+        }
+        try { _advertisementWatcher.Start(); }
+        catch (Exception ex)
+        {
+            _advertisementStartFailed = true;
+            _diagnostics?.Invoke($"[SCAN] ADVERTISEMENT_START_FAIL {ex.Message}");
+            if (aepError is not null) throw new IOException("Both Windows BLE discovery methods failed to start.", ex);
+        }
+        ReportFailureIfUnavailable();
+    }
+
+    public void Stop()
+    {
+        _stopping = true;
+        if (_deviceWatcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
+            _deviceWatcher.Stop();
+        if (_advertisementWatcher.Status is BluetoothLEAdvertisementWatcherStatus.Started or BluetoothLEAdvertisementWatcherStatus.Stopping)
+            _advertisementWatcher.Stop();
+    }
+
+    private void ReportAepDevice(DeviceInformation device)
+    {
+        if (!BmsBleTransport.IsBmsName(device.Name)) return;
+        if (!device.Properties.TryGetValue(AddressProperty, out object? addressValue) ||
+            addressValue is not string addressText)
+            return;
+        string addressHex = addressText.Replace(":", "");
+        if (addressHex.Length != 12 ||
+            !ulong.TryParse(addressHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong address))
+            return;
+        if (!device.Properties.TryGetValue(RssiProperty, out object? rssiValue)) return;
+        short rssi = rssiValue switch
+        {
+            short value => value,
+            int value when value >= short.MinValue && value <= short.MaxValue => (short)value,
+            _ => 0
+        };
+        if (rssi == 0) return;
+        _found(new DiscoveredDevice(address, device.Name, rssi));
+    }
+
+    private void ReportFailureIfUnavailable()
+    {
+        if (_stopping) return;
+        bool aepUnavailable = _aepStartFailed || _deviceWatcher.Status is DeviceWatcherStatus.Aborted or DeviceWatcherStatus.Stopped;
+        bool advertisementUnavailable = _advertisementStartFailed ||
+            _advertisementWatcher.Status is BluetoothLEAdvertisementWatcherStatus.Aborted or BluetoothLEAdvertisementWatcherStatus.Stopped;
+        if (aepUnavailable && advertisementUnavailable)
+            ScanFailed?.Invoke("Windows BLE 设备枚举和广播扫描均已中止");
+    }
 }
 
 public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
@@ -356,7 +477,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
             if (!pendingServiceChecks.TryAdd(address, 0)) return;
             await ConfirmBmsServiceAsync(address, args.RawSignalStrengthInDBm, name, callback, diagnostics, pendingServiceChecks);
         };
-        watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] STOPPED status={watcher.Status}; error={args.Error}");
+        watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] ADVERTISEMENT_STOPPED status={watcher.Status}; error={args.Error}");
         return watcher;
     }
 

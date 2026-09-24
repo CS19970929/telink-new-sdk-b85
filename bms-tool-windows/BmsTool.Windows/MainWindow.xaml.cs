@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _pollTimer;
     private readonly SessionLogger _sessionLog = new();
 
-    private BluetoothLEAdvertisementWatcher? _watcher;
+    private BmsBleScanner? _watcher;
     private IBmsTransport? _bmsTransport;
     private BmsClient? _bms;
     private ulong? _connectedAddress;
@@ -115,16 +115,15 @@ public partial class MainWindow : Window
 
             _devices.Clear();
             _deviceMap.Clear();
-            _watcher = BmsBleTransport.CreateWatcher(
+            _watcher = new BmsBleScanner(
                 d => Dispatcher.BeginInvoke(() => UpsertDevice(d)),
                 msg => AppendLog(msg, "SCAN"));
-            _watcher.Stopped += (stoppedWatcher, args) => Dispatcher.BeginInvoke(() =>
+            _watcher.ScanFailed += message => Dispatcher.BeginInvoke(() =>
             {
-                if (ReferenceEquals(_watcher, stoppedWatcher) &&
-                    stoppedWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Aborted && _bms is null)
-                    ConnectionText.Text = $"BLE 扫描已中止（{args.Error}），请检查蓝牙适配器和 Windows 蓝牙服务";
+                if (_bms is null)
+                    ConnectionText.Text = message;
             });
-            AppendLog($"开始 BLE 主动扫描；filter=BT_/BT-；status(before)={_watcher.Status}", "SCAN");
+            AppendLog($"开始 BLE 设备枚举与主动扫描；filter=BT_/BT-；status(before)={_watcher.Status}", "SCAN");
             _watcher.Start();
             AppendLog($"扫描器已启动；status(after)={_watcher.Status}", "SCAN");
             ConnectionText.Text = "正在扫描设备...";

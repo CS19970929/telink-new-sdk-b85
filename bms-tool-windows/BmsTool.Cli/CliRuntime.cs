@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using BmsTool.Windows;
-using Windows.Devices.Bluetooth.Advertisement;
 
 namespace BmsTool.Cli;
 
@@ -47,18 +46,14 @@ internal static class CliRuntime
         CancellationToken ct)
     {
         var devices = new ConcurrentDictionary<ulong, DiscoveredDevice>();
-        BluetoothLEAdvertisementWatcher watcher = BmsBleTransport.CreateWatcher(
+        var scanner = new BmsBleScanner(
             d => devices.AddOrUpdate(d.Address, d, (_, old) => d.Rssi >= old.Rssi ? d : old),
             reporter.VerboseLog);
         var scanAborted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        watcher.Stopped += (sender, args) =>
-        {
-            if (sender.Status == BluetoothLEAdvertisementWatcherStatus.Aborted)
-                scanAborted.TrySetResult(args.Error.ToString());
-        };
+        scanner.ScanFailed += message => scanAborted.TrySetResult(message);
 
         reporter.Status($"Scanning BLE for {seconds}s...");
-        watcher.Start();
+        scanner.Start();
         try
         {
             Task duration = Task.Delay(TimeSpan.FromSeconds(seconds), ct);
@@ -67,12 +62,12 @@ internal static class CliRuntime
         }
         finally
         {
-            try { watcher.Stop(); } catch { }
+            try { scanner.Stop(); } catch { }
         }
 
         if (scanAborted.Task.IsCompletedSuccessfully)
             throw new CliException(ExitCodes.ScanFailed, "scan_failed",
-                $"Windows BLE scan aborted (error={scanAborted.Task.Result}). Check the Bluetooth adapter and Windows Bluetooth service, then retry.");
+                $"{scanAborted.Task.Result}. Check the Bluetooth adapter and Windows Bluetooth service, then retry.");
 
         await Task.Delay(100, CancellationToken.None);
         return devices.Values
