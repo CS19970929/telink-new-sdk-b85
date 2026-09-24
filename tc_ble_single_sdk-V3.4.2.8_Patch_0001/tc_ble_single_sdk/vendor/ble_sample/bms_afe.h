@@ -48,7 +48,7 @@ typedef struct { uint16_t battery_ntc_mv; uint16_t mos_ntc_mv; uint32_t battery_
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *measurements);
 
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
-typedef struct { uint8_t valid; uint8_t cell_count; uint8_t battery_temp_valid; uint8_t heater_temp_valid; uint8_t mos_temp_valid; uint8_t mos_temp_not_required; uint16_t battery_temp_min_x10; uint16_t battery_temp_max_x10; uint16_t heater_temp_x10; uint16_t mos_temp_x10; } bms_afe_feature_snapshot_t;
+typedef struct { uint8_t valid; uint8_t cell_count; uint8_t battery_temp_valid; uint8_t heater_temp_valid; uint8_t mos_temp_valid; uint16_t battery_temp_min_x10; uint16_t battery_temp_max_x10; uint16_t heater_temp_x10; uint16_t mos_temp_x10; } bms_afe_feature_snapshot_t;
 typedef enum { BMS_AFE_DIAG_IDLE=0u, BMS_AFE_DIAG_BUSY=1u, BMS_AFE_DIAG_READY=2u, BMS_AFE_DIAG_ERROR=3u } bms_afe_diag_state_t;
 typedef struct { uint8_t valid; uint8_t determinate; uint8_t cell_count; uint32_t open_cell_mask; uint16_t diagnostic_cell_mv[BMS_AFE_FEATURE_MAX_CELLS]; } bms_afe_openwire_result_t;
 
@@ -71,7 +71,8 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void); uint8_t sh3673510_bms_a
 uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *, uint8_t *, uint8_t *, uint8_t *);
 typedef struct {
     uint8_t flag1, flag2, bstatus2;
-    uint16_t backend_state, sensor_state;
+    uint16_t backend_state, sensor_state, mos_ntc_raw, mos_temp_x10;
+    uint32_t mos_ntc_ohm;
     uint32_t charge_block_reasons, discharge_block_reasons;
 } sh3673510_fet_diag_detail_t;
 uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail);

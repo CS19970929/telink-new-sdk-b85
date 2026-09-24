@@ -19,7 +19,7 @@
 | LED | PC4=DB-LED1 |
 | 均衡 | B1..B8 均有均衡驱动，软件允许 8S balance |
 | 加热 | D014 原理图没有 D011 的 PB4/HT-CHG、PB5/HT-RF-EN 证据，TS3 标为 NC；固件强制关闭 heater |
-| 温度 | TS1/TS2 为 10K-3435；TS3 不使用；TS4 标注 MOS，但 RN4 图纸值为 10M，未完成 BOM/实板确认 |
+| 温度 | TS1/TS2 为电池 10K-3435；TS3 不使用；用户确认 TS4 实装为 MOS 10K-3435。图纸 RN4 标 10M，需核对图纸/BOM 差异 |
 
 ## 2. 8S 与未使用通道
 
@@ -76,13 +76,9 @@ D014 与 D011 的关键差异之一是 heater 证据不成立：
 - 因此 `SH3673510_PRODUCT_HEATER_SUPPORTED=0`；
 - board/control/app 三层均不得初始化或驱动 D011 heater/fuse GPIO。
 
-TS4 虽标为 `TS4-MOS`，但 RN4 图纸值为 10M，而现有温度换算按 10K NTC 表。未拿到 D014 BOM/实测前：
+用户确认 TS4 实装为 10K-3435 MOS NTC，因此 `SH3673510_PRODUCT_MOS_NTC_SUPPORTED=1`。TS4 温度只参与独立 MOS 高温软件保护，不并入 TS1/TS2 的电池高低温范围；TS4 开短路会触发温度断线并关断 CHG/DSG。图纸 RN4=10M 与实装信息不一致，仍需温度点和开短路实测。
 
-- `SH3673510_PRODUCT_MOS_NTC_SUPPORTED=0`；
-- MOS temperature 不作为可信软件保护输入；
-- AFE common hardware temperature protection仍只使用已确认的 TS1/TS2。
-
-若后续确认 RN4 实装为 10K-3435，只需在产品 profile 中显式开启 MOS NTC，并补 contract + 实板温度点校验。
+AFE 的 TS1/TS2/TS4 共用 OTC/UTC 阈值，当前 AFE 硬件温度保护只启用 TS1/TS2。TS4 的高温保护使用独立 `u16TmosOTp_*` 软件阈值，不能直接打开 TS4 硬件位并误用电池低温阈值。
 
 ## 6. Balance
 
