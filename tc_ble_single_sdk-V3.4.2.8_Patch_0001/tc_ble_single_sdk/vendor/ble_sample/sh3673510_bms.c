@@ -19,6 +19,7 @@
 #define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 #define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
+#define SH3510_MISSING_CELL_MV       61001u /* D000..D01F unused-cell wire sentinel */
 
 typedef enum {
     HW_REC_OV = 0, HW_REC_UV, HW_REC_OCD1, HW_REC_OCD2,
@@ -499,7 +500,8 @@ static uint8_t publish_measurements(void)
         if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
         if (mv < min_mv) { min_mv = mv; min_pos = (uint8_t)(i + 1u); }
     }
-    for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 0u;
+    for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i)
+        g_stCellInfoReport.u16VCell[i] = SH3510_MISSING_CELL_MV;
     g_stCellInfoReport.u16VCellMax = max_mv;
     g_stCellInfoReport.u16VCellMin = min_mv;
     g_stCellInfoReport.u16VCellMaxPosition = max_pos;
@@ -611,7 +613,11 @@ static uint8_t publish_measurements(void)
 
 void sh3673510_bms_afe_init(void)
 {
+    uint8_t i;
+
     bms_sw_protection_init();
+    for (i = SH3673510_D011_CELL_COUNT; i < 32u; ++i)
+        g_stCellInfoReport.u16VCell[i] = SH3510_MISSING_CELL_MV;
     memset(&s_aux, 0, sizeof(s_aux));
     s_snapshot_valid = 0u;
     s_balance_mask = 0u;

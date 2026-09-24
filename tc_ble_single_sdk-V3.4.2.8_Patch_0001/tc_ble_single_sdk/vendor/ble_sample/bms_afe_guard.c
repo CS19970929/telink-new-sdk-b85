@@ -213,7 +213,10 @@ void bms_afe_sample(void)
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     }
 
-    bms_features_service();
+    /* Qualification is not a failed AFE sample. Calling the feature service
+     * while comm_inhibit is set makes its snapshot read fail and latches a
+     * false open-wire suspicion, keeping both FETs OFF after healthy boot. */
+    if (!s_guard.comm_inhibit) bms_features_service();
     if (!apply_requested()) note_invalid();
 }
 
