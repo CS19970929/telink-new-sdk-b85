@@ -45,80 +45,83 @@ u16 bms_afe_hw_profile_capabilities(void)
 #endif
 }
 
-static u16 sh_sc_multiplier(void)
+void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    static const u16 values[4] = {2u, 3u, 4u, 6u};
-    u8 code = SH3673510_D011_SC_MULTIPLIER_CODE;
-    return (code < 4u) ? values[code] : 2u;
-#else
-    return 0u;
-#endif
-}
-
-static u16 sh_sc_delay_us(void)
-{
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    static const u16 values[8] = {2u, 4u, 8u, 16u, 32u, 64u, 128u, 256u};
-    u8 code = SH3673510_D011_SC_DELAY_CODE;
-    return (code < 8u) ? values[code] : 256u;
-#else
-    return 0u;
-#endif
-}
-
-void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
-{
-    const struct PRT_E2ROM_PARAS *s = &g_tParam.protect;
     if (p == 0) return;
     memset(p, 0, sizeof(*p));
     p->schema_version = BMS_AFE_HW_PROFILE_SCHEMA_VERSION;
     p->afe_model = bms_afe_hw_profile_expected_model();
-    p->cov_mv = s->u16VcellOvp_Third;
-    p->cov_delay_ms = ms10_to_ms(s->u16VcellOvp_Filter);
-    p->cov_recover_mv = s->u16VcellOvp_Rcv;
-    p->cov_recover_ms = ms10_to_ms(s->u16VcellOvp_Filter);
-    p->cuv_mv = s->u16VcellUvp_Third;
-    p->cuv_delay_ms = ms10_to_ms(s->u16VcellUvp_Filter);
-    p->cuv_recover_mv = s->u16VcellUvp_Rcv;
-    p->cuv_recover_ms = ms10_to_ms(s->u16VcellUvp_Filter);
-    p->ocd1_a10 = s->u16IdsgOcp_First;
-    p->ocd1_delay_ms = ms10_to_ms(s->u16IdsgOcp_Filter);
-    p->ocd2_a10 = s->u16IdsgOcp_Second;
-    p->ocd2_delay_ms = ms10_to_ms(s->u16IdsgOcp_Filter);
-    p->ocd_recover_a10 = s->u16IdsgOcp_Rcv;
-    p->occ1_a10 = s->u16IchgOcp_First;
-    p->occ1_delay_ms = ms10_to_ms(s->u16IchgOcp_Filter);
-    p->occ2_a10 = s->u16IchgOcp_Second;
-    p->occ2_delay_ms = ms10_to_ms(s->u16IchgOcp_Filter);
-    p->occ_recover_a10 = s->u16IchgOcp_Rcv;
+
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    p->ocd_recover_ms = 0u;
-    p->occ_recover_ms = 0u;
-    if (DVC1124_HW_SCD_THRESHOLD_MV != 0u && DVC1124_DEFAULT_SHUNT_UOHM != 0u)
-        p->sc_a10 = (u16)(((u32)DVC1124_HW_SCD_THRESHOLD_MV * 10000u) /
-                          DVC1124_DEFAULT_SHUNT_UOHM);
-    p->sc_delay_us = DVC1124_HW_SCD_DELAY_US;
-    p->sc_recover_ms = 0u;
-    p->enable_mask = (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
-                           BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
-                           BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_OCC2);
-    if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
+    {
+        const struct PRT_E2ROM_PARAS *s = &g_tParam.protect;
+        p->cov_mv = s->u16VcellOvp_Third;
+        p->cov_delay_ms = ms10_to_ms(s->u16VcellOvp_Filter);
+        p->cov_recover_mv = s->u16VcellOvp_Rcv;
+        p->cov_recover_ms = ms10_to_ms(s->u16VcellOvp_Filter);
+        p->cuv_mv = s->u16VcellUvp_Third;
+        p->cuv_delay_ms = ms10_to_ms(s->u16VcellUvp_Filter);
+        p->cuv_recover_mv = s->u16VcellUvp_Rcv;
+        p->cuv_recover_ms = ms10_to_ms(s->u16VcellUvp_Filter);
+        p->ocd1_a10 = s->u16IdsgOcp_First;
+        p->ocd1_delay_ms = ms10_to_ms(s->u16IdsgOcp_Filter);
+        p->ocd2_a10 = s->u16IdsgOcp_Second;
+        p->ocd2_delay_ms = ms10_to_ms(s->u16IdsgOcp_Filter);
+        p->ocd_recover_a10 = s->u16IdsgOcp_Rcv;
+        p->ocd_recover_ms = 0u;
+        p->occ1_a10 = s->u16IchgOcp_First;
+        p->occ1_delay_ms = ms10_to_ms(s->u16IchgOcp_Filter);
+        p->occ2_a10 = s->u16IchgOcp_Second;
+        p->occ2_delay_ms = ms10_to_ms(s->u16IchgOcp_Filter);
+        p->occ_recover_a10 = s->u16IchgOcp_Rcv;
+        p->occ_recover_ms = 0u;
+        if (DVC1124_HW_SCD_THRESHOLD_MV != 0u && DVC1124_DEFAULT_SHUNT_UOHM != 0u)
+            p->sc_a10 = (u16)(((u32)DVC1124_HW_SCD_THRESHOLD_MV * 10000u) /
+                              DVC1124_DEFAULT_SHUNT_UOHM);
+        p->sc_delay_us = DVC1124_HW_SCD_DELAY_US;
+        p->sc_recover_ms = 0u;
+        p->enable_mask = (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
+                               BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
+                               BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_OCC2);
+        if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
+    }
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    p->ocd_recover_ms = 2000u;
-    p->occ_recover_ms = ms10_to_ms(s->u16IchgOcp_Filter);
-    p->sc_a10 = (u16)((u32)p->ocd2_a10 * sh_sc_multiplier());
-    p->sc_delay_us = sh_sc_delay_us();
-    p->sc_recover_ms = 2000u;
-    p->chg_ot_x10 = s->u16TChgOTp_Third;
-    p->chg_ot_recover_x10 = s->u16TChgOTp_Rcv;
-    p->chg_ut_x10 = s->u16TchgUTp_Third;
-    p->chg_ut_recover_x10 = s->u16TchgUTp_Rcv;
-    p->dsg_ot_x10 = s->u16TdischgOTp_Third;
-    p->dsg_ot_recover_x10 = s->u16TdischgOTp_Rcv;
-    p->dsg_ut_x10 = s->u16TdischgUTp_Third;
-    p->dsg_ut_recover_x10 = s->u16TdischgUTp_Rcv;
-    p->temp_recover_ms = ms10_to_ms(s->u16TChgOTp_Filter);
+    /*
+     * D014 hardware-protection defaults are product configuration, not a copy
+     * of the software First/Second/Third protection table.
+     */
+    p->cov_mv = SH3673510_HW_DEFAULT_COV_MV;
+    p->cov_delay_ms = SH3673510_HW_DEFAULT_COV_DELAY_MS;
+    p->cov_recover_mv = SH3673510_HW_DEFAULT_COV_RECOVER_MV;
+    p->cov_recover_ms = SH3673510_HW_DEFAULT_COV_RECOVER_MS;
+    p->cuv_mv = SH3673510_HW_DEFAULT_CUV_MV;
+    p->cuv_delay_ms = SH3673510_HW_DEFAULT_CUV_DELAY_MS;
+    p->cuv_recover_mv = SH3673510_HW_DEFAULT_CUV_RECOVER_MV;
+    p->cuv_recover_ms = SH3673510_HW_DEFAULT_CUV_RECOVER_MS;
+    p->ocd1_a10 = SH3673510_HW_DEFAULT_OCD1_A10;
+    p->ocd1_delay_ms = SH3673510_HW_DEFAULT_OCD1_DELAY_MS;
+    p->ocd2_a10 = SH3673510_HW_DEFAULT_OCD2_A10;
+    p->ocd2_delay_ms = SH3673510_HW_DEFAULT_OCD2_DELAY_MS;
+    p->ocd_recover_a10 = SH3673510_HW_DEFAULT_OCD_RECOVER_A10;
+    p->ocd_recover_ms = SH3673510_HW_DEFAULT_OCD_RECOVER_MS;
+    p->occ1_a10 = SH3673510_HW_DEFAULT_OCC1_A10;
+    p->occ1_delay_ms = SH3673510_HW_DEFAULT_OCC1_DELAY_MS;
+    p->occ2_a10 = 0u;
+    p->occ2_delay_ms = 0u;
+    p->occ_recover_a10 = SH3673510_HW_DEFAULT_OCC_RECOVER_A10;
+    p->occ_recover_ms = SH3673510_HW_DEFAULT_OCC_RECOVER_MS;
+    p->sc_a10 = SH3673510_HW_DEFAULT_SC_A10;
+    p->sc_delay_us = SH3673510_HW_DEFAULT_SC_DELAY_US;
+    p->sc_recover_ms = SH3673510_HW_DEFAULT_SC_RECOVER_MS;
+    p->chg_ot_x10 = SH3673510_HW_DEFAULT_CHG_OT_X10;
+    p->chg_ot_recover_x10 = SH3673510_HW_DEFAULT_CHG_OT_RECOVER_X10;
+    p->chg_ut_x10 = SH3673510_HW_DEFAULT_CHG_UT_X10;
+    p->chg_ut_recover_x10 = SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10;
+    p->dsg_ot_x10 = SH3673510_HW_DEFAULT_DSG_OT_X10;
+    p->dsg_ot_recover_x10 = SH3673510_HW_DEFAULT_DSG_OT_RECOVER_X10;
+    p->dsg_ut_x10 = SH3673510_HW_DEFAULT_DSG_UT_X10;
+    p->dsg_ut_recover_x10 = SH3673510_HW_DEFAULT_DSG_UT_RECOVER_X10;
+    p->temp_recover_ms = SH3673510_HW_DEFAULT_TEMP_RECOVER_MS;
     p->enable_mask = (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
                            BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
                            BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_SC |
@@ -126,12 +129,49 @@ void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
 #endif
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+static u16 sh3510_effective_current_a10(u16 requested_a10, u32 step_uv, u8 max_code)
+{
+    u32 sense_uv;
+    u32 steps;
+    u32 actual_uv;
+    u32 actual_a10;
+
+    if ((step_uv == 0u) || (SH3673510_D011_SHUNT_UOHM == 0u)) return 0u;
+    sense_uv = ((u32)requested_a10 * SH3673510_D011_SHUNT_UOHM + 5u) / 10u;
+    steps = (sense_uv + step_uv - 1u) / step_uv;
+    if (steps == 0u) steps = 1u;
+    if (steps > (u32)max_code + 1u) steps = (u32)max_code + 1u;
+    actual_uv = steps * step_uv;
+    actual_a10 = (actual_uv * 10u + SH3673510_D011_SHUNT_UOHM - 1u) /
+                 SH3673510_D011_SHUNT_UOHM;
+    return (u16)((actual_a10 > 65535u) ? 65535u : actual_a10);
+}
+#endif
+
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&
         (p->cov_mv == 0u || p->cov_recover_mv >= p->cov_mv)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_CUV) &&
         (p->cuv_mv == 0u || p->cuv_recover_mv <= p->cuv_mv)) return 0u;
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    /*
+     * Recovery must be below the threshold the AFE can actually encode.
+     * Comparing against the requested value is wrong when the AFE rounds a
+     * request upward to the next hardware step (D014 OCD1/OCC1 hit this case).
+     */
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
+        (p->ocd1_a10 == 0u ||
+         p->ocd_recover_a10 >= sh3510_effective_current_a10(p->ocd1_a10, 5000u, 15u))) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
+        (p->ocd2_a10 == 0u ||
+         p->ocd_recover_a10 >= sh3510_effective_current_a10(p->ocd2_a10, 10000u, 15u))) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
+        (p->occ1_a10 == 0u ||
+         p->occ_recover_a10 >= sh3510_effective_current_a10(p->occ1_a10, 1375u, 31u))) return 0u;
+#else
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
@@ -140,6 +180,8 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
         (p->occ1_a10 == 0u || p->occ_recover_a10 >= p->occ1_a10)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) &&
         (p->occ2_a10 == 0u || p->occ_recover_a10 >= p->occ2_a10)) return 0u;
+#endif
+
     if (p->enable_mask & BMS_AFE_HW_EN_TEMP) {
         if (p->chg_ot_recover_x10 >= p->chg_ot_x10 ||
             p->dsg_ot_recover_x10 >= p->dsg_ot_x10 ||
@@ -199,8 +241,9 @@ u8 bms_afe_hw_profile_init(void)
 {
     bms_afe_hw_profile_t p;
     if (!bms_cold_kv_store_get_afe_hw_profile(&p)) return 0u;
-    if (p.schema_version == 0u && p.afe_model == 0u) {
-        bms_afe_hw_profile_build_migration_default(&p);
+    if (p.schema_version != BMS_AFE_HW_PROFILE_SCHEMA_VERSION ||
+        p.afe_model != bms_afe_hw_profile_expected_model()) {
+        bms_afe_hw_profile_build_default(&p);
         if (!bms_afe_hw_profile_validate(&p)) return 0u;
         return bms_cold_kv_store_set_afe_hw_profile(&p) ? 1u : 0u;
     }
