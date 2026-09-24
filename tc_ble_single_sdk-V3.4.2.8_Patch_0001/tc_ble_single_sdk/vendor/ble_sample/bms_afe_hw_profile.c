@@ -126,6 +126,14 @@ void bms_afe_hw_profile_build_migration_default(bms_afe_hw_profile_t *p)
 #endif
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/* SH36735xx accepts a recovery value equal to the requested trip value.
+ * Runtime recovery also requires current below the effective AFE trip. */
+#define BMS_AFE_CURRENT_RECOVERY_INVALID(recover, trip) ((recover) > (trip))
+#else
+#define BMS_AFE_CURRENT_RECOVERY_INVALID(recover, trip) ((recover) >= (trip))
+#endif
+
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&
@@ -133,13 +141,17 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
     if ((p->enable_mask & BMS_AFE_HW_EN_CUV) &&
         (p->cuv_mv == 0u || p->cuv_recover_mv <= p->cuv_mv)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
-        (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return 0u;
+        (p->ocd1_a10 == 0u ||
+         BMS_AFE_CURRENT_RECOVERY_INVALID(p->ocd_recover_a10, p->ocd1_a10))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
-        (p->ocd2_a10 == 0u || p->ocd_recover_a10 >= p->ocd2_a10)) return 0u;
+        (p->ocd2_a10 == 0u ||
+         BMS_AFE_CURRENT_RECOVERY_INVALID(p->ocd_recover_a10, p->ocd2_a10))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
-        (p->occ1_a10 == 0u || p->occ_recover_a10 >= p->occ1_a10)) return 0u;
+        (p->occ1_a10 == 0u ||
+         BMS_AFE_CURRENT_RECOVERY_INVALID(p->occ_recover_a10, p->occ1_a10))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) &&
-        (p->occ2_a10 == 0u || p->occ_recover_a10 >= p->occ2_a10)) return 0u;
+        (p->occ2_a10 == 0u ||
+         BMS_AFE_CURRENT_RECOVERY_INVALID(p->occ_recover_a10, p->occ2_a10))) return 0u;
     if (p->enable_mask & BMS_AFE_HW_EN_TEMP) {
         if (p->chg_ot_recover_x10 >= p->chg_ot_x10 ||
             p->dsg_ot_recover_x10 >= p->dsg_ot_x10 ||
