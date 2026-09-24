@@ -97,7 +97,7 @@ void bms_diag_init(void)
     s_words[15] = 0x8251u;
     s_words[17] = 1u;
     put32(&s_words[22], BMS_DIAG_BUILD_ID);
-    s_words[29] = BMS_DIAG_INFO_GENERIC_FET_BITS;
+    s_words[29] = BMS_DIAG_INFO_GENERIC_FET_BITS | BMS_DIAG_INFO_SH_FET_DETAIL;
     s_words[BMS_DIAG_RUNTIME_OFFSET] = BMS_DIAG_RUNTIME_VERSION;
     s_words[237] = 0xFFFFu;
     s_words[238] = 0xFFFFu;
@@ -176,26 +176,42 @@ static void poll_fets(void)
     uint8_t command = 0u, command_valid = 0u;
     uint8_t driver = 0u, driver_valid = 0u;
     uint16_t requested;
+    uint16_t guard_state;
+    sh3673510_fet_diag_detail_t detail;
     uint32_t charge_reason = 0u, discharge_reason = 0u;
 
     bms_afe_get_requested_fets(&requested_c, &requested_d);
     (void)sh3673510_bms_afe_get_fet_diagnostics(
         &command, &command_valid, &driver, &driver_valid);
+    (void)sh3673510_bms_afe_get_fet_diag_detail(&detail);
+    guard_state = bms_afe_get_guard_diagnostic_bits();
     requested = (uint16_t)((requested_c ? 1u : 0u) |
                            (requested_d ? 2u : 0u));
     if (requested_c && (!command_valid || !(command & 1u))) {
-        charge_reason = bms_features_diag_reasons(1u);
+        charge_reason = detail.charge_block_reasons |
+                        bms_features_diag_reasons(1u);
+        if (!(guard_state & DIAG_GUARD_OUTPUT_ENABLED)) charge_reason |= DIAG_BLOCK_OUTPUT;
+        if (guard_state & (DIAG_GUARD_COMM_INHIBIT | DIAG_GUARD_BUS_SILENCED))
+            charge_reason |= DIAG_BLOCK_COMM;
         if (charge_reason == 0u) charge_reason = DIAG_BLOCK_BACKEND;
     }
     if (requested_d && (!command_valid || !(command & 2u))) {
-        discharge_reason = bms_features_diag_reasons(0u);
+        discharge_reason = detail.discharge_block_reasons |
+                           bms_features_diag_reasons(0u);
+        if (!(guard_state & DIAG_GUARD_OUTPUT_ENABLED)) discharge_reason |= DIAG_BLOCK_OUTPUT;
+        if (guard_state & (DIAG_GUARD_COMM_INHIBIT | DIAG_GUARD_BUS_SILENCED))
+            discharge_reason |= DIAG_BLOCK_COMM;
         if (discharge_reason == 0u) discharge_reason = DIAG_BLOCK_BACKEND;
     }
 
     if (s_words[128] != requested || s_words[130] != command ||
         s_words[131] != command_valid || s_words[132] != driver ||
         s_words[133] != driver_valid || get32(&s_words[136]) != charge_reason ||
-        get32(&s_words[138]) != discharge_reason) {
+        get32(&s_words[138]) != discharge_reason ||
+        s_words[142] != detail.flag1 || s_words[143] != detail.flag2 ||
+        s_words[145] != detail.bstatus2 ||
+        s_words[146] != detail.backend_state || s_words[147] != guard_state ||
+        s_words[148] != detail.sensor_state) {
         s_words[128] = requested;
         s_words[129] = command_valid ? command : 0u;
         s_words[130] = command;
@@ -204,6 +220,12 @@ static void poll_fets(void)
         s_words[133] = driver_valid;
         put32(&s_words[136], charge_reason);
         put32(&s_words[138], discharge_reason);
+        s_words[142] = detail.flag1;
+        s_words[143] = detail.flag2;
+        s_words[145] = detail.bstatus2;
+        s_words[146] = detail.backend_state;
+        s_words[147] = guard_state;
+        s_words[148] = detail.sensor_state;
         put32(&s_words[140], pm_get_32k_tick());
         trace(DIAG_EV_MOS, (uint32_t)requested | ((uint32_t)command << 16), driver);
     }

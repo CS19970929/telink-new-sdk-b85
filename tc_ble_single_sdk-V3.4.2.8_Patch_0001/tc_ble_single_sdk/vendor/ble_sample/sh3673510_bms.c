@@ -5,6 +5,7 @@
 #include "conf.h"
 #include "param.h"
 #include "bms_error.h"
+#include "bms_diag.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
 #include "bms_features.h"
@@ -46,6 +47,8 @@ static uint8_t s_hw_charge_protect;
 static uint8_t s_hw_discharge_protect;
 static uint8_t s_afe_reconfigure_required;
 static uint8_t s_bstatus2;
+static uint8_t s_flag1;
+static uint8_t s_flag2;
 static uint8_t s_fet_command_valid;
 static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
@@ -217,6 +220,8 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 #endif
 
     if (s == 0) return;
+    s_flag1 = s->flag1;
+    s_flag2 = s->flag2;
     s_bstatus2 = s->bstatus2;
     g_bms_system_status.bits.b1Status_MOS_CHG =
         (s->bstatus1 & SH3673520_BSTATUS1_CHG_FET_MASK) ? 1u : 0u;
@@ -594,6 +599,7 @@ static uint8_t publish_measurements(void)
             sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
 #else
         sw.mos_temp_valid = 0u;
+        sw.mos_temp_not_required = 1u;
         sw.mos_temp = 0u;
 #endif
 #if SH3673510_SW_PROTECT_ENABLE
@@ -634,6 +640,8 @@ void sh3673510_bms_afe_init(void)
     s_hw_discharge_protect = 0u;
     s_afe_reconfigure_required = 0u;
     s_bstatus2 = 0u;
+    s_flag1 = 0u;
+    s_flag2 = 0u;
     s_fet_command_valid = 0u;
     s_last_charge_command = 0u;
     s_last_discharge_command = 0u;
@@ -716,6 +724,54 @@ uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
     *driver_bits = (uint8_t)((g_bms_system_status.bits.b1Status_MOS_CHG ? 1u : 0u) |
                              (g_bms_system_status.bits.b1Status_MOS_DSG ? 2u : 0u));
     *driver_valid = s_snapshot_valid;
+    return 1u;
+}
+
+uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail)
+{
+    uint32_t common = 0u;
+    if (detail == 0) return 0u;
+    memset(detail, 0, sizeof(*detail));
+    detail->flag1 = s_flag1;
+    detail->flag2 = s_flag2;
+    detail->bstatus2 = s_bstatus2;
+
+    if (s_output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
+    if (s_snapshot_valid) detail->backend_state |= DIAG_SH_SNAPSHOT_VALID;
+    if (s_output_inhibit) detail->backend_state |= DIAG_SH_OUTPUT_INHIBIT;
+    if (s_hw_afe_error) detail->backend_state |= DIAG_SH_E2P_ERROR;
+    if (s_hw_charge_protect) detail->backend_state |= DIAG_SH_CHARGE_HW_BLOCK;
+    if (s_hw_discharge_protect) detail->backend_state |= DIAG_SH_DISCHARGE_HW_BLOCK;
+    if (s_short_latched) detail->backend_state |= DIAG_SH_SHORT_LATCHED;
+    if (s_afe_reconfigure_required) detail->backend_state |= DIAG_SH_RECONFIGURE;
+    if (bms_error_get(BMS_ERROR_TEMP_BREAK)) detail->backend_state |= DIAG_SH_TEMP_BREAK;
+    if (bms_error_get(BMS_ERROR_AFE1)) detail->backend_state |= DIAG_SH_AFE_ERROR;
+    if (bms_error_get(BMS_ERROR_SPI)) detail->backend_state |= DIAG_SH_SPI_ERROR;
+    if (s_ntc_valid[SH3673510_D011_BAT_NTC1_INDEX])
+        detail->sensor_state |= DIAG_SH_TS1_VALID;
+    if (s_ntc_valid[SH3673510_D011_BAT_NTC2_INDEX])
+        detail->sensor_state |= DIAG_SH_TS2_VALID;
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
+    detail->sensor_state |= DIAG_SH_MOS_NTC_SUPPORTED;
+    if (s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX])
+        detail->sensor_state |= DIAG_SH_MOS_NTC_VALID;
+#endif
+
+    if (!s_output_enabled) common |= DIAG_BLOCK_OUTPUT;
+    if (!s_snapshot_valid || s_output_inhibit || s_hw_afe_error ||
+        s_afe_reconfigure_required || bms_error_get(BMS_ERROR_AFE1) ||
+        bms_error_get(BMS_ERROR_SPI)) common |= DIAG_BLOCK_COMM;
+    if (bms_error_get(BMS_ERROR_TEMP_BREAK)) common |= DIAG_BLOCK_TEMP;
+    detail->charge_block_reasons = common;
+    detail->discharge_block_reasons = common;
+    if (bms_sw_protection_charge_blocked())
+        detail->charge_block_reasons |= DIAG_BLOCK_SW;
+    if (bms_sw_protection_discharge_blocked())
+        detail->discharge_block_reasons |= DIAG_BLOCK_SW;
+    if (s_hw_charge_protect) detail->charge_block_reasons |= DIAG_BLOCK_HW;
+    if (s_hw_discharge_protect || s_short_latched ||
+        bms_error_get(BMS_ERROR_DSG_SHORT) || bms_error_get(BMS_ERROR_CBC_DSG))
+        detail->discharge_block_reasons |= DIAG_BLOCK_HW;
     return 1u;
 }
 

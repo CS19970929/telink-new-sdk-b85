@@ -58,7 +58,11 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     out->battery_temp_valid = (uint8_t)(sh_ntc_valid(raw.external_raw[SH3673510_D011_BAT_NTC1_INDEX]) &&
                                         sh_ntc_valid(raw.external_raw[SH3673510_D011_BAT_NTC2_INDEX]));
     out->heater_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_D011_HEATER_NTC_INDEX]);
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     out->mos_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_D011_MOS_NTC_INDEX]);
+#else
+    out->mos_temp_not_required = 1u;
+#endif
     t1 = g_stCellInfoReport.u16Temperature[AFE1_TEMP1];
     t2 = g_stCellInfoReport.u16Temperature[AFE1_TEMP2];
     out->battery_temp_min_x10 = (t1 < t2) ? t1 : t2;
