@@ -169,6 +169,21 @@ public static class BmsHealth
 
         if ((words[2] & BmsDiagnostics.MosCapability) != 0)
         {
+            if (words[131] != 0) {
+                ushort gap = (ushort)(words[128] & ~words[130] & 3);
+                if (gap != 0) {
+                    uint chargeReason = BmsDiagnostics.U32(words, 136);
+                    uint dischargeReason = BmsDiagnostics.U32(words, 138);
+                    string reason = $"CHG={BmsDiagnostics.Reasons(chargeReason)}；DSG={BmsDiagnostics.Reasons(dischargeReason)}";
+                    string advice = ((chargeReason | dischargeReason) & 512u) != 0
+                        ? ((words[29] & BmsDiagnostics.ShFetDetailInfo) != 0
+                            ? $"温度断线：TS1有效={((words[148] & 1) != 0)}，TS2有效={((words[148] & 2) != 0)}，MOS NTC保护启用={((words[148] & 4) != 0)}，MOS NTC有效={((words[148] & 8) != 0)}。核对必需传感器与产品配置。 "
+                            : "检查必需温度传感器及产品支持配置。 ")
+                        : "检查诊断页的 AFE FLAG1/2、backend/通信保护状态及对应保护条件。 ";
+                    Add("mos.command_gap", "MOS", BmsHealthStatus.Warning,
+                        "MOS 请求与 AFE 命令不一致", reason, advice);
+                }
+            }
             string afeStatus = words[14] == 0x3510 ? "SH BSTATUS1" : "DVC CHGF/DSGF";
             Add("mos.physical_feedback", "MOS", BmsHealthStatus.Info, "物理 MOS 反馈不可用",
                 $"当前只有 Requested、AFE Command 和 {afeStatus}；没有 Gate/Vgs 物理反馈",

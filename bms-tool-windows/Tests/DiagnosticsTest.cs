@@ -61,6 +61,21 @@ static class Test
         Check(shCapture.Mos.Any(f=>f.Field=="AFE Status bits"&&f.Value.Contains("BSTATUS1"))&&!shCapture.Mos.Any(f=>f.Field.Contains("R6")),"SH FET status semantics");
         Check(shCapture.Current.Any(f=>f.Field=="AFE 换算电流（无独立 raw）"),"SH current semantics");
         Check(shCapture.Power.Any(f=>f.Value.Contains("未声明 D008 PM")),"SH reserved PM fields");
+        Check(!shCapture.Mos.Any(f=>f.Field=="SH backend 状态"),"legacy SH firmware does not advertise detailed fields");
+        var blockedWords=shWords.ToArray();
+        blockedWords[29]|=BmsDiagnostics.ShFetDetailInfo;
+        blockedWords[128]=3;blockedWords[129]=0;blockedWords[130]=0;
+        blockedWords[136]=528;blockedWords[138]=528; // software + temperature break
+        blockedWords[142]=0x10;blockedWords[143]=0x02;blockedWords[145]=0x40;
+        blockedWords[146]=0x103;blockedWords[147]=0x11;blockedWords[148]=0x03;
+        var blockedCapture=new DiagnosticCapture {Supported=true,SnapshotConsistent=true};
+        BmsDiagnostics.Decode(blockedCapture,blockedWords);
+        Check(blockedCapture.Mos.Any(f=>f.Field=="SH backend 状态"&&f.Value.Contains("温度断线"))&&
+              blockedCapture.Mos.Any(f=>f.Field=="SH 温度传感器状态"&&f.Value.Contains("TS1 有效")&&f.Value.Contains("TS2 有效")&&!f.Value.Contains("MOS NTC 保护启用")),
+              "SH detailed sensor diagnosis distinguishes unqualified MOS NTC");
+        var blockedHealth=BmsHealth.Evaluate(blockedCapture);
+        Check(blockedHealth.Checks.Any(x=>x.Id=="mos.command_gap"&&x.Evidence.Contains("温度无效")&&
+              x.Recommendation.Contains("MOS NTC保护启用=False")),"MOS command gap identifies temperature policy");
         t.NonD008=true;var nonD008=await b.ReadDiagnosticsAsync(true,"sh-product");t.NonD008=false;
         Check(!nonD008.EvidenceBlocks.ContainsKey("D008Capability")&&nonD008.EvidenceBlocks.ContainsKey("AfeRequested"),"AFE evidence must not depend on D008 capability");
         var health=BmsHealth.Evaluate(capture,new DeviceIdentity("AA","SN","D008","V1","BT_D008"),new BatterySnapshot{

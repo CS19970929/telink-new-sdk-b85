@@ -1,6 +1,8 @@
 # 只读诊断会话 v1
 
-本阶段在现有协议上增加持续观察和现场归档。没有修改产品固件、寄存器、Flash 布局、OTA 或保护行为。客户 WPF、内部 WPF、CLI 共用 `Shared/BmsDiagnosticSession.cs`。
+本阶段在现有协议上增加持续观察和现场归档。客户 WPF、内部 WPF、CLI 共用 `Shared/BmsDiagnosticSession.cs`。
+
+2026-09-24 D014 固件另行增加只读 MOS 原因字段：Diagnostics schema 仍为 1，`word29 & 0x0002` 表示 word142/143/145–148 有 SH 原始标志、backend、通信保护与温度传感器状态。共享解码仅在固件声明该位时显示新字段；请求 ON 而 AFE 命令 OFF 时，健康评估增加 `mos.command_gap`，展示阻断原因。旧固件不会显示这些新字段。此扩展没有改变客户端写入、Flash 或 OTA 格式；D014 的传感器策略修复见固件分支 `docs/D014_DIAGNOSTICS.md`。
 
 ## 使用
 
@@ -43,7 +45,7 @@ quality.complete 表示本轮请求证据读取完整，不代表设备健康，
 
 ## 安全与实现边界
 
-会话仅复用 ReadIdentityAsync / ReadDiagnosticsAsync，不调用写寄存器、授权、Factory 注入、MOS 控制或 OTA。取消/断线不会触发设备写入。GUI/CLI 进程之间的全局设备租约、完整配置写审计、Factory 功能门禁重做以及固件新增原因码尚未在本阶段实现。
+会话仅复用 ReadIdentityAsync / ReadDiagnosticsAsync，不调用写寄存器、授权、Factory 注入、MOS 控制或 OTA。取消/断线不会触发设备写入。GUI/CLI 进程之间的全局设备租约、完整配置写审计和 Factory 功能门禁重做仍不在本阶段范围内。
 
 共享诊断测试增加强制完整轮数检查，避免缺样或空集合 All 被误判 PASS。CLI 连接取消路径补充 transport/client 清理。已有协议和旧命令结果 envelope 不变，静态 capabilities 增加来源字段。
 

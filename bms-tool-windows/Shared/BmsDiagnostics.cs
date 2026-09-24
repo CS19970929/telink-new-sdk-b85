@@ -88,6 +88,7 @@ public static class BmsDiagnostics
         MosCapability = 0x0008, UpgradeCapability = 0x0010;
     public const ushort RuntimeCapability = 0x0020;
     public const ushort GenericFetBitsInfo = 0x0001;
+    public const ushort ShFetDetailInfo = 0x0002;
     public static uint U32(ushort[] w, int at) => (uint)w[at] | ((uint)w[at+1] << 16);
     public static int I32(ushort[] w, int at) => unchecked((int)U32(w,at));
     public static string Result(ushort n) => n switch {
@@ -103,6 +104,14 @@ public static class BmsDiagnostics
         for(int i=0;i<names.Length;i++) if((bits&(1u<<i))!=0) items.Add(names[i]);
         if((bits&~0x7FFu)!=0) items.Add($"未知位 0x{bits&~0x7FFu:X8}");
         return items.Count==0 ? "无" : string.Join("；",items);
+    }
+    private static string NamedBits(ushort bits, params string[] names)
+    {
+        var items = new List<string>();
+        for (int i = 0; i < names.Length; i++)
+            if ((bits & (1u << i)) != 0) items.Add(names[i]);
+        if ((bits >> names.Length) != 0) items.Add($"未知位 0x{bits & ~((1 << names.Length) - 1):X4}");
+        return items.Count == 0 ? "无" : string.Join("；", items);
     }
     private static string On(bool v)=>v?"ON":"OFF";
     private static string Mode(int code)=>code switch {2=>"AUTO_DIODE",3=>"ON",_=>"OFF"};
@@ -242,6 +251,15 @@ public static class BmsDiagnostics
                 M("AFE Command bits",w[131]!=0?$"0x{w[130]:X2}（最近成功 SH command）":"未知/无效");
                 M("AFE Status CHG / DSG",w[133]!=0?$"{On((w[132]&1)!=0)} / {On((w[132]&2)!=0)}":"未知/无效");
                 M("AFE Status bits",w[133]!=0?$"0x{w[132]:X2}（SH BSTATUS1，非物理反馈）":"未知/无效");
+                if ((w[29] & ShFetDetailInfo) != 0) {
+                    M("SH FLAG1",$"0x{w[142]:X2} · {NamedBits(w[142], "OV", "UV", "OCD1", "OCD2", "SC", "OCC", "WK", "RST1")}");
+                    M("SH FLAG2",$"0x{w[143]:X2} · {NamedBits(w[143], "CADC", "VADC", "WDT", "RST2", "UTC", "OTC", "UTD", "OTD")}");
+                    M("SH BSTATUS2",$"0x{w[145]:X2} · {NamedBits(w[145], "LOADOFF", "LOADON", "reserved", "BAL", "IDLE", "SLEEP", "DSGING", "CHGING")}");
+                    M("SH backend 状态",$"0x{w[146]:X4} · {NamedBits(w[146], "输出使能", "采样有效", "输出抑制", "E2P 错误", "CHG 硬件阻断", "DSG 硬件阻断", "短路锁存", "等待重配", "温度断线", "AFE 错误", "SPI 错误")}");
+                    M("通信保护状态",$"0x{w[147]:X4} · {NamedBits(w[147], "输出授权", "通信抑制", "总线静默", "通信故障锁存", "连续采样合格")}");
+                    M("SH 温度传感器状态",$"0x{w[148]:X4} · {NamedBits(w[148], "TS1 有效", "TS2 有效", "MOS NTC 保护启用", "MOS NTC 有效")}");
+                    M("AFE 标志快照",(w[146] & 2) != 0 ? "最近有效采样缓存；本诊断不直接读取 AFE 寄存器" : "采样无效；FLAG1/2 仅供参考");
+                }
             } else {
                 M("AFE Command R81",w[131]!=0?$"0x{w[130]:X2}（最近成功命令/读回）":"未知/无效");
                 M("AFE Command CHG / DSG",w[131]!=0?$"{Mode(w[130]&3)} / {Mode((w[130]>>2)&3)}":"未知/无效");
