@@ -32,12 +32,11 @@ assert 'g_tParam.protect' not in apply
 assert 'bms_afe_hw_profile_get(&hw)' in b
 
 def macro_int(name):
-    m = re.search(rf'(?m)^\\s*#define\\s+{re.escape(name)}\\s+\\(?([0-9]+)\\)?\\s*[uUlL]*\\s*
-print('Independent AFE hardware protection profile + Storage V1 contract: PASS')
-, param)
-    if not m:
+    pattern = rf'(?m)^\s*#define\s+{re.escape(name)}\s+\(?([0-9]+)\)?\s*[uUlL]*\s*$'
+    match = re.search(pattern, param)
+    if not match:
         raise AssertionError(f'missing simple integer macro: {name}')
-    return int(m.group(1), 10)
+    return int(match.group(1), 10)
 
 # Regression: D013 legacy defaults use recovery == level-1 trip. This must be
 # accepted for SH36735xx or AFE init is rejected before normal sampling starts.
