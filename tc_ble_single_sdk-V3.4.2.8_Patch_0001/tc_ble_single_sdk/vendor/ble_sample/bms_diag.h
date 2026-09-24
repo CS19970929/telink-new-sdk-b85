@@ -32,6 +32,28 @@
 
 /* word 29 describes optional semantics without changing schema 1. */
 #define BMS_DIAG_INFO_GENERIC_FET_BITS 0x0001u
+#define BMS_DIAG_INFO_SH_FET_DETAIL   0x0002u /* words 142,143,145..148 */
+
+/* SH backend state in word 146; this is cached software state, not Gate/Vgs. */
+enum {
+    DIAG_SH_OUTPUT_ENABLED=1u, DIAG_SH_SNAPSHOT_VALID=2u,
+    DIAG_SH_OUTPUT_INHIBIT=4u, DIAG_SH_E2P_ERROR=8u,
+    DIAG_SH_CHARGE_HW_BLOCK=16u, DIAG_SH_DISCHARGE_HW_BLOCK=32u,
+    DIAG_SH_SHORT_LATCHED=64u, DIAG_SH_RECONFIGURE=128u,
+    DIAG_SH_TEMP_BREAK=256u, DIAG_SH_AFE_ERROR=512u,
+    DIAG_SH_SPI_ERROR=1024u
+};
+/* Common guard state in word 147. */
+enum {
+    DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
+    DIAG_GUARD_BUS_SILENCED=4u, DIAG_GUARD_FAULT_LATCHED=8u,
+    DIAG_GUARD_SAMPLES_QUALIFIED=16u
+};
+/* SH sensor state in word 148. Unqualified MOS NTC is distinct from a break. */
+enum {
+    DIAG_SH_TS1_VALID=1u, DIAG_SH_TS2_VALID=2u,
+    DIAG_SH_MOS_NTC_SUPPORTED=4u, DIAG_SH_MOS_NTC_VALID=8u
+};
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u

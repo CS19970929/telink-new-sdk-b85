@@ -309,7 +309,9 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
     /* Sensor-break handling remains fail-safe at the system level, but each
      * temperature protection group is evaluated only from the sensor it owns.
      * A missing MOS NTC must not erase battery OTP/UTP state, and vice versa. */
-    if (!temperature_enabled || (inputs->battery_temp_valid && inputs->mos_temp_valid))
+    if (!temperature_enabled ||
+        (inputs->battery_temp_valid &&
+         (inputs->mos_temp_not_required || inputs->mos_temp_valid)))
         bms_error_clear(BMS_ERROR_TEMP_BREAK);
     else
         bms_error_raise(BMS_ERROR_TEMP_BREAK);

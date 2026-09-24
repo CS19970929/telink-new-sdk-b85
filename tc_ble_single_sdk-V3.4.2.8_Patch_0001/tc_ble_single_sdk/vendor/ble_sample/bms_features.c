@@ -417,7 +417,8 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
     uint16_t charge_ut_recover;
     uint16_t mos_ot_recover;
 
-    if ((s == 0) || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
+    if ((s == 0) || !s->battery_temp_valid ||
+        (!s->mos_temp_not_required && !s->mos_temp_valid)) return 0u;
 
     charge_ot_recover = g_tParam.protect.u16TChgOTp_Rcv;
     charge_ut_recover = g_tParam.protect.u16TchgUTp_Rcv;
@@ -429,7 +430,7 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
     if ((charge_ut_recover != 0u) &&
         (s->battery_temp_min_x10 <= charge_ut_recover))
         return 0u;
-    if ((mos_ot_recover != 0u) &&
+    if (!s->mos_temp_not_required && (mos_ot_recover != 0u) &&
         (s->mos_temp_x10 >= mos_ot_recover))
         return 0u;
     return 1u;

@@ -1,4 +1,5 @@
 #include "bms_afe.h"
+#include "bms_diag.h"
 #include "bms_features.h"
 #include "bms_error.h"
 #include <string.h>
@@ -291,6 +292,18 @@ void bms_afe_get_requested_fets(uint8_t *charge_on, uint8_t *discharge_on)
 {
     if (charge_on != 0) *charge_on = s_guard.requested_charge_on;
     if (discharge_on != 0) *discharge_on = s_guard.requested_discharge_on;
+}
+
+uint16_t bms_afe_get_guard_diagnostic_bits(void)
+{
+    uint16_t bits = 0u;
+    if (s_guard.output_enabled) bits |= DIAG_GUARD_OUTPUT_ENABLED;
+    if (s_guard.comm_inhibit) bits |= DIAG_GUARD_COMM_INHIBIT;
+    if (s_guard.bus_silenced) bits |= DIAG_GUARD_BUS_SILENCED;
+    if (s_guard.comm_fault_latched) bits |= DIAG_GUARD_FAULT_LATCHED;
+    if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
+        bits |= DIAG_GUARD_SAMPLES_QUALIFIED;
+    return bits;
 }
 
 void bms_afe_set_output_enabled(uint8_t e)

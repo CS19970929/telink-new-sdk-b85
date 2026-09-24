@@ -14,6 +14,8 @@ typedef struct
 {
     uint8_t battery_temp_valid;
     uint8_t mos_temp_valid;
+    /* Set only when the product has no qualified MOS NTC protection input. */
+    uint8_t mos_temp_not_required;
     uint16_t battery_temp_min;
     uint16_t battery_temp_max;
     uint16_t mos_temp;

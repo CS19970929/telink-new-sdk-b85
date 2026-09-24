@@ -71,6 +71,22 @@ for token in (
 if "if (temp_valid)" in source:
     raise AssertionError("battery and MOS temperature protections must not share one combined validity gate")
 
+# Product-declared lack of a qualified MOS NTC is different from sensor break.
+# TS1/TS2 remain mandatory and MOS OTP still requires a real valid sample.
+for token in (
+    "inputs->battery_temp_valid &&",
+    "(inputs->mos_temp_not_required || inputs->mos_temp_valid)",
+    "if (temperature_enabled && inputs->mos_temp_valid)",
+):
+    if token not in source:
+        raise AssertionError(f"MOS NTC absence/break policy missing: {token}")
+sh = (HERE / "sh3673510_bms.c").read_text(encoding="utf-8", errors="ignore")
+if "sw.mos_temp_not_required = 1u;" not in sh:
+    raise AssertionError("D014 must declare the unsupported MOS NTC rather than report a break")
+features = (HERE / "bms_features.c").read_text(encoding="utf-8", errors="ignore")
+if "(!s->mos_temp_not_required && !s->mos_temp_valid)" not in features:
+    raise AssertionError("balancing must use the same supported-versus-invalid MOS NTC policy")
+
 # Charge/discharge battery-temperature faults must not start from temperature
 # alone. New charge faults require charge current, new discharge faults require
 # discharge current. Once active, recovery must remain temperature-driven so the
