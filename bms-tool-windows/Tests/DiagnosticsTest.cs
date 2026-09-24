@@ -9,6 +9,12 @@ static class Test
     {
         await SocInputRecordingTest.RunAsync();
         await DiagnosticSessionTest.RunAsync();
+        Check(BmsClient.NormalizeLegacyCurrentTenthA(0,10)==10,"legacy discharge must normalize positive");
+        Check(BmsClient.NormalizeLegacyCurrentTenthA(10,0)==-10,"legacy charge must normalize negative");
+        Check(BmsClient.NormalizeRealtimeCurrentTenthA(1,unchecked((ushort)(short)-10))==10,"D120 v1 discharge must normalize positive");
+        Check(BmsClient.NormalizeRealtimeCurrentTenthA(1,10)==-10,"D120 v1 charge must normalize negative");
+        Check(new BatterySnapshot{CurrentA=1.0}.WorkState=="放电"&&new BatterySnapshot{CurrentA=-1.0}.WorkState=="充电",
+            "application current direction");
         var t=new FakeTransport();await using var b=new BmsClient(t);
         var capture=await b.ReadDiagnosticsAsync(true,"mock");
         Check(capture.Supported&&capture.SnapshotConsistent&&capture.TraceConsistent,"capability/snapshot");
@@ -25,7 +31,7 @@ static class Test
         Check(capture.Storage.Any(f=>f.Value.Contains("布局拒绝")),"storage failure explanation");
         Check(capture.Mos.Any(f=>f.Value.Contains("启动存储升级未完成")),"MOS reason");
         Check(capture.Mos.Any(f=>f.Value=="不可用 / unknown"),"physical feedback");
-        Check(capture.Current.Any(f=>f.Field=="AFE 原始电流"&&f.Value.Contains("-123")),"runtime raw current");
+        Check(capture.Current.Any(f=>f.Field=="AFE 原始电流"&&f.Value.Contains("-123")&&f.Value.Contains("充电")),"runtime raw current direction");
         Check(capture.Current.Any(f=>f.Field=="持久化 gain"&&f.Value.Contains("1000000")),"parameter calibration evidence");
         Check(capture.Soc.Any(f=>f.Field=="SOC estimate"&&f.Value.Contains("73")),"runtime SOC");
         Check(capture.Soc.Any(f=>f.Field=="Time To Empty"&&f.Value.Contains("180")),"runtime TTE");

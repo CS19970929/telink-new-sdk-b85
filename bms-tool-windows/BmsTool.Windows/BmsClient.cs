@@ -61,7 +61,7 @@ public sealed class BatterySnapshot
     public ushort ProtectionLevel3Raw { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
 
-    public string WorkState => CurrentA > 0.05 ? "充电" : CurrentA < -0.05 ? "放电" : "静置";
+    public string WorkState => CurrentA > 0.05 ? "放电" : CurrentA < -0.05 ? "充电" : "静置";
     public bool PrechargeMosOn => Bit(1);
     public bool ChargeMosOn => Bit(2);
     public bool DischargeMosOn => Bit(3);
@@ -338,6 +338,28 @@ public sealed partial class BmsClient : IAsyncDisposable
             bluetoothName);
     }
 
+    /*
+     * Canonical application current direction:
+     *   positive = discharge, negative = charge.
+     *
+     * Legacy D000 stores separate positive charge/discharge magnitudes.
+     * D120 protocol v1 intentionally kept the historical wire convention
+     * positive=charge / negative=discharge. Normalize both at this boundary so
+     * every caller above BmsClient sees one direction convention.
+     */
+    internal static int NormalizeLegacyCurrentTenthA(ushort charge, ushort discharge)
+    {
+        if (discharge != 0u) return discharge;
+        if (charge != 0u) return -(int)charge;
+        return 0;
+    }
+
+    internal static int NormalizeRealtimeCurrentTenthA(ushort version, ushort wireValue)
+    {
+        int wireCurrent = unchecked((short)wireValue);
+        return version == 1u ? -wireCurrent : wireCurrent;
+    }
+
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
         ushort[] legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct);
@@ -345,9 +367,9 @@ public sealed partial class BmsClient : IAsyncDisposable
         ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct);
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
 
-        short chg = unchecked((short)legacy[50]);
-        short dsg = unchecked((short)legacy[51]);
-        short current = dsg > 0 ? (short)-dsg : chg;
+        ushort chg = legacy[50];
+        ushort dsg = legacy[51];
+        int current = NormalizeLegacyCurrentTenthA(chg, dsg);
         ushort voltage = legacy[37];
         ushort soc = legacy[52];
         ushort maxTemp = legacy[48];
@@ -360,7 +382,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         if (rt)
         {
             voltage = realtime[2];
-            current = unchecked((short)realtime[3]);
+            current = NormalizeRealtimeCurrentTenthA(realtime[1], realtime[3]);
             soc = realtime[4];
             maxTemp = realtime[5];
             minTemp = realtime[6];
