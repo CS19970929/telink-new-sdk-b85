@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationId>com.cs.bmstool.android</ApplicationId>
     <ApplicationTitle>BMS Tool Android</ApplicationTitle>
-    <ApplicationVersion>9</ApplicationVersion>
-    <ApplicationDisplayVersion>0.5.1</ApplicationDisplayVersion>
+    <ApplicationVersion>10</ApplicationVersion>
+    <ApplicationDisplayVersion>0.5.2</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
