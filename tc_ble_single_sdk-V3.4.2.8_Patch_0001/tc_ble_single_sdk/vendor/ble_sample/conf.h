@@ -58,8 +58,8 @@
 #define AFE_ODC1                       300
 #define AFE_ODC2                       500
 #define BMS_HARDWARE_VERDION_DEFAULT   "D014"
-#define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
-#define BMS_SERIAL_NUMBER_DEFAULT      "D014-UNSET"
+#define BMS_SOFTWARE_VERDION_DEFAULT   "V1.6"
+#define BMS_SERIAL_NUMBER_DEFAULT      "D014-20260925"
 
 /* Legacy SOC/current-sense compatibility fields; SH3673510 current conversion
  * uses SH3673510_D011_SHUNT_UOHM (667uOhm) directly. */

@@ -237,37 +237,11 @@
 #define D014_AFE_CS_PIN                         GPIO_PD2
 
 #ifndef D014_DEBUG_LED_ENABLE
-#define D014_DEBUG_LED_ENABLE                   0u
+#define D014_DEBUG_LED_ENABLE                   1u
 #endif
 #if (D014_DEBUG_LED_ENABLE > 1u)
 #error "D014_DEBUG_LED_ENABLE must be 0 or 1"
 #endif
-
-/*
- * Transitional aliases keep the verified D011 SH3673510 common implementation
- * source-compatible while D014 is introduced. New D014-specific code should use
- * the D014_* names above. PB4/PB5 aliases exist only so the disabled legacy
- * heater functions still compile; D014 production code must never drive them.
- */
-#define D011_CMNT_EN_PIN                        D014_CMNT_EN_PIN
-#define D011_AFE_SCLK_PIN                       D014_AFE_SCLK_PIN
-#define D011_SWITCH_PIN                         D014_SWITCH_PIN
-#define D011_RS485_EN_PIN                       D014_RS485_EN_PIN
-#define D011_SWS_PIN                            D014_SWS_PIN
-#define D011_INT_WK_MCU_PIN                     D014_INT_WK_MCU_PIN
-#define D011_AFE_MISO_PIN                       D014_AFE_MISO_PIN
-#define D011_AFE_MOSI_PIN                       D014_AFE_MOSI_PIN
-#define D011_AFE_ALARM_PIN                      D014_AFE_ALARM_PIN
-#define D011_AFE_RESET_OUT_PIN                  D014_AFE_RESET_OUT_PIN
-#define D011_SCI1_TX_PIN                        D014_SCI1_TX_PIN
-#define D011_SCI1_RX_PIN                        D014_SCI1_RX_PIN
-#define D011_DEBUG_LED_PIN                      D014_DEBUG_LED_PIN
-#define D011_DEBUG_LED_ENABLE                   D014_DEBUG_LED_ENABLE
-#define D011_CMNT_WK_PIN                        D014_CMNT_WK_PIN
-#define D011_AFE_CS_PIN                         D014_AFE_CS_PIN
-#define D011_HEATER_CHG_PIN                     GPIO_PB4
-#define D011_HEATER_FUSE_SAFE_LEVEL             0u
-#define D011_HEATER_FUSE_TRIGGER_PIN            GPIO_PB5
 
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
 #error "D014 heater is not schematic-verified; do not enable it without a new board review"

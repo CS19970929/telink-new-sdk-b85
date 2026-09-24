@@ -355,7 +355,7 @@ static void board_init(void)
 	gpio_set_func(D014_CMNT_EN_PIN, AS_GPIO);
 	gpio_write(D014_CMNT_EN_PIN, 1);
 	gpio_set_input_en(D014_CMNT_EN_PIN, 0);
-	gpio_set_output_en(D014_CMNT_EN_PIN, 1);
+	gpio_set_output_en(D014_CMNT_EN_PIN, 0);
 
 	/* PD3 is the schematic CMNT-WK input.  Its active polarity is not yet
 	 * hardware-verified, so configure it as input but do not invent a wake
