@@ -44,6 +44,8 @@ app / BLE / Modbus / product logic
 
 首次引入独立 AFE profile 时允许从历史软件参数初始化一次；完成迁移后两套参数不再联动。
 
+D014 当前使用产品配置中的独立 AFE 默认值初始化，不从软件保护表迁移。
+
 ## 3. AFE Hardware Protection V2
 
 - `0x2500..0x2522`：35-word requested profile；

@@ -11,6 +11,8 @@
 
 首次升级到该架构时，如果持久 profile 为空（schema/model均为0），固件允许从历史软件参数建立一次 migration default；保存成功后两套参数独立演进。
 
+D014 开发分支已改为从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
+
 ## 2. Backend
 
 - D008：DVC1124，`afe_model=0x1124`；

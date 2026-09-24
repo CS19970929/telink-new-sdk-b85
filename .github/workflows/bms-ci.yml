@@ -80,7 +80,7 @@ jobs:
         run: python tests/afe_hw_profile_contract_check.py
       - name: Exercise D014 AFE profile migration defaults
         shell: powershell
-        run: python tests/d014_afe_profile_migration_host_check.py
+        run: python tests/d014_afe_profile_default_host_check.py
       - name: Clean rebuild with TC32
         shell: powershell
         run: python bms_tools/bms.py rebuild --jobs 4
