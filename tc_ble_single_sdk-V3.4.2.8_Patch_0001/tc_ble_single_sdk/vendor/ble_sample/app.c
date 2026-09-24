@@ -175,6 +175,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
      * BLE suspend policy below. Never interrupt OTA/unlocked Flash or UART. */
     if (ota_is_working || !app_flash_lock_restore_enabled() ||
         BUS_STATE_OWC_IDLE != bus_mux_get_state() || uart_tx_is_busy() ||
+        modbus_uart_tx_active() ||
         app_deepsleep_pad_wakeup_active()) return 0;
 
     /* Keep an expired sleep request pending, but never spin on failed SPI/PM. */
@@ -760,6 +761,7 @@ void blt_pm_proc(void)
 	// if(!gpio_read(D014_SWITCH_PIN) || g_stCellInfoReport.u16IDischg || )
 	if (!gpio_read(D014_SWITCH_PIN) ||
 		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
+		uart_tx_is_busy() || modbus_uart_tx_active() ||
 		g_stCellInfoReport.u16IDischg ||
 		// MODE_FACTORY == Runtime_GetMode() ||
 		ota_is_working)

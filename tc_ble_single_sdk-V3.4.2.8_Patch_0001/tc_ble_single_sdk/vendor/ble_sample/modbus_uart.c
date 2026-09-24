@@ -28,6 +28,16 @@ typedef char modbus_dma_packet_size_must_be_272[
 #if ((MODBUS_RS485_ENABLE != 0) && (MODBUS_RS485_ENABLE != 1))
 #error "MODBUS_RS485_ENABLE must be 0 or 1"
 #endif
+#if ((BMS_RS485_TX_DIAG_ENABLE != 0) && (BMS_RS485_TX_DIAG_ENABLE != 1))
+#error "BMS_RS485_TX_DIAG_ENABLE must be 0 or 1"
+#endif
+#if BMS_RS485_TX_DIAG_ENABLE && !MODBUS_RS485_ENABLE
+#error "RS485 TX diagnostics require MODBUS_RS485_ENABLE"
+#endif
+
+#define MODBUS_RS485_TX_TIMEOUT_US 50000u
+
+volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
 static volatile u8 s_rx_ready = 0u;
 static mb_dma_pkt_t s_rx_pkt;
@@ -36,6 +46,8 @@ static mb_dma_pkt_t s_tx_pkt;
 #if MODBUS_RS485_ENABLE
 static volatile u8 s_rs485_tx_dma_done = 0u;
 static volatile u8 s_rs485_tx_active = 0u;
+static volatile u8 s_rs485_tx_uart_done = 0u;
+static volatile u8 s_rs485_tx_timeout_seen = 0u;
 static volatile u32 s_rs485_tx_start_tick = 0u;
 static volatile u32 s_rs485_tx_min_hold_us = 0u;
 
@@ -43,12 +55,14 @@ static void modbus_rs485_receive_mode(void)
 {
     /* D014 CA-IS2092A: DE and /RE share PA1, 0=receive. */
     gpio_write(D014_RS485_EN_PIN, 0);
+    g_bms_rs485_tx_diag.de_state = 0u;
 }
 
 static void modbus_rs485_transmit_mode(void)
 {
     /* D014 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
     gpio_write(D014_RS485_EN_PIN, 1);
+    g_bms_rs485_tx_diag.de_state = 1u;
 }
 
 static u32 modbus_rs485_min_hold_us(u32 len)
@@ -77,7 +91,26 @@ static u32 modbus_rs485_min_hold_us(u32 len)
 
 static void modbus_rs485_service_tx_done(void)
 {
-    if (!s_rs485_tx_active || !s_rs485_tx_dma_done)
+    if (!s_rs485_tx_active)
+    {
+        return;
+    }
+
+    if (!s_rs485_tx_timeout_seen &&
+        clock_time_exceed(s_rs485_tx_start_tick, MODBUS_RS485_TX_TIMEOUT_US))
+    {
+        s_rs485_tx_timeout_seen = 1u;
+        ++g_bms_rs485_tx_diag.tx_timeout_count;
+        /* Keep DE asserted while hardware still reports TX busy. */
+    }
+
+    if (s_rs485_tx_dma_done && !uart_tx_is_busy() && !s_rs485_tx_uart_done)
+    {
+        s_rs485_tx_uart_done = 1u;
+        ++g_bms_rs485_tx_diag.tx_uart_done_count;
+    }
+
+    if (!s_rs485_tx_dma_done || !s_rs485_tx_uart_done)
     {
         return;
     }
@@ -100,18 +133,32 @@ static void modbus_rs485_service_tx_done(void)
     }
 
     modbus_rs485_receive_mode();
+    ++g_bms_rs485_tx_diag.tx_complete_count;
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_uart_done = 0u;
+    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_start_tick = 0u;
     s_rs485_tx_min_hold_us = 0u;
 }
 #endif
 
+u8 modbus_uart_tx_active(void)
+{
+#if MODBUS_RS485_ENABLE
+    return s_rs485_tx_active;
+#else
+    return 0u;
+#endif
+}
+
 void modbus_uart_init(void)
 {
+#if !BMS_RS485_TX_DIAG_ENABLE
     /* Keep the proven new-new-master initialization order. */
     memset((void *)&s_rx_pkt, 0, sizeof(s_rx_pkt));
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
+#endif
 
 #if MODBUS_RS485_ENABLE
     /* D014: PC2=TX, PC3=RX, PA1=485 DE//RE direction control. */
@@ -121,6 +168,8 @@ void modbus_uart_init(void)
     gpio_set_output_en(D014_RS485_EN_PIN, 1);
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_uart_done = 0u;
+    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_start_tick = 0u;
     s_rs485_tx_min_hold_us = 0u;
 #endif
@@ -131,11 +180,20 @@ void modbus_uart_init(void)
               MODBUS_UART_BWPC,
               PARITY_NONE,
               STOP_BIT_ONE);
+#if BMS_RS485_TX_DIAG_ENABLE
+    /* Keep RX disabled: unsolicited requests cannot affect the line test. */
+    uart_dma_enable(0, 1);
+#else
     uart_dma_enable(1, 1);
+#endif
     uart_irq_enable(0, 0);
 
     irq_set_mask(FLD_IRQ_DMA_EN);
+#if BMS_RS485_TX_DIAG_ENABLE
+    dma_chn_irq_enable(FLD_DMA_CHN_UART_TX, 1);
+#else
     dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 1);
+#endif
 
 #if MODBUS_RS485_ENABLE
     modbus_rs485_receive_mode();
@@ -160,7 +218,11 @@ void modbus_uart_irq_proc(void)
     {
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_TX);
 #if MODBUS_RS485_ENABLE
-        s_rs485_tx_dma_done = 1u;
+        if (s_rs485_tx_active && !s_rs485_tx_dma_done)
+        {
+            s_rs485_tx_dma_done = 1u;
+            ++g_bms_rs485_tx_diag.tx_dma_done_count;
+        }
         modbus_rs485_service_tx_done();
 #endif
     }
@@ -193,21 +255,39 @@ void modbus_uart_send(const u8 *p, u32 len)
     if (p == NULL || len == 0u) return;
     if (len > sizeof(s_tx_pkt.data)) len = sizeof(s_tx_pkt.data);
 
+    /* uart_send_dma() unconditionally restarts DMA; never overwrite its buffer. */
+#if MODBUS_RS485_ENABLE
+    modbus_rs485_service_tx_done();
+    if (s_rs485_tx_active || uart_tx_is_busy())
+#else
+    if (uart_tx_is_busy())
+#endif
+    {
+        ++g_bms_rs485_tx_diag.tx_busy_reject_count;
+        return;
+    }
+
     s_tx_pkt.dma_len = len;
     memcpy(s_tx_pkt.data, p, len);
 
 #if MODBUS_RS485_ENABLE
     modbus_rs485_transmit_mode();
     s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_uart_done = 0u;
+    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_active = 1u;
     s_rs485_tx_start_tick = clock_time();
     s_rs485_tx_min_hold_us = modbus_rs485_min_hold_us(len);
 #endif
 
+    g_bms_rs485_tx_diag.last_tx_len = len;
+    ++g_bms_rs485_tx_diag.tx_start_count;
+
     /* Proven new-new-master TX path: DMA packet is [u32 len + payload]. */
     uart_send_dma((u8 *)&s_tx_pkt);
 }
 
+#if !BMS_RS485_TX_DIAG_ENABLE
 static void modbus_uart_rx_reset(void)
 {
     s_rx_pkt.dma_len = 0u;
@@ -218,9 +298,69 @@ static void modbus_uart_rx_reset(void)
 static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 static _attribute_data_retention_ u32 mb_last_ok_tick = 0u;
 static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
+#endif
+
+#if BMS_RS485_TX_DIAG_ENABLE
+#define RS485_DIAG_PERIOD_US 500000u
+#define RS485_DIAG_FRAME_COUNT 21u
+
+/* 20 pattern/length combinations, then 01 03 4C + 00..4B + C9 B8. */
+static const u8 s_diag_lengths[5] = {8u, 32u, 64u, 81u, 128u};
+static u8 s_diag_frame[128];
+static u32 s_diag_last_start_tick;
+
+static void modbus_uart_diag_send_next(void)
+{
+    u8 index = g_bms_rs485_tx_diag.pattern_index;
+    u32 len;
+    u32 i;
+    u32 started = g_bms_rs485_tx_diag.tx_start_count;
+
+    if (index >= RS485_DIAG_FRAME_COUNT) index = 0u;
+    if (index == RS485_DIAG_FRAME_COUNT - 1u)
+    {
+        len = 81u;
+        s_diag_frame[0] = 0x01u;
+        s_diag_frame[1] = 0x03u;
+        s_diag_frame[2] = 0x4cu;
+        for (i = 0u; i < 76u; ++i) s_diag_frame[3u + i] = (u8)i;
+        s_diag_frame[79] = 0xc9u; /* CRC16/Modbus of bytes 0..78 */
+        s_diag_frame[80] = 0xb8u;
+    }
+    else
+    {
+        len = s_diag_lengths[index % 5u];
+        for (i = 0u; i < len; ++i)
+        {
+            switch (index / 5u)
+            {
+            case 0u: s_diag_frame[i] = 0x55u; break;
+            case 1u: s_diag_frame[i] = 0xaau; break;
+            case 2u: s_diag_frame[i] = (u8)i; break;
+            default: s_diag_frame[i] = (i & 1u) ? 0x49u : 0xeeu; break;
+            }
+        }
+    }
+
+    modbus_uart_send(s_diag_frame, len);
+    if (g_bms_rs485_tx_diag.tx_start_count != started)
+    {
+        g_bms_rs485_tx_diag.pattern_index = (u8)((index + 1u) % RS485_DIAG_FRAME_COUNT);
+        s_diag_last_start_tick = clock_time();
+    }
+}
+#endif
 
 void main_loop_modbus(void)
 {
+#if BMS_RS485_TX_DIAG_ENABLE
+    modbus_rs485_service_tx_done();
+    if (!modbus_uart_tx_active() && !uart_tx_is_busy() &&
+        clock_time_exceed(s_diag_last_start_tick, RS485_DIAG_PERIOD_US))
+    {
+        modbus_uart_diag_send_next();
+    }
+#else
     u8 *req = 0;
     u32 req_len = 0u;
 
@@ -264,5 +404,6 @@ void main_loop_modbus(void)
 
 #if MODBUS_RS485_ENABLE
     modbus_rs485_service_tx_done();
+#endif
 #endif
 }

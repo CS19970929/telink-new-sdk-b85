@@ -11,6 +11,10 @@
 #define _UL_RENZHENG_ENABLE_
 #define _FUNC_UART_
 #define MODBUS_RS485_ENABLE              1
+/* Board-only UART DMA/RS485 line test. Never enabled in production by default. */
+#ifndef BMS_RS485_TX_DIAG_ENABLE
+#define BMS_RS485_TX_DIAG_ENABLE         0
+#endif
 #ifndef FAC_TEST
 #define _DI_SWITCH_SYS_ONOFF
 #endif
