@@ -59,7 +59,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
 #define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u
-#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      0u
+#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      1u
 ```
 
 `SH3673510_D011_*` 是复用 D011 公共实现时保留的兼容命名，不代表 D014 使用 D011 硬件。
@@ -119,9 +119,9 @@ validate -> persist -> apply -> readback/effective -> verify/rollback
 
 - TS1/TS2：图纸为 10K-3435，是当前可信 battery temperature。
 - TS3：图纸标 NC，heater 完全禁用。
-- TS4：图纸标 MOS，但 RN4=10M；未确认 BOM 前 `SH3673510_PRODUCT_MOS_NTC_SUPPORTED=0`。
+- TS4：用户确认实装 10K-3435 MOS NTC，`SH3673510_PRODUCT_MOS_NTC_SUPPORTED=1`；图纸 RN4=10M 差异及温度点仍需实板核验。
 
-若确认 TS4 实装为 10K-3435，需要同时修改 capability、contract，并做至少低/中/高三个温度点以及开短路验证。
+TS4 参与独立 MOS 高温软件保护；AFE TS4 硬件位暂不开启，因为它会共用电池温度的 OTC/UTC 阈值。仍须做至少低/中/高三个温度点以及开短路验证。
 
 ## 7. 产品身份与未签核默认
 

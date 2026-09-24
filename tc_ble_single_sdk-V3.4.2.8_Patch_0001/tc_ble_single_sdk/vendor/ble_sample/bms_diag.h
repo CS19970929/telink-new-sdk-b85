@@ -32,7 +32,7 @@
 
 /* word 29 describes optional semantics without changing schema 1. */
 #define BMS_DIAG_INFO_GENERIC_FET_BITS 0x0001u
-#define BMS_DIAG_INFO_SH_FET_DETAIL   0x0002u /* words 142,143,145..148 */
+#define BMS_DIAG_INFO_SH_FET_DETAIL   0x0002u /* words 142,143,145..152 */
 
 /* SH backend state in word 146; this is cached software state, not Gate/Vgs. */
 enum {

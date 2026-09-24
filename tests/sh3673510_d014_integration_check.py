@@ -29,6 +29,7 @@ app = text("app.c")
 main = text("main.c")
 control = text("sh3673510_control.c")
 bms = text("sh3673510_bms.c")
+sw_protection = text("bms_sw_protection.c")
 board = text("bms_board.c")
 uart = text("modbus_uart.c")
 port = text("sh3673520_port.c")
@@ -42,7 +43,8 @@ assert literal(cfg, "SH3673510_D011_NTC_NOMINAL_OHM") == 10000
 assert literal(cfg, "SH3673510_PRODUCT_HEATER_SUPPORTED") == 0
 assert literal(cfg, "SH3673510_PRODUCT_BALANCE_SUPPORTED") == 1
 assert literal(cfg, "SH3673510_PRODUCT_HEATER_NTC_SUPPORTED") == 0
-assert literal(cfg, "SH3673510_PRODUCT_MOS_NTC_SUPPORTED") == 0
+assert literal(cfg, "SH3673510_PRODUCT_MOS_NTC_SUPPORTED") == 1
+assert literal(cfg, "SH3673510_D011_TS4_HW_PROTECT_EN") == 0
 
 # Canonical D014 board nets.
 for pin in (
@@ -69,7 +71,8 @@ require(conf, "#define FD_BMS_TYPE                    D14")
 require(conf, "#define SeriesNum                      SH3673510_D011_CELL_COUNT")
 require(conf, "#define MODBUS_RS485_ENABLE              1")
 require(conf, 'BMS_HARDWARE_VERDION_DEFAULT   "D014"')
-require(conf, 'BMS_SERIAL_NUMBER_DEFAULT      "D014-UNSET"')
+if not re.search(r'BMS_SERIAL_NUMBER_DEFAULT\s+"D014-[^"]+"', conf):
+    raise AssertionError("D014 default serial number must retain the D014- prefix")
 require(conf, '#define DEV_NAME_STR  "BT_D014"')
 require(conf, "#define D14             D11")
 
@@ -93,6 +96,9 @@ require(board, "if (SH3673510_PRODUCT_HEATER_SUPPORTED)")
 require(control, "#if SH3673510_PRODUCT_HEATER_SUPPORTED")
 require(bms, "#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED")
 require(bms, "#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED")
+require(bms, "sw.mos_temp_valid = s_ntc_valid[SH3673510_D011_MOS_NTC_INDEX]")
+require(sw_protection, "inputs->battery_temp_valid && inputs->mos_temp_valid")
+require(sw_protection, "p->u16TmosOTp_Third")
 if "D011_HEATER_FUSE_TRIGGER_PIN" in app:
     raise AssertionError("D014 app must not drive the inherited D011 heater-fuse pin")
 if "HT-RF-EN" in app or "HT-CHG" in app:

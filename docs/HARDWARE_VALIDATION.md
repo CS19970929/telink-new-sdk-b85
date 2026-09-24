@@ -24,8 +24,8 @@
 - [ ] TS1/RN6 10K-3435 温度点、开路、短路。
 - [ ] TS2/RN5 10K-3435 温度点、开路、短路。
 - [ ] 确认 TS3 的确为 NC；固件 heater 必须保持 disabled。
-- [ ] 核对 TS4/RN4 BOM：图纸标 `TS4-MOS`，RN4=10M。确认实装器件后再决定是否启用 MOS NTC 软件保护。
-- [ ] 在 TS4 未签核前确认软件不会把该通道当作可信 MOS 温度。
+- [ ] TS4 MOS 10K-3435：核对用户确认的实装 BOM 与图纸 RN4=10M 差异；做低/中/高温点和开短路实测。
+- [ ] 验证 TS4 开短路使 `BMS_ERROR_TEMP_BREAK` 关断 CHG/DSG；MOS 75/85/95°C 软件保护及 80°C 恢复按实际持久参数验证。
 
 ## 4. Balance / Open-Wire
 

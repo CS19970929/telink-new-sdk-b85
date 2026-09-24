@@ -49,6 +49,7 @@ static uint8_t s_afe_reconfigure_required;
 static uint8_t s_bstatus2;
 static uint8_t s_flag1;
 static uint8_t s_flag2;
+static int16_t s_mos_ntc_raw;
 static uint8_t s_fet_command_valid;
 static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
@@ -530,6 +531,7 @@ static uint8_t publish_measurements(void)
         g_stCellInfoReport.u16IDischg = 0u;
     }
 
+    s_mos_ntc_raw = (int16_t)temp.external_raw[SH3673510_D011_MOS_NTC_INDEX];
     memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
     memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
     for (i = 0u; i < 4u; ++i) {
@@ -556,9 +558,8 @@ static uint8_t publish_measurements(void)
 
     /*
      * Realtime max/min temperature is the validated battery range TS1/TS2.
-     * D014 marks TS3 NC and does not yet qualify TS4/RN4 as a 10K NTC, so
-     * those auxiliary channels are not folded into battery extrema or
-     * published as trusted temperatures until BOM/board evidence exists.
+     * D014 TS3 is NC; TS4 is the separate 10K-3435 MOS NTC. Only TS1/TS2
+     * determine battery extrema. TS4 is published separately for MOS OTP.
      * Zero remains the legacy invalid/sensor-break sentinel.
      */
     if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
@@ -599,7 +600,6 @@ static uint8_t publish_measurements(void)
             sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
 #else
         sw.mos_temp_valid = 0u;
-        sw.mos_temp_not_required = 1u;
         sw.mos_temp = 0u;
 #endif
 #if SH3673510_SW_PROTECT_ENABLE
@@ -642,6 +642,7 @@ void sh3673510_bms_afe_init(void)
     s_bstatus2 = 0u;
     s_flag1 = 0u;
     s_flag2 = 0u;
+    s_mos_ntc_raw = 0;
     s_fet_command_valid = 0u;
     s_last_charge_command = 0u;
     s_last_discharge_command = 0u;
@@ -735,6 +736,9 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
     detail->flag1 = s_flag1;
     detail->flag2 = s_flag2;
     detail->bstatus2 = s_bstatus2;
+    detail->mos_ntc_raw = (uint16_t)s_mos_ntc_raw;
+    detail->mos_ntc_ohm = s_ntc_ohm[SH3673510_D011_MOS_NTC_INDEX];
+    detail->mos_temp_x10 = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
 
     if (s_output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
     if (s_snapshot_valid) detail->backend_state |= DIAG_SH_SNAPSHOT_VALID;

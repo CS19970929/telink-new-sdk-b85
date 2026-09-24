@@ -13,9 +13,8 @@
  * The current-conversion API accepts integer uOhm, so this profile uses 667uOhm
  * (about +0.05% resistance-model error before resistor tolerance/calibration).
  * SPI: PB6=MISO, PB7=MOSI, PD7=SCLK, PD2=CS-M.
- * Temperature: TS1/TS2 use 10K-3435 networks; TS3 is marked NC; TS4 is
- * marked MOS but RN4 is drawn as 10M, so TS4 must not be treated as a
- * qualified 10K MOS NTC until BOM/board measurement confirms it.
+ * Temperature: TS1/TS2 are battery 10K-3435 NTCs; TS3 is NC; TS4 is the
+ * MOS 10K-3435 NTC (user-confirmed fitted BOM, despite RN4=10M on schematic).
  *
  * The SH36735xx register definitions live in sh3673520_reg.h.  Every static
  * AFE bit choice inherited from the D011 baseline is intentionally exposed below so future products can
@@ -31,7 +30,7 @@
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
 #define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u /* TS3-NC */
-#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      0u /* TS4/RN4 value requires BOM verification */
+#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      1u /* TS4: MOS 10K-3435 NTC */
 #define SH3673510_D011_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 
 /*
@@ -57,7 +56,7 @@
 #define SH3673510_D011_BAT_NTC1_INDEX           0u  /* TS1, 10K-3435 */
 #define SH3673510_D011_BAT_NTC2_INDEX           1u  /* TS2, 10K-3435 */
 #define SH3673510_D011_HEATER_NTC_INDEX         2u  /* TS3-NC on D014; never enables heater policy */
-#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4-MOS; RN4=10M on schematic, BOM verification required */
+#define SH3673510_D011_MOS_NTC_INDEX            3u  /* TS4 MOS 10K-3435; schematic RN4 text differs from fitted BOM */
 
 /* -------------------------------------------------------------------------
  * Static SH3673510 register profile, SH36735XX CV1.0A sections 10.2.1-10.2.9.
@@ -120,7 +119,7 @@
      ((SH3673510_D011_WDT_CODE << SH3673520_SCONF5_WDT_SHIFT) & SH3673520_SCONF5_WDT_MASK))
 
 /* SCONF6 0x45: b7..b0 TS4 TS3 TS2 TS1 SC OCD UV OV protection enables. */
-#define SH3673510_D011_TS4_HW_PROTECT_EN           0u /* D014 TS4/RN4 is unqualified; software MOS temperature is also held invalid */
+#define SH3673510_D011_TS4_HW_PROTECT_EN           0u /* AFE TS4 shares battery OTC/UTC thresholds; MOS-only OTP uses software policy */
 #define SH3673510_D011_TS3_HW_PROTECT_EN           0u /* D014 TS3 is NC */
 #define SH3673510_D011_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_D011_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE

@@ -32,7 +32,8 @@ static uint32_t sh_valid_cell_mask(void)
 static uint8_t sh_ntc_valid(int32_t raw)
 {
     uint32_t ohm = 0u;
-    return (SH3673520_NtcRawToOhm(raw, &ohm) == SH3673520_OK && ohm != 0u) ? 1u : 0u;
+    return (SH3673520_NtcRawToOhm(raw, &ohm) == SH3673520_OK &&
+            ohm >= 500u && ohm <= 300000u) ? 1u : 0u;
 }
 
 static uint8_t sh_read_balance_mask(uint32_t *mask)
@@ -57,12 +58,10 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     out->cell_count = SH3673510_D011_CELL_COUNT;
     out->battery_temp_valid = (uint8_t)(sh_ntc_valid(raw.external_raw[SH3673510_D011_BAT_NTC1_INDEX]) &&
                                         sh_ntc_valid(raw.external_raw[SH3673510_D011_BAT_NTC2_INDEX]));
+#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
     out->heater_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_D011_HEATER_NTC_INDEX]);
-#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-    out->mos_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_D011_MOS_NTC_INDEX]);
-#else
-    out->mos_temp_not_required = 1u;
 #endif
+    out->mos_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_D011_MOS_NTC_INDEX]);
     t1 = g_stCellInfoReport.u16Temperature[AFE1_TEMP1];
     t2 = g_stCellInfoReport.u16Temperature[AFE1_TEMP2];
     out->battery_temp_min_x10 = (t1 < t2) ? t1 : t2;

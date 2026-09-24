@@ -229,6 +229,10 @@ static void poll_fets(void)
         put32(&s_words[140], pm_get_32k_tick());
         trace(DIAG_EV_MOS, (uint32_t)requested | ((uint32_t)command << 16), driver);
     }
+    /* Measurements can vary every sample; do not flood the state-change Trace. */
+    s_words[149] = detail.mos_ntc_raw;
+    put32(&s_words[150], detail.mos_ntc_ohm);
+    s_words[152] = detail.mos_temp_x10;
 }
 
 void bms_diag_poll_runtime(uint8_t sample_valid, int32_t current_ma,
