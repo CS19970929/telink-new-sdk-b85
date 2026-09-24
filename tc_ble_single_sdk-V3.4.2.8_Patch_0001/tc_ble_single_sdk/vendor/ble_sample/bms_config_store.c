@@ -129,6 +129,7 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
     memset(cfg, 0, sizeof(*cfg));
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
+    bms_afe_hw_profile_build_default(&cfg->afe_hw);
     bms_config_feature_defaults(&cfg->feature);
     bms_soc_get_default_config(&cfg->soc);
     cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;

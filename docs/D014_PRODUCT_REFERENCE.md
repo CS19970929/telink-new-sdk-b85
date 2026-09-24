@@ -122,6 +122,8 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
+当前 D014 的 AFE hardware profile 首次初始化使用 `sh3673510_project_config.h` 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
+
 ## 9. 代码入口
 
 - `vendor/ble_sample/sh3673510_project_config.h`：D014 8S / 667µΩ / GPIO / feature capability。
@@ -133,3 +135,4 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 - `vendor/ble_sample/bms_afe_hw_profile.*`：独立 AFE hardware protection profile。
 - `vendor/ble_sample/bms_features.*`：balance/open-wire/heater 公共策略。
 - `tests/sh3673510_d014_integration_check.py`：D014 板级 contract。
+- `tests/d014_afe_profile_default_host_check.py`：执行 D014 AFE 默认 profile 构建与校验。

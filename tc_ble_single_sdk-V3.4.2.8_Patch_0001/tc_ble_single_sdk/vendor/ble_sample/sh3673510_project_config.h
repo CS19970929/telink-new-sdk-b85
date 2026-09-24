@@ -183,6 +183,43 @@
 #define SH3673510_D011_SC_MULTIPLIER_CODE           0u
 #define SH3673510_D011_SC_DELAY_CODE                7u
 
+/*
+ * D014 independent AFE hardware-protection requested defaults.
+ * Units: mV, ms, 0.1A, us, and (degC+40)*10 as named.
+ * These values intentionally do not alias the software First/Second/Third
+ * protection table in param.h.
+ */
+#define SH3673510_HW_DEFAULT_COV_MV                3750u
+#define SH3673510_HW_DEFAULT_COV_DELAY_MS          1000u
+#define SH3673510_HW_DEFAULT_COV_RECOVER_MV        3500u
+#define SH3673510_HW_DEFAULT_COV_RECOVER_MS        1000u
+#define SH3673510_HW_DEFAULT_CUV_MV                3000u
+#define SH3673510_HW_DEFAULT_CUV_DELAY_MS          10000u
+#define SH3673510_HW_DEFAULT_CUV_RECOVER_MV        3100u
+#define SH3673510_HW_DEFAULT_CUV_RECOVER_MS        10000u
+#define SH3673510_HW_DEFAULT_OCD1_A10              100u
+#define SH3673510_HW_DEFAULT_OCD1_DELAY_MS         100u
+#define SH3673510_HW_DEFAULT_OCD2_A10              150u
+#define SH3673510_HW_DEFAULT_OCD2_DELAY_MS         100u
+#define SH3673510_HW_DEFAULT_OCD_RECOVER_A10       100u
+#define SH3673510_HW_DEFAULT_OCD_RECOVER_MS        2000u
+#define SH3673510_HW_DEFAULT_OCC1_A10              100u
+#define SH3673510_HW_DEFAULT_OCC1_DELAY_MS         100u
+#define SH3673510_HW_DEFAULT_OCC_RECOVER_A10       100u
+#define SH3673510_HW_DEFAULT_OCC_RECOVER_MS        100u
+#define SH3673510_HW_DEFAULT_SC_A10                300u
+#define SH3673510_HW_DEFAULT_SC_DELAY_US           256u
+#define SH3673510_HW_DEFAULT_SC_RECOVER_MS         2000u
+#define SH3673510_HW_DEFAULT_CHG_OT_X10            950u
+#define SH3673510_HW_DEFAULT_CHG_OT_RECOVER_X10    900u
+#define SH3673510_HW_DEFAULT_CHG_UT_X10            400u
+#define SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10    430u
+#define SH3673510_HW_DEFAULT_DSG_OT_X10            1000u
+#define SH3673510_HW_DEFAULT_DSG_OT_RECOVER_X10    900u
+#define SH3673510_HW_DEFAULT_DSG_UT_X10            200u
+#define SH3673510_HW_DEFAULT_DSG_UT_RECOVER_X10    300u
+#define SH3673510_HW_DEFAULT_TEMP_RECOVER_MS       1000u
+
 /* D014 board GPIO truth from HS-D014-8S15A schematic. */
 #define D014_CMNT_EN_PIN                        GPIO_PD4
 #define D014_AFE_SCLK_PIN                       GPIO_PD7
