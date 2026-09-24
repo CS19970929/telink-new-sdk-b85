@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001' / 'tc_ble_single_sdk' / 'vendor' / 'ble_sample'
@@ -12,6 +13,7 @@ m = text('modbus_rtu.c')
 c = text('sh3673510_control.c')
 b = text('sh3673510_bms.c')
 config = text('bms_config_store.c')
+param = text('param.h')
 
 assert 'BMS_CONFIG_AFE_WORDS             35u' in config
 assert 'storage_record_save(&g_bms_config_store' in config
@@ -28,5 +30,21 @@ assert 'bms_afe_apply_protection_config' not in commit
 apply = c[c.index('uint8_t sh3673510_control_apply_protection'):c.index('uint8_t sh3673510_control_get_protection_actual')]
 assert 'g_tParam.protect' not in apply
 assert 'bms_afe_hw_profile_get(&hw)' in b
+
+def macro_int(name):
+    m = re.search(rf'(?m)^\\s*#define\\s+{re.escape(name)}\\s+\\(?([0-9]+)\\)?\\s*[uUlL]*\\s*
+print('Independent AFE hardware protection profile + Storage V1 contract: PASS')
+, param)
+    if not m:
+        raise AssertionError(f'missing simple integer macro: {name}')
+    return int(m.group(1), 10)
+
+# Regression: D013 legacy defaults use recovery == level-1 trip. This must be
+# accepted for SH36735xx or AFE init is rejected before normal sampling starts.
+assert macro_int('ODC_recover') == macro_int('ODC_1')
+assert macro_int('OCC_recover') == macro_int('OCC_1')
+assert '#define BMS_AFE_CURRENT_RECOVERY_INVALID(recover, trip) ((recover) > (trip))' in p
+assert 'BMS_AFE_CURRENT_RECOVERY_INVALID(p->ocd_recover_a10, p->ocd1_a10)' in p
+assert 'BMS_AFE_CURRENT_RECOVERY_INVALID(p->occ_recover_a10, p->occ1_a10)' in p
 
 print('Independent AFE hardware protection profile + Storage V1 contract: PASS')
