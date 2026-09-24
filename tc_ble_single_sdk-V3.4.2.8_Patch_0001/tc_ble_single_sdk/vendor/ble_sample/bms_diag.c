@@ -2,6 +2,7 @@
 
 #include "SocEnhance.h"
 #include "bms_afe.h"
+#include "bms_features.h"
 #include "bms_state.h"
 #include "bms_storage_platform.h"
 #include "drivers.h"
@@ -182,8 +183,14 @@ static void poll_fets(void)
         &command, &command_valid, &driver, &driver_valid);
     requested = (uint16_t)((requested_c ? 1u : 0u) |
                            (requested_d ? 2u : 0u));
-    if (requested_c && (!command_valid || !(command & 1u))) charge_reason = 1024u;
-    if (requested_d && (!command_valid || !(command & 2u))) discharge_reason = 1024u;
+    if (requested_c && (!command_valid || !(command & 1u))) {
+        charge_reason = bms_features_diag_reasons(1u);
+        if (charge_reason == 0u) charge_reason = DIAG_BLOCK_BACKEND;
+    }
+    if (requested_d && (!command_valid || !(command & 2u))) {
+        discharge_reason = bms_features_diag_reasons(0u);
+        if (discharge_reason == 0u) discharge_reason = DIAG_BLOCK_BACKEND;
+    }
 
     if (s_words[128] != requested || s_words[130] != command ||
         s_words[131] != command_valid || s_words[132] != driver ||
