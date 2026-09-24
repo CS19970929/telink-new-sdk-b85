@@ -2,7 +2,7 @@
 
 本阶段在现有协议上增加持续观察和现场归档。客户 WPF、内部 WPF、CLI 共用 `Shared/BmsDiagnosticSession.cs`。
 
-2026-09-24 D014 固件另行增加只读 MOS 原因字段：Diagnostics schema 仍为 1，`word29 & 0x0002` 表示 word142/143/145–148 有 SH 原始标志、backend、通信保护与温度传感器状态。共享解码仅在固件声明该位时显示新字段；请求 ON 而 AFE 命令 OFF 时，健康评估增加 `mos.command_gap`，展示阻断原因。旧固件不会显示这些新字段。此扩展没有改变客户端写入、Flash 或 OTA 格式；D014 的传感器策略修复见固件分支 `docs/D014_DIAGNOSTICS.md`。
+2026-09-24 D014 固件另行增加只读 MOS 原因字段：Diagnostics schema 仍为 1，`word29 & 0x0002` 表示 word142/143/145–152 有 SH 原始标志、backend、通信保护、温度传感器状态及 TS4 原始值/电阻/温度。共享解码仅在固件声明该位时显示新字段；请求 ON 而 AFE 命令 OFF 时，健康评估增加 `mos.command_gap`，展示阻断原因。旧固件不会显示这些新字段。此扩展没有改变客户端写入、Flash 或 OTA 格式；D014 的 TS4 10K-3435 必需传感器策略见固件分支 `docs/D014_DIAGNOSTICS.md`。
 
 ## 使用
 

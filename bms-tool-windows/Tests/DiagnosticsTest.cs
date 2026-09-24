@@ -73,15 +73,25 @@ static class Test
         blockedWords[128]=3;blockedWords[129]=0;blockedWords[130]=0;
         blockedWords[136]=528;blockedWords[138]=528; // software + temperature break
         blockedWords[142]=0x10;blockedWords[143]=0x02;blockedWords[145]=0x40;
-        blockedWords[146]=0x103;blockedWords[147]=0x11;blockedWords[148]=0x03;
+        blockedWords[146]=0x103;blockedWords[147]=0x11;blockedWords[148]=0x07;
+        blockedWords[149]=32767;blockedWords[150]=0;blockedWords[151]=0;blockedWords[152]=0;
         var blockedCapture=new DiagnosticCapture {Supported=true,SnapshotConsistent=true};
         BmsDiagnostics.Decode(blockedCapture,blockedWords);
         Check(blockedCapture.Mos.Any(f=>f.Field=="SH backend 状态"&&f.Value.Contains("温度断线"))&&
-              blockedCapture.Mos.Any(f=>f.Field=="SH 温度传感器状态"&&f.Value.Contains("TS1 有效")&&f.Value.Contains("TS2 有效")&&!f.Value.Contains("MOS NTC 保护启用")),
-              "SH detailed sensor diagnosis distinguishes unqualified MOS NTC");
+              blockedCapture.Mos.Any(f=>f.Field=="SH 温度传感器状态"&&f.Value.Contains("TS1 有效")&&f.Value.Contains("TS2 有效")&&f.Value.Contains("MOS NTC 保护启用")&&!f.Value.Contains("MOS NTC 有效"))&&
+              blockedCapture.Mos.Any(f=>f.Field=="TS4 MOS NTC 原始值"&&f.Value.Contains("32767"))&&
+              blockedCapture.Mos.Any(f=>f.Field=="TS4 MOS 温度"&&f.Value=="无效/断线"),
+              "SH detailed sensor diagnosis identifies fitted TS4 failure");
         var blockedHealth=BmsHealth.Evaluate(blockedCapture);
         Check(blockedHealth.Checks.Any(x=>x.Id=="mos.command_gap"&&x.Evidence.Contains("温度无效")&&
-              x.Recommendation.Contains("MOS NTC保护启用=False")),"MOS command gap identifies temperature policy");
+              x.Recommendation.Contains("MOS NTC保护启用=True")&&x.Recommendation.Contains("MOS NTC有效=False")),
+              "MOS command gap identifies TS4 sensor failure");
+        var validTs4=blockedWords.ToArray();validTs4[148]=0x0F;validTs4[149]=16384;
+        validTs4[150]=10000;validTs4[151]=0;validTs4[152]=650;
+        var validTs4Capture=new DiagnosticCapture();BmsDiagnostics.Decode(validTs4Capture,validTs4);
+        Check(validTs4Capture.Mos.Any(f=>f.Field=="TS4 MOS NTC 电阻"&&f.Value.Contains("10000 Ω"))&&
+              validTs4Capture.Mos.Any(f=>f.Field=="TS4 MOS 温度"&&f.Value.Contains("25.0 °C")),
+              "valid TS4 resistance and encoded temperature decode");
         t.NonD008=true;var nonD008=await b.ReadDiagnosticsAsync(true,"sh-product");t.NonD008=false;
         Check(!nonD008.EvidenceBlocks.ContainsKey("D008Capability")&&nonD008.EvidenceBlocks.ContainsKey("AfeRequested"),"AFE evidence must not depend on D008 capability");
         var health=BmsHealth.Evaluate(capture,new DeviceIdentity("AA","SN","D008","V1","BT_D008"),new BatterySnapshot{

@@ -177,7 +177,7 @@ public static class BmsHealth
                     string reason = $"CHG={BmsDiagnostics.Reasons(chargeReason)}；DSG={BmsDiagnostics.Reasons(dischargeReason)}";
                     string advice = ((chargeReason | dischargeReason) & 512u) != 0
                         ? ((words[29] & BmsDiagnostics.ShFetDetailInfo) != 0
-                            ? $"温度断线：TS1有效={((words[148] & 1) != 0)}，TS2有效={((words[148] & 2) != 0)}，MOS NTC保护启用={((words[148] & 4) != 0)}，MOS NTC有效={((words[148] & 8) != 0)}。核对必需传感器与产品配置。 "
+                            ? $"温度断线：TS1有效={((words[148] & 1) != 0)}，TS2有效={((words[148] & 2) != 0)}，MOS NTC保护启用={((words[148] & 4) != 0)}，MOS NTC有效={((words[148] & 8) != 0)}。检查无效的 TS1/TS2/TS4 及原始值、电阻和接线。 "
                             : "检查必需温度传感器及产品支持配置。 ")
                         : "检查诊断页的 AFE FLAG1/2、backend/通信保护状态及对应保护条件。 ";
                     Add("mos.command_gap", "MOS", BmsHealthStatus.Warning,
