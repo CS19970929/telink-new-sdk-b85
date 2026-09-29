@@ -15,10 +15,10 @@
 // #define __TEST_SOC__
 
 /* Power comparison only: 0 removes the application's periodic wake deadline.
- * Sampling then depends on other wake events/main-loop execution and may be
- * delayed. Keep 1 for normal protection/SOC timing. Rebuild after changing. */
+ * Sampling then depends on other wake events and can miss the DVC Open-Wire
+ * COW window. Keep 1 for normal protection/SOC timing. Rebuild after changing. */
 #ifndef BMS_APP_SAMPLE_WAKEUP_ENABLE
-#define BMS_APP_SAMPLE_WAKEUP_ENABLE 0u
+#define BMS_APP_SAMPLE_WAKEUP_ENABLE 1u
 #endif
 #if (BMS_APP_SAMPLE_WAKEUP_ENABLE != 0u) && (BMS_APP_SAMPLE_WAKEUP_ENABLE != 1u)
 #error "BMS_APP_SAMPLE_WAKEUP_ENABLE must be 0 or 1"

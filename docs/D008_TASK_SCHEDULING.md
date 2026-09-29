@@ -107,8 +107,8 @@ Requested、AFE Command、AFE Driver Flag 分开；没有物理反馈时保持 u
 - `pm_get_32k_tick()`：本项目按 32000 tick/s 计算；恢复、新鲜度、SOC 和存储计时使用它，不得套用 32768。
 - 用无符号差处理单次回绕；并不支持跨多个完整回绕推算长时间。ACC deep sleep 后完整启动；不能用未知休眠时长补 SOC。
 - AppWakeup 的 owner 是 `app.c`。当前产品没有使用 SDK `blt_soft_timer` 调度；以后启用时必须检查同一 AppWakeup 回调/截止时间被覆盖的问题。
-- 当前基线 `conf.h` 的 `BMS_APP_SAMPLE_WAKEUP_ENABLE=0` 是功耗测试选择。本次保留。无电流锁存时采样依赖其他唤醒，200 ms 是到期检查而非保证每 200 ms 醒来；其他按样本数的滤波/开线等待也可能变长。
-- 有电流故障锁存时，即使宏为 0 仍安排 200 ms 唤醒；否则约 800 ms 的广播间隔会破坏 400 ms 新鲜度和连续恢复资格。
+- 当前基线 `conf.h` 的 `BMS_APP_SAMPLE_WAKEUP_ENABLE=1`：正常运行安排 200 ms 应用唤醒。`BMS_AI_diag_20260929_085108.zip` 对应的 16S 固件默认宏为 0，最近样本间隔 `35121 ticks32k`（按 32000 ticks/s 为约 1.10 s），接近 DVC COW 约 1 s 的有效窗口，并伴随 Open-Wire 检测和 CHG/DSG 命令反复切换；恢复定时唤醒后仍须实板复测采样间隔、检测结果及 Gate/Vgs。
+- `0` 仅用于受控功耗对比；此时采样依赖其他唤醒。有电流故障锁存时仍临时安排 200 ms 唤醒，以维持既有恢复资格。
 - BLE 连接允许事件之间 `SUSPEND_CONN`，但 OTA、Flash 会话、总线忙、无效/过期样本、待采样、双向电流达到 500 mA 仍阻止 suspend；连接仍阻止自动低压断电。
 
 ## 6. 本次简化与功耗结论
