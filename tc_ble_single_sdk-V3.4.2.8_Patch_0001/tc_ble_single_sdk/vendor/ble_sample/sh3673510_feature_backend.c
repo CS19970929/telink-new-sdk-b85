@@ -1,4 +1,4 @@
-#include "bms_afe.h"
+#include "bms_afe_driver.h"
 #include "bms_state.h"
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"

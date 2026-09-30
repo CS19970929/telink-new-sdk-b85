@@ -1,4 +1,6 @@
 #include "bms_afe_hw_profile.h"
+#include "bms_afe.h"
+#include "bms_afe_hw_access.h"
 #include "bms_afe_backend.h"
 #include "bms_config_store.h"
 #include <string.h>
@@ -332,4 +334,116 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
     }
 #endif
     return 1u;
+}
+
+static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
+static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+
+static u16 afe_hw_profile_word_be(const u8 *p)
+{
+    return (u16)(((u16)p[0] << 8) | p[1]);
+}
+
+static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
+                                     const bms_afe_hw_profile_t *b)
+{
+    const u16 *wa = (const u16 *)a;
+    const u16 *wb = (const u16 *)b;
+    u16 i;
+    for (i = 0u; i < BMS_AFE_HW_PROFILE_WORD_COUNT; ++i)
+        if (wa[i] != wb[i]) return 0u;
+    return 1u;
+}
+
+static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)
+{
+    bms_afe_hw_profile_t verify;
+    bms_afe_hw_profile_t effective;
+
+    if (before == 0 ||
+        !bms_afe_hw_profile_set(before) ||
+        !bms_afe_apply_protection_config() ||
+        !bms_afe_hw_profile_get(&verify) ||
+        !afe_hw_profile_words_equal(before, &verify) ||
+        !bms_afe_hw_profile_get_effective(&effective))
+    {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
+        bms_afe_hw_access_close();
+        return (bms_afe_hw_error_t)s_afe_hw_last_error;
+    }
+
+    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
+    return (bms_afe_hw_error_t)s_afe_hw_last_error;
+}
+
+bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
+{
+    bms_afe_hw_profile_t before;
+    bms_afe_hw_profile_t candidate;
+    bms_afe_hw_profile_t verify;
+    bms_afe_hw_profile_t effective;
+    u16 i;
+
+    if (!bms_afe_hw_access_is_active())
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_AUTH;
+        return BMS_AFE_HW_ERROR_AUTH;
+    }
+    if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
+        return BMS_AFE_HW_ERROR_VALIDATION;
+    }
+    if (!bms_afe_hw_profile_get(&before))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
+        return (bms_afe_hw_error_t)s_afe_hw_last_error;
+    }
+
+    candidate = before;
+    for (i = 0u; i < qty; ++i)
+        ((u16 *)&candidate)[i] = afe_hw_profile_word_be(&pdata[(u32)i * 2u]);
+
+    if (!bms_afe_hw_profile_validate(&candidate))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
+        return BMS_AFE_HW_ERROR_VALIDATION;
+    }
+
+    if (!bms_afe_hw_profile_set(&candidate))
+    {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
+        return (bms_afe_hw_error_t)s_afe_hw_last_error;
+    }
+
+    if (!bms_afe_apply_protection_config())
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+        return afe_hw_profile_rollback(&before);
+    }
+
+    if (!bms_afe_hw_profile_get(&verify) ||
+        !afe_hw_profile_words_equal(&candidate, &verify) ||
+        !bms_afe_hw_profile_get_effective(&effective))
+    {
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+        return afe_hw_profile_rollback(&before);
+    }
+
+    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
+    s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+    bms_afe_hw_access_close();
+    return BMS_AFE_HW_ERROR_NONE;
+}
+
+u16 bms_afe_hw_profile_apply_state(void)
+{
+    return s_afe_hw_apply_state;
+}
+
+u16 bms_afe_hw_profile_last_error(void)
+{
+    return s_afe_hw_last_error;
 }

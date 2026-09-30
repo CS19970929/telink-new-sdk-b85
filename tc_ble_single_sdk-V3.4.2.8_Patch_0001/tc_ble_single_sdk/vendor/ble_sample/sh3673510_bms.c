@@ -1,5 +1,5 @@
 #include "sh3673510_ntc.h"
-#include "bms_afe.h"
+#include "bms_afe_driver.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"

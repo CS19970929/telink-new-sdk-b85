@@ -1,6 +1,6 @@
 # BMS 软件架构与配置所有权
 
-本文只描述 D008 / D011 / D013 当前共同的软件边界。产品专属 IO、AFE 静态配置和未决硬件项分别见各分支 `*_PRODUCT_REFERENCE.md`。
+本文只描述 D008 / D011 / D013 / D014 当前共同的软件边界。产品专属 IO、AFE 静态配置和未决硬件项分别见各分支 `*_PRODUCT_REFERENCE.md`。
 
 ## 1. 依赖方向
 
@@ -92,3 +92,12 @@ AND no active AFE hardware block/lockout
 - 实板未完成项只在 `HARDWARE_VALIDATION.md` 维护。
 - 历史审计、旧任务列表、跨产品硬件说明不得继续作为当前设计入口。
 - 文档与源码冲突时，以源码为当前软件事实，同时标出与原理图/手册的冲突，不静默修正。
+
+## 9. 采样、backend 声明与参数事务的阅读入口
+
+- `app.c::app_sample_task` 在取得采样后调用同文件的 `static app_update_soc_from_sample`，组装实际样本、时间戳、故障及功能状态；`SocEnhance.c::bms_soc_update_sample` 负责 SOC 算法和运行状态。
+- `bms_afe.h` 声明经过通信/资格门禁的公共 API，不按 include 顺序改名。`bms_afe_driver.h` 声明实际 backend；guard、driver 和只读诊断使用它，不增加派发表或新的调用层。
+- `modbus_rtu.c` 检查帧、地址、长度和 CRC，并映射协议异常。`bms_afe_hw_profile_commit_be` 接收已确认完整的35-word BE payload，按原顺序处理授权、校验、保存、应用、读回和回滚；apply-state / last-error 归属 `bms_afe_hw_profile.c`。
+- SH 的 UART 初始化直接走 `modbus_uart_init`。`SH3673510_FIXED_UART_BLOCKS_PM=1` 保留原固定 UART 与 OWC idle 条件不相容的 PM 门禁，不开放新休眠入口。D008 的真实 SIF/mux 保持。
+
+详细批次范围与验证边界见 `BMS_SUBTRACTION_IMPLEMENTATION.md`。

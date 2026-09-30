@@ -48,7 +48,7 @@ static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
     return valid;
 }
 static int32_t bms_afe_current_to_soc_ma(int32_t x) { return -x; }
-static void APP_SOC_IntEnhance_Ctrl(u8 v, int32_t c, u32 t) {
+static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
     ++soc_calls; last_valid=v; last_current=c; last_tick=t;
 }
 static void mos_update(void) { ++mos_calls; }

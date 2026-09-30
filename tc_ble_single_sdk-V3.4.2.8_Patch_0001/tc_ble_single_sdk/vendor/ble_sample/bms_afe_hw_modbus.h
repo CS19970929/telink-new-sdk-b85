@@ -24,22 +24,4 @@
 #define BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u
 #define BMS_AFE_HW_EFFECTIVE_REG_COUNT           BMS_AFE_HW_PROFILE_WORD_COUNT
 
-typedef enum
-{
-    BMS_AFE_HW_APPLY_IDLE = 0u,
-    BMS_AFE_HW_APPLY_OK = 1u,
-    BMS_AFE_HW_APPLY_ROLLBACK_OK = 2u,
-    BMS_AFE_HW_APPLY_INCONSISTENT = 3u,
-} bms_afe_hw_apply_state_t;
-
-typedef enum
-{
-    BMS_AFE_HW_ERROR_NONE = 0u,
-    BMS_AFE_HW_ERROR_AUTH = 1u,
-    BMS_AFE_HW_ERROR_VALIDATION = 2u,
-    BMS_AFE_HW_ERROR_STORE = 3u,
-    BMS_AFE_HW_ERROR_APPLY_VERIFY = 4u,
-    BMS_AFE_HW_ERROR_ROLLBACK = 5u,
-} bms_afe_hw_error_t;
-
 #endif /* BMS_AFE_HW_MODBUS_H_ */

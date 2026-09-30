@@ -5,6 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 MOD = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
 C = (MOD / "SocEnhance.c").read_text(encoding="utf-8", errors="ignore")
+APP = (MOD / "app.c").read_text(encoding="utf-8", errors="ignore")
 H = (MOD / "SocEnhance.h").read_text(encoding="utf-8", errors="ignore")
 PROFILE = (MOD / "bms_soc_profile.h").read_text(encoding="utf-8", errors="ignore")
 DEFS = (MOD / "bms_soc_defs.h").read_text(encoding="utf-8", errors="ignore")
@@ -68,8 +69,8 @@ class SocContract(unittest.TestCase):
         self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", C)
 
     def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
-        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp", C)
-        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp", C)
+        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp", APP)
+        self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp", APP)
         self.assertIn("150u, 100u, 50u, 20u", PROFILE)
         self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 

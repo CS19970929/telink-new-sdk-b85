@@ -36,6 +36,7 @@
 #include "modbus_rtu.h"
 
 #include "bms_afe.h"
+#include "bms_features.h"
 #include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
@@ -1251,6 +1252,54 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 // main loop flow
 /////////////////////////////////////////////////////////////////////
 
+#define SOC_LEARNING_TEMP_FAULT_MASK         0x2BC0u
+#define SOC_LEARNING_CURRENT_FAULT_MASK      0x0030u
+#define SOC_LEARNING_PACK_FAULT_MASK         0x000Cu
+
+static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
+                             uint32_t sample_tick_32k)
+{
+    bms_afe_feature_snapshot_t feature;
+    bms_soc_sample_t sample;
+    uint16_t third_faults = g_stCellInfoReport.unMdlFault_Third.all;
+    memset(&sample, 0, sizeof(sample));
+    memset(&feature, 0, sizeof(feature));
+
+    sample.timestamp_32k = sample_tick_32k;
+    sample.current_ma = current_ma;
+    sample.pack_voltage_mv = (uint32_t)g_stCellInfoReport.u16VCellTotle * 10u;
+    sample.cell_min_mv = g_stCellInfoReport.u16VCellMin;
+    sample.cell_max_mv = g_stCellInfoReport.u16VCellMax;
+    sample.cell_delta_mv = g_stCellInfoReport.u16VCellDelta;
+    sample.sample_valid = valid ? 1u : 0u;
+    sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
+                            sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
+    if (valid && bms_afe_get_feature_snapshot(&feature) &&
+        feature.valid && feature.battery_temp_valid) {
+        sample.temperature_valid = 1u;
+        sample.temperature_min_x10 = feature.battery_temp_min_x10;
+        sample.temperature_max_x10 = feature.battery_temp_max_x10;
+    }
+    sample.balancing_active = bms_features_balance_active();
+    sample.heating_active = bms_features_heater_on();
+    sample.open_wire_active = bms_features_openwire_active();
+    sample.open_wire_suspected = bms_features_openwire_suspected();
+    sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
+    sample.temperature_fault =
+        ((third_faults & SOC_LEARNING_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.current_fault =
+        ((third_faults & SOC_LEARNING_CURRENT_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.pack_fault =
+        ((third_faults & SOC_LEARNING_PACK_FAULT_MASK) != 0u) ? 1u : 0u;
+    sample.third_cell_ovp =
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp;
+    sample.third_cell_uvp =
+        g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp;
+    sample.charger_state_known = 1u;
+    sample.charger_present = bms_features_charge_session_active();
+    bms_soc_process_sample(&sample);
+}
+
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t sample;
@@ -1267,7 +1316,7 @@ static void app_sample_task(void)
      * The common guard exposes auxiliary data only after communication and
      * fresh-snapshot qualification have both succeeded. */
     sample_valid = bms_afe_get_aux_measurements(&sample);
-    APP_SOC_IntEnhance_Ctrl(sample_valid,
+    app_update_soc_from_sample(sample_valid,
                             sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0,
                             sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
 

@@ -2,6 +2,7 @@
 
 #include "SocEnhance.h"
 #include "bms_afe.h"
+#include "bms_afe_driver.h"
 #include "bms_features.h"
 #include "bms_state.h"
 #include "bms_storage_platform.h"

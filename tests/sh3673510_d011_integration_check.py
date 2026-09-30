@@ -22,7 +22,7 @@ def require(src: str, needle: str) -> None:
 cfg = text("sh3673510_project_config.h")
 conf = text("conf.h")
 backend = text("bms_afe_backend.h")
-afe = text("bms_afe.h")
+afe = text("bms_afe.h") + text("bms_afe_driver.h")
 reg = text("sh3673520_reg.h")
 port = text("sh3673520_port.c")
 port_h = text("sh3673520_port.h")

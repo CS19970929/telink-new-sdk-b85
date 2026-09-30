@@ -7,11 +7,11 @@ a=text('bms_afe_hw_access.c'); h=text('bms_afe_hw_access.h'); m=text('modbus_rtu
 assert 'BMS_AFE_HW_ACCESS_MODBUS_FUNC       0x42u' in h
 assert 'BMS_AFE_HW_ACCESS_UNLOCK_MAGIC      0x41464548UL' in h
 assert 'BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS   60u' in h
-assert 'bms_afe_hw_access_is_active()' in m
-assert 'BMS_AFE_HW_ERROR_AUTH' in m
-assert 'BMS_AFE_HW_APPLY_INCONSISTENT' in m
-assert 'afe_hw_profile_rollback' in m
-assert 'bms_afe_hw_access_close();' in m
+assert 'bms_afe_hw_access_is_active()' in p
+assert 'BMS_AFE_HW_ERROR_AUTH' in p
+assert 'BMS_AFE_HW_APPLY_INCONSISTENT' in p
+assert 'afe_hw_profile_rollback' in p
+assert 'bms_afe_hw_access_close();' in p
 assert 'BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u' in c
 assert 'BMS_AFE_HW_META_INTERFACE_VERSION        0x252Bu' in c
 assert 'bms_afe_hw_profile_get_effective' in p

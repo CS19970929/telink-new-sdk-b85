@@ -70,8 +70,6 @@ void WriteProID_Default(void);
 
 static PRODUCTION_ID_INFO ProductionInfor;
 
-static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
-static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
 
 static int afe_hw_profile_is_requested_reg(u16 reg)
 {
@@ -152,105 +150,22 @@ static u16 afe_hw_profile_read_reg(u16 reg)
     case BMS_AFE_HW_META_CELL_COUNT:        return afe_hw_profile_product_cell_count();
     case BMS_AFE_HW_META_WDT_SECONDS:       return afe_hw_profile_product_wdt_seconds();
     case BMS_AFE_HW_META_ACCESS_ACTIVE:     return bms_afe_hw_access_is_active() ? 1u : 0u;
-    case BMS_AFE_HW_META_APPLY_STATE:       return s_afe_hw_apply_state;
-    case BMS_AFE_HW_META_LAST_ERROR:        return s_afe_hw_last_error;
+    case BMS_AFE_HW_META_APPLY_STATE:       return bms_afe_hw_profile_apply_state();
+    case BMS_AFE_HW_META_LAST_ERROR:        return bms_afe_hw_profile_last_error();
     case BMS_AFE_HW_META_INTERFACE_VERSION: return BMS_AFE_HW_INTERFACE_VERSION;
     default: return 0xFFFFu;
     }
 }
 
-static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
-                                     const bms_afe_hw_profile_t *b)
-{
-    const u16 *wa = (const u16 *)a;
-    const u16 *wb = (const u16 *)b;
-    u16 i;
-    for (i = 0u; i < BMS_AFE_HW_PROFILE_WORD_COUNT; ++i)
-        if (wa[i] != wb[i]) return 0u;
-    return 1u;
-}
-
-static u8 afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)
-{
-    bms_afe_hw_profile_t verify;
-    bms_afe_hw_profile_t effective;
-
-    if (before == 0 ||
-        !bms_afe_hw_profile_set(before) ||
-        !bms_afe_apply_protection_config() ||
-        !bms_afe_hw_profile_get(&verify) ||
-        !afe_hw_profile_words_equal(before, &verify) ||
-        !bms_afe_hw_profile_get_effective(&effective))
-    {
-        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
-        bms_afe_hw_access_close();
-        return MB_EX_DEVICE_FAILURE;
-    }
-
-    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
-    return MB_EX_DEVICE_FAILURE;
-}
-
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
-    bms_afe_hw_profile_t before;
-    bms_afe_hw_profile_t candidate;
-    bms_afe_hw_profile_t verify;
-    bms_afe_hw_profile_t effective;
-    u16 i;
-
-    if (!bms_afe_hw_access_is_active())
+    switch (bms_afe_hw_profile_commit_be(pdata, qty))
     {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_AUTH;
-        return MB_EX_ILLEGAL_ADDRESS;
+    case BMS_AFE_HW_ERROR_NONE:       return 0u;
+    case BMS_AFE_HW_ERROR_AUTH:       return MB_EX_ILLEGAL_ADDRESS;
+    case BMS_AFE_HW_ERROR_VALIDATION: return MB_EX_ILLEGAL_VALUE;
+    default:                        return MB_EX_DEVICE_FAILURE;
     }
-    if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
-    {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
-        return MB_EX_ILLEGAL_VALUE;
-    }
-    if (!bms_afe_hw_profile_get(&before))
-    {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
-        return MB_EX_DEVICE_FAILURE;
-    }
-
-    candidate = before;
-    for (i = 0u; i < qty; ++i)
-        ((u16 *)&candidate)[i] = u16be(&pdata[(u32)i * 2u]);
-
-    if (!bms_afe_hw_profile_validate(&candidate))
-    {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
-        return MB_EX_ILLEGAL_VALUE;
-    }
-
-    if (!bms_afe_hw_profile_set(&candidate))
-    {
-        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;
-        return MB_EX_DEVICE_FAILURE;
-    }
-
-    if (!bms_afe_apply_protection_config())
-    {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
-        return afe_hw_profile_rollback(&before);
-    }
-
-    if (!bms_afe_hw_profile_get(&verify) ||
-        !afe_hw_profile_words_equal(&candidate, &verify) ||
-        !bms_afe_hw_profile_get_effective(&effective))
-    {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
-        return afe_hw_profile_rollback(&before);
-    }
-
-    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
-    s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
-    bms_afe_hw_access_close();
-    return 0u;
 }
 
 static u16 read_fault_history_reg(u16 reg)

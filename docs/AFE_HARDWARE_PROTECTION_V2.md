@@ -122,7 +122,7 @@ apply_state = CONFIG_INCONSISTENT
 ## 8. 修改默认值的位置
 
 - Common profile结构/validation/migration：`bms_afe_hw_profile.h/.c`；
-- 持久化：`bms_cold_kv_store.c`；
+- 持久化：`bms_config_store.c` / `storage_record.c`；
 - D008量化/应用：DVC1124 backend；
 - D011/D013量化/应用：`sh3673510_control.c`；
 - 产品板级静态安全配置：各分支 `dvc1124_project_config.h` 或 `sh3673510_project_config.h`。

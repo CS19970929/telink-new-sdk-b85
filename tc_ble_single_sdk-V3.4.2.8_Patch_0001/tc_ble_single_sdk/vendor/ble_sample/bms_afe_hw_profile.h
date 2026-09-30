@@ -70,4 +70,28 @@ u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *profile);
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *profile);
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *profile);
 
+typedef enum
+{
+    BMS_AFE_HW_APPLY_IDLE = 0u,
+    BMS_AFE_HW_APPLY_OK = 1u,
+    BMS_AFE_HW_APPLY_ROLLBACK_OK = 2u,
+    BMS_AFE_HW_APPLY_INCONSISTENT = 3u,
+} bms_afe_hw_apply_state_t;
+
+typedef enum
+{
+    BMS_AFE_HW_ERROR_NONE = 0u,
+    BMS_AFE_HW_ERROR_AUTH = 1u,
+    BMS_AFE_HW_ERROR_VALIDATION = 2u,
+    BMS_AFE_HW_ERROR_STORE = 3u,
+    BMS_AFE_HW_ERROR_APPLY_VERIFY = 4u,
+    BMS_AFE_HW_ERROR_ROLLBACK = 5u,
+} bms_afe_hw_error_t;
+
+/* Complete 35-word big-endian payload, independent of frame/transport.
+ * Checks the existing write session before parsing or touching storage/AFE. */
+bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty);
+u16 bms_afe_hw_profile_apply_state(void);
+u16 bms_afe_hw_profile_last_error(void);
+
 #endif /* BMS_AFE_HW_PROFILE_H_ */
