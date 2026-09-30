@@ -1,7 +1,7 @@
 #include "SocEnhance.h"
 #include "bms_config_store.h"
 #include "bms_soc_profile.h"
-#include "bms_cold_kv_store.h"
+#include "bms_config_store.h"
 #include "bms_features.h"
 #include "bms_error.h"
 #include "bms_state.h"
@@ -185,7 +185,7 @@ static uint8_t g_soc_charger_state_ready;
 static uint8_t g_soc_last_charger_present;
 static uint8_t g_soc_load_state_ready;
 static uint8_t g_soc_last_load_present;
-static uint8_t g_soc_display_soc = (uint8_t)SOC_PARAM_DEFAULT_SOC;
+static uint8_t g_soc_display_soc = (uint8_t)BMS_STATE_DEFAULT_SOC;
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
 static bms_soc_config_t g_soc_config = {
@@ -541,8 +541,8 @@ static uint32_t soc_display_capacity_now(void)
 
 static uint32_t soc_nominal_capacity_0p1ah(void)
 {
-    bms_cold_system_params_t system;
-    if (bms_cold_kv_store_get_system(&system) && system.capacity_factory > 0u &&
+    bms_config_system_params_t system;
+    if (bms_config_store_get_system(&system) && system.capacity_factory > 0u &&
         system.capacity_factory <= BMS_SOC_CAPACITY_MAX_0P1AH) return system.capacity_factory;
     return (uint32_t)CapacityFactory;
 }
@@ -676,11 +676,11 @@ static uint16_t soc_sat_inc_u16(uint16_t value)
 
 static uint32_t soc_learning_persist_flags(void)
 {
-    uint32_t flags = SOC_KV_FLAG_LEARNING_META |
-        (soc_nominal_capacity_0p1ah() << SOC_KV_FLAG_NOMINAL_SHIFT);
-    if (g_soc_runtime.capacity_learned) flags |= SOC_KV_FLAG_CAPACITY_LEARNED;
+    uint32_t flags = BMS_STATE_FLAG_LEARNING_META |
+        (soc_nominal_capacity_0p1ah() << BMS_STATE_FLAG_NOMINAL_SHIFT);
+    if (g_soc_runtime.capacity_learned) flags |= BMS_STATE_FLAG_CAPACITY_LEARNED;
     if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-        flags |= SOC_KV_FLAG_LEARNING_ACTIVE;
+        flags |= BMS_STATE_FLAG_LEARNING_ACTIVE;
     return flags;
 }
 
@@ -699,7 +699,7 @@ static void soc_learning_update_confidence(void)
 
 static void soc_learning_persist(void)
 {
-    (void)soc_kv_store_write_learning_meta(
+    (void)bms_state_store_write_learning_meta(
         (u32)g_soc_runtime.learned_capacity_0p1ah,
         soc_learning_persist_flags(),
         (u32)g_soc_runtime.candidate_capacity_0p1ah,
@@ -1704,9 +1704,9 @@ void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
                          soc_limit_percent_u32(soc), sync_display);
 }
 
-void soc_param_lib_init(const soc_kv_data_t *soc)
+void soc_param_lib_init(const bms_state_store_data_t *soc)
 {
-    soc_kv_data_t defaults;
+    bms_state_store_data_t defaults;
     uint8_t learning_meta_changed = 0u;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
     soc_invalidate_sample_interval();
@@ -1714,22 +1714,22 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
     soc_profile_refresh();
 
     if (soc == 0) {
-        defaults = soc_kv_store_get_default_data();
+        defaults = bms_state_store_get_default_data();
         soc = &defaults;
     }
 
     SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
     SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
     SOC_Calculate_Element.u32CapFull_Cal_As = 0u;
-    if ((soc->flags >> SOC_KV_FLAG_NOMINAL_SHIFT) == soc_nominal_capacity_0p1ah()) {
-        if ((soc->flags & SOC_KV_FLAG_CAPACITY_LEARNED) &&
+    if ((soc->flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) == soc_nominal_capacity_0p1ah()) {
+        if ((soc->flags & BMS_STATE_FLAG_CAPACITY_LEARNED) &&
             soc->learned_capacity_0p1ah != 0u) {
             g_soc_runtime.capacity_learned = 1u;
             g_soc_runtime.learned_capacity_0p1ah =
                 (soc->learned_capacity_0p1ah > 65535u) ?
                 65535u : (uint16_t)soc->learned_capacity_0p1ah;
         }
-        if (soc->flags & SOC_KV_FLAG_LEARNING_META) {
+        if (soc->flags & BMS_STATE_FLAG_LEARNING_META) {
             g_soc_runtime.candidate_capacity_0p1ah =
                 (uint16_t)soc->candidate_capacity_0p1ah;
             g_soc_runtime.valid_learning_count = (uint16_t)soc->valid_learning_count;
@@ -1738,7 +1738,7 @@ void soc_param_lib_init(const soc_kv_data_t *soc)
                 (uint8_t)soc->last_learning_reject_reason;
             g_soc_runtime.candidate_match_count = (uint8_t)soc->candidate_match_count;
         }
-        if (soc->flags & SOC_KV_FLAG_LEARNING_ACTIVE) {
+        if (soc->flags & BMS_STATE_FLAG_LEARNING_ACTIVE) {
             g_soc_runtime.rejected_learning_count =
                 soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
             g_soc_runtime.last_learning_reject_reason =
@@ -2047,7 +2047,7 @@ void bms_soc_nominal_capacity_changed(void)
     g_soc_runtime.last_learning_reject_reason = BMS_SOC_LEARNING_REJECT_NONE;
     g_soc_runtime.learning_confidence = 0u;
     soc_learning_abort();
-    (void)soc_kv_store_write_learning_meta(0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    (void)bms_state_store_write_learning_meta(0u, 0u, 0u, 0u, 0u, 0u, 0u);
     soc_recalc_full_capacity();
     set_soc_param(get_soc_real(), 0u, 1u);
     SOC_Result_Pass();

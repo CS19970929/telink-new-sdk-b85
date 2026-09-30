@@ -248,14 +248,3 @@ int bms_event_log_factory_reset(void)
     }
     return 1;
 }
-
-void test_log_balance_first(void) { bms_event_log_track_edge(1u, BALANCE_OPEN); }
-
-void test_log_app(void)
-{
-    bms_event_log_track_edge(1u, VCELL_OVP);
-    bms_event_log_track_edge(1u, VBUS_OVP);
-    bms_event_log_track_edge(1u, CHG_OCP);
-    bms_event_log_track_edge(1u, VCELL_UVP);
-    bms_event_log_track_edge(1u, VBUS_UVP);
-}

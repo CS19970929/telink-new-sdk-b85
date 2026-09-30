@@ -1,6 +1,6 @@
 ﻿#include "btname_modbus.h"
 #include "bms_error.h"
-#include "bms_cold_kv_store.h"
+#include "bms_config_store.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -109,7 +109,7 @@ static void btname_set_default_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 
 static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
-    if (!bms_cold_kv_store_get_bt_name_suffix(suffix, BTNAME_SUFFIX_MAX_LEN + 1u)) {
+    if (!bms_config_store_get_bt_name_suffix(suffix, BTNAME_SUFFIX_MAX_LEN + 1u)) {
         return 0;
     }
 
@@ -119,7 +119,7 @@ static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 
 static int btname_save_suffix_to_store(const char *suffix)
 {
-    return bms_cold_kv_store_set_bt_name_suffix(suffix);
+    return bms_config_store_set_bt_name_suffix(suffix);
 }
 
 void btname_init(void)

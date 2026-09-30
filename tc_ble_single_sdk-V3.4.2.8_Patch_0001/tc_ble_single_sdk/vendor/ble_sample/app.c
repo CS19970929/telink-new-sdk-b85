@@ -42,7 +42,7 @@
 
 #include "SocEnhance.h"
 #include "bms_event_log.h"
-#include "soc_kv_store.h"
+#include "bms_state_store.h"
 #include "sif_send.h"
 // #include "nvm_flash.h"
 #include "bus_mux.h"
@@ -1047,8 +1047,8 @@ _attribute_no_inline_ void user_init_normal(void)
 
 		/* 先取一帧电压/电流快照，给 SOC 启动合理性校正提供输入。 */
 		bms_afe_sample();
-		soc_kv_store_init();
-		soc_kv_data_t d = soc_kv_store_get();
+		bms_state_store_init();
+		bms_state_store_data_t d = bms_state_store_get();
 		// d.soc = 100;
 		soc_param_lib_init(&d);
 	}
@@ -1329,21 +1329,9 @@ _attribute_no_inline_ void main_loop(void)
 #ifdef _FUNC_UART_
 	main_loop_modbus();
 #endif
-	soc_kv_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
-	// soc_kv_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+	bms_state_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
+	// bms_state_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// nvm_process();
 	////////////////////////////////////// PM Process /////////////////////////////////
-	extern void test_log_app(void);
-	extern void test_log_balance_first(void);
-	// if(sys_time.enable_log_test_first)
-	// {
-	// 	sys_time.enable_log_test_first = false;
-	// 	test_log_app();
-	// }
-	// if(sys_time.enable_log_test_balance)
-	// {
-	// 	sys_time.enable_log_test_balance = false;
-	// 	test_log_balance_first();
-	// }
 	blt_pm_proc();
 }

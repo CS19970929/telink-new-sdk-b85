@@ -2,7 +2,7 @@
 #define SOCENHANCE_H
 
 #include "conf.h"
-#include "soc_kv_store.h"
+#include "bms_state_store.h"
 #include "bms_soc_defs.h"
 #include "bms_diag.h"
 
@@ -139,7 +139,7 @@ void set_dispsoc(uint8_t soc);
 uint8_t get_soc_real(void);
 uint8_t isCHG(void);
 uint8_t isDSG(void);
-void soc_param_lib_init(const soc_kv_data_t *soc);
+void soc_param_lib_init(const bms_state_store_data_t *soc);
 uint8_t bms_soh_from_cycle(uint16_t cycle);
 
 void bms_soc_nominal_capacity_changed(void);

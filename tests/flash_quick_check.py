@@ -160,9 +160,9 @@ class ArchitectureTests(unittest.TestCase):
     def test_state_keeps_changed_value_write_semantics(self):
         state = text(STATE_C)
         self.assertIn("memcmp(&g_bms_state, next, sizeof(*next)) == 0", state)
-        self.assertIn("soc_kv_store_update_and_log_if_changed", text(APP_C))
-        compat = text(MOD / "soc_kv_store.h")
-        self.assertIn("bms_state_store_update_and_log_if_changed", compat)
+        self.assertIn("bms_state_store_update_and_log_if_changed", text(APP_C))
+        self.assertFalse((MOD / "soc_kv_store.h").exists())
+        self.assertFalse((MOD / "bms_cold_kv_store.h").exists())
         self.assertIn("runtime_min", state)
         self.assertIn("BMS_STATE_DEFAULT_DSG    0u", text(STATE_H))
 

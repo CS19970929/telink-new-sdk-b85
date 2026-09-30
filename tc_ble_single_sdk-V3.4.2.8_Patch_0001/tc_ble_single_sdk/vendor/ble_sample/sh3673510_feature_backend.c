@@ -15,7 +15,6 @@
 #define SH_CHARGER_PRESENT_OFF_MV   900u
 
 static uint32_t s_balance_requested;
-static uint32_t s_balance_effective;
 static uint16_t s_balance_refresh_count;
 static uint8_t s_charger_present;
 static uint8_t s_ow_busy;
@@ -119,7 +118,6 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
         if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
         s_balance_requested = 0u;
-        s_balance_effective = 0u;
         return 1u;
     }
 
@@ -131,7 +129,6 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
         s_balance_refresh_count = 0u;
     }
     s_balance_requested = cell_mask;
-    s_balance_effective = actual;
     return 1u;
 }
 
@@ -139,7 +136,6 @@ uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
 {
     uint32_t actual;
     if (cell_mask == 0 || !sh_read_balance_mask(&actual)) return 0u;
-    s_balance_effective = actual;
     *cell_mask = actual;
     return 1u;
 }

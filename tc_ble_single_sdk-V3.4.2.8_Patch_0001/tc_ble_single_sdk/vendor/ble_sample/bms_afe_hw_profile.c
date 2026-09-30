@@ -1,6 +1,6 @@
 #include "bms_afe_hw_profile.h"
 #include "bms_afe_backend.h"
-#include "bms_cold_kv_store.h"
+#include "bms_config_store.h"
 #include <string.h>
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -242,12 +242,12 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
 u8 bms_afe_hw_profile_init(void)
 {
     bms_afe_hw_profile_t p;
-    if (!bms_cold_kv_store_get_afe_hw_profile(&p)) return 0u;
+    if (!bms_config_store_get_afe_hw_profile(&p)) return 0u;
     if (p.schema_version != BMS_AFE_HW_PROFILE_SCHEMA_VERSION ||
         p.afe_model != bms_afe_hw_profile_expected_model()) {
         bms_afe_hw_profile_build_default(&p);
         if (!bms_afe_hw_profile_validate(&p)) return 0u;
-        return bms_cold_kv_store_set_afe_hw_profile(&p) ? 1u : 0u;
+        return bms_config_store_set_afe_hw_profile(&p) ? 1u : 0u;
     }
     return bms_afe_hw_profile_validate(&p);
 }
@@ -256,14 +256,14 @@ u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 {
     if (p == 0) return 0u;
     if (!bms_afe_hw_profile_init()) return 0u;
-    if (!bms_cold_kv_store_get_afe_hw_profile(p)) return 0u;
+    if (!bms_config_store_get_afe_hw_profile(p)) return 0u;
     return bms_afe_hw_profile_validate(p);
 }
 
 u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 {
     if (!bms_afe_hw_profile_validate(p)) return 0u;
-    return bms_cold_kv_store_set_afe_hw_profile(p) ? 1u : 0u;
+    return bms_config_store_set_afe_hw_profile(p) ? 1u : 0u;
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

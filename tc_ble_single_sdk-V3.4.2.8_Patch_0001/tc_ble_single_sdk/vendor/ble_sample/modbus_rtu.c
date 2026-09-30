@@ -69,7 +69,7 @@ static u16 read_reg(u16 reg);
 static u8 write_reg(u16 reg, u16 val);
 void WriteProID_Default(void);
 
-PRODUCTION_ID_INFO ProductionInfor;
+static PRODUCTION_ID_INFO ProductionInfor;
 
 static int dvc_comm_is_semantic(u16 reg)
 {
