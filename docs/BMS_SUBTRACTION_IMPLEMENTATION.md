@@ -27,3 +27,13 @@
 全部 100 个编译输入、ELF 链接通过，无编译诊断。text/data/bss：改前 109376/3980/6588 B，改后 109360/3980/6592 B。
 
 Host：除前述改前失败外通过；D008 storage harness 去除别名头替换形成的重复头拼接后，掉电/参数/SOC/诊断用例通过。无固件 BIN、无烧录。
+
+## 第二批：SH 遗留实现退出
+
+删除 SH 树内 5 个 DVC C、5 个 DVC H 和不适用的 DVC source contract；删除空 SIF/mux 的 2 C/2 H，并同步 source_order。原 ELF 不含 DVC 后端/服务可达符号，DVC Modbus window 的 count 原为0，因此删除其恒不命中的分支；未知地址读值/写异常继续由原 fallback 处理。D008 的真实 DVC/SIF/mux 不受影响。
+
+UART 在 app 初始化中直接调用 modbus_uart_init，IRQ 仅保留 SDK 与 UART 的原顺序。两个 PM 条件用固定 SH3673510_FIXED_UART_BLOCKS_PM=1 表达原固定 UART 非 OWC idle 的结果；没有开启任何新睡眠入口。sleep host 默认检查该门禁，同时在独立测试场景隔离门禁以保留原潜在 PM 故障路径注入；测试场景不是支持的产品模式。
+
+### 第二批验证结果
+
+全部 93 个编译输入、ELF 链接通过，无编译诊断。text/data/bss：改前 109376/3980/6588 B，当前 108592/3976/6580 B。Host 25 组，剩余失败：production_policy_check.py。D014 production policy 为改前既有失败。

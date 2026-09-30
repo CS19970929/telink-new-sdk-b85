@@ -5,7 +5,7 @@
 typedef uint8_t u8;
 typedef uint32_t u32;
 enum { SH3673520_OK, SH3673520_ERR_SPI };
-enum { BMS_ERROR_AFE1, BUS_STATE_OWC_IDLE = 0 };
+enum { BMS_ERROR_AFE1 };
 enum { DEEPSLEEP_MODE = 1, PM_WAKEUP_PAD = 1, STATUS_GPIO_ERR_NO_ENTER_PM = 256 };
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE 2u
 #define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u
@@ -17,7 +17,7 @@ static unsigned errors, invalidations, comm_errors, failures, assertions;
 static unsigned bus_calls, balance_calls, fet_calls, sleep_writes, normal_writes;
 static unsigned pm_calls, event_calls, prepare_calls, cancel_calls;
 static unsigned wake_calls, wake_on_call, command_fail_at;
-static uint8_t ota_is_working, bus_busy, tx_busy, flash_locked;
+static uint8_t ota_is_working, tx_busy, flash_locked;
 static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
 static int pm_status;
@@ -54,8 +54,8 @@ static void bms_features_on_afe_invalid(void) { ++invalidations; heater_on = 0; 
 static int app_deepsleep_pad_wakeup_active(void) {
     ++wake_calls; return wake_on_call && wake_calls >= wake_on_call;
 }
-static int bus_mux_get_state(void) { return bus_busy; }
 static int uart_tx_is_busy(void) { return tx_busy; }
+static int modbus_uart_tx_active(void) { return tx_busy; }
 static int app_flash_lock_restore_enabled(void) { return flash_locked; }
 static u32 pm_get_32k_tick(void) { return fake_tick; }
 static void bms_event_log_note_sleep(void) { ++event_calls; }
@@ -88,15 +88,13 @@ static void reset(void) {
     balance_calls = fet_calls = sleep_writes = normal_writes = 0;
     pm_calls = event_calls = prepare_calls = cancel_calls = 0;
     wake_calls = wake_on_call = command_fail_at = 0;
-    ota_is_working = bus_busy = tx_busy = control_wake_active = 0;
+    ota_is_working = tx_busy = control_wake_active = 0;
     configure_ok = protection_ok = flash_locked = 1;
     heater_on = last_c = last_d = 1; pm_status = 0;
 }
 int main(void) {
     unsigned i, n;
     reset(); ota_is_working = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
-    reset(); bus_busy = 1;
     CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
     reset(); tx_busy = 1;
     CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
@@ -123,6 +121,13 @@ int main(void) {
     CHECK(!bms_afe_sleep()); CHECK(bus_calls == n);
     CHECK(s_guard.failsafe_wait_samples == BMS_AFE_FAILSAFE_WAIT_SAMPLES);
 
+#if SH3673510_FIXED_UART_BLOCKS_PM
+    reset(); CHECK(!app_note_sleep_and_enter_deepsleep(1));
+    CHECK(!bus_calls && !pm_calls && !event_calls && !prepare_calls);
+    reset(); CHECK(!app_note_sleep_and_enter_deepsleep(0));
+    CHECK(!bus_calls && !pm_calls && !event_calls && !prepare_calls);
+#else
+    /* Latent PM failure handling is isolated from the product's fixed gate. */
     /* Learn the successful path's IO count; fail every operation in turn. */
     reset(); CHECK(app_note_sleep_and_enter_deepsleep(1)); n = bus_calls;
     CHECK(pm_calls == 1 && sleep_writes == 1 && event_calls == 1);
@@ -164,6 +169,7 @@ int main(void) {
     fake_tick += 3u * APP_PM_TICKS_PER_SEC;
     CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(pm_calls == 2);
 
+#endif
     CHECK(app_pm_elapsed_limit(3599, 1, 3600) == 3600);
     CHECK(app_pm_elapsed_limit(3600, UINT32_MAX, 3600) == 3600);
     CHECK(app_pm_elapsed_limit(0, UINT32_MAX, 3600) == 3600);

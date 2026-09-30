@@ -45,8 +45,14 @@ fixture = (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8'
 with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
     c, exe = Path(tmp) / 'check.c', Path(tmp) / 'check.exe'
     c.write_text(fixture.replace('/* PRODUCTION */', body), encoding='utf-8')
-    subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
-                    '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
-                    '-I', str(APP), str(c), '-o', str(exe)], check=True)
-    subprocess.run([str(exe)], check=True)
+    # Default 1 reproduces the actual fixed-UART gate. Test-only 0 retains
+    # fault-injection coverage of the latent PM body; it is not a product mode.
+    config = (APP / 'sh3673510_project_config.h').read_text(encoding='utf-8')
+    assert re.search(r'^#define SH3673510_FIXED_UART_BLOCKS_PM 1u$', config, re.M)
+    for blocked in (1, 0):
+        subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
+                        '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
+                        '-DSH3673510_FIXED_UART_BLOCKS_PM=%d' % blocked,
+                        '-I', str(APP), str(c), '-o', str(exe)], check=True)
+        subprocess.run([str(exe)], check=True)
 print('SH production sleep/control/backend/guard/app fault injection: PASS')

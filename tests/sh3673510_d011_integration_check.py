@@ -222,8 +222,6 @@ require(uart, "s_rs485_tx_start_tick")
 require(uart, "s_rs485_tx_min_hold_us")
 require(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)")
 
-require(modbus_h, "#define DVC1124_COMM_REG_COUNT                  0x0000u")
-require(modbus_h, "#define DVC1124_RAW_REG_COUNT                   0x0000u")
 
 
 
@@ -366,3 +364,5 @@ for needle in (
     require(publish_text, needle)
 
 print("HS-D011 SH3673510 integration contract: PASS")
+
+assert "dvc1124_config_service.h" not in modbus_h

@@ -19,7 +19,6 @@
 #include "runtime.h"
 #include "sh3673510_control.h"
 #include "sh3673510_project_config.h"
-#include "dvc1124_config_service.h"
 
 #include "stack/ble/ble.h"
 #include "btname_modbus.h"
@@ -70,102 +69,6 @@ static u8 write_reg(u16 reg, u16 val);
 void WriteProID_Default(void);
 
 static PRODUCTION_ID_INFO ProductionInfor;
-
-static int dvc_comm_is_semantic(u16 reg)
-{
-    return (reg >= DVC1124_COMM_REG_BASE &&
-            reg < (u16)(DVC1124_COMM_REG_BASE + DVC1124_COMM_REG_COUNT));
-}
-
-static int dvc_comm_is_raw(u16 reg)
-{
-    return (reg >= DVC1124_RAW_REG_BASE &&
-            reg < (u16)(DVC1124_RAW_REG_BASE + DVC1124_RAW_REG_COUNT));
-}
-
-static u16 dvc_comm_read(u16 reg)
-{
-    u32 value;
-    u8 raw;
-    dvc1124_config_result_t result;
-
-    if (dvc_comm_is_semantic(reg))
-    {
-        result = DVC1124_ConfigServiceRead(
-            (dvc1124_config_field_t)(reg - DVC1124_COMM_REG_BASE),
-            &value);
-        if (result != DVC1124_CFG_OK || value > 0xFFFFu) return 0xFFFFu;
-        return (u16)value;
-    }
-
-    if (dvc_comm_is_raw(reg))
-    {
-        result = DVC1124_ConfigServiceReadRaw(
-            (u8)(reg - DVC1124_RAW_REG_BASE),
-            &raw);
-        return (result == DVC1124_CFG_OK) ? raw : 0xFFFFu;
-    }
-
-    return 0xFFFFu;
-}
-
-static u8 dvc_result_to_modbus_exception(dvc1124_config_result_t result)
-{
-    switch (result)
-    {
-    case DVC1124_CFG_OK:
-        return 0u;
-    case DVC1124_CFG_ERR_ADDRESS:
-    case DVC1124_CFG_ERR_READ_ONLY:
-    case DVC1124_CFG_ERR_FORBIDDEN:
-        return MB_EX_ILLEGAL_ADDRESS;
-    case DVC1124_CFG_ERR_VALUE:
-        return MB_EX_ILLEGAL_VALUE;
-    case DVC1124_CFG_ERR_AFE_IO:
-    case DVC1124_CFG_ERR_STORE:
-    default:
-        return MB_EX_DEVICE_FAILURE;
-    }
-}
-
-static u8 dvc_comm_write(u16 reg, u16 val)
-{
-    dvc1124_config_result_t result;
-
-    if (dvc_comm_is_semantic(reg))
-    {
-        result = DVC1124_ConfigServiceWrite(
-            (dvc1124_config_field_t)(reg - DVC1124_COMM_REG_BASE),
-            val);
-        return dvc_result_to_modbus_exception(result);
-    }
-
-    if (dvc_comm_is_raw(reg))
-    {
-        if (val > 0xFFu) return MB_EX_ILLEGAL_VALUE;
-        result = DVC1124_ConfigServiceWriteRaw(
-            (u8)(reg - DVC1124_RAW_REG_BASE),
-            (u8)val);
-        return dvc_result_to_modbus_exception(result);
-    }
-
-    return MB_EX_ILLEGAL_ADDRESS;
-}
-
-static int dvc_comm_range_contains(u16 reg, u16 qty)
-{
-    u32 end;
-
-    if (qty == 0u) return 0;
-    end = (u32)reg + qty;
-
-    if (dvc_comm_is_semantic(reg))
-        return end <= (u32)DVC1124_COMM_REG_BASE + DVC1124_COMM_REG_COUNT;
-    if (dvc_comm_is_raw(reg))
-        return end <= (u32)DVC1124_RAW_REG_BASE + DVC1124_RAW_REG_COUNT;
-    return 0;
-}
-
 
 static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
 static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
@@ -396,8 +299,6 @@ static int modbus_exception(u8 addr,
 static u16 read_reg(u16 reg)
 {
     if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
-    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
-        return dvc_comm_read(reg);
 
     if (reg < 3u)
     {
@@ -490,15 +391,12 @@ extern uint8_t get_soc_real(void);
 
 static int reg_requires_param_save(u16 reg)
 {
-    /* DVC 0x2800 semantic writes persist inside dvc1124_config_service. */
     return (reg >= 0x2100u && reg <= 0x2140u);
 }
 
 static u8 write_reg(u16 reg, u16 val)
 {
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
-    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
-        return dvc_comm_write(reg, val);
 
     if (reg >= 0x2100u && reg <= 0x2140u)
     {
@@ -799,13 +697,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
         if (req_len < (u32)(7u + bytecnt + 2u)) return 0;
 
-        /*
-         * DVC safety configuration is transactional per semantic field today.
-         * Reject multi-field writes instead of accepting a half-updated AFE
-         * when a later field fails. Use 0x06 until batch commit is implemented.
-         */
-        if (qty > 1u && dvc_comm_range_contains(reg, qty))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
 
         pdata = &req[7];
 

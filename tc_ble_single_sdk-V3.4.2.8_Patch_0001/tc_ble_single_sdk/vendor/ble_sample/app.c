@@ -43,9 +43,7 @@
 #include "SocEnhance.h"
 #include "bms_event_log.h"
 #include "bms_state_store.h"
-#include "sif_send.h"
 // #include "nvm_flash.h"
-#include "bus_mux.h"
 #include "btname_modbus.h"
 #include "runtime.h"
 #include "param.h"
@@ -174,7 +172,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     /* These gates must precede every explicit deep-sleep entry, not just the
      * BLE suspend policy below. Never interrupt OTA/unlocked Flash or UART. */
     if (ota_is_working || !app_flash_lock_restore_enabled() ||
-        BUS_STATE_OWC_IDLE != bus_mux_get_state() || uart_tx_is_busy() ||
+        SH3673510_FIXED_UART_BLOCKS_PM || uart_tx_is_busy() ||
         modbus_uart_tx_active() ||
         app_deepsleep_pad_wakeup_active()) return 0;
 
@@ -760,7 +758,7 @@ void blt_pm_proc(void)
 
 	// if(!gpio_read(D014_SWITCH_PIN) || g_stCellInfoReport.u16IDischg || )
 	if (!gpio_read(D014_SWITCH_PIN) ||
-		BUS_STATE_OWC_IDLE != bus_mux_get_state() ||
+		SH3673510_FIXED_UART_BLOCKS_PM ||
 		uart_tx_is_busy() || modbus_uart_tx_active() ||
 		g_stCellInfoReport.u16IDischg ||
 		// MODE_FACTORY == Runtime_GetMode() ||
@@ -1033,7 +1031,6 @@ _attribute_no_inline_ void user_init_normal(void)
 		bms_diag_set_build_flags((SH3673510_SW_PROTECT_ENABLE ? 1u : 0u) |
 		                         (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
 		                         (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
-		// bus_mux_task();
 		// nvm_init(&nvm_cfg);
 		board_init();
 		LoadParam();
@@ -1053,9 +1050,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		soc_param_lib_init(&d);
 	}
 
-	sif_timer_init();
-
-	bus_mux_init();
+	modbus_uart_init();
 	btname_init();
 	bms_event_log_note_startup();
 
@@ -1324,8 +1319,6 @@ _attribute_no_inline_ void main_loop(void)
 	extern uint16_t get_idle_adjust_ticks(void);
 	// g_stCellInfoReport.u16VCell[30] = get_idle_stable_ticks();
 	// g_stCellInfoReport.u16VCell[31] = get_idle_adjust_ticks();
-
-	bus_mux_task();
 #ifdef _FUNC_UART_
 	main_loop_modbus();
 #endif

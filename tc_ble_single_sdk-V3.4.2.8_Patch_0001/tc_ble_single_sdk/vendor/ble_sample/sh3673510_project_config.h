@@ -251,4 +251,8 @@
 #if BMS_PRODUCTION_BUILD && (!SH3673510_SW_PROTECT_ENABLE || !SH3673510_HW_PROTECT_ENABLE || D011_DEBUG_LED_ENABLE)
 #error "Production requires software/hardware protection and no debug LED"
 #endif
+/* Preserve the former fixed-UART mux gate. Removing SIF must not enable
+ * suspend/deep sleep; changing this policy needs a separate hardware review. */
+#define SH3673510_FIXED_UART_BLOCKS_PM 1u
+
 #endif /* SH3673510_PROJECT_CONFIG_H_ */

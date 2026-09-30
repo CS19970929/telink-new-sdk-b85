@@ -19,9 +19,9 @@ def literal(src: str, name: str) -> int:
 
 
 conf = text("conf.h")
-bus = text("bus_mux.c")
+app = text("app.c")
 uart = text("modbus_uart.c")
-sif = text("sif_send.c")
+main = text("main.c")
 
 assert literal(conf, "MODBUS_RS485_ENABLE") == 1
 if re.search(r"(?m)^\s*#define\s+_FUNC_SIF_\b", conf):
@@ -29,16 +29,19 @@ if re.search(r"(?m)^\s*#define\s+_FUNC_SIF_\b", conf):
 if not re.search(r"(?m)^\s*#define\s+_FUNC_UART_\b", conf):
     raise AssertionError("D014 Modbus UART must be enabled")
 
-# Historical mux API is now only a fixed-UART compatibility shim.
-assert "modbus_uart_init();" in bus
-assert "BUS_STATE_UART_MODBUS" in bus
-for forbidden in (
-    "RX_HIGH_STABLE_US", "UART_DETECT_WINDOW_US", "UART_FALL_MIN_COUNT",
-    "enter_owc_idle", "enter_owc_tx", "owc_listen_init",
-    "gpio_set_interrupt_risc0", "gpio_en_interrupt_risc0",
-):
-    if forbidden in bus:
-        raise AssertionError(f"one-wire bus switching remains: {forbidden}")
+# Fixed Modbus UART is initialized directly. No inert SIF/mux enters the IRQ.
+assert "modbus_uart_init();" in app
+assert "modbus_uart_irq_proc();" in main
+assert app.count("SH3673510_FIXED_UART_BLOCKS_PM") == 2
+assert literal(text("sh3673510_project_config.h"), "SH3673510_FIXED_UART_BLOCKS_PM") == 1
+order = (ROOT / "bms_tools/source_order.txt").read_text(encoding="utf-8")
+for name in ("bus_mux.c", "bus_mux.h", "sif_send.c", "sif_send.h"):
+    assert not (HERE / name).exists()
+    assert name not in order
+assert "vendor/ble_sample/dvc1124" not in order
+assert not list(HERE.glob("dvc1124*"))
+assert "dvc_comm_" not in text("modbus_rtu.c")
+assert "dvc1124" not in text("modbus_rtu.h")
 
 # D014 retains DE//RE control around each Modbus response.
 for required in (
@@ -69,10 +72,5 @@ for required in (
 ):
     if required not in uart:
         raise AssertionError(f"missing D014 full-frame RS485 hold: {required}")
-
-# SIF source must be inert: no timer setup and no pin modulation.
-for forbidden in ("SIF_SYNC", "BUS_STATE_OWC_TX", "FLD_IRQ_TMR0_EN", "gpio_write"):
-    if forbidden in sif:
-        raise AssertionError(f"active SIF implementation remains: {forbidden}")
 
 print("D014 fixed Modbus RS485 communication contract: PASS")

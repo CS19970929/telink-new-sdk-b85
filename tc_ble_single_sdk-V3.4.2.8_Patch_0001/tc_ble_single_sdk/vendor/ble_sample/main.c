@@ -27,8 +27,6 @@
 #include "app.h"
 #include "bms_stack_monitor.h"
 #include "modbus_uart.h"
-#include "bus_mux.h"
-#include "sif_send.h"
 #include "sh3673510_project_config.h"
 
 /**
@@ -41,8 +39,6 @@ _attribute_ram_code_ void irq_handler(void)
 
 	irq_blt_sdk_handler();
 	modbus_uart_irq_proc();
-	sif_timer_irq_handler();
-	bus_mux_irq_handler();
 
 }
 
