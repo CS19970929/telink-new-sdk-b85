@@ -29,7 +29,7 @@ class WorktreeJunctionTests(unittest.TestCase):
             self.assertNotEqual(bms._worktree_junction(first), bms._worktree_junction(second))
             self.assertRegex(
                 bms._worktree_junction(first).name,
-                r"^bms_repo_[0-9a-f]{12}$",
+                r"^repo_[0-9a-f]{12}$",
             )
 
 
@@ -138,28 +138,14 @@ class IntegrityPrimitiveTests(unittest.TestCase):
 
 
 class SourceOrderTests(unittest.TestCase):
-    def test_discovery_is_case_sensitive_and_interleaves_c_and_assembly(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            sdk = Path(tmp)
-            app = sdk / "vendor" / "ble_sample"
-            common = sdk / "common"
-            nested = app / "feature"
-            nested.mkdir(parents=True)
-            common.mkdir(parents=True)
-            for path in (app / "SocEnhance.c", app / "app.c", nested / "worker.c",
-                         common / "div_mod.S", common / "sdk_version.c"):
-                path.touch()
-            groups = ((Path("vendor/ble_sample"), True), (Path("common"), False))
-            with mock.patch.object(bms, "SDK_DIR", sdk), \
-                    mock.patch.object(bms, "SOURCE_GROUPS", groups):
-                actual = bms._discover_managed_sources()
-        self.assertEqual(actual, [
-            "vendor/ble_sample/SocEnhance.c",
-            "vendor/ble_sample/app.c",
-            "vendor/ble_sample/feature/worker.c",
-            "common/div_mod.S",
-            "common/sdk_version.c",
-        ])
+    def test_discovery_uses_product_backend_and_all_shared_sources(self):
+        actual = bms._discover_managed_sources()
+        self.assertIn("bms/core/SocEnhance.c", actual)
+        self.assertIn("bms/core/bms_parameter_access.c", actual)
+        backend = "dvc1124" if bms.PRODUCT == "d008" else "sh3673510"
+        self.assertTrue(any(path.startswith("bms/afe/" + backend + "/") for path in actual))
+        self.assertFalse(any("vendor/ble_sample/" in path for path in actual))
+        self.assertEqual(set(actual), set(bms._read_source_order()))
 
     def test_validation_rejects_unlisted_new_source(self) -> None:
         with self.assertRaisesRegex(bms.SourceOrderError, "unlisted new source"):
@@ -172,40 +158,11 @@ class SourceOrderTests(unittest.TestCase):
             with self.assertRaisesRegex(bms.SourceOrderError, "case-colliding"):
                 bms._read_source_order(order)
 
-    def test_parse_ide_order_follows_makefile_include_and_objs(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            sdk = root / "sdk"
-            ide = root / "ide"
-            app = sdk / "vendor" / "ble_sample"
-            common = sdk / "common"
-            app.mkdir(parents=True)
-            common.mkdir(parents=True)
-            ide.joinpath("vendor", "ble_sample").mkdir(parents=True)
-            ide.joinpath("common").mkdir(parents=True)
-            (app / "SocEnhance.c").touch()
-            (app / "app.c").touch()
-            (common / "div_mod.S").touch()
-            (ide / "makefile").write_text(
-                "-include vendor/ble_sample/subdir.mk\n-include common/subdir.mk\n",
-                encoding="utf-8",
-            )
-            (ide / "vendor" / "ble_sample" / "subdir.mk").write_text(
-                "OBJS += \\\n./vendor/ble_sample/SocEnhance.o \\\n./vendor/ble_sample/app.o \n\n",
-                encoding="utf-8",
-            )
-            (ide / "common" / "subdir.mk").write_text(
-                "OBJS += \\\n./common/div_mod.o \n\n", encoding="utf-8"
-            )
-            groups = ((Path("vendor/ble_sample"), True), (Path("common"), False))
-            with mock.patch.object(bms, "SDK_DIR", sdk), \
-                    mock.patch.object(bms, "SOURCE_GROUPS", groups):
-                actual = bms._parse_ide_source_order(ide)
-        self.assertEqual(actual, [
-            "vendor/ble_sample/SocEnhance.c",
-            "vendor/ble_sample/app.c",
-            "common/div_mod.S",
-        ])
+    def test_manifest_paths_are_real_files_and_repo_relative(self):
+        for relative in bms._load_source_order_strict():
+            self.assertFalse(Path(relative).is_absolute())
+            self.assertTrue((REPO_ROOT / relative).is_file())
+
 
 
 class CommandSurfaceTests(unittest.TestCase):
@@ -218,25 +175,25 @@ class CommandSurfaceTests(unittest.TestCase):
         commands = set(subparsers.choices)
         self.assertEqual(
             commands,
-            {"env", "build", "rebuild", "objcopy", "check-fw", "size", "map",
+            {"env", "build", "compile", "link", "resources", "rebuild", "objcopy", "check-fw", "size", "map",
              "manifest", "verify", "baseline", "static", "flash-help", "ci", "sources"},
         )
 
 
 class OutputPathTests(unittest.TestCase):
-    def test_cli_outputs_are_inside_project_and_separate_from_ide(self) -> None:
-        self.assertEqual(bms.BUILD_DIR.parent, bms.PROJ_DIR)
-        self.assertEqual(bms.BUILD_DIR.name, "825x_ble_sample_cli")
-        self.assertEqual(bms.IDE_BUILD_DIR.name, "825x_ble_sample")
+    def test_cli_outputs_are_external_and_separate_per_product(self):
+        self.assertFalse(bms.BUILD_DIR.is_relative_to(REPO_ROOT))
+        self.assertEqual(bms.BUILD_DIR.name, bms.PRODUCT)
         self.assertNotEqual(bms.BUILD_DIR, bms.IDE_BUILD_DIR)
+
 
 
 class StaticAnalysisPrimitiveTests(unittest.TestCase):
     def test_static_scope_accepts_only_ble_sample_paths(self) -> None:
         self.assertTrue(bms._is_application_scope_path(
-            f"{bms.SDK_SUBDIR}/vendor/ble_sample/app.c"))
+            "bms/app/app.c"))
         self.assertTrue(bms._is_application_scope_path(
-            f"{bms.SDK_SUBDIR}/vendor/ble_sample/flash_store_safe.h"))
+            "bms/platform/telink/flash_store_safe.h"))
         self.assertFalse(bms._is_application_scope_path(
             f"{bms.SDK_SUBDIR}/vendor/common/app_common.c"))
         self.assertFalse(bms._is_application_scope_path(
@@ -244,7 +201,7 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
 
     def test_scope_exclusion_partition_never_suppresses_application(self) -> None:
         dependencies = {
-            f"{bms.SDK_SUBDIR}/vendor/ble_sample/app.h",
+            "bms/app/app.h",
             f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h",
         }
         excluded = sorted(

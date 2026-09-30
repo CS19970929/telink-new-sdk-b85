@@ -1,6 +1,8 @@
 # BMS 软件架构与配置所有权
 
-本文只描述 D008 / D011 / D013 / D014 当前共同的软件边界。产品专属 IO、AFE 静态配置和未决硬件项分别见各分支 `*_PRODUCT_REFERENCE.md`。
+当前源码布局、参数格式和构建入口以 [BMS_MONOREPO.md](BMS_MONOREPO.md) 为准。
+
+本文描述 D008 / D011 / D013 / D014 当前共同的软件边界。产品专属 IO、AFE 静态配置和未决硬件项分别见本仓库 `*_PRODUCT_REFERENCE.md`。
 
 ## 1. 依赖方向
 

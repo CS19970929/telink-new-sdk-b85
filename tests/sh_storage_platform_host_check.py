@@ -1,8 +1,9 @@
 """Execute production SH Flash exclusion, retry and readback diagnostics with mocks."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import re,tempfile,subprocess,os,shlex
 ROOT=Path(__file__).resolve().parents[1]
-APP=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+APP = Sources(ROOT)
 def source(n):return re.sub(r'^\s*#(?:include[^\n]*|pragma once)','',(APP/n).read_text(),flags=re.M)
 fixture=(ROOT/'tests/fixtures/sh_storage_platform.c').read_text()
 fixture=fixture.replace('/* TYPES */',source('bms_storage_platform.h')).replace('/* MACROS */','#define BMS_STORAGE_RETRY_INTERVAL_32K (5u*32000u)')

@@ -1,0 +1,116 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "BMS: compile",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bms_tools/bms.py",
+        "--product",
+        "${input:product}",
+        "compile",
+        "--jobs",
+        "4"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONDONTWRITEBYTECODE": "1",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMS: link",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bms_tools/bms.py",
+        "--product",
+        "${input:product}",
+        "link",
+        "--jobs",
+        "4"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONDONTWRITEBYTECODE": "1",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMS: resources",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bms_tools/bms.py",
+        "--product",
+        "${input:product}",
+        "resources"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONDONTWRITEBYTECODE": "1",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMS: static",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bms_tools/bms.py",
+        "--product",
+        "${input:product}",
+        "static",
+        "--no-report"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONDONTWRITEBYTECODE": "1",
+          "PYTHONUTF8": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMS: all products link",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "bms_tools/bms.py",
+        "--all-products",
+        "link",
+        "--jobs",
+        "4"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "product",
+      "type": "pickString",
+      "description": "BMS product",
+      "options": [
+        "d008",
+        "d011",
+        "d013",
+        "d014"
+      ],
+      "default": "d014"
+    }
+  ]
+}

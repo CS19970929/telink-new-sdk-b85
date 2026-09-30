@@ -4,13 +4,14 @@ No register behavior is emulated: the fixture supplies sampled flags and command
 outcomes. This checks MCU policy, not SPI timing or physical FET conduction.
 """
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import os
 import re
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+APP = Sources(ROOT)
 source = (APP / 'sh3673510_bms.c').read_text(encoding='utf-8')
 
 
@@ -40,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='sh3510-recovery-') as tmp:
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
                         '-DSH3673510_HW_PROTECT_ENABLE=%d' % hw,
-                        '-I', str(APP), str(c), '-o', str(exe)], check=True)
+                        *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         if subprocess.run([str(exe)], check=False).returncode:
             failed_modes.append(hw)
 if failed_modes:

@@ -1,13 +1,14 @@
 """Execute the SH production sample scheduler, mocking only time/SDK/consumers."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import os
 import re
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
-source = (APP / 'app.c').read_text(encoding='utf-8')
+APP = Sources(ROOT)
+source = selected_source(APP / 'app.c')
 
 
 def function(name):
@@ -47,7 +48,7 @@ static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
     if (valid) { s->current_ma = 1234; s->sample_tick_32k = 123; }
     return valid;
 }
-static int32_t bms_afe_current_to_soc_ma(int32_t x) { return -x; }
+static int32_t bms_afe_current_to_soc_ma(int32_t x) { return x; }
 static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
     ++soc_calls; last_valid=v; last_current=c; last_tick=t;
 }
@@ -63,7 +64,7 @@ int main(void) {
     app_sample_task(); CHECK(samples==0);
     fake_tick += APP_SAMPLE_PERIOD_US*16u + 1;
     app_sample_task(); CHECK(samples==1 && soc_calls==1 && mos_calls==1 && diag_calls==1);
-    CHECK(last_valid && last_current==-1234 && last_tick==123);
+    CHECK(last_valid && last_current==1234 && last_tick==123);
     CHECK(scheduled_tick==s_sample_tick+APP_SAMPLE_PERIOD_US*16u);
     app_sample_task(); CHECK(samples==1);
     app_sample_wakeup(0); app_sample_wakeup(0); CHECK(samples==1);

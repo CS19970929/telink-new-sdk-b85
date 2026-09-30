@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Static contract for the AFE-independent D008/D011/D013 software protection core."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
-HERE = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
+HERE = Sources(ROOT)
 source = (HERE / "bms_sw_protection.c").read_text(encoding="utf-8", errors="ignore")
 header = (HERE / "bms_sw_protection.h").read_text(encoding="utf-8", errors="ignore")
 backend = (HERE / "bms_afe_backend.h").read_text(encoding="utf-8", errors="ignore")

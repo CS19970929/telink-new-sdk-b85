@@ -8,10 +8,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SDK = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk"
-MOD = SDK / "vendor" / "ble_sample"
+MOD = Sources(ROOT)
 COMMON = SDK / "vendor" / "common"
 
 FLASH_CFG = MOD / "flash_store_cfg.h"
@@ -27,7 +28,7 @@ STATE_H = MOD / "bms_state_store.h"
 EVENT_C = MOD / "bms_event_log.c"
 RUNTIME_C = MOD / "runtime.c"
 APP_C = MOD / "app.c"
-SOURCE_ORDER = ROOT / "bms_tools" / "source_order.txt"
+SOURCE_ORDER = ROOT / "bms/products" / MOD.product / "sources.txt"
 HOST_TEST = ROOT / "tests" / "storage_record_host_test.c"
 BLE_FLASH = COMMON / "ble_flash.h"
 
@@ -175,9 +176,9 @@ class ArchitectureTests(unittest.TestCase):
     def test_old_kv_engines_are_out_of_build_and_removed(self):
         order = text(SOURCE_ORDER)
         for path in ("bms_config_store.c", "bms_state_store.c", "bms_storage_platform_telink.c", "storage_record.c"):
-            self.assertIn(f"vendor/ble_sample/{path}", order)
+            self.assertIn(path, order)
         for path in ("bms_cold_kv_store.c", "soc_kv_store.c", "flash_kv32.c"):
-            self.assertNotIn(f"vendor/ble_sample/{path}", order)
+            self.assertNotIn(path, order)
         self.assertFalse((MOD / "flash_kv32.c").exists())
         self.assertFalse((MOD / "flash_kv32.h").exists())
         self.assertFalse((MOD / "bms_cold_kv_store.c").exists())

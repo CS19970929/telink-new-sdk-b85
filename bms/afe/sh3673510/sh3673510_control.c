@@ -1,0 +1,518 @@
+#include "sh3673510_ntc.h"
+#include "tl_common.h"
+#include "drivers.h"
+#include "conf.h"
+#include "param.h"
+#include "bms_afe_hw_profile.h"
+#include "sh3673520.h"
+#include "sh3673520_port.h"
+#include "sh3673510_project_config.h"
+#include "sh3673510_control.h"
+
+static uint8_t s_control_ready;
+static uint8_t s_afe_sleeping;
+static sh3673510_protection_actual_t s_protection_actual;
+
+/* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
+
+
+static void sh3510_gpio_input(GPIO_PinTypeDef pin)
+{
+    gpio_set_func(pin, AS_GPIO);
+    gpio_set_output_en(pin, 0);
+    gpio_set_input_en(pin, 1);
+}
+
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
+{
+    gpio_set_func(pin, AS_GPIO);
+    gpio_write(pin, 0);
+    gpio_set_input_en(pin, 0);
+    gpio_set_output_en(pin, 1);
+}
+#endif
+
+static uint8_t sh3510_update_reg(uint8_t reg, uint8_t mask, uint8_t bits)
+{
+    uint8_t value;
+    uint8_t target;
+    uint8_t verify;
+
+    if (SH3673520_ReadReg(reg, &value) != SH3673520_OK) return 0u;
+    target = (uint8_t)((value & (uint8_t)~mask) | (bits & mask));
+    if (target != value)
+    {
+        if (SH3673520_WriteReg(reg, target) != SH3673520_OK) return 0u;
+    }
+    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return 0u;
+    return ((verify & mask) == (target & mask)) ? 1u : 0u;
+}
+
+static uint8_t sh3510_write_verify(uint8_t reg, uint8_t value, uint8_t mask)
+{
+    uint8_t verify;
+    if (SH3673520_WriteReg(reg, value) != SH3673520_OK) return 0u;
+    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return 0u;
+    return ((verify & mask) == (value & mask)) ? 1u : 0u;
+}
+
+static const uint16_t s_ov_delay_ms[8] = {
+    140u, 280u, 490u, 980u, 2030u, 3010u, 4970u, 10010u
+};
+static const uint16_t s_uv_delay_ms[8] = {
+    490u, 770u, 980u, 1470u, 2030u, 3010u, 4970u, 10010u
+};
+
+static uint8_t sh3510_pick_ceiling_code(const uint16_t *table, uint8_t count,
+                                         uint32_t requested)
+{
+    uint8_t i;
+    if ((table == 0) || (count == 0u)) return 0u;
+    for (i = 0u; i < count; ++i)
+    {
+        if (requested <= (uint32_t)table[i]) return i;
+    }
+    return (uint8_t)(count - 1u);
+}
+
+static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
+{
+    uint8_t i;
+    const uint8_t pairs = (uint8_t)(sizeof(sh3673510_ntc_10k) / sizeof(sh3673510_ntc_10k[0]) / 2u);
+
+    if (temp_x10 <= sh3673510_ntc_10k[1]) return sh3673510_ntc_10k[0];
+    if (temp_x10 >= sh3673510_ntc_10k[(pairs - 1u) * 2u + 1u])
+        return sh3673510_ntc_10k[(pairs - 1u) * 2u];
+
+    for (i = 0u; i + 1u < pairs; ++i)
+    {
+        uint16_t r1 = sh3673510_ntc_10k[i * 2u];
+        uint16_t t1 = sh3673510_ntc_10k[i * 2u + 1u];
+        uint16_t r2 = sh3673510_ntc_10k[(i + 1u) * 2u];
+        uint16_t t2 = sh3673510_ntc_10k[(i + 1u) * 2u + 1u];
+        if (temp_x10 >= t1 && temp_x10 <= t2)
+        {
+            uint32_t dt = (uint32_t)(temp_x10 - t1);
+            uint32_t span = (uint32_t)(t2 - t1);
+            uint32_t drop = ((uint32_t)(r1 - r2) * dt + span / 2u) / span;
+            return (uint16_t)((uint32_t)r1 - drop);
+        }
+    }
+    return 100u;
+}
+
+static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
+{
+    uint32_t denominator;
+    uint32_t result;
+    uint16_t r100;
+
+    if (code == 0) return 0u;
+    r100 = sh3510_temp_to_res100(temp_x10);
+    denominator = (uint32_t)r100 + 100u;
+
+    /*
+     * SH36735xx uses a 10K reference for the external NTC divider.  High
+     * temperature thresholds use the divider ratio directly:
+     *     code = Rntc / (10K + Rntc) * 512
+     * r100 and 100 are both expressed in 100-ohm units here.
+     */
+    result = ((uint32_t)r100 * 512u + (denominator / 2u)) / denominator;
+    if (result > 255u) return 0u;
+    *code = (uint8_t)result;
+    return 1u;
+}
+
+static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
+{
+    int32_t numerator;
+    uint32_t denominator;
+    uint16_t r100;
+    int32_t result;
+
+    if (code == 0) return 0u;
+    r100 = sh3510_temp_to_res100(temp_x10);
+    if (r100 < 100u) return 0u;
+    denominator = (uint32_t)r100 + 100u;
+    numerator = (int32_t)r100 - 100L;
+    result = (numerator * 256L + (int32_t)(denominator / 2u)) /
+             (int32_t)denominator;
+    if (result < 0L || result > 255L) return 0u;
+    *code = (uint8_t)result;
+    return 1u;
+}
+
+static uint32_t sh3510_current_a10_to_sense_uv(uint16_t current_a10)
+{
+    return ((uint32_t)current_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
+}
+
+static uint16_t sh3510_sense_uv_to_current_a10(uint32_t sense_uv)
+{
+    uint32_t value = (sense_uv * 10u + SH3673510_BOARD_SHUNT_UOHM - 1u) /
+                     SH3673510_BOARD_SHUNT_UOHM;
+    return (uint16_t)((value > 65535u) ? 65535u : value);
+}
+
+static uint8_t sh3510_step_code_ceiling(uint32_t requested_uv,
+                                         uint32_t step_uv,
+                                         uint8_t max_code)
+{
+    uint32_t steps;
+    if (step_uv == 0u) return 0u;
+    steps = (requested_uv + step_uv - 1u) / step_uv;
+    if (steps == 0u) steps = 1u;
+    if (steps > (uint32_t)max_code + 1u) steps = (uint32_t)max_code + 1u;
+    return (uint8_t)(steps - 1u);
+}
+
+static uint8_t sh3510_validate_protection(bms_afe_hw_profile_t *profile)
+{
+    return bms_afe_hw_profile_get(profile);
+}
+
+uint8_t sh3673510_control_apply_protection(void)
+{
+    bms_afe_hw_profile_t hw;
+    uint32_t ov_delay_ms;
+    uint32_t uv_delay_ms;
+    uint32_t ocd1_delay_ms;
+    uint32_t ocd2_delay_ms;
+    uint32_t occ_delay_ms;
+    uint16_t ov_code;
+    uint16_t uv_code;
+    uint32_t sense_uv;
+    uint32_t actual_uv;
+    uint8_t ov_dly;
+    uint8_t uv_dly;
+    uint8_t regv;
+    uint8_t high;
+    uint8_t low;
+    uint8_t code;
+    uint8_t ok = 1u;
+
+    s_protection_actual.valid = 0u;
+    if (!s_control_ready || !sh3510_validate_protection(&hw)) return 0u;
+    ov_delay_ms = hw.cov_delay_ms;
+    uv_delay_ms = hw.cuv_delay_ms;
+    ocd1_delay_ms = hw.ocd1_delay_ms;
+    ocd2_delay_ms = hw.ocd2_delay_ms;
+    occ_delay_ms = hw.occ1_delay_ms;
+
+    ov_code = (uint16_t)(((uint32_t)hw.cov_mv + 2u) / 5u);
+    uv_code = (uint16_t)(((uint32_t)hw.cuv_mv + 2u) / 5u);
+    if (ov_code > 0x03FFu) ov_code = 0x03FFu;
+    if (uv_code > 0x03FFu) uv_code = 0x03FFu;
+    ov_dly = sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ov_delay_ms);
+    uv_dly = sh3510_pick_ceiling_code(s_uv_delay_ms, 8u, uv_delay_ms);
+
+    high = (uint8_t)((ov_dly << 4) | ((ov_code >> 8) & 0x03u));
+    low = (uint8_t)(ov_code & 0xFFu);
+    ok &= sh3510_write_verify(SH3673520_REG_OVT_OVH, high, 0x73u);
+    ok &= sh3510_write_verify(SH3673520_REG_OVL, low, 0xFFu);
+
+    high = (uint8_t)((uv_dly << 4) | ((uv_code >> 8) & 0x03u));
+    low = (uint8_t)(uv_code & 0xFFu);
+    ok &= sh3510_write_verify(SH3673520_REG_UVT_UVH, high, 0x73u);
+    ok &= sh3510_write_verify(SH3673520_REG_UVL, low, 0xFFu);
+
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd1_a10);
+    code = sh3510_step_code_ceiling(sense_uv, 5000u, 15u);
+    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd1_delay_ms) << 4) | code);
+    ok &= sh3510_write_verify(SH3673520_REG_OCD1V_OCD1T, regv, 0x7Fu);
+    actual_uv = ((uint32_t)code + 1u) * 5000u;
+    s_protection_actual.ocd1_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd1_delay_ms = s_ov_delay_ms[(regv >> 4) & 0x07u];
+
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd2_a10);
+    code = sh3510_step_code_ceiling(sense_uv, 10000u, 15u);
+    {
+        uint32_t steps = (ocd2_delay_ms + 24u) / 25u;
+        uint8_t dly;
+        if (steps == 0u) steps = 1u;
+        if (steps > 16u) steps = 16u;
+        dly = (uint8_t)(steps - 1u);
+        regv = (uint8_t)((dly << 4) | code);
+    }
+    ok &= sh3510_write_verify(SH3673520_REG_OCD2V_OCD2T, regv, 0xFFu);
+    actual_uv = ((uint32_t)code + 1u) * 10000u;
+    s_protection_actual.ocd2_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd2_delay_ms = (uint16_t)((((regv >> 4) & 0x0Fu) + 1u) * 25u);
+
+    {
+        static const uint8_t sc_mult[4] = {2u, 3u, 4u, 6u};
+        static const uint16_t sc_delay[8] = {2u, 4u, 8u, 16u, 32u, 64u, 128u, 256u};
+        uint8_t mult_code = 0u;
+        uint8_t delay_code = 0u;
+        uint32_t base = s_protection_actual.ocd2_a10;
+        if ((hw.enable_mask & BMS_AFE_HW_EN_SC) && base != 0u) {
+            while (mult_code < 3u && (u32)base * sc_mult[mult_code] < hw.sc_a10) ++mult_code;
+            while (delay_code < 7u && sc_delay[delay_code] < hw.sc_delay_us) ++delay_code;
+        }
+        regv = (uint8_t)((mult_code << 4) | delay_code);
+        ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
+    }
+
+    sense_uv = sh3510_current_a10_to_sense_uv(hw.occ1_a10);
+    code = sh3510_step_code_ceiling(sense_uv, 1375u, 31u);
+    regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, occ_delay_ms) << 5) | code);
+    ok &= sh3510_write_verify(SH3673520_REG_OCCV_OCCT, regv, 0xFFu);
+    actual_uv = ((uint32_t)code + 1u) * 1375u;
+    s_protection_actual.occ_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.occ_delay_ms = s_ov_delay_ms[(regv >> 5) & 0x07u];
+
+    if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;
+    ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
+    if (!sh3510_high_temp_code(hw.dsg_ot_x10, &code)) return 0u;
+    ok &= sh3510_write_verify(SH3673520_REG_OTD, code, 0xFFu);
+    if (!sh3510_low_temp_code(hw.chg_ut_x10, &code)) return 0u;
+    ok &= sh3510_write_verify(SH3673520_REG_UTC, code, 0xFFu);
+    if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
+    ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
+
+    /* Hardware protection enables belong to the independent AFE profile. */
+    ok &= sh3510_update_reg(SH3673520_REG_SCONF5,
+                            SH3673520_SCONF5_OCC_EN_MASK,
+                            (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? SH3673520_SCONF5_OCC_EN_MASK : 0u);
+    regv = 0u;
+    if (hw.enable_mask & BMS_AFE_HW_EN_COV)  regv |= SH3673520_SCONF6_OV_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_CUV)  regv |= SH3673520_SCONF6_UV_EN_MASK;
+    if (hw.enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) regv |= SH3673520_SCONF6_OCD_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_SC)   regv |= SH3673520_SCONF6_SC_EN_MASK;
+    if (hw.enable_mask & BMS_AFE_HW_EN_TEMP) regv |= (SH3673520_SCONF6_TS1_EN_MASK | SH3673520_SCONF6_TS2_EN_MASK);
+    ok &= sh3510_write_verify(SH3673520_REG_SCONF6, regv, SH3673520_SCONF6_ALL_MASK);
+
+    s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);
+    s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);
+    s_protection_actual.ov_delay_ms = s_ov_delay_ms[ov_dly];
+    s_protection_actual.uv_delay_ms = s_uv_delay_ms[uv_dly];
+    s_protection_actual.valid = ok ? 1u : 0u;
+    return ok ? 1u : 0u;
+}
+
+uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)
+{
+    if (actual == 0) return 0u;
+    *actual = s_protection_actual;
+    return s_protection_actual.valid;
+}
+
+typedef struct {
+    uint8_t reg;
+    uint8_t value;
+    uint8_t verify_mask;
+} sh3510_static_reg_cfg_t;
+
+/*
+ * Deterministic D011 static AFE profile.  Protection thresholds (0x49..0x54)
+ * are applied separately from g_tParam.protect, and SCONF6 is written only
+ * after those thresholds are valid so hardware protection is never enabled
+ * against an unintended reset threshold.
+ */
+static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {
+    { SH3673520_REG_SCONF1,     SH3673510_BOARD_SCONF1_BOOT_VALUE, 0xFFu },
+    { SH3673520_REG_SCONF2,     SH3673510_BOARD_SCONF2_VALUE,      SH3673520_SCONF2_ALL_MASK },
+    { SH3673520_REG_SCONF3,     SH3673510_BOARD_SCONF3_VALUE,      SH3673520_SCONF3_CONFIG_MASK },
+    { SH3673520_REG_SCONF4,     SH3673510_BOARD_SCONF4_VALUE,      SH3673520_SCONF4_ALL_MASK },
+    { SH3673520_REG_SCONF5,     SH3673510_BOARD_SCONF5_VALUE,      SH3673520_SCONF5_CONFIG_MASK },
+    { SH3673520_REG_SCONF7,     SH3673510_BOARD_SCONF7_VALUE,      SH3673520_SCONF7_CONFIG_MASK },
+    { SH3673520_REG_OWV_ALARMH, SH3673510_BOARD_OWV_ALARMH_VALUE,  SH3673520_ALARMH_ALL_MASK },
+    { SH3673520_REG_ALARML,     SH3673510_BOARD_ALARML_VALUE,      SH3673520_ALARML_ALL_MASK },
+};
+
+static uint8_t sh3510_configure_runtime(void)
+{
+    uint8_t i;
+
+    for (i = 0u; i < (uint8_t)(sizeof(s_static_reg_cfg) / sizeof(s_static_reg_cfg[0])); ++i)
+    {
+        if (!sh3510_write_verify(s_static_reg_cfg[i].reg,
+                                 s_static_reg_cfg[i].value,
+                                 s_static_reg_cfg[i].verify_mask))
+            return 0u;
+    }
+
+    return (SH3673520_SetBalanceMask(0u, SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
+}
+
+uint8_t sh3673510_control_init(void)
+{
+    sh3673520_port_status_t port_status;
+
+    s_control_ready = 0u;
+    s_afe_sleeping = 0u;
+
+    /* RESET and ALARM are open-drain outputs from the AFE, never MCU outputs. */
+    sh3510_gpio_input(BMS_BOARD_AFE_RESET_OUT_PIN);
+    sh3510_gpio_input(BMS_BOARD_AFE_ALARM_PIN);
+    sh3510_gpio_input(BMS_BOARD_INT_WK_MCU_PIN);
+
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    sh3510_gpio_output_low(BMS_BOARD_HEATER_CHG_PIN);
+    sh3673510_board_force_heater_fuse_safe();
+#endif
+
+    /* Active-high board wake and active-low AFE alarm/reset pulses. */
+    cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, Level_High, 1);
+    cpu_set_gpio_wakeup(BMS_BOARD_AFE_ALARM_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(BMS_BOARD_AFE_RESET_OUT_PIN, Level_Low, 1);
+
+    port_status = SH3673520_PortConfigure(SH3673510_BOARD_SPI_GROUP);
+    if (port_status != SH3673520_PORT_OK) return 0u;
+    if (SH3673520_Init() != SH3673520_OK) return 0u;
+
+    s_control_ready = 1u;
+    if (!sh3510_configure_runtime())
+    {
+        s_control_ready = 0u;
+        return 0u;
+    }
+    if (!sh3673510_control_apply_protection())
+    {
+        s_control_ready = 0u;
+        return 0u;
+    }
+    if (!sh3673510_control_set_fets(0u, 0u))
+    {
+        s_control_ready = 0u;
+        return 0u;
+    }
+    return 1u;
+}
+
+uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on)
+{
+    uint8_t bits = 0u;
+    if (!s_control_ready) return 0u;
+    if (charge_on) bits |= SH3673520_SCONF2_CHGMOS_MASK;
+    if (discharge_on) bits |= SH3673520_SCONF2_DSGMOS_MASK;
+    return sh3510_update_reg(SH3673520_REG_SCONF2,
+                             SH3673520_SCONF2_FET_MASK,
+                             bits);
+}
+
+uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
+{
+    uint8_t pair[2];
+    if ((status == 0) || !s_control_ready) return 0u;
+
+    if (SH3673520_ReadReg(SH3673520_REG_FLAG1, &status->flag1) != SH3673520_OK)
+        return 0u;
+    /* Centralized intentional FLAG2 read: this consumes VADC/CADC ready flags. */
+    if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &status->flag2) != SH3673520_OK)
+        return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, pair, 2u) != SH3673520_OK)
+        return 0u;
+    status->bstatus1 = pair[0];
+    status->bstatus2 = pair[1];
+    return 1u;
+}
+
+static uint8_t sh3510_clear_flags(uint8_t reg, uint8_t clear_mask)
+{
+    uint8_t sconf2;
+    uint8_t value;
+    uint8_t ok = 1u;
+
+    if (clear_mask == 0u) return 1u;
+    if (!s_control_ready) return 0u;
+    if (SH3673520_ReadReg(SH3673520_REG_SCONF2, &sconf2) != SH3673520_OK) return 0u;
+    if (!sh3510_update_reg(SH3673520_REG_SCONF2,
+                           SH3673520_SCONF2_LTCLR_MASK,
+                           SH3673520_SCONF2_LTCLR_MASK)) return 0u;
+
+    value = (uint8_t)~clear_mask; /* W0C: zeros clear selected flags, ones preserve. */
+    if (SH3673520_WriteReg(reg, value) != SH3673520_OK) ok = 0u;
+
+    if (!sh3510_update_reg(SH3673520_REG_SCONF2,
+                           SH3673520_SCONF2_LTCLR_MASK,
+                           (uint8_t)(sconf2 & SH3673520_SCONF2_LTCLR_MASK))) ok = 0u;
+    return ok;
+}
+
+uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask)
+{
+    return sh3510_clear_flags(SH3673520_REG_FLAG1, clear_mask);
+}
+
+uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask)
+{
+    /* Never ask the W0C write to clear read-clear ADC ready bits. */
+    clear_mask &= (uint8_t)~(SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK);
+    return sh3510_clear_flags(SH3673520_REG_FLAG2, clear_mask);
+}
+
+uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
+{
+    if (!s_control_ready) return 0u;
+    return (SH3673520_SetBalanceMask((uint32_t)(cell_mask & 0x03FFu),
+                                     SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
+}
+
+void sh3673510_board_force_heater_fuse_safe(void)
+{
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    gpio_set_func(BMS_BOARD_HEATER_FUSE_TRIGGER_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_HEATER_FUSE_TRIGGER_PIN, BMS_BOARD_HEATER_FUSE_SAFE_LEVEL);
+    gpio_set_input_en(BMS_BOARD_HEATER_FUSE_TRIGGER_PIN, 0);
+    gpio_set_output_en(BMS_BOARD_HEATER_FUSE_TRIGGER_PIN, 1);
+#endif
+}
+
+void sh3673510_board_set_heater(uint8_t enabled)
+{
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    /* Legacy D011 heater implementation. D014 compiles this path out. */
+    sh3673510_board_force_heater_fuse_safe();
+    gpio_write(BMS_BOARD_HEATER_CHG_PIN, enabled ? 1u : 0u);
+#else
+    (void)enabled;
+#endif
+}
+
+uint8_t sh3673510_board_wake_active(void)
+{
+    return gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u;
+}
+
+uint8_t sh3673510_control_sleep(void)
+{
+    if (!s_control_ready) return 0u;
+    if (sh3673510_board_wake_active()) return 0u;
+
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    sh3673510_board_set_heater(0u);
+    sh3673510_board_force_heater_fuse_safe();
+#endif
+    if (!sh3673510_control_set_balance(0u)) return 0u;
+    if (!sh3673510_control_set_fets(0u, 0u)) return 0u;
+
+    if (!sh3510_update_reg(SH3673520_REG_SCONF3,
+                            SH3673520_SCONF3_CGR_WK_MASK,
+                            SH3673520_SCONF3_CGR_WK_MASK)) return 0u;
+    /* A lost acknowledgement does not prove the AFE rejected SLEEP. Force
+     * NORMAL + runtime/protection restore before the next measurement. */
+    s_afe_sleeping = 1u;
+    return (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_SLEEP) ==
+            SH3673520_OK) ? 1u : 0u;
+}
+
+uint8_t sh3673510_control_wake(void)
+{
+    if (!s_control_ready) return 0u;
+    if (!s_afe_sleeping) return 1u;
+    if (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_NORMAL) != SH3673520_OK)
+        return 0u;
+    sh3673520_port_delay_ms(10u);
+    if (!sh3510_configure_runtime()) return 0u;
+    if (!sh3673510_control_apply_protection()) return 0u;
+    if (!sh3673510_control_set_fets(0u, 0u)) return 0u;
+    s_afe_sleeping = 0u;
+    return 1u;
+}
+
+uint8_t sh3673510_control_ready(void)
+{
+    return s_control_ready;
+}

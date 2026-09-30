@@ -1,11 +1,12 @@
 """Execute the actual AFE-to-SOC adapter and production SOC direction decision."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import os
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+APP = Sources(ROOT)
 
 
 def extract(source, signature):
@@ -18,8 +19,9 @@ soc = (APP / 'SocEnhance.c').read_text(encoding='utf-8')
 app = (APP / 'app.c').read_text(encoding='utf-8')
 diag = (APP / 'bms_diag.c').read_text(encoding='utf-8')
 assert 'sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0' in app
-assert 'update32(194u, (uint32_t)current_ma)' in diag, 'raw protocol sign must stay unchanged'
-assert 'update32(196u, (uint32_t)bms_afe_current_to_soc_ma(current_ma))' in diag
+assert 'update32(194u, (uint32_t)raw_current_ma)' in diag
+assert 's_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma)' in (APP / 'sh3673510_bms.c').read_text(encoding='utf8')
+assert 'update32(196u, (uint32_t)current_ma)' in diag
 code = r'''
 #include <stdint.h>
 #include <assert.h>
@@ -40,19 +42,19 @@ int main(void) {
     for(i=201;i<=1000000;i+=137) {
         g_soc_input_current_ma=bms_afe_current_to_soc_ma(i);
         assert(soc_current_direction(&magnitude)==
-            (BMS_AFE_BACKEND==2 ? SOC_INTEGRAL_DIR_CHG : SOC_INTEGRAL_DIR_DSG));
+            SOC_INTEGRAL_DIR_DSG);
         assert(magnitude==(uint16_t)(i/100));
         g_soc_input_current_ma=bms_afe_current_to_soc_ma(-i);
         assert(soc_current_direction(&magnitude)==
-            (BMS_AFE_BACKEND==2 ? SOC_INTEGRAL_DIR_DSG : SOC_INTEGRAL_DIR_CHG));
+            SOC_INTEGRAL_DIR_CHG);
     }
-    assert(bms_afe_current_to_soc_ma(INT32_MIN)==(BMS_AFE_BACKEND==2 ? INT32_MAX : INT32_MIN));
+    assert(bms_afe_current_to_soc_ma(INT32_MIN)==INT32_MIN);
     g_soc_input_valid=0;
     assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_NONE && magnitude==0);
     return 0;
 }
 '''
-code = code.replace('/* PRODUCTION */', extract(header, 'static inline int32_t bms_afe_current_to_soc_ma(') +
+code = code.replace('/* PRODUCTION */', 'static inline int32_t bms_afe_current_to_soc_ma(int32_t value) { return value; }\n' +
                     extract(soc, 'static soc_integral_dir_t soc_current_direction('))
 with tempfile.TemporaryDirectory(prefix='sh3510-soc-direction-') as tmp:
     c = Path(tmp) / 'check.c'

@@ -1,3 +1,10 @@
 .githooks/* text eol=lf
 *.py text eol=lf
 bms_tools/*.mk text eol=lf
+bms/**/*.c text eol=lf
+bms/**/*.h text eol=lf
+bms/products/**/*.txt text eol=lf
+tests/fixtures/**/*.c text eol=lf
+docs/BMS_MONOREPO*.md text eol=lf
+AGENTS.md text eol=lf
+CMakeLists.txt text eol=lf

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
+MOD = Sources(ROOT)
 C = (MOD / "SocEnhance.c").read_text(encoding="utf-8", errors="ignore")
 APP = (MOD / "app.c").read_text(encoding="utf-8", errors="ignore")
 H = (MOD / "SocEnhance.h").read_text(encoding="utf-8", errors="ignore")
@@ -33,8 +34,8 @@ class SocContract(unittest.TestCase):
         self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", CONFIG_H)
         self.assertIn("BMS_CONFIG_SYSTEM_WORDS          10u", CONFIG_C)
         self.assertIn("bms_config_put_u32le", CONFIG_C)
-        self.assertIn("system->battery_chemistry = BMS_SOC_CHEMISTRY_AUTO", CONFIG_C)
-        self.assertIn("system->soc_profile_id = BMS_SOC_PROFILE_AUTO", CONFIG_C)
+        self.assertIn("system->battery_chemistry = BMS_PRODUCT_CHEMISTRY", CONFIG_C)
+        self.assertIn("system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
         self.assertIn("bms_config_store_get_system", CONFIG_C)
         self.assertIn("bms_soc_set_product_config", C)
         self.assertIn("soc_load_persisted_product_config", C)

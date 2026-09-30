@@ -1,5 +1,9 @@
 # Flash 与持久化 — D011 / Storage V1
 
+本 monorepo 的业务 payload 使用开发版新格式，不迁移旧参数。
+CFG2/State/Event 的新 magic、schema 和字段以 [BMS_MONOREPO.md](BMS_MONOREPO.md) 为准。
+下文的 Flash 地址、journal 掉电顺序和平台会话边界仍适用；旧 payload/revision 描述作为历史参考。
+
 ## 1. 设计目标
 
 Storage V1 只保留四个 BMS 持久化域：`Config`、`State`、`Factory`、`Event`。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。

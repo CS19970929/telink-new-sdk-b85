@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
+APP = Sources(ROOT)
 
 def text(name: str) -> str:
     path = APP / name
@@ -37,17 +38,17 @@ for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present
 # full 35 s margin before a single bounded recovery attempt.
 assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
 assert "#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u" in guard_c
-assert "if (service_failsafe_wait()) return;" in guard_c
+assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
 assert "Absolutely no AFE I2C/SPI access while the hardware watchdog is timing." in guard_c
 assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
 assert "s_guard.bus_silenced = 1u;" in guard_c
 assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
 apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
-assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in apply
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in apply
 sleep=guard_c.split("uint8_t bms_afe_sleep",1)[1].split("#else",1)[0]
-assert sleep.index("if (s_guard.bus_silenced) return 0u;") < sleep.index("AFE_SLEEP()")
+assert sleep.index("if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;") < sleep.index("AFE_SLEEP()")
 setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
-assert "if (s_guard.comm_inhibit || s_guard.bus_silenced) return 1u;" in setfets
+assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in setfets
 
 sh_bms=text("sh3673510_bms.c")
 for forbidden in (
@@ -83,10 +84,11 @@ for token in (
 
 for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
     assert token in config_h and token in config_c and token in features_c
-assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
-assert "#define BMS_CONFIG_FEATURE_BYTES         14u" in config_c
-assert "0x2E20u" in modbus and "0x2E70u" in modbus
-assert "feature_config_write_block" in modbus
+assert "#define BMS_CONFIG_SCHEMA_VERSION        1u" in config_c
+assert "#define BMS_CONFIG_USER_BYTES            54u" in config_c
+parameters=text("bms_parameter_access.c")
+assert "0x2E20u" in parameters and "0x2E70u" in parameters
+assert "bms_parameter_write" in modbus
 
 sh_bms=text("sh3673510_bms.c")
 assert "SH3673520_BSTATUS2_DSGING_MASK" in sh_bms

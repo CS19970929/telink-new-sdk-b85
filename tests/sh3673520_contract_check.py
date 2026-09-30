@@ -15,10 +15,11 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SDK_ROOT = REPO_ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk"
-VENDOR = SDK_ROOT / "vendor" / "ble_sample"
+VENDOR = Sources(REPO_ROOT)
 REG_H = VENDOR / "sh3673520_reg.h"
 DRIVER_C = VENDOR / "sh3673520.c"
 
@@ -523,8 +524,7 @@ def run_native_contract_if_available() -> None:
             "-Wall",
             "-Wextra",
             "-Werror",
-            "-I",
-            str(VENDOR),
+            *host_includes(REPO_ROOT),
             str(DRIVER_C),
             str(harness),
             "-o",

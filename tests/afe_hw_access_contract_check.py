@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 ROOT=Path(__file__).resolve().parents[1]
-HERE=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001'/'tc_ble_single_sdk'/'vendor'/'ble_sample'
+HERE = Sources(ROOT)
 def text(n): return (HERE/n).read_text(encoding='utf-8')
 a=text('bms_afe_hw_access.c'); h=text('bms_afe_hw_access.h'); m=text('modbus_rtu.c'); p=text('bms_afe_hw_profile.c'); c=text('bms_afe_hw_modbus.h')
 assert 'BMS_AFE_HW_ACCESS_MODBUS_FUNC       0x42u' in h

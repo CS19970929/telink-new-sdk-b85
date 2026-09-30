@@ -7,10 +7,11 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VENDOR = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
+VENDOR = Sources(ROOT)
 source = (VENDOR / "bms_afe_hw_profile.c").read_text(encoding="utf-8")
 profile_header = (VENDOR / "bms_afe_hw_profile.h").read_text(encoding="utf-8")
 product_header = (VENDOR / "sh3673510_project_config.h").read_text(encoding="utf-8")
@@ -21,12 +22,12 @@ if compiler is None:
 # Compile the production builder/validator bodies, while replacing only MCU
 # headers and persistence with host declarations. Keep D014 board macro values
 # from sh3673510_project_config.h so changed defaults are exercised.
-body = source[source.index("#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124\nstatic u16 ms10_to_ms"):
+body = source[source.index("static u16 ms10_to_ms"):
               source.index("u8 bms_afe_hw_profile_init(void)")]
 profile_type = profile_header[profile_header.index("typedef struct"):profile_header.index("} bms_afe_hw_profile_t;") + len("} bms_afe_hw_profile_t;")]
 fields = sorted(set(re.findall(r"s->(u16\w+)", body)))
-macro_lines = [line for line in product_header.splitlines()
-               if re.match(r"#define\s+(SH3673510_HW_DEFAULT_|SH3673510_D011_SHUNT_UOHM)", line)]
+macro_lines = [line for line in (product_header + (VENDOR / "bms_sh3673510_config.h").read_text(encoding="utf8")).splitlines()
+               if re.match(r"#define\s+(SH3673510_HW_DEFAULT_|SH3673510_BOARD_SHUNT_UOHM)", line)]
 if len(macro_lines) != 31:
     raise AssertionError("D014 AFE product defaults changed")
 
@@ -52,6 +53,7 @@ typedef uint32_t u32;
 #define BMS_AFE_HW_EN_TEMP (1u << 7)
 {chr(10).join(macro_lines)}
 {profile_type}
+#define E2P_PROTECT_DEFAULT_PRT {{0}}
 struct PRT_E2ROM_PARAS {{ {''.join('u16 ' + field + ';' for field in fields)} }};
 struct {{ struct PRT_E2ROM_PARAS protect; }} g_tParam;
 """

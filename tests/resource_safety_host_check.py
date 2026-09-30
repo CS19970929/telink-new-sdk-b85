@@ -1,9 +1,10 @@
 """Execute stack scan and resource rejection contracts without target hardware."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import importlib.util, tempfile, subprocess, os, shlex, re
 from unittest import mock
 ROOT=Path(__file__).resolve().parents[1]
-APP=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+APP = Sources(ROOT)
 spec=importlib.util.spec_from_file_location('resource_bms', ROOT/'bms_tools/bms.py')
 bms=importlib.util.module_from_spec(spec);spec.loader.exec_module(bms)
 with tempfile.TemporaryDirectory(prefix='bms-resource-test-') as tmp:

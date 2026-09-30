@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """Regression checks for SH3673510 hardware temperature threshold encoding."""
 from pathlib import Path
+from project_paths import Sources
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTROL = (
-    ROOT
-    / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
-    / "tc_ble_single_sdk"
-    / "vendor"
-    / "ble_sample"
-    / "sh3673510_control.c"
-).read_text(encoding="utf-8", errors="ignore")
+CONTROL = (Sources(ROOT) / "sh3673510_control.c").read_text(encoding="utf8")
+
 
 CORRECT_HIGH_FORMULA = (
     "result = ((uint32_t)r100 * 512u + (denominator / 2u)) / denominator;"

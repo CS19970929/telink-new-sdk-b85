@@ -1,67 +1,37 @@
-# HS-D014 / TLSR8251 / SH3673510 BMS
+# BMS monorepo：D008 / D011 / D013 / D014
 
-当前分支：**HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S**。
+四个产品直接编译同一份 `bms/core/` 和 `bms/app/` 源码。产品选择只改变板级数据、AFE 后端和构建输出目录。
+新增或修改公共模块后，无需复制、同步或更新子模块版本。
 
-本分支从 `refactor/d011-common-bms-features` 的最新稳定实现派生，保留软件三级保护、独立 AFE Hardware Protection V2、SOC、Flash/OTA、balance/open-wire、通信失效 fail-safe 等公共能力；板级配置改为 D014 原理图事实。
-
-## D014 核心配置
-
-- 8S，有效 VC1..VC8。
-- 分流：3 × 2mΩ 并联，软件使用 **667µΩ** 整数模型。
-- SH3673510 SPI：PB6/PB7/PD7/PD2，Mode 3，500kHz。
-- Modbus RTU over isolated RS485，PA1=485-EN。
-- TS1/TS2：10K-3435。
-- TS3：NC，因此 heater 整体强制关闭。
-- TS4：MOS 通道，但 RN4 图纸为 10M；BOM 确认前不作为可信 MOS NTC。
-- 8 路 cell balance 启用公共 balance 策略。
-- Windows/Android/CLI 上位机唯一真源为 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`。
-
-详细证据、差异和未签核项见 [D014_PRODUCT_REFERENCE.md](docs/D014_PRODUCT_REFERENCE.md)。
-
-## 构建与检查
+架构、存储格式、边界和迁移说明见 [实现说明](docs/BMS_MONOREPO.md)。验证结果见 [验证报告](docs/BMS_MONOREPO_VALIDATION.md)。
 
 ```powershell
-python bms_tools/bms.py env
-python bms_tools/bms.py sources --check
-python tests/bms_diag_contract_check.py
-python tests/sh3673520_contract_check.py
-python tests/sh3673510_d014_integration_check.py
-python tests/sh3673510_protection_mode_check.py
-python tests/sh3673510_temperature_encoding_check.py
-python tests/sw_protection_contract_check.py
-python tests/common_feature_policy_contract_check.py
-python tests/afe_hw_profile_contract_check.py
-python tests/afe_hw_access_contract_check.py
-python tests/soc_contract_check.py
-python tests/flash_quick_check.py
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py check-fw
-python bms_tools/bms.py size
-python bms_tools/bms.py map
-python bms_tools/bms.py manifest
-python bms_tools/bms.py verify
-python bms_tools/bms.py static --no-report
+# 检查四个产品的实际源码清单
+python bms_tools/bms.py --all-products sources --check
+
+# 只生成对象文件，或者 ELF/MAP/LST；不生成 BIN
+python bms_tools/bms.py --product d008 compile --jobs 4
+python bms_tools/bms.py --all-products link --jobs 4
+python bms_tools/bms.py --all-products resources
+
+# Host 回归：需要 Python 3.11+ 和 CC 指定的本机 C 编译器
+$env:CC='C:/qp/qtools/MinGW32/bin/cc.exe'
+$env:PATH='C:/qp/qtools/MinGW32/bin;'+$env:PATH
+python tests/run_host_regression.py
+
+# 可移植核心库；构建目录放到源码树外
+cmake -S . -B "$env:LOCALAPPDATA/CodexTemp/bms-core-host" -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build "$env:LOCALAPPDATA/CodexTemp/bms-core-host"
+ctest --test-dir "$env:LOCALAPPDATA/CodexTemp/bms-core-host" --output-on-failure
 ```
 
-固件输出：
+`--product` 默认是 D014，也可设置 `BMS_PRODUCT`。工具同时支持 `--all-products`。
+构建产物默认位于 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build/<checkout-hash>/<product>/`，
+可用 `BMS_BUILD_ROOT` 改变外部输出根目录。测试日志同样位于用户临时区，可用 `BMS_TEST_OUTPUT` 指定源码树外的位置。
 
-```text
-tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
-```
+只有明确需要固件镜像时才执行 `build`/`rebuild`、`check-fw`、`map`、`manifest`、`verify`。
+它们必须带同一个产品选择。ELF/MAP 和 host 通过不等于已烧录或实板通过。
 
-## 统一上位机
-
-切换到 `feature/windows-afe-hw-protection-editor-v2`，构建 `bms-tool-windows/` 下的 Windows 客户版、内部测试版、CLI 或 Android App。协议与诊断命令见 [D014 诊断适配](docs/D014_DIAGNOSTICS.md)。
-
-## 当前发布阻断项
-
-首次上板前重点看 [HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md)。尤其需要确认：
-
-- 667µΩ 电流增益/方向/零偏；
-- D014 最终容量和 OC/SC/温度保护参数；
-- TS4/RN4 实装 BOM；
-- 8S balance/open-wire；
-- RS485/CMNT-WK 与低功耗唤醒；
-- D014 是否需要独立 numeric product ID，并同步 Windows 上位机。
-
-编译和 host contract 通过不能替代实板保护波形、温度和低功耗验收。
+SDK 自带 Eclipse 示例工程的旧自动源码扫描不再是构建入口；使用此处的产品清单和命令。
+VS Code 任务也调用同一个工具。Windows 上位机的单一来源继续是
+`feature/windows-afe-hw-protection-editor-v2` 分支下的 `bms-tool-windows/`。

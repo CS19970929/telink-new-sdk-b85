@@ -1,11 +1,12 @@
 """Run actual software protection with independent voltage/current and temperature gates."""
 import os,re,subprocess,tempfile
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 ROOT=Path(__file__).resolve().parents[1]
-MOD=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+MOD = Sources(ROOT)
 source=(MOD/'bms_sw_protection.c').read_text(encoding='utf-8')
 source=re.sub(r'^#include[^\n]*','',source,flags=re.M)
-params=re.search(r'struct PRT_E2ROM_PARAS \{.*?\n\};',(MOD/'param.h').read_text(encoding='utf-8'),re.S).group(0)
+params=re.search(r'struct PRT_E2ROM_PARAS \{.*?\n\};',(MOD / 'bms_protection_params.h').read_text(encoding='utf-8'),re.S).group(0)
 inputs=re.search(r'typedef struct\s*\{.*?bms_sw_protection_inputs_t;',(MOD/'bms_sw_protection.h').read_text(),re.S).group(0)
 code = '#include <stdint.h>\n#include <string.h>\n#include <assert.h>\n#include "bms_state.h"\ntypedef uint16_t u16;\n'+params+inputs+"""
 struct { struct PRT_E2ROM_PARAS protect; } g_tParam;
@@ -44,6 +45,6 @@ int main(void){
 """
 with tempfile.TemporaryDirectory(prefix='d008-temp-groups-') as folder:
  p=Path(folder)/'check.c';p.write_text(code);exe=Path(folder)/'check.exe'
- subprocess.run([os.environ.get('CC','cc'),'-std=c99','-Wall','-Wextra','-Werror','-I',str(MOD),str(p),'-o',str(exe)],check=True)
+ subprocess.run([os.environ.get('CC','cc'),'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)
 print('PASS independent SW VC/TEMP groups, disabled state reset and NTC failure gate')

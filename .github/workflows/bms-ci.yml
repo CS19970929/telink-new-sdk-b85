@@ -2,16 +2,8 @@ name: Telink BMS CI
 
 on:
   push:
-    branches:
-      - refactor/bms-template-phase1
-      - refactor/d011-common-bms-features
-      - refactor/d014-common-bms-features
-      - feature/**
-      - ci-telink-bms-github-actions
+    branches: [codex-bms-monorepo, 'codex/**', 'feature/**']
   pull_request:
-    branches:
-      - refactor/bms-template-phase1
-      - refactor/d011-common-bms-features
   workflow_dispatch:
 
 permissions:
@@ -23,106 +15,60 @@ concurrency:
 
 jobs:
   host-contract:
-    name: Host contract checks
+    name: Four product host regression and portable core
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      CC: gcc
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      BMS_TEST_OUTPUT: ${{ runner.temp }}/bms-tests
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Show Python version
-        run: python --version
-      - name: Validate locked source order
-        run: python bms_tools/bms.py sources --check
-      - name: Run all product host checks and production-C fault injection
+      - name: Validate all source manifests
+        run: python bms_tools/bms.py --all-products sources --check
+      - name: Production C contracts and fault injection
         run: python tests/run_host_regression.py
+      - name: Portable library
+        run: |
+          cmake -S . -B "${{ runner.temp }}/bms-core" -DCMAKE_BUILD_TYPE=Debug
+          cmake --build "${{ runner.temp }}/bms-core"
+          ctest --test-dir "${{ runner.temp }}/bms-core" --output-on-failure
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bms-host-${{ github.sha }}
+          path: ${{ runner.temp }}/bms-tests
 
   tc32-production:
-    name: TC32 production build
+    name: Four product TC32 ELF and resource gates
     if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, Windows, X64, telink-tc32]
     timeout-minutes: 30
+    env:
+      BMS_BUILD_ROOT: ${{ runner.temp }}/bms-build
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check pinned TC32 environment
+      - uses: actions/checkout@v4
+      - name: Validate source ownership
         shell: powershell
-        run: python bms_tools/bms.py env
-      - name: Run BMS tooling unit tests
+        run: python bms_tools/bms.py --all-products sources --check
+      - name: Compile and link all products without BIN
         shell: powershell
-        run: python -m unittest tests.test_bms_tools -v
-      - name: Validate locked source order
+        run: python bms_tools/bms.py --all-products link --jobs 4
+      - name: ELF resource gates
         shell: powershell
-        run: python bms_tools/bms.py sources --check
-      - name: Run SH3673520 driver contract check
+        run: python bms_tools/bms.py --all-products resources
+      - name: Static analysis from each actual build configuration
         shell: powershell
-        run: python tests/sh3673520_contract_check.py
-      - name: Run HS-D014 SH3673510 integration contract check
-        shell: powershell
-        run: python tests/sh3673510_d014_integration_check.py
-      - name: Run SH3673510 protection-mode contract check
-        shell: powershell
-        run: python tests/sh3673510_protection_mode_check.py
-      - name: Run SH3673510 temperature contract check
-        shell: powershell
-        run: python tests/sh3673510_temperature_encoding_check.py
-      - name: Run unified software protection contract check
-        shell: powershell
-        run: python tests/sw_protection_contract_check.py
-      - name: Run common heater/balance/open-wire contract check
-        shell: powershell
-        run: python tests/common_feature_policy_contract_check.py
-      - name: Run independent AFE hardware profile contract check
-        shell: powershell
-        run: python tests/afe_hw_profile_contract_check.py
-      - name: Exercise D014 AFE profile migration defaults
-        shell: powershell
-        run: python tests/d014_afe_profile_default_host_check.py
-      - name: Clean rebuild with TC32
-        shell: powershell
-        run: python bms_tools/bms.py rebuild --jobs 4
-      - name: Validate Telink firmware image
-        shell: powershell
-        run: python bms_tools/bms.py check-fw
-      - name: Report firmware size
-        shell: powershell
-        run: python bms_tools/bms.py size
-      - name: Analyze MAP file
-        shell: powershell
-        run: python bms_tools/bms.py map
-      - name: Generate firmware manifest
-        shell: powershell
-        run: python bms_tools/bms.py manifest
-      - name: Verify firmware integrity
-        shell: powershell
-        run: python bms_tools/bms.py verify
-      - name: Run cppcheck without machine-specific Excel report
-        shell: powershell
-        run: python bms_tools/bms.py static --no-report
-      - name: Run DVC1124 configuration contract check
-        shell: powershell
-        run: python tests/dvc1124_config_quick_check.py
-      - name: Run SOC module contract check
-        shell: powershell
-        run: python tests/soc_contract_check.py
-      - name: Run Flash storage contract check
-        shell: powershell
-        run: python tests/flash_quick_check.py
-      - name: Upload firmware and analysis evidence
+        run: python bms_tools/bms.py --all-products static --no-report
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: telink-bms-${{ github.sha }}
-          if-no-files-found: ignore
+          name: bms-tc32-${{ github.sha }}
           retention-days: 14
-          path: |
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.elf
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/fw_manifest.json
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.map
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/825x_ble_sample.lst
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/gen/build.log
-            tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/static/**
+          path: ${{ runner.temp }}/bms-build

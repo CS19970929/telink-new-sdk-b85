@@ -3,13 +3,14 @@
 import argparse
 import os
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import re
 import shlex
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+MOD = Sources(ROOT)
 
 
 def function(text, signature):

@@ -4,13 +4,14 @@ Only peripheral outcomes are mocked. This proves software sequencing, not AFE
 sleep current, GPIO timing, or physical MOS shutdown. No project temp files.
 """
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 import os
 import re
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample'
+APP = Sources(ROOT)
 
 
 def function(file, name):
@@ -36,12 +37,12 @@ body = state + '\n'.join([
     function('app.c', 'app_note_sleep_and_enter_deepsleep'),
     function('app.c', 'app_pm_elapsed_limit'),
 ])
-app_source = (APP / 'app.c').read_text(encoding='utf-8')
+app_source = selected_source(APP / 'app.c')
 for counter in ('sleep_cnt', 'sleep_veryvlow_cnt', 'sleep_vlow_cnt',
                 'sleep_vnormal_cnt', 'afe_comm_err_sleepcnt'):
     assert f'{counter} = app_pm_elapsed_limit(' in app_source
     assert f'if (app_note_sleep_and_enter_deepsleep(1u)) {counter} = 0;' in app_source
-fixture = (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
+fixture = '#define BMS_AFE_BACKEND 2\n#define BMS_AFE_BACKEND_DVC1124 1\n' + (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
 with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
     c, exe = Path(tmp) / 'check.c', Path(tmp) / 'check.exe'
     c.write_text(fixture.replace('/* PRODUCTION */', body), encoding='utf-8')
@@ -53,6 +54,6 @@ with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
                         '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
                         '-DSH3673510_FIXED_UART_BLOCKS_PM=%d' % blocked,
-                        '-I', str(APP), str(c), '-o', str(exe)], check=True)
+                        *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
 print('SH production sleep/control/backend/guard/app fault injection: PASS')

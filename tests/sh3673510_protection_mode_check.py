@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Static contract checks for independent SH3673510 SW/HW protection modes."""
 from pathlib import Path
+from project_paths import Sources, host_includes, selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
-HERE = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001" / "tc_ble_single_sdk" / "vendor" / "ble_sample"
+HERE = Sources(ROOT)
 
 
 def text(name: str) -> str:
@@ -21,17 +22,17 @@ bms = text("sh3673510_bms.c")
 for needle in (
     "#define SH3673510_SW_PROTECT_ENABLE             1u",
     "#define SH3673510_HW_PROTECT_ENABLE             1u",
-    "#define SH3673510_D011_PD_EN                      SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_MOS_EN                     SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_OCC_EN                     SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_WDT_EN                     SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_SC_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_OCD_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_UV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_OV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
-    "#define SH3673510_D011_CADC_EN                    1u",
+    "#define SH3673510_BOARD_PD_EN                      SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_MOS_EN                     SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_OCC_EN                     SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_WDT_EN                     SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_SC_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_OCD_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_UV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_OV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE",
+    "#define SH3673510_BOARD_CADC_EN                    1u",
 ):
     require(cfg, needle)
 

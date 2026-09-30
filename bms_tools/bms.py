@@ -9,6 +9,7 @@
 # Usage:
 #   python bms_tools/bms.py env                 # environment check
 #   python bms_tools/bms.py build [--jobs N]    # incremental build
+#   python bms_tools/bms.py compile [--jobs N]  # compile objects only; no BIN
 #   python bms_tools/bms.py rebuild [--jobs N]  # clean + build
 #   python bms_tools/bms.py objcopy             # generate .bin
 #   python bms_tools/bms.py check-fw            # tl_check_fw2.exe check
@@ -46,6 +47,13 @@ from pathlib import Path
 # ----------------------------------------------------------------------------
 # Path resolution (machine-portable)
 # ----------------------------------------------------------------------------
+PRODUCTS = ("d008", "d011", "d013", "d014")
+_cli = sys.argv[1:]
+_product_args = argparse.ArgumentParser(add_help=False)
+_product_args.add_argument("--product", choices=PRODUCTS, default=os.environ.get("BMS_PRODUCT", "d014"))
+_product_args.add_argument("--all-products", action="store_true")
+_selection, _cli = _product_args.parse_known_args(_cli)
+PRODUCT = _selection.product
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
 SDK_SUBDIR = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk"
@@ -59,10 +67,9 @@ REQUIRED_VENDOR_LIBS = (
 )
 TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve()
 
-# Keep command-line artifacts inside the Telink B85 project tree, but in a
-# dedicated sibling of the Eclipse/IDE output directory.  The two build
-# systems must never share objects or generated firmware.
-BUILD_DIR = (PROJ_DIR / "825x_ble_sample_cli").resolve()
+# Per-checkout, per-product build outputs stay outside the source worktree.
+BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-monorepo-build")))
+BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / PRODUCT).resolve()
 OBJ_DIR = BUILD_DIR / "obj"
 GEN_DIR = BUILD_DIR / "gen"
 ELF = BUILD_DIR / "825x_ble_sample.elf"
@@ -71,7 +78,7 @@ RAW_BIN = BUILD_DIR / "825x_ble_sample.raw.bin"
 LST = GEN_DIR / "825x_ble_sample.lst"
 MAP = GEN_DIR / "825x_ble_sample.map"
 MANIFEST = BUILD_DIR / "fw_manifest.json"
-SOURCE_ORDER_FILE = _HERE / "source_order.txt"
+SOURCE_ORDER_FILE = REPO_ROOT / "bms" / "products" / PRODUCT / "sources.txt"
 IDE_BUILD_DIR = PROJ_DIR / "825x_ble_sample"
 
 # Source group order is inherited from the Telink IDE generated makefile.  The
@@ -108,7 +115,7 @@ def _worktree_junction(repo_root: Path) -> Path:
     """Return a deterministic, space-free junction unique to one worktree."""
     identity = repo_root.resolve().as_posix().casefold().encode("utf-8")
     suffix = hashlib.sha256(identity).hexdigest()[:12]
-    return Path("C:/opencode") / f"bms_repo_{suffix}"
+    return Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-junctions" / f"repo_{suffix}"
 
 
 JUNCTION = _worktree_junction(REPO_ROOT)
@@ -131,11 +138,7 @@ def _ensure_junction() -> None:
         if tgt is not None and tgt.parent == REPO_ROOT:
             _junction_ok = True
             return
-        # Stale or wrong junction: remove it.
-        try:
-            subprocess.run(["cmd", "/c", "rmdir", str(JUNCTION)], check=False)
-        except Exception:
-            pass
+        _die(f"junction belongs to another checkout: {JUNCTION}")
     # Create the junction (mklink /J). Junctions do NOT need admin on Win10+.
     r = subprocess.run(["cmd", "/c", "mklink", "/J", str(JUNCTION), str(REPO_ROOT)],
                        capture_output=True, text=True)
@@ -161,9 +164,9 @@ DEFAULT_STATIC_REPORT_TEMPLATE = Path(
     "D:/c11认证文档/功能安全/13849模板/XXX-BMS 软件静态分析报告.xlsx"
 )
 SDK_BASELINE_COMMIT = "b9d4d0790cd7f163867872bf6ce7980a71dfee76"
-PROJECT_SOURCE_PREFIX = "vendor/ble_sample/"
+PROJECT_SOURCE_PREFIX = "bms/"
 STATIC_SCOPE_POLICY = (
-    "仅检查 vendor/ble_sample 应用层；官方 SDK/工具链文件仅为解析真实类型、宏和条件编译，"
+    "检查选定产品的 bms/ 应用层；官方 SDK/工具链文件仅为解析真实类型、宏和条件编译，"
     "其诊断按范围策略排除"
 )
 STATIC_ANALYSIS_DIR = _HERE / "static_analysis"
@@ -182,16 +185,12 @@ OTA_META_A = (0x1F000, 0x1FFFF)
 OTA_META_B = (0x3F000, 0x3FFFF)
 SDK_RESERVED = (0x74000, 0x7FFFF)
 
-# The product uses TLSR8251 with 32 KiB SRAM. Keep this manifest identity in
-# lockstep with build.mk and the startup assembly define.
 DECLARED_MCU = "TLSR8251"
 STARTUP_PROFILE = "MCU_STARTUP_8251"
 STARTUP_SRAM_END = 0x848000
-MAIN_STACK_RESERVE_BYTES = 3072
 TLSR8251_SRAM_END_IN_SDK = 0x848000
-TARGET_CONFIGURATION_RISK = (
-    "TLSR8251 profile required; verify MAP remains below 0x848000 minus the stack reserve"
-)
+TARGET_CONFIGURATION_RISK = "TLSR8251 startup profile matches the 32 KiB SRAM target"
+MAIN_STACK_RESERVE_BYTES = 3072
 
 
 def _now_iso() -> str:
@@ -340,7 +339,7 @@ def cmd_env(args: argparse.Namespace) -> int:
     missing_libraries = [str(path) for path in REQUIRED_VENDOR_LIBS if not path.exists()]
     if missing_libraries:
         _die("required official SDK libraries missing: " + ", ".join(missing_libraries))
-    _info("environment tools OK; target identity risk is reported above")
+    _info("environment tools OK; TLSR8251 target identity is consistent")
     return 0
 
 
@@ -369,27 +368,20 @@ def _source_order_sha256(entries: list[str]) -> str:
 
 
 def _discover_managed_sources() -> list[str]:
-    """Return all managed .c/.S files in deterministic IDE-compatible order."""
-    entries: list[str] = []
-    seen: set[str] = set()
+    """Discover selected product sources; reject omitted shared compilation units."""
+    entries = []
     for group_rel, recursive in SOURCE_GROUPS:
-        group = SDK_DIR / group_rel
-        if not group.exists():
+        if group_rel == Path("vendor/ble_sample"):
             continue
-        candidates = group.rglob("*") if recursive else group.iterdir()
-        sources = sorted(
-            (path for path in candidates
-             if path.is_file() and path.suffix in (".c", ".S")),
-            key=lambda path: path.relative_to(group).as_posix(),
-        )
-        for source in sources:
-            rel = source.relative_to(SDK_DIR).as_posix()
-            folded = rel.casefold()
-            if folded in seen:
-                raise SourceOrderError(f"duplicate/case-colliding source: {rel}")
-            seen.add(folded)
-            entries.append(rel)
-    return entries
+        group = SDK_DIR / group_rel
+        if group.exists():
+            entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted(group.iterdir())
+                        if x.is_file() and x.suffix in (".c", ".S")]
+    backend = "dvc1124" if PRODUCT == "d008" else "sh3673510"
+    for relative in ("bms/core", "bms/app", "bms/platform/telink", "bms/afe/"+backend,
+                     "bms/products/"+PRODUCT):
+        entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted((REPO_ROOT/relative).rglob("*.c"))]
+    return [x for x in entries if PRODUCT == "d008" or Path(x).name not in ("bus_mux.c", "sif_send.c")]
 
 
 def _read_source_order(path: Path = SOURCE_ORDER_FILE) -> list[str]:
@@ -451,54 +443,6 @@ def _write_source_order(entries: list[str]) -> None:
     )
 
 
-def _parse_ide_source_order(ide_build_dir: Path = IDE_BUILD_DIR) -> list[str]:
-    """Read the optional Eclipse CDT generated makefiles without depending on them."""
-    makefile = ide_build_dir / "makefile"
-    if not makefile.exists():
-        raise SourceOrderError(f"IDE generated makefile missing: {makefile}")
-    include_files: list[Path] = []
-    include_re = re.compile(r"^-include\s+(.+subdir\.mk)\s*$")
-    for line in makefile.read_text(encoding="utf-8", errors="replace").splitlines():
-        match = include_re.match(line.strip())
-        if match:
-            include_files.append(ide_build_dir / match.group(1).replace("\\", "/"))
-    if not include_files:
-        raise SourceOrderError(f"no subdir.mk includes found in {makefile}")
-
-    discovered = _discover_managed_sources()
-    object_to_source: dict[str, str] = {}
-    for source in discovered:
-        obj = Path(source).with_suffix(".o").as_posix().casefold()
-        if obj in object_to_source:
-            raise SourceOrderError(f"ambiguous IDE object target: {obj}")
-        object_to_source[obj] = source
-
-    result: list[str] = []
-    for subdir_mk in include_files:
-        if not subdir_mk.exists():
-            raise SourceOrderError(f"IDE included file missing: {subdir_mk}")
-        in_objects = False
-        for raw in subdir_mk.read_text(encoding="utf-8", errors="replace").splitlines():
-            stripped = raw.strip()
-            if stripped == "OBJS += \\":
-                in_objects = True
-                continue
-            if not in_objects:
-                continue
-            value = stripped.rstrip("\\").strip().removeprefix("./").replace("\\", "/")
-            if not value:
-                in_objects = False
-                continue
-            if not value.endswith(".o"):
-                continue
-            source = object_to_source.get(value.casefold())
-            if source is None:
-                raise SourceOrderError(f"IDE object is outside managed source set: {value}")
-            result.append(source)
-    _validate_source_order(result, discovered)
-    return result
-
-
 def _print_order_diff(reference: list[str], candidate: list[str],
                       reference_name: str, candidate_name: str) -> None:
     mismatch_indexes = [index for index, pair in enumerate(zip(reference, candidate))
@@ -527,24 +471,7 @@ def cmd_sources(args: argparse.Namespace) -> int:
             _info(f"source order updated: {SOURCE_ORDER_FILE}; review and commit the Git diff")
             return 0
 
-        if args.source_action == "import-ide":
-            previous = _read_source_order() if SOURCE_ORDER_FILE.exists() else []
-            imported = _parse_ide_source_order()
-            _write_source_order(imported)
-            _print_order_diff(previous, imported, "previous", "IDE")
-            _info("IDE order imported explicitly; review and commit the Git diff")
-            return 0
-
         current = _load_source_order_strict()
-        if args.source_action == "compare-ide":
-            ide_order = _parse_ide_source_order()
-            if current != ide_order:
-                _print_order_diff(current, ide_order, "locked", "IDE")
-                _info("IDE order MISMATCH; no file was modified")
-                return 1
-            _info(f"IDE order MATCH: {len(current)} entries, sha256={_source_order_sha256(current)}")
-            return 0
-
         _info(f"source order OK: {len(current)} entries, sha256={_source_order_sha256(current)}")
         return 0
     except SourceOrderError as exc:
@@ -579,26 +506,26 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
     subdirs_to_create: set[Path] = set()
     for rel_text in source_order:
         rel = Path(rel_text)
-        src = SDK_DIR / rel
+        src = REPO_ROOT / rel
         obj_rel = rel.with_suffix(".o")
         obj = (obj_j / obj_rel).as_posix()
-        src_j_posix = (sdk_j / rel).as_posix()
+        src_j_posix = (_junc(REPO_ROOT) / rel).as_posix()
         objs.append(obj)
         subdirs_to_create.add((obj_dir / obj_rel).parent)
         out_lines.append("")
         out_lines.append(f"{obj}: {src_j_posix} {(_junc(gen_dir) / 'compile-inputs.json').as_posix()}")
         if src.suffix == ".S":
             out_lines.append(f"\t@echo 'Assembling: {src.name}'")
-            out_lines.append(f"\t$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
+            out_lines.append(f"\t$(Q)$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
         else:
             out_lines.append(f"\t@echo 'Building: {src.name}'")
-            out_lines.append(f"\t$(CC) $(CFLAGS) -c -o\"$@\" \"$<\"")
+            out_lines.append(f"\t$(Q)$(CC) $(CFLAGS) -c -o\"$@\" \"$<\"")
     out_lines.insert(4, f"OBJS := {' '.join(objs)}")
     for directory in subdirs_to_create:
         directory.mkdir(parents=True, exist_ok=True)
     gen_dir.mkdir(parents=True, exist_ok=True)
     (build_dir / "sources.mk").write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-    _info(f"generated sources.mk: {build_dir / 'sources.mk'}  ({len(objs)} objects)")
+    _info(f"source order: {len(objs)} objects")
 
 
 def _firmware_git_build_id() -> str:
@@ -606,8 +533,7 @@ def _firmware_git_build_id() -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--verify", "HEAD"],
-            cwd=str(REPO_ROOT), capture_output=True, text=True,
-            check=False, timeout=10,
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=10,
         )
         sha = result.stdout.strip().lower()
         if result.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -621,8 +547,8 @@ def _firmware_git_dirty() -> int:
     """Return 1 when HEAD alone cannot reproduce the current worktree."""
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"], cwd=str(REPO_ROOT),
-            capture_output=True, text=True, check=False, timeout=10,
+            ["git", "status", "--porcelain"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=10,
         )
         if result.returncode == 0:
             return 1 if result.stdout.strip() else 0
@@ -633,8 +559,9 @@ def _firmware_git_dirty() -> int:
 
 def _capture_compile_inputs(extra_defines: str) -> dict:
     """Conservative header closure: extra unused headers may rebuild, none go stale."""
-    paths = {SDK_DIR / rel for rel in _load_source_order_strict()}
+    paths = {REPO_ROOT / rel for rel in _load_source_order_strict()}
     paths.update(SDK_DIR.rglob("*.h"))
+    paths.update((REPO_ROOT / "bms").rglob("*.h"))
     paths.update(SDK_DIR.rglob("*.inc"))
     paths.update((SOURCE_ORDER_FILE, LINKER_FILE, _HERE / "build.mk", _HERE / "bms.py"))
     paths.update(REQUIRED_VENDOR_LIBS)
@@ -663,20 +590,38 @@ def _mark_build_complete() -> None:
     (GEN_DIR / "build-completed.json").write_text(json.dumps(receipt, sort_keys=True), encoding="utf-8")
 
 
-def _read_compile_inputs() -> dict:
+def _read_compile_inputs(elf_only: bool = False) -> dict:
     path = GEN_DIR / "compile-inputs.json"
     if not path.exists():
         _die("Build input receipt missing; rebuild required")
-    complete_path = GEN_DIR / "build-completed.json"
+    complete_path = GEN_DIR / ("link-completed.json" if elf_only else "build-completed.json")
     if not complete_path.exists():
         _die("No successful completed build receipt; rebuild required")
     complete = json.loads(complete_path.read_text(encoding="utf-8"))
-    if complete != {"inputs_sha256": _sha256(path), "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST, RAW_BIN)}}:
+    artifacts = (ELF, MAP, LST) if elf_only else (ELF, MAP, LST, RAW_BIN)
+    if complete != {"inputs_sha256": _sha256(path), "artifacts": {p.name: _sha256(p) for p in artifacts}}:
         _die("Build receipt/artifacts differ from successful build; rebuild required")
     receipt = json.loads(path.read_text(encoding="utf-8"))
     if receipt != _capture_compile_inputs(receipt.get("extra_defines", "")):
         _die("Source/header/toolchain/build configuration changed since build; rebuild required")
     return receipt
+
+
+def _make_diagnostics(output: str) -> list[str]:
+    """Keep source locations clickable while hiding Make's follow-on noise."""
+    sdk_prefix = _junc(SDK_DIR).as_posix().rstrip("/") + "/"
+    lines = []
+    for line in output.splitlines():
+        match = re.match(r"^(.+?):(\d+):(\d+):\s+(fatal error|error|warning):\s+(.*)$", line)
+        if match is None:
+            continue
+        source, line_no, column, severity, message = match.groups()
+        if source.lower().startswith(sdk_prefix.lower()):
+            source = source[len(sdk_prefix):]
+        if severity == "fatal error":
+            severity = "error"
+        lines.append(f"{source}:{line_no}:{column}: {severity}: {message}")
+    return lines
 
 
 def _invoke_make(targets: list[str], jobs: int = 1,
@@ -694,12 +639,14 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     if "BMS_DIAG_BUILD_DIRTY" not in extra_defines:
         extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_DIRTY={dirty}").strip()
     env["EXTRA_DEFINES"] = extra_defines
-    _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
+    if targets != ["clean"]:
+        _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
     make = _need_make()
     _gen_sources_mk(build_dir)
-    if "all" in targets:
+    if "all" in targets or "compile" in targets or "link" in targets:
         _write_compile_inputs(extra_defines)
         (GEN_DIR / "build-completed.json").unlink(missing_ok=True)
+        (GEN_DIR / "link-completed.json").unlink(missing_ok=True)
     # Pass all Make-facing paths via the junction (space-free).
     repo_j = _junc(REPO_ROOT).as_posix()
     sdk_j = _junc(SDK_DIR).as_posix()
@@ -708,9 +655,10 @@ def _invoke_make(targets: list[str], jobs: int = 1,
            "-j", str(jobs),
            f"REPO_ROOT={repo_j}",
            f"SDK_DIR={sdk_j}",
-           f"BUILD_DIR={build_j}"]
+           f"BUILD_DIR={build_j}", f"PRODUCT={PRODUCT}", f"AFE_BACKEND={'dvc1124' if PRODUCT == 'd008' else 'sh3673510'}"]
     cmd += targets
-    _info(f"make targets={targets} jobs={jobs} (via junction {JUNCTION})")
+    if targets != ["clean"]:
+        _info(f"make: {', '.join(targets) if len(targets) < 3 else 'multiple targets'}; jobs={jobs}")
     r = _run(cmd, cwd=JUNCTION, env=env, check=False, capture=True)
     log_dir = build_dir / "gen"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -718,22 +666,49 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     log_path.write_text(r.stdout or "", encoding="utf-8")
     warning_count = len(re.findall(r"\bwarning:", r.stdout or "", re.I))
     error_count = len(re.findall(r"\berror:", r.stdout or "", re.I))
-    _info(f"compiler diagnostics: warnings={warning_count} errors={error_count} -> {log_path}")
-    # Stream a trimmed tail so AI can see errors without 5000-line dumps.
-    tail = r.stdout.splitlines()[-40:]
-    print("\n".join(tail))
+    log_display = log_path.as_posix()
+    if targets == ["clean"] and r.returncode == 0:
+        _info("clean complete")
+    else:
+        diagnostic_lines = _make_diagnostics(r.stdout or "")
+        if r.returncode != 0:
+            _info(f"BUILD FAILED: {error_count} error(s), {warning_count} warning(s)")
+        elif warning_count != 0:
+            _info(f"warning gate failed: {warning_count} warning(s)")
+        else:
+            _info("make succeeded: 0 errors, 0 warnings")
+        if diagnostic_lines:
+            print("\n".join(diagnostic_lines))
+        elif r.returncode != 0 or warning_count != 0:
+            other_errors = [line for line in (r.stdout or "").splitlines()
+                            if "undefined reference" in line or
+                            re.search(r"\b(?:error|warning):", line, re.I) or
+                            re.search(r"make(?:\.EXE)?: \*\*\*", line, re.I)]
+            print("\n".join(other_errors or (r.stdout or "").splitlines()[-10:]))
+        if r.returncode != 0 or warning_count != 0:
+            _info(f"full log: {log_display}")
     if r.returncode != 0:
         raise subprocess.CalledProcessError(r.returncode, cmd, output=r.stdout)
     if warning_count != 0:
         _die(f"compiler warning gate failed: warnings={warning_count}; see {log_path}")
     if "all" in targets:
         _mark_build_complete()
+    if "link" in targets:
+        receipt = {"inputs_sha256": _sha256(GEN_DIR / "compile-inputs.json"),
+                   "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST)}}
+        (GEN_DIR / "link-completed.json").write_text(json.dumps(receipt, sort_keys=True), encoding="utf8")
 
 
 def cmd_build(args: argparse.Namespace) -> int:
     _invoke_make(["all"], jobs=args.jobs)
     _finalize_firmware()
     _info("build complete (ELF/MAP/raw BIN/canonical BIN)")
+    return 0
+
+
+def cmd_compile(args: argparse.Namespace) -> int:
+    _invoke_make(["compile"], jobs=args.jobs)
+    _info("compile complete (object files only; no firmware image generated)")
     return 0
 
 
@@ -850,6 +825,7 @@ def _listing_abs_symbol_value(text: str, symbol: str) -> int | None:
 
 
 def cmd_map(args: argparse.Namespace) -> int:
+    if getattr(args, "elf_only", False): _read_compile_inputs(elf_only=True)
     if not MAP.exists():
         _die(f"MAP missing: {MAP}. Run 'build' first.")
     if not LST.exists():
@@ -912,12 +888,13 @@ def cmd_map(args: argparse.Namespace) -> int:
     slot_size = FW_SLOT_A_END - FW_SLOT_A_BASE + 1
     if bin_size is None or bin_size <= 0:
         _die("MAP missing valid _bin_size_; cannot validate image")
-    if not BIN.exists():
+    elf_only = getattr(args, "elf_only", False)
+    if not elf_only and not BIN.exists():
         _die("Canonical BIN missing; run check-fw before map")
-    canonical_size = BIN.stat().st_size
     # SDK checker pads to a 16-byte payload boundary then appends a CRC word.
     expected_size = ((bin_size + 15) // 16) * 16 + 4
-    if canonical_size != expected_size:
+    canonical_size = expected_size if elf_only else BIN.stat().st_size
+    if not elf_only and canonical_size != expected_size:
         _die(f"MAP/BIN size mismatch: aligned {bin_size} + CRC != {canonical_size}")
     if canonical_size > slot_size:
         _die(f"firmware image exceeds slot A: {canonical_size} > {slot_size}")
@@ -925,7 +902,8 @@ def cmd_map(args: argparse.Namespace) -> int:
     report = {
         "schema": "bms-resources/v1", "git": _git_provenance(),
         "elf_sha256": _sha256(ELF) if ELF.exists() else None,
-        "bin_sha256": _sha256(BIN), "map_sha256": _sha256(MAP),
+        "product": PRODUCT, "image_generated": not elf_only,
+        "bin_sha256": None if elf_only else _sha256(BIN), "map_sha256": _sha256(MAP),
         "flash_bytes": canonical_size, "flash_limit_bytes": slot_size,
         "flash_free_bytes": flash_headroom, "ram_span_bytes": ram_used_span,
         "ram_total_bytes": ram_total, "main_stack_gap_bytes": ram_total-ram_used_span,
@@ -951,7 +929,7 @@ def cmd_map(args: argparse.Namespace) -> int:
     output = Path(getattr(args, "output", None) or (GEN_DIR / "resources.json"))
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False)+"\n", encoding="utf-8")
-    print(f"  canonical BIN         = {canonical_size} bytes; free {flash_headroom}")
+    print(f"  {'projected image' if elf_only else 'canonical BIN'} = {canonical_size} bytes; free {flash_headroom}")
     for warning in report["warnings"]:
         print("  WARNING: " + warning)
     print(f"Resource report: {output}")
@@ -1050,7 +1028,7 @@ def _build_input_provenance() -> dict:
     object_order: list[str] = []
     for source in entries:
         object_path = BUILD_DIR / "obj" / Path(source).with_suffix(".o")
-        object_rel = object_path.relative_to(REPO_ROOT).as_posix()
+        object_rel = object_path.relative_to(BUILD_DIR).as_posix()
         if not object_path.exists():
             raise SourceOrderError(f"compiled object missing: {object_path}; run rebuild first")
         object_order.append(object_rel)
@@ -1095,12 +1073,14 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     except SourceOrderError as exc:
         _die(str(exc))
     manifest = {
-        "format": "bms-fw-manifest/v3",
+        "format": "bms-fw-manifest/v4",
+        "product": PRODUCT,
+        "build_directory": str(BUILD_DIR),
         "generated_at": _now_iso(),
         "firmware_name": "825x_ble_sample",
         "chip": "TLSR8251 / TLSR825x (B85)",
-        "elf": str(ELF.relative_to(REPO_ROOT)),
-        "bin": str(BIN.relative_to(REPO_ROOT)),
+        "elf": str(ELF),
+        "bin": str(BIN),
         "size_bytes": len(data),
         "sha256": _sha256(BIN),
         "integrity": {
@@ -1187,7 +1167,9 @@ def cmd_verify(args: argparse.Namespace) -> int:
         object_records = build_inputs.get("objects", [])
         object_mismatches = []
         for record in object_records:
-            object_path = REPO_ROOT / Path(record["object"])
+            object_path = BUILD_DIR / Path(record["object"])
+            if not object_path.resolve().is_relative_to(BUILD_DIR):
+                raise SourceOrderError("Manifest object escapes product build directory")
             if (not object_path.exists() or
                     _sha256(object_path) != record.get("sha256") or
                     object_path.stat().st_size != record.get("size_bytes")):
@@ -1303,11 +1285,17 @@ def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str]
     _gen_sources_mk()
     env = _ensure_toolchain_env(dict(os.environ))
     make = _need_make()
+    extra = env.get("EXTRA_DEFINES", "")
+    if "BMS_DIAG_BUILD_ID" not in extra: extra += f" -DBMS_DIAG_BUILD_ID={_firmware_git_build_id()}"
+    if "BMS_DIAG_BUILD_DIRTY" not in extra: extra += f" -DBMS_DIAG_BUILD_DIRTY={_firmware_git_dirty()}"
+    env["EXTRA_DEFINES"] = extra.strip()
     command = [
         make, "-B", "-n", "--no-print-directory", "-f", str(_HERE / "build.mk"),
         f"REPO_ROOT={_junc(REPO_ROOT).as_posix()}",
         f"SDK_DIR={_junc(SDK_DIR).as_posix()}",
         f"BUILD_DIR={_junc(BUILD_DIR).as_posix()}",
+        f"PRODUCT={PRODUCT}",
+        f"AFE_BACKEND={'dvc1124' if PRODUCT == 'd008' else 'sh3673510'}",
         "all",
     ]
     result = subprocess.run(command, cwd=str(JUNCTION), env=env, check=False,
@@ -1326,7 +1314,7 @@ def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str]
 
     database: list[dict] = []
     for rel, compile_line in zip(entries, compile_lines):
-        source = _junc(SDK_DIR / rel).as_posix()
+        source = _junc(REPO_ROOT / rel).as_posix()
         output = _junc(OBJ_DIR / Path(rel).with_suffix(".o")).as_posix()
         if source.casefold() not in compile_line.replace("\\", "/").casefold():
             _die(f"dry-run command/source order mismatch for {rel}")
@@ -1381,16 +1369,14 @@ def _canonical_repo_path(value: str) -> tuple[str, Path | None]:
 
 
 def _sdk_relative_path(value: str) -> str | None:
-    """Return an SDK-relative path for repo, junction or absolute inputs."""
+    """Return a repository-relative path for repo, junction or absolute inputs."""
     normal = value.replace("\\", "/")
-    repo_prefix = SDK_SUBDIR.rstrip("/") + "/"
-    if normal.casefold().startswith(repo_prefix.casefold()):
-        return normal[len(repo_prefix):]
-    junction_prefix = _junc(SDK_DIR).as_posix().rstrip("/") + "/"
-    if normal.casefold().startswith(junction_prefix.casefold()):
-        return normal[len(junction_prefix):]
+    junction_prefix = JUNCTION.as_posix().rstrip("/") + "/"
+    if normal.casefold().startswith(junction_prefix.casefold()): return normal[len(junction_prefix):]
     try:
-        return Path(normal).resolve().relative_to(SDK_DIR).as_posix()
+        candidate = Path(normal)
+        if not candidate.is_absolute(): candidate = REPO_ROOT / candidate
+        return candidate.resolve().relative_to(REPO_ROOT).as_posix()
     except (OSError, ValueError):
         return None
 
@@ -1429,7 +1415,7 @@ def _write_cppcheck_scope_exclusions(dependencies: set[str], out_dir: Path) -> t
         evidence.append({
             "file": value,
             "kind": "头文件" if path.suffix.lower() == ".h" else "依赖文件",
-            "reason": "不属于 vendor/ble_sample 应用层检查范围；仅为真实编译依赖解析",
+            "reason": "不属于 bms/ 应用层检查范围；仅为真实编译依赖解析",
             "sha256": _sha256(path) if path.exists() and path.is_file() else "",
         })
     _write_json(out_dir / "sdk_scope_exclusions.json", {
@@ -1449,8 +1435,24 @@ def _assert_application_diagnostics(rows: list[dict], evidence_path: Path) -> No
         if locations and not _is_application_scope_path(locations[0].get("file", "")):
             outside.append(f"{row.get('id')}:{locations[0].get('file')}:{locations[0].get('line')}")
     if outside:
-        _die("Cppcheck emitted diagnostics outside vendor/ble_sample scope: "
+        _die("Cppcheck emitted diagnostics outside bms/ scope: "
              + ", ".join(outside[:5]) + f"; see {evidence_path}")
+
+
+def _dependency_runtime_token(value: str) -> str:
+    """Map Make-only junction paths back to the current checkout.
+
+    GNU Make needs the fixed, space-free junction, but dependency probing is
+    invoked through subprocess argv and can safely use the real checkout path.
+    Avoiding the shared junction here also prevents a persistent/concurrent
+    Windows runner from auditing a stale checkout.
+    """
+    normal = value.replace("\\", "/")
+    junction = JUNCTION.as_posix().rstrip("/")
+    index = normal.casefold().find(junction.casefold())
+    if index < 0:
+        return value
+    return normal[:index] + REPO_ROOT.as_posix().rstrip("/") + normal[index + len(junction):]
 
 
 def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> set[str]:
@@ -1475,18 +1477,29 @@ def _analyse_dependency_graph(analysis_database: list[dict], out_dir: Path) -> s
                 continue
             if token.lower().endswith((".c", ".s")):
                 continue
-            filtered.append(token)
-        filtered.extend(["-MM", entry["file"]])
-        result = subprocess.run(filtered, cwd=entry["directory"], env=env,
+            filtered.append(_dependency_runtime_token(token))
+        runtime_file = _dependency_runtime_token(entry["file"])
+        runtime_dir = _dependency_runtime_token(entry["directory"])
+        filtered.extend(["-MM", runtime_file])
+        result = subprocess.run(filtered, cwd=runtime_dir, env=env,
                                 capture_output=True, text=True, check=False)
-        logs.append(f"# {entry['file']} rc={result.returncode}\n{result.stdout}{result.stderr}")
+        logs.append(f"# {entry['file']} rc={result.returncode}\n"
+                    f"cwd={runtime_dir}\n"
+                    f"command={subprocess.list2cmdline(filtered)}\n"
+                    f"{result.stdout}{result.stderr}")
         if result.returncode != 0:
+            (out_dir / "dependencies.log").write_text("\n".join(logs), encoding="utf-8")
             _die(f"TC32 dependency audit failed for {entry['file']}; "
                  f"see {out_dir / 'dependencies.log'}")
         flattened = re.sub(r"\\\s*\r?\n", " ", result.stdout or "")
         payload = flattened.split(":", 1)[1] if ":" in flattened else ""
-        for token in payload.split():
-            path = token.strip().replace("\\ ", " ")
+        # GCC emits Makefile syntax where spaces are escaped as ``\ ``.  A
+        # plain split truncates every dependency at the first escaped space
+        # and can accidentally suppress a parent directory instead of the
+        # exact SDK header.  shlex removes the Make escape while preserving
+        # the complete path as one token.
+        for token in shlex.split(payload, posix=True):
+            path = token.strip()
             rel, resolved = _canonical_repo_path(path)
             if resolved is not None and resolved.exists():
                 dependencies.add(rel)
@@ -1835,7 +1848,7 @@ def cmd_static(args: argparse.Namespace) -> int:
     _write_json(run_dir / "compile_commands_analysis.json", analysis_database)
     dependencies = _analyse_dependency_graph(analysis_database, run_dir)
     dependencies.update(
-        (SDK_DIR / rel).relative_to(REPO_ROOT).as_posix() for rel in selected_sources
+        (REPO_ROOT / rel).relative_to(REPO_ROOT).as_posix() for rel in selected_sources
     )
     scope_suppression_path, excluded_dependencies = _write_cppcheck_scope_exclusions(
         dependencies, run_dir)
@@ -1909,15 +1922,18 @@ def cmd_static(args: argparse.Namespace) -> int:
     _write_json(run_dir / "findings.json", findings)
     _write_findings_csv(run_dir / "findings.csv", findings)
 
+    header_prefixes = ("bms/core/", "bms/app/", "bms/platform/telink/",
+                       f"bms/products/{PRODUCT}/", f"bms/afe/{'dvc1124' if PRODUCT == 'd008' else 'sh3673510'}/")
     project_headers = sorted(
-        path.relative_to(SDK_DIR).as_posix()
-        for path in (SDK_DIR / "vendor" / "ble_sample").rglob("*.h")
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (REPO_ROOT / "bms").rglob("*.h")
+        if path.relative_to(REPO_ROOT).as_posix().startswith(header_prefixes)
     )
     dependency_sdk_rel = {
         rel[len(SDK_SUBDIR.rstrip("/") + "/"):]
         for rel in dependencies if rel.startswith(SDK_SUBDIR.rstrip("/") + "/")
     }
-    dependency_headers = {rel for rel in dependency_sdk_rel if rel.endswith(".h")}
+    dependency_headers = {rel for rel in dependencies if rel.endswith(".h")}
     project_dependency_headers = {
         rel for rel in dependency_headers if rel.startswith(PROJECT_SOURCE_PREFIX)
     }
@@ -1936,10 +1952,10 @@ def cmd_static(args: argparse.Namespace) -> int:
             "participates_in_build": True,
             "cppcheck_mode": "直接分析" if analysed else "不检查",
             "exclusion_reason": "" if analysed else reason,
-            "sha256": _sha256(SDK_DIR / rel),
+            "sha256": _sha256(REPO_ROOT / rel),
         })
     for rel in project_headers:
-        covered = rel in dependency_sdk_rel
+        covered = rel in dependencies
         scope_rows.append({
             "file": rel,
             "kind": "头文件",
@@ -1948,7 +1964,7 @@ def cmd_static(args: argparse.Namespace) -> int:
             "participates_in_build": covered,
             "cppcheck_mode": "随翻译单元解析" if covered else "未被真实构建依赖引用",
             "exclusion_reason": "" if covered else "真实编译配置未引用该头文件",
-            "sha256": _sha256(SDK_DIR / rel),
+            "sha256": _sha256(REPO_ROOT / rel),
         })
     for rel in sorted(sdk_dependency_headers):
         scope_rows.append({
@@ -1959,7 +1975,7 @@ def cmd_static(args: argparse.Namespace) -> int:
             "participates_in_build": True,
             "cppcheck_mode": "仅解析（诊断排除）",
             "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
-            "sha256": _sha256(SDK_DIR / rel),
+            "sha256": _sha256(REPO_ROOT / rel),
         })
     _write_json(run_dir / "scope_audit.json", scope_rows)
     with (run_dir / "scope_audit.csv").open("w", encoding="utf-8-sig", newline="") as handle:
@@ -1975,7 +1991,7 @@ def cmd_static(args: argparse.Namespace) -> int:
         classification_counts[finding["classification"]] = classification_counts.get(finding["classification"], 0) + 1
         id_counts[finding["id"]] = id_counts.get(finding["id"], 0) + 1
     deviation_candidates = [finding for finding in findings if finding["status"].startswith("Deviation候选")]
-    uncovered_project_headers = [rel for rel in project_headers if rel not in dependency_sdk_rel]
+    uncovered_project_headers = [rel for rel in project_headers if rel not in dependencies]
     coverage_gaps = uncovered_project_headers
     compile_settings = _extract_real_compile_settings(full_database[0]["command"])
     compile_settings.update({
@@ -1984,7 +2000,7 @@ def cmd_static(args: argparse.Namespace) -> int:
         "target_configuration_risk": TARGET_CONFIGURATION_RISK,
         "platform_model": str(CPPCHECK_PLATFORM.relative_to(REPO_ROOT)).replace("\\", "/"),
         "compiler_predefines_applied": applied_predefs,
-        "configuration_source": "build.mk 经 make -B -n 展开 + source_order.txt",
+        "configuration_source": f"build.mk 经 make -B -n 展开 + bms/products/{PRODUCT}/sources.txt",
     })
     summary = {
         "format": "tlsr8251-bms-static-analysis/v2",
@@ -2041,14 +2057,14 @@ def cmd_static(args: argparse.Namespace) -> int:
         template = Path(args.report_template).resolve() if args.report_template else DEFAULT_STATIC_REPORT_TEMPLATE
         report_path = run_dir / "XXX-BMS_软件静态分析报告_已填写.xlsx"
         _run_static_report_builder(template, data_path, report_path, run_dir / "report_previews")
-        summary["report"] = report_path.relative_to(REPO_ROOT).as_posix()
+        summary["report"] = report_path.as_posix()
         _write_json(data_path, summary)
 
     latest = {
         "run_id": stamp,
-        "run_dir": run_dir.relative_to(REPO_ROOT).as_posix(),
-        "summary": data_path.relative_to(REPO_ROOT).as_posix(),
-        "report": report_path.relative_to(REPO_ROOT).as_posix() if report_path else None,
+        "run_dir": run_dir.as_posix(),
+        "summary": data_path.as_posix(),
+        "report": report_path.as_posix() if report_path else None,
     }
     _write_json(static_root / "latest.json", latest)
     _info(f"actual build sources: {len(source_order)} ({len(compiled_c)} C + "
@@ -2151,7 +2167,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
                 report["findings"].append({
                     "type": "compiler_warnings",
                     "count": compiler_warnings,
-                    "evidence": (GEN_DIR / "build.log").relative_to(REPO_ROOT).as_posix(),
+                    "evidence": (GEN_DIR / "build.log").as_posix(),
                 })
         if name == "static":
             issue_counts = [int(value) for value in
@@ -2161,7 +2177,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
                 report["findings"].append({
                     "type": "cppcheck_findings",
                     "count": static_issues,
-                    "evidence": (BUILD_DIR / "static").relative_to(REPO_ROOT).as_posix()
+                    "evidence": (BUILD_DIR / "static").as_posix()
                                 + "/*.xml and *.txt",
                 })
         report["steps"].append({
@@ -2201,7 +2217,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="bms.py",
-        description="TLSR8251 BMS command-line build and analysis runner.",
+        description="TLSR8251 BMS runner. Select --product d008/d011/d013/d014 or --all-products before the command.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -2213,15 +2229,15 @@ def build_parser() -> argparse.ArgumentParser:
                              const="check", help="validate the locked order (default)")
     source_mode.add_argument("--update", dest="source_action", action="store_const",
                              const="update", help="explicitly regenerate deterministic order")
-    source_mode.add_argument("--compare-ide", dest="source_action", action="store_const",
-                             const="compare-ide", help="compare with optional IDE subdir.mk files")
-    source_mode.add_argument("--import-ide", dest="source_action", action="store_const",
-                             const="import-ide", help="explicitly replace locked order from IDE files")
     psrc.set_defaults(func=cmd_sources, source_action="check")
 
     pb = sub.add_parser("build", help="incremental build")
     pb.add_argument("-j", "--jobs", type=int, default=4)
     pb.set_defaults(func=cmd_build)
+
+    pc = sub.add_parser("compile", help="compile objects only, without generating firmware BIN")
+    pc.add_argument("-j", "--jobs", type=int, default=4)
+    pc.set_defaults(func=cmd_compile)
 
     pr = sub.add_parser("rebuild", help="clean + build")
     pr.add_argument("-j", "--jobs", type=int, default=4)
@@ -2234,6 +2250,10 @@ def build_parser() -> argparse.ArgumentParser:
     map_parser.add_argument("--baseline", help="Previous resources.json for byte deltas")
     map_parser.add_argument("--output", help="Resource report destination")
     map_parser.set_defaults(func=cmd_map)
+    resources_parser = sub.add_parser("resources", help="ELF/MAP resource gates; no firmware image required")
+    resources_parser.add_argument("--output")
+    resources_parser.add_argument("--baseline")
+    resources_parser.set_defaults(func=cmd_map, elf_only=True)
     sub.add_parser("manifest", help="write firmware integrity manifest").set_defaults(func=cmd_manifest)
     sub.add_parser("verify", help="verify .bin against manifest").set_defaults(func=cmd_verify)
 
@@ -2261,17 +2281,23 @@ def build_parser() -> argparse.ArgumentParser:
                      help="fail the pipeline when cppcheck reports any issue")
     pci.add_argument("--baseline", help="optional reference BIN; content mismatch fails")
     pci.set_defaults(func=cmd_ci)
+    pl = sub.add_parser("link", help="compile and link ELF/MAP only; does not generate BIN")
+    pl.add_argument("-j", "--jobs", type=int, default=4)
+    pl.set_defaults(func=lambda args: (_invoke_make(["link"], jobs=args.jobs) or 0))
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    if _selection.all_products and argv is None:
+        results = [subprocess.call([sys.executable, str(Path(__file__).resolve()), "--product", product, *_cli]) for product in PRODUCTS]
+        return 1 if any(results) else 0
+    args = build_parser().parse_args(_cli if argv is None else argv)
     try:
         return args.func(args)
     except subprocess.CalledProcessError as e:
-        sys.stderr.write(f"[bms] command failed (rc={e.returncode}): {e}\n")
-        if e.stdout:
-            sys.stderr.write(e.stdout[-4000:] if isinstance(e.stdout, str) else "")
+        if e.output is None:
+            sys.stdout.flush()
+            sys.stderr.write(f"[bms] command failed (rc={e.returncode}).\n")
         return e.returncode
 
 
