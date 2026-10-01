@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.IO;
 using System.Text;
 
@@ -108,6 +108,8 @@ public sealed partial class BmsClient : IAsyncDisposable
     private readonly object _rxLock = new();
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
+    private readonly CancellationTokenSource _disposedCancellation = new();
+    private int _disposed;
     public event Action<string>? Log;
 
     public BmsClient(IBmsTransport transport)
@@ -492,6 +494,8 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposedCancellation.Token);
+        ct = lifetime.Token;
         await _gate.WaitAsync(ct);
         try
         {
@@ -502,12 +506,16 @@ public sealed partial class BmsClient : IAsyncDisposable
                 _pending = tcs;
             }
 
-            Log?.Invoke("TX " + Convert.ToHexString(request));
-            await _transport.WriteAsync(request, ct);
             TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
             try
             {
+                ct.ThrowIfCancellationRequested();
+                Log?.Invoke("TX " + Convert.ToHexString(request));
+                // Caller cancellation must not release the gate while an uncancelable
+                // GATT write is still running. Only disposal forbids all later requests.
+                await _transport.WriteAsync(request, ct).WaitAsync(_disposedCancellation.Token);
                 byte[] rsp = await tcs.Task.WaitAsync(timeout, ct);
+                ct.ThrowIfCancellationRequested();
                 Log?.Invoke("RX " + Convert.ToHexString(rsp));
                 return rsp;
             }
@@ -537,6 +545,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         byte[]? frame = null;
         lock (_rxLock)
         {
+            if (Volatile.Read(ref _disposed) != 0) return;
             if (_pending is null)
             {
                 Log?.Invoke("[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.ToArray()));
@@ -569,8 +578,17 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return ValueTask.CompletedTask;
         _transport.DataReceived -= OnData;
-        _gate.Dispose();
+        _disposedCancellation.Cancel();
+        lock (_rxLock)
+        {
+            _pending?.TrySetCanceled(_disposedCancellation.Token);
+            _pending = null;
+            _rx.Clear();
+        }
+        // Waiters still unwind and release _gate. Neither managed primitive
+        // uses a WaitHandle here; let GC reclaim them after operations finish.
         return ValueTask.CompletedTask;
     }
 }

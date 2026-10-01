@@ -137,6 +137,14 @@ public sealed class AfeHardwareParameterModel
     public IReadOnlyList<ushort> RequestedRaw => _requested;
     public AfeHardwareDeviceInfo? DeviceInfo => _deviceInfo;
 
+    public void Clear()
+    {
+        _deviceInfo = null;
+        Array.Clear(_requested);
+        Array.Clear(_effective);
+        Rows.Clear();
+    }
+
     public void Load(AfeHardwareSnapshot snapshot)
     {
         if (snapshot.Requested.Length != AfeHardwareProtocolMap.ProfileWordCount ||

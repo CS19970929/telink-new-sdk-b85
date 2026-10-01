@@ -1,0 +1,654 @@
+{
+  "base_sha": "26d978af2538438edf7a2c8557f2bc4c50ee6824",
+  "branch": "audit/client-reliability-20261001",
+  "temporary_root": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client",
+  "runs": {
+    "baseline": [
+      {
+        "variant": "Windows",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "20bce7d8605511c7f4557e3116ab053673a2e1715a92a2c7e248377f97311a93",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "1134f373acc7854a5719965db4c135855fd9d67d06f518942793f3f15e91e62c",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "434b6a7931b63c2bd1586c36232335fe1b927b68649a18c5b6241da6ac4f3f25",
+          "Tests/autonomous/ClientLifecycleTest.cs": "c6429ff7c09809c0abe92770b871ef3b9e06c2612b998150eaf044dd4f9a382c",
+          "BmsTool.Windows/MainWindow.xaml.cs": "a201d8f792806da0befe5dc93fb86e3ec055fb5293da414d5c81a9790024ccde",
+          "extracted DisposeBmsAsync": "fc119332766b5a2330d008bdcc36d40b824cfd87db8c449fbf1028d0c7562b40"
+        },
+        "assertions": [
+          "FAIL CF01 A-read B-connect must send zero writes: stale A profile written to B: writes=1, B.word24=2000",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "56ec31db27c7e573a2711e6f418d3585c8d7830c7d92905de7c611a6db9aa017"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "20bce7d8605511c7f4557e3116ab053673a2e1715a92a2c7e248377f97311a93",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "1134f373acc7854a5719965db4c135855fd9d67d06f518942793f3f15e91e62c",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "fdb7c442213eed44e35efb3fa844b547e0e54872b2cb6d652828c457f76f13ad",
+          "Tests/autonomous/ClientLifecycleTest.cs": "c6429ff7c09809c0abe92770b871ef3b9e06c2612b998150eaf044dd4f9a382c",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "c507a0b1e4538f961e0b7c90c3619470f4a20ff21e3933a7399cd29ce5abd34a",
+          "extracted DisposeBmsAsync": "fc119332766b5a2330d008bdcc36d40b824cfd87db8c449fbf1028d0c7562b40"
+        },
+        "assertions": [
+          "FAIL CF01 A-read B-connect must send zero writes: stale A profile written to B: writes=1, B.word24=2000",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "8c604bbc0ad5d094a1d42532373490c293aa9aa4bd268650aa595fadbe84dac9"
+      }
+    ],
+    "baseline-expanded": [
+      {
+        "variant": "Windows",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "20bce7d8605511c7f4557e3116ab053673a2e1715a92a2c7e248377f97311a93",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "1134f373acc7854a5719965db4c135855fd9d67d06f518942793f3f15e91e62c",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "434b6a7931b63c2bd1586c36232335fe1b927b68649a18c5b6241da6ac4f3f25",
+          "Tests/autonomous/ClientLifecycleTest.cs": "af8e41af0cb9218e8c85b1e06f417c261abc32c90b5c583ad065c5955281eae8",
+          "BmsTool.Windows/MainWindow.xaml.cs": "a201d8f792806da0befe5dc93fb86e3ec055fb5293da414d5c81a9790024ccde",
+          "extracted DisposeBmsAsync": "fc119332766b5a2330d008bdcc36d40b824cfd87db8c449fbf1028d0c7562b40"
+        },
+        "assertions": [
+          "FAIL CF01 A-read B-connect must send zero writes: stale A profile written to B: writes=1, B.word24=2000",
+          "FAIL repeat read is one operation: expected one 3-read snapshot, requests=6",
+          "FAIL dispose cancels pending and queued transactions: dispose left transactions pending",
+          "RESULT failures=3"
+        ],
+        "full_log_sha256": "18f1bd28995d6fcda4e57c36c897d1b662773e29604d52d2075cb8423f030186"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "20bce7d8605511c7f4557e3116ab053673a2e1715a92a2c7e248377f97311a93",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "1134f373acc7854a5719965db4c135855fd9d67d06f518942793f3f15e91e62c",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "fdb7c442213eed44e35efb3fa844b547e0e54872b2cb6d652828c457f76f13ad",
+          "Tests/autonomous/ClientLifecycleTest.cs": "af8e41af0cb9218e8c85b1e06f417c261abc32c90b5c583ad065c5955281eae8",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "c507a0b1e4538f961e0b7c90c3619470f4a20ff21e3933a7399cd29ce5abd34a",
+          "extracted DisposeBmsAsync": "fc119332766b5a2330d008bdcc36d40b824cfd87db8c449fbf1028d0c7562b40"
+        },
+        "assertions": [
+          "FAIL CF01 A-read B-connect must send zero writes: stale A profile written to B: writes=1, B.word24=2000",
+          "FAIL repeat read is one operation: expected one 3-read snapshot, requests=6",
+          "FAIL dispose cancels pending and queued transactions: dispose left transactions pending",
+          "RESULT failures=3"
+        ],
+        "full_log_sha256": "18f1bd28995d6fcda4e57c36c897d1b662773e29604d52d2075cb8423f030186"
+      }
+    ],
+    "parameter-red": [
+      {
+        "variant": "Windows",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "49d75ca36f85a7ef78d51bde49b83a86ff25a32bf0776de8a30e5024ebf1bfdc",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+          "Tests/autonomous/ClientLifecycleTest.cs": "88fb2fb354769e461d54e7da351ab0370cf3aeaa6d6d18271a2bb5a420cb50c5",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "06c2325c0dbaaf93ea5e77049260db102ff94db9ec5238e1eb89e730953b5821",
+          "BmsTool.Windows/MainWindow.xaml.cs": "797303411c35da5775b663dade83ab9578f5c3e1481e68e527087966056369cc",
+          "extracted connection and battery methods": "df716e1132d3299cb6bf1fe56e7bdb1abd30d502d50096c69f55691b5c28f22f"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "FAIL late parameter failure cannot publish status or restart B polling: old parameter catch/finally changed B status or polling",
+          "PASS late battery response cannot replace B measurement",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "268e0f0012cd675dca93df22275e186430224427f539caf33a1576117d0c7afa"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "49d75ca36f85a7ef78d51bde49b83a86ff25a32bf0776de8a30e5024ebf1bfdc",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+          "Tests/autonomous/ClientLifecycleTest.cs": "88fb2fb354769e461d54e7da351ab0370cf3aeaa6d6d18271a2bb5a420cb50c5",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "06c2325c0dbaaf93ea5e77049260db102ff94db9ec5238e1eb89e730953b5821",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "4807bf99b683c35ceaf9c5999048cda609d50d89b32f02371205d6b1d0269042",
+          "extracted connection and battery methods": "df716e1132d3299cb6bf1fe56e7bdb1abd30d502d50096c69f55691b5c28f22f"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "FAIL late parameter failure cannot publish status or restart B polling: old parameter catch/finally changed B status or polling",
+          "PASS late battery response cannot replace B measurement",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "a4ce98741c23f40d144b24138f3e43b1867ebbfe3836e5def523966006373beb"
+      }
+    ],
+    "cancel-red": [
+      {
+        "variant": "Windows",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "49d75ca36f85a7ef78d51bde49b83a86ff25a32bf0776de8a30e5024ebf1bfdc",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+          "Tests/autonomous/ClientLifecycleTest.cs": "b4e7fd6503b1f23ab7012f0562995ec2d0367c9e0f47a2f72c7a61154ec85dbf",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsTool.Windows/MainWindow.xaml.cs": "797303411c35da5775b663dade83ab9578f5c3e1481e68e527087966056369cc",
+          "extracted connection and battery methods": "d2a4e4907b46c507f2ac53495942eacb0f87dcc92a21c89d8f4ee27bbc3627c0"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "FAIL caller cancellation keeps gate until uncooperative write exits: caller cancel released gate while previous write was in flight",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "2727ffac951bbd5f4026899fce55600f4e0fcb88ac56701be20376b5db4fa19c"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "49d75ca36f85a7ef78d51bde49b83a86ff25a32bf0776de8a30e5024ebf1bfdc",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+          "Tests/autonomous/ClientLifecycleTest.cs": "b4e7fd6503b1f23ab7012f0562995ec2d0367c9e0f47a2f72c7a61154ec85dbf",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "4807bf99b683c35ceaf9c5999048cda609d50d89b32f02371205d6b1d0269042",
+          "extracted connection and battery methods": "d2a4e4907b46c507f2ac53495942eacb0f87dcc92a21c89d8f4ee27bbc3627c0"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "FAIL caller cancellation keeps gate until uncooperative write exits: caller cancel released gate while previous write was in flight",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "25a86bf57c4f5a6d4b0d90f7682d3f8174aface33b2844cab5cf4697272d46b1"
+      }
+    ],
+    "final-lifecycle": [
+      {
+        "variant": "Windows",
+        "exit_code": 0,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+          "Tests/autonomous/ClientLifecycleTest.cs": "b4e7fd6503b1f23ab7012f0562995ec2d0367c9e0f47a2f72c7a61154ec85dbf",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsTool.Windows/MainWindow.xaml.cs": "797303411c35da5775b663dade83ab9578f5c3e1481e68e527087966056369cc",
+          "extracted connection and battery methods": "d2a4e4907b46c507f2ac53495942eacb0f87dcc92a21c89d8f4ee27bbc3627c0"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "RESULT failures=0"
+        ],
+        "full_log_sha256": "61995b761e63adb4fa0c82bccaf35a2ed45724ebf82cac8a1fb00f149dffc2e1"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 0,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+          "Tests/autonomous/ClientLifecycleTest.cs": "b4e7fd6503b1f23ab7012f0562995ec2d0367c9e0f47a2f72c7a61154ec85dbf",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "4807bf99b683c35ceaf9c5999048cda609d50d89b32f02371205d6b1d0269042",
+          "extracted connection and battery methods": "d2a4e4907b46c507f2ac53495942eacb0f87dcc92a21c89d8f4ee27bbc3627c0"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "RESULT failures=0"
+        ],
+        "full_log_sha256": "79100642d39790c8c425a3074c7513b70a0c54d5e7b072a8bdb63c45655c0069"
+      }
+    ],
+    "protection-entry-red": [
+      {
+        "variant": "Windows",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/ProtectionParameter.cs": "813e27ff3970ac04da99d40be225102d41a66cf713a2dd701873fb77d413a8f9",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+          "Tests/autonomous/ClientLifecycleTest.cs": "f00f3fe5dbdd859a8265c46fb213af2a929bcd6c735e83693e2dfcb1ef753a45",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsTool.Windows/MainWindow.xaml.cs": "797303411c35da5775b663dade83ab9578f5c3e1481e68e527087966056369cc",
+          "extracted connection and battery methods": "146ab610c487191533bced6be832250d9cb636c54f1031552c6b244cf07697d7"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "FAIL late protection read entry cannot show old error or restart B polling: old entry published: errors=1, polling starts=2",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "07e7177b1654a484e58c9cbdd96473eac6c6f0d8deef64a3b5583592ae4b4cd2"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 1,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/ProtectionParameter.cs": "813e27ff3970ac04da99d40be225102d41a66cf713a2dd701873fb77d413a8f9",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+          "Tests/autonomous/ClientLifecycleTest.cs": "f00f3fe5dbdd859a8265c46fb213af2a929bcd6c735e83693e2dfcb1ef753a45",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "4807bf99b683c35ceaf9c5999048cda609d50d89b32f02371205d6b1d0269042",
+          "extracted connection and battery methods": "be3e04d6e1a86411072de98e2ebc0a6787cdeb66f15400f0b1f5f10fd4192fa9"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "FAIL late protection read entry cannot show old error or restart B polling: old entry published: errors=1, polling starts=2",
+          "RESULT failures=1"
+        ],
+        "full_log_sha256": "a547f4e28979eac85f3b93cb077578c748a9adc2e68226f7cbd194f055274aae"
+      }
+    ],
+    "final-lifecycle-reviewed": [
+      {
+        "variant": "Windows",
+        "exit_code": 0,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsTool.Windows/ProtectionParameter.cs": "813e27ff3970ac04da99d40be225102d41a66cf713a2dd701873fb77d413a8f9",
+          "BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+          "Tests/autonomous/ClientLifecycleTest.cs": "f00f3fe5dbdd859a8265c46fb213af2a929bcd6c735e83693e2dfcb1ef753a45",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsTool.Windows/MainWindow.xaml.cs": "7b4d82841ee119ef7b3d67cd666ae85da40dd1eba87e5cb52209e7eeeb2f12f1",
+          "extracted connection and battery methods": "474942579b47b6043d558f47ab17c5468ba18f665bd64af6a2951638d70d31a4"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "PASS late protection read entry cannot show old error or restart B polling",
+          "RESULT failures=0"
+        ],
+        "full_log_sha256": "c9a1fed97516c6c489682768a3b656955d9ce67aa6f3fb282e3985b9fe2b4d84"
+      },
+      {
+        "variant": "Factory",
+        "exit_code": 0,
+        "source_sha256": {
+          "Shared/BmsDiagnostics.cs": "75745affb67a517c4e2bdabc46682f19554b209607938cddd466f9c6e1ef7c23",
+          "Shared/BmsHealth.cs": "a1096ab5bed11f1922fbde8ad9c3c2fd4b7478b2e13168e359669a019b78d627",
+          "Shared/BmsClient.Diagnostics.cs": "17327a013d18cda58076bde94310e50d704394e1de3fa7ee2563a679c306d255",
+          "Shared/BmsClient.ParameterRead.cs": "6291b0db52981231680e1b807ccc569afee50b7b9f183b04a049fd0e3d25fc16",
+          "Shared/D008Parameters.cs": "16befb603a8f75da1426eb0b5ee82e90875fab56982d791a875f17a39194e8d8",
+          "Shared/Sh3673520Parameters.cs": "28278695003ca64b003041a22fe6457911ae66473e2d8635aa402d158c9c230a",
+          "BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+          "BmsTool.Windows/BmsTransport.cs": "07e836a14d58f766bf22584f9a8450b857c952ce438ddadd4583607f1fee431b",
+          "BmsTool.Windows/ModbusRtu.cs": "4dcb796f2c4bb313ba9e3051bf5f02e0fd1d6a6fbeee4d317f94e0c1d7493ffa",
+          "BmsTool.Windows/BmsClient.AfeHardware.cs": "173eee12916929fbfbdbc4fe2dbd84a5f6d63e9e58d3d63384f585d2fc756ecf",
+          "BmsFactoryTest.Windows/ProtectionParameter.cs": "813e27ff3970ac04da99d40be225102d41a66cf713a2dd701873fb77d413a8f9",
+          "BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+          "BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+          "Tests/autonomous/ClientLifecycleTest.cs": "f00f3fe5dbdd859a8265c46fb213af2a929bcd6c735e83693e2dfcb1ef753a45",
+          "Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8",
+          "Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+          "BmsFactoryTest.Windows/MainWindow.xaml.cs": "1c88956da1a511be7f7a3fa8b0b5d2721b44afdf83c2a70b53af000d2677ef98",
+          "extracted connection and battery methods": "6abe15307bf947e90494adf436c0fe5fec818a12886e44def38e24bc8b886d2b"
+        },
+        "assertions": [
+          "PASS CF01 A-read B-connect must send zero writes",
+          "PASS repeat read is one operation",
+          "PASS dispose cancels pending and queued transactions",
+          "PASS fresh read on B permits one B-owned save",
+          "PASS cancel confirmation sends nothing and permits later save",
+          "PASS connection changes inside confirmation must cancel candidate",
+          "PASS late old response cannot replace B snapshot or status",
+          "PASS physical disconnect rejects stale snapshot",
+          "PASS canceled transaction and disposed write reject further bytes",
+          "PASS dispose bounds transport write ignoring cancellation",
+          "PASS late BLE connection cannot overwrite new connection",
+          "PASS late serial connection cannot overwrite new connection",
+          "PASS late parameter failure cannot publish status or restart B polling",
+          "PASS late battery response cannot replace B measurement",
+          "PASS caller cancellation keeps gate until uncooperative write exits",
+          "PASS late protection read entry cannot show old error or restart B polling",
+          "RESULT failures=0"
+        ],
+        "full_log_sha256": "4b1b0509d7d961ceb89a42274213e08bbfd39ccefdcdbd0290168212d0ec20f2"
+      }
+    ]
+  },
+  "builds": [
+    {
+      "project": "BmsTool.Windows",
+      "command": [
+        "dotnet",
+        "build",
+        "C:\\Users\\Administrator\\.codex\\worktrees\\client-reliability\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\bms-tool-windows\\BmsTool.Windows\\BmsTool.Windows.csproj",
+        "-c",
+        "Release",
+        "--artifacts-path",
+        "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Windows",
+        "--nologo"
+      ],
+      "exit_code": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\BmsTool.Windows.build.log",
+      "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  BmsTool.Windows -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Windows\\bin\\BmsTool.Windows\\release\\BmsTool.Windows.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:02.18\r\n"
+    },
+    {
+      "project": "BmsFactoryTest.Windows",
+      "command": [
+        "dotnet",
+        "build",
+        "C:\\Users\\Administrator\\.codex\\worktrees\\client-reliability\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\bms-tool-windows\\BmsFactoryTest.Windows\\BmsFactoryTest.Windows.csproj",
+        "-c",
+        "Release",
+        "--artifacts-path",
+        "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsFactoryTest.Windows",
+        "--nologo"
+      ],
+      "exit_code": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\BmsFactoryTest.Windows.build.log",
+      "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  BmsFactoryTest.Windows -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsFactoryTest.Windows\\bin\\BmsFactoryTest.Windows\\release\\BmsFactoryTest.Windows.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:02.33\r\n"
+    },
+    {
+      "project": "BmsTool.Cli",
+      "command": [
+        "dotnet",
+        "build",
+        "C:\\Users\\Administrator\\.codex\\worktrees\\client-reliability\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\bms-tool-windows\\BmsTool.Cli\\BmsTool.Cli.csproj",
+        "-c",
+        "Release",
+        "--artifacts-path",
+        "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Cli",
+        "--nologo"
+      ],
+      "exit_code": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\BmsTool.Cli.build.log",
+      "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  BmsTool.Cli -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Cli\\bin\\BmsTool.Cli\\release\\bms-cli.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:02.35\r\n"
+    },
+    {
+      "project": "BmsTool.Core",
+      "command": [
+        "dotnet",
+        "build",
+        "C:\\Users\\Administrator\\.codex\\worktrees\\client-reliability\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\bms-tool-windows\\BmsTool.Core\\BmsTool.Core.csproj",
+        "-c",
+        "Release",
+        "--artifacts-path",
+        "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Core",
+        "--nologo"
+      ],
+      "exit_code": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\BmsTool.Core.build.log",
+      "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  BmsTool.Core -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Core\\bin\\BmsTool.Core\\release\\BmsTool.Core.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:01.42\r\n"
+    },
+    {
+      "project": "BmsTool.Android",
+      "command": [
+        "dotnet",
+        "build",
+        "C:\\Users\\Administrator\\.codex\\worktrees\\client-reliability\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\bms-tool-windows\\BmsTool.Android\\BmsTool.Android.csproj",
+        "-c",
+        "Debug",
+        "--artifacts-path",
+        "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Android",
+        "--nologo"
+      ],
+      "exit_code": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\BmsTool.Android.build.log",
+      "output": "  Determining projects to restore...\r\n  All projects are up-to-date for restore.\r\n  BmsTool.Core -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Android\\bin\\BmsTool.Core\\debug\\BmsTool.Core.dll\r\n  BmsTool.Android -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Android\\bin\\BmsTool.Android\\debug\\BmsTool.Android.dll\r\n  BmsTool.Core -> C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-autonomous-20261001\\client\\final-build-BmsTool.Android\\bin\\BmsTool.Core\\debug\\BmsTool.Core.dll\r\n\r\nBuild succeeded.\r\n    0 Warning(s)\r\n    0 Error(s)\r\n\r\nTime Elapsed 00:00:46.28\r\n"
+    }
+  ],
+  "afe_regression": {
+    "exit_code": 0,
+    "script_sha256": "01da211a7e18d6718ed8eb928536abb1ca95aa1e6da6326599106a66338010be",
+    "output": "PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD and serial delayed response/cancel\r\n"
+  },
+  "final_production_sha256": {
+    "bms-tool-windows/BmsFactoryTest.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+    "bms-tool-windows/BmsFactoryTest.Windows/MainWindow.AfeHardwareUi.cs": "c0595b7b03e597859d44c22bd26e841e94a42659ed497f3ef10c8fbe4b831aa9",
+    "bms-tool-windows/BmsFactoryTest.Windows/MainWindow.xaml.cs": "1c88956da1a511be7f7a3fa8b0b5d2721b44afdf83c2a70b53af000d2677ef98",
+    "bms-tool-windows/BmsTool.Windows/AfeHardwareParameters.cs": "c11d54e4d3c610cc8d629d43e13b1dc4bfc8c5997b07534f069924cbf1d2f739",
+    "bms-tool-windows/BmsTool.Windows/BmsClient.cs": "96a5a19d1e6023ac18482337ef68d0c01564ba18bfeffce3fc209b4a7415abe8",
+    "bms-tool-windows/BmsTool.Windows/MainWindow.AfeHardwareUi.cs": "320f8bee9a98800deb9680a9f1d7bc8c9a37e22bccce96c827345ca880d6ee43",
+    "bms-tool-windows/BmsTool.Windows/MainWindow.xaml.cs": "7b4d82841ee119ef7b3d67cd666ae85da40dd1eba87e5cb52209e7eeeb2f12f1",
+    "bms-tool-windows/Shared/MainWindow.Parameters.cs": "c1960f9d98584a7a86f26cd6b26fe691c1d8db3147d9d865d3ba8b50c178ffec",
+    "bms-tool-windows/Shared/MainWindow.ConnectionState.cs": "72a8e2f771b6c99af2c0886f03728b1069b5220ffe70595e0163e4329cac3ce8"
+  },
+  "production_line_changes": 435,
+  "test_fixture_sha256": {
+    "bms-tool-windows/Tests/autonomous/run_client_lifecycle.py": "631350f8112e07c1f705f2d2f3ffa4629e682c29e89d3e1e074d5ec2724ebc08",
+    "bms-tool-windows/Tests/autonomous/ClientLifecycleTest.cs": "f00f3fe5dbdd859a8265c46fb213af2a929bcd6c735e83693e2dfcb1ef753a45"
+  }
+}

@@ -75,11 +75,13 @@ public partial class MainWindow
         Field("零点偏移 / mA",_parameterOffset);Field("增益 / ppm（1000000=1倍）",_parameterGain);Field("外部参考电流 / mA",_parameterReference);
         Button("采集10个新鲜样本，生成零点候选",()=>ParameterRunAsync(async(c,t)=>{
             var sample=await c.ReadD008CalibrationSamplesAsync(t);
+            t.ThrowIfCancellationRequested();
             _parameterOffset.Text=Math.Round(sample.Mean).ToString(CultureInfo.CurrentCulture);
             _parameterStatus.Text=$"零点候选 {sample.Mean:F1} mA，范围 {sample.Min}～{sample.Max}；尚未保存";
         },refresh:false));
         Button("采集10个新鲜样本，计算增益候选",()=>ParameterRunAsync(async(c,t)=>{
             var sample=await c.ReadD008CalibrationSamplesAsync(t);
+            t.ThrowIfCancellationRequested();
             _parameterGain.Text=D008Parameters.Gain(sample.Mean,int.Parse(_parameterOffset.Text),int.Parse(_parameterReference.Text)).ToString();
             _parameterStatus.Text=$"原始均值 {sample.Mean:F1} mA，范围 {sample.Min}～{sample.Max}；增益候选尚未保存";
         },refresh:false));
@@ -113,21 +115,28 @@ public partial class MainWindow
 #endif
         if(action is not null && (!ReferenceEquals(client,_parameterProbedClient) || _parameterCapture?.Supported!=true)){_parameterStatus.Text="请先读取当前设备参数并确认支持，再执行修改";return;}
         _parameterBusy=true;_diagBusy=true;_eventLogReadInProgress=true;
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        long generation = _connectionGeneration;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
-            if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
+            EnsureCurrentConnection(client, generation);
             _parameterStatus.Text="正在读取/执行参数事务…";
             if(action is not null)await action(client,timeout.Token);
-            if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
+            EnsureCurrentConnection(client, generation);
             if(refresh){
-                _parameterCapture=await client.ReadD008ParametersAsync(timeout.Token);
-                if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变，请重新读取");
-                _parameterProbedClient=client;ShowD008ParameterCapture(_parameterCapture);
+                var capture=await client.ReadD008ParametersAsync(timeout.Token);
+                EnsureCurrentConnection(client, generation);
+                _parameterCapture=capture;_parameterProbedClient=client;ShowD008ParameterCapture(capture);
                 if(action is not null && _parameterCapture.Errors.Count==0 && _parameterCapture.Supported)_parameterStatus.Text="设备已确认保存；参数读回完成";
             }
+        } catch (Exception) when (generation != _connectionGeneration) {
+            // An old operation must not publish status into the replacement connection.
         } catch(Exception ex){_parameterStatus.Text="参数操作失败："+ex.Message+"；请重新读取确认设备状态";}
-        finally{_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;StartAutomaticRefresh();}
+        finally {
+            _parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;
+            if (generation == _connectionGeneration) StartAutomaticRefresh();
+        }
     }
     private void ShowD008ParameterCapture(D008ParameterCapture c)
     {

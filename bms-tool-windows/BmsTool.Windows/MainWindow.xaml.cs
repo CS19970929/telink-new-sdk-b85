@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
@@ -145,6 +145,7 @@ public partial class MainWindow : Window
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!ConnectButton.IsEnabled || _autoReconnectRunning || _otaRunning) return;
         _pollTimer.Stop();
         try
         {
@@ -213,11 +214,16 @@ public partial class MainWindow : Window
 
     private async Task<bool> ConnectBmsInternalAsync(ulong address, CancellationToken ct = default, bool allowIapOnly = false)
     {
-        await DisposeBmsAsync();
+        Task disposal = DisposeBmsAsync();
+        long generation = _connectionGeneration;
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct, _connectionLifetime.Token);
+        ct = attempt.Token;
+        await disposal;
         AppendLog($"ConnectBmsInternal START address={address:X12}", "CONNECT");
 
         var transport = new BmsBleTransport();
-        transport.ConnectionProgress += OnConnectionProgress;
+        Action<string> progress = text => OnConnectionProgress(generation, text);
+        transport.ConnectionProgress += progress;
         BmsClient? client = null;
         var total = Stopwatch.StartNew();
 
@@ -232,18 +238,20 @@ public partial class MainWindow : Window
             await client.ProbeAsync(ct);
             AppendLog($"[CONNECT] STEP_OK stage=ModbusProbe elapsed={probeTimer.ElapsedMilliseconds}ms", "CONNECT");
 
+            ct.ThrowIfCancellationRequested();
+            if (generation != _connectionGeneration) throw new OperationCanceledException("连接已改变");
             _bmsTransport = transport;
             _bms = client;
             _connectedAddress = address;
-            transport.ConnectionProgress -= OnConnectionProgress;
+            transport.ConnectionProgress -= progress;
             AppendLog($"BMS READY total={total.ElapsedMilliseconds}ms; {transport.DiscoveryDescription}", "CONNECT");
             return true;
         }
         catch (Exception ex)
         {
             _sessionLog.WriteException("CONNECT", "ConnectBmsInternal", ex);
-            transport.ConnectionProgress -= OnConnectionProgress;
-            if (allowIapOnly && client is not null && transport.IsConnected)
+            transport.ConnectionProgress -= progress;
+            if (allowIapOnly && !ct.IsCancellationRequested && generation == _connectionGeneration && client is not null && transport.IsConnected)
             {
                 client.Log -= OnProtocolLog;
                 await client.DisposeAsync();
@@ -263,12 +271,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnConnectionProgress(string text)
+    private void OnConnectionProgress(long generation, string text)
     {
         AppendLog(text, "BLE");
         if (text.Contains("ATTEMPT_BEGIN", StringComparison.Ordinal))
         {
-            Dispatcher.BeginInvoke(() => ConnectionText.Text = "正在连接设备...");
+            Dispatcher.BeginInvoke(() => { if (generation == _connectionGeneration) ConnectionText.Text = "正在连接设备..."; });
         }
     }
 
@@ -276,17 +284,17 @@ public partial class MainWindow : Window
 
     private async Task DisposeBmsAsync()
     {
-        if (_bms is not null)
+        var client = _bms;
+        var transport = _bmsTransport;
+        _bms = null;
+        _bmsTransport = null;
+        InvalidateConnectionState();
+        if (client is not null)
         {
-            _bms.Log -= OnProtocolLog;
-            await _bms.DisposeAsync();
-            _bms = null;
+            client.Log -= OnProtocolLog;
+            await client.DisposeAsync();
         }
-        if (_bmsTransport is not null)
-        {
-            await _bmsTransport.DisposeAsync();
-            _bmsTransport = null;
-        }
+        if (transport is not null) await transport.DisposeAsync();
     }
 
     private void StartAutomaticRefresh()
@@ -303,6 +311,7 @@ public partial class MainWindow : Window
 
     private async Task<DeviceIdentity> RefreshIdentityAsync()
     {
+        long generation = _connectionGeneration;
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         string fallbackMac = _connectionMode == ConnectionMode.Serial
             ? string.Empty
@@ -311,6 +320,7 @@ public partial class MainWindow : Window
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
+        EnsureCurrentConnection(bms, generation);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
         if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
@@ -321,8 +331,10 @@ public partial class MainWindow : Window
 
     private async Task RefreshBatteryAsync()
     {
+        long generation = _connectionGeneration;
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         BatterySnapshot snapshot = await bms.ReadBatteryAsync();
+        EnsureCurrentConnection(bms, generation);
         ApplyBatterySnapshot(snapshot);
     }
 
@@ -381,12 +393,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        long generation = _connectionGeneration;
         _polling = true;
         try
         {
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex)
         {
             _pollFailureCount++;
@@ -402,7 +416,7 @@ public partial class MainWindow : Window
 
     private async Task AutoReconnectAsync()
     {
-        if (_autoReconnectRunning || _otaRunning) return;
+        if (_autoReconnectRunning || _otaRunning || !ConnectButton.IsEnabled) return;
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
         if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
         _autoReconnectRunning = true;
@@ -437,31 +451,41 @@ public partial class MainWindow : Window
 
     private async void ReadProtection_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
             _pollTimer.Stop();
             await ReadProtectionAsync();
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("读取保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private async Task ReadProtectionAsync()
     {
+        long generation = _connectionGeneration;
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+        _protectionSnapshotClient = null;
         ProtectionStatusText.Text = "正在读取...";
         ushort[] values = await bms.ReadProtectionAllAsync();
+        EnsureCurrentConnection(bms, generation);
         if (values.Length != _protectionRows.Count)
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
+        _protectionSnapshotClient = bms;
+        _protectionSnapshotGeneration = generation;
         ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 
     private async void WriteSelectedProtection_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
+            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureProtectionSnapshot(bms, generation);
             CommitProtectionGridEdits();
             if (ProtectionGrid.SelectedItem is not ProtectionParameterRow row)
                 throw new InvalidOperationException("请先选择一个保护参数。");
@@ -476,20 +500,25 @@ public partial class MainWindow : Window
                 return;
 
             _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureProtectionSnapshot(bms, generation);
             ushort readback = await bms.WriteReadableRegisterAndVerifyAsync(row.Address, value);
+            EnsureCurrentConnection(bms, generation);
             row.LoadFromDevice(readback);
             ProtectionStatusText.Text = $"{row.CustomerName} 写入并校验成功";
             AppendLog($"PROTECTION_WRITE_OK name='{row.CustomerName}'; address=0x{row.Address:X4}; raw={readback}", "PARAM");
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("写保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private async void WriteChangedProtection_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
+            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureProtectionSnapshot(bms, generation);
             CommitProtectionGridEdits();
             var invalid = _protectionRows.Where(r => !r.TryParseEditedValue(out _)).ToList();
             if (invalid.Count > 0) throw new FormatException($"存在无效修改值：{invalid[0].CustomerName}");
@@ -513,19 +542,22 @@ public partial class MainWindow : Window
                 return;
 
             _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureProtectionSnapshot(bms, generation);
             await bms.WriteProtectionChangesAsync(
                 changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
                 (address, values) => {
+                    EnsureCurrentConnection(bms, generation);
                     for (int j = 0; j < values.Length; j++)
                         _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
                     ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
                     AppendLog($"PROTECTION_GROUP_WRITE_OK address=0x{address:X4}; words=5", "PARAM");
                 });
+            EnsureCurrentConnection(bms, generation);
             ProtectionStatusText.Text = $"{changed.Count} 项全部写入并校验成功";
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("批量写保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private void CommitProtectionGridEdits()
@@ -536,54 +568,66 @@ public partial class MainWindow : Window
 
     private async void WriteSocParameter_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
+            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             ushort soc = ParseU16(SocSetBox.Text);
             if (soc > 100) throw new ArgumentOutOfRangeException(nameof(soc), "SOC 必须在 0~100%。");
             if (MessageBox.Show($"确认把当前 SOC 校准为 {soc}%？", "SOC 校准", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureCurrentConnection(bms, generation);
             BatterySnapshot snapshot = await bms.SetSocAndVerifyAsync(soc);
+            EnsureCurrentConnection(bms, generation);
             ApplyBatterySnapshot(snapshot);
             BmsParamResultText.Text = $"SOC 已写入并校验：{soc}%";
             AppendLog($"SOC_SET_VERIFY_OK value={soc}", "PARAM");
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("SOC 校准失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private async void WriteCycleParameter_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
+            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             ushort cycle = ParseU16(CycleSetBox.Text);
             if (MessageBox.Show($"确认把循环次数修改为 {cycle}？", "修改循环次数", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             _pollTimer.Stop();
-            var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            EnsureCurrentConnection(bms, generation);
             BatterySnapshot snapshot = await bms.SetCycleCountAndVerifyAsync(cycle);
+            EnsureCurrentConnection(bms, generation);
             ApplyBatterySnapshot(snapshot);
             BmsParamResultText.Text = $"循环次数已写入并校验：{cycle}";
             AppendLog($"CYCLE_SET_VERIFY_OK value={cycle}", "PARAM");
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("修改循环次数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private async void WriteName_Click(object sender, RoutedEventArgs e)
     {
+        long generation = _connectionGeneration;
         try
         {
-            _pollTimer.Stop();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
+            _pollTimer.Stop();
+            EnsureCurrentConnection(bms, generation);
             string name = await bms.WriteBluetoothNameSuffixAsync(NameSuffixBox.Text);
+            EnsureCurrentConnection(bms, generation);
             BtNameResultText.Text = $"已写入并确认：{name}";
             _connectedName = name;
             ConnectionText.Text = $"已连接：{name}";
             AppendLog($"BLUETOOTH_NAME_VERIFY_OK name='{name}'", "PARAM");
             MessageBox.Show($"蓝牙名称已修改为：{name}", "修改成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+        catch (Exception) when (generation != _connectionGeneration) { }
         catch (Exception ex) { ShowError("修改蓝牙名失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (generation == _connectionGeneration) StartAutomaticRefresh(); }
     }
 
     private void BrowseFirmware_Click(object sender, RoutedEventArgs e)
@@ -914,9 +958,14 @@ public partial class MainWindow : Window
 
     private async Task ConnectSerialInternalAsync(string portName, int baudRate, CancellationToken ct = default)
     {
-        await DisposeBmsAsync();
+        Task disposal = DisposeBmsAsync();
+        long generation = _connectionGeneration;
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct, _connectionLifetime.Token);
+        ct = attempt.Token;
+        await disposal;
         var transport = new BmsSerialTransport();
-        transport.ConnectionProgress += OnConnectionProgress;
+        Action<string> progress = text => OnConnectionProgress(generation, text);
+        transport.ConnectionProgress += progress;
         BmsClient? client = null;
         try
         {
@@ -925,6 +974,8 @@ public partial class MainWindow : Window
             client.Log += OnProtocolLog;
             AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
             await client.ProbeAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            if (generation != _connectionGeneration) throw new OperationCanceledException("连接已改变");
             _bmsTransport = transport;
             _bms = client;
             _connectedAddress = null;
@@ -943,7 +994,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            transport.ConnectionProgress -= OnConnectionProgress;
+            transport.ConnectionProgress -= progress;
         }
     }
 
