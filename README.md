@@ -53,6 +53,10 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/82
 
 切换到 `feature/windows-afe-hw-protection-editor-v2`，构建 `bms-tool-windows/` 下的 Windows 客户版、内部测试版、CLI 或 Android App。协议与诊断命令见 [D014 诊断适配](docs/D014_DIAGNOSTICS.md)。
 
+## 离线工程工具
+
+[Embedded Toolkit](tools/embedded_toolkit/README.md) 提供生产 C 软件保护 Host、Fake HIL、场景/属性测试报告、架构扫描与 AI 上下文生成。入口：`python -B -m tools.embedded_toolkit --help`。工具不加入 MCU 构建，完整后续范围见 [40 项路线](docs/embedded-toolkit/ROADMAP.md)。
+
 ## 当前发布阻断项
 
 首次上板前重点看 [HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md)。尤其需要确认：

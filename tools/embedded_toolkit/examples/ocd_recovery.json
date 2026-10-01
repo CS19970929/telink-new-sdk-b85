@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "OCD qualification, hysteresis and recovery",
+  "parameters": {"discharge_oc": [900, 950, 1000, 100, 60]},
+  "initial": {"load_present": true},
+  "steps": [
+    {"at_ms": 0, "expect": {"third": 0, "discharge_on": 0}},
+    {"at_ms": 400, "expect": {"third": 0, "discharge_on": 1}},
+    {"at_ms": 10000, "set": {"current_ma": -100000}, "expect": {"third": 0}},
+    {"at_ms": 10200, "expect": {"third": 0, "discharge_on": 1}},
+    {"at_ms": 10400, "expect": {"third": 32, "discharge_on": 0}},
+    {"at_ms": 20000, "set": {"current_ma": -50000}, "expect": {"third": 32}},
+    {"at_ms": 20200, "set": {"current_ma": 0}, "expect": {"third": 32}},
+    {"at_ms": 20400, "expect": {"third": 32}},
+    {"at_ms": 20600, "expect": {"third": 0, "discharge_on": 1}},
+    {"at_ms": 20800, "set": {"communication_ok": false}, "expect": {"charge_on": 0, "discharge_on": 0}},
+    {"at_ms": 21000, "reboot": true, "set": {"communication_ok": true}, "expect": {"third": 0}}
+  ]
+}

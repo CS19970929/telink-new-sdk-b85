@@ -1,0 +1,62 @@
+name: Embedded Toolkit host tools
+
+on:
+  push:
+    paths: ['tools/embedded_toolkit/**', 'tests/test_embedded_toolkit.py', '.github/workflows/embedded-toolkit.yml', '**/bms_sw_protection.*', '**/bms_state.h', '**/param.h']
+  pull_request:
+    paths: ['tools/embedded_toolkit/**', 'tests/test_embedded_toolkit.py', '.github/workflows/embedded-toolkit.yml', '**/bms_sw_protection.*', '**/bms_state.h', '**/param.h']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tool behavior and malformed input tests
+        run: python -B -m unittest discover -s tests -p test_embedded_toolkit.py -v
+      - name: Production C boundaries and safety properties
+        run: python -B -m tools.embedded_toolkit test --samples 20000 --output "${{ runner.temp }}/embedded-toolkit/host"
+      - name: Fake HIL demonstration
+        run: python -B -m tools.embedded_toolkit hil tools/embedded_toolkit/examples/ocd_recovery.json --output "${{ runner.temp }}/embedded-toolkit/hil"
+      - name: D014 architecture dogfood
+        run: python -B -m tools.embedded_toolkit scan . --source-order bms_tools/source_order.txt --source-root tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk --output "${{ runner.temp }}/embedded-toolkit/context"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: embedded-toolkit-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/embedded-toolkit
+          if-no-files-found: warn
+
+  sanitizer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CC: clang
+      HOST_CFLAGS: '-fsanitize=address,undefined -fno-omit-frame-pointer -g'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -B -m tools.embedded_toolkit test --samples 50000 --output "${{ runner.temp }}/embedded-toolkit/sanitizer"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: embedded-toolkit-sanitizer-${{ github.sha }}
+          path: ${{ runner.temp }}/embedded-toolkit/sanitizer
