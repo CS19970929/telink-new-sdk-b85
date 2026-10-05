@@ -691,6 +691,7 @@ def _invoke_make(targets: list[str], jobs: int = 1,
         _write_compile_inputs(extra_defines)
         (GEN_DIR / "build-completed.json").unlink(missing_ok=True)
         (GEN_DIR / "link-completed.json").unlink(missing_ok=True)
+        (GEN_DIR / "resources.json").unlink(missing_ok=True)
     # Pass all Make-facing paths via the junction (space-free).
     repo_j = _junc(REPO_ROOT).as_posix()
     sdk_j = _junc(SDK_DIR).as_posix()
@@ -737,10 +738,12 @@ def _invoke_make(targets: list[str], jobs: int = 1,
         _die(f"compiler warning gate failed: warnings={warning_count}; see {log_path}")
     if "all" in targets:
         _mark_build_complete()
-    if "link" in targets:
+    if "link" in targets or "all" in targets:
         receipt = {"inputs_sha256": _sha256(GEN_DIR / "compile-inputs.json"),
                    "artifacts": {p.name: _sha256(p) for p in (ELF, MAP, LST)}}
         (GEN_DIR / "link-completed.json").write_text(json.dumps(receipt, sort_keys=True), encoding="utf8")
+        if PRODUCTION:
+            cmd_map(argparse.Namespace(elf_only=True))
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -752,7 +755,7 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 def cmd_link(args: argparse.Namespace) -> int:
     _invoke_make(["link"], jobs=args.jobs)
-    return cmd_map(argparse.Namespace(elf_only=True)) if PRODUCTION else 0
+    return 0
 
 
 def cmd_compile(args: argparse.Namespace) -> int:
@@ -792,6 +795,8 @@ def _finalize_firmware() -> None:
         _die(f"ELF missing: {ELF}. Run 'build' first.")
     if not TL_CHECK_FW2.exists():
         _die(f"tl_check_fw2.exe missing: {TL_CHECK_FW2}")
+    if PRODUCTION:
+        cmd_map(argparse.Namespace(elf_only=True))
     _objcopy(ELF, RAW_BIN)
     shutil.copy2(RAW_BIN, BIN)
     _run_tl_check_fw(BIN)

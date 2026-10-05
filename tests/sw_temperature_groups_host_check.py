@@ -65,6 +65,7 @@ int main(void){
 """
 with tempfile.TemporaryDirectory(prefix='d008-temp-groups-') as folder:
  p=Path(folder)/'check.c';p.write_text(code);exe=Path(folder)/'check.exe'
- subprocess.run([os.environ.get('CC','cc'),'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
- subprocess.run([str(exe)],check=True)
+ for opt in ('-O2','-Os'):
+  subprocess.run([os.environ.get('CC','cc'),opt,'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
+  subprocess.run([str(exe)],check=True)
 print('PASS independent SW VC/TEMP groups, disabled state reset and NTC failure gate')
