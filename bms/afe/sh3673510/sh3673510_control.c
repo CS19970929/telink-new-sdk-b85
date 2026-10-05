@@ -1,6 +1,9 @@
-/* 文件功能：SH3673510 寄存器控制与硬件保护量化；执行配置验证、MOS/均衡、Sleep/Wake 等器件流程。
+/*
+ * 文件功能：SH3673510 寄存器控制与硬件保护量化；执行配置验证、MOS/均衡、Sleep/Wake
+ * 等器件流程。
  * bms/afe/sh3673510/sh3673510_control.c；实际编译归属见各产品 sources.txt。
  */
+/* 所选 SH 产品 10K NTC 表：电阻单位 100 Ω，温度编码 (C+40)*10。 */
 #include "sh3673510_ntc.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -17,8 +20,8 @@ static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
 
-/* Selected SH product 10K NTC table: resistance in 100ohm, temperature=(C+40)*10. */
 
+/* 配置 SH 板级 GPIO 为输入并设置上下拉。 */
 static void sh3510_gpio_input(GPIO_PinTypeDef pin)
 {
     gpio_set_func(pin, AS_GPIO);
@@ -27,6 +30,7 @@ static void sh3510_gpio_input(GPIO_PinTypeDef pin)
 }
 
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
+/* 先置低再配置 GPIO 输出，避免初始化高脉冲。 */
 static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
 {
     gpio_set_func(pin, AS_GPIO);
@@ -36,6 +40,7 @@ static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
 }
 #endif
 
+/* 按字段掩码读改写 SH 寄存器。 */
 static uint8_t sh3510_update_reg(uint8_t reg, uint8_t mask, uint8_t bits)
 {
     uint8_t value;
@@ -52,6 +57,7 @@ static uint8_t sh3510_update_reg(uint8_t reg, uint8_t mask, uint8_t bits)
     return ((verify & mask) == (target & mask)) ? 1u : 0u;
 }
 
+/* 写入寄存器并回读确认实际值。 */
 static uint8_t sh3510_write_verify(uint8_t reg, uint8_t value, uint8_t mask)
 {
     uint8_t verify;
@@ -67,6 +73,7 @@ static const uint16_t s_uv_delay_ms[8] = {
     490u, 770u, 980u, 1470u, 2030u, 3010u, 4970u, 10010u
 };
 
+/* 从硬件可表示值中选择向上量化编码。 */
 static uint8_t sh3510_pick_ceiling_code(const uint16_t *table, uint8_t count,
                                          uint32_t requested)
 {
@@ -79,6 +86,7 @@ static uint8_t sh3510_pick_ceiling_code(const uint16_t *table, uint8_t count,
     return (uint8_t)(count - 1u);
 }
 
+/* 将温度阈值转换为 100 Ω 单位电阻。 */
 static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
 {
     uint8_t i;
@@ -105,6 +113,7 @@ static uint16_t sh3510_temp_to_res100(uint16_t temp_x10)
     return 100u;
 }
 
+/* 量化高温保护阈值编码。 */
 static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
 {
     uint32_t denominator;
@@ -116,10 +125,8 @@ static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
     denominator = (uint32_t)r100 + 100u;
 
     /*
-     * SH36735xx uses a 10K reference for the external NTC divider.  High
-     * temperature thresholds use the divider ratio directly:
-     *     code = Rntc / (10K + Rntc) * 512
-     * r100 and 100 are both expressed in 100-ohm units here.
+     * SH36735xx 外部 NTC 分压参考为 10K。高温阈值直接使用分压比例：
+     * code = Rntc / (10K + Rntc) * 512；r100 和 100 均以 100 Ω 为单位。
      */
     result = ((uint32_t)r100 * 512u + (denominator / 2u)) / denominator;
     if (result > 255u) return 0u;
@@ -127,6 +134,7 @@ static uint8_t sh3510_high_temp_code(uint16_t temp_x10, uint8_t *code)
     return 1u;
 }
 
+/* 量化低温保护阈值编码。 */
 static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
 {
     int32_t numerator;
@@ -244,7 +252,7 @@ uint8_t sh3673510_control_apply_protection(void)
     if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
     ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
 
-    /* Hardware protection enables belong to the independent AFE profile. */
+    /* 硬件保护使能归独立 AFE 配置负责。 */
     ok &= sh3510_update_reg(SH3673520_REG_SCONF5,
                             SH3673520_SCONF5_OCC_EN_MASK,
                             (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? SH3673520_SCONF5_OCC_EN_MASK : 0u);
@@ -264,6 +272,7 @@ uint8_t sh3673510_control_apply_protection(void)
     return ok ? 1u : 0u;
 }
 
+/* 取得 SH 硬件实际可表示的保护配置。 */
 uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)
 {
     if (actual == 0) return 0u;
@@ -278,10 +287,9 @@ typedef struct {
 } sh3510_static_reg_cfg_t;
 
 /*
- * Deterministic selected-product static AFE profile.  Protection thresholds (0x49..0x54)
- * are applied separately from g_tParam.protect, and SCONF6 is written only
- * after those thresholds are valid so hardware protection is never enabled
- * against an unintended reset threshold.
+ * 所选产品使用确定性的静态 AFE 配置。
+ * 0x49..0x54 保护阈值独立于 g_tParam.protect 应用；阈值有效后才写 SCONF6，
+ * 避免对意外复位阈值启用硬件保护。
  */
 static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {
     { SH3673520_REG_SCONF1,     SH3673510_BOARD_SCONF1_BOOT_VALUE, 0xFFu },
@@ -294,6 +302,7 @@ static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {
     { SH3673520_REG_ALARML,     SH3673510_BOARD_ALARML_VALUE,      SH3673520_ALARML_ALL_MASK },
 };
 
+/* 配置 SH 工作模式、采样和固定板级字段。 */
 static uint8_t sh3510_configure_runtime(void)
 {
     uint8_t i;
@@ -309,6 +318,7 @@ static uint8_t sh3510_configure_runtime(void)
     return (SH3673520_SetBalanceMask(0u, SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
 }
 
+/* 初始化 SH 控制层并验证固定配置。 */
 uint8_t sh3673510_control_init(void)
 {
     sh3673520_port_status_t port_status;
@@ -316,7 +326,7 @@ uint8_t sh3673510_control_init(void)
     s_control_ready = 0u;
     s_afe_sleeping = 0u;
 
-    /* RESET and ALARM are open-drain outputs from the AFE, never MCU outputs. */
+    /* RESET 和 ALARM 是 AFE 开漏输出，MCU 绝不能驱动为输出。 */
     sh3510_gpio_input(BMS_BOARD_AFE_RESET_OUT_PIN);
     sh3510_gpio_input(BMS_BOARD_AFE_ALARM_PIN);
     sh3510_gpio_input(BMS_BOARD_INT_WK_MCU_PIN);
@@ -326,7 +336,7 @@ uint8_t sh3673510_control_init(void)
     sh3673510_board_force_heater_fuse_safe();
 #endif
 
-    /* Active-high board wake and active-low AFE alarm/reset pulses. */
+    /* 板级唤醒高有效，AFE 告警/复位脉冲低有效。 */
     cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, Level_High, 1);
     cpu_set_gpio_wakeup(BMS_BOARD_AFE_ALARM_PIN, Level_Low, 1);
     cpu_set_gpio_wakeup(BMS_BOARD_AFE_RESET_OUT_PIN, Level_Low, 1);
@@ -354,6 +364,7 @@ uint8_t sh3673510_control_init(void)
     return 1u;
 }
 
+/* 根据请求设置充放电 FET 控制位。 */
 uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t bits = 0u;
@@ -365,6 +376,7 @@ uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on)
                              bits);
 }
 
+/* 读取 SH 状态、保护标志及控制寄存器。 */
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
 {
     uint8_t pair[2];
@@ -372,7 +384,7 @@ uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
 
     if (SH3673520_ReadReg(SH3673520_REG_FLAG1, &status->flag1) != SH3673520_OK)
         return 0u;
-    /* Centralized intentional FLAG2 read: this consumes VADC/CADC ready flags. */
+    /* 集中进行有意的 FLAG2 读取，会消耗 VADC/CADC 就绪标志。 */
     if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &status->flag2) != SH3673520_OK)
         return 0u;
     if (SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, pair, 2u) != SH3673520_OK)
@@ -382,6 +394,7 @@ uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
     return 1u;
 }
 
+/* 切换负载检测模式，供物理恢复证据采集。 */
 uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed)
 {
     uint8_t value, verify, target;
@@ -398,6 +411,7 @@ uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed)
     return (verify == target) ? 1u : 0u;
 }
 
+/* 按允许清除位更新保护标志寄存器。 */
 static uint8_t sh3510_clear_flags(uint8_t reg, uint8_t clear_mask)
 {
     uint8_t sconf2;
@@ -411,7 +425,7 @@ static uint8_t sh3510_clear_flags(uint8_t reg, uint8_t clear_mask)
                            SH3673520_SCONF2_LTCLR_MASK,
                            SH3673520_SCONF2_LTCLR_MASK)) return 0u;
 
-    value = (uint8_t)~clear_mask; /* W0C: zeros clear selected flags, ones preserve. */
+    value = (uint8_t)~clear_mask; /* W0C：0 清选定位，1 保留。 */
     if (SH3673520_WriteReg(reg, value) != SH3673520_OK) ok = 0u;
 
     if (!sh3510_update_reg(SH3673520_REG_SCONF2,
@@ -420,18 +434,21 @@ static uint8_t sh3510_clear_flags(uint8_t reg, uint8_t clear_mask)
     return ok;
 }
 
+/* 清除指定 FLAG1 保护标志并检查结果。 */
 uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask)
 {
     return sh3510_clear_flags(SH3673520_REG_FLAG1, clear_mask);
 }
 
+/* 清除指定 FLAG2 保护标志并检查结果。 */
 uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask)
 {
-    /* Never ask the W0C write to clear read-clear ADC ready bits. */
+    /* W0C 写入不得清除读清除 ADC 就绪位。 */
     clear_mask &= (uint8_t)~(SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK);
     return sh3510_clear_flags(SH3673520_REG_FLAG2, clear_mask);
 }
 
+/* 写入有效电芯通道的均衡掩码。 */
 uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
 {
     if (!s_control_ready) return 0u;
@@ -439,6 +456,7 @@ uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
                                      SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
 }
 
+/* 将支持的加热/熔断引脚保持安全电平。 */
 void sh3673510_board_force_heater_fuse_safe(void)
 {
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
@@ -449,10 +467,11 @@ void sh3673510_board_force_heater_fuse_safe(void)
 #endif
 }
 
+/* 仅在产品支持时驱动板级加热输出。 */
 void sh3673510_board_set_heater(uint8_t enabled)
 {
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
-    /* Heater implementation compiled only for products declaring this capability. */
+    /* 只有声明加热能力的产品才编译加热实现。 */
     sh3673510_board_force_heater_fuse_safe();
     gpio_write(BMS_BOARD_HEATER_CHG_PIN, enabled ? 1u : 0u);
 #else
@@ -460,11 +479,13 @@ void sh3673510_board_set_heater(uint8_t enabled)
 #endif
 }
 
+/* 查询板级 AFE 唤醒信号状态。 */
 uint8_t sh3673510_board_wake_active(void)
 {
     return gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u;
 }
 
+/* 关闭相关输出并按器件流程进入休眠。 */
 uint8_t sh3673510_control_sleep(void)
 {
     if (!s_control_ready) return 0u;
@@ -480,13 +501,13 @@ uint8_t sh3673510_control_sleep(void)
     if (!sh3510_update_reg(SH3673520_REG_SCONF3,
                             SH3673520_SCONF3_CGR_WK_MASK,
                             SH3673520_SCONF3_CGR_WK_MASK)) return 0u;
-    /* A lost acknowledgement does not prove the AFE rejected SLEEP. Force
-     * NORMAL + runtime/protection restore before the next measurement. */
+    /* 应答丢失不能证明 AFE 拒绝 SLEEP；下次测量前强制 NORMAL 并恢复运行/保护配置。 */
     s_afe_sleeping = 1u;
     return (SH3673520_WriteReg(SH3673520_REG_SCONF1, SH3673520_SCONF1_SLEEP) ==
             SH3673520_OK) ? 1u : 0u;
 }
 
+/* 执行 SH 唤醒并重建配置、验证状态。 */
 uint8_t sh3673510_control_wake(void)
 {
     if (!s_control_ready) return 0u;
@@ -501,6 +522,7 @@ uint8_t sh3673510_control_wake(void)
     return 1u;
 }
 
+/* 查询 SH 控制层的就绪状态。 */
 uint8_t sh3673510_control_ready(void)
 {
     return s_control_ready;

@@ -1,4 +1,6 @@
-/* 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，硬件动作交给 backend。
+/*
+ * 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，
+ * 硬件动作交给 backend。
  * bms/app/bms_features.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_FEATURES_H_
@@ -7,19 +9,18 @@
 #include <stdint.h>
 #include "bms_afe.h"
 
-/* Common feature service is called after each valid AFE sample (currently 200 ms). */
+/* 每个有效 AFE 样本后调用公共功能服务，当前周期 200 ms。 */
 #define BMS_FEATURE_SERVICE_PERIOD_MS 200u
 
-/* Temperature encoding throughout the existing firmware is (degC + 40) * 10. */
+/* 现有固件温度统一编码为 (degC + 40) * 10。 */
 #ifndef BMS_HEATER_START_TEMP_X10
-#define BMS_HEATER_START_TEMP_X10 400u /* start only below 0 degC */
+#define BMS_HEATER_START_TEMP_X10 400u /* 仅低于 0 ℃ 时开始。 */
 #endif
 #ifndef BMS_HEATER_STOP_TEMP_X10
-#define BMS_HEATER_STOP_TEMP_X10 450u  /* stop at +5 degC: deliberate hysteresis */
+#define BMS_HEATER_STOP_TEMP_X10 450u  /* 达到 +5 ℃ 时停止，形成明确回差。 */
 #endif
 
-/* D008 balance business defaults. These are independent of the software
- * Vdelta protection group. Start voltage remains runtime configurable. */
+/* D008 均衡业务默认值独立于软件压差保护分组，起始电压仍可在线配置。 */
 #ifndef BMS_BALANCE_ENABLE_DEFAULT
 #define BMS_BALANCE_ENABLE_DEFAULT 1u
 #endif
@@ -33,8 +34,7 @@
 #define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u
 #endif
 
-/* Balance never acts on a single suspicious sample. These are measurement
- * sanity/qualification limits, not customer protection thresholds. */
+/* 均衡不能基于单个可疑样本动作；这些是测量合理性/资格限值，不是客户保护阈值。 */
 #ifndef BMS_BALANCE_TRUST_CONFIRM_MS
 #define BMS_BALANCE_TRUST_CONFIRM_MS 1000u
 #endif
@@ -58,8 +58,11 @@
 #define BMS_OPENWIRE_PERIOD_MS 300000u
 #endif
 
+/* 复位加热、均衡和断线检测的公共状态。 */
 void bms_features_init(void);
+/* 按有效快照推进加热、断线检测及均衡策略。 */
 void bms_features_service(void);
+/* AFE 样本失效时撤销功能资格并停止相关输出。 */
 void bms_features_on_afe_invalid(void);
 
 typedef enum {
@@ -68,25 +71,42 @@ typedef enum {
     BMS_HEATER_ACTIVE = 2u
 } bms_heater_state_t;
 
+/* 查询加热输出当前是否激活。 */
 uint8_t bms_features_heater_on(void);
+/* 查询不可逆加热熔断是否已经触发。 */
 uint8_t bms_features_heater_fuse_fired(void);
+/* 取得当前加热策略阶段。 */
 bms_heater_state_t bms_features_heater_state(void);
+/* 查询充电会话是否已确认有效。 */
 uint8_t bms_features_charge_session_active(void);
+/* 查询是否存在正在使用的均衡通道。 */
 uint8_t bms_features_balance_active(void);
+/* 查询均衡用电芯电压是否已通过可信度确认。 */
 uint8_t bms_features_balance_voltage_trusted(void);
+/* 查询是否存在尚未确认的电芯断线嫌疑。 */
 uint8_t bms_features_openwire_suspected(void);
+/* 编码加热、均衡和断线检测的阻断原因。 */
 uint32_t bms_features_diag_reasons(uint8_t charge);
 
-/* Hard blocks are applied by the common AFE guard. Directional charge block
- * is softer: DVC maps it to AUTO_DIODE so legal discharge remains available. */
+/*
+ * 公共 AFE 门禁施加硬阻断；方向性充电阻断较软，DVC 映射为 AUTO_DIODE，
+ * 以保留合法放电。
+ */
 uint8_t bms_features_charge_hard_blocked(void);
+/* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void);
+/* 汇总公共功能对充电 MOS 的阻断。 */
 uint8_t bms_features_charge_blocked(void);
+/* 汇总公共功能对放电 MOS 的阻断。 */
 uint8_t bms_features_discharge_blocked(void);
+/* 查询断线检测流程是否处于活动阶段。 */
 uint8_t bms_features_openwire_active(void);
-/* SOC-only RAM query: includes the last COW sample after a healthy poll has
- * cleared active. A failed/indeterminate round always retains suspected. */
+/*
+ * 仅供 SOC 的 RAM 查询，包含健康轮询清 active 后的最后 COW 样本；
+ * 失败/不确定轮次始终保留 suspected。
+ */
 uint8_t bms_features_openwire_sample_active(void);
+/* 取得断线检测结果及相关诊断信息。 */
 void bms_features_get_openwire_result(bms_afe_openwire_result_t *result);
 
-#endif /* BMS_FEATURES_H_ */
+#endif /* 头文件保护：BMS_FEATURES_H_。 */

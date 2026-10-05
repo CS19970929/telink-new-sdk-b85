@@ -1,5 +1,6 @@
+/* 文件功能：产品 SH 板级输入与独立硬件保护默认值。 */
 #pragma once
-/* Product inputs; register composition is in the shared SH backend. */
+/* 产品输入，寄存器组合在共享 SH 后端。 */
 #ifndef BMS_BOARD_DEBUG_LED_ENABLE
 #define BMS_BOARD_DEBUG_LED_ENABLE                   0u
 #endif
@@ -10,46 +11,68 @@
 #define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u
 #define SH3673510_PRODUCT_MOS_NTC_SUPPORTED 1u
 
-/* D014 schematic: TS3 NC; fitted TS4 MOS 10K-3435 (RN4 drawing discrepancy).
- * Static AFE inputs and independent HW defaults; no software threshold aliases. */
+/*
+ * D014：TS3 未连接，实装 TS4 MOS 10K-3435（RN4 图纸差异）；
+ * AFE 静态输入/独立硬件默认，无软件阈值别名。
+ */
 #define SH3673510_BOARD_NTC_NOMINAL_OHM 10000UL
 #define SH3673510_BOARD_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
 #define SH3673510_BOARD_BAT_NTC1_INDEX           0u  /* TS1, 10K-3435 */
 #define SH3673510_BOARD_BAT_NTC2_INDEX           1u  /* TS2, 10K-3435 */
-#define SH3673510_BOARD_HEATER_NTC_INDEX         2u  /* TS3 heater sensor role; only used when supported */
-#define SH3673510_BOARD_MOS_NTC_INDEX            3u  /* TS4 MOS sensor role; only used when supported */
+#define SH3673510_BOARD_HEATER_NTC_INDEX         2u  /*
+ * TS3 加热传感器角色，仅支持时使用。
+ */
+#define SH3673510_BOARD_MOS_NTC_INDEX            3u  /*
+ * TS4 MOS 传感器角色，仅支持时使用。
+ */
 #define SH3673510_BOARD_SCONF1_BOOT_VALUE         SH3673520_SCONF1_NORMAL
-#define SH3673510_BOARD_LTCLR                      0u /* runtime-only flag-clear gate */
-#define SH3673510_BOARD_PD_EN                      SH3673510_HW_PROTECT_ENABLE /* autonomous low-cell Powerdown belongs to the HW protection path */
-#define SH3673510_BOARD_PD_CTL                     0u /* no immediate MCU Powerdown command */
+#define SH3673510_BOARD_LTCLR                      0u /* 仅运行时标志清除门控。 */
+#define SH3673510_BOARD_PD_EN                      SH3673510_HW_PROTECT_ENABLE /*
+ * 低电压自主 Powerdown 属于硬件保护。
+ */
+#define SH3673510_BOARD_PD_CTL                     0u /*
+ * 不立即发出 MCU Powerdown 命令。
+ */
 #define SH3673510_BOARD_PUMP_EN                    1u
 #define SH3673510_BOARD_PDSG_CTL                   0u
-#define SH3673510_BOARD_PDSGMOS                    0u /* pre-discharge is MCU-forced/off in this product */
-#define SH3673510_BOARD_DSGMOS_BOOT                0u /* runtime-controlled after valid samples */
-#define SH3673510_BOARD_CHGMOS_BOOT                0u /* runtime-controlled after valid samples */
+#define SH3673510_BOARD_PDSGMOS                    0u /*
+ * 预放电由 MCU 强制控制，静态关闭。
+ */
+#define SH3673510_BOARD_DSGMOS_BOOT                0u /* 有效样本后运行时控制。 */
+#define SH3673510_BOARD_CHGMOS_BOOT                0u /* 有效样本后运行时控制。 */
 #define SH3673510_BOARD_CGR_WK                     1u
 #define SH3673510_BOARD_LD_WK_CODE                 SH3673520_SCONF3_LD_WK_OFF
 #define SH3673510_BOARD_CRLD_EN_CODE               SH3673520_SCONF3_CRLD_CPLUS_CODE
 #define SH3673510_BOARD_OWD_EN                     0u
-#define SH3673510_BOARD_OWD_TRG                    0u /* trigger bit is command-like; keep zero in static profile */
+#define SH3673510_BOARD_OWD_TRG                    0u /*
+ * 触发位具有命令语义，静态保持零。
+ */
 #define SH3673510_BOARD_PDSGT_CODE                 SH3673520_SCONF4_PDSGT_490MS
-#define SH3673510_BOARD_MOS_EN                     SH3673510_HW_PROTECT_ENABLE /* isolate AFE autonomous FET recovery with HW tests */
+#define SH3673510_BOARD_MOS_EN                     SH3673510_HW_PROTECT_ENABLE /*
+ * 硬件测试隔离 AFE 自主 FET 恢复。
+ */
 #define SH3673510_BOARD_OCC_EN                     SH3673510_HW_PROTECT_ENABLE
-#define SH3673510_BOARD_CADC_EN                    1u /* current acquisition stays on in every test mode */
+#define SH3673510_BOARD_CADC_EN                    1u /* 所有测试模式保留电流采集。 */
 #define SH3673510_BOARD_WDT_EN                     SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_WDT_CODE                   SH3673520_SCONF5_WDT_32S_CODE
-#define SH3673510_BOARD_TS4_HW_PROTECT_EN           0u /* AFE TS4 shares battery OTC/UTC thresholds; MOS-only OTP uses software policy */
-#define SH3673510_BOARD_TS3_HW_PROTECT_EN           0u /* independent heater policy; no common battery threshold */
+#define SH3673510_BOARD_TS4_HW_PROTECT_EN           0u /*
+ * AFE TS4 共用电池 OTC/UTC 阈值，MOS 独立 OTP 用软件策略。
+ */
+#define SH3673510_BOARD_TS3_HW_PROTECT_EN           0u /*
+ * 独立加热策略，不用公共电池阈值。
+ */
 #define SH3673510_BOARD_TS2_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_TS1_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_SC_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_OCD_HW_PROTECT_EN           SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_UV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
 #define SH3673510_BOARD_OV_HW_PROTECT_EN            SH3673510_HW_PROTECT_ENABLE
-#define SH3673510_BOARD_RLD                        0u /* 60uA load-detect pull-up */
+#define SH3673510_BOARD_RLD                        0u /* 60uA 负载检测上拉。 */
 #define SH3673510_BOARD_CADCT_CODE                 SH3673520_SCONF7_CADCT_4S_CODE
-#define SH3673510_BOARD_CDV_CODE                   4u /* datasheet reset: 742.5uV state-detect threshold */
-#define SH3673510_BOARD_OWV_CODE                    5u /* 960mV open-wire threshold */
+#define SH3673510_BOARD_CDV_CODE                   4u /*
+ * 手册复位值：742.5uV 状态检测阈值。
+ */
+#define SH3673510_BOARD_OWV_CODE                    5u /* 960mV 断线阈值。 */
 #define SH3673510_BOARD_LOADON_INT                  0u
 #define SH3673510_BOARD_LOADOFF_INT                 1u
 #define SH3673510_BOARD_VADC_INT                    1u
@@ -110,7 +133,7 @@
 #define BMS_BOARD_CMNT_WK_PIN                        GPIO_PD3
 #define BMS_BOARD_AFE_CS_PIN                         GPIO_PD2
 
-/* Preserve fixed-UART low-power gate until hardware validation. */
+/* 硬件验证前保留固定 UART 低功耗门控。 */
 #define SH3673510_FIXED_UART_BLOCKS_PM 1u
 
 #if SH3673510_PRODUCT_HEATER_SUPPORTED || SH3673510_PRODUCT_HEATER_NTC_SUPPORTED

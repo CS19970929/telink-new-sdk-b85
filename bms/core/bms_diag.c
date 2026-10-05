@@ -1,4 +1,6 @@
-/* 文件功能：启动/存储/采样/SOC/MOS 运行诊断快照与 Trace；主循环更新，只读窗口供上位机核对状态。
+/*
+ * 文件功能：启动/存储/采样/SOC/MOS 运行诊断快照与 Trace；主循环更新，
+ * 只读窗口供上位机核对状态。
  * bms/core/bms_diag.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -15,21 +17,26 @@ static uint16_t s_next;
 static uint32_t s_sequence;
 static uint8_t s_frozen;
 
+/* 将 32 位值拆为低字在前的两个 16 位诊断字。 */
 static void put32(uint16_t *p, uint32_t value)
 {
     p[0] = (uint16_t)value; p[1] = (uint16_t)(value >> 16);
 }
+/* 从低字在前的两个诊断字恢复 32 位值。 */
 static uint32_t get32(const uint16_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 16);
 }
+/* 递增诊断快照序号，标记内容发生变化。 */
 static void changed(void) { ++s_sequence; put32(&s_words[4], s_sequence); }
+/* 更新 16 位诊断字段并反映变化状态。 */
 static uint8_t update16(uint16_t offset, uint16_t value)
 {
     if (s_words[offset] == value) return 0u;
     s_words[offset] = value;
     return 1u;
 }
+/* 更新 32 位诊断字段并反映变化状态。 */
 static uint8_t update32(uint16_t offset, uint32_t value)
 {
     if (get32(&s_words[offset]) == value) return 0u;
@@ -37,6 +44,7 @@ static uint8_t update32(uint16_t offset, uint32_t value)
     return 1u;
 }
 
+/* 追加一条带时间与参数的诊断轨迹。 */
 void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 {
     BMS_LOG(event == DIAG_EV_STORAGE ? BMS_LOG_WARN : BMS_LOG_INFO,
@@ -59,6 +67,7 @@ void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 #endif
     changed();
 }
+/* 初始化诊断窗口和启动快照。 */
 void bms_diag_init(void)
 {
     bms_debug_log_init();
@@ -74,26 +83,31 @@ void bms_diag_init(void)
     s_words[14] = 0x1124u; s_words[15] = 0x8251u;
     bms_diag_trace(DIAG_EV_BOOT, 0u, 0u);
 }
+/* 更新尚未冻结的启动诊断 16 位字段。 */
 void bms_diag_boot_word(uint16_t offset, uint16_t value)
 {
     if (!s_frozen && offset >= 13u && offset < 128u) { s_words[offset] = value; changed(); }
 }
+/* 更新尚未冻结的启动诊断 32 位字段。 */
 void bms_diag_boot_u32(uint16_t offset, uint32_t value)
 {
     if (!s_frozen && offset >= 13u && offset < 127u) { put32(&s_words[offset], value); changed(); }
 }
+/* 记录持久参数升级与迁移诊断。 */
 void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask)
 {
     if (s_frozen) return;
     s_words[27] = stage; s_words[28] = invalid_mask;
     bms_diag_trace(DIAG_EV_UPGRADE, stage, invalid_mask);
 }
+/* 冻结启动快照，防止运行阶段覆盖启动证据。 */
 void bms_diag_freeze_boot(void)
 {
     if (s_frozen) return;
     s_frozen = 1u; s_words[3] = 1u;
     bms_diag_trace(DIAG_EV_BOOT_DONE, s_words[24], s_words[25]);
 }
+/* 记录存储或配置事务开始尝试。 */
 void bms_diag_attempt(uint8_t domain)
 {
     uint16_t offset;
@@ -105,6 +119,7 @@ void bms_diag_attempt(uint8_t domain)
     }
     bms_diag_trace(DIAG_EV_INIT, domain, DIAG_STARTED);
 }
+/* 记录事务最终结果及诊断计数。 */
 void bms_diag_result(uint8_t domain, uint16_t result)
 {
     uint16_t offset;
@@ -121,13 +136,15 @@ void bms_diag_result(uint8_t domain, uint16_t result)
     s_words[180u + domain] = result;
     bms_diag_trace(DIAG_EV_INIT, domain, result);
 }
+/* 记录存储错误和对应操作信息。 */
 void bms_diag_storage_error(uint16_t reason, uint32_t address)
 {
-    /* Keep the first error independently of ring overwrites and boot freeze. */
+    /* 首个错误独立保留，不受环形覆盖和启动冻结影响。 */
     if (s_words[176] == 0u) { s_words[176] = reason; put32(&s_words[184], address); }
     s_words[177] = reason; put32(&s_words[178], address);
     bms_diag_trace(DIAG_EV_STORAGE, reason, address);
 }
+/* 更新当前参数来源和提交状态诊断。 */
 void bms_diag_params(uint8_t valid, uint8_t upgrade)
 {
     uint16_t bits = (uint16_t)((valid ? 1u : 0u) | (upgrade ? 2u : 0u));
@@ -145,6 +162,7 @@ void bms_diag_mos(uint16_t requested, uint32_t charge, uint32_t discharge)
     put32(&s_words[136], charge); put32(&s_words[138], discharge);
     bms_diag_trace(DIAG_EV_MOS, charge | ((uint32_t)requested << 16), discharge);
 }
+/* 记录外部控制命令及执行结果。 */
 void bms_diag_command(uint8_t command, uint8_t valid)
 {
     if (s_words[130] != command || s_words[131] != valid) {
@@ -152,6 +170,7 @@ void bms_diag_command(uint8_t command, uint8_t valid)
         bms_diag_trace(DIAG_EV_AFE, command, valid);
     }
 }
+/* 发布驱动 FET 缓存标志与有效性，不作为物理 Gate 证据。 */
 void bms_diag_driver(uint8_t flags, uint8_t valid)
 {
     if (!valid && !s_words[133]) return;
@@ -160,6 +179,7 @@ void bms_diag_driver(uint8_t flags, uint8_t valid)
     s_words[132] = flags; s_words[133] = valid;
     put32(&s_words[140], bms_diag_tick()); changed();
 }
+/* 更新指定诊断计数项。 */
 void bms_diag_counter(uint16_t index, uint32_t value)
 {
     if (index < 6u && get32(&s_words[160u + 2u * index]) != value) {
@@ -167,6 +187,7 @@ void bms_diag_counter(uint16_t index, uint32_t value)
     }
 }
 
+/* 发布运行采样资格、测量与错误快照。 */
 void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
                              int32_t current_ma, uint32_t sample_tick_32k,
                              uint8_t current_recovery_pending)
@@ -186,6 +207,7 @@ void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
         changed();
 }
 
+/* 发布 SOC 基础运行诊断。 */
 void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
                           uint8_t ocv_state, uint8_t ocv_center,
                           uint8_t ocv_low, uint8_t ocv_high,
@@ -213,6 +235,7 @@ void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
     if (dirty) changed();
 }
 
+/* 发布 SOC 端点、OCV 与学习扩展诊断。 */
 void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
 {
     uint16_t flags;
@@ -266,7 +289,10 @@ void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
     if (dirty) changed();
 }
 
-/* 记录 suspend 阻断原因变化；正常 sample_pending 节拍保留在快照，不让其淹没状态日志。 */
+/*
+ * 记录 suspend 阻断原因变化；正常 sample_pending 节拍保留在快照，
+ * 不让其淹没状态日志。
+ */
 void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t low_voltage_region, uint32_t low_voltage_seconds,
                          uint8_t ble_connected, uint8_t sample_pending,
@@ -283,8 +309,10 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
     dirty |= update16(219u, ble_connected ? 1u : 0u);
     dirty |= update16(220u, sample_pending ? 1u : 0u);
     dirty |= update16(221u, suspend_current_threshold_ma);
-    /* sample_pending is a normal 200 ms scheduling edge. Keep it visible in
-     * the live snapshot, but do not let it churn the 64-entry trace. */
+    /*
+     * sample_pending 是正常的 200 ms 调度边沿；实时快照保留它，
+     * 但不能让它反复占满 64 条轨迹。
+     */
     if (previous_trace_mask != trace_mask)
         bms_diag_trace(DIAG_EV_PM_STATE,
             (uint32_t)(trace_mask == 0u ? 1u : 0u) |
@@ -295,6 +323,7 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
         changed();
 }
 
+/* 发布各级保护故障位快照。 */
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
 {
     if (s_words[222] == level1 && s_words[223] == level2 && s_words[224] == level3)
@@ -307,16 +336,19 @@ void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
                    level3);
 }
 
+/* 发布运行模式与累计时间诊断。 */
 void bms_diag_runtime_mode(uint8_t factory_mode)
 {
     if (update16(225u, factory_mode ? 1u : 0u)) changed();
 }
 
+/* 判断请求寄存器范围是否与诊断窗口重叠。 */
 int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
     return count != 0u && start < BMS_DIAG_END && end > BMS_DIAG_BASE;
 }
+/* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;
@@ -324,8 +356,10 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint32_t tick = bms_diag_tick();
     if (!bytes || !count || count > 125u || start < BMS_DIAG_BASE ||
         end > BMS_DIAG_END || (start < BMS_DIAG_TRACE_BASE && end > BMS_DIAG_TRACE_BASE)) return 0;
-    /* Caller and producers all run on the main loop; no interrupt masking or
-     * a second 2KB copy is necessary. Explicit encoding avoids ABI packing. */
+    /*
+     * 调用者和生产者均在主循环，无需屏蔽中断或再复制 2 KB；
+     * 显式编码避免 ABI 打包依赖。
+     */
     for (i = 0u; i < count; ++i) {
         uint16_t word, offset = (uint16_t)(start + i - BMS_DIAG_BASE);
         if (offset == 6u) word = (uint16_t)tick;
@@ -344,10 +378,12 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     return 1;
 }
 
+/* 取得单个缓存诊断字，不访问硬件。 */
 uint16_t bms_diag_cached_word(uint16_t offset)
 {
     return offset < 256u ? s_words[offset] : 0u;
 }
+/* 更新所选 AFE 后端的诊断字段。 */
 void bms_diag_backend(uint16_t charge, uint16_t discharge)
 {
     if (s_words[146] != charge || s_words[147] != discharge) {
@@ -355,9 +391,12 @@ void bms_diag_backend(uint16_t charge, uint16_t discharge)
     }
 }
 
+/* 记录产品编译功能标志。 */
 void bms_diag_set_build_flags(uint16_t flags) { bms_diag_boot_word(13u, flags); }
+/* 记录启动门禁最终结果。 */
 void bms_diag_set_boot_result(uint16_t afe, uint16_t params) { bms_diag_boot_word(24u, afe); bms_diag_boot_word(25u, params); }
 
+/* 发布后端配置、控制与恢复的详细诊断。 */
 void bms_diag_backend_details(const uint16_t *words)
 {
     uint16_t i;

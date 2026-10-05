@@ -1,4 +1,6 @@
-/* 文件功能：BMS 测量报告、故障/状态及历史错误的共享所有者；保留现有协议字段布局与单位。
+/*
+ * 文件功能：BMS 测量报告、故障/状态及历史错误的共享所有者；
+ * 保留现有协议字段布局与单位。
  * bms/core/bms_state.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_state.h"
@@ -12,6 +14,7 @@ static volatile uint8_t s_error_count[BMS_ERROR_COUNT];
 static uint8_t s_fault_write_index[3];
 static uint8_t s_fault_history[3][BMS_FAULT_HISTORY_DEPTH];
 
+/* 置位公共错误标志。 */
 void bms_error_raise(bms_error_id_t error)
 {
     if ((uint8_t)error >= (uint8_t)BMS_ERROR_COUNT) return;
@@ -26,6 +29,7 @@ void bms_error_raise(bms_error_id_t error)
     }
 }
 
+/* 清除指定公共错误标志。 */
 void bms_error_clear(bms_error_id_t error)
 {
     if ((uint8_t)error < (uint8_t)BMS_ERROR_COUNT)
@@ -34,12 +38,14 @@ void bms_error_clear(bms_error_id_t error)
     }
 }
 
+/* 读取当前公共错误位。 */
 uint8_t bms_error_get(bms_error_id_t error)
 {
     if ((uint8_t)error >= (uint8_t)BMS_ERROR_COUNT) return 0u;
     return s_error_count[error];
 }
 
+/* 将故障编号追加到 RAM 历史队列。 */
 void bms_fault_history_record(bms_fault_code_t fault)
 {
     uint8_t code = (uint8_t)fault;
@@ -58,6 +64,7 @@ void bms_fault_history_record(bms_fault_code_t fault)
     s_fault_write_index[level] = (uint8_t)((index + 1u) % BMS_FAULT_HISTORY_DEPTH);
 }
 
+/* 取得指定位置的最近故障编号。 */
 uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age)
 {
     uint8_t level_index;
@@ -77,6 +84,7 @@ uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age)
     return s_fault_history[level_index][record_index];
 }
 
+/* 在成对的 16 位查表数据中插值，越界时返回端点值。 */
 uint16_t bms_lookup_u16(const uint16_t *table, uint16_t table_size, uint16_t input)
 {
     uint16_t i;

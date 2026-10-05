@@ -1,4 +1,6 @@
-/* 文件功能：SIF 单线输出及定时器中断状态；保持既有波形节拍，不在 ISR 中加入日志发送。
+/*
+ * 文件功能：SIF 单线输出及定时器中断状态；保持既有波形节拍，
+ * 不在 ISR 中加入日志发送。
  * bms/platform/telink/sif_send.c；实际编译归属见各产品 sources.txt。
  */
 #include <stdint.h>
@@ -11,6 +13,7 @@
 
 #define SIF_TIMER_INTERVAL_US 500u
 
+/* 初始化 SIF 波形使用的硬件定时器。 */
 void sif_timer_init(void)
 {
     reg_irq_mask |= FLD_IRQ_TMR0_EN;
@@ -21,6 +24,7 @@ void sif_timer_init(void)
     irq_enable();
 }
 
+/* 按已准备数据推进单线位波形与结束阶段。 */
 _attribute_ram_code_ void sif_timer_irq_handler(void)
 {
     if (reg_tmr_sta & FLD_TMR_STA_TMR0)
@@ -32,15 +36,20 @@ _attribute_ram_code_ void sif_timer_irq_handler(void)
 
 #ifdef _FUNC_SIF_
 
+/* 构造 SIF 私有单体电压包，只使用有效串数。 */
 static void sif_send_private_cell_voltages(void);
+/* 构造 SIF 私有实时测量报告包。 */
 static void sif_send_private_realtime_info(void);
+/* 构造公共 SIF 报告包供定时器发送。 */
 static void sif_send_public_packet(void);
 
+/* 停止单线发送并释放输出状态。 */
 static inline void sif_turn_off(void)
 {
     gpio_write(OWC_TX_PIN, 0);
 }
 
+/* 启动单线发送的定时器和输出状态。 */
 static inline void sif_turn_on(void)
 {
     gpio_write(OWC_TX_PIN, 1);
@@ -61,7 +70,7 @@ static volatile uint8_t byte_cnt = 0;
 
 static volatile uint8_t sif_send_length = 0;
 
-/* Explicit legacy TC32 -fpack-struct wire layout; no native struct image. */
+/* 显式表达遗留 TC32 -fpack-struct 线格式，不直接发送本机结构体映像。 */
 #define SIF_PUBLIC_BYTES 20u
 #define SIF_REALTIME_BYTES 33u
 #define SIF_CELL_BYTES (4u + 2u * SeriesNum)
@@ -77,12 +86,14 @@ static volatile uint8_t s_restart_packets;
 static volatile uint8_t s_return_to_idle;
 static uint32_t s_prepared_sample_tick;
 
+/* 将 16 位值按 SIF 小端线格式写入包。 */
 static void sif_put_u16le(uint8_t *p, uint16_t value)
 {
     p[0] = (uint8_t)value;
     p[1] = (uint8_t)(value >> 8);
 }
 
+/* 计算 SIF 包的累加校验值。 */
 static uint8_t sum_verify(const uint8_t *data, uint16_t length)
 {
     uint16_t i;
@@ -96,12 +107,13 @@ static uint8_t sum_verify(const uint8_t *data, uint16_t length)
     return (uint8_t)(res & 0xff);
 }
 
+/* 按既有优先顺序映射 SIF 故障编号。 */
 static uint8_t sif_fault_code(void)
 {
     const bms_fault_bits_t *fault = &g_stCellInfoReport.unMdlFault_Third.bits;
     uint8_t code = 0u;
 
-    /* Preserve the established SIF rule: a later matching fault wins. */
+    /* 保留 SIF 规则：后匹配的故障覆盖先匹配故障。 */
     if (fault->b1IdischgOcp) code = 0x01u;
     if (g_stCellInfoReport.unMdlFault_Second.bits.b1IdischgOcp) code = 0x02u;
     if (fault->b1CellChgUtp) code = 0x03u;
@@ -114,6 +126,7 @@ static uint8_t sif_fault_code(void)
     return code;
 }
 
+/* 处理 SIF 包发送状态；未启用产品保留空入口。 */
 void sif_send_data_handle(void)
 {
     static uint16_t cnt = 0;
@@ -271,7 +284,8 @@ void sif_send_data_handle(void)
 
 }
 
-/* Called only by main. IRQ consumes the other packet until STOP completes. */
+/* 仅由主循环调用；IRQ 使用另一包直至 STOP 完成。 */
+/* 启用 SIF 时重建待发送包并发布 ready；关闭时为空入口。 */
 void sif_prepare_task(uint32_t sample_tick)
 {
     uint8_t refresh_type = 0u;
@@ -288,8 +302,7 @@ void sif_prepare_task(uint32_t sample_tick)
         s_public_count = 0u;
         s_private_count = 0u;
     }
-    /* Refresh a waiting frame after a new sample. Withdraw ready in a short
-     * critical section so IRQ cannot claim a buffer while main rebuilds it. */
+    /* 新样本后刷新等待帧；短临界区内撤销 ready，防止主循环重建时 IRQ 抢占缓冲区。 */
     irq_state = irq_disable();
     if (s_packet_ready) {
         if ((state_mode != SIF_IDLE && state_mode != SEND_DATA_COMPLETE) ||
@@ -321,11 +334,12 @@ void sif_prepare_task(uint32_t sample_tick)
         sif_send_private_cell_voltages();
     }
     s_prepared_sample_tick = sample_tick;
-    /* Publish ready last; all payload bytes/length are complete before IRQ uses them. */
+    /* 最后发布 ready；IRQ 使用前载荷与长度须全部完成。 */
     __asm__ __volatile__("" ::: "memory");
     s_packet_ready = 1u;
 }
 
+/* 把充放电电流转换为 SIF 既有编码。 */
 static uint16_t sif_encoded_current(void)
 {
     uint16_t current = g_stCellInfoReport.u16IDischg ?
@@ -333,12 +347,14 @@ static uint16_t sif_encoded_current(void)
     return (uint16_t)((current / 10u + 500u) * 10u);
 }
 
+/* 把当前运行和 MOS 状态编码为 SIF 状态字。 */
 static uint8_t sif_work_status(void)
 {
     return g_stCellInfoReport.u16IDischg ? 0u :
            (g_stCellInfoReport.u16Ichg ? 1u : 2u);
 }
 
+/* 构造公共 SIF 报告包供定时器发送。 */
 static void sif_send_public_packet(void)
 {
     uint8_t *p = s_packets[s_prepare_packet];
@@ -351,13 +367,14 @@ static void sif_send_public_packet(void)
     sif_put_u16le(p + 12, sif_encoded_current());
     p[14] = (uint8_t)(g_stCellInfoReport.u16TempMax / 10u);
     p[15] = (uint8_t)(g_stCellInfoReport.u16TempMin / 10u);
-    /* Preserve legacy public MOS truncation on the wire. */
+    /* 保留公共 MOS 线格式的历史截断。 */
     p[16] = (uint8_t)g_stCellInfoReport.u16Temperature[MOS_TEMP1];
     p[17] = sif_fault_code(); p[18] = sif_work_status();
     p[19] = sum_verify(p, SIF_PUBLIC_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_PUBLIC_BYTES;
 }
 
+/* 构造 SIF 私有实时测量报告包。 */
 static void sif_send_private_realtime_info(void)
 {
     uint8_t *p = s_packets[s_prepare_packet];
@@ -382,6 +399,7 @@ static void sif_send_private_realtime_info(void)
     s_packet_lengths[s_prepare_packet] = SIF_REALTIME_BYTES;
 }
 
+/* 构造 SIF 私有单体电压包，只使用有效串数。 */
 static void sif_send_private_cell_voltages(void)
 {
     uint8_t i;
@@ -395,9 +413,12 @@ static void sif_send_private_cell_voltages(void)
 }
 
 #else
+/* 主循环准备待发送 SIF 包；未启用产品保留空入口。 */
+/* 启用 SIF 时重建待发送包并发布 ready；关闭时为空入口。 */
 void sif_prepare_task(uint32_t sample_tick) { (void)sample_tick; }
+/* 处理 SIF 包发送状态；未启用产品保留空入口。 */
 void sif_send_data_handle(void)
 {
     /* 当前产品配置未启用 SIF，保留空入口以维持调度接口。 */
 }
-#endif /* _FUNC_SIF_ */
+#endif /* 条件编译结束： _FUNC_SIF_ */

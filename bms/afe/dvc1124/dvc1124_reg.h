@@ -1,4 +1,5 @@
-/* 文件功能：DVC1124 寄存器地址/位定义；应与当前芯片驱动和官方资料一同核对。
+/*
+ * 文件功能：DVC1124 寄存器地址/位定义；应与当前芯片驱动和官方资料一同核对。
  * bms/afe/dvc1124/dvc1124_reg.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef DVC1124_REG_H_
@@ -7,23 +8,15 @@
 #include <stdint.h>
 
 /*
- * DVC1124-2 register truth source.
- *
- * Source: DVC1124-2 Reference Manual V1.2.
- * This file describes chip facts only: register addresses, documented fields,
- * masks, shifts, reset values and enumerations. It intentionally contains no
- * HS-D008 board policy, BMS protection policy or transport protocol mapping.
- *
- * Do not use C bit-fields for AFE registers. tc32/ARM compiler bit-field layout
- * is implementation-defined; all register access must use masks/shifts.
- *
- * Unnamed/reserved bits are deliberately excluded from documented write masks.
- * They must be preserved with read-modify-write.
+ * DVC1124-2 权威寄存器定义依据 V1.2 手册，
+ * 仅描述地址、字段、掩码、移位、复位值及枚举，不包含板级/BMS 策略或传输映射。
+ * AFE 寄存器不得使用 C 位域，tc32/ARM 位域布局由实现决定，必须使用掩码/移位。
+ * 未命名及保留位不纳入可写掩码，应通过读改写保留。
  */
 
 #define DVC1124_REG_MAX                         0x90u
 
-/* Measurement/status register map. */
+/* 测量与状态寄存器映射。 */
 #define DVC1124_REG_ALARM                       0x00u
 #define DVC1124_REG_STATUS                      0x01u
 #define DVC1124_REG_CC1_H                       0x02u
@@ -65,7 +58,7 @@
 #define DVC1124_REG_CELL_L(cell_1_to_24) \
     ((uint8_t)(DVC1124_REG_CELL_H(cell_1_to_24) + 1u))
 
-/* Configuration/control register map. */
+/* 配置与控制寄存器映射。 */
 #define DVC1124_REG_FET_CTRL                     0x51u
 #define DVC1124_REG_DSG_PULLDOWN                 0x52u
 #define DVC1124_REG_DSG_MASK                     0x53u
@@ -115,7 +108,7 @@
 #define DVC1124_REG_CHIP_VERSION                 0x8Fu
 #define DVC1124_REG_RESERVED_90                  0x90u
 
-/* 0x00 ALARM: write 0 clears a flag; write 1 has no effect. */
+/* 0x00 ALARM：写 0 清除标志，写 1 无作用。 */
 #define DVC1124_ALARM_IWTF_MASK                  0x80u
 #define DVC1124_ALARM_COV_MASK                   0x40u
 #define DVC1124_ALARM_CUV_MASK                   0x20u
@@ -126,7 +119,7 @@
 #define DVC1124_ALARM_SCD_MASK                   0x01u
 #define DVC1124_ALARM_RESET                      0x00u
 
-/* 0x01 STATUS. VADF/CC1F/CC2F are read-clear. */
+/* 0x01 STATUS：VADF/CC1F/CC2F 为读清除。 */
 #define DVC1124_STATUS_PD_MASK                   0x80u
 #define DVC1124_STATUS_VADF_MASK                 0x40u
 #define DVC1124_STATUS_CC1F_MASK                 0x20u
@@ -153,13 +146,13 @@ typedef enum
     DVC1124_CST_ENTER_SHUTDOWN     = 0xF
 } dvc1124_cst_t;
 
-/* 0x06 CC2 low nibble also reports FET output states. */
+/* 0x06 CC2 低半字节也上报 FET 输出状态。 */
 #define DVC1124_CC2_PDSGF_MASK                   0x08u
 #define DVC1124_CC2_PCHGF_MASK                   0x04u
 #define DVC1124_CC2_DSGF_MASK                    0x02u
 #define DVC1124_CC2_CHGF_MASK                    0x01u
 
-/* 0x51 FET control. */
+/* 0x51 FET 控制。 */
 #define DVC1124_FET_LDPU_MASK                    0x80u
 #define DVC1124_FET_PDSGC_MASK                   0x40u
 #define DVC1124_FET_PCHGC_MASK                   0x20u
@@ -178,13 +171,13 @@ typedef enum
     DVC1124_FET_DRIVE_ON        = 3u
 } dvc1124_fet_drive_t;
 
-/* 0x52: bits6:5 are unnamed; preserve them. */
+/* 0x52 的位 6:5 未命名，必须保留。 */
 #define DVC1124_PDWM_MASK                       0x80u
 #define DVC1124_DPC_MASK                        0x1Fu
 #define DVC1124_DPC_SHIFT                       0u
 #define DVC1124_DSG_PULLDOWN_RESET              0x90u
 
-/* 0x53 discharge masks. 0 = source can close output, 1 = masked/no effect. */
+/* 0x53 放电屏蔽：0 允许来源关闭输出，1 屏蔽该来源。 */
 #define DVC1124_DSGMASK_PDDM_MASK               0x80u
 #define DVC1124_DSGMASK_PCWM_MASK               0x40u
 #define DVC1124_DSGMASK_PCCM_MASK               0x20u
@@ -195,7 +188,7 @@ typedef enum
 #define DVC1124_DSGMASK_DBDM_MASK               0x01u
 #define DVC1124_DSG_MASK_RESET                   0x59u
 
-/* 0x54 charge masks. */
+/* 0x54 充电屏蔽。 */
 #define DVC1124_CHGMASK_CWM_MASK                0x80u
 #define DVC1124_CHGMASK_CO1M_MASK               0x40u
 #define DVC1124_CHGMASK_CO2M_MASK               0x20u
@@ -206,14 +199,14 @@ typedef enum
 #define DVC1124_CHGMASK_CBDM_MASK               0x01u
 #define DVC1124_CHG_MASK_RESET                   0xF9u
 
-/* 0x55 CADC. Unnamed bits are preserved. CAMZ is a self-clearing command. */
+/* 0x55 CADC：保留未命名位；CAMZ 是自清除命令。 */
 #define DVC1124_CADC_HSFM_MASK                  0x80u
 #define DVC1124_CADC_CAEW_MASK                  0x08u
 #define DVC1124_CADC_CAES_MASK                  0x04u
 #define DVC1124_CADC_CAMZ_MASK                  0x01u
 #define DVC1124_CADC_CTRL_RESET                 0x2Cu
 
-/* 0x56. bits7:4 are unnamed/reserved and reset to 1. */
+/* 0x56 的位 7:4 未命名/保留，复位为 1。 */
 #define DVC1124_CC1_WORK_TIME_MASK              0x0Cu
 #define DVC1124_CC1_WORK_TIME_SHIFT             2u
 #define DVC1124_CC1_SLEEP_WAKE_TIME_MASK        0x03u
@@ -236,40 +229,40 @@ typedef enum
     DVC1124_CC1_SLEEP_WAKE_32MS = 3u
 } dvc1124_cc1_sleep_wake_time_t;
 
-/* OC1: code 0 disables; threshold = code * 0.25mV. */
+/* OC1：编码 0 关闭，阈值为 code * 0.25mV。 */
 #define DVC1124_OCD1_THR_RESET                  0x00u
 #define DVC1124_OCC1_THR_RESET                  0x00u
-/* OC1 delay = (code + 1) * 8ms. */
+/* OC1 延时为 (code + 1) * 8ms。 */
 #define DVC1124_OCD1_DLY_RESET                  0x00u
 #define DVC1124_OCC1_DLY_RESET                  0x00u
 
-/* OC2: bit7 is not an owned field. Enable is bit6. */
+/* OC2：位 7 不归本字段负责，位 6 为使能。 */
 #define DVC1124_OC2_ENABLE_MASK                 0x40u
 #define DVC1124_OC2_THRESHOLD_MASK              0x3Fu
 #define DVC1124_OC2_THRESHOLD_SHIFT             0u
 #define DVC1124_OCD2_RESET                      0x40u
 #define DVC1124_OCC2_RESET                      0xC0u
-/* OC2 threshold = (code + 1) * 4mV; delay = (code + 1) * 4ms. */
+/* OC2 阈值为 (code + 1) * 4mV，延时为 (code + 1) * 4ms。 */
 #define DVC1124_OCD2_DLY_RESET                  0x00u
 #define DVC1124_OCC2_DLY_RESET                  0x00u
 
-/* SCD: bit7 is read-only; enable is bit6; threshold = code * 10mV. */
+/* SCD：位 7 只读，位 6 使能，阈值为 code * 10mV。 */
 #define DVC1124_SCD_ENABLE_MASK                 0x40u
 #define DVC1124_SCD_THRESHOLD_MASK              0x3Fu
 #define DVC1124_SCD_THRESHOLD_SHIFT             0u
 #define DVC1124_SCD_RESET                       0x40u
-/* SCD delay = code * 7.81us. */
+/* SCD 延时为 code * 7.81us。 */
 #define DVC1124_SCD_DLY_RESET                   0x00u
 
-/* Current wake: 0 disables, otherwise code * 10uV. */
+/* 电流唤醒：0 关闭，其它编码为 code * 10uV。 */
 #define DVC1124_CURRENT_WAKE_RESET              0x00u
-/* Body diode: 0 disables, otherwise code * 40uV. */
+/* 体二极管：0 关闭，其它编码为 code * 40uV。 */
 #define DVC1124_BODY_DIODE_RESET                0x00u
 
-/* 0x67..0x69 balance bits auto-clear after about 60s. */
+/* 0x67..0x69 均衡位约 60 秒后自动清除。 */
 #define DVC1124_BALANCE_RESET                   0x00u
 
-/* 0x6C measurement masks. */
+/* 0x6C 测量屏蔽。 */
 #define DVC1124_CELLMASK_CM8_MASK               0x80u
 #define DVC1124_CELLMASK_CM7_MASK               0x40u
 #define DVC1124_CELLMASK_CM6_MASK               0x20u
@@ -280,7 +273,7 @@ typedef enum
 #define DVC1124_CELLMASK_V1P8M_MASK             0x01u
 #define DVC1124_CELL_MASK_RESET                 0x00u
 
-/* 0x6D. bits7:6 are unnamed; never overwrite them. */
+/* 0x6D 的位 7:6 未命名，绝不能覆盖。 */
 #define DVC1124_CPVS_MASK                       0x38u
 #define DVC1124_CPVS_SHIFT                      3u
 #define DVC1124_COW_MASK                        0x04u
@@ -300,7 +293,7 @@ typedef enum
     DVC1124_CPVS_12V = 7u
 } dvc1124_cp_voltage_t;
 
-/* 0x6E. bits3:2 are unnamed; preserve them. */
+/* 0x6E 的位 3:2 未命名，必须保留。 */
 #define DVC1124_VADC_ENABLE_MASK                0x80u
 #define DVC1124_VADC_SYNC_MASK                  0x40u
 #define DVC1124_VADC_PERIOD_MASK                0x30u
@@ -325,7 +318,7 @@ typedef enum
     DVC1124_VADC_TIME_6P02MS = 3u
 } dvc1124_vadc_time_t;
 
-/* COV/CUV 12-bit threshold + 4-bit delay. Code 0 disables protection. */
+/* COV/CUV 使用 12 位阈值和 4 位延时；编码 0 关闭保护。 */
 #define DVC1124_COV_RESET_H                      0x00u
 #define DVC1124_COV_RESET_L                      0x00u
 #define DVC1124_CUV_RESET_H                      0x00u
@@ -382,13 +375,13 @@ typedef enum
                (((uint8_t)(gp5) << DVC1124_GP5_MODE_SHIFT) & DVC1124_GP5_MODE_MASK) | \
                (((uint8_t)(gp6) << DVC1124_GP6_MODE_SHIFT) & DVC1124_GP6_MODE_MASK)))
 
-/* 0x76 core over-temperature. bit7 COTF is read-clear; bits6:0 are COTT. */
+/* 0x76 内核过温：位 7 COTF 读清除，位 6:0 为 COTT。 */
 #define DVC1124_CORE_OT_FLAG_MASK                0x80u
 #define DVC1124_CORE_OT_THRESHOLD_MASK           0x7Fu
 #define DVC1124_CORE_OT_THRESHOLD_SHIFT          0u
 #define DVC1124_CORE_OT_RESET                    0x00u
 
-/* 0x77 I2C watchdog/V3P3. bit4 IWTS is status; bit3 is unnamed. */
+/* 0x77 I2C 看门狗/V3P3：位 4 IWTS 为状态，位 3 未命名。 */
 #define DVC1124_V3P3_SLEEP_ENABLE_MASK           0x80u
 #define DVC1124_V3P3_WORK_ENABLE_MASK            0x40u
 #define DVC1124_V3P3_TIMEOUT_RESTART_MASK        0x20u
@@ -406,7 +399,7 @@ typedef enum
     DVC1124_I2C_WDT_32S = 7u
 } dvc1124_i2c_wdt_code_t;
 
-/* 0x78 timed wake. bit7 TIWK is status; bits6:4 unnamed. */
+/* 0x78 定时唤醒：位 7 TIWK 为状态，位 6:4 未命名。 */
 #define DVC1124_TIMED_WAKE_STATUS_MASK            0x80u
 #define DVC1124_TIMED_WAKE_TIME_MASK              0x0Fu
 #define DVC1124_TIMED_WAKE_TIME_SHIFT             0u
@@ -432,7 +425,7 @@ typedef enum
     DVC1124_TIMED_WAKE_10MIN = 15u
 } dvc1124_timed_wake_t;
 
-/* 0x79 interrupt output masks. 0 = 1ms interrupt pulse enabled, 1 = masked. */
+/* 0x79 中断输出屏蔽：0 启用 1 ms 脉冲，1 屏蔽。 */
 #define DVC1124_INTMASK_IWM_MASK                  0x80u
 #define DVC1124_INTMASK_IVOM_MASK                 0x40u
 #define DVC1124_INTMASK_ICCM_MASK                 0x20u
@@ -449,10 +442,8 @@ typedef enum
     ((uint8_t)((((uint8_t)(value)) & (uint8_t)(mask)) >> (shift)))
 
 /*
- * All documented writable fields from V1.2.
- * A zero mask means the register is read-only or only has unnamed writable bits.
- * The caller must still use read-modify-write because some registers mix named
- * fields with read-only/unnamed bits.
+ * V1.2 中全部明确的可写字段。掩码为零表示只读，或仅有未命名可写位；
+ * 部分寄存器混合只读/未命名位，调用者仍必须读改写。
  */
 static inline uint8_t DVC1124_RegDocumentedWriteMask(uint8_t reg)
 {
@@ -501,8 +492,8 @@ static inline uint8_t DVC1124_RegDocumentedWriteMask(uint8_t reg)
 }
 
 /*
- * Stable configuration fields only. Commands/status/runtime controls are excluded:
- * Alarm/CST, FET outputs, CADC manual calibration, balance and open-wire trigger.
+ * 仅包含稳定配置字段，排除命令/状态/运行控制：
+ * ALARM/CST、FET 输出、CADC 手动校准、均衡和断线触发。
  */
 static inline uint8_t DVC1124_RegPersistentConfigMask(uint8_t reg)
 {
@@ -526,4 +517,4 @@ static inline uint8_t DVC1124_RegPersistentConfigMask(uint8_t reg)
     }
 }
 
-#endif /* DVC1124_REG_H_ */
+#endif /* 头文件保护：DVC1124_REG_H_。 */

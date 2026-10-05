@@ -1,4 +1,6 @@
-/* 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各参数组。
+/*
+ * 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各
+ * 参数组。
  * bms/core/bms_config_store.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -14,7 +16,7 @@
 #include "storage_record.h"
 #include <string.h>
 
-#define BMS_CONFIG_RECORD_MAGIC          0x43464732u /* CFG2 */
+#define BMS_CONFIG_RECORD_MAGIC          0x43464732u /* 配置记录标识：CFG2。 */
 #define BMS_CONFIG_SCHEMA_VERSION        2u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          5u
@@ -49,16 +51,18 @@ static storage_record_store_t g_bms_config_store;
 /* 已接受的参数缓存；保存失败不得把未落盘候选当作已提交配置发布。 */
 static bms_config_cache_t g_bms_config;
 static u8 g_bms_config_ready;
-/* Recomputed only when loading or publishing configuration, never per sample. */
+/* 仅在加载/发布配置时重算，不逐样本计算。 */
 static u8 g_bms_config_user_valid;
 static u8 g_bms_config_needs_save;
 
+/* 将 16 位值按小端写入存储缓冲区。 */
 static void bms_config_put_u16le(u8 *buf, u16 value)
 {
     buf[0] = (u8)(value & 0xFFu);
     buf[1] = (u8)(value >> 8);
 }
 
+/* 将 32 位值按小端写入存储缓冲区。 */
 static void bms_config_put_u32le(u8 *buf, u32 value)
 {
     buf[0] = (u8)(value & 0xFFu);
@@ -67,23 +71,27 @@ static void bms_config_put_u32le(u8 *buf, u32 value)
     buf[3] = (u8)((value >> 24) & 0xFFu);
 }
 
+/* 从存储缓冲区按小端读取 16 位值。 */
 static u16 bms_config_get_u16le(const u8 *buf)
 {
     return (u16)((u16)buf[0] | ((u16)buf[1] << 8));
 }
 
+/* 从存储缓冲区按小端读取 32 位值。 */
 static u32 bms_config_get_u32le(const u8 *buf)
 {
     return ((u32)buf[0]) | ((u32)buf[1] << 8) |
            ((u32)buf[2] << 16) | ((u32)buf[3] << 24);
 }
 
+/* 取得产品软件保护默认配置。 */
 void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *protect)
 {
     struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;
     if (protect != 0) *protect = defaults;
 }
 
+/* 取得产品系统业务默认配置。 */
 void bms_config_store_get_default_system(bms_config_system_params_t *system)
 {
     if (system == 0) return;
@@ -95,6 +103,7 @@ void bms_config_store_get_default_system(bms_config_system_params_t *system)
     system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID;
 }
 
+/* 建立 CFG2 各参数组的默认缓存。 */
 static void bms_config_defaults(bms_config_cache_t *cfg)
 {
     unsigned group;
@@ -110,6 +119,7 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
     bms_config_user_defaults(&cfg->user);
 }
 
+/* 按 CFG2 固定字段顺序编码配置记录。 */
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
 {
     u16 word;
@@ -185,7 +195,7 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->soc.ocv_error_band_percent = payload[off++];
     cfg->soc.capacity_learning_enable = payload[off++];
     cfg->soc.hide_capacity_until_learned = payload[off++];
-    off++; /* reserved */
+    off++; /* 预留字段。 */
     cfg->user.heater_enable = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->user.heater_start_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->user.heater_stop_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
@@ -204,8 +214,10 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
 
 }
 
-/* 数据和更新编号位于同一条 CRC/提交标记保护的记录中。
- * 这里只准备 RAM 值；启动验证完成并提交成功后才允许 AFE 输出。 */
+/*
+ * 数据和更新编号位于同一条 CRC/提交标记保护的记录中。这里只准备 RAM 值；
+ * 启动验证完成并提交成功后才允许 AFE 输出。
+ */
 static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
 {
     bms_config_cache_t defaults;
@@ -253,6 +265,7 @@ static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
     return changed;
 }
 
+/* 保存完整配置缓存并返回持久化结果。 */
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
@@ -266,11 +279,13 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
     return 1;
 }
 
+/* 确保配置存储已初始化并可访问。 */
 static int bms_config_ensure_ready(void)
 {
     return g_bms_config_ready ? 1 : bms_config_store_init();
 }
 
+/* 加载、校验 CFG2 记录并建立参数缓存。 */
 int bms_config_store_init(void)
 {
     const storage_port_t *port;
@@ -309,6 +324,7 @@ int bms_config_store_init(void)
     return 1;
 }
 
+/* 取得缓存的软件保护配置。 */
 int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect)
 {
     if ((protect == 0) || !bms_config_ensure_ready()) return 0;
@@ -316,6 +332,7 @@ int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect)
     return 1;
 }
 
+/* 校验并保存软件保护配置，按保存结果更新缓存。 */
 int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
 {
     bms_config_cache_t next;
@@ -325,6 +342,7 @@ int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
     return bms_config_save_cache(&next);
 }
 
+/* 取得缓存的系统业务配置。 */
 int bms_config_store_get_system(bms_config_system_params_t *system)
 {
     if ((system == 0) || !bms_config_ensure_ready()) return 0;
@@ -332,6 +350,7 @@ int bms_config_store_get_system(bms_config_system_params_t *system)
     return 1;
 }
 
+/* 校验并保存系统业务配置，按保存结果更新缓存。 */
 int bms_config_store_set_system(const bms_config_system_params_t *system)
 {
     bms_config_cache_t next;
@@ -349,6 +368,7 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
     return bms_config_save_cache(&next);
 }
 
+/* 取得缓存的独立 AFE 硬件保护配置。 */
 int bms_config_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)
 {
     if ((profile == 0) || !bms_config_ensure_ready()) return 0;
@@ -356,6 +376,7 @@ int bms_config_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)
     return 1;
 }
 
+/* 校验并保存独立 AFE 硬件保护配置，按保存结果更新缓存。 */
 int bms_config_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile)
 {
     bms_config_cache_t next;
@@ -365,6 +386,7 @@ int bms_config_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile)
     return bms_config_save_cache(&next);
 }
 
+/* 取得缓存的BLE 名称后缀。 */
 int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size)
 {
     u16 i = 0u;
@@ -379,6 +401,7 @@ int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size)
     return 1;
 }
 
+/* 校验并保存BLE 名称后缀，按保存结果更新缓存。 */
 int bms_config_store_set_bt_name_suffix(const char *suffix)
 {
     bms_config_cache_t next;
@@ -393,7 +416,7 @@ int bms_config_store_set_bt_name_suffix(const char *suffix)
     return bms_config_save_cache(&next);
 }
 
-/* Validate the one development schema before authorizing AFE outputs. */
+/* 授权 AFE 输出前先校验唯一开发 schema。 */
 int bms_config_store_validate_startup(void)
 {
     uint16_t invalid = 0u;
@@ -413,6 +436,7 @@ int bms_config_store_validate_startup(void)
     return 1;
 }
 
+/* 取得缓存的SOC 算法配置。 */
 int bms_config_store_get_soc(bms_soc_config_t *config)
 {
     if (config == 0 || !bms_config_ensure_ready()) return 0;
@@ -420,6 +444,7 @@ int bms_config_store_get_soc(bms_soc_config_t *config)
     return bms_soc_config_valid(config);
 }
 
+/* 校验并保存SOC 算法配置，按保存结果更新缓存。 */
 int bms_config_store_set_soc(const bms_soc_config_t *config)
 {
     bms_config_cache_t next;
@@ -438,6 +463,7 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
     return bms_config_save_cache(&next);
 }
 
+/* 构造用户业务参数默认值。 */
 void bms_config_user_defaults(bms_user_params_t *v)
 {
     memset(v, 0, sizeof(*v));
@@ -449,9 +475,10 @@ void bms_config_user_defaults(bms_user_params_t *v)
     v->balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
     v->balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     v->current_gain_ppm = 1000000u;
-    /* Empty SN uses the compiled identity until factory provisioning. */
+    /* 工厂写入前，空 SN 使用编译期身份。 */
 }
 
+/* 检查用户业务参数范围与一致性。 */
 int bms_config_user_valid(const bms_user_params_t *v)
 {
     u16 i;
@@ -464,19 +491,21 @@ int bms_config_user_valid(const bms_user_params_t *v)
         v->balance_start_delta_mv > BMS_BALANCE_SUSPECT_DELTA_MV ||
         v->balance_stop_delta_mv >= v->balance_start_delta_mv)
         return 0;
-    /* Arithmetic/configuration bounds, not protection thresholds. */
+    /* 这是运算/配置边界，不是保护阈值。 */
     if (v->current_offset_ma < -1000000 || v->current_offset_ma > 1000000 ||
         v->current_gain_ppm < 100000u || v->current_gain_ppm > 10000000u) return 0;
     for (i=0u; i<sizeof(v->serial); ++i)
         if (v->serial[i] && ((u8)v->serial[i] < 32u || (u8)v->serial[i] > 126u)) return 0;
     return 1;
 }
+/* 从配置缓存取得用户业务参数。 */
 int bms_config_get_user(bms_user_params_t *v)
 {
     if (!v || !bms_config_ensure_ready()) return 0;
     *v = g_bms_config.user;
     return g_bms_config_user_valid;
 }
+/* 读取持久化电流校准偏移和比例。 */
 int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
 {
     if (!offset_ma || !gain_ppm || !bms_config_ensure_ready() ||
@@ -485,6 +514,7 @@ int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
     *gain_ppm = g_bms_config.user.current_gain_ppm;
     return 1;
 }
+/* 校验并保存用户业务参数。 */
 int bms_config_set_user(const bms_user_params_t *v)
 {
     bms_config_cache_t next;
@@ -493,6 +523,7 @@ int bms_config_set_user(const bms_user_params_t *v)
     if (!memcmp(&next, &g_bms_config, sizeof(next))) return 1;
     return bms_config_save_cache(&next);
 }
+/* 仅恢复业务参数类别，保留独立持久域边界。 */
 int bms_config_reset_business(void)
 {
     bms_config_cache_t next;
@@ -508,9 +539,11 @@ int bms_config_reset_business(void)
     next.user.balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     return bms_config_save_cache(&next);
 }
-/* Exact floor(magnitude * gain / 1000000), without 64-bit runtime helpers
- * absent from the pinned TC32 ABI. Each of 32 steps keeps remainder < 1e6;
- * gain <= 1e7 makes the intermediate <= 11999998. Saturate before overflow. */
+/*
+ * 精确计算 floor(magnitude * gain / 1000000)，
+ * 不依赖固定 TC32 ABI 缺少的 64 位辅助函数。32 步中每步余数小于 1e6，
+ * gain 不超过 1e7，使中间值不超过 11999998；溢出前饱和。
+ */
 static u32 current_scale_ppm(u32 magnitude, u32 gain)
 {
     u32 quotient=0u, remainder=0u;
@@ -525,6 +558,7 @@ static u32 current_scale_ppm(u32 magnitude, u32 gain)
     }
     return quotient;
 }
+/* 对有符号电流应用限幅、零点与比例校准。 */
 int32_t bms_config_calibrate_current(int32_t raw_ma)
 {
     int32_t offset, delta;

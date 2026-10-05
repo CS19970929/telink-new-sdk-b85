@@ -1,4 +1,6 @@
-/* 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，遵循现有更新编号策略。
+/*
+ * 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，
+ * 遵循现有更新编号策略。
  * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -12,7 +14,9 @@
 #include "conf.h"
 #include <string.h>
 
-#define BMS_EVENT_RECORD_MAGIC          0x45563200u + BMS_PRODUCT_ID /* EV2 + product */
+#define BMS_EVENT_RECORD_MAGIC          0x45563200u + BMS_PRODUCT_ID /*
+ * 事件标识为 EV2 加产品编号。
+ */
 #define BMS_EVENT_SCHEMA_VERSION        2u
 #define BMS_EVENT_REPEAT_OFFSET (2u + BMS_EVENT_LOG_ENTRY_COUNT * 2u)
 #define BMS_EVENT_PAYLOAD_BYTES         (4u + (BMS_EVENT_LOG_ENTRY_COUNT * 4u))
@@ -34,22 +38,26 @@ typedef struct {
 
 static bms_event_log_ctx_t g_bms_event_log;
 
+/* 把历史事件存储失败提交到诊断。 */
 static void bms_event_log_report_store_error(void)
 {
     bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
+/* 将 16 位值按小端写入存储缓冲区。 */
 static void bms_event_log_put_u16le(u8 *buf, u16 value)
 {
     buf[0] = (u8)(value & 0xFFu);
     buf[1] = (u8)(value >> 8);
 }
 
+/* 从存储缓冲区按小端读取 16 位值。 */
 static u16 bms_event_log_get_u16le(const u8 *buf)
 {
     return (u16)((u16)buf[0] | ((u16)buf[1] << 8));
 }
 
+/* 清除本次运行的历史事件去重标志。 */
 static void bms_event_log_clear_runtime_flags(void)
 {
     memset(g_bms_event_log.event_latched, 0, sizeof(g_bms_event_log.event_latched));
@@ -57,6 +65,7 @@ static void bms_event_log_clear_runtime_flags(void)
     g_bms_event_log.interval_s = 0u;
 }
 
+/* 仅复位 RAM 历史事件状态，不擦除持久记录。 */
 static void bms_event_log_reset_ram_only(void)
 {
     memset(g_bms_event_log.records, 0, sizeof(g_bms_event_log.records));
@@ -65,6 +74,7 @@ static void bms_event_log_reset_ram_only(void)
     bms_event_log_clear_runtime_flags();
 }
 
+/* 按固定存储格式编码历史事件快照。 */
 static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
     u16 i;
@@ -75,6 +85,7 @@ static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
         bms_event_log_put_u16le(&payload[BMS_EVENT_REPEAT_OFFSET + 2u * i], g_bms_event_log.repeats[i]);
 }
 
+/* 验证并解码历史事件持久记录。 */
 static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
     u16 i;
@@ -109,6 +120,7 @@ static int bms_event_log_write_snapshot(void)
     return 1;
 }
 
+/* 把采样间隔编码为历史事件时间字段。 */
 static u8 bms_event_log_map_interval(u32 *seconds)
 {
     u8 code;
@@ -120,8 +132,10 @@ static u8 bms_event_log_map_interval(u32 *seconds)
     return code;
 }
 
-/* Pending RAM ring retains events across a failed save. Wire record encoding
- * stays unchanged; repeat counts are separate diagnostics, never packed into it. */
+/*
+ * RAM 待保存环形缓冲在保存失败后保留事件；协议记录编码不变，重复计数单独诊断，
+ * 绝不打包到记录内。
+ */
 static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
 {
     u16 pos, previous;
@@ -143,6 +157,7 @@ static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
     return 1;
 }
 
+/* 检测故障上升沿并追加历史事件。 */
 static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
 {
     if ((u32)event >= EVENT_NUM) return;
@@ -155,6 +170,7 @@ static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
     }
 }
 
+/* 检测运行字段变化并记录历史事件。 */
 static void bms_event_log_track_change(u8 value, bms_event_log_id_t event)
 {
     if ((g_bms_event_log.cbc_last != value) && bms_event_log_append(event, 0)) {
@@ -162,6 +178,7 @@ static void bms_event_log_track_change(u8 value, bms_event_log_id_t event)
     }
 }
 
+/* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void)
 {
     const storage_port_t *port;
@@ -191,16 +208,18 @@ int bms_event_log_init(void)
     return 1;
 }
 
+/* 记录本次启动及启动原因。 */
 void bms_event_log_note_startup(void)
 {
     if (!g_bms_event_log.ready && !bms_event_log_init()) return;
     (void)bms_event_log_append(BMS_START_UP, 1);
 }
 
+/* 记录进入休眠的原因与当前状态。 */
 int bms_event_log_note_sleep(void)
 {
     if (!g_bms_event_log.ready && !bms_event_log_init()) return 0;
-    /* Repeated failed shutdown attempts do not duplicate the sleep marker. */
+    /* 重复失败的关机尝试不重复添加休眠标记。 */
     if (!g_bms_event_log.event_latched[BMS_SLEEP]) {
         if (!bms_event_log_append(BMS_SLEEP, 0)) return 0;
         g_bms_event_log.event_latched[BMS_SLEEP] = 1u;
@@ -209,6 +228,7 @@ int bms_event_log_note_sleep(void)
     return bms_event_log_write_snapshot();
 }
 
+/* 按秒检测事件变化并按策略保存检查点。 */
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 {
     if (sample == 0) return;
@@ -234,6 +254,7 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
         (void)bms_event_log_write_snapshot();
 }
 
+/* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg)
 {
     u16 idx;
@@ -245,6 +266,7 @@ u16 bms_event_log_read_reg(u16 reg)
                  g_bms_event_log.records[idx][1]);
 }
 
+/* 按出厂恢复策略清理历史事件并保存。 */
 int bms_event_log_factory_reset(void)
 {
     u8 old_payload[BMS_EVENT_PAYLOAD_BYTES];
@@ -267,6 +289,7 @@ int bms_event_log_factory_reset(void)
     return 1;
 }
 
+/* 读取历史事件的重复次数信息。 */
 u16 bms_event_log_read_repeat(u16 reg)
 {
     u16 idx;

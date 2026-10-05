@@ -13,6 +13,8 @@ def text(name: str) -> str:
 
 
 def literal(src: str, name: str) -> int:
+    # 注释语言及换行不属于宏值契约，先去掉块注释再匹配数值。
+    src = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
     m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+(0x[0-9A-Fa-f]+|[0-9]+)(?:[uUlL]*)\s*(?:/\*.*\*/)?\s*$", src)
     if not m:
         raise AssertionError(f"missing literal macro {name}")

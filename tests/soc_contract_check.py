@@ -46,7 +46,11 @@ class SocContract(unittest.TestCase):
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_NMC", C)
         self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
         self.assertIn("soc_product_config_valid", C)
-        self.assertIn("assembly identity; no old Flash migration", C)
+        # 读取当前配置域，不通过旧键值存储迁移产品身份。
+        load = C.split("static void soc_load_persisted_product_config(void)", 1)[1].split(
+            "void bms_soc_get_diag", 1)[0]
+        self.assertIn("bms_config_store_get_soc(&g_soc_config)", load)
+        self.assertNotIn("SOC_KV_KEY_", load)
         self.assertIn("bms_config_store_set_soc(config)", C)
 
     def test_coulomb_integration_and_deadband(self):

@@ -1,4 +1,6 @@
-/* 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务路径。
+/*
+ * 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务
+ * 路径。
  * bms/core/modbus_rtu.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -62,38 +64,52 @@
 #define BMS_REALTIME_REG_VCELL_MIN_ADDR    (BMS_REALTIME_REG_BASE + 9u)
 #define BMS_REALTIME_REG_VCELL_DELTA_ADDR  (BMS_REALTIME_REG_BASE + 10u)
 
+/* 从大端字节序读取 16 位无符号值。 */
 static u16 u16be(const u8 *p);
+/* 把 ASCII 字符串的指定字节编码为协议寄存器。 */
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
+/* 读取生产信息与产品身份字段。 */
 static u16 read_production_info_reg(u16 reg);
+/* 构造历史事件读响应并检查帧容量。 */
 static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
+/* 读取当前电池测量和运行状态字段。 */
 static u16 read_realtime_status_reg(u16 reg);
+/* 把有符号电流转换为既有协议编码。 */
 static u16 encode_signed_current_reg(void);
+/* 按地址分派读取一个协议寄存器。 */
 static u16 read_reg(u16 reg);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/* 读取 AFE 实际配置的协议诊断字段。 */
 static u16 read_afe_actual_reg(u16 reg);
 #endif
+/* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val);
+/* 恢复并写入默认生产信息。 */
 void WriteProID_Default(void);
 
 static PRODUCTION_ID_INFO ProductionInfor;
 
+/* 判断地址是否属于请求硬件保护配置窗口。 */
 static int afe_hw_profile_is_requested_reg(u16 reg)
 {
     return (reg >= BMS_AFE_HW_REQUESTED_REG_BASE &&
             reg < (u16)(BMS_AFE_HW_REQUESTED_REG_BASE + BMS_AFE_HW_REQUESTED_REG_COUNT));
 }
 
+/* 判断地址是否属于实际硬件保护值窗口。 */
 static int afe_hw_profile_is_effective_reg(u16 reg)
 {
     return (reg >= BMS_AFE_HW_EFFECTIVE_REG_BASE &&
             reg < (u16)(BMS_AFE_HW_EFFECTIVE_REG_BASE + BMS_AFE_HW_EFFECTIVE_REG_COUNT));
 }
 
+/* 判断地址是否属于 AFE 硬件保护协议窗口。 */
 static int afe_hw_profile_is_reg(u16 reg)
 {
     return afe_hw_profile_is_requested_reg(reg) || afe_hw_profile_is_effective_reg(reg);
 }
 
+/* 取得产品分流电阻微欧值。 */
 static u16 afe_hw_profile_product_shunt_uohm(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -105,6 +121,7 @@ static u16 afe_hw_profile_product_shunt_uohm(void)
 #endif
 }
 
+/* 取得产品有效电芯串数。 */
 static u16 afe_hw_profile_product_cell_count(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -116,6 +133,7 @@ static u16 afe_hw_profile_product_cell_count(void)
 #endif
 }
 
+/* 取得产品 AFE 看门狗秒数。 */
 static u16 afe_hw_profile_product_wdt_seconds(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -127,6 +145,7 @@ static u16 afe_hw_profile_product_wdt_seconds(void)
 #endif
 }
 
+/* 读取硬件保护窗口中的一个协议寄存器。 */
 static u16 afe_hw_profile_read_reg(u16 reg)
 {
     bms_afe_hw_profile_t p;
@@ -163,7 +182,10 @@ static u16 afe_hw_profile_read_reg(u16 reg)
     }
 }
 
-/* 完整 profile 校验、持久化、应用与回读事务；失败按原路径 rollback，不与软件保护参数联动。 */
+/*
+ * 完整 profile 校验、持久化、应用与回读事务；失败按原路径 rollback，
+ * 不与软件保护参数联动。
+ */
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
     switch (bms_afe_hw_profile_commit_be(pdata, qty))
@@ -175,8 +197,7 @@ static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
     }
 }
 
-/* The fragmented transport can only submit a complete AFE 0x10 frame.
- * It cannot dispatch arbitrary Modbus commands or partially apply a profile. */
+/* 分片传输只能提交完整 AFE 0x10 帧，不能分派任意 Modbus 命令或部分应用配置。 */
 u8 bms_afe_hw_write_complete_frame(const u8 *frame, u32 length)
 {
     if (frame == 0 || length != 79u || frame[0] != 1u || frame[1] != 0x10u ||
@@ -188,18 +209,21 @@ u8 bms_afe_hw_write_complete_frame(const u8 *frame, u32 length)
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+/* 判断地址是否属于 DVC 语义配置窗口。 */
 static int dvc_comm_is_semantic(u16 reg)
 {
     return (reg >= DVC1124_COMM_REG_BASE &&
             reg < (u16)(DVC1124_COMM_REG_BASE + DVC1124_COMM_REG_COUNT));
 }
 
+/* 判断地址是否属于 DVC 原始寄存器窗口。 */
 static int dvc_comm_is_raw(u16 reg)
 {
     return (reg >= DVC1124_RAW_REG_BASE &&
             reg < (u16)(DVC1124_RAW_REG_BASE + DVC1124_RAW_REG_COUNT));
 }
 
+/* 读取允许的 DVC 语义或原始配置字段。 */
 static u16 dvc_comm_read(u16 reg)
 {
     u32 value;
@@ -226,6 +250,7 @@ static u16 dvc_comm_read(u16 reg)
     return 0xFFFFu;
 }
 
+/* 将 DVC 操作结果映射为 Modbus 异常码。 */
 static u8 dvc_result_to_modbus_exception(dvc1124_config_result_t result)
 {
     switch (result)
@@ -246,6 +271,7 @@ static u8 dvc_result_to_modbus_exception(dvc1124_config_result_t result)
     }
 }
 
+/* 校验 DVC 地址和写权限后更新配置字段。 */
 static u8 dvc_comm_write(u16 reg, u16 val)
 {
     dvc1124_config_result_t result;
@@ -270,12 +296,17 @@ static u8 dvc_comm_write(u16 reg, u16 val)
     return MB_EX_ILLEGAL_ADDRESS;
 }
 #else
+/* 判断地址是否属于 DVC 语义配置窗口。 */
 static int dvc_comm_is_semantic(u16 reg) { (void)reg; return 0; }
+/* 判断地址是否属于 DVC 原始寄存器窗口。 */
 static int dvc_comm_is_raw(u16 reg) { (void)reg; return 0; }
+/* 读取允许的 DVC 语义或原始配置字段。 */
 static u16 dvc_comm_read(u16 reg) { (void)reg; return 0xFFFFu; }
+/* 校验 DVC 地址和写权限后更新配置字段。 */
 static u8 dvc_comm_write(u16 reg, u16 val) { (void)reg; (void)val; return MB_EX_ILLEGAL_ADDRESS; }
 #endif
 
+/* 读取协议地址对应的历史故障编号。 */
 static u16 read_fault_history_reg(u16 reg)
 {
     u16 offset;
@@ -291,6 +322,7 @@ static u16 read_fault_history_reg(u16 reg)
                  bms_fault_history_recent(level, (uint8_t)(age + 1u)));
 }
 
+/* 读取公共错误状态对应的协议字段。 */
 static u16 read_error_status_reg(u16 reg)
 {
     uint8_t first = (uint8_t)(2u * (reg - 0xD109u));
@@ -299,6 +331,7 @@ static u16 read_error_status_reg(u16 reg)
                  bms_error_get((bms_error_id_t)(first + 1u)));
 }
 
+/* 构造 Modbus 异常响应及 CRC。 */
 static int modbus_exception(u8 addr,
                             u8 func,
                             u8 exception,
@@ -320,6 +353,7 @@ static int modbus_exception(u8 addr,
     return 1;
 }
 
+/* 检查读请求地址是否属于已实现的窗口。 */
 static int read_address_supported(u16 r)
 {
     return bms_parameter_readable(r) || r<3u ||
@@ -333,6 +367,7 @@ static int read_address_supported(u16 r)
            afe_hw_profile_is_reg(r) || dvc_comm_is_semantic(r) || dvc_comm_is_raw(r);
 }
 
+/* 按地址分派读取一个协议寄存器。 */
 static u16 read_reg(u16 reg)
 {
     if (bms_parameter_readable(reg)) return bms_parameter_read(reg);
@@ -385,7 +420,7 @@ static u16 read_reg(u16 reg)
     if (reg >= 0xD000u && reg <= 0xD03Eu)
     {
         u16 value;
-        /* This protocol window spans report fields, not just the cell array. */
+        /* 此协议窗口跨多个报告字段，不仅是单体数组。 */
         memcpy(&value, (const u8 *)&g_stCellInfoReport + (reg-0xD000u)*2u, sizeof(value));
         return value;
     }
@@ -417,14 +452,17 @@ static u16 read_reg(u16 reg)
 }
 
 extern bool deepsleep_en;
+/* 取得内部计算的真实 SOC 百分比。 */
 extern uint8_t get_soc_real(void);
 
+/* 判断写入地址是否需要保存业务参数。 */
 static int reg_requires_param_save(u16 reg)
 {
-    /* Fixed DVC semantic diagnostics are read-only. */
+    /* 固定 DVC 语义诊断为只读。 */
     return (reg >= 0x2100u && reg <= 0x2140u);
 }
 
+/* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val)
 {
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
@@ -445,24 +483,30 @@ static u8 write_reg(u16 reg, u16 val)
     return MB_EX_ILLEGAL_ADDRESS;
 }
 
+/* 校验并提交软件保护参数，失败保留原状态。 */
 static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *candidate)
 {
     if (!bms_sw_protection_validate_params(candidate)) return MB_EX_ILLEGAL_VALUE;
     return bms_protection_params_commit(candidate) ? 0u : MB_EX_DEVICE_FAILURE;
 }
 
+/* 从大端字节序读取 16 位无符号值。 */
 static u16 u16be(const u8 *p)
 {
     return (u16)(((u16)p[0] << 8) | p[1]);
 }
 
+/* 将 16 位值按大端字节序写入缓冲区。 */
 static void put_u16be(u8 *p, u16 v)
 {
     p[0] = (u8)(v >> 8);
     p[1] = (u8)(v & 0xFFu);
 }
 
-/* UART/BLE 的共同协议入口；先检查长度、地址、CRC，再分派请求，返回值表示是否生成响应。 */
+/*
+ * UART/BLE 的共同协议入口；先检查长度、地址、CRC，再分派请求，
+ * 返回值表示是否生成响应。
+ */
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
     u16 crc_rx;
@@ -492,7 +536,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         return bms_afe_hw_access_modbus_on_frame(req, req_len, rsp, rsp_len);
     }
 
-    /* Debug echo retained for existing production tools. */
+    /* 保留既有量产工具使用的调试回显。 */
     if (func == 0x7Fu && addr != 0x00u)
     {
         memcpy(rsp, req, req_len);
@@ -621,8 +665,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (afe_hw_profile_is_reg(reg) || afe_hw_profile_is_reg((u16)(reg + qty - 1u)))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
-        /* Preflight the entire range. A frame may change exactly one owner;
-         * reject crossing/unknown writes before executing any side effect. */
+        /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
         if (reg>=0x2E00u && reg<0x2F00u) {
             exception=bms_parameter_write(reg,qty,pdata);
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
@@ -655,6 +698,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/* 读取 AFE 实际配置的协议诊断字段。 */
 static u16 read_afe_actual_reg(u16 reg)
 {
     sh3673510_protection_actual_t a;
@@ -678,6 +722,7 @@ static u16 read_afe_actual_reg(u16 reg)
 }
 #endif
 
+/* 构造历史事件读响应并检查帧容量。 */
 static int read_event_log_frame(u8 addr,
                                 u8 func,
                                 u16 reg,
@@ -708,6 +753,7 @@ static int read_event_log_frame(u8 addr,
     return 1;
 }
 
+/* 把有符号电流转换为既有协议编码。 */
 static u16 encode_signed_current_reg(void)
 {
     int16_t signed_current = 0;
@@ -720,6 +766,7 @@ static u16 encode_signed_current_reg(void)
     return (u16)signed_current;
 }
 
+/* 读取当前电池测量和运行状态字段。 */
 static u16 read_realtime_status_reg(u16 reg)
 {
     switch (reg)
@@ -739,6 +786,7 @@ static u16 read_realtime_status_reg(u16 reg)
     }
 }
 
+/* 把 ASCII 字符串的指定字节编码为协议寄存器。 */
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)
 {
     u16 str_idx = reg_offset * 2u;
@@ -751,6 +799,7 @@ static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)
     return (u16)(((u16)high_byte << 8) | low_byte);
 }
 
+/* 读取生产信息与产品身份字段。 */
 static u16 read_production_info_reg(u16 reg)
 {
     if (reg >= PROD_SN_REG_BASE && reg < (PROD_SN_REG_BASE + PROD_SN_REG_COUNT))
@@ -771,6 +820,7 @@ static u16 read_production_info_reg(u16 reg)
     return 0u;
 }
 
+/* 恢复并写入默认生产信息。 */
 void WriteProID_Default(void)
 {
     bms_user_params_t user;
@@ -792,12 +842,14 @@ void WriteProID_Default(void)
         memcpy(ProductionInfor.BMS_SerialNumber,user.serial,sizeof(user.serial));
 }
 
+/* 按类别恢复软件业务参数并提交存储。 */
 u8 bms_reset_software_parameters(void)
 {
     struct PRT_E2ROM_PARAS defaults;
     bms_config_store_get_default_protect(&defaults);
     return commit_protection_update(&defaults);
 }
+/* 恢复独立 AFE 硬件保护默认参数并应用。 */
 u8 bms_reset_afe_parameters(void)
 {
     bms_afe_hw_profile_t defaults;

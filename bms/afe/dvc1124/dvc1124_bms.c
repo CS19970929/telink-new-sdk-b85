@@ -1,4 +1,6 @@
-/* 文件功能：DVC1124 测量发布与保护/MOS 适配；D014 使用 SH backend，不能据此推断 D014 硬件行为。
+/*
+ * 文件功能：DVC1124 测量发布与保护/MOS 适配；D014 使用 SH backend，
+ * 不能据此推断 D014 硬件行为。
  * bms/afe/dvc1124/dvc1124_bms.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -16,12 +18,14 @@
 #include "param.h"
 #include <string.h>
 
-/* dvc1124_backend_sample() is scheduled every 200 ms in the current project. */
+/* 当前项目每 200 ms 调度一次 dvc1124_backend_sample()。 */
 #define DVC_BMS_SAMPLE_PERIOD_MS 200u
 
-/* D008 recovery owner: survives AFE reinitialization, not MCU reset.
- * PB1 is meaningful only with a valid DSGF=0 sample. 200 ms high confirmation
- * rejects a single sample/glitch; elapsed SDK 32k time is wrap-safe. */
+/*
+ * D008 恢复状态在 AFE 重初始化后保留，MCU 复位后丢失。
+ * PB1 仅在有效样本且 DSGF=0 时有意义；连续高电平确认 200 ms，排除单次采样毛刺，
+ * SDK 32K 时间差可安全跨回绕。
+ */
 #define DVC_OCC_RECOVERY_TICKS (30u * 32000u)
 #define DVC_LOAD_REMOVED_TICKS (200u * 32u)
 #define DVC_OCC_ALARMS (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)
@@ -37,31 +41,36 @@ static struct {
     uint8_t hw_pending;
 } s_current_recovery;
 
+/* 查询是否仍有电流保护等待物理条件恢复。 */
 uint8_t bms_afe_current_recovery_pending(void)
 {
     return (s_current_recovery.charge || s_current_recovery.discharge) ? 1u : 0u;
 }
 
+/* 读取已配置 NTC 通道的温度。 */
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
     return g_stCellInfoReport.u16Temperature[gp - 1u];
 }
 
+/* 检查已配置 NTC 通道的测量有效性。 */
 static uint8_t dvc_configured_ntc_valid(const dvc1124_snapshot_t *snapshot,
                                         uint8_t gp)
 {
     uint8_t index;
 
-    /* Temperature conversion/reporting is currently implemented for GP1..GP4.
-     * Do not infer validity from the encoded temperature value itself: 0 is a
-     * valid engineering value for -40.0 C in the legacy (degC + 40) * 10
-     * encoding. Use the NTC measurement validity represented by resistance. */
+    /*
+     * 温度换算/上报目前实现 GP1..GP4。不得从温度编码本身判断有效性：
+     * 旧 (degC+40)*10 编码中 0 是 -40.0 ℃ 的有效值；
+     * 应使用电阻对应的 NTC 测量有效性。
+     */
     if ((snapshot == 0) || (gp == 0u) || (gp > 4u)) return 0u;
     index = (uint8_t)(gp - 1u);
     return (snapshot->ntc_res_ohm[index] != 0u) ? 1u : 0u;
 }
 
+/* 计算有效电池温度通道的最低与最高温度。 */
 static uint8_t dvc_get_battery_temperature_range(const dvc1124_snapshot_t *snapshot,
                                                   uint16_t *min_temp,
                                                   uint16_t *max_temp)
@@ -85,16 +94,15 @@ static uint8_t dvc_get_battery_temperature_range(const dvc1124_snapshot_t *snaps
     return 1u;
 }
 
+/* 将配置通道温度发布到公共报告。 */
 static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
 {
     if (sw == 0) return;
 
     /*
-     * D008 temperature has one owner: DVC1124 GP measurement/conversion.
-     * GP2/GP3 are battery temperatures; GP4 is power-MOS temperature.
-     * Keep legacy report slots populated from those same engineering values so
-     * existing Modbus/upper-computer readers do not need a second NTC lookup.
-     * ENV_TEMP3 is the battery maximum-temperature mirror and MOS_TEMP1 is GP4.
+     * D008 温度由 DVC1124 GP 测量/换算统一产生。GP2/GP3 为电池温度，
+     * GP4 为功率 MOS 温度；旧报告槽位使用相同工程值，避免 Modbus/上位机再次查表。
+     * ENV_TEMP3 镜像电池最高温度，MOS_TEMP1 对应 GP4。
      */
     g_stCellInfoReport.u16Temperature[ENV_TEMP3] =
         sw->battery_temp_valid ? sw->battery_temp_max : 0u;
@@ -114,6 +122,7 @@ static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
 }
 
 #if DVC1124_HW_PROTECT_ENABLE
+/* 确认保护解除条件连续稳定达到所需时间。 */
 static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
 {
     uint16_t required;
@@ -126,6 +135,7 @@ static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16
     return (*count >= required) ? 1u : 0u;
 }
 
+/* 清除已满足恢复条件的硬件保护锁存。 */
 static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
                                              uint8_t sample_valid,
                                              uint32_t sample_tick_32k)
@@ -138,8 +148,7 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
     uint8_t clear_mask = 0u;
     uint8_t verify;
 
-    /* Consecutive recovery evidence cannot span invalid acquisition, AFE
-     * reinitialization or a long unsampled sleep/scheduler interval. */
+    /* 连续恢复证据不得跨越无效采样、AFE 重初始化或长时间未采样的休眠/调度间隔。 */
     if (!sample_valid || !bms_afe_hw_profile_get(&hw)) {
         cov_count = 0u;
         cuv_count = 0u;
@@ -172,6 +181,7 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
     return verify;
 }
 
+/* 将 DVC 硬件故障合并到公共保护状态。 */
 static void dvc_merge_hw_faults(uint8_t alarm)
 {
     bms_fault_reg_t *f = &g_stCellInfoReport.unMdlFault_Third;
@@ -183,8 +193,7 @@ static void dvc_merge_hw_faults(uint8_t alarm)
     if (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK))
         f->bits.b1IchgOcp = 1u;
 
-    /* SCD remains a hardware/backend lockout. Do not fold its release policy
-     * into the generic software-threshold state machine. */
+    /* SCD 保留为硬件/后端锁定，不并入通用软件阈值恢复状态机。 */
     if (alarm & DVC1124_ALARM_SCD_MASK)
     {
         if (!bms_error_get(BMS_ERROR_CBC_DSG))
@@ -197,8 +206,10 @@ static void dvc_merge_hw_faults(uint8_t alarm)
 }
 #endif
 
-/* Called after the software state machine publishes its own Third bits and
- * before HW faults are merged. Never feed last cycle's merged bits back in. */
+/*
+ * 在软件状态机发布自身 Third 位之后、合并硬件故障之前调用；
+ * 不得把上一周期合并后的位反馈进来。
+ */
 static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
                                          uint8_t alarm, uint8_t load_removed)
 {
@@ -212,7 +223,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     uint8_t clear_mask, verify;
     s_current_recovery.hw_pending |= (uint8_t)(alarm & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
 #endif
-    /* Do not count an unobserved acquisition/reinit gap as continuous proof. */
+    /* 未经观察的采样或重初始化间隔不能算作连续恢复证据。 */
     if (s_current_recovery.sample_seen &&
         (uint32_t)(now - s_current_recovery.last_sample) > 2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u)
         s_current_recovery.removed_pending = 0u;
@@ -225,13 +236,14 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     if (sw_discharge || (alarm & DVC_DSG_ALARMS))
         s_current_recovery.discharge = 1u;
 
-    /* A still-active software threshold remains an independent inhibit. */
+    /* 仍然有效的软件阈值故障独立阻断输出。 */
     if (s_current_recovery.charge && !sw_charge &&
         (uint32_t)(now - s_current_recovery.charge_started) >= DVC_OCC_RECOVERY_TICKS)
         charge_ready = 1u;
-    /* Negative current is charge; the existing +/-200 mA unreliable zone is
-     * not evidence of charging. AUTO_DIODE permits reverse charging while the
-     * discharge fault remains latched. PB1 alone is ignored while DSGF=1. */
+    /*
+     * 负电流表示充电；既有 +/-200 mA 不可信区间不能证明充电。
+     * AUTO_DIODE 允许放电故障锁存期间反向充电；DSGF=1 时忽略单独 PB1 证据。
+     */
     if (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
         release_reason = 2u;
     else if (load_removed && !(snapshot->status & DVC1124_CC2_DSGF_MASK))
@@ -251,8 +263,10 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
                  ((charge_ready ? DVC_OCC_ALARMS : 0u) |
                   (discharge_ready ? DVC_DSG_ALARMS : 0u)));
     if (clear_mask) {
-        /* Keep the software lock until BOTH W1C and readback succeed, including
-         * after AFE reinit has already cleared its volatile alarm register. */
+        /*
+         * 只有 W1C 和回读均成功才解除软件锁存，
+         * 即使 AFE 重初始化已清除其易失告警寄存器也必须如此。
+         */
         if (!DVC1124_ClearAlarmFlags(clear_mask) ||
             !DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) {
             charge_ready = discharge_ready = 0u;
@@ -261,7 +275,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
             s_current_recovery.hw_pending &= (uint8_t)~(clear_mask & (uint8_t)~verify);
             if (verify & DVC_OCC_ALARMS) charge_ready = 0u;
             if (verify & DVC_DSG_ALARMS) discharge_ready = 0u;
-            /* A different current fault appearing during readback is retained. */
+            /* 保留回读期间新出现的其它电流故障。 */
             s_current_recovery.hw_pending |= (uint8_t)(verify & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
             if (verify & DVC_DSG_ALARMS) s_current_recovery.discharge = 1u;
             if ((verify & DVC_OCC_ALARMS) && !s_current_recovery.charge) {
@@ -285,6 +299,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     return (uint8_t)(alarm | s_current_recovery.hw_pending);
 }
 
+/* 汇总当前充电方向的保护阻断条件。 */
 static uint8_t dvc_charge_blocked(void)
 {
     const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
@@ -295,6 +310,7 @@ static uint8_t dvc_charge_blocked(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
+/* 汇总当前放电方向的保护阻断条件。 */
 static uint8_t dvc_discharge_blocked(void)
 {
     const struct MDLCHGFAULT_BITS *f = &g_stCellInfoReport.unMdlFault_Third.bits;
@@ -305,6 +321,7 @@ static uint8_t dvc_discharge_blocked(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
+/* 按 NTC 电阻反算遗留接口所需的 ADC 毫伏值。 */
 static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
 {
     uint32_t mv;
@@ -314,6 +331,7 @@ static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
     return (uint16_t)((mv > 3299u) ? 3299u : mv);
 }
 
+/* 将电阻转换为遗留接口的 100 Ω 单位。 */
 static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
 {
     if (adc_mv >= 3300u) adc_mv = 3299u;
@@ -321,12 +339,9 @@ static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
 }
 
 /*
- * R81 CHGC/DSGC are mode commands, while CHGF/DSGF report the resulting DVC
- * driver outputs. A protected AUTO_DIODE command may therefore remain 10b
- * while the DVC autonomously re-opens the physical driver after reverse
- * current exceeds BDPT. Do not re-submit the same R81 mode every 200 ms: a
- * repeated write can disturb that autonomous state even though the requested
- * BMS state has not changed.
+ * R81 CHGC/DSGC 是模式命令，CHGF/DSGF 是驱动输出状态。AUTO_DIODE 命令可仍为 10b，
+ * 而 DVC 在反向电流超过 BDPT 后自主恢复驱动。不得每 200 ms 重写相同 R81 模式，
+ * 否则会扰动自主状态，即使 BMS 请求未变。
  */
 static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
                                             dvc1124_fet_drive_t discharge_mode)
@@ -360,14 +375,16 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
                                   DVC1124_FET_DSGC_SHIFT,
                                   discharge_mode);
 
-    /* One combined R81 write only: never transition through hard-OFF before
-     * AUTO_DIODE. DVC1124_WriteRegisterSafe() preserves unrelated fields and
-     * verifies the documented writable bits. */
+    /*
+     * 只进行一次组合 R81 写入，不在 AUTO_DIODE 前先切换硬关闭。
+     * DVC1124_WriteRegisterSafe() 保留其它字段并校验手册规定的可写位。
+     */
     ok = DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
     bms_diag_command(target, ok);
     return ok;
 }
 
+/* 按共口保护与方向条件应用充放电 FET 状态。 */
 static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
                                               uint8_t discharge_on)
 {
@@ -376,11 +393,11 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
     dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF;
     dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF;
 
-    /* Normal D008 operation requests both FETs ON. If exactly one direction
-     * is protected, command the blocked FET directly to AUTO_DIODE and keep
-     * the opposite FET ON. The DVC then handles reverse-current reopening in
-     * hardware; the MCU does not poll current direction or repeatedly toggle
-     * the protected FET. */
+    /*
+     * D008 正常请求双 FET 开启。只有一个方向受保护时，将受阻 FET 直接置 AUTO_DIODE，
+     * 另一 FET 保持开启；反向电流恢复由 DVC 硬件处理，
+     * MCU 不轮询方向或反复切换受保护FET。
+     */
     if (charge_on && discharge_on)
     {
         if (charge_blocked && !discharge_blocked)
@@ -398,12 +415,14 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
             charge_mode = DVC1124_FET_DRIVE_ON;
             discharge_mode = DVC1124_FET_DRIVE_ON;
         }
-        /* Both directions blocked remains a true two-FET hard shutdown. */
+        /* 双方向受阻时仍必须硬关闭两个 FET。 */
     }
     else
     {
-        /* Explicit OFF / AFE communication inhibit / sleep / open-wire paths
-         * remain hard OFF and must never be upgraded to AUTO_DIODE. */
+        /*
+         * 显式关闭、AFE 通信禁止、休眠和断线路径保持硬关闭，
+         * 绝不能提升为 AUTO_DIODE。
+         */
         if (charge_on && !charge_blocked)
             charge_mode = DVC1124_FET_DRIVE_ON;
         if (discharge_on && !discharge_blocked)
@@ -413,6 +432,7 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
     return dvc_set_fet_modes_if_changed(charge_mode, discharge_mode);
 }
 
+/* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
 void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
@@ -440,7 +460,7 @@ void DVC1124_BmsApp_AFEGet(void)
     sw.mos_temp = sw.mos_temp_valid ?
         dvc_get_configured_temperature(DVC1124_DEFAULT_MOS_NTC_GP) : 0u;
 
-    /* Measurement/reporting remains active in every protection-isolation mode. */
+    /* 所有保护隔离模式都保持测量与上报活动。 */
     dvc_publish_temperature_report(&sw);
 
     bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,
@@ -459,8 +479,10 @@ void DVC1124_BmsApp_AFEGet(void)
     if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
     if (alarm & (DVC1124_ALARM_CUV_MASK | DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)) diag_d |= DIAG_BLOCK_HW;
 #else
-    /* SCD/COV/CUV/OC flags are not protection inputs in HW-off bench mode.
-     * The low-level driver also programs their DVC hardware enables OFF. */
+    /*
+     * 关闭硬件保护的台架模式不使用 SCD/COV/CUV/OC 标志作为保护输入；
+     * 底层驱动也关闭相应硬件使能。
+     */
     bms_error_clear(BMS_ERROR_CBC_DSG);
 #endif
 
@@ -470,15 +492,18 @@ void DVC1124_BmsApp_AFEGet(void)
     bms_diag_backend(diag_c, diag_d);
     bms_sw_protection_record_fault_edges();
 
-    /* Balance authorization is owned by bms_features. The backend balance
-     * setter performs the DVC 60 s lease refresh only after common policy has
-     * validated voltage/open-wire/heater/charge-session conditions. */
+    /*
+     * 均衡授权由 bms_features 拥有。公共策略先校验电压、断线、加热和充电会话条件，
+     * 后端设置函数才执行 DVC 60 秒有效期续期。
+     */
 
-    /* FET arbitration is applied by bms_afe_guard immediately after
-     * this sample. Keeping it there preserves communication/open-wire hard
-     * inhibit semantics while this function only updates fault state. */
+    /*
+     * 本次采样后由 bms_afe_guard 立即仲裁 FET，保留通信与断线硬阻断语义；
+     * 本函数仅更新故障状态。
+     */
 }
 
+/* 设置后端充放电 MOS 请求并进行保护仲裁。 */
 uint8_t dvc1124_backend_set_fets(uint8_t charge_on, uint8_t discharge_on)
 {
     if (dvc_apply_common_port_fet_state(charge_on, discharge_on)) return 1u;
@@ -487,11 +512,13 @@ uint8_t dvc1124_backend_set_fets(uint8_t charge_on, uint8_t discharge_on)
     return 0u;
 }
 
+/* 设置后端输出授权，禁止绕过公共安全门禁。 */
 void dvc1124_backend_set_output_enabled(uint8_t enabled)
 {
     DVC1124_SetOutputEnabled(enabled);
 }
 
+/* 取得后端辅助测量与有效性。 */
 uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
 {
     dvc1124_snapshot_t snapshot;
@@ -503,8 +530,10 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return 0u;
 
-    /* Legacy diagnostic representation only. Battery uses primary GP2;
-     * protection uses both GP2/GP3. MOS diagnostic is the real power-MOS GP4. */
+    /*
+     * 仅兼容旧诊断表示。电池主通道为 GP2，保护使用 GP2/GP3，
+     * MOS 诊断为真实功率 MOS 的 GP4。
+     */
     measurements->battery_ntc_mv =
         dvc_legacy_adc_mv(snapshot.ntc_res_ohm[DVC1124_DEFAULT_BATTERY_NTC_GP - 1u]);
     measurements->battery_ntc_100ohm =
@@ -514,7 +543,7 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     measurements->mos_ntc_100ohm =
         dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
 
-    /* Legacy diagnostic representation only; no MCU ADC is used here. */
+    /* 仅兼容旧诊断表示，此处不使用 MCU ADC。 */
     pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
     if (pack_adc_mv > 3299u) pack_adc_mv = 3299u;
     measurements->pack_voltage_mv = (pack_adc_mv * 485u) / 15u;

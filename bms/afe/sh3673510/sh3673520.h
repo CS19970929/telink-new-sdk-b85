@@ -1,4 +1,6 @@
-/* 文件功能：SH36735xx 寄存器事务驱动；提供 CRC、重试、通信诊断、测量及芯片操作公共接口。
+/*
+ * 文件功能：SH36735xx 寄存器事务驱动；提供 CRC、重试、通信诊断、测量及芯片操作公共接
+ * 口。
  * bms/afe/sh3673510/sh3673520.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef SH3673520_H
@@ -7,16 +9,10 @@
 #include <stdint.h>
 
 /*
- * SH36735xx family common driver.
- * SH3673510/3514/3517/3520 share the same register/protocol behavior and
- * differ only in the maximum supported cell count. This common layer therefore
- * supports the family maximum (20 cells); each product profile chooses its
- * actual series count.
- *
- * Telink B85 common/types.h defines its own size_t before application headers.
- * Pulling the TC32 GCC stddef.h into such a translation unit conflicts with
- * that SDK typedef. Keep the public ABI equal to the compiler's native
- * __SIZE_TYPE__ without re-declaring the global size_t name.
+ * SH36735xx 共用驱动。SH3673510/3514/3517/3520 共用寄存器/协议，仅最大串数不同；
+ * 公共层支持最多 20 串，产品选择实际串数。Telink B85 common/types.h 先定义 size_t，
+ * 再引入 TC32 stddef.h 会冲突；公共 ABI 使用编译器 __SIZE_TYPE__，
+ * 不重新定义全局 size_t。
  */
 #ifdef U32_MAX
 # ifdef __SIZE_TYPE__
@@ -69,42 +65,64 @@ typedef struct {
     int32_t internal_raw;
 } sh3673520_temperature_raw_t;
 
+/* 绑定端口和配置，复位并初始化 AFE。 */
 sh3673520_status_t SH3673520_Init(void);
+/* 执行复位并清除驱动就绪状态。 */
 sh3673520_status_t SH3673520_Reset(void);
+/* 读取芯片状态寄存器，检查通信是否可达。 */
 sh3673520_status_t SH3673520_Probe(void);
+/* 查询 SH 驱动初始化就绪状态。 */
 uint8_t SH3673520_IsReady(void);
 
+/* 读取单个 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value);
+/* 写入单个 AFE 寄存器并返回通信结果。 */
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value);
+/* 校验长度后读取连续 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg,
                                       uint8_t *buffer,
                                       sh3673520_size_t length);
+/* 校验范围后逐项写入 AFE 寄存器。 */
 sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
                                        const uint8_t *buffer,
                                        sh3673520_size_t length);
 
-/* Family-common configuration helpers: valid for product profiles up to 20S. */
+/* 系列共用配置辅助接口，支持最多 20S 产品。 */
 sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count);
+/* 设置驱动均衡掩码并更新芯片寄存器。 */
 sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
                                             uint8_t cell_count);
 
+/* 读取有效串数内的单体电压。 */
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_count);
+/* 读取并换算电池包总压。 */
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv);
+/* 读取并换算有符号电流。 */
 sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current);
+/* 读取 NTC 通道测量及有效性。 */
 sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures);
+/* 读取 AFE 状态与保护标志。 */
 sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status);
 
+/* 计算 AFE 通信数据的 CRC8 校验值。 */
 uint8_t SH3673520_Crc8(const uint8_t *data, sh3673520_size_t length);
+/* 将两个原始字节解码为 16 位有符号值。 */
 int32_t SH3673520_DecodeSigned16(uint8_t high, uint8_t low);
+/* 将单体电压原始读数换算为毫伏。 */
 int32_t SH3673520_CellRawToMilliVolt(int32_t raw);
+/* 将总压原始读数换算为毫伏。 */
 int32_t SH3673520_PackRawToMilliVolt(int32_t raw);
+/* 按分流电阻将电流原始读数换算为毫安。 */
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
                                                    uint32_t rsense_uohm,
                                                    int32_t *current_ma);
+/* 将 NTC 原始测量换算为欧姆。 */
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,
                                          uint32_t *resistance_ohm);
 
+/* 取得驱动通信统计快照。 */
 void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats);
+/* 清零通信统计计数。 */
 void SH3673520_ClearCommStats(void);
 
 #endif /* SH3673520_H */

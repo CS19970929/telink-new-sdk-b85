@@ -39,7 +39,14 @@ for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present
 assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
 assert "#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u" in guard_c
 assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
-assert "Absolutely no AFE I2C/SPI access while the hardware watchdog is timing." in guard_c
+# 校验静默等待分支在任何总线动作之前返回，不依赖注释语言。
+wait = guard_c.split("static uint8_t service_failsafe_wait", 1)[1].split(
+    "static uint8_t apply_requested", 1)[0]
+waiting = wait.split("if (s_guard.failsafe_wait_samples != 0u)", 1)[1].split(
+    "s_guard.bus_silenced = 0u;", 1)[0]
+assert "--s_guard.failsafe_wait_samples;" in waiting and "return 1u;" in waiting
+assert "AFE_" not in waiting
+assert wait.index("return 1u;") < wait.index("AFE_INIT();")
 assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
 assert "s_guard.bus_silenced = 1u;" in guard_c
 assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
@@ -96,6 +103,15 @@ sh_bms=text("sh3673510_bms.c")
 assert "SH3673520_BSTATUS2_DSGING_MASK" in sh_bms
 assert "SH3673520_BSTATUS2_CHGING_MASK" in sh_bms
 assert "s_fet_command_valid" in sh_bms
-assert "repeated software writes would fight that behavior" in sh_bms
+# 相同有效 FET 命令必须在再次写硬件之前返回，避免干扰自主保护。
+fets = sh_bms.split("static uint8_t sh3510_apply_requested_fets", 1)[1].split(
+    "static void publish_hw_status", 1)[0]
+cached = fets.split("if (s_fet_command_valid &&", 1)[1].split(
+    "if (!sh3673510_control_set_fets", 1)[0]
+assert "s_last_charge_command == charge_on" in cached
+assert "s_last_discharge_command == discharge_on" in cached
+assert "return 1u;" in cached
+assert fets.index("if (s_fet_command_valid &&") < fets.index(
+    "sh3673510_control_set_fets(charge_on, discharge_on)")
 
 print("common feature policy contract: PASS")

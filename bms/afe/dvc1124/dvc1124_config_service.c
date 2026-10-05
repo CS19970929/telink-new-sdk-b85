@@ -1,4 +1,6 @@
-/* 文件功能：DVC1124 参数的 requested/effective 与原始寄存器访问；校验写入和固定配置边界。
+/*
+ * 文件功能：DVC1124 参数的 requested/effective 与原始寄存器访问；
+ * 校验写入和固定配置边界。
  * bms/afe/dvc1124/dvc1124_config_service.c；实际编译归属见各产品 sources.txt。
  */
 #include "dvc1124_config_service.h"
@@ -7,12 +9,14 @@
 #include "bms_afe.h"
 #include "bms_afe_hw_profile.h"
 
+/* 把 VADC 时间编码转换为微秒。 */
 static u16 dvc_cfg_vadc_time_us(dvc1124_vadc_time_t code)
 {
     static const u16 table[4] = {790u, 1540u, 3030u, 6020u};
     return table[(u8)code & 0x03u];
 }
 
+/* 把定时唤醒编码转换为秒。 */
 static u16 dvc_cfg_timed_wake_seconds(dvc1124_timed_wake_t code)
 {
     static const u16 table[16] = {
@@ -23,6 +27,7 @@ static u16 dvc_cfg_timed_wake_seconds(dvc1124_timed_wake_t code)
 }
 
 #if DVC1124_HW_PROTECT_ENABLE
+/* 把核心过温编码换算为温度报告值。 */
 static u16 dvc_cfg_core_ot_x10_from_code(u8 code)
 {
     s32 value;
@@ -34,6 +39,7 @@ static u16 dvc_cfg_core_ot_x10_from_code(u8 code)
 }
 #endif
 
+/* 将采样压差换算为 0.1 A 电流值。 */
 static u16 dvc_cfg_current_x10_from_sense_uv(u32 sense_uv)
 {
     dvc1124_config_t cfg;
@@ -46,6 +52,7 @@ static u16 dvc_cfg_current_x10_from_sense_uv(u32 sense_uv)
     return (u16)value;
 }
 
+/* 读取 DVC 当前实际生效的配置字段。 */
 static dvc1124_config_result_t dvc_cfg_read_effective(
     dvc1124_config_field_t field,
     u32 *value)
@@ -160,6 +167,7 @@ static dvc1124_config_result_t dvc_cfg_read_effective(
     }
 }
 
+/* 读取请求的独立硬件保护参数。 */
 static dvc1124_config_result_t dvc_cfg_read_requested_protection(
     dvc1124_config_field_t field,
     u32 *value)
@@ -199,6 +207,7 @@ static dvc1124_config_result_t dvc_cfg_read_requested_protection(
     }
 }
 
+/* 判断配置字段是否由固件固定策略拥有。 */
 static uint8_t dvc_cfg_fixed_field(dvc1124_config_field_t field)
 {
     u8 f = (u8)field;
@@ -214,6 +223,7 @@ static uint8_t dvc_cfg_fixed_field(dvc1124_config_field_t field)
     return 0u;
 }
 
+/* 读取 DVC 语义配置窗口中的指定字段。 */
 dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
                                                    u32 *value)
 {
@@ -338,13 +348,13 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
     }
 }
 
+/* 拒绝固定配置和保护窗口写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
                                                     u32 value)
 {
     (void)value;
 
-    /* Fixed DVC operating/board policy is firmware-owned.  Protection writes
-     * use the dedicated software-protection and AFE HW-profile transactions. */
+    /* 固定 DVC 运行/板级策略归固件拥有；保护写入走专用软件保护与 AFE 硬件配置事务。 */
     if (dvc_cfg_fixed_field(field) ||
         ((u8)field >= (u8)DVC1124_CFG_REQ_COV_MV &&
          (u8)field <= (u8)DVC1124_CFG_REQ_SCD_DELAY_US) ||
@@ -355,13 +365,14 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
     return DVC1124_CFG_ERR_ADDRESS;
 }
 
+/* 按允许范围读取 DVC 原始寄存器。 */
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
 {
     if (value == 0 || reg > DVC1124_MAX_REGISTER)
         return DVC1124_CFG_ERR_ADDRESS;
     if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;
 
-    /* STATUS and CORE_OT contain read-clear fields. */
+    /* STATUS 和 CORE_OT 含读清除字段。 */
     if (DVC1124_RegReadHasSideEffect(reg))
         return DVC1124_CFG_ERR_FORBIDDEN;
 
@@ -370,13 +381,15 @@ dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
                : DVC1124_CFG_ERR_AFE_IO;
 }
 
+/* 拒绝原始寄存器写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value)
 {
     (void)value;
     if (reg > DVC1124_MAX_REGISTER) return DVC1124_CFG_ERR_ADDRESS;
 
-    /* The raw mirror is diagnostic-only.  Allowing a raw write would create a
-     * second owner for compile-time product configuration or bypass protection
-     * parameter bookkeeping. */
+    /*
+     * 原始镜像仅供诊断。允许原始写入会产生第二个编译期产品配置所有者，
+     * 或绕过保护参数管理。
+     */
     return DVC1124_CFG_ERR_READ_ONLY;
 }

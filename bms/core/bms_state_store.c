@@ -1,4 +1,6 @@
-/* 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；管理缓存、变化保存和恢复默认入口。
+/*
+ * 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；
+ * 管理缓存、变化保存和恢复默认入口。
  * bms/core/bms_state_store.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -12,7 +14,9 @@
 #include "bms_soc_defs.h"
 #include <string.h>
 
-#define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /* STB + product */
+#define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /*
+ * 状态标识为 STB 加产品编号。
+ */
 #define BMS_STATE_SCHEMA_VERSION      2u
 #define BMS_STATE_PAYLOAD_WORDS       11u
 #define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u + 4u)
@@ -42,6 +46,7 @@ static u32 g_bms_state_last_attempt_32k;
 static u8 g_bms_state_last_failed;
 static u8 g_bms_state_attempted;
 
+/* 将 32 位值按小端写入存储缓冲区。 */
 static void bms_state_put_u32le(u8 *buf, u32 value)
 {
     buf[0] = (u8)(value & 0xFFu);
@@ -50,12 +55,14 @@ static void bms_state_put_u32le(u8 *buf, u32 value)
     buf[3] = (u8)((value >> 24) & 0xFFu);
 }
 
+/* 从存储缓冲区按小端读取 32 位值。 */
 static u32 bms_state_get_u32le(const u8 *buf)
 {
     return ((u32)buf[0]) | ((u32)buf[1] << 8) |
            ((u32)buf[2] << 16) | ((u32)buf[3] << 24);
 }
 
+/* 取得 SOC、循环和学习状态默认值。 */
 bms_state_store_data_t bms_state_store_get_default_data(void)
 {
     bms_state_store_data_t data;
@@ -72,6 +79,7 @@ bms_state_store_data_t bms_state_store_get_default_data(void)
     return data;
 }
 
+/* 建立持久状态域的默认缓存。 */
 static void bms_state_defaults(bms_state_persist_t *state)
 {
     bms_state_store_data_t soc = bms_state_store_get_default_data();
@@ -90,6 +98,7 @@ static void bms_state_defaults(bms_state_persist_t *state)
     state->candidate_match_count = soc.candidate_match_count;
 }
 
+/* 按固定存储格式编码 SOC、循环和学习状态。 */
 static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
 {
     bms_state_put_u32le(&payload[0], state->soc);
@@ -106,6 +115,7 @@ static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
     bms_state_put_u32le(&payload[44], (u32)state->soc_revision | ((u32)state->runtime_revision << 16));
 }
 
+/* 验证版本、产品及字段范围后解码状态记录。 */
 static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
 {
     state->soc = bms_state_get_u32le(&payload[0]);
@@ -129,7 +139,7 @@ static int bms_state_save(const bms_state_persist_t *next)
     u8 payload[BMS_STATE_PAYLOAD_BYTES];
     u32 now = pm_get_32k_tick();
     if (g_bms_state_store.has_latest && memcmp(&g_bms_state, next, sizeof(*next)) == 0) return 1;
-    /* Forced shutdown writes bypass the normal interval, never failure backoff. */
+    /* 强制关机写入绕过普通间隔，但绝不绕过失败退避。 */
     if (g_bms_state_attempted && g_bms_state_last_failed &&
         (u32)(now - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
     g_bms_state_attempted = 1u;
@@ -145,6 +155,7 @@ static int bms_state_save(const bms_state_persist_t *next)
     return 1;
 }
 
+/* 加载并验证持久状态，建立当前缓存。 */
 int bms_state_store_init(void)
 {
     const storage_port_t *port;
@@ -203,6 +214,7 @@ invalid:
     return 0;
 }
 
+/* 取得缓存的 SOC、循环和学习状态。 */
 bms_state_store_data_t bms_state_store_get(void)
 {
     bms_state_store_data_t data = bms_state_store_get_default_data();
@@ -220,6 +232,7 @@ bms_state_store_data_t bms_state_store_get(void)
     return data;
 }
 
+/* 保存完整状态并按结果发布缓存。 */
 int bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle)
 {
     bms_state_persist_t next;
@@ -230,6 +243,7 @@ int bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle)
     return bms_state_save(&next);
 }
 
+/* 更新待保存的学习容量和标志，不立即写 Flash。 */
 int bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags)
 {
     bms_state_persist_t next;
@@ -238,10 +252,11 @@ int bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags)
     next.learned_capacity_0p1ah = learned_capacity_0p1ah;
     next.flags = flags;
     g_bms_state_pending = next;
-    /* Queued checkpoint; the main loop persists it, shutdown flush includes it. */
+    /* 排队保存检查点，由主循环持久化，关机刷新包含它。 */
     return 1;
 }
 
+/* 校验并更新待保存的学习元数据，不立即写 Flash。 */
 int bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
                                         u32 candidate_capacity_0p1ah,
                                         u32 valid_learning_count,
@@ -268,6 +283,7 @@ int bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
     return 1;
 }
 
+/* 仅在状态变化且策略允许时提交检查点。 */
 void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
 {
     u32 interval;
@@ -280,12 +296,14 @@ void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
     (void)bms_state_save(&g_bms_state_pending);
 }
 
+/* 取得累计运行分钟数。 */
 u32 bms_state_store_get_runtime_min(void)
 {
     if (!bms_state_store_init()) return 0u;
     return g_bms_state.runtime_min;
 }
 
+/* 保存累计运行分钟数。 */
 int bms_state_store_write_runtime_min(u32 runtime_min)
 {
     bms_state_persist_t next;
@@ -296,11 +314,13 @@ int bms_state_store_write_runtime_min(u32 runtime_min)
     return bms_state_save(&next);
 }
 
+/* 恢复运行计时持久状态默认值。 */
 int bms_state_store_reset_runtime(void)
 {
     return bms_state_store_write_runtime_min(0u);
 }
 
+/* 更新 SOC 与循环次数状态并保存。 */
 int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle)
 {
     bms_state_persist_t next;

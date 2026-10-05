@@ -1,4 +1,6 @@
-/* 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，硬件动作交给 backend。
+/*
+ * 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，
+ * 硬件动作交给 backend。
  * bms/app/bms_features.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -44,9 +46,13 @@ typedef struct {
     uint32_t balance_requested_mask;
 } bms_feature_state_t;
 
-/* 公共功能的资格/阶段状态；仅由 service/init/AFE 失效处理入口更新，产品能力由配置提供。 */
+/*
+ * 公共功能的资格/阶段状态；仅由 service/init/AFE 失效处理入口更新，
+ * 产品能力由配置提供。
+ */
 static bms_feature_state_t s_feature;
 
+/* 汇总板级与 AFE 可确认的充电源证据。 */
 static uint8_t charge_source_present(void)
 {
     uint8_t present = 0u;
@@ -54,19 +60,21 @@ static uint8_t charge_source_present(void)
     return bms_board_charge_source_present() ? 1u : 0u;
 }
 
+/* 更新充电会话状态及稳定确认计数。 */
 static void update_charge_session(void)
 {
-    /* D008 has no AFE hardware charge-UTP shutdown before current detection.
-     * A reliable charge-current sample therefore arms the session. Once CHG is
-     * intentionally blocked for preheat the current disappears, so zero current
-     * must not clear the session. A real discharge direction is authoritative
-     * evidence that the product has left the charging use-case. */
+    /*
+     * D008 无电流检测前的 AFE 硬件充电低温关断，因此可信充电电流用于建立会话。
+     * 预热主动阻断 CHG 后电流消失，零电流不能清会话；
+     * 真实放电方向是退出充电场景的可信证据。
+     */
     if (g_stCellInfoReport.u16IDischg != 0u)
         s_feature.charge_session_active = 0u;
     else if ((g_stCellInfoReport.u16Ichg != 0u) || charge_source_present())
         s_feature.charge_session_active = 1u;
 }
 
+/* 更新加热请求并驱动支持的板级输出。 */
 static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
@@ -75,12 +83,14 @@ static void set_heater(uint8_t on)
     g_bms_system_status.bits.b1Status_Heat = on;
 }
 
+/* 停止加热并复位当前加热阶段。 */
 static void heater_idle(void)
 {
     set_heater(0u);
     s_feature.heater_state = BMS_HEATER_IDLE;
 }
 
+/* 把加热确认延时转换为连续样本数。 */
 static uint16_t heater_confirm_samples(void)
 {
     uint32_t confirm_ms = bms_board_heater_off_fault_confirm_ms();
@@ -94,6 +104,7 @@ static uint16_t heater_confirm_samples(void)
     return (uint16_t)samples;
 }
 
+/* 满足独立故障条件时触发支持的不可逆熔断输出。 */
 static void fire_heater_fuse(void)
 {
     heater_idle();
@@ -106,13 +117,10 @@ static void fire_heater_fuse(void)
 }
 
 /*
- * Heater-circuit safety is independent of normal power-MOS OTP.
- *
- * D008 GP1 measures the heater MOS area. If software commands PA1/MCC-EN-HT
- * OFF but GP1 remains abnormally hot for the board-defined confirmation time,
- * the heater power path is treated as stuck/failed and PD4/MCC-EN-RF fires the
- * irreversible heater fuse. A hot GP1 while heating first forces the command
- * OFF; only continued heat while OFF can progress to the irreversible action.
+ * 加热电路安全独立于功率 MOS 高温保护。GP1 测加热 MOS 区域；
+ * 软件关闭 PA1/MCC-EN-HT 后，GP1 持续超温达到板级确认时间，
+ * 认为加热功率路径卡住/故障，驱动 PD4/MCC-EN-RF 触发不可逆保险丝。
+ * 加热期间过热先关闭命令，只有关闭后持续过热才推进不可逆动作。
  */
 static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
 {
@@ -168,14 +176,15 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
     return 0u;
 }
 
+/* 检查必须立即停止加热的硬故障条件。 */
 static uint8_t heater_hard_fault(void)
 {
     const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
 
-    /* Charge/discharge UTP are intentionally not heater hard faults: low
-     * temperature is exactly the recoverable condition preheat is meant to fix.
-     * CUV is also not a heater hard fault because preheat may be required before
-     * a deeply discharged pack can safely accept charge. */
+    /*
+     * 充放电低温不作为加热硬故障，低温正是预热要恢复的条件；CUV 也不是加热硬故障，
+     * 深度放电包可能需预热后才能安全充电。
+     */
     return (!bms_protection_params_valid() ||
             s_feature.openwire_fault_latched ||
             bms_error_get(BMS_ERROR_AFE1) ||
@@ -188,6 +197,7 @@ static uint8_t heater_hard_fault(void)
             f->b1TmosOtp) ? 1u : 0u;
 }
 
+/* 判断电池温度是否形成加热需求。 */
 static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
                              const bms_user_params_t *config)
 {
@@ -195,10 +205,10 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 
     if ((s == 0) || (config == 0) || !s->battery_temp_valid) return 0u;
 
-    /* Do not wait for the filtered Charge-UTP fault bit before preheating.
-     * The product must stop a low-temperature charge attempt on the first
-     * reliable current sample. HeaterStart is user policy, while the Third UTP
-     * threshold remains the absolute software charge-permission boundary. */
+    /*
+     * 不能等待滤波后的充电低温故障位再预热；首个可信电流样本就需停止低温充电尝试。
+     * HeaterStart 是用户策略，Third UTP 阈值仍是绝对软件充电许可边界。
+     */
     charge_utp_trip = g_tParam.protect.u16TchgUTp_Third;
     if ((charge_utp_trip != 0u) &&
         (s->battery_temp_min_x10 <= charge_utp_trip))
@@ -210,6 +220,7 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
     return (s->battery_temp_min_x10 < config->heater_start_x10) ? 1u : 0u;
 }
 
+/* 推进加热需求、资格确认和故障处置状态。 */
 static void service_heater(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;
@@ -236,8 +247,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    /* Open-wire diagnosis owns a short hard-isolation window. If preheat was
-     * already armed, keep that request pending and resume after diagnosis. */
+    /* 断线诊断拥有短时硬隔离窗口；已请求预热时保留请求，诊断结束后恢复。 */
     if (s_feature.openwire_active)
     {
         set_heater(0u);
@@ -250,15 +260,13 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     {
         if (demand)
         {
-            /* A latched charge session is intentionally allowed to survive
-             * Ichg=0 after PREHEAT closes the charge direction. It is NOT,
-             * however, sufficient evidence to start a new heat cycle from
-             * IDLE: after an ordinary charge the charger may have been removed
-             * while the pack stayed unloaded, leaving no observable current
-             * transition to clear the session. Require fresh charge-direction
-             * evidence (or a future approved physical charger-present source)
-             * before arming. Once ARMING has been entered, zero current is the
-             * expected proof that the charge path has been blocked. */
+            /*
+             * PREHEAT 阻断充电后允许充电会话在 Ichg=0 时保留，
+             * 但不能据此从 IDLE 开始新加热周期：普通充电后充电器可能已拔除且无负载，
+             * 没有可见电流变化清会话。
+             * 请求加热前需新充电方向证据或未来批准的物理充电器信号；
+             * 进入 ARMING 后零电流才是充电路径已阻断的预期证据。
+             */
             if ((g_stCellInfoReport.u16Ichg != 0u) || charge_source_present())
             {
                 s_feature.heater_state = BMS_HEATER_ARMING;
@@ -295,8 +303,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    /* A discharge event clears charge_session before this service runs. If an
-     * inconsistent report reaches here anyway, fail safe and remove heat. */
+    /* 本服务前放电事件已清 charge_session；若仍收到矛盾报告，按故障安全关闭加热。 */
     if (g_stCellInfoReport.u16IDischg != 0u)
     {
         s_feature.charge_session_active = 0u;
@@ -307,6 +314,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     set_heater(1u);
 }
 
+/* 检查禁止断线检测的硬故障条件。 */
 static uint8_t openwire_hard_fault(void)
 {
     return (!bms_protection_params_valid() ||
@@ -316,6 +324,7 @@ static uint8_t openwire_hard_fault(void)
             bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
 }
 
+/* 检查采样、负载和保护状态是否允许断线检测。 */
 static uint8_t openwire_eligible(void)
 {
     if (s_feature.heater_on) return 0u;
@@ -323,6 +332,7 @@ static uint8_t openwire_eligible(void)
     return openwire_hard_fault() ? 0u : 1u;
 }
 
+/* 发布均衡通道和工作状态到公共报告。 */
 static void publish_balance(uint32_t mask)
 {
     g_stCellInfoReport.u16BalanceFlag1 = (uint16_t)(mask & 0xFFFFu);
@@ -330,6 +340,7 @@ static void publish_balance(uint32_t mask)
     g_bms_system_status.bits.b1Status_Balance = mask ? 1u : 0u;
 }
 
+/* 应用均衡掩码并记录实际成功状态。 */
 static uint8_t apply_balance_mask(uint32_t desired)
 {
     uint32_t actual;
@@ -437,6 +448,7 @@ static void service_openwire(void)
     }
 }
 
+/* 检查电芯电压快照是否可用于均衡策略。 */
 static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
 {
     uint16_t vmin = 0xFFFFu;
@@ -479,6 +491,7 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
     return 1u;
 }
 
+/* 更新均衡电压可信度及连续确认状态。 */
 static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
 {
     uint16_t required = (uint16_t)BMS_BALANCE_TRUST_CONFIRM_SAMPLES;
@@ -507,6 +520,7 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
         (s_feature.balance_trust_samples >= required) ? 1u : 0u;
 }
 
+/* 检查温度有效性与均衡允许温区。 */
 static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
 {
     uint16_t charge_ot_recover;
@@ -515,10 +529,10 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
 
     if ((s == 0) || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
 
-    /* Balancing is a heat-producing maintenance action. Use the existing
-     * protection recovery boundary as a conservative admission window instead
-     * of relying on direction-gated fault bits that may be clear at zero
-     * current. Zero means the corresponding protection threshold is disabled. */
+    /*
+     * 均衡会产生热量，使用既有保护恢复边界作为保守准入窗口，
+     * 不依赖零电流时可能清除的方向性故障位；阈值零表示相应保护关闭。
+     */
     charge_ot_recover = g_tParam.protect.u16TChgOTp_Rcv;
     charge_ut_recover = g_tParam.protect.u16TchgUTp_Rcv;
     mos_ot_recover = g_tParam.protect.u16TmosOTp_Rcv;
@@ -535,12 +549,12 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
     return 1u;
 }
 
+/* 检查必须关闭均衡的硬故障条件。 */
 static uint8_t balance_hard_fault(void)
 {
     const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
 
-    /* Cell OVP is intentionally not listed: with charge already blocked,
-     * verified passive bleed is a valid recovery path for a high cell. */
+    /* 有意不列入单体过压：充电已阻断时，确认的被动泄放是高单体的合法恢复路径。 */
     return (!bms_protection_params_valid() ||
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
@@ -553,7 +567,10 @@ static uint8_t balance_hard_fault(void)
             f->b1TmosOtp) ? 1u : 0u;
 }
 
-/* 统一均衡资格与 mask 仲裁；只使用有效 cell，失效测量和硬故障应通过现有路径停止均衡。 */
+/*
+ * 统一均衡资格与 mask 仲裁；只使用有效 cell，
+ * 失效测量和硬故障应通过现有路径停止均衡。
+ */
 static void service_balance(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;
@@ -601,6 +618,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
         s_feature.balance_active = 0u;
 }
 
+/* 复位加热、均衡和断线检测的公共状态。 */
 void bms_features_init(void)
 {
     memset(&s_feature, 0, sizeof(s_feature));
@@ -612,12 +630,12 @@ void bms_features_init(void)
     publish_balance(0u);
 }
 
+/* 按有效快照推进加热、断线检测及均衡策略。 */
 void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t s;
 
-    /* Poll may finish COW and clear active after this frame was acquired.
-     * Keep that diagnostic voltage out of SOC until the next acquisition. */
+    /* 轮询可能在本帧采样后完成 COW 并清 active；下次采样前不能把该诊断电压交给 SOC。 */
     s_feature.openwire_sample_active = s_feature.openwire_active;
     memset(&s, 0, sizeof(s));
     if (!bms_afe_get_feature_snapshot(&s) || !s.valid)
@@ -633,6 +651,7 @@ void bms_features_service(void)
     service_balance(&s);
 }
 
+/* AFE 样本失效时撤销功能资格并停止相关输出。 */
 void bms_features_on_afe_invalid(void)
 {
     heater_idle();
@@ -647,10 +666,10 @@ void bms_features_on_afe_invalid(void)
     s_feature.openwire_suspected = 1u;
     s_feature.openwire_idle_samples = 0u;
 
-    /* A dead AFE bus makes the physical balance state unknown. Do not publish
-     * the desired OFF state as though it were confirmed hardware feedback.
-     * Keep the last readback visible until communication recovers; DVC's
-     * independent balance timer remains the hardware fallback. */
+    /*
+     * AFE 总线失效时物理均衡状态未知；不能把期望关闭状态当成硬件反馈。
+     * 保留最后回读值至通信恢复，DVC 独立均衡定时器仍作硬件回退。
+     */
     if ((g_stCellInfoReport.u16BalanceFlag1 != 0u) ||
         (g_stCellInfoReport.u16BalanceFlag2 != 0u))
     {
@@ -662,14 +681,22 @@ void bms_features_on_afe_invalid(void)
         bms_error_raise(BMS_ERROR_HEAT);
 }
 
+/* 查询加热输出当前是否激活。 */
 uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
+/* 查询不可逆加热熔断是否已经触发。 */
 uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
+/* 取得当前加热策略阶段。 */
 bms_heater_state_t bms_features_heater_state(void) { return s_feature.heater_state; }
+/* 查询充电会话是否已确认有效。 */
 uint8_t bms_features_charge_session_active(void) { return s_feature.charge_session_active; }
+/* 查询是否存在正在使用的均衡通道。 */
 uint8_t bms_features_balance_active(void) { return s_feature.balance_active; }
+/* 查询均衡用电芯电压是否已通过可信度确认。 */
 uint8_t bms_features_balance_voltage_trusted(void) { return s_feature.balance_voltage_trusted; }
+/* 查询是否存在尚未确认的电芯断线嫌疑。 */
 uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspected; }
 
+/* 查询公共功能导致的硬性充电阻断。 */
 uint8_t bms_features_charge_hard_blocked(void)
 {
     return (!bms_protection_params_valid() ||
@@ -677,18 +704,21 @@ uint8_t bms_features_charge_hard_blocked(void)
             s_feature.openwire_fault_latched) ? 1u : 0u;
 }
 
+/* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void)
 {
     return (s_feature.heater_state == BMS_HEATER_ARMING ||
             s_feature.heater_state == BMS_HEATER_ACTIVE) ? 1u : 0u;
 }
 
+/* 汇总公共功能对充电 MOS 的阻断。 */
 uint8_t bms_features_charge_blocked(void)
 {
     return (bms_features_charge_hard_blocked() ||
             bms_features_charge_direction_blocked()) ? 1u : 0u;
 }
 
+/* 汇总公共功能对放电 MOS 的阻断。 */
 uint8_t bms_features_discharge_blocked(void)
 {
     return (!bms_protection_params_valid() ||
@@ -696,16 +726,20 @@ uint8_t bms_features_discharge_blocked(void)
             s_feature.openwire_fault_latched) ? 1u : 0u;
 }
 
+/* 查询断线检测流程是否处于活动阶段。 */
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
+/* 查询当前样本是否属于断线诊断采样窗口。 */
 uint8_t bms_features_openwire_sample_active(void)
 {
     return (s_feature.openwire_active || s_feature.openwire_sample_active) ? 1u : 0u;
 }
+/* 取得断线检测结果及相关诊断信息。 */
 void bms_features_get_openwire_result(bms_afe_openwire_result_t *r)
 {
     if (r) *r = s_feature.openwire_result;
 }
 
+/* 编码加热、均衡和断线检测的阻断原因。 */
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {
     uint32_t reason = 0u;

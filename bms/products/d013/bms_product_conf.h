@@ -1,9 +1,10 @@
+/* 文件功能：产品容量、名称、采样及通信功能配置。 */
 #ifndef BMS_PRODUCT_CONF_H_
 #define BMS_PRODUCT_CONF_H_
 
 #include "sh3673510_project_config.h"
 
-/* Production feature selection. D013 uses fixed Modbus RTU over direct UART; SIF/one-wire is not used. */
+/* 量产选择：D013 固定直连 UART Modbus RTU，不使用 SIF/单线。 */
 #define _UL_RENZHENG_ENABLE_
 #define _FUNC_UART_
 #define MODBUS_RS485_ENABLE              0
@@ -16,10 +17,10 @@
 #define __SLEEP_VLOW__                (2800)
 #define __SLEEP_TIMEVLOW__            (60 * 60 * 1)
 
-/* Keep legacy numeric wire product ID stable; storage has its own product tag. */
+/* 保持历史数字线协议产品 ID；存储有独立标记。 */
 #define FD_BMS_TYPE 2u
 #define SeriesNum                      SH3673510_BOARD_CELL_COUNT
-/* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
+/* 现有 D11 容量单位 Ah*10，是产品数据，不能由原理图推断。 */
 #define CapacityFactory                116
 #define BMS_HARDWARE_VERDION_DEFAULT   "D013"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"

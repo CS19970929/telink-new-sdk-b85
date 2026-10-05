@@ -1,4 +1,6 @@
-/* 文件功能：DVC1124 参数的 requested/effective 与原始寄存器访问；校验写入和固定配置边界。
+/*
+ * 文件功能：DVC1124 参数的 requested/effective 与原始寄存器访问；
+ * 校验写入和固定配置边界。
  * bms/afe/dvc1124/dvc1124_config_service.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef DVC1124_CONFIG_SERVICE_H_
@@ -11,14 +13,10 @@ extern "C" {
 #endif
 
 /*
- * Transport-neutral DVC1124 diagnostic/configuration field IDs.
- *
- * 0x2800 fixed operating/board fields are now diagnostic READ-ONLY values
- * derived from compile-time product policy.  They are not persisted in Flash.
- *
- * Runtime-persistent protection ownership is separate:
- *   - software protection parameters: existing g_tParam.protect interface
- *   - AFE hardware protection parameters: BMS_AFE_HW profile transaction
+ * 与传输方式无关的 DVC1124 诊断/配置字段 ID。
+ * 0x2800 固定运行/板级字段由编译期产品策略推导，只读且不持久化。
+ * 运行时保护另有所有者：软件保护使用 g_tParam.protect，
+ * AFE 硬件保护使用 BMS_AFE_HW 配置事务。
  */
 typedef enum
 {
@@ -65,8 +63,10 @@ typedef enum
     DVC1124_CFG_I2C_TIMEOUT_CLOSE_DSG     = 0x34,
     DVC1124_CFG_CORE_OT_X10C              = 0x35,
 
-    /* Requested/effective AFE protection diagnostics.  Writes use the
-     * dedicated atomic AFE HW profile interface rather than this window. */
+    /*
+     * 请求/实际生效的 AFE 保护诊断；写入必须走专用原子 AFE 硬件配置接口，
+     * 不能使用此窗口。
+     */
     DVC1124_CFG_REQ_COV_MV                = 0x40,
     DVC1124_CFG_REQ_COV_DELAY_MS          = 0x41,
     DVC1124_CFG_REQ_CUV_MV                = 0x42,
@@ -112,18 +112,20 @@ typedef enum
 
 #define DVC1124_CONFIG_SCHEMA_VERSION 0x0001u
 
+/* 读取 DVC 语义配置窗口中的指定字段。 */
 dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
                                                    u32 *value);
+/* 拒绝固定配置和保护窗口写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
                                                     u32 value);
 
-/* Raw mirror is diagnostic READ-ONLY.  Registers with read-clear side effects
- * are rejected and must use cached/sticky semantic diagnostics instead. */
+/* 原始镜像仅供只读诊断；拒绝具有读清除副作用的寄存器，应读取缓存/软件锁存语义诊断。 */
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value);
+/* 拒绝原始寄存器写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* DVC1124_CONFIG_SERVICE_H_ */
+#endif /* 头文件保护：DVC1124_CONFIG_SERVICE_H_。 */

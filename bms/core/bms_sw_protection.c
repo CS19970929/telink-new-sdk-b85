@@ -1,4 +1,5 @@
-/* 文件功能：软件三级保护滤波；边界采集 const 输入，私有 Third 负责软件 MOS 阻断。
+/*
+ * 文件功能：软件三级保护滤波；边界采集 const 输入，私有 Third 负责软件 MOS 阻断。
  * bms/core/bms_sw_protection.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -10,16 +11,9 @@
 #include <string.h>
 
 /*
- * Unified software-protection policy shared by D008 / D011 / D013.
- *
- * Scope:
- *   - software threshold/filter/recovery state only;
- *   - no AFE register access, GPIO access or hardware-latch clearing;
- *   - Level 1/2 are report/alarm levels;
- *   - Level 3 is the software MOS-blocking level;
- *   - AFE hardware protection remains an independent backup. Backends merge
- *     hardware flags into Third after this module evaluates the software state.
- *
+ * D008 / D011 / D013 / D014 共享软件保护策略：仅管理软件阈值、滤波与恢复状态，
+ * 不访问 AFE/GPIO，不清除硬件锁存。一级/二级用于报告和告警，三级用于软件 MOS 阻断；
+ * AFE 硬件保护保持独立后备，后端在软件计算后合并硬件标志到 Third。
  * SOC 低电量故障由 bms_soc.c 根据 SOC 样本统一处理。
  */
 #define BMS_SW_PROTECTION_SAMPLE_MS       200u
@@ -59,22 +53,24 @@ typedef enum
 /* 各等级/项目独立保存触发累积和连续恢复计数，单位为有效样本。 */
 static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
-/* Software owns these bits; the public report may additionally contain HW bits. */
+/* 软件拥有这些位，公共报告还可包含硬件位。 */
 static bms_fault_reg_t s_sw_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 static uint8_t s_current_recovery_requires_evidence;
 
-/* Recover belongs exclusively to Third (the MOS-blocking protection level).
- * First/Second are filtered alarms and clear when their own trip is absent. */
+/* 恢复仅属于阻断 MOS 的 Third 级；First/Second 是滤波告警，各自越限消失即清除。 */
+/* 校验高阈值三级保护的恢复值必须低于触发值。 */
 static uint8_t bms_sw_high_recovery_valid(uint16_t third, uint16_t recover)
 {
     return !third || recover < third;
 }
 
+/* 校验低阈值保护的恢复值与触发值关系。 */
 static uint8_t bms_sw_low_recovery_valid(uint16_t third, uint16_t recover)
 {
     return !third || recover > third;
 }
 
+/* 按保护级别选择对应阈值或延时。 */
 static uint16_t bms_sw_level_value(uint8_t level,
                                    uint16_t first,
                                    uint16_t second,
@@ -83,6 +79,7 @@ static uint16_t bms_sw_level_value(uint8_t level,
     return (level == 0u) ? first : ((level == 1u) ? second : third);
 }
 
+/* 把软件保护延时转换为连续样本数。 */
 static uint16_t bms_sw_filter_samples(uint16_t filter_10ms)
 {
     uint32_t delay_ms = (uint32_t)filter_10ms * 10u;
@@ -96,6 +93,7 @@ static uint16_t bms_sw_filter_samples(uint16_t filter_10ms)
     return (uint16_t)samples;
 }
 
+/* 清除软件保护滤波器的计数与活动状态。 */
 static void bms_sw_filter_reset(bms_sw_filter_t *state)
 {
     if (state == 0) return;
@@ -160,23 +158,17 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
     }
     else if (state->trip_count != 0u)
     {
-        /* Preserve the existing D011/D013 leaky debounce behavior instead of
-         * resetting the trip accumulator on one clean sample. */
+        /* 保留 D011/D013 既有漏积分去抖，不因一个正常样本就清越限累计。 */
         --state->trip_count;
     }
     return state->active;
 }
 
 /*
- * Battery-temperature faults are directional: a charge OTP/UTP can start only
- * while charge current exists, and a discharge OTP/UTP can start only while
- * discharge current exists.
- *
- * The current gate is intentionally applied only while qualifying a NEW fault.
- * Once active, protection usually removes that current; clearing the fault just
- * because current became zero would immediately re-open the FET and create an
- * on/off loop. Active faults therefore recover only from temperature + recovery
- * filter, independent of current after the trip.
+ * 电池温度故障按方向触发：充电高/低温仅在充电电流存在时建立，放电同理。
+ * 方向门禁只用于新故障确认；动作后电流通常消失，
+ * 若因此清故障会立即重新开 FET 并反复通断。因此活动故障仅按温度与恢复滤波解除，
+ * 不再依赖电流。
  */
 static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                          uint8_t trip_enabled,
@@ -191,9 +183,10 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
 
     if (!state->active && !trip_enabled)
     {
-        /* Temperature and matching current direction must coexist throughout
-         * qualification. Never carry a partial trip count through idle/current
-         * reversal periods. */
+        /*
+         * 整个触发确认期间温度和对应电流方向须同时满足，
+         * 不能跨空闲或反向保留部分计数。
+         */
         state->trip_count = 0u;
         state->recover_count = 0u;
         return 0u;
@@ -203,6 +196,7 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                 filter_10ms, direction, use_recovery);
 }
 
+/* 取得指定级别的软件故障寄存器。 */
 static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
 {
     if (level == 0u) return &g_stCellInfoReport.unMdlFault_First;
@@ -210,6 +204,7 @@ static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
     return &g_stCellInfoReport.unMdlFault_Third;
 }
 
+/* 仅清除本模块拥有的软件保护故障位。 */
 static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault)
 {
     if (fault == 0) return;
@@ -227,6 +222,7 @@ static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault)
     fault->bits.b1VcellDeltaBig = 0u;
 }
 
+/* 检查软件保护阈值、恢复值和延时关系。 */
 uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *p)
 {
     if (p == 0) return 0u;
@@ -274,6 +270,7 @@ uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *p)
     return 1u;
 }
 
+/* 清除软件保护状态与内部滤波计数。 */
 void bms_sw_protection_clear(void)
 {
     uint8_t level;
@@ -284,6 +281,7 @@ void bms_sw_protection_clear(void)
     bms_error_clear(BMS_ERROR_TEMP_BREAK);
 }
 
+/* 初始化软件保护参数和状态。 */
 void bms_sw_protection_init(void)
 {
     uint8_t charge_oc = s_current_recovery_requires_evidence &&
@@ -292,9 +290,10 @@ void bms_sw_protection_init(void)
                            s_filter[2][BMS_SW_F_DSG_OC].active;
     memset(s_prev_fault, 0, sizeof(s_prev_fault));
     bms_sw_protection_clear();
-    /* AFE communication re-init is not evidence that a load/charger left.
-     * Retain these faults but discard their partial recovery windows. Cold
-     * MCU boot still starts from zero-initialized RAM; this is not persistence. */
+    /*
+     * AFE 通信重初始化不能证明负载/充电器已移除；保留故障，只作废部分恢复窗口。
+     * MCU 冷启动仍从零初始化 RAM 开始，此状态不持久化。
+     */
     s_filter[2][BMS_SW_F_CHG_OC].active = charge_oc;
     s_filter[2][BMS_SW_F_DSG_OC].active = discharge_oc;
     s_sw_fault[2].bits.b1IchgOcp = charge_oc;
@@ -302,17 +301,20 @@ void bms_sw_protection_init(void)
     bms_sw_fault_reg(2u)->all |= s_sw_fault[2].all;
 }
 
+/* 复位电流保护的恢复确认状态。 */
 void bms_sw_protection_reset_current_recovery(void)
 {
     s_filter[2][BMS_SW_F_CHG_OC].recover_count = 0u;
     s_filter[2][BMS_SW_F_DSG_OC].recover_count = 0u;
 }
 
+/* 查询软件放电过流三级保护是否激活。 */
 uint8_t bms_sw_protection_discharge_overcurrent_active(void)
 {
     return s_filter[2][BMS_SW_F_DSG_OC].active;
 }
 
+/* 按当前测量快照更新软件保护状态。 */
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
 {
     bms_sw_protection_update_groups(inputs, 1u, 1u);
@@ -323,19 +325,21 @@ typedef struct {
     uint16_t pack_voltage_10mv, charge_a10, discharge_a10;
 } bms_sw_measurements_t;
 
+/* 结合物理恢复证据推进电流保护触发与解除滤波。 */
 static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
     uint16_t value, uint16_t trip, uint16_t recover, uint16_t filter_10ms,
     uint8_t third, uint8_t recovery_allowed, uint8_t fresh)
 {
     if (third && state->active && s_current_recovery_requires_evidence && trip != 0u) {
         if (!recovery_allowed) state->recover_count = 0u;
-        /* Normal CADC conversion waits pause; an observed reattachment resets. */
+        /* 正常 CADC 等待暂停计数；观测到重接则重置。 */
         if (!recovery_allowed || !fresh) return 1u;
     }
     return bms_sw_filter_update(state, value, trip, recover, filter_10ms,
                                 BMS_SW_HIGH, third);
 }
 
+/* 以输入快照评估各组软件保护并更新故障状态。 */
 static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
                             const struct PRT_E2ROM_PARAS *p,
                             const bms_sw_measurements_t *measurements,
@@ -349,9 +353,10 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
     charge_current_present = (measurements->charge_a10 > 0u) ? 1u : 0u;
     discharge_current_present = (measurements->discharge_a10 > 0u) ? 1u : 0u;
 
-    /* Sensor-break handling remains fail-safe at the system level, but each
-     * temperature protection group is evaluated only from the sensor it owns.
-     * A missing MOS NTC must not erase battery OTP/UTP state, and vice versa. */
+    /*
+     * 系统仍按温度断线保持故障安全，但每个温度保护分组只使用自身传感器。
+     * MOS NTC 缺失不能清除电池高/低温状态，反之亦然。
+     */
     if (!temperature_enabled || (inputs->battery_temp_valid &&
         (!inputs->mos_temp_required || inputs->mos_temp_valid)))
         bms_error_clear(BMS_ERROR_TEMP_BREAK);
@@ -473,14 +478,13 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             bms_sw_filter_reset(&s_filter[level][BMS_SW_F_VDELTA]);
             f->bits.b1VcellDeltaBig = 0u;
         }
-        /* Compatibility report: preserve SOC/other bits; backend merges HW next. */
+        /* 兼容报告保留 SOC/其它位，后端随后合并硬件位。 */
         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));
         bms_sw_fault_reg(level)->all |= f->all;
     }
 }
 
-/* Main-loop boundary: take one measurement view, then evaluate const inputs.
- * Params are published only by the main-loop candidate commit owner. */
+/* 主循环边界取一次测量视图，再评估只读输入；参数只由主循环候选提交所有者发布。 */
 void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
                                      uint8_t voltage_current_enabled,
                                      uint8_t temperature_enabled)
@@ -535,6 +539,7 @@ void bms_sw_protection_record_fault_edges(void)
     }
 }
 
+/* 查询三级软件保护是否禁止充电。 */
 uint8_t bms_sw_protection_charge_blocked(void)
 {
     const bms_fault_bits_t *f = &s_sw_fault[2].bits;
@@ -543,6 +548,7 @@ uint8_t bms_sw_protection_charge_blocked(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
+/* 查询三级软件保护是否禁止放电。 */
 uint8_t bms_sw_protection_discharge_blocked(void)
 {
     const bms_fault_bits_t *f = &s_sw_fault[2].bits;

@@ -1,4 +1,6 @@
-/* 文件功能：TLSR8251 启动与 IRQ 入口；初始化 SDK/应用并分派硬件中断，业务处理保持在主循环。
+/*
+ * 文件功能：TLSR8251 启动与 IRQ 入口；初始化 SDK/应用并分派硬件中断，
+ * 业务处理保持在主循环。
  * bms/platform/telink/main.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_backend.h"
@@ -6,7 +8,7 @@
 /********************************************************************************************************
  * @file    main.c
  *
- * @brief   This is the source file for BLE SDK
+ * @brief   BLE SDK 应用源文件。
  *
  * @author  BLE GROUP
  * @date    06,2020
@@ -39,6 +41,7 @@
 #include "sh3673510_project_config.h"
 #endif
 
+/* 分派 SDK、UART DMA、单线与总线中断，业务留在主循环。 */
 _attribute_ram_code_ void irq_handler(void)
 {
     irq_blt_sdk_handler();
@@ -49,7 +52,8 @@ _attribute_ram_code_ void irq_handler(void)
 #endif
 }
 
-_attribute_ram_code_ int main (void)    //must run in ramcode
+/* 初始化 MCU 和 SDK，按启动类型进入应用并持续运行主循环。 */
+_attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 {
 	/* irq_handler 由启动汇编/中断向量调用；局部引用显式记录该外部入口。 */
 	void (*const irq_entry)(void) = irq_handler;
@@ -59,7 +63,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 #endif
 	(void)irq_entry;
 
-	DBG_CHN0_LOW;   //debug
+	DBG_CHN0_LOW;   // 调试
 
 	blc_pm_select_internal_32k_crystal();
 
@@ -69,14 +73,14 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		cpu_wakeup_init(LDO_MODE,INTERNAL_CAP_XTAL24M);
 	#endif
 
-	int deepRetWakeUp = pm_is_MCU_deepRetentionWakeup();  //MCU deep retention wakeUp
+	int deepRetWakeUp = pm_is_MCU_deepRetentionWakeup();  // MCU 深睡保留唤醒。
 
 	rf_drv_ble_init();
 
-	gpio_init(!deepRetWakeUp);  //analog resistance will keep available in deepSleep mode, so no need initialize again
+	gpio_init(!deepRetWakeUp);  // 模拟电阻配置在 deepSleep 中保留，无需重新初始化。
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    /* Set the supply latch before enabling output: a low pulse cuts MCU power. */
+    /* 先设置供电锁存电平再启用输出，低脉冲会切断 MCU 电源。 */
     gpio_set_func(MCU_LDO_PIN, AS_GPIO);
     gpio_write(MCU_LDO_PIN, 1u);
     gpio_set_input_en(MCU_LDO_PIN, 0u);
@@ -112,7 +116,7 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 			if (g_chip_version != CHIP_VERSION_A0)
 		#endif
 			{
-				wd_clear(); //clear watch dog
+				wd_clear(); // 清除看门狗。
 			}
 	#endif
 #if BMS_BOARD_DEBUG_LED_ENABLE

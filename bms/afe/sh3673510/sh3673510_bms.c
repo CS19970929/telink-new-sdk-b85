@@ -1,6 +1,9 @@
-/* 文件功能：SH3673510 的 BMS 采样、保护状态、MOS 仲裁与恢复；区分请求、驱动缓存和有效测量。
+/*
+ * 文件功能：SH3673510 的 BMS 采样、保护状态、MOS 仲裁与恢复；
+ * 区分请求、驱动缓存和有效测量。
  * bms/afe/sh3673510/sh3673510_bms.c；实际编译归属见各产品 sources.txt。
  */
+/* 现有产品 10K NTC 表：电阻单位 100 Ω，温度编码为 (degC+40)*10。 */
 #include "sh3673510_ntc.h"
 #include "bms_afe_driver.h"
 #include "tl_common.h"
@@ -21,16 +24,24 @@
 #include <string.h>
 
 #define SH3510_SAMPLE_MS              200u
-#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
-#define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
-#define SH3510_MISSING_CELL_MV       61001u /* D000..D01F unused-cell wire sentinel */
-#define SH3510_DETECT_SETTLE_32K      6400u /* 200 ms: exceeds tLOAD 65 ms and VADC 70 ms */
-/* Existing board policy, not a guaranteed normal-mode ADC threshold from the
- * wake comparator specification. Board removal/reattachment tests are required. */
+#define SH3510_SHORT_RELEASE_SAMPLES    10u /* 按 200 ms 节拍连续确认 LOADOFF 2 秒。 */
+#define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 连续确认负载移除或充电恢复 2 秒。 */
+#define SH3510_MISSING_CELL_MV       61001u /* D000..D01F 未用串位的协议标记。 */
+#define SH3510_DETECT_SETTLE_32K      6400u /*
+ * 200 ms 大于 tLOAD 65 ms 与 VADC 70 ms。
+ */
+/*
+ * 这是现有板级策略，不能把唤醒比较器规格当作正常模式 ADC 阈值保证；
+ * 需要实板移除/重接负载测试。
+ */
 #define SH3510_CHARGER_ON_MV          2100u
 #define SH3510_CHARGER_OFF_MV          900u
-#define SH3510_ADC_MAX_AGE_32K       12800u /* 400 ms permits 250 ms CADC at 200 ms polls */
-#define SH3510_TEMP_STARTUP_32K      38400u /* 1.2 s, one complete normal-mode 0.98 s scan */
+#define SH3510_ADC_MAX_AGE_32K       12800u /*
+ * 400 ms 允许在 200 ms 轮询下完成 250 ms CADC。
+ */
+#define SH3510_TEMP_STARTUP_32K      38400u /*
+ * 1.2 秒覆盖一次完整的正常模式 0.98 秒扫描。
+ */
 
 typedef enum {
     HW_REC_OV = 0, HW_REC_UV, HW_REC_OCD1, HW_REC_OCD2,
@@ -61,8 +72,10 @@ static int16_t s_mos_ntc_raw;
 static uint8_t s_fet_command_valid;
 static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
-/* A failed latch-clear transaction requires full reinitialization. Otherwise
- * successful ADC reads between retries can keep resetting guard failures/WDT. */
+/*
+ * 清锁存事务失败后必须完整重初始化，
+ * 否则重试间的成功 ADC 读取会持续重置门禁失败计数/喂 WDT。
+ */
 static uint8_t s_flag_clear_failed;
 static uint8_t s_detection_initialized;
 static uint8_t s_load_detection;
@@ -80,8 +93,8 @@ static uint32_t s_sampling_start_tick;
 static uint32_t s_vadc_tick;
 static uint32_t s_cadc_tick;
 
-/* Existing product 10K NTC table: R in 100 ohm, T=(degC+40)*10. */
 
+/* 复位转换时间与完成标志，要求重新采集有效 AFE 样本。 */
 static void restart_sampling(void)
 {
     bms_sw_protection_reset_current_recovery();
@@ -95,6 +108,7 @@ static void restart_sampling(void)
 }
 
 #if SH3673510_HW_PROTECT_ENABLE
+/* 将保护延时换算为所需连续样本数。 */
 static uint16_t filter_samples(uint16_t filter_10ms)
 {
     uint32_t ms = (uint32_t)filter_10ms * 10u;
@@ -108,6 +122,7 @@ static uint16_t filter_samples(uint16_t filter_10ms)
 
 #endif
 
+/* 将 NTC 原始测量换算为温度编码。 */
 static uint16_t ntc_temp(uint32_t ohm)
 {
     uint32_t r100 = (ohm + 50u) / 100u;
@@ -117,6 +132,7 @@ static uint16_t ntc_temp(uint32_t ohm)
                           (uint16_t)r100);
 }
 
+/* 按 NTC 电阻反算遗留接口所需的 ADC 毫伏值。 */
 static uint16_t legacy_adc_mv(uint32_t ohm)
 {
     uint32_t mv;
@@ -125,6 +141,7 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
     return (uint16_t)((mv > 3299u) ? 3299u : mv);
 }
 
+/* 累计通信失败并更新 AFE 错误状态。 */
 static void note_comm_error(void)
 {
     sh3673520_comm_stats_t stats;
@@ -135,8 +152,7 @@ static void note_comm_error(void)
     s_load_removed = s_charger_removed = s_charger_known = 0u;
     s_vadc_seen = s_cadc_seen = 0u;
     s_sample_pending = 0u;
-    /* Recovery requires consecutive valid samples, never evidence spanning a
-     * communication gap. Preserve fault latches, discard only qualification. */
+    /* 恢复要求连续有效样本，不能跨通信间断累计；保留故障锁存，仅作废恢复资格。 */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
@@ -152,6 +168,7 @@ static void note_comm_error(void)
     g_bms_system_status.bits.b1Status_AFE1 = 0u;
 }
 
+/* 记录成功通信并恢复连续失败计数。 */
 static void note_comm_ok(void)
 {
     bms_error_clear(BMS_ERROR_SPI);
@@ -159,6 +176,7 @@ static void note_comm_ok(void)
     g_bms_system_status.bits.b1Status_AFE1 = s_hw_afe_error ? 0u : 1u;
 }
 
+/* 取得电池温度范围与有效性快照。 */
 static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
                                             uint16_t *bat_max)
 {
@@ -174,6 +192,7 @@ static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
     return 1u;
 }
 
+/* 汇总当前充电方向的保护阻断条件。 */
 static uint8_t charge_blocked(void)
 {
     return (s_hw_charge_protect ||
@@ -181,6 +200,7 @@ static uint8_t charge_blocked(void)
             bms_features_charge_direction_blocked()) ? 1u : 0u;
 }
 
+/* 汇总当前放电方向的保护阻断条件。 */
 static uint8_t discharge_blocked(void)
 {
     return (s_hw_discharge_protect ||
@@ -190,12 +210,14 @@ static uint8_t discharge_blocked(void)
             bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;
 }
 
+/* 检查 AFE 就绪、通信与输出相关状态。 */
 static uint8_t sh3510_outputs_healthy(void)
 {
     return (s_snapshot_valid && bms_afe_samples_qualified() && !s_hw_afe_error &&
             !bms_error_get(BMS_ERROR_AFE1) && !bms_error_get(BMS_ERROR_SPI)) ? 1u : 0u;
 }
 
+/* 合并输出授权和阻断条件后应用 MOS 请求。 */
 static uint8_t sh3510_apply_requested_fets(void)
 {
     uint8_t charge_on = 0u;
@@ -214,15 +236,10 @@ static uint8_t sh3510_apply_requested_fets(void)
         discharge_on = s_requested_discharge_on ? 1u : 0u;
 
         /*
-         * Common-port reverse-direction recovery:
-         * - charge protection may close CHG, but a verified DSGING state must
-         *   still be allowed to reopen CHG so discharge does not stay on the
-         *   body diode;
-         * - discharge protection is symmetric for a verified CHGING state.
-         *
-         * BSTATUS2 is generated by the AFE direction detector, so this path is
-         * not a blind periodic retry. If both directions are inhibited, neither
-         * side is force-opened.
+         * 同口反向恢复：充电保护可关闭 CHG，但确认 DSGING 后须允许重新开启 CHG，
+         * 避免放电持续流经体二极管；放电保护对确认 CHGING 的情况对称处理。
+         * BSTATUS2 来自 AFE 方向检测器，此路径不是盲目周期重试。
+         * 双方向均受阻时不强开任一侧。
          */
         if (charge_inhibit)
             charge_on = (!discharge_inhibit && discharge_on &&
@@ -232,9 +249,10 @@ static uint8_t sh3510_apply_requested_fets(void)
                             (s_bstatus2 & SH3673520_BSTATUS2_CHGING_MASK)) ? 1u : 0u;
     }
 
-    /* Do not rewrite the same command every 200 ms. A hardware protection may
-     * legitimately change the actual FET output while the requested command
-     * remains unchanged; repeated software writes would fight that behavior. */
+    /*
+     * 不要每 200 ms 重写同一命令。请求未变时硬件保护可以改变实际 FET 输出，
+     * 重复软件写入会对抗该硬件行为。
+     */
     if (s_fet_command_valid &&
         s_last_charge_command == charge_on &&
         s_last_discharge_command == discharge_on)
@@ -253,6 +271,7 @@ static uint8_t sh3510_apply_requested_fets(void)
     return 1u;
 }
 
+/* 发布硬件保护与 FET 状态诊断。 */
 static void publish_hw_status(const sh3673510_control_status_t *s)
 {
 #if SH3673510_HW_PROTECT_ENABLE
@@ -299,9 +318,10 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     bms_error_clear(BMS_ERROR_CBC_DSG);
 #endif
 
-    /* RST1 means RAM configuration returned to reset defaults; RST2 means the
-     * LDO2/SPI domain reset. Never just clear these diagnostics and continue.
-     * Inhibit outputs and re-apply the full verified AFE profile first. */
+    /*
+     * RST1 表示 RAM 配置恢复默认，RST2 表示 LDO2/SPI 域复位。
+     * 不能只清诊断后继续运行，必须先阻断输出并重新应用完整、已校验 AFE 配置。
+     */
     if ((s->flag1 & SH3673520_FLAG1_RST1_MASK) ||
         (s->flag2 & SH3673520_FLAG2_RST2_MASK)) {
         s_afe_reconfigure_required = 1u;
@@ -310,8 +330,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 
 #if SH3673510_HW_PROTECT_ENABLE
     if (s->flag1 & SH3673520_FLAG1_SC_MASK) {
-        /* A latched hardware flag remains set throughout LOADOFF qualification.
-         * Re-observing it must not restart the recovery window every frame. */
+        /* LOADOFF 资格确认期间硬件故障位保持锁存；每帧重见该位不能重新启动恢复窗口。 */
         if (!s_short_latched) {
             s_short_clear_pending = 0u;
             s_short_release_count = 0u;
@@ -324,14 +343,16 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 }
 
 #if SH3673510_HW_PROTECT_ENABLE
+/* 把 SH 硬件保护位合并到公共故障状态。 */
 static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
 {
     union MDLCHGFAULT_REG *f;
     if (s == 0) return;
 
-    /* Hardware protection may act before the 200 ms software sample sees the
-     * violating value. Mirror the latched AFE protection into the Third-level
-     * report so the host never shows "no protection" while a MOS is blocked. */
+    /*
+     * 硬件保护可在 200 ms 软件采样观察到越限前动作；
+     * 将 AFE 锁存保护映射到 Third 报告，避免 MOS 已受阻时上位机仍显示无保护。
+     */
     f = &g_stCellInfoReport.unMdlFault_Third;
     if (s->flag1 & SH3673520_FLAG1_OV_MASK) f->bits.b1CellOvp = 1u;
     if (s->flag1 & SH3673520_FLAG1_UV_MASK) f->bits.b1CellUvp = 1u;
@@ -359,8 +380,10 @@ static uint8_t service_short_recovery(const sh3673510_control_status_t *s)
             bms_error_clear(BMS_ERROR_CBC_DSG);
             return 1u;
         }
-        /* SC reassertion or load reattachment invalidates the pending clear.
-         * Require a complete new LOADOFF window before another attempt. */
+        /*
+         * SC 再次置位或负载重接会使待清除资格失效；
+         * 下次尝试前必须重新完成整个LOADOFF 窗口。
+         */
         s_short_clear_pending = 0u;
         s_short_release_count = 0u;
     }
@@ -382,6 +405,7 @@ static uint8_t service_short_recovery(const sh3673510_control_status_t *s)
     return 1u;
 }
 
+/* 确认保护解除条件连续稳定达到所需时间。 */
 static uint8_t hw_recovery_stable(sh3510_hw_recovery_id_t id,
                                   uint8_t safe,
                                   uint16_t filter_10ms)
@@ -397,6 +421,7 @@ static uint8_t hw_recovery_stable(sh3510_hw_recovery_id_t id,
     return (s_hw_recovery_count[id] >= needed) ? 1u : 0u;
 }
 
+/* 推进已满足恢复条件的硬件标志清除，保留失败结果。 */
 static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
 {
     sh3673510_protection_actual_t actual;
@@ -410,14 +435,17 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
     if (!bms_afe_hw_profile_get(&hw)) return 0u;
 
     actual_ok = sh3673510_control_get_protection_actual(&actual);
-    /* Current naturally becomes zero after OCD turns DSG off, so current alone
-     * is not proof that the external overload disappeared. Require either
-     * stable LOADOFF or a real charge-direction state before clearing OCD. */
+    /*
+     * OCD 关闭 DSG 后电流自然为零，零电流不能证明外部过载已解除。
+     * 清除 OCD 前需连续 LOADOFF 或真实充电方向证据。
+     */
     dsg_ocp_release_ok = (uint8_t)((s_load_removed ||
                                     (s->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK)) ? 1u : 0u);
 
-    /* Reset/wake events are diagnostic. RST1/RST2 are intentionally NOT
-     * cleared here: service_afe_reconfiguration() owns those states. */
+    /*
+     * 复位/唤醒事件用于诊断；此处不清 RST1/RST2，
+     * 这些状态由service_afe_reconfiguration() 管理。
+     */
     c1 |= (uint8_t)(s->flag1 & SH3673520_FLAG1_WK_MASK);
     if (s->flag2 & SH3673520_FLAG2_WDT_MASK) c2 |= SH3673520_FLAG2_WDT_MASK;
 
@@ -462,8 +490,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
                 (u16)((hw.occ_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCC_MASK;
     } else s_hw_recovery_count[HW_REC_OCC] = 0u;
 
-    /* SCONF6 enables AFE temperature protection only for TS1/TS2, therefore
-     * hardware TEMP flag recovery must use the battery sensors only. */
+    /* SCONF6 仅为 TS1/TS2 启用硬件温度保护，因此恢复 TEMP 标志只能使用电池传感器。 */
     bat_temp_ok = battery_temperature_snapshot(&bat_min, &bat_max);
     if (s->flag2 & SH3673520_FLAG2_OTC_MASK) {
         if (hw_recovery_stable(HW_REC_OTC,
@@ -489,7 +516,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
                 (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_UTD_MASK;
     } else s_hw_recovery_count[HW_REC_UTD] = 0u;
 
-    /* SC is deliberately excluded. It is released only after stable LOADOFF. */
+    /* 明确排除 SC；SC 仅在连续 LOADOFF 后解除。 */
     if ((c1 && !sh3673510_control_clear_flag1(c1)) ||
         (c2 && !sh3673510_control_clear_flag2(c2))) {
         s_flag_clear_failed = 1u;
@@ -500,11 +527,12 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
 
 #endif
 
+/* 推进 AFE 重配置流程并检查恢复资格。 */
 static uint8_t service_afe_reconfiguration(void)
 {
     if (!s_afe_reconfigure_required) return 1u;
 
-    /* Configuration and direct OFF below bypass the normal command cache. */
+    /* 下面的配置和直接关闭操作绕过普通命令缓存。 */
     s_fet_command_valid = 0u;
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -553,7 +581,7 @@ static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
                           !(s->bstatus2 & SH3673520_BSTATUS2_LOADON_MASK)) ? 1u : 0u;
         return 1u;
     }
-    /* No stale C+ evidence while LOAD mode is active or before a new VADC scan. */
+    /* 负载检测模式有效或新 VADC 扫描完成前，不使用过时 C+ 证据。 */
     if (!(s->flag2 & SH3673520_FLAG2_VADC_MASK)) return 1u;
     if (SH3673520_ReadRegs(SH3673520_REG_VCHGRH, data, 2u) != SH3673520_OK) return 0u;
     raw = (int16_t)(((uint16_t)data[0] << 8) | data[1]);
@@ -585,8 +613,10 @@ static uint8_t publish_measurements(void)
 
     if (!sh3673510_control_wake()) return 0u;
     if (s_sampling_restart) restart_sampling();
-    /* Read-clear ready flags precede their data reads. A later conversion may
-     * replace a register, but an earlier/stale value is never labelled new. */
+    /*
+     * 先读取读清除就绪标志，再读相应数据。后续转换可能替换寄存器，
+     * 但不能把旧值标为新样本。
+     */
     if (!sh3673510_control_read_status(&status)) return 0u;
     if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return 0u;
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return 0u;
@@ -595,7 +625,7 @@ static uint8_t publish_measurements(void)
     if (SH3673520_CurrentRawToMilliAmp(current.cadc_raw,
         SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return 0u;
 
-    /* Reject the whole frame before modifying the shared report. */
+    /* 修改共享报告前先拒绝整个无效帧。 */
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
         if (cell[i] < 0L || cell[i] > 65535L) return 0u;
     now = pm_get_32k_tick();
@@ -681,10 +711,8 @@ static uint8_t publish_measurements(void)
 #endif
 
         /*
-         * Realtime max/min temperature is the validated battery range TS1/TS2.
-         * Heater and MOS sensor roles come from the product. Only battery NTCs
-         * determine battery extrema. TS4 is published separately for MOS OTP.
-         * Zero remains the legacy invalid/sensor-break sentinel.
+         * 实时温度极值只使用经过校验的 TS1/TS2 电池温度；加热与 MOS 角色由产品定义。
+         * TS4 单独发布给 MOS 高温保护，0 仍是旧协议无效/温度断线标记。
          */
         if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
             g_stCellInfoReport.u16TempMin = bat_temp_min;
@@ -743,8 +771,7 @@ static uint8_t publish_measurements(void)
 #endif
 #if SH3673510_HW_PROTECT_ENABLE
         merge_hw_protection_faults(&status);
-        /* A pending CADC conversion may pause the recovery counter, but an
-         * observed reattachment must discard the old physical window now. */
+        /* 待完成 CADC 可暂停恢复计数，但观察到负载重接时必须立即作废旧物理窗口。 */
         if (!s_load_removed && !(status.bstatus2 & SH3673520_BSTATUS2_CHGING_MASK))
             s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
         if (!s_charger_removed && !(status.bstatus2 & SH3673520_BSTATUS2_DSGING_MASK))
@@ -758,6 +785,7 @@ static uint8_t publish_measurements(void)
     return 1u;
 }
 
+/* 初始化选定 AFE 后端并应用产品配置。 */
 void sh3673510_bms_afe_init(void)
 {
     uint8_t i;
@@ -773,7 +801,7 @@ void sh3673510_bms_afe_init(void)
     s_snapshot_valid = 0u;
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;
-    /* Preserve s_short_latched across AFE communication reinitialization. */
+    /* AFE 通信重初始化期间保留 s_short_latched。 */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
@@ -795,13 +823,14 @@ void sh3673510_bms_afe_init(void)
     note_comm_ok();
 }
 
+/* 采集 AFE 测量和状态，并更新样本有效性。 */
 void sh3673510_bms_afe_sample(void)
 {
     s_sample_pending = 0u;
     sh3673510_board_force_heater_fuse_safe();
     if (s_flag_clear_failed) { note_comm_error(); return; }
     if (!publish_measurements()) {
-        /* Common bms_afe_guard owns OFF, WDT silence and bounded re-init. */
+        /* 公共 bms_afe_guard 管理关闭请求、WDT 静默和有界重初始化。 */
         s_snapshot_valid = 0u;
         note_comm_error();
         return;
@@ -809,18 +838,20 @@ void sh3673510_bms_afe_sample(void)
 
     if (s_afe_reconfigure_required) {
         if (!service_afe_reconfiguration()) note_comm_error();
-        return; /* require fresh post-configuration measurements on the next cycle */
+        return; /* 下一周期必须使用配置完成后的新测量。 */
     }
 
     note_comm_ok();
-    /* Common features owns heater/balance; common guard owns final FET apply. */
+    /* 公共功能模块管理加热/均衡，公共门禁负责最终 FET 应用。 */
 }
 
+/* 查询是否仍有 AFE 采样流程未完成。 */
 uint8_t sh3673510_bms_afe_sample_pending(void)
 {
     return s_sample_pending;
 }
 
+/* 应用独立 AFE 硬件保护配置并返回结果。 */
 uint8_t sh3673510_bms_afe_apply_protection_config(void)
 {
     if (!sh3673510_control_ready()) return 0u;
@@ -829,6 +860,7 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void)
     return 1u;
 }
 
+/* 设置后端充放电 MOS 请求并进行保护仲裁。 */
 uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
                                    uint8_t requested_discharge_on)
 {
@@ -837,6 +869,7 @@ uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
     return sh3510_apply_requested_fets();
 }
 
+/* 设置后端输出授权，禁止绕过公共安全门禁。 */
 void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
 {
     s_output_enabled = enabled ? 1u : 0u;
@@ -851,7 +884,7 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
     }
 }
 
-/* Main-loop RAM query: validity and values belong to the last accepted frame. */
+/* 主循环只读 RAM 查询；有效性与数据属于最近一次接受的帧。 */
 uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
 {
     if (present == 0 || !s_snapshot_valid || !s_charger_known) return 0u;
@@ -859,6 +892,7 @@ uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
     return 1u;
 }
 
+/* 取得均衡、温度和断线策略需要的后端快照。 */
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     if (out == 0) return 0u;
@@ -879,6 +913,7 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     return 1u;
 }
 
+/* 取得后端辅助测量与有效性。 */
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (m == 0) return 0u;
@@ -887,6 +922,7 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     return 1u;
 }
 
+/* 取得 FET 请求、控制和保护阻断诊断。 */
 uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
                                                uint8_t *command_valid,
                                                uint8_t *driver_bits,
@@ -903,6 +939,7 @@ uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
     return 1u;
 }
 
+/* 取得 FET 仲裁的详细诊断字段。 */
 uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail)
 {
     uint32_t common = 0u;
@@ -954,6 +991,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
     return 1u;
 }
 
+/* 按器件与板级时序进入 AFE 休眠。 */
 uint8_t sh3673510_bms_afe_sleep(void)
 {
     s_short_clear_pending = 0u;
@@ -961,7 +999,7 @@ uint8_t sh3673510_bms_afe_sleep(void)
 
     s_fet_command_valid = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
-    /* Even an aborted transition invalidates the old driver/sample evidence. */
+    /* 即使状态转换中止，也必须作废旧驱动/样本证据。 */
     s_snapshot_valid = 0u;
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;

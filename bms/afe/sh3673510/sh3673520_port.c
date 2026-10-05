@@ -1,4 +1,5 @@
-/* 文件功能：SH36735xx 的 TLSR8251 SPI 端口；封装片选、字节交换、时序与总线恢复。
+/*
+ * 文件功能：SH36735xx 的 TLSR8251 SPI 端口；封装片选、字节交换、时序与总线恢复。
  * bms/afe/sh3673510/sh3673520_port.c；实际编译归属见各产品 sources.txt。
  */
 #include "tl_common.h"
@@ -13,7 +14,7 @@
 #define SH3673520_PORT_CS_HOLD_US           5UL
 #define SH3673520_PORT_CS_HIGH_GAP_US       5UL
 
-/* Telink B85 official formula: SCK = SYS_CLK / ((DivClock + 1) * 2). */
+/* Telink B85 官方公式：SCK = SYS_CLK / ((DivClock + 1) * 2)。 */
 #if (CLOCK_SYS_CLOCK_HZ != 16000000UL)
 #error "SH36735xx fixed 500 kHz SPI divider assumes a 16 MHz B85 system clock"
 #endif
@@ -36,6 +37,7 @@ typedef struct {
 
 static sh3673520_port_context_t s_port;
 
+/* 选择产品配置指定的 SPI 引脚组。 */
 static sh3673520_port_status_t sh3673520_port_select_group(
     sh3673520_spi_group_t group,
     SPI_GPIO_GroupTypeDef *sdk_group,
@@ -61,6 +63,7 @@ static sh3673520_port_status_t sh3673520_port_select_group(
     }
 }
 
+/* 配置 Telink SPI 端口参数及回调。 */
 sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group)
 {
     SPI_GPIO_GroupTypeDef sdk_group;
@@ -80,6 +83,7 @@ sh3673520_port_status_t SH3673520_PortConfigure(sh3673520_spi_group_t group)
     return SH3673520_PORT_OK;
 }
 
+/* 初始化 SPI 引脚、模式、时钟与片选。 */
 sh3673520_port_status_t sh3673520_port_init(void)
 {
     SPI_GPIO_GroupTypeDef sdk_group;
@@ -95,14 +99,13 @@ sh3673520_port_status_t sh3673520_port_init(void)
         return status;
     }
 
-    /* Official Telink B85 hardware-SPI setup. */
+    /* 采用官方 Telink B85 硬件 SPI 初始化。 */
     spi_master_gpio_set(sdk_group);
     spi_master_init(SH3673520_PORT_SPI_DIVIDER, SPI_MODE3);
 
     /*
-     * The SDK pin-group helper configures SCLK/MOSI/MISO and its associated CS.
-     * SH36735xx keeps CS low for the whole protocol frame, so the AFE driver
-     * controls CS explicitly while using the hardware SPI shift engine.
+     * SDK 引脚组辅助函数配置 SCLK/MOSI/MISO 及关联 CS；SH36735xx 整帧保持 CS 低，
+     * 因此驱动显式控制 CS，移位仍使用硬件 SPI。
      */
     s_port.cs_pin = cs_pin;
     gpio_write(s_port.cs_pin, 1);
@@ -114,13 +117,14 @@ sh3673520_port_status_t sh3673520_port_init(void)
     return SH3673520_PORT_OK;
 }
 
+/* 拉低片选以开始 AFE SPI 事务。 */
 sh3673520_port_status_t sh3673520_port_begin(void)
 {
     if (s_port.initialized == 0u) {
         return SH3673520_PORT_ERR_NOT_CONFIGURED;
     }
 
-    /* Full-duplex master-write mode: every transmitted byte also receives one. */
+    /* 全双工主机写模式，每发一个字节同时接收一个字节。 */
     reg_spi_ctrl &= ~FLD_SPI_DATA_OUT_DIS;
     reg_spi_ctrl &= ~FLD_SPI_RD;
     gpio_write(s_port.cs_pin, 0);
@@ -128,6 +132,7 @@ sh3673520_port_status_t sh3673520_port_begin(void)
     return SH3673520_PORT_OK;
 }
 
+/* 交换一个 SPI 字节并返回端口状态。 */
 sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx)
 {
     unsigned int start_tick;
@@ -142,10 +147,9 @@ sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx)
     }
 
     /*
-     * This is the byte primitive used by the SH36735xx wire protocol:
-     * writing reg_spi_data starts eight clocks, BUSY marks completion, and the
-     * same register then holds the simultaneously received byte. Do not use the
-     * SDK spi_read() helper here; its RD mode generates extra clock cycles.
+     * SH36735xx 协议的字节原语：写 reg_spi_data 启动 8 个时钟，BUSY 标记完成，
+     * 随后该寄存器保存同时接收的字节。不能调用 SDK spi_read()，
+     * 其 RD 模式会产生额外时钟。
      */
     start_tick = clock_time();
     reg_spi_data = tx;
@@ -159,6 +163,7 @@ sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx)
     return SH3673520_PORT_OK;
 }
 
+/* 释放片选以结束 SPI 事务。 */
 void sh3673520_port_end(void)
 {
     if (s_port.initialized != 0u) {
@@ -168,6 +173,7 @@ void sh3673520_port_end(void)
     }
 }
 
+/* 复位并重新初始化 SPI 端口。 */
 sh3673520_port_status_t sh3673520_port_recover(void)
 {
     if (s_port.configured == 0u) {
@@ -179,6 +185,7 @@ sh3673520_port_status_t sh3673520_port_recover(void)
     return sh3673520_port_init();
 }
 
+/* 提供 SPI 器件所需的微秒等待。 */
 void sh3673520_port_delay_us(uint32_t us)
 {
     while (us != 0u) {
@@ -188,6 +195,7 @@ void sh3673520_port_delay_us(uint32_t us)
     }
 }
 
+/* 提供 SPI 器件所需的毫秒等待。 */
 void sh3673520_port_delay_ms(uint32_t ms)
 {
     while (ms != 0u) {

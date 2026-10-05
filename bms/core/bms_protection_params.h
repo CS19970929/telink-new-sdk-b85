@@ -1,12 +1,13 @@
-/* 文件功能：软件保护参数布局与纯参数校验声明；与 AFE 硬件 profile 分开维护。
+/*
+ * 文件功能：软件保护参数布局与纯参数校验声明；与 AFE 硬件 profile 分开维护。
  * bms/core/bms_protection_params.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_PROTECTION_PARAMS_H_
 #define BMS_PROTECTION_PARAMS_H_
 #include <stdint.h>
-/* 65 words; field names retain the external register contract. */
+/* 共 65 words，字段名保留外部寄存器契约。 */
 struct PRT_E2ROM_PARAS {
-//--------------parameters store sequence and its address allocation-----------
+// 参数存储顺序与地址分配。
 	uint16_t	u16VcellOvp_First;
 	uint16_t	u16VcellOvp_Second;
 	uint16_t	u16VcellOvp_Third;
@@ -89,5 +90,6 @@ typedef struct {
     struct PRT_E2ROM_PARAS protect;
 } PARAM_T;
 extern PARAM_T g_tParam;
+/* 检查软件保护参数的阈值及恢复关系。 */
 uint8_t bms_protection_params_valid(void);
 #endif

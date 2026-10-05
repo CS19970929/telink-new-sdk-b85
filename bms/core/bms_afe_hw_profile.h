@@ -1,4 +1,6 @@
-/* 文件功能：独立 AFE 硬件保护参数；负责默认值、校验、持久化和实际量化值，不代替软件三级保护。
+/*
+ * 文件功能：独立 AFE 硬件保护参数；负责默认值、校验、持久化和实际量化值，
+ * 不代替软件三级保护。
  * bms/core/bms_afe_hw_profile.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_AFE_HW_PROFILE_H_
@@ -64,14 +66,21 @@ typedef struct
 typedef char bms_afe_hw_profile_word_layout_must_be_35[
     (sizeof(bms_afe_hw_profile_t) == (35u * sizeof(u16))) ? 1 : -1];
 
+/* 取得当前产品要求的 AFE 型号标识。 */
 u16 bms_afe_hw_profile_expected_model(void);
+/* 取得当前 AFE 硬件保护能力掩码。 */
 u16 bms_afe_hw_profile_capabilities(void);
+/* 校验型号、能力、阈值和延时范围。 */
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *profile);
+/* 加载并验证独立硬件保护配置，必要时采用默认值。 */
 u8 bms_afe_hw_profile_init(void);
+/* 取得缓存的请求硬件保护配置。 */
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile);
+/* 校验并持久化请求硬件保护配置。 */
 u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *profile);
-/* Returns the values actually represented by the active AFE after quantization. */
+/* 返回当前 AFE 量化后实际可表示的值。 */
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *profile);
+/* 按产品输入构造独立 AFE 硬件保护默认值。 */
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *profile);
 
 typedef enum
@@ -92,10 +101,11 @@ typedef enum
     BMS_AFE_HW_ERROR_ROLLBACK = 5u,
 } bms_afe_hw_error_t;
 
-/* Complete 35-word big-endian payload, independent of frame/transport.
- * Checks the existing write session before parsing or touching storage/AFE. */
+/* 与帧/传输无关的完整 35-word 大端载荷；解析或访问存储/AFE 前先检查现有写会话。 */
 bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty);
+/* 查询最近一次硬件配置应用状态。 */
 u16 bms_afe_hw_profile_apply_state(void);
+/* 取得最近一次硬件保护事务错误。 */
 u16 bms_afe_hw_profile_last_error(void);
 
-#endif /* BMS_AFE_HW_PROFILE_H_ */
+#endif /* 头文件保护：BMS_AFE_HW_PROFILE_H_。 */

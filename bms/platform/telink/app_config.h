@@ -1,10 +1,12 @@
-/* 文件功能：SDK 功能、GPIO 与调试编译配置；量产门禁集中校验，板级差异仍以产品配置为准。
+/*
+ * 文件功能：SDK 功能、GPIO 与调试编译配置；量产门禁集中校验，
+ * 板级差异仍以产品配置为准。
  * bms/platform/telink/app_config.h；实际编译归属见各产品 sources.txt。
  */
 /********************************************************************************************************
  * @file    app_config.h
  *
- * @brief   This is the header file for BLE SDK
+ * @brief   BLE SDK 应用接口头文件。
  *
  * @author  BLE GROUP
  * @date    06,2020
@@ -27,8 +29,10 @@
 #pragma once
 
 
-/* Development is the default. Official release builds pass
- * -DBMS_PRODUCTION_BUILD=1 so unsafe debug/test options fail at compile time. */
+/*
+ * 默认用于开发；正式发布传入 -DBMS_PRODUCTION_BUILD=1，
+ * 使不安全的调试/测试选项在编译时失败。
+ */
 #ifndef BMS_PRODUCTION_BUILD
 #define BMS_PRODUCTION_BUILD 0
 #endif
@@ -36,32 +40,31 @@
 #error "BMS_PRODUCTION_BUILD must be 0 or 1"
 #endif
 
-///////////////////////// Feature Configuration////////////////////////////////////////////////
+// 功能配置
 #include "bms_debug_log_config.h"
 
 #define BLE_APP_PM_ENABLE								1
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #ifndef TEST_CONN_CURRENT_ENABLE
-#define TEST_CONN_CURRENT_ENABLE            			0 	//test connection current, disable UI to have a pure power
+#define TEST_CONN_CURRENT_ENABLE            			0 	// 测量连接电流时关闭 UI，
+// 以测量纯连接功耗。
 #endif
-#define BLE_APP_SECURITY_ENABLE      					0	//ACL Slave device SMP, strongly recommended enabled
+#define BLE_APP_SECURITY_ENABLE      					0	// ACL 从设备 SMP，
+// 强烈建议启用。
 #define BLE_OTA_SERVER_ENABLE							1
 
-/* Flash Protection:
- * 1. Flash protection is enabled by default in SDK. User must enable this function on their final mass production application.
- * 2. User should use "Unlock" command in Telink BDT tool for Flash access during development and debugging phase.
- * 3. Flash protection demonstration in SDK is a reference design based on sample code. Considering that user's final application may
- *    different from sample code, for example, user's final firmware size is bigger, or user have a different OTA design, or user need
- *    store more data in some other area of Flash, all these differences imply that Flash protection reference design in SDK can not
- *    be directly used on user's mass production application without any change. User should refer to sample code, understand the
- *    principles and methods, then change and implement a more appropriate mechanism according to their application if needed.
+/*
+ * Flash 保护：SDK 默认启用，最终量产应用必须启用；
+ * 开发调试使用 Telink BDT 的 Unlock命令访问 Flash。SDK 示例仅供参考，
+ * 应用固件大小、OTA 方案和数据区域不同，不能未经调整直接用于量产；须理解原理和方法，
+ * 按实际应用实现合适的保护机制。
  */
 #define APP_FLASH_PROTECTION_ENABLE						1
 
-/* User must check battery voltage on mass production application to prevent abnormal writing or erasing Flash at a low voltage !!! */
+/* 量产应用必须检查电池电压，防止低电压下异常写入或擦除 Flash！ */
 #define APP_BATT_CHECK_ENABLE							0
 
-///////////////////////// DEBUG  Configuration ////////////////////////////////////////////////
+// 调试配置
 #ifndef DEBUG_GPIO_ENABLE
 #define DEBUG_GPIO_ENABLE                    (BMS_PRODUCTION_BUILD ? 0 : 1)
 #endif
@@ -96,25 +99,25 @@
 #define APP_BATT_CHECK_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
 #endif
 
-/////////////////////// OTA stability ////////////////////////////////////////////////
+// OTA 稳定性
 #define APP_OTA_PROCESS_TIMEOUT_S			180
 #define APP_OTA_DATA_PACKET_TIMEOUT_S		15
 
-/////////////////////// Sample Board Select Configuration ///////////////////////////////
+// 示例板选择配置
 #if (__PROJECT_8258_BLE_SAMPLE__)
-	//Only support BOARD_825X_EVK_C1T139A30 & BOARD_825X_DONGLE_C1T139A3
+	// 仅支持 BOARD_825X_EVK_C1T139A30 和 BOARD_825X_DONGLE_C1T139A3。
 	#define BOARD_SELECT							BOARD_825X_EVK_C1T139A30
 #elif (__PROJECT_8278_BLE_SAMPLE__)
-	//Only support BOARD_827X_EVK_C1T197A30 & BOARD_827X_DONGLE_C1T201A3
+	// 仅支持 BOARD_827X_EVK_C1T197A30 和 BOARD_827X_DONGLE_C1T201A3。
 	#define BOARD_SELECT							BOARD_827X_EVK_C1T197A30
 #elif (__PROJECT_TC321X_BLE_SAMPLE__)
-	//Only support BOARD_TC321X_EVK_C1T357A20
+	// 仅支持 BOARD_TC321X_EVK_C1T357A20。
 	#define BOARD_SELECT							BOARD_TC321X_EVK_C1T357A20
 #endif
 
 
 
-///////////////////////// UI Configuration ////////////////////////////////////////////////////
+// UI 配置
 #define	UI_KEYBOARD_ENABLE								0
 #define	UI_LED_ENABLE									0
 #define	UI_BUTTON_ENABLE								0
@@ -123,9 +126,7 @@
 	#define			CR_VOL_UP				0xf0
 	#define			CR_VOL_DN				0xf1
 
-	/**
-	 *  @brief  Normal keyboard map
-	 */
+	/* 普通键盘键值映射。 */
 	#define		KB_MAP_NORMAL	{	{CR_VOL_DN,		VK_1},	 \
 									{CR_VOL_UP,		VK_2}, }
 
@@ -133,27 +134,29 @@
 	#define		KB_MAP_FN		KB_MAP_NORMAL
 #endif
 
-/////////////////// DEEP SAVE FLG //////////////////////////////////
+// 深睡保留标志
 #if (__PROJECT_TC321X_BLE_SAMPLE__)
 	#define USED_DEEP_ANA_REG				PM_ANA_REG_WD_CLR_BUF1
 #else
-	#define USED_DEEP_ANA_REG               DEEP_ANA_REG0 //u8,can save 8 bit info when deep
+	#define USED_DEEP_ANA_REG               DEEP_ANA_REG0 // u8，可在深睡期间保留 8 位信
+	// 息。
 #endif
-#define	LOW_BATT_FLG					    BIT(0) //if 1: low battery
-#define CONN_DEEP_FLG	                    BIT(4) //if 1: conn deep, 0: ADV deep
+#define	LOW_BATT_FLG					    BIT(0) // 为 1 表示低电量。
+#define CONN_DEEP_FLG	                    BIT(4) // 为 1 表示连接态深睡，
+// 为 0 表示广播态深睡。
 
 
 
-///////////////////////// System Clock  Configuration /////////////////////////////////////////
+// 系统时钟配置
 #define CLOCK_SYS_CLOCK_HZ  								16000000
 
 
-/////////////////// watchdog  //////////////////////////////
+// 看门狗
 #define MODULE_WATCHDOG_ENABLE		1
 #define WATCHDOG_INIT_TIMEOUT		2000  //ms
 
 
-/////////////////////////////////////// PRINT DEBUG INFO ///////////////////////////////////////
+// 打印调试信息
 #if (UART_PRINT_DEBUG_ENABLE)
 	#define DEBUG_INFO_TX_PIN           	GPIO_PC2
 	#define PULL_WAKEUP_SRC_PC2         	PM_PIN_PULLUP_10K

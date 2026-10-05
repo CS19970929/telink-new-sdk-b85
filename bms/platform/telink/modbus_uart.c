@@ -1,4 +1,6 @@
-/* 文件功能：UART DMA 与可选 RS485 方向控制；ISR 交付状态，主循环维护协议和恢复，保留产品通信差异。
+/*
+ * 文件功能：UART DMA 与可选 RS485 方向控制；ISR 交付状态，主循环维护协议和恢复，
+ * 保留产品通信差异。
  * bms/platform/telink/modbus_uart.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -24,13 +26,12 @@ typedef char modbus_dma_packet_size_must_be_272[
 
 #define MODBUS_UART_CLOCK_DIVIDER 9u
 #define MODBUS_UART_BWPC          13u
-#define MODBUS_UART_BITS_PER_CHAR 10u /* 8N1: start + 8 data + stop */
+#define MODBUS_UART_BITS_PER_CHAR 10u /* 8N1：起始位 + 8 个数据位 + 停止位。 */
 #define MODBUS_UART_RECOVERY_US   (1u * 1000u * 1000u)
 
 /*
- * Extra margin after the theoretical complete frame time.  Do not use this as
- * a blind millisecond delay: the dominant DE hold time is calculated from the
- * actual response length and the configured B85 UART divider/BWPC.
+ * 理论整帧时间后的附加余量；禁止当作固定毫秒延时。
+ * DE 主要保持时间按实际应答长度及B85 UART divider/BWPC 配置计算。
  */
 #define MODBUS_RS485_TX_EXTRA_GUARD_US 200u
 
@@ -60,30 +61,29 @@ static volatile u8 s_rs485_tx_timeout_seen = 0u;
 static volatile u32 s_rs485_tx_start_tick = 0u;
 static volatile u32 s_rs485_tx_min_hold_us = 0u;
 
+/* 将 RS485 方向切换为接收。 */
 static void modbus_rs485_receive_mode(void)
 {
-    /* D014 CA-IS2092A: DE and /RE share PA1, 0=receive. */
+    /* D014 CA-IS2092A：DE 和 /RE 共用 PA1，0 表示接收。 */
     gpio_write(BMS_BOARD_RS485_EN_PIN, 0);
     g_bms_rs485_tx_diag.de_state = 0u;
 }
 
+/* 将 RS485 方向切换为发送。 */
 static void modbus_rs485_transmit_mode(void)
 {
-    /* D014 CA-IS2092A: DE and /RE share PA1, 1=transmit. */
+    /* D014 CA-IS2092A：DE 和 /RE 共用 PA1，1 表示发送。 */
     gpio_write(BMS_BOARD_RS485_EN_PIN, 1);
     g_bms_rs485_tx_diag.de_state = 1u;
 }
 
+/* 根据实际 UART 配置与帧长度计算 DE 最短保持微秒数。 */
 static u32 modbus_rs485_min_hold_us(u32 len)
 {
     /*
-     * B85 UART bit clock:
-     *   baud = SYSCLK / ((divider + 1) * (BWPC + 1))
-     *
-     * At 16 MHz, divider=9 and BWPC=13, the real baud is about 114285.7.
-     * One 8N1 character therefore occupies 87.5 us.  Calculate with system
-     * clock ticks so the DE minimum hold follows the actual configured UART,
-     * rather than assuming an ideal 115200 baud.
+     * B85 UART 位时钟：baud = SYSCLK / ((divider + 1) * (BWPC + 1))。
+     * 16 MHz、divider=9、BWPC=13 时实际约 114285.7 波特，每个 8N1 字符占 87.5 us。
+     * 按系统 tick 计算 DE 最小保持时间以跟随实际配置，不假定理想 115200 波特率。
      */
     const u32 ticks_per_us = CLOCK_SYS_CLOCK_HZ / 1000000u;
     const u32 ticks_per_bit =
@@ -98,7 +98,10 @@ static u32 modbus_rs485_min_hold_us(u32 len)
     return frame_us + MODBUS_RS485_TX_EXTRA_GUARD_US;
 }
 
-/* DMA 完成不代表停止位离开引脚；同时满足 UART TX_DONE 与计算的最短线时长后才释放 DE。 */
+/*
+ * DMA 完成不代表停止位离开引脚；
+ * 同时满足 UART TX_DONE 与计算的最短线时长后才释放 DE。
+ */
 static void modbus_rs485_service_tx_done(void)
 {
     if (!s_rs485_tx_active)
@@ -111,7 +114,7 @@ static void modbus_rs485_service_tx_done(void)
     {
         s_rs485_tx_timeout_seen = 1u;
         ++g_bms_rs485_tx_diag.tx_timeout_count;
-        /* Timeout is an aborted frame, never a successful completion. */
+        /* 超时表示帧被中止，绝不能视为成功完成。 */
         {
             u8 irq_state = irq_disable();
             dma_chn_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
@@ -150,11 +153,9 @@ static void modbus_rs485_service_tx_done(void)
     }
 
     /*
-     * Official B85 UART TX_DONE is the authoritative completion indication,
-     * but also enforce the theoretical full-frame line time from the instant
-     * uart_send_dma() is started.  Both conditions must be true before DE is
-     * released.  This makes a premature DE transition impossible even if a
-     * status/IRQ observation is unexpectedly early.
+     * B85 官方 UART TX_DONE 是发送完成依据，
+     * 同时必须满足从启动 uart_send_dma() 起算的理论整帧时间；两者满足后才释放 DE，
+     * 防止异常提前的状态/IRQ 观测导致过早切换。
      */
     if (uart_tx_is_busy())
     {
@@ -177,6 +178,7 @@ static void modbus_rs485_service_tx_done(void)
 }
 #endif
 
+/* 查询 UART 发送或 DE 保持阶段是否仍活动。 */
 u8 modbus_uart_tx_active(void)
 {
 #if MODBUS_RS485_ENABLE
@@ -186,16 +188,17 @@ u8 modbus_uart_tx_active(void)
 #endif
 }
 
+/* 初始化产品 UART、DMA 缓冲区及 RS485 方向。 */
 void modbus_uart_init(void)
 {
 #if !BMS_RS485_TX_DIAG_ENABLE
-    /* Keep the proven new-new-master initialization order. */
+    /* 保留已验证的 new-new-master 初始化顺序。 */
     memset((void *)&s_rx_pkt, 0, sizeof(s_rx_pkt));
     uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
 #endif
 
 #if MODBUS_RS485_ENABLE
-    /* D014: PC2=TX, PC3=RX, PA1=485 DE//RE direction control. */
+    /* D014：PC2=TX，PC3=RX，PA1 控制 485 DE 和 /RE。 */
     gpio_set_func(BMS_BOARD_RS485_EN_PIN, AS_GPIO);
     gpio_write(BMS_BOARD_RS485_EN_PIN, 0);
     gpio_set_input_en(BMS_BOARD_RS485_EN_PIN, 0);
@@ -219,7 +222,7 @@ void modbus_uart_init(void)
               PARITY_NONE,
               STOP_BIT_ONE);
 #if BMS_RS485_TX_DIAG_ENABLE
-    /* Keep RX disabled: unsolicited requests cannot affect the line test. */
+    /* 保持 RX 关闭，避免主动请求影响线路测试。 */
     uart_dma_enable(0, 1);
 #else
     uart_dma_enable(1, 1);
@@ -249,7 +252,7 @@ void modbus_uart_irq_proc(void)
     {
         dma_chn_enable(FLD_DMA_CHN_UART_RX, 0);
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX);
-        /* Even invalid/zero lengths must reach poll so it can rearm RX. */
+        /* 无效/零长度也必须经过 poll，以重新启用 RX。 */
         s_rx_ready = 1u;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         if (s_rx_pkt.dma_len > 0u) bus_mux_on_uart_rx_byte();
@@ -265,11 +268,12 @@ void modbus_uart_irq_proc(void)
             s_rs485_tx_dma_done = 1u;
             ++g_bms_rs485_tx_diag.tx_dma_done_count;
         }
-        /* Main loop owns UART status, timeout recovery and DE release. */
+        /* 主循环负责 UART 状态、超时恢复和 DE 释放。 */
 #endif
     }
 }
 
+/* 主循环处理收发状态、超时恢复与 DE 释放。 */
 int modbus_uart_poll(u8 **p, u32 *len)
 {
     u32 l;
@@ -292,11 +296,12 @@ int modbus_uart_poll(u8 **p, u32 *len)
     return 1;
 }
 
+/* 检查发送状态与长度后启动 UART DMA，不覆盖活动缓冲区。 */
 u8 modbus_uart_send(const u8 *p, u32 len)
 {
     if (p == NULL || len == 0u || len > sizeof(s_tx_pkt.data)) return 0u;
 
-    /* uart_send_dma() unconditionally restarts DMA; never overwrite its buffer. */
+    /* uart_send_dma() 无条件重启 DMA，禁止覆盖其使用中的缓冲区。 */
 #if MODBUS_RS485_ENABLE
     modbus_rs485_service_tx_done();
     if (s_rs485_tx_active || uart_tx_is_busy())
@@ -325,12 +330,13 @@ u8 modbus_uart_send(const u8 *p, u32 len)
     g_bms_rs485_tx_diag.last_tx_len = len;
     ++g_bms_rs485_tx_diag.tx_start_count;
 
-    /* Proven new-new-master TX path: DMA packet is [u32 len + payload]. */
+    /* 已验证的 new-new-master TX 路径：DMA 包为 [u32 长度 + 载荷]。 */
     uart_send_dma((u8 *)&s_tx_pkt);
     return 1u;
 }
 
 #if !BMS_RS485_TX_DIAG_ENABLE
+/* 清除接收状态并重新启用 RX DMA。 */
 static void modbus_uart_rx_reset(void)
 {
     s_rx_pkt.dma_len = 0u;
@@ -347,11 +353,12 @@ static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
 #define RS485_DIAG_PERIOD_US 500000u
 #define RS485_DIAG_FRAME_COUNT 21u
 
-/* 20 pattern/length combinations, then 01 03 4C + 00..4B + C9 B8. */
+/* 20 种图案/长度组合后发送 01 03 4C + 00..4B + C9 B8。 */
 static const u8 s_diag_lengths[5] = {8u, 32u, 64u, 81u, 128u};
 static u8 s_diag_frame[128];
 static u32 s_diag_last_start_tick;
 
+/* 线路测试构建中发送下一组诊断图案。 */
 static void modbus_uart_diag_send_next(void)
 {
     u8 index = g_bms_rs485_tx_diag.pattern_index;
@@ -367,7 +374,7 @@ static void modbus_uart_diag_send_next(void)
         s_diag_frame[1] = 0x03u;
         s_diag_frame[2] = 0x4cu;
         for (i = 0u; i < 76u; ++i) s_diag_frame[3u + i] = (u8)i;
-        s_diag_frame[79] = 0xc9u; /* CRC16/Modbus of bytes 0..78 */
+        s_diag_frame[79] = 0xc9u; /* 字节 0..78 的 CRC16/Modbus。 */
         s_diag_frame[80] = 0xb8u;
     }
     else
@@ -422,7 +429,7 @@ void main_loop_modbus(void)
                     (req_len << 16) | (req_len >= 2u ? req[1] : 0u), rsp_len);
 #endif
 
-        /* Match the proven implementation: always re-arm RX after a frame. */
+        /* 沿用已验证实现：每帧后都重新启用 RX。 */
         modbus_uart_rx_reset();
 
         if (ok && rsp_len)

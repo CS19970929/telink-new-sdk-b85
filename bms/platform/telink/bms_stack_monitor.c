@@ -1,17 +1,19 @@
-/* 文件功能：可选栈水位观察；扫描预填充区帮助评估 SRAM 余量，不代表完整最坏栈深证明。
+/*
+ * 文件功能：可选栈水位观察；扫描预填充区帮助评估 SRAM 余量，不代表完整最坏栈深证明。
  * bms/platform/telink/bms_stack_monitor.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_stack_monitor.h"
 
-/* Linker symbols delimit memory regions, not single C objects. */
+/* 链接器符号界定内存区域，不代表单个 C 对象。 */
 extern uint32_t _bms_main_stack_bottom_[], __SRAM_SIZE[];
 extern uint32_t bms_irq_stack_bottom[], bms_irq_stack_top[];
 volatile bms_stack_watermark_t g_bms_stack_watermark;
 static uint32_t s_main_cursor, s_irq_cursor;
 
-/* Read at most 64 words per stack per main-loop turn. Never paint a live stack.
- * A later IRQ can only make the next pass report a smaller observed free span.
- * Bottom-up scan retains evidence left by short-lived deep calls. */
+/*
+ * 每轮主循环每个栈最多读取 64 个字；禁止填涂活动栈。
+ * 后续 IRQ 只能让下一轮观测空闲范围缩小；自底向上扫描保留短时深调用证据。
+ */
 static void bms_stack_scan(volatile const uint32_t *bottom, uint32_t words,
                            uint32_t *cursor, volatile uint32_t *minimum,
                            uint32_t mask)
@@ -34,6 +36,7 @@ static void bms_stack_scan(volatile const uint32_t *bottom, uint32_t words,
     }
 }
 
+/* 在主循环中有界扫描栈水位并发布观测值。 */
 void bms_stack_monitor_poll(void)
 {
     bms_stack_scan(_bms_main_stack_bottom_,

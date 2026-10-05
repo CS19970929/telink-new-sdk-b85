@@ -11,6 +11,8 @@ def text(name: str) -> str:
     return (HERE / name).read_text(encoding="utf-8", errors="ignore")
 
 def literal(src: str, name: str) -> int:
+    # 注释语言及换行不属于宏值契约，先去掉块注释再匹配数值。
+    src = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
     m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+(0x[0-9A-Fa-f]+|[0-9]+)(?:[uUlL]*)\s*(?:/\*.*\*/)?\s*$", src)
     if not m:
         raise AssertionError(f"missing literal macro {name}")
@@ -299,7 +301,11 @@ require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 # Function-level safety invariants that text-level dedupe must not destroy.
 require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
-require(bms, "/* Preserve s_short_latched across AFE communication reinitialization. */")
+# 通信重初始化不能清短路锁存，检查初始化函数本身而非注释文字。
+init_text = bms.split("void sh3673510_bms_afe_init(void)", 1)[1].split(
+    "void sh3673510_bms_afe_sample(void)", 1)[0]
+if re.search(r"\bs_short_latched\s*=", init_text):
+    raise AssertionError("AFE communication reinitialization clears short latch")
 sleep_text = bms[bms.index("uint8_t sh3673510_bms_afe_sleep(void)"):]
 require(sleep_text, "s_snapshot_valid = 0u;")
 require(sleep_text, "if (!sh3673510_control_sleep())")

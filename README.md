@@ -13,6 +13,7 @@
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
 | [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) · [固定提交证据](docs/AUTOMATED_VALIDATION_EVIDENCE.json) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
+| [应用层中文注释](docs/CHINESE_CODE_COMMENTS.md) · [覆盖与验证摘要](docs/CHINESE_COMMENT_AUDIT.json) | 函数说明、注释宽度和代码一致性 |
 | [BMS 简化实施记录](docs/BMS_SIMPLIFICATION.md) · [验证证据](docs/BMS_SIMPLIFICATION_EVIDENCE.json) | 26 项建议的处理、行为边界和验证证据 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |

@@ -1,4 +1,6 @@
-/* 文件功能：独立 AFE 硬件保护参数；负责默认值、校验、持久化和实际量化值，不代替软件三级保护。
+/*
+ * 文件功能：独立 AFE 硬件保护参数；负责默认值、校验、持久化和实际量化值，
+ * 不代替软件三级保护。
  * bms/core/bms_afe_hw_profile.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_hw_profile.h"
@@ -17,12 +19,14 @@
 #include "sh3673510_quantize.h"
 #endif
 
+/* 将 10 ms 单位延时换算为毫秒。 */
 static u16 ms10_to_ms(u16 filter_10ms)
 {
     u32 ms = (u32)filter_10ms * 10u;
     return (u16)((ms > 65535u) ? 65535u : ms);
 }
 
+/* 取得当前产品要求的 AFE 型号标识。 */
 u16 bms_afe_hw_profile_expected_model(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -34,6 +38,7 @@ u16 bms_afe_hw_profile_expected_model(void)
 #endif
 }
 
+/* 取得当前 AFE 硬件保护能力掩码。 */
 u16 bms_afe_hw_profile_capabilities(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -52,11 +57,13 @@ u16 bms_afe_hw_profile_capabilities(void)
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+/* 将硬件保护值限制到指定 16 位上限。 */
 static u16 dvc_clamp_u16_max(u16 value, u16 max_value)
 {
     return (value > max_value) ? max_value : value;
 }
 
+/* 从启用的保护级别中选择最小触发值。 */
 static u16 dvc_min_enabled_trip(u16 enable_mask,
                                 u16 bit1, u16 value1,
                                 u16 bit2, u16 value2)
@@ -69,9 +76,10 @@ static u16 dvc_min_enabled_trip(u16 enable_mask,
     return min_value;
 }
 
-/* Normalize compiled seed defaults to the existing DVC representable bounds.
- * Customer writes always use strict validation without normalization. No legacy
- * Flash or runtime software-protection values are used here. */
+/*
+ * 将编译默认种子限制到既有 DVC 可表示范围。客户写入始终严格校验，不归一化；
+ * 此处不用旧 Flash 或运行时软件保护值。
+ */
 static void dvc_normalize_default_profile(bms_afe_hw_profile_t *p)
 {
     u16 min_trip;
@@ -132,6 +140,7 @@ static void dvc_normalize_default_profile(bms_afe_hw_profile_t *p)
 }
 #endif
 
+/* 按产品输入构造独立 AFE 硬件保护默认值。 */
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 {
     const struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;
@@ -172,10 +181,7 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
     if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
     dvc_normalize_default_profile(p);
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    /*
-     * D014 hardware-protection defaults are product configuration, not a copy
-     * of the software First/Second/Third protection table.
-     */
+    /* D014 硬件保护默认值是产品配置，不复制软件 First/Second/Third 保护表。 */
     p->cov_mv = SH3673510_HW_DEFAULT_COV_MV;
     p->cov_delay_ms = SH3673510_HW_DEFAULT_COV_DELAY_MS;
     p->cov_recover_mv = SH3673510_HW_DEFAULT_COV_RECOVER_MV;
@@ -215,6 +221,7 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 #endif
 }
 
+/* 验证保护触发与恢复阈值的回差关系。 */
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&
@@ -224,9 +231,8 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /*
-     * Recovery must be below the threshold the AFE can actually encode.
-     * Comparing against the requested value is wrong when the AFE rounds a
-     * request upward to the next hardware step (D014 OCD1/OCC1 hit this case).
+     * 恢复值须低于 AFE 实际编码阈值。AFE 向上量化到下一步进时，与请求值比较会出错，
+     * D014 OCD1/OCC1 即有此情况。
      */
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u ||
@@ -260,6 +266,7 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
     return 1u;
 }
 
+/* 校验型号、能力、阈值和延时范围。 */
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
 {
     u32 sense_uv;
@@ -306,6 +313,7 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
     return 1u;
 }
 
+/* 加载并验证独立硬件保护配置，必要时采用默认值。 */
 u8 bms_afe_hw_profile_init(void)
 {
     bms_afe_hw_profile_t p;
@@ -313,6 +321,7 @@ u8 bms_afe_hw_profile_init(void)
     return bms_afe_hw_profile_validate(&p);
 }
 
+/* 取得缓存的请求硬件保护配置。 */
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 {
     if (p == 0) return 0u;
@@ -320,6 +329,7 @@ u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
     return bms_afe_hw_profile_validate(p);
 }
 
+/* 校验并持久化请求硬件保护配置。 */
 u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 {
     if (!bms_afe_hw_profile_validate(p)) return 0u;
@@ -327,6 +337,7 @@ u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+/* 将 DVC 实际配置诊断值转换为协议字段。 */
 static u8 dvc_effective_u16(dvc1124_config_field_t field, u16 *out)
 {
     u32 value;
@@ -337,6 +348,7 @@ static u8 dvc_effective_u16(dvc1124_config_field_t field, u16 *out)
 }
 #endif
 
+/* 取得硬件实际可表示的保护值及量化状态。 */
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 {
     bms_afe_hw_profile_t requested;
@@ -365,9 +377,10 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
             p->sc_a10 = (u16)(((u32)sc_mv * 10000u) / DVC1124_DEFAULT_SHUNT_UOHM);
         }
 #if !DVC1124_HW_PROTECT_ENABLE
-        /* Requested settings stay persisted and readable.  Effective state,
-         * however, must reflect the compile-time bench isolation: no DVC
-         * threshold protection is actually enabled in hardware. */
+        /*
+         * 请求配置仍持久化且可读；实际生效状态须体现编译期台架隔离：
+         * DVC 硬件实际未启用阈值保护。
+         */
         p->enable_mask = 0u;
         p->cov_mv = 0u;
         p->cov_delay_ms = 0u;
@@ -411,11 +424,13 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
 static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
 
+/* 按协议大端字序取出硬件保护配置字。 */
 static u16 afe_hw_profile_word_be(const u8 *p)
 {
     return (u16)(((u16)p[0] << 8) | p[1]);
 }
 
+/* 比较协议字段是否与当前配置一致。 */
 static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
                                      const bms_afe_hw_profile_t *b)
 {
@@ -427,6 +442,7 @@ static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
     return 1u;
 }
 
+/* 事务失败时恢复原硬件保护配置并记录回滚状态。 */
 static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)
 {
     bms_afe_hw_profile_t verify;
@@ -449,6 +465,7 @@ static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *be
     return (bms_afe_hw_error_t)s_afe_hw_last_error;
 }
 
+/* 校验完整大端配置块，持久化、应用并回读；失败执行回滚。 */
 bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
 {
     bms_afe_hw_profile_t before;
@@ -510,11 +527,13 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
     return BMS_AFE_HW_ERROR_NONE;
 }
 
+/* 查询最近一次硬件配置应用状态。 */
 u16 bms_afe_hw_profile_apply_state(void)
 {
     return s_afe_hw_apply_state;
 }
 
+/* 取得最近一次硬件保护事务错误。 */
 u16 bms_afe_hw_profile_last_error(void)
 {
     return s_afe_hw_last_error;

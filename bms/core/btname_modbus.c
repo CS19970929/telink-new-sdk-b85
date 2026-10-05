@@ -1,4 +1,6 @@
-/* 文件功能：BLE 名称后缀校验、存储和 Modbus 写入；构造广播名称并保持既有名称长度和字符约束。
+/*
+ * 文件功能：BLE 名称后缀校验、存储和 Modbus 写入；构造广播名称并保持既有名称长度和字
+ * 符约束。
  * bms/core/btname_modbus.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_backend.h"
@@ -10,7 +12,8 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
-/* Vendor common/string.h has memcpy but no bounded string APIs. */
+/* Vendor common/string.h 提供 memcpy，但无有界字符串 API。 */
+/* 在指定长度内比较名称字符串。 */
 static int m_strncmp(const char *a, const char *b, unsigned n)
 {
     while (n--) {
@@ -22,6 +25,7 @@ static int m_strncmp(const char *a, const char *b, unsigned n)
     return 0;
 }
 
+/* 在长度边界内复制 BLE 名称字符。 */
 static char *m_strncpy(char *dst, const char *src, unsigned n)
 {
     unsigned i = 0;
@@ -34,6 +38,7 @@ static char g_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
 
 extern u8 my_devName[BTNAME_TOTAL_MAX_LEN];
 
+/* 将当前名称更新到 BLE 广播相关数据。 */
 static void btname_ble_apply(const char *name)
 {
     uint8_t scanrsp[31];
@@ -58,6 +63,7 @@ static void btname_ble_apply(const char *name)
     bls_ll_setAdvEnable(1);
 }
 
+/* 将产品前缀与合法后缀组合成完整 BLE 名称。 */
 static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTAL_MAX_LEN + 1])
 {
     uint8_t slen = 0;
@@ -71,6 +77,7 @@ static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTA
     out[BTNAME_PREFIX_LEN + slen] = '\0';
 }
 
+/* 判断字符是否属于允许的名称后缀集合。 */
 static int is_allowed_suffix_char(unsigned char c)
 {
 #if (BTNAME_SUFFIX_STRICT)
@@ -84,6 +91,7 @@ static int is_allowed_suffix_char(unsigned char c)
 #endif
 }
 
+/* 在长度与字符约束内整理名称后缀。 */
 static uint8_t sanitize_suffix(char *s)
 {
     uint8_t w = 0;
@@ -99,12 +107,14 @@ static uint8_t sanitize_suffix(char *s)
     return w;
 }
 
+/* 恢复产品默认 BLE 名称后缀。 */
 static void btname_set_default_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
     m_strncpy(suffix, "DEFAULT", BTNAME_SUFFIX_MAX_LEN);
     suffix[BTNAME_SUFFIX_MAX_LEN] = '\0';
 }
 
+/* 加载持久化 BLE 名称后缀。 */
 static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
 {
     if (!bms_config_store_get_bt_name_suffix(suffix, BTNAME_SUFFIX_MAX_LEN + 1u)) {
@@ -115,11 +125,13 @@ static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
     return (suffix[0] != '\0');
 }
 
+/* 保存经过校验的 BLE 名称后缀。 */
 static int btname_save_suffix_to_store(const char *suffix)
 {
     return bms_config_store_set_bt_name_suffix(suffix);
 }
 
+/* 加载名称后缀并构造应用 BLE 名称。 */
 void btname_init(void)
 {
     char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
@@ -132,11 +144,13 @@ void btname_init(void)
     btname_ble_apply(g_name);
 }
 
+/* 取得当前 BLE 名称及其长度信息。 */
 const char *btname_get(void)
 {
     return g_name;
 }
 
+/* 校验名称寄存器写入并保存、更新广播名称。 */
 int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs)
 {
     const uint8_t *bytes = (const uint8_t *)regs;
@@ -146,7 +160,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     uint16_t bi = 0;
     uint16_t i;
 
-    /* Preserve the historical empty-write result; storage failure always fails. */
+    /* 保留历史空写入返回结果，存储失败始终报告失败。 */
     const int empty_result = (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510) ? 1 : 0;
     (void)addr;
 

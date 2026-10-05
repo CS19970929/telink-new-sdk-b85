@@ -1,4 +1,6 @@
-/* 文件功能：带版本、序号和 CRC 的 Flash 记录；处理有效记录选择、写入验证与掉电后旧记录恢复。
+/*
+ * 文件功能：带版本、序号和 CRC 的 Flash 记录；处理有效记录选择、写入验证与掉电后旧记
+ * 录恢复。
  * bms/core/storage_record.c；实际编译归属见各产品 sources.txt。
  */
 #include "storage_record.h"
@@ -15,12 +17,14 @@
 #define INVALID_ADDR   0xFFFFFFFFu
 #define IO_CHUNK       32u
 
+/* 将 16 位值按小端写入字节缓冲区。 */
 static void put16(uint8_t *p, uint16_t v)
 {
     p[0] = (uint8_t)v;
     p[1] = (uint8_t)(v >> 8);
 }
 
+/* 将 32 位值按小端写入记录字节缓冲区。 */
 static void put32(uint8_t *p, uint32_t v)
 {
     p[0] = (uint8_t)v;
@@ -29,17 +33,20 @@ static void put32(uint8_t *p, uint32_t v)
     p[3] = (uint8_t)(v >> 24);
 }
 
+/* 从字节缓冲区按小端读取 16 位值。 */
 static uint16_t get16(const uint8_t *p)
 {
     return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
 }
 
+/* 从记录字节缓冲区按小端读取 32 位值。 */
 static uint32_t get32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+/* 将一个字节累积到存储记录 CRC32。 */
 static uint32_t crc_update(uint32_t crc, const uint8_t *data, uint32_t len)
 {
     uint32_t i;
@@ -53,33 +60,39 @@ static uint32_t crc_update(uint32_t crc, const uint8_t *data, uint32_t len)
     return crc;
 }
 
+/* 计算记录载荷的 CRC32 校验值。 */
 uint32_t storage_record_crc32(const uint8_t *data, uint32_t len)
 {
     return ~crc_update(0xFFFFFFFFu, data, len);
 }
 
+/* 把长度向上对齐到指定存储粒度。 */
 static uint32_t align_up(uint32_t value, uint32_t align)
 {
     uint32_t rem = value % align;
     return rem ? value + align - rem : value;
 }
 
+/* 通过存储端口取得写事务权限。 */
 static int begin_write(const storage_record_store_t *s)
 {
     return (s->port->begin == 0) ? 1 : s->port->begin(s->port->ctx);
 }
 
+/* 结束写事务并恢复端口保护状态。 */
 static void end_write(const storage_record_store_t *s)
 {
     if (s->port->end != 0) s->port->end(s->port->ctx);
 }
 
+/* 检查端口与范围后读取存储字节。 */
 static int read_bytes(const storage_record_store_t *s, uint32_t addr,
                       uint8_t *buf, uint32_t len)
 {
     return s->port->read(s->port->ctx, addr, buf, len);
 }
 
+/* 检查端口与范围后编程存储字节。 */
 static int program_bytes(const storage_record_store_t *s, uint32_t addr,
                          const uint8_t *buf, uint32_t len)
 {
@@ -97,28 +110,33 @@ static int program_bytes(const storage_record_store_t *s, uint32_t addr,
     return s->port->program(s->port->ctx, addr + full, tail, unit);
 }
 
+/* 根据地址取得所在擦除扇区起点。 */
 static uint32_t sector_base(const storage_record_store_t *s, uint16_t sector)
 {
     return s->region.base + (uint32_t)sector * s->port->erase_size;
 }
 
+/* 计算地址在记录区域内的扇区索引。 */
 static uint16_t sector_index(const storage_record_store_t *s, uint32_t addr)
 {
     return (uint16_t)((addr - s->region.base) / s->port->erase_size);
 }
 
+/* 计算指定记录槽位的绝对地址。 */
 static uint32_t slot_addr(const storage_record_store_t *s,
                           uint16_t sector, uint16_t slot)
 {
     return sector_base(s, sector) + (uint32_t)slot * s->slot_size;
 }
 
+/* 计算地址对应的记录槽位索引。 */
 static uint16_t slot_index(const storage_record_store_t *s, uint32_t addr)
 {
     uint32_t base = sector_base(s, sector_index(s, addr));
     return (uint16_t)((addr - base) / s->slot_size);
 }
 
+/* 检查指定存储范围是否全部处于擦除态。 */
 static int is_erased(const storage_record_store_t *s, uint32_t addr, uint32_t len)
 {
     uint8_t buf[IO_CHUNK];
@@ -134,6 +152,7 @@ static int is_erased(const storage_record_store_t *s, uint32_t addr, uint32_t le
     return 1;
 }
 
+/* 计算 RAM 载荷的 CRC。 */
 static uint32_t payload_crc(const storage_record_store_t *s,
                             uint32_t sequence, const uint8_t *payload)
 {
@@ -147,6 +166,7 @@ static uint32_t payload_crc(const storage_record_store_t *s,
     return ~crc_update(crc, payload, s->payload_size);
 }
 
+/* 分段读取 Flash 载荷并计算 CRC。 */
 static int flash_payload_crc(const storage_record_store_t *s, uint32_t addr,
                              uint32_t sequence, uint32_t *out)
 {
@@ -173,6 +193,7 @@ static int flash_payload_crc(const storage_record_store_t *s, uint32_t addr,
     return 1;
 }
 
+/* 验证记录头、提交标记、长度与载荷 CRC。 */
 static int valid_record(const storage_record_store_t *s, uint32_t addr,
                         const uint8_t *h, uint32_t *sequence)
 {
@@ -189,11 +210,13 @@ static int valid_record(const storage_record_store_t *s, uint32_t addr,
            calc == get32(h + OFF_CRC);
 }
 
+/* 按回绕规则比较两条记录序号的新旧。 */
 static int sequence_newer(uint32_t a, uint32_t b)
 {
     return (int32_t)(a - b) > 0;
 }
 
+/* 校验分区和端口配置并建立记录访问状态。 */
 int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
                         storage_region_t region, uint32_t magic,
                         uint16_t schema, uint16_t payload_size)
@@ -257,6 +280,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
     return 1;
 }
 
+/* 选择可写槽位，必要时擦除目标扇区。 */
 static int prepare_target(storage_record_store_t *s, uint32_t *addr, uint8_t *erase)
 {
     uint16_t sec, slot, next;
@@ -323,6 +347,7 @@ done:
     return ok;
 }
 
+/* 擦除并重新初始化指定记录区域。 */
 int storage_record_format(storage_record_store_t *s)
 {
     uint16_t sec;

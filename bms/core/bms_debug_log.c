@@ -1,8 +1,14 @@
-/* 文件功能：运行调试日志 RAM 环形缓存与只读接口；编译关闭时裁剪记录点，不写 Flash、不主动发送。
- * bms_debug_log.c；源码编译归属见 bms/products/<product>/sources.txt，具体实现受产品宏约束。
+/*
+ * 文件功能：运行调试日志 RAM 环形缓存与只读接口；编译关闭时裁剪记录点，
+ * 不写 Flash、不主动发送。
+ * bms_debug_log.c；源码编译归属见 bms/products/<product>/sources.txt，
+ * 具体实现受产品宏约束。
  */
-/* 运行日志 RAM 环形缓存和只读寄存器窗口；不启动 UART、不等待发送、不申请堆。
- * 记录与读取均由主循环执行，不与 ISR 共享；普通 suspend 保留 RAM，deep sleep/reset 丢失。 */
+/*
+ * 运行日志 RAM 环形缓存和只读寄存器窗口；不启动 UART、不等待发送、不申请堆。
+ * 记录与读取均由主循环执行，不与 ISR 共享；普通 suspend 保留 RAM，
+ * deep sleep/reset 丢失。
+ */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
 #if BMS_DEBUG_LOG_ENABLE
@@ -10,16 +16,20 @@
 
 static uint16_t s_records[BMS_DEBUG_LOG_CAPACITY][BMS_DEBUG_LOG_RECORD_WORDS];
 static uint32_t s_next_sequence; /* 下一条序号；自然回绕，槽位由低 6 位决定。 */
-static uint32_t s_overwritten;   /* 缓冲满后覆盖总数，饱和计数；不是某个客户端的丢失数。 */
+static uint32_t s_overwritten;   /*
+ * 缓冲满后覆盖总数，饱和计数；不是某个客户端的丢失数。
+ */
 static uint32_t s_boot_tick;
 static uint16_t s_count;
 
+/* 将 32 位值拆为高字在前的两个 16 位日志字。 */
 static void put32(uint16_t *words, uint32_t value)
 {
     words[0] = (uint16_t)(value >> 16);
     words[1] = (uint16_t)value;
 }
 
+/* 初始化运行日志 RAM 环形缓存与能力信息。 */
 void bms_debug_log_init(void)
 {
     memset(s_records, 0, sizeof(s_records));
@@ -29,6 +39,7 @@ void bms_debug_log_init(void)
     s_boot_tick = bms_diag_tick();
 }
 
+/* 按等级和模块筛选后写入一条结构化运行日志。 */
 void bms_debug_log_write(uint8_t level, uint8_t module, uint16_t event,
                          uint32_t arg0, uint32_t arg1)
 {
@@ -48,12 +59,14 @@ void bms_debug_log_write(uint8_t level, uint8_t module, uint16_t event,
 }
 #endif
 
+/* 判断寄存器范围是否与运行日志窗口重叠。 */
 int bms_debug_log_overlaps(uint16_t start, uint16_t count)
 {
     return count != 0u && start < BMS_DEBUG_LOG_END &&
            (uint32_t)start + count > BMS_DEBUG_LOG_BASE;
 }
 
+/* 检查请求是否为支持的运行日志只读范围。 */
 int bms_debug_log_is_read(const uint8_t *frame, uint32_t length)
 {
     uint16_t start;
@@ -63,8 +76,10 @@ int bms_debug_log_is_read(const uint8_t *frame, uint32_t length)
         (uint16_t)(((uint16_t)frame[4] << 8) | frame[5]));
 }
 
-/* 一次请求内无主循环生产者交错；跨请求由上位机校验每条序号，拒绝被覆盖的槽位。
- * 所有 u32 都是高 word 在前，每个 word 按 Modbus 大端发送。关闭时仍可探测能力。 */
+/*
+ * 一次请求内无主循环生产者交错；跨请求由上位机校验每条序号，拒绝被覆盖的槽位。
+ * 所有 u32 都是高 word 在前，每个 word 按 Modbus 大端发送。关闭时仍可探测能力。
+ */
 int bms_debug_log_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;

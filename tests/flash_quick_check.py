@@ -156,7 +156,12 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("bms_state_store_write_runtime_min", run)
         self.assertNotIn("flash_read_page", run)
         self.assertNotIn("runtime_crc", run)
-        self.assertIn("Aging runtime counts awake BMS execution only", run)
+        # 深睡准备仅重设计时基准，不补算睡眠期间的运行时长。
+        prepare = run.split("void Runtime_PrepareForDeepSleep(void)", 1)[1].split(
+            "void Runtime_CancelPendingDeepSleep(void)", 1)[0]
+        self.assertIn("g_runtime_last_tick_32k = pm_get_32k_tick();", prepare)
+        self.assertIn("g_runtime_tick_ready = 1u;", prepare)
+        self.assertNotIn("runtime_apply_elapsed_ticks(", prepare)
 
     def test_state_keeps_changed_value_write_semantics(self):
         state = text(STATE_C)

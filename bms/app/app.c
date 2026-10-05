@@ -1,10 +1,12 @@
-/* 文件功能：应用调度与 BLE 电源策略；主循环按 200 ms 执行 AFE/SOC/MOS，协调通信、OTA 和休眠入口。
+/*
+ * 文件功能：应用调度与 BLE 电源策略；主循环按 200 ms 执行 AFE/SOC/MOS，
+ * 协调通信、OTA 和休眠入口。
  * bms/app/app.c；实际编译归属见各产品 sources.txt。
  */
 /********************************************************************************************************
  * @file    app.c
  *
- * @brief   This is the source file for BLE SDK
+ * @brief   BLE SDK 应用源文件。
  *
  * @author  BLE GROUP
  * @date    06,2022
@@ -54,20 +56,31 @@
 #include "bus_mux.h"
 #endif
 
+/* 处理 BLE 断开并恢复广播和电源策略。 */
 void task_terminate(u8 e, u8 *p, int n);
+/* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void);
+/* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
                              uint32_t sample_tick_32k);
+/* 低功耗采样唤醒回调只置位，由主循环执行采样。 */
+/* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
 static void app_sample_wakeup(int type);
+/* 构造广播与扫描响应中的产品名称和数据。 */
 void ble_build_adv_scanrsp(void);
+/* 切换为非定向 BLE 广播。 */
 void app_switch_to_undirected_adv(u8 e, u8 *p, int n);
+/* 处理 BLE 连接建立并更新连接与低功耗状态。 */
 void task_connect(u8 e, u8 *p, int n);
+/* 恢复 suspend 后的外设与应用时序状态。 */
 void task_suspend_exit(u8 e, u8 *p, int n);
+/* 处理 BLE 数据长度交换事件。 */
 void task_dle_exchange(u8 e, u8 *p, int n);
+/* 分派 BLE 主机事件并更新应用连接状态。 */
 int app_host_event_callback(u32 h, u8 *para, int n);
 
 #if BMS_DEBUG_LOG_ENABLE
-static volatile u32 s_debug_suspend_exits; /* Only wake callback writes; main loop reads. */
+static volatile u32 s_debug_suspend_exits; /* 只有唤醒回调写入，主循环读取。 */
 #endif
 #define APP_PM_TICKS_PER_SEC 32000u
 
@@ -103,6 +116,7 @@ static u32 s_power_off_retry_tick;
 static u8 s_acc_high_seen, s_acc_sleep_committed, s_acc_retry_ready, s_acc_disconnect_sent;
 static u32 s_acc_high_tick, s_acc_retry_tick;
 
+/* 检查并取得同一采样周期的有效测量快照。 */
 static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!bms_afe_get_aux_measurements(m)) return 0u;
@@ -110,13 +124,18 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
             BMS_SOC_MAX_SAMPLE_GAP_32K) ? 1u : 0u;
 }
 
-/* SDK low-power callback only schedules work. I2C, SOC and Flash stay in the
- * cooperative main loop, including when invoked from a suspend callback. */
+/*
+ * SDK 低功耗回调只安排任务；I2C、SOC、Flash 仍在协作主循环执行，
+ * 包括从 suspend 回调发起的任务。
+ */
 
+/* 按配置安排下次周期采样唤醒；关闭周期唤醒时为空入口。 */
 static void app_schedule_sample_wakeup(void)
 {
-    /* Fault recovery needs consecutive samples even during the power test.
-     * Query owned RAM state, never infer a target from AFE driver feedback. */
+    /*
+     * 功耗测试期间故障恢复也需连续样本；查询状态所有者的 RAM，
+     * 不从驱动反馈反推目标请求。
+     */
     if (BMS_APP_SAMPLE_WAKEUP_ENABLE || bms_afe_current_recovery_pending())
         bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
     else
@@ -125,12 +144,15 @@ static void app_schedule_sample_wakeup(void)
 
 #else
 
+/* 设置下一次周期采样的低功耗唤醒期限。 */
+/* 按配置安排下次周期采样唤醒；关闭周期唤醒时为空入口。 */
 static void app_schedule_sample_wakeup(void)
 {
     bls_pm_setAppWakeupLowPower(
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
 }
 
+/* 按产品配置读取开关输入状态。 */
 static UINT8 board_switch_is_on(void)
 {
 #ifdef _DI_SWITCH_SYS_ONOFF
@@ -141,6 +163,7 @@ static UINT8 board_switch_is_on(void)
 }
 
 #endif
+/* 从低功耗时间差中消费完整秒数并保留余量。 */
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
 	u32 now_tick_32k;
@@ -169,6 +192,7 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 	return elapsed_sec;
 }
 
+/* 按秒推进历史事件与运行计时任务。 */
 static void app_event_log_1s_task(void)
 {
 	bms_event_log_sample_t sample;
@@ -213,6 +237,7 @@ static void app_event_log_1s_task(void)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 
+/* 完成关断准备后按板级流程关闭电源。 */
 static int app_enter_power_off(void)
 {
     bms_afe_aux_measurements_t m;
@@ -221,9 +246,10 @@ static int app_enter_power_off(void)
     if (s_power_off_committed || ota_is_working ||
         !app_flash_lock_restore_enabled() ||
         BUS_STATE_OWC_IDLE != bus_mux_get_state()) return 0;
-    /* An explicit sleep command does not require low voltage, a disconnected
-     * BLE link or valid current sampling. Drain its response before cutting
-     * power; automatic low-voltage shutdown retains its original qualifiers. */
+    /*
+     * 显式休眠命令不要求低电压、BLE 断连或有效电流样本。断电前必须发完命令应答；
+     * 自动低压关机保留原资格条件。
+     */
     if (deepsleep_en)
     {
         if (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u) return 0;
@@ -236,8 +262,10 @@ static int app_enter_power_off(void)
     s_power_off_retry_ready = 1u;
     s_power_off_retry_tick = now;
 
-    /* No Flash operation can be deferred until after PC4 drops. The sleep
-     * event records the attempt; a failed shutdown never cuts the supply. */
+    /*
+     * PC4 拉低后不能再延后执行 Flash 操作；休眠事件记录尝试，
+     * shutdown 失败绝不切断供电。
+     */
     if (!bms_state_store_write_all(SOC_Calculate_Element.u8SOC_Now,
                                SOC_Calculate_Element.u8DSG_SOC_Int,
                                SOC_Calculate_Element.u32Cycle_times) ||
@@ -250,12 +278,14 @@ static int app_enter_power_off(void)
     s_power_off_committed = 1u;
     bls_pm_setAppWakeupLowPower(0u, 0u);
     s_low_power_mode = true;
-    gpio_write(MCU_LDO_PIN, 0u); /* final hardware action: whole MCU loses power */
+    gpio_write(MCU_LDO_PIN, 0u); /* 最后硬件动作使整个 MCU 掉电。 */
     return 1;
 }
 
-/* ACC sleep keeps PC4 high. Deep sleep wakes through a full normal boot;
- * never resume sampling against the intentionally shutdown AFE. */
+/*
+ * ACC 休眠保持 PC4 高；深睡唤醒走完整正常启动，
+ * 不能对已主动 shutdown 的 AFE 直接恢复采样。
+ */
 static void app_acc_sleep_hold(void)
 {
     if (!gpio_read(ACC_MCU_PIN)) {
@@ -264,10 +294,11 @@ static void app_acc_sleep_hold(void)
     }
     cpu_set_gpio_wakeup(ACC_MCU_PIN, Level_Low, 1);
     cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
-    /* PAD may become active between the check and sleep entry. */
+    /* PAD 可能在检查后、入睡前变为有效。 */
     if (!gpio_read(ACC_MCU_PIN)) start_reboot();
 }
 
+/* 判断 ACC 条件是否请求进入休眠。 */
 static int app_acc_sleep_requested(void)
 {
     u32 now = pm_get_32k_tick();
@@ -281,6 +312,7 @@ static int app_acc_sleep_requested(void)
     return (u32)(now - s_acc_high_tick) >= APP_ACC_HIGH_STABLE_TICKS;
 }
 
+/* 满足通信和硬件门禁后进入 ACC 休眠。 */
 static int app_enter_acc_sleep(void)
 {
     u32 now = pm_get_32k_tick();
@@ -317,17 +349,21 @@ static int app_enter_acc_sleep(void)
 
 #else
 
+/* 检查当前深睡唤醒引脚是否已处于有效电平。 */
 static int app_deepsleep_pad_wakeup_active(void)
 {
-	/* Use the selected product wake nets; active levels still need board validation. */
+	/* 使用所选产品唤醒网络，实际有效电平仍需实板验证。 */
 	if (board_switch_is_on()) return 1;
-	if (gpio_read(BMS_BOARD_INT_WK_MCU_PIN)) return 1;      /* active high */
-	if (!gpio_read(BMS_BOARD_AFE_ALARM_PIN)) return 1;     /* active low */
-	if (!gpio_read(BMS_BOARD_AFE_RESET_OUT_PIN)) return 1; /* active low */
+	if (gpio_read(BMS_BOARD_INT_WK_MCU_PIN)) return 1;      /* 高电平有效。 */
+	if (!gpio_read(BMS_BOARD_AFE_ALARM_PIN)) return 1;     /* 低电平有效。 */
+	if (!gpio_read(BMS_BOARD_AFE_RESET_OUT_PIN)) return 1; /* 低电平有效。 */
 	return 0;
 }
 
-/* 仅在 OTA、Flash、UART、总线及唤醒脚门禁满足后尝试深睡；失败保留请求并按 32K 时间退避。 */
+/*
+ * 仅在 OTA、Flash、UART、总线及唤醒脚门禁满足后尝试深睡；
+ * 失败保留请求并按 32K 时间退避。
+ */
 static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 {
     static u32 last_attempt_tick_32k;
@@ -335,14 +371,16 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     u32 now_tick_32k = pm_get_32k_tick();
     int sleep_status;
 
-    /* These gates must precede every explicit deep-sleep entry, not just the
-     * BLE suspend policy below. Never interrupt OTA/unlocked Flash or UART. */
+    /*
+     * 每个显式深睡入口前都需这些门禁，不仅是下方 BLE suspend 策略；
+     * 不能打断 OTA、未锁 Flash 或 UART。
+     */
     if (ota_is_working || !app_flash_lock_restore_enabled() ||
         SH3673510_FIXED_UART_BLOCKS_PM || uart_tx_is_busy() ||
         modbus_uart_tx_active() ||
         app_deepsleep_pad_wakeup_active()) return 0;
 
-    /* Keep an expired sleep request pending, but never spin on failed SPI/PM. */
+    /* 已到期休眠请求保持待处理，但 SPI/PM 失败时不能忙循环。 */
     if (attempt_ready && (u32)(now_tick_32k - last_attempt_tick_32k) <
         3u * APP_PM_TICKS_PER_SEC) return 0;
     last_attempt_tick_32k = now_tick_32k;
@@ -353,8 +391,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 0u);
         return 0;
     }
-    /* GPIO may change during the AFE transaction. The next normal sample
-     * wakes/restores the AFE after an aborted MCU transition. */
+    /* AFE 事务期间 GPIO 可变化；MCU 转换中止后由下个正常采样唤醒/恢复 AFE。 */
     if (app_deepsleep_pad_wakeup_active()) {
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 2u, 0u);
         return 0;
@@ -368,6 +405,7 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
+/* 限制休眠时间累计值，避免异常跨度影响策略。 */
 static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
 {
     if (elapsed >= limit || increment >= limit - elapsed) return limit;
@@ -400,24 +438,22 @@ static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
 _attribute_data_retention_ u8 ota_is_working = 0;
 _attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PUBLIC;
 
-/**
- * @brief      LinkLayer RX & TX FIFO configuration
- */
-/* CAL_LL_ACL_RX_BUF_SIZE(maxRxOct): maxRxOct + 22, then 16 byte align */
+/* @brief 配置链路层接收与发送 FIFO。 */
+/* CAL_LL_ACL_RX_BUF_SIZE(maxRxOct) 为 maxRxOct+22，再按 16 字节对齐。 */
 #define RX_FIFO_SIZE 64
-/* must be: 2^n, (power of 2);at least 4; recommended value: 4, 8, 16 */
+/* 必须为 2 的幂且至少 4，推荐 4、8、16。 */
 #define RX_FIFO_NUM 8
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct): maxTxOct + 10, then 4 byte align */
+/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct) 为 maxTxOct+10，再按 4 字节对齐。 */
 #define TX_FIFO_SIZE 40
-/* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
+/* 必须为 2 的幂且至少 8，推荐 8、16、32，不允许其它值。 */
 #define TX_FIFO_NUM 16
 
 #else
-/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct):  maxTxOct + 10, then 4 byte align */
+/* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct) 为 maxTxOct+10，再按 4 字节对齐。 */
 #define TX_FIFO_SIZE 40
-/* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
+/* 必须为 2 的幂且至少 8，推荐 8、16、32，不允许其它值。 */
 #define TX_FIFO_NUM 16
 
 #endif
@@ -447,20 +483,23 @@ u8 tbl_scanRspLen;
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 
+/* 合并保护与功能阻断条件，更新充放电 MOS 请求。 */
 void mos_update(void)
 {
-    /* D008 has no discrete key. ACC/PB1 have no business policy yet. The
-     * existing output-enable, protection and guard own final authorization;
-     * never compare a product request with driver feedback. */
+    /*
+     * D008 无独立按键，ACC/PB1 尚无业务策略。现有输出授权、保护和门禁负责最终资格，
+     * 不能将产品请求与驱动反馈直接比较。
+     */
     g_bms_system_status.bits.b1Status_Cool = 0u;
     (void)bms_afe_set_fets(1u, 1u);
 }
 
+/* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
 static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-	/* PD4 is the heater fuse drive, not BLE RF power. Safe inactive boot. */
+	/* PD4 是加热保险丝驱动，不是 BLE 射频供电；启动保持安全无效电平。 */
 	gpio_set_func(RF_EN_PIN, AS_GPIO);
 	gpio_set_input_en(RF_EN_PIN, 0);
 	gpio_set_output_en(RF_EN_PIN, 1);
@@ -483,11 +522,13 @@ static void board_init(void)
 
 #else
 
+/* 合并保护与功能阻断条件，更新充放电 MOS 请求。 */
 void mos_update(void)
 {
-	/* The SH products use a common-port BMS policy. In the healthy normal state both back-to-back
-	 * FETs are requested ON. The AFE adapter applies direction-specific
-	 * protection/fail-safe blocking; PA0/SW1 is not a DSG gate. */
+	/*
+	 * SH 产品采用同口策略；健康正常状态请求两个背靠背 FET 开启，
+	 * AFE 后端按方向保护与故障安全阻断；PA0/SW1 不是 DSG 门禁。
+	 */
 	uint8_t chg_target = 1u;
 	uint8_t dsg_target = 1u;
 
@@ -495,26 +536,27 @@ void mos_update(void)
 	(void)bms_afe_set_fets(chg_target, dsg_target);
 }
 
+/* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
 static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-	/* Heater GPIO ownership belongs to the feature backend and product capability. */
+	/* 加热 GPIO 归功能后端与产品能力管理。 */
 
 	gpio_set_func(BMS_BOARD_SWITCH_PIN, AS_GPIO);
 	gpio_set_input_en(BMS_BOARD_SWITCH_PIN, 1);
 	gpio_set_output_en(BMS_BOARD_SWITCH_PIN, 0);
 
-	/* Keep the selected communication rail enabled during normal operation.
-	 * D013 retains the inherited mapping pending schematic verification. */
+	/* 正常运行保持所选通信电源开启；D013 沿用映射，等待原理图验证。 */
 	gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
 	gpio_write(BMS_BOARD_CMNT_EN_PIN, 1);
 	gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
 	gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
 
-	/* PD3 is the schematic CMNT-WK input.  Its active polarity is not yet
-	 * hardware-verified, so configure it as input but do not invent a wake
-	 * polarity here. */
+	/*
+	 * PD3 是原理图 CMNT-WK 输入；有效极性尚未实板确认，只配置输入，
+	 * 不擅自定义唤醒极性。
+	 */
 	gpio_set_func(BMS_BOARD_CMNT_WK_PIN, AS_GPIO);
 	gpio_set_output_en(BMS_BOARD_CMNT_WK_PIN, 0);
 	gpio_set_input_en(BMS_BOARD_CMNT_WK_PIN, 1);
@@ -527,6 +569,7 @@ _attribute_data_retention_ u32 advertise_begin_tick;
 
 _attribute_data_retention_ u8 sendTerminate_before_enterDeep = 0;
 
+/* 请求常规 BLE 连接参数。 */
 void app_ble_request_normal_conn_param(void)
 {
 	if (device_in_connection_state)
@@ -535,6 +578,7 @@ void app_ble_request_normal_conn_param(void)
 	}
 }
 
+/* 请求 OTA 所需的 BLE 连接参数。 */
 void app_ble_request_ota_conn_param(void)
 {
 	if (device_in_connection_state)
@@ -543,6 +587,7 @@ void app_ble_request_ota_conn_param(void)
 	}
 }
 
+/* 恢复常规 BLE 发射功率及连接设置。 */
 void app_ble_restore_normal_power(void)
 {
 #if (BLE_APP_PM_ENABLE)
@@ -554,48 +599,35 @@ void app_ble_restore_normal_power(void)
 _attribute_data_retention_ u32 latest_user_event_tick;
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_ENTER"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_SUSPEND_ENTER"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
+/* 处理 SDK 休眠进入事件并保存必要状态。 */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
     (void)e;
     (void)p;
     (void)n;
-    /* No ACC/load PAD wake policy. SDK application timer bounds sampling. */
+    /* 无 ACC/负载 PAD 唤醒策略，采样由 SDK 应用定时器限定。 */
 }
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_ADV_DURATION_TIMEOUT"
- */
+/* @brief 链路层 BLT_EV_FLAG_ADV_DURATION_TIMEOUT 事件回调。 */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_CONNECT"
- */
+/* @brief 链路层 BLT_EV_FLAG_CONNECT 事件回调。 */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_TERMINATE"
- */
+/* @brief 链路层 BLT_EV_FLAG_TERMINATE 事件回调。 */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_EXIT"
- */
+/* @brief 链路层 BLT_EV_FLAG_SUSPEND_EXIT 事件回调。 */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
- */
+/* @brief 链路层 BLT_EV_FLAG_DATA_LENGTH_EXCHANGE 事件回调。 */
 
-/**
- * @brief      callback function of Host Event
- */
+/* @brief Host 事件回调。 */
 
-/**
- * @brief      power management code for application
- */
+/* @brief 应用电源管理。 */
 /* 根据运行状态和通信互锁选择 SDK suspend/深睡；调试日志积压本身不增加休眠阻断条件。 */
 void blt_pm_proc(void)
 {
@@ -622,9 +654,11 @@ void blt_pm_proc(void)
         pm_block |= DIAG_PM_BLOCK_CURRENT;
     if (s_sample_due) pm_block |= DIAG_PM_BLOCK_SAMPLE_PENDING;
 
-    /* 0x1102=0x000A is a latched power-off request, not an idle-suspend hint.
-     * Keep it pending across OTA/bus/persistence/AFE failures. Return here so
-     * the automatic low-voltage timer cannot reset the five-second retry gate. */
+    /*
+     * 0x1102=0x000A 是锁存关机请求，不是空闲 suspend 提示。
+     * OTA/总线/持久化/AFE 失败时保留请求；此处直接返回，
+     * 防止自动低压计时重置五秒重试门禁。
+     */
     if (deepsleep_en)
     {
         pm_block |= DIAG_PM_BLOCK_POWER_OFF;
@@ -653,10 +687,8 @@ void blt_pm_proc(void)
         return;
     }
 
-    /* Preserve voltage thresholds/timeouts, but only qualified samples may
-     * accumulate them. No key, load-detect or communication-error shutdown. */
-    /* A BLE link permits between-event suspend, but still prevents automatic
-     * low-voltage power-off. The SDK schedules connection-event wakeups. */
+    /* 保留电压阈值/超时，但仅合格样本可累计；不增加按键、负载检测或通信错误关机。 */
+    /* BLE 连接允许事件间 suspend，但仍禁止自动低压断电；SDK 调度连接事件唤醒。 */
     if (valid && !busy && !device_in_connection_state)
     {
         if (g_stCellInfoReport.u16VCellMin < 2550u)
@@ -690,8 +722,10 @@ void blt_pm_proc(void)
         if (low_voltage_seconds >= limit_seconds && app_enter_power_off()) return;
     }
 
-    /* Exact signed mA avoids the old 0.1 A truncation and checks both sides.
-     * Invalid data forces active recovery instead of pretending to be idle. */
+    /*
+     * 使用精确有符号 mA，避免旧 0.1 A 截断并检查正负两侧；无效数据必须主动恢复，
+     * 不能假装空闲。
+     */
     if (pm_block != 0u)
     {
         s_low_power_mode = false;
@@ -711,23 +745,18 @@ void blt_pm_proc(void)
     }
 }
 
-/**
- * @brief		user initialization when MCU power on or wake_up from deepSleep mode
- */
+/* @brief MCU 上电或 deepSleep 唤醒时的用户初始化。 */
 
-/**
- * @brief		user initialization when MCU wake_up from deepSleep_retention mode
- */
+/* @brief MCU 从 deepSleep_retention 唤醒时的用户初始化。 */
 
-/* One acquisition owns the complete protection/SOC/output sequence. Keep this
- * order and coalesce overdue work: repeated catch-up samples would distort
- * sample-count filters and starve BLE/UART. The wake callback only sets due. */
+/*
+ * 一次采样统一执行保护/SOC/输出；保持顺序，合并逾期任务。
+ * 重复补采会扭曲样本计数滤波并阻塞 BLE/UART；唤醒回调只标记到期。
+ */
 
 /* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
 
-/**
- * @brief		This is main_loop function
- */
+/* @brief 应用主循环。 */
 _attribute_no_inline_ void main_loop(void)
 {
     if (s_acc_sleep_committed) {
@@ -739,20 +768,24 @@ _attribute_no_inline_ void main_loop(void)
     bms_afe_diag_poll();
     if (s_power_off_committed)
     {
-        /* If external power holds 3V3 up (e.g. a debugger), remain quiescent.
-         * Do not spin, retry I2C, or write Flash after a successful shutdown. */
+        /*
+         * 调试器等外部供电保持 3V3 时仍保持静止；
+         * 成功 shutdown 后不忙循环、不重试I2C、不写 Flash。
+         */
         cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
                          clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
         return;
     }
-    /* Cooperative order: service BLE, acquire once if due, then communication
-     * and persistence. Evaluate suspend last using the resulting state. */
+    /*
+     * 协作顺序：先服务 BLE，到期只采样一次，再处理通信和持久化；
+     * 最后根据新状态评估 suspend。
+     */
 	blt_sdk_main_loop();
 	Runtime_Poll();
     bms_diag_runtime_mode((Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 
 #if BMS_DEBUG_LOG_ENABLE
-    /* Observe SDK callback-owned flags here: no formatting/log production in ISR. */
+    /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
     {
         static u8 last_link = 0xFFu, last_ota = 0xFFu;
         if (last_link != (u8)device_in_connection_state) {
@@ -778,76 +811,78 @@ _attribute_no_inline_ void main_loop(void)
 }
 
 #else
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_ENTER"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_SUSPEND_ENTER"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
+/* 处理 SDK 休眠进入事件并保存必要状态。 */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
 	(void)e;
 	(void)p;
 	(void)n;
 	if (blc_ll_getCurrentState() == BLS_LINK_STATE_CONN && ((u32)(bls_pm_getSystemWakeupTick() - clock_time())) > 80 * SYSTEM_TIMER_TICK_1MS)
-	{										   // suspend time > 30ms.add gpio wakeup
-		bls_pm_setWakeupSource(PM_WAKEUP_PAD); // gpio pad wakeup suspend/deepsleep
+	{										   // suspend 时间超过 30 ms 时增加 GPIO 唤
+	// 醒。
+		bls_pm_setWakeupSource(PM_WAKEUP_PAD); // GPIO PAD 唤醒用于 suspend/deepsleep。
 	}
 }
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_ADV_DURATION_TIMEOUT"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_ADV_DURATION_TIMEOUT"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_CONNECT"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_CONNECT"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_TERMINATE"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_TERMINATE"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_EXIT"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_SUSPEND_EXIT"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
 
-/**
- * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
- * @param[in]  e - LinkLayer Event type
- * @param[in]  p - data pointer of event
- * @param[in]  n - data length of event
- * @return     none
+/*
+ * @brief      链路层事件回调： "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
+ * @param[in]  e - 链路层事件类型
+ * @param[in]  p - 事件数据指针
+ * @param[in]  n - 事件数据长度
+ * @return     无
  */
 
-/**
- * @brief      callback function of Host Event
- * @param[in]  h - Host Event type
- * @param[in]  para - data pointer of event
- * @param[in]  n - data length of event
+/*
+ * @brief      主机事件回调。
+ * @param[in]  h - 主机事件类型
+ * @param[in]  para - 事件数据指针
+ * @param[in]  n - 事件数据长度
  * @return     0
  */
 
-/**
- * @brief      power management code for application
- * @param	   none
- * @return     none
+/*
+ * @brief      应用低功耗管理。
+ * @param	   无
+ * @return     无
  */
 /* 根据运行状态和通信互锁选择 SDK suspend/深睡；调试日志积压本身不增加休眠阻断条件。 */
 void blt_pm_proc(void)
@@ -943,7 +978,7 @@ void blt_pm_proc(void)
 
 	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
 	s_low_power_mode = true;
-	// do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
+	// 此处不处理 keyScan/button_detect 功耗；需要时参考 ble_remote 示例。
 	if (0)
 	{
 	}
@@ -987,39 +1022,40 @@ void blt_pm_proc(void)
 	}
 }
 
-/**
- * @brief		user initialization when MCU power on or wake_up from deepSleep mode
- * @param[in]	none
- * @return      none
+/*
+ * @brief		MCU 上电或普通深睡唤醒时初始化应用。
+ * @param[in]	无
+ * @return      无
  */
 
-/**
- * @brief		user initialization when MCU wake_up from deepSleep_retention mode
- * @param[in]	none
- * @return      none
+/*
+ * @brief		MCU 深睡保留唤醒时恢复应用。
+ * @param[in]	无
+ * @return      无
  */
 
 /////////////////////////////////////////////////////////////////////s
-// main loop flow
+// 主循环流程。
 /////////////////////////////////////////////////////////////////////
 
 /* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
 
-/**
- * @brief		This is main_loop function
- * @param[in]	none
- * @return      none
+/*
+ * @brief		应用主循环入口。
+ * @param[in]	无
+ * @return      无
  */
+/* 推进 SDK 与应用主循环任务，业务处理留在主循环。 */
 _attribute_no_inline_ void main_loop(void)
 {
-	////////////////////////////////////// BLE entry /////////////////////////////////
+	// BLE 处理入口。
 	blt_sdk_main_loop();
 	Runtime_Poll();
-	////////////////////////////////////// UI entry /////////////////////////////////
-	///////////////////////////////////// Battery Check ////////////////////////////////
+	// UI 处理入口。
+	// 电池检查。
 
 #if BMS_DEBUG_LOG_ENABLE
-    /* Observe SDK callback-owned flags here: no formatting/log production in ISR. */
+    /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
     {
         static u8 last_link = 0xFFu, last_ota = 0xFFu;
         if (last_link != (u8)device_in_connection_state) {
@@ -1036,7 +1072,7 @@ _attribute_no_inline_ void main_loop(void)
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
 	{
-		// todo 低功耗，时基偏移
+		// 待办：低功耗，时基偏移
 		update_bms_info_tick = clock_time();
 		app_event_log_1s_task();
 	}
@@ -1046,12 +1082,13 @@ _attribute_no_inline_ void main_loop(void)
 	bms_state_store_update_and_log_if_changed(SOC_Calculate_Element.u8SOC_Now, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// bms_state_store_update_and_log_if_changed(g_stCellInfoReport.SocElement.u16Soc, SOC_Calculate_Element.u8DSG_SOC_Int, SOC_Calculate_Element.u32Cycle_times);
 	// nvm_process();
-	////////////////////////////////////// PM Process /////////////////////////////////
+	// 电源管理处理。
 	blt_pm_proc();
 }
 
 #endif
 
+/* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
@@ -1098,7 +1135,7 @@ static void app_sample_task(void)
                          (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 #endif
 
-    /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
+    /* 即使 BLE 广播间隔为 800 ms，也保持固定采样节拍。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -1107,17 +1144,19 @@ static void app_sample_task(void)
 }
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */
+/* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
 static void app_sample_wakeup(int type)
 {
     (void)type;
     s_sample_due = 1u;
 }
 
+/* 构造广播与扫描响应中的产品名称和数据。 */
 void ble_build_adv_scanrsp(void)
 {
 	u8 i = 0;
 
-	// --- ADV: Flags + Appearance + UUID list; name is placed in scanRsp. ---
+	// 广播包含 Flags、Appearance 和 UUID 列表，名称放在 scanRsp 中。
 	i = 0;
 	tbl_advData[i++] = 0x02;
 	tbl_advData[i++] = 0x01;
@@ -1146,6 +1185,7 @@ void ble_build_adv_scanrsp(void)
 	tbl_scanRspLen = i;
 }
 
+/* 切换为非定向 BLE 广播。 */
 void app_switch_to_undirected_adv(u8 e, u8 *p, int n)
 {
 	(void)e;
@@ -1161,6 +1201,7 @@ void app_switch_to_undirected_adv(u8 e, u8 *p, int n)
 	bls_ll_setAdvEnable(BLC_ADV_ENABLE);
 }
 
+/* 处理 BLE 连接建立并更新连接与低功耗状态。 */
 void task_connect(u8 e, u8 *p, int n)
 {
 	(void)e;
@@ -1177,10 +1218,11 @@ void task_connect(u8 e, u8 *p, int n)
 #endif
 }
 
+/* 恢复 suspend 后的外设与应用时序状态。 */
 void task_suspend_exit(u8 e, u8 *p, int n)
 {
 #if BMS_DEBUG_LOG_ENABLE
-    ++s_debug_suspend_exits; /* No ring write, tick read, formatting or I/O here. */
+    ++s_debug_suspend_exits; /* 此处不写环形缓存、不读 tick、不格式化、不执行 I/O。 */
 #endif
 	(void)e;
 	(void)p;
@@ -1188,12 +1230,14 @@ void task_suspend_exit(u8 e, u8 *p, int n)
 	rf_set_power_level_index(MY_RF_POWER_INDEX);
 }
 
+/* 处理 BLE 数据长度交换事件。 */
 void task_dle_exchange(u8 e, u8 *p, int n)
 {
 	tlk_contr_evt_dataLenExg_t *pEvt = (tlk_contr_evt_dataLenExg_t *)p;
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] DLE exchange", &pEvt->connEffectiveMaxRxOctets, 4);
 }
 
+/* 分派 BLE 主机事件并更新应用连接状态。 */
 int app_host_event_callback(u32 h, u8 *para, int n)
 {
 
@@ -1276,11 +1320,13 @@ int app_host_event_callback(u32 h, u8 *para, int n)
 _attribute_data_retention_ u16 flash_lockBlock_cmd = 0;
 _attribute_data_retention_ static u8 g_app_flash_stack_session_active = 0;
 
+/* 判断 Flash 操作后是否需要恢复保护锁。 */
 int app_flash_lock_restore_enabled(void)
 {
 	return (g_app_flash_stack_session_active == 0u);
 }
 
+/* 按 SDK Flash 操作阶段解锁或恢复保护范围。 */
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end)
 {
 	if (flash_op_evt == FLASH_OP_EVT_APP_INITIALIZATION)
@@ -1356,16 +1402,18 @@ void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_a
 }
 
 #else
+/* 判断 Flash 操作后是否需要恢复保护锁。 */
 int app_flash_lock_restore_enabled(void)
 {
     return 1;
 }
 #endif
 
+/* 正常启动时初始化参数、硬件、BLE 与应用状态。 */
 _attribute_no_inline_ void user_init_normal(void)
 {
 
-	//////////////////////////// basic hardware Initialization  Begin //////////////////////////////////
+	// 基础硬件初始化开始。
 
 #if (MCU_CORE_TYPE == MCU_CORE_825x || MCU_CORE_TYPE == MCU_CORE_827x)
 	random_generator_init();
@@ -1384,9 +1432,9 @@ _attribute_no_inline_ void user_init_normal(void)
 	blc_appRegisterStackFlashOperationCallback(app_flash_protection_operation);
 #endif
 
-	//////////////////////////// basic hardware Initialization  End //////////////////////////////////
+	// 基础硬件初始化结束。
 
-	//////////////////////////// BLE stack Initialization  Begin //////////////////////////////////
+	// BLE 协议栈初始化开始。
 	u8 mac_public[6];
 	u8 mac_random_static[6];
 	blc_initMacAddress(flash_sector_mac_address, mac_public, mac_random_static);
@@ -1552,7 +1600,7 @@ _attribute_no_inline_ void user_init_normal(void)
         cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
 #endif
 
-		/* One AFE snapshot supplies startup voltage/current/temperature state. */
+		/* 启动电压、电流和温度状态使用同一 AFE 快照。 */
 		bms_afe_sample();
 		bms_state_store_init();
 		bms_state_store_data_t d = bms_state_store_get();
@@ -1586,6 +1634,7 @@ _attribute_no_inline_ void user_init_normal(void)
     bms_diag_freeze_boot();
 }
 
+/* 深睡保留唤醒时恢复 SDK 与应用必要状态。 */
 _attribute_ram_code_ void user_init_deepRetn(void)
 {
 #if (PM_DEEPSLEEP_RETENTION_ENABLE)
@@ -1610,6 +1659,7 @@ _attribute_ram_code_ void user_init_deepRetn(void)
 #endif
 }
 
+/* 处理 BLE 断开并恢复广播和电源策略。 */
 void task_terminate(u8 e, u8 *p, int n)
 {
 	(void)e;
@@ -1618,8 +1668,7 @@ void task_terminate(u8 e, u8 *p, int n)
 	device_in_connection_state = 0;
 
 	tlk_contr_evt_terminate_t *pEvt = (tlk_contr_evt_terminate_t *)p;
-    /* Device-wide authorization is revoked on every BLE disconnect. UART
-     * must obtain a fresh token after this boundary as well. */
+    /* 每次 BLE 断连撤销设备范围的授权；UART 也必须在该边界后取得新 token。 */
     bms_afe_hw_access_close();
 
 	tlkapi_printf(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] disconnect, reason 0x%x\n", pEvt->terminate_reason);
@@ -1639,6 +1688,7 @@ void task_terminate(u8 e, u8 *p, int n)
 	advertise_begin_tick = clock_time();
 }
 
+/* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
                              uint32_t sample_tick_32k)
 {

@@ -2,7 +2,8 @@
 from validation_support import read, profile_prefix, function, run_c, evidence
 
 source=read('bms/afe/dvc1124/dvc1124.c')
-state=source[source.index('/* Last values actually represented'):source.index('static uint8_t dvc_crc8')]
+# 按配置结构与函数签名取状态区，不以说明文字作为定位依据。
+state=source[source.index('typedef struct'):source.index('static uint8_t dvc_crc8')]
 functions='\n'.join(function(source,signature) for signature in (
     'static uint8_t dvc_write_verified_block(', 'static uint8_t dvc_write_verified(',
     'static uint8_t dvc_update_reg(', 'static uint8_t dvc_voltage_delay_code(',

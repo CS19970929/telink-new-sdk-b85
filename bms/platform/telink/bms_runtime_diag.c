@@ -1,4 +1,6 @@
-/* 文件功能：Telink 运行状态采集入口；将 AFE/SOC/存储缓存提交给可移植诊断核心，不增加 AFE 总线读取。
+/*
+ * 文件功能：Telink 运行状态采集入口；将 AFE/SOC/存储缓存提交给可移植诊断核心，
+ * 不增加 AFE 总线读取。
  * bms/platform/telink/bms_runtime_diag.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -9,6 +11,7 @@
 #include "conf.h"
 #include "bms_state.h"
 
+/* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
 void bms_diag_poll_runtime(uint8_t valid, int32_t current_ma,
                            uint32_t tick_32k, uint8_t factory)
 {

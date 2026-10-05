@@ -1,4 +1,6 @@
-/* 文件功能：DVC1124 寄存器通信、采样、保护编码与驱动接口；为条件编译的 DVC backend 保留。
+/*
+ * 文件功能：DVC1124 寄存器通信、采样、保护编码与驱动接口；
+ * 为条件编译的 DVC backend 保留。
  * bms/afe/dvc1124/dvc1124.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -14,16 +16,13 @@
 #include "bms_afe_hw_profile.h"
 #include <string.h>
 
-/*
- * Register addresses/bit definitions come only from dvc1124_reg.h.
- * Keep this file limited to driver behavior, conversion and policy plumbing.
- */
+/* 寄存器地址和位定义仅来自 dvc1124_reg.h；本文件只处理驱动行为、换算和策略衔接。 */
 #define DVC_MEAS_BYTES             (DVC1124_REG_CELL24_L + 1u)
 #define DVC_I2C_RAW_MAX            (2u * (DVC1124_MAX_REGISTER + 1u))
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
 
-/* NTC resistance / ((degC + 40) * 10) pairs; resistance unit is 10 ohm. */
+/* NTC 电阻与 ((degC + 40) * 10) 温度编码成对存储；电阻单位为 10 Ω。 */
 static const uint16_t s_ntc_10k_table[DVC_TEMP_TABLE_LEN] = {
     11611u, 100u, 8935u, 150u, 6943u, 200u, 5442u, 250u,
     4300u, 300u, 3422u, 350u, 2751u, 400u, 2214u, 450u,
@@ -61,7 +60,7 @@ static dvc1124_openwire_result_t s_openwire_result;
 #define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u
 #define DVC_OPENWIRE_SETTLE_US            200000u
 
-/* Frozen boot diagnostics, relative to BMS_DIAG_BASE. */
+/* 冻结的启动诊断，偏移相对 BMS_DIAG_BASE。 */
 #define DVC_BOOT_ZERO_DIAG_STATUS          110u
 #define DVC_BOOT_ZERO_DIAG_SAMPLE_COUNT    111u
 #define DVC_BOOT_ZERO_DIAG_OFFSET_MA       112u
@@ -76,7 +75,7 @@ static dvc1124_openwire_result_t s_openwire_result;
 
 static dvc1124_boot_zero_diag_t s_boot_zero;
 
-/* Last values actually represented by DVC hardware. Used for diagnostics. */
+/* DVC 硬件实际表示的最近配置值，用于诊断。 */
 typedef struct
 {
     uint16_t cov_mv;
@@ -109,6 +108,7 @@ static dvc_applied_protection_t s_applied;
 #define DVC_QUANT_OCD2_DLY  (1uL << 8)
 #define DVC_QUANT_OCC2_DLY  (1uL << 9)
 
+/* 计算 AFE 通信数据的 CRC8 校验值。 */
 static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
 {
     uint8_t crc = 0u;
@@ -125,6 +125,7 @@ static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
     return crc;
 }
 
+/* 按毫秒执行 AFE 所需的短等待。 */
 static void dvc_delay_ms(uint16_t ms)
 {
     uint32_t tick = clock_time();
@@ -135,6 +136,7 @@ static void dvc_delay_ms(uint16_t ms)
     }
 }
 
+/* 配置 DVC I2C 引脚、时钟及总线状态。 */
 static void dvc_bus_init(void)
 {
     uint8_t write_addr = DVC1124_FIXED_WRITE_ADDR;
@@ -149,6 +151,7 @@ static void dvc_bus_init(void)
     s_bus_initialized = 1u;
 }
 
+/* 复位 I2C 控制器并恢复总线配置。 */
 static void dvc_bus_recover(void)
 {
     reset_i2c_module();
@@ -156,7 +159,7 @@ static void dvc_bus_recover(void)
     dvc_bus_init();
 }
 
-/* Bound every Telink I2C hardware BUSY wait. */
+/* Telink I2C 硬件每次 BUSY 等待都必须有时间边界。 */
 static uint8_t dvc_i2c_wait_done(void)
 {
     uint32_t tick = clock_time();
@@ -171,17 +174,20 @@ static uint8_t dvc_i2c_wait_done(void)
     return 1u;
 }
 
+/* 检查 I2C 地址阶段是否得到有效应答。 */
 static uint8_t dvc_i2c_address_ok(void)
 {
     return ((reg_i2c_status & FLD_I2C_NAK) == 0u) ? 1u : 0u;
 }
 
+/* 发送 I2C STOP 并结束当前事务。 */
 static uint8_t dvc_i2c_stop(void)
 {
     reg_i2c_ctrl = FLD_I2C_CMD_STOP;
     return dvc_i2c_wait_done();
 }
 
+/* 执行带超时边界的原始 I2C 写事务。 */
 static uint8_t dvc_i2c_write_raw(uint8_t write_addr,
                                  uint8_t reg,
                                  const uint8_t *data,
@@ -203,6 +209,7 @@ static uint8_t dvc_i2c_write_raw(uint8_t write_addr,
     return dvc_i2c_stop();
 }
 
+/* 执行带超时边界的原始 I2C 读事务。 */
 static uint8_t dvc_i2c_read_raw(uint8_t write_addr,
                                 uint8_t reg,
                                 uint8_t *data,
@@ -228,18 +235,20 @@ static uint8_t dvc_i2c_read_raw(uint8_t write_addr,
         data[i] = reg_i2c_di;
     }
 
-    /* Telink SDK uses FLD_I2C_CMD_ACK on the final byte to terminate the read. */
+    /* Telink SDK 在最后一个字节设置 FLD_I2C_CMD_ACK，以结束读取。 */
     reg_i2c_ctrl = (FLD_I2C_CMD_DI | FLD_I2C_CMD_READ_ID | FLD_I2C_CMD_ACK);
     if (!dvc_i2c_wait_done()) return 0u;
     data[len - 1u] = reg_i2c_di;
     return dvc_i2c_stop();
 }
 
+/* 从大端字节序读取 16 位无符号值。 */
 static uint16_t dvc_be16(const uint8_t *p)
 {
     return (uint16_t)(((uint16_t)p[0] << 8) | p[1]);
 }
 
+/* 把 20 位补码读数扩展为有符号 32 位值。 */
 static int32_t dvc_sign_extend20(uint32_t raw)
 {
     raw &= 0x000FFFFFu;
@@ -247,27 +256,31 @@ static int32_t dvc_sign_extend20(uint32_t raw)
     return (int32_t)raw;
 }
 
+/* 计算有符号电流的绝对量。 */
 static uint32_t dvc_abs_i32(int32_t value)
 {
     return (value < 0) ? (0u - (uint32_t)value) : (uint32_t)value;
 }
 
+/* 按分流电阻将 CC2 原始读数换算为毫安。 */
 static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2)
 {
     int32_t current_num;
 
     if (s_cfg.shunt_uohm == 0u) return 0;
-    /* CC2 LSB = 0.3125 uV. Reduced ratio keeps signed 20-bit math in int32. */
+    /* CC2 的 LSB 为 0.3125 uV；约分后使有符号 20 位运算保持在 int32 范围内。 */
     current_num = cc2 * 625;
     return current_num / ((int32_t)s_cfg.shunt_uohm * 2);
 }
 
+/* 将启动零点偏移应用到电流读数。 */
 static int32_t dvc_apply_boot_zero(int32_t calibrated_ma)
 {
     if (s_boot_zero.status != DVC1124_BOOT_ZERO_VALID) return calibrated_ma;
     return calibrated_ma - s_boot_zero.learned_offset_ma;
 }
 
+/* 发布启动零点校准结果和诊断计数。 */
 static void dvc_boot_zero_publish_diag(void)
 {
     int32_t factory_offset = 0;
@@ -289,6 +302,7 @@ static void dvc_boot_zero_publish_diag(void)
     bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SPREAD_MA, s_boot_zero.spread_ma);
 }
 
+/* 有界等待 CC2 下一次转换，避免重复采集旧读数。 */
 static void dvc_boot_zero_wait_fresh_cc2(void)
 {
     uint16_t remaining = DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS;
@@ -307,6 +321,7 @@ static void dvc_boot_zero_wait_fresh_cc2(void)
 #endif
 }
 
+/* 校准前关闭全部 FET 并检查写入结果。 */
 static uint8_t dvc_boot_zero_force_all_fets_off(void)
 {
     uint8_t current;
@@ -322,6 +337,7 @@ static uint8_t dvc_boot_zero_force_all_fets_off(void)
     return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
 }
 
+/* 读取零点校准所需的电流和 FET 状态。 */
 static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
                                          int32_t *calibrated_ma,
                                          dvc1124_boot_zero_status_t *failure)
@@ -370,11 +386,13 @@ static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
     return 1u;
 }
 
+/* 取得启动电流零点校准的缓存诊断。 */
 void DVC1124_GetBootCurrentZeroDiag(dvc1124_boot_zero_diag_t *diag)
 {
     if (diag != 0) *diag = s_boot_zero;
 }
 
+/* 启动阶段确认 FET 关闭后采集残余电流并校准零点。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 {
     dvc1124_boot_zero_status_t failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
@@ -455,7 +473,7 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 #endif
 }
 
-/* V1.2 page 32 common-mode correction lookup, K * 10000. */
+/* V1.2 第 32 页的共模修正查表，K 放大 10000 倍。 */
 static uint16_t dvc_cell_k_x10000(uint32_t common_mode_mv)
 {
     if (common_mode_mv < 24000u) return 10000u;
@@ -475,14 +493,16 @@ static uint16_t dvc_cell_k_x10000(uint32_t common_mode_mv)
     return 9986u;
 }
 
+/* 按单体校准系数修正电压毫伏值。 */
 static uint16_t dvc_correct_cell_mv(uint16_t raw_code, uint32_t common_mode_mv)
 {
     uint32_t k = dvc_cell_k_x10000(common_mode_mv);
     uint32_t numerator = (uint32_t)raw_code * 10000u;
-    uint32_t denominator = k * 10u; /* raw LSB = 0.1 mV */
+    uint32_t denominator = k * 10u; /* 原始 LSB 为 0.1 mV。 */
     return (uint16_t)((numerator + denominator / 2u) / denominator);
 }
 
+/* 写入连续寄存器并回读验证整块数据。 */
 static uint8_t dvc_write_verified_block(uint8_t reg, const uint8_t *data, uint8_t len)
 {
     uint8_t verify[8];
@@ -503,12 +523,13 @@ static uint8_t dvc_write_verified_block(uint8_t reg, const uint8_t *data, uint8_
     return 0u;
 }
 
+/* 写入寄存器并回读确认实际值。 */
 static uint8_t dvc_write_verified(uint8_t reg, uint8_t value)
 {
     return dvc_write_verified_block(reg, &value, 1u);
 }
 
-/* Preserve every bit outside clear_mask. Verify only bits owned by this operation. */
+/* 保留 clear_mask 之外的全部位，只校验本次操作负责的位。 */
 static uint8_t dvc_update_reg(uint8_t reg, uint8_t clear_mask, uint8_t set_mask)
 {
     uint8_t value;
@@ -536,7 +557,7 @@ static uint8_t dvc_update_reg(uint8_t reg, uint8_t clear_mask, uint8_t set_mask)
 }
 
 #if DVC1124_HW_PROTECT_ENABLE
-/* Choose the largest supported voltage-protection delay not exceeding request. */
+/* 选择不超过请求值的最大可用电压保护延时。 */
 static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms)
 {
     static const uint16_t table_ms[16] = {
@@ -562,7 +583,7 @@ static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms
     return 0u;
 }
 
-/* OC1/OC2 delay is (code+1)*step. Floor so protection is not later than request. */
+/* OC1/OC2 延时为 (code+1)*step；向下取整，避免保护晚于请求时间。 */
 static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
                                      uint16_t step_ms,
                                      uint16_t *actual_ms)
@@ -581,6 +602,7 @@ static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
     return (uint8_t)(steps - 1u);
 }
 
+/* 按分流电阻将采样压差微伏值换算为电流。 */
 static uint16_t dvc_current_from_sense_uv(uint32_t sense_uv)
 {
     uint32_t value;
@@ -590,6 +612,7 @@ static uint16_t dvc_current_from_sense_uv(uint32_t sense_uv)
     return (uint16_t)value;
 }
 
+/* 将电流阈值量化为一级过流寄存器编码。 */
 static uint8_t dvc_current_to_oc1_code(uint16_t requested_a_x10, uint16_t *actual_a_x10)
 {
     uint32_t sense_uv;
@@ -607,13 +630,14 @@ static uint8_t dvc_current_to_oc1_code(uint16_t requested_a_x10, uint16_t *actua
     }
 
     sense_uv = ((uint32_t)requested_a_x10 * s_cfg.shunt_uohm) / 10u;
-    code = sense_uv / 250u; /* threshold = code * 0.25 mV */
+    code = sense_uv / 250u; /* 阈值为 code * 0.25 mV。 */
     if (code == 0u) code = 1u;
     if (code > 255u) code = 255u;
     *actual_a_x10 = dvc_current_from_sense_uv(code * 250u);
     return (uint8_t)code;
 }
 
+/* 将电流阈值量化为二级过流寄存器编码。 */
 static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10, uint16_t *actual_a_x10)
 {
     uint32_t sense_uv;
@@ -631,13 +655,14 @@ static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10, uint16_t *actua
     }
 
     sense_uv = ((uint32_t)requested_a_x10 * s_cfg.shunt_uohm) / 10u;
-    index = sense_uv / 4000u; /* threshold = (code+1)*4 mV */
-    if (index == 0u) index = 1u; /* hardware minimum 4 mV */
+    index = sense_uv / 4000u; /* 阈值为 (code+1)*4 mV。 */
+    if (index == 0u) index = 1u; /* 硬件最小阈值为 4 mV。 */
     if (index > 64u) index = 64u;
     *actual_a_x10 = dvc_current_from_sense_uv(index * 4000u);
     return (uint8_t)(index - 1u);
 }
 
+/* 请求值与实际量化值不同时置位对应诊断标志。 */
 static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual)
 {
     if (requested != actual) s_applied.quantized_mask |= bit;
@@ -645,12 +670,13 @@ static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual)
 
 #endif
 
+/* 按有效串数配置电芯通道掩码。 */
 static uint8_t dvc_apply_cell_masks(void)
 {
     uint8_t mask[3] = {0u, 0u, 0u};
     uint8_t cell;
 
-    /* CM[5]..CM[24] mask unused upper channels; DVC1124-2 supports 4..24S. */
+    /* CM[5]..CM[24] 屏蔽未使用的高位通道；DVC1124-2 支持 4..24S。 */
     for (cell = 5u; cell <= DVC1124_MAX_CELLS; ++cell)
     {
         if (cell <= s_cfg.cell_count) continue;
@@ -664,6 +690,7 @@ static uint8_t dvc_apply_cell_masks(void)
     return dvc_write_verified_block(DVC1124_REG_CELL_MASK_24_17, mask, 3u);
 }
 
+/* 校验并编码 DVC 电流唤醒配置。 */
 uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
 {
     if (code == 0) return 0u;
@@ -673,6 +700,7 @@ uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
     return 1u;
 }
 
+/* 校验并编码共口体二极管恢复配置。 */
 uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
 {
     if (code == 0) return 0u;
@@ -682,6 +710,7 @@ uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
     return 1u;
 }
 
+/* 校验并编码 I2C 硬件看门狗配置。 */
 uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code)
 {
     if (code == 0) return 0u;
@@ -696,6 +725,7 @@ uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code)
     }
 }
 
+/* 应用固定板级 AFE 工作配置。 */
 static uint8_t dvc_apply_basic_config(void)
 {
     uint8_t ok = 1u;
@@ -716,9 +746,10 @@ static uint8_t dvc_apply_basic_config(void)
     ok &= dvc_write_verified(DVC1124_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
     ok &= dvc_write_verified(DVC1124_REG_GP456_MODE, DVC1124_GP456_MODE_VALUE);
 
-    /* HS-D008 uses GP5/GP6 low-side CHG/DSG.  Apply the reviewed defaults
-     * literally so reset-time configuration cannot transiently unmask the
-     * unused high-side path or enable CAES while CWT is zero. */
+    /*
+     * HS-D008 使用 GP5/GP6 低侧 CHG/DSG。严格应用已审查默认值，
+     * 避免复位配置瞬间解除未用高侧路径的屏蔽，或在 CWT 为零时启用 CAES。
+     */
     if (DVC1124_DEFAULT_HIGH_SIDE_FET_MASK) cadc_bits |= DVC1124_CADC_HSFM_MASK;
     if (DVC1124_DEFAULT_CADC_WORK_ENABLE) cadc_bits |= DVC1124_CADC_CAEW_MASK;
     if (DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE) cadc_bits |= DVC1124_CADC_CAES_MASK;
@@ -736,9 +767,9 @@ static uint8_t dvc_apply_basic_config(void)
                                    DVC1124_COW_MASK |
                                    DVC1124_CMM_MASK |
                                    DVC1124_CVS_MASK),
-                         cpvs_bits); /* COW=0, CMM=0, CVS=0 */
+                         cpvs_bits); /* 配置值：COW=0、CMM=0、CVS=0。 */
 
-    /* VADC enabled, synchronized with every CC2 cycle, 1.54 ms measurement time. */
+    /* 启用 VADC，与每个 CC2 周期同步，测量时间为 1.54 ms。 */
     ok &= dvc_update_reg(DVC1124_REG_VADC_CTRL,
                          (uint8_t)(DVC1124_VADC_ENABLE_MASK |
                                    DVC1124_VADC_SYNC_MASK |
@@ -767,12 +798,13 @@ static uint8_t dvc_apply_basic_config(void)
     ok &= dvc_write_verified(DVC1124_REG_DSG_MASK, dsg_mask);
     ok &= dvc_write_verified(DVC1124_REG_CHG_MASK, chg_mask);
 
-    /* Start safe; existing mos_update() requests the application state later. */
+    /* 启动时保持安全状态，稍后由现有 mos_update() 请求应用输出状态。 */
     ok &= DVC1124_SetMosState(0u, 0u);
     return ok;
 }
 
 #if !DVC1124_HW_PROTECT_ENABLE
+/* 台架隔离模式下关闭 AFE 阈值保护路径。 */
 static uint8_t dvc_disable_threshold_protection(void)
 {
     static const uint8_t disabled_vprot[2] = {0u, 0u};
@@ -785,11 +817,13 @@ static uint8_t dvc_disable_threshold_protection(void)
                                          DVC1124_ALARM_SCD_MASK);
     uint8_t ok = 1u;
 
-    /* V1.2 documents zero threshold/code as disabled for COV/CUV and OC1;
-     * OC2/SCD use explicit enable bits.  Also mask every autonomous FET-close
-     * source and disable watchdog/body-diode/current-wake/core-OT behavior so
-     * HW=0 really is a software-only bench mode rather than an ignore-flags
-     * mode.  Direct 0x51 CHGC/DSGC control remains available. */
+    /*
+     * V1.2 规定 COV/CUV 与 OC1 的零阈值/编码表示关闭；OC2/SCD 使用独立使能位。
+     * 同时屏蔽所有自主 FET 关闭来源，
+     * 并关闭 watchdog、体二极管、电流唤醒和内核过温行为，
+     * 使 HW=0 真正成为仅软件保护的台架模式，而非仅忽略标志。
+     * 仍可直接通过 0x51 CHGC/DSGC 控制。
+     */
     memset(&s_applied, 0, sizeof(s_applied));
     ok &= dvc_write_verified_block(DVC1124_REG_COV_H, disabled_vprot, 2u);
     ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, disabled_vprot, 2u);
@@ -819,6 +853,7 @@ static uint8_t dvc_disable_threshold_protection(void)
 }
 #endif
 
+/* 将独立硬件保护配置量化并写入 DVC。 */
 static uint8_t dvc_apply_protection_from_params(void)
 {
 #if !DVC1124_HW_PROTECT_ENABLE
@@ -947,8 +982,7 @@ static uint8_t dvc_apply_protection_from_params(void)
     sc_mv = 0u;
     if (hw.enable_mask & BMS_AFE_HW_EN_SC) {
         sc_sense_uv = ((uint32_t)hw.sc_a10 * cfg.shunt_uohm) / 10u;
-        /* Floor to a 10mV code so the effective hardware trip is never above
-         * the requested physical-current threshold. */
+        /* 向下量化为 10 mV 编码，使实际硬件动作阈值不高于请求的物理电流阈值。 */
         sc_mv = (uint16_t)((sc_sense_uv / 10000u) * 10u);
         if (sc_mv < 10u || sc_mv > 630u) return 0u;
     }
@@ -957,6 +991,7 @@ static uint8_t dvc_apply_protection_from_params(void)
 #endif
 }
 
+/* 更新 DVC 通信结果及错误状态。 */
 static void dvc_note_comm_result(uint8_t ok)
 {
     if (ok)
@@ -971,6 +1006,7 @@ static void dvc_note_comm_result(uint8_t ok)
     }
 }
 
+/* 应用并验证 DVC 硬件保护参数。 */
 uint8_t DVC1124_ApplyProtectionConfig(void)
 {
     uint8_t ok = dvc_apply_protection_from_params();
@@ -979,6 +1015,7 @@ uint8_t DVC1124_ApplyProtectionConfig(void)
     return ok;
 }
 
+/* 将 NTC 电阻换算为协议温度编码。 */
 static uint16_t dvc_ntc_temp_report(uint32_t r_ohm)
 {
     uint32_t code = r_ohm / 10u;
@@ -986,6 +1023,7 @@ static uint16_t dvc_ntc_temp_report(uint32_t r_ohm)
     return bms_lookup_u16(s_ntc_10k_table, DVC_TEMP_TABLE_LEN, (uint16_t)code);
 }
 
+/* 根据 ADC 读数计算 NTC 电阻。 */
 static uint8_t dvc_ntc_resistance(uint16_t gp_code,
                                   uint16_t v1p8_code,
                                   uint16_t rpu_ohm,
@@ -996,14 +1034,15 @@ static uint8_t dvc_ntc_resistance(uint16_t gp_code,
     if (res_ohm == NULL) return 0u;
     *res_ohm = 0u;
     if (v1p8_code == 0u) return 0u;
-    if (gp_code == 0u) return 0u;             /* short / invalid input */
-    if (v1p8_code <= gp_code) return 0u;      /* open / saturation */
+    if (gp_code == 0u) return 0u;             /* 短路或无效输入。 */
+    if (v1p8_code <= gp_code) return 0u;      /* 开路或饱和。 */
 
     denominator = (uint32_t)v1p8_code - gp_code;
     *res_ohm = ((uint32_t)gp_code * rpu_ohm) / denominator;
     return 1u;
 }
 
+/* 按型号和地址模式解析 DVC 的 I2C 写地址。 */
 uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     dvc1124_addr_mode_t mode,
                                     uint8_t hardwire_code,
@@ -1043,25 +1082,29 @@ uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
     return 1u;
 }
 
+/* 设置驱动的有效电芯串数。 */
 uint8_t DVC1124_SetCellCount(uint8_t cell_count)
 {
-    /* DVC1124-2 V1.2 explicitly supports 4..24 cells. */
+    /* DVC1124-2 V1.2 明确支持 4..24 串。 */
     if ((cell_count < DVC1124_MIN_CELLS) || (cell_count > DVC1124_MAX_CELLS)) return 0u;
     s_cfg.cell_count = cell_count;
     s_need_config = 1u;
     return 1u;
 }
 
+/* 取得 DVC 当前驱动配置。 */
 void DVC1124_GetConfig(dvc1124_config_t *config)
 {
     if (config != NULL) *config = s_cfg;
 }
 
+/* 取得 DVC 最近一次测量与状态快照。 */
 void DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot)
 {
     if (snapshot != NULL) *snapshot = s_snapshot;
 }
 
+/* 取得 DVC 当前 I2C 写地址。 */
 uint8_t DVC1124_GetWriteAddress(void)
 {
     uint8_t addr = DVC1124_FIXED_WRITE_ADDR;
@@ -1071,6 +1114,7 @@ uint8_t DVC1124_GetWriteAddress(void)
     return addr;
 }
 
+/* 读取指定范围 DVC 寄存器并返回通信结果。 */
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
 {
     uint8_t write_addr;
@@ -1121,6 +1165,7 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
     return 0u;
 }
 
+/* 校验范围后写入 DVC 寄存器。 */
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
 {
     uint8_t write_addr;
@@ -1155,6 +1200,7 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
     return 0u;
 }
 
+/* 按充放电请求配置 DVC MOS 控制状态。 */
 uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t set = 0u;
@@ -1178,6 +1224,7 @@ uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
                           set);
 }
 
+/* 设置 DVC 输出授权并同步 MOS 控制。 */
 void DVC1124_SetOutputEnabled(uint8_t enabled)
 {
     s_output_enabled = enabled ? 1u : 0u;
@@ -1187,6 +1234,7 @@ void DVC1124_SetOutputEnabled(uint8_t enabled)
     }
 }
 
+/* 根据有效串数生成电芯通道掩码。 */
 static uint32_t dvc_valid_cell_mask(void)
 {
     return (s_cfg.cell_count >= 24u)
@@ -1194,6 +1242,7 @@ static uint32_t dvc_valid_cell_mask(void)
                : ((1uL << s_cfg.cell_count) - 1uL);
 }
 
+/* 回读并刷新均衡实际状态。 */
 static uint8_t dvc_refresh_balance_state(void)
 {
     uint8_t data[3];
@@ -1206,6 +1255,7 @@ static uint8_t dvc_refresh_balance_state(void)
     return 1u;
 }
 
+/* 将有效均衡通道掩码写入硬件。 */
 static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
 {
     uint8_t data[3];
@@ -1217,6 +1267,7 @@ static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
     return dvc_refresh_balance_state();
 }
 
+/* 设置 DVC 均衡请求掩码并同步硬件。 */
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
 {
     s_balance_requested_mask = cell_mask & dvc_valid_cell_mask();
@@ -1227,12 +1278,15 @@ uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
         return dvc_write_balance_hw(0u);
     }
 
-    /* A non-zero request is armed, not immediately energized.  The BMS-side
-     * service applies/renews it only while charge/fault conditions allow. */
+    /*
+     * 非零请求只表示待授权，不立即通电；
+     * 仅在充电和故障条件允许时由 BMS 服务应用或续期。
+     */
     s_balance_suspended = 1u;
     return dvc_refresh_balance_state();
 }
 
+/* 推进均衡服务并刷新通道状态。 */
 void DVC1124_BalanceService(uint8_t allow_refresh)
 {
     if (s_balance_requested_mask == 0u)
@@ -1265,16 +1319,18 @@ void DVC1124_BalanceService(uint8_t allow_refresh)
     }
 }
 
+/* 启动 DVC 电芯断线检测。 */
 uint8_t DVC1124_StartOpenWireCheck(void)
 {
     uint8_t reg;
 
-    /* COW is self-clearing after about 1 s, so do not require persistent readback=1. */
+    /* COW 约 1 秒后自清除，因此不要求持续回读为 1。 */
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &reg, 1u)) return 0u;
     reg |= DVC1124_COW_MASK;
     return DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &reg, 1u);
 }
 
+/* 复位 DVC 断线检测阶段及结果。 */
 void DVC1124_OpenWireReset(void)
 {
     memset(&s_openwire_result, 0, sizeof(s_openwire_result));
@@ -1283,6 +1339,7 @@ void DVC1124_OpenWireReset(void)
     s_openwire_start_generation = s_snapshot_generation;
 }
 
+/* 准备并开始 DVC 非阻塞断线检测流程。 */
 uint8_t DVC1124_OpenWireBegin(void)
 {
     if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING) return 0u;
@@ -1305,6 +1362,7 @@ uint8_t DVC1124_OpenWireBegin(void)
     return 1u;
 }
 
+/* 推进断线检测阶段并收集完成结果。 */
 void DVC1124_OpenWirePoll(void)
 {
     uint8_t cp;
@@ -1312,10 +1370,10 @@ void DVC1124_OpenWirePoll(void)
     if (s_openwire_result.state != DVC1124_OPENWIRE_WAITING) return;
     if (!clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_SETTLE_US)) return;
 
-    /* COW enables the 100 uA cell-input pull-downs for about 1 s. The
-     * diagnostic sample must therefore be captured while COW is still active;
-     * waiting for auto-clear would read the ordinary cell voltage again and
-     * make an open wire indistinguishable from a healthy input. */
+    /*
+     * COW 对单体输入施加约 1 秒的 100 uA 下拉。必须在 COW 有效期间抓取诊断样本；
+     * 等待自动清除后读到的是普通电压，无法区分断线与正常输入。
+     */
     if (!s_snapshot.valid || s_snapshot_generation == s_openwire_start_generation) return;
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
@@ -1333,9 +1391,7 @@ void DVC1124_OpenWirePoll(void)
     memcpy(s_openwire_result.cell_mv, s_snapshot.cell_mv, sizeof(s_openwire_result.cell_mv));
     s_openwire_result.pack_mv = s_snapshot.pack_mv;
 
-    /* Stop the stimulus as soon as the diagnostic sample has been captured.
-     * COW is a command bit, so ordinary persistent-config readback rules do not
-     * apply here. */
+    /* 诊断样本抓取后立即停止激励。COW 是命令位，不使用普通持久配置的回读规则。 */
     cp &= (uint8_t)~DVC1124_COW_MASK;
     if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
@@ -1345,11 +1401,13 @@ void DVC1124_OpenWirePoll(void)
     s_openwire_result.state = DVC1124_OPENWIRE_READY;
 }
 
+/* 取得最近一次断线检测结果。 */
 void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result)
 {
     if (result != NULL) *result = s_openwire_result;
 }
 
+/* 配置 DVC 短路保护开关及参数。 */
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us)
 {
     uint8_t threshold_code;
@@ -1370,11 +1428,11 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
         return ok;
     }
 
-    /* V1.2: threshold = SCDT*10 mV. Code 0 is not a useful enabled threshold. */
+    /* V1.2：阈值为 SCDT*10 mV；编码 0 不适合作为已启用的阈值。 */
     if ((threshold_mv < 10u) || (threshold_mv > 630u) || ((threshold_mv % 10u) != 0u)) return 0u;
     threshold_code = (uint8_t)(threshold_mv / 10u);
 
-    /* V1.2: delay = SCDD*7.81 us. Program delay first, then enable SCD. */
+    /* V1.2：延时为 SCDD*7.81 us；先写延时，再启用 SCD。 */
     delay_code32 = ((uint32_t)delay_us * 100u) / 781u;
     if (delay_code32 > 255u) return 0u;
     delay_code = (uint8_t)delay_code32;
@@ -1391,11 +1449,12 @@ uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_
     return 1u;
 }
 
+/* 复位 DVC AFE 并重建驱动状态。 */
 void DVC1124_AFE_Reset(void)
 {
     uint8_t cmd = (uint8_t)DVC1124_CST_RESET_REGISTERS;
 
-    /* HS-D008 MCU-AFE-EN = PD7, active high. */
+    /* HS-D008 的 MCU-AFE-EN 为 PD7，高电平有效。 */
     gpio_set_func(GPIO_PD7, AS_GPIO);
     gpio_set_input_en(GPIO_PD7, 0u);
     gpio_set_output_en(GPIO_PD7, 1u);
@@ -1403,7 +1462,7 @@ void DVC1124_AFE_Reset(void)
     dvc_delay_ms(20u);
 
     dvc_bus_init();
-    (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* CST=1101 */
+    (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* 配置值：CST=1101。 */
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
     memset(&s_applied, 0, sizeof(s_applied));
@@ -1415,6 +1474,7 @@ void DVC1124_AFE_Reset(void)
     s_need_config = 1u;
 }
 
+/* 查询 DVC 初始化就绪状态。 */
 uint8_t DVC1124_AFE_IsReady(void)
 {
     uint8_t attempt;
@@ -1430,7 +1490,7 @@ uint8_t DVC1124_AFE_IsReady(void)
             s_snapshot.chip_version = version;
             s_snapshot.rpu_ohm = (uint16_t)(6800u + (uint16_t)frt * 25u);
             dvc_note_comm_result(1u);
-            return 0u; /* legacy API: 0 means ready */
+            return 0u; /* 旧 API 约定：0 表示已就绪。 */
         }
         dvc_delay_ms(5u);
     }
@@ -1438,12 +1498,13 @@ uint8_t DVC1124_AFE_IsReady(void)
     return 1u;
 }
 
+/* 按当前参数更新 DVC AFE 配置。 */
 void DVC1124_UpdataAfeConfig(void)
 {
     uint8_t ok;
     bms_diag_boot_word(25u, DIAG_STARTED);
 
-    /* Physical D008 assembly profile is authoritative for AFE channel use. */
+    /* AFE 通道使用以 D008 实际装配配置为准。 */
     if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
     {
         bms_diag_boot_word(25u, DIAG_INVALID);
@@ -1467,6 +1528,7 @@ void DVC1124_UpdataAfeConfig(void)
     }
 }
 
+/* 按现有器件时序使 DVC 进入休眠。 */
 uint8_t DVC1124_AFE_Sleep(void)
 {
     uint8_t cmd = (uint8_t)DVC1124_CST_ENTER_SLEEP;
@@ -1477,6 +1539,7 @@ uint8_t DVC1124_AFE_Sleep(void)
     return 1u;
 }
 
+/* 把电流测量转换并发布到公共报告。 */
 static void dvc_publish_current_report(int32_t current_ma)
 {
     uint32_t magnitude_ma = (current_ma < 0) ?
@@ -1485,8 +1548,10 @@ static void dvc_publish_current_report(int32_t current_ma)
 
     g_stCellInfoReport.u16Ichg = 0u;
     g_stCellInfoReport.u16IDischg = 0u;
-    /* Apply the reliability floor in mA before the legacy 0.1 A conversion.
-     * Keep snapshot.current_ma unmasked for diagnostics and PM/SOC policy. */
+    /*
+     * 先在 mA 单位应用可信电流下限，再转为旧 0.1 A 编码。
+     * snapshot.current_ma 保留未屏蔽值，供诊断及 PM/SOC 策略使用。
+     */
     if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA) return;
     a10 = magnitude_ma / 100u;
     if (a10 > 65535u) a10 = 65535u;
@@ -1494,6 +1559,7 @@ static void dvc_publish_current_report(int32_t current_ma)
     else g_stCellInfoReport.u16IDischg = (uint16_t)a10;
 }
 
+/* 采集 DVC 测量和状态并更新驱动快照。 */
 void DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
@@ -1605,7 +1671,7 @@ void DVC1124_App_AFEGet(void)
     }
 
     {
-        /* V1.2: T = VCT*0.24467 - 271.03 C; integer unit = 0.1 C. */
+        /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */
         int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
         int32_t report_temp = die_x10 + 400;
         if (report_temp < 0) report_temp = 0;
@@ -1638,7 +1704,7 @@ void DVC1124_App_AFEGet(void)
     ++s_snapshot_generation;
     DVC1124_OpenWirePoll();
 
-    /* 0x67..0x69 auto-clear after 60 s; report actual AFE state, not cached request. */
+    /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())
     {
         g_stCellInfoReport.u16BalanceFlag1 = 0u;
@@ -1647,8 +1713,7 @@ void DVC1124_App_AFEGet(void)
     dvc_note_comm_result(1u);
 }
 
-/* One RMW/verify implementation: keep its bounds and reserved-bit handling
- * out of each call site; this also keeps the debugger entry stable. */
+/* 统一读改写与校验实现，集中管理边界及保留位，保持调试入口稳定。 */
 __attribute__((noinline)) uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested)
 {
     uint8_t current;
@@ -1668,8 +1733,10 @@ __attribute__((noinline)) uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t
     return ((verify & mask) == (target & mask)) ? 1u : 0u;
 }
 
-/* Apply the sole fixed product policy here: constant fields stay visible to
- * the chip encoder; boot retains both phase and wake/retry ownership. */
+/*
+ * 此处应用唯一固定产品策略，芯片编码器仍能看到常量字段；
+ * 启动模块保留阶段与唤醒/重试职责。
+ */
 uint8_t DVC1124_ApplyProjectOperatingConfig(void)
 {
     uint8_t cadc;
@@ -1712,8 +1779,10 @@ uint8_t DVC1124_ApplyProjectOperatingConfig(void)
 #endif
     core_ot_code = DVC1124_DEFAULT_CORE_OT_CODE;
 #else
-    /* HW-off is an explicit bench/isolation mode: keep every autonomous
-     * protection/fail-safe source disabled, matching dvc1124.c policy. */
+    /*
+     * 关闭硬件保护是明确的台架隔离模式；
+     * 按 dvc1124.c 策略关闭全部自主保护与故障安全来源。
+     */
     wdt = DVC1124_I2C_WDT_OFF;
     current_wake_code = 0u;
     body_diode_code = 0u;

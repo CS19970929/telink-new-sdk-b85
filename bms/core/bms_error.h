@@ -1,4 +1,6 @@
-/* 文件功能：BMS 错误位的语义与访问入口；错误状态由 bms_state 持有，不将不同来源错误混作硬件实测。
+/*
+ * 文件功能：BMS 错误位的语义与访问入口；错误状态由 bms_state 持有，
+ * 不将不同来源错误混作硬件实测。
  * bms/core/bms_error.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_ERROR_H_
@@ -6,7 +8,7 @@
 
 #include <stdint.h>
 
-/* Order is part of the existing Modbus 0xD109..0xD114 byte layout. */
+/* 排列顺序属于既有 Modbus 0xD109..0xD114 字节布局。 */
 typedef enum
 {
     BMS_ERROR_AFE1 = 0,
@@ -41,9 +43,11 @@ typedef char bms_error_order_must_match_protocol[
      BMS_ERROR_CBC_CHG == 11 &&
      BMS_ERROR_COUNT == 24) ? 1 : -1];
 
-/* Counters saturate instead of wrapping through zero during a persistent fault. */
+/* 持续故障时计数饱和，不回绕到零。 */
 void bms_error_raise(bms_error_id_t error);
+/* 清除指定公共错误标志。 */
 void bms_error_clear(bms_error_id_t error);
+/* 读取当前公共错误位。 */
 uint8_t bms_error_get(bms_error_id_t error);
 
-#endif /* BMS_ERROR_H_ */
+#endif /* 头文件保护：BMS_ERROR_H_。 */

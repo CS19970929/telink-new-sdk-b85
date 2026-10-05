@@ -1,4 +1,6 @@
-/* 文件功能：BMS 测量报告、故障/状态及历史错误的共享所有者；保留现有协议字段布局与单位。
+/*
+ * 文件功能：BMS 测量报告、故障/状态及历史错误的共享所有者；
+ * 保留现有协议字段布局与单位。
  * bms/core/bms_state.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_STATE_H_
@@ -9,11 +11,11 @@
 /* AFE 无关的 BMS 运行/报告状态；字段单位在定义处说明。 */
 
 struct SOC_CAL_ELEMENT_UPPER {
-    uint16_t u16Soc;             /* SOC, % */
-    uint16_t u16Soh;             /* SOH, % */
-    uint16_t u16CapacityNow;     /* reported capacity, Ah * 100 */
-    uint16_t u16CapacityFull;    /* full capacity, Ah * 100 */
-    uint16_t u16CapacityFactory; /* factory capacity, Ah * 100 */
+    uint16_t u16Soc;             /* SOC，单位 %。 */
+    uint16_t u16Soh;             /* SOH，单位 %。 */
+    uint16_t u16CapacityNow;     /* 上报容量，单位 Ah*100。 */
+    uint16_t u16CapacityFull;    /* 满容量，单位 Ah*100。 */
+    uint16_t u16CapacityFactory; /* 工厂容量，单位 Ah*100。 */
     uint16_t u16Cycle_times;
 };
 
@@ -127,8 +129,11 @@ typedef enum
 
 #define BMS_FAULT_HISTORY_DEPTH 10u
 
+/* 将故障编号追加到 RAM 历史队列。 */
 void bms_fault_history_record(bms_fault_code_t fault);
+/* 取得指定位置的最近故障编号。 */
 uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age);
+/* 在成对的 16 位查表数据中插值，越界时返回端点值。 */
 uint16_t bms_lookup_u16(const uint16_t *table, uint16_t table_size, uint16_t input);
 
 struct MDLCHGFAULT_BITS {
@@ -165,9 +170,9 @@ struct stCell_Info {
     uint16_t u16VCellMaxPosition;
     uint16_t u16VCellMinPosition;
     uint16_t u16VCellDelta;        /* mV */
-    uint16_t u16VCellTotle;        /* V * 100, legacy field name kept */
+    uint16_t u16VCellTotle;        /* 电压 V*100，保留旧字段名。 */
 
-    uint16_t u16Temperature[10];   /* (degC + 40) * 10 */
+    uint16_t u16Temperature[10];   /* 温度编码：(degC + 40) * 10。 */
     uint16_t u16TempMax;
     uint16_t u16TempMin;
 
@@ -184,7 +189,7 @@ struct stCell_Info {
     uint8_t mac_public[6];
 };
 
-/* Preferred neutral names for new template code. */
+/* 新模板代码优先使用中性名称。 */
 typedef struct SOC_CAL_ELEMENT_UPPER bms_soc_report_t;
 typedef struct MDLCHGFAULT_BITS bms_fault_bits_t;
 typedef union MDLCHGFAULT_REG bms_fault_reg_t;
@@ -192,4 +197,4 @@ typedef struct stCell_Info bms_state_t;
 
 extern struct stCell_Info g_stCellInfoReport;
 
-#endif /* BMS_STATE_H_ */
+#endif /* 头文件保护：BMS_STATE_H_。 */

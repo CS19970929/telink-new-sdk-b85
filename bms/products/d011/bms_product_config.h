@@ -1,3 +1,4 @@
+/* 文件功能：产品身份、AFE 后端及化学体系的编译期选择。 */
 #pragma once
 #define BMS_PRODUCT_ID 11u
 #define BMS_AFE_BACKEND 2

@@ -1,4 +1,6 @@
-/* 文件功能：SH36735xx 寄存器事务驱动；提供 CRC、重试、通信诊断、测量及芯片操作公共接口。
+/*
+ * 文件功能：SH36735xx 寄存器事务驱动；提供 CRC、重试、通信诊断、测量及芯片操作公共接
+ * 口。
  * bms/afe/sh3673510/sh3673520.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -12,6 +14,7 @@
 static sh3673520_comm_stats_t s_comm_stats;
 static uint8_t s_ready;
 
+/* 把一个字节累积到 CRC8 校验值。 */
 static uint8_t sh3673520_crc8_update(uint8_t crc, uint8_t data)
 {
     uint8_t bit;
@@ -28,6 +31,7 @@ static uint8_t sh3673520_crc8_update(uint8_t crc, uint8_t data)
     return crc;
 }
 
+/* 计算 AFE 通信数据的 CRC8 校验值。 */
 uint8_t SH3673520_Crc8(const uint8_t *data, size_t length)
 {
     size_t index;
@@ -44,6 +48,7 @@ uint8_t SH3673520_Crc8(const uint8_t *data, size_t length)
     return crc;
 }
 
+/* 将 SPI 端口结果转换为驱动通信状态。 */
 static sh3673520_status_t sh3673520_map_port_status(sh3673520_port_status_t status)
 {
     switch (status) {
@@ -61,6 +66,7 @@ static sh3673520_status_t sh3673520_map_port_status(sh3673520_port_status_t stat
     }
 }
 
+/* 记录单次通信尝试的失败原因。 */
 static void sh3673520_record_attempt_failure(sh3673520_status_t status)
 {
     BMS_LOG(BMS_LOG_WARN, BMS_LOG_AFE, BMS_LOG_AFE_RETRY, status, s_comm_stats.consecutive_failures);
@@ -84,6 +90,7 @@ static void sh3673520_record_attempt_failure(sh3673520_status_t status)
     s_comm_stats.last_error = status;
 }
 
+/* 记录通信成功并清除连续失败状态。 */
 static void sh3673520_record_success(void)
 {
     if (s_comm_stats.consecutive_failures != 0u)
@@ -93,6 +100,7 @@ static void sh3673520_record_success(void)
     s_comm_stats.last_error = SH3673520_OK;
 }
 
+/* 重试结束后记录最终通信失败。 */
 static sh3673520_status_t sh3673520_record_final_failure(sh3673520_status_t status)
 {
     ++s_comm_stats.consecutive_failures;
@@ -101,11 +109,13 @@ static sh3673520_status_t sh3673520_record_final_failure(sh3673520_status_t stat
     return status;
 }
 
+/* 通过 SPI 端口交换一个字节。 */
 static sh3673520_status_t sh36735xx_xfer_byte(uint8_t tx, uint8_t *rx)
 {
     return sh3673520_map_port_status(sh3673520_port_xfer(tx, rx));
 }
 
+/* 执行一次含 CRC 校验的连续寄存器读取。 */
 static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
                                                    uint8_t *buffer,
                                                    uint8_t length)
@@ -194,6 +204,7 @@ finish:
     return status;
 }
 
+/* 执行一次带 CRC 的单寄存器写入。 */
 static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
 {
     sh3673520_status_t status;
@@ -268,6 +279,7 @@ finish:
     return status;
 }
 
+/* 执行一次芯片复位事务。 */
 static sh3673520_status_t sh3673520_reset_once(void)
 {
     sh3673520_status_t status;
@@ -342,6 +354,7 @@ finish:
     return status;
 }
 
+/* 判断通信错误是否需要恢复 SPI 端口。 */
 static uint8_t sh3673520_should_recover_port(sh3673520_status_t status)
 {
     return (uint8_t)(((status == SH3673520_ERR_TIMEOUT) ||
@@ -381,6 +394,7 @@ static sh3673520_status_t sh3673520_read_with_retry(uint8_t start_reg,
     return sh3673520_record_final_failure(status);
 }
 
+/* 在重试次数边界内写入并按需恢复端口。 */
 static sh3673520_status_t sh3673520_write_with_retry(uint8_t reg, uint8_t value)
 {
     uint8_t attempt;
@@ -411,6 +425,7 @@ static sh3673520_status_t sh3673520_write_with_retry(uint8_t reg, uint8_t value)
     return sh3673520_record_final_failure(status);
 }
 
+/* 校验长度后读取连续 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg, uint8_t *buffer, size_t length)
 {
     uint32_t last_reg;
@@ -428,11 +443,13 @@ sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg, uint8_t *buffer, size_t
     return sh3673520_read_with_retry(start_reg, buffer, (uint8_t)length);
 }
 
+/* 读取单个 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value)
 {
     return SH3673520_ReadRegs(reg, value, 1u);
 }
 
+/* 写入单个 AFE 寄存器并返回通信结果。 */
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value)
 {
     if ((reg < SH3673520_REG_WRITE_MIN) ||
@@ -443,6 +460,7 @@ sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value)
     return sh3673520_write_with_retry(reg, value);
 }
 
+/* 校验范围后逐项写入 AFE 寄存器。 */
 sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
                                       const uint8_t *buffer,
                                       size_t length)
@@ -463,9 +481,8 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
     }
 
     /*
-     * The official write frame writes one register and has no burst-length
-     * field. Preserve the public multi-register API by issuing bounded,
-     * individually acknowledged register writes.
+     * 官方写帧一次写一个寄存器，没有突发长度字段；
+     * 多寄存器 API 通过有界、逐项确认的独立写事务实现。
      */
     for (index = 0u; index < length; ++index) {
         status = SH3673520_WriteReg((uint8_t)((uint32_t)start_reg + (uint32_t)index),
@@ -479,6 +496,7 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
 }
 
 
+/* 设置驱动的有效电芯串数。 */
 sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count)
 {
     uint8_t current;
@@ -512,6 +530,7 @@ sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count)
     return SH3673520_OK;
 }
 
+/* 设置驱动均衡掩码并更新芯片寄存器。 */
 sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
                                             uint8_t cell_count)
 {
@@ -531,13 +550,14 @@ sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
         return SH3673520_ERR_RANGE;
     }
 
-    /* Datasheet mapping: H=CB20..17, M=CB16..9, L=CB8..1. */
+    /* 手册映射：H=CB20..17，M=CB16..9，L=CB8..1。 */
     values[0] = (uint8_t)((cell_mask >> 16u) & 0x0Fu);
     values[1] = (uint8_t)((cell_mask >> 8u) & 0xFFu);
     values[2] = (uint8_t)(cell_mask & 0xFFu);
     return SH3673520_WriteRegs(SH3673520_REG_BALANCEH, values, 3u);
 }
 
+/* 执行复位并清除驱动就绪状态。 */
 sh3673520_status_t SH3673520_Reset(void)
 {
     uint8_t attempt;
@@ -570,17 +590,19 @@ sh3673520_status_t SH3673520_Reset(void)
     return sh3673520_record_final_failure(status);
 }
 
+/* 读取芯片状态寄存器，检查通信是否可达。 */
 sh3673520_status_t SH3673520_Probe(void)
 {
     uint8_t status_bytes[2];
 
     /*
-     * SH3673520 has no documented chip-ID register. A CRC-valid, protocol-valid
-     * read of the documented read-only BSTATUS1/BSTATUS2 pair is the probe.
+     * SH3673520 无手册规定的芯片 ID 寄存器；
+     * 通过 BSTATUS1/BSTATUS2 只读寄存器对的协议与 CRC 有效读取进行探测。
      */
     return SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, status_bytes, sizeof(status_bytes));
 }
 
+/* 绑定端口和配置，复位并初始化 AFE。 */
 sh3673520_status_t SH3673520_Init(void)
 {
     sh3673520_port_status_t port_status;
@@ -607,10 +629,7 @@ sh3673520_status_t SH3673520_Init(void)
         return status;
     }
 
-    /*
-     * Keep product protection/FET parameters untouched. The only base setting
-     * enforced here is CADC enable, preserving every other SCONF5 bit.
-     */
+    /* 保持产品保护/FET 参数不变；此处仅确保 CADC 使能，保留其它 SCONF5 位。 */
     status = SH3673520_ReadReg(SH3673520_REG_SCONF5, &sconf5);
     if (status != SH3673520_OK) {
         return status;
@@ -639,11 +658,13 @@ sh3673520_status_t SH3673520_Init(void)
     return SH3673520_OK;
 }
 
+/* 查询 SH 驱动初始化就绪状态。 */
 uint8_t SH3673520_IsReady(void)
 {
     return s_ready;
 }
 
+/* 将两个原始字节解码为 16 位有符号值。 */
 int32_t SH3673520_DecodeSigned16(uint8_t high, uint8_t low)
 {
     uint16_t raw = (uint16_t)(((uint16_t)high << 8u) | (uint16_t)low);
@@ -655,16 +676,19 @@ int32_t SH3673520_DecodeSigned16(uint8_t high, uint8_t low)
     return (int32_t)raw;
 }
 
+/* 将单体电压原始读数换算为毫伏。 */
 int32_t SH3673520_CellRawToMilliVolt(int32_t raw)
 {
     return (raw * 5L) / 32L;
 }
 
+/* 将总压原始读数换算为毫伏。 */
 int32_t SH3673520_PackRawToMilliVolt(int32_t raw)
 {
     return (raw * 125L) / 32L;
 }
 
+/* 按分流电阻将电流原始读数换算为毫安。 */
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
                                                   uint32_t rsense_uohm,
                                                   int32_t *current_ma)
@@ -681,12 +705,11 @@ sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
     }
 
     /*
-     * Exact truncation of raw * 100000000 / (29127 * rsense_uohm),
-     * without TC32 64-bit runtime helpers. 100000000 = 3433*29127+7009.
-     * magnitude <= 32768: products <= 112492544 and 229670912;
-     * scaled <= 112500429, so every intermediate fits uint32_t.
-     * For positive integers, floor(floor(n/a)/b) == floor(n/(a*b)).
-     * Apply the sign last to preserve C's truncation toward zero.
+     * 精确截断 raw * 100000000 / (29127 * rsense_uohm)，不依赖 TC32 64 位运行库。
+     * 100000000=3433*29127+7009；幅值不超过 32768，
+     * 两乘积分别不超过 112492544、229670912，缩放值不超过 112500429，
+     * 均在 uint32_t 内。正整数满足 floor(floor(n/a)/b)=floor(n/(a*b))；
+     * 最后应用符号以保留 C 向零截断。
      */
     magnitude = (raw < 0L) ? (uint32_t)(-raw) : (uint32_t)raw;
     scaled = magnitude * 3433UL + (magnitude * 7009UL) / 29127UL;
@@ -695,6 +718,7 @@ sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
     return SH3673520_OK;
 }
 
+/* 将 NTC 原始测量换算为欧姆。 */
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw, uint32_t *resistance_ohm)
 {
     int32_t denominator;
@@ -710,11 +734,13 @@ sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw, uint32_t *resistance_ohm)
     return SH3673520_OK;
 }
 
+/* 检查驱动已初始化且端口可用。 */
 static sh3673520_status_t sh3673520_require_ready(void)
 {
     return (s_ready != 0u) ? SH3673520_OK : SH3673520_ERR_NOT_READY;
 }
 
+/* 读取有效串数内的单体电压。 */
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_count)
 {
     uint8_t raw[SH3673520_MAX_CELLS * 2u];
@@ -748,6 +774,7 @@ sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_cou
     return SH3673520_OK;
 }
 
+/* 读取并换算电池包总压。 */
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv)
 {
     uint8_t raw[2];
@@ -772,6 +799,7 @@ sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv)
     return SH3673520_OK;
 }
 
+/* 读取并换算有符号电流。 */
 sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current)
 {
     uint8_t raw[2];
@@ -801,6 +829,7 @@ sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current)
     return SH3673520_OK;
 }
 
+/* 读取 NTC 通道测量及有效性。 */
 sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures)
 {
     uint8_t raw[(SH3673520_EXTERNAL_TEMP_COUNT + 1u) * 2u];
@@ -834,6 +863,7 @@ sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *tempe
     return SH3673520_OK;
 }
 
+/* 读取 AFE 状态与保护标志。 */
 sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status)
 {
     uint8_t raw[2];
@@ -848,10 +878,7 @@ sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status)
         return result;
     }
 
-    /*
-     * Deliberately read only BSTATUS1/BSTATUS2. FLAG2 is not included because
-     * VADC_FLG and CADC_FLG are read-clear.
-     */
+    /* 只读取 BSTATUS1/BSTATUS2；FLAG2 的 VADC_FLG/CADC_FLG 为读清除，故不纳入。 */
     result = SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, raw, sizeof(raw));
     if (result != SH3673520_OK) {
         return result;
@@ -862,6 +889,7 @@ sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status)
     return SH3673520_OK;
 }
 
+/* 取得驱动通信统计快照。 */
 void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats)
 {
     if (stats != NULL) {
@@ -869,6 +897,7 @@ void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats)
     }
 }
 
+/* 清零通信统计计数。 */
 void SH3673520_ClearCommStats(void)
 {
     s_comm_stats.spi_error_count = 0u;

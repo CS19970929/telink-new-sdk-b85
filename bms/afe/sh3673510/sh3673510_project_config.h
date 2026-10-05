@@ -1,4 +1,6 @@
-/* 文件功能：SH3673510 的共享寄存器编码配置；板级输入由产品目录提供，兼容宏不改变产品实际能力。
+/*
+ * 文件功能：SH3673510 的共享寄存器编码配置；板级输入由产品目录提供，
+ * 兼容宏不改变产品实际能力。
  * bms/afe/sh3673510/sh3673510_project_config.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef SH3673510_PROJECT_CONFIG_H_
@@ -7,18 +9,13 @@
 #include "sh3673520_reg.h"
 #include "sh3673520_port.h"
 
-/* Shared SH3673510 register formulas. Physical values come from the selected product. */
+/* 共用 SH3673510 寄存器公式，物理量由所选产品提供。 */
 #include "bms_sh3673510_config.h"
 
 /*
- * Protection-path isolation switches.
- * 1/1: production behavior (software + AFE hardware protection).
- * 1/0: software-protection-only bench test.
- * 0/1: AFE-hardware-protection-only bench test.
- * 0/0: measurement/communication debug only; no threshold protection.
- *
- * Each path keeps its own trip + recovery logic together. Do not ship a
- * production build with either path disabled.
+ * 保护路径隔离开关：1/1 为软件加硬件保护的量产行为；1/0 为仅软件台架测试；
+ * 0/1 为仅硬件台架测试；0/0 仅测量/通信调试，无阈值保护。
+ * 各路径保持动作与恢复逻辑成对，不得出货任一路关闭的配置。
  */
 #ifndef SH3673510_SW_PROTECT_ENABLE
 #define SH3673510_SW_PROTECT_ENABLE             1u
@@ -30,13 +27,12 @@
 #error "SH3673510 protection enable macros must be 0 or 1"
 #endif
 
-/* -------------------------------------------------------------------------
- * Static SH3673510 register profile, SH36735XX CV1.0A sections 10.2.1-10.2.9.
- * 0/1 macros correspond to the named single bit; *_CODE macros are raw field
- * codes exactly as documented by the AFE datasheet.
- * ------------------------------------------------------------------------- */
+/*
+ * 静态 SH3673510 寄存器配置依据 SH36735XX CV1.0A 10.2.1-10.2.9；0/1 宏对应具名位，
+ * *_CODE 是手册原始字段编码。
+ */
 
-/* SCONF2 0x41, b7..b0: LTCLR PD_EN PD_CTL PUMP_EN PDSG_CTL PDSGMOS DSGMOS CHGMOS. */
+/* SCONF2 0x41 位 7..0：LTCLR PD_EN PD_CTL PUMP_EN PDSG_CTL PDSGMOS DSGMOS CHGMOS。 */
 #define SH3673510_BOARD_SCONF2_VALUE \
     ((SH3673510_BOARD_LTCLR ? SH3673520_SCONF2_LTCLR_MASK : 0u) | \
      (SH3673510_BOARD_PD_EN ? SH3673520_SCONF2_PD_EN_MASK : 0u) | \
@@ -47,7 +43,10 @@
      (SH3673510_BOARD_DSGMOS_BOOT ? SH3673520_SCONF2_DSGMOS_MASK : 0u) | \
      (SH3673510_BOARD_CHGMOS_BOOT ? SH3673520_SCONF2_CHGMOS_MASK : 0u))
 
-/* SCONF3 0x42: b7 reserved, b6 CGR_WK, b5:4 LD_WK, b3:2 CRLD_EN, b1 OWD_EN, b0 OWD_TRG. */
+/*
+ * SCONF3 0x42：位 7 保留，位 6 CGR_WK，位 5:4 LD_WK，位 3:2 CRLD_EN，位 1 OWD_EN，
+ * 位 0 OWD_TRG。
+ */
 #define SH3673510_BOARD_SCONF3_VALUE \
     ((SH3673510_BOARD_CGR_WK ? SH3673520_SCONF3_CGR_WK_MASK : 0u) | \
      ((SH3673510_BOARD_LD_WK_CODE << SH3673520_SCONF3_LD_WK_SHIFT) & SH3673520_SCONF3_LD_WK_MASK) | \
@@ -55,12 +54,15 @@
      (SH3673510_BOARD_OWD_EN ? SH3673520_SCONF3_OWD_EN_MASK : 0u) | \
      (SH3673510_BOARD_OWD_TRG ? SH3673520_SCONF3_OWD_TRG_MASK : 0u))
 
-/* SCONF4 0x43: b7:5 PDSGT, b4:0 CN. */
+/* SCONF4 0x43：位 7:5 PDSGT，位 4:0 CN。 */
 #define SH3673510_BOARD_SCONF4_VALUE \
     (((SH3673510_BOARD_PDSGT_CODE << SH3673520_SCONF4_PDSGT_SHIFT) & SH3673520_SCONF4_PDSGT_MASK) | \
      (SH3673510_BOARD_CELL_COUNT & SH3673520_SCONF4_CELL_COUNT_MASK))
 
-/* SCONF5 0x44: b7:6 reserved, b5 MOS_EN, b4 OCC_EN, b3 CADC_EN, b2 WDT_EN, b1:0 WDT. */
+/*
+ * SCONF5 0x44：位 7:6 保留，位 5 MOS_EN，位 4 OCC_EN，位 3 CADC_EN，位 2 WDT_EN，
+ * 位 1:0 WDT。
+ */
 #define SH3673510_BOARD_SCONF5_VALUE \
     ((SH3673510_BOARD_MOS_EN ? SH3673520_SCONF5_MOS_EN_MASK : 0u) | \
      (SH3673510_BOARD_OCC_EN ? SH3673520_SCONF5_OCC_EN_MASK : 0u) | \
@@ -68,7 +70,7 @@
      (SH3673510_BOARD_WDT_EN ? SH3673520_SCONF5_WDT_EN_MASK : 0u) | \
      ((SH3673510_BOARD_WDT_CODE << SH3673520_SCONF5_WDT_SHIFT) & SH3673520_SCONF5_WDT_MASK))
 
-/* SCONF6 0x45: b7..b0 TS4 TS3 TS2 TS1 SC OCD UV OV protection enables. */
+/* SCONF6 0x45 位 7..0 为 TS4 TS3 TS2 TS1 SC OCD UV OV 保护使能。 */
 #define SH3673510_BOARD_SCONF6_VALUE \
     ((SH3673510_BOARD_TS4_HW_PROTECT_EN ? SH3673520_SCONF6_TS4_EN_MASK : 0u) | \
      (SH3673510_BOARD_TS3_HW_PROTECT_EN ? SH3673520_SCONF6_TS3_EN_MASK : 0u) | \
@@ -79,13 +81,16 @@
      (SH3673510_BOARD_UV_HW_PROTECT_EN ? SH3673520_SCONF6_UV_EN_MASK : 0u) | \
      (SH3673510_BOARD_OV_HW_PROTECT_EN ? SH3673520_SCONF6_OV_EN_MASK : 0u))
 
-/* SCONF7 0x46: b7 reserved, b6 RLD, b5:4 CADCT, b3 reserved, b2:0 CDV. */
+/* SCONF7 0x46：位 7 保留，位 6 RLD，位 5:4 CADCT，位 3 保留，位 2:0 CDV。 */
 #define SH3673510_BOARD_SCONF7_VALUE \
     ((SH3673510_BOARD_RLD ? SH3673520_SCONF7_RLD_MASK : 0u) | \
      ((SH3673510_BOARD_CADCT_CODE << SH3673520_SCONF7_CADCT_SHIFT) & SH3673520_SCONF7_CADCT_MASK) | \
      ((SH3673510_BOARD_CDV_CODE << SH3673520_SCONF7_CDV_SHIFT) & SH3673520_SCONF7_CDV_MASK))
 
-/* OWV/ALARMH 0x47: b7:4 OWV, b3 LOADON_INT, b2 LOADOFF_INT, b1 VADC_INT, b0 CADC_INT. */
+/*
+ * OWV/ALARMH 0x47：位 7:4 OWV，位 3 LOADON_INT，位 2 LOADOFF_INT，位 1 VADC_INT，
+ * 位 0 CADC_INT。
+ */
 #define SH3673510_BOARD_OWV_ALARMH_VALUE \
     (((SH3673510_BOARD_OWV_CODE << SH3673520_OWV_SHIFT) & SH3673520_OWV_MASK) | \
      (SH3673510_BOARD_LOADON_INT ? SH3673520_ALARMH_LOADON_INT_MASK : 0u) | \
@@ -93,7 +98,7 @@
      (SH3673510_BOARD_VADC_INT ? SH3673520_ALARMH_VADC_INT_MASK : 0u) | \
      (SH3673510_BOARD_CADC_INT ? SH3673520_ALARMH_CADC_INT_MASK : 0u))
 
-/* ALARML 0x48: b7..b0 WK WDT OWD TEMP OCC OCD UV OV interrupt pulse enables. */
+/* ALARML 0x48 位 7..0 为 WK WDT OWD TEMP OCC OCD UV OV 中断脉冲使能。 */
 #define SH3673510_BOARD_ALARML_VALUE \
     ((SH3673510_BOARD_WK_INT ? SH3673520_ALARML_WK_INT_MASK : 0u) | \
      (SH3673510_BOARD_WDT_INT ? SH3673520_ALARML_WDT_INT_MASK : 0u) | \
@@ -112,4 +117,4 @@
 #error "Production requires software/hardware protection and no debug LED"
 #endif
 
-#endif /* SH3673510_PROJECT_CONFIG_H_ */
+#endif /* 头文件保护：SH3673510_PROJECT_CONFIG_H_。 */

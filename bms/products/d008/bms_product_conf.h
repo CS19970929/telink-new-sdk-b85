@@ -1,3 +1,4 @@
+/* 文件功能：产品容量、名称、采样及通信功能配置。 */
 #ifndef BMS_PRODUCT_CONF_H_
 #define BMS_PRODUCT_CONF_H_
 
@@ -10,9 +11,10 @@
 // #define FAC_TEST
 // #define DISP_VBAT_AND_TEMP_
 
-/* Power comparison only: 0 removes the application's periodic wake deadline.
- * Sampling then depends on other wake events and can miss the DVC Open-Wire
- * COW window. Keep 1 for normal protection/SOC timing. Rebuild after changing. */
+/*
+ * 仅功耗对比：0 取消周期唤醒期限，采样依赖其他事件，
+ * 可能错过 DVC Open-Wire COW 窗口；正常保护/SOC 时序保持 1，修改后重编译。
+ */
 #ifndef BMS_APP_SAMPLE_WAKEUP_ENABLE
 #define BMS_APP_SAMPLE_WAKEUP_ENABLE 1u
 #endif
@@ -20,28 +22,28 @@
 #error "BMS_APP_SAMPLE_WAKEUP_ENABLE must be 0 or 1"
 #endif
 
-/* D008 measurement floor: |I| <= 200 mA is not reliable for reporting/integration. */
+/* D008 测量下限：|I| <= 200 mA 不适合可靠上报/积分。 */
 
 #define _FUNC_SIF_
 #define _FUNC_UART_
 
-/* D008 has no discrete switch; ACC-MCU is reserved, not a power request. */
+/* D008 无独立开关；ACC-MCU 是预留接口，不是供电请求。 */
 
 #define __SLEEP_VNORMAL__             	(3000)
 #define	__SLEEP_TIMENORMAL__	          (60 * 60 * 24)
 #define __SLEEP_VLOW__     		          (2800)
 #define	__SLEEP_TIMEVLOW__		          (60 * 60 * 1)
 
-/* Preserve the existing persisted type ID and factory-capacity fallback while
- * removing the unrelated legacy product table. Capacity is in Ah * 10. */
+/* 移除无关遗留产品表时保留持久化类型 ID 和出厂容量回退，容量单位 Ah * 10。 */
 #define FD_BMS_TYPE   12u
 #define CapacityFactory 78u
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"V8.8"
 
-/* HS-D008 is a 24S DVC1124-2 board. Keep capacity/protection product values in
- * the existing parameter store, but make the physical cell-count identity
- * correct for this branch. A 20S assembly can override DVC1124_DEFAULT_CELL_COUNT. */
+/*
+ * HS-D008 为 24S DVC1124-2 板；容量/保护值保留原参数存储，物理串数应与本分支一致；
+ * 20S 装配可覆盖 DVC1124_DEFAULT_CELL_COUNT。
+ */
 #define DVC1124_D008_PROJECT 1
 #if DVC1124_D008_PROJECT
 #undef SeriesNum
@@ -59,7 +61,7 @@
 #define DEV_NAME_LEN2  (sizeof(DEV_NAME_STR2)-1)
 
 
-/* HS-D008 physical MCU nets from the schematic. */
+/* HS-D008 原理图 MCU 物理网络。 */
 #define RF_EN_PIN              (GPIO_PD4)
 #define AFE1_PRO_EN_PIN        (GPIO_PD7)
 #define ACC_MCU_PIN            (GPIO_PA0)

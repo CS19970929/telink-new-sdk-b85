@@ -1,7 +1,10 @@
-/* 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之间的边界。
+/*
+ * 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之
+ * 间的边界。
  * bms/core/bms_soc.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_soc.h"
+/* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
 static void SOC_Result_Pass(void);
 
 #include "bms_config_store.h"
@@ -12,8 +15,7 @@ static void SOC_Result_Pass(void);
 #include "bms_diag.h"
 #include <string.h>
 
-/* Development-only capture of COW recovery inputs in the existing Trace ring.
- * Default builds do not emit these private debug tags. */
+/* 仅开发配置在既有 Trace 环形缓存捕获 COW 恢复输入；默认构建不产生这些私有调试标记。 */
 #ifndef BMS_SOC_OCV_TRACE_ENABLE
 #define BMS_SOC_OCV_TRACE_ENABLE 0
 #endif
@@ -44,8 +46,7 @@ static void SOC_Result_Pass(void);
 #define SOC_OCV_IDLE_SLOPE_MAX_MV           8u
 #define SOC_OCV_IDLE_CELL_DELTA_MAX_MV      100u
 #define SOC_OCV_OPENWIRE_CONFIRM_SAMPLES   3u
-/* One-second COW window, one last diagnostic frame and three normal frames;
- * each accepted frame is still independently bounded by the 400 ms gate. */
+/* 一秒 COW 窗口、最后一帧诊断和三帧正常样本；每个接受帧仍独立受 400 ms 门禁限制。 */
 #define SOC_OCV_OPENWIRE_MAX_PAUSE_32K \
     (BMS_SOC_TIME_TICKS_PER_SECOND + \
      (SOC_OCV_OPENWIRE_CONFIRM_SAMPLES + 1u) * BMS_SOC_MAX_SAMPLE_GAP_32K)
@@ -83,8 +84,8 @@ static void SOC_Result_Pass(void);
 #define SOC_ENDPOINT_EVENT_IMBALANCE         0x04u
 #define SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH 0x08u
 #define SOC_ENDPOINT_EVENT_LEARNING_REJECTED 0x10u
-#define SOC_OCV_TEMP_MIN_X10                 200u  /* -20 degC */
-#define SOC_OCV_TEMP_MAX_X10                 1000u /* +60 degC */
+#define SOC_OCV_TEMP_MIN_X10                 200u  /* 温度 -20 ℃。 */
+#define SOC_OCV_TEMP_MAX_X10                 1000u /* 温度 +60 ℃。 */
 
 #ifndef BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT
 #define BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u
@@ -176,7 +177,7 @@ typedef struct
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 static soc_runtime_t g_soc_runtime;
 static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
-/* mA * 32k-ticks remainder, denominator 100 mA per As*10 unit. */
+/* mA 乘 32K tick 的余数；每 As*10 单位分母含 100 mA。 */
 static uint32_t g_soc_integral_tick_remainder;
 static int32_t g_soc_input_current_ma;
 /* 当前 SOC 输入快照的所有者；有效标志、时间戳和电流必须来自同一采样周期。 */
@@ -204,16 +205,26 @@ static bms_soc_config_t g_soc_config = {
 };
 static const soc_profile_t *g_soc_profile;
 
+/* 按容量配置与学习结果重算满容量。 */
 static void soc_recalc_full_capacity(void);
+/* 按当前 SOC 重算剩余容量。 */
 static void soc_recalc_now_capacity(void);
+/* 复位静置、斜率和断线恢复跟踪状态。 */
 static void soc_reset_ocv_tracking(void);
+/* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void);
+/* 样本失效时撤销积分时间区间并复位相关跟踪。 */
 static void soc_invalidate_sample_interval(void);
+/* 终止容量学习并清除本轮累计状态。 */
 static void soc_learning_abort(void);
+/* 把当前学习结果提交到待保存状态，由检查点路径写 Flash。 */
 static void soc_learning_persist(void);
+/* 检查满充学习端点的电压、电流及确认资格。 */
 static uint8_t soc_learning_full_quality(void);
+/* 检查空电学习端点的负载与电压资格。 */
 static uint8_t soc_learning_empty_quality(void);
 
+/* 记录 SOC 输入样本资格与时序诊断。 */
 static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
                                  uint32_t elapsed_32k)
 {
@@ -229,6 +240,7 @@ static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
     g_soc_runtime.last_decision_detail = 0u;
 }
 
+/* 记录 SOC 校正或锚定动作及原因。 */
 static void soc_diag_note_action(uint8_t action, uint8_t before,
                                  uint8_t target, uint8_t detail)
 {
@@ -239,6 +251,7 @@ static void soc_diag_note_action(uint8_t action, uint8_t before,
     g_soc_runtime.last_decision_detail = detail;
 }
 
+/* 根据循环次数估算 SOH。 */
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
     if (cycle <= 80u) return 100u;
@@ -255,6 +268,7 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
     }
 }
 
+/* 构造 SOC 算法默认值与自动化学体系设置。 */
 void bms_soc_get_default_config(bms_soc_config_t *config)
 {
     if (config == 0) return;
@@ -267,6 +281,7 @@ void bms_soc_get_default_config(bms_soc_config_t *config)
     config->hide_capacity_until_learned = BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT;
 }
 
+/* 检查 SOC 产品输入是否完整有效。 */
 static uint8_t soc_product_config_valid(uint8_t chemistry, uint8_t profile_id)
 {
     if ((chemistry > BMS_SOC_CHEMISTRY_NMC) ||
@@ -278,6 +293,7 @@ static uint8_t soc_product_config_valid(uint8_t chemistry, uint8_t profile_id)
     return 1u;
 }
 
+/* 校验 SOC 配置范围与化学体系标识。 */
 uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
 {
     if (config == 0) return 0u;
@@ -292,6 +308,7 @@ uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
     return 1u;
 }
 
+/* 应用有效 SOC 配置并刷新曲线与容量状态。 */
 uint8_t bms_soc_configure(const bms_soc_config_t *config)
 {
     if (!bms_soc_config_valid(config)) return 0u;
@@ -313,6 +330,7 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
     return 1u;
 }
 
+/* 按化学体系 ID 查找 OCV 曲线配置。 */
 static const soc_profile_t *soc_profile_from_id(uint8_t profile_id)
 {
     if (profile_id == BMS_SOC_PROFILE_GENERIC_LFP) return &g_soc_profile_lfp;
@@ -320,6 +338,7 @@ static const soc_profile_t *soc_profile_from_id(uint8_t profile_id)
     return 0;
 }
 
+/* 根据配置及产品条件确定使用的化学体系。 */
 static uint8_t soc_resolve_chemistry(void)
 {
     const soc_profile_t *selected;
@@ -333,8 +352,7 @@ static uint8_t soc_resolve_chemistry(void)
         return g_soc_config.chemistry;
     }
 
-    /* AUTO is an explicit generic selection. D008 defaults use the compiled
-     * assembly identity; no old Flash migration is performed. */
+    /* AUTO 是明确的通用选择；D008 默认使用编译装配身份，不迁移旧 Flash。 */
     ovp = g_tParam.protect.u16VcellOvp_Third;
     if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
     if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
@@ -342,6 +360,7 @@ static uint8_t soc_resolve_chemistry(void)
     return BMS_SOC_CHEMISTRY_NMC;
 }
 
+/* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void)
 {
     const soc_profile_t *next = soc_profile_from_id(g_soc_config.profile_id);
@@ -356,11 +375,13 @@ static void soc_profile_refresh(void)
     }
 }
 
+/* 加载持久化 SOC 配置并检查产品适配。 */
 static void soc_load_persisted_product_config(void)
 {
     (void)bms_config_store_get_soc(&g_soc_config);
 }
 
+/* 取得 SOC 运行诊断快照。 */
 void bms_soc_get_diag(bms_soc_diag_t *diag)
 {
     uint32_t rest_s;
@@ -424,31 +445,37 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->last_integral_delta_as10 = g_soc_runtime.last_integral_delta_as10;
 }
 
+/* 将百分比限制到合法范围。 */
 static uint8_t soc_limit_percent_u32(uint32_t value)
 {
     return (value > SOC_PERCENT_MAX) ? SOC_PERCENT_MAX : (uint8_t)value;
 }
 
+/* 限制累计放电百分比余量。 */
 static uint8_t soc_limit_dsg_u32(uint32_t value)
 {
     return (value > SOC_DSG_INT_MAX) ? SOC_DSG_INT_MAX : (uint8_t)value;
 }
 
+/* 限制循环计数以避免字段溢出。 */
 static uint32_t soc_limit_cycle_u32(uint32_t value)
 {
     return (value > SOC_CYCLE_MAX) ? SOC_CYCLE_MAX : value;
 }
 
+/* 将循环次数安全转换为 16 位报告值。 */
 static uint16_t soc_cycle_to_u16(uint32_t value)
 {
     return (uint16_t)soc_limit_cycle_u32(value);
 }
 
+/* 计算两个 16 位值的无符号绝对差。 */
 static uint16_t soc_abs_diff_u16(uint16_t a, uint16_t b)
 {
     return (a >= b) ? (uint16_t)(a - b) : (uint16_t)(b - a);
 }
 
+/* 结合电流死区判断当前充放电方向。 */
 static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
 {
     uint32_t magnitude_ma;
@@ -456,7 +483,7 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
 
     if (magnitude_a10 != 0) *magnitude_a10 = 0u;
     if (!g_soc_input_valid) return dir;
-    /* Unsigned subtraction handles INT32_MIN without signed overflow. */
+    /* 无符号减法处理 INT32_MIN，避免有符号溢出。 */
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
     if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA ||
@@ -470,21 +497,25 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
     return dir;
 }
 
+/* 查询当前是否处于有效充电方向。 */
 static uint8_t isCHG(void)
 {
     return (soc_current_direction(0) == SOC_INTEGRAL_DIR_CHG) ? 1u : 0u;
 }
 
+/* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void)
 {
     return SOC_Calculate_Element.u8SOC_Now;
 }
 
+/* 取得供上位机显示的 SOC 百分比。 */
 static uint8_t get_soc_display(void)
 {
     return g_soc_display_soc;
 }
 
+/* 设置显示 SOC 并限制合法范围。 */
 void set_dispsoc(uint8_t soc)
 {
     g_soc_display_soc = soc_limit_percent_u32(soc);
@@ -492,6 +523,7 @@ void set_dispsoc(uint8_t soc)
     g_stCellInfoReport.SocElement.u16Soc = g_soc_display_soc;
 }
 
+/* 按确认节拍使显示 SOC 跟随真实 SOC。 */
 static void soc_display_follow_real(void)
 {
     uint8_t real_soc = get_soc_real();
@@ -515,11 +547,13 @@ static void soc_display_follow_real(void)
     else g_soc_display_soc--;
 }
 
+/* 计算与显示 SOC 对应的当前容量。 */
 static uint32_t soc_display_capacity_now(void)
 {
     return ((uint32_t)get_soc_display() * SOC_Calculate_Element.u32CapFull) / SOC_PERCENT_MAX;
 }
 
+/* 取得名义容量，单位为 0.1 Ah。 */
 static uint32_t soc_nominal_capacity_0p1ah(void)
 {
     bms_config_system_params_t system;
@@ -528,6 +562,7 @@ static uint32_t soc_nominal_capacity_0p1ah(void)
     return (uint32_t)CapacityFactory;
 }
 
+/* 按容量配置与学习结果重算满容量。 */
 static void soc_recalc_full_capacity(void)
 {
     uint32_t factory = soc_nominal_capacity_0p1ah();
@@ -552,18 +587,21 @@ static void soc_recalc_full_capacity(void)
     if (SOC_Calculate_Element.u32CapFull == 0u) SOC_Calculate_Element.u32CapFull = 1u;
 }
 
+/* 按当前 SOC 重算剩余容量。 */
 static void soc_recalc_now_capacity(void)
 {
     SOC_Calculate_Element.u32CapNow =
         ((uint32_t)get_soc_real() * SOC_Calculate_Element.u32CapFull) / SOC_PERCENT_MAX;
 }
 
+/* 清除积分余量与当前方向状态。 */
 static void soc_reset_integral_accumulator(void)
 {
     g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
     g_soc_integral_tick_remainder = 0u;
 }
 
+/* 切换积分方向并管理方向相关余量。 */
 static void soc_integral_select_dir(soc_integral_dir_t dir)
 {
     if (g_soc_integral_dir != dir) {
@@ -572,6 +610,7 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
     }
 }
 
+/* 把电流与有效时间转换为容量积分增量。 */
 static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
 {
     uint32_t magnitude_ma;
@@ -583,11 +622,12 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
-    /* The pinned TC32 linker has no 64-bit multiply/divide helpers. Split
-     * magnitude into whole denominator units and bounded fractional chunks.
-     * Whole result <= 671 * 12800; each sum < 3200000 * 1025 < UINT32_MAX.
-     * At most 13 iterations for the accepted 400 ms interval, with exactly
-     * the same quotient/remainder as mA * ticks / denominator. */
+    /*
+     * 固定 TC32 链接器无 64 位乘除辅助函数。将幅值拆为整分母单位和有界余数块；
+     * 整数结果不超过 671*12800，各次和小于 3200000*1025<UINT32_MAX。
+     * 接受的 400 ms 间隔最多循环 13 次，
+     * 与 mA*ticks/denominator 保持完全相同商和余数。
+     */
     delta = (magnitude_ma / denominator) * g_soc_interval_32k;
     fractional_ma = magnitude_ma % denominator;
     ticks_left = g_soc_interval_32k;
@@ -602,12 +642,14 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
     return delta;
 }
 
+/* 将充电容量换算为 SOC 百分比。 */
 static uint8_t soc_percent_from_capacity_charge(uint32_t cap)
 {
     if (cap >= SOC_Calculate_Element.u32CapFull) return SOC_PERCENT_MAX;
     return soc_limit_percent_u32((cap * SOC_PERCENT_MAX) / SOC_Calculate_Element.u32CapFull);
 }
 
+/* 将放电容量换算为 SOC 百分比。 */
 static uint8_t soc_percent_from_capacity_discharge(uint32_t cap)
 {
     uint32_t percent;
@@ -618,6 +660,7 @@ static uint8_t soc_percent_from_capacity_discharge(uint32_t cap)
     return soc_limit_percent_u32(percent);
 }
 
+/* 累计放电 SOC 降幅并更新等效循环。 */
 static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
 {
     uint16_t dsg_acc;
@@ -639,17 +682,20 @@ static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
     }
 }
 
+/* 终止容量学习并清除本轮累计状态。 */
 static void soc_learning_abort(void)
 {
     g_soc_runtime.learning_state = BMS_SOC_LEARNING_NONE;
     g_soc_runtime.learning_capacity_as10 = 0u;
 }
 
+/* 饱和递增 16 位计数器，避免回绕。 */
 static uint16_t soc_sat_inc_u16(uint16_t value)
 {
     return (value == 65535u) ? value : (uint16_t)(value + 1u);
 }
 
+/* 组合容量学习持久状态标志，不执行存储写入。 */
 static uint32_t soc_learning_persist_flags(void)
 {
     uint32_t flags = BMS_STATE_FLAG_LEARNING_META |
@@ -660,6 +706,7 @@ static uint32_t soc_learning_persist_flags(void)
     return flags;
 }
 
+/* 按样本与候选质量更新学习置信度。 */
 static void soc_learning_update_confidence(void)
 {
     uint16_t confidence;
@@ -673,6 +720,7 @@ static void soc_learning_update_confidence(void)
     g_soc_runtime.learning_confidence = (uint8_t)confidence;
 }
 
+/* 把当前学习结果提交到待保存状态，由检查点路径写 Flash。 */
 static void soc_learning_persist(void)
 {
     (void)bms_state_store_write_learning_meta(
@@ -685,6 +733,7 @@ static void soc_learning_persist(void)
         (u32)g_soc_runtime.candidate_match_count);
 }
 
+/* 拒绝当前学习候选并记录原因。 */
 static void soc_learning_reject(uint8_t reason)
 {
     if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
@@ -697,6 +746,7 @@ static void soc_learning_reject(uint8_t reason)
     soc_learning_persist();
 }
 
+/* 从合格端点启动一轮容量学习。 */
 static void soc_learning_start(uint8_t state)
 {
     int32_t offset_ma;
@@ -715,6 +765,7 @@ static void soc_learning_start(uint8_t state)
     soc_learning_persist();
 }
 
+/* 将有效容量增量累积到当前学习轮次。 */
 static void soc_learning_add(uint32_t delta)
 {
     if ((0xFFFFFFFFu - g_soc_runtime.learning_capacity_as10) < delta)
@@ -723,6 +774,7 @@ static void soc_learning_add(uint32_t delta)
         g_soc_runtime.learning_capacity_as10 += delta;
 }
 
+/* 校验候选容量及连续确认后接受学习结果。 */
 static uint8_t soc_learning_accept_candidate(void)
 {
     uint32_t nominal = soc_nominal_capacity_0p1ah();
@@ -784,6 +836,7 @@ static uint8_t soc_learning_accept_candidate(void)
     return 1u;
 }
 
+/* 按积分方向和资格推进学习容量累计。 */
 static void soc_learning_on_delta(soc_integral_dir_t dir, uint32_t delta)
 {
     if (!g_soc_config.capacity_learning_enable || delta == 0u) return;
@@ -799,6 +852,7 @@ static void soc_learning_on_delta(soc_integral_dir_t dir, uint32_t delta)
     }
 }
 
+/* 满充锚点到达时处理学习开始或结束。 */
 static void soc_learning_on_full_anchor(void)
 {
     uint8_t quality;
@@ -812,6 +866,7 @@ static void soc_learning_on_full_anchor(void)
     else soc_learning_abort();
 }
 
+/* 空电锚点到达时处理学习开始或结束。 */
 static void soc_learning_on_empty_anchor(void)
 {
     uint8_t quality;
@@ -825,6 +880,7 @@ static void soc_learning_on_empty_anchor(void)
     else soc_learning_abort();
 }
 
+/* 把容量积分增量应用到真实 SOC 与循环状态。 */
 static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 {
     uint8_t old_soc;
@@ -866,6 +922,7 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
     g_soc_runtime.last_soc_after = get_soc_real();
 }
 
+/* 更新真实 SOC 并同步容量边界。 */
 static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
 {
     SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(soc);
@@ -873,6 +930,7 @@ static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
     if (sync_display) set_dispsoc(SOC_Calculate_Element.u8SOC_Now);
 }
 
+/* 按规定步进向下逼近目标 SOC。 */
 static uint8_t soc_step_down_to(uint8_t target_soc)
 {
     uint8_t current = get_soc_real();
@@ -883,6 +941,7 @@ static uint8_t soc_step_down_to(uint8_t target_soc)
     return 1u;
 }
 
+/* 按规定步进向上逼近目标 SOC。 */
 static uint8_t soc_step_up_to(uint8_t target_soc)
 {
     uint8_t current = get_soc_real();
@@ -893,11 +952,13 @@ static uint8_t soc_step_up_to(uint8_t target_soc)
     return 1u;
 }
 
+/* 按策略组合最低和最高单体电压。 */
 static uint16_t soc_weighted_cell_mv(void)
 {
     return (uint16_t)((((uint32_t)VCELLMIN * 3u) + (uint32_t)VCELLMAX) / 4u);
 }
 
+/* 检查样本有效性及断线状态是否允许 OCV 校正。 */
 static uint8_t soc_ocv_sample_valid(void)
 {
     if (g_soc_profile == 0) return 0u;
@@ -908,6 +969,7 @@ static uint8_t soc_ocv_sample_valid(void)
     return 1u;
 }
 
+/* 检查温度有效性与 OCV 允许范围。 */
 static uint8_t soc_temperature_reasonable(void)
 {
     if (!g_soc_input.temperature_valid) return 0u;
@@ -917,6 +979,7 @@ static uint8_t soc_temperature_reasonable(void)
     return 1u;
 }
 
+/* 检查静置校正所需的保护与采样上下文。 */
 static uint8_t soc_rest_context_valid(void)
 {
     if (!g_soc_input.voltage_valid || !soc_temperature_reasonable() ||
@@ -927,11 +990,13 @@ static uint8_t soc_rest_context_valid(void)
     return 1u;
 }
 
+/* 判断电流与静置条件是否允许 OCV 估算。 */
 static uint8_t soc_idle_for_ocv(void)
 {
     return (soc_current_direction(0) == SOC_INTEGRAL_DIR_NONE) ? 1u : 0u;
 }
 
+/* 依据当前化学体系曲线由单体电压估算 SOC。 */
 static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 {
     uint8_t i;
@@ -953,6 +1018,7 @@ static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
     return SOC_PERCENT_MAX;
 }
 
+/* 更新 OCV 中心估计、误差带与置信度。 */
 static void soc_update_ocv_band(uint16_t cell_mv)
 {
     uint8_t center = soc_estimate_percent_from_cell_mv(cell_mv);
@@ -966,11 +1032,13 @@ static void soc_update_ocv_band(uint16_t cell_mv)
         SOC_PERCENT_MAX : (uint8_t)(center + band);
 }
 
+/* 取得 OCV 静置准备所需节拍数。 */
 static uint32_t soc_ocv_prepare_ticks(void)
 {
     return (uint32_t)g_soc_config.ocv_rest_prepare_s * SOC_TICKS_PER_SECOND;
 }
 
+/* 开发构建中记录 OCV 判定输入，不改变正式策略。 */
 static void soc_trace_ocv_inputs(uint16_t event)
 {
 #if BMS_SOC_OCV_TRACE_ENABLE
@@ -1006,6 +1074,7 @@ static void soc_trace_ocv_inputs(uint16_t event)
 #endif
 }
 
+/* 复位静置、斜率和断线恢复跟踪状态。 */
 static void soc_reset_ocv_tracking(void)
 {
     if (g_soc_runtime.idle_stable_ticks || g_soc_runtime.ocv_down_ticks)
@@ -1023,6 +1092,7 @@ static void soc_reset_ocv_tracking(void)
     g_soc_runtime.ocv_high = 0u;
 }
 
+/* 推进静置确认和 OCV 校正，处理断线检测暂停。 */
 static uint8_t soc_idle_ocv_tracking(void)
 {
     uint16_t mv;
@@ -1041,9 +1111,10 @@ static uint8_t soc_idle_ocv_tracking(void)
     }
 
     if (g_soc_input.open_wire_active) {
-        /* Only an already qualified normal baseline may survive a bounded
-         * diagnostic. Failed/indeterminate rounds retain suspected at the
-         * feature owner; invalid samples and GAP reset this state earlier. */
+        /*
+         * 只有已合格的正常基线可跨越有界诊断；失败/不确定轮次由功能所有者保持疑似，
+         * 无效样本和 GAP 更早重置本状态。
+         */
         if (!g_soc_runtime.idle_ocv_mv_valid ||
             g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_RECOVERING) {
             soc_reset_ocv_tracking();
@@ -1058,7 +1129,7 @@ static uint8_t soc_idle_ocv_tracking(void)
                        g_soc_runtime.ocv_openwire_started_32k) >
             SOC_OCV_OPENWIRE_MAX_PAUSE_32K)
             soc_reset_ocv_tracking();
-        return 0u; /* COW voltage and elapsed time provide no OCV evidence. */
+        return 0u; /* COW 电压和持续时间不能作为 OCV 证据。 */
     }
 
     if (!soc_ocv_sample_valid() ||
@@ -1083,8 +1154,10 @@ static uint8_t soc_idle_ocv_tracking(void)
             g_soc_runtime.ocv_openwire_confirm_samples = 1u;
             return 0u;
         }
-        /* Strategy may run twice for one accepted 400 ms frame. Count fresh
-         * frames, and resume only on the frame after all three confirmations. */
+        /*
+         * 一个接受的 400 ms 帧可执行两次策略；资格只按新帧累计，
+         * 三次确认全部完成后的下一帧才恢复。
+         */
         if (g_soc_runtime.ocv_openwire_confirm_tick_32k == g_soc_input.timestamp_32k)
             return 0u;
         g_soc_runtime.ocv_openwire_confirm_tick_32k = g_soc_input.timestamp_32k;
@@ -1129,10 +1202,10 @@ static uint8_t soc_idle_ocv_tracking(void)
     current_soc = get_soc_real();
     g_soc_runtime.ocv_state = BMS_SOC_OCV_READY;
 
-    /* OCV is a confidence interval, not a hard target.  Normal OCV correction
-     * is deliberately one-way: it may reduce an over-estimated SOC to the
-     * upper confidence boundary, but it never raises SOC.  Only a confirmed
-     * full-charge anchor may increase SOC toward 100%. */
+    /*
+     * OCV 是置信区间，不是硬目标。正常 OCV 校正有意单向：可将高估 SOC 降至置信上界，
+     * 但绝不升高；只有确认满充锚点可将 SOC 提升至 100%。
+     */
     if (current_soc <= g_soc_runtime.ocv_high) {
         g_soc_runtime.ocv_down_ticks = 0u;
         return 0u;
@@ -1153,13 +1226,17 @@ static uint8_t soc_idle_ocv_tracking(void)
     return 0u;
 }
 
+/* 按电流和容量计算自然放电 1% 所需节拍。 */
 static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
 {
     uint16_t factory_a10;
     uint32_t ticks;
     if (dsg_current < SOC_DSG_CURRENT_MIN_A10) dsg_current = SOC_DSG_CURRENT_MIN_A10;
     factory_a10 = (uint16_t)soc_nominal_capacity_0p1ah();
-    /* CapacityFactory is Ah*10, current is A*10: 1% time(s) = 36 * CapacityFactory / current. */
+    /*
+     * CapacityFactory 单位 Ah*10，电流 A*10；
+     * 1% 所需秒数为36*CapacityFactory/current。
+     */
     ticks = ((uint32_t)36u * factory_a10 * SOC_TICKS_PER_SECOND + ((uint32_t)dsg_current / 2u)) /
         (uint32_t)dsg_current;
     if (ticks < SOC_DSG_NATURAL_STEP_MIN_TICKS) ticks = SOC_DSG_NATURAL_STEP_MIN_TICKS;
@@ -1167,6 +1244,7 @@ static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
     return (uint16_t)ticks;
 }
 
+/* 按 SOC 偏差计算放电校正步进间隔。 */
 static uint16_t soc_discharge_gap_correction_step_ticks(uint8_t current_soc,
                                                         uint8_t target_soc,
                                                         uint16_t dsg_current)
@@ -1186,6 +1264,7 @@ static uint16_t soc_discharge_gap_correction_step_ticks(uint8_t current_soc,
     return (uint16_t)ticks;
 }
 
+/* 根据大电流压降更新放电校正保持期。 */
 static void soc_update_discharge_sag_hold(void)
 {
     uint16_t current = 0u;
@@ -1198,11 +1277,13 @@ static void soc_update_discharge_sag_hold(void)
     }
 }
 
+/* 查询压降保持期是否仍有效。 */
 static uint8_t soc_discharge_sag_hold_active(void)
 {
     return (g_soc_runtime.dsg_sag_hold_ticks > 0u) ? 1u : 0u;
 }
 
+/* 取得当前欠压触发阈值，单位为毫伏。 */
 static uint16_t soc_uvp_trip_mv(void)
 {
     uint16_t uvp = g_tParam.protect.u16VcellUvp_Third;
@@ -1210,17 +1291,20 @@ static uint16_t soc_uvp_trip_mv(void)
     return uvp;
 }
 
+/* 计算有符号电流的绝对量。 */
 static uint32_t soc_abs_i32(int32_t value)
 {
     return (value < 0) ? (0u - (uint32_t)value) : (uint32_t)value;
 }
 
+/* 取得学习端点允许的最大电流毫安值。 */
 static uint32_t soc_learning_endpoint_current_max_ma(void)
 {
     return (soc_nominal_capacity_0p1ah() *
             g_soc_profile->learning_endpoint_max_c_rate_x1000) / 10u;
 }
 
+/* 检查容量学习共有的样本与故障资格。 */
 static uint8_t soc_learning_common_quality(soc_integral_dir_t required_dir)
 {
     if (!g_soc_input_valid || !soc_ocv_sample_valid() ||
@@ -1236,6 +1320,7 @@ static uint8_t soc_learning_common_quality(soc_integral_dir_t required_dir)
     return 1u;
 }
 
+/* 检查满充学习端点的电压、电流及确认资格。 */
 static uint8_t soc_learning_full_quality(void)
 {
     uint16_t full_min = (g_soc_profile->full_sync_mv > g_soc_profile->full_min_margin_mv) ?
@@ -1245,6 +1330,7 @@ static uint8_t soc_learning_full_quality(void)
             g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) ? 1u : 0u;
 }
 
+/* 检查空电学习端点的负载与电压资格。 */
 static uint8_t soc_learning_empty_quality(void)
 {
     uint16_t empty_limit = (uint16_t)(soc_uvp_trip_mv() +
@@ -1253,6 +1339,7 @@ static uint8_t soc_learning_empty_quality(void)
             VCELLMIN <= empty_limit && !soc_discharge_sag_hold_active()) ? 1u : 0u;
 }
 
+/* 运行中监测学习资格，异常时拒绝本轮。 */
 static void soc_learning_monitor_quality(void)
 {
     int32_t offset_ma;
@@ -1286,11 +1373,13 @@ static void soc_learning_monitor_quality(void)
         soc_learning_reject(BMS_SOC_LEARNING_REJECT_PROTECTION);
 }
 
+/* 复位 SOC 内部剩余时间估算状态。 */
 static void soc_eta_reset(void)
 {
     bms_soc_eta_reset(&g_soc_runtime.eta);
 }
 
+/* 用当前有效容量、电流和方向更新剩余时间。 */
 static void soc_eta_update(void)
 {
     soc_integral_dir_t direction = soc_current_direction(0);
@@ -1308,15 +1397,17 @@ static void soc_eta_update(void)
     bms_soc_eta_update(&g_soc_runtime.eta, &input);
 }
 
+/* 查找放电末端电压对应的 SOC 约束。 */
 static uint8_t soc_terminal_lookup(uint8_t *target_soc, uint8_t *sag_hold_blocks)
 {
     uint16_t uvp = soc_uvp_trip_mv();
     if ((target_soc == 0) || (sag_hold_blocks == 0) || (VCELLMAX < VCELLMIN)) return 0u;
 
     if (VCELLMIN <= uvp) {
-        /* Raw voltage at/below UVP is not itself the protection decision.
-         * A high-current sag remains held here; the independently filtered
-         * Third Cell UVP path above still forces the final safety anchor. */
+        /*
+         * 原始电压达到/低于 UVP 本身不是保护结论；大电流压降在此仍保持，
+         * 独立滤波的 Third Cell UVP 仍强制最终安全锚点。
+         */
         *target_soc = 0u; *sag_hold_blocks = 1u; return 1u;
     }
     if (VCELLMIN <= (uint16_t)(uvp + g_soc_profile->terminal_l3_offset_mv)) {
@@ -1334,6 +1425,7 @@ static uint8_t soc_terminal_lookup(uint8_t *target_soc, uint8_t *sag_hold_blocks
     return 0u;
 }
 
+/* 按末端电压与压降资格推进放电 SOC 修正。 */
 static uint8_t soc_apply_discharge_terminal_tracking(void)
 {
     uint8_t target_soc;
@@ -1397,10 +1489,10 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
     return 0u;
 }
 
+/* 确认满充端点后约束真实及显示 SOC。 */
 static uint8_t soc_apply_full_anchor(void)
 {
-    /* Upward calibration is legal only while a real charging direction is
-     * confirmed. Idle/high-voltage boot states and rebound must never raise SOC. */
+    /* 只有确认真实充电方向时才允许向上校准；空闲、高压启动和电压回弹绝不能提高 SOC。 */
     uint16_t full_mv = g_soc_profile->full_sync_mv;
     uint16_t full_min = (full_mv > g_soc_profile->full_min_margin_mv) ?
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
@@ -1467,6 +1559,7 @@ static uint8_t soc_apply_full_anchor(void)
     return 0u;
 }
 
+/* 在明确空电条件下执行强制空电锚定。 */
 static uint8_t soc_apply_forced_empty_anchor(void)
 {
     uint8_t before;
@@ -1493,6 +1586,7 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     return 1u;
 }
 
+/* 在合格静置低电压条件下执行空电锚定。 */
 static uint8_t soc_apply_idle_empty_anchor(void)
 {
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
@@ -1538,6 +1632,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
     return 0u;
 }
 
+/* 将低 SOC 保护延时转换为确认样本数。 */
 static uint16_t soc_fault_filter_samples(void)
 {
     uint32_t ms = (uint32_t)g_tParam.protect.u16SocLow_Filter * 10u;
@@ -1547,6 +1642,7 @@ static uint16_t soc_fault_filter_samples(void)
     return (uint16_t)samples;
 }
 
+/* 取得指定级别的 SOC 故障位寄存器。 */
 static union MDLCHGFAULT_REG *soc_fault_reg(uint8_t level)
 {
     if (level == 0u) return &g_stCellInfoReport.unMdlFault_First;
@@ -1554,6 +1650,7 @@ static union MDLCHGFAULT_REG *soc_fault_reg(uint8_t level)
     return &g_stCellInfoReport.unMdlFault_Third;
 }
 
+/* 取得指定级别的低 SOC 阈值。 */
 static uint16_t soc_fault_threshold(uint8_t level)
 {
     if (level == 0u) return g_tParam.protect.u16SocLow_First;
@@ -1561,6 +1658,7 @@ static uint16_t soc_fault_threshold(uint8_t level)
     return g_tParam.protect.u16SocLow_Third;
 }
 
+/* 取得对应低 SOC 级别的历史故障编号。 */
 static bms_fault_code_t soc_fault_history_code(uint8_t level)
 {
     /* 低 SOC 故障编号同时用于故障记录。 */
@@ -1569,6 +1667,7 @@ static bms_fault_code_t soc_fault_history_code(uint8_t level)
     return BMS_FAULT_SOC_LOW_THIRD;
 }
 
+/* 更新低 SOC 故障触发、恢复与历史记录。 */
 static void soc_update_low_faults(void)
 {
     uint8_t level;
@@ -1616,11 +1715,14 @@ static void soc_update_low_faults(void)
     }
 }
 
+/* 推进 OCV、充放电端点与显示 SOC 策略。 */
 static void soc_strategy_update(void)
 {
     soc_profile_refresh();
-    /* Keep CONFIRMED_FULL active long enough for display SOC to finish its
-     * soft landing even if charge current disappears immediately afterward. */
+    /*
+     * 即使满充后电流立即消失，也保持 CONFIRMED_FULL 足够久，
+     * 让显示 SOC 完成平缓到达。
+     */
     g_soc_runtime.endpoint_state =
         (g_soc_runtime.full_anchor_latched && get_soc_real() == SOC_PERCENT_MAX &&
          get_soc_display() < SOC_PERCENT_MAX) ?
@@ -1636,6 +1738,7 @@ static void soc_strategy_update(void)
     soc_eta_update();
 }
 
+/* 设置计算 SOC 并处理外部状态变更。 */
 void set_calsoc(uint8_t soc)
 {
     SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(soc);
@@ -1643,6 +1746,7 @@ void set_calsoc(uint8_t soc)
     soc_recalc_now_capacity();
 }
 
+/* 更新 SOC 参数与相关容量状态。 */
 void set_soc_param(uint8_t soc, uint8_t sync_display)
 {
     uint8_t before = get_soc_real();
@@ -1656,6 +1760,7 @@ void set_soc_param(uint8_t soc, uint8_t sync_display)
                          soc_limit_percent_u32(soc), sync_display);
 }
 
+/* 初始化 SOC 参数、持久状态与策略计数。 */
 void soc_param_lib_init(const bms_state_store_data_t *soc)
 {
     bms_state_store_data_t defaults;
@@ -1715,6 +1820,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     SOC_Result_Pass();
 }
 
+/* 对合格时间区间的电流进行容量积分。 */
 static void soc_integrate_current(soc_integral_dir_t dir)
 {
     if (dir == SOC_INTEGRAL_DIR_NONE) {
@@ -1724,6 +1830,7 @@ static void soc_integrate_current(soc_integral_dir_t dir)
     soc_apply_integral_delta(dir, soc_integral_delta_from_current(dir));
 }
 
+/* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
 static void SOC_Result_Pass(void)
 {
     uint8_t hide_capacity;
@@ -1749,6 +1856,7 @@ static void SOC_Result_Pass(void)
     }
 }
 
+/* 样本失效时撤销积分时间区间并复位相关跟踪。 */
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
@@ -1774,6 +1882,7 @@ static void soc_invalidate_sample_interval(void)
     soc_learning_abort();
 }
 
+/* 外部 SOC 或容量变化后重建算法跟踪状态。 */
 static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample,
                                           uint8_t *reason)
 {
@@ -1801,6 +1910,7 @@ static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample,
     return changed;
 }
 
+/* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample)
 {
     uint32_t elapsed_32k;
@@ -1836,13 +1946,13 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
         g_soc_input_ready = 1u;
-        return; /* the first new sample cannot prove the preceding interval */
+        return; /* 首个新样本不能证明此前时间段。 */
     }
     elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
     if (elapsed_32k == 0u) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE,
                              soc_current_direction(0), 0u);
-        return; /* duplicate cached read is not new evidence */
+        return; /* 重复缓存读取不是新证据。 */
     }
     g_soc_sample_tick_32k = sample->timestamp_32k;
     if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
@@ -1852,7 +1962,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
             soc_learning_reject(BMS_SOC_LEARNING_REJECT_SAMPLE_GAP);
         soc_invalidate_sample_interval();
-        /* Current frame starts a new interval; never fill a blind gap. */
+        /* 当前帧开启新时间段，不补填盲区。 */
         g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
@@ -1880,8 +1990,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     if (dir != previous_dir)
     {
         g_soc_runtime.last_sample_state = BMS_SOC_SAMPLE_DIRECTION_CHANGE;
-        /* An interval straddling a current-state transition proves neither
-         * continuous rest nor a continuous full/empty anchor condition. */
+        /* 跨电流状态转换的时间段不能证明连续静置或连续满/空锚点条件。 */
         soc_reset_ocv_tracking();
         g_soc_runtime.full_lock_ticks = 0u;
         g_soc_runtime.full_adjust_ticks = 0u;
@@ -1895,9 +2004,10 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return;
     }
 
-    /* Existing calibration thresholds stay in 200 ms quanta, but credit comes
-     * from measured time. At most two quanta per new bounded-gap sample.
-     * The 8 mV slope check is kept conservative at longer intervals. */
+    /*
+     * 既有校准阈值仍为 200 ms 单位，但按实测时间计入；
+     * 每个有界间隔新样本最多记两个单位。长间隔下 8 mV 斜率检查保持保守。
+     */
     g_soc_strategy_pending_32k += elapsed_32k;
     while (g_soc_strategy_pending_32k >= quantum_32k)
     {
@@ -1909,6 +2019,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 
+/* 名义容量变更后重算容量并复位相关学习状态。 */
 void bms_soc_nominal_capacity_changed(void)
 {
     g_soc_runtime.capacity_learned = 0u;

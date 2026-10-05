@@ -1,4 +1,6 @@
-/* 文件功能：AFE 硬件参数写授权会话；校验 token、超时和 Modbus 请求，授权状态不持久化。
+/*
+ * 文件功能：AFE 硬件参数写授权会话；校验 token、超时和 Modbus 请求，
+ * 授权状态不持久化。
  * bms/core/bms_afe_hw_access.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_hw_access.h"
@@ -15,22 +17,26 @@ static u8 s_frame[ACCESS_FRAME_BYTES];
 static u8 s_received;
 static u32 s_fragment_tick;
 
+/* 从大端字节序读取 16 位无符号值。 */
 static u16 access_u16be(const u8 *p)
 {
     return (u16)(((u16)p[0] << 8) | p[1]);
 }
 
+/* 从大端字节序读取 32 位无符号值。 */
 static u32 access_u32be(const u8 *p)
 {
     return ((u32)p[0] << 24) | ((u32)p[1] << 16) | ((u32)p[2] << 8) | p[3];
 }
 
+/* 将 16 位值按大端字节序写入缓冲区。 */
 static void access_put_u16be(u8 *p, u16 value)
 {
     p[0] = (u8)(value >> 8);
     p[1] = (u8)value;
 }
 
+/* 用无符号 tick 差值判断授权会话是否超时。 */
 static u8 access_expired(void)
 {
     if (!s_active) return 1u;
@@ -38,6 +44,7 @@ static u8 access_expired(void)
                              (u32)BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS * 1000000u) ? 1u : 0u;
 }
 
+/* 关闭 AFE 硬件写授权会话并清除令牌。 */
 void bms_afe_hw_access_close(void)
 {
     s_received = 0u;
@@ -46,18 +53,21 @@ void bms_afe_hw_access_close(void)
     s_last_activity_tick = 0u;
 }
 
+/* 检查授权超时并关闭失效会话。 */
 void bms_afe_hw_access_poll(void)
 {
     if (s_received && clock_time_exceed(s_fragment_tick, 5000000u)) s_received = 0u;
     if (s_active && access_expired()) bms_afe_hw_access_close();
 }
 
+/* 查询硬件写授权会话当前是否有效。 */
 u8 bms_afe_hw_access_is_active(void)
 {
     bms_afe_hw_access_poll();
     return s_active ? 1u : 0u;
 }
 
+/* 取得硬件写授权会话的剩余秒数。 */
 u16 bms_afe_hw_access_remaining_seconds(void)
 {
     u32 elapsed_ticks;
@@ -70,6 +80,7 @@ u16 bms_afe_hw_access_remaining_seconds(void)
     return (u16)(BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS - elapsed_seconds);
 }
 
+/* 生成本次授权会话使用的非零令牌。 */
 static u16 access_new_token(void)
 {
     ++s_generation;
@@ -77,6 +88,7 @@ static u16 access_new_token(void)
     return s_generation;
 }
 
+/* 验证会话令牌与有效期限。 */
 static u8 access_session_valid(u16 token)
 {
     if (!bms_afe_hw_access_is_active() || token == 0u || token != s_token) return 0u;
@@ -84,6 +96,7 @@ static u8 access_session_valid(u16 token)
     return 1u;
 }
 
+/* 构造硬件写授权协议响应及 CRC。 */
 static int access_response(u8 addr,
                            u8 command,
                            u8 status,
@@ -111,6 +124,7 @@ static int access_response(u8 addr,
     return 1;
 }
 
+/* 解析硬件写授权功能码，校验长度和会话条件。 */
 int bms_afe_hw_access_modbus_on_frame(const u8 *req,
                                       u32 req_len,
                                       u8 *rsp,
@@ -174,7 +188,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
     if (command == BMS_AFE_HW_ACCESS_CMD_COMMIT) {
         u8 error;
         if (s_received != ACCESS_FRAME_BYTES || s_frame[0] != req[0]) goto bad_fragment;
-        s_received = 0u; /* Consume once, even if persistence/apply fails. */
+        s_received = 0u; /* 仅消耗一次授权，即使持久化/应用失败也不重复使用。 */
         error = bms_afe_hw_write_complete_frame(s_frame, ACCESS_FRAME_BYTES);
         return access_response(req[0], command, error ? BMS_AFE_HW_ACCESS_STATUS_APPLY_FAILED :
                                BMS_AFE_HW_ACCESS_STATUS_OK, 0, 0u, rsp, rsp_len);

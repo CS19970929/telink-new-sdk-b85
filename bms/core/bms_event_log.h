@@ -1,4 +1,6 @@
-/* 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，遵循现有更新编号策略。
+/*
+ * 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，
+ * 遵循现有更新编号策略。
  * bms/core/bms_event_log.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -46,12 +48,19 @@ typedef struct {
     u8 afe2_err, cbc_err;
 } bms_event_log_sample_t;
 
+/* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void);
+/* 记录本次启动及启动原因。 */
 void bms_event_log_note_startup(void);
+/* 记录进入休眠的原因与当前状态。 */
 int bms_event_log_note_sleep(void);
+/* 按秒检测事件变化并按策略保存检查点。 */
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
+/* 读取历史事件的重复次数信息。 */
 u16 bms_event_log_read_repeat(u16 reg);
+/* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg);
+/* 按出厂恢复策略清理历史事件并保存。 */
 int bms_event_log_factory_reset(void);
 
 #ifdef __cplusplus

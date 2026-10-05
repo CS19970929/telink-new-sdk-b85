@@ -140,8 +140,12 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         self.assertNotIn("dvc1124_boot.h", self.service)
         self.assertNotIn("DVC1124_ConfigStore", self.service)
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
-        self.assertIn("Fixed DVC operating/board policy", self.service)
-        self.assertIn("diagnostic READ-ONLY", self.service_hdr)
+        # 固定策略禁止写入应由代码分支证明，不检查说明文字。
+        write = self.service.split("DVC1124_ConfigServiceWrite(", 1)[1].split(
+            "DVC1124_ConfigServiceReadRaw(", 1)[0]
+        self.assertIn("if (dvc_cfg_fixed_field(field) ||", write)
+        self.assertIn("return DVC1124_CFG_ERR_READ_ONLY;", write)
+        self.assertIn("DVC1124_ConfigServiceWrite", self.service_hdr)
 
     def test_raw_register_mirror_is_read_only(self):
         raw_write = self.service.split("static dvc1124_config_result_t", 1)[-1]

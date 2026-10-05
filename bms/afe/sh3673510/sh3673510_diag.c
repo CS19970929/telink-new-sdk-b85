@@ -1,4 +1,6 @@
-/* 文件功能：SH3673510 的诊断适配；汇总请求、命令、驱动缓存和阻断原因，不在 bus silence 期间访问芯片。
+/*
+ * 文件功能：SH3673510 的诊断适配；汇总请求、命令、驱动缓存和阻断原因，
+ * 不在 bus silence 期间访问芯片。
  * bms/afe/sh3673510/sh3673510_diag.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_driver.h"
@@ -6,6 +8,7 @@
 #include "bms_features.h"
 #include <string.h>
 
+/* 从选定后端刷新诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void)
 {
     sh3673510_fet_diag_detail_t detail;
@@ -17,7 +20,7 @@ void bms_afe_diag_poll(void)
     uint32_t common = 0u, charge = 0u, discharge = 0u;
     memset(&detail, 0, sizeof(detail));
     memset(words, 0, sizeof(words));
-    /* Both driver getters are cached RAM only: no transaction on a silenced bus. */
+    /* 两个驱动查询函数只读 RAM 缓存，不在静默总线上发事务。 */
     (void)sh3673510_bms_afe_get_fet_diagnostics(&command, &command_valid, &driver, &driver_valid);
     (void)sh3673510_bms_afe_get_fet_diag_detail(&detail);
     bms_afe_get_requested_fets(&c, &d);

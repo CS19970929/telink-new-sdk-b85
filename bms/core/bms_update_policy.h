@@ -1,4 +1,5 @@
-/* 文件功能：各持久域更新编号的公共语义；产品输入决定 OTA 后保留或更新哪些配置。
+/*
+ * 文件功能：各持久域更新编号的公共语义；产品输入决定 OTA 后保留或更新哪些配置。
  * bms/core/bms_update_policy.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -50,6 +51,7 @@ typedef enum {
 #error "BMS_UPDATE_EVENTS_REVISION must be in 1..65535"
 #endif
 
+/* 将产品更新编号转换为持久域版本字段。 */
 static inline uint16_t bms_update_revision(bms_update_group_t group)
 {
     static const uint16_t revisions[BMS_UPDATE_GROUP_COUNT] = {

@@ -1,4 +1,6 @@
-/* 文件功能：SOC 剩余充放电时间估算；根据方向、有效容量和电流建立置信度，结果供诊断显示。
+/*
+ * 文件功能：SOC 剩余充放电时间估算；根据方向、有效容量和电流建立置信度，
+ * 结果供诊断显示。
  * bms/core/bms_soc_eta.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -37,6 +39,7 @@ typedef struct {
     uint8_t near_full;
 } bms_soc_eta_input_t;
 
+/* 清除独立 ETA 滤波、方向和置信度状态。 */
 void bms_soc_eta_reset(bms_soc_eta_t *eta);
-/* 每个合格的 200 ms 策略周期调用；样本中断时 reset。 */
+/* 每个合格的 200 ms 策略周期调用；样本中断时复位。 */
 void bms_soc_eta_update(bms_soc_eta_t *eta, const bms_soc_eta_input_t *input);

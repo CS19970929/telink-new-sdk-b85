@@ -1,5 +1,7 @@
-/* 文件功能：运行日志编译开关、等级、模块和量产门禁。
- * 仅包含预处理配置，避免把 stdint 类型引入 SDK 全局 app_config。 */
+/*
+ * 文件功能：运行日志编译开关、等级、模块和量产门禁。
+ * 仅包含预处理配置，避免把 stdint 类型引入 SDK 全局 app_config。
+ */
 #ifndef BMS_DEBUG_LOG_CONFIG_H
 #define BMS_DEBUG_LOG_CONFIG_H
 #ifndef BMS_DEBUG_LOG_ENABLE

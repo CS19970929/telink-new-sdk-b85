@@ -1,4 +1,5 @@
-/* 文件功能：SOC 电芯化学体系/OCV 曲线和算法配置档案；用于电压估算与容量参数边界。
+/*
+ * 文件功能：SOC 电芯化学体系/OCV 曲线和算法配置档案；用于电压估算与容量参数边界。
  * bms/core/bms_soc_profile.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -7,9 +8,8 @@
 #include "bms_soc_defs.h"
 
 /*
- * OCV/profile data lives outside the SOC algorithm on purpose. Product-specific
- * cell characterization should replace/add profile data here without rewriting
- * coulomb integration, confidence-window, persistence, or display behavior.
+ * OCV/配置数据有意独立于 SOC 算法；电芯特性应在此替换/增加数据，
+ * 不重写库仑积分、置信窗口、持久化或显示行为。
  */
 typedef struct
 {
@@ -40,7 +40,7 @@ typedef struct
     uint16_t terminal_l3_offset_mv;
 } soc_profile_t;
 
-/* Generic center curves. These are defaults, not a claim of cell-model accuracy. */
+/* 通用中心曲线仅为默认，不声明电芯模型精度。 */
 static const soc_ocv_point_t g_soc_ocv_lfp[] = {
     {2800u, 0u}, {3000u, 2u}, {3100u, 5u}, {3200u, 10u},
     {3250u, 15u}, {3280u, 25u}, {3300u, 35u}, {3315u, 45u},

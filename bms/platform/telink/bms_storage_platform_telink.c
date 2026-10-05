@@ -1,5 +1,8 @@
-/* 文件功能：Telink Flash 读写/擦除端口；处理 OTA/锁状态、地址边界、写后验证及耗时/失败诊断。
- * bms/platform/telink/bms_storage_platform_telink.c；实际编译归属见各产品 sources.txt。
+/*
+ * 文件功能：Telink Flash 读写/擦除端口；处理 OTA/锁状态、地址边界、写后验证及耗时/失
+ * 败诊断。
+ * bms/platform/telink/bms_storage_platform_telink.c；
+ * 实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
 #include "bms_afe_hw_profile.h"
@@ -16,11 +19,13 @@ static bms_storage_diagnostics_t s_flash_diag;
 static u32 s_flash_failure_tick_32k;
 static u8 s_flash_failed;
 
+/* 取得 Flash 操作结果及耗时诊断快照。 */
 void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out)
 {
     if (out != 0) *out = s_flash_diag;
 }
 
+/* 记录写后或擦后验证结果。 */
 static int bms_storage_verify_result(int ok)
 {
     if (!ok) {
@@ -53,12 +58,14 @@ static int bms_storage_telink_begin(void *ctx)
     return 1;
 }
 
+/* 结束 Flash 修改事务并恢复保护状态。 */
 static void bms_storage_telink_end(void *ctx)
 {
     (void)ctx;
     flash_store_end_modify();
 }
 
+/* 检查分区范围后读取 Telink Flash 字节。 */
 static int bms_storage_telink_read(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len)
 {
     (void)ctx;
@@ -66,6 +73,7 @@ static int bms_storage_telink_read(void *ctx, uint32_t addr, uint8_t *buf, uint3
     return 1;
 }
 
+/* 按编程边界写入 Flash 并记录结果。 */
 static int bms_storage_telink_program(void *ctx,
                                       uint32_t addr,
                                       const uint8_t *buf,
@@ -95,6 +103,7 @@ static int bms_storage_telink_program(void *ctx,
     return bms_storage_verify_result(ok);
 }
 
+/* 按擦除粒度擦除 Flash 并记录结果。 */
 static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)
 {
     u32 started, elapsed;
@@ -111,6 +120,7 @@ static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)
     return bms_storage_verify_result(ok);
 }
 
+/* 取得 Telink 存储端口操作集合。 */
 const storage_port_t *bms_storage_platform_port(void)
 {
     static const storage_port_t port = {
@@ -122,6 +132,7 @@ const storage_port_t *bms_storage_platform_port(void)
     return &port;
 }
 
+/* 取得指定持久域的 Flash 区域配置。 */
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region)
 {
     uint32_t base = 0u;
@@ -157,7 +168,9 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
     return 1;
 }
 
+/* 取得存储诊断使用的系统时间戳。 */
 uint32_t bms_diag_tick(void) { return pm_get_32k_tick(); }
+/* 发布启动阶段的存储分区与操作诊断。 */
 void bms_storage_platform_diag_boot(void)
 {
     bms_diag_boot_word(14u, bms_afe_hw_profile_expected_model());
@@ -181,6 +194,7 @@ void bms_storage_platform_diag_boot(void)
     bms_diag_boot_u32(80u, flash_store_cfg_get_event_log_base());
     bms_diag_boot_u32(82u, FLASH_ADDR_EVENT_SECTORS * FLASH_SECTOR_SIZE);
 }
+/* 刷新运行阶段的存储诊断字段。 */
 void bms_storage_platform_diag_poll(void)
 {
     bms_diag_counter(0u, s_flash_diag.program_calls);

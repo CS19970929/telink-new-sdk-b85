@@ -1,9 +1,12 @@
+/* 文件功能：SH 电流保护阈值量化及编码共用算法。 */
 #ifndef SH3673510_QUANTIZE_H_
 #define SH3673510_QUANTIZE_H_
 #include <stdint.h>
 
-/* Chip current threshold coding, shared by programming and recovery validation.
- * requested_a10 is 0.1 A, shunt_uohm is micro-ohm, step_uv is microvolt. */
+/*
+ * 芯片电流阈值编码供配置与恢复校验共用；requested_a10 单位 0.1 A，
+ * shunt_uohm 单位微欧，step_uv 单位微伏。
+ */
 static inline uint16_t sh3673510_quantize_current_a10(uint16_t requested_a10,
                                                       uint32_t shunt_uohm,
                                                       uint32_t step_uv,

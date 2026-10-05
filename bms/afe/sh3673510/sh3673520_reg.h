@@ -1,19 +1,18 @@
-/* 文件功能：SH36735xx 寄存器地址和位定义；配合当前型号控制层使用，不直接代替产品配置。
+/*
+ * 文件功能：SH36735xx 寄存器地址和位定义；配合当前型号控制层使用，
+ * 不直接代替产品配置。
  * bms/afe/sh3673510/sh3673520_reg.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef SH3673520_REG_H
 #define SH3673520_REG_H
 
 /*
- * SH36735xx family register/wire-protocol single source of truth.
- * Verified against SH36735XX CV1.0A.
- *
- * SH3673510 / 3514 / 3517 / 3520 share the same documented register and
- * protocol model; the family members differ in their supported cell count.
- * Product policy belongs in the board/product profile, not in this header.
+ * SH36735xx 系列寄存器/协议唯一真源，依据 SH36735XX CV1.0A。
+ * 3510/3514/3517/3520 共用文档模型，仅支持串数不同；产品策略留在板级/产品配置，
+ * 不放此头文件。
  */
 
-/* SPI protocol */
+/* SPI 协议。 */
 #define SH3673520_SPI_CMD_WRITE              0x01u
 #define SH3673520_SPI_CMD_READ               0x02u
 #define SH3673520_SPI_CMD_RESET              0x0Bu
@@ -303,4 +302,4 @@
 #define SH3673520_EXTERNAL_TEMP_COUNT        4u
 #define SH3673510_MAX_CELLS                  10u
 
-#endif /* SH3673520_REG_H */
+#endif /* 头文件保护：SH3673520_REG_H。 */

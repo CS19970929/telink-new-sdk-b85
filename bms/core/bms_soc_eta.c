@@ -1,4 +1,6 @@
-/* 文件功能：SOC 剩余充放电时间估算；根据方向、有效容量和电流建立置信度，结果供诊断显示。
+/*
+ * 文件功能：SOC 剩余充放电时间估算；根据方向、有效容量和电流建立置信度，
+ * 结果供诊断显示。
  * bms/core/bms_soc_eta.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_soc_eta.h"
@@ -10,11 +12,13 @@
 #define SOC_ETA_VARIATION_PERCENT            20u
 #define SOC_ETA_TAPER_PERCENT                60u
 
+/* 计算有符号电流的绝对量。 */
 static uint32_t bms_eta_abs_i32(int32_t value)
 {
     return value < 0 ? 0u - (uint32_t)value : (uint32_t)value;
 }
 
+/* 清除独立 ETA 滤波、方向和置信度状态。 */
 void bms_soc_eta_reset(bms_soc_eta_t *eta)
 {
     eta->eta_filtered_current_ma = 0;
@@ -29,6 +33,7 @@ void bms_soc_eta_reset(bms_soc_eta_t *eta)
     eta->eta_valid = 0u;
 }
 
+/* 按限速滤波推进 ETA 使用的电流估计。 */
 static int32_t bms_eta_filter_step(int32_t filtered, int32_t sample)
 {
     if (sample > filtered) {
@@ -42,6 +47,7 @@ static int32_t bms_eta_filter_step(int32_t filtered, int32_t sample)
     return filtered;
 }
 
+/* 根据容量和电流计算剩余分钟数并限幅。 */
 static uint16_t bms_eta_minutes(uint32_t capacity_as10, uint32_t current_ma)
 {
     uint32_t numerator;
@@ -49,9 +55,10 @@ static uint16_t bms_eta_minutes(uint32_t capacity_as10, uint32_t current_ma)
     uint32_t remainder;
     uint32_t minutes;
     if (current_ma == 0u) return BMS_SOC_ETA_MINUTES_INVALID;
-    /* minutes = capacity_as10 * 100 / current_ma / 60.  Reduce to 5/3
-     * before multiplying so the maximum supported capacity stays within
-     * 32 bits and no TC32 64-bit runtime helper is introduced. */
+    /*
+     * 分钟数为 capacity_as10*100/current_ma/60；乘法前约为 5/3，
+     * 确保最大支持容量在 32 位内，不引入 TC32 64 位辅助函数。
+     */
     if (capacity_as10 > (0xFFFFFFFFu / 5u))
         return BMS_SOC_ETA_MINUTES_INVALID - 1u;
     if (current_ma > (0xFFFFFFFFu / 3u)) return 0u;
@@ -64,6 +71,7 @@ static uint16_t bms_eta_minutes(uint32_t capacity_as10, uint32_t current_ma)
     return (uint16_t)minutes;
 }
 
+/* 使用合格样本更新充放电剩余时间及置信度。 */
 void bms_soc_eta_update(bms_soc_eta_t *eta, const bms_soc_eta_input_t *input)
 {
     uint8_t eta_dir = input->direction;

@@ -23,7 +23,8 @@ def function(name):
     return source[match.start():end]
 
 
-state = source[source.index('#define SH3510_SAMPLE_MS'):source.index('/* Existing product 10K NTC table')]
+# 用首个函数的代码签名界定状态区，不依赖可翻译的说明文字。
+state = source[source.index('#define SH3510_SAMPLE_MS'):source.index('static void restart_sampling(void)')]
 functions = '\n'.join(function(name) for name in (
     'restart_sampling', 'filter_samples', 'note_comm_error', 'charge_blocked', 'discharge_blocked',
     'sh3510_outputs_healthy', 'sh3510_apply_requested_fets', 'publish_hw_status',

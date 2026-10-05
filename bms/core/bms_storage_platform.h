@@ -1,4 +1,5 @@
-/* 文件功能：存储端口、分区和诊断契约；隔离记录格式与 Telink Flash 实现。
+/*
+ * 文件功能：存储端口、分区和诊断契约；隔离记录格式与 Telink Flash 实现。
  * bms/core/bms_storage_platform.h；实际编译归属见各产品 sources.txt。
  */
 #ifndef BMS_STORAGE_PLATFORM_H_
@@ -18,7 +19,7 @@ typedef enum {
     BMS_STORAGE_DOMAIN_COUNT
 } bms_storage_domain_t;
 
-/* Since-boot diagnostics; no persistent wear counter writes. Time uses SDK 32k. */
+/* 本次启动以来的诊断，不持久化磨损计数；时间使用 SDK 32K。 */
 typedef struct {
     uint32_t program_calls;
     uint32_t erase_calls;
@@ -27,14 +28,19 @@ typedef struct {
     uint32_t max_program_ticks_32k;
     uint32_t max_erase_ticks_32k;
 } bms_storage_diagnostics_t;
+/* 发布启动阶段的存储分区与操作诊断。 */
 void bms_storage_platform_diag_boot(void);
+/* 刷新运行阶段的存储诊断字段。 */
 void bms_storage_platform_diag_poll(void);
+/* 取得 Flash 操作结果及耗时诊断快照。 */
 void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out);
+/* 取得 Telink 存储端口操作集合。 */
 const storage_port_t *bms_storage_platform_port(void);
+/* 取得指定持久域的 Flash 区域配置。 */
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* BMS_STORAGE_PLATFORM_H_ */
+#endif /* 头文件保护：BMS_STORAGE_PLATFORM_H_。 */

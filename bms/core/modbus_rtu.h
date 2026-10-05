@@ -1,4 +1,6 @@
-/* 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务路径。
+/*
+ * 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务
+ * 路径。
  * bms/core/modbus_rtu.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -9,22 +11,19 @@
 #include "dvc1124_config_service.h"
 #endif
 
-/* Includes the proprietary 0x7F echo frame; ordinary Modbus RTU fits in 256. */
+/* 包含私有 0x7F 回显帧，普通 Modbus RTU 可容纳于 256 字节。 */
 #define MODBUS_RTU_FRAME_CAPACITY 268u
 
+/* 计算 Modbus RTU 使用的 CRC16 校验值。 */
 u16 mb_crc16(const u8 *buf, u32 len);
 
 /*
- * Process one Modbus-compatible frame.
- * UART and BLE SPP both use this function, so DVC1124 configuration semantics
- * must not be implemented separately inside either transport.
+ * 处理一个兼容 Modbus 帧，UART 与 BLE SPP 共用；
+ * 不得在两个传输层分别实现 DVC1124 配置语义。
  */
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 
-/*
- * DVC1124 shared semantic window.
- * The low byte is the transport-neutral dvc1124_config_field_t value.
- */
+/* DVC1124 共用语义窗口，低字节是与传输无关的 dvc1124_config_field_t 值。 */
 #define DVC1124_COMM_SCHEMA_VERSION             DVC1124_CONFIG_SCHEMA_VERSION
 #define DVC1124_COMM_REG_BASE                   0x2800u
 #define DVC1124_COMM_REG_COUNT                  0x0060u
@@ -104,9 +103,8 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len);
 #define DVC1124_COMM_EFF_SCD_DELAY_US           DVC1124_COMM_ADDR(DVC1124_CFG_EFF_SCD_DELAY_US)
 
 /*
- * Raw diagnostic mirror: DVC offset 0x00..0x90 -> 0x2900..0x2990.
- * Read-clear registers 0x01 and 0x76 are intentionally rejected by the raw
- * service. Use 0x2807 cached STATUS and 0x2808 sticky COTF instead.
+ * 原始诊断镜像：DVC 0x00..0x90 对应 0x2900..0x2990。服务有意拒绝读清除的 0x01/0x76，
+ * 改读 0x2807 缓存 STATUS 与 0x2808 锁存 COTF。
  */
 #define DVC1124_RAW_REG_BASE                    0x2900u
 #define DVC1124_RAW_REG_COUNT                   0x0091u

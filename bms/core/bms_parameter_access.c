@@ -1,4 +1,5 @@
-/* 文件功能：公共业务参数只读能力、读写校验和分组恢复；遵守既有参数授权与持久化事务。
+/*
+ * 文件功能：公共业务参数只读能力、读写校验和分组恢复；遵守既有参数授权与持久化事务。
  * bms/core/bms_parameter_access.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_parameter_access.h"
@@ -13,6 +14,7 @@
 #include "bms_factory_mode.h"
 #include "modbus_rtu.h"
 #include <string.h>
+/* 恢复并写入默认生产信息。 */
 extern void WriteProID_Default(void);
 
 static u16 s_sequence, s_result, s_sn_generation, s_sn_mask;
@@ -20,14 +22,17 @@ static u32 s_sn_tick;
 static char s_sn_stage[32];
 static u8 s_sn_active;
 
+/* 从大端字节缓冲区解码一个 16 位协议字。 */
 static u16 word(const u8 *p)
 {
     return ((u16)p[0] << 8) | p[1];
 }
+/* 按低字在前的协议字序解码 32 位值。 */
 static u32 dword(const u8 *p)
 {
     return (u32)word(p) | ((u32)word(p + 2) << 16);
 }
+/* 发布参数写入结果，成功时递增事务序号。 */
 static u8 finish(u8 result)
 {
     s_result = result;
@@ -35,6 +40,7 @@ static u8 finish(u8 result)
     return result;
 }
 
+/* 检查敏感出厂参数写入资格。 */
 static u8 sensitive_factory_write_allowed(void)
 {
     if (!bms_afe_hw_access_is_active()) return 0u;
@@ -45,6 +51,7 @@ static u8 sensitive_factory_write_allowed(void)
 #endif
 }
 
+/* 检查业务参数地址是否允许读取。 */
 int bms_parameter_readable(u16 r)
 {
     return (r >= 0x2E00u && r <= 0x2E0Fu) || (r >= 0x2E20u && r <= 0x2E22u) ||
@@ -54,6 +61,7 @@ int bms_parameter_readable(u16 r)
            r == 0x2319u;
 }
 
+/* 按地址读取业务参数并编码为协议字。 */
 u16 bms_parameter_read(u16 r)
 {
     bms_user_params_t v;
@@ -64,12 +72,14 @@ u16 bms_parameter_read(u16 r)
         return bms_update_revision((bms_update_group_t)(r - 0x2E80u));
     if (r == 0x2E00u) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r == 0x2E01u) return 2u;
-    if (r == 0x2E02u) return 0x007Fu; /* capacity,SN,heat,calibration,reset,sync State,balance */
+    if (r == 0x2E02u) return 0x007Fu; /*
+     * 容量、SN、加热、校准、重置、State 同步与均衡。
+     */
     if (r == 0x2E03u) return s_result;
     if (r == 0x2E04u) return s_sequence;
-    if (r == 0x2E05u) return 2u; /* CFG2 schema */
+    if (r == 0x2E05u) return 2u; /* 配置格式：CFG2 schema。 */
     if (r == 0x2E06u) return s_sn_generation;
-    if (r == 0x2E07u) return 1u; /* 1102=3 is forbidden; factory reset uses 2E10=6 */
+    if (r == 0x2E07u) return 1u; /* 禁止 1102=3；工厂重置使用 2E10=6。 */
     if (r == 0x2E08u) return CapacityFactory;
     if (r == 0x2E09u) return bms_board_heater_supported();
     if (r == 0x2E0Au) return BMS_HEATER_START_TEMP_X10;
@@ -116,6 +126,7 @@ u16 bms_parameter_read(u16 r)
     return 0u;
 }
 
+/* 校验并写入业务参数，按类别执行持久化。 */
 u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
 {
     bms_user_params_t v;
@@ -218,7 +229,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
             s_sn_stage[slot * 2u + 1u] = (char)data[i * 2u + 1u];
             s_sn_mask |= (u16)(1u << slot);
         }
-        return finish(0u); /* staging only, no Flash */
+        return finish(0u); /* 仅暂存，不写 Flash。 */
     }
     else return finish(2u);
     if (!bms_config_user_valid(&v)) return finish(3u);

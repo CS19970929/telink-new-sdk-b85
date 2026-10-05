@@ -1,0 +1,76 @@
+{
+  "baseline": "2fc2d2037074f2ff711658f51725f0b5ad8a48ee",
+  "file_count": 115,
+  "function_counts": {
+    "definition": 813,
+    "declaration": 389
+  },
+  "unique_function_names": 787,
+  "code_token_changes": [],
+  "preprocessor_directive_changes": [],
+  "functions_without_chinese_comment": [],
+  "files_without_chinese_header": [],
+  "remaining_english_prose": [],
+  "token_fingerprint": "1731f2eb82a5f4b989fc56a5d2d3e882220cf656a7d7051e937cb5690d35211c",
+  "schema": "bms-chinese-comment-audit/v1",
+  "date": "2026-10-06",
+  "branch": "codex-bms-monorepo",
+  "scope": "bms/ 下全部 C/H；SDK 原件不修改",
+  "comment_visual_columns": 88,
+  "width_exceptions": [
+    "厂商版权/许可证及装饰性边框",
+    "注释中的原始代码示例"
+  ],
+  "verification": {
+    "sources_all_products": "PASS",
+    "tc32_development_link_all_products": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 0,
+      "mode": "development",
+      "d008_profile": "16s-lfp"
+    },
+    "host": {
+      "full_run_groups": 166,
+      "full_run_passed": 161,
+      "full_run_comment_contract_failures": 5,
+      "targeted_rerun_groups": 5,
+      "targeted_rerun_passed": 5,
+      "effective_groups": 166,
+      "remaining_failures": 0,
+      "note": "完整回归后只修正 common_feature_policy 与 D011 integration 中剩余英文注释匹配，5 个失败目标定点复验通过；最后的采样说明修正仅改中文措辞，代码 token 保持一致。",
+      "full_input_sha256": "885689a0c24b7c7f73af145191fd2d1e8e1800d16f79b64f11b94f8d92e8ff32",
+      "rerun_input_sha256": "a9463f75999b90a0f664c9b0c09b28932a9a4ec45e2012dd1d388df81653cab8",
+      "full_report_sha256": "0a8403b42c789f6b8ea87ae5cbe8a724c214d8fdc87f5ab76e4ab73d44443cc7",
+      "rerun_report_sha256": "4191b12cdea3226972d96e7f59732e4003b5366dd089d4d3e38335001fc6b429"
+    },
+    "resources": {
+      "d008": {
+        "flash_bytes": 124164,
+        "flash_free_bytes": 2812,
+        "ram_growth_headroom_bytes": 4696,
+        "image_generated": false
+      },
+      "d011": {
+        "flash_bytes": 120180,
+        "flash_free_bytes": 6796,
+        "ram_growth_headroom_bytes": 5500,
+        "image_generated": false
+      },
+      "d013": {
+        "flash_bytes": 119156,
+        "flash_free_bytes": 7820,
+        "ram_growth_headroom_bytes": 5520,
+        "image_generated": false
+      },
+      "d014": {
+        "flash_bytes": 120020,
+        "flash_free_bytes": 6956,
+        "ram_growth_headroom_bytes": 5500,
+        "image_generated": false
+      }
+    },
+    "image_generated": false,
+    "board_validation_performed": false
+  }
+}

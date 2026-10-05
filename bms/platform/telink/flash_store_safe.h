@@ -1,4 +1,5 @@
-/* 文件功能：Flash 安全访问辅助接口；供存储层按已有锁、地址与保护条件操作。
+/*
+ * 文件功能：Flash 安全访问辅助接口；供存储层按已有锁、地址与保护条件操作。
  * bms/platform/telink/flash_store_safe.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
@@ -10,6 +11,7 @@
 #if (APP_FLASH_PROTECTION_ENABLE)
 #include "flash_prot.h"
 extern u16 flash_lockBlock_cmd;
+/* 判断 Flash 操作后是否需要恢复保护锁。 */
 int app_flash_lock_restore_enabled(void);
 #endif
 
@@ -21,6 +23,7 @@ int app_flash_lock_restore_enabled(void);
 #define FLASH_STORE_PAGE_BYTES    256u
 #endif
 
+/* 检查 OTA 与 Flash 保护条件并开始修改事务。 */
 static inline void flash_store_begin_modify(void)
 {
 #if (APP_FLASH_PROTECTION_ENABLE)
@@ -30,6 +33,7 @@ static inline void flash_store_begin_modify(void)
 #endif
 }
 
+/* 结束 Flash 修改并恢复先前保护状态。 */
 static inline void flash_store_end_modify(void)
 {
 #if (APP_FLASH_PROTECTION_ENABLE)
@@ -39,6 +43,7 @@ static inline void flash_store_end_modify(void)
 #endif
 }
 
+/* 回读比较 Flash 字节以验证编程结果。 */
 static inline int flash_store_verify_bytes(u32 addr, const u8 *buf, u32 len)
 {
     u8 verify_buf[FLASH_STORE_VERIFY_CHUNK];
@@ -59,6 +64,7 @@ static inline int flash_store_verify_bytes(u32 addr, const u8 *buf, u32 len)
     return 1;
 }
 
+/* 检查擦除区域是否全部为擦除值。 */
 static inline int flash_store_verify_erased(u32 addr, u32 len)
 {
     u8 verify_buf[FLASH_STORE_VERIFY_CHUNK];

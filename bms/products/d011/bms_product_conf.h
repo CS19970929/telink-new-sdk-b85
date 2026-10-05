@@ -1,9 +1,10 @@
+/* 文件功能：产品容量、名称、采样及通信功能配置。 */
 #ifndef BMS_PRODUCT_CONF_H_
 #define BMS_PRODUCT_CONF_H_
 
 #include "sh3673510_project_config.h"
 
-/* Production feature selection. D011 uses fixed Modbus RTU over RS485; SIF/one-wire is not used. */
+/* 量产选择：D011 固定 RS485 Modbus RTU，不使用 SIF/单线。 */
 #define _UL_RENZHENG_ENABLE_
 #define _FUNC_UART_
 #define MODBUS_RS485_ENABLE              1
@@ -16,10 +17,10 @@
 #define __SLEEP_VLOW__                (2800)
 #define __SLEEP_TIMEVLOW__            (60 * 60 * 1)
 
-/* Keep legacy numeric product IDs stable for protocol/storage compatibility. */
+/* 保持历史数字产品 ID，兼容协议/存储。 */
 #define FD_BMS_TYPE 2u
 #define SeriesNum                      SH3673510_BOARD_CELL_COUNT
-/* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
+/* 现有 D11 容量单位 Ah*10，是产品数据，不能由原理图推断。 */
 #define CapacityFactory                116
 #define BMS_HARDWARE_VERDION_DEFAULT   "D011"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
