@@ -41,7 +41,7 @@
 
 ## 资料依据与边界
 
-核对的器件资料为本机原厂手册 `S03_SH36735XX_V1.0A.pdf`：§7.5 的锁存清除，§7.9～7.10 的 watchdog/MOS 状态，§8 的 VADC/CADC/温度周期和 CRLD 检测，SCONF3、FLAG2 寄存器以及 tLOAD 电气特性。原件未复制到仓库；位置为 `C:/Users/Administrator/Downloads/通用BMS工程包_v0.2.0/Universal_BMS_v0.2.0/reference/manuals/`。
+核对的器件资料为本机原厂手册 `S03_SH36735XX_V1.0A.pdf`：§7.5 的锁存清除，§7.9～7.10 的 watchdog/MOS 状态，§7.13～7.14 的 VADC/CADC/温度周期，§8.5 / §8.7 的负载/C+ 检测，SCONF3、FLAG2 寄存器以及 tLOAD 电气特性。原件未复制到仓库；位置为 `C:/Users/Administrator/Downloads/通用BMS工程包_v0.2.0/Universal_BMS_v0.2.0/reference/manuals/`。
 
 手册的 0.9～2.1 V 是 sleep/powerdown 充电唤醒比较器范围，不能据此声称 normal-mode C+ ADC 拔除阈值已获原厂保证。900 / 2100 mV 是沿用代码策略，必须在各板型、充电器残压、反灌和重新插接条件下签核。200 ms 检测等待及 1.2 s 启动等待也需要实测裕量。
 
@@ -57,6 +57,19 @@
 
 实现工作树已通过 115 组 host 回归，四产品 sources 顺序检查，以及四产品开发配置 TC32 ELF/MAP 链接（零错误、零警告）和资源检查。D014 Cppcheck 检查实际编译库中的 36 个应用翻译单元，仅有 103 个 style 项，无 error/warning/performance 项；SDK 仅作依赖解析，两个非 D014 的头文件覆盖缺口保留，未执行 MISRA。
 
-开发配置的 Flash 余量分别为 D008 3084 B、D011 7180 B、D013 8188 B、D014 7324 B，均低于生产要求的 8 KiB，因此开发配置链接通过不等于生产资源门禁通过。生产配置将在固定干净代码提交上单独检查并记录。
+开发配置的 Flash 余量分别为 D008 3084 B、D011 7180 B、D013 8188 B、D014 7324 B，均低于生产要求的 8 KiB，因此开发配置链接通过不等于生产资源门禁通过。
+
+固定干净代码提交：`4d7f5268e4a7491374a5ba37d2fe06e124f2fc44`。执行 `python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4`，四套生产 ELF/MAP 均为零错误、零警告，自动资源门禁全部通过；各 resources 收据均为上述 SHA、`dirty=false`、`image_generated=false`。后续文档证据提交不改变代码。Host 和开发构建在提交前的同一实现上执行，收据按当时工作树状态保留。
+
+| 生产配置 | ELF 投影 Flash / B | Flash 余量 / B | RAM 地址跨度 / B | 相比修改前 Flash / RAM |
+|---|---:|---:|---:|---:|
+| D008 16s-lfp | 118516 | 8460 | 25000 | 0 / 0 |
+| D011 | 114612 | 12364 | 24196 | +1168 / +28 |
+| D013 | 113604 | 13372 | 24176 | +1168 / +28 |
+| D014 | 114452 | 12524 | 24196 | +1168 / +28 |
+
+对比基线为修改前 `c9dedf34` 的代码，其 BMS 源码与既有 `bb388fdb` 资源记录相同。Flash 是 ELF 加预期对齐/CRC 的投影，RAM 是地址跨度，不是 BIN 大小或实测栈水位。这轮修复增加了必要状态和边界检查，不能称为代码体积优化；D008 仍仅比生产余量门槛多 268 B。本次没有重复验证 D008 的其他生产 profile。
+
+完整 host 日志、开发/生产 ELF/MAP、输入收据、资源 JSON 和 D014 静态结果归档于 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/sh-recovery-freshness-20261005/`，汇总为其中的 `evidence.json`。四产品源清单数量和顺序保持不变：D008 100 个对象，三个 SH 产品均为 99 个。
 
 没有请求或生成 BIN，没有烧录、OTA 或实板操作；发布阻断项仍见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)。
