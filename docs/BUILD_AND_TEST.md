@@ -1,81 +1,131 @@
-# 构建、测试与发布门禁
+# 构建、测试与交付
 
-## 1. 固定目标环境
+本页命令在仓库根目录 PowerShell 执行。产品配置见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)，工具准备见 [上手指南](ONBOARDING.md)。每条命令结束检查 `$LASTEXITCODE`，非 0 时先解决失败。
 
-正式固件使用项目锁定的 `tc32-elf-gcc 4.5.1-tc32-1.3`、Telink B85 Vendor 库、现有 `boot.link` 和 `tl_check_fw2.exe`。不得用 host GCC/clang、ARM GCC 或其他 ABI 的成功结果替代 TC32 production build。
+## 1. 产品与输出
 
-`bms.py build/rebuild` 对 compiler warning 执行零容忍门禁；任何 `warning:` 都会使构建返回非零并保留 `gen/build.log`。不得通过提高 warning 基线绕过隐式声明、重复宏或条件编译死代码问题。
+`--product d008/d011/d013/d014` 优先于环境 `BMS_PRODUCT`，两者都未指定时为 D014。`--all-products` 依次执行四产品；`--jobs 4` 是单产品 Make 并行度。D008 profile 使用 `--d008-profile 16s-lfp/20s-nmc/24s-lfp`，开发默认 16S LFP，生产必须显式选择。
+
+源码/链接顺序真源为 `bms/products/<product>/sources.txt`。新增/删除 `.c` 时更新相关清单并审查顺序，可用 `sources --update` 生成候选，再检查 diff 和四产品 `sources --check`。不要直接调用 Make、旧 IDE 自动扫描或历史分支 source_order。
 
 ```powershell
-python bms_tools/bms.py env
-python bms_tools/bms.py sources --check
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py check-fw
-python bms_tools/bms.py size
-python bms_tools/bms.py map
-python bms_tools/bms.py manifest
-python bms_tools/bms.py verify
-python bms_tools/bms.py static --no-report
+$env:PYTHONUTF8 = '1'
+$env:PYTHONDONTWRITEBYTECODE = '1'
+python bms_tools/bms.py --product d014 env
+python bms_tools/bms.py --all-products sources --check
 ```
 
-## 2. Source-order
+输出默认根为 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build`，可用 `BMS_BUILD_ROOT` 指向其他源码树外目录。实际路径为 `<根>/<checkout-hash>/<mode-profile>/<product>/`，看 `env` 的 `build dir`；D008 显式 profile 会附加到 mode。Windows 无空格 junction 由工具在用户临时区维护。
 
-`bms_tools/source_order.txt` 是版本化链接顺序清单。源码集合改变时才运行 `python bms_tools/bms.py sources --update`，并人工检查 diff。
+| 文件 | 含义 |
+|---|---|
+| `obj/` | 目标对象文件 |
+| `825x_ble_sample.elf` | 链接 ELF |
+| `gen/825x_ble_sample.map`、`.lst` | 链接分布/反汇编 |
+| `gen/build.log` | 编译与 warning 门禁日志 |
+| `gen/compile-inputs.json`、`gen/link-completed.json` | 输入指纹和链接完成收据 |
+| `gen/resources.json` | 资源报告，必须识别是 ELF 投影还是 BIN 检查 |
+| `825x_ble_sample.bin`、`.raw.bin`、`fw_manifest.json` | 仅明确执行镜像流程才产生 |
 
-### 多 worktree 并行构建
+同一 checkout/模式/profile/产品不要并发两个构建。若要强制全编译又不生成 BIN，改用新的外部 `BMS_BUILD_ROOT` 后执行 `link`，不使用 `rebuild`。
 
-`bms.py` 会按当前 worktree 绝对路径生成独立的 `C:\opencode\bms_repo_<hash>` junction。不同产品分支可以并行构建，不能改回所有分支共用一个固定 junction，否则 Make 可能读取另一 worktree 的源码并污染 OBJ/MAP/BIN。单个 worktree 的输出目录仍是唯一的，同一 worktree 不应同时启动两个 clean/build。
+## 2. 日常验证：不生成 BIN
 
-## 3. Host contracts：按产品运行
-
-### D008 / DVC1124
-`dvc1124_config_quick_check.py`、`d008_framework_contract_check.py`、`d008_20s_profile_contract_check.py`、software protection、AFE HW profile/access、SOC、Flash。
-
-### D011 / SH3673510 10S
-
-```bash
-python tests/sh3673520_contract_check.py
-python tests/sh3673510_d011_integration_check.py
-python tests/sh3673510_protection_mode_check.py
-python tests/sh3673510_temperature_encoding_check.py
-python tests/sh3673510_comm_mode_check.py
-python tests/sw_protection_contract_check.py
-python tests/afe_hw_profile_contract_check.py
-python tests/afe_hw_access_contract_check.py
-python tests/soc_contract_check.py
-python tests/flash_quick_check.py
+```powershell
+python bms_tools/bms.py --product d014 compile --jobs 4
+python bms_tools/bms.py --product d014 link --jobs 4
+python bms_tools/bms.py --product d014 resources
 ```
 
-### D013 / SH3673510 4S
-使用当前分支 `.github/workflows/bms-ci.yml` 指定的 D013 integration contract，加 SH family、software protection、AFE HW profile、SOC、Flash contracts。工作流文件是测试入口的最终事实。
+`link` 会编译所需对象，通常直接执行即可；单独 `compile` 用于只检查编译。修改公共 core/app/平台或构建设置时使用四产品入口：
 
-### D014 / SH3673510 8S
-
-```bash
-python tests/sh3673520_contract_check.py
-python tests/sh3673510_d014_integration_check.py
-python tests/sh3673510_protection_mode_check.py
-python tests/sh3673510_temperature_encoding_check.py
-python tests/sw_protection_contract_check.py
-python tests/common_feature_policy_contract_check.py
-python tests/afe_hw_profile_contract_check.py
-python tests/afe_hw_access_contract_check.py
-python tests/soc_contract_check.py
-python tests/flash_quick_check.py
+```powershell
+python bms_tools/bms.py --all-products sources --check
+python bms_tools/bms.py --all-products link --jobs 4
+python bms_tools/bms.py --all-products resources
+python tests/run_host_regression.py
 ```
 
-D014 integration contract 固定 8S、667µΩ、RS485、D014 GPIO、heater 禁用、balance 启用和 TS3/TS4 可信度边界。
+host 需要本机 C 编译器；Windows 设置示例：
 
-## 4. CI 的含义
+```powershell
+$env:CC = 'C:/qp/qtools/MinGW32/bin/cc.exe'
+$env:PATH = 'C:/qp/qtools/MinGW32/bin;' + $env:PATH
+# 可选，保持在源码树外；每次验证用独立目录留证。
+$env:BMS_TEST_OUTPUT = "$env:LOCALAPPDATA/CodexTemp/bms-onboarding/host"
+python tests/run_host_regression.py
+```
 
-Host contracts 主要验证源码结构、常量、映射和协议契约；TC32 job 验证真实目标编译/link/check-fw/MAP/manifest/verify/cppcheck。两者都不能替代原理图核对、AFE寄存器readback、MOS/短路/温度/低功耗实板验证和最终产品参数签核。
+runner 的产品分配以 `tests/run_host_regression.py` 的 `targets()` 为准，自动运行 `*_check.py` 和各产品工具单测。结果在打印的目录内，`results.json` 和逐项日志为证据；不要固定宣称永远是某个测试组数。单个脚本用环境选择产品，`bms.py --product` 不会传递给后续独立 Python 进程：
 
-## 5. 发布门禁
+```powershell
+$savedProduct = $env:BMS_PRODUCT
+try {
+    $env:BMS_PRODUCT = 'd014'
+    python tests/sh3673510_d014_integration_check.py
+    if ($LASTEXITCODE -ne 0) { throw 'D014 contract 失败' }
+} finally { $env:BMS_PRODUCT = $savedProduct }
+```
 
-1. `sources --check` 和当前产品 Host contracts 通过；
-2. 固定 TC32 clean rebuild 通过；
-3. `check-fw`、size/MAP、manifest/verify、cppcheck 通过；
-4. 当前分支 `HARDWARE_VALIDATION.md` 对应项完成；
-5. 实测记录绑定板号/BOM、AFE型号、固件commit、requested/effective、仪器和结论。
+| 修改模块 | 优先检查（必要时完整 runner） |
+|---|---|
+| 产品/板级 | `monorepo_source_check.py`、对应 integration/profile/board checks |
+| 软件保护 | `sw_protection_contract_check.py`、`sw_temperature_groups_host_check.py` |
+| AFE 参数/恢复 | `afe_hw_*`、所选后端 recovery/sleep tests |
+| 参数/存储/更新编号 | `d008_storage_host_check.py`（历史名字，覆盖公共存储）、`flash_quick_check.py`、Modbus 检查 |
+| SOC | `soc_contract_check.py`、`soc_simulator_check.py`、对应方向/open-wire tests |
+| 日志/协议 | `runtime_debug_log_host_check.py`、`modbus_address_host_check.py` |
 
-Flash/OTA布局以当前 linker、`bms_tools` 和 `STORAGE.md` 为准，不按历史文档猜地址。
+## 3. 可移植核心与静态分析
+
+```powershell
+$coreBuild = "$env:LOCALAPPDATA/CodexTemp/bms-onboarding/core"
+cmake -S . -B $coreBuild -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build $coreBuild
+ctest --test-dir $coreBuild --output-on-failure
+python bms_tools/bms.py --product d014 static --no-report
+```
+
+CMake 使用本机 C 编译器，target 范围以根 `CMakeLists.txt` 为准，不生成 Telink 固件，也不证明 SOC/协议已完全脱离 SDK。静态分析要看 severity、coverage gap、实际产品宏和未执行项，不能只看退出码。Windows `env` 自检仍带 Windows 工具路径要求；Linux 以 CI 中官方容器和 `TC32_BIN` 配置为准。
+
+## 4. 生产配置的 ELF 验证
+
+从已提交的干净工作区执行，先移除实验 `EXTRA_DEFINES`；生产模式在公共 core 使用 `-Os`，SDK/AFE/平台保持 `-O2`：
+
+```powershell
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
+```
+
+示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产要求至少 8 KiB Flash 余量，并拒绝 dirty/空 Build ID、测试开关或保护关闭。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
+
+## 5. 仅明确需要镜像时
+
+`build` / `rebuild` / `objcopy` / **`check-fw`** 会生成或重新生成 BIN；`ci` 串联镜像流水线，也不是无镜像测试入口。`map`/`manifest`/`verify` 属于已有 BIN 的验收链，日常 ELF 使用 `resources`。
+
+以已经确认的 D014 生产交付为例，保持每条命令产品/模式/profile 一致：
+
+```powershell
+python bms_tools/bms.py --product d014 --production rebuild --jobs 4
+python bms_tools/bms.py --product d014 --production check-fw
+python bms_tools/bms.py --product d014 --production map
+python bms_tools/bms.py --product d014 --production manifest
+python bms_tools/bms.py --product d014 --production verify
+```
+
+只交付 canonical `.bin`，不把 `.raw.bin` 当 OTA 镜像。归档完整 SHA、产品/profile、工具版本、参数更新编号、BIN hash、manifest、ELF/MAP/resources 与测试日志；另按 [硬件验收](HARDWARE_VALIDATION.md) 关闭实板项目。`flash-help` 只提供说明，生成镜像不等于烧录或 OTA 成功。
+
+## 6. 常见失败
+
+| 现象 | 排查顺序 |
+|---|---|
+| TC32/Make 找不到 | `env` → `TC32_BIN`/PATH → 官方工具与 Vendor 库；不要改用 host GCC |
+| host 找不到 `cc` 或运行 DLL | `CC`、编译器 bin 的 PATH；查看对应测试日志 |
+| source manifest 失败 | 本产品 `sources.txt`、重复/遗漏/错误后端；变更集合后才更新清单 |
+| link 看似成功但命令失败 | `gen/build.log` 的 warning 门禁或生产资源门禁；不要压制警告绕过 |
+| resources 报收据陈旧 | 同产品/模式/profile 重新 link；源码、宏、Git 身份变化都可能使输入过期 |
+| production 拒绝 | `git status --short`、有效 Build ID、D008 显式 profile、实验宏、8 KiB 余量 |
+| 找不到 BIN | `link` 本就不生成；确认任务明确要求镜像后才使用第 5 节 |
+| 静态分析要本机模板 | 使用 `static --no-report`，保留机器可读结果 |
+
+文档修改优先验证链接、源码引用与现有文档 contract；不必为了改文字重跑所有固件变体。本机结果不等于远端 CI，host/ELF 结果不等于实板 MOS、Flash 掉电或低功耗验证。

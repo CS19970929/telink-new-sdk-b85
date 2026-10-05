@@ -1,42 +1,29 @@
-# SH3673510 低功耗失败传播与采样调度
+# SH 低功耗失败处理与采样调度
 
-2026-09-21，适用 D011 / D013 / D014 的 Common BMS 分支。仅处理 MCU 软件调用链；没有更改板级 GPIO、AFE 寄存器值、保护阈值、参数布局或 OTA 格式。
+适用 monorepo 的 D011/D013/D014。读 `bms/app/app.c` 的 SH 分支、`bms/core/bms_afe_guard.c` 和 SH backend/control。D008 的 AFE shutdown/PC4/ACC 路径另见其产品 reference。
 
-## 问题与修复
+## 当前调用链
 
-原 `sh3673510_control_sleep()` / backend / guard 都返回 void。控制器未 ready、wake 有效、关均衡/关 FET/设置 charger wake/SLEEP 写失败时，app 仍继续 MCU deep sleep。OTA 的 suspend-disable 检查位于这些显式 deep-sleep 入口之后，无法阻止它们。
+`blt_pm_proc()` 评估现有产品资格 → `app_note_sleep_and_enter_deepsleep()` 检查互锁 → `bms_afe_sleep()` → SH driver/control → 成功后才尝试 MCU deep sleep。
 
-SH 休眠链改为返回成功/失败，任一步失败都不进入 MCU deep sleep。DVC 历史兼容编译单元保留 void API；这不是 D008 shutdown 路径的修改。成功只表示现有驱动事务完成，不等于物理休眠电流/Gate 测量。
+`SH3673510_FIXED_UART_BLOCKS_PM=1` 保留原固定 UART 门禁，默认配置可能先被此条件阻止；函数存在、host 场景通过不说明实机已经能进入该路径。不能为了省电删除门禁。
 
-- OTA、SDK Flash session、bus mux 非 idle 或 UART TX busy：在任何 AFE 休眠副作用之前退出。
-- 进入前及 AFE 事务后检查现有产品的 PAD wake 条件；不发明新唤醒极性。
-- AFE backend 立即失效采样与 FET command cache，丢弃恢复资格计数，但保留故障锁存。失败不得把均衡 requested OFF 伪装成已成功写入。
-- 发 SLEEP 前即记录需要恢复。即使 ACK 丢失、MCU认为写失败，下一次采样仍需 NORMAL + runtime/protection restore + FET OFF，成功后才继续采样。恢复失败进入既有 guard 故障处理。
-- guard 的 watchdog 静默窗口禁止任何 SPI，休眠请求不得重置其计数；MCU继续服务既有的有界 wait/reinit 路径，不把“SPI不可用”当作“AFE已睡眠”。
-- 低压/开关/通信异常原有资格时间保持。计数饱和，到期后仅在实际进入成功时清零；失败每至少3秒重试，避免一次瞬态失败又等待整段小时级延时，也避免忙循环。正常 uint32 tick 回绕有效。
-- 事件 sleep 标记只在 AFE 准备成功后记录，仍是 MCU 进入尝试；PAD 在最后时刻变化仍可令 SDK 拒绝进入，不能把该事件当成整机休眠成功证明。
+- OTA、SDK Flash session、UART TX/RS485 active 和固定通信门禁先于 AFE 休眠副作用检查。
+- AFE 事务前后复核既有 PAD wake 条件，不新增唤醒极性或休眠入口。
+- SH sleep 返回成功/失败；任一步写入失败不进入 MCU deep sleep。
+- 发 SLEEP 前标记需恢复；ACK 丢失时下次采样仍执行 NORMAL、配置恢复和 FET OFF，成功后才继续。
+- 旧采样、命令缓存和恢复资格作废，但保留故障锁存；不能把 requested OFF 当写入成功。
+- guard watchdog bus silence 期间禁止 SPI，休眠请求不重置静默资格；保留有界恢复监督。
+- 现有休眠资格计数及至少 3 s 的失败重试间隔避免忙循环；时间计算需保持 tick 回绕语义。
 
-## D013 的调度遗漏
+sleep 事件只记录进入尝试。最后时刻 PAD 变化或 SDK 拒睡仍可能使 MCU 没有进入；事件不是功耗证明。SH 在 sleep 前尝试事件刷新，存储失败并不等同所有路径都永久禁止低压休眠；D008 显式保存的门禁不能照搬。
 
-D011/D014 已向 BLE PM 注册200ms采样唤醒；D013原先仅在 main loop 检查200ms elapsed，BLE suspend 没有相应 app wake deadline。其保护与恢复仍用每帧200ms计数，实际墙钟周期可能被 BLE 间隔拉长。
+## 采样与验证
 
-D013复用现有 `app_sample_wakeup` / `app_schedule_sample_wakeup` / `app_sample_task`：callback仅置位，采样/SOC/MOS/diagnostics仍在主循环执行；延迟只合并为一次，不补造多帧。不改 D013 GPIO/NTC/身份。三产品执行同一 scheduler Host 测试，真实 BLE 下的抖动仍待测。
+三种 SH 产品使用同一 200 ms sample wakeup 调度：callback 只置位，采样、SOC、MOS 和诊断在主循环；超时合并，不补造多帧。软件保护计数仍按名义 200 ms 样本，真实 BLE/Flash 阻塞可能影响墙钟响应。
 
-## 自动验证
+使用 [构建指南](BUILD_AND_TEST.md) 的环境选择产品后运行 `sh3673510_sleep_host_check.py`、`sh3673510_sample_schedule_host_check.py`、`sh3673510_recovery_host_check.py`，公共变化跑完整 runner 及四目标 link/resources。测试有 SDK/驱动桩和隔离 PM 门禁的故障场景，不是新增支持模式；日常不运行会生成 BIN 的 `bms.py ci`。
 
-```text
-python tests/sh3673510_sleep_host_check.py
-python tests/sh3673510_sample_schedule_host_check.py
-python tests/run_host_regression.py
-python bms_tools/bms.py ci -j 4
-```
+## 实板未关闭项
 
-新测试提取并编译当前生产 C 函数，外围只模拟时间、SDK和驱动事务结果，不在 Python 重写状态机。休眠测试覆盖逐次写失败、SLEEP失去回执但芯片可能已接受、wake竞争、SDK拒睡、恢复失败、旧样本/命令缓存、总线静默、连续故障、限速、整数溢出与回绕。初始原代码有43项断言失败；修复后66项断言通过。调度测试覆盖 deadline、重复callback合并、无效样本、执行超时及tick回绕。
-
-本次三产品各18组Host回归通过；SW/HW的1/1、1/0、0/1、0/0均通过TC32 clean build/check-fw/MAP/manifest/verify，均0 warning/error。默认配置cppcheck各114项style，warning/error和应用编译单元coverage gap均为0；未执行MISRA。
-
-## 必须留给实板的边界
-
-持续死SPI时，本修复选择保留MCU监督与恢复，而不是假定AFE睡眠成功。这样可能增加故障下耗电；需验证硬件WDT/Powerdown、UV、供电拓扑后才能确定独立强制关电策略，不能让软件臆造一个成功返回值。本次没有改变低压与开关/PAD优先级。
-
-需按本产品 `HARDWARE_VALIDATION.md` 验证 SLEEP/NORMAL 波形、失联功耗、恢复时CHG/DSG Gate、BLE OTA中开关变化、UART最后停止位、全部wake引脚竞争，以及200ms采样在广播/连接/长latency下的实际周期。D013先补原理图/BOM；D014保留heater/TS3禁用及未签核MOS NTC边界。Host/TC32均不能替代这些证据。
+逐产品验证 SLEEP/NORMAL 波形、死 SPI 的 watchdog/功耗、恢复时 CHG/DSG Gate、UART 最后停止位、OTA/Flash 互锁、全部 PAD 竞争及广播/连接下采样周期。D013 先补原理图/BOM；D014 heater/TS3 禁用、TS4 MOS NTC 必需。保留 MCU 监督可能增加死总线耗电，必须测量而不能假定 AFE 已睡眠。清单见 [HARDWARE_VALIDATION](HARDWARE_VALIDATION.md)。

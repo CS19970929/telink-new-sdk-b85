@@ -1,7 +1,7 @@
 # 四产品当前配置与 common 分支替换边界
 
 核对日期：2026-10-05。源码基线：`b3b5e9d0882bdde2358881753b539b8432cc72d9`，分支 `codex-bms-monorepo`。
-本报告记录代码实际默认值，不代表设备读回值或量产签核值。后续修改参数后应重新核对。
+本报告记录注明基线的代码默认值，不代表设备读回值或量产签核值；末尾后续验证节另有独立提交。当前交接操作见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)。后续修改参数后应重新核对，不能把历史资源表当当前构建结果。
 
 ## 1. 可以如何使用当前分支
 
@@ -169,7 +169,7 @@ SH 的硬件温度通过 NTC 表和分压 code 量化；公共 effective profile
 
 ### 5.2 D011 / D013 / D014 / SH3673510
 
-SPI Mode 3，500 kHz；PB6 MISO、PB7 MOSI、PD7 SCLK、PD2 CS。NTC 模型 10K；D011/D014 实装 TS3/TS4 与图纸的阻值差异仍需 BOM 留证。
+SPI Mode 3，500 kHz；PB6 MISO、PB7 MOSI、PD7 SCLK、PD2 CS。NTC 模型 10K；D011 的 TS3/TS4、D014 的 TS4 实装与图纸阻值差异仍需 BOM 留证；D014 TS3 为 NC，不使用。
 
 | 静态寄存器 | D011 | D013 | D014 | 含义 |
 |---|---|---|---|---|

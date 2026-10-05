@@ -1,5 +1,7 @@
 # D014 上位机诊断协议适配
 
+当前固件入口为 `bms/core/bms_diag.c`、`bms/platform/telink/bms_runtime_diag.c` 和 SH 诊断后端。下文现场记录为固定旧版本历史；CLI 示例需按交接的上位机版本 `--help` 核对，不作为本次已连接设备的证据。
+
 D014 在 `0x2A00..0x2DFF` 提供与统一上位机兼容的只读 Diagnostics schema 1：
 
 - `0x2A00`：256-word Boot/Storage/FET/Runtime/SOC/Protection 快照；
@@ -14,11 +16,14 @@ D014 在 `0x2A00..0x2DFF` 提供与统一上位机兼容的只读 Diagnostics sc
 读取软件保护与 AFE Hardware Protection V2 requested/meta/effective 窗口，不依赖 D008 参数协议。
 
 ```powershell
-bms-cli health --mac <MAC> --output .\D014_health.zip --json
-bms-cli diag --mac <MAC> --output .\D014_diag.zip --json
+# 在源码树外保存采集记录；先将 <MAC> 替换为设备地址。
+$diagOutput = "$env:LOCALAPPDATA/CodexTemp/bms-d014/diagnostics"
+New-Item -ItemType Directory -Force -Path $diagOutput | Out-Null
+bms-cli health --mac <MAC> --output "$diagOutput/D014_health.zip" --json
+bms-cli diag --mac <MAC> --output "$diagOutput/D014_diag.zip" --json
 bms-cli test connection --mac <MAC> --count 20 --json
-bms-cli test soc --mac <MAC> --count 10 --output .\D014_soc_test.json --json
-bms-cli test diag --mac <MAC> --count 3 --full --output .\D014_diag_test.json --json
+bms-cli test soc --mac <MAC> --count 10 --output "$diagOutput/D014_soc_test.json" --json
+bms-cli test diag --mac <MAC> --count 3 --full --output "$diagOutput/D014_diag_test.json" --json
 ```
 
 构建和 host contract 不能证明 667µΩ 电流标定、TS4 BOM、保护时序、FET 实际导通、

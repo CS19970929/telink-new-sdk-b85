@@ -1,51 +1,27 @@
-# GitHub Actions / TC32 CI 运维规则
+# GitHub Actions 运维
 
-本文只保留稳定的 CI 运维原则。**实际 job、测试脚本和触发分支以 `.github/workflows/*.yml` 为唯一执行真值**；不要把历史日期、旧分支名或旧产品测试清单复制到本文长期维护。
+日常入口为 [.github/workflows/bms-ci.yml](../.github/workflows/bms-ci.yml)。本页按 2026-10-05 源码说明 job，实际触发条件和命令以该 YAML 为准；本机通过不代表远端 run 已通过。
 
-## 1. 两层 CI
+| Job | 环境 | 内容与边界 |
+|---|---|---|
+| `host-contract` | Ubuntu hosted + Python 3.11/GCC | 四产品 sources、来源对象检查、完整 host、CMake/CTest；输出 host 日志 |
+| `tc32-production` | Ubuntu 24.04 + digest 固定的 Telink 官方 TC32 容器 | D008 三种 profile + D011/D013/D014，共六配置生产 ELF/资源门禁；不生成 BIN |
+| `tc32-windows` | `self-hosted, Windows, X64, telink-tc32` | 四产品生产 ELF/resources/static；D008 16S；需要 `TELINK_TC32_CI_ENABLED=1` 且 PR 来源同仓库 |
 
-### Host contract checks
+push 分支、pull_request、workflow_dispatch 条件直接查 YAML。Windows job 被条件跳过时不能记为 Windows TC32 验证通过。Linux 容器与 Windows 固定工具版本可能不同，不宣称产物逐字节相同；Windows 工具与实板仍需独立验收。
 
-运行在 GitHub-hosted runner，用于源码/协议/配置/Flash/SOC 等可跨平台验证的 contract。它不是 TC32 固件编译，也不能证明实板正确。
+## Runner 与失败排查
 
-### TC32 production build
+Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python、Cppcheck 及 Vendor 库；`BMS_BUILD_ROOT`/`BMS_TEST_OUTPUT` 指向 runner 临时区。workflow 使用单独 checkout 目录避免长期 runner 的旧锁文件干扰，生产仍要求干净 Git 状态。
 
-运行在带 `self-hosted, Windows, X64, telink-tc32` 标签的 Windows runner，使用项目固定 TC32 工具链和 Vendor 库。典型门禁包含：`env -> sources --check -> product contracts -> clean rebuild -> check-fw -> size/map -> manifest/verify -> cppcheck -> artifact upload`。
+先查失败 step 原始日志，再按 sources → 对应 host → 同产品/模式/profile link → resources → static 定位。`verify_baselines.py --fetch` 会访问远端取得来源证据；网络失败与固件行为失败应分开记录。编译失败不能靠旧 ELF 或提高 warning 基线绕过。
 
-各产品具体 contract 见当前 workflow 和 `BUILD_AND_TEST.md`。
+只读权限、同仓库 PR 门禁和禁止不可信代码在 self-hosted 上运行的约束保持。不要使用 `pull_request_target` 执行外部 PR，也不把 token/证书写入日志。
 
-## 2. Runner 固定要求
+## 遗留 workflow
 
-- TC32：项目锁定 `tc32-elf-gcc 4.5.1-tc32-1.3`；
-- GNU Make、Python、cppcheck；
-- 仓库内 `tl_check_fw2.exe`、Vendor `.a`、`boot.link`。
+[afe-hw-split-ci.yml](../.github/workflows/afe-hw-split-ci.yml) 是旧 D011 分支流程，仍带手动触发入口、隐式产品选择和旧产物路径；不能用它验收 monorepo，也不要在本分支手动运行它。它含 `rebuild/check-fw`，会生成镜像。本次文档任务未修改 CI 执行行为；未来如退役，应作为单独 CI 变更检查其分支使用者。
 
-不得用 ARM GCC、host GCC、其他 TC32 版本或不同 Vendor 库替代生产工具链。`python bms_tools/bms.py env` 是环境自检入口。
+## 发布归档
 
-## 3. Public repository 安全边界
-
-- 外部 fork PR 不应直接在本机 self-hosted runner 执行；
-- 不使用 `pull_request_target` 运行不可信代码；
-- TC32 job 的仓库来源/变量门禁不得为了省事移除；
-- 注册 token、GitHub token、密码和证书不写入仓库/Issue/日志；
-- Runner 仅授予完成构建所需权限。
-
-## 4. 日常使用
-
-推送后分别确认 Host contracts 和 TC32 production build；后者必须真实运行而不是条件跳过。发布候选归档最终 BIN/ELF/MAP、manifest、静态分析输出和 commit SHA；Actions Artifact 有保留期，不作为永久量产档案。
-
-## 5. 故障排查顺序
-
-1. `bms.py env`；
-2. `sources --check`；
-3. 失败的 product contract；
-4. 本机 `rebuild --jobs 4`；
-5. `check-fw` / `map` / `verify`；
-6. cppcheck；
-7. Runner 服务、权限、PATH、网络。
-
-Host test成功不等于TC32链接成功；TC32成功不等于AFE/MOS/低功耗实板验收。
-
-## 6. 产品分支原则
-
-D008、D011、D013 workflow 可运行不同 integration contract。测试入口变化时同步 workflow 和 `BUILD_AND_TEST.md`，不维护另一个静态旧清单。产品 IO/AFE 硬件事实只放在该分支 `Dxxx_PRODUCT_REFERENCE.md`。
+当前 CI ELF artifact 不是发布 BIN；Actions artifact 有保留期。需要镜像时按构建指南的明确镜像流程，归档 commit/profile、工具、BIN hash/manifest、ELF/MAP/resources、host/static 和实板记录。绿色 CI 不关闭 [硬件验收](HARDWARE_VALIDATION.md) 项目。

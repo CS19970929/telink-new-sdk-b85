@@ -7,16 +7,18 @@
 - First：一级告警/报告，不直接作为最终 MOS 关闭级。
 - Second：二级告警/报告，不直接作为最终 MOS 关闭级。
 - Third：软件保护级，进入 CHG/DSG 阻断。
-- Recover：恢复阈值/回差。
+- Recover：Third 的恢复阈值/回差；First/Second 离开各自触发阈值后按 Filter 清除。
 - Filter：触发与恢复确认时间来源。
 
 ## 2. 当前公共算法覆盖
 
 Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT、MOS OT、Cell delta。触发和恢复都经过连续样本确认。
 
-## 3. SOC legacy 字段
+## 3. SOC Low 与最终阻断
 
-参数表仍保留 `u16SocLow_First/Second/Third/Rcv/Filter` 兼容字段，但当前 `bms_sw_protection` 没有把它加入统一状态机。历史 `SocUp/SocLow` 命名冲突未解决前不能静默赋予新行为。因此参数存在/可读写不等于保护算法正在使用。
+`u16SocLow_First/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `b1SocLow`；不是未使用的 legacy 字段。SOC Low 与压差故障用于报告，不直接列入软件 CHG/DSG 阻断掩码；具体掩码见 `bms_sw_protection_charge_blocked()` / `bms_sw_protection_discharge_blocked()`。
+
+`Filter` 单位 10 ms，以 `ceil(Filter * 10 / 200)` 转为样本数，最少一个样本。高值触发 `>=trip`，低值触发 `<=trip`；Third 分别在 `<=Recover` / `>=Recover` 后确认恢复。采样阻塞会影响墙钟时延，不能把配置 100 ms 写成保证 100 ms 响应。
 
 ## 4. 温度有效性
 
@@ -38,7 +40,7 @@ AND no software Third block
 AND no AFE hardware block/lockout
 ```
 
-具体 FET 寄存器、GPIO和故障恢复见各分支 `*_PRODUCT_REFERENCE.md` 与 backend 源码。
+具体 FET 寄存器、GPIO和故障恢复见本仓库各产品 `*_PRODUCT_REFERENCE.md` 与 backend 源码。
 
 ## 7. 修改规则
 

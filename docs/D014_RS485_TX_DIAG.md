@@ -1,5 +1,7 @@
 # D014 RS485 发送链路诊断
 
+当前入口：`bms/products/d014/bms_product_conf.h` 的宏及 `bms/platform/telink/modbus_uart.c/.h`。日常验证用 D014 `link/resources`；台架需要镜像时另按 [构建指南](BUILD_AND_TEST.md) 明确生成。本页末尾旧 MAP 地址仅为历史观察，调试时使用当前 ELF。
+
 ## 用途与边界
 
 `BMS_RS485_TX_DIAG_ENABLE` 默认是 `0`。临时设为 `1` 后，固件每约 500 ms 通过正式的 `s_tx_pkt`、B85 `uart_send_dma()`、PC2 UART TX 和 PA1 方向控制发送一帧。此时 RX DMA 和 Modbus 请求处理关闭，上位机发来的读命令不会获得回复。AFE、SOC 和保护任务仍运行，但测试帧不读取它们的数据。测试完成后恢复宏为 `0` 并重新编译。

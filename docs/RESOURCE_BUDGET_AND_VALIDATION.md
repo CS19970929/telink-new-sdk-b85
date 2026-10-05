@@ -1,22 +1,22 @@
-# 四产品资源预算与验证约定（2026-09-21）
+# 资源预算与验证口径
 
-适用 D008 / D011 / D013 / D014 的 TLSR8251、TC32 固定 ABI 和既有 124 KiB APP 槽。
-本次完善源于 2026-09-21 四项目最新代码、MAP、ELF 审计。它建立工程门禁和运行观测，不替代实板签核。
+适用四产品 TLSR8251，32 KiB SRAM、124 KiB APP 槽；构建命令见 [BUILD_AND_TEST](BUILD_AND_TEST.md)。历史资源数字只适用于各报告明确记录的提交/模式/profile。
 
-## 已落实的资源边界
+## ELF 与 BIN 分开验收
 
-- `boot.link` 和 `bms.py map` 同时要求 `__SRAM_SIZE == 0x848000`，静态 RAM 终点严格低于栈顶减 3072 B。
-- 3 KiB 是主栈的初始工程预算。旧 600 B 小于已经识别的保存/复位调用链局部帧之和，不能继续作为安全依据。新的 3 KiB 也不是反汇编证明的最坏上界。
-- IRQ 栈仍为独立 384 B，已经计入 BSS，不能从主栈余量推断 IRQ 栈安全。
-- 以 `_ram_use_end_ - 0x840000` 计静态地址跨度，包含 RAM code、retention 对齐、SDK/cache 保留区、data、BSS、no-init。禁止用 `data+bss` 代替物理 SRAM 占用。
-- 槽门禁检查正式 BIN，包含 Telink 16 B payload 对齐及 4 B CRC；MAP 缺符号、8258 启动、RAM 越界、BIN/MAP 长度不符、最终槽越界均失败。`verify` 同样调用该检查，随后校验 manifest、CRC、源输入和工具链证据。
-- `map` 生成既有构建输出目录中的 `gen/resources.json`，含 Git/ELF/BIN/MAP hash、section 大小、占用、余量。`--baseline <旧 resources.json>` 输出 Flash/RAM 增量，`--output` 可指定正式证据位置。
-- Flash 剩余 <8 KiB、预留栈后 RAM 可增长空间 <2 KiB 为工程告警。单次 >1 KiB Flash 或 >256 B RAM 增长要求资源 review；这些阈值不应机械阻止必要安全功能。
-- 默认及保护组合构建均要求零编译 warning。未改变 TC32 ABI、O2、SDK 库、OTA/Flash 分区。
+- `link` + `resources`：使用 ELF/MAP/LST 和输入收据；镜像字节数是含预计 16 B 对齐及 4 B CRC 的投影，不生成 BIN。
+- 镜像流程的 `map` + `manifest` + `verify`：核对实际 BIN、CRC、长度、输入和产物 hash。
+- `_ram_use_end_ - 0x840000` 是静态地址跨度，包含 RAM code、SDK/cache、data、BSS、对齐等，不能用 data+bss 替代。
+- `__SRAM_SIZE` 必须为 `0x848000`，静态终点必须低于栈顶减 3072 B。IRQ 栈另为 384 B，已计 BSS。
+- 生产 Flash 余量低于 8192 B 为失败；开发配置为告警。预留主栈后的 RAM 余量低于 2048 B 为告警，不能当实测栈安全证明。
+- 生产仅公共 core 使用 `-Os`，SDK/AFE/平台保持 `-O2`；均保留 TC32 ABI 和零编译 warning 门禁。
 
-构建新增 `gen/compile-inputs.json`：记录编译源、SDK 头文件/汇编 include、宏、Git 身份、linker、脚本、SDK 库和工具可执行文件 hash；全部对象依赖该指纹。头文件/宏/工具变化会触发保守重编译，无变化不改指纹时间。manifest 保存输入与 ELF/MAP/LST/raw BIN hash，verify 拒绝陈旧源码或被替换产物。只有 make 和 warning 门禁成功才写 `build-completed.json`；开始构建先作废完成凭据，失败/中断不能用新指纹给旧 ELF 背书。旧 manifest 缺少新证据时必须重建。
+`gen/resources.json` 记录占用、余量及配置；`--baseline` 可比较旧报告，但必须匹配产品、profile、模式和工具口径。单次较大增长应定位 MAP 符号与真实可达路径，删源文件不必然节省 Flash。
+
+`compile-inputs.json` 记录源/头文件、库、宏、Git 身份及工具指纹；`link-completed.json` 对 ELF/MAP/LST 绑定成功链接，镜像流程另有 `build-completed.json`。源码、宏、工具或身份改变会使旧收据失效，失败构建不能为旧 ELF 背书。
 
 ## 主栈与 IRQ 栈观测
+
 
 启动汇编在 BSS/data 初始化后、首次调用 C `main` 前，分别以 `0xA5A5A5A5` 填充 `_bms_main_stack_bottom_..__SRAM_SIZE` 和 `bms_irq_stack_bottom..bms_irq_stack_top`。不覆盖活跃 C 帧、持久 no-init 或 SDK cache。
 
@@ -33,47 +33,15 @@
 
 主栈观测使用量 = `__SRAM_SIZE - _bms_main_stack_bottom_ - main_free_min_bytes`；IRQ 对应 `384 - irq_free_min_bytes`。这是“被写过的深度”：仅调整 SP 而未写入的帧、碰巧等于填充值的数据、尚未运行的路径均可能使水位低估需求。必须结合反汇编和压力测试，不能称为完整内存自检或栈溢出隔离。guard 被破坏也不能保证系统仍可继续可靠运行。
 
-本轮不扩展通信地址；水位先通过 ELF 符号/调试器采集。正常 suspend 保持观测历史；完整重启/普通 deep sleep 重新初始化。当前四产品 `PM_DEEPSLEEP_RETENTION_ENABLE=0`；将来开启 retention 必须重新审查启动恢复路径和水位生命周期。
+水位通过 ELF 符号/调试器采集。正常 suspend 保持观测历史；完整重启/普通 deep sleep 重新初始化。当前四产品 `PM_DEEPSLEEP_RETENTION_ENABLE=0`；将来开启 retention 必须重新审查启动恢复路径和水位生命周期。
 
-## Common BMS Framework 的共享与差异
 
-`tools/audit_product_branches.py --check` 检查四个最新产品分支的提交。开发中可显式传 `--worktree PRODUCT=PATH` 检查候选源码；报告会标记为工作树证据。
+## 共享与持久化开销
 
-| 范围 | 门禁/所有权 |
-|---|---|
-| 四项目字节一致（LF 归一） | SOC、Record、State store、软件保护核心、stack monitor |
-| SH 三项目一致 | features、AFE guard、Event schema 2、Flash 平台、SH NTC 常量表 |
-| 四项目语义一致 | MAP/tool AST、SRAM/栈预算、Flash transaction 核心 |
-| 明确保留差异 | DVC/SH 寄存器、IO、AFE 阈值量化、低功耗、物理能力、D008 schema 2 Event 的重复计数/epoch、diagnostic 接入方式 |
+公共修改直接进入四产品，清单以各产品 `sources.txt` 为准；无需向旧分支同步补丁。D008 开发默认 16S LFP，其他 profile 必须按实际装配选择。
 
-共享代码仍在各产品分支维护。修改共享模块的提交者负责在其他分支同步同一补丁和 host 回归；发布前执行四分支审计。无需为此引入 runtime factory、共享全局 scratch 或替换 AFE 驱动。
+Config/State/Event 使用公共 journal。State/Event 周期 checkpoint 约 60 s，失败退避约 5 s；事件先进入 RAM 并更新边沿状态，掉电/深睡可能丢失未落盘窗口。运行调试日志是另一份纯 RAM 环，与 Flash 事件区分，见 [STORAGE](STORAGE.md) 和 [运行日志](RUNTIME_DEBUG_LOG.md)。
 
-D013 的软件核心现与公共实现一致：First/Second 离开本级阈值后按 Filter 清除（等于阈值仍 active）；Third 使用 Recover 回差；电池温度新故障需要对应方向电流资格，既有故障按恢复条件清除；电池 NTC 和 MOS NTC 分别判有效。AFE/IO/装配配置不因此改变。D013 PC4 200 ms debug LED 默认关闭，仅允许显式台架开关。
+## 实板证据
 
-D008 采用用户确认的 `D008_PRODUCT_PROFILE_24S_LFP` 默认值；16S LFP 定义恢复为 16，20S NMC 保留。profile ID、SOC chemistry 和报告串数一致，三种选择均有编译验证。实际装配仍须核对对应 BOM。
-
-## Flash 写入与日志
-
-SH 平台已接入与 D008 相同的 OTA/SDK 解锁会话排他、readback 失败 5 s 退避。六个既有 diagnostic counter 槽记录 program 调用、erase 调用、verify 失败、deferred write、最大 program/erase 32k tick；program 调用数不等于物理 page 编程次数，不能直接换算寿命。
-
-SH Event 使用 schema 2、404 B payload、100 条 ring、重复计数和独立更新编号。事件先接受到 RAM，每 60 s 最多一次周期 checkpoint；保存失败保留 RAM 记录、latch 和 dirty，5 s 后重试。初始化幂等，工厂清空只有落盘成功才发布，失败回退 ring、游标与边沿状态。
-
-正常休眠前尝试刷新日志；Flash 故障或退避不能永久否决低压休眠。代价是异常断电、失败后进入 deep sleep、OTA reboot 或长时间存储不可用时可能丢失未落盘窗口；ring 超过 100 条仍覆盖最旧记录。若产品要求故障前最后一条必达，需要独立掉电/供电和写延迟约束，不能无界重试实现。
-
-SH 三份逐字节相同的 NTC 表已合并为一个 `const sh3673510_ntc_10k[60]`，数值、插值、缩放和 AFE 量化不变；D008 的 NTC 模型不参与合并。
-
-## 构建与发布验证
-
-1. `python tests/run_host_regression.py`、`python bms_tools/bms.py sources --check`。
-2. 使用 `EXTRA_DEFINES` 分别 clean rebuild SW/HW 的 1/1、1/0、0/1、0/0；每组运行 `check-fw`、`map`、`manifest`、`verify`。非 1/1 仅用于台架。
-3. `python bms_tools/bms.py static --no-report -j 4`。报告 severity、coverage gap 和未执行的 MISRA，而不是只看进程返回码。
-4. 发布必须从干净提交以 `EXTRA_DEFINES=-DBMS_PRODUCTION_BUILD=1` 重编译；默认关闭开发 GPIO/日志，拒绝 test hooks、dirty/空身份和保护关闭。存在用户未提交改动时，用对应提交的独立干净 worktree 验证，不临时伪造 dirty=0。
-5. 保存 commit/profile/defines、ELF/MAP/BIN/manifest/resources、编译/host/static 日志并运行四分支共享审计。
-
-## TODO_VERIFY_HW 与后续工作
-
-当前必须在实板关闭的项目：24S 装配与采样身份；参数保存/工厂复位/故障风暴/OTA/中断密集场景下的主和 IRQ 栈最小余量；启动填充耗时；Flash 最坏擦除阻塞、200 ms 采样 gap、BLE/OTA 稳定性；D013 温度方向资格和各级触发/恢复；SH pending 日志的断电/睡眠取舍。每份结果记录准确 commit、BIN SHA256、板版本、电源条件和压力场景。
-
-近期：D008 每个新功能提交都附增量预算；测量存储次数/最大阻塞、采样 gap、SOC 拒收、trace 覆盖。生产镜像仍接近 APP 槽上限，大功能不能仅凭物理 Flash 尚空闲来规划。
-
-暂不处理：数十字节常量、正常 struct padding、薄 wrapper、已经被 gc-sections 丢弃的旧 backend/SDK 示例；不删诊断/readback，不强行共享通信 buffer，不启用 LTO/更换 ABI，不调整 OTA 分区。完整 CPU/RAM 自检另立专项，现有栈观测不冒充自检完成。
+主栈与 IRQ 栈压力、最坏 Flash 阻塞、200 ms 采样 gap、BLE/OTA、保护时序和故障风暴必须实测。记录准确 commit、模式/profile、板号、仪器、环境和波形；已生成镜像时再附 BIN hash。官方容器、Windows、host 和实板证据分别保留，不把“链接成功”写成设备安全验收。

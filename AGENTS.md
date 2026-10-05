@@ -1,8 +1,10 @@
 # AGENTS.md — BMS monorepo
 
-这是 D008 / D011 / D013 / D014 的统一源码仓库。固件后续以 `codex-bms-monorepo` 为主要开发分支。先读 `README.md`、
-`docs/BMS_MONOREPO.md`、`docs/BMS_MONOREPO_VALIDATION.md` 及相关产品 reference。
-全局嵌入式规则继续适用；当前任务按用户明确指令不迁移或兼容开发板旧参数。
+这是 D008 / D011 / D013 / D014 的统一源码仓库。固件后续以 `codex-bms-monorepo` 为主要开发分支。先读 `README.md` 的完整文档导航及相关产品 reference。
+首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
+构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
+`docs/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
+全局嵌入式规则继续适用；当前开发阶段按已确认产品约定拒绝旧 schema，不迁移旧开发板参数；同 schema 按产品更新编号处理。
 
 - 唯一公共源码在 `bms/core` / `bms/app`。不复制到产品目录或 SDK 示例目录，不引入同步脚本。
 - 产品目录只维护板级数据、feature 能力和 repository-relative `sources.txt`。
@@ -26,6 +28,6 @@
 可移植核心库使用根目录 CMake，但 Telink 固件仍用统一 TC32 工具。
 
 - 用户约定：今后所有 Git 提交标题、正文、合并及回退说明和 PR 变更记录均使用中文；函数名、路径、命令、型号及其它技术标识保留原文。提交前检查说明语言，不使用没有具体含义的占位标题。
-- 四产品尚未量产，不实现旧板/旧参数迁移；OTA 参数保留或更新按各产品 `bms_parameter_policy.h` 的独立更新编号控制。
+- 新增、删除或改名项目文档时同步根 README 的直接链接；历史验证注明固定提交，不写成当前验收结论。
 
 - 运行日志、串口/BLE 日志读取或调试开关改动，先读 `docs/RUNTIME_DEBUG_LOG.md`；保持量产关闭和原通信/低功耗门禁。

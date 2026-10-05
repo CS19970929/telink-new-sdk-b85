@@ -1,105 +1,63 @@
-# BMS 软件架构与配置所有权
+# 架构、数据流与状态所有权
 
-当前源码布局、参数格式和构建入口以 [BMS_MONOREPO.md](BMS_MONOREPO.md) 为准。
+四产品直接使用同一份 `bms/core` 和 `bms/app`。完整组织见 [BMS_MONOREPO](BMS_MONOREPO.md)，逐步阅读见 [CODE_READING_GUIDE](CODE_READING_GUIDE.md)。
 
-本文描述 D008 / D011 / D013 / D014 当前共同的软件边界。产品专属 IO、AFE 静态配置和未决硬件项分别见本仓库 `*_PRODUCT_REFERENCE.md`。
-
-## 1. 依赖方向
+## 1. 模块与调用边界
 
 ```text
-app / BLE / Modbus / product logic
-              |
-              v
-      bms_sw_protection
-              |
-              v
-        BMS state/faults
-              |
-              v
-          bms_afe.h
-              |
-      +-------+-------+
-      |               |
-      v               v
- DVC1124 backend   SH35xx backend
-      |               |
-      v               v
- I2C/registers     SPI/registers
+产品头文件 + sources.txt → 选择能力/默认值及唯一 AFE 后端
+Telink main/IRQ → app 调度
+app / Modbus / BLE → 公共参数、SOC、feature、诊断
+app / feature → bms_afe.h → bms_afe_guard → bms_afe_driver.h
+                                            ↓
+                              DVC1124 或 SH3673510 后端 → I2C/SPI
+Config / State / Event → storage_record → Telink Flash 平台
 ```
 
-一个产品固件只编译一个 AFE backend；不使用运行时 AFE factory/ops table。
+每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、tick、UART/BLE、Flash 仍按 Telink SDK 实现。
 
-## 2. 保护参数所有权
+## 2. 谁能修改什么
 
-### 软件保护
-- 唯一 requested 参数源：`g_tParam.protect`。
-- 统一实现：`bms_sw_protection.c/.h`。
-- First / Second / Third / Recover / Filter。
-- First/Second 用于分级状态；Third 进入 MOS 阻断策略。
-
-### AFE 硬件保护
-- 唯一 requested 参数源：`bms_afe_hw_profile_t`。
-- 没有 First/Second/Third。
-- 与软件保护独立持久化、独立通信修改。
-- backend 负责具体芯片/Rsense 的 validation、量化、寄存器编码和 readback。
-- requested 与 effective 分开，禁止把芯片量化后的 effective 伪装成用户 requested。
-
-当前 monorepo 拒绝旧开发记录，使用 CFG2 schema 2；软件保护与 AFE 默认配置独立，不迁移旧参数。
-
-D014 当前使用产品配置中的独立 AFE 默认值初始化，不从软件保护表迁移。
-
-## 3. AFE Hardware Protection V2
-
-- `0x2500..0x2522`：35-word requested profile；
-- `0x2523..0x252B`：capability、profile-valid、Rsense、cell count、WDT、session、apply-state、last-error、interface version；
-- `0x2540..0x2562`：35-word effective profile；
-- 自定义功能 `0x42`：AFE 参数写授权会话，默认 60 s。
-
-事务：`validate -> persist -> apply -> readback requested/effective -> verify`。失败恢复上一份 profile 并重新 apply；rollback 失败进入 `CONFIG_INCONSISTENT`。
-
-## 4. AFE 通信失效边界
-
-应用层只能通过 `bms_afe.h` 使用 AFE。backend/guard 必须保证无效采样不继续作为有效保护输入、通信失败进入 fail-safe、reinit 有界、恢复后重新满足有效样本资格。I2C/SPI 物理失联时软件 FET-off 是否真实可达仍须各产品用硬件 WDT/power-cycle 路径证明。
-
-## 5. FET 与保护仲裁
-
-最终输出逻辑上同时满足：
-
-```text
-product request
-AND output enabled
-AND AFE communication qualified
-AND no software-third block
-AND no active AFE hardware block/lockout
-```
-
-芯片特有的 latch clear、load removal、SCD recovery 保留在 backend/product 层，不能为了代码统一而强行统一寄存器行为。
-
-## 6. Product Profile 边界
-
-以下属于产品事实：cell count、chemistry、Rsense、MCU GPIO、外部 power topology、NTC 数量/阻值/位置、AFE 型号/capability、最终 OV/UV/OC/SC/temperature/SOC 参数。必须由该产品原理图/BOM/源码/实板证据决定，禁止跨产品复制。
-
-## 7. 当前产品映射
-
-| 产品 | AFE | 物理 profile 来源 |
+| 状态/数据 | 所有者与入口 | 失败/限制 |
 |---|---|---|
-| D008 | DVC1124-2 | `d008_product_profile.h` + `dvc1124_project_config.h` |
-| D011 | SH3673510 | `sh3673510_project_config.h`，10S/250µΩ |
-| D013 | SH3673510（当前源码） | `sh3673510_project_config.h`，4S/100µΩ；D013 原理图尚缺，IO 未硬件签核 |
+| 软件保护参数 `g_tParam.protect` | `param.c` 的 LoadParam/SaveParam，通信先校验 | 无效参数不授权输出；普通 SaveParam 不解除启动存储失败 |
+| 持久 Config 和更新编号 | `bms_config_store.c` 的 get/set/default/update | 候选成功落盘后才替换 cache |
+| AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
+| 三等级软件故障 | `bms_sw_protection.c`；SOC Low 在 `bms_soc.c` | 后端另合并硬件故障，故障字不等于单一算法的私有状态 |
+| AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
+| 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
+| heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
+| SOC estimate/display/OCV/学习 | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
+| SOC/循环/学习/工厂时长持久值 | `bms_state_store.c`；Runtime 使用公共 State | 周期 checkpoint 与失败退避；不同组按独立编号重置 |
+| 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
-## 8. 文档规则
+## 3. 软件保护与 AFE 保护
 
-- 产品 IO/AFE 配置只在该分支的 `Dxxx_PRODUCT_REFERENCE.md` 维护。
-- 通用保护语义只在 `SOFTWARE_PROTECTION.md` 与 `AFE_HARDWARE_PROTECTION_V2.md` 维护。
-- 实板未完成项只在 `HARDWARE_VALIDATION.md` 维护。
-- 历史审计、旧任务列表、跨产品硬件说明不得继续作为当前设计入口。
-- 文档与源码冲突时，以源码为当前软件事实，同时标出与原理图/手册的冲突，不静默修正。
+软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向。SOC Low 和压差故障不直接列入 MOS 关断掩码。软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
 
-## 9. 采样、backend 声明与参数事务的阅读入口
+AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。DVC 的初始默认仍取编译期软件默认种子，SH 初始默认来自产品头；不能把运行时独立误写为所有默认来源完全独立。
 
-- `app.c::app_sample_task` 在取得采样后调用同文件的 `static app_update_soc_from_sample`，组装实际样本、时间戳、故障及功能状态；`bms_soc.c::bms_soc_update_sample` 负责 SOC 算法和运行状态。
-- `bms_afe.h` 声明经过通信/资格门禁的公共 API，不按 include 顺序改名。`bms_afe_driver.h` 声明实际 backend；guard、driver 和只读诊断使用它，不增加派发表或新的调用层。
-- `modbus_rtu.c` 检查帧、地址、长度和 CRC，并映射协议异常。`bms_afe_hw_profile_commit_be` 接收已确认完整的35-word BE payload，按原顺序处理授权、校验、保存、应用、读回和回滚；apply-state / last-error 归属 `bms_afe_hw_profile.c`。
-- SH 的 UART 初始化直接走 `modbus_uart_init`。`SH3673510_FIXED_UART_BLOCKS_PM=1` 保留原固定 UART 与 OWC idle 条件不相容的 PM 门禁，不开放新休眠入口。D008 的真实 SIF/mux 保持。
+AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/effective readback → verify；失败恢复前一 profile 并重新应用，回滚失败保持配置不一致。详见 [AFE_HARDWARE_PROTECTION_V2](AFE_HARDWARE_PROTECTION_V2.md)。
 
-详细批次范围与验证边界见 `BMS_SUBTRACTION_IMPLEMENTATION.md`。
+## 4. 输出与物理反馈
+
+`mos_update()` 给出产品请求；最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
+
+DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
+
+## 5. 产品和单位
+
+| 产品 | 输入 | 能力限制 |
+|---|---|---|
+| D008 | DVC1124；产品 `d008_product_profile.h` + `dvc1124_project_config.h` | 三种 profile；当前 SC 默认未启用 |
+| D011 | SH；产品 `bms_sh3673510_config.h`；10S/250 µΩ | heater/balance；PB5 fuse 安全 LOW |
+| D013 | SH；4S/100 µΩ | heater/balance/MOS NTC 禁用；原理图待核 |
+| D014 | SH；8S/667 µΩ | 无 heater，TS3 NC；TS4 必需 MOS NTC |
+
+公共电流 mA 正放负充，SH 在测量边界转换；温度 `(°C+40)*10`；名义容量 0.1 Ah、报告容量 0.01 Ah。无效串位 61001，不进入有效通道计算。字段定义与协议大小端以生产头文件和读写实现为准。
+
+## 6. 修改边界
+
+固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 的 `SH3673510_FIXED_UART_BLOCKS_PM=1` 保留现有固定 UART 门禁，不因“有 sleep 函数”声称默认模式一定进入休眠。
+
+持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/编号规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。

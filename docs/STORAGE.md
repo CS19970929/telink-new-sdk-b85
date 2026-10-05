@@ -6,7 +6,7 @@ OTA 分组保留/重置策略见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。本文
 
 ## 1. 设计目标
 
-当前只保留四个 BMS 持久化域：`Config`、`State`、`Factory`、`Event`。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。
+当前实际写入三个 BMS 持久化域：`Config`、`State`、`Event`；`Factory` 只有预留区域，没有 writer。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。
 
 通用 `storage_record.c/.h` 仅依赖 `stdint.h` 与 `storage_port.h`，不 include Telink/STM32 SDK，可移植到其他 MCU 内部 Flash、SPI Flash 或其他块设备。
 
@@ -47,17 +47,17 @@ BMS business
     Telink Flash driver
 ```
 
-`storage_record` 使用固定 little-endian 元数据、CRC32、sequence 和 commit-last；每个持久化域至少跨两个 erase sector。sector 切换时先在新 sector 形成完整有效记录，因此任意写入阶段掉电都保留上一份完整记录。
+`storage_record` 使用固定 little-endian 元数据、CRC32、sequence 和 commit-last；每个持久化域至少跨两个 erase sector。sector 切换时先在新 sector 形成完整有效记录；算法和 host 模拟要求中断写入不替代上一条完整记录。真实 Flash 异常、电源下降和擦写时序仍需实板验证，不能据此保证所有硬件掉电情形。
 
 ## 4. 数据所有权
 
 **Config** 表示“设备应该怎样工作”：当前包含软件保护、system/SOC identity、独立 AFE Hardware Protection requested profile、分组更新编号 与蓝牙名称后缀。Flash payload 使用显式 little-endian encode/decode，不直接把 C struct 原样 memcpy 到 Flash。D011 的 SH3673510/SH3673520 寄存器编码不进入 Flash，由 backend 把语义化 requested profile 转换并应用。
 
-**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`bms_factory_mode.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 仍保持值变化才保存的现有语义。
+**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`bms_factory_mode.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 变化标记 dirty，正常约 60 s checkpoint，失败约 5 s 退避；显式保存入口另行处理。
 
-**Factory** 已拥有独立物理区域，但当前不创建无实际需求的业务 writer。后续 SN、生产日期、板级校准等进入该域，Factory Reset 不得清除此域。
+**Factory** 已拥有独立物理区域，但当前不创建无实际需求的业务 writer。当前 SN/电流校准在 Config，老化时间在 State。将来是否启用 Factory 域需另立数据布局与更新策略，不能依据预留名称擅自搬迁数据。
 
-**Event** 保留 100 条逻辑 ring，物理持久化复用同一 Record Journal。只有持久化成功后才更新 event latch。
+**Event** 保留 100 条逻辑 ring，物理持久化复用同一 Record Journal。事件先进入 RAM 并更新边沿 latch；约 60 s checkpoint，失败保留 dirty 并约 5 s 后重试。掉电/深睡可能丢失未落盘窗口；清空事务成功才发布清空结果。
 
 ## 5. 开发期格式策略
 

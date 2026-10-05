@@ -9,9 +9,9 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-当前 monorepo 使用 CFG2 schema 2，旧开发记录拒绝且不迁移。软件和 AFE 默认配置独立生成与持久化。
+当前 monorepo 使用 CFG2 schema 2，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取编译期软件默认种子并规范化，SH 默认来自产品头文件。
 
-D014 开发分支已改为从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
+D014 当前从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
 
 ## 2. Backend
 
@@ -65,7 +65,7 @@ D014 开发分支已改为从产品配置建立独立 AFE 默认 profile；schem
 0x2540..0x2562 : 35 words, read-only
 ```
 
-上位机/测试工具必须同时显示 requested 与 effective，不能把芯片量化后的值伪装成用户输入值。
+上位机/测试工具必须同时显示 requested 与 effective，不能把芯片量化值伪装成用户输入。SH effective 的温度字段目前未反算寄存器量化温度，不能把显示值当成独立温度 readback 或实际动作温度；还需检查寄存器与实测。
 
 ## 5. 写授权会话
 
@@ -116,12 +116,12 @@ apply_state = CONFIG_INCONSISTENT
 
 四个入口复用同一协议/诊断/OTA核心。AFE Hardware Protection V2 使用 `0x42` 授权、35-word
 原子写入以及 requested/effective readback；不得用普通单寄存器写入绕过事务。完整诊断还会独立读取
-`0x2500/0x2523/0x2540`，不依赖 D008 参数能力窗口。D011 固件诊断适配见
-`docs/D014_DIAGNOSTICS.md`。
+`0x2500/0x2523/0x2540`，不依赖 D008 参数能力窗口。D014 固件诊断适配见
+[D014_DIAGNOSTICS.md](D014_DIAGNOSTICS.md)。上位机功能以其维护分支实际版本为准，本次文档整理未重新验证各客户端构建。
 
 ## 8. 修改默认值的位置
 
-- Common profile结构/validation/migration：`bms_afe_hw_profile.h/.c`；
+- Common profile结构/validation/default builder：`bms_afe_hw_profile.h/.c`；
 - 持久化：`bms_config_store.c` / `storage_record.c`；
 - D008量化/应用：DVC1124 backend；
 - D011/D013/D014量化/应用：`sh3673510_control.c`；

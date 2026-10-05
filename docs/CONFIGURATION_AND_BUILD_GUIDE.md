@@ -1,205 +1,97 @@
-# D014 配置、构建与联调指南
+# 配置与简单修改指南
 
-> 分支：`refactor/d014-common-bms-features`  
-> 产品：HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S。
+适用四产品 monorepo。[根 README](../README.md) 为总目录；环境和命令见 [构建与验证](BUILD_AND_TEST.md)。以下路径相对仓库根目录。
 
-> 上位机章节中的历史 Qt 路径已废弃。当前唯一真源是
-> `feature/windows-afe-hw-protection-editor-v2:bms-tool-windows/`；诊断与命令以
-> `docs/D014_DIAGNOSTICS.md` 及该分支最新文档为准。
+## 1. 三类数据与生效时机
 
-硬件事实和未签核项先看 `D014_PRODUCT_REFERENCE.md`，不要从文件名“15A”反推保护阈值或额定容量。
-
-## 1. 拉取分支
-
-```bash
-git clone --single-branch --branch refactor/d014-common-bms-features https://github.com/CS19970929/telink-new-sdk-b85.git D014-BMS
-cd D014-BMS
-git branch --show-current
-git rev-parse HEAD
-```
-
-更新：
-
-```bash
-git fetch origin
-git switch refactor/d014-common-bms-features
-git pull --ff-only origin refactor/d014-common-bms-features
-```
-
-固件目录：
-
-```text
-tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/
-```
-
-## 2. 主要配置入口
-
-| 修改内容 | 文件 | D014 当前值/规则 |
+| 类别 | 来源 | 何时生效 |
 |---|---|---|
-| 串数/Rsense/板级 GPIO/能力开关 | `sh3673510_project_config.h` | 8S、667µΩ、heater off、balance on |
-| SH3673510 静态寄存器 | `sh3673510_project_config.h` | 复用 D011 已验证语义宏；CN=8 |
-| AFE 寄存器定义 | `sh3673520_reg.h` | 芯片真值，不作为产品调参文件 |
-| AFE protection encoding/apply/readback | `sh3673510_control.c` | 当前电流量化使用 667µΩ |
-| 软件三级保护默认 | `param.h` | 只影响没有持久参数的新设备/迁移 |
-| AFE HW Protection V2 | `bms_afe_hw_profile.*` | 与软件保护独立持久化 |
-| 产品身份/容量/RS485 | `conf.h` | D014/8S/RS485；容量仍待产品签核 |
-| SOC | `bms_soc_profile.h`, `bms_soc.c` | 公共框架 |
-| Flash/Storage | `flash_store_cfg.h`, `bms_config_store.*` | 不因 D014 移植改变布局 |
-| Sleep/Wake/BLE | `app.c` + AFE guard/backend | 实板验证必需 |
+| 编译期产品/硬件输入 | `bms/products/<product>/` | 编译并运行新固件；固定 AFE 工作设置在 reset/init 时应用 |
+| 运行参数 | Config journal，启动加载到公共模块 | 已保存值通常优先；按分组更新编号决定覆盖 |
+| 运行状态 | State/Event journal 和 RAM | SOC、循环、老化计时、事件由各模块维护 |
 
-## 3. D014 板级配置
+修改头文件不是在线修改设备。当前 schema 2 内，编号相同保留设备值，编号不同写入该类默认；旧 schema 拒绝且不迁移。九类、回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
 
-`sh3673510_project_config.h`：
+## 2. 修改位置
 
-```c
-#define SH3673510_D011_CELL_COUNT               8u
-#define SH3673510_D011_SHUNT_UOHM              667u
-#define SH3673510_D011_NTC_NOMINAL_OHM         10000UL
+| 要改什么 | 入口 | 范围/更新编号 |
+|---|---|---|
+| 产品选择 | `bms.py --product`；D008 另用 `--d008-profile` | 不靠修改源码清单切产品 |
+| 容量、编译名称/软件版本、通信模式 | 产品 `bms_product_conf.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
+| 内部 tag、SOC chemistry/profile | 产品 `bms_product_config.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
+| SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_sh3673510_config.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
+| DVC 固定配置和 SCD 种子 | D008 `dvc1124_project_config.h` | 固定板级值或 AFE，按 default builder 区分 |
+| 软件保护默认 | `bms/core/param.h` 的宏及 `E2P_PROTECT_DEFAULT_PRT` | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
+| heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
+| SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
+| OTA 更新策略 | 产品 `bms_parameter_policy.h` | 九类独立编号，不用软件版本代替 |
+| 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
-#define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
-#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
-#define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u
-#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED      1u
+`bms/core/conf.h` 引入当前产品 `bms_product_conf.h`；include 路径由构建器选择。`bms_product_config.h` 与 `bms_product_conf.h` 职责不同，改前先追 include 和使用者。
+
+**D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共 `param.h` 可能同时改变 D008 新设备的 AFE 默认，不能只看 SW 编号。
+
+## 3. 单位速查
+
+| 字段/边界 | 单位/例子 |
+|---|---|
+| `CapacityFactory`、`0x2318` | 0.1 Ah；116 = 11.6 Ah；范围见 `BMS_SOC_CAPACITY_MAX_0P1AH` |
+| 对外容量报告 | 0.01 Ah，与名义容量相差 10 倍 |
+| 公共 `current_ma` | mA，正放电负充电；SH 已在测量边界转换，不再取反 |
+| 软件/AFE `*_a10` | 0.1 A；100 = 10 A |
+| 软件电压 | 单体 mV；总压保护/报告字段为 10 mV，逐字段核对 |
+| 温度 `*_x10` / 保护温度 | `(°C+40)*10`；25°C = 650，0°C = 400 |
+| 软件 `Filter` | 10 ms；100 = 1000 ms，算法按 200 ms 样本向上取整 |
+| AFE `*_delay_ms` / `sc_delay_us` | ms / µs，实际量化后查 effective |
+| `timestamp_32k` | 32000 tick/s，无符号回绕差值 |
+| 不存在的电芯槽 | 61001，不纳入有效串数/算法 |
+
+## 4. 练习 A：打开开发日志
+
+不修改硬件参数、不生成镜像；先读 [运行日志](RUNTIME_DEBUG_LOG.md)。
+
+```powershell
+$savedDefines = $env:EXTRA_DEFINES
+$savedBuildRoot = $env:BMS_BUILD_ROOT
+try {
+    $env:BMS_BUILD_ROOT = "$env:LOCALAPPDATA/CodexTemp/bms-onboarding/log-debug"
+    $env:EXTRA_DEFINES = '-DBMS_DEBUG_LOG_ENABLE=1 -DBMS_DEBUG_LOG_LEVEL=4'
+    python bms_tools/bms.py --product d014 link --jobs 4
+    if ($LASTEXITCODE -ne 0) { throw 'link 失败，查看 build.log' }
+    python bms_tools/bms.py --product d014 resources
+    if ($LASTEXITCODE -ne 0) { throw '资源检查失败' }
+} finally {
+    $env:EXTRA_DEFINES = $savedDefines
+    $env:BMS_BUILD_ROOT = $savedBuildRoot
+}
 ```
 
-`SH3673510_D011_*` 是复用 D011 公共实现时保留的兼容命名，不代表 D014 使用 D011 硬件。
+完成标准：找到此配置 ELF 和资源报告，理解日志 RAM 成本，恢复环境变量。读取设备日志还需明确生成并运行对应镜像；普通串口终端不会直接收到文本日志。
 
-正式 D014 GPIO：
+## 5. 例 B：某产品容量
 
-```text
-PD4  CMNT-EN
-PD7  SCLK
-PA0  DI1/SW1
-PA1  485-EN
-PA7  SWS-A7
-PB1  INT-WK-MCU
-PB6  MISO
-PB7  MOSI
-PC0  ALARM
-PC1  RESET
-PC2  SCI1-TX
-PC3  SCI1-RX
-PC4  DB-LED1
-PD3  CMNT-WK
-PD2  CS-M
-```
+假设批准需求为 D014 12.0 Ah，这只是操作示例，不是新的产品参数：
 
-D014 不得新增对 PB4/PB5 D011 heater/fuse 网络的驱动。
+1. 改 `bms/products/d014/bms_product_conf.h` 的 `CapacityFactory` 为 `120`，不改公共倍率。
+2. 只影响空白设备则保持编号；要覆盖同 schema 设备则改变 D014 `BMS_UPDATE_BUSINESS_REVISION`。该组还会恢复 heater/balance，不能当“只重置容量”开关。
+3. 更换电池/容量要评估 `SOC_STATE`，它同时重置 SOC、循环和学习状态。在线容量接口 `0x2318` 走持久化事务及 `bms_soc_nominal_capacity_changed()`，不要直接写全局量。
+4. 查看 diff，跑 source 检查、参数/storage host、目标 link/resources；共享默认或算法变化则验证四产品。
+5. 真正上板后分别记录默认容量 `0x2E08`、设备容量 `0x2318`、更新编号和启动结果；再测重启与回退。
 
-## 4. 8S / Rsense 修改规则
+## 6. 例 C：软件保护与 AFE 保护
 
-当前原理图为 8S，三只 2mΩ 并联：
+软件参数从 `param.h` 找字段，核对高/低阈值顺序、Third/Recover 回差、Filter 和使用者。产品已有 CUV3 入口 `BMS_DEFAULT_CUV3_MV` / `BMS_DEFAULT_CUV3_FILTER`；其他公共宏默认影响四产品。只改一款需要新增差异时，明确增加产品输入并保留其他产品值，这属于代码修改。
 
-```text
-2mΩ / 3 = 0.666666...mΩ
-software model = 667µΩ
-```
+SH AFE 默认只改目标产品 `SH3673510_HW_DEFAULT_*`，按 AFE 编号生效，保持软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
 
-如果后续硬件改分流：
+D008 `20s-nmc` 只选串数/SOC 化学体系，不会自动替换为 NMC 保护值，当前 SCD 默认关闭。profile 选择不代表参数签核。
 
-1. 先改 `SH3673510_D011_SHUNT_UOHM`；
-2. 重新检查 current raw -> mA；
-3. 重新检查 AFE OCD1/OCD2/OCC/SC requested -> code -> effective；
-4. 重新做零偏/增益/温漂实测；
-5. 不要只改 legacy `CS_Res/CS_Res_Num`。
+相关入口：`sw_protection_contract_check.py`、`sw_temperature_groups_host_check.py`、`afe_hw_profile_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_afe_profile_default_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
 
-## 5. 软件保护和 AFE 硬件保护
+## 7. 参数没变化时排查
 
-软件保护：`param.h` / `g_tParam.protect`。
+依次核对：运行固件 Build ID/产品/profile → 编译开关 → 设备 CFG2 和更新编号 → 启动诊断/inhibit → AFE requested/effective → 产品通道能力。常见原因是已有值被保留、编号未变、固件未部署、硬件量化或能力禁用。
 
-AFE hardware profile：`bms_afe_hw_profile.*`，独立持久化并执行：
+软件版本、编译名称、用户 SN、持久蓝牙后缀是不同字段；改 `DEV_NAME_STR` 不会清除已有后缀。内部 tag 为 8/11/13/14；D011/D013/D014 wire ID 仍为 2，不能为显示方便擅自改变。
 
-```text
-validate -> persist -> apply -> readback/effective -> verify/rollback
-```
-
-两者不能绑在一个 enable 或同一套 recovery 上。SC/OCD/OCC 必须继续使用物理恢复证据，不能因关 MOS 后电流变为 0 就自动恢复。
-
-## 6. 温度
-
-- TS1/TS2：图纸为 10K-3435，是当前可信 battery temperature。
-- TS3：图纸标 NC，heater 完全禁用。
-- TS4：用户确认实装 10K-3435 MOS NTC，`SH3673510_PRODUCT_MOS_NTC_SUPPORTED=1`；图纸 RN4=10M 差异及温度点仍需实板核验。
-
-TS4 参与独立 MOS 高温软件保护；AFE TS4 硬件位暂不开启，因为它会共用电池温度的 OTC/UTC 阈值。仍须做至少低/中/高三个温度点以及开短路验证。
-
-## 7. 产品身份与未签核默认
-
-`conf.h` 当前：
-
-```c
-#define FD_BMS_TYPE                    D14
-#define SeriesNum                      SH3673510_D011_CELL_COUNT
-#define CapacityFactory                116
-#define BMS_HARDWARE_VERDION_DEFAULT   "D014"
-#define BMS_SERIAL_NUMBER_DEFAULT      "D014-UNSET"
-#define DEV_NAME_STR                   "BT_D014"
-#define MODBUS_RS485_ENABLE            1
-```
-
-注意：
-
-- `CapacityFactory=116` 是继承迁移默认，不是原理图证明的 D014 容量；
-- `D14` 当前暂时别名到历史 D11 numeric wire/storage ID，避免未同步 host 时破坏兼容；
-- 如果要分配独立 D014 numeric ID，必须同步 Windows 上位机、协议和迁移策略。
-
-## 8. 编译与静态 contract
-
-```bash
-python bms_tools/bms.py env
-python bms_tools/bms.py sources --check
-python tests/sh3673520_contract_check.py
-python tests/sh3673510_d014_integration_check.py
-python tests/sh3673510_protection_mode_check.py
-python tests/sh3673510_temperature_encoding_check.py
-python tests/sw_protection_contract_check.py
-python tests/common_feature_policy_contract_check.py
-python tests/afe_hw_profile_contract_check.py
-python tests/afe_hw_access_contract_check.py
-python tests/soc_contract_check.py
-python tests/flash_quick_check.py
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py check-fw
-python bms_tools/bms.py size
-python bms_tools/bms.py map
-python bms_tools/bms.py manifest
-python bms_tools/bms.py verify
-python bms_tools/bms.py static --no-report
-```
-
-输出 BIN：
-
-```text
-tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample_cli/825x_ble_sample.bin
-```
-
-建议交付名：
-
-```text
-HS-D014_TLSR8251_SH3673510_8S_<SWVER>_<shortsha>.bin
-```
-
-## 9. 上位机
-
-Windows 工具的当前真源继续使用：
-
-```text
-feature/windows-afe-hw-protection-editor-v2
-```
-
-不要在 D014 固件分支复制第二套 Windows 工具。D014 独立 numeric ID、默认串数或新硬件保护参数如果需要在 UI 展示，应在该上位机分支做兼容更新。
-
-## 10. 实板最小联调顺序
-
-1. 只上电：3V3、AFE VCC、SPI、ALARM/RESET。
-2. 8 节 cell 电压与 pack voltage。
-3. 0A 零偏、已知充电电流、已知放电电流。
-4. CHG/DSG MOS 手动和保护仲裁。
-5. 软件 OV/UV/OC 与 AFE HW protection。
-6. SC 与 recovery。
-7. RS485 收发、方向切换、通信异常。
-8. Balance B1..B8、open-wire。
-9. TS1/TS2；确认 TS3 NC、核对 TS4 BOM。
-10. Sleep/wake/BLE connected/idle 功耗。
-
-完整清单见 `HARDWARE_VALIDATION.md`。
+在线配置使用 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`，先核对固件/工具能力。AFE 写入使用授权及完整 35-word 事务。协议地址、缩放、Flash/OTA 布局、底层寄存器不属于随手试改范围。

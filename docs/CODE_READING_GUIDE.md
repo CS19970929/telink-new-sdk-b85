@@ -1,62 +1,72 @@
-# 代码阅读与维护
+# 代码阅读：从产品到状态变化
 
-从 `bms.code-workspace` 打开项目，默认聚焦 BMS 源码、产品数据、构建工具和测试。
-SDK 仍是实际编译依赖，只在此阅读视图中隐藏；查启动、Flash、BLE ABI 时直接打开 SDK 路径。
+先完成 [上手指南](ONBOARDING.md) 的环境验证，再按以下顺序阅读。用符号搜索追调用，不以同名函数或旧分支内容推断当前实现。路径相对仓库根。
 
-| 要修改的内容 | 首先阅读 | 边界 |
-|---|---|---|
-| 项目差异、串数、引脚、Rsense | `bms/products/<产品>/` | 产品目录只有数据和源码清单 |
-| OTA 是否覆盖参数 | 产品 `bms_parameter_policy.h`、`docs/OTA_PARAMETERS.md` | 九类独立编号，不能拿固件版本号代替 |
-| 软件保护 | `bms/core/param.h`、`bms_sw_protection.c` | 默认值、校验、阈值/过滤/恢复；无寄存器操作 |
-| AFE 硬件保护 | `bms_afe_hw_profile.c`、对应 `bms/afe/` 后端 | requested profile 与真实量化值分开 |
-| 启动、采样、BLE、电源 | `bms/app/app.c` | 共用回调/初始化；DVC 与 SH 电源时序明确分支 |
-| SOC/OCV/学习 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | 样本驱动策略；OCV 曲线为数据 |
-| 剩余充放电时间 | `bms/core/bms_soc_eta.c/.h` | 独立的输入/状态接口，无 SDK/Flash 依赖 |
-| 加热/均衡/开线 | `bms/core/bms_features.c`、产品能力配置 | 硬件不存在的功能不会因参数更新而启用 |
-| 输出安全授权 | `bms/core/bms_afe_guard.c` | 启动校验、通信失效、watchdog silence、新样本资格 |
-| 参数与 Flash | `bms_config_store.c`、`bms_state_store.c`、`bms_event_log.c` | 语义数据归属；底层由 `storage_record` 和平台提供 |
-| 工厂老化阶段 | `bms/core/bms_factory_mode.c` | 三天计时与工厂/正常模式 |
-| DVC 固定启动配置 | `bms/afe/dvc1124/dvc1124_boot.c` | 每次初始化应用板级设置；不是另一套 Flash 参数存储 |
-| 构建/资源 | `bms_tools/bms.py` | 同一入口、四产品源码清单和编译参数 |
-| 静态检查 | `bms_tools/static_analysis.py` | 读取实际构建设置，维护分析覆盖及报告 |
+## 第一轮：选对产品，追启动
 
-## 本轮精简结果
+读目标产品 `bms_product_config.h`、`bms_product_conf.h`、`sources.txt`，再读 `bms/platform/telink/main.c`、`bms/app/app.c`。
 
-基准为本轮修改前的 `3ee9bd0`，统计 `bms/` 下 C/H 物理行，不含 SDK、测试及文档：
-
-| 项目 | 修改前 | 修改后 |
-|---|---:|---:|
-| 业务 C/H 总量 | 23966 | 23348 |
-| `app.c` | 2490 | 1721 |
-| SOC 主文件 | 2129 | 1976 |
-| ETA 独立模块 | 含于 SOC | 147 |
-| 构建入口 `bms.py` | 2359 | 1542 |
-| 静态检查模块 | 含于构建入口 | 844 |
-
-分文件本身不等于删代码。总量减少主要来自重复流程、旧测试命令、无用字段/宏、无调用的 SOC 接口和过时参数存储入口清理；
-新增 OTA 编号、校验和独立 ETA 接口也计入修改后总量。代码可读性不以压缩成单行衡量。
-
-已移除旧 EEPROM 参数选项、ParamVer 空壳、旧系统保留字段、假 watchdog 空宏、旧加热阈值分支、
-以及应用层重复温度查表。低 SOC 字段及故障枚举按实际含义命名，不再叫 SOC High。
-当前没有旧 schema 解码/迁移流程。原有协议地址和单位继续用于当前上位机，这些仍是正在使用的接口。
-
-保留了现有 SOC 容量学习、ETA、D008 SIF、工厂运行及诊断能力，它们有当前调用方或明确测试用途。
-容量学习默认关闭，但不是无用代码；今后若明确取消产品功能，再同时删除协议、算法和测试。
-通信保护、存储提交、恢复条件及板级差异也不以减少行数为由合并掉。
-
-## 修改后的验证
-
-```sh
-python bms_tools/bms.py --all-products sources --check
-python tests/run_host_regression.py
-python bms_tools/bms.py --all-products link --jobs 4
-python bms_tools/bms.py --all-products resources
-cmake -S . -B <源码树外目录> -DCMAKE_BUILD_TYPE=Release
-cmake --build <源码树外目录>
-ctest --test-dir <源码树外目录> --output-on-failure
+```text
+SDK startup → main → user_init_normal
+  board_init：先关闭业务输出授权
+  bms_parameters_startup：Config/State/Event 启动校验及更新
+  LoadParam：读取并校验 g_tParam.protect
+  bms_afe_init → 首次 bms_afe_sample
+  State → soc_param_lib_init
+  UART/SIF、名称、事件、Runtime、采样唤醒初始化
+  mos_update → bms_afe_set_output_enabled(1)
+  main 循环 → main_loop → bms_stack_monitor_poll
 ```
 
-生产模式需要干净提交，D008 必须指定实际装配 profile。`link` 只生成 ELF/MAP/LST。
-软件温度组测试直接编译生产模块；ETA 测试及 CMake 核心测试使用实际源码/头文件。
-SDK 相关调度及现有 SOC harness 仍需硬件桩和部分函数提取，不能据此声称全部测试都已无桩。
-所有后续 Git 提交信息和 PR 变更说明使用中文。
+这里列出 BMS 关键顺序，BLE/SDK 初始化的完整顺序以函数为准。最后请求开启授权仍受参数有效性和通信资格约束，不表示 MOS 已物理导通。DVC/SH 的 `main_loop` 和 `app_sample_task` 有编译期分支。
+
+完成标准：说出哪个 `sources.txt` 决定后端，当前产品哪些功能被禁用；在代码中找到启动授权失败时的门禁。
+
+## 第二轮：一次采样如何影响输出
+
+读 `bms/app/app.c`、`bms/core/bms_afe_guard.c`、本产品 `dvc1124_bms.c` 或 `sh3673510_bms.c`、`bms/core/bms_sw_protection.c`、`bms/app/bms_features.c`。
+
+```text
+app_sample_wakeup：置采样到期标志
+main_loop → app_sample_task（约 200 ms）
+  bms_afe_sample → guard → 当前 backend 采样/恢复/测量发布
+  backend → bms_sw_protection_update；合并芯片硬件故障
+  guard → 合格样本及 bms_features_service
+  app_update_soc_from_sample → bms_soc_process_sample
+  mos_update → bms_afe_set_fets → guard → backend 最终仲裁/写寄存器
+  runtime diagnostics → 下次采样唤醒安排
+```
+
+软件保护滤波在后端发布时执行，不能误以为 SOC 调用后才执行。无效样本仍将“无效”交给 SOC，以作废盲区时段；不能以缓存补帧。请求、允许输出、软件保护、AFE 锁存与寄存器缓存是不同状态；DVC 单侧保护 AUTO_DIODE 与 SH 的 FET 控制方式也不同。
+
+完成标准：沿“温度无效 → TEMP_BREAK → 阻断”走通一遍，指出 SC/OCD/OCC 的恢复证据在哪里；不能只用关 MOS 后电流为零解释恢复。
+
+## 第三轮：默认值为何不一定生效
+
+读 `bms/core/param.c`、`bms_config_store.c`、`bms_update_policy.h`、本产品 `bms_parameter_policy.h`、`bms_parameter_access.c`。
+
+```text
+产品/公共默认 → Config default builder
+有效同产品 schema 2 记录 → 按类别比较更新编号
+候选校验 → journal commit → 发布 RAM 值
+启动任一域失败 → s_storage_startup_valid=0 → 输出资格不成立
+```
+
+在线软件写入走校验和保存；AFE 写入另走授权、完整 35-word 事务、apply/readback/rollback。参见 [参数策略](OTA_PARAMETERS.md) 和 [架构](ARCHITECTURE.md)。
+
+完成标准：解释“只改 CapacityFactory / 改 BUSINESS 编号 / 在线写 0x2318”三者的范围差别，以及 BUSINESS 更新为何还影响 heater/balance。
+
+## 按任务继续阅读
+
+| 任务 | 下一组入口 |
+|---|---|
+| SOC 积分/OCV | `bms/core/bms_soc.c`、`bms_soc.h`、`bms_soc_profile.h`、`bms_soc_eta.c`；[SOC 说明](SOC.md) |
+| Flash 保存失败 | `bms_config_store.c`、`bms_state_store.c`、`storage_record.c`、`bms/platform/telink/bms_storage_platform_telink.c` |
+| AFE 硬件配置 | `bms_afe_hw_profile.c`、`bms_afe_hw_access.c`、对应 AFE control/backend 与产品配置 |
+| Modbus/RS485 | `bms/core/modbus_rtu.c`、`bms_parameter_access.c`、`bms/platform/telink/modbus_uart.c` |
+| BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，及 `app.c` 的连接/PM/Flash 回调 |
+| 日志诊断 | `bms/core/bms_diag.c`、`bms_debug_log.c`、`bms/platform/telink/bms_runtime_diag.c` |
+| heater/balance/open-wire | `bms/app/bms_features.c`、所选 AFE `*_feature_backend.c`、产品能力输入 |
+| 工厂运行 | `bms/core/bms_factory_mode.c`、`bms_state_store.c`，累计计时归 State |
+
+每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。然后选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。

@@ -1,6 +1,6 @@
 # AGENTS.md — D014 / TLSR8251 / SH3673510
 
-本分支目标是 **HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S**。实现基线来自 `refactor/d011-common-bms-features`，但所有板级事实必须以 D014 原理图/BOM 为准，不能把 D011 独有 heater/fuse 硬件继续带入。
+本目录是 monorepo 的 **HS-D014-8S15A + TLSR8251F512ET32 + SH3673510 + 8S** 产品输入。三个 SH 产品共用后端；D014 板级事实以 D014 原理图/BOM 为准，不能带入 D011 独有 heater/fuse 硬件。
 
 ## 开发前必读
 

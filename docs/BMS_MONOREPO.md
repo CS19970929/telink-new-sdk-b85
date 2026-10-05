@@ -1,5 +1,7 @@
 # 四产品单一源码实现
 
+日常交接入口见 [根 README](../README.md)、[上手指南](ONBOARDING.md) 与 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)。本页保留组织选择及导入追溯背景。
+
 ## 选择及范围
 
 实现采用同一个 Git repository 内的 monorepo。`bms/core` 是公共业务源码的唯一维护位置；
@@ -91,7 +93,7 @@ SH `0x2180..0x218A` 的旧实际量化值诊断保留；公共 `0x2500` profile�
 
 ## STM32 接入边界
 
-`bms_core` CMake target 包含软件保护、ETA 估算、公共状态/错误、诊断、CRC 和 storage_record。
+`bms_core` CMake target 包含软件保护、ETA 估算、公共状态、运行日志、诊断、CRC 和 storage_record；实际编译成员以根 `CMakeLists.txt` 为准。
 这部分没有 Telink include，可在本机编译，也可由未来 STM32 工程链接。
 SOC、参数、语义存储和 Modbus 当前虽然四产品共享，但仍包含现有 `conf.h`、时钟或平台依赖；
 不能把它们称为已经完成 STM32 移植。真正加入 STM32 时，把相应时钟、串口、Flash 和调度调用落实到具体平台，
@@ -124,4 +126,4 @@ SH 产品的 GPIO、NTC role/capability、静态 AFE 输入及独立 HW 默认�
 原 D008/D011/D013 导入 SHA 未上传到远端，不能恢复或伪装为已审计历史。
 `baselines.json` 保留这些缺失 SHA，另锚定可下载的 `fd50730` 导入结果快照和各远端对照 commit。
 对照 commit 不声称与缺失导入完全等价；`python bms_tools/verify_baselines.py --fetch`
-验证可发布证据的可解析性。完整修复与验证边界见 `BMS_MONOREPO_REMEDIATION.md`。
+验证可发布证据的可解析性。完整修复与验证边界见 [整改记录](BMS_MONOREPO_REMEDIATION.md)。

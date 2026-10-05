@@ -1,7 +1,7 @@
 # D014 产品硬件与固件配置基线
 
-> 适用分支：`refactor/d014-common-bms-features`  
-> 依据：用户提供的 `HS-D014-8S15A` 原理图（2026-09-04）+ 当前 D011 SH3673510 公共实现。
+> 适用分支：`codex-bms-monorepo`；2026-10-05 修订。
+> 依据：用户提供的 `HS-D014-8S15A` 原理图（2026-09-04）+ 当前 monorepo 的 SH 公共实现。硬件原件未随仓库交接，本次未重新核验原件。
 >
 > 原则：原理图只能证明板级连接/器件标注；容量、最终保护阈值、BOM 实装差异和实测时序不能从“8S15A”文件名反推。
 
@@ -13,7 +13,7 @@
 | AFE | SH3673510 |
 | 电芯 | 8S；B0..B8，对应 VC0..VC8 |
 | 电流分流 | RS1/RS2/RS3 均 2mΩ，并联名义值 0.6667mΩ；软件整数模型 667µΩ |
-| AFE SPI | PB6=MISO、PB7=MOSI、PD7=SCLK、PD2=CS-M；沿用已验证 Mode 3 / 500kHz 驱动 |
+| AFE SPI | PB6=MISO、PB7=MOSI、PD7=SCLK、PD2=CS-M；源码配置 Mode 3 / 500kHz，波形仍需实测 |
 | 主通信 | 隔离 RS485；PA1=485-EN，PC2=SCI1-TX，PC3=SCI1-RX，PD4=CMNT-EN，PD3=CMNT-WK |
 | 开关/唤醒 | PA0=DI1/SW1，PB1=INT-WK-MCU，PC0=ALARM，PC1=RESET |
 | LED | PC4=DB-LED1 |
@@ -31,7 +31,7 @@ D014 只把 VC1..VC8 作为有效 cell。SH3673510 的上部未使用 cell 输�
 - 均衡 mask；
 - Open-Wire 有效 cell 判断。
 
-`SH3673510_BOARD_CELL_COUNT` 仍是从 D011 公共代码继承的兼容宏名，但值已固定为 8。后续公共框架可再统一重命名，不应在本次硬件移植中扩大改动面。
+`SH3673510_BOARD_CELL_COUNT` 是中性板级宏，由 D014 产品头文件给出 8；不是 D011 硬件别名。
 
 ## 3. 电流采样模型
 
@@ -97,7 +97,7 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 
 ## 7. AFE 静态/动态保护
 
-除产品参数外，D014 复用 D011 最新 SH3673510 驱动、保护仲裁和 fail-safe：
+D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入区分：
 
 - SCONF4 的 CN 由 10 改为 8；
 - current/OCD/OCC/SC 全部按 667µΩ重新量化；
@@ -114,7 +114,7 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 3. 最终 AFE HW requested/effective OC/SC/温度阈值。
 4. TS4/RN4 的实际 BOM。
 5. RS485/CMNT-WK 实际唤醒有效电平和通信电源时序。
-6. D014 独立协议产品 ID。当前 `D14` 暂时别名到历史 D11 数值 ID，以避免在未同步上位机时破坏 wire/storage compatibility；硬件字符串和 BLE 名称已经改为 D014。
+6. D014 独立协议产品 ID。当前 `FD_BMS_TYPE=2u` 保留历史 wire ID；内部存储 `BMS_PRODUCT_ID=14u` 已独立，不能把两种 ID 混为一谈。硬件字符串和 BLE 名称为 D014。
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
