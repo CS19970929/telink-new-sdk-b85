@@ -96,16 +96,11 @@ typedef struct
 struct SOC_CALCULATE_ELEMENT
 {
     UINT32 u32CapFactory;         /* As*10 */
-    UINT32 u32CapChange;          /* As*10 since the last integer SOC step */
-    uint8_t u8CHG_AHCalcu_Flag;
-    uint8_t u8DSG_AHCalcu_Flag;
     uint8_t u8SOC_Now;            /* estimated SOC, 0..100 */
     UINT32 u32CapNow;             /* As*10 */
     uint8_t u8DSG_SOC_Int;        /* equivalent-discharge percent accumulator */
     UINT32 u32Cycle_times;
     UINT32 u32CapFull;            /* As*10 */
-    uint8_t u8SOC_Old;
-    UINT32 u32CapFull_Cal_As;
     uint8_t soh;
 };
 
@@ -121,7 +116,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag);
 #define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
-void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display);
+void set_soc_param(uint8_t soc, uint8_t sync_display);
 void set_calsoc(uint8_t soc);
 void set_dispsoc(uint8_t soc);
 uint8_t get_soc_real(void);

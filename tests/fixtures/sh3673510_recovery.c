@@ -11,6 +11,8 @@ enum { SH3673520_ERR_SPI, SH3673520_ERR_TIMEOUT, SH3673520_ERR_CRC, SH3673520_ER
 static struct { struct { uint8_t b1Status_AFE1, b1Status_MOS_CHG, b1Status_MOS_DSG; } bits; } g_bms_system_status;
 static uint8_t errors[4];
 static unsigned failures, clears, writes;
+static uint8_t guard_qualified = 1;
+static uint8_t bms_afe_samples_qualified(void) { return guard_qualified; }
 static uint8_t clear_ok, write_ok, init_ok, actual_c, actual_d;
 static uint8_t bms_error_get(unsigned e) { return errors[e]; }
 static void bms_error_raise(unsigned e) { errors[e] = 1; }
@@ -45,7 +47,7 @@ static void reset(void) {
     s_short_release_count = 0;
     s_hw_charge_protect = s_hw_discharge_protect = s_hw_afe_error = 0;
     s_snapshot_valid = s_output_enabled = 1;
-    s_output_inhibit = s_afe_reconfigure_required = 0;
+    s_afe_reconfigure_required = 0; guard_qualified = 1;
     s_fet_command_valid = 0;
     s_requested_charge_on = s_requested_discharge_on = 1;
     s_bstatus2 = 0;
@@ -125,6 +127,9 @@ static void recovery_continuity(void) {
 static void fet_cache(void) {
     unsigned before;
     reset();
+    guard_qualified = 0;
+    CHECK(sh3510_apply_requested_fets()); CHECK(!actual_c && !actual_d);
+    guard_qualified = 1;
     CHECK(sh3510_apply_requested_fets()); CHECK(actual_c && actual_d);
     before = writes;
     CHECK(sh3510_apply_requested_fets()); CHECK(writes == before);
@@ -138,11 +143,11 @@ static void fet_cache(void) {
     CHECK(service_afe_reconfiguration());
     CHECK(!s_fet_command_valid);
     /* Emulate subsequent fresh-snapshot qualification by the sample owner. */
-    s_snapshot_valid = 1; s_output_inhibit = 0;
+    s_snapshot_valid = 1; guard_qualified = 1;
     CHECK(sh3510_apply_requested_fets()); CHECK(actual_c && actual_d);
     write_ok = 0;
     sh3673510_bms_afe_set_output_enabled(0);
-    CHECK(!s_fet_command_valid && s_output_inhibit);
+    CHECK(!s_fet_command_valid && !s_snapshot_valid);
 }
 int main(void) {
     short_recovery(); recovery_continuity(); fet_cache();

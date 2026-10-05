@@ -664,24 +664,27 @@ static uint8_t dvc_apply_cell_masks(void)
     return dvc_write_verified_block(DVC1124_REG_CELL_MASK_24_17, mask, 3u);
 }
 
-static uint8_t dvc_encode_current_wake(uint16_t threshold_uv, uint8_t *code)
+uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
 {
+    if (code == 0) return 0u;
     if (threshold_uv == 0u) { *code = 0u; return 1u; }
     if ((threshold_uv < 10u) || (threshold_uv > 2550u) || ((threshold_uv % 10u) != 0u)) return 0u;
     *code = (uint8_t)(threshold_uv / 10u);
     return 1u;
 }
 
-static uint8_t dvc_encode_body_diode(uint16_t threshold_uv, uint8_t *code)
+uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
 {
+    if (code == 0) return 0u;
     if (threshold_uv == 0u) { *code = 0u; return 1u; }
     if ((threshold_uv < 40u) || (threshold_uv > 10200u) || ((threshold_uv % 40u) != 0u)) return 0u;
     *code = (uint8_t)(threshold_uv / 40u);
     return 1u;
 }
 
-static uint8_t dvc_i2c_watchdog_code(uint8_t seconds, uint8_t *code)
+uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code)
 {
+    if (code == 0) return 0u;
     switch (seconds)
     {
     case 0u:  *code = DVC1124_I2C_WDT_OFF; return 1u;
@@ -698,16 +701,16 @@ static uint8_t dvc_apply_basic_config(void)
     uint8_t ok = 1u;
     uint8_t current_wake_code;
     uint8_t body_diode_code;
-    uint8_t watchdog_code;
+    dvc1124_i2c_wdt_code_t watchdog_code;
     uint8_t cpvs_bits;
     uint8_t cadc_bits = 0u;
     uint8_t dsg_mask = DVC1124_DEFAULT_DSG_MASK_POLICY;
     uint8_t chg_mask = DVC1124_DEFAULT_CHG_MASK_POLICY;
 
     if (DVC1124_CHARGE_PUMP_VOLTAGE_CODE > 7u) return 0u;
-    if (!dvc_encode_current_wake(DVC1124_CURRENT_WAKE_THRESHOLD_UV, &current_wake_code)) return 0u;
-    if (!dvc_encode_body_diode(DVC1124_BODY_DIODE_THRESHOLD_UV, &body_diode_code)) return 0u;
-    if (!dvc_i2c_watchdog_code(DVC1124_I2C_WATCHDOG_SECONDS, &watchdog_code)) return 0u;
+    if (!DVC1124_EncodeCurrentWake(DVC1124_CURRENT_WAKE_THRESHOLD_UV, &current_wake_code)) return 0u;
+    if (!DVC1124_EncodeBodyDiode(DVC1124_BODY_DIODE_THRESHOLD_UV, &body_diode_code)) return 0u;
+    if (!DVC1124_EncodeI2cWatchdog(DVC1124_I2C_WATCHDOG_SECONDS, &watchdog_code)) return 0u;
 
     ok &= dvc_apply_cell_masks();
     ok &= dvc_write_verified(DVC1124_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
@@ -1040,39 +1043,11 @@ uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
     return 1u;
 }
 
-uint8_t DVC1124_SetAddressConfig(dvc1124_model_t model,
-                                 dvc1124_addr_mode_t mode,
-                                 uint8_t hardwire_code,
-                                 uint8_t explicit_write_addr)
-{
-    uint8_t addr;
-
-    if (!DVC1124_ResolveWriteAddress(model, mode, hardwire_code,
-                                     explicit_write_addr, &addr)) return 0u;
-
-    s_cfg.model = model;
-    s_cfg.addr_mode = mode;
-    s_cfg.hardwire_code = hardwire_code;
-    s_cfg.explicit_write_addr = explicit_write_addr;
-    if (s_bus_initialized) i2c_set_id(addr);
-    s_snapshot.write_addr = addr;
-    s_need_config = 1u;
-    return 1u;
-}
-
 uint8_t DVC1124_SetCellCount(uint8_t cell_count)
 {
     /* DVC1124-2 V1.2 explicitly supports 4..24 cells. */
     if ((cell_count < DVC1124_MIN_CELLS) || (cell_count > DVC1124_MAX_CELLS)) return 0u;
     s_cfg.cell_count = cell_count;
-    s_need_config = 1u;
-    return 1u;
-}
-
-uint8_t DVC1124_SetShuntUohm(uint32_t shunt_uohm)
-{
-    if (shunt_uohm == 0u) return 0u;
-    s_cfg.shunt_uohm = shunt_uohm;
     s_need_config = 1u;
     return 1u;
 }
@@ -1670,4 +1645,79 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16BalanceFlag2 = 0u;
     }
     dvc_note_comm_result(1u);
+}
+
+uint8_t DVC1124_ApplyOperatingConfig(const dvc1124_operating_config_t *cfg)
+{
+    uint8_t cadc;
+    uint8_t cc1;
+    uint8_t cp;
+    uint8_t vadc;
+    uint8_t gp123;
+    uint8_t gp456;
+    uint8_t wdt;
+    uint8_t timed;
+    uint8_t ok = 1u;
+
+    if (cfg == 0) return 0u;
+    if ((uint8_t)cfg->cc1_work_time > 3u) return 0u;
+    if ((uint8_t)cfg->cc1_sleep_wake_time > 3u) return 0u;
+    if ((uint8_t)cfg->charge_pump_voltage > 7u) return 0u;
+    if ((uint8_t)cfg->vadc_period > 3u) return 0u;
+    if ((uint8_t)cfg->vadc_time > 3u) return 0u;
+    if ((uint8_t)cfg->gp1_mode > 3u || (uint8_t)cfg->gp4_mode > 3u) return 0u;
+    if (((uint8_t)cfg->gp2_mode > 2u && (uint8_t)cfg->gp2_mode < 6u) ||
+        ((uint8_t)cfg->gp3_mode > 2u && (uint8_t)cfg->gp3_mode < 6u) ||
+        ((uint8_t)cfg->gp5_mode > 2u && (uint8_t)cfg->gp5_mode < 6u) ||
+        ((uint8_t)cfg->gp6_mode > 2u && (uint8_t)cfg->gp6_mode < 6u)) return 0u;
+    if ((uint8_t)cfg->gp2_mode > 7u || (uint8_t)cfg->gp3_mode > 7u ||
+        (uint8_t)cfg->gp5_mode > 7u || (uint8_t)cfg->gp6_mode > 7u) return 0u;
+    if (!((cfg->i2c_watchdog == DVC1124_I2C_WDT_OFF) ||
+          (cfg->i2c_watchdog == DVC1124_I2C_WDT_4S) ||
+          (cfg->i2c_watchdog == DVC1124_I2C_WDT_8S) ||
+          (cfg->i2c_watchdog == DVC1124_I2C_WDT_16S) ||
+          (cfg->i2c_watchdog == DVC1124_I2C_WDT_32S))) return 0u;
+    if ((uint8_t)cfg->timed_wake > 15u) return 0u;
+
+    cadc = 0u;
+    if (cfg->high_side_fet_mask) cadc |= DVC1124_CADC_HSFM_MASK;
+    if (cfg->cadc_work_enable) cadc |= DVC1124_CADC_CAEW_MASK;
+    if (cfg->current_wake_enable) cadc |= DVC1124_CADC_CAES_MASK;
+
+    cc1 = (uint8_t)(DVC1124_FIELD_PREP(DVC1124_CC1_WORK_TIME_MASK,
+                                       DVC1124_CC1_WORK_TIME_SHIFT,
+                                       cfg->cc1_work_time) |
+                    DVC1124_FIELD_PREP(DVC1124_CC1_SLEEP_WAKE_TIME_MASK,
+                                       DVC1124_CC1_SLEEP_WAKE_TIME_SHIFT,
+                                       cfg->cc1_sleep_wake_time));
+
+    cp = DVC1124_FIELD_PREP(DVC1124_CPVS_MASK, DVC1124_CPVS_SHIFT, cfg->charge_pump_voltage);
+    if (cfg->cell_measurement_mask) cp |= DVC1124_CMM_MASK;
+    if (cfg->cell_voltage_signed) cp |= DVC1124_CVS_MASK;
+
+    vadc = DVC1124_FIELD_PREP(DVC1124_VADC_PERIOD_MASK, DVC1124_VADC_PERIOD_SHIFT, cfg->vadc_period);
+    vadc |= DVC1124_FIELD_PREP(DVC1124_VADC_TIME_MASK, DVC1124_VADC_TIME_SHIFT, cfg->vadc_time);
+    if (cfg->vadc_enable) vadc |= DVC1124_VADC_ENABLE_MASK;
+    if (cfg->vadc_sync_with_cc2) vadc |= DVC1124_VADC_SYNC_MASK;
+
+    gp123 = DVC1124_GP123_ENCODE(cfg->gp1_mode, cfg->gp2_mode, cfg->gp3_mode);
+    gp456 = DVC1124_GP456_ENCODE(cfg->gp4_mode, cfg->gp5_mode, cfg->gp6_mode);
+
+    wdt = (uint8_t)cfg->i2c_watchdog;
+    if (cfg->v3p3_sleep_enable) wdt |= DVC1124_V3P3_SLEEP_ENABLE_MASK;
+    if (cfg->v3p3_work_enable) wdt |= DVC1124_V3P3_WORK_ENABLE_MASK;
+    if (cfg->v3p3_timeout_restart) wdt |= DVC1124_V3P3_TIMEOUT_RESTART_MASK;
+
+    timed = (uint8_t)cfg->timed_wake;
+
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CADC_CTRL, cadc);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CC1_TIMING, cc1);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CP_CTRL, cp);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_VADC_CTRL, vadc);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_GP123_MODE, gp123);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_GP456_MODE, gp456);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_I2C_WDT, wdt);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_TIMED_WAKE, timed);
+    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_INT_MASK, cfg->interrupt_mask);
+    return ok;
 }

@@ -42,7 +42,7 @@ assert 'for (cell = 5u; cell <= DVC1124_MAX_CELLS; ++cell)' in dvc
 assert 'DVC1124_FIXED_CONFIG_COMPILE_TIME' in store_h
 assert 'ConfigStoreLoad' not in store and 'ConfigStoreRestore' not in store
 assert 'cfg.high_side_fet_mask = DVC1124_DEFAULT_HIGH_SIDE_FET_MASK' in store
-assert 'dvc_project_encode_current_wake(DVC1124_CURRENT_WAKE_THRESHOLD_UV' in store
+assert 'DVC1124_EncodeCurrentWake(DVC1124_CURRENT_WAKE_THRESHOLD_UV' in store
 assert 'DVC1124_DEFAULT_DSG_MASK_POLICY' in store
 assert 'DVC1124_DEFAULT_CHG_MASK_POLICY' in store
 assert 'DVC1124_ApplyOperatingConfig(&cfg)' in store

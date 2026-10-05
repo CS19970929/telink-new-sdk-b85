@@ -5,18 +5,12 @@
 #include "btname_modbus.h"
 #include "bms_error.h"
 #include "bms_config_store.h"
+#include <string.h>
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 
-static void *m_memcpy(void *dst, const void *src, unsigned n)
-{
-    unsigned char *d = (unsigned char *)dst;
-    const unsigned char *s = (const unsigned char *)src;
-    while (n--) *d++ = *s++;
-    return dst;
-}
-
+/* Vendor common/string.h has memcpy but no bounded string APIs. */
 static int m_strncmp(const char *a, const char *b, unsigned n)
 {
     while (n--) {
@@ -52,11 +46,11 @@ static void btname_ble_apply(const char *name)
 
     scanrsp[j++] = (uint8_t)(1u + nlen);
     scanrsp[j++] = 0x09;
-    m_memcpy(&scanrsp[j], name, nlen);
+    memcpy(&scanrsp[j], name, nlen);
     j += nlen;
 
     bls_ll_setScanRspData(scanrsp, j);
-    m_memcpy(my_devName, name, nlen);
+    memcpy(my_devName, name, nlen);
     if (nlen < BTNAME_TOTAL_MAX_LEN) {
         my_devName[nlen] = '\0';
     }
@@ -73,7 +67,7 @@ static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTA
     out[2] = '_';
 
     while (slen < BTNAME_SUFFIX_MAX_LEN && suffix[slen] != '\0') slen++;
-    m_memcpy(out + BTNAME_PREFIX_LEN, suffix, slen);
+    memcpy(out + BTNAME_PREFIX_LEN, suffix, slen);
     out[BTNAME_PREFIX_LEN + slen] = '\0';
 }
 
@@ -143,8 +137,6 @@ const char *btname_get(void)
     return g_name;
 }
 
-
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs)
 {
     const uint8_t *bytes = (const uint8_t *)regs;
@@ -154,10 +146,12 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     uint16_t bi = 0;
     uint16_t i;
 
+    /* Preserve the historical empty-write result; storage failure always fails. */
+    const int empty_result = (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510) ? 1 : 0;
     (void)addr;
 
     if ((qty == 0u) || (regs == 0)) {
-        return 0;
+        return empty_result;
     }
 
     for (i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
@@ -169,7 +163,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     sanitize_suffix(suffix);
     if (suffix[0] == '\0') {
-        return 0;
+        return empty_result;
     }
 
     build_full_name_from_suffix(suffix, new_full);
@@ -187,49 +181,3 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     btname_ble_apply(g_name);
     return 1;
 }
-
-#else
-int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *regs)
-{
-    const uint8_t *bytes = (const uint8_t *)regs;
-    uint16_t byte_len = (uint16_t)(qty * 2u);
-    char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
-    char new_full[BTNAME_TOTAL_MAX_LEN + 1];
-    uint16_t bi = 0;
-    uint16_t i;
-
-    (void)addr;
-
-    if ((qty == 0u) || (regs == 0)) {
-        return 1;
-    }
-
-    for (i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
-        uint8_t c = bytes[i];
-        if (c == 0u) break;
-        suffix[bi++] = (char)c;
-    }
-    suffix[bi] = '\0';
-
-    sanitize_suffix(suffix);
-    if (suffix[0] == '\0') {
-        return 1;
-    }
-
-    build_full_name_from_suffix(suffix, new_full);
-    if (m_strncmp(new_full, g_name, BTNAME_TOTAL_MAX_LEN) == 0) {
-        return 1;
-    }
-
-    if (!btname_save_suffix_to_store(suffix)) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return 1;
-    }
-
-    m_strncpy(g_name, new_full, BTNAME_TOTAL_MAX_LEN);
-    g_name[BTNAME_TOTAL_MAX_LEN] = '\0';
-    btname_ble_apply(g_name);
-    return 1;
-}
-
-#endif

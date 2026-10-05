@@ -128,7 +128,7 @@ require(app, "uint8_t dsg_target = 1u;")
 require(bms, "service_hw_flag_recovery")
 require(bms, "service_short_recovery")
 require(bms, "service_afe_reconfiguration")
-require(bms, "s_output_inhibit")
+require(bms, "bms_afe_samples_qualified()")
 require(bms, "s_requested_charge_on")
 require(bms, "s_requested_discharge_on")
 

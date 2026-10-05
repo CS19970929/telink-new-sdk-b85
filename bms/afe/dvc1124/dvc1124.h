@@ -198,12 +198,7 @@ uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     uint8_t hardwire_code,
                                     uint8_t explicit_write_addr,
                                     uint8_t *write_addr);
-uint8_t DVC1124_SetAddressConfig(dvc1124_model_t model,
-                                 dvc1124_addr_mode_t mode,
-                                 uint8_t hardwire_code,
-                                 uint8_t explicit_write_addr);
 uint8_t DVC1124_SetCellCount(uint8_t cell_count);
-uint8_t DVC1124_SetShuntUohm(uint32_t shunt_uohm);
 void DVC1124_GetConfig(dvc1124_config_t *config);
 void DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot);
 uint8_t DVC1124_GetWriteAddress(void);
@@ -339,134 +334,8 @@ static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,
  * Operating configuration helpers. They expose readable semantic fields for
  * board/application code and are designed to be reused by BLE/UART services.
  */
-static inline uint8_t DVC1124_GetOperatingConfig(dvc1124_operating_config_t *cfg)
-{
-    uint8_t cadc;
-    uint8_t cc1;
-    uint8_t cp;
-    uint8_t vadc;
-    uint8_t gp123;
-    uint8_t gp456;
-    uint8_t wdt;
-    uint8_t timed;
-    uint8_t imask;
 
-    if (cfg == 0) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CADC_CTRL, &cadc, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CC1_TIMING, &cc1, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_VADC_CTRL, &vadc, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_GP123_MODE, &gp123, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_GP456_MODE, &gp456, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_I2C_WDT, &wdt, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_TIMED_WAKE, &timed, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_INT_MASK, &imask, 1u)) return 0u;
-
-    cfg->high_side_fet_mask = (cadc & DVC1124_CADC_HSFM_MASK) ? 1u : 0u;
-    cfg->cadc_work_enable = (cadc & DVC1124_CADC_CAEW_MASK) ? 1u : 0u;
-    cfg->current_wake_enable = (cadc & DVC1124_CADC_CAES_MASK) ? 1u : 0u;
-    cfg->cc1_work_time = (dvc1124_cc1_work_time_t)DVC1124_FIELD_GET(DVC1124_CC1_WORK_TIME_MASK, DVC1124_CC1_WORK_TIME_SHIFT, cc1);
-    cfg->cc1_sleep_wake_time = (dvc1124_cc1_sleep_wake_time_t)DVC1124_FIELD_GET(DVC1124_CC1_SLEEP_WAKE_TIME_MASK, DVC1124_CC1_SLEEP_WAKE_TIME_SHIFT, cc1);
-
-    cfg->charge_pump_voltage = (dvc1124_cp_voltage_t)DVC1124_FIELD_GET(DVC1124_CPVS_MASK, DVC1124_CPVS_SHIFT, cp);
-    cfg->cell_measurement_mask = (cp & DVC1124_CMM_MASK) ? 1u : 0u;
-    cfg->cell_voltage_signed = (cp & DVC1124_CVS_MASK) ? 1u : 0u;
-
-    cfg->vadc_enable = (vadc & DVC1124_VADC_ENABLE_MASK) ? 1u : 0u;
-    cfg->vadc_sync_with_cc2 = (vadc & DVC1124_VADC_SYNC_MASK) ? 1u : 0u;
-    cfg->vadc_period = (dvc1124_vadc_period_t)DVC1124_FIELD_GET(DVC1124_VADC_PERIOD_MASK, DVC1124_VADC_PERIOD_SHIFT, vadc);
-    cfg->vadc_time = (dvc1124_vadc_time_t)DVC1124_FIELD_GET(DVC1124_VADC_TIME_MASK, DVC1124_VADC_TIME_SHIFT, vadc);
-
-    cfg->gp1_mode = (dvc1124_gp14_mode_t)DVC1124_FIELD_GET(DVC1124_GP1_MODE_MASK, DVC1124_GP1_MODE_SHIFT, gp123);
-    cfg->gp2_mode = (dvc1124_gp236_mode_t)DVC1124_FIELD_GET(DVC1124_GP2_MODE_MASK, DVC1124_GP2_MODE_SHIFT, gp123);
-    cfg->gp3_mode = (dvc1124_gp236_mode_t)DVC1124_FIELD_GET(DVC1124_GP3_MODE_MASK, DVC1124_GP3_MODE_SHIFT, gp123);
-    cfg->gp4_mode = (dvc1124_gp14_mode_t)DVC1124_FIELD_GET(DVC1124_GP4_MODE_MASK, DVC1124_GP4_MODE_SHIFT, gp456);
-    cfg->gp5_mode = (dvc1124_gp236_mode_t)DVC1124_FIELD_GET(DVC1124_GP5_MODE_MASK, DVC1124_GP5_MODE_SHIFT, gp456);
-    cfg->gp6_mode = (dvc1124_gp236_mode_t)DVC1124_FIELD_GET(DVC1124_GP6_MODE_MASK, DVC1124_GP6_MODE_SHIFT, gp456);
-
-    cfg->v3p3_sleep_enable = (wdt & DVC1124_V3P3_SLEEP_ENABLE_MASK) ? 1u : 0u;
-    cfg->v3p3_work_enable = (wdt & DVC1124_V3P3_WORK_ENABLE_MASK) ? 1u : 0u;
-    cfg->v3p3_timeout_restart = (wdt & DVC1124_V3P3_TIMEOUT_RESTART_MASK) ? 1u : 0u;
-    cfg->i2c_watchdog = (dvc1124_i2c_wdt_code_t)DVC1124_FIELD_GET(DVC1124_I2C_WDT_TIME_MASK, DVC1124_I2C_WDT_TIME_SHIFT, wdt);
-    cfg->timed_wake = (dvc1124_timed_wake_t)DVC1124_FIELD_GET(DVC1124_TIMED_WAKE_TIME_MASK, DVC1124_TIMED_WAKE_TIME_SHIFT, timed);
-    cfg->interrupt_mask = imask;
-    return 1u;
-}
-
-static inline uint8_t DVC1124_ApplyOperatingConfig(const dvc1124_operating_config_t *cfg)
-{
-    uint8_t cadc;
-    uint8_t cc1;
-    uint8_t cp;
-    uint8_t vadc;
-    uint8_t gp123;
-    uint8_t gp456;
-    uint8_t wdt;
-    uint8_t timed;
-    uint8_t ok = 1u;
-
-    if (cfg == 0) return 0u;
-    if ((uint8_t)cfg->cc1_work_time > 3u) return 0u;
-    if ((uint8_t)cfg->cc1_sleep_wake_time > 3u) return 0u;
-    if ((uint8_t)cfg->charge_pump_voltage > 7u) return 0u;
-    if ((uint8_t)cfg->vadc_period > 3u) return 0u;
-    if ((uint8_t)cfg->vadc_time > 3u) return 0u;
-    if ((uint8_t)cfg->gp1_mode > 3u || (uint8_t)cfg->gp4_mode > 3u) return 0u;
-    if (((uint8_t)cfg->gp2_mode > 2u && (uint8_t)cfg->gp2_mode < 6u) ||
-        ((uint8_t)cfg->gp3_mode > 2u && (uint8_t)cfg->gp3_mode < 6u) ||
-        ((uint8_t)cfg->gp5_mode > 2u && (uint8_t)cfg->gp5_mode < 6u) ||
-        ((uint8_t)cfg->gp6_mode > 2u && (uint8_t)cfg->gp6_mode < 6u)) return 0u;
-    if ((uint8_t)cfg->gp2_mode > 7u || (uint8_t)cfg->gp3_mode > 7u ||
-        (uint8_t)cfg->gp5_mode > 7u || (uint8_t)cfg->gp6_mode > 7u) return 0u;
-    if (!((cfg->i2c_watchdog == DVC1124_I2C_WDT_OFF) ||
-          (cfg->i2c_watchdog == DVC1124_I2C_WDT_4S) ||
-          (cfg->i2c_watchdog == DVC1124_I2C_WDT_8S) ||
-          (cfg->i2c_watchdog == DVC1124_I2C_WDT_16S) ||
-          (cfg->i2c_watchdog == DVC1124_I2C_WDT_32S))) return 0u;
-    if ((uint8_t)cfg->timed_wake > 15u) return 0u;
-
-    cadc = 0u;
-    if (cfg->high_side_fet_mask) cadc |= DVC1124_CADC_HSFM_MASK;
-    if (cfg->cadc_work_enable) cadc |= DVC1124_CADC_CAEW_MASK;
-    if (cfg->current_wake_enable) cadc |= DVC1124_CADC_CAES_MASK;
-
-    cc1 = (uint8_t)(DVC1124_FIELD_PREP(DVC1124_CC1_WORK_TIME_MASK,
-                                       DVC1124_CC1_WORK_TIME_SHIFT,
-                                       cfg->cc1_work_time) |
-                    DVC1124_FIELD_PREP(DVC1124_CC1_SLEEP_WAKE_TIME_MASK,
-                                       DVC1124_CC1_SLEEP_WAKE_TIME_SHIFT,
-                                       cfg->cc1_sleep_wake_time));
-
-    cp = DVC1124_FIELD_PREP(DVC1124_CPVS_MASK, DVC1124_CPVS_SHIFT, cfg->charge_pump_voltage);
-    if (cfg->cell_measurement_mask) cp |= DVC1124_CMM_MASK;
-    if (cfg->cell_voltage_signed) cp |= DVC1124_CVS_MASK;
-
-    vadc = DVC1124_FIELD_PREP(DVC1124_VADC_PERIOD_MASK, DVC1124_VADC_PERIOD_SHIFT, cfg->vadc_period);
-    vadc |= DVC1124_FIELD_PREP(DVC1124_VADC_TIME_MASK, DVC1124_VADC_TIME_SHIFT, cfg->vadc_time);
-    if (cfg->vadc_enable) vadc |= DVC1124_VADC_ENABLE_MASK;
-    if (cfg->vadc_sync_with_cc2) vadc |= DVC1124_VADC_SYNC_MASK;
-
-    gp123 = DVC1124_GP123_ENCODE(cfg->gp1_mode, cfg->gp2_mode, cfg->gp3_mode);
-    gp456 = DVC1124_GP456_ENCODE(cfg->gp4_mode, cfg->gp5_mode, cfg->gp6_mode);
-
-    wdt = (uint8_t)cfg->i2c_watchdog;
-    if (cfg->v3p3_sleep_enable) wdt |= DVC1124_V3P3_SLEEP_ENABLE_MASK;
-    if (cfg->v3p3_work_enable) wdt |= DVC1124_V3P3_WORK_ENABLE_MASK;
-    if (cfg->v3p3_timeout_restart) wdt |= DVC1124_V3P3_TIMEOUT_RESTART_MASK;
-
-    timed = (uint8_t)cfg->timed_wake;
-
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CADC_CTRL, cadc);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CC1_TIMING, cc1);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_CP_CTRL, cp);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_VADC_CTRL, vadc);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_GP123_MODE, gp123);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_GP456_MODE, gp456);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_I2C_WDT, wdt);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_TIMED_WAKE, timed);
-    ok &= DVC1124_WriteRegisterSafe(DVC1124_REG_INT_MASK, cfg->interrupt_mask);
-    return ok;
-}
+uint8_t DVC1124_ApplyOperatingConfig(const dvc1124_operating_config_t *cfg);
 
 /* DVC adapter entry points; application code uses bms_afe.h. */
 void DVC1124_App_AFEGet(void);
@@ -476,6 +345,11 @@ uint8_t DVC1124_AFE_IsReady(void); /* legacy convention: 0 = ready */
 uint8_t DVC1124_AFE_Sleep(void);
 void DVC1124_UpdataAfeConfig(void);
 uint8_t DVC1124_ApplyProtectionConfig(void);
+
+/* Shared exact encoders for the safe baseline and full project config phases. */
+uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code);
+uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code);
+uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code);
 
 #ifdef __cplusplus
 }

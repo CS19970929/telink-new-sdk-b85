@@ -31,13 +31,6 @@ static uint32_t sh_valid_cell_mask(void)
     return (1uL << SH3673510_BOARD_CELL_COUNT) - 1uL;
 }
 
-static uint8_t sh_ntc_valid(int32_t raw)
-{
-    uint32_t ohm = 0u;
-    return (SH3673520_NtcRawToOhm(raw, &ohm) == SH3673520_OK &&
-            ohm >= 500u && ohm <= 300000u) ? 1u : 0u;
-}
-
 static uint8_t sh_read_balance_mask(uint32_t *mask)
 {
     uint8_t data[3];
@@ -45,31 +38,6 @@ static uint8_t sh_read_balance_mask(uint32_t *mask)
     if (SH3673520_ReadRegs(SH3673520_REG_BALANCEH, data, 3u) != SH3673520_OK) return 0u;
     *mask = ((((uint32_t)data[0] & 0x0Fu) << 16) |
              ((uint32_t)data[1] << 8) | data[2]) & sh_valid_cell_mask();
-    return 1u;
-}
-
-uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
-{
-    sh3673520_temperature_raw_t raw;
-    uint16_t t1, t2;
-    if (out == 0) return 0u;
-    memset(out, 0, sizeof(*out));
-    if (!SH3673520_IsReady()) return 0u;
-    if (SH3673520_ReadTemperatures(&raw) != SH3673520_OK) return 0u;
-    out->valid = 1u;
-    out->cell_count = SH3673510_BOARD_CELL_COUNT;
-    out->battery_temp_valid = (uint8_t)(sh_ntc_valid(raw.external_raw[SH3673510_BOARD_BAT_NTC1_INDEX]) &&
-                                        sh_ntc_valid(raw.external_raw[SH3673510_BOARD_BAT_NTC2_INDEX]));
-#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
-    out->heater_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_BOARD_HEATER_NTC_INDEX]);
-#endif
-    out->mos_temp_valid = sh_ntc_valid(raw.external_raw[SH3673510_BOARD_MOS_NTC_INDEX]);
-    t1 = g_stCellInfoReport.u16Temperature[AFE1_TEMP1];
-    t2 = g_stCellInfoReport.u16Temperature[AFE1_TEMP2];
-    out->battery_temp_min_x10 = (t1 < t2) ? t1 : t2;
-    out->battery_temp_max_x10 = (t1 > t2) ? t1 : t2;
-    out->heater_temp_x10 = g_stCellInfoReport.u16Temperature[AFE1_TEMP3];
-    out->mos_temp_x10 = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
     return 1u;
 }
 

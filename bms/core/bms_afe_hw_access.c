@@ -3,6 +3,7 @@
  */
 #include "bms_afe_hw_access.h"
 #include "bms_afe_hw_profile.h"
+#include "bms_crc.h"
 
 static u16 s_token;
 static u32 s_last_activity_tick;
@@ -13,21 +14,6 @@ static u16 s_generation;
 static u8 s_frame[ACCESS_FRAME_BYTES];
 static u8 s_received;
 static u32 s_fragment_tick;
-
-static u16 access_crc16(const u8 *data, u32 len)
-{
-    u16 crc = 0xFFFFu;
-    u32 i;
-    u8 bit;
-
-    for (i = 0u; i < len; ++i)
-    {
-        crc ^= data[i];
-        for (bit = 0u; bit < 8u; ++bit)
-            crc = (crc & 1u) ? (u16)((crc >> 1) ^ 0xA001u) : (u16)(crc >> 1);
-    }
-    return crc;
-}
 
 static u16 access_u16be(const u8 *p)
 {
@@ -118,7 +104,7 @@ static int access_response(u8 addr,
         u8 i;
         for (i = 0u; i < payload_len; ++i) rsp[length++] = payload[i];
     }
-    crc = access_crc16(rsp, length);
+    crc = mb_crc16(rsp, length);
     rsp[length++] = (u8)crc;
     rsp[length++] = (u8)(crc >> 8);
     *rsp_len = length;
@@ -141,7 +127,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
     if (req_len < 5u || req[1] != BMS_AFE_HW_ACCESS_MODBUS_FUNC) return 0;
 
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
-    crc_calc = access_crc16(req, req_len - 2u);
+    crc_calc = mb_crc16(req, req_len - 2u);
     if (crc_rx != crc_calc) { s_received = 0u; return 0; }
 
     command = req[2];

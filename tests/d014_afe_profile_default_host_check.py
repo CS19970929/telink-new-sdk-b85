@@ -57,6 +57,8 @@ typedef uint32_t u32;
 struct PRT_E2ROM_PARAS {{ {''.join('u16 ' + field + ';' for field in fields)} }};
 struct {{ struct PRT_E2ROM_PARAS protect; }} g_tParam;
 """
+prefix += (VENDOR / "sh3673510_quantize.h").read_text(encoding="utf8")
+
 suffix = """
 int main(void)
 {
@@ -67,10 +69,10 @@ int main(void)
         p.occ1_a10 != SH3673510_HW_DEFAULT_OCC1_A10 ||
         p.occ_recover_a10 != SH3673510_HW_DEFAULT_OCC_RECOVER_A10 ||
         !bms_afe_hw_profile_validate(&p)) return 1;
-    p.ocd_recover_a10 = sh3510_effective_current_a10(p.ocd1_a10, 5000u, 15u);
+    p.ocd_recover_a10 = sh3673510_quantize_current_a10(p.ocd1_a10, SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, 0);
     if (bms_afe_hw_profile_validate(&p)) return 2;
     p.ocd_recover_a10 = SH3673510_HW_DEFAULT_OCD_RECOVER_A10;
-    p.occ_recover_a10 = sh3510_effective_current_a10(p.occ1_a10, 1375u, 31u);
+    p.occ_recover_a10 = sh3673510_quantize_current_a10(p.occ1_a10, SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, 0);
     if (bms_afe_hw_profile_validate(&p)) return 3;
     puts("D014 independent AFE defaults and effective recovery boundaries: PASS");
     return 0;

@@ -21,13 +21,22 @@
 #define BMS_DIAG_TRACE_COUNT 64u
 #define BMS_DIAG_TRACE_WORDS 12u
 
+/* Keep trace by default. A product may explicitly trade it for 1536 bytes RAM;
+ * the capability bit and existing read-only window then report no trace. */
+#ifndef BMS_DIAG_TRACE_ENABLE
+#define BMS_DIAG_TRACE_ENABLE 1
+#endif
+#if (BMS_DIAG_TRACE_ENABLE != 0) && (BMS_DIAG_TRACE_ENABLE != 1)
+#error "BMS_DIAG_TRACE_ENABLE must be 0 or 1"
+#endif
+
 #define BMS_DIAG_CAP_BOOT       0x0001u
 #define BMS_DIAG_CAP_TRACE      0x0002u
 #define BMS_DIAG_CAP_STORAGE    0x0004u
 #define BMS_DIAG_CAP_MOS        0x0008u
 #define BMS_DIAG_CAP_UPGRADE    0x0010u
 #define BMS_DIAG_CAP_RUNTIME    0x0020u
-#define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | BMS_DIAG_CAP_TRACE | \
+#define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_TRACE : 0u) | \
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME)
 

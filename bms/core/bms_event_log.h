@@ -40,10 +40,10 @@ typedef enum {
 } bms_event_log_id_t;
 
 typedef struct {
-    u8 sleep, balance, heat, cool;
+    u8 balance;
     u8 vcell_ovp, vbus_ovp, chg_ocp, vcell_uvp, vbus_uvp, dsg_ocp;
     u8 chg_utp, dsg_utp, chg_otp, dsg_otp, vdelta_op;
-    u8 afe2_err, eeprom_err, cbc_err;
+    u8 afe2_err, cbc_err;
 } bms_event_log_sample_t;
 
 int bms_event_log_init(void);

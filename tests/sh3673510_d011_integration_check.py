@@ -166,8 +166,8 @@ require(app, "#define APP_SAMPLE_PERIOD_US 200000u")
 require(app, "bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)")
 require(app, "bls_pm_setAppWakeupLowPower(")
 require(app, "static void app_sample_task(void)")
-require(app, "sample_valid = bms_afe_get_aux_measurements(&sample);")
-require(app, "sample_valid ? sample.sample_tick_32k : pm_get_32k_tick()")
+require(app, "valid = bms_afe_get_aux_measurements(&m);")
+require(app, "valid ? m.sample_tick_32k : pm_get_32k_tick()")
 assert literal(cfg, "BMS_BOARD_DEBUG_LED_ENABLE") == 0
 main = text("main.c")
 require(main, "#if BMS_BOARD_DEBUG_LED_ENABLE")
@@ -180,7 +180,7 @@ require(cfg, "#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
-require(bms, "s_output_inhibit")
+require(bms, "bms_afe_samples_qualified()")
 require(bms, "s_requested_charge_on")
 require(bms, "service_hw_flag_recovery")
 require(bms, "hw_recovery_stable")
@@ -256,7 +256,7 @@ short_text = bms[short_start:short_end]
 if "u16IDischg" in short_text:
     raise AssertionError("short-circuit recovery must not use discharge current as load-release proof")
 require(bms, "service_short_recovery")
-require(bms, "SH3510_VALID_SNAPSHOT_RELEASE_COUNT")
+require(bms, "bms_afe_samples_qualified()")
 require(control, "sh3673510_control_get_protection_actual")
 require(hw_profile, "sense_uv > 80000u")
 require(hw_profile, "sense_uv > 160000u")
@@ -276,13 +276,11 @@ modbus = text("modbus_rtu.c")
 require_count(control, "static sh3673510_protection_actual_t s_protection_actual;")
 require_count(control_h, "sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);")
 require_count(control_h, "sh3673510_board_force_heater_fuse_safe(void);")
-require_count(bms, "#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u")
+require_count((ROOT / "bms/core/bms_afe_guard.c").read_text(encoding="utf-8"), "#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u")
 require_count(bms, "#define SH3510_SHORT_RELEASE_SAMPLES    10u")
 for symbol in (
     "static uint8_t s_requested_charge_on;",
     "static uint8_t s_requested_discharge_on;",
-    "static uint8_t s_output_inhibit;",
-    "static uint8_t s_valid_snapshot_streak;",
     "static uint8_t s_short_latched;",
     "static uint8_t s_short_clear_pending;",
     "static uint16_t s_short_release_count;",
@@ -300,10 +298,8 @@ require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 # Function-level safety invariants that text-level dedupe must not destroy.
 require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
-require(bms, "s_output_inhibit = 1u;\n    s_valid_snapshot_streak = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
+require(bms, "s_snapshot_valid = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
 sleep_text = bms[bms.index("uint8_t sh3673510_bms_afe_sleep(void)"):]
-require(sleep_text, "s_output_inhibit = 1u;")
-require(sleep_text, "s_valid_snapshot_streak = 0u;")
 require(sleep_text, "s_snapshot_valid = 0u;")
 require(sleep_text, "if (!sh3673510_control_sleep())")
 require_count(bms, "s_short_latched = 0u;", 2)

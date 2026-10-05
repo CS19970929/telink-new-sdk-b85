@@ -159,7 +159,7 @@ static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,
 static u8 bms_board_heater_supported(void){return 1;}
 static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
-void set_soc_param(u8 soc,u16 cap,u8 sync){(void)cap;(void)sync;live_soc=soc;}
+void set_soc_param(u8 soc,u8 sync){(void)sync;live_soc=soc;}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
 static int Runtime_ReenterFactoryMode(void){return 1;}
 static u8 bms_reset_software_parameters(void){return 0;}
@@ -322,4 +322,21 @@ static void test_ota_state_events(void)
     puts("PASS OTA State/Event: independent SOC/runtime/event resets, every byte cut, startup inhibit, restart idempotence");
 }
 
-int main(void){test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+static void test_protection_commit(void) {
+ fresh();
+ struct PRT_E2ROM_PARAS old=g_tParam.protect, next=old, loaded;
+ next.u16VcellOvp_Third=3999;
+ for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte) {
+  memcpy(backup,flash,sizeof(flash));cut=byte;
+  assert(!bms_protection_params_commit(&next));
+  assert(!memcmp(&g_tParam.protect,&old,sizeof(old)) && bms_protection_params_valid());
+  assert(bms_config_store_get_protect(&loaded) && !memcmp(&loaded,&old,sizeof(old)));
+  memcpy(flash,backup,sizeof(flash));cut=-1;
+ }
+ assert(!bms_protection_params_commit(0));assert(bms_protection_params_valid());
+ assert(bms_protection_params_commit(&next));assert(!memcmp(&g_tParam.protect,&next,sizeof(next)));
+ reboot();bms_parameters_startup();LoadParam();assert(!memcmp(&g_tParam.protect,&next,sizeof(next)));
+ puts("PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent");
+}
+
+int main(void){test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

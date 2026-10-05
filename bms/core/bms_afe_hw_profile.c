@@ -14,6 +14,7 @@
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
+#include "sh3673510_quantize.h"
 #endif
 
 static u16 ms10_to_ms(u16 filter_10ms)
@@ -214,26 +215,6 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 #endif
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-static u16 sh3510_effective_current_a10(u16 requested_a10, u32 step_uv, u8 max_code)
-{
-    u32 sense_uv;
-    u32 steps;
-    u32 actual_uv;
-    u32 actual_a10;
-
-    if ((step_uv == 0u) || (SH3673510_BOARD_SHUNT_UOHM == 0u)) return 0u;
-    sense_uv = ((u32)requested_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
-    steps = (sense_uv + step_uv - 1u) / step_uv;
-    if (steps == 0u) steps = 1u;
-    if (steps > (u32)max_code + 1u) steps = (u32)max_code + 1u;
-    actual_uv = steps * step_uv;
-    actual_a10 = (actual_uv * 10u + SH3673510_BOARD_SHUNT_UOHM - 1u) /
-                 SH3673510_BOARD_SHUNT_UOHM;
-    return (u16)((actual_a10 > 65535u) ? 65535u : actual_a10);
-}
-#endif
-
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&
@@ -249,13 +230,16 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
      */
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u ||
-         p->ocd_recover_a10 >= sh3510_effective_current_a10(p->ocd1_a10, 5000u, 15u))) return 0u;
+         p->ocd_recover_a10 >= sh3673510_quantize_current_a10(p->ocd1_a10,
+             SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, 0))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
         (p->ocd2_a10 == 0u ||
-         p->ocd_recover_a10 >= sh3510_effective_current_a10(p->ocd2_a10, 10000u, 15u))) return 0u;
+         p->ocd_recover_a10 >= sh3673510_quantize_current_a10(p->ocd2_a10,
+             SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, 0))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
         (p->occ1_a10 == 0u ||
-         p->occ_recover_a10 >= sh3510_effective_current_a10(p->occ1_a10, 1375u, 31u))) return 0u;
+         p->occ_recover_a10 >= sh3673510_quantize_current_a10(p->occ1_a10,
+             SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, 0))) return 0u;
 #else
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return 0u;
@@ -332,7 +316,6 @@ u8 bms_afe_hw_profile_init(void)
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 {
     if (p == 0) return 0u;
-    if (!bms_afe_hw_profile_init()) return 0u;
     if (!bms_config_store_get_afe_hw_profile(p)) return 0u;
     return bms_afe_hw_profile_validate(p);
 }
@@ -405,10 +388,6 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     {
         sh3673510_protection_actual_t actual;
-        static const u16 sc_mult[4] = {2u, 3u, 4u, 6u};
-        static const u16 sc_delay[8] = {2u, 4u, 8u, 16u, 32u, 64u, 128u, 256u};
-        u8 mult_code = 0u;
-        u8 delay_code = 0u;
         if (!sh3673510_control_get_protection_actual(&actual)) return 0u;
         p->cov_mv = actual.ov_mv;
         p->cuv_mv = actual.uv_mv;
@@ -421,10 +400,8 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
         p->ocd2_delay_ms = actual.ocd2_delay_ms;
         p->occ1_delay_ms = actual.occ_delay_ms;
         if (requested.enable_mask & BMS_AFE_HW_EN_SC) {
-            while (mult_code < 3u && (u32)actual.ocd2_a10 * sc_mult[mult_code] < requested.sc_a10) ++mult_code;
-            while (delay_code < 7u && sc_delay[delay_code] < requested.sc_delay_us) ++delay_code;
-            p->sc_a10 = (u16)((u32)actual.ocd2_a10 * sc_mult[mult_code]);
-            p->sc_delay_us = sc_delay[delay_code];
+            p->sc_a10 = actual.sc_a10;
+            p->sc_delay_us = actual.sc_delay_us;
         }
     }
 #endif

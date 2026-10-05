@@ -21,7 +21,6 @@
 #include <string.h>
 
 #define SH3510_SAMPLE_MS              200u
-#define SH3510_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 2 s stable LOADOFF at 200 ms */
 #define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 2 s stable load-off/charge recovery */
 #define SH3510_MISSING_CELL_MV       61001u /* D000..D01F unused-cell wire sentinel */
@@ -38,11 +37,8 @@ static uint8_t s_ntc_valid[4];
 static uint8_t s_output_enabled;
 static uint8_t s_snapshot_valid;
 static uint8_t s_hw_afe_error;
-static uint16_t s_balance_mask;
 static uint8_t s_requested_charge_on;
 static uint8_t s_requested_discharge_on;
-static uint8_t s_output_inhibit;
-static uint8_t s_valid_snapshot_streak;
 /* 短路硬件锁定；恢复依赖物理条件与 AFE 状态，不能由关 MOS 后零电流直接清除。 */
 static uint8_t s_short_latched;
 static uint8_t s_short_clear_pending;
@@ -60,7 +56,6 @@ static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
 
 /* Existing product 10K NTC table: R in 100 ohm, T=(degC+40)*10. */
-
 
 #if SH3673510_HW_PROTECT_ENABLE
 static uint16_t filter_samples(uint16_t filter_10ms)
@@ -96,8 +91,8 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
 static void note_comm_error(void)
 {
     sh3673520_comm_stats_t stats;
-    s_output_inhibit = 1u;
-    s_valid_snapshot_streak = 0u;
+
+    s_snapshot_valid = 0u;
     /* Recovery requires consecutive valid samples, never evidence spanning a
      * communication gap. Preserve fault latches, discard only qualification. */
     s_short_clear_pending = 0u;
@@ -155,7 +150,7 @@ static uint8_t discharge_blocked(void)
 
 static uint8_t sh3510_outputs_healthy(void)
 {
-    return (s_snapshot_valid && !s_output_inhibit && !s_hw_afe_error &&
+    return (s_snapshot_valid && bms_afe_samples_qualified() && !s_hw_afe_error &&
             !bms_error_get(BMS_ERROR_AFE1) && !bms_error_get(BMS_ERROR_SPI)) ? 1u : 0u;
 }
 
@@ -268,8 +263,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     if ((s->flag1 & SH3673520_FLAG1_RST1_MASK) ||
         (s->flag2 & SH3673520_FLAG2_RST2_MASK)) {
         s_afe_reconfigure_required = 1u;
-        s_output_inhibit = 1u;
-        s_valid_snapshot_streak = 0u;
+        s_snapshot_valid = 0u;
     }
 
 #if SH3673510_HW_PROTECT_ENABLE
@@ -465,10 +459,7 @@ static uint8_t service_afe_reconfiguration(void)
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
     s_snapshot_valid = 0u;
-    s_output_inhibit = 1u;
-    s_valid_snapshot_streak = 0u;
     (void)sh3673510_control_set_balance(0u);
-    s_balance_mask = 0u;
     (void)sh3673510_control_set_fets(0u, 0u);
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
 
@@ -505,9 +496,12 @@ static uint8_t publish_measurements(void)
     if (SH3673520_CurrentRawToMilliAmp(current.cadc_raw,
         SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return 0u;
 
+    /* Reject the whole frame before modifying the shared report. */
+    for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
+        if (cell[i] < 0L || cell[i] > 65535L) return 0u;
+
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
         uint16_t mv;
-        if (cell[i] < 0L || cell[i] > 65535L) return 0u;
         mv = (uint16_t)cell[i];
         g_stCellInfoReport.u16VCell[i] = mv;
         if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
@@ -638,13 +632,11 @@ void sh3673510_bms_afe_init(void)
     for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
         g_stCellInfoReport.u16VCell[i] = SH3510_MISSING_CELL_MV;
     memset(&s_aux, 0, sizeof(s_aux));
-    s_snapshot_valid = 0u;
-    s_balance_mask = 0u;
     s_hw_afe_error = 0u;
     s_requested_charge_on = 0u;
     s_requested_discharge_on = 0u;
-    s_output_inhibit = 1u;
-    s_valid_snapshot_streak = 0u;
+
+    s_snapshot_valid = 0u;
     /* Preserve s_short_latched across AFE communication reinitialization. */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -681,8 +673,6 @@ void sh3673510_bms_afe_sample(void)
     }
 
     s_snapshot_valid = 1u;
-    if (s_valid_snapshot_streak < SH3510_VALID_SNAPSHOT_RELEASE_COUNT) ++s_valid_snapshot_streak;
-    if (s_valid_snapshot_streak >= SH3510_VALID_SNAPSHOT_RELEASE_COUNT) s_output_inhibit = 0u;
     note_comm_ok();
     /* Common features owns heater/balance; common guard owns final FET apply. */
 }
@@ -715,6 +705,27 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
     } else if (s_snapshot_valid) {
         (void)sh3510_apply_requested_fets();
     }
+}
+
+/* Main-loop RAM query: validity and values belong to the last accepted frame. */
+uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
+{
+    if (out == 0) return 0u;
+    memset(out, 0, sizeof(*out));
+    if (!s_snapshot_valid) return 0u;
+    out->valid = 1u;
+    out->cell_count = SH3673510_BOARD_CELL_COUNT;
+    out->battery_temp_valid = battery_temperature_snapshot(&out->battery_temp_min_x10,
+                                                            &out->battery_temp_max_x10);
+#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
+    out->heater_temp_valid = s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX];
+    out->heater_temp_x10 = g_stCellInfoReport.u16Temperature[AFE1_TEMP3];
+#endif
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
+    out->mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX];
+    out->mos_temp_x10 = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+#endif
+    return 1u;
 }
 
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
@@ -755,7 +766,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
 
     if (s_output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
     if (s_snapshot_valid) detail->backend_state |= DIAG_SH_SNAPSHOT_VALID;
-    if (s_output_inhibit) detail->backend_state |= DIAG_SH_OUTPUT_INHIBIT;
+    if (!bms_afe_samples_qualified()) detail->backend_state |= DIAG_SH_OUTPUT_INHIBIT;
     if (s_hw_afe_error) detail->backend_state |= DIAG_SH_E2P_ERROR;
     if (s_hw_charge_protect) detail->backend_state |= DIAG_SH_CHARGE_HW_BLOCK;
     if (s_hw_discharge_protect) detail->backend_state |= DIAG_SH_DISCHARGE_HW_BLOCK;
@@ -775,7 +786,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
 #endif
 
     if (!s_output_enabled) common |= DIAG_BLOCK_OUTPUT;
-    if (!s_snapshot_valid || s_output_inhibit || s_hw_afe_error ||
+    if (!s_snapshot_valid || !bms_afe_samples_qualified() || s_hw_afe_error ||
         s_afe_reconfigure_required || bms_error_get(BMS_ERROR_AFE1) ||
         bms_error_get(BMS_ERROR_SPI)) common |= DIAG_BLOCK_COMM;
     if (bms_error_get(BMS_ERROR_TEMP_BREAK)) common |= DIAG_BLOCK_TEMP;
@@ -796,8 +807,7 @@ uint8_t sh3673510_bms_afe_sleep(void)
 {
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
-    s_output_inhibit = 1u;
-    s_valid_snapshot_streak = 0u;
+
     s_fet_command_valid = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
     /* Even an aborted transition invalidates the old driver/sample evidence. */
@@ -806,6 +816,5 @@ uint8_t sh3673510_bms_afe_sleep(void)
         note_comm_error();
         return 0u;
     }
-    s_balance_mask = 0u;
     return 1u;
 }

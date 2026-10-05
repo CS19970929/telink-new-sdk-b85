@@ -12,7 +12,9 @@ MOD = Sources(ROOT)
 
 
 def function(source, signature):
-    start = source.index(signature)
+    match = re.search(re.escape(signature) + r"[^;{}]*\)\s*\{", source)
+    if match is None: raise AssertionError(signature)
+    start = match.start()
     end = source.index("{", start) + 1
     depth = 1
     while depth:
@@ -22,7 +24,7 @@ def function(source, signature):
 
 
 def main():
-    app = (MOD / "app.c").read_text(encoding="utf-8")
+    app = selected_source(MOD / "app.c")
     # Exercise the actual event deadline gate, stub only event payload collection.
     event = function(app, "static void app_event_log_1s_task(")
     event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]

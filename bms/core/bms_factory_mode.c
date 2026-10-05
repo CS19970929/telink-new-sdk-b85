@@ -112,8 +112,7 @@ void Runtime_PrepareForDeepSleep(void)
 
 void Runtime_CancelPendingDeepSleep(void)
 {
-    g_runtime_last_tick_32k = pm_get_32k_tick();
-    g_runtime_tick_ready = 1u;
+    Runtime_PrepareForDeepSleep();
 }
 
 bms_mode_t Runtime_GetMode(void) { return g_mode; }

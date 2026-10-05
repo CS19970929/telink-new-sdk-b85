@@ -131,7 +131,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         if (!bms_state_store_set_soc_cycle(soc, SOC_Calculate_Element.u8DSG_SOC_Int, cycle))
             return finish(4u);
         SOC_Calculate_Element.u32Cycle_times = cycle;
-        set_soc_param((u8)soc, 0u, 1u);
+        set_soc_param((u8)soc, 1u);
         return finish(0u);
     }
     if (r == 0x2318u)

@@ -34,7 +34,7 @@ assert 'void bms_afe_hw_profile_build_default' in p
 assert 'SH3673510_HW_DEFAULT_COV_MV' in p
 assert 'SH3673510_HW_DEFAULT_OCD1_A10' in p
 assert 'SH3673510_HW_DEFAULT_OCC1_A10' in p
-assert 'sh3510_effective_current_a10' in p
+assert 'sh3673510_quantize_current_a10' in p
 assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in p
 assert 'bms_afe_hw_profile_set(&candidate)' in p
 commit = m[m.index('static u8 commit_protection_update'):m.index('static u16 u16be(', m.index('static u8 commit_protection_update'))]

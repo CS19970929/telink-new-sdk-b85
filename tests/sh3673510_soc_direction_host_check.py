@@ -18,7 +18,7 @@ header = (APP / 'bms_afe.h').read_text(encoding='utf-8')
 soc = (APP / 'bms_soc.c').read_text(encoding='utf-8')
 app = (APP / 'app.c').read_text(encoding='utf-8')
 diag = (APP / 'bms_diag.c').read_text(encoding='utf-8')
-assert 'sample_valid ? sample.current_ma : 0' in app
+assert 'valid ? m.current_ma : 0' in app
 assert 'update32(194u, (uint32_t)raw_current_ma)' in diag
 assert 's_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma)' in (APP / 'sh3673510_bms.c').read_text(encoding='utf8')
 assert 'update32(196u, (uint32_t)current_ma)' in diag

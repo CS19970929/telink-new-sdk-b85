@@ -57,6 +57,7 @@ static bms_mode_t Runtime_GetMode(void){return MODE_NORMAL;}
 static void Runtime_Poll(void){note('R');}
 static void bms_diag_runtime_mode(u8 factory){(void)factory;}
 static void bus_mux_task(void){note('X');}
+static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}
 static void bms_state_store_update_and_log_if_changed(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
 static void blt_pm_proc(void){note('P');}

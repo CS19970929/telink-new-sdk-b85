@@ -21,4 +21,7 @@ void sif_send_data_handle(void);
 void sif_timer_init(void);
 void sif_timer_irq_handler(void);
 
+/* Main-loop packet producer; no report access or packet assembly in IRQ. */
+void sif_prepare_task(uint32_t sample_tick);
+
 #endif

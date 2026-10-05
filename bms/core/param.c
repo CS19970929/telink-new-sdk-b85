@@ -15,7 +15,6 @@
 #include "bms_factory_mode.h"
 #include <string.h>
 
-
 PARAM_T g_tParam;
 static uint8_t s_protection_params_valid;
 static uint8_t s_storage_startup_valid;
@@ -64,19 +63,31 @@ void LoadParam(void)
     s_protection_params_valid = 1u;
 }
 
+/* Candidate is private until both validation and durable save succeed. */
+uint8_t bms_protection_params_commit(const struct PRT_E2ROM_PARAS *candidate)
+{
+    if (!bms_sw_protection_validate_params(candidate)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0u;
+    }
+    if (!bms_config_store_set_protect(candidate)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0u;
+    }
+    g_tParam.protect = *candidate;
+    s_protection_params_valid = 1u;
+    return 1u;
+}
+
 uint8_t SaveParam(void)
 {
+    /* Compatibility for existing in-memory owners; invalid live data inhibits. */
     if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
         s_protection_params_valid = 0u;
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
     }
-    if (!bms_config_store_set_protect(&g_tParam.protect)) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return 0u;
-    }
-    s_protection_params_valid = 1u;
-    return 1u;
+    return bms_protection_params_commit(&g_tParam.protect);
 }
 
 void bms_parameters_startup(void)

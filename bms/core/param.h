@@ -20,7 +20,6 @@
 #include "conf.h"
 #include "bms_protection_params.h"
 
-
 #define COV_1           3750
 #define COV_2           3750
 #define COV_3           3750
@@ -51,13 +50,11 @@
 // #define BOV_recover     (2800)
 #define BOV_filter3     100
 
-
 #define BUV_1           (300 * SeriesNum)
 #define BUV_2           (300 * SeriesNum)
 #define BUV_3           (290 * SeriesNum)
 #define BUV_recover     (300 * SeriesNum)
 #define BUV_filter3     100
-
 
 #define OTC_1           ((40 + 40) * 10)
 #define OTC_2           ((50 + 40) * 10)
@@ -129,10 +126,10 @@
 
 /* 公共参数接口 */
 
-
 void LoadParam(void);
 void bms_parameters_startup(void);
 uint8_t SaveParam(void);
+uint8_t bms_protection_params_commit(const struct PRT_E2ROM_PARAS *candidate);
 /* False means the loaded software-protection record is not safe to execute.
  * The record remains readable for diagnosis, but the common AFE guard blocks
  * both CHG and DSG until a complete valid record is persisted. */

@@ -27,11 +27,13 @@
 | `tx_dma_done_count` | UART TX DMA IRQ 次数（仅计当前帧第一次） |
 | `tx_uart_done_count` | DMA IRQ 后首次观察到 B85 `TX_DONE` 的次数 |
 | `tx_complete_count` | `TX_DONE` 且完整帧时间到达后，PA1 切回 RX 的次数 |
-| `tx_timeout_count` | 从启动到完成超过 50 ms 的帧数；只记录，不强制关 DE |
+| `tx_timeout_count` | 活动帧超过 50 ms 的中止次数；主循环停止 DMA、重置 UART 并释放 DE，不计成功完成 |
 | `tx_busy_reject_count` | 上一帧仍活动或 UART 繁忙时被拒绝的新发送次数 |
 | `last_tx_len` | 最近一次启动的 DMA 数据长度 |
 | `de_state` | 最近一次软件写入 PA1 的方向，`1` 为发送 |
 | `pattern_index` | 下一帧编号，范围 `0..20`；`20` 为固定 CRC 帧 |
+
+TX IRQ 只交付完成标志；UART 状态、最小 hold、超时中止和 DE 切换都由主循环处理。超时恢复保持原 UART 分频/引脚及诊断模式 RX 策略，重新发送必须作为新帧申请。主循环若被长期阻塞，50 ms 是恢复判定阈值，不是硬实时响应上限。
 
 计数是诊断线索，不是物理线上的字节计数。正常模式也记录同一组计数；当前没有新增 Modbus 寄存器或修改协议。长时间暂停调试器可能令 `tx_timeout_count` 增加。正常完成时四个 `tx_*_count` 应同步增加，`de_state` 应在帧间为 `0`。
 

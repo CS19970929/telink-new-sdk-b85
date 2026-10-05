@@ -253,7 +253,6 @@ int main(int argc,char **argv){
  config_store_write_ok=0;assert(!bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==600);
  config_store_write_ok=1;assert(bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==900);
 
-
  /* Host-only 64-bit oracle, including INT32_MIN and retained remainders. */
  setup(1,60,3330);
  uint32_t random_state=17,ref_remainder=0;
@@ -264,7 +263,7 @@ int main(int argc,char **argv){
   g_soc_input_valid=1;g_soc_interval_32k=(random_state%12800u)+1u;
   uint32_t magnitude=g_soc_input_current_ma<0?0u-(uint32_t)g_soc_input_current_ma:(uint32_t)g_soc_input_current_ma;
   uint64_t reference=(uint64_t)magnitude*g_soc_interval_32k+ref_remainder;
-  assert(soc_integral_delta_from_current(0,SOC_INTEGRAL_DIR_DSG)==reference/3200000u);
+  assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG)==reference/3200000u);
   ref_remainder=(uint32_t)(reference%3200000u);
   assert(g_soc_integral_tick_remainder==ref_remainder);
  }

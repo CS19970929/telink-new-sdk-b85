@@ -7,9 +7,12 @@
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
+#if BMS_DIAG_TRACE_ENABLE
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
-static uint32_t s_sequence, s_trace_sequence;
+static uint32_t s_trace_sequence;
 static uint16_t s_next;
+#endif
+static uint32_t s_sequence;
 static uint8_t s_frozen;
 
 static void put32(uint16_t *p, uint32_t value)
@@ -36,12 +39,13 @@ static uint8_t update32(uint16_t offset, uint32_t value)
 
 void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 {
-    uint16_t *p = s_trace[s_next];
     BMS_LOG(event == DIAG_EV_STORAGE ? BMS_LOG_WARN : BMS_LOG_INFO,
             (event == DIAG_EV_STORAGE || event == DIAG_EV_INIT) ? BMS_LOG_STORAGE :
             (event == DIAG_EV_MOS || event == DIAG_EV_PROTECTION) ? BMS_LOG_PROTECT :
             (event == DIAG_EV_AFE || event == DIAG_EV_SAMPLE_STATE || event == DIAG_EV_CURRENT_RECOVERY) ? BMS_LOG_AFE :
             event == DIAG_EV_PM_STATE ? BMS_LOG_POWER : BMS_LOG_SYSTEM, event, arg0, arg1);
+#if BMS_DIAG_TRACE_ENABLE
+    uint16_t *p = s_trace[s_next];
     put32(p, ++s_trace_sequence); put32(p + 2, bms_diag_tick());
     p[4] = event; p[5] = 0u; put32(p + 6, arg0); put32(p + 8, arg1);
     p[10] = 0u; p[11] = 0u;
@@ -50,13 +54,20 @@ void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
     else if (get32(&s_words[10]) != 0xFFFFFFFFu)
         put32(&s_words[10], get32(&s_words[10]) + 1u);
     put32(&s_words[8], s_trace_sequence);
+#else
+    (void)event; (void)arg0; (void)arg1;
+#endif
     changed();
 }
 void bms_diag_init(void)
 {
     bms_debug_log_init();
-    memset(s_words, 0, sizeof(s_words)); memset(s_trace, 0, sizeof(s_trace));
-    s_sequence = 0u; s_trace_sequence = 0u; s_next = 0u; s_frozen = 0u;
+    memset(s_words, 0, sizeof(s_words));
+#if BMS_DIAG_TRACE_ENABLE
+    memset(s_trace, 0, sizeof(s_trace));
+    s_trace_sequence = 0u; s_next = 0u;
+#endif
+    s_sequence = 0u; s_frozen = 0u;
     s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = BMS_DIAG_CAPABILITIES;
     s_words[BMS_DIAG_RUNTIME_OFFSET] = BMS_DIAG_RUNTIME_VERSION;
     put32(&s_words[22], BMS_DIAG_BUILD_ID);
@@ -321,8 +332,12 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
         else if (offset == 7u) word = (uint16_t)(tick >> 16);
         else if (offset < 256u) word = s_words[offset];
         else {
+#if BMS_DIAG_TRACE_ENABLE
             offset = (uint16_t)(offset - 256u);
             word = s_trace[offset / BMS_DIAG_TRACE_WORDS][offset % BMS_DIAG_TRACE_WORDS];
+#else
+            word = 0u;
+#endif
         }
         bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
     }

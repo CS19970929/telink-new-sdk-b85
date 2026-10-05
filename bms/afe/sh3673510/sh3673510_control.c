@@ -11,13 +11,13 @@
 #include "sh3673520_port.h"
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
+#include "sh3673510_quantize.h"
 
 static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
 
 /* Selected SH product 10K NTC table: resistance in 100ohm, temperature=(C+40)*10. */
-
 
 static void sh3510_gpio_input(GPIO_PinTypeDef pin)
 {
@@ -146,35 +146,6 @@ static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
     return 1u;
 }
 
-static uint32_t sh3510_current_a10_to_sense_uv(uint16_t current_a10)
-{
-    return ((uint32_t)current_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
-}
-
-static uint16_t sh3510_sense_uv_to_current_a10(uint32_t sense_uv)
-{
-    uint32_t value = (sense_uv * 10u + SH3673510_BOARD_SHUNT_UOHM - 1u) /
-                     SH3673510_BOARD_SHUNT_UOHM;
-    return (uint16_t)((value > 65535u) ? 65535u : value);
-}
-
-static uint8_t sh3510_step_code_ceiling(uint32_t requested_uv,
-                                         uint32_t step_uv,
-                                         uint8_t max_code)
-{
-    uint32_t steps;
-    if (step_uv == 0u) return 0u;
-    steps = (requested_uv + step_uv - 1u) / step_uv;
-    if (steps == 0u) steps = 1u;
-    if (steps > (uint32_t)max_code + 1u) steps = (uint32_t)max_code + 1u;
-    return (uint8_t)(steps - 1u);
-}
-
-static uint8_t sh3510_validate_protection(bms_afe_hw_profile_t *profile)
-{
-    return bms_afe_hw_profile_get(profile);
-}
-
 /* 把独立硬件 profile 量化为本芯片寄存器并验证；effective 值用于报告真实可表示阈值。 */
 uint8_t sh3673510_control_apply_protection(void)
 {
@@ -186,8 +157,7 @@ uint8_t sh3673510_control_apply_protection(void)
     uint32_t occ_delay_ms;
     uint16_t ov_code;
     uint16_t uv_code;
-    uint32_t sense_uv;
-    uint32_t actual_uv;
+    uint16_t actual_a10;
     uint8_t ov_dly;
     uint8_t uv_dly;
     uint8_t regv;
@@ -197,7 +167,7 @@ uint8_t sh3673510_control_apply_protection(void)
     uint8_t ok = 1u;
 
     s_protection_actual.valid = 0u;
-    if (!s_control_ready || !sh3510_validate_protection(&hw)) return 0u;
+    if (!s_control_ready || !bms_afe_hw_profile_get(&hw)) return 0u;
     ov_delay_ms = hw.cov_delay_ms;
     uv_delay_ms = hw.cuv_delay_ms;
     ocd1_delay_ms = hw.ocd1_delay_ms;
@@ -221,16 +191,15 @@ uint8_t sh3673510_control_apply_protection(void)
     ok &= sh3510_write_verify(SH3673520_REG_UVT_UVH, high, 0x73u);
     ok &= sh3510_write_verify(SH3673520_REG_UVL, low, 0xFFu);
 
-    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd1_a10);
-    code = sh3510_step_code_ceiling(sense_uv, 5000u, 15u);
+    actual_a10 = sh3673510_quantize_current_a10(hw.ocd1_a10,
+        SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, &code);
     regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd1_delay_ms) << 4) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCD1V_OCD1T, regv, 0x7Fu);
-    actual_uv = ((uint32_t)code + 1u) * 5000u;
-    s_protection_actual.ocd1_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd1_a10 = actual_a10;
     s_protection_actual.ocd1_delay_ms = s_ov_delay_ms[(regv >> 4) & 0x07u];
 
-    sense_uv = sh3510_current_a10_to_sense_uv(hw.ocd2_a10);
-    code = sh3510_step_code_ceiling(sense_uv, 10000u, 15u);
+    actual_a10 = sh3673510_quantize_current_a10(hw.ocd2_a10,
+        SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, &code);
     {
         uint32_t steps = (ocd2_delay_ms + 24u) / 25u;
         uint8_t dly;
@@ -240,8 +209,7 @@ uint8_t sh3673510_control_apply_protection(void)
         regv = (uint8_t)((dly << 4) | code);
     }
     ok &= sh3510_write_verify(SH3673520_REG_OCD2V_OCD2T, regv, 0xFFu);
-    actual_uv = ((uint32_t)code + 1u) * 10000u;
-    s_protection_actual.ocd2_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.ocd2_a10 = actual_a10;
     s_protection_actual.ocd2_delay_ms = (uint16_t)((((regv >> 4) & 0x0Fu) + 1u) * 25u);
 
     {
@@ -256,14 +224,15 @@ uint8_t sh3673510_control_apply_protection(void)
         }
         regv = (uint8_t)((mult_code << 4) | delay_code);
         ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
+        s_protection_actual.sc_a10 = (uint16_t)(base * sc_mult[mult_code]);
+        s_protection_actual.sc_delay_us = sc_delay[delay_code];
     }
 
-    sense_uv = sh3510_current_a10_to_sense_uv(hw.occ1_a10);
-    code = sh3510_step_code_ceiling(sense_uv, 1375u, 31u);
+    actual_a10 = sh3673510_quantize_current_a10(hw.occ1_a10,
+        SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, &code);
     regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, occ_delay_ms) << 5) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCCV_OCCT, regv, 0xFFu);
-    actual_uv = ((uint32_t)code + 1u) * 1375u;
-    s_protection_actual.occ_a10 = sh3510_sense_uv_to_current_a10(actual_uv);
+    s_protection_actual.occ_a10 = actual_a10;
     s_protection_actual.occ_delay_ms = s_ov_delay_ms[(regv >> 5) & 0x07u];
 
     if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;

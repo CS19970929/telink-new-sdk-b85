@@ -55,6 +55,7 @@
 #endif
 
 void task_terminate(u8 e, u8 *p, int n);
+static void app_sample_task(void);
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
                              uint32_t sample_tick_32k);
 static void app_sample_wakeup(int type);
@@ -91,7 +92,6 @@ static bool s_low_power_mode;
 bool deepsleep_en = false;
 // nvm_cfg_t nvm_cfg;
 
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #define APP_SUSPEND_EXIT_CURRENT_MA 500
 #define APP_POWER_OFF_RETRY_SECONDS 5u
@@ -113,7 +113,6 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 /* SDK low-power callback only schedules work. I2C, SOC and Flash stay in the
  * cooperative main loop, including when invoked from a suspend callback. */
 
-
 static void app_schedule_sample_wakeup(void)
 {
     /* Fault recovery needs consecutive samples even during the power test.
@@ -124,16 +123,13 @@ static void app_schedule_sample_wakeup(void)
         bls_pm_setAppWakeupLowPower(0u, 0u);
 }
 
-
 #else
-
 
 static void app_schedule_sample_wakeup(void)
 {
     bls_pm_setAppWakeupLowPower(
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
 }
-
 
 static UINT8 board_switch_is_on(void)
 {
@@ -143,7 +139,6 @@ static UINT8 board_switch_is_on(void)
 	return 1u;
 #endif
 }
-
 
 #endif
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
@@ -174,22 +169,20 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 	return elapsed_sec;
 }
 
-
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 static void app_event_log_1s_task(void)
 {
 	bms_event_log_sample_t sample;
-	u8 eeprom_err;
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     _attribute_data_retention_ static u32 event_log_tick = 0;
 
     if (!clock_time_exceed(event_log_tick, 1000 * 1000)) return;
     event_log_tick = clock_time();
+#endif
 
 	memset(&sample, 0, sizeof(sample));
-	sample.sleep = s_low_power_mode ? 1u : 0u;
+
 	sample.balance = ((g_stCellInfoReport.u16BalanceFlag1 != 0u) || (g_stCellInfoReport.u16BalanceFlag2 != 0u)) ? 1u : 0u;
-	sample.heat = g_bms_system_status.bits.b1Status_Heat ? 1u : 0u;
-	sample.cool = g_bms_system_status.bits.b1Status_Cool ? 1u : 0u;
 
 	sample.vcell_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp ? 1u : 0u;
 	sample.vbus_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp ? 1u : 0u;
@@ -204,11 +197,6 @@ static void app_event_log_1s_task(void)
 	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
 
 	sample.afe2_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
-	eeprom_err = (bms_error_get(BMS_ERROR_EEPROM_STORE) ||
-				  bms_error_get(BMS_ERROR_EEPROM_COM))
-					 ? 1u
-					 : 0u;
-	sample.eeprom_err = eeprom_err;
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
@@ -222,6 +210,8 @@ static void app_event_log_1s_task(void)
     }
 #endif
 }
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 
 static int app_enter_power_off(void)
 {
@@ -325,50 +315,7 @@ static int app_enter_acc_sleep(void)
     return 1;
 }
 
-
 #else
-static void app_event_log_1s_task(void)
-{
-	bms_event_log_sample_t sample;
-	u8 eeprom_err;
-
-	memset(&sample, 0, sizeof(sample));
-	sample.sleep = s_low_power_mode ? 1u : 0u;
-	sample.balance = ((g_stCellInfoReport.u16BalanceFlag1 != 0u) || (g_stCellInfoReport.u16BalanceFlag2 != 0u)) ? 1u : 0u;
-	sample.heat = g_bms_system_status.bits.b1Status_Heat ? 1u : 0u;
-	sample.cool = g_bms_system_status.bits.b1Status_Cool ? 1u : 0u;
-
-	sample.vcell_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp ? 1u : 0u;
-	sample.vbus_ovp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatOvp ? 1u : 0u;
-	sample.chg_ocp = g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp ? 1u : 0u;
-	sample.vcell_uvp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp ? 1u : 0u;
-	sample.vbus_uvp = g_stCellInfoReport.unMdlFault_Third.bits.b1BatUvp ? 1u : 0u;
-	sample.dsg_ocp = g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp ? 1u : 0u;
-	sample.chg_utp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgUtp ? 1u : 0u;
-	sample.dsg_utp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp ? 1u : 0u;
-	sample.chg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellChgOtp ? 1u : 0u;
-	sample.dsg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
-	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
-
-	sample.afe2_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
-	eeprom_err = (bms_error_get(BMS_ERROR_EEPROM_STORE) ||
-				  bms_error_get(BMS_ERROR_EEPROM_COM))
-					 ? 1u
-					 : 0u;
-	sample.eeprom_err = eeprom_err;
-	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
-
-	bms_event_log_poll_1s(&sample);
-#if BMS_DEBUG_LOG_ENABLE
-    {
-        static u32 previous_exits;
-        u32 exits = s_debug_suspend_exits;
-        if (exits != previous_exits)
-            BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_POWER, BMS_LOG_PM_CYCLE, exits - previous_exits, exits);
-        previous_exits = exits;
-    }
-#endif
-}
 
 static int app_deepsleep_pad_wakeup_active(void)
 {
@@ -429,7 +376,6 @@ static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
 #define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
 
-
 #endif
 #define ADV_IDLE_ENTER_DEEP_TIME 60	 // 60 s
 #define CONN_IDLE_ENTER_DEEP_TIME 60 // 60 s
@@ -462,20 +408,17 @@ _attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PU
 /* must be: 2^n, (power of 2);at least 4; recommended value: 4, 8, 16 */
 #define RX_FIFO_NUM 8
 
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct): maxTxOct + 10, then 4 byte align */
 #define TX_FIFO_SIZE 40
 /* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
 #define TX_FIFO_NUM 16
 
-
 #else
 /* CAL_LL_ACL_TX_BUF_SIZE(maxTxOct):  maxTxOct + 10, then 4 byte align */
 #define TX_FIFO_SIZE 40
 /* must be: (2^n), (power of 2); at least 8; recommended value: 8, 16, 32, other value not allowed. */
 #define TX_FIFO_NUM 16
-
 
 #endif
 _attribute_data_retention_ u8 blt_rxfifo_b[RX_FIFO_SIZE * RX_FIFO_NUM] = {0};
@@ -502,9 +445,7 @@ u8 tbl_advDataLen;
 u8 tbl_scanRsp[31];
 u8 tbl_scanRspLen;
 
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-
 
 void mos_update(void)
 {
@@ -540,9 +481,7 @@ static void board_init(void)
 	gpio_write(LED_BLUE_PIN, 1);
 }
 
-
 #else
-
 
 void mos_update(void)
 {
@@ -555,7 +494,6 @@ void mos_update(void)
 	g_bms_system_status.bits.b1Status_Cool = 0u;
 	(void)bms_afe_set_fets(chg_target, dsg_target);
 }
-
 
 static void board_init(void)
 {
@@ -581,7 +519,6 @@ static void board_init(void)
 	gpio_set_output_en(BMS_BOARD_CMNT_WK_PIN, 0);
 	gpio_set_input_en(BMS_BOARD_CMNT_WK_PIN, 1);
 }
-
 
 #endif
 _attribute_data_retention_ int device_in_connection_state;
@@ -616,7 +553,6 @@ void app_ble_restore_normal_power(void)
 
 _attribute_data_retention_ u32 latest_user_event_tick;
 
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_ENTER"
@@ -637,31 +573,25 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_ADV_DURATION_TIMEOUT"
  */
 
-
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_CONNECT"
  */
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_TERMINATE"
  */
 
-
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_EXIT"
  */
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
  */
 
-
 /**
  * @brief      callback function of Host Event
  */
-
 
 /**
  * @brief      power management code for application
@@ -785,7 +715,6 @@ void blt_pm_proc(void)
  * @brief		user initialization when MCU power on or wake_up from deepSleep mode
  */
 
-
 /**
  * @brief		user initialization when MCU wake_up from deepSleep_retention mode
  */
@@ -795,45 +724,6 @@ void blt_pm_proc(void)
  * sample-count filters and starve BLE/UART. The wake callback only sets due. */
 
 /* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
-static void app_sample_task(void)
-{
-    bms_afe_aux_measurements_t m;
-    bms_soc_diag_t soc_diag;
-    u8 valid;
-
-    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
-
-    s_sample_due = 0u;
-    s_sample_tick = clock_time();
-    bms_afe_sample();
-    valid = app_get_fresh_measurements(&m);
-    app_update_soc_from_sample(valid, valid ? m.current_ma : 0,
-                           valid ? m.sample_tick_32k : pm_get_32k_tick());
-    mos_update();
-
-    bms_diag_runtime_sample(valid,
-                            valid ? m.raw_current_ma : 0,
-                            valid ? m.current_ma : 0,
-                            valid ? m.sample_tick_32k : pm_get_32k_tick(),
-                            bms_afe_current_recovery_pending());
-    bms_soc_get_diag(&soc_diag);
-    bms_diag_runtime_soc(soc_diag.soc_estimate, soc_diag.soc_display,
-                         soc_diag.ocv_state, soc_diag.ocv_center,
-                         soc_diag.ocv_low, soc_diag.ocv_high,
-                         soc_diag.ocv_confidence, soc_diag.rest_seconds,
-                         soc_diag.learning_state, soc_diag.capacity_learned,
-                         soc_diag.learned_capacity_0p1ah,
-                         soc_diag.current_deadband_ma);
-    bms_diag_runtime_soc_extended(&soc_diag);
-    bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
-                            g_stCellInfoReport.unMdlFault_Second.all,
-                            g_stCellInfoReport.unMdlFault_Third.all);
-
-    /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
-    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
-    app_schedule_sample_wakeup();
-    gpio_toggle(LED_BLUE_PIN);
-}
 
 /**
  * @brief		This is main_loop function
@@ -879,6 +769,7 @@ _attribute_no_inline_ void main_loop(void)
     app_event_log_1s_task();
 
 	bus_mux_task();
+    sif_prepare_task(s_sample_tick);
 #ifdef _FUNC_UART_
 	main_loop_modbus();
 #endif
@@ -913,7 +804,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @return     none
  */
 
-
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_CONNECT"
  * @param[in]  e - LinkLayer Event type
@@ -921,7 +811,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_TERMINATE"
@@ -931,7 +820,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @return     none
  */
 
-
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_SUSPEND_EXIT"
  * @param[in]  e - LinkLayer Event type
@@ -939,7 +827,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     none
  */
-
 
 /**
  * @brief      callback function of LinkLayer Event "BLT_EV_FLAG_DATA_LENGTH_EXCHANGE"
@@ -949,7 +836,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @return     none
  */
 
-
 /**
  * @brief      callback function of Host Event
  * @param[in]  h - Host Event type
@@ -957,7 +843,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @param[in]  n - data length of event
  * @return     0
  */
-
 
 /**
  * @brief      power management code for application
@@ -1056,7 +941,6 @@ void blt_pm_proc(void)
 		}
 	}
 
-
 	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
 	s_low_power_mode = true;
 	// do not care about keyScan/button_detect power here, if you care about this, please refer to "ble_remote" demo
@@ -1109,7 +993,6 @@ void blt_pm_proc(void)
  * @return      none
  */
 
-
 /**
  * @brief		user initialization when MCU wake_up from deepSleep_retention mode
  * @param[in]	none
@@ -1121,38 +1004,6 @@ void blt_pm_proc(void)
 /////////////////////////////////////////////////////////////////////
 
 /* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
-static void app_sample_task(void)
-{
-    bms_afe_aux_measurements_t sample;
-    u8 sample_valid;
-
-    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
-        return;
-
-    s_sample_due = 0u;
-    s_sample_tick = clock_time();
-    bms_afe_sample();
-
-    /* Do not advance coulomb/OCV/filter time from a cached pre-fault sample.
-     * The common guard exposes auxiliary data only after communication and
-     * fresh-snapshot qualification have both succeeded. */
-    sample_valid = bms_afe_get_aux_measurements(&sample);
-    app_update_soc_from_sample(sample_valid,
-                            sample_valid ? sample.current_ma : 0,
-                            sample_valid ? sample.sample_tick_32k : pm_get_32k_tick());
-
-    mos_update();
-    bms_diag_poll_runtime(sample_valid,
-                          sample_valid ? sample.current_ma : 0,
-                          sample_valid ? sample.sample_tick_32k : pm_get_32k_tick(),
-                          (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
-
-    /* Coalesce an overrun instead of executing multiple catch-up samples:
-     * software protection filters are sample-count based at 200 ms. */
-    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US))
-        s_sample_due = 1u;
-    app_schedule_sample_wakeup();
-}
 
 /**
  * @brief		This is main_loop function
@@ -1200,6 +1051,60 @@ _attribute_no_inline_ void main_loop(void)
 }
 
 #endif
+
+static void app_sample_task(void)
+{
+    bms_afe_aux_measurements_t m;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    bms_soc_diag_t soc_diag;
+#endif
+    u8 valid;
+
+    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
+
+    s_sample_due = 0u;
+    s_sample_tick = clock_time();
+    bms_afe_sample();
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    valid = app_get_fresh_measurements(&m);
+#else
+    valid = bms_afe_get_aux_measurements(&m);
+#endif
+    app_update_soc_from_sample(valid, valid ? m.current_ma : 0,
+                           valid ? m.sample_tick_32k : pm_get_32k_tick());
+    mos_update();
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    bms_diag_runtime_sample(valid,
+                            valid ? m.raw_current_ma : 0,
+                            valid ? m.current_ma : 0,
+                            valid ? m.sample_tick_32k : pm_get_32k_tick(),
+                            bms_afe_current_recovery_pending());
+    bms_soc_get_diag(&soc_diag);
+    bms_diag_runtime_soc(soc_diag.soc_estimate, soc_diag.soc_display,
+                         soc_diag.ocv_state, soc_diag.ocv_center,
+                         soc_diag.ocv_low, soc_diag.ocv_high,
+                         soc_diag.ocv_confidence, soc_diag.rest_seconds,
+                         soc_diag.learning_state, soc_diag.capacity_learned,
+                         soc_diag.learned_capacity_0p1ah,
+                         soc_diag.current_deadband_ma);
+    bms_diag_runtime_soc_extended(&soc_diag);
+    bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
+                            g_stCellInfoReport.unMdlFault_Second.all,
+                            g_stCellInfoReport.unMdlFault_Third.all);
+#else
+    bms_diag_poll_runtime(valid, valid ? m.current_ma : 0,
+                         valid ? m.sample_tick_32k : pm_get_32k_tick(),
+                         (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
+#endif
+
+    /* Keep a fixed acquisition cadence even if BLE advertises at 800 ms. */
+    if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
+    app_schedule_sample_wakeup();
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    gpio_toggle(LED_BLUE_PIN);
+#endif
+}
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */
 static void app_sample_wakeup(int type)
@@ -1713,22 +1618,10 @@ void task_terminate(u8 e, u8 *p, int n)
 	device_in_connection_state = 0;
 
 	tlk_contr_evt_terminate_t *pEvt = (tlk_contr_evt_terminate_t *)p;
-	if (pEvt->terminate_reason == HCI_ERR_CONN_TIMEOUT)
-	{
-	}
-	else if (pEvt->terminate_reason == HCI_ERR_REMOTE_USER_TERM_CONN)
-	{
-	}
-	else if (pEvt->terminate_reason == HCI_ERR_CONN_TERM_MIC_FAILURE)
-	{
-	}
-	else
-	{
-	}
-
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    /* Device-wide authorization is revoked on every BLE disconnect. UART
+     * must obtain a fresh token after this boundary as well. */
     bms_afe_hw_access_close();
-#endif /* Drop incomplete fragments and authorization on disconnect. */
+
 	tlkapi_printf(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] disconnect, reason 0x%x\n", pEvt->terminate_reason);
 
 #if (BLE_APP_PM_ENABLE)

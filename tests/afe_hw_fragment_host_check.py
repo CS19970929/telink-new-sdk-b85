@@ -10,6 +10,7 @@ def main():
     strip=lambda name:re.sub(r'^#include[^\n]*','',(MOD/name).read_text(encoding='utf-8'),flags=re.M)
     code=(ROOT/'tests/fixtures/afe_hw_fragments.c').read_text(encoding='utf-8')
     code=code.replace('/* HEADER */',strip('bms_afe_hw_access.h'))
+    code=code.replace('/* CRC */',strip('bms_crc.c'))
     code=code.replace('/* ACCESS */',strip('bms_afe_hw_access.c'))
     gate=function((MOD/'modbus_rtu.c').read_text(encoding='utf-8'),'u8 bms_afe_hw_write_complete_frame(')
     code=code.replace('/* GATE */',gate)

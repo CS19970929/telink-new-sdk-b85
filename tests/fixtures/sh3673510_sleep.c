@@ -10,9 +10,9 @@ enum { DEEPSLEEP_MODE = 1, PM_WAKEUP_PAD = 1, STATUS_GPIO_ERR_NO_ENTER_PM = 256 
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE 2u
 #define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u
 static uint8_t s_control_ready, s_afe_sleeping;
-static uint8_t s_short_clear_pending, s_output_inhibit, s_valid_snapshot_streak;
+static uint8_t s_short_clear_pending;
 static uint8_t s_fet_command_valid, s_snapshot_valid;
-static uint16_t s_short_release_count, s_balance_mask, s_hw_recovery_count[9];
+static uint16_t s_short_release_count, s_hw_recovery_count[9];
 static unsigned errors, invalidations, comm_errors, failures, assertions;
 static unsigned bus_calls, balance_calls, fet_calls, sleep_writes, normal_writes;
 static unsigned pm_calls, event_calls, prepare_calls, cancel_calls;
@@ -81,9 +81,8 @@ static void reset(void) {
     s_guard.valid_snapshot_streak = 3;
     s_control_ready = 1; s_afe_sleeping = physical_sleep = 0;
     s_snapshot_valid = s_fet_command_valid = 1;
-    s_output_inhibit = 0; s_valid_snapshot_streak = 3;
     s_short_clear_pending = 1; s_short_release_count = 8;
-    s_balance_mask = 3; memset(s_hw_recovery_count, 1, sizeof(s_hw_recovery_count));
+    memset(s_hw_recovery_count, 1, sizeof(s_hw_recovery_count));
     errors = invalidations = comm_errors = bus_calls = 0;
     balance_calls = fet_calls = sleep_writes = normal_writes = 0;
     pm_calls = event_calls = prepare_calls = cancel_calls = 0;
@@ -94,6 +93,11 @@ static void reset(void) {
 }
 int main(void) {
     unsigned i, n;
+    reset(); CHECK(bms_afe_samples_qualified());
+    s_guard.valid_snapshot_streak = 2; CHECK(!bms_afe_samples_qualified());
+    s_guard.valid_snapshot_streak = 3; s_guard.comm_inhibit = 1; CHECK(!bms_afe_samples_qualified());
+    s_guard.comm_inhibit = 0; s_guard.test_shutdown_hold = 1; CHECK(!bms_afe_samples_qualified());
+    s_guard.test_shutdown_hold = 0; s_guard.bus_silenced = 1; CHECK(!bms_afe_samples_qualified());
     reset(); ota_is_working = 1;
     CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
     reset(); tx_busy = 1;
@@ -132,12 +136,12 @@ int main(void) {
     reset(); CHECK(app_note_sleep_and_enter_deepsleep(1)); n = bus_calls;
     CHECK(pm_calls == 1 && sleep_writes == 1 && event_calls == 1);
     CHECK(!heater_on && !last_c && !last_d);
-    CHECK(!s_snapshot_valid && !s_fet_command_valid && s_output_inhibit);
+    CHECK(!s_snapshot_valid && !s_fet_command_valid);
     for (i = 1; i <= n; ++i) {
         reset(); command_fail_at = i;
         CHECK(!app_note_sleep_and_enter_deepsleep(1));
         CHECK(!pm_calls && !prepare_calls && !event_calls);
-        CHECK(!s_snapshot_valid && !s_fet_command_valid && s_output_inhibit);
+        CHECK(!s_snapshot_valid && !s_fet_command_valid);
     }
 
     reset(); wake_on_call = 2;

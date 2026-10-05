@@ -77,7 +77,6 @@ void WriteProID_Default(void);
 
 static PRODUCTION_ID_INFO ProductionInfor;
 
-
 static int afe_hw_profile_is_requested_reg(u16 reg)
 {
     return (reg >= BMS_AFE_HW_REQUESTED_REG_BASE &&
@@ -277,7 +276,6 @@ static u16 dvc_comm_read(u16 reg) { (void)reg; return 0xFFFFu; }
 static u8 dvc_comm_write(u16 reg, u16 val) { (void)reg; (void)val; return MB_EX_ILLEGAL_ADDRESS; }
 #endif
 
-
 static u16 read_fault_history_reg(u16 reg)
 {
     u16 offset;
@@ -433,12 +431,6 @@ static u8 write_reg(u16 reg, u16 val)
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_write(reg, val);
 
-    if (reg >= 0x2100u && reg <= 0x2140u)
-    {
-        memcpy((u8 *)&g_tParam.protect + (reg - 0x2100u)*2u, &val, sizeof(val));
-        return 0u;
-    }
-
     if (reg==0x1005u || reg==0x2318u || reg==0x2319u || (reg>=0x2E00u && reg<0x2F00u)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
@@ -453,21 +445,11 @@ static u8 write_reg(u16 reg, u16 val)
     return MB_EX_ILLEGAL_ADDRESS;
 }
 
-static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *previous)
+static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *candidate)
 {
-    if (!bms_sw_protection_validate_params(&g_tParam.protect)) {
-        g_tParam.protect = *previous;
-        return MB_EX_ILLEGAL_VALUE;
-    }
-    if (!SaveParam()) {
-        g_tParam.protect = *previous;
-        return MB_EX_DEVICE_FAILURE;
-    }
-    return 0u;
+    if (!bms_sw_protection_validate_params(candidate)) return MB_EX_ILLEGAL_VALUE;
+    return bms_protection_params_commit(candidate) ? 0u : MB_EX_DEVICE_FAILURE;
 }
-
-
-
 
 static u16 u16be(const u8 *p)
 {
@@ -503,7 +485,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
     addr = req[0];
     func = req[1];
-
 
     if (func == BMS_AFE_HW_ACCESS_MODBUS_FUNC)
     {
@@ -577,7 +558,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg;
         u16 val;
         u8 exception;
-        struct PRT_E2ROM_PARAS previous_protect;
+        struct PRT_E2ROM_PARAS candidate;
         int protect_changed;
 
         if (req_len != 8u) return 0;
@@ -586,18 +567,15 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         protect_changed = reg_requires_param_save(reg);
-        if (protect_changed) previous_protect = g_tParam.protect;
-
-        exception = write_reg(reg, val);
+        if (protect_changed) {
+            candidate = g_tParam.protect;
+            memcpy((u8 *)&candidate + (reg - 0x2100u) * 2u, &val, sizeof(val));
+            exception = commit_protection_update(&candidate);
+        } else {
+            exception = write_reg(reg, val);
+        }
         if (exception != 0u)
             return modbus_exception(addr, func, exception, rsp, rsp_len);
-
-        if (protect_changed)
-        {
-            exception = commit_protection_update(&previous_protect);
-            if (exception != 0u)
-                return modbus_exception(addr, func, exception, rsp, rsp_len);
-        }
 
         if (addr == 0x00u) return 0;
         memcpy(rsp, req, req_len);
@@ -613,7 +591,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         const u8 *pdata;
         u16 i;
         u8 exception;
-        struct PRT_E2ROM_PARAS previous_protect;
+        struct PRT_E2ROM_PARAS candidate;
 
         if (req_len < 9u) return 0;
         reg = u16be(&req[2]);
@@ -650,12 +628,12 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
         } else if (reg>=0x2100u && (u32)reg+qty<=0x2141u) {
-            previous_protect=g_tParam.protect;
+            candidate=g_tParam.protect;
             for (i=0u;i<qty;++i) {
                 u16 value=u16be(&pdata[i*2u]);
-                memcpy((u8 *)&g_tParam.protect+(reg-0x2100u+i)*2u,&value,sizeof(value));
+                memcpy((u8 *)&candidate+(reg-0x2100u+i)*2u,&value,sizeof(value));
             }
-            exception=commit_protection_update(&previous_protect);
+            exception=commit_protection_update(&candidate);
         } else if (qty==1u) {
             exception=write_reg(reg,u16be(pdata));
         } else exception=MB_EX_ILLEGAL_ADDRESS;
@@ -816,11 +794,9 @@ void WriteProID_Default(void)
 
 u8 bms_reset_software_parameters(void)
 {
-    struct PRT_E2ROM_PARAS before=g_tParam.protect, defaults;
+    struct PRT_E2ROM_PARAS defaults;
     bms_config_store_get_default_protect(&defaults);
-    if (!bms_sw_protection_validate_params(&defaults)) return MB_EX_ILLEGAL_VALUE;
-    g_tParam.protect=defaults;
-    return commit_protection_update(&before);
+    return commit_protection_update(&defaults);
 }
 u8 bms_reset_afe_parameters(void)
 {

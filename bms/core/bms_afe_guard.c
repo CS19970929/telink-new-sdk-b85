@@ -46,6 +46,14 @@ typedef struct
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
 static bms_afe_guard_state_t s_guard;
 
+/* Common three-frame qualification has one owner, including backend FET calls. */
+uint8_t bms_afe_samples_qualified(void)
+{
+    return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&
+            !s_guard.test_shutdown_hold &&
+            s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) ? 1u : 0u;
+}
+
 uint8_t bms_afe_bus_access_allowed(void)
 {
     return (s_guard.bus_silenced || s_guard.test_shutdown_hold) ? 0u : 1u;

@@ -30,7 +30,7 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("DVC1124_DSGMASK_DBDM_MASK", cfg)
         self.assertIn("DVC1124_CHGMASK_CBDM_MASK", cfg)
         self.assertIn("DVC1124_BODY_DIODE_THRESHOLD_UV", backend)
-        self.assertIn("dvc_project_encode_body_diode", backend)
+        self.assertIn("DVC1124_EncodeBodyDiode", backend)
 
     def test_body_diode_policy_has_no_operating_config_flash_owner(self):
         backend = read("dvc1124_boot.c")

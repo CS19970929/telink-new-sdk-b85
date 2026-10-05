@@ -100,7 +100,16 @@ int main(void){
  n=request(q,1,3,0x7777,1);assert(modbus_on_frame(q,n,r,&l)&&r[2]==2&&writes==0);
  bms_diag_attempt(0);bms_diag_result(0,DIAG_LAYOUT);bms_diag_freeze_boot();
  tick=0xfffffff0u;for(unsigned i=0;i<100;i++){bms_diag_trace(DIAG_EV_STORAGE,i,~i);tick+=32;}
+#if BMS_DIAG_TRACE_ENABLE
  assert(bms_diag_cached_word(12)==64&&bms_diag_cached_word(10)>0);
+ assert((bms_diag_cached_word(2)&BMS_DIAG_CAP_TRACE)!=0);
+#else
+ assert(bms_diag_cached_word(8)==0&&bms_diag_cached_word(9)==0);
+ assert(bms_diag_cached_word(10)==0&&bms_diag_cached_word(11)==0&&bms_diag_cached_word(12)==0);
+ assert((bms_diag_cached_word(2)&BMS_DIAG_CAP_TRACE)==0);
+ assert(bms_diag_read(BMS_DIAG_TRACE_BASE,120,bytes));
+ for(unsigned i=0;i<240;i++)assert(bytes[i]==0);
+#endif
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT);bms_diag_result(0,DIAG_OK);assert(bms_diag_cached_word(38)==DIAG_LAYOUT);
  assert(bms_diag_read(0x2d88,120,bytes));assert(!bms_diag_read(0x2d89,120,bytes));
  /* Exercise the additive runtime-log window through real ingress, never through generic read/write. */

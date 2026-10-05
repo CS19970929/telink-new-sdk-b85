@@ -79,8 +79,8 @@ if "if (temp_valid)" in source:
 # current dropping to zero after FET shutdown cannot immediately clear the fault.
 for token in (
     "static uint8_t bms_sw_temp_filter_update",
-    "charge_current_present = (g_stCellInfoReport.u16Ichg > 0u)",
-    "discharge_current_present = (g_stCellInfoReport.u16IDischg > 0u)",
+    "charge_current_present = (measurements->charge_a10 > 0u)",
+    "discharge_current_present = (measurements->discharge_a10 > 0u)",
     "if (!state->active && !trip_enabled)",
     "state->trip_count = 0u;",
     "charge_current_present, inputs->battery_temp_max",

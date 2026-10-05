@@ -12,7 +12,7 @@
 
 ## 2. 当前公共算法覆盖
 
-Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT、MOS OT、Cell delta。触发和恢复都经过连续样本确认。
+Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT、MOS OT、Cell delta。触发采用超限样本累积，正常样本将触发计数减一；恢复要求连续满足恢复条件。两者不是同一种滤波。该行为保持原 D011/D013 策略，不能把触发计数递减改成清零而称为等价清理。
 
 ## 3. SOC Low 与最终阻断
 

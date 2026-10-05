@@ -105,13 +105,6 @@ typedef enum
 
 typedef enum
 {
-    SOC_CALI_STATE_TRANSFER = 0,
-    SOC_CALI_CONT_CHG,
-    SOC_CALI_CONT_DSG,
-} soc_cali_state_t;
-
-typedef enum
-{
     SOC_OCV_OPENWIRE_NONE = 0,
     SOC_OCV_OPENWIRE_PAUSED,
     SOC_OCV_OPENWIRE_RECOVERING,
@@ -181,7 +174,6 @@ typedef struct
 } soc_runtime_t;
 
 struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
-static soc_cali_state_t SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
 static soc_runtime_t g_soc_runtime;
 static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 /* mA * 32k-ticks remainder, denominator 100 mA per As*10 unit. */
@@ -568,9 +560,6 @@ static void soc_recalc_now_capacity(void)
 
 static void soc_reset_integral_accumulator(void)
 {
-    SOC_Calculate_Element.u32CapChange = 0u;
-    SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
-    SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
     g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
     g_soc_integral_tick_remainder = 0u;
 }
@@ -580,18 +569,16 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
     if (g_soc_integral_dir != dir) {
         g_soc_integral_dir = dir;
         g_soc_integral_tick_remainder = 0u;
-        SOC_Calculate_Element.u32CapChange = 0u;
     }
 }
 
-static uint32_t soc_integral_delta_from_current(uint16_t current_a10, soc_integral_dir_t dir)
+static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
 {
     uint32_t magnitude_ma;
     uint32_t ticks_left;
     uint32_t delta;
     uint32_t fractional_ma;
     const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
-    (void)current_a10; /* coarse current is retained only for legacy sag tables */
     if (!g_soc_input_valid || g_soc_interval_32k == 0u) return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
@@ -847,7 +834,6 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
     soc_diag_note_action(BMS_SOC_ACTION_INTEGRATE, old_soc, old_soc, 0u);
     if (delta == 0u) return;
 
-    SOC_Calculate_Element.u32CapChange += delta;
     soc_learning_on_delta(dir, delta);
 
     if (dir == SOC_INTEGRAL_DIR_CHG) {
@@ -860,7 +846,6 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
         new_soc = soc_percent_from_capacity_charge(SOC_Calculate_Element.u32CapNow);
         if (new_soc > old_soc) {
             SOC_Calculate_Element.u8SOC_Now = new_soc;
-            SOC_Calculate_Element.u32CapChange = 0u;
         }
     } else if (dir == SOC_INTEGRAL_DIR_DSG) {
         if (SOC_Calculate_Element.u32CapNow <= delta) SOC_Calculate_Element.u32CapNow = 0u;
@@ -875,7 +860,6 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
         }
         if (new_soc < old_soc) {
             SOC_Calculate_Element.u8SOC_Now = new_soc;
-            SOC_Calculate_Element.u32CapChange = 0u;
             soc_note_discharge_soc_drop(old_soc, new_soc);
         }
     }
@@ -1659,10 +1643,9 @@ void set_calsoc(uint8_t soc)
     soc_recalc_now_capacity();
 }
 
-void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display)
+void set_soc_param(uint8_t soc, uint8_t sync_display)
 {
     uint8_t before = get_soc_real();
-    (void)cap_factory;
     set_calsoc(soc);
     soc_invalidate_sample_interval();
     soc_reset_integral_accumulator();
@@ -1689,7 +1672,6 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
 
     SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
     SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
-    SOC_Calculate_Element.u32CapFull_Cal_As = 0u;
     if ((soc->flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) == soc_nominal_capacity_0p1ah()) {
         if ((soc->flags & BMS_STATE_FLAG_CAPACITY_LEARNED) &&
             soc->learned_capacity_0p1ah != 0u) {
@@ -1733,45 +1715,13 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     SOC_Result_Pass();
 }
 
-static void SOC_Cont_AH_Int_CHG(void)
+static void soc_integrate_current(soc_integral_dir_t dir)
 {
-    uint16_t current = 0u;
-    uint32_t delta;
-    if (soc_current_direction(&current) != SOC_INTEGRAL_DIR_CHG) {
-        SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
+    if (dir == SOC_INTEGRAL_DIR_NONE) {
+        soc_reset_integral_accumulator();
         return;
     }
-
-    SOC_Cali_Flag = SOC_CALI_CONT_CHG;
-    SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 1u;
-    SOC_Calculate_Element.u8SOC_Old = get_soc_real();
-    delta = soc_integral_delta_from_current(current, SOC_INTEGRAL_DIR_CHG);
-    soc_apply_integral_delta(SOC_INTEGRAL_DIR_CHG, delta);
-    SOC_Calculate_Element.u32CapFull_Cal_As += delta;
-    SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
-}
-
-static void SOC_Cont_AH_Int_DSG(void)
-{
-    uint16_t current = 0u;
-    uint32_t delta;
-    if (soc_current_direction(&current) != SOC_INTEGRAL_DIR_DSG) {
-        SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
-        return;
-    }
-
-    SOC_Cali_Flag = SOC_CALI_CONT_DSG;
-    SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 1u;
-    SOC_Calculate_Element.u8SOC_Old = get_soc_real();
-    delta = soc_integral_delta_from_current(current, SOC_INTEGRAL_DIR_DSG);
-    soc_apply_integral_delta(SOC_INTEGRAL_DIR_DSG, delta);
-    SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
-}
-
-static void SOC_State_Transfer(void)
-{
-    SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
-    soc_reset_integral_accumulator();
+    soc_apply_integral_delta(dir, soc_integral_delta_from_current(dir));
 }
 
 static void SOC_Result_Pass(void)
@@ -1925,9 +1875,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
             soc_learning_reject(learning_reject_reason);
     }
-    if (dir == SOC_INTEGRAL_DIR_CHG) SOC_Cont_AH_Int_CHG();
-    else if (dir == SOC_INTEGRAL_DIR_DSG) SOC_Cont_AH_Int_DSG();
-    else SOC_State_Transfer();
+    soc_integrate_current(dir);
 
     if (dir != previous_dir)
     {
@@ -1961,7 +1909,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 
-
 void bms_soc_nominal_capacity_changed(void)
 {
     g_soc_runtime.capacity_learned = 0u;
@@ -1975,6 +1922,6 @@ void bms_soc_nominal_capacity_changed(void)
     soc_learning_abort();
     (void)bms_state_store_write_learning_meta(0u, 0u, 0u, 0u, 0u, 0u, 0u);
     soc_recalc_full_capacity();
-    set_soc_param(get_soc_real(), 0u, 1u);
+    set_soc_param(get_soc_real(), 1u);
     SOC_Result_Pass();
 }

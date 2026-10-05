@@ -12,9 +12,9 @@ static u32 clock_time(void){return now;}
 static int clock_time_exceed(u32 start,u32 us){return (u32)(now-start)>us;}
 static u16 bms_afe_hw_profile_expected_model(void){return 0x1124;}
 /* HEADER */
+/* CRC */
 /* ACCESS */
 #define u16be access_u16be
-#define mb_crc16 access_crc16
 static int writes, apply_error;
 static u8 afe_hw_profile_write_block(const u8*p,u16 qty){
     assert(qty==35 && p[0]==0 && p[1]==1); ++writes;
@@ -24,7 +24,7 @@ static u8 afe_hw_profile_write_block(const u8*p,u16 qty){
 /* GATE */
 static u8 frame[79], reply[20]; static u32 reply_len;
 static int send(u8*packet,u32 len){
-    u16 crc=access_crc16(packet,len-2);packet[len-2]=(u8)crc;packet[len-1]=(u8)(crc>>8);
+    u16 crc=mb_crc16(packet,len-2);packet[len-2]=(u8)crc;packet[len-1]=(u8)(crc>>8);
     return bms_afe_hw_access_modbus_on_frame(packet,len,reply,&reply_len);
 }
 static u16 open_session(void){
@@ -42,7 +42,7 @@ static u8 commit(u16 token){
     assert(reply_len==6);return reply[3];
 }
 static void stage(u16 token){for(u8 i=0;i<79;i+=11)assert(!chunk(token,i,(79-i)>11?11:(79-i)));}
-static void inner_crc(void){u16 c=access_crc16(frame,77);frame[77]=(u8)c;frame[78]=(u8)(c>>8);}
+static void inner_crc(void){u16 c=mb_crc16(frame,77);frame[77]=(u8)c;frame[78]=(u8)(c>>8);}
 int main(void){
     frame[0]=1;frame[1]=0x10;frame[2]=0x25;frame[5]=35;frame[6]=70;frame[8]=1;inner_crc();
     u16 token=open_session();stage(token);assert(writes==0);assert(!commit(token));assert(writes==1);

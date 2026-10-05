@@ -1,19 +1,3 @@
-/* 文件功能：UART DMA 与可选 RS485 方向控制；ISR 交付状态，主循环维护协议和恢复，保留产品通信差异。
- * bms/platform/telink/modbus_uart.h；实际编译归属见各产品 sources.txt。
- */
-#include "bms_afe_backend.h"
-
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-#pragma once
-#include "tl_common.h"
-
-void modbus_uart_init(void);
-void modbus_uart_irq_proc(void);     // 放到 DMA IRQ 里调用
-int  modbus_uart_poll(u8 **p, u32 *len);  // 主循环取一帧
-void modbus_uart_send(const u8 *p, u32 len);
-void main_loop_modbus(void);
-
-#else
 #pragma once
 #include "tl_common.h"
 
@@ -34,9 +18,8 @@ extern volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
 void modbus_uart_init(void);
 void modbus_uart_irq_proc(void);     // 放到 DMA IRQ 里调用
-int  modbus_uart_poll(u8 **p, u32 *len);  // 主循环取一帧
-void modbus_uart_send(const u8 *p, u32 len);
+/* Returned RX buffer is stable until main_loop_modbus rearms DMA. */
+int  modbus_uart_poll(u8 **p, u32 *len);
+u8 modbus_uart_send(const u8 *p, u32 len);
 u8 modbus_uart_tx_active(void);
 void main_loop_modbus(void);
-
-#endif

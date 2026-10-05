@@ -80,6 +80,8 @@ STATUS    0x04
 
 Session timeout：60 s。成功commit后会自动关闭会话。
 
+会话为设备级，UART 与 BLE 共用同一写授权。四产品的任意 BLE disconnect 都撤销授权并丢弃未完成碎片；因此 disconnect 后 UART 也必须重新 OPEN。会话期限与碎片期限仍分别计时，不能用 HEARTBEAT 无限延长未完成碎片。
+
 该会话是写门禁，不是密码学安全机制。
 
 ## 6. Transaction语义

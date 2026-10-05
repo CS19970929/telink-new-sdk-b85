@@ -86,59 +86,6 @@ uint8_t dvc1124_backend_enter_shutdown(void)
     return DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u);
 }
 
-#if DVC1124_HW_PROTECT_ENABLE
-static uint8_t dvc_project_wdt_code(uint8_t seconds,
-                                    dvc1124_i2c_wdt_code_t *code)
-{
-    if (code == 0) return 0u;
-    switch (seconds)
-    {
-    case 0u:  *code = DVC1124_I2C_WDT_OFF; return 1u;
-    case 4u:  *code = DVC1124_I2C_WDT_4S; return 1u;
-    case 8u:  *code = DVC1124_I2C_WDT_8S; return 1u;
-    case 16u: *code = DVC1124_I2C_WDT_16S; return 1u;
-    case 32u: *code = DVC1124_I2C_WDT_32S; return 1u;
-    default: return 0u;
-    }
-}
-#endif
-
-#if DVC1124_HW_PROTECT_ENABLE
-static uint8_t dvc_project_encode_current_wake(uint16_t threshold_uv,
-                                               uint8_t *code)
-{
-    if (code == 0) return 0u;
-    if (threshold_uv == 0u)
-    {
-        *code = 0u;
-        return 1u;
-    }
-    if ((threshold_uv < 10u) ||
-        (threshold_uv > 2550u) ||
-        ((threshold_uv % 10u) != 0u)) return 0u;
-    *code = (uint8_t)(threshold_uv / 10u);
-    return 1u;
-}
-#endif
-
-#if DVC1124_HW_PROTECT_ENABLE
-static uint8_t dvc_project_encode_body_diode(uint16_t threshold_uv,
-                                             uint8_t *code)
-{
-    if (code == 0) return 0u;
-    if (threshold_uv == 0u)
-    {
-        *code = 0u;
-        return 1u;
-    }
-    if ((threshold_uv < 40u) ||
-        (threshold_uv > 10200u) ||
-        ((threshold_uv % 40u) != 0u)) return 0u;
-    *code = (uint8_t)(threshold_uv / 40u);
-    return 1u;
-}
-#endif
-
 static uint8_t dvc_project_apply_compile_time_config(void)
 {
     dvc1124_operating_config_t cfg;
@@ -153,10 +100,10 @@ static uint8_t dvc_project_apply_compile_time_config(void)
     memset(&cfg, 0, sizeof(cfg));
 
 #if DVC1124_HW_PROTECT_ENABLE
-    if (!dvc_project_wdt_code(DVC1124_I2C_WATCHDOG_SECONDS, &wdt)) return 0u;
-    if (!dvc_project_encode_current_wake(DVC1124_CURRENT_WAKE_THRESHOLD_UV,
+    if (!DVC1124_EncodeI2cWatchdog(DVC1124_I2C_WATCHDOG_SECONDS, &wdt)) return 0u;
+    if (!DVC1124_EncodeCurrentWake(DVC1124_CURRENT_WAKE_THRESHOLD_UV,
                                          &current_wake_code)) return 0u;
-    if (!dvc_project_encode_body_diode(DVC1124_BODY_DIODE_THRESHOLD_UV,
+    if (!DVC1124_EncodeBodyDiode(DVC1124_BODY_DIODE_THRESHOLD_UV,
                                        &body_diode_code)) return 0u;
     if (DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE &&
         (current_wake_code == 0u)) return 0u;

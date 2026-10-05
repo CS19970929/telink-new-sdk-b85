@@ -8,6 +8,9 @@
  * Application code uses bms_afe.h and cannot bypass its communication gate. */
 #include "bms_afe.h"
 
+/* Backend FET writes share the guard's three-fresh-frame qualification. */
+uint8_t bms_afe_samples_qualified(void);
+
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 void dvc1124_backend_init(void);
 void dvc1124_backend_sample(void);

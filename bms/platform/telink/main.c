@@ -3,7 +3,6 @@
  */
 #include "bms_afe_backend.h"
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /********************************************************************************************************
  * @file    main.c
  *
@@ -33,144 +32,23 @@
 #include "app.h"
 #include "bms_stack_monitor.h"
 #include "modbus_uart.h"
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
 #include "sif_send.h"
-
-/**
- * @brief   IRQ handler
- * @param   none.
- * @return  none.
- */
-_attribute_ram_code_ void irq_handler(void)
-{
-
-	irq_blt_sdk_handler();
-	modbus_uart_irq_proc();
-	sif_timer_irq_handler();
-	bus_mux_irq_handler();
-
-}
-
-
 #else
-/********************************************************************************************************
- * @file    main.c
- *
- * @brief   This is the source file for BLE SDK
- *
- * @author  BLE GROUP
- * @date    06,2020
- *
- * @par     Copyright (c) 2020, Telink Semiconductor (Shanghai) Co., Ltd. ("TELINK")
- *
- *          Licensed under the Apache License, Version 2.0 (the "License");
- *          you may not use this file except in compliance with the License.
- *          You may obtain a copy of the License at
- *
- *              http://www.apache.org/licenses/LICENSE-2.0
- *
- *          Unless required by applicable law or agreed to in writing, software
- *          distributed under the License is distributed on an "AS IS" BASIS,
- *          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *          See the License for the specific language governing permissions and
- *          limitations under the License.
- *
- *******************************************************************************************************/
-#include "tl_common.h"
-#include "drivers.h"
-#include "stack/ble/ble.h"
-#include "app.h"
-#include "bms_stack_monitor.h"
-#include "modbus_uart.h"
 #include "sh3673510_project_config.h"
-
-/**
- * @brief   IRQ handler
- * @param   none.
- * @return  none.
- */
-_attribute_ram_code_ void irq_handler(void)
-{
-
-	irq_blt_sdk_handler();
-	modbus_uart_irq_proc();
-
-}
-
-
 #endif
 
-
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/**
- * @brief		This is main function
- * @param[in]	none
- * @return      none
- */
-_attribute_ram_code_ int main (void)    //must run in ramcode
+_attribute_ram_code_ void irq_handler(void)
 {
-	/* irq_handler 由启动汇编/中断向量调用；局部引用显式记录该外部入口。 */
-	void (*const irq_entry)(void) = irq_handler;
-	(void)irq_entry;
-
-	DBG_CHN0_LOW;   //debug
-
-	blc_pm_select_internal_32k_crystal();
-
-	#if(MCU_CORE_TYPE == MCU_CORE_825x)
-		cpu_wakeup_init();
-	#else
-		cpu_wakeup_init(LDO_MODE,INTERNAL_CAP_XTAL24M);
-	#endif
-
-	int deepRetWakeUp = pm_is_MCU_deepRetentionWakeup();  //MCU deep retention wakeUp
-
-	rf_drv_ble_init();
-
-	gpio_init(!deepRetWakeUp);  //analog resistance will keep available in deepSleep mode, so no need initialize again
-
-	/* Establish the D008 supply hold immediately after GPIO reset defaults.
-	 * Program the latch before output-enable: a low pulse cuts MCU power. */
-	gpio_set_func(MCU_LDO_PIN, AS_GPIO);
-	gpio_write(MCU_LDO_PIN, 1u);
-	gpio_set_input_en(MCU_LDO_PIN, 0u);
-	gpio_set_output_en(MCU_LDO_PIN, 1u);
-
-	clock_init(SYS_CLK_TYPE);
-
-	#if (MODULE_WATCHDOG_ENABLE)
-		wd_set_interval_ms(WATCHDOG_INIT_TIMEOUT,CLOCK_SYS_CLOCK_1MS);
-		wd_start();
-	#endif
-
-	if( deepRetWakeUp ){
-		user_init_deepRetn();
-	}
-	else{
-		user_init_normal();
-	}
-
-    irq_enable();
-	while (1) {
-	#if (MODULE_WATCHDOG_ENABLE)
-		#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
-			if (g_chip_version != CHIP_VERSION_A0)
-		#endif
-			{
-				wd_clear(); //clear watch dog
-			}
-	#endif
-		main_loop();
-		bms_stack_monitor_poll();
-	}
+    irq_blt_sdk_handler();
+    modbus_uart_irq_proc();
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    sif_timer_irq_handler();
+    bus_mux_irq_handler();
+#endif
 }
 
-#else
-/**
- * @brief		This is main function
- * @param[in]	none
- * @return      none
- */
 _attribute_ram_code_ int main (void)    //must run in ramcode
 {
 	/* irq_handler 由启动汇编/中断向量调用；局部引用显式记录该外部入口。 */
@@ -196,6 +74,14 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 	rf_drv_ble_init();
 
 	gpio_init(!deepRetWakeUp);  //analog resistance will keep available in deepSleep mode, so no need initialize again
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    /* Set the supply latch before enabling output: a low pulse cuts MCU power. */
+    gpio_set_func(MCU_LDO_PIN, AS_GPIO);
+    gpio_write(MCU_LDO_PIN, 1u);
+    gpio_set_input_en(MCU_LDO_PIN, 0u);
+    gpio_set_output_en(MCU_LDO_PIN, 1u);
+#endif
 
 	clock_init(SYS_CLK_TYPE);
 
@@ -240,5 +126,3 @@ _attribute_ram_code_ int main (void)    //must run in ramcode
 		bms_stack_monitor_poll();
 	}
 }
-
-#endif

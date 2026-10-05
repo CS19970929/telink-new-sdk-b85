@@ -49,6 +49,8 @@ static storage_record_store_t g_bms_config_store;
 /* 已接受的参数缓存；保存失败不得把未落盘候选当作已提交配置发布。 */
 static bms_config_cache_t g_bms_config;
 static u8 g_bms_config_ready;
+/* Recomputed only when loading or publishing configuration, never per sample. */
+static u8 g_bms_config_user_valid;
 static u8 g_bms_config_needs_save;
 
 static void bms_config_put_u16le(u8 *buf, u16 value)
@@ -259,6 +261,7 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
     }
     g_bms_config = *cfg;
+    g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;
     g_bms_config_needs_save = 0u;
     return 1;
 }
@@ -300,6 +303,7 @@ int bms_config_store_init(void)
         g_bms_config_needs_save = 1u;
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS);
     }
+    g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;
     g_bms_config_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OK);
     return 1;
@@ -471,14 +475,14 @@ int bms_config_get_user(bms_user_params_t *v)
 {
     if (!v || !bms_config_ensure_ready()) return 0;
     *v = g_bms_config.user;
-    return bms_config_user_valid(v);
+    return g_bms_config_user_valid;
 }
 int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
 {
-    bms_user_params_t user;
-    if (!offset_ma || !gain_ppm || !bms_config_get_user(&user)) return 0;
-    *offset_ma = user.current_offset_ma;
-    *gain_ppm = user.current_gain_ppm;
+    if (!offset_ma || !gain_ppm || !bms_config_ensure_ready() ||
+        !g_bms_config_user_valid) return 0;
+    *offset_ma = g_bms_config.user.current_offset_ma;
+    *gain_ppm = g_bms_config.user.current_gain_ppm;
     return 1;
 }
 int bms_config_set_user(const bms_user_params_t *v)
@@ -525,7 +529,7 @@ int32_t bms_config_calibrate_current(int32_t raw_ma)
 {
     int32_t offset, delta;
     u32 magnitude, scaled;
-    if (!g_bms_config_ready || !bms_config_user_valid(&g_bms_config.user)) return raw_ma;
+    if (!g_bms_config_ready || !g_bms_config_user_valid) return raw_ma;
     offset=g_bms_config.user.current_offset_ma;
     if (offset>0 && raw_ma < -2147483647+offset) delta=-2147483647;
     else if (offset<0 && raw_ma > 2147483647+offset) delta=2147483647;

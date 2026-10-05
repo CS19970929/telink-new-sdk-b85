@@ -56,6 +56,18 @@ int main(void){
  bms_sw_protection_update_groups(&in,0,1);
  assert(!broken && !g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp);
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ // HW-only report flags must not masquerade as a software blocking reason.
+ bms_sw_protection_clear();
+ g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp=1;
+ g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp=1;
+ assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ // SW stays blocked even if a downstream report consumer modifies merged bits.
+ in.battery_temp_valid=1;in.mos_temp_required=1;in.mos_temp_valid=1;in.mos_temp=1000;
+ bms_sw_protection_update_groups(&in,0,1);
+ g_stCellInfoReport.unMdlFault_Third.all=0;
+ assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
+ in.mos_temp=650;bms_sw_protection_update_groups(&in,0,1);
+ assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
  in.battery_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
  assert(broken && bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  return 0;

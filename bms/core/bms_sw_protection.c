@@ -1,4 +1,4 @@
-/* 文件功能：软件三级保护滤波与故障位更新；使用 g_tParam.protect，Third 负责 MOS 阻断与恢复回差。
+/* 文件功能：软件三级保护滤波；边界采集 const 输入，私有 Third 负责软件 MOS 阻断。
  * bms/core/bms_sw_protection.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
@@ -56,9 +56,11 @@ typedef enum
     BMS_SW_LOW
 } bms_sw_direction_t;
 
-/* 每个保护等级/项目各自拥有连续触发与恢复计数，计数单位是有效样本。 */
+/* 各等级/项目独立保存触发累积和连续恢复计数，单位为有效样本。 */
 static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
+/* Software owns these bits; the public report may additionally contain HW bits. */
+static bms_fault_reg_t s_sw_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 
 /* Recover belongs exclusively to Third (the MOS-blocking protection level).
  * First/Second are filtered alarms and clear when their own trip is absent. */
@@ -101,7 +103,7 @@ static void bms_sw_filter_reset(bms_sw_filter_t *state)
     state->active = 0u;
 }
 
-/* 以连续有效样本确认触发/恢复，First/Second 告警与 Third 恢复回差分别处理。 */
+/* 触发按超限累积、正常样本递减；恢复要求连续样本。保留既有滤波行为。 */
 static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                                     uint16_t value,
                                     uint16_t trip,
@@ -275,6 +277,7 @@ void bms_sw_protection_clear(void)
 {
     uint8_t level;
     memset(s_filter, 0, sizeof(s_filter));
+    memset(s_sw_fault, 0, sizeof(s_sw_fault));
     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)
         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));
     bms_error_clear(BMS_ERROR_TEMP_BREAK);
@@ -291,24 +294,23 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
     bms_sw_protection_update_groups(inputs, 1u, 1u);
 }
 
-void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
-                                     uint8_t voltage_current_enabled,
-                                     uint8_t temperature_enabled)
+typedef struct {
+    uint16_t cell_max_mv, cell_min_mv, cell_delta_mv;
+    uint16_t pack_voltage_10mv, charge_a10, discharge_a10;
+} bms_sw_measurements_t;
+
+static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
+                            const struct PRT_E2ROM_PARAS *p,
+                            const bms_sw_measurements_t *measurements,
+                            uint8_t voltage_current_enabled,
+                            uint8_t temperature_enabled)
 {
-    const struct PRT_E2ROM_PARAS *p = &g_tParam.protect;
     uint8_t level;
     uint8_t charge_current_present;
     uint8_t discharge_current_present;
 
-    if (inputs == 0) return;
-    if (!bms_protection_params_valid())
-    {
-        bms_sw_protection_clear();
-        return;
-    }
-
-    charge_current_present = (g_stCellInfoReport.u16Ichg > 0u) ? 1u : 0u;
-    discharge_current_present = (g_stCellInfoReport.u16IDischg > 0u) ? 1u : 0u;
+    charge_current_present = (measurements->charge_a10 > 0u) ? 1u : 0u;
+    discharge_current_present = (measurements->discharge_a10 > 0u) ? 1u : 0u;
 
     /* Sensor-break handling remains fail-safe at the system level, but each
      * temperature protection group is evaluated only from the sensor it owns.
@@ -321,44 +323,44 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
 
     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)
     {
-        bms_fault_reg_t *f = bms_sw_fault_reg(level);
+        bms_fault_reg_t *f = &s_sw_fault[level];
         uint16_t trip;
 
         if (voltage_current_enabled) {
             trip = bms_sw_level_value(level, p->u16VcellOvp_First,
                                       p->u16VcellOvp_Second, p->u16VcellOvp_Third);
             f->bits.b1CellOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
-                g_stCellInfoReport.u16VCellMax, trip, p->u16VcellOvp_Rcv,
+                measurements->cell_max_mv, trip, p->u16VcellOvp_Rcv,
                 p->u16VcellOvp_Filter, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16VcellUvp_First,
                                       p->u16VcellUvp_Second, p->u16VcellUvp_Third);
             f->bits.b1CellUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
-                g_stCellInfoReport.u16VCellMin, trip, p->u16VcellUvp_Rcv,
+                measurements->cell_min_mv, trip, p->u16VcellUvp_Rcv,
                 p->u16VcellUvp_Filter, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16VbusOvp_First,
                                       p->u16VbusOvp_Second, p->u16VbusOvp_Third);
             f->bits.b1BatOvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
-                g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusOvp_Rcv,
+                measurements->pack_voltage_10mv, trip, p->u16VbusOvp_Rcv,
                 p->u16VbusOvp_Filter, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16VbusUvp_First,
                                       p->u16VbusUvp_Second, p->u16VbusUvp_Third);
             f->bits.b1BatUvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
-                g_stCellInfoReport.u16VCellTotle, trip, p->u16VbusUvp_Rcv,
+                measurements->pack_voltage_10mv, trip, p->u16VbusUvp_Rcv,
                 p->u16VbusUvp_Filter, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16IchgOcp_First,
                                       p->u16IchgOcp_Second, p->u16IchgOcp_Third);
             f->bits.b1IchgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
-                g_stCellInfoReport.u16Ichg, trip, p->u16IchgOcp_Rcv,
+                measurements->charge_a10, trip, p->u16IchgOcp_Rcv,
                 p->u16IchgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->u16IdsgOcp_First,
                                       p->u16IdsgOcp_Second, p->u16IdsgOcp_Third);
             f->bits.b1IdischgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
-                g_stCellInfoReport.u16IDischg, trip, p->u16IdsgOcp_Rcv,
+                measurements->discharge_a10, trip, p->u16IdsgOcp_Rcv,
                 p->u16IdsgOcp_Filter, BMS_SW_HIGH, level == 2u);
 
         } else {
@@ -426,13 +428,39 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
             trip = bms_sw_level_value(level, p->u16VdeltaOvp_First,
                                       p->u16VdeltaOvp_Second, p->u16VdeltaOvp_Third);
             f->bits.b1VcellDeltaBig = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
-                g_stCellInfoReport.u16VCellDelta, trip, p->u16VdeltaOvp_Rcv,
+                measurements->cell_delta_mv, trip, p->u16VdeltaOvp_Rcv,
                 p->u16VdeltaOvp_Filter, BMS_SW_HIGH, level == 2u);
         } else {
             bms_sw_filter_reset(&s_filter[level][BMS_SW_F_VDELTA]);
             f->bits.b1VcellDeltaBig = 0u;
         }
+        /* Compatibility report: preserve SOC/other bits; backend merges HW next. */
+        bms_sw_clear_managed_bits(bms_sw_fault_reg(level));
+        bms_sw_fault_reg(level)->all |= f->all;
     }
+}
+
+/* Main-loop boundary: take one measurement view, then evaluate const inputs.
+ * Params are published only by the main-loop candidate commit owner. */
+void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
+                                     uint8_t voltage_current_enabled,
+                                     uint8_t temperature_enabled)
+{
+    bms_sw_measurements_t measurements;
+    if (inputs == 0) return;
+    if (!bms_protection_params_valid())
+    {
+        bms_sw_protection_clear();
+        return;
+    }
+    measurements.cell_max_mv = g_stCellInfoReport.u16VCellMax;
+    measurements.cell_min_mv = g_stCellInfoReport.u16VCellMin;
+    measurements.cell_delta_mv = g_stCellInfoReport.u16VCellDelta;
+    measurements.pack_voltage_10mv = g_stCellInfoReport.u16VCellTotle;
+    measurements.charge_a10 = g_stCellInfoReport.u16Ichg;
+    measurements.discharge_a10 = g_stCellInfoReport.u16IDischg;
+    bms_sw_evaluate(inputs, &g_tParam.protect, &measurements,
+                    voltage_current_enabled, temperature_enabled);
 }
 
 /* 持久故障历史仅记录上升沿；运行日志同时记录发生和恢复位图，避免改变原历史语义。 */
@@ -469,7 +497,7 @@ void bms_sw_protection_record_fault_edges(void)
 
 uint8_t bms_sw_protection_charge_blocked(void)
 {
-    const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &s_sw_fault[2].bits;
     return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
             f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
@@ -477,7 +505,7 @@ uint8_t bms_sw_protection_charge_blocked(void)
 
 uint8_t bms_sw_protection_discharge_blocked(void)
 {
-    const bms_fault_bits_t *f = &g_stCellInfoReport.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &s_sw_fault[2].bits;
     return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
             f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;

@@ -77,35 +77,3 @@ static inline int flash_store_verify_erased(u32 addr, u32 len)
 
     return 1;
 }
-
-static inline int flash_store_prog_checked(u32 addr, const u8 *buf, u32 len)
-{
-    u32 write_addr = addr;
-    const u8 *write_buf = buf;
-    u32 write_len = len;
-
-    flash_store_begin_modify();
-    while (write_len != 0u) {
-        u32 page_off = write_addr % FLASH_STORE_PAGE_BYTES;
-        u32 chunk = FLASH_STORE_PAGE_BYTES - page_off;
-        if (chunk > write_len) {
-            chunk = write_len;
-        }
-
-        flash_write_page(write_addr, (int)chunk, (u8 *)write_buf);
-        write_addr += chunk;
-        write_buf += chunk;
-        write_len -= chunk;
-    }
-    flash_store_end_modify();
-
-    return flash_store_verify_bytes(addr, buf, len);
-}
-
-static inline int flash_store_erase_sector_checked(u32 addr, u32 sector_size)
-{
-    flash_store_begin_modify();
-    flash_erase_sector(addr);
-    flash_store_end_modify();
-    return flash_store_verify_erased(addr, sector_size);
-}

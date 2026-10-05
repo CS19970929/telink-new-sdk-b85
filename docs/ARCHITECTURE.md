@@ -20,10 +20,10 @@ Config / State / Event → storage_record → Telink Flash 平台
 
 | 状态/数据 | 所有者与入口 | 失败/限制 |
 |---|---|---|
-| 软件保护参数 `g_tParam.protect` | `param.c` 的 LoadParam/SaveParam，通信先校验 | 无效参数不授权输出；普通 SaveParam 不解除启动存储失败 |
+| 软件保护参数 `g_tParam.protect` | `param.c` 的 LoadParam / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 SaveParam 不解除启动存储失败 |
 | 持久 Config 和更新编号 | `bms_config_store.c` 的 get/set/default/update | 候选成功落盘后才替换 cache |
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
-| 三等级软件故障 | `bms_sw_protection.c`；SOC Low 在 `bms_soc.c` | 后端另合并硬件故障，故障字不等于单一算法的私有状态 |
+| 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
@@ -56,7 +56,15 @@ DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH
 
 公共电流 mA 正放负充，SH 在测量边界转换；温度 `(°C+40)*10`；名义容量 0.1 Ah、报告容量 0.01 Ah。无效串位 61001，不进入有效通道计算。字段定义与协议大小端以生产头文件和读写实现为准。
 
-## 6. 修改边界
+## 6. 通信与采样所有权
+
+SH 只有完整采样读取及全串范围校验成功才发布报告；feature getter 只读同轮已验证温度，不产生 SPI。公共三新帧资格只由 guard 计数；backend 保留自己的硬件锁存、恢复窗口和命令证据。
+
+UART RX IRQ 暂停 RX DMA 后交付单个缓冲区，主循环解析完才重新装载。此设计要求主站等待应答；不能保证接收任意背靠背请求。TX 全帧接受或拒绝，不截断、不覆盖活动 DMA。RS485 正常完成仍要求 DMA、UART 完成和最小线时长；超过 50 ms 在主循环中中止、重置 UART/DMA、释放 DE，再恢复 RX。
+
+D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和推进波形。正在发送的包不被更新；等候包可以随新样本刷新。协议按 TC32 `-fpack-struct` 固定，不能用 host 原生结构尺寸推断。
+
+## 7. 修改边界
 
 固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 的 `SH3673510_FIXED_UART_BLOCKS_PM=1` 保留现有固定 UART 门禁，不因“有 sleep 函数”声称默认模式一定进入休眠。
 
