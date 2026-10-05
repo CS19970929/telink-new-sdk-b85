@@ -1,3 +1,6 @@
+/* 文件功能：带版本、序号和 CRC 的 Flash 记录；处理有效记录选择、写入验证与掉电后旧记录恢复。
+ * bms/core/storage_record.c；实际编译归属见各产品 sources.txt。
+ */
 #include "storage_record.h"
 
 #define OFF_MAGIC       0u
@@ -221,6 +224,7 @@ int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
     return s->ready;
 }
 
+/* 扫描并验证候选记录的版本、长度、CRC 和序号；忽略中断写入残留，选择最新有效记录。 */
 int storage_record_load(storage_record_store_t *s, uint8_t *payload)
 {
     uint8_t h[STORAGE_RECORD_HEADER_SIZE];
@@ -278,6 +282,7 @@ static int prepare_target(storage_record_store_t *s, uint32_t *addr, uint8_t *er
     return 1;
 }
 
+/* 先准备目标空间再写入并验证新记录；保持旧有效记录可恢复，不假定掉电写入原子。 */
 int storage_record_save(storage_record_store_t *s, const uint8_t *payload)
 {
     uint8_t header[STORAGE_RECORD_HEADER_SIZE];

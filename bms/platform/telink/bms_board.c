@@ -1,3 +1,6 @@
+/* 文件功能：产品板级能力与 GPIO 操作；通过产品配置选择 heater/fuse/均衡路径，保持四产品硬件边界。
+ * bms/platform/telink/bms_board.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bms_board.h"

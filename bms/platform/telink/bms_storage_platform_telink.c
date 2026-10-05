@@ -1,3 +1,6 @@
+/* 文件功能：Telink Flash 读写/擦除端口；处理 OTA/锁状态、地址边界、写后验证及耗时/失败诊断。
+ * bms/platform/telink/bms_storage_platform_telink.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_storage_platform.h"
@@ -28,6 +31,7 @@ static int bms_storage_verify_result(int ok)
     return ok;
 }
 
+/* 存储事务门禁；Flash 解锁和 OTA 状态按现有策略决定能否写入，失败必须向上返回。 */
 static int bms_storage_telink_begin(void *ctx)
 {
     (void)ctx;

@@ -1,3 +1,6 @@
+/* 文件功能：通信引脚复用状态机；依据当前产品编译配置在 UART 与单线总线之间协调所有权。
+ * bms/platform/telink/bus_mux.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bus_mux.h"
 #include "tl_common.h"
 #include "drivers.h"

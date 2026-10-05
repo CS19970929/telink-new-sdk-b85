@@ -60,6 +60,8 @@ def main():
             'guard': source('bms_afe_guard.c'),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
         }.items():
+            if name == 'power':
+                code = '#include "' + (ROOT/'bms/core/bms_debug_log.h').as_posix() + '"\n' + code
             fixture = (FIX / (name + '.c')).read_text()
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')

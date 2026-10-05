@@ -1,3 +1,6 @@
+/* 文件功能：BLE 名称后缀校验、存储和 Modbus 写入；构造广播名称并保持既有名称长度和字符约束。
+ * bms/core/btname_modbus.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_backend.h"
 #include "btname_modbus.h"
 #include "bms_error.h"

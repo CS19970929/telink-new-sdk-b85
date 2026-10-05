@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "bms_diag.h"
+#include "bms_debug_log.h"
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define MODBUS_RTU_FRAME_CAPACITY 256u
 #define MB_ADDR 1u
@@ -102,6 +103,17 @@ int main(void){
  assert(bms_diag_cached_word(12)==64&&bms_diag_cached_word(10)>0);
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT);bms_diag_result(0,DIAG_OK);assert(bms_diag_cached_word(38)==DIAG_LAYOUT);
  assert(bms_diag_read(0x2d88,120,bytes));assert(!bms_diag_read(0x2d89,120,bytes));
+ /* Exercise the additive runtime-log window through real ingress, never through generic read/write. */
+ reads=0;writes=0;
+ n=request(q,1,3,BMS_DEBUG_LOG_BASE,16);assert(modbus_on_frame(q,n,r,&l));
+ assert(l==37 && r[3]==0x4c && r[4]==0x47 && r[8]==BMS_DEBUG_LOG_ENABLE);
+ for(unsigned addr=0;addr<2;addr++)for(unsigned func=6;func<=16;func+=10){
+  n=request(q,(u8)addr,(u8)func,func==16?BMS_DEBUG_LOG_BASE-1:BMS_DEBUG_LOG_BASE,2);
+  assert(modbus_on_frame(q,n,r,&l)==(addr!=0));assert(writes==0 && r[2]==2);
+ }
+ n=request(q,1,3,BMS_DEBUG_LOG_END-1,2);assert(modbus_on_frame(q,n,r,&l)&&r[2]==2);
+ n=request(q,0,3,BMS_DEBUG_LOG_BASE,16);assert(!modbus_on_frame(q,n,r,&l));
+ assert(reads==0 && writes==0);
  puts("PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, ring overwrite/tick wrap");
  return 0;
 }

@@ -1,3 +1,4 @@
+/* 文件功能：DVC1124 的板级配置应用、初始化与 shutdown 唤醒；保持 D008 专用脉冲和供电时序。 */
 #include "dvc1124_boot.h"
 #include "bms_afe_driver.h"
 

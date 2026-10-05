@@ -1,3 +1,6 @@
+/* 文件功能：BMS 测量报告、故障/状态及历史错误的共享所有者；保留现有协议字段布局与单位。
+ * bms/core/bms_state.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_STATE_H_
 #define BMS_STATE_H_
 

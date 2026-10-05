@@ -1,3 +1,6 @@
+/* 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，硬件动作交给 backend。
+ * bms/app/bms_features.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_FEATURES_H_
 #define BMS_FEATURES_H_
 

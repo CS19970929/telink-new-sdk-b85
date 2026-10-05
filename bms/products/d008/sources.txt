@@ -22,6 +22,7 @@ bms/core/bms_afe_hw_access.c
 bms/core/bms_afe_hw_profile.c
 bms/platform/telink/bms_board.c
 bms/core/bms_config_store.c
+bms/core/bms_debug_log.c
 bms/core/bms_diag.c
 bms/core/bms_event_log.c
 bms/app/bms_features.c

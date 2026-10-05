@@ -18,6 +18,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='bms-diag-') as directory:
         p=Path(directory)/'test.c';p.write_text(fixture.replace('/* MODBUS */',ingress),encoding='utf-8')
         exe=Path(directory)/'test.exe'
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-parameter',*host_includes(ROOT),str(p),str(MOD/'bms_diag.c'),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
+        for defines in ([], ['-DBMS_DEBUG_LOG_ENABLE=1', '-DBMS_DEBUG_LOG_LEVEL=4']):
+            subprocess.run(shlex.split(os.environ.get('CC','cc'))+defines+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-parameter',*host_includes(ROOT),str(p),str(MOD/'bms_diag.c'),str(MOD/'bms_debug_log.c'),'-o',str(exe)],check=True)
+            subprocess.run([str(exe)],check=True)
 if __name__=='__main__':main()

@@ -1,3 +1,6 @@
+/* 文件功能：SOC 配置、持久状态与容量学习的共享数据定义；字段单位和版本约束供算法与存储共同使用。
+ * bms/core/bms_soc_defs.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 /* Stable product-facing SOC identifiers. Keep numeric values backward compatible. */

@@ -1,3 +1,6 @@
+/* 文件功能：软件保护参数布局与纯参数校验声明；与 AFE 硬件 profile 分开维护。
+ * bms/core/bms_protection_params.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_PROTECTION_PARAMS_H_
 #define BMS_PROTECTION_PARAMS_H_
 #include <stdint.h>

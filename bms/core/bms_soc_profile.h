@@ -1,3 +1,6 @@
+/* 文件功能：SOC 电芯化学体系/OCV 曲线和算法配置档案；用于电压估算与容量参数边界。
+ * bms/core/bms_soc_profile.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include "conf.h"

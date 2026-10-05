@@ -1,3 +1,6 @@
+/* 文件功能：SDK 功能、GPIO 与调试编译配置；量产门禁集中校验，板级差异仍以产品配置为准。
+ * bms/platform/telink/app_config.h；实际编译归属见各产品 sources.txt。
+ */
 /********************************************************************************************************
  * @file    app_config.h
  *
@@ -34,6 +37,8 @@
 #endif
 
 ///////////////////////// Feature Configuration////////////////////////////////////////////////
+#include "bms_debug_log_config.h"
+
 #define BLE_APP_PM_ENABLE								1
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
 #ifndef TEST_CONN_CURRENT_ENABLE

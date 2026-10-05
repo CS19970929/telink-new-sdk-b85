@@ -1,3 +1,6 @@
+/* 文件功能：启动/存储/采样/SOC/MOS 运行诊断快照与 Trace；主循环更新，只读窗口供上位机核对状态。
+ * bms/core/bms_diag.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_DIAG_H_
 #define BMS_DIAG_H_
 #include <stdint.h>

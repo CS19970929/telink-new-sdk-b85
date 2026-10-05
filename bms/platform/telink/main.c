@@ -1,3 +1,6 @@
+/* 文件功能：TLSR8251 启动与 IRQ 入口；初始化 SDK/应用并分派硬件中断，业务处理保持在主循环。
+ * bms/platform/telink/main.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_backend.h"
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

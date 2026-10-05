@@ -1,3 +1,6 @@
+/* 文件功能：工厂老化模式与运行分钟累计；使用 32K 差值计时并持久化，deep sleep 时间不计入运行时长。
+ * bms/core/bms_factory_mode.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_factory_mode.h"
 #include "bms_error.h"
 #include "drivers.h"
@@ -12,6 +15,7 @@ static u32 g_runtime_last_saved_min = 0u;
 static u8 g_runtime_store_ready = 0u;
 static bms_mode_t g_mode = MODE_NORMAL;
 static u32 g_runtime_last_tick_32k = 0u;
+/* 不足一分钟的 32K tick 余量；只有工厂运行计时路径消费，deep sleep 不补算。 */
 static u32 g_runtime_pending_tick_32k = 0u;
 static u8 g_runtime_tick_ready = 0u;
 
@@ -58,6 +62,7 @@ static void runtime_apply_elapsed_minutes(u32 elapsed_min)
         !runtime_state_save()) runtime_note_store_error();
 }
 
+/* 累计无符号 32K tick 差值并保留不足一分钟的余量；调用节拍必须小于计数器回绕周期。 */
 static void runtime_apply_elapsed_ticks(u32 elapsed_tick_32k)
 {
     u32 total_tick_32k;

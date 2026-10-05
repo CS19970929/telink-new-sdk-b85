@@ -1,3 +1,6 @@
+/* 文件功能：SH36735xx 寄存器地址和位定义；配合当前型号控制层使用，不直接代替产品配置。
+ * bms/afe/sh3673510/sh3673520_reg.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef SH3673520_REG_H
 #define SH3673520_REG_H
 

@@ -1,3 +1,6 @@
+/* 文件功能：AFE 硬件保护协议的寄存器与功能码定义；requested/effective 与软件保护表保持独立。
+ * bms/core/bms_afe_hw_modbus.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_AFE_HW_MODBUS_H_
 #define BMS_AFE_HW_MODBUS_H_
 

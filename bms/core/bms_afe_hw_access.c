@@ -1,3 +1,6 @@
+/* 文件功能：AFE 硬件参数写授权会话；校验 token、超时和 Modbus 请求，授权状态不持久化。
+ * bms/core/bms_afe_hw_access.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_hw_access.h"
 #include "bms_afe_hw_profile.h"
 

@@ -25,7 +25,7 @@ def function(file, name):
 
 guard = (APP / 'bms_afe_guard.c').read_text(encoding='utf-8')
 state = guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
-body = state + '\n'.join([
+body = '#include "bms_debug_log.h"\n' + state + '\n'.join([
     function('sh3673510_control.c', 'sh3673510_control_sleep'),
     function('sh3673510_control.c', 'sh3673510_control_wake'),
     function('sh3673510_bms.c', 'sh3673510_bms_afe_sleep'),

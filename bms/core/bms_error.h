@@ -1,3 +1,6 @@
+/* 文件功能：BMS 错误位的语义与访问入口；错误状态由 bms_state 持有，不将不同来源错误混作硬件实测。
+ * bms/core/bms_error.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_ERROR_H_
 #define BMS_ERROR_H_
 

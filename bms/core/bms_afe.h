@@ -1,3 +1,6 @@
+/* 文件功能：应用侧 AFE 契约；采样资格、MOS 请求、保护配置、休眠与辅助测量由 guard/backend 实现。
+ * bms/core/bms_afe.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_AFE_H_
 #define BMS_AFE_H_
 #include <stdint.h>

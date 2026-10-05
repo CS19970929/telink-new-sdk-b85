@@ -1,3 +1,7 @@
+/* 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务路径。
+ * bms/core/modbus_rtu.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_diag.h"
 #include "modbus_rtu.h"
 #include "app_config.h"
@@ -160,6 +164,7 @@ static u16 afe_hw_profile_read_reg(u16 reg)
     }
 }
 
+/* 完整 profile 校验、持久化、应用与回读事务；失败按原路径 rollback，不与软件保护参数联动。 */
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
     switch (bms_afe_hw_profile_commit_be(pdata, qty))
@@ -304,6 +309,7 @@ static int modbus_exception(u8 addr,
 {
     u16 crc;
 
+    BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_MODBUS_EXCEPTION, func, exception);
     if (addr == 0x00u) return 0;
 
     rsp[0] = addr;
@@ -474,6 +480,7 @@ static void put_u16be(u8 *p, u16 v)
     p[1] = (u8)(v & 0xFFu);
 }
 
+/* UART/BLE 的共同协议入口；先检查长度、地址、CRC，再分派请求，返回值表示是否生成响应。 */
 int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 {
     u16 crc_rx;
@@ -489,7 +496,10 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
     crc = mb_crc16(req, req_len - 2u);
-    if (crc != crc_rx) return 0;
+    if (crc != crc_rx) {
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_CRC_REJECT, req_len, ((uint32_t)crc << 16) | crc_rx);
+        return 0;
+    }
 
     addr = req[0];
     func = req[1];
@@ -525,6 +535,14 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
         if ((u32)reg + qty > 65536u)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        if (bms_debug_log_overlaps(reg, qty)) {
+            if (!bms_debug_log_read(reg, qty, &rsp[3]))
+                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+            rsp[0] = addr; rsp[1] = func; rsp[2] = (u8)(qty * 2u);
+            l = 3u + (u32)qty * 2u; crc = mb_crc16(rsp, l);
+            rsp[l] = (u8)crc; rsp[l+1u] = (u8)(crc >> 8); *rsp_len = l + 2u;
+            return addr != 0u;
+        }
         if (bms_diag_overlaps(reg, qty)) {
             if (!bms_diag_read(reg, qty, &rsp[3]))
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
@@ -565,7 +583,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (req_len != 8u) return 0;
         reg = u16be(&req[2]);
         val = u16be(&req[4]);
-        if (bms_diag_overlaps(reg, 1u))
+        if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         protect_changed = reg_requires_param_save(reg);
         if (protect_changed) previous_protect = g_tParam.protect;
@@ -600,7 +618,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (req_len < 9u) return 0;
         reg = u16be(&req[2]);
         qty = u16be(&req[4]);
-        if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty))
+        if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         bytecnt = req[6];
 

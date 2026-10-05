@@ -1,3 +1,6 @@
+/* 文件功能：工厂老化模式与运行分钟累计；使用 32K 差值计时并持久化，deep sleep 时间不计入运行时长。
+ * bms/core/bms_factory_mode.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_FACTORY_MODE_H_
 #define BMS_FACTORY_MODE_H_
 

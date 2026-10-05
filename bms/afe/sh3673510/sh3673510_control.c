@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 寄存器控制与硬件保护量化；执行配置验证、MOS/均衡、Sleep/Wake 等器件流程。
+ * bms/afe/sh3673510/sh3673510_control.c；实际编译归属见各产品 sources.txt。
+ */
 #include "sh3673510_ntc.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -172,6 +175,7 @@ static uint8_t sh3510_validate_protection(bms_afe_hw_profile_t *profile)
     return bms_afe_hw_profile_get(profile);
 }
 
+/* 把独立硬件 profile 量化为本芯片寄存器并验证；effective 值用于报告真实可表示阈值。 */
 uint8_t sh3673510_control_apply_protection(void)
 {
     bms_afe_hw_profile_t hw;

@@ -1,3 +1,6 @@
+/* 文件功能：可选栈水位观察；扫描预填充区帮助评估 SRAM 余量，不代表完整最坏栈深证明。
+ * bms/platform/telink/bms_stack_monitor.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_stack_monitor.h"
 
 /* Linker symbols delimit memory regions, not single C objects. */

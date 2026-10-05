@@ -1,6 +1,11 @@
+/* 文件功能：启动/存储/采样/SOC/MOS 运行诊断快照与 Trace；主循环更新，只读窗口供上位机核对状态。
+ * bms/core/bms_diag.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_diag.h"
 #include <string.h>
 
+/* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
 static uint32_t s_sequence, s_trace_sequence;
@@ -32,6 +37,11 @@ static uint8_t update32(uint16_t offset, uint32_t value)
 void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 {
     uint16_t *p = s_trace[s_next];
+    BMS_LOG(event == DIAG_EV_STORAGE ? BMS_LOG_WARN : BMS_LOG_INFO,
+            (event == DIAG_EV_STORAGE || event == DIAG_EV_INIT) ? BMS_LOG_STORAGE :
+            (event == DIAG_EV_MOS || event == DIAG_EV_PROTECTION) ? BMS_LOG_PROTECT :
+            (event == DIAG_EV_AFE || event == DIAG_EV_SAMPLE_STATE || event == DIAG_EV_CURRENT_RECOVERY) ? BMS_LOG_AFE :
+            event == DIAG_EV_PM_STATE ? BMS_LOG_POWER : BMS_LOG_SYSTEM, event, arg0, arg1);
     put32(p, ++s_trace_sequence); put32(p + 2, bms_diag_tick());
     p[4] = event; p[5] = 0u; put32(p + 6, arg0); put32(p + 8, arg1);
     p[10] = 0u; p[11] = 0u;
@@ -44,6 +54,7 @@ void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
 }
 void bms_diag_init(void)
 {
+    bms_debug_log_init();
     memset(s_words, 0, sizeof(s_words)); memset(s_trace, 0, sizeof(s_trace));
     s_sequence = 0u; s_trace_sequence = 0u; s_next = 0u; s_frozen = 0u;
     s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = BMS_DIAG_CAPABILITIES;
@@ -112,6 +123,7 @@ void bms_diag_params(uint8_t valid, uint8_t upgrade)
     if (!s_frozen) s_words[24] = bits;
     if (s_words[144] != bits) { s_words[144] = bits; bms_diag_trace(DIAG_EV_PARAMS, bits, 0u); }
 }
+/* 记录软件 MOS 请求与充放电阻断原因；命令、驱动缓存、物理 Gate 是不同证据。 */
 void bms_diag_mos(uint16_t requested, uint32_t charge, uint32_t discharge)
 {
     if (s_words[128] == requested && get32(&s_words[136]) == charge &&
@@ -148,6 +160,7 @@ void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
                              int32_t current_ma, uint32_t sample_tick_32k,
                              uint8_t current_recovery_pending)
 {
+    BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_AFE, BMS_LOG_SAMPLE, valid, current_ma);
     uint16_t old_flags = s_words[193];
     uint16_t flags = (uint16_t)((valid ? 1u : 0u) |
                                 (current_recovery_pending ? 2u : 0u));
@@ -171,6 +184,9 @@ void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
                           uint16_t current_deadband_ma)
 {
     uint8_t dirty = 0u;
+    if (s_words[202] != soc_estimate || s_words[203] != soc_display || s_words[204] != ocv_state)
+        BMS_LOG(BMS_LOG_INFO, BMS_LOG_SOC, BMS_LOG_SOC_STATE,
+                ((uint32_t)soc_estimate << 16) | soc_display, ocv_state);
     dirty |= update16(200u, current_deadband_ma);
     dirty |= update16(202u, soc_estimate);
     dirty |= update16(203u, soc_display);
@@ -192,6 +208,12 @@ void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
     uint16_t eta;
     uint8_t dirty = 0u;
     if (soc == 0) return;
+    BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_SOC, BMS_LOG_SOC_DECISION,
+            ((uint32_t)soc->last_soc_action << 24) | ((uint32_t)soc->last_soc_before << 16) |
+            ((uint32_t)soc->last_soc_after << 8) | soc->last_soc_target,
+            ((uint32_t)soc->last_decision_detail << 16) | soc->rest_seconds);
+    BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_SOC, BMS_LOG_SOC_TIME,
+            soc->last_sample_elapsed_32k, soc->last_integral_delta_as10);
     flags = (uint16_t)((soc->capacity_learning_enable ? 1u : 0u) |
                        (soc->capacity_learning_candidate_valid ? 2u : 0u) |
                        (soc->eta_valid ? 4u : 0u) |
@@ -233,6 +255,7 @@ void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
     if (dirty) changed();
 }
 
+/* 记录 suspend 阻断原因变化；正常 sample_pending 节拍保留在快照，不让其淹没状态日志。 */
 void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t low_voltage_region, uint32_t low_voltage_seconds,
                          uint8_t ble_connected, uint8_t sample_pending,
@@ -325,6 +348,10 @@ void bms_diag_backend_details(const uint16_t *words)
     uint16_t i;
     uint8_t dirty = 0u;
     if (!words) return;
+    if (s_words[142] != words[0] || s_words[143] != words[1] ||
+        s_words[146] != words[4] || s_words[147] != words[5])
+        BMS_LOG(BMS_LOG_INFO, BMS_LOG_AFE, BMS_LOG_AFE_STATE,
+                ((uint32_t)words[5] << 16) | words[4], ((uint32_t)words[0] << 16) | words[1]);
     for (i=0u; i<11u; ++i) dirty |= update16((uint16_t)(142u+i), words[i]);
     if (dirty) changed();
 }

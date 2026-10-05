@@ -1,3 +1,6 @@
+/* 文件功能：各持久域更新编号的公共语义；产品输入决定 OTA 后保留或更新哪些配置。
+ * bms/core/bms_update_policy.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include <stdint.h>

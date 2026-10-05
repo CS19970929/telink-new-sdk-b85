@@ -1,3 +1,6 @@
+/* 文件功能：公共业务参数只读能力、读写校验和分组恢复；遵守既有参数授权与持久化事务。
+ * bms/core/bms_parameter_access.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_parameter_access.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"

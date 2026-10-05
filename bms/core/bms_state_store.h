@@ -1,3 +1,6 @@
+/* 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；管理缓存、变化保存和恢复默认入口。
+ * bms/core/bms_state_store.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 /* Storage V1 State domain: SOC/cycle/learned-capacity/runtime checkpoints. */

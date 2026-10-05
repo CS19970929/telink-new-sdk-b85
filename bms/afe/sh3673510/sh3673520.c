@@ -1,3 +1,7 @@
+/* 文件功能：SH36735xx 寄存器事务驱动；提供 CRC、重试、通信诊断、测量及芯片操作公共接口。
+ * bms/afe/sh3673510/sh3673520.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "sh3673520.h"
 #include "sh3673520_port.h"
 
@@ -59,6 +63,7 @@ static sh3673520_status_t sh3673520_map_port_status(sh3673520_port_status_t stat
 
 static void sh3673520_record_attempt_failure(sh3673520_status_t status)
 {
+    BMS_LOG(BMS_LOG_WARN, BMS_LOG_AFE, BMS_LOG_AFE_RETRY, status, s_comm_stats.consecutive_failures);
     switch (status) {
     case SH3673520_ERR_TIMEOUT:
         ++s_comm_stats.timeout_count;
@@ -81,6 +86,8 @@ static void sh3673520_record_attempt_failure(sh3673520_status_t status)
 
 static void sh3673520_record_success(void)
 {
+    if (s_comm_stats.consecutive_failures != 0u)
+        BMS_LOG(BMS_LOG_INFO, BMS_LOG_AFE, BMS_LOG_AFE_RECOVERED, s_comm_stats.consecutive_failures, 0u);
     ++s_comm_stats.successful_transactions;
     s_comm_stats.consecutive_failures = 0u;
     s_comm_stats.last_error = SH3673520_OK;
@@ -89,6 +96,7 @@ static void sh3673520_record_success(void)
 static sh3673520_status_t sh3673520_record_final_failure(sh3673520_status_t status)
 {
     ++s_comm_stats.consecutive_failures;
+    BMS_LOG(BMS_LOG_ERROR, BMS_LOG_AFE, BMS_LOG_AFE_FAILED, status, s_comm_stats.consecutive_failures);
     s_comm_stats.last_error = status;
     return status;
 }
@@ -340,6 +348,7 @@ static uint8_t sh3673520_should_recover_port(sh3673520_status_t status)
                       (status == SH3673520_ERR_SPI)) ? 1u : 0u);
 }
 
+/* 对一次寄存器读取执行有界重试和必要端口恢复；所有尝试耗尽后保留失败诊断。 */
 static sh3673520_status_t sh3673520_read_with_retry(uint8_t start_reg,
                                                     uint8_t *buffer,
                                                     uint8_t length)

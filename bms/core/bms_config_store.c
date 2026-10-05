@@ -1,3 +1,6 @@
+/* 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各参数组。
+ * bms/core/bms_config_store.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
@@ -43,6 +46,7 @@ typedef struct {
 } bms_config_cache_t;
 
 static storage_record_store_t g_bms_config_store;
+/* 已接受的参数缓存；保存失败不得把未落盘候选当作已提交配置发布。 */
 static bms_config_cache_t g_bms_config;
 static u8 g_bms_config_ready;
 static u8 g_bms_config_needs_save;
@@ -149,6 +153,7 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
 
 }
 
+/* 校验 CFG2 的版本、产品 tag 和字段边界；各参数组是否更新由产品独立更新编号决定。 */
 static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
 {
     u16 word;

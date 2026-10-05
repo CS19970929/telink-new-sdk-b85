@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 的诊断适配；汇总请求、命令、驱动缓存和阻断原因，不在 bus silence 期间访问芯片。
+ * bms/afe/sh3673510/sh3673510_diag.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_driver.h"
 #include "bms_diag.h"
 #include "bms_features.h"

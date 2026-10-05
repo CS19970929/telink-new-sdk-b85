@@ -1,3 +1,6 @@
+/* 文件功能：DVC1124 寄存器地址/位定义；应与当前芯片驱动和官方资料一同核对。
+ * bms/afe/dvc1124/dvc1124_reg.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef DVC1124_REG_H_
 #define DVC1124_REG_H_
 

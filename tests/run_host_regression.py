@@ -10,7 +10,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCTS = ("d008", "d011", "d013", "d014")
 ALL_PRODUCTS = {
-    "modbus_address_host_check.py",
+    "modbus_address_host_check.py", "runtime_debug_log_host_check.py",
     "bms_diag_contract_check.py", "bms_diag_host_check.py", "soc_contract_check.py",
     "production_policy_check.py", "sw_protection_contract_check.py", "common_feature_policy_contract_check.py",
     "flash_quick_check.py", "afe_hw_access_contract_check.py", "afe_hw_fragment_host_check.py",

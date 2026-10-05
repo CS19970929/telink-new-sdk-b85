@@ -1,3 +1,6 @@
+/* 文件功能：带版本、序号和 CRC 的 Flash 记录；处理有效记录选择、写入验证与掉电后旧记录恢复。
+ * bms/core/storage_record.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef STORAGE_RECORD_H_
 #define STORAGE_RECORD_H_
 

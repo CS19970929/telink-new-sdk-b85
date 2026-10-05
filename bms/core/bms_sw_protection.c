@@ -1,3 +1,7 @@
+/* 文件功能：软件三级保护滤波与故障位更新；使用 g_tParam.protect，Third 负责 MOS 阻断与恢复回差。
+ * bms/core/bms_sw_protection.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_sw_protection.h"
 
 #include "bms_error.h"
@@ -52,6 +56,7 @@ typedef enum
     BMS_SW_LOW
 } bms_sw_direction_t;
 
+/* 每个保护等级/项目各自拥有连续触发与恢复计数，计数单位是有效样本。 */
 static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 
@@ -96,6 +101,7 @@ static void bms_sw_filter_reset(bms_sw_filter_t *state)
     state->active = 0u;
 }
 
+/* 以连续有效样本确认触发/恢复，First/Second 告警与 Third 恢复回差分别处理。 */
 static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                                     uint16_t value,
                                     uint16_t trip,
@@ -429,6 +435,7 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
     }
 }
 
+/* 持久故障历史仅记录上升沿；运行日志同时记录发生和恢复位图，避免改变原历史语义。 */
 void bms_sw_protection_record_fault_edges(void)
 {
     uint8_t level;
@@ -453,6 +460,9 @@ void bms_sw_protection_record_fault_edges(void)
         BMS_SW_RISE(b1TmosOtp, 10u);
         BMS_SW_RISE(b1VcellDeltaBig, 11u);
 #undef BMS_SW_RISE
+        if (prev->all != now->all)
+            BMS_LOG(BMS_LOG_INFO, BMS_LOG_PROTECT, BMS_LOG_PROTECTION_EDGE,
+                    level + 1u, ((uint32_t)prev->all << 16) | now->all);
         *prev = *now;
     }
 }

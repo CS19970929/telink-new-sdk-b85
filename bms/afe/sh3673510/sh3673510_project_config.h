@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 的共享寄存器编码配置；板级输入由产品目录提供，兼容宏不改变产品实际能力。
+ * bms/afe/sh3673510/sh3673510_project_config.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef SH3673510_PROJECT_CONFIG_H_
 #define SH3673510_PROJECT_CONFIG_H_
 

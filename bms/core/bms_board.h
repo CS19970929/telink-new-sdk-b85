@@ -1,3 +1,6 @@
+/* 文件功能：产品板级能力与 GPIO 操作；通过产品配置选择 heater/fuse/均衡路径，保持四产品硬件边界。
+ * bms/core/bms_board.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_BOARD_H_
 #define BMS_BOARD_H_
 

@@ -1,3 +1,6 @@
+/* 文件功能：DVC1124 参数的 requested/effective 与原始寄存器访问；校验写入和固定配置边界。
+ * bms/afe/dvc1124/dvc1124_config_service.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef DVC1124_CONFIG_SERVICE_H_
 #define DVC1124_CONFIG_SERVICE_H_
 

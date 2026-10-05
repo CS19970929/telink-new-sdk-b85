@@ -1,3 +1,6 @@
+/* 文件功能：独立 AFE 硬件保护参数；负责默认值、校验、持久化和实际量化值，不代替软件三级保护。
+ * bms/core/bms_afe_hw_profile.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_hw_profile.h"
 #include "bms_afe.h"
 #include "bms_afe_hw_access.h"

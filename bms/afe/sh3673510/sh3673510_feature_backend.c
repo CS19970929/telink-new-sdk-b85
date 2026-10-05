@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 均衡/Open-Wire 和功能快照适配；仅处理有效 cell 通道及真实板级能力。
+ * bms/afe/sh3673510/sh3673510_feature_backend.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_driver.h"
 #include "bms_state.h"
 #include "sh3673510_project_config.h"

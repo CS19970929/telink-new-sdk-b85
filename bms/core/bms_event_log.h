@@ -1,3 +1,6 @@
+/* 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，遵循现有更新编号策略。
+ * bms/core/bms_event_log.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include "tl_common.h"

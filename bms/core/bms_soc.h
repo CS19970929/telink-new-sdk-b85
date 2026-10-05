@@ -1,3 +1,6 @@
+/* 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之间的边界。
+ * bms/core/bms_soc.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_SOC_H_
 #define BMS_SOC_H_
 

@@ -1,3 +1,6 @@
+/* 文件功能：AFE 通信安全门禁；管理输出授权、失联隔离、硬件 watchdog 静默窗口和恢复样本资格。
+ * bms/core/bms_afe_guard.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_driver.h"
 #include "bms_diag.h"
 #include "bms_features.h"
@@ -40,6 +43,7 @@ typedef struct
     uint16_t failsafe_wait_samples;
 } bms_afe_guard_state_t;
 
+/* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
 static bms_afe_guard_state_t s_guard;
 
 uint8_t bms_afe_bus_access_allowed(void)
@@ -108,6 +112,7 @@ static void enter_failsafe_wait(void)
     s_guard.comm_failures = 0u;
 }
 
+/* 硬件 watchdog 等待阶段禁止 AFE 总线访问；到期仅探测一次，恢复仍需新样本资格。 */
 static uint8_t service_failsafe_wait(void)
 {
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
@@ -135,6 +140,7 @@ static uint8_t service_failsafe_wait(void)
     return 1u;
 }
 
+/* 合并调用方 MOS 意图与 guard 授权；应用侧请求并不等同于真实 Gate 已导通。 */
 static uint8_t apply_requested(void)
 {
     uint8_t c;

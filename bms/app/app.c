@@ -1,3 +1,6 @@
+/* 文件功能：应用调度与 BLE 电源策略；主循环按 200 ms 执行 AFE/SOC/MOS，协调通信、OTA 和休眠入口。
+ * bms/app/app.c；实际编译归属见各产品 sources.txt。
+ */
 /********************************************************************************************************
  * @file    app.c
  *
@@ -21,6 +24,7 @@
  *          limitations under the License.
  *
  *******************************************************************************************************/
+#include "bms_debug_log.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -61,12 +65,16 @@ void task_suspend_exit(u8 e, u8 *p, int n);
 void task_dle_exchange(u8 e, u8 *p, int n);
 int app_host_event_callback(u32 h, u8 *para, int n);
 
+#if BMS_DEBUG_LOG_ENABLE
+static volatile u32 s_debug_suspend_exits; /* Only wake callback writes; main loop reads. */
+#endif
 #define APP_PM_TICKS_PER_SEC 32000u
 
 #define APP_SAMPLE_PERIOD_US 200000u
 
 static u32 s_sample_tick;
 
+/* 低功耗唤醒回调只置位；主循环消费后执行采样，不在回调中跑保护/SOC。 */
 static volatile u8 s_sample_due;
 
 typedef struct
@@ -204,6 +212,15 @@ static void app_event_log_1s_task(void)
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
+#if BMS_DEBUG_LOG_ENABLE
+    {
+        static u32 previous_exits;
+        u32 exits = s_debug_suspend_exits;
+        if (exits != previous_exits)
+            BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_POWER, BMS_LOG_PM_CYCLE, exits - previous_exits, exits);
+        previous_exits = exits;
+    }
+#endif
 }
 
 static int app_enter_power_off(void)
@@ -225,6 +242,7 @@ static int app_enter_power_off(void)
     if (s_power_off_retry_ready &&
         (u32)(now - s_power_off_retry_tick) <
             APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
+    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
     s_power_off_retry_ready = 1u;
     s_power_off_retry_tick = now;
 
@@ -234,7 +252,10 @@ static int app_enter_power_off(void)
                                SOC_Calculate_Element.u8DSG_SOC_Int,
                                SOC_Calculate_Element.u32Cycle_times) ||
         !bms_event_log_note_sleep()) return 0;
-    if (!bms_afe_enter_shutdown()) return 0;
+    if (!bms_afe_enter_shutdown()) {
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 1u);
+        return 0;
+    }
 
     s_power_off_committed = 1u;
     bls_pm_setAppWakeupLowPower(0u, 0u);
@@ -338,6 +359,15 @@ static void app_event_log_1s_task(void)
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
+#if BMS_DEBUG_LOG_ENABLE
+    {
+        static u32 previous_exits;
+        u32 exits = s_debug_suspend_exits;
+        if (exits != previous_exits)
+            BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_POWER, BMS_LOG_PM_CYCLE, exits - previous_exits, exits);
+        previous_exits = exits;
+    }
+#endif
 }
 
 static int app_deepsleep_pad_wakeup_active(void)
@@ -350,6 +380,7 @@ static int app_deepsleep_pad_wakeup_active(void)
 	return 0;
 }
 
+/* 仅在 OTA、Flash、UART、总线及唤醒脚门禁满足后尝试深睡；失败保留请求并按 32K 时间退避。 */
 static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
 {
     static u32 last_attempt_tick_32k;
@@ -370,15 +401,23 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     last_attempt_tick_32k = now_tick_32k;
     attempt_ready = 1u;
 
-    if (need_afe_sleep && !bms_afe_sleep()) return 0;
+    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 0u);
+    if (need_afe_sleep && !bms_afe_sleep()) {
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 0u);
+        return 0;
+    }
     /* GPIO may change during the AFE transaction. The next normal sample
      * wakes/restores the AFE after an aborted MCU transition. */
-    if (app_deepsleep_pad_wakeup_active()) return 0;
+    if (app_deepsleep_pad_wakeup_active()) {
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 2u, 0u);
+        return 0;
+    }
 
     bms_event_log_note_sleep();
     Runtime_PrepareForDeepSleep();
     sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
     Runtime_CancelPendingDeepSleep();
+    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_RETURN, sleep_status, 0u);
     return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
 
@@ -627,6 +666,7 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 /**
  * @brief      power management code for application
  */
+/* 根据运行状态和通信互锁选择 SDK suspend/深睡；调试日志积压本身不增加休眠阻断条件。 */
 void blt_pm_proc(void)
 {
     static u32 low_voltage_seconds;
@@ -754,6 +794,7 @@ void blt_pm_proc(void)
  * order and coalesce overdue work: repeated catch-up samples would distort
  * sample-count filters and starve BLE/UART. The wake callback only sets due. */
 
+/* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
@@ -820,6 +861,20 @@ _attribute_no_inline_ void main_loop(void)
 	Runtime_Poll();
     bms_diag_runtime_mode((Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
 
+#if BMS_DEBUG_LOG_ENABLE
+    /* Observe SDK callback-owned flags here: no formatting/log production in ISR. */
+    {
+        static u8 last_link = 0xFFu, last_ota = 0xFFu;
+        if (last_link != (u8)device_in_connection_state) {
+            last_link = (u8)device_in_connection_state;
+            BMS_LOG(BMS_LOG_INFO, BMS_LOG_COMM, BMS_LOG_LINK_STATE, last_link, 0u);
+        }
+        if (last_ota != ota_is_working) {
+            last_ota = ota_is_working;
+            BMS_LOG(BMS_LOG_INFO, BMS_LOG_OTA, BMS_LOG_OTA_STATE, last_ota, 0u);
+        }
+    }
+#endif
     app_sample_task();
     app_event_log_1s_task();
 
@@ -909,6 +964,7 @@ void task_sleep_enter(u8 e, u8 *p, int n)
  * @param	   none
  * @return     none
  */
+/* 根据运行状态和通信互锁选择 SDK suspend/深睡；调试日志积压本身不增加休眠阻断条件。 */
 void blt_pm_proc(void)
 {
 	static u16 sleep_cnt = 0;
@@ -1064,6 +1120,7 @@ void blt_pm_proc(void)
 // main loop flow
 /////////////////////////////////////////////////////////////////////
 
+/* 200 ms 采样调度的唯一主循环入口；无效 AFE 样本不得推进 SOC，超时只合并一次补采。 */
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t sample;
@@ -1110,6 +1167,20 @@ _attribute_no_inline_ void main_loop(void)
 	////////////////////////////////////// UI entry /////////////////////////////////
 	///////////////////////////////////// Battery Check ////////////////////////////////
 
+#if BMS_DEBUG_LOG_ENABLE
+    /* Observe SDK callback-owned flags here: no formatting/log production in ISR. */
+    {
+        static u8 last_link = 0xFFu, last_ota = 0xFFu;
+        if (last_link != (u8)device_in_connection_state) {
+            last_link = (u8)device_in_connection_state;
+            BMS_LOG(BMS_LOG_INFO, BMS_LOG_COMM, BMS_LOG_LINK_STATE, last_link, 0u);
+        }
+        if (last_ota != ota_is_working) {
+            last_ota = ota_is_working;
+            BMS_LOG(BMS_LOG_INFO, BMS_LOG_OTA, BMS_LOG_OTA_STATE, last_ota, 0u);
+        }
+    }
+#endif
     app_sample_task();
 	_attribute_data_retention_ static u32 update_bms_info_tick = 0;
 	if (clock_time_exceed(update_bms_info_tick, 1000 * 1000))
@@ -1203,6 +1274,9 @@ void task_connect(u8 e, u8 *p, int n)
 
 void task_suspend_exit(u8 e, u8 *p, int n)
 {
+#if BMS_DEBUG_LOG_ENABLE
+    ++s_debug_suspend_exits; /* No ring write, tick read, formatting or I/O here. */
+#endif
 	(void)e;
 	(void)p;
 	(void)n;

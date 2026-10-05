@@ -1,3 +1,6 @@
+/* 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，遵循现有更新编号策略。
+ * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_event_log.h"
@@ -85,6 +88,7 @@ static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
     return 1;
 }
 
+/* 将待写历史事件合并为 checkpoint，失败按 32K 时间退避；此路径不用于运行调试日志。 */
 static int bms_event_log_write_snapshot(void)
 {
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];

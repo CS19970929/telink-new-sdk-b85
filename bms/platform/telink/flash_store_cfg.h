@@ -1,3 +1,6 @@
+/* 文件功能：Flash 分区、记录容量及存储时间配置；变更会涉及历史数据与 Bootloader/OTA 地址边界。
+ * bms/platform/telink/flash_store_cfg.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include "tl_common.h"

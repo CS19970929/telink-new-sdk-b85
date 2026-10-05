@@ -1,3 +1,7 @@
+/* 文件功能：BLE GATT 属性表与 Modbus 收发桥接；复用 RTU 解析器，将响应按 Notify 负载分片。
+ * bms/platform/telink/app_att.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_afe_backend.h"
 /********************************************************************************************************
  * @file    app_att.c
@@ -352,6 +356,7 @@ static const u8 my_OtaCharVal[19] = {
 static u8 ble_rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 
 #define TELINK_NOTIFY_PAYLOAD 20
+/* 按当前 ATT 负载逐片入 SDK 队列；首次入队失败立即返回，已入队不代表对端完整接收。 */
 static ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
 {
 	u16 offset = 0;
@@ -368,6 +373,7 @@ static ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
 
 		if (ret != BLE_SUCCESS)
 		{
+            BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_BLE_NOTIFY_FAIL, ret, offset);
 			return ret;
 		}
 		offset += chunk;
@@ -391,6 +397,11 @@ static int module_onReceiveData(void *para)
 	{
 		u32 rsp_len = 0u;
 		int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
+#if BMS_DEBUG_LOG_ENABLE
+        if (!bms_debug_log_is_read(data, len))
+            BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_BLE_FRAME,
+                    ((uint32_t)len << 16) | (len >= 2u ? data[1] : 0u), rsp_len);
+#endif
 
 		if (ok && rsp_len)
 		{

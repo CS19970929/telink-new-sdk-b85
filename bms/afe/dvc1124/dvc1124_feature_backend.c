@@ -1,3 +1,4 @@
+/* 文件功能：DVC1124 功能快照、均衡和 Open-Wire 适配；把芯片能力映射到公共功能策略。 */
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
 #include "bms_state.h"

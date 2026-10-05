@@ -1,3 +1,6 @@
+/* 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；管理缓存、变化保存和恢复默认入口。
+ * bms/core/bms_state_store.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_state_store.h"
@@ -33,6 +36,7 @@ typedef struct {
 static storage_record_store_t g_bms_state_store;
 static bms_state_persist_t g_bms_state;
 static u8 g_bms_state_ready;
+/* 待 checkpoint 的状态副本；与当前持久状态分离以保留失败后的重试内容。 */
 static bms_state_persist_t g_bms_state_pending;
 static u32 g_bms_state_last_attempt_32k;
 static u8 g_bms_state_last_failed;
@@ -119,6 +123,7 @@ static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
     state->runtime_revision = (u16)(bms_state_get_u32le(&payload[44]) >> 16);
 }
 
+/* 持久状态 checkpoint；保存结果决定缓存提交，不能把 RAM 更新视为 Flash 已落盘。 */
 static int bms_state_save(const bms_state_persist_t *next)
 {
     u8 payload[BMS_STATE_PAYLOAD_BYTES];

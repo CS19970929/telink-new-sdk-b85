@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 寄存器控制与硬件保护量化；执行配置验证、MOS/均衡、Sleep/Wake 等器件流程。
+ * bms/afe/sh3673510/sh3673510_control.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef SH3673510_CONTROL_H_
 #define SH3673510_CONTROL_H_
 

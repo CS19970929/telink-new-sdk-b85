@@ -1,3 +1,6 @@
+/* 文件功能：SH36735xx 的 TLSR8251 SPI 端口；封装片选、字节交换、时序与总线恢复。
+ * bms/afe/sh3673510/sh3673520_port.c；实际编译归属见各产品 sources.txt。
+ */
 #include "tl_common.h"
 #include "drivers.h"
 #include "app_config.h"

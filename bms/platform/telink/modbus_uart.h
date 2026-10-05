@@ -1,3 +1,6 @@
+/* 文件功能：UART DMA 与可选 RS485 方向控制；ISR 交付状态，主循环维护协议和恢复，保留产品通信差异。
+ * bms/platform/telink/modbus_uart.h；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_afe_backend.h"
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

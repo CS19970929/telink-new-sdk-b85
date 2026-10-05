@@ -1,3 +1,6 @@
+/* 文件功能：公共 Modbus RTU 解析与寄存器映射；UART/BLE 共用 CRC、读写校验及配置事务路径。
+ * bms/core/modbus_rtu.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 #include "tl_common.h"
 #include "conf.h"

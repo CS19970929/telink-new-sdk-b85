@@ -1,3 +1,6 @@
+/* 文件功能：SH3673510 的 BMS 采样、保护状态、MOS 仲裁与恢复；区分请求、驱动缓存和有效测量。
+ * bms/afe/sh3673510/sh3673510_bms.c；实际编译归属见各产品 sources.txt。
+ */
 #include "sh3673510_ntc.h"
 #include "bms_afe_driver.h"
 #include "tl_common.h"
@@ -40,6 +43,7 @@ static uint8_t s_requested_charge_on;
 static uint8_t s_requested_discharge_on;
 static uint8_t s_output_inhibit;
 static uint8_t s_valid_snapshot_streak;
+/* 短路硬件锁定；恢复依赖物理条件与 AFE 状态，不能由关 MOS 后零电流直接清除。 */
 static uint8_t s_short_latched;
 static uint8_t s_short_clear_pending;
 static uint16_t s_short_release_count;
@@ -304,6 +308,7 @@ static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
     if (s->flag2 & SH3673520_FLAG2_UTD_MASK) f->bits.b1CellDischgUtp = 1u;
 }
 
+/* 短路恢复必须满足器件状态和物理恢复窗口，不能仅凭关 MOS 后的零电流解除锁定。 */
 static void service_short_recovery(const sh3673510_control_status_t *s)
 {
     if ((s == 0) || !s_short_latched) return;
@@ -477,6 +482,7 @@ static uint8_t service_afe_reconfiguration(void)
     return 1u;
 }
 
+/* 把已验证 AFE 快照映射到公共报告；单位、有效串数和温度通道必须保持产品约定。 */
 static uint8_t publish_measurements(void)
 {
     int32_t cell[SH3673510_BOARD_CELL_COUNT];

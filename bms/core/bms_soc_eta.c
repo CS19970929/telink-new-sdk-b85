@@ -1,3 +1,6 @@
+/* 文件功能：SOC 剩余充放电时间估算；根据方向、有效容量和电流建立置信度，结果供诊断显示。
+ * bms/core/bms_soc_eta.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_soc_eta.h"
 
 #define SOC_ETA_FILTER_SHIFT                 3u

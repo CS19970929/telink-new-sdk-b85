@@ -1,3 +1,6 @@
+/* 文件功能：软件三级保护滤波与故障位更新；使用 g_tParam.protect，Third 负责 MOS 阻断与恢复回差。
+ * bms/core/bms_sw_protection.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_SW_PROTECTION_H_
 #define BMS_SW_PROTECTION_H_
 

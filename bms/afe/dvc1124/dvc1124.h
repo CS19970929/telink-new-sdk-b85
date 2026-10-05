@@ -1,3 +1,6 @@
+/* 文件功能：DVC1124 寄存器通信、采样、保护编码与驱动接口；为条件编译的 DVC backend 保留。
+ * bms/afe/dvc1124/dvc1124.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef DVC1124_H_
 #define DVC1124_H_
 

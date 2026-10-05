@@ -1,3 +1,7 @@
+/* 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，硬件动作交给 backend。
+ * bms/app/bms_features.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_diag.h"
 #include "bms_features.h"
 #include "bms_config_store.h"
@@ -40,6 +44,7 @@ typedef struct {
     uint32_t balance_requested_mask;
 } bms_feature_state_t;
 
+/* 公共功能的资格/阶段状态；仅由 service/init/AFE 失效处理入口更新，产品能力由配置提供。 */
 static bms_feature_state_t s_feature;
 
 static uint8_t charge_source_present(void)
@@ -329,9 +334,12 @@ static uint8_t apply_balance_mask(uint32_t desired)
 {
     uint32_t actual;
 
+    if (s_feature.balance_requested_mask != desired)
+        BMS_LOG(BMS_LOG_INFO, BMS_LOG_FEATURE, BMS_LOG_BALANCE_REQUEST, s_feature.balance_requested_mask, desired);
     s_feature.balance_requested_mask = desired;
     if (!bms_afe_set_balance_mask(desired))
     {
+        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_FEATURE, BMS_LOG_BALANCE_RESULT, desired, UINT32_MAX);
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
         if (bms_afe_get_balance_mask(&actual)) publish_balance(actual);
         return 0u;
@@ -348,6 +356,7 @@ static uint8_t apply_balance_mask(uint32_t desired)
     return 1u;
 }
 
+/* 按采样可信度推进非阻塞 Open-Wire 阶段；可疑状态与已确认断线必须区分。 */
 static void service_openwire(void)
 {
     bms_afe_diag_state_t state;
@@ -544,6 +553,7 @@ static uint8_t balance_hard_fault(void)
             f->b1TmosOtp) ? 1u : 0u;
 }
 
+/* 统一均衡资格与 mask 仲裁；只使用有效 cell，失效测量和硬故障应通过现有路径停止均衡。 */
 static void service_balance(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;

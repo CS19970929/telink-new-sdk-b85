@@ -1,3 +1,6 @@
+/* 文件功能：应用参数加载、保存和启动安全门禁；通过各产品独立更新编号决定参数组的保留或更新。
+ * bms/core/param.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -27,6 +30,7 @@ static void param_fill_default(PARAM_T *param)
     bms_config_store_get_default_protect(&param->protect);
 }
 
+/* 加载并验证配置后发布运行参数；更新失败时保留启动安全门禁，不能通过普通保存绕过。 */
 void LoadParam(void)
 {
 

@@ -1,3 +1,6 @@
+/* 文件功能：DVC1124 特殊温度、告警清除和电流 ADC 校准操作；保留器件专属流程。
+ * bms/afe/dvc1124/dvc1124_special.c；实际编译归属见各产品 sources.txt。
+ */
 #include "dvc1124.h"
 
 /*

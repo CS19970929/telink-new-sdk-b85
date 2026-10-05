@@ -1,3 +1,6 @@
+/* 文件功能：Flash 安全访问辅助接口；供存储层按已有锁、地址与保护条件操作。
+ * bms/platform/telink/flash_store_safe.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include "tl_common.h"

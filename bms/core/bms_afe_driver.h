@@ -1,3 +1,6 @@
+/* 文件功能：选定 AFE 驱动的统一声明入口；仅转接编译期后端，不引入运行时分发。
+ * bms/core/bms_afe_driver.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_AFE_DRIVER_H_
 #define BMS_AFE_DRIVER_H_
 

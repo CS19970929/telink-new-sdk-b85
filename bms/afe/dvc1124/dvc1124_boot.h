@@ -1,3 +1,4 @@
+/* 文件功能：DVC1124 backend 启动、采样、配置和休眠入口声明；供公共 guard 按编译期选择调用。 */
 #ifndef DVC1124_BOOT_H_
 #define DVC1124_BOOT_H_
 

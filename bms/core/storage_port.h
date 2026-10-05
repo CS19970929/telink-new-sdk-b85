@@ -1,3 +1,6 @@
+/* 文件功能：Flash 记录层端口契约；声明读写/擦除、事务开始结束及区域信息，由具体平台实现。
+ * bms/core/storage_port.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef STORAGE_PORT_H_
 #define STORAGE_PORT_H_
 

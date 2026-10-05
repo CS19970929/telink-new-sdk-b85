@@ -1,3 +1,6 @@
+/* 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之间的边界。
+ * bms/core/bms_soc.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_soc.h"
 static void SOC_Result_Pass(void);
 
@@ -184,6 +187,7 @@ static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 /* mA * 32k-ticks remainder, denominator 100 mA per As*10 unit. */
 static uint32_t g_soc_integral_tick_remainder;
 static int32_t g_soc_input_current_ma;
+/* 当前 SOC 输入快照的所有者；有效标志、时间戳和电流必须来自同一采样周期。 */
 static bms_soc_sample_t g_soc_input;
 static uint32_t g_soc_sample_tick_32k;
 static uint32_t g_soc_interval_32k;

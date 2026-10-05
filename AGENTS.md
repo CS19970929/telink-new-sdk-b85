@@ -1,6 +1,6 @@
 # AGENTS.md — BMS monorepo
 
-这是 D008 / D011 / D013 / D014 的统一源码仓库。先读 `README.md`、
+这是 D008 / D011 / D013 / D014 的统一源码仓库。固件后续以 `codex-bms-monorepo` 为主要开发分支。先读 `README.md`、
 `docs/BMS_MONOREPO.md`、`docs/BMS_MONOREPO_VALIDATION.md` 及相关产品 reference。
 全局嵌入式规则继续适用；当前任务按用户明确指令不迁移或兼容开发板旧参数。
 
@@ -27,3 +27,5 @@
 
 - 用户约定：所有 Git 提交信息、提交说明及 PR 变更记录使用中文。
 - 四产品尚未量产，不实现旧板/旧参数迁移；OTA 参数保留或更新按各产品 `bms_parameter_policy.h` 的独立更新编号控制。
+
+- 运行日志、串口/BLE 日志读取或调试开关改动，先读 `docs/RUNTIME_DEBUG_LOG.md`；保持量产关闭和原通信/低功耗门禁。

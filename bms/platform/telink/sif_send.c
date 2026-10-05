@@ -1,3 +1,6 @@
+/* 文件功能：SIF 单线输出及定时器中断状态；保持既有波形节拍，不在 ISR 中加入日志发送。
+ * bms/platform/telink/sif_send.c；实际编译归属见各产品 sources.txt。
+ */
 #include <stdint.h>
 
 #include "tl_common.h"

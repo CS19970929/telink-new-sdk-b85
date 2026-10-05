@@ -1,3 +1,6 @@
+/* 文件功能：BLE OTA 工作状态、连接参数与升级结果处理；升级期间配合原有 Flash/低功耗互锁。
+ * bms/platform/telink/ble_ota.c；实际编译归属见各产品 sources.txt。
+ */
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"

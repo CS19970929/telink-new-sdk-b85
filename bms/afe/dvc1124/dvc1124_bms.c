@@ -1,3 +1,6 @@
+/* 文件功能：DVC1124 测量发布与保护/MOS 适配；D014 使用 SH backend，不能据此推断 D014 硬件行为。
+ * bms/afe/dvc1124/dvc1124_bms.c；实际编译归属见各产品 sources.txt。
+ */
 #include "bms_diag.h"
 #include "dvc1124.h"
 #include "bms_afe_driver.h"

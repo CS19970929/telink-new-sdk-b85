@@ -1,3 +1,6 @@
+/* 文件功能：存储端口、分区和诊断契约；隔离记录格式与 Telink Flash 实现。
+ * bms/core/bms_storage_platform.h；实际编译归属见各产品 sources.txt。
+ */
 #ifndef BMS_STORAGE_PLATFORM_H_
 #define BMS_STORAGE_PLATFORM_H_
 

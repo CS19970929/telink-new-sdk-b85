@@ -1,3 +1,6 @@
+/* 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各参数组。
+ * bms/core/bms_config_store.h；实际编译归属见各产品 sources.txt。
+ */
 #pragma once
 
 #include "param.h"

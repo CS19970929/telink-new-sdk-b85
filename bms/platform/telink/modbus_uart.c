@@ -1,3 +1,7 @@
+/* 文件功能：UART DMA 与可选 RS485 方向控制；ISR 交付状态，主循环维护协议和恢复，保留产品通信差异。
+ * bms/platform/telink/modbus_uart.c；实际编译归属见各产品 sources.txt。
+ */
+#include "bms_debug_log.h"
 #include "bms_afe_backend.h"
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -70,6 +74,7 @@ void modbus_uart_init(void)
     irq_enable();
 }
 
+/* 中断只清 DMA 标志并交付状态；运行日志在主循环生成，避免格式化和额外发送影响时序。 */
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
@@ -139,6 +144,7 @@ static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 static _attribute_data_retention_ u32 mb_last_ok_tick = 0;
 static _attribute_data_retention_ u32 mb_bad_cnt = 0;
 
+/* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
 void main_loop_modbus(void)
 {
     u8 *req = 0;
@@ -148,6 +154,11 @@ void main_loop_modbus(void)
     {
         u32 rsp_len = 0;
         int ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
+#if BMS_DEBUG_LOG_ENABLE
+        if (!bms_debug_log_is_read(req, req_len))
+            BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_UART_FRAME,
+                    (req_len << 16) | (req_len >= 2u ? req[1] : 0u), rsp_len);
+#endif
 
         // ✅关键：不管 ok 与否，必须清RX状态机/重新arm
         modbus_uart_rx_reset();
@@ -261,6 +272,7 @@ static u32 modbus_rs485_min_hold_us(u32 len)
     return frame_us + MODBUS_RS485_TX_EXTRA_GUARD_US;
 }
 
+/* DMA 完成不代表停止位离开引脚；同时满足 UART TX_DONE 与计算的最短线时长后才释放 DE。 */
 static void modbus_rs485_service_tx_done(void)
 {
     if (!s_rs485_tx_active)
@@ -373,6 +385,7 @@ void modbus_uart_init(void)
     irq_enable();
 }
 
+/* 中断只清 DMA 标志并交付状态；运行日志在主循环生成，避免格式化和额外发送影响时序。 */
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
@@ -436,6 +449,7 @@ void modbus_uart_send(const u8 *p, u32 len)
 #endif
     {
         ++g_bms_rs485_tx_diag.tx_busy_reject_count;
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_TX_BUSY, len, g_bms_rs485_tx_diag.tx_busy_reject_count);
         return;
     }
 
@@ -523,6 +537,7 @@ static void modbus_uart_diag_send_next(void)
 }
 #endif
 
+/* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
 void main_loop_modbus(void)
 {
 #if BMS_RS485_TX_DIAG_ENABLE
@@ -544,6 +559,11 @@ void main_loop_modbus(void)
     {
         u32 rsp_len = 0u;
         int ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
+#if BMS_DEBUG_LOG_ENABLE
+        if (!bms_debug_log_is_read(req, req_len))
+            BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_UART_FRAME,
+                    (req_len << 16) | (req_len >= 2u ? req[1] : 0u), rsp_len);
+#endif
 
         /* Match the proven implementation: always re-arm RX after a frame. */
         modbus_uart_rx_reset();
