@@ -12,7 +12,7 @@
 | [配置与简单修改](docs/CONFIGURATION_AND_BUILD_GUIDE.md) | 改容量/名称/保护/日志；判断参数是否覆盖设备已有值 |
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
-| [BMS 简化实施记录](docs/BMS_SIMPLIFICATION.md) | 26 项建议的处理、行为边界和验证证据 |
+| [BMS 简化实施记录](docs/BMS_SIMPLIFICATION.md) · [验证证据](docs/BMS_SIMPLIFICATION_EVIDENCE.json) | 26 项建议的处理、行为边界和验证证据 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |
 | [根协作规则](AGENTS.md) | 开始修改前确认仓库约束 |

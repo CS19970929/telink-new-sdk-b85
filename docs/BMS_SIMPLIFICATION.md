@@ -66,4 +66,23 @@ SIF 黄金向量冻结自基线实际 builder，使用与固件相同的 `-fpack
 
 新增 DVC 基线黄金 transaction hash，覆盖 3 profile × HW on/off × 寄存器初值 00/FF × 正常及每个 45 次 bus access 的失败，比较每次读/写寄存器、值、失败位置及最终返回。资源门禁仍为生产 8 KiB，未用关闭诊断/算法或降低门槛绕过。
 
-最终固定提交、测试结果与 MAP 对比见本页后续验证记录。
+## 固定提交验证记录
+
+最终代码提交：`bb388fdb720563b6059f4b1bb982cca26b1fbe41`。随后证据提交只改文档，不改变该 BMS/test/build 代码。机器可读记录：[BMS_SIMPLIFICATION_EVIDENCE.json](BMS_SIMPLIFICATION_EVIDENCE.json)。完整 ELF/MAP/输入收据、host 日志和静态结果归档于 Windows `Documents/CodexOutputs/bms-monorepo/bms-simplification-implementation-20261005/`。
+
+114 组 host 全部通过，CMake 3 项全部通过。四产品 sources 清单保持原顺序和对象数（D008 100、SH 99）。固定干净代码提交完成 4 套开发、6 套默认生产 ELF/MAP/resources，全部零编译错误和警告；生产均满足 8 KiB Flash 余量。另验证 D014 trace disabled 生产配置。没有生成固件 BIN、没有烧录。
+
+| 默认生产配置 | Flash 字节 | 相比基线 | Flash 余量 | RAM 地址跨度 | RAM 相比基线 |
+|---|---:|---:|---:|---:|---:|
+| D011 | 113444 | -96 | 13532 | 24168 | +0 |
+| D013 | 112436 | -288 | 14540 | 24148 | -4 |
+| D014 | 113284 | -96 | 13692 | 24168 | +0 |
+| D008 16s-lfp | 118516 | +208 | 8460 | 25000 | +8 |
+| D008 20s-nmc | 118516 | +208 | 8460 | 25000 | +0 |
+| D008 24s-lfp | 118516 | +208 | 8460 | 25000 | -8 |
+
+Flash 是 ELF 投影（含预计尾部对齐/CRC），不是 BIN 实测。默认 D008 增加 208 B，SH 减少 96～288 B；BMS C/H 总计新增 706 行、删除 1844 行，净减少 1138 行。维护简化与资源收益分别评估，不能宣称全部产品 Flash/RAM 都缩小。D008 默认余量仅比生产门槛多 268 B，后续功能新增必须复查预算。
+
+D014 明确 `BMS_DIAG_TRACE_ENABLE=0` 时 Flash 112900 B、RAM 地址跨度 22624 B，相对默认回收 384 B Flash、1544 B RAM；后者包含 ring、索引及对齐。默认配置没有关闭此能力。
+
+Cppcheck：D008 37 个翻译单元、D014 36 个翻译单元；均无 error/warning/performance 项，仅 style 105/103 项。D014 的两个 coverage gap 是本产品不参与的 `bus_mux.h` / `sif_send.h`，已由 D008 扫描；D008 coverage gap 为 0。SDK 仅作为依赖解析，诊断排除。MISRA 未执行；这不是 MISRA 合规声明，也不解除实板验收。

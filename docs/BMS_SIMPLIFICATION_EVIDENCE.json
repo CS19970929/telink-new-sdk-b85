@@ -1,0 +1,1195 @@
+{
+  "schema": "bms-simplification-implementation/v1",
+  "date": "2026-10-05",
+  "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+  "validated_code_commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+  "bms_tree": "4a7bad19905f71766d927c80f04ffc20cab5f2a8",
+  "scope": "BMS applications, AFE and application platform glue; SDK unchanged",
+  "host_groups": 114,
+  "host_failed": 0,
+  "portable_tests": 3,
+  "portable_failed": 0,
+  "default_elf_configurations": 10,
+  "production_elf_configurations": 6,
+  "optional_trace_disabled_configurations": 1,
+  "image_generated": false,
+  "hardware_verified": false,
+  "bms_c_h_lines_added": 706,
+  "bms_c_h_lines_removed": 1844,
+  "bms_c_h_net_lines": -1138,
+  "resources": [
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "cb9fa44a3532f2126af370b8e151fc5842dd784654ac7f71f163ddcb1660f5c2",
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-O2"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "1b1c21bec789ea9116031e7c1eadc57a0f2185f1836192ba2d14566cb0e0d3b9",
+      "flash_bytes": 123892,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 3084,
+      "ram_span_bytes": 24996,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 7772,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4700,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10692
+        },
+        "retention_data": {
+          "address": 8661924,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 15104,
+          "bytes": 103900
+        },
+        "cstartup_ram_funcs": {
+          "address": 119008,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 119344,
+          "bytes": 4376
+        },
+        "data": {
+          "address": 8668160,
+          "bytes": 128
+        },
+        "bss": {
+          "address": 8668288,
+          "bytes": 6692
+        },
+        "data_no_init": {
+          "address": 8674980,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8675748,
+          "bytes": 36
+        }
+      },
+      "warnings": [
+        "Flash free below 8 KiB: review feature budget"
+      ],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 496,
+      "ram_span_delta_bytes": 8,
+      "label": "development-d008"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "a4a3046e131dde95a20a1f47048092d3a3747663a67666f74967ca8e4c7d7c58",
+      "product": "d011",
+      "configuration": {
+        "product": "d011",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "b8ca27b467d9516a79215c1f194d57718966486a116d2d29ef479561382f8b8d",
+      "flash_bytes": 118612,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 8364,
+      "ram_span_bytes": 24164,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8604,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5532,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10516
+        },
+        "retention_data": {
+          "address": 8661748,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 99492
+        },
+        "cstartup_ram_funcs": {
+          "address": 114352,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 114688,
+          "bytes": 3776
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6132
+        },
+        "data_no_init": {
+          "address": 8674148,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674916,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 304,
+      "ram_span_delta_bytes": 0,
+      "label": "development-d011"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "679649c035299109f9cc275890984eb870f0552d8a7d105b1c70f97e65fd3bf8",
+      "product": "d013",
+      "configuration": {
+        "product": "d013",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "7983af10ed13f1f7acaa96885f121de0f26b55f6f4547b3aabfe88c82bbe87bb",
+      "flash_bytes": 117620,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 9356,
+      "ram_span_bytes": 24144,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8624,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5552,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10516
+        },
+        "retention_data": {
+          "address": 8661748,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 98500
+        },
+        "cstartup_ram_funcs": {
+          "address": 113360,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 113696,
+          "bytes": 3776
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6112
+        },
+        "data_no_init": {
+          "address": 8674128,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674896,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 128,
+      "ram_span_delta_bytes": -4,
+      "label": "development-d013"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "43fa0ebe54cd351e77b137c4183717542e47340a26f5e272e573449eda861ed4",
+      "product": "d014",
+      "configuration": {
+        "product": "d014",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "458f8edeba2cf8f22d5a7705055a1e0f581db4cbc92aa0d46f46d5fb72d90269",
+      "flash_bytes": 118468,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 8508,
+      "ram_span_bytes": 24164,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8604,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5532,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10516
+        },
+        "retention_data": {
+          "address": 8661748,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 99332
+        },
+        "cstartup_ram_funcs": {
+          "address": 114192,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 114528,
+          "bytes": 3780
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6132
+        },
+        "data_no_init": {
+          "address": 8674148,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674916,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 320,
+      "ram_span_delta_bytes": 0,
+      "label": "development-d014"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "24971d7a6b754fceba1fdc5c6d15a99cf3c98a5469ccffd83fa0ec0a713132fc",
+      "product": "d011",
+      "configuration": {
+        "product": "d011",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "e110c564ba82c043f0f0d653de469e8e635a74b065f9a3753f6191c7dd0f6dd0",
+      "flash_bytes": 113444,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 13532,
+      "ram_span_bytes": 24168,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8600,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5528,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10504
+        },
+        "retention_data": {
+          "address": 8661736,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 95380
+        },
+        "cstartup_ram_funcs": {
+          "address": 110240,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 110576,
+          "bytes": 2716
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6136
+        },
+        "data_no_init": {
+          "address": 8674152,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674920,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": -96,
+      "ram_span_delta_bytes": 0,
+      "label": "production-d011"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "248b57767b9e1f1620b6d4af7d5b0e537a4a984a61ebc039612816ca3cb6d522",
+      "product": "d013",
+      "configuration": {
+        "product": "d013",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "be834c9b219cc932a17f923f34b53a54e830617b73ea9cdd910cc8e460b2a07c",
+      "flash_bytes": 112436,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 14540,
+      "ram_span_bytes": 24148,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8620,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5548,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10504
+        },
+        "retention_data": {
+          "address": 8661736,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 94372
+        },
+        "cstartup_ram_funcs": {
+          "address": 109232,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 109568,
+          "bytes": 2716
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6116
+        },
+        "data_no_init": {
+          "address": 8674132,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674900,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": -288,
+      "ram_span_delta_bytes": -4,
+      "label": "production-d013"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "de0e2f757e7953e0a6e1c1e50147b993fd6af67ab12c4b62acf786214c34ab92",
+      "product": "d014",
+      "configuration": {
+        "product": "d014",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "aa14f748d1e47ba3b616d9b8e109ba0edf5770a4359c226a7352214bf4abc397",
+      "flash_bytes": 113284,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 13692,
+      "ram_span_bytes": 24168,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 8600,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5528,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10504
+        },
+        "retention_data": {
+          "address": 8661736,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 14848,
+          "bytes": 95220
+        },
+        "cstartup_ram_funcs": {
+          "address": 110080,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 110416,
+          "bytes": 2716
+        },
+        "data": {
+          "address": 8667904,
+          "bytes": 108
+        },
+        "bss": {
+          "address": 8668016,
+          "bytes": 6136
+        },
+        "data_no_init": {
+          "address": 8674152,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8674920,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": -96,
+      "ram_span_delta_bytes": 0,
+      "label": "production-d014"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "ad9f6b2ea3554dfed24db8d3bea9376c9116aa5af0375ace6bb215edf526a044",
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "04524fddd9ccf63116d4f6b35bb6352a53198064b99d0d7671dc067c3eef8276",
+      "flash_bytes": 118516,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 7768,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10680
+        },
+        "retention_data": {
+          "address": 8661912,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 15104,
+          "bytes": 99548
+        },
+        "cstartup_ram_funcs": {
+          "address": 114656,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 114992,
+          "bytes": 3348
+        },
+        "data": {
+          "address": 8668160,
+          "bytes": 128
+        },
+        "bss": {
+          "address": 8668288,
+          "bytes": 6696
+        },
+        "data_no_init": {
+          "address": 8674984,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8675752,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 208,
+      "ram_span_delta_bytes": 8,
+      "label": "production-16s-lfp-d008"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "4b37b7a80cb4350d67d1f0c6c91144d335fc602a3514145504f5b7469ff2c7d4",
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "20s-nmc",
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "f2140ea79f20895db8dbd8bf37d2dd380443669b7a4f8ae7beebdda6809932a1",
+      "flash_bytes": 118516,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 7768,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10680
+        },
+        "retention_data": {
+          "address": 8661912,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 15104,
+          "bytes": 99548
+        },
+        "cstartup_ram_funcs": {
+          "address": 114656,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 114992,
+          "bytes": 3348
+        },
+        "data": {
+          "address": 8668160,
+          "bytes": 128
+        },
+        "bss": {
+          "address": 8668288,
+          "bytes": 6696
+        },
+        "data_no_init": {
+          "address": 8674984,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8675752,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 208,
+      "ram_span_delta_bytes": 0,
+      "label": "production-20s-nmc-d008"
+    },
+    {
+      "schema": "bms-resources/v1",
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "elf_sha256": "297d3bb086031a38b2cd198ab04e50a1d5666b61c5e9860ddab6b763999a18fb",
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "24s-lfp",
+        "core_optimization": "-Os"
+      },
+      "image_generated": false,
+      "bin_sha256": null,
+      "map_sha256": "c6fbfa16998ac02b914316353c41b1ef1e51dc4fb469ec79913fba57eaa059a0",
+      "flash_bytes": 118516,
+      "flash_limit_bytes": 126976,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "ram_total_bytes": 32768,
+      "main_stack_gap_bytes": 7768,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+      "sections": {
+        "vectors": {
+          "address": 0,
+          "bytes": 480
+        },
+        "ram_code": {
+          "address": 480,
+          "bytes": 10680
+        },
+        "retention_data": {
+          "address": 8661912,
+          "bytes": 3836
+        },
+        "text": {
+          "address": 15104,
+          "bytes": 99548
+        },
+        "cstartup_ram_funcs": {
+          "address": 114656,
+          "bytes": 336
+        },
+        "rodata": {
+          "address": 114992,
+          "bytes": 3348
+        },
+        "data": {
+          "address": 8668160,
+          "bytes": 128
+        },
+        "bss": {
+          "address": 8668288,
+          "bytes": 6696
+        },
+        "data_no_init": {
+          "address": 8674984,
+          "bytes": 768
+        },
+        "sdk_version": {
+          "address": 8675752,
+          "bytes": 36
+        }
+      },
+      "warnings": [],
+      "baseline_commit": "6604d738add37bf6512fdba9ea90f5b270b17c7f",
+      "flash_delta_bytes": 208,
+      "ram_span_delta_bytes": -8,
+      "label": "production-24s-lfp-d008"
+    }
+  ],
+  "trace_disabled": {
+    "schema": "bms-resources/v1",
+    "git": {
+      "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+      "branch": "codex-bms-monorepo",
+      "dirty": false
+    },
+    "elf_sha256": "3b16c1baacb43f9e2fb48ab6b41dfcaeae32d14ea81182c96ca063a7a718b728",
+    "product": "d014",
+    "configuration": {
+      "product": "d014",
+      "build_mode": "production",
+      "production": true,
+      "d008_profile": null,
+      "core_optimization": "-Os"
+    },
+    "image_generated": false,
+    "bin_sha256": null,
+    "map_sha256": "5adb9d7bcb1be754b25bd73431ed5dcbfeb0e30d89797350f6e5ea4cb23a39c6",
+    "flash_bytes": 112900,
+    "flash_limit_bytes": 126976,
+    "flash_free_bytes": 14076,
+    "ram_span_bytes": 22624,
+    "ram_total_bytes": 32768,
+    "main_stack_gap_bytes": 10144,
+    "main_stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 7072,
+    "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+    "sections": {
+      "vectors": {
+        "address": 0,
+        "bytes": 480
+      },
+      "ram_code": {
+        "address": 480,
+        "bytes": 10504
+      },
+      "retention_data": {
+        "address": 8661736,
+        "bytes": 3836
+      },
+      "text": {
+        "address": 14848,
+        "bytes": 94836
+      },
+      "cstartup_ram_funcs": {
+        "address": 109696,
+        "bytes": 336
+      },
+      "rodata": {
+        "address": 110032,
+        "bytes": 2716
+      },
+      "data": {
+        "address": 8667904,
+        "bytes": 108
+      },
+      "bss": {
+        "address": 8668016,
+        "bytes": 4592
+      },
+      "data_no_init": {
+        "address": 8672608,
+        "bytes": 768
+      },
+      "sdk_version": {
+        "address": 8673376,
+        "bytes": 36
+      }
+    },
+    "warnings": [],
+    "flash_delta_from_default": -384,
+    "ram_span_delta_from_default": -1544
+  },
+  "static_checks": [
+    {
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "configuration": {
+        "compiler": "C:\\TelinkIoTStudio\\opt\\tc32\\bin\\tc32-elf-gcc.exe",
+        "compiler_version": "tc32-elf-gcc.exe (GCC) 4.5.1-tc32-1.3",
+        "include_paths": [
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/products/d008",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/core",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/app",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/platform/telink",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/afe/dvc1124",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85"
+        ],
+        "defines": [
+          "__PROJECT_8258_BLE_SAMPLE__=1",
+          "CHIP_TYPE=CHIP_TYPE_825x",
+          "BMS_PRODUCTION_BUILD=0",
+          "BMS_DIAG_BUILD_ID=0xbb388fdbu",
+          "BMS_DIAG_BUILD_DIRTY=0"
+        ],
+        "c_standard": "gnu99",
+        "compile_flags": [
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Wall",
+          "-O2",
+          "-fpack-struct",
+          "-fshort-enums",
+          "-finline-small-functions",
+          "-std=gnu99",
+          "-fshort-wchar",
+          "-fms-extensions"
+        ],
+        "target_mcu": "TLSR8251",
+        "startup_profile": "MCU_STARTUP_8251",
+        "target_configuration_risk": "TLSR8251 startup profile matches the 32 KiB SRAM target",
+        "platform_model": "bms_tools/static_analysis/tc32-platform.xml",
+        "compiler_predefines_applied": {
+          "__GNUC__": "4"
+        },
+        "configuration_source": "build.mk 经 make -B -n 展开 + bms/products/d008/sources.txt"
+      },
+      "analysis_translation_unit_count": 37,
+      "severity_counts": {
+        "style": 105
+      },
+      "coverage_gap_count": 0,
+      "coverage_gaps": [],
+      "misra": {
+        "executed": false,
+        "addon": null,
+        "coverage": "未执行：本机 Cppcheck 安装不包含 MISRA addon；原生告警不计为 MISRA 违规"
+      },
+      "cppcheck_version": "2.21.0"
+    },
+    {
+      "git": {
+        "commit": "bb388fdb720563b6059f4b1bb982cca26b1fbe41",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "configuration": {
+        "compiler": "C:\\TelinkIoTStudio\\opt\\tc32\\bin\\tc32-elf-gcc.exe",
+        "compiler_version": "tc32-elf-gcc.exe (GCC) 4.5.1-tc32-1.3",
+        "include_paths": [
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/products/d014",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/core",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/app",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/platform/telink",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/bms/afe/sh3673510",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common",
+          "C:/Users/Administrator/AppData/Local/CodexTemp/bms-junctions/repo_264169cacbed/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85"
+        ],
+        "defines": [
+          "__PROJECT_8258_BLE_SAMPLE__=1",
+          "CHIP_TYPE=CHIP_TYPE_825x",
+          "BMS_PRODUCTION_BUILD=0",
+          "BMS_DIAG_BUILD_ID=0xbb388fdbu",
+          "BMS_DIAG_BUILD_DIRTY=0"
+        ],
+        "c_standard": "gnu99",
+        "compile_flags": [
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Wall",
+          "-O2",
+          "-fpack-struct",
+          "-fshort-enums",
+          "-finline-small-functions",
+          "-std=gnu99",
+          "-fshort-wchar",
+          "-fms-extensions"
+        ],
+        "target_mcu": "TLSR8251",
+        "startup_profile": "MCU_STARTUP_8251",
+        "target_configuration_risk": "TLSR8251 startup profile matches the 32 KiB SRAM target",
+        "platform_model": "bms_tools/static_analysis/tc32-platform.xml",
+        "compiler_predefines_applied": {
+          "__GNUC__": "4",
+          "__SIZE_TYPE__": "long unsigned int"
+        },
+        "configuration_source": "build.mk 经 make -B -n 展开 + bms/products/d014/sources.txt"
+      },
+      "analysis_translation_unit_count": 36,
+      "severity_counts": {
+        "style": 103
+      },
+      "coverage_gap_count": 2,
+      "coverage_gaps": [
+        "bms/platform/telink/bus_mux.h",
+        "bms/platform/telink/sif_send.h"
+      ],
+      "misra": {
+        "executed": false,
+        "addon": null,
+        "coverage": "未执行：本机 Cppcheck 安装不包含 MISRA addon；原生告警不计为 MISRA 违规"
+      },
+      "cppcheck_version": "2.21.0"
+    }
+  ],
+  "formal_evidence_directory": "C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/bms-simplification-implementation-20261005",
+  "evidence_sha256": {
+    "evidence/dev-clean.log": "fd509d03c8381868d816d6d7f5906905af5b0acd30a8f0769081016cc77543bc",
+    "evidence/development-d008/825x_ble_sample.elf": "cb9fa44a3532f2126af370b8e151fc5842dd784654ac7f71f163ddcb1660f5c2",
+    "evidence/development-d008/825x_ble_sample.map": "1b1c21bec789ea9116031e7c1eadc57a0f2185f1836192ba2d14566cb0e0d3b9",
+    "evidence/development-d008/build.log": "8b980eee7ad978184ea2cfe81456921b1617b89f190dbfd93b1c0a1b2f644ad8",
+    "evidence/development-d008/compile-inputs.json": "3cda1af4ce588306b877128fd6abb47fe8cc3205f44440fe74b100efd01a647f",
+    "evidence/development-d008/link-completed.json": "e5b084e36c942197a6ee1bd4e4ad4d633aad6cf8a51a09893c0a6775a3cac1df",
+    "evidence/development-d008/resources.json": "e813d1121e2a8ee5b6be970a489d3690d8802b87c109ea9846cdc6b58d3f156f",
+    "evidence/development-d011/825x_ble_sample.elf": "a4a3046e131dde95a20a1f47048092d3a3747663a67666f74967ca8e4c7d7c58",
+    "evidence/development-d011/825x_ble_sample.map": "b8ca27b467d9516a79215c1f194d57718966486a116d2d29ef479561382f8b8d",
+    "evidence/development-d011/build.log": "efa33f576a791c9a396460ae783e4aea7241bf07517682abe9fdc0a3ebf576bb",
+    "evidence/development-d011/compile-inputs.json": "546e9121147e475af71912075683b5b89518947b14270f3fc607ac19a0a1c5af",
+    "evidence/development-d011/link-completed.json": "c873339cb98f0e526f2f8c43dc0ece2f08cff59f23a216e62e8740e7c58fc6e3",
+    "evidence/development-d011/resources.json": "027506462f2d88c7f8a56283161571e963ed0a7736e6ec3160e23727bc7d44a4",
+    "evidence/development-d013/825x_ble_sample.elf": "679649c035299109f9cc275890984eb870f0552d8a7d105b1c70f97e65fd3bf8",
+    "evidence/development-d013/825x_ble_sample.map": "7983af10ed13f1f7acaa96885f121de0f26b55f6f4547b3aabfe88c82bbe87bb",
+    "evidence/development-d013/build.log": "41497eb3c7038c3abd8b80b88a1c91fc305bc93e4c4f629b7f97433efe9d0ae5",
+    "evidence/development-d013/compile-inputs.json": "cdf06831ba1b4b2fbc260c49de7185c85d028635c38966b678f3e8aeedc7c18f",
+    "evidence/development-d013/link-completed.json": "4e8f3cd598089475ec880d7a9ca303a916f2b2b26b230d7a9962b73506125bb5",
+    "evidence/development-d013/resources.json": "73709abe4af76e9fdd916ea2ad08ff5657f806f0373af089cd3bc18138371e6e",
+    "evidence/development-d014/825x_ble_sample.elf": "43fa0ebe54cd351e77b137c4183717542e47340a26f5e272e573449eda861ed4",
+    "evidence/development-d014/825x_ble_sample.map": "458f8edeba2cf8f22d5a7705055a1e0f581db4cbc92aa0d46f46d5fb72d90269",
+    "evidence/development-d014/build.log": "15b63d95f728e3facabce629ad34191563175100c5babcde3f7f255d20fb7076",
+    "evidence/development-d014/compile-inputs.json": "58d1a3a11dbd5a3b57f7e7bc9c9fe876059c1d879730ce94a97a46302eab951e",
+    "evidence/development-d014/link-completed.json": "c29f661c3ba455171a5e992255d0384adc2123908c40467d08366a76a5fec58a",
+    "evidence/development-d014/resources.json": "c8bb4d0a0e1111febba0470f56937afac51c61ab29ecbc6ae167bd661d85a099",
+    "evidence/gatt-compatibility.json": "0a67336b90453068404ea2e9ed8cd877a388b7644e0dd02e984a3e6d94c8a655",
+    "evidence/host/afe_hw_access_contract_check-d008.log": "4ec998c5747f9383e6d99e8a72d55b2573c326219cd383af02772b82f5eda5df",
+    "evidence/host/afe_hw_access_contract_check-d011.log": "4ec998c5747f9383e6d99e8a72d55b2573c326219cd383af02772b82f5eda5df",
+    "evidence/host/afe_hw_access_contract_check-d013.log": "4ec998c5747f9383e6d99e8a72d55b2573c326219cd383af02772b82f5eda5df",
+    "evidence/host/afe_hw_access_contract_check-d014.log": "4ec998c5747f9383e6d99e8a72d55b2573c326219cd383af02772b82f5eda5df",
+    "evidence/host/afe_hw_fragment_host_check-d008.log": "69787716bd7674a77b2803bf96f2361cc0d5a02a7cd91d6eb5dc08ef6153fd87",
+    "evidence/host/afe_hw_fragment_host_check-d011.log": "69787716bd7674a77b2803bf96f2361cc0d5a02a7cd91d6eb5dc08ef6153fd87",
+    "evidence/host/afe_hw_fragment_host_check-d013.log": "69787716bd7674a77b2803bf96f2361cc0d5a02a7cd91d6eb5dc08ef6153fd87",
+    "evidence/host/afe_hw_fragment_host_check-d014.log": "69787716bd7674a77b2803bf96f2361cc0d5a02a7cd91d6eb5dc08ef6153fd87",
+    "evidence/host/afe_hw_profile_contract_check-d014.log": "1bda0cbab754ed1fd7093fae71b7cc65eda9307e01cf40324f694703980f6fee",
+    "evidence/host/afe_hw_transaction_host_check-d008.log": "9fc80bf60e89af90cfdd3eed0789b9f956009762bbe99fab6953891fdcb3fadc",
+    "evidence/host/afe_hw_transaction_host_check-d011.log": "9fc80bf60e89af90cfdd3eed0789b9f956009762bbe99fab6953891fdcb3fadc",
+    "evidence/host/afe_hw_transaction_host_check-d013.log": "9fc80bf60e89af90cfdd3eed0789b9f956009762bbe99fab6953891fdcb3fadc",
+    "evidence/host/afe_hw_transaction_host_check-d014.log": "9fc80bf60e89af90cfdd3eed0789b9f956009762bbe99fab6953891fdcb3fadc",
+    "evidence/host/app_recovery_wakeup_host_check-d008.log": "dd1e5636d2bf67e24a7d928be2d8b12fea6f67c1c4adea582272ba83fd5bca65",
+    "evidence/host/app_scheduler_host_check-d008.log": "107d2034200112cc522ab106618635d798d246641769eaabcc724482525df68b",
+    "evidence/host/bms_diag_contract_check-d008.log": "4a998045d01111234a97997f37fbc0757475a7f164e10690db709db536589992",
+    "evidence/host/bms_diag_contract_check-d011.log": "4a998045d01111234a97997f37fbc0757475a7f164e10690db709db536589992",
+    "evidence/host/bms_diag_contract_check-d013.log": "4a998045d01111234a97997f37fbc0757475a7f164e10690db709db536589992",
+    "evidence/host/bms_diag_contract_check-d014.log": "4a998045d01111234a97997f37fbc0757475a7f164e10690db709db536589992",
+    "evidence/host/bms_diag_host_check-d008.log": "90040da7e061747bd45bee516b32e782ead591c4d1f74fb1f6ce24966a75670c",
+    "evidence/host/bms_diag_host_check-d011.log": "90040da7e061747bd45bee516b32e782ead591c4d1f74fb1f6ce24966a75670c",
+    "evidence/host/bms_diag_host_check-d013.log": "90040da7e061747bd45bee516b32e782ead591c4d1f74fb1f6ce24966a75670c",
+    "evidence/host/bms_diag_host_check-d014.log": "90040da7e061747bd45bee516b32e782ead591c4d1f74fb1f6ce24966a75670c",
+    "evidence/host/bms_simplification_host_check-d014.log": "7d4deac58d5a0804f72e392f03907aafd97c261d93b24b081d0329ef111c56ac",
+    "evidence/host/common_feature_policy_contract_check-d008.log": "76b97862845096af2db212403f29bd4c9f05e577f55552d4c4550a3e257a7e79",
+    "evidence/host/common_feature_policy_contract_check-d011.log": "76b97862845096af2db212403f29bd4c9f05e577f55552d4c4550a3e257a7e79",
+    "evidence/host/common_feature_policy_contract_check-d013.log": "76b97862845096af2db212403f29bd4c9f05e577f55552d4c4550a3e257a7e79",
+    "evidence/host/common_feature_policy_contract_check-d014.log": "76b97862845096af2db212403f29bd4c9f05e577f55552d4c4550a3e257a7e79",
+    "evidence/host/compile_receipt_check-d014.log": "36b5dce47e1ac0c41d49c8d7bd0103b0b032ebe43ed7a413f7bf71ba781db00a",
+    "evidence/host/d008_20s_profile_contract_check-d008.log": "cae848c6d81d285bbe20aa647bcd7d72bfadd1f709019c9220c2f780d68c3886",
+    "evidence/host/d008_boot_zero_current_contract_check-d008.log": "d994b2ec729dce0b59477a6fb2d23877e8d638de186b1faceb86cb7a52a1602b",
+    "evidence/host/d008_common_port_fet_contract_check-d008.log": "04ffff52596fa065eabfde395466ae31b976becc5c2d994c6802c5e62148dc9f",
+    "evidence/host/d008_current_recovery_host_check-d008.log": "2dfd22671248f12289af894772f5392100fcb40d6782bf969ef6f108510b4239",
+    "evidence/host/d008_documentation_contract_check-d008.log": "c679f7657395ad811e10d53285756a33612a5e66bc32fed2001ba5b148ac2232",
+    "evidence/host/d008_framework_contract_check-d008.log": "c5003fcc5cefaa559b6354394b91fa733d2a6b1aedae53c2b9c24fe2e1b5757c",
+    "evidence/host/d008_power_soc_host_check-d008.log": "57e0c8bda19d17973f081da20e8b2e3fa227c5e974b6535c3f829f724f7682af",
+    "evidence/host/d008_profile_selection_host_check-d008.log": "0398d8c681d1caf6edd902ca7a77a6ecb954baf167befc6c67c5fced209da1cb",
+    "evidence/host/d008_soc_openwire_host_check-d008.log": "6ca3ed10ace1703e2fb61377f6c8ca387b2c98806652cd7f564174a4640e0425",
+    "evidence/host/d008_storage_host_check-d008.log": "a9efe213a3e3654928ee09bf3a4eb9734fdfc514c2ad690b5fbb4b394ff4b6e8",
+    "evidence/host/d008_voltage_recovery_host_check-d008.log": "8bf1d9d96515471d7f8d30b189cf7f0ceeeaca7ebb6461142a42be4dd7ee1288",
+    "evidence/host/d014_afe_profile_default_host_check-d014.log": "ea66f3c505a06b489b0c3b96d2548f36839e8ed38924714ad52f8d71cc843701",
+    "evidence/host/dvc1124_config_quick_check-d008.log": "e4a6668562bf64b53c656eb3ce7de3eaf49852f6346db8c82a3c74d60460815e",
+    "evidence/host/dvc1124_fixed_policy_host_check-d008.log": "4ff75598808687c03b892f78c07917ccfa6da64f997c105a4dbc955aba804e70",
+    "evidence/host/flash_quick_check-d008.log": "68a45f6e094661678c08c013012fcc6b70ea7480a410a29ad9705680f0f66afb",
+    "evidence/host/flash_quick_check-d011.log": "59aec41553407c66cc18b17dc8b5a79d7182a34fb4dd017f0cd7f8ee2550674b",
+    "evidence/host/flash_quick_check-d013.log": "69577e5720c64135565ced34bf82b520c2c9259befc90c817f95ee61aa272bea",
+    "evidence/host/flash_quick_check-d014.log": "eac2c935701669adc0a2f772778b0822e7e39164a9a1f6b721245266c4454395",
+    "evidence/host/modbus_address_host_check-d008.log": "13064d14b3d71a419764165374e5526b90d9fbbdb0cd0da7f33e078a4f004182",
+    "evidence/host/modbus_address_host_check-d011.log": "023d3f1e11e06f258fcf70039fc1cbe8eb35222051e5bb66d5257f2246f5bd93",
+    "evidence/host/modbus_address_host_check-d013.log": "59403155c86579860138fe4670c0d09d8d005071df16dd327b4c8bfaf5774cc8",
+    "evidence/host/modbus_address_host_check-d014.log": "dea5705ba13575616ba0bd21816c990d6c760681020bad02a8abba9333b82f96",
+    "evidence/host/monorepo_source_check-d014.log": "033f06be86dba4edfc04e456236877fb73959be9c362ab24bfbdd9d77d88676a",
+    "evidence/host/production_policy_check-d008.log": "f4ea81c5a5730493bec81fa0c64d90cfacbcd5086a18d214e0b1a0343e2b1e9b",
+    "evidence/host/production_policy_check-d011.log": "f4ea81c5a5730493bec81fa0c64d90cfacbcd5086a18d214e0b1a0343e2b1e9b",
+    "evidence/host/production_policy_check-d013.log": "f4ea81c5a5730493bec81fa0c64d90cfacbcd5086a18d214e0b1a0343e2b1e9b",
+    "evidence/host/production_policy_check-d014.log": "f4ea81c5a5730493bec81fa0c64d90cfacbcd5086a18d214e0b1a0343e2b1e9b",
+    "evidence/host/resource_safety_host_check-d014.log": "874b96f086def8e25cd7286a205f3052fe29afe724b6d14d06567db416cfd6fa",
+    "evidence/host/results.json": "45f0126b66656e7945229bbb707cde261fad3a6f73a50fe95c8282869dbb2974",
+    "evidence/host/runtime_debug_log_host_check-d008.log": "3a677897ba32c41c6b9a3e65819b096f5be4c30efaad80c7baaa712518ac0f52",
+    "evidence/host/runtime_debug_log_host_check-d011.log": "3a677897ba32c41c6b9a3e65819b096f5be4c30efaad80c7baaa712518ac0f52",
+    "evidence/host/runtime_debug_log_host_check-d013.log": "3a677897ba32c41c6b9a3e65819b096f5be4c30efaad80c7baaa712518ac0f52",
+    "evidence/host/runtime_debug_log_host_check-d014.log": "3a677897ba32c41c6b9a3e65819b096f5be4c30efaad80c7baaa712518ac0f52",
+    "evidence/host/sh3673510_board_host_check-d011.log": "45bb0979a00ffaa29e551c175c05d7e1a22440cb75d66077d902ed3fa8967dcc",
+    "evidence/host/sh3673510_board_host_check-d013.log": "732063a5e030a0996ad414b4a4e7a9754d01ac400cb3693a8b28f544e9a5ba25",
+    "evidence/host/sh3673510_board_host_check-d014.log": "033ed9e5659e83541cf4697d44fc379dd4ead9f4d99a5b0f2302cb59f8fdfae7",
+    "evidence/host/sh3673510_comm_mode_check-d014.log": "9861e758d40e93bccc9046522ffce5d4655f3094f6214ff3d99029b52c17ea06",
+    "evidence/host/sh3673510_d011_integration_check-d011.log": "88d693cf1baab0dff0974f984a09244a1dfba4c0d0b90f367649abae97f452f9",
+    "evidence/host/sh3673510_d014_integration_check-d014.log": "0128a66f5203a5344193fdb7bdf5391ec027fb4c957c7ea480422953a0205dd7",
+    "evidence/host/sh3673510_protection_mode_check-d011.log": "7399b2742e6ac720d7d6d9e9bbff5c646d3099e70460e15ca0c29204e4bf87ff",
+    "evidence/host/sh3673510_protection_mode_check-d013.log": "7399b2742e6ac720d7d6d9e9bbff5c646d3099e70460e15ca0c29204e4bf87ff",
+    "evidence/host/sh3673510_protection_mode_check-d014.log": "7399b2742e6ac720d7d6d9e9bbff5c646d3099e70460e15ca0c29204e4bf87ff",
+    "evidence/host/sh3673510_recovery_host_check-d011.log": "151ad5b063752c16e538deeae98999f4e81bdd4792e2d9e1d7397b8618d4c1d4",
+    "evidence/host/sh3673510_recovery_host_check-d013.log": "151ad5b063752c16e538deeae98999f4e81bdd4792e2d9e1d7397b8618d4c1d4",
+    "evidence/host/sh3673510_recovery_host_check-d014.log": "151ad5b063752c16e538deeae98999f4e81bdd4792e2d9e1d7397b8618d4c1d4",
+    "evidence/host/sh3673510_sample_schedule_host_check-d011.log": "997d18dcecddad04a698542e14ef0833289ddceeafac9662c9573b2d4e5ec323",
+    "evidence/host/sh3673510_sample_schedule_host_check-d013.log": "997d18dcecddad04a698542e14ef0833289ddceeafac9662c9573b2d4e5ec323",
+    "evidence/host/sh3673510_sample_schedule_host_check-d014.log": "997d18dcecddad04a698542e14ef0833289ddceeafac9662c9573b2d4e5ec323",
+    "evidence/host/sh3673510_sleep_host_check-d011.log": "9732276b2b171119053ed7b2960c04385a0225bbd37f8ab496f545f6b04e9e91",
+    "evidence/host/sh3673510_sleep_host_check-d013.log": "9732276b2b171119053ed7b2960c04385a0225bbd37f8ab496f545f6b04e9e91",
+    "evidence/host/sh3673510_sleep_host_check-d014.log": "9732276b2b171119053ed7b2960c04385a0225bbd37f8ab496f545f6b04e9e91",
+    "evidence/host/sh3673510_soc_direction_host_check-d011.log": "ee036d8df62131951eecf951524a6eee7acdc677e9137a72891f48a4d0076aac",
+    "evidence/host/sh3673510_soc_direction_host_check-d013.log": "ee036d8df62131951eecf951524a6eee7acdc677e9137a72891f48a4d0076aac",
+    "evidence/host/sh3673510_soc_direction_host_check-d014.log": "ee036d8df62131951eecf951524a6eee7acdc677e9137a72891f48a4d0076aac",
+    "evidence/host/sh3673510_temperature_encoding_check-d011.log": "9dcd76865cc2b5d5803c02d28fe85193e4ef43befe0f336017fc3f497e110015",
+    "evidence/host/sh3673510_temperature_encoding_check-d013.log": "9dcd76865cc2b5d5803c02d28fe85193e4ef43befe0f336017fc3f497e110015",
+    "evidence/host/sh3673510_temperature_encoding_check-d014.log": "9dcd76865cc2b5d5803c02d28fe85193e4ef43befe0f336017fc3f497e110015",
+    "evidence/host/sh3673520_contract_check-d014.log": "bd72728d0a0d2bcb061a447e9fb0b3675bea4049f824a0e7553382fd98bddaed",
+    "evidence/host/sh_event_checkpoint_host_check-d011.log": "6d16cd897c94b8eee61a2ffcc3b1caab761b6261be3a789d9cf6b25305fc010f",
+    "evidence/host/sh_event_checkpoint_host_check-d013.log": "6d16cd897c94b8eee61a2ffcc3b1caab761b6261be3a789d9cf6b25305fc010f",
+    "evidence/host/sh_event_checkpoint_host_check-d014.log": "6d16cd897c94b8eee61a2ffcc3b1caab761b6261be3a789d9cf6b25305fc010f",
+    "evidence/host/sh_quantize_host_check-d014.log": "cf693ac19cd192a10689c529e3facc0eafc387534a15c23d82892986be88e67a",
+    "evidence/host/sh_sample_atomic_host_check-d014.log": "aec70fc93d0bfb2ccaf540f801d55e36a9983a86f0afa4dc4a53603917057c88",
+    "evidence/host/sh_storage_platform_host_check-d011.log": "d5522935ec29a5790f21c7fbd0c64023417daa36421c933c1f99792495a11770",
+    "evidence/host/sh_storage_platform_host_check-d013.log": "d5522935ec29a5790f21c7fbd0c64023417daa36421c933c1f99792495a11770",
+    "evidence/host/sh_storage_platform_host_check-d014.log": "d5522935ec29a5790f21c7fbd0c64023417daa36421c933c1f99792495a11770",
+    "evidence/host/sif_packet_host_check-d014.log": "9aa7d9065851316fdc09c92fc37994e1a98a3e37eb113945051088fda9f8b06d",
+    "evidence/host/soc_contract_check-d008.log": "8c8c9b10ec97521195e3afe28251ed3dfd2389a52575af1251d1cf5c0efa6fb1",
+    "evidence/host/soc_contract_check-d011.log": "8c8c9b10ec97521195e3afe28251ed3dfd2389a52575af1251d1cf5c0efa6fb1",
+    "evidence/host/soc_contract_check-d013.log": "8c8c9b10ec97521195e3afe28251ed3dfd2389a52575af1251d1cf5c0efa6fb1",
+    "evidence/host/soc_contract_check-d014.log": "8c8c9b10ec97521195e3afe28251ed3dfd2389a52575af1251d1cf5c0efa6fb1",
+    "evidence/host/soc_simulator_check-d008.log": "dec8d97c0deeee2b4a8272de1af2cf0c1b59213560f87237a52224f2d258da58",
+    "evidence/host/sw_protection_contract_check-d008.log": "24bda85fc086082769010048acc1e4a52665061f792df8f7f23a2a728ec62e4c",
+    "evidence/host/sw_protection_contract_check-d011.log": "24bda85fc086082769010048acc1e4a52665061f792df8f7f23a2a728ec62e4c",
+    "evidence/host/sw_protection_contract_check-d013.log": "24bda85fc086082769010048acc1e4a52665061f792df8f7f23a2a728ec62e4c",
+    "evidence/host/sw_protection_contract_check-d014.log": "24bda85fc086082769010048acc1e4a52665061f792df8f7f23a2a728ec62e4c",
+    "evidence/host/sw_protection_defaults_check-d014.log": "d0d82d195e84f842fe350bf6febea6f26b244257bd096ebdbbd89d5f72d823bb",
+    "evidence/host/sw_temperature_groups_host_check-d008.log": "a6ecadecb3f323ae8e9a89ec498e9dcdc7c2e28ca89dc16874d88461c7ead9a6",
+    "evidence/host/sw_temperature_groups_host_check-d011.log": "a6ecadecb3f323ae8e9a89ec498e9dcdc7c2e28ca89dc16874d88461c7ead9a6",
+    "evidence/host/sw_temperature_groups_host_check-d013.log": "a6ecadecb3f323ae8e9a89ec498e9dcdc7c2e28ca89dc16874d88461c7ead9a6",
+    "evidence/host/sw_temperature_groups_host_check-d014.log": "a6ecadecb3f323ae8e9a89ec498e9dcdc7c2e28ca89dc16874d88461c7ead9a6",
+    "evidence/host/tooling_unit_tests-d008.log": "620d2054268f5259fc98a9f86b56a38d208dfae1066c11f6f73803bf4ea0d960",
+    "evidence/host/tooling_unit_tests-d011.log": "e21466dcae804687cb3ebc74dd06dc750fc705ec99e8b7389a80ec7301521e57",
+    "evidence/host/tooling_unit_tests-d013.log": "e474ee5f945cc584156e5deee4661494059e133a46d382bb27f0b142116995ba",
+    "evidence/host/tooling_unit_tests-d014.log": "891591fb904d8f5a436b15c9bc5518575a06e184d5797d7117d5b6190a321fc4",
+    "evidence/host/uart_ownership_host_check-d014.log": "2db67b4dc90a3d1916c3d3726c7a15428fc9d14391637a969dea10474703eb09",
+    "evidence/host-delivery.log": "4b8cdeb3ee9aa5e0de8026b8d07981f4175b59fb551e30afe515813390936460",
+    "evidence/portable-final.log": "a38dd371cb56ecfc704d50cd7e59af813abc1e85270e3bfa336567836c7b0998",
+    "evidence/production-16s-lfp-d008/825x_ble_sample.elf": "ad9f6b2ea3554dfed24db8d3bea9376c9116aa5af0375ace6bb215edf526a044",
+    "evidence/production-16s-lfp-d008/825x_ble_sample.map": "04524fddd9ccf63116d4f6b35bb6352a53198064b99d0d7671dc067c3eef8276",
+    "evidence/production-16s-lfp-d008/build.log": "adc4244c6a91d9e414a165a0a1799efede57f37be60785603f8490449f8bce30",
+    "evidence/production-16s-lfp-d008/compile-inputs.json": "d826d26767b68b81aa3b00f12d4069f2d98917d6359697b0e56631cd473e84c8",
+    "evidence/production-16s-lfp-d008/link-completed.json": "abd4f60b376cf2969229a4c6686c7907d7277740480c7a60a1122573e5687a74",
+    "evidence/production-16s-lfp-d008/resources.json": "1cb49199cedb45859cd0fa8737c9fd10949f335873030b540dfa301865c21df6",
+    "evidence/production-20s-nmc-d008/825x_ble_sample.elf": "4b37b7a80cb4350d67d1f0c6c91144d335fc602a3514145504f5b7469ff2c7d4",
+    "evidence/production-20s-nmc-d008/825x_ble_sample.map": "f2140ea79f20895db8dbd8bf37d2dd380443669b7a4f8ae7beebdda6809932a1",
+    "evidence/production-20s-nmc-d008/build.log": "d5739eb29fd75760da40cb3203d08200f7fcd9d1527ae59a8b3dbb75fd36918e",
+    "evidence/production-20s-nmc-d008/compile-inputs.json": "155da015f08c9797d4e0117865dad13e98d409cc2446f552ea54e06bcab5987b",
+    "evidence/production-20s-nmc-d008/link-completed.json": "8a2e671e64511230537cddf4ee7cda6b1c089049ac248ebe600d087955511c16",
+    "evidence/production-20s-nmc-d008/resources.json": "645b7845f1ddc4b30c6dd959c5d1279162fd4c739a720be3f9b49613ce01b792",
+    "evidence/production-24s-lfp-d008/825x_ble_sample.elf": "297d3bb086031a38b2cd198ab04e50a1d5666b61c5e9860ddab6b763999a18fb",
+    "evidence/production-24s-lfp-d008/825x_ble_sample.map": "c6fbfa16998ac02b914316353c41b1ef1e51dc4fb469ec79913fba57eaa059a0",
+    "evidence/production-24s-lfp-d008/build.log": "669154a8f9ed52b9768f0ac0f6bcc08cac7039d0242fd7ab4a63ba19620eb06c",
+    "evidence/production-24s-lfp-d008/compile-inputs.json": "59683120ad6031dae9c9b0e4f9373cc5224da8c1e66b0c527af1ce2de3076d80",
+    "evidence/production-24s-lfp-d008/link-completed.json": "a4443b108efae60c78c3a40a4da2a344dc017dd860f42907b4893b6980019a33",
+    "evidence/production-24s-lfp-d008/resources.json": "5589a54d2d77f2436ec004ab263f680200cff63afe47a21d8d68c1ec7b5bb13a",
+    "evidence/production-d011/825x_ble_sample.elf": "24971d7a6b754fceba1fdc5c6d15a99cf3c98a5469ccffd83fa0ec0a713132fc",
+    "evidence/production-d011/825x_ble_sample.map": "e110c564ba82c043f0f0d653de469e8e635a74b065f9a3753f6191c7dd0f6dd0",
+    "evidence/production-d011/build.log": "8b80d20564b8ef7902e86b80c41b67d3ff179d941f069bfd27f0df4574d71a76",
+    "evidence/production-d011/compile-inputs.json": "0aab6cece62bee7a08f473b00e5d0399d8bd90c981900c4158d066f79fc971eb",
+    "evidence/production-d011/link-completed.json": "445555e93f0ffb50782616f9fb08f39b74a8f6d3cebb64ac4aa89aad6edd77a8",
+    "evidence/production-d011/resources.json": "d80c0d630ce814ef28b385032e4b0527c84c2bd5566ff66ad8993a624d855650",
+    "evidence/production-d013/825x_ble_sample.elf": "248b57767b9e1f1620b6d4af7d5b0e537a4a984a61ebc039612816ca3cb6d522",
+    "evidence/production-d013/825x_ble_sample.map": "be834c9b219cc932a17f923f34b53a54e830617b73ea9cdd910cc8e460b2a07c",
+    "evidence/production-d013/build.log": "ba5cb6c153214c5319b4a47317df2e293f76748144edd4dacfe61869853d15eb",
+    "evidence/production-d013/compile-inputs.json": "3e66278ad2c06e5dd42d0c01ab202b13fed06f2c698949762aa293163f1b89c5",
+    "evidence/production-d013/link-completed.json": "5c7e65eb47f8328c4b735910d78ad76d65e4678e76b07a4c688c750d1185df79",
+    "evidence/production-d013/resources.json": "d35f376219b2fd78054deb46022fb953c82d38e297267ef4f70f9ccdc36ad04a",
+    "evidence/production-d014/825x_ble_sample.elf": "de0e2f757e7953e0a6e1c1e50147b993fd6af67ab12c4b62acf786214c34ab92",
+    "evidence/production-d014/825x_ble_sample.map": "aa14f748d1e47ba3b616d9b8e109ba0edf5770a4359c226a7352214bf4abc397",
+    "evidence/production-d014/build.log": "ace55ee34f51a147ab474e7f84c1fd2f370f7489c80e761f9d2d69036c84f553",
+    "evidence/production-d014/compile-inputs.json": "71d872b8a5a2acf2f38a660ac4f7d63d3efb47b9c0e83922cd17de0bd2e6b227",
+    "evidence/production-d014/link-completed.json": "de3422d06fbfa96d7d01f69842e2e2e481f36e599d371b9b15035fe27c497fdb",
+    "evidence/production-d014/resources.json": "8ee97f36306003a7757b63ef22884b12aa27bb1ada5e356f22d5d86d5ee84300",
+    "evidence/production-delivery.log": "8af391ae55c3bdfce2bc36bced54df3340dd75166884878e49f01377f3fc8ed5",
+    "evidence/production-trace-disabled-d014/825x_ble_sample.elf": "3b16c1baacb43f9e2fb48ab6b41dfcaeae32d14ea81182c96ca063a7a718b728",
+    "evidence/production-trace-disabled-d014/825x_ble_sample.map": "5adb9d7bcb1be754b25bd73431ed5dcbfeb0e30d89797350f6e5ea4cb23a39c6",
+    "evidence/production-trace-disabled-d014/build.log": "da05e976fb6d8e19d8e2089e82b6bd63e837713eb84311bd64176dd99493b09f",
+    "evidence/production-trace-disabled-d014/compile-inputs.json": "0b6485ad3514c5d1ef6e6d6232af7fed89347e3de652d3bd815a5a5c45159d4c",
+    "evidence/production-trace-disabled-d014/link-completed.json": "e5610851b8c6f14c01c907eab296d24ef513ab0cf1e9b170e708439e39d4e6b7",
+    "evidence/production-trace-disabled-d014/resources.json": "6b3b8390902df5d1ebb5eb8fde8ee064c3d5543b0cbb6a967a4e43a40f57076f",
+    "evidence/sources-delivery.log": "d0feded76322ea8b91c88ac401def5d23ea20d7708c3a0bcab05e26f8406502c",
+    "evidence/static-d008/compile_commands_build.json": "dd615223fe3949a81011f0c6b6f9967b662068348f040cadec98e2965a9e3a19",
+    "evidence/static-d008/configuration_check.log": "2f16c01f598180ce855e4501c204d39951d42d2509e8a5f39cd49581f401893e",
+    "evidence/static-d008/cppcheck-native.xml": "e286aa256fb933c3905dd44130de47aacce9e6807a3d2977145faf209e43f785",
+    "evidence/static-d008/findings.json": "24fa6f92d623acd8a5f744d44f63c60090c49e421fc5b00ed555dca8a136b6ca",
+    "evidence/static-d008/scope_audit.json": "ad6f367417be838a2f5d4485138a1f0503b20a0cda42f3fd91a4566745e2418d",
+    "evidence/static-d008/static_analysis_report_data.json": "5ef1afd213a81183b435896b4c2f898ca7b07c1682e1ee8c7759c24e940bb994",
+    "evidence/static-d014/compile_commands_build.json": "e6fde941b75952a80afad041c9337e79d2e9ee469d016401fce47773ceac8493",
+    "evidence/static-d014/configuration_check.log": "cb9c255465635a0c0bf489e72b2b9f70f7ad3fbc4baaab760d0b94657e555405",
+    "evidence/static-d014/cppcheck-native.xml": "f77a97e990850caf458d12f0e56f4ab802c26002dd32c0c0fe78fec9646027de",
+    "evidence/static-d014/findings.json": "791016ec8e43cbde48a6661a0da37db51ce9c6309ab232743f3ac9d06befa8a5",
+    "evidence/static-d014/scope_audit.json": "b0bff847dceffff3dc727b85a6702064e5c70e41b042a13259ad3d0f2fb2cefe",
+    "evidence/static-d014/static_analysis_report_data.json": "6fa545848b615b460605e22146143f591cf4087b07472799e2bb15406b000f88",
+    "evidence/trace-disabled.log": "04a6f52c7c2b758d5437fec8576b041b6c9330132387d99d955057e14b15a97e"
+  }
+}
