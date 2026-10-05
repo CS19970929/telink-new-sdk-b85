@@ -113,11 +113,33 @@ MOS 请求/缓存不是物理 Gate 反馈，日志不声称闭环硬件成功。
 | D014 | 118148 / 119540 | 8828 / 7436 | 24164 / 25472 | 5532 / 4224 |
 
 栈预算 3072 字节；此余量不是实测栈高水位。详细日志增加约 1.3 KiB RAM。
-D008 即使关闭日志仍低于仓库 8 KiB 发布余量；本次不修改发布门禁或顺带裁剪其它功能。
+D008 的上述开发配置即使关闭日志仍低于仓库 8 KiB 发布余量；不能据此推断量产配置的大小。
+本次不修改发布门禁或顺带裁剪其它功能。
+
+随后在干净提交 `f54a89ac05b128d94e0e0a6ff34910facc5c6c51` 上执行量产配置：
+
+```powershell
+$env:BMS_BUILD_ROOT = "$env:LOCALAPPDATA/CodexTemp/d014-runtime-log-20261005/mono-production"
+Remove-Item Env:EXTRA_DEFINES -ErrorAction SilentlyContinue
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
+```
+
+四产品量产配置均零错误/零警告，资源门禁通过；量产模式沿用工具既有 `-Os` 配置。
+D008 的 `16s-lfp` 仅是本次明确选择的验证 profile，不代表其它 profile 已验证或更改产品默认值。
+
+| 量产产品 | Flash投影/余量（字节） | RAM跨度/栈预算后余量（字节） |
+| --- | --- | --- |
+| D008 16s-lfp | 118308 / 8668 | 24992 / 4704 |
+| D011 | 113540 / 13436 | 24168 / 5528 |
+| D013 | 112724 / 14252 | 24152 / 5544 |
+| D014 | 113380 / 13596 | 24168 / 5528 |
+
+此处验证对应上述固定源码提交，后续说明文档提交不作为已测固件 Build ID。
 
 完整 host 回归 108 组通过；包含真实日志 C 实现的开/关、等级模块过滤、不求值、边界、覆盖饱和、
 序号回绕和真实 Modbus 入口只读/跨界/广播测试。CMake 可移植核心 3 项测试通过。
-上位机两个 WPF 入口与 CLI Release 编译零警告；日志客户端真实 CRC/碎片/覆盖/回绕/重启/取消测试与 OTA 协议测试通过。
+上位机提交 `b5d9cde`：两个 WPF 入口与 CLI Release 编译零警告；日志客户端真实 CRC/碎片/覆盖/回绕/重启/取消测试、OTA 协议测试及既有 Flash 历史日志回归通过。
 应用、核心、AFE、平台共 97 个 C/H 文件均有功能头注释，关键状态所有权、事务失败路径和调度函数补充说明；
 84 个已有 C/H 文件经去注释 token 比对确认仅注释变化，其余为本次日志集成/测试。
 
