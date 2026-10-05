@@ -17,7 +17,7 @@ jobs:
   host-contract:
     name: Four product host regression and portable core
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       CC: gcc
       PYTHONDONTWRITEBYTECODE: '1'
@@ -44,7 +44,39 @@ jobs:
         if: always()
         with:
           name: bms-host-${{ github.sha }}
+          retention-days: 90
           path: ${{ runner.temp }}/bms-tests
+
+  host-sanitizers:
+    name: 公共核心与新场景 ASan/UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CC: gcc
+      BMS_SANITIZE: '1'
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 内存与未定义行为验证（不把旧夹具假称为已插桩）
+        run: >-
+          python tests/run_host_regression.py --output "${{ runner.temp }}/bms-sanitizers"
+          --only protection_scenarios_host_check --only product_configuration_host_check
+          --only features_scenarios_host_check --only sh_safety_chain_host_check
+          --only sh_register_scenarios_host_check --only dvc_register_scenarios_host_check
+          --only modbus_fuzz_host_check --only current_calibration_host_check
+          --only portable_core_host_check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bms-sanitizers-${{ github.sha }}
+          retention-days: 90
+          path: ${{ runner.temp }}/bms-sanitizers
 
   tc32-windows:
     name: Four product TC32 ELF and resource gates

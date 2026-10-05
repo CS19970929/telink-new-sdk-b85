@@ -5,6 +5,7 @@
 | Job | 环境 | 内容与边界 |
 |---|---|---|
 | `host-contract` | Ubuntu hosted + Python 3.11/GCC | 四产品 sources、来源对象检查、完整 host、CMake/CTest；输出 host 日志 |
+| `host-sanitizers` | Ubuntu 24.04/GCC | 新公共编译辅助支持的保护/配置/AFE/feature/协议/校准/核心场景，ASan+UBSan；明确为选定范围 |
 | `tc32-production` | Ubuntu 24.04 + digest 固定的 Telink 官方 TC32 容器 | D008 三种 profile + D011/D013/D014，共六配置生产 ELF/资源门禁；不生成 BIN |
 | `tc32-windows` | `self-hosted, Windows, X64, telink-tc32` | 四产品生产 ELF/resources/static；D008 16S；需要 `TELINK_TC32_CI_ENABLED=1` 且 PR 来源同仓库 |
 
@@ -25,3 +26,5 @@ Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python�
 ## 发布归档
 
 当前 CI ELF artifact 不是发布 BIN；Actions artifact 有保留期。需要镜像时按构建指南的明确镜像流程，归档 commit/profile、工具、BIN hash/manifest、ELF/MAP/resources、host/static 和实板记录。绿色 CI 不关闭 [硬件验收](HARDWARE_VALIDATION.md) 项目。
+
+host 与 sanitizer artifact 保留 90 天，包含 Markdown/JSON/JUnit 和原始日志。长期接受的基线应另外保存；使用统一 runner 的 `--baseline` 作结构化比较，见 [自动化验证](AUTOMATED_VALIDATION.md)。

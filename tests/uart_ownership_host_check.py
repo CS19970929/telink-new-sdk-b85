@@ -80,7 +80,8 @@ int main(void){
 }
 '''
 
-for product in ('d008', 'd014'):
+products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d008', 'd011', 'd013', 'd014')
+for product in products:
     source = selected_source(ROOT / 'bms/platform/telink/modbus_uart.c', product)
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
     header = (ROOT / 'bms/platform/telink/modbus_uart.h').read_text(encoding='utf8')
@@ -89,7 +90,7 @@ for product in ('d008', 'd014'):
                '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
                '#define OWC_TX_PIN 1\n#define OWC_RX_PIN 2\n'
                '#define BMS_BOARD_RS485_EN_PIN 3\n'
-               '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n') % (product != 'd008')
+               '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n') % (product in ('d011', 'd014'))
     with tempfile.TemporaryDirectory(prefix='uart-ownership-') as folder:
         c = Path(folder) / 'check.c'; exe = Path(folder) / 'check.exe'
         c.write_text(PREFIX + defines + diag + source + TAIL, encoding='utf8')

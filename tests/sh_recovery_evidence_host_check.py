@@ -18,7 +18,10 @@ profile_header = (ROOT / 'bms/core/bms_afe_hw_profile.h').read_text(encoding='ut
 profile_type = re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;', profile_header, re.S).group()
 fixture = fixture.replace('/* PROFILE TYPE */', profile_type)
 def run(defines=()):
-    for product in ('d011', 'd013', 'd014'):
+    products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d011', 'd013', 'd014')
+    for product in products:
+        if product not in ('d011', 'd013', 'd014'):
+            raise ValueError('SH 回归不适用于 ' + product)
         source = selected_source(ROOT / 'bms/afe/sh3673510/sh3673510_bms.c', product)
         guard = selected_source(ROOT / 'bms/core/bms_afe_guard.c', product)
         code = fixture.replace('/* PRODUCTION */', source).replace('/* GUARD */', guard)

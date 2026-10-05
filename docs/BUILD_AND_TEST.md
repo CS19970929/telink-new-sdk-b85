@@ -56,7 +56,7 @@ $env:BMS_TEST_OUTPUT = "$env:LOCALAPPDATA/CodexTemp/bms-onboarding/host"
 python tests/run_host_regression.py
 ```
 
-runner 的产品分配以 `tests/run_host_regression.py` 的 `targets()` 为准，自动运行 `*_check.py` 和各产品工具单测。结果在打印的目录内，`results.json` 和逐项日志为证据；不要固定宣称永远是某个测试组数。单个脚本用环境选择产品，`bms.py --product` 不会传递给后续独立 Python 进程：
+runner 的产品分配以 `tests/validation_catalog.py` 为准；新增 `*_check.py` 漏登记即失败。默认报告保存到用户 Documents/CodexOutputs，显式输出目录必须在源码树外且为空。`report.md`、`report.json`、`junit.xml`、`results.json` 和逐项日志共同留证；不要固定宣称永远是某个测试组数。使用 `--baseline <旧 report.json>` 比较配置/行为，`--with-targets` 合并开发 ELF/resource 验证；完整范围和边界见 [多产品自动化验证](AUTOMATED_VALIDATION.md)。单个脚本用环境选择产品，`bms.py --product` 不会传递给后续独立 Python 进程：
 
 ```powershell
 $savedProduct = $env:BMS_PRODUCT

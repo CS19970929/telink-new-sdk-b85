@@ -534,6 +534,8 @@ int32_t bms_config_calibrate_current(int32_t raw_ma)
     if (offset>0 && raw_ma < -2147483647+offset) delta=-2147483647;
     else if (offset<0 && raw_ma > 2147483647+offset) delta=2147483647;
     else delta=raw_ma-offset;
+    /* 所有路径采用相同的对称范围；INT32_MIN/零 offset 也先限幅再缩放。 */
+    if (delta < -2147483647) delta=-2147483647;
     magnitude=delta<0 ? 0u-(u32)delta : (u32)delta;
     scaled=current_scale_ppm(magnitude,g_bms_config.user.current_gain_ppm);
     return delta<0 ? -(int32_t)scaled : (int32_t)scaled;

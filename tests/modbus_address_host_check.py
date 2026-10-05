@@ -13,13 +13,12 @@ def function(name):
         depth+=(src[pos]=='{')-(src[pos]=='}');pos+=1
     return src[match.start():pos]
 constants="\n".join(re.findall(r"(?m)^#define (?:BMS_AFE_ACTUAL_REG_(?:BASE|COUNT)|BMS_REALTIME_REG_(?:BASE|COUNT))[^\n]*",src))
+constants+='\n'+'\n'.join(re.findall(r'(?m)^#define BTNAME_REG_(?:BASE|COUNT)\s+[^\n]*',(paths/'btname_modbus.h').read_text()))
 is_sh=paths.product!="d008"
 fixture=r'''
 #include <stdint.h>
 #include <assert.h>
 typedef uint16_t u16;typedef uint8_t u8;
-#define BTNAME_REG_BASE 0x2300u
-#define BTNAME_REG_COUNT 12u
 static int bms_parameter_readable(u16 r){(void)r;return 0;}
 static int afe_hw_profile_is_reg(u16 r){(void)r;return 0;}
 static int dvc_comm_is_semantic(u16 r){(void)r;return 0;}
@@ -30,6 +29,9 @@ int main(void){
  assert(read_address_supported(0xD000));assert(read_address_supported(0xD03E));
  assert(!read_address_supported(0xD03F));assert(read_address_supported(0x2140));
  assert(!read_address_supported(0x2141));assert(!read_address_supported(0xFFFF));
+ assert(read_address_supported(BTNAME_REG_BASE));
+ assert(read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT-1));
+ assert(!read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT));
  /* SH_TEST */
  return 0;
 }

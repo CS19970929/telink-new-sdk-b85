@@ -8,6 +8,7 @@ does not implement a second copy of the firmware SOC estimator.
 from __future__ import annotations
 
 import argparse
+import atexit
 import csv
 import json
 import math
@@ -16,6 +17,7 @@ from pathlib import Path
 import random
 import subprocess
 import sys
+import tempfile
 from typing import Iterable, Iterator
 
 
@@ -23,7 +25,6 @@ ROOT = Path(__file__).resolve().parents[2]
 HOST_CHECK = ROOT / "tests/d008_power_soc_host_check.py"
 TEMP_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / \
     "CodexTemp/telink-bms/soc-simulator"
-RUNNER = TEMP_ROOT / ("soc_replay.exe" if os.name == "nt" else "soc_replay")
 GOLDEN_TRACE_DIR = ROOT / "tests/soc/traces"
 
 INPUT_COLUMNS = (
@@ -64,26 +65,19 @@ def truth_ocv_v(soc: float) -> float:
 
 
 def ensure_runner() -> Path:
-    sources = [
-        HOST_CHECK,
-        ROOT / "tests/fixtures/d008_power_soc/soc.c",
-        ROOT / "bms/core/bms_soc.c",
-        ROOT / "bms/core/bms_soc_eta.c",
-        ROOT / "bms/core/bms_soc_eta.h",
-        ROOT / "bms/core/bms_soc.h",
-    ]
-    newest = max(path.stat().st_mtime for path in sources)
-    if RUNNER.exists() and RUNNER.stat().st_mtime >= newest:
-        return RUNNER
-    TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    # 编译成本很小；每次回放编译当前输入，避免漏掉头文件/产品/编译器变化。
+    # 独立目录也避免两个 checkout 同时覆盖同一个可执行文件。
+    directory = tempfile.TemporaryDirectory(prefix="bms-soc-replay-")
+    atexit.register(directory.cleanup)
+    runner = Path(directory.name) / ("soc_replay.exe" if os.name == "nt" else "soc_replay")
     env = os.environ.copy()
     if os.name == "nt":
         env["PATH"] = r"C:\qp\qtools\MinGW32\bin;" + env.get("PATH", "")
     subprocess.run(
-        [sys.executable, str(HOST_CHECK), "--compile-soc-executable", str(RUNNER)],
+        [sys.executable, str(HOST_CHECK), "--compile-soc-executable", str(runner)],
         cwd=ROOT, env=env, check=True,
     )
-    return RUNNER
+    return runner
 
 
 def as_int(row: dict, name: str, default: int = 0) -> int:

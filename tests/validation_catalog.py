@@ -1,0 +1,77 @@
+"""测试适用产品、证据层级和已知边界；新增检查必须显式登记，防止漏跑。"""
+PRODUCTS = ('d008', 'd011', 'd013', 'd014')
+SH = PRODUCTS[1:]
+CHECKS = {}
+
+
+def register(domain, products, evidence, names):
+    for name in names.split():
+        if name in CHECKS:
+            raise ValueError('重复测试登记：'+name)
+        CHECKS[name] = {'domain': domain, 'products': products, 'evidence': evidence}
+
+
+register('protection', PRODUCTS, '生产 TU 场景', 'protection_scenarios_host_check sw_temperature_groups_host_check')
+register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')
+register('protection', SH, '真实 backend/guard/SW 联合场景', 'sh_safety_chain_host_check')
+register('soc', PRODUCTS, '生产 K/B 与独立数学 oracle', 'current_calibration_host_check')
+register('protection', PRODUCTS, '源码 contract', 'sw_protection_contract_check common_feature_policy_contract_check')
+register('protection', ('d014',), '提取函数场景', 'sw_protection_defaults_check')
+register('configuration', PRODUCTS, '真实默认构造与校验', 'product_configuration_host_check')
+register('configuration', ('d014',), '提取函数场景', 'd014_afe_profile_default_host_check')
+register('configuration', ('d014',), '源码 contract', 'afe_hw_profile_contract_check')
+register('afe', PRODUCTS, '提取函数故障注入', 'afe_hw_fragment_host_check afe_hw_transaction_host_check')
+register('afe', PRODUCTS, '源码 contract', 'afe_hw_access_contract_check')
+register('afe', SH, '完整 control 函数体与总线模型', 'sh_register_scenarios_host_check')
+register('afe', SH, '生产函数体与环境替身', 'sh_recovery_evidence_host_check sh_sample_atomic_host_check sh3673510_recovery_host_check sh3673510_board_host_check')
+register('afe', SH, '源码 contract', 'sh3673510_protection_mode_check sh3673510_temperature_encoding_check')
+register('protocol', ('d011','d014'), '固定 RS485 源码 contract', 'sh3673510_comm_mode_check')
+register('afe', ('d014',), '公共芯片驱动/量化场景', 'sh3673520_contract_check sh_quantize_host_check')
+register('afe', ('d008',), '提取函数故障注入', 'd008_current_recovery_host_check d008_voltage_recovery_host_check dvc1124_fixed_policy_host_check dvc_register_scenarios_host_check')
+register('afe', ('d008',), '源码 contract', 'dvc1124_config_quick_check d008_common_port_fet_contract_check d008_boot_zero_current_contract_check')
+register('soc', PRODUCTS, '生产 SOC 函数体与环境替身', 'shared_soc_host_check soc_simulator_check')
+register('soc', PRODUCTS, '源码 contract', 'soc_contract_check')
+register('soc', SH, '提取函数场景', 'sh3673510_soc_direction_host_check')
+register('soc', ('d008',), '生产 SOC/部分 PM 与环境替身', 'd008_power_soc_host_check d008_soc_openwire_host_check')
+register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'd008_storage_host_check flash_quick_check')
+register('storage', SH, '提取函数故障注入', 'sh_event_checkpoint_host_check sh_storage_platform_host_check')
+register('protocol', PRODUCTS, '真实 parser/CRC 与寄存器替身', 'modbus_fuzz_host_check')
+register('protocol', PRODUCTS, '提取函数场景', 'modbus_address_host_check')
+register('protocol', ('d008',), '真实封包与固定 wire 向量', 'sif_packet_host_check')
+register('protocol', PRODUCTS, 'UART DMA/IRQ 软件模型', 'uart_ownership_host_check')
+register('diagnostics', PRODUCTS, '生产代码与环境替身', 'bms_diag_host_check runtime_debug_log_host_check')
+register('diagnostics', PRODUCTS, '源码 contract', 'bms_diag_contract_check')
+register('power', SH, '生产函数体与环境替身', 'sh3673510_sample_schedule_host_check sh3673510_sleep_host_check')
+register('power', ('d008',), '提取函数场景', 'app_recovery_wakeup_host_check app_scheduler_host_check')
+register('tooling', PRODUCTS, '实际编译预处理', 'production_policy_check')
+register('tooling', ('d014',), '工具行为/源码 contract', 'compile_receipt_check monorepo_source_check resource_safety_host_check')
+register('tooling', ('d014',), '故意变异检验', 'validation_mutation_check')
+register('tooling', ('d014',), '缓存回归', 'soc_replay_freshness_check')
+register('tooling', ('d014',), '完整可移植核心 TU', 'portable_core_host_check')
+register('configuration', ('d008',), '产品编译分支/源码 contract', 'd008_20s_profile_contract_check d008_profile_selection_host_check d008_framework_contract_check d008_documentation_contract_check')
+register('configuration', ('d011',), '板级源码 contract', 'sh3673510_d011_integration_check')
+register('configuration', ('d014',), '板级源码 contract', 'sh3673510_d014_integration_check')
+register('storage', ('d014',), '提取函数场景', 'bms_simplification_host_check')
+
+SOURCES = {
+    'protection': ['bms/core/bms_sw_protection.c', 'bms/app/bms_features.c'],
+    'configuration': ['bms/core/param.h', 'bms/core/bms_afe_hw_profile.c', 'bms/products'],
+    'afe': ['bms/core/bms_afe_guard.c', 'bms/core/bms_afe_hw_profile.c', 'bms/afe'],
+    'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
+    'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
+    'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
+    'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c'],
+    'power': ['bms/app/app.c', 'bms/core/bms_afe_guard.c'],
+    'tooling': ['bms_tools', 'tests'],
+}
+
+BLIND_SPOTS = [
+    {'risk':'高','area':'完整系统 SIL','gap':'尚未把调度、两种完整 AFE 后端、真实参数存储、MOS 仲裁接成一个无需业务替身的闭环；单域通过不能推出整机安全'},
+    {'risk':'高','area':'AFE 物理行为','gap':'RAM 寄存器不模拟硅片比较器、ADC 误差、转换时延或 watchdog 断总线后的 Gate；官方手册/板级读回仍需独立核验'},
+    {'risk':'高','area':'产品参数','gap':'D013 缺受控原理图；容量/阈值未全部签核；D008 20S NMC 仍使用公共软件保护默认且 SC 默认关闭'},
+    {'risk':'高','area':'SOC/电流','gap':'长时算法场景使用受控 100Ah 环境；开机零点的真实零电流、SH 新鲜温度标志、C+ 判据和整板标定仍需台架'},
+    {'risk':'高','area':'存储/升级','gap':'逐字节故障模型不等于 Flash 擦除掉电、电源瞬态或实际 OTA；三域分别提交不构成跨域原子事务'},
+    {'risk':'中','area':'协议','gap':'parser 随机测试的寄存器所有者为替身；BLE SDK/分片/RF、UART 任意粘包吞吐、PHY 仍需硬件；CAN 未进入当前四产品真实源码清单'},
+    {'risk':'中','area':'调度/并发','gap':'host 不证明中断最坏时延、栈水位、TC32 ABI/栈溢出、实际 Sleep 电流；需 ELF/MAP 和实测'},
+    {'risk':'中','area':'覆盖指标','gap':'不把测试组数或断言数当行/分支覆盖率；未测量的路径显式保留未知，不给虚构覆盖百分比'},
+]
