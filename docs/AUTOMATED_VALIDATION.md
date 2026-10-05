@@ -111,3 +111,19 @@ CI 的 `host-contract` 跑完整入口并归档人/机报告，`host-sanitizers`
 4. 实板必做：芯片转换标志时序/ADC 误差、Gate/负载/充电器证据、SC/OCD/OCC 波形、Flash 掉电、电源复位/watchdog、Sleep 电流/唤醒、RS485 PHY/BLE RF、温度与 EMC。按 [硬件验证清单](HARDWARE_VALIDATION.md) 留独立证据。
 
 HIL 可先从一块可控台架开始：受限供电、可编程单体/温度/电流输入、串口只读诊断、逻辑分析仪观测 Gate/DE/wake，复用软件场景的输入和预期。首期只闭合最危险的恢复和新样本资格链，不让台架建设阻塞 PC 回归，也不自动操作实物 fuse 或高能量短路。
+
+## 2026-10-05 固定提交验证
+
+实现提交为 `146c3ff686df5f667deb67b22e894a17fd06b132`，验证时 Windows/WSL Git 均干净。机器证据与完整报告哈希见 [AUTOMATED_VALIDATION_EVIDENCE.json](AUTOMATED_VALIDATION_EVIDENCE.json)。本节是该提交的历史记录，不自动代表后续 HEAD。
+
+| 范围 | 实测结果 |
+|---|---|
+| Windows 完整回归 | 165/165；D008 39、D011 38、D013 36、D014 50、共享工具 2；0 失败 |
+| Linux ASan/UBSan | 本机 WSL Ubuntu GCC 13.3，28/28；选定场景与 Windows 的输入指纹和结构化观察全部一致 |
+| CMake Release/CTest | 3/3，断言保持启用 |
+| Windows TC32 生产 | 六配置 link/resource 全通过；编译器 0 警告；未生成 BIN |
+| CI | workflow 已更新并通过 YAML 解析；没有推送或冒称远端 run 已通过 |
+
+六配置生产 Flash 余量：D008 三装配均 8460 字节，D011 12348，D013 13356，D014 12524。D008 距 8KiB 最小余量仅 268 字节；后续改公共代码应继续关注资源门禁。RAM 增长预算不等于实际栈水位，精确值与 ELF/MAP hash 在机器证据中。
+
+正式完整报告位于本机 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/validation-20261005/final/`，插桩报告在同级 `sanitizers-final/`，生产 ELF/MAP/收据在同级 `targets-production/`。报告比较保留了本次开发报告到最终报告的字段命名变化；未把它伪称为与旧固件的全行为等价验证。当前软件回归已能自动阻止多类公共保护/参数/编码/算法/存储/协议回归，前述整机闭环和实板盲区仍然成立。

@@ -11,7 +11,7 @@
 | [交接与上手](docs/ONBOARDING.md) | 第一天：环境、阅读顺序、第一项任务和交接验收 |
 | [配置与简单修改](docs/CONFIGURATION_AND_BUILD_GUIDE.md) | 改容量/名称/保护/日志；判断参数是否覆盖设备已有值 |
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
-| [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
+| [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) · [固定提交证据](docs/AUTOMATED_VALIDATION_EVIDENCE.json) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
 | [BMS 简化实施记录](docs/BMS_SIMPLIFICATION.md) · [验证证据](docs/BMS_SIMPLIFICATION_EVIDENCE.json) | 26 项建议的处理、行为边界和验证证据 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |

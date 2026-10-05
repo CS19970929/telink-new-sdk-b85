@@ -1,0 +1,182 @@
+{
+  "说明": "固定实现提交的软件验证证据；后续文档提交不冒充重新构建。Windows 为 TC32 生产证据，WSL 为辅助内存检查。",
+  "源码提交": "146c3ff686df5f667deb67b22e894a17fd06b132",
+  "源码树": "aca378b270ca22f044c618ab459e4fb1f22a8400",
+  "输入指纹": "e01bfab38b722e99c95e8d9dc3c49f222bc73c411f5ed712e5b815afd3b7c0dd",
+  "完整回归": {
+    "组数": 165,
+    "失败": 0,
+    "产品": {
+      "d008": 39,
+      "d011": 38,
+      "d013": 36,
+      "d014": 50,
+      "shared": 2
+    },
+    "编译器": {
+      "command": [
+        "C:/qp/qtools/MinGW32/bin/cc.exe"
+      ],
+      "path": "C:/qp/qtools/MinGW32/bin\\cc.exe",
+      "version": "cc.exe (Rev2, Built by MSYS2 project) 9.2.0\r\nCopyright (C) 2019 Free Software Foundation, Inc.\r\nThis is free software; see the source for copying conditions.  There is NO\r\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\r\n",
+      "exit": 0,
+      "sha256": "4f337497b7f3baee31a830e82567e1c1d130963bca6ff6e9e8da3399b86ae1e7"
+    }
+  },
+  "ASan_UBSan": {
+    "组数": 28,
+    "失败": 0,
+    "环境": "本机 WSL Ubuntu，未冒充远端 CI",
+    "编译器": {
+      "command": [
+        "gcc"
+      ],
+      "path": "/usr/bin/gcc",
+      "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "exit": 0,
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+    },
+    "与Windows结构化观察一致": true,
+    "与Windows输入指纹一致": true
+  },
+  "CMake_Release_CTest": {
+    "完成": 3,
+    "失败": 0,
+    "目录": "C:/Users/Administrator/AppData/Local/CodexTemp/bms-validation-20261005/cmake"
+  },
+  "生产ELF": [
+    {
+      "product": "d011",
+      "configuration": {
+        "product": "d011",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "df43f27ab7caad00ffb3b76b05c634d62c16c46fcc99ade01bfc02ad5cb1d378",
+      "map_sha256": "ce745fa749a8d4c863707431b2df6529226f619f3a4504333d6ea910e10b98b3",
+      "flash_bytes": 114628,
+      "flash_free_bytes": 12348,
+      "ram_span_bytes": 24196,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5500,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production\\d011\\gen\\resources.json",
+      "report_sha256": "56f0b5153f17aa874de323dbb7757b1f644134a7f8292b585d4738c402f36e33"
+    },
+    {
+      "product": "d013",
+      "configuration": {
+        "product": "d013",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "2d8d9144e5a5b50ca52355521f46d804a87913f34a738b0d54da2d47e31b783c",
+      "map_sha256": "9ec59ca889099817eae5cf5ac2666aa75ca5b46420eb40361bf581775b516bce",
+      "flash_bytes": 113620,
+      "flash_free_bytes": 13356,
+      "ram_span_bytes": 24176,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5520,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production\\d013\\gen\\resources.json",
+      "report_sha256": "035ad8c8257db5617e4af7e5bfe2d0722afb3375dd16a872efb58ebb33964543"
+    },
+    {
+      "product": "d014",
+      "configuration": {
+        "product": "d014",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "7c8d9d4b1f575e258ce6c0a2f5ad75b9bc2622df0e44bec200bbbdb46e5a03bb",
+      "map_sha256": "99e83bd1195469d75f5191f1177e28a32dfdc4b907914c7c78c697c0a2af9ffd",
+      "flash_bytes": 114452,
+      "flash_free_bytes": 12524,
+      "ram_span_bytes": 24196,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5500,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production\\d014\\gen\\resources.json",
+      "report_sha256": "27c1955056166e9ddb8956da63b4eb50cc5b36f5d2f24c312ea7f67db0be3546"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "78a317f7660ea4b8fcf7e26b6161e4901f0101ccc312debfe9f73fbe7bec99dc",
+      "map_sha256": "dc2bd7fc8d2a81ca786a36800c6e5f73f0e1812ace90330b89568efdc350d2b7",
+      "flash_bytes": 118516,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production-16s-lfp\\d008\\gen\\resources.json",
+      "report_sha256": "aa88cf46ca4272f42138deb51fb90d3556648e8ea7a0917d905866707eb025cc"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "20s-nmc",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "2ae53ac85cf60a30335c3313c875bff7ca58e322f1ab7a7c7de2280d1d3bbd4c",
+      "map_sha256": "1534a9082e2c911cf20e66528c1c7bd77844f3f755c88603125594db62c81ca3",
+      "flash_bytes": 118516,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production-20s-nmc\\d008\\gen\\resources.json",
+      "report_sha256": "99f027deed214761ff735b332e4e4738afc6e3469c4fcab39162e6ae1b5df8f4"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "24s-lfp",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "011ae1e155db98224f27a1df1a1211b3788be0cb14126b620135a1115dc0371b",
+      "map_sha256": "5b17492c011b787b69b2dc0147f9160079f8291ede7d827013be7be61bb306a4",
+      "flash_bytes": 118516,
+      "flash_free_bytes": 8460,
+      "ram_span_bytes": 25000,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4696,
+      "report": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005\\targets-production\\fcdfbbf61247\\production-24s-lfp\\d008\\gen\\resources.json",
+      "report_sha256": "101278033e57ea72dfc91bc55c22420988e925935859b6674035a3e792819539"
+    }
+  ],
+  "报告根目录": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\validation-20261005",
+  "报告哈希": {
+    "final/report.json": "3455f8d84982bbba1bf87bdb61f01b2e38b20b4a39ff7f8d662a27e5144b0857",
+    "final/report.md": "1617915a0083b765ac0cc83e43caa94aaa89c4bf9f9342567d497c5b4e6d78ca",
+    "final/junit.xml": "c914ef53ff473bea20f261b63c884bf4377f122fe06c55bbefeb709f924638d3",
+    "sanitizers-final/report.json": "9c8bd94b526263cb84bbced1c5e8ade48405a7cec75389e4da9f507563193c67",
+    "sanitizers-final/report.md": "66b7bed421f3ab4936b6fb7d60df6e3e1b67056682994e1dc7a4a79633c3285a",
+    "sanitizers-final/junit.xml": "112d3a2f70956b7ad91fff96ff4dd2ebff2e50cf0af31c335478c25b723ac2ec",
+    "cmake-release-ctest.log": "2b607ef21a329e0ef784f88bf482898bb0550761ffe057a073d807fc05c9407d"
+  },
+  "远端CI": "已配置，未推送或声称远端运行通过",
+  "BIN": "未生成",
+  "实板": "未执行",
+  "重点风险": [
+    "D008 三装配 Flash 余量8460字节，距8KiB门槛仅268字节",
+    "D008 NMC保护默认、SC默认关闭与产品参数签核未代替人工决定",
+    "完整两后端端到端SIL、真实协议存储链、AFE官方逐位核验仍需扩展",
+    "物理Gate/ADC/掉电/低功耗/PHY/RF仍需独立台架证据"
+  ]
+}
