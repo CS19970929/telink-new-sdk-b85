@@ -4,6 +4,7 @@
 新增或修改公共模块后，无需复制、同步或更新子模块版本。
 
 架构、存储格式、边界和迁移说明见 [实现说明](docs/BMS_MONOREPO.md)。验证结果见 [验证报告](docs/BMS_MONOREPO_VALIDATION.md)。
+四产品的完整默认保护、AFE 配置、量化值和旧 common 分支替换条件见 [配置核对表](docs/FOUR_PRODUCT_CONFIGURATION_AUDIT.md)。
 
 ```powershell
 # 检查四个产品的实际源码清单
