@@ -1,0 +1,273 @@
+{
+  "说明": "固定实现提交证据；后续仅文档提交不冒充重新编译。软件闭环不等于实板或 MCU reset 后故障锁存。",
+  "源码提交": "3f2fe78272f48a9570d4b31252386287a6c01c92",
+  "源码树": "dfd97405f72662f0408d36c78f44f72e05a92e1f",
+  "输入指纹": "144612cd18dec32e95cbdaada83c2df322e4f6fedde4a045c84b5b49f43db0dd",
+  "Windows完整回归": {
+    "组数": 166,
+    "失败": 0,
+    "产品": {
+      "d008": 39,
+      "d011": 38,
+      "d013": 36,
+      "d014": 51,
+      "shared": 2
+    },
+    "编译器": {
+      "command": [
+        "C:/qp/qtools/MinGW32/bin/cc.exe"
+      ],
+      "path": "C:/qp/qtools/MinGW32/bin\\cc.exe",
+      "version": "cc.exe (Rev2, Built by MSYS2 project) 9.2.0\r\nCopyright (C) 2019 Free Software Foundation, Inc.\r\nThis is free software; see the source for copying conditions.  There is NO\r\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\r\n",
+      "exit": 0,
+      "sha256": "4f337497b7f3baee31a830e82567e1c1d130963bca6ff6e9e8da3399b86ae1e7"
+    },
+    "与历史基线的结构化变化": [
+      {
+        "field": "/d014/d014_safety_loop_host_check",
+        "before": null,
+        "after": [
+          {
+            "boundary": "真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度",
+            "domain": "safety_chain",
+            "observations": "PASS failed startup persistence inhibits requested FETs\nPASS real product defaults, parameter validation and failed-save atomic publication\nPASS persistent-load software OCD remains off after zero current\nPASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification\nPASS reattachment resets recovery; pending CADC pauses without advancing\nPASS MOS NTC invalid holds both FETs off independently of OCD recovery\nPASS software OCC persists at zero current and C+ hysteresis; fresh removal releases\nPASS concurrent software OCD and hardware SC retain independent recovery ownership\nPASS 4 Hz CADC eventually recovers; a communication gap discards the partial window\nPASS readback failure and watchdog silence/re-init cannot clear software OCD\nPASS stale ADC inhibits both outputs; sampling qualification handles tick wrap\nPASS new process reloads committed parameters; cold MCU reset is a separate latch boundary",
+            "production_units": [
+              "bms/core/bms_afe_guard.c",
+              "bms/core/bms_afe_hw_access.c",
+              "bms/core/bms_afe_hw_profile.c",
+              "bms/core/bms_config_store.c",
+              "bms/core/bms_crc.c",
+              "bms/core/bms_debug_log.c",
+              "bms/core/bms_diag.c",
+              "bms/core/bms_event_log.c",
+              "bms/core/bms_soc.c",
+              "bms/core/bms_soc_eta.c",
+              "bms/core/bms_state.c",
+              "bms/core/bms_state_store.c",
+              "bms/core/bms_sw_protection.c",
+              "bms/core/param.c",
+              "bms/core/storage_record.c",
+              "bms/app/bms_features.c",
+              "bms/platform/telink/bms_board.c",
+              "bms/afe/sh3673510/sh3673510_bms.c",
+              "bms/afe/sh3673510/sh3673510_control.c",
+              "bms/afe/sh3673510/sh3673510_ntc.c",
+              "bms/afe/sh3673510/sh3673510_feature_backend.c",
+              "bms/afe/sh3673510/sh3673520.c"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "WSL_ASan_UBSan": {
+    "组数": 29,
+    "失败": 0,
+    "编译器": {
+      "command": [
+        "gcc"
+      ],
+      "path": "/usr/bin/gcc",
+      "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "exit": 0,
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+    },
+    "与Windows输入指纹一致": true,
+    "与Windows结构化观察一致": true
+  },
+  "CMake_Release_CTest": {
+    "通过": 3,
+    "失败": 0
+  },
+  "D014_Cppcheck": {
+    "实际应用TU": 36,
+    "style": 103,
+    "error_warning_performance": 0,
+    "头文件覆盖缺口": 2,
+    "MISRA": "未执行"
+  },
+  "生产ELF": [
+    {
+      "product": "d011",
+      "configuration": {
+        "product": "d011",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "cf0ffbd4da7c8426e0686c3cd07747134ea60203138e7af1e2141a1367da329e",
+      "map_sha256": "c160501dc86512af3ca8dfa814342f67132248a54ce36c8338809ada668b8c90",
+      "flash_bytes": 114916,
+      "flash_free_bytes": 12060,
+      "ram_span_bytes": 24200,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5496,
+      "image_generated": false,
+      "Flash变化_B": 288,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production\\d011\\gen\\resources.json",
+      "收据SHA256": "cb7e683fe1a4b696a3d28055335741c80a790202ae22cc0c61934291738d70e2"
+    },
+    {
+      "product": "d013",
+      "configuration": {
+        "product": "d013",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "769b58ed09cb891b4089c3cbfa519c7ed6fd22962dacdaa20fef3dbf543b7775",
+      "map_sha256": "47e31f178700d4bd86b4dc2cc9d4aa6e9116e2f297b5aa96df03101003d9062d",
+      "flash_bytes": 113892,
+      "flash_free_bytes": 13084,
+      "ram_span_bytes": 24180,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5516,
+      "image_generated": false,
+      "Flash变化_B": 272,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production\\d013\\gen\\resources.json",
+      "收据SHA256": "11b40eb5584d6cb8b2374398ab66b165a0b2ea75cf2aa0ed9b7beffb3e5d0314"
+    },
+    {
+      "product": "d014",
+      "configuration": {
+        "product": "d014",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "c59210797c3fdbf61082e5d71f0196d1ae6b830fcee735363a5721c4c945443b",
+      "map_sha256": "e91b687e135403bad1057a1339d95d7e375e120cefc467462595fcac284cf21f",
+      "flash_bytes": 114740,
+      "flash_free_bytes": 12236,
+      "ram_span_bytes": 24200,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 5496,
+      "image_generated": false,
+      "Flash变化_B": 288,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production\\d014\\gen\\resources.json",
+      "收据SHA256": "772e90539d1395a7f521251a1a2ef6ea96bfeb884c040f2d11e9c542d6eb295e"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "1e1fd44dadab2755eec8b580acaa571751e7aedff988ad1dcbf243e91c5569e7",
+      "map_sha256": "0933aaaf7eb17e16a5688841571be1aa4b0d6f01d688f1559cbe7a57f50b6071",
+      "flash_bytes": 118692,
+      "flash_free_bytes": 8284,
+      "ram_span_bytes": 25004,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4692,
+      "image_generated": false,
+      "Flash变化_B": 176,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production-16s-lfp\\d008\\gen\\resources.json",
+      "收据SHA256": "54bc96b3e66a7964080190289dd9d2499f88b0261a103fd9bbfdbe90a565d222"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "20s-nmc",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "f0c15d816a895464081dedbd23fe34ac277661fe4ae81ce1f43d5c5f92cd8631",
+      "map_sha256": "a9537d75f4cd4ab03bb0dfbeb3ea1a57111213be144c01b2da48de8b89e469a0",
+      "flash_bytes": 118692,
+      "flash_free_bytes": 8284,
+      "ram_span_bytes": 25004,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4692,
+      "image_generated": false,
+      "Flash变化_B": 176,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production-20s-nmc\\d008\\gen\\resources.json",
+      "收据SHA256": "a32bca62a42f1c7c72b75998edfc27bc0f97332f890f86437f129a82a4a079b9"
+    },
+    {
+      "product": "d008",
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "24s-lfp",
+        "core_optimization": "-Os"
+      },
+      "elf_sha256": "9428ba1e962ecf1746a94f86b1d668add4854437835db0de858b1753782352ff",
+      "map_sha256": "5885eb5a676ecac912b44f60fc86a40c9d53c9e17ed0ecdb4e9324b54f19e9f4",
+      "flash_bytes": 118692,
+      "flash_free_bytes": 8284,
+      "ram_span_bytes": 25004,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 4692,
+      "image_generated": false,
+      "Flash变化_B": 176,
+      "RAM跨度变化_B": 4,
+      "收据": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\targets-production\\fcdfbbf61247\\production-24s-lfp\\d008\\gen\\resources.json",
+      "收据SHA256": "bc47e7d24398c4c7ec2e3ab1b7c3318dce7155c4e585e9a6f0adb09bf6791d85"
+    }
+  ],
+  "正式报告": [
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\red.txt",
+      "SHA256": "2670b857acb6b51400d15c14f9839caad6c105fb1681fbff95f88c9b406f4c0e"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\ctest.txt",
+      "SHA256": "1db11cfd7e3227d8569c0946aa6dd4b13d527134d75dcfe8fecf342521d18459"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\production-four.txt",
+      "SHA256": "839a79e88224c6c4e3813e701863ec5b48bcdb0de54ac2776244786e2ce80665"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\production-d008-20s-nmc.txt",
+      "SHA256": "5aeb17630240e2985a5eb477c6d921d754a25de6374f43463f6d8968e5173795"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\production-d008-24s-lfp.txt",
+      "SHA256": "ca76aae1020f172e5c9eaff5f538cce74d110caba6ccdea892032bd0be9a92fd"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\static-d014.txt",
+      "SHA256": "2f4d81d01df36719821418054f41af84fb6a1dc73ef7b31166a56bb929fc7001"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\final\\report.json",
+      "SHA256": "aff87bdecbff8a1bcddf460a0867292e13b7f09d233cecc01fbecea562cc0a39"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\final\\report.md",
+      "SHA256": "123caa38ba3bc91d87e8f89ad045c5204dbb699142fd4baf75c4273a27465b13"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\sanitizers-final\\report.json",
+      "SHA256": "3271b4c57ddffe640df44f1886eefb9ba6547a8ce797ec0f97a558bcc4ea1cc3"
+    },
+    {
+      "路径": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\bms-monorepo\\d014-safety-loop-20261005\\sanitizers-final\\report.md",
+      "SHA256": "a89767c64fc58b55610cb13495be9fe529df0b2cf630118b233ec988a3b011f4"
+    }
+  ],
+  "边界": [
+    "未生成 BIN、未烧板、未执行实物 fuse",
+    "D014 只覆盖采样任务闭环，未覆盖完整 MCU 调度与协议入站",
+    "DVC 软件过流物理恢复输入未接入",
+    "MCU 冷复位清除 RAM 软件 OC 状态，产品策略仍需签核",
+    "C+/LOAD、Gate/Vgs、真实 Flash 掉电及硬件 watchdog 仍需台架",
+    "CI 已接入，但本次没有推送或远端运行"
+  ]
+}

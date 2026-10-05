@@ -47,4 +47,31 @@ python tests/run_host_regression.py --product d014 --only d014_safety_loop_host_
 
 **MCU 复位会清除 RAM 中的软件 OC 状态**，与 AFE 通信重初始化不同。本测试明确验证该边界；未增添跨 MCU 复位的故障持久化，也未决定掉电重启后的锁存/人工恢复策略。该策略与实际 C+/LOAD 判据列为产品/台架待签核项，不能把 host 通过当作解除发布阻断。
 
-固定提交的软件、生产 ELF/MAP/资源及插桩结果在验证完成后记录于本页；历史自动化基线见 [自动化验证](AUTOMATED_VALIDATION.md)。实板未完成项继续见 [硬件验证](HARDWARE_VALIDATION.md)。
+历史自动化基线见 [自动化验证](AUTOMATED_VALIDATION.md)。实板未完成项继续见 [硬件验证](HARDWARE_VALIDATION.md)。
+
+## 固定提交验证记录
+
+实现提交 `3f2fe78272f48a9570d4b31252386287a6c01c92`；验证时 Windows/WSL 工作树均干净。后续本页和证据文件的提交仅补充记录，不冒称重新编译。完整机器数据、报告哈希、ELF/MAP 哈希及工具身份见 [D014_SAFETY_LOOP_EVIDENCE.json](D014_SAFETY_LOOP_EVIDENCE.json)。
+
+| 验证 | 实际结果 |
+|---|---|
+| Windows 全部 host | 166/166：D008 39、D011 38、D013 36、D014 51、共享工具 2；0 失败 |
+| WSL Ubuntu ASan/UBSan | 29/29；与 Windows 输入指纹和对应结构化观察一致 |
+| CMake Release/CTest | 3/3；断言启用 |
+| 四产品 sources | 清单与源码顺序检查通过 |
+| Windows TC32 生产 | D008 三装配 + D011/D013/D014，六配置 link/resource 全通过，编译 0 错误/0 警告 |
+| D014 Cppcheck | 36 个实际应用 TU，103 项 style；无 error/warning/performance，两个头文件覆盖缺口，未执行 MISRA |
+| 镜像与实板 | 未生成 BIN，未烧板，未操作实物 fuse；没有远端 CI 运行结论 |
+
+相对 `146c3ff686df5f667deb67b22e894a17fd06b132` 的结构化报告，仅新增 D014 联合场景一项，现有产品默认、软件保护通用向量和 AFE 寄存器轨迹未变化。这不是整个固件行为等价证明：本轮软件 OC 恢复行为的改变由新增场景覆盖。
+
+| 生产配置 | Flash 余量 / B | 相对原固定基线 Flash 增量 / B |
+|---|---:|---:|
+| D008 16S LFP / 20S NMC / 24S LFP | 各 8284 | 各 176 |
+| D011 | 12060 | 288 |
+| D013 | 13084 | 272 |
+| D014 | 12236 | 288 |
+
+D008 距 8 KiB 硬门槛仅剩 92 B，应继续以真实生产链接把关公共代码增长；本轮没有降低门槛。RAM 地址跨度各增加 4 B，不代表实际运行栈水位。
+
+本机正式证据根目录为 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/d014-safety-loop-20261005/`：`final/`、`sanitizers-final/` 保存完整人/机报告，`targets-production/` 保存六配置 ELF/MAP 和资源收据；`red.txt` 保存基线零电流误恢复的失败输出。
