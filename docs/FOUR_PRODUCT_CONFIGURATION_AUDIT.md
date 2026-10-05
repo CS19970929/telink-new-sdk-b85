@@ -270,16 +270,18 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 
 | 生产配置 | 预计镜像 bytes（含 CRC） | Flash 余量 bytes | 扣主栈预算后 RAM 余量 bytes |
 |---|---:|---:|---:|
-| D008 16S | 116724 | 10252 | 4672 |
-| D008 20S | 116724 | 10252 | 4664 |
-| D008 24S | 116724 | 10252 | 4656 |
-| D011 | 112116 | 14860 | 5496 |
-| D013 | 111300 | 15676 | 5512 |
-| D014 | 111956 | 15020 | 5496 |
+| D008 16S | 118036 | 8940 | 4708 |
+| D008 20S | 118036 | 8940 | 4700 |
+| D008 24S | 118036 | 8940 | 4692 |
+| D011 | 113268 | 13708 | 5524 |
+| D013 | 112452 | 14524 | 5540 |
+| D014 | 113108 | 13868 | 5524 |
 
-资源数字来自整改时相同源码树的官方 Linux TC32 ELF；不同工具链应以自己的 resources 为准。未生成 BIN、未烧录。
-[远端 CI 37282555386](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/37282555386) 的 8 个 job 全部通过：四产品 Host/CTest、六套生产 ELF、Windows 四产品 ELF/资源/静态分析。Host 共 104 组、CTest 2/2。
-Windows 首次执行因旧工作区锁定文件导致 dirty，被生产门禁正确拒绝；后续改为每次独立 checkout，门禁未放宽。
+资源数字来自本轮实现 `a700bcf` 的同树本机提交 `b575189`，官方 Linux TC32 仅生成 ELF/MAP/LST；不同工具链以自己的 resources 为准。
+本轮新增 OTA 分组控制后，D008 预计镜像比上一版增加 1312 bytes，SH 产品增加 1152 bytes；代码行减少不等于二进制必然缩小。
+最小 Flash 余量为 D008 的 8940 bytes，超过 8192-byte 门禁 748 bytes；扣除主栈预算后的最小 RAM 余量为 4692 bytes。
+本机 104 组主机回归与 CTest 3/3 通过。远端 8 个任务全部通过（六套生产 ELF、主机/CTest、Windows 四产品链接/资源/静态检查），见 [CI 37291934835](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/37291934835)。
+Windows 使用独立 checkout；生产环境干净提交和资源门禁保持启用。
 
 实际发布还需要按产品确定容量、化学体系、软/硬件阈值和 enable mask，核对设备参数读回及 AFE 寄存器，完成 MOS/温度/开线/通信故障/低功耗/掉电/OTA 实板验收。
 

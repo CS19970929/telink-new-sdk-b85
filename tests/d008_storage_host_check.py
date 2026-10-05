@@ -24,6 +24,14 @@ def main():
         p=Path(d)/'stores.c';p.write_text(code); exe=Path(d)/'stores'
         subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function',*host_includes(ROOT),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
+        # 发布编号可任意递增，回归不能绑定当前版本 1。仍编译同一套生产实现。
+        policy = (MOD/'bms_parameter_policy.h').read_text()
+        revisions = iter(range(101, 110))
+        policy = re.sub(r'(#define BMS_UPDATE_\w+_REVISION)\s+\d+u',
+                        lambda match: match[1]+' '+str(next(revisions))+'u', policy)
+        (Path(d)/'bms_parameter_policy.h').write_text(policy)
+        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',d,*host_includes(ROOT),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
+        subprocess.run([str(exe)],check=True)
         platform=(ROOT/'tests/fixtures/d008_storage/platform.c').read_text()
         platform=platform.replace('/* MACROS */',macros).replace('/* TYPES */',source('bms_storage_platform.h'))
         unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]

@@ -251,13 +251,18 @@ static void assert_update_groups(unsigned mask)
         assert(g_bms_config.revisions[group] == bms_update_revision((bms_update_group_t)group));
 }
 
+static u16 other_revision(bms_update_group_t group)
+{
+    return bms_update_revision(group) == 1u ? 2u : 1u;
+}
+
 static void test_ota_config_policy(void)
 {
     for (unsigned mask = 0u; mask < 64u; ++mask) {
         fresh();
         bms_config_cache_t cfg = configured();
         for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
-            if (mask & (1u << group)) cfg.revisions[group] = 2u;
+            if (mask & (1u << group)) cfg.revisions[group] = other_revision((bms_update_group_t)group);
         assert(bms_config_save_cache(&cfg));
         reboot(); bms_parameters_startup(); LoadParam();
         assert(bms_protection_params_valid()); assert_update_groups(mask);
@@ -267,7 +272,7 @@ static void test_ota_config_policy(void)
         assert(programs == before); assert_update_groups(mask);
     }
     for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
-        fresh(); bms_config_cache_t cfg = configured(); cfg.revisions[group] = 2u;
+        fresh(); bms_config_cache_t cfg = configured(); cfg.revisions[group] = other_revision((bms_update_group_t)group);
         assert(bms_config_save_cache(&cfg)); memcpy(backup, flash, sizeof(flash));
         for (int byte = 0; byte < (int)(24 + BMS_CONFIG_PAYLOAD_BYTES + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
@@ -281,7 +286,7 @@ static void test_ota_config_policy(void)
     }
     assert(bms_parameter_read(0x2e05u) == 2u);
     for (unsigned group = 0; group < BMS_UPDATE_GROUP_COUNT; ++group)
-        assert(bms_parameter_read((u16)(0x2e80u + group)) == 1u);
+        assert(bms_parameter_read((u16)(0x2e80u + group)) == bms_update_revision((bms_update_group_t)group));
     puts("PASS OTA Config: 64 combinations, keep/reset isolation, applied SW values, every byte cut, restart idempotence, policy readback");
 }
 
@@ -291,13 +296,13 @@ static void test_ota_state_events(void)
         fresh();
         bms_state_persist_t cfg = g_bms_state;
         cfg.soc = 88u; cfg.cycle = 99u; cfg.runtime_min = 123u;
-        if (domain == 0u) cfg.soc_revision = 2u;
-        if (domain == 1u) cfg.runtime_revision = 2u;
+        if (domain == 0u) cfg.soc_revision = other_revision(BMS_UPDATE_SOC_STATE);
+        if (domain == 1u) cfg.runtime_revision = other_revision(BMS_UPDATE_FACTORY_RUNTIME);
         assert(bms_state_save(&cfg));
         assert(bms_event_log_note_sleep());
         if (domain == 2u) {
             u8 payload[BMS_EVENT_PAYLOAD_BYTES]; bms_event_log_encode(payload);
-            bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], 2u);
+            bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], other_revision(BMS_UPDATE_EVENTS));
             assert(storage_record_save(&g_bms_event_log.store, payload));
         }
         memcpy(backup, flash, sizeof(flash));

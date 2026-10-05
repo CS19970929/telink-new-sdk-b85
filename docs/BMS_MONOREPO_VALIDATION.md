@@ -113,3 +113,21 @@ python bms_tools/bms.py --all-products static --no-report
 后续实板验收分别覆盖四个硬件：上电默认参数、AFE 初始化失败、保护及物理恢复窗口、
 MOS / heater / balance、电流校准及 SOC、通信负载、Flash 掉电、低功耗唤醒、watchdog 和 OTA。
 开发板旧参数不迁移，第一次使用新格式会拒绝旧记录并按产品默认值初始化；默认值仍须按实际电池和板卡签核。
+
+
+## 2026-10-05：精简与 OTA 参数控制
+
+实现提交 `a700bcf`；本机验证提交 `b575189` 与远端 Git tree 完全相同。
+四产品开发配置链接零错误、零警告；四产品生产配置及 D008 三种 profile 共六套 ELF/资源门禁通过。
+104 组主机回归通过，包含 OTA 六类 Config 的 64 种选择组合，以及 Config/State/Event 逐字节写中断和重复启动测试。
+CMake Release 的 storage_journal、portable_core、soc_eta 共 3 项测试通过。
+只生成 ELF/MAP/LST；没有生成 BIN、烧录或进行实板 OTA。
+
+生产最小 Flash 余量 8940 bytes，最小 RAM 余量（扣除 3072-byte 主栈预算）4692 bytes。
+详见 [四产品配置审计](FOUR_PRODUCT_CONFIGURATION_AUDIT.md) 和 [OTA 参数控制](OTA_PARAMETERS.md)。
+实板仍需检查旧 schema 首次初始化、按类更新/保留、实际擦写掉电、OTA 切换及 MOS 授权时序。
+
+远端 [CI 37291934835](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/37291934835) 的 8 个任务全部通过，
+包含 Windows 四产品实际编译配置驱动的静态检查。
+OTA 存储回归还使用一组 101～109 的替代更新编号重编译相同生产代码，确保以后调整发布编号不会破坏测试，
+保留/更新的判定不依赖当前默认编号恰好为 1。
