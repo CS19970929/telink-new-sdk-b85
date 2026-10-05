@@ -63,7 +63,7 @@ class CompileTimeOwnershipTests(unittest.TestCase):
     def setUpClass(cls):
         cls.product = read("d008_product_profile.h")
         cls.project = read("dvc1124_project_config.h")
-        cls.backend = read("dvc1124_boot.c")
+        cls.backend = read("dvc1124.c") + read("dvc1124_boot.c")
         cls.store_hdr = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.service_hdr = read("dvc1124_config_service.h")
@@ -96,7 +96,7 @@ class CompileTimeOwnershipTests(unittest.TestCase):
     def test_every_afe_init_reapplies_firmware_policy(self):
         self.assertIn("DVC1124_AFE_Reset();", self.backend)
         self.assertIn("DVC1124_UpdataAfeConfig();", self.backend)
-        self.assertIn("dvc_project_apply_compile_time_config", self.backend)
+        self.assertIn("DVC1124_ApplyProjectOperatingConfig", self.backend)
         self.assertIn("s_project_config_pending", self.backend)
         self.assertNotIn("ConfigStoreRestore", self.backend)
 
@@ -127,7 +127,7 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         )
         for token in expected:
             self.assertIn(token, self.backend)
-        self.assertIn("DVC1124_ApplyOperatingConfig(&cfg)", self.backend)
+        self.assertIn("DVC1124_ApplyProjectOperatingConfig()", self.backend)
 
     def test_hw_off_compile_path_does_not_reenable_watchdog(self):
         self.assertIn("#if DVC1124_HW_PROTECT_ENABLE", self.backend)
@@ -156,7 +156,7 @@ class ProtectionOwnershipTests(unittest.TestCase):
         cls.service = read("dvc1124_config_service.c")
         cls.modbus = read("modbus_rtu.c")
         cls.hw_profile = read("bms_afe_hw_profile.c")
-        cls.backend = read("dvc1124_boot.c")
+        cls.backend = read("dvc1124.c") + read("dvc1124_boot.c")
 
     def test_requested_afe_protection_still_comes_from_hw_profile(self):
         self.assertIn("bms_afe_hw_profile_get(&hw)", self.service)

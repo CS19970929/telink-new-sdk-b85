@@ -112,45 +112,7 @@ typedef struct
     uint32_t pack_mv;
 } dvc1124_openwire_result_t;
 
-/*
- * Named operating configuration. This is transport-neutral and intentionally
- * uses semantic fields instead of raw magic register bytes.
- *
- * Protection thresholds remain in the BMS parameter layer (g_tParam) for now;
- * this structure covers DVC operating/configuration fields that used to be
- * hidden in hard-coded register values.
- */
-typedef struct
-{
-    uint8_t high_side_fet_mask;          /* 0 allow high-side outputs, 1 mask */
-    uint8_t cadc_work_enable;            /* CAEW */
-    uint8_t current_wake_enable;         /* CAES */
-    dvc1124_cc1_work_time_t cc1_work_time;
-    dvc1124_cc1_sleep_wake_time_t cc1_sleep_wake_time;
 
-    dvc1124_cp_voltage_t charge_pump_voltage;
-    uint8_t cell_measurement_mask;       /* CMM */
-    uint8_t cell_voltage_signed;         /* CVS: 0 unsigned/100uV, 1 signed/200uV */
-
-    uint8_t vadc_enable;
-    uint8_t vadc_sync_with_cc2;
-    dvc1124_vadc_period_t vadc_period;
-    dvc1124_vadc_time_t vadc_time;
-
-    dvc1124_gp14_mode_t gp1_mode;
-    dvc1124_gp236_mode_t gp2_mode;
-    dvc1124_gp236_mode_t gp3_mode;
-    dvc1124_gp14_mode_t gp4_mode;
-    dvc1124_gp236_mode_t gp5_mode;
-    dvc1124_gp236_mode_t gp6_mode;
-
-    uint8_t v3p3_sleep_enable;
-    uint8_t v3p3_work_enable;
-    uint8_t v3p3_timeout_restart;
-    dvc1124_i2c_wdt_code_t i2c_watchdog;
-    dvc1124_timed_wake_t timed_wake;
-    uint8_t interrupt_mask;
-} dvc1124_operating_config_t;
 
 typedef enum
 {
@@ -267,24 +229,7 @@ static inline uint8_t DVC1124_RegGenericRmwAllowed(uint8_t reg)
  * semantics. Alarm W0C, STATUS commands, CORE_OT RC+RW and self-clearing
  * commands must use dedicated APIs.
  */
-static inline uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested)
-{
-    uint8_t current;
-    uint8_t target;
-    uint8_t verify;
-    uint8_t mask = DVC1124_RegDocumentedWriteMask(reg);
-
-    if ((reg > DVC1124_MAX_REGISTER) || (mask == 0u)) return 0u;
-    if (!DVC1124_RegGenericRmwAllowed(reg)) return 0u;
-    if (DVC1124_RegReadHasSideEffect(reg)) return 0u;
-    if (!DVC1124_ReadRegisters(reg, &current, 1u)) return 0u;
-
-    target = (uint8_t)((current & (uint8_t)~mask) | (requested & mask));
-    if (!DVC1124_WriteRegisters(reg, &target, 1u)) return 0u;
-    if (!DVC1124_ReadRegisters(reg, &verify, 1u)) return 0u;
-
-    return ((verify & mask) == (target & mask)) ? 1u : 0u;
-}
+uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested);
 
 static inline uint8_t DVC1124_ReadRegisterField(uint8_t reg,
                                                 uint8_t mask,
@@ -330,12 +275,8 @@ static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,
     return ((verify & mask) == (target & mask)) ? 1u : 0u;
 }
 
-/*
- * Operating configuration helpers. They expose readable semantic fields for
- * board/application code and are designed to be reused by BLE/UART services.
- */
-
-uint8_t DVC1124_ApplyOperatingConfig(const dvc1124_operating_config_t *cfg);
+/* Fixed operating configuration is firmware-owned, not a mutable transport API. */
+uint8_t DVC1124_ApplyProjectOperatingConfig(void);
 
 /* DVC adapter entry points; application code uses bms_afe.h. */
 void DVC1124_App_AFEGet(void);

@@ -33,7 +33,7 @@ class D008FrameworkContract(unittest.TestCase):
         cls.guard = read("bms_afe_guard.c")
         cls.dvc = read("dvc1124.c")
         cls.dvc_bms = read("dvc1124_bms.c")
-        cls.fixed_backend = read("dvc1124_boot.c")
+        cls.fixed_backend = read("dvc1124.c") + read("dvc1124_boot.c")
         cls.fixed_header = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.project = read("dvc1124_project_config.h")
@@ -178,13 +178,13 @@ class D008FrameworkContract(unittest.TestCase):
             "ConfigStoreCapture",
         ):
             self.assertNotIn(token, self.fixed_backend)
-        self.assertIn("dvc_project_apply_compile_time_config", self.fixed_backend)
+        self.assertIn("DVC1124_ApplyProjectOperatingConfig", self.fixed_backend)
 
     def test_fixed_config_is_reapplied_after_afe_reset(self):
         self.assertIn("DVC1124_AFE_Reset();", self.fixed_backend)
         self.assertIn("DVC1124_UpdataAfeConfig();", self.fixed_backend)
         self.assertIn("s_project_config_pending", self.fixed_backend)
-        self.assertIn("DVC1124_ApplyOperatingConfig(&cfg)", self.fixed_backend)
+        self.assertIn("DVC1124_ApplyProjectOperatingConfig()", self.fixed_backend)
 
     def test_fixed_semantic_window_is_diagnostic_only(self):
         self.assertNotIn("dvc1124_boot.h", self.service)

@@ -20,7 +20,7 @@
 | 10 | 已实施 | profile getter 保留一次缓存读取和最终校验；独立 init、外部提交与 apply 校验保留。 |
 | 11 | 已实施 | user 配置有效资格只在加载/成功发布边界计算；高频电流校准不再拷贝和校验整套 user 参数。启动失败门禁保留。 |
 | 12 | 已实施 | 软件参数 `candidate → validate → save → publish`；Modbus 0x06/0x10 和默认重置不再先改全局后回滚。SaveParam 兼容入口保留。 |
-| 13 | 已实施 | DVC OperatingConfig 大实现移回 `.c`；删除无调用可变 API 与 getter。已有只读诊断路径保留。 |
+| 13 | 已实施 | DVC 固定配置移回 `.c`，只提供 `DVC1124_ApplyProjectOperatingConfig()`；删除无调用可变 API、配置结构与 getter。RMW/verify 集中单一 `.c` 实现，已有只读诊断路径保留。 |
 | 14 | 已实施 | DVC boot/basic 共用 wake、body diode、watchdog 编码；两阶段写入、20 ms 等待和顺序保持。 |
 | 15 | 已实施 | SH current 量化规则单源；SC effective 取成功编程 actual，不再重复表。SW/HW profile 保持独立。 |
 | 16 | 已实施 | 名称 handler 合并；SH 保存失败返回失败，旧缓存/GAP 不发布。空 suffix/qty=0 的既有产品差异保留。SDK memcpy 共用，SDK 未声明的短字符串 helper 保留。 |
@@ -59,5 +59,11 @@ SIF 黄金向量冻结自基线实际 builder，使用与固件相同的 `-fpack
 存储故障注入验证保存失败不发布运行参数/cache、重启取最后有效记录，但部分 fixture 的参数校验器/硬件结果仍为 stub。SH 采样测试也不等于真实 SW→AFE→MOS→负载全链路。UART/SIF 模型不证明 GPIO 波形、DMA 实际时延或 tick 最坏抖动。
 
 本次只执行无 BIN 的 host/CMake、TC32 ELF/MAP/resources 与静态检查；没有烧录/OTA。实板待验：500 µs SIF 波形及 mux 切换、RS485 最后停止位/DE/卡死恢复、SPI/I2C watchdog 静默关断、SC/OCD/OCC 物理恢复、Flash 掉电和低功耗恢复。沿用 [硬件验证清单](HARDWARE_VALIDATION.md)，不据软件通过解除发布阻断。
+
+### DVC 资源门禁与单一实现
+
+固定配置不存在运行时第二种来源，因此不再传递大结构或暴露通用 mutable OperatingConfig API。编译期字段在芯片编码函数内直接可见，boot 只拥有阶段、wake/retry。`DVC1124_WriteRegisterSafe` 从头文件移入 `.c`，保留全部 RMW、reserved-bit、read-side-effect 和读回校验；`noinline` 固定一个调试入口并避免逐调用点复制该检查。它不是 ISR 或波形函数，I2C 访问顺序保持。
+
+新增 DVC 基线黄金 transaction hash，覆盖 3 profile × HW on/off × 寄存器初值 00/FF × 正常及每个 45 次 bus access 的失败，比较每次读/写寄存器、值、失败位置及最终返回。资源门禁仍为生产 8 KiB，未用关闭诊断/算法或降低门槛绕过。
 
 最终固定提交、测试结果与 MAP 对比见本页后续验证记录。

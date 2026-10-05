@@ -9,7 +9,8 @@ HERE = Sources(ROOT)
 profile = (HERE / 'd008_product_profile.h').read_text(encoding='utf-8')
 dvc = (HERE / 'dvc1124.c').read_text(encoding='utf-8')
 cfg = (HERE / 'dvc1124_project_config.h').read_text(encoding='utf-8')
-store = (HERE / 'dvc1124_boot.c').read_text(encoding='utf-8')
+boot = (HERE / 'dvc1124_boot.c').read_text(encoding='utf-8')
+store = dvc + boot
 store_h = (HERE / 'dvc1124_boot.h').read_text(encoding='utf-8')
 service = (HERE / 'dvc1124_config_service.c').read_text(encoding='utf-8')
 
@@ -41,11 +42,11 @@ assert 'for (cell = 5u; cell <= DVC1124_MAX_CELLS; ++cell)' in dvc
 # D008 board invariants are compile-time owned and re-applied after every init.
 assert 'DVC1124_FIXED_CONFIG_COMPILE_TIME' in store_h
 assert 'ConfigStoreLoad' not in store and 'ConfigStoreRestore' not in store
-assert 'cfg.high_side_fet_mask = DVC1124_DEFAULT_HIGH_SIDE_FET_MASK' in store
+assert 'DVC1124_DEFAULT_HIGH_SIDE_FET_MASK' in dvc
 assert 'DVC1124_EncodeCurrentWake(DVC1124_CURRENT_WAKE_THRESHOLD_UV' in store
 assert 'DVC1124_DEFAULT_DSG_MASK_POLICY' in store
 assert 'DVC1124_DEFAULT_CHG_MASK_POLICY' in store
-assert 'DVC1124_ApplyOperatingConfig(&cfg)' in store
+assert 'DVC1124_ApplyProjectOperatingConfig()' in store
 assert 's_project_config_pending = 1u' in store
 assert 'DVC1124_CFG_ERR_READ_ONLY' in service
 assert 'DVC1124_ConfigStoreSave' not in service
