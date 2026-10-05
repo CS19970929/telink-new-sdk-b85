@@ -1,6 +1,6 @@
 # D011 产品硬件与固件配置基线
 
-> 适用分支：`feature/sh3673510-d011-bms`。
+> 适用分支：`codex-bms-monorepo`；2026-10-05 修订。
 >
 > 产品目标：**HS-D011-10S50A-V1 + TLSR8251F512ET32 + SH3673510 + 10S**。
 >
@@ -34,23 +34,23 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 
 | MCU GPIO | 原理图网络 | 当前代码符号 | 当前用途/方向 | 结论 |
 |---|---|---|---|---|
-| PD4 | `CMNT-EN` | `D011_CMNT_EN_PIN` | 通信供电控制输出；连接 C-3V3 支路 | 已对照；完整上电/稳定/关断时序仍需实板验证 |
-| PD7 | `SCLK` | `D011_AFE_SCLK_PIN` | SPI SCK 输出 | 已对照 |
-| PA0 | `DI1` | `D011_SWITCH_PIN` | 开关检测输入 | 已对照 |
-| PA1 | `485-EN` | `D011_RS485_EN_PIN` | RS485 DE 与 /RE 方向控制输出 | 已对照 |
-| PA7 | `SWS-A7` | `D011_SWS_PIN` | SWS 下载/调试 | 已对照；保留专用 |
-| PB1 | `INT-WK-MCU` | `D011_INT_WK_MCU_PIN` | 外部检测/唤醒输入 | 已对照；电平/去抖需实板验证 |
-| PB4 | `HT-CHG` | `D011_HEATER_CHG_PIN` | 加热控制输出 | 已对照 |
-| PB5 | `HT-RF-EN` | `D011_HEATER_FUSE_TRIGGER_PIN` | **不可逆加热保险丝触发路径**；安全电平=0 | 已对照；常规运行不得拉高 |
-| PB6 | `MISO` | `D011_AFE_MISO_PIN` | SPI MISO 输入 | 已对照 |
-| PB7 | `MOSI` | `D011_AFE_MOSI_PIN` | SPI MOSI 输出 | 已对照 |
-| PC0 | `ALARM` | `D011_AFE_ALARM_PIN` | AFE ALARM 输入，代码作为唤醒/告警来源 | 已对照 |
-| PC1 | `RESET` | `D011_AFE_RESET_OUT_PIN` | 网络接 AFE RESET；**当前宏名带 OUT 不能作为方向证据** | 原理图已对照；当前运行方向必须以 control/port 代码和实板为准 |
-| PC2 | `SCI1-TX` | `D011_SCI1_TX_PIN` | UART TX -> 隔离 RS485 DI | 已对照 |
-| PC3 | `SCI1-RX` | `D011_SCI1_RX_PIN` | UART RX <- 隔离 RS485 RO | 已对照 |
-| PC4 | `DB-LED1` | `D011_DEBUG_LED_PIN` | 调试 LED；原图连接推导为低电平点亮 | 已对照 |
-| PD2 | `CS-M` | `D011_AFE_CS_PIN` | SPI CS 输出 | 已对照 |
-| PD3 | `CMNT-WK` | `D011_CMNT_WK_PIN` | 隔离通信唤醒输入 | 已对照；当前低功耗闭环仍需验证 |
+| PD4 | `CMNT-EN` | `BMS_BOARD_CMNT_EN_PIN` | 通信供电控制输出；连接 C-3V3 支路 | 已对照；完整上电/稳定/关断时序仍需实板验证 |
+| PD7 | `SCLK` | `BMS_BOARD_AFE_SCLK_PIN` | SPI SCK 输出 | 已对照 |
+| PA0 | `DI1` | `BMS_BOARD_SWITCH_PIN` | 开关检测输入 | 已对照 |
+| PA1 | `485-EN` | `BMS_BOARD_RS485_EN_PIN` | RS485 DE 与 /RE 方向控制输出 | 已对照 |
+| PA7 | `SWS-A7` | `BMS_BOARD_SWS_PIN` | SWS 下载/调试 | 已对照；保留专用 |
+| PB1 | `INT-WK-MCU` | `BMS_BOARD_INT_WK_MCU_PIN` | 外部检测/唤醒输入 | 已对照；电平/去抖需实板验证 |
+| PB4 | `HT-CHG` | `BMS_BOARD_HEATER_CHG_PIN` | 加热控制输出 | 已对照 |
+| PB5 | `HT-RF-EN` | `BMS_BOARD_HEATER_FUSE_TRIGGER_PIN` | **不可逆加热保险丝触发路径**；安全电平=0 | 已对照；常规运行不得拉高 |
+| PB6 | `MISO` | `BMS_BOARD_AFE_MISO_PIN` | SPI MISO 输入 | 已对照 |
+| PB7 | `MOSI` | `BMS_BOARD_AFE_MOSI_PIN` | SPI MOSI 输出 | 已对照 |
+| PC0 | `ALARM` | `BMS_BOARD_AFE_ALARM_PIN` | AFE ALARM 输入，代码作为唤醒/告警来源 | 已对照 |
+| PC1 | `RESET` | `BMS_BOARD_AFE_RESET_OUT_PIN` | 网络接 AFE RESET；**当前宏名带 OUT 不能作为方向证据** | 原理图已对照；当前运行方向必须以 control/port 代码和实板为准 |
+| PC2 | `SCI1-TX` | `BMS_BOARD_SCI1_TX_PIN` | UART TX -> 隔离 RS485 DI | 已对照 |
+| PC3 | `SCI1-RX` | `BMS_BOARD_SCI1_RX_PIN` | UART RX <- 隔离 RS485 RO | 已对照 |
+| PC4 | `DB-LED1` | `BMS_BOARD_DEBUG_LED_PIN` | 调试 LED；原图连接推导为低电平点亮 | 已对照 |
+| PD2 | `CS-M` | `BMS_BOARD_AFE_CS_PIN` | SPI CS 输出 | 已对照 |
+| PD3 | `CMNT-WK` | `BMS_BOARD_CMNT_WK_PIN` | 隔离通信唤醒输入 | 已对照；当前低功耗闭环仍需验证 |
 
 禁止把 D008 的 PC0/PC1 I2C、PB1 CHG-IN、PD4 MCC-EN-RF、PC4 MCU-LDO 等含义套到 D011。
 
@@ -69,7 +69,7 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 
 ## 5. SH3673510 静态寄存器配置：当前源码实际值
 
-下表解析 `sh3673510_project_config.h`。保护阈值寄存器 0x49..0x54 不是固定产品镜像，它们由独立 AFE HW profile 运行时量化写入。
+下表解析 `bms/products/d011/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`）。保护阈值寄存器 0x49..0x54 不是固定产品镜像，它们由独立 AFE HW profile 运行时量化写入。
 
 | 寄存器 | 当前静态值 | 关键字段 |
 |---|---:|---|
@@ -94,7 +94,7 @@ AFE hardware profile 的 `enable_mask` 是最终硬件保护使能来源：
 - TEMP -> TS1_EN + TS2_EN；
 - TS3（heater MOS）和 TS4（power MOS）当前不作为 AFE common temperature hardware protection，仍由软件策略处理。
 
-因此不能只看 `SH3673510_D011_SCONF6_VALUE` 的编译常量判断实际运行使能；必须看 persisted `bms_afe_hw_profile_t.enable_mask` 和 AFE readback。
+因此不能只看 `SH3673510_BOARD_SCONF6_VALUE` 的编译常量判断实际运行使能；必须看 persisted `bms_afe_hw_profile_t.enable_mask` 和 AFE readback。
 
 ## 6. SH3673510 硬件保护量化
 
@@ -151,15 +151,22 @@ AFE hardware profile 的 `enable_mask` 是最终硬件保护使能来源：
 6. TS3/TS4 BOM 文档修订；
 7. 均衡、Open-Wire、低功耗、Flash/OTA 实板验收。
 
-## 11. 当前权威源码入口
+## 11. 2026-10-05 温度与 GPIO 修复
 
-- `vendor/ble_sample/conf.h`：D011 产品选择、通信模式、产品兼容值。
-- `vendor/ble_sample/sh3673510_project_config.h`：D011 IO、串数、Rsense、静态 AFE 配置。
-- `vendor/ble_sample/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
-- `vendor/ble_sample/sh3673520*.c`：SPI 驱动。
-- `vendor/ble_sample/sh3673510_control.c`：AFE 静态/保护配置、量化、FET/温度控制。
-- `vendor/ble_sample/sh3673510_bms.c`：BMS适配、保护恢复、通信 fail-safe。
-- `vendor/ble_sample/bms_sw_protection.*`：统一软件三级保护。
-- `vendor/ble_sample/bms_afe_hw_profile.*`：独立 AFE 硬件保护 profile。
+`SH3673510_PRODUCT_MOS_NTC_SUPPORTED=1`，TS4 为必需 MOS NTC。
+TS4 无效触发 `TEMP_BREAK` 并阻断 CHG/DSG；有效高温进入独立 MOS 软件保护。
+TS3 仍归 heater 策略，TS3/TS4 不并入 AFE 共用电池温度阈值。
+正常 board_init 将 PD4 写高、关闭输入、开启输出；此软件方向修复不替代通信电源波形验证。
+
+## 12. 当前权威源码入口
+
+- `bms/products/d011/bms_product_conf.h`：D011 产品选择、通信模式、产品兼容值。
+- `bms/products/d011/bms_sh3673510_config.h`：D011 IO、串数、Rsense、静态 AFE 配置。
+- `bms/afe/sh3673510/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
+- `bms/afe/sh3673510/sh3673520*.c`：SPI 驱动。
+- `bms/afe/sh3673510/sh3673510_control.c`：AFE 静态/保护配置、量化、FET/温度控制。
+- `bms/afe/sh3673510/sh3673510_bms.c`：BMS适配、保护恢复、通信 fail-safe。
+- `bms/core/bms_sw_protection.*`：统一软件三级保护。
+- `bms/core/bms_afe_hw_profile.*`：独立 AFE 硬件保护 profile。
 
 未出现在这些证据中的参数，不得在 D011 文档中补成“默认值”。

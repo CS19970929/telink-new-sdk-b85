@@ -40,16 +40,18 @@ int main(void) {
     p=d/'stack.c';p.write_text(src);exe=d/'stack.exe'
     subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-variable',str(p),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
-    def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False):
+    def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False,production=False):
         (d/'fw.map').write_text('0x%08x PROVIDE (_ram_use_end_, .)\n'%ram + ('' if missing else '0x%08x PROVIDE (_bin_size_, expr)\n'%raw))
         (d/'fw.lst').write_text('%08x g *ABS* 00000000 __SRAM_SIZE\n'%sram)
         (d/'fw.bin').write_bytes(bytes(image))
-        with mock.patch.multiple(bms, MAP=d/'fw.map', LST=d/'fw.lst',BIN=d/'fw.bin',ELF=d/'none',GEN_DIR=d),mock.patch.object(bms,'_git_provenance',return_value={'commit':'fixture','dirty':False}):
+        with mock.patch.multiple(bms, MAP=d/'fw.map', LST=d/'fw.lst',BIN=d/'fw.bin',ELF=d/'none',GEN_DIR=d,PRODUCTION=production),mock.patch.object(bms,'_git_provenance',return_value={'commit':'fixture','dirty':False}):
             try: bms.cmd_map(bms.argparse.Namespace())
             except SystemExit:
                 assert not ok
             else: assert ok
     case(ok=True) # real checker alignment, not simply raw+4
+    case(raw=0x1cff0,image=0x1cff4,production=True,ok=True)
+    case(raw=0x1d000,image=0x1d004,production=True) # below hard 8 KiB release reserve
     case(sram=0x850000)
     case(ram=0x848000-3072)
     case(ram=0x83fffc)

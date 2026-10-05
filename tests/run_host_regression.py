@@ -12,12 +12,12 @@ PRODUCTS = ("d008", "d011", "d013", "d014")
 ALL_PRODUCTS = {
     "modbus_address_host_check.py",
     "bms_diag_contract_check.py", "bms_diag_host_check.py", "soc_contract_check.py",
-    "sw_protection_contract_check.py", "common_feature_policy_contract_check.py",
+    "production_policy_check.py", "sw_protection_contract_check.py", "common_feature_policy_contract_check.py",
     "flash_quick_check.py", "afe_hw_access_contract_check.py", "afe_hw_fragment_host_check.py",
     "afe_hw_transaction_host_check.py", "sw_temperature_groups_host_check.py",
 }
 SH_PRODUCTS = {
-    "sh3673510_protection_mode_check.py", "sh3673510_recovery_host_check.py",
+    "sh3673510_board_host_check.py", "sh3673510_protection_mode_check.py", "sh3673510_recovery_host_check.py",
     "sh3673510_sample_schedule_host_check.py", "sh3673510_sleep_host_check.py",
     "sh3673510_soc_direction_host_check.py", "sh3673510_temperature_encoding_check.py",
     "sh_event_checkpoint_host_check.py", "sh_storage_platform_host_check.py",

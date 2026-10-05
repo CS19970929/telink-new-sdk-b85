@@ -21,7 +21,7 @@ void bms_fault_history_record(bms_fault_code_t x){(void)x;}
 void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t*,uint8_t,uint8_t);
 """+source+"""
 int main(void){
- bms_sw_protection_inputs_t in={1,1,1000,1000,1000};
+ bms_sw_protection_inputs_t in={1,1,1000,1000,1000,1};
  g_tParam.protect.u16TChgOTp_Third=900;g_tParam.protect.u16TChgOTp_Rcv=800;
  g_tParam.protect.u16TmosOTp_Third=900;g_tParam.protect.u16TmosOTp_Rcv=800;
  g_tParam.protect.u16IchgOcp_Third=100;g_tParam.protect.u16IchgOcp_Rcv=50;
@@ -40,6 +40,26 @@ int main(void){
  in.battery_temp_valid=1;bms_sw_protection_update_groups(&in,0,1);
  assert(!g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp);
  assert(g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp);
+ // Required MOS NTC: healthy, broken, then overtemperature and recovery.
+ in.battery_temp_min=in.battery_temp_max=650;in.mos_temp=650;
+ bms_sw_protection_init();bms_sw_protection_update_groups(&in,0,1);
+ assert(!broken && !bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ in.mos_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
+ assert(broken && bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
+ in.mos_temp_valid=1;in.mos_temp=1000;bms_sw_protection_update_groups(&in,0,1);
+ assert(!broken && g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp);
+ assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
+ in.mos_temp=650;bms_sw_protection_update_groups(&in,0,1);
+ assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ // Unfitted MOS NTC: invalid or stale-hot values never participate.
+ in.mos_temp_required=0;in.mos_temp_valid=0;
+ bms_sw_protection_update_groups(&in,0,1);assert(!broken);
+ in.mos_temp_valid=1;in.mos_temp=1600;
+ bms_sw_protection_update_groups(&in,0,1);
+ assert(!broken && !g_stCellInfoReport.unMdlFault_Third.bits.b1TmosOtp);
+ assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ in.battery_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
+ assert(broken && bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  return 0;
 }
 """

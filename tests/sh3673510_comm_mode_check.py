@@ -34,7 +34,7 @@ if not re.search(r"(?m)^\s*#define\s+_FUNC_UART_\b", conf):
 assert "modbus_uart_init();" in app
 assert "modbus_uart_irq_proc();" in main
 assert "SH3673510_FIXED_UART_BLOCKS_PM" in text("app.c")
-assert literal(text("sh3673510_project_config.h"), "SH3673510_FIXED_UART_BLOCKS_PM") == 1
+assert literal(text("bms_sh3673510_config.h"), "SH3673510_FIXED_UART_BLOCKS_PM") == 1
 order = (ROOT / "bms/products" / HERE.product / "sources.txt").read_text(encoding="utf-8")
 for name in ("bus_mux.c", "bus_mux.h", "sif_send.c", "sif_send.h"):
     assert not any(name == Path(entry).name for entry in (ROOT / "bms/products" / HERE.product / "sources.txt").read_text(encoding="utf8").splitlines())

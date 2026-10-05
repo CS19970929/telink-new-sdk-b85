@@ -98,7 +98,7 @@ require(control, "#if SH3673510_PRODUCT_HEATER_SUPPORTED")
 require(bms, "#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED")
 require(bms, "#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED")
 require(bms, "sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX]")
-require(sw_protection, "inputs->battery_temp_valid && inputs->mos_temp_valid")
+require(sw_protection, "!inputs->mos_temp_required || inputs->mos_temp_valid")
 require(sw_protection, "p->u16TmosOTp_Third")
 if "BMS_BOARD_HEATER_FUSE_TRIGGER_PIN" in app:
     raise AssertionError("D014 app must not drive the inherited D011 heater-fuse pin")

@@ -1,6 +1,6 @@
 # D008 产品硬件与固件配置基线
 
-> 适用分支：`refactor/d008-common-bms-features`。
+> 适用分支：`codex-bms-monorepo`；2026-10-05 修订。
 >
 > 产品：**HS-D008 + TLSR8251F512ET32 + DVC1124-2**。
 >
@@ -45,9 +45,9 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 |---|---|
 | MCU | TLSR8251F512ET32 |
 | AFE | DVC1124-2；源码默认 `DVC1124_MODEL_22` |
-| 当前默认固件 profile | **24S LFP**，`D008_PRODUCT_PROFILE_24S_LFP` |
-| 可选编译 profile | 20S NMC；历史 24S LFP 仍保留显式选择 |
-| 原理图能力 | 图纸为 24S（C0..C24）；默认固件配置为 24S，实际装配仍须核对对应 BOM/实板 |
+| 开发模式默认 profile | **16S LFP**；生产构建必须显式传入 `--d008-profile` |
+| 可选编译 profile | `16s-lfp` / `20s-nmc` / `24s-lfp`，生产没有隐式默认值 |
+| 原理图能力 | 图纸为 24S（C0..C24）；不能据此推定所选 16S/20S 固件对应的实际装配 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
 | DVC 地址 | `0x40` write / `0x41` read transfer address |
 | Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
@@ -138,7 +138,7 @@ dvc1124_project_config.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。2026-09-21 用户确认默认选择已有 24S LFP profile；16S LFP 与 20S NMC 继续保留为显式编译选项。
+`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
 
 ### 5.2 Flash 中保留的保护参数
 
@@ -341,12 +341,12 @@ AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不�
 
 | 编号 | 当前代码证据 | 与确认产品定义的差异 | 后续最小工作边界 |
 |---|---|---|---|
-| IO-01 | [conf.h:21](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h#L21)；[app.c:66](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L66)；[app.c:258](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L258)；[app.c:556](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L556) | _DI_SWITCH_SYS_ONOFF 已定义；PA0 被当成 key，参与 MOS 请求和无 key/charger 3 s 后深睡眠 | 按 ACC 输入重新梳理旧依赖；暂不实现 ACC 开关策略，不能只改宏名就视为完成 |
-| IO-02 | [bms_board.c:33](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_board.c#L33)；[dvc1124_feature_backend.c:68](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_feature_backend.c#L68)；[bms_features.c:40](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_features.c#L40)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L668) | PB1 被当成 charger，影响 MOS、加热资格、suspend 禁止和 PAD 唤醒 | 先剥离错误充电器语义；负载检测新逻辑保持待实现，不能将 PB1 低直接当充电 |
-| PM-01 | [conf.h:218](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/conf.h#L218)；[app.c:145](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L145)；[dvc1124.c:1244](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.c#L1244) | MCU_LDO_PIN 无业务引用；现路径为 AFE ENTER_SLEEP + cpu_sleep_wakeup(DEEPSLEEP_MODE)，不是 AFE shutdown + MCU 断电 | 建立受控关机事务，shutdown 成功后最后拉低 PC4；失败分支不得无条件断电 |
-| PM-02 | [dvc1124_config_store.c:45](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L45)；[dvc1124_config_store.c:56](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L56)；[dvc1124_config_store.c:238](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124_config_store.c#L238)；[bms_afe_guard.c:350](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/bms_afe_guard.c#L350) | 已有 PD7 使能、I2C 唤醒脉冲、reset/reinit 和 guard 台架 shutdown/wake；尚未接入产品 PC4 断电流程 | 复用驱动生命周期；MCU 断电后从冷启动恢复，不假定 RAM 中 test_shutdown_hold 或 Requested 保留 |
-| PM-03 | [app.c:643](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L643)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L668)；[dvc1124.c:1308](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/dvc1124.c#L1308) | suspend 退出仍是 PB1 低、OWC 忙、任意非零放电报告、OTA；没有双向 ≥500 mA 判定 | 用有效且新鲜的电流判断两方向，保持通信/OTA/故障的独立约束；不从 PB1 推定方向 |
-| SOC-01 | [SocEnhance.c:13](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L13)；[SocEnhance.c:657](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L657)；[SocEnhance.c:722](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/SocEnhance.c#L722)；[app.c:990](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app.c#L990) | SOC 使用固定 200 ms 调用计数；电压范围检查不代表 AFE 样本新鲜；当前无 suspend 专属资格 | 按 SOC.md 第 10 节实现时间、样本资格和断电边界；不能把 sleep 标志当静置证据 |
+| IO-01 | [conf.h:21](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/products/d008/bms_product_conf.h#L21)；[app.c:66](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L66)；[app.c:258](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L258)；[app.c:556](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L556) | _DI_SWITCH_SYS_ONOFF 已定义；PA0 被当成 key，参与 MOS 请求和无 key/charger 3 s 后深睡眠 | 按 ACC 输入重新梳理旧依赖；暂不实现 ACC 开关策略，不能只改宏名就视为完成 |
+| IO-02 | [bms_board.c:33](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/platform/telink/bms_board.c#L33)；[dvc1124_feature_backend.c:68](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124_feature_backend.c#L68)；[bms_features.c:40](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/bms_features.c#L40)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L668) | PB1 被当成 charger，影响 MOS、加热资格、suspend 禁止和 PAD 唤醒 | 先剥离错误充电器语义；负载检测新逻辑保持待实现，不能将 PB1 低直接当充电 |
+| PM-01 | [conf.h:218](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/products/d008/bms_product_conf.h#L218)；[app.c:145](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L145)；[dvc1124.c:1244](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124.c#L1244) | MCU_LDO_PIN 无业务引用；现路径为 AFE ENTER_SLEEP + cpu_sleep_wakeup(DEEPSLEEP_MODE)，不是 AFE shutdown + MCU 断电 | 建立受控关机事务，shutdown 成功后最后拉低 PC4；失败分支不得无条件断电 |
+| PM-02 | [dvc1124_config_store.c:45](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124_config_store.c#L45)；[dvc1124_config_store.c:56](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124_config_store.c#L56)；[dvc1124_config_store.c:238](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124_config_store.c#L238)；[bms_afe_guard.c:350](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/core/bms_afe_guard.c#L350) | 已有 PD7 使能、I2C 唤醒脉冲、reset/reinit 和 guard 台架 shutdown/wake；尚未接入产品 PC4 断电流程 | 复用驱动生命周期；MCU 断电后从冷启动恢复，不假定 RAM 中 test_shutdown_hold 或 Requested 保留 |
+| PM-03 | [app.c:643](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L643)；[app.c:668](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L668)；[dvc1124.c:1308](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/afe/dvc1124/dvc1124.c#L1308) | suspend 退出仍是 PB1 低、OWC 忙、任意非零放电报告、OTA；没有双向 ≥500 mA 判定 | 用有效且新鲜的电流判断两方向，保持通信/OTA/故障的独立约束；不从 PB1 推定方向 |
+| SOC-01 | [SocEnhance.c:13](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/core/SocEnhance.c#L13)；[SocEnhance.c:657](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/core/SocEnhance.c#L657)；[SocEnhance.c:722](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/core/SocEnhance.c#L722)；[app.c:990](https://github.com/CS19970929/telink-new-sdk-b85/blob/d650713cd79ae449ecb2fdbe309f9a64d83280c6/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/bms/app/app.c#L990) | SOC 使用固定 200 ms 调用计数；电压范围检查不代表 AFE 样本新鲜；当前无 suspend 专属资格 | 按 SOC.md 第 10 节实现时间、样本资格和断电边界；不能把 sleep 标志当静置证据 |
 
 ### 12.1 suspend 与 MCU 断电是不同状态
 
@@ -432,14 +432,14 @@ D008 当前产品策略使用 DVC 电流方向作为充电会话入口，而不�
 
 ### 14.2 均衡独立参数
 
-Balance 不再复用软件压差保护参数。Config schema 4 独立保存：
+Balance 不再复用软件压差保护参数。CFG2 schema 1 的 user payload 独立保存：
 
 - `balance_enable`
 - `balance_start_mv`：可调均衡起始电压；
 - `balance_start_delta_mv`：默认 50 mV；
 - `balance_stop_delta_mv`：默认 30 mV，必须小于 start delta。
 
-当前默认 24S LFP 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
+当前 LFP profile 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
 
 ### 14.3 均衡数据可信门禁
 

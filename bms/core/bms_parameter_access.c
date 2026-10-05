@@ -46,7 +46,7 @@ u16 bms_parameter_read(u16 r)
     bms_config_system_params_t system;
     bms_afe_aux_measurements_t sample;
     u8 sample_valid;
-    if (r==0x2E00u) return 0xD008u;
+    if (r==0x2E00u) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r==0x2E01u) return 2u;
     if (r==0x2E02u) return 0x007Fu; /* capacity,SN,heat,calibration,reset,sync State,balance */
     if (r==0x2E03u) return s_result;

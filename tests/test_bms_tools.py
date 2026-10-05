@@ -61,6 +61,32 @@ class GitProvenanceTests(unittest.TestCase):
                     self.assertEqual(bms._firmware_git_dirty(), expected)
 
 
+class ProductionBuildTests(unittest.TestCase):
+    def test_owned_flags_and_explicit_profile(self):
+        with mock.patch.multiple(bms, PRODUCT="d008", PRODUCTION=True, D008_PROFILE="24s-lfp"), \
+             mock.patch.object(bms, "_firmware_git_build_id", return_value="0x12345678u"), \
+             mock.patch.object(bms, "_firmware_git_dirty", return_value=0), \
+             mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": ""}):
+            flags = bms._effective_extra_defines()
+            self.assertIn("-DBMS_PRODUCTION_BUILD=1", flags)
+            self.assertIn("-DD008_PRODUCT_PROFILE=1", flags)
+            with mock.patch.object(bms, "D008_PROFILE", None), self.assertRaises(SystemExit):
+                bms._effective_extra_defines()
+            with mock.patch.object(bms, "_firmware_git_dirty", return_value=1), self.assertRaises(SystemExit):
+                bms._effective_extra_defines()
+            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3"):
+                with mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": override}), self.assertRaises(SystemExit):
+                    bms._effective_extra_defines()
+
+    def test_unknown_git_is_not_clean(self):
+        with mock.patch.object(bms.subprocess, "run", return_value=mock.Mock(returncode=1, stdout="")):
+            self.assertEqual(bms._firmware_git_dirty(), 1)
+
+    def test_child_arguments_keep_product_mode_and_profile(self):
+        with mock.patch.multiple(bms, PRODUCTION=True, D008_PROFILE="20s-nmc"):
+            self.assertEqual(bms._selection_args("d008"), ["--product", "d008", "--production", "--d008-profile", "20s-nmc"])
+
+
 class ClientAssetPathTests(unittest.TestCase):
     def test_product_branch_does_not_require_legacy_qt_client(self) -> None:
         self.assertFalse((REPO_ROOT / "tools" / "BMSAssistantQt").exists())
@@ -69,7 +95,7 @@ class ClientAssetPathTests(unittest.TestCase):
 class WorkflowSecurityTests(unittest.TestCase):
     def test_external_fork_prs_cannot_reach_tc32_runner(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-        tc32_job = workflow.split("  tc32-production:\n", 1)[1]
+        tc32_job = workflow.split("  tc32-windows:\n", 1)[1].split("  tc32-production:\n", 1)[0]
         self.assertIn("vars.TELINK_TC32_CI_ENABLED == '1'", tc32_job)
         self.assertIn("github.event_name != 'pull_request'", tc32_job)
         self.assertIn(

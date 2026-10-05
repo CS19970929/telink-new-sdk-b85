@@ -47,7 +47,7 @@
 - [ ] 额定容量；当前 `CapacityFactory=116` 仅为继承迁移默认，不得直接作为 D014 量产值。
 - [ ] 软件 OV/UV/OC/温度/压差 First/Second/Third/Recover/Filter。
 - [ ] AFE HW OC/SC/温度 requested/effective。
-- [ ] D014 独立产品 numeric ID 是否需要从历史 D11 wire/storage ID 分离，并同步 Windows 上位机。
+- [ ] D014 独立 wire numeric ID 是否需要从历史 D11 wire ID 分离（存储已使用内部 tag 14），并同步 Windows 上位机。
 - [ ] BLE 名称、硬件版本、序列号策略。
 
 ## 7. 发布证据

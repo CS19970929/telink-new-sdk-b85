@@ -9,14 +9,14 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-首次升级到该架构时，如果持久 profile 为空（schema/model均为0），固件允许从历史软件参数建立一次 migration default；保存成功后两套参数独立演进。
+当前 monorepo 使用 CFG2 schema 1，旧开发记录拒绝且不迁移。软件和 AFE 默认配置独立生成与持久化。
 
 D014 开发分支已改为从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
 
 ## 2. Backend
 
 - D008：DVC1124，`afe_model=0x1124`；
-- D011 / D013：SH3673510 backend，`afe_model=0x3510`。
+- D011 / D013 / D014：SH3673510 backend，`afe_model=0x3510`。
 
 公共协议只传语义值。DVC/SH 的寄存器、Rsense、步进、delay、capability由各自backend校验和量化。
 
@@ -124,8 +124,8 @@ apply_state = CONFIG_INCONSISTENT
 - Common profile结构/validation/migration：`bms_afe_hw_profile.h/.c`；
 - 持久化：`bms_config_store.c` / `storage_record.c`；
 - D008量化/应用：DVC1124 backend；
-- D011/D013量化/应用：`sh3673510_control.c`；
-- 产品板级静态安全配置：各分支 `dvc1124_project_config.h` 或 `sh3673510_project_config.h`。
+- D011/D013/D014量化/应用：`sh3673510_control.c`；
+- 产品板级静态安全配置：D008 的 `dvc1124_project_config.h` 或 SH 产品的 `bms/products/<product>/bms_sh3673510_config.h`。
 
 普通产品阈值调整不要改寄存器真值头文件。
 

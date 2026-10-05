@@ -32,7 +32,7 @@ bms/
     d011/                  # 产品数据和源码清单
     d013/
     d014/
-    baselines.json         # 导入来源的固定 commit
+    baselines.json         # 发布快照、对照 commit 与缺失历史记录
 CMakeLists.txt             # 不依赖 SDK 的 bms_core 静态库和 host tests
 ```
 
@@ -56,7 +56,7 @@ SDK `vendor/ble_sample` 只保留 `app_config.h` 转发入口，旧业务源码�
 
 | 产品 | 当前编译输入 | heater / balance | 说明 |
 |---|---|---|---|
-| D008 | DVC1124；当前默认 profile 为 16S LFP | 按 D008 板级配置 | 另保留显式 24S LFP、20S NMC profile 选择；不把历史注释当默认实物配置 |
+| D008 | DVC1124；当前开发默认 profile 为 16S LFP，生产显式选择 | 按 D008 板级配置 | 另保留显式 24S LFP、20S NMC profile 选择；不把历史注释当默认实物配置 |
 | D011 | SH3673510；10S；250 µΩ | 支持 / 支持 | PB5 fuse 保持已验证的安全电平 |
 | D013 | SH3673510；4S；100 µΩ | 不支持 / 不支持 | 不因共用 feature 模块而启用硬件不存在的路径 |
 | D014 | SH3673510；8S；667 µΩ | 不支持 / 支持 | TS3 NC；TS4 MOS NTC 独立软件保护；TS4 硬件保护位关闭 |
@@ -108,3 +108,19 @@ SOC、参数、语义存储和 Modbus 当前虽然四产品共享，但仍包含
 
 固定来源见 `bms/products/baselines.json`。本次没有覆盖原工作树 `d014-485-test` 的未提交文件；
 该测试分支在选定 D014 基线之后的实验修改不自动算入这里，需以独立功能变更审查和回归后引入。
+
+## 2026-10-05 构建和追溯整改
+
+SH 产品的 GPIO、NTC role/capability、静态 AFE 输入及独立 HW 默认值均由各自
+`bms/products/<product>/bms_sh3673510_config.h` 提供；共享后端保留寄存器组合与芯片算法。
+生产模式使用 `--production`，D008 额外指定 `--d008-profile`；生产策略作用于所有 TC32 C 编译单元。
+输出按模式/profile/产品隔离，输入收据、manifest、resources 均记录配置；诊断 build flags bit2 表示生产。
+生产镜像槽必须保留至少 8 KiB，低于该值链接命令失败；开发模式保留警告。
+
+`0x2E00=0xD008` 是历史参数接口 magic，并非硬件产品 ID；与上位机维护分支的
+`Shared/D008Parameters.cs` 对照后保留原值，命名为 `BMS_PARAMETER_INTERFACE_MAGIC`。
+
+原 D008/D011/D013 导入 SHA 未上传到远端，不能恢复或伪装为已审计历史。
+`baselines.json` 保留这些缺失 SHA，另锚定可下载的 `fd50730` 导入结果快照和各远端对照 commit。
+对照 commit 不声称与缺失导入完全等价；`python bms_tools/verify_baselines.py --fetch`
+验证可发布证据的可解析性。完整修复与验证边界见 `BMS_MONOREPO_REMEDIATION.md`。

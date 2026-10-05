@@ -1,6 +1,34 @@
 {
-  "d008": "ccd83f0700fe1a7db946a287afcf7aaed7914052",
-  "d011": "11c4d82a64122daf4c784be2de9ad4ac4a85c3e2",
-  "d013": "ee77bc88e729133c3636c8726d5f18ce6b50e8d9",
-  "d014": "19ef2198e43878e5a169fe6b26031efce8a8dadb"
+  "d008": {
+    "import_snapshot_commit": "fd50730db94c079a7e4dcc384d9ddf8e4ed7b6c7",
+    "comparison_commit": "0b8385c560b8a93ab49328ecd883a56e64d7043c",
+    "comparison_ref": "refactor/d008-common-bms-features",
+    "recorded_import_commit": "ccd83f0700fe1a7db946a287afcf7aaed7914052",
+    "recorded_import_available": false,
+    "note": "Original local import object is unavailable remotely. Comparison commit is a verified upstream reference, NOT an equivalent replacement for that import."
+  },
+  "d011": {
+    "import_snapshot_commit": "fd50730db94c079a7e4dcc384d9ddf8e4ed7b6c7",
+    "comparison_commit": "e53404254e048fac7891524764b749096d49ecd6",
+    "comparison_ref": "refactor/d011-common-bms-features",
+    "recorded_import_commit": "11c4d82a64122daf4c784be2de9ad4ac4a85c3e2",
+    "recorded_import_available": false,
+    "note": "Original local import object is unavailable remotely. Comparison commit is a verified upstream reference, NOT an equivalent replacement for that import."
+  },
+  "d013": {
+    "import_snapshot_commit": "fd50730db94c079a7e4dcc384d9ddf8e4ed7b6c7",
+    "comparison_commit": "9bdc0c4a255924d2a21f24da4f94c51ad981c507",
+    "comparison_ref": "refactor/d013-common-bms-features",
+    "recorded_import_commit": "ee77bc88e729133c3636c8726d5f18ce6b50e8d9",
+    "recorded_import_available": false,
+    "note": "Original local import object is unavailable remotely. Comparison commit is a verified upstream reference, NOT an equivalent replacement for that import."
+  },
+  "d014": {
+    "import_snapshot_commit": "fd50730db94c079a7e4dcc384d9ddf8e4ed7b6c7",
+    "comparison_commit": "19ef2198e43878e5a169fe6b26031efce8a8dadb",
+    "comparison_ref": "codex-bms-monorepo",
+    "recorded_import_commit": "19ef2198e43878e5a169fe6b26031efce8a8dadb",
+    "recorded_import_available": true,
+    "note": "Recorded original import is reachable."
+  }
 }

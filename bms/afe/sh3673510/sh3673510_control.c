@@ -13,7 +13,7 @@ static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
 
-/* Existing D011 product NTC table: resistance in 100ohm, temperature=(C+40)*10. */
+/* Selected SH product 10K NTC table: resistance in 100ohm, temperature=(C+40)*10. */
 
 
 static void sh3510_gpio_input(GPIO_PinTypeDef pin)
@@ -305,7 +305,7 @@ typedef struct {
 } sh3510_static_reg_cfg_t;
 
 /*
- * Deterministic D011 static AFE profile.  Protection thresholds (0x49..0x54)
+ * Deterministic selected-product static AFE profile.  Protection thresholds (0x49..0x54)
  * are applied separately from g_tParam.protect, and SCONF6 is written only
  * after those thresholds are valid so hardware protection is never enabled
  * against an unintended reset threshold.
@@ -463,7 +463,7 @@ void sh3673510_board_force_heater_fuse_safe(void)
 void sh3673510_board_set_heater(uint8_t enabled)
 {
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
-    /* Legacy D011 heater implementation. D014 compiles this path out. */
+    /* Heater implementation compiled only for products declaring this capability. */
     sh3673510_board_force_heater_fuse_safe();
     gpio_write(BMS_BOARD_HEATER_CHG_PIN, enabled ? 1u : 0u);
 #else

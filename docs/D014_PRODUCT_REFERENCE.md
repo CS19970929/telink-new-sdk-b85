@@ -31,7 +31,7 @@ D014 只把 VC1..VC8 作为有效 cell。SH3673510 的上部未使用 cell 输�
 - 均衡 mask；
 - Open-Wire 有效 cell 判断。
 
-`SH3673510_D011_CELL_COUNT` 仍是从 D011 公共代码继承的兼容宏名，但值已固定为 8。后续公共框架可再统一重命名，不应在本次硬件移植中扩大改动面。
+`SH3673510_BOARD_CELL_COUNT` 仍是从 D011 公共代码继承的兼容宏名，但值已固定为 8。后续公共框架可再统一重命名，不应在本次硬件移植中扩大改动面。
 
 ## 3. 电流采样模型
 
@@ -65,7 +65,7 @@ AFE OCD/OCC/SC 的 requested -> code -> effective 电流也使用同一 667µΩ 
 | PD3 | CMNT-WK | 通信唤醒 |
 | PD2 | CS-M | AFE SPI CS |
 
-项目配置新增 `D014_*` 正式宏。为了最小风险复用 D011 已验证 SH3673510 实现，暂保留 `D011_*` 兼容别名；D014 新代码不得继续新增 D011 板名依赖。
+产品输入使用 `BMS_BOARD_*` 与 `SH3673510_BOARD_*` 中性宏，由 D014 产品头文件提供；共享 AFE 代码不再持有 GPIO、NTC 角色与默认阈值。
 
 ## 5. Heater / TS3 / TS4
 
@@ -118,17 +118,17 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
-当前 D014 的 AFE hardware profile 首次初始化使用 `sh3673510_project_config.h` 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
+当前 D014 的 AFE hardware profile 首次初始化使用 `bms/products/d014/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
 
 ## 9. 代码入口
 
-- `vendor/ble_sample/sh3673510_project_config.h`：D014 8S / 667µΩ / GPIO / feature capability。
-- `vendor/ble_sample/conf.h`：产品身份、RS485、容量等编译期默认。
-- `vendor/ble_sample/sh3673520*.c`：SH36735xx SPI/register driver。
-- `vendor/ble_sample/sh3673510_control.c`：静态配置、硬件保护量化、FET/balance。
-- `vendor/ble_sample/sh3673510_bms.c`：采样、保护恢复、measurement publish。
-- `vendor/ble_sample/bms_sw_protection.*`：软件三级保护。
-- `vendor/ble_sample/bms_afe_hw_profile.*`：独立 AFE hardware protection profile。
-- `vendor/ble_sample/bms_features.*`：balance/open-wire/heater 公共策略。
+- `bms/products/d014/bms_sh3673510_config.h`：D014 8S / 667µΩ / GPIO / feature capability。
+- `bms/products/d014/bms_product_conf.h`：产品身份、RS485、容量等编译期默认。
+- `bms/afe/sh3673510/sh3673520*.c`：SH36735xx SPI/register driver。
+- `bms/afe/sh3673510/sh3673510_control.c`：静态配置、硬件保护量化、FET/balance。
+- `bms/afe/sh3673510/sh3673510_bms.c`：采样、保护恢复、measurement publish。
+- `bms/core/bms_sw_protection.*`：软件三级保护。
+- `bms/core/bms_afe_hw_profile.*`：独立 AFE hardware protection profile。
+- `bms/app/bms_features.*`：balance/open-wire/heater 公共策略。
 - `tests/sh3673510_d014_integration_check.py`：D014 板级 contract。
 - `tests/d014_afe_profile_default_host_check.py`：执行 D014 AFE 默认 profile 构建与校验。

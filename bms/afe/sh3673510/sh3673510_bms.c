@@ -561,7 +561,7 @@ static uint8_t publish_measurements(void)
 
     /*
      * Realtime max/min temperature is the validated battery range TS1/TS2.
-     * D014 TS3 is NC; TS4 is the separate 10K-3435 MOS NTC. Only TS1/TS2
+     * Heater and MOS sensor roles come from the product. Only battery NTCs
      * determine battery extrema. TS4 is published separately for MOS OTP.
      * Zero remains the legacy invalid/sensor-break sentinel.
      */
@@ -595,6 +595,7 @@ static uint8_t publish_measurements(void)
     publish_hw_status(&status);
     if (!s_afe_reconfigure_required) {
         memset(&sw, 0, sizeof(sw));
+        sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
         sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                               &sw.battery_temp_max);
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED

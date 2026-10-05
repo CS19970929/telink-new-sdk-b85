@@ -22,14 +22,17 @@ jobs:
       CC: gcc
       PYTHONDONTWRITEBYTECODE: '1'
       PYTHONUTF8: '1'
-      BMS_TEST_OUTPUT: ${{ runner.temp }}/bms-tests
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: External test outputs
+        run: echo "BMS_TEST_OUTPUT=$RUNNER_TEMP/bms-tests" >> "$GITHUB_ENV"
       - name: Validate all source manifests
         run: python bms_tools/bms.py --all-products sources --check
+      - name: Verify published source references
+        run: python bms_tools/verify_baselines.py --fetch
       - name: Production C contracts and fault injection
         run: python tests/run_host_regression.py
       - name: Portable library
@@ -43,32 +46,80 @@ jobs:
           name: bms-host-${{ github.sha }}
           path: ${{ runner.temp }}/bms-tests
 
-  tc32-production:
+  tc32-windows:
     name: Four product TC32 ELF and resource gates
     if: ${{ vars.TELINK_TC32_CI_ENABLED == '1' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: [self-hosted, Windows, X64, telink-tc32]
     timeout-minutes: 30
     env:
-      BMS_BUILD_ROOT: ${{ runner.temp }}/bms-build
       PYTHONDONTWRITEBYTECODE: '1'
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
+      - name: External build outputs
+        shell: powershell
+        run: '"BMS_BUILD_ROOT=$env:RUNNER_TEMP/bms-build" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append'
       - name: Validate source ownership
         shell: powershell
         run: python bms_tools/bms.py --all-products sources --check
       - name: Compile and link all products without BIN
         shell: powershell
-        run: python bms_tools/bms.py --all-products link --jobs 4
+        run: python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4
       - name: ELF resource gates
         shell: powershell
-        run: python bms_tools/bms.py --all-products resources
+        run: python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
       - name: Static analysis from each actual build configuration
         shell: powershell
-        run: python bms_tools/bms.py --all-products static --no-report
+        run: python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp static --no-report
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bms-tc32-${{ github.sha }}
+          name: bms-production-windows-${{ github.sha }}
+          retention-days: 14
+          path: ${{ runner.temp }}/bms-build
+
+  tc32-production:
+    name: Production ${{ matrix.product }} ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      # Official Telink TC32 GCC 4.5.1, pinned by digest for reproducibility.
+      image: ghcr.io/telink-semi/telink-dev-tc32@sha256:b624c09e880cfc39d8d034062097b6bfeecab91c816fcc32fccd611eafe8d85a
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {product: d008, profile: 16s-lfp}
+          - {product: d008, profile: 20s-nmc}
+          - {product: d008, profile: 24s-lfp}
+          - {product: d011, profile: none}
+          - {product: d013, profile: none}
+          - {product: d014, profile: none}
+    env:
+      TC32_BIN: /opt/toolchain/tc32/bin
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python and output location
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3
+          echo "BMS_BUILD_ROOT=$RUNNER_TEMP/bms-build" >> "$GITHUB_ENV"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Full production ELF and hard resource gates
+        env:
+          PRODUCT: ${{ matrix.product }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          if [ "$PROFILE" = none ]; then
+            python3 bms_tools/bms.py --product "$PRODUCT" --production link --jobs 4
+          else
+            python3 bms_tools/bms.py --product "$PRODUCT" --production --d008-profile "$PROFILE" link --jobs 4
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bms-production-${{ matrix.product }}-${{ matrix.profile }}-${{ github.sha }}
           retention-days: 14
           path: ${{ runner.temp }}/bms-build

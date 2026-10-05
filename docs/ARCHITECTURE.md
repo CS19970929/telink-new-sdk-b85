@@ -44,7 +44,7 @@ app / BLE / Modbus / product logic
 - backend 负责具体芯片/Rsense 的 validation、量化、寄存器编码和 readback。
 - requested 与 effective 分开，禁止把芯片量化后的 effective 伪装成用户 requested。
 
-首次引入独立 AFE profile 时允许从历史软件参数初始化一次；完成迁移后两套参数不再联动。
+当前 monorepo 拒绝旧开发记录，使用 CFG2 schema 1；软件保护与 AFE 默认配置独立，不迁移旧参数。
 
 D014 当前使用产品配置中的独立 AFE 默认值初始化，不从软件保护表迁移。
 

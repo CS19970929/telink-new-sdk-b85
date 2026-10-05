@@ -431,6 +431,7 @@ void DVC1124_BmsApp_AFEGet(void)
     memset(&sw, 0, sizeof(sw));
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
         &snapshot, &sw.battery_temp_min, &sw.battery_temp_max);
+    sw.mos_temp_required = 1u;
     sw.mos_temp_valid = dvc_configured_ntc_valid(
         &snapshot, DVC1124_DEFAULT_MOS_NTC_GP);
     sw.mos_temp = sw.mos_temp_valid ?

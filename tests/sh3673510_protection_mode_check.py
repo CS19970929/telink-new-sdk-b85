@@ -16,7 +16,7 @@ def require(src: str, needle: str) -> None:
         raise AssertionError(f"missing protection-mode invariant: {needle}")
 
 
-cfg = text("sh3673510_project_config.h")
+cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h")
 bms = text("sh3673510_bms.c")
 
 for needle in (

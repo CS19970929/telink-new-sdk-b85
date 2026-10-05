@@ -63,7 +63,7 @@ for token in (
 # must not erase the other sensor's protection filters/fault state.
 for token in (
     "if (temperature_enabled && inputs->battery_temp_valid)",
-    "if (temperature_enabled && inputs->mos_temp_valid)",
+    "if (temperature_enabled && inputs->mos_temp_required && inputs->mos_temp_valid)",
     "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_MOS_OT])",
     "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT])",
 ):
@@ -95,7 +95,7 @@ battery_block = source.split("if (temperature_enabled && inputs->battery_temp_va
 if battery_block.count("bms_sw_temp_filter_update") != 4:
     raise AssertionError("all four battery temperature faults must use the directional trigger gate")
 
-mos_block = source.split("if (temperature_enabled && inputs->mos_temp_valid)", 1)[1].split("else", 1)[0]
+mos_block = source.split("if (temperature_enabled && inputs->mos_temp_required && inputs->mos_temp_valid)", 1)[1].split("else", 1)[0]
 if "bms_sw_temp_filter_update" in mos_block:
     raise AssertionError("power-MOS OTP must remain independent of charge/discharge current direction")
 if "bms_sw_filter_update" not in mos_block:

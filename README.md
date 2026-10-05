@@ -26,7 +26,7 @@ ctest --test-dir "$env:LOCALAPPDATA/CodexTemp/bms-core-host" --output-on-failure
 ```
 
 `--product` 默认是 D014，也可设置 `BMS_PRODUCT`。工具同时支持 `--all-products`。
-构建产物默认位于 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build/<checkout-hash>/<product>/`，
+构建产物默认位于 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build/<checkout-hash>/<mode-profile>/<product>/`，
 可用 `BMS_BUILD_ROOT` 改变外部输出根目录。测试日志同样位于用户临时区，可用 `BMS_TEST_OUTPUT` 指定源码树外的位置。
 
 只有明确需要固件镜像时才执行 `build`/`rebuild`、`check-fw`、`map`、`manifest`、`verify`。
@@ -35,3 +35,14 @@ ctest --test-dir "$env:LOCALAPPDATA/CodexTemp/bms-core-host" --output-on-failure
 SDK 自带 Eclipse 示例工程的旧自动源码扫描不再是构建入口；使用此处的产品清单和命令。
 VS Code 任务也调用同一个工具。Windows 上位机的单一来源继续是
 `feature/windows-afe-hw-protection-editor-v2` 分支下的 `bms-tool-windows/`。
+
+生产 ELF（不生成 BIN）使用已提交、干净工作区：
+
+```sh
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
+```
+
+D008 必须按实际电池显式选择 `16s-lfp`、`20s-nmc` 或 `24s-lfp`。
+CI 同时构建这三种 D008 配置和 D011/D013/D014。Linux 通过 `TC32_BIN` 指定官方 TC32 的 bin 目录；
+Windows 保留现有工具路径和可选 runner。构建策略不等于实板签核，见 [修复记录](docs/BMS_MONOREPO_REMEDIATION.md)。

@@ -11,7 +11,7 @@ def text(name: str) -> str:
     return (HERE / name).read_text(encoding="utf-8", errors="ignore")
 
 def literal(src: str, name: str) -> int:
-    m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+(0x[0-9A-Fa-f]+|[0-9]+)(?:[uUlL]*)\s*$", src)
+    m = re.search(rf"(?m)^\s*#define\s+{re.escape(name)}\s+(0x[0-9A-Fa-f]+|[0-9]+)(?:[uUlL]*)\s*(?:/\*.*\*/)?\s*$", src)
     if not m:
         raise AssertionError(f"missing literal macro {name}")
     return int(m.group(1), 0)
@@ -36,6 +36,8 @@ app = text("app.c")
 uart = text("modbus_uart.c")
 modbus_h = text("modbus_rtu.h")
 
+assert literal(cfg, "SH3673510_PRODUCT_MOS_NTC_SUPPORTED") == 1
+assert literal(cfg, "SH3673510_BOARD_MOS_NTC_INDEX") == 3
 assert literal(cfg, "SH3673510_BOARD_CELL_COUNT") == 10
 assert literal(cfg, "SH3673510_BOARD_SHUNT_UOHM") == 250
 assert literal(cfg, "SH3673510_BOARD_NTC_NOMINAL_OHM") == 10000

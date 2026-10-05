@@ -1,4 +1,6 @@
-# Monorepo 验证记录
+# Monorepo 初次迁移验证记录
+
+本页保留 `fd50730` 迁移时的历史记录；2026-10-05 后续修复与实测以 [整改验证](BMS_MONOREPO_REMEDIATION.md) 为准。
 
 验证日期：2026-10-01；实现分支：`codex-bms-monorepo`；工作树：`D:\telink\bms-monorepo`。
 仓库已有名为 `codex` 的分支，Git 无法同时创建 `codex/…`，因此使用上述独立分支名。

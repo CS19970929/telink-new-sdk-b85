@@ -22,7 +22,20 @@ for product in products:
     assert not list((ROOT / "bms/products" / product).glob("*.c")), "Product directories are data only"
 assert all(sdk == sdk_sets[0] for sdk in sdk_sets)
 assert not (ROOT / "bms_tools/source_order.txt").exists()
-assert set(json.loads((ROOT / "bms/products/baselines.json").read_text())) == set(products)
+baselines = json.loads((ROOT / "bms/products/baselines.json").read_text())
+assert set(baselines) == set(products)
+for product, record in baselines.items():
+    for field in ("import_snapshot_commit", "comparison_commit", "recorded_import_commit"):
+        assert len(record[field]) == 40 and all(c in "0123456789abcdef" for c in record[field])
+    assert isinstance(record["recorded_import_available"], bool)
+# Shared SH code owns register formulas, not GPIO literals or NTC/threshold inputs.
+shared = (ROOT / "bms/afe/sh3673510/sh3673510_project_config.h").read_text()
+assert " GPIO_P" not in shared and "#define SH3673510_HW_DEFAULT_" not in shared
+for product in products[1:]:
+    config = (ROOT / "bms/products" / product / "bms_sh3673510_config.h").read_text()
+    assert "#define SH3673510_BOARD_BAT_NTC1_INDEX" in config
+    assert "#define SH3673510_BOARD_SPI_GROUP" in config
+    assert "#define SH3673510_HW_DEFAULT_COV_MV" in config
 legacy = ROOT / "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample"
 assert not list(legacy.glob("*.c")), "Old application source copies remain"
 print(f"PASS four products, {len(common)} shared C modules, one SDK, explicit backend selection, no source copies")

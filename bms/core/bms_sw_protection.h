@@ -17,6 +17,10 @@ typedef struct
     uint16_t battery_temp_min;
     uint16_t battery_temp_max;
     uint16_t mos_temp;
+    /* Product capability, never inferred from a failed sample. Battery NTCs
+     * are required on every current product. An unfitted MOS NTC is neither
+     * a sensor fault nor an input to MOS temperature protection. */
+    uint8_t mos_temp_required;
 } bms_sw_protection_inputs_t;
 
 uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *params);

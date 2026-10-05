@@ -21,6 +21,11 @@ with tempfile.TemporaryDirectory(prefix='bms-receipt-') as tmp:
    except SystemExit:pass
    else:raise AssertionError('stale input accepted: '+str(target))
    target.write_bytes(old)
+  for name, value in (("BUILD_MODE", "different-mode"), ("PRODUCT", "other-product")):
+   with mock.patch.object(bms, name, value):
+    try:bms._read_compile_inputs()
+    except SystemExit:pass
+    else:raise AssertionError('cross-configuration receipt accepted: '+name)
   assert bms._read_compile_inputs()==receipt
   bms._write_compile_inputs('-DMODE=0')
   try:bms._read_compile_inputs()

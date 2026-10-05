@@ -196,7 +196,7 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 
-static UINT8 d014_switch_is_on(void)
+static UINT8 board_switch_is_on(void)
 {
 #ifdef _DI_SWITCH_SYS_ONOFF
 	return gpio_read(BMS_BOARD_SWITCH_PIN) ? 0u : 1u;
@@ -411,8 +411,8 @@ static void app_event_log_1s_task(void)
 
 static int app_deepsleep_pad_wakeup_active(void)
 {
-	/* Only use D014 schematic-backed wake nets with verified active levels. */
-	if (d014_switch_is_on()) return 1;
+	/* Use the selected product wake nets; active levels still need board validation. */
+	if (board_switch_is_on()) return 1;
 	if (gpio_read(BMS_BOARD_INT_WK_MCU_PIN)) return 1;      /* active high */
 	if (!gpio_read(BMS_BOARD_AFE_ALARM_PIN)) return 1;     /* active low */
 	if (!gpio_read(BMS_BOARD_AFE_RESET_OUT_PIN)) return 1; /* active low */
@@ -642,7 +642,7 @@ void ble_build_adv_scanrsp(void)
 
 void mos_update(void)
 {
-	/* D014 is a common-port BMS. In the healthy normal state both back-to-back
+	/* The SH products use a common-port BMS policy. In the healthy normal state both back-to-back
 	 * FETs are requested ON. The AFE adapter applies direction-specific
 	 * protection/fail-safe blocking; PA0/SW1 is not a DSG gate. */
 	uint8_t chg_target = 1u;
@@ -665,7 +665,7 @@ void app_adc_multi_sample(void)
 	if (!bms_afe_get_aux_measurements(&aux)) return;
 
 	/* Legacy reporting mirror only. Protection and board features belong to
-	 * the SH3673510/common BMS layers; D014 has no enabled heater output. */
+	 * the SH3673510/common BMS layers and the selected product capabilities. */
 	g_stCellInfoReport.u16Temperature[8] = bms_lookup_u16(sh3673510_ntc_10k,
 										 (UINT16)LENGTH_TBLTEMP_MCU_10K,
 										 (UINT16)aux.battery_ntc_100ohm);
@@ -684,20 +684,18 @@ static void board_init(void)
 {
 	bms_afe_set_output_enabled(0u);
 
-	/* D014 schematic does not assign PB4/PB5 to the D011 heater/fuse path.
-	 * Heater GPIO ownership therefore remains completely disabled. */
+	/* Heater GPIO ownership belongs to the feature backend and product capability. */
 
 	gpio_set_func(BMS_BOARD_SWITCH_PIN, AS_GPIO);
 	gpio_set_input_en(BMS_BOARD_SWITCH_PIN, 1);
 	gpio_set_output_en(BMS_BOARD_SWITCH_PIN, 0);
 
-	/* D014 PD4 controls the isolated communication 3V3 rail; it is not an
-	 * MCU-LDO/AFE-protection-enable alias.  Keep communications powered while
-	 * the normal application is running. */
+	/* Keep the selected communication rail enabled during normal operation.
+	 * D013 retains the inherited mapping pending schematic verification. */
 	gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
 	gpio_write(BMS_BOARD_CMNT_EN_PIN, 1);
 	gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
-	gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 0);
+	gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
 
 	/* PD3 is the schematic CMNT-WK input.  Its active polarity is not yet
 	 * hardware-verified, so configure it as input but do not invent a wake
@@ -1761,7 +1759,7 @@ void blt_pm_proc(void)
 	if (sleep_elapsed_sec != 0u)
 	{
 #ifdef _DI_SWITCH_SYS_ONOFF
-		if (!d014_switch_is_on() && !gpio_read(BMS_BOARD_INT_WK_MCU_PIN))
+		if (!board_switch_is_on() && !gpio_read(BMS_BOARD_INT_WK_MCU_PIN))
 		{
 			sleep_cnt = app_pm_elapsed_limit(sleep_cnt, sleep_elapsed_sec, 3u);
 			if (sleep_cnt >= 3u)
@@ -2141,6 +2139,7 @@ _attribute_no_inline_ void user_init_normal(void)
 		bms_storage_platform_diag_boot();
 		bms_diag_set_build_flags((SH3673510_SW_PROTECT_ENABLE ? 1u : 0u) |
 		                         (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
+		                         (BMS_PRODUCTION_BUILD ? 4u : 0u) |
 		                         (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
 		// nvm_init(&nvm_cfg);
 		board_init();

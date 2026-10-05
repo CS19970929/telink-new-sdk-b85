@@ -52,8 +52,25 @@ _cli = sys.argv[1:]
 _product_args = argparse.ArgumentParser(add_help=False)
 _product_args.add_argument("--product", choices=PRODUCTS, default=os.environ.get("BMS_PRODUCT", "d014"))
 _product_args.add_argument("--all-products", action="store_true")
+_product_args.add_argument("--production", action="store_true", help="enforce production policy on every translation unit")
+_product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp"))
 _selection, _cli = _product_args.parse_known_args(_cli)
 PRODUCT = _selection.product
+PRODUCTION = _selection.production
+D008_PROFILE = _selection.d008_profile
+BUILD_MODE = "production" if PRODUCTION else "development"
+PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3}
+
+
+def _selection_args(product=None):
+    return (["--product", product or PRODUCT] + (["--production"] if PRODUCTION else []) +
+            (["--d008-profile", D008_PROFILE] if D008_PROFILE else []))
+
+
+def _build_configuration():
+    return {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
+            "d008_profile": (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else None}
+
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
 SDK_SUBDIR = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk"
@@ -69,7 +86,7 @@ TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve
 
 # Per-checkout, per-product build outputs stay outside the source worktree.
 BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-monorepo-build")))
-BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / PRODUCT).resolve()
+BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / (BUILD_MODE + ("-" + D008_PROFILE if PRODUCT == "d008" and D008_PROFILE else "")) / PRODUCT).resolve()
 OBJ_DIR = BUILD_DIR / "obj"
 GEN_DIR = BUILD_DIR / "gen"
 ELF = BUILD_DIR / "825x_ble_sample.elf"
@@ -128,6 +145,10 @@ def _ensure_junction() -> None:
     global _junction_ok
     if _junction_ok:
         return
+    if os.name != "nt":
+        # Linux paths need no Windows junction. _junc returns real paths below.
+        _junction_ok = True
+        return
     parent = JUNCTION.parent
     parent.mkdir(parents=True, exist_ok=True)
     if os.path.lexists(str(JUNCTION)):
@@ -149,6 +170,10 @@ def _ensure_junction() -> None:
 
 def _junc(p: Path) -> Path:
     """Return the space-free junction-based equivalent of a repo-rooted path."""
+    if os.name != "nt":
+        if " " in str(p.resolve()):
+            _die("GNU Make requires a space-free path on Linux")
+        return p.resolve()
     _ensure_junction()
     try:
         rel = p.resolve().relative_to(REPO_ROOT)
@@ -157,7 +182,7 @@ def _junc(p: Path) -> Path:
     return JUNCTION / rel
 
 # Canonical toolchain locations (Telink IoT Studio install on this PC).
-DEFAULT_TC32_DIR = Path("C:/TelinkIoTStudio/opt/tc32/bin")
+DEFAULT_TC32_DIR = Path(os.environ.get("TC32_BIN", "C:/TelinkIoTStudio/opt/tc32/bin"))
 DEFAULT_BDT = Path("C:/TelinkIoTStudio/tools/libusbBDT/bin/bdt.exe")
 DEFAULT_CPPCHECK = Path("C:/Program Files/cppcheck/cppcheck.exe")
 DEFAULT_STATIC_REPORT_TEMPLATE = Path(
@@ -240,6 +265,8 @@ def _tc32_tool(name: str) -> str:
     """Return an auditable absolute path to a pinned TC32 executable."""
     filename = name if name.lower().endswith(".exe") else f"{name}.exe"
     pinned = DEFAULT_TC32_DIR / filename
+    if os.name != "nt" and (DEFAULT_TC32_DIR / name).is_file():
+        pinned = DEFAULT_TC32_DIR / name
     if pinned.exists():
         return str(pinned)
     discovered = shutil.which(name)
@@ -554,7 +581,25 @@ def _firmware_git_dirty() -> int:
             return 1 if result.stdout.strip() else 0
     except Exception:
         pass
-    return 0
+    return 1  # unknown provenance is not a clean worktree
+
+
+def _effective_extra_defines() -> str:
+    extra = os.environ.get("EXTRA_DEFINES", "").strip()
+    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE)(?:\b)"
+    if re.search(reserved, extra):
+        _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
+    build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()
+    if PRODUCTION:
+        if dirty or build_id == "0u":
+            _die("Production requires a clean committed worktree with a valid Git build ID")
+        if PRODUCT == "d008" and D008_PROFILE is None:
+            _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
+    flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
+             f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
+    if PRODUCT == "d008" and D008_PROFILE:
+        flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
+    return " ".join(x for x in flags if x)
 
 
 def _capture_compile_inputs(extra_defines: str) -> dict:
@@ -568,10 +613,12 @@ def _capture_compile_inputs(extra_defines: str) -> dict:
     files = {p.relative_to(REPO_ROOT).as_posix(): _sha256(p) for p in sorted(paths)}
     executables = [_tc32_tool(n) for n in ("tc32-elf-gcc", "tc32-elf-as", "tc32-elf-ld", "tc32-elf-objcopy", "tc32-elf-objdump")]
     gcc = Path(executables[0])
-    executables += [str(p) for p in (gcc.parent.parent / "libexec/gcc").rglob("cc1*") if p.is_file()]
+    executables += [str(p) for directory in ("libexec/gcc", "lib/gcc")
+                    for p in (gcc.parent.parent / directory).rglob("cc1*") if p.is_file()]
     executables.append(str(TL_CHECK_FW2))
     return {"schema": "bms-compile-inputs/v1", "files": files,
             "tools": {str(Path(p).resolve()): _sha256(Path(p)) for p in executables},
+            "configuration": _build_configuration(),
             "extra_defines": extra_defines,
             "git_build_id": _firmware_git_build_id(), "git_dirty": _firmware_git_dirty()}
 
@@ -631,13 +678,9 @@ def _invoke_make(targets: list[str], jobs: int = 1,
         _die(f"refusing Make clean/build outside the dedicated CLI directory: {resolved_build}")
     env = _ensure_toolchain_env(dict(os.environ))
     env["PATH"] = str(Path(_tc32_tool("tc32-elf-gcc")).parent) + os.pathsep + env["PATH"]
-    extra_defines = env.get("EXTRA_DEFINES", "").strip()
+    extra_defines = _effective_extra_defines()
     build_id = _firmware_git_build_id()
     dirty = _firmware_git_dirty()
-    if "BMS_DIAG_BUILD_ID" not in extra_defines:
-        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_ID={build_id}").strip()
-    if "BMS_DIAG_BUILD_DIRTY" not in extra_defines:
-        extra_defines = (extra_defines + f" -DBMS_DIAG_BUILD_DIRTY={dirty}").strip()
     env["EXTRA_DEFINES"] = extra_defines
     if targets != ["clean"]:
         _info(f"firmware diagnostic build id: {build_id}; dirty={dirty}")
@@ -659,7 +702,7 @@ def _invoke_make(targets: list[str], jobs: int = 1,
     cmd += targets
     if targets != ["clean"]:
         _info(f"make: {', '.join(targets) if len(targets) < 3 else 'multiple targets'}; jobs={jobs}")
-    r = _run(cmd, cwd=JUNCTION, env=env, check=False, capture=True)
+    r = _run(cmd, cwd=_junc(REPO_ROOT), env=env, check=False, capture=True)
     log_dir = build_dir / "gen"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "build.log"
@@ -704,6 +747,11 @@ def cmd_build(args: argparse.Namespace) -> int:
     _finalize_firmware()
     _info("build complete (ELF/MAP/raw BIN/canonical BIN)")
     return 0
+
+
+def cmd_link(args: argparse.Namespace) -> int:
+    _invoke_make(["link"], jobs=args.jobs)
+    return cmd_map(argparse.Namespace(elf_only=True)) if PRODUCTION else 0
 
 
 def cmd_compile(args: argparse.Namespace) -> int:
@@ -899,10 +947,12 @@ def cmd_map(args: argparse.Namespace) -> int:
     if canonical_size > slot_size:
         _die(f"firmware image exceeds slot A: {canonical_size} > {slot_size}")
     flash_headroom = slot_size - canonical_size
+    if PRODUCTION and flash_headroom < 8192:
+        _die(f"Production Flash reserve below 8 KiB: {flash_headroom} bytes; reduce code before release")
     report = {
         "schema": "bms-resources/v1", "git": _git_provenance(),
         "elf_sha256": _sha256(ELF) if ELF.exists() else None,
-        "product": PRODUCT, "image_generated": not elf_only,
+        "product": PRODUCT, "configuration": _build_configuration(), "image_generated": not elf_only,
         "bin_sha256": None if elf_only else _sha256(BIN), "map_sha256": _sha256(MAP),
         "flash_bytes": canonical_size, "flash_limit_bytes": slot_size,
         "flash_free_bytes": flash_headroom, "ram_span_bytes": ram_used_span,
@@ -1075,6 +1125,7 @@ def cmd_manifest(args: argparse.Namespace) -> int:
     manifest = {
         "format": "bms-fw-manifest/v4",
         "product": PRODUCT,
+        "configuration": _build_configuration(),
         "build_directory": str(BUILD_DIR),
         "generated_at": _now_iso(),
         "firmware_name": "825x_ble_sample",
@@ -1095,7 +1146,7 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         },
         "elf_size_bytes": ELF.stat().st_size if ELF.exists() else None,
         "tools": {
-            "tc32": "tc32-elf-gcc 4.5.1-tc32-1.3",
+            "tc32": _tool_version(_tc32_tool("tc32-elf-gcc")),
             "sdk": "tc_ble_single_sdk V3.4.2.8_Patch_0001",
         },
         "target_configuration": {
@@ -1285,10 +1336,7 @@ def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str]
     _gen_sources_mk()
     env = _ensure_toolchain_env(dict(os.environ))
     make = _need_make()
-    extra = env.get("EXTRA_DEFINES", "")
-    if "BMS_DIAG_BUILD_ID" not in extra: extra += f" -DBMS_DIAG_BUILD_ID={_firmware_git_build_id()}"
-    if "BMS_DIAG_BUILD_DIRTY" not in extra: extra += f" -DBMS_DIAG_BUILD_DIRTY={_firmware_git_dirty()}"
-    env["EXTRA_DEFINES"] = extra.strip()
+    env["EXTRA_DEFINES"] = _effective_extra_defines()
     command = [
         make, "-B", "-n", "--no-print-directory", "-f", str(_HERE / "build.mk"),
         f"REPO_ROOT={_junc(REPO_ROOT).as_posix()}",
@@ -1298,7 +1346,7 @@ def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str]
         f"AFE_BACKEND={'dvc1124' if PRODUCT == 'd008' else 'sh3673510'}",
         "all",
     ]
-    result = subprocess.run(command, cwd=str(JUNCTION), env=env, check=False,
+    result = subprocess.run(command, cwd=str(_junc(REPO_ROOT)), env=env, check=False,
                             capture_output=True, text=True)
     dry_run = result.stdout or ""
     (out_dir / "make_dry_run.log").write_text(dry_run, encoding="utf-8")
@@ -1319,7 +1367,7 @@ def _capture_real_compile_database(out_dir: Path) -> tuple[list[dict], list[str]
         if source.casefold() not in compile_line.replace("\\", "/").casefold():
             _die(f"dry-run command/source order mismatch for {rel}")
         database.append({
-            "directory": JUNCTION.as_posix(),
+            "directory": _junc(REPO_ROOT).as_posix(),
             "command": compile_line,
             "file": source,
             "output": output,
@@ -2124,19 +2172,19 @@ def cmd_ci(args: argparse.Namespace) -> int:
     script = str(Path(__file__).resolve())
     steps: list[tuple[str, list[str]]] = [
         ("host_regression", [sys.executable, "tests/run_host_regression.py"]),
-        ("source_order", [sys.executable, script, "sources", "--check"]),
-        ("environment", [sys.executable, script, "env"]),
-        ("rebuild", [sys.executable, script, "rebuild", "--jobs", str(args.jobs)]),
-        ("telink_postbuild", [sys.executable, script, "check-fw"]),
-        ("size", [sys.executable, script, "size"]),
-        ("map", [sys.executable, script, "map"]),
-        ("manifest", [sys.executable, script, "manifest"]),
-        ("verify", [sys.executable, script, "verify"]),
-        ("static", [sys.executable, script, "static"]
+        ("source_order", [sys.executable, script, *_selection_args(), "sources", "--check"]),
+        ("environment", [sys.executable, script, *_selection_args(), "env"]),
+        ("rebuild", [sys.executable, script, *_selection_args(), "rebuild", "--jobs", str(args.jobs)]),
+        ("telink_postbuild", [sys.executable, script, *_selection_args(), "check-fw"]),
+        ("size", [sys.executable, script, *_selection_args(), "size"]),
+        ("map", [sys.executable, script, *_selection_args(), "map"]),
+        ("manifest", [sys.executable, script, *_selection_args(), "manifest"]),
+        ("verify", [sys.executable, script, *_selection_args(), "verify"]),
+        ("static", [sys.executable, script, *_selection_args(), "static"]
                    + (["--strict"] if args.strict_static else [])),
     ]
     if args.baseline:
-        steps.append(("baseline", [sys.executable, script, "baseline", args.baseline]))
+        steps.append(("baseline", [sys.executable, script, *_selection_args(), "baseline", args.baseline]))
 
     report = {
         "format": "bms-host-build-pipeline/v1",
@@ -2217,7 +2265,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="bms.py",
-        description="TLSR8251 BMS runner. Select --product d008/d011/d013/d014 or --all-products before the command.",
+        description="TLSR8251 BMS runner. Global options: --product d008/d011/d013/d014 or --all-products; --production; --d008-profile 16s-lfp/20s-nmc/24s-lfp.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -2283,13 +2331,13 @@ def build_parser() -> argparse.ArgumentParser:
     pci.set_defaults(func=cmd_ci)
     pl = sub.add_parser("link", help="compile and link ELF/MAP only; does not generate BIN")
     pl.add_argument("-j", "--jobs", type=int, default=4)
-    pl.set_defaults(func=lambda args: (_invoke_make(["link"], jobs=args.jobs) or 0))
+    pl.set_defaults(func=cmd_link)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     if _selection.all_products and argv is None:
-        results = [subprocess.call([sys.executable, str(Path(__file__).resolve()), "--product", product, *_cli]) for product in PRODUCTS]
+        results = [subprocess.call([sys.executable, str(Path(__file__).resolve()), *_selection_args(product), *_cli]) for product in PRODUCTS]
         return 1 if any(results) else 0
     args = build_parser().parse_args(_cli if argv is None else argv)
     try:

@@ -1,8 +1,8 @@
-# D008 / D011 / D013 统一软件保护
+# D008 / D011 / D013 / D014 统一软件保护
 
 ## 1. 参数所有权
 
-三个产品的 MCU 软件保护参数都来自 `g_tParam.protect`，字段结构保持 First / Second / Third / Recover / Filter。共同算法位于 `bms_sw_protection.c/.h`；AFE backend 不再各自实现一套软件阈值状态机。
+四个产品的 MCU 软件保护参数都来自 `g_tParam.protect`，字段结构保持 First / Second / Third / Recover / Filter。共同算法位于 `bms_sw_protection.c/.h`；AFE backend 不再各自实现一套软件阈值状态机。
 
 - First：一级告警/报告，不直接作为最终 MOS 关闭级。
 - Second：二级告警/报告，不直接作为最终 MOS 关闭级。
@@ -20,7 +20,9 @@ Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT�
 
 ## 4. 温度有效性
 
-backend 向公共层提供 Battery min/max、MOS温度和 valid 标志。必需温度无效时进入 `BMS_ERROR_TEMP_BREAK` / fail-safe，不能用旧样本恢复；重新有效后重新经过保护滤波。
+backend 向公共层提供 Battery min/max、MOS温度、valid 标志及产品固定的 `mos_temp_required`。
+四产品均要求电池 NTC 有效；D008/D011/D014 要求 MOS NTC，D013 当前 profile 不要求。
+`required && !valid` 才是 MOS 断线；不支持时不参与 MOS OTP，不能把无效样本伪装为有效。必需温度无效时进入 `BMS_ERROR_TEMP_BREAK` / fail-safe，不能用旧样本恢复；重新有效后重新经过保护滤波。
 
 ## 5. 与 AFE 硬件保护的关系
 

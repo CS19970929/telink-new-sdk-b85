@@ -1,6 +1,6 @@
 # D013 产品硬件与固件配置基线
 
-> 适用分支：`feature/sh3673510-d013-bms`。
+> 适用分支：`codex-bms-monorepo`；2026-10-05 修订。
 >
 > **重要证据限制：当前可访问的用户资料中没有找到 D013 专属原理图。** 因此本文把“当前源码事实”和“原理图已验证事实”严格分开。D013 的 GPIO 映射目前只能写成 **CODE（D011 派生）**，不能写成 D013 硬件事实。获得 D013 原理图前，禁止把 D011 引脚表直接视为 D013 已核对连接。
 
@@ -15,7 +15,7 @@
 
 ## 2. 当前源码产品身份
 
-`sh3673510_project_config.h` 当前明确写入以下产品 profile：
+`bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 当前明确写入以下产品 profile：
 
 | 项目 | 当前源码事实 | 硬件证据状态 |
 |---|---|---|
@@ -27,42 +27,41 @@
 | NTC nominal | 10K | CODE，沿用 D011 假设 |
 | Modbus transport | direct UART，`MODBUS_RS485_ENABLE=0` | CODE |
 
-### 2.1 当前最重要的身份技术债
+### 2.1 产品身份与能力
 
-D013 `conf.h` 仍保留 D011 身份：
+硬件版本为 `D013`，默认序列号 `D013-UNSET`，BLE 为 `BT_D013` / `BT_D013_FACTORY`。
+历史 numeric wire ID 保持 2，内部存储 tag 为 13；本次不改变外部协议数值。
+`CapacityFactory=116` 等继承默认仍待产品签核，不因身份更名变成已验证参数。
 
-- `FD_BMS_TYPE=D11`；
-- `BMS_HARDWARE_VERDION_DEFAULT="D011"`；
-- `BMS_SERIAL_NUMBER_DEFAULT="D011-UNSET"`；
-- `DEV_NAME_STR="BT_D011"` / factory name 同样是 D011；
-- `CapacityFactory=116`、`AFE_ODC1=300`、`AFE_ODC2=500` 仍是 D11 历史兼容值；
-- `CS_Res=2`、`CS_Res_Num=20` 用于表达当前 2 mV : 20 A / 100 µΩ 兼容换算。
-
-这些值是**当前源码事实**，不是 D013 产品已签核参数。文档整理不能把它们改写成 D013 正确产品值；后续应单独做 D013 identity/product parameter cleanup。
+当前 profile 的 heater、balance、heater NTC 和 MOS NTC 均不支持。
+`mos_temp_required=0`，因此未配置 TS4 不报温度断线，也不计算 MOS OTP；
+TS1/TS2 仍为必需电池温度，任一无效仍阻断输出。
+这是现有源码能力的明确表达，不是“实物没有 MOS NTC”的证据。
+获得 BOM 后如确认实装，必须修改该产品 capability 并完成温度保护验证。
 
 ## 3. MCU IO：当前源码映射（未获 D013 原理图验证）
 
-`sh3673510_project_config.h` 仍使用 `D011_*` 宏名并继承 D011 的引脚表。以下只表示 D013 分支当前会按这些 GPIO 编译：
+`bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 使用中性 `BMS_BOARD_*` 宏名；引脚值继承 D011，仍待 D013 原理图确认。以下只表示 D013 分支当前会按这些 GPIO 编译：
 
 | GPIO | 当前源码宏 | 当前源码用途 | D013 原理图状态 |
 |---|---|---|---|
-| PD4 | `D011_CMNT_EN_PIN` | communication enable | **未验证** |
-| PD7 | `D011_AFE_SCLK_PIN` | AFE SPI SCLK | **未验证** |
-| PA0 | `D011_SWITCH_PIN` | switch input | **未验证** |
-| PA1 | `D011_RS485_EN_PIN` | RS485 direction | **未验证；且 D013 conf 当前 `MODBUS_RS485_ENABLE=0`** |
-| PA7 | `D011_SWS_PIN` | SWS debug | **未验证** |
-| PB1 | `D011_INT_WK_MCU_PIN` | interrupt/wake input | **未验证** |
-| PB4 | `D011_HEATER_CHG_PIN` | heater control | **未验证** |
-| PB5 | `D011_HEATER_FUSE_TRIGGER_PIN` | fuse trigger，safe level 0 | **未验证；不得在 D013 上假设存在同一不可逆硬件** |
-| PB6 | `D011_AFE_MISO_PIN` | SPI MISO | **未验证** |
-| PB7 | `D011_AFE_MOSI_PIN` | SPI MOSI | **未验证** |
-| PC0 | `D011_AFE_ALARM_PIN` | AFE ALARM | **未验证** |
-| PC1 | `D011_AFE_RESET_OUT_PIN` | AFE RESET network | **未验证** |
-| PC2 | `D011_SCI1_TX_PIN` | UART TX | **未验证** |
-| PC3 | `D011_SCI1_RX_PIN` | UART RX | **未验证** |
-| PC4 | `D011_DEBUG_LED_PIN` | debug LED | **未验证** |
-| PD3 | `D011_CMNT_WK_PIN` | communication wake | **未验证** |
-| PD2 | `D011_AFE_CS_PIN` | SPI CS | **未验证** |
+| PD4 | `BMS_BOARD_CMNT_EN_PIN` | communication enable | **未验证** |
+| PD7 | `BMS_BOARD_AFE_SCLK_PIN` | AFE SPI SCLK | **未验证** |
+| PA0 | `BMS_BOARD_SWITCH_PIN` | switch input | **未验证** |
+| PA1 | `BMS_BOARD_RS485_EN_PIN` | RS485 direction | **未验证；且 D013 conf 当前 `MODBUS_RS485_ENABLE=0`** |
+| PA7 | `BMS_BOARD_SWS_PIN` | SWS debug | **未验证** |
+| PB1 | `BMS_BOARD_INT_WK_MCU_PIN` | interrupt/wake input | **未验证** |
+| PB4 | `BMS_BOARD_HEATER_CHG_PIN` | heater control | **未验证** |
+| PB5 | `BMS_BOARD_HEATER_FUSE_TRIGGER_PIN` | fuse trigger，safe level 0 | **未验证；不得在 D013 上假设存在同一不可逆硬件** |
+| PB6 | `BMS_BOARD_AFE_MISO_PIN` | SPI MISO | **未验证** |
+| PB7 | `BMS_BOARD_AFE_MOSI_PIN` | SPI MOSI | **未验证** |
+| PC0 | `BMS_BOARD_AFE_ALARM_PIN` | AFE ALARM | **未验证** |
+| PC1 | `BMS_BOARD_AFE_RESET_OUT_PIN` | AFE RESET network | **未验证** |
+| PC2 | `BMS_BOARD_SCI1_TX_PIN` | UART TX | **未验证** |
+| PC3 | `BMS_BOARD_SCI1_RX_PIN` | UART RX | **未验证** |
+| PC4 | `BMS_BOARD_DEBUG_LED_PIN` | debug LED | **未验证** |
+| PD3 | `BMS_BOARD_CMNT_WK_PIN` | communication wake | **未验证** |
+| PD2 | `BMS_BOARD_AFE_CS_PIN` | SPI CS | **未验证** |
 
 ### 3.1 结论
 
@@ -78,7 +77,7 @@ D013 `conf.h` 仍保留 D011 身份：
 
 AFE 寄存器模型来自 SH36735XX CV1.0A；当前 D013 与 D011 共用 `sh3673520_reg.h` 和 `sh3673510_control.c`。这在芯片系列层面有手册依据；板级配置仍需 D013 原理图确认。
 
-解析当前 `sh3673510_project_config.h`：
+解析当前 `bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`）：
 
 | 寄存器 | D013 当前静态值 | 关键字段 |
 |---|---:|---|
@@ -97,7 +96,7 @@ D013 与 D011 的关键静态 AFE 差异在当前源码中主要是：
 - `Rsense=100 µΩ`（D011 为 250 µΩ）；
 - 通信模式在 `conf.h` 是 direct UART，而不是 RS485。
 
-其余大量宏仍名为 `SH3673510_D011_*`，这是源码命名技术债，不是产品身份。
+所有板级输入现在位于 D013 产品头文件，共享后端只组合寄存器。
 
 ## 5. 运行时硬件保护配置
 
@@ -149,18 +148,18 @@ D013 与 D011 使用同一量化实现，但因为 Rsense 不同，**同一个�
 2. 明确 D013 实际 AFE 型号和封装，确认就是 SH3673510。
 3. 用硬件资料确认 4S cell wiring、未使用通道处理方式。
 4. 确认 100 µΩ shunt 的实际物料/并联结构、Kelvin 取样、方向和功率。
-5. 确认 TS1..TS4 的实际 NTC 数量、阻值和物理位置；当前 10K/TS3 heater/TS4 MOS 是 D011 派生代码事实，不是 D013 原理图事实。
-6. 移除/重命名 `D011_*` 宏和 D011 产品身份残留前，先用 D013 原理图确定正确名称，不能只做文本替换。
+5. 确认 TS1..TS4 的实际 NTC 数量、阻值和物理位置；当前 10K 是继承配置，TS3/TS4 capability 禁用；实际传感器存在性及角色尚待确认。
+6. 中性宏和 D013 身份已完成整理；引脚值仍需逐网验证，命名清理不等于硬件确认。
 7. 签核 D013 容量、OV/UV、OC、SC、温度、SOC profile/端点；当前 D11 历史默认不能作为 D013 量产值。
 
 ## 10. 当前权威源码入口
 
-- `vendor/ble_sample/conf.h`：当前 D013 编译身份/通信模式，同时暴露 D011 身份残留。
-- `vendor/ble_sample/sh3673510_project_config.h`：4S/100µΩ 和当前继承 IO/AFE 静态配置。
-- `vendor/ble_sample/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
-- `vendor/ble_sample/sh3673510_control.c`：硬件保护量化、静态配置、FET/温度处理。
-- `vendor/ble_sample/sh3673510_bms.c`：BMS适配、保护恢复、AFE communication fail-safe。
-- `vendor/ble_sample/bms_sw_protection.*`：软件三级保护。
-- `vendor/ble_sample/bms_afe_hw_profile.*`：独立 AFE HW profile。
+- `bms/products/d013/bms_product_conf.h`：当前 D013 编译身份/通信模式，保留既有 numeric wire ID，字符串已改为 D013。
+- `bms/products/d013/bms_sh3673510_config.h`：4S/100µΩ 和当前继承 IO/AFE 静态配置。
+- `bms/afe/sh3673510/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
+- `bms/afe/sh3673510/sh3673510_control.c`：硬件保护量化、静态配置、FET/温度处理。
+- `bms/afe/sh3673510/sh3673510_bms.c`：BMS适配、保护恢复、AFE communication fail-safe。
+- `bms/core/bms_sw_protection.*`：软件三级保护。
+- `bms/core/bms_afe_hw_profile.*`：独立 AFE HW profile。
 
 获得 D013 原理图之前，本文不会把任何 D011 原理图事实复制成 D013 硬件事实。
