@@ -21,13 +21,10 @@
 #define SeriesNum                      SH3673510_BOARD_CELL_COUNT
 /* Existing D11 product capacity: Ah*10. It is product data, not inferred from schematic. */
 #define CapacityFactory                116
-#define AFE_ODC1                       300
-#define AFE_ODC2                       500
 #define BMS_HARDWARE_VERDION_DEFAULT   "D013"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
 #define BMS_SERIAL_NUMBER_DEFAULT      "D013-UNSET"
 
-/* Legacy SOC/current-sense compatibility values: 2mV : 20A. */
 
 #define DEV_NAME_STR  "BT_D013"
 #define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)

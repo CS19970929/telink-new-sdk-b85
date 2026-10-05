@@ -3,14 +3,7 @@
 
 #include <stdint.h>
 
-/*
- * AFE-independent BMS runtime/report state.
- *
- * Field names are intentionally kept compatible with the existing firmware so
- * this extraction does not change layout, protocol mapping or runtime logic.
- * All modules include this header directly; the former sci_upper.h compatibility
- * include has been removed so the core state has one obvious definition site.
- */
+/* AFE 无关的 BMS 运行/报告状态；字段单位在定义处说明。 */
 
 struct SOC_CAL_ELEMENT_UPPER {
     uint16_t u16Soc;             /* SOC, % */
@@ -86,7 +79,7 @@ typedef enum
     BMS_FAULT_DSG_UTP_FIRST,
     BMS_FAULT_MOS_OTP_FIRST,
     BMS_FAULT_VDELTA_FIRST,
-    BMS_FAULT_SOC_HIGH_FIRST,
+    BMS_FAULT_SOC_LOW_FIRST,
 
     BMS_FAULT_CELL_OVP_SECOND,
     BMS_FAULT_CELL_UVP_SECOND,
@@ -100,7 +93,7 @@ typedef enum
     BMS_FAULT_DSG_UTP_SECOND,
     BMS_FAULT_MOS_OTP_SECOND,
     BMS_FAULT_VDELTA_SECOND,
-    BMS_FAULT_SOC_HIGH_SECOND,
+    BMS_FAULT_SOC_LOW_SECOND,
 
     BMS_FAULT_CELL_OVP_THIRD,
     BMS_FAULT_CELL_UVP_THIRD,
@@ -114,13 +107,13 @@ typedef enum
     BMS_FAULT_DSG_UTP_THIRD,
     BMS_FAULT_MOS_OTP_THIRD,
     BMS_FAULT_VDELTA_THIRD,
-    BMS_FAULT_SOC_HIGH_THIRD
+    BMS_FAULT_SOC_LOW_THIRD
 } bms_fault_code_t;
 
 typedef char bms_fault_codes_must_match_protocol[
     (BMS_FAULT_CELL_OVP_SECOND == 14 &&
      BMS_FAULT_CELL_OVP_THIRD == 27 &&
-     BMS_FAULT_SOC_HIGH_THIRD == 39) ? 1 : -1];
+     BMS_FAULT_SOC_LOW_THIRD == 39) ? 1 : -1];
 
 typedef enum
 {

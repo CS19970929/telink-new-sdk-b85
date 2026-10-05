@@ -32,8 +32,6 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #define FLASH_ADDR_LAYOUT_2M_CONFIG_BASE     0x1B8000u
 #define FLASH_ADDR_LAYOUT_2M_FACTORY_BASE    0x1BC000u
 
-/* param.h still exports PARAM_ADDR; runtime persistence must never use it directly. */
-#define FLASH_ADDR_SOFT_PROTECT_BASE         FLASH_ADDR_LAYOUT_512K_CONFIG_BASE
 
 static inline int flash_store_cfg_layout_supported(void)
 {

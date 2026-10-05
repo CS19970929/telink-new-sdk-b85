@@ -47,3 +47,9 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 D008 必须按实际电池显式选择 `16s-lfp`、`20s-nmc` 或 `24s-lfp`。
 CI 同时构建这三种 D008 配置和 D011/D013/D014。生产仅公共 `bms/core` 使用 `-Os` 控制体积，SDK/AFE/平台保持 `-O2`。Linux 通过 `TC32_BIN` 指定官方 TC32 的 bin 目录；
 Windows 保留现有工具路径和可选 runner。构建策略不等于实板签核，见 [修复记录](docs/BMS_MONOREPO_REMEDIATION.md)。
+
+## 阅读与参数更新
+
+打开 `bms.code-workspace` 可聚焦业务源码、产品配置、测试和文档；SDK 仍用于编译，可从文件系统直接打开。
+先读 [代码阅读指南](docs/CODE_READING_GUIDE.md)，OTA 是否保留各类参数见 [参数更新控制](docs/OTA_PARAMETERS.md)。
+后续所有 Git 提交信息、PR 变更说明使用中文。

@@ -33,8 +33,8 @@ class D008FrameworkContract(unittest.TestCase):
         cls.guard = read("bms_afe_guard.c")
         cls.dvc = read("dvc1124.c")
         cls.dvc_bms = read("dvc1124_bms.c")
-        cls.fixed_backend = read("dvc1124_config_store.c")
-        cls.fixed_header = read("dvc1124_config_store.h")
+        cls.fixed_backend = read("dvc1124_boot.c")
+        cls.fixed_header = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.project = read("dvc1124_project_config.h")
         cls.product = read("d008_product_profile.h")
@@ -187,7 +187,7 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("DVC1124_ApplyOperatingConfig(&cfg)", self.fixed_backend)
 
     def test_fixed_semantic_window_is_diagnostic_only(self):
-        self.assertNotIn("dvc1124_config_store.h", self.service)
+        self.assertNotIn("dvc1124_boot.h", self.service)
         self.assertNotIn("DVC1124_ConfigStore", self.service)
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
         self.assertIn("bms_afe_bus_access_allowed", self.service)
@@ -254,8 +254,8 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("!bms_protection_params_valid()", self.features)
 
     def test_startup_update_failure_has_separate_gate(self):
-        self.assertIn("s_protection_params_valid && s_storage_upgrade_valid", self.param)
-        self.assertIn("s_storage_upgrade_valid = 0u", self.param)
+        self.assertIn("s_protection_params_valid && s_storage_startup_valid", self.param)
+        self.assertIn("s_storage_startup_valid = 0u", self.param)
         self.assertNotIn("param_upgrade_mark_epoch", self.param)
 
     def test_openwire_and_balance_safety_gate_remain(self):
@@ -269,7 +269,7 @@ class D008FrameworkContract(unittest.TestCase):
 
     def test_source_order_still_contains_backend_lifecycle_unit(self):
         order = (ROOT / "bms/products/d008/sources.txt").read_text(encoding="utf-8")
-        self.assertIn("bms/afe/dvc1124/dvc1124_config_store.c", order)
+        self.assertIn("bms/afe/dvc1124/dvc1124_boot.c", order)
         self.assertIn("bms/afe/dvc1124/dvc1124_config_service.c", order)
 
 

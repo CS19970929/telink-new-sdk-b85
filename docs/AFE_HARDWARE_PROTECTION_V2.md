@@ -9,7 +9,7 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-当前 monorepo 使用 CFG2 schema 1，旧开发记录拒绝且不迁移。软件和 AFE 默认配置独立生成与持久化。
+当前 monorepo 使用 CFG2 schema 2，旧开发记录拒绝且不迁移。软件和 AFE 默认配置独立生成与持久化。
 
 D014 开发分支已改为从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
 

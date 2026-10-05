@@ -8,7 +8,7 @@ BASE = Sources(ROOT)
 driver = (BASE / "dvc1124.c").read_text(encoding="utf-8")
 header = (BASE / "dvc1124.h").read_text(encoding="utf-8")
 config = (BASE / "dvc1124_project_config.h").read_text(encoding="utf-8")
-backend = (BASE / "dvc1124_config_store.c").read_text(encoding="utf-8")
+backend = (BASE / "dvc1124_boot.c").read_text(encoding="utf-8")
 conf = (BASE / "conf.h").read_text(encoding="utf-8")
 
 assert "#define DVC1124_BOOT_ZERO_ENABLE              1u" in config

@@ -129,7 +129,6 @@ static void dvc_delay_ms(uint16_t ms)
 
     while (!clock_time_exceed(tick, us))
     {
-        Feed_IWatchDog;
     }
 }
 
@@ -161,7 +160,6 @@ static uint8_t dvc_i2c_wait_done(void)
 
     while ((reg_i2c_status & FLD_I2C_CMD_BUSY) != 0u)
     {
-        Feed_IWatchDog;
         if (clock_time_exceed(tick, DVC1124_I2C_CMD_TIMEOUT_US))
         {
             return 0u;

@@ -44,7 +44,7 @@ app / BLE / Modbus / product logic
 - backend 负责具体芯片/Rsense 的 validation、量化、寄存器编码和 readback。
 - requested 与 effective 分开，禁止把芯片量化后的 effective 伪装成用户 requested。
 
-当前 monorepo 拒绝旧开发记录，使用 CFG2 schema 1；软件保护与 AFE 默认配置独立，不迁移旧参数。
+当前 monorepo 拒绝旧开发记录，使用 CFG2 schema 2；软件保护与 AFE 默认配置独立，不迁移旧参数。
 
 D014 当前使用产品配置中的独立 AFE 默认值初始化，不从软件保护表迁移。
 
@@ -97,7 +97,7 @@ AND no active AFE hardware block/lockout
 
 ## 9. 采样、backend 声明与参数事务的阅读入口
 
-- `app.c::app_sample_task` 在取得采样后调用同文件的 `static app_update_soc_from_sample`，组装实际样本、时间戳、故障及功能状态；`SocEnhance.c::bms_soc_update_sample` 负责 SOC 算法和运行状态。
+- `app.c::app_sample_task` 在取得采样后调用同文件的 `static app_update_soc_from_sample`，组装实际样本、时间戳、故障及功能状态；`bms_soc.c::bms_soc_update_sample` 负责 SOC 算法和运行状态。
 - `bms_afe.h` 声明经过通信/资格门禁的公共 API，不按 include 顺序改名。`bms_afe_driver.h` 声明实际 backend；guard、driver 和只读诊断使用它，不增加派发表或新的调用层。
 - `modbus_rtu.c` 检查帧、地址、长度和 CRC，并映射协议异常。`bms_afe_hw_profile_commit_be` 接收已确认完整的35-word BE payload，按原顺序处理授权、校验、保存、应用、读回和回滚；apply-state / last-error 归属 `bms_afe_hw_profile.c`。
 - SH 的 UART 初始化直接走 `modbus_uart_init`。`SH3673510_FIXED_UART_BLOCKS_PM=1` 保留原固定 UART 与 OWC idle 条件不相容的 PM 门禁，不开放新休眠入口。D008 的真实 SIF/mux 保持。

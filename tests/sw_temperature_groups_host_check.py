@@ -4,22 +4,20 @@ from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 ROOT=Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
-source=(MOD/'bms_sw_protection.c').read_text(encoding='utf-8')
-source=re.sub(r'^#include[^\n]*','',source,flags=re.M)
-params=re.search(r'struct PRT_E2ROM_PARAS \{.*?\n\};',(MOD / 'bms_protection_params.h').read_text(encoding='utf-8'),re.S).group(0)
-inputs=re.search(r'typedef struct\s*\{.*?bms_sw_protection_inputs_t;',(MOD/'bms_sw_protection.h').read_text(),re.S).group(0)
-code = '#include <stdint.h>\n#include <string.h>\n#include <assert.h>\n#include "bms_state.h"\ntypedef uint16_t u16;\n'+params+inputs+"""
-struct { struct PRT_E2ROM_PARAS protect; } g_tParam;
+code = r'''
+#include <assert.h>
+#include "bms_state.h"
+#include "bms_sw_protection.h"
+#include "bms_protection_params.h"
+#include "bms_error.h"
+PARAM_T g_tParam;
 struct stCell_Info g_stCellInfoReport;
-#define BMS_ERROR_TEMP_BREAK 1
 static int broken;
-static void bms_error_clear(int x){(void)x;broken=0;}
-static void bms_error_raise(int x){(void)x;broken=1;}
-static int bms_error_get(int x){(void)x;return broken;}
-static int bms_protection_params_valid(void){return 1;}
-void bms_fault_history_record(bms_fault_code_t x){(void)x;}
-void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t*,uint8_t,uint8_t);
-"""+source+"""
+void bms_error_clear(bms_error_id_t error){(void)error;broken=0;}
+void bms_error_raise(bms_error_id_t error){(void)error;broken=1;}
+uint8_t bms_error_get(bms_error_id_t error){(void)error;return (uint8_t)broken;}
+uint8_t bms_protection_params_valid(void){return 1;}
+void bms_fault_history_record(bms_fault_code_t fault){(void)fault;}
 int main(void){
  bms_sw_protection_inputs_t in={1,1,1000,1000,1000,1};
  g_tParam.protect.u16TChgOTp_Third=900;g_tParam.protect.u16TChgOTp_Rcv=800;
@@ -62,10 +60,10 @@ int main(void){
  assert(broken && bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  return 0;
 }
-"""
+'''
 with tempfile.TemporaryDirectory(prefix='d008-temp-groups-') as folder:
  p=Path(folder)/'check.c';p.write_text(code);exe=Path(folder)/'check.exe'
  for opt in ('-O2','-Os'):
-  subprocess.run([os.environ.get('CC','cc'),opt,'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
+  subprocess.run([os.environ.get('CC','cc'),opt,'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),str(MOD/'bms_sw_protection.c'),'-o',str(exe)],check=True)
   subprocess.run([str(exe)],check=True)
 print('PASS independent SW VC/TEMP groups, disabled state reset and NTC failure gate')

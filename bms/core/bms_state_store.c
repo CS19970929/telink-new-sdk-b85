@@ -1,4 +1,5 @@
 #include "bms_diag.h"
+#include "bms_update_policy.h"
 #include "bms_state_store.h"
 
 #include "bms_storage_platform.h"
@@ -9,11 +10,13 @@
 #include <string.h>
 
 #define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /* STB + product */
-#define BMS_STATE_SCHEMA_VERSION      1u
+#define BMS_STATE_SCHEMA_VERSION      2u
 #define BMS_STATE_PAYLOAD_WORDS       11u
-#define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u)
+#define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u + 4u)
 
 typedef struct {
+    u16 soc_revision;
+    u16 runtime_revision;
     u32 soc;
     u32 dsg;
     u32 cycle;
@@ -68,6 +71,8 @@ bms_state_store_data_t bms_state_store_get_default_data(void)
 static void bms_state_defaults(bms_state_persist_t *state)
 {
     bms_state_store_data_t soc = bms_state_store_get_default_data();
+    state->soc_revision = BMS_UPDATE_SOC_STATE_REVISION;
+    state->runtime_revision = BMS_UPDATE_FACTORY_RUNTIME_REVISION;
     state->soc = soc.soc;
     state->dsg = soc.dsg;
     state->cycle = soc.cycle;
@@ -94,6 +99,7 @@ static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
     bms_state_put_u32le(&payload[32], state->rejected_learning_count);
     bms_state_put_u32le(&payload[36], state->last_learning_reject_reason);
     bms_state_put_u32le(&payload[40], state->candidate_match_count);
+    bms_state_put_u32le(&payload[44], (u32)state->soc_revision | ((u32)state->runtime_revision << 16));
 }
 
 static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
@@ -109,6 +115,8 @@ static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
     state->rejected_learning_count = bms_state_get_u32le(&payload[32]);
     state->last_learning_reject_reason = bms_state_get_u32le(&payload[36]);
     state->candidate_match_count = bms_state_get_u32le(&payload[40]);
+    state->soc_revision = (u16)bms_state_get_u32le(&payload[44]);
+    state->runtime_revision = (u16)(bms_state_get_u32le(&payload[44]) >> 16);
 }
 
 static int bms_state_save(const bms_state_persist_t *next)
@@ -152,6 +160,17 @@ int bms_state_store_init(void)
     if (storage_record_load(&g_bms_state_store, payload)) bms_state_decode(&g_bms_state, payload);
     else { bms_state_defaults(&g_bms_state); bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS); }
     next = g_bms_state;
+    if (next.soc_revision != BMS_UPDATE_SOC_STATE_REVISION) {
+        u32 runtime_min = next.runtime_min;
+        u16 runtime_revision = next.runtime_revision;
+        bms_state_defaults(&next);
+        next.runtime_min = runtime_min;
+        next.runtime_revision = runtime_revision;
+    }
+    if (next.runtime_revision != BMS_UPDATE_FACTORY_RUNTIME_REVISION) {
+        next.runtime_min = 0u;
+        next.runtime_revision = BMS_UPDATE_FACTORY_RUNTIME_REVISION;
+    }
     if (next.soc > 100u || next.dsg > 100u ||
         next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
         next.candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||

@@ -1,4 +1,5 @@
 #include "bms_diag.h"
+#include "bms_update_policy.h"
 #include "bms_config_store.h"
 
 #include "bms_soc_defs.h"
@@ -11,9 +12,9 @@
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464732u /* CFG2 */
-#define BMS_CONFIG_SCHEMA_VERSION        1u
+#define BMS_CONFIG_SCHEMA_VERSION        2u
 #define BMS_CONFIG_PROTECT_WORDS         65u
-#define BMS_CONFIG_SYSTEM_WORDS          10u
+#define BMS_CONFIG_SYSTEM_WORDS          5u
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
 #define BMS_CONFIG_USER_BYTES            54u
@@ -21,17 +22,18 @@
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
 #define BMS_CONFIG_AFE_BYTES             (BMS_CONFIG_AFE_WORDS * 2u)
-#define BMS_CONFIG_PAYLOAD_BYTES         (4u + BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_BTNAME_BYTES + 8u + BMS_CONFIG_USER_BYTES)
+#define BMS_CONFIG_PAYLOAD_BYTES         (4u + BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_BTNAME_BYTES + 8u + BMS_CONFIG_USER_BYTES + BMS_UPDATE_CONFIG_GROUP_COUNT * 2u)
 
 #if (BTNAME_SUFFIX_MAX_LEN >= BMS_CONFIG_BTNAME_BYTES)
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
 #endif
 
 typedef char bms_config_protect_layout_must_be_65_words[(sizeof(struct PRT_E2ROM_PARAS) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
-typedef char bms_config_system_layout_must_be_10_words[(sizeof(bms_config_system_params_t) == BMS_CONFIG_SYSTEM_BYTES) ? 1 : -1];
+typedef char bms_config_system_layout_must_be_5_words[(sizeof(bms_config_system_params_t) == BMS_CONFIG_SYSTEM_BYTES) ? 1 : -1];
 typedef char bms_config_afe_layout_must_be_35_words[(sizeof(bms_afe_hw_profile_t) == BMS_CONFIG_AFE_BYTES) ? 1 : -1];
 
 typedef struct {
+    u16 revisions[BMS_UPDATE_CONFIG_GROUP_COUNT];
     struct PRT_E2ROM_PARAS protect;
     bms_config_system_params_t system;
     bms_afe_hw_profile_t afe_hw;
@@ -43,6 +45,7 @@ typedef struct {
 static storage_record_store_t g_bms_config_store;
 static bms_config_cache_t g_bms_config;
 static u8 g_bms_config_ready;
+static u8 g_bms_config_needs_save;
 
 static void bms_config_put_u16le(u8 *buf, u16 value)
 {
@@ -82,20 +85,16 @@ void bms_config_store_get_default_system(bms_config_system_params_t *system)
     system->bms_type = FD_BMS_TYPE;
     system->series_num = SeriesNum;
     system->capacity_factory = CapacityFactory;
-#ifdef AFE_ODC2
-    system->afe_odc2 = AFE_ODC2;
-#else
-    system->afe_odc2 = 0u;
-#endif
-    system->fac_init_soc = FAC_INIT_soc;
-    system->init_soc = FAC_INIT_soc;
     system->battery_chemistry = BMS_PRODUCT_CHEMISTRY;
     system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID;
 }
 
 static void bms_config_defaults(bms_config_cache_t *cfg)
 {
+    unsigned group;
     memset(cfg, 0, sizeof(*cfg));
+    for (group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
+        cfg->revisions[group] = bms_update_revision((bms_update_group_t)group);
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
     bms_soc_get_default_config(&cfg->soc);
@@ -142,6 +141,11 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     bms_config_put_u32le(&payload[off], (u32)cfg->user.current_offset_ma); off += 4u;
     bms_config_put_u32le(&payload[off], cfg->user.current_gain_ppm); off += 4u;
     memcpy(&payload[off], cfg->user.serial, sizeof(cfg->user.serial));
+    off += sizeof(cfg->user.serial);
+    for (i = 0u; i < BMS_UPDATE_CONFIG_GROUP_COUNT; ++i) {
+        bms_config_put_u16le(&payload[off], cfg->revisions[i]);
+        off += 2u;
+    }
 
 }
 
@@ -185,7 +189,61 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->user.current_offset_ma = (int32_t)bms_config_get_u32le(&payload[off]); off += 4u;
     cfg->user.current_gain_ppm = bms_config_get_u32le(&payload[off]); off += 4u;
     memcpy(cfg->user.serial, &payload[off], sizeof(cfg->user.serial));
+    off += sizeof(cfg->user.serial);
+    for (i = 0u; i < BMS_UPDATE_CONFIG_GROUP_COUNT; ++i) {
+        cfg->revisions[i] = bms_config_get_u16le(&payload[off]);
+        off += 2u;
+    }
 
+}
+
+/* 数据和更新编号位于同一条 CRC/提交标记保护的记录中。
+ * 这里只准备 RAM 值；启动验证完成并提交成功后才允许 AFE 输出。 */
+static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
+{
+    bms_config_cache_t defaults;
+    unsigned group;
+    u8 changed = 0u;
+    bms_config_defaults(&defaults);
+    for (group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
+        if (cfg->revisions[group] == defaults.revisions[group]) continue;
+        switch ((bms_update_group_t)group) {
+        case BMS_UPDATE_SW:
+            cfg->protect = defaults.protect;
+            break;
+        case BMS_UPDATE_AFE:
+            cfg->afe_hw = defaults.afe_hw;
+            break;
+        case BMS_UPDATE_BUSINESS:
+            cfg->system.capacity_factory = defaults.system.capacity_factory;
+            cfg->user.heater_enable = defaults.user.heater_enable;
+            cfg->user.heater_start_x10 = defaults.user.heater_start_x10;
+            cfg->user.heater_stop_x10 = defaults.user.heater_stop_x10;
+            cfg->user.balance_enable = defaults.user.balance_enable;
+            cfg->user.balance_start_mv = defaults.user.balance_start_mv;
+            cfg->user.balance_start_delta_mv = defaults.user.balance_start_delta_mv;
+            cfg->user.balance_stop_delta_mv = defaults.user.balance_stop_delta_mv;
+            break;
+        case BMS_UPDATE_SOC:
+            cfg->soc = defaults.soc;
+            cfg->system.battery_chemistry = defaults.system.battery_chemistry;
+            cfg->system.soc_profile_id = defaults.system.soc_profile_id;
+            break;
+        case BMS_UPDATE_CALIBRATION:
+            cfg->user.current_offset_ma = defaults.user.current_offset_ma;
+            cfg->user.current_gain_ppm = defaults.user.current_gain_ppm;
+            break;
+        case BMS_UPDATE_IDENTITY:
+            memcpy(cfg->user.serial, defaults.user.serial, sizeof(cfg->user.serial));
+            memcpy(cfg->bt_name_suffix, defaults.bt_name_suffix, sizeof(cfg->bt_name_suffix));
+            break;
+        default:
+            break;
+        }
+        cfg->revisions[group] = defaults.revisions[group];
+        changed = 1u;
+    }
+    return changed;
 }
 
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
@@ -196,6 +254,7 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
     }
     g_bms_config = *cfg;
+    g_bms_config_needs_save = 0u;
     return 1;
 }
 
@@ -218,8 +277,24 @@ int bms_config_store_init(void)
                              BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OPEN); return 0;
     }
-    if (storage_record_load(&g_bms_config_store, payload) && bms_config_get_u32le(payload) == BMS_PRODUCT_ID) bms_config_decode(&g_bms_config, payload);
-    else { g_bms_config_store.has_latest = 0u; bms_config_defaults(&g_bms_config); bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS); }
+    g_bms_config_needs_save = 0u;
+    if (storage_record_load(&g_bms_config_store, payload) &&
+        bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {
+        bms_config_decode(&g_bms_config, payload);
+        /* 装配串数属于板级身份，不能把另一种装配的参数直接用于当前板。 */
+        if (g_bms_config.system.series_num != SeriesNum ||
+            g_bms_config.system.bms_type != FD_BMS_TYPE) {
+            bms_config_defaults(&g_bms_config);
+            g_bms_config_needs_save = 1u;
+        } else {
+            g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
+        }
+    } else {
+        g_bms_config_store.has_latest = 0u;
+        bms_config_defaults(&g_bms_config);
+        g_bms_config_needs_save = 1u;
+        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS);
+    }
     g_bms_config_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OK);
     return 1;
@@ -324,7 +399,7 @@ int bms_config_store_validate_startup(void)
         g_bms_config.system.capacity_factory == 0u ||
         g_bms_config.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) invalid |= DIAG_UPGRADE_BAD_CAPACITY;
     if (invalid) { bms_diag_upgrade(DIAG_UPGRADE_VALIDATION, invalid); return 0; }
-    if (!g_bms_config_store.has_latest && !bms_config_save_cache(&g_bms_config)) return 0;
+    if (g_bms_config_needs_save && !bms_config_save_cache(&g_bms_config)) return 0;
     bms_diag_upgrade(DIAG_UPGRADE_CONFIG_OK, 0u);
     return 1;
 }

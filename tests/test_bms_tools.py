@@ -14,7 +14,11 @@ WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "bms-ci.yml"
 SPEC = importlib.util.spec_from_file_location("bms_tool", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 bms = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = bms
+sys.path.insert(0, str(MODULE_PATH.parent))
 SPEC.loader.exec_module(bms)
+from static_analysis import StaticAnalysis
+static = StaticAnalysis(bms)
 
 
 class WorktreeJunctionTests(unittest.TestCase):
@@ -166,7 +170,7 @@ class IntegrityPrimitiveTests(unittest.TestCase):
 class SourceOrderTests(unittest.TestCase):
     def test_discovery_uses_product_backend_and_all_shared_sources(self):
         actual = bms._discover_managed_sources()
-        self.assertIn("bms/core/SocEnhance.c", actual)
+        self.assertIn("bms/core/bms_soc.c", actual)
         self.assertIn("bms/core/bms_parameter_access.c", actual)
         backend = "dvc1124" if bms.PRODUCT == "d008" else "sh3673510"
         self.assertTrue(any(path.startswith("bms/afe/" + backend + "/") for path in actual))
@@ -216,13 +220,13 @@ class OutputPathTests(unittest.TestCase):
 
 class StaticAnalysisPrimitiveTests(unittest.TestCase):
     def test_static_scope_accepts_only_ble_sample_paths(self) -> None:
-        self.assertTrue(bms._is_application_scope_path(
+        self.assertTrue(static._is_application_scope_path(
             "bms/app/app.c"))
-        self.assertTrue(bms._is_application_scope_path(
+        self.assertTrue(static._is_application_scope_path(
             "bms/platform/telink/flash_store_safe.h"))
-        self.assertFalse(bms._is_application_scope_path(
+        self.assertFalse(static._is_application_scope_path(
             f"{bms.SDK_SUBDIR}/vendor/common/app_common.c"))
-        self.assertFalse(bms._is_application_scope_path(
+        self.assertFalse(static._is_application_scope_path(
             f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"))
 
     def test_scope_exclusion_partition_never_suppresses_application(self) -> None:
@@ -230,10 +234,12 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
             "bms/app/app.h",
             f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h",
         }
-        excluded = sorted(
-            path for path in dependencies if not bms._is_application_scope_path(path)
-        )
-        self.assertEqual(excluded, [f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"])
+        with tempfile.TemporaryDirectory() as directory:
+            path, excluded = static._write_cppcheck_scope_exclusions(dependencies, Path(directory))
+            self.assertEqual(excluded, [f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"])
+            self.assertIn("gpio.h", path.read_text())
+            self.assertNotIn("bms/app/app.h", path.read_text())
+
 
     def test_extracts_real_compile_settings_without_manual_flag_lists(self) -> None:
         command = (
@@ -242,7 +248,7 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
         )
         with mock.patch.object(bms, "_tc32_tool", return_value=r"C:\tc32\tc32-elf-gcc.exe"), \
                 mock.patch.object(bms, "_tool_version", return_value="GCC 4.5.1-tc32-1.3"):
-            settings = bms._extract_real_compile_settings(command)
+            settings = static._extract_real_compile_settings(command)
         self.assertEqual(settings["c_standard"], "gnu99")
         self.assertEqual(settings["include_paths"], ["C:/sdk"])
         self.assertEqual(settings["defines"], ["PROJECT=1"])
@@ -256,7 +262,7 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
                 "    if (value) {\n        return value;\n    }\n    return 0;\n}\n",
                 encoding="utf-8",
             )
-            self.assertEqual(bms._function_at_line(source, 5), "example_function")
+            self.assertEqual(static._function_at_line(source, 5), "example_function")
 
     def test_unmodified_sdk_style_is_not_auto_approved_or_auto_deviated(self) -> None:
         row = {
@@ -268,7 +274,7 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
                 "line": 10,
             }],
         }
-        classification, status, _ = bms._finding_classification(row, set())
+        classification, status, _ = static._finding_classification(row, set())
         self.assertEqual(classification, "SDK问题")
         self.assertEqual(status, "待评审（SDK）")
         self.assertNotIn("批准", status)
@@ -294,9 +300,9 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
                     '{"formula_errors": 0}', encoding="utf-8")
                 return mock.Mock(returncode=0, stdout="ok", stderr="")
 
-            with mock.patch.object(bms, "_resolve_artifact_runtime", return_value=Path("python")), \
+            with mock.patch.object(static, "_resolve_artifact_runtime", return_value=Path("python")), \
                     mock.patch.object(bms.subprocess, "run", side_effect=fake_run):
-                bms._run_static_report_builder(
+                static._run_static_report_builder(
                     template, data_path, output_path, verification_dir)
 
             self.assertEqual(output_path.read_bytes(), b"completed-report")

@@ -16,9 +16,7 @@
  *   - AFE hardware protection remains an independent backup. Backends merge
  *     hardware flags into Third after this module evaluates the software state.
  *
- * u16SocUp_* / b1SocLow are intentionally excluded from v1 because the legacy
- * naming/semantics are inconsistent. They must be specified before being made
- * part of the common protection state machine.
+ * SOC 低电量故障由 bms_soc.c 根据 SOC 样本统一处理。
  */
 #define BMS_SW_PROTECTION_SAMPLE_MS       200u
 #define BMS_SW_PROTECTION_LEVEL_COUNT     3u

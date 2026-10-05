@@ -55,7 +55,7 @@ static bool deepsleep_en;
 static u8 ble_tx_pending;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
 static bms_afe_aux_measurements_t measurement;
-static struct{bool low_power_mode;}sys_time;
+static bool s_low_power_mode;
 static struct{uint16_t u16VCellMin;}g_stCellInfoReport={3300};
 static struct{uint8_t u8SOC_Now,u8DSG_SOC_Int;uint32_t u32Cycle_times;}SOC_Calculate_Element;
 static u32 pm_get_32k_tick(void){return now;}
@@ -125,11 +125,11 @@ int main(void){
   measurement.current_ma=currents[i];blt_pm_proc();
   int active=currents[i]>=500||currents[i]<=-500;
   assert(mask==(active?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
-  assert(sys_time.low_power_mode==!active);
+  assert(s_low_power_mode==!active);
  }
  /* A live BLE connection is not itself an active-mode request. */
  reset();device_in_connection_state=1;blt_pm_proc();
- assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&sys_time.low_power_mode);
+ assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&s_low_power_mode);
  elapsed=7200;g_stCellInfoReport.u16VCellMin=2400;blt_pm_proc();assert(!cut_calls);
  ota_is_working=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
  ota_is_working=0;bus_busy=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);

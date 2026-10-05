@@ -39,10 +39,10 @@ static int bms_config_get_current_calibration(int32_t*o,uint32_t*g){*o=stored_us
 #define BMS_ERROR_AFE1 0
 static int afe_error;
 static uint8_t bms_error_get(int error){(void)error;return (uint8_t)afe_error;}
-typedef enum {BMS_FAULT_SOC_HIGH_FIRST,BMS_FAULT_SOC_HIGH_SECOND,BMS_FAULT_SOC_HIGH_THIRD} bms_fault_code_t;
+typedef enum {BMS_FAULT_SOC_LOW_FIRST,BMS_FAULT_SOC_LOW_SECOND,BMS_FAULT_SOC_LOW_THIRD} bms_fault_code_t;
 static void bms_fault_history_record(bms_fault_code_t c){}
 typedef union MDLCHGFAULT_REG {struct {unsigned b1SocLow:1,b1CellOvp:1,b1CellUvp:1;}bits;uint16_t all;} MDLCHGFAULT_REG;
-static struct {struct {uint16_t u16VcellOvp_Third,u16VcellUvp_Third,u16SocUp_Filter,u16SocUp_First,u16SocUp_Second,u16SocUp_Third,u16SocUp_Rcv;}protect;}g_tParam;
+static struct {struct {uint16_t u16VcellOvp_Third,u16VcellUvp_Third,u16SocLow_Filter,u16SocLow_First,u16SocLow_Second,u16SocLow_Third,u16SocLow_Rcv;}protect;}g_tParam;
 static struct {
  uint16_t u16VCellMax,u16VCellMin,u16VCellDelta,u16VCellTotle,u16Ichg,u16IDischg;
  MDLCHGFAULT_REG unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
@@ -360,32 +360,32 @@ int main(int argc,char **argv){
  /* ETA uses internal capacity and a stable filtered current, never display SOC. */
  setup(1,50,3330);sample(1,10000,1);
  for(int i=0;i<170;i++)sample(1,10000,6400);
- assert(g_soc_runtime.eta_valid && g_soc_runtime.eta_direction==BMS_SOC_ETA_DIR_DISCHARGE);
- assert(g_soc_runtime.time_to_empty_min>=298 && g_soc_runtime.time_to_empty_min<=300);
- assert(g_soc_runtime.time_to_full_min==BMS_SOC_ETA_MINUTES_INVALID);
+ assert(g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_DISCHARGE);
+ assert(g_soc_runtime.eta.time_to_empty_min>=298 && g_soc_runtime.eta.time_to_empty_min<=300);
+ assert(g_soc_runtime.eta.time_to_full_min==BMS_SOC_ETA_MINUTES_INVALID);
  setup(1,50,3330);sample(1,20000,1);
  for(int i=0;i<170;i++)sample(1,20000,6400);
- assert(g_soc_runtime.eta_valid&&g_soc_runtime.time_to_empty_min>=148&&g_soc_runtime.time_to_empty_min<=150);
+ assert(g_soc_runtime.eta.eta_valid&&g_soc_runtime.eta.time_to_empty_min>=148&&g_soc_runtime.eta.time_to_empty_min<=150);
  setup(1,50,3330);sample(1,5000,1);
  for(int i=0;i<170;i++)sample(1,5000,6400);
- assert(g_soc_runtime.eta_valid&&g_soc_runtime.time_to_empty_min>=598&&g_soc_runtime.time_to_empty_min<=600);
+ assert(g_soc_runtime.eta.eta_valid&&g_soc_runtime.eta.time_to_empty_min>=598&&g_soc_runtime.eta.time_to_empty_min<=600);
  for(int i=0;i<200;i++)sample(1,(i&1)?5000:20000,6400);
- assert(!g_soc_runtime.eta_valid && g_soc_runtime.eta_state==BMS_SOC_ETA_LOW_CONFIDENCE);
+ assert(!g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_state==BMS_SOC_ETA_LOW_CONFIDENCE);
  setup(1,50,3330);sample(1,-10000,1);
  for(int i=0;i<170;i++)sample(1,-10000,6400);
- assert(g_soc_runtime.eta_valid && g_soc_runtime.eta_direction==BMS_SOC_ETA_DIR_CHARGE);
- assert(g_soc_runtime.time_to_full_min>=298 && g_soc_runtime.time_to_full_min<=300);
- sample(1,100,6400);sample(1,100,6400);assert(!g_soc_runtime.eta_valid);
+ assert(g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_CHARGE);
+ assert(g_soc_runtime.eta.time_to_full_min>=298 && g_soc_runtime.eta.time_to_full_min<=300);
+ sample(1,100,6400);sample(1,100,6400);assert(!g_soc_runtime.eta.eta_valid);
 
  /* Maximum configured capacity must not overflow the 32-bit TC32 ETA path. */
- assert(soc_eta_minutes(BMS_SOC_CAPACITY_MAX_0P1AH*3600u,201u)==65534u);
- assert(soc_eta_minutes(BMS_SOC_CAPACITY_MAX_0P1AH*3600u,2000000000u)==0u);
+ assert(bms_eta_minutes(BMS_SOC_CAPACITY_MAX_0P1AH*3600u,201u)==65534u);
+ assert(bms_eta_minutes(BMS_SOC_CAPACITY_MAX_0P1AH*3600u,2000000000u)==0u);
 
  /* CV/taper and endpoint correction deliberately withdraw ETA confidence. */
  setup(1,90,3400);sample(1,-20000,1);
  for(int i=0;i<170;i++)sample(1,-20000,6400);
  for(int i=0;i<80;i++)sample(1,-2000,6400);
- assert(!g_soc_runtime.eta_valid);
+ assert(!g_soc_runtime.eta.eta_valid);
 
  /* Exact D008 deadband boundary samples, including the requested 50..250mA set. */
  assert(integrate(1,50,6400,100)==0);assert(integrate(1,100,6400,100)==0);

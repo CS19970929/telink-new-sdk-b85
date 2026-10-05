@@ -1,4 +1,4 @@
-#include "dvc1124_config_store.h"
+#include "dvc1124_boot.h"
 #include "bms_afe_driver.h"
 
 #include "tl_common.h"
@@ -7,14 +7,7 @@
 #include "dvc1124_project_config.h"
 #include <string.h>
 
-/*
- * This file keeps its legacy name only because the Telink project has a locked
- * source order.  It no longer owns a Flash KV store.
- *
- * Fixed DVC operating/board policy is compile-time firmware configuration and
- * is re-applied after every AFE reset.  Only software-protection parameters and
- * bms_afe_hw_profile remain persistent runtime protection data.
- */
+/* 应用 D008 编译期板级配置，并通过公共 AFE profile 初始化硬件保护。 */
 static uint8_t s_project_config_pending = 1u;
 
 /*
@@ -38,7 +31,6 @@ static void dvc_project_delay_us(uint32_t delay_us)
 
     while (!clock_time_exceed(tick, delay_us))
     {
-        Feed_IWatchDog;
     }
 }
 

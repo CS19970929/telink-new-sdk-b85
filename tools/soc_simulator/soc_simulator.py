@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic SOC replay, independent battery model and regression runner.
 
-The executable under test is compiled from the production SocEnhance.c.  This
+The executable under test is compiled from the production bms_soc.c.  This
 Python layer owns file normalization, scenario generation and metrics only; it
 does not implement a second copy of the firmware SOC estimator.
 """
@@ -67,8 +67,10 @@ def ensure_runner() -> Path:
     sources = [
         HOST_CHECK,
         ROOT / "tests/fixtures/d008_power_soc/soc.c",
-        ROOT / "bms/core/SocEnhance.c",
-        ROOT / "bms/core/SocEnhance.h",
+        ROOT / "bms/core/bms_soc.c",
+        ROOT / "bms/core/bms_soc_eta.c",
+        ROOT / "bms/core/bms_soc_eta.h",
+        ROOT / "bms/core/bms_soc.h",
     ]
     newest = max(path.stat().st_mtime for path in sources)
     if RUNNER.exists() and RUNNER.stat().st_mtime >= newest:

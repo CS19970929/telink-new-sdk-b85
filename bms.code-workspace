@@ -1,0 +1,13 @@
+{
+  "folders": [{"name": "四产品 BMS", "path": "."}],
+  "settings": {
+    "files.exclude": {
+      "tc_ble_single_sdk-V3.4.2.8_Patch_0001": true,
+      "**/__pycache__": true
+    },
+    "search.exclude": {
+      "tc_ble_single_sdk-V3.4.2.8_Patch_0001": true,
+      "**/__pycache__": true
+    }
+  }
+}

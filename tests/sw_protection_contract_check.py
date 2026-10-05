@@ -41,7 +41,7 @@ for forbidden in ("DVC1124_", "SH3673510_", "SH3673520_", "gpio_", "ReadReg", "W
     if forbidden in source:
         raise AssertionError(f"common protection leaked backend detail: {forbidden}")
 
-if "p->u16SocUp_" in source:
+if "p->u16SocLow_" in source:
     raise AssertionError("legacy SOC protection must remain out until semantics are specified")
 
 # Recover applies only to Third. First/Second alarms clear outside their own

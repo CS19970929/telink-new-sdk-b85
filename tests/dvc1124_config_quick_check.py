@@ -63,8 +63,8 @@ class CompileTimeOwnershipTests(unittest.TestCase):
     def setUpClass(cls):
         cls.product = read("d008_product_profile.h")
         cls.project = read("dvc1124_project_config.h")
-        cls.backend = read("dvc1124_config_store.c")
-        cls.store_hdr = read("dvc1124_config_store.h")
+        cls.backend = read("dvc1124_boot.c")
+        cls.store_hdr = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.service_hdr = read("dvc1124_config_service.h")
 
@@ -137,7 +137,7 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         self.assertIn("body_diode_code = 0u;", self.backend)
 
     def test_semantic_fixed_config_is_read_only(self):
-        self.assertNotIn("dvc1124_config_store.h", self.service)
+        self.assertNotIn("dvc1124_boot.h", self.service)
         self.assertNotIn("DVC1124_ConfigStore", self.service)
         self.assertIn("DVC1124_CFG_ERR_READ_ONLY", self.service)
         self.assertIn("Fixed DVC operating/board policy", self.service)
@@ -156,7 +156,7 @@ class ProtectionOwnershipTests(unittest.TestCase):
         cls.service = read("dvc1124_config_service.c")
         cls.modbus = read("modbus_rtu.c")
         cls.hw_profile = read("bms_afe_hw_profile.c")
-        cls.backend = read("dvc1124_config_store.c")
+        cls.backend = read("dvc1124_boot.c")
 
     def test_requested_afe_protection_still_comes_from_hw_profile(self):
         self.assertIn("bms_afe_hw_profile_get(&hw)", self.service)

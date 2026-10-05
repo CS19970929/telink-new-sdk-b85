@@ -11,7 +11,7 @@
 **当前不能承诺直接烧录即等价替换四个 common 分支的所有版本，更不能称为四款产品均已量产验收。** 原因包括：
 
 - D008/D011/D013 的原始导入提交对象没有发布，现有证据不足以证明与各 common 最新版本逐项等价。可下载的导入结果为 `fd50730`，详见 `bms/products/baselines.json`。
-- CFG2 schema 1 明确拒绝旧格式和其他产品的记录，不迁移旧开发板保护、容量、SOC 或校准配置；首次启动可能采用下面的默认值。已有有效的本产品 CFG2 则优先于源码默认值。
+- CFG2 schema 2 明确拒绝旧格式和其他产品的记录，不迁移旧开发板保护、容量、SOC 或校准配置；首次启动可能采用下面的默认值。有效同产品新格式记录按各类更新编号决定保留或写入默认值，见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。
 - 四产品容量和保护阈值仍有继承默认，D013 缺专属原理图/BOM，实板保护、休眠、掉电和 OTA 尚未逐产品签核。
 - D008 20S NMC 的 profile 只改变串数和 SOC 化学体系，保护阈值仍与 LFP 默认相同；D008 默认 SC enable 位为 0。这两项必须按真实产品要求决定，不能由工具擅自填写电流或电压。
 - 旧工作树未提交修改、实验分支和 common 分支的其他提交不会自动进入本分支。切换开发前保留旧 release/commit，并逐项处理仍需保留的差异。
@@ -79,7 +79,7 @@ First/Second 是报警，Third 才进入软件充/放电阻断；Recover 用于 
 | 放电低温 | −10°C | −15°C | −20°C | −10°C | 1000 ms | 全部 |
 | MOS 高温 | 75°C | 85°C | 95°C | 80°C | 1000 ms | D008/D011/D014；D013 不执行 |
 | 单体压差 | 600 mV | 800 mV | 1000 mV | 800 mV | 1000 ms | 产生等级故障，不在充放电直接阻断列表中 |
-| SOC Low 参数 | 20% | 10% | 5% | 11% | 1000 ms | 字段保留，当前统一保护状态机未执行此组 |
+| SOC Low 参数 | 20% | 10% | 5% | 11% | 1000 ms | 由 SOC 模块执行低电量故障；不直接作为 MOS 关断策略；第一级恢复阈值钳位为 21% |
 
 软件保护每 200 ms 采样，延时向上取整到采样数，所以过流参数 100 ms 实际至少需要一个 200 ms 周期；不能称为 100 ms 硬件响应。故障恢复也按相应过滤周期判定。电池温度的方向保护还受可靠充/放电电流及已有保护保持条件影响；MOS 高温独立于方向。必需 NTC 无效触发 TEMP_BREAK，阻断双向输出。
 
@@ -239,7 +239,7 @@ D008 文档中原理图 BLUE 网络为 PB6，当前 `LED_BLUE_PIN` 实际定义�
 | 默认 SOC | 60%（没有有效 State 记录时） |
 | SOC 积分 / 电流不可靠区 | 200 ms / ±200 mA |
 | SOC OCV rest / error band | 600 s / 5% |
-| 容量学习 / 学习前隐藏容量 | 0 / 1 |
+| 容量学习 / 学习前隐藏容量 | 0 / 1；隐藏只在学习启用且尚未学得容量时生效，默认仍显示容量 |
 | 电流校准 | offset=0 mA，gain=1000000 ppm；其他用户校准字段初始为 0 |
 | 低压休眠计时默认 | 单体 <3000 mV：24 h；<2800 mV：1 h；仍受代码中的电流/通信/业务条件约束 |
 | D008 suspend 退出 | 双向可靠电流绝对值 ≥500 mA |
@@ -253,7 +253,7 @@ D008 文档中原理图 BLUE 网络为 PB6，当前 `LED_BLUE_PIN` 实际定义�
 Modbus slave address=1，UART 8N1；当前 divider=9、BWPC=13，16 MHz 下约 114285.7 baud，通常按 115200 端连接。四产品继续有 BLE 通道，D008 的 SIF/UART 复用由 bus mux 管理。
 `0x2500` 为公共 AFE profile，`0x2A00` 为诊断，`0x2E00=0xD008` 是参数接口 magic，不是 D008 产品 ID。DVC `0x2800`/`0x2900` 固定配置诊断只读。AFE profile 写入需要授权并完整原子提交 35 words，包含 persist/apply/readback/rollback。
 
-CFG2 schema 1 payload=330 bytes，内部 tag=8/11/13/14。State/Event 也有独立产品标识；旧参数不迁移。512 KiB Flash 布局：Event `0x40000`/8 sectors、State `0x53000`/8 sectors、Config `0x5B000`/4 sectors、Factory `0x5F000`/2 sectors，每 sector 4096 bytes。1/2 MiB 的替代布局由 `flash_store_cfg.h` 按实际容量选择。
+CFG2 schema 2 payload=322 bytes，内部 tag=8/11/13/14。State/Event 也有独立产品标识；旧参数不迁移。512 KiB Flash 布局：Event `0x40000`/8 sectors、State `0x53000`/8 sectors、Config `0x5B000`/4 sectors、Factory `0x5F000`/2 sectors，每 sector 4096 bytes。1/2 MiB 的替代布局由 `flash_store_cfg.h` 按实际容量选择。
 恢复默认使用 `0x2E10`：1 软件保护、2 AFE profile、3 业务参数、6 工厂运行模式；AFE/工厂操作需要相应授权。旧 `0x1102=3` 不再承担此功能。
 
 ## 7. 构建、验证与发布
@@ -351,11 +351,11 @@ Windows 首次执行因旧工作区锁定文件导致 dirty，被生产门禁正
 | `u16VdeltaOvp_Third` | 1000 | 1000 | 1000 | 1000 | 1000 | 1000 |
 | `u16VdeltaOvp_Rcv` | 800 | 800 | 800 | 800 | 800 | 800 |
 | `u16VdeltaOvp_Filter` | 100 | 100 | 100 | 100 | 100 | 100 |
-| `u16SocUp_First` | 20 | 20 | 20 | 20 | 20 | 20 |
-| `u16SocUp_Second` | 10 | 10 | 10 | 10 | 10 | 10 |
-| `u16SocUp_Third` | 5 | 5 | 5 | 5 | 5 | 5 |
-| `u16SocUp_Rcv` | 11 | 11 | 11 | 11 | 11 | 11 |
-| `u16SocUp_Filter` | 100 | 100 | 100 | 100 | 100 | 100 |
+| `u16SocLow_First` | 20 | 20 | 20 | 20 | 20 | 20 |
+| `u16SocLow_Second` | 10 | 10 | 10 | 10 | 10 | 10 |
+| `u16SocLow_Third` | 5 | 5 | 5 | 5 | 5 | 5 |
+| `u16SocLow_Rcv` | 11 | 11 | 11 | 11 | 11 | 11 |
+| `u16SocLow_Filter` | 100 | 100 | 100 | 100 | 100 | 100 |
 
 ### 8.2 AFE profile 35 words
 

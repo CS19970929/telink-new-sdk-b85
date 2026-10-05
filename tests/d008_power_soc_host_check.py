@@ -25,7 +25,10 @@ def source(name):
 
 def function(name, signature):
     text = selected_source(MOD / name) if name == 'app.c' else (MOD / name).read_text()
-    start = text.index(signature)
+    tail = r"\s*\{" if signature.endswith(")") else r"[^;{}]*\)\s*\{"
+    match = re.search(re.escape(signature) + tail, text)
+    assert match, signature
+    start = match.start()
     pos = text.index('{', start) + 1
     depth = 1
     while depth:
@@ -46,10 +49,10 @@ def main():
     assert floor is not None, "missing D008 current reliability floor"
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         for name, code in {
-            'soc': source('bms_soc_defs.h') + '\n' + source('bms_diag.h') + '\n' + source('SocEnhance.h') + '\n' +
+            'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
                    source('bms_soc_profile.h') + '\n' +
                    'static int bms_config_store_set_soc(const bms_soc_config_t *c){if(!config_store_write_ok)return 0;stored_profile.battery_chemistry=c->chemistry;stored_profile.soc_profile_id=c->profile_id;return 1;}\n'
-                   'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('SocEnhance.c') + '\n' + '\n'.join(re.findall(r'^#define SOC_LEARNING_(?:TEMP|CURRENT|PACK)_FAULT_MASK[^\n]*', (MOD/'app.c').read_text(), re.M)) + '\n' + function('app.c', 'static void app_update_soc_from_sample('),
+                   'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('bms_soc.c') + '\n' + '\n'.join(re.findall(r'^#define SOC_LEARNING_(?:TEMP|CURRENT|PACK)_FAULT_MASK[^\n]*', (MOD/'app.c').read_text(), re.M)) + '\n' + function('app.c', 'static void app_update_soc_from_sample('),
             'power': '\n'.join(function('app.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
                 'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',

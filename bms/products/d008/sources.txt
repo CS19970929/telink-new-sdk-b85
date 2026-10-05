@@ -12,7 +12,8 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/simple_sdp
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/sync_word_check.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/tlkapi_debug.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/user_config.c
-bms/core/SocEnhance.c
+bms/core/bms_soc.c
+bms/core/bms_soc_eta.c
 bms/app/app.c
 bms/platform/telink/app_att.c
 bms/platform/telink/ble_ota.c
@@ -34,7 +35,7 @@ bms/platform/telink/bus_mux.c
 bms/afe/dvc1124/dvc1124.c
 bms/afe/dvc1124/dvc1124_bms.c
 bms/afe/dvc1124/dvc1124_config_service.c
-bms/afe/dvc1124/dvc1124_config_store.c
+bms/afe/dvc1124/dvc1124_boot.c
 bms/afe/dvc1124/dvc1124_feature_backend.c
 bms/afe/dvc1124/dvc1124_special.c
 bms/platform/telink/main.c
@@ -42,7 +43,7 @@ bms/platform/telink/bms_stack_monitor.c
 bms/core/modbus_rtu.c
 bms/platform/telink/modbus_uart.c
 bms/core/param.c
-bms/core/runtime.c
+bms/core/bms_factory_mode.c
 bms/platform/telink/sif_send.c
 bms/core/storage_record.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.c

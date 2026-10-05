@@ -2,7 +2,7 @@
 
 本轮 D014 同步统一 core、存储/诊断版本和验证边界见 [SOC_UNIFIED_CORE_2026-09-21.md](SOC_UNIFIED_CORE_2026-09-21.md)。
 
-本文件记录 `SocEnhance.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与 SOC/Cold KV 的真实行为。旧文件名保留用于工程兼容，但算法、产品配置、OCV 数据和持久化已经分层。
+本文件记录 `bms_soc.c/.h`、`bms_soc_profile.h`、`bms_soc_defs.h` 与 Config/State 持久化的真实行为。ETA 估算独立在 `bms_soc_eta.c/.h`，不依赖 AFE/SDK/Flash；其余 SOC 策略只通过样本入口推进。
 
 ## 1. 核心模型
 
@@ -49,7 +49,7 @@ bms_soc_set_product_config(BMS_SOC_CHEMISTRY_LFP,
 
 ## 3. OCV Profile 数据层
 
-OCV 曲线和端点数据已经从 `SocEnhance.c` 算法中移到 `bms_soc_profile.h`。算法只消费 `soc_profile_t`：
+OCV 曲线和端点数据已经从 `bms_soc.c` 算法中移到 `bms_soc_profile.h`。算法只消费 `soc_profile_t`：
 
 - profile ID / version；
 - chemistry；
@@ -100,7 +100,7 @@ V_ocv = (3 * Vcell_min + Vcell_max) / 4
 
 ## 6. SOC Low 告警
 
-`g_tParam.protect.u16SocUp_First/Second/Third` 沿用历史字段名，实际按低 SOC 阈值处理，并写 First/Second/Third `b1SocLow`。当前只告警，不默认关闭 DSG；真正的安全欠压截止仍由 MCU Cell UV + AFE UV 完成。
+`g_tParam.protect.u16SocLow_First/Second/Third` 沿用历史字段名，实际按低 SOC 阈值处理，并写 First/Second/Third `b1SocLow`。当前只告警，不默认关闭 DSG；真正的安全欠压截止仍由 MCU Cell UV + AFE UV 完成。
 
 ## 7. 容量学习
 

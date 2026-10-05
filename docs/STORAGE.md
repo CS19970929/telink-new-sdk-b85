@@ -1,12 +1,12 @@
-# Flash 与持久化 — D011 / Storage V1
+# Flash 与持久化 — 四产品共用
 
 本 monorepo 的业务 payload 使用开发版新格式，不迁移旧参数。
 CFG2/State/Event 的新 magic、schema 和字段以 [BMS_MONOREPO.md](BMS_MONOREPO.md) 为准。
-下文的 Flash 地址、journal 掉电顺序和平台会话边界仍适用；旧 payload/revision 描述作为历史参考。
+OTA 分组保留/重置策略见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。本文描述当前实现，不保留旧参数迁移流程。
 
 ## 1. 设计目标
 
-Storage V1 只保留四个 BMS 持久化域：`Config`、`State`、`Factory`、`Event`。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。
+当前只保留四个 BMS 持久化域：`Config`、`State`、`Factory`、`Event`。业务层不直接访问 Flash 地址；MCU 相关的 read/program/erase 与 Flash lock/BLE session 约束全部收口到 `bms_storage_platform_telink.c`。
 
 通用 `storage_record.c/.h` 仅依赖 `stdint.h` 与 `storage_port.h`，不 include Telink/STM32 SDK，可移植到其他 MCU 内部 Flash、SPI Flash 或其他块设备。
 
@@ -51,9 +51,9 @@ BMS business
 
 ## 4. 数据所有权
 
-**Config** 表示“设备应该怎样工作”：当前包含软件保护、system/SOC identity、独立 AFE Hardware Protection requested profile、reset/control epoch 与蓝牙名称后缀。Flash payload 使用显式 little-endian encode/decode，不直接把 C struct 原样 memcpy 到 Flash。D011 的 SH3673510/SH3673520 寄存器编码不进入 Flash，由 backend 把语义化 requested profile 转换并应用。
+**Config** 表示“设备应该怎样工作”：当前包含软件保护、system/SOC identity、独立 AFE Hardware Protection requested profile、分组更新编号 与蓝牙名称后缀。Flash payload 使用显式 little-endian encode/decode，不直接把 C struct 原样 memcpy 到 Flash。D011 的 SH3673510/SH3673520 寄存器编码不进入 Flash，由 backend 把语义化 requested profile 转换并应用。
 
-**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`runtime.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 仍保持值变化才保存的现有语义。
+**State** 表示“设备已经运行到什么状态”：统一保存 SOC、DSG 累计量、cycle、learned capacity/flag 和 aging runtime minutes。`bms_factory_mode.c` 不再维护第二套 Flash journal/CRC；SOC/DSG/cycle 仍保持值变化才保存的现有语义。
 
 **Factory** 已拥有独立物理区域，但当前不创建无实际需求的业务 writer。后续 SN、生产日期、板级校准等进入该域，Factory Reset 不得清除此域。
 
@@ -61,9 +61,9 @@ BMS business
 
 ## 5. 开发期格式策略
 
-当前项目仍在开发，因此不迁移旧 Flash 内容。旧 `flash_kv32`、旧 runtime journal、SOC KV 和 cold KV 不再解释；Storage V1 使用新的 magic/schema，读取不到 V1 数据时加载编译期默认值，首次正常保存时建立 V1 记录。
+当前项目仍在开发，因此不迁移旧 Flash 内容。旧 `flash_kv32`、旧 runtime journal、SOC KV 和 cold KV 不再解释；当前使用 schema 2，读取不到对应新格式数据时加载编译期默认值，启动验证成功后持久化新记录。
 
-Firmware version 与 Storage/Config schema 分离。正式出货后若只需修改少量客户参数，应使用独立 config patch 机制，而不是用 firmware version 重置整套参数。
+固件版本、存储 schema 与各类参数更新编号独立。OTA 是否覆盖各类参数由产品 `bms_parameter_policy.h` 明确控制。
 
 ## 6. 验证约束
 
@@ -73,5 +73,5 @@ Firmware version 与 Storage/Config schema 分离。正式出货后若只需修�
 - 业务模块禁止直接调用 `flash_read_page` / `flash_write_page` / `flash_erase_sector`。
 - 不重新引入业务专用 KV engine。
 - Host test 使用 RAM 模拟 Flash `1 -> 0` program 规则，并覆盖普通写入、commit 中断和 sector rotation 中断恢复。
-- 每次 layout/schema 修改必须运行 `tests/flash_quick_check.py`；TC32 发布继续执行 clean rebuild、firmware check、MAP/manifest/verify。
+- 每次 layout/schema 修改必须运行 `tests/flash_quick_check.py`；仅代码变更执行四产品 link/resources；只有明确请求镜像时才执行镜像生成与 firmware check/manifest/verify。
 - 禁止擦除 SDK/pairing/MAC/calibration 保留区。

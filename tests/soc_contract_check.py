@@ -5,9 +5,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
-C = (MOD / "SocEnhance.c").read_text(encoding="utf-8", errors="ignore")
+C = (MOD / "bms_soc.c").read_text(encoding="utf-8", errors="ignore")
 APP = (MOD / "app.c").read_text(encoding="utf-8", errors="ignore")
-H = (MOD / "SocEnhance.h").read_text(encoding="utf-8", errors="ignore")
+H = (MOD / "bms_soc.h").read_text(encoding="utf-8", errors="ignore")
 PROFILE = (MOD / "bms_soc_profile.h").read_text(encoding="utf-8", errors="ignore")
 DEFS = (MOD / "bms_soc_defs.h").read_text(encoding="utf-8", errors="ignore")
 CONFIG_C = (MOD / "bms_config_store.c").read_text(encoding="utf-8", errors="ignore")
@@ -30,14 +30,14 @@ class SocContract(unittest.TestCase):
         self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
 
     def test_product_chemistry_and_profile_are_config_fields(self):
-        self.assertIn("BMS_SYS_PARAM_BATTERY_CHEMISTRY", CONFIG_H)
-        self.assertIn("BMS_SYS_PARAM_SOC_PROFILE_ID", CONFIG_H)
-        self.assertIn("BMS_CONFIG_SYSTEM_WORDS          10u", CONFIG_C)
+        self.assertIn("u32 battery_chemistry", CONFIG_H)
+        self.assertIn("u32 soc_profile_id", CONFIG_H)
+        self.assertIn("BMS_CONFIG_SYSTEM_WORDS          5u", CONFIG_C)
         self.assertIn("bms_config_put_u32le", CONFIG_C)
         self.assertIn("system->battery_chemistry = BMS_PRODUCT_CHEMISTRY", CONFIG_C)
         self.assertIn("system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
         self.assertIn("bms_config_store_get_system", CONFIG_C)
-        self.assertIn("bms_soc_set_product_config", C)
+        self.assertIn("bms_soc_configure", C)
         self.assertIn("soc_load_persisted_product_config", C)
         self.assertNotIn("BMS_COLD_SYSTEM_KEY_BASE", CONFIG_C)
 
@@ -87,7 +87,7 @@ class SocContract(unittest.TestCase):
     def test_soc_low_faults_are_implemented_without_mos_policy(self):
         self.assertIn("soc_update_low_faults", C)
         self.assertIn("soc_fault_reg(level)->bits.b1SocLow", C)
-        self.assertIn("u16SocUp_First", C)
+        self.assertIn("u16SocLow_First", C)
         self.assertNotIn("b1SocLow ||", C)
 
     def test_learning_is_state_data_and_default_disabled(self):

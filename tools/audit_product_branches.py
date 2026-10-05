@@ -17,7 +17,7 @@ APP = 'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample
 DEFAULT_REFS = {p: f'refactor/{p.lower()}-common-bms-features'
                 for p in ('D008', 'D011', 'D013', 'D014')}
 SH = ('D011', 'D013', 'D014')
-SHARED_FILES = ('SocEnhance.c', 'SocEnhance.h', 'storage_record.c', 'bms_state_store.c',
+SHARED_FILES = ('bms_soc.c', 'bms_soc.h', 'storage_record.c', 'bms_state_store.c',
                 'bms_sw_protection.c', 'bms_sw_protection.h',
                 'bms_stack_monitor.c', 'bms_stack_monitor.h')
 SH_FILES = ('bms_features.c', 'bms_afe_guard.c', 'bms_event_log.c',
@@ -76,7 +76,7 @@ def audit(refs, worktrees=None):
             'sourceOrderSha256': digest('\n'.join(order)),
             'hashesLfNormalized': hashes,
             'pmSampleScheduler': scheduler if product in SH else None,
-            'developmentSocInputRecorder': 'BMS_SOC_RECORD_ENABLE' in read(APP + 'SocEnhance.h'),
+            'developmentSocInputRecorder': 'BMS_SOC_RECORD_ENABLE' in read(APP + 'bms_soc.h'),
             'gitProvenanceAstSha256': digest(ast.dump(provenance, include_attributes=False)),
         }
     for file, members in [(f, tuple(refs)) for f in SHARED_FILES] + [(f, SH) for f in SH_FILES]:

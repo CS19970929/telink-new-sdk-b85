@@ -20,11 +20,11 @@
 #include "sh3673510_control.h"
 #endif
 #include "param.h"
-#include "SocEnhance.h"
+#include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app.h"
 #include "conf.h"
-#include "runtime.h"
+#include "bms_factory_mode.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
 #endif
@@ -438,13 +438,6 @@ static u8 write_reg(u16 reg, u16 val)
         return bms_parameter_write(reg,1u,bytes);
     }
     if (reg==0x1102u && val==0x0Au) { deepsleep_en=true; return 0u; }
-#ifdef __TEST_SOC__
-    if ((reg==0x1102u || reg==0x1103u) && val==1u) {
-        sys_time.CHG=(reg==0x1102u) ? CapacityFactory*5 : 0;
-        sys_time.DSG=(reg==0x1103u) ? CapacityFactory*5 : 0;
-        return 0u;
-    }
-#endif
     if (reg == BMS_EVENT_LOG_RESET_REG)
     {
         if (val != 0x0001u) return MB_EX_ILLEGAL_VALUE;

@@ -76,14 +76,13 @@ struct PRT_E2ROM_PARAS {
 	uint16_t	u16VdeltaOvp_Rcv;
 	uint16_t	u16VdeltaOvp_Filter;
 
-	uint16_t	u16SocUp_First;
-	uint16_t	u16SocUp_Second;
-	uint16_t	u16SocUp_Third;
-	uint16_t	u16SocUp_Rcv;
-	uint16_t	u16SocUp_Filter;
+	uint16_t	u16SocLow_First;
+	uint16_t	u16SocLow_Second;
+	uint16_t	u16SocLow_Third;
+	uint16_t	u16SocLow_Rcv;
+	uint16_t	u16SocLow_Filter;
 };
 typedef struct {
-    uint16_t ParamVer;
     struct PRT_E2ROM_PARAS protect;
 } PARAM_T;
 extern PARAM_T g_tParam;

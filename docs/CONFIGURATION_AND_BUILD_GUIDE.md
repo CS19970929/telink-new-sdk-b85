@@ -43,7 +43,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/
 | 软件三级保护默认 | `param.h` | 只影响没有持久参数的新设备/迁移 |
 | AFE HW Protection V2 | `bms_afe_hw_profile.*` | 与软件保护独立持久化 |
 | 产品身份/容量/RS485 | `conf.h` | D014/8S/RS485；容量仍待产品签核 |
-| SOC | `bms_soc_profile.h`, `SocEnhance.c` | 公共框架 |
+| SOC | `bms_soc_profile.h`, `bms_soc.c` | 公共框架 |
 | Flash/Storage | `flash_store_cfg.h`, `bms_config_store.*` | 不因 D014 移植改变布局 |
 | Sleep/Wake/BLE | `app.c` + AFE guard/backend | 实板验证必需 |
 

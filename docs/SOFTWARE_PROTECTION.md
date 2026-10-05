@@ -16,7 +16,7 @@ Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT�
 
 ## 3. SOC legacy 字段
 
-参数表仍保留 `u16SocUp_First/Second/Third/Rcv/Filter` 兼容字段，但当前 `bms_sw_protection` 没有把它加入统一状态机。历史 `SocUp/SocLow` 命名冲突未解决前不能静默赋予新行为。因此参数存在/可读写不等于保护算法正在使用。
+参数表仍保留 `u16SocLow_First/Second/Third/Rcv/Filter` 兼容字段，但当前 `bms_sw_protection` 没有把它加入统一状态机。历史 `SocUp/SocLow` 命名冲突未解决前不能静默赋予新行为。因此参数存在/可读写不等于保护算法正在使用。
 
 ## 4. 温度有效性
 

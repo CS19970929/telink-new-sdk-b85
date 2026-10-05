@@ -25,7 +25,7 @@ class D008CommonPortFetContract(unittest.TestCase):
 
     def test_dvc_body_diode_recovery_is_compile_time_policy(self):
         cfg = read("dvc1124_project_config.h")
-        backend = read("dvc1124_config_store.c")
+        backend = read("dvc1124_boot.c")
         self.assertRegex(cfg, r"#define\s+DVC1124_BODY_DIODE_THRESHOLD_UV\s+80u")
         self.assertIn("DVC1124_DSGMASK_DBDM_MASK", cfg)
         self.assertIn("DVC1124_CHGMASK_CBDM_MASK", cfg)
@@ -33,8 +33,8 @@ class D008CommonPortFetContract(unittest.TestCase):
         self.assertIn("dvc_project_encode_body_diode", backend)
 
     def test_body_diode_policy_has_no_operating_config_flash_owner(self):
-        backend = read("dvc1124_config_store.c")
-        header = read("dvc1124_config_store.h")
+        backend = read("dvc1124_boot.c")
+        header = read("dvc1124_boot.h")
         self.assertNotIn("body_diode_threshold_uv", header)
         self.assertNotIn("ConfigStoreLoad", backend)
         self.assertNotIn("ConfigStoreSave", backend)

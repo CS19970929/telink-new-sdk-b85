@@ -42,7 +42,7 @@
 | 范围 | 门禁/所有权 |
 |---|---|
 | 四项目字节一致（LF 归一） | SOC、Record、State store、软件保护核心、stack monitor |
-| SH 三项目一致 | features、AFE guard、Event schema 1、Flash 平台、SH NTC 常量表 |
+| SH 三项目一致 | features、AFE guard、Event schema 2、Flash 平台、SH NTC 常量表 |
 | 四项目语义一致 | MAP/tool AST、SRAM/栈预算、Flash transaction 核心 |
 | 明确保留差异 | DVC/SH 寄存器、IO、AFE 阈值量化、低功耗、物理能力、D008 schema 2 Event 的重复计数/epoch、diagnostic 接入方式 |
 
@@ -56,7 +56,7 @@ D008 采用用户确认的 `D008_PRODUCT_PROFILE_24S_LFP` 默认值；16S LFP �
 
 SH 平台已接入与 D008 相同的 OTA/SDK 解锁会话排他、readback 失败 5 s 退避。六个既有 diagnostic counter 槽记录 program 调用、erase 调用、verify 失败、deferred write、最大 program/erase 32k tick；program 调用数不等于物理 page 编程次数，不能直接换算寿命。
 
-SH Event 保留 schema 1、202 B payload、100 条 ring 和原寄存器布局。事件先接受到 RAM，每 60 s 最多一次周期 checkpoint；保存失败保留 RAM 记录、latch 和 dirty，5 s 后重试。初始化幂等，工厂清空只有落盘成功才发布，失败回退 ring、游标与边沿状态。
+SH Event 使用 schema 2、404 B payload、100 条 ring、重复计数和独立更新编号。事件先接受到 RAM，每 60 s 最多一次周期 checkpoint；保存失败保留 RAM 记录、latch 和 dirty，5 s 后重试。初始化幂等，工厂清空只有落盘成功才发布，失败回退 ring、游标与边沿状态。
 
 正常休眠前尝试刷新日志；Flash 故障或退避不能永久否决低压休眠。代价是异常断电、失败后进入 deep sleep、OTA reboot 或长时间存储不可用时可能丢失未落盘窗口；ring 超过 100 条仍覆盖最旧记录。若产品要求故障前最后一条必达，需要独立掉电/供电和写延迟约束，不能无界重试实现。
 

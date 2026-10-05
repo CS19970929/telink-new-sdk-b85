@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include "storage_record.h"
+#include "bms_update_policy.h"
+#include "bms_soc_eta.h"
 typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t UINT32;
 #define FAC_INIT_soc 60u
 #define CapacityFactory 1000u
@@ -15,11 +17,10 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t
 #define BMS_PRODUCT_CHEMISTRY 1u
 #define BMS_PRODUCT_SOC_PROFILE_ID 1u
 #define E2P_PROTECT_DEFAULT_PRT {0}
-#define PARAM_VER 1u
 #define BMS_ERROR_EEPROM_STORE 1
 /* MACROS */
 /* TYPES */
-typedef struct {u16 ParamVer;struct PRT_E2ROM_PARAS protect;} PARAM_T;
+typedef struct {struct PRT_E2ROM_PARAS protect;} PARAM_T;
 static u32 now, errors, programs, erases;
 static int cut=-1, begin_ok=1, region_ok=1;
 static u8 flash[20u*4096u];
@@ -46,9 +47,9 @@ static void reboot(void){
  g_bms_config_ready=0;g_bms_state_ready=0;
  g_bms_state_attempted=0;g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
- s_storage_upgrade_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
+ s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
-static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();Param_UpgradeReset_Apply();LoadParam();assert(bms_protection_params_valid());}
+static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_startup();LoadParam();assert(bms_protection_params_valid());}
 static void test_config_schema(void){
  fresh(); bms_config_system_params_t cap=g_bms_config.system;
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
@@ -130,16 +131,16 @@ static void test_boot_gate(void){
   unsigned base=domain==0?0:(domain==1?4*4096:12*4096);
   unsigned size=domain==0?4*4096:8*4096;
   memset(flash+base,255,size);reboot();cut=0;
-  Param_UpgradeReset_Apply();LoadParam();assert(!bms_protection_params_valid());
+  bms_parameters_startup();LoadParam();assert(!bms_protection_params_valid());
   cut=-1;assert(SaveParam());assert(!bms_protection_params_valid());
-  reboot();Param_UpgradeReset_Apply();LoadParam();assert(bms_protection_params_valid());
+  reboot();bms_parameters_startup();LoadParam();assert(bms_protection_params_valid());
  }
  puts("PASS startup: Config/State/Event first-save failure gates, SaveParam cannot bypass");
 }
 
 static void test_diag_boot(void){
  fresh();reboot();region_ok=0;u32 before=errors;
- Param_UpgradeReset_Apply();LoadParam();
+ bms_parameters_startup();LoadParam();
  assert(errors-before==2);assert(bms_diag_cached_word(36)==2);
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
  assert(bms_diag_cached_word(52)==0 && bms_diag_cached_word(84)==0);
@@ -217,4 +218,103 @@ static void test_user_parameters(void){
  assert(bms_state_store_set_soc_cycle(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
  puts("PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback");
 }
-int main(void){test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+/* OTA 策略回归：通过真实记录制造待更新版本，启动流程负责提交。 */
+static bms_config_cache_t configured(void)
+{
+    bms_config_cache_t cfg = g_bms_config;
+    cfg.protect.u16VcellOvp_Third = 3999u;
+    cfg.afe_hw.cov_mv = 4100u;
+    cfg.system.capacity_factory = 1234u;
+    cfg.user.heater_enable = 0u;
+    cfg.user.balance_start_mv = 3500u;
+    cfg.soc.ocv_rest_prepare_s = 777u;
+    cfg.user.current_offset_ma = -123;
+    cfg.user.current_gain_ppm = 1100000u;
+    strcpy(cfg.user.serial, "KEEP-SN");
+    strcpy(cfg.bt_name_suffix, "KEEP-NAME");
+    return cfg;
+}
+
+static void assert_update_groups(unsigned mask)
+{
+    assert(g_bms_config.protect.u16VcellOvp_Third == ((mask & 1u) ? 0u : 3999u));
+    assert(g_bms_config.afe_hw.cov_mv == ((mask & 2u) ? 3650u : 4100u));
+    assert(g_bms_config.system.capacity_factory == ((mask & 4u) ? 1000u : 1234u));
+    assert(g_bms_config.user.heater_enable == ((mask & 4u) ? 1u : 0u));
+    assert(g_bms_config.user.balance_start_mv == ((mask & 4u) ? BMS_BALANCE_START_VOLTAGE_MV_DEFAULT : 3500u));
+    assert(g_bms_config.soc.ocv_rest_prepare_s == ((mask & 8u) ? 600u : 777u));
+    assert(g_bms_config.user.current_offset_ma == ((mask & 16u) ? 0 : -123));
+    assert(g_bms_config.user.current_gain_ppm == ((mask & 16u) ? 1000000u : 1100000u));
+    assert(!strcmp(g_bms_config.user.serial, (mask & 32u) ? "" : "KEEP-SN"));
+    assert(!strcmp(g_bms_config.bt_name_suffix, (mask & 32u) ? "" : "KEEP-NAME"));
+    for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
+        assert(g_bms_config.revisions[group] == bms_update_revision((bms_update_group_t)group));
+}
+
+static void test_ota_config_policy(void)
+{
+    for (unsigned mask = 0u; mask < 64u; ++mask) {
+        fresh();
+        bms_config_cache_t cfg = configured();
+        for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
+            if (mask & (1u << group)) cfg.revisions[group] = 2u;
+        assert(bms_config_save_cache(&cfg));
+        reboot(); bms_parameters_startup(); LoadParam();
+        assert(bms_protection_params_valid()); assert_update_groups(mask);
+        assert(g_tParam.protect.u16VcellOvp_Third == g_bms_config.protect.u16VcellOvp_Third);
+        u32 before = programs;
+        reboot(); bms_parameters_startup(); LoadParam();
+        assert(programs == before); assert_update_groups(mask);
+    }
+    for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
+        fresh(); bms_config_cache_t cfg = configured(); cfg.revisions[group] = 2u;
+        assert(bms_config_save_cache(&cfg)); memcpy(backup, flash, sizeof(flash));
+        for (int byte = 0; byte < (int)(24 + BMS_CONFIG_PAYLOAD_BYTES + 8); ++byte) {
+            memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
+            bms_parameters_startup(); LoadParam(); assert(!bms_protection_params_valid());
+            u8 payload[BMS_CONFIG_PAYLOAD_BYTES]; bms_config_cache_t persisted;
+            assert(storage_record_load(&g_bms_config_store, payload));
+            bms_config_decode(&persisted, payload); assert(!memcmp(&persisted, &cfg, sizeof(cfg)));
+            reboot(); bms_parameters_startup(); LoadParam();
+            assert(bms_protection_params_valid()); assert_update_groups(1u << group);
+        }
+    }
+    assert(bms_parameter_read(0x2e05u) == 2u);
+    for (unsigned group = 0; group < BMS_UPDATE_GROUP_COUNT; ++group)
+        assert(bms_parameter_read((u16)(0x2e80u + group)) == 1u);
+    puts("PASS OTA Config: 64 combinations, keep/reset isolation, applied SW values, every byte cut, restart idempotence, policy readback");
+}
+
+static void test_ota_state_events(void)
+{
+    for (unsigned domain = 0; domain < 3; ++domain) {
+        fresh();
+        bms_state_persist_t cfg = g_bms_state;
+        cfg.soc = 88u; cfg.cycle = 99u; cfg.runtime_min = 123u;
+        if (domain == 0u) cfg.soc_revision = 2u;
+        if (domain == 1u) cfg.runtime_revision = 2u;
+        assert(bms_state_save(&cfg));
+        assert(bms_event_log_note_sleep());
+        if (domain == 2u) {
+            u8 payload[BMS_EVENT_PAYLOAD_BYTES]; bms_event_log_encode(payload);
+            bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], 2u);
+            assert(storage_record_save(&g_bms_event_log.store, payload));
+        }
+        memcpy(backup, flash, sizeof(flash));
+        unsigned payload_size = domain == 2u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
+        for (int byte = 0; byte < (int)(24 + payload_size + 8); ++byte) {
+            memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
+            bms_parameters_startup(); LoadParam(); assert(!bms_protection_params_valid());
+            reboot(); bms_parameters_startup(); LoadParam(); assert(bms_protection_params_valid());
+            assert(g_bms_state.soc == (domain == 0u ? 60u : 88u));
+            assert(g_bms_state.cycle == (domain == 0u ? 0u : 99u));
+            assert(g_bms_state.runtime_min == (domain == 1u ? 0u : 123u));
+            assert((bms_event_log_read_reg(0u) >> 8) == (domain == 2u ? 0u : BMS_SLEEP));
+            u32 before = programs;
+            reboot(); bms_parameters_startup(); LoadParam(); assert(programs == before);
+        }
+    }
+    puts("PASS OTA State/Event: independent SOC/runtime/event resets, every byte cut, startup inhibit, restart idempotence");
+}
+
+int main(void){test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

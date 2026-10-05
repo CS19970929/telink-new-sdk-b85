@@ -15,10 +15,10 @@ def extract(source, signature):
 
 
 header = (APP / 'bms_afe.h').read_text(encoding='utf-8')
-soc = (APP / 'SocEnhance.c').read_text(encoding='utf-8')
+soc = (APP / 'bms_soc.c').read_text(encoding='utf-8')
 app = (APP / 'app.c').read_text(encoding='utf-8')
 diag = (APP / 'bms_diag.c').read_text(encoding='utf-8')
-assert 'sample_valid ? bms_afe_current_to_soc_ma(sample.current_ma) : 0' in app
+assert 'sample_valid ? sample.current_ma : 0' in app
 assert 'update32(194u, (uint32_t)raw_current_ma)' in diag
 assert 's_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma)' in (APP / 'sh3673510_bms.c').read_text(encoding='utf8')
 assert 'update32(196u, (uint32_t)current_ma)' in diag
@@ -36,26 +36,26 @@ int main(void) {
     uint16_t magnitude;
     int32_t i;
     for(i=-200;i<=200;++i) {
-        g_soc_input_current_ma=bms_afe_current_to_soc_ma(i);
+        g_soc_input_current_ma=i;
         assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_NONE);
     }
     for(i=201;i<=1000000;i+=137) {
-        g_soc_input_current_ma=bms_afe_current_to_soc_ma(i);
+        g_soc_input_current_ma=i;
         assert(soc_current_direction(&magnitude)==
             SOC_INTEGRAL_DIR_DSG);
         assert(magnitude==(uint16_t)(i/100));
-        g_soc_input_current_ma=bms_afe_current_to_soc_ma(-i);
+        g_soc_input_current_ma=-i;
         assert(soc_current_direction(&magnitude)==
             SOC_INTEGRAL_DIR_CHG);
     }
-    assert(bms_afe_current_to_soc_ma(INT32_MIN)==INT32_MIN);
+    g_soc_input_current_ma=INT32_MIN;
+    assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_CHG && magnitude==65535u);
     g_soc_input_valid=0;
     assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_NONE && magnitude==0);
     return 0;
 }
 '''
-code = code.replace('/* PRODUCTION */', 'static inline int32_t bms_afe_current_to_soc_ma(int32_t value) { return value; }\n' +
-                    extract(soc, 'static soc_integral_dir_t soc_current_direction('))
+code = code.replace('/* PRODUCTION */', extract(soc, 'static soc_integral_dir_t soc_current_direction('))
 with tempfile.TemporaryDirectory(prefix='sh3510-soc-direction-') as tmp:
     c = Path(tmp) / 'check.c'
     c.write_text(code, encoding='utf-8')

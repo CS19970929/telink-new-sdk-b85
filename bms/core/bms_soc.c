@@ -1,4 +1,6 @@
-#include "SocEnhance.h"
+#include "bms_soc.h"
+static void SOC_Result_Pass(void);
+
 #include "bms_config_store.h"
 #include "bms_soc_profile.h"
 #include "bms_error.h"
@@ -73,12 +75,6 @@
 #define SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT 5u
 #define SOC_LEARNING_UPDATE_MAX_PERCENT      5u
 #define SOC_LEARNING_CONFIRM_CYCLES          2u
-#define SOC_ETA_FILTER_SHIFT                 3u
-#define SOC_ETA_STABLE_SECONDS               30u
-#define SOC_ETA_STABLE_TICKS                 (SOC_TICKS_PER_SECOND * SOC_ETA_STABLE_SECONDS)
-#define SOC_ETA_VARIATION_MIN_MA             250u
-#define SOC_ETA_VARIATION_PERCENT            20u
-#define SOC_ETA_TAPER_PERCENT                60u
 #define SOC_ENDPOINT_EVENT_EARLY_UVP         0x01u
 #define SOC_ENDPOINT_EVENT_LARGE_SAG         0x02u
 #define SOC_ENDPOINT_EVENT_IMBALANCE         0x04u
@@ -163,16 +159,7 @@ typedef struct
     int32_t learning_current_offset_ma;
     uint32_t learning_current_gain_ppm;
 
-    int32_t eta_filtered_current_ma;
-    uint32_t eta_variation_ma;
-    uint32_t eta_peak_current_ma;
-    uint16_t eta_stable_ticks;
-    uint16_t time_to_empty_min;
-    uint16_t time_to_full_min;
-    uint8_t eta_state;
-    uint8_t eta_direction;
-    uint8_t eta_confidence;
-    uint8_t eta_valid;
+    bms_soc_eta_t eta;
 
     uint8_t endpoint_state;
     uint8_t endpoint_event_flags;
@@ -378,25 +365,6 @@ static void soc_load_persisted_product_config(void)
     (void)bms_config_store_get_soc(&g_soc_config);
 }
 
-uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id)
-{
-    bms_soc_config_t next = g_soc_config;
-    next.chemistry = chemistry;
-    next.profile_id = profile_id;
-    return bms_soc_configure(&next);
-}
-
-void bms_soc_refresh_profile_from_params(void)
-{
-    soc_profile_refresh();
-}
-
-uint8_t bms_soc_get_chemistry(void)
-{
-    if (g_soc_profile == 0) soc_profile_refresh();
-    return g_soc_profile->chemistry;
-}
-
 void bms_soc_get_diag(bms_soc_diag_t *diag)
 {
     uint32_t rest_s;
@@ -429,15 +397,15 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
                                                  SOC_CAPACITY_UNITS_PER_FACTORY);
     diag->endpoint_state = g_soc_runtime.endpoint_state;
     diag->endpoint_event_flags = g_soc_runtime.endpoint_event_flags;
-    diag->filtered_current_ma = g_soc_runtime.eta_filtered_current_ma;
-    diag->current_variation_ma = (g_soc_runtime.eta_variation_ma > 65535u) ?
-        65535u : (uint16_t)g_soc_runtime.eta_variation_ma;
-    diag->time_to_empty_min = g_soc_runtime.time_to_empty_min;
-    diag->time_to_full_min = g_soc_runtime.time_to_full_min;
-    diag->eta_state = g_soc_runtime.eta_state;
-    diag->eta_direction = g_soc_runtime.eta_direction;
-    diag->eta_confidence = g_soc_runtime.eta_confidence;
-    diag->eta_valid = g_soc_runtime.eta_valid;
+    diag->filtered_current_ma = g_soc_runtime.eta.eta_filtered_current_ma;
+    diag->current_variation_ma = (g_soc_runtime.eta.eta_variation_ma > 65535u) ?
+        65535u : (uint16_t)g_soc_runtime.eta.eta_variation_ma;
+    diag->time_to_empty_min = g_soc_runtime.eta.time_to_empty_min;
+    diag->time_to_full_min = g_soc_runtime.eta.time_to_full_min;
+    diag->eta_state = g_soc_runtime.eta.eta_state;
+    diag->eta_direction = g_soc_runtime.eta.eta_direction;
+    diag->eta_confidence = g_soc_runtime.eta.eta_confidence;
+    diag->eta_valid = g_soc_runtime.eta.eta_valid;
     diag->soh = SOC_Calculate_Element.soh;
     diag->soh_source = g_soc_runtime.soh_source;
     diag->soh_confidence = g_soc_runtime.soh_confidence;
@@ -506,14 +474,9 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
     return dir;
 }
 
-uint8_t isCHG(void)
+static uint8_t isCHG(void)
 {
     return (soc_current_direction(0) == SOC_INTEGRAL_DIR_CHG) ? 1u : 0u;
-}
-
-uint8_t isDSG(void)
-{
-    return (soc_current_direction(0) == SOC_INTEGRAL_DIR_DSG) ? 1u : 0u;
 }
 
 uint8_t get_soc_real(void)
@@ -1337,139 +1300,24 @@ static void soc_learning_monitor_quality(void)
 
 static void soc_eta_reset(void)
 {
-    g_soc_runtime.eta_filtered_current_ma = 0;
-    g_soc_runtime.eta_variation_ma = 0u;
-    g_soc_runtime.eta_peak_current_ma = 0u;
-    g_soc_runtime.eta_stable_ticks = 0u;
-    g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
-    g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
-    g_soc_runtime.eta_state = BMS_SOC_ETA_INVALID;
-    g_soc_runtime.eta_direction = BMS_SOC_ETA_DIR_NONE;
-    g_soc_runtime.eta_confidence = 0u;
-    g_soc_runtime.eta_valid = 0u;
-}
-
-static int32_t soc_eta_filter_step(int32_t filtered, int32_t sample)
-{
-    if (sample > filtered) {
-        uint32_t difference = (uint32_t)sample - (uint32_t)filtered;
-        return filtered + (int32_t)(difference >> SOC_ETA_FILTER_SHIFT);
-    }
-    if (sample < filtered) {
-        uint32_t difference = (uint32_t)filtered - (uint32_t)sample;
-        return filtered - (int32_t)(difference >> SOC_ETA_FILTER_SHIFT);
-    }
-    return filtered;
-}
-
-static uint16_t soc_eta_minutes(uint32_t capacity_as10, uint32_t current_ma)
-{
-    uint32_t numerator;
-    uint32_t denominator;
-    uint32_t remainder;
-    uint32_t minutes;
-    if (current_ma == 0u) return BMS_SOC_ETA_MINUTES_INVALID;
-    /* minutes = capacity_as10 * 100 / current_ma / 60.  Reduce to 5/3
-     * before multiplying so the maximum supported capacity stays within
-     * 32 bits and no TC32 64-bit runtime helper is introduced. */
-    if (capacity_as10 > (0xFFFFFFFFu / 5u))
-        return BMS_SOC_ETA_MINUTES_INVALID - 1u;
-    if (current_ma > (0xFFFFFFFFu / 3u)) return 0u;
-    numerator = capacity_as10 * 5u;
-    denominator = current_ma * 3u;
-    minutes = numerator / denominator;
-    remainder = numerator % denominator;
-    if (remainder >= ((denominator / 2u) + (denominator & 1u))) minutes++;
-    if (minutes >= BMS_SOC_ETA_MINUTES_INVALID) minutes = BMS_SOC_ETA_MINUTES_INVALID - 1u;
-    return (uint16_t)minutes;
+    bms_soc_eta_reset(&g_soc_runtime.eta);
 }
 
 static void soc_eta_update(void)
 {
-    soc_integral_dir_t dir = soc_current_direction(0);
-    uint8_t eta_dir;
-    uint32_t magnitude;
-    uint32_t deviation;
-    uint32_t variation_limit;
-    uint32_t confidence_drop;
-
-    if (dir == SOC_INTEGRAL_DIR_NONE) {
-        soc_eta_reset(); return;
-    }
-    eta_dir = (dir == SOC_INTEGRAL_DIR_CHG) ? BMS_SOC_ETA_DIR_CHARGE :
-        BMS_SOC_ETA_DIR_DISCHARGE;
-    if (g_soc_runtime.eta_direction != eta_dir) {
-        soc_eta_reset();
-        g_soc_runtime.eta_direction = eta_dir;
-        g_soc_runtime.eta_filtered_current_ma = g_soc_input_current_ma;
-        g_soc_runtime.eta_peak_current_ma = soc_abs_i32(g_soc_input_current_ma);
-        g_soc_runtime.eta_stable_ticks = 1u;
-        g_soc_runtime.eta_state = BMS_SOC_ETA_STABILIZING;
-        return;
-    }
-
-    g_soc_runtime.eta_filtered_current_ma =
-        soc_eta_filter_step(g_soc_runtime.eta_filtered_current_ma, g_soc_input_current_ma);
-    deviation = (g_soc_input_current_ma >= g_soc_runtime.eta_filtered_current_ma) ?
-        ((uint32_t)g_soc_input_current_ma -
-         (uint32_t)g_soc_runtime.eta_filtered_current_ma) :
-        ((uint32_t)g_soc_runtime.eta_filtered_current_ma -
-         (uint32_t)g_soc_input_current_ma);
-    if (deviation > g_soc_runtime.eta_variation_ma)
-        g_soc_runtime.eta_variation_ma +=
-            (deviation - g_soc_runtime.eta_variation_ma) >> SOC_ETA_FILTER_SHIFT;
-    else
-        g_soc_runtime.eta_variation_ma -=
-            (g_soc_runtime.eta_variation_ma - deviation) >> SOC_ETA_FILTER_SHIFT;
-    magnitude = soc_abs_i32(g_soc_runtime.eta_filtered_current_ma);
-    if (magnitude > g_soc_runtime.eta_peak_current_ma)
-        g_soc_runtime.eta_peak_current_ma = magnitude;
-    if (g_soc_runtime.eta_stable_ticks < 65535u) g_soc_runtime.eta_stable_ticks++;
-    if (g_soc_runtime.eta_stable_ticks < SOC_ETA_STABLE_TICKS) {
-        g_soc_runtime.eta_state = BMS_SOC_ETA_STABILIZING; return;
-    }
-
-    variation_limit = (magnitude * SOC_ETA_VARIATION_PERCENT) / 100u;
-    if (variation_limit < SOC_ETA_VARIATION_MIN_MA)
-        variation_limit = SOC_ETA_VARIATION_MIN_MA;
-    if (magnitude <= BMS_CURRENT_UNRELIABLE_MAX_MA ||
-        magnitude <= g_soc_config.current_deadband_ma ||
-        g_soc_runtime.eta_variation_ma > variation_limit ||
-        g_soc_runtime.endpoint_state != BMS_SOC_ENDPOINT_NORMAL) {
-        g_soc_runtime.eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
-        g_soc_runtime.eta_valid = 0u;
-        g_soc_runtime.eta_confidence = 20u;
-        g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
-        g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
-        return;
-    }
-
-    if (eta_dir == BMS_SOC_ETA_DIR_CHARGE &&
-        VCELLMAX + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv &&
-        g_soc_runtime.eta_peak_current_ma > 0u &&
-        magnitude < (g_soc_runtime.eta_peak_current_ma / 100u) * SOC_ETA_TAPER_PERCENT) {
-        g_soc_runtime.eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
-        g_soc_runtime.eta_valid = 0u;
-        g_soc_runtime.eta_confidence = 10u;
-        g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
-        g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
-        return;
-    }
-
-    confidence_drop = g_soc_runtime.eta_variation_ma / (magnitude / 100u);
-    if (confidence_drop > 80u) confidence_drop = 80u;
-    g_soc_runtime.eta_confidence = (uint8_t)(100u - confidence_drop);
-    g_soc_runtime.eta_state = BMS_SOC_ETA_VALID;
-    g_soc_runtime.eta_valid = 1u;
-    g_soc_runtime.time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
-    g_soc_runtime.time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
-    if (eta_dir == BMS_SOC_ETA_DIR_DISCHARGE)
-        g_soc_runtime.time_to_empty_min =
-            soc_eta_minutes(SOC_Calculate_Element.u32CapNow, magnitude);
-    else
-        g_soc_runtime.time_to_full_min =
-            soc_eta_minutes(SOC_Calculate_Element.u32CapFull -
-                            SOC_Calculate_Element.u32CapNow, magnitude);
+    soc_integral_dir_t direction = soc_current_direction(0);
+    bms_soc_eta_input_t input;
+    input.current_ma = g_soc_input_current_ma;
+    input.remaining_as10 = SOC_Calculate_Element.u32CapNow;
+    input.full_as10 = SOC_Calculate_Element.u32CapFull;
+    input.deadband_ma = g_soc_config.current_deadband_ma;
+    if (input.deadband_ma < BMS_CURRENT_UNRELIABLE_MAX_MA)
+        input.deadband_ma = BMS_CURRENT_UNRELIABLE_MAX_MA;
+    input.direction = direction == SOC_INTEGRAL_DIR_CHG ? BMS_SOC_ETA_DIR_CHARGE :
+        (direction == SOC_INTEGRAL_DIR_DSG ? BMS_SOC_ETA_DIR_DISCHARGE : BMS_SOC_ETA_DIR_NONE);
+    input.endpoint_active = g_soc_runtime.endpoint_state != BMS_SOC_ENDPOINT_NORMAL;
+    input.near_full = VCELLMAX + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv;
+    bms_soc_eta_update(&g_soc_runtime.eta, &input);
 }
 
 static uint8_t soc_terminal_lookup(uint8_t *target_soc, uint8_t *sag_hold_blocks)
@@ -1704,7 +1552,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
 
 static uint16_t soc_fault_filter_samples(void)
 {
-    uint32_t ms = (uint32_t)g_tParam.protect.u16SocUp_Filter * 10u;
+    uint32_t ms = (uint32_t)g_tParam.protect.u16SocLow_Filter * 10u;
     uint32_t samples = (ms + SOC_INTEGRAL_PERIOD_MS - 1u) / SOC_INTEGRAL_PERIOD_MS;
     if (samples == 0u) samples = 1u;
     if (samples > 65535u) samples = 65535u;
@@ -1720,18 +1568,17 @@ static union MDLCHGFAULT_REG *soc_fault_reg(uint8_t level)
 
 static uint16_t soc_fault_threshold(uint8_t level)
 {
-    if (level == 0u) return g_tParam.protect.u16SocUp_First;
-    if (level == 1u) return g_tParam.protect.u16SocUp_Second;
-    return g_tParam.protect.u16SocUp_Third;
+    if (level == 0u) return g_tParam.protect.u16SocLow_First;
+    if (level == 1u) return g_tParam.protect.u16SocLow_Second;
+    return g_tParam.protect.u16SocLow_Third;
 }
 
 static bms_fault_code_t soc_fault_history_code(uint8_t level)
 {
-    /* Legacy enum says SOC_HIGH, but protocol bit b1SocLow and parameter values
-     * are low-SOC thresholds. Keep numeric protocol compatibility. */
-    if (level == 0u) return BMS_FAULT_SOC_HIGH_FIRST;
-    if (level == 1u) return BMS_FAULT_SOC_HIGH_SECOND;
-    return BMS_FAULT_SOC_HIGH_THIRD;
+    /* 低 SOC 故障编号同时用于故障记录。 */
+    if (level == 0u) return BMS_FAULT_SOC_LOW_FIRST;
+    if (level == 1u) return BMS_FAULT_SOC_LOW_SECOND;
+    return BMS_FAULT_SOC_LOW_THIRD;
 }
 
 static void soc_update_low_faults(void)
@@ -1742,7 +1589,7 @@ static void soc_update_low_faults(void)
 
     for (level = 0u; level < 3u; ++level) {
         uint16_t trip = soc_fault_threshold(level);
-        uint16_t recover = g_tParam.protect.u16SocUp_Rcv;
+        uint16_t recover = g_tParam.protect.u16SocLow_Rcv;
 
         if (trip == 0u || trip > SOC_PERCENT_MAX) {
             g_soc_runtime.soc_low_active[level] = 0u;
@@ -1882,7 +1729,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     SOC_Result_Pass();
 }
 
-void SOC_Cont_AH_Int_CHG(void)
+static void SOC_Cont_AH_Int_CHG(void)
 {
     uint16_t current = 0u;
     uint32_t delta;
@@ -1900,7 +1747,7 @@ void SOC_Cont_AH_Int_CHG(void)
     SOC_Calculate_Element.u8CHG_AHCalcu_Flag = 0u;
 }
 
-void SOC_Cont_AH_Int_DSG(void)
+static void SOC_Cont_AH_Int_DSG(void)
 {
     uint16_t current = 0u;
     uint32_t delta;
@@ -1917,13 +1764,13 @@ void SOC_Cont_AH_Int_DSG(void)
     SOC_Calculate_Element.u8DSG_AHCalcu_Flag = 0u;
 }
 
-void SOC_State_Transfer(void)
+static void SOC_State_Transfer(void)
 {
     SOC_Cali_Flag = SOC_CALI_STATE_TRANSFER;
     soc_reset_integral_accumulator();
 }
 
-void SOC_Result_Pass(void)
+static void SOC_Result_Pass(void)
 {
     uint8_t hide_capacity;
     soc_display_follow_real();
@@ -2107,7 +1954,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         soc_update_low_faults();
         SOC_Result_Pass();
     }
-    g_soc_interval_32k = 0u; /* cannot integrate this sample twice through legacy APIs */
+    g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 
 

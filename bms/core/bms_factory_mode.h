@@ -1,10 +1,9 @@
-#ifndef _RUNTIME_H_
-#define _RUNTIME_H_
+#ifndef BMS_FACTORY_MODE_H_
+#define BMS_FACTORY_MODE_H_
 
 #include "tl_common.h"
 
-#define FACTORY_TIME_LIMIT_MIN   (60 * 24 * 3)   // 7��
-// #define FACTORY_TIME_LIMIT_MIN   (3)   // 7��
+#define FACTORY_TIME_LIMIT_MIN (60 * 24 * 3) /* 三天 */
 
 typedef enum
 {

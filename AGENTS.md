@@ -14,7 +14,7 @@
 - 无效串位发送 61001，不计入有效串数、min/max、SOC、保护、balance/open-wire。
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。
-- 开发参数 CFG2 schema 1，旧记录拒绝；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
+- 开发参数 CFG2 schema 2，旧记录拒绝；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
 - 公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。
@@ -24,3 +24,6 @@
 完整本机回归入口：`python tests/run_host_regression.py`。
 四目标入口：`python bms_tools/bms.py --all-products link --jobs 4`。
 可移植核心库使用根目录 CMake，但 Telink 固件仍用统一 TC32 工具。
+
+- 用户约定：所有 Git 提交信息、提交说明及 PR 变更记录使用中文。
+- 四产品尚未量产，不实现旧板/旧参数迁移；OTA 参数保留或更新按各产品 `bms_parameter_policy.h` 的独立更新编号控制。

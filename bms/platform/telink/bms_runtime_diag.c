@@ -1,7 +1,7 @@
 #include "bms_diag.h"
 #include "bms_afe.h"
 #include "bms_storage_platform.h"
-#include "SocEnhance.h"
+#include "bms_soc.h"
 #include "conf.h"
 #include "bms_state.h"
 

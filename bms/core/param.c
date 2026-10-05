@@ -9,32 +9,26 @@
 #include "bms_event_log.h"
 #include "bms_product_config.h"
 #include "bms_state_store.h"
-#include "runtime.h"
+#include "bms_factory_mode.h"
 #include <string.h>
 
-#include "bms_config_store.h"
-#include "bms_state_store.h"
 
 PARAM_T g_tParam;
 static uint8_t s_protection_params_valid;
-static uint8_t s_storage_upgrade_valid;
+static uint8_t s_storage_startup_valid;
 
 uint8_t bms_protection_params_valid(void)
 {
-    return s_protection_params_valid && s_storage_upgrade_valid;
+    return s_protection_params_valid && s_storage_startup_valid;
 }
 
 static void param_fill_default(PARAM_T *param)
 {
-    param->ParamVer = PARAM_VER;
     bms_config_store_get_default_protect(&param->protect);
 }
 
 void LoadParam(void)
 {
-#if defined(PARAM_SAVE_TO_EEPROM)
-#error "bms_cold_kv_store currently supports Flash-backed param storage only"
-#endif
 
     s_protection_params_valid = 0u;
     bms_diag_boot_word(26u, DIAG_STARTED);
@@ -45,9 +39,6 @@ void LoadParam(void)
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
-
-
-    g_tParam.ParamVer = PARAM_VER;
     if (!bms_config_store_get_protect(&g_tParam.protect)) {
         param_fill_default(&g_tParam);
         if (!bms_config_store_set_protect(&g_tParam.protect)) {
@@ -76,7 +67,6 @@ uint8_t SaveParam(void)
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
     }
-    g_tParam.ParamVer = PARAM_VER;
     if (!bms_config_store_set_protect(&g_tParam.protect)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
@@ -85,11 +75,11 @@ uint8_t SaveParam(void)
     return 1u;
 }
 
-void Param_UpgradeReset_Apply(void)
+void bms_parameters_startup(void)
 {
     /* A failed boot update remains inhibited until reboot/retry through this
      * startup path. A later communication SaveParam cannot clear this gate. */
-    s_storage_upgrade_valid = 0u;
+    s_storage_startup_valid = 0u;
     if (!bms_config_store_validate_startup()) goto failed;
     if (!bms_state_store_init()) {
         bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u); goto failed;
@@ -97,7 +87,7 @@ void Param_UpgradeReset_Apply(void)
     if (!bms_event_log_init()) {
         bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u); goto failed;
     }
-    s_storage_upgrade_valid = 1u;
+    s_storage_startup_valid = 1u;
     bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);
     return;
 failed:
@@ -106,5 +96,5 @@ failed:
 
 void bms_param_diag_poll(void)
 {
-    bms_diag_params(s_protection_params_valid, s_storage_upgrade_valid);
+    bms_diag_params(s_protection_params_valid, s_storage_startup_valid);
 }

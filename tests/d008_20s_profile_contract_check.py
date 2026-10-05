@@ -9,8 +9,8 @@ HERE = Sources(ROOT)
 profile = (HERE / 'd008_product_profile.h').read_text(encoding='utf-8')
 dvc = (HERE / 'dvc1124.c').read_text(encoding='utf-8')
 cfg = (HERE / 'dvc1124_project_config.h').read_text(encoding='utf-8')
-store = (HERE / 'dvc1124_config_store.c').read_text(encoding='utf-8')
-store_h = (HERE / 'dvc1124_config_store.h').read_text(encoding='utf-8')
+store = (HERE / 'dvc1124_boot.c').read_text(encoding='utf-8')
+store_h = (HERE / 'dvc1124_boot.h').read_text(encoding='utf-8')
 service = (HERE / 'dvc1124_config_service.c').read_text(encoding='utf-8')
 
 assert '#define D008_PRODUCT_PROFILE_20S_NMC  2u' in profile

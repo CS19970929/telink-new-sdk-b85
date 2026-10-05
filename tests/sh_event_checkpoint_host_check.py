@@ -11,12 +11,13 @@ code=r"""
 #include <assert.h>
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #include "storage_record.h"
+#include "bms_update_policy.h"
 #define BMS_ERROR_EEPROM_STORE 1
 #define BMS_EVENT_SAVE_INTERVAL_32K (60u*32000u)
 #define BMS_STORAGE_RETRY_INTERVAL_32K (5u*32000u)
 static u32 tick, saves, blocked;
 static int save_ok=1;
-static u8 durable[402];
+static u8 durable[404];
 static u32 pm_get_32k_tick(void){return tick;}
 static void bms_error_raise(int e){(void)e;}
 static void bms_diag_attempt(int d){(void)d;}
@@ -33,7 +34,7 @@ static void bms_diag_result(int d,int e){(void)d;(void)e;}
 static const storage_port_t port={0};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
 int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){(void)d;r->base=4096;r->size=8192;return 1;}
-int storage_record_open(storage_record_store_t*s,const storage_port_t*p,storage_region_t r,uint32_t m,uint16_t v,uint16_t n){(void)s;(void)p;(void)r;(void)m;assert(v==1 && n==402);return 1;}
+int storage_record_open(storage_record_store_t*s,const storage_port_t*p,storage_region_t r,uint32_t m,uint16_t v,uint16_t n){(void)s;(void)p;(void)r;(void)m;assert(v==2 && n==404);return 1;}
 int storage_record_load(storage_record_store_t*s,uint8_t*p){(void)s;(void)p;return 0;}
 int storage_record_save(storage_record_store_t*s,const uint8_t*p){(void)s;++saves;if(!save_ok){++blocked;return 0;}memcpy(durable,p,402);return 1;}
 /* PRODUCTION */

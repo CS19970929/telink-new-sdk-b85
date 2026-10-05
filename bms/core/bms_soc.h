@@ -1,5 +1,5 @@
-#ifndef SOCENHANCE_H
-#define SOCENHANCE_H
+#ifndef BMS_SOC_H_
+#define BMS_SOC_H_
 
 #include "conf.h"
 #include "bms_state_store.h"
@@ -21,14 +21,7 @@
 #define BMS_SOC_ENDPOINT_EMPTY_APPROACH  3u
 #define BMS_SOC_ENDPOINT_CONFIRMED_EMPTY 4u
 
-#define BMS_SOC_ETA_INVALID        0u
-#define BMS_SOC_ETA_STABILIZING    1u
-#define BMS_SOC_ETA_VALID          2u
-#define BMS_SOC_ETA_LOW_CONFIDENCE 3u
-#define BMS_SOC_ETA_DIR_NONE       0u
-#define BMS_SOC_ETA_DIR_CHARGE     1u
-#define BMS_SOC_ETA_DIR_DISCHARGE  2u
-#define BMS_SOC_ETA_MINUTES_INVALID 0xFFFFu
+#include "bms_soc_eta.h"
 
 #define BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE 1u
 #define BMS_SOC_SOH_SOURCE_CAPACITY       2u
@@ -118,29 +111,20 @@ extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
 void bms_soc_get_default_config(bms_soc_config_t *config);
 uint8_t bms_soc_config_valid(const bms_soc_config_t *config);
 uint8_t bms_soc_configure(const bms_soc_config_t *config);
-uint8_t bms_soc_set_product_config(uint8_t chemistry, uint8_t profile_id);
-uint8_t bms_soc_get_chemistry(void);
 void bms_soc_get_diag(bms_soc_diag_t *diag);
-void bms_soc_refresh_profile_from_params(void);
 
 /* 400 ms = two nominal samples. Longer/unobserved intervals are not integrated
  * or counted as rest. SDK 32k clock wraps by unsigned subtraction. */
 #define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
-void SOC_Result_Pass(void);
-void SOC_Cont_AH_Int_CHG(void);
-void SOC_Cont_AH_Int_DSG(void);
-void SOC_State_Transfer(void);
 void set_soc_param(uint8_t soc, uint16_t cap_factory, uint8_t sync_display);
 void set_calsoc(uint8_t soc);
 void set_dispsoc(uint8_t soc);
 uint8_t get_soc_real(void);
-uint8_t isCHG(void);
-uint8_t isDSG(void);
 void soc_param_lib_init(const bms_state_store_data_t *soc);
 uint8_t bms_soh_from_cycle(uint16_t cycle);
 
 void bms_soc_nominal_capacity_changed(void);
 
-#endif /* SOCENHANCE_H */
+#endif /* BMS_SOC_H_ */

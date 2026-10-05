@@ -9,7 +9,6 @@
 // #define __VIRTURE_CURRENT__
 // #define FAC_TEST
 // #define DISP_VBAT_AND_TEMP_
-// #define __TEST_SOC__
 
 /* Power comparison only: 0 removes the application's periodic wake deadline.
  * Sampling then depends on other wake events and can miss the DVC Open-Wire

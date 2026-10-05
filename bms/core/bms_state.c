@@ -44,7 +44,7 @@ void bms_fault_history_record(bms_fault_code_t fault)
     uint8_t index;
 
     if (code < (uint8_t)BMS_FAULT_CELL_OVP_FIRST ||
-        code > (uint8_t)BMS_FAULT_SOC_HIGH_THIRD)
+        code > (uint8_t)BMS_FAULT_SOC_LOW_THIRD)
     {
         return;
     }

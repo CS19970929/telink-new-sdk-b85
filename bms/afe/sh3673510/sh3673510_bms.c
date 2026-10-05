@@ -573,6 +573,9 @@ static uint8_t publish_measurements(void)
         g_stCellInfoReport.u16TempMax = 0u;
     }
 
+    /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
+    g_stCellInfoReport.u16Temperature[ENV_TEMP3] = g_stCellInfoReport.u16TempMax;
+
     if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] &&
         s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
         s_aux.battery_ntc_100ohm =

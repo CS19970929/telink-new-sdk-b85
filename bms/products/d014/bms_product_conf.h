@@ -26,13 +26,11 @@
 
 /*
  * Product requirements not present on the schematic are intentionally not
- * invented here. CapacityFactory/AFE_ODC1/AFE_ODC2 remain inherited migration
- * defaults until D014 product parameters are signed off; protection is still
+ * invented here. CapacityFactory remains a development
+ * default until D014 product parameters are signed off; protection is still
  * governed by the persisted software profile + independent AFE HW profile.
  */
 #define CapacityFactory                116
-#define AFE_ODC1                       300
-#define AFE_ODC2                       500
 #define BMS_HARDWARE_VERDION_DEFAULT   "D014"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.6"
 #define BMS_SERIAL_NUMBER_DEFAULT      "D014-20260925"

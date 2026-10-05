@@ -12,7 +12,7 @@ source = selected_source(APP / 'app.c')
 
 
 def function(name):
-    match = re.search(r'(?m)^static void ' + name + r'\(', source)
+    match = re.search(r'(?m)^static void ' + name + r'\([^;{}]*\)\s*\{', source)
     assert match, 'missing production scheduler: ' + name
     return source[match.start():source.index('\n}\n', match.start()) + 3]
 
@@ -48,7 +48,6 @@ static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
     if (valid) { s->current_ma = 1234; s->sample_tick_32k = 123; }
     return valid;
 }
-static int32_t bms_afe_current_to_soc_ma(int32_t x) { return x; }
 static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
     ++soc_calls; last_valid=v; last_current=c; last_tick=t;
 }
