@@ -874,6 +874,7 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("请先连接串口。");
 
             _otaRunning = true;
+            await StopRuntimeLogsForOtaAsync();
             _pollTimer.Stop();
             StartOtaButton.IsEnabled = false;
             CancelOtaButton.IsEnabled = true;

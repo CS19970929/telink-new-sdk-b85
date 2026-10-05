@@ -201,3 +201,7 @@ BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直�
 详见 [SOC加速擦写使用、协议及恢复说明](docs/flash_endurance.md)。测试记录在用户文档 `BmsFlashTests`。运行 `test-flash-endurance.ps1` 验证协议，`test-event-log.ps1` 回归日志。
 
 最新双版：`build-release.ps1 -ReleaseTag flash-endurance-v3-20260907`；完整版目录 `BmsFactoryTest.Windows/publish/internal-full-win-x64-flash-endurance-v3-20260907/`，客户版目录 `BmsTool.Windows/publish/customer-win-x64-flash-endurance-v3-20260907/`。测试和构建通过，未执行实板耐久测试。
+
+## 运行调试日志
+
+客户版和内部版的“运行日志”页支持串口/BLE按需采集、过滤与导出；默认不自动轮询。启用方法、量产关闭和低功耗注意事项见 [运行日志](docs/RUNTIME_LOG.md)。
