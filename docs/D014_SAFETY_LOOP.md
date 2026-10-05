@@ -49,6 +49,74 @@ python tests/run_host_regression.py --product d014 --only d014_safety_loop_host_
 
 历史自动化基线见 [自动化验证](AUTOMATED_VALIDATION.md)。实板未完成项继续见 [硬件验证](HARDWARE_VALIDATION.md)。
 
+## MCU 复位边界探针（2026-10-06）
+
+固件输入仍为 `3f2fe78272f48a9570d4b31252386287a6c01c92`，本次只增加测试和说明。`tests/d014_reset_boundary_probe.py` 检验候选策略“已触发的软件过流，在物理解除前跨普通 MCU 初始化保持相应输出关闭”。**该策略尚未产品签核；探针失败明确表示当前代码不能提供此保证，不表示已经修复。**
+
+探针直接链接上述 22 个生产 TU，分别在两个 OS 子进程内触发故障和重新启动，只通过文件传递 RAM Flash 模型的字节。充/放电两侧各测故障历史尚未 checkpoint、已经 checkpoint 两种情况。启动资格等待期间及之后继续保留负载或充电器输入，电流置零；检查的是 SPI 模型收到的 SCONF2 开通命令，不是实际 Gate。
+
+| 已触发故障 | 历史 checkpoint | 新进程读回历史 | 首次重新开通对应 FET 的采样序号 |
+|---|---|---|---|
+| 放电过流 | 未完成 | 无 | 8 |
+| 放电过流 | 已完成 | 有 | 8 |
+| 充电过流 | 未完成 | 无 | 8 |
+| 充电过流 | 已完成 | 有 | 8 |
+
+以上为 Windows host 和 WSL ASan/UBSan 一致的固定观察，采样序号不能换算成实板恢复时间。原有 AFE 重初始化测试继续保留同进程 RAM，与这里的新进程重启不同。该探针没有模拟 watchdog 电气复位、掉电波形、完整主循环调度或 AFE Reset 的全部硅片行为。
+
+源码依据：
+
+- `bms/platform/telink/main.c` 的普通路径调用 `user_init_normal()`；`bms/app/app.c` 加载参数、初始化 AFE，随后调用 `mos_update()` 并允许输出请求。
+- `bms/core/bms_sw_protection.c` 的软件 Third OC 与恢复证据状态是静态 RAM；`bms_sw_protection_init()` 的保留动作只能保留仍存在于当前进程中的状态。
+- `bms/core/param.c` 在 `bms_parameters_startup()` 加载 event journal；`bms/core/bms_event_log.c` 恢复的是历史记录，没有把历史事件还原成当前保护锁存。旧事件也不能直接当作尚未解除的故障。
+- `bms/afe/sh3673510/sh3673520.c` 的 `SH3673520_Init()` 发送 `SH3673520_Reset()`。因此不能直接假设仅 MCU 复位就会让 AFE 故障位一直保留；具体位和电气行为仍需官方资料及实板验证。
+
+### 运行与结果解释
+
+```powershell
+$env:CC = 'C:/qp/qtools/MinGW32/bin/cc.exe'
+$env:PATH = 'C:/qp/qtools/MinGW32/bin;' + $env:PATH
+$env:BMS_PRODUCT = 'd014'
+$env:PYTHONDONTWRITEBYTECODE = '1'
+python tests/d014_reset_boundary_probe.py --output "$env:USERPROFILE/Documents/CodexOutputs/bms-monorepo/reset-probe.json"
+```
+
+输出必须是源码树外尚不存在的文件。四场景全部满足候选门禁才退出 0；当前四场景准确命中 `RESET_POLICY_GAP`，退出 1。编译失败、崩溃、历史读回不匹配和插桩报错直接失败，不能作为已确认策略缺口收录。JSON 保存源文件指纹、seed 输出、重启观察和断言；运行期间源码变化使结果失效。
+
+该显式 `_probe.py` 尚未纳入默认绿色回归：它是未关闭的产品策略门禁，不能通过“期望退出 1”把缺口变成通过。策略确定并实现后，应把相应场景纳入常规回归；即使该探针变绿，也只证明连续 12 次模型采样的约束，仍需补充解除、重连、再次复位等完整恢复场景。
+
+本轮证据根目录：`C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/reset-policy-20261006/`。Windows 与 WSL 的输入指纹均为 `471856d7e1a9ec04307375a0d390836b2f11df1fb33f32d7998c83b2d4aef713`，四项结构化观察逐字段相同；二者均因策略断言退出 1，无插桩错误。
+
+| 证据文件 | SHA256 |
+|---|---|
+| `windows.json` | `8b41d4a8a2c451d71b6bf341e5c29cc71600508b2713476056d25d2d36e578f9` |
+| `sanitizers.json` | `5c86a17bf59a0f0716ce0ef22029b5fda4a153bd93cc99771e1529d0dc3abeb5` |
+| `regression/report.json` | `25e8309537ea0457e7db981646bb7f38887503ff586032641ebde26182f4d2a9` |
+
+相关普通回归 `d014_safety_loop_host_check`、`validation_mutation_check` 共 2/2 通过，验证工具单元检查 10/10 通过。本轮未重跑整个产品矩阵或 TC32 链接：`bms/`、SDK 和构建实现没有修改；下方六配置资源结论仍属于之前的固定实现提交，不能算本轮重新构建。
+
+### 待确认的产品行为
+
+| 选项 | 用户可见行为 | 实现必须解决的问题 |
+|---|---|---|
+| 每次冷启动先确认解除 | 即使上次没有过流，带负载或充电器启动也可能等待拔除；需定义两侧各自启用条件 | 不依赖新增 Flash 锁存，但会改变现有上电流程；须验证 C+/负载检测的启动可用性和互斥 |
+| 正常带载启动，故障锁存跨复位和掉电 | 没有未解除故障时照常启动；有故障时保持对应侧关闭 | 持久状态所有者、置位/清除写入顺序、写失败、任意掉电窗口、擦写寿命、schema 及旧设备兼容；不能直接复用延迟 checkpoint 的历史作为锁存 |
+| 仅热复位保留，整机断电允许重启 | watchdog/复位键不解除，真正断电重上电可以重新启动 | 必须可靠区分复位域并验证保留介质；SDK 某些 analog retention 位的注释不足以证明该产品方案成立 |
+
+选项尚未确定，当前没有修改生产初始化、持久化格式或输出行为。第二项更接近“保持正常带载启动，同时避免复位解除故障”，但持久化方案必须证明断电窗口，不能仅增加一次保存调用就宣称完成。
+
+### 接板后的验收条件
+
+当前用户确认没有连接实板，本轮没有打开串口、烧录或进行电气操作。准备台架时记录板号/BOM、固件 SHA、配置读回、电源/负载/充电器限制及测量通道；按最终签核策略填写期望结果。
+
+| 台架场景 | 必须记录的证据 |
+|---|---|
+| 正常带载/接充电器启动、空载启动 | 正常启动行为与选定策略一致；两侧 Gate/Vgs、实际电流、C+/LOAD 状态及启动资格时序 |
+| 软件 OCC/OCD 后保持外部连接，MCU 热复位且 AFE 供电保留 | 复位来源、SCONF2 命令与 Gate 波形；不能出现非预期短暂导通 |
+| 整板断电重启，覆盖记录写入前/中/后 | Flash 读回、启动门禁、故障/历史状态；未提交或损坏状态的处理符合选定策略 |
+| 拔除、重新接入、两侧交叉与恢复期间再次复位 | 只有有效解除证据及完整恢复窗口才能解除相应锁存；其他保护继续独立阻断 |
+| 复位后总线失联、ADC 无新样本、TS4 断线、AFE 硬件故障并发 | 输出继续 fail-safe；重新连接不绕过采样资格和独立保护 |
+
 ## 固定提交验证记录
 
 实现提交 `3f2fe78272f48a9570d4b31252386287a6c01c92`；验证时 Windows/WSL 工作树均干净。后续本页和证据文件的提交仅补充记录，不冒称重新编译。完整机器数据、报告哈希、ELF/MAP 哈希及工具身份见 [D014_SAFETY_LOOP_EVIDENCE.json](D014_SAFETY_LOOP_EVIDENCE.json)。

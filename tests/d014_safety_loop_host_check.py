@@ -13,15 +13,20 @@ SOURCES = [
         'sh3673510_bms', 'sh3673510_control', 'sh3673510_ntc',
         'sh3673510_feature_backend', 'sh3673520')
 ]
-compiled = set(read('bms/products/d014/sources.txt').splitlines())
-assert set(SOURCES) <= compiled, '联合场景必须使用产品实际编译的 TU'
-with tempfile.TemporaryDirectory(prefix='d014-loop-flash-') as directory:
-    image = str(Path(directory)/'flash.dat')
-    runs = [{'BMS_LOOP_CASE': case, 'BMS_LOOP_FLASH': image}
-            for case in ('boot-failure', 'runtime', 'cold-reboot')]
-    output = run_c(read('tests/fixtures/d014_safety_loop/loop.c'), SOURCES,
-                   ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include')],
-                   name='d014-safety-loop', runs=runs)
-evidence({'domain': 'safety_chain', 'production_units': SOURCES,
-          'observations': output.strip(),
-          'boundary': '真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度'})
+def main():
+    compiled = set(read('bms/products/d014/sources.txt').splitlines())
+    assert set(SOURCES) <= compiled, '联合场景必须使用产品实际编译的 TU'
+    with tempfile.TemporaryDirectory(prefix='d014-loop-flash-') as directory:
+        image = str(Path(directory)/'flash.dat')
+        runs = [{'BMS_LOOP_CASE': case, 'BMS_LOOP_FLASH': image}
+                for case in ('boot-failure', 'runtime', 'cold-reboot')]
+        output = run_c(read('tests/fixtures/d014_safety_loop/loop.c'), SOURCES,
+                       ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include')],
+                       name='d014-safety-loop', runs=runs)
+    evidence({'domain': 'safety_chain', 'production_units': SOURCES,
+              'observations': output.strip(),
+              'boundary': '真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度'})
+
+
+if __name__ == '__main__':
+    main()

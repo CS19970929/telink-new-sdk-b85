@@ -13,6 +13,15 @@ from project_paths import host_includes
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class ScenarioFailure(AssertionError):
+    """保留子进程证据，让策略探针区分业务缺口、崩溃与插桩错误。"""
+    def __init__(self, message, result):
+        super().__init__(message)
+        self.returncode = result.returncode
+        self.stdout = result.stdout
+        self.stderr = result.stderr
+
+
 def read(relative):
     return (ROOT / relative).read_text(encoding="utf-8")
 
@@ -72,11 +81,11 @@ def run_c(code, sources=(), flags=(), name='scenario', expect_failure=False, run
             if expect_failure:
                 if result.returncode != 1 or 'expected=' not in result.stderr or 'actual=' not in result.stderr:
                     preserve()
-                    raise AssertionError(f'{name} 没有得到预期业务断言失败，exit={result.returncode}')
+                    raise ScenarioFailure(f'{name} 没有得到预期业务断言失败，exit={result.returncode}', result)
                 outputs.append(result.stdout + result.stderr)
             elif result.returncode:
                 preserve()
-                raise AssertionError(f'{name} 运行失败，exit={result.returncode}, run={overrides}')
+                raise ScenarioFailure(f'{name} 运行失败，exit={result.returncode}, run={overrides}', result)
             else:
                 outputs.append(result.stdout)
         return ''.join(outputs)
