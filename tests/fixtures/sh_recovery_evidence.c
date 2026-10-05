@@ -72,6 +72,8 @@ uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0; }
 void bms_sw_protection_init(void) {}
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { (void)p; }
+void bms_sw_protection_reset_current_recovery(void) {}
+uint8_t bms_sw_protection_discharge_overcurrent_active(void) { return 0; }
 void bms_sw_protection_clear(void) {}
 void bms_sw_protection_record_fault_edges(void) {}
 static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }

@@ -14,6 +14,7 @@ def register(domain, products, evidence, names):
 register('protection', PRODUCTS, '生产 TU 场景', 'protection_scenarios_host_check sw_temperature_groups_host_check')
 register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')
 register('protection', SH, '真实 backend/guard/SW 联合场景', 'sh_safety_chain_host_check')
+register('protection', ('d014',), '22 个原始生产 TU 与 SPI/Flash 端口模型', 'd014_safety_loop_host_check')
 register('soc', PRODUCTS, '生产 K/B 与独立数学 oracle', 'current_calibration_host_check')
 register('protection', PRODUCTS, '源码 contract', 'sw_protection_contract_check common_feature_policy_contract_check')
 register('protection', ('d014',), '提取函数场景', 'sw_protection_defaults_check')
@@ -66,7 +67,7 @@ SOURCES = {
 }
 
 BLIND_SPOTS = [
-    {'risk':'高','area':'完整系统 SIL','gap':'尚未把调度、两种完整 AFE 后端、真实参数存储、MOS 仲裁接成一个无需业务替身的闭环；单域通过不能推出整机安全'},
+    {'risk':'高','area':'完整系统 SIL','gap':'D014 已连接真实参数/journal/SH SPI/feature/guard/SW 到 FET 命令；完整 MCU 调度、DVC 联合链、物理 Gate 和跨 MCU reset 的软件 OC 锁存策略仍未闭合'},
     {'risk':'高','area':'AFE 物理行为','gap':'RAM 寄存器不模拟硅片比较器、ADC 误差、转换时延或 watchdog 断总线后的 Gate；官方手册/板级读回仍需独立核验'},
     {'risk':'高','area':'产品参数','gap':'D013 缺受控原理图；容量/阈值未全部签核；D008 20S NMC 仍使用公共软件保护默认且 SC 默认关闭'},
     {'risk':'高','area':'SOC/电流','gap':'长时算法场景使用受控 100Ah 环境；开机零点的真实零电流、SH 新鲜温度标志、C+ 判据和整板标定仍需台架'},

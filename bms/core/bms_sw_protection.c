@@ -61,6 +61,7 @@ static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 /* Software owns these bits; the public report may additionally contain HW bits. */
 static bms_fault_reg_t s_sw_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
+static uint8_t s_current_recovery_requires_evidence;
 
 /* Recover belongs exclusively to Third (the MOS-blocking protection level).
  * First/Second are filtered alarms and clear when their own trip is absent. */
@@ -285,8 +286,31 @@ void bms_sw_protection_clear(void)
 
 void bms_sw_protection_init(void)
 {
+    uint8_t charge_oc = s_current_recovery_requires_evidence &&
+                        s_filter[2][BMS_SW_F_CHG_OC].active;
+    uint8_t discharge_oc = s_current_recovery_requires_evidence &&
+                           s_filter[2][BMS_SW_F_DSG_OC].active;
     memset(s_prev_fault, 0, sizeof(s_prev_fault));
     bms_sw_protection_clear();
+    /* AFE communication re-init is not evidence that a load/charger left.
+     * Retain these faults but discard their partial recovery windows. Cold
+     * MCU boot still starts from zero-initialized RAM; this is not persistence. */
+    s_filter[2][BMS_SW_F_CHG_OC].active = charge_oc;
+    s_filter[2][BMS_SW_F_DSG_OC].active = discharge_oc;
+    s_sw_fault[2].bits.b1IchgOcp = charge_oc;
+    s_sw_fault[2].bits.b1IdischgOcp = discharge_oc;
+    bms_sw_fault_reg(2u)->all |= s_sw_fault[2].all;
+}
+
+void bms_sw_protection_reset_current_recovery(void)
+{
+    s_filter[2][BMS_SW_F_CHG_OC].recover_count = 0u;
+    s_filter[2][BMS_SW_F_DSG_OC].recover_count = 0u;
+}
+
+uint8_t bms_sw_protection_discharge_overcurrent_active(void)
+{
+    return s_filter[2][BMS_SW_F_DSG_OC].active;
 }
 
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
@@ -298,6 +322,19 @@ typedef struct {
     uint16_t cell_max_mv, cell_min_mv, cell_delta_mv;
     uint16_t pack_voltage_10mv, charge_a10, discharge_a10;
 } bms_sw_measurements_t;
+
+static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
+    uint16_t value, uint16_t trip, uint16_t recover, uint16_t filter_10ms,
+    uint8_t third, uint8_t recovery_allowed, uint8_t fresh)
+{
+    if (third && state->active && s_current_recovery_requires_evidence && trip != 0u) {
+        if (!recovery_allowed) state->recover_count = 0u;
+        /* Normal CADC conversion waits pause; an observed reattachment resets. */
+        if (!recovery_allowed || !fresh) return 1u;
+    }
+    return bms_sw_filter_update(state, value, trip, recover, filter_10ms,
+                                BMS_SW_HIGH, third);
+}
 
 static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
                             const struct PRT_E2ROM_PARAS *p,
@@ -353,15 +390,17 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
 
             trip = bms_sw_level_value(level, p->u16IchgOcp_First,
                                       p->u16IchgOcp_Second, p->u16IchgOcp_Third);
-            f->bits.b1IchgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
+            f->bits.b1IchgOcp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
                 measurements->charge_a10, trip, p->u16IchgOcp_Rcv,
-                p->u16IchgOcp_Filter, BMS_SW_HIGH, level == 2u);
+                p->u16IchgOcp_Filter, level == 2u, inputs->charge_recovery_allowed,
+                inputs->current_recovery_sample_fresh);
 
             trip = bms_sw_level_value(level, p->u16IdsgOcp_First,
                                       p->u16IdsgOcp_Second, p->u16IdsgOcp_Third);
-            f->bits.b1IdischgOcp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
+            f->bits.b1IdischgOcp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
                 measurements->discharge_a10, trip, p->u16IdsgOcp_Rcv,
-                p->u16IdsgOcp_Filter, BMS_SW_HIGH, level == 2u);
+                p->u16IdsgOcp_Filter, level == 2u, inputs->discharge_recovery_allowed,
+                inputs->current_recovery_sample_fresh);
 
         } else {
             uint8_t id;
@@ -448,6 +487,7 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
 {
     bms_sw_measurements_t measurements;
     if (inputs == 0) return;
+    s_current_recovery_requires_evidence = inputs->current_recovery_requires_evidence;
     if (!bms_protection_params_valid())
     {
         bms_sw_protection_clear();

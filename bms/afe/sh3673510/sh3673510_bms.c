@@ -84,6 +84,7 @@ static uint32_t s_cadc_tick;
 
 static void restart_sampling(void)
 {
+    bms_sw_protection_reset_current_recovery();
     s_sampling_start_tick = pm_get_32k_tick();
     s_vadc_tick = s_cadc_tick = s_sampling_start_tick;
     s_vadc_seen = s_cadc_seen = 0u;
@@ -128,6 +129,7 @@ static void note_comm_error(void)
 {
     sh3673520_comm_stats_t stats;
 
+    bms_sw_protection_reset_current_recovery();
     s_snapshot_valid = 0u;
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;
@@ -527,7 +529,7 @@ static uint8_t service_afe_reconfiguration(void)
 /* 主循环独占 CRLD 模式和恢复证据；切换后等待，不用旧模式的读数解除保护。 */
 static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
 {
-    uint8_t load = (s_short_latched ||
+    uint8_t load = (s_short_latched || bms_sw_protection_discharge_overcurrent_active() ||
         (s->flag1 & (SH3673520_FLAG1_SC_MASK | SH3673520_FLAG1_OCD1_MASK |
                      SH3673520_FLAG1_OCD2_MASK))) ? 1u : 0u;
     uint8_t data[2];
@@ -717,6 +719,12 @@ static uint8_t publish_measurements(void)
 
     if (!s_afe_reconfigure_required) {
         memset(&sw, 0, sizeof(sw));
+        sw.current_recovery_requires_evidence = 1u;
+        sw.current_recovery_sample_fresh = !s_sample_pending;
+        sw.charge_recovery_allowed =
+            (s_charger_removed || (status.bstatus2 & SH3673520_BSTATUS2_DSGING_MASK));
+        sw.discharge_recovery_allowed =
+            (s_load_removed || (status.bstatus2 & SH3673520_BSTATUS2_CHGING_MASK));
         sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
         sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                               &sw.battery_temp_max);

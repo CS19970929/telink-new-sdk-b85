@@ -42,7 +42,7 @@ def compiler_flags():
     return flags
 
 
-def run_c(code, sources=(), flags=(), name='scenario', expect_failure=False):
+def run_c(code, sources=(), flags=(), name='scenario', expect_failure=False, runs=None):
     with tempfile.TemporaryDirectory(prefix='bms-validation-') as directory:
         folder = Path(directory)
         source = folder / (name + '.c')
@@ -63,18 +63,23 @@ def run_c(code, sources=(), flags=(), name='scenario', expect_failure=False):
         except (OSError, subprocess.CalledProcessError):
             preserve()
             raise
-        result = subprocess.run([str(executable)], capture_output=True, text=True)
-        print(result.stdout, end='')
-        print(result.stderr, end='')
-        if expect_failure:
-            if result.returncode != 1 or 'expected=' not in result.stderr or 'actual=' not in result.stderr:
+        outputs = []
+        for overrides in (runs if runs is not None else [{}]):
+            result = subprocess.run([str(executable)], capture_output=True, text=True,
+                                    env={**os.environ, **overrides})
+            print(result.stdout, end='')
+            print(result.stderr, end='')
+            if expect_failure:
+                if result.returncode != 1 or 'expected=' not in result.stderr or 'actual=' not in result.stderr:
+                    preserve()
+                    raise AssertionError(f'{name} 没有得到预期业务断言失败，exit={result.returncode}')
+                outputs.append(result.stdout + result.stderr)
+            elif result.returncode:
                 preserve()
-                raise AssertionError(f'{name} 没有得到预期业务断言失败，exit={result.returncode}')
-            return result.stdout + result.stderr
-        if result.returncode:
-            preserve()
-            raise AssertionError(f'{name} 运行失败，exit={result.returncode}')
-        return result.stdout
+                raise AssertionError(f'{name} 运行失败，exit={result.returncode}, run={overrides}')
+            else:
+                outputs.append(result.stdout)
+        return ''.join(outputs)
 
 
 def evidence(value):

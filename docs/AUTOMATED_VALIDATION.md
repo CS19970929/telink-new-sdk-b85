@@ -105,7 +105,7 @@ CI 的 `host-contract` 跑完整入口并归档人/机报告，`host-sanitizers`
 
 ## 仍需投入的高风险验证
 
-1. 软件下一优先：补全两个 AFE 后端 + 真实配置/存储 + feature + guard 的端到端闭环，重点验证过流恢复物理证据、BUS silence、并发故障、重配/掉电后的最终 MOS 请求。当前 SH 联合链已经覆盖部分，但不能替代整个系统。
+1. 软件下一优先：[D014 保护与恢复闭环](D014_SAFETY_LOOP.md) 已连接 22 个真实 TU，并修复 SH 软件过流的零电流误恢复。继续补 DVC、真实主循环调度、跨 MCU reset 的产品策略和实际 Gate/负载证据；不能把 D014 的采样任务闭环当作整机验收。
 2. 协议下一优先：真实 Modbus 寄存器所有者/Flash 提交链和 UART 任意分片粘包压力，再接 BLE 应用协议层；不要伪造不存在的 CAN 产品。
 3. AFE 下一优先：以受控官方手册逐位核准寄存器模型，增加随机合法 profile 的全域编码/解码与容差检查；现有默认轨迹与故障注入不是全配置空间证明。
 4. 实板必做：芯片转换标志时序/ADC 误差、Gate/负载/充电器证据、SC/OCD/OCC 波形、Flash 掉电、电源复位/watchdog、Sleep 电流/唤醒、RS485 PHY/BLE RF、温度与 EMC。按 [硬件验证清单](HARDWARE_VALIDATION.md) 留独立证据。

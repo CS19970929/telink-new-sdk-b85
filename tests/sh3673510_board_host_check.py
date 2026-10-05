@@ -24,6 +24,7 @@ code = r'''
 #include <assert.h>
 #include "bms_sw_protection.h"
 #include "bms_sh3673510_config.h"
+#include "sh3673520_reg.h"
 #define AS_GPIO 1
 #define GPIO_PA0 0
 #define GPIO_PD3 3
@@ -41,6 +42,8 @@ static void gpio_set_output_en(int p,int v){
 #define MOS_TEMP1 3
 static struct {uint16_t u16Temperature[4];} g_stCellInfoReport;
 static uint8_t s_ntc_valid[4];
+static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
+static struct {uint8_t bstatus2;} status;
 static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}
 static bms_sw_protection_inputs_t sample(void){bms_sw_protection_inputs_t sw;
 ''' + mapping + r'''

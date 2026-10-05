@@ -20,6 +20,8 @@ Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT�
 
 `Filter` 单位 10 ms，以 `ceil(Filter * 10 / 200)` 转为样本数，最少一个样本。高值触发 `>=trip`，低值触发 `<=trip`；Third 分别在 `<=Recover` / `>=Recover` 后确认恢复。采样阻塞会影响墙钟时延，不能把配置 100 ms 写成保证 100 ms 响应。
 
+SH 后端的软件 Third OC 恢复额外要求负载/充电器移除或既有可靠反向状态，并仅在完整新 ADC 样本上推进计数；正常 CADC 等待暂停计数，证据丢失/通信失败清零。AFE 重初始化保留已触发 OC，MCU 冷复位不持久化该 RAM 状态。D008 尚未接入这一组输入。完整状态所有权、场景与未关闭边界见 [D014 软件闭环](D014_SAFETY_LOOP.md)。
+
 ## 4. 温度有效性
 
 backend 向公共层提供 Battery min/max、MOS温度、valid 标志及产品固定的 `mos_temp_required`。

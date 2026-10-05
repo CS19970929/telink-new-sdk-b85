@@ -24,11 +24,19 @@ typedef struct
      * are required on every current product. An unfitted MOS NTC is neither
      * a sensor fault nor an input to MOS temperature protection. */
     uint8_t mos_temp_required;
+    /* Backend opt-in: Third OC needs fresh physical release evidence as well
+     * as current hysteresis. Zero keeps backends without this input compatible. */
+    uint8_t current_recovery_requires_evidence;
+    uint8_t charge_recovery_allowed;
+    uint8_t discharge_recovery_allowed;
+    uint8_t current_recovery_sample_fresh;
 } bms_sw_protection_inputs_t;
 
 uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *params);
 void bms_sw_protection_init(void);
 void bms_sw_protection_clear(void);
+/* Invalidate partial physical recovery windows without erasing active faults. */
+void bms_sw_protection_reset_current_recovery(void);
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs);
 /* Independent policy groups; disabled groups clear their owned state. */
 void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
@@ -37,5 +45,6 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
 void bms_sw_protection_record_fault_edges(void);
 uint8_t bms_sw_protection_charge_blocked(void);
 uint8_t bms_sw_protection_discharge_blocked(void);
+uint8_t bms_sw_protection_discharge_overcurrent_active(void);
 
 #endif /* BMS_SW_PROTECTION_H_ */

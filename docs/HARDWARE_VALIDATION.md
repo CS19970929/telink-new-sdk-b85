@@ -9,7 +9,8 @@
 - [ ] Flash 写入及 sector 轮转掉电，启动失败 inhibit、重试与恢复；记录真实电源波形和参数读回。
 - [ ] 充/放电正负、零点、增益、温漂与 SOC 积分方向；OV/UV/OC/温度触发及恢复的实际时间。
 - [ ] AFE 失联、重配失败、watchdog、持续短路/负载未移除、wake 失败；测 Gate/Vgs 和负载电流，不只读寄存器。
-- [ ] SH 三产品按 [恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md) 验证 C+/LOAD 切换、200 ms 等待、残压/反灌、900/2100 mV 板级判据、SC/OCC 并发及清 flag 失败静默；确认 1.2 s 温度启动和 400 ms ADC 活性时限。公共软件过流 Third 的物理恢复证据仍未闭环。
+- [ ] SH 三产品按 [恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md) 验证 C+/LOAD 切换、200 ms 等待、残压/反灌、900/2100 mV 板级判据、SC/OCC 并发及清 flag 失败静默；确认 1.2 s 温度启动和 400 ms ADC 活性时限。[D014 软件闭环](D014_SAFETY_LOOP.md) 已接入软件 Third OC 恢复输入，物理 Gate/负载仍需实测；DVC 对应软件输入尚未接入。
+- [ ] 明确软件过流之后的 MCU reset/掉电重启策略：当前软件 OC 仅在 RAM 锁存，AFE 重初始化保留，MCU 冷复位不保留。不得以持久故障历史代替实际输出锁存策略。
 - [ ] 串口/BLE 长短帧、非法/部分帧、断连重连、日志采集与 OTA 互锁；RS485 产品测最后停止位与 DE。
 - [ ] 正常/故障/OTA/Flash 压力下采样 gap、主栈/IRQ 栈水位、watchdog 和功耗；深睡恢复后配置和保护完整。
 - [ ] 发布镜像身份和 CRC、实际 OTA 及回退；固定主机工具版本、固件 SHA/profile/BIN hash。

@@ -6,7 +6,9 @@ from validation_support import ROOT, read, function, run_c, evidence
 fixture=read('tests/fixtures/sh_recovery_evidence.c').split('#if defined(MODE_TEST)')[0]
 for signature in ('uint8_t bms_sw_protection_charge_blocked(', 'uint8_t bms_sw_protection_discharge_blocked(',
                   'void bms_sw_protection_init(', 'void bms_sw_protection_update(',
-                  'void bms_sw_protection_clear(', 'void bms_sw_protection_record_fault_edges('):
+                  'void bms_sw_protection_clear(', 'void bms_sw_protection_record_fault_edges(',
+                  'void bms_sw_protection_reset_current_recovery(',
+                  'uint8_t bms_sw_protection_discharge_overcurrent_active('):
     fixture=fixture.replace(function(fixture,signature),'')
 profile=re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',read('bms/core/bms_afe_hw_profile.h'),re.S).group()
 fixture=fixture.replace('/* PROFILE TYPE */',profile)

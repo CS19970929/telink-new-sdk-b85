@@ -21,6 +21,7 @@ static void bms_error_clear(unsigned e) { errors[e] = 0; }
 static void SH3673520_GetCommStats(sh3673520_comm_stats_t *s) { s->last_error = SH3673520_ERR_CRC; }
 static uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 static uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
+static void bms_sw_protection_reset_current_recovery(void) {}
 static uint8_t bms_features_charge_direction_blocked(void) { return 0; }
 static uint8_t sh3673510_control_ready(void) { return 1; }
 static uint8_t sh3673510_control_set_fets(uint8_t c, uint8_t d) {

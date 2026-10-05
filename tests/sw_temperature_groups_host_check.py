@@ -19,7 +19,8 @@ uint8_t bms_error_get(bms_error_id_t error){(void)error;return (uint8_t)broken;}
 uint8_t bms_protection_params_valid(void){return 1;}
 void bms_fault_history_record(bms_fault_code_t fault){(void)fault;}
 int main(void){
- bms_sw_protection_inputs_t in={1,1,1000,1000,1000,1};
+ bms_sw_protection_inputs_t in={.battery_temp_valid=1, .mos_temp_valid=1,
+  .battery_temp_min=1000, .battery_temp_max=1000, .mos_temp=1000, .mos_temp_required=1};
  g_tParam.protect.u16TChgOTp_Third=900;g_tParam.protect.u16TChgOTp_Rcv=800;
  g_tParam.protect.u16TmosOTp_Third=900;g_tParam.protect.u16TmosOTp_Rcv=800;
  g_tParam.protect.u16IchgOcp_Third=100;g_tParam.protect.u16IchgOcp_Rcv=50;

@@ -68,6 +68,7 @@ jobs:
           python tests/run_host_regression.py --output "${{ runner.temp }}/bms-sanitizers"
           --only protection_scenarios_host_check --only product_configuration_host_check
           --only features_scenarios_host_check --only sh_safety_chain_host_check
+          --only d014_safety_loop_host_check
           --only sh_register_scenarios_host_check --only dvc_register_scenarios_host_check
           --only modbus_fuzz_host_check --only current_calibration_host_check
           --only portable_core_host_check
