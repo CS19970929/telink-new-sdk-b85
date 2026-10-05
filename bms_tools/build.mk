@@ -81,6 +81,11 @@ CFLAGS_BASE := \
 # Never inherit the sample project's 8258/64 KiB startup profile here.
 AFLAGS_BASE := -DMCU_STARTUP_8251
 
+# Size-optimize only common application policy in production. SDK, platform,
+# AFE drivers and startup keep their original -O2 / ABI / timing configuration.
+# Source rules explicitly apply this only to bms/core/*.c.
+CORE_OPT_FLAGS := $(if $(filter -DBMS_PRODUCTION_BUILD=1,$(EXTRA_DEFINES)),-Os,)
+
 CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES) $(EXTRA_DEFINES)
 AFLAGS := $(AFLAGS_BASE)
 

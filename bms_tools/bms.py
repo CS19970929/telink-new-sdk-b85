@@ -69,7 +69,8 @@ def _selection_args(product=None):
 
 def _build_configuration():
     return {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
-            "d008_profile": (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else None}
+            "d008_profile": (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else None,
+            "core_optimization": "-Os" if PRODUCTION else "-O2"}
 
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
@@ -323,8 +324,7 @@ def cmd_env(args: argparse.Namespace) -> int:
         ("make", _need_make(), _tool_version([_need_make(), "--version"], 0)),
     ]
     # tc32 toolchain
-    tc_bin = shutil.which("tc32-elf-gcc") or (str(DEFAULT_TC32_DIR / "tc32-elf-gcc.exe")
-                                              if DEFAULT_TC32_DIR.exists() else None)
+    tc_bin = _tc32_tool("tc32-elf-gcc")
     checks.append(("tc32-elf-gcc", tc_bin, _tool_version([tc_bin, "--version"], 0) if tc_bin else "MISSING"))
     # tools
     bdt_version = "unknown"
@@ -546,7 +546,8 @@ def _gen_sources_mk(build_dir: Path = BUILD_DIR) -> None:
             out_lines.append(f"\t$(Q)$(CC) $(AFLAGS) -c -o\"$@\" \"$<\"")
         else:
             out_lines.append(f"\t@echo 'Building: {src.name}'")
-            out_lines.append(f"\t$(Q)$(CC) $(CFLAGS) -c -o\"$@\" \"$<\"")
+            core_flags = " $(CORE_OPT_FLAGS)" if rel_text.startswith("bms/core/") else ""
+            out_lines.append(f"\t$(Q)$(CC) $(CFLAGS){core_flags} -c -o\"$@\" \"$<\"")
     out_lines.insert(4, f"OBJS := {' '.join(objs)}")
     for directory in subdirs_to_create:
         directory.mkdir(parents=True, exist_ok=True)
@@ -1146,7 +1147,7 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         },
         "elf_size_bytes": ELF.stat().st_size if ELF.exists() else None,
         "tools": {
-            "tc32": _tool_version(_tc32_tool("tc32-elf-gcc")),
+            "tc32": _tool_version([_tc32_tool("tc32-elf-gcc"), "--version"], 0),
             "sdk": "tc_ble_single_sdk V3.4.2.8_Patch_0001",
         },
         "target_configuration": {
