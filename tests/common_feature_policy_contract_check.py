@@ -75,12 +75,14 @@ assert "else if (s_guard.comm_fault_latched)" in guard_c
 
 sh=text("sh3673510_feature_backend.c")
 for token in (
-    "SH3673520_REG_VCHGRH","SH_CHARGER_PRESENT_ON_MV","SH_CHARGER_PRESENT_OFF_MV",
-    "SH3673520_REG_BSTATUS1","SH3673520_BSTATUS2_CHGING_MASK",
     "SH3673520_SCONF3_OWD_EN_MASK","SH3673520_SCONF3_OWD_TRG_MASK",
     "SH3673520_REG_FLAG3","SH3673520_REG_OWDH","0x000AAAAA","0x00055555",
     "SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u","sh_read_balance_mask"
 ): assert token in sh, token
+for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",
+              "sample_release_evidence", "sh3673510_backend_get_charge_source_present"):
+    assert token in sh_bms, token
+assert "sh3673510_backend_get_charge_source_present" not in sh
 
 for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
     assert token in config_h and token in config_c and token in features_c

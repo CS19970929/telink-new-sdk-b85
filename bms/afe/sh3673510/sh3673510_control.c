@@ -382,6 +382,22 @@ uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
     return 1u;
 }
 
+uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed)
+{
+    uint8_t value, verify, target;
+    uint8_t bits = enabled ? SH3673520_SCONF3_CRLD_LOAD : SH3673520_SCONF3_CRLD_CPLUS;
+    if (!s_control_ready || s_afe_sleeping || changed == 0) return 0u;
+    *changed = 0u;
+    if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &value) != SH3673520_OK) return 0u;
+    target = (uint8_t)((value & (uint8_t)~SH3673520_SCONF3_CRLD_EN_MASK) | bits);
+    if (target != value) {
+        if (SH3673520_WriteReg(SH3673520_REG_SCONF3, target) != SH3673520_OK) return 0u;
+        *changed = 1u;
+    }
+    if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &verify) != SH3673520_OK) return 0u;
+    return (verify == target) ? 1u : 0u;
+}
+
 static uint8_t sh3510_clear_flags(uint8_t reg, uint8_t clear_mask)
 {
     uint8_t sconf2;

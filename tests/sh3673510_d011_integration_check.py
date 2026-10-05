@@ -160,7 +160,8 @@ require(bms, "SH3673510_BOARD_SHUNT_UOHM")
 require(bms, "g_stCellInfoReport.u16Ichg")
 require(bms, "g_stCellInfoReport.u16IDischg")
 require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);")
-require(bms, "s_aux.sample_tick_32k = pm_get_32k_tick();")
+require(bms, "s_aux.sample_tick_32k = now;")
+require(bms, "if (status.flag2 & SH3673520_FLAG2_CADC_MASK)")
 require(app, "BMS_BOARD_SWITCH_PIN")
 require(app, "#define APP_SAMPLE_PERIOD_US 200000u")
 require(app, "bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)")
@@ -248,7 +249,7 @@ if "(void)requested_charge_on" in bms or "(void)requested_discharge_on" in bms:
     raise AssertionError("AFE FET API must honor caller requests")
 # Short-circuit recovery must remain a distinct LOADOFF-qualified path even
 # though normal OCD1/OCD2 FLAG recovery legitimately uses the OCP recovery current.
-short_start = bms.find("static void service_short_recovery")
+short_start = bms.find("static uint8_t service_short_recovery")
 short_end = bms.find("static uint8_t hw_recovery_stable", short_start)
 if short_start < 0 or short_end <= short_start:
     raise AssertionError("missing service_short_recovery")
@@ -298,7 +299,7 @@ require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 # Function-level safety invariants that text-level dedupe must not destroy.
 require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
-require(bms, "s_snapshot_valid = 0u;\n    /* Preserve s_short_latched across AFE communication reinitialization. */")
+require(bms, "/* Preserve s_short_latched across AFE communication reinitialization. */")
 sleep_text = bms[bms.index("uint8_t sh3673510_bms_afe_sleep(void)"):]
 require(sleep_text, "s_snapshot_valid = 0u;")
 require(sleep_text, "if (!sh3673510_control_sleep())")
@@ -307,7 +308,7 @@ require_count(bms, "s_short_latched = 0u;", 2)
 
 # Hardware FLAG recovery must be based on physical recovery windows and the
 # actual quantized AFE threshold, not software Third-level activity.
-hw_start = bms.find("static void service_hw_flag_recovery")
+hw_start = bms.find("static uint8_t service_hw_flag_recovery")
 hw_end = bms.find("static uint8_t service_afe_reconfiguration", hw_start)
 if hw_start < 0 or hw_end <= hw_start:
     raise AssertionError("missing hardware FLAG recovery state machine")
@@ -319,7 +320,7 @@ for needle in (
     "u16VCellMin >= hw.cuv_recover_mv",
     "u16VCellMin > actual.uv_mv",
     "dsg_ocp_release_ok",
-    "SH3673520_BSTATUS2_LOADOFF_MASK",
+    "s_load_removed",
     "SH3673520_BSTATUS2_CHGING_MASK",
     "u16IDischg <= hw.ocd_recover_a10",
     "u16IDischg < actual.ocd1_a10",

@@ -47,6 +47,7 @@ python bms_tools/bms.py --product d014 resources
 |---|---|
 | [软件保护](docs/SOFTWARE_PROTECTION.md) | 三级保护、单位、滤波及阻断 |
 | [AFE 硬件保护](docs/AFE_HARDWARE_PROTECTION_V2.md) | 授权、35-word profile、requested/effective、回滚 |
+| [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
 | [SOC](docs/SOC.md) | 真实样本时基、OCV、学习与状态保存 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、Factory 预留、地址和事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |

@@ -12,6 +12,7 @@ static struct { struct { uint8_t b1Status_AFE1, b1Status_MOS_CHG, b1Status_MOS_D
 static uint8_t errors[4];
 static unsigned failures, clears, writes;
 static uint8_t guard_qualified = 1;
+static uint32_t pm_get_32k_tick(void) { return 0u; }
 static uint8_t bms_afe_samples_qualified(void) { return guard_qualified; }
 static uint8_t clear_ok, write_ok, init_ok, actual_c, actual_d;
 static uint8_t bms_error_get(unsigned e) { return errors[e]; }
@@ -58,6 +59,7 @@ static void sample(uint8_t sc, uint8_t removed) {
     sh3673510_control_status_t status = {0, 0, 0, 0};
     status.flag1 = sc ? SH3673520_FLAG1_SC_MASK : 0;
     status.bstatus2 = removed ? SH3673520_BSTATUS2_LOADOFF_MASK : 0;
+    s_load_removed = removed; /* Evidence input; mode/timing has a public-path test. */
     publish_hw_status(&status);
 #if SH3673510_HW_PROTECT_ENABLE
     service_short_recovery(&status);

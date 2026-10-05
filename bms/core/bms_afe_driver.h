@@ -34,6 +34,8 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void);
 uint8_t sh3673510_bms_afe_set_fets(uint8_t,uint8_t);
 void sh3673510_bms_afe_set_output_enabled(uint8_t);
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
+/* Successful read awaiting conversion; never counts toward fresh qualification. */
+uint8_t sh3673510_bms_afe_sample_pending(void);
 uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *, uint8_t *, uint8_t *, uint8_t *);
 typedef struct {
     uint8_t flag1, flag2, bstatus2;

@@ -25,7 +25,7 @@ def function(name):
 
 state = source[source.index('#define SH3510_SAMPLE_MS'):source.index('/* Existing product 10K NTC table')]
 functions = '\n'.join(function(name) for name in (
-    'filter_samples', 'note_comm_error', 'charge_blocked', 'discharge_blocked',
+    'restart_sampling', 'filter_samples', 'note_comm_error', 'charge_blocked', 'discharge_blocked',
     'sh3510_outputs_healthy', 'sh3510_apply_requested_fets', 'publish_hw_status',
     'service_short_recovery', 'hw_recovery_stable', 'service_afe_reconfiguration',
     'sh3673510_bms_afe_set_output_enabled', 'sh3673510_bms_afe_sleep',

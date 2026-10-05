@@ -36,6 +36,8 @@ uint8_t sh3673510_control_apply_protection(void);
 uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);
 uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on);
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status);
+/* CRLD_EN is shared: load detection and C+ ADC cannot run simultaneously. */
+uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed);
 uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask);
 uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask);
 uint8_t sh3673510_control_set_balance(uint16_t cell_mask);

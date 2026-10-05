@@ -211,13 +211,21 @@ void bms_afe_sample(void)
     memset(&m, 0, sizeof(m));
     if (!AFE_AUX(&m))
     {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+        if (sh3673510_bms_afe_sample_pending()) return;
+#endif
         note_invalid();
         return;
     }
 
     s_guard.comm_failures = 0u;
-    if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
-        ++s_guard.valid_snapshot_streak;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    if (!sh3673510_bms_afe_sample_pending())
+#endif
+    {
+        if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
+            ++s_guard.valid_snapshot_streak;
+    }
 
     if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
     {

@@ -16,6 +16,8 @@ Config / State / Event → storage_record → Telink Flash 平台
 
 每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、tick、UART/BLE、Flash 仍按 Telink SDK 实现。
 
+SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
+
 ## 2. 谁能修改什么
 
 | 状态/数据 | 所有者与入口 | 失败/限制 |
