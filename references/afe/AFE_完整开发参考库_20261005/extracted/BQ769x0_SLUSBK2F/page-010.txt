@@ -1,0 +1,43 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                 www.ti.com
+
+
+
+                                          bq76940 Pin Functions (continued)
+                   PIN          NAME         TYPE                              DESCRIPTION
+                    16           NC           —       No connect (short to CAP3)
+                    17           NC           —       No connect (short to CAP3)
+                    18           TS3           I      Thermistor #3 positive terminal (1)
+                    19          CAP3          O       Capacitor to VC10X
+                    20           BAT           P      Battery (top-most) terminal
+                    21           NC           —       No connect
+                    22           NC           —       No connect
+                    23           NC           —       No connect
+                    24          VC15           I      Sense voltage for 15th cell positive terminal
+                    25          VC14           I      Sense voltage for 14th cell positive terminal
+                    26          VC13           I      Sense voltage for 13th cell positive terminal
+                    27          VC12           I      Sense voltage for 12th cell positive terminal
+                    28          VC11           I      Sense voltage for 11th cell positive terminal
+                    29         VC10B           I      Sense voltage for 11th cell negative terminal
+                    30          VC10           I      Sense voltage for 10th cell positive terminal
+                    31           VC9           I      Sense voltage for 9th cell positive terminal
+                    32           VC8           I      Sense voltage for 8th cell positive terminal
+                    33           VC7           I      Sense voltage for 7th cell positive terminal
+                    34           VC6           I      Sense voltage for 6th cell positive terminal
+                    35          VC5B           I      Sense voltage for 6th cell negative terminal
+                    36           VC5           I      Sense voltage for 5th cell positive terminal
+                    37           VC4           I      Sense voltage for 4th cell positive terminal
+                    38           VC3           I      Sense voltage for 3rd cell positive terminal
+                    39           VC2           I      Sense voltage for 2nd cell positive terminal
+                    40           VC1           I      Sense voltage for 1st cell positive terminal
+                    41           VC0           I      Sense voltage for 1st cell negative terminal
+                    42           SRP           I      Negative current sense (nearest VSS)
+                    43           SRN           I      Positive current sense
+                    44         ALERT          I/O     Alert output and override input
+
+
+
+
+10     Pin Configuration and Functions                                                  Copyright © 2013–2015, Texas Instruments Incorporated
+                                                 Submit Documentation Feedback
+                                         Product Folder Links: bq76920 bq76930 bq76940

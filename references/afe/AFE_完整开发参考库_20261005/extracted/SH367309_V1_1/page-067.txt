@@ -1,0 +1,45 @@
+                                                                                         SH367309
+
+ 序号                                                          状态位
+          名字
+(Hex)                 7          6          5           4           3         2          1          0
+40H      CONF       OCRC      PCHMOS     DSGMOS      CHGMOS     CADCON      ENWDT      SLEEP      IDLE
+41H     BALANCEH     CB16      CB15       CB14        CB13         CB12      CB11      CB10        CB9
+42H     BALANCEL     CB8        CB7        CB6         CB5         CB4       CB3        CB2        CB1
+43H     BSTATUS1     WDT        PF         SC          OCC       OCD2        OCD1       UV         OV
+44H     BSTATUS2       -         -          -           -          OTD       UTD        OTC        UTC
+45H     BSTATUS3   CHGING     DSGING        -        EEPR_WR       L0V     PCHG_FET CHG_FET      DSG_FET
+46H      TEMP1H    TEMP1.15   TEMP1.14   TEMP1.13    TEMP1.12   TEMP1.11   TEMP1.10   TEMP1.9    TEMP1.8
+47H      TEMP1L    TEMP1.7    TEMP1.6    TEMP1.5     TEMP1.4    TEMP1.3    TEMP1.2    TEMP1.1    TEMP1.0
+48H      TEMP2H    TEMP2.15   TEMP2.14   TEMP2.13    TEMP2.12   TEMP2.11   TEMP2.10   TEMP2.9    TEMP2.8
+49H      TEMP2L    TEMP2.7    TEMP2.6    TEMP2.5     TEMP2.4    TEMP2.3    TEMP2.2    TEMP2.1    TEMP2.0
+4AH      TEMP3H    TEMP3.15   TEMP3.14   TEMP3.13    TEMP3.12   TEMP3.11   TEMP3.10   TEMP3.9    TEMP3.8
+4BH      TEMP3L    TEMP3.7    TEMP3.6    TEMP3.5     TEMP3.4    TEMP3.3    TEMP3.2    TEMP3.1    TEMP3.0
+4CH      CURH       CUR.15     CUR.14     CUR.13      CUR.12     CUR.11     CUR.10     CUR.9      CUR.8
+4DH      CURL       CUR.7      CUR.6      CUR.5       CUR.4      CUR.3      CUR.2      CUR.1      CUR.0
+4EH      CELL1H    CELL1.15   CELL1.14   CELL1.13    CELL1.12   CELL1.11   CELL1.10   CELL1.9    CELL1.8
+4FH      CELL1L    CELL1.7    CELL1.6    CELL1.5     CELL1.4    CELL1.3     CELL1.2   CELL1.1    CELL1.0
+50H      CELL2H    CELL2.15   CELL2.14   CELL2.13    CELL2.12   CELL2.11   CELL2.10   CELL2.9    CELL2.8
+51H      CELL2L    CELL2.7    CELL2.6    CELL2.5     CELL2.4    CELL2.3     CELL2.2   CELL2.1    CELL2.0
+52H      CELL3H    CELL3.15   CELL3.14   CELL3.13    CELL3.12   CELL3.11   CELL3.10   CELL3.9    CELL3.8
+53H      CELL3L    CELL3.7    CELL3.6    CELL3.5     CELL3.4    CELL3.3     CELL3.2   CELL3.1    CELL3.0
+54H      CELL4H    CELL4.15   CELL4.14   CELL4.13    CELL4.12   CELL4.11   CELL4.10   CELL4.9    CELL4.8
+55H      CELL4L    CELL4.7    CELL4.6    CELL4.5     CELL4.4    CELL4.3     CELL4.2   CELL4.1    CELL4.0
+56H      CELL5H    CELL5.15   CELL5.14   CELL5.13    CELL5.12   CELL5.11   CELL5.10   CELL5.9    CELL5.8
+57H      CELL5L    CELL5.7    CELL5.6    CELL5.5     CELL5.4    CELL5.3     CELL5.2   CELL5.1    CELL5.0
+58H      CELL6H    CELL6.15   CELL6.14   CELL6.13    CELL6.12   CELL6.11   CELL6.10   CELL6.9    CELL6.8
+59H      CELL6L    CELL6.7    CELL6.6    CELL6.5     CELL6.4    CELL6.3     CELL6.2   CELL6.1    CELL6.0
+5AH      CELL7H    CELL7.15   CELL7.14   CELL7.13    CELL7.12   CELL7.11   CELL7.10   CELL7.9    CELL7.8
+5BH      CELL7L    CELL7.7    CELL7.6    CELL7.5     CELL7.4    CELL7.3     CELL7.2   CELL7.1    CELL7.0
+5CH      CELL8H    CELL8.15   CELL8.14   CELL8.13    CELL8.12   CELL8.11   CELL8.10   CELL8.9    CELL8.8
+5DH      CELL8L    CELL8.7    CELL8.6    CELL8.5     CELL8.4    CELL8.3     CELL8.2   CELL8.1    CELL8.0
+5EH      CELL9H    CELL9.15   CELL9.14   CELL9.13    CELL9.12   CELL9.11   CELL9.10   CELL9.9    CELL9.8
+5FH      CELL9L    CELL9.7    CELL9.6    CELL9.5     CELL9.4    CELL9.3     CELL9.2   CELL9.1    CELL9.0
+60H     CELL10H    CELL10.15 CELL10.14 CELL10.13 CELL10.12 CELL10.11 CELL10.10        CELL10.9   CELL10.8
+
+                                      表10 RAM寄存器列表
+
+
+
+
+                                                67

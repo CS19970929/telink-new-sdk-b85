@@ -1,0 +1,18 @@
+                                                                              SH367309
+Table 12.24 系统标志寄存器BFLAG2
+         71H       第7位      第6位      第5位        第4位   第3位      第2位      第1位      第0位
+     BFLAG2       RST_FLG WAKE_FLG CADC_FLG VADC_FLG OTD_FLG UTD_FLG OTC_FLG UTC_FLG
+      读/写         读/写“0”    读/写“0”   读          读     读/写“0”   读/写“0”   读/写“0”   读/写”0”
+     复位值             1        0       0          0      0        0        0        0
+
+   位编号          位符号                                   说明
+                           CADC中断标志位
+                             1：发生过CADC中断
+     5         CADC_FLG
+                             0：未发生过CADC中断
+                             该bit被读取之后，硬件会自动清零
+
+
+
+
+                                           48

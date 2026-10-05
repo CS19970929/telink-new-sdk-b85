@@ -1,0 +1,3452 @@
+{
+  "schema_version": "1.0",
+  "source_file": "BQ76940.pdf",
+  "source_document": "SLUSBK2F",
+  "source_pdf_pages": 63,
+  "main_printed_pages": 53,
+  "reference_sections": {
+    "0": "来源、范围与使用约定",
+    "1": "定位、型号与订购差异",
+    "2": "引脚、组参考地与电芯接法",
+    "3": "电气边界与供电",
+    "4": "I²C、CRC和原子读取",
+    "5": "全寄存器参考",
+    "6": "测量、换算、校准及新鲜度",
+    "7": "硬件保护：阈值、编码、延时及恢复",
+    "8": "FET驱动、负载检测与ALERT诊断",
+    "9": "NORMAL、低功耗、SHIP和启动",
+    "10": "均衡",
+    "11": "配置持久性及安全驱动清单",
+    "12": "应用、原理图、PCB与设计例",
+    "13": "机械、订购与附录",
+    "14": "修订历史如何影响解释",
+    "15": "源文矛盾、缺项与采用规则",
+    "16": "快速检索与完成度"
+  },
+  "sections": [
+    {
+      "source_section": "1",
+      "title": "Introduction",
+      "pdf_pages": [
+        1
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 0,
+          "heading": "来源、范围与使用约定"
+        },
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "1.1",
+      "title": "Features",
+      "pdf_pages": [
+        1
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "1.2",
+      "title": "Applications",
+      "pdf_pages": [
+        1
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "1.3",
+      "title": "Description",
+      "pdf_pages": [
+        1
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "1.4",
+      "title": "Simplified System Diagram",
+      "pdf_pages": [
+        1
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "2",
+      "title": "Revision History",
+      "pdf_pages": [
+        2,
+        3
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 14,
+          "heading": "修订历史如何影响解释"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "3",
+      "title": "Description (Continued)",
+      "pdf_pages": [
+        4
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "4",
+      "title": "Device Comparison Table",
+      "pdf_pages": [
+        4
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5",
+      "title": "Pin Configuration and Functions",
+      "pdf_pages": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.1",
+      "title": "Versions",
+      "pdf_pages": [
+        5
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        },
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.2",
+      "title": "bq76920 Pin Diagram",
+      "pdf_pages": [
+        6
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.2.1",
+      "title": "bq76920 Pin Map",
+      "pdf_pages": [
+        6
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.3",
+      "title": "bq76930 Pin Diagram",
+      "pdf_pages": [
+        7,
+        8
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.3.1",
+      "title": "bq76930 Pin Map",
+      "pdf_pages": [
+        7,
+        8
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.4",
+      "title": "bq76940 Pin Diagram",
+      "pdf_pages": [
+        9,
+        10
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "5.4.1",
+      "title": "bq76940 Pin Map",
+      "pdf_pages": [
+        9,
+        10
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6",
+      "title": "Electrical Specifications",
+      "pdf_pages": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.1",
+      "title": "Absolute Maximum Ratings",
+      "pdf_pages": [
+        11
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.2",
+      "title": "ESD Ratings",
+      "pdf_pages": [
+        11
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.3",
+      "title": "Recommended Operating Conditions",
+      "pdf_pages": [
+        11,
+        12
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.4",
+      "title": "Thermal Information",
+      "pdf_pages": [
+        13
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.5",
+      "title": "Electrical Characteristics",
+      "pdf_pages": [
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.6",
+      "title": "Timing Requirements",
+      "pdf_pages": [
+        17
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "6.7",
+      "title": "Typical Characteristics",
+      "pdf_pages": [
+        18
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7",
+      "title": "Detailed Description",
+      "pdf_pages": [
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        },
+        {
+          "file": "reference.md",
+          "section": 11,
+          "heading": "配置持久性及安全驱动清单"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.1",
+      "title": "Overview",
+      "pdf_pages": [
+        19
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.2",
+      "title": "Functional Block Diagram",
+      "pdf_pages": [
+        19
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3",
+      "title": "Feature Description",
+      "pdf_pages": [
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1",
+      "title": "Subsystems",
+      "pdf_pages": [
+        20
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1",
+      "title": "Measurement Subsystem Overview",
+      "pdf_pages": [
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.1",
+      "title": "Data Transfer to the Host Controller",
+      "pdf_pages": [
+        20
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.2",
+      "title": "14-Bit ADC",
+      "pdf_pages": [
+        20,
+        21,
+        22
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.2.1",
+      "title": "Optional Real-time Calibration Using the Host Microcontroller",
+      "pdf_pages": [
+        22
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.3",
+      "title": "16-Bit CC",
+      "pdf_pages": [
+        23
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.4",
+      "title": "External Thermistor",
+      "pdf_pages": [
+        23
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.5",
+      "title": "Die Temperature Monitor",
+      "pdf_pages": [
+        24
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.6",
+      "title": "16-Bit Pack Voltage",
+      "pdf_pages": [
+        24
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.1.7",
+      "title": "System Scheduler",
+      "pdf_pages": [
+        24
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.2",
+      "title": "Protection Subsystem",
+      "pdf_pages": [
+        24,
+        25,
+        26
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.2.1",
+      "title": "Integrated Hardware Protections",
+      "pdf_pages": [
+        24,
+        25,
+        26
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.2.2",
+      "title": "Reduced Test Time",
+      "pdf_pages": [
+        26
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3",
+      "title": "Control Subsystem",
+      "pdf_pages": [
+        26,
+        27,
+        28,
+        29
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3.1",
+      "title": "FET Driving (CHG AND DSG)",
+      "pdf_pages": [
+        26,
+        27
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3.2",
+      "title": "Load Detection",
+      "pdf_pages": [
+        27
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3.3",
+      "title": "Cell Balancing",
+      "pdf_pages": [
+        27,
+        28
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3.4",
+      "title": "Alert",
+      "pdf_pages": [
+        28
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.3.5",
+      "title": "Output LDO",
+      "pdf_pages": [
+        28,
+        29
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.3.1.4",
+      "title": "Communications Subsystem",
+      "pdf_pages": [
+        29,
+        30
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.4",
+      "title": "Device Functional Modes",
+      "pdf_pages": [
+        30,
+        31
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.4.1",
+      "title": "NORMAL Mode",
+      "pdf_pages": [
+        30
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.4.2",
+      "title": "SHIP Mode",
+      "pdf_pages": [
+        30,
+        31
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.5",
+      "title": "Register Maps",
+      "pdf_pages": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "registers.json",
+          "scope": "registers and bitfields"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.5.1",
+      "title": "Register Details",
+      "pdf_pages": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        },
+        {
+          "file": "registers.json",
+          "scope": "registers and bitfields"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "7.5.2",
+      "title": "Read-Only Registers",
+      "pdf_pages": [
+        39,
+        40,
+        41
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "registers.json",
+          "scope": "registers and bitfields"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8",
+      "title": "Application and Implementation",
+      "pdf_pages": [
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.1",
+      "title": "Application Information",
+      "pdf_pages": [
+        42
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        },
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.1.1",
+      "title": "Configuring Alternative Cell Counts",
+      "pdf_pages": [
+        42,
+        43
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.2",
+      "title": "Typical Applications",
+      "pdf_pages": [
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.2.1",
+      "title": "Design Requirements",
+      "pdf_pages": [
+        45,
+        46
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.2.2",
+      "title": "Detailed Design Procedure",
+      "pdf_pages": [
+        46,
+        47
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.2.2.1",
+      "title": "Step-by-Step Design Procedure",
+      "pdf_pages": [
+        46,
+        47
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "8.2.3",
+      "title": "Application Curves",
+      "pdf_pages": [
+        48
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "9",
+      "title": "Power Supply Recommendations",
+      "pdf_pages": [
+        49
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "10",
+      "title": "Layout",
+      "pdf_pages": [
+        50,
+        51,
+        52
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "10.1",
+      "title": "Layout Guidelines",
+      "pdf_pages": [
+        50
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "10.2",
+      "title": "Layout Example",
+      "pdf_pages": [
+        50,
+        51,
+        52
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11",
+      "title": "Device and Documentation Support",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.1",
+      "title": "Documentation Support",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.1.1",
+      "title": "Related Documentation",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.2",
+      "title": "Related Links",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.2.1",
+      "title": "Community Resources",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.3",
+      "title": "Trademarks",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.4",
+      "title": "Electrostatic Discharge Caution",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "11.5",
+      "title": "Glossary",
+      "pdf_pages": [
+        53
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "12",
+      "title": "Mechanical, Packaging, and Orderable Information",
+      "pdf_pages": [
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A1",
+      "title": "Package Option Addendum",
+      "pdf_pages": [
+        54,
+        55,
+        56
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A2",
+      "title": "Package Materials Information",
+      "pdf_pages": [
+        57,
+        58
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A3",
+      "title": "DBT R-PDSO-G30 Mechanical Data",
+      "pdf_pages": [
+        59
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A4",
+      "title": "DBT R-PDSO-G44 Mechanical Data",
+      "pdf_pages": [
+        60
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A5",
+      "title": "PW R-PDSO-G20 Mechanical Data",
+      "pdf_pages": [
+        61
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A6",
+      "title": "PW R-PDSO-G20 Land Pattern Data",
+      "pdf_pages": [
+        62
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    },
+    {
+      "source_section": "A7",
+      "title": "Important Notice",
+      "pdf_pages": [
+        63
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "coverage_type": "synthesis_with_source_links",
+      "status": "covered"
+    }
+  ],
+  "pages": [
+    {
+      "pdf_page": 1,
+      "printed_page": "1",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=1",
+      "source_sections": [
+        "1",
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 0,
+          "heading": "来源、范围与使用约定"
+        },
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-001.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 2,
+      "printed_page": "2",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=2",
+      "source_sections": [
+        "2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 14,
+          "heading": "修订历史如何影响解释"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-002.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 3,
+      "printed_page": "3",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=3",
+      "source_sections": [
+        "2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 14,
+          "heading": "修订历史如何影响解释"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-003.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 4,
+      "printed_page": "4",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=4",
+      "source_sections": [
+        "3",
+        "4"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-004.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 5,
+      "printed_page": "5",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=5",
+      "source_sections": [
+        "5",
+        "5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        },
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-005.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 6,
+      "printed_page": "6",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=6",
+      "source_sections": [
+        "5",
+        "5.2",
+        "5.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-006.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 7,
+      "printed_page": "7",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=7",
+      "source_sections": [
+        "5",
+        "5.3",
+        "5.3.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-007.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 8,
+      "printed_page": "8",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=8",
+      "source_sections": [
+        "5",
+        "5.3",
+        "5.3.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-008.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 9,
+      "printed_page": "9",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=9",
+      "source_sections": [
+        "5",
+        "5.4",
+        "5.4.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-009.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 10,
+      "printed_page": "10",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=10",
+      "source_sections": [
+        "5",
+        "5.4",
+        "5.4.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-010.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 11,
+      "printed_page": "11",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=11",
+      "source_sections": [
+        "6",
+        "6.1",
+        "6.2",
+        "6.3"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-011.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 12,
+      "printed_page": "12",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=12",
+      "source_sections": [
+        "6",
+        "6.3"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-012.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 13,
+      "printed_page": "13",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=13",
+      "source_sections": [
+        "6",
+        "6.4",
+        "6.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-013.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 14,
+      "printed_page": "14",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=14",
+      "source_sections": [
+        "6",
+        "6.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-014.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 15,
+      "printed_page": "15",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=15",
+      "source_sections": [
+        "6",
+        "6.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-015.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 16,
+      "printed_page": "16",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=16",
+      "source_sections": [
+        "6",
+        "6.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-016.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 17,
+      "printed_page": "17",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=17",
+      "source_sections": [
+        "6",
+        "6.5",
+        "6.6"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-017.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 18,
+      "printed_page": "18",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=18",
+      "source_sections": [
+        "6",
+        "6.7"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-018.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 19,
+      "printed_page": "19",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=19",
+      "source_sections": [
+        "7",
+        "7.1",
+        "7.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-019.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 20,
+      "printed_page": "20",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=20",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1",
+        "7.3.1.1",
+        "7.3.1.1.1",
+        "7.3.1.1.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 1,
+          "heading": "定位、型号与订购差异"
+        },
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-020.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 21,
+      "printed_page": "21",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=21",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.1",
+        "7.3.1.1.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-021.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 22,
+      "printed_page": "22",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=22",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.1",
+        "7.3.1.1.2",
+        "7.3.1.1.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-022.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 23,
+      "printed_page": "23",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=23",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.1",
+        "7.3.1.1.3",
+        "7.3.1.1.4"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-023.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 24,
+      "printed_page": "24",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=24",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.1",
+        "7.3.1.1.5",
+        "7.3.1.1.6",
+        "7.3.1.1.7",
+        "7.3.1.2",
+        "7.3.1.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-024.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 25,
+      "printed_page": "25",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=25",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.2",
+        "7.3.1.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 11,
+          "heading": "配置持久性及安全驱动清单"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-025.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 26,
+      "printed_page": "26",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=26",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.2",
+        "7.3.1.2.1",
+        "7.3.1.2.2",
+        "7.3.1.3",
+        "7.3.1.3.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-026.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 27,
+      "printed_page": "27",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=27",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.3",
+        "7.3.1.3.1",
+        "7.3.1.3.2",
+        "7.3.1.3.3"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-027.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 28,
+      "printed_page": "28",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=28",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.3",
+        "7.3.1.3.3",
+        "7.3.1.3.4",
+        "7.3.1.3.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-028.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 29,
+      "printed_page": "29",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=29",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.3",
+        "7.3.1.3.5",
+        "7.3.1.4"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-029.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 30,
+      "printed_page": "30",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=30",
+      "source_sections": [
+        "7",
+        "7.3",
+        "7.3.1.4",
+        "7.4",
+        "7.4.1",
+        "7.4.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 4,
+          "heading": "I²C、CRC和原子读取"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-030.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 31,
+      "printed_page": "31",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=31",
+      "source_sections": [
+        "7",
+        "7.4",
+        "7.4.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-031.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 32,
+      "printed_page": "32",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=32",
+      "source_sections": [
+        "7",
+        "7.5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-032.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 33,
+      "printed_page": "33",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=33",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-033.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 34,
+      "printed_page": "34",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=34",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 10,
+          "heading": "均衡"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-034.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 35,
+      "printed_page": "35",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=35",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        },
+        {
+          "file": "reference.md",
+          "section": 9,
+          "heading": "NORMAL、低功耗、SHIP和启动"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-035.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 36,
+      "printed_page": "36",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=36",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 8,
+          "heading": "FET驱动、负载检测与ALERT诊断"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-036.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 37,
+      "printed_page": "37",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=37",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-037.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 38,
+      "printed_page": "38",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=38",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 7,
+          "heading": "硬件保护：阈值、编码、延时及恢复"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-038.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 39,
+      "printed_page": "39",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=39",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.1",
+        "7.5.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-039.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 40,
+      "printed_page": "40",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=40",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-040.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 41,
+      "printed_page": "41",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=41",
+      "source_sections": [
+        "7",
+        "7.5",
+        "7.5.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 5,
+          "heading": "全寄存器参考"
+        },
+        {
+          "file": "reference.md",
+          "section": 6,
+          "heading": "测量、换算、校准及新鲜度"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-041.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 42,
+      "printed_page": "42",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=42",
+      "source_sections": [
+        "8",
+        "8.1",
+        "8.1.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        },
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-042.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 43,
+      "printed_page": "43",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=43",
+      "source_sections": [
+        "8",
+        "8.1.1",
+        "8.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 2,
+          "heading": "引脚、组参考地与电芯接法"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-043.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 44,
+      "printed_page": "44",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=44",
+      "source_sections": [
+        "8",
+        "8.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-044.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 45,
+      "printed_page": "45",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=45",
+      "source_sections": [
+        "8",
+        "8.2",
+        "8.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-045.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 46,
+      "printed_page": "46",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=46",
+      "source_sections": [
+        "8",
+        "8.2",
+        "8.2.1",
+        "8.2.2",
+        "8.2.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-046.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 47,
+      "printed_page": "47",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=47",
+      "source_sections": [
+        "8",
+        "8.2",
+        "8.2.2",
+        "8.2.2.1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-047.txt",
+      "text_extractable": true,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 48,
+      "printed_page": "48",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=48",
+      "source_sections": [
+        "8",
+        "8.2",
+        "8.2.3"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-048.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 49,
+      "printed_page": "49",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=49",
+      "source_sections": [
+        "9"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 3,
+          "heading": "电气边界与供电"
+        },
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-049.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 50,
+      "printed_page": "50",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=50",
+      "source_sections": [
+        "10",
+        "10.1",
+        "10.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-050.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 51,
+      "printed_page": "51",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=51",
+      "source_sections": [
+        "10",
+        "10.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-051.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 52,
+      "printed_page": "52",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=52",
+      "source_sections": [
+        "10",
+        "10.2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 12,
+          "heading": "应用、原理图、PCB与设计例"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-052.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 53,
+      "printed_page": "53",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=53",
+      "source_sections": [
+        "11",
+        "11.1",
+        "11.1.1",
+        "11.2",
+        "11.2.1",
+        "11.3",
+        "11.4",
+        "11.5",
+        "12"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-053.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 54,
+      "printed_page": "Addendum-Page 1",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=54",
+      "source_sections": [
+        "12",
+        "A1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-054.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 55,
+      "printed_page": "Addendum-Page 2",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=55",
+      "source_sections": [
+        "12",
+        "A1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-055.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 56,
+      "printed_page": "Addendum-Page 3",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=56",
+      "source_sections": [
+        "12",
+        "A1"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-056.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 57,
+      "printed_page": "Pack Materials-Page 1",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=57",
+      "source_sections": [
+        "12",
+        "A2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-057.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 58,
+      "printed_page": "Pack Materials-Page 2",
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=58",
+      "source_sections": [
+        "12",
+        "A2"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-058.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    },
+    {
+      "pdf_page": 59,
+      "printed_page": null,
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=59",
+      "source_sections": [
+        "12",
+        "A3"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-059.txt",
+      "text_extractable": false,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "纯图像机械/焊盘页：已目视核验并人工概括；原图仍为尺寸制造依据"
+    },
+    {
+      "pdf_page": 60,
+      "printed_page": null,
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=60",
+      "source_sections": [
+        "12",
+        "A4"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        },
+        {
+          "file": "reference.md",
+          "section": 15,
+          "heading": "源文矛盾、缺项与采用规则"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-060.txt",
+      "text_extractable": false,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "纯图像机械/焊盘页：已目视核验并人工概括；原图仍为尺寸制造依据"
+    },
+    {
+      "pdf_page": 61,
+      "printed_page": null,
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=61",
+      "source_sections": [
+        "12",
+        "A5"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-061.txt",
+      "text_extractable": false,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "纯图像机械/焊盘页：已目视核验并人工概括；原图仍为尺寸制造依据"
+    },
+    {
+      "pdf_page": 62,
+      "printed_page": null,
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=62",
+      "source_sections": [
+        "12",
+        "A6"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-062.txt",
+      "text_extractable": false,
+      "visual_inspected": true,
+      "coverage_status": "covered",
+      "coverage_note": "纯图像机械/焊盘页：已目视核验并人工概括；原图仍为尺寸制造依据"
+    },
+    {
+      "pdf_page": 63,
+      "printed_page": null,
+      "source_file": "BQ76940.pdf",
+      "source_href": "../../sources/BQ76940.pdf#page=63",
+      "source_sections": [
+        "A7"
+      ],
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": 13,
+          "heading": "机械、订购与附录"
+        }
+      ],
+      "supplementary_raw_text": "../../extracted/BQ769x0_SLUSBK2F/page-063.txt",
+      "text_extractable": true,
+      "visual_inspected": false,
+      "coverage_status": "covered",
+      "coverage_note": "源事实综合并定位原页；非逐字翻译"
+    }
+  ],
+  "coverage_summary": {
+    "covered_pdf_pages": 63,
+    "uncovered_pdf_pages": [],
+    "public_byte_registers": 55,
+    "visual_inspected_pages": [
+      4,
+      11,
+      15,
+      17,
+      23,
+      24,
+      29,
+      32,
+      33,
+      35,
+      36,
+      37,
+      38,
+      39,
+      41,
+      43,
+      47,
+      59,
+      60,
+      61,
+      62
+    ],
+    "missing_originals": [
+      "BQ76942",
+      "BQ76952",
+      "BQ33100"
+    ],
+    "meaning": "全页/章节主题覆盖，非所有图形数据逐点数字化；无硬件执行验证"
+  }
+}

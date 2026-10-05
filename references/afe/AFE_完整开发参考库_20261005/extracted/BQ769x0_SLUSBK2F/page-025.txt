@@ -1,0 +1,61 @@
+                                                                                                    bq76920, bq76930, bq76940
+www.ti.com                                                                            SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+        Overcurrent in Discharge (OCD) and Short Circuit in Discharge (SCD) are implemented using sampled
+        analog comparators that run at 32 kHz, and that continuously monitor the voltage across (SRP–SRN)
+        while the device is in NORMAL mode. Upon detection of a voltage that exceeds the programmed OCD or
+        SCD threshold, a counter begins to count up to a programmed delay setting. If the counter reaches its
+        target value, the SYS_STAT register is updated to indicate the fault condition, the FET state(s) are
+        updated as shown in
+        Table 7-1, and the ALERT pin is driven high to interrupt the host.
+        The protection fault threshold and delay settings for OCD and SCD protections are configured via the
+        PROTECT1 and PROTECT2 registers. See Section 7.5 for details about supported values.
+        Overvoltage (OV) and Undervoltage (UV) protections are handled digitally, by comparing the cell voltage
+        readings against the 8-bit programmed thresholds in the OV and UV registers.
+        The OV threshold is stored in the OV_TRIP register and is a direct mapping of 8 bits of the 14-bit ADC
+        reading, with the upper 2 MSB preset to “10” and lower 4 LSB preset to “1000”. In other words, the
+        corresponding OV trip level is mapped to “10-XXXX-XXXX–1000”. The programmable range of OV
+        thresholds is approximately 3.15 to 4.7 V, but this is subject to variation due to
+        the (GAIN, OFFSET) linear equation used to map the ADC values.
+        The UV threshold is stored in the UV_TRIP register and is a direct mapping of 8 bits of the 14-bit ADC
+        reading, with the upper 2 MSB preset to “01” and lower 4 LSB preset to “0000”. In other words, the
+        corresponding OV trip level is mapped to “01-XXXX-XXXX–0000”. The programmable range of UV
+        thresholds is approximately 1.58 to 3.1 V, but this is subject to variation due to the (GAIN, OFFSET) linear
+        equation used to map the ADC values.
+
+                          Protection                    Upper 2 MSB         Middle 8 Bits           Lower 4 LSB
+                              OV                            10         Set in OV_TRIP Register          1000
+                              UV                            01         Set in UV_TRIP Register          0000
+
+
+
+                                                                      NOTE
+                        To support flexible cell configurations within bq76920, bq76930, and bq76940, UV is ignored
+                        on any cells that have a reading under UVMINQUAL. This allows cell pins to be shorted in
+                        implementations where not all cells are needed (for example, 6-series cells using the
+                        bq76930).
+
+
+        Default protection thresholds and delays are shown in the register description at the end of this datasheet.
+        These are loaded into the digital register (RAM) of the device when the device enters NORMAL mode.
+        These RAM values may then be overwritten by the host controller to any other values, which they will
+        retain until a POR event. It is recommended that the host controller reload these values during its standard
+        power-up and/or re-initialization sequence.
+        To calculate the correct OV_TRIP and UV_TRIP register values for a device, use the following procedure:
+        1. Determine desired OV.
+        2. Read out [ADCGAIN] and [ADCOFFSET] from their corresponding registers. Note that ADCGAIN is
+           stored in units of µV/LSB, while ADCOFFSET is stored in mV.
+        3. Calculate the full 14-bit ADC value needed to meet the desired OV and UV trip thresholds as follows:
+           (a) OV_TRIP_FULL = (OV – ADCOFFSET) ÷ ADCGAIN
+           (b) UV_TRIP_FULL = (UV – ADCOFFSET) ÷ ADCGAIN
+        4. Remove the upper 2 MSB and lower 4 LSB from the full 14-bit value, retaining only the remaining
+           middle 8 bits. This can be done by shifting the OV_TRIP_FULL and UV_TRIP_FULL binary values 4
+           bits to the right and removing the upper 2 MSB.
+        5. Write OV_TRIP and UV_TRIP to their corresponding registers.
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                      Detailed Description   25
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

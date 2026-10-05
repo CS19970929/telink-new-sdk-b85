@@ -1,0 +1,260 @@
+{
+  "layer": "full TC32 production-preprocessed sh3673510_bms.c executed by MinGW32; selected peripheral/other-owner mocks; not target executable or physical board",
+  "result": {
+    "d011": [
+      {
+        "sample": 1,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 2,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 3,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 4,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 5,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "snapshot_valid": 1,
+        "ready": 3,
+        "elapsed_ms": 1600,
+        "type": "STARTUP"
+      },
+      {
+        "Cplus_mv": 28000,
+        "zero_current": 1,
+        "clear_calls": 0,
+        "charger_removed": 0,
+        "type": "OCC_PRESENT"
+      },
+      {
+        "Cplus_mv": 0,
+        "clear_calls": 1,
+        "type": "OCC_REMOVED"
+      },
+      {
+        "mode": 1,
+        "clear_calls": 1,
+        "clear_pending": 1,
+        "counter": 0,
+        "type": "SC_LOAD_WINDOW"
+      },
+      {
+        "latch": 0,
+        "clear_calls": 1,
+        "type": "SC_RELEASED"
+      },
+      {
+        "latched_failure": 1,
+        "snapshot_valid": 0,
+        "future_status_reads": 0,
+        "type": "CLEAR_FAILURE"
+      },
+      {
+        "aux_current_ma": 6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      },
+      {
+        "aux_current_ma": -6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      }
+    ],
+    "d013": [
+      {
+        "sample": 1,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 2,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 3,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 4,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 5,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "snapshot_valid": 1,
+        "ready": 3,
+        "elapsed_ms": 1600,
+        "type": "STARTUP"
+      },
+      {
+        "Cplus_mv": 28000,
+        "zero_current": 1,
+        "clear_calls": 0,
+        "charger_removed": 0,
+        "type": "OCC_PRESENT"
+      },
+      {
+        "Cplus_mv": 0,
+        "clear_calls": 1,
+        "type": "OCC_REMOVED"
+      },
+      {
+        "mode": 1,
+        "clear_calls": 1,
+        "clear_pending": 1,
+        "counter": 0,
+        "type": "SC_LOAD_WINDOW"
+      },
+      {
+        "latch": 0,
+        "clear_calls": 1,
+        "type": "SC_RELEASED"
+      },
+      {
+        "latched_failure": 1,
+        "snapshot_valid": 0,
+        "future_status_reads": 0,
+        "type": "CLEAR_FAILURE"
+      },
+      {
+        "aux_current_ma": 6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      },
+      {
+        "aux_current_ma": -6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      }
+    ],
+    "d014": [
+      {
+        "sample": 1,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 2,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 1,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 3,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 4,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "sample": 5,
+        "adc_flags": 0,
+        "snapshot_valid": 0,
+        "pending": 0,
+        "type": "FROZEN"
+      },
+      {
+        "snapshot_valid": 1,
+        "ready": 3,
+        "elapsed_ms": 1600,
+        "type": "STARTUP"
+      },
+      {
+        "Cplus_mv": 28000,
+        "zero_current": 1,
+        "clear_calls": 0,
+        "charger_removed": 0,
+        "type": "OCC_PRESENT"
+      },
+      {
+        "Cplus_mv": 0,
+        "clear_calls": 1,
+        "type": "OCC_REMOVED"
+      },
+      {
+        "mode": 1,
+        "clear_calls": 1,
+        "clear_pending": 1,
+        "counter": 0,
+        "type": "SC_LOAD_WINDOW"
+      },
+      {
+        "latch": 0,
+        "clear_calls": 1,
+        "type": "SC_RELEASED"
+      },
+      {
+        "latched_failure": 1,
+        "snapshot_valid": 0,
+        "future_status_reads": 0,
+        "type": "CLEAR_FAILURE"
+      },
+      {
+        "aux_current_ma": 6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      },
+      {
+        "aux_current_ma": -6553600,
+        "reported_dsg_a10": 0,
+        "reported_chg_a10": 0,
+        "type": "CALIBRATED"
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+                                                                                                                           bq76920, bq76930, bq76940
+www.ti.com                                                                                                SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+7 Detailed Description
+7.1     Overview
+        In the bq769x0 family of analog front-end (AFE) devices, the bq76920 device supports up to 5-series cells,
+        the bq76930 device supports up to 10-series cells, and the bq76940 device supports up to 15-series cells.
+        Via I2C, a host controller can use the bq769x0 to implement battery pack management functions, such as
+        monitoring (cell voltages, pack current, pack temperatures), protection (controlling charge/discharge
+        FETs), and balancing. Integrated A/D converters enable a purely digital readout of critical system
+        parameters including cell voltages and internal or external temperature, with calibration handled in TI’s
+        manufacturing process. For an additional degree of pack reliability, the bq769x0 includes hardware
+        protections for voltage (OV, UV) and current (OCD, SCD).
+        The bq769x0 provides two low-side FET drivers, charge (CHG) and discharge (DSG), which may be used
+        to directly manipulate low-side power NCH FETs, or as signals that control an external circuit that enables
+        high-side PCH or NCH FETs. A dedicated ALERT input/output pin serves as an interrupt signal to the host
+        microcontroller, quickly informing the microcontroller of an updated status in the AFE. This may include a
+        fault event or that a coulomb counter sample is available for reading. An available ALERT pin may also be
+        driven externally by a secondary protector to provide a redundant means of disabling the CHG and DSG
+        signals and higher system visibility.
+
+7.2     Functional Block Diagram
+                                                                                                                               REG
+                                                                                                 CAP
+                                                                                                                               SRC
+
+                                                                                Bandgap
+                 BAT                                  VSTUP/POR
+                                                                                 IBIAS
+
+
+
+                                       Cell Balance         BOOT
+                                       Drivers/FETs                             Internal 3.3-V
+                                                                                     LDO
+                                                                                                                         External             REG
+                                                                                                                      2.5/3.3-V LDO           OUT
+                  VCx Inputs
+
+
+
+
+                                                                           14-bit ADC
+                                                                           Modulator
+                                                            V2I
+
+
+
+
+                                                                                                                                            ALERT
+
+
+
+                                                                                      256 kHz
+                                                                                                                               FET            CHG
+                                                                                                       Digital core         DRIVER and
+                               Die temp                                                                                       LOAD
+                                                                    CC VREF
+                                                                                                                             DETECT           DSG
+
+                                  TS
+
+
+                                                                   16-bit ACC                                                                 SCL
+                                                                   Modulator                                                    I2C
+                 TS                                                                                                                           SDA
+
+
+
+                                BOOT                                SCD
+                                                                    comp
+
+
+
+
+                                                                    OCD                                                           EEPROM
+                                To POR
+                                                                    comp
+
+                 VSS                              SRP SRN
+
+
+                                                           Figure 7-1. Functional Block Diagram
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                                                 Detailed Description   19
+                                                                  Submit Documentation Feedback
+                                                          Product Folder Links: bq76920 bq76930 bq76940

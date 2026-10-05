@@ -1,0 +1,19 @@
+{
+  "checked_utc": "2026-10-05T23:28:06.555793+00:00",
+  "source_snapshot": {
+    "missing": [],
+    "changed": [],
+    "all_frozen_files_match": true
+  },
+  "original_local": {
+    "missing": [],
+    "changed": [],
+    "all_frozen_files_match": true
+  },
+  "original_head": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+  "original_branch": "codex-bms-monorepo",
+  "head_unchanged": true,
+  "source_files_changed_by_audit": false,
+  "new_bin_files": [],
+  "original_status_matches_freeze": true
+}

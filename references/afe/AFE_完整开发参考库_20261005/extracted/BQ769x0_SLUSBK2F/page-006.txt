@@ -1,0 +1,55 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                     www.ti.com
+
+
+
+5.2     bq76920 Pin Diagram
+
+
+                                                DSG     1                             20    ALERT
+                                                CHG     2                             19    SRN
+                                                 VSS    3                             18    SRP
+                                                 SDA    4                             17    VC0
+                                                 SCL    5       bq76920               16    VC1
+                                                                                            VC2
+                                                 TS1    6       20-TSSOP              15
+                                               CAP 1    7                             14    VC3
+                                             REGOUT     8                             13    VC4
+                                             REGSRC     9                             12    VC5
+                                                 BAT    10                            11    NC
+
+
+
+5.2.1    bq76920 Pin Map
+
+
+                                                       bq76920 Pin Functions
+                      PIN             NAME             TYPE                             DESCRIPTION
+                       1               DSG               O        Discharge FET driver
+                       2               CHG               O        Charge FET driver
+                       3               VSS               —        Chip VSS
+                       4               SDA               I/O      I2C communication to the host controller
+                       5               SCL                  I     I2C communication to the host controller
+                       6               TS1                  I     Thermistor #1 positive terminal (1)
+                       7              CAP1               O        Capacitor to VSS
+                       8             REGOUT                 P     Output LDO
+                       9             REGSRC                 I     Input source for output LDO
+                       10              BAT                  P     Battery (top-most) terminal
+                       11               NC               —        No connect
+                       12              VC5                  I     Sense voltage for 5th cell positive terminal
+                       13              VC4                  I     Sense voltage for 4th cell positive terminal
+                       14              VC3                  I     Sense voltage for 3rd cell positive terminal
+                       15              VC2                  I     Sense voltage for 2nd cell positive terminal
+                       16              VC1                  I     Sense voltage for 1st cell positive terminal
+                       17              VC0                  I     Sense voltage for 1st cell negative terminal
+                       18              SRP                  I     Negative current sense (nearest VSS)
+                       19              SRN                  I     Positive current sense
+                       20             ALERT              I/O      Alert output and override input
+                (1)   If not used, pull down to VSS with a 10-kΩ nominal resistor.
+
+
+
+
+6       Pin Configuration and Functions                                                     Copyright © 2013–2015, Texas Instruments Incorporated
+                                                      Submit Documentation Feedback
+                                              Product Folder Links: bq76920 bq76930 bq76940

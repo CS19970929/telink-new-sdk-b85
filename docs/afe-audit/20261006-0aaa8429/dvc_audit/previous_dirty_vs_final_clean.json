@@ -1,0 +1,10 @@
+[
+  "docs/CHINESE_CODE_COMMENTS.md",
+  "tests/common_feature_policy_contract_check.py",
+  "tests/sh3673510_d011_integration_check.py",
+  "bms/core/bms_afe_driver.h",
+  "bms/afe/dvc1124/dvc1124_boot.c",
+  "bms/afe/sh3673510/sh3673510_bms.c",
+  "bms/afe/sh3673510/sh3673520.c",
+  "bms/afe/sh3673510/sh3673520.h"
+]

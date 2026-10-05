@@ -1,0 +1,5 @@
+{
+  "executed": false,
+  "addon": null,
+  "coverage": "未执行：本机 Cppcheck 安装不包含 MISRA addon；原生告警不计为 MISRA 违规"
+}

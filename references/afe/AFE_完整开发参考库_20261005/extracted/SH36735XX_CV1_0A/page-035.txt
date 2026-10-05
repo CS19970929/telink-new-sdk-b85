@@ -1,0 +1,66 @@
+                                               SH3673510/3673514/3673517/3673520
+                              0：关闭
+                              1：开启(默认)
+
+10.2.7 系统配置寄存器SCONF7
+      0x46          第7位      第6位      第5位        第4位          第3位          第2位          第1位      第0位
+     SCONF7          -       RLD     CADCT.1    CADCT.0        -           CDV.2        CDV.1    CDV.0
+      读/写           读/写      读/写      读/写        读/写          读/写          读/写          读/写      读/写
+      复位值            0        0         0          0           0             1            0        0
+
+   位编号           位符号                                  说明
+    7             -         Reserved
+                            负载检测上拉电流大小选择位
+     6            RLD          0：IDSGD=60uA(默认)
+                               1：IDSGD=500uA
+                            IDLE模式CADC更新数据周期控制位
+                               CADCT[1:0] = 00：4s(默认)
+                 CADCT.1       CADCT[1:0] = 01：32s
+    5:4
+                ~CADCT.0       CADCT[1:0] = 10：64s
+                               CADCT[1:0] = 11：256s
+                               注：该控制位只在IDLE模式有效，Normal模式固定为250ms
+     3              -       Reserved
+                  CDV.2     充放电状态检测电压设置(VADC)：计算公式：VCD = 寄存器值 x 137.5uV+192.5uV，默
+    2:0
+                 ~CDV.0     认0x04(742.5uV)
+
+10.2.8 OWV/ALARMH输出控制寄存器
+      0x47          第7位      第6位     第5位            第4位       第3位          第2位           第1位      第0位
+   OWV/ALARMH       OWV.3    OWV.2   OWV.1          OWV.0   LOADON_INT   LOADOFF_INT   VADC_INT CADC_INT
+      读/写            读/写      读/写     读/写            读/写      读/写          读/写           读/写      读/写
+     复位值              0        1       0              1        0            1             1        1
+
+   位编号           位符号                                          说明
+                 OWV.3
+    7:4                     断线检测电压阈值，计算公式：VOW=寄存器值 x 160mV + 160mV，默认0x05(960mV)
+                ~OWV.0
+                              0：系统进入负载连接状态时，ALARM不输出低电平脉冲(默认)
+     3        LOADON_INT
+                              1：系统进入负载连接状态时，ALARM输出低电平脉冲
+                              0：系统进入负载未连接状态时，ALARM不输出低电平脉冲
+     2        LOADOFF_INT
+                              1：系统进入负载未连接状态时，ALARM输出低电平脉冲(默认)
+                              0：VADC每次采集完成后，ALARM不输出低电平脉冲
+     1          VADC_INT
+                              1：VADC每次采集完成后，ALARM输出低电平脉冲(默认)
+                              0：CADC每次采集完成后，ALARM不输出低电平脉冲
+     0          CADC_INT
+                              1：CADC每次采集完成后，ALARM输出低电平脉冲(默认)
+
+10.2.9 ALARML输出控制寄存器
+      0x48          第7位      第6位     第5位      第4位     第3位                 第2位            第1位      第0位
+     ALARML        WK_INT   WDT_INT OWD_INT TEMP_INT OCC_INT             OCD_INT        UV_INT   OV_INT
+      读/写           读/写      读/写     读/写      读/写     读/写                 读/写            读/写      读/写
+      复位值            1        1       1        1        1                   1             1        1
+
+   位编号           位符号                               说明
+                              0：退出IDLE和SLEEP状态后(非通讯退出)，ALARM不输出低电平脉冲
+     7          WK_INT
+                              1：退出IDLE和SLEEP状态后(非通讯退出)，ALARM输出低电平脉冲(默认)
+                              0：看门狗溢出后，ALARM不输出低电平脉冲
+     6          WDT_INT
+                              1：看门狗溢出后，ALARM输出低电平脉冲(默认)
+     5          OWD_INT       0：断线检测完成后，ALARM不输出低电平脉冲
+
+                                               35

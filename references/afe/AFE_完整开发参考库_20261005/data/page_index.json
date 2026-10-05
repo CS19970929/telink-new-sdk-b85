@@ -1,0 +1,2957 @@
+{
+  "schema_version": "1.0",
+  "pages": [
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-001.txt",
+      "character_count": 1563,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-002.txt",
+      "character_count": 4509,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-003.txt",
+      "character_count": 3594,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-004.txt",
+      "character_count": 1370,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-005.txt",
+      "character_count": 109,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-006.txt",
+      "character_count": 119,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-007.txt",
+      "character_count": 103,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-008.txt",
+      "character_count": 103,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-009.txt",
+      "character_count": 103,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-010.txt",
+      "character_count": 3407,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-011.txt",
+      "character_count": 1567,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-012.txt",
+      "character_count": 1243,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-013.txt",
+      "character_count": 1671,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-014.txt",
+      "character_count": 2270,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-015.txt",
+      "character_count": 1871,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-016.txt",
+      "character_count": 3140,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-017.txt",
+      "character_count": 1108,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-018.txt",
+      "character_count": 1801,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-019.txt",
+      "character_count": 2678,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-020.txt",
+      "character_count": 2677,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-021.txt",
+      "character_count": 2399,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-022.txt",
+      "character_count": 2513,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-023.txt",
+      "character_count": 2738,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-024.txt",
+      "character_count": 1183,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-025.txt",
+      "character_count": 1454,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-026.txt",
+      "character_count": 2265,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-027.txt",
+      "character_count": 1963,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-028.txt",
+      "character_count": 1860,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-029.txt",
+      "character_count": 2442,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 30,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-030.txt",
+      "character_count": 1641,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 31,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-031.txt",
+      "character_count": 1808,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 32,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-032.txt",
+      "character_count": 1585,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 33,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-033.txt",
+      "character_count": 1047,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 34,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-034.txt",
+      "character_count": 1695,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 35,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-035.txt",
+      "character_count": 2404,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 36,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-036.txt",
+      "character_count": 1755,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 37,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-037.txt",
+      "character_count": 830,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 38,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-038.txt",
+      "character_count": 1806,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 39,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-039.txt",
+      "character_count": 1316,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 40,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-040.txt",
+      "character_count": 1548,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 41,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-041.txt",
+      "character_count": 2857,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 42,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-042.txt",
+      "character_count": 2857,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 43,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-043.txt",
+      "character_count": 2947,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 44,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-044.txt",
+      "character_count": 2944,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 45,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-045.txt",
+      "character_count": 2197,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 46,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-046.txt",
+      "character_count": 2092,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 47,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-047.txt",
+      "character_count": 1966,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 48,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-048.txt",
+      "character_count": 676,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 49,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-049.txt",
+      "character_count": 1219,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 50,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-050.txt",
+      "character_count": 2536,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 51,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-051.txt",
+      "character_count": 2120,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 52,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-052.txt",
+      "character_count": 926,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 53,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-053.txt",
+      "character_count": 3149,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 54,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-054.txt",
+      "character_count": 1798,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 55,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-055.txt",
+      "character_count": 1910,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 56,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-056.txt",
+      "character_count": 1865,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 57,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-057.txt",
+      "character_count": 2708,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 58,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-058.txt",
+      "character_count": 2553,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 59,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-059.txt",
+      "character_count": 2681,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 60,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-060.txt",
+      "character_count": 2680,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 61,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-061.txt",
+      "character_count": 2401,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 62,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-062.txt",
+      "character_count": 2516,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 63,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-063.txt",
+      "character_count": 2328,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 64,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-064.txt",
+      "character_count": 1956,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 65,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-065.txt",
+      "character_count": 924,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 66,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-066.txt",
+      "character_count": 3181,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 67,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-067.txt",
+      "character_count": 3749,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 68,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-068.txt",
+      "character_count": 2171,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 69,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-069.txt",
+      "character_count": 1814,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 70,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-070.txt",
+      "character_count": 1335,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 71,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-071.txt",
+      "character_count": 960,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 72,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-072.txt",
+      "character_count": 1369,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 73,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-073.txt",
+      "character_count": 1440,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 74,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-074.txt",
+      "character_count": 1735,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 75,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-075.txt",
+      "character_count": 1831,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 76,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-076.txt",
+      "character_count": 2376,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 77,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-077.txt",
+      "character_count": 2081,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 78,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-078.txt",
+      "character_count": 3139,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 79,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-079.txt",
+      "character_count": 2382,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 80,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-080.txt",
+      "character_count": 3410,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 81,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-081.txt",
+      "character_count": 3227,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 82,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-082.txt",
+      "character_count": 2767,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 83,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-083.txt",
+      "character_count": 932,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 84,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-084.txt",
+      "character_count": 2785,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 85,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-085.txt",
+      "character_count": 153,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 86,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-086.txt",
+      "character_count": 187,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 87,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-087.txt",
+      "character_count": 7775,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 88,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-088.txt",
+      "character_count": 7549,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH367309_V1_1",
+      "pdf_page": 89,
+      "pdf_page_label": "",
+      "source_path": "sources/SH367309.pdf",
+      "text_path": "extracted/SH367309_V1_1/page-089.txt",
+      "character_count": 777,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-001.txt",
+      "character_count": 1961,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-002.txt",
+      "character_count": 4303,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-003.txt",
+      "character_count": 21488,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-004.txt",
+      "character_count": 3378,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-005.txt",
+      "character_count": 443,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-006.txt",
+      "character_count": 42170,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-007.txt",
+      "character_count": 51400,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-008.txt",
+      "character_count": 2770,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-009.txt",
+      "character_count": 2842,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-010.txt",
+      "character_count": 1638,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-011.txt",
+      "character_count": 3361,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-012.txt",
+      "character_count": 858,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-013.txt",
+      "character_count": 1511,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-014.txt",
+      "character_count": 1459,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-015.txt",
+      "character_count": 984,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-016.txt",
+      "character_count": 1632,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-017.txt",
+      "character_count": 1699,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-018.txt",
+      "character_count": 874,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-019.txt",
+      "character_count": 1149,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-020.txt",
+      "character_count": 866,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-021.txt",
+      "character_count": 870,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-022.txt",
+      "character_count": 1995,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-023.txt",
+      "character_count": 1748,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-024.txt",
+      "character_count": 634,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-025.txt",
+      "character_count": 1696,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-026.txt",
+      "character_count": 3975,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-027.txt",
+      "character_count": 314,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-028.txt",
+      "character_count": 3659,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-029.txt",
+      "character_count": 4769,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 30,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-030.txt",
+      "character_count": 2613,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 31,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-031.txt",
+      "character_count": 2975,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 32,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-032.txt",
+      "character_count": 3023,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 33,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-033.txt",
+      "character_count": 1047,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 34,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-034.txt",
+      "character_count": 2450,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 35,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-035.txt",
+      "character_count": 3360,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 36,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-036.txt",
+      "character_count": 3495,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 37,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-037.txt",
+      "character_count": 3321,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 38,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-038.txt",
+      "character_count": 3154,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 39,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-039.txt",
+      "character_count": 3018,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 40,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-040.txt",
+      "character_count": 2569,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 41,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-041.txt",
+      "character_count": 2497,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 42,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-042.txt",
+      "character_count": 4746,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 43,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-043.txt",
+      "character_count": 5473,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 44,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-044.txt",
+      "character_count": 1495,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 45,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-045.txt",
+      "character_count": 1519,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 46,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-046.txt",
+      "character_count": 4401,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 47,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-047.txt",
+      "character_count": 3478,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 48,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-048.txt",
+      "character_count": 4489,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 49,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-049.txt",
+      "character_count": 3769,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 50,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-050.txt",
+      "character_count": 2700,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 51,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-051.txt",
+      "character_count": 1827,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 52,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-052.txt",
+      "character_count": 2802,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 53,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-053.txt",
+      "character_count": 359,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 54,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-054.txt",
+      "character_count": 1988,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 55,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-055.txt",
+      "character_count": 889,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 56,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-056.txt",
+      "character_count": 10156,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "pdf_page": 57,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV1.0A.pdf",
+      "text_path": "extracted/SH36735XX_CV1_0A/page-057.txt",
+      "character_count": 4809,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-001.txt",
+      "character_count": 1962,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-002.txt",
+      "character_count": 4487,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-003.txt",
+      "character_count": 19631,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-004.txt",
+      "character_count": 3559,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-005.txt",
+      "character_count": 308,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-006.txt",
+      "character_count": 41445,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-007.txt",
+      "character_count": 51295,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-008.txt",
+      "character_count": 2806,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-009.txt",
+      "character_count": 2934,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-010.txt",
+      "character_count": 1624,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-011.txt",
+      "character_count": 3550,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-012.txt",
+      "character_count": 881,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-013.txt",
+      "character_count": 1538,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-014.txt",
+      "character_count": 1488,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-015.txt",
+      "character_count": 1013,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-016.txt",
+      "character_count": 1257,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-017.txt",
+      "character_count": 1724,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-018.txt",
+      "character_count": 900,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-019.txt",
+      "character_count": 1175,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-020.txt",
+      "character_count": 896,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-021.txt",
+      "character_count": 899,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-022.txt",
+      "character_count": 2023,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-023.txt",
+      "character_count": 1775,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-024.txt",
+      "character_count": 656,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-025.txt",
+      "character_count": 1751,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-026.txt",
+      "character_count": 4070,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-027.txt",
+      "character_count": 333,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-028.txt",
+      "character_count": 3699,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-029.txt",
+      "character_count": 4811,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 30,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-030.txt",
+      "character_count": 2655,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 31,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-031.txt",
+      "character_count": 3046,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 32,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-032.txt",
+      "character_count": 3117,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 33,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-033.txt",
+      "character_count": 1555,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 34,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-034.txt",
+      "character_count": 2537,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 35,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-035.txt",
+      "character_count": 3473,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 36,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-036.txt",
+      "character_count": 3557,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 37,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-037.txt",
+      "character_count": 3409,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 38,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-038.txt",
+      "character_count": 3272,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 39,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-039.txt",
+      "character_count": 3014,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 40,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-040.txt",
+      "character_count": 2529,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 41,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-041.txt",
+      "character_count": 2523,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 42,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-042.txt",
+      "character_count": 5084,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 43,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-043.txt",
+      "character_count": 5506,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 44,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-044.txt",
+      "character_count": 1170,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 45,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-045.txt",
+      "character_count": 1547,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 46,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-046.txt",
+      "character_count": 4553,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 47,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-047.txt",
+      "character_count": 3511,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 48,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-048.txt",
+      "character_count": 4520,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 49,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-049.txt",
+      "character_count": 3923,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 50,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-050.txt",
+      "character_count": 2399,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 51,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-051.txt",
+      "character_count": 1651,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 52,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-052.txt",
+      "character_count": 3000,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 53,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-053.txt",
+      "character_count": 419,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 54,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-054.txt",
+      "character_count": 1199,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 55,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-055.txt",
+      "character_count": 910,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 56,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-056.txt",
+      "character_count": 10222,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "pdf_page": 57,
+      "pdf_page_label": "",
+      "source_path": "sources/SH36735XX CV0.2C.pdf",
+      "text_path": "extracted/SH36735XX_CV0_2C/page-057.txt",
+      "character_count": 4874,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-001.txt",
+      "character_count": 2847,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-002.txt",
+      "character_count": 6591,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-003.txt",
+      "character_count": 5988,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-004.txt",
+      "character_count": 1940,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-005.txt",
+      "character_count": 2391,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-006.txt",
+      "character_count": 2226,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-007.txt",
+      "character_count": 2652,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-008.txt",
+      "character_count": 3695,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-009.txt",
+      "character_count": 2575,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-010.txt",
+      "character_count": 1669,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-011.txt",
+      "character_count": 3170,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-012.txt",
+      "character_count": 3887,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-013.txt",
+      "character_count": 3707,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-014.txt",
+      "character_count": 3541,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-015.txt",
+      "character_count": 4148,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-016.txt",
+      "character_count": 1607,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-017.txt",
+      "character_count": 2980,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-018.txt",
+      "character_count": 3210,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-019.txt",
+      "character_count": 525,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-020.txt",
+      "character_count": 3696,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-021.txt",
+      "character_count": 3641,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-022.txt",
+      "character_count": 625,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-023.txt",
+      "character_count": 3933,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-024.txt",
+      "character_count": 4371,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-025.txt",
+      "character_count": 1445,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-026.txt",
+      "character_count": 194,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-027.txt",
+      "character_count": 1971,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-028.txt",
+      "character_count": 1540,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "text_path": "extracted/DVC1124_2_DS_V1_1/page-029.txt",
+      "character_count": 1975,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-001.txt",
+      "character_count": 5993,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-002.txt",
+      "character_count": 3990,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-003.txt",
+      "character_count": 4318,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-004.txt",
+      "character_count": 3974,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-005.txt",
+      "character_count": 566,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-006.txt",
+      "character_count": 2416,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-007.txt",
+      "character_count": 2841,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-008.txt",
+      "character_count": 3278,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-009.txt",
+      "character_count": 3423,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-010.txt",
+      "character_count": 3525,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-011.txt",
+      "character_count": 3322,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-012.txt",
+      "character_count": 3601,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-013.txt",
+      "character_count": 3442,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-014.txt",
+      "character_count": 3570,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-015.txt",
+      "character_count": 3342,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-016.txt",
+      "character_count": 2514,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-017.txt",
+      "character_count": 2583,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-018.txt",
+      "character_count": 2749,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-019.txt",
+      "character_count": 3267,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-020.txt",
+      "character_count": 3246,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-021.txt",
+      "character_count": 3597,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-022.txt",
+      "character_count": 2482,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-023.txt",
+      "character_count": 2239,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-024.txt",
+      "character_count": 2547,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-025.txt",
+      "character_count": 1902,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-026.txt",
+      "character_count": 2735,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-027.txt",
+      "character_count": 2375,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-028.txt",
+      "character_count": 2805,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-029.txt",
+      "character_count": 2538,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 30,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-030.txt",
+      "character_count": 3244,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 31,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-031.txt",
+      "character_count": 4530,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 32,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-032.txt",
+      "character_count": 1894,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "pdf_page": 33,
+      "pdf_page_label": "",
+      "source_path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "text_path": "extracted/DVC1124_2_RM_V1_2/page-033.txt",
+      "character_count": 1449,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 1,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-001.txt",
+      "character_count": 7962,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 2,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-002.txt",
+      "character_count": 7373,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 3,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-003.txt",
+      "character_count": 4260,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 4,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-004.txt",
+      "character_count": 4412,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 5,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-005.txt",
+      "character_count": 4352,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 6,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-006.txt",
+      "character_count": 3810,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 7,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-007.txt",
+      "character_count": 4742,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 8,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-008.txt",
+      "character_count": 1360,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 9,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-009.txt",
+      "character_count": 4739,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 10,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-010.txt",
+      "character_count": 3291,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 11,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-011.txt",
+      "character_count": 6426,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 12,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-012.txt",
+      "character_count": 5710,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 13,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-013.txt",
+      "character_count": 6004,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 14,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-014.txt",
+      "character_count": 6688,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 15,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-015.txt",
+      "character_count": 7401,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 16,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-016.txt",
+      "character_count": 7437,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 17,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-017.txt",
+      "character_count": 5189,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 18,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-018.txt",
+      "character_count": 8116,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 19,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-019.txt",
+      "character_count": 5500,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 20,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-020.txt",
+      "character_count": 4041,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 21,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-021.txt",
+      "character_count": 4090,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 22,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-022.txt",
+      "character_count": 3052,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 23,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-023.txt",
+      "character_count": 4190,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 24,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-024.txt",
+      "character_count": 3851,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 25,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-025.txt",
+      "character_count": 4648,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 26,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-026.txt",
+      "character_count": 5223,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 27,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-027.txt",
+      "character_count": 4273,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 28,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-028.txt",
+      "character_count": 3800,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 29,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-029.txt",
+      "character_count": 4079,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 30,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-030.txt",
+      "character_count": 4140,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 31,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-031.txt",
+      "character_count": 2753,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 32,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-032.txt",
+      "character_count": 6128,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 33,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-033.txt",
+      "character_count": 4118,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 34,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-034.txt",
+      "character_count": 3689,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 35,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-035.txt",
+      "character_count": 3533,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 36,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-036.txt",
+      "character_count": 4025,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 37,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-037.txt",
+      "character_count": 4477,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 38,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-038.txt",
+      "character_count": 3784,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 39,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-039.txt",
+      "character_count": 4134,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 40,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-040.txt",
+      "character_count": 4695,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 41,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-041.txt",
+      "character_count": 4817,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 42,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-042.txt",
+      "character_count": 4335,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 43,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-043.txt",
+      "character_count": 6213,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 44,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-044.txt",
+      "character_count": 3743,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 45,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-045.txt",
+      "character_count": 6405,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 46,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-046.txt",
+      "character_count": 4101,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 47,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-047.txt",
+      "character_count": 2347,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 48,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-048.txt",
+      "character_count": 2638,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 49,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-049.txt",
+      "character_count": 1664,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 50,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-050.txt",
+      "character_count": 2900,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 51,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-051.txt",
+      "character_count": 1289,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 52,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-052.txt",
+      "character_count": 1204,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 53,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-053.txt",
+      "character_count": 3921,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 54,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-054.txt",
+      "character_count": 4660,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 55,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-055.txt",
+      "character_count": 5471,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 56,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-056.txt",
+      "character_count": 2331,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 57,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-057.txt",
+      "character_count": 999,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 58,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-058.txt",
+      "character_count": 737,
+      "extraction_status": "text_extracted"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 59,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-059.txt",
+      "character_count": 0,
+      "extraction_status": "no_text_detected"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 60,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-060.txt",
+      "character_count": 0,
+      "extraction_status": "no_text_detected"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 61,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-061.txt",
+      "character_count": 0,
+      "extraction_status": "no_text_detected"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 62,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-062.txt",
+      "character_count": 0,
+      "extraction_status": "no_text_detected"
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "pdf_page": 63,
+      "pdf_page_label": "",
+      "source_path": "sources/BQ76940.pdf",
+      "text_path": "extracted/BQ769x0_SLUSBK2F/page-063.txt",
+      "character_count": 6422,
+      "extraction_status": "text_extracted"
+    }
+  ]
+}

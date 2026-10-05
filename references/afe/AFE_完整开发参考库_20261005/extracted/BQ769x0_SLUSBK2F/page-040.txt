@@ -1,0 +1,61 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                           www.ti.com
+
+
+
+                                      Table 7-18. TS2_HI (0x2E) and TS2_LO (0x2F)
+      BIT             7           6               5            4             3               2               1                0
+     NAME            —            —             D13           D12           D11             D10             D9               D8
+     RESET            0           0               0            0             0               0               0                0
+     NAME            D7          D6               D5           D4            D3             D2              D1               D0
+     RESET            0           0               0            0             0               0               0                0
+
+        D11:8 (Bits 3–0): TS2 ADC reading, upper 6 MSB. Always returned as an atomic value if both high and
+        low registers are read in the same transaction (using address auto-increment).
+
+        D7:0 (Bits 7–0): TS2 ADC reading, lower 8 LSB
+
+                                      Table 7-19. TS3_HI (0x30) and TS3_LO (0x31)
+      BIT             7           6               5            4             3               2               1                0
+     NAME            —            —             D13           D12           D11             D10             D9               D8
+     RESET            0           0               0            0             0               0               0                0
+     NAME            D7          D6               D5           D4            D3             D2              D1               D0
+     RESET            0           0               0            0             0               0               0                0
+
+        D11:8 (Bits 3–0): TS3 ADC reading, upper 6 MSB. Always returned as an atomic value if both high and
+        low registers are read in the same transaction (using address auto-increment).
+
+        D7:0 (Bits 7–0): TS3 ADC reading, lower 8 LSB
+
+                                       Table 7-20. CC_HI (0x32) and CC_LO (0x33)
+      BIT             7           6               5            4             3               2               1                0
+     NAME           CC15        CC14            CC13         CC12          CC11            CC10            CC9              CC8
+     RESET            0           0               0            0             0               0               0                0
+     NAME           CC7          CC6            CC5           CC4           CC3             CC2            CC1              CC0
+     RESET            0           0               0            0             0               0               0                0
+
+        CC15:8 (Bits 7–0): Coulomb counter upper 8 MSB. Always returned as an atomic value if both high and
+        low registers are read in the same transaction (using address auto-increment).
+
+        CC7:0 (Bits 7–0): Coulomb counter lower 8 LSB
+
+                                               Table 7-21. ADCGAIN1 (0x50)
+      BIT             7           6               5            4             3               2               1                0
+     NAME            —            —               —            —         ADCGAIN4         ADCGAIN3          —                —
+     RESET           —            —               —            —             —               —              —                —
+     ACCESS           R           R               R            R             R               R               R               R
+
+
+                                               Table 7-22. ADCGAIN2 (0x59)
+      BIT             7           6               5            4             3               2               1                0
+     NAME        ADCGAIN2      ADCGAIN1      ADCGAIN0          —             —               —              —                —
+     RESET           —            —               —            —             —               —              —                —
+     ACCESS           R           R               R            R             R               R               R               R
+
+        ADCGAIN4:3 (Bits 3–2, address 0x50):
+                                ADC GAIN
+                                offset upper 2 MSB
+
+40      Detailed Description                                                      Copyright © 2013–2015, Texas Instruments Incorporated
+                                                  Submit Documentation Feedback
+                                          Product Folder Links: bq76920 bq76930 bq76940

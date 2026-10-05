@@ -1,0 +1,59 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                          www.ti.com
+
+
+
+7.3     Feature Description
+
+7.3.1       Subsystems
+        bq769x0 consists of three major subsystems: Measurement, Protection, and Control. These work together
+        to ensure that the fundamental battery pack parameters—voltage, current and temperature—are
+        accurately captured and easily available to a host controller, while ensuring a baseline or secondary level
+        of hardware protection in the event that a host controller is unable or unavailable to manage certain fault
+        conditions.
+
+                                                               NOTE
+                      The bq769x0 is intended to serve as an analog front-end (AFE) as part of a chipset system
+                      solution: A companion microcontroller is required to oversee and control this AFE.
+
+        •    The Measurement subsystem’s core responsibility is to digitize the cell voltages, pack current
+             (integrated into a passed charge calculation), external thermistor temperature, and internal die
+             temperature. It also performs an automatic calculation of the total battery stack voltage, by simply
+             adding up all measured cell voltages.
+        •    The Protection subsystem provides a baseline or secondary level of hardware protections to better
+             support a battery pack’s FMEA requirements in the event of a loss of host control or simply if a host is
+             unable to respond to a certain fault event in time. Integrated protections include pack-level faults such
+             as OV, UV, OCD, SCD, detection of an external secondary protector fault, and internal logic
+             “watchdog”-style device fault (XREADY). Protection events will trigger toggling of the ALERT pin, as
+             well as automatic disabling of the DSG and/or CHG FET driver (depending on the fault). Recovery
+             from a fault event must be handled by the host microcontroller.
+        •    The Control subsystem implements a suite of useful pack features, including direct low-side NCH FET
+             drivers, cell balancing drivers, the ALERT digital output, an external LDO and more.
+        The following sections describe each subsystem in greater detail, as well as explaining the various power
+        states that are available.
+
+7.3.1.1     Measurement Subsystem Overview
+        The monitoring subsystem ensures that all cell voltages, temperatures, and pack current may be easily
+        measured by the host. All ADCs are trimmed by TI.
+        ADC and CC data are always returned as atomic values if both high and low registers are read in the
+        same transaction (using address auto-increment).
+
+7.3.1.1.1 Data Transfer to the Host Controller
+        The bq769x0 has a fully digital interface: All information is transferred through I2C, simply by reading
+        and/or writing to the appropriate register(s) storing the relevant data. Block reads and writes, buffered by
+        an 8-bit CRC code per byte, ensure a fast and robust transmission of data.
+
+7.3.1.1.2 14-Bit ADC
+        Each bq769x0 device measures cell voltages and temperatures using a 14-bit ADC. This ADC measures
+        all differential cell voltages, thermistors and/or die temperature with a nominal full-scale unsigned range of
+        0–6.275 V and LSB of 382 µV.
+        To enable the ADC, the [ADC_EN] bit in the SYS_CTRL1 register must be set. This bit is set automatically
+        whenever the device enters NORMAL mode. When enabled, the ADC ensures that the integrated OV and
+        UV protections are functional.
+
+
+
+
+20      Detailed Description                                                     Copyright © 2013–2015, Texas Instruments Incorporated
+                                                 Submit Documentation Feedback
+                                         Product Folder Links: bq76920 bq76930 bq76940

@@ -1,0 +1,88 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                      www.ti.com
+
+
+
+Electrical Characteristics (continued)
+Typical conditions are measured at 25ºC with nominal BAT voltages of 18 V (bq76920), 36 V (bq76930), or 48 V (bq76940)
+with VCELL = 4 V. Min and max values include full recommended operating condition temperature range from –40ºC to +85ºC.
+Certain characteristics may be shown at different voltage or temperature ranges, as clarified in the Test Condition sections.
+  PARAMETER                DESCRIPTION                      TEST CONDITION                        MIN           TYP          MAX       UNIT
+tPROTACC             Delay accuracy for OCD                                                     –20%                         20%
+                     OCD and SCD voltage
+OCOFFSET                                                                                         –2.5                          2.5      mV
+                     offset
+                     OCD and SCD scale
+OCSCALEERR                                                                                      –10%                         10%
+                     accuracy
+CHARGE AND DISCHARGE DRIVERS
+                                                  REGSRC ≥ 12 V with load resistance of
+                                                                                                   10             12            14       V
+                                                  10 MΩ
+VFETON               CHG and DSG on
+                                                  REGSRC < 12 V with load resistance of     REGSRC         REGSRC
+                                                                                                                        REGSRC           V
+                                                  10 MΩ                                         –2             –1
+                                                  CHG/DSG driving an equivalent load
+                     CHG and DSG ON rise
+tFET_ON                                           capacitance of 10 nF, measured from                            200          250        µs
+                     time
+                                                  10% to 90% of VFETON
+                                                  DSG driving an equivalent load
+                     DSG pull-down OFF fall
+tDSG_OFF                                          capacitance of 10 nF, measured from                             60            90       µs
+                     time
+                                                  90% to 10%
+                     CHG pull-down OFF
+RCHG_OFF                                          When CHG disabled, CHG held at 12 V             750          1000          1250       kΩ
+                     resistance to VSS
+                     DSG pull-down OFF
+RDSG_OFF                                          When DSG disabled, DSG held at 12 V            1.75           2.50          4.25      kΩ
+                     resistance to VSS
+VLOAD_DETECT         Load detection threshold                                                      0.4           0.7           1.0       V
+                                                  If the CHG pin externally pulled high
+                                                  (through PACK–, if load applied),
+VCHG_CLAMP           CHG clamp voltage                                                             18             20            22       V
+                                                  500 µA max sink current into CHG pin.
+                                                  With CHG_ON bit cleared.
+ALERT PIN
+                     ALERT output voltage                                                  REGOUT x
+VALERT_OH                                         IOL = 1 mA                                                                             V
+                     high                                                                      0.75
+                                                                                                                        REGOUT
+VALERT_OL            ALERT output voltage low Unloaded                                                                                   V
+                                                                                                                          x 0.25
+                                                  ALERT externally forced high when
+VALERT_IH            ALERT input high                                                                1                         1.5       V
+                                                  internally driven low. See note (4).
+                     ALERT pin weak
+                                              Measured into ALERT pin with ALERT
+RALERT_PD            pulldown resistance when                                                      0.8           2.5             8      MΩ
+                                              = REGOUT
+                     driven low
+CELL BALANCING DRIVER
+                     Internal cell balancing
+RDSFET                                            VCELL = 3.6 V                                      1             5            10       Ω
+                     driver resistance
+                     Cell balancing duty cycle
+XBAL                                              Every 250 ms                                                  70%
+                     when enabled
+EXTERNAL REGULATOR
+                     External LDO voltage         Nominal values, TI factory programmed,         2.45           2.50          2.55       V
+VEXTLDO
+                     options                      unloaded, across temp                          3.20           3.30          3.40       V
+                                                  REGSRC pin stepped from 6 to 25 V,
+VEXTLDO_LN           Line regulation                                                                                          100       mV
+                                                  with 10 mA load, in 100 µs
+VEXTLDO_LD           Load regulation              IREGOUT = 0 mA to 10 mA                        –4%                           4%
+                                                  REGOUT = 10 mA DC, 2.5-V version                 2.4                                   V
+                     External LDO minimum         REGOUT = 20 mA DC, 2.5-V version                 2.3                                   V
+VEXTLDO_DC
+                     voltage under DC load        REGOUT = 10 mA DC, 3.3-V version               3.15                                    V
+                                                  REGOUT = 20 mA DC, 3.3-V version               3.05                                    V
+
+(4)   MIN specifies the threshold below which the device will never register that an external alert has occurred. MAX specifies the minimum
+      threshold above which the device will always register that an external alert has occurred.
+16        Electrical Specifications                                                         Copyright © 2013–2015, Texas Instruments Incorporated
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

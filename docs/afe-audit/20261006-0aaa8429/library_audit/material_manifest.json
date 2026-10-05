@@ -1,0 +1,167 @@
+{
+  "review_date": "2026-10-06",
+  "repo_sha_context_only": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+  "audit_scope": "library global integrity + SH367309/BQ769x0 detailed source oracle; no production changes",
+  "materials": [
+    {
+      "source_id": "SH367309_V1_1",
+      "file": "sources/SH367309.pdf",
+      "revision_as_pack": "V1.1",
+      "printed_revision": "V1.1",
+      "actual_pdf_pages": 89,
+      "actual_size_bytes": 2164101,
+      "actual_sha256": "b0c14b705c404ff07663d87e71e8c45c4c1c5f2fc76bfb6673e6e36400a2d477",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "file": "sources/SH36735XX CV1.0A.pdf",
+      "revision_as_pack": "CV1.0A",
+      "printed_revision": "V1.0A",
+      "actual_pdf_pages": 57,
+      "actual_size_bytes": 1592346,
+      "actual_sha256": "a5893e34dfac36fc215e936f0a291abd9b5012207f090abb86b931eb5805e922",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "file": "sources/SH36735XX CV0.2C.pdf",
+      "revision_as_pack": "CV0.2C Preliminary",
+      "printed_revision": "V0.2C",
+      "actual_pdf_pages": 57,
+      "actual_size_bytes": 1275722,
+      "actual_sha256": "30b1cf7c657203489259640e59cbc245934c5ec2d841435ae830ec1c47d11776",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "file": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "revision_as_pack": "V1.1 datasheet",
+      "printed_revision": "V1.1 datasheet",
+      "actual_pdf_pages": 29,
+      "actual_size_bytes": 2117768,
+      "actual_sha256": "46aa69c91ce0b570695f84c4550feb78101536c4f0d7281bfbcd499956802c19",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "file": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "revision_as_pack": "V1.2 reference manual",
+      "printed_revision": "V1.2 reference manual",
+      "actual_pdf_pages": 33,
+      "actual_size_bytes": 4017572,
+      "actual_sha256": "a0a44c283c3d402068bac8330d3d3171e9810210db62a6ea48d2eccd85e7c488",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "file": "sources/BQ76940.pdf",
+      "revision_as_pack": "SLUSBK2F November 2015",
+      "printed_revision": "SLUSBK2F November 2015",
+      "actual_pdf_pages": 63,
+      "actual_size_bytes": 1514842,
+      "actual_sha256": "d9f66f353a16d58ece62215cd9b0fdb1353c523e7414e67fe687823ae4f3e3b1",
+      "matches_pack_sha256": true,
+      "matches_pack_size": true,
+      "matches_pack_pagecount": true,
+      "official_origin_independently_verified": false
+    }
+  ],
+  "integrity_counts": {
+    "pdf_documents": 6,
+    "pdf_pages": 328,
+    "checksum_entries": 387,
+    "checksum_failures": 0,
+    "large_character_bag_extraction_differences": 0
+  },
+  "semantic_oracles": {
+    "address_reset_enumerations": {
+      "assertions": 158,
+      "pass": 158,
+      "fail": 0
+    },
+    "bit_labels_masks_access_field_reset": {
+      "assertions": 3286,
+      "pass": 3286,
+      "fail": 0
+    },
+    "SH367309_public_registers": 77,
+    "SH367309_source_bit_labels": 616,
+    "BQ769x0_public_registers": 55,
+    "BQ769x0_bit_coverage": 440
+  },
+  "new_confirmed_library_errors": [
+    "LIB-BQ-01 reference.md:471 BQ SHIP sequence Chinese text says 01 twice before10; PDF p31 and35 prescribe exactly01 then10"
+  ],
+  "known_source_conflicts_rechecked": [
+    "SH309 CADCDL p68 bit1 CDATA.0 versusp47 CDATA.1, existing library records conflict; not a new library defect",
+    "BQ p47 example register contradictions, existing library records conflict; not new library defects"
+  ],
+  "gaps": {
+    "existing_disclosure_rechecked": [
+      "formula text extraction loss",
+      "manufacturer authenticity/latest revision not independently recertified",
+      "schema/verifier structural scope"
+    ],
+    "proposed_additions": [
+      "official URL/download date/silicon applicability/errata provenance",
+      "formula evidence crop coordinates and independent semantic flow oracles"
+    ]
+  },
+  "artifact_files": [
+    {
+      "file": "findings.md",
+      "size_bytes": 11816,
+      "sha256": "0334685e6e96810b34bd880ffc632dbc8b0c05b5059275918cce172bc63f4afd"
+    },
+    {
+      "file": "coverage.md",
+      "size_bytes": 6305,
+      "sha256": "f5aca2e8d019b1ec5daa4df934b7ac16e1c6fcaa186336a6d3253282bf07d312"
+    },
+    {
+      "file": "oracle_results.json",
+      "size_bytes": 63201,
+      "sha256": "e6f789092f10e3379db81db21013a666a8b23279cca5b5119f9ae1efb356fe28"
+    },
+    {
+      "file": "bit_oracle_with_resets.json",
+      "size_bytes": 701926,
+      "sha256": "1544c60a739cc013fc699c214f814e8f2c8b9a96737100d7e11fa3b4225147d3"
+    },
+    {
+      "file": "independent_checks.json",
+      "size_bytes": 34647,
+      "sha256": "b25de8f54ac50cb9a2577752e6bc33cc13c116d3369da6fea1e197b1d58f4d73"
+    },
+    {
+      "file": "page_coverage.json",
+      "size_bytes": 110421,
+      "sha256": "42562ceefb9e36fe4a003e9e1d05473048d9cbd4d04c2c5fc53c8eb03491f153"
+    }
+  ],
+  "worktree_identity_context_only": {
+    "head": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+    "origin_checkout": "D:/telink/bms-monorepo",
+    "includes_uncommitted_worktree": false,
+    "worktree_content_sha256": "05fb3147811468a347d3b27538b364d6ce92d56c533a17d713bcc8e1ac689613"
+  },
+  "original_material_checks_carried_forward_from": "afe-audit-20261006/library_audit",
+  "original_material_checks_reexecuted_for_final_source_baseline": false,
+  "context_update_only_note": "Original PDF bytes/version/hash and 158/3286 source-oracle outcomes retained; only parent clean source identity and changed report artifact hashes updated. Do not add a new vendor-check execution count."
+}

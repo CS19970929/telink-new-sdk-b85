@@ -1,0 +1,80 @@
+                                                                                                          bq76920, bq76930, bq76940
+www.ti.com                                                                               SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+6 Electrical Specifications
+
+6.1      Absolute Maximum Ratings
+Over-operating free-air temperature range (unless otherwise noted)
+                                                                                                              MIN           MAX       UNIT
+                               (BAT–VSS)                                                   bq76920
+          Supply voltage
+VBAT                           (BAT–VC5x), (VC5x–VSS)                                      bq76930            –0.3             36        V
+          range
+                               (BAT–VC10x), (VC10x–VC5x), (VC5x–VSS)                       bq76940
+                               (VCn–VSS) where n = 1..5                                    bq76920
+                               (VCn–VSS) where n = 1..5, (VCn-VC5x) where n =
+                                                                                           bq76930
+                               6..10                                                                          –0.3       (n × 7.2)       V
+                               (VCn–VSS) where n = 1..5, (VCn–VC5x) where n =
+                                                                                           bq76940
+                               6..10, (VCn–VC10x) where n = 11..15
+                               Cell input pins, differential (VCn–VCn–1) where n = 1..15/10/5
+                                                                                                              –0.3              9        V
+                               (bq76940/bq76930/bq76920, respectively)
+          Input voltage
+VI                             SRN, SRP, SCL, SDA
+          range
+                               (VC0–VSS), (CAP1–VSS), (TS1–VSS) (1)                        bq76920
+                               (VC0–VSS), (VC5b–VC5x), (CAP2–VC5x),
+                                                                                           bq76930            –0.3            3.6
+                               (CAP1–VSS), (TS2–VC5x), (TS1–VSS) (1)
+                                                                                                                                         V
+                               (VC0–VSS), (VC5b–VC5x), (VC10b–VC10x),
+                               (CAP3–VC10x), (CAP2–VC5x), (CAP1–VSS),                      bq76940
+                               (TS3–VC10x), (TS2–VC5x), (TS1–VSS) (1)
+                               REGSRC                                                                         –0.3             36
+                               REGOUT, ALERT                                                                  –0.3            3.6
+          Output voltage
+VO                             DSG                                                                            –0.3             20        V
+          range
+                               CHG                                                                            –0.3 VCHGCLAMP
+                                                                                           bq76920                 70                    mA
+ICB       Cell balancing current (per cell)                                                bq76930,
+                                                                                                                     5                   mA
+                                                                                           bq76940
+IDSG      Discharge pin input current when disabled (measured into terminal)                                         7                   mA
+          Storage temperature range                                                                           –65             150
+TSTG                                                                                                                                     °C
+          Lead temperature (soldering, 10 s)                                                                                  300
+(1)   The Absolute Maximum Ratings for (TS1–VSS) apply after the device completes POR and should be observed after tBOOTREADY
+      (10 ms), following the application of the boot signal on TS1. Prior to completion of POR, TS1 should not exceed 5 V.
+
+6.2      ESD Ratings
+                                                                                                                         VALUE        UNIT
+                                                                           (1)
+          Electrostatic     Human body model (HBM) ESD stress voltage                                                          ±2        kV
+V(ESD)
+          discharge         Charged device model (CDM) ESD stress voltage (2)                                               ±500         V
+(1)   JEDEC document JEP155 states that 500-V HBM allows safe manufacturing with a standard ESD control process.
+(2)   JEDEC document JEP157 states that 250-V CDM allows safe manufacturing with a standard ESD control process.
+
+6.3      Recommended Operating Conditions
+Over-operating free-air temperature range (unless otherwise noted). See Section 8.1.1 for more information on cell
+configurations. All voltages are relative to VSS, except "Cell input differential."
+                                                                                                 MIN         TYP              MAX        UNIT
+                                   (BAT–VSS)                                bq76920
+           Supply voltage          (BAT–VC5x), (VC5x–VSS)                   bq76930
+VBAT                                                                                                  6                          25       V
+           range
+                                   (BAT–VC10x), (VC10x–VC5x),
+                                                                            bq76940
+                                   (VC5x–VSS)
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                        Electrical Specifications          11
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

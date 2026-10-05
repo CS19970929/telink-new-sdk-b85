@@ -1,0 +1,65 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                           www.ti.com
+
+
+
+7.5         Register Maps
+       Name           Addr            D7              D6          D5              D4             D3               D2               D1        D0
+  SYS_STAT            0x00         CC_READY       RSVD       DEVICE_         OVRD_               UV               OV              SCD       OCD
+                                                             XREADY          ALERT
+  CELLBAL1            0x01           RSVD         RSVD        RSVD                                              CB<5:1>
+ CELLBAL2 (1)         0x02           RSVD         RSVD        RSVD                                          CB<10:6>
+ CELLBAL3 (2)         0x03           RSVD         RSVD        RSVD                                          CB<15:11>
+ SYS_CTRL1            0x04          LOAD_         RSVD        RSVD           ADC_EN        TEMP_SEL              RSVD            SHUT_A   SHUT_B
+                                   PRESENT
+ SYS_CTRL2            0x05         DELAY_DIS     CC_EN        CC_                               RSVD                             DSG_ON   CHG_ON
+                                                            ONESHOT
+ PROTECT1             0x06           RSNS         RSVD        RSVD                 SCD_DELAY                                SCD_THRESH
+ PROTECT2             0x07           RSVD                  OCD_DELAY                                               OCD_THRESH
+ PROTECT3             0x08                 UV_DELAY                    OV_DELAY                                           RSVD
+      OV_TRIP         0x09                                                         OV_THRESH
+      UV_TRIP         0x0A                                                         UV_THRESH
+      CC_CFG          0x0B           RSVD         RSVD                                     Must be programmed to 0x19
+      VC1_HI          0x0C           RSVD         RSVD                                                 <13:8>
+      VC1_LO          0x0D                                                             <7:0>
+      VC2_HI          0x0E           RSVD         RSVD                                                 <13:8>
+      VC2_LO          0x0F                                                             <7:0>
+      VC3_HI          0x10           RSVD         RSVD                                                 <13:8>
+      VC3_LO          0x11                                                             <7:0>
+      VC4_HI          0x12           RSVD         RSVD                                                 <13:8>
+      VC4_LO          0x13                                                             <7:0>
+      VC5_HI          0x14           RSVD         RSVD                                                 <13:8>
+      VC5_LO          0x15                                                             <7:0>
+     VC6_HI (1)       0x16           RSVD         RSVD                                                 <13:8>
+              (1)
+  VC6_LO              0x17                                                             <7:0>
+     VC7_HI (1)       0x18           RSVD         RSVD                                                 <13:8>
+  VC7_LO (1)          0x19                                                             <7:0>
+     VC8_HI (1)       0x1A           RSVD         RSVD                                                 <13:8>
+  VC8_LO (1)          0x1B                                                             <7:0>
+     VC9_HI (1)       0x1C           RSVD         RSVD                                                 <13:8>
+  VC9_LO (1)          0x1D                                                             <7:0>
+  VC10_HI (1)         0x1E           RSVD         RSVD                                                 <13:8>
+ VC10_LO (1)          0x1F                                                             <7:0>
+  VC11_HI (2)         0x20           RSVD         RSVD                                                 <13:8>
+ VC11_LO (2)          0x21                                                             <7:0>
+  VC12_HI (2)         0x22           RSVD         RSVD                                                 <13:8>
+ VC12_LO (2)          0x23                                                             <7:0>
+  VC13_HI (2)         0x24           RSVD         RSVD                                                 <13:8>
+ VC13_LO (2)          0x25                                                             <7:0>
+  VC14_HI (2)         0x26           RSVD         RSVD                                                 <13:8>
+ VC14_LO (2)          0x27                                                             <7:0>
+  VC15_HI (2)         0x28           RSVD         RSVD                                                 <13:8>
+ VC15_LO (2)          0x29                                                             <7:0>
+      BAT_HI          0x2A                                                             <15:8>
+      BAT_LO          0x2B                                                             <7:0>
+       TS1_HI         0x2C           RSVD         RSVD                                                 <13:8>
+      TS1_LO          0x2D                                                             <7:0>
+      TS2_HI (1)      0x2E           RSVD         RSVD                                                 <13:8>
+  TS2_LO (1)          0x2F                                                             <7:0>
+
+(1)     These registers are only valid for bq76930 and bq76940.
+(2)     These registers are only valid for bq76940.
+32          Detailed Description                                                                 Copyright © 2013–2015, Texas Instruments Incorporated
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

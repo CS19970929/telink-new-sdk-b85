@@ -1,0 +1,55 @@
+4 串至 24 串电池组监控芯片                                                          DVC1124-2 参考手册
+     0x86           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x87           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x88           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x89           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x8A           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x8B           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+     0x8C           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x8D           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+
+     0x8E           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE            R/W      R/W        R           R      R       R          R       R
+   DEFAULT            1       0          -          -       -      0          0       0
+FRT[7:0] ·············存储在 FUSE 中电阻修调值；电阻值=6800Ω+FRT×25Ω
+
+
+
+芯片版本寄存器
+     0x8F           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME            CV[7]    CV[6]     CV[5]      CV[4]   CV[3]   CV[2]      CV[1]   CV[0]
+    MODE              R       R         R           R      R       R          R       R
+
+     0x90           BIT 7    BIT 6     BIT 5      BIT 4   BIT 3   BIT 2      BIT 1   BIT 0
+    NAME
+    MODE              R       R         R           R      R       R          R       R
+CV[7:0]···············芯片版本
+
+
+
+
+南京集澈电子科技有限公司                                       1.2                               29 / 33
+宜矽源半导体南京有限公司

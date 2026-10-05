@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:afe-reference:register-dataset:1.0",
+  "title": "AFE register dataset structural schema",
+  "description": "Structural validation only. Chip-specific access, reset and field semantics remain in each dataset; passing this schema is not electrical or implementation validation.",
+  "type": "object",
+  "required": ["schema_version", "registers"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "registers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["address", "name", "width_bits"],
+        "properties": {
+          "address": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "string", "pattern": "^0x[0-9A-Fa-f]+$"}]},
+          "name": {"type": "string", "minLength": 1},
+          "width_bits": {"type": "integer", "minimum": 1},
+          "revision": {"type": "string"},
+          "bitfields": {"type": "array", "items": {"type": "object"}}
+        },
+        "anyOf": [{"required": ["source"]}, {"required": ["sources"]}, {"required": ["source_pages"]}],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

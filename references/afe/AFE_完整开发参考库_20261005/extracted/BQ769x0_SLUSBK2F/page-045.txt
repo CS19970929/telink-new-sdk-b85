@@ -1,0 +1,94 @@
+                                                                                                                                bq76920, bq76930, bq76940
+www.ti.com                                                                                                 SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+                                                                                                                                                             PACK +
+          Rc
+                       Cc
+
+          Rc
+                       Cc
+
+          Rc
+                       Cc
+
+          Rc
+                       Cc
+
+          Rc           Cc
+          VC10x
+
+          Rc      Cc
+
+B                                                                                                                 Rf
+
+          Rc
+                       Cc                            VC15
+                                                     VC14        BAT
+          Rc
+                       Cc                            VC13       CAP3
+                                                     VC12        TS3                                              Cf
+          Rc                                         VC11                        10k
+                       Cc                                         NC                        1 µF
+                                                     VC10b        NC
+          Rc                                         VC10      VC10x                                                           B
+                       Cc                                                                                              Rf
+                                                     VC9        CAP2
+          Rc                                         VC8         TS2                                              Cf
+                       Cc
+            VC5x                                     VC7          NC             10k        1 µF
+                  Cc                                 VC6          NC
+          Rc
+                                                     VC5b       VC5x                                                           A
+A                                                                                                                      Rf
+                                                     VC5      REGSRC
+          Rc
+                       Cc                            VC4      REGOUT
+                                                     VC3        CAP1
+                                                                                 10 kΩ
+          Rc                                         VC2         TS1
+                       Cc                                                                          1 µF    1 µF   Cf        4.7 µF
+                                                     VC1         SCL             10k
+          Rc                                         VC0         SDA
+                       Cc
+                                                     SRP         VSS
+          Rc                                         SRN        CHG
+                       Cc                                                                   PUSH-BUTTON FOR BOOT
+                                                     ALERT       DSG
+                                                                                                                                        VCC
+          Rc           Cc
+                                                                                                                                        SCL
+                                                                                                                                        SDA    Companion
+          Rc      Cc                                                                                                                           Controller
+                                                                                                                                        GPIO
+                                                                                       1M
+                                                                                                                                        VSS
+
+                             0.1 µF   0.1 µF   0.1 µF
+
+
+                               100             100              1M                                    1M
+
+                                      Rsns                                                                                                                   PACK –
+
+                                      Figure 8-3. bq76940 with bq78350 Companion Controller IC
+
+8.2.1     Design Requirements
+
+                                                        Table 8-4. bq769x0 Design Requirements
+                             DESIGN PARAMETER                                                               EXAMPLE VALUE at TA = 25°C
+                       Minimum system operating voltage                                                                        24 V
+                        Cell minimum operating voltage                                                                        3.0 V
+                               Series Cell Count                                                                                   8
+                                Charge Voltage                                                                                33.6 V
+                            Maximum Charge Current                                                                            3.0 A
+                            Peak Discharge Current                                                                            10.0 A
+                            OV Protection Threshold                                                                           4.30 V
+                              OV Protection Delay                                                                                  2s
+                            UV Protection Threshold                                                                           2.5 V
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                                       Application and Implementation      45
+                                                                 Submit Documentation Feedback
+                                                         Product Folder Links: bq76920 bq76930 bq76940

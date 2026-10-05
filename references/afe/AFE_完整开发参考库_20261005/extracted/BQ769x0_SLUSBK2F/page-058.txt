@@ -1,0 +1,17 @@
+                                                                PACKAGE MATERIALS INFORMATION
+
+www.ti.com                                                                                                           14-Nov-2014
+
+
+
+
+*All dimensions are nominal
+             Device           Package Type   Package Drawing   Pins     SPQ     Length (mm)   Width (mm)   Height (mm)
+     BQ7692000PWR               TSSOP              PW           20      2000       367.0        367.0         38.0
+     BQ7692003PWR               TSSOP              PW           20      2000       367.0        367.0         38.0
+     BQ7692006PWR               TSSOP              PW           20      2000       367.0        367.0         38.0
+
+
+
+
+                                                        Pack Materials-Page 2

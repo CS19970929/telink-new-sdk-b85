@@ -1,0 +1,118 @@
+[
+  {
+    "name": "normal-production-four-production-link",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--all-products",
+      "--production",
+      "--d008-profile",
+      "16s-lfp",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "started_utc": "2026-10-05T23:23:04.762124+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-four-production-link.log"
+  },
+  {
+    "name": "normal-production-four-production-resources",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--all-products",
+      "--production",
+      "--d008-profile",
+      "16s-lfp",
+      "resources"
+    ],
+    "started_utc": "2026-10-05T23:24:11.953228+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-four-production-resources.log"
+  },
+  {
+    "name": "normal-production-d008-20s-nmc-link",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--product",
+      "d008",
+      "--production",
+      "--d008-profile",
+      "20s-nmc",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "started_utc": "2026-10-05T23:24:15.335216+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-d008-20s-nmc-link.log"
+  },
+  {
+    "name": "normal-production-d008-20s-nmc-resources",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--product",
+      "d008",
+      "--production",
+      "--d008-profile",
+      "20s-nmc",
+      "resources"
+    ],
+    "started_utc": "2026-10-05T23:24:31.536884+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-d008-20s-nmc-resources.log"
+  },
+  {
+    "name": "normal-production-d008-24s-lfp-link",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--product",
+      "d008",
+      "--production",
+      "--d008-profile",
+      "24s-lfp",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "started_utc": "2026-10-05T23:24:32.262438+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-d008-24s-lfp-link.log"
+  },
+  {
+    "name": "normal-production-d008-24s-lfp-resources",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--product",
+      "d008",
+      "--production",
+      "--d008-profile",
+      "24s-lfp",
+      "resources"
+    ],
+    "started_utc": "2026-10-05T23:24:45.398546+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-d008-24s-lfp-resources.log"
+  },
+  {
+    "name": "normal-production-static",
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--all-products",
+      "--production",
+      "--d008-profile",
+      "16s-lfp",
+      "static",
+      "--no-report"
+    ],
+    "started_utc": "2026-10-05T23:24:46.041203+00:00",
+    "returncode": 0,
+    "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\normal-production-static.log"
+  }
+]

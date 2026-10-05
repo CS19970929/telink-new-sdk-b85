@@ -1,0 +1,11 @@
+       Preliminary              SH3673510/3673514/3673517/3673520
+VCP    O     46      46    46         46   Charge Pump电荷泵输出端
+VCPR   P     47      47    47         47   Charge Pump电荷泵输入端
+SHIP   I     48      48    48         48   SHIP模式控制端
+
+                          表1 IC管脚描述
+
+
+
+
+                                5

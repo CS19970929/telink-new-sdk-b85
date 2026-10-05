@@ -1,0 +1,7 @@
+{
+  "returncode": 1,
+  "stdout": "commit_error=5 apply_state=3 requested_restored=1 before_OV_code=750 device_OV_code=770 SCONF6=0x00 outputs_after_error=0\nafter_healthy_samples qualified=1 first_ON_sample=5 apply_state=3 SCONF6=0x00 effective_valid=0\n",
+  "stderr": "CONFIG_INCONSISTENT_OUTPUT_GAP expected=OFF_UNTIL_VERIFIED_RECONCILIATION actual=ON first_on_sample=5 SCONF6=0x00\n",
+  "boundary": "22 original production translation units; SDK/SPI/Flash/GPIO/time virtual peer; register FET command, not real Gate/Vgs; discarded repository test expectations",
+  "requirement": "AFE reconfiguration failure must stay fail-safe per supplied D014 AGENTS; successful profile reconciliation required to exit CONFIG_INCONSISTENT; silicon output not observed"
+}

@@ -1,0 +1,66 @@
+             Preliminary                     SH3673510/3673514/3673517/3673520
+                                             0.2*
+   VIL     数字输入逻辑低电平            -       -            V    CS/SCK/SDI
+                                            VLDO_O
+                              VLDO_O
+  VOH      数字输出逻辑高电平                             -   V    SDO，IOH = -10mA
+                               -0.6
+                                 -      -     0.6    V    SDO，IOL = 15mA
+  VOL      数字输出逻辑低电平
+                                 -      -     0.4    V    RESET/ALARM，IOL = 1mA
+tL-ALARM   ALARM方波低电平时间         0.8     1     1.2    ms
+
+                                      Powerdown状态
+ 参数                说明         最小值 典型值 最大值 单位                              测试条件
+  VPD      Powerdown允许电压        -   VUV-200  -  mV
+ tPD_UV    Powerdown允许延时      58.04 62.72 67.52  S        Normal模式下
+
+
+                                  LDO1(LDO_VCC) Regulator
+ 参数               说明          最小值 典型值 最大值 单位                            测试条件
+ VVCC      VCC稳压源输出电压          5.0    5.2   5.4    V    8V ≤ VBAT ≤ 88V，Iload =2mA
+VLVR-VCC   VCC的LVR复位电压          -     4.0    -     V
+
+                              LDO2(LDO_MCU) Regulator
+ 参数                说明    最小值 典型值       最大值      单位                         测试条件
+ VLDO_O    LDO_O稳压源输出电平   3.1   3.3     3.5       V         8V ≤ VBAT ≤ 88V，无负载
+REGLINE    电压线性度           -     10      50      mV         8V ≤ VBAT ≤ 88V，Iload = 25mA
+REGLOAD    负载调整率           -     30     100      mV         VBAT = 70V，0.1mA ≤ Iload ≤ 25mA
+  ICLIT    LDO_O输出最大电流限制  45     75     130      mA         LDO_O输出接到VSS时的限流值
+ VLVR2     LDO2 LVR复位电压   2.1   2.3     2.5       V         触发LDO2 LVR时，仅复位SPI模块
+
+                                    VADC转换周期
+ 参数              说明           最小值 典型值 最大值 单位                          测试条件
+ tcycle    VADC转换周期            -   70    -  ms            Normal模式下，VADC完成所有通道转换的时间
+
+                                 VADC电压采集
+ 参数               说明        最小值 典型值 最大值 单位                                测试条件
+ VIN1      输入范围                0 -    5   V
+                              -5 -    5  mV               25℃, 1V ≤ VCN ≤ 4.5V
+           电压绝对精度1
+VCELLA                       -15 -   15  mV               -20℃~60℃, 1V ≤ VCN ≤ 4.5V
+           (Cell1~Cell20)
+                             -20 -   20  mV               -40℃~85℃, 1V ≤ VCN ≤ 4.5V
+ VBATA     电压绝对精度2(针对B+/C+)   -1 -    1   V               -40℃~85℃，VBAT=88V
+
+                                   VADC温度采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+                                -1 -    1  ℃              25℃
+ TEXTA     外部温度绝对精度
+                                -2 -    2  ℃              -40℃~85℃
+ TINTA     内部温度绝对精度            -10 -    10 ℃
+
+                                    VADC电流采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+ VIN3      输入范围                -100 -   100  mV
+                              -0.15 -   0.15 mV           -40℃~85℃(0mV < |VIN3| ≤ 2mV)
+                               -0.5 -    0.5 mV           -40℃~85℃(2mV < |VIN3| ≤ 10mV)
+ ICURA     电流绝对精度
+                                -1  -     1  mV           -40℃~85℃(10mV < |VIN3| ≤ 50mV)
+                                -2  -     2  mV           -40℃~85℃(50mV < |VIN3| ≤ 100mV)
+
+                                    CADC电流采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+ VIN4      输入范围                -100 -   100 mV
+
+                                            47

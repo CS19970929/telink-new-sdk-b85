@@ -1,0 +1,41 @@
+                                                                                      SH367309
+11. 管脚功能
+11.1 CTL管脚
+   通过SH367309的CTL管脚可控制充放电MOSFET，通过EEPROM寄存器SCONF2的CTLC[1:0]可设置CTL管脚功能。
+Table 11.1 系统配置寄存器2
+       01H           第7位         第6位       第5位          第4位        第3位     第2位     第1位    第0位
+     SCONF2          E0VB          -       UV_OP        DIS_PF    CTLC1    CTLC0   OCRA   EUVR
+       读/写           读/写         读/写        读/写          读/写       读/写     读/写     读/写    读/写
+
+    位编号          位符号                                               说明
+                              CTL管脚功能设置控制位
+                                CTLC[1:0] = 00：不控制任何MOSFET，CTL管脚输入无效
+     3:2        CTLC1 - 0       CTLC[1:0] = 01：同时控制充电和预充电MOSFET
+                                CTLC[1:0] = 10：控制放电MOSFET
+                                CTLC[1:0] = 11：同时控制充放电和预充电MOSFET
+
+   CTL管脚输入和控制功能对应关系如下表：
+                            CTL 管脚输入                              MOSFET 状态
+                            高电平 VH-CTL                      取决于 SH367309 内部逻辑
+                             低电平 VL-CTL                          关闭相应 MOSFET
+
+                                            表4 CTL管脚功能
+11.2 LDO_EN管脚
+   LDO_EN管脚为SH367309 LDO3使能控制端，功能模式如下表：
+                        LDO_EN管脚输入                                LDO3功能模块
+                            高电平VH-LDO_EN                             开启
+                            低电平VL-LDO_EN                             关闭
+
+                                           表5 LDO_EN管脚功能
+11.3 MODE管脚
+   MODE管脚为SH367309 采集模式和保护模式选择端，功能模式如下表：
+                            MODE管脚输入                             SH367309工作模式
+                            高电平VH-MODE                              采集模式
+                            低电平VL-MODE                              保护模式
+
+                                           表6 MODE管脚功能
+
+
+
+
+                                                   38

@@ -1,0 +1,60 @@
+                                                                                                      bq76920, bq76930, bq76940
+www.ti.com                                                                             SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+
+         LOAD_PRESENT (Bit 7): Valid only when [CHG_ON] = 0. Is high if CHG pin is detected to exceed
+         VLOAD_DETECT while CHG_ON = 0, which suggests that external load is present. Note this bit is read-
+         only and automatically clears when load is removed.
+                    0 = CHG pin < VLOAD_DETECT or [CHG_ON] = 1.
+                    1 = CHG pin >VLOAD_DETECT, while [CHG_ON] = 0.
+
+         ADC_EN (Bit 4): ADC enable command
+                    0 = Disable voltage and temperature ADC readings (also disables OV protection)
+                    1 = Enable voltage and temperature ADC readings (also enables OV protection)
+
+         TEMP_SEL (Bit 3): TSx_HI and TSx_LO temperature source
+                    0 = Store internal die temperature voltage reading in TSx_HI and TSx_LO
+                    1 = Store thermistor reading in TSx_HI and TSx_LO (all thermistor ports)
+
+         RSVD (Bit 2): Reserved, do not set to 1.
+
+         SHUT_A, SHUT_B (Bits 1–0): Shutdown command from host microcontroller. Must be written in a
+         specific sequence, shown below:
+         Starting from: [SHUT_A] = 0, [SHUT_B] = 0
+                            Write #1: [SHUT_A] = 0, [SHUT_B] = 1
+                            Write #2: [SHUT_A] = 1, [SHUT_B] = 0
+         Other writes cause the command to be ignored.
+
+                                                        Table 7-8. SYS_CTRL2 (0x05)
+      BIT               7                6                5          4             3              2             1              0
+    NAME          DELAY_DIS          CC_EN            CC_          RSVD          RSVD           RSVD         DSG_ON        CHG_ON
+                                                    ONESHOT
+    RESET               0                0                0          0             0              0             0              0
+   ACCESS              RW              RW                RW         RW            RW             RW            RW             RW
+
+         DELAY_DIS (Bit 7): Disable OV, UV, OCD, and SCD delays for faster customer production testing.
+                    0 = Normal delay settings
+                    1 = OV, UV, OCD, and SCD delay circuit is bypassed, creating zero delay (approximately
+                        250 ms).
+
+         CC_EN (Bit 6): Coulomb counter continuous operation enable command. If set high, [CC_ONESHOT] bit
+         is ignored.
+                    0 = Disable CC continuous readings
+                    1 = Enable CC continuous readings and ignore [CC_ONESHOT] state
+
+         CC_ONESHOT (Bit 5): Coulomb counter single 250-ms reading trigger command. If set to 1, the
+         coulomb counter will be activated for a single 250-ms reading, and then turned back off.
+         [CC_ONESHOT] will also be cleared at the conclusion of this reading, while [CC_READY] bit will be set
+         to 1.
+                    0 = No action
+                    1 = Enable single CC reading (only valid if [CC_EN] = 0), and [CC_READY] = 0)
+
+         RSVD (Bit 4–2): Reserved. Do not use.
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                       Detailed Description    35
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

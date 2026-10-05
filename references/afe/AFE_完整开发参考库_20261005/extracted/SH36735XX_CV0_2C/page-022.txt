@@ -1,0 +1,56 @@
+              Preliminary                 SH3673510/3673514/3673517/3673520
+8. 管脚控制及状态检测
+8.1 ALARM管脚
+  IC的ALARM管脚用于输出报警信号，正常为开漏输出(需外部通过上拉电阻连接到高电平)。VADC/CADC更新数据完成或
+者有其他状态发生时，ALARM管脚输出一个低电平脉冲。
+   配置ALARM寄存器，使能ALARM管脚告警信号产生源。
+   ALARM管脚低电平脉冲的时序图如下：
+
+
+                             安全保护/
+                             ADC中断
+                                         低电平
+                                         1mS
+
+
+
+
+                              图8 ALARM管脚报警信号输出示意图
+
+
+8.2 RESET管脚
+   当看门狗功能使能且计数器溢出后，630ms内MCU没有清零FLAG2寄存器中WDT_FLG，IC会关闭充放电和预放电
+MOSFET(不管PDSGMOS为何种配置)，之后再经过630ms，MCU仍然没有清零FLAG2寄存器中WDT_FLG，RESET管脚会输
+出低电平脉冲，低电平持续时间为tRST。
+
+8.3 CHG/DSG/HCHG/HDSG管脚
+   IC的CHG和DSG管脚输出状态和低侧充放电MOSFET输出状态保持一致，如下表：
+         低侧充电 MOSFET 状态      低侧放电 MOSFET 状态
+                                               CHG 管脚输出状态      DSG 管脚输出状态
+           (CHG_FET 位)         (DSG_FET 位)
+                  0                  0             低电平             低电平
+                  0                  1             低电平             高电平
+                  1                  0             高电平             低电平
+                  1                  1             高电平             高电平
+
+
+   IC的HCHG和HDSG管脚输出状态和高侧充放电MOSFET输出状态保持一致，如下表：
+         高侧充电 MOSFET 状态      高侧放电 MOSFET 状态
+                                               HCHG 管脚输出状态 HDSG 管脚输出状态
+           (HCHG_FET 位)        (HDSG_FET 位)
+                  0                  0         关闭电压 VHCHGOFF   关闭电压 VHDSGOFF
+                  0                  1         关闭电压 VHCHGOFF   开启电压 VHDSGON
+                  1                  0         开启电压 VHCHGON    关闭电压 VHDSGOFF
+                  1                  1         开启电压 VHCHGON    开启电压 VHDSGON
+   注释：HCHG_FET是PUMP_EN和CHG_FET“相与”的结果，HDSG_FET是PUMP_EN和DSG_FET“相与”的结果
+
+8.4 充放电状态检测
+   充放电状态检测有两种方式：
+   方式一：VADC采集电流。同时满足以下条件，系统处于充电状态，BSTATUS2寄存器中CHGING位置1：
+   (1) RS2与RS1管脚电压满足：(RS2-RS1)电压≤-VCD1
+   (2) 状态(1)持续时间超过4*tCYCLE
+   同时满足以下条件，系统退出充电状态，BSTATUS2寄存器中CHGING位清零：
+   (1) RS2与RS1管脚电压满足：(RS2-RS1)电压>-VCD1
+   (2) 状态(1)持续时间超过2*tCYCLE
+
+                                          22

@@ -1,0 +1,45 @@
+DVC1124-2 数据手册                                 4 串至 24 串电池组监控芯片
+
+推荐工作条件
+符号       参数              条件                    最小值     典型值    最大值   单位
+VTOP     VTOP 电源引脚输入电压   VTOP-VSS                8            120   V
+                         VTOP-C24                -1           120   V
+VCELL    电池检测引脚输入电压      C0-VSS                  0            0.3   V
+                         C(n)-C(n-1), n=1…24     0            5.0
+VCP      电荷泵引脚输出电压       VCP-VTOP                0            12    V
+                         VCP-VSS                 0            120   V
+VSR      电流检测引脚输入电压      SRP-VSS                -150          150   mV
+                         SRN-VSS
+                         SRP-SRN
+VDSG     高边放电驱动引脚输出电     DSG-VSS
+                                                 0            VCP   V
+         压
+VCHG     高边充电驱动引脚输出电     CHG-VSS
+                                               VTOP           VCP   V
+         压
+VPDSG    高边预放电驱动引脚输出     PDSG-VSS                0            120   V
+         电压
+VPCHG    高边预充电驱动引脚输出     PCHG-VSS                0            120   V
+         电压
+VPACK    充电检测引脚电压        PACK-VSS                0            120   V
+VLOAD    负载检测引脚电压        LOAD-VSS                0            120   V
+VBASE    NPN 基极驱动引脚输出电   VBASE-VSS               0            6.5   V
+         压
+VREG     5V 电源引脚输入电压     VREG-VSS                0            5.5   V
+V3P3     3.3V 电源引脚输出电压   V3P3-VSS                0            3.3   V
+V1P8     1.8V 电源引脚输出电压   V1P8-VSS                0            1.8   V
+VDIG     数字引脚电压          SCL-VSS                 0             5    V
+                         SDA-VSS
+                         GP(n)-VSS, n=1…6
+VTS      热敏电阻引脚输入电压      GP(n)-VSS, n=1…6        0            1.8   V
+VAIN     模拟引脚输入电压        GP(n)-VSS, n=1…6        0            1.8   V
+ICB      电池被动均衡驱动电流      C(n), n=0…24            0            25    mA
+RC       VADC 输入滤波电阻                                    220         Ω
+CC       VADC 输入滤波电容                                    0.1         μF
+TOPR     工作温度                                   -40           85    °C
+
+
+
+
+6 / 29                                  1.1            南京集澈电子科技有限公司
+                                                       宜矽源半导体南京有限公司

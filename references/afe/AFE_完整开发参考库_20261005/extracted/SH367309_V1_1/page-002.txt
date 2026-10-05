@@ -1,0 +1,99 @@
+                                                                                                                                                SH367309
+3. 方框图
+
+
+
+
+                  LDO_EN
+
+
+
+
+                                                                                        LDO_O
+
+
+
+                                                                                                    LDO_P
+           MODE
+
+
+
+
+                                 SHIP
+
+
+
+
+                                                                          CAPS
+                                                                   CAPN
+                                                            CAPP
+                                               VCC
+
+                                                     V11
+    VBAT
+
+              Power module                                 LDO1/2                               LDO3
+    VSS                                                                                                                         WatchDog
+
+
+
+
+                                                                                          RC
+                                                                                                                                                  T1
+                                                                                                                                  Temperature     T2
+    VC17                                                                                                                            module
+                                                                                                                                                  T3
+
+
+    VC16                                                                                                                                         VPRO
+                                                     MUX
+
+
+
+
+                                                                   VADC
+                                        Channels                                                                   EEPROM
+                                                                                                                                                 SCL
+
+                                                                                                                                       TWI
+              Level shift&                                                                                                            module
+                                                                                     Logic Module
+            Balance module                                                                                                                       SDA
+
+                                                                                                                   Registers
+
+                                               CADC
+     VC2                                                                                                                                         ALARM
+
+                                                                                                                                                 PF
+
+     VC1
+                                                                                                                                                 CHGD
+                                                                                                                     Charger&Load
+                                                                                                                       Detection                 DSGD
+
+                                                                   OC module
+
+                                                                                                                   MOS Driver                    CTL
+                                                                                                                    module
+                                                                                                                                DSG
+                                                                                                            PCHG
+
+
+
+                                                                                                                      CHG
+           RS1
+
+
+
+                           RS2
+
+
+
+
+                                                           图1 SH367309系统方框图
+
+
+
+
+                                                                                 2

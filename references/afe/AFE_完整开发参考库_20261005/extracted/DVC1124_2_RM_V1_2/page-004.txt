@@ -1,0 +1,47 @@
+DVC1124-2 参考手册                                                   4 串至 24 串电池组监控芯片
+ OFFSET    BIT 7      BIT 6      BIT 5      BIT 4      BIT 3        BIT 2      BIT 1      BIT 0
+  0x50    CVOS[7]    CVOS[6]    CVOS[5]    CVOS[4]    CVOS[3]      CVOS[2]    CVOS[1]    CVOS[0]
+  0x51     LDPU       PDSGC      PCHGC      DSGM      DSGC[1]      DSGC[0]    CHGC[1]    CHGC[0]
+  0x52     PDWM                             DPC[4]     DPC[3]      DPC[2]      DPC[1]     DPC[0]
+  0x53     PDDM       PCWM       PCCM       PCDM       DWM          DDM        DPDM       DBDM
+  0x54     CWM        CO1M       CO2M        CSM        CDM         CCM        CPCM       CBDM
+  0x55     HSFM                                        CAEW         CAES                  CAMZ
+  0x56                                                C1OW[1]     C1OW[0]     C1OS[1]    C1OS[0]
+  0x57
+  0x58
+  0x59    OCD1T[7]   OCD1T[6]   OCD1T[5    OCD1T[4]   OCD1T[3]    OCD1T[2]    OCD1T[1]   OCD1T[0]
+  0x5A    OCC1T[7]   OCC1T[6]   OCC1T[5]   OCC1T[4]   OCC1T[3]    OCC1T[2]    OCC1T[1]   OCC1T[0]
+  0x5B    OCD1D[7]   OCD1D[6]   OCD1D[5]   OCD1D[4]   OCD1D[3]    OCD1D[2]    OCD1D[1]   OCD1D[0]
+  0x5C    OCCD[7]    OCCD[6]    OCCD[5]    OCCD[4]    OCCD[3]      OCCD[2]    OCCD[1]    OCCD[0]
+  0x5D
+  0x5E                OCD2E     OCD2T[5]   OCD2T[4]   OCD2T[3]    OCD2T[2]    OCD2T[1]   OCD2T[0]
+  0x5F                OCC2E     OCC2T[5]   OCC2T[4]   OCC2T[3]    OCC2T[2]    OCC2T[1]   OCC2T[0]
+  0x60    OCD2D[7]   OCD2D[6]   OCD2D[5]   OCD2D[4]   OCD2D[3]    OCD2D[2]    OCD2D[1]   OCD2D[0]
+  0x61    OCC2D[7]   OCC2D[6]   OCC2D[5]   OCC2D[4]   OCC2D[3]    OCC2D[2]    OCC2D[1]   OCC2D[0]
+  0x62                SCDE      SCDT[5]    SCDT[4]    SCDT[3]      SCDT[2]    SCDT[1]    SCDT[0]
+  0x63    SCDD[7]    SCDD[6]    SCDD[5]    SCDD[4]    SCDD[3]      SCDD[2]    SCDD[1]    SCDD[0]
+  0x64
+  0x65     CWT[7]     CWT[6]     CWT[5]     CWT[4]     CWT[3]      CWT[2]      CWT[1]     CWT[0]
+  0x66    BDPT[7]    BDPT[6]    BDPT[5]    BDPT[4]    BDPT[3]      BDPT[2]    BDPT[1]    BDPT[0]
+  0x67     CB[24]     CB[23]     CB[22]     CB[21]     CB[20]      CB[19]      CB[18]     CB[17]
+  0x68     CB[16]     CB[15]     CB[14]     CB[13]     CB[12]      CB[11]      CB[10]     CB[9]
+  0x69     CB[8]      CB[7]      CB[6]      CB[5]      CB[4]        CB[3]      CB[2]      CB[1]
+  0x6A     CM[24]     CM[23]     CM[22]     CM[21]     CM[20]      CM[19]      CM[18]     CM[17]
+  0x6B     CM[16]     CM[15]     CM[14]     CM[13]     CM[12]      CM[11]      CM[10]     CM[9]
+  0x6C     CM[8]      CM[7]      CM[6]      CM[5]       PKM         LDM         CTM       V1P8M
+  0x6D                          CPVS[2]    CPVS[1]    CPVS[0]       COW        CMM         CVS
+  0x6E      VAE       VASM      VAMP[1]    VAMP[0]                             VAO[1]     VAO[0]
+  0x6F
+  0x70    COVT[11]   COVT[10]   COVT[9]    COVT[8]    COVT[7]      COVT[6]    COVT[5]    COVT[4]
+  0x71    COVT[3]    COVT[2]    COVT[1]    COVT[0]    COVD[3]      COVD[2]    COVD[1]    COVD[0]
+  0x72    CUVT[11]   CUVT[10]   CUVT[9]    CUVT[8]    CUVT[7]      CUVT[6]    CUVT[5]    CUVT[4]
+  0x73    CUVT[3]    CUVT[2]    CUVT[1]    CUVT[0]    CUVD[3]      CUVD[2]    CUVD[1]    CUVD[0]
+  0x74    GP1M[1]    GP1M[0]    GP2M[2]    GP2M[1]    GP2M[0]     GP3M[2]     GP3M[1]    GP3M[0]
+  0x75    GP4M[1]    GP4M[0]    GP5M[2]    GP5M[1]    GP5M[0]     GP6M[2]     GP6M[1]    GP6M[0]
+  0x76     COTF      COTT[6]    COTT[5]    COTT[4]    COTT[3]      COTT[2]    COTT[1]    COTT[0]
+  0x77     V3P3ES    V3P3EW      V3P3M                 IWTS        IWT[2]      IWT[1]     IWT[0]
+  0x78     TIWK                                       TWSE[3]      TWSE[2]    TWSE[1]    TWSE[0]
+  0x79      IWM       IVOM       ICCM       ICOM       ICUM        IOC1M       IOC2M      ISCDM
+
+4 / 33                                       1.2                            南京集澈电子科技有限公司
+                                                                            宜矽源半导体南京有限公司

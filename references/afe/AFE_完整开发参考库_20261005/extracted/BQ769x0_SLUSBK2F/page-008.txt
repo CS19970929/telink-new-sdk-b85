@@ -1,0 +1,21 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                www.ti.com
+
+
+
+                                            bq76930 Pin Functions (continued)
+                     PIN            NAME            TYPE                           DESCRIPTION
+                     24              VC3              I       Sense voltage for 3rd cell positive terminal
+                     25              VC2              I       Sense voltage for 2nd cell positive terminal
+                     26              VC1              I       Sense voltage for 1st cell positive terminal
+                     27              VC0              I       Sense voltage for 1st cell negative terminal
+                     28              SRP              I       Negative current sense (nearest VSS)
+                     29              SRN              I       Positive current sense
+                     30             ALERT            I/O      Alert output and override input
+
+
+
+
+8      Pin Configuration and Functions                                                 Copyright © 2013–2015, Texas Instruments Incorporated
+                                                   Submit Documentation Feedback
+                                           Product Folder Links: bq76920 bq76930 bq76940

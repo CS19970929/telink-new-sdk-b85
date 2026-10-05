@@ -1,0 +1,68 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                      www.ti.com
+
+
+
+Recommended Operating Conditions (continued)
+Over-operating free-air temperature range (unless otherwise noted). See Section 8.1.1 for more information on cell
+configurations. All voltages are relative to VSS, except "Cell input differential."
+                                                                                                 MIN         TYP             MAX        UNIT
+                                     Cell input pins, differential (VCn–VCn–1) where n =
+                                     1..15/10/5 (bq76940/bq76930/bq76920, respectively),           2                             5       V
+                                     in-use cells only
+                                     (VCn–VSS) where n = 1..5              bq76920
+                                     (VCn–VSS) where n = 1..5,
+                                                                           bq76930
+                                     (VCn–VC5x) where n = 6..10
+                                                                                                   0                         5×n         V
+                                     (VCn–VSS) where n = 1..5,
+                                     (VCn–VC5x) where n = 6..10,           bq76940
+                                     (VCn–VC10x) where n = 11..15
+                                     SRP
+                                     (VC0–VSS)                             bq76920
+VIN        Input voltage range
+                                     (VC0–VSS), (VC5b–VC5x)                bq76930               –10                            10      mV
+                                     (VC0–VSS), (VC5b–VC5x),
+                                                                           bq76940
+                                     (VC10b–VC10x)
+                                     SRN                                                       –200                            200      mV
+                                     SCL, SDA
+                                     (TS1–VSS)                             bq76920
+                                     (TS1–VSS), (TS2–VC5x)                 bq76930                 0                           3.6
+                                                                                                                                         V
+                                     (TS1–VSS), (TS2–VC5x),
+                                                                           bq76940
+                                     (TS3–VC10x)
+                                     REGSRC                                                        6                            25
+                                     CHG, DSG                                                      0                            16       V
+                                     REGOUT, ALERT
+           Output voltage            (CAP1–VSS)                            bq76920
+VOUT
+           range                                                                                   0                           3.6       V
+                                     (CAP1–VSS), (CAP2–VC5x)               bq76930
+                                     (CAP1–VSS), (CAP2–VC5x),
+                                                                           bq76940
+                                     (CAP3–VC10x)
+           Cell balancing                                 bq76920                                  0                            50      mA
+ICB        current (internal, per
+           cell)                                     bq76930, bq76940                              0                             5      mA
+
+           External cell input                            bq76920                                 40          100               1K       Ω
+RC
+           resistance                                bq76930, bq76940                            500           1K               1K       Ω
+CC         External cell input capacitance                                                       0.1             1              10       µF
+Rf         External supply filter resistance                                                      40          100               1K       Ω
+Cf         External supply filter capacitance                                                      1           10               40       µF
+RFILT      Sense resistor filter resistance                                                      100           1K                        Ω
+RALERT     ALERT pin to VSS resistor                                                                           1M                        Ω
+CL         REGOUT loading capacitance                                                              1           4.7                       µF
+CCAP       REGSRC, CAP1, CAP2, and CAP3 output capacitance                                         1                                     µF
+RTS        External thermistor nominal resistance (103AT) at 25ºC                                10K                                     Ω
+TOPR       Operating free-air temperature                                                        –40                            85       °C
+
+
+
+
+12       Electrical Specifications                                                         Copyright © 2013–2015, Texas Instruments Incorporated
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

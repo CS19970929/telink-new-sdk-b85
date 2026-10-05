@@ -1,0 +1,55 @@
+                                                                                                      bq76920, bq76930, bq76940
+www.ti.com                                                                            SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+        For each contiguous set of five cells (VC1 to VC5, VC6 to VC10), when no cells in that particular set are
+        being balanced, each cell is measured over a 50-ms decimation window and a complete update is
+        available every 250 ms. In the bq76930 and bq76940, every set of five cells above the primary five cells is
+        measured in parallel. The 50-ms decimation greatly assists with removing the aliasing effects present in a
+        noisy motor environment.
+        When any cells in a contiguous set of 5 cells are being balanced, those affected cells are measured in a
+        reduced 12.5-ms decimation period, to allow the cell balancing to function properly without affecting the
+        integrated OV and UV protections. Since cell balancing is typically only performed during pack charge or
+        idle periods, the shortened decimation periods should not impact accuracy as the system noise during
+        these times is greatly reduced. This reduced decimation period is only applied to sets where one of the
+        cells is being balanced. The following summarizes this for the bq76920–bq76940 devices:
+        • VC1 to VC5 measurements are each taken in a 50-ms decimation period when all bits in CELLBAL1
+            register are 0, and a 12.5-ms decimation period when any bits in CELLBAL1 register are 1.
+        • VC6 to VC10 measurements are each taken in a 50-ms decimation period when all bits in CELLBAL2
+            register are 0, and a 12.5-ms decimation period when any bits in CELLBAL2 register are 1.
+        • VC11 to VC15 measurements are each taken in a 50-ms decimation period when all bits in CELLBAL3
+            register are 0, and a 12.5-ms decimation period when any bits in CELLBAL3 register are 1.
+        • Total update interval is 250 ms.
+        Each differential cell input is factory-trimmed for gain and/or offset, such that the resulting reading via I2C
+        is always consistent from part-to-part and requires no additional calibration or correction factor application.
+        The ADC is required to be enabled in order for the integrated OV and UV protections to be operating.
+        The following shows how to convert the 14-bit ADC reading into an analog voltage. Each device is factory
+        calibrated, with a GAIN and OFFSET stored into EEPROM.
+        The ADC transfer function is a linear equation defined as follows:
+        V(cell) = GAIN x ADC(cell) + OFFSET                                                                                         (1)
+
+        GAIN is stored in units of µV/LSB, while OFFSET is stored in mV units.
+        Some example cell voltage calculations are provided in the table below. For illustration purposes, the
+        example uses a hypothetical GAIN of 380 µV/LSB (ADCGAIN<4:0> = 0x0F) and OFFSET of 30 mV
+        (ADCOFFSET<7:0> = 0x1E).
+
+    14-Bit ADC Result           ADC Result in Decimal           GAIN (µV/LSB)             OFFSET (mV)           Cell Voltage (mV)
+           0x1800                         6144                       380                         30                   2365
+           0x1F10                         7952                       380                         30                   3052
+
+
+
+                                                                       NOTE
+                        When entering NORMAL mode from SHIP mode, please allow for the following times before
+                        reading out initial cell voltage data:
+                        bq76920: 250 ms
+                        bq76930: 400 ms
+                        bq76940: 800 ms
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                      Detailed Description     21
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

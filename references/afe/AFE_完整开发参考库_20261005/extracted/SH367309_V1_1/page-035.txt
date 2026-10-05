@@ -1,0 +1,50 @@
+                                                                                       SH367309
+10. MOSFET驱动
+   SH367309内置N沟道MOSFET驱动，包含放电MOSFET驱动、充电MOSFET驱动以及预充电MOSFET驱动。
+               驱动管脚                      说明                    高电平               低电平
+               DSG              放电MOSFET驱动管脚                    VDSGH             VDSGL
+               CHG              充电MOSFET驱动管脚                    VCHGH             高阻态
+               PCHG             预充电MOSFET驱动管脚                  VPCHGH             高阻态
+
+                                         表3 MOSFET驱动电压表
+   RAM寄存器BSTATUS3中可以查看MOSFET管脚驱动状态。
+
+Table 10.1 系统状态寄存器BSTATUS3
+         45H            第7位      第6位          第5位        第4位    第3位       第2位     第1位     第0位
+    BSTATUS3           CHGING   DSGING         -    EEPR_WR     L0V     PCHG_FET CHG_FET DSG_FET
+      读/写                读        读           读          读       读         读       读       读
+     复位值                 0        0            0          0      0         0       0        0
+
+   位编号                位符号                                       说明
+                                预充电MOSFET开关状态位
+     2           PCHG_FET        1：预充电MOSFET开启
+                                 0：预充电MOSFET关闭
+                                充电MOSFET开关状态位
+     1           CHG_FET         1：充电MOSFET开启
+                                 0：充电MOSFET关闭
+                                放电MOSFET开关状态位
+     0            DSG_FET        1：放电MOSFET开启
+                                 0：放电MOSFET关闭
+
+   通过操作RAM寄存器CONF中相应位，可控制MOSFET驱动。
+Table 10.2 系统配置寄存器
+         40H            第7位      第6位          第5位        第4位    第3位       第2位     第1位     第0位
+      CONF             OCRC     PCHMOS    DSGMOS     CHGMOS    CADCON    ENWDT   SLEEP    IDLE
+      读/写               读/写      读/写          读/写        读/写    读/写       读/写     读/写     读/写
+     复位值                 0        1            1          1      0         0       0        0
+
+   位编号                位符号                                       说明
+                                预充电MOSFET控制位
+     6            PCHMOS         0：预充电MOSFET关闭
+                                 1：预充电MOSFET由硬件保护模块决定
+                                放电MOSFET控制位
+     5            DSGMOS         0：放电MOSFET关闭
+                                 1：放电MOSFET由硬件保护模块决定
+                                充电MOSFET控制位
+     4            CHGMOS         0：充电MOSFET关闭
+                                 1：充电MOSFET由硬件保护模块决定
+
+
+
+
+                                                    35

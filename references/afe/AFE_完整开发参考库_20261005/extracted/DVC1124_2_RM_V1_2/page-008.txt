@@ -1,0 +1,52 @@
+DVC1124-2 参考手册                                                           4 串至 24 串电池组监控芯片
+1·························PDSG 驱动输出已开启
+PCHGF················PCHG 驱动输出标识位
+0·························PCHG 驱动输出已关闭
+1·························PCHG 驱动输出已开启
+DSGF ··················DSG 驱动输出标识位
+0·························DSG 驱动输出已关闭
+1·························DSG 驱动输出已开启
+CHGF ··················CHG 驱动输出标识位
+0·························CHG 驱动输出已关闭
+1·························CHG 驱动输出已开启
+
+VTOP 寄存器
+     0x07          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME          VTP[15]        VTP[14]   VTP[13]   VTP[12]   VTP[11]     VTP[10]     VTP[9]   VTP[8]
+    MODE             R              R        R         R         R           R           R        R
+
+     0x08          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME           VTP[7]        VTP[6]    VTP[5]    VTP[4]    VTP[3]      VTP[2]      VTP[1]   VTP[0]
+    MODE             R              R        R         R         R           R           R        R
+VTP[15:0]···········VTOP 电压值，无符号二进制，LSB=12.8mV
+
+VPK 寄存器
+     0x09          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME          VPK[15]        VPK[14]   VPK[13]   VPK[12]   VPK[11]     VPK[10]     VPK[9]   VPK[8]
+    MODE             R              R        R         R         R           R           R        R
+
+    0x0A           BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME           VPK[7]        VPK[6]    VPK[5]    VPK[4]    VPK[3]      VPK[2]      VPK[1]   VPK[0]
+    MODE             R              R        R         R         R           R           R        R
+VPK[15:0] ··········PACK 电压值，无符号二进制，LSB=12.8mV
+
+VLD 寄存器
+     0x0B          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME          VLD[15]        VLD[14]   VLD[13]   VLD[12]   VLD[11]     VLD[10]     VLD[9]   VLD[8]
+    MODE             R              R        R         R         R           R           R        R
+     0x0C          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME           VLD[7]        VLD[6]    VLD[5]    VLD[4]    VLD[3]      VLD[2]      VLD[1]   VLD[0]
+    MODE             R              R        R         R         R           R           R        R
+VLD[15:0] ··········LOAD 电压值，无符号二进制，LSB=12.8mV
+
+VCT 寄存器
+    0x0D           BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME          VCT[15]        VCT[14]   VCT[13]   VCT[12]   VCT[11]     VCT[10]     VCT[9]   VCT[8]
+    MODE             R              R        R         R         R           R           R        R
+     0x0E          BIT 7          BIT 6     BIT 5     BIT 4     BIT 3       BIT 2      BIT 1    BIT 0
+    NAME           VCT[7]        VCT[6]    VCT[5]    VCT[4]    VCT[3]      VCT[2]      VCT[1]   VCT[0]
+    MODE             R              R        R         R         R           R           R        R
+
+
+ 8 / 33                                               1.2                           南京集澈电子科技有限公司
+                                                                                    宜矽源半导体南京有限公司

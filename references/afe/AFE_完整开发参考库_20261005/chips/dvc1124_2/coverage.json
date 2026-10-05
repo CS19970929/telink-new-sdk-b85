@@ -1,0 +1,1724 @@
+{
+  "schema_version": "1.0",
+  "scope": "Both supplied official documents, not interchangeable revisions",
+  "page_numbering": "PDF page equals printed page for all pages",
+  "total_source_pages": 62,
+  "covered_source_pages": 62,
+  "coverage_definition": "Each page mapped to substantive sections, complete register byte/field dictionary, or source-navigation/revision section; raw appendix is supplemental. Image-only pages visually interpreted.",
+  "outputs": [
+    "reference.md",
+    "registers.json",
+    "coverage.json",
+    "validation.md"
+  ],
+  "sources": [
+    {
+      "filename": "DVC1124-2数据手册_V1.1.pdf",
+      "page_count": 29,
+      "pages": [
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 1,
+            "printed_page": 1,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=1"
+          },
+          "source_sections": [
+            "特点",
+            "应用",
+            "描述",
+            "典型应用",
+            "联系方式"
+          ],
+          "output_sections": [
+            "reference.md §0",
+            "reference.md §1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 2,
+            "printed_page": 2,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=2"
+          },
+          "source_sections": [
+            "目录"
+          ],
+          "output_sections": [
+            "reference.md §0",
+            "reference.md §12"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 3,
+            "printed_page": 3,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=3"
+          },
+          "source_sections": [
+            "引脚配置",
+            "引脚功能 C24～C13"
+          ],
+          "output_sections": [
+            "reference.md §1.1",
+            "reference.md §8.4"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 4,
+            "printed_page": 4,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=4"
+          },
+          "source_sections": [
+            "引脚功能 C12～VTOP"
+          ],
+          "output_sections": [
+            "reference.md §1.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 5,
+            "printed_page": 5,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=5"
+          },
+          "source_sections": [
+            "绝对最大额定值"
+          ],
+          "output_sections": [
+            "reference.md §1.2",
+            "reference.md §5.2",
+            "reference.md §9.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 6,
+            "printed_page": 6,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=6"
+          },
+          "source_sections": [
+            "推荐工作条件"
+          ],
+          "output_sections": [
+            "reference.md §1.2",
+            "reference.md §1.3"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 7,
+            "printed_page": 7,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=7"
+          },
+          "source_sections": [
+            "电气特性 VADC/CADC"
+          ],
+          "output_sections": [
+            "reference.md §1.3",
+            "reference.md §4.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 8,
+            "printed_page": 8,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=8"
+          },
+          "source_sections": [
+            "电气特性 CADC/功耗/LDO/均衡/电荷泵/FET/过压"
+          ],
+          "output_sections": [
+            "reference.md §1.3",
+            "reference.md §6.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 9,
+            "printed_page": 9,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=9"
+          },
+          "source_sections": [
+            "电气特性保护/I2C直流与时序"
+          ],
+          "output_sections": [
+            "reference.md §2.1",
+            "reference.md §5.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 10,
+            "printed_page": 10,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=10"
+          },
+          "source_sections": [
+            "I2C时序续表与图1"
+          ],
+          "output_sections": [
+            "reference.md §2.1",
+            "reference.md §5.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 11,
+            "printed_page": 11,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=11"
+          },
+          "source_sections": [
+            "系统框图"
+          ],
+          "output_sections": [
+            "reference.md §1",
+            "reference.md §8.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 12,
+            "printed_page": 12,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=12"
+          },
+          "source_sections": [
+            "功能模式/关机/休眠/正常"
+          ],
+          "output_sections": [
+            "reference.md §3"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 13,
+            "printed_page": 13,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=13"
+          },
+          "source_sections": [
+            "测量系统/电流/CADC周期与格式/电压/VADC周期和轮询模式"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §4.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 14,
+            "printed_page": 14,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=14"
+          },
+          "source_sections": [
+            "单体/C24/PACK/LOAD/V1P8/GP量程分辨率/VADC时序图"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §4.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 15,
+            "printed_page": 15,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=15"
+          },
+          "source_sections": [
+            "连续与同步时序图/采样接线/断线/内核与热敏温度"
+          ],
+          "output_sections": [
+            "reference.md §4.3",
+            "reference.md §7",
+            "reference.md §8.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 16,
+            "printed_page": 16,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=16"
+          },
+          "source_sections": [
+            "热敏电阻换算/RPU/FRT/接线图"
+          ],
+          "output_sections": [
+            "reference.md §4.3"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 17,
+            "printed_page": 17,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=17"
+          },
+          "source_sections": [
+            "COV/CUV/OCD1保护"
+          ],
+          "output_sections": [
+            "reference.md §5.1",
+            "reference.md §5.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 18,
+            "printed_page": 18,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=18"
+          },
+          "source_sections": [
+            "OCD1恢复/OCC1/OCD2/OCC2/SCD"
+          ],
+          "output_sections": [
+            "reference.md §5.1",
+            "reference.md §5.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 19,
+            "printed_page": 19,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=19"
+          },
+          "source_sections": [
+            "SCD恢复/I2C看门狗"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §5.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 20,
+            "printed_page": 20,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=20"
+          },
+          "source_sections": [
+            "内部MOS/外部NPN均衡/奇偶分组/60s定时器"
+          ],
+          "output_sections": [
+            "reference.md §7"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 21,
+            "printed_page": 21,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=21"
+          },
+          "source_sections": [
+            "均衡时序/电荷泵/高边与低边放电/预放/LOAD/硬线/高边充电"
+          ],
+          "output_sections": [
+            "reference.md §6.1",
+            "reference.md §6.2",
+            "reference.md §7"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 22,
+            "printed_page": 22,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=22"
+          },
+          "source_sections": [
+            "预充/充电器检测/低边充电预充/硬线"
+          ],
+          "output_sections": [
+            "reference.md §6.1",
+            "reference.md §6.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 23,
+            "printed_page": 23,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=23"
+          },
+          "source_sections": [
+            "I2C接口/总线/地址/CRC/寄存器范围/读写"
+          ],
+          "output_sections": [
+            "reference.md §2.1",
+            "reference.md §2.2",
+            "reference.md §9.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 24,
+            "printed_page": 24,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=24"
+          },
+          "source_sections": [
+            "读CRC/64ms超时/INT/协议图"
+          ],
+          "output_sections": [
+            "reference.md §2.1",
+            "reference.md §2.2",
+            "reference.md §7"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 25,
+            "printed_page": 25,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=25"
+          },
+          "source_sections": [
+            "敷形涂层/未用引脚"
+          ],
+          "output_sections": [
+            "reference.md §8.2",
+            "reference.md §8.3"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 26,
+            "printed_page": 26,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=26"
+          },
+          "source_sections": [
+            "推荐PCB布局图与图内文字"
+          ],
+          "output_sections": [
+            "reference.md §8.3"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 27,
+            "printed_page": 27,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=27"
+          },
+          "source_sections": [
+            "典型应用电路图"
+          ],
+          "output_sections": [
+            "reference.md §8.1"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 28,
+            "printed_page": 28,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=28"
+          },
+          "source_sections": [
+            "LQFP48封装尺寸"
+          ],
+          "output_sections": [
+            "reference.md §8.4"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2数据手册_V1.1.pdf",
+            "pdf_page": 29,
+            "printed_page": 29,
+            "href": "../../sources/DVC1124-2%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C_V1.1.pdf#page=29"
+          },
+          "source_sections": [
+            "订购信息/修订历史"
+          ],
+          "output_sections": [
+            "reference.md §0",
+            "reference.md §8.4"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        }
+      ]
+    },
+    {
+      "filename": "DVC1124-2参考手册_V1.2.pdf",
+      "page_count": 33,
+      "pages": [
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 1,
+            "printed_page": 1,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=1"
+          },
+          "source_sections": [
+            "目录"
+          ],
+          "output_sections": [
+            "reference.md §0",
+            "reference.md §12"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 2,
+            "printed_page": 2,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=2"
+          },
+          "source_sections": [
+            "寄存器列表0x00～0x25"
+          ],
+          "output_sections": [
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 3,
+            "printed_page": 3,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=3"
+          },
+          "source_sections": [
+            "寄存器列表0x26～0x4F"
+          ],
+          "output_sections": [
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 4,
+            "printed_page": 4,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=4"
+          },
+          "source_sections": [
+            "寄存器列表0x50～0x79"
+          ],
+          "output_sections": [
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 5,
+            "printed_page": 5,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=5"
+          },
+          "source_sections": [
+            "寄存器列表0x7A～0x90"
+          ],
+          "output_sections": [
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 6,
+            "printed_page": 6,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=6"
+          },
+          "source_sections": [
+            "警报标识/芯片状态"
+          ],
+          "output_sections": [
+            "reference.md §2.3",
+            "reference.md §5.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x00",
+            "0x01"
+          ],
+          "field_semantic_keys": [
+            "IWTF",
+            "COV",
+            "CUV",
+            "OCD1",
+            "OCC1",
+            "OCD2",
+            "OCC2",
+            "SCD",
+            "PD",
+            "VADF",
+            "CC1F"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 7,
+            "printed_page": 7,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=7"
+          },
+          "source_sections": [
+            "芯片状态续/CC1/CC2"
+          ],
+          "output_sections": [
+            "reference.md §2.3",
+            "reference.md §3",
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x02",
+            "0x03",
+            "0x04",
+            "0x05",
+            "0x06"
+          ],
+          "field_semantic_keys": [
+            "CC1F",
+            "CC2F",
+            "CST[3:0]",
+            "CC1[15:0]",
+            "CC2[19:0]",
+            "PDSGF"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 8,
+            "printed_page": 8,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=8"
+          },
+          "source_sections": [
+            "CC2输出标志/VTOP/VPK/VLD/VCT"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §6.2",
+            "reference.md §9.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x07",
+            "0x08",
+            "0x09",
+            "0x0A",
+            "0x0B",
+            "0x0C",
+            "0x0D",
+            "0x0E"
+          ],
+          "field_semantic_keys": [
+            "PDSGF",
+            "PCHGF",
+            "DSGF",
+            "CHGF",
+            "VTP[15:0]",
+            "VPK[15:0]",
+            "VLD[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 9,
+            "printed_page": 9,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=9"
+          },
+          "source_sections": [
+            "VCT换算/V1P8/VGP1～VGP4"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x0F",
+            "0x10",
+            "0x11",
+            "0x12",
+            "0x13",
+            "0x14",
+            "0x15",
+            "0x16",
+            "0x17",
+            "0x18"
+          ],
+          "field_semantic_keys": [
+            "VCT[15:0]",
+            "V1P8[15:0]",
+            "VGP1[15:0]",
+            "VGP2[15:0]",
+            "VGP3[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 10,
+            "printed_page": 10,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=10"
+          },
+          "source_sections": [
+            "VGP4～VGP6/VC1～VC3"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x19",
+            "0x1A",
+            "0x1B",
+            "0x1C",
+            "0x1D",
+            "0x1E",
+            "0x1F",
+            "0x20",
+            "0x21",
+            "0x22"
+          ],
+          "field_semantic_keys": [
+            "VGP4[15:0]",
+            "VGP5[15:0]",
+            "VGP6[15:0]",
+            "VC1[15:0]",
+            "VC2[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 11,
+            "printed_page": 11,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=11"
+          },
+          "source_sections": [
+            "VC3～VC8"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x23",
+            "0x24",
+            "0x25",
+            "0x26",
+            "0x27",
+            "0x28",
+            "0x29",
+            "0x2A",
+            "0x2B",
+            "0x2C"
+          ],
+          "field_semantic_keys": [
+            "VC3[15:0]",
+            "VC4[15:0]",
+            "VC5[15:0]",
+            "VC6[15:0]",
+            "VC7[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 12,
+            "printed_page": 12,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=12"
+          },
+          "source_sections": [
+            "VC8～VC13"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x2D",
+            "0x2E",
+            "0x2F",
+            "0x30",
+            "0x31",
+            "0x32",
+            "0x33",
+            "0x34",
+            "0x35",
+            "0x36"
+          ],
+          "field_semantic_keys": [
+            "VC8[15:0]",
+            "VC9[15:0]",
+            "VC10[15:0]",
+            "VC11[15:0]",
+            "VC12[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 13,
+            "printed_page": 13,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=13"
+          },
+          "source_sections": [
+            "VC13～VC18"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x37",
+            "0x38",
+            "0x39",
+            "0x3A",
+            "0x3B",
+            "0x3C",
+            "0x3D",
+            "0x3E",
+            "0x3F",
+            "0x40"
+          ],
+          "field_semantic_keys": [
+            "VC13[15:0]",
+            "VC14[15:0]",
+            "VC15[15:0]",
+            "VC16[15:0]",
+            "VC17[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 14,
+            "printed_page": 14,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=14"
+          },
+          "source_sections": [
+            "VC18～VC23"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x41",
+            "0x42",
+            "0x43",
+            "0x44",
+            "0x45",
+            "0x46",
+            "0x47",
+            "0x48",
+            "0x49",
+            "0x4A"
+          ],
+          "field_semantic_keys": [
+            "VC18[15:0]",
+            "VC19[15:0]",
+            "VC20[15:0]",
+            "VC21[15:0]",
+            "VC22[15:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 15,
+            "printed_page": 15,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=15"
+          },
+          "source_sections": [
+            "VC23～VC24/VVOS/CVOS/充放电控制"
+          ],
+          "output_sections": [
+            "reference.md §4.1",
+            "reference.md §6.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x4B",
+            "0x4C",
+            "0x4D",
+            "0x4E",
+            "0x4F",
+            "0x50",
+            "0x51"
+          ],
+          "field_semantic_keys": [
+            "VC23[15:0]",
+            "VC24[15:0]",
+            "VVOS[15:0]",
+            "CVOS[15:0]",
+            "LDPU",
+            "PDSGC",
+            "PCHGC",
+            "DSGM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 16,
+            "printed_page": 16,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=16"
+          },
+          "source_sections": [
+            "充放电控制续/放电屏蔽控制"
+          ],
+          "output_sections": [
+            "reference.md §6.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x52",
+            "0x53"
+          ],
+          "field_semantic_keys": [
+            "DSGM",
+            "DSGC[1:0]",
+            "CHGC[1:0]",
+            "PDWM",
+            "DPC[4:0]",
+            "PDDM",
+            "PCWM",
+            "PCCM",
+            "PCDM",
+            "DWM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 17,
+            "printed_page": 17,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=17"
+          },
+          "source_sections": [
+            "放电屏蔽续/充电屏蔽/CADC控制"
+          ],
+          "output_sections": [
+            "reference.md §6.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x54",
+            "0x55"
+          ],
+          "field_semantic_keys": [
+            "DDM",
+            "DPDM",
+            "DBDM",
+            "CWM",
+            "CO1M",
+            "CO2M",
+            "CSM",
+            "CDM",
+            "CCM",
+            "CPCM",
+            "CBDM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 18,
+            "printed_page": 18,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=18"
+          },
+          "source_sections": [
+            "CADC/未命名0x57～58/OCD1阈值"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §4.2",
+            "reference.md §5.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x56",
+            "0x57",
+            "0x58",
+            "0x59"
+          ],
+          "field_semantic_keys": [
+            "HSFM",
+            "CAEW",
+            "CAES",
+            "CAMZ",
+            "C1OW[1:0]",
+            "C1OS[1:0]",
+            "OCD1T[7:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 19,
+            "printed_page": 19,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=19"
+          },
+          "source_sections": [
+            "OCC1阈值/OCD1与OCC1延迟/未命名0x5D/OCD2与OCC2阈值"
+          ],
+          "output_sections": [
+            "reference.md §5.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x5A",
+            "0x5B",
+            "0x5C",
+            "0x5D",
+            "0x5E",
+            "0x5F"
+          ],
+          "field_semantic_keys": [
+            "OCC1T[7:0]",
+            "OCD1D[7:0]",
+            "OCCD[7:0]",
+            "OCD2E",
+            "OCD2T[5:0]",
+            "OCC2E"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 20,
+            "printed_page": 20,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=20"
+          },
+          "source_sections": [
+            "OCC2阈值续/OCD2与OCC2延迟/SCD阈值延迟/未命名0x64/电流唤醒"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §5.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x60",
+            "0x61",
+            "0x62",
+            "0x63",
+            "0x64",
+            "0x65"
+          ],
+          "field_semantic_keys": [
+            "OCC2T[5:0]",
+            "OCD2D[7:0]",
+            "OCC2D[7:0]",
+            "SCDE",
+            "SCDT[5:0]",
+            "SCDD[7:0]",
+            "CWT[7:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 21,
+            "printed_page": 21,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=21"
+          },
+          "source_sections": [
+            "续流/均衡/电池屏蔽"
+          ],
+          "output_sections": [
+            "reference.md §5.1",
+            "reference.md §7",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x66",
+            "0x67",
+            "0x68",
+            "0x69",
+            "0x6A",
+            "0x6B",
+            "0x6C"
+          ],
+          "field_semantic_keys": [
+            "BDPT[7:0]",
+            "CB[n]",
+            "CM[n]",
+            "PKM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 22,
+            "printed_page": 22,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=22"
+          },
+          "source_sections": [
+            "电池屏蔽续/电荷泵/VADC/未命名0x6F"
+          ],
+          "output_sections": [
+            "reference.md §4.2",
+            "reference.md §6.1",
+            "reference.md §7",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x6D",
+            "0x6E",
+            "0x6F"
+          ],
+          "field_semantic_keys": [
+            "PKM",
+            "LDM",
+            "CTM",
+            "V1P8M",
+            "CPVS[2:0]",
+            "COW",
+            "CMM",
+            "CVS",
+            "VAE"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 23,
+            "printed_page": 23,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=23"
+          },
+          "source_sections": [
+            "VADC续/COV"
+          ],
+          "output_sections": [
+            "reference.md §4.2",
+            "reference.md §5.1",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x70",
+            "0x71"
+          ],
+          "field_semantic_keys": [
+            "VAE",
+            "VASM",
+            "VAMP[1:0]",
+            "VAO[1:0]",
+            "COVT[11:0]",
+            "COVD[3:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 24,
+            "printed_page": 24,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=24"
+          },
+          "source_sections": [
+            "COV延迟续/CUV/GP1～GP3模式"
+          ],
+          "output_sections": [
+            "reference.md §5.1",
+            "reference.md §6.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x72",
+            "0x73",
+            "0x74"
+          ],
+          "field_semantic_keys": [
+            "COVD[3:0]",
+            "CUVT[11:0]",
+            "CUVD[3:0]",
+            "GP1M[1:0]",
+            "GP2M[2:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 25,
+            "printed_page": 25,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=25"
+          },
+          "source_sections": [
+            "GP2～GP3续/GP4～GP6模式"
+          ],
+          "output_sections": [
+            "reference.md §6.2",
+            "reference.md §7",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x75"
+          ],
+          "field_semantic_keys": [
+            "GP2M[2:0]",
+            "GP3M[2:0]",
+            "GP4M[1:0]",
+            "GP5M[2:0]",
+            "GP6M[2:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 26,
+            "printed_page": 26,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=26"
+          },
+          "source_sections": [
+            "内核过温/I2C看门狗/定时唤醒"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §5.1",
+            "reference.md §5.2",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x76",
+            "0x77",
+            "0x78"
+          ],
+          "field_semantic_keys": [
+            "COTF",
+            "COTT[6:0]",
+            "V3P3ES",
+            "V3P3EW",
+            "V3P3M",
+            "IWTS",
+            "IWT[2:0]",
+            "TIWK",
+            "TWSE[3:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 27,
+            "printed_page": 27,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=27"
+          },
+          "source_sections": [
+            "定时唤醒续/中断屏蔽/未命名0x7A～7D"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §7",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x79",
+            "0x7A",
+            "0x7B",
+            "0x7C",
+            "0x7D"
+          ],
+          "field_semantic_keys": [
+            "TWSE[3:0]",
+            "IWM",
+            "IVOM",
+            "ICCM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 28,
+            "printed_page": 28,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=28"
+          },
+          "source_sections": [
+            "中断屏蔽续/FRT/未命名0x7F～85"
+          ],
+          "output_sections": [
+            "reference.md §7",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x7E",
+            "0x7F",
+            "0x80",
+            "0x81",
+            "0x82",
+            "0x83",
+            "0x84",
+            "0x85"
+          ],
+          "field_semantic_keys": [
+            "ICCM",
+            "ICOM",
+            "ICUM",
+            "IOC1M",
+            "IOC2M",
+            "ISCDM"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 29,
+            "printed_page": 29,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=29"
+          },
+          "source_sections": [
+            "未命名0x86～8E/FRT换算/CV/未命名0x90"
+          ],
+          "output_sections": [
+            "reference.md §3",
+            "reference.md §4.3",
+            "reference.md §10",
+            "reference.md §11"
+          ],
+          "register_addresses": [
+            "0x86",
+            "0x87",
+            "0x88",
+            "0x89",
+            "0x8A",
+            "0x8B",
+            "0x8C",
+            "0x8D",
+            "0x8E",
+            "0x8F",
+            "0x90"
+          ],
+          "field_semantic_keys": [
+            "FRT[7:0]",
+            "CV[7:0]"
+          ],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 30,
+            "printed_page": 30,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=30"
+          },
+          "source_sections": [
+            "放电驱动图/预放电驱动图"
+          ],
+          "output_sections": [
+            "reference.md §6.2",
+            "reference.md §6.3",
+            "reference.md §9.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": "Diagram logic contradictions explicitly retained in §9.2"
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 31,
+            "printed_page": 31,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=31"
+          },
+          "source_sections": [
+            "充电驱动图/预充电驱动图/逻辑符号"
+          ],
+          "output_sections": [
+            "reference.md §6.2",
+            "reference.md §6.3",
+            "reference.md §9.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": "Diagram logic contradictions explicitly retained in §9.2"
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 32,
+            "printed_page": 32,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=32"
+          },
+          "source_sections": [
+            "电池二次校准公式和表1"
+          ],
+          "output_sections": [
+            "reference.md §4.4",
+            "reference.md §9.2"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": true,
+          "coverage_status": "covered",
+          "limitations": "Equation/table inconsistency explicitly retained in §4.4"
+        },
+        {
+          "source": {
+            "filename": "DVC1124-2参考手册_V1.2.pdf",
+            "pdf_page": 33,
+            "printed_page": 33,
+            "href": "../../sources/DVC1124-2%E5%8F%82%E8%80%83%E6%89%8B%E5%86%8C_V1.2.pdf#page=33"
+          },
+          "source_sections": [
+            "修订历史"
+          ],
+          "output_sections": [
+            "reference.md §0",
+            "reference.md §8.4"
+          ],
+          "register_addresses": [],
+          "field_semantic_keys": [],
+          "text_reviewed": true,
+          "visual_reviewed": false,
+          "coverage_status": "covered",
+          "limitations": null
+        }
+      ]
+    }
+  ]
+}

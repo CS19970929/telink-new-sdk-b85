@@ -1,0 +1,57 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                         www.ti.com
+
+
+
+        SCD (Bit 1): Short circuit in discharge fault event indicator.
+                  0 = No SCD fault is detected.
+                  1 = SCD fault is detected. Remains latched high until cleared by the host.
+
+        OCD (Bit 0): Over current in discharge fault event indicator.
+                  0 = No OCD fault is detected.
+                  1 = OCD fault is detected. Remains latched high until cleared by the host.
+
+                           Table 7-4. CELLBAL1 (0x01) for bq76920, bq76930, and bq76940
+      BIT             7           6               5         4             3               2                1                0
+     NAME            —            —               —        CB5           CB4            CB3              CB2              CB1
+     RESET            0           0               0         0             0               0                0                0
+     ACCESS           R           R               R        RW            RW              RW              RW               RW
+
+
+        CBx (Bits 4–0):
+                  0 = Cell balancing on Cell “x” is disabled.
+                  1 = Cell balancing on Cell “x” is enabled.
+
+                               Table 7-5. CELLBAL2 (0x02) for bq76930 and bq76940
+      BIT             7           6               5         4             3               2                1                0
+     NAME            —            —               —        CB10          CB9            CB8              CB7              CB6
+     RESET            0           0               0         0             0               0                0                0
+     ACCESS           R           R               R        RW            RW              RW              RW               RW
+
+        CBx (Bits 4–0):
+                  0 = Cell balancing on Cell “x” is disabled.
+                  1 = Cell balancing on Cell “x” is enabled.
+
+                                      Table 7-6. CELLBAL3 (0x03) for bq76940
+      BIT             7           6               5         4             3               2                1                0
+     NAME            —            —               —        CB15          CB14           CB13            CB12             CB11
+     RESET            0           0               0         0             0               0                0                0
+     ACCESS           R           R               R        RW            RW              RW              RW               RW
+
+        CBx (Bits 4–0):
+                  0 = Cell balancing on Cell “x” is disabled.
+                  1 = Cell balancing on Cell “x” is enabled.
+
+                                             Table 7-7. SYS_CTRL1 (0x04)
+      BIT             7           6               5         4             3               2                1                0
+     NAME         LOAD_           —               —      ADC_EN       TEMP_SEL         RSVD            SHUT_A          SHUT_B
+                 PRESENT
+     RESET            0           0               0         0             0               0                0                0
+     ACCESS           R           R               R        RW            RW              RW              RW               RW
+
+
+
+
+34      Detailed Description                                                    Copyright © 2013–2015, Texas Instruments Incorporated
+                                               Submit Documentation Feedback
+                                       Product Folder Links: bq76920 bq76930 bq76940

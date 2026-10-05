@@ -1,0 +1,14 @@
+                               SH3673510/3673514/3673517/3673520
+43   O   HDSG   HDSG   HDSG        HDSG   高侧放电MOSFET控制端
+44   O   PDSG   PDSG   PDSG        PDSG   预放电MOSFET控制端
+45   O   HCHG   HCHG   HCHG        HCHG   高侧充电MOSFET控制端
+46   O   VCP    VCP     VCP        VCP    Charge Pump电荷泵输出端
+47   P   VCPR   VCPR   VCPR        VCPR   Charge Pump电荷泵输入端
+48   I   SHIP   SHIP    SHIP       SHIP   SHIP模式控制端
+
+                       表1 IC管脚描述
+
+
+
+
+                               5

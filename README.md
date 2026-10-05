@@ -40,6 +40,7 @@ python bms_tools/bms.py --product d014 resources
 | [D011 产品 reference](docs/D011_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d011/AGENTS.md) | SH3673510，10S，250 µΩ，PB5 fuse 安全低电平 |
 | [D013 产品 reference](docs/D013_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d013/AGENTS.md) | 4S/100 µΩ 为代码输入；专属原理图/BOM 尚缺 |
 | [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |
+| [AFE 原厂资料库](references/afe/README.md) · [开发使用指南](docs/AFE_REFERENCE_GUIDE.md) | 六份原 PDF、型号/版本边界、检索工具、独立审查及已知问题 |
 | [四产品配置核对表](docs/FOUR_PRODUCT_CONFIGURATION_AUDIT.md) | 固定基线的完整默认字段、量化结果和替换限制 |
 | [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | 九类编号、保留/重置、回退和启动失败 |
 
@@ -66,11 +67,12 @@ python bms_tools/bms.py --product d014 resources
 | [资源预算与栈观测](docs/RESOURCE_BUDGET_AND_VALIDATION.md) | ELF/BIN 口径、Flash/SRAM 门禁、实测水位 |
 | [GitHub Actions 运维](docs/GITHUB_ACTIONS_RUNBOOK.md) | 当前 CI 矩阵、runner 条件与排查 |
 | [硬件验证清单](docs/HARDWARE_VALIDATION.md) | 四产品共同与各自的未关闭项 |
+| [AFE 原厂文档与四产品审查](docs/afe-audit/20261006-0aaa8429/README.md) | 2026-10-06 固定提交 `0aaa8429`；原 PDF 对照、当前问题、配置矩阵及验证收据，未实施修复 |
 | [文档审核与交接记录](docs/DOCUMENTATION_AUDIT.md) | 本次修正/删除范围、验证和剩余资料缺口 |
 | [初次迁移验证记录](docs/BMS_MONOREPO_VALIDATION.md) | 历史 `fd50730`；不是当前测试成绩 |
 | [迁移后整改记录](docs/BMS_MONOREPO_REMEDIATION.md) | 固定提交的整改和六配置生产验证 |
 
-硬件原件未随当前仓库交接，产品 reference 的原理图结论来自历史记录，本次没有重新核验原件。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 选择不会自动生成 NMC 保护值。开发板采用 CFG2/State/Event schema 2，不迁移旧格式，同格式按更新编号处理。源码、host、ELF、设备读回与实板波形分别留证。
+2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺，本次未重新核验这些原件。产品 reference 中相应历史结论保留其证据边界。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 选择不会自动生成 NMC 保护值。开发板采用 CFG2/State/Event schema 2，不迁移旧格式，同格式按更新编号处理。源码、host、ELF、设备读回与实板波形分别留证。
 
 ## SDK 附带资料
 

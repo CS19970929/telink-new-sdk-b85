@@ -1,0 +1,32 @@
+                                                                          SH367309
+14. 极限电气参数
+  若工作条件超过“极限参数”的范围，将造成SH367309永久性破坏。
+   信号名       信号类型                管脚名                   极限范围                  单位
+              模拟                 VBAT               VSS - 0.3 ~ 70            V
+   供电端
+              模拟                 LDO_P               VSS-0.3 ~ 13             V
+              模拟                  RS1            VSS - 0.3 ~ VSS + 0.3        V
+              模拟                  VC1                   -0.3 ~ 5              V
+              模拟               VC2 - VC17           VSS - 0.3 ~ 70            V
+              模拟                  RS2            VSS - 1V ~ VCC + 0.3         V
+    输入        模拟              CHGD/DSGD          VBAT - 70 ~ VBAT + 0.3       V
+              模拟          CTL/SHIP/MODE/LDO_EN   VSS - 0.3 ~ VBAT + 0.3       V
+              模拟                 T1 - T3         VSS - 0.3 ~ VCC + 0.3        V
+              数字                SCL/SDA             VSS - 0.3 ~ 5.5           V
+              模拟                 VPRO            VSS - 0.3 ~ VPRO + 0.3       V
+              模拟               CHG/PCHG           VBAT - 70 ~ V11 + 0.3       V
+              模拟                  DSG            VSS - 0.3 ~ V11 + 0.3        V
+              模拟                   PF            VSS - 0.3 ~ VBAT + 0.3       V
+    输出        模拟                V11/CAPP         VSS - 0.3 ~ V11 + 0.3        V
+              模拟               CAPS/CAPN            VSS - 0.3 ~ 5.5           V
+              数字               VCC/ALARM            VSS - 0.3 ~ 5.5           V
+              模拟                 LDO_O              VSS - 0.3 ~ 5.5           V
+                   工作温度                                -40 to 85              C
+                   存储温度                                -40 to 125             C
+
+                               表12 极限参数表
+
+
+
+
+                                     75

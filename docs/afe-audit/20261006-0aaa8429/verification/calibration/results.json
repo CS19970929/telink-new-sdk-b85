@@ -1,0 +1,62 @@
+[
+  {
+    "product": "d008-16s-lfp",
+    "command": [
+      "C:/qp/qtools/MinGW32/bin/cc.exe",
+      "-std=c99",
+      "-O2",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d008-16s-lfp.c",
+      "-o",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d008-16s-lfp.exe"
+    ],
+    "compile_returncode": 0,
+    "returncode": 0,
+    "stdout": "{\"raw_ma\":100000,\"offset_ma\":-555360,\"gain_ppm\":10000000,\"config_accepted\":1,\"calibrated_ma\":6553600,\"expected_math_ma\":6553600}\n",
+    "scope": "Original TC32-preprocessed calibration/default/validator functions; only private cache reduced to used user fields. Separate from SH whole-backend probe."
+  },
+  {
+    "product": "d011",
+    "command": [
+      "C:/qp/qtools/MinGW32/bin/cc.exe",
+      "-std=c99",
+      "-O2",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d011.c",
+      "-o",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d011.exe"
+    ],
+    "compile_returncode": 0,
+    "returncode": 0,
+    "stdout": "{\"raw_ma\":100000,\"offset_ma\":-555360,\"gain_ppm\":10000000,\"config_accepted\":1,\"calibrated_ma\":6553600,\"expected_math_ma\":6553600}\n",
+    "scope": "Original TC32-preprocessed calibration/default/validator functions; only private cache reduced to used user fields. Separate from SH whole-backend probe."
+  },
+  {
+    "product": "d013",
+    "command": [
+      "C:/qp/qtools/MinGW32/bin/cc.exe",
+      "-std=c99",
+      "-O2",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d013.c",
+      "-o",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d013.exe"
+    ],
+    "compile_returncode": 0,
+    "returncode": 0,
+    "stdout": "{\"raw_ma\":100000,\"offset_ma\":-555360,\"gain_ppm\":10000000,\"config_accepted\":1,\"calibrated_ma\":6553600,\"expected_math_ma\":6553600}\n",
+    "scope": "Original TC32-preprocessed calibration/default/validator functions; only private cache reduced to used user fields. Separate from SH whole-backend probe."
+  },
+  {
+    "product": "d014",
+    "command": [
+      "C:/qp/qtools/MinGW32/bin/cc.exe",
+      "-std=c99",
+      "-O2",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d014.c",
+      "-o",
+      "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\telink-new-sdk-b85\\afe-audit-final-20261006\\verification\\calibration\\d014.exe"
+    ],
+    "compile_returncode": 0,
+    "returncode": 0,
+    "stdout": "{\"raw_ma\":100000,\"offset_ma\":-555360,\"gain_ppm\":10000000,\"config_accepted\":1,\"calibrated_ma\":6553600,\"expected_math_ma\":6553600}\n",
+    "scope": "Original TC32-preprocessed calibration/default/validator functions; only private cache reduced to used user fields. Separate from SH whole-backend probe."
+  }
+]

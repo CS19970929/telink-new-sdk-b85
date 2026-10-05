@@ -1,0 +1,49 @@
+                                                                                                                   PACKAGE OPTION ADDENDUM
+
+
+www.ti.com                                                                                                                                                  30-Mar-2016
+
+
+PACKAGING INFORMATION
+
+       Orderable Device   Status   Package Type Package Pins Package    Eco Plan      Lead/Ball Finish     MSL Peak Temp       Op Temp (°C)       Device Marking          Samples
+                            (1)                 Drawing        Qty          (2)              (6)                 (3)                                      (4/5)
+
+         BQ7692000PW      ACTIVE     TSSOP       PW     20     70      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692000
+                                                                        & no Sb/Br)
+        BQ7692000PWR      ACTIVE     TSSOP       PW     20    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692000
+                                                                        & no Sb/Br)
+         BQ7692003PW      ACTIVE     TSSOP       PW     20     70      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692003
+                                                                        & no Sb/Br)
+        BQ7692003PWR      ACTIVE     TSSOP       PW     20    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692003
+                                                                        & no Sb/Br)
+         BQ7692006PW      ACTIVE     TSSOP       PW     20     70      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692006
+                                                                        & no Sb/Br)
+        BQ7692006PWR      ACTIVE     TSSOP       PW     20    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7692006
+                                                                        & no Sb/Br)
+        BQ7693000DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693000
+                                                                        & no Sb/Br)
+        BQ7693000DBTR     ACTIVE     TSSOP       DBT    30    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693000
+                                                                        & no Sb/Br)
+        BQ7693001DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693001
+                                                                        & no Sb/Br)
+        BQ7693001DBTR     ACTIVE     TSSOP       DBT    30    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693001
+                                                                        & no Sb/Br)
+        BQ7693002DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693002
+                                                                        & no Sb/Br)
+        BQ7693002DBTR     ACTIVE     TSSOP       DBT    30    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693002
+                                                                        & no Sb/Br)
+        BQ7693003DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693003
+                                                                        & no Sb/Br)
+        BQ7693003DBTR     ACTIVE     TSSOP       DBT    30    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693003
+                                                                        & no Sb/Br)
+        BQ7693006DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693006
+                                                                        & no Sb/Br)
+        BQ7693006DBTR     ACTIVE     TSSOP       DBT    30    2000     Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693006
+                                                                        & no Sb/Br)
+        BQ7693007DBT      ACTIVE     TSSOP       DBT    30     60      Green (RoHS        CU NIPDAU      Level-2-260C-1 YEAR     -40 to 85    BQ7693007
+                                                                        & no Sb/Br)
+
+
+
+                                                                        Addendum-Page 1

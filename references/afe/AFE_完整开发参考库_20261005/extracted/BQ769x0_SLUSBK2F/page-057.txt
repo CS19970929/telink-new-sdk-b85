@@ -1,0 +1,23 @@
+                                                                   PACKAGE MATERIALS INFORMATION
+
+www.ti.com                                                                                                               14-Nov-2014
+
+
+
+TAPE AND REEL INFORMATION
+
+
+
+
+*All dimensions are nominal
+             Device           Package Package Pins   SPQ       Reel   Reel   A0            B0     K0     P1     W     Pin1
+                               Type Drawing                  Diameter Width (mm)          (mm)   (mm)   (mm)   (mm) Quadrant
+                                                               (mm) W1 (mm)
+     BQ7692000PWR             TSSOP     PW     20    2000      330.0     16.4      6.95   7.1    1.6    8.0    16.0    Q1
+     BQ7692003PWR             TSSOP     PW     20    2000      330.0     16.4      6.95   7.1    1.6    8.0    16.0    Q1
+     BQ7692006PWR             TSSOP     PW     20    2000      330.0     16.4      6.95   7.1    1.6    8.0    16.0    Q1
+
+
+
+
+                                                           Pack Materials-Page 1

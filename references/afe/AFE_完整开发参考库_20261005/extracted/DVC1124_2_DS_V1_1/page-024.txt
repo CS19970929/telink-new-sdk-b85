@@ -1,0 +1,65 @@
+DVC1124-2 数据手册                                                                                             4 串至 24 串电池组监控芯片
+个字节为 SA+R，如果 SA 匹配 DVC1124 从机地                                                              时结束后，DVC1124 的 I2C 串行接口会强制结束
+址，DVC1124 会返回 ACK；否则返回 NACK，本次                                                              本次传输，不再响应主机除起始条件以外的任何
+传输结束。传输的第 4 个字节为 DVC1124 返回的                                                                信号。
+寄存器地址为 RA 的值 DATA0，主机需要响应
+                                                                                            中断控制器
+ACK。传输的第 5 个字节为 DVC1124 返回的
+                                                                                               DVC1124 可以将 GP2、GP3、GP5 或 GP6 设
+                        ̅ 、RA、SA+R
+CRC0，如果 CRC0 与前 4 个字节SA+W
+                                                                                            置为中断信号输出引脚。芯片处于正常模式下，
+和 DATA0 的 CRC8 校验值一致，说明 DATA0 读取
+                                                                                            通过设置对应的屏蔽寄存器，可以选择表 6 中的
+无误。主机继续读取需要响应 ACK，传输的第 6
+                                                                                            一个或多个触发事件，通过中断信号输出引脚输
+个字节为 DVC1124 返回的寄存器地址为 RA+1 的
+                                                                                            出 1ms 低电平脉冲。
+值 DATA1，主机需要返回 ACK。传输的第 7 个字
+                                                                                                                     表 6 中断触发事件
+节为 DVC1124 返回的 CRC1，如果 CRC1 与 DATA1
+                                                                                                               触发事件                                  屏蔽寄存器
+的 CRC8 校验值一致，说明 DATA1 读取无误。以
+                                                                                                  芯片从休眠模式转换为正常模式                                          IWM
+此类推，直至主机放弃读取并返回 NACK，最后
+                                                                                                      VADC 完成 1 个测量周期                                     IVOM
+主机发送停止条件结束本次传输。
+                                                                                                  CADC CC2 完成 1 个测量周期                                     ICCM
+I2C 总线超时定时器                                                                                               触发电池过压警报                                        ICOM
+  DVC1124 内置总线超时定时器，接收到主机                                                                                 触发电池欠压警报                                        ICUM
+发送的起始条件(不包含重复起始条件)时，定时                                                                                 触发第 1 级过流警报                                     IOC1M
+器启动。在 64ms 内，如果接收到主机发送的停                                                                               触发第 2 级过流警报                                     IOC2M
+止条件，定时器关闭；否则倒计时继续。在倒计                                                                                     触发放电短路警报                                     ISCDM
+
+
+
+I2C Write Operation
+
+ S    SA+W      A     RA         A   DATA0      A      CRC0        A    DATA1    A         CRC1   A        DATA(n)    A       CRC(n)   A    P
+
+                                 CRC0                                               CRC1                              CRC(N)
+
+
+I2C Read Operation
+
+ S    SA+W      A     RA         A   Sr     SA+R      A    DATA0        A    CRC0      A      DATA1   A       CRC1    A           DATA(n)   A    CRC(n)    NA    P
+
+                                            CRC0                                                       CRC1                                 CRC(N)
+
+
+          From master to slave       S = Start Condition           A = Acknowledge(SDA LOW)           SA = Slave Address          R = Read(SDA HIGH)
+
+
+          From slave to master       P = Stop Condition            NA = Not Acknowledge(SDA HIGH)     RA = Register Address       W = Write(SDA LOW)
+
+
+                                     Sr = Repeat Start Condition
+
+
+                                                                        图 14 I2C 传输协议
+
+
+
+
+24 / 29                                                                         1.1                                        南京集澈电子科技有限公司
+                                                                                                                           宜矽源半导体南京有限公司

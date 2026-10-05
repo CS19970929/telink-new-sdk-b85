@@ -1,0 +1,3576 @@
+[
+  {
+    "name": "BQ public byte addresses",
+    "expected": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      80,
+      81,
+      89
+    ],
+    "actual": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      80,
+      81,
+      89
+    ],
+    "source": "BQ PDF pp32-33",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 public byte addresses",
+    "expected": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114
+    ],
+    "actual": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114
+    ],
+    "source": "SH309 PDF pp51,53,66-68",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x00 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x01 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x02 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x03 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x04 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x05 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x06 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x07 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x08 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x09 reset",
+    "expected": 172,
+    "actual": 172,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0a reset",
+    "expected": 151,
+    "actual": 151,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x0f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x10 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x11 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x12 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x13 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x14 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x15 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x16 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x17 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x18 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x19 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1a reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x1f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x20 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x21 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x22 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x23 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x24 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x25 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x26 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x27 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x28 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x29 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2a reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x2f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x30 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x31 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x32 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x33 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x50 reset",
+    "expected": null,
+    "actual": null,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x51 reset",
+    "expected": null,
+    "actual": null,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ 0x59 reset",
+    "expected": null,
+    "actual": null,
+    "source": "BQ PDF pp33-41 RESET rows; trims unspecified",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x00 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x01 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x02 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x03 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x04 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x05 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x06 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x07 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x08 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x09 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0a reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0b reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0c reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0d reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0e reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x0f reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x10 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x11 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x12 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x13 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x14 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x15 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x16 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x17 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x18 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x19 reset",
+    "expected": null,
+    "actual": null,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x40 reset",
+    "expected": 112,
+    "actual": 112,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x41 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x42 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x43 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x44 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x45 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x46 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x47 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x48 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x49 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4a reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x4f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x50 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x51 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x52 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x53 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x54 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x55 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x56 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x57 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x58 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x59 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5a reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x5f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x60 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x61 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x62 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x63 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x64 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x65 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x66 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x67 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x68 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x69 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6a reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6b reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6c reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6d reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6e reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x6f reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x70 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x71 reset",
+    "expected": 128,
+    "actual": 128,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 0x72 reset",
+    "expected": 0,
+    "actual": 0,
+    "source": "SH309 PDF pp40-48,69-74; EEPROM lacks reset rows",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ SCD_DELAY",
+    "expected": [
+      [
+        0,
+        70,
+        "us"
+      ],
+      [
+        1,
+        100,
+        "us"
+      ],
+      [
+        2,
+        200,
+        "us"
+      ],
+      [
+        3,
+        400,
+        "us"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        70,
+        "us"
+      ],
+      [
+        1,
+        100,
+        "us"
+      ],
+      [
+        2,
+        200,
+        "us"
+      ],
+      [
+        3,
+        400,
+        "us"
+      ]
+    ],
+    "source": "BQ PDF pp36-38 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ OCD_DELAY",
+    "expected": [
+      [
+        0,
+        8,
+        "ms"
+      ],
+      [
+        1,
+        20,
+        "ms"
+      ],
+      [
+        2,
+        40,
+        "ms"
+      ],
+      [
+        3,
+        80,
+        "ms"
+      ],
+      [
+        4,
+        160,
+        "ms"
+      ],
+      [
+        5,
+        320,
+        "ms"
+      ],
+      [
+        6,
+        640,
+        "ms"
+      ],
+      [
+        7,
+        1280,
+        "ms"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        8,
+        "ms"
+      ],
+      [
+        1,
+        20,
+        "ms"
+      ],
+      [
+        2,
+        40,
+        "ms"
+      ],
+      [
+        3,
+        80,
+        "ms"
+      ],
+      [
+        4,
+        160,
+        "ms"
+      ],
+      [
+        5,
+        320,
+        "ms"
+      ],
+      [
+        6,
+        640,
+        "ms"
+      ],
+      [
+        7,
+        1280,
+        "ms"
+      ]
+    ],
+    "source": "BQ PDF pp36-38 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ UV_DELAY",
+    "expected": [
+      [
+        0,
+        1,
+        "s"
+      ],
+      [
+        1,
+        4,
+        "s"
+      ],
+      [
+        2,
+        8,
+        "s"
+      ],
+      [
+        3,
+        16,
+        "s"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        1,
+        "s"
+      ],
+      [
+        1,
+        4,
+        "s"
+      ],
+      [
+        2,
+        8,
+        "s"
+      ],
+      [
+        3,
+        16,
+        "s"
+      ]
+    ],
+    "source": "BQ PDF pp36-38 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ OV_DELAY",
+    "expected": [
+      [
+        0,
+        1,
+        "s"
+      ],
+      [
+        1,
+        2,
+        "s"
+      ],
+      [
+        2,
+        4,
+        "s"
+      ],
+      [
+        3,
+        8,
+        "s"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        1,
+        "s"
+      ],
+      [
+        1,
+        2,
+        "s"
+      ],
+      [
+        2,
+        4,
+        "s"
+      ],
+      [
+        3,
+        8,
+        "s"
+      ]
+    ],
+    "source": "BQ PDF pp36-38 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ SCD_THRESH RSNS=0",
+    "expected": [
+      [
+        0,
+        22,
+        "mV"
+      ],
+      [
+        1,
+        33,
+        "mV"
+      ],
+      [
+        2,
+        44,
+        "mV"
+      ],
+      [
+        3,
+        56,
+        "mV"
+      ],
+      [
+        4,
+        67,
+        "mV"
+      ],
+      [
+        5,
+        78,
+        "mV"
+      ],
+      [
+        6,
+        89,
+        "mV"
+      ],
+      [
+        7,
+        100,
+        "mV"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        22,
+        "mV"
+      ],
+      [
+        1,
+        33,
+        "mV"
+      ],
+      [
+        2,
+        44,
+        "mV"
+      ],
+      [
+        3,
+        56,
+        "mV"
+      ],
+      [
+        4,
+        67,
+        "mV"
+      ],
+      [
+        5,
+        78,
+        "mV"
+      ],
+      [
+        6,
+        89,
+        "mV"
+      ],
+      [
+        7,
+        100,
+        "mV"
+      ]
+    ],
+    "source": "BQ PDF pp36-37 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ SCD_THRESH RSNS=1",
+    "expected": [
+      [
+        0,
+        44,
+        "mV"
+      ],
+      [
+        1,
+        67,
+        "mV"
+      ],
+      [
+        2,
+        89,
+        "mV"
+      ],
+      [
+        3,
+        111,
+        "mV"
+      ],
+      [
+        4,
+        133,
+        "mV"
+      ],
+      [
+        5,
+        155,
+        "mV"
+      ],
+      [
+        6,
+        178,
+        "mV"
+      ],
+      [
+        7,
+        200,
+        "mV"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        44,
+        "mV"
+      ],
+      [
+        1,
+        67,
+        "mV"
+      ],
+      [
+        2,
+        89,
+        "mV"
+      ],
+      [
+        3,
+        111,
+        "mV"
+      ],
+      [
+        4,
+        133,
+        "mV"
+      ],
+      [
+        5,
+        155,
+        "mV"
+      ],
+      [
+        6,
+        178,
+        "mV"
+      ],
+      [
+        7,
+        200,
+        "mV"
+      ]
+    ],
+    "source": "BQ PDF pp36-37 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ OCD_THRESH RSNS=0",
+    "expected": [
+      [
+        0,
+        8,
+        "mV"
+      ],
+      [
+        1,
+        11,
+        "mV"
+      ],
+      [
+        2,
+        14,
+        "mV"
+      ],
+      [
+        3,
+        17,
+        "mV"
+      ],
+      [
+        4,
+        19,
+        "mV"
+      ],
+      [
+        5,
+        22,
+        "mV"
+      ],
+      [
+        6,
+        25,
+        "mV"
+      ],
+      [
+        7,
+        28,
+        "mV"
+      ],
+      [
+        8,
+        31,
+        "mV"
+      ],
+      [
+        9,
+        33,
+        "mV"
+      ],
+      [
+        10,
+        36,
+        "mV"
+      ],
+      [
+        11,
+        39,
+        "mV"
+      ],
+      [
+        12,
+        42,
+        "mV"
+      ],
+      [
+        13,
+        44,
+        "mV"
+      ],
+      [
+        14,
+        47,
+        "mV"
+      ],
+      [
+        15,
+        50,
+        "mV"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        8,
+        "mV"
+      ],
+      [
+        1,
+        11,
+        "mV"
+      ],
+      [
+        2,
+        14,
+        "mV"
+      ],
+      [
+        3,
+        17,
+        "mV"
+      ],
+      [
+        4,
+        19,
+        "mV"
+      ],
+      [
+        5,
+        22,
+        "mV"
+      ],
+      [
+        6,
+        25,
+        "mV"
+      ],
+      [
+        7,
+        28,
+        "mV"
+      ],
+      [
+        8,
+        31,
+        "mV"
+      ],
+      [
+        9,
+        33,
+        "mV"
+      ],
+      [
+        10,
+        36,
+        "mV"
+      ],
+      [
+        11,
+        39,
+        "mV"
+      ],
+      [
+        12,
+        42,
+        "mV"
+      ],
+      [
+        13,
+        44,
+        "mV"
+      ],
+      [
+        14,
+        47,
+        "mV"
+      ],
+      [
+        15,
+        50,
+        "mV"
+      ]
+    ],
+    "source": "BQ PDF pp36-37 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "BQ OCD_THRESH RSNS=1",
+    "expected": [
+      [
+        0,
+        17,
+        "mV"
+      ],
+      [
+        1,
+        22,
+        "mV"
+      ],
+      [
+        2,
+        28,
+        "mV"
+      ],
+      [
+        3,
+        33,
+        "mV"
+      ],
+      [
+        4,
+        39,
+        "mV"
+      ],
+      [
+        5,
+        44,
+        "mV"
+      ],
+      [
+        6,
+        50,
+        "mV"
+      ],
+      [
+        7,
+        56,
+        "mV"
+      ],
+      [
+        8,
+        61,
+        "mV"
+      ],
+      [
+        9,
+        67,
+        "mV"
+      ],
+      [
+        10,
+        72,
+        "mV"
+      ],
+      [
+        11,
+        78,
+        "mV"
+      ],
+      [
+        12,
+        83,
+        "mV"
+      ],
+      [
+        13,
+        89,
+        "mV"
+      ],
+      [
+        14,
+        94,
+        "mV"
+      ],
+      [
+        15,
+        100,
+        "mV"
+      ]
+    ],
+    "actual": [
+      [
+        0,
+        17,
+        "mV"
+      ],
+      [
+        1,
+        22,
+        "mV"
+      ],
+      [
+        2,
+        28,
+        "mV"
+      ],
+      [
+        3,
+        33,
+        "mV"
+      ],
+      [
+        4,
+        39,
+        "mV"
+      ],
+      [
+        5,
+        44,
+        "mV"
+      ],
+      [
+        6,
+        50,
+        "mV"
+      ],
+      [
+        7,
+        56,
+        "mV"
+      ],
+      [
+        8,
+        61,
+        "mV"
+      ],
+      [
+        9,
+        67,
+        "mV"
+      ],
+      [
+        10,
+        72,
+        "mV"
+      ],
+      [
+        11,
+        78,
+        "mV"
+      ],
+      [
+        12,
+        83,
+        "mV"
+      ],
+      [
+        13,
+        89,
+        "mV"
+      ],
+      [
+        14,
+        94,
+        "mV"
+      ],
+      [
+        15,
+        100,
+        "mV"
+      ]
+    ],
+    "source": "BQ PDF pp36-37 rendered visual transcription",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OVT",
+    "expected": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 300,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 3000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 300,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 3000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p56, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 LDRT",
+    "expected": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 500,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 2000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 500,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 2000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p56, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 UVT",
+    "expected": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 300,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 3000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 300,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 3000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p57, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCD1V",
+    "expected": {
+      "0": {
+        "value": 20,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 130,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 200,
+        "unit": "mV"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 20,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 130,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 200,
+        "unit": "mV"
+      }
+    },
+    "source": "SH309 PDF p59, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCD1T",
+    "expected": {
+      "0": {
+        "value": 50,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 15000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 50,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 6000,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 15000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 20000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 30000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 40000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p59, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCD2V",
+    "expected": {
+      "0": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 200,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 300,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 400,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 500,
+        "unit": "mV"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 200,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 300,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 400,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 500,
+        "unit": "mV"
+      }
+    },
+    "source": "SH309 PDF p60, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCD2T",
+    "expected": {
+      "0": {
+        "value": 10,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 20,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 40,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 60,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 80,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 20000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 10,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 20,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 40,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 60,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 80,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 20000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p60, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 SCV",
+    "expected": {
+      "0": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 170,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 200,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 230,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 260,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 290,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 320,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 350,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 400,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 500,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 600,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 800,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 1000,
+        "unit": "mV"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 170,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 200,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 230,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 260,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 290,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 320,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 350,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 400,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 500,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 600,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 800,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 1000,
+        "unit": "mV"
+      }
+    },
+    "source": "SH309 PDF p61, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 SCT",
+    "expected": {
+      "0": {
+        "value": 0,
+        "unit": "us"
+      },
+      "1": {
+        "value": 64,
+        "unit": "us"
+      },
+      "2": {
+        "value": 128,
+        "unit": "us"
+      },
+      "3": {
+        "value": 192,
+        "unit": "us"
+      },
+      "4": {
+        "value": 256,
+        "unit": "us"
+      },
+      "5": {
+        "value": 320,
+        "unit": "us"
+      },
+      "6": {
+        "value": 384,
+        "unit": "us"
+      },
+      "7": {
+        "value": 448,
+        "unit": "us"
+      },
+      "8": {
+        "value": 512,
+        "unit": "us"
+      },
+      "9": {
+        "value": 576,
+        "unit": "us"
+      },
+      "10": {
+        "value": 640,
+        "unit": "us"
+      },
+      "11": {
+        "value": 704,
+        "unit": "us"
+      },
+      "12": {
+        "value": 768,
+        "unit": "us"
+      },
+      "13": {
+        "value": 832,
+        "unit": "us"
+      },
+      "14": {
+        "value": 896,
+        "unit": "us"
+      },
+      "15": {
+        "value": 960,
+        "unit": "us"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 0,
+        "unit": "us"
+      },
+      "1": {
+        "value": 64,
+        "unit": "us"
+      },
+      "2": {
+        "value": 128,
+        "unit": "us"
+      },
+      "3": {
+        "value": 192,
+        "unit": "us"
+      },
+      "4": {
+        "value": 256,
+        "unit": "us"
+      },
+      "5": {
+        "value": 320,
+        "unit": "us"
+      },
+      "6": {
+        "value": 384,
+        "unit": "us"
+      },
+      "7": {
+        "value": 448,
+        "unit": "us"
+      },
+      "8": {
+        "value": 512,
+        "unit": "us"
+      },
+      "9": {
+        "value": 576,
+        "unit": "us"
+      },
+      "10": {
+        "value": 640,
+        "unit": "us"
+      },
+      "11": {
+        "value": 704,
+        "unit": "us"
+      },
+      "12": {
+        "value": 768,
+        "unit": "us"
+      },
+      "13": {
+        "value": 832,
+        "unit": "us"
+      },
+      "14": {
+        "value": 896,
+        "unit": "us"
+      },
+      "15": {
+        "value": 960,
+        "unit": "us"
+      }
+    },
+    "source": "SH309 PDF p61, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCCV",
+    "expected": {
+      "0": {
+        "value": 20,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 130,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 200,
+        "unit": "mV"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 20,
+        "unit": "mV"
+      },
+      "1": {
+        "value": 30,
+        "unit": "mV"
+      },
+      "2": {
+        "value": 40,
+        "unit": "mV"
+      },
+      "3": {
+        "value": 50,
+        "unit": "mV"
+      },
+      "4": {
+        "value": 60,
+        "unit": "mV"
+      },
+      "5": {
+        "value": 70,
+        "unit": "mV"
+      },
+      "6": {
+        "value": 80,
+        "unit": "mV"
+      },
+      "7": {
+        "value": 90,
+        "unit": "mV"
+      },
+      "8": {
+        "value": 100,
+        "unit": "mV"
+      },
+      "9": {
+        "value": 110,
+        "unit": "mV"
+      },
+      "10": {
+        "value": 120,
+        "unit": "mV"
+      },
+      "11": {
+        "value": 130,
+        "unit": "mV"
+      },
+      "12": {
+        "value": 140,
+        "unit": "mV"
+      },
+      "13": {
+        "value": 160,
+        "unit": "mV"
+      },
+      "14": {
+        "value": 180,
+        "unit": "mV"
+      },
+      "15": {
+        "value": 200,
+        "unit": "mV"
+      }
+    },
+    "source": "SH309 PDF p62, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCCT",
+    "expected": {
+      "0": {
+        "value": 10,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 20,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 40,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 60,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 80,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 20000,
+        "unit": "ms"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 10,
+        "unit": "ms"
+      },
+      "1": {
+        "value": 20,
+        "unit": "ms"
+      },
+      "2": {
+        "value": 40,
+        "unit": "ms"
+      },
+      "3": {
+        "value": 60,
+        "unit": "ms"
+      },
+      "4": {
+        "value": 80,
+        "unit": "ms"
+      },
+      "5": {
+        "value": 100,
+        "unit": "ms"
+      },
+      "6": {
+        "value": 200,
+        "unit": "ms"
+      },
+      "7": {
+        "value": 400,
+        "unit": "ms"
+      },
+      "8": {
+        "value": 600,
+        "unit": "ms"
+      },
+      "9": {
+        "value": 800,
+        "unit": "ms"
+      },
+      "10": {
+        "value": 1000,
+        "unit": "ms"
+      },
+      "11": {
+        "value": 2000,
+        "unit": "ms"
+      },
+      "12": {
+        "value": 4000,
+        "unit": "ms"
+      },
+      "13": {
+        "value": 8000,
+        "unit": "ms"
+      },
+      "14": {
+        "value": 10000,
+        "unit": "ms"
+      },
+      "15": {
+        "value": 20000,
+        "unit": "ms"
+      }
+    },
+    "source": "SH309 PDF p62, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 CHS",
+    "expected": {
+      "0": {
+        "value": 200,
+        "unit": "uV"
+      },
+      "1": {
+        "value": 500,
+        "unit": "uV"
+      },
+      "2": {
+        "value": 1000,
+        "unit": "uV"
+      },
+      "3": {
+        "value": 2000,
+        "unit": "uV"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 200,
+        "unit": "uV"
+      },
+      "1": {
+        "value": 500,
+        "unit": "uV"
+      },
+      "2": {
+        "value": 1000,
+        "unit": "uV"
+      },
+      "3": {
+        "value": 2000,
+        "unit": "uV"
+      }
+    },
+    "status": "PASS",
+    "source": "SH309 PDF p63, independently read table text (parser fallback)"
+  },
+  {
+    "name": "SH309 MOST",
+    "expected": {
+      "0": {
+        "value": 64,
+        "unit": "us"
+      },
+      "1": {
+        "value": 128,
+        "unit": "us"
+      },
+      "2": {
+        "value": 256,
+        "unit": "us"
+      },
+      "3": {
+        "value": 512,
+        "unit": "us"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 64,
+        "unit": "us"
+      },
+      "1": {
+        "value": 128,
+        "unit": "us"
+      },
+      "2": {
+        "value": 256,
+        "unit": "us"
+      },
+      "3": {
+        "value": 512,
+        "unit": "us"
+      }
+    },
+    "source": "SH309 PDF p63, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 OCRT",
+    "expected": {
+      "0": {
+        "value": 8,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 32,
+        "unit": "s"
+      },
+      "3": {
+        "value": 64,
+        "unit": "s"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 8,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 32,
+        "unit": "s"
+      },
+      "3": {
+        "value": 64,
+        "unit": "s"
+      }
+    },
+    "source": "SH309 PDF p63, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 PFT",
+    "expected": {
+      "0": {
+        "value": 8,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 32,
+        "unit": "s"
+      },
+      "3": {
+        "value": 64,
+        "unit": "s"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 8,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 32,
+        "unit": "s"
+      },
+      "3": {
+        "value": 64,
+        "unit": "s"
+      }
+    },
+    "source": "SH309 PDF p63, direct PDF text extraction",
+    "status": "PASS"
+  },
+  {
+    "name": "SH309 WDT",
+    "expected": {
+      "0": {
+        "value": 32,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 8,
+        "unit": "s"
+      },
+      "3": {
+        "value": 4,
+        "unit": "s"
+      }
+    },
+    "actual": {
+      "0": {
+        "value": 32,
+        "unit": "s"
+      },
+      "1": {
+        "value": 16,
+        "unit": "s"
+      },
+      "2": {
+        "value": 8,
+        "unit": "s"
+      },
+      "3": {
+        "value": 4,
+        "unit": "s"
+      }
+    },
+    "status": "PASS",
+    "source": "SH309 PDF p34, independently read table text (parser fallback)"
+  }
+]

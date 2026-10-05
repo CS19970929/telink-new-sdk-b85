@@ -1,0 +1,62 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                   www.ti.com
+
+
+
+10 Layout
+10.1 Layout Guidelines
+       It is strongly recommended for best measurement performance to keep high current signals from
+       interfering with the measurement system inputs and ground.
+       A second key recommendation is to ensure that the bq769x0 input filtering capacitors and power
+       capacitors are connected to a common ground with as little parasitic resistance between the connections
+       as possible.
+
+10.2 Layout Example
+       Figure 10-1 shows a guideline of how to place key components compared to respective ground zones,
+       based on the bq76920/30/40 EVMs.
+
+
+                                            Low Current Ground Plane Available Area
+
+
+
+
+                                                                        bq78350
+                                             bq769x0
+
+
+
+
+                                                            Key components placed here
+                                                                      bq78350
+                                                                  bq76920/30/40
+                                                                Measurement Filter
+                                        Ground                Resistors and Capacitors
+                                     interconnect
+
+
+                           BAT-              RSNS                        DSG        CHG                PACK-
+
+                                                       Key components placed here
+                                                             Protection FETs
+                                                             Sense Resistor                            PACK+
+                           BAT+
+                                             High Current Ground Plane Available Area
+
+
+
+                  Figure 10-1. System Component Placement Layout vs. Ground Zone Guide
+
+                                                                  CAUTION
+                      Care should be taken when placing key power pin capacitors to minimize PCB
+                      trace impedances. These impedances could result in device resets or other
+                      unexpected operations when the device is at peak power consumption.
+                      Although not shown in the diagrams, this caution also applies to the resistor
+                      and capacitor network surrounding the current sense resistor.
+
+
+
+
+50     Layout                                                                             Copyright © 2013–2015, Texas Instruments Incorporated
+                                               Submit Documentation Feedback
+                                       Product Folder Links: bq76920 bq76930 bq76940

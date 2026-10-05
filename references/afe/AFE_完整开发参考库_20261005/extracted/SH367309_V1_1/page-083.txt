@@ -1,0 +1,25 @@
+                                                                       SH367309
+续上表
+
+VDSGD    负载释放判断电平       1.0     -      -      V     检测负载释放
+RDSGD    DSGD管脚内部下拉电阻   500    900    1400   KΩ     VBAT = 50V，DSGD管脚外接3V电源
+VCD1     放电电流检测阈值       0.5    1.4    2.6    mV
+VCD2     充电电流检测阈值       -2.6   -1.4   -0.5   mV
+                        -10     -      10    mV     VDOC1 ＜ 100mV
+VDOCA1   放电过流1保护精度
+                        -10%    -     10%    VDOC1 VDOC1 ≥ 100mV
+                        -10     -      10    mV     VDOC2 ＜ 100mV
+VDOCA2   放电过流2保护精度
+                        -10%    -     10%    VDOC2 VDOC2 ≥ 100mV
+                        -10     -      10    mV     VDOC3 ＜ 100mV
+VDOCA3   短路保护精度
+                        -10%    -     10%    VDOC3 VDOC3 ≥ 100mV
+                        -10     -      10    mV     VCOC ＜ 100mV
+VCOCA    充电过流保护精度
+                        -10%    -     10%    VCOC   VCOC ≥ 100mV
+TOA      温度保护精度          -     2      4     ℃
+
+
+
+
+                                      83

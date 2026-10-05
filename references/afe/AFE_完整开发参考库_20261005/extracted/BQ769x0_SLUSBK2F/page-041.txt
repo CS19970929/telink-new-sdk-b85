@@ -1,0 +1,64 @@
+                                                                                                       bq76920, bq76930, bq76940
+www.ti.com                                                                             SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+         ADCGAIN2:0 (Bits 7–5, address 0x59):
+                                      ADC GAIN offset lower 3 LSB
+
+                                      ADCGAIN<4:0> is a production-trimmed value for the ADC transfer function, in
+                                      units of µV/LSB. The range is 365 µV/LSB to 396 µV/LSB, in steps of 1 µV/LSB,
+                                      and may be calculated as follows:
+
+                                      GAIN = 365 µV/LSB + (ADCGAIN<4:0>in decimal) × (1 µV/LSB)
+
+                                      Alternately, a conversion table is provided below:
+
+
+                            ADC GAIN                Gain (µV/LSB)             ADC GAIN                 Gain (µV/LSB)
+                              0x00                         365                  0x10                       381
+                              0x01                         366                  0x11                       382
+                              0x02                         367                  0x12                       383
+                              0x03                         368                  0x13                       384
+                              0x04                         369                  0x14                       385
+                              0x05                         370                  0x15                       386
+                              0x06                         371                  0x16                       387
+                              0x07                         372                  0x17                       388
+                              0x08                         373                  0x18                       389
+                              0x09                         374                  0x19                       390
+                              0x0A                         375                  0x1A                       391
+                              0x0B                         376                  0x1B                       392
+                              0x0C                         377                  0x1C                       393
+                              0x0D                         378                  0x1D                       394
+                              0x0E                         379                  0x1E                       395
+                              0x0F                         380                  0x1F                       396
+
+
+                                                        Table 7-23. ADCOFFSET (0x51)
+      BIT               7                6                 5           4           3               2               1              0
+    NAME             ADC               ADC                ADC         ADC        ADC              ADC           ADC             ADC
+                   OFFSET7           OFFSET6            OFFSET5     OFFSET4    OFFSET3          OFFSET2       OFFSET1         OFFSET0
+    RESET              —                —                 —           —            —              —               —               —
+   ACCESS               R               R                 R           R            R              R                R              R
+
+         ADCOFFSET7:0 (Bits 7–0):
+                                      ADC offset, stored in 2’s complement format in mV units. Positive full-scale range
+                                      corresponds to 0x7F and negative full-scale corresponds to 0x80. The full-scale
+                                      input range is –128 mV to 127 mV, with an LSB of 1 mV.
+
+                                      The table below shows example offsets.
+
+
+                                                ADCOFFSET                        Offset (mV)
+                                                    0x00                                0
+                                                    0x01                                1
+                                                    0x7F                               127
+                                                    0x80                               –128
+                                                    0x81                               –127
+                                                    0xFF                               –1
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                          Detailed Description     41
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

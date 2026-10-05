@@ -1,0 +1,47 @@
+4 串至 24 串电池组监控芯片                                          DVC1124-2 数据手册
+符号              参数                条件               最小值    典型值    最大值     单位
+VUV_TH          电池欠压保护阈值                            1            4095    mV
+VUV_STEP        电池欠压保护阈值步进                                 1             mV
+TUV_DLY         电池欠压保护延时                           200           8000    ms
+VOC1_TH         第 1 级充/放电过流保护阈                     0.25          63.75   mV
+                值
+VOC1_TH_STEP    第 1 级充/放电过流保护阈                            0.25           mV
+                值步进
+TOC1_DLY        第 1 级充/放电过流保护延                      8            2048    ms
+                时
+TOC1_DLY_STEP   第 1 级充/放电过流保护延                             8             ms
+                时步进
+VOC2_TH         第 2 级充/放电过流保护阈                      4            256     mV
+                值
+VOC2_TH_STEP    第 2 级充/放电过流保护阈                             4             mV
+                值步进
+TOC2_DLY        第 2 级充/放电过流保护延                      4            1024    ms
+                时
+TOC2_DLY_STEP   第 2 级充/放电过流保护延                             4             ms
+                时步进
+VSCD_TH         放电短路保护阈值                           10            630     mV
+VSCD_TH_STEP    放电短路保护阈值步进                                 10            mV
+TSCD_DLY        放电短路保护延时          注1                0            1992    μs
+TSCD_DLY_STEP   放电短路保护延时步进                                7.81           μs
+I2C 接口直流规格
+VIH_I2C         I2C 引脚数字输入电压为高    SCL, SDA         1.25                  V
+                电平
+VIL_I2C         I2C 引脚数字输入电压为低    SCL, SDA                        0.9    V
+                电平
+ILEAK_DIG       数字输入漏电流           SCL, SDA                        ±1     μA
+VOL_SDA         SDA 引脚数字输出电压为     SDO 下拉电流 1mA                    0.3    V
+                低电平
+I2C 时序规格
+fSCL            SCL 时钟频率          占空比为 50%                       100     kHz
+tHD;STA         (重复)起始条件的保持时                       4.0                   μs
+                间，在这个周期后，产生第
+                1 个时钟脉冲
+tLOW            SCL 时钟低电平周期                        4.7                   μs
+tHIGH           SCL 时钟高电平周期                        4.0                   μs
+tHD;DAT         数据保持时间                              0                    ns
+tSU;DAT         数据建立时间                             250                   ns
+tr              SCL 和 SDA 的上升时间   10%至 90%                       1000    ns
+tf              SCL 和 SDA 的下降时间   90%至 10%                       300     ns
+
+南京集澈电子科技有限公司                                 1.1                         9 / 29
+宜矽源半导体南京有限公司

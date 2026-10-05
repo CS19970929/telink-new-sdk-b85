@@ -1,0 +1,31 @@
+4 串至 24 串电池组监控芯片                                               DVC1124-2 参考手册
+ OFFSET   BIT 7    BIT 6    BIT 5   BIT 4    BIT 3    BIT 2       BIT 1    BIT 0
+  0x7A
+  0x7B
+  0x7C
+ 0x7D
+  0x7E    FRT[7]   FRT[6]   FRT5]   FRT[4]   FRT[3]   FRT[2]      FRT[1]   FRT[0]
+  0x7F
+  0x80
+  0x81
+  0x82
+  0x83
+  0x84
+  0x85
+  0x86
+  0x87
+  0x88
+  0x89
+  0x8A
+  0x8B
+  0x8C
+ 0x8D
+  0x8E
+  0x8F    CV[7]    CV[6]    CV[5]   CV[4]    CV[3]    CV[2]       CV[1]    CV[0]
+  0x90
+
+
+
+
+南京集澈电子科技有限公司                        1.2                                     5 / 33
+宜矽源半导体南京有限公司

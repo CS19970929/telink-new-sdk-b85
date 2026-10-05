@@ -1,0 +1,1554 @@
+{
+  "extractor": "PyMuPDF 1.27.2.3",
+  "extraction_character_differences": [],
+  "checksums": [
+    {
+      "path": "AI_CONTEXT.md",
+      "ok": true
+    },
+    {
+      "path": "CROSS_CHIP_GUIDE.md",
+      "ok": true
+    },
+    {
+      "path": "DRIVER_REVIEW_CHECKLIST.md",
+      "ok": true
+    },
+    {
+      "path": "QUALITY_REPORT.md",
+      "ok": true
+    },
+    {
+      "path": "README.md",
+      "ok": true
+    },
+    {
+      "path": "SOURCE_MANIFEST.md",
+      "ok": true
+    },
+    {
+      "path": "chips/bq769x0/coverage.json",
+      "ok": true
+    },
+    {
+      "path": "chips/bq769x0/reference.md",
+      "ok": true
+    },
+    {
+      "path": "chips/bq769x0/registers.json",
+      "ok": true
+    },
+    {
+      "path": "chips/bq769x0/validation.md",
+      "ok": true
+    },
+    {
+      "path": "chips/dvc1124_2/coverage.json",
+      "ok": true
+    },
+    {
+      "path": "chips/dvc1124_2/reference.md",
+      "ok": true
+    },
+    {
+      "path": "chips/dvc1124_2/registers.json",
+      "ok": true
+    },
+    {
+      "path": "chips/dvc1124_2/validation.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh367309/coverage.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh367309/raw_register_extracts.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh367309/reference.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh367309/registers.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh367309/validation.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/coverage.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/reference.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/registers.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/validation.md",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/validation_results.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/version_diff_audit.json",
+      "ok": true
+    },
+    {
+      "path": "chips/sh36735xx/version_differences.md",
+      "ok": true
+    },
+    {
+      "path": "data/DATA_DICTIONARY.md",
+      "ok": true
+    },
+    {
+      "path": "data/coverage_index.json",
+      "ok": true
+    },
+    {
+      "path": "data/page_index.json",
+      "ok": true
+    },
+    {
+      "path": "data/register_dataset.schema.json",
+      "ok": true
+    },
+    {
+      "path": "data/register_index.json",
+      "ok": true
+    },
+    {
+      "path": "data/source_manifest.json",
+      "ok": true
+    },
+    {
+      "path": "data/validation_summary.json",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-030.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-031.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-032.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-033.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-034.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-035.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-036.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-037.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-038.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-039.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-040.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-041.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-042.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-043.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-044.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-045.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-046.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-047.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-048.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-049.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-050.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-051.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-052.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-053.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-054.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-055.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-056.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-057.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-058.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-059.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-060.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-061.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-062.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/page-063.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/BQ769x0_SLUSBK2F/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_DS_V1_1/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-030.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-031.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-032.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/page-033.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/DVC1124_2_RM_V1_2/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-030.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-031.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-032.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-033.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-034.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-035.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-036.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-037.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-038.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-039.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-040.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-041.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-042.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-043.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-044.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-045.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-046.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-047.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-048.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-049.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-050.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-051.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-052.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-053.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-054.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-055.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-056.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-057.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-058.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-059.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-060.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-061.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-062.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-063.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-064.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-065.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-066.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-067.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-068.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-069.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-070.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-071.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-072.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-073.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-074.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-075.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-076.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-077.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-078.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-079.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-080.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-081.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-082.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-083.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-084.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-085.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-086.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-087.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-088.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/page-089.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH367309_V1_1/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-030.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-031.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-032.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-033.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-034.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-035.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-036.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-037.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-038.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-039.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-040.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-041.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-042.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-043.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-044.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-045.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-046.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-047.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-048.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-049.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-050.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-051.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-052.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-053.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-054.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-055.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-056.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/page-057.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV0_2C/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/full_by_page.md",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/full_layout.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-001.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-002.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-003.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-004.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-005.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-006.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-007.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-008.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-009.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-010.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-011.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-012.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-013.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-014.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-015.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-016.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-017.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-018.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-019.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-020.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-021.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-022.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-023.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-024.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-025.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-026.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-027.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-028.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-029.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-030.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-031.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-032.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-033.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-034.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-035.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-036.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-037.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-038.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-039.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-040.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-041.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-042.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-043.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-044.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-045.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-046.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-047.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-048.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-049.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-050.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-051.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-052.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-053.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-054.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-055.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-056.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/page-057.txt",
+      "ok": true
+    },
+    {
+      "path": "extracted/SH36735XX_CV1_0A/pages.jsonl",
+      "ok": true
+    },
+    {
+      "path": "sources/BQ76940.pdf",
+      "ok": true
+    },
+    {
+      "path": "sources/DVC1124-2参考手册_V1.2.pdf",
+      "ok": true
+    },
+    {
+      "path": "sources/DVC1124-2数据手册_V1.1.pdf",
+      "ok": true
+    },
+    {
+      "path": "sources/SH367309.pdf",
+      "ok": true
+    },
+    {
+      "path": "sources/SH36735XX CV0.2C.pdf",
+      "ok": true
+    },
+    {
+      "path": "sources/SH36735XX CV1.0A.pdf",
+      "ok": true
+    },
+    {
+      "path": "tools/search_reference.py",
+      "ok": true
+    },
+    {
+      "path": "tools/verify_pack.py",
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,246 @@
+                                                                                                                                   SH3673510/3673514/3673517/3673520
+4. 管脚定义
+
+
+
+
+                                                                                              LDO_O
+
+
+
+
+                                                                                                                                                                                                                        LDO_O
+                                                                                      LDO_P
+
+
+
+
+                                                                                                                                                                                                               LDO_P
+                                                 HCHG
+
+
+
+
+                                                                                                                                                                           HCHG
+                                                               HDSG
+
+
+
+
+                                                                                                                                                                                          HDSG
+                                                                               DSGD
+
+
+
+
+                                                                                                                                                                                                        DSGD
+                                                                        CHGD
+
+
+
+
+                                                                                                                                                                                                 CHGD
+                                                        PDSG
+
+
+
+
+                                                                                                                                                                                   PDSG
+                                  VCPR
+
+
+
+
+                                                                                                                                                            VCPR
+                                                                                                                                                    SHIP
+                           SHIP
+
+
+
+
+                                                                                                      CHG
+
+
+
+
+                                                                                                                                                                                                                                CHG
+                                                                                                            DSG
+
+
+
+
+                                                                                                                                                                                                                                       DSG
+                                         VCP
+
+
+
+
+                                                                                                                                                                    VCP
+                           48 47 46 45 44 43 42 41 40 39 38 37                                                                                      48 47 46 45 44 43 42 41 40 39 38 37
+          VBAT    1                                                                                               36      VCC          VBAT    1                                                                                             36    VCC
+          VC20    2                                                                                               35      VSS           NC     2                                                                                             35    VSS
+          VC19    3                                                                                               34      RESET         NC     3                                                                                             34    RESET
+          VC18    4                                                                                               33      SDO           NC     4                                                                                             33    SDO
+          VC17    5                                                                                               32      SDI          VC17    5                                                                                             32    SDI
+          VC16    6                                     SH3673520                                                 31      SCK          VC16    6                                   SH3673517                                                 31    SCK
+          VC15    7                                                                                               30      CS           VC15    7                                                                                             30    CS
+          VC14    8                                                                                               29      ALARM        VC14    8                                                                                             29    ALARM
+          VC13    9                                                                                               28      TS4          VC13    9                                                                                             28    TS4
+          VC12    10                                                                                              27      TS3          VC12    10                                                                                            27    TS3
+          VC11    11                                                                                              26      TS2          VC11    11                                                                                            26   TS2
+          VC10    12                                                                                              25      TS1          VC10    12                                                                                            25   TS1
+                           13 14 15 16 17 18 19 20 21 22 23 24                                        RS1                                           13 14 15 16 17 18 19 20 21 22 23 24
+                                                                                                            RS2
+
+
+
+
+                                                                                                                                                                                                                                RS1
+                                                                                                                                                                                                                                      RS2
+                                                                                              VC0
+
+
+
+
+                                                                                                                                                                                                                       VC0
+                                                               VC4
+                                                                      VC3
+                                                                               VC2
+                                                                                      VC1
+
+
+
+
+                                                                                                                                                                                          VC4
+                                                                                                                                                                                                 VC3
+                                                                                                                                                                                                        VC2
+                                                                                                                                                                                                               VC1
+                           VC9
+                                  VC8
+                                         VC7
+                                               VC6
+                                                        VC5
+
+
+
+
+                                                                                                                                                    VC9
+                                                                                                                                                            VC8
+                                                                                                                                                                    VC7
+                                                                                                                                                                           VC6
+                                                                                                                                                                                   VC5
+
+
+
+
+                                                                                                                                                                                                                       LDO_O
+                                                                                                                                                                                                               LDO_P
+                                                                                                                                                                            HCHG
+
+
+                                                                                                                                                                                          HDSG
+
+
+                                                                                                                                                                                                        DSGD
+                                                                                                                                                                                                 CHGD
+                                                                                                                                                                                   PDSG
+                                                                                                                                                             VCPR
+                                                                                                                                                     SHIP
+
+
+
+
+                                                                                                                                                                                                                                CHG
+                                                                                                                                                                                                                                      DSG
+                                                                                                 LDO_O
+
+
+
+
+                                                                                                                                                                     VCP
+                                                                                         LDO_P
+                                                   HCHG
+
+
+                                                                 HDSG
+
+
+                                                                                 DSGD
+                                                                          CHGD
+                                                          PDSG
+                                    VCPR
+                             SHIP
+
+
+
+
+                                                                                                         CHG
+                                                                                                               DSG
+                                           VCP
+
+
+
+
+                                                                                                                                                     48 47 46 45 44 43 42 41 40 39 38 37
+                             48 47 46 45 44 43 42 41 40 39 38 37                                                                        VBAT    1                                                                                           36    VCC
+           VBAT        1                                                                                             36    VCC
+                                                                                                                                         NC     2                                                                                           35    VSS
+            NC         2                                                                                             35    VSS
+                                                                                                                                         NC     3                                                                                           34    RESET
+            NC        3                                                                                              34    RESET
+                                                                                                                                         NC     4                                                                                           33    SDO
+            NC         4                                                                                             33    SDO
+                                                                                                                                         NC     5                                                                                           32    SDI
+            NC         5                                                                                             32    SDI
+                                                                                                                                         NC     6                                  SH3673510                                                 31   SCK
+             NC        6                                  SH3673514                                                  31    SCK
+                                                                                                                                                7                                                                                           30
+                                                                                                                                         NC                                                                                                       CS
+             NC        7                                                                                             30    CS
+                                                                                                                                         NC     8                                                                                           29    ALARM
+           VC14       8                                                                                              29    ALARM
+                                                                                                                                         NC     9                                                                                           28    TS4
+           VC13       9                                                                                              28    TS4
+                                                                                                                                         NC    10                                                                                           27    TS3
+           VC12    10                                                                                                27    TS3
+                                                                                                                                         NC    11                                                                                           26    TS2
+           VC11    11                                                                                                26    TS2
+                                                                                                                                        VC10   12                                                                                           25    TS1
+           VC10    12                                                                                                25    TS1                       13 14 15 16 17 18 19 20 21 22 23 24
+                             13 14 15 16 17 18 19 20 21 22 23 24
+
+
+                                                                                                                                                                                                                                RS1
+                                                                                                                                                                                                                                      RS2
+                                                                                                                                                                                                                       VC0
+                                                                                                                                                                                          VC4
+                                                                                                                                                                                                 VC3
+                                                                                                                                                                                                        VC2
+                                                                                                                                                                                                               VC1
+                                                                                                                                                     VC9
+                                                                                                                                                            VC8
+                                                                                                                                                                    VC7
+                                                                                                                                                                           VC6
+                                                                                                                                                                                   VC5
+                                                                                                         RS1
+                                                                                                               RS2
+                                                                                                 VC0
+                                                                 VC4
+                                                                          VC3
+                                                                                 VC2
+                                                                                        VC1
+                             VC9
+                                    VC8
+                                           VC7
+                                                  VC6
+                                                          VC5
+
+
+
+
+                                                                                                                          图2 管脚配置图
+
+
+
+
+                                                                                                                                   3

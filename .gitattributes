@@ -8,3 +8,8 @@ tests/fixtures/**/*.c text eol=lf
 docs/BMS_MONOREPO*.md text eol=lf
 AGENTS.md text eol=lf
 CMakeLists.txt text eol=lf
+
+# AFE reference originals and fixed-audit receipts retain byte-identical hashes.
+references/afe/** -text -whitespace
+references/hardware/d008/*.pdf -text
+docs/afe-audit/** -text whitespace=cr-at-eol

@@ -1,0 +1,7835 @@
+{
+  "observations": [
+    {
+      "address": "0x0",
+      "page": 6,
+      "bits": [
+        {
+          "name": "IWTF",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "COV",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CUV",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCD1",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCC1",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCD2",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCC2",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "SCD",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1",
+      "page": 6,
+      "bits": [
+        {
+          "name": "PD",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "VADF",
+          "access": "RC",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CC1F",
+          "access": "RC",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CC2F",
+          "access": "RC",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CST[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CST[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CST[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CST[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2",
+      "page": 7,
+      "bits": [
+        {
+          "name": "CC1[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CC1[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CC1[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CC1[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CC1[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CC1[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CC1[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CC1[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3",
+      "page": 7,
+      "bits": [
+        {
+          "name": "CC1[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CC1[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CC1[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CC1[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CC1[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CC1[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CC1[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CC1[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4",
+      "page": 7,
+      "bits": [
+        {
+          "name": "CC2[19]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CC2[18]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CC2[17]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CC2[16]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CC2[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CC2[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CC2[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CC2[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5",
+      "page": 7,
+      "bits": [
+        {
+          "name": "CC2[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CC2[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CC2[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CC2[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CC2[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CC2[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CC2[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CC2[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6",
+      "page": 7,
+      "bits": [
+        {
+          "name": "CC2[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CC2[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CC2[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CC2[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "PDSGF",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "PCHGF",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "DSGF",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CHGF",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VTP[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VTP[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VTP[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VTP[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VTP[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VTP[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VTP[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VTP[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VTP[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VTP[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VTP[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VTP[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VTP[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VTP[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VTP[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VTP[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x9",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VPK[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VPK[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VPK[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VPK[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VPK[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VPK[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VPK[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VPK[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xa",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VPK[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VPK[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VPK[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VPK[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VPK[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VPK[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VPK[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VPK[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xb",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VLD[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VLD[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VLD[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VLD[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VLD[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VLD[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VLD[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VLD[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xc",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VLD[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VLD[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VLD[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VLD[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VLD[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VLD[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VLD[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VLD[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xd",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VCT[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VCT[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VCT[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VCT[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VCT[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VCT[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VCT[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VCT[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xe",
+      "page": 8,
+      "bits": [
+        {
+          "name": "VCT[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VCT[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VCT[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VCT[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VCT[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VCT[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VCT[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VCT[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0xf",
+      "page": 9,
+      "bits": [
+        {
+          "name": "V1P8[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "V1P8[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "V1P8[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "V1P8[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "V1P8[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "V1P8[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "V1P8[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "V1P8[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x10",
+      "page": 9,
+      "bits": [
+        {
+          "name": "V1P8[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "V1P8[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "V1P8[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "V1P8[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "V1P8[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "V1P8[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "V1P8[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "V1P8[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x11",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP1[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP1[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP1[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP1[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP1[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP1[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP1[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP1[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x12",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP1[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP1[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP1[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP1[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP1[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP1[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP1[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP1[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x13",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP2[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP2[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP2[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP2[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP2[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP2[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP2[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP2[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x14",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP2[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP2[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP2[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP2[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP2[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP2[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP2[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP2[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x15",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP3[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP3[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP3[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP3[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP3[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP3[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP3[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP3[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x16",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP3[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP3[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP3[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP3[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP3[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP3[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP3[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP3[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x17",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP4[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP4[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP4[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP4[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP4[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP4[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP4[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP4[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x18",
+      "page": 9,
+      "bits": [
+        {
+          "name": "VGP4[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP4[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP4[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP4[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP4[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP4[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP4[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP4[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x19",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VGP5[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP5[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP5[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP5[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP5[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP5[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP5[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP5[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1a",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VGP5[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP5[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP5[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP5[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP5[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP5[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP5[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP5[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1b",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VGP6[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP6[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP6[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP6[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP6[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP6[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP6[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP6[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1c",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VGP6[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VGP6[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VGP6[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VGP6[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VGP6[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VGP6[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VGP6[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VGP6[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1d",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC1[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC1[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC1[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC1[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC1[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC1[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC1[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC1[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1e",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC1[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC1[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC1[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC1[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC1[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC1[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC1[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC1[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x1f",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC2[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC2[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC2[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC2[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC2[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC2[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC2[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC2[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x20",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC2[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC2[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC2[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC2[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC2[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC2[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC2[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC2[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x21",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC3[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC3[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC3[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC3[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC3[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC3[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC3[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC3[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x22",
+      "page": 10,
+      "bits": [
+        {
+          "name": "VC3[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC3[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC3[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC3[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC3[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC3[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC3[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC3[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x23",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC4[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC4[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC4[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC4[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC4[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC4[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC4[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC4[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x24",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC4[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC4[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC4[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC4[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC4[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC4[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC4[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC4[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x25",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC5[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC5[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC5[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC5[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC5[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC5[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC5[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC5[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x26",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC5[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC5[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC5[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC5[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC5[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC5[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC5[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC5[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x27",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC6[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC6[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC6[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC6[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC6[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC6[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC6[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC6[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x28",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC6[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC6[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC6[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC6[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC6[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC6[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC6[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC6[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x29",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC7[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC7[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC7[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC7[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC7[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC7[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC7[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC7[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2a",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC7[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC7[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC7[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC7[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC7[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC7[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC7[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC7[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2b",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC8[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC8[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC8[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC8[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC8[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC8[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC8[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC8[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2c",
+      "page": 11,
+      "bits": [
+        {
+          "name": "VC8[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC8[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC8[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC8[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC8[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC8[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC8[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC8[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2d",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC9[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC9[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC9[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC9[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC9[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC9[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC9[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC9[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2e",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC9[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC9[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC9[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC9[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC9[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC9[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC9[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC9[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x2f",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC10[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC10[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC10[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC10[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC10[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC10[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC10[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC10[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x30",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC10[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC10[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC10[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC10[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC10[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC10[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC10[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC10[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x31",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC11[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC11[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC11[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC11[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC11[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC11[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC11[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC11[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x32",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC11[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC11[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC11[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC11[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC11[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC11[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC11[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC11[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x33",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC12[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC12[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC12[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC12[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC12[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC12[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC12[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC12[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x34",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC12[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC12[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC12[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC12[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC12[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC12[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC12[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC12[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x35",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC13[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC13[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC13[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC13[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC13[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC13[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC13[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC13[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x36",
+      "page": 12,
+      "bits": [
+        {
+          "name": "VC13[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC13[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC13[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC13[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC13[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC13[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC13[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC13[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x37",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC14[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC14[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC14[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC14[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC14[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC14[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC14[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC14[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x38",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC14[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC14[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC14[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC14[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC14[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC14[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC14[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC14[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x39",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC15[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC15[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC15[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC15[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC15[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC15[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC15[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC15[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3a",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC15[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC15[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC15[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC15[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC15[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC15[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC15[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC15[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3b",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC16[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC16[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC16[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC16[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC16[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC16[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC16[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC16[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3c",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC16[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC16[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC16[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC16[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC16[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC16[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC16[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC16[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3d",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC17[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC17[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC17[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC17[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC17[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC17[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC17[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC17[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3e",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC17[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC17[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC17[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC17[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC17[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC17[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC17[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC17[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x3f",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC18[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC18[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC18[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC18[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC18[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC18[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC18[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC18[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x40",
+      "page": 13,
+      "bits": [
+        {
+          "name": "VC18[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC18[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC18[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC18[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC18[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC18[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC18[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC18[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x41",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC19[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC19[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC19[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC19[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC19[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC19[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC19[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC19[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x42",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC19[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC19[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC19[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC19[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC19[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC19[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC19[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC19[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x43",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC20[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC20[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC20[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC20[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC20[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC20[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC20[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC20[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x44",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC20[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC20[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC20[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC20[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC20[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC20[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC20[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC20[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x45",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC21[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC21[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC21[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC21[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC21[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC21[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC21[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC21[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x46",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC21[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC21[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC21[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC21[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC21[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC21[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC21[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC21[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x47",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC22[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC22[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC22[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC22[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC22[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC22[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC22[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC22[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x48",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC22[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC22[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC22[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC22[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC22[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC22[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC22[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC22[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x49",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC23[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC23[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC23[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC23[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC23[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC23[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC23[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC23[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4a",
+      "page": 14,
+      "bits": [
+        {
+          "name": "VC23[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC23[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC23[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC23[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC23[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC23[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC23[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC23[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4b",
+      "page": 15,
+      "bits": [
+        {
+          "name": "VC24[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC24[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC24[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC24[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC24[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC24[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC24[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC24[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4c",
+      "page": 15,
+      "bits": [
+        {
+          "name": "VC24[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VC24[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VC24[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VC24[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VC24[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VC24[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VC24[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VC24[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4d",
+      "page": 15,
+      "bits": [
+        {
+          "name": "VVOS[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VVOS[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VVOS[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VVOS[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VVOS[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VVOS[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VVOS[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VVOS[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4e",
+      "page": 15,
+      "bits": [
+        {
+          "name": "VVOS[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "VVOS[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "VVOS[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "VVOS[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "VVOS[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "VVOS[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "VVOS[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "VVOS[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x4f",
+      "page": 15,
+      "bits": [
+        {
+          "name": "CVOS[15]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CVOS[14]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CVOS[13]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CVOS[12]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CVOS[11]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CVOS[10]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CVOS[9]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CVOS[8]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x50",
+      "page": 15,
+      "bits": [
+        {
+          "name": "CVOS[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CVOS[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CVOS[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CVOS[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CVOS[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CVOS[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CVOS[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CVOS[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x51",
+      "page": 15,
+      "bits": [
+        {
+          "name": "LDPU",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "PDSGC",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "PCHGC",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "DSGM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "DSGC[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "DSGC[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CHGC[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CHGC[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x52",
+      "page": 16,
+      "bits": [
+        {
+          "name": "PDWM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "DPC[4]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 4
+        },
+        {
+          "name": "DPC[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "DPC[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "DPC[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "DPC[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x53",
+      "page": 16,
+      "bits": [
+        {
+          "name": "PDDM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "PCWM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "PCCM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "PCDM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 4
+        },
+        {
+          "name": "DWM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "DDM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "DPDM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "DBDM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x54",
+      "page": 17,
+      "bits": [
+        {
+          "name": "CWM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "CO1M",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "CO2M",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "CSM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 4
+        },
+        {
+          "name": "CDM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "CCM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CPCM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CBDM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x55",
+      "page": 17,
+      "bits": [
+        {
+          "name": "HSFM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CAEW",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "CAES",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CAMZ",
+          "access": "R/W1",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x56",
+      "page": 18,
+      "bits": [
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 4
+        },
+        {
+          "name": "C1OW[1]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "C1OW[0]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 2
+        },
+        {
+          "name": "C1OS[1]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 1
+        },
+        {
+          "name": "C1OS[0]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x57",
+      "page": 18,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x58",
+      "page": 18,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x59",
+      "page": 18,
+      "bits": [
+        {
+          "name": "OCD1T[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCD1T[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCD1T[5",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCD1T[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCD1T[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCD1T[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCD1T[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCD1T[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5a",
+      "page": 19,
+      "bits": [
+        {
+          "name": "OCC1T[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCC1T[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCC1T[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCC1T[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCC1T[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCC1T[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCC1T[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCC1T[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5b",
+      "page": 19,
+      "bits": [
+        {
+          "name": "OCD1D[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCD1D[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCD1D[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCD1D[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCD1D[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCD1D[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCD1D[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCD1D[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5c",
+      "page": 19,
+      "bits": [
+        {
+          "name": "OCC1D[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCC1D[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCC1D[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCC1D[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCC1D[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCC1D[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCC1D[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCC1D[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5d",
+      "page": 19,
+      "bits": [
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5e",
+      "page": 19,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCD2E",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "OCD2T[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCD2T[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCD2T[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCD2T[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCD2T[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCD2T[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x5f",
+      "page": 19,
+      "bits": [
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "OCC2E",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "OCC2T[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCC2T[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCC2T[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCC2T[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCC2T[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCC2T[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x60",
+      "page": 20,
+      "bits": [
+        {
+          "name": "OCD2D[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCD2D[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCD2D[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCD2D[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCD2D[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCD2D[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCD2D[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCD2D[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x61",
+      "page": 20,
+      "bits": [
+        {
+          "name": "OCC2D[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "OCC2D[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "OCC2D[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "OCC2D[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "OCC2D[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "OCC2D[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "OCC2D[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "OCC2D[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x62",
+      "page": 20,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "SCDE",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "SCDT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "SCDT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "SCDT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "SCDT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "SCDT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "SCDT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x63",
+      "page": 20,
+      "bits": [
+        {
+          "name": "SCDD[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "SCDD[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "SCDD[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "SCDD[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "SCDD[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "SCDD[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "SCDD[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "SCDD[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x64",
+      "page": 20,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x65",
+      "page": 20,
+      "bits": [
+        {
+          "name": "CWT[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CWT[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CWT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CWT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CWT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CWT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CWT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CWT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x66",
+      "page": 21,
+      "bits": [
+        {
+          "name": "BDPT[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "BDPT[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "BDPT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "BDPT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "BDPT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "BDPT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "BDPT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "BDPT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x67",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CB[24]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CB[23]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CB[22]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CB[21]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CB[20]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CB[19]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CB[18]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CB[17]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x68",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CB[16]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CB[15]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CB[14]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CB[13]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CB[12]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CB[11]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CB[10]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CB[9]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x69",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CB[8]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CB[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CB[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CB[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CB[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CB[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CB[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CB[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6a",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CM[24]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CM[23]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CM[22]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CM[21]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CM[20]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CM[19]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CM[18]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CM[17]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6b",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CM[16]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CM[15]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CM[14]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CM[13]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CM[12]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CM[11]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CM[10]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CM[9]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6c",
+      "page": 21,
+      "bits": [
+        {
+          "name": "CM[8]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CM[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CM[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CM[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "PKM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "LDM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CTM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "V1P8M",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6d",
+      "page": 22,
+      "bits": [
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CPVS[2]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "CPVS[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CPVS[0]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "COW",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CMM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CVS",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6e",
+      "page": 22,
+      "bits": [
+        {
+          "name": "VAE",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "VASM",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "VAMP[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "VAMP[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 2
+        },
+        {
+          "name": "VAO[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "VAO[0]",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x6f",
+      "page": 22,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x70",
+      "page": 23,
+      "bits": [
+        {
+          "name": "COVT[11]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "COVT[10]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "COVT[9]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "COVT[8]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "COVT[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "COVT[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "COVT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "COVT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x71",
+      "page": 23,
+      "bits": [
+        {
+          "name": "COVT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "COVT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "COVT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "COVT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "COVD[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "COVD[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "COVD[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "COVD[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x72",
+      "page": 24,
+      "bits": [
+        {
+          "name": "CUVT[11]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CUVT[10]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CUVT[9]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CUVT[8]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CUVT[7]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CUVT[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CUVT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CUVT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x73",
+      "page": 24,
+      "bits": [
+        {
+          "name": "CUVT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "CUVT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "CUVT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "CUVT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "CUVD[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "CUVD[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "CUVD[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "CUVD[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x74",
+      "page": 24,
+      "bits": [
+        {
+          "name": "GP1M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "GP1M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "GP2M[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "GP2M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "GP2M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "GP3M[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "GP3M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "GP3M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x75",
+      "page": 25,
+      "bits": [
+        {
+          "name": "GP4M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "GP4M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "GP5M[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "GP5M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "GP5M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "GP6M[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "GP6M[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "GP6M[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x76",
+      "page": 26,
+      "bits": [
+        {
+          "name": "COTF",
+          "access": "RC",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "COTT[6]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "COTT[5]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "COTT[4]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "COTT[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "COTT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "COTT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "COTT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x77",
+      "page": 26,
+      "bits": [
+        {
+          "name": "V3P3ES",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "V3P3EW",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "V3P3M",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "IWTS",
+          "access": "R",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "IWT[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "IWT[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "IWT[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x78",
+      "page": 26,
+      "bits": [
+        {
+          "name": "TIWK",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "TWSE[3]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "TWSE[2]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "TWSE[1]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "TWSE[0]",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x79",
+      "page": 27,
+      "bits": [
+        {
+          "name": "IWM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "IVOM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "ICCM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "ICOM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "ICUM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 3
+        },
+        {
+          "name": "IOC1M",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "IOC2M",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "ISCDM",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7a",
+      "page": 27,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7b",
+      "page": 27,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7c",
+      "page": 27,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "1",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7d",
+      "page": 27,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7e",
+      "page": 28,
+      "bits": [
+        {
+          "name": "FRT[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "FRT[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "FRT5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "FRT[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "FRT[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "FRT[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "FRT[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "FRT[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x7f",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x80",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x81",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x82",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x83",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x84",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x85",
+      "page": 28,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x86",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x87",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x88",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x89",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8a",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8b",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8c",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8d",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8e",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "1",
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R/W",
+          "reset": "0",
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "-",
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": "0",
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x8f",
+      "page": 29,
+      "bits": [
+        {
+          "name": "CV[7]",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "CV[6]",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "CV[5]",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "CV[4]",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "CV[3]",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "CV[2]",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "CV[1]",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "CV[0]",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    },
+    {
+      "address": "0x90",
+      "page": 29,
+      "bits": [
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 7
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 6
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 5
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 4
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 3
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 2
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 1
+        },
+        {
+          "name": "",
+          "access": "R",
+          "reset": null,
+          "bit": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

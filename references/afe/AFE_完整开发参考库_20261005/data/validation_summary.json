@@ -1,0 +1,49 @@
+{
+  "validation_date": "2026-10-05",
+  "scope": "Source-grounded documentation and structural checks; not hardware validation",
+  "source_documents": 6,
+  "indexed_pdf_pages": 328,
+  "nonempty_extracted_pages": 324,
+  "image_only_pdf_pages": [
+    {
+      "filename": "BQ76940.pdf",
+      "pdf_pages": [
+        59,
+        60,
+        61,
+        62
+      ]
+    }
+  ],
+  "register_entries_by_version": 457,
+  "register_dataset_schema_status": "PASS",
+  "field_masks_checked": 868,
+  "field_mask_errors": [],
+  "local_link_and_anchor_checks": 4562,
+  "source_page_checks": 1898,
+  "local_link_and_source_errors": [],
+  "visual_review_records": {
+    "sh367309": {
+      "pages": 24,
+      "record": "chips/sh367309/validation.md"
+    },
+    "sh36735xx": {
+      "pages_across_two_versions": 25,
+      "record": "chips/sh36735xx/validation.md"
+    },
+    "dvc1124_2": {
+      "pages_across_two_manuals": 22,
+      "record": "chips/dvc1124_2/validation.md"
+    },
+    "bq769x0": {
+      "pages": 21,
+      "record": "chips/bq769x0/validation.md"
+    }
+  },
+  "open_limitations": [
+    "Original document contradictions are retained, not silently resolved",
+    "No physical chip, board, protection, FET, power or calibration tests performed",
+    "Raw text is not a lossless representation of figures or formulas",
+    "Register schemas preserve chip-specific semantics and are not executable production configuration"
+  ]
+}

@@ -1,0 +1,62 @@
+                                                                                                         bq76920, bq76930, bq76940
+www.ti.com                                                                                SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+
+         OCD_D2:0 (Bits 6–4): Overcurrent in discharge delay setting
+
+
+                                                    Code                              (in ms)
+                                                        0x0                               8
+                                                        0x1                               20
+                                                        0x2                               40
+                                                        0x3                               80
+                                                        0x4                               160
+                                                        0x5                               320
+                                                        0x6                               640
+                                                        0x7                            1280
+
+         OCD_T3:0 (Bits 3–0): Overcurrent in discharge threshold setting.
+
+
+                                  Code                            RSNS = 1 (in mV)                (RSNS = 0 (in mV)
+                                   0x0                                  17                                8
+                                   0x1                                  22                                11
+                                   0x2                                  28                                14
+                                   0x3                                  33                                17
+                                   0x4                                  39                                19
+                                   0x5                                  44                                22
+                                   0x6                                  50                                25
+                                   0x7                                  56                                28
+                                   0x8                                  61                                31
+                                   0x9                                  67                                33
+                                  0xA                                   72                                36
+                                  0xB                                   78                                39
+                                  0xC                                   83                                42
+                                  0xD                                   89                                44
+                                  0xE                                   94                                47
+                                   0xF                                  100                               50
+
+
+                                                        Table 7-11. PROTECT3 (0x08)
+      BIT               7                6                    5          4            3              2                1            0
+    NAME             UV_D1           UV_D0              OV_D1         OV_D0          RSVD          RSVD          RSVD            RSVD
+    RESET               0                0                    0          0            0              0                0            0
+   ACCESS              RW                RW               RW            RW           RW             RW             RW             RW
+
+         UV_D1:0 (Bits 7–6): Undervoltage delay setting
+
+
+                                                    Code                               (in s)
+                                                        0x0                               1
+                                                        0x1                               4
+                                                        0x2                               8
+                                                        0x3                               16
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                           Detailed Description    37
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

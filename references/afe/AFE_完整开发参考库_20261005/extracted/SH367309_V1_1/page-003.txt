@@ -1,0 +1,73 @@
+                                                                                                                      SH367309
+4. 管脚配置图
+
+
+
+
+                                                                                                   ALARM
+                                PCHG
+
+
+
+
+                                                            CAPN
+                                                     CAPP
+
+
+                                                                   CAPS
+                                       DSG
+                         CHG
+
+
+
+
+                                                                                 VCC
+                                                                                       SDA
+                                                                          VSS
+
+
+
+
+                                                                                             SCL
+                                              V11
+                         36 35 34 33 32 31 30 29 28 27 26 25
+            LDO_P   37                                                                                     24   NC
+           LDO_O    38                                                                                     23   NC
+              NC    39                                                                                     22   T3
+            VPRO    40                                                                                     21   T2
+            DSGD    41                                                                                     20   T1
+            CHGD
+             SHIP
+                    42
+                    43              SH367309                                                           19
+                                                                                                       18
+                                                                                                                RS2
+                                                                                                                RS1
+           LDO_EN   44                                                                                 17       VC1
+            MODE    45                                                                                 16       VC2
+              CTL   46                                                                                 15       VC3
+               PF   47                                                                                 14       VC4
+             VBAT   48                                                                                 13       VC5
+                         1      2      3      4      5      6      7      8      9 10 11 12
+                                                                                                   VC6
+                         VC17
+                                VC16
+                                       VC15
+                                              VC14
+                                                     VC13
+                                                            VC12
+                                                                   VC11
+                                                                          VC10
+                                                                                 VC9
+                                                                                       VC8
+                                                                                             VC7
+
+
+
+
+                         图2 SH367309管脚配置图（TQFP48）
+
+
+
+
+                                                                   3

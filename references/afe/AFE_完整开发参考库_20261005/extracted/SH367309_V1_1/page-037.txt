@@ -1,0 +1,24 @@
+                                                                     SH367309
+10.2 强制开启充电MOSFET功能
+  EEPROM寄存器SCONF1中ENMOS位可设置SH367309强制开启充电MOSFET功能：
+Table 10.5 系统配置寄存器1
+         00H      第7位     第6位    第5位         第4位   第3位   第2位   第1位      第0位
+     SCONF1      ENPCH   ENMOS   OCPM        BAL   CN3   CN2   CN1      CN0
+      读/写         读/写     读/写    读/写         读/写   读/写   读/写   读/写      读/写
+
+   位编号         位符号                                 说明
+                         充电MOSFET恢复控制位
+                          0：禁用充电MOSFET恢复控制位
+     6         ENMOS
+                          1：启用充电MOSFET恢复控制位。当过充电/温度保护关闭充电MOSFET后，如
+                            果检测到放电过流1或者放电状态，则开启充电MOSFET
+
+  ENMOS = 1时，当满足下述任一条件时，SH367309强制开启充电MOSFET
+  (1) 检测到放电电流超过放电过流1电流，且超过充放电MOSFET开启延时tMOSFET
+  (2) 检测到当前为放电状态
+  若充电MOSFET强制开启条件均不满足，相应保护状态未解除，且充电MOSFET已开启，延迟10mS后关闭充电MOSFET。
+
+
+
+
+                                        37

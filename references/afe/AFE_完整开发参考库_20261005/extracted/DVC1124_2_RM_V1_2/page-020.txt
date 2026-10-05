@@ -1,0 +1,52 @@
+DVC1124-2 参考手册                                                                 4 串至 24 串电池组监控芯片
+OCC2T[5:0] ········2 级充电过流保护阈值控制位，阈值电压=(OCC2T+1)×4mV
+
+2 级放电过流保护延迟寄存器
+      0x60                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME              OCD2D[7]    OCD2D[6]   OCD2D[5]   OCD2D[4]   OCD2D[3]    OCD2D[2]    OCD2D[1]   OCD2D[0]
+     MODE                  R/W       R/W        R/W        R/W        R/W         R/W         R/W        R/W
+    DEFAULT                    0      0          0          0          0           0           0          0
+OCD2D[7:0]·······2 级放电过流保护延迟控制位，延迟时间=(OCD2D+1)×4ms
+
+2 级充电过流保护延迟寄存器
+      0x61                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME              OCC2D[7]    OCC2D[6]   OCC2D[5]   OCC2D[4]   OCC2D[3]    OCC2D[2]    OCC2D[1]   OCC2D[0]
+     MODE                  R/W       R/W        R/W        R/W        R/W         R/W         R/W        R/W
+    DEFAULT                    0      0          0          0          0           0           0          0
+OCC2D[7:0]········2 级充电过流保护延迟控制位，延迟时间=(OCC2D+1)×4ms
+
+放电短路保护阈值寄存器
+      0x62                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME                           SCDE      SCDT[5]    SCDT[4]    SCDT[3]      SCDT[2]     SCDT[1]   SCDT[0]
+     MODE                      R     R/W        R/W        R/W        R/W         R/W         R/W        R/W
+    DEFAULT                    0      1          0          0          0           0           0          0
+SCDE ··················放电短路保护使能控制位
+0·························关闭
+1·························开启
+SCDT[5:0]···········放电短路保护阈值控制位，阈值电压=SCDT×10mV
+
+放电短路保护延迟寄存器
+      0x63                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME               SCDD[7]    SCDD[6]    SCDD[5]    SCDD[4]    SCDD[3]      SCDD[2]    SCDD[1]    SCDD[0]
+     MODE                  R/W       R/W        R/W        R/W        R/W         R/W         R/W        R/W
+    DEFAULT                    0      0          0          0          0           0           0          0
+
+      0x64                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME
+     MODE                      R      R          R          R          R           R           R          R
+ SCDD[7:0] ········放电短路保护延迟控制位，延迟时间=SCDD×7.81μs
+
+电流唤醒寄存器
+      0x65                BIT 7     BIT 6      BIT 5      BIT 4      BIT 3        BIT 2       BIT 1     BIT 0
+     NAME                CWT[7]     CWT[6]     CWT[5]     CWT[4]     CWT[3]      CWT[2]      CWT[1]     CWT[0]
+     MODE                  R/W       R/W        R/W        R/W        R/W         R/W         R/W        R/W
+    DEFAULT                    0      0          0          0          0           0           0          0
+CWT[7:0] ···········芯片休眠状态下电流唤醒阈值控制位
+0x00 ···················关闭休眠状态下电流唤醒
+其他 ···················阈值电压=CWT×10μV
+
+
+
+
+ 20 / 33                                                   1.2                            南京集澈电子科技有限公司
+                                                                                          宜矽源半导体南京有限公司

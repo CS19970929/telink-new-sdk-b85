@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "structural_schema": "data/register_dataset.schema.json",
+  "total_entries": 457,
+  "datasets": [
+    {
+      "chip_directory": "bq769x0",
+      "path": "chips/bq769x0/registers.json",
+      "reference_path": "chips/bq769x0/reference.md",
+      "schema_version": "1.0",
+      "sha256": "ae1d35ad206570b32c50c4a52b831c1bb3ec82fd24524f3d6394b13f7fb083e2",
+      "register_entries": 55,
+      "entries_by_revision": {
+        "see dataset source roles": 55
+      },
+      "counts_caveat": "Includes explicitly retained reserved/undocumented addresses where present; different revisions are distinct entries. Not a hardware capability count."
+    },
+    {
+      "chip_directory": "dvc1124_2",
+      "path": "chips/dvc1124_2/registers.json",
+      "reference_path": "chips/dvc1124_2/reference.md",
+      "schema_version": "1.0",
+      "sha256": "9e8db3c30795874adc4c6a96f3996d0caffdfe32657813fe731797f8f9fbeb8b",
+      "register_entries": 145,
+      "entries_by_revision": {
+        "see dataset source roles": 145
+      },
+      "counts_caveat": "Includes explicitly retained reserved/undocumented addresses where present; different revisions are distinct entries. Not a hardware capability count."
+    },
+    {
+      "chip_directory": "sh367309",
+      "path": "chips/sh367309/registers.json",
+      "reference_path": "chips/sh367309/reference.md",
+      "schema_version": "1.0",
+      "sha256": "7ab687ffec7f40204b49c257e24593631944fcc19fb5002bd6c1a40460943ec0",
+      "register_entries": 77,
+      "entries_by_revision": {
+        "V1.1": 77
+      },
+      "counts_caveat": "Includes explicitly retained reserved/undocumented addresses where present; different revisions are distinct entries. Not a hardware capability count."
+    },
+    {
+      "chip_directory": "sh36735xx",
+      "path": "chips/sh36735xx/registers.json",
+      "reference_path": "chips/sh36735xx/reference.md",
+      "schema_version": "1.0",
+      "sha256": "7d9e4e83eb2fdaa0d11994b3c1c185fed1f274279973098b8f9facb41f2b61c5",
+      "register_entries": 180,
+      "entries_by_revision": {
+        "CV1.0A": 90,
+        "CV0.2C": 90
+      },
+      "counts_caveat": "Includes explicitly retained reserved/undocumented addresses where present; different revisions are distinct entries. Not a hardware capability count."
+    }
+  ],
+  "semantics": "Use each dataset with its exact source revision. No unified write API or production settings are provided."
+}

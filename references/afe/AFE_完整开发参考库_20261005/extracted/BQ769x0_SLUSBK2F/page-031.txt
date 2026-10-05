@@ -1,0 +1,40 @@
+                                                                                                   bq76920, bq76930, bq76940
+www.ti.com                                                                           SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+        To enter SHIP mode from NORMAL mode, the [SHUT_A] and [SHUT_B] bits in the SYS_CTRL1 register
+        must be written with specific patterns across two consecutive writes:
+        • Write #1: [SHUT_A] = 0, [SHUT_B] = 1
+        • Write #2: [SHUT_A] = 1, [SHUT_B] = 0
+        Note that [SHUT_A] and [SHUT_B] should each be in a 0 state prior to executing the shutdown command
+        above. If this specific sequence is entered into the device, the device transitions into SHIP mode. If any
+        other sequence is written to the [SHUT_A] and [SHUT_B] bits or if either of the two patterns is not
+        correctly entered, the device will not enter SHIP mode.
+
+                                                                    CAUTION
+                          DO NOT OPERATE THE DEVICE BELOW POR. When designing with the
+                          bq76940, the intermediate voltages (BAT–VC10x), (VC10x–VC5x), and
+                          (VC5x–VSS) must each never fall below VSHUT. When this occurs, a full device
+                          reset must be initiated by powering down all three intermediate voltages
+                          (BAT–VC10x), (VC10x–VC5x), and (VC5x–VSS) below VSHUT and rebooting by
+                          applying the appropriate VBOOT signal to the TS1 pin. When designing with
+                          the bq76930, the intermediate voltages (BAT–VC5x) and (VC5x–VSS) must
+                          each never fall below VSHUT. If this occurs, a full device reset must be initiated
+                          by powering down both intermediate voltages (BAT–VC5x) and (VC5x–VSS)
+                          below VSHUT and rebooting by applying the appropriate VBOOT signal to the
+                          TS1 pin.
+
+
+        The device will also enter SHIP mode during a POR event; however, this is not a recommended method
+        of SHIP mode entry. If any of the supply-side voltages below fall below VSHUT and then back up above
+        VPORA, the device defaults into the SHIP mode state. This is similar to an initial pack assembly condition.
+        In order to exit SHIP mode into NORMAL mode, the device must follow the standard boot sequence by
+        applying a voltage greater than the VBOOT threshold on the TS1 pin.
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                     Detailed Description   31
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

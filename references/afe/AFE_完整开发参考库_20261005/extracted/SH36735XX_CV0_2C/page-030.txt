@@ -1,0 +1,30 @@
+          Preliminary                               SH3673510/3673514/3673517/3673520
+                                                           RAM 寄存器位
+序号      名字
+                    7           6           5              4           3           2           1          0
+0x85   CELL15H   CELL15.15   CELL15.14   CELL15.13      CELL15.12   CELL15.11   CELL15.10   CELL15.9   CELL15.8
+0x86   CELL15L   CELL15.7    CELL15.6    CELL15.5       CELL15.4    CELL15.3    CELL15.2    CELL15.1   CELL15.0
+0x87   CELL16H   CELL16.15   CELL16.14   CELL16.13      CELL16.12   CELL16.11   CELL16.10   CELL16.9   CELL16.8
+0x88   CELL16L   CELL16.7    CELL16.6    CELL16.5       CELL16.4    CELL16.3    CELL16.2    CELL16.1   CELL16.0
+0x89   CELL17H   CELL17.15   CELL17.14   CELL17.13      CELL17.12   CELL17.11   CELL17.10   CELL17.9   CELL17.8
+0x8A   CELL17L   CELL17.7    CELL17.6    CELL17.5       CELL17.4    CELL17.3    CELL17.2    CELL17.1   CELL17.0
+0x8B   CELL18H   CELL18.15   CELL18.14   CELL18.13      CELL18.12   CELL18.11   CELL18.10   CELL18.9   CELL18.8
+0x8C   CELL18L   CELL18.7    CELL18.6    CELL18.5       CELL18.4    CELL18.3    CELL18.2    CELL18.1   CELL18.0
+0x8D   CELL19H   CELL19.15   CELL19.14   CELL19.13      CELL19.12   CELL19.11   CELL19.10   CELL19.9   CELL19.8
+0x8E   CELL19L   CELL19.7    CELL19.6    CELL19.5       CELL19.4    CELL19.3    CELL19.2    CELL19.1   CELL19.0
+0x8F   CELL20H   CELL20.15   CELL20.14   CELL20.13      CELL20.12   CELL20.11   CELL20.10   CELL20.9   CELL20.8
+0x90   CELL20L   CELL20.7    CELL20.6    CELL20.5       CELL20.4    CELL20.3    CELL20.2    CELL20.1   CELL20.0
+0x91   CADCDH    CADCD.15    CADCD.14    CADCD.13       CADCD.12    CADCD.11    CADCD.10    CADCD.9    CADCD.8
+0x92   CADCDL    CADCD.7     CADCD.6     CADCD.5        CADCD.4     CADCD.3     CADCD.2     CADCD.0    CADCD.0
+0x93   VTOPH     VTOP.15     VTOP.14     VTOP.13        VTOP.12     VTOP.11     VTOP.10     VTOP.9     VTOP.8
+0x94   VTOPL      VTOP.7      VTOP.6      VTOP.5         VTOP.4      VTOP.3      VTOP.2     VTOP.1     VTOP.0
+0x95   VCHGRH    VCHGR.15    VCHGR.14    VCHGR.13       VCHGR.12    VCHGR.11    VCHGR.10    VCHGR.9    VCHGR.8
+0x96   VCHGRL    VCHGR.7     VCHGR.6     VCHGR.5        VCHGR.4     VCHGR.3     VCHGR.2     VCHGR.1    VCHGR.0
+0x97    OWDH         -           -           -              -        OWD20       OWD19      OWD18      OWD17
+0x98   OWDM       OWD16       OWD15       OWD14          OWD13       OWD12       OWD11      OWD10       OWD9
+0x99    OWDL      OWD8        OWD7        OWD6           OWD5        OWD4        OWD3        OWD2       OWD1
+
+
+
+
+                                                   30

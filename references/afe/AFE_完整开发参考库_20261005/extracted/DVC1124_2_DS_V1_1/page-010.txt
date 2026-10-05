@@ -1,0 +1,26 @@
+DVC1124-2 数据手册                                                                              4 串至 24 串电池组监控芯片
+符号                    参数                                   条件                                 最小值         典型值             最大值        单位
+tSU;STO               停止条件的建立时间                                                                     4.0                              μs
+tBUF                  停止和启动条件之间的总                                                                   4.7                              μs
+                      线空闲时间
+RPULLUP               总线上拉电阻                                                                        1.5                              kΩ
+tTIME_OUT             总线超时时间                                                                                    64                   ms
+注 1：这个时间仅指芯片内部逻辑延时，不包含输入 RC 滤波器延时和输出驱动 FET 负载延时。
+
+       SDA
+
+             tf            tLOW   tr             tSU;DAT              tf                  tHD;STA         tSP                 tBUF
+
+       SCL
+
+                       tHD;STA                                             tSU;STA                              tSU;STO
+                                       tHD;DAT              tHIGH
+                  S                                                                  Sr                                   P          S
+
+                                                                    图 1 I2C 通信总线时序
+
+
+
+
+10 / 29                                                                    1.1                            南京集澈电子科技有限公司
+                                                                                                          宜矽源半导体南京有限公司

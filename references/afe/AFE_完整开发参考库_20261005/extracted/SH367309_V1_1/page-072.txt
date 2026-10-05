@@ -1,0 +1,35 @@
+                                                                             SH367309
+Table 13.29 系统状态寄存器BSTATUS3
+         45H          第7位     第6位      第5位        第4位   第3位     第2位     第1位     第0位
+    BSTATUS3      CHGING     DSGING     -    EEPR_WR    L0V   PCHG_FET CHG_FET DSG_FET
+      读/写              读       读       读          读     读        读       读       读
+     复位值               0        0       0          0     0       0       0        0
+
+   位编号          位符号                                     说明
+                            充电状态位
+     7          CHGING       1：充电状态
+                             0：非充电状态
+                            放电状态位
+     6          DSGING       1：放电状态
+                             0：非放电状态
+     5            -         Reserved
+                            EEPROM写操作状态位
+     4         EEPR_WR        1：EEPROM写操作错误
+                              0：EEPROM写操作正确
+                            低电压禁止充电状态位
+     3           L0V         1：发生低电压禁止充电
+                             0：未发生低电压禁止充电
+                            预充电MOSFET开关状态位
+     2         PCHG_FET      1：预充电MOSFET开启
+                             0：预充电MOSFET关闭
+                            充电MOSFET开关状态位
+     1         CHG_FET       1：充电MOSFET开启
+                             0：充电MOSFET关闭
+                            放电MOSFET开关状态位
+     0         DSG_FET       1：放电MOSFET开启
+                             0：放电MOSFET关闭
+
+
+
+
+                                             72

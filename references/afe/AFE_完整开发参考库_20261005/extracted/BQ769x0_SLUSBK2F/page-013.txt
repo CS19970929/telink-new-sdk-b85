@@ -1,0 +1,70 @@
+                                                                                                         bq76920, bq76930, bq76940
+www.ti.com                                                                              SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+6.4       Thermal Information
+Over-operating free-air temperature range (unless otherwise noted)
+                                                                                             TSSOP
+                     THERMAL METRIC (1)                              bq76920xy            bq76930xy             bq76940xy                 UNIT
+                                                                    20 PINS (PW)         30 PINS (DBT)         44 PINS (DBT)
+RθJA, High K Junction-to-ambient thermal resistance (2)                 93.7                  86.5                     70.1
+RθJC(top)     Junction-to-case(top) thermal resistance (3)              28.7                  19.4                     17.5
+                                                        (4)
+RθJB          Junction-to-board thermal resistance                      44.6                  41.3                     33.9
+                                                                                                                                          °C/W
+ψJT           Junction-to-top characterization parameter (5)            1.3                    0.5                     0.5
+ψJB           Junction-to-board characterization parameter (6)          44.1                  40.6                     33.4
+                                                              (7)
+RθJC(bottom) Junction-to-case(bottom) thermal resistance                n/a                    n/a                     n/a
+(1)   For more information about traditional and new thermal metrics, see the Semiconductor and IC Package Thermal Metrics application
+      report (SPRA953).
+(2)   The junction-to-ambient thermal resistance under natural convection is obtained in a simulation on a JEDEC-standard, high-K board, as
+      specified in JESD51-7, in an environment described in JESD51-2a.
+(3)   The junction-to-case (top) thermal resistance is obtained by simulating a cold plate test on the package top. No specific JEDEC-
+      standard test exists, but a close description can be found in the ANSI SEMI standard G30-88.
+(4)   The junction-to-board thermal resistance is obtained by simulating in an environment with a ring cold plate fixture to control the PCB
+      temperature, as described in JESD51-8.
+(5)   The junction-to-top characterization parameter, ψJT, estimates the junction temperature of a device in a real system and is extracted
+      from the simulation data for obtaining RθJA, using a procedure described in JESD51-2a (sections 6 and 7).
+(6)   The junction-to-board characterization parameter, ψJB, estimates the junction temperature of a device in a real system and is extracted
+      from the simulation data for obtaining RθJA, using a procedure described in JESD51-2a (sections 6 and 7).
+(7)   The junction-to-case (bottom) thermal resistance is obtained by simulating a cold plate test on the exposed (power) pad. No specific
+      JEDEC standard test exists, but a close description can be found in the ANSI SEMI standard G30-88.
+      Spacer
+
+6.5       Electrical Characteristics
+Typical conditions are measured at 25ºC with nominal BAT voltages of 18 V (bq76920), 36 V (bq76930), or 48 V (bq76940)
+with VCELL = 4 V. Min and max values include full recommended operating condition temperature range from –40ºC to +85ºC.
+Certain characteristics may be shown at different voltage or temperature ranges, as clarified in the Test Condition sections.
+  PARAMETER               DESCRIPTION                         TEST CONDITION                      MIN          TYP            MAX     UNIT
+SUPPLY CURRENTS
+                    NORMAL mode: ADC off,
+                                                                                                                 40            60
+                    CC off
+                    NORMAL mode: ADC on,
+                                                                                                                 60            90
+                    CC off                        Sum of ICC_BAT and ICC_REGSRC
+IDD
+                    NORMAL mode: ADC off,         currents
+                                                                                                                110           165
+                    CC on
+                    NORMAL mode: ADC on,
+                                                                                                                130           195
+                    CC on                                                                                                                 µA
+                    NORMAL mode: ADC off                                                                         30            45
+ICC_BAT                                           Into BAT pin
+                    NORMAL mode: ADC on                                                                          50            75
+                    NORMAL mode: CC off                                                                          10            15
+ICC_REGSRC                                        Into REGSRC pin
+                    NORMAL mode: CC on                                                                           80           120
+                                                  Device in full shutdown, only
+ISHIP               SHIP/SHUTDOWN mode                                                                           0.6           1.8
+                                                  VSTUP/BG and BOOT detector on
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                         Electrical Specifications          13
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

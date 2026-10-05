@@ -1,0 +1,9 @@
+{
+  "path": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\telink-new-sdk-b85\\afe-factory-audit-local-20261006-0aaa8429\\evidence.zip",
+  "sha256": "30c46e97239b194a7427c0359c9f6b42b4583a3c9c89b82fdb274d98bd6f8474",
+  "bytes": 39720188,
+  "payload_files": 2549,
+  "checksums_exclude_self_and_outer_archive": true,
+  "zip_crc_checked": true,
+  "archived_payload_hashes_checked": 2548
+}

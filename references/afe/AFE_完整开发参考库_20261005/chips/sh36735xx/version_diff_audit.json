@@ -1,0 +1,575 @@
+{
+  "method": "pdftotext -layout; per-page remove whitespace, family header, Preliminary and cover version strings; compare remaining text. No numbers/units removed. Graphical differences require visual review.",
+  "pages": [
+    {
+      "pdf_page": 1,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "ea3cfff4ea2164d43685fd97ccce860cf97125dd9c115f74e216df2b5728907e",
+      "new_normalized_sha256": "4418bbaf333aed26518f26f0f5554fbfffde2e0cc33fdcb3b89dc1799c809e57",
+      "old_char_count": 816,
+      "new_char_count": 815
+    },
+    {
+      "pdf_page": 2,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "09aefd08fcdc662b6ba25a8d7089381293633a114b2ed63f430efeee93ad725a",
+      "new_normalized_sha256": "09aefd08fcdc662b6ba25a8d7089381293633a114b2ed63f430efeee93ad725a",
+      "old_char_count": 416,
+      "new_char_count": 416
+    },
+    {
+      "pdf_page": 3,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "f2c875a0cdb54bb06514c2f1308667189de3f1104d2021b6f3e9e46747d2bb54",
+      "new_normalized_sha256": "cb3b74c8d4d7ba0ffdd43d9e529c8f797ecdfa70c9f705f32e6ae4e8b5309472",
+      "old_char_count": 1040,
+      "new_char_count": 1040
+    },
+    {
+      "pdf_page": 4,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "c687916f85e61b10e616a04370af49f138dc693591645419bc4363f65a44be90",
+      "new_normalized_sha256": "6b61b7f5168e73c7e987be18c8696204ae0b06889304da532edf0d60331fc865",
+      "old_char_count": 1003,
+      "new_char_count": 1144
+    },
+    {
+      "pdf_page": 5,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "908f39fe3a34a94d7d01b4bb687ed31cec18b412ede9678e945411b720b9613d",
+      "new_normalized_sha256": "bcff75c505d32d2f1713e315e817fedc0f796966ab4f78ada96c43b4853c8b5a",
+      "old_char_count": 88,
+      "new_char_count": 198
+    },
+    {
+      "pdf_page": 6,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "c551eb24b00f7d182ee8434a2ed85f3487563bf2a4641d815970e44288b9fe99",
+      "new_normalized_sha256": "ee50ef8d15116a1293a025b15ed83e6f0de608195ead9c91fc0537ca145ce288",
+      "old_char_count": 1497,
+      "new_char_count": 1521
+    },
+    {
+      "pdf_page": 7,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "8e9cc2cfc9e468fd32a5f6a3e4eca19809f9d38f8928ea8db136d8c5578c00ba",
+      "new_normalized_sha256": "4e27595f01a8b55e83eba6f038a79da1a4e6c2fd2c459a801785e0be10404671",
+      "old_char_count": 1626,
+      "new_char_count": 1587
+    },
+    {
+      "pdf_page": 8,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "7a08adcf1127ddfc45a19916a0e8bd42e92e661e0b99b00bfa51d1fb805b22ea",
+      "new_normalized_sha256": "7a08adcf1127ddfc45a19916a0e8bd42e92e661e0b99b00bfa51d1fb805b22ea",
+      "old_char_count": 1134,
+      "new_char_count": 1134
+    },
+    {
+      "pdf_page": 9,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "6f18ecb645dce65d0d3ca7c1d0059ccb1f724f796c76ef217a416bbeceabacc7",
+      "new_normalized_sha256": "6f18ecb645dce65d0d3ca7c1d0059ccb1f724f796c76ef217a416bbeceabacc7",
+      "old_char_count": 803,
+      "new_char_count": 803
+    },
+    {
+      "pdf_page": 10,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "272b1da91edaa577adf1d9a19d898a48b7e69827ee835bc69ec2c0c419d32c91",
+      "new_normalized_sha256": "92636754a26619bd9134f8f523843b830289e129df25a6634c565601df84177b",
+      "old_char_count": 1318,
+      "new_char_count": 1351
+    },
+    {
+      "pdf_page": 11,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "0c5e44575b695476444bf89d3e567be9b26370f29187c85a9e4afe0f36b612b5",
+      "new_normalized_sha256": "99af619bf40a79ab0a05d6cabc3be85358855e1d5cb8c5298142a5d53d7540ea",
+      "old_char_count": 1137,
+      "new_char_count": 1146
+    },
+    {
+      "pdf_page": 12,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "d9135ae1ca06b4ded4c6302aaf93a4f8839f6f7056847cc062acc756f38c4f03",
+      "new_normalized_sha256": "d9135ae1ca06b4ded4c6302aaf93a4f8839f6f7056847cc062acc756f38c4f03",
+      "old_char_count": 688,
+      "new_char_count": 688
+    },
+    {
+      "pdf_page": 13,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "7935442a3c00c49d4883c866bcff4f59fbbe1eaf7ddbb6d029f2674d90287ba3",
+      "new_normalized_sha256": "7935442a3c00c49d4883c866bcff4f59fbbe1eaf7ddbb6d029f2674d90287ba3",
+      "old_char_count": 1282,
+      "new_char_count": 1282
+    },
+    {
+      "pdf_page": 14,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "18153503e1c96c1ef8124c6089848bc9f521b4eb5b4a67cbd60fd13fe6b58bf9",
+      "new_normalized_sha256": "18153503e1c96c1ef8124c6089848bc9f521b4eb5b4a67cbd60fd13fe6b58bf9",
+      "old_char_count": 1161,
+      "new_char_count": 1161
+    },
+    {
+      "pdf_page": 15,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "0f5b9b1340303a95191d4ac5cd28edd87362bcd758325f8a2c2d77fd8037f389",
+      "new_normalized_sha256": "0f5b9b1340303a95191d4ac5cd28edd87362bcd758325f8a2c2d77fd8037f389",
+      "old_char_count": 749,
+      "new_char_count": 749
+    },
+    {
+      "pdf_page": 16,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "58b19c73db891b8df85d6e0565a2fe917e4f7482c5bd56fcac4996d406a7ec33",
+      "new_normalized_sha256": "d0f2bedee6645226c09cdbc8bfbc18742ef5244f810531c259fa3c5e79e04ed9",
+      "old_char_count": 899,
+      "new_char_count": 1204
+    },
+    {
+      "pdf_page": 17,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "7091c501cb612979d88f6dd8d193ce42920c02fc7a02be3bc8a80067239bce5d",
+      "new_normalized_sha256": "7091c501cb612979d88f6dd8d193ce42920c02fc7a02be3bc8a80067239bce5d",
+      "old_char_count": 1482,
+      "new_char_count": 1482
+    },
+    {
+      "pdf_page": 18,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "01e424420fc2e3e9ba2209c544bb22dde68f8f3baca94943b27bb95489d059c1",
+      "new_normalized_sha256": "01e424420fc2e3e9ba2209c544bb22dde68f8f3baca94943b27bb95489d059c1",
+      "old_char_count": 698,
+      "new_char_count": 698
+    },
+    {
+      "pdf_page": 19,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "eef57e622204825a15529dcbd6fe45e0a192755f997e15873c5b0c6fb7be4985",
+      "new_normalized_sha256": "eef57e622204825a15529dcbd6fe45e0a192755f997e15873c5b0c6fb7be4985",
+      "old_char_count": 859,
+      "new_char_count": 859
+    },
+    {
+      "pdf_page": 20,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "aa1e6937fd0f5cf6d77fc375448d8f070194b5ee2743686eedf188557545237c",
+      "new_normalized_sha256": "aa1e6937fd0f5cf6d77fc375448d8f070194b5ee2743686eedf188557545237c",
+      "old_char_count": 498,
+      "new_char_count": 498
+    },
+    {
+      "pdf_page": 21,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "0e39fe3a83387b035623991b1036a6bf3593f9b5fe99e5c82b58bf12625f93bd",
+      "new_normalized_sha256": "0e39fe3a83387b035623991b1036a6bf3593f9b5fe99e5c82b58bf12625f93bd",
+      "old_char_count": 719,
+      "new_char_count": 719
+    },
+    {
+      "pdf_page": 22,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "8604810f73a0298e1ce636123382b8e3676d9ff6a05972365217c8298251d84c",
+      "new_normalized_sha256": "8604810f73a0298e1ce636123382b8e3676d9ff6a05972365217c8298251d84c",
+      "old_char_count": 1008,
+      "new_char_count": 1008
+    },
+    {
+      "pdf_page": 23,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "29af132138263181c1d8729c5e9018debe85b308a5bd3ee77710015b98544099",
+      "new_normalized_sha256": "29af132138263181c1d8729c5e9018debe85b308a5bd3ee77710015b98544099",
+      "old_char_count": 1486,
+      "new_char_count": 1486
+    },
+    {
+      "pdf_page": 24,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "48f959ad6e8c0c70a2292ed8fd3a0e8603e07e6dcfe4da16398b8dcf3e907819",
+      "new_normalized_sha256": "48f959ad6e8c0c70a2292ed8fd3a0e8603e07e6dcfe4da16398b8dcf3e907819",
+      "old_char_count": 515,
+      "new_char_count": 515
+    },
+    {
+      "pdf_page": 25,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "97bb0439bd58ee5fde64dff0bf71fb315cd5142988a099ddb1e6386b9ed64b14",
+      "new_normalized_sha256": "97bb0439bd58ee5fde64dff0bf71fb315cd5142988a099ddb1e6386b9ed64b14",
+      "old_char_count": 825,
+      "new_char_count": 825
+    },
+    {
+      "pdf_page": 26,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "4b9f12b9aa62a879166e0de1d48031b06555083c1eaa30645508f2807e2b2525",
+      "new_normalized_sha256": "4b9f12b9aa62a879166e0de1d48031b06555083c1eaa30645508f2807e2b2525",
+      "old_char_count": 1143,
+      "new_char_count": 1143
+    },
+    {
+      "pdf_page": 27,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "45fac43141db24cbc6328c853c364277bc14c5d5a43035f8306e4b84513ee5c8",
+      "new_normalized_sha256": "45fac43141db24cbc6328c853c364277bc14c5d5a43035f8306e4b84513ee5c8",
+      "old_char_count": 219,
+      "new_char_count": 219
+    },
+    {
+      "pdf_page": 28,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "9c002194a08ff2d9aeffda86577cb2999640a42403f4c2ff47500c983670efdf",
+      "new_normalized_sha256": "9c002194a08ff2d9aeffda86577cb2999640a42403f4c2ff47500c983670efdf",
+      "old_char_count": 1501,
+      "new_char_count": 1501
+    },
+    {
+      "pdf_page": 29,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "84866a03e390f4c1bac49b03f27c0dbaff1443c240b778c3e667a272aaf347fd",
+      "new_normalized_sha256": "84866a03e390f4c1bac49b03f27c0dbaff1443c240b778c3e667a272aaf347fd",
+      "old_char_count": 2835,
+      "new_char_count": 2835
+    },
+    {
+      "pdf_page": 30,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "1d6cf9a87e339cc3b288880e56413d0e2693460ef2c97dafc12cd8cb352a1e10",
+      "new_normalized_sha256": "1d6cf9a87e339cc3b288880e56413d0e2693460ef2c97dafc12cd8cb352a1e10",
+      "old_char_count": 1472,
+      "new_char_count": 1472
+    },
+    {
+      "pdf_page": 31,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "32b2ebab21cee9fb54cdc889b36664efa58b0596fb7cc513c73d6d2dcaf77e71",
+      "new_normalized_sha256": "32b2ebab21cee9fb54cdc889b36664efa58b0596fb7cc513c73d6d2dcaf77e71",
+      "old_char_count": 1204,
+      "new_char_count": 1204
+    },
+    {
+      "pdf_page": 32,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "8efae26148b3569738316b6a666c527e324f4023e0f744ba7281957900224aa3",
+      "new_normalized_sha256": "8efae26148b3569738316b6a666c527e324f4023e0f744ba7281957900224aa3",
+      "old_char_count": 1002,
+      "new_char_count": 1002
+    },
+    {
+      "pdf_page": 33,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "a602f3bacff72a8eeda3296a6f6ceccdf9b1b8052c7a8df2acd537453bdcc80c",
+      "new_normalized_sha256": "a602f3bacff72a8eeda3296a6f6ceccdf9b1b8052c7a8df2acd537453bdcc80c",
+      "old_char_count": 764,
+      "new_char_count": 764
+    },
+    {
+      "pdf_page": 34,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "1540fca47763a289925e0e3ba05c1cc2cfd4e82c69c07c15b0b0c2de5252994a",
+      "new_normalized_sha256": "1540fca47763a289925e0e3ba05c1cc2cfd4e82c69c07c15b0b0c2de5252994a",
+      "old_char_count": 695,
+      "new_char_count": 695
+    },
+    {
+      "pdf_page": 35,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "06554d0c6f77f709bf4e9a9ece79791e518184c55b3df4314ac24ec0bb9fd47e",
+      "new_normalized_sha256": "9145b3580bee8107cc16ebfc24f68f6cb9a85b543e715663f72f67fe5cc1ae8b",
+      "old_char_count": 1280,
+      "new_char_count": 1254
+    },
+    {
+      "pdf_page": 36,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "5e96f679aa892d8ed5208124c9f24264e18f8f1ceb2434fe8973a163624d4f99",
+      "new_normalized_sha256": "73f3620999e2c12ba138a6975723806420d7134f7d3a4d5925fb1a6939f1e9ab",
+      "old_char_count": 1154,
+      "new_char_count": 1162
+    },
+    {
+      "pdf_page": 37,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "202877e7d39281f9e9bca3682feb58cb1d35e973dbc95a56a0ed0d41cfa54059",
+      "new_normalized_sha256": "c4bc673846515a6648ce611cb8b8191711aaedf0adb4f96e5de44f557cd3c36e",
+      "old_char_count": 1160,
+      "new_char_count": 1142
+    },
+    {
+      "pdf_page": 38,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "2a9c1bb4a1ace2a411fa8030fa29ed6ff8742562575b1e45b7255ccf0af37b63",
+      "new_normalized_sha256": "cc74d452642cc93cf21020a15263f875be7df4ae494227e98fc3d53f0c219279",
+      "old_char_count": 1089,
+      "new_char_count": 1087
+    },
+    {
+      "pdf_page": 39,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "41077c8bcca37be1c4e7cc24655fe0e0f3f18e92a2ecdea020abd14572619cd7",
+      "new_normalized_sha256": "4ae5f218cba33e8e19453e9e89a1024382953fc93a0dde40a8f8b84d3069ea3d",
+      "old_char_count": 982,
+      "new_char_count": 977
+    },
+    {
+      "pdf_page": 40,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "3230d7f206f02badf7c3b45d93db95ca95a30054dbda5588834a1e7ad0fd405b",
+      "new_normalized_sha256": "d318007406bc7b5f45e99b1bf6276b351a3460d376b46cbfb34d15454a886ef6",
+      "old_char_count": 911,
+      "new_char_count": 922
+    },
+    {
+      "pdf_page": 41,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "e448de3b3e51f7649e2e7d1d6eddcd51d750dd02bb91542046f7584a37d7e766",
+      "new_normalized_sha256": "e3c801a786d575c5649044884ba7c3d17e2535631174e1baa640fcbb6748119d",
+      "old_char_count": 685,
+      "new_char_count": 693
+    },
+    {
+      "pdf_page": 42,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "1df2c7e49b1a110c4969b415ab3cac7916c90f0e4fbbad248567df3d7675f531",
+      "new_normalized_sha256": "233a09b1382f3c2e285c9221cb3ed66bfadc366d254cf9311c9f25316f3c9bce",
+      "old_char_count": 2256,
+      "new_char_count": 2082
+    },
+    {
+      "pdf_page": 43,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "1fc2b684fe288a924f435f20f0010277affb7ac431a07880529d18e775f1b435",
+      "new_normalized_sha256": "70a3e5afc09afdd55901d1045bc69f054871e1e7d4feadb134a3b5e26b5979e1",
+      "old_char_count": 2669,
+      "new_char_count": 2783
+    },
+    {
+      "pdf_page": 44,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "a07257acc5db622d5748d4e82d5d7f2fc79da3ce67aa75bd7e9c41cd32fd76bb",
+      "new_normalized_sha256": "8764afee84ef0dabdbce5eab150872a4f4ab6a96bd0137839fcb081a198542d0",
+      "old_char_count": 382,
+      "new_char_count": 466
+    },
+    {
+      "pdf_page": 45,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "7261cecb5df7a1b3dbcbad9637ea16c9ab215c00e2fdc18a1358b38e943f7fc2",
+      "new_normalized_sha256": "7261cecb5df7a1b3dbcbad9637ea16c9ab215c00e2fdc18a1358b38e943f7fc2",
+      "old_char_count": 494,
+      "new_char_count": 494
+    },
+    {
+      "pdf_page": 46,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "1c17d44b29c05e3396f1a7940edcb6fa414fb21955ac6dc8383a1cd45e7ad1cd",
+      "new_normalized_sha256": "ce7e626ca3be37cd0a46f87b4b3867476264f364aa94433195d4d54ee41633f9",
+      "old_char_count": 1264,
+      "new_char_count": 1264
+    },
+    {
+      "pdf_page": 47,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "765f0bc085558a3c82c741fd04ab88adc2e97f89c331ef523b9e058913f5913b",
+      "new_normalized_sha256": "765f0bc085558a3c82c741fd04ab88adc2e97f89c331ef523b9e058913f5913b",
+      "old_char_count": 1205,
+      "new_char_count": 1205
+    },
+    {
+      "pdf_page": 48,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "d4c2dddd537eab575f35bfbf39655c255f28c2ef94daf94f63eb30362c546bdd",
+      "new_normalized_sha256": "a591fde782e9c6f7d576aff35b3e7a4aee252ad6a34c1ee86bb5589541e65421",
+      "old_char_count": 1408,
+      "new_char_count": 1382
+    },
+    {
+      "pdf_page": 49,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "0f77e35d6ba872d476d557dcbb4b133b8863c95257064ad7d7186daa20b32e32",
+      "new_normalized_sha256": "5d1eceb6fccd4fa87702d00fe4d2a45a8f1c3fe80f75aad229890ebe24ea3614",
+      "old_char_count": 1237,
+      "new_char_count": 1235
+    },
+    {
+      "pdf_page": 50,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "830773de77ea1480281547998ffc09414296c18b747a433511a98ab7fe61c36f",
+      "new_normalized_sha256": "dc398c3c8e27fe8cb73624e4452f7a4b306d2cb128ded10d6667738635011cb9",
+      "old_char_count": 762,
+      "new_char_count": 858
+    },
+    {
+      "pdf_page": 51,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "21afac65465bc6d0f8fd7e61de6003d08fa4cc77e193502e4543d4bad810e989",
+      "new_normalized_sha256": "21afac65465bc6d0f8fd7e61de6003d08fa4cc77e193502e4543d4bad810e989",
+      "old_char_count": 430,
+      "new_char_count": 430
+    },
+    {
+      "pdf_page": 52,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "e91b1be3319ac56b1b4bdded0792a51f5e61e9587db278869982895525008b51",
+      "new_normalized_sha256": "c817ab224c90f790269bf2787ad331dede92e740968bf76b374f173c53048b30",
+      "old_char_count": 443,
+      "new_char_count": 442
+    },
+    {
+      "pdf_page": 53,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "4b92021c1d642ae7b8f525abfd45ae4e54f4bb87f6d9203dd19d9e6d4fb5900e",
+      "new_normalized_sha256": "7015b37762fab2bfda29383d884abb177f50d7dc4c95bc0009dfb45e2f745ae4",
+      "old_char_count": 150,
+      "new_char_count": 146
+    },
+    {
+      "pdf_page": 54,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": false,
+      "old_normalized_sha256": "b56eb937c3859ef3190ed5d68c5639119aef4265f5da42f542a2faa46b4c1ec7",
+      "new_normalized_sha256": "6bd80a4a67311a26e14cd1f86e95ab8229e9c2bb09066080c2af336eb5d5ea50",
+      "old_char_count": 549,
+      "new_char_count": 1065
+    },
+    {
+      "pdf_page": 55,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "2cfa25b75294566a14b51ee8231eb187e7ad2c41c6151a15ef881a91a7ca7adc",
+      "new_normalized_sha256": "2cfa25b75294566a14b51ee8231eb187e7ad2c41c6151a15ef881a91a7ca7adc",
+      "old_char_count": 762,
+      "new_char_count": 762
+    },
+    {
+      "pdf_page": 56,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "33d9fe5485aa9153f9e95b3796c629c3b2a8f1b523f35bb37cc4c9bad953bb96",
+      "new_normalized_sha256": "33d9fe5485aa9153f9e95b3796c629c3b2a8f1b523f35bb37cc4c9bad953bb96",
+      "old_char_count": 9656,
+      "new_char_count": 9656
+    },
+    {
+      "pdf_page": 57,
+      "old_file": "SH36735XX CV0.2C.pdf",
+      "new_file": "SH36735XX CV1.0A.pdf",
+      "equal_normalized_text": true,
+      "old_normalized_sha256": "2fb733084863af6da55c7c5f2f399c96228b4ded1fb53c56c826d84608a690fa",
+      "new_normalized_sha256": "2fb733084863af6da55c7c5f2f399c96228b4ded1fb53c56c826d84608a690fa",
+      "old_char_count": 4505,
+      "new_char_count": 4505
+    }
+  ]
+}

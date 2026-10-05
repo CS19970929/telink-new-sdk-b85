@@ -1,0 +1,47 @@
+{
+  "source_HEAD": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+  "worktree_content_sha256": "05fb3147811468a347d3b27538b364d6ce92d56c533a17d713bcc8e1ac689613",
+  "original_local_clean": true,
+  "files": {
+    "findings.md": "7466859ebeb4b9cdf37f2afbddfbd22031326b6a21955606f00ee4f0cd55eb22",
+    "coverage.md": "b9f5a7ed3e9bf116b0dcda61105695dfea2021ae5eb0611dbad04e09cac61b52",
+    "config_matrix.md": "b310159659a0b334e12aec2e86971f5c5205319b4b53fc686aaf67b16312b602",
+    "check_tables.py": "cd575a1a6edb3764aaf01f6cc1f37472c8428e929a6a2541c1c355fe7c438e43",
+    "semantic_check.py": "3509738f0bcf1ebe7da5c4903e9c2ece910f272fba7575f126e7e3eaef56aa0f",
+    "independent_host.py": "334eb4b862bcdd658fa57cd8309296947d1b81ff52508c7d848d03a05f3572eb",
+    "freshness_host.py": "1fb789ea6372591e6c51eef3a66e7ba21188508ff353b64e7528786224f72364",
+    "register_host.py": "7ec2bcc29eae76069f75938c81c8a493d81cf604d1e7ae5806e2503ab6a50bd7",
+    "recovery_results.txt": "4bc3122d91d98292711cda34548dc78a5f77b6a585f63c5f34f8d28d3cdbb2b8",
+    "freshness_results.txt": "7187986dbaf36deecde1babc241ff4b62e34013acf6f1e7192c265687510d625",
+    "register_results.json": "d33231f219ba3989e9ba8e5008f23672df0923151352e5a88b9171834be1e1f5",
+    "host_scope.json": "0a6320b5a99d09eba6556d0b48ce633814e9286fe5e7e1cd1fe831f0d9152612",
+    "pdf_manifest.json": "fd6fb3cb4b0338735fd391fdc400368034fbf3fdd2a8f645532484cc5f9ae633",
+    "previous_dirty_vs_final_clean.json": "6d73fd97d913c8164ebc18c3c29a8bcdaee08c1aebbfecafbabec83d4d2eea17"
+  },
+  "current_source_files": {
+    "bms/afe/dvc1124/dvc1124.c": "c6e2b1f374250f138ba88549bcdb9d88433744332c9efbcf17a184d2762fe98b",
+    "bms/afe/dvc1124/dvc1124.h": "9e76d063c18cc1530ab841f23a9d980ec03cc4d752cd13b1350e76436245d569",
+    "bms/afe/dvc1124/dvc1124_bms.c": "afd64922f859b06ef89a79b21017ca972a07daeb6b0a4c9ceca46d96c0510ddb",
+    "bms/afe/dvc1124/dvc1124_boot.c": "155ebe55503c6d26f089f3a7ad196f2dfcce0594eb3c4f8c9f8011e4ea367383",
+    "bms/afe/dvc1124/dvc1124_boot.h": "a7b7118dff24d53d53a26fb226fef05ac26269da79755019addeba6209cb6698",
+    "bms/afe/dvc1124/dvc1124_config_service.c": "b67ef736566edc1761e1cedc2f425656364271e392deb6403e48217e76b05cce",
+    "bms/afe/dvc1124/dvc1124_config_service.h": "4ad75187c373a213bcfe0a456fd54544f800a068cfa0b8feabd16e95f4568645",
+    "bms/afe/dvc1124/dvc1124_feature_backend.c": "48636ea168e49bf7bfe896646a29096eb26d43c9589ff9eb68eacdfd2f8fbf37",
+    "bms/afe/dvc1124/dvc1124_reg.h": "6fe58a680b3f82474c4d263791a90982f2e55f22a9fb91a99d91a22f61f28466",
+    "bms/afe/dvc1124/dvc1124_special.c": "3078cd0aa1e30f5f5146538a9288d2b3a22704862037bf630bdec4a895554221",
+    "bms/products/d008/bms_parameter_policy.h": "32a4fb38be1871794011863fe709c7a387f193c79ff4b51c74777317e4f57831",
+    "bms/products/d008/bms_product_conf.h": "5db617ccdf03e2420c30678d24f33a127a3adc26743e9a7bd0749ef686b0d190",
+    "bms/products/d008/bms_product_config.h": "2dc96b63a6e598c4d9f4f1284025c25bafc175df8b9e5703708e0988171d2ee3",
+    "bms/products/d008/d008_product_profile.h": "f4caf44a12aea8dcf8d5f4af20526e33fbbda6e3f78cf81493286c0da13a686f",
+    "bms/products/d008/dvc1124_project_config.h": "e28f530a4956cb4efac733dd01ca21eb37af58f50ba2320f50b559fe37e3484a"
+  },
+  "validation_levels": {
+    "register_table_compare": "same-hash original PDF words/geometry audit reused",
+    "field_semantics_compare": "same-hash original PDF text matching audit reused",
+    "host_recovery": "latest exact production functions re-extracted/recompiled/executed; stubbed I/O; no full TU",
+    "host_freshness": "latest exact production function re-extracted/recompiled/executed; stubbed helpers/I/O; no full TU",
+    "host_final_registers": "latest production expanded functions re-extracted/recompiled/executed; identity DIRTY=0 matches clean original local; original PDF bank/formula oracle",
+    "production_build": "parent verifies original local source production read-only, output external",
+    "board": "not performed"
+  }
+}

@@ -1,0 +1,28 @@
+                                           SH3673510/3673514/3673517/3673520
+7.14 CADC
+7.14.1 特性
+   ◼   16位Σ-Δ模/数转换器
+   ◼   4Hz(Normal模式)和1/4Hz(IDLE模式)两种转换频率
+   ◼   1通道双端差分输入
+7.14.2 工作模式
+7.14.2.1 采集范围
+    ◼    1路电流采集通道，电压输入范围为-100mV ~ 100mV
+7.14.2.2 工作方式
+    寄存器中CADC_EN位用于开关CADC模块。
+  Normal模式，CADC转换频率固定为4Hz，每次完成1周期电流通道采集后，寄存器FLAG2中CADC_FLG位置1，同时ALARM
+管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH寄存器中CADC_INT位为1)。当FLAG2寄存器被读取后，CADC_FLG标
+志位自动清零。
+    IDLE模式，CADC转换频率固定为1/4Hz，MCU可通过配置CADCT[1:0]位来设置更新CADC数据的周期(更新的结果为该
+配置周期的平均值)，寄存器FLAG2中CADC_FLG位置1，同时ALARM管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH
+寄存器中CADC_INT位为1)。当FLAG2寄存器被读取后，CADC_FLG标志位自动清零。比如配置CADCT[1:0]=01,CADC更新
+数据周期为32s，由于CADC转换频率固定为1/4Hz，当CADC第8次转换完成后，会将前8次的平均值更新到寄存器中，同时寄
+存器FLAG2中CADC_FLG位置1，ALARM管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH寄存器中CADC_INT位为
+1)。
+
+7.14.2.3 计算公式
+    根据CADC转换结果可以计算出电流值(单位：mA，其中CADCD为CADCDH/L寄存器值，RSENSE为Sense电阻，单位为Ω)：
+
+
+
+
+                                           21

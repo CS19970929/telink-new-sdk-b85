@@ -1,0 +1,58 @@
+                                                                                                        bq76920, bq76930, bq76940
+www.ti.com                                                                              SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+
+         CC_CFG5:0 (Bits 5–0): For optimal performance, these bits should be programmed to 0x19 upon device
+         startup.
+
+7.5.2       Read-Only Registers
+
+                                               Table 7-15. CELL VOLTAGE REGISTERS
+VC1_HI, _LO (0x0C–0x0D), VC2_HI, _LO (0x0E–0x0F), VC3_HI, _LO (0x10–0x11), VC4_HI, _LO (0x12–0x13), VC5_HI, _LO
+(0x14–0x15) / bq76930, bq76940: VC6_HI, _LO (0x16–0x17), VC7_HI, _LO (0x18–0x19), VC8_HI, _LO (0x1A–0x1B), VC9_HI, _LO
+(0x1C–0x1D), VC10_HI, _LO (0x1E–0x1F) / bq76940: VC11_HI, _LO (0x20–0x21), VC12_HI, _LO (0x22–0x23), VC13_HI, _LO
+(0x24–0x25), VC14_HI, _LO (0x26–0x27), VC15_HI, _LO (0x28–0x29)
+      BIT               7                6               5           4             3               2             1              0
+    NAME               —                —               D13         D12           D11             D10            D9             D8
+    RESET               0                0               0           0             0               0             0              0
+    NAME               D7               D6              D5           D4            D3              D2            D1             D0
+    RESET               0                0               0           0             0               0             0              0
+
+         D11:8 (Bits 3–0): Cell “x” ADC reading, upper 6 MSB. Always returned as an atomic value if both high
+         and low registers are read in the same transaction (using address auto-increment).
+
+         D7:0 (Bits 7–0): Cell ”x” ADC reading, lower 8 LSB.
+
+                                          Table 7-16. BAT_HI (0x2A) and BAT_LO (0x2B)
+      BIT               7                6               5           4             3               2             1              0
+    NAME              D15              D14              D13         D12           D11             D10            D9             D8
+    RESET               0                0               0           0             0               0             0              0
+    NAME               D7               D6              D5           D4            D3              D2            D1             D0
+    RESET               0                0               0           0             0               0             0              0
+
+         D15:8 (Bits 7–0): BAT calculation based on adding up Cells 1–15, upper 8 MSB. Always returned as an
+         atomic value if both high and low registers are read in the same transaction (using address auto-
+         increment).
+
+         D7:0 (Bits 7–0): BAT calculation based on adding up Cells 1–15, lower 8 LSB
+
+                                             Table 7-17. TS1_HI (0x2C) and TS1_LO (0x2D)
+      BIT               7                6               5           4             3               2             1              0
+    NAME               —                —               D13         D12           D11             D10            D9             D8
+    RESET               0                0               0           0             0               0             0              0
+    NAME               D7               D6              D5           D4            D3              D2            D1             D0
+    RESET               0                0               0           0             0               0             0              0
+
+         D11:8 (Bits 3–0): TS1 or DIETEMP ADC reading, upper 6 MSB. Always returned as an atomic value if
+         both high and low registers are read in the same transaction (using address auto-increment).
+
+         D7:0 (Bits 7–0): TS1 or DIETEMP ADC reading, lower 8 LSB
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                        Detailed Description    39
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

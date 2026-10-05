@@ -1,0 +1,52 @@
+DVC1124-2 参考手册                                                            4 串至 24 串电池组监控芯片
+0·························CADC CC2 转换结束后中断输出低电平 1ms
+1·························CADC CC2 转换结束后中断无输出
+ICOM ·················电池过压中断输出屏蔽控制位
+0·························电池过压后中断输出低电平 1ms
+1·························电池过压后中断无输出
+ICUM ·················电池欠压中断输出屏蔽控制位
+0·························电池欠压后中断输出低电平 1ms
+1·························电池欠压后中断无输出
+IOC1M ···············1 级过流(包含 1 级放电过流和 1 级充电过流)中断输出屏蔽控制位
+0·························1 级过流后中断输出低电平 1ms
+1·························1 级过流后中断无输出
+IOC2M ···············2 级过流(包含 2 级放电过流和 2 级充电过流)中断输出屏蔽控制位
+0·························2 级过流后中断输出低电平 1ms
+1·························2 级过流后中断无输出
+ISCDM ················放电短路中断输出屏蔽控制位
+0·························放电短路后中断输出低电平 1ms
+1·························放电短路后中断无输出
+
+电阻修调寄存器
+    0x7E          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME          FRT[7]        FRT[6]        FRT5]     FRT[4]   FRT[3]     FRT[2]     FRT[1]   FRT[0]
+    MODE            R             R              R        R        R          R          R        R
+
+    0x7F          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+
+    0x80          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+    0x81          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+    0x82          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+    0x83          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+
+    0x84          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+
+    0x85          BIT 7          BIT 6          BIT 5   BIT 4    BIT 3      BIT 2      BIT 1    BIT 0
+    NAME
+    MODE            R             R              R        R        R          R          R        R
+
+
+ 28 / 33                                                1.2                         南京集澈电子科技有限公司
+                                                                                    宜矽源半导体南京有限公司

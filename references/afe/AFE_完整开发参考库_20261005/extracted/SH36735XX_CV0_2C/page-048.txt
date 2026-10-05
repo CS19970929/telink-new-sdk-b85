@@ -1,0 +1,66 @@
+               Preliminary                            SH3673510/3673514/3673517/3673520
+   tIN4   转换时间                        237.5   250     262.5    ms   Normal模式下
+   INL    积分非线性误差                        -    ±3        -     LSB   -40℃~85℃
+  VOffset 失调误差                           -    ±3        -     LSB   -40℃~85℃
+  VGain   增益误差                           -     -      ±1%     FSR   -40℃~85℃，FSR=±100mV
+注释：1LSB= 112.5mV / 216-1 = 112.5mV / 215 ≈ 3.43uV
+
+                                              均衡
+    参数                说明             最小值 典型值 最大值 单位                                      测试条件
+    RBAL     均衡内阻                     75  250  400 Ω                VCN - VCN-1 = 3.7V
+
+                                              预放电
+    参数            说明                 最小值 典型值 最大值 单位                                      测试条件
+   tPDSGON   预放电开启时间                  0.2  -    3  s                可配置
+   tPDSGAD   预放电额外开启时间                70  140  210 ms
+
+                                          MOSFET驱动能力
+    参数                说明             最小值 典型值 最大值 单位                              测试条件
+     tCP     Charge Pump建立时间          -    -   250 ms               Charge Pump电容为1uF，且建立到9V时的时间
+             HCHG开启电压(VHCHG-
+   VHCHGON                            10.5     11.5   12.5     V    VBAT ≥ 8V，HCHG接CL = 30nF
+             VVCPR)
+             HCHG关闭电压(VHCHG-
+  VHCHGOFF                             -        -      0.3     V    VBAT ≥ 8V，HCHG接CL = 30nF
+             VVCPR)
+             HDSG开启电压(VHDSG-
+   VHDSGON                            10.5     11.5   12.5     V    VBAT ≥ 8V，HDSG接CL = 30nF
+             VVCPR)
+             HDSG关闭电压(VHDSG-
+  VHDSGOFF                             -        -      0.3     V    VBAT ≥ 8V，HDSG接CL = 30nF
+             VDSGD)
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HCHG串联电阻为1kΩ，CLOAD并联电阻为
+  TCHGFETL   HCHG下拉时间                  -       150     250    us
+                                                                    10M，HCHG由开启变为关闭，CLOAD电压由
+                                                                    90%降低到10%的时间
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HDSG串联电阻为1kΩ，CLOAD并联电阻为
+  TDSGFETL   HDSG下拉时间                  -       300     400    us    10M，DSGD串联电阻为1 kΩ，
+                                                                    VPACK+=VB+，HDSG由开启变为关闭，CLOAD
+                                                                    电压由90%降低到10%的时间
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HCHG串联电阻为1kΩ，CLOAD并联电阻为
+             HCHG上拉时间                  -       200     350    us
+                                                                    10M， HCHG由关闭变为开启，CLOAD电压
+                                                                    由10%升高到90%的时间
+    TFETH                                                           Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HDSG串联电阻为1kΩ，CLOAD并联电阻为
+             HDSG上拉时间                  -       200     360    us    10M，DSGD串联电阻为1kΩ，
+                                                                    VPACK+=VB+，HDSG由关闭变为开启，CLOAD
+                                                                    电压由10%升高到90%的时间
+   IPDSGON   PDSG开启下拉电流                80      125     170    uA
+   VCHGH/                             10.5     12       14     V    VBAT > 13V，外接1M电阻到地
+             CHG/DSG高电平
+    VDSGH                           VBAT-2.5    -        -     V    8V < VBAT ≤ 13V，外接1M电阻到地
+    VCHGL/
+             CHG/DSG低电平                -        -       1      V    IOL = 0.5mA
+    VDSGL
+                                                                    CLOAD = 50nF，串联电阻为1KΩ，DSG端
+     tCH     CHG/DSG上拉时间               -       250     350    us    CLOAD并联电阻为10M，CHG端CLOAD并联电
+                                                                    阻为1M，CLOAD电压由10%升到90%
+                                                                    CLOAD = 50nF，串联电阻为1KΩ，DSG端
+     tDH     CHG/DSG下拉时间               -       250     350    us    CLOAD并联电阻为10M，CHG端CLOAD并联电
+                                                                    阻为1M，CLOAD电压由90%降到10%
+
+                                                      48

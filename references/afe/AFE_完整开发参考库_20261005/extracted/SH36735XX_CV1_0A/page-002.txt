@@ -1,0 +1,81 @@
+                                                                         SH3673510/3673514/3673517/3673520
+3. 系统框图
+
+
+
+
+                                                                                    LDO_O
+                                                                         LDO_P
+                       SHIP
+
+
+
+
+                                                         VCC
+
+
+
+
+                                                                                                     VCPR
+
+
+
+                                                                                                                   VCP
+      VBAT                                                                                                                    HCHG
+                                               LDO1(LDO_VCC)             LDO2(LDO_MCU)           HCHG/HDSG Driver
+                       Power
+          VSS                                  for internal blocks       For external MCU                                     HDSG
+
+
+                                                                                                                              PDSG
+                                                                                                     PDSG Driver
+
+                                                                                                                              CHG
+                                       Die                                                         CHG/DSG Driver             DSG
+                                    Temperature
+          VC20
+                                                     C+ Voltage Converter                                                     CHGD
+                                                                                                      Charger Detection
+
+                                                                                                            Load Detection    DSGD
+          VC19
+                                                                                                                              TS1
+                                                                                                                              TS2
+                                                                                                                Temperature
+                                                                                                                  Detect      TS3
+
+                                                                                                                              TS4
+                   Level shift&
+                                                   MUX
+
+
+
+
+                 Balance module                                  VADC
+                                                                 13bit
+                                    Channels                                                      RC
+
+                                                                                                                              SDO
+          VC1                                  CADC                                             WatchDog
+                                               16bit                                                                          SDI
+                                                                                                                     SPI
+                                                                                 Logic Module                       module    SCK
+          VC0
+                                                                                                                              CS
+                                                                                                Registers
+                                                                OC module
+
+                                                                                                                              RESET
+                                                                                                                              ALARM
+                              RS2
+                 RS1
+
+
+
+
+                                               图1 系统方框图(以SH3673520为例)
+
+
+
+
+                                                                         2

@@ -1,0 +1,54 @@
+                                                                                                                                                 PACKAGE OPTION ADDENDUM
+
+
+www.ti.com                                                                                                                                                                                      30-Mar-2016
+
+
+
+        Orderable Device            Status    Package Type Package Pins Package              Eco Plan         Lead/Ball Finish         MSL Peak Temp         Op Temp (°C)               Device Marking        Samples
+                                       (1)                 Drawing        Qty                    (2)                  (6)                      (3)                                            (4/5)
+
+        BQ7693007DBTR               ACTIVE        TSSOP          DBT       30     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7693007
+                                                                                            & no Sb/Br)
+         BQ7694000DBT               ACTIVE        TSSOP          DBT       44      40      Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694000
+                                                                                            & no Sb/Br)
+        BQ7694000DBTR               ACTIVE        TSSOP          DBT       44     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694000
+                                                                                            & no Sb/Br)
+         BQ7694001DBT               ACTIVE        TSSOP          DBT       44      40      Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694001
+                                                                                            & no Sb/Br)
+        BQ7694001DBTR               ACTIVE        TSSOP          DBT       44     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694001
+                                                                                            & no Sb/Br)
+         BQ7694002DBT               ACTIVE        TSSOP          DBT       44      40      Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694002
+                                                                                            & no Sb/Br)
+        BQ7694002DBTR               ACTIVE        TSSOP          DBT       44     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694002
+                                                                                            & no Sb/Br)
+         BQ7694003DBT               ACTIVE        TSSOP          DBT       44      40      Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694003
+                                                                                            & no Sb/Br)
+        BQ7694003DBTR               ACTIVE        TSSOP          DBT       44     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694003
+                                                                                            & no Sb/Br)
+         BQ7694006DBT               ACTIVE        TSSOP          DBT       44      40      Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694006
+                                                                                            & no Sb/Br)
+        BQ7694006DBTR               ACTIVE        TSSOP          DBT       44     2000     Green (RoHS           CU NIPDAU           Level-2-260C-1 YEAR       -40 to 85          BQ7694006
+                                                                                            & no Sb/Br)
+
+(1)
+   The marketing status values are defined as follows:
+ACTIVE: Product device recommended for new designs.
+LIFEBUY: TI has announced that the device will be discontinued, and a lifetime-buy period is in effect.
+NRND: Not recommended for new designs. Device is in production to support existing customers, but TI does not recommend using this part in a new design.
+PREVIEW: Device has been announced but is not in production. Samples may or may not be available.
+OBSOLETE: TI has discontinued the production of the device.
+
+(2)
+   Eco Plan - The planned eco-friendly classification: Pb-Free (RoHS), Pb-Free (RoHS Exempt), or Green (RoHS & no Sb/Br) - please check http://www.ti.com/productcontent for the latest availability
+information and additional product content details.
+TBD: The Pb-Free/Green conversion plan has not been defined.
+Pb-Free (RoHS): TI's terms "Lead-Free" or "Pb-Free" mean semiconductor products that are compatible with the current RoHS requirements for all 6 substances, including the requirement that
+lead not exceed 0.1% by weight in homogeneous materials. Where designed to be soldered at high temperatures, TI Pb-Free products are suitable for use in specified lead-free processes.
+Pb-Free (RoHS Exempt): This component has a RoHS exemption for either 1) lead-based flip-chip solder bumps used between the die and package, or 2) lead-based die adhesive used between
+the die and leadframe. The component is otherwise considered Pb-Free (RoHS compatible) as defined above.
+
+
+
+
+                                                                                             Addendum-Page 2

@@ -1,0 +1,60 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                         www.ti.com
+
+
+
+7.3.1.1.5 Die Temperature Monitor
+
+                                                              NOTE
+                     When switching between external and internal temperature monitoring, a 2-s latency may be
+                     incurred due to the natural scheduler update interval.
+
+
+       A die temperature block generates a voltage that is proportional to the die temperature, and provides a
+       way of reducing component count if pack thermistors are not used or ensuring that the die power
+       dissipation requirements are observed. The die is measured using the same on-board 14-bit ADC as the
+       cell voltages.
+       To select internal die temperature measurement mode, set [TEMP_SEL] = 0.
+       For bq76930 and bq76940, multiple die temperature measurements are available. These are stored in
+       TS2 and TS3.
+       To convert a DIETEMP reading into temperature, refer to the following equation box. If more accurate
+       temperature readings are needed from DIETEMP, the DIETEMP at room temperature value should be
+       stored during production calibration.
+       The following equation shows how to use the 14-bit ADC readings in TS1, TS2, and TS3 when
+       [TEMPSEL] = 0 to determine the internal die temperature:
+
+       V25 = 1.200 V (nominal)                                                                                                   (6)
+       VTSX = (ADC in Decimal) x 382 µV/LSB                                                                                      (7)
+       TEMPDIE = 25° – ((VTSX – V25) ÷ 0.0042)                                                                                   (8)
+
+7.3.1.1.6 16-Bit Pack Voltage
+       Once converted to digital form, each cell voltage is added up and the summation result stored in the BAT
+       registers. This 16-bit value has a nominal LSB of 1.532 mV.
+       The following shows how to convert the 16-bit pack voltage ADC reading into an analog voltage. This
+       value also uses the GAIN and OFFSET stored into EEPROM.
+       The ADC transfer function is a linear equation defined as follows:
+       V(BAT) = 4 x GAIN x ADC(cell) + (#Cells x OFFSET)                                                                         (9)
+
+       GAIN is stored in units of µV/LSB, while OFFSET is stored in mV units.
+
+7.3.1.1.7 System Scheduler
+       A master scheduler oversees the monitoring intervals, creating a full update every 250 ms. Temperature
+       measurements are taken every 2 seconds. Pack voltage is calculated every 250 ms.
+
+7.3.1.2   Protection Subsystem
+
+7.3.1.2.1 Integrated Hardware Protections
+       Integrated hardware protections are provided as an extra degree of safety and are meant to supplement
+       the standard protection feature set that would be incorporated into the host controller firmware. They
+       should not be used as the sole means of protecting a battery pack, but are useful for FMEA purposes; for
+       example, in the event that a host microcontroller is unable to react to any of the below protection
+       situations. All hardware protection thresholds and delays should be loaded into the AFE by the host
+       microcontroller during system startup. The AFE will also default to pre-defined threshold and delay
+       settings, in case the host microcontroller is unable to or does not wish to program the protection settings.
+
+
+
+
+24     Detailed Description                                                     Copyright © 2013–2015, Texas Instruments Incorporated
+                                                Submit Documentation Feedback
+                                        Product Folder Links: bq76920 bq76930 bq76940

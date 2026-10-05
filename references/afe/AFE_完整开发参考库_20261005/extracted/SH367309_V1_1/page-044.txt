@@ -1,0 +1,55 @@
+                                                                                             SH367309
+Table 12.14 Cell14电芯电压寄存器
+    68H，69H           第7位      第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL14H      CELL14.15 CELL14.14 CELL14.13 CELL14.12 CELL14.11 CELL14.10 CELL14.9           CELL14.8
+     CELL14L       CELL14.7   CELL14.6   CELL14.5    CELL14.4   CELL14.3   CELL14.2   CELL14.1   CELL14.0
+
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL14.15 -
+                              当转换完成后，数据更新为电芯14电压对应的数值
+     7:0        CELL14.0
+
+Table 12.15 Cell15电芯电压寄存器
+    6AH，6BH           第7位      第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL15H      CELL15.15 CELL15.14 CELL15.13 CELL15.12 CELL15.11 CELL15.10 CELL15.9           CELL15.8
+     CELL15L       CELL15.7   CELL15.6   CELL15.5    CELL15.4   CELL15.3   CELL15.2   CELL15.1   CELL15.0
+
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL15.15 -
+                              当转换完成后，数据更新为电芯15电压对应的数值
+     7:0        CELL15.0
+
+Table 12.16 Cell16电芯电压寄存器
+    6CH，6DH           第7位      第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL16H      CELL16.15 CELL16.14 CELL16.13 CELL16.12 CELL16.11 CELL16.10 CELL16.9           CELL16.8
+     CELL16L       CELL16.7   CELL16.6   CELL16.5    CELL16.4   CELL16.3   CELL16.2   CELL16.1   CELL16.0
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL16.15 -
+                              当转换完成后，数据更新为电芯16电压对应的数值
+     7:0        CELL16.0
+
+Table 12.17 T1温度寄存器
+    46H，47H           第7位      第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     TEMP1H        TEMP1.15 TEMP1.14 TEMP1.13 TEMP1.12 TEMP1.11 TEMP1.10              TEMP1.9    TEMP1.8
+     TEMP1L        TEMP1.7    TEMP1.6    TEMP1.5     TEMP1.4    TEMP1.3    TEMP1.2    TEMP1.1    TEMP1.0
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       TEMP1.15 -
+                              当转换完成后，数据更新为温度电阻1上的电压分压比对应的数值
+     7:0        TEMP1.0
+
+
+
+
+                                                    44

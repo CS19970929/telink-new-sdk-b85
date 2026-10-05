@@ -1,0 +1,62 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                www.ti.com
+
+
+
+        DSG_ON (Bit 1): Discharge FET driver (low side NCH) or discharge signal control
+                  0 = DSG is off.
+                  1 = DSG is on.
+
+        CHG_ON (Bit 0): Discharge FET driver (low side NCH) or discharge signal control
+                 0 = CHG is off.
+                 1 = CHG is on.
+
+                                               Table 7-9. PROTECT1 (0x06)
+      BIT             7               6             5          4             3                   2                1                0
+     NAME          RSNS               —        RSVD         SCD_D1         SCD_D0            SCD_T2           SCD_T1           SCD_T0
+     RESET            0               0             0          0             0                   0                0                0
+     ACCESS          RW               R         RW            RW            RW                  RW              RW               RW
+
+        RSNS (Bit 7): Allows for doubling the OCD and SCD thresholds simultaneously
+                  0 = OCD and SCD thresholds at lower input range
+                  1 = OCD and SCD thresholds at upper input range
+
+        RSVD (Bit 5): Reserved, do not set to 1.
+
+        SCD_D1:0 (Bits 4–3):
+        Short circuit in discharge delay setting. A 400-µs setting is recommended only in systems using
+        maximum cell measurement input resistance, Rc, of 1 kΩ (which corresponds to minimum internal cell
+        balancing current or external cell balancing configuration).
+
+
+                                             Code                            (in µs)
+                                              0x0                                70
+                                              0x1                                100
+                                              0x2                                200
+                                              0x3                                400
+
+        SCD_T2:0 (Bits 2–0): Short circuit in discharge threshold setting
+
+
+                               Code                     RSNS = 1 (in mV)                     RSNS = 0 (in mV)
+                               0x0                             44                                    22
+                               0x1                             67                                    33
+                               0x2                             89                                    44
+                               0x3                            111                                    56
+                               0x4                            133                                    67
+                               0x5                            155                                    78
+                               0x6                            178                                    89
+                               0x7                            200                                    100
+
+
+                                               Table 7-10. PROTECT2 (0x07)
+      BIT             7               6             5          4             3                   2                1                0
+     NAME            —          OCD_D2        OCD_D1        OCD_D0         OCD_T3            OCD_T2           OCD_T1          OCD_T0
+     RESET            0               0             0          0             0                   0                0                0
+     ACCESS           R              RW         RW            RW            RW                  RW              RW               RW
+
+
+
+36      Detailed Description                                                           Copyright © 2013–2015, Texas Instruments Incorporated
+                                                  Submit Documentation Feedback
+                                          Product Folder Links: bq76920 bq76930 bq76940

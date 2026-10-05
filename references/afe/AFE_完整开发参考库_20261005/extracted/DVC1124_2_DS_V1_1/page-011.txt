@@ -1,0 +1,75 @@
+4 串至 24 串电池组监控芯片                                                                        DVC1124-2 数据手册
+
+系统框图
+         VTOP                         VCP                     PACK             LOAD       VSS
+
+
+
+
+                                  Charge                  Charger               Load
+VBASE   Regulator
+                                  Pump                    Detector             Pullup
+                                                                                           CHG/            CHG
+                                                                                           DSG
+VREG                                                                                      Drivers          DSG
+
+
+                                  Cell Balance                                                             PCHG
+                                                                                         PCHG/PDSG
+                                                                                           Drivers
+ C24                                                                                                       PDSG
+
+
+ C23                                        OSC
+                                                                                            LDO            V3P3
+
+ ...
+
+
+ C4                                                                                         LDO            V1P8
+
+
+ C3                       MUX         VADC                                                           RPU
+
+
+ C2
+
+
+ C1                                                                                                        GP6
+                                             Die
+                                            Temp                     Digital
+                                                        C24
+ C0                                                                  Cores                                 GP5
+
+        Open Wire
+                                                                                                           GP4
+
+           100μA
+                                              PACK                                                         GP3
+                                MUX
+                                              LOAD
+                                                                                                           GP2
+                                              V1P8
+                    OC2
+                                              GP(6:1)                                                      GP1
+
+
+                                                                                                           SCL
+                    SCD
+
+                                                                                                           SDA
+ SRP
+                                      CADC
+                                                                                          Wakeup
+ SRN
+
+
+
+
+                                              图 2 系统框图
+
+
+
+
+南京集澈电子科技有限公司                                         1.1                                               11 / 29
+宜矽源半导体南京有限公司

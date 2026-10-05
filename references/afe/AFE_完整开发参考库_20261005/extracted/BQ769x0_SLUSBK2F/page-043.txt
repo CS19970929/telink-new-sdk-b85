@@ -1,0 +1,75 @@
+                                                                                                                            bq76920, bq76930, bq76940
+www.ti.com                                                                                             SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+                                                       Table 8-3. Cell Connections for bq76940
+   Cell Input           9 Cells               10 Cells             11 Cells          12 Cells                 13 Cells           14 Cells               15 Cells
+  VC15–VC14             CELL 9                CELL 10              CELL 11           CELL 12                  CELL 13            CELL 14                CELL 15
+  VC14–VC13              short                    short             short                 short                short               short                CELL 14
+  VC13–VC12              short                    short             short            CELL 11                  CELL 12            CELL 13                CELL 13
+  VC12–VC11             CELL 8                   CELL 9            CELL 10           CELL 10                  CELL 11            CELL 12                CELL 12
+  VC11–VC10b            CELL 7                   CELL 8            CELL 9              CELL 9                 CELL 10            CELL 11                CELL 11
+   VC10–VC9             CELL 6                   CELL 7            CELL 8              CELL 8                 CELL 9             CELL 10                CELL 10
+    VC9–VC8              short                    short             short                 short                short              CELL 9                CELL 9
+    VC8–VC7              short                    short            CELL 7              CELL 7                 CELL 8              CELL 8                CELL 8
+    VC7–VC6             CELL 5                   CELL 6            CELL 6              CELL 6                 CELL 7              CELL 7                CELL 7
+   VC6–VC5b             CELL 4                   CELL 5            CELL 5              CELL 5                 CELL 6              CELL 6                CELL 6
+    VC5–VC4             CELL 3                   CELL 4            CELL 4              CELL 4                 CELL 5              CELL 5                CELL 5
+    VC4–VC3              short                    short             short                 short               CELL 4              CELL 4                CELL 4
+    VC3–VC2              short                   CELL 3            CELL 3              CELL 3                 CELL 3              CELL 3                CELL 3
+    VC2–VC1             CELL 2                   CELL 2            CELL 2              CELL 2                 CELL 2              CELL 2                CELL 2
+    VC1–VC0             CELL 1                   CELL 1            CELL 1              CELL 1                 CELL 1              CELL 1                CELL 1
+
+
+8.2        Typical Applications
+
+
+                                                                              CAUTION
+                           The external circuitries in the following schematics show minimum requirements
+                           to ensure device robustness during cell connection to the PCB and normal
+                           operation.
+
+
+                                                                                                                                                               PACK +
+                                                                                                              Rf
+
+                                                             BAT
+                                                 VC5      REGSRC
+      Rc
+                 Cc                              VC4      REGOUT
+                                                 VC3        CAP1
+                                                                               10 kΩ
+      Rc                                         VC2         TS1
+                 Cc                                                                           1 µF     1 µF    Cf      4.7 µF
+                                                 VC1         SCL               10k
+      Rc                                         VC0         SDA
+                 Cc
+                                                 SRP         VSS
+      Rc                                         SRN        CHG
+                 Cc                                                                       PUSH-BUTTON FOR BOOT
+                                                 ALERT       DSG
+                                                                                                                                   VCC
+      Rc         Cc
+                                                                                                                                   SCL
+                                                                                                                                   SDA     Companion
+            Cc                                                                                                                             Controller
+                                                                                                                                   GPIO
+      Rc                                                                             1M
+                                                                                                                                   VSS
+
+                      0.1 µF   0.1 µF   0.1 µF
+
+
+                        100             100                 1M                                    1M
+
+                               Rsns                                                                                                                            PACK–
+
+                                  Figure 8-1. bq76920 with bq78350 Companion Controller IC
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                                    Application and Implementation            43
+                                                               Submit Documentation Feedback
+                                                       Product Folder Links: bq76920 bq76930 bq76940

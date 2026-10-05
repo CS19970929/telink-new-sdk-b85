@@ -1,0 +1,48 @@
+                                                                          SH367309
+
+                               数字/模拟端口电平
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+VIH        数字输入逻辑高电平     2      -      5    V    SDA/SCL
+VIL        数字输入逻辑低电平      -     -     0.6   V    SDA/SCL
+                          -     -     0.4   V    SDA/SCL，IOL = 3mA
+VOL        数字输出逻辑低电平      -     -     0.4   V    PF，IOL = 100uA
+                          -     -     0.4   V    ALARM，IOL = 1mA
+VPRO       EEPROM烧写电压    7.7   8      8.3   V    由外部提供
+
+                               LDO1 Regulator
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+                         3.1   3.3    3.5   V    13 ≤ VBAT ≤ 60V，Iload ≤ 10mA
+VCC        稳压源输出电平
+                         3.1   3.3    3.5   V    8.5 ≤ VBAT ＜ 13V，Iload ≤ 2mA
+
+                               LDO2 Regulator
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+                         8.5   11     13    V    VBAT ≥ 13V，ILOAD = 5mA
+V11        稳压源输出电平
+                         8      -      -    V    VBAT = 10V，ILOAD = 5mA
+
+                               LDO3 Regulator
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+VOUT       稳压源输出电平       3.1   3.3    3.5   V
+REGLINE    电压线性度          -    10     50    mV   12 ≤ VBAT ≤ 60V，Iload = 25mA
+REGLOAD    负载线性度          -    30     100   mV   VBAT = 50V，0.1mA ≤ Iload ≤ 25mA
+ILOAD      过流电流阈值        50    75     100   mA
+tOVER      过流检测延时         -    2       -    mS
+
+      注释：当负载电流超过过流电流阈值 ILOAD，系统会锁定在最大电流，此时不能保证输出电压。
+                                     电压采集
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+VIN1       输入范围          0      -      5    V
+TIN1       转换时间           -    5       -    mS
+VACC       绝对精度          -5     -      5    mV
+
+                                     温度采集
+      参数          说明    最小值 典型值 最大值 单位                            测试条件
+VIN2       输入范围          0      -      3    V
+TIN2       转换时间           -    5       -    mS
+TACC       绝对精度          -2     -      2    ℃
+
+
+
+
+                                      77

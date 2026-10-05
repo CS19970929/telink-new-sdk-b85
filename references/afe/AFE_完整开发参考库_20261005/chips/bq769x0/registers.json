@@ -1,0 +1,3659 @@
+{
+  "schema_version": "1.0",
+  "title": "BQ769x0 SLUSBK2F 可审计寄存器参考",
+  "source": {
+    "file": "BQ76940.pdf",
+    "document": "SLUSBK2F",
+    "main_revision_date": "2015-11",
+    "pdf_pages": 63,
+    "package_option_addendum_date": "2016-03-30"
+  },
+  "schema_notes_zh": [
+    "reset为十进制整数；null表示源文未给定固定值。",
+    "bitfields完整覆盖各寄存器8位；RW是源表访问性，R/W1C额外明确写1清除。",
+    "safe_write_mask是按已公开且可用字段推导的工程建议；不是允许盲写所有1。",
+    "未列地址不视为自由RAM，不读写猜测的寄存器。",
+    "每个字段继承所在寄存器sources；枚举单位独立标注。"
+  ],
+  "models": [
+    "BQ76920",
+    "BQ76930",
+    "BQ76940"
+  ],
+  "variants": [
+    {
+      "base_part": "BQ7692000",
+      "tube": "BQ7692000PW",
+      "tape_reel": "BQ7692000PWR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7692001",
+      "tube": "BQ7692001PW",
+      "tape_reel": "BQ7692001PWR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": true,
+      "status_in_main_document": "Product Preview only",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7692002",
+      "tube": "BQ7692002PW",
+      "tape_reel": "BQ7692002PWR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Product Preview only",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7692003",
+      "tube": "BQ7692003PW",
+      "tape_reel": "BQ7692003PWR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7692006",
+      "tube": "BQ7692006PW",
+      "tape_reel": "BQ7692006PWR",
+      "i2c_address_7bit": "0x18",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693000",
+      "tube": "BQ7693000DBT",
+      "tape_reel": "BQ7693000DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693001",
+      "tube": "BQ7693001DBT",
+      "tape_reel": "BQ7693001DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693002",
+      "tube": "BQ7693002DBT",
+      "tape_reel": "BQ7693002DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693003",
+      "tube": "BQ7693003DBT",
+      "tape_reel": "BQ7693003DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693006",
+      "tube": "BQ7693006DBT",
+      "tape_reel": "BQ7693006DBTR",
+      "i2c_address_7bit": "0x18",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7693007",
+      "tube": "BQ7693007DBT",
+      "tape_reel": "BQ7693007DBTR",
+      "i2c_address_7bit": "0x18",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7694000",
+      "tube": "BQ7694000DBT",
+      "tape_reel": "BQ7694000DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7694001",
+      "tube": "BQ7694001DBT",
+      "tape_reel": "BQ7694001DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 2.5,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7694002",
+      "tube": "BQ7694002DBT",
+      "tape_reel": "BQ7694002DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7694003",
+      "tube": "BQ7694003DBT",
+      "tape_reel": "BQ7694003DBTR",
+      "i2c_address_7bit": "0x08",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": true,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    },
+    {
+      "base_part": "BQ7694006",
+      "tube": "BQ7694006DBT",
+      "tape_reel": "BQ7694006DBTR",
+      "i2c_address_7bit": "0x18",
+      "regout_nominal_V": 3.3,
+      "crc_enabled": false,
+      "status_in_main_document": "Production",
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 4,
+          "printed_page": "4",
+          "href": "../../sources/BQ76940.pdf#page=4"
+        }
+      ]
+    }
+  ],
+  "registers": [
+    {
+      "address": "0x00",
+      "address_decimal": 0,
+      "name": "SYS_STAT",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "CC_READY",
+          "msb": 7,
+          "lsb": 7,
+          "mask": "0x80",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "新CC结果可用；不及时清除会保持1，不能表示丢失多少个样本",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "RSVD",
+          "msb": 6,
+          "lsb": 6,
+          "mask": "0x40",
+          "access": "RW",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": "保留，不使用",
+          "write_semantics": "do_not_use"
+        },
+        {
+          "name": "DEVICE_XREADY",
+          "msb": 5,
+          "lsb": 5,
+          "mask": "0x20",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "内部故障；瞬态可能触发；主机宜等待数秒后清除",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "OVRD_ALERT",
+          "msb": 4,
+          "lsb": 4,
+          "mask": "0x10",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "ALERT在AFE未驱高时被外部拉高",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "UV",
+          "msb": 3,
+          "lsb": 3,
+          "mask": "0x08",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "欠压故障",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "OV",
+          "msb": 2,
+          "lsb": 2,
+          "mask": "0x04",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "过压故障",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "SCD",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "放电短路故障",
+          "write_semantics": "1 clears; 0 has no effect"
+        },
+        {
+          "name": "OCD",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "R/W1C",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "放电过流故障",
+          "write_semantics": "1 clears; 0 has no effect"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 34,
+          "printed_page": "34",
+          "href": "../../sources/BQ76940.pdf#page=34"
+        }
+      ],
+      "safe_write_mask": "0xBF",
+      "read_side_effect": "none specified; reading does not clear"
+    },
+    {
+      "address": "0x01",
+      "address_decimal": 1,
+      "name": "CELLBAL1",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD",
+          "msb": 7,
+          "lsb": 5,
+          "mask": "0xE0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "CB1",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯1均衡使能"
+        },
+        {
+          "name": "CB2",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯2均衡使能"
+        },
+        {
+          "name": "CB3",
+          "msb": 2,
+          "lsb": 2,
+          "mask": "0x04",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯3均衡使能"
+        },
+        {
+          "name": "CB4",
+          "msb": 3,
+          "lsb": 3,
+          "mask": "0x08",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯4均衡使能"
+        },
+        {
+          "name": "CB5",
+          "msb": 4,
+          "lsb": 4,
+          "mask": "0x10",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯5均衡使能"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 34,
+          "printed_page": "34",
+          "href": "../../sources/BQ76940.pdf#page=34"
+        }
+      ],
+      "safe_write_mask": "0x1F",
+      "hardware_clear_events": [
+        "DEVICE_XREADY",
+        "SHIP to NORMAL"
+      ]
+    },
+    {
+      "address": "0x02",
+      "address_decimal": 2,
+      "name": "CELLBAL2",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD",
+          "msb": 7,
+          "lsb": 5,
+          "mask": "0xE0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "CB6",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯6均衡使能"
+        },
+        {
+          "name": "CB7",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯7均衡使能"
+        },
+        {
+          "name": "CB8",
+          "msb": 2,
+          "lsb": 2,
+          "mask": "0x04",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯8均衡使能"
+        },
+        {
+          "name": "CB9",
+          "msb": 3,
+          "lsb": 3,
+          "mask": "0x08",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯9均衡使能"
+        },
+        {
+          "name": "CB10",
+          "msb": 4,
+          "lsb": 4,
+          "mask": "0x10",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯10均衡使能"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 34,
+          "printed_page": "34",
+          "href": "../../sources/BQ76940.pdf#page=34"
+        }
+      ],
+      "safe_write_mask": "0x1F",
+      "hardware_clear_events": [
+        "DEVICE_XREADY",
+        "SHIP to NORMAL"
+      ]
+    },
+    {
+      "address": "0x03",
+      "address_decimal": 3,
+      "name": "CELLBAL3",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD",
+          "msb": 7,
+          "lsb": 5,
+          "mask": "0xE0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "CB11",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯11均衡使能"
+        },
+        {
+          "name": "CB12",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯12均衡使能"
+        },
+        {
+          "name": "CB13",
+          "msb": 2,
+          "lsb": 2,
+          "mask": "0x04",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯13均衡使能"
+        },
+        {
+          "name": "CB14",
+          "msb": 3,
+          "lsb": 3,
+          "mask": "0x08",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯14均衡使能"
+        },
+        {
+          "name": "CB15",
+          "msb": 4,
+          "lsb": 4,
+          "mask": "0x10",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电芯15均衡使能"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 34,
+          "printed_page": "34",
+          "href": "../../sources/BQ76940.pdf#page=34"
+        }
+      ],
+      "safe_write_mask": "0x1F",
+      "hardware_clear_events": [
+        "DEVICE_XREADY",
+        "SHIP to NORMAL"
+      ]
+    },
+    {
+      "address": "0x04",
+      "address_decimal": 4,
+      "name": "SYS_CTRL1",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "LOAD_PRESENT",
+          "msb": 7,
+          "lsb": 7,
+          "mask": "0x80",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "仅CHG_ON=0有效；负载移除自动清零"
+        },
+        {
+          "name": "RSVD_6_5",
+          "msb": 6,
+          "lsb": 5,
+          "mask": "0x60",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "ADC_EN",
+          "msb": 4,
+          "lsb": 4,
+          "mask": "0x10",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "电压温度ADC；OV/UV依赖此位"
+        },
+        {
+          "name": "TEMP_SEL",
+          "msb": 3,
+          "lsb": 3,
+          "mask": "0x08",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "0芯片温度，1外部热敏电阻"
+        },
+        {
+          "name": "RSVD_2",
+          "msb": 2,
+          "lsb": 2,
+          "mask": "0x04",
+          "access": "RW",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": "不得写1"
+        },
+        {
+          "name": "SHUT_A",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "与SHUT_B组合关机序列"
+        },
+        {
+          "name": "SHUT_B",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "从00连续写01再10进入SHIP"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 34,
+          "printed_page": "34",
+          "href": "../../sources/BQ76940.pdf#page=34"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 35,
+          "printed_page": "35",
+          "href": "../../sources/BQ76940.pdf#page=35"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 31,
+          "printed_page": "31",
+          "href": "../../sources/BQ76940.pdf#page=31"
+        }
+      ],
+      "safe_write_mask": "0x1B",
+      "reset_note": "表7-7复位0；7.3.1.1.2说明进入NORMAL时ADC_EN自动置1，应区分POR/状态转换并读回"
+    },
+    {
+      "address": "0x05",
+      "address_decimal": 5,
+      "name": "SYS_CTRL2",
+      "width_bits": 8,
+      "access": "RW",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DELAY_DIS",
+          "msb": 7,
+          "lsb": 7,
+          "mask": "0x80",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "仅产测用；p26与p35作用/时延描述不一致，正常必须为0"
+        },
+        {
+          "name": "CC_EN",
+          "msb": 6,
+          "lsb": 6,
+          "mask": "0x40",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "连续CC，置1时忽略CC_ONESHOT"
+        },
+        {
+          "name": "CC_ONESHOT",
+          "msb": 5,
+          "lsb": 5,
+          "mask": "0x20",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "CC_EN=0且CC_READY=0时触发单次250ms，完成自清"
+        },
+        {
+          "name": "RSVD_4_2",
+          "msb": 4,
+          "lsb": 2,
+          "mask": "0x1C",
+          "access": "RW",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": "保留，不使用"
+        },
+        {
+          "name": "DSG_ON",
+          "msb": 1,
+          "lsb": 1,
+          "mask": "0x02",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "放电FET驱动"
+        },
+        {
+          "name": "CHG_ON",
+          "msb": 0,
+          "lsb": 0,
+          "mask": "0x01",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "充电FET驱动；p36说明中的Discharge为疑似笔误"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 35,
+          "printed_page": "35",
+          "href": "../../sources/BQ76940.pdf#page=35"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 36,
+          "printed_page": "36",
+          "href": "../../sources/BQ76940.pdf#page=36"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 26,
+          "printed_page": "26",
+          "href": "../../sources/BQ76940.pdf#page=26"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 27,
+          "printed_page": "27",
+          "href": "../../sources/BQ76940.pdf#page=27"
+        }
+      ],
+      "safe_write_mask": "0xE3"
+    },
+    {
+      "address": "0x06",
+      "address_decimal": 6,
+      "name": "PROTECT1",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSNS",
+          "msb": 7,
+          "lsb": 7,
+          "mask": "0x80",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "同时选择OCD/SCD上下量程；不是实际分流器阻值"
+        },
+        {
+          "name": "RSVD_6",
+          "msb": 6,
+          "lsb": 6,
+          "mask": "0x40",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "RSVD_5",
+          "msb": 5,
+          "lsb": 5,
+          "mask": "0x20",
+          "access": "RW",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": "不得写1"
+        },
+        {
+          "name": "SCD_DELAY",
+          "msb": 4,
+          "lsb": 3,
+          "mask": "0x18",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "400us仅推荐用于Rc=1kohm系统",
+          "enumeration": [
+            {
+              "code": 0,
+              "value": 70,
+              "unit": "us"
+            },
+            {
+              "code": 1,
+              "value": 100,
+              "unit": "us"
+            },
+            {
+              "code": 2,
+              "value": 200,
+              "unit": "us"
+            },
+            {
+              "code": 3,
+              "value": 400,
+              "unit": "us"
+            }
+          ]
+        },
+        {
+          "name": "SCD_THRESH",
+          "msb": 2,
+          "lsb": 0,
+          "mask": "0x07",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "",
+          "enumeration_by_RSNS": {
+            "0": [
+              {
+                "code": 0,
+                "value": 22,
+                "unit": "mV"
+              },
+              {
+                "code": 1,
+                "value": 33,
+                "unit": "mV"
+              },
+              {
+                "code": 2,
+                "value": 44,
+                "unit": "mV"
+              },
+              {
+                "code": 3,
+                "value": 56,
+                "unit": "mV"
+              },
+              {
+                "code": 4,
+                "value": 67,
+                "unit": "mV"
+              },
+              {
+                "code": 5,
+                "value": 78,
+                "unit": "mV"
+              },
+              {
+                "code": 6,
+                "value": 89,
+                "unit": "mV"
+              },
+              {
+                "code": 7,
+                "value": 100,
+                "unit": "mV"
+              }
+            ],
+            "1": [
+              {
+                "code": 0,
+                "value": 44,
+                "unit": "mV"
+              },
+              {
+                "code": 1,
+                "value": 67,
+                "unit": "mV"
+              },
+              {
+                "code": 2,
+                "value": 89,
+                "unit": "mV"
+              },
+              {
+                "code": 3,
+                "value": 111,
+                "unit": "mV"
+              },
+              {
+                "code": 4,
+                "value": 133,
+                "unit": "mV"
+              },
+              {
+                "code": 5,
+                "value": 155,
+                "unit": "mV"
+              },
+              {
+                "code": 6,
+                "value": 178,
+                "unit": "mV"
+              },
+              {
+                "code": 7,
+                "value": 200,
+                "unit": "mV"
+              }
+            ]
+          }
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 36,
+          "printed_page": "36",
+          "href": "../../sources/BQ76940.pdf#page=36"
+        }
+      ],
+      "safe_write_mask": "0x9F"
+    },
+    {
+      "address": "0x07",
+      "address_decimal": 7,
+      "name": "PROTECT2",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7",
+          "msb": 7,
+          "lsb": 7,
+          "mask": "0x80",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "OCD_DELAY",
+          "msb": 6,
+          "lsb": 4,
+          "mask": "0x70",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "",
+          "enumeration": [
+            {
+              "code": 0,
+              "value": 8,
+              "unit": "ms"
+            },
+            {
+              "code": 1,
+              "value": 20,
+              "unit": "ms"
+            },
+            {
+              "code": 2,
+              "value": 40,
+              "unit": "ms"
+            },
+            {
+              "code": 3,
+              "value": 80,
+              "unit": "ms"
+            },
+            {
+              "code": 4,
+              "value": 160,
+              "unit": "ms"
+            },
+            {
+              "code": 5,
+              "value": 320,
+              "unit": "ms"
+            },
+            {
+              "code": 6,
+              "value": 640,
+              "unit": "ms"
+            },
+            {
+              "code": 7,
+              "value": 1280,
+              "unit": "ms"
+            }
+          ]
+        },
+        {
+          "name": "OCD_THRESH",
+          "msb": 3,
+          "lsb": 0,
+          "mask": "0x0F",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "",
+          "enumeration_by_RSNS": {
+            "0": [
+              {
+                "code": 0,
+                "value": 8,
+                "unit": "mV"
+              },
+              {
+                "code": 1,
+                "value": 11,
+                "unit": "mV"
+              },
+              {
+                "code": 2,
+                "value": 14,
+                "unit": "mV"
+              },
+              {
+                "code": 3,
+                "value": 17,
+                "unit": "mV"
+              },
+              {
+                "code": 4,
+                "value": 19,
+                "unit": "mV"
+              },
+              {
+                "code": 5,
+                "value": 22,
+                "unit": "mV"
+              },
+              {
+                "code": 6,
+                "value": 25,
+                "unit": "mV"
+              },
+              {
+                "code": 7,
+                "value": 28,
+                "unit": "mV"
+              },
+              {
+                "code": 8,
+                "value": 31,
+                "unit": "mV"
+              },
+              {
+                "code": 9,
+                "value": 33,
+                "unit": "mV"
+              },
+              {
+                "code": 10,
+                "value": 36,
+                "unit": "mV"
+              },
+              {
+                "code": 11,
+                "value": 39,
+                "unit": "mV"
+              },
+              {
+                "code": 12,
+                "value": 42,
+                "unit": "mV"
+              },
+              {
+                "code": 13,
+                "value": 44,
+                "unit": "mV"
+              },
+              {
+                "code": 14,
+                "value": 47,
+                "unit": "mV"
+              },
+              {
+                "code": 15,
+                "value": 50,
+                "unit": "mV"
+              }
+            ],
+            "1": [
+              {
+                "code": 0,
+                "value": 17,
+                "unit": "mV"
+              },
+              {
+                "code": 1,
+                "value": 22,
+                "unit": "mV"
+              },
+              {
+                "code": 2,
+                "value": 28,
+                "unit": "mV"
+              },
+              {
+                "code": 3,
+                "value": 33,
+                "unit": "mV"
+              },
+              {
+                "code": 4,
+                "value": 39,
+                "unit": "mV"
+              },
+              {
+                "code": 5,
+                "value": 44,
+                "unit": "mV"
+              },
+              {
+                "code": 6,
+                "value": 50,
+                "unit": "mV"
+              },
+              {
+                "code": 7,
+                "value": 56,
+                "unit": "mV"
+              },
+              {
+                "code": 8,
+                "value": 61,
+                "unit": "mV"
+              },
+              {
+                "code": 9,
+                "value": 67,
+                "unit": "mV"
+              },
+              {
+                "code": 10,
+                "value": 72,
+                "unit": "mV"
+              },
+              {
+                "code": 11,
+                "value": 78,
+                "unit": "mV"
+              },
+              {
+                "code": 12,
+                "value": 83,
+                "unit": "mV"
+              },
+              {
+                "code": 13,
+                "value": 89,
+                "unit": "mV"
+              },
+              {
+                "code": 14,
+                "value": 94,
+                "unit": "mV"
+              },
+              {
+                "code": 15,
+                "value": 100,
+                "unit": "mV"
+              }
+            ]
+          }
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 36,
+          "printed_page": "36",
+          "href": "../../sources/BQ76940.pdf#page=36"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 37,
+          "printed_page": "37",
+          "href": "../../sources/BQ76940.pdf#page=37"
+        }
+      ],
+      "safe_write_mask": "0x7F"
+    },
+    {
+      "address": "0x08",
+      "address_decimal": 8,
+      "name": "PROTECT3",
+      "width_bits": 8,
+      "access": "RW",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "UV_DELAY",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "",
+          "enumeration": [
+            {
+              "code": 0,
+              "value": 1,
+              "unit": "s"
+            },
+            {
+              "code": 1,
+              "value": 4,
+              "unit": "s"
+            },
+            {
+              "code": 2,
+              "value": 8,
+              "unit": "s"
+            },
+            {
+              "code": 3,
+              "value": 16,
+              "unit": "s"
+            }
+          ]
+        },
+        {
+          "name": "OV_DELAY",
+          "msb": 5,
+          "lsb": 4,
+          "mask": "0x30",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "",
+          "enumeration": [
+            {
+              "code": 0,
+              "value": 1,
+              "unit": "s"
+            },
+            {
+              "code": 1,
+              "value": 2,
+              "unit": "s"
+            },
+            {
+              "code": 2,
+              "value": 4,
+              "unit": "s"
+            },
+            {
+              "code": 3,
+              "value": 8,
+              "unit": "s"
+            }
+          ]
+        },
+        {
+          "name": "RSVD_3_0",
+          "msb": 3,
+          "lsb": 0,
+          "mask": "0x0F",
+          "access": "RW",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": "TI内部调试；必须保持默认0"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 37,
+          "printed_page": "37",
+          "href": "../../sources/BQ76940.pdf#page=37"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 38,
+          "printed_page": "38",
+          "href": "../../sources/BQ76940.pdf#page=38"
+        }
+      ],
+      "safe_write_mask": "0xF0"
+    },
+    {
+      "address": "0x09",
+      "address_decimal": 9,
+      "name": "OV_TRIP",
+      "width_bits": 8,
+      "access": "RW",
+      "reset": 172,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "OV_THRESH",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "RW",
+          "reset": 172,
+          "reserved": false,
+          "description_zh": "完整ADC码=0x2008 | (寄存器<<4)"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 25,
+          "printed_page": "25",
+          "href": "../../sources/BQ76940.pdf#page=25"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 38,
+          "printed_page": "38",
+          "href": "../../sources/BQ76940.pdf#page=38"
+        }
+      ],
+      "safe_write_mask": "0xFF"
+    },
+    {
+      "address": "0x0A",
+      "address_decimal": 10,
+      "name": "UV_TRIP",
+      "width_bits": 8,
+      "access": "RW",
+      "reset": 151,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "UV_THRESH",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "RW",
+          "reset": 151,
+          "reserved": false,
+          "description_zh": "完整ADC码=0x1000 | (寄存器<<4)"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 25,
+          "printed_page": "25",
+          "href": "../../sources/BQ76940.pdf#page=25"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 38,
+          "printed_page": "38",
+          "href": "../../sources/BQ76940.pdf#page=38"
+        }
+      ],
+      "safe_write_mask": "0xFF"
+    },
+    {
+      "address": "0x0B",
+      "address_decimal": 11,
+      "name": "CC_CFG",
+      "width_bits": 8,
+      "access": "mixed",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "CC_CFG",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "RW",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": "启动后写0x19以取得最佳性能"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 38,
+          "printed_page": "38",
+          "href": "../../sources/BQ76940.pdf#page=38"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "safe_write_mask": "0x3F",
+      "startup_write": "0x19"
+    },
+    {
+      "address": "0x0C",
+      "address_decimal": 12,
+      "name": "VC1_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x0D",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x0D",
+      "address_decimal": 13,
+      "name": "VC1_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x0C",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x0E",
+      "address_decimal": 14,
+      "name": "VC2_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x0F",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x0F",
+      "address_decimal": 15,
+      "name": "VC2_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x0E",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x10",
+      "address_decimal": 16,
+      "name": "VC3_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x11",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x11",
+      "address_decimal": 17,
+      "name": "VC3_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x10",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x12",
+      "address_decimal": 18,
+      "name": "VC4_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x13",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x13",
+      "address_decimal": 19,
+      "name": "VC4_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x12",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x14",
+      "address_decimal": 20,
+      "name": "VC5_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x15",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x15",
+      "address_decimal": 21,
+      "name": "VC5_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x14",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x16",
+      "address_decimal": 22,
+      "name": "VC6_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x17",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x17",
+      "address_decimal": 23,
+      "name": "VC6_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x16",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x18",
+      "address_decimal": 24,
+      "name": "VC7_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x19",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x19",
+      "address_decimal": 25,
+      "name": "VC7_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x18",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1A",
+      "address_decimal": 26,
+      "name": "VC8_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x1B",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1B",
+      "address_decimal": 27,
+      "name": "VC8_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x1A",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1C",
+      "address_decimal": 28,
+      "name": "VC9_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x1D",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1D",
+      "address_decimal": 29,
+      "name": "VC9_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x1C",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1E",
+      "address_decimal": 30,
+      "name": "VC10_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x1F",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x1F",
+      "address_decimal": 31,
+      "name": "VC10_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x1E",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x20",
+      "address_decimal": 32,
+      "name": "VC11_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x21",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x21",
+      "address_decimal": 33,
+      "name": "VC11_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x20",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x22",
+      "address_decimal": 34,
+      "name": "VC12_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x23",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x23",
+      "address_decimal": 35,
+      "name": "VC12_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x22",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x24",
+      "address_decimal": 36,
+      "name": "VC13_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x25",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x25",
+      "address_decimal": 37,
+      "name": "VC13_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x24",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x26",
+      "address_decimal": 38,
+      "name": "VC14_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x27",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x27",
+      "address_decimal": 39,
+      "name": "VC14_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x26",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x28",
+      "address_decimal": 40,
+      "name": "VC15_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x29",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x29",
+      "address_decimal": 41,
+      "name": "VC15_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x28",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2A",
+      "address_decimal": 42,
+      "name": "BAT_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_15_8",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x2B",
+      "pair_width_bits": 16,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2B",
+      "address_decimal": 43,
+      "name": "BAT_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x2A",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2C",
+      "address_decimal": 44,
+      "name": "TS1_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_low_address": "0x2D",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2D",
+      "address_decimal": 45,
+      "name": "TS1_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 39,
+          "printed_page": "39",
+          "href": "../../sources/BQ76940.pdf#page=39"
+        }
+      ],
+      "pair_high_address": "0x2C",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2E",
+      "address_decimal": 46,
+      "name": "TS2_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        }
+      ],
+      "pair_low_address": "0x2F",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x2F",
+      "address_decimal": 47,
+      "name": "TS2_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 32,
+          "printed_page": "32",
+          "href": "../../sources/BQ76940.pdf#page=32"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        }
+      ],
+      "pair_high_address": "0x2E",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x30",
+      "address_decimal": 48,
+      "name": "TS3_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_6",
+          "msb": 7,
+          "lsb": 6,
+          "mask": "0xC0",
+          "access": "R",
+          "reset": 0,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "DATA_13_8",
+          "msb": 5,
+          "lsb": 0,
+          "mask": "0x3F",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        }
+      ],
+      "pair_low_address": "0x31",
+      "pair_width_bits": 14,
+      "pair_signed": false,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x31",
+      "address_decimal": 49,
+      "name": "TS3_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        }
+      ],
+      "pair_high_address": "0x30",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x32",
+      "address_decimal": 50,
+      "name": "CC_HI",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_15_8",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 23,
+          "printed_page": "23",
+          "href": "../../sources/BQ76940.pdf#page=23"
+        }
+      ],
+      "pair_low_address": "0x33",
+      "pair_width_bits": 16,
+      "pair_signed": true,
+      "atomicity": "Read HI and LO together in one auto-increment transaction",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x33",
+      "address_decimal": 51,
+      "name": "CC_LO",
+      "width_bits": 8,
+      "access": "R",
+      "reset": 0,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "DATA_7_0",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": 0,
+          "reserved": false,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 23,
+          "printed_page": "23",
+          "href": "../../sources/BQ76940.pdf#page=23"
+        }
+      ],
+      "pair_high_address": "0x32",
+      "safe_write_mask": "0x00"
+    },
+    {
+      "address": "0x50",
+      "address_decimal": 80,
+      "name": "ADCGAIN1",
+      "width_bits": 8,
+      "access": "R",
+      "reset": null,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "RSVD_7_4",
+          "msb": 7,
+          "lsb": 4,
+          "mask": "0xF0",
+          "access": "R",
+          "reset": null,
+          "reserved": true,
+          "description_zh": ""
+        },
+        {
+          "name": "ADCGAIN_4_3",
+          "msb": 3,
+          "lsb": 2,
+          "mask": "0x0C",
+          "access": "R",
+          "reset": null,
+          "reserved": false,
+          "description_zh": ""
+        },
+        {
+          "name": "RSVD_1_0",
+          "msb": 1,
+          "lsb": 0,
+          "mask": "0x03",
+          "access": "R",
+          "reset": null,
+          "reserved": true,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 41,
+          "printed_page": "41",
+          "href": "../../sources/BQ76940.pdf#page=41"
+        }
+      ],
+      "safe_write_mask": "0x00",
+      "reset_note": "出厂修调值，不是固定复位常量"
+    },
+    {
+      "address": "0x51",
+      "address_decimal": 81,
+      "name": "ADCOFFSET",
+      "width_bits": 8,
+      "access": "R",
+      "reset": null,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "ADCOFFSET",
+          "msb": 7,
+          "lsb": 0,
+          "mask": "0xFF",
+          "access": "R",
+          "reset": null,
+          "reserved": false,
+          "description_zh": "8位二补码，1mV/LSB，-128..127mV"
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 41,
+          "printed_page": "41",
+          "href": "../../sources/BQ76940.pdf#page=41"
+        }
+      ],
+      "safe_write_mask": "0x00",
+      "reset_note": "出厂修调值"
+    },
+    {
+      "address": "0x59",
+      "address_decimal": 89,
+      "name": "ADCGAIN2",
+      "width_bits": 8,
+      "access": "R",
+      "reset": null,
+      "models": [
+        "BQ76920",
+        "BQ76930",
+        "BQ76940"
+      ],
+      "bitfields": [
+        {
+          "name": "ADCGAIN_2_0",
+          "msb": 7,
+          "lsb": 5,
+          "mask": "0xE0",
+          "access": "R",
+          "reset": null,
+          "reserved": false,
+          "description_zh": ""
+        },
+        {
+          "name": "RSVD_4_0",
+          "msb": 4,
+          "lsb": 0,
+          "mask": "0x1F",
+          "access": "R",
+          "reset": null,
+          "reserved": true,
+          "description_zh": ""
+        }
+      ],
+      "sources": [
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 33,
+          "printed_page": "33",
+          "href": "../../sources/BQ76940.pdf#page=33"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 40,
+          "printed_page": "40",
+          "href": "../../sources/BQ76940.pdf#page=40"
+        },
+        {
+          "file": "BQ76940.pdf",
+          "pdf_page": 41,
+          "printed_page": "41",
+          "href": "../../sources/BQ76940.pdf#page=41"
+        }
+      ],
+      "safe_write_mask": "0x00",
+      "reset_note": "出厂修调值"
+    }
+  ],
+  "unlisted_address_ranges": [
+    {
+      "start": "0x34",
+      "end": "0x4F",
+      "status": "not documented"
+    },
+    {
+      "start": "0x52",
+      "end": "0x58",
+      "status": "not documented"
+    },
+    {
+      "start": "0x5A",
+      "end": "0xFF",
+      "status": "not documented"
+    }
+  ],
+  "conversion_formulas": {
+    "gain_code": "((ADCGAIN1 & 0x0C) << 1) | ((ADCGAIN2 & 0xE0) >> 5)",
+    "gain_uV_per_LSB": "365 + gain_code",
+    "offset_mV": "int8(ADCOFFSET)",
+    "cell_mV": "raw14 * gain_uV_per_LSB / 1000 + offset_mV",
+    "bat_mV": "raw16_BAT * 4 * gain_uV_per_LSB / 1000 + actual_series_cell_count * offset_mV",
+    "CC_uV": "int16(raw16_CC) * 8.44",
+    "TS_V": "raw14_TS * 0.000382",
+    "thermistor_ohm": "10000 * TS_V / (3.3 - TS_V)",
+    "die_C": "25 - (TS_V - 1.2) / 0.0042"
+  },
+  "conversion_sources": [
+    {
+      "file": "BQ76940.pdf",
+      "pdf_page": 21,
+      "printed_page": "21",
+      "href": "../../sources/BQ76940.pdf#page=21"
+    },
+    {
+      "file": "BQ76940.pdf",
+      "pdf_page": 23,
+      "printed_page": "23",
+      "href": "../../sources/BQ76940.pdf#page=23"
+    },
+    {
+      "file": "BQ76940.pdf",
+      "pdf_page": 24,
+      "printed_page": "24",
+      "href": "../../sources/BQ76940.pdf#page=24"
+    },
+    {
+      "file": "BQ76940.pdf",
+      "pdf_page": 40,
+      "printed_page": "40",
+      "href": "../../sources/BQ76940.pdf#page=40"
+    },
+    {
+      "file": "BQ76940.pdf",
+      "pdf_page": 41,
+      "printed_page": "41",
+      "href": "../../sources/BQ76940.pdf#page=41"
+    }
+  ],
+  "missing_originals": [
+    "BQ76942",
+    "BQ76952",
+    "BQ33100"
+  ]
+}

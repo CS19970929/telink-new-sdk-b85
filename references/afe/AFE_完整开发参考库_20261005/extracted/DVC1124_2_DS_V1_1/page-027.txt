@@ -1,0 +1,73 @@
+4 串至 24 串电池组监控芯片                                                   DVC1124-2 数据手册
+
+应用框图
+                                                                     PACK+
+
+
+
+
+                        VTOP         VCP
+                C24                         CHG
+        BAT24
+                C23                         DSG
+        BAT23
+                C22                        PACK
+        BAT22
+                C21                        PCHG
+        BAT21
+                C20                        PDSG
+        BAT20
+                C19                        LOAD
+        BAT19
+                C18                        VBASE
+        BAT18
+                C17                        VREG
+        BAT17
+                C16
+        BAT16
+                C15                          SCL       SCL
+        BAT15
+                C14                         SDA        SDA
+        BAT14
+                C13                         V3P3       VDD
+        BAT13                                                MCU
+                C12      DVC1124            V1P8
+        BAT12
+                C11
+        BAT11
+                C10                         GP2        INT
+                                                             GND
+        BAT10
+                C9                          GP1
+        BAT9
+                C8
+        BAT8
+                C7                          GP3
+        BAT7
+                C6
+        BAT6
+                C5                          GP4
+        BAT5
+                C4
+        BAT4
+                C3                          GP5
+        BAT3
+                C2
+        BAT2
+                C1                          GP6
+        BAT1
+                C0
+                  VSS          SRN         SRP
+
+
+
+
+                                                                     PACK-
+
+
+                                     图 16 应用框图
+
+
+
+南京集澈电子科技有限公司                                     1.1                         27 / 29
+宜矽源半导体南京有限公司

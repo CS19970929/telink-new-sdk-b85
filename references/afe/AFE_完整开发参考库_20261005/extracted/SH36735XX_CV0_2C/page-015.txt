@@ -1,0 +1,33 @@
+           Preliminary                  SH3673510/3673514/3673517/3673520
+  (2) BSTATUS1 寄存器中 DSG_FET 状态位、PDSG_FET 状态位清零
+  (3) FLAG2 寄存器中 UTD_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出放电低温保护状态：
+  (1) MCU 将 FLAG2 寄存器中 UTD_FLG 标志位清 0(前提是 MCU 将 SCONF2 寄存器中 LTCLR 位置 1)
+  注释：TUTD 可在相应的寄存器中设置
+
+7.6.4 放电高温保护
+  MCU 配置寄存器中 TSn_EN(n=1~4)=1，可使能温度点 TSn(n=1~4)的放电高温保护。
+  下列条件均满足时，IC 进入放电高温保护状态：
+  (1) 任一温度点温度高于放电高温保护温度 TOTD
+  (2) 状态(1)持续时间超过温度保护延时 tTEMP
+  IC 处于放电高温保护状态时，执行以下动作：
+  (1) 关闭放电 MOSFET 和预放电 MOSFET(PDSGMOS=1)
+  (2) BSTATUS1 寄存器中 DSG_FET 状态位、PDSG_FET 状态位清零
+  (3) FLAG2 寄存器中 OTD_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出放电高温保护状态：
+  (1) MCU将FLAG2寄存器中OTD_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：TOTD 可在相应的寄存器中设置
+
+7.6.5 内部高温保护
+  IC 集成了内部高温保护，下列条件均满足时，IC 进入内部高温保护状态：
+  (1) 芯片内部温度高于内部高温保护温度 TOTI
+  (2) 状态(1)持续时间超过内部高温保护延时 tOTI
+  IC进入内部高温保护状态后，执行以下动作：
+  (1) 系统进入 Powerdown 模式，关闭充放电 MOSFET 和预放电 MOSFET
+
+
+
+
+                                        15

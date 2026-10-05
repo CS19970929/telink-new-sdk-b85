@@ -1,0 +1,47 @@
+                                                                                                                           SH367309
+
+                                                                       温度保护
+     参数                        说明                最小值 典型值 最大值 单位                                              测试条件
+TOTC            充电高温保护温度                             45       -          70        ℃     寄存器OTC可设置，1℃一档
+TUTC            充电低温保护温度                             -20      -          10        ℃     寄存器UTC可设置，1℃一档
+TOTD            放电高温保护温度                             45       -          80        ℃     寄存器OTD可设置，1℃一档
+TUTD            放电低温保护温度                             -40      -          10        ℃     寄存器UTD可设置，1℃一档
+TOTCR           充电高温恢复温度                             40       -          70        ℃     寄存器OTCR可设置，1℃一档
+TUTCR           充电低温恢复温度                             -20      -          15        ℃     寄存器UTCR可设置，1℃一档
+TOTDR           放电高温恢复温度                             40       -          80        ℃     寄存器OTDR可设置，1℃一档
+TUTDR           放电低温恢复温度                             -40      -          15        ℃     寄存器UTDR可设置，1℃一档
+tT              温度保护延时                                -       2           -        S
+TOA             温度精度                                  -      2          4        ℃
+
+                                                                   TWI通讯时序
+     参数                        说明                最小值 典型值 最大值 单位                                              测试条件
+fTWI            TWI频率范围                              10       -         100        kHz
+tBUF            总线空闲间隔                               4.7      -           -        μs
+tLOW            低电平周期                                4.7      -           -        μs
+tHIGH           高电平周期                                4.0      -          50        μs
+tHD:DAT         数据保持时间                               300      -           -        ns
+tSU:DAT         数据建立时间                               250      -           -        ns
+tHD:STA         STA保持时间                              4.0      -           -        μs
+tSU:STA         STA建立时间                              4.7      -           -        μs
+tSU:STO         STO建立时间                              4.0      -           -        μs
+tR              上升时间                                  -       -         1000       ns    (VILMAX - 0.15V) to (VIHMIN + 0.15V)
+tF              下降时间                                  -       -         300        ns    (VIHMIN + 0.15V) to (VILMAX - 0.15)
+tTIMEOUT        超时周期                                  -      25           -        ms
+fE              RC精度                                  -       -         ±10        %     TA = -40℃~85℃
+
+
+                                    tLOW    tR                    tF
+
+          SCL                                                                                     tHD:STA
+
+                                                                                   tSU:STA                       tSU:STO
+                               tHD:STA     tHD:DAT         tHIGH         tSU:DAT
+
+          SDA       tBUF
+
+                P          S                                                                 RS                                 P
+
+
+
+
+                                                                        81

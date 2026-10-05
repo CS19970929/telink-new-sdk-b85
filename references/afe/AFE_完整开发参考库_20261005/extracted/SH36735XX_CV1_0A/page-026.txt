@@ -1,0 +1,86 @@
+                                                                                   SH3673510/3673514/3673517/3673520
+9.4 传送形式
+  SPI的时钟极性CPOL位固定为1，即空闲时SCK电平状态为“高电平”；SPI的时钟相位CPHA固定为1，主设备在SCK的第
+一个沿将数据输出到SDI线上，从设备把SCK的第一个沿作为开始发送信号。用户必须在第一个SCK的两个沿内完成写数据操
+作。CS引脚在每个字节数据的传送过程始终保持低电平。在主从通讯的两个设备中，时钟极性相位的设置应一致。
+               SCK Cycle Number                        1        2           3           4         5          6          7          8
+
+
+               SCK
+
+
+               MOSI (from Master)                      MSB      bit6       bit5         bit4     bit3       bit2        bit1      LSB
+
+
+               SDO (from Slave)                        MSB      bit6       bit5         bit4     bit3       bit2        bit1            LSB
+
+
+               CS (to Slave)
+
+
+
+               Capture Point
+
+
+                                                       数据传送形式 (CPHA = 1，CPOL=1)
+9.5 通信协议
+9.5.1 寄存器写时序
+   可写RAM寄存器地址为40H~59H，写RAM寄存器的长度固定为1个字节，当IC校验成功，则返回0xA5，否则返回0xFF。
+                                            Write CMD                                                                    无效数据
+                           SDI               (0x01)
+                                                             Reg Address           Write Data            CRC8
+                                                                                                                          (0x00)
+
+
+                                                 0xFF        Write CMD                                                  OK(0xA5) or
+                                                                                  Reg Address         Write Data
+                           SDO                  无效数据          (0x01)                                                    FAIL(0xFF)
+
+
+
+                           CS
+
+
+                                                                       图9 寄存器写时序
+9.5.2 寄存器读时序
+   可读RAM寄存器地址为40H~99H，可读取的数据长度需发送给IC，单位是Byte(该长度不包括读取的CRC8字节)。
+               Read CMD                           Data Length           无效数据                                     无效数据              无效数据        无效数据
+      SDI                         Reg Address                                                   ……
+                 (0x02)                                N                 (0x00)                                   (0x00)            (0x00)      (0x00)
+
+
+                                    Read CMD                           Data Length
+                  0xFF                            Reg Address                               Read Data1             ……            Read DataN   Read CRC8
+      SDO                             (0x02)                                N
+
+
+
+
+     CS
+
+
+                                                                    图10 寄存器读时序
+9.5.3 软件复位时序
+   当IC接收到以下时序，会执行软件复位操作，当IC校验成功，则返回0xA5，否则返回0xFF。
+                                           Write CMD                                                                        无效数据
+                          SDI               (0x0B)
+                                                                0xBB                 0xCC                CRC8
+                                                                                                                             (0x00)
+
+
+                                                             Write CMD                                                  OK(0xA5) or
+                                                0xFF                                 0xBB                0xCC
+                          SDO                                 (0x0B)                                                    FAIL(0xFF)
+
+
+
+                         CS
+
+
+                                                                        图11 复位时序
+   注释：IC接收到软件复位指令后，会复位所有的功能模块，包括RAM寄存器、VADC、CADC、SPI模块
+9.5.4 CRC8校验
+   CRC8校验的多项式 = X8 + X2 + X + 1，CRC8初始值固定为0x00。
+  SPI写操作时，CRC8会从第一个字节“写命令”开始校验，还包括寄存器地址、写数据长度、1个被写数据。如果CRC校验正
+确，IC会将数据更新至指定的寄存器，并返回ACK(0xA5)给主机，反之，则不会更新，并返回NACK(0xFF)给主机。
+                                                                                   26

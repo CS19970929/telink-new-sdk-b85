@@ -1,0 +1,55 @@
+                 Preliminary                   SH3673510/3673514/3673517/3673520
+7. 功能描述
+7.1 工作模式
+   IC可工作在以下五种模式：Normal、IDLE、SLEEP、Powerdown、SHIP模式。
+                 功能/模块          Normal        IDLE      SLEEP      Powerdown   SHIP
+                 过充电保护           √(O)         √(O)        x            x        x
+                 过放电保护           √(O)         √(O)        x            x        x
+                内部温度保护             √           √          √            x        x
+                外部温度保护           √(O)         √(O)        x            x        x
+               放电过流1/2保护         √(O)         √(O)        x            x        x
+                 短路保护            √(O)         √(O)        x            x        x
+                充电过流保护           √(O)         √(O)        x            x        x
+                 均衡功能              √           √          x            x        x
+                 断线检测            √(O)         √(O)        x            x        x
+                                                            √
+                                   √              √
+                  VADC                                (70ms周期，只采       x        x
+                               (70ms周期)     (280ms周期)
+                                                       电压和内部温度)
+                                   √(O)         √(O)
+                  CADC                                      x          x        x
+                               (250ms周期)      (4s周期)
+                 SPI模块           √(C)         √(C)       √(C)          x        x
+                 C+电压采集
+                                 √(O)         √(O)        x            x        x
+               (CHGD管脚电压)
+                 负载状态检测
+                                 √(O)         √(O)        x            x        x
+                 (DSGD管脚)
+                 负载唤醒检测
+                                   x           x         √(O)          x        x
+                 (DSGD管脚)
+               充放电状态检测             √           √          x            x        x
+               充电器唤醒检测             x           x         √(O)          √        x
+                 看门狗WDT          √(O)         √(O)        x            x        x
+               Charge Pump       √(O)         √(O)        x            x        x
+                 内部LDO1            √           √          √            x        x
+                 外部LDO2            √           √          √            x        x
+                 功耗(uA)          ＜200         ＜130       ＜45          ＜4       ＜4
+
+                                           表3 功能模式列表
+   注释：“√”表示功能默认开启；“X”表示功能默认关闭；“√(O)”表示该功能需要通过MCU配置为开启；“√(C)”表示该功能需将
+CS引脚拉低开启SPI模块；
+
+7.1.1 Normal模式
+  IC工作在Normal模式，开启LDO1、LDO2、VADC、SPI等模块，MCU也可通过SPI通信使能其他部分功能模块，以及读取
+相关信息。
+
+
+7.1.2 IDLE模式
+   下列条件均满足时，IC先置位IDLE状态位，然后进入IDLE模式：
+   (1) 未检测到充/放电状态，即BSTATUS2寄存器中DSGING和CHGING位都为0
+   (2) MCU对SCONF1寄存器写0x55
+   IC进入IDLE模式后，执行以下操作：
+                                               9

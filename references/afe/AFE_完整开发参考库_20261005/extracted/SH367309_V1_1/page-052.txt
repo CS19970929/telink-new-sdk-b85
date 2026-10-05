@@ -1,0 +1,38 @@
+                                                                                     SH367309
+13. EEPROM及RAM寄存器设置
+13.1 EEPROM及RAM概述
+
+                           EEPROM                    Register
+
+
+               0x1A~0x3F   DE Option                DE Option
+                                        Mapping
+
+
+               0x00~0x19   Data Block               Data Block
+
+
+
+                                                   Configuration
+                                                      Area
+
+                                                   System Area     0x40~0x72
+
+
+                                                    ADC Data
+
+
+                                                                         TWI
+                           EEPROM                                    Communication
+                                                   RAM Interface
+                           Interface
+
+
+
+
+                                        图19 寄存器配置图
+
+
+
+
+                                              52

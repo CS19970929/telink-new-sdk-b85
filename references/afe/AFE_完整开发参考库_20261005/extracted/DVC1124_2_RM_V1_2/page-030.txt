@@ -1,0 +1,75 @@
+DVC1124-2 参考手册                                                                               4 串至 24 串电池组监控芯片
+
+管理系统
+
+放电管理
+放电驱动逻辑
+                                                   IWTS
+
+                                                   DWM
+                         GP4
+
+
+          GP4M                                     DDM
+                                                                                                            000
+                        !=                                                                                  ...
+           0x3                                      SCD                                                                  GP6
+                                                                                                     INT    110
+                                                                                                            111
+                                                 DSGC[1]
+
+                                                 DSGC[0]                                            GP6M
+
+
+                                                                              AND
+                                                    CUV                                                                  DSG
+                                                                                      HSFM
+
+
+                                                   OCD1
+
+
+
+                                                   OCD2
+
+
+                                    PDSGF
+
+                                    DPDM
+
+                                    DBDM
+
+
+                                CC1
+                                            >=
+                               BDPT
+
+
+                                                                   图 1 放电驱动逻辑
+
+预放电驱动逻辑
+                                                                                                      000
+                                                                                                      ...
+                                                                                                                  GP2
+                                                                                              INT     110
+                                                                                                      111
+                                             IWTS
+
+                                                           PDWM                              GP2M
+
+                                                           PDSGC            AND
+                                 GP4                                                                              PDSG
+                                                                                    HSFM
+
+                 GP4M                                      PDDM
+                               !=
+                  0x3
+
+
+                                                                  图 2 预放电驱动逻辑
+
+
+
+
+30 / 33                                                               1.2                                   南京集澈电子科技有限公司
+                                                                                                            宜矽源半导体南京有限公司

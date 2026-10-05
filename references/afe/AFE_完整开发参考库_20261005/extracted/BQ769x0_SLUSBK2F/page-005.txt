@@ -1,0 +1,52 @@
+                                                                                                           bq76920, bq76930, bq76940
+www.ti.com                                                                                SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+5 Pin Configuration and Functions
+5.1       Versions
+
+   DSG    1                        20   ALERT           DSG     1                 30   ALERT         DSG     1                    44   ALERT
+   CHG    2                        19   SRN             CHG     2                 29   SRN           CHG     2                    43   SRN
+   VSS    3                        18   SRP              VSS    3                 28   SRP            VSS    3                    42   SRP
+   SDA    4                        17   VC0             SDA     4                 27   VC0           SDA     4                    41   VC0
+    SCL   5     bq76920            16   VC1              SCL    5                 26   VC1            SCL    5                    40   VC1
+                                        VC2                                            VC2
+    TS1   6     20-TSSOP           15                    TS1    6                 25                  TS1    6                    39   VC2
+  CAP 1   7                        14   VC3             CAP1    7                 24   VC3          CAP1     7                    38   VC3
+REGOUT    8                        13   VC4       REGOUT        8
+                                                                     bq76930      23   VC4        REGOUT     8                    37   VC4
+REGSRC    9                        12   VC5       REGSRC        9    30-TSSOP     22   VC5        REGSRC     9                    36   VC5
+   BAT    10                       11   NC              VC5x    10                21   VC5B          VC5x   10                    35   VC5B
+                                                         NC     11                20   VC6            NC    11   bq76940          34   VC6
+                                                         NC     12                19   VC7            NC    12                    33   VC7
+                                                                                                            13
+                                                                                                                 44-TSSOP
+                                                         TS2    13                18   VC8            TS2                         32   VC8
+                                                        CAP2    14                17   VC9          CAP2    14                    31   VC9
+                                                        BAT     15                16   VC10         VC10x   15                    30   VC10
+                                                                                                      NC    16                    29   VC10B
+                                                                                                      NC    17                    28   VC11
+                                                                                                      TS3   18                    27   VC12
+                                                                                                    CAP3    19                    26   VC13
+                                                                                                     BAT    20                    25   VC14
+                                                                                                      NC    21                    24   VC15
+                                                                                                      NC    22                    23   NC
+
+
+
+                                                               Figure 5-1. Pin Versions
+
+          bq76920: 3–5 Series Cells (20-TSSOP)
+          • 6.5 mm x 4.4 mm x 1.2 mm
+          bq76930: 6–10 Series Cells (30-TSSOP)
+          • 7.8 mm x 4.4 mm x 1.2 mm
+          bq76940: 9–15 Series Cells (44-TSSOP)
+          • 11.3 mm x 4.4 mm x 1.2 mm
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                Pin Configuration and Functions         5
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

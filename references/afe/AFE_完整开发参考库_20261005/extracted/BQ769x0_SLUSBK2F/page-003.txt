@@ -1,0 +1,47 @@
+                                                                                                          bq76920, bq76930, bq76940
+www.ti.com                                                                               SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+    •   Added Design Requirements ......................................................................................................       45
+    •   Added the Detailed Design Procedure ...........................................................................................        46
+    •   Changed the Layout Guidelines ...................................................................................................      50
+    •   Changed the Layout Example ....................................................................................................        50
+    •   Added a Caution ....................................................................................................................   50
+    •   Changed the Good Layout figure .................................................................................................       51
+    •   Changed the Weak Layout figure ................................................................................................        52
+
+
+Changes from Revision C (May 2014) to Revision D                                                                                          Page
+    •   Changed table reference in Integrated Hardware Protections ................................................................ 25
+    •   Changed paragraph 4 verbiage of Integrated Hardware Protections ........................................................ 25
+
+
+Changes from Revision B (April 2014) to Revision C                                                                                        Page
+    •   Changed the documentation format ............................................................................................... 1
+    •   Changed some devices from Product Preview to Production Data ............................................................ 4
+    •   Changed a bit name in the PROTECT1 register ............................................................................... 36
+    •   Changed a bit name in the ADCGAIN2 register ................................................................................ 41
+
+
+Changes from Revision A (December 2013) to Revision B                                                                                     Page
+    •   Changed title of the data manual .................................................................................................. 1
+    •   Changed Ordering Information table to ........................................................................................... 4
+    •   Changed some devices to Product Preview ...................................................................................... 4
+    •   Changed Rf max value in the Recommended Operating Conditions table ................................................. 12
+    •   Changed verbiage in mmunications Subsystem ............................................................................... 29
+    •   Changed SYS_STAT D6 bit name in the Register Map ....................................................................... 32
+
+
+Changes from Original (October 2013) to Revision A                                                                                        Page
+    •   Changed some devices from Product Preview to Production Data ............................................................ 4
+    •   Changed the tINDCELL test condition in Electrical Characteristics .............................................................. 14
+    •   Deleted duplicate CELLBAL3 table ............................................................................................... 34
+    •   Changed bq76940 with bq783xx Companion Controller IC Schematic ...................................................... 45
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                                  Revision History         3
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

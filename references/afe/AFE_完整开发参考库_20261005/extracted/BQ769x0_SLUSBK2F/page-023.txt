@@ -1,0 +1,59 @@
+                                                                                                       bq76920, bq76930, bq76940
+www.ti.com                                                                           SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+7.3.1.1.3 16-Bit CC
+        A 16-bit integrating ADC, commonly referred to as the coulomb counter (CC), provides measurements of
+        accumulated charge across the current sense resistor. The integration period for this reading is 250 ms.
+        The CC may be operated in one of two modes: ALWAYS ON and 1-SHOT.
+        • In ALWAYS ON mode, the CC runs at 100%, gathering a fresh reading every 250 ms. The conclusion
+           of each reading sets the CC_READY bit, which toggles the ALERT pin high to inform the
+           microcontroller that a new reading is available. To enable Always On mode, set [CC_EN] = 1.
+        • In 1-SHOT mode, the CC performs a single 250-ms reading, and similarly sets the CC_READY bit
+           when completed. This mode is intended for non-gauging usages, where the host simply desires to
+           check the pack current.
+           To enable a 1-SHOT reading, ensure [CC_EN] = 0 and set [CC_ONESHOT] = 1.
+        The full scale range of the CC is ± 270 mV, with a max recommended input range of ± 200 mV, thus
+        yielding an LSB of approximately 8.44 µV.
+        The following equation shows how to convert the 16-bit CC reading into an analog voltage if no board-
+        level calibration is performed:
+        CC Reading (in µV) = [16-bit 2’s Complement Value] × (8.44 µV/LSB)                                                              (3)
+
+
+
+                           16-Bit CC Result                ADC Result in Decimal                CC Reading (in µV)
+                                 0x0001                              1                                 8.44
+                                 0x2710                            10000                             84,400
+                                0x7D00                             32000                             270,080
+                                 0x8300                            –32000                           –270,080
+                                0xC350                             –15536                          –131,123.84
+                                0xFFFF                               –1                               –8.44
+
+
+7.3.1.1.4 External Thermistor
+        One (bq76920), two (bq76930), or three (bq76940) 10 kΩ NTC 103AT thermistors may be measured by
+        the device. These are measured by applying a factory-trimmed internal 10k pull-up resistance to an
+        internal regulator value of nominally 3.3 V, the result of which can be read out from the TSx (TS1, TS2,
+        TS3) registers.
+        To select thermistor measurement mode, set [TEMP_SEL] = 1.
+        Thermistor TS1 is connected between TS1 and VSS; TS2 is connected between TS2 and VC5x (bq76930
+        and bq76940 only); and TS3 is connected between TS3 and VC10x (bq76940 only). These thermistors
+        may be placed in various areas in the battery pack to measure such things as localized cell temperature,
+        FET heating, etc.
+        The thermistor impedance may be calculated using the 14-bit ADC reading in the TS1/TS2/TS3 registers
+        and 10k internal pull-up resistance as follows:
+        The following equations show how to use the 14-bit ADC readings in TS1, TS2, and TS3 to determine the
+        resistance of the external 103AT thermistor:
+        VTSX = (ADC in Decimal) x 382 µV/LSB                                                                                            (4)
+        RTS = (10,000 × VTSX) ÷ (3.3 – VTSX)                                                                                            (5)
+
+        To convert the thermistor resistance into temperature, please refer to the thermistor component
+        manufacturer’s datasheet.
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                            Detailed Description   23
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

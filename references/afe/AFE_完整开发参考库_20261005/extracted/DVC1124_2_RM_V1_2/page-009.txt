@@ -1,0 +1,54 @@
+4 串至 24 串电池组监控芯片                                                              DVC1124-2 参考手册
+VCT[15:0]···········芯片内核温度值，无符号二进制，芯片内核温度=VCT×0.24467°C-271.03°C
+
+V1P8 寄存器
+   0x0F        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      V1P8[15]   V1P8[14]    V1P8[13]   V1P8[12]   V1P8[11]   V1P8[10]    V1P8[9]   V1P8[8]
+   MODE         R          R           R          R          R          R          R         R
+
+   0x10        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME       V1P8[7]    V1P8[6]    V1P8[5]    V1P8[4]    V1P8[3]    V1P8[2]     V1P8[1]   V1P8[0]
+   MODE         R          R           R          R          R          R          R         R
+V1P8[15:0]·········V1P8 电压值，无符号二进制，LSB=100μV
+
+VGP1 寄存器
+   0x11        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP1[15]   VGP1[14]    VGP1[13]   VGP1[12]   VGP1[11]   VGP1[10]    VGP1[9]   VGP1[8]
+   MODE         R          R           R          R          R          R          R         R
+
+   0x12        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP1[7]     VGP1[6]    VGP1[5]    VGP1[4]    VGP1[3]    VGP1[2]     VGP1[1]   VGP1[0]
+   MODE         R          R           R          R          R          R          R         R
+VGP1[15:0] ········GP1 电压值，无符号二进制，LSB=100μV
+
+VGP2 寄存器
+   0x13        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP2[15]   VGP2[14]    VGP2[13]   VGP2[12]   VGP2[11]   VGP2[10]    VGP2[9]   VGP2[8]
+   MODE         R          R           R          R          R          R          R         R
+
+   0x14        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP2[7]     VGP2[6]    VGP2[5]    VGP2[4]    VGP2[3]    VGP2[2]     VGP2[1]   VGP2[0]
+   MODE         R          R           R          R          R          R          R         R
+VGP2[15:0] ········GP2 电压值，无符号二进制，LSB=100μV
+
+VGP3 寄存器
+   0x15        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP3[15]   VGP3[14]    VGP3[13]   VGP3[12]   VGP3[11]   VGP3[10]    VGP3[9]   VGP3[8]
+   MODE         R          R           R          R          R          R          R         R
+   0x16        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP3[7]     VGP3[6]    VGP3[5]    VGP3[4]    VGP3[3]    VGP3[2]     VGP3[1]   VGP3[0]
+   MODE         R          R           R          R          R          R          R         R
+VGP3[15:0] ········GP3 电压值，无符号二进制，LSB=100μV
+
+VGP4 寄存器
+   0x17        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP4[15]   VGP4[14]    VGP4[13]   VGP4[12]   VGP4[11]   VGP4[10]    VGP4[9]   VGP4[8]
+   MODE         R          R           R          R          R          R          R         R
+
+   0x18        BIT 7      BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VGP4[7]     VGP4[6]    VGP4[5]    VGP4[4]    VGP4[3]    VGP4[2]     VGP4[1]   VGP4[0]
+   MODE         R          R           R          R          R          R          R         R
+
+
+南京集澈电子科技有限公司                                     1.2                                         9 / 33
+宜矽源半导体南京有限公司

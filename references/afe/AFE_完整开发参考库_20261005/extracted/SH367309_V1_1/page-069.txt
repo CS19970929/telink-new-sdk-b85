@@ -1,0 +1,44 @@
+                                                                                SH367309
+13.4 RAM特殊寄存器
+Table 13.26 系统配置寄存器
+         40H       第7位       第6位      第5位          第4位    第3位     第2位     第1位      第0位
+      CONF         OCRC     PCHMOS   DSGMOS    CHGMOS    CADCON   ENWDT   SLEEP    IDLE
+      读/写          读/写       读/写      读/写          读/写    读/写     读/写     读/写      读/写
+     复位值                0      1       1            1      0        0       0       0
+
+   位编号          位符号                                       说明
+                            过流保护控制位
+     7           OCRC
+                             过流保护状态清除需在OCRC位连续写：0-1-0
+                            预充电MOSFET控制位
+     6          PCHMOS       0：预充电MOSFET关闭
+                             1：预充电MOSFET由硬件保护模块决定
+                            放电MOSFET控制位
+     5          DSGMOS       0：放电MOSFET关闭
+                             1：放电MOSFET由硬件保护模块决定
+                            充电MOSFET控制位
+     4          CHGMOS       0：充电MOSFET关闭
+                             1：充电MOSFET由硬件保护模块决定
+                            CADC设置控制位
+     3          CADCON        0：SH367309关闭CADC
+                              1：SH367309开启CADC进行电流采集
+                            看门狗设置控制位
+     2          ENWDT        0：SH367309关闭看门狗模块
+                             1：SH367309开启看门狗模块
+
+                            SLEEP设置控制位
+                              0：SH367309不进入SLEEP状态
+     1          SLEEP         1：SH367309将进入SLEEP状态，唤醒后硬件自动清零
+                              注释：当设置为“1”时，如果SH367309连接充电器，则不进入SLEEP状态，硬件
+                                  会自动清零
+
+                            IDLE设置控制位
+                               0：SH367309不进入IDLE状态
+     0           IDLE          1：SH367309将进入IDLE状态，唤醒后硬件自动清零
+                               注释：当设置为“1”时，如果SH367309发生了任何保护，则不进入IDLE状态，硬
+                                   件会自动清零
+
+
+
+
+                                              69

@@ -1,0 +1,64 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                       www.ti.com
+
+
+
+                                                                Table of Contents
+1   Introduction ............................................... 1           7    Detailed Description ................................... 19
+    1.1      Features .............................................. 1            7.1    Overview ............................................ 19
+    1.2      Applications ........................................... 1           7.2    Functional Block Diagram ........................... 19
+    1.3      Description ............................................ 1           7.3    Feature Description ................................. 20
+    1.4      Simplified System Diagram ........................... 1              7.4    Device Functional Modes ........................... 30
+2   Revision History ......................................... 2                  7.5    Register Maps ....................................... 32
+3   Description (Continued) ................................ 4               8    Application and Implementation .................... 42
+4   Device Comparison Table.............................. 4                       8.1    Application Information .............................. 42
+5   Pin Configuration and Functions ..................... 5                       8.2    Typical Applications ................................. 43
+    5.1      Versions .............................................. 5       9 Power Supply Recommendations .................. 49
+    5.2      bq76920 Pin Diagram ................................ 6          10 Layout .................................................... 50
+    5.3      bq76930 Pin Diagram ................................ 7               10.1   Layout Guidelines ................................... 50
+    5.4      bq76940 Pin Diagram ................................ 9               10.2   Layout Example ..................................... 50
+6   Electrical Specifications .............................. 11              11 Device and Documentation Support ............... 53
+    6.1      Absolute Maximum Ratings ......................... 11                11.1   Documentation Support ............................. 53
+    6.2      ESD Ratings ........................................ 11              11.2   Related Links ........................................ 53
+    6.3      Recommended Operating Conditions ............... 11                  11.3   Trademarks.......................................... 53
+    6.4      Thermal Information ................................. 13             11.4   Electrostatic Discharge Caution ..................... 53
+    6.5      Electrical Characteristics ............................ 13           11.5   Glossary ............................................. 53
+    6.6      Timing Requirements ............................... 17          12 Mechanical, Packaging, and Orderable
+    6.7      Typical Characteristics .............................. 18          Information .............................................. 53
+
+
+2 Revision History
+                 NOTE: Page numbers for previous revisions may differ from page numbers in the current version.
+
+Changes from Revision E (November 2014) to Revision F                                                                                       Page
+    •     Changed bq7693002 From: Product Preview To Production in the Device Comparison Table............................ 4
+    •     Added bq7693007 device to the Device Comparison Table .................................................................... 4
+    •     Changed table note to group ground reference in bq76930 Pin Functions ................................................... 7
+    •     Changed table note to group ground reference in bq76940 Pin Functions ................................................... 9
+    •     Changed 10th cell to 11th cell in the Description of pin 29 ................................................................... 10
+    •     Changed table formats for online data sheet ................................................................................... 11
+    •     Changed Handing Ratings table to ESD Ratings ............................................................................... 11
+    •     Changed note for R1 on Figure 7-3............................................................................................... 26
+    •     Added more description to the Communications Subsystem section ........................................................ 29
+    •     Changed "SHUTA" to "SHUT_A" and "SHUTB" to "SHUT_B" in the SHIP Mode section ................................ 31
+    •     Changed CAUTION verbiage (editorial) .......................................................................................... 31
+    •     Changed the SHUT_A, SHUT_B bit descriptions in the SYS_CTRL1 (0x04) table ........................................ 35
+
+
+Changes from Revision D (July 2014) to Revision E                                                                                           Page
+    •     Added a note to the Absolute Maximum Ratings table ........................................................................           11
+    •     Changed the Handling Ratings ....................................................................................................     11
+    •     Added the cross-reference to a new table note at VALERT_IH in Electrical Characteristics .................................            16
+    •     Added a new table note ............................................................................................................   16
+    •     Added the Typical Characteristics section .......................................................................................     18
+    •     Changed the Alert section .........................................................................................................   28
+    •     Changed verbiage in Communications Subsystem ............................................................................             29
+    •     Deleted the READ/WRITE RSVD register in the Register Map ...............................................................              32
+    •     Deleted the READ ONLY register information in the Register Map ..........................................................             32
+    •     Changed the reset for Bit 3 in the PROTECT3 register .......................................................................          37
+    •     Changed wording in the ADCGAIN bit descriptions ...........................................................................           40
+    •     Added Application and Implementation note ....................................................................................        42
+
+2         Revision History                                                                    Copyright © 2013–2015, Texas Instruments Incorporated
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

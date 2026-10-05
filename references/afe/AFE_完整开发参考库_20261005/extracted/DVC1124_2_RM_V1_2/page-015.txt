@@ -1,0 +1,53 @@
+4 串至 24 串电池组监控芯片                                                                            DVC1124-2 参考手册
+VC23[15:0]·········C23 电压值，默认无符号二进制，LSB=100μV
+
+VC24 寄存器
+     0x4B             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            VC24[15]           VC24[14]   VC24[13]   VC24[12]   VC24[11]   VC24[10]    VC24[9]   VC24[8]
+    MODE                R                 R          R          R          R          R          R         R
+
+     0x4C             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            VC24[7]            VC24[6]    VC24[5]    VC24[4]    VC24[3]    VC24[2]     VC24[1]   VC24[0]
+    MODE                R                 R          R          R          R          R          R         R
+VC24[15:0]·········C24 电压值，默认无符号二进制，LSB=100μV
+
+VVOS 寄存器
+     0x4D             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            VVOS[15]           VVOS[14]   VVOS[13]   VVOS[12]   VVOS[11]   VVOS[10]    VVOS[9]   VVOS[8]
+    MODE                R                 R          R          R          R          R          R         R
+
+     0x4E             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            VVOS[7]            VVOS[6]    VVOS[5]    VVOS[4]    VVOS[3]    VVOS[2]     VVOS[1]   VVOS[0]
+    MODE                R                 R          R          R          R          R          R         R
+VVOS[15:0] ········VADC 校准电压值，无符号二进制，LSB=100μV
+
+CVOS 寄存器
+     0x4F             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            CVOS[15]           CVOS[14]   CVOS[13]   CVOS[12]   CVOS[11]   CVOS[10]    CVOS[9]   CVOS[8]
+    MODE                R                 R          R          R          R          R          R         R
+
+     0x50             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME            CVOS[7]            CVOS[6]    CVOS[5]    CVOS[4]    CVOS[3]    CVOS[2]     CVOS[1]   CVOS[0]
+    MODE                R                 R          R          R          R          R          R         R
+CVOS[15:0] ········CADC 校准电压值，有符号二进制补码，LSB=5μV
+
+充/放电控制寄存器
+     0x51             BIT 7             BIT 6      BIT 5      BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+    NAME              LDPU              PDSGC      PCHGC      DSGM      DSGC[1]    DSGC[0]     CHGC[1]   CHGC[0]
+    MODE              R/W                R/W        R/W        R/W        R/W        R/W        R/W       R/W
+   DEFAULT              0                 0          0          0          0          0          0         0
+LDPU ··················LOAD 上拉控制位
+0·························关闭 LOAD 上拉
+1·························开启 LOAD 上拉，该 bit 会在 60s 后自动复位为 0
+PDSGC ··············PDSG 驱动输出控制位
+0·························关闭 PDSG 驱动输出
+1·························开启 PDSG 驱动输出
+PCHGC ···············PCHG 驱动输出控制位
+0·························关闭 PCHG 驱动输出
+1·························开启 PCHG 驱动输出
+DSGM ················DSG 驱动输出模式控制位
+0·························DSG 为电荷泵驱动输出模式
+
+
+南京集澈电子科技有限公司                                                   1.2                                        15 / 33
+宜矽源半导体南京有限公司

@@ -1,0 +1,49 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                                                 www.ti.com
+
+
+
+8.2.3                    Application Curves
+
+                       0.020                                                                            0.0
+                                                                      VC1 Error
+                       0.018
+                                                                      VC2 Error                        ±0.2
+                       0.016
+                       0.014                                          VC3 Error                        ±0.4
+                       0.012                                          VC4 Error
+     VCx Error (mV)
+
+
+
+
+                                                                                                       ±0.6
+
+
+
+
+                                                                                         Offset (uV)
+                       0.010                                          VC5 Error
+                       0.008                                                                           ±0.8
+                       0.006
+                                                                                                       ±1.0
+                       0.004
+                       0.002                                                                           ±1.2
+                       0.000
+                                                                                                       ±1.4
+                      ±0.002
+                      ±0.004                                                                           ±1.6
+                            2.00 2.30 2.60 2.90 3.20 3.50 3.80 4.10 4.40 4.70 5.00                            ±40        ±15         10         35         60         85
+                                                 VCx Input (V)                    C001                                             Temperature (ƒC)                   C002
+
+
+
+
+      Figure 8-4. bq76930 VCx Error Across Input Range @ 25°C                                                       Figure 8-5. Coulomb Counter Offset
+
+
+
+
+48                      Application and Implementation                                                                  Copyright © 2013–2015, Texas Instruments Incorporated
+                                                                     Submit Documentation Feedback
+                                                             Product Folder Links: bq76920 bq76930 bq76940

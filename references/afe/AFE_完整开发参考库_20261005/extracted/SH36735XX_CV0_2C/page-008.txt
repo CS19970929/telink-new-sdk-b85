@@ -1,0 +1,36 @@
+                 Preliminary                         SH3673510/3673514/3673517/3673520
+6. 串数配置
+   SH3673520支持4~20串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~20)端口不允许悬空；
+   SH3673517支持4~17串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~17)端口不允许悬空；
+   SH3673514支持4~14串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~14)端口不允许悬空；
+   SH3673510支持4~10串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~10)端口不允许悬空；
+  电芯
+            4串   5 串   6串   7 串    8串   9 串   10 串 11 串 12 串 13 串 14 串 15 串 16 串 17 串         18串   19串   20串
+  输入端
+VC20~VC19   S     S    S     S     S     S     S    S     S     S     S     S     S     S      S     S    C20
+VC19~VC18   S     S    S     S     S     S     S    S     S     S     S     S     S     S      S    C19   C19
+VC18~VC17   S     S    S     S     S     S     S    S     S     S     S     S     S     S     C18   C18   C18
+VC17~VC16   S     S    S     S     S     S     S    S     S     S     S     S     S     C17   C17   C17   C17
+VC16~VC15   S     S    S     S     S     S     S    S     S     S     S     S     C16   C16   C16   C16   C16
+VC15~VC14   S     S    S     S     S     S     S    S     S     S     S     C15   C15   C15   C15   C15   C15
+VC14~VC13   S     S    S     S     S     S     S    S     S     S     C14   C14   C14   C14   C14   C14   C14
+VC13~VC12   S     S    S     S     S     S     S    S     S     C13   C13   C13   C13   C13   C13   C13   C13
+VC12~VC11   S     S    S     S     S     S     S    S     C12   C12   C12   C12   C12   C12   C12   C12   C12
+VC11~VC10   S     S    S     S     S     S     S    C11   C11   C11   C11   C11   C11   C11   C11   C11   C11
+ VC10~VC9   S     S    S     S     S     S    C10   C10   C10   C10   C10   C10   C10   C10   C10   C10   C10
+ VC9~VC8    S     S    S     S     S    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9
+ VC8~VC7    S     S    S     S     C8   C8    C8    C8    C8    C8    C8    C8    C8    C8    C8    C8    C8
+ VC7~VC6    S     S    S    C7     C7   C7    C7    C7    C7    C7    C7    C7    C7    C7    C7    C7    C7
+ VC6~VC5    S     S    C6   C6     C6   C6    C6    C6    C6    C6    C6    C6    C6    C6    C6    C6    C6
+ VC5~VC4    S     C5   C5   C5     C5   C5    C5    C5    C5    C5    C5    C5    C5    C5    C5    C5    C5
+ VC4~VC3    C4    C4   C4   C4     C4   C4    C4    C4    C4    C4    C4    C4    C4    C4    C4    C4    C4
+ VC3~VC2    C3    C3   C3   C3     C3   C3    C3    C3    C3    C3    C3    C3    C3    C3    C3    C3    C3
+ VC2~VC1    C2    C2   C2   C2     C2   C2    C2    C2    C2    C2    C2    C2    C2    C2    C2    C2    C2
+ VC1~VC0    C1    C1   C1   C1     C1   C1    C1    C1    C1    C1    C1    C1    C1    C1    C1    C1    C1
+
+                                 表2 串数配置表(S:Short；Cn代表Celln[n=1~20])
+
+
+
+
+                                                     8

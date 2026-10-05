@@ -1,0 +1,70 @@
+                                                                                                        bq76920, bq76930, bq76940
+www.ti.com                                                                             SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+        A cascode small-signal FET must be added in the external path between BAT and REGSRC with the
+        bq76930 and bq76940. This helps drop most of the power dissipation outside of the package and cuts
+        down on package power dissipation.
+
+7.3.1.4     Communications Subsystem
+        The AFE implements a standard 100-kHz I2C interface and acts as a slave device. The I2C device
+        address is 7-bits and is factory programmed. Consult the Device Comparison Table (Section 4) of this
+        datasheet for more information.
+        A write transaction is shown in Figure 7-4. Block writes are allowed by sending additional data bytes
+        before the Stop. The I2C block will auto-increment the register address after each data byte.
+        When enabled, the CRC is calculated as follows:
+        • In a single-byte write transaction, the CRC is calculated over the slave address, register address, and
+          data.
+        • In a block write transaction, the CRC for the first data byte is calculated over the slave address,
+          register address, and data. The CRC for subsequent data bytes is calculated over the data byte only.
+        The CRC polynomial is x8 + x2 + x + 1, and the initial value is 0.
+        When the slave detects a bad CRC, the I2C slave will NACK the CRC, which causes the I2C slave to go to
+        an idle state.
+
+                  SCL
+
+
+                 SDA             A6 A5 ... A0 R/W ACK    R7 R6 ... R0 ACK    D7 D6 ... D0 ACK    C7 C6 ... C0 ACK
+
+                         Start       Slave Address            Register              Data                 CRC             Stop
+                                                              Address                                  (optional)
+
+                                                           Figure 7-4. I2C Write
+
+        Figure 7-5 shows a read transaction using a Repeated Start.
+
+                SCL
+
+
+                SDA              A6 A5 ... A0 R/W ACK    R7 R6 ... R0 ACK       A6 A5 ... A0 R/W ACK
+
+                        Start        Slave Address            Register               Slave Address
+                                                              Address
+                                                                         Repeated
+                                                                           Start
+
+
+
+
+                                                                            D7 D6 ... D0 ACK     C7 C6 ... C0 NACK
+                                                                                   Slave                Slave          Stop
+                                                                                Drives Data          Drives CRC
+                                                                                                      (optional) Master
+                                                                                                                 Drives NACK
+
+                                               Figure 7-5. I2C Read with Repeated Start
+
+        Figure 7-6 shows a read transaction where a Repeated Start is not used, for example if not available in
+        hardware. For a block read, the master ACK’s each data byte except the last and continues to clock the
+        interface. The I2C block will auto-increment the register address after each data byte.
+        When enabled, the CRC for a read transaction is calculated as follows:
+        • In a single-byte read transaction, the CRC is calculated after the second start and uses the slave
+          address and data byte.
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                               Detailed Description   29
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

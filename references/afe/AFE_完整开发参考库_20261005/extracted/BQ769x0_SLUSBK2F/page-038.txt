@@ -1,0 +1,60 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                           www.ti.com
+
+
+
+
+        OV_D1:0 (Bits 5–4): Overvoltage delay setting
+
+
+                                           Code                            (in s)
+                                            0x0                               1
+                                            0x1                               2
+                                            0x2                               4
+                                            0x3                               8
+
+        RSVD (Bits 3–0): These bits are for TI internal debug use only and must be configured to the default
+        settings indicated.
+
+                                              Table 7-12. OV_TRIP (0x09)
+      BIT             7           6               5         4             3                 2                1                0
+     NAME          OV_T7       OV_T6         OV_T5        OV_T4         OV_T3            OV_T2            OV_T1           OV_T0
+     RESET            1           0               1         0             1                 1                0                0
+     ACCESS          RW         RW            RW           RW            RW                RW              RW               RW
+
+        OV_T7:0 (Bits 7–0): Middle 8 bits of the direct ADC mapping of the desired OV protection threshold,
+        with upper 2 MSB set to 10 and lower 2 LSB set to 1000. The equivalent OV threshold is mapped to:
+        10-OV_T<7:0>1000.
+
+        By default, OV_TRIP is configured to a 0xAC setting.
+
+        Note that OV_TRIP is based on the ADC voltage, which requires back-calculation using the GAIN and
+        OFFSET values stored in ADCGAIN<4:0>and ADCOFFSET<7:0>.
+
+                                              Table 7-13. UV_TRIP (0x0A)
+      BIT             7           6               5         4             3                 2                1                0
+     NAME          UV_T7       UV_T6         UV_T5        UV_T4         UV_T3            UV_T2            UV_T1           UV_T0
+     RESET            1           0               0         1             0                 1                1                1
+     ACCESS          RW         RW            RW           RW            RW                RW              RW               RW
+
+        UV_T7:0 (Bits 7–0): Middle 8 bits of the direct ADC mapping of the desired UV protection threshold, with
+        upper 2 MSB set to 01 and lower 4 LSB set to 0000. In other words, the equivalent OV threshold is
+        mapped to: 01-UV_T<7:0>–0000.
+
+        By default, UV_TRIP is configured to a 0x97 setting. .
+
+        Note that UV_TRIP is based on the ADC voltage, which requires back-calculation using the GAIN and
+        OFFSET values stored in ADCGAIN<4:0>and ADCOFFSET<7:0>.
+
+                                       Table 7-14. CC_CFG REGISTER (0x0B)
+      BIT             7           6               5         4             3                 2                1                0
+     NAME            —           —         CC_CFG5      CC_CFG4       CC_CFG3          CC_CFG2          CC_CFG1          CC_CFG0
+     RESET            0           0               0         0             0                 0                0                0
+     ACCESS           R          R            RW           RW            RW                RW              RW               RW
+
+
+
+
+38      Detailed Description                                                      Copyright © 2013–2015, Texas Instruments Incorporated
+                                               Submit Documentation Feedback
+                                       Product Folder Links: bq76920 bq76930 bq76940

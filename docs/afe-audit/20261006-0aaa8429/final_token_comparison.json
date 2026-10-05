@@ -1,0 +1,212 @@
+[
+  {
+    "unit": "preprocessed\\d008-16s-lfp\\app.i",
+    "tokens_previous": 49896,
+    "tokens_final": 49896,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-16s-lfp\\bms_afe_hw_profile.i",
+    "tokens_previous": 34979,
+    "tokens_final": 34979,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-16s-lfp\\bms_config_store.i",
+    "tokens_previous": 36729,
+    "tokens_final": 36729,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-16s-lfp\\dvc1124.i",
+    "tokens_previous": 43217,
+    "tokens_final": 43217,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-16s-lfp\\dvc1124_bms.i",
+    "tokens_previous": 35874,
+    "tokens_final": 35874,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-20s-nmc\\app.i",
+    "tokens_previous": 49896,
+    "tokens_final": 49896,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-20s-nmc\\bms_afe_hw_profile.i",
+    "tokens_previous": 34979,
+    "tokens_final": 34979,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-20s-nmc\\bms_config_store.i",
+    "tokens_previous": 36729,
+    "tokens_final": 36729,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-20s-nmc\\dvc1124.i",
+    "tokens_previous": 43217,
+    "tokens_final": 43217,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-20s-nmc\\dvc1124_bms.i",
+    "tokens_previous": 35874,
+    "tokens_final": 35874,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-24s-lfp\\app.i",
+    "tokens_previous": 49896,
+    "tokens_final": 49896,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-24s-lfp\\bms_afe_hw_profile.i",
+    "tokens_previous": 34979,
+    "tokens_final": 34979,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-24s-lfp\\bms_config_store.i",
+    "tokens_previous": 36729,
+    "tokens_final": 36729,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-24s-lfp\\dvc1124.i",
+    "tokens_previous": 43217,
+    "tokens_final": 43217,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d008-24s-lfp\\dvc1124_bms.i",
+    "tokens_previous": 35874,
+    "tokens_final": 35874,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d011\\app.i",
+    "tokens_previous": 48932,
+    "tokens_final": 48932,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d011\\bms_afe_hw_profile.i",
+    "tokens_previous": 34169,
+    "tokens_final": 34169,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d011\\bms_config_store.i",
+    "tokens_previous": 36791,
+    "tokens_final": 36791,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d011\\sh3673510_bms.i",
+    "tokens_previous": 38223,
+    "tokens_final": 38223,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d011\\sh3673510_control.i",
+    "tokens_previous": 33391,
+    "tokens_final": 33391,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d013\\app.i",
+    "tokens_previous": 48932,
+    "tokens_final": 48932,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d013\\bms_afe_hw_profile.i",
+    "tokens_previous": 34169,
+    "tokens_final": 34169,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d013\\bms_config_store.i",
+    "tokens_previous": 36791,
+    "tokens_final": 36791,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d013\\sh3673510_bms.i",
+    "tokens_previous": 38100,
+    "tokens_final": 38100,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d013\\sh3673510_control.i",
+    "tokens_previous": 33298,
+    "tokens_final": 33298,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d014\\app.i",
+    "tokens_previous": 48932,
+    "tokens_final": 48932,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d014\\bms_afe_hw_profile.i",
+    "tokens_previous": 34169,
+    "tokens_final": 34169,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d014\\bms_config_store.i",
+    "tokens_previous": 36791,
+    "tokens_final": 36791,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d014\\sh3673510_bms.i",
+    "tokens_previous": 38188,
+    "tokens_final": 38188,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  },
+  {
+    "unit": "preprocessed\\d014\\sh3673510_control.i",
+    "tokens_previous": 33298,
+    "tokens_final": 33298,
+    "same_after_diagnostic_identity_path_normalization": true,
+    "first_difference": null
+  }
+]

@@ -1,0 +1,41 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                          www.ti.com
+
+
+
+                                                                BATTERY–
+
+
+
+
+                              bq76920
+
+                                  REGSRC
+
+                                  REGOUT
+
+                                        VC1
+
+                                        VC0
+                                                                                    PCB Trace impedance
+
+                                        VSS
+
+
+
+
+                                                                 SENSE
+                                                                RESISTOR
+
+
+
+
+                                               Figure 10-3.
+                Weak Layout: Input Capacitor Grounding with High Parasitic PCB Impedance
+
+
+
+
+52     Layout                                                                    Copyright © 2013–2015, Texas Instruments Incorporated
+                                                 Submit Documentation Feedback
+                                         Product Folder Links: bq76920 bq76930 bq76940

@@ -1,0 +1,40 @@
+              Preliminary                             SH3673510/3673514/3673517/3673520
+10. 寄存器
+10.1 寄存器列表
+                                                              RAM 寄存器位
+  序号        名字
+                          7         6          5              4           3            2            1          0
+  0x40     SCONF1        PIN.7     PIN.6      PIN.5          PIN.4      PIN.3         PIN.2        PIN.1      PIN.0
+  0x41     SCONF2       LTCLR     PD_EN      PD_CTL        PUMP_EN    PDSG_CTL     PDSGMOS       DSGMOS     CHGMOS
+  0x42     SCONF3          -      CGR_WK    LD_WK.1        LD_WK.0    CRLD_EN.1    CRLD_EN.0     OWD_EN     OWD_TRG
+  0x43     SCONF4      PDSGT.2    PDSGT.1   PDSGT.0          CN.4       CN.3          CN.2         CN.1       CN.0
+  0x44     SCONF5          -         -      MOS_EN         OCC_EN     CADC_EN       WDT_EN        WDT.1      WDT.0
+  0x45     SCONF6       TS4_EN    TS3_EN     TS2_EN         TS1_EN      SC_EN       OCD_EN        UV_EN      OV_EN
+  0x46     SCONF7          -       RLD      CADCT.1        CADCT.0        -          CDV.2        CDV.1      CDV.0
+  0x47   OWV/ALARMH     OWV.3      OWV.2     OWV.1          OWV.0     LOADON_INT   LOADOFF_INT   VADC_INT   CADC_INT
+  0x48     ALARML       WK_INT    WDT_INT   OWD_INT        TEMP_INT    OCC_INT      OCD_INT       UV_INT     OV_INT
+  0x49     OVT/OVH         -       OVT.2     OVT.1          OVT.0         -             -          OV.9       OV.8
+  0x4A      OVL          OV.7      OV.6       OV.5           OV.4       OV.3          OV.2         OV.1       OV.0
+  0x4B     UVT/UVH         -       UVT.2     UVT.1          UVT.0         -             -          UV.9       UV.8
+  0x4C      UVL          UV.7      UV.6       UV.5           UV.4        UV.3         UV.2         UV.1       UV.0
+  0x4D   OCD1V/OCD1T       -      OCD1T.2   OCD1T.1        OCD1T.0     OCD1V.3      OCD1V.2      OCD1V.1    OCD1V.0
+  0x4E   OCD2V/OCD2T   OCD2T.3    OCD2T.2   OCD2T.1        OCD2T.0     OCD2V.3      OCD2V.2      OCD2V.1    OCD2V.0
+  0x4F     SCV/SCT         -         -       SCV.1          SCV.0       SCT.3        SCT.2        SCT.1      SCT.0
+  0x50    OCCV/OCCT     OCCT.2    OCCT.1     OCCT.0         OCCV.4     OCCV.3        OCCV.2       OCCV.1     OCCV.0
+  0x51      OTC         OTC.7      OTC.6     OTC.5          OTC.4       OTC.3        OTC.2        OTC.1      OTC.0
+  0x52      OTD         OTD.7      OTD.6     OTD.5          OTD.4       OTD.3        OTD.2        OTD.1      OTD.0
+  0x53      UTC         UTC.7      UTC.6     UTC.5          UTC.4       UTC.3        UTC.2        UTC.1      UTC.0
+  0x54      UTD         UTD.7      UTD.6     UTD.5          UTD.4       UTD.3        UTD.2        UTD.1      UTD.0
+  0x55    BALANCEH         -         -          -              -        CB20          CB19         CB18       CB17
+  0x56    BALANCEM       CB16      CB15       CB14           CB13       CB12          CB11         CB10       CB9
+  0x57    BALANCEL       CB8       CB7        CB6            CB5         CB4          CB3          CB2        CB1
+  0x58      FLAG1      RST1_FLG   WK_FLG    OCC_FLG         SC_FLG    OCD2_FLG     OCD1_FLG       UV_FLG     OV_FLG
+  0x59      FLAG2      OTD_FLG    UTD_FLG   OTC_FLG        UTC_FLG    RST2_FLG      WDT_FLG      VADC_FLG   CADC_FLG
+  0x5A      FLAG3          -         -          -              -          -             -        OWD_IND    OWD_FLG
+  0x5B    BSTATUS1         -      E2P_ERR   HDSG_FET       HCHG_FET       -        PDSG_FET      DSG_FET    CHG_FET
+  0x5C    BSTATUS2     CHGING     DSGING     SLEEP           IDLE        BAL            -        LOADON     LOADOFF
+
+
+
+
+                                                      28

@@ -1,0 +1,52 @@
+             Preliminary              SH3673510/3673514/3673517/3673520
+7.9 看门狗功能
+  IC内置看门狗功能，看门狗是一个递减计数器，有效的SPI通讯可复位看门狗计数器，重新开始计数。
+  MCU配置WDT_EN=1时，开启看门狗功能，当看门狗计数器溢出时，IC执行以下动作：
+  (1) FLAG2寄存器中WDT_FLG标志位置1
+  (2) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中WDT_INT位为1)
+  (3) 延时630ms后，关闭充放电MOSFET及预放电MOSFET(PDSGMOS=1)
+  (4) 在状态(3)结束后再延时630ms，RESET管脚输出低电平脉冲
+  (5) 看门狗计数器溢出后，9.8s内FLAG2的WDT_FLG标志位没有被清零，则系统自动进入Powerdown模式
+  下列条件满足时，IC解除看门狗溢出状态：
+  (1) MCU将FLAG2寄存器中WDT_FLG标志位清零(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：寄存器中WDT[1:0]可设置看门狗溢出时间
+  注释：有效的SPI通讯是指IC接收到读/写/复位寄存器命令
+
+7.10 MOSFET强制开启控制
+  MCU配置寄存器中MOS_EN=1时，使能充放电MOSFET强制开启功能，不管DSGMOS位和CHGMOS位是否为1。
+  (1) 当系统关闭充电MOSFET后(看门狗关闭充电MOSFET的情况除外)，如果检测到放电状态，则强制开启充电MOSFET，
+否则关闭充电MOSFET
+  (2) 当系统关闭放电MOSFET后(放电过流2保护/短路保护/看门狗关闭放电MOSFET的情况除外)，如果检测到充电状态，则
+强制开启放电MOSFET，否则关闭放电MOSFET
+
+7.11 预放电功能
+  MCU配置PDSGMOS=1时，预放电功能由IC控制。开启预放电MOSFET时，置位PDSG_FET位；关闭预放电MOSFET时，
+清零PDSG_FET位：
+   (1) IC发生过放电保护、放电过流1/2保护、短路保护、放电低温保护、放电高温保护、内部高温保护、看门狗溢出、配置
+DSGMOS=0、SLEEP模式、Powerdown模式、SHIP模式、VCC LVR复位，关闭放电MOSFET时，同时也关闭预放电MOSFET
+  (2) IC开启放电MOSFET前，会优先开启预放电MOSFET，持续预放电开启时间tPDSGON后开启放电MOSFET，再持续预放
+电额外开启时间tPDSGAD后关闭预放电MOSFET
+  MCU配置PDSGMOS=0时，预放电功能由MCU控制，开启预放电MOSFET时，置位PDSG_FET位；关闭预放电MOSFET
+时，清零PDSG_FET位：
+   (1) 当MCU配置PDSG_CTL=1时，开启预放电MOSFET，持续预放电开启时间tPDSGON后关闭预放电MOSFET，自动清零
+PDSG_CTL
+   (2) MCU配置PDSG_CTL=0时，关闭预放电MOSFET
+  注释：tPDSGON可由相应的寄存器配置
+
+7.12 充放电MOSFET控制方式
+   寄存器中PDSGMOS，DSGMOS，CHGMOS用于控制MOSFET的开关，系统第一次上电和复位后，寄存器中PDSGMOS，
+DSGMOS，CHGMOS默认为0，需要MCU重新配置来开启MOSFET。
+
+7.12.1 充电MOSFET控制
+  下列条件均满足时，充电MOSFET开启：
+  (1) MCU配置寄存器中CHGMOS位为1
+  (2) 未触发过充电保护
+  (3) 未触发充电过流保护
+  (4) 未触发充电低温保护
+  (5) 未触发充电高温保护
+  (6) 未触发短路保护
+  (7) 未触发内部高温保护
+  (8) 未触发看门狗溢出或者触发看门狗溢出后的630ms内
+  (9) 未处于SLEEP模式或Powerdown模式或SHIP模式
+
+                                      17

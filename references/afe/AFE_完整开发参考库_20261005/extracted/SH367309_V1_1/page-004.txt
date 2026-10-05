@@ -1,0 +1,41 @@
+                                                                 SH367309
+5. 管脚描述
+
+管脚号         管脚名        I/O                        功能描述
+ 1-17     VC17 - VC1    I    电芯连接端（VC17为最高压电芯的正端，VC1为最低压电芯的负端）
+  18         RS1        I    电流采集端负端
+  19         RS2        I    电流采集端正端
+20 - 22    T1 - T3      I    温度电阻连接端
+  23         NC         -    不连接端
+  24         NC         -    不连接端
+  25       ALARM       O     对外通讯端（开漏输出）
+  26         SCL        I    TWI时钟信号线（开漏输出）
+  27         SDA       I/O   TWI数据信号线（开漏输出）
+  28         VCC       O     3.3V稳压源输出端
+  29         VSS       P     芯片供电负端
+  30        CAPS       I/O   DCDC转换控制端
+  31        CAPN       I/O   DCDC转换控制端
+  32        CAPP       I/O   DCDC转换控制端
+  33         V11       O     11V稳压源输出端
+  34        DSG        O     放电MOSFET控制端
+  35        PCHG       O     预充电MOSFET控制端（开漏输出）
+  36        CHG        O     充电MOSFET控制端（开漏输出）
+  37       LDO_P       P     LDO3供电正端
+  38       LDO_O       O     LDO3稳压源输出端
+  39         NC         -    不连接端
+  40        VPRO       P     EEPROM烧写供电端
+  41        DSGD        I    负载检测端
+  42        CHGD        I    充电器检测端
+  43        SHIP        I    仓运模式控制端
+  44       LDO_EN       I    LDO3使能控制端
+  45        MODE        I    模式切换控制端
+  46         CTL        I    充放电MOSFET优先控制端
+  47         PF        O     二次过充电过充电保护输出端
+  48        VBAT       P     芯片供电正端
+
+                                 表1 管脚描述（共计48管脚）
+
+
+
+
+                                           4

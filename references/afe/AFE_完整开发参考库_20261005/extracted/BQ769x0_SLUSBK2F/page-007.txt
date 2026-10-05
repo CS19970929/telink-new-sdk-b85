@@ -1,0 +1,61 @@
+                                                                                                             bq76920, bq76930, bq76940
+www.ti.com                                                                                  SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+5.3     bq76930 Pin Diagram
+
+
+                                                   DSG    1                            30     ALERT
+                                                   CHG    2                            29     SRN
+                                                   VSS    3                            28     SRP
+                                                   SDA    4                            27     VC0
+                                                    SCL   5                            26     VC1
+                                                    TS1   6                            25     VC2
+                                                  CAP1    7                            24     VC3
+                                                REGOUT    8
+                                                                   bq76930             23     VC4
+                                                REGSRC    9        30-TSSOP            22     VC5
+                                                  VC5x    10                           21     VC5B
+                                                    NC    11                           20     VC6
+                                                    NC    12                           19     VC7
+                                                    TS2   13                           18     VC8
+                                                  CAP2    14                           17     VC9
+                                                   BAT    15                           16     VC10
+
+
+
+5.3.1     bq76930 Pin Map
+
+
+                                                          bq76930 Pin Functions
+                        PIN              NAME             TYPE                              DESCRIPTION
+                         1                DSG                 O     Discharge FET driver
+                         2                CHG                 O     Charge FET driver
+                         3                VSS                 —     Chip VSS
+                         4                SDA              I/O      I2C communication to the host controller
+                         5                SCL                  I    I2C communication to the host controller
+                         6                TS1                  I    Thermistor #1 positive terminal (1)
+                         7               CAP1                 O     Capacitor to VSS
+                         8             REGOUT                  P    Output LDO
+                         9             REGSRC                  I    Input source for output LDO
+                         10              VC5X                  P    Thermistor #2 negative terminal
+                         11                NC                 —     No connect (short to CAP2)
+                         12                NC                 —     No connect (short to CAP2)
+                         13               TS2                  I    Thermistor #2 positive terminal (1)
+                         14              CAP2                 O     Capacitor to VC5X
+                         15               BAT                  P    Battery (top-most) terminal
+                         16              VC10                  I    Sense voltage for 10th cell positive terminal
+                         17               VC9                  I    Sense voltage for 9th cell positive terminal
+                         18               VC8                  I    Sense voltage for 8th cell positive terminal
+                         19               VC7                  I    Sense voltage for 7th cell positive terminal
+                         20               VC6                  I    Sense voltage for 6th cell positive terminal
+                         21              VC5B                  I    Sense voltage for 6th cell negative terminal
+                         22               VC5                  I    Sense voltage for 5th cell positive terminal
+                         23               VC4                  I    Sense voltage for 4th cell positive terminal
+
+                 (1)   If not used, pull down to group ground reference (VSS for TS1 and VC5X for TS2) with a 10-kΩ
+                       nominal resistor.
+Copyright © 2013–2015, Texas Instruments Incorporated                                                     Pin Configuration and Functions   7
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

@@ -1,0 +1,105 @@
+4 串至 24 串电池组监控芯片                                                                                                            DVC1124-2 参考手册
+
+充电管理
+充电驱动逻辑
+
+                                                 OCD1
+
+                                                 CO1M
+
+                                                 OCD2
+
+                                                 CO2M
+
+                                                     SCD
+
+                                                  CSM
+
+         GP4M                                     IWTS
+                       !=                                                                                                   000
+          0x3                                    CWM
+                                                                                                                            ...
+                                                                                                                                         GP5
+                                                                                                                      INT   110
+                                                                                                                            111
+                        GP4
+                                                  CDM
+                        GP1                                                                                          GP5M
+
+
+         GP1M                                     CCM                                   AND
+                       !=                                                                                                                CHG
+          0x3                                 CHGC[1]                                                HSFM
+
+                                              CHGC[0]
+
+
+
+                                                     COV
+
+
+
+                                                 OCC1
+
+
+
+                                                 OCC2
+
+
+                            PCHGF
+
+                            CPCM
+
+                            CBDM
+
+
+                               CC1
+                                           >=
+                              BDPT
+
+
+
+                                                                   图 3 充电驱动逻辑
+
+预充电驱动逻辑
+
+                                                                                                                     000
+                                                                                                                     ...
+                                                IWTS                                                                              GP3
+                                                                                                              INT    110
+                                                                                                                     111
+                GP4M                                       PCWM
+                                !=
+                 0x3                                       PCHGC                                            GP3M
+
+                                                                                        AND
+                                     GP4                                                                                          PCHG
+                                                           PCDM                               HSFM
+                                     GP1
+
+
+                GP1M                                       PCCM
+                                !=
+                 0x3
+
+
+
+                                                                   图 4 预充电驱动逻辑
+
+逻辑符号说明
+                                      A                             A                         A
+                                                !=           Y              >=            Y              <=           Y
+                                      B                             B                         B
+
+
+                                           if (A!=B) Y=1                if (A>=B) Y=1                if (A<=B) Y=1
+                                           else Y=0                     else Y=0                     else Y=0
+
+
+                                                                   图 5 逻辑符号说明
+
+
+
+
+南京集澈电子科技有限公司                                                              1.2                                                                  31 / 33
+宜矽源半导体南京有限公司

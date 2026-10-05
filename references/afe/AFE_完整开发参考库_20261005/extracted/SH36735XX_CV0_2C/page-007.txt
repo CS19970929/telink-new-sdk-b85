@@ -1,0 +1,393 @@
+                                                  Preliminary                                                                                                                    SH3673510/3673514/3673517/3673520
+5.2 SH3673517-16串高侧NMOS同口应用
+
+                                                                                                                                                                                                                                                                                                                                                                                D1      3.6V
+
+                                                                                                                                                                                                                                                                                                                                                                                                                    R1          D2
+                                                                                                                                                                                                                                                                                                                                                                                                  Q1               56K          BAV21W
+                                                                                                                                                                                                                                                                                                                                                                                             MMBT5401
+
+
+
+                                                                                                                                                                                                                                                                              R2
+                                                                                                                                                                                                                                                                              100R                                                                                                                                           R3
+                                                                                                                                                                                                                                                                                                                                                                                             Q2              R4              2K
+                                                                                                                                                                                                                                                                                                                                                                                             MMBT5551        2K
+                                                                                                                                                                                                                                                                                                                                                                                 R5
+                                                                                                                                                                                                                                                                                                                                                                               100R
+
+
+
+
+                                                                                                                                                                                                                                                                      D
+                                                                                                                                                                                                                                                                                      Q3                                                                                                                                        C1
+                                                                                                                                                                                                                                                                                      PMOS                                                                                                                   R6                 0.1uF/100V
+                                                                                                                                                                                                                                                                                                                                                                                                             56K
+                                                                                                                                                                                                                                                                                  G                                                                    Q4 NMOS                                                                  C2
+                                                                                                                                                                                                                                                                                                                                                                                                                                              J1
+                                                                                                                                                                                                                                                                                                                                                                                                                                0.1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                      S
+                                                                                                                                                                                                                                                                                                                  R7  BC+                          D           S                                                                               1 P+/C+
+                                                                                                                                                                                                                                                                                     D3
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                 BZT52C16
+                                                                                                                                                                                                                                                                                                                  10K                                                           R8                                                       P+
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                      D4
+                                                                                                                                                                                                                                                                                                                                                                                10M                                      D5
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                           G
+                                                                                                                                                                                                                                                                              BZT52C16
+                                                                                                                                                                                                                                                                                                                                                                                                                         BAV21W
+                                                                                                                                                                                                                                                                               R9 100K
+                                                                                                                                                                                                                 Q5 NMOS
+      J2           B+                                                                                                                                                                                                                                                                                                                                                                                                R10
+B+        1                                                                                                                                                                                                 S                                      D                                                                                                                                                                 10K
+                                                                                                                                                                                                                                                                                                                                                                                    Q6
+
+
+
+
+                                                                                                                                                                                                 BZT52C16
+                                                        R11 200R/1206                            R12 200R/1206                                    C3   0.1uF/100V     R13                                                                                                                                                                                                         MMBT5401
+                                                                                                                                                                      10M
+
+
+
+
+                                                                                                                                                                                                                     G
+                                                                               C4 0.1uF/100V                                                                  GND                                                                                                                                                                                                                            R14       R15
+                                                                                          GND                                                                                                                                                                                                                                                                 R16                    R17
+
+
+
+
+                                                                                                                                                                                                 D6
+                                                                                                                                                                                                                                                                                                                                                                                             10K      510R
+                                                                                                                 VBAT                                  GND                                                                                                                                                                               D7                   56K                    56K                           GND
+                               R18 1K/0805         D9     BAV21W        R19 1K/0805                                                                                                                                                                                                               D8              SMBJ85A
+                                                                                                                                                                                                       R20                                                                       GND                                                     BAV21W
+                                             C5                                   C6          C7                                                                                                       10K
+                    R60                                                                                                                                               D17                                                                                                                                                               R21 1K
+                    51K                      1uF/100V                             1uF/100V 0.1uF/100V                                                               SMBJ85A                                                                                                                                                                                                                                       C8
+                                                                   D10                                                                                                                                                                                                                                                                                                                                            10nF/100V
+                                                                   SMBJ85A                                                                                                                                                                                                                                                                                                                     R22 510R
+                                                                                                                                                                                                                                                                                                                                                                                                                          GND
+                                         GND                     GND                         GND
+                                                                                                                                    C10 1uF/25V
+
+
+
+                                                                                                                                                                                                                                                                                                                                             R23                                             D12                D11
+                                                                                                                                                                                                                                                                                                                                                                BC+                          SMBJ85A            BAT46W
+
+
+
+
+                                                                                                                                                                                                                                                                                          3
+                                                                                                                                                                                                       R24 510R                                                                                                                          200R/1206         D13
+                                                                                                                                                                              VCC                                                                                                                                                                          BAV21W
+
+
+
+
+                                                                                                                                                                                                                                                                                              C
+                                                                                                                                                                                                                                                                          1                                                        C9
+                                                                                                                    R25                                                                                                                                                          B
+
+
+
+
+                                                                                                                                                                                                                                             3
+                                                                                                                     1K                                              V33                                                                                                                       Q7                                  1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                                              E
+                                                                                                                                                                                                                                                                                              MJD31CT4G                                                                                GND                GND
+
+
+
+
+                                                                                                                                                                                                                                             C
+                                                                                                                                                                                                        GND                                                               1
+                                                                                                                                                                           C11                                                                              B
+
+
+
+
+                                                                                                                                                                                                                                                                                          2
+                                                                                                                                                                       2.2uF/25V
+
+
+
+
+                                                                                                                                                                                                                                             E
+                                                                                                                                                                                                                                                     Q8                                       R26                    GND
+                                                                                                                                                                                                                                                 MMBT5551                                     15R
+
+
+
+
+                                                                                                                                                                                                                                             2
+                                                                                                                                          48
+                                                                                                                                          47
+                                                                                                                                          46
+                                                                                                                                          45
+                                                                                                                                          44
+                                                                                                                                          43
+                                                                                                                                          42
+                                                                                                                                          41
+                                                                                                                                          40
+                                                                                                                                          39
+                                                                                                                                          38
+                                                                                                                                          37
+
+
+                                                                           C12 1uF/100V                                                                                                               U1                                                                                          R27 10M
+                                                                  GND
+                                                                                                                                                                                                                                                                                                                                              GND
+                                                                                                                                                    VCP
+
+
+
+                                                                                                                                                   CHGD
+                                                                                                                                                   HCHG
+
+
+
+                                                                                                                                                   DSGD
+                                                                                                                                                  LDO_P
+                                                                                                                                                  LDO_O
+                                                                                                                                                    CHG
+                                                                                                                                                    SHIP
+                                                                                                                                                   VCPR
+
+
+                                                                                                                                                   PDSG
+                                                                                                                                                   HDSG
+
+
+
+
+                                                                                                                                                    DSG
+
+
+
+
+                                                           R28            1K                                                                                                                                                                                                                      C13 4.7uF/25V                         U2
+                                                                                       C14                                                                                                                                     VCC 2.2uF/25V                                                                                                                                               V33
+                                                                                                                         1                                                                                                  36      C15            R29 V33
+                                                          R30             1K          0.1uF/50V                              VBAT                                                        VCC                                                   GND 10K                                                                                                  VDD
+                                                                                                                         2                                                                                                  35                                                                                                                                                   C16
+                                                                                       C17                                   NC                                                          VSS                                                                                                                                                                                                     C18
+                                                                                                                         3                                                                                                  34     RESET
+                                                                                                                             NC                                                        RESET                                                                                                                                             RST                                                     2.2uF/25V
+                                                                                      0.1uF/50V                          4                                                                                                  33     SDO       R31      100R                                                                                                                  0.1uF/25V
+                                                          R32             1K                                                 NC                                                          SDO                                                                                                                                             MISO           GND
+                                                                                                                         5                                                                                                  32     SDI       R33      100R
+                                                                                       C19                                   VC17                                                         SDI                                                                                                                                            MOSI
+                                                                                                                         6                                                                                                  31     SCK       R34      100R
+                                                                                                                             VC16                                                        SCK                                                                                                                                             SCK
+                                                                                      0.1uF/50V                          7                                                                                                  30     CS        R35      100R                                                                                                                                 GND
+                                                          R36            1K                                                  VC15                                                          CS                                                                                                                                            CS
+                                                                                                                         8                                                                                                  29     ALARM R37          100R
+          J3                                                                           C20                                   VC14                                                     ALARM                                                                                                                                              INT
+                                                                                                                         9                                                                                                  28
+                                                                                                                             VC13                                                         TS4
+           24                                                                         0.1uF/50V                         10                                                                                                  27                                                                                                          MCU
+                                                          R38            1K                                                  VC12                                                         TS3
+           23                                                                                                           11                                                                                                  26
+                                                                                       C21                                   VC11                                                         TS2
+           22                                                                                                           12                                                                                                  25
+                                                                                                                             VC10                                                         TS1
+           21                                                                         0.1uF/50V
+                                                          R39            1K
+           20
+                                                                                       C22
+                                                                                                                                                  VC9
+                                                                                                                                                  VC8
+                                                                                                                                                  VC7
+                                                                                                                                                  VC6
+                                                                                                                                                  VC5
+                                                                                                                                                  VC4
+                                                                                                                                                  VC3
+                                                                                                                                                  VC2
+                                                                                                                                                  VC1
+                                                                                                                                                  VC0
+
+
+
+
+           19
+                                                                                                                                                  RS1
+                                                                                                                                                  RS2
+
+
+
+
+           18                                                                         0.1uF/50V
+                                                                                                                                                                                                                                                                                C26 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                     C28 1nF/25V
+                                                          R40            1K
+                                                                                                                                                                                                                                                            C25 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                                                    C27 1nF/25V
+
+
+
+
+           17
+                                                                                                                                                                                                                                                            R43 103AT
+
+
+
+
+                                                                                                                                                                                                                                                                                                    R45 103AT
+
+
+
+
+                                                                                       C23
+                                                                                                                                                                                                                                 R42 103AT
+
+
+
+
+                                                                                                                                                                                                                                                                                R44 103AT
+                                                                                                                                          21
+
+
+
+
+           16
+                                                                                                                                          13
+
+                                                                                                                                          15
+
+
+
+
+                                                                                                                                          23
+                                                                                                                                          18
+                                                                                                                                          14
+
+                                                                                                                                          16
+                                                                                                                                          17
+
+                                                                                                                                          19
+                                                                                                                                          20
+
+                                                                                                                                          22
+
+                                                                                                                                          24
+
+
+
+
+           15                                                                         0.1uF/50V
+                                                          R41            1K
+           14
+           13                                                                          C24
+           12                                                                         0.1uF/50V
+                                                          R46            1K
+           11
+           10                                                                          C29
+            9                                                                         0.1uF/50V                                                                                                                                         GND                        GND                   GND               GND
+                                                          R47            1K
+            8
+            7                                                                          C30
+            6                                                                         0.1uF/50V
+                                                          R48            1K
+            5
+            4                                                                          C31
+            3                                                                         0.1uF/50V
+                                                          R49            1K
+            2
+            1                                                                          C32
+          CON24                                           R50            1K            0.1uF/50V
+                                                                                       C33
+
+                                                          R51            1K            0.1uF/50V
+                                                                                                                                                                                                                0.1uF/50V
+
+
+
+
+                                                                                       C34
+                                                                                       0.1uF/50V
+                                                                                                                                                                                                      C35
+
+
+
+
+                                                          R52            1K
+                                                                                       C36
+                                                                                                                                                                                          0.1uF/50V
+
+
+
+                                                                                                                                                                                                                            0.1uF/50V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                             P+
+                                                          R53            1K            0.1uF/50V
+                                                                                                                                                                                                                                                 R55 100R
+                                                                                                                                                                           R56 100R
+
+
+
+
+                                                                                       C38                                                                                                                                                                                                                                                                                                                                      C37
+                                                                                                                                                                                                                                                                                                                                                                                                                     D14
+                                                                                       0.1uF/50V                                                                                                                                                                                                                                                                                                                                0.1uF/100V
+                                                          R54            1K
+                                                                                                                                                                                                                            C40
+                                                                                                                                                                                          C41
+
+
+
+
+                                                                                       C42                                   D15                                                                                                                                                                                                                                                                                     RS3M       C39
+                    R57                                                                                                                           D16
+                    51R/0805                                                           1uF/50V                               BAT46W               BAT46W                                                                                                                                                                                                                                                                        0.1uF/100V
+           J4                                                                                                                                                                                                                                                                                                                                                                                                                                 J5
+                                                                                                                                                                                                      GND
+     B-        1                                                                                                                                                                                                                                                                                                                                                                                                                               1 P-/C-
+
+                                                                                                                                                                                                      R58 2mR
+                                                                                                                                                                                                      R59 2mR
+                                                                                                                                                                                      GND
+
+
+
+
+                                                                                                                             图4 16串高侧NMOS同口应用
+
+
+
+
+                                                                                                                                                                                      7

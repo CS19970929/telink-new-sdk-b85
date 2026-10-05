@@ -1,0 +1,25 @@
+                                                                                                    bq76920, bq76930, bq76940
+www.ti.com                                                                           SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+9 Power Supply Recommendations
+        The bq769x0 devices are powered through the BAT and REGSRC pins but the bq76930 and bq76940
+        have additional ‘Power’ pins to provide the power to the entire device in the higher cell configurations.
+        The use of Rf and Cf connected to the BAT pin, noted in the typical application diagrams, are required to
+        filter system transients from disturbing the device power supply. These components should be placed as
+        close as to the IC as possible.
+        Additionally, for the bq76930 and bq76940 there are additional requirements to ensure a stable power
+        supply to the device. The REGSRC pin is powered through a source follower circuit where the FET is
+        used to provide current for REGSRC from the battery positive terminal while reducing the voltage to a
+        suitable value for the IC. The FET also dissipates the power resulting from the load current and dropped
+        voltage external to the IC and care should be taken to ensure the correct dissipation ratings are specified
+        by the chosen FET.
+        The bq76920 does not use a FET because the battery voltage is within the REGSRC range.
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                           Power Supply Recommendations     49
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

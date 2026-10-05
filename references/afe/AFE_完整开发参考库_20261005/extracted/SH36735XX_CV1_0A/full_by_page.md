@@ -1,0 +1,4136 @@
+# SH36735XX CV1.0A.pdf 逐页原文提取
+
+用途：检索支持层，非规范化说明。PDF 为最终证据。表格列、上下标、公式、图中连线及希腊字母可能在文本提取中失真。PDF 页从 1 起计；打印页码请直接核对原页。
+
+## PDF 第 1 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.1](../../sources/SH36735XX%20CV1.0A.pdf#page=1)
+
+```text
+                            SH3673510/3673514/3673517/3673520
+                            4-10串/4-14串/4-17串/4-20串锂电池BMS用前端芯片
+
+1. 特性
+◼ 电压保护功能                                      - 4路外部温度采集通道
+  - 过充电保护                                     - 1路内部温度采集通道
+  - 过放电保护                                     - 1路C+电压采集通道
+◼ 电流保护功能
+                                              - 1路B+电压采集通道
+  - 放电过流1保护
+  - 放电过流2保护                                 ◼ 16-bit Σ-ΔCADC用于采集电流
+  - 短路保护                                      - 转换周期：250ms(Normal模式)和4s(IDLE模式)
+  - 充电过流保护                                  ◼ LDO稳压电源
+◼ 电芯温度保护功能                                    - 3.3V(25mA@MAX)
+  - 充电高温保护                                  ◼ 集成高侧充放电N-MOSFET驱动
+  - 充电低温保护                                  ◼ 集成高侧预放电P-MOSFET驱动
+  - 放电高温保护                                  ◼ 集成低侧充放电N-MOSFET驱动
+  - 放电低温保护
+                                            ◼ SPI通讯接口
+◼ 断线检测
+                                              - 工作频率：≤1MHz
+◼ 充放电状态检测
+                                              - 支持CRC8校验
+◼ 内置均衡开关                                    ◼ 工作电压
+◼ 内置看门狗模块                                     - 8V~88V
+◼ 支持乱序上电                                    ◼ 工作电流：
+◼ 13-bit Σ-ΔVADC用于采集电压/电流/温度                  - Normal模式：＜200μA (Max.@25℃)
+  - 转换周期：70ms(Normal模式)和280ms(IDLE模式)         - IDLE模式：＜130μA (Max.@25℃)
+  - 电压采集通道                                    - SLEEP模式：＜45μA (Max.@25℃)
+    10路：SH3673510                             - PowerDown模式：＜4μA (Max.@25℃)
+    14路：SH3673514                             - SHIP模式：＜4uA (Max.@25℃)
+    17路：SH3673517                           ◼ 封装
+    20路：SH3673520                             - TQFP48
+  - 1路电流采集通道
+
+2. 概述
+  SH36735XX系列是BMS用数字前端芯片，适用于总电压不超过88V的锂电池Pack。
+  SH36735XX系列内置VADC，用于采集电芯电压、温度以及电流；内置高精度CADC，用于采集电流统计Pack剩余容量；
+同时内置SPI通讯接口，配合用户MCU实现电池包系统管理。
+  注释：文中所述IC代表SH3673510/3673514/3673517/3673520，该系列产品仅串数不同，其他功能完全相同。
+
+
+
+
+                                        1                                     V1.0A
+```
+
+## PDF 第 2 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.2](../../sources/SH36735XX%20CV1.0A.pdf#page=2)
+
+```text
+                                                                         SH3673510/3673514/3673517/3673520
+3. 系统框图
+
+
+
+
+                                                                                    LDO_O
+                                                                         LDO_P
+                       SHIP
+
+
+
+
+                                                         VCC
+
+
+
+
+                                                                                                     VCPR
+
+
+
+                                                                                                                   VCP
+      VBAT                                                                                                                    HCHG
+                                               LDO1(LDO_VCC)             LDO2(LDO_MCU)           HCHG/HDSG Driver
+                       Power
+          VSS                                  for internal blocks       For external MCU                                     HDSG
+
+
+                                                                                                                              PDSG
+                                                                                                     PDSG Driver
+
+                                                                                                                              CHG
+                                       Die                                                         CHG/DSG Driver             DSG
+                                    Temperature
+          VC20
+                                                     C+ Voltage Converter                                                     CHGD
+                                                                                                      Charger Detection
+
+                                                                                                            Load Detection    DSGD
+          VC19
+                                                                                                                              TS1
+                                                                                                                              TS2
+                                                                                                                Temperature
+                                                                                                                  Detect      TS3
+
+                                                                                                                              TS4
+                   Level shift&
+                                                   MUX
+
+
+
+
+                 Balance module                                  VADC
+                                                                 13bit
+                                    Channels                                                      RC
+
+                                                                                                                              SDO
+          VC1                                  CADC                                             WatchDog
+                                               16bit                                                                          SDI
+                                                                                                                     SPI
+                                                                                 Logic Module                       module    SCK
+          VC0
+                                                                                                                              CS
+                                                                                                Registers
+                                                                OC module
+
+                                                                                                                              RESET
+                                                                                                                              ALARM
+                              RS2
+                 RS1
+
+
+
+
+                                               图1 系统方框图(以SH3673520为例)
+
+
+
+
+                                                                         2
+```
+
+## PDF 第 3 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.3](../../sources/SH36735XX%20CV1.0A.pdf#page=3)
+
+```text
+                                                                                                                                   SH3673510/3673514/3673517/3673520
+4. 管脚定义
+
+
+
+
+                                                                                              LDO_O
+
+
+
+
+                                                                                                                                                                                                                        LDO_O
+                                                                                      LDO_P
+
+
+
+
+                                                                                                                                                                                                               LDO_P
+                                                 HCHG
+
+
+
+
+                                                                                                                                                                           HCHG
+                                                               HDSG
+
+
+
+
+                                                                                                                                                                                          HDSG
+                                                                               DSGD
+
+
+
+
+                                                                                                                                                                                                        DSGD
+                                                                        CHGD
+
+
+
+
+                                                                                                                                                                                                 CHGD
+                                                        PDSG
+
+
+
+
+                                                                                                                                                                                   PDSG
+                                  VCPR
+
+
+
+
+                                                                                                                                                            VCPR
+                                                                                                                                                    SHIP
+                           SHIP
+
+
+
+
+                                                                                                      CHG
+
+
+
+
+                                                                                                                                                                                                                                CHG
+                                                                                                            DSG
+
+
+
+
+                                                                                                                                                                                                                                       DSG
+                                         VCP
+
+
+
+
+                                                                                                                                                                    VCP
+                           48 47 46 45 44 43 42 41 40 39 38 37                                                                                      48 47 46 45 44 43 42 41 40 39 38 37
+          VBAT    1                                                                                               36      VCC          VBAT    1                                                                                             36    VCC
+          VC20    2                                                                                               35      VSS           NC     2                                                                                             35    VSS
+          VC19    3                                                                                               34      RESET         NC     3                                                                                             34    RESET
+          VC18    4                                                                                               33      SDO           NC     4                                                                                             33    SDO
+          VC17    5                                                                                               32      SDI          VC17    5                                                                                             32    SDI
+          VC16    6                                     SH3673520                                                 31      SCK          VC16    6                                   SH3673517                                                 31    SCK
+          VC15    7                                                                                               30      CS           VC15    7                                                                                             30    CS
+          VC14    8                                                                                               29      ALARM        VC14    8                                                                                             29    ALARM
+          VC13    9                                                                                               28      TS4          VC13    9                                                                                             28    TS4
+          VC12    10                                                                                              27      TS3          VC12    10                                                                                            27    TS3
+          VC11    11                                                                                              26      TS2          VC11    11                                                                                            26   TS2
+          VC10    12                                                                                              25      TS1          VC10    12                                                                                            25   TS1
+                           13 14 15 16 17 18 19 20 21 22 23 24                                        RS1                                           13 14 15 16 17 18 19 20 21 22 23 24
+                                                                                                            RS2
+
+
+
+
+                                                                                                                                                                                                                                RS1
+                                                                                                                                                                                                                                      RS2
+                                                                                              VC0
+
+
+
+
+                                                                                                                                                                                                                       VC0
+                                                               VC4
+                                                                      VC3
+                                                                               VC2
+                                                                                      VC1
+
+
+
+
+                                                                                                                                                                                          VC4
+                                                                                                                                                                                                 VC3
+                                                                                                                                                                                                        VC2
+                                                                                                                                                                                                               VC1
+                           VC9
+                                  VC8
+                                         VC7
+                                               VC6
+                                                        VC5
+
+
+
+
+                                                                                                                                                    VC9
+                                                                                                                                                            VC8
+                                                                                                                                                                    VC7
+                                                                                                                                                                           VC6
+                                                                                                                                                                                   VC5
+
+
+
+
+                                                                                                                                                                                                                       LDO_O
+                                                                                                                                                                                                               LDO_P
+                                                                                                                                                                            HCHG
+
+
+                                                                                                                                                                                          HDSG
+
+
+                                                                                                                                                                                                        DSGD
+                                                                                                                                                                                                 CHGD
+                                                                                                                                                                                   PDSG
+                                                                                                                                                             VCPR
+                                                                                                                                                     SHIP
+
+
+
+
+                                                                                                                                                                                                                                CHG
+                                                                                                                                                                                                                                      DSG
+                                                                                                 LDO_O
+
+
+
+
+                                                                                                                                                                     VCP
+                                                                                         LDO_P
+                                                   HCHG
+
+
+                                                                 HDSG
+
+
+                                                                                 DSGD
+                                                                          CHGD
+                                                          PDSG
+                                    VCPR
+                             SHIP
+
+
+
+
+                                                                                                         CHG
+                                                                                                               DSG
+                                           VCP
+
+
+
+
+                                                                                                                                                     48 47 46 45 44 43 42 41 40 39 38 37
+                             48 47 46 45 44 43 42 41 40 39 38 37                                                                        VBAT    1                                                                                           36    VCC
+           VBAT        1                                                                                             36    VCC
+                                                                                                                                         NC     2                                                                                           35    VSS
+            NC         2                                                                                             35    VSS
+                                                                                                                                         NC     3                                                                                           34    RESET
+            NC        3                                                                                              34    RESET
+                                                                                                                                         NC     4                                                                                           33    SDO
+            NC         4                                                                                             33    SDO
+                                                                                                                                         NC     5                                                                                           32    SDI
+            NC         5                                                                                             32    SDI
+                                                                                                                                         NC     6                                  SH3673510                                                 31   SCK
+             NC        6                                  SH3673514                                                  31    SCK
+                                                                                                                                                7                                                                                           30
+                                                                                                                                         NC                                                                                                       CS
+             NC        7                                                                                             30    CS
+                                                                                                                                         NC     8                                                                                           29    ALARM
+           VC14       8                                                                                              29    ALARM
+                                                                                                                                         NC     9                                                                                           28    TS4
+           VC13       9                                                                                              28    TS4
+                                                                                                                                         NC    10                                                                                           27    TS3
+           VC12    10                                                                                                27    TS3
+                                                                                                                                         NC    11                                                                                           26    TS2
+           VC11    11                                                                                                26    TS2
+                                                                                                                                        VC10   12                                                                                           25    TS1
+           VC10    12                                                                                                25    TS1                       13 14 15 16 17 18 19 20 21 22 23 24
+                             13 14 15 16 17 18 19 20 21 22 23 24
+
+
+                                                                                                                                                                                                                                RS1
+                                                                                                                                                                                                                                      RS2
+                                                                                                                                                                                                                       VC0
+                                                                                                                                                                                          VC4
+                                                                                                                                                                                                 VC3
+                                                                                                                                                                                                        VC2
+                                                                                                                                                                                                               VC1
+                                                                                                                                                     VC9
+                                                                                                                                                            VC8
+                                                                                                                                                                    VC7
+                                                                                                                                                                           VC6
+                                                                                                                                                                                   VC5
+                                                                                                         RS1
+                                                                                                               RS2
+                                                                                                 VC0
+                                                                 VC4
+                                                                          VC3
+                                                                                 VC2
+                                                                                        VC1
+                             VC9
+                                    VC8
+                                           VC7
+                                                  VC6
+                                                          VC5
+
+
+
+
+                                                                                                                          图2 管脚配置图
+
+
+
+
+                                                                                                                                   3
+```
+
+## PDF 第 4 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.4](../../sources/SH36735XX%20CV1.0A.pdf#page=4)
+
+```text
+                                             SH3673510/3673514/3673517/3673520
+                                 管脚名
+管脚号   I/O                                                                功能描述
+            SH3673520   SH3673517   SH3673514     SH3673510
+ 1    P       VBAT        VBAT         VBAT         VBAT      芯片供电正端
+ 2     I      VC20         NC           NC           NC       第20节电芯连接正端
+ 3     I      VC19         NC           NC           NC       第19节电芯连接正端
+ 4     I      VC18         NC           NC           NC       第18节电芯连接正端
+ 5     I      VC17        VC17          NC           NC       第17节电芯连接正端
+ 6     I      VC16        VC16          NC           NC       第16节电芯连接正端
+ 7     I      VC15        VC15          NC           NC       第15节电芯连接正端
+ 8     I      VC14        VC14         VC14          NC       第14节电芯连接正端
+ 9     I      VC13        VC13         VC13          NC       第13节电芯连接正端
+10     I      VC12        VC12         VC12          NC       第12节电芯连接正端
+11     I      VC11        VC11         VC11          NC       第11节电芯连接正端
+12     I      VC10        VC10         VC10         VC10      第10节电芯连接正端
+13     I      VC9         VC9          VC9          VC9       第9节电芯连接正端
+14     I      VC8         VC8          VC8          VC8       第8节电芯连接正端
+15     I      VC7         VC7          VC7          VC7       第7节电芯连接正端
+16     I      VC6         VC6          VC6          VC6       第6节电芯连接正端
+17     I      VC5         VC5          VC5          VC5       第5节电芯连接正端
+18     I      VC4         VC4          VC4          VC4       第4节电芯连接正端
+19     I      VC3         VC3          VC3          VC3       第3节电芯连接正端
+20     I      VC2         VC2          VC2          VC2       第2节电芯连接正端
+21     I      VC1         VC1          VC1          VC1       第1节电芯连接正端
+22     I      VC0         VC0          VC0          VC0       第1节电芯连接负端
+23     I      RS1         RS1          RS1          RS1       电流采集端负端
+24     I      RS2         RS2          RS2          RS2       电流采集端正端
+25     I      TS1         TS1          TS1          TS1       外部温度1电阻连接端
+26     I      TS2         TS2          TS2          TS2       外部温度2电阻连接端
+27     I      TS3         TS3          TS3          TS3       外部温度3电阻连接端
+28     I      TS4         TS4          TS4          TS4       外部温度4电阻连接端
+29    O      ALARM       ALARM       ALARM         ALARM      报警信号对外输出端(开漏输出)
+               ——          ——           ——           ——
+30     I      CS          CS           CS           CS        SPI从设备选择引脚(低电平有效)
+31     I      SCK         SCK          SCK          SCK       SPI串行时钟引脚
+32     I       SDI         SDI         SDI           SDI      SPI从输入引脚
+33    O       SDO         SDO          SDO          SDO       SPI从输出引脚
+34    O      RESET       RESET       RESET         RESET      复位信号输出端(开漏输出)
+35    P       VSS         VSS          VSS          VSS       芯片供电负端
+36    O       VCC         VCC          VCC          VCC       内部稳压源LDO1输出端
+37    O       DSG         DSG          DSG          DSG       低侧放电MOSFET控制端
+38    O       CHG         CHG          CHG          CHG       低侧充电MOSFET控制端
+39    O      LDO_O       LDO_O       LDO_O         LDO_O      外部稳压源LDO2输出端
+40    P      LDO_P       LDO_P       LDO_P         LDO_P      外部稳压源LDO2供电端
+41     I      DSGD        DSGD         DSGD         DSGD      负载检测端
+42     I     CHGD        CHGD          CHGD        CHGD       C+电压采集端、充电器唤醒检测端
+
+                                              4
+```
+
+## PDF 第 5 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.5](../../sources/SH36735XX%20CV1.0A.pdf#page=5)
+
+```text
+                               SH3673510/3673514/3673517/3673520
+43   O   HDSG   HDSG   HDSG        HDSG   高侧放电MOSFET控制端
+44   O   PDSG   PDSG   PDSG        PDSG   预放电MOSFET控制端
+45   O   HCHG   HCHG   HCHG        HCHG   高侧充电MOSFET控制端
+46   O   VCP    VCP     VCP        VCP    Charge Pump电荷泵输出端
+47   P   VCPR   VCPR   VCPR        VCPR   Charge Pump电荷泵输入端
+48   I   SHIP   SHIP    SHIP       SHIP   SHIP模式控制端
+
+                       表1 IC管脚描述
+
+
+
+
+                               5
+```
+
+## PDF 第 6 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.6](../../sources/SH36735XX%20CV1.0A.pdf#page=6)
+
+```text
+                                                                                                                                       SH3673510/3673514/3673517/3673520
+5. 典型应用电路
+5.1 SH3673520-20串低侧NMOS同口应用
+      J1           B+                                                                                                                                                                                                                                                                                                                                                             J2
+B+        1                                                                                                                                                                                                                                                                                                                                                                         1 P+/C+
+                                                                                                               VBAT                                                                                                                                                                                                                                   C1
+                                                                                                                                                                                                                                                                                                                                                                      D1
+                               R1   1K/0805         D2   BAV21W      R2 1K/0805                                                                                                                                                                                                                                                                       0.1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                                              DSGD
+                                              C2                                  C3            C4                                                                                                                                                                                                                                                    C5              RS3M
+                         R55                  1uF/100V             D3             1uF/100V 0.1uF/100V                                                                                                                                                                                                                                                 0.1uF/100V
+                         51K                                       SMBJ85A                                                                                                                                                                                                                           R3
+                                                                                                                                                                                                                                                                                                     10K
+                                          GND                 GND                          GND
+                                                                                                                                                                                                                                                                                                                                                     P-
+
+                                                                                                                                                                                                                                                                                                               Q1
+                                                                               C6      0.1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                                                D
+                                                                   GND                                                                                                                                                                                                                                          AM2394NE
+                                                                                                                                                                                                                                                                                                                       R4         5.1M
+                                                             R5           1K                                                    GND                                                                                                                                                                        G                               MOS_D
+
+
+
+
+                                                                                                                                                                                                                                                                                                S
+                                                                                          C7
+                                                                                                                                                                                                                                                                                                                            R6
+                                                                                                                                          VCC_MCU 2.2uF/25V                                                                                                                                             D4                  1M
+                                                             R7           1K             0.1uF/50V                                                                                                                                                                                                   BZT52C15
+                                                                                                                                                   C8
+                                                                                          C9                             R8       R8                       GND                                                                                                                                                                   GND
+                                                                                                                          1K      1K
+
+
+
+
+                                                                                                                                       CHGD
+                                                                                                                                       DSGD
+                                                                                         0.1uF/50V
+
+
+
+
+                                                                                                                                              CHG
+                                                             R9           1K
+
+
+
+
+                                                                                                                                              DSG
+                                                                                          C10
+
+                                                             R10          1K             0.1uF/50V
+
+
+
+
+                                                                                                                             48
+                                                                                                                             47
+                                                                                                                             46
+                                                                                                                             45
+                                                                                                                             44
+                                                                                                                             43
+                                                                                                                             42
+                                                                                                                             41
+                                                                                                                             40
+                                                                                                                             39
+                                                                                                                             38
+                                                                                                                             37
+                                                                                          C11                                                                           U1
+
+
+
+
+                                                                                                                                 VCP
+
+
+
+                                                                                                                                CHGD
+                                                                                                                                HCHG
+
+
+
+                                                                                                                                DSGD
+                                                                                                                               LDO_P
+                                                                                                                               LDO_O
+                                                                                                                                 CHG
+                                                                                                                                 SHIP
+
+
+
+                                                                                                                                PDSG
+                                                                                                                                HDSG
+
+
+
+
+                                                                                                                                 DSG
+                                                                                                                                VCPR
+                                                             R11          1K             0.1uF/50V
+                                                                                                                                                                                                                                                                                              U2
+                                                                                          C12                                                                                                                                                                                                                                                  VCC_MCU
+                                                                                                                                                                                                                      2.2uF/25V
+                                                                                                                  1                                                                       36                           C13                    R12 VCC_MCU
+                                                             R13          1K             0.1uF/50V                    VBAT                                    VCC                                                                         GND 10K                                                                    VDD
+                                                                                                                  2                                                                       35                                                                                                                                             C14
+                                                                                          C15                         VC20                                    VSS                                                                                                                                                                                         C16
+                                                                                                                  3                                                                       34                          RESET
+                                                                                                                      VC19                                  RESET                                                                                                                                RST                                                      2.2uF/25V
+                                                                                         0.1uF/50V                4                                                                       33                          SDO           R14                            100R                                                          0.1uF/25V
+                                                             R15          1K                                          VC18                                    SDO                                                                                                                                MISO                GND
+                                                                                                                  5                                                                       32                          SDI           R16                            100R
+                                                                                          C17                         VC17                                     SDI                                                                                                                               MOSI
+                                                                                                                  6                                                                       31                          SCK           R17                            100R
+                                                                                                                      VC16                                    SCK                                                                                                                                SCK
+                                                                                         0.1uF/50V                7                                                                       30                          CS            R18                            100R                                                                         GND
+                                                             R19          1K                                          VC15                                      CS                                                                                                                               CS
+                                                                                                                  8                                                                       29                          ALARM         R20                            100R
+          J3                                                                              C18                         VC14                                 ALARM                                                                                                                                 INT
+                                                                                                                  9                                                                       28
+                                                                                                                      VC13                                     TS4
+           24                                                                            0.1uF/50V               10                                                                       27                                                                                                  MCU
+                                                             R21          1K                                          VC12                                     TS3
+           23                                                                                                    11                                                                       26
+                                                                                          C19                         VC11                                     TS2
+           22                                                                                                    12                                                                       25
+                                                                                                                      VC10                                     TS1
+           21                                                                            0.1uF/50V
+                                                             R22          1K
+           20
+                                                                                          C20
+                                                                                                                               VC9
+                                                                                                                               VC8
+                                                                                                                               VC7
+                                                                                                                               VC6
+                                                                                                                               VC5
+                                                                                                                               VC4
+                                                                                                                               VC3
+                                                                                                                               VC2
+                                                                                                                               VC1
+                                                                                                                               VC0
+
+           19
+                                                                                                                               RS1
+                                                                                                                               RS2
+           18                                                                            0.1uF/50V
+
+
+
+
+                                                                                                                                                                                                                                    C24 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                               C26 1nF/25V
+                                                             R23          1K
+
+
+
+
+                                                                                                                                                                                                                      C23 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                 C25 1nF/25V
+           17
+
+
+
+
+                                                                                                                                                                                                                      R26 103AT
+
+
+
+
+                                                                                                                                                                                                                                                                 R28 103AT
+                                                                                          C21
+
+
+                                                                                                                                                                                               R25 103AT
+
+
+
+
+                                                                                                                                                                                                                                    R27 103AT
+           16
+                                                                                                                             21
+                                                                                                                             13
+
+
+
+
+                                                                                                                             23
+                                                                                                                             15
+
+
+                                                                                                                             18
+                                                                                                                             16
+                                                                                                                             17
+
+                                                                                                                             19
+
+
+                                                                                                                             22
+                                                                                                                             14
+
+
+
+
+                                                                                                                             20
+
+
+
+                                                                                                                             24
+
+
+
+
+           15                                                                            0.1uF/50V
+                                                             R24          1K
+           14
+           13                                                                             C22
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                           CHGD
+           12                                                                            0.1uF/50V
+                                                             R29          1K
+           11
+           10                                                                             C27
+
+
+
+
+                                                                                                                                                                                                                                                                                                                     CHG
+            9                                                                            0.1uF/50V                                                                                                    GND                    GND             GND                        GND
+                                                            R31          1K                                                                                                                                                                                                                                                                                                       R30
+            8                                                                                                                                                                                                                                                                                                                                                                     10K
+            7                                                                             C28
+            6                                                                            0.1uF/50V                                                                                                                                                                                                                         R32
+                                                            R33          1K
+            5                                                                                                                                                                                                                                                                                                                          VBAT
+                                                                                          C29                                                                                                                                                                                                                              1K
+            4
+                                                                                                                                                                                                                                                                                                                                                     R34
+            3                                                                            0.1uF/50V
+                                                            R35          1K                                                                                                                                                                                                                                                                          1M               Q2
+            2
+            1                                                                             C30                                                                                                                                                                                                                                                                         MMBT5401
+                                                                                                                                                                                                                                                                                                               R36
+          CON24                                             R37          1K               0.1uF/50V                                                                                                                                                                                                            1M
+                                                                                                                                                                                                                                                                 DSG
+
+
+                                                                                          C31                                                                                                                                                                                                                                                                     R38
+                                                                                                                                                                                                                                                                                                                           Q3                                     5.1M
+                                                            R39          1K               0.1uF/50V                                                                                                                                                                                                                        PNP
+                                                                                                                                                                              0.1uF/50V
+
+
+
+
+                                                                                          C32                                                                                                                                                                           R41                                    R40
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                              3
+                                                                                                                                                                                                                                                                        1K                                     3M
+                                                                                          0.1uF/50V
+                                                                                                                                                                        C33
+
+
+
+
+                                                            R42          1K
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                              C
+                                                                                                                                                                                                                                                                                                                                    R43                            Q4
+                                                                                          C34                                                                                                                                                                                                                                                    1
+                                                                                                                                                            0.1uF/50V
+
+
+
+                                                                                                                                                                                          0.1uF/50V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                          B        MMBT5551
+                                                                                                                                                                                                                                                                                                                                    1M
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                              E
+                                                            R44           1K              0.1uF/50V
+                                                                                                                                                                                                           R47 100R
+                                                                                                                                                R48 100R
+
+
+
+
+                                                                                                                                                                                                                                                                                                       GND
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                              2
+                                                  R45 100R/1210
+                                                                         R46                         C35                                                                                                                                                                                                                   D5 GND
+                                                       Q5                                                                                                                                                                                                                                                                  BAV21W                                  D6
+                                                                                                                                                                                          C36
+                                                                                                                                                            C37
+
+
+
+
+                                                       MMBT5551                                                                                                                                                                                                                                                                                                    BAV21W
+                                                                         510R                    0.1uF/50V
+                                    Balance Circuit                                                                                                                                                                                 R49                                                                                            R50         D7
+                                                                                                                                                                                                                                    10M
+                                                                                                                                                                                                                                                  BZT52C15
+
+
+
+
+                                                                                                                                                                        GND                                                                                                                                                        1M          BZT52C15
+                                                             R51             1K                      C38        D8
+                    R52                                                                                                      D9
+                                                                                                                                                                                                                                                                    G
+
+
+
+
+                                                                                                                                                                                                                                                                                                                      G
+
+
+
+
+                                                                                                                BAT46W
+                                                                                                                                                                                                                                                   D10
+
+
+
+
+                    51R/0805                                                                         1uF/25V                 BAT46W
+           J4                                                                                                                                                                                                                                                                                MOS_D                                                                       P-             J5
+     B-        1                                                                                                                                                                                                                                             S                 D                           D                S                                                            1 P-/C-
+
+                                                                                                                                                                        R53 2mR                                                                              Q6            NMOS                                Q7    NMOS
+                                                                                                                                                                        R54 2mR
+                                                                                                                                                           GND
+
+
+                    注释：MCU电源由其它电路部分提供，本图省略
+                                                                                                               图3 20串低侧NMOS同口应用
+
+
+
+
+                                                                                                                                       6
+```
+
+## PDF 第 7 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.7](../../sources/SH36735XX%20CV1.0A.pdf#page=7)
+
+```text
+                                                                                                                                                                               SH3673510/3673514/3673517/3673520
+5.2 SH3673517-16串高侧NMOS同口应用
+
+                                                                                                                                                                                                                                                                                                                                                                              D1      3.6V
+
+                                                                                                                                                                                                                                                                                                                                                                                                                  R1          D2
+                                                                                                                                                                                                                                                                                                                                                                                               Q1                51K          BAV21W
+                                                                                                                                                                                                                                                                                                                                                                                          MMBT5401
+
+
+
+                                                                                                                                                                                                                                                                            R2
+                                                                                                                                                                                                                                                                            100R                                                                                                                                             R3
+                                                                                                                                                                                                                                                                                                                                                                                          Q2               R4                2K
+                                                                                                                                                                                                                                                                                                                                                                                          MMBT5551         2K
+                                                                                                                                                                                                                                                                                                                                                                               R5
+                                                                                                                                                                                                                                                                                                                                                                             10R
+
+
+
+
+                                                                                                                                                                                                                                                                    D
+                                                                                                                                                                                                                                                                                    Q3                                                                                                                                        C1
+                                                                                                                                                                                                                                                                                    PMOS                                                                                                                   R6                 0.1uF/100V
+                                                                                                                                                                                                                                                                                                                                                                                                           51K
+                                                                                                                                                                                                                                                                                G                                                                    Q4 NMOS                                                                  C2
+                                                                                                                                                                                                                                                                                                                                                                                                                                            J1
+                                                                                                                                                                                                                                                                                                                                                                                                                              0.1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                    S
+                                                                                                                                                                                                                                                                                                                R7  BC+                          D           S                                                                               1 P+/C+
+                                                                                                                                                                                                                                                                                   D3
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                               BZT52C16
+                                                                                                                                                                                                                                                                                                                10K                                                           R8                                                       P+
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                    D4
+                                                                                                                                                                                                                                                                                                                                                                              10M                                       D5
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                         G
+                                                                                                                                                                                                                                                                            BZT52C16
+                                                                                                                                                                                                                                                                                                                                                                                                                        BAV21W
+                                                                                                                                                                                                                                                                             R9 100K
+                                                                                                                                                                                                               Q5 NMOS
+      J2           B+                                                                                                                                                                                                                                                                                                                                                                                                  R10
+B+        1                                                                                                                                                                                               S                                      D                                                                                                                                                                     10K
+                                                                                                                                                                                                                                                                                                                                                                                  Q6
+
+
+
+
+                                                                                                                                                                                               BZT52C16
+                                                        R11 51R/0805                             R12 51R/0805                                    C3   0.1uF/100V    R13                                                                                                                                                                                                         MMBT5401
+                                                                                                                                                                    10M
+
+
+
+
+                                                                                                                                                                                                                   G
+                                                                               C4 0.1uF/100V                                                                                                                                                                                                                                                                                              R14        R15
+                                                                                                   GND                                                                                                                                                                                                                                                      R16                    R17
+
+
+
+
+                                                                                                                                                                                               D6
+                                                                                                                                                                                                                                                                                                                                                                                          10K       510R
+                                                                                                                VBAT                                  GND                                                                                                                                                                              D7                   51K                    51K
+                               R18 1K/0805                BAV21W        R19 1K/0805                                                                                                                                                                                                                                                                                                                              GND
+                                                   D9                                                                                                                                                                                                                                                                                  BAV21W
+                                                                                                                                                                                                     R20
+                                             C5                                   C6          C7                                                                                                     10K
+                    R60                                                                                                                                                                                                                                                                                                               R21 1K
+                    51K                      1uF/100V                             1uF/100V 0.1uF/100V                                                                                                                                                                                                                                                                                                           C8
+                                                                   D10                                                                                                                                                                                                                                                                                                                                          10nF/100V
+                                                                   SMBJ85A                                                                                                                                                                                                                                                                                                                   R22 510R
+                                                                                                                                                                                                                                                                                                                                                                                                                        GND
+                                         GND                     GND                         GND
+                                                                                                                                   C10 1uF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                           R23                                                                D11
+                                                                                                                                                                                                                                                                                                                                                              BC+                                             BAT46W
+
+
+
+
+                                                                                                                                                                                                                                                                                        3
+                                                                                                                                                                                                     R24 510R                                                                                                                          200R/1206         D13
+                                                                                                                                                                            VCC                                                                                                                                                                          BAV21W
+
+
+
+
+                                                                                                                                                                                                                                                                                            C
+                                                                                                                                                                                                                                                                        1                                                        C9
+                                                                                                                   R25                                                                                                                                                         B
+
+
+
+
+                                                                                                                                                                                                                                           3
+                                                                                                                    1K                                             V33                                                                                                                       Q7                                  1uF/100V
+
+
+
+
+                                                                                                                                                                                                                                                                                            E
+                                                                                                                                                                                                                                                                                            MJD31CT4G                                                                                                   GND
+
+
+
+
+                                                                                                                                                                                                                                           C
+                                                                                                                                                                                                      GND                                                               1
+                                                                                                                                                                        C11                                                                               B
+
+
+
+
+                                                                                                                                                                                                                                                                                        2
+                                                                                                                                                                    2.2uF/25V
+
+
+
+
+                                                                                                                                                                                                                                           E
+                                                                                                                                                                                                                                                   Q8                                       R26                    GND
+                                                                                                                                                                                                                                               MMBT5551                                     15R
+
+
+
+
+                                                                                                                                                                                                                                           2
+                                                                                                                                         48
+                                                                                                                                         47
+                                                                                                                                         46
+                                                                                                                                         45
+                                                                                                                                         44
+                                                                                                                                         43
+                                                                                                                                         42
+                                                                                                                                         41
+                                                                                                                                         40
+                                                                                                                                         39
+                                                                                                                                         38
+                                                                                                                                         37
+
+
+
+                                                                           C12 0.1uF/100V                                                                                                           U1                                                                                          R27 10M
+                                                                  GND
+                                                                                                                                                                                                                                                                                                                                            GND
+                                                                                                                                                   VCP
+
+
+
+                                                                                                                                                  CHGD
+                                                                                                                                                  HCHG
+
+
+
+                                                                                                                                                  DSGD
+                                                                                                                                                 LDO_P
+                                                                                                                                                 LDO_O
+                                                                                                                                                   CHG
+                                                                                                                                                   SHIP
+                                                                                                                                                  VCPR
+
+
+                                                                                                                                                  PDSG
+                                                                                                                                                  HDSG
+
+
+
+
+                                                                                                                                                   DSG
+
+
+
+
+                                                           R28            1K                                                                                                                                                                                                                    C13 4.7uF/25V                         U2
+                                                                                       C14                                                                                                                                   VCC 2.2uF/25V                                                                                                                                               V33
+                                                                                                                        1                                                                                                 36      C15            R29 V33
+                                                          R30             1K          0.1uF/50V                             VBAT                                                       VCC                                                   GND 10K                                                                                                  VDD
+                                                                                                                        2                                                                                                 35                                                                                                                                                   C16
+                                                                                       C17                                  NC                                                         VSS                                                                                                                                                                                                     C18
+                                                                                                                        3                                                                                                 34     RESET
+                                                                                                                            NC                                                       RESET                                                                                                                                             RST                                                     2.2uF/25V
+                                                                                      0.1uF/50V                         4                                                                                                 33     SDO       R31      100R                                                                                                                  0.1uF/25V
+                                                          R32             1K                                                NC                                                         SDO                                                                                                                                             MISO           GND
+                                                                                                                        5                                                                                                 32     SDI       R33      100R
+                                                                                       C19                                  VC17                                                        SDI                                                                                                                                            MOSI
+                                                                                                                        6                                                                                                 31     SCK       R34      100R
+                                                                                                                            VC16                                                       SCK                                                                                                                                             SCK
+                                                                                      0.1uF/50V                         7                                                                                                 30     CS        R35      100R                                                                                                                                 GND
+                                                          R36            1K                                                 VC15                                                         CS                                                                                                                                            CS
+                                                                                                                        8                                                                                                 29     ALARM R37          100R
+          J3                                                                           C20                                  VC14                                                    ALARM                                                                                                                                              INT
+                                                                                                                        9                                                                                                 28
+                                                                                                                            VC13                                                        TS4
+           24                                                                         0.1uF/50V                        10                                                                                                 27                                                                                                          MCU
+                                                          R38            1K                                                 VC12                                                        TS3
+           23                                                                                                          11                                                                                                 26
+                                                                                       C21                                  VC11                                                        TS2
+           22                                                                                                          12                                                                                                 25
+                                                                                                                            VC10                                                        TS1
+           21                                                                         0.1uF/50V
+                                                          R39            1K
+           20
+                                                                                       C22
+                                                                                                                                                 VC9
+                                                                                                                                                 VC8
+                                                                                                                                                 VC7
+                                                                                                                                                 VC6
+                                                                                                                                                 VC5
+                                                                                                                                                 VC4
+                                                                                                                                                 VC3
+                                                                                                                                                 VC2
+                                                                                                                                                 VC1
+                                                                                                                                                 VC0
+
+
+
+
+           19
+                                                                                                                                                 RS1
+                                                                                                                                                 RS2
+
+
+
+
+           18                                                                         0.1uF/50V
+                                                                                                                                                                                                                                                                              C26 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                   C28 1nF/25V
+
+                                                          R40            1K
+                                                                                                                                                                                                                                                          C25 1nF/25V
+
+
+
+
+                                                                                                                                                                                                                                                                                                  C27 1nF/25V
+
+
+
+
+           17
+                                                                                                                                                                                                                                                          R43 103AT
+
+
+
+
+                                                                                                                                                                                                                                                                                                  R45 103AT
+
+
+
+
+                                                                                       C23
+                                                                                                                                                                                                                               R42 103AT
+
+
+
+
+                                                                                                                                                                                                                                                                              R44 103AT
+                                                                                                                                         21
+
+
+
+
+           16
+                                                                                                                                         13
+
+                                                                                                                                         15
+
+
+
+
+                                                                                                                                         23
+                                                                                                                                         18
+                                                                                                                                         14
+
+                                                                                                                                         16
+                                                                                                                                         17
+
+                                                                                                                                         19
+                                                                                                                                         20
+
+                                                                                                                                         22
+
+                                                                                                                                         24
+
+
+
+
+           15                                                                         0.1uF/50V
+                                                          R41            1K
+           14
+           13                                                                          C24
+           12                                                                         0.1uF/50V
+                                                          R46            1K
+           11
+           10                                                                          C29
+            9                                                                         0.1uF/50V                                                                                                                                       GND                        GND                   GND               GND
+                                                          R47            1K
+            8
+            7                                                                          C30
+            6                                                                         0.1uF/50V
+                                                          R48            1K
+            5
+            4                                                                          C31
+            3                                                                         0.1uF/50V
+                                                          R49            1K
+            2
+            1                                                                          C32
+          CON24                                           R50            1K            0.1uF/50V
+                                                                                       C33
+
+                                                          R51            1K            0.1uF/50V
+                                                                                                                                                                                                              0.1uF/50V
+
+
+
+
+                                                                                       C34
+                                                                                       0.1uF/50V
+                                                                                                                                                                                                    C35
+
+
+
+
+                                                          R52            1K
+                                                                                       C36
+                                                                                                                                                                                        0.1uF/50V
+
+
+
+                                                                                                                                                                                                                          0.1uF/50V
+
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                             P+
+                                                          R53            1K            0.1uF/50V
+                                                                                                                                                                                                                                               R55 100R
+                                                                                                                                                                         R56 100R
+
+
+
+
+                                                                                       C38                                                                                                                                                                                                                                                                                                                                    C37
+                                                                                                                                                                                                                                                                                                                                                                                                                   D14
+                                                                                       0.1uF/50V                                                                                                                                                                                                                                                                                                                              0.1uF/100V
+                                                          R54            1K
+                                                                                                                                                                                                                          C40
+                                                                                                                                                                                        C41
+
+
+
+
+                                                                                       C42                                                                                                                                                                                                                                                                                                                                    C39
+                    R57                                                                                                     D15                  D16                                                                                                                                                                                                                                                               RS3M
+                    51R/0805                                                           1uF/50V                              BAT46W               BAT46W                                                                                                                                                                                                                                                                       0.1uF/100V
+           J4                                                                                                                                                                                                                                                                                                                                                                                                                               J5
+                                                                                                                                                                                                    GND
+     B-        1                                                                                                                                                                                                                                                                                                                                                                                                                             1 P-/C-
+
+                                                                                                                                                                                                    R58 2mR
+                                                                                                                                                                                                    R59 2mR
+                                                                                                                                                                                    GND
+
+
+
+
+                                                                                                                            图4 16串高侧NMOS同口应用
+
+
+
+
+                                                                                                                                                                                    7
+```
+
+## PDF 第 8 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.8](../../sources/SH36735XX%20CV1.0A.pdf#page=8)
+
+```text
+                                                     SH3673510/3673514/3673517/3673520
+6. 串数配置
+   SH3673520支持4~20串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~20)端口不允许悬空；
+   SH3673517支持4~17串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~17)端口不允许悬空；
+   SH3673514支持4~14串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~14)端口不允许悬空；
+   SH3673510支持4~10串PACK应用，可通过寄存器中CN[4:0]位配置串数，其中未使用的VCN(N=5~10)端口不允许悬空；
+  电芯
+            4串   5 串   6串   7 串    8串   9 串   10 串 11 串 12 串 13 串 14 串 15 串 16 串 17 串         18串   19串   20串
+  输入端
+VC20~VC19   S    S     S     S     S     S     S    S     S     S     S     S     S     S      S     S    C20
+VC19~VC18   S    S     S     S     S     S     S    S     S     S     S     S     S     S      S    C19   C19
+VC18~VC17   S    S     S     S     S     S     S    S     S     S     S     S     S     S     C18   C18   C18
+VC17~VC16   S    S     S     S     S     S     S    S     S     S     S     S     S     C17   C17   C17   C17
+VC16~VC15   S    S     S     S     S     S     S    S     S     S     S     S     C16   C16   C16   C16   C16
+VC15~VC14   S    S     S     S     S     S     S    S     S     S     S     C15   C15   C15   C15   C15   C15
+VC14~VC13   S    S     S     S     S     S     S    S     S     S     C14   C14   C14   C14   C14   C14   C14
+VC13~VC12   S    S     S     S     S     S     S    S     S     C13   C13   C13   C13   C13   C13   C13   C13
+VC12~VC11   S    S     S     S     S     S     S    S     C12   C12   C12   C12   C12   C12   C12   C12   C12
+VC11~VC10   S    S     S     S     S     S     S    C11   C11   C11   C11   C11   C11   C11   C11   C11   C11
+ VC10~VC9   S    S     S     S     S     S    C10   C10   C10   C10   C10   C10   C10   C10   C10   C10   C10
+ VC9~VC8    S    S     S     S     S    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9    C9
+ VC8~VC7    S    S     S     S     C8   C8    C8    C8    C8    C8    C8    C8    C8    C8    C8    C8    C8
+ VC7~VC6    S    S     S    C7     C7   C7    C7    C7    C7    C7    C7    C7    C7    C7    C7    C7    C7
+ VC6~VC5    S    S     C6   C6     C6   C6    C6    C6    C6    C6    C6    C6    C6    C6    C6    C6    C6
+ VC5~VC4    S    C5    C5   C5     C5   C5    C5    C5    C5    C5    C5    C5    C5    C5    C5    C5    C5
+ VC4~VC3    C4   C4    C4   C4     C4   C4    C4    C4    C4    C4    C4    C4    C4    C4    C4    C4    C4
+ VC3~VC2    C3   C3    C3   C3     C3   C3    C3    C3    C3    C3    C3    C3    C3    C3    C3    C3    C3
+ VC2~VC1    C2   C2    C2   C2     C2   C2    C2    C2    C2    C2    C2    C2    C2    C2    C2    C2    C2
+ VC1~VC0    C1   C1    C1   C1     C1   C1    C1    C1    C1    C1    C1    C1    C1    C1    C1    C1    C1
+
+                                 表2 串数配置表(S:Short；Cn代表Celln[n=1~20])
+
+
+
+
+                                                     8
+```
+
+## PDF 第 9 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.9](../../sources/SH36735XX%20CV1.0A.pdf#page=9)
+
+```text
+                                             SH3673510/3673514/3673517/3673520
+7. 功能描述
+7.1 工作模式
+   IC可工作在以下五种模式：Normal、IDLE、SLEEP、Powerdown、SHIP模式。
+                 功能/模块        Normal        IDLE      SLEEP      Powerdown   SHIP
+                 过充电保护         √(O)         √(O)        x            x        x
+                 过放电保护         √(O)         √(O)        x            x        x
+                内部温度保护           √           √          √            x        x
+                外部温度保护         √(O)         √(O)        x            x        x
+               放电过流1/2保护       √(O)         √(O)        x            x        x
+                 短路保护          √(O)         √(O)        x            x        x
+                充电过流保护         √(O)         √(O)        x            x        x
+                 均衡功能            √           √          x            x        x
+                 断线检测          √(O)         √(O)        x            x        x
+                                                          √
+                                 √              √
+                  VADC                              (70ms周期，只采       x        x
+                             (70ms周期)     (280ms周期)
+                                                     电压和内部温度)
+                                 √(O)         √(O)
+                  CADC                                    x          x        x
+                             (250ms周期)      (4s周期)
+                 SPI模块         √(C)         √(C)       √(C)          x        x
+                 C+电压采集
+                               √(O)         √(O)        x            x        x
+               (CHGD管脚电压)
+                 负载状态检测
+                               √(O)         √(O)        x            x        x
+                 (DSGD管脚)
+                 负载唤醒检测
+                                 x           x         √(O)          x        x
+                 (DSGD管脚)
+               充放电状态检测           √           √          x            x        x
+               充电器唤醒检测           x           x         √(O)          √        x
+                 看门狗WDT        √(O)         √(O)        x            x        x
+               Charge Pump     √(O)         √(O)        x            x        x
+                 内部LDO1          √           √          √            x        x
+                 外部LDO2          √           √          √            x        x
+                 功耗(uA)        ＜200         ＜130       ＜45          ＜4       ＜4
+
+                                         表3 功能模式列表
+   注释：“√”表示功能默认开启；“X”表示功能默认关闭；“√(O)”表示该功能需要通过MCU配置为开启；“√(C)”表示该功能需将
+CS引脚拉低开启SPI模块；
+
+7.1.1 Normal模式
+  IC工作在Normal模式，开启LDO1、LDO2、VADC、SPI等模块，MCU也可通过SPI通信使能其他部分功能模块，以及读取
+相关信息。
+
+
+7.1.2 IDLE模式
+   下列条件均满足时，IC先置位IDLE状态位，然后进入IDLE模式：
+   (1) 未检测到充/放电状态，即BSTATUS2寄存器中DSGING和CHGING位都为0
+   (2) MCU对SCONF1寄存器写0x55
+   IC进入IDLE模式后，执行以下操作：
+                                             9
+```
+
+## PDF 第 10 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.10](../../sources/SH36735XX%20CV1.0A.pdf#page=10)
+
+```text
+                                       SH3673510/3673514/3673517/3673520
+   (1)开启充放电状态检测
+   下列条件任一满足时，IC清零IDLE状态位和SCONF1寄存器，然后退出IDLE模式，进入Normal模式：
+   (1) MCU清零SCONF1寄存器
+   (2) 检测到充/放电状态
+   上述方式(2)退出IDLE模式，执行以下动作：
+   (1) FLAG1寄存器中WK_FLG标志位置1
+   (2) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中WK_INT=1)
+
+7.1.3 SLEEP模式
+   下列条件满足时，IC置位SLEEP状态位：
+   (1) MCU对SCONF1寄存器写0xAA
+   IC置位SLEEP状态位后，先执行以下操作，然后进入SLEEP模式：
+   (1) 关闭CADC、WDT模块
+   (2) 关闭电压、电流保护功能
+   (3) 关闭充放电MOSFET、预放电MOSFET(PDSGMOS=1)
+   (4) 关闭Charge Pump模块
+   (5) 关闭均衡
+   (6) 当MCU配置CGR_WK=1后，开启充电器唤醒检测
+   (7) 当MCU配置LD_WK[1:0]=01后，开启负载连接唤醒检测，或当MCU配置LD_WK[1:0]=10后，开启负载未连接唤醒检测
+   下列条件任一满足时，IC先清零SLEEP状态位和SCONF1寄存器，然后退出SLEEP模式，进入Normal模式：
+   (1) MCU清零SCONF1寄存器
+   (2) 当CGR_WK=1时，连接充电器(CHGD管脚电压高于充电器唤醒电压VCHGD，持续时间超过充电器唤醒延时tCHGD)
+     (3) 当LD_WK[1:0]=01时，负载连接(VBAT到DSGD管脚的压降大于等于负载检测压差VDIFF，持续时间超过负载检测延时
+tLOAD)
+     (4) 当 LD_WK[1:0]=10 时，负载未连接(VBAT 到 DSGD 管脚的压降小于负载检测压差 VDIFF，持续时间超过负载检测延时
+tLOAD)
+   上述方式(2) (3) (4)退出SLEEP模式时，执行以下动作：
+   (1) FLAG1寄存器中WK_FLG置1
+   (2) ALARM管脚输出低电平脉冲(需MCU配置ALARML寄存器中WK_INT=1)
+
+
+7.1.4 Powerdown模式
+   下列条件任一满足时，IC进入Powerdown模式：
+   (1) 连续依次执行两条指令：MCU对SCONF2寄存器中PD_CTL位=1； MCU对SCONF1寄存器写0x33
+   (2) 当配置PD_EN=1时，任一电芯电压低于Powerdown允许电压VPD且持续时间超过Powerdown允许延时tPD_UV
+   (3) 触发内部温度保护
+   (4) 看门狗定时器溢出后，9.8s内FLAG2的WDT_FLG标志位未被清零
+   IC进入Powerdown模式，执行以下操作：
+   (1) 关闭充放电MOSFET、预放电MOSFET(不管PDSGMOS为何种配置)，同时关闭Charge Pump模块
+   (2) 仅开启充电器唤醒模块，关闭其它所有模块
+   下列条件满足时，IC退出Powerdown模式，进入WarmUp过程：
+   (1) 连接充电器(CHGD管脚电压高于充电器唤醒电压VCHGD，持续时间超过充电器唤醒延时tCHGD)
+   注释： MCU 对 SCONF2 寄存器中 PD_CTL 位写 1后，再对 SCONF1 寄存器写0x33 ，中间不可插入其它指令， IC 才会进入
+Powerdown模式，否则自动清零PD_CTL位
+   注释：Powerdown模式下，SHIP引脚拉低即可进SHIP模式
+
+
+
+
+                                       10
+```
+
+## PDF 第 11 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.11](../../sources/SH36735XX%20CV1.0A.pdf#page=11)
+
+```text
+                                                               SH3673510/3673514/3673517/3673520
+7.1.5 SHIP模式
+   SHIP管脚外接低电平VL-SHIP，延时tSHIP后，IC进入SHIP模式：
+   (1) 关闭充放电MOSFET、预放电MOSFET(不管PDSGMOS为何种配置)，同时关闭所有功能模块
+   (2) 连接充电器无任何动作
+   当IC处于SHIP模式，只有SHIP管脚外接高电平VH-SHIP，才可退出SHIP模式
+
+                                                                                                  (Set PD_CTL bit=1
+                          (Set PD_CTL bit=1                                                       and SCONF1=0x33)
+                          and SCONF1=0x33)                                                        Or WDT Overflow
+                          Or Internal Heat                                                        Or Internal Heat
+                          Or (PD_EN=1) & (Vcellmin<VPD &                                          Or (PD_EN=1) & (Vcellmin<VPD &
+                          t>4×tPD_UV)                          Powerdown                          t>4×tPD_UV)
+                                                                 Mode
+
+                                          (Set PD_CTL bit=1
+
+
+
+
+                                                                        Detection Charger In
+                                          and SCONF1=0x33)
+                                          Or WDT Overflow
+                                          Or Internal Heat
+                                          Or (PD_EN=1)
+                                          & (Vcellmin<VPD & t>tPD_UV)
+                          SLEEP                                                                                         IDLE
+                           Mode                                                                                         Mode
+
+                                                                             Set SCONF1=0xAA
+
+
+
+
+                                                                                                 No Current and
+                                Set SCONF1=0xAA                   Normal                         Set SCONF1=0x55
+                                                                  Mode
+                            Detection Charger In                 (Default)                     Charging or Discharging Status
+                            Or detection Load on                                               Or Clear SCONF1=0x00
+                            Or detection Load off
+                            Or Clear SCONF1=0x00
+                                                  SET SHIP=H            SET SHIP=L
+
+
+
+                             SET SHIP=L
+                                                                   SHIP                                 SET SHIP=L
+                             SET SHIP=L
+                                                                   Mode
+
+
+
+                                                图5 模式转换图
+
+
+7.2 系统WarmUp
+  当发生系统复位(包括上电复位、VCC的LVR复位、退出Powerdown模式、退出SHIP模式)，IC进入WarmUp过程，过程中
+会关闭充放电MOSFET、预放电MOSFET(不管PDSGMOS为何种配置)，经过tWARMUP时间后，VCC建立完成及SPI模块正常通
+信，至此WarmUp过程结束，进入Normal模式。
+   注释：发生系统复位后，RAM寄存器值为默认值，同时FLAG1寄存器中RST1_FLG位置1
+
+7.3 LDO LVR
+7.3.1 LDO1(VCC)LVR
+  当VCC电源电压低于VCC LVR复位电压VLVR-VCC，系统发生LVR复位，置位标志位RST1_FLG，关闭充放电MOSFET、预
+放电MOSFET(不管PDSGMOS为何种配置)，进入WarmUp过程。
+
+7.3.2 LDO2(LDO_O)LVR
+   当LDO_O电压低于LDO2 LVR复位电压VLVR2，LDO2发生LVR复位，置位标志位RST2_FLG，复位SPI通讯。
+
+
+
+
+                                                              11
+```
+
+## PDF 第 12 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.12](../../sources/SH36735XX%20CV1.0A.pdf#page=12)
+
+```text
+                                     SH3673510/3673514/3673517/3673520
+7.4 电压保护
+7.4.1 过充电保护
+  MCU配置寄存器中OV_EN=1，使能过充电保护。
+  下列条件均满足时，IC进入过充电保护状态：
+  (1) 任一电芯电压高于过充电保护电压VOV
+  (2) 状态(1)持续时间超过过充电保护延时tOV
+  IC处于过充电保护状态时，执行以下动作：
+  (1) 关闭充电MOSFET
+  (2) BSTATUS1寄存器中CHG_FET状态位清零
+  (3) FLAG1寄存器中OV_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中OV_INT位为1)
+  下列条件满足时，IC退出过充电保护状态：
+  (1) MCU将FLAG1寄存器中OV_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VOV、tOV可在相应的寄存器中设置
+
+7.4.2 过放电保护
+  MCU配置寄存器中UV_ EN=1，使能过放电保护。
+  下列条件均满足时，IC进入过放电保护状态：
+  (1) 任一电芯电压低于过放电保护电压VUV
+  (2) 状态(1)持续时间超过过放电保护延时tUV
+  IC处于过放电保护状态时，执行以下动作：
+  (1) 关闭放电MOSFET 、预放电MOSFET(PDSGMOS=1)
+  (2) BSTATUS1寄存器中DSG_FET状态位、PDSG_FET状态位清零
+  (3) FLAG1寄存器中UV_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中UV_INT位为1)
+  下列条件满足时，IC退出过放电保护状态：
+  (1) MCU将FLAG1寄存器中UV_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VUV、tUV可在相应的寄存器中设置
+
+
+
+
+                                     12
+```
+
+## PDF 第 13 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.13](../../sources/SH36735XX%20CV1.0A.pdf#page=13)
+
+```text
+                                        SH3673510/3673514/3673517/3673520
+7.5 电流保护
+  IC内置两档放电过流保护(放电过流1保护、放电过流2保护)、短路保护及充电过流保护
+7.5.1 放电过流1保护
+  MCU配置寄存器中OCD_EN=1，使能放电过流保护。
+  下列条件均满足时，IC进入放电过流1保护状态：
+  (1) RS2-RS1的电压值大于放电过流1保护电压VOCD1
+  (2) 状态(1)持续时间超过放电过流1保护延时tOCD1
+  IC处于放电过流1保护状态时，执行以下动作：
+  (1) 关闭放电MOSFET、预放电MOSFET(PDSGMOS=1)
+  (2) BSTATUS1寄存器中DSG_FET状态位、PDSG_FET状态位清零
+  (3) FLAG1寄存器中OCD1_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中OCD_INT位为1)
+  下列条件满足时，IC退出放电过流1保护状态：
+  (1) MCU将FLAG1寄存器中OCD1_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VOCD1、tOCD1可在相应的寄存器中设置
+
+7.5.2 放电过流2保护
+  MCU配置寄存器中OCD_EN=1，使能放电过流保护。
+  下列条件均满足时，IC进入放电过流2保护状态：
+  (1) RS2-RS1的电压值大于放电过流2保护电压VOCD2
+  (2) 状态(1)持续时间超过放电过流2保护延时tOCD2
+  IC处于放电过流2保护状态时，执行以下动作：
+  (1) 关闭放电MOSFET、预放电MOSFET(PDSGMOS=1)
+  (2) BSTATUS1寄存器中DSG_FET状态位、PDSG_FET状态位清零
+  (3) FLAG1寄存器中OCD2_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中OCD_INT位为1)
+  下列条件满足时，IC退出放电过流2保护状态：
+  (1) MCU将FLAG1寄存器中OCD2_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VOCD2、tOCD2可在相应的寄存器中设置
+
+7.5.3 短路保护
+  MCU配置寄存器中SC_EN=1，使能短路保护。
+  下列条件均满足时，IC进入短路保护状态：
+  (1) RS2-RS1的电压值大于短路保护电压VSC
+  (2) 状态(1)持续时间超过短路保护延时tSC
+  IC处于短路保护状态时，执行以下动作：
+  (1) 关闭充放电MOSFET、预放电MOSFET(PDSGMOS=1)
+  (2) BSTATUS1寄存器中DSG_FET状态位、CHG_FET状态位、PDSG_FET状态位清零
+  (3) FLAG1寄存器中SC_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中OCD_INT位为1)
+  下列条件满足时，IC退出短路保护状态：
+  (1) MCU将FLAG1寄存器中SC_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VSC、tSC可在相应的寄存器中设置
+
+7.5.4 充电过流保护
+  MCU配置寄存器中OCC_EN=1，使能充电过流保护。
+  下列条件均满足时，IC进入充电过流保护状态：
+  (1) RS2-RS1的电压值小于充电过流保护电压-VOCC
+                                        13
+```
+
+## PDF 第 14 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.14](../../sources/SH36735XX%20CV1.0A.pdf#page=14)
+
+```text
+                                        SH3673510/3673514/3673517/3673520
+  (2) 状态(1)持续时间超过充电过流保护延时tOCC
+  IC处于充电过流保护状态时，执行以下动作：
+  (1) 关闭充电MOSFET
+  (2) BSTATUS1寄存器中CHG_FET状态位清零
+  (3) FLAG1寄存器中OCC_FLG标志位置1
+  (4) ALARM输出低电平脉冲信号(MCU配置ALARML寄存器中OCC_INT位为1)
+  下列条件满足时，IC退出充电过流保护状态：
+  (1) MCU将FLAG1寄存器中OCC_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：VOCC、tOCC可在相应的寄存器中设置
+
+7.6 温度保护
+7.6.1 充电低温保护
+  MCU 配置寄存器中 TSn_EN(n=1~4)=1，可使能温度点 TSn(n=1~4)的充电低温保护。
+  下列条件均满足时，IC 进入充电低温保护状态：
+  (1) 任一温度点温度低于充电低温保护温度 TUTC
+  (2) 状态(1)持续时间超过温度保护延时 tTEMP
+  IC 处于充电低温保护状态时，执行以下动作：
+  (1) 关闭充电 MOSFET
+  (2) BSTATUS1 寄存器中 CHG_FET 状态位清零
+  (3) FLAG2 寄存器中 UTC_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出充电低温保护状态：
+  (1) MCU 将 FLAG2 寄存器中 UTC_FLG 标志位清 0(前提是 MCU 将 SCONF2 寄存器中 LTCLR 位置 1)
+  注释：TUTC 可在相应的寄存器中设置
+
+7.6.2 充电高温保护
+  MCU 配置寄存器中 TSn_EN(n=1~4)=1，可使能温度点 TSn(n=1~4)的充电高温保护。
+  下列条件均满足时，IC 进入充电高温保护状态：
+  (1) 任一温度点温度高于充电高温保护温度 TOTC
+  (2) 状态(1)持续时间超过温度保护延时 tTEMP
+  IC 处于充电高温保护状态时，执行以下动作：
+  (1) 关闭充电 MOSFET
+  (2) BSTATUS1 寄存器中 CHG_FET 状态位清零
+  (3) FLAG2 寄存器中 OTC_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出充电高温保护状态：
+  (1) MCU将FLAG2寄存器中OTC_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：TOTC 可在相应的寄存器中设置
+
+7.6.3 放电低温保护
+  MCU 配置寄存器中 TSn_EN(n=1~4)=1，可使能温度点 TSn(n=1~4)的放电低温保护。
+  下列条件均满足时，IC 进入放电低温保护状态：
+  (1) 任一温度点温度低于放电低温保护温度 TUTD
+  (2) 状态(1)持续时间超过温度保护延时 tTEMP
+  IC 处于放电低温保护状态时，执行以下动作：
+  (1) 关闭放电 MOSFET 和预放电 MOSFET(PDSGMOS=1)
+                                        14
+```
+
+## PDF 第 15 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.15](../../sources/SH36735XX%20CV1.0A.pdf#page=15)
+
+```text
+                                        SH3673510/3673514/3673517/3673520
+  (2) BSTATUS1 寄存器中 DSG_FET 状态位、PDSG_FET 状态位清零
+  (3) FLAG2 寄存器中 UTD_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出放电低温保护状态：
+  (1) MCU 将 FLAG2 寄存器中 UTD_FLG 标志位清 0(前提是 MCU 将 SCONF2 寄存器中 LTCLR 位置 1)
+  注释：TUTD 可在相应的寄存器中设置
+
+7.6.4 放电高温保护
+  MCU 配置寄存器中 TSn_EN(n=1~4)=1，可使能温度点 TSn(n=1~4)的放电高温保护。
+  下列条件均满足时，IC 进入放电高温保护状态：
+  (1) 任一温度点温度高于放电高温保护温度 TOTD
+  (2) 状态(1)持续时间超过温度保护延时 tTEMP
+  IC 处于放电高温保护状态时，执行以下动作：
+  (1) 关闭放电 MOSFET 和预放电 MOSFET(PDSGMOS=1)
+  (2) BSTATUS1 寄存器中 DSG_FET 状态位、PDSG_FET 状态位清零
+  (3) FLAG2 寄存器中 OTD_FLG 标志位置 1
+  (4) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 TEMP_INT 位为 1)
+  下列条件满足时，IC 退出放电高温保护状态：
+  (1) MCU将FLAG2寄存器中OTD_FLG标志位清0(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：TOTD 可在相应的寄存器中设置
+
+7.6.5 内部高温保护
+  IC 集成了内部高温保护，下列条件均满足时，IC 进入内部高温保护状态：
+  (1) 芯片内部温度高于内部高温保护温度 TOTI
+  (2) 状态(1)持续时间超过内部高温保护延时 tOTI
+  IC进入内部高温保护状态后，执行以下动作：
+  (1) 系统进入 Powerdown 模式，关闭充放电 MOSFET 和预放电 MOSFET
+
+
+
+
+                                        15
+```
+
+## PDF 第 16 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.16](../../sources/SH36735XX%20CV1.0A.pdf#page=16)
+
+```text
+                                                   SH3673510/3673514/3673517/3673520
+7.7 断线检测
+  MCU 配置寄存器中 OWD_EN=1，使能断线检测功能。
+  在使能断线检测功能下，当 MCU 配置寄存器 OWD_TRG=1 时，IC 开启断线检测并清零 OWD_TRG 配置位，当断线检测
+时序转换完成后，执行以下动作
+  (1) FLAG3 寄存器中 OWD_FLG 标志位置 1
+   (2) 当对奇数节电芯断线检测时， FLAG3 寄存器中 OWD_IND 标志位置 1；当对偶数节电芯断线检测时， FLAG3 寄存器
+中 OWD_IND 标志位置 0
+  (3) ALARM 管脚会输出一个低电平脉冲(需 MCU 配置 ALARML 寄存器中 OWD_INT 位为 1)
+  (4) 当CELL转化电压值小于断线检测电压阈值OWV时，置位OWDH/OWDM/OWDL寄存器中的OWDN(N=1~20)位，否则，
+清零OWDN(N=1~20)位。
+  注释：OWV可在相应的寄存器中设置
+  注释：断线检测采用奇偶电芯交替方式进行，比如，第一次配置OWD_TRG=1后，开启奇数节电芯断线检测；第二次配置
+OWD_TRG=1后，开启偶数节电芯断线检测，循环往复。
+  断线检测控制步骤示例：
+  (1) 使能断线检测功能：MCU置位OWD_EN
+  (2) 触发一次断线检测：MCU置位OWD_TRG
+  (3) 读取断线检测数据：当MCU检测到OWD_FLG置位后，读出OWD_IND位，读出OWDH、OWDM、OWDL并组合为32bit
+      的OwdData数据
+  (4) 获取断线结果：若OWD_IND=0，则执行(OwdData & 0x00055555)获取偶数节电芯断线结果。若OWD_IND=1，则执
+      行(OwdData & 0x000AAAAA)获取奇数节电芯断线结果
+  (5) 重复一遍步骤（2）~（4）即可完成一轮断线检测
+
+7.8 均衡功能
+  MCU自主控制均衡模块。满足以下条件时，开启CELLN的均衡回路：
+  (1) BALANCE寄存器中任一CBN被MCU置1
+  均衡功能开启后，执行以下动作：
+  (1) 置位BSTATUS2寄存器中的BAL状态位
+  下列条件任一满足时，关闭CELLN均衡回路：
+  (1) BALANCE寄存器中CBN被MCU清零
+  (2) Normal模式下，均衡开启持续30.38s
+  所有CELL全部退出均衡后，执行以下动作：
+  (1) 清零BSTATUS2寄存器中的BAL状态位
+   注释：Normal模式下，当均衡持续30.38s后，会自动停止均衡，BALANCE寄存器中所有位均被清零，如果需要继续均衡，
+MCU需要重新配置BALANCE寄存器。均衡过程中，对均衡BALANCE寄存器有写操作，会重新开始30.38s计时
+  注释： IC内部均衡采用奇偶均衡时序，具体如下图：
+
+
+
+     tcycle=70ms   tcycle=70ms   tbalanceT=350ms     tcycle=70ms   tcycle=70ms   tbalanceT=350ms
+
+                                   奇数节平衡                                           偶数节平衡
+
+    电压、电流、温度检测     电压、电流检测         电压、电流检测           电压、电流检测       电压、电流检测         电压、电流检测
+
+
+
+
+                                 图6 Normal模式下奇偶均衡时序
+
+
+
+
+                                               16
+```
+
+## PDF 第 17 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.17](../../sources/SH36735XX%20CV1.0A.pdf#page=17)
+
+```text
+                                      SH3673510/3673514/3673517/3673520
+7.9 看门狗功能
+  IC内置看门狗功能，看门狗是一个递减计数器，有效的SPI通讯可复位看门狗计数器，重新开始计数。
+  MCU配置WDT_EN=1时，开启看门狗功能，当看门狗计数器溢出时，IC执行以下动作：
+  (1) FLAG2寄存器中WDT_FLG标志位置1
+  (2) ALARM输出低电平脉冲信号(需MCU配置ALARML寄存器中WDT_INT位为1)
+  (3) 延时630ms后，关闭充放电MOSFET及预放电MOSFET(PDSGMOS=1)
+  (4) 在状态(3)结束后再延时630ms，RESET管脚输出低电平脉冲
+  (5) 看门狗计数器溢出后，9.8s内FLAG2的WDT_FLG标志位没有被清零，则系统自动进入Powerdown模式
+  下列条件满足时，IC解除看门狗溢出状态：
+  (1) MCU将FLAG2寄存器中WDT_FLG标志位清零(前提是MCU将SCONF2寄存器中LTCLR位置1)
+  注释：寄存器中WDT[1:0]可设置看门狗溢出时间
+  注释：有效的SPI通讯是指IC接收到读/写/复位寄存器命令
+
+7.10 MOSFET强制开启控制
+  MCU配置寄存器中MOS_EN=1时，使能充放电MOSFET强制开启功能，不管DSGMOS位和CHGMOS位是否为1。
+  (1) 当系统关闭充电MOSFET后(看门狗关闭充电MOSFET的情况除外)，如果检测到放电状态，则强制开启充电MOSFET，
+否则关闭充电MOSFET
+  (2) 当系统关闭放电MOSFET后(放电过流2保护/短路保护/看门狗关闭放电MOSFET的情况除外)，如果检测到充电状态，则
+强制开启放电MOSFET，否则关闭放电MOSFET
+
+7.11 预放电功能
+  MCU配置PDSGMOS=1时，预放电功能由IC控制。开启预放电MOSFET时，置位PDSG_FET位；关闭预放电MOSFET时，
+清零PDSG_FET位：
+   (1) IC发生过放电保护、放电过流1/2保护、短路保护、放电低温保护、放电高温保护、内部高温保护、看门狗溢出、配置
+DSGMOS=0、SLEEP模式、Powerdown模式、SHIP模式、VCC LVR复位，关闭放电MOSFET时，同时也关闭预放电MOSFET
+  (2) IC开启放电MOSFET前，会优先开启预放电MOSFET，持续预放电开启时间tPDSGON后开启放电MOSFET，再持续预放
+电额外开启时间tPDSGAD后关闭预放电MOSFET
+  MCU配置PDSGMOS=0时，预放电功能由MCU控制，开启预放电MOSFET时，置位PDSG_FET位；关闭预放电MOSFET
+时，清零PDSG_FET位：
+   (1) 当MCU配置PDSG_CTL=1时，开启预放电MOSFET，持续预放电开启时间tPDSGON后关闭预放电MOSFET，自动清零
+PDSG_CTL
+   (2) MCU配置PDSG_CTL=0时，关闭预放电MOSFET
+  注释：tPDSGON可由相应的寄存器配置
+
+7.12 充放电MOSFET控制方式
+   寄存器中PDSGMOS，DSGMOS，CHGMOS用于控制MOSFET的开关，系统第一次上电和复位后，寄存器中PDSGMOS，
+DSGMOS，CHGMOS默认为0，需要MCU重新配置来开启MOSFET。
+
+7.12.1 充电MOSFET控制
+  下列条件均满足时，充电MOSFET开启：
+  (1) MCU配置寄存器中CHGMOS位为1
+  (2) 未触发过充电保护
+  (3) 未触发充电过流保护
+  (4) 未触发充电低温保护
+  (5) 未触发充电高温保护
+  (6) 未触发短路保护
+  (7) 未触发内部高温保护
+  (8) 未触发看门狗溢出或者触发看门狗溢出后的630ms内
+  (9) 未处于SLEEP模式或Powerdown模式或SHIP模式
+
+                                      17
+```
+
+## PDF 第 18 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.18](../../sources/SH36735XX%20CV1.0A.pdf#page=18)
+
+```text
+                                      SH3673510/3673514/3673517/3673520
+  不管CHGMOS位是否为1，下列条件满足时，充电MOSFET重新开启：
+  (1) MCU配置寄存器中MOS_EN=1，触发了关闭充电MOSFET的保护，但系统检测到放电状态
+7.12.2 放电MOSFET控制
+  下列条件均满足时，开启放电MOSFET：
+  (1) MCU配置寄存器中DSGMOS位为1
+  (2) 未触发过放电保护
+  (3) 未触发放电过流1/2保护和短路保护
+  (4) 未触发放电低温保护
+  (5) 未触发放电高温保护
+  (6) 未触发内部高温保护
+  (7) 未触发看门狗溢出或者触发看门狗溢出后的630ms内
+  (8) 未处于SLEEP模式或Powerdown模式或SHIP模式
+  不管DSGMOS位是否为1，下列条件满足时，放电MOSFET重新开启：
+  (1) MCU配置寄存器中MOS_EN=1，触发了关闭放电MOSFET的保护，但系统检测到充电状态
+7.12.3 预放电MOSFET控制
+  当PDSGMOS=1时，下列条件均满足时，开启预放电MOSFET：
+  (1) 未触发过放电保护
+  (2) 未触发放电过流1/2保护和短路保护
+  (3) 未触发放电低温保护
+  (4) 未触发放电高温保护
+  (5) 未触发内部高温保护
+  (6) 未触发看门狗溢出或者触发看门狗溢出后的630ms内
+  (7) MCU配置DSGMOS=1
+  (8) 未处于SLEEP模式或Powerdown模式或SHIP模式
+  (9) IC主动开启放电MOSFET前，会优先开启预放电MOSFET，持续预放电开启延时tPDSGON后开启放电MOSFET，再持续
+预放电额外开启延时tPDSGAD后关闭预放电MOSFET
+  当PDSGMOS=0时，下列条件满足时，开启预放电MOSFET：
+  (1) MCU配置PDSG_CTL=1后的tPDSGON内
+
+
+
+
+                                      18
+```
+
+## PDF 第 19 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.19](../../sources/SH36735XX%20CV1.0A.pdf#page=19)
+
+```text
+                                        SH3673510/3673514/3673517/3673520
+7.13 VADC
+7.13.1 特性
+   ◼   13位Σ-Δ模/数转换器
+   ◼   70ms(Normal模式)和280ms(IDLE模式)两种转换周期
+7.13.2 工作模式
+7.13.2.1 采集范围
+    IC内置VADC有多个通道的数据采集：
+   ◼   多通道电芯电压；
+   ◼   1通道C+电压；
+   ◼   1通道B+供电电压；
+   ◼   1通道电流；
+   ◼   4通道外部温度
+    ◼    1通道内部温度
+7.13.2.2 工作方式
+    Normal模式，VADC转换周期固定为70ms，IDLE模式，VADC转换周期固定为280ms。每次完成1周期tcycle采集后，寄存器
+FLAG2中VADC_FLG位置1，同时ALARM管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH寄存器中VADC_INT位为1)。
+当FLAG2寄存器被读取后，VADC_FLG标志位自动清零。
+7.13.2.3 计算公式
+    根据VADC转换结果可以计算出各电芯电压值、温度检测值以及电流值。
+   (1) 电芯电压计算公式，以CELL1为例(单位：mV，其中CELL1为CELL1寄存器值)：
+
+
+
+  (2) 温度计算公式，以TEMP1为例(单位：KΩ，其中RT1为外部热敏电阻阻值，TEMP1为TEMP1寄存器值，可依据外部热敏
+电阻阻值RT1与温度之间对应关系获取真实温度值)：
+
+
+
+   (3) 电流计算公式(单位：mA，其中CUR为CUR寄存器值，RSENSE为Sense电阻(单位为Ω))：
+                  100×𝐶𝑈𝑅
+       Current = 29127×𝑅
+                       𝑆𝐸𝑁𝑆𝐸
+   (4) 充放电高温保护阈值设置公式(其中 RT为温度保护阈值对应的热敏电阻阻值(单位为 kΩ))：
+
+
+   (5) 充放电低温保护阈值设置公式(其中 RT为温度保护阈值对应的热敏电阻阻值(单位为 kΩ))：
+
+
+   (6) B+电压计算公式(单位：mV，其中VTOP为VTOP寄存器值)
+
+
+
+   (7) C+电压计算公式(单位：mV，其中VCHGR为VCHGR寄存器值)
+
+
+
+   (8)内部温度对应电压计算公式，TEMPN 为 TEMPI 寄存器值，计算公式如下（单位：℃）：
+
+
+
+7.13.2.4 寄存器
+    VADC的转换结果均以ADC码值的形式存放于寄存器，转换值均为有符号16bit数据。
+
+
+
+
+                                        19
+```
+
+## PDF 第 20 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.20](../../sources/SH36735XX%20CV1.0A.pdf#page=20)
+
+```text
+                                              SH3673510/3673514/3673517/3673520
+7.13.3 采集时序
+7.13.3.1 正常采集时序
+    Normal模式，VADC转换周期固定为70ms，IDLE模式，VADC转换周期固定为280ms， VADC以固有时序采集电芯电压、
+温度、电流、B+、C+电压。
+   (1) 每1个tcycle(70ms)周期内，VADC按照固定时序采集电芯电压、电流、B+、C+
+   (2) 每0.98s周期内，VADC采集一次4通道外部温度和1通道内部温度
+                                        0.98s（Normal模式）
+
+                   490ms                                           490ms
+
+
+
+    第1个 70ms                                        第8个 70ms
+
+
+
+
+  电压、电流、温度检测   电压、电流检测     电压、电流检测                 电压、电流检测     电压、电流检测     电压、电流检测
+
+
+
+
+                              图7     VADC采集时序(Normal模式)
+
+7.13.3.2 采集周期
+    IDLE模式，VADC转换周期固定为280ms，此时需注意：
+  (1) IDLE模式下，过充电保护延时、过放电保护延时、内部/外部温度保护延时、均衡持续时间、Powerdown允许延时是Normal
+模式四倍
+   (2) IDLE模式下，放电过流1和充电过流保护延时是Normal模式的四倍(IDLE模式未被退出时)
+   注释：IDLE模式下，不影响看门狗的相关时间
+   注释：IDLE模式下，不影响预放电的相关时间
+
+
+
+
+                                              20
+```
+
+## PDF 第 21 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.21](../../sources/SH36735XX%20CV1.0A.pdf#page=21)
+
+```text
+                                           SH3673510/3673514/3673517/3673520
+7.14 CADC
+7.14.1 特性
+   ◼   16位Σ-Δ模/数转换器
+   ◼   4Hz(Normal模式)和1/4Hz(IDLE模式)两种转换频率
+   ◼   1通道双端差分输入
+7.14.2 工作模式
+7.14.2.1 采集范围
+    ◼    1路电流采集通道，电压输入范围为-100mV ~ 100mV
+7.14.2.2 工作方式
+    寄存器中CADC_EN位用于开关CADC模块。
+  Normal模式，CADC转换频率固定为4Hz，每次完成1周期电流通道采集后，寄存器FLAG2中CADC_FLG位置1，同时ALARM
+管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH寄存器中CADC_INT位为1)。当FLAG2寄存器被读取后，CADC_FLG标
+志位自动清零。
+    IDLE模式，CADC转换频率固定为1/4Hz，MCU可通过配置CADCT[1:0]位来设置更新CADC数据的周期(更新的结果为该
+配置周期的平均值)，寄存器FLAG2中CADC_FLG位置1，同时ALARM管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH
+寄存器中CADC_INT位为1)。当FLAG2寄存器被读取后，CADC_FLG标志位自动清零。比如配置CADCT[1:0]=01,CADC更新
+数据周期为32s，由于CADC转换频率固定为1/4Hz，当CADC第8次转换完成后，会将前8次的平均值更新到寄存器中，同时寄
+存器FLAG2中CADC_FLG位置1，ALARM管脚会输出一个低电平脉冲(需MCU配置OWV/ALARMH寄存器中CADC_INT位为
+1)。
+
+7.14.2.3 计算公式
+    根据CADC转换结果可以计算出电流值(单位：mA，其中CADCD为CADCDH/L寄存器值，RSENSE为Sense电阻，单位为Ω)：
+
+
+
+
+                                           21
+```
+
+## PDF 第 22 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.22](../../sources/SH36735XX%20CV1.0A.pdf#page=22)
+
+```text
+                                          SH3673510/3673514/3673517/3673520
+8. 管脚控制及状态检测
+8.1 ALARM管脚
+  IC的ALARM管脚用于输出报警信号，正常为开漏输出(需外部通过上拉电阻连接到高电平)。VADC/CADC更新数据完成或
+者有其他状态发生时，ALARM管脚输出一个低电平脉冲。
+   配置ALARM寄存器，使能ALARM管脚告警信号产生源。
+   ALARM管脚低电平脉冲的时序图如下：
+
+
+                             安全保护/
+                             ADC中断
+                                         低电平
+                                         1mS
+
+
+
+
+                              图8 ALARM管脚报警信号输出示意图
+
+
+8.2 RESET管脚
+   当看门狗功能使能且计数器溢出后，630ms内MCU没有清零FLAG2寄存器中WDT_FLG，IC会关闭充放电和预放电
+MOSFET(不管PDSGMOS为何种配置)，之后再经过630ms，MCU仍然没有清零FLAG2寄存器中WDT_FLG，RESET管脚会输
+出低电平脉冲，低电平持续时间为tRST。
+
+8.3 CHG/DSG/HCHG/HDSG管脚
+   IC的CHG和DSG管脚输出状态和低侧充放电MOSFET输出状态保持一致，如下表：
+         低侧充电 MOSFET 状态      低侧放电 MOSFET 状态
+                                               CHG 管脚输出状态      DSG 管脚输出状态
+           (CHG_FET 位)         (DSG_FET 位)
+                 0                   0             低电平             低电平
+                 0                   1             低电平             高电平
+                 1                   0             高电平             低电平
+                 1                   1             高电平             高电平
+
+
+   IC的HCHG和HDSG管脚输出状态和高侧充放电MOSFET输出状态保持一致，如下表：
+         高侧充电 MOSFET 状态      高侧放电 MOSFET 状态
+                                               HCHG 管脚输出状态 HDSG 管脚输出状态
+           (HCHG_FET 位)        (HDSG_FET 位)
+                  0                  0         关闭电压 VHCHGOFF   关闭电压 VHDSGOFF
+                  0                  1         关闭电压 VHCHGOFF   开启电压 VHDSGON
+                  1                  0         开启电压 VHCHGON    关闭电压 VHDSGOFF
+                  1                  1         开启电压 VHCHGON    开启电压 VHDSGON
+   注释：HCHG_FET是PUMP_EN和CHG_FET“相与”的结果，HDSG_FET是PUMP_EN和DSG_FET“相与”的结果
+
+8.4 充放电状态检测
+   充放电状态检测有两种方式：
+   方式一：VADC采集电流。同时满足以下条件，系统处于充电状态，BSTATUS2寄存器中CHGING位置1：
+   (1) RS2与RS1管脚电压满足：(RS2-RS1)电压≤-VCD1
+   (2) 状态(1)持续时间超过4*tCYCLE
+   同时满足以下条件，系统退出充电状态，BSTATUS2寄存器中CHGING位清零：
+   (1) RS2与RS1管脚电压满足：(RS2-RS1)电压>-VCD1
+   (2) 状态(1)持续时间超过2*tCYCLE
+
+                                          22
+```
+
+## PDF 第 23 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.23](../../sources/SH36735XX%20CV1.0A.pdf#page=23)
+
+```text
+                                        SH3673510/3673514/3673517/3673520
+  (3) 比较器未检测到充电状态
+  同时满足以下条件，系统处于放电状态，BSTATUS2寄存器中DSGING位置1：
+  (1) RS2与RS1管脚电压满足：(RS2-RS1)电压≥VCD1
+  (2) 状态(1)持续时间超过4*tCYCLE
+  同时满足以下条件，系统退出放电状态，BSTATUS2寄存器中DSGING位清零：
+  (1) RS2与RS1管脚电压满足：(RS2-RS1)电压<VCD1
+  (2) 状态(1)持续时间超过2*tCYCLE
+  (3) 比较器未检测到放电状态
+  方式二：比较器。同时满足以下条件，系统处于充电状态，BSTATUS2寄存器中CHGING位置1，DSGING位清零:
+  (1) RS2与RS1管脚电压满足：(RS2-RS1)电压≤-VCD2
+  (2) 状态(1)持续时间超过tCD
+  同时满足以下条件，系统处于放电状态，BSTATUS2寄存器中DSGING位置1，CHGING位清零:
+  (1) RS2与RS1管脚电压满足：(RS2-RS1)电压≥VCD2
+  (2) 状态(1)持续时间超过tCD
+  注释：充放电状态检测阈值VCD1 可由相应的寄存器配置
+
+8.5 负载状态检测
+   在Normal、IDLE模式下，MCU配置寄存器中CRLD_EN[1:0]=10开启负载状态检测，DSGD管脚内部开启上拉电流，通过检
+测VBAT到DSGD管脚上的压降来检测负载的状态，其中DSGD管脚内部上拉电流的大小可由寄存器中RLD位选择。
+  下列条件均满足时，系统处于负载连接状态：
+  (1) VBAT 到 DSGD 管脚的压降大于等于负载检测压差 VDIFF
+  (2) 状态(1)持续时间超过负载检测延时 tLOAD
+  系统处于负载连接状态时，执行以下动作：
+  (1) 置位 BSTATUS2 寄存器中的 LOADON 状态位
+  (2) 清除 BSTATUS2 寄存器中的 LOADOFF 状态位，清除负载未连接状态计数器
+  (3) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 LOADON_INT 位为 1)
+  下列条件均满足时，系统处于负载未连接状态：
+  (1) VBAT 到 DSGD 管脚的压降小于负载检测压差 VDIFF
+  (2) 状态(1)持续时间超过负载检测延时 tLOAD
+  系统处于负载未连接状态时，执行以下动作：
+  (1) 置位 BSTATUS2 寄存器中的 LOADOFF 状态位
+  (2) 清除 BSTATUS2 寄存器中的 LOADON 状态位，清除负载连接状态计数器
+  (3) ALARM 输出低电平脉冲信号(需 MCU 配置 ALARML 寄存器中 LOADOFF_INT 位为 1)
+  注释：负载状态检测上拉电流大小可由寄存器中RLD位选择
+
+8.6 负载唤醒检测
+   系统处于SLEEP模式且当LD_WK[1:0]=01时，系统开启负载连接唤醒检测，DSGD管脚内部开启上拉电流，当VBAT到DSGD
+管脚上压降大于等于负载检测压差VDIFF，持续时间超过负载检测延时tLOAD时，IC识别为负载连接并从SLEEP模式下唤醒，进入
+Normal模式。
+   系统处于SLEEP模式且当LD_WK[1:0]=10时，系统开启负载未连接唤醒检测，DSGD管脚内部开启上拉电流，当VBAT到
+DSGD管脚上压降小于负载检测压差VDIFF，持续时间超过负载检测延时tLOAD时，IC识别为负载未连接并从SLEEP模式下唤醒，
+进入Normal模式。
+  注释：负载唤醒检测上拉电流大小可由寄存器中RLD位选择
+
+8.7 C+电压检测
+  在Normal和IDLE模式下，MCU配置寄存器CRLD_EN[1:0]=01开启C+电压采集，CHGD管脚通过RCHGD1连接到VSS，VADC
+开启CHGD通道电压采集，此时VADC采集的CHGD管脚(即C+)电压可供于MCU判断充电器连接或者释放。
+
+
+                                        23
+```
+
+## PDF 第 24 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.24](../../sources/SH36735XX%20CV1.0A.pdf#page=24)
+
+```text
+                                   SH3673510/3673514/3673517/3673520
+8.8 充电器唤醒检测
+    系统处于SLEEP模式且当CGR_WK=1时，或处于Powerdown模式时，系统都会开启充电器唤醒检测模块，CHGD管脚通过
+RCHGD2连接到VSS。
+   开启充电器唤醒检测模块后，当CHGD管脚电压高于充电器唤醒电压VCHGD，持续时间超过充电器唤醒延时tCHGD，IC退出
+SLEEP模式或Powerdown模式。
+
+8.9 电芯总压检测
+  VADC采集B+电压可供MCU判断电芯总电压。
+  注释：针对SH3673510型号，B+电压指VC10引脚电压
+  注释：针对SH3673514型号，B+电压指VC14引脚电压
+  注释：针对SH3673517型号，B+电压指VC17引脚电压
+  注释：针对SH3673520型号，B+电压指VC20引脚电压
+
+8.10 外部温度检测
+  VADC可针对4路外部温度通道进行电压采集，此时VADC采集的TS管脚电压可供于MCU计算NTC对应的温度。
+
+8.11 电荷泵
+  配置位PUMP_EN=1时，开启电荷泵模块，Pump建立完成后，MCU配置CHGMOS/DSGMOS为1来开启充/放电MOSFET；
+  配置位PUMP_EN=0时，关闭电荷泵模块，此时，即使无任何保护，HCHG/HDSG管脚也关闭充/放电MOSFET；
+
+
+
+
+                                   24
+```
+
+## PDF 第 25 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.25](../../sources/SH36735XX%20CV1.0A.pdf#page=25)
+
+```text
+                                                                     SH3673510/3673514/3673517/3673520
+9. SPI通讯接口
+9.1 特性
+   ◼     全双工，三线同步传输
+   ◼     只支持从机操作
+   ◼     MSB传输
+   ◼     工作频率1MHz(@MAX)
+
+9.2 信号描述
+   从输入(SDI)
+   数据通过SDI从主设备串行传送到IC。
+   从输出(SDO)
+   数据通过SDO从IC串行传送到主设备。
+  SPI串行时钟(SCK)
+  SCK信号用作控制SDI和SDO线上输入输出数据的同步移动。每8时钟周期线上传送一个字节。当CS引脚为高电平，SCK信
+号被此从设备忽略。
+  选择引脚(CS)
+  每个IC由一个从选择引脚(CS引脚)选择，当引脚信号为低电平时，表明被选中。为了防止SDO总线冲突，同一时间只允许
+一个从设备与主设备通讯。
+   当CS引脚为高电平时，SDO引脚处于高阻状态，SDI和SCK引脚内部固定开上拉电阻；
+   当CS引脚为低电平时，无通信时SDO为高电平，SDI和SCK引脚内部固定开上拉电阻；
+
+9.3 工作模式
+  在SPI通讯期间，数据同步地被串行的移进移出。串行时钟线(SCK)使两条串行数据线(SDI和SDO)上数据的移动和采样保持
+同步。从设备选择线(CS)可以独立地选择SPI从属设备；如果从设备没有被选中，则不能参与SPI总线上的活动。
+  当SPI主设备通过SDI线传送数据到从设备时，从设备通过SDO线发送数据到主设备作为响应，这就实现了在同一时钟下数
+据发送和接收的同步全双工传输。
+
+                                                              MISO          SDO
+                                      8-bit Shift Register                            8-bit Shift Register
+                                                              MOSI           SDI
+
+
+                          SPI                                 SCK            SCK
+                    Clock Generator                                  VDD
+                                                              CS                 CS
+
+
+                                Master MCU                                                   Slave
+                                                                           VSS
+
+
+                                                             全双工主从互联图
+   (1) 模式启动
+   SPI在从模式下运行。在数据传送之前，从设备的CS引脚必须被置低，而且必须保持低电平直到一个字节数据传送完毕。
+  (2) 发送与接收
+  从属模式下，按照主设备控制的SCK信号，数据通过SDI引脚移入，SDO引脚移出。一个位计数器记录SCK的边沿数，当接
+收移位寄存器移入8位数据(一个字节)同时发送移位寄存器移出8位数据(一个字节)。
+
+
+
+
+                                                                    25
+```
+
+## PDF 第 26 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.26](../../sources/SH36735XX%20CV1.0A.pdf#page=26)
+
+```text
+                                                                                   SH3673510/3673514/3673517/3673520
+9.4 传送形式
+  SPI的时钟极性CPOL位固定为1，即空闲时SCK电平状态为“高电平”；SPI的时钟相位CPHA固定为1，主设备在SCK的第
+一个沿将数据输出到SDI线上，从设备把SCK的第一个沿作为开始发送信号。用户必须在第一个SCK的两个沿内完成写数据操
+作。CS引脚在每个字节数据的传送过程始终保持低电平。在主从通讯的两个设备中，时钟极性相位的设置应一致。
+               SCK Cycle Number                        1        2           3           4         5          6          7          8
+
+
+               SCK
+
+
+               MOSI (from Master)                      MSB      bit6       bit5         bit4     bit3       bit2        bit1      LSB
+
+
+               SDO (from Slave)                        MSB      bit6       bit5         bit4     bit3       bit2        bit1            LSB
+
+
+               CS (to Slave)
+
+
+
+               Capture Point
+
+
+                                                       数据传送形式 (CPHA = 1，CPOL=1)
+9.5 通信协议
+9.5.1 寄存器写时序
+   可写RAM寄存器地址为40H~59H，写RAM寄存器的长度固定为1个字节，当IC校验成功，则返回0xA5，否则返回0xFF。
+                                            Write CMD                                                                    无效数据
+                           SDI               (0x01)
+                                                             Reg Address           Write Data            CRC8
+                                                                                                                          (0x00)
+
+
+                                                 0xFF        Write CMD                                                  OK(0xA5) or
+                                                                                  Reg Address         Write Data
+                           SDO                  无效数据          (0x01)                                                    FAIL(0xFF)
+
+
+
+                           CS
+
+
+                                                                       图9 寄存器写时序
+9.5.2 寄存器读时序
+   可读RAM寄存器地址为40H~99H，可读取的数据长度需发送给IC，单位是Byte(该长度不包括读取的CRC8字节)。
+               Read CMD                           Data Length           无效数据                                     无效数据              无效数据        无效数据
+      SDI                         Reg Address                                                   ……
+                 (0x02)                                N                 (0x00)                                   (0x00)            (0x00)      (0x00)
+
+
+                                    Read CMD                           Data Length
+                  0xFF                            Reg Address                               Read Data1             ……            Read DataN   Read CRC8
+      SDO                             (0x02)                                N
+
+
+
+
+     CS
+
+
+                                                                    图10 寄存器读时序
+9.5.3 软件复位时序
+   当IC接收到以下时序，会执行软件复位操作，当IC校验成功，则返回0xA5，否则返回0xFF。
+                                           Write CMD                                                                        无效数据
+                          SDI               (0x0B)
+                                                                0xBB                 0xCC                CRC8
+                                                                                                                             (0x00)
+
+
+                                                             Write CMD                                                  OK(0xA5) or
+                                                0xFF                                 0xBB                0xCC
+                          SDO                                 (0x0B)                                                    FAIL(0xFF)
+
+
+
+                         CS
+
+
+                                                                        图11 复位时序
+   注释：IC接收到软件复位指令后，会复位所有的功能模块，包括RAM寄存器、VADC、CADC、SPI模块
+9.5.4 CRC8校验
+   CRC8校验的多项式 = X8 + X2 + X + 1，CRC8初始值固定为0x00。
+  SPI写操作时，CRC8会从第一个字节“写命令”开始校验，还包括寄存器地址、写数据长度、1个被写数据。如果CRC校验正
+确，IC会将数据更新至指定的寄存器，并返回ACK(0xA5)给主机，反之，则不会更新，并返回NACK(0xFF)给主机。
+                                                                                   26
+```
+
+## PDF 第 27 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.27](../../sources/SH36735XX%20CV1.0A.pdf#page=27)
+
+```text
+                                   SH3673510/3673514/3673517/3673520
+  SPI读操作时，CRC8会从第一个字节开始计算，包括0xFF、读命令、寄存器地址、读数据长度、N个被读数据。IC会将计
+算后的CRC8传递给主机。
+9.5.5 SPI使能检测
+   IC的CS引脚检测到低电平，则开启SPI模块。
+     IC的CS引脚检测到高电平，且持续时间超过SPI关闭延时tSPIDIS，则关闭SPI模块。
+9.5.6 SPI复位检测
+   在CS拉低期间，IC在持续tSPIRST时间内，没有检测到SCK下降沿电平变化，SPI模块复位到初始状态。
+
+
+
+
+                                   27
+```
+
+## PDF 第 28 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.28](../../sources/SH36735XX%20CV1.0A.pdf#page=28)
+
+```text
+                                                      SH3673510/3673514/3673517/3673520
+10. 寄存器
+10.1 寄存器列表
+                                                              RAM 寄存器位
+  序号        名字
+                          7         6          5              4           3            2            1          0
+  0x40     SCONF1        PIN.7     PIN.6      PIN.5          PIN.4      PIN.3         PIN.2        PIN.1      PIN.0
+  0x41     SCONF2       LTCLR     PD_EN      PD_CTL        PUMP_EN    PDSG_CTL     PDSGMOS       DSGMOS     CHGMOS
+  0x42     SCONF3          -      CGR_WK    LD_WK.1        LD_WK.0    CRLD_EN.1    CRLD_EN.0     OWD_EN     OWD_TRG
+  0x43     SCONF4      PDSGT.2    PDSGT.1   PDSGT.0          CN.4       CN.3          CN.2         CN.1       CN.0
+  0x44     SCONF5          -         -      MOS_EN         OCC_EN     CADC_EN       WDT_EN        WDT.1      WDT.0
+  0x45     SCONF6       TS4_EN    TS3_EN     TS2_EN         TS1_EN      SC_EN       OCD_EN        UV_EN      OV_EN
+  0x46     SCONF7          -       RLD      CADCT.1        CADCT.0        -          CDV.2        CDV.1      CDV.0
+  0x47   OWV/ALARMH     OWV.3      OWV.2     OWV.1          OWV.0     LOADON_INT   LOADOFF_INT   VADC_INT   CADC_INT
+  0x48     ALARML       WK_INT    WDT_INT   OWD_INT        TEMP_INT    OCC_INT      OCD_INT       UV_INT     OV_INT
+  0x49     OVT/OVH         -       OVT.2     OVT.1          OVT.0         -             -          OV.9       OV.8
+  0x4A      OVL          OV.7      OV.6       OV.5           OV.4       OV.3          OV.2         OV.1       OV.0
+  0x4B     UVT/UVH         -       UVT.2     UVT.1          UVT.0         -             -          UV.9       UV.8
+  0x4C      UVL          UV.7      UV.6       UV.5           UV.4        UV.3         UV.2         UV.1       UV.0
+  0x4D   OCD1V/OCD1T       -      OCD1T.2   OCD1T.1        OCD1T.0     OCD1V.3      OCD1V.2      OCD1V.1    OCD1V.0
+  0x4E   OCD2V/OCD2T   OCD2T.3    OCD2T.2   OCD2T.1        OCD2T.0     OCD2V.3      OCD2V.2      OCD2V.1    OCD2V.0
+  0x4F     SCV/SCT         -         -       SCV.1          SCV.0       SCT.3        SCT.2        SCT.1      SCT.0
+  0x50    OCCV/OCCT     OCCT.2    OCCT.1     OCCT.0         OCCV.4     OCCV.3        OCCV.2       OCCV.1     OCCV.0
+  0x51      OTC         OTC.7      OTC.6     OTC.5          OTC.4       OTC.3        OTC.2        OTC.1      OTC.0
+  0x52      OTD         OTD.7      OTD.6     OTD.5          OTD.4       OTD.3        OTD.2        OTD.1      OTD.0
+  0x53      UTC         UTC.7      UTC.6     UTC.5          UTC.4       UTC.3        UTC.2        UTC.1      UTC.0
+  0x54      UTD         UTD.7      UTD.6     UTD.5          UTD.4       UTD.3        UTD.2        UTD.1      UTD.0
+  0x55    BALANCEH         -         -          -              -        CB20          CB19         CB18       CB17
+  0x56    BALANCEM       CB16      CB15       CB14           CB13       CB12          CB11         CB10       CB9
+  0x57    BALANCEL       CB8       CB7        CB6            CB5         CB4          CB3          CB2        CB1
+  0x58      FLAG1      RST1_FLG   WK_FLG    OCC_FLG         SC_FLG    OCD2_FLG     OCD1_FLG       UV_FLG     OV_FLG
+  0x59      FLAG2      OTD_FLG    UTD_FLG   OTC_FLG        UTC_FLG    RST2_FLG      WDT_FLG      VADC_FLG   CADC_FLG
+  0x5A      FLAG3          -         -          -              -          -             -        OWD_IND    OWD_FLG
+  0x5B    BSTATUS1         -      E2P_ERR   HDSG_FET       HCHG_FET       -        PDSG_FET      DSG_FET    CHG_FET
+  0x5C    BSTATUS2     CHGING     DSGING     SLEEP           IDLE        BAL            -        LOADON     LOADOFF
+
+
+
+
+                                                      28
+```
+
+## PDF 第 29 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.29](../../sources/SH36735XX%20CV1.0A.pdf#page=29)
+
+```text
+                                                    SH3673510/3673514/3673517/3673520
+                                                            RAM 寄存器位
+序号      名字
+                    7           6           5               4           3           2           1          0
+0x5D   TEMP1H    TEMP1.15    TEMP1.14    TEMP1.13        TEMP1.12    TEMP1.11    TEMP1.10    TEMP1.9    TEMP1.8
+0x5E   TEMP1L    TEMP1.7     TEMP1.6     TEMP1.5         TEMP1.4     TEMP1.3     TEMP1.2     TEMP1.1    TEMP1.0
+0x5F   TEMP2H    TEMP2.15    TEMP2.14    TEMP2.13        TEMP2.12    TEMP2.11    TEMP2.10    TEMP2.9    TEMP2.8
+0x60   TEMP2L    TEMP2.7     TEMP2.6     TEMP2.5         TEMP2.4     TEMP2.3     TEMP2.2     TEMP2.1    TEMP2.0
+0x61   TEMP3H    TEMP3.15    TEMP3.14    TEMP3.13        TEMP3.12    TEMP3.11    TEMP3.10    TEMP3.9    TEMP3.8
+0x62   TEMP3L    TEMP3.7     TEMP3.6     TEMP3.5         TEMP3.4     TEMP3.3     TEMP3.2     TEMP3.1    TEMP3.0
+0x63   TEMP4H    TEMP4.15    TEMP4.14    TEMP4.13        TEMP4.12    TEMP4.11    TEMP4.10    TEMP4.9    TEMP4.8
+0x64   TEMP4L    TEMP4.7     TEMP4.6     TEMP4.5         TEMP4.4     TEMP4.3     TEMP4.2     TEMP4.1    TEMP4.0
+0x65   TEMPIH    TEMPI.15    TEMPI.14    TEMPI.13        TEMPI.12    TEMPI.11    TEMPI.10    TEMPI.9    TEMPI.8
+0x66   TEMPIL     TEMPI.7     TEMPI.6     TEMPI.5         TEMPI.4     TEMPI.3     TEMPI.2    TEMPI.1    TEMPI.0
+0x67    CURH      CUR.15      CUR.14      CUR.13          CUR.12      CUR.11      CUR.10      CUR.9      CUR.8
+0x68    CURL      CUR.7       CUR.6       CUR.5           CUR.4       CUR.3       CUR.2       CUR.1      CUR.0
+0x69   CELL1H    CELL1.15    CELL1.14    CELL1.13        CELL1.12    CELL1.11    CELL1.10    CELL1.9    CELL1.8
+0x6A   CELL1L     CELL1.7     CELL1.6     CELL1.5         CELL1.4     CELL1.3     CELL1.2    CELL1.1    CELL1.0
+0x6B   CELL2H    CELL2.15    CELL2.14    CELL2.13        CELL2.12    CELL2.11    CELL2.10    CELL2.9    CELL2.8
+0x6C   CELL2L     CELL2.7     CELL2.6     CELL2.5         CELL2.4     CELL2.3     CELL2.2    CELL2.1    CELL2.0
+0x6D   CELL3H    CELL3.15    CELL3.14    CELL3.13        CELL3.12    CELL3.11    CELL3.10    CELL3.9    CELL3.8
+0x6E   CELL3L     CELL3.7     CELL3.6     CELL3.5         CELL3.4     CELL3.3     CELL3.2    CELL3.1    CELL3.0
+0x6F   CELL4H    CELL4.15    CELL4.14    CELL4.13        CELL4.12    CELL4.11    CELL4.10    CELL4.9    CELL4.8
+0x70   CELL4L     CELL4.7     CELL4.6     CELL4.5         CELL4.4     CELL4.3     CELL4.2    CELL4.1    CELL4.0
+0x71   CELL5H    CELL5.15    CELL5.14    CELL5.13        CELL5.12    CELL5.11    CELL5.10    CELL5.9    CELL5.8
+0x72   CELL5L     CELL5.7     CELL5.6     CELL5.5         CELL5.4     CELL5.3     CELL5.2    CELL5.1    CELL5.0
+0x73   CELL6H    CELL6.15    CELL6.14    CELL6.13        CELL6.12    CELL6.11    CELL6.10    CELL6.9    CELL6.8
+0x74   CELL6L     CELL6.7     CELL6.6     CELL6.5         CELL6.4     CELL6.3     CELL6.2    CELL6.1    CELL6.0
+0x75   CELL7H    CELL7.15    CELL7.14    CELL7.13        CELL7.12    CELL7.11    CELL7.10    CELL7.9    CELL7.8
+0x76   CELL7L     CELL7.7     CELL7.6     CELL7.5         CELL7.4     CELL7.3     CELL7.2    CELL7.1    CELL7.0
+0x77   CELL8H    CELL8.15    CELL8.14    CELL8.13        CELL8.12    CELL8.11    CELL8.10    CELL8.9    CELL8.8
+0x78   CELL8L     CELL8.7     CELL8.6     CELL8.5         CELL8.4     CELL8.3     CELL8.2    CELL8.1    CELL8.0
+0x79   CELL9H    CELL9.15    CELL9.14    CELL9.13        CELL9.12    CELL9.11    CELL9.10    CELL9.9    CELL9.8
+0x7A   CELL9L     CELL9.7     CELL9.6     CELL9.5         CELL9.4     CELL9.3     CELL9.2    CELL9.1    CELL9.0
+0x7B   CELL10H   CELL10.15   CELL10.14   CELL10.13       CELL10.12   CELL10.11   CELL10.10   CELL10.9   CELL10.8
+0x7C   CELL10L   CELL10.7    CELL10.6    CELL10.5        CELL10.4    CELL10.3    CELL10.2    CELL10.1   CELL10.0
+0x7D   CELL11H   CELL11.15   CELL11.14   CELL11.13       CELL11.12   CELL11.11   CELL11.10   CELL11.9   CELL11.8
+0x7E   CELL11L   CELL11.7    CELL11.6    CELL11.5        CELL11.4    CELL11.3    CELL11.2    CELL11.1   CELL11.0
+0x7F   CELL12H   CELL12.15   CELL12.14   CELL12.13       CELL12.12   CELL12.11   CELL12.10   CELL12.9   CELL12.8
+0x80   CELL12L   CELL12.7    CELL12.6    CELL12.5        CELL12.4    CELL12.3    CELL12.2    CELL12.1   CELL12.0
+0x81   CELL13H   CELL13.15   CELL13.14   CELL13.13       CELL13.12   CELL13.11   CELL13.10   CELL13.9   CELL13.8
+0x82   CELL13L   CELL13.7    CELL13.6    CELL13.5        CELL13.4    CELL13.3    CELL13.2    CELL13.1   CELL13.0
+0x83   CELL14H   CELL14.15   CELL14.14   CELL14.13       CELL14.12   CELL14.11   CELL14.10   CELL14.9   CELL14.8
+0x84   CELL14L   CELL14.7    CELL14.6    CELL14.5        CELL14.4    CELL14.3    CELL14.2    CELL14.1   CELL14.0
+
+
+
+
+                                                    29
+```
+
+## PDF 第 30 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.30](../../sources/SH36735XX%20CV1.0A.pdf#page=30)
+
+```text
+                                                    SH3673510/3673514/3673517/3673520
+                                                           RAM 寄存器位
+序号      名字
+                    7           6           5              4           3           2           1          0
+0x85   CELL15H   CELL15.15   CELL15.14   CELL15.13      CELL15.12   CELL15.11   CELL15.10   CELL15.9   CELL15.8
+0x86   CELL15L   CELL15.7    CELL15.6    CELL15.5       CELL15.4    CELL15.3    CELL15.2    CELL15.1   CELL15.0
+0x87   CELL16H   CELL16.15   CELL16.14   CELL16.13      CELL16.12   CELL16.11   CELL16.10   CELL16.9   CELL16.8
+0x88   CELL16L   CELL16.7    CELL16.6    CELL16.5       CELL16.4    CELL16.3    CELL16.2    CELL16.1   CELL16.0
+0x89   CELL17H   CELL17.15   CELL17.14   CELL17.13      CELL17.12   CELL17.11   CELL17.10   CELL17.9   CELL17.8
+0x8A   CELL17L   CELL17.7    CELL17.6    CELL17.5       CELL17.4    CELL17.3    CELL17.2    CELL17.1   CELL17.0
+0x8B   CELL18H   CELL18.15   CELL18.14   CELL18.13      CELL18.12   CELL18.11   CELL18.10   CELL18.9   CELL18.8
+0x8C   CELL18L   CELL18.7    CELL18.6    CELL18.5       CELL18.4    CELL18.3    CELL18.2    CELL18.1   CELL18.0
+0x8D   CELL19H   CELL19.15   CELL19.14   CELL19.13      CELL19.12   CELL19.11   CELL19.10   CELL19.9   CELL19.8
+0x8E   CELL19L   CELL19.7    CELL19.6    CELL19.5       CELL19.4    CELL19.3    CELL19.2    CELL19.1   CELL19.0
+0x8F   CELL20H   CELL20.15   CELL20.14   CELL20.13      CELL20.12   CELL20.11   CELL20.10   CELL20.9   CELL20.8
+0x90   CELL20L   CELL20.7    CELL20.6    CELL20.5       CELL20.4    CELL20.3    CELL20.2    CELL20.1   CELL20.0
+0x91   CADCDH    CADCD.15    CADCD.14    CADCD.13       CADCD.12    CADCD.11    CADCD.10    CADCD.9    CADCD.8
+0x92   CADCDL    CADCD.7     CADCD.6     CADCD.5        CADCD.4     CADCD.3     CADCD.2     CADCD.0    CADCD.0
+0x93   VTOPH     VTOP.15     VTOP.14     VTOP.13        VTOP.12     VTOP.11     VTOP.10     VTOP.9     VTOP.8
+0x94   VTOPL      VTOP.7      VTOP.6      VTOP.5         VTOP.4      VTOP.3      VTOP.2     VTOP.1     VTOP.0
+0x95   VCHGRH    VCHGR.15    VCHGR.14    VCHGR.13       VCHGR.12    VCHGR.11    VCHGR.10    VCHGR.9    VCHGR.8
+0x96   VCHGRL    VCHGR.7     VCHGR.6     VCHGR.5        VCHGR.4     VCHGR.3     VCHGR.2     VCHGR.1    VCHGR.0
+0x97    OWDH         -           -           -              -        OWD20       OWD19      OWD18      OWD17
+0x98   OWDM       OWD16       OWD15       OWD14          OWD13       OWD12       OWD11      OWD10       OWD9
+0x99    OWDL      OWD8        OWD7        OWD6           OWD5        OWD4        OWD3        OWD2       OWD1
+
+
+
+
+                                                   30
+```
+
+## PDF 第 31 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.31](../../sources/SH36735XX%20CV1.0A.pdf#page=31)
+
+```text
+                                                SH3673510/3673514/3673517/3673520
+10.2 寄存器描述
+10.2.1 系统配置寄存器SCONF1
+      0x40          第7位        第6位      第5位          第4位     第3位     第2位     第1位      第0位
+     SCONF1         PIN.7      PIN.6    PIN.5        PIN.4   PIN.3   PIN.2   PIN.1    PIN.0
+      读/写           读/写        读/写      读/写          读/写     读/写     读/写     读/写      读/写
+      复位值             0          0        0            0       0       0       0        0
+
+   位编号          位符号                                     说明
+                             进入IDLE、SLEEP、Powerdown模式控制位
+                              PIN[7:0]=0x55，允许进入IDLE模式，当未检测到充放电状态，进入IDLE模式
+    7:0       PIN.7~ PIN.0    PIN[7:0]=0xAA，MCU控制IC进入SLEEP模式
+                              PIN[7:0]=0x33，当PD_CTL使能位为1时，MCU控制IC进入Powerdown模式
+                              PIN[7:0]=0x00(默认)，系统进入Normal模式
+
+10.2.2 系统配置寄存器SCONF2
+      0x41           第7位       第6位      第5位        第4位     第3位      第2位    第1位        第0位
+     SCONF2         LTCLR     PD_EN    PD_CTL    PUMP_EN PDSG_CTL PDSGMOS DSGMOS     CHGMOS
+      读/写            读/写       读/写      读/写        读/写     读/写      读/写     读/写        读/写
+      复位值             0         1        0          1       0        0       0          0
+
+   位编号          位符号                                          说明
+                             保护标志位清零允许位
+                              0：不允许清零FLAG1或FLAG2中的标志位(默认)
+                              1：允许清零FLAG1或FLAG2中的标志位
+     7          LTCLR        注释：
+                                  1.MCU置位LTCLR标志位后才允许清零FLAG1或FLAG2中的标志位
+                                  2.MCU清零FLAG1或FLAG2中的标志位后，LTCLR位由IC自动清零
+                                  3.MCU置位LTCLR位和IC清零LTCLR位同时发生时，只响应MCU置位LTCLR的操作
+                               Powerdown模式控制位
+                                  0：IC不会主动进入Powerdown模式
+     6          PD_EN
+                                  1：任一电芯电压低于Powerdown允许电压VPD且持续时间超过Powerdown允许延时
+                             tPD_UV ，IC主动进入Powerdown模式(默认)
+                               MCU对Powerdown模式控制位
+     5          PD_CTL            0：不允许MCU控制IC进入Powerdown模式(默认)
+                                  1：允许MCU控制IC进入Powerdown模式
+                               Charge Pump电荷泵控制位
+     4         PUMP_EN            0：关闭
+                                  1：开启(默认)
+                               MCU对预放电MOSFET控制位(PDSGMOS=0时，该位控制有效)
+     3        PDSG_CTL            0：MCU强制关闭预放电MOSFET(默认)
+                                  1：MCU强制开启预放电MOSFET，开启时间由PDSGT[2:0]位决定
+                               预放电MOSFET选择控制位
+     2        PDSGMOS             0：由MCU强制控制预放电MOSFET (默认)
+                                  1：由IC内部逻辑控制预放电MOSFET
+                               MCU对放电MOSFET控制位
+     1         DSGMOS             0：由MCU强制关闭放电MOSFET(默认)
+                                  1：由IC内部逻辑控制放电MOSFET
+                               MCU对充电MOSFET控制位
+     0         CHGMOS             0：由MCU强制关闭充电MOSFET(默认)
+                                  1：由IC内部逻辑控制充电MOSFET
+
+
+
+
+                                                31
+```
+
+## PDF 第 32 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.32](../../sources/SH36735XX%20CV1.0A.pdf#page=32)
+
+```text
+                                                SH3673510/3673514/3673517/3673520
+10.2.3 系统配置寄存器SCONF3
+      0x42         第7位       第6位       第5位        第4位      第3位       第2位      第1位     第0位
+     SCONF3         -       CGR_WK    LD_WK.1    LD_WK.0 CRLD_EN.1 CRLD_EN.0 OWD_EN OWD_TRG
+      读/写          读/写       读/写        读/写        读/写     读/写       读/写      读/写     读/写
+      复位值           0          0         0          0        0         0       0       0
+
+   位编号          位符号                                说明
+    7            -          Reserved
+                            SLEEP模式下充电器唤醒检测控制位
+     6         CGR_WK          0：关闭(默认)
+                               1：开启充电器唤醒检测，检测到充电器连接后从SLEEP模式唤醒
+                            SLEEP模式下负载唤醒检测控制位
+                               00：关闭(默认)
+                LD_WK.1
+    5:4                        01：开启负载连接唤醒检测
+               ~LD_WK.0
+                               10：开启负载未连接唤醒检测
+                               11：关闭
+                            Normal或IDLE模式下C+电压采集或负载状态检测控制位
+                               00：关闭(默认)
+               CRLD_EN.1
+    3:2                        01：开启C+(CHGD端口)电压通道采集
+              ~CRLD_EN.0
+                               10：开启负载(DSGD端口)状态检测
+                               11：关闭
+                            断线检测控制位
+     1         OWD_EN          0：关闭(默认)
+                               1：开启
+                            断线检测触发位
+     0        OWD_TRG          0：关闭(默认)
+                               1：开启，VADC进行一次断线检测，检测完成后更新OWDH/OWDM/OWDL寄存器
+
+10.2.4 系统配置寄存器SCONF4
+      0x43         第7位       第6位       第5位           第4位    第3位    第2位      第1位     第0位
+     SCONF4       PDSGT.2   PDSGT.1   PDSGT.0        CN.4   CN.3   CN.2     CN.1    CN.0
+      读/写          读/写       读/写       读/写           读/写    读/写    读/写      读/写     读/写
+      复位值            0         1         1            1      1      1        1       1
+
+   位编号          位符号                                         说明
+                            预放电开启时间控制位
+                             PDSGT [2:0] = 000：0.21s
+                             PDSGT [2:0] = 001：0.28s
+                             PDSGT [2:0] = 010：0.42s
+                PDSGT.2
+    7:5                      PDSGT [2:0] = 011：0.49s(默认)
+               ~PDSGT.0
+                             PDSGT [2:0] = 100：0.63s
+                             PDSGT [2:0] = 101：0.98s
+                             PDSGT [2:0] = 110：2.03s
+                             PDSGT [2:0] = 111：3.01s
+                            串数配置控制位
+                            针对SH3673510:
+                             CN[4:0] = 00100：4串
+                             CN[4:0] = 00101：5串
+                             CN[4:0] = 00110：6串
+                 CN.4
+    4:0                      CN[4:0] = 00111：7串
+                ~CN.0
+                             CN[4:0] = 01000：8串
+                             CN[4:0] = 01001：9串
+                             CN[4:0] = 01010：10串
+                             CN[4:0] = 其它：10串
+                            针对SH3673514:
+
+                                                32
+```
+
+## PDF 第 33 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.33](../../sources/SH36735XX%20CV1.0A.pdf#page=33)
+
+```text
+                  SH3673510/3673514/3673517/3673520
+  CN[4:0] = 00100：4串
+  CN[4:0] = 00101：5串
+  CN[4:0] = 00110：6串
+  CN[4:0] = 00111：7串
+  CN[4:0] = 01000：8串
+  CN[4:0] = 01001：9串
+  CN[4:0] = 01010：10串
+  CN[4:0] = 01011：11串
+  CN[4:0] = 01100：12串
+  CN[4:0] = 01101：13串
+  CN[4:0] = 01110：14串
+  CN[4:0] = 其它：14串
+针对SH3673517:
+  CN[4:0] = 00100：4串
+  CN[4:0] = 00101：5串
+  CN[4:0] = 00110：6串
+  CN[4:0] = 00111：7串
+  CN[4:0] = 01000：8串
+  CN[4:0] = 01001：9串
+  CN[4:0] = 01010：10串
+  CN[4:0] = 01011：11串
+  CN[4:0] = 01100：12串
+  CN[4:0] = 01101：13串
+  CN[4:0] = 01110：14串
+  CN[4:0] = 01111：15串
+  CN[4:0] = 10000：16串
+  CN[4:0] = 10001：17串
+  CN[4:0] = 其它：17串
+针对SH3673520:
+  CN[4:0] = 00100：4串
+  CN[4:0] = 00101：5串
+  CN[4:0] = 00110：6串
+  CN[4:0] = 00111：7串
+  CN[4:0] = 01000：8串
+  CN[4:0] = 01001：9串
+  CN[4:0] = 01010：10串
+  CN[4:0] = 01011：11串
+  CN[4:0] = 01100：12串
+  CN[4:0] = 01101：13串
+  CN[4:0] = 01110：14串
+  CN[4:0] = 01111：15串
+  CN[4:0] = 10000：16串
+  CN[4:0] = 10001：17串
+  CN[4:0] = 10010：18串
+  CN[4:0] = 10011：19串
+  CN[4:0] = 10100：20串
+  CN[4:0] = 其它：20串
+
+
+
+
+                  33
+```
+
+## PDF 第 34 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.34](../../sources/SH36735XX%20CV1.0A.pdf#page=34)
+
+```text
+                                             SH3673510/3673514/3673517/3673520
+10.2.5 系统配置寄存器SCONF5
+      0x44        第7位      第6位       第5位       第4位           第3位      第2位     第1位     第0位
+     SCONF5          -       -      MOS_EN    OCC_EN       CADC_EN   WDT_EN   WDT.1   WDT.0
+      读/写         读/写       读/写      读/写       读/写           读/写      读/写     读/写     读/写
+      复位值          0         0        1         1             1        0       0       0
+
+   位编号         位符号                                          说明
+    7:6         -         Reserved
+                          MOSFET强制开启控制位
+     5        MOS_EN        0：关闭
+                            1：开启(默认)
+                          充电过流保护控制位
+     4        OCC_EN        0：关闭
+                            1：开启(默认)
+                          CADC电流采集控制位
+     3        CADC_EN       0：关闭
+                            1：开启(默认)
+                          看门狗控制位
+     2        WDT_EN        0：关闭(默认)
+                            1：开启
+                          看门狗溢出时间设置
+                            00：32.34s(默认)
+               WDT.1
+    1:0                     01：15.68s
+              ~WDT.0
+                            10：7.84s
+                            11：3.92s
+
+10.2.6 系统配置寄存器SCONF6
+      0x45        第7位       第6位      第5位           第4位       第3位      第2位      第1位     第0位
+     SCONF6      TS4_EN    TS3_EN   TS2_EN        TS1_EN    SC_EN    OCD_EN   UV_EN   OV_EN
+      读/写         读/写       读/写      读/写           读/写       读/写      读/写      读/写     读/写
+      复位值           1         1        1             1        1        1        1       1
+
+   位编号         位符号                                          说明
+                          温度点TS4温度保护控制位
+     7        TS4_EN       0：关闭
+                           1：开启(默认)
+                          温度点TS3温度保护控制位
+     6        TS3_EN       0：关闭
+                           1：开启(默认)
+                          温度点TS2温度保护控制位
+     5        TS2_EN       0：关闭
+                           1：开启(默认)
+                          温度点TS1温度保护控制位
+     4        TS1_EN       0：关闭
+                           1：开启(默认)
+                          短路保护控制位
+     3         SC_EN       0：关闭
+                           1：开启(默认)
+                          放电过流1/2保护控制位
+     2        OCD_EN       0：关闭
+                           1：开启(默认)
+                          过放电保护控制位
+     1         UV_EN       0：关闭
+                           1：开启(默认)
+     0         OV_EN      过充电保护控制位
+                                             34
+```
+
+## PDF 第 35 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.35](../../sources/SH36735XX%20CV1.0A.pdf#page=35)
+
+```text
+                                               SH3673510/3673514/3673517/3673520
+                              0：关闭
+                              1：开启(默认)
+
+10.2.7 系统配置寄存器SCONF7
+      0x46          第7位      第6位      第5位        第4位          第3位          第2位          第1位      第0位
+     SCONF7          -       RLD     CADCT.1    CADCT.0        -           CDV.2        CDV.1    CDV.0
+      读/写           读/写      读/写      读/写        读/写          读/写          读/写          读/写      读/写
+      复位值            0        0         0          0           0             1            0        0
+
+   位编号           位符号                                  说明
+    7             -         Reserved
+                            负载检测上拉电流大小选择位
+     6            RLD          0：IDSGD=60uA(默认)
+                               1：IDSGD=500uA
+                            IDLE模式CADC更新数据周期控制位
+                               CADCT[1:0] = 00：4s(默认)
+                 CADCT.1       CADCT[1:0] = 01：32s
+    5:4
+                ~CADCT.0       CADCT[1:0] = 10：64s
+                               CADCT[1:0] = 11：256s
+                               注：该控制位只在IDLE模式有效，Normal模式固定为250ms
+     3              -       Reserved
+                  CDV.2     充放电状态检测电压设置(VADC)：计算公式：VCD = 寄存器值 x 137.5uV+192.5uV，默
+    2:0
+                 ~CDV.0     认0x04(742.5uV)
+
+10.2.8 OWV/ALARMH输出控制寄存器
+      0x47          第7位      第6位     第5位            第4位       第3位          第2位           第1位      第0位
+   OWV/ALARMH       OWV.3    OWV.2   OWV.1          OWV.0   LOADON_INT   LOADOFF_INT   VADC_INT CADC_INT
+      读/写            读/写      读/写     读/写            读/写      读/写          读/写           读/写      读/写
+     复位值              0        1       0              1        0            1             1        1
+
+   位编号           位符号                                          说明
+                 OWV.3
+    7:4                     断线检测电压阈值，计算公式：VOW=寄存器值 x 160mV + 160mV，默认0x05(960mV)
+                ~OWV.0
+                              0：系统进入负载连接状态时，ALARM不输出低电平脉冲(默认)
+     3        LOADON_INT
+                              1：系统进入负载连接状态时，ALARM输出低电平脉冲
+                              0：系统进入负载未连接状态时，ALARM不输出低电平脉冲
+     2        LOADOFF_INT
+                              1：系统进入负载未连接状态时，ALARM输出低电平脉冲(默认)
+                              0：VADC每次采集完成后，ALARM不输出低电平脉冲
+     1          VADC_INT
+                              1：VADC每次采集完成后，ALARM输出低电平脉冲(默认)
+                              0：CADC每次采集完成后，ALARM不输出低电平脉冲
+     0          CADC_INT
+                              1：CADC每次采集完成后，ALARM输出低电平脉冲(默认)
+
+10.2.9 ALARML输出控制寄存器
+      0x48          第7位      第6位     第5位      第4位     第3位                 第2位            第1位      第0位
+     ALARML        WK_INT   WDT_INT OWD_INT TEMP_INT OCC_INT             OCD_INT        UV_INT   OV_INT
+      读/写           读/写      读/写     读/写      读/写     读/写                 读/写            读/写      读/写
+      复位值            1        1       1        1        1                   1             1        1
+
+   位编号           位符号                               说明
+                              0：退出IDLE和SLEEP状态后(非通讯退出)，ALARM不输出低电平脉冲
+     7          WK_INT
+                              1：退出IDLE和SLEEP状态后(非通讯退出)，ALARM输出低电平脉冲(默认)
+                              0：看门狗溢出后，ALARM不输出低电平脉冲
+     6          WDT_INT
+                              1：看门狗溢出后，ALARM输出低电平脉冲(默认)
+     5          OWD_INT       0：断线检测完成后，ALARM不输出低电平脉冲
+
+                                               35
+```
+
+## PDF 第 36 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.36](../../sources/SH36735XX%20CV1.0A.pdf#page=36)
+
+```text
+                                                    SH3673510/3673514/3673517/3673520
+                                  1：断线检测完成后，ALARM输出低电平脉冲(默认)
+                                  0：外部温度保护发生后，ALARM不输出低电平脉冲
+     4           TEMP_INT
+                                  1：外部温度保护发生后，ALARM输出低电平脉冲(默认)
+                                  0：充电过流保护发生后，ALARM不输出低电平脉冲
+     3           OCC_INT
+                                  1：充电过流保护发生后，ALARM输出低电平脉冲(默认)
+                                  0：放电过流1、放电过流2或短路保护发生后，ALARM不输出低电平脉冲
+     2           OCD_INT
+                                  1：放电过流1、放电过流2或短路保护发生后，ALARM输出低电平脉冲(默认)
+                                  0：过放电保护发生后，ALARM不输出低电平脉冲
+     1            UV_INT
+                                  1：过放电保护发生后，ALARM输出低电平脉冲(默认)
+                                  0：过充电保护发生后，ALARM不输出低电平脉冲
+     0            OV_INT
+                                  1：过充电保护发生后，ALARM输出低电平脉冲(默认)
+
+10.2.10 过充电保护设置寄存器
+   0x49, 0x4A            第7位      第6位       第5位          第4位     第3位    第2位    第1位    第0位
+    OVT/OVH               -       OVT.2     OVT.1        OVT.0    -      -     OV.9   OV.8
+      读/写                读/写      读/写       读/写          读/写     读/写    读/写    读/写    读/写
+     复位值                  0         0         1            1      0      0      1      1
+      OVL                OV.7     OV.6      OV.5         OV.4    OV.3   OV.2   OV.1   OV.0
+      读/写                读/写      读/写       读/写          读/写     读/写    读/写    读/写    读/写
+     复位值                  0         1         0            0      1      0      0      0
+
+   位编号            位符号                                      说明
+    7              -            Reserved
+                                过充电保护延时
+                                  OVT[2:0] = 000：140ms
+                                  OVT[2:0] = 001：280ms
+                                  OVT[2:0] = 010：490ms
+                                  OVT[2:0] = 011：0.98s(默认)
+    6:4         OVT.2~OVT.0
+                                  OVT[2:0] = 100：2.03s
+                                  OVT[2:0] = 101：3.01s
+                                  OVT[2:0] = 110：4.97s
+                                  OVT[2:0] = 111：10.01s
+                                  IDLE模式，延时是设定延时阈值的四倍
+    3:2              -          Reserved
+    1:0
+                 OV.9~OV.0      过充电保护电压，计算公式：VOV=寄存器值 x 5mV，默认0x348(4200mV)
+    7:0
+
+10.2.11 过放电保护设置寄存器
+   0x4B, 0x4C            第7位      第6位       第5位          第4位     第3位    第2位    第1位    第0位
+    UVT/UVH               -       UVT.2     UVT.1        UVT.0    -      -     UV.9   UV.8
+      读/写                读/写      读/写       读/写          读/写     读/写    读/写    读/写    读/写
+     复位值                  0         0         1            0      0      0      1      0
+      UVL                UV.7     UV.6      UV.5         UV.4    UV.3   UV.2   UV.1   UV.0
+      读/写                读/写      读/写       读/写          读/写     读/写    读/写    读/写    读/写
+     复位值                  0         0         0            1      1      1      0      0
+
+   位编号            位符号                                            说明
+    7              -            Reserved
+                                过放电保护延时
+                                  UVT[2:0] = 000：490ms
+                                  UVT[2:0] = 001：770ms
+    6:4         UVT.2~UVT.0       UVT[2:0] = 010：0.98s(默认)
+                                  UVT[2:0] = 011：1.47s
+                                  UVT[2:0] = 100：2.03s
+                                  UVT[2:0] = 101：3.01s
+
+                                                    36
+```
+
+## PDF 第 37 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.37](../../sources/SH36735XX%20CV1.0A.pdf#page=37)
+
+```text
+                                                  SH3673510/3673514/3673517/3673520
+                                UVT[2:0] = 110：4.97s
+                                UVT[2:0] = 111：10.01s
+                                IDLE模式，延时是设定阈值的四倍
+    3:2             -         Reserved
+    1:0
+                UV.9~UV.0     过放电保护电压，计算公式：VUV = 寄存器值 x 5mV，默认0x21C(2700mV)
+    7:0
+
+10.2.12 放电过流1保护设置寄存器
+     0x4D               第7位    第6位       第5位        第4位         第3位       第2位       第1位       第0位
+  OCD1V/OCD1T            -    OCD1T.2   OCD1T.1    OCD1T.0     OCD1V.3   OCD1V.2   OCD1V.1   OCD1V.0
+     读/写                读/写    读/写       读/写        读/写         读/写       读/写       读/写       读/写
+     复位值                 0      0         1          1           1         0         0          1
+
+   位编号           位符号                                            说明
+    7             -           Reserved
+                              放电过流1保护延时
+                                OCD1T[2:0] = 000：140ms
+                                OCD1T[2:0] = 001：280ms
+                                OCD1T[2:0] = 010：490ms
+                 OCD1T.2
+    6:4                         OCD1T[2:0] = 011：0.98s(默认)
+                ~OCD1T.0
+                                OCD1T[2:0] = 100：2.03s
+                                OCD1T[2:0] = 101：3.01s
+                                OCD1T[2:0] = 110：4.97s
+                                OCD1T[2:0] = 111：10.01s
+                 OCD1V.3
+    3:0                       放电过流1保护阈值，计算公式：VOCD1=寄存器值*5mV+5mV，默认0x09(50mV)
+                ~OCD1V.0
+
+10.2.13 放电过流2保护设置寄存器
+     0x4E               第7位     第6位       第5位          第4位      第3位       第2位       第1位       第0位
+  OCD2V/OCD2T      OCD2T.3    OCD2T.2   OCD2T.1    OCD2T.0     OCD2V.3   OCD2V.2   OCD2V.1   OCD2V.0
+     读/写            读/写        读/写       读/写        读/写         读/写       读/写       读/写       读/写
+     复位值             0          0         1          1           1         0         0          1
+
+   位编号            位符号                                           说明
+                 OCD2T.3
+    7:4                       放电过流2保护延时，计算公式：tOCD2=寄存器值*25ms+25ms，默认0x03(100ms)
+                ~OCD2T.0
+                 OCD2V.3
+    3:0                       放电过流2保护阈值，计算公式：VOCD2=寄存器值*10mV+10mV，默认0x09(100mV)
+                ~OCD2V.0
+
+10.2.14 短路保护设置寄存器
+     0x4F               第7位     第6位       第5位          第4位      第3位       第2位       第1位       第0位
+    SCV/SCT              -       -       SCV.1         SCV.0    SCT.3     SCT.2     SCT.1     SCT.0
+     读/写                读/写     读/写      读/写           读/写      读/写       读/写       读/写       读/写
+     复位值                 0       0         0             0        0         1         1         1
+
+   位编号           位符号                                      说明
+    7:6           -           Reserved
+                              短路保护阈值
+                                SCV[1:0] = 00：2*VOCD2(默认)
+                 SCV.1-
+    5:4                         SCV[1:0] = 01：3*VOCD2
+                 SCV.0
+                                SCV[1:0] = 10：4*VOCD2
+                                SCV[1:0] = 11：6*VOCD2
+                              短路保护延时
+                 SCT.3-
+    3:0                         SCT[3:0] = 0000：0us，无短路保护延时
+                 SCT.0
+                                SCT[3:0] = 0001：32us
+
+                                                  37
+```
+
+## PDF 第 38 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.38](../../sources/SH36735XX%20CV1.0A.pdf#page=38)
+
+```text
+                                                SH3673510/3673514/3673517/3673520
+                               SCT[3:0] = 0010：64us
+                               SCT[3:0] = 0011：96us
+                               SCT[3:0] = 0100：128us
+                               SCT[3:0] = 0101：192us
+                               SCT[3:0] = 0110：224us
+                               SCT[3:0] = 0111：256us(默认)
+                               SCT[3:0] = 1000：288us
+                               SCT[3:0] = 1001：320us
+                               SCT[3:0] = 1010：384us
+                               SCT[3:0] = 1011：448us
+                               SCT[3:0] = 1100：480us
+                               SCT[3:0] = 1101：512us
+                               SCT[3:0] = 1110：544us
+                               SCT[3:0] = 1111：576us
+
+10.2.15 充电过流保护设置寄存器
+      0x50           第7位       第6位      第5位           第4位      第3位      第2位      第1位      第0位
+   OCCV/OCCT        OCCT.2    OCCT.1   OCCT.0        OCCV.4   OCCV.3   OCCV.2   OCCV.1   OCCV.0
+     读/写             读/写       读/写      读/写           读/写      读/写      读/写      读/写      读/写
+     复位值              0         1        1             0        1        1        1        1
+
+   位编号           位符号                                          说明
+                             充电过流保护延时
+                              OCCT[2:0] = 000：140ms
+                              OCCT[2:0] = 001：280ms
+                              OCCT[2:0] = 010：490ms
+                 OCCT.2-
+    7:5                       OCCT[2:0] = 011：0.98s(默认)
+                 OCCT.0
+                              OCCT[2:0] = 100：2.03s
+                              OCCT[2:0] = 101：3.01s
+                              OCCT[2:0] = 110：4.97s
+                              OCCT[2:0] = 111：10.01s
+                 OCCV.4-
+    4:0                      充电过流保护阈值，计算公式：VOCC=寄存器值*1.375mV+1.375mV，默认0x0F(22mV)
+                 OCCV.0
+
+10.2.16 充电高温保护设置寄存器
+     0x51           第7位       第6位       第5位          第4位      第3位      第2位      第1位      第0位
+     OTC            OTC.7     OTC.6     OTC.5        OTC.4    OTC.3    OTC.2    OTC.1    OTC.0
+     读/写            读/写       读/写       读/写          读/写      读/写      读/写      读/写      读/写
+     复位值              1         0         0            1        0        1        1        0
+
+   位编号           位符号                                          说明
+    7:0        OTC.7~OTC.0   充电高温保护阈值(默认0x96)
+
+10.2.17 放电高温保护设置寄存器
+     0x52           第7位       第6位       第5位          第4位      第3位      第2位      第1位      第0位
+     OTD            OTD.7     OTD.6     OTD.5        OTD.4    OTD.3    OTD.2    OTD.1    OTD.0
+     读/写            读/写       读/写       读/写          读/写      读/写      读/写      读/写      读/写
+     复位值              0         1         1            1        0        1        1        0
+
+   位编号           位符号                                          说明
+    7:0        OTD.7~OTD.0   放电高温保护阈值(默认0x76)
+
+10.2.18 充电低温保护设置寄存器
+      0x53          第7位       第6位       第5位          第4位      第3位      第2位      第1位      第0位
+      UTC           UTC.7     UTC.6     UTC.5        UTC.4    UTC.3    UTC.2    UTC.1    UTC.0
+                                                38
+```
+
+## PDF 第 39 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.39](../../sources/SH36735XX%20CV1.0A.pdf#page=39)
+
+```text
+                                                 SH3673510/3673514/3673517/3673520
+      读/写              读/写     读/写      读/写          读/写     读/写     读/写     读/写      读/写
+      复位值               0       1        1            1       0       1       1        0
+
+   位编号            位符号                                        说明
+    7:0         UTC.7~UTC.0   充电低温保护阈值(默认0x76)
+
+10.2.19 放电低温保护设置寄存器
+      0x54            第7位      第6位      第5位          第4位     第3位     第2位     第1位     第0位
+      UTD             UTD.7    UTD.6    UTD.5        UTD.4   UTD.3   UTD.2   UTD.1   UTD.0
+      读/写             读/写      读/写      读/写          读/写     读/写     读/写     读/写     读/写
+      复位值               1        0        0            1       1       1       1       0
+
+   位编号            位符号                                        说明
+    7:0         UTD.7~UTD.0   放电低温保护阈值(默认0x9E)
+
+10.2.20 均衡寄存器
+ 0x55，0x56，0x57       第7位      第6位      第5位          第4位     第3位     第2位     第1位      第0位
+    BALANCEH            -        -        -            -     CB20    CB19    CB18     CB17
+    BALANCEM          CB16     CB15     CB14         CB13    CB12    CB11    CB10     CB9
+    BALANCEL          CB8      CB7      CB6          CB5     CB4     CB3     CB2      CB1
+       读/写            读/写      读/写      读/写          读/写     读/写     读/写     读/写      读/写
+      复位值              0        0        0            0       0       0       0        0
+
+   位编号            位符号                                         说明
+    7:4            -          Reserved
+    3:0                       均衡回路控制位
+                    CBN
+    7:0                         0：关闭CELLN均衡回路(默认)
+                  (N:1~20)
+    7:0                         1：开启CELLN均衡回路
+
+10.2.21 标志寄存器FLAG1
+      0x58            第7位     第6位       第5位        第4位     第3位      第2位     第1位       第0位
+     FLAG1          RST1_FLG WK_FLG    OCC_FLG    SC_FLG OCD2_FLG OCD1_FLG UV_FLG    OV_FLG
+      读/写            读/写“0”  读/写“0”     读/写“0”    读/写“0”  读/写“0”   读/写“0”  读/写“0”    读/写“0”
+     复位值               1       0          0         0       0        0       0         0
+
+    位编号           位符号                               说明
+                              系统复位标志位
+                               0：未发生系统复位
+     7           RST1_FLG
+                               1：发生过系统复位(上电复位、VCC发生LVR复位、退出Powerdown模式)，需MCU
+                               清零，不包括软件复位
+                              唤醒标志位
+     6            WK_FLG       0：未被唤醒
+                               1：从IDLE模式或SLEEP模式被唤醒(非通讯退出)，需MCU清零
+                              充电过流保护标志位
+     5           OCC_FLG       0：未发生充电过流保护
+                               1：发生充电过流保护，需MCU清零
+                              短路保护标志位
+     4            SC_FLG       0：未发生短路保护
+                               1：发生短路保护，需MCU清零
+                              放电过流2保护标志位
+     3          OCD2_FLG       0：未发生放电过流2保护
+                               1：发生放电过流2保护，需MCU清零
+                              放电过流1保护标志位
+     2          OCD1_FLG
+                               0：未发生放电过流1保护
+
+                                                39
+```
+
+## PDF 第 40 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.40](../../sources/SH36735XX%20CV1.0A.pdf#page=40)
+
+```text
+                                         SH3673510/3673514/3673517/3673520
+                            1：发生放电过流1保护，需MCU清零
+                           过放电保护标志位
+     1        UV_FLG        0：未发生过放电保护
+                            1：发生过放电保护，需MCU清零
+                           过充电保护标志位
+     0        OV_FLG        0：未发生过充电保护
+                            1：发生过充电保护，需MCU清零
+
+10.2.22 标志寄存器FLAG2
+      0x59       第7位     第6位     第5位     第4位      第3位     第2位      第1位      第0位
+     FLAG2      OTD_FLG UTD_FLG OTC_FLG UTC_FLG RST2_FLG WDT_FLG VADC_FLG CADC_FLG
+      读/写        读/写“0”  读/写“0”  读/写“0”  读/写“0”  读/写“0”   读/写“0”    读        读
+     复位值           0       0       0       0       0        0       0        0
+
+    位编号        位符号                               说明
+                           放电高温保护标志位
+     7        OTD_FLG        0：未发生放电高温保护
+                             1：发生放电高温保护，需MCU清零
+                           放电低温保护标志位
+     6        UTD_FLG        0：未发生放电低温保护
+                             1：发生放电低温保护，需MCU清零
+                           充电高温保护标志位
+     5        OTC_FLG        0：未发生充电高温保护
+                             1：发生充电高温保护，需MCU清零
+                           充电低温保护标志位
+     4        UTC_FLG        0：未发生充电低温保护
+                             1：发生充电低温保护，需MCU清零
+                           LDO2复位标志位
+                             0：LDO2未发生过LVR复位
+     3        RST2_FLG       1：LDO2发生过LVR复位
+                           注释：该标志位可由MCU清零，且在发生上电复位、VCC发生LVR复位、退出Powerdown
+                           模式、软件复位时，RST2_FLG依然为0
+                           看门狗溢出标志位
+     2        WDT_FLG        0：未发生过看门狗溢出
+                             1：发生过看门狗溢出，需MCU清零
+                           VADC标志位
+     1       VADC_FLG        0：一次VADC转换未完成
+                             1：一次VADC转换完成，该bit被读取后，硬件自动清零
+                           CADC标志位
+     0       CADC_FLG        0：一次CADC转换未完成
+                             1：一次CADC转换完成，该bit被读取后，硬件自动清零
+
+10.2.23 标志寄存器FLAG3
+      0x5A           第7位    第6位    第5位        第4位   第3位    第2位     第1位     第0位
+     FLAG3            -      -      -          -     -      -     OWD_IND OWD_FLG
+      读/写             读      读      读          读     读      读       读       读
+     复位值              0      0      0          0     0      0        0       0
+
+    位编号        位符号                               说明
+     7:2        -          Reserved
+                           奇偶断线检测标志位(只有OWD_FLG=1时有效)
+     1        OWD_IND        0：针对偶数节断线检测
+                             1：针对奇数节断线检测
+                           断线检测标志位
+     0        OWD_FLG
+                             0：一次VADC断线检测转换未完成
+                                         40
+```
+
+## PDF 第 41 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.41](../../sources/SH36735XX%20CV1.0A.pdf#page=41)
+
+```text
+                                             SH3673510/3673514/3673517/3673520
+                             1：一次VADC断线检测转换完成，该bit被读取后，硬件自动清零
+
+10.2.24 状态寄存器BSTATUS1
+      0x5B            第7位     第6位     第5位      第4位       第3位     第2位     第1位     第0位
+    BSTATUS1           -    E2P_ERR HDSG_FET HCHG_FET     -    PDSG_FET DSG_FET CHG_FET
+      读/写              读       读       读        读         读       读        读       读
+      复位值              0       0       0        0         0       0        0       0
+
+    位编号         位符号                                      说明
+     7           -          Reserved
+                            EEPROM数据异常状态位
+     6         E2P_ERR        0：EEPROM数据未见异常
+                              1：EEPROM数据发生异常
+                            高侧放电MOSFET状态位
+     5         HDSG_FET       0：关闭
+                              1：开启
+                            高侧充电MOSFET状态位
+     4         HCHG_FET       0：关闭
+                              1：开启
+     3            -           Reserved
+                            预放电MOSFET状态位
+     2         PDSG_FET       0：关闭
+                              1：开启
+                            低侧放电MOSFET状态位
+     1         DSG_FET        0：关闭
+                              1：开启
+                            低侧充电MOSFET状态位
+     0         CHG_FET        0：关闭
+                              1：开启
+
+10.2.25 状态寄存器BSTATUS2
+      0x5C         第7位       第6位     第5位          第4位    第3位     第2位     第1位       第0位
+    BSTATUS2      CHGING    DSGING   SLEEP        IDLE   BAL      -     LOADON   LOADOFF
+      读/写           读         读        读           读      读       读       读         读
+      复位值           0         0        0            0     0       0        0        0
+
+    位编号         位符号                                      说明
+                            充电状态位
+     7          CHGING         0：非充电状态
+                               1：充电状态
+                            放电状态位
+     6          DSGING         0：非放电状态
+                               1：放电状态
+                            SLEEP模式状态位
+     5          SLEEP          0：非SLEEP模式
+                               1：SLEEP模式
+                            IDLE模式状态位
+     4           IDLE          0：非IDLE模式
+                               1：IDLE模式
+                            均衡状态标志位
+     3           BAL           0：没有CELL正在均衡
+                               1：有至少一节CELL正在均衡
+     2            -            Reserved
+                            负载连接状态位
+     1         LOADON
+                               0：负载状态无效
+                                             41
+```
+
+## PDF 第 42 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.42](../../sources/SH36735XX%20CV1.0A.pdf#page=42)
+
+```text
+                                                       SH3673510/3673514/3673517/3673520
+                                 1：负载连接状态
+                                负载未连接状态位
+      0           LOADOFF        0：负载状态无效
+                                 1：负载未连接状态
+
+10.2.26 TS1~TS4温度寄存器
+    0x5D~0x64         第7位         第6位        第5位             第4位        第3位        第2位       第1位       第0位
+      TEMP1H         TEMP1.15   TEMP1.14    TEMP1.13    TEMP1.12       TEMP1.11   TEMP1.10   TEMP1.9   TEMP1.8
+      TEMP1L         TEMP1.7    TEMP1.6     TEMP1.5     TEMP1.4        TEMP1.3    TEMP1.2    TEMP1.1   TEMP1.0
+      TEMP2H         TEMP2.15   TEMP2.14    TEMP2.13    TEMP2.12       TEMP2.11   TEMP2.10   TEMP2.9   TEMP2.8
+      TEMP2L         TEMP2.7    TEMP2.6     TEMP2.5     TEMP2.4        TEMP2.3    TEMP2.2    TEMP2.1   TEMP2.0
+      TEMP3H         TEMP3.15   TEMP3.14    TEMP3.13    TEMP3.12       TEMP3.11   TEMP3.10   TEMP3.9   TEMP3.8
+      TEMP3L         TEMP3.7    TEMP3.6     TEMP3.5     TEMP3.4        TEMP3.3    TEMP3.2    TEMP3.1   TEMP3.0
+      TEMP4H         TEMP4.15   TEMP4.14    TEMP4.13    TEMP4.12       TEMP4.11   TEMP4.10   TEMP4.9   TEMP4.8
+      TEMP4L         TEMP4.7    TEMP4.6     TEMP4.5     TEMP4.4        TEMP4.3    TEMP4.2    TEMP4.1   TEMP4.0
+      读/写               读          读          读               读          读          读          读         读
+      复位值               0          0          0               0          0          0          0         0
+
+    位编号             位符号                                                  说明
+                  TEMPN.15      当转换完成后，数据更新为温度电阻N上的电压分压比对应的数值
+     7:0
+                  ~TEMPN.0
+     7:0                        当TSn_EN(n=1~4)=0时，禁止温度保护功能，但不禁止温度采样功能
+                   (N:1~4)
+
+10.2.27 内部温度寄存器
+    0x65，0x66         第7位         第6位        第5位             第4位        第3位        第2位       第1位       第0位
+      TEMPIH         TEMPI.15    TEMPI.14   TEMPI.13        TEMPI.12   TEMPI.11   TEMPI.10   TEMPI.9   TEMPI.8
+      TEMPIL         TEMPI.7     TEMPI.6    TEMPI.5         TEMPI.4    TEMPI.3    TEMPI.2    TEMPI.1   TEMPI.0
+      读/写               读          读          读               读          读          读          读         读
+      复位值               0          0          0               0          0          0          0         0
+
+    位编号            位符号                                                  说明
+     7:0          TEMPI.15
+                                当转换完成后，数据更新为内部温度对应的数值
+     7:0          ~TEMPI.0
+
+10.2.28 电流寄存器
+    0x67，0x68         第7位         第6位        第5位             第4位        第3位        第2位       第1位       第0位
+      CURH           CUR.15      CUR.14     CUR.13          CUR.12     CUR.11     CUR.10     CUR.9     CUR.8
+      CURL           CUR.7       CUR.6      CUR.5           CUR.4      CUR.3      CUR.2      CUR.1     CUR.0
+       读/写             读           读          读               读          读          读         读         读
+      复位值              0           0          0               0          0          0          0         0
+
+    位编号            位符号                               说明
+     7:0                      CUR.15 为符号位，仅表示电流方向，“1”表示放电方向；“0”表示充电方向
+                 CUR.15~CUR.0
+     7:0                      当转换完成后，数据更新为 Sense 电阻两端电压对应的数值
+
+10.2.29 Cell1~Cell20电芯电压寄存器
+     0x69~0x90        第7位         第6位        第5位             第4位        第3位        第2位       第1位       第0位
+      CELL1H         CELL1.15    CELL1.14   CELL1.13        CELL1.12   CELL1.11   CELL1.10   CELL1.9   CELL1.8
+      CELL1L         CELL1.7     CELL1.6    CELL1.5         CELL1.4    CELL1.3    CELL1.2    CELL1.1   CELL1.0
+      CELL2H         CELL2.15    CELL2.14   CELL2.13        CELL2.12   CELL2.11   CELL2.10   CELL2.9   CELL2.8
+      CELL2L         CELL2.7     CELL2.6    CELL2.5         CELL2.4    CELL2.3    CELL2.2    CELL2.1   CELL2.0
+      CELL3H         CELL3.15    CELL3.14   CELL3.13        CELL3.12   CELL3.11   CELL3.10   CELL3.9   CELL3.8
+      CELL3L         CELL3.7     CELL3.6    CELL3.5         CELL3.4    CELL3.3    CELL3.2    CELL3.1   CELL3.0
+      CELL4H         CELL4.15    CELL4.14   CELL4.13        CELL4.12   CELL4.11   CELL4.10   CELL4.9   CELL4.8
+      CELL4L         CELL4.7     CELL4.6    CELL4.5         CELL4.4    CELL4.3    CELL4.2    CELL4.1   CELL4.0
+      CELL5H         CELL5.15    CELL5.14   CELL5.13        CELL5.12   CELL5.11   CELL5.10   CELL5.9   CELL5.8
+      CELL5L         CELL5.7     CELL5.6    CELL5.5         CELL5.4    CELL5.3    CELL5.2    CELL5.1   CELL5.0
+      CELL6H         CELL6.15    CELL6.14   CELL6.13        CELL6.12   CELL6.12   CELL6.10   CELL6.9   CELL6.8
+      CELL6L         CELL6.7     CELL6.6    CELL6.5         CELL6.4    CELL6.3    CELL6.2    CELL6.1   CELL6.0
+
+                                                       42
+```
+
+## PDF 第 43 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.43](../../sources/SH36735XX%20CV1.0A.pdf#page=43)
+
+```text
+                                                        SH3673510/3673514/3673517/3673520
+     CELL7H         CELL7.15    CELL7.14    CELL7.13     CELL7.12    CELL7.11    CELL7.10    CELL7.9    CELL7.8
+      CELL7L         CELL7.7     CELL7.6     CELL7.5      CELL7.4     CELL7.3     CELL7.2    CELL7.1    CELL7.0
+     CELL8H         CELL8.15    CELL8.14    CELL8.13     CELL8.12    CELL8.11    CELL8.10    CELL8.9    CELL8.8
+      CELL8L         CELL8.7     CELL8.6     CELL8.5      CELL8.4     CELL8.3     CELL8.2    CELL8.1    CELL8.0
+     CELL9H         CELL9.15    CELL9.14    CELL9.13     CELL9.12    CELL9.11    CELL9.10    CELL9.9    CELL9.8
+      CELL9L         CELL9.7     CELL9.6     CELL9.5      CELL9.4     CELL9.3     CELL9.2    CELL9.1    CELL9.0
+     CELL10H        CELL10.15   CELL10.14   CELL10.13    CELL10.12   CELL10.11   CELL10.10   CELL10.9   CELL10.8
+     CELL10L        CELL10.7    CELL10.6    CELL10.5     CELL10.4    CELL10.3    CELL10.2    CELL10.1   CELL10.0
+     CELL11H        CELL11.15   CELL11.14   CELL11.13    CELL11.12   CELL11.11   CELL11.10   CELL11.9   CELL11.8
+     CELL11L        CELL11.7    CELL11.6    CELL11.5     CELL11.4    CELL11.3    CELL11.2    CELL11.1   CELL11.0
+     CELL12H        CELL12.15   CELL12.14   CELL12.13    CELL12.12   CELL12.11   CELL12.10   CELL12.9   CELL12.8
+     CELL12L        CELL12.7    CELL12.6    CELL12.5     CELL12.4    CELL12.3    CELL12.2    CELL12.1   CELL12.0
+     CELL13H        CELL13.15   CELL13.14   CELL13.13    CELL13.12   CELL13.11   CELL13.10   CELL13.9   CELL13.8
+     CELL13L        CELL13.7    CELL13.6    CELL13.5     CELL13.4    CELL13.3    CELL13.2    CELL13.1   CELL13.0
+     CELL14H        CELL14.15   CELL14.14   CELL14.13    CELL14.12   CELL14.11   CELL14.10   CELL14.9   CELL14.8
+     CELL14L        CELL14.7    CELL14.6    CELL14.5     CELL14.4    CELL14.3    CELL14.2    CELL14.1   CELL14.0
+     CELL15H        CELL15.15   CELL15.14   CELL15.13    CELL15.12   CELL15.11   CELL15.10   CELL15.9   CELL15.8
+     CELL15L        CELL15.7    CELL15.6    CELL15.5     CELL15.4    CELL15.3    CELL15.2    CELL15.1   CELL15.0
+     CELL16H        CELL16.15   CELL16.14   CELL16.13    CELL16.12   CELL16.12   CELL16.10   CELL16.9   CELL16.8
+     CELL16L        CELL16.7    CELL16.6    CELL16.5     CELL16.4    CELL16.3    CELL16.2    CELL16.1   CELL16.0
+     CELL17H        CELL17.15   CELL17.14   CELL17.13    CELL17.12   CELL17.11   CELL17.10   CELL17.9   CELL17.8
+     CELL17L        CELL17.7    CELL17.6    CELL17.5     CELL17.4    CELL17.3    CELL17.2    CELL17.1   CELL17.0
+     CELL18H        CELL18.15   CELL18.14   CELL18.13    CELL18.12   CELL18.11   CELL18.10   CELL18.9   CELL18.8
+     CELL18L        CELL18.7    CELL18.6    CELL18.5     CELL18.4    CELL18.3    CELL18.2    CELL18.1   CELL18.0
+     CELL19H        CELL19.15   CELL19.14   CELL19.13    CELL19.12   CELL19.11   CELL19.10   CELL19.9   CELL19.8
+     CELL19L        CELL19.7    CELL19.6    CELL19.5     CELL19.4    CELL19.3    CELL19.2    CELL19.1   CELL19.0
+     CELL20H        CELL20.15   CELL20.14   CELL20.13    CELL20.12   CELL20.11   CELL20.10   CELL20.9   CELL20.8
+     CELL20L        CELL20.7    CELL20.6    CELL20.5     CELL20.4    CELL20.3    CELL20.2    CELL20.1   CELL20.0
+      读/写              读           读           读             读          读           读          读          读
+      复位值              0           0           0             0          0           0          0          0
+
+    位编号           位符号                                                  说明
+                CELLN.15        当转换完成后，数据更新为第N节电芯电压对应的数值
+     7:0
+                ~CELLN.0
+     7:0                        串数配置生效后，对于未启用的电芯，清除其CELLnH和CELLnL寄存器值
+                 (N:1~20)
+
+10.2.30 CADC电流寄存器
+    0x91，0x92         第7位      第6位      第5位      第4位      第3位      第2位     第1位                           第0位
+     CADCDH         CADCD.15 CADCD.14 CADCD.13 CADCD.12 CADCD.11 CADCD.10 CADCD.9                       CADCD.8
+     CADCDL         CADCD.7 CADCD.6 CADCD.5 CADCD.4 CADCD.3 CADCD.2 CADCD.1                             CADCD.0
+       读/写             读        读        读        读        读        读       读                             读
+      复位值              0        0        0        0        0        0        0                             0
+
+    位编号           位符号                                 说明
+     7:0        CADCD.15        CADCD.15 为符号位，仅表示电流方向，“1”表示放电方向；“0”表示充电方向
+     7:0        ~CADCD.0        当转换完成后，数据更新为 Sense 电阻两端电压对应的数值
+
+10.2.31 B+电压寄存器
+    0x93，0x94        第7位         第6位         第5位          第4位         第3位         第2位         第1位        第0位
+      VTOPH         VTOP.15     VTOP.14     VTOP.13      VTOP.12     VTOP.11     VTOP.10     VTOP.9     VTOP.8
+      VTOPL         VTOP.7      VTOP.6      VTOP.5       VTOP.4      VTOP.3      VTOP.2      VTOP.1     VTOP.0
+       读/写            读           读           读            读           读           读           读          读
+      复位值              0           0           0            0           0           0          0          0
+
+    位编号            位符号                                                说明
+     7:0          VTOP.15
+                                当转换完成后，数据更新为B+对应的数值
+     7:0          ~VTOP.0
+
+10.2.32 C+电压寄存器
+    0x95，0x96         第7位      第6位      第5位      第4位      第3位      第2位     第1位                           第0位
+     VCHGRH         VCHGR.15 VCHGR.14 VCHGR.13 VCHGR.12 VCHGR.11 VCHGR.10 VCHGR.9                       VCHGR.8
+
+                                                        43
+```
+
+## PDF 第 44 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.44](../../sources/SH36735XX%20CV1.0A.pdf#page=44)
+
+```text
+                                                SH3673510/3673514/3673517/3673520
+    VCHGRL        VCHGR.7   VCHGR.6   VCHGR.5    VCHGR.4     VCHGR.3   VCHGR.2   VCHGR.1   VCHGR.0
+     读/写            读         读         读          读           读         读         读         读
+     复位值             0         0         0          0           0         0         0         0
+
+   位编号           位符号                                          说明
+    7:0        VCHGR.15
+                            当转换完成后，数据更新为C+对应的数值
+    7:0        ~VCHGR.0
+
+10.2.33 断线检测电芯电压寄存器
+   0x97~0x99       第7位       第6位       第5位           第4位      第3位       第2位       第1位       第0位
+     OWDH            -         -         -             -      OWD20     OWD19     OWD18     OWD17
+     OWDM          OWD16     OWD15     OWD14         OWD13    OWD12     OWD11     OWD10     OWD9
+     OWDL          OWD8      OWD7      OWD6          OWD5     OWD4      OWD3      OWD2      OWD1
+     读/写            读         读         读             读        读         读         读         读
+     复位值            0         0         0             0        0         0         0         0
+
+   位编号          位符号                              说明
+    7:4          -          Reserved
+                            OWD1~OWD20分别代表断线检测时序中CELL1~CELL20的电压值是否低于断线检测
+    3:0                     电压阈值OWV
+                OWD20
+    7:0
+                ~OWD1       0：断线检测时序中CELL的电压值高于断线检测电压阈值OWV
+    7:0
+                            1：断线检测时序中CELL的电压值低于断线检测电压阈值OWV
+
+
+
+
+                                                44
+```
+
+## PDF 第 45 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.45](../../sources/SH36735XX%20CV1.0A.pdf#page=45)
+
+```text
+                                       SH3673510/3673514/3673517/3673520
+11. 电气特性
+11.1 极限电气参数
+  若工作条件超过“极限电气参数”的范围，将造成器件永久性损坏，只有当器件工作在说明书规定的范围内，器件功能才能得
+到保障。
+    信号名          信号类型               管脚名                 极限范围            单位
+                  模拟            VBAT/VCPR/SHIP        VSS-0.3 ~ 100     V
+    供电端           模拟                 VCP              VSS-0.3 ~ 110     V
+                  模拟                LDO_P             VSS-0.3 ~ 6.5     V
+                  模拟                 RS1            VSS-0.3 ~ VSS+0.3   V
+                  模拟              VC1~VC20            VSS-0.3 ~ 100     V
+                  模拟                 VC0              VSS-0.3 ~ 5.5     V
+     输入           模拟                 RS2           VSS-0.3V ~ VCC+0.3   V
+                  模拟              CHGD/DSGD           VSS-0.3 ~ 110     V
+                  模拟               TS1~TS4          VSS-0.3 ~ VCC+0.3   V
+                  数字              CS/SCK/SDI          VSS-0.3 ~ 6.5     V
+                  模拟              HCHG/HDSG           VSS-0.3 ~ 110     V
+                  模拟                PDSG              VSS-0.3 ~ 110     V
+                  模拟               CHG/DSG             VSS-0.3 ~15      V
+     输出
+                  数字           RESET/ALARM/SDO        VSS-0.3 ~ 6.5     V
+                  模拟                 VCC              VSS-0.3 ~ 6.5     V
+                  模拟                LDO_O             VSS-0.3 ~ 6.5     V
+
+                                表4 极限电气参数表
+  注释：VCn-VCn-1，n=1~20耐压范围同时应满足VSS-0.3 ~ 100V
+
+
+
+
+                                       45
+```
+
+## PDF 第 46 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.46](../../sources/SH36735XX%20CV1.0A.pdf#page=46)
+
+```text
+                                           SH3673510/3673514/3673517/3673520
+11.2 电气特性(无特殊说明，以下所有电气特性，均为TA = 25℃)
+                                       系统参数
+  参数                 说明    最小值      典型值 最大值 单位                          测试条件
+  VBAT      工作电压            8        -   88  V
+                                                          25℃，所有模块全开，无通信，无均衡，未
+                                                          开启断线，未开负载检测，
+                             -      150     200      μA
+                                                          LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                          载，在芯片VSS处测量
+   IOP1     正常模式
+                                                          -40℃~85℃，所有模块全开，无通信，无均
+                                                          衡，未开启断线，未开负载检测，
+                             -      200     250      μA
+                                                          LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                          载，在芯片VSS处测量
+                                                          25℃，SPI关闭，其他模块全开，未开启断线，未
+                             -      110     130      μA   开负载检测，LDO1(LDO_VCC)、
+                                                          LDO2(LDO_MCU)无负载，在芯片VSS处测量
+                                                          -40℃~85℃，SPI关闭，其他模块全开，未开启断
+                             -      110     160      μA   线，未开负载检测，LDO1(LDO_VCC)、
+                                                          LDO2(LDO_MCU)无负载，在芯片VSS处测量
+                                                          25℃，SPI关闭，MOSFET全关，其他模块全开
+   IOP2     IDLE模式
+                                                          （含PUMP），未开启断线，未开负载检测，
+                             -       60     75       μA
+                                                          LDO1(LDO_VCC)、LDO2(LDO_MCU)无负载，
+                                                          在芯片VSS处测量
+                                                          -40℃~85℃，SPI关闭，MOSFET全关，其他模
+                                                          块全开（含PUMP），未开启断线，未开负载检
+                             -       60     90       μA
+                                                          测，LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                          载，在芯片VSS处测量
+                                                          25℃，SPI关闭， LDO1(LDO_VCC)、
+                             -       35     45       μA   LDO2(LDO_MCU)无负载，未开负载唤醒，在芯
+                                                          片VSS处测量
+   IOP3     SLEEP模式
+                                                          -40℃~85℃，SPI关闭， LDO1(LDO_VCC)、
+                             -       35     60       μA   LDO2(LDO_MCU)无负载，未开负载唤醒，在芯
+                                                          片VSS处测量
+                             -      2.5      4       μA   25℃
+   IOP4     Powerdown模式
+                             -      2.5     5.5      μA   -40℃~85℃
+                             -      2.5      4       μA   25℃
+   IOP5     SHIP模式
+                             -      2.5     5.5      μA   -40℃~85℃
+                                                          -40℃~85℃，VCN - VCN-1 = 3.7V,对
+  IVCN1     电芯到芯片管脚漏电       -1       -       1       μA
+                                                          VC0~VC19(未开启断线检测)
+                                                          -40℃~85℃，VCN - VCN-1 = 3.7V,对VC20(未开启
+  IVCN2     电芯到芯片管脚漏电       -5       -       5       μA
+                                                          断线检测)
+ tWARMUP    系统WarmUp延时       -        -     10       ms
+   tRST     RESET输出低电平脉冲    10       20     30       ms
+
+                                    数字/模拟端口电平
+  参数               说明      最小值      典型值 最大值 单位                          测试条件
+  VH-SHIP   SHIP输入高电平       2.4      -  VBAT V
+  VL-SHIP   SHIP输入低电平         -       -  0.9 V
+   tSHIP    SHIP进入延时         10      65  220 us
+                                                        当SHIP引脚检测到高电平时的下拉电流，
+   ISHIP    SHIP弱下拉电流       0.05     0.1    0.15     uA
+                                                        VBAT=88V
+ RBUSHOLD   SHIP强下拉电阻        40      60         80   KΩ 当SHIP引脚检测到低电平时的下拉电阻
+   RPH      数字输入模式上拉电阻        1      2           3   MΩ CS/SCK/SDI
+                            0.8*
+   VIH      数字输入逻辑高电平                -     VLDO_O    V    CS/SCK/SDI
+                           VLDO_O
+
+                                           46
+```
+
+## PDF 第 47 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.47](../../sources/SH36735XX%20CV1.0A.pdf#page=47)
+
+```text
+                                             SH3673510/3673514/3673517/3673520
+                                             0.2*
+   VIL     数字输入逻辑低电平            -       -            V    CS/SCK/SDI
+                                            VLDO_O
+                              VLDO_O
+  VOH      数字输出逻辑高电平                             -   V    SDO，IOH = -10mA
+                               -0.6
+                                 -      -     0.6    V    SDO，IOL = 15mA
+  VOL      数字输出逻辑低电平
+                                 -      -     0.4    V    RESET/ALARM，IOL = 1mA
+tL-ALARM   ALARM方波低电平时间         0.8     1     1.2    ms
+
+                                      Powerdown状态
+ 参数                说明         最小值 典型值 最大值 单位                              测试条件
+  VPD      Powerdown允许电压        -   VUV-200  -  mV
+ tPD_UV    Powerdown允许延时      58.04 62.72 67.52  S        Normal模式下
+
+
+                                  LDO1(LDO_VCC) Regulator
+ 参数               说明          最小值 典型值 最大值 单位                            测试条件
+ VVCC      VCC稳压源输出电压          5.0    5.2   5.4    V    8V ≤ VBAT ≤ 88V，Iload =2mA
+VLVR-VCC   VCC的LVR复位电压          -     4.0    -     V
+
+                              LDO2(LDO_MCU) Regulator
+ 参数                说明    最小值 典型值       最大值      单位                         测试条件
+ VLDO_O    LDO_O稳压源输出电平   3.1   3.3     3.5       V         8V ≤ VBAT ≤ 88V，无负载
+REGLINE    电压线性度           -     10      50      mV         8V ≤ VBAT ≤ 88V，Iload = 25mA
+REGLOAD    负载调整率           -     30     100      mV         VBAT = 70V，0.1mA ≤ Iload ≤ 25mA
+  ICLIT    LDO_O输出最大电流限制  45     75     130      mA         LDO_O输出接到VSS时的限流值
+ VLVR2     LDO2 LVR复位电压   2.1   2.3     2.5       V         触发LDO2 LVR时，仅复位SPI模块
+
+                                    VADC转换周期
+ 参数              说明           最小值 典型值 最大值 单位                          测试条件
+ tcycle    VADC转换周期            -   70    -  ms            Normal模式下，VADC完成所有通道转换的时间
+
+                                 VADC电压采集
+ 参数               说明        最小值 典型值 最大值 单位                                测试条件
+ VIN1      输入范围                0 -    5   V
+                              -5 -    5  mV               25℃, 1V ≤ VCN ≤ 4.5V
+           电压绝对精度1
+VCELLA                       -15 -   15  mV               -20℃~60℃, 1V ≤ VCN ≤ 4.5V
+           (Cell1~Cell20)
+                             -20 -   20  mV               -40℃~85℃, 1V ≤ VCN ≤ 4.5V
+ VBATA     电压绝对精度2(针对B+/C+)   -1 -    1   V               -40℃~85℃，VBAT=88V
+
+                                   VADC温度采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+                                -1 -    1  ℃              25℃
+ TEXTA     外部温度绝对精度
+                                -2 -    2  ℃              -40℃~85℃
+ TINTA     内部温度绝对精度            -10 -    10 ℃
+
+                                    VADC电流采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+ VIN3      输入范围                -100 -   100  mV
+                              -0.15 -   0.15 mV           -40℃~85℃(0mV < |VIN3| ≤ 2mV)
+                               -0.5 -    0.5 mV           -40℃~85℃(2mV < |VIN3| ≤ 10mV)
+ ICURA     电流绝对精度
+                                -1  -     1  mV           -40℃~85℃(10mV < |VIN3| ≤ 50mV)
+                                -2  -     2  mV           -40℃~85℃(50mV < |VIN3| ≤ 100mV)
+
+                                    CADC电流采集
+ 参数               说明          最小值 典型值 最大值 单位                              测试条件
+ VIN4      输入范围                -100 -   100 mV
+                                            47
+```
+
+## PDF 第 48 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.48](../../sources/SH36735XX%20CV1.0A.pdf#page=48)
+
+```text
+                                                      SH3673510/3673514/3673517/3673520
+   tIN4   转换时间                        237.5   250     262.5    ms   Normal模式下
+   INL    积分非线性误差                        -    ±3        -     LSB   -40℃~85℃
+  VOffset 失调误差                           -    ±3        -     LSB   -40℃~85℃
+  VGain   增益误差                           -     -      ±1%     FSR   -40℃~85℃，FSR=±100mV
+注释：1LSB= 112.5mV / 216-1 = 112.5mV / 215 ≈ 3.43uV
+
+                                              均衡
+    参数                说明             最小值 典型值 最大值 单位                                      测试条件
+    RBAL     均衡内阻                     75  250  400 Ω                VCN - VCN-1 = 3.7V
+
+                                              预放电
+    参数            说明                 最小值 典型值 最大值 单位                                      测试条件
+   tPDSGON   预放电开启时间                  0.2  -    3  s                可配置
+   tPDSGAD   预放电额外开启时间                70  140  210 ms
+
+                                           MOSFET驱动能力
+    参数               说明              最小值 典型值 最大值 单位                                      测试条件
+    CCP      Charge Pump电容            0.22  1   2.2 uF
+                                                                    Charge Pump电容为0.47uF，且建立到VVCPTH的
+     tCP     Charge Pump建立时间           -       100     125    ms
+                                                                    时间
+   VVCPTH    VCP管脚阈值电平                 6        7       8      V    超过该电平才可以开启MOSFET
+             HCHG开启电压(VHCHG-
+   VHCHGON                            10.5     11.5   12.5     V    VBAT ≥ 8V，HCHG接CL = 30nF
+             VVCPR)
+             HCHG关闭电压(VHCHG-
+  VHCHGOFF                             -        -      0.3     V    VBAT ≥ 8V，HCHG接CL = 30nF
+             VVCPR)
+             HDSG开启电压(VHDSG-
+   VHDSGON                            10.5     11.5   12.5     V    VBAT ≥ 8V，HDSG接CL = 30nF
+             VVCPR)
+             HDSG关闭电压(VHDSG-
+  VHDSGOFF                             -        -      0.3     V    VBAT ≥ 8V，HDSG接CL = 30nF
+             VDSGD)
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HCHG串联电阻为1kΩ，CLOAD并联电阻为
+  TCHGFETL   HCHG下拉时间                  -       150     250    us
+                                                                    10M，HCHG由开启变为关闭，CLOAD电压由
+                                                                    90%降低到10%的时间
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HDSG串联电阻为1kΩ，CLOAD并联电阻为
+  TDSGFETL   HDSG下拉时间                  -       300     400    us    10M，DSGD串联电阻为1 kΩ，
+                                                                    VPACK+=VB+，HDSG由开启变为关闭，CLOAD
+                                                                    电压由90%降低到10%的时间
+                                                                    Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HCHG串联电阻为1kΩ，CLOAD并联电阻为
+             HCHG上拉时间                  -       200     350    us
+                                                                    10M， HCHG由关闭变为开启，CLOAD电压
+                                                                    由10%升高到90%的时间
+    TFETH                                                           Charge Pump电容为1uF，CLOAD = 30nF，
+                                                                    HDSG串联电阻为1kΩ，CLOAD并联电阻为
+             HDSG上拉时间                  -       200     400    us    10M，DSGD串联电阻为1kΩ，
+                                                                    VPACK+=VB+，HDSG由关闭变为开启，CLOAD
+                                                                    电压由10%升高到90%的时间
+   IPDSGON   PDSG开启下拉电流                80      125     170    uA
+   VCHGH/                             10.5     12       14     V    VBAT > 13V，外接1M电阻到地
+             CHG/DSG高电平
+    VDSGH                           VBAT-2.5    -        -     V    8V < VBAT ≤ 13V，外接1M电阻到地
+    VCHGL/
+             CHG/DSG低电平                -        -       1      V    IOL = 0.5mA
+    VDSGL
+                                                                    CLOAD = 50nF，串联电阻为1KΩ，DSG端
+     tCH     CHG/DSG上拉时间               -       250     350    us    CLOAD并联电阻为10M，CHG端CLOAD并联电
+                                                                    阻为1M，CLOAD电压由10%升到90%
+                                                      48
+```
+
+## PDF 第 49 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.49](../../sources/SH36735XX%20CV1.0A.pdf#page=49)
+
+```text
+                                            SH3673510/3673514/3673517/3673520
+                                                            CLOAD = 50nF，串联电阻为1KΩ，DSG端
+ tDH     CHG/DSG下拉时间       -        250     350       us    CLOAD并联电阻为10M，CHG端CLOAD并联电
+                                                            阻为1M，CLOAD电压由90%降到10%
+
+
+                              过充电保护
+参数            说明       最小值 典型值 最大值 单位                                  测试条件
+VOV      过充电保护电压        3.0 -   4.5 V                       可配置寄存器OV[9:0]
+                                                            可配置寄存器OVT[2:0]。IDLE模式，延时是设定
+         过充电保护延时         0.14        -     10.01       s
+ tOV                                                        阈值的四倍
+                        -(70ms             120ms
+         过充电保护延时精度     +tOV*6%)
+                                     -    +tOV*6%
+                                                       -
+
+                             过放电保护
+参数             说明      最小值 典型值 最大值 单位                                     测试条件
+ VUV     过放电保护电压          1.0        -      3.5       V     可配置寄存器UV[9:0]
+                                                            可配置寄存器UVT[2:0]。IDLE模式，延时是设定
+         过放电保护延时         0.49        -     10.1        s
+ tUV                                                        阈值的四倍
+                        -(70ms            120ms
+         过放电保护延时精度     +tUV*6%)
+                                     -    +tUV*6%
+                                                       -
+
+                                  温度保护
+参数            说明       最小值 典型值 最大值 单位                                 测试条件
+TOTC     充电高温保护温度        40    -     70 ℃                   可配置寄存器OTC，1℃一档
+TUTC     充电低温保护温度       -20    -     10 ℃                   可配置寄存器UTC，1℃一档
+TOTD     放电高温保护温度        45    -     80 ℃                   可配置寄存器OTD，1℃一档
+TUTD     放电低温保护温度       -40    -     10 ℃                   可配置寄存器UTD，1℃一档
+tTEMP    温度保护延时         1.84 2.94  4.16 s                   Normal模式下
+ TOTI    内部高温保护温度       105  115    125 ℃
+ tOTI    内部高温保护延时       0.92 1.96  3.12 s                   Normal模式下
+
+                               过流保护
+参数            说明       最小值 典型值 最大值 单位                                测试条件
+VOCD1    放电过流1保护电压       5   -   80   mV                    可配置寄存器OCD1V[3:0]
+         放电过流1保护延时      0.14 -  10.01  s                    可配置寄存器OCD1T[2:0]
+tOCD1                   -(70ms+
+         放电过流1保护延时精度   tOCD1* 6%)
+                                     -    tOCD1* 6%    -
+VOCD2    放电过流2保护电压        10         -      160  mV         可配置寄存器OCD2V[3:0]
+                          -5         -       5   mV         -40℃~85℃，VDOC2 < 100mV
+VOCD2A   放电过流2保护精度
+                         -5%                5% VOCD2        -40℃~85℃，VDOC2 ≥ 100mV
+         放电过流2保护延时      0.025        -     0.425  s         可配置寄存器OCD2T[3:0]
+tOCD2                    -2.5ms
+         放电过流2保护延时精度   -tOCD2* 6%
+                                     -    tOCD2* 6%    -
+ VSC     短路保护电压           -  N*VOCD2   -              mV    N = 2/3/4/6，可配置寄存器SCV
+                         -10    -     10              mV    -40℃~85℃，VSC < 100mV
+VSCA     短路保护精度
+                        -10%    -    10%              VSC   -40℃~85℃，VSC ≥ 100mV
+                                                            可配置寄存器SCT[3:0]
+         短路保护延时            0         -      576       μs
+ tSC                                                        测试时，短路保护电压输入等于VSC+VSC*15%
+         短路保护延时精度         0          -      64        us
+VOCC     充电过流保护电压       1.375        -      44        mV    可配置寄存器OCC1V[4:0]
+         充电过流保护延时        0.14        -     10.01       s    可配置寄存器OCC1T[2:0]
+ tOCC                  -(70ms+
+         充电过流保护延时精度    tOCC*6%)
+                                     -    tOCC* 6%     -
+
+
+
+
+                                           49
+```
+
+## PDF 第 50 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.50](../../sources/SH36735XX%20CV1.0A.pdf#page=50)
+
+```text
+                                          SH3673510/3673514/3673517/3673520
+
+                                     C+电压和负载检测
+参数             说明          最小值      典型值 最大值 单位                          测试条件
+                            300      500  700 uA            -40℃~85℃，配置RLD位=1
+IDSGD    DSGD管脚上拉电流
+                             40       60  80  uA            -40℃~85℃，配置RLD位=0
+                                                            -40℃~85℃，
+         负载检测压差@RLD=1
+                            0.9     1.8        2.6    V     VBAT到DSGD管脚的压降 ≥ VDIFF，且持续时
+         (VBAT到DSGD管脚压降)
+VDIFF                                                       间超过负载检测延时tLOAD，负载连接
+         负载检测压差@RLD=0                                       VBAT到DSGD管脚的压降 < VDIFF，且持续时
+                            0.8     1.5        2.2    V
+         (VBAT到DSGD管脚压降)                                    间超过负载检测延时tLOAD，负载未连接
+tLOAD    负载检测延时             55       60        65     ms    -40℃~85℃
+                                                            -40℃~85℃，开启C+电压检测后，CHGD管脚
+RCHGD1   CHGD管脚内部下拉电阻       0.6      1         1.4    MΩ
+                                                            通过该电阻持续下拉至VSS
+                                                            -40℃~85℃，在SLEEP或PowerDown模式下开
+RCHGD2   CHGD管脚内部下拉电阻       30       50        70     KΩ    启充电器唤醒检测后，CHGD管脚通过该电阻下
+                                                            拉至VSS
+                                                            -40℃~85℃，VBAT = 88V，HCHG/HDSG无输
+ICHGD2   CHGD管脚漏电流          0        -         50     nA    出，管脚对VBAT测试电流(此时CHGD未开启管
+                                                            脚对VSS下拉电阻)
+                                                            VBAT=88V，HCHG/HDSG无输出，管脚对
+IDSGD    DSGD管脚漏电流          0        -         50     nA    VSS测试电流(此时DSGD未开启对VBAT上拉电
+                                                            流)
+                                                            -40℃~85℃，系统处于SLEEP和PowerDown模
+VCHGD    充电器唤醒检测电压          0.9     1.5        2.1    V
+                                                            式时，开启内部下拉电阻
+tCHGD    充电器唤醒延时            35       60        85     ms    -40℃~85℃
+
+                                充放电状态检测
+参数             说明          最小值 典型值 最大值 单位                            测试条件
+                                                           VADC采集，可配置寄存器中CDV[2:0]，电流检
+ VCD1    充放电状态检测阈值1         192.5    -    1155       uV
+                                                           测精度参考VADC电流采集精度
+ VCD2    充放电状态检测阈值2          3       5     7         mV
+VCD2A    充放电状态检测阈值2精度        -2      -     2         mV    -40℃~85℃
+  tCD    充放电状态检测2延时          1       5     9         ms
+
+
+
+
+                                          50
+```
+
+## PDF 第 51 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.51](../../sources/SH36735XX%20CV1.0A.pdf#page=51)
+
+```text
+                                                             SH3673510/3673514/3673517/3673520
+                                            SPI通讯时序
+参数              说明                   最小值 典型值 最大值 单位                                              测试条件
+TLS1      CS建立时间                      100 -      -  ns
+TLS2      CS保持时间                      100 -      -  ns
+ TCL      SCK低电平时间                    500 -      -  ns
+TCH       SCK高电平时间                    500 -      -  ns
+TSET      数据建立时间                       50 -      -  ns
+THOL      数据保持时间                       50 -      -  ns
+          自CS低电平边沿到输出改
+TVAL1                                 10           -         100      ns
+          变的时间
+ TLZ      数据输出禁止时间                    10           -         100      ns
+          自时钟低电平边沿到输出有
+TVAL2                                  -           -         100      ns
+          效的时间
+tSPIDIS   SPI关闭延时                     10          30          50      ns         CS高电平且时间超过tSPIDIS，SPI模块关闭
+                                                                                 在CS拉低期间，SCK持续拉高且时间超过
+tSPIRST   SPI复位延时                     0.9          1         1.1          s
+                                                                                 tSPIRST，SPI模块复位到初始状态
+
+                              TLS1         TCL         TCH                                       TLS2
+          CS (to Slave)
+
+
+
+          SCK                                      THOL            …...                  TSET
+
+
+                                                 MSB                  Bit6...1             LSB
+          SDI (from Master)
+                              TVAL1 TVAL2                     TVAL2                                     TLZ
+
+
+          SDO (from Slave)                         MSB                        Bit6...1           LSB
+
+
+
+
+                                                             51
+```
+
+## PDF 第 52 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.52](../../sources/SH36735XX%20CV1.0A.pdf#page=52)
+
+```text
+                                                      SH3673510/3673514/3673517/3673520
+12. 封装信息
+TQFP48                                                                                               unit: inches/mm
+
+                                      HD
+
+                                      D
+
+                  48                            37
+
+
+
+           1                                          36
+
+
+
+
+                                                               HE
+                                                           E
+           12                                         25
+
+
+
+                  13        e               b   24
+
+
+
+
+                                                                        c
+                                                     A2
+
+                                                           A
+
+
+
+
+                                                                                     2
+                                                     A1
+
+
+
+
+                       See Detail F
+                                                                            L
+                                                                                L1
+                                                                                          DETAIL F
+
+
+
+                                      Dimensions in inches          Dimensions in mm
+                 Symbol
+                                         MIN          MAX            MIN          MAX
+                       A                  ---         0.047           ---           1.2
+                       A1               0.002         0.006          0.05          0.15
+                       A2               0.035         0.041           0.9          1.05
+                       D                0.270         0.281          6.85          7.15
+                       E                0.270         0.281          6.85          7.15
+                       HD               0.346         0.362           8.8           9.2
+                       HE               0.346         0.362           8.8           9.2
+                        b               0.005         0.011          0.15          0.27
+                        e                     0.020 TYP                   0.500 TYP
+                        c               0.004         0.008         0.090         0.200
+                        L               0.018         0.030          0.45          0.75
+                       L1               0.033         0.045          0.85          1.15
+                       2                 0°           10°            0°           10°
+                注意：
+                (1) 封装尺寸不包括模的毛边凸起或门毛刺
+                (2) 如无特殊规定，容差为±0.1毫米
+                (3) 共面性：0.1毫米
+                (4) 控制尺寸为毫米。对转换成的英寸不做要求
+
+
+
+
+                                                     52
+```
+
+## PDF 第 53 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.53](../../sources/SH36735XX%20CV1.0A.pdf#page=53)
+
+```text
+                              SH3673510/3673514/3673517/3673520
+13. 订购信息
+
+      产品编号            封装           包装            最小起订量
+  SH3673510U/048UR   TQFP48        Tray盘           2.5K
+  SH3673514U/048UR   TQFP48        Tray盘           2.5K
+  SH3673517U/048UR   TQFP48        Tray盘           2.5K
+  SH3673520U/048UR   TQFP48        Tray盘           2.5K
+
+
+
+
+                              53
+```
+
+## PDF 第 54 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.54](../../sources/SH36735XX%20CV1.0A.pdf#page=54)
+
+```text
+                                     SH3673510/3673514/3673517/3673520
+14. 规格更改记录
+
+    版本                              记录                             日期
+              1.对“Normal模式下奇偶均衡时序”中VADC Cycle的执行内容进行补充，在VADC
+             Cycle时序中补写电流和温度的检测
+              2.在断线检测章节新增“断线检测控制步骤示例”内容
+              3.在Powerdown模式章节新增注释：Powerdown模式下，SHIP引脚拉低即可进
+             SHIP模式。同时更新模式转换图
+              4.HDSG上拉时间最大值由360us改为400us。短路延时保护精度最大值由32us改为
+             64us。新增Charge Pump电容电气参数，新增VCP管脚阈值电平电气参数，修改
+    1.0A                                                         2025年10月
+             Charge Pump建立时间测试条件中的pump电容大小条件，由1uF修改为0.47uF，
+             Charge Pump建立时间典型值修改为100ms，最大值修改为125ms。修改SHIP进入
+             延时，最小值由0.8ms修改为10us，典型值由1ms修改为65us，最大值由1.2ms修改
+             为220us。
+              5.修改原理图，将最高节对GND的1uF/100V电容修改为0.1uF/100V，去掉HCHG、
+              HDSG、DSGD对GND的85V稳压管，将所有56K电阻阻值修改为51K，将R5 100R
+              电阻修改为10R，将VCPR输入端2个200R电阻修改为51R
+
+              1.在寄存器描述中新建所有寄存器描述的索引，方便查找
+              2.在模式转换图中，将IDLE和SLEEP进Powerdown的时间修改为4倍tPD
+              3.将版本修改为0.2C
+              4.在LTCLR位定义的说明中增加对LTCLR的3条注释说明
+              5.在SPI章节将SPI可写RAM寄存器地址从40H~5AH修改为40H~59H
+    0.2C                                                         2024年12月
+              6.在极限电气参数部分增加RESET引脚电气参数
+              7.在短路描述章节，增加短路保护后关充电MOS的描述。在7.12.1充电MOSFET控
+             制章节，在充电MOSFET开启条件中增加未触发短路保护条件
+              8.在系统配置寄存器SCONF4描述部分，去掉不同型号的串数配置中的“（默
+              认）”标识。
+
+              1.修改典型应用电路，去掉B-和B+间的TVS管，在HCHG对GND新增一个
+             SMBJ85A，将R15和R22的阻值由5.1K调整为510R
+    0.2B                                                         2024年05月
+              2.在电气特性参数中，新增-45℃~85℃下的Normal、IDLE、SLEEP功耗
+              3.在电气特性参数中，新增VADC转换周期参数
+
+             1.修改部分文字描述
+             2.修改典型应用电路
+    0.2A                                                         2024年05月
+             3.修改内部温度公式，将公式中的+33修改为+41
+             4.修改部分电气特性参数
+
+    0.1A     初始版本                                                2024年02月
+
+
+
+
+                                    54
+```
+
+## PDF 第 55 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.55](../../sources/SH36735XX%20CV1.0A.pdf#page=55)
+
+```text
+                              SH3673510/3673514/3673517/3673520
+                            重要声明
+  本手册为中颖电子股份有限公司及其关联公司(“公司”)的财产。本手册，包括本手册中描述的本公司的任何产品(“产品”)，均
+为本公司根据相关可适用法律或条约所拥有。本公司保留该等法律和条约下的所有权利，不授予其专利、版权、商标或其他知识
+产权下的任何许可。
+  本手册内的任何技术信息，包括功能介绍和原理图，不应理解为使用或执行任何知识产权的许可。本手册若引述相关第三方
+的名称和品牌(如有)等为其各自所有者的财产，仅供识别用途。
+  本公司不对本手册或任何产品作任何明示或暗示的保证，包括但不限于对适销性和适合特定用途的暗示保证。本公司不承
+担因超出规格书或我司产品标准的保证范围使用本手册所述任何产品而产生的任何责任。除适用协议中明确规定的定制产品外，
+产品仅为普通商业、工业、个人和/或家庭应用而设计、开发和制造。禁止用于军事、国防、核能、医疗以及可能导致人身伤害、
+死亡，或是环境破坏等领域。用户应采取任何和所有行动，确保按照适用的法律法规使用和销售产品。
+  半导体产品自身存在一定的失效概率。为防止因故障或误工作而产生的人身损害、火灾事故或其他社会性损害，请注意冗余
+设计、消防设计以及其他安全防护设计。特别说明：参考应用电路不保证能够适用于特定应用的量产。
+  若用户违反上述声明，本公司不承担全部或部分责任，用户应在此免除本公司及其供应商和/或分销商因产品的所有非预期
+用途有关的任何索赔、损害或其他责任；与此同时，用户应赔偿并确保本公司及其供应商和/或分销商免受因产品的任何非预期
+用途的使用而产生的与之相关的所有索赔、成本、损害赔偿和其他责任，包括人身伤害或死亡的索赔。
+  本手册中的信息仅与产品有关。本公司保留随时对本手册及所述的产品和服务进行更改、修改或改进的权利，恕不另行通
+知。订购前建议用户咨询销售代表。
+  本公司对本手册拥有最终解释权。
+
+
+
+
+                             55
+```
+
+## PDF 第 56 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.56](../../sources/SH36735XX%20CV1.0A.pdf#page=56)
+
+```text
+                                                                                              SH3673510/3673514/3673517/3673520
+目录
+1. 特性 ....................................................................................................................................................................................... 1
+2. 概述 ....................................................................................................................................................................................... 1
+3. 系统框图 ................................................................................................................................................................................ 2
+4. 管脚定义 ................................................................................................................................................................................ 3
+5. 典型应用电路 ......................................................................................................................................................................... 6
+  5.1 SH3673517-16串高侧NMOS同口应用 .............................................................................................................................. 6
+  5.2 SH3673520-20串低侧NMOS同口应用 .............................................................................................................................. 6
+6. 串数配置 ................................................................................................................................................................................ 8
+7. 功能描述 ................................................................................................................................................................................ 9
+  7.1 工作模式 .......................................................................................................................................................................... 9
+    7.1.1 Normal模式 ................................................................................................................................................................ 9
+    7.1.2 IDLE模式 .................................................................................................................................................................... 9
+    7.1.3 SLEEP模式 .............................................................................................................................................................. 10
+    7.1.4 Powerdown模式 ....................................................................................................................................................... 10
+    7.1.5 SHIP模式 ................................................................................................................................................................. 11
+  7.2 系统WarmUp ................................................................................................................................................................. 11
+  7.3 LDO LVR ........................................................................................................................................................................ 11
+    7.3.1 LDO1(VCC)LVR ....................................................................................................................................................... 11
+    7.3.2 LDO2(LDO_O)LVR .................................................................................................................................................. 11
+  7.4 电压保护 ........................................................................................................................................................................ 12
+    7.4.1 过充电保护 .............................................................................................................................................................. 12
+    7.4.2 过放电保护 .............................................................................................................................................................. 12
+  7.5 电流保护 ........................................................................................................................................................................ 13
+    7.5.1 放电过流1保护 ......................................................................................................................................................... 13
+    7.5.2 放电过流2保护 ......................................................................................................................................................... 13
+    7.5.3 短路保护 .................................................................................................................................................................. 13
+    7.5.4 充电过流保护 ........................................................................................................................................................... 13
+  7.6 温度保护 ........................................................................................................................................................................ 14
+    7.6.1 充电低温保护 ........................................................................................................................................................... 14
+    7.6.2 充电高温保护 ........................................................................................................................................................... 14
+    7.6.3 放电低温保护 ........................................................................................................................................................... 14
+    7.6.4 放电高温保护 ........................................................................................................................................................... 15
+    7.6.5 内部高温保护 ........................................................................................................................................................... 15
+  7.7 断线检测 ........................................................................................................................................................................ 16
+  7.8 均衡功能 ........................................................................................................................................................................ 16
+  7.9 看门狗功能 ..................................................................................................................................................................... 17
+  7.10 MOSFET强制开启控制 ................................................................................................................................................. 17
+  7.11 预放电功能 ................................................................................................................................................................... 17
+  7.12 充放电MOSFET控制方式 ............................................................................................................................................. 17
+    7.12.1 充电MOSFET控制 ................................................................................................................................................. 17
+    7.12.2 放电MOSFET控制 ................................................................................................................................................. 18
+    7.12.3 预放电MOSFET控制 ............................................................................................................................................. 18
+  7.13 VADC............................................................................................................................................................................ 19
+    7.13.1 特性 ....................................................................................................................................................................... 19
+    7.13.2 工作模式 ................................................................................................................................................................ 19
+    7.13.3 采集时序 ................................................................................................................................................................ 20
+  7.14 CADC ........................................................................................................................................................................... 21
+    7.14.1 特性 ....................................................................................................................................................................... 21
+    7.14.2 工作模式 ................................................................................................................................................................ 21
+8. 管脚控制及状态检测 ............................................................................................................................................................ 22
+  8.1 ALARM管脚 .................................................................................................................................................................... 22
+  8.2 RESET管脚 .................................................................................................................................................................... 22
+  8.3 CHG/DSG/HCHG/HDSG管脚 ......................................................................................................................................... 22
+  8.4 充放电状态检测 .............................................................................................................................................................. 22
+  8.5 负载状态检测 ................................................................................................................................................................. 23
+  8.6 负载唤醒检测 ................................................................................................................................................................. 23
+                                                                                             56
+```
+
+## PDF 第 57 页
+
+来源 [SH36735XX CV1.0A.pdf PDF p.57](../../sources/SH36735XX%20CV1.0A.pdf#page=57)
+
+```text
+                                                                                            SH3673510/3673514/3673517/3673520
+   8.7 C+电压检测..................................................................................................................................................................... 23
+   8.8 充电器唤醒检测 .............................................................................................................................................................. 24
+   8.9 电芯总压检测 ................................................................................................................................................................. 24
+   8.10 外部温度检测 ............................................................................................................................................................... 24
+   8.11 电荷泵 .......................................................................................................................................................................... 24
+9. SPI通讯接口 ......................................................................................................................................................................... 25
+   9.1 特性................................................................................................................................................................................ 25
+   9.2 信号描述 ........................................................................................................................................................................ 25
+   9.3 工作模式 ........................................................................................................................................................................ 25
+   9.4 传送形式 ........................................................................................................................................................................ 26
+   9.5 通信协议 ........................................................................................................................................................................ 26
+     9.5.1 寄存器写时序 ........................................................................................................................................................... 26
+     9.5.2 寄存器读时序 ........................................................................................................................................................... 26
+     9.5.3 软件复位时序 ........................................................................................................................................................... 26
+     9.5.4 CRC8校验 ................................................................................................................................................................ 26
+     9.5.5 SPI使能检测 ............................................................................................................................................................. 27
+     9.5.6 SPI复位检测 ............................................................................................................................................................. 27
+10. 寄存器................................................................................................................................................................................ 28
+   10.1 寄存器列表 ................................................................................................................................................................... 28
+   10.2 寄存器描述 ................................................................................................................................................................... 31
+11. 电气特性 ............................................................................................................................................................................ 45
+   11.1 极限电气参数 ............................................................................................................................................................... 45
+   11.2 电气特性(无特殊说明，以下所有电气特性，均为TA = 25℃) ........................................................................................ 46
+12. 封装信息 ............................................................................................................................................................................ 52
+13. 订购信息 ............................................................................................................................................................................ 53
+14. 规格更改记录 ..................................................................................................................................................................... 54
+
+
+
+
+                                                                                           57
+```

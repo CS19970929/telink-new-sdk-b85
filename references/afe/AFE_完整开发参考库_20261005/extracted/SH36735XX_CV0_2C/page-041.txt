@@ -1,0 +1,58 @@
+            Preliminary                      SH3673510/3673514/3673517/3673520
+10.2.24 状态寄存器BSTATUS1
+      0x5B            第7位     第6位     第5位      第4位       第3位     第2位     第1位     第0位
+    BSTATUS1           -    E2P_ERR HDSG_FET HCHG_FET     -    PDSG_FET DSG_FET CHG_FET
+      读/写              读       读       读        读         读       读        读       读
+      复位值              0       0       0        0         0       0        0       0
+
+    位编号         位符号                                      说明
+     7           -          Reserved
+                            EEPROM数据异常状态位
+     6         E2P_ERR        0：EEPROM数据未见异常
+                              1：EEPROM数据发生异常
+                            高侧放电MOSFET状态位
+     5         HDSG_FET       0：关闭
+                              1：开启
+                            高侧充电MOSFET状态位
+     4         HCHG_FET       0：关闭
+                              1：开启
+     3            -           Reserved
+                            预放电MOSFET状态位
+     2         PDSG_FET       0：关闭
+                              1：开启
+                            低侧放电MOSFET状态位
+     1         DSG_FET        0：关闭
+                              1：开启
+                            低侧充电MOSFET状态位
+     0         CHG_FET        0：关闭
+                              1：开启
+
+10.2.25 状态寄存器BSTATUS2
+      0x5C         第7位       第6位     第5位          第4位    第3位     第2位     第1位       第0位
+    BSTATUS2      CHGING    DSGING   SLEEP        IDLE   BAL      -     LOADON   LOADOFF
+      读/写           读         读        读           读      读       读       读         读
+      复位值           0         0        0            0     0       0        0        0
+
+    位编号         位符号                                      说明
+                            充电状态位
+     7          CHGING         0：非充电状态
+                               1：充电状态
+                            放电状态位
+     6          DSGING         0：非放电状态
+                               1：放电状态
+                            SLEEP模式状态位
+     5          SLEEP          0：非SLEEP模式
+                               1：SLEEP模式
+                            IDLE模式状态位
+     4           IDLE          0：非IDLE模式
+                               1：IDLE模式
+                            均衡状态标志位
+     3           BAL           0：没有CELL正在均衡
+                               1：有至少一节CELL正在均衡
+     2            -            Reserved
+                            负载连接状态位
+     1         LOADON          0：负载状态无效
+                               1：负载连接状态
+     0         LOADOFF      负载未连接状态位
+
+                                             41

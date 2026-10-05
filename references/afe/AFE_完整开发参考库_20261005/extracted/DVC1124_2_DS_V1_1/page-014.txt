@@ -1,0 +1,61 @@
+DVC1124-2 数据手册                                                                     4 串至 24 串电池组监控芯片
+
+电池电压量程和分辨率                                                      V1P8 电压量程和分辨率
+
+    电池电压量程为-0.3V 至+5.0V，寄存器 CVS                                     V1P8 电压量程为 0V 至 1.98V，数据格式为
+置 0 时数据格式为 16 位无符号整数，LSB 为                                      16 位无符号整数，LSB 为 100μV。
+100μV，负读数被舍弃为 0V。                                               GP 模拟电压量程和分辨率
+    寄存器 CVS 置 1 时数据格式为 16 位有符号                                     DVC1124 在 GP(n)被配置为模拟电压输入
+整数，LSB 为 200μV，负读数保留。                                           时，最多可以测量 6 路外部模拟电压。
+C24、PACK 和 LOAD 电压量程和分辨率                                           GP 模拟电压量程为 0V 至 1.98V，数据格式
+    C24、PACK 和 LOAD 电压量程为 0V 至                                  为 16 位无符号整数，LSB 为 100μV。
+120V，数据格式为 16 位无符号整数，LSB 为
+12.8mV。
+
+                                                                                                                                    tVD1
+           tVM1*        tVM2*           tVM3                    tVM4                  tVM5                  tVM6
+                        MEASURE        MEASURE             MEASURE                 MEASURE                 MEASURE
+  VADC    CALIBRATE
+                       C24 TO VSS     PACK TO VSS         LOAD TO VSS              DT TO VSS              V1P8 TO VSS
+
+
+                        tVD2              tVD3                         tVD4                   tVD5                      tVD6
+            tVM7               tVM8              tVM9                      tVM10                  tVM11                     tVM12
+           MEASURE        MEASURE            MEASURE                     MEASURE                MEASURE                   MEASURE
+          GP1 TO VSS     GP2 TO VSS         GP3 TO VSS                  GP4 TO VSS             GP5 TO VSS                GP6 TO VSS
+
+
+
+
+           tVM13*       tVM14*          tVM15*                 tVM16*                 tVM17                 tVM18
+          MEASURE      MEASURE         MEASURE                MEASURE                MEASURE               MEASURE
+          C1 TO C0     C2 TO C1        C3 TO C2               C4 TO C3               C5 TO C4              C6 TO C5
+
+
+
+
+           tVM19        tVM20           tVM21                  tVM22                  tVM23                 tVM24
+          MEASURE      MEASURE         MEASURE                MEASURE               MEASURE                MEASURE
+          C7 TO C6     C8 TO C7        C9 TO C8               C10 TO C9            C11 TO C10             C12 TO C11
+
+
+
+
+           tVM25        tVM26           tVM27                  tVM28                  tVM29                 tVM30
+           MEASURE      MEASURE        MEASURE                 MEASURE              MEASURE                MEASURE
+          C13 TO C12   C14 TO C13     C15 TO C14              C16 TO C15           C17 TO C16             C18 TO C17
+
+
+
+
+           tVM31        tVM32           tVM33                  tVM34                  tVM35                 tVM36
+           MEASURE      MEASURE        MEASURE                 MEASURE              MEASURE                MEASURE
+          C19 TO C18   C20 TO C19     C21 TO C20              C22 TO C21           C23 TO C22             C24 TO C23
+
+                                           图 5 VADC 测量时序
+
+
+
+
+14 / 29                                                 1.1                                       南京集澈电子科技有限公司
+                                                                                                  宜矽源半导体南京有限公司

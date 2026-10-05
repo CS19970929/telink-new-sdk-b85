@@ -1,0 +1,54 @@
+4 串至 24 串电池组监控芯片                                                               DVC1124-2 参考手册
+VC13[15:0]·········C13 电压值，默认无符号二进制，LSB=100μV
+
+VC14 寄存器
+   0x37       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC14[15]   VC14[14]   VC14[13]     VC14[12]   VC14[11]   VC14[10]    VC14[9]   VC14[8]
+   MODE         R          R          R            R          R          R          R         R
+
+   0x38       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC14[7]    VC14[6]    VC14[5]      VC14[4]    VC14[3]    VC14[2]     VC14[1]   VC14[0]
+   MODE         R          R          R            R          R          R          R         R
+VC14[15:0]·········C14 电压值，默认无符号二进制，LSB=100μV
+
+VC15 寄存器
+   0x39       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC15[15]   VC15[14]   VC15[13]     VC15[12]   VC15[11]   VC15[10]    VC15[9]   VC15[8]
+   MODE         R          R          R            R          R          R          R         R
+
+   0x3A       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC15[7]    VC15[6]    VC15[5]      VC15[4]    VC15[3]    VC15[2]     VC15[1]   VC15[0]
+   MODE         R          R          R            R          R          R          R         R
+VC15[15:0]·········C15 电压值，默认无符号二进制，LSB=100μV
+
+VC16 寄存器
+   0x3B       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC16[15]   VC16[14]   VC16[13]     VC16[12]   VC16[11]   VC16[10]    VC16[9]   VC16[8]
+   MODE         R          R          R            R          R          R          R         R
+
+   0x3C       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC16[7]    VC16[6]    VC16[5]      VC16[4]    VC16[3]    VC16[2]     VC16[1]   VC16[0]
+   MODE         R          R          R            R          R          R          R         R
+VC16[15:0]·········C16 电压值，默认无符号二进制，LSB=100μV
+
+VC17 寄存器
+   0x3D       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC17[15]   VC17[14]   VC17[13]     VC17[12]   VC17[11]   VC17[10]    VC17[9]   VC17[8]
+   MODE         R          R          R            R          R          R          R         R
+   0x3E       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC17[7]    VC17[6]    VC17[5]      VC17[4]    VC17[3]    VC17[2]     VC17[1]   VC17[0]
+   MODE         R          R          R            R          R          R          R         R
+VC17[15:0]·········C17 电压值，默认无符号二进制，LSB=100μV
+
+VC18 寄存器
+   0x3F       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC18[15]   VC18[14]   VC18[13]     VC18[12]   VC18[11]   VC18[10]    VC18[9]   VC18[8]
+   MODE         R          R          R            R          R          R          R         R
+
+   0x40       BIT 7      BIT 6      BIT 5        BIT 4      BIT 3      BIT 2       BIT 1     BIT 0
+   NAME      VC18[7]    VC18[6]    VC18[5]      VC18[4]    VC18[3]    VC18[2]     VC18[1]   VC18[0]
+   MODE         R          R          R            R          R          R          R         R
+
+
+南京集澈电子科技有限公司                                     1.2                                        13 / 33
+宜矽源半导体南京有限公司

@@ -1,0 +1,72 @@
+{
+  "schema": "bms-resources/v1",
+  "git": {
+    "commit": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+    "branch": "codex-bms-monorepo",
+    "dirty": false
+  },
+  "elf_sha256": "f51cd8df8715376a1e3cab8477a58d57b0e1ff179a5698c037da2c8de301dd21",
+  "product": "d013",
+  "configuration": {
+    "product": "d013",
+    "build_mode": "production",
+    "production": true,
+    "d008_profile": null,
+    "core_optimization": "-Os"
+  },
+  "image_generated": false,
+  "bin_sha256": null,
+  "map_sha256": "48ce16bbdfad13b92903a0fa7fa548684738f0241cedaf2797c09b500a0f878e",
+  "flash_bytes": 113892,
+  "flash_limit_bytes": 126976,
+  "flash_free_bytes": 13084,
+  "ram_span_bytes": 24180,
+  "ram_total_bytes": 32768,
+  "main_stack_gap_bytes": 8588,
+  "main_stack_reserve_bytes": 3072,
+  "ram_growth_headroom_bytes": 5516,
+  "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+  "sections": {
+    "vectors": {
+      "address": 0,
+      "bytes": 480
+    },
+    "ram_code": {
+      "address": 480,
+      "bytes": 10504
+    },
+    "retention_data": {
+      "address": 8661736,
+      "bytes": 3836
+    },
+    "text": {
+      "address": 14848,
+      "bytes": 95828
+    },
+    "cstartup_ram_funcs": {
+      "address": 110688,
+      "bytes": 336
+    },
+    "rodata": {
+      "address": 111024,
+      "bytes": 2716
+    },
+    "data": {
+      "address": 8667904,
+      "bytes": 108
+    },
+    "bss": {
+      "address": 8668016,
+      "bytes": 6148
+    },
+    "data_no_init": {
+      "address": 8674164,
+      "bytes": 768
+    },
+    "sdk_version": {
+      "address": 8674932,
+      "bytes": 36
+    }
+  },
+  "warnings": []
+}

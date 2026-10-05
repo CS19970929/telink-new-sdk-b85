@@ -1,0 +1,2798 @@
+{
+  "contract": "docs/OTA_PARAMETERS.md:编号相同保留、不同仅恢复对应默认组；同记录数据+编号；启动失败阻断、重启重试；期望没有读取现有测试断言",
+  "scope": "D014 22 original product-source TUs + virtual SPI/Flash/GPIO/time fixture, development macro; 6 config groups; State/Event revision changes not injected; erase analog behavior not simulated",
+  "groups": [
+    "SW",
+    "AFE",
+    "BUSINESS",
+    "SOC",
+    "CALIBRATION",
+    "IDENTITY"
+  ],
+  "selection_cases": [
+    {
+      "mask": 0,
+      "reset_groups": [],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 1,
+      "reset_groups": [
+        0
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 2,
+      "reset_groups": [
+        1
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 3,
+      "reset_groups": [
+        0,
+        1
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 4,
+      "reset_groups": [
+        2
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 5,
+      "reset_groups": [
+        0,
+        2
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 6,
+      "reset_groups": [
+        1,
+        2
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 7,
+      "reset_groups": [
+        0,
+        1,
+        2
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 8,
+      "reset_groups": [
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 9,
+      "reset_groups": [
+        0,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 10,
+      "reset_groups": [
+        1,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 11,
+      "reset_groups": [
+        0,
+        1,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 12,
+      "reset_groups": [
+        2,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 13,
+      "reset_groups": [
+        0,
+        2,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 14,
+      "reset_groups": [
+        1,
+        2,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 15,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 16,
+      "reset_groups": [
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 17,
+      "reset_groups": [
+        0,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 18,
+      "reset_groups": [
+        1,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 19,
+      "reset_groups": [
+        0,
+        1,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 20,
+      "reset_groups": [
+        2,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 21,
+      "reset_groups": [
+        0,
+        2,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 22,
+      "reset_groups": [
+        1,
+        2,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 23,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 24,
+      "reset_groups": [
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 25,
+      "reset_groups": [
+        0,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 26,
+      "reset_groups": [
+        1,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 27,
+      "reset_groups": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 28,
+      "reset_groups": [
+        2,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 29,
+      "reset_groups": [
+        0,
+        2,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 30,
+      "reset_groups": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 31,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 32,
+      "reset_groups": [
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 33,
+      "reset_groups": [
+        0,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 34,
+      "reset_groups": [
+        1,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 35,
+      "reset_groups": [
+        0,
+        1,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 36,
+      "reset_groups": [
+        2,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 37,
+      "reset_groups": [
+        0,
+        2,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 38,
+      "reset_groups": [
+        1,
+        2,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 39,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 40,
+      "reset_groups": [
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 41,
+      "reset_groups": [
+        0,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 42,
+      "reset_groups": [
+        1,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 43,
+      "reset_groups": [
+        0,
+        1,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 44,
+      "reset_groups": [
+        2,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 45,
+      "reset_groups": [
+        0,
+        2,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 46,
+      "reset_groups": [
+        1,
+        2,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 47,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        3,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 48,
+      "reset_groups": [
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 49,
+      "reset_groups": [
+        0,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 50,
+      "reset_groups": [
+        1,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 51,
+      "reset_groups": [
+        0,
+        1,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 52,
+      "reset_groups": [
+        2,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 53,
+      "reset_groups": [
+        0,
+        2,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 54,
+      "reset_groups": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 55,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 56,
+      "reset_groups": [
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 57,
+      "reset_groups": [
+        0,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 58,
+      "reset_groups": [
+        1,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 59,
+      "reset_groups": [
+        0,
+        1,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 60,
+      "reset_groups": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 61,
+      "reset_groups": [
+        0,
+        2,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 62,
+      "reset_groups": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    },
+    {
+      "mask": 63,
+      "reset_groups": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "result": "PASS",
+      "repeat_boot_no_write": "PASS"
+    }
+  ],
+  "program_cut_cases": [
+    {
+      "cut_program_bytes": 0,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 1,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 2,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 3,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 4,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 5,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 6,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 7,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 8,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 9,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 10,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 11,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 12,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 13,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 14,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 15,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 16,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 17,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 18,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 19,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 20,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 21,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 22,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 23,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 24,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 25,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 26,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 27,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 28,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 29,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 30,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 31,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 32,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 33,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 34,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 35,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 36,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 37,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 38,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 39,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 40,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 41,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 42,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 43,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 44,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 45,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 46,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 47,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 48,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 49,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 50,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 51,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 52,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 53,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 54,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 55,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 56,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 57,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 58,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 59,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 60,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 61,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 62,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 63,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 64,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 65,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 66,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 67,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 68,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 69,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 70,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 71,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 72,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 73,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 74,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 75,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 76,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 77,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 78,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 79,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 80,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 81,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 82,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 83,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 84,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 85,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 86,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 87,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 88,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 89,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 90,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 91,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 92,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 93,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 94,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 95,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 96,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 97,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 98,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 99,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 100,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 101,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 102,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 103,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 104,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 105,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 106,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 107,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 108,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 109,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 110,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 111,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 112,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 113,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 114,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 115,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 116,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 117,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 118,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 119,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 120,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 121,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 122,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 123,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 124,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 125,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 126,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 127,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 128,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 129,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 130,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 131,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 132,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 133,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 134,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 135,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 136,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 137,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 138,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 139,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 140,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 141,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 142,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 143,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 144,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 145,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 146,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 147,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 148,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 149,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 150,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 151,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 152,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 153,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 154,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 155,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 156,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 157,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 158,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 159,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 160,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 161,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 162,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 163,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 164,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 165,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 166,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 167,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 168,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 169,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 170,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 171,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 172,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 173,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 174,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 175,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 176,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 177,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 178,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 179,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 180,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 181,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 182,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 183,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 184,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 185,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 186,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 187,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 188,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 189,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 190,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 191,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 192,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 193,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 194,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 195,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 196,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 197,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 198,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 199,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 200,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 201,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 202,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 203,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 204,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 205,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 206,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 207,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 208,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 209,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 210,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 211,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 212,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 213,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 214,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 215,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 216,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 217,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 218,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 219,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 220,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 221,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 222,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 223,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 224,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 225,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 226,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 227,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 228,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 229,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 230,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 231,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 232,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 233,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 234,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 235,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 236,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 237,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 238,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 239,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 240,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 241,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 242,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 243,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 244,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 245,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 246,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 247,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 248,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 249,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 250,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 251,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 252,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 253,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 254,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 255,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 256,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 257,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 258,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 259,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 260,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 261,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 262,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 263,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 264,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 265,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 266,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 267,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 268,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 269,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 270,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 271,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 272,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 273,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 274,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 275,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 276,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 277,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 278,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 279,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 280,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 281,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 282,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 283,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 284,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 285,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 286,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 287,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 288,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 289,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 290,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 291,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 292,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 293,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 294,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 295,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 296,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 297,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 298,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 299,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 300,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 301,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 302,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 303,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 304,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 305,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 306,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 307,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 308,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 309,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 310,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 311,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 312,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 313,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 314,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 315,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 316,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 317,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 318,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 319,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 320,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 321,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 322,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 323,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 324,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 325,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 326,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 327,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 328,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 329,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 330,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 331,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 332,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 333,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 334,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 335,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 336,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 337,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 338,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 339,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 340,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 341,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 342,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 343,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 344,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 345,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 346,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 347,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 348,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 349,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 350,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 351,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 352,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 353,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 354,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 355,
+      "authorized_before_reboot": false,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    },
+    {
+      "cut_program_bytes": 356,
+      "authorized_before_reboot": true,
+      "committed_old_or_new": "PASS",
+      "reboot_retries": "PASS"
+    }
+  ],
+  "note": "Default payload obtained through public compiled-default APIs only to identify current defaults; this does not certify default values against AFE datasheet. Journal serialization used for addressing fields, independent zlib CRC used to read commits."
+}

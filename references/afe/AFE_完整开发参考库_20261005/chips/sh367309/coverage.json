@@ -1,0 +1,4212 @@
+{
+  "schema_version": "1.0",
+  "device": "SH367309",
+  "revision": "V1.1",
+  "source_file": "SH367309.pdf",
+  "total_pdf_pages": 89,
+  "page_coverage_count": 89,
+  "source_section_count": 88,
+  "scope_statement": "所有正文主题已综合，全部89页可检索；不是对所有示意图每根网线/每颗BOM件的复刻。原理图请依原PDF逐网核对。未确定事实显式列为未知。",
+  "source_sections": [
+    {
+      "source_section": "1",
+      "title": "特点",
+      "source_start_page": 1,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        },
+        {
+          "file": "reference.md",
+          "section": "0.1 必须先记住的差异"
+        }
+      ],
+      "source_end_page": 1,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "2",
+      "title": "概述",
+      "source_start_page": 1,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        },
+        {
+          "file": "reference.md",
+          "section": "0.1 必须先记住的差异"
+        }
+      ],
+      "source_end_page": 1,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "3",
+      "title": "方框图",
+      "source_start_page": 2,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "source_end_page": 2,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "4",
+      "title": "管脚配置图",
+      "source_start_page": 3,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        }
+      ],
+      "source_end_page": 3,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "5",
+      "title": "管脚描述",
+      "source_start_page": 4,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        }
+      ],
+      "source_end_page": 4,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6",
+      "title": "典型应用电路",
+      "source_start_page": 5,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 9,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6.1",
+      "title": "保护模式16串同口应用",
+      "source_start_page": 5,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 5,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6.2",
+      "title": "保护模式16串半分口应用（支持平衡）",
+      "source_start_page": 6,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 6,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6.3",
+      "title": "保护模式16串全分口应用",
+      "source_start_page": 7,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 7,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6.4",
+      "title": "保护模式10串全分口应用",
+      "source_start_page": 8,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 8,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "6.5",
+      "title": "采集模式16串半分口应用",
+      "source_start_page": 9,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "source_end_page": 9,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7",
+      "title": "工作模式",
+      "source_start_page": 10,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.1",
+      "title": "概述",
+      "source_start_page": 10,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        }
+      ],
+      "source_end_page": 10,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.2",
+      "title": "保护模式",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.2.1",
+      "title": "正常工作状态",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.2.2",
+      "title": "Powerdown状态",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.3",
+      "title": "采集模式",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.3.1",
+      "title": "正常状态",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.3.2",
+      "title": "IDLE状态",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.3.3",
+      "title": "SLEEP状态",
+      "source_start_page": 11,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "source_end_page": 11,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.4",
+      "title": "仓运模式",
+      "source_start_page": 12,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.5",
+      "title": "烧写模式",
+      "source_start_page": 12,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.6",
+      "title": "WarmUp",
+      "source_start_page": 12,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.6.1",
+      "title": "硬件复位",
+      "source_start_page": 12,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "7.6.2",
+      "title": "软件复位",
+      "source_start_page": 12,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 12,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8",
+      "title": "保护功能",
+      "source_start_page": 13,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 31,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.1",
+      "title": "概述",
+      "source_start_page": 13,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 13,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.2",
+      "title": "过充电保护",
+      "source_start_page": 13,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 14,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.3",
+      "title": "过放电保护",
+      "source_start_page": 15,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 16,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.4",
+      "title": "电流保护",
+      "source_start_page": 17,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 23,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.4.1",
+      "title": "放电过流1保护",
+      "source_start_page": 17,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 17,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.4.2",
+      "title": "短路保护",
+      "source_start_page": 17,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 17,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.4.3",
+      "title": "充电过流保护",
+      "source_start_page": 17,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 22,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.4.4",
+      "title": "电流保护特殊设置",
+      "source_start_page": 23,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        }
+      ],
+      "source_end_page": 23,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5",
+      "title": "温度保护",
+      "source_start_page": 24,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 27,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5.1",
+      "title": "充电高温保护",
+      "source_start_page": 24,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 24,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5.2",
+      "title": "充电低温保护",
+      "source_start_page": 24,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 24,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5.3",
+      "title": "放电高温保护",
+      "source_start_page": 24,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 24,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5.4",
+      "title": "放电低温保护",
+      "source_start_page": 25,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 27,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.5.5",
+      "title": "温度保护阈值计算公式",
+      "source_start_page": 28,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        }
+      ],
+      "source_end_page": 28,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.6",
+      "title": "二次过充电保护",
+      "source_start_page": 28,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        }
+      ],
+      "source_end_page": 29,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.7",
+      "title": "断线保护功能",
+      "source_start_page": 30,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        }
+      ],
+      "source_end_page": 30,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.8",
+      "title": "禁止低压电芯充电功能",
+      "source_start_page": 30,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        }
+      ],
+      "source_end_page": 30,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "8.9",
+      "title": "平衡功能",
+      "source_start_page": 31,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        }
+      ],
+      "source_end_page": 31,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "9",
+      "title": "AFE功能",
+      "source_start_page": 32,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        }
+      ],
+      "source_end_page": 34,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "9.1",
+      "title": "平衡控制功能",
+      "source_start_page": 32,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        }
+      ],
+      "source_end_page": 32,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "9.2",
+      "title": "充放电状态",
+      "source_start_page": 33,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 33,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "9.3",
+      "title": "看门狗寄存器（WDT）",
+      "source_start_page": 34,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        }
+      ],
+      "source_end_page": 34,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "10",
+      "title": "MOSFET驱动",
+      "source_start_page": 35,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        },
+        {
+          "file": "reference.md",
+          "section": "2.3 LDO与MOS驱动电气"
+        }
+      ],
+      "source_end_page": 37,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "10.1",
+      "title": "预充电MOSFET",
+      "source_start_page": 36,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.2 预充序列"
+        }
+      ],
+      "source_end_page": 36,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "10.2",
+      "title": "强制开启充电MOSFET功能",
+      "source_start_page": 37,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.3 ENMOS强制恢复充电MOS"
+        }
+      ],
+      "source_end_page": 37,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11",
+      "title": "管脚功能",
+      "source_start_page": 38,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        }
+      ],
+      "source_end_page": 39,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11.1",
+      "title": "CTL管脚",
+      "source_start_page": 38,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        }
+      ],
+      "source_end_page": 38,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11.2",
+      "title": "LDO_EN管脚",
+      "source_start_page": 38,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        }
+      ],
+      "source_end_page": 38,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11.3",
+      "title": "MODE管脚",
+      "source_start_page": 38,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        }
+      ],
+      "source_end_page": 38,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11.4",
+      "title": "ALARM管脚",
+      "source_start_page": 39,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        }
+      ],
+      "source_end_page": 39,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "11.5",
+      "title": "STA检测",
+      "source_start_page": 39,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        }
+      ],
+      "source_end_page": 39,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12",
+      "title": "功能模块",
+      "source_start_page": 40,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        }
+      ],
+      "source_end_page": 51,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.1",
+      "title": "电压/温度/电流采集用VADC",
+      "source_start_page": 40,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        }
+      ],
+      "source_end_page": 46,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.1.1",
+      "title": "特性",
+      "source_start_page": 40,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        }
+      ],
+      "source_end_page": 40,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.1.2",
+      "title": "采集范围及结果存放",
+      "source_start_page": 40,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        }
+      ],
+      "source_end_page": 45,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.1.3",
+      "title": "电压/温度/电流计算公式",
+      "source_start_page": 46,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 46,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.1.4",
+      "title": "VADC采集时序",
+      "source_start_page": 46,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 46,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.2",
+      "title": "电流采集专用CADC",
+      "source_start_page": 47,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 48,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.2.1",
+      "title": "特性",
+      "source_start_page": 47,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 47,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.2.2",
+      "title": "采集范围及结果存放",
+      "source_start_page": 47,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 47,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.2.3",
+      "title": "电流计算公式",
+      "source_start_page": 47,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 47,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.2.4",
+      "title": "CADC工作模式设置",
+      "source_start_page": 47,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        }
+      ],
+      "source_end_page": 48,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3",
+      "title": "TWI串行通讯接口",
+      "source_start_page": 49,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 51,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3.1",
+      "title": "特性",
+      "source_start_page": 49,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 49,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3.2",
+      "title": "工作方式",
+      "source_start_page": 49,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 49,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3.3",
+      "title": "数据传输格式",
+      "source_start_page": 49,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 49,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3.4",
+      "title": "传输模式",
+      "source_start_page": 50,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 50,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "12.3.5",
+      "title": "通信协议",
+      "source_start_page": 50,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "source_end_page": 51,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13",
+      "title": "EEPROM及RAM寄存器设置",
+      "source_start_page": 52,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        }
+      ],
+      "source_end_page": 74,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.1",
+      "title": "EEPROM及RAM概述",
+      "source_start_page": 52,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        }
+      ],
+      "source_end_page": 52,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.2",
+      "title": "EEPROM寄存器列表及详述",
+      "source_start_page": 53,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        }
+      ],
+      "source_end_page": 65,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.3",
+      "title": "EEROM & RAM寄存器列表及详述",
+      "source_start_page": 66,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        }
+      ],
+      "source_end_page": 68,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.4",
+      "title": "RAM特殊寄存器",
+      "source_start_page": 69,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        }
+      ],
+      "source_end_page": 73,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.5",
+      "title": "EEPROM映射寄存器",
+      "source_start_page": 74,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        }
+      ],
+      "source_end_page": 74,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "13.6",
+      "title": "其他寄存器",
+      "source_start_page": 74,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        }
+      ],
+      "source_end_page": 74,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "14",
+      "title": "极限电气参数",
+      "source_start_page": 75,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.4 绝对极限（非正常工作承诺）"
+        }
+      ],
+      "source_end_page": 75,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "15",
+      "title": "电气特性",
+      "source_start_page": 76,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        }
+      ],
+      "source_end_page": 83,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "15.1",
+      "title": "常温电气特性（以下所有电气特性，均为TA = 25℃）",
+      "source_start_page": 76,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        }
+      ],
+      "source_end_page": 81,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "15.2",
+      "title": "全温度电气特性（以下所有电气特性，均为TA = -40℃~85℃）",
+      "source_start_page": 82,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        }
+      ],
+      "source_end_page": 83,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "16",
+      "title": "封装信息",
+      "source_start_page": 84,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.3 封装完整尺寸"
+        }
+      ],
+      "source_end_page": 84,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "17",
+      "title": "订购信息",
+      "source_start_page": 85,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "source_end_page": 85,
+      "source_file": "SH367309.pdf"
+    },
+    {
+      "source_section": "18",
+      "title": "规格更改记录",
+      "source_start_page": 86,
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "source_end_page": 86,
+      "source_file": "SH367309.pdf"
+    }
+  ],
+  "pages": [
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 1,
+      "printed_page": "1",
+      "source_link": "../../sources/SH367309.pdf#page=1",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        },
+        {
+          "file": "reference.md",
+          "section": "0.1 必须先记住的差异"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-001.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 2,
+      "printed_page": "2",
+      "source_link": "../../sources/SH367309.pdf#page=2",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-002.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 3,
+      "printed_page": "3",
+      "source_link": "../../sources/SH367309.pdf#page=3",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-003.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 4,
+      "printed_page": "4",
+      "source_link": "../../sources/SH367309.pdf#page=4",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-004.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 5,
+      "printed_page": "5",
+      "source_link": "../../sources/SH367309.pdf#page=5",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-005.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 6,
+      "printed_page": "6",
+      "source_link": "../../sources/SH367309.pdf#page=6",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-006.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 7,
+      "printed_page": "7",
+      "source_link": "../../sources/SH367309.pdf#page=7",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-007.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 8,
+      "printed_page": "8",
+      "source_link": "../../sources/SH367309.pdf#page=8",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-008.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 9,
+      "printed_page": "9",
+      "source_link": "../../sources/SH367309.pdf#page=9",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.1 全部参考电路的选择"
+        },
+        {
+          "file": "reference.md",
+          "section": "10.2 布板边界"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-009.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 10,
+      "printed_page": "10",
+      "source_link": "../../sources/SH367309.pdf#page=10",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-010.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 11,
+      "printed_page": "11",
+      "source_link": "../../sources/SH367309.pdf#page=11",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.3 IDLE"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-011.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 12,
+      "printed_page": "12",
+      "source_link": "../../sources/SH367309.pdf#page=12",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-012.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 13,
+      "printed_page": "13",
+      "source_link": "../../sources/SH367309.pdf#page=13",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 13 页（印刷页 13）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-013.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 14,
+      "printed_page": "14",
+      "source_link": "../../sources/SH367309.pdf#page=14",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 14 页（印刷页 14）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-014.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 15,
+      "printed_page": "15",
+      "source_link": "../../sources/SH367309.pdf#page=15",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 15 页（印刷页 15）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-015.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 16,
+      "printed_page": "16",
+      "source_link": "../../sources/SH367309.pdf#page=16",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 16 页（印刷页 16）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-016.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 17,
+      "printed_page": "17",
+      "source_link": "../../sources/SH367309.pdf#page=17",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 17 页（印刷页 17）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-017.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 18,
+      "printed_page": "18",
+      "source_link": "../../sources/SH367309.pdf#page=18",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 18 页（印刷页 18）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-018.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 19,
+      "printed_page": "19",
+      "source_link": "../../sources/SH367309.pdf#page=19",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 19 页（印刷页 19）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-019.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 20,
+      "printed_page": "20",
+      "source_link": "../../sources/SH367309.pdf#page=20",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 20 页（印刷页 20）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-020.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 21,
+      "printed_page": "21",
+      "source_link": "../../sources/SH367309.pdf#page=21",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 21 页（印刷页 21）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-021.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 22,
+      "printed_page": "22",
+      "source_link": "../../sources/SH367309.pdf#page=22",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 22 页（印刷页 22）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-022.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 23,
+      "printed_page": "23",
+      "source_link": "../../sources/SH367309.pdf#page=23",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 23 页（印刷页 23）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-023.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 24,
+      "printed_page": "24",
+      "source_link": "../../sources/SH367309.pdf#page=24",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 24 页（印刷页 24）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-024.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 25,
+      "printed_page": "25",
+      "source_link": "../../sources/SH367309.pdf#page=25",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 25 页（印刷页 25）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-025.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 26,
+      "printed_page": "26",
+      "source_link": "../../sources/SH367309.pdf#page=26",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 26 页（印刷页 26）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-026.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 27,
+      "printed_page": "27",
+      "source_link": "../../sources/SH367309.pdf#page=27",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 27 页（印刷页 27）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-027.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 28,
+      "printed_page": "28",
+      "source_link": "../../sources/SH367309.pdf#page=28",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 28 页（印刷页 28）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-028.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 29,
+      "printed_page": "29",
+      "source_link": "../../sources/SH367309.pdf#page=29",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 29 页（印刷页 29）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-029.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 30,
+      "printed_page": "30",
+      "source_link": "../../sources/SH367309.pdf#page=30",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.4 保护状态机"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 30 页（印刷页 30）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-030.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 31,
+      "printed_page": "31",
+      "source_link": "../../sources/SH367309.pdf#page=31",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 31 页（印刷页 31）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-031.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 32,
+      "printed_page": "32",
+      "source_link": "../../sources/SH367309.pdf#page=32",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 32 页（印刷页 32）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-032.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 33,
+      "printed_page": "33",
+      "source_link": "../../sources/SH367309.pdf#page=33",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 33 页（印刷页 33）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-033.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 34,
+      "printed_page": "34",
+      "source_link": "../../sources/SH367309.pdf#page=34",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 34 页（印刷页 34）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-034.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 35,
+      "printed_page": "35",
+      "source_link": "../../sources/SH367309.pdf#page=35",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        },
+        {
+          "file": "reference.md",
+          "section": "2.3 LDO与MOS驱动电气"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 35 页（印刷页 35）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-035.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 36,
+      "printed_page": "36",
+      "source_link": "../../sources/SH367309.pdf#page=36",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.2 预充序列"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 36 页（印刷页 36）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-036.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 37,
+      "printed_page": "37",
+      "source_link": "../../sources/SH367309.pdf#page=37",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.3 ENMOS强制恢复充电MOS"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 37 页（印刷页 37）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-037.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 38,
+      "printed_page": "38",
+      "source_link": "../../sources/SH367309.pdf#page=38",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.1 全部引脚"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.1 模式/功能矩阵"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.1 控制优先关系"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 38 页（印刷页 38）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-038.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 39,
+      "printed_page": "39",
+      "source_link": "../../sources/SH367309.pdf#page=39",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.4 SLEEP与STA"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 39 页（印刷页 39）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-039.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 40,
+      "printed_page": "40",
+      "source_link": "../../sources/SH367309.pdf#page=40",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 40 页（印刷页 40）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-040.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 41,
+      "printed_page": "41",
+      "source_link": "../../sources/SH367309.pdf#page=41",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 41 页（印刷页 41）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-041.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 42,
+      "printed_page": "42",
+      "source_link": "../../sources/SH367309.pdf#page=42",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 42 页（印刷页 42）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-042.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 43,
+      "printed_page": "43",
+      "source_link": "../../sources/SH367309.pdf#page=43",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 43 页（印刷页 43）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-043.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 44,
+      "printed_page": "44",
+      "source_link": "../../sources/SH367309.pdf#page=44",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 44 页（印刷页 44）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-044.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 45,
+      "printed_page": "45",
+      "source_link": "../../sources/SH367309.pdf#page=45",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 45 页（印刷页 45）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-045.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 46,
+      "printed_page": "46",
+      "source_link": "../../sources/SH367309.pdf#page=46",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 46 页（印刷页 46）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-046.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 47,
+      "printed_page": "47",
+      "source_link": "../../sources/SH367309.pdf#page=47",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 47 页（印刷页 47）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-047.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 48,
+      "printed_page": "48",
+      "source_link": "../../sources/SH367309.pdf#page=48",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "6.1 数值表示与公式"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.3 更新节奏、缓存与平衡影响"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 48 页（印刷页 48）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-048.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 49,
+      "printed_page": "49",
+      "source_link": "../../sources/SH367309.pdf#page=49",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-049.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 50,
+      "printed_page": "50",
+      "source_link": "../../sources/SH367309.pdf#page=50",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-050.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 51,
+      "printed_page": "51",
+      "source_link": "../../sources/SH367309.pdf#page=51",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.2 精确帧"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.3 CRC契约"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-051.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 52,
+      "printed_page": "52",
+      "source_link": "../../sources/SH367309.pdf#page=52",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-052.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 53,
+      "printed_page": "53",
+      "source_link": "../../sources/SH367309.pdf#page=53",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 53 页（印刷页 53）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-053.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 54,
+      "printed_page": "54",
+      "source_link": "../../sources/SH367309.pdf#page=54",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 54 页（印刷页 54）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-054.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 55,
+      "printed_page": "55",
+      "source_link": "../../sources/SH367309.pdf#page=55",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 55 页（印刷页 55）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-055.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 56,
+      "printed_page": "56",
+      "source_link": "../../sources/SH367309.pdf#page=56",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 56 页（印刷页 56）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-056.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 57,
+      "printed_page": "57",
+      "source_link": "../../sources/SH367309.pdf#page=57",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 57 页（印刷页 57）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-057.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 58,
+      "printed_page": "58",
+      "source_link": "../../sources/SH367309.pdf#page=58",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 58 页（印刷页 58）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-058.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 59,
+      "printed_page": "59",
+      "source_link": "../../sources/SH367309.pdf#page=59",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 59 页（印刷页 59）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-059.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 60,
+      "printed_page": "60",
+      "source_link": "../../sources/SH367309.pdf#page=60",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 60 页（印刷页 60）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-060.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 61,
+      "printed_page": "61",
+      "source_link": "../../sources/SH367309.pdf#page=61",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 61 页（印刷页 61）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-061.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 62,
+      "printed_page": "62",
+      "source_link": "../../sources/SH367309.pdf#page=62",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 62 页（印刷页 62）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-062.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 63,
+      "printed_page": "63",
+      "source_link": "../../sources/SH367309.pdf#page=63",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 63 页（印刷页 63）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-063.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 64,
+      "printed_page": "64",
+      "source_link": "../../sources/SH367309.pdf#page=64",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 64 页（印刷页 64）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-064.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 65,
+      "printed_page": "65",
+      "source_link": "../../sources/SH367309.pdf#page=65",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 65 页（印刷页 65）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-065.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 66,
+      "printed_page": "66",
+      "source_link": "../../sources/SH367309.pdf#page=66",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 66 页（印刷页 66）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-066.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 67,
+      "printed_page": "67",
+      "source_link": "../../sources/SH367309.pdf#page=67",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 67 页（印刷页 67）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-067.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 68,
+      "printed_page": "68",
+      "source_link": "../../sources/SH367309.pdf#page=68",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.1 EEPROM逐地址"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "5.3 全部测量寄存器"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 68 页（印刷页 68）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-068.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 69,
+      "printed_page": "69",
+      "source_link": "../../sources/SH367309.pdf#page=69",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 69 页（印刷页 69）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-069.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 70,
+      "printed_page": "70",
+      "source_link": "../../sources/SH367309.pdf#page=70",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 70 页（印刷页 70）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-070.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 71,
+      "printed_page": "71",
+      "source_link": "../../sources/SH367309.pdf#page=71",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 71 页（印刷页 71）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-071.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 72,
+      "printed_page": "72",
+      "source_link": "../../sources/SH367309.pdf#page=72",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 72 页（印刷页 72）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-072.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 73,
+      "printed_page": "73",
+      "source_link": "../../sources/SH367309.pdf#page=73",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 73 页（印刷页 73）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-073.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 74,
+      "printed_page": "74",
+      "source_link": "../../sources/SH367309.pdf#page=74",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "5.2 RAM配置、实际状态、事件标志"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.4 读写空间与间隔"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 74 页（印刷页 74）"
+        },
+        {
+          "file": "registers.json",
+          "section": "registers[].source and decoded_fields"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-074.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 75,
+      "printed_page": "75",
+      "source_link": "../../sources/SH367309.pdf#page=75",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.4 绝对极限（非正常工作承诺）"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 75 页（印刷页 75）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-075.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 76,
+      "printed_page": "76",
+      "source_link": "../../sources/SH367309.pdf#page=76",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.2 启动与复位"
+        },
+        {
+          "file": "reference.md",
+          "section": "3.5 Powerdown"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.4 ALARM中断处理"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 76 页（印刷页 76）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-076.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 77,
+      "printed_page": "77",
+      "source_link": "../../sources/SH367309.pdf#page=77",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.3 LDO与MOS驱动电气"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "reference.md",
+          "section": "4.5 EEPROM安全流程"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 77 页（印刷页 77）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-077.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 78,
+      "printed_page": "78",
+      "source_link": "../../sources/SH367309.pdf#page=78",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.3 LDO与MOS驱动电气"
+        },
+        {
+          "file": "reference.md",
+          "section": "6.2 采集范围与精度"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 78 页（印刷页 78）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-078.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 79,
+      "printed_page": "79",
+      "source_link": "../../sources/SH367309.pdf#page=79",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "8.2 预充序列"
+        },
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 79 页（印刷页 79）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-079.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 80,
+      "printed_page": "80",
+      "source_link": "../../sources/SH367309.pdf#page=80",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 80 页（印刷页 80）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-080.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 81,
+      "printed_page": "81",
+      "source_link": "../../sources/SH367309.pdf#page=81",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "4.1 基础总线和时序"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.5 温度阈值编码与允许范围"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 81 页（印刷页 81）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-081.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 82,
+      "printed_page": "82",
+      "source_link": "../../sources/SH367309.pdf#page=82",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 82 页（印刷页 82）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-082.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 83,
+      "printed_page": "83",
+      "source_link": "../../sources/SH367309.pdf#page=83",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "2.2 正常工作、功耗与逻辑电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.1 电压编码及合法工作设置范围"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.2 电流/短路完整枚举"
+        },
+        {
+          "file": "reference.md",
+          "section": "7.3 共用两位字段与检测电平"
+        },
+        {
+          "file": "reference.md",
+          "section": "9. 平衡"
+        },
+        {
+          "file": "raw_register_extracts.md",
+          "section": "PDF 第 83 页（印刷页 83）"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-083.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 84,
+      "printed_page": "84",
+      "source_link": "../../sources/SH367309.pdf#page=84",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "10.3 封装完整尺寸"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-084.txt",
+      "visual_inspected": true,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 85,
+      "printed_page": "85",
+      "source_link": "../../sources/SH367309.pdf#page=85",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-085.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 86,
+      "printed_page": "86",
+      "source_link": "../../sources/SH367309.pdf#page=86",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "1. 器件定位、功能与版本"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-086.txt",
+      "visual_inspected": false,
+      "coverage": "synthesized plus source full text"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 87,
+      "printed_page": "87",
+      "source_link": "../../sources/SH367309.pdf#page=87",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "0. 使用范围、证据和文件"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-087.txt",
+      "visual_inspected": false,
+      "coverage": "table of contents mapped to section index"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 88,
+      "printed_page": "88",
+      "source_link": "../../sources/SH367309.pdf#page=88",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "0. 使用范围、证据和文件"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-088.txt",
+      "visual_inspected": false,
+      "coverage": "table of contents mapped to section index"
+    },
+    {
+      "source_file": "SH367309.pdf",
+      "pdf_page": 89,
+      "printed_page": "89",
+      "source_link": "../../sources/SH367309.pdf#page=89",
+      "outputs": [
+        {
+          "file": "reference.md",
+          "section": "0. 使用范围、证据和文件"
+        }
+      ],
+      "full_text": "../../extracted/SH367309_V1_1/page-089.txt",
+      "visual_inspected": false,
+      "coverage": "table of contents mapped to section index"
+    }
+  ],
+  "not_supplied_by_source": [
+    "PCB布局尺寸/爬电规范",
+    "EEPROM出厂默认值",
+    "数据原子快照保证",
+    "有符号负数编码明确声明",
+    "完整CRC参数测试向量",
+    "断线诊断算法细节",
+    "EEPROM数据保持年限/中断烧写原子性"
+  ],
+  "visual_reviewed_pages": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    28,
+    46,
+    47,
+    50,
+    51,
+    58,
+    59,
+    60,
+    61,
+    69,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    81,
+    84
+  ]
+}

@@ -1,0 +1,48 @@
+DVC1124-2 参考手册                                                   4 串至 24 串电池组监控芯片
+
+寄存器
+
+寄存器列表
+ OFFSET    BIT 7      BIT 6      BIT 5      BIT 4      BIT 3        BIT 2      BIT 1     BIT 0
+  0x00     IWTF        COV        CUV       OCD1       OCC1         OCD2       OCC2      SCD
+  0x01      PD        VADF       CC1F       CC2F       CST[3]      CST[2]      CST[1]   CST[0]
+  0x02    CC1[15]    CC1[14]    CC1[13]    CC1[12]    CC1[11]      CC1[10]     CC1[9]   CC1[8]
+  0x03     CC1[7]     CC1[6]     CC1[5]     CC1[4]     CC1[3]      CC1[2]      CC1[1]   CC1[0]
+  0x04    CC2[19]    CC2[18]    CC2[17]    CC2[16]    CC2[15]      CC2[14]    CC2[13]   CC2[12]
+  0x05    CC2[11]    CC2[10]     CC2[9]     CC2[8]     CC2[7]      CC2[6]      CC2[5]   CC2[4]
+  0x06     CC2[3]     CC2[2]     CC2[1]     CC2[0]     PDSGF       PCHGF       DSGF      CHGF
+  0x07    VTP[15]    VTP[14]    VTP[13]    VTP[12]    VTP[11]      VTP[10]     VTP[9]   VTP[8]
+  0x08     VTP[7]     VTP[6]     VTP[5]     VTP[4]     VTP[3]      VTP[2]      VTP[1]   VTP[0]
+  0x09    VPK[15]    VPK[14]    VPK[13]    VPK[12]    VPK[11]      VPK[10]     VPK[9]   VPK[8]
+  0x0A     VPK[7]     VPK[6]     VPK[5]     VPK[4]     VPK[3]      VPK[2]      VPK[1]   VPK[0]
+  0x0B    VLD[15]    VLD[14]    VLD[13]    VLD[12]    VLD[11]      VLD[10]     VLD[9]   VLD[8]
+  0x0C     VLD[7]     VLD[6]     VLD[5]     VLD[4]     VLD[3]      VLD[2]      VLD[1]   VLD[0]
+  0x0D    VCT[15]    VCT[14]    VCT[13]    VCT[12]    VCT[11]      VCT[10]     VCT[9]   VCT[8]
+  0x0E     VCT[7]     VCT[6]     VCT[5]     VCT[4]     VCT[3]      VCT[2]      VCT[1]   VCT[0]
+  0x0F    V1P8[15]   V1P8[14]   V1P8[13]   V1P8[12]   V1P8[11]    V1P8[10]    V1P8[9]   V1P8[8]
+  0x10    V1P8[7]    V1P8[6]    V1P8[5]    V1P8[4]    V1P8[3]      V1P8[2]    V1P8[1]   V1P8[0]
+  0x11    VGP1[15]   VGP1[14]   VGP1[13]   VGP1[12]   VGP1[11]    VGP1[10]    VGP1[9]   VGP1[8]
+  0x12    VGP1[7]    VGP1[6]    VGP1[5]    VGP1[4]    VGP1[3]      VGP1[2]    VGP1[1]   VGP1[0]
+  0x13    VGP2[15]   VGP2[14]   VGP2[13]   VGP2[12]   VGP2[11]    VGP2[10]    VGP2[9]   VGP2[8]
+  0x14    VGP2[7]    VGP2[6]    VGP2[5]    VGP2[4]    VGP2[3]      VGP2[2]    VGP2[1]   VGP2[0]
+  0x15    VGP3[15]   VGP3[14]   VGP3[13]   VGP3[12]   VGP3[11]    VGP3[10]    VGP3[9]   VGP3[8]
+  0x16    VGP3[7]    VGP3[6]    VGP3[5]    VGP3[4]    VGP3[3]      VGP3[2]    VGP3[1]   VGP3[0]
+  0x17    VGP4[15]   VGP4[14]   VGP4[13]   VGP4[12]   VGP4[11]    VGP4[10]    VGP4[9]   VGP4[8]
+  0x18    VGP4[7]    VGP4[6]    VGP4[5]    VGP4[4]    VGP4[3]      VGP4[2]    VGP4[1]   VGP4[0]
+  0x19    VGP5[15]   VGP5[14]   VGP5[13]   VGP5[12]   VGP5[11]    VGP5[10]    VGP5[9]   VGP5[8]
+  0x1A    VGP5[7]    VGP5[6]    VGP5[5]    VGP5[4]    VGP5[3]      VGP5[2]    VGP5[1]   VGP5[0]
+  0x1B    VGP6[15]   VGP6[14]   VGP6[13]   VGP6[12]   VGP6[11]    VGP6[10]    VGP6[9]   VGP6[8]
+  0x1C    VGP6[7]    VGP6[6]    VGP6[5]    VGP6[4]    VGP6[3]      VGP6[2]    VGP6[1]   VGP6[0]
+  0x1D    VC1[15]    VC1[14]    VC1[13]    VC1[12]    VC1[11]      VC1[10]     VC1[9]   VC1[8]
+  0x1E     VC1[7]     VC1[6]     VC1[5]     VC1[4]     VC1[3]      VC1[2]      VC1[1]   VC1[0]
+  0x1F    VC2[15]    VC2[14]    VC2[13]    VC2[12]    VC2[11]      VC2[10]     VC2[9]   VC2[8]
+  0x20     VC2[7]     VC2[6]     VC2[5]     VC2[4]     VC2[3]      VC2[2]      VC2[1]   VC2[0]
+  0x21    VC3[15]    VC3[14]    VC3[13]    VC3[12]    VC3[11]      VC3[10]     VC3[9]   VC3[8]
+  0x22     VC3[7]     VC3[6]     VC3[5]     VC3[4]     VC3[3]      VC3[2]      VC3[1]   VC3[0]
+  0x23    VC4[15]    VC4[14]    VC4[13]    VC4[12]    VC4[11]      VC4[10]     VC4[9]   VC4[8]
+  0x24     VC4[7]     VC4[6]     VC4[5]     VC4[4]     VC4[3]      VC4[2]      VC4[1]   VC4[0]
+  0x25    VC5[15]    VC5[14]    VC5[13]    VC5[12]    VC5[11]      VC5[10]     VC5[9]   VC5[8]
+
+
+2 / 33                                       1.2                            南京集澈电子科技有限公司
+                                                                            宜矽源半导体南京有限公司

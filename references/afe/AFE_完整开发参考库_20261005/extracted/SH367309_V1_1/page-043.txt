@@ -1,0 +1,54 @@
+                                                                                             SH367309
+Table 12.10 Cell10电芯电压寄存器
+    60H，61H          第7位       第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL10H      CELL10.15 CELL10.14 CELL10.13 CELL10.12 CELL10.11 CELL10.10 CELL10.9           CELL10.8
+     CELL10L       CELL10.7   CELL10.6   CELL10.5    CELL10.4   CELL10.3   CELL10.2   CELL10.1   CELL10.0
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL10.15 -
+                              当转换完成后，数据更新为电芯10电压对应的数值
+     7:0        CELL10.0
+
+Table 12.11 Cell11电芯电压寄存器
+    62H，63H          第7位       第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL11H      CELL11.15 CELL11.14 CELL11.13 CELL11.12 CELL11.11 CELL11.10 CELL11.9           CELL11.8
+     CELL11L       CELL11.7   CELL11.6   CELL11.5    CELL11.4   CELL11.3   CELL11.2   CELL11.1   CELL11.0
+
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL11.15 -
+                              当转换完成后，数据更新为电芯11电压对应的数值
+     7:0        CELL11.0
+
+Table 12.12 Cell12电芯电压寄存器
+    64H，65H          第7位       第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL12H      CELL12.15 CELL12.14 CELL12.13 CELL12.12 CELL12.11 CELL12.10 CELL12.9           CELL12.8
+     CELL12L       CELL12.7   CELL12.6   CELL12.5    CELL12.4   CELL12.3   CELL12.2   CELL12.1   CELL12.0
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL12.15 -
+                              当转换完成后，数据更新为电芯12电压对应的数值
+     7:0        CELL12.0
+
+Table 12.13 Cell13电芯电压寄存器
+    66H，67H          第7位       第6位        第5位            第4位     第3位        第2位        第1位        第0位
+     CELL13H      CELL13.15 CELL13.14 CELL13.13 CELL13.12 CELL13.11 CELL13.10 CELL13.9           CELL13.8
+     CELL13L       CELL13.7   CELL13.6   CELL13.5    CELL13.4   CELL13.3   CELL13.2   CELL13.1   CELL13.0
+       读/写            读          读          读            读         读          读          读          读
+      复位值              0         0          0             0        0          0          0          0
+
+    位编号          位符号                                             说明
+     7:0       CELL13.15 -
+                              当转换完成后，数据更新为电芯13电压对应的数值
+     7:0        CELL13.0
+
+
+
+
+                                                    43

@@ -1,0 +1,62 @@
+                                                                                                             bq76920, bq76930, bq76940
+www.ti.com                                                                                   SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+    Name            Addr            D7             D6             D5           D4              D3             D2            D1             D0
+  TS3_HI (2)        0x30          RSVD           RSVD                                               <13:8>
+  TS3_LO (2)        0x31                                                            <7:0>
+    CC_HI           0x32                                                            <15:8>
+    CC_LO           0x33                                                            <7:0>
+  ADCGAIN1          0x50                                  RSVD                                  ADCGAIN<4:3>                     RSVD
+ ADCOFFSET          0x51                                                       ADCOFFSET<7:0>
+  ADCGAIN2          0x59                      ADCGAIN<2:0>                                                   RSVD
+
+
+7.5.1       Register Details
+
+                                                         Table 7-3. SYS_STAT (0x00)
+      BIT               7                6                 5             4             3                 2              1                0
+    NAME          CC_READY            RSVD              DEVICE_        OVRD_           UV               OV            SCD               OCD
+                                                        XREADY         ALERT
+    RESET               0                0                 0             0             0                 0              0                0
+   ACCESS              RW                RW               RW            RW            RW                RW             RW               RW
+
+
+
+                                                                         NOTE
+                        Bits in SYS_STAT may be cleared by writing a "1" to the corresponding bit.
+                        Writing a "0" does not change the state of the corresponding bit.
+
+
+         CC_READY (Bit 7): Indicates that a fresh coulomb counter reading is available. Note that if this bit is not
+         cleared between two adjacent CC readings becoming available, the bit remains latched to 1. This bit may
+         only be cleared (and not set) by the host.
+                    0 = Fresh CC reading not yet available or bit is cleared by host microcontroller.
+                    1 = Fresh CC reading is available. Remains latched high until cleared by host.
+
+         RSVD (Bit 6): Reserved. Do not use.
+
+         DEVICE_XREADY (Bit 5): Internal chip fault indicator. When this bit is set to 1, it should be cleared by
+         the host. May be set due to excessive system transients. This bit may only be cleared (and not set) by
+         the host.
+                    0 = Device is OK.
+                    1 = Internal chip fault detected, recommend that host microcontroller clear this bit after waiting a
+                        few seconds. Remains latched high until cleared by the host.
+
+         OVRD_ALERT (Bit 4): External pull-up on the ALERT pin indicator. Only active when ALERT pin is not
+         already being driven high by the AFE itself.
+                    0 = No external override detected
+                    1 = External override detected. Remains latched high until cleared by the host.
+
+         UV (Bit 3): Undervoltage fault event indicator.
+                    0 = No UV fault is detected.
+                    1 = UV fault is detected. Remains latched high until cleared by the host.
+
+         OV (Bit 2): Overvoltage fault event indicator.
+                    0 = No OV fault is detected.
+                    1 = OV fault is detected. Remains latched high until cleared by the host.
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                               Detailed Description        33
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

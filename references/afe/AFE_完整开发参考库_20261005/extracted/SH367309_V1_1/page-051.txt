@@ -1,0 +1,61 @@
+                                                                                                                  SH367309
+  (2) 读操作指令
+  SH367309可读取EEPROM的寄存器地址为00H - 19H。可读取的数据长度需发送给SH367309，单位是Byte（该长度不包
+括读取的CRC字节）。如果读取的寄存器地址超出定义，则返回“全1”数据。
+                                                      Read Data
+     START      SLA+W     Ack   Reg Address   Ack                   Ack
+                                                     Length(Byte)
+
+
+
+
+         RS     SLA+R     Ack      DATA        Ack        DATA        Ack        DATA   Ack    CRC         Nack    STOP
+
+
+                                                     图15 TWI EEPROM读时序
+RAM寄存器读写协议
+  (1) 写操作指令
+   SH367309可写RAM寄存器地址为40H - 42H、70H - 72H。写操作的数据长度固定为1Byte，当写完1个寄存器后需要延时
+1mS才能开始写下一个寄存器。
+
+              START     SLA+W     Ack     Reg Address      Ack            DATA   Ack     CRC         Ack    STOP
+
+
+                                                     图16 TWI RAM写单字节时序
+
+  (2) 读操作指令
+  SH367309可读取RAM寄存器地址为40H - 72H。可读取的数据长度需发送给SH367309，单位是Byte（该长度不包括读取
+的CRC字节）。如果读取的寄存器地址超出定义，则返回“全1”数据。
+                                                      Read Data
+     START      SLA+W     Ack   Reg Address   Ack                   Ack
+                                                     Length(Byte)
+
+
+
+
+         RS     SLA+R     Ack      DATA        Ack        DATA        Ack        DATA   Ack    CRC         Nack    STOP
+
+
+                                                     图17 TWI RAM读字节时序
+软件复位协议
+  SH367309接收到以下指令协议后，会执行软件复位操作（如果EEPROM寄存器被改写，需执行软件复位操作才有效）。
+              START     SLA+W     Ack         0xEA         Ack            0xC0   Ack     CRC     Ack        STOP
+
+
+                                                      图18 系统软件复位时序
+CRC8校验
+  TWI写操作固定为写1Byte，CRC8会从起始位之后的数据开始校验，包括从机地址（含读/写位）、寄存器地址、写数据，
+       8   2
+多项式 = X + X + X + 1，如果CRC校验正确，SH367309会将数据更新至指定的寄存器，并返回ACK给主机，反之，则不会更
+新，并返回NACK给主机。
+  TWI读操作的数据长度可通过主机设置，CRC8会从起始位之后的数据开始校验，包括从机地址（含读/写位）、寄存器地址、
+                                                  8   2
+所读取的数据长度N、以及重复开始条件之后的从机地址（含读/写位）、N字节数据进行校验，多项式 = X + X + X + 1，SH367309
+会将计算后的CRC8传递给主机。
+  软件复位指令按照固定格式。SH367309会根据接收到的第1Byte“0xEA”判定后续接收到的数据长度及CRC8。
+  注释：CRC8初始值固定为0x00。
+
+
+
+
+                                                                    51

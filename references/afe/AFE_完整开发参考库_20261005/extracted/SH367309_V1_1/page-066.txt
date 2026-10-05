@@ -1,0 +1,40 @@
+                                                                                             SH367309
+13.3 EEROM & RAM寄存器列表及详述
+
+  序号                                                               状态位
+                名字
+ (Hex)                        7        6         5           4            3        2        1        0
+  00H          SCONF1       ENPCH    ENMOS     OCPM         BAL          CN3      CN2      CN1      CN0
+  01H          SCONF2        E0VB       -      UV_OP       DIS_PF    CTLC1       CTLC0    OCRA     EUVR
+  02H       OVT/LDRT/OVH     OVT3     OVT2      OVT1        OVT0     LDRT1       LDRT0     OV.9     OV.8
+  03H           OVL          OV.7     OV.6      OV.5        OV.4         OV.3     OV.2     OV.1     OV.0
+  04H         UVT/OVRH       UVT3     UVT2      UVT1        UVT0           -        -     OVR.9    OVR.8
+  05H           OVRL        OVR.7    OVR.6     OVR.5       OVR.4     OVR.3       OVR.2    OVR.1    OVR.0
+  06H            UV          UV.7     UV.6      UV.5        UV.4         UV.3     UV.2     UV.1     UV.0
+  07H           UVR         UVR.7    UVR.6     UVR.5       UVR.4     UVR.3       UVR.2    UVR.1    UVR.0
+  08H           BALV        BALV.7   BALV.6    BALV.5      BALV.4    BALV.3      BALV.2   BALV.1   BALV.0
+  09H           PREV        PREV.7   PREV.6    PREV.5      PREV.4    PREV.3      PREV.2   PREV.1   PREV.0
+  0AH            L0V          -       L0V.6     L0V.5       L0V.4        L0V.3    L0V.2    L0V.1    L0V.0
+  0BH           PFV         PFV.7    PFV.6      PFV.5      PFV.4     PFV.3       PFV.2    PFV.1    PFV.0
+  0CH       OCD1V/OCD1T     OCD1V3   OCD1V2    OCD1V1      OCD1V0    OCD1T3      OCD1T2   OCD1T1   OCD1T0
+  0DH       OCD2V/OCD2T     OCD2V3   OCD2V2    OCD2V1      OCD2V0    OCD2T3      OCD2T2   OCD2T1   OCD2T0
+  0EH          SCV/SCT       SCV3     SCV2      SCV1        SCV0         SCT3     SCT2     SCT1     SCT0
+  0FH        OCCV/OCCT      OCCV3    OCCV2     OCCV1       OCCV0     OCCT3       OCCT2    OCCT1    OCCT0
+  10H       MOST/OCRT/PFT   CHS1     CHS0      MOST1       MOST0     OCRT1       OCRT0     PFT1     PFT0
+  11H           OTC         OTC7     OTC6       OTC5       OTC4       OTC3       OTC2     OTC1     OTC0
+  12H           OTCR        OTCR7    OTCR6     OTCR5       OTCR4     OTCR3       OTCR2    OTCR1    OTCR0
+  13H           UTC          UTC7     UTC6      UTC5        UTC4         UTC3     UTC2     UTC1     UTC0
+  14H           UTCR        UTCR7    UTCR6     UTCR5       UTCR4     UTCR3       UTCR2    UTCR1    UTCR0
+  15H           OTD         OTD7     OTD6       OTD5       OTD4       OTD3       OTD2     OTD1     OTD0
+  16H           OTDR        OTDR7    OTDR6     OTDR5       OTDR4     OTDR3       OTDR2    OTDR1    OTDR0
+  17H           UTD          UTD7     UTD6      UTD5        UTD4         UTD3     UTD2     UTD1     UTD0
+  18H           UTDR        UTDR7    UTDR6     UTDR5       UTDR4     UTDR3       UTDR2    UTDR1    UTDR0
+  19H            TR           -       TR6       TR5         TR4          TR3      TR2      TR1      TR0
+1AH - 3FH     Reserved        -         -         -           -            -        -        -        -
+
+                                            表9 EEROM寄存器列表
+
+
+
+
+                                                      66

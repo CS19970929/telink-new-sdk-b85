@@ -1,0 +1,60 @@
+                                                                                                                 bq76920, bq76930, bq76940
+www.ti.com                                                                                       SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+5.4     bq76940 Pin Diagram
+
+                                                   DSG         1                            44     ALERT
+                                                   CHG         2                            43     SRN
+                                                   VSS         3                            42     SRP
+                                                   SDA         4                            41     VC0
+                                                    SCL        5                            40     VC1
+                                                   TS1         6                            39     VC2
+                                                  CAP1         7                            38     VC3
+                                              REGOUT           8                            37     VC4
+                                               REGSRC          9                            36     VC5
+                                                  VC5x        10                            35     VC5B
+                                                    NC        11     bq76940                34     VC6
+                                                    NC        12                            33     VC7
+                                                              13
+                                                                     44-TSSOP
+                                                   TS2                                      32     VC8
+                                                  CAP2        14                            31     VC9
+                                                 VC10x        15                            30     VC10
+                                                    NC        16                            29     VC10B
+                                                    NC        17                            28     VC11
+                                                   TS3        18                            27     VC12
+                                                  CAP3        19                            26     VC13
+                                                   BAT        20                            25     VC14
+                                                    NC        21                            24     VC15
+                                                    NC        22                            23     NC
+
+
+
+5.4.1     bq76940 Pin Map
+
+
+                                                              bq76940 Pin Functions
+                       PIN          NAME                TYPE                                DESCRIPTION
+                        1            DSG                 O         Discharge FET driver
+                        2            CHG                 O         Charge FET driver
+                        3            VSS                 —         Chip VSS
+                        4            SDA                I/O        I2C communication to the host controller
+                        5            SCL                  I        I2C communication to the host controller
+                        6             TS1                 I        Thermistor #1 positive terminal (1)
+                        7            CAP1                O         Capacitor to VSS
+                        8          REGOUT                P         Output LDO
+                        9          REGSRC                 I        Input source for output LDO
+                       10            VC5X                P         Thermistor #2 negative terminal
+                       11             NC                 —         No connect (short to CAP2)
+                       12             NC                 —         No connect (short to CAP2)
+                       13             TS2                 I        Thermistor #2 positive terminal (1)
+                       14            CAP2                O         Capacitor to VC5X
+                       15           VC10X                P         Thermistor #3 negative terminal
+
+                 (1)   If not used, pull down to group ground reference (VSS for TS1, VC5X for TS2, and VC10X for TS3)
+                       with a 10-kΩ nominal resistor.
+Copyright © 2013–2015, Texas Instruments Incorporated                                                         Pin Configuration and Functions   9
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

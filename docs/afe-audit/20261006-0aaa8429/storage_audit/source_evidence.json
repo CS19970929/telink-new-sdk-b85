@@ -1,0 +1,196 @@
+{
+  "identity": {
+    "head": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+    "origin_checkout": "D:/telink/bms-monorepo",
+    "includes_uncommitted_worktree": false,
+    "worktree_content_sha256": "05fb3147811468a347d3b27538b364d6ce92d56c533a17d713bcc8e1ac689613"
+  },
+  "files": [
+    {
+      "file": "bms/core/bms_afe_hw_profile.c",
+      "sha256": "4ac0b44e91590a0376ae6dea8a71ddc108fcf7cd2d215e7d56a7aace58e3886c",
+      "snippets": [
+        {
+          "start_line": 446,
+          "end_line": 528,
+          "text": "446: static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)\n447: {\n448:     bms_afe_hw_profile_t verify;\n449:     bms_afe_hw_profile_t effective;\n450: \n451:     if (before == 0 ||\n452:         !bms_afe_hw_profile_set(before) ||\n453:         !bms_afe_apply_protection_config() ||\n454:         !bms_afe_hw_profile_get(&verify) ||\n455:         !afe_hw_profile_words_equal(before, &verify) ||\n456:         !bms_afe_hw_profile_get_effective(&effective))\n457:     {\n458:         s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;\n459:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;\n460:         bms_afe_hw_access_close();\n461:         return (bms_afe_hw_error_t)s_afe_hw_last_error;\n462:     }\n463: \n464:     s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;\n465:     return (bms_afe_hw_error_t)s_afe_hw_last_error;\n466: }\n467: \n468: /* 校验完整大端配置块，持久化、应用并回读；失败执行回滚。 */\n469: bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)\n470: {\n471:     bms_afe_hw_profile_t before;\n472:     bms_afe_hw_profile_t candidate;\n473:     bms_afe_hw_profile_t verify;\n474:     bms_afe_hw_profile_t effective;\n475:     u16 i;\n476: \n477:     if (!bms_afe_hw_access_is_active())\n478:     {\n479:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_AUTH;\n480:         return BMS_AFE_HW_ERROR_AUTH;\n481:     }\n482:     if (pdata == 0 || qty != BMS_AFE_HW_PROFILE_WORD_COUNT)\n483:     {\n484:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;\n485:         return BMS_AFE_HW_ERROR_VALIDATION;\n486:     }\n487:     if (!bms_afe_hw_profile_get(&before))\n488:     {\n489:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;\n490:         return (bms_afe_hw_error_t)s_afe_hw_last_error;\n491:     }\n492: \n493:     candidate = before;\n494:     for (i = 0u; i < qty; ++i)\n495:         ((u16 *)&candidate)[i] = afe_hw_profile_word_be(&pdata[(u32)i * 2u]);\n496: \n497:     if (!bms_afe_hw_profile_validate(&candidate))\n498:     {\n499:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;\n500:         return BMS_AFE_HW_ERROR_VALIDATION;\n501:     }\n502: \n503:     if (!bms_afe_hw_profile_set(&candidate))\n504:     {\n505:         s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;\n506:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_STORE;\n507:         return (bms_afe_hw_error_t)s_afe_hw_last_error;\n508:     }\n509: \n510:     if (!bms_afe_apply_protection_config())\n511:     {\n512:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;\n513:         return afe_hw_profile_rollback(&before);\n514:     }\n515: \n516:     if (!bms_afe_hw_profile_get(&verify) ||\n517:         !afe_hw_profile_words_equal(&candidate, &verify) ||\n518:         !bms_afe_hw_profile_get_effective(&effective))\n519:     {\n520:         s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;\n521:         return afe_hw_profile_rollback(&before);\n522:     }\n523: \n524:     s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;\n525:     s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;\n526:     bms_afe_hw_access_close();\n527:     return BMS_AFE_HW_ERROR_NONE;\n528: }"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/bms_afe_guard.c",
+      "sha256": "92b863d79a0dcea88900aafc2c9572b0b66176546b5d740e5cf4a7863442ab5b",
+      "snippets": [
+        {
+          "start_line": 88,
+          "end_line": 112,
+          "text": "88: \n89: /* 设置本地输出禁止状态，撤销驱动授权。 */\n90: static void inhibit_local(void)\n91: {\n92:     s_guard.comm_fault_latched = 1u;\n93:     s_guard.comm_inhibit = 1u;\n94:     s_guard.valid_snapshot_streak = 0u;\n95:     bms_features_on_afe_invalid();\n96:     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);\n97: }\n98: \n99: /* 尝试关闭 AFE 输出并保留无法确认关断的失败状态。 */\n100: static void best_effort_shutdown(void)\n101: {\n102:     if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;\n103: \n104:     /*\n105:      * 这次软件关闭不是失联安全保证，只是总线可能仍接受命令时的最后尝试。\n106:      * 总线已失效时，以硬件 AFE 看门狗关断为准。\n107:      */\n108:     (void)AFE_BAL_SET(0u);\n109:     (void)AFE_FETS(0u, 0u);\n110: }\n111: \n112: /* 进入硬件看门狗故障安全等待阶段并禁止总线访问。 */"
+        },
+        {
+          "start_line": 188,
+          "end_line": 248,
+          "text": "188: \n189: /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */\n190: void bms_afe_init(void)\n191: {\n192:     memset(&s_guard, 0, sizeof(s_guard));\n193:     s_guard.comm_inhibit = 1u;\n194:     AFE_INIT();\n195:     AFE_OUTPUT(0u);\n196:     (void)AFE_FETS(0u, 0u);\n197:     bms_features_init();\n198:     (void)AFE_BAL_SET(0u);\n199:     s_guard.comm_fault_latched = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;\n200: }\n201: \n202: /* 通过安全门禁采样并更新恢复资格及输出授权。 */\n203: void bms_afe_sample(void)\n204: {\n205:     bms_afe_aux_measurements_t m;\n206: \n207:     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;\n208: \n209:     /* 新样本确认恢复资格期间，保留真正已发生的通信故障。 */\n210:     if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;\n211:     AFE_SAMPLE();\n212:     memset(&m, 0, sizeof(m));\n213:     if (!AFE_AUX(&m))\n214:     {\n215: #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510\n216:         if (sh3673510_bms_afe_sample_pending()) return;\n217: #endif\n218:         note_invalid();\n219:         return;\n220:     }\n221: \n222:     s_guard.comm_failures = 0u;\n223: #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510\n224:     if (!sh3673510_bms_afe_sample_pending())\n225: #endif\n226:     {\n227:         if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)\n228:             ++s_guard.valid_snapshot_streak;\n229:     }\n230: \n231:     if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)\n232:     {\n233:         s_guard.comm_inhibit = 0u;\n234:         s_guard.comm_fault_latched = 0u;\n235:     }\n236:     else if (s_guard.comm_fault_latched)\n237:     {\n238:         /* 健康启动仅禁止输出，不凭空产生 AFE1 故障。 */\n239:         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);\n240:     }\n241: \n242:     /*\n243:      * 资格尚未确认不是采样失败。\n244:      * comm_inhibit 时调用功能服务会令快照读取失败并锁存虚假断线疑似，\n245:      * 导致健康启动后两个 FET 长期关闭。\n246:      */\n247:     if (!s_guard.comm_inhibit) bms_features_service();\n248:     if (!apply_requested()) note_invalid();"
+        },
+        {
+          "start_line": 265,
+          "end_line": 275,
+          "text": "265: /* 安全门禁允许时应用独立硬件保护配置。 */\n266: uint8_t bms_afe_apply_protection_config(void)\n267: {\n268:     uint8_t ok;\n269: \n270:     if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;\n271:     ok = AFE_APPLY();\n272:     if (!ok) note_invalid();\n273:     return ok;\n274: }\n275: "
+        }
+      ]
+    },
+    {
+      "file": "bms/afe/sh3673510/sh3673510_control.c",
+      "sha256": "ee4a28b83e683ba109439db1d03f2e61326700b83e68dee44d805a6980df2f36",
+      "snippets": [
+        {
+          "start_line": 158,
+          "end_line": 180,
+          "text": "158: uint8_t sh3673510_control_apply_protection(void)\n159: {\n160:     bms_afe_hw_profile_t hw;\n161:     uint32_t ov_delay_ms;\n162:     uint32_t uv_delay_ms;\n163:     uint32_t ocd1_delay_ms;\n164:     uint32_t ocd2_delay_ms;\n165:     uint32_t occ_delay_ms;\n166:     uint16_t ov_code;\n167:     uint16_t uv_code;\n168:     uint16_t actual_a10;\n169:     uint8_t ov_dly;\n170:     uint8_t uv_dly;\n171:     uint8_t regv;\n172:     uint8_t high;\n173:     uint8_t low;\n174:     uint8_t code;\n175:     uint8_t ok = 1u;\n176: \n177:     s_protection_actual.valid = 0u;\n178:     if (!s_control_ready || !bms_afe_hw_profile_get(&hw)) return 0u;\n179:     ov_delay_ms = hw.cov_delay_ms;\n180:     uv_delay_ms = hw.cuv_delay_ms;"
+        },
+        {
+          "start_line": 255,
+          "end_line": 280,
+          "text": "255:     /* 硬件保护使能归独立 AFE 配置负责。 */\n256:     ok &= sh3510_update_reg(SH3673520_REG_SCONF5,\n257:                             SH3673520_SCONF5_OCC_EN_MASK,\n258:                             (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? SH3673520_SCONF5_OCC_EN_MASK : 0u);\n259:     regv = 0u;\n260:     if (hw.enable_mask & BMS_AFE_HW_EN_COV)  regv |= SH3673520_SCONF6_OV_EN_MASK;\n261:     if (hw.enable_mask & BMS_AFE_HW_EN_CUV)  regv |= SH3673520_SCONF6_UV_EN_MASK;\n262:     if (hw.enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) regv |= SH3673520_SCONF6_OCD_EN_MASK;\n263:     if (hw.enable_mask & BMS_AFE_HW_EN_SC)   regv |= SH3673520_SCONF6_SC_EN_MASK;\n264:     if (hw.enable_mask & BMS_AFE_HW_EN_TEMP) regv |= (SH3673520_SCONF6_TS1_EN_MASK | SH3673520_SCONF6_TS2_EN_MASK);\n265:     ok &= sh3510_write_verify(SH3673520_REG_SCONF6, regv, SH3673520_SCONF6_ALL_MASK);\n266: \n267:     s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);\n268:     s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);\n269:     s_protection_actual.ov_delay_ms = s_ov_delay_ms[ov_dly];\n270:     s_protection_actual.uv_delay_ms = s_uv_delay_ms[uv_dly];\n271:     s_protection_actual.valid = ok ? 1u : 0u;\n272:     return ok ? 1u : 0u;\n273: }\n274: \n275: /* 取得 SH 硬件实际可表示的保护配置。 */\n276: uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n277: {\n278:     if (actual == 0) return 0u;\n279:     *actual = s_protection_actual;\n280:     return s_protection_actual.valid;"
+        }
+      ]
+    },
+    {
+      "file": "bms/afe/sh3673510/sh3673510_bms.c",
+      "sha256": "689be862a96ad0b70d0220bf4f95d9f79fd67d195a001b21a5029a3550d1f7fd",
+      "snippets": [
+        {
+          "start_line": 196,
+          "end_line": 240,
+          "text": "196: static uint8_t charge_blocked(void)\n197: {\n198:     return (s_hw_charge_protect ||\n199:             bms_sw_protection_charge_blocked() ||\n200:             bms_features_charge_direction_blocked()) ? 1u : 0u;\n201: }\n202: \n203: /* 汇总当前放电方向的保护阻断条件。 */\n204: static uint8_t discharge_blocked(void)\n205: {\n206:     return (s_hw_discharge_protect ||\n207:             bms_sw_protection_discharge_blocked() ||\n208:             s_short_latched ||\n209:             bms_error_get(BMS_ERROR_DSG_SHORT) ||\n210:             bms_error_get(BMS_ERROR_CBC_DSG)) ? 1u : 0u;\n211: }\n212: \n213: /* 检查 AFE 就绪、通信与输出相关状态。 */\n214: static uint8_t sh3510_outputs_healthy(void)\n215: {\n216:     return (s_snapshot_valid && bms_afe_samples_qualified() && !s_hw_afe_error &&\n217:             !bms_error_get(BMS_ERROR_AFE1) && !bms_error_get(BMS_ERROR_SPI)) ? 1u : 0u;\n218: }\n219: \n220: /* 合并输出授权和阻断条件后应用 MOS 请求。 */\n221: static uint8_t sh3510_apply_requested_fets(void)\n222: {\n223:     uint8_t charge_on = 0u;\n224:     uint8_t discharge_on = 0u;\n225:     uint8_t charge_inhibit;\n226:     uint8_t discharge_inhibit;\n227: \n228:     if (!sh3673510_control_ready()) return 0u;\n229: \n230:     charge_inhibit = charge_blocked();\n231:     discharge_inhibit = discharge_blocked();\n232: \n233:     if (s_output_enabled && sh3510_outputs_healthy())\n234:     {\n235:         charge_on = s_requested_charge_on ? 1u : 0u;\n236:         discharge_on = s_requested_discharge_on ? 1u : 0u;\n237: \n238:         /*\n239:          * 同口反向恢复：充电保护可关闭 CHG，但确认 DSGING 后须允许重新开启 CHG，\n240:          * 避免放电持续流经体二极管；放电保护对确认 CHGING 的情况对称处理。"
+        },
+        {
+          "start_line": 830,
+          "end_line": 861,
+          "text": "830:     sh3673510_board_force_heater_fuse_safe();\n831:     if (s_flag_clear_failed) { note_comm_error(); return; }\n832:     if (!publish_measurements()) {\n833:         /* 公共 bms_afe_guard 管理关闭请求、WDT 静默和有界重初始化。 */\n834:         s_snapshot_valid = 0u;\n835:         note_comm_error();\n836:         return;\n837:     }\n838: \n839:     if (s_afe_reconfigure_required) {\n840:         if (!service_afe_reconfiguration()) note_comm_error();\n841:         return; /* 下一周期必须使用配置完成后的新测量。 */\n842:     }\n843: \n844:     note_comm_ok();\n845:     /* 公共功能模块管理加热/均衡，公共门禁负责最终 FET 应用。 */\n846: }\n847: \n848: /* 查询是否仍有 AFE 采样流程未完成。 */\n849: uint8_t sh3673510_bms_afe_sample_pending(void)\n850: {\n851:     return s_sample_pending;\n852: }\n853: \n854: /* 应用独立 AFE 硬件保护配置并返回结果。 */\n855: uint8_t sh3673510_bms_afe_apply_protection_config(void)\n856: {\n857:     if (!sh3673510_control_ready()) return 0u;\n858:     if (!sh3673510_control_apply_protection()) { note_comm_error(); return 0u; }\n859:     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));\n860:     return 1u;\n861: }"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/bms_config_store.c",
+      "sha256": "7f721454f0bdc8b7f9cc6ab509fa109b13984ea52a5a1ae5dfc4f92aaf36bcbc",
+      "snippets": [
+        {
+          "start_line": 221,
+          "end_line": 282,
+          "text": "221: static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)\n222: {\n223:     bms_config_cache_t defaults;\n224:     unsigned group;\n225:     u8 changed = 0u;\n226:     bms_config_defaults(&defaults);\n227:     for (group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {\n228:         if (cfg->revisions[group] == defaults.revisions[group]) continue;\n229:         switch ((bms_update_group_t)group) {\n230:         case BMS_UPDATE_SW:\n231:             cfg->protect = defaults.protect;\n232:             break;\n233:         case BMS_UPDATE_AFE:\n234:             cfg->afe_hw = defaults.afe_hw;\n235:             break;\n236:         case BMS_UPDATE_BUSINESS:\n237:             cfg->system.capacity_factory = defaults.system.capacity_factory;\n238:             cfg->user.heater_enable = defaults.user.heater_enable;\n239:             cfg->user.heater_start_x10 = defaults.user.heater_start_x10;\n240:             cfg->user.heater_stop_x10 = defaults.user.heater_stop_x10;\n241:             cfg->user.balance_enable = defaults.user.balance_enable;\n242:             cfg->user.balance_start_mv = defaults.user.balance_start_mv;\n243:             cfg->user.balance_start_delta_mv = defaults.user.balance_start_delta_mv;\n244:             cfg->user.balance_stop_delta_mv = defaults.user.balance_stop_delta_mv;\n245:             break;\n246:         case BMS_UPDATE_SOC:\n247:             cfg->soc = defaults.soc;\n248:             cfg->system.battery_chemistry = defaults.system.battery_chemistry;\n249:             cfg->system.soc_profile_id = defaults.system.soc_profile_id;\n250:             break;\n251:         case BMS_UPDATE_CALIBRATION:\n252:             cfg->user.current_offset_ma = defaults.user.current_offset_ma;\n253:             cfg->user.current_gain_ppm = defaults.user.current_gain_ppm;\n254:             break;\n255:         case BMS_UPDATE_IDENTITY:\n256:             memcpy(cfg->user.serial, defaults.user.serial, sizeof(cfg->user.serial));\n257:             memcpy(cfg->bt_name_suffix, defaults.bt_name_suffix, sizeof(cfg->bt_name_suffix));\n258:             break;\n259:         default:\n260:             break;\n261:         }\n262:         cfg->revisions[group] = defaults.revisions[group];\n263:         changed = 1u;\n264:     }\n265:     return changed;\n266: }\n267: \n268: /* 保存完整配置缓存并返回持久化结果。 */\n269: static int bms_config_save_cache(const bms_config_cache_t *cfg)\n270: {\n271:     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];\n272:     bms_config_encode(cfg, payload);\n273:     if (!storage_record_save(&g_bms_config_store, payload)) {\n274:         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;\n275:     }\n276:     g_bms_config = *cfg;\n277:     g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;\n278:     g_bms_config_needs_save = 0u;\n279:     return 1;\n280: }\n281: \n282: /* 确保配置存储已初始化并可访问。 */"
+        },
+        {
+          "start_line": 303,
+          "end_line": 324,
+          "text": "303:     g_bms_config_needs_save = 0u;\n304:     if (storage_record_load(&g_bms_config_store, payload) &&\n305:         bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {\n306:         bms_config_decode(&g_bms_config, payload);\n307:         /* 装配串数属于板级身份，不能把另一种装配的参数直接用于当前板。 */\n308:         if (g_bms_config.system.series_num != SeriesNum ||\n309:             g_bms_config.system.bms_type != FD_BMS_TYPE) {\n310:             bms_config_defaults(&g_bms_config);\n311:             g_bms_config_needs_save = 1u;\n312:         } else {\n313:             g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);\n314:         }\n315:     } else {\n316:         g_bms_config_store.has_latest = 0u;\n317:         bms_config_defaults(&g_bms_config);\n318:         g_bms_config_needs_save = 1u;\n319:         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS);\n320:     }\n321:     g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;\n322:     g_bms_config_ready = 1u;\n323:     bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OK);\n324:     return 1;"
+        },
+        {
+          "start_line": 419,
+          "end_line": 437,
+          "text": "419: /* 授权 AFE 输出前先校验唯一开发 schema。 */\n420: int bms_config_store_validate_startup(void)\n421: {\n422:     uint16_t invalid = 0u;\n423:     bms_diag_upgrade(DIAG_UPGRADE_STARTED, 0u);\n424:     if (!bms_config_ensure_ready()) return 0;\n425:     if (!bms_sw_protection_validate_params(&g_bms_config.protect)) invalid |= DIAG_UPGRADE_BAD_SW;\n426:     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) invalid |= DIAG_UPGRADE_BAD_AFE;\n427:     if (!bms_soc_config_valid(&g_bms_config.soc)) invalid |= DIAG_UPGRADE_BAD_SOC;\n428:     if (!bms_config_user_valid(&g_bms_config.user)) invalid |= DIAG_UPGRADE_BAD_SW;\n429:     if (g_bms_config.system.series_num != SeriesNum ||\n430:         g_bms_config.system.bms_type != FD_BMS_TYPE ||\n431:         g_bms_config.system.capacity_factory == 0u ||\n432:         g_bms_config.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) invalid |= DIAG_UPGRADE_BAD_CAPACITY;\n433:     if (invalid) { bms_diag_upgrade(DIAG_UPGRADE_VALIDATION, invalid); return 0; }\n434:     if (g_bms_config_needs_save && !bms_config_save_cache(&g_bms_config)) return 0;\n435:     bms_diag_upgrade(DIAG_UPGRADE_CONFIG_OK, 0u);\n436:     return 1;\n437: }"
+        },
+        {
+          "start_line": 467,
+          "end_line": 514,
+          "text": "467: void bms_config_user_defaults(bms_user_params_t *v)\n468: {\n469:     memset(v, 0, sizeof(*v));\n470:     v->heater_enable = 1u;\n471:     v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;\n472:     v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;\n473:     v->balance_enable = BMS_BALANCE_ENABLE_DEFAULT;\n474:     v->balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;\n475:     v->balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;\n476:     v->balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;\n477:     v->current_gain_ppm = 1000000u;\n478:     /* 工厂写入前，空 SN 使用编译期身份。 */\n479: }\n480: \n481: /* 检查用户业务参数范围与一致性。 */\n482: int bms_config_user_valid(const bms_user_params_t *v)\n483: {\n484:     u16 i;\n485:     if (!v || v->heater_enable > 1u || v->heater_start_x10 >= v->heater_stop_x10 ||\n486:         v->heater_stop_x10 > 1650u) return 0;\n487:     if (v->balance_enable > 1u ||\n488:         v->balance_start_mv < BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV ||\n489:         v->balance_start_mv > 4500u ||\n490:         v->balance_start_delta_mv == 0u ||\n491:         v->balance_start_delta_mv > BMS_BALANCE_SUSPECT_DELTA_MV ||\n492:         v->balance_stop_delta_mv >= v->balance_start_delta_mv)\n493:         return 0;\n494:     /* 这是运算/配置边界，不是保护阈值。 */\n495:     if (v->current_offset_ma < -1000000 || v->current_offset_ma > 1000000 ||\n496:         v->current_gain_ppm < 100000u || v->current_gain_ppm > 10000000u) return 0;\n497:     for (i=0u; i<sizeof(v->serial); ++i)\n498:         if (v->serial[i] && ((u8)v->serial[i] < 32u || (u8)v->serial[i] > 126u)) return 0;\n499:     return 1;\n500: }\n501: /* 从配置缓存取得用户业务参数。 */\n502: int bms_config_get_user(bms_user_params_t *v)\n503: {\n504:     if (!v || !bms_config_ensure_ready()) return 0;\n505:     *v = g_bms_config.user;\n506:     return g_bms_config_user_valid;\n507: }\n508: /* 读取持久化电流校准偏移和比例。 */\n509: int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)\n510: {\n511:     if (!offset_ma || !gain_ppm || !bms_config_ensure_ready() ||\n512:         !g_bms_config_user_valid) return 0;\n513:     *offset_ma = g_bms_config.user.current_offset_ma;\n514:     *gain_ppm = g_bms_config.user.current_gain_ppm;"
+        },
+        {
+          "start_line": 562,
+          "end_line": 576,
+          "text": "562: int32_t bms_config_calibrate_current(int32_t raw_ma)\n563: {\n564:     int32_t offset, delta;\n565:     u32 magnitude, scaled;\n566:     if (!g_bms_config_ready || !g_bms_config_user_valid) return raw_ma;\n567:     offset=g_bms_config.user.current_offset_ma;\n568:     if (offset>0 && raw_ma < -2147483647+offset) delta=-2147483647;\n569:     else if (offset<0 && raw_ma > 2147483647+offset) delta=2147483647;\n570:     else delta=raw_ma-offset;\n571:     /* 所有路径采用相同的对称范围；INT32_MIN/零 offset 也先限幅再缩放。 */\n572:     if (delta < -2147483647) delta=-2147483647;\n573:     magnitude=delta<0 ? 0u-(u32)delta : (u32)delta;\n574:     scaled=current_scale_ppm(magnitude,g_bms_config.user.current_gain_ppm);\n575:     return delta<0 ? -(int32_t)scaled : (int32_t)scaled;\n576: }"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/param.c",
+      "sha256": "5ab7309f0735977cd23397442df37c919c1d0858d676ef139efe6fc0e7c9c568",
+      "snippets": [
+        {
+          "start_line": 20,
+          "end_line": 29,
+          "text": "20: PARAM_T g_tParam;\n21: static uint8_t s_protection_params_valid;\n22: static uint8_t s_storage_startup_valid;\n23: \n24: /* 检查软件保护参数的阈值及恢复关系。 */\n25: uint8_t bms_protection_params_valid(void)\n26: {\n27:     return s_protection_params_valid && s_storage_startup_valid;\n28: }\n29: "
+        },
+        {
+          "start_line": 98,
+          "end_line": 119,
+          "text": "98: \n99: /* 加载并验证各持久域，确定启动输出资格。 */\n100: void bms_parameters_startup(void)\n101: {\n102:     /*\n103:      * 启动更新失败持续阻断，直到重启/重走本启动路径；\n104:      * 后续通信 SaveParam 不能清此门禁。\n105:      */\n106:     s_storage_startup_valid = 0u;\n107:     if (!bms_config_store_validate_startup()) goto failed;\n108:     if (!bms_state_store_init()) {\n109:         bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u); goto failed;\n110:     }\n111:     if (!bms_event_log_init()) {\n112:         bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u); goto failed;\n113:     }\n114:     s_storage_startup_valid = 1u;\n115:     bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);\n116:     return;\n117: failed:\n118:     bms_error_raise(BMS_ERROR_EEPROM_STORE);\n119: }"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/bms_afe_hw_access.c",
+      "sha256": "fcd5739be030a150d61c2c88bd59aa41710db61122ea783fc4a83c5094dfe1d7",
+      "snippets": [
+        {
+          "start_line": 179,
+          "end_line": 197,
+          "text": "179:         count = req[6];\n180:         if (!count || count > ACCESS_CHUNK_BYTES || req_len != (u32)(9u + count) ||\n181:             req[5] != s_received || (u16)s_received + count > ACCESS_FRAME_BYTES) goto bad_fragment;\n182:         for (i = 0u; i < count; ++i) s_frame[s_received + i] = req[7u + i];\n183:         s_received = (u8)(s_received + count);\n184:         s_fragment_tick = clock_time();\n185:         access_put_u16be(payload, s_token); payload[2] = s_received;\n186:         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_OK, payload, 3u, rsp, rsp_len);\n187:     }\n188:     if (command == BMS_AFE_HW_ACCESS_CMD_COMMIT) {\n189:         u8 error;\n190:         if (s_received != ACCESS_FRAME_BYTES || s_frame[0] != req[0]) goto bad_fragment;\n191:         s_received = 0u; /* 仅消耗一次授权，即使持久化/应用失败也不重复使用。 */\n192:         error = bms_afe_hw_write_complete_frame(s_frame, ACCESS_FRAME_BYTES);\n193:         return access_response(req[0], command, error ? BMS_AFE_HW_ACCESS_STATUS_APPLY_FAILED :\n194:                                BMS_AFE_HW_ACCESS_STATUS_OK, 0, 0u, rsp, rsp_len);\n195:     }\n196:     switch (command)\n197:     {"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/bms_sw_protection.c",
+      "sha256": "1168442070d2e1fb5a1f639e60155607e80519bd89875844cf5cf270b0991345",
+      "snippets": [
+        {
+          "start_line": 273,
+          "end_line": 311,
+          "text": "273: /* 清除软件保护状态与内部滤波计数。 */\n274: void bms_sw_protection_clear(void)\n275: {\n276:     uint8_t level;\n277:     memset(s_filter, 0, sizeof(s_filter));\n278:     memset(s_sw_fault, 0, sizeof(s_sw_fault));\n279:     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)\n280:         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));\n281:     bms_error_clear(BMS_ERROR_TEMP_BREAK);\n282: }\n283: \n284: /* 初始化软件保护参数和状态。 */\n285: void bms_sw_protection_init(void)\n286: {\n287:     uint8_t charge_oc = s_current_recovery_requires_evidence &&\n288:                         s_filter[2][BMS_SW_F_CHG_OC].active;\n289:     uint8_t discharge_oc = s_current_recovery_requires_evidence &&\n290:                            s_filter[2][BMS_SW_F_DSG_OC].active;\n291:     memset(s_prev_fault, 0, sizeof(s_prev_fault));\n292:     bms_sw_protection_clear();\n293:     /*\n294:      * AFE 通信重初始化不能证明负载/充电器已移除；保留故障，只作废部分恢复窗口。\n295:      * MCU 冷启动仍从零初始化 RAM 开始，此状态不持久化。\n296:      */\n297:     s_filter[2][BMS_SW_F_CHG_OC].active = charge_oc;\n298:     s_filter[2][BMS_SW_F_DSG_OC].active = discharge_oc;\n299:     s_sw_fault[2].bits.b1IchgOcp = charge_oc;\n300:     s_sw_fault[2].bits.b1IdischgOcp = discharge_oc;\n301:     bms_sw_fault_reg(2u)->all |= s_sw_fault[2].all;\n302: }\n303: \n304: /* 复位电流保护的恢复确认状态。 */\n305: void bms_sw_protection_reset_current_recovery(void)\n306: {\n307:     s_filter[2][BMS_SW_F_CHG_OC].recover_count = 0u;\n308:     s_filter[2][BMS_SW_F_DSG_OC].recover_count = 0u;\n309: }\n310: \n311: /* 查询软件放电过流三级保护是否激活。 */"
+        }
+      ]
+    },
+    {
+      "file": "bms/core/bms_state_store.c",
+      "sha256": "021d7c04b7c0becc851bb1efb370415eb7852187f5ca711c85e7e59379005b93",
+      "snippets": [
+        {
+          "start_line": 20,
+          "end_line": 44,
+          "text": "20: #define BMS_STATE_SCHEMA_VERSION      2u\n21: #define BMS_STATE_PAYLOAD_WORDS       11u\n22: #define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u + 4u)\n23: \n24: typedef struct {\n25:     u16 soc_revision;\n26:     u16 runtime_revision;\n27:     u32 soc;\n28:     u32 dsg;\n29:     u32 cycle;\n30:     u32 learned_capacity_0p1ah;\n31:     u32 flags;\n32:     u32 runtime_min;\n33:     u32 candidate_capacity_0p1ah;\n34:     u32 valid_learning_count;\n35:     u32 rejected_learning_count;\n36:     u32 last_learning_reject_reason;\n37:     u32 candidate_match_count;\n38: } bms_state_persist_t;\n39: \n40: static storage_record_store_t g_bms_state_store;\n41: static bms_state_persist_t g_bms_state;\n42: static u8 g_bms_state_ready;\n43: /* 待 checkpoint 的状态副本；与当前持久状态分离以保留失败后的重试内容。 */\n44: static bms_state_persist_t g_bms_state_pending;"
+        },
+        {
+          "start_line": 159,
+          "end_line": 224,
+          "text": "159: int bms_state_store_init(void)\n160: {\n161:     const storage_port_t *port;\n162:     storage_region_t region;\n163:     u8 payload[BMS_STATE_PAYLOAD_BYTES];\n164:     bms_state_persist_t next;\n165:     if (g_bms_state_ready) return 1;\n166:     bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);\n167:     if (g_bms_state_attempted && g_bms_state_last_failed &&\n168:         (u32)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }\n169:     port = bms_storage_platform_port();\n170:     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }\n171:     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }\n172:     if (!storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,\n173:                              BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) {\n174:         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); goto invalid;\n175:     }\n176:     if (storage_record_load(&g_bms_state_store, payload)) bms_state_decode(&g_bms_state, payload);\n177:     else { bms_state_defaults(&g_bms_state); bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS); }\n178:     next = g_bms_state;\n179:     if (next.soc_revision != BMS_UPDATE_SOC_STATE_REVISION) {\n180:         u32 runtime_min = next.runtime_min;\n181:         u16 runtime_revision = next.runtime_revision;\n182:         bms_state_defaults(&next);\n183:         next.runtime_min = runtime_min;\n184:         next.runtime_revision = runtime_revision;\n185:     }\n186:     if (next.runtime_revision != BMS_UPDATE_FACTORY_RUNTIME_REVISION) {\n187:         next.runtime_min = 0u;\n188:         next.runtime_revision = BMS_UPDATE_FACTORY_RUNTIME_REVISION;\n189:     }\n190:     if (next.soc > 100u || next.dsg > 100u ||\n191:         next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||\n192:         next.candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||\n193:         (next.flags & ~(BMS_STATE_FLAG_LOW_MASK | BMS_STATE_FLAG_NOMINAL_MASK)) != 0u ||\n194:         (next.flags & BMS_STATE_FLAG_LOW_MASK &\n195:          ~(BMS_STATE_FLAG_CAPACITY_LEARNED | BMS_STATE_FLAG_LEARNING_META |\n196:            BMS_STATE_FLAG_LEARNING_ACTIVE)) != 0u ||\n197:         (next.flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) > BMS_SOC_CAPACITY_MAX_0P1AH ||\n198:         next.valid_learning_count > 65535u || next.rejected_learning_count > 65535u ||\n199:         next.last_learning_reject_reason > 255u || next.candidate_match_count > 255u) {\n200:         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;\n201:     }\n202:     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }\n203:     g_bms_state_pending = g_bms_state;\n204:     g_bms_state_last_attempt_32k = pm_get_32k_tick();\n205:     g_bms_state_attempted = 1u;\n206:     g_bms_state_ready = 1u;\n207:     bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);\n208:     return 1;\n209: invalid:\n210:     g_bms_state_attempted = 1u;\n211:     g_bms_state_last_failed = 1u;\n212:     g_bms_state_last_attempt_32k = pm_get_32k_tick();\n213:     bms_error_raise(BMS_ERROR_EEPROM_STORE);\n214:     return 0;\n215: }\n216: \n217: /* 取得缓存的 SOC、循环和学习状态。 */\n218: bms_state_store_data_t bms_state_store_get(void)\n219: {\n220:     bms_state_store_data_t data = bms_state_store_get_default_data();\n221:     if (!bms_state_store_init()) return data;\n222:     data.soc = g_bms_state.soc;\n223:     data.dsg = g_bms_state.dsg;\n224:     data.cycle = g_bms_state.cycle;"
+        }
+      ]
+    },
+    {
+      "file": "bms/afe/dvc1124/dvc1124.c",
+      "sha256": "c6e2b1f374250f138ba88549bcdb9d88433744332c9efbcf17a184d2762fe98b",
+      "snippets": [
+        {
+          "start_line": 995,
+          "end_line": 1016,
+          "text": "995: static void dvc_note_comm_result(uint8_t ok)\n996: {\n997:     if (ok)\n998:     {\n999:         g_bms_system_status.bits.b1Status_AFE1 = 1u;\n1000:         bms_error_clear(BMS_ERROR_AFE1);\n1001:     }\n1002:     else\n1003:     {\n1004:         g_bms_system_status.bits.b1Status_AFE1 = 0u;\n1005:         bms_error_raise(BMS_ERROR_AFE1);\n1006:     }\n1007: }\n1008: \n1009: /* 应用并验证 DVC 硬件保护参数。 */\n1010: uint8_t DVC1124_ApplyProtectionConfig(void)\n1011: {\n1012:     uint8_t ok = dvc_apply_protection_from_params();\n1013: \n1014:     dvc_note_comm_result(ok);\n1015:     return ok;\n1016: }"
+        },
+        {
+          "start_line": 1578,
+          "end_line": 1604,
+          "text": "1578:     uint8_t write_addr;\n1579:     uint8_t configured_ntc_ok = 1u;\n1580: \n1581:     if (s_need_config)\n1582:     {\n1583:         DVC1124_UpdataAfeConfig();\n1584:         if (s_need_config)\n1585:         {\n1586:             s_snapshot.valid = 0u;\n1587:             return;\n1588:         }\n1589:     }\n1590: \n1591:     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))\n1592:     {\n1593:         s_snapshot.valid = 0u;\n1594:         g_stCellInfoReport.u16Ichg = 0u;\n1595:         g_stCellInfoReport.u16IDischg = 0u;\n1596:         dvc_note_comm_result(0u);\n1597:         return;\n1598:     }\n1599: \n1600:     write_addr = DVC1124_GetWriteAddress();\n1601:     s_snapshot.valid = 1u;\n1602:     s_snapshot.alarm = data[DVC1124_REG_ALARM];\n1603:     s_snapshot.status = data[DVC1124_REG_STATUS];\n1604:     s_snapshot.write_addr = write_addr;"
+        },
+        {
+          "start_line": 1706,
+          "end_line": 1715,
+          "text": "1706: \n1707:     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */\n1708:     if (!dvc_refresh_balance_state())\n1709:     {\n1710:         g_stCellInfoReport.u16BalanceFlag1 = 0u;\n1711:         g_stCellInfoReport.u16BalanceFlag2 = 0u;\n1712:     }\n1713:     dvc_note_comm_result(1u);\n1714: }\n1715: "
+        }
+      ]
+    },
+    {
+      "file": "bms/platform/telink/bms_storage_platform_telink.c",
+      "sha256": "f2d448c91544bbee5535b707ffabca5851c036a8fd4a6a31ec95841ed964d52b",
+      "snippets": [
+        {
+          "start_line": 35,
+          "end_line": 65,
+          "text": "35:     }\n36:     return ok;\n37: }\n38: \n39: /* 存储事务门禁；Flash 解锁和 OTA 状态按现有策略决定能否写入，失败必须向上返回。 */\n40: static int bms_storage_telink_begin(void *ctx)\n41: {\n42:     (void)ctx;\n43:     if (ota_is_working ||\n44: #if (APP_FLASH_PROTECTION_ENABLE)\n45:         !app_flash_lock_restore_enabled() ||\n46: #endif\n47:         (s_flash_failed && (u32)(pm_get_32k_tick() - s_flash_failure_tick_32k) < BMS_STORAGE_RETRY_INTERVAL_32K)) {\n48:         uint16_t reason = ota_is_working ? DIAG_OTA : DIAG_BACKOFF;\n49: #if APP_FLASH_PROTECTION_ENABLE\n50:         if (!ota_is_working && !app_flash_lock_restore_enabled()) reason = DIAG_LOCK;\n51: #endif\n52:         bms_diag_storage_error(reason, 0u);\n53:         if (s_flash_diag.deferred_writes != 0xFFFFFFFFu) ++s_flash_diag.deferred_writes;\n54:         return 0;\n55:     }\n56:     s_flash_failed = 0u;\n57:     flash_store_begin_modify();\n58:     return 1;\n59: }\n60: \n61: /* 结束 Flash 修改事务并恢复保护状态。 */\n62: static void bms_storage_telink_end(void *ctx)\n63: {\n64:     (void)ctx;\n65:     flash_store_end_modify();"
+        },
+        {
+          "start_line": 80,
+          "end_line": 133,
+          "text": "80:                                       uint32_t len)\n81: {\n82:     uint32_t write_addr = addr;\n83:     const uint8_t *write_buf = buf;\n84:     uint32_t write_len = len;\n85:     u32 started = pm_get_32k_tick(), elapsed;\n86:     int ok;\n87:     if (s_flash_diag.program_calls != 0xFFFFFFFFu) ++s_flash_diag.program_calls;\n88: \n89:     (void)ctx;\n90:     while (write_len != 0u) {\n91:         uint32_t page_off = write_addr % FLASH_PAGE_SIZE;\n92:         uint32_t chunk = FLASH_PAGE_SIZE - page_off;\n93:         if (chunk > write_len) chunk = write_len;\n94:         flash_write_page((u32)write_addr, (int)chunk, (u8 *)write_buf);\n95:         write_addr += chunk;\n96:         write_buf += chunk;\n97:         write_len -= chunk;\n98:     }\n99:     ok = flash_store_verify_bytes((u32)addr, (const u8 *)buf, (u32)len);\n100:     elapsed = (u32)(pm_get_32k_tick() - started);\n101:     if (elapsed > s_flash_diag.max_program_ticks_32k) s_flash_diag.max_program_ticks_32k = elapsed;\n102:     if (!ok) bms_diag_storage_error(DIAG_PROGRAM_VERIFY, addr);\n103:     return bms_storage_verify_result(ok);\n104: }\n105: \n106: /* 按擦除粒度擦除 Flash 并记录结果。 */\n107: static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)\n108: {\n109:     u32 started, elapsed;\n110:     int ok;\n111:     (void)ctx;\n112:     if ((len != FLASH_SECTOR_SIZE) || ((addr % FLASH_SECTOR_SIZE) != 0u)) return 0;\n113:     started = pm_get_32k_tick();\n114:     if (s_flash_diag.erase_calls != 0xFFFFFFFFu) ++s_flash_diag.erase_calls;\n115:     flash_erase_sector((u32)addr);\n116:     ok = flash_store_verify_erased((u32)addr, FLASH_SECTOR_SIZE);\n117:     if (!ok) bms_diag_storage_error(DIAG_ERASE_VERIFY, addr);\n118:     elapsed = (u32)(pm_get_32k_tick() - started);\n119:     if (elapsed > s_flash_diag.max_erase_ticks_32k) s_flash_diag.max_erase_ticks_32k = elapsed;\n120:     return bms_storage_verify_result(ok);\n121: }\n122: \n123: /* 取得 Telink 存储端口操作集合。 */\n124: const storage_port_t *bms_storage_platform_port(void)\n125: {\n126:     static const storage_port_t port = {\n127:         0, FLASH_SECTOR_SIZE, 4u, 0xFFu,\n128:         bms_storage_telink_begin, bms_storage_telink_end,\n129:         bms_storage_telink_read, bms_storage_telink_program,\n130:         bms_storage_telink_erase,\n131:     };\n132:     return &port;\n133: }"
+        }
+      ]
+    }
+  ]
+}

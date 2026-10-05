@@ -1,0 +1,48 @@
+4 串至 24 串电池组监控芯片                                              DVC1124-2 数据手册
+
+电气特性
+符号        参数            条件                            最小值     典型值      最大值    单位
+VADC 规格
+          输入范围          C(n)-C(n-1), n=1…24           -0.3             5.0    V
+                        GP(n)-VSS, n=1…6               0               1.98   V
+                        V1P8-VSS                       0               1.98   V
+                        C24-VSS, PACK-VSS, LOAD-VSS    0               120    V
+          测量分辨率         C(n)-C(n-1), n=1…24                    100            μV/bit
+                        GP(n)-VSS, n=1…6
+                        V1P8-VSS
+                        C24-VSS, PACK-VSS, LOAD-VSS            12.8           mV/bit
+          ADC 偏移电压      C(n)-C(n-1), n=1…24                     1             mV
+                        GP(n)-VSS, n=1…6
+                        V1P8-VSS
+                        C24-VSS, PACK-VSS, LOAD-VSS
+          ADC 增益误差      C(n)-C(n-1), n=1…24                    0.1            %
+                        GP(n)-VSS, n=1…6
+                        V1P8-VSS
+                        C24-VSS, PACK-VSS, LOAD-VSS
+          25°C 测量误差     C(n)-C(n-1), n=1…24                    ±5             mV
+                        GP(n)-VSS, n=1…6
+                        V1P8-VSS
+                        C24-VSS, PACK-VSS, LOAD-VSS           ±500            mV
+          未进行测量时的输入漏电   C(n), n=0…24
+                                                               ±10            nA
+          流
+                        GP(n), n=1…6
+                        V1P8
+                        C24, PACK, LOAD                        10             nA
+          进行测量时的输入漏电流   C(n), n=0…24                           ±1             μA
+                        GP(n), n=1…6
+                        V1P8
+                        C24, PACK, LOAD                                31     μA
+          测量时间          单个通道                          0.791    1.54    6.02   ms
+                        全部通道                          34.5     61.4    223    ms
+CADC 规格
+          输入范围                                        -150             150    mV
+          测量分辨率         CC1                                     5             μV/bit
+                        CC2                                   0.3125          μV/bit
+          ADC 偏移电压                                             50             μV
+          ADC 增益误差                                             0.1            %
+          测量误差                                                ±200            μV
+
+
+南京集澈电子科技有限公司                           1.1                                    7 / 29
+宜矽源半导体南京有限公司

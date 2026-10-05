@@ -1,0 +1,79 @@
+                                                                                                           bq76920, bq76930, bq76940
+www.ti.com                                                                                SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+Electrical Characteristics (continued)
+Typical conditions are measured at 25ºC with nominal BAT voltages of 18 V (bq76920), 36 V (bq76930), or 48 V (bq76940)
+with VCELL = 4 V. Min and max values include full recommended operating condition temperature range from –40ºC to +85ºC.
+Certain characteristics may be shown at different voltage or temperature ranges, as clarified in the Test Condition sections.
+     PARAMETER            DESCRIPTION                       TEST CONDITION                        MIN          TYP          MAX       UNIT
+IEXTLDO_LIMIT       External LDO current limit REGOUT = 0 V                                           30           38          45         mA
+BOOT DETECTOR
+                                                  Measured at TS1 pin with device in
+                                                  SHIP mode. Below MIN, device will not
+VBOOT               Boot threshold voltage                                                        300                       1000          mV
+                                                  boot up. Above MAX, device will be
+                                                  guaranteed to boot up.
+                                               Measured at TS1 pin. Below MIN,
+                    Boot threshold application
+tBOOT_max                                      device will not boot up. Above MAX,                    10                    2000          µs
+                    time
+                                               device will be guaranteed to boot up.
+
+
+6.6       Timing Requirements
+ 2
+I C COMPATIBLE INTERFACE                                                                       MIN           TYP          MAX        UNIT
+                                                                                                                    REGOUT x
+VIL             Input Low Logic Threshold                                                                                                 V
+                                                                                                                        0.25
+                                                                                          REGOUT x
+VIH             Input High Logic Threshold                                                                                                V
+                                                                                              0.75
+VOL             Output Low Logic Drive                                                                                     0.20           V
+tf              SCL, SDA Fall Time                                                                                         0.40
+VOH             Output High Logic Drive (Not applicable due to open-drain outputs)             N/A                          N/A           V
+tHIGH           SCL Pulse Width High                                                            4.0                                       µs
+tLOW            SCL Pulse Width Low                                                             4.7                                       µs
+tSU;STA         Setup time for START condition                                                  4.7                                       µs
+tHD;STA         START condition hold time after which first clock pulse is generated            4.0                                       µs
+tSU;DAT         Data setup time                                                                250                                        ns
+tHD;DAT         Data hold time                                                                   0                                        µs
+tSU;STO         Setup time for STOP condition                                                   4.0                                       µs
+tBUF            Time the bus must be free before new transmission can start                     4.7                                       µs
+tVD;DAT         Clock Low to Data Out Valid                                                                                 900           ns
+tHD;DAT         Data Out Hold Time After Clock Low                                               0                                        ns
+fSCL            Clock Frequency                                                                  0                          100       kHz
+
+
+
+
+                            SCL
+
+
+
+                           SDA
+
+
+
+
+                            SCL
+
+                           SDA
+
+
+
+
+                            SCL
+
+                           SDA
+
+
+
+
+                                                          Figure 6-1. I2C Timing
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                                         Electrical Specifications        17
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

@@ -1,0 +1,447 @@
+{
+  "layer": "full unmodified control.c TU + unmodified ntc.c; mocked register transport,GPIO,profile getter; not full firmware nor board",
+  "source_sha256": "ee4a28b83e683ba109439db1d03f2e61326700b83e68dee44d805a6980df2f36",
+  "results": {
+    "d011": [
+      {
+        "registers": {
+          "0x40": 0,
+          "0x41": 80,
+          "0x42": 68,
+          "0x43": 106,
+          "0x44": 60,
+          "0x45": 63,
+          "0x46": 4,
+          "0x47": 87,
+          "0x48": 255,
+          "0x49": 66,
+          "0x4A": 238,
+          "0x4B": 114,
+          "0x4C": 88,
+          "0x4D": 0,
+          "0x4E": 48,
+          "0x4F": 7,
+          "0x50": 1,
+          "0x51": 133,
+          "0x52": 118,
+          "0x53": 119,
+          "0x54": 192,
+          "0x55": 0,
+          "0x56": 0,
+          "0x57": 0,
+          "0x58": 0,
+          "0x59": 0
+        },
+        "type": "DEFAULT"
+      },
+      {
+        "request_us": 0,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 2,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 4,
+        "reg": 1,
+        "code": 1,
+        "pdf_actual_us": 32,
+        "type": "SCT"
+      },
+      {
+        "request_us": 8,
+        "reg": 2,
+        "code": 2,
+        "pdf_actual_us": 64,
+        "type": "SCT"
+      },
+      {
+        "request_us": 16,
+        "reg": 3,
+        "code": 3,
+        "pdf_actual_us": 96,
+        "type": "SCT"
+      },
+      {
+        "request_us": 32,
+        "reg": 4,
+        "code": 4,
+        "pdf_actual_us": 128,
+        "type": "SCT"
+      },
+      {
+        "request_us": 64,
+        "reg": 5,
+        "code": 5,
+        "pdf_actual_us": 192,
+        "type": "SCT"
+      },
+      {
+        "request_us": 96,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 128,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 129,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 192,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 224,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 256,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "enable_mask": 8,
+        "SCONF6": 4,
+        "OCD1V": 0,
+        "OCD2V": 48,
+        "type": "OCD_SPLIT"
+      },
+      {
+        "SCONF3": 72,
+        "changed": 1,
+        "type": "CRLD_LOAD"
+      },
+      {
+        "SCONF3": 68,
+        "changed": 1,
+        "type": "CRLD_CPLUS"
+      },
+      {
+        "SCONF3": 74,
+        "returned_ok": 0,
+        "CRLD_actual": 2,
+        "type": "CRLD_OWD_SELFCLEAR"
+      }
+    ],
+    "d013": [
+      {
+        "registers": {
+          "0x40": 0,
+          "0x41": 80,
+          "0x42": 68,
+          "0x43": 100,
+          "0x44": 60,
+          "0x45": 63,
+          "0x46": 4,
+          "0x47": 87,
+          "0x48": 255,
+          "0x49": 66,
+          "0x4A": 238,
+          "0x4B": 114,
+          "0x4C": 88,
+          "0x4D": 0,
+          "0x4E": 48,
+          "0x4F": 7,
+          "0x50": 0,
+          "0x51": 133,
+          "0x52": 118,
+          "0x53": 119,
+          "0x54": 192,
+          "0x55": 0,
+          "0x56": 0,
+          "0x57": 0,
+          "0x58": 0,
+          "0x59": 0
+        },
+        "type": "DEFAULT"
+      },
+      {
+        "request_us": 0,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 2,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 4,
+        "reg": 1,
+        "code": 1,
+        "pdf_actual_us": 32,
+        "type": "SCT"
+      },
+      {
+        "request_us": 8,
+        "reg": 2,
+        "code": 2,
+        "pdf_actual_us": 64,
+        "type": "SCT"
+      },
+      {
+        "request_us": 16,
+        "reg": 3,
+        "code": 3,
+        "pdf_actual_us": 96,
+        "type": "SCT"
+      },
+      {
+        "request_us": 32,
+        "reg": 4,
+        "code": 4,
+        "pdf_actual_us": 128,
+        "type": "SCT"
+      },
+      {
+        "request_us": 64,
+        "reg": 5,
+        "code": 5,
+        "pdf_actual_us": 192,
+        "type": "SCT"
+      },
+      {
+        "request_us": 96,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 128,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 129,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 192,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 224,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 256,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "enable_mask": 8,
+        "SCONF6": 4,
+        "OCD1V": 0,
+        "OCD2V": 48,
+        "type": "OCD_SPLIT"
+      },
+      {
+        "SCONF3": 72,
+        "changed": 1,
+        "type": "CRLD_LOAD"
+      },
+      {
+        "SCONF3": 68,
+        "changed": 1,
+        "type": "CRLD_CPLUS"
+      },
+      {
+        "SCONF3": 74,
+        "returned_ok": 0,
+        "CRLD_actual": 2,
+        "type": "CRLD_OWD_SELFCLEAR"
+      }
+    ],
+    "d014": [
+      {
+        "registers": {
+          "0x40": 0,
+          "0x41": 80,
+          "0x42": 68,
+          "0x43": 104,
+          "0x44": 60,
+          "0x45": 63,
+          "0x46": 4,
+          "0x47": 87,
+          "0x48": 255,
+          "0x49": 66,
+          "0x4A": 238,
+          "0x4B": 114,
+          "0x4C": 88,
+          "0x4D": 1,
+          "0x4E": 49,
+          "0x4F": 7,
+          "0x50": 4,
+          "0x51": 133,
+          "0x52": 118,
+          "0x53": 119,
+          "0x54": 192,
+          "0x55": 0,
+          "0x56": 0,
+          "0x57": 0,
+          "0x58": 0,
+          "0x59": 0
+        },
+        "type": "DEFAULT"
+      },
+      {
+        "request_us": 0,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 2,
+        "reg": 0,
+        "code": 0,
+        "pdf_actual_us": 0,
+        "type": "SCT"
+      },
+      {
+        "request_us": 4,
+        "reg": 1,
+        "code": 1,
+        "pdf_actual_us": 32,
+        "type": "SCT"
+      },
+      {
+        "request_us": 8,
+        "reg": 2,
+        "code": 2,
+        "pdf_actual_us": 64,
+        "type": "SCT"
+      },
+      {
+        "request_us": 16,
+        "reg": 3,
+        "code": 3,
+        "pdf_actual_us": 96,
+        "type": "SCT"
+      },
+      {
+        "request_us": 32,
+        "reg": 4,
+        "code": 4,
+        "pdf_actual_us": 128,
+        "type": "SCT"
+      },
+      {
+        "request_us": 64,
+        "reg": 5,
+        "code": 5,
+        "pdf_actual_us": 192,
+        "type": "SCT"
+      },
+      {
+        "request_us": 96,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 128,
+        "reg": 6,
+        "code": 6,
+        "pdf_actual_us": 224,
+        "type": "SCT"
+      },
+      {
+        "request_us": 129,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 192,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 224,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "request_us": 256,
+        "reg": 7,
+        "code": 7,
+        "pdf_actual_us": 256,
+        "type": "SCT"
+      },
+      {
+        "enable_mask": 8,
+        "SCONF6": 4,
+        "OCD1V": 1,
+        "OCD2V": 49,
+        "type": "OCD_SPLIT"
+      },
+      {
+        "SCONF3": 72,
+        "changed": 1,
+        "type": "CRLD_LOAD"
+      },
+      {
+        "SCONF3": 68,
+        "changed": 1,
+        "type": "CRLD_CPLUS"
+      },
+      {
+        "SCONF3": 74,
+        "returned_ok": 0,
+        "CRLD_actual": 2,
+        "type": "CRLD_OWD_SELFCLEAR"
+      }
+    ]
+  }
+}

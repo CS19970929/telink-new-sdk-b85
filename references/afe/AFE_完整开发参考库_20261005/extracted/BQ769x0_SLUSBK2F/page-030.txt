@@ -1,0 +1,68 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                      www.ti.com
+
+
+
+        •    In a block read transaction, the CRC for the first data byte is calculated after the second start and uses
+             the slave address and data byte. The CRC for subsequent data bytes is calculated over the data byte
+             only.
+        The CRC polynomial is x8 + x2 + x + 1, and the initial value is 0.
+        When the master detects a bad CRC, the I2C master will NACK the CRC, which causes the I2C slave to
+        go to an idle state.
+
+               SCL
+
+
+               SDA           A6 A5 ... A0 R/W ACK     R7 R6 ... R0 ACK                A6 A5 ... A0 R/W ACK
+
+                     Start       Slave Address             Register      Stop Start       Slave Address
+                                                           Address
+
+
+
+
+                                                                           D7 D6 ... D0 ACK         C7 C6 ... C0 NACK
+                                                                                  Slave                  Slave          Stop
+                                                                               Drives Data            Drives CRC
+                                                                                                       (optional) Master
+                                                                                                                  Drives NACK
+
+                                         Figure 7-6. I2C Read Without Repeated Start
+
+7.4     Device Functional Modes
+        Each bq769x0 device supports the following modes of operation.
+
+
+                                                 Table 7-2. Supported Power Modes
+                     Mode                                              Description
+                                 Fully operational state. Both ADC and CC may be on, or disabled by host microcontroller.
+                                 OV and UV protection enabled if ADC is on. OCD and SCD enabled. ADC and CC may be
+                   NORMAL
+                                 disabled to reduce power consumption, and CC may be operated in a “1-SHOT” mode for
+                                 flexible power savings.
+                                 Lowest possible power state, intended for pack assembly and/or long term pack storage.
+                     SHIP        Must see a BOOT signal (> 1 VBOOT) on TS1 pin to boot from SHIP → NORMAL. Note
+                                 that the device always enters SHIP mode upon POR.
+
+
+7.4.1       NORMAL Mode
+        NORMAL mode represents the fully operational mode where all blocks are enabled and the device sees
+        its highest current consumption. In this mode, certain blocks/functions may be disabled to save
+        power—these include the ADC and CC. OV and UV are running continuously as long as the ADC is
+        enabled. The OCD and SCD comparators may not be disabled in this mode.
+        Transitioning from NORMAL to SHIP mode is also initiated by the host, and requires consecutive writes to
+        two bits in the SYS_CTRL1 register.
+
+7.4.2       SHIP Mode
+        SHIP mode is the basic and lowest power mode that bq769x0 supports. SHIP mode is automatically
+        entered during initial pack assembly and after every POR event. When the device is in NORMAL mode, it
+        may enter SHIP by the host controller via a specific sequence of I2C commands.
+        In SHIP mode, only a minimum of blocks are turned on, including the VSTUP power supply and primal
+        boot detector. Waking from SHIP mode to NORMAL mode requires pulling the TS1 pin greater than
+        VBOOT, which triggers the device boot-up sequence.
+
+
+
+30      Detailed Description                                                                 Copyright © 2013–2015, Texas Instruments Incorporated
+                                                     Submit Documentation Feedback
+                                             Product Folder Links: bq76920 bq76930 bq76940

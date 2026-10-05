@@ -1,0 +1,32 @@
+[bms] source order: 100 objects
+[bms] cppcheck native: 37 C translation units from real compile database
+[bms] actual build sources: 100 (98 C + 2 assembly)
+[bms] cppcheck analysed translation units: 37; application headers: 52; SDK headers parse-only: 129; coverage gaps: 0
+[bms] SDK diagnostics excluded by scope policy: 129 dependency files
+[bms] total issues: 107 distinct (107 raw native occurrences); severity={'style': 107}
+[bms] MISRA: not executed; findings=0
+[bms] static analysis complete -> C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-audit-final-20261006\build\fcdfbbf61247\production-16s-lfp\d008\static\run_20261005T232446Z
+[bms] source order: 99 objects
+[bms] cppcheck native: 36 C translation units from real compile database
+[bms] actual build sources: 99 (97 C + 2 assembly)
+[bms] cppcheck analysed translation units: 36; application headers: 52; SDK headers parse-only: 129; coverage gaps: 2
+[bms] SDK diagnostics excluded by scope policy: 129 dependency files
+[bms] total issues: 103 distinct (103 raw native occurrences); severity={'style': 103}
+[bms] MISRA: not executed; findings=0
+[bms] static analysis complete -> C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-audit-final-20261006\build\fcdfbbf61247\production\d011\static\run_20261005T232507Z
+[bms] source order: 99 objects
+[bms] cppcheck native: 36 C translation units from real compile database
+[bms] actual build sources: 99 (97 C + 2 assembly)
+[bms] cppcheck analysed translation units: 36; application headers: 52; SDK headers parse-only: 129; coverage gaps: 2
+[bms] SDK diagnostics excluded by scope policy: 129 dependency files
+[bms] total issues: 103 distinct (103 raw native occurrences); severity={'style': 103}
+[bms] MISRA: not executed; findings=0
+[bms] static analysis complete -> C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-audit-final-20261006\build\fcdfbbf61247\production\d013\static\run_20261005T232532Z
+[bms] source order: 99 objects
+[bms] cppcheck native: 36 C translation units from real compile database
+[bms] actual build sources: 99 (97 C + 2 assembly)
+[bms] cppcheck analysed translation units: 36; application headers: 52; SDK headers parse-only: 129; coverage gaps: 2
+[bms] SDK diagnostics excluded by scope policy: 129 dependency files
+[bms] total issues: 103 distinct (103 raw native occurrences); severity={'style': 103}
+[bms] MISRA: not executed; findings=0
+[bms] static analysis complete -> C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-audit-final-20261006\build\fcdfbbf61247\production\d014\static\run_20261005T232555Z

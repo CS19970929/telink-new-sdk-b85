@@ -1,0 +1,59 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                           www.ti.com
+
+
+
+                                 Table 8-4. bq769x0 Design Requirements (continued)
+                      DESIGN PARAMETER                                           EXAMPLE VALUE at TA = 25°C
+                        UV Protection Delay                                                     4s
+                  OCD Protection Threshold Max                                                15 A
+                    OCD Protection Delay Time                                                320 ms
+                  SCD Protection Threshold Max                                                25 A
+                    SCD Protection Delay Time                                                100 µs
+
+
+8.2.2       Detailed Design Procedure
+        To begin the design process, there are some key steps required for component selection and protection
+        configuration.
+
+8.2.2.1      Step-by-Step Design Procedure
+        •    Determine the number of series cells.
+             – This value depends on the cell chemistry and the load requirements of the system. For example, to
+                 support a minimum battery voltage of 24 V using Li-CO2 type cells with a cell minimum voltage of
+                 3.0 V, there needs to be at least 8-series cells.
+        •    Select the correct bq769x0 device.
+             – For 8-series cells, the bq76930 is needed.
+             – For the correct cell connections, see Table 8-2.
+        •    Select the correct protection FETs.
+             – The bq76930 uses a low-side drive suitable for N-CH FETs.
+             – These FETs should be rated for the maximum:
+                 • Voltage, which should be approximately 5 V (DC) 10 V (peak) per series cell: for example, 40 V.
+                 • Current, which should be calculated based on both the maximum DC current and the maximum
+                     transient current with some margin: for example, 30 A.
+                 • Power Dissipation, which can be a factor of the RDS(ON) rating of the FET, the FET package,
+                     and the PCB design: for example, 5 W, assuming 5 mΩ RDS(ON).
+        •    Select the correct sense resistor.
+             – The resistance value should be selected to maximize the input bandwidth use of the coulomb
+                 counter range, CCRANGE, but not exceed the absolute maximum ratings.
+                 • Using the normal max discharge current, RSNS = 200 mV / 10.0 A = 20 mΩ.
+                 • However, considering ISCD of 25 A and Abs Max SRP–SRN input of –300 mV, RSNS = 300 mV
+                     / 25 A = 7.5 mΩ
+                 • The maximum operating current of the system should also be considered as this should be
+                     below the maximum OCD Threshold, which with a RSNS of 7.5 mΩ gives a max OCD current
+                     setting of 13.3 A.
+             – Further tolerance analysis (value tolerance, temperature variation, and so on) and PCB design
+                 margin should also be considered, so RSNS of 5 mΩ would be suitable with a 75-ppm temperature
+                 coefficient and power rating of 5 W.
+        •    The bq76930 is chosen, and so the REGSRC pin needs to be powered through a source follower
+             circuit where the FET is used to provide current for REGSRC from the battery positive terminal while
+             reducing the voltage to a suitable value for the IC.
+             – The FET also dissipates the power resulting from the load current and dropped voltage external to
+                 the IC and care should be taken to ensure the correct dissipation ratings are specified by the
+                 chosen FET.
+
+
+
+
+46      Application and Implementation                                            Copyright © 2013–2015, Texas Instruments Incorporated
+                                                  Submit Documentation Feedback
+                                          Product Folder Links: bq76920 bq76930 bq76940

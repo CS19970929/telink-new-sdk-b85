@@ -1,0 +1,84 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                      www.ti.com
+
+
+
+Electrical Characteristics (continued)
+Typical conditions are measured at 25ºC with nominal BAT voltages of 18 V (bq76920), 36 V (bq76930), or 48 V (bq76940)
+with VCELL = 4 V. Min and max values include full recommended operating condition temperature range from –40ºC to +85ºC.
+Certain characteristics may be shown at different voltage or temperature ranges, as clarified in the Test Condition sections.
+  PARAMETER                DESCRIPTION                       TEST CONDITION                       MIN           TYP          MAX       UNIT
+LEAKAGE AND OFFSET CURRENTS
+                     NORMAL mode supply
+dINOM                                                                                              –5           ±2.5             5
+                     current offset               Measured into VC5x (bq76930,
+                     SHIP mode supply             bq76940) and VC10x (bq76940)
+dISHIP                                                                                           –1.0           ±0.1           1.0
+                     current offset
+                     Supply current when          Measured into VC5x (bq76930,
+dIALERT                                                                                                           15            25      µA
+                     ALERT active                 bq76940) or added to BAT (bq76920)
+                                                  Measured into VC0–VC15 except VC5,
+                     Cell measurement input                                                      –0.3           ±0.1           0.3
+dICELL                                            VC10, VC15
+                     current
+                                                  Measured into VC5, VC10, VC15                                                0.5
+ILKG                 Terminal input leakage                                                                                      1
+INTERNAL POWER CONTROL (STARTUP and SHUTDOWN)
+VPORA                Analog POR threshold         See Note (1)                                       4                           5       V
+VSHUT                Shutdown voltage             See Note (1)                                                                 3.6       V
+                     Time delay after boot
+                                                  Delay after boot sequence when I2C
+tI2CSTARTUP          signal on TS1 before I2C                                                                      1                    ms
+                                                  communication is allowed
+                     communications allowed
+                                                  Delay after boot signal when device has
+tBOOTREADY           Device boot startup delay                                                                                  10      ms
+                                                  completed full boot-up sequence
+                     Thermal shutdown
+TSHUTD                                                                                                           100          150       °C
+                     voltage
+MEASUREMENT SCHEDULE
+                     Cell voltage measurement
+tVCELL                                        bq76920, bq76930, bq76940                                          250
+                     interval
+                     Individual cell              Per cell, balancing off                                         50
+tINDCELL
+                     measurement time             Per cell, balancing on                                        12.5
+                     Cell balancing relaxation
+tCB_RELAX            time before cell voltage                                                                   12.5                    ms
+                     measured
+                     Temperature
+                                                  Measurement duration for temperature
+tTEMP_DEC            measurement decimation                                                                     12.5
+                                                  reading
+                     time
+                     Pack voltage calculation
+tBAT                                                                                                             250
+                     interval
+                     Temperature                  Period of measurement of either
+tTEMP                                                                                                              2                     s
+                     measurement interval         TS1/TS2/TS3 or internal die temp
+14-BIT ADC FOR CELL VOLTAGE AND TEMPERATURE MEASUREMENT
+                     ADC measurement              VCELL measurements                                 2                           5       V
+ADCRANGE             recommend operation
+                     range                        TS/Temp measurements                             0.3                           3       V
+ADCLSB               ADC LSB value                                                                               382                    µV
+ADC25A                                            VCELL = 3.6 – 4.3 V                             –40            ±10            40
+                     ADC cell voltage
+ADC25B                                            VCELL = 3.2 – 4.6 V                             –40            ±15            40
+                     accuracy
+ADC25C                                            VCELL = 2.0 – 5.0 V                             –50            ±25            50
+                     ADC cell voltage                                                                                                   mV
+ADC60                accuracy temperature drift TA = 0ºC to 60ºC                                  –10                           10
+                     adder from 25°C
+                     ADC thermistor
+ADCTS                                             Input from 0.3 to 3.0 V, BAT > 7 V              –35                           35
+                     measurement accuracy
+(1)    Measured at BAT pin, rising.
+
+
+
+14        Electrical Specifications                                                         Copyright © 2013–2015, Texas Instruments Incorporated
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

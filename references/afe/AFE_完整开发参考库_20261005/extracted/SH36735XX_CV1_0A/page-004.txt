@@ -1,0 +1,49 @@
+                                             SH3673510/3673514/3673517/3673520
+                                 管脚名
+管脚号   I/O                                                                功能描述
+            SH3673520   SH3673517   SH3673514     SH3673510
+ 1    P       VBAT        VBAT         VBAT         VBAT      芯片供电正端
+ 2     I      VC20         NC           NC           NC       第20节电芯连接正端
+ 3     I      VC19         NC           NC           NC       第19节电芯连接正端
+ 4     I      VC18         NC           NC           NC       第18节电芯连接正端
+ 5     I      VC17        VC17          NC           NC       第17节电芯连接正端
+ 6     I      VC16        VC16          NC           NC       第16节电芯连接正端
+ 7     I      VC15        VC15          NC           NC       第15节电芯连接正端
+ 8     I      VC14        VC14         VC14          NC       第14节电芯连接正端
+ 9     I      VC13        VC13         VC13          NC       第13节电芯连接正端
+10     I      VC12        VC12         VC12          NC       第12节电芯连接正端
+11     I      VC11        VC11         VC11          NC       第11节电芯连接正端
+12     I      VC10        VC10         VC10         VC10      第10节电芯连接正端
+13     I      VC9         VC9          VC9          VC9       第9节电芯连接正端
+14     I      VC8         VC8          VC8          VC8       第8节电芯连接正端
+15     I      VC7         VC7          VC7          VC7       第7节电芯连接正端
+16     I      VC6         VC6          VC6          VC6       第6节电芯连接正端
+17     I      VC5         VC5          VC5          VC5       第5节电芯连接正端
+18     I      VC4         VC4          VC4          VC4       第4节电芯连接正端
+19     I      VC3         VC3          VC3          VC3       第3节电芯连接正端
+20     I      VC2         VC2          VC2          VC2       第2节电芯连接正端
+21     I      VC1         VC1          VC1          VC1       第1节电芯连接正端
+22     I      VC0         VC0          VC0          VC0       第1节电芯连接负端
+23     I      RS1         RS1          RS1          RS1       电流采集端负端
+24     I      RS2         RS2          RS2          RS2       电流采集端正端
+25     I      TS1         TS1          TS1          TS1       外部温度1电阻连接端
+26     I      TS2         TS2          TS2          TS2       外部温度2电阻连接端
+27     I      TS3         TS3          TS3          TS3       外部温度3电阻连接端
+28     I      TS4         TS4          TS4          TS4       外部温度4电阻连接端
+29    O      ALARM       ALARM       ALARM         ALARM      报警信号对外输出端(开漏输出)
+               ——          ——           ——           ——
+30     I      CS          CS           CS           CS        SPI从设备选择引脚(低电平有效)
+31     I      SCK         SCK          SCK          SCK       SPI串行时钟引脚
+32     I       SDI         SDI         SDI           SDI      SPI从输入引脚
+33    O       SDO         SDO          SDO          SDO       SPI从输出引脚
+34    O      RESET       RESET       RESET         RESET      复位信号输出端(开漏输出)
+35    P       VSS         VSS          VSS          VSS       芯片供电负端
+36    O       VCC         VCC          VCC          VCC       内部稳压源LDO1输出端
+37    O       DSG         DSG          DSG          DSG       低侧放电MOSFET控制端
+38    O       CHG         CHG          CHG          CHG       低侧充电MOSFET控制端
+39    O      LDO_O       LDO_O       LDO_O         LDO_O      外部稳压源LDO2输出端
+40    P      LDO_P       LDO_P       LDO_P         LDO_P      外部稳压源LDO2供电端
+41     I      DSGD        DSGD         DSGD         DSGD      负载检测端
+42     I     CHGD        CHGD          CHGD        CHGD       C+电压采集端、充电器唤醒检测端
+
+                                              4

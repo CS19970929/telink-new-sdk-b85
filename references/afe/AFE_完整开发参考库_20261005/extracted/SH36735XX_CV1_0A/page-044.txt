@@ -1,0 +1,32 @@
+                                                SH3673510/3673514/3673517/3673520
+    VCHGRL        VCHGR.7   VCHGR.6   VCHGR.5    VCHGR.4     VCHGR.3   VCHGR.2   VCHGR.1   VCHGR.0
+     读/写            读         读         读          读           读         读         读         读
+     复位值             0         0         0          0           0         0         0         0
+
+   位编号           位符号                                          说明
+    7:0        VCHGR.15
+                            当转换完成后，数据更新为C+对应的数值
+    7:0        ~VCHGR.0
+
+10.2.33 断线检测电芯电压寄存器
+   0x97~0x99       第7位       第6位       第5位           第4位      第3位       第2位       第1位       第0位
+     OWDH            -         -         -             -      OWD20     OWD19     OWD18     OWD17
+     OWDM          OWD16     OWD15     OWD14         OWD13    OWD12     OWD11     OWD10     OWD9
+     OWDL          OWD8      OWD7      OWD6          OWD5     OWD4      OWD3      OWD2      OWD1
+     读/写            读         读         读             读        读         读         读         读
+     复位值            0         0         0             0        0         0         0         0
+
+   位编号          位符号                              说明
+    7:4          -          Reserved
+                            OWD1~OWD20分别代表断线检测时序中CELL1~CELL20的电压值是否低于断线检测
+    3:0                     电压阈值OWV
+                OWD20
+    7:0
+                ~OWD1       0：断线检测时序中CELL的电压值高于断线检测电压阈值OWV
+    7:0
+                            1：断线检测时序中CELL的电压值低于断线检测电压阈值OWV
+
+
+
+
+                                                44

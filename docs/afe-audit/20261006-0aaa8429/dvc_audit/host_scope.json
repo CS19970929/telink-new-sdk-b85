@@ -1,0 +1,11 @@
+{
+  "sha": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d clean snapshot 05fb3147811468a347d3b27538b364d6ce92d56c533a17d713bcc8e1ac689613",
+  "kind": "exact function extraction host test; not full translation unit",
+  "files": {
+    "bms/afe/dvc1124/dvc1124_bms.c": "afd64922f859b06ef89a79b21017ca972a07daeb6b0a4c9ceca46d96c0510ddb"
+  },
+  "expected_source": [
+    "RM V1.2 p6,p7,p8 R1/R6 map",
+    "AGENTS requirement OC physical release"
+  ]
+}

@@ -1,0 +1,56 @@
+DVC1124-2 数据手册                                                       4 串至 24 串电池组监控芯片
+符号               参数             条件                                   最小值     典型值     最大值    单位
+                 未进行测量时的输入漏电    SRP, SRN
+                                                                              ±10           nA
+                 流
+                 进行测量时的输入漏电流    SRP, SRN                                      ±1            μA
+                 测量时间           CC1                                   0.5            4.0    ms
+                                CC2                                           256           ms
+一般直流规格
+IBAT             VTOP 电源电流      正常模式                                          15            μA
+                                休眠模式                                           8            μA
+                                关机模式                                           1            μA
+IREG             VREG 电源电流      正常模式                                          255           μA
+                                休眠模式                                          52            μA
+                                关机模式                                          0.1           μA
+LDO 规格
+V3P3             V3P3 输出电压                                                    3.3           V
+I3p3             V3P3 输出电流                                             0             50     mA
+电池被动均衡驱动规格
+RCB_ON           电池被动均衡驱动导通电    C(n)至 C(n-1)，n=4…24                   173     290    441    Ω
+                 阻              C(n)至 C(n-1)，n=1…3                    123     170    204    Ω
+ICB_ON           电池被动均衡驱动导通电    C(n)至 C(n-1)，n=1…24
+                                                                       0             25     mA
+                 流
+电荷泵规格
+VCP              电荷泵输出电压        VCP-VTOP                               6             12     V
+TCP_START        电荷泵启动时间        CCP=2.2μF, VCP=10V                            91            ms
+充电/放电管驱动规格
+TCHG_ON          开启充电管时驱动上升时    CL=47.2nF, RGATE=51Ω, VCP=10V, VGS
+                                                                      44                    μs
+                 间              from 0V to 4V
+TDSG_ON          开启放电管时驱动上升时    CL=47.2nF, RGATE=51Ω, VCP=10V, VGS
+                                                                      26                    μs
+                 间              from 0V to 4V
+TCHG_OFF         关闭充电管时驱动下降时    CL=47.2nF, RGATE=51Ω, VCP=10V
+                                                                      199                   μs
+                 间
+TDSG_OFF         关闭放电管时驱动下降时    CL=47.2nF, RGATE=51Ω, VCP=10V
+                                                                      6.5                   μs
+                 间
+TPCHG_PDSG_ON    开启预充电/预 放电管时   CL=860pF, RPU=270kΩ
+                                                                      2.0                   ms
+                 驱动下降时间
+TPCHG_PDSG_OFF   关闭预充电/预 放电管时   CL=860pF, RPU=270kΩ
+                                                                      2.0                   ms
+                 驱动上升时间
+IPCHG_PDSG_ON    开启预充电/预 放电时引
+                                                                      23.2    36.0   54.4   μA
+                 脚下拉电流
+硬件保护规格
+VOV_TH           电池过压保护阈值                                             501            4595   mV
+VOV_TH_STEP      电池过压保护阈值步进                                                    1            mV
+TOV_DLY          电池过压保护延时                                             200            8000   ms
+
+8 / 29                                          1.1                          南京集澈电子科技有限公司
+                                                                             宜矽源半导体南京有限公司

@@ -1,0 +1,57 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                              www.ti.com
+
+
+
+3 Description (Continued)
+         The bq76920 device supports up to 5-series cells or typical 18-V packs, the bq76930 handles up to 10-
+         series cells or typical 36-V packs, and the bq76940 works for up to 15-series cells or typical 48-V packs. A
+         variety of battery chemistries may be managed with these AFEs, including Lithium Ion, Lithium iron
+         phosphate, and more.
+         Via I2C, a host controller can use the bq769x0 to implement many battery pack management functions,
+         such as monitoring (cell voltages, pack current, pack temperatures), protection (controlling
+         charge/discharge FETs), and balancing. Integrated A/D converters enable a purely digital readout of
+         critical system parameters, with calibration handled in TI’s manufacturing process.
+
+4 Device Comparison Table
+          TUBE                TAPE & REEL            CELLS     I2C ADDRESS (7-Bit)   LDO (V)             CRC              PACKAGE
+       bq7692000PW           bq7692000PWR                                                                 No
+                                                                                        2.5
+      bq7692001PW (1)        bq7692001PWR (1)                                                             Yes
+                                                                      0x08
+      bq7692002PW (1)        bq7692002PWR (1)         3–5                                                 No           20-TSSOP (PW)
+       bq7692003PW           bq7692003PWR                                               3.3               Yes
+       bq7692006PW           bq7692006PWR                             0x18                                No
+      bq7693000DBT           bq7693000DBTR                                                                No
+                                                                                        2.5
+      bq7693001DBT           bq7693001DBTR                                                                Yes
+                                                                      0x08
+      bq7693002DBT           bq7693002DBTR                                                                No
+                                                     6–10                                                              30-TSSOP (DBT)
+      bq7693003DBT           bq7693003DBTR                                                                Yes
+                                                                                        3.3
+      bq7693006DBT           bq7693006DBTR                                                                No
+                                                                      0x18
+      bq7693007DBT           bq7693007DBTR                                                                Yes
+      bq7694000DBT           bq7694000DBTR                                                                No
+                                                                                        2.5
+      bq7694001DBT           bq7694001DBTR                                                                Yes
+                                                                      0x08
+      bq7694002DBT           bq7694002DBTR           9–15                                                 No           44-TSSOP (DBT)
+      bq7694003DBT           bq7694003DBTR                                              3.3               Yes
+      bq7694006DBT           bq7694006DBTR                            0x18                                No
+
+(1)   Product Preview only
+
+
+         Texas Instruments pre-configures the bq769x0 devices for a specific I2C address, LDO voltage, and more.
+         These settings are permanently stored in EEPROM and cannot be further modified.
+         Contact Texas Instruments for other options not listed above, as well as any options noted as “Product
+         Preview only.”
+
+
+
+
+4        Device Comparison Table                                                     Copyright © 2013–2015, Texas Instruments Incorporated
+                                                    Submit Documentation Feedback
+                                            Product Folder Links: bq76920 bq76930 bq76940

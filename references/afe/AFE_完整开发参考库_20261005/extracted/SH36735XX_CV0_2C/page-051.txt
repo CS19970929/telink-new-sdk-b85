@@ -1,0 +1,40 @@
+                Preliminary                              SH3673510/3673514/3673517/3673520
+                                SPI通讯时序
+参数               说明     最小值 典型值 最大值 单位                                                       测试条件
+TLS1       CS建立时间        100  -       - ns
+TLS2       CS保持时间        100  -       - ns
+ TCL       SCK低电平时间      500  -       - ns
+TCH        SCK高电平时间      500  -       - ns
+TSET       数据建立时间         50  -       - ns
+THOL       数据保持时间         50  -       - ns
+           自CS低电平边沿到输出改
+TVAL1                     10  -     100 ns
+           变的时间
+ TLZ       数据输出禁止时间       10  -     100 ns
+           自时钟低电平边沿到输出有
+TVAL2                      -  -     100 ns
+           效的时间
+tSPIDIS    SPI关闭延时        10 30      50 ns                                  CS高电平且时间超过tSPIDIS，SPI模块关闭
+                                                                            在CS拉低期间，SCK持续拉高且时间超过
+tSPIRST    SPI复位延时                   0.9       1         1.1          s
+                                                                            tSPIRST，SPI模块复位到初始状态
+
+                              TLS1     TCL         TCH                                       TLS2
+          CS (to Slave)
+
+
+
+          SCK                                  THOL            …...                  TSET
+
+
+                                             MSB                  Bit6...1             LSB
+          SDI (from Master)
+                              TVAL1 TVAL2                 TVAL2                                     TLZ
+
+
+          SDO (from Slave)                     MSB                        Bit6...1           LSB
+
+
+
+
+                                                         51

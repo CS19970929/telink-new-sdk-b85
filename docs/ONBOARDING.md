@@ -23,6 +23,7 @@ git remote -v
 | `bms/core/` | 参数、保护、SOC、存储、协议与诊断；共享不等于全部脱离 SDK |
 | `bms/afe/` | DVC1124 与 SH3673510 两种硬件后端 |
 | `bms/platform/telink/` | main/IRQ、BLE/UART、Flash、GPIO、栈观测 |
+| `references/afe/`、`docs/afe-audit/` | 正式原厂资料、原 PDF 检索、已知错误/原文矛盾与固定提交审查；先读 [使用指南](AFE_REFERENCE_GUIDE.md) |
 | `bms_tools/`、`tests/` | TC32 工具与 host 回归 |
 
 ## 2. 准备 Windows 环境
@@ -81,4 +82,4 @@ python bms_tools/bms.py --product d014 resources
 | 定位“MOS 没开” | 分别查 requested、guard、软件故障、AFE lockout；命令不是 Gate 反馈 |
 | 知道剩余工作 | 列出 [硬件验收](HARDWARE_VALIDATION.md) 中本产品未关闭项 |
 
-交接人另需提供：产品需求与参数签核人、原理图/BOM 的版本和受控位置、板号/电池配置、工具链来源、最近可重现的发布提交/镜像、上位机版本、实板记录和未关闭问题。当前仓库不包含硬件原件，文档整理也不能代替这些资料。D013 的继承 IO、D014 的开发容量仍不是已签核事实。
+交接人另需提供：产品需求与参数签核人、原理图/BOM 的版本和受控位置、板号/电池配置、工具链来源、最近可重现的发布提交/镜像、上位机版本、实板记录和未关闭问题。当前仓库已包含六份 AFE 原手册与 D008 24S 原理图；其他产品原图/BOM、实装与签核资料仍需交接，文档整理不能代替这些资料。D013 的继承 IO、D014 的开发容量仍不是已签核事实。

@@ -1,0 +1,137 @@
+{
+  "layer": "full TC32 production-preprocessed bms_afe_hw_profile.c host executed validation/default owner; storage getter mocked",
+  "results": {
+    "d011": [
+      {
+        "valid": 1,
+        "enable_mask": 223,
+        "ocd1_a10": 100,
+        "ocd2_a10": 150,
+        "sc_a10": 300,
+        "type": "DEFAULT_PROFILE"
+      },
+      {
+        "case": "COV5000",
+        "accepted": 1,
+        "doc_max_mv": 4500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CUV4000",
+        "accepted": 1,
+        "doc_max_mv": 3500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC6553.5A",
+        "accepted": 1,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CHG_OT100C",
+        "accepted": 1,
+        "doc_max_c": 70,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC576us",
+        "accepted": 0,
+        "doc_max_us": 576,
+        "type": "LIMIT"
+      },
+      {
+        "case": "OCD2only_disabled_OCD1zero",
+        "accepted": 1,
+        "type": "OCD_SPLIT"
+      }
+    ],
+    "d013": [
+      {
+        "valid": 1,
+        "enable_mask": 223,
+        "ocd1_a10": 100,
+        "ocd2_a10": 150,
+        "sc_a10": 300,
+        "type": "DEFAULT_PROFILE"
+      },
+      {
+        "case": "COV5000",
+        "accepted": 1,
+        "doc_max_mv": 4500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CUV4000",
+        "accepted": 1,
+        "doc_max_mv": 3500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC6553.5A",
+        "accepted": 1,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CHG_OT100C",
+        "accepted": 1,
+        "doc_max_c": 70,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC576us",
+        "accepted": 0,
+        "doc_max_us": 576,
+        "type": "LIMIT"
+      },
+      {
+        "case": "OCD2only_disabled_OCD1zero",
+        "accepted": 1,
+        "type": "OCD_SPLIT"
+      }
+    ],
+    "d014": [
+      {
+        "valid": 1,
+        "enable_mask": 223,
+        "ocd1_a10": 100,
+        "ocd2_a10": 150,
+        "sc_a10": 300,
+        "type": "DEFAULT_PROFILE"
+      },
+      {
+        "case": "COV5000",
+        "accepted": 1,
+        "doc_max_mv": 4500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CUV4000",
+        "accepted": 1,
+        "doc_max_mv": 3500,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC6553.5A",
+        "accepted": 1,
+        "type": "LIMIT"
+      },
+      {
+        "case": "CHG_OT100C",
+        "accepted": 1,
+        "doc_max_c": 70,
+        "type": "LIMIT"
+      },
+      {
+        "case": "SC576us",
+        "accepted": 0,
+        "doc_max_us": 576,
+        "type": "LIMIT"
+      },
+      {
+        "case": "OCD2only_disabled_OCD1zero",
+        "accepted": 1,
+        "type": "OCD_SPLIT"
+      }
+    ]
+  }
+}

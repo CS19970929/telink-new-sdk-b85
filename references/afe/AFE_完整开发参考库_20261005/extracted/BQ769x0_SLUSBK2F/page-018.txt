@@ -1,0 +1,112 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                                                                                                                          www.ti.com
+
+
+
+6.7                                       Typical Characteristics
+
+                                    0.020                                                                                                                                     30
+                                                                                                                      VC1 Error
+                                    0.018
+                                    0.016                                                                             VC2 Error                                               25
+                                    0.014                                                                             VC3 Error
+                                                                                                                                                                              20
+
+
+
+
+                                                                                                                                                           Gain Error (PPM)
+                                    0.012                                                                             VC4 Error
+     VCx Error (mV)
+
+
+
+
+                                    0.010                                                                             VC5 Error                                               15
+                                    0.008
+                                    0.006                                                                                                                                     10
+                                    0.004
+                                    0.002                                                                                                                                      5
+
+                                    0.000
+                                                                                                                                                                               0
+                          ±0.002
+                          ±0.004                                                                                                                                              ±5
+                                2.00 2.30 2.60 2.90 3.20 3.50 3.80 4.10 4.40 4.70 5.00                                                                                              ±40           ±15            10         35      60         85
+                                                                       VCx Input (V)                                              C001                                                                          Temperature (ƒC)               C005
+
+
+
+
+ Figure 6-2. bq76930 VCx Error Across Input Range at 25°C with                                                                                  Figure 6-3. Coulomb Counter Gain Error Temperature Drift
+                          VIN at 3.6 V                                                                                                                            (from –0.2 V to 0.2 V)
+
+                                           0.0                                                                                                                                0.0
+
+                                          ±0.1                                                                                                                      ±0.2
+
+                                                                                                                                                                    ±0.4
+                                          ±0.2
+                      Gain Error (%FSR)
+
+
+
+
+                                                                                                                                                                    ±0.6
+                                                                                                                                                  Offset (uV)
+
+
+                                          ±0.3
+                                                                                                                                                                    ±0.8
+                                          ±0.4
+                                                                                                                                                                    ±1.0
+                                          ±0.5
+                                                                                                                                                                    ±1.2
+                                          ±0.6                                                                                                                      ±1.4
+
+                                          ±0.7                                                                                                                      ±1.6
+                                                 ±40     ±15           10                              35            60           85                                                ±40           ±15            10         35      60         85
+                                                                      Temperature (ƒC)                                            C003                                                                          Temperature (ƒC)               C002
+
+
+
+
+                                                  Figure 6-4. Coulomb Counter Gain Error                                                                                                  Figure 6-5. Coulomb Counter Offset
+                                                            (from –0.2 V to 0.2 V)
+
+                                                                                                        0.01
+
+
+                                                                                                        0.01
+                                                                              OV Detection Error (V)
+
+
+
+
+                                                                                                        0.00
+
+
+                                                                                                       ±0.01
+
+
+                                                                                                       ±0.01
+
+
+                                                                                                       ±0.02
+
+
+                                                                                                       ±0.02
+                                                                                                               ±40        ±15             10                      35                        60           85
+                                                                                                                                         Temperature (ƒC)                                                C004
+
+
+
+
+                                                                                    Figure 6-6. OV Protection Detection Error (0xFF Setting)
+
+
+
+
+18                                        Electrical Specifications                                                                                                                              Copyright © 2013–2015, Texas Instruments Incorporated
+                                                                                                                 Submit Documentation Feedback
+                                                                                                         Product Folder Links: bq76920 bq76930 bq76940

@@ -1,0 +1,41 @@
+           Preliminary                   SH3673510/3673514/3673517/3673520
+                                                           -40℃~85℃，
+         负载检测压差@RLD=1
+                           0.9     1.8        2.6    V     VBAT到DSGD管脚的压降 ≥ VDIFF，且持续时
+         (VBAT到DSGD管脚压降)
+VDIFF                                                      间超过负载检测延时tLOAD，负载连接
+         负载检测压差@RLD=0                                      VBAT到DSGD管脚的压降 < VDIFF，且持续时
+                           0.8     1.5        2.2    V
+         (VBAT到DSGD管脚压降)                                   间超过负载检测延时tLOAD，负载未连接
+tLOAD    负载检测延时            55      60         65     ms    -40℃~85℃
+                                                           -40℃~85℃，开启C+电压检测后，CHGD管脚
+RCHGD1   CHGD管脚内部下拉电阻      0.6     1          1.4    MΩ
+                                                           通过该电阻持续下拉至VSS
+                                                           -40℃~85℃，在SLEEP或PowerDown模式下开
+RCHGD2   CHGD管脚内部下拉电阻      30      50         70     KΩ    启充电器唤醒检测后，CHGD管脚通过该电阻下
+                                                           拉至VSS
+                                                           -40℃~85℃，VBAT = 88V，HCHG/HDSG无输
+ICHGD2   CHGD管脚漏电流         0        -         50     nA    出，管脚对VBAT测试电流(此时CHGD未开启管
+                                                           脚对VSS下拉电阻)
+                                                           VBAT=88V，HCHG/HDSG无输出，管脚对
+IDSGD    DSGD管脚漏电流         0        -         50     nA    VSS测试电流(此时DSGD未开启对VBAT上拉电
+                                                           流)
+                                                           -40℃~85℃，系统处于SLEEP和PowerDown模
+VCHGD    充电器唤醒检测电压         0.9     1.5        2.1    V
+                                                           式时，开启内部下拉电阻
+tCHGD    充电器唤醒延时           35      60         85     ms    -40℃~85℃
+
+
+                                充放电状态检测
+参数             说明          最小值 典型值 最大值 单位                           测试条件
+                                                          VADC采集，可配置寄存器中CDV[2:0]，电流检
+ VCD1    充放电状态检测阈值1        192.5   -     1155       uV
+                                                          测精度参考VADC电流采集精度
+ VCD2    充放电状态检测阈值2         3      5      7         mV
+VCD2A    充放电状态检测阈值2精度       -2     -      2         mV    -40℃~85℃
+  tCD    充放电状态检测2延时         1      5      9         ms
+
+
+
+
+                                         50

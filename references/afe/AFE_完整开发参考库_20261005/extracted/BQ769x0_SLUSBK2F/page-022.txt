@@ -1,0 +1,57 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                 www.ti.com
+
+
+
+7.3.1.1.2.1 Optional Real-time Calibration Using the Host Microcontroller
+       The performance of the cell voltage values measured by the 14-bit ADC has a factory-calibrated accuracy,
+       as follows:
+       • +/– 10 mV TYP, +/– 40 mV MIN and MAX from 3.6 to 4.3 V,
+       • +/– 15 mV TYP, +/– 40 mV MIN and MAX from 3.2 to 4.6 V, and
+       • +/– 50 mV MIN and MAX from 2.0 to 5.0 V
+       While this is suitable for the majority of pack protection and basic monitoring applications the bq769x0
+       AFE family is intended to support, certain systems may require a higher accuracy performance.
+       To achieve this, use an available ADC channel and general purpose output terminal on the host
+       microcontroller paired with the bq769x0. A simple external circuit consisting of two precision resistors and
+       a small-signal FET is activated by the host microcontroller to determine the total stack voltage, VSTACK.
+       This is then compared against the sum of the individual cell voltages as measured by the internal ADC of
+       the bq769x0. The resulting transfer function coefficient, GAIN2, is simply applied to each cell voltage ADC
+       value for improved accuracy.
+
+
+
+
+                                                                       Host microcontroller
+                   Battery cell stack
+
+
+
+
+                                                                                  A/D input
+
+                                                                                  Gen. purpose output
+
+
+
+
+                             Figure 7-2. External Real-Time Calibration Circuit to Host Microcontroller
+
+       The process is as follows:
+       1. Periodically measure VSTACK.
+          (a) VSTACK = VAD × (R1 + R2) / R1
+       2. Read out all VCELL ADC readings from the bq769x0 and apply the standard GAIN and OFFSET values
+          stored in the bq769x0.
+          (a) V(1) = GAIN x ADC1 + OFFSET, V(2) = GAIN x ADC2 + OFFSET, and so on
+       3. Sum up all VCELL values, VSUM.
+          (a) VSUM = V(1) + V(2) + V(3) …
+       4. Calculate GAIN2.
+          (a) GAIN2 = VSTACK / VSUM
+       As a general recommendation, a new GAIN2 function should be generated when the cell voltages increase
+       or decrease by more than 100 mV. With GAIN2, each cell voltage calculation becomes:
+       V(cell) = GAIN2 × (GAIN x ADC(cell) + OFFSET)                                                                                     (2)
+
+       For systems that do not require this additional in-use calibration function, GAIN2 is simply “1”.
+
+22     Detailed Description                                                             Copyright © 2013–2015, Texas Instruments Incorporated
+                                                      Submit Documentation Feedback
+                                              Product Folder Links: bq76920 bq76930 bq76940

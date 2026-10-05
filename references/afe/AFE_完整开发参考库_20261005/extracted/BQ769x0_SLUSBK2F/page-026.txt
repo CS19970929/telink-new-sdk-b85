@@ -1,0 +1,75 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                                          www.ti.com
+
+
+
+       Both OV and UV protections require the ADC to be enabled. Ensure that the [ADC_EN] bit is set to 1 if
+       OV and UV protections are needed.
+
+7.3.1.2.2 Reduced Test Time
+       A special debug and test configuration bit is provided in the SYS_CTRL2 register, called [DELAY_DIS].
+       Setting [DELAY_DIS] bypasses the OV/UV protection fault timers and allows a fault condition to be
+       registered within 200 ms after application of such a fault condition.
+
+7.3.1.3   Control Subsystem
+
+7.3.1.3.1 FET Driving (CHG AND DSG)
+       Each bq769x0 device provides two low-side FET drivers, CHG and DSG, which control NCH power FETs
+       or may be used as a signal to enable various other circuits such as a high-side NCH charge pump circuit.
+       Both DSG and CHG drivers have a fast pull-up to nominally 12 V when enabled. DSG uses a fast pull-
+       down to VSS when disabled, while CHG utilizes a high impedance (nominally 1 MΩ) pull-down path when
+       disabled.
+       An additional internal clamp circuit ensures that the CHG pin does not exceed a maximum of 20 V.
+
+                                              DSG                                     CHG
+
+                                                                                      Q3 is a low-cost PCH FET and is used to keep CHG away
+                                                                                      from any voltages below VSS. When CHG is not being
+                                                                                      pulled high, PACK± being pulled below VSS will not be
+                                                                                      seen by CHG as Q2 does not turn on. Q3 also allows R2 to
+                                                                                      keep Q1 OFF, since all voltages below this FET can
+                                                                              Q3      "follow" PACK± as it goes below VSS.
+
+
+
+                                                                                               R1 drops the voltage when PACK± is pulled high and
+                                                          This diode allows CHG           R1 limits the current going into the CHG pin. Since CHG
+                                                         to pull the Q1 gate high.       (1M) clamps at ~ 18 V, R1 will limit current to approximately
+                                                                                               (V(PACK±) - 18) / R1.
+
+
+
+
+                                                                                                   This zener clamp may
+                                                                                           R2      be needed to prevent
+                                         R2                                                        Q1 from turning on
+                                                                                          (1M)
+                                                         Q2         Q1                             too quickly (optional).
+              BAT±
+                                                                                                                                  PACK t
+                     Rsns                                                            R2 clamps Q1 when
+                                                                                     CHG is turned off.
+
+
+
+
+                                                Figure 7-3. CHG and DSG FET Circuit
+
+       The power path for the CHG and DSG pull-up circuit originates from the REGSRC pin, instead of BAT.
+       To enable the CHG fet, set the [CHG_ON] register bit to 1; to disable, set [CHG_ON] = 0. The discharge
+       FET may be similarly controlled via the [DSG_ON] register bit.
+       Certain fault conditions or power state transitions will clear the state of the CHG/DSG FET controls.
+       Table 7-1 shows what action, if any, to take to [CHG_ON] and [DSG_ON] in response to various system
+       events:
+
+
+                              Table 7-1. CHG, DSG Response Under Various System Events
+                               EVENT                                 [CHG_ON]                                     [DSG_ON]
+                              OV Fault                                   Set to 0                                       —
+                              UV Fault                                      —                                       Set to 0
+                              OCD Fault                                     —                                       Set to 0
+
+
+26     Detailed Description                                                                          Copyright © 2013–2015, Texas Instruments Incorporated
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

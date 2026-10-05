@@ -1,0 +1,44 @@
+                                                                                              SH367309
+12.2 电流采集专用CADC
+12.2.1 特性
+       16位Σ-Δ模/数转换器
+       4Hz转换频率
+       1通道双端差分输入
+12.2.2 采集范围及结果存放
+   CADC仅有1个采集通道：电流采集通道。
+   电流通道电压输入范围：-0.20 - 0.20V。
+   CADC采集结果存放在专用寄存器CADCD中。
+Table 12.22 CADC电流寄存器
+       6EH，6FH             第7位       第6位       第5位           第4位    第3位       第2位       第1位       第0位
+       CADCDH             CDATA.15 CDATA.14 CDATA.13 CDATA.12 CDATA.11 CDATA.10        CDATA.9   CDATA.8
+       CADCDL             CDATA.7   CDATA.6   CDATA.5    CDATA.4   CDATA.3   CDATA.2   CDATA.1   CDATA.0
+         读/写                读         读         读            读       读         读         读         读
+        复位值                  0         0         0            0       0         0         0         0
+
+    位编号               位符号                                           说明
+       7:0        CDATA.15 -        CDATA.15为符号位，“1”表示放电；“0”表示充电。
+       7:0         CDATA.0          当转换完成后，数据更新为Sense电阻两端电压对应的数值
+12.2.3 电流计算公式
+   根据CADC转换结果可以计算出电流值（单位：mA，其中CADCD为CADCD寄存器值，RSENSE为Sense电阻，单位为Ω）：
+                  
+              
+                      
+12.2.4 CADC工作模式设置
+   RAM寄存器CONF中CADCON位可用于开关CADC模块，每250mS完成一次电流通道的数据采集。每次采集完成后，寄存
+器BFLAG2的CADC_FLG被置位同时ALARM管脚会输出一个低电平脉冲。CADC的工作不受CADC_FLG影响，当BFLAG2寄存
+器被读取后，CADC_FLG标志被清除。
+Table 12.23 系统配置寄存器
+            40H            第7位       第6位       第5位           第4位    第3位       第2位       第1位       第0位
+        CONF               OCRC     PCHMOS    DSGMOS     CHGMOS    CADCON    ENWDT     SLEEP      IDLE
+         读/写               读/写       读/写       读/写           读/写    读/写       读/写       读/写       读/写
+        复位值                  0         1         1            1       0         0         0         0
+
+    位编号               位符号                                           说明
+                                    CADC设置控制位
+        3             CADCON          0：SH367309关闭CADC
+                                      1：SH367309开启CADC进行电流采集
+
+
+
+
+                                                        47

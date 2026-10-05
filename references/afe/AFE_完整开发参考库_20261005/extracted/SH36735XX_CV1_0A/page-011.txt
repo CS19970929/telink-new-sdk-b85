@@ -1,0 +1,73 @@
+                                                               SH3673510/3673514/3673517/3673520
+7.1.5 SHIP模式
+   SHIP管脚外接低电平VL-SHIP，延时tSHIP后，IC进入SHIP模式：
+   (1) 关闭充放电MOSFET、预放电MOSFET(不管PDSGMOS为何种配置)，同时关闭所有功能模块
+   (2) 连接充电器无任何动作
+   当IC处于SHIP模式，只有SHIP管脚外接高电平VH-SHIP，才可退出SHIP模式
+
+                                                                                                  (Set PD_CTL bit=1
+                          (Set PD_CTL bit=1                                                       and SCONF1=0x33)
+                          and SCONF1=0x33)                                                        Or WDT Overflow
+                          Or Internal Heat                                                        Or Internal Heat
+                          Or (PD_EN=1) & (Vcellmin<VPD &                                          Or (PD_EN=1) & (Vcellmin<VPD &
+                          t>4×tPD_UV)                          Powerdown                          t>4×tPD_UV)
+                                                                 Mode
+
+                                          (Set PD_CTL bit=1
+
+
+
+
+                                                                        Detection Charger In
+                                          and SCONF1=0x33)
+                                          Or WDT Overflow
+                                          Or Internal Heat
+                                          Or (PD_EN=1)
+                                          & (Vcellmin<VPD & t>tPD_UV)
+                          SLEEP                                                                                         IDLE
+                           Mode                                                                                         Mode
+
+                                                                             Set SCONF1=0xAA
+
+
+
+
+                                                                                                 No Current and
+                                Set SCONF1=0xAA                   Normal                         Set SCONF1=0x55
+                                                                  Mode
+                            Detection Charger In                 (Default)                     Charging or Discharging Status
+                            Or detection Load on                                               Or Clear SCONF1=0x00
+                            Or detection Load off
+                            Or Clear SCONF1=0x00
+                                                  SET SHIP=H            SET SHIP=L
+
+
+
+                             SET SHIP=L
+                                                                   SHIP                                 SET SHIP=L
+                             SET SHIP=L
+                                                                   Mode
+
+
+
+                                                图5 模式转换图
+
+
+7.2 系统WarmUp
+  当发生系统复位(包括上电复位、VCC的LVR复位、退出Powerdown模式、退出SHIP模式)，IC进入WarmUp过程，过程中
+会关闭充放电MOSFET、预放电MOSFET(不管PDSGMOS为何种配置)，经过tWARMUP时间后，VCC建立完成及SPI模块正常通
+信，至此WarmUp过程结束，进入Normal模式。
+   注释：发生系统复位后，RAM寄存器值为默认值，同时FLAG1寄存器中RST1_FLG位置1
+
+7.3 LDO LVR
+7.3.1 LDO1(VCC)LVR
+  当VCC电源电压低于VCC LVR复位电压VLVR-VCC，系统发生LVR复位，置位标志位RST1_FLG，关闭充放电MOSFET、预
+放电MOSFET(不管PDSGMOS为何种配置)，进入WarmUp过程。
+
+7.3.2 LDO2(LDO_O)LVR
+   当LDO_O电压低于LDO2 LVR复位电压VLVR2，LDO2发生LVR复位，置位标志位RST2_FLG，复位SPI通讯。
+
+
+
+
+                                                              11

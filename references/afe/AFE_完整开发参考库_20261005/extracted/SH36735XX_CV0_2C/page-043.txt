@@ -1,0 +1,66 @@
+               Preliminary                              SH3673510/3673514/3673517/3673520
+      CELL8L         CELL8.7     CELL8.6     CELL8.5      CELL8.4     CELL8.3     CELL8.2    CELL8.1    CELL8.0
+     CELL9H         CELL9.15    CELL9.14    CELL9.13     CELL9.12    CELL9.11    CELL9.10    CELL9.9    CELL9.8
+      CELL9L         CELL9.7     CELL9.6     CELL9.5      CELL9.4     CELL9.3     CELL9.2    CELL9.1    CELL9.0
+     CELL10H        CELL10.15   CELL10.14   CELL10.13    CELL10.12   CELL10.11   CELL10.10   CELL10.9   CELL10.8
+     CELL10L        CELL10.7    CELL10.6    CELL10.5     CELL10.4    CELL10.3    CELL10.2    CELL10.1   CELL10.0
+     CELL11H        CELL11.15   CELL11.14   CELL11.13    CELL11.12   CELL11.11   CELL11.10   CELL11.9   CELL11.8
+     CELL11L        CELL11.7    CELL11.6    CELL11.5     CELL11.4    CELL11.3    CELL11.2    CELL11.1   CELL11.0
+     CELL12H        CELL12.15   CELL12.14   CELL12.13    CELL12.12   CELL12.11   CELL12.10   CELL12.9   CELL12.8
+     CELL12L        CELL12.7    CELL12.6    CELL12.5     CELL12.4    CELL12.3    CELL12.2    CELL12.1   CELL12.0
+     CELL13H        CELL13.15   CELL13.14   CELL13.13    CELL13.12   CELL13.11   CELL13.10   CELL13.9   CELL13.8
+     CELL13L        CELL13.7    CELL13.6    CELL13.5     CELL13.4    CELL13.3    CELL13.2    CELL13.1   CELL13.0
+     CELL14H        CELL14.15   CELL14.14   CELL14.13    CELL14.12   CELL14.11   CELL14.10   CELL14.9   CELL14.8
+     CELL14L        CELL14.7    CELL14.6    CELL14.5     CELL14.4    CELL14.3    CELL14.2    CELL14.1   CELL14.0
+     CELL15H        CELL15.15   CELL15.14   CELL15.13    CELL15.12   CELL15.11   CELL15.10   CELL15.9   CELL15.8
+     CELL15L        CELL15.7    CELL15.6    CELL15.5     CELL15.4    CELL15.3    CELL15.2    CELL15.1   CELL15.0
+     CELL16H        CELL16.15   CELL16.14   CELL16.13    CELL16.12   CELL16.12   CELL16.10   CELL16.9   CELL16.8
+     CELL16L        CELL16.7    CELL16.6    CELL16.5     CELL16.4    CELL16.3    CELL16.2    CELL16.1   CELL16.0
+     CELL17H        CELL17.15   CELL17.14   CELL17.13    CELL17.12   CELL17.11   CELL17.10   CELL17.9   CELL17.8
+     CELL17L        CELL17.7    CELL17.6    CELL17.5     CELL17.4    CELL17.3    CELL17.2    CELL17.1   CELL17.0
+     CELL18H        CELL18.15   CELL18.14   CELL18.13    CELL18.12   CELL18.11   CELL18.10   CELL18.9   CELL18.8
+     CELL18L        CELL18.7    CELL18.6    CELL18.5     CELL18.4    CELL18.3    CELL18.2    CELL18.1   CELL18.0
+     CELL19H        CELL19.15   CELL19.14   CELL19.13    CELL19.12   CELL19.11   CELL19.10   CELL19.9   CELL19.8
+     CELL19L        CELL19.7    CELL19.6    CELL19.5     CELL19.4    CELL19.3    CELL19.2    CELL19.1   CELL19.0
+     CELL20H        CELL20.15   CELL20.14   CELL20.13    CELL20.12   CELL20.11   CELL20.10   CELL20.9   CELL20.8
+     CELL20L        CELL20.7    CELL20.6    CELL20.5     CELL20.4    CELL20.3    CELL20.2    CELL20.1   CELL20.0
+      读/写              读           读           读             读          读           读          读          读
+      复位值              0           0           0             0          0           0          0          0
+
+    位编号           位符号                                                  说明
+                CELLN.15        当转换完成后，数据更新为第N节电芯电压对应的数值
+     7:0
+                ~CELLN.0
+     7:0                        串数配置生效后，对于未启用的电芯，清除其CELLnH和CELLnL寄存器值
+                 (N:1~20)
+
+10.2.30 CADC电流寄存器
+    0x91，0x92         第7位      第6位      第5位      第4位      第3位      第2位     第1位                           第0位
+     CADCDH         CADCD.15 CADCD.14 CADCD.13 CADCD.12 CADCD.11 CADCD.10 CADCD.9                       CADCD.8
+     CADCDL         CADCD.7 CADCD.6 CADCD.5 CADCD.4 CADCD.3 CADCD.2 CADCD.1                             CADCD.0
+       读/写             读        读        读        读        读        读       读                             读
+      复位值              0        0        0        0        0        0        0                             0
+
+    位编号           位符号                                 说明
+     7:0        CADCD.15        CADCD.15 为符号位，仅表示电流方向，“1”表示放电方向；“0”表示充电方向
+     7:0        ~CADCD.0        当转换完成后，数据更新为 Sense 电阻两端电压对应的数值
+
+10.2.31 B+电压寄存器
+    0x93，0x94        第7位         第6位         第5位          第4位         第3位         第2位         第1位        第0位
+      VTOPH         VTOP.15     VTOP.14     VTOP.13      VTOP.12     VTOP.11     VTOP.10     VTOP.9     VTOP.8
+      VTOPL         VTOP.7      VTOP.6      VTOP.5       VTOP.4      VTOP.3      VTOP.2      VTOP.1     VTOP.0
+       读/写            读           读           读            读           读           读           读          读
+      复位值              0           0           0            0           0           0          0          0
+
+    位编号            位符号                                                说明
+     7:0          VTOP.15
+                                当转换完成后，数据更新为B+对应的数值
+     7:0          ~VTOP.0
+
+10.2.32 C+电压寄存器
+    0x95，0x96         第7位      第6位      第5位      第4位      第3位      第2位     第1位                           第0位
+     VCHGRH         VCHGR.15 VCHGR.14 VCHGR.13 VCHGR.12 VCHGR.11 VCHGR.10 VCHGR.9                       VCHGR.8
+     VCHGRL         VCHGR.7 VCHGR.6 VCHGR.5 VCHGR.4 VCHGR.3 VCHGR.2 VCHGR.1                             VCHGR.0
+       读/写             读        读        读        读        读        读       读                             读
+      复位值              0        0        0        0        0        0        0                             0
+                                                        43

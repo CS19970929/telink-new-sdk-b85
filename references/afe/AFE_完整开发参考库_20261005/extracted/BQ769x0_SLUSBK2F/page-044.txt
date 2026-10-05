@@ -1,0 +1,63 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                                               www.ti.com
+
+
+
+                                                                                                                                                   PACK +
+        Rc
+                  Cc
+
+        Rc
+                  Cc
+
+        Rc
+                  Cc
+                                                                                                       Rf
+        Rc                                     VC10       BAT
+                  Cc
+                                               VC9       CAP2
+        Rc                                     VC8        TS2                                          Cf
+                  Cc
+          VC5x                                 VC7         NC              10k           1 µF
+             Cc                                VC6         NC
+        Rc
+                                               VC5b      VC5x                                                       A
+A                                                                                                           Rf
+                                               VC5     REGSRC
+        Rc
+                  Cc                           VC4     REGOUT
+                                               VC3       CAP1
+                                                                          10 kΩ
+        Rc                                     VC2        TS1
+                  Cc                                                                     1µF     1µF   Cf        4.7 µF
+                                               VC1        SCL              10k
+        Rc                                     VC0        SDA
+                  Cc
+                                               SRP        VSS
+        Rc                                     SRN        CHG
+                  Cc                                                                  PUSH-BUTTON FOR BOOT
+                                               ALERT      DSG
+                                                                                                                          VCC
+        Rc        Cc
+                                                                                                                          SCL
+                                                                                                                          SDA    Companion
+        Rc   Cc                                                                                                                  Controller
+                                                                                                                          GPIO
+                                                                                 1M
+                                                                                                                          VSS
+
+                       0.1 µF   0.1 µF   0.1 µF
+
+
+                         100             100              1M                                1M
+
+                                Rsns                                                                                                                PACK -
+
+                                Figure 8-2. bq76930 with bq78350 Companion Controller IC
+
+
+
+
+44     Application and Implementation                                                              Copyright © 2013–2015, Texas Instruments Incorporated
+                                                          Submit Documentation Feedback
+                                                  Product Folder Links: bq76920 bq76930 bq76940

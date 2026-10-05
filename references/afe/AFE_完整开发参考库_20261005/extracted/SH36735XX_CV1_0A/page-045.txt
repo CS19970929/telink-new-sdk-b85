@@ -1,0 +1,31 @@
+                                       SH3673510/3673514/3673517/3673520
+11. 电气特性
+11.1 极限电气参数
+  若工作条件超过“极限电气参数”的范围，将造成器件永久性损坏，只有当器件工作在说明书规定的范围内，器件功能才能得
+到保障。
+    信号名          信号类型               管脚名                 极限范围            单位
+                  模拟            VBAT/VCPR/SHIP        VSS-0.3 ~ 100     V
+    供电端           模拟                 VCP              VSS-0.3 ~ 110     V
+                  模拟                LDO_P             VSS-0.3 ~ 6.5     V
+                  模拟                 RS1            VSS-0.3 ~ VSS+0.3   V
+                  模拟              VC1~VC20            VSS-0.3 ~ 100     V
+                  模拟                 VC0              VSS-0.3 ~ 5.5     V
+     输入           模拟                 RS2           VSS-0.3V ~ VCC+0.3   V
+                  模拟              CHGD/DSGD           VSS-0.3 ~ 110     V
+                  模拟               TS1~TS4          VSS-0.3 ~ VCC+0.3   V
+                  数字              CS/SCK/SDI          VSS-0.3 ~ 6.5     V
+                  模拟              HCHG/HDSG           VSS-0.3 ~ 110     V
+                  模拟                PDSG              VSS-0.3 ~ 110     V
+                  模拟               CHG/DSG             VSS-0.3 ~15      V
+     输出
+                  数字           RESET/ALARM/SDO        VSS-0.3 ~ 6.5     V
+                  模拟                 VCC              VSS-0.3 ~ 6.5     V
+                  模拟                LDO_O             VSS-0.3 ~ 6.5     V
+
+                                表4 极限电气参数表
+  注释：VCn-VCn-1，n=1~20耐压范围同时应满足VSS-0.3 ~ 100V
+
+
+
+
+                                       45

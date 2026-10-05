@@ -1,0 +1,2822 @@
+[
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/app_buffer.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "37e45b13701fba7ae71184f57c38657f815806bcf2e35e4fd377dc0e4f825b2a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/app_common.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "bf2926927976e77617267f2668567cf4b84125cda665cea014f87fe7dd64efc0"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/battery_check.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "2c3d0e67f64e6148e5baf29722eb2f13ca0c9c171731d5ba378a2f8214b87b08"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/ble_flash.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "505d852bd0c0df7b3b719d865ce9e36c518e5b6e42b643d723f7fd2bacafda69"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_fw_sign.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "197e32c38d12e7264a4df71b3f2c8f1b616023ac3349a10a4131c3eee683887e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_led.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "f1224961b80795ee19c477dba170a1aa4033b59a1572b31f3a06ab04ffeae873"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_soft_timer.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "ff1010aa49e7260e2fc41bd12a17fc0be119ba4f866d06b06ac5f6aa1d18a57b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/custom_pair.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "2a22fa98e78f7175ff2ed0b967c54c91da6a5c3391f5612a94b06cc26fd3e59b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/flash_fw_check.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "6b95fe5d3e570475270e7190f258030898dbdbcfbee30255c595d7b48e14d5b4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/flash_prot.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "d381caa36f1b8f2b94a90502404462809c7ac75ba6fbcdda8cff696151dcf668"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/simple_sdp.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "4ac95eb6ad75b3e3d8792385590ceb9081aeee7eff99a705e88530303ce06754"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/sync_word_check.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "6e2943c93bef3920a137d0631801adbe7ad5d90327a64c366934d5692c9ea2d3"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/tlkapi_debug.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "b64de2367158d8c753c03755afc3fa195eb06315c41efb78839cd6805ab269e3"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/user_config.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "f43d80dc9c64086629a8ec244d68ac0f96bd59fd8e811c77db89496f6b3d1630"
+  },
+  {
+    "file": "bms/core/bms_soc.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "bda5e472ae0c9130a5422cecbfdbba72ca529abcfd209978e9e6b7ea10635c36"
+  },
+  {
+    "file": "bms/core/bms_soc_eta.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "08de355364fce4760e3489e7b58121a91e12b36ee12a9ad6ff9dab8ee17e2f7e"
+  },
+  {
+    "file": "bms/app/app.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "a0c295f173a3bf035ce1970b1e155da93189654f70d23d57c40e34e53bf38374"
+  },
+  {
+    "file": "bms/platform/telink/app_att.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "aa806e97c0c66a25dc5579d117961a80c38e4a7b09e93c89f4cd77c07f207cbe"
+  },
+  {
+    "file": "bms/platform/telink/ble_ota.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "9e576981dc777c5c866def36ea6352e51d6f7560cfef8a023cc150f0882ecbaf"
+  },
+  {
+    "file": "bms/core/bms_afe_guard.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "92b863d79a0dcea88900aafc2c9572b0b66176546b5d740e5cf4a7863442ab5b"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_access.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "fcd5739be030a150d61c2c88bd59aa41710db61122ea783fc4a83c5094dfe1d7"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_profile.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "4ac0b44e91590a0376ae6dea8a71ddc108fcf7cd2d215e7d56a7aace58e3886c"
+  },
+  {
+    "file": "bms/platform/telink/bms_board.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "5e586f4f16ec9e25de73fec782ed0a78485edcdeb9862e90aaeabbf5c01e1d53"
+  },
+  {
+    "file": "bms/core/bms_config_store.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "7f721454f0bdc8b7f9cc6ab509fa109b13984ea52a5a1ae5dfc4f92aaf36bcbc"
+  },
+  {
+    "file": "bms/core/bms_debug_log.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "1053745aa63885f56f1f0cebc7c937fbf2b48a93a0ade986160f98e38f2c5e55"
+  },
+  {
+    "file": "bms/core/bms_diag.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "e20503922fa8dbfb0e2129fde9e37b4734e434d87a404d8871a8aa8d177ffb41"
+  },
+  {
+    "file": "bms/core/bms_event_log.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "78fe5823ed6e349bf36c4c126d98945be69aa1b16dc64e3046cf4653e0ec455e"
+  },
+  {
+    "file": "bms/app/bms_features.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "7de3c113ddeaddb5d6e6fbca014ca1ff91239fa5eae061ec2f3952a95beb3098"
+  },
+  {
+    "file": "bms/core/bms_state.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "be56456b16f8a8b6d746d43d1abd29111e43490f5c8c032bd4d5f889d0b2bd59"
+  },
+  {
+    "file": "bms/core/bms_state_store.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "021d7c04b7c0becc851bb1efb370415eb7852187f5ca711c85e7e59379005b93"
+  },
+  {
+    "file": "bms/platform/telink/bms_storage_platform_telink.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "f2d448c91544bbee5535b707ffabca5851c036a8fd4a6a31ec95841ed964d52b"
+  },
+  {
+    "file": "bms/core/bms_sw_protection.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "1168442070d2e1fb5a1f639e60155607e80519bd89875844cf5cf270b0991345"
+  },
+  {
+    "file": "bms/core/btname_modbus.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "e0335efd604ddf85a03312f8f9b1bc21c97fcd56a44d45ae21f4dc2cd4b39681"
+  },
+  {
+    "file": "bms/platform/telink/main.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "9ba7d6d93131e4909830dace99d0a0b94081d81462d91bc3a96c3c976e935b55"
+  },
+  {
+    "file": "bms/platform/telink/bms_stack_monitor.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "32f0a8900470c9dd42b9b7a185a792e5f1bc84c1a90ac90ec714ef6a1f802b41"
+  },
+  {
+    "file": "bms/core/modbus_rtu.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "cadfed257a74c9c28563c04c010c6c5b968381eea383553553cbaa7b276b9734"
+  },
+  {
+    "file": "bms/platform/telink/modbus_uart.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "6bf754a108c8ca96bbe165e68734dfecbc8fd3d1995330abc19d174c8f94790a"
+  },
+  {
+    "file": "bms/core/bms_parameter_access.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "e12a8b666a49f05b362007505ff0448a2b2dcf1c2d88884bc349035c3191436e"
+  },
+  {
+    "file": "bms/core/param.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "5ab7309f0735977cd23397442df37c919c1d0858d676ef139efe6fc0e7c9c568"
+  },
+  {
+    "file": "bms/core/bms_factory_mode.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "781bdf9817b9631e57e2442cc05016b33bd931a1abd8c8945d89a935ead3b054"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_bms.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "689be862a96ad0b70d0220bf4f95d9f79fd67d195a001b21a5029a3550d1f7fd"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_control.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "ee4a28b83e683ba109439db1d03f2e61326700b83e68dee44d805a6980df2f36"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_ntc.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "27fcfac99837baa9e65cb4442e4489cf0ef08b7b8127ba81687deab2d30126db"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_feature_backend.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "0c6891be7b41c5a1a3d3e4bac4d2cff38f53bc9427afc6cee6aa2e032e1b7f8f"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673520.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "5a21f0f2f84eb54bfec61fbb9baa5883cf9b0aa0cf2daec050830aafff73c1c0"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673520_port.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "553239b9fcee0bb0782e821c9db522552cf63d4bf4dbc8c73b15d1a932b520a7"
+  },
+  {
+    "file": "bms/core/storage_record.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "8fe54a03216490b5b29fc3ad0262123a0d3ce22c606474ed48702cd013a1fc6f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "12e75c488cf3ae1e4e06f233b3dfff0ca4af2a73e4d60d167bc6a0c82c6c1c1a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/aes.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "4e88e1e0013d342bead69e31c1d1c70280f239cf888be5e14e5e3bc877a50978"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/analog.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "43369e38cc546959c43ef698a18244f0deaccb299a4bf10d5d68d876670baf52"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/audio.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "04ac970e0f3b5a3047735692578ba4f130421faa11ad970b48650ce38bf073c5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/bsp.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "0ffbd370f3d005e86ec8581df1e3039b27dd7583b7aaaca1e75397995fd1862d"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "072d2f183a6a58fcfefecc8ad0f27bd997865343711a9be7231977c6c6d846d5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "703cdbe02b50721fa6848b91152d19ea2d7f5474c220513ef1259efb1a2c1844"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/gpio.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "f220a600f6f924b7b0901b91711b3c610de67aa00a78be9f8b345c97e00211e5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/i2c.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "721d2b898c8c0c50250defe77c543f0d22c40d9f0086ff03a3c1b6636fd749ef"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lpc.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "e9748dc25ee9af5bdb1198a50b253de9e624cf7f7406e9464d645be8dcaee385"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/qdec.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "218e0cfeff335de3df560bd20cffd6b97410cba547bdb827d0161f6e25e6e930"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/s7816.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "c027ee1812142b5a59ac0328fef0cf2497a900cb9f17bff47020339941417ac6"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/spi.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "42dfc9827ddb8f5f4d38be8a8334b8a257b41d7b852697c56255bf42e955c8a2"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/timer.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "e1d3cffb78294bf45eb2f2091ed308dbf55d6622708724a1990d23f715fd6386"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/uart.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "02db8e53fbe72cbf909245ec6e6148b0aa29baec97b4aa983eadbcad6b63fdce"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/usbhw.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "5b24ce4f88726110377975574d1df09fce6b8d5b219870e2ba6ea30194cb5d7e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/watchdog.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "beb4dd982c273e6f763a8d477a528d392b6402986be2d7f122502ce208e25979"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_common.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "32499bf9f3a24448941bb505f1938d55ae6ade2105721fdcc5ab06c0ce1d3ecb"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid011460c8.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "c5a16e4ec9013f215bb9c86798d7fa7feceeb9d326bd6e8851078bd1c6ae816c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1060c8.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "fc6fc69fc4e14e824e84f0e701edb4a0672ed6bd33bdfdb581f9e274b195125b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid13325e.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "c107ad99b78f5b10ab4c0dcca1ff10e97161be62874fc591dfcf65ce42b571fd"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid134051.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "aab34e481243790938197124c95cf7307480d18a95d4547d7b8bfb24d48dbc10"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid136085.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "36f40e07b30cf04be223a80a7c730a04098d8369703d9ceb432954bcc408b336"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1360c8.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "7922c4313f7171fd22ace1263ef8d3b18c72052babc60653e40f2c98a7076d87"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1360eb.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "8b6fd17d4537f9703029dc047cc0dbdc5124d7033beab08657f205ae319468e3"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid14325e.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "fc72d5f0a56899ad1a897fb7e13f1aba2e970aa587403916ebb92f0b5f218eaf"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1460c8.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "c810dffe33b4585bf04f33eec4b00cbe31c4cff61dc2aa2d25b9d81c3d760ae4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/ext_calibration.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "ce249671d5db8f92364b81906c91ce21291e70ce749a9591f25c2aa40606b77b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/ext_misc.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "982c12ffc6627bb083b189cd7c5585c1cedbe14986e4f3ffb197329397799e66"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/rf_pa.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "4c7e9441a33ff5d7841817e93923780cfccd83229bc8d85e468c3cfed07ce516"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/rf_private_pa.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "0a01fcadfc56747b74b1655f0b8938176fb8d7311b7c3937e4f4fda12d4a5b07"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/software_uart.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "5abc9acf5682fd00cb2509982bc3c01581614c6547f265845df737989bee756c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/div_mod.S",
+    "kind": "汇编源文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "汇编源文件，Cppcheck 不支持",
+    "sha256": "62de9b1613ef8349527b187ce5187e76a76f8b6a666dc37a04343f9480b3f33a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "09218eb0a87f036e600f7e28e9801aeb96e42c092c91fb1dbd6861493d4fb273"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/string.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "4209cb8115fbbc9d1f1d33f9d5e649d41701d22c5ac39244004bdedb7430b4f4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/utility.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "178155e7672d1fa9e2c338e9b711bbdc75b24aeaf53f125e55f8f0fa36312428"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/boot/B85/cstartup_825x.S",
+    "kind": "汇编源文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "汇编源文件，Cppcheck 不支持",
+    "sha256": "a8577afda5f9ca562ae058912ba99de74534ab200e00f8bff2a58145a5a846f5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/usbstd/usb.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "2df764dca13c83ecb66ff2cb0776067b4eb75178cea02631443968438bcadfc9"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/usbstd/usbdesc.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "4201cb285cc4d28f24981bf36bc1eb22d417adcf821b6818b15bbf8b325dead4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/print/putchar.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "997b02a77fde5707dcd89df4127cffe115cdc4f559079a14db72845bc4eedd80"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/print/u_printf.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "2fd165756a879c3f03c499f101dd7be35998e828dfde788bf24c81af16562998"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/keyboard/keyboard.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "a56181624a98bbe7b8ccbb2980b748652a7e1f624aa8d08cfc51b8c235740925"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/audio/adpcm.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "676c0c78a029ea002bd71268ddbe2650c12987ba8db010cafb4f31a973b577a6"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/audio/gl_audio.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "bb46043d493b7608a9bef93051065ee80f751af17f50113a5d373a6162ae583e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/audio/tl_audio.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "825f6a0d772bc3105c6ca830bb14c9f9c3bdf66a6eda18eb0dc11826c0ae3806"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbaud.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "dc7ae824ed80559588db61296c94917061b5b8ac0cf32dbe544e5993410c91e8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbcdc.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "96a50da02c351bbf3386ce3cd04607eb9926a91cd4d931146452ffdb7c8be743"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbkb.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "b4707c10f2c7043eca82bae00241a94c8b97a18ac07b76897d9a16fe2e2432c9"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbmouse.c",
+    "kind": "C翻译单元",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "不检查",
+    "exclusion_reason": "官方 SDK 不属于用户确认的静态检查范围",
+    "sha256": "77dff25f16c357ccbb7b3532190ca8eb72dc45caa8a3462a4c42074d595e65b8"
+  },
+  {
+    "file": "bms/platform/telink/bms_runtime_diag.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "dcc33d41e6d1ed31a98ee71a7719bdb901f65daa06e9474cd4a8abd19309a850"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_diag.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "e45d97bc1b97010e30fa4e8ce82e0e3c8d15735135ebabfd1bf0a64502bf381c"
+  },
+  {
+    "file": "bms/core/bms_crc.c",
+    "kind": "C翻译单元",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "直接分析",
+    "exclusion_reason": "",
+    "sha256": "02e0f2bd40d6890a6b254f17ceb7206d7751931a552df68815cb0dcf772bbb8a"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_control.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "4c7bc1b3daf01895c8ff6c7039c956047a3edd292fcc0743bc26044e62a96cca"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_ntc.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "05cd0774bf5beb9b3ade205f01362645652a18d03b967d1b81bab691c418efbb"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_project_config.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "44a61add4fa6a4c7ca9ea32401ef9bd26a28e41d8536e881e164043d0e362f6c"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673510_quantize.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "ece98fb51f9c8aff7211829f6923554b66114fc03e194d43d54f4ab3ecfdb6d0"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673520.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "9bd6126d8f130ed3e506743901dcd3fba1998f591373a37deda2adce0d64bee9"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673520_port.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "37f8cfc39ab6da7fd3ada30d13b6cc9026e69cb925341db014789abe84d6ca85"
+  },
+  {
+    "file": "bms/afe/sh3673510/sh3673520_reg.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "8a2f383a08b686eda430d0ce6621480336660196bd781eaf95aa4a88ffd29bbf"
+  },
+  {
+    "file": "bms/app/app.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "0a5e1404f44ff1b9e3cd930e00fdc1dc1ec63cb6822382f2278518ec8293b069"
+  },
+  {
+    "file": "bms/app/bms_features.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "b1fed46339b239916af96180e53e5dc15581682e19550318bdc7118102831367"
+  },
+  {
+    "file": "bms/core/bms_afe.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "f3f34bf388d813476eef467093eb2cdc909fc6065f966094196d3380f6763bff"
+  },
+  {
+    "file": "bms/core/bms_afe_backend.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "a2ade2cb81e219beee9e288ec3b3f87f205ecfc1d56d4f0965b42afa12ab075d"
+  },
+  {
+    "file": "bms/core/bms_afe_driver.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "d195408d28c489f16d96479e0e7dc3b561a260c4644490f2b14065f9d423fb2f"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_access.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "4427e19a64b3132adec3f5e7d1410a08239640eb416c88ea6512649b3f8b8621"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_modbus.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "d1c0e89ed9c80aeecc032245b422ffb3af229e5a179697593ca7c64c2ffc6abc"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_profile.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "b56c24517209f1c116cd0aac8e828fa3a822b94f1569d8245fcd8eb2db7e6bc7"
+  },
+  {
+    "file": "bms/core/bms_board.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "332cece31f4f926427a9bf6e98e142f763067d01ff0de6f7415b9daabd92873f"
+  },
+  {
+    "file": "bms/core/bms_config_store.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "333108d14e7ba5262c657ce9a3dc3f16b5672a50c579e12e47d0b2d722d8f971"
+  },
+  {
+    "file": "bms/core/bms_crc.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "a9caa11b435b4195399b55c13d9578aa66aeec7f57b9c923c39f6658af7aca64"
+  },
+  {
+    "file": "bms/core/bms_debug_log.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "1fea246648896a73167f9a30a603c8e025ec1ef950b6e0dba7cc1b041d8ad7fb"
+  },
+  {
+    "file": "bms/core/bms_debug_log_config.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "167da98ccaa129b1f54256531ec5930c4650df5930189647fa5a9fb6260cf882"
+  },
+  {
+    "file": "bms/core/bms_diag.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "6184db322d40de40fdc4cbc25ef28c7aed98abcc00d59bb4dcb8ae854eeadb43"
+  },
+  {
+    "file": "bms/core/bms_error.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "0d339f6d179c6ba9c2200b44768843e276a6b84a1f082359c86fbd6d1efa2acf"
+  },
+  {
+    "file": "bms/core/bms_event_log.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "2a9aa9d01b33b0730889b3e225c8c4500c1b0720b1f91dab1f51d939db2fe129"
+  },
+  {
+    "file": "bms/core/bms_factory_mode.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "8b8fbe40717428857821fe93f698ca69c0fb2656ef2cc01c6fe22e88e60a949b"
+  },
+  {
+    "file": "bms/core/bms_parameter_access.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "72f7765e32cf6fca5d84e0d498fe0ac11a800da5bc9ae32ae1b9fc7e55ff4277"
+  },
+  {
+    "file": "bms/core/bms_protection_params.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "e1fddc8d16eec554b7cc15acdefce8c831cd27aecbdf11cea68307e1f2604448"
+  },
+  {
+    "file": "bms/core/bms_soc.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "55d3191128bf7e6a1e0d341d7597507a370e446613d3fb332b1c7adeadc17293"
+  },
+  {
+    "file": "bms/core/bms_soc_defs.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "232d08e3e80319a43ce0612ebed3ff5d599550d626b4800ffed1fb53d0052513"
+  },
+  {
+    "file": "bms/core/bms_soc_eta.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "ef0b72736d3abea3cea3b5d80f274c4f42762dd6213483e678729479cd946d52"
+  },
+  {
+    "file": "bms/core/bms_soc_profile.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "1e85433d5ab10f95e9852b2a8cf05994a843d64d4b8ef35a4396d44449a2f3a0"
+  },
+  {
+    "file": "bms/core/bms_state.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "afed99ed76d7a1c495de67b7d821ccecd66f46aac662d92fd8be62ef73aeaae5"
+  },
+  {
+    "file": "bms/core/bms_state_store.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "791a0ac29332e96b47523d71c5324e0902ac68b0deefd3d3363e161f3009701d"
+  },
+  {
+    "file": "bms/core/bms_storage_platform.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "8492fe8235287978ca65c2ff0ce726d49d360cb0e38a0bb1865d988dac50abaa"
+  },
+  {
+    "file": "bms/core/bms_sw_protection.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "95f9e6a684b3fb4e515152a5e5f564e0dcd40964c5180b56b3e6a9a5b9055d14"
+  },
+  {
+    "file": "bms/core/bms_update_policy.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "f324c6e2bf2587edd600bcf6d4a1bb9aba008b58674249bb72af5fc91013a588"
+  },
+  {
+    "file": "bms/core/btname_modbus.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "7602ebed391a62ce9020d45f1fc3504110f0947d8185c28927c59d40e425dd0a"
+  },
+  {
+    "file": "bms/core/conf.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "c75b005bd3b3725d290d17aadd21e4cf2fd4d737467f0e3dd35ff777e18696fc"
+  },
+  {
+    "file": "bms/core/modbus_rtu.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "8241f2150dd1f7a9b1331e8927a43489b0b924828f3872814cbdb9f1f54753e9"
+  },
+  {
+    "file": "bms/core/param.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "b561324c3931d0d982a4ce4207c5bbcc4e7b8edda3a20dcc74372852e13ec446"
+  },
+  {
+    "file": "bms/core/storage_port.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "0d9470e1adc171742151cfd3d727bd1caa70fafc96874c7acc26b6fcee38fa65"
+  },
+  {
+    "file": "bms/core/storage_record.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "229de92ca77a35f179f4748993f21e3a74007016bfd4596dc7e27e5be2f6a6fa"
+  },
+  {
+    "file": "bms/platform/telink/app_att.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "42f64e66fa4f91ec1f61c3e8369f04c456e1b187055ed4cf9f34b28133937ef0"
+  },
+  {
+    "file": "bms/platform/telink/app_config.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "2b60b13897a140bb1875c2b84d298b53492e666c3e7788fd4b0eddc2fe8b95d2"
+  },
+  {
+    "file": "bms/platform/telink/ble_ota.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "71583b639381f1715d874a84140bf2dda495e11279019034ce02351d4a710e24"
+  },
+  {
+    "file": "bms/platform/telink/bms_stack_monitor.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "55b6db03eb05b6b544f461a3cc47e53b2eb9b3623178fd296d11ed8c250590be"
+  },
+  {
+    "file": "bms/platform/telink/bus_mux.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": false,
+    "cppcheck_mode": "未被真实构建依赖引用",
+    "exclusion_reason": "真实编译配置未引用该头文件",
+    "sha256": "38d107abf4fd7e532116f785098fafe896e16c86bc2fa60a2119be4f022e1bde"
+  },
+  {
+    "file": "bms/platform/telink/flash_store_cfg.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "3a0c3e2380e67327afb2a3f6073ba30b60f9a1882408dcd88bd5936dcdc86656"
+  },
+  {
+    "file": "bms/platform/telink/flash_store_safe.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "9b93916732ef38ad8375bb80b291c9708ee79032ebcea1a3412d1e94a817d33e"
+  },
+  {
+    "file": "bms/platform/telink/modbus_uart.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "c8974be201d59f2534d24b63f022e3587c35d8a00879fa4f6f873aaea6e51820"
+  },
+  {
+    "file": "bms/platform/telink/sif_send.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": false,
+    "cppcheck_mode": "未被真实构建依赖引用",
+    "exclusion_reason": "真实编译配置未引用该头文件",
+    "sha256": "b6641041f8e8a8ef5d79642246f3e970cf1615022b903ac0c883d3ec8db34ce6"
+  },
+  {
+    "file": "bms/products/d011/bms_parameter_policy.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "32a4fb38be1871794011863fe709c7a387f193c79ff4b51c74777317e4f57831"
+  },
+  {
+    "file": "bms/products/d011/bms_product_conf.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "dc61a920e1c47ccdc9f59153e6086ecaaab823558ecb2775ca1c6dbcdeb3a463"
+  },
+  {
+    "file": "bms/products/d011/bms_product_config.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "6a8178c42f1d82e0235f0a78abe46d0f8e51a3d324540d9e209543ebfdba05b1"
+  },
+  {
+    "file": "bms/products/d011/bms_sh3673510_config.h",
+    "kind": "头文件",
+    "owner": "BMS应用层",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "随翻译单元解析",
+    "exclusion_reason": "",
+    "sha256": "fefae635331298e672d85fdc86c223cce60768831e419c5a365db77e97abaec7"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/algorithm.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "5e05a4578081b39e3b41a3e4ea0b6dd557b1969cc4418714e3631f2f05896c0b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/crypto/crypto_alg.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "cd32ff6c4457d1b557915247fba1796be4d82f408f767c867d308118a7e72991"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/ecc/ecc_curve.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "3d4e0ec66095b417001f3e8f61d898bf6d996d014ca9ebcd3a9939463a0ce1aa"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/ecc/ecc_ll.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "e87fbef33142a6aac17a277324faba69b51a71d6780d6ce8d71586f460ea2227"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/ecc/hw_ecc.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "ee57d1c8435a6a0e7f392a39750f4505c2fe0ef09d791429bcc74d9470f9e893"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/algorithm/ecc/sw_ecc.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "3a112b8f4ab2703a173587dec89de4c2b06125dc231a863571b955804110e6ed"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/print/u_printf.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8efc018bb174432512622eee36d87c8b1f4486fd2014d5ae775806365c03abec"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/assert.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "e68b67b0b70d7b0bccdff0260a45e8f9bfce14cfaf902899b1b0707821044082"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/bit.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2a45be3154542b84ab72f14c1bc0bd23b0215806ff93f48c46b88c3393a66ce4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/compiler.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "e4c9f6b6aea52d010447d6e58af8892dc958e257db91e7e480e8253a1e38442a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/config/user_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "66638edd9649c166ec8d36986697168aa9ba217f5597efb8bb99813d16abe10c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/macro_trick.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "bf72c798a4548b23dbd83446110120c4b8bd13cca4c919ef1cfa321383f3fc47"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1f67ce1795420b78db551ea26f93abc9f819d089802cb3e6185f6a6ba17bd26e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/static_assert.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "0a4562147cc810b915f22b19af3a51b5e6599d29f53ad9cf9eabc1d62662a272"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/string.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "108f87419449779d87fe2adaac30eb518212809a51424449b9a160c5af93f4d7"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/types.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8ed253f1f9fcb6f01c401c4c6ba0b03e54e311ca0c0c1bdfa486180c2165e74e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/utility.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "828d4bf731011cb01e0a6862b5d3a915f9a2467361ae5e4db72531cfd5bd2f26"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "f9eb8b6df65434045019277b772f037ad248e2e4a94854c517a66d9926da3b3b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "603ea00ba066f309ee9ecac1d988c711f7bfa7bf661c5b0abb5a4145c23f83c8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "0d939661741ea459ee389471eeaac21959d0a3efac84063e32fdbcbf3ffaa510"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/aes.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2d2441b62aeeefb41f595f8228db88c70245128192ef3a38d28afe2ad935e864"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/analog.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "74b70c6a38fc2adc0873c87b5fb57bc237354d19fc47e956eaa80f3a9088b084"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/audio.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "30dcae70c63e32aa5f770ec52fca6d212e282ea593c11d026cdbccd3f8d89900"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/bsp.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6b52f5a349d32485dd6c38a0da211826ba95073db70141c89ca5ba2198a82464"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "63eb97a6a52550dffc6e6b7da3c235ddc5194b9ddbc0c7f28ea0d9f8989f0b85"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/dfifo.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "eb7bba9a829da2811292295cd9399cbf545271ff16714e7168b5aebeea0ac93c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/dma.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "ee75fee7d43ec9f36aa743ac2a655a2537b8785fd6247c69db041f6ed432f414"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6395c0869dbb54d2a4a3cc47a43e28e544f4a2609169f99262614beff7c14406"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/driver_ext.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "afb72ebf9117a1c26351fca80860574fc948e38d649e7227b0da84403c8d11d1"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/ext_calibration.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "5036d562ea2735a704e819adeb231bb2d2a82c3e2fd135e058054bab6a25ed8b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/ext_misc.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "673a7abac560b14c22bc98aa51be6b2a037a6bf53561bfd223a5c5ca54941a05"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/ext_rf_private.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "0fe3aadc75c9ad244d5c4610d34e492e7e4b72b83d34311f6050aa04dbc8b67d"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/mcu_boot.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "e69c2405bd5a0555073b2a1f497eaa04389ac8c4aafc898a2dfa373875623685"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/mcu_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1cdc8047112e1ad7dd50f7243ec45b04e3a72c51da65655e62181c6bf62739ba"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/rf_pa.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "547b7f3ba6ab05acb33daee7b8863d218935a987dcd0cef6412c3fd2189d190a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/rf_private_pa.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "39067af82b0412ca4915e48a36c94058d42c842a34734e26ed6d7e4374ee718f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/driver_ext/software_uart.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "bfa922d241d53d2ce8a29ce9159e8934de36a2fc9fda385c508ae584648ed63c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "08074afba7f7e523b7341168a1b81b00d93dea5e9436b83bb172dfded2de79e1"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_common.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "aeb834da8939d08eb0be8db5e1070dda6a419aeeaddf7d49637f7b2b2c26ff40"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid011460c8.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "4195ab063270043dfe8af9dece3eea20579cbe91b46a45159bd8581dcebb2925"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1060c8.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "ec48d4fa570bc22b53a82b8b25493aae6e8c88fc929fc34e65e99170d1e83757"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid13325e.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a583a330cf9221391d85660732276f03d84fd1bc57ada672778c4d7eb36c698c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid134051.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "84e8c0b17516553f3089587c91877c94cddf89d5885833f3dc3c9287c99884b3"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid136085.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "aae49a234333d27f141b1a54d414e77298fe54ce9aa644bab2c7275c2745d440"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1360c8.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "27bd2ce5d66df9093e526a66539b190f7759814a2ad046a5eb019113325b2d2c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1360eb.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "bca440431b867c930d0ed0e2f54694d0853882225d23af58ec2405bc551941dc"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid14325e.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "c938dbfe4b8bc30b31a94030db7ea360324a900ca3e05841e0b159b828d15b2f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_mid1460c8.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "aedf43606f88d5705315fdee3b557b5213373d1f40a84f1f4171d23b2beca36e"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/flash/flash_type.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "79e078610baee8f7349fa693b0c3c463d6d0642468ca3fd04dcd1c7d260b3f94"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/gpio.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "54f43cd5792f1ea61ff33cd2133733a6f42564d8a2386452e258709a4141eafe"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/gpio_default.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6f73b0f200ca0f51af15d256f888bb9bf13ebabc84b1b79b3096d469971f9388"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/i2c.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "19c87f0f4c10dd3de64554627bae1b95641d921ca73a26ff55c16059e2bf67a0"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/irq.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "10d51adc0c74885613cba0f610f04f75136ba1db09bdc423959b75e75184aa84"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lib/include/aoa.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2d19ddbb27d590f4999c8e718dbd7d07327b1303001dfb6aee66ac2db268619f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lib/include/emi.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "82f86eb8d5817725c6a678564ed819744ab8fa0621a11603f9c6d95298d9fba7"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lib/include/pm.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "63072ef1d5d80a33cf8069ab06a4d04d1c7bb72dd7ce7cb96b8c7506f6c4801f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lib/include/random.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "feca31b0109d092a5314e0cbd1040dd52979e2d35f431074a511ab207a350f42"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lib/include/rf_drv.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a7dc9931ec01a3fbc6c6299e56156d2f11da4719e932dda5afb1e5d0786d4405"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/lpc.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "d8ef76b93649e3402a7a602ab70bdc3ed390775973e9dcb903c543c4959e61ea"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/pwm.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "dc26f67520aa4c0499a07b76a8f406d7576bbce0ef304d66e175c06438ba4c7b"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/qdec.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a4dcc8b78ba96745da19407f33125bb686905e73a87cc1280a6740f70b4ea3db"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/register.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "020ef59caf4db9f4743de17546c02d3c3440bea33bac9769d83f579c766cb196"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/s7816.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "77e91d053879c2b3e7aeb9f0bd07981646291fcc130bfd2515f50e642c2e032f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/spi.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "475e73651ef59417b3c4eb718199405f51083b6e5640774b04e929da53cb7cd1"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/stimer.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "3ed1476fd930e317a6b685ea65dbab6ad6c255613069d982738a25c6175f6247"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/timer.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "9069d2ed9ef03699d2368cde6637f71f3b903eba7e32f2a2fedf70d9e5ff3715"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/uart.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "f5e3e8a2270ba9d13f57246d8a8c6ea580ee7b0ed021c5b2475f1fc5249444e0"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/usbhw.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6dc10655febcc634f3ed326fad380f53c4a89b8bbc20b0b9841e0614d665bcf6"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/watchdog.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "cb69ef738a1c19118f34c3e54dfd28b68f26747ee3dfc43b3fbab65d0842b8ed"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/ble.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "56a5685df367c2cab7aec9b7d079750bef2d6670576ccf91813c9ff3acd412b8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/ble_common.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "af09a3203ed1b8a703badcfcf2127a6e4a60487466b5168a4ce9f13fa1710c97"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/ble_comp.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "ed93c3344357f8d623c47a1971c89942ae90005866856815737f455e295246d9"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/ble_format.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "9545ced481f4d761f0778c6a43aacdddd9995f5a320a8c5dffcdc4d84faa3716"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ble_controller.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a9a0a5b85bf5bbbf0f3b090bdacf288e98202ff44c2444e98e29441a87da0a24"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/controller.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1f358c9b5f100ce95a8c270d3b7111104976d8dd7b765c4f0ff1ae8063bf607c"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "679632147e1aa25392356f3bf672ae185f6aae17d5ec817bfc635f82760fde43"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_adv.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8791240dc85ad5c26a18fb49367fe42f5ce84983cea703058125ef3b24d60545"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_conn/ll_conn.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6f490062377ef728a0ada07dbdebea8aa96da0d90103eb0e1e037470c3c53bc4"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_conn/ll_conn_csa.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "5cd712cd0daf6b2ecdbefaa0d115e48cec5604751cce009bb80ed531a4edef86"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_conn/ll_master.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1ac41d643dd8c313e6ba3aa4cc0a5f050ead2b6fb42736217a7a2a9d0c95d1c6"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_conn/ll_slave.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "16eab6bcfa3b04de8ce69333f25079c9051dcd79544ed7cee4656da48fc15699"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_ext_adv.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1b0af18a6a3ee00ebcbab4ae51c981047c6cb7f409bb21bcc27cdcb78433ad08"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_init.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "15951fd6fe115c1ba5b760266b1919d2feeca7369116b58aeff045be6f3114be"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_pm.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "aa4b55f32a5ad0fca85be7c554b153cf5b5bde1f1e5b29a6749266593f452543"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_resolvlist.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "68f6420fd571286123f37d48821a3f24cd53c3cabf2dd75864fbe63f00ba4384"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_scan.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a9acc579a2557b2950652d93b57befe75b75772da0e675703b89ec699a96f618"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/ll/ll_whitelist.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "141cc9d8ead4bfd7e85e8cc5302b29e54e12dde549947728ffc20636261b31f5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/phy/phy.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7f2ac3055a0742adcc55563e5e1819988b57397b347a5f7adac95739ab678599"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/controller/phy/phy_test.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7ed3ecfb41143e57b445fb17b5df792bc3d1d93a789c1b8e8f6f7152a8886085"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/debug/debug.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "dbb4f23d2d214539a0c49d7cc8b4d4797cb564c40367492f3fd8f992f8edf968"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/device/multi_device.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7cefa5c9c87ccd114fba2f0839f3920fbe78c70363c8071840fe32f5e25cbf1a"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/hci/hci.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "dc41fa7d33b858b9efb8db7f9345f9ead4f200d8a9b06ef398bb2ed5a021cb24"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/hci/hci_cmd.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "60b20ec7997102e1a99fd108f946e01974d4ecd983e79cc79eacbe53470725f2"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/hci/hci_const.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "bd739f54970b3e50c77df207326460e08a1942ade00b0bcbd6e3017d339106db"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/hci/hci_event.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2323af5566b68f4abed87b7e7366959b40d5175744b913f8ebef59609e6aa8ee"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/attr/att.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "48dff2e85eaa1d2a296c66bf165d646f423c8ed740c6ec4d09923ee8e7a2dc91"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/attr/gatt.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7ad7159d6209dd197748c6f14640fd663b4982bf50a9c416de43bb2396f3878f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/ble_host.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "aac7e1451880140e49a38dca5648f31dc010f7a677e9fe0650fa3cabb81ed61f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/gap/gap.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "d48606b1c18d52dcd8c4cf40fe9269b859f3a92dc66be5b3a84ec43ee416cbfc"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/gap/gap_event.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "f284ab515abaf0be6c1230dd1d9647e1d9b2498cf6d1c7815fdc396d341568d7"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/l2cap/l2cap.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "bd403795e3b2c41c98deb71f7acb123f1c1594ea6d0866e8c374819c4b794f58"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/signaling/signaling.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "c48cd74f9494adcaf7470e5e4ad9f1e2758fe96dbfee9567a8c4a9135a8ef1f3"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/smp/smp.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "43b8d03fee501fe6c9e234b04bb4c692f54eab5eed61cfd1e8d26e975d58a2b5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/smp/smp_central.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "92bdf0abaf32cbf7f5bcb6232fa68c603c9b91a99259f6bac59290f663f8d2d8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/smp/smp_peripheral.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "b9f330f6b2fd893afecf16c01f679d626330f0624368d17c2f7e46667bf260cd"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/host/smp/smp_storage.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6ed5ccdc8dc1515e543fbcf2ce0cd6f0f15f3e1ec4367d9466f0af0915a934a1"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/service/device_information.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "941e277210af17bb1e47bcf019e07cbb0686f303859700615bfcee3b7150713d"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/service/hids.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "fa18b42df67ce0a0f7ea5366e5370e31322507db2c17c32b8471a5965cd0d084"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/service/ota/ota.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "3d5cab71c48fa25dc7fecf524d3e8530be48593ff37ea615da0d74ed2fa41e9f"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/service/ota/ota_server.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6ca2082296d1519d32895bf8830aa292328bf5864bc19744809428a741d8b2d8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/stack/ble/service/uuid.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "e965fefe57c942f92eb1c9dc5659949976b4f9e5edcd39e2b076d84561778988"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/tl_common.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "95fb0257f6e2e2670723496b74dc2dd0b132380a35b6c3cd289f10fc59585069"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6ed8125fc6aab5b221db7999f31253ba214f112bbf2134036f48f9c5de59ce3d"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/app_buffer.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8b6208e8b52beca799bdf8d19da5694d5cbf23d8f99afdf0c743ac268bf8b970"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/app_common.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "b47e786287ea39521c0846b5c8bdd2dea0cfb5c6c814b7517af6944ced2bbcc0"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/ble_flash.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7c39add7583e55bafc81101664e3fe3f1ba8bab15f3cc50ae0c8092d28e3e4ce"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_fw_sign.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "5cf2572bdd0f64ea7cf04773cc9133d4a5104bd5947ce452bed6f5104d780ed7"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_led.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "7142bafdeaa205e269e60b1b8a12c8b3b65921730ac1ac0959fb1d580d8d0fa5"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/blt_soft_timer.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2a978ea157ebe7722ff34955a32b9cd8816a65994712b62a16a53834ef607678"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/boards/C1T139A30.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "9e3b2de92b5ccb2c47eda4aaa90d249d1d63552d57bbff0e6308dfa04bd6b473"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/boards/boards_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "0d4dbe85d7b084d773c332d949884ef69bef27bb17f585cdb4a69166a1f016ff"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/custom_pair.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "6416227ad5f46e2ab8c40b2593a78c161972a83f40a827303d4066a69cc83bfb"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/default_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8882dae61064f0e54bc4669ff3a932da8436859d90f57bb9d7d0c8a1a0f82484"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/flash_fw_check.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "8c71288932de269888b8896ad39f7f2c4632699c74b8a109cdc107f5cd947fb6"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/flash_prot.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "2855d0b2b769d4e967996cacc28ea62cf218409f75744074e775848c3ccfd400"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/simple_sdp.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "c5eeb3fef3cbc6e1f6e80e4625aa4ffd4dbf7b5e8c4a44ef1c8777f8c367d3e8"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/sync_word_check.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "c70c7f8d20a6c8f9d5d2482463d1ad7b627b196005d9e6754f5909e2f0c6ef10"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/tlkapi_debug.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "a58dfe8c86db8c2117da7216334c2f30703ff98ec8673d0502f44ac7b8ca3034"
+  },
+  {
+    "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/user_config.h",
+    "kind": "SDK依赖头文件",
+    "owner": "Telink官方SDK（范围排除）",
+    "modified_from_baseline": false,
+    "participates_in_build": true,
+    "cppcheck_mode": "仅解析（诊断排除）",
+    "exclusion_reason": "应用层真实编译依赖；按用户确认的范围策略不检查SDK问题",
+    "sha256": "1b277ea8e2a3eec3d33fb417590bbb6dfb7867baa5320c24ec39f40dab4c8b55"
+  }
+]

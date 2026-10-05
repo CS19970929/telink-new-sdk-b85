@@ -1,0 +1,49 @@
+4 串至 24 串电池组监控芯片                                     DVC1124-2 数据手册
+
+绝对最大额定值
+符号      参数              条件                    最小值        最大值     单位
+VTOP    VTOP 电源引脚输入电压   VTOP-VSS              -0.3       132     V
+VCELL   电池检测引脚输入电压      C0-VSS                -0.3        6      V
+                        C(n)-VSS, n=1…24      -0.3       132     V
+                        C(n)-C(n-1), n=1…24   -0.3       132     V
+VCP     电荷泵引脚输出电压       VCP-VSS               -0.3       132     V
+                        VCP-VTOP              -0.3        15     V
+VSR     电流检测引脚输入电压      SRP-VSS               -0.3        6      V
+                        SRN-VSS
+VDSG    高边放电驱动引脚输出电     DSG-VSS
+                                              -0.3       132     V
+        压
+VCHG    高边充电驱动引脚输出电     CHG-VSS
+                                              -0.3       132     V
+        压
+VPDSG   高边预放电驱动引脚输出     PDSG-VSS
+                                              -0.3       132     V
+        电压
+VPCHG   高边预充电驱动引脚输出     PCHG-VSS
+                                              -0.3       132     V
+        电压
+VPACK   充电检测引脚电压        PACK-VSS              -0.3       132     V
+VLOAD   负载检测引脚电压        LOAD-VSS              -0.3       132     V
+VBASE   NPN 基极驱动引脚输出电   VBASE-VSS             -0.3        15     V
+        压               VBASE-VTOP            -132        0.3    V
+VREG    5V 电源引脚输入电压     VREG-VSS              -0.3        6      V
+V3P3    3.3V 电源引脚输出电压   V3P3-VSS              -0.3        6      V
+                        V3P3-VREG              -6         0.3    V
+V1P8    1.8V 电源引脚输出电压   V1P8-VSS              -0.3        2      V
+                        V1P8-VREG              -6         0.3    V
+VDIG    数字引脚电压          SCL-VSS               -0.3        6      V
+                        SDA-VSS
+                        GP(n)-VSS, n=1…6
+IIO     流入/流出引脚的电流      C(n), n=0…24           0          25     mA
+                        VREG, V3P3             0          50     mA
+                        其他                     0          1      mA
+TJ      额定结温范围                                -40         85     °C
+TS      贮存温度范围                                -65        150     °C
+VESD    设备 ESD 等级       HBM 模型                           ±2000   V
+                        CDM 模型                           ±250    V
+
+
+
+
+南京集澈电子科技有限公司                           1.1                       5 / 29
+宜矽源半导体南京有限公司

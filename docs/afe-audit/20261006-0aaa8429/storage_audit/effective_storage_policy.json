@@ -1,0 +1,86 @@
+{
+  "identity": {
+    "head": "0aaa842938c37b0016a23d8a29ce2aa416ca2c4d",
+    "origin_checkout": "D:/telink/bms-monorepo",
+    "includes_uncommitted_worktree": false,
+    "worktree_content_sha256": "05fb3147811468a347d3b27538b364d6ce92d56c533a17d713bcc8e1ac689613"
+  },
+  "products": [
+    {
+      "product": "d008",
+      "persistent_product_tag": 8,
+      "revisions": {
+        "SW": 1,
+        "AFE": 1,
+        "BUSINESS": 1,
+        "SOC": 1,
+        "CALIBRATION": 1,
+        "IDENTITY": 1,
+        "SOC_STATE": 1,
+        "FACTORY_RUNTIME": 1,
+        "EVENTS": 1
+      },
+      "shared_compile_members": true
+    },
+    {
+      "product": "d011",
+      "persistent_product_tag": 11,
+      "revisions": {
+        "SW": 1,
+        "AFE": 1,
+        "BUSINESS": 1,
+        "SOC": 1,
+        "CALIBRATION": 1,
+        "IDENTITY": 1,
+        "SOC_STATE": 1,
+        "FACTORY_RUNTIME": 1,
+        "EVENTS": 1
+      },
+      "shared_compile_members": true
+    },
+    {
+      "product": "d013",
+      "persistent_product_tag": 13,
+      "revisions": {
+        "SW": 1,
+        "AFE": 1,
+        "BUSINESS": 1,
+        "SOC": 1,
+        "CALIBRATION": 1,
+        "IDENTITY": 1,
+        "SOC_STATE": 1,
+        "FACTORY_RUNTIME": 1,
+        "EVENTS": 1
+      },
+      "shared_compile_members": true
+    },
+    {
+      "product": "d014",
+      "persistent_product_tag": 14,
+      "revisions": {
+        "SW": 1,
+        "AFE": 1,
+        "BUSINESS": 1,
+        "SOC": 1,
+        "CALIBRATION": 1,
+        "IDENTITY": 1,
+        "SOC_STATE": 1,
+        "FACTORY_RUNTIME": 1,
+        "EVENTS": 1
+      },
+      "shared_compile_members": true
+    }
+  ],
+  "config_schema": 2,
+  "config_payload_bytes": 322,
+  "config_slot_bytes": 356,
+  "calibration_offset_range_ma": [
+    -1000000,
+    1000000
+  ],
+  "calibration_gain_range_ppm": [
+    100000,
+    10000000
+  ],
+  "engineering_calibration_range_signed_off": "Unknown"
+}

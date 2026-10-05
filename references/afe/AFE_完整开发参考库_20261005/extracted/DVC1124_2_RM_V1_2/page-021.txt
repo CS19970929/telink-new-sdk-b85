@@ -1,0 +1,51 @@
+4 串至 24 串电池组监控芯片                                                                    DVC1124-2 参考手册
+
+续流保护寄存器
+     0x66           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME           BDPT[7]        BDPT[6]    BDPT[5]   BDPT[4]   BDPT[3]   BDPT[2]     BDPT[1]   BDPT[0]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+BDPT[7:0] ··········充/放电 NFET 体二极管续流保护阈值控制位
+0x00 ···················关闭充/放电 NFET 体二极管续流保护
+其他 ···················阈值电压=BDPT×40μV
+
+电池被动均衡寄存器
+     0x67           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME            CB[24]         CB[23]    CB[22]    CB[21]    CB[20]    CB[19]      CB[18]    CB[17]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+
+     0x68           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME            CB[16]         CB[15]    CB[14]    CB[13]    CB[12]    CB[11]      CB[10]     CB[9]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+
+     0x69           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME            CB[8]           CB[7]     CB[6]     CB[5]     CB[4]     CB[3]       CB[2]     CB[1]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+CB[n]··················第 n 节电池被动均衡控制位
+0·························关闭第 n 节电池被动均衡
+1·························开启第 n 节电池被动均衡，该组寄存器会在 60s 后自动复位为 0
+
+电池屏蔽寄存器
+     0x6A           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME           CM[24]          CM[23]    CM[22]    CM[21]    CM[20]    CM[19]      CM[18]    CM[17]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+     0x6B           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME           CM[16]          CM[15]    CM[14]    CM[13]    CM[12]    CM[11]      CM[10]    CM[9]
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+     0x6C           BIT 7           BIT 6     BIT 5     BIT 4     BIT 3     BIT 2       BIT 1     BIT 0
+    NAME            CM[8]          CM[7]     CM[6]     CM[5]      PKM       LDM         CTM      V1P8M
+    MODE             R/W            R/W       R/W       R/W       R/W       R/W         R/W       R/W
+   DEFAULT            0                  0     0         0         0         0           0         0
+CM[n] ················第 n 节电池保护屏蔽控制位
+0·························开启第 n 节电池保护
+1·························关闭第 n 节电池保护，同时默认关闭第 n 节电池电压测量
+PKM ···················PACK 电压测量屏蔽控制位
+0·························开启 PACK 电压测量
+
+南京集澈电子科技有限公司                                            1.2                                      21 / 33
+宜矽源半导体南京有限公司

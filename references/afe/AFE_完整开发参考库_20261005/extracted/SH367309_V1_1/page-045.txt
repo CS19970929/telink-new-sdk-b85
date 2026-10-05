@@ -1,0 +1,41 @@
+                                                                                           SH367309
+Table 12.18 T2温度寄存器
+    48H，49H           第7位       第6位       第5位           第4位      第3位       第2位       第1位       第0位
+     TEMP2H         TEMP2.15 TEMP2.14 TEMP2.13 TEMP2.12 TEMP2.11 TEMP2.10           TEMP2.9   TEMP2.8
+     TEMP2L         TEMP2.7    TEMP2.6   TEMP2.5    TEMP2.4     TEMP2.3   TEMP2.2   TEMP2.1   TEMP2.0
+       读/写             读         读         读             读        读         读         读         读
+      复位值               0         0         0             0        0         0         0         0
+
+    位编号           位符号                                            说明
+     7:0       TEMP2.15 -
+                               当转换完成后，数据更新为温度电阻2上的电压分压比对应的数值
+     7:0        TEMP2.0
+
+Table 12.19 T3温度寄存器
+    4AH，4BH           第7位       第6位       第5位           第4位      第3位       第2位       第1位       第0位
+     TEMP3H         TEMP3.15 TEMP3.14 TEMP3.13 TEMP3.12 TEMP3.11 TEMP3.10           TEMP3.9   TEMP3.8
+     TEMP3L         TEMP3.7    TEMP3.6   TEMP3.5    TEMP3.4     TEMP3.3   TEMP3.2   TEMP3.1   TEMP3.0
+       读/写             读         读         读             读        读         读         读         读
+      复位值               0         0         0             0        0         0         0         0
+
+    位编号           位符号                                            说明
+     7:0       TEMP3.15 -
+                               当转换完成后，数据更新为温度电阻3上的电压分压比对应的数值
+     7:0        TEMP3.0
+
+Table 12.20 电流寄存器
+    4CH，4DH           第7位       第6位       第5位           第4位      第3位       第2位       第1位       第0位
+      CURH          CUR.15     CUR.14    CUR.13     CUR.12      CUR.11    CUR.10    CUR.9     CUR.8
+      CURL            CUR.7     CUR.6    CUR.5          CUR.4   CUR.3     CUR.2     CUR.1     CUR.0
+       读/写             读         读         读             读        读         读         读         读
+      复位值               0         0         0             0        0         0         0         0
+
+    位编号           位符号                                            说明
+     7:0                       CUR15为符号位，“1”表示放电；“0”表示充电
+              CUR.15 - CUR.0
+     7:0                       当转换完成后，数据更新为Sense电阻两端电压对应的数值
+
+
+
+
+                                                   45

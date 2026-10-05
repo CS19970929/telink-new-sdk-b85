@@ -1,0 +1,58 @@
+bq76920, bq76930, bq76940
+SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015                                                                            www.ti.com
+
+
+
+8 Application and Implementation
+
+                                                                NOTE
+                     Information in the following application section is not part of the TI component specification,
+                     and TI does not warrant its accuracy or completeness. TI’s customers are responsible for
+                     determining suitability of components for their purposes. Customers should validate and test
+                     their design implementation to confirm system functionality.
+
+
+8.1     Application Information
+        The bq769x0 family of battery monitoring AFEs enabling cell parametric measurement and protection is a
+        variety of 3-series to 15-series Li-Ion/Li Polymer battery packs.
+        To evaluate the performance and configurations of the device users need the bq76940/bq76930/bq76920
+        Evaluation Software, (SLUCC539) tool to configure the internal registers for a specific battery pack and
+        application. The Evaluation Software tool is a graphical user-interface tool installed on a PC during
+        development. This can be used in conjunction with the bq76920EVM, bq76930EVM or bq76940EVM.
+        The bq769x0 devices are expected to be implemented in a system with a microcontroller that can perform
+        additional functions based on the data made collected. The bq78350 is one example of a companion to
+        the bq769x0 family.
+
+8.1.1    Configuring Alternative Cell Counts
+        Each bq769x0 family of IC's support a variety of cell counts. The following tables provide guidance on
+        which device and which input pins to use, depending on the number of cells in the pack.
+
+
+                                         Table 8-1. Cell Connections for bq76920
+                       Cell Input                 3 Cells                4 Cells                   5 Cells
+                        VC5–VC4                   CELL 3                 CELL 4                    CELL 5
+                        VC4–VC3                    short                  short                    CELL 4
+                        VC3–VC2                    short                 CELL 3                    CELL 3
+                        VC2–VC1                   CELL 2                 CELL 2                    CELL 2
+                        VC1–VC0                   CELL 1                 CELL 1                    CELL 1
+
+
+                                         Table 8-2. Cell Connections for bq76930
+      Cell Input              6 Cells              7 Cells              8 Cells               9 Cells                 10 Cells
+      VC10–VC9                CELL 6               CELL 7              CELL 8                 CELL 9                  CELL 10
+      VC9–VC8                  short                short                short                 short                   CELL 9
+      VC8–VC7                  short                short              CELL 7                 CELL 8                   CELL 8
+      VC7–VC6                 CELL 5               CELL 6              CELL 6                 CELL 7                   CELL 7
+      VC6–VC5b                CELL 4               CELL 5              CELL 5                 CELL 6                   CELL 6
+      VC5–VC4                 CELL 3               CELL 4              CELL 4                 CELL 5                   CELL 5
+      VC4–VC3                  short                short                short                CELL 4                   CELL 4
+      VC3–VC2                  short               CELL 3              CELL 3                 CELL 3                   CELL 3
+      VC2–VC1                 CELL 2               CELL 2              CELL 2                 CELL 2                   CELL 2
+      VC1–VC0                 CELL 1               CELL 1              CELL 1                 CELL 1                   CELL 1
+
+
+
+
+42      Application and Implementation                                             Copyright © 2013–2015, Texas Instruments Incorporated
+                                                 Submit Documentation Feedback
+                                         Product Folder Links: bq76920 bq76930 bq76940

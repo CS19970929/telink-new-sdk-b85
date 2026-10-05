@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "total_source_pages": 328,
+  "total_indexed_pages": 328,
+  "definition": "Every PDF page has a coverage entry; entry may refer to synthesized text, original illustration, or source appendix. This is not a claim that every graphic or number was independently revalidated.",
+  "sources": [
+    {
+      "source_id": "SH367309_V1_1",
+      "filename": "SH367309.pdf",
+      "pdf_pages": 89,
+      "indexed_pages": 89,
+      "coverage_path": "chips/sh367309/coverage.json",
+      "missing_pages": []
+    },
+    {
+      "source_id": "SH36735XX_CV1_0A",
+      "filename": "SH36735XX CV1.0A.pdf",
+      "pdf_pages": 57,
+      "indexed_pages": 57,
+      "coverage_path": "chips/sh36735xx/coverage.json",
+      "missing_pages": []
+    },
+    {
+      "source_id": "SH36735XX_CV0_2C",
+      "filename": "SH36735XX CV0.2C.pdf",
+      "pdf_pages": 57,
+      "indexed_pages": 57,
+      "coverage_path": "chips/sh36735xx/coverage.json",
+      "missing_pages": []
+    },
+    {
+      "source_id": "DVC1124_2_DS_V1_1",
+      "filename": "DVC1124-2数据手册_V1.1.pdf",
+      "pdf_pages": 29,
+      "indexed_pages": 29,
+      "coverage_path": "chips/dvc1124_2/coverage.json",
+      "missing_pages": []
+    },
+    {
+      "source_id": "DVC1124_2_RM_V1_2",
+      "filename": "DVC1124-2参考手册_V1.2.pdf",
+      "pdf_pages": 33,
+      "indexed_pages": 33,
+      "coverage_path": "chips/dvc1124_2/coverage.json",
+      "missing_pages": []
+    },
+    {
+      "source_id": "BQ769x0_SLUSBK2F",
+      "filename": "BQ76940.pdf",
+      "pdf_pages": 63,
+      "indexed_pages": 63,
+      "coverage_path": "chips/bq769x0/coverage.json",
+      "missing_pages": []
+    }
+  ]
+}

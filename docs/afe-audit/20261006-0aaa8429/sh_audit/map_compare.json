@@ -1,0 +1,4874 @@
+{
+  "CV1.0A": {
+    "rows": [
+      {
+        "address": 64,
+        "page": 28,
+        "pdf_name": "SCONF1",
+        "json_name": "SCONF1",
+        "pdf_bits": [
+          "PIN.7",
+          "PIN.6",
+          "PIN.5",
+          "PIN.4",
+          "PIN.3",
+          "PIN.2",
+          "PIN.1",
+          "PIN.0"
+        ],
+        "json_bits": [
+          "PIN.7",
+          "PIN.6",
+          "PIN.5",
+          "PIN.4",
+          "PIN.3",
+          "PIN.2",
+          "PIN.1",
+          "PIN.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 65,
+        "page": 28,
+        "pdf_name": "SCONF2",
+        "json_name": "SCONF2",
+        "pdf_bits": [
+          "LTCLR",
+          "PD_EN",
+          "PD_CTL",
+          "PUMP_EN",
+          "PDSG_CTL",
+          "PDSGMOS",
+          "DSGMOS",
+          "CHGMOS"
+        ],
+        "json_bits": [
+          "LTCLR",
+          "PD_EN",
+          "PD_CTL",
+          "PUMP_EN",
+          "PDSG_CTL",
+          "PDSGMOS",
+          "DSGMOS",
+          "CHGMOS"
+        ],
+        "equal": true
+      },
+      {
+        "address": 66,
+        "page": 28,
+        "pdf_name": "SCONF3",
+        "json_name": "SCONF3",
+        "pdf_bits": [
+          "-",
+          "CGR_WK",
+          "LD_WK.1",
+          "LD_WK.0",
+          "CRLD_EN.1",
+          "CRLD_EN.0",
+          "OWD_EN",
+          "OWD_TRG"
+        ],
+        "json_bits": [
+          "-",
+          "CGR_WK",
+          "LD_WK.1",
+          "LD_WK.0",
+          "CRLD_EN.1",
+          "CRLD_EN.0",
+          "OWD_EN",
+          "OWD_TRG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 67,
+        "page": 28,
+        "pdf_name": "SCONF4",
+        "json_name": "SCONF4",
+        "pdf_bits": [
+          "PDSGT.2",
+          "PDSGT.1",
+          "PDSGT.0",
+          "CN.4",
+          "CN.3",
+          "CN.2",
+          "CN.1",
+          "CN.0"
+        ],
+        "json_bits": [
+          "PDSGT.2",
+          "PDSGT.1",
+          "PDSGT.0",
+          "CN.4",
+          "CN.3",
+          "CN.2",
+          "CN.1",
+          "CN.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 68,
+        "page": 28,
+        "pdf_name": "SCONF5",
+        "json_name": "SCONF5",
+        "pdf_bits": [
+          "-",
+          "-",
+          "MOS_EN",
+          "OCC_EN",
+          "CADC_EN",
+          "WDT_EN",
+          "WDT.1",
+          "WDT.0"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "MOS_EN",
+          "OCC_EN",
+          "CADC_EN",
+          "WDT_EN",
+          "WDT.1",
+          "WDT.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 69,
+        "page": 28,
+        "pdf_name": "SCONF6",
+        "json_name": "SCONF6",
+        "pdf_bits": [
+          "TS4_EN",
+          "TS3_EN",
+          "TS2_EN",
+          "TS1_EN",
+          "SC_EN",
+          "OCD_EN",
+          "UV_EN",
+          "OV_EN"
+        ],
+        "json_bits": [
+          "TS4_EN",
+          "TS3_EN",
+          "TS2_EN",
+          "TS1_EN",
+          "SC_EN",
+          "OCD_EN",
+          "UV_EN",
+          "OV_EN"
+        ],
+        "equal": true
+      },
+      {
+        "address": 70,
+        "page": 28,
+        "pdf_name": "SCONF7",
+        "json_name": "SCONF7",
+        "pdf_bits": [
+          "-",
+          "RLD",
+          "CADCT.1",
+          "CADCT.0",
+          "-",
+          "CDV.2",
+          "CDV.1",
+          "CDV.0"
+        ],
+        "json_bits": [
+          "-",
+          "RLD",
+          "CADCT.1",
+          "CADCT.0",
+          "-",
+          "CDV.2",
+          "CDV.1",
+          "CDV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 71,
+        "page": 28,
+        "pdf_name": "OWV/ALARMH",
+        "json_name": "OWV/ALARMH",
+        "pdf_bits": [
+          "OWV.3",
+          "OWV.2",
+          "OWV.1",
+          "OWV.0",
+          "LOADON_INT",
+          "LOADOFF_INT",
+          "VADC_INT",
+          "CADC_INT"
+        ],
+        "json_bits": [
+          "OWV.3",
+          "OWV.2",
+          "OWV.1",
+          "OWV.0",
+          "LOADON_INT",
+          "LOADOFF_INT",
+          "VADC_INT",
+          "CADC_INT"
+        ],
+        "equal": true
+      },
+      {
+        "address": 72,
+        "page": 28,
+        "pdf_name": "ALARML",
+        "json_name": "ALARML",
+        "pdf_bits": [
+          "WK_INT",
+          "WDT_INT",
+          "OWD_INT",
+          "TEMP_INT",
+          "OCC_INT",
+          "OCD_INT",
+          "UV_INT",
+          "OV_INT"
+        ],
+        "json_bits": [
+          "WK_INT",
+          "WDT_INT",
+          "OWD_INT",
+          "TEMP_INT",
+          "OCC_INT",
+          "OCD_INT",
+          "UV_INT",
+          "OV_INT"
+        ],
+        "equal": true
+      },
+      {
+        "address": 73,
+        "page": 28,
+        "pdf_name": "OVT/OVH",
+        "json_name": "OVT/OVH",
+        "pdf_bits": [
+          "-",
+          "OVT.2",
+          "OVT.1",
+          "OVT.0",
+          "-",
+          "-",
+          "OV.9",
+          "OV.8"
+        ],
+        "json_bits": [
+          "-",
+          "OVT.2",
+          "OVT.1",
+          "OVT.0",
+          "-",
+          "-",
+          "OV.9",
+          "OV.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 74,
+        "page": 28,
+        "pdf_name": "OVL",
+        "json_name": "OVL",
+        "pdf_bits": [
+          "OV.7",
+          "OV.6",
+          "OV.5",
+          "OV.4",
+          "OV.3",
+          "OV.2",
+          "OV.1",
+          "OV.0"
+        ],
+        "json_bits": [
+          "OV.7",
+          "OV.6",
+          "OV.5",
+          "OV.4",
+          "OV.3",
+          "OV.2",
+          "OV.1",
+          "OV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 75,
+        "page": 28,
+        "pdf_name": "UVT/UVH",
+        "json_name": "UVT/UVH",
+        "pdf_bits": [
+          "-",
+          "UVT.2",
+          "UVT.1",
+          "UVT.0",
+          "-",
+          "-",
+          "UV.9",
+          "UV.8"
+        ],
+        "json_bits": [
+          "-",
+          "UVT.2",
+          "UVT.1",
+          "UVT.0",
+          "-",
+          "-",
+          "UV.9",
+          "UV.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 76,
+        "page": 28,
+        "pdf_name": "UVL",
+        "json_name": "UVL",
+        "pdf_bits": [
+          "UV.7",
+          "UV.6",
+          "UV.5",
+          "UV.4",
+          "UV.3",
+          "UV.2",
+          "UV.1",
+          "UV.0"
+        ],
+        "json_bits": [
+          "UV.7",
+          "UV.6",
+          "UV.5",
+          "UV.4",
+          "UV.3",
+          "UV.2",
+          "UV.1",
+          "UV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 77,
+        "page": 28,
+        "pdf_name": "OCD1V/OCD1T",
+        "json_name": "OCD1V/OCD1T",
+        "pdf_bits": [
+          "-",
+          "OCD1T.2",
+          "OCD1T.1",
+          "OCD1T.0",
+          "OCD1V.3",
+          "OCD1V.2",
+          "OCD1V.1",
+          "OCD1V.0"
+        ],
+        "json_bits": [
+          "-",
+          "OCD1T.2",
+          "OCD1T.1",
+          "OCD1T.0",
+          "OCD1V.3",
+          "OCD1V.2",
+          "OCD1V.1",
+          "OCD1V.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 78,
+        "page": 28,
+        "pdf_name": "OCD2V/OCD2T",
+        "json_name": "OCD2V/OCD2T",
+        "pdf_bits": [
+          "OCD2T.3",
+          "OCD2T.2",
+          "OCD2T.1",
+          "OCD2T.0",
+          "OCD2V.3",
+          "OCD2V.2",
+          "OCD2V.1",
+          "OCD2V.0"
+        ],
+        "json_bits": [
+          "OCD2T.3",
+          "OCD2T.2",
+          "OCD2T.1",
+          "OCD2T.0",
+          "OCD2V.3",
+          "OCD2V.2",
+          "OCD2V.1",
+          "OCD2V.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 79,
+        "page": 28,
+        "pdf_name": "SCV/SCT",
+        "json_name": "SCV/SCT",
+        "pdf_bits": [
+          "-",
+          "-",
+          "SCV.1",
+          "SCV.0",
+          "SCT.3",
+          "SCT.2",
+          "SCT.1",
+          "SCT.0"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "SCV.1",
+          "SCV.0",
+          "SCT.3",
+          "SCT.2",
+          "SCT.1",
+          "SCT.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 80,
+        "page": 28,
+        "pdf_name": "OCCV/OCCT",
+        "json_name": "OCCV/OCCT",
+        "pdf_bits": [
+          "OCCT.2",
+          "OCCT.1",
+          "OCCT.0",
+          "OCCV.4",
+          "OCCV.3",
+          "OCCV.2",
+          "OCCV.1",
+          "OCCV.0"
+        ],
+        "json_bits": [
+          "OCCT.2",
+          "OCCT.1",
+          "OCCT.0",
+          "OCCV.4",
+          "OCCV.3",
+          "OCCV.2",
+          "OCCV.1",
+          "OCCV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 81,
+        "page": 28,
+        "pdf_name": "OTC",
+        "json_name": "OTC",
+        "pdf_bits": [
+          "OTC.7",
+          "OTC.6",
+          "OTC.5",
+          "OTC.4",
+          "OTC.3",
+          "OTC.2",
+          "OTC.1",
+          "OTC.0"
+        ],
+        "json_bits": [
+          "OTC.7",
+          "OTC.6",
+          "OTC.5",
+          "OTC.4",
+          "OTC.3",
+          "OTC.2",
+          "OTC.1",
+          "OTC.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 82,
+        "page": 28,
+        "pdf_name": "OTD",
+        "json_name": "OTD",
+        "pdf_bits": [
+          "OTD.7",
+          "OTD.6",
+          "OTD.5",
+          "OTD.4",
+          "OTD.3",
+          "OTD.2",
+          "OTD.1",
+          "OTD.0"
+        ],
+        "json_bits": [
+          "OTD.7",
+          "OTD.6",
+          "OTD.5",
+          "OTD.4",
+          "OTD.3",
+          "OTD.2",
+          "OTD.1",
+          "OTD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 83,
+        "page": 28,
+        "pdf_name": "UTC",
+        "json_name": "UTC",
+        "pdf_bits": [
+          "UTC.7",
+          "UTC.6",
+          "UTC.5",
+          "UTC.4",
+          "UTC.3",
+          "UTC.2",
+          "UTC.1",
+          "UTC.0"
+        ],
+        "json_bits": [
+          "UTC.7",
+          "UTC.6",
+          "UTC.5",
+          "UTC.4",
+          "UTC.3",
+          "UTC.2",
+          "UTC.1",
+          "UTC.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 84,
+        "page": 28,
+        "pdf_name": "UTD",
+        "json_name": "UTD",
+        "pdf_bits": [
+          "UTD.7",
+          "UTD.6",
+          "UTD.5",
+          "UTD.4",
+          "UTD.3",
+          "UTD.2",
+          "UTD.1",
+          "UTD.0"
+        ],
+        "json_bits": [
+          "UTD.7",
+          "UTD.6",
+          "UTD.5",
+          "UTD.4",
+          "UTD.3",
+          "UTD.2",
+          "UTD.1",
+          "UTD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 85,
+        "page": 28,
+        "pdf_name": "BALANCEH",
+        "json_name": "BALANCEH",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "CB20",
+          "CB19",
+          "CB18",
+          "CB17"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "CB20",
+          "CB19",
+          "CB18",
+          "CB17"
+        ],
+        "equal": true
+      },
+      {
+        "address": 86,
+        "page": 28,
+        "pdf_name": "BALANCEM",
+        "json_name": "BALANCEM",
+        "pdf_bits": [
+          "CB16",
+          "CB15",
+          "CB14",
+          "CB13",
+          "CB12",
+          "CB11",
+          "CB10",
+          "CB9"
+        ],
+        "json_bits": [
+          "CB16",
+          "CB15",
+          "CB14",
+          "CB13",
+          "CB12",
+          "CB11",
+          "CB10",
+          "CB9"
+        ],
+        "equal": true
+      },
+      {
+        "address": 87,
+        "page": 28,
+        "pdf_name": "BALANCEL",
+        "json_name": "BALANCEL",
+        "pdf_bits": [
+          "CB8",
+          "CB7",
+          "CB6",
+          "CB5",
+          "CB4",
+          "CB3",
+          "CB2",
+          "CB1"
+        ],
+        "json_bits": [
+          "CB8",
+          "CB7",
+          "CB6",
+          "CB5",
+          "CB4",
+          "CB3",
+          "CB2",
+          "CB1"
+        ],
+        "equal": true
+      },
+      {
+        "address": 88,
+        "page": 28,
+        "pdf_name": "FLAG1",
+        "json_name": "FLAG1",
+        "pdf_bits": [
+          "RST1_FLG",
+          "WK_FLG",
+          "OCC_FLG",
+          "SC_FLG",
+          "OCD2_FLG",
+          "OCD1_FLG",
+          "UV_FLG",
+          "OV_FLG"
+        ],
+        "json_bits": [
+          "RST1_FLG",
+          "WK_FLG",
+          "OCC_FLG",
+          "SC_FLG",
+          "OCD2_FLG",
+          "OCD1_FLG",
+          "UV_FLG",
+          "OV_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 89,
+        "page": 28,
+        "pdf_name": "FLAG2",
+        "json_name": "FLAG2",
+        "pdf_bits": [
+          "OTD_FLG",
+          "UTD_FLG",
+          "OTC_FLG",
+          "UTC_FLG",
+          "RST2_FLG",
+          "WDT_FLG",
+          "VADC_FLG",
+          "CADC_FLG"
+        ],
+        "json_bits": [
+          "OTD_FLG",
+          "UTD_FLG",
+          "OTC_FLG",
+          "UTC_FLG",
+          "RST2_FLG",
+          "WDT_FLG",
+          "VADC_FLG",
+          "CADC_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 90,
+        "page": 28,
+        "pdf_name": "FLAG3",
+        "json_name": "FLAG3",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD_IND",
+          "OWD_FLG"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD_IND",
+          "OWD_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 91,
+        "page": 28,
+        "pdf_name": "BSTATUS1",
+        "json_name": "BSTATUS1",
+        "pdf_bits": [
+          "-",
+          "E2P_ERR",
+          "HDSG_FET",
+          "HCHG_FET",
+          "-",
+          "PDSG_FET",
+          "DSG_FET",
+          "CHG_FET"
+        ],
+        "json_bits": [
+          "-",
+          "E2P_ERR",
+          "HDSG_FET",
+          "HCHG_FET",
+          "-",
+          "PDSG_FET",
+          "DSG_FET",
+          "CHG_FET"
+        ],
+        "equal": true
+      },
+      {
+        "address": 92,
+        "page": 28,
+        "pdf_name": "BSTATUS2",
+        "json_name": "BSTATUS2",
+        "pdf_bits": [
+          "CHGING",
+          "DSGING",
+          "SLEEP",
+          "IDLE",
+          "BAL",
+          "-",
+          "LOADON",
+          "LOADOFF"
+        ],
+        "json_bits": [
+          "CHGING",
+          "DSGING",
+          "SLEEP",
+          "IDLE",
+          "BAL",
+          "-",
+          "LOADON",
+          "LOADOFF"
+        ],
+        "equal": true
+      },
+      {
+        "address": 93,
+        "page": 29,
+        "pdf_name": "TEMP1H",
+        "json_name": "TEMP1H",
+        "pdf_bits": [
+          "TEMP1.15",
+          "TEMP1.14",
+          "TEMP1.13",
+          "TEMP1.12",
+          "TEMP1.11",
+          "TEMP1.10",
+          "TEMP1.9",
+          "TEMP1.8"
+        ],
+        "json_bits": [
+          "TEMP1.15",
+          "TEMP1.14",
+          "TEMP1.13",
+          "TEMP1.12",
+          "TEMP1.11",
+          "TEMP1.10",
+          "TEMP1.9",
+          "TEMP1.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 94,
+        "page": 29,
+        "pdf_name": "TEMP1L",
+        "json_name": "TEMP1L",
+        "pdf_bits": [
+          "TEMP1.7",
+          "TEMP1.6",
+          "TEMP1.5",
+          "TEMP1.4",
+          "TEMP1.3",
+          "TEMP1.2",
+          "TEMP1.1",
+          "TEMP1.0"
+        ],
+        "json_bits": [
+          "TEMP1.7",
+          "TEMP1.6",
+          "TEMP1.5",
+          "TEMP1.4",
+          "TEMP1.3",
+          "TEMP1.2",
+          "TEMP1.1",
+          "TEMP1.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 95,
+        "page": 29,
+        "pdf_name": "TEMP2H",
+        "json_name": "TEMP2H",
+        "pdf_bits": [
+          "TEMP2.15",
+          "TEMP2.14",
+          "TEMP2.13",
+          "TEMP2.12",
+          "TEMP2.11",
+          "TEMP2.10",
+          "TEMP2.9",
+          "TEMP2.8"
+        ],
+        "json_bits": [
+          "TEMP2.15",
+          "TEMP2.14",
+          "TEMP2.13",
+          "TEMP2.12",
+          "TEMP2.11",
+          "TEMP2.10",
+          "TEMP2.9",
+          "TEMP2.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 96,
+        "page": 29,
+        "pdf_name": "TEMP2L",
+        "json_name": "TEMP2L",
+        "pdf_bits": [
+          "TEMP2.7",
+          "TEMP2.6",
+          "TEMP2.5",
+          "TEMP2.4",
+          "TEMP2.3",
+          "TEMP2.2",
+          "TEMP2.1",
+          "TEMP2.0"
+        ],
+        "json_bits": [
+          "TEMP2.7",
+          "TEMP2.6",
+          "TEMP2.5",
+          "TEMP2.4",
+          "TEMP2.3",
+          "TEMP2.2",
+          "TEMP2.1",
+          "TEMP2.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 97,
+        "page": 29,
+        "pdf_name": "TEMP3H",
+        "json_name": "TEMP3H",
+        "pdf_bits": [
+          "TEMP3.15",
+          "TEMP3.14",
+          "TEMP3.13",
+          "TEMP3.12",
+          "TEMP3.11",
+          "TEMP3.10",
+          "TEMP3.9",
+          "TEMP3.8"
+        ],
+        "json_bits": [
+          "TEMP3.15",
+          "TEMP3.14",
+          "TEMP3.13",
+          "TEMP3.12",
+          "TEMP3.11",
+          "TEMP3.10",
+          "TEMP3.9",
+          "TEMP3.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 98,
+        "page": 29,
+        "pdf_name": "TEMP3L",
+        "json_name": "TEMP3L",
+        "pdf_bits": [
+          "TEMP3.7",
+          "TEMP3.6",
+          "TEMP3.5",
+          "TEMP3.4",
+          "TEMP3.3",
+          "TEMP3.2",
+          "TEMP3.1",
+          "TEMP3.0"
+        ],
+        "json_bits": [
+          "TEMP3.7",
+          "TEMP3.6",
+          "TEMP3.5",
+          "TEMP3.4",
+          "TEMP3.3",
+          "TEMP3.2",
+          "TEMP3.1",
+          "TEMP3.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 99,
+        "page": 29,
+        "pdf_name": "TEMP4H",
+        "json_name": "TEMP4H",
+        "pdf_bits": [
+          "TEMP4.15",
+          "TEMP4.14",
+          "TEMP4.13",
+          "TEMP4.12",
+          "TEMP4.11",
+          "TEMP4.10",
+          "TEMP4.9",
+          "TEMP4.8"
+        ],
+        "json_bits": [
+          "TEMP4.15",
+          "TEMP4.14",
+          "TEMP4.13",
+          "TEMP4.12",
+          "TEMP4.11",
+          "TEMP4.10",
+          "TEMP4.9",
+          "TEMP4.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 100,
+        "page": 29,
+        "pdf_name": "TEMP4L",
+        "json_name": "TEMP4L",
+        "pdf_bits": [
+          "TEMP4.7",
+          "TEMP4.6",
+          "TEMP4.5",
+          "TEMP4.4",
+          "TEMP4.3",
+          "TEMP4.2",
+          "TEMP4.1",
+          "TEMP4.0"
+        ],
+        "json_bits": [
+          "TEMP4.7",
+          "TEMP4.6",
+          "TEMP4.5",
+          "TEMP4.4",
+          "TEMP4.3",
+          "TEMP4.2",
+          "TEMP4.1",
+          "TEMP4.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 101,
+        "page": 29,
+        "pdf_name": "TEMPIH",
+        "json_name": "TEMPIH",
+        "pdf_bits": [
+          "TEMPI.15",
+          "TEMPI.14",
+          "TEMPI.13",
+          "TEMPI.12",
+          "TEMPI.11",
+          "TEMPI.10",
+          "TEMPI.9",
+          "TEMPI.8"
+        ],
+        "json_bits": [
+          "TEMPI.15",
+          "TEMPI.14",
+          "TEMPI.13",
+          "TEMPI.12",
+          "TEMPI.11",
+          "TEMPI.10",
+          "TEMPI.9",
+          "TEMPI.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 102,
+        "page": 29,
+        "pdf_name": "TEMPIL",
+        "json_name": "TEMPIL",
+        "pdf_bits": [
+          "TEMPI.7",
+          "TEMPI.6",
+          "TEMPI.5",
+          "TEMPI.4",
+          "TEMPI.3",
+          "TEMPI.2",
+          "TEMPI.1",
+          "TEMPI.0"
+        ],
+        "json_bits": [
+          "TEMPI.7",
+          "TEMPI.6",
+          "TEMPI.5",
+          "TEMPI.4",
+          "TEMPI.3",
+          "TEMPI.2",
+          "TEMPI.1",
+          "TEMPI.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 103,
+        "page": 29,
+        "pdf_name": "CURH",
+        "json_name": "CURH",
+        "pdf_bits": [
+          "CUR.15",
+          "CUR.14",
+          "CUR.13",
+          "CUR.12",
+          "CUR.11",
+          "CUR.10",
+          "CUR.9",
+          "CUR.8"
+        ],
+        "json_bits": [
+          "CUR.15",
+          "CUR.14",
+          "CUR.13",
+          "CUR.12",
+          "CUR.11",
+          "CUR.10",
+          "CUR.9",
+          "CUR.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 104,
+        "page": 29,
+        "pdf_name": "CURL",
+        "json_name": "CURL",
+        "pdf_bits": [
+          "CUR.7",
+          "CUR.6",
+          "CUR.5",
+          "CUR.4",
+          "CUR.3",
+          "CUR.2",
+          "CUR.1",
+          "CUR.0"
+        ],
+        "json_bits": [
+          "CUR.7",
+          "CUR.6",
+          "CUR.5",
+          "CUR.4",
+          "CUR.3",
+          "CUR.2",
+          "CUR.1",
+          "CUR.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 105,
+        "page": 29,
+        "pdf_name": "CELL1H",
+        "json_name": "CELL1H",
+        "pdf_bits": [
+          "CELL1.15",
+          "CELL1.14",
+          "CELL1.13",
+          "CELL1.12",
+          "CELL1.11",
+          "CELL1.10",
+          "CELL1.9",
+          "CELL1.8"
+        ],
+        "json_bits": [
+          "CELL1.15",
+          "CELL1.14",
+          "CELL1.13",
+          "CELL1.12",
+          "CELL1.11",
+          "CELL1.10",
+          "CELL1.9",
+          "CELL1.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 106,
+        "page": 29,
+        "pdf_name": "CELL1L",
+        "json_name": "CELL1L",
+        "pdf_bits": [
+          "CELL1.7",
+          "CELL1.6",
+          "CELL1.5",
+          "CELL1.4",
+          "CELL1.3",
+          "CELL1.2",
+          "CELL1.1",
+          "CELL1.0"
+        ],
+        "json_bits": [
+          "CELL1.7",
+          "CELL1.6",
+          "CELL1.5",
+          "CELL1.4",
+          "CELL1.3",
+          "CELL1.2",
+          "CELL1.1",
+          "CELL1.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 107,
+        "page": 29,
+        "pdf_name": "CELL2H",
+        "json_name": "CELL2H",
+        "pdf_bits": [
+          "CELL2.15",
+          "CELL2.14",
+          "CELL2.13",
+          "CELL2.12",
+          "CELL2.11",
+          "CELL2.10",
+          "CELL2.9",
+          "CELL2.8"
+        ],
+        "json_bits": [
+          "CELL2.15",
+          "CELL2.14",
+          "CELL2.13",
+          "CELL2.12",
+          "CELL2.11",
+          "CELL2.10",
+          "CELL2.9",
+          "CELL2.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 108,
+        "page": 29,
+        "pdf_name": "CELL2L",
+        "json_name": "CELL2L",
+        "pdf_bits": [
+          "CELL2.7",
+          "CELL2.6",
+          "CELL2.5",
+          "CELL2.4",
+          "CELL2.3",
+          "CELL2.2",
+          "CELL2.1",
+          "CELL2.0"
+        ],
+        "json_bits": [
+          "CELL2.7",
+          "CELL2.6",
+          "CELL2.5",
+          "CELL2.4",
+          "CELL2.3",
+          "CELL2.2",
+          "CELL2.1",
+          "CELL2.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 109,
+        "page": 29,
+        "pdf_name": "CELL3H",
+        "json_name": "CELL3H",
+        "pdf_bits": [
+          "CELL3.15",
+          "CELL3.14",
+          "CELL3.13",
+          "CELL3.12",
+          "CELL3.11",
+          "CELL3.10",
+          "CELL3.9",
+          "CELL3.8"
+        ],
+        "json_bits": [
+          "CELL3.15",
+          "CELL3.14",
+          "CELL3.13",
+          "CELL3.12",
+          "CELL3.11",
+          "CELL3.10",
+          "CELL3.9",
+          "CELL3.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 110,
+        "page": 29,
+        "pdf_name": "CELL3L",
+        "json_name": "CELL3L",
+        "pdf_bits": [
+          "CELL3.7",
+          "CELL3.6",
+          "CELL3.5",
+          "CELL3.4",
+          "CELL3.3",
+          "CELL3.2",
+          "CELL3.1",
+          "CELL3.0"
+        ],
+        "json_bits": [
+          "CELL3.7",
+          "CELL3.6",
+          "CELL3.5",
+          "CELL3.4",
+          "CELL3.3",
+          "CELL3.2",
+          "CELL3.1",
+          "CELL3.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 111,
+        "page": 29,
+        "pdf_name": "CELL4H",
+        "json_name": "CELL4H",
+        "pdf_bits": [
+          "CELL4.15",
+          "CELL4.14",
+          "CELL4.13",
+          "CELL4.12",
+          "CELL4.11",
+          "CELL4.10",
+          "CELL4.9",
+          "CELL4.8"
+        ],
+        "json_bits": [
+          "CELL4.15",
+          "CELL4.14",
+          "CELL4.13",
+          "CELL4.12",
+          "CELL4.11",
+          "CELL4.10",
+          "CELL4.9",
+          "CELL4.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 112,
+        "page": 29,
+        "pdf_name": "CELL4L",
+        "json_name": "CELL4L",
+        "pdf_bits": [
+          "CELL4.7",
+          "CELL4.6",
+          "CELL4.5",
+          "CELL4.4",
+          "CELL4.3",
+          "CELL4.2",
+          "CELL4.1",
+          "CELL4.0"
+        ],
+        "json_bits": [
+          "CELL4.7",
+          "CELL4.6",
+          "CELL4.5",
+          "CELL4.4",
+          "CELL4.3",
+          "CELL4.2",
+          "CELL4.1",
+          "CELL4.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 113,
+        "page": 29,
+        "pdf_name": "CELL5H",
+        "json_name": "CELL5H",
+        "pdf_bits": [
+          "CELL5.15",
+          "CELL5.14",
+          "CELL5.13",
+          "CELL5.12",
+          "CELL5.11",
+          "CELL5.10",
+          "CELL5.9",
+          "CELL5.8"
+        ],
+        "json_bits": [
+          "CELL5.15",
+          "CELL5.14",
+          "CELL5.13",
+          "CELL5.12",
+          "CELL5.11",
+          "CELL5.10",
+          "CELL5.9",
+          "CELL5.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 114,
+        "page": 29,
+        "pdf_name": "CELL5L",
+        "json_name": "CELL5L",
+        "pdf_bits": [
+          "CELL5.7",
+          "CELL5.6",
+          "CELL5.5",
+          "CELL5.4",
+          "CELL5.3",
+          "CELL5.2",
+          "CELL5.1",
+          "CELL5.0"
+        ],
+        "json_bits": [
+          "CELL5.7",
+          "CELL5.6",
+          "CELL5.5",
+          "CELL5.4",
+          "CELL5.3",
+          "CELL5.2",
+          "CELL5.1",
+          "CELL5.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 115,
+        "page": 29,
+        "pdf_name": "CELL6H",
+        "json_name": "CELL6H",
+        "pdf_bits": [
+          "CELL6.15",
+          "CELL6.14",
+          "CELL6.13",
+          "CELL6.12",
+          "CELL6.11",
+          "CELL6.10",
+          "CELL6.9",
+          "CELL6.8"
+        ],
+        "json_bits": [
+          "CELL6.15",
+          "CELL6.14",
+          "CELL6.13",
+          "CELL6.12",
+          "CELL6.11",
+          "CELL6.10",
+          "CELL6.9",
+          "CELL6.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 116,
+        "page": 29,
+        "pdf_name": "CELL6L",
+        "json_name": "CELL6L",
+        "pdf_bits": [
+          "CELL6.7",
+          "CELL6.6",
+          "CELL6.5",
+          "CELL6.4",
+          "CELL6.3",
+          "CELL6.2",
+          "CELL6.1",
+          "CELL6.0"
+        ],
+        "json_bits": [
+          "CELL6.7",
+          "CELL6.6",
+          "CELL6.5",
+          "CELL6.4",
+          "CELL6.3",
+          "CELL6.2",
+          "CELL6.1",
+          "CELL6.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 117,
+        "page": 29,
+        "pdf_name": "CELL7H",
+        "json_name": "CELL7H",
+        "pdf_bits": [
+          "CELL7.15",
+          "CELL7.14",
+          "CELL7.13",
+          "CELL7.12",
+          "CELL7.11",
+          "CELL7.10",
+          "CELL7.9",
+          "CELL7.8"
+        ],
+        "json_bits": [
+          "CELL7.15",
+          "CELL7.14",
+          "CELL7.13",
+          "CELL7.12",
+          "CELL7.11",
+          "CELL7.10",
+          "CELL7.9",
+          "CELL7.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 118,
+        "page": 29,
+        "pdf_name": "CELL7L",
+        "json_name": "CELL7L",
+        "pdf_bits": [
+          "CELL7.7",
+          "CELL7.6",
+          "CELL7.5",
+          "CELL7.4",
+          "CELL7.3",
+          "CELL7.2",
+          "CELL7.1",
+          "CELL7.0"
+        ],
+        "json_bits": [
+          "CELL7.7",
+          "CELL7.6",
+          "CELL7.5",
+          "CELL7.4",
+          "CELL7.3",
+          "CELL7.2",
+          "CELL7.1",
+          "CELL7.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 119,
+        "page": 29,
+        "pdf_name": "CELL8H",
+        "json_name": "CELL8H",
+        "pdf_bits": [
+          "CELL8.15",
+          "CELL8.14",
+          "CELL8.13",
+          "CELL8.12",
+          "CELL8.11",
+          "CELL8.10",
+          "CELL8.9",
+          "CELL8.8"
+        ],
+        "json_bits": [
+          "CELL8.15",
+          "CELL8.14",
+          "CELL8.13",
+          "CELL8.12",
+          "CELL8.11",
+          "CELL8.10",
+          "CELL8.9",
+          "CELL8.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 120,
+        "page": 29,
+        "pdf_name": "CELL8L",
+        "json_name": "CELL8L",
+        "pdf_bits": [
+          "CELL8.7",
+          "CELL8.6",
+          "CELL8.5",
+          "CELL8.4",
+          "CELL8.3",
+          "CELL8.2",
+          "CELL8.1",
+          "CELL8.0"
+        ],
+        "json_bits": [
+          "CELL8.7",
+          "CELL8.6",
+          "CELL8.5",
+          "CELL8.4",
+          "CELL8.3",
+          "CELL8.2",
+          "CELL8.1",
+          "CELL8.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 121,
+        "page": 29,
+        "pdf_name": "CELL9H",
+        "json_name": "CELL9H",
+        "pdf_bits": [
+          "CELL9.15",
+          "CELL9.14",
+          "CELL9.13",
+          "CELL9.12",
+          "CELL9.11",
+          "CELL9.10",
+          "CELL9.9",
+          "CELL9.8"
+        ],
+        "json_bits": [
+          "CELL9.15",
+          "CELL9.14",
+          "CELL9.13",
+          "CELL9.12",
+          "CELL9.11",
+          "CELL9.10",
+          "CELL9.9",
+          "CELL9.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 122,
+        "page": 29,
+        "pdf_name": "CELL9L",
+        "json_name": "CELL9L",
+        "pdf_bits": [
+          "CELL9.7",
+          "CELL9.6",
+          "CELL9.5",
+          "CELL9.4",
+          "CELL9.3",
+          "CELL9.2",
+          "CELL9.1",
+          "CELL9.0"
+        ],
+        "json_bits": [
+          "CELL9.7",
+          "CELL9.6",
+          "CELL9.5",
+          "CELL9.4",
+          "CELL9.3",
+          "CELL9.2",
+          "CELL9.1",
+          "CELL9.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 123,
+        "page": 29,
+        "pdf_name": "CELL10H",
+        "json_name": "CELL10H",
+        "pdf_bits": [
+          "CELL10.15",
+          "CELL10.14",
+          "CELL10.13",
+          "CELL10.12",
+          "CELL10.11",
+          "CELL10.10",
+          "CELL10.9",
+          "CELL10.8"
+        ],
+        "json_bits": [
+          "CELL10.15",
+          "CELL10.14",
+          "CELL10.13",
+          "CELL10.12",
+          "CELL10.11",
+          "CELL10.10",
+          "CELL10.9",
+          "CELL10.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 124,
+        "page": 29,
+        "pdf_name": "CELL10L",
+        "json_name": "CELL10L",
+        "pdf_bits": [
+          "CELL10.7",
+          "CELL10.6",
+          "CELL10.5",
+          "CELL10.4",
+          "CELL10.3",
+          "CELL10.2",
+          "CELL10.1",
+          "CELL10.0"
+        ],
+        "json_bits": [
+          "CELL10.7",
+          "CELL10.6",
+          "CELL10.5",
+          "CELL10.4",
+          "CELL10.3",
+          "CELL10.2",
+          "CELL10.1",
+          "CELL10.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 125,
+        "page": 29,
+        "pdf_name": "CELL11H",
+        "json_name": "CELL11H",
+        "pdf_bits": [
+          "CELL11.15",
+          "CELL11.14",
+          "CELL11.13",
+          "CELL11.12",
+          "CELL11.11",
+          "CELL11.10",
+          "CELL11.9",
+          "CELL11.8"
+        ],
+        "json_bits": [
+          "CELL11.15",
+          "CELL11.14",
+          "CELL11.13",
+          "CELL11.12",
+          "CELL11.11",
+          "CELL11.10",
+          "CELL11.9",
+          "CELL11.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 126,
+        "page": 29,
+        "pdf_name": "CELL11L",
+        "json_name": "CELL11L",
+        "pdf_bits": [
+          "CELL11.7",
+          "CELL11.6",
+          "CELL11.5",
+          "CELL11.4",
+          "CELL11.3",
+          "CELL11.2",
+          "CELL11.1",
+          "CELL11.0"
+        ],
+        "json_bits": [
+          "CELL11.7",
+          "CELL11.6",
+          "CELL11.5",
+          "CELL11.4",
+          "CELL11.3",
+          "CELL11.2",
+          "CELL11.1",
+          "CELL11.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 127,
+        "page": 29,
+        "pdf_name": "CELL12H",
+        "json_name": "CELL12H",
+        "pdf_bits": [
+          "CELL12.15",
+          "CELL12.14",
+          "CELL12.13",
+          "CELL12.12",
+          "CELL12.11",
+          "CELL12.10",
+          "CELL12.9",
+          "CELL12.8"
+        ],
+        "json_bits": [
+          "CELL12.15",
+          "CELL12.14",
+          "CELL12.13",
+          "CELL12.12",
+          "CELL12.11",
+          "CELL12.10",
+          "CELL12.9",
+          "CELL12.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 128,
+        "page": 29,
+        "pdf_name": "CELL12L",
+        "json_name": "CELL12L",
+        "pdf_bits": [
+          "CELL12.7",
+          "CELL12.6",
+          "CELL12.5",
+          "CELL12.4",
+          "CELL12.3",
+          "CELL12.2",
+          "CELL12.1",
+          "CELL12.0"
+        ],
+        "json_bits": [
+          "CELL12.7",
+          "CELL12.6",
+          "CELL12.5",
+          "CELL12.4",
+          "CELL12.3",
+          "CELL12.2",
+          "CELL12.1",
+          "CELL12.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 129,
+        "page": 29,
+        "pdf_name": "CELL13H",
+        "json_name": "CELL13H",
+        "pdf_bits": [
+          "CELL13.15",
+          "CELL13.14",
+          "CELL13.13",
+          "CELL13.12",
+          "CELL13.11",
+          "CELL13.10",
+          "CELL13.9",
+          "CELL13.8"
+        ],
+        "json_bits": [
+          "CELL13.15",
+          "CELL13.14",
+          "CELL13.13",
+          "CELL13.12",
+          "CELL13.11",
+          "CELL13.10",
+          "CELL13.9",
+          "CELL13.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 130,
+        "page": 29,
+        "pdf_name": "CELL13L",
+        "json_name": "CELL13L",
+        "pdf_bits": [
+          "CELL13.7",
+          "CELL13.6",
+          "CELL13.5",
+          "CELL13.4",
+          "CELL13.3",
+          "CELL13.2",
+          "CELL13.1",
+          "CELL13.0"
+        ],
+        "json_bits": [
+          "CELL13.7",
+          "CELL13.6",
+          "CELL13.5",
+          "CELL13.4",
+          "CELL13.3",
+          "CELL13.2",
+          "CELL13.1",
+          "CELL13.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 131,
+        "page": 29,
+        "pdf_name": "CELL14H",
+        "json_name": "CELL14H",
+        "pdf_bits": [
+          "CELL14.15",
+          "CELL14.14",
+          "CELL14.13",
+          "CELL14.12",
+          "CELL14.11",
+          "CELL14.10",
+          "CELL14.9",
+          "CELL14.8"
+        ],
+        "json_bits": [
+          "CELL14.15",
+          "CELL14.14",
+          "CELL14.13",
+          "CELL14.12",
+          "CELL14.11",
+          "CELL14.10",
+          "CELL14.9",
+          "CELL14.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 132,
+        "page": 29,
+        "pdf_name": "CELL14L",
+        "json_name": "CELL14L",
+        "pdf_bits": [
+          "CELL14.7",
+          "CELL14.6",
+          "CELL14.5",
+          "CELL14.4",
+          "CELL14.3",
+          "CELL14.2",
+          "CELL14.1",
+          "CELL14.0"
+        ],
+        "json_bits": [
+          "CELL14.7",
+          "CELL14.6",
+          "CELL14.5",
+          "CELL14.4",
+          "CELL14.3",
+          "CELL14.2",
+          "CELL14.1",
+          "CELL14.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 133,
+        "page": 30,
+        "pdf_name": "CELL15H",
+        "json_name": "CELL15H",
+        "pdf_bits": [
+          "CELL15.15",
+          "CELL15.14",
+          "CELL15.13",
+          "CELL15.12",
+          "CELL15.11",
+          "CELL15.10",
+          "CELL15.9",
+          "CELL15.8"
+        ],
+        "json_bits": [
+          "CELL15.15",
+          "CELL15.14",
+          "CELL15.13",
+          "CELL15.12",
+          "CELL15.11",
+          "CELL15.10",
+          "CELL15.9",
+          "CELL15.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 134,
+        "page": 30,
+        "pdf_name": "CELL15L",
+        "json_name": "CELL15L",
+        "pdf_bits": [
+          "CELL15.7",
+          "CELL15.6",
+          "CELL15.5",
+          "CELL15.4",
+          "CELL15.3",
+          "CELL15.2",
+          "CELL15.1",
+          "CELL15.0"
+        ],
+        "json_bits": [
+          "CELL15.7",
+          "CELL15.6",
+          "CELL15.5",
+          "CELL15.4",
+          "CELL15.3",
+          "CELL15.2",
+          "CELL15.1",
+          "CELL15.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 135,
+        "page": 30,
+        "pdf_name": "CELL16H",
+        "json_name": "CELL16H",
+        "pdf_bits": [
+          "CELL16.15",
+          "CELL16.14",
+          "CELL16.13",
+          "CELL16.12",
+          "CELL16.11",
+          "CELL16.10",
+          "CELL16.9",
+          "CELL16.8"
+        ],
+        "json_bits": [
+          "CELL16.15",
+          "CELL16.14",
+          "CELL16.13",
+          "CELL16.12",
+          "CELL16.11",
+          "CELL16.10",
+          "CELL16.9",
+          "CELL16.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 136,
+        "page": 30,
+        "pdf_name": "CELL16L",
+        "json_name": "CELL16L",
+        "pdf_bits": [
+          "CELL16.7",
+          "CELL16.6",
+          "CELL16.5",
+          "CELL16.4",
+          "CELL16.3",
+          "CELL16.2",
+          "CELL16.1",
+          "CELL16.0"
+        ],
+        "json_bits": [
+          "CELL16.7",
+          "CELL16.6",
+          "CELL16.5",
+          "CELL16.4",
+          "CELL16.3",
+          "CELL16.2",
+          "CELL16.1",
+          "CELL16.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 137,
+        "page": 30,
+        "pdf_name": "CELL17H",
+        "json_name": "CELL17H",
+        "pdf_bits": [
+          "CELL17.15",
+          "CELL17.14",
+          "CELL17.13",
+          "CELL17.12",
+          "CELL17.11",
+          "CELL17.10",
+          "CELL17.9",
+          "CELL17.8"
+        ],
+        "json_bits": [
+          "CELL17.15",
+          "CELL17.14",
+          "CELL17.13",
+          "CELL17.12",
+          "CELL17.11",
+          "CELL17.10",
+          "CELL17.9",
+          "CELL17.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 138,
+        "page": 30,
+        "pdf_name": "CELL17L",
+        "json_name": "CELL17L",
+        "pdf_bits": [
+          "CELL17.7",
+          "CELL17.6",
+          "CELL17.5",
+          "CELL17.4",
+          "CELL17.3",
+          "CELL17.2",
+          "CELL17.1",
+          "CELL17.0"
+        ],
+        "json_bits": [
+          "CELL17.7",
+          "CELL17.6",
+          "CELL17.5",
+          "CELL17.4",
+          "CELL17.3",
+          "CELL17.2",
+          "CELL17.1",
+          "CELL17.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 139,
+        "page": 30,
+        "pdf_name": "CELL18H",
+        "json_name": "CELL18H",
+        "pdf_bits": [
+          "CELL18.15",
+          "CELL18.14",
+          "CELL18.13",
+          "CELL18.12",
+          "CELL18.11",
+          "CELL18.10",
+          "CELL18.9",
+          "CELL18.8"
+        ],
+        "json_bits": [
+          "CELL18.15",
+          "CELL18.14",
+          "CELL18.13",
+          "CELL18.12",
+          "CELL18.11",
+          "CELL18.10",
+          "CELL18.9",
+          "CELL18.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 140,
+        "page": 30,
+        "pdf_name": "CELL18L",
+        "json_name": "CELL18L",
+        "pdf_bits": [
+          "CELL18.7",
+          "CELL18.6",
+          "CELL18.5",
+          "CELL18.4",
+          "CELL18.3",
+          "CELL18.2",
+          "CELL18.1",
+          "CELL18.0"
+        ],
+        "json_bits": [
+          "CELL18.7",
+          "CELL18.6",
+          "CELL18.5",
+          "CELL18.4",
+          "CELL18.3",
+          "CELL18.2",
+          "CELL18.1",
+          "CELL18.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 141,
+        "page": 30,
+        "pdf_name": "CELL19H",
+        "json_name": "CELL19H",
+        "pdf_bits": [
+          "CELL19.15",
+          "CELL19.14",
+          "CELL19.13",
+          "CELL19.12",
+          "CELL19.11",
+          "CELL19.10",
+          "CELL19.9",
+          "CELL19.8"
+        ],
+        "json_bits": [
+          "CELL19.15",
+          "CELL19.14",
+          "CELL19.13",
+          "CELL19.12",
+          "CELL19.11",
+          "CELL19.10",
+          "CELL19.9",
+          "CELL19.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 142,
+        "page": 30,
+        "pdf_name": "CELL19L",
+        "json_name": "CELL19L",
+        "pdf_bits": [
+          "CELL19.7",
+          "CELL19.6",
+          "CELL19.5",
+          "CELL19.4",
+          "CELL19.3",
+          "CELL19.2",
+          "CELL19.1",
+          "CELL19.0"
+        ],
+        "json_bits": [
+          "CELL19.7",
+          "CELL19.6",
+          "CELL19.5",
+          "CELL19.4",
+          "CELL19.3",
+          "CELL19.2",
+          "CELL19.1",
+          "CELL19.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 143,
+        "page": 30,
+        "pdf_name": "CELL20H",
+        "json_name": "CELL20H",
+        "pdf_bits": [
+          "CELL20.15",
+          "CELL20.14",
+          "CELL20.13",
+          "CELL20.12",
+          "CELL20.11",
+          "CELL20.10",
+          "CELL20.9",
+          "CELL20.8"
+        ],
+        "json_bits": [
+          "CELL20.15",
+          "CELL20.14",
+          "CELL20.13",
+          "CELL20.12",
+          "CELL20.11",
+          "CELL20.10",
+          "CELL20.9",
+          "CELL20.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 144,
+        "page": 30,
+        "pdf_name": "CELL20L",
+        "json_name": "CELL20L",
+        "pdf_bits": [
+          "CELL20.7",
+          "CELL20.6",
+          "CELL20.5",
+          "CELL20.4",
+          "CELL20.3",
+          "CELL20.2",
+          "CELL20.1",
+          "CELL20.0"
+        ],
+        "json_bits": [
+          "CELL20.7",
+          "CELL20.6",
+          "CELL20.5",
+          "CELL20.4",
+          "CELL20.3",
+          "CELL20.2",
+          "CELL20.1",
+          "CELL20.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 145,
+        "page": 30,
+        "pdf_name": "CADCDH",
+        "json_name": "CADCDH",
+        "pdf_bits": [
+          "CADCD.15",
+          "CADCD.14",
+          "CADCD.13",
+          "CADCD.12",
+          "CADCD.11",
+          "CADCD.10",
+          "CADCD.9",
+          "CADCD.8"
+        ],
+        "json_bits": [
+          "CADCD.15",
+          "CADCD.14",
+          "CADCD.13",
+          "CADCD.12",
+          "CADCD.11",
+          "CADCD.10",
+          "CADCD.9",
+          "CADCD.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 146,
+        "page": 30,
+        "pdf_name": "CADCDL",
+        "json_name": "CADCDL",
+        "pdf_bits": [
+          "CADCD.7",
+          "CADCD.6",
+          "CADCD.5",
+          "CADCD.4",
+          "CADCD.3",
+          "CADCD.2",
+          "CADCD.0",
+          "CADCD.0"
+        ],
+        "json_bits": [
+          "CADCD.7",
+          "CADCD.6",
+          "CADCD.5",
+          "CADCD.4",
+          "CADCD.3",
+          "CADCD.2",
+          "CADCD.0",
+          "CADCD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 147,
+        "page": 30,
+        "pdf_name": "VTOPH",
+        "json_name": "VTOPH",
+        "pdf_bits": [
+          "VTOP.15",
+          "VTOP.14",
+          "VTOP.13",
+          "VTOP.12",
+          "VTOP.11",
+          "VTOP.10",
+          "VTOP.9",
+          "VTOP.8"
+        ],
+        "json_bits": [
+          "VTOP.15",
+          "VTOP.14",
+          "VTOP.13",
+          "VTOP.12",
+          "VTOP.11",
+          "VTOP.10",
+          "VTOP.9",
+          "VTOP.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 148,
+        "page": 30,
+        "pdf_name": "VTOPL",
+        "json_name": "VTOPL",
+        "pdf_bits": [
+          "VTOP.7",
+          "VTOP.6",
+          "VTOP.5",
+          "VTOP.4",
+          "VTOP.3",
+          "VTOP.2",
+          "VTOP.1",
+          "VTOP.0"
+        ],
+        "json_bits": [
+          "VTOP.7",
+          "VTOP.6",
+          "VTOP.5",
+          "VTOP.4",
+          "VTOP.3",
+          "VTOP.2",
+          "VTOP.1",
+          "VTOP.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 149,
+        "page": 30,
+        "pdf_name": "VCHGRH",
+        "json_name": "VCHGRH",
+        "pdf_bits": [
+          "VCHGR.15",
+          "VCHGR.14",
+          "VCHGR.13",
+          "VCHGR.12",
+          "VCHGR.11",
+          "VCHGR.10",
+          "VCHGR.9",
+          "VCHGR.8"
+        ],
+        "json_bits": [
+          "VCHGR.15",
+          "VCHGR.14",
+          "VCHGR.13",
+          "VCHGR.12",
+          "VCHGR.11",
+          "VCHGR.10",
+          "VCHGR.9",
+          "VCHGR.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 150,
+        "page": 30,
+        "pdf_name": "VCHGRL",
+        "json_name": "VCHGRL",
+        "pdf_bits": [
+          "VCHGR.7",
+          "VCHGR.6",
+          "VCHGR.5",
+          "VCHGR.4",
+          "VCHGR.3",
+          "VCHGR.2",
+          "VCHGR.1",
+          "VCHGR.0"
+        ],
+        "json_bits": [
+          "VCHGR.7",
+          "VCHGR.6",
+          "VCHGR.5",
+          "VCHGR.4",
+          "VCHGR.3",
+          "VCHGR.2",
+          "VCHGR.1",
+          "VCHGR.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 151,
+        "page": 30,
+        "pdf_name": "OWDH",
+        "json_name": "OWDH",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD20",
+          "OWD19",
+          "OWD18",
+          "OWD17"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD20",
+          "OWD19",
+          "OWD18",
+          "OWD17"
+        ],
+        "equal": true
+      },
+      {
+        "address": 152,
+        "page": 30,
+        "pdf_name": "OWDM",
+        "json_name": "OWDM",
+        "pdf_bits": [
+          "OWD16",
+          "OWD15",
+          "OWD14",
+          "OWD13",
+          "OWD12",
+          "OWD11",
+          "OWD10",
+          "OWD9"
+        ],
+        "json_bits": [
+          "OWD16",
+          "OWD15",
+          "OWD14",
+          "OWD13",
+          "OWD12",
+          "OWD11",
+          "OWD10",
+          "OWD9"
+        ],
+        "equal": true
+      },
+      {
+        "address": 153,
+        "page": 30,
+        "pdf_name": "OWDL",
+        "json_name": "OWDL",
+        "pdf_bits": [
+          "OWD8",
+          "OWD7",
+          "OWD6",
+          "OWD5",
+          "OWD4",
+          "OWD3",
+          "OWD2",
+          "OWD1"
+        ],
+        "json_bits": [
+          "OWD8",
+          "OWD7",
+          "OWD6",
+          "OWD5",
+          "OWD4",
+          "OWD3",
+          "OWD2",
+          "OWD1"
+        ],
+        "equal": true
+      }
+    ],
+    "count": 90,
+    "mismatches": []
+  },
+  "CV0.2C": {
+    "rows": [
+      {
+        "address": 64,
+        "page": 28,
+        "pdf_name": "SCONF1",
+        "json_name": "SCONF1",
+        "pdf_bits": [
+          "PIN.7",
+          "PIN.6",
+          "PIN.5",
+          "PIN.4",
+          "PIN.3",
+          "PIN.2",
+          "PIN.1",
+          "PIN.0"
+        ],
+        "json_bits": [
+          "PIN.7",
+          "PIN.6",
+          "PIN.5",
+          "PIN.4",
+          "PIN.3",
+          "PIN.2",
+          "PIN.1",
+          "PIN.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 65,
+        "page": 28,
+        "pdf_name": "SCONF2",
+        "json_name": "SCONF2",
+        "pdf_bits": [
+          "LTCLR",
+          "PD_EN",
+          "PD_CTL",
+          "PUMP_EN",
+          "PDSG_CTL",
+          "PDSGMOS",
+          "DSGMOS",
+          "CHGMOS"
+        ],
+        "json_bits": [
+          "LTCLR",
+          "PD_EN",
+          "PD_CTL",
+          "PUMP_EN",
+          "PDSG_CTL",
+          "PDSGMOS",
+          "DSGMOS",
+          "CHGMOS"
+        ],
+        "equal": true
+      },
+      {
+        "address": 66,
+        "page": 28,
+        "pdf_name": "SCONF3",
+        "json_name": "SCONF3",
+        "pdf_bits": [
+          "-",
+          "CGR_WK",
+          "LD_WK.1",
+          "LD_WK.0",
+          "CRLD_EN.1",
+          "CRLD_EN.0",
+          "OWD_EN",
+          "OWD_TRG"
+        ],
+        "json_bits": [
+          "-",
+          "CGR_WK",
+          "LD_WK.1",
+          "LD_WK.0",
+          "CRLD_EN.1",
+          "CRLD_EN.0",
+          "OWD_EN",
+          "OWD_TRG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 67,
+        "page": 28,
+        "pdf_name": "SCONF4",
+        "json_name": "SCONF4",
+        "pdf_bits": [
+          "PDSGT.2",
+          "PDSGT.1",
+          "PDSGT.0",
+          "CN.4",
+          "CN.3",
+          "CN.2",
+          "CN.1",
+          "CN.0"
+        ],
+        "json_bits": [
+          "PDSGT.2",
+          "PDSGT.1",
+          "PDSGT.0",
+          "CN.4",
+          "CN.3",
+          "CN.2",
+          "CN.1",
+          "CN.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 68,
+        "page": 28,
+        "pdf_name": "SCONF5",
+        "json_name": "SCONF5",
+        "pdf_bits": [
+          "-",
+          "-",
+          "MOS_EN",
+          "OCC_EN",
+          "CADC_EN",
+          "WDT_EN",
+          "WDT.1",
+          "WDT.0"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "MOS_EN",
+          "OCC_EN",
+          "CADC_EN",
+          "WDT_EN",
+          "WDT.1",
+          "WDT.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 69,
+        "page": 28,
+        "pdf_name": "SCONF6",
+        "json_name": "SCONF6",
+        "pdf_bits": [
+          "TS4_EN",
+          "TS3_EN",
+          "TS2_EN",
+          "TS1_EN",
+          "SC_EN",
+          "OCD_EN",
+          "UV_EN",
+          "OV_EN"
+        ],
+        "json_bits": [
+          "TS4_EN",
+          "TS3_EN",
+          "TS2_EN",
+          "TS1_EN",
+          "SC_EN",
+          "OCD_EN",
+          "UV_EN",
+          "OV_EN"
+        ],
+        "equal": true
+      },
+      {
+        "address": 70,
+        "page": 28,
+        "pdf_name": "SCONF7",
+        "json_name": "SCONF7",
+        "pdf_bits": [
+          "-",
+          "RLD",
+          "CADCT.1",
+          "CADCT.0",
+          "-",
+          "CDV.2",
+          "CDV.1",
+          "CDV.0"
+        ],
+        "json_bits": [
+          "-",
+          "RLD",
+          "CADCT.1",
+          "CADCT.0",
+          "-",
+          "CDV.2",
+          "CDV.1",
+          "CDV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 71,
+        "page": 28,
+        "pdf_name": "OWV/ALARMH",
+        "json_name": "OWV/ALARMH",
+        "pdf_bits": [
+          "OWV.3",
+          "OWV.2",
+          "OWV.1",
+          "OWV.0",
+          "LOADON_INT",
+          "LOADOFF_INT",
+          "VADC_INT",
+          "CADC_INT"
+        ],
+        "json_bits": [
+          "OWV.3",
+          "OWV.2",
+          "OWV.1",
+          "OWV.0",
+          "LOADON_INT",
+          "LOADOFF_INT",
+          "VADC_INT",
+          "CADC_INT"
+        ],
+        "equal": true
+      },
+      {
+        "address": 72,
+        "page": 28,
+        "pdf_name": "ALARML",
+        "json_name": "ALARML",
+        "pdf_bits": [
+          "WK_INT",
+          "WDT_INT",
+          "OWD_INT",
+          "TEMP_INT",
+          "OCC_INT",
+          "OCD_INT",
+          "UV_INT",
+          "OV_INT"
+        ],
+        "json_bits": [
+          "WK_INT",
+          "WDT_INT",
+          "OWD_INT",
+          "TEMP_INT",
+          "OCC_INT",
+          "OCD_INT",
+          "UV_INT",
+          "OV_INT"
+        ],
+        "equal": true
+      },
+      {
+        "address": 73,
+        "page": 28,
+        "pdf_name": "OVT/OVH",
+        "json_name": "OVT/OVH",
+        "pdf_bits": [
+          "-",
+          "OVT.2",
+          "OVT.1",
+          "OVT.0",
+          "-",
+          "-",
+          "OV.9",
+          "OV.8"
+        ],
+        "json_bits": [
+          "-",
+          "OVT.2",
+          "OVT.1",
+          "OVT.0",
+          "-",
+          "-",
+          "OV.9",
+          "OV.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 74,
+        "page": 28,
+        "pdf_name": "OVL",
+        "json_name": "OVL",
+        "pdf_bits": [
+          "OV.7",
+          "OV.6",
+          "OV.5",
+          "OV.4",
+          "OV.3",
+          "OV.2",
+          "OV.1",
+          "OV.0"
+        ],
+        "json_bits": [
+          "OV.7",
+          "OV.6",
+          "OV.5",
+          "OV.4",
+          "OV.3",
+          "OV.2",
+          "OV.1",
+          "OV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 75,
+        "page": 28,
+        "pdf_name": "UVT/UVH",
+        "json_name": "UVT/UVH",
+        "pdf_bits": [
+          "-",
+          "UVT.2",
+          "UVT.1",
+          "UVT.0",
+          "-",
+          "-",
+          "UV.9",
+          "UV.8"
+        ],
+        "json_bits": [
+          "-",
+          "UVT.2",
+          "UVT.1",
+          "UVT.0",
+          "-",
+          "-",
+          "UV.9",
+          "UV.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 76,
+        "page": 28,
+        "pdf_name": "UVL",
+        "json_name": "UVL",
+        "pdf_bits": [
+          "UV.7",
+          "UV.6",
+          "UV.5",
+          "UV.4",
+          "UV.3",
+          "UV.2",
+          "UV.1",
+          "UV.0"
+        ],
+        "json_bits": [
+          "UV.7",
+          "UV.6",
+          "UV.5",
+          "UV.4",
+          "UV.3",
+          "UV.2",
+          "UV.1",
+          "UV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 77,
+        "page": 28,
+        "pdf_name": "OCD1V/OCD1T",
+        "json_name": "OCD1V/OCD1T",
+        "pdf_bits": [
+          "-",
+          "OCD1T.2",
+          "OCD1T.1",
+          "OCD1T.0",
+          "OCD1V.3",
+          "OCD1V.2",
+          "OCD1V.1",
+          "OCD1V.0"
+        ],
+        "json_bits": [
+          "-",
+          "OCD1T.2",
+          "OCD1T.1",
+          "OCD1T.0",
+          "OCD1V.3",
+          "OCD1V.2",
+          "OCD1V.1",
+          "OCD1V.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 78,
+        "page": 28,
+        "pdf_name": "OCD2V/OCD2T",
+        "json_name": "OCD2V/OCD2T",
+        "pdf_bits": [
+          "OCD2T.3",
+          "OCD2T.2",
+          "OCD2T.1",
+          "OCD2T.0",
+          "OCD2V.3",
+          "OCD2V.2",
+          "OCD2V.1",
+          "OCD2V.0"
+        ],
+        "json_bits": [
+          "OCD2T.3",
+          "OCD2T.2",
+          "OCD2T.1",
+          "OCD2T.0",
+          "OCD2V.3",
+          "OCD2V.2",
+          "OCD2V.1",
+          "OCD2V.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 79,
+        "page": 28,
+        "pdf_name": "SCV/SCT",
+        "json_name": "SCV/SCT",
+        "pdf_bits": [
+          "-",
+          "-",
+          "SCV.1",
+          "SCV.0",
+          "SCT.3",
+          "SCT.2",
+          "SCT.1",
+          "SCT.0"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "SCV.1",
+          "SCV.0",
+          "SCT.3",
+          "SCT.2",
+          "SCT.1",
+          "SCT.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 80,
+        "page": 28,
+        "pdf_name": "OCCV/OCCT",
+        "json_name": "OCCV/OCCT",
+        "pdf_bits": [
+          "OCCT.2",
+          "OCCT.1",
+          "OCCT.0",
+          "OCCV.4",
+          "OCCV.3",
+          "OCCV.2",
+          "OCCV.1",
+          "OCCV.0"
+        ],
+        "json_bits": [
+          "OCCT.2",
+          "OCCT.1",
+          "OCCT.0",
+          "OCCV.4",
+          "OCCV.3",
+          "OCCV.2",
+          "OCCV.1",
+          "OCCV.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 81,
+        "page": 28,
+        "pdf_name": "OTC",
+        "json_name": "OTC",
+        "pdf_bits": [
+          "OTC.7",
+          "OTC.6",
+          "OTC.5",
+          "OTC.4",
+          "OTC.3",
+          "OTC.2",
+          "OTC.1",
+          "OTC.0"
+        ],
+        "json_bits": [
+          "OTC.7",
+          "OTC.6",
+          "OTC.5",
+          "OTC.4",
+          "OTC.3",
+          "OTC.2",
+          "OTC.1",
+          "OTC.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 82,
+        "page": 28,
+        "pdf_name": "OTD",
+        "json_name": "OTD",
+        "pdf_bits": [
+          "OTD.7",
+          "OTD.6",
+          "OTD.5",
+          "OTD.4",
+          "OTD.3",
+          "OTD.2",
+          "OTD.1",
+          "OTD.0"
+        ],
+        "json_bits": [
+          "OTD.7",
+          "OTD.6",
+          "OTD.5",
+          "OTD.4",
+          "OTD.3",
+          "OTD.2",
+          "OTD.1",
+          "OTD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 83,
+        "page": 28,
+        "pdf_name": "UTC",
+        "json_name": "UTC",
+        "pdf_bits": [
+          "UTC.7",
+          "UTC.6",
+          "UTC.5",
+          "UTC.4",
+          "UTC.3",
+          "UTC.2",
+          "UTC.1",
+          "UTC.0"
+        ],
+        "json_bits": [
+          "UTC.7",
+          "UTC.6",
+          "UTC.5",
+          "UTC.4",
+          "UTC.3",
+          "UTC.2",
+          "UTC.1",
+          "UTC.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 84,
+        "page": 28,
+        "pdf_name": "UTD",
+        "json_name": "UTD",
+        "pdf_bits": [
+          "UTD.7",
+          "UTD.6",
+          "UTD.5",
+          "UTD.4",
+          "UTD.3",
+          "UTD.2",
+          "UTD.1",
+          "UTD.0"
+        ],
+        "json_bits": [
+          "UTD.7",
+          "UTD.6",
+          "UTD.5",
+          "UTD.4",
+          "UTD.3",
+          "UTD.2",
+          "UTD.1",
+          "UTD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 85,
+        "page": 28,
+        "pdf_name": "BALANCEH",
+        "json_name": "BALANCEH",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "CB20",
+          "CB19",
+          "CB18",
+          "CB17"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "CB20",
+          "CB19",
+          "CB18",
+          "CB17"
+        ],
+        "equal": true
+      },
+      {
+        "address": 86,
+        "page": 28,
+        "pdf_name": "BALANCEM",
+        "json_name": "BALANCEM",
+        "pdf_bits": [
+          "CB16",
+          "CB15",
+          "CB14",
+          "CB13",
+          "CB12",
+          "CB11",
+          "CB10",
+          "CB9"
+        ],
+        "json_bits": [
+          "CB16",
+          "CB15",
+          "CB14",
+          "CB13",
+          "CB12",
+          "CB11",
+          "CB10",
+          "CB9"
+        ],
+        "equal": true
+      },
+      {
+        "address": 87,
+        "page": 28,
+        "pdf_name": "BALANCEL",
+        "json_name": "BALANCEL",
+        "pdf_bits": [
+          "CB8",
+          "CB7",
+          "CB6",
+          "CB5",
+          "CB4",
+          "CB3",
+          "CB2",
+          "CB1"
+        ],
+        "json_bits": [
+          "CB8",
+          "CB7",
+          "CB6",
+          "CB5",
+          "CB4",
+          "CB3",
+          "CB2",
+          "CB1"
+        ],
+        "equal": true
+      },
+      {
+        "address": 88,
+        "page": 28,
+        "pdf_name": "FLAG1",
+        "json_name": "FLAG1",
+        "pdf_bits": [
+          "RST1_FLG",
+          "WK_FLG",
+          "OCC_FLG",
+          "SC_FLG",
+          "OCD2_FLG",
+          "OCD1_FLG",
+          "UV_FLG",
+          "OV_FLG"
+        ],
+        "json_bits": [
+          "RST1_FLG",
+          "WK_FLG",
+          "OCC_FLG",
+          "SC_FLG",
+          "OCD2_FLG",
+          "OCD1_FLG",
+          "UV_FLG",
+          "OV_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 89,
+        "page": 28,
+        "pdf_name": "FLAG2",
+        "json_name": "FLAG2",
+        "pdf_bits": [
+          "OTD_FLG",
+          "UTD_FLG",
+          "OTC_FLG",
+          "UTC_FLG",
+          "RST2_FLG",
+          "WDT_FLG",
+          "VADC_FLG",
+          "CADC_FLG"
+        ],
+        "json_bits": [
+          "OTD_FLG",
+          "UTD_FLG",
+          "OTC_FLG",
+          "UTC_FLG",
+          "RST2_FLG",
+          "WDT_FLG",
+          "VADC_FLG",
+          "CADC_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 90,
+        "page": 28,
+        "pdf_name": "FLAG3",
+        "json_name": "FLAG3",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD_IND",
+          "OWD_FLG"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD_IND",
+          "OWD_FLG"
+        ],
+        "equal": true
+      },
+      {
+        "address": 91,
+        "page": 28,
+        "pdf_name": "BSTATUS1",
+        "json_name": "BSTATUS1",
+        "pdf_bits": [
+          "-",
+          "E2P_ERR",
+          "HDSG_FET",
+          "HCHG_FET",
+          "-",
+          "PDSG_FET",
+          "DSG_FET",
+          "CHG_FET"
+        ],
+        "json_bits": [
+          "-",
+          "E2P_ERR",
+          "HDSG_FET",
+          "HCHG_FET",
+          "-",
+          "PDSG_FET",
+          "DSG_FET",
+          "CHG_FET"
+        ],
+        "equal": true
+      },
+      {
+        "address": 92,
+        "page": 28,
+        "pdf_name": "BSTATUS2",
+        "json_name": "BSTATUS2",
+        "pdf_bits": [
+          "CHGING",
+          "DSGING",
+          "SLEEP",
+          "IDLE",
+          "BAL",
+          "-",
+          "LOADON",
+          "LOADOFF"
+        ],
+        "json_bits": [
+          "CHGING",
+          "DSGING",
+          "SLEEP",
+          "IDLE",
+          "BAL",
+          "-",
+          "LOADON",
+          "LOADOFF"
+        ],
+        "equal": true
+      },
+      {
+        "address": 93,
+        "page": 29,
+        "pdf_name": "TEMP1H",
+        "json_name": "TEMP1H",
+        "pdf_bits": [
+          "TEMP1.15",
+          "TEMP1.14",
+          "TEMP1.13",
+          "TEMP1.12",
+          "TEMP1.11",
+          "TEMP1.10",
+          "TEMP1.9",
+          "TEMP1.8"
+        ],
+        "json_bits": [
+          "TEMP1.15",
+          "TEMP1.14",
+          "TEMP1.13",
+          "TEMP1.12",
+          "TEMP1.11",
+          "TEMP1.10",
+          "TEMP1.9",
+          "TEMP1.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 94,
+        "page": 29,
+        "pdf_name": "TEMP1L",
+        "json_name": "TEMP1L",
+        "pdf_bits": [
+          "TEMP1.7",
+          "TEMP1.6",
+          "TEMP1.5",
+          "TEMP1.4",
+          "TEMP1.3",
+          "TEMP1.2",
+          "TEMP1.1",
+          "TEMP1.0"
+        ],
+        "json_bits": [
+          "TEMP1.7",
+          "TEMP1.6",
+          "TEMP1.5",
+          "TEMP1.4",
+          "TEMP1.3",
+          "TEMP1.2",
+          "TEMP1.1",
+          "TEMP1.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 95,
+        "page": 29,
+        "pdf_name": "TEMP2H",
+        "json_name": "TEMP2H",
+        "pdf_bits": [
+          "TEMP2.15",
+          "TEMP2.14",
+          "TEMP2.13",
+          "TEMP2.12",
+          "TEMP2.11",
+          "TEMP2.10",
+          "TEMP2.9",
+          "TEMP2.8"
+        ],
+        "json_bits": [
+          "TEMP2.15",
+          "TEMP2.14",
+          "TEMP2.13",
+          "TEMP2.12",
+          "TEMP2.11",
+          "TEMP2.10",
+          "TEMP2.9",
+          "TEMP2.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 96,
+        "page": 29,
+        "pdf_name": "TEMP2L",
+        "json_name": "TEMP2L",
+        "pdf_bits": [
+          "TEMP2.7",
+          "TEMP2.6",
+          "TEMP2.5",
+          "TEMP2.4",
+          "TEMP2.3",
+          "TEMP2.2",
+          "TEMP2.1",
+          "TEMP2.0"
+        ],
+        "json_bits": [
+          "TEMP2.7",
+          "TEMP2.6",
+          "TEMP2.5",
+          "TEMP2.4",
+          "TEMP2.3",
+          "TEMP2.2",
+          "TEMP2.1",
+          "TEMP2.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 97,
+        "page": 29,
+        "pdf_name": "TEMP3H",
+        "json_name": "TEMP3H",
+        "pdf_bits": [
+          "TEMP3.15",
+          "TEMP3.14",
+          "TEMP3.13",
+          "TEMP3.12",
+          "TEMP3.11",
+          "TEMP3.10",
+          "TEMP3.9",
+          "TEMP3.8"
+        ],
+        "json_bits": [
+          "TEMP3.15",
+          "TEMP3.14",
+          "TEMP3.13",
+          "TEMP3.12",
+          "TEMP3.11",
+          "TEMP3.10",
+          "TEMP3.9",
+          "TEMP3.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 98,
+        "page": 29,
+        "pdf_name": "TEMP3L",
+        "json_name": "TEMP3L",
+        "pdf_bits": [
+          "TEMP3.7",
+          "TEMP3.6",
+          "TEMP3.5",
+          "TEMP3.4",
+          "TEMP3.3",
+          "TEMP3.2",
+          "TEMP3.1",
+          "TEMP3.0"
+        ],
+        "json_bits": [
+          "TEMP3.7",
+          "TEMP3.6",
+          "TEMP3.5",
+          "TEMP3.4",
+          "TEMP3.3",
+          "TEMP3.2",
+          "TEMP3.1",
+          "TEMP3.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 99,
+        "page": 29,
+        "pdf_name": "TEMP4H",
+        "json_name": "TEMP4H",
+        "pdf_bits": [
+          "TEMP4.15",
+          "TEMP4.14",
+          "TEMP4.13",
+          "TEMP4.12",
+          "TEMP4.11",
+          "TEMP4.10",
+          "TEMP4.9",
+          "TEMP4.8"
+        ],
+        "json_bits": [
+          "TEMP4.15",
+          "TEMP4.14",
+          "TEMP4.13",
+          "TEMP4.12",
+          "TEMP4.11",
+          "TEMP4.10",
+          "TEMP4.9",
+          "TEMP4.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 100,
+        "page": 29,
+        "pdf_name": "TEMP4L",
+        "json_name": "TEMP4L",
+        "pdf_bits": [
+          "TEMP4.7",
+          "TEMP4.6",
+          "TEMP4.5",
+          "TEMP4.4",
+          "TEMP4.3",
+          "TEMP4.2",
+          "TEMP4.1",
+          "TEMP4.0"
+        ],
+        "json_bits": [
+          "TEMP4.7",
+          "TEMP4.6",
+          "TEMP4.5",
+          "TEMP4.4",
+          "TEMP4.3",
+          "TEMP4.2",
+          "TEMP4.1",
+          "TEMP4.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 101,
+        "page": 29,
+        "pdf_name": "TEMPIH",
+        "json_name": "TEMPIH",
+        "pdf_bits": [
+          "TEMPI.15",
+          "TEMPI.14",
+          "TEMPI.13",
+          "TEMPI.12",
+          "TEMPI.11",
+          "TEMPI.10",
+          "TEMPI.9",
+          "TEMPI.8"
+        ],
+        "json_bits": [
+          "TEMPI.15",
+          "TEMPI.14",
+          "TEMPI.13",
+          "TEMPI.12",
+          "TEMPI.11",
+          "TEMPI.10",
+          "TEMPI.9",
+          "TEMPI.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 102,
+        "page": 29,
+        "pdf_name": "TEMPIL",
+        "json_name": "TEMPIL",
+        "pdf_bits": [
+          "TEMPI.7",
+          "TEMPI.6",
+          "TEMPI.5",
+          "TEMPI.4",
+          "TEMPI.3",
+          "TEMPI.2",
+          "TEMPI.1",
+          "TEMPI.0"
+        ],
+        "json_bits": [
+          "TEMPI.7",
+          "TEMPI.6",
+          "TEMPI.5",
+          "TEMPI.4",
+          "TEMPI.3",
+          "TEMPI.2",
+          "TEMPI.1",
+          "TEMPI.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 103,
+        "page": 29,
+        "pdf_name": "CURH",
+        "json_name": "CURH",
+        "pdf_bits": [
+          "CUR.15",
+          "CUR.14",
+          "CUR.13",
+          "CUR.12",
+          "CUR.11",
+          "CUR.10",
+          "CUR.9",
+          "CUR.8"
+        ],
+        "json_bits": [
+          "CUR.15",
+          "CUR.14",
+          "CUR.13",
+          "CUR.12",
+          "CUR.11",
+          "CUR.10",
+          "CUR.9",
+          "CUR.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 104,
+        "page": 29,
+        "pdf_name": "CURL",
+        "json_name": "CURL",
+        "pdf_bits": [
+          "CUR.7",
+          "CUR.6",
+          "CUR.5",
+          "CUR.4",
+          "CUR.3",
+          "CUR.2",
+          "CUR.1",
+          "CUR.0"
+        ],
+        "json_bits": [
+          "CUR.7",
+          "CUR.6",
+          "CUR.5",
+          "CUR.4",
+          "CUR.3",
+          "CUR.2",
+          "CUR.1",
+          "CUR.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 105,
+        "page": 29,
+        "pdf_name": "CELL1H",
+        "json_name": "CELL1H",
+        "pdf_bits": [
+          "CELL1.15",
+          "CELL1.14",
+          "CELL1.13",
+          "CELL1.12",
+          "CELL1.11",
+          "CELL1.10",
+          "CELL1.9",
+          "CELL1.8"
+        ],
+        "json_bits": [
+          "CELL1.15",
+          "CELL1.14",
+          "CELL1.13",
+          "CELL1.12",
+          "CELL1.11",
+          "CELL1.10",
+          "CELL1.9",
+          "CELL1.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 106,
+        "page": 29,
+        "pdf_name": "CELL1L",
+        "json_name": "CELL1L",
+        "pdf_bits": [
+          "CELL1.7",
+          "CELL1.6",
+          "CELL1.5",
+          "CELL1.4",
+          "CELL1.3",
+          "CELL1.2",
+          "CELL1.1",
+          "CELL1.0"
+        ],
+        "json_bits": [
+          "CELL1.7",
+          "CELL1.6",
+          "CELL1.5",
+          "CELL1.4",
+          "CELL1.3",
+          "CELL1.2",
+          "CELL1.1",
+          "CELL1.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 107,
+        "page": 29,
+        "pdf_name": "CELL2H",
+        "json_name": "CELL2H",
+        "pdf_bits": [
+          "CELL2.15",
+          "CELL2.14",
+          "CELL2.13",
+          "CELL2.12",
+          "CELL2.11",
+          "CELL2.10",
+          "CELL2.9",
+          "CELL2.8"
+        ],
+        "json_bits": [
+          "CELL2.15",
+          "CELL2.14",
+          "CELL2.13",
+          "CELL2.12",
+          "CELL2.11",
+          "CELL2.10",
+          "CELL2.9",
+          "CELL2.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 108,
+        "page": 29,
+        "pdf_name": "CELL2L",
+        "json_name": "CELL2L",
+        "pdf_bits": [
+          "CELL2.7",
+          "CELL2.6",
+          "CELL2.5",
+          "CELL2.4",
+          "CELL2.3",
+          "CELL2.2",
+          "CELL2.1",
+          "CELL2.0"
+        ],
+        "json_bits": [
+          "CELL2.7",
+          "CELL2.6",
+          "CELL2.5",
+          "CELL2.4",
+          "CELL2.3",
+          "CELL2.2",
+          "CELL2.1",
+          "CELL2.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 109,
+        "page": 29,
+        "pdf_name": "CELL3H",
+        "json_name": "CELL3H",
+        "pdf_bits": [
+          "CELL3.15",
+          "CELL3.14",
+          "CELL3.13",
+          "CELL3.12",
+          "CELL3.11",
+          "CELL3.10",
+          "CELL3.9",
+          "CELL3.8"
+        ],
+        "json_bits": [
+          "CELL3.15",
+          "CELL3.14",
+          "CELL3.13",
+          "CELL3.12",
+          "CELL3.11",
+          "CELL3.10",
+          "CELL3.9",
+          "CELL3.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 110,
+        "page": 29,
+        "pdf_name": "CELL3L",
+        "json_name": "CELL3L",
+        "pdf_bits": [
+          "CELL3.7",
+          "CELL3.6",
+          "CELL3.5",
+          "CELL3.4",
+          "CELL3.3",
+          "CELL3.2",
+          "CELL3.1",
+          "CELL3.0"
+        ],
+        "json_bits": [
+          "CELL3.7",
+          "CELL3.6",
+          "CELL3.5",
+          "CELL3.4",
+          "CELL3.3",
+          "CELL3.2",
+          "CELL3.1",
+          "CELL3.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 111,
+        "page": 29,
+        "pdf_name": "CELL4H",
+        "json_name": "CELL4H",
+        "pdf_bits": [
+          "CELL4.15",
+          "CELL4.14",
+          "CELL4.13",
+          "CELL4.12",
+          "CELL4.11",
+          "CELL4.10",
+          "CELL4.9",
+          "CELL4.8"
+        ],
+        "json_bits": [
+          "CELL4.15",
+          "CELL4.14",
+          "CELL4.13",
+          "CELL4.12",
+          "CELL4.11",
+          "CELL4.10",
+          "CELL4.9",
+          "CELL4.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 112,
+        "page": 29,
+        "pdf_name": "CELL4L",
+        "json_name": "CELL4L",
+        "pdf_bits": [
+          "CELL4.7",
+          "CELL4.6",
+          "CELL4.5",
+          "CELL4.4",
+          "CELL4.3",
+          "CELL4.2",
+          "CELL4.1",
+          "CELL4.0"
+        ],
+        "json_bits": [
+          "CELL4.7",
+          "CELL4.6",
+          "CELL4.5",
+          "CELL4.4",
+          "CELL4.3",
+          "CELL4.2",
+          "CELL4.1",
+          "CELL4.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 113,
+        "page": 29,
+        "pdf_name": "CELL5H",
+        "json_name": "CELL5H",
+        "pdf_bits": [
+          "CELL5.15",
+          "CELL5.14",
+          "CELL5.13",
+          "CELL5.12",
+          "CELL5.11",
+          "CELL5.10",
+          "CELL5.9",
+          "CELL5.8"
+        ],
+        "json_bits": [
+          "CELL5.15",
+          "CELL5.14",
+          "CELL5.13",
+          "CELL5.12",
+          "CELL5.11",
+          "CELL5.10",
+          "CELL5.9",
+          "CELL5.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 114,
+        "page": 29,
+        "pdf_name": "CELL5L",
+        "json_name": "CELL5L",
+        "pdf_bits": [
+          "CELL5.7",
+          "CELL5.6",
+          "CELL5.5",
+          "CELL5.4",
+          "CELL5.3",
+          "CELL5.2",
+          "CELL5.1",
+          "CELL5.0"
+        ],
+        "json_bits": [
+          "CELL5.7",
+          "CELL5.6",
+          "CELL5.5",
+          "CELL5.4",
+          "CELL5.3",
+          "CELL5.2",
+          "CELL5.1",
+          "CELL5.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 115,
+        "page": 29,
+        "pdf_name": "CELL6H",
+        "json_name": "CELL6H",
+        "pdf_bits": [
+          "CELL6.15",
+          "CELL6.14",
+          "CELL6.13",
+          "CELL6.12",
+          "CELL6.11",
+          "CELL6.10",
+          "CELL6.9",
+          "CELL6.8"
+        ],
+        "json_bits": [
+          "CELL6.15",
+          "CELL6.14",
+          "CELL6.13",
+          "CELL6.12",
+          "CELL6.11",
+          "CELL6.10",
+          "CELL6.9",
+          "CELL6.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 116,
+        "page": 29,
+        "pdf_name": "CELL6L",
+        "json_name": "CELL6L",
+        "pdf_bits": [
+          "CELL6.7",
+          "CELL6.6",
+          "CELL6.5",
+          "CELL6.4",
+          "CELL6.3",
+          "CELL6.2",
+          "CELL6.1",
+          "CELL6.0"
+        ],
+        "json_bits": [
+          "CELL6.7",
+          "CELL6.6",
+          "CELL6.5",
+          "CELL6.4",
+          "CELL6.3",
+          "CELL6.2",
+          "CELL6.1",
+          "CELL6.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 117,
+        "page": 29,
+        "pdf_name": "CELL7H",
+        "json_name": "CELL7H",
+        "pdf_bits": [
+          "CELL7.15",
+          "CELL7.14",
+          "CELL7.13",
+          "CELL7.12",
+          "CELL7.11",
+          "CELL7.10",
+          "CELL7.9",
+          "CELL7.8"
+        ],
+        "json_bits": [
+          "CELL7.15",
+          "CELL7.14",
+          "CELL7.13",
+          "CELL7.12",
+          "CELL7.11",
+          "CELL7.10",
+          "CELL7.9",
+          "CELL7.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 118,
+        "page": 29,
+        "pdf_name": "CELL7L",
+        "json_name": "CELL7L",
+        "pdf_bits": [
+          "CELL7.7",
+          "CELL7.6",
+          "CELL7.5",
+          "CELL7.4",
+          "CELL7.3",
+          "CELL7.2",
+          "CELL7.1",
+          "CELL7.0"
+        ],
+        "json_bits": [
+          "CELL7.7",
+          "CELL7.6",
+          "CELL7.5",
+          "CELL7.4",
+          "CELL7.3",
+          "CELL7.2",
+          "CELL7.1",
+          "CELL7.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 119,
+        "page": 29,
+        "pdf_name": "CELL8H",
+        "json_name": "CELL8H",
+        "pdf_bits": [
+          "CELL8.15",
+          "CELL8.14",
+          "CELL8.13",
+          "CELL8.12",
+          "CELL8.11",
+          "CELL8.10",
+          "CELL8.9",
+          "CELL8.8"
+        ],
+        "json_bits": [
+          "CELL8.15",
+          "CELL8.14",
+          "CELL8.13",
+          "CELL8.12",
+          "CELL8.11",
+          "CELL8.10",
+          "CELL8.9",
+          "CELL8.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 120,
+        "page": 29,
+        "pdf_name": "CELL8L",
+        "json_name": "CELL8L",
+        "pdf_bits": [
+          "CELL8.7",
+          "CELL8.6",
+          "CELL8.5",
+          "CELL8.4",
+          "CELL8.3",
+          "CELL8.2",
+          "CELL8.1",
+          "CELL8.0"
+        ],
+        "json_bits": [
+          "CELL8.7",
+          "CELL8.6",
+          "CELL8.5",
+          "CELL8.4",
+          "CELL8.3",
+          "CELL8.2",
+          "CELL8.1",
+          "CELL8.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 121,
+        "page": 29,
+        "pdf_name": "CELL9H",
+        "json_name": "CELL9H",
+        "pdf_bits": [
+          "CELL9.15",
+          "CELL9.14",
+          "CELL9.13",
+          "CELL9.12",
+          "CELL9.11",
+          "CELL9.10",
+          "CELL9.9",
+          "CELL9.8"
+        ],
+        "json_bits": [
+          "CELL9.15",
+          "CELL9.14",
+          "CELL9.13",
+          "CELL9.12",
+          "CELL9.11",
+          "CELL9.10",
+          "CELL9.9",
+          "CELL9.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 122,
+        "page": 29,
+        "pdf_name": "CELL9L",
+        "json_name": "CELL9L",
+        "pdf_bits": [
+          "CELL9.7",
+          "CELL9.6",
+          "CELL9.5",
+          "CELL9.4",
+          "CELL9.3",
+          "CELL9.2",
+          "CELL9.1",
+          "CELL9.0"
+        ],
+        "json_bits": [
+          "CELL9.7",
+          "CELL9.6",
+          "CELL9.5",
+          "CELL9.4",
+          "CELL9.3",
+          "CELL9.2",
+          "CELL9.1",
+          "CELL9.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 123,
+        "page": 29,
+        "pdf_name": "CELL10H",
+        "json_name": "CELL10H",
+        "pdf_bits": [
+          "CELL10.15",
+          "CELL10.14",
+          "CELL10.13",
+          "CELL10.12",
+          "CELL10.11",
+          "CELL10.10",
+          "CELL10.9",
+          "CELL10.8"
+        ],
+        "json_bits": [
+          "CELL10.15",
+          "CELL10.14",
+          "CELL10.13",
+          "CELL10.12",
+          "CELL10.11",
+          "CELL10.10",
+          "CELL10.9",
+          "CELL10.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 124,
+        "page": 29,
+        "pdf_name": "CELL10L",
+        "json_name": "CELL10L",
+        "pdf_bits": [
+          "CELL10.7",
+          "CELL10.6",
+          "CELL10.5",
+          "CELL10.4",
+          "CELL10.3",
+          "CELL10.2",
+          "CELL10.1",
+          "CELL10.0"
+        ],
+        "json_bits": [
+          "CELL10.7",
+          "CELL10.6",
+          "CELL10.5",
+          "CELL10.4",
+          "CELL10.3",
+          "CELL10.2",
+          "CELL10.1",
+          "CELL10.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 125,
+        "page": 29,
+        "pdf_name": "CELL11H",
+        "json_name": "CELL11H",
+        "pdf_bits": [
+          "CELL11.15",
+          "CELL11.14",
+          "CELL11.13",
+          "CELL11.12",
+          "CELL11.11",
+          "CELL11.10",
+          "CELL11.9",
+          "CELL11.8"
+        ],
+        "json_bits": [
+          "CELL11.15",
+          "CELL11.14",
+          "CELL11.13",
+          "CELL11.12",
+          "CELL11.11",
+          "CELL11.10",
+          "CELL11.9",
+          "CELL11.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 126,
+        "page": 29,
+        "pdf_name": "CELL11L",
+        "json_name": "CELL11L",
+        "pdf_bits": [
+          "CELL11.7",
+          "CELL11.6",
+          "CELL11.5",
+          "CELL11.4",
+          "CELL11.3",
+          "CELL11.2",
+          "CELL11.1",
+          "CELL11.0"
+        ],
+        "json_bits": [
+          "CELL11.7",
+          "CELL11.6",
+          "CELL11.5",
+          "CELL11.4",
+          "CELL11.3",
+          "CELL11.2",
+          "CELL11.1",
+          "CELL11.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 127,
+        "page": 29,
+        "pdf_name": "CELL12H",
+        "json_name": "CELL12H",
+        "pdf_bits": [
+          "CELL12.15",
+          "CELL12.14",
+          "CELL12.13",
+          "CELL12.12",
+          "CELL12.11",
+          "CELL12.10",
+          "CELL12.9",
+          "CELL12.8"
+        ],
+        "json_bits": [
+          "CELL12.15",
+          "CELL12.14",
+          "CELL12.13",
+          "CELL12.12",
+          "CELL12.11",
+          "CELL12.10",
+          "CELL12.9",
+          "CELL12.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 128,
+        "page": 29,
+        "pdf_name": "CELL12L",
+        "json_name": "CELL12L",
+        "pdf_bits": [
+          "CELL12.7",
+          "CELL12.6",
+          "CELL12.5",
+          "CELL12.4",
+          "CELL12.3",
+          "CELL12.2",
+          "CELL12.1",
+          "CELL12.0"
+        ],
+        "json_bits": [
+          "CELL12.7",
+          "CELL12.6",
+          "CELL12.5",
+          "CELL12.4",
+          "CELL12.3",
+          "CELL12.2",
+          "CELL12.1",
+          "CELL12.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 129,
+        "page": 29,
+        "pdf_name": "CELL13H",
+        "json_name": "CELL13H",
+        "pdf_bits": [
+          "CELL13.15",
+          "CELL13.14",
+          "CELL13.13",
+          "CELL13.12",
+          "CELL13.11",
+          "CELL13.10",
+          "CELL13.9",
+          "CELL13.8"
+        ],
+        "json_bits": [
+          "CELL13.15",
+          "CELL13.14",
+          "CELL13.13",
+          "CELL13.12",
+          "CELL13.11",
+          "CELL13.10",
+          "CELL13.9",
+          "CELL13.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 130,
+        "page": 29,
+        "pdf_name": "CELL13L",
+        "json_name": "CELL13L",
+        "pdf_bits": [
+          "CELL13.7",
+          "CELL13.6",
+          "CELL13.5",
+          "CELL13.4",
+          "CELL13.3",
+          "CELL13.2",
+          "CELL13.1",
+          "CELL13.0"
+        ],
+        "json_bits": [
+          "CELL13.7",
+          "CELL13.6",
+          "CELL13.5",
+          "CELL13.4",
+          "CELL13.3",
+          "CELL13.2",
+          "CELL13.1",
+          "CELL13.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 131,
+        "page": 29,
+        "pdf_name": "CELL14H",
+        "json_name": "CELL14H",
+        "pdf_bits": [
+          "CELL14.15",
+          "CELL14.14",
+          "CELL14.13",
+          "CELL14.12",
+          "CELL14.11",
+          "CELL14.10",
+          "CELL14.9",
+          "CELL14.8"
+        ],
+        "json_bits": [
+          "CELL14.15",
+          "CELL14.14",
+          "CELL14.13",
+          "CELL14.12",
+          "CELL14.11",
+          "CELL14.10",
+          "CELL14.9",
+          "CELL14.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 132,
+        "page": 29,
+        "pdf_name": "CELL14L",
+        "json_name": "CELL14L",
+        "pdf_bits": [
+          "CELL14.7",
+          "CELL14.6",
+          "CELL14.5",
+          "CELL14.4",
+          "CELL14.3",
+          "CELL14.2",
+          "CELL14.1",
+          "CELL14.0"
+        ],
+        "json_bits": [
+          "CELL14.7",
+          "CELL14.6",
+          "CELL14.5",
+          "CELL14.4",
+          "CELL14.3",
+          "CELL14.2",
+          "CELL14.1",
+          "CELL14.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 133,
+        "page": 30,
+        "pdf_name": "CELL15H",
+        "json_name": "CELL15H",
+        "pdf_bits": [
+          "CELL15.15",
+          "CELL15.14",
+          "CELL15.13",
+          "CELL15.12",
+          "CELL15.11",
+          "CELL15.10",
+          "CELL15.9",
+          "CELL15.8"
+        ],
+        "json_bits": [
+          "CELL15.15",
+          "CELL15.14",
+          "CELL15.13",
+          "CELL15.12",
+          "CELL15.11",
+          "CELL15.10",
+          "CELL15.9",
+          "CELL15.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 134,
+        "page": 30,
+        "pdf_name": "CELL15L",
+        "json_name": "CELL15L",
+        "pdf_bits": [
+          "CELL15.7",
+          "CELL15.6",
+          "CELL15.5",
+          "CELL15.4",
+          "CELL15.3",
+          "CELL15.2",
+          "CELL15.1",
+          "CELL15.0"
+        ],
+        "json_bits": [
+          "CELL15.7",
+          "CELL15.6",
+          "CELL15.5",
+          "CELL15.4",
+          "CELL15.3",
+          "CELL15.2",
+          "CELL15.1",
+          "CELL15.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 135,
+        "page": 30,
+        "pdf_name": "CELL16H",
+        "json_name": "CELL16H",
+        "pdf_bits": [
+          "CELL16.15",
+          "CELL16.14",
+          "CELL16.13",
+          "CELL16.12",
+          "CELL16.11",
+          "CELL16.10",
+          "CELL16.9",
+          "CELL16.8"
+        ],
+        "json_bits": [
+          "CELL16.15",
+          "CELL16.14",
+          "CELL16.13",
+          "CELL16.12",
+          "CELL16.11",
+          "CELL16.10",
+          "CELL16.9",
+          "CELL16.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 136,
+        "page": 30,
+        "pdf_name": "CELL16L",
+        "json_name": "CELL16L",
+        "pdf_bits": [
+          "CELL16.7",
+          "CELL16.6",
+          "CELL16.5",
+          "CELL16.4",
+          "CELL16.3",
+          "CELL16.2",
+          "CELL16.1",
+          "CELL16.0"
+        ],
+        "json_bits": [
+          "CELL16.7",
+          "CELL16.6",
+          "CELL16.5",
+          "CELL16.4",
+          "CELL16.3",
+          "CELL16.2",
+          "CELL16.1",
+          "CELL16.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 137,
+        "page": 30,
+        "pdf_name": "CELL17H",
+        "json_name": "CELL17H",
+        "pdf_bits": [
+          "CELL17.15",
+          "CELL17.14",
+          "CELL17.13",
+          "CELL17.12",
+          "CELL17.11",
+          "CELL17.10",
+          "CELL17.9",
+          "CELL17.8"
+        ],
+        "json_bits": [
+          "CELL17.15",
+          "CELL17.14",
+          "CELL17.13",
+          "CELL17.12",
+          "CELL17.11",
+          "CELL17.10",
+          "CELL17.9",
+          "CELL17.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 138,
+        "page": 30,
+        "pdf_name": "CELL17L",
+        "json_name": "CELL17L",
+        "pdf_bits": [
+          "CELL17.7",
+          "CELL17.6",
+          "CELL17.5",
+          "CELL17.4",
+          "CELL17.3",
+          "CELL17.2",
+          "CELL17.1",
+          "CELL17.0"
+        ],
+        "json_bits": [
+          "CELL17.7",
+          "CELL17.6",
+          "CELL17.5",
+          "CELL17.4",
+          "CELL17.3",
+          "CELL17.2",
+          "CELL17.1",
+          "CELL17.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 139,
+        "page": 30,
+        "pdf_name": "CELL18H",
+        "json_name": "CELL18H",
+        "pdf_bits": [
+          "CELL18.15",
+          "CELL18.14",
+          "CELL18.13",
+          "CELL18.12",
+          "CELL18.11",
+          "CELL18.10",
+          "CELL18.9",
+          "CELL18.8"
+        ],
+        "json_bits": [
+          "CELL18.15",
+          "CELL18.14",
+          "CELL18.13",
+          "CELL18.12",
+          "CELL18.11",
+          "CELL18.10",
+          "CELL18.9",
+          "CELL18.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 140,
+        "page": 30,
+        "pdf_name": "CELL18L",
+        "json_name": "CELL18L",
+        "pdf_bits": [
+          "CELL18.7",
+          "CELL18.6",
+          "CELL18.5",
+          "CELL18.4",
+          "CELL18.3",
+          "CELL18.2",
+          "CELL18.1",
+          "CELL18.0"
+        ],
+        "json_bits": [
+          "CELL18.7",
+          "CELL18.6",
+          "CELL18.5",
+          "CELL18.4",
+          "CELL18.3",
+          "CELL18.2",
+          "CELL18.1",
+          "CELL18.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 141,
+        "page": 30,
+        "pdf_name": "CELL19H",
+        "json_name": "CELL19H",
+        "pdf_bits": [
+          "CELL19.15",
+          "CELL19.14",
+          "CELL19.13",
+          "CELL19.12",
+          "CELL19.11",
+          "CELL19.10",
+          "CELL19.9",
+          "CELL19.8"
+        ],
+        "json_bits": [
+          "CELL19.15",
+          "CELL19.14",
+          "CELL19.13",
+          "CELL19.12",
+          "CELL19.11",
+          "CELL19.10",
+          "CELL19.9",
+          "CELL19.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 142,
+        "page": 30,
+        "pdf_name": "CELL19L",
+        "json_name": "CELL19L",
+        "pdf_bits": [
+          "CELL19.7",
+          "CELL19.6",
+          "CELL19.5",
+          "CELL19.4",
+          "CELL19.3",
+          "CELL19.2",
+          "CELL19.1",
+          "CELL19.0"
+        ],
+        "json_bits": [
+          "CELL19.7",
+          "CELL19.6",
+          "CELL19.5",
+          "CELL19.4",
+          "CELL19.3",
+          "CELL19.2",
+          "CELL19.1",
+          "CELL19.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 143,
+        "page": 30,
+        "pdf_name": "CELL20H",
+        "json_name": "CELL20H",
+        "pdf_bits": [
+          "CELL20.15",
+          "CELL20.14",
+          "CELL20.13",
+          "CELL20.12",
+          "CELL20.11",
+          "CELL20.10",
+          "CELL20.9",
+          "CELL20.8"
+        ],
+        "json_bits": [
+          "CELL20.15",
+          "CELL20.14",
+          "CELL20.13",
+          "CELL20.12",
+          "CELL20.11",
+          "CELL20.10",
+          "CELL20.9",
+          "CELL20.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 144,
+        "page": 30,
+        "pdf_name": "CELL20L",
+        "json_name": "CELL20L",
+        "pdf_bits": [
+          "CELL20.7",
+          "CELL20.6",
+          "CELL20.5",
+          "CELL20.4",
+          "CELL20.3",
+          "CELL20.2",
+          "CELL20.1",
+          "CELL20.0"
+        ],
+        "json_bits": [
+          "CELL20.7",
+          "CELL20.6",
+          "CELL20.5",
+          "CELL20.4",
+          "CELL20.3",
+          "CELL20.2",
+          "CELL20.1",
+          "CELL20.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 145,
+        "page": 30,
+        "pdf_name": "CADCDH",
+        "json_name": "CADCDH",
+        "pdf_bits": [
+          "CADCD.15",
+          "CADCD.14",
+          "CADCD.13",
+          "CADCD.12",
+          "CADCD.11",
+          "CADCD.10",
+          "CADCD.9",
+          "CADCD.8"
+        ],
+        "json_bits": [
+          "CADCD.15",
+          "CADCD.14",
+          "CADCD.13",
+          "CADCD.12",
+          "CADCD.11",
+          "CADCD.10",
+          "CADCD.9",
+          "CADCD.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 146,
+        "page": 30,
+        "pdf_name": "CADCDL",
+        "json_name": "CADCDL",
+        "pdf_bits": [
+          "CADCD.7",
+          "CADCD.6",
+          "CADCD.5",
+          "CADCD.4",
+          "CADCD.3",
+          "CADCD.2",
+          "CADCD.0",
+          "CADCD.0"
+        ],
+        "json_bits": [
+          "CADCD.7",
+          "CADCD.6",
+          "CADCD.5",
+          "CADCD.4",
+          "CADCD.3",
+          "CADCD.2",
+          "CADCD.0",
+          "CADCD.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 147,
+        "page": 30,
+        "pdf_name": "VTOPH",
+        "json_name": "VTOPH",
+        "pdf_bits": [
+          "VTOP.15",
+          "VTOP.14",
+          "VTOP.13",
+          "VTOP.12",
+          "VTOP.11",
+          "VTOP.10",
+          "VTOP.9",
+          "VTOP.8"
+        ],
+        "json_bits": [
+          "VTOP.15",
+          "VTOP.14",
+          "VTOP.13",
+          "VTOP.12",
+          "VTOP.11",
+          "VTOP.10",
+          "VTOP.9",
+          "VTOP.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 148,
+        "page": 30,
+        "pdf_name": "VTOPL",
+        "json_name": "VTOPL",
+        "pdf_bits": [
+          "VTOP.7",
+          "VTOP.6",
+          "VTOP.5",
+          "VTOP.4",
+          "VTOP.3",
+          "VTOP.2",
+          "VTOP.1",
+          "VTOP.0"
+        ],
+        "json_bits": [
+          "VTOP.7",
+          "VTOP.6",
+          "VTOP.5",
+          "VTOP.4",
+          "VTOP.3",
+          "VTOP.2",
+          "VTOP.1",
+          "VTOP.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 149,
+        "page": 30,
+        "pdf_name": "VCHGRH",
+        "json_name": "VCHGRH",
+        "pdf_bits": [
+          "VCHGR.15",
+          "VCHGR.14",
+          "VCHGR.13",
+          "VCHGR.12",
+          "VCHGR.11",
+          "VCHGR.10",
+          "VCHGR.9",
+          "VCHGR.8"
+        ],
+        "json_bits": [
+          "VCHGR.15",
+          "VCHGR.14",
+          "VCHGR.13",
+          "VCHGR.12",
+          "VCHGR.11",
+          "VCHGR.10",
+          "VCHGR.9",
+          "VCHGR.8"
+        ],
+        "equal": true
+      },
+      {
+        "address": 150,
+        "page": 30,
+        "pdf_name": "VCHGRL",
+        "json_name": "VCHGRL",
+        "pdf_bits": [
+          "VCHGR.7",
+          "VCHGR.6",
+          "VCHGR.5",
+          "VCHGR.4",
+          "VCHGR.3",
+          "VCHGR.2",
+          "VCHGR.1",
+          "VCHGR.0"
+        ],
+        "json_bits": [
+          "VCHGR.7",
+          "VCHGR.6",
+          "VCHGR.5",
+          "VCHGR.4",
+          "VCHGR.3",
+          "VCHGR.2",
+          "VCHGR.1",
+          "VCHGR.0"
+        ],
+        "equal": true
+      },
+      {
+        "address": 151,
+        "page": 30,
+        "pdf_name": "OWDH",
+        "json_name": "OWDH",
+        "pdf_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD20",
+          "OWD19",
+          "OWD18",
+          "OWD17"
+        ],
+        "json_bits": [
+          "-",
+          "-",
+          "-",
+          "-",
+          "OWD20",
+          "OWD19",
+          "OWD18",
+          "OWD17"
+        ],
+        "equal": true
+      },
+      {
+        "address": 152,
+        "page": 30,
+        "pdf_name": "OWDM",
+        "json_name": "OWDM",
+        "pdf_bits": [
+          "OWD16",
+          "OWD15",
+          "OWD14",
+          "OWD13",
+          "OWD12",
+          "OWD11",
+          "OWD10",
+          "OWD9"
+        ],
+        "json_bits": [
+          "OWD16",
+          "OWD15",
+          "OWD14",
+          "OWD13",
+          "OWD12",
+          "OWD11",
+          "OWD10",
+          "OWD9"
+        ],
+        "equal": true
+      },
+      {
+        "address": 153,
+        "page": 30,
+        "pdf_name": "OWDL",
+        "json_name": "OWDL",
+        "pdf_bits": [
+          "OWD8",
+          "OWD7",
+          "OWD6",
+          "OWD5",
+          "OWD4",
+          "OWD3",
+          "OWD2",
+          "OWD1"
+        ],
+        "json_bits": [
+          "OWD8",
+          "OWD7",
+          "OWD6",
+          "OWD5",
+          "OWD4",
+          "OWD3",
+          "OWD2",
+          "OWD1"
+        ],
+        "equal": true
+      }
+    ],
+    "count": 90,
+    "mismatches": []
+  }
+}

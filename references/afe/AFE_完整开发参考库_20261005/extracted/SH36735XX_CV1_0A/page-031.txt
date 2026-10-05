@@ -1,0 +1,57 @@
+                                                SH3673510/3673514/3673517/3673520
+10.2 寄存器描述
+10.2.1 系统配置寄存器SCONF1
+      0x40          第7位        第6位      第5位          第4位     第3位     第2位     第1位      第0位
+     SCONF1         PIN.7      PIN.6    PIN.5        PIN.4   PIN.3   PIN.2   PIN.1    PIN.0
+      读/写           读/写        读/写      读/写          读/写     读/写     读/写     读/写      读/写
+      复位值             0          0        0            0       0       0       0        0
+
+   位编号          位符号                                     说明
+                             进入IDLE、SLEEP、Powerdown模式控制位
+                              PIN[7:0]=0x55，允许进入IDLE模式，当未检测到充放电状态，进入IDLE模式
+    7:0       PIN.7~ PIN.0    PIN[7:0]=0xAA，MCU控制IC进入SLEEP模式
+                              PIN[7:0]=0x33，当PD_CTL使能位为1时，MCU控制IC进入Powerdown模式
+                              PIN[7:0]=0x00(默认)，系统进入Normal模式
+
+10.2.2 系统配置寄存器SCONF2
+      0x41           第7位       第6位      第5位        第4位     第3位      第2位    第1位        第0位
+     SCONF2         LTCLR     PD_EN    PD_CTL    PUMP_EN PDSG_CTL PDSGMOS DSGMOS     CHGMOS
+      读/写            读/写       读/写      读/写        读/写     读/写      读/写     读/写        读/写
+      复位值             0         1        0          1       0        0       0          0
+
+   位编号          位符号                                          说明
+                             保护标志位清零允许位
+                              0：不允许清零FLAG1或FLAG2中的标志位(默认)
+                              1：允许清零FLAG1或FLAG2中的标志位
+     7          LTCLR        注释：
+                                  1.MCU置位LTCLR标志位后才允许清零FLAG1或FLAG2中的标志位
+                                  2.MCU清零FLAG1或FLAG2中的标志位后，LTCLR位由IC自动清零
+                                  3.MCU置位LTCLR位和IC清零LTCLR位同时发生时，只响应MCU置位LTCLR的操作
+                               Powerdown模式控制位
+                                  0：IC不会主动进入Powerdown模式
+     6          PD_EN
+                                  1：任一电芯电压低于Powerdown允许电压VPD且持续时间超过Powerdown允许延时
+                             tPD_UV ，IC主动进入Powerdown模式(默认)
+                               MCU对Powerdown模式控制位
+     5          PD_CTL            0：不允许MCU控制IC进入Powerdown模式(默认)
+                                  1：允许MCU控制IC进入Powerdown模式
+                               Charge Pump电荷泵控制位
+     4         PUMP_EN            0：关闭
+                                  1：开启(默认)
+                               MCU对预放电MOSFET控制位(PDSGMOS=0时，该位控制有效)
+     3        PDSG_CTL            0：MCU强制关闭预放电MOSFET(默认)
+                                  1：MCU强制开启预放电MOSFET，开启时间由PDSGT[2:0]位决定
+                               预放电MOSFET选择控制位
+     2        PDSGMOS             0：由MCU强制控制预放电MOSFET (默认)
+                                  1：由IC内部逻辑控制预放电MOSFET
+                               MCU对放电MOSFET控制位
+     1         DSGMOS             0：由MCU强制关闭放电MOSFET(默认)
+                                  1：由IC内部逻辑控制放电MOSFET
+                               MCU对充电MOSFET控制位
+     0         CHGMOS             0：由MCU强制关闭充电MOSFET(默认)
+                                  1：由IC内部逻辑控制充电MOSFET
+
+
+
+
+                                                31

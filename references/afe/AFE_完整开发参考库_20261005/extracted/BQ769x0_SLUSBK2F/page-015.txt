@@ -1,0 +1,73 @@
+                                                                                                             bq76920, bq76930, bq76940
+www.ti.com                                                                                    SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+Electrical Characteristics (continued)
+Typical conditions are measured at 25ºC with nominal BAT voltages of 18 V (bq76920), 36 V (bq76930), or 48 V (bq76940)
+with VCELL = 4 V. Min and max values include full recommended operating condition temperature range from –40ºC to +85ºC.
+Certain characteristics may be shown at different voltage or temperature ranges, as clarified in the Test Condition sections.
+  PARAMETER               DESCRIPTION                         TEST CONDITION                          MIN         TYP         MAX       UNIT
+16-BIT CC FOR PACK CURRENT MEASUREMENT
+CCRANGE             CC input voltage range                                                           –200                      200          mV
+CCFSR               CC full scale range                                                              –270                      270          mV
+CCLSB               CC LSB value                  CC running constantly                                           8.44                      µV
+tCCREAD             Conversion time               Single conversion                                               250                       ms
+                                                  16-bit, best fit over input voltage range
+CCINL               Integral nonlinearity                                                                          ±2          ± 40     LSB
+                                                  ± 200 mV
+CCOFFSET            Offset error                                                                                   ±1           ±3      LSB
+CCGAIN              Gain error                    Over input voltage range                                     ± 0.5%       ± 1.5%      FSR
+CCGAINDRIFT         Gain error drift              Over input voltage range                                                     150    PPM / °C
+CCRIN               Effective input resistance                                                                     2.5                      MΩ
+THERMISTOR BIAS
+RTS                 Pull-up resistance            TA = 25°C                                          9.85          10        10.15          kΩ
+                    Pull-up resistance across
+RTSDRIFT                                          TA = –40°C to 85°C                                   9.7                     10.3         kΩ
+                    temp
+DIETEMP
+VDIETEMP25          Die temperature voltage       TA = 25°C                                                       1.20                      V
+                    Die temperature voltage
+VDIETEMPDRIFT                                                                                                     –4.2                 mV/°C
+                    drift
+INTEGRATED HARDWARE PROTECTIONS
+OVRANGE             OV threshold range                                                             0x2008                  0x2FF8       ADC
+UVRANGE             UV threshold range                                                             0x1000                  0x1FF0       ADC
+                    OV and UV threshold step
+OVUVSTEP                                                                                                           16                   LSB
+                    size
+                    UV minimum value to           Below UVMINQUAL, cell is shorted
+UVMINQUAL                                                                                                      0x0518                   ADC
+                    qualify                       (unused)
+                                                  OV delay = 1 s                                       0.7           1         1.75
+                                                  OV delay = 2 s                                       1.6           2         2.75
+OVDELAY             OV delay timer options
+                                                  OV delay = 4 s                                       3.5           4            5
+                                                  OV delay = 8 s                                        7            8           10
+                                                                                                                                            s
+                                                  UV delay = 1 s                                       0.7           1         1.75
+                                                  UV delay = 4 s                                       3.5           4            5
+UVDELAY             UV delay timer options
+                                                  UV delay = 8 s                                        7            8           10
+                                                  UV delay = 16 s                                      14          16            20
+                                                                                  (2)
+OCDRANGE            OCD threshold options         Measured across (SRP–SRN)                             8                      100          mV
+                                                  RSNS = 0                                                        2.78                      mV
+OCDSTEP             OCD threshold step size
+                                                  RSNS = 1                                                        5.56                      mV
+OCDDELAY            OCD delay options             See Note (3)                                          8                     1280          ms
+                                                                                  (2)
+SCDRANGE            SCD threshold options         Measured across (SRP–SRN)                            22                      200          mV
+                                                  RSNS = 0                                                        11.1                      mV
+SCDSTEP             SCD threshold step size
+                                                  RSNS = 1                                                        22.2                      mV
+                                                                                                       35          70          105          µs
+                                                                                                       50         100          150          µs
+SCDDELAY            SCD delay options
+                                                                                                      140         200          260          µs
+                                                                                                      280         400          520          µs
+(2)   Values indicate nominal thresholds only. For Min and Max variation, apply OCOFFSET and OCSCALERR.
+(3)   Values indicate nominal thresholds only. For Min and Max variation, apply tPROTACC.
+Copyright © 2013–2015, Texas Instruments Incorporated                                                           Electrical Specifications        15
+                                                         Submit Documentation Feedback
+                                                 Product Folder Links: bq76920 bq76930 bq76940

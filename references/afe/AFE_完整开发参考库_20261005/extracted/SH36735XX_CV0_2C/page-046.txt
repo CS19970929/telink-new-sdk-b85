@@ -1,0 +1,70 @@
+               Preliminary                   SH3673510/3673514/3673517/3673520
+11.2 电气特性(无特殊说明，以下所有电气特性，均为TA = 25℃)
+                                         系统参数
+  参数                 说明      最小值      典型值 最大值 单位                          测试条件
+  VBAT      工作电压              8        -   88  V
+                                                            25℃，所有模块全开，无通信，无均衡，未
+                                                            开启断线，未开负载检测，
+                               -      150     200      μA
+                                                            LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                            载，在芯片VSS处测量
+   IOP1     正常模式
+                                                            -40℃~85℃，所有模块全开，无通信，无均
+                                                            衡，未开启断线，未开负载检测，
+                               -      200     250      μA
+                                                            LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                            载，在芯片VSS处测量
+                                                            25℃，SPI关闭，其他模块全开，未开启断线，未
+                               -      110     130      μA   开负载检测，LDO1(LDO_VCC)、
+                                                            LDO2(LDO_MCU)无负载，在芯片VSS处测量
+                                                            -40℃~85℃，SPI关闭，其他模块全开，未开启断
+                               -      110     160      μA   线，未开负载检测，LDO1(LDO_VCC)、
+                                                            LDO2(LDO_MCU)无负载，在芯片VSS处测量
+                                                            25℃，SPI关闭，MOSFET全关，其他模块全开
+   IOP2     IDLE模式
+                                                            （含PUMP），未开启断线，未开负载检测，
+                               -       60     75       μA
+                                                            LDO1(LDO_VCC)、LDO2(LDO_MCU)无负载，
+                                                            在芯片VSS处测量
+                                                            -40℃~85℃，SPI关闭，MOSFET全关，其他模
+                                                            块全开（含PUMP），未开启断线，未开负载检
+                               -       60     90       μA
+                                                            测，LDO1(LDO_VCC)、LDO2(LDO_MCU)无负
+                                                            载，在芯片VSS处测量
+                                                            25℃，SPI关闭， LDO1(LDO_VCC)、
+                               -       35     45       μA   LDO2(LDO_MCU)无负载，未开负载唤醒，在芯
+                                                            片VSS处测量
+   IOP3     SLEEP模式
+                                                            -40℃~85℃，SPI关闭， LDO1(LDO_VCC)、
+                               -       35     60       μA   LDO2(LDO_MCU)无负载，未开负载唤醒，在芯
+                                                            片VSS处测量
+                               -      2.5      4       μA   25℃
+   IOP4     Powerdown模式
+                               -      2.5     5.5      μA   -40℃~85℃
+                               -      2.5      4       μA   25℃
+   IOP5     SHIP模式
+                               -      2.5     5.5      μA   -40℃~85℃
+                                                            -40℃~85℃，VCN - VCN-1 = 3.7V,对
+  IVCN1     电芯到芯片管脚漏电         -1       -       1       μA
+                                                            VC0~VC19(未开启断线检测)
+                                                            -40℃~85℃，VCN - VCN-1 = 3.7V,对VC20(未开启
+  IVCN2     电芯到芯片管脚漏电         -5       -       5       μA
+                                                            断线检测)
+ tWARMUP    系统WarmUp延时         -        -     10       ms
+   tRST     RESET输出低电平脉冲      10       20     30       ms
+
+                                      数字/模拟端口电平
+  参数               说明        最小值      典型值 最大值 单位                          测试条件
+  VH-SHIP   SHIP输入高电平         2.4      -  VBAT V
+  VL-SHIP   SHIP输入低电平           -       -  0.9 V
+   tSHIP    SHIP进入延时          0.8      1   1.2 ms
+                                                          当SHIP引脚检测到高电平时的下拉电流，
+   ISHIP    SHIP弱下拉电流         0.05     0.1    0.15     uA
+                                                          VBAT=88V
+ RBUSHOLD   SHIP强下拉电阻          40      60         80   KΩ 当SHIP引脚检测到低电平时的下拉电阻
+   RPH      数字输入模式上拉电阻          1      2           3   MΩ CS/SCK/SDI
+                              0.8*
+   VIH      数字输入逻辑高电平                  -     VLDO_O    V    CS/SCK/SDI
+                             VLDO_O
+
+                                             46

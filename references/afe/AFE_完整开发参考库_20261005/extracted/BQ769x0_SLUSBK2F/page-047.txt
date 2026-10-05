@@ -1,0 +1,38 @@
+                                                                                                   bq76920, bq76930, bq76940
+www.ti.com                                                                           SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+        •    Configure the Current-based protection settings through PROTECT1 and PROTECT2:
+             – Ideal SCD Threshold = 25 A × 5 mΩ = 125 mV.
+               • However, the closest options are 111 mV (0x03) and 133 mV (0x04) providing 22.2 A and 26.6
+                   A, respectively. Both options have the RSNS bit = 1.
+               • 0x03 (22.2 A) will be used in this example.
+             – The SCD delay threshold setting for a 100 µs delay is 0x01.
+             – Therefore, PROTECT1 should be programmed with 0x8C.
+             – Ideal OCD Threshold = 15 A × 5 mΩ = 75 mV.
+               • However, the closest options are 72 mV (0x0A) and 78 mV (0x0B), providing 14.4 A and 15.6 A,
+                   respectively. Both options have the RSNS bit = 1.
+               • 0x0A (14,4A) will be used in this example.
+             – The OCD delay threshold setting for a 320-ms delay is 0x05.
+             – Therefore, PROTECT2 should be programmed with 0x5B.
+
+                                                                      NOTE
+                        Care should be taken when determining the setting of OV_TRIP and UV_TRIP as these are
+                        ADC value outputs and correlation to cell voltage also requires consideration of the ADC
+                        GAIN and ADC OFFSET registers. More specific details can be found in Section 7.3.1.2.
+
+        •    Configure the Voltage-based protection settings through OV_TRIP, UV_TRIP and PROTECT3:
+             – The selected OV Threshold is 4.30 V.
+               • Therefore, OV_TRIP should be programmed with 0xC9.
+             – The selected UV Threshold is 2.5 V.
+               • Therefore, UV_TRIP should be programmed with 0x1A.
+             – The selected OV Delay is 2 s and the selected UV Delay is 4 s.
+               • Therefore, PROTECT3 should be programmed with 0x50.
+
+
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                                            Application and Implementation   47
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940

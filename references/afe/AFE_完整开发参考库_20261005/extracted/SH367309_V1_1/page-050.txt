@@ -1,0 +1,64 @@
+                                                                                                                                           SH367309
+12.3.4 传输模式
+   (1) 概述
+  下面将分别介绍TWI作为从机通讯的两种模式：从机发送模式和从机接收模式。在初始状态，SH367309等待总线对自己地
+址的响应。如果方向标志位是“读”，则TWI进入从机发送模式，否则将进入从机接收模式。下图中有如下缩写：
+   S   ：开始条件                                                                                  Ā   ：无应答位
+   Rs ：重复开始条件                                                                                 DATA         ：8位数据
+   R   ：读控制位                                                                                  P   ：终止条件
+   W   ：写控制位                                                                                  SLA ：从机地址
+   A   ：应答位
+   (2) 从机发送模式
+  从机发送模式中，从机发送一系列数据给主机。传送完一个字节，如果主机回应“应答”信息，则SH367309准备发送下一个
+字节；如果主机回应“不应答”，则不继续发送数据（如果主机还在继续读取数据，则返回全“1”数据），等待主机发送“停止条件”
+或者“重复起始条件”。
+            Reception of the own
+            slave address and            S       SLA+R     Ack             DATA         Ack        DATA       Ack         DATA             P or S
+            transmission of one
+            or more data bytes
+
+
+                                                 Other Device Actions
+
+
+
+                                                 SH367309 Actions                                             Nack    All '1'     P or S
+
+
+   (3) 从机接收模式
+   从机接收模式中，从主机接收一系列数据。
+            Reception of the own
+            slave address and one            S     SLA+W         Ack              DATA               Ack       DATA                Ack     P or S
+            or more data bytes, All
+            are acknowledged
+
+
+                                                     Other Device Actions
+
+
+
+                                                     SH367309 Actions                              Nack    P or S                 Nack     P or S
+
+
+12.3.5 通信协议
+概述
+   TWI通讯协议包括两部分：读写EEPROM寄存器和读写RAM寄存器。
+   当VPRO管脚外接EEPROM烧写电压VPRO时，TWI通信可写EEPROM寄存器。
+   TWI通讯中，SH367309作为从机，其固定地址为：
+                       Bit7           Bit6          Bit5            Bit4           Bit3           Bit2       Bit1           Bit0
+                         0             0              1                1            0                1         0           R/W
+
+EEPROM寄存器读写协议
+   (1) 写操作指令
+  SH367309 VPRO管脚接EEPROM烧写电压VPRO时，EEPROM寄存器才可被改写。可写EEPROM寄存器地址为00H - 18H，
+写操作的数据长度固定为1Byte。
+   当写完一个寄存器后需要延时35mS才能开始写下一个寄存器。
+
+            START    SLA+W         Ack       Reg Address         Ack              DATA            Ack        CRC            Ack          STOP
+
+
+                                                           图14 TWI EEPROM写时序
+
+
+
+                                                                             50

@@ -1,0 +1,62 @@
+                                                                                                         bq76920, bq76930, bq76940
+www.ti.com                                                                                 SLUSBK2F – OCTOBER 2013 – REVISED NOVEMBER 2015
+
+
+
+11 Device and Documentation Support
+11.1 Documentation Support
+
+11.1.1 Related Documentation
+        For related documentation, see the following: bq76920 Evaluation Module User 's Guide (SLVU924), and
+        bq76920, bq76930, bq76940 AFE FAQ (SLUUB41).
+
+11.2 Related Links
+        The table below lists quick access links. Categories include technical documents, support and community
+        resources, tools and software, and quick access to sample or buy.
+
+                                                          Table 11-1. Related Links
+                                                                            TECHNICAL                 TOOLS &            SUPPORT &
+        PARTS             PRODUCT FOLDER                SAMPLE & BUY
+                                                                            DOCUMENTS                SOFTWARE            COMMUNITY
+       bq76920                  Click here                Click here          Click here              Click here           Click here
+       bq76930                  Click here                Click here          Click here              Click here           Click here
+       bq76940                  Click here                Click here          Click here              Click here           Click here
+
+
+
+11.2.1 Community Resources
+        The following links connect to TI community resources. Linked contents are provided "AS IS" by the
+        respective contributors. They do not constitute TI specifications and do not necessarily reflect TI's views;
+        see TI's Terms of Use.
+        TI E2E™ Online Community TI's Engineer-to-Engineer (E2E) Community. Created to foster
+                   collaboration among engineers. At e2e.ti.com, you can ask questions, share knowledge,
+                   explore ideas and help solve problems with fellow engineers.
+        TI Embedded Processors Wiki Texas Instruments Embedded Processors Wiki. Established to help
+                   developers get started with Embedded Processors from Texas Instruments and to foster
+                   innovation and growth of general knowledge about the hardware and software surrounding
+                   these devices.
+
+11.3 Trademarks
+        E2E is a trademark of Texas Instruments.
+        I2C is a trademark of NXP B.V. Corporation.
+        All other trademarks are the property of their respective owners.
+
+11.4 Electrostatic Discharge Caution
+          This integrated circuit can be damaged by ESD. Texas Instruments recommends that all integrated circuits be handled with
+          appropriate precautions. Failure to observe proper handling and installation procedures can cause damage.
+          ESD damage can range from subtle performance degradation to complete device failure. Precision integrated circuits may be more
+          susceptible to damage because very small parametric changes could cause the device not to meet its published specifications.
+
+
+11.5 Glossary
+        TI Glossary This glossary lists and explains terms, acronyms, and definitions.
+
+12 Mechanical, Packaging, and Orderable Information
+        The following pages include mechanical, packaging, and orderable information. This information is the
+        most current data available for the designated devices. This data is subject to change without notice and
+        revision of this document. For browser-based versions of this data sheet, refer to the left-hand navigation.
+
+
+Copyright © 2013–2015, Texas Instruments Incorporated                             Mechanical, Packaging, and Orderable Information      53
+                                                        Submit Documentation Feedback
+                                                Product Folder Links: bq76920 bq76930 bq76940
