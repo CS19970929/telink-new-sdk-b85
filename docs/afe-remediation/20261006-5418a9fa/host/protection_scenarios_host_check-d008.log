@@ -1,0 +1,2 @@
+assertions=508116 digest=47acb44e
+BMS_EVIDENCE {"boundary_groups": 12, "domain": "protection", "fault_combinations": 1024, "filter_values_10ms": [0, 1, 19, 20, 21, 40, 100, 65535], "implementation": "production_translation_units", "levels": 3, "observations": "assertions=508116 digest=47acb44e"}

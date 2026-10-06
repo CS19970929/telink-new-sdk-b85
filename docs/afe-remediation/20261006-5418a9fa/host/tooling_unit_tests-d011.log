@@ -1,0 +1,10 @@
+[bms] ERROR: D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)
+[bms] ERROR: Production requires a clean committed worktree with a valid Git build ID
+[bms] ERROR: Build identity/mode/profile are owned by bms.py; use --production / --d008-profile
+[bms] ERROR: Build identity/mode/profile are owned by bms.py; use --production / --d008-profile
+[bms] ERROR: Build identity/mode/profile are owned by bms.py; use --production / --d008-profile
+[bms] ERROR: Build identity/mode/profile are owned by bms.py; use --production / --d008-profile
+----------------------------------------------------------------------
+Ran 29 tests in 0.055s
+
+OK

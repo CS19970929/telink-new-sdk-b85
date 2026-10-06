@@ -1,0 +1,10 @@
+PASS SOC: production C integration/OCV/endpoints, ETA confidence/taper, qualified learning, 30-day Monte Carlo and 90-day shallow cycling
+PASS ACC: debounce/cancel/wrap, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority
+PASS connected suspend: link retained; OTA/bus/Flash/sample/current/invalid gates and no automatic power-off
+PASS commanded shutdown: BLE response drain, connected/stale samples, OTA/bus/Flash wait, retry, final PC4 cut
+PASS PM: +/-500 mA, invalid/stale, OTA/bus/Flash gates, persistence/AFE failures, ordered cut-off, retry/wrap
+PASS healthy boot: zero synthetic AFE1 errors, three-sample output inhibit; real init/read faults and watchdog recovery retained
+PASS DVC sleep: actual ACK, failure escalation, local inhibit cannot invalidate successful ACK
+PASS MOS diagnostics: simultaneous independent reasons, requested ON/driver OFF, invalid feedback
+PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold
+PASS current: +/-199/200 masked, +/-201 reported, both directions and saturation

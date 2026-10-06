@@ -1,0 +1,7 @@
+registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;
+bus_operations=27 assertions=49
+registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;
+bus_operations=27 assertions=49
+registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;
+bus_operations=27 assertions=49
+BMS_EVIDENCE {"boundary": "真实 builder/validator/寄存器编码函数与 RAM I2C；不含总线电气、ADC 精度和物理 MOS", "domain": "afe_registers", "product": "d008", "profiles": {"16s-lfp": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49", "20s-nmc": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49", "24s-lfp": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49"}}

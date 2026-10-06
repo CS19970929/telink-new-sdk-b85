@@ -1,0 +1,7 @@
+WROTE production SOC replay executable: C:\Users\Administrator\AppData\Local\Temp\bms-soc-replay-x5oxbokm\soc_replay.exe
+{"scenario_count": 1, "sample_count": 3301, "passed": 1, "failed": 0}
+WROTE production SOC replay executable: C:\Users\Administrator\AppData\Local\Temp\bms-soc-replay-22fmantl\soc_replay.exe
+{"output": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-soc-sim-ynip6mf2\\first.csv", "metrics": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-soc-sim-ynip6mf2\\first.json", "scenario_count": 1, "sample_count": 3301, "passed": 1, "failed": 0}
+WROTE production SOC replay executable: C:\Users\Administrator\AppData\Local\Temp\bms-soc-replay-hody3ww5\soc_replay.exe
+{"output": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-soc-sim-ynip6mf2\\second.csv", "metrics": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-soc-sim-ynip6mf2\\second.json", "scenario_count": 1, "sample_count": 3301, "passed": 1, "failed": 0}
+PASS SOC simulator: production C compile, scenario metrics and deterministic replay

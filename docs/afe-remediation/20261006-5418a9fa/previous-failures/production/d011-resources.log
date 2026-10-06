@@ -1,0 +1,30 @@
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-remediation-20261006\target\fcdfbbf61247\production\d011\gen\825x_ble_sample.map
+  size: 741466 bytes
+  _bin_size_             = 0x1c3dc
+  _code_size_            = 0x1c34c
+  _ram_use_end_          = 0x845e8c
+  _start_bss_            = 0x84436c
+  _end_bss_              = 0x845b8c
+  _start_data_           = 0x844300
+  _end_data_             = 0x84436c
+  _retention_size_       = 0x39f0
+  sections (start address):
+    .vectors                @ 0x00000000
+    .ram_code               @ 0x000001e0
+    .retention_data         @ 0x00842ae8
+    .text                   @ 0x00003a00
+    .cstartup_ram_funcs     @ 0x0001b750
+    .rodata                 @ 0x0001b8a0
+    .data                   @ 0x00844300
+    .bss                    @ 0x00844370
+    .data_no_init           @ 0x00845b8c
+    .sdk_version            @ 0x00845e8c
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24204 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5492 bytes
+  projected image = 115684 bytes; free 11292
+Resource report: C:\Users\Administrator\AppData\Local\CodexTemp\telink-new-sdk-b85\afe-remediation-20261006\target\fcdfbbf61247\production\d011\gen\resources.json
+MAP analysis PASS: TLSR8251 startup/RAM/slot limits are valid.

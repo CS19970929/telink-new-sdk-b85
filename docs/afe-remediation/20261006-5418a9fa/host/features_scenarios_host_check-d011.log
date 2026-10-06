@@ -1,0 +1,2 @@
+PASS cells=10 heater=1 fuse=0 balance=1：边界/迟滞/资格/故障/断线隔离
+BMS_EVIDENCE {"boundary": "完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身", "domain": "features", "observations": "PASS cells=10 heater=1 fuse=0 balance=1：边界/迟滞/资格/故障/断线隔离", "product": "d011"}

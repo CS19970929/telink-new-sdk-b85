@@ -1,0 +1,2 @@
+PASS default 16S and explicit 24S/20S/16S identities
+PASS production rejects implicit D008 profile; all three explicit profiles accepted

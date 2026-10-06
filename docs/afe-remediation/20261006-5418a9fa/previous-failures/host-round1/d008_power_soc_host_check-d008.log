@@ -1,0 +1,21 @@
+PASS SOC: production C integration/OCV/endpoints, ETA confidence/taper, qualified learning, 30-day Monte Carlo and 90-day shallow cycling
+PASS ACC: debounce/cancel/wrap, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority
+PASS connected suspend: link retained; OTA/bus/Flash/sample/current/invalid gates and no automatic power-off
+PASS commanded shutdown: BLE response drain, connected/stale samples, OTA/bus/Flash wait, retry, final PC4 cut
+PASS PM: +/-500 mA, invalid/stale, OTA/bus/Flash gates, persistence/AFE failures, ordered cut-off, retry/wrap
+C:\Users\Administrator\AppData\Local\Temp\d008-host-he33noh8\guard.c: In function 'bms_afe_sample':
+C:\Users\Administrator\AppData\Local\Temp\d008-host-he33noh8\guard.c:106:23: error: implicit declaration of function 'dvc1124_backend_sample_pending'; did you mean 'dvc1124_backend_sample'? [-Werror=implicit-function-declaration]
+  106 | #define AFE_PENDING() dvc1124_backend_sample_pending()
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\Administrator\AppData\Local\Temp\d008-host-he33noh8\guard.c:266:13: note: in expansion of macro 'AFE_PENDING'
+  266 |         if (AFE_PENDING()) return;
+      |             ^~~~~~~~~~~
+cc1.exe: all warnings being treated as errors
+Traceback (most recent call last):
+  File "D:\telink\bms-monorepo\tests\d008_power_soc_host_check.py", line 98, in <module>
+    main()
+  File "D:\telink\bms-monorepo\tests\d008_power_soc_host_check.py", line 80, in main
+    subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
+  File "C:\Tools\Python312\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['C:/qp/qtools/MinGW32/bin/cc.exe', '-std=c99', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', '-Wno-unused-parameter', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\d008-host-he33noh8\\guard.c', '-I', 'D:\\telink\\bms-monorepo', '-I', 'D:\\telink\\bms-monorepo\\bms\\core', '-I', 'D:\\telink\\bms-monorepo\\bms\\app', '-I', 'D:\\telink\\bms-monorepo\\bms\\platform\\telink', '-I', 'D:\\telink\\bms-monorepo\\bms\\products\\d008', '-I', 'D:\\telink\\bms-monorepo\\bms\\afe\\dvc1124', '-I', 'D:\\telink\\bms-monorepo\\tc_ble_single_sdk-V3.4.2.8_Patch_0001\\tc_ble_single_sdk', '-I', 'D:\\telink\\bms-monorepo\\tc_ble_single_sdk-V3.4.2.8_Patch_0001\\tc_ble_single_sdk\\drivers\\B85', '-I', 'D:\\telink\\bms-monorepo\\tc_ble_single_sdk-V3.4.2.8_Patch_0001\\tc_ble_single_sdk\\vendor\\common', '-include', 'D:\\telink\\bms-monorepo\\bms\\core\\bms_diag.h', 'D:\\telink\\bms-monorepo\\bms\\core\\bms_diag.c', '-o', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\d008-host-he33noh8\\guard']' returned non-zero exit status 1.

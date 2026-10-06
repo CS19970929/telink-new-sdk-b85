@@ -1,0 +1,7 @@
+{
+  "links_checked": true,
+  "broken_links": [],
+  "checksummed_files": 264,
+  "archive_sha256": "c46185cd7e4eb83f2be6c6d08a400c610b7c6b12690ac3bade05c25b18e9b396",
+  "note": "交付校验记录自身不纳入前述归档；源码测试结果来自固定5418a9fa"
+}

@@ -1,0 +1,99 @@
+[bms] ERROR: Production Flash reserve below 8 KiB: 8188 bytes; reduce code before release
+[bms] ERROR: startup SRAM mismatch: ELF/LST=0x850000, expected TLSR8251=0x848000
+[bms] ERROR: TLSR8251 SRAM overflow risk: _ram_use_end_=0x847400, limit=0x847400
+[bms] ERROR: TLSR8251 SRAM overflow risk: _ram_use_end_=0x83FFFC, limit=0x847400
+[bms] ERROR: MAP missing valid _bin_size_; cannot validate image
+[bms] ERROR: firmware image exceeds slot A: 126980 > 126976
+[bms] ERROR: MAP/BIN size mismatch: aligned 106504 + CRC != 106508
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1a008
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+  canonical BIN = 106516 bytes; free 20460
+Resource report: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\resources.json
+MAP analysis PASS: TLSR8251 startup/RAM/slot limits are valid.
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1cff0
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+  canonical BIN = 118772 bytes; free 8204
+Resource report: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\resources.json
+MAP analysis PASS: TLSR8251 startup/RAM/slot limits are valid.
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1d000
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1a008
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x850000
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1a008
+  _ram_use_end_          = 0x847400
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 29696 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 0 bytes
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1a008
+  _ram_use_end_          = 0x83fffc
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = -4 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 29700 bytes
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 39 bytes
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1f000
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+MAP analysis:
+  file: C:\Users\Administrator\AppData\Local\Temp\bms-resource-test-n2ti3wh3\fw.map
+  size: 78 bytes
+  _bin_size_             = 0x1a008
+  _ram_use_end_          = 0x846000
+  __SRAM_SIZE           = 0x848000
+  TLSR8251 SRAM span    = 32768 bytes
+  RAM address span used = 24576 bytes
+  stack reserve         = 3072 bytes
+  stack-safe headroom   = 5120 bytes
+PASS bounded main/IRQ scan, sticky canary, minimum retention and resource hard gates

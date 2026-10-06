@@ -1,0 +1,3 @@
+Every read/cell failure invalidates the sample without partial measurement publication
+Every read/cell failure invalidates the sample without partial measurement publication
+PASS d011 public SH sample/recovery evidence O2/Os ('-DATOMIC_TEST=1',)

@@ -1,0 +1,12 @@
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required
+[bms] ERROR: Build receipt/artifacts differ from successful build; rebuild required
+[bms] ERROR: Build receipt/artifacts differ from successful build; rebuild required
+[bms] ERROR: Build receipt/artifacts differ from successful build; rebuild required
+[bms] ERROR: Build receipt/artifacts differ from successful build; rebuild required
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required
+[bms] ERROR: Build receipt/artifacts differ from successful build; rebuild required
+[bms] ERROR: No successful completed build receipt; rebuild required
+PASS receipt changes on header/include/tool/flags, stable unchanged timestamp and stale rejection

@@ -1,0 +1,2 @@
+PASS 原厂范围/能力新写入边界，旧默认仍可读
+BMS_EVIDENCE {"boundary": "真实默认/校验函数体；不签核默认值，不代表比较器实测", "domain": "afe_factory_range", "product": "d013", "trace": "PASS 原厂范围/能力新写入边界，旧默认仍可读"}

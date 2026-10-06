@@ -1,0 +1,16 @@
+{
+  "tested_commit": "5418a9faf9b64ad1ae137d815e90525aeb9791f6",
+  "branch": "codex-bms-monorepo",
+  "tree": "8680fbb257b552f705f321bfe7536806f908a3e5",
+  "host_input_sha256": "5a8a994bad9e1cc0d17a8e7637098dda257a70a0a2c470302604c14195a97d42",
+  "host_groups": 178,
+  "host_failures": 0,
+  "target_configurations": 6,
+  "target_command_failures": 0,
+  "external_artifacts": "C:\\Users\\Administrator\\Documents\\CodexOutputs\\telink-new-sdk-b85\\afe-remediation-20261006-5418a9fa",
+  "images_generated": false,
+  "hardware_tested": false,
+  "simulation_tested": false,
+  "reset_policy_changed": false,
+  "defaults_reset": false
+}

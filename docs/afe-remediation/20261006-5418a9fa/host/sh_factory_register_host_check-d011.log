@@ -1,0 +1,2 @@
+PASS 577 SCT请求原厂解码、自清CRLD、配置失败FET拒绝与已验证恢复
+BMS_EVIDENCE {"boundary": "完整control函数体与原NTC表；寄存器总线替身，不是芯片仿真", "domain": "afe_factory_registers", "product": "d011", "trace": "PASS 577 SCT请求原厂解码、自清CRLD、配置失败FET拒绝与已验证恢复"}

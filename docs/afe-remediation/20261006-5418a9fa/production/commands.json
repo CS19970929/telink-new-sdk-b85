@@ -1,0 +1,194 @@
+[
+  {
+    "key": "d008-16s-lfp",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "16s-lfp",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d008-16s-lfp",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "16s-lfp",
+      "resources"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d008-20s-nmc",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "20s-nmc",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d008-20s-nmc",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "20s-nmc",
+      "resources"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d008-24s-lfp",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "24s-lfp",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d008-24s-lfp",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d008",
+      "--d008-profile",
+      "24s-lfp",
+      "resources"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d011",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d011",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d011",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d011",
+      "resources"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d013",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d013",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d013",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d013",
+      "resources"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d014",
+    "operation": "link",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d014",
+      "link",
+      "--jobs",
+      "4"
+    ],
+    "exit": 0
+  },
+  {
+    "key": "d014",
+    "operation": "resources",
+    "command": [
+      "C:/Tools/Python312/python.exe",
+      "-B",
+      "bms_tools/bms.py",
+      "--production",
+      "--product",
+      "d014",
+      "resources"
+    ],
+    "exit": 0
+  }
+]

@@ -1,0 +1,2 @@
+seed=20261005 exact_formula_checks=100300
+BMS_EVIDENCE {"boundary": "生产 K/B 整数函数；不证明 AFE ADC 零点/精度或校准环境实际为零电流", "domain": "current", "observations": "seed=20261005 exact_formula_checks=100300"}

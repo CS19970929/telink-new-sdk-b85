@@ -1,0 +1,16 @@
+test_coulomb_integration_and_deadband (__main__.SocContract.test_coulomb_integration_and_deadband) ... ok
+test_diag_reports_profile_identity_and_version (__main__.SocContract.test_diag_reports_profile_identity_and_version) ... ok
+test_display_soc_is_separate (__main__.SocContract.test_display_soc_is_separate) ... ok
+test_dual_chemistry_profiles_are_data_not_algorithm (__main__.SocContract.test_dual_chemistry_profiles_are_data_not_algorithm) ... ok
+test_endpoints_and_lfp_terminal_knee_are_chemistry_specific (__main__.SocContract.test_endpoints_and_lfp_terminal_knee_are_chemistry_specific) ... ok
+test_explicit_profile_wins_and_mismatches_are_rejected (__main__.SocContract.test_explicit_profile_wins_and_mismatches_are_rejected) ... ok
+test_learning_is_state_data_and_default_disabled (__main__.SocContract.test_learning_is_state_data_and_default_disabled) ... ok
+test_ocv_requires_ten_minutes_and_uses_band (__main__.SocContract.test_ocv_requires_ten_minutes_and_uses_band) ... ok
+test_product_chemistry_and_profile_are_config_fields (__main__.SocContract.test_product_chemistry_and_profile_are_config_fields) ... ok
+test_soc_low_faults_are_implemented_without_mos_policy (__main__.SocContract.test_soc_low_faults_are_implemented_without_mos_policy) ... ok
+test_upward_calibration_requires_confirmed_charging_full_anchor (__main__.SocContract.test_upward_calibration_requires_confirmed_charging_full_anchor) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.001s
+
+OK

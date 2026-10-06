@@ -1,0 +1,13 @@
+PASS failed startup persistence inhibits requested FETs
+PASS real product defaults, parameter validation and failed-save atomic publication
+PASS persistent-load software OCD remains off after zero current
+PASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification
+PASS reattachment resets recovery; pending CADC pauses without advancing
+PASS MOS NTC invalid holds both FETs off independently of OCD recovery
+PASS software OCC persists at zero current and C+ hysteresis; fresh removal releases
+PASS concurrent software OCD and hardware SC retain independent recovery ownership
+PASS 4 Hz CADC eventually recovers; a communication gap discards the partial window
+PASS readback failure and watchdog silence/re-init cannot clear software OCD
+PASS stale ADC inhibits both outputs; sampling qualification handles tick wrap
+PASS new process reloads committed parameters; cold MCU reset is a separate latch boundary
+BMS_EVIDENCE {"boundary": "真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度", "domain": "safety_chain", "observations": "PASS failed startup persistence inhibits requested FETs\nPASS real product defaults, parameter validation and failed-save atomic publication\nPASS persistent-load software OCD remains off after zero current\nPASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification\nPASS reattachment resets recovery; pending CADC pauses without advancing\nPASS MOS NTC invalid holds both FETs off independently of OCD recovery\nPASS software OCC persists at zero current and C+ hysteresis; fresh removal releases\nPASS concurrent software OCD and hardware SC retain independent recovery ownership\nPASS 4 Hz CADC eventually recovers; a communication gap discards the partial window\nPASS readback failure and watchdog silence/re-init cannot clear software OCD\nPASS stale ADC inhibits both outputs; sampling qualification handles tick wrap\nPASS new process reloads committed parameters; cold MCU reset is a separate latch boundary", "production_units": ["bms/core/bms_afe_guard.c", "bms/core/bms_afe_hw_access.c", "bms/core/bms_afe_hw_profile.c", "bms/core/bms_config_store.c", "bms/core/bms_crc.c", "bms/core/bms_debug_log.c", "bms/core/bms_diag.c", "bms/core/bms_event_log.c", "bms/core/bms_soc.c", "bms/core/bms_soc_eta.c", "bms/core/bms_state.c", "bms/core/bms_state_store.c", "bms/core/bms_sw_protection.c", "bms/core/param.c", "bms/core/storage_record.c", "bms/app/bms_features.c", "bms/platform/telink/bms_board.c", "bms/afe/sh3673510/sh3673510_bms.c", "bms/afe/sh3673510/sh3673510_control.c", "bms/afe/sh3673510/sh3673510_ntc.c", "bms/afe/sh3673510/sh3673510_feature_backend.c", "bms/afe/sh3673510/sh3673520.c"]}

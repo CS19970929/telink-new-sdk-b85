@@ -1,0 +1,20 @@
+[
+  {
+    "file": "bms/afe/dvc1124/dvc1124.c",
+    "function_bodies_unchanged": true,
+    "normalized_baseline_sha256": "ebe295ac87a6e3ee6076378a39e1e698eca79dd75d07ca11d1fbe3e9f21a316a",
+    "normalized_after_removing_annotations_sha256": "ebe295ac87a6e3ee6076378a39e1e698eca79dd75d07ca11d1fbe3e9f21a316a"
+  },
+  {
+    "file": "bms/core/bms_afe_hw_profile.c",
+    "function_bodies_unchanged": true,
+    "normalized_baseline_sha256": "ac2e4f9c9b3080bf8a6699932e1d108f9a7253e4eb6761803010f448a0600dab",
+    "normalized_after_removing_annotations_sha256": "ac2e4f9c9b3080bf8a6699932e1d108f9a7253e4eb6761803010f448a0600dab"
+  },
+  {
+    "file": "bms/core/bms_sw_protection.c",
+    "function_bodies_unchanged": true,
+    "normalized_baseline_sha256": "1168442070d2e1fb5a1f639e60155607e80519bd89875844cf5cf270b0991345",
+    "normalized_after_removing_annotations_sha256": "1168442070d2e1fb5a1f639e60155607e80519bd89875844cf5cf270b0991345"
+  }
+]

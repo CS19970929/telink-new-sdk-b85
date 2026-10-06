@@ -1,0 +1,21 @@
+test_config_and_state_have_explicit_little_endian_formats (__main__.ArchitectureTests.test_config_and_state_have_explicit_little_endian_formats) ... ok
+test_event_latch_is_only_advanced_after_successful_persist (__main__.ArchitectureTests.test_event_latch_is_only_advanced_after_successful_persist) ... ok
+test_flash_protection_session_contract_remains (__main__.ArchitectureTests.test_flash_protection_session_contract_remains) ... ok
+test_old_kv_engines_are_out_of_build_and_removed (__main__.ArchitectureTests.test_old_kv_engines_are_out_of_build_and_removed) ... ok
+test_record_core_has_crc_sequence_and_commit_last (__main__.ArchitectureTests.test_record_core_has_crc_sequence_and_commit_last) ... ok
+test_record_core_is_platform_independent (__main__.ArchitectureTests.test_record_core_is_platform_independent) ... ok
+test_runtime_is_part_of_state_not_a_second_flash_engine (__main__.ArchitectureTests.test_runtime_is_part_of_state_not_a_second_flash_engine) ... ok
+test_semantic_stores_share_record_engine (__main__.ArchitectureTests.test_semantic_stores_share_record_engine) ... ok
+test_state_keeps_changed_value_write_semantics (__main__.ArchitectureTests.test_state_keeps_changed_value_write_semantics) ... ok
+test_telink_flash_access_is_confined_to_platform_adapter (__main__.ArchitectureTests.test_telink_flash_access_is_confined_to_platform_adapter) ... ok
+test_portable_record_engine (__main__.HostPowerLossTest.test_portable_record_engine) ... ok
+test_512k_layout_is_the_reviewed_storage_v1_map (__main__.LayoutTests.test_512k_layout_is_the_reviewed_storage_v1_map) ... ok
+test_domains_do_not_overlap (__main__.LayoutTests.test_domains_do_not_overlap) ... ok
+test_domains_end_before_sdk_pairing_identity_area (__main__.LayoutTests.test_domains_end_before_sdk_pairing_identity_area) ... ok
+test_every_domain_has_power_loss_rotation_room (__main__.LayoutTests.test_every_domain_has_power_loss_rotation_room) ... ok
+test_ota_guards_are_still_explicit (__main__.LayoutTests.test_ota_guards_are_still_explicit) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.295s
+
+OK

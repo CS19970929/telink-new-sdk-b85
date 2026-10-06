@@ -1,0 +1,48 @@
+[
+  {
+    "round": "host-round1",
+    "head": "58f45713db26e9eaa7ce5be311ca5b354a56d99a",
+    "verdict": "失败或未完成",
+    "groups": 178,
+    "failed_checks": [
+      [
+        "d008_power_soc_host_check",
+        "d008",
+        1
+      ],
+      [
+        "sh_recovery_evidence_host_check",
+        "d011",
+        1
+      ],
+      [
+        "sh_recovery_evidence_host_check",
+        "d013",
+        1
+      ],
+      [
+        "sh_recovery_evidence_host_check",
+        "d014",
+        1
+      ]
+    ]
+  },
+  {
+    "round": "host-final",
+    "head": "8954db3347e718f6d61a3e3df62071020f163bed",
+    "verdict": "失败或未完成",
+    "groups": 178,
+    "failed_checks": [
+      [
+        "bms_simplification_host_check",
+        "d014",
+        1
+      ],
+      [
+        "sw_protection_defaults_check",
+        "d014",
+        1
+      ]
+    ]
+  }
+]

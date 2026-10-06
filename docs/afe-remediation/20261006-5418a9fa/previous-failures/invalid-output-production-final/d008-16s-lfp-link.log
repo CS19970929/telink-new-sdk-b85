@@ -1,0 +1,5 @@
+[bms] firmware diagnostic build id: 0x8954db33u; dirty=0
+[bms] source order: 100 objects
+[bms] make: link; jobs=4
+[bms] make succeeded: 0 errors, 0 warnings
+[bms] ERROR: Source/header/toolchain/build configuration changed since build; rebuild required

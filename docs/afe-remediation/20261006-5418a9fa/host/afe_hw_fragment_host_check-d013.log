@@ -1,0 +1,1 @@
+PASS AFE fragments: <=20-byte packets, single commit, partial/duplicate/order/token/CRC/address rejection, timeout/wrap/disconnect, failed commit no replay

@@ -1,0 +1,15 @@
+name failure/success/retry/cache: PASS
+name failure/success/retry/cache: PASS
+C:\Users\Administrator\AppData\Local\Temp\bms-simplification-5qnmtizx\test.c:21:2: error: #endif without #if
+   21 | #endif
+      |  ^~~~~
+Traceback (most recent call last):
+  File "D:\telink\bms-monorepo\tests\bms_simplification_host_check.py", line 99, in <module>
+    filter_test()
+  File "D:\telink\bms-monorepo\tests\bms_simplification_host_check.py", line 94, in filter_test
+    run(prefix + funcs + tail)
+  File "D:\telink\bms-monorepo\tests\bms_simplification_host_check.py", line 19, in run
+    subprocess.run(command + ['-std=c99', '-Wall', '-Wextra', '-Werror',
+  File "C:\Tools\Python312\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['C:/qp/qtools/MinGW32/bin/cc.exe', '-std=c99', '-Wall', '-Wextra', '-Werror', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-simplification-5qnmtizx\\test.c', '-o', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\bms-simplification-5qnmtizx\\test.exe']' returned non-zero exit status 1.

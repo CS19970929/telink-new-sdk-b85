@@ -13,3 +13,4 @@ CMakeLists.txt text eol=lf
 references/afe/** -text -whitespace
 references/hardware/d008/*.pdf -text
 docs/afe-audit/** -text whitespace=cr-at-eol
+docs/afe-remediation/** -text whitespace=cr-at-eol

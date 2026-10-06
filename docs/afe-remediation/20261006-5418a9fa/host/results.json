@@ -1,0 +1,4612 @@
+[
+  {
+    "check": "tooling_unit_tests",
+    "product": "d008",
+    "domain": "tooling",
+    "evidence_level": "工具单测",
+    "exit": 0,
+    "seconds": 0.203,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "-m",
+      "unittest",
+      "tests.test_bms_tools",
+      "-q"
+    ],
+    "log": "tooling_unit_tests-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "tooling_unit_tests",
+    "product": "d011",
+    "domain": "tooling",
+    "evidence_level": "工具单测",
+    "exit": 0,
+    "seconds": 0.234,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "-m",
+      "unittest",
+      "tests.test_bms_tools",
+      "-q"
+    ],
+    "log": "tooling_unit_tests-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "tooling_unit_tests",
+    "product": "d013",
+    "domain": "tooling",
+    "evidence_level": "工具单测",
+    "exit": 0,
+    "seconds": 0.672,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "-m",
+      "unittest",
+      "tests.test_bms_tools",
+      "-q"
+    ],
+    "log": "tooling_unit_tests-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "tooling_unit_tests",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "工具单测",
+    "exit": 0,
+    "seconds": 1.359,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "-m",
+      "unittest",
+      "tests.test_bms_tools",
+      "-q"
+    ],
+    "log": "tooling_unit_tests-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "validation_runner_tests",
+    "product": "shared",
+    "domain": "tooling",
+    "evidence_level": "工具故障回归",
+    "exit": 0,
+    "seconds": 1.344,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tests",
+      "-p",
+      "test_validation_runner.py",
+      "-q"
+    ],
+    "log": "validation_runner_tests-shared.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "source_manifests",
+    "product": "shared",
+    "domain": "tooling",
+    "evidence_level": "四产品实际源码清单",
+    "exit": 0,
+    "seconds": 0.922,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "bms_tools/bms.py",
+      "--all-products",
+      "sources",
+      "--check"
+    ],
+    "log": "source_manifests-shared.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_configuration_gate_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "22个原始生产TU与配置回滚故障",
+    "exit": 0,
+    "seconds": 5.719,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_configuration_gate_host_check.py"
+    ],
+    "log": "afe_configuration_gate_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "22原始TU；SPI/Flash/时钟替身，观察寄存器命令，不代表实板MOS",
+        "domain": "configuration_gate",
+        "observations": "PASS 配置门禁场景=rollback-success error=4；只有完整验证后允许输出\nPASS 配置门禁场景=rollback-failure error=5；只有完整验证后允许输出",
+        "production_units": [
+          "bms/core/bms_afe_guard.c",
+          "bms/core/bms_afe_hw_access.c",
+          "bms/core/bms_afe_hw_profile.c",
+          "bms/core/bms_config_store.c",
+          "bms/core/bms_crc.c",
+          "bms/core/bms_debug_log.c",
+          "bms/core/bms_diag.c",
+          "bms/core/bms_event_log.c",
+          "bms/core/bms_soc.c",
+          "bms/core/bms_soc_eta.c",
+          "bms/core/bms_state.c",
+          "bms/core/bms_state_store.c",
+          "bms/core/bms_sw_protection.c",
+          "bms/core/param.c",
+          "bms/core/storage_record.c",
+          "bms/app/bms_features.c",
+          "bms/platform/telink/bms_board.c",
+          "bms/afe/sh3673510/sh3673510_bms.c",
+          "bms/afe/sh3673510/sh3673510_control.c",
+          "bms/afe/sh3673510/sh3673510_ntc.c",
+          "bms/afe/sh3673510/sh3673510_feature_backend.c",
+          "bms/afe/sh3673510/sh3673520.c"
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_factory_regression_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "原厂范围独立向量与真实校验函数体",
+    "exit": 0,
+    "seconds": 0.625,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_factory_regression_host_check.py"
+    ],
+    "log": "afe_factory_regression_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "真实默认/校验函数体；不签核默认值，不代表比较器实测",
+        "domain": "afe_factory_range",
+        "product": "d008",
+        "trace": "PASS 原厂范围/能力新写入边界，旧默认仍可读"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_factory_regression_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "原厂范围独立向量与真实校验函数体",
+    "exit": 0,
+    "seconds": 0.546,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_factory_regression_host_check.py"
+    ],
+    "log": "afe_factory_regression_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "真实默认/校验函数体；不签核默认值，不代表比较器实测",
+        "domain": "afe_factory_range",
+        "product": "d011",
+        "trace": "PASS 原厂范围/能力新写入边界，旧默认仍可读"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_factory_regression_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "原厂范围独立向量与真实校验函数体",
+    "exit": 0,
+    "seconds": 0.625,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_factory_regression_host_check.py"
+    ],
+    "log": "afe_factory_regression_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "真实默认/校验函数体；不签核默认值，不代表比较器实测",
+        "domain": "afe_factory_range",
+        "product": "d013",
+        "trace": "PASS 原厂范围/能力新写入边界，旧默认仍可读"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_factory_regression_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "原厂范围独立向量与真实校验函数体",
+    "exit": 0,
+    "seconds": 0.532,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_factory_regression_host_check.py"
+    ],
+    "log": "afe_factory_regression_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "真实默认/校验函数体；不签核默认值，不代表比较器实测",
+        "domain": "afe_factory_range",
+        "product": "d014",
+        "trace": "PASS 原厂范围/能力新写入边界，旧默认仍可读"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_access_contract_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_access_contract_check.py"
+    ],
+    "log": "afe_hw_access_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_access_contract_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.062,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_access_contract_check.py"
+    ],
+    "log": "afe_hw_access_contract_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_access_contract_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.063,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_access_contract_check.py"
+    ],
+    "log": "afe_hw_access_contract_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_access_contract_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.046,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_access_contract_check.py"
+    ],
+    "log": "afe_hw_access_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_fragment_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.266,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_fragment_host_check.py"
+    ],
+    "log": "afe_hw_fragment_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_fragment_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.281,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_fragment_host_check.py"
+    ],
+    "log": "afe_hw_fragment_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_fragment_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.297,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_fragment_host_check.py"
+    ],
+    "log": "afe_hw_fragment_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_fragment_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.328,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_fragment_host_check.py"
+    ],
+    "log": "afe_hw_fragment_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_profile_contract_check",
+    "product": "d014",
+    "domain": "configuration",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.062,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_profile_contract_check.py"
+    ],
+    "log": "afe_hw_profile_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_transaction_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.391,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_transaction_host_check.py"
+    ],
+    "log": "afe_hw_transaction_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_transaction_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.391,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_transaction_host_check.py"
+    ],
+    "log": "afe_hw_transaction_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_transaction_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.328,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_transaction_host_check.py"
+    ],
+    "log": "afe_hw_transaction_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "afe_hw_transaction_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.329,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\afe_hw_transaction_host_check.py"
+    ],
+    "log": "afe_hw_transaction_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "app_recovery_wakeup_host_check",
+    "product": "d008",
+    "domain": "power",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.593,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\app_recovery_wakeup_host_check.py"
+    ],
+    "log": "app_recovery_wakeup_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "app_scheduler_host_check",
+    "product": "d008",
+    "domain": "power",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.969,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\app_scheduler_host_check.py"
+    ],
+    "log": "app_scheduler_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_contract_check",
+    "product": "d008",
+    "domain": "diagnostics",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.109,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_contract_check.py"
+    ],
+    "log": "bms_diag_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_contract_check",
+    "product": "d011",
+    "domain": "diagnostics",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.079,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_contract_check.py"
+    ],
+    "log": "bms_diag_contract_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_contract_check",
+    "product": "d013",
+    "domain": "diagnostics",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.093,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_contract_check.py"
+    ],
+    "log": "bms_diag_contract_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_contract_check",
+    "product": "d014",
+    "domain": "diagnostics",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.078,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_contract_check.py"
+    ],
+    "log": "bms_diag_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_host_check",
+    "product": "d008",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 2.375,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_host_check.py"
+    ],
+    "log": "bms_diag_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_host_check",
+    "product": "d011",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 2.422,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_host_check.py"
+    ],
+    "log": "bms_diag_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_host_check",
+    "product": "d013",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 2.547,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_host_check.py"
+    ],
+    "log": "bms_diag_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_diag_host_check",
+    "product": "d014",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 2.078,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_diag_host_check.py"
+    ],
+    "log": "bms_diag_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "bms_simplification_host_check",
+    "product": "d014",
+    "domain": "storage",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.875,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\bms_simplification_host_check.py"
+    ],
+    "log": "bms_simplification_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "common_feature_policy_contract_check",
+    "product": "d008",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.125,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\common_feature_policy_contract_check.py"
+    ],
+    "log": "common_feature_policy_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "common_feature_policy_contract_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.079,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\common_feature_policy_contract_check.py"
+    ],
+    "log": "common_feature_policy_contract_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "common_feature_policy_contract_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.078,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\common_feature_policy_contract_check.py"
+    ],
+    "log": "common_feature_policy_contract_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "common_feature_policy_contract_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.093,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\common_feature_policy_contract_check.py"
+    ],
+    "log": "common_feature_policy_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "compile_receipt_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "工具行为/源码 contract",
+    "exit": 0,
+    "seconds": 0.469,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\compile_receipt_check.py"
+    ],
+    "log": "compile_receipt_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "current_calibration_host_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "生产 K/B 与独立数学 oracle",
+    "exit": 0,
+    "seconds": 0.734,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\current_calibration_host_check.py"
+    ],
+    "log": "current_calibration_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "生产 K/B 整数函数；不证明 AFE ADC 零点/精度或校准环境实际为零电流",
+        "domain": "current",
+        "observations": "seed=20261005 exact_formula_checks=100300"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "current_calibration_host_check",
+    "product": "d011",
+    "domain": "soc",
+    "evidence_level": "生产 K/B 与独立数学 oracle",
+    "exit": 0,
+    "seconds": 0.906,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\current_calibration_host_check.py"
+    ],
+    "log": "current_calibration_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "生产 K/B 整数函数；不证明 AFE ADC 零点/精度或校准环境实际为零电流",
+        "domain": "current",
+        "observations": "seed=20261005 exact_formula_checks=100300"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "current_calibration_host_check",
+    "product": "d013",
+    "domain": "soc",
+    "evidence_level": "生产 K/B 与独立数学 oracle",
+    "exit": 0,
+    "seconds": 1.016,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\current_calibration_host_check.py"
+    ],
+    "log": "current_calibration_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "生产 K/B 整数函数；不证明 AFE ADC 零点/精度或校准环境实际为零电流",
+        "domain": "current",
+        "observations": "seed=20261005 exact_formula_checks=100300"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "current_calibration_host_check",
+    "product": "d014",
+    "domain": "soc",
+    "evidence_level": "生产 K/B 与独立数学 oracle",
+    "exit": 0,
+    "seconds": 0.891,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\current_calibration_host_check.py"
+    ],
+    "log": "current_calibration_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "生产 K/B 整数函数；不证明 AFE ADC 零点/精度或校准环境实际为零电流",
+        "domain": "current",
+        "observations": "seed=20261005 exact_formula_checks=100300"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_20s_profile_contract_check",
+    "product": "d008",
+    "domain": "configuration",
+    "evidence_level": "产品编译分支/源码 contract",
+    "exit": 0,
+    "seconds": 0.172,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_20s_profile_contract_check.py"
+    ],
+    "log": "d008_20s_profile_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_boot_zero_current_contract_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.11,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_boot_zero_current_contract_check.py"
+    ],
+    "log": "d008_boot_zero_current_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_common_port_fet_contract_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.188,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_common_port_fet_contract_check.py"
+    ],
+    "log": "d008_common_port_fet_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_current_recovery_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.718,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_current_recovery_host_check.py"
+    ],
+    "log": "d008_current_recovery_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_documentation_contract_check",
+    "product": "d008",
+    "domain": "configuration",
+    "evidence_level": "产品编译分支/源码 contract",
+    "exit": 0,
+    "seconds": 0.11,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_documentation_contract_check.py"
+    ],
+    "log": "d008_documentation_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_framework_contract_check",
+    "product": "d008",
+    "domain": "configuration",
+    "evidence_level": "产品编译分支/源码 contract",
+    "exit": 0,
+    "seconds": 0.453,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_framework_contract_check.py"
+    ],
+    "log": "d008_framework_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_power_soc_host_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "生产 SOC/部分 PM 与环境替身",
+    "exit": 0,
+    "seconds": 21.172,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_power_soc_host_check.py"
+    ],
+    "log": "d008_power_soc_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_profile_selection_host_check",
+    "product": "d008",
+    "domain": "configuration",
+    "evidence_level": "产品编译分支/源码 contract",
+    "exit": 0,
+    "seconds": 1.14,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_profile_selection_host_check.py"
+    ],
+    "log": "d008_profile_selection_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_soc_openwire_host_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "生产 SOC/部分 PM 与环境替身",
+    "exit": 0,
+    "seconds": 2.844,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_soc_openwire_host_check.py"
+    ],
+    "log": "d008_soc_openwire_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_storage_host_check",
+    "product": "d008",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 17.375,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_storage_host_check.py"
+    ],
+    "log": "d008_storage_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_storage_host_check",
+    "product": "d011",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 11.985,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_storage_host_check.py"
+    ],
+    "log": "d008_storage_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_storage_host_check",
+    "product": "d013",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 11.125,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_storage_host_check.py"
+    ],
+    "log": "d008_storage_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_storage_host_check",
+    "product": "d014",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 10.968,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_storage_host_check.py"
+    ],
+    "log": "d008_storage_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d008_voltage_recovery_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.219,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d008_voltage_recovery_host_check.py"
+    ],
+    "log": "d008_voltage_recovery_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d014_afe_profile_default_host_check",
+    "product": "d014",
+    "domain": "configuration",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.234,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d014_afe_profile_default_host_check.py"
+    ],
+    "log": "d014_afe_profile_default_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "d014_safety_loop_host_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "22 个原始生产 TU 与 SPI/Flash 端口模型",
+    "exit": 0,
+    "seconds": 3.75,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\d014_safety_loop_host_check.py"
+    ],
+    "log": "d014_safety_loop_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度",
+        "domain": "safety_chain",
+        "observations": "PASS failed startup persistence inhibits requested FETs\nPASS real product defaults, parameter validation and failed-save atomic publication\nPASS persistent-load software OCD remains off after zero current\nPASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification\nPASS reattachment resets recovery; pending CADC pauses without advancing\nPASS MOS NTC invalid holds both FETs off independently of OCD recovery\nPASS software OCC persists at zero current and C+ hysteresis; fresh removal releases\nPASS concurrent software OCD and hardware SC retain independent recovery ownership\nPASS 4 Hz CADC eventually recovers; a communication gap discards the partial window\nPASS readback failure and watchdog silence/re-init cannot clear software OCD\nPASS stale ADC inhibits both outputs; sampling qualification handles tick wrap\nPASS new process reloads committed parameters; cold MCU reset is a separate latch boundary",
+        "production_units": [
+          "bms/core/bms_afe_guard.c",
+          "bms/core/bms_afe_hw_access.c",
+          "bms/core/bms_afe_hw_profile.c",
+          "bms/core/bms_config_store.c",
+          "bms/core/bms_crc.c",
+          "bms/core/bms_debug_log.c",
+          "bms/core/bms_diag.c",
+          "bms/core/bms_event_log.c",
+          "bms/core/bms_soc.c",
+          "bms/core/bms_soc_eta.c",
+          "bms/core/bms_state.c",
+          "bms/core/bms_state_store.c",
+          "bms/core/bms_sw_protection.c",
+          "bms/core/param.c",
+          "bms/core/storage_record.c",
+          "bms/app/bms_features.c",
+          "bms/platform/telink/bms_board.c",
+          "bms/afe/sh3673510/sh3673510_bms.c",
+          "bms/afe/sh3673510/sh3673510_control.c",
+          "bms/afe/sh3673510/sh3673510_ntc.c",
+          "bms/afe/sh3673510/sh3673510_feature_backend.c",
+          "bms/afe/sh3673510/sh3673520.c"
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "dvc1124_config_quick_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.11,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\dvc1124_config_quick_check.py"
+    ],
+    "log": "dvc1124_config_quick_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "dvc1124_fixed_policy_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 1.875,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\dvc1124_fixed_policy_host_check.py"
+    ],
+    "log": "dvc1124_fixed_policy_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "dvc_adc_events_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "实际DVC读取/采样函数体与原厂RC事件向量",
+    "exit": 0,
+    "seconds": 0.422,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\dvc_adc_events_host_check.py"
+    ],
+    "log": "dvc_adc_events_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真，外围换算替身；512ms为项目活性约束",
+        "domain": "adc_events",
+        "trace": "PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、缓存到期与tick回绕"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "dvc_register_scenarios_host_check",
+    "product": "d008",
+    "domain": "afe",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 1.172,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\dvc_register_scenarios_host_check.py"
+    ],
+    "log": "dvc_register_scenarios_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "真实 builder/validator/寄存器编码函数与 RAM I2C；不含总线电气、ADC 精度和物理 MOS",
+        "domain": "afe_registers",
+        "product": "d008",
+        "profiles": {
+          "16s-lfp": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49",
+          "20s-nmc": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49",
+          "24s-lfp": "registers=59:08;5a:08;5b:0b;5c:0b;5d:a5;5e:c0;5f:c0;60:18;61:18;62:80;63:00;64:a5;65:a5;66:a5;67:a5;68:a5;69:a5;6a:a5;6b:a5;6c:a5;6d:a5;6e:a5;6f:a5;70:cb;71:28;72:89;73:88;\nbus_operations=27 assertions=49"
+        }
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "features_scenarios_host_check",
+    "product": "d008",
+    "domain": "protection",
+    "evidence_level": "完整 feature 与真实板级能力",
+    "exit": 0,
+    "seconds": 0.781,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\features_scenarios_host_check.py"
+    ],
+    "log": "features_scenarios_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身",
+        "domain": "features",
+        "observations": "PASS cells=16 heater=1 fuse=1 balance=1：边界/迟滞/资格/故障/断线隔离",
+        "product": "d008"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "features_scenarios_host_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "完整 feature 与真实板级能力",
+    "exit": 0,
+    "seconds": 0.813,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\features_scenarios_host_check.py"
+    ],
+    "log": "features_scenarios_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身",
+        "domain": "features",
+        "observations": "PASS cells=10 heater=1 fuse=0 balance=1：边界/迟滞/资格/故障/断线隔离",
+        "product": "d011"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "features_scenarios_host_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "完整 feature 与真实板级能力",
+    "exit": 0,
+    "seconds": 0.719,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\features_scenarios_host_check.py"
+    ],
+    "log": "features_scenarios_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身",
+        "domain": "features",
+        "observations": "PASS cells=4 heater=0 fuse=0 balance=0：边界/迟滞/资格/故障/断线隔离",
+        "product": "d013"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "features_scenarios_host_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "完整 feature 与真实板级能力",
+    "exit": 0,
+    "seconds": 0.922,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\features_scenarios_host_check.py"
+    ],
+    "log": "features_scenarios_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身",
+        "domain": "features",
+        "observations": "PASS cells=8 heater=0 fuse=0 balance=1：边界/迟滞/资格/故障/断线隔离",
+        "product": "d014"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "flash_quick_check",
+    "product": "d008",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 0.5,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\flash_quick_check.py"
+    ],
+    "log": "flash_quick_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "flash_quick_check",
+    "product": "d011",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 0.516,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\flash_quick_check.py"
+    ],
+    "log": "flash_quick_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "flash_quick_check",
+    "product": "d013",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 0.453,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\flash_quick_check.py"
+    ],
+    "log": "flash_quick_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "flash_quick_check",
+    "product": "d014",
+    "domain": "storage",
+    "evidence_level": "生产 journal/语义存储与 RAM Flash",
+    "exit": 0,
+    "seconds": 0.406,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\flash_quick_check.py"
+    ],
+    "log": "flash_quick_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_address_host_check",
+    "product": "d008",
+    "domain": "protocol",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.391,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_address_host_check.py"
+    ],
+    "log": "modbus_address_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_address_host_check",
+    "product": "d011",
+    "domain": "protocol",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.375,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_address_host_check.py"
+    ],
+    "log": "modbus_address_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_address_host_check",
+    "product": "d013",
+    "domain": "protocol",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.39,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_address_host_check.py"
+    ],
+    "log": "modbus_address_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_address_host_check",
+    "product": "d014",
+    "domain": "protocol",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.438,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_address_host_check.py"
+    ],
+    "log": "modbus_address_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_fuzz_host_check",
+    "product": "d008",
+    "domain": "protocol",
+    "evidence_level": "真实 parser/CRC 与寄存器替身",
+    "exit": 0,
+    "seconds": 1.094,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_fuzz_host_check.py"
+    ],
+    "log": "modbus_fuzz_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY",
+        "domain": "protocol",
+        "observations": "seed=20261005 frames=100000 assertions=3395078",
+        "random_frames": 100000,
+        "seed": 20261005
+      }
+    ],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_fuzz_host_check",
+    "product": "d011",
+    "domain": "protocol",
+    "evidence_level": "真实 parser/CRC 与寄存器替身",
+    "exit": 0,
+    "seconds": 0.969,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_fuzz_host_check.py"
+    ],
+    "log": "modbus_fuzz_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY",
+        "domain": "protocol",
+        "observations": "seed=20261005 frames=100000 assertions=3395078",
+        "random_frames": 100000,
+        "seed": 20261005
+      }
+    ],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_fuzz_host_check",
+    "product": "d013",
+    "domain": "protocol",
+    "evidence_level": "真实 parser/CRC 与寄存器替身",
+    "exit": 0,
+    "seconds": 0.984,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_fuzz_host_check.py"
+    ],
+    "log": "modbus_fuzz_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY",
+        "domain": "protocol",
+        "observations": "seed=20261005 frames=100000 assertions=3395078",
+        "random_frames": 100000,
+        "seed": 20261005
+      }
+    ],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "modbus_fuzz_host_check",
+    "product": "d014",
+    "domain": "protocol",
+    "evidence_level": "真实 parser/CRC 与寄存器替身",
+    "exit": 0,
+    "seconds": 1.0,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\modbus_fuzz_host_check.py"
+    ],
+    "log": "modbus_fuzz_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY",
+        "domain": "protocol",
+        "observations": "seed=20261005 frames=100000 assertions=3395078",
+        "random_frames": 100000,
+        "seed": 20261005
+      }
+    ],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "monorepo_source_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "工具行为/源码 contract",
+    "exit": 0,
+    "seconds": 0.063,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\monorepo_source_check.py"
+    ],
+    "log": "monorepo_source_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "portable_core_host_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "完整可移植核心 TU",
+    "exit": 0,
+    "seconds": 1.171,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\portable_core_host_check.py"
+    ],
+    "log": "portable_core_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "product_configuration_host_check",
+    "product": "d008",
+    "domain": "configuration",
+    "evidence_level": "真实默认构造与校验",
+    "exit": 0,
+    "seconds": 1.594,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\product_configuration_host_check.py"
+    ],
+    "log": "product_configuration_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "真实产品默认/校验；未模拟已保存设备参数、AFE 芯片精度或实际动作",
+        "domain": "configuration",
+        "product": "d008",
+        "profiles": {
+          "16s-lfp": {
+            "afe_requested": {
+              "afe_model": 4388,
+              "chg_ot_recover_x10": 0,
+              "chg_ot_x10": 0,
+              "chg_ut_recover_x10": 0,
+              "chg_ut_x10": 0,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 1000,
+              "cuv_mv": 2200,
+              "cuv_recover_ms": 1000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 0,
+              "dsg_ot_x10": 0,
+              "dsg_ut_recover_x10": 0,
+              "dsg_ut_x10": 0,
+              "enable_mask": 63,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 150,
+              "occ2_delay_ms": 100,
+              "occ_recover_a10": 99,
+              "occ_recover_ms": 0,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 99,
+              "ocd_recover_ms": 0,
+              "sc_a10": 0,
+              "sc_delay_us": 0,
+              "sc_recover_ms": 0,
+              "schema_version": 1,
+              "temp_recover_ms": 0
+            },
+            "capacity_0p1ah": 78,
+            "cells": 16,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 5600,
+              "u16VbusOvp_Rcv": 5600,
+              "u16VbusOvp_Second": 5760,
+              "u16VbusOvp_Third": 5840,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 4800,
+              "u16VbusUvp_Rcv": 4800,
+              "u16VbusUvp_Second": 4800,
+              "u16VbusUvp_Third": 4640,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 100,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 2200,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          },
+          "20s-nmc": {
+            "afe_requested": {
+              "afe_model": 4388,
+              "chg_ot_recover_x10": 0,
+              "chg_ot_x10": 0,
+              "chg_ut_recover_x10": 0,
+              "chg_ut_x10": 0,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 1000,
+              "cuv_mv": 2200,
+              "cuv_recover_ms": 1000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 0,
+              "dsg_ot_x10": 0,
+              "dsg_ut_recover_x10": 0,
+              "dsg_ut_x10": 0,
+              "enable_mask": 63,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 150,
+              "occ2_delay_ms": 100,
+              "occ_recover_a10": 99,
+              "occ_recover_ms": 0,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 99,
+              "ocd_recover_ms": 0,
+              "sc_a10": 0,
+              "sc_delay_us": 0,
+              "sc_recover_ms": 0,
+              "schema_version": 1,
+              "temp_recover_ms": 0
+            },
+            "capacity_0p1ah": 78,
+            "cells": 20,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 7000,
+              "u16VbusOvp_Rcv": 7000,
+              "u16VbusOvp_Second": 7200,
+              "u16VbusOvp_Third": 7300,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 6000,
+              "u16VbusUvp_Rcv": 6000,
+              "u16VbusUvp_Second": 6000,
+              "u16VbusUvp_Third": 5800,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 100,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 2200,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          },
+          "24s-lfp": {
+            "afe_requested": {
+              "afe_model": 4388,
+              "chg_ot_recover_x10": 0,
+              "chg_ot_x10": 0,
+              "chg_ut_recover_x10": 0,
+              "chg_ut_x10": 0,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 1000,
+              "cuv_mv": 2200,
+              "cuv_recover_ms": 1000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 0,
+              "dsg_ot_x10": 0,
+              "dsg_ut_recover_x10": 0,
+              "dsg_ut_x10": 0,
+              "enable_mask": 63,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 150,
+              "occ2_delay_ms": 100,
+              "occ_recover_a10": 99,
+              "occ_recover_ms": 0,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 99,
+              "ocd_recover_ms": 0,
+              "sc_a10": 0,
+              "sc_delay_us": 0,
+              "sc_recover_ms": 0,
+              "schema_version": 1,
+              "temp_recover_ms": 0
+            },
+            "capacity_0p1ah": 78,
+            "cells": 24,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 8400,
+              "u16VbusOvp_Rcv": 8400,
+              "u16VbusOvp_Second": 8640,
+              "u16VbusOvp_Third": 8760,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 7200,
+              "u16VbusUvp_Rcv": 7200,
+              "u16VbusUvp_Second": 7200,
+              "u16VbusUvp_Third": 6960,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 100,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 2200,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          }
+        }
+      }
+    ],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "product_configuration_host_check",
+    "product": "d011",
+    "domain": "configuration",
+    "evidence_level": "真实默认构造与校验",
+    "exit": 0,
+    "seconds": 0.547,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\product_configuration_host_check.py"
+    ],
+    "log": "product_configuration_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "真实产品默认/校验；未模拟已保存设备参数、AFE 芯片精度或实际动作",
+        "domain": "configuration",
+        "product": "d011",
+        "profiles": {
+          "default": {
+            "afe_requested": {
+              "afe_model": 13584,
+              "chg_ot_recover_x10": 900,
+              "chg_ot_x10": 950,
+              "chg_ut_recover_x10": 430,
+              "chg_ut_x10": 400,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 10000,
+              "cuv_mv": 3000,
+              "cuv_recover_ms": 10000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 900,
+              "dsg_ot_x10": 1000,
+              "dsg_ut_recover_x10": 300,
+              "dsg_ut_x10": 200,
+              "enable_mask": 223,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 0,
+              "occ2_delay_ms": 0,
+              "occ_recover_a10": 100,
+              "occ_recover_ms": 100,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 100,
+              "ocd_recover_ms": 2000,
+              "sc_a10": 300,
+              "sc_delay_us": 256,
+              "sc_recover_ms": 2000,
+              "schema_version": 1,
+              "temp_recover_ms": 1000
+            },
+            "capacity_0p1ah": 116,
+            "cells": 10,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 3500,
+              "u16VbusOvp_Rcv": 3500,
+              "u16VbusOvp_Second": 3600,
+              "u16VbusOvp_Third": 3650,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 3000,
+              "u16VbusUvp_Rcv": 3000,
+              "u16VbusUvp_Second": 3000,
+              "u16VbusUvp_Third": 2900,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 1000,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 3000,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          }
+        }
+      }
+    ],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "product_configuration_host_check",
+    "product": "d013",
+    "domain": "configuration",
+    "evidence_level": "真实默认构造与校验",
+    "exit": 0,
+    "seconds": 0.578,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\product_configuration_host_check.py"
+    ],
+    "log": "product_configuration_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "真实产品默认/校验；未模拟已保存设备参数、AFE 芯片精度或实际动作",
+        "domain": "configuration",
+        "product": "d013",
+        "profiles": {
+          "default": {
+            "afe_requested": {
+              "afe_model": 13584,
+              "chg_ot_recover_x10": 900,
+              "chg_ot_x10": 950,
+              "chg_ut_recover_x10": 430,
+              "chg_ut_x10": 400,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 10000,
+              "cuv_mv": 3000,
+              "cuv_recover_ms": 10000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 900,
+              "dsg_ot_x10": 1000,
+              "dsg_ut_recover_x10": 300,
+              "dsg_ut_x10": 200,
+              "enable_mask": 223,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 0,
+              "occ2_delay_ms": 0,
+              "occ_recover_a10": 100,
+              "occ_recover_ms": 100,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 100,
+              "ocd_recover_ms": 2000,
+              "sc_a10": 300,
+              "sc_delay_us": 256,
+              "sc_recover_ms": 2000,
+              "schema_version": 1,
+              "temp_recover_ms": 1000
+            },
+            "capacity_0p1ah": 116,
+            "cells": 4,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 1400,
+              "u16VbusOvp_Rcv": 1400,
+              "u16VbusOvp_Second": 1440,
+              "u16VbusOvp_Third": 1460,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 1200,
+              "u16VbusUvp_Rcv": 1200,
+              "u16VbusUvp_Second": 1200,
+              "u16VbusUvp_Third": 1160,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 1000,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 3000,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          }
+        }
+      }
+    ],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "product_configuration_host_check",
+    "product": "d014",
+    "domain": "configuration",
+    "evidence_level": "真实默认构造与校验",
+    "exit": 0,
+    "seconds": 0.547,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\product_configuration_host_check.py"
+    ],
+    "log": "product_configuration_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "真实产品默认/校验；未模拟已保存设备参数、AFE 芯片精度或实际动作",
+        "domain": "configuration",
+        "product": "d014",
+        "profiles": {
+          "default": {
+            "afe_requested": {
+              "afe_model": 13584,
+              "chg_ot_recover_x10": 900,
+              "chg_ot_x10": 950,
+              "chg_ut_recover_x10": 430,
+              "chg_ut_x10": 400,
+              "cov_delay_ms": 1000,
+              "cov_mv": 3750,
+              "cov_recover_ms": 1000,
+              "cov_recover_mv": 3500,
+              "cuv_delay_ms": 10000,
+              "cuv_mv": 3000,
+              "cuv_recover_ms": 10000,
+              "cuv_recover_mv": 3100,
+              "dsg_ot_recover_x10": 900,
+              "dsg_ot_x10": 1000,
+              "dsg_ut_recover_x10": 300,
+              "dsg_ut_x10": 200,
+              "enable_mask": 223,
+              "occ1_a10": 100,
+              "occ1_delay_ms": 100,
+              "occ2_a10": 0,
+              "occ2_delay_ms": 0,
+              "occ_recover_a10": 100,
+              "occ_recover_ms": 100,
+              "ocd1_a10": 100,
+              "ocd1_delay_ms": 100,
+              "ocd2_a10": 150,
+              "ocd2_delay_ms": 100,
+              "ocd_recover_a10": 100,
+              "ocd_recover_ms": 2000,
+              "sc_a10": 300,
+              "sc_delay_us": 256,
+              "sc_recover_ms": 2000,
+              "schema_version": 1,
+              "temp_recover_ms": 1000
+            },
+            "capacity_0p1ah": 116,
+            "cells": 8,
+            "sw": {
+              "u16IchgOcp_Filter": 10,
+              "u16IchgOcp_First": 100,
+              "u16IchgOcp_Rcv": 100,
+              "u16IchgOcp_Second": 150,
+              "u16IchgOcp_Third": 200,
+              "u16IdsgOcp_Filter": 10,
+              "u16IdsgOcp_First": 100,
+              "u16IdsgOcp_Rcv": 100,
+              "u16IdsgOcp_Second": 150,
+              "u16IdsgOcp_Third": 200,
+              "u16SocLow_Filter": 100,
+              "u16SocLow_First": 20,
+              "u16SocLow_Rcv": 11,
+              "u16SocLow_Second": 10,
+              "u16SocLow_Third": 5,
+              "u16TChgOTp_Filter": 100,
+              "u16TChgOTp_First": 800,
+              "u16TChgOTp_Rcv": 900,
+              "u16TChgOTp_Second": 900,
+              "u16TChgOTp_Third": 950,
+              "u16TchgUTp_Filter": 100,
+              "u16TchgUTp_First": 450,
+              "u16TchgUTp_Rcv": 430,
+              "u16TchgUTp_Second": 430,
+              "u16TchgUTp_Third": 400,
+              "u16TdischgOTp_Filter": 100,
+              "u16TdischgOTp_First": 900,
+              "u16TdischgOTp_Rcv": 900,
+              "u16TdischgOTp_Second": 900,
+              "u16TdischgOTp_Third": 1000,
+              "u16TdischgUTp_Filter": 100,
+              "u16TdischgUTp_First": 300,
+              "u16TdischgUTp_Rcv": 300,
+              "u16TdischgUTp_Second": 250,
+              "u16TdischgUTp_Third": 200,
+              "u16TmosOTp_Filter": 100,
+              "u16TmosOTp_First": 1150,
+              "u16TmosOTp_Rcv": 1200,
+              "u16TmosOTp_Second": 1250,
+              "u16TmosOTp_Third": 1350,
+              "u16VbusOvp_Filter": 100,
+              "u16VbusOvp_First": 2800,
+              "u16VbusOvp_Rcv": 2800,
+              "u16VbusOvp_Second": 2880,
+              "u16VbusOvp_Third": 2920,
+              "u16VbusUvp_Filter": 100,
+              "u16VbusUvp_First": 2400,
+              "u16VbusUvp_Rcv": 2400,
+              "u16VbusUvp_Second": 2400,
+              "u16VbusUvp_Third": 2320,
+              "u16VcellOvp_Filter": 100,
+              "u16VcellOvp_First": 3750,
+              "u16VcellOvp_Rcv": 3500,
+              "u16VcellOvp_Second": 3750,
+              "u16VcellOvp_Third": 3750,
+              "u16VcellUvp_Filter": 1000,
+              "u16VcellUvp_First": 3000,
+              "u16VcellUvp_Rcv": 3100,
+              "u16VcellUvp_Second": 3000,
+              "u16VcellUvp_Third": 3000,
+              "u16VdeltaOvp_Filter": 100,
+              "u16VdeltaOvp_First": 600,
+              "u16VdeltaOvp_Rcv": 800,
+              "u16VdeltaOvp_Second": 800,
+              "u16VdeltaOvp_Third": 1000
+            }
+          }
+        }
+      }
+    ],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "production_policy_check",
+    "product": "d008",
+    "domain": "tooling",
+    "evidence_level": "实际编译预处理",
+    "exit": 0,
+    "seconds": 0.359,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\production_policy_check.py"
+    ],
+    "log": "production_policy_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "production_policy_check",
+    "product": "d011",
+    "domain": "tooling",
+    "evidence_level": "实际编译预处理",
+    "exit": 0,
+    "seconds": 0.407,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\production_policy_check.py"
+    ],
+    "log": "production_policy_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "production_policy_check",
+    "product": "d013",
+    "domain": "tooling",
+    "evidence_level": "实际编译预处理",
+    "exit": 0,
+    "seconds": 0.359,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\production_policy_check.py"
+    ],
+    "log": "production_policy_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "production_policy_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "实际编译预处理",
+    "exit": 0,
+    "seconds": 0.359,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\production_policy_check.py"
+    ],
+    "log": "production_policy_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "protection_scenarios_host_check",
+    "product": "d008",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 1.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\protection_scenarios_host_check.py"
+    ],
+    "log": "protection_scenarios_host_check-d008.log",
+    "observations": [
+      {
+        "boundary_groups": 12,
+        "domain": "protection",
+        "fault_combinations": 1024,
+        "filter_values_10ms": [
+          0,
+          1,
+          19,
+          20,
+          21,
+          40,
+          100,
+          65535
+        ],
+        "implementation": "production_translation_units",
+        "levels": 3,
+        "observations": "assertions=508116 digest=47acb44e"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "protection_scenarios_host_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 1.25,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\protection_scenarios_host_check.py"
+    ],
+    "log": "protection_scenarios_host_check-d011.log",
+    "observations": [
+      {
+        "boundary_groups": 12,
+        "domain": "protection",
+        "fault_combinations": 1024,
+        "filter_values_10ms": [
+          0,
+          1,
+          19,
+          20,
+          21,
+          40,
+          100,
+          65535
+        ],
+        "implementation": "production_translation_units",
+        "levels": 3,
+        "observations": "assertions=508116 digest=47acb44e"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "protection_scenarios_host_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 1.406,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\protection_scenarios_host_check.py"
+    ],
+    "log": "protection_scenarios_host_check-d013.log",
+    "observations": [
+      {
+        "boundary_groups": 12,
+        "domain": "protection",
+        "fault_combinations": 1024,
+        "filter_values_10ms": [
+          0,
+          1,
+          19,
+          20,
+          21,
+          40,
+          100,
+          65535
+        ],
+        "implementation": "production_translation_units",
+        "levels": 3,
+        "observations": "assertions=508116 digest=47acb44e"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "protection_scenarios_host_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 1.5,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\protection_scenarios_host_check.py"
+    ],
+    "log": "protection_scenarios_host_check-d014.log",
+    "observations": [
+      {
+        "boundary_groups": 12,
+        "domain": "protection",
+        "fault_combinations": 1024,
+        "filter_values_10ms": [
+          0,
+          1,
+          19,
+          20,
+          21,
+          40,
+          100,
+          65535
+        ],
+        "implementation": "production_translation_units",
+        "levels": 3,
+        "observations": "assertions=508116 digest=47acb44e"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "resource_safety_host_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "工具行为/源码 contract",
+    "exit": 0,
+    "seconds": 0.438,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\resource_safety_host_check.py"
+    ],
+    "log": "resource_safety_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "runtime_debug_log_host_check",
+    "product": "d008",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 0.703,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\runtime_debug_log_host_check.py"
+    ],
+    "log": "runtime_debug_log_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "runtime_debug_log_host_check",
+    "product": "d011",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 0.766,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\runtime_debug_log_host_check.py"
+    ],
+    "log": "runtime_debug_log_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "runtime_debug_log_host_check",
+    "product": "d013",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 0.734,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\runtime_debug_log_host_check.py"
+    ],
+    "log": "runtime_debug_log_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "runtime_debug_log_host_check",
+    "product": "d014",
+    "domain": "diagnostics",
+    "evidence_level": "生产代码与环境替身",
+    "exit": 0,
+    "seconds": 0.765,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\runtime_debug_log_host_check.py"
+    ],
+    "log": "runtime_debug_log_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_diag.c",
+      "bms/core/bms_debug_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_board_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.625,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_board_host_check.py"
+    ],
+    "log": "sh3673510_board_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_board_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.641,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_board_host_check.py"
+    ],
+    "log": "sh3673510_board_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_board_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.641,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_board_host_check.py"
+    ],
+    "log": "sh3673510_board_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_comm_mode_check",
+    "product": "d011",
+    "domain": "protocol",
+    "evidence_level": "固定 RS485 源码 contract",
+    "exit": 0,
+    "seconds": 0.781,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_comm_mode_check.py"
+    ],
+    "log": "sh3673510_comm_mode_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_comm_mode_check",
+    "product": "d014",
+    "domain": "protocol",
+    "evidence_level": "固定 RS485 源码 contract",
+    "exit": 0,
+    "seconds": 0.703,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_comm_mode_check.py"
+    ],
+    "log": "sh3673510_comm_mode_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_d011_integration_check",
+    "product": "d011",
+    "domain": "configuration",
+    "evidence_level": "板级源码 contract",
+    "exit": 0,
+    "seconds": 0.734,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_d011_integration_check.py"
+    ],
+    "log": "sh3673510_d011_integration_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_d014_integration_check",
+    "product": "d014",
+    "domain": "configuration",
+    "evidence_level": "板级源码 contract",
+    "exit": 0,
+    "seconds": 0.063,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_d014_integration_check.py"
+    ],
+    "log": "sh3673510_d014_integration_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/param.h",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/products"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_protection_mode_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_protection_mode_check.py"
+    ],
+    "log": "sh3673510_protection_mode_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_protection_mode_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_protection_mode_check.py"
+    ],
+    "log": "sh3673510_protection_mode_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_protection_mode_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_protection_mode_check.py"
+    ],
+    "log": "sh3673510_protection_mode_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_recovery_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.5,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_recovery_host_check.py"
+    ],
+    "log": "sh3673510_recovery_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_recovery_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.625,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_recovery_host_check.py"
+    ],
+    "log": "sh3673510_recovery_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_recovery_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.625,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_recovery_host_check.py"
+    ],
+    "log": "sh3673510_recovery_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sample_schedule_host_check",
+    "product": "d011",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.515,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sample_schedule_host_check.py"
+    ],
+    "log": "sh3673510_sample_schedule_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sample_schedule_host_check",
+    "product": "d013",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.453,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sample_schedule_host_check.py"
+    ],
+    "log": "sh3673510_sample_schedule_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sample_schedule_host_check",
+    "product": "d014",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.422,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sample_schedule_host_check.py"
+    ],
+    "log": "sh3673510_sample_schedule_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sleep_host_check",
+    "product": "d011",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.75,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sleep_host_check.py"
+    ],
+    "log": "sh3673510_sleep_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sleep_host_check",
+    "product": "d013",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.844,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sleep_host_check.py"
+    ],
+    "log": "sh3673510_sleep_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_sleep_host_check",
+    "product": "d014",
+    "domain": "power",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 0.734,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_sleep_host_check.py"
+    ],
+    "log": "sh3673510_sleep_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/app/app.c",
+      "bms/core/bms_afe_guard.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_soc_direction_host_check",
+    "product": "d011",
+    "domain": "soc",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.406,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_soc_direction_host_check.py"
+    ],
+    "log": "sh3673510_soc_direction_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_soc_direction_host_check",
+    "product": "d013",
+    "domain": "soc",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.422,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_soc_direction_host_check.py"
+    ],
+    "log": "sh3673510_soc_direction_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_soc_direction_host_check",
+    "product": "d014",
+    "domain": "soc",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.437,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_soc_direction_host_check.py"
+    ],
+    "log": "sh3673510_soc_direction_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_temperature_encoding_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.125,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_temperature_encoding_check.py"
+    ],
+    "log": "sh3673510_temperature_encoding_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_temperature_encoding_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.062,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_temperature_encoding_check.py"
+    ],
+    "log": "sh3673510_temperature_encoding_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673510_temperature_encoding_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.063,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673510_temperature_encoding_check.py"
+    ],
+    "log": "sh3673510_temperature_encoding_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh3673520_contract_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "公共芯片驱动/量化场景",
+    "exit": 0,
+    "seconds": 1.015,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh3673520_contract_check.py"
+    ],
+    "log": "sh3673520_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_current_report_range_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "实际SH测量发布函数体与明确协议范围",
+    "exit": 0,
+    "seconds": 0.672,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_current_report_range_host_check.py"
+    ],
+    "log": "sh_current_report_range_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "实际SH后端函数体；校准结果注入，校准算法由独立数学回归覆盖；非实板极限精度",
+        "domain": "current_report",
+        "trace": "PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_current_report_range_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "实际SH测量发布函数体与明确协议范围",
+    "exit": 0,
+    "seconds": 0.797,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_current_report_range_host_check.py"
+    ],
+    "log": "sh_current_report_range_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "实际SH后端函数体；校准结果注入，校准算法由独立数学回归覆盖；非实板极限精度",
+        "domain": "current_report",
+        "trace": "PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_current_report_range_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "实际SH测量发布函数体与明确协议范围",
+    "exit": 0,
+    "seconds": 0.875,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_current_report_range_host_check.py"
+    ],
+    "log": "sh_current_report_range_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "实际SH后端函数体；校准结果注入，校准算法由独立数学回归覆盖；非实板极限精度",
+        "domain": "current_report",
+        "trace": "PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_event_checkpoint_host_check",
+    "product": "d011",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.328,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_event_checkpoint_host_check.py"
+    ],
+    "log": "sh_event_checkpoint_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_event_checkpoint_host_check",
+    "product": "d013",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.297,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_event_checkpoint_host_check.py"
+    ],
+    "log": "sh_event_checkpoint_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_event_checkpoint_host_check",
+    "product": "d014",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.344,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_event_checkpoint_host_check.py"
+    ],
+    "log": "sh_event_checkpoint_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_factory_register_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "原厂SCT四位枚举与完整control函数体",
+    "exit": 0,
+    "seconds": 0.812,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_factory_register_host_check.py"
+    ],
+    "log": "sh_factory_register_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "完整control函数体与原NTC表；寄存器总线替身，不是芯片仿真",
+        "domain": "afe_factory_registers",
+        "product": "d011",
+        "trace": "PASS 577 SCT请求原厂解码、自清CRLD、配置失败FET拒绝与已验证恢复"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_factory_register_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "原厂SCT四位枚举与完整control函数体",
+    "exit": 0,
+    "seconds": 0.766,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_factory_register_host_check.py"
+    ],
+    "log": "sh_factory_register_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "完整control函数体与原NTC表；寄存器总线替身，不是芯片仿真",
+        "domain": "afe_factory_registers",
+        "product": "d013",
+        "trace": "PASS 577 SCT请求原厂解码、自清CRLD、配置失败FET拒绝与已验证恢复"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_factory_register_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "原厂SCT四位枚举与完整control函数体",
+    "exit": 0,
+    "seconds": 0.593,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_factory_register_host_check.py"
+    ],
+    "log": "sh_factory_register_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "完整control函数体与原NTC表；寄存器总线替身，不是芯片仿真",
+        "domain": "afe_factory_registers",
+        "product": "d014",
+        "trace": "PASS 577 SCT请求原厂解码、自清CRLD、配置失败FET拒绝与已验证恢复"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_quantize_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "公共芯片驱动/量化场景",
+    "exit": 0,
+    "seconds": 1.688,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_quantize_host_check.py"
+    ],
+    "log": "sh_quantize_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_recovery_evidence_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 3.734,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_recovery_evidence_host_check.py"
+    ],
+    "log": "sh_recovery_evidence_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_recovery_evidence_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 3.672,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_recovery_evidence_host_check.py"
+    ],
+    "log": "sh_recovery_evidence_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_recovery_evidence_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 3.235,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_recovery_evidence_host_check.py"
+    ],
+    "log": "sh_recovery_evidence_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_register_scenarios_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "完整 control 函数体与总线模型",
+    "exit": 0,
+    "seconds": 0.515,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_register_scenarios_host_check.py"
+    ],
+    "log": "sh_register_scenarios_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "默认/量化/完整 control + RAM 寄存器；SPI CRC/时序与芯片模拟量未覆盖",
+        "domain": "afe_registers",
+        "product": "d011",
+        "trace": "registers=40:00;41:50;42:44;43:6a;44:3c;45:3f;46:04;47:57;48:ff;49:42;4a:ee;4b:72;4c:58;4d:00;4e:30;4f:07;50:01;51:85;52:76;53:77;54:c0;\ninit_bus_operations=46 apply_bus_operations=28 assertions=322"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_register_scenarios_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "完整 control 函数体与总线模型",
+    "exit": 0,
+    "seconds": 0.531,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_register_scenarios_host_check.py"
+    ],
+    "log": "sh_register_scenarios_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "默认/量化/完整 control + RAM 寄存器；SPI CRC/时序与芯片模拟量未覆盖",
+        "domain": "afe_registers",
+        "product": "d013",
+        "trace": "registers=40:00;41:50;42:44;43:64;44:3c;45:3f;46:04;47:57;48:ff;49:42;4a:ee;4b:72;4c:58;4d:00;4e:30;4f:07;50:00;51:85;52:76;53:77;54:c0;\ninit_bus_operations=46 apply_bus_operations=28 assertions=322"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_register_scenarios_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "完整 control 函数体与总线模型",
+    "exit": 0,
+    "seconds": 0.531,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_register_scenarios_host_check.py"
+    ],
+    "log": "sh_register_scenarios_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "默认/量化/完整 control + RAM 寄存器；SPI CRC/时序与芯片模拟量未覆盖",
+        "domain": "afe_registers",
+        "product": "d014",
+        "trace": "registers=40:00;41:50;42:44;43:68;44:3c;45:3f;46:04;47:57;48:ff;49:42;4a:ee;4b:72;4c:58;4d:01;4e:31;4f:07;50:04;51:85;52:76;53:77;54:c0;\ninit_bus_operations=46 apply_bus_operations=28 assertions=322"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_safety_chain_host_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "真实 backend/guard/SW 联合场景",
+    "exit": 0,
+    "seconds": 0.938,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_safety_chain_host_check.py"
+    ],
+    "log": "sh_safety_chain_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "真实 SH backend+guard+SW；control/芯片、feature、存储为替身；命令不代表物理 Gate",
+        "domain": "safety_chain",
+        "observations": "PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_safety_chain_host_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "真实 backend/guard/SW 联合场景",
+    "exit": 0,
+    "seconds": 0.907,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_safety_chain_host_check.py"
+    ],
+    "log": "sh_safety_chain_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "真实 SH backend+guard+SW；control/芯片、feature、存储为替身；命令不代表物理 Gate",
+        "domain": "safety_chain",
+        "observations": "PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_safety_chain_host_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "真实 backend/guard/SW 联合场景",
+    "exit": 0,
+    "seconds": 1.203,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_safety_chain_host_check.py"
+    ],
+    "log": "sh_safety_chain_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "真实 SH backend+guard+SW；control/芯片、feature、存储为替身；命令不代表物理 Gate",
+        "domain": "safety_chain",
+        "observations": "PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕"
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_sample_atomic_host_check",
+    "product": "d011",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 1.297,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_sample_atomic_host_check.py"
+    ],
+    "log": "sh_sample_atomic_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_sample_atomic_host_check",
+    "product": "d013",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 1.234,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_sample_atomic_host_check.py"
+    ],
+    "log": "sh_sample_atomic_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_sample_atomic_host_check",
+    "product": "d014",
+    "domain": "afe",
+    "evidence_level": "生产函数体与环境替身",
+    "exit": 0,
+    "seconds": 1.141,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_sample_atomic_host_check.py"
+    ],
+    "log": "sh_sample_atomic_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_afe_guard.c",
+      "bms/core/bms_afe_hw_profile.c",
+      "bms/afe"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_storage_platform_host_check",
+    "product": "d011",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.219,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_storage_platform_host_check.py"
+    ],
+    "log": "sh_storage_platform_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_storage_platform_host_check",
+    "product": "d013",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.438,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_storage_platform_host_check.py"
+    ],
+    "log": "sh_storage_platform_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sh_storage_platform_host_check",
+    "product": "d014",
+    "domain": "storage",
+    "evidence_level": "提取函数故障注入",
+    "exit": 0,
+    "seconds": 0.344,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sh_storage_platform_host_check.py"
+    ],
+    "log": "sh_storage_platform_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/storage_record.c",
+      "bms/core/bms_config_store.c",
+      "bms/core/bms_state_store.c",
+      "bms/core/bms_event_log.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "shared_soc_host_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 13.641,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\shared_soc_host_check.py"
+    ],
+    "log": "shared_soc_host_check-d008.log",
+    "observations": [
+      {
+        "boundary": "生产 SOC 全函数体与所选 app 样本函数；100Ah 共同比较场景，非产品默认容量精度签核",
+        "capacity_fixture_ah": 100,
+        "domain": "soc",
+        "virtual_days": [
+          30,
+          90
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "shared_soc_host_check",
+    "product": "d011",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 13.312,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\shared_soc_host_check.py"
+    ],
+    "log": "shared_soc_host_check-d011.log",
+    "observations": [
+      {
+        "boundary": "生产 SOC 全函数体与所选 app 样本函数；100Ah 共同比较场景，非产品默认容量精度签核",
+        "capacity_fixture_ah": 100,
+        "domain": "soc",
+        "virtual_days": [
+          30,
+          90
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "shared_soc_host_check",
+    "product": "d013",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 13.219,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\shared_soc_host_check.py"
+    ],
+    "log": "shared_soc_host_check-d013.log",
+    "observations": [
+      {
+        "boundary": "生产 SOC 全函数体与所选 app 样本函数；100Ah 共同比较场景，非产品默认容量精度签核",
+        "capacity_fixture_ah": 100,
+        "domain": "soc",
+        "virtual_days": [
+          30,
+          90
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "shared_soc_host_check",
+    "product": "d014",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 13.344,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\shared_soc_host_check.py"
+    ],
+    "log": "shared_soc_host_check-d014.log",
+    "observations": [
+      {
+        "boundary": "生产 SOC 全函数体与所选 app 样本函数；100Ah 共同比较场景，非产品默认容量精度签核",
+        "capacity_fixture_ah": 100,
+        "domain": "soc",
+        "virtual_days": [
+          30,
+          90
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sif_packet_host_check",
+    "product": "d008",
+    "domain": "protocol",
+    "evidence_level": "真实封包与固定 wire 向量",
+    "exit": 0,
+    "seconds": 1.375,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sif_packet_host_check.py"
+    ],
+    "log": "sif_packet_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_contract_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.203,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_contract_check.py"
+    ],
+    "log": "soc_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_contract_check",
+    "product": "d011",
+    "domain": "soc",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.281,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_contract_check.py"
+    ],
+    "log": "soc_contract_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_contract_check",
+    "product": "d013",
+    "domain": "soc",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.14,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_contract_check.py"
+    ],
+    "log": "soc_contract_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_contract_check",
+    "product": "d014",
+    "domain": "soc",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.141,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_contract_check.py"
+    ],
+    "log": "soc_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_replay_freshness_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "缓存回归",
+    "exit": 0,
+    "seconds": 0.218,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_replay_freshness_check.py"
+    ],
+    "log": "soc_replay_freshness_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_simulator_check",
+    "product": "d008",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 17.641,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_simulator_check.py"
+    ],
+    "log": "soc_simulator_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_simulator_check",
+    "product": "d011",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 17.75,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_simulator_check.py"
+    ],
+    "log": "soc_simulator_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_simulator_check",
+    "product": "d013",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 17.515,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_simulator_check.py"
+    ],
+    "log": "soc_simulator_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "soc_simulator_check",
+    "product": "d014",
+    "domain": "soc",
+    "evidence_level": "生产 SOC 函数体与环境替身",
+    "exit": 0,
+    "seconds": 17.547,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\soc_simulator_check.py"
+    ],
+    "log": "soc_simulator_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_soc.c",
+      "bms/core/bms_soc_eta.c",
+      "bms/app/app.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_protection_contract_check",
+    "product": "d008",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_protection_contract_check.py"
+    ],
+    "log": "sw_protection_contract_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_protection_contract_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_protection_contract_check.py"
+    ],
+    "log": "sw_protection_contract_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_protection_contract_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.046,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_protection_contract_check.py"
+    ],
+    "log": "sw_protection_contract_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_protection_contract_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "源码 contract",
+    "exit": 0,
+    "seconds": 0.047,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_protection_contract_check.py"
+    ],
+    "log": "sw_protection_contract_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_protection_defaults_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "提取函数场景",
+    "exit": 0,
+    "seconds": 0.281,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_protection_defaults_check.py"
+    ],
+    "log": "sw_protection_defaults_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_temperature_groups_host_check",
+    "product": "d008",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 0.813,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_temperature_groups_host_check.py"
+    ],
+    "log": "sw_temperature_groups_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_temperature_groups_host_check",
+    "product": "d011",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 0.937,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_temperature_groups_host_check.py"
+    ],
+    "log": "sw_temperature_groups_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_temperature_groups_host_check",
+    "product": "d013",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 0.781,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_temperature_groups_host_check.py"
+    ],
+    "log": "sw_temperature_groups_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "sw_temperature_groups_host_check",
+    "product": "d014",
+    "domain": "protection",
+    "evidence_level": "生产 TU 场景",
+    "exit": 0,
+    "seconds": 0.813,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\sw_temperature_groups_host_check.py"
+    ],
+    "log": "sw_temperature_groups_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/bms_sw_protection.c",
+      "bms/app/bms_features.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "uart_ownership_host_check",
+    "product": "d008",
+    "domain": "protocol",
+    "evidence_level": "UART DMA/IRQ 软件模型",
+    "exit": 0,
+    "seconds": 0.469,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\uart_ownership_host_check.py"
+    ],
+    "log": "uart_ownership_host_check-d008.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "uart_ownership_host_check",
+    "product": "d011",
+    "domain": "protocol",
+    "evidence_level": "UART DMA/IRQ 软件模型",
+    "exit": 0,
+    "seconds": 0.484,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\uart_ownership_host_check.py"
+    ],
+    "log": "uart_ownership_host_check-d011.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "uart_ownership_host_check",
+    "product": "d013",
+    "domain": "protocol",
+    "evidence_level": "UART DMA/IRQ 软件模型",
+    "exit": 0,
+    "seconds": 0.391,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\uart_ownership_host_check.py"
+    ],
+    "log": "uart_ownership_host_check-d013.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "uart_ownership_host_check",
+    "product": "d014",
+    "domain": "protocol",
+    "evidence_level": "UART DMA/IRQ 软件模型",
+    "exit": 0,
+    "seconds": 0.375,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\uart_ownership_host_check.py"
+    ],
+    "log": "uart_ownership_host_check-d014.log",
+    "observations": [],
+    "source_hints": [
+      "bms/core/modbus_rtu.c",
+      "bms/core/bms_parameter_access.c",
+      "bms/platform/telink/modbus_uart.c"
+    ],
+    "failure_tail": ""
+  },
+  {
+    "check": "validation_mutation_check",
+    "product": "d014",
+    "domain": "tooling",
+    "evidence_level": "故意变异检验",
+    "exit": 0,
+    "seconds": 3.297,
+    "command": [
+      "C:\\Tools\\Python312\\python.exe",
+      "D:\\telink\\bms-monorepo\\tests\\validation_mutation_check.py"
+    ],
+    "log": "validation_mutation_check-d014.log",
+    "observations": [
+      {
+        "boundary": "仅这四种保护变异，不代表所有模块的 mutation score",
+        "domain": "test_quality",
+        "killed_mutations": [
+          "trip-equality",
+          "recovery-equality",
+          "filter-ceiling",
+          "mos-charge-gate"
+        ]
+      }
+    ],
+    "source_hints": [
+      "bms_tools",
+      "tests"
+    ],
+    "failure_tail": ""
+  }
+]

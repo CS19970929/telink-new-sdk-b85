@@ -1,0 +1,8 @@
+PASS joint: repeated real Open-Wire policy, diagnostic voltage exclusion, 600s qualification and 1800s OCV_DOWN/display
+PASS pause: both timers frozen, final diagnostic frame excluded, three distinct 400ms frames required
+PASS failure: suspected/confirmed/error/timeout, GAP/invalid, temperature/current/heater/balance/AFE/charger/reboot and changed voltage reset both timers
+PASS wrap: bounded COW pause and recovery survive 32k tick wrap
+PASS joint: repeated real Open-Wire policy, diagnostic voltage exclusion, 600s qualification and 1800s OCV_DOWN/display
+PASS pause: both timers frozen, final diagnostic frame excluded, three distinct 400ms frames required
+PASS failure: suspected/confirmed/error/timeout, GAP/invalid, temperature/current/heater/balance/AFE/charger/reboot and changed voltage reset both timers
+PASS wrap: bounded COW pause and recovery survive 32k tick wrap

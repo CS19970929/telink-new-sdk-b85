@@ -1,0 +1,17 @@
+OCC stays latched while charger is connected and measured current is zero
+C+/LOAD mode settling, readback and failed-clear inhibit
+OCC stays latched while charger is connected and measured current is zero
+C+/LOAD mode settling, readback and failed-clear inhibit
+Three actual conversions, tick wrap, stale ADC shutdown and watchdog silence
+Three actual conversions, tick wrap, stale ADC shutdown and watchdog silence
+Assertion failed: mode_register==target && changed==(initial!=target), file C:\Users\Administrator\AppData\Local\Temp\sh-evidence-j2ytwe4_\check.c, line 1600
+PASS d013 public SH sample/recovery evidence O2/Os ()
+PASS d013 public SH sample/recovery evidence O2/Os ('-DGUARD_TEST=1',)
+Traceback (most recent call last):
+  File "D:\telink\bms-monorepo\tests\sh_recovery_evidence_host_check.py", line 45, in <module>
+    run(('-DMODE_TEST=1',))
+  File "D:\telink\bms-monorepo\tests\sh_recovery_evidence_host_check.py", line 38, in run
+    subprocess.run([str(exe)], check=True)
+  File "C:\Tools\Python312\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['C:\\Users\\Administrator\\AppData\\Local\\Temp\\sh-evidence-j2ytwe4_\\check.exe']' returned non-zero exit status 3.

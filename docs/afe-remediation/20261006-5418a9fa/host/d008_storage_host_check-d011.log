@@ -1,0 +1,21 @@
+PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent
+PASS OTA Config: 64 combinations, keep/reset isolation, applied SW values, every byte cut, restart idempotence, policy readback
+PASS OTA State/Event: independent SOC/runtime/event resets, every byte cut, startup inhibit, restart idempotence
+PASS parameter protocol: atomic heater, failed-save rollback, SN authorization/full bitmap/commit/reboot/expiry/wrap, no staging Flash, null/zero length, SOC RAM unchanged on failure
+PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback
+PASS diagnostics: two Config failures, short circuit, independent Event attempt, frozen first failure, blank defaults
+PASS Config: new schema, all byte cuts, atomic rollback, product isolation, old format rejection
+PASS State: coalescing, failure/backoff, learning metadata/flags, atomic rollback, all byte cuts, wrap
+PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic reset, byte cuts
+PASS startup: Config/State/Event first-save failure gates, SaveParam cannot bypass
+PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent
+PASS OTA Config: 64 combinations, keep/reset isolation, applied SW values, every byte cut, restart idempotence, policy readback
+PASS OTA State/Event: independent SOC/runtime/event resets, every byte cut, startup inhibit, restart idempotence
+PASS parameter protocol: atomic heater, failed-save rollback, SN authorization/full bitmap/commit/reboot/expiry/wrap, no staging Flash, null/zero length, SOC RAM unchanged on failure
+PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback
+PASS diagnostics: two Config failures, short circuit, independent Event attempt, frozen first failure, blank defaults
+PASS Config: new schema, all byte cuts, atomic rollback, product isolation, old format rejection
+PASS State: coalescing, failure/backoff, learning metadata/flags, atomic rollback, all byte cuts, wrap
+PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic reset, byte cuts
+PASS startup: Config/State/Event first-save failure gates, SaveParam cannot bypass
+PASS platform: OTA/session exclusion, page split, verify failure, retry/wrap, latency diagnostics (mock time)

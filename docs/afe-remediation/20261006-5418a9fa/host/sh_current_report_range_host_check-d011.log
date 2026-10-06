@@ -1,0 +1,2 @@
+PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值
+BMS_EVIDENCE {"boundary": "实际SH后端函数体；校准结果注入，校准算法由独立数学回归覆盖；非实板极限精度", "domain": "current_report", "trace": "PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值"}

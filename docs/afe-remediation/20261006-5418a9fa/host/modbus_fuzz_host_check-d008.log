@@ -1,0 +1,2 @@
+seed=20261005 frames=100000 assertions=3395078
+BMS_EVIDENCE {"boundary": "真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY", "domain": "protocol", "observations": "seed=20261005 frames=100000 assertions=3395078", "random_frames": 100000, "seed": 20261005}

@@ -1,0 +1,5 @@
+保护失败 group=0 level=1 phase=阈值相等累计 sample=3 expected=1 actual=0
+保护失败 group=0 level=3 phase=连续恢复 sample=6 expected=0 actual=1
+保护失败 group=0 level=1 phase=阈值相等累计 sample=4 expected=0 actual=1
+保护失败 group=10 level=3 phase=阻断方向 sample=3 expected=1 actual=0
+BMS_EVIDENCE {"boundary": "仅这四种保护变异，不代表所有模块的 mutation score", "domain": "test_quality", "killed_mutations": ["trip-equality", "recovery-equality", "filter-ceiling", "mos-charge-gate"]}

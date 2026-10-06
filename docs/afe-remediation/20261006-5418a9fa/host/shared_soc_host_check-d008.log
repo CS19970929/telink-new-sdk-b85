@@ -1,0 +1,2 @@
+PASS SOC: production C integration/OCV/endpoints, ETA confidence/taper, qualified learning, 30-day Monte Carlo and 90-day shallow cycling
+BMS_EVIDENCE {"boundary": "生产 SOC 全函数体与所选 app 样本函数；100Ah 共同比较场景，非产品默认容量精度签核", "capacity_fixture_ah": 100, "domain": "soc", "virtual_days": [30, 90]}

@@ -1,0 +1,2 @@
+PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕
+BMS_EVIDENCE {"boundary": "真实 SH backend+guard+SW；control/芯片、feature、存储为替身；命令不代表物理 Gate", "domain": "safety_chain", "observations": "PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕"}

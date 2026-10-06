@@ -1,0 +1,1 @@
+PASS event storm batching, pending retention, retry/wrap, idempotent init/sleep and transactional reset

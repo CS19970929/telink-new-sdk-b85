@@ -1,0 +1,158 @@
+[
+  {
+    "configuration": "d008-16s-lfp",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 118756,
+    "flash_free_bytes": 8220,
+    "ram_span_bytes": 25032,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 4664,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "a57cd481270cdb251f85e6d047e4ccef41954fa0564e5ff8cf591cb1794ffed6",
+        "bytes": 762398
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "7d70d73940e9ae797b59f03dd4ffeba5d9cbfe493931515fa4c404ca73f635c4",
+        "bytes": 2432588
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "62cac92b176e9d505a57ff722e8f1b090f24dbf9509ad1e8fd796f3fc4c7f028",
+        "bytes": 264578
+      }
+    ]
+  },
+  {
+    "configuration": "d008-20s-nmc",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 118756,
+    "flash_free_bytes": 8220,
+    "ram_span_bytes": 25032,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 4664,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "68502370c5bccb6709e1690e844824d60b7fa001f9fdb489c14ec03e7191c8d5",
+        "bytes": 762398
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "24c1638b7ce80df025d1b2ee07beaea273a0b744ee998d88e863eb58e04cb0c4",
+        "bytes": 2432595
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "40b1170dc4c7977d2afa101d4a77a2d4cb75b7ae46dffd72b896ab15271a1edc",
+        "bytes": 264578
+      }
+    ]
+  },
+  {
+    "configuration": "d008-24s-lfp",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 118756,
+    "flash_free_bytes": 8220,
+    "ram_span_bytes": 25032,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 4664,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "c159e8c005a4656122d731aa6eb057cfaecb16019a02b8543a6a5553002a259c",
+        "bytes": 762398
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "69a18e2121412c9b5ceaabd2b906fb7a37df6bfe26e1e7b5a6833c57d85dcf15",
+        "bytes": 2432507
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "224aeccc381cb40155fa89195d66153a6977d283f9f34ac39dc4a7b0693a4426",
+        "bytes": 264578
+      }
+    ]
+  },
+  {
+    "configuration": "d011",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 115204,
+    "flash_free_bytes": 11772,
+    "ram_span_bytes": 24204,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 5492,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "e6f21ada6468ad2eba63b945123ee8954666d16734aa470e1c22662ef6f3ca21",
+        "bytes": 742805
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "c4a29731260a97147057939c5e078ac194980c98cb9e6b422922560cc2081cc1",
+        "bytes": 2380679
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "0d34952e64a0e68b5aa141c19c6c8f08f8425012ca8f1ba5f7eae027ee3ff19b",
+        "bytes": 230218
+      }
+    ]
+  },
+  {
+    "configuration": "d013",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 114180,
+    "flash_free_bytes": 12796,
+    "ram_span_bytes": 24184,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 5512,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "43120fbc6b4b24696bb07a195f04499ae98d322b868887d2a637a7d1ef4096db",
+        "bytes": 740820
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "08812b7918fc7b8881f87a301bcaff593898b1997da3398fd19c3f1e26188d38",
+        "bytes": 2358517
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "7633e7112128c116ccbd79cbb35e46fec42d4380f04bf955d05ef512beb9c0fe",
+        "bytes": 229573
+      }
+    ]
+  },
+  {
+    "configuration": "d014",
+    "source_identity": "0x5418a9fau",
+    "flash_bytes": 115028,
+    "flash_free_bytes": 11948,
+    "ram_span_bytes": 24204,
+    "stack_reserve_bytes": 3072,
+    "ram_growth_headroom_bytes": 5492,
+    "artifacts": [
+      {
+        "name": "825x_ble_sample.map",
+        "sha256": "9782405255bd2480990e2ea7a870458476d46e26f79ef0146f255500cd30d757",
+        "bytes": 742805
+      },
+      {
+        "name": "825x_ble_sample.lst",
+        "sha256": "393791255a27a5cb473c90d56e8fdb2c75501b17dfd67fcf82bb8011d16594f9",
+        "bytes": 2377482
+      },
+      {
+        "name": "825x_ble_sample.elf",
+        "sha256": "27fa294a6528f9f57992e786c29ebb1f54ac029690d092b3d24030a4d749d4fe",
+        "bytes": 230186
+      }
+    ]
+  }
+]

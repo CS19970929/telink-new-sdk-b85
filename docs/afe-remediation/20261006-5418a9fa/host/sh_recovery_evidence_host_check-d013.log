@@ -1,0 +1,11 @@
+OCC stays latched while charger is connected and measured current is zero
+C+/LOAD mode settling, readback and failed-clear inhibit
+OCC stays latched while charger is connected and measured current is zero
+C+/LOAD mode settling, readback and failed-clear inhibit
+Three actual conversions, tick wrap, stale ADC shutdown and watchdog silence
+Three actual conversions, tick wrap, stale ADC shutdown and watchdog silence
+Actual SCONF3 RMW preserves unrelated bits; every I/O/readback failure is returned
+Actual SCONF3 RMW preserves unrelated bits; every I/O/readback failure is returned
+PASS d013 public SH sample/recovery evidence O2/Os ()
+PASS d013 public SH sample/recovery evidence O2/Os ('-DGUARD_TEST=1',)
+PASS d013 public SH sample/recovery evidence O2/Os ('-DMODE_TEST=1',)

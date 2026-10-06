@@ -1,0 +1,3 @@
+SH recovery/FET HW=0: 0 failures
+SH recovery/FET HW=1: 0 failures
+SH3673510 production recovery/FET fault injection HW=0/1: PASS

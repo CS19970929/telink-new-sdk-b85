@@ -1,0 +1,15 @@
+C:\Users\Administrator\AppData\Local\Temp\d008-protect-defaults-_x2ae9fs\defaults.c:51:2: error: #endif without #if
+   51 | #endif
+      |  ^~~~~
+C:\Users\Administrator\AppData\Local\Temp\d008-protect-defaults-_x2ae9fs\defaults.c:127:2: error: #endif without #if
+  127 | #endif
+      |  ^~~~~
+Traceback (most recent call last):
+  File "D:\telink\bms-monorepo\tests\sw_protection_defaults_check.py", line 82, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "D:\telink\bms-monorepo\tests\sw_protection_defaults_check.py", line 74, in main
+    subprocess.run(shlex.split(os.environ.get('CC', 'cc')) +
+  File "C:\Tools\Python312\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['C:/qp/qtools/MinGW32/bin/cc.exe', '-std=c99', '-Wall', '-Wextra', '-Werror', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\d008-protect-defaults-_x2ae9fs\\defaults.c', '-o', 'C:\\Users\\Administrator\\AppData\\Local\\Temp\\d008-protect-defaults-_x2ae9fs\\defaults.exe']' returned non-zero exit status 1.
