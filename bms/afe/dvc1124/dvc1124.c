@@ -52,6 +52,12 @@ static uint8_t s_output_enabled;
 static uint32_t s_balance_requested_mask;
 static uint32_t s_balance_last_refresh_tick;
 static uint8_t s_balance_suspended;
+/* DS V1.1 p13：CC2 256ms，VADC最长223ms；512ms是项目活性上限。 */
+#define DVC_ADC_MAX_AGE_TICKS (512u * 32u)
+static uint8_t s_pending_adc_events;
+static uint8_t s_voltage_seen, s_current_seen, s_sample_pending;
+static uint8_t s_voltage_since_current;
+static uint32_t s_voltage_tick, s_current_tick, s_adc_wait_started;
 static uint32_t s_snapshot_generation;
 static uint32_t s_openwire_start_generation;
 static uint32_t s_openwire_start_tick;
@@ -303,9 +309,15 @@ static void dvc_boot_zero_publish_diag(void)
 }
 
 /* 有界等待 CC2 下一次转换，避免重复采集旧读数。 */
-static void dvc_boot_zero_wait_fresh_cc2(void)
+static uint8_t dvc_boot_zero_wait_fresh_cc2(void)
 {
     uint16_t remaining = DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS;
+    uint8_t status;
+    uint8_t fresh;
+
+    /* RM p6：CC2F读清；先排除前一次转换，270ms等待本身不是新样本证据。 */
+    if (!DVC1124_ReadRegisters(DVC1124_REG_STATUS, &status, 1u)) return 0u;
+    s_pending_adc_events = 0u;
 
     while (remaining != 0u)
     {
@@ -319,6 +331,12 @@ static void dvc_boot_zero_wait_fresh_cc2(void)
 #if (MODULE_WATCHDOG_ENABLE)
     wd_clear();
 #endif
+    fresh = DVC1124_ReadRegisters(DVC1124_REG_STATUS, &status, 1u) &&
+        (s_pending_adc_events & DVC1124_STATUS_CC2F_MASK);
+    /* 启动校准独占这些事件；正常采样从初始化完成后的新事件开始。 */
+    s_pending_adc_events = 0u;
+    s_adc_wait_started = pm_get_32k_tick();
+    return fresh ? 1u : 0u;
 }
 
 /* 校准前关闭全部 FET 并检查写入结果。 */
@@ -425,8 +443,8 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void)
         return 0u;
     }
 
-    dvc_boot_zero_wait_fresh_cc2();
-    if (!dvc_boot_zero_read_sample(&s_boot_zero.raw_sample1_ma,
+    if (!dvc_boot_zero_wait_fresh_cc2() ||
+        !dvc_boot_zero_read_sample(&s_boot_zero.raw_sample1_ma,
                                    &s_boot_zero.calibrated_sample1_ma,
                                    &failure))
     {
@@ -436,8 +454,8 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void)
     }
     s_boot_zero.sample_count = 1u;
 
-    dvc_boot_zero_wait_fresh_cc2();
-    if (!dvc_boot_zero_read_sample(&s_boot_zero.raw_sample2_ma,
+    if (!dvc_boot_zero_wait_fresh_cc2() ||
+        !dvc_boot_zero_read_sample(&s_boot_zero.raw_sample2_ma,
                                    &s_boot_zero.calibrated_sample2_ma,
                                    &failure))
     {
@@ -1148,11 +1166,18 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
         first_crc_input[2] = read_addr;
         first_crc_input[3] = s_i2c_raw[0];
         if (dvc_crc8(first_crc_input, 4u) != s_i2c_raw[1]) valid = 0u;
+        if (valid && reg == DVC1124_REG_STATUS)
+            s_pending_adc_events |= (uint8_t)(s_i2c_raw[0] &
+                (DVC1124_STATUS_VADF_MASK | DVC1124_STATUS_CC2F_MASK));
 
         for (i = 1u; (i < len) && valid; ++i)
         {
             if (dvc_crc8(&s_i2c_raw[(uint16_t)i * 2u], 1u) !=
                 s_i2c_raw[(uint16_t)i * 2u + 1u]) valid = 0u;
+            /* 已通过该字节CRC的RC事件不能被后续字节失败/重试丢弃。 */
+            if (valid && (uint16_t)reg + i == DVC1124_REG_STATUS)
+                s_pending_adc_events |= (uint8_t)(s_i2c_raw[(uint16_t)i * 2u] &
+                    (DVC1124_STATUS_VADF_MASK | DVC1124_STATUS_CC2F_MASK));
         }
 
         if (valid)
@@ -1351,6 +1376,11 @@ uint8_t DVC1124_OpenWireBegin(void)
     }
 
     memset(&s_openwire_result, 0, sizeof(s_openwire_result));
+    {
+        uint8_t status;
+        if (!DVC1124_ReadRegisters(DVC1124_REG_STATUS, &status, 1u)) return 0u;
+        s_pending_adc_events &= (uint8_t)~DVC1124_STATUS_VADF_MASK;
+    }
     s_openwire_result.state = DVC1124_OPENWIRE_WAITING;
     s_openwire_start_generation = s_snapshot_generation;
     s_openwire_start_tick = clock_time();
@@ -1374,7 +1404,8 @@ void DVC1124_OpenWirePoll(void)
      * COW 对单体输入施加约 1 秒的 100 uA 下拉。必须在 COW 有效期间抓取诊断样本；
      * 等待自动清除后读到的是普通电压，无法区分断线与正常输入。
      */
-    if (!s_snapshot.valid || s_snapshot_generation == s_openwire_start_generation) return;
+    if (!s_snapshot.valid || !s_snapshot.voltage_fresh ||
+        s_snapshot_generation == s_openwire_start_generation) return;
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
         s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
@@ -1470,6 +1501,10 @@ void DVC1124_AFE_Reset(void)
     s_balance_suspended = 0u;
     s_balance_last_refresh_tick = clock_time();
     s_snapshot_generation = 0u;
+    s_pending_adc_events = 0u;
+    s_voltage_seen = s_current_seen = s_sample_pending = 0u;
+    s_voltage_since_current = 0u;
+    s_adc_wait_started = pm_get_32k_tick();
     DVC1124_OpenWireReset();
     s_need_config = 1u;
 }
@@ -1577,6 +1612,9 @@ void DVC1124_App_AFEGet(void)
     int32_t factory_current_ma;
     uint8_t write_addr;
     uint8_t configured_ntc_ok = 1u;
+    uint32_t now = pm_get_32k_tick();
+    s_sample_pending = 0u;
+    s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
     if (s_need_config)
     {
@@ -1598,101 +1636,124 @@ void DVC1124_App_AFEGet(void)
     }
 
     write_addr = DVC1124_GetWriteAddress();
-    s_snapshot.valid = 1u;
+    s_snapshot.voltage_fresh = (s_pending_adc_events & DVC1124_STATUS_VADF_MASK) ? 1u : 0u;
+    s_snapshot.current_fresh = (s_pending_adc_events & DVC1124_STATUS_CC2F_MASK) ? 1u : 0u;
+    s_pending_adc_events = 0u;
+    s_snapshot.fet_status = data[DVC1124_REG_CC2_L_FLAGS];
     s_snapshot.alarm = data[DVC1124_REG_ALARM];
     s_snapshot.status = data[DVC1124_REG_STATUS];
     s_snapshot.write_addr = write_addr;
     s_snapshot.cell_count = s_cfg.cell_count;
-    s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
-    s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
-    s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
+    if (s_snapshot.current_fresh) {
+        raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
+                ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
+                ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
+        cc2 = dvc_sign_extend20(raw20);
+        current_ma = dvc_cc2_to_raw_current_ma(cc2);
+        s_snapshot.raw_current_ma = current_ma;
+        factory_current_ma = bms_config_calibrate_current(current_ma);
+        current_ma = dvc_apply_boot_zero(factory_current_ma);
+        s_snapshot.current_ma = current_ma;
 
-    raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
-            ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
-            ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
-    cc2 = dvc_sign_extend20(raw20);
-    current_ma = dvc_cc2_to_raw_current_ma(cc2);
-    s_snapshot.raw_current_ma = current_ma;
-    factory_current_ma = bms_config_calibrate_current(current_ma);
-    current_ma = dvc_apply_boot_zero(factory_current_ma);
-    s_snapshot.current_ma = current_ma;
+        dvc_publish_current_report(current_ma);
 
-    dvc_publish_current_report(current_ma);
-
-    for (i = 0u; i < s_cfg.cell_count; ++i)
-    {
-        uint8_t reg = (uint8_t)(DVC1124_REG_CELL1_H + (uint8_t)(i * 2u));
-        uint16_t raw_cell = dvc_be16(&data[reg]);
-        uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
-
-        s_snapshot.cell_mv[i] = mv;
-        g_stCellInfoReport.u16VCell[i] = mv;
-        total_mv += mv;
-        common_mode_mv += mv;
-        if (mv > max_mv) { max_mv = mv; max_pos = i; }
-        if (mv < min_mv) { min_mv = mv; min_pos = i; }
-    }
-    for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
-    for (i = s_cfg.cell_count; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 61001u;
-
-    g_stCellInfoReport.u16VCellTotle = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
-    g_stCellInfoReport.u16VCellMax = max_mv;
-    g_stCellInfoReport.u16VCellMin = (min_mv == 0xFFFFu) ? 0u : min_mv;
-    g_stCellInfoReport.u16VCellDelta = (uint16_t)(max_mv - g_stCellInfoReport.u16VCellMin);
-    g_stCellInfoReport.u16VCellMaxPosition = (uint16_t)max_pos + 1u;
-    g_stCellInfoReport.u16VCellMinPosition = (uint16_t)min_pos + 1u;
-
-    v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
-    for (i = 0u; i < DVC1124_MAX_GP; ++i)
-    {
-        uint8_t reg = (uint8_t)(DVC1124_REG_GP1_H + (uint8_t)(i * 2u));
-        uint16_t gp_code = dvc_be16(&data[reg]);
-        uint32_t r_ohm = 0u;
-        uint8_t ntc_ok;
-
-        s_snapshot.gp_code[i] = gp_code;
-        ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
-        s_snapshot.ntc_res_ohm[i] = r_ohm;
-
-        if (i < 4u)
-            g_stCellInfoReport.u16Temperature[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
-
-        if (((i + 1u) == s_cfg.battery_ntc_gp || (i + 1u) == s_cfg.mos_ntc_gp) && !ntc_ok)
-            configured_ntc_ok = 0u;
+        s_current_seen = 1u;
+        s_current_tick = now;
+        s_snapshot.sample_tick_32k = now;
     }
 
-    if (!DVC1124_SW_TEMP_PROTECT_ENABLE || configured_ntc_ok)
-    {
-        bms_error_clear(BMS_ERROR_TEMP_BREAK);
-    }
-    else
-    {
-        bms_error_raise(BMS_ERROR_TEMP_BREAK);
-    }
+    if (s_snapshot.voltage_fresh) {
+        s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
+        s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
+        s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
 
-    {
-        /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */
-        int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
-        int32_t report_temp = die_x10 + 400;
-        if (report_temp < 0) report_temp = 0;
-        if (report_temp > 65535) report_temp = 65535;
-        s_snapshot.die_temp_x10 = (int16_t)die_x10;
-        g_stCellInfoReport.u16Temperature[4] = (uint16_t)report_temp;
-    }
-
-    {
-        uint16_t tmax = 0u;
-        uint16_t tmin = 0xFFFFu;
-        for (i = 0u; i < 5u; ++i)
+        for (i = 0u; i < s_cfg.cell_count; ++i)
         {
-            uint16_t t = g_stCellInfoReport.u16Temperature[i];
-            if (t == 0u) continue;
-            if (t > tmax) tmax = t;
-            if (t < tmin) tmin = t;
+            uint8_t reg = (uint8_t)(DVC1124_REG_CELL1_H + (uint8_t)(i * 2u));
+            uint16_t raw_cell = dvc_be16(&data[reg]);
+            uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
+
+            s_snapshot.cell_mv[i] = mv;
+            g_stCellInfoReport.u16VCell[i] = mv;
+            total_mv += mv;
+            common_mode_mv += mv;
+            if (mv > max_mv) { max_mv = mv; max_pos = i; }
+            if (mv < min_mv) { min_mv = mv; min_pos = i; }
         }
-        g_stCellInfoReport.u16TempMax = tmax;
-        g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
+        for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
+        for (i = s_cfg.cell_count; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 61001u;
+
+        g_stCellInfoReport.u16VCellTotle = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
+        g_stCellInfoReport.u16VCellMax = max_mv;
+        g_stCellInfoReport.u16VCellMin = (min_mv == 0xFFFFu) ? 0u : min_mv;
+        g_stCellInfoReport.u16VCellDelta = (uint16_t)(max_mv - g_stCellInfoReport.u16VCellMin);
+        g_stCellInfoReport.u16VCellMaxPosition = (uint16_t)max_pos + 1u;
+        g_stCellInfoReport.u16VCellMinPosition = (uint16_t)min_pos + 1u;
+
+        v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
+        for (i = 0u; i < DVC1124_MAX_GP; ++i)
+        {
+            uint8_t reg = (uint8_t)(DVC1124_REG_GP1_H + (uint8_t)(i * 2u));
+            uint16_t gp_code = dvc_be16(&data[reg]);
+            uint32_t r_ohm = 0u;
+            uint8_t ntc_ok;
+
+            s_snapshot.gp_code[i] = gp_code;
+            ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
+            s_snapshot.ntc_res_ohm[i] = r_ohm;
+
+            if (i < 4u)
+                g_stCellInfoReport.u16Temperature[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
+
+            if (((i + 1u) == s_cfg.battery_ntc_gp || (i + 1u) == s_cfg.mos_ntc_gp) && !ntc_ok)
+                configured_ntc_ok = 0u;
+        }
+
+        if (!DVC1124_SW_TEMP_PROTECT_ENABLE || configured_ntc_ok)
+        {
+            bms_error_clear(BMS_ERROR_TEMP_BREAK);
+        }
+        else
+        {
+            bms_error_raise(BMS_ERROR_TEMP_BREAK);
+        }
+
+        {
+            /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */
+            int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
+            int32_t report_temp = die_x10 + 400;
+            if (report_temp < 0) report_temp = 0;
+            if (report_temp > 65535) report_temp = 65535;
+            s_snapshot.die_temp_x10 = (int16_t)die_x10;
+            g_stCellInfoReport.u16Temperature[4] = (uint16_t)report_temp;
+        }
+
+        {
+            uint16_t tmax = 0u;
+            uint16_t tmin = 0xFFFFu;
+            for (i = 0u; i < 5u; ++i)
+            {
+                uint16_t t = g_stCellInfoReport.u16Temperature[i];
+                if (t == 0u) continue;
+                if (t > tmax) tmax = t;
+                if (t < tmin) tmin = t;
+            }
+            g_stCellInfoReport.u16TempMax = tmax;
+            g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
+        }
+
+        s_voltage_seen = 1u;
+        s_voltage_since_current = 1u;
+        s_voltage_tick = now;
+        ++s_snapshot_generation;
     }
+    s_snapshot.valid = s_voltage_seen && s_current_seen &&
+        (uint32_t)(now - s_voltage_tick) <= DVC_ADC_MAX_AGE_TICKS &&
+        (uint32_t)(now - s_current_tick) <= DVC_ADC_MAX_AGE_TICKS;
+    s_sample_pending = (!s_voltage_since_current || !s_snapshot.current_fresh) &&
+        (s_snapshot.valid || ((!s_voltage_seen || !s_current_seen) &&
+         (uint32_t)(now - s_adc_wait_started) <= DVC_ADC_MAX_AGE_TICKS));
+    if (!s_sample_pending && s_snapshot.valid) s_voltage_since_current = 0u;
 
     g_bms_system_status.bits.b1Status_MOS_CHG =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
@@ -1700,8 +1761,6 @@ void DVC1124_App_AFEGet(void)
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
     bms_diag_driver(data[DVC1124_REG_CC2_L_FLAGS], 1u);
-    s_snapshot.sample_tick_32k = pm_get_32k_tick();
-    ++s_snapshot_generation;
     DVC1124_OpenWirePoll();
 
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
@@ -1711,6 +1770,12 @@ void DVC1124_App_AFEGet(void)
         g_stCellInfoReport.u16BalanceFlag2 = 0u;
     }
     dvc_note_comm_result(1u);
+}
+
+/* 有效缓存等待新的转换完成，不计为新样本，也不伪造通信故障。 */
+uint8_t dvc1124_backend_sample_pending(void)
+{
+    return s_sample_pending;
 }
 
 /* 统一读改写与校验实现，集中管理边界及保留位，保持调试入口稳定。 */

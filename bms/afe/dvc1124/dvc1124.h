@@ -50,6 +50,9 @@ typedef struct
     uint8_t valid;
     uint8_t alarm;
     uint8_t status;
+    uint8_t fet_status;          /* R6 CHGF/DSGF，与 R1 CST/RC 事件严格分开。 */
+    uint8_t voltage_fresh;
+    uint8_t current_fresh;
     uint8_t chip_version;
     uint8_t write_addr;
     uint8_t cell_count;

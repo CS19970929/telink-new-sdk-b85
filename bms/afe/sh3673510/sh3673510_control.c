@@ -222,17 +222,24 @@ uint8_t sh3673510_control_apply_protection(void)
 
     {
         static const uint8_t sc_mult[4] = {2u, 3u, 4u, 6u};
-        static const uint16_t sc_delay[8] = {2u, 4u, 8u, 16u, 32u, 64u, 128u, 256u};
+        /* SH36735XX V1.0A/V0.2C p37–38：SCT 是完整四位非等距表。 */
+        static const uint16_t sc_delay[16] = {
+            0u, 32u, 64u, 96u, 128u, 192u, 224u, 256u,
+            288u, 320u, 384u, 448u, 480u, 512u, 544u, 576u
+        };
         uint8_t mult_code = 0u;
         uint8_t delay_code = 0u;
         uint32_t base = s_protection_actual.ocd2_a10;
         if ((hw.enable_mask & BMS_AFE_HW_EN_SC) && base != 0u) {
             while (mult_code < 3u && (u32)base * sc_mult[mult_code] < hw.sc_a10) ++mult_code;
-            while (delay_code < 7u && sc_delay[delay_code] < hw.sc_delay_us) ++delay_code;
+            while (delay_code < 15u && sc_delay[delay_code] < hw.sc_delay_us) ++delay_code;
         }
         regv = (uint8_t)((mult_code << 4) | delay_code);
         ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
-        s_protection_actual.sc_a10 = (uint16_t)(base * sc_mult[mult_code]);
+        base *= sc_mult[mult_code];
+        /* 旧参数仍加载，但不能把超出报告位宽的实际阈值回绕成低电流。 */
+        if (base > 65535u && (hw.enable_mask & BMS_AFE_HW_EN_SC)) ok = 0u;
+        s_protection_actual.sc_a10 = (uint16_t)((base > 65535u) ? 65535u : base);
         s_protection_actual.sc_delay_us = sc_delay[delay_code];
     }
 
@@ -369,6 +376,7 @@ uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t bits = 0u;
     if (!s_control_ready) return 0u;
+    if ((charge_on || discharge_on) && !s_protection_actual.valid) return 0u;
     if (charge_on) bits |= SH3673520_SCONF2_CHGMOS_MASK;
     if (discharge_on) bits |= SH3673520_SCONF2_DSGMOS_MASK;
     return sh3510_update_reg(SH3673520_REG_SCONF2,
@@ -402,13 +410,19 @@ uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed)
     if (!s_control_ready || s_afe_sleeping || changed == 0) return 0u;
     *changed = 0u;
     if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &value) != SH3673520_OK) return 0u;
-    target = (uint8_t)((value & (uint8_t)~SH3673520_SCONF3_CRLD_EN_MASK) | bits);
-    if (target != value) {
+    /* p16/p32：TRG 是自清命令；切换检测模式不重发旧触发，只验证稳定配置位。 */
+    target = (uint8_t)((value & (uint8_t)~(SH3673520_SCONF3_CRLD_EN_MASK |
+                         SH3673520_SCONF3_OWD_TRG_MASK)) | bits);
+    if ((target & (SH3673520_SCONF3_CONFIG_MASK & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK)) !=
+        (value & (SH3673520_SCONF3_CONFIG_MASK & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK))) {
         if (SH3673520_WriteReg(SH3673520_REG_SCONF3, target) != SH3673520_OK) return 0u;
         *changed = 1u;
     }
     if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &verify) != SH3673520_OK) return 0u;
-    return (verify == target) ? 1u : 0u;
+    return ((verify & (SH3673520_SCONF3_CONFIG_MASK &
+                       (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK)) ==
+            (target & (SH3673520_SCONF3_CONFIG_MASK &
+                       (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK))) ? 1u : 0u;
 }
 
 /* 按允许清除位更新保护标志寄存器。 */

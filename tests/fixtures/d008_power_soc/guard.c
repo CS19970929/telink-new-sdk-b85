@@ -26,6 +26,7 @@ static int bms_features_charge_blocked(void){return block;}
 static int bms_features_discharge_blocked(void){return block;}
 static void dvc1124_backend_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
 static void dvc1124_backend_sample(void){sample_calls++;err=0;}
+static uint8_t dvc1124_backend_sample_pending(void){return 0;}
 static uint8_t dvc1124_backend_sleep(void){return (uint8_t)sleep_ok;}
 static int dvc1124_backend_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int dvc1124_backend_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}

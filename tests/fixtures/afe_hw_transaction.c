@@ -33,12 +33,13 @@ u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p) {
     stored = *p;
     return 1u;
 }
-u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p) {
+u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p) {
     event('V'); assert(p->cov_mv == 4200u); return candidate_valid;
 }
 u8 bms_afe_apply_protection_config(void) {
     event('P'); ++apply_count; return apply_count != fail_apply;
 }
+void bms_afe_invalidate_configuration(void) {}
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p) {
     event('E'); ++effective_count; *p = stored; return effective_count != fail_effective;
 }

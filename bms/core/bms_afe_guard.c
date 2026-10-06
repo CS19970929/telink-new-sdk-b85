@@ -30,6 +30,7 @@ typedef struct
     uint8_t requested_discharge_on;
     uint8_t output_enabled;
     uint8_t comm_inhibit;
+    uint8_t config_inhibit;
     uint8_t comm_fault_latched;
     uint8_t valid_snapshot_streak;
     uint8_t comm_failures;
@@ -44,7 +45,7 @@ static bms_afe_guard_state_t s_guard;
 /* 公共三帧资格只有一个状态所有者，后端 FET 调用也遵守。 */
 uint8_t bms_afe_samples_qualified(void)
 {
-    return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&
+    return (!s_guard.comm_inhibit && !s_guard.config_inhibit && !s_guard.bus_silenced &&
             !s_guard.test_shutdown_hold &&
             s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) ? 1u : 0u;
 }
@@ -58,6 +59,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 #define AFE_INIT() dvc1124_backend_init()
 #define AFE_SAMPLE() dvc1124_backend_sample()
+#define AFE_PENDING() dvc1124_backend_sample_pending()
 #define AFE_SLEEP() dvc1124_backend_sleep()
 #define AFE_TEST_SHUTDOWN() dvc1124_backend_enter_shutdown()
 #define AFE_APPLY() dvc1124_backend_apply_protection_config()
@@ -73,6 +75,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #else
 #define AFE_INIT() sh3673510_bms_afe_init()
 #define AFE_SAMPLE() sh3673510_bms_afe_sample()
+#define AFE_PENDING() sh3673510_bms_afe_sample_pending()
 #define AFE_SLEEP() sh3673510_bms_afe_sleep()
 #define AFE_APPLY() sh3673510_bms_afe_apply_protection_config()
 #define AFE_FETS(c,d) sh3673510_bms_afe_set_fets((c),(d))
@@ -189,9 +192,13 @@ static void note_invalid(void)
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void)
 {
+    uint8_t config_inhibit = s_guard.config_inhibit;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.comm_inhibit = 1u;
+    s_guard.config_inhibit = config_inhibit;
     AFE_INIT();
+    /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
+    if (config_inhibit && AFE_APPLY()) s_guard.config_inhibit = 0u;
     AFE_OUTPUT(0u);
     (void)AFE_FETS(0u, 0u);
     bms_features_init();
@@ -212,23 +219,20 @@ void bms_afe_sample(void)
     memset(&m, 0, sizeof(m));
     if (!AFE_AUX(&m))
     {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-        if (sh3673510_bms_afe_sample_pending()) return;
-#endif
+        if (AFE_PENDING()) return;
         note_invalid();
         return;
     }
 
     s_guard.comm_failures = 0u;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    if (!sh3673510_bms_afe_sample_pending())
-#endif
+    if (!AFE_PENDING())
     {
         if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
             ++s_guard.valid_snapshot_streak;
     }
 
-    if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
+    if (!s_guard.config_inhibit &&
+        s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
     {
         s_guard.comm_inhibit = 0u;
         s_guard.comm_fault_latched = 0u;
@@ -267,10 +271,22 @@ uint8_t bms_afe_apply_protection_config(void)
 {
     uint8_t ok;
 
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (s_guard.bus_silenced || s_guard.test_shutdown_hold ||
+        (s_guard.comm_inhibit && !s_guard.config_inhibit)) return 0u;
+    s_guard.config_inhibit = 1u;
+    s_guard.valid_snapshot_streak = 0u;
     ok = AFE_APPLY();
-    if (!ok) note_invalid();
+    if (ok) s_guard.config_inhibit = 0u;
+    else note_invalid();
     return ok;
+}
+
+/* 配置事务所有者撤销授权；通信恢复不能证明部分写入的寄存器已经一致。 */
+void bms_afe_invalidate_configuration(void)
+{
+    s_guard.config_inhibit = 1u;
+    inhibit_local();
+    best_effort_shutdown();
 }
 
 /* 保存充放电意图并按 guard 资格应用到后端。 */
@@ -314,7 +330,7 @@ uint16_t bms_afe_get_guard_diagnostic_bits(void)
     if (s_guard.comm_inhibit) bits |= DIAG_GUARD_COMM_INHIBIT;
     if (s_guard.bus_silenced || s_guard.test_shutdown_hold) bits |= DIAG_GUARD_BUS_SILENCED;
     if (s_guard.comm_fault_latched) bits |= DIAG_GUARD_FAULT_LATCHED;
-    if (s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
+    if (bms_afe_samples_qualified())
         bits |= DIAG_GUARD_SAMPLES_QUALIFIED;
     return bits;
 }

@@ -127,13 +127,14 @@ static void sample(void) {
 #if defined(MODE_TEST)
 int main(void) {
     uint8_t changed;
-    /* Preserve CGR_WK, LD_WK and open-wire bits for every CRLD input. */
+    /* p16/p32：保留稳定位，不重发自清TRG；其当前值不决定配置是否改变。 */
     for(unsigned initial=0;initial<=255;++initial)for(unsigned load=0;load<=1;++load) {
         mode_register=(uint8_t)initial;mode_stage=mode_writes=0;
-        uint8_t target=(uint8_t)((initial&~0x0cu)|(load?0x08u:0x04u));
+        uint8_t target=(uint8_t)((initial&~0x0du)|(load?0x08u:0x04u));
+        unsigned needs_write=((initial&0x7eu)!=(target&0x7eu));
         assert(sh3673510_control_set_load_detection((uint8_t)load,&changed));
-        assert(mode_register==target && changed==(initial!=target));
-        assert(mode_writes==(unsigned)(initial!=target));
+        assert(mode_register==(needs_write?target:initial) && changed==needs_write);
+        assert(mode_writes==needs_write);
     }
     for(unsigned fail=1;fail<=3;++fail) {
         mode_register=0;mode_stage=0;mode_fail=fail;

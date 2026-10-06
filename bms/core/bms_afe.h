@@ -15,6 +15,8 @@ void bms_afe_sample(void);
 uint8_t bms_afe_sleep(void);
 /* 安全门禁允许时应用独立硬件保护配置。 */
 uint8_t bms_afe_apply_protection_config(void);
+/* 配置提交/回滚未验证时保持输出禁止，直到完整配置重新验证。 */
+void bms_afe_invalidate_configuration(void);
 /* 保存充放电意图并按 guard 资格应用到后端。 */
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
 /* 读取应用侧保存的充放电请求。 */

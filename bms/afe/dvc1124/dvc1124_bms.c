@@ -32,10 +32,12 @@
 #define DVC_DSG_ALARMS (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)
 static struct {
     uint32_t charge_started;
+    uint32_t charge_release_started;
     uint32_t removed_started;
     uint32_t last_sample;
     uint8_t sample_seen;
     uint8_t charge;
+    uint8_t charge_release_pending;
     uint8_t discharge;
     uint8_t removed_pending;
     uint8_t hw_pending;
@@ -226,7 +228,10 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     /* 未经观察的采样或重初始化间隔不能算作连续恢复证据。 */
     if (s_current_recovery.sample_seen &&
         (uint32_t)(now - s_current_recovery.last_sample) > 2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u)
+    {
         s_current_recovery.removed_pending = 0u;
+        s_current_recovery.charge_release_pending = 0u;
+    }
     s_current_recovery.sample_seen = 1u;
     s_current_recovery.last_sample = now;
     if (!s_current_recovery.charge && (sw_charge || (alarm & DVC_OCC_ALARMS))) {
@@ -237,16 +242,25 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
         s_current_recovery.discharge = 1u;
 
     /* 仍然有效的软件阈值故障独立阻断输出。 */
-    if (s_current_recovery.charge && !sw_charge &&
-        (uint32_t)(now - s_current_recovery.charge_started) >= DVC_OCC_RECOVERY_TICKS)
-        charge_ready = 1u;
+    /* 未签核充电器拔除输入；只能用新鲜反向放电证明充电故障的物理恢复。 */
+    if (s_current_recovery.charge &&
+        snapshot->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA) {
+        if (!s_current_recovery.charge_release_pending) {
+            s_current_recovery.charge_release_pending = 1u;
+            s_current_recovery.charge_release_started = now;
+        } else if (!sw_charge &&
+                   (uint32_t)(now - s_current_recovery.charge_started) >= DVC_OCC_RECOVERY_TICKS &&
+                   (uint32_t)(now - s_current_recovery.charge_release_started) >= DVC_LOAD_REMOVED_TICKS) {
+            charge_ready = 1u;
+        }
+    } else s_current_recovery.charge_release_pending = 0u;
     /*
      * 负电流表示充电；既有 +/-200 mA 不可信区间不能证明充电。
      * AUTO_DIODE 允许放电故障锁存期间反向充电；DSGF=1 时忽略单独 PB1 证据。
      */
     if (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
         release_reason = 2u;
-    else if (load_removed && !(snapshot->status & DVC1124_CC2_DSGF_MASK))
+    else if (load_removed && !(snapshot->fet_status & DVC1124_CC2_DSGF_MASK))
         release_reason = 1u;
     if (s_current_recovery.discharge && release_reason) {
         if (s_current_recovery.removed_pending != release_reason) {
@@ -264,7 +278,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
                   (discharge_ready ? DVC_DSG_ALARMS : 0u)));
     if (clear_mask) {
         /*
-         * 只有 W1C 和回读均成功才解除软件锁存，
+         * 只有 W0C 和回读均成功才解除软件锁存，
          * 即使 AFE 重初始化已清除其易失告警寄存器也必须如此。
          */
         if (!DVC1124_ClearAlarmFlags(clear_mask) ||
@@ -285,7 +299,10 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
         }
     }
 #endif
-    if (charge_ready) s_current_recovery.charge = 0u;
+    if (charge_ready) {
+        s_current_recovery.charge = 0u;
+        s_current_recovery.charge_release_pending = 0u;
+    }
     if (discharge_ready) {
         s_current_recovery.discharge = 0u;
         s_current_recovery.removed_pending = 0u;
@@ -445,13 +462,22 @@ void DVC1124_BmsApp_AFEGet(void)
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) {
         s_current_recovery.removed_pending = 0u;
+        s_current_recovery.charge_release_pending = 0u;
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u);
 #endif
         bms_diag_driver(0u, 0u); return;
     }
 
+    if (dvc1124_backend_sample_pending()) return;
     memset(&sw, 0, sizeof(sw));
+    /* PB1 只证明负载移除；没有批准的充电器移除输入时，充电恢复只用可靠反向电流。 */
+    sw.current_recovery_requires_evidence = 1u;
+    sw.current_recovery_sample_fresh = snapshot.current_fresh;
+    sw.charge_recovery_allowed = snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.discharge_recovery_allowed =
+        snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        (gpio_read(CHG_IN_PIN) && !(snapshot.fet_status & DVC1124_CC2_DSGF_MASK));
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
         &snapshot, &sw.battery_temp_min, &sw.battery_temp_max);
     sw.mos_temp_required = 1u;

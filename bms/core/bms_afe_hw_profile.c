@@ -302,13 +302,65 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
     if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv == 0u || p->cuv_mv > 5115u)) return 0u;
     if (p->cov_delay_ms > 10010u || p->cuv_delay_ms > 10010u ||
         p->ocd1_delay_ms > 10010u || p->occ1_delay_ms > 10010u ||
-        p->ocd2_delay_ms > 400u || p->sc_delay_us > 256u) return 0u;
+        p->ocd2_delay_ms > 400u || p->sc_delay_us > 576u) return 0u;
     sense_uv = ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 80000u) return 0u;
     sense_uv = ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 160000u) return 0u;
     sense_uv = ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 44000u) return 0u;
+#endif
+    return 1u;
+}
+
+/* 新写入按原厂保证范围与最小档位校验；旧参数读取保留原有兼容规则。 */
+u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p)
+{
+    if (!bms_afe_hw_profile_validate(p)) return 0u;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    /* DVC RM V1.2 p18–20：OC1最低250uV、OC2最低4mV，延时200/8/4ms。 */
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 200u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 200u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
+        ((u32)p->ocd1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->ocd1_delay_ms < 8u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
+        ((u32)p->occ1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->occ1_delay_ms < 8u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
+        ((u32)p->ocd2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->ocd2_delay_ms < 4u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) &&
+        ((u32)p->occ2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->occ2_delay_ms < 4u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_SC) && p->sc_delay_us > 1992u) return 0u;
+#else
+    u32 pair = p->enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2);
+    /* SH p34：OCD1/2 共用使能；p49给出保证范围，不按位宽扩展工作范围。 */
+    if (pair != 0u && pair != (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv < 3000u || p->cov_mv > 4500u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv < 1000u || p->cuv_mv > 3500u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 140u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 490u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_TEMP) &&
+        (p->chg_ot_x10 < 800u || p->chg_ot_x10 > 1100u ||
+         p->dsg_ot_x10 < 850u || p->dsg_ot_x10 > 1200u ||
+         p->chg_ut_x10 < 200u || p->chg_ut_x10 > 500u || p->dsg_ut_x10 > 500u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
+        ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_UOHM < 50000u || p->ocd1_delay_ms < 140u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
+        ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM < 100000u || p->ocd2_delay_ms < 25u)) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
+        ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_UOHM < 13750u || p->occ1_delay_ms < 140u)) return 0u;
+    if (p->enable_mask & BMS_AFE_HW_EN_SC) {
+        u32 sense = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM;
+        u32 base = sh3673510_quantize_current_a10(p->ocd2_a10,
+            SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, 0);
+        u32 multiple;
+        /* SC 仍依赖 OCD2V，即使 OCD 未使能也必须有可表示的基准。 */
+        if (sense < 100000u || sense > 1600000u) return 0u;
+        if ((u32)p->sc_a10 < 2u * base || (u32)p->sc_a10 > 6u * base) return 0u;
+        multiple = ((u32)p->sc_a10 <= 2u * base) ? 2u :
+                   ((u32)p->sc_a10 <= 3u * base) ? 3u :
+                   ((u32)p->sc_a10 <= 4u * base) ? 4u : 6u;
+        if (base * multiple > 65535u) return 0u;
+    }
 #endif
     return 1u;
 }
@@ -402,6 +454,9 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
     {
         sh3673510_protection_actual_t actual;
         if (!sh3673510_control_get_protection_actual(&actual)) return 0u;
+        /* p34：旧请求可单独置一位，但已验证的硬件OCD使能实际同时控制两级。 */
+        if (p->enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2))
+            p->enable_mask |= BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2;
         p->cov_mv = actual.ov_mv;
         p->cuv_mv = actual.uv_mv;
         p->ocd1_a10 = actual.ocd1_a10;
@@ -456,6 +511,7 @@ static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *be
         !bms_afe_hw_profile_get_effective(&effective))
     {
         s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
+        bms_afe_invalidate_configuration();
         s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
         bms_afe_hw_access_close();
         return (bms_afe_hw_error_t)s_afe_hw_last_error;
@@ -494,7 +550,7 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
     for (i = 0u; i < qty; ++i)
         ((u16 *)&candidate)[i] = afe_hw_profile_word_be(&pdata[(u32)i * 2u]);
 
-    if (!bms_afe_hw_profile_validate(&candidate))
+    if (!bms_afe_hw_profile_validate_write(&candidate))
     {
         s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
         return BMS_AFE_HW_ERROR_VALIDATION;
@@ -507,6 +563,7 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
         return (bms_afe_hw_error_t)s_afe_hw_last_error;
     }
 
+    bms_afe_invalidate_configuration();
     if (!bms_afe_apply_protection_config())
     {
         s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;

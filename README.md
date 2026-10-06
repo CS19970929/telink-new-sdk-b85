@@ -4,6 +4,8 @@
 
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 是全部项目文档的总入口。
 
+AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边界见 [AFE修复记录](docs/AFE_AUDIT_REMEDIATION.md)。
+
 ## 上手与日常开发
 
 | 文档 | 何时阅读 |

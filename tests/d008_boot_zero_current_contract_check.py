@@ -15,7 +15,7 @@ assert "#define DVC1124_BOOT_ZERO_ENABLE              1u" in config
 assert "#define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS  270u" in config
 assert "DVC1124_BootCurrentZeroCalibrate" in header
 assert "DVC1124_StartCadcCalibration()" in driver
-assert driver.count("dvc_boot_zero_wait_fresh_cc2();") == 2
+assert driver.count("!dvc_boot_zero_wait_fresh_cc2()") == 2
 assert "DVC1124_FET_PDSGC_MASK" in driver and "DVC1124_FET_PCHGC_MASK" in driver
 assert "DVC1124_CC2_DSGF_MASK" in driver and "DVC1124_CC2_CHGF_MASK" in driver
 assert "factory_current_ma = bms_config_calibrate_current(current_ma);" in driver

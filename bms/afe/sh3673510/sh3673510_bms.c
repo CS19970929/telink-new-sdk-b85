@@ -670,17 +670,16 @@ static uint8_t publish_measurements(void)
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK) {
         s_aux.raw_current_ma = (current_ma == INT32_MIN) ? INT32_MAX : -current_ma;
         s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);
-        current_ma = -s_aux.current_ma;
         s_aux.sample_tick_32k = now;
 
-        if (current_ma < 0L) {
-            uint32_t ma = (uint32_t)(-current_ma);
-            g_stCellInfoReport.u16IDischg = (uint16_t)((ma + 50u) / 100u);
-            g_stCellInfoReport.u16Ichg = 0u;
-        } else {
-            uint32_t ma = (uint32_t)current_ma;
-            g_stCellInfoReport.u16Ichg = (uint16_t)((ma + 50u) / 100u);
-            g_stCellInfoReport.u16IDischg = 0u;
+        /* 公共 mA 正放电；无符号取绝对值覆盖 INT32_MIN，0.1A 报告饱和。 */
+        {
+            uint32_t ma = (s_aux.current_ma < 0) ?
+                (0u - (uint32_t)s_aux.current_ma) : (uint32_t)s_aux.current_ma;
+            uint32_t a10 = (ma + 50u) / 100u;
+            if (a10 > 65535u) a10 = 65535u;
+            g_stCellInfoReport.u16IDischg = (s_aux.current_ma > 0) ? (uint16_t)a10 : 0u;
+            g_stCellInfoReport.u16Ichg = (s_aux.current_ma < 0) ? (uint16_t)a10 : 0u;
         }
     }
 
