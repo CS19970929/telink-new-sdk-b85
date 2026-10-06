@@ -1,4 +1,5 @@
 """Execute the actual AFE-to-SOC adapter and production SOC direction decision."""
+from validation_support import function as extract
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -9,9 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = Sources(ROOT)
 
 
-def extract(source, signature):
-    start = source.index(signature)
-    return source[start:source.index('\n}\n', start) + 3]
 
 
 header = (APP / 'bms_afe.h').read_text(encoding='utf-8')

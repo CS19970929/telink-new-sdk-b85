@@ -26,7 +26,7 @@ body = source[source.index("static u16 ms10_to_ms"):
               source.index("u8 bms_afe_hw_profile_init(void)")]
 profile_type = profile_header[profile_header.index("typedef struct"):profile_header.index("} bms_afe_hw_profile_t;") + len("} bms_afe_hw_profile_t;")]
 fields = sorted(set(re.findall(r"s->(u16\w+)", body)))
-macro_lines = [line for line in (product_header + (VENDOR / "bms_sh3673510_config.h").read_text(encoding="utf8")).splitlines()
+macro_lines = [line for line in (product_header + (VENDOR / "bms_sh3673510_config.h").read_text(encoding="utf8") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")).splitlines()
                if re.match(r"#define\s+(SH3673510_HW_DEFAULT_|SH3673510_BOARD_SHUNT_UOHM)", line)]
 if len(macro_lines) != 31:
     raise AssertionError("D014 AFE product defaults changed")

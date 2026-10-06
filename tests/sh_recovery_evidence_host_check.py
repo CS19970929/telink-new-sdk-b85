@@ -10,7 +10,7 @@ import shlex
 import subprocess
 import tempfile
 from project_paths import host_includes, selected_source
-from bms_diag_host_check import function
+from validation_support import function
 
 ROOT = Path(__file__).resolve().parents[1]
 fixture = (ROOT / 'tests/fixtures/sh_recovery_evidence.c').read_text(encoding='utf8')

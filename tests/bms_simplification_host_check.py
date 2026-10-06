@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from validation_support import function
+from validation_support import function, run_c
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -94,6 +94,29 @@ int main(void){
     run(prefix + funcs + tail)
 
 
+def mos_request_test():
+    # 验证共用应用请求的实际输出，避免冻结局部变量名或函数文本。
+    source = (ROOT / 'bms/app/app.c').read_text(encoding='utf-8')
+    run_c(r'''
+#include <stdint.h>
+#include <assert.h>
+static struct { struct { uint8_t b1Status_Cool; } bits; } g_bms_system_status;
+static unsigned calls;
+static uint8_t bms_afe_set_fets(uint8_t c, uint8_t d) {
+    assert(c == 1u && d == 1u); ++calls; return 0u;
+}
+''' + function(source, 'void mos_update(') + r'''
+int main(void) {
+    g_bms_system_status.bits.b1Status_Cool = 1u;
+    mos_update();
+    assert(calls == 1u && g_bms_system_status.bits.b1Status_Cool == 0u);
+    mos_update(); assert(calls == 2u);
+    return 0;
+}
+''', name='common-mos-request')
+
+
 if __name__ == '__main__':
     name_test()
     filter_test()
+    mos_request_test()

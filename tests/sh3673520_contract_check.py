@@ -368,7 +368,7 @@ static int test_init_and_measurements(void)
     int32_t pack_mv;
     sh3673520_current_raw_t current;
     sh3673520_temperature_raw_t temperature;
-    sh3673520_device_status_t status;
+    uint8_t status[2];
 
     mock_clear();
     SH3673520_ClearCommStats();
@@ -408,8 +408,8 @@ static int test_init_and_measurements(void)
           temperature.internal_raw == 0L, "temperature raw decode");
 
     script_read(SH3673520_REG_BSTATUS1, status_pair, 2u, 0);
-    CHECK(SH3673520_ReadStatus(&status) == SH3673520_OK, "status read");
-    CHECK(status.bstatus1 == status_pair[0] && status.bstatus2 == status_pair[1],
+    CHECK(SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, status, sizeof(status)) == SH3673520_OK, "status read");
+    CHECK(status[0] == status_pair[0] && status[1] == status_pair[1],
           "status values");
 
     CHECK(g_mismatch == 0, "measurement frame contract");

@@ -21,7 +21,7 @@ m = text('modbus_rtu.c')
 c = text('sh3673510_control.c')
 b = text('sh3673510_bms.c')
 config = text('bms_config_store.c')
-product = text('sh3673510_project_config.h') + text('bms_sh3673510_config.h')
+product = text('sh3673510_project_config.h') + text('bms_sh3673510_config.h') + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
 
 assert 'BMS_CONFIG_AFE_WORDS             35u' in config
 assert 'storage_record_save(&g_bms_config_store' in config

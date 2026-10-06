@@ -16,7 +16,6 @@ typedef struct {
  uint32_t last_learning_reject_reason,candidate_match_count;
 } bms_state_store_data_t;
 static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0,0,0,0,0,0,0,0};return d;}
-static int bms_state_store_write_learning(u32 c,u32 f){return 1;}
 static int bms_state_store_write_learning_meta(u32 a,u32 b,u32 c,u32 d,u32 e,u32 f,u32 g){return 1;}
 static int openwire_active,openwire_suspected;
 static int balance_active,heater_on,charge_session_active,temp_valid=1;

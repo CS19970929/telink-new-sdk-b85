@@ -3,6 +3,7 @@
 No register behavior is emulated: the fixture supplies sampled flags and command
 outcomes. This checks MCU policy, not SPI timing or physical FET conduction.
 """
+from validation_support import function as extract_function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -17,11 +18,8 @@ source = (APP / 'sh3673510_bms.c').read_text(encoding='utf-8')
 
 def function(name):
     match = re.search(r'(?m)^(?:static )?(?:void|uint8_t|uint16_t) ' + name + r'\(', source)
-    if match is None:
-        raise AssertionError('production function missing: ' + name)
-    end = source.index('\n}\n', match.start()) + 3
-    return source[match.start():end]
-
+    assert match, name
+    return extract_function(source, match.group(0))
 
 # 用首个函数的代码签名界定状态区，不依赖可翻译的说明文字。
 state = source[source.index('#define SH3510_SAMPLE_MS'):source.index('static void restart_sampling(void)')]

@@ -22,7 +22,7 @@ def require(src: str, needle: str) -> None:
     if needle not in src:
         raise AssertionError(f"missing contract text: {needle}")
 
-cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h")
+cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
 conf = text("bms_product_conf.h")
 backend = text("bms_afe_backend.h") + text("bms_product_config.h")
 afe = text("bms_afe.h") + text("bms_afe_driver.h")
@@ -118,7 +118,7 @@ assert literal(reg, "SH3673510_MAX_CELLS") == 10
 assert literal(reg, "SH3673520_REG_CELL20H") == 0x8F
 assert literal(reg, "SH3673520_REG_CELL20L") == 0x90
 require(driver, "uint8_t raw[SH3673520_MAX_CELLS * 2u]")
-require(driver, "SH3673520_SetCellCount")
+require(text("sh3673510_project_config.h"), "SH3673510_BOARD_CELL_COUNT")
 require(driver, "SH3673520_SetBalanceMask")
 require(driver, "values[0] = (uint8_t)((cell_mask >> 16u) & 0x0Fu)")
 require(driver, "values[1] = (uint8_t)((cell_mask >> 8u) & 0xFFu)")
@@ -201,8 +201,7 @@ require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
 require(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")
 
 # D011 is common-port: normal healthy operation requests both FETs ON.
-require(app, "uint8_t chg_target = 1u;")
-require(app, "uint8_t dsg_target = 1u;")
+# 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
 if "dsg_target = d011_switch_is_on()" in app:
     raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")
 fet_start = bms.find("static uint8_t sh3510_apply_requested_fets")

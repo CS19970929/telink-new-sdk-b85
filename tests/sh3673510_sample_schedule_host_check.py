@@ -1,4 +1,5 @@
 """Execute the SH production sample scheduler, mocking only time/SDK/consumers."""
+from validation_support import function as extract_function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -12,10 +13,7 @@ source = selected_source(APP / 'app.c')
 
 
 def function(name):
-    match = re.search(r'(?m)^static void ' + name + r'\([^;{}]*\)\s*\{', source)
-    assert match, 'missing production scheduler: ' + name
-    return source[match.start():source.index('\n}\n', match.start()) + 3]
-
+    return extract_function(source, 'static void ' + name + '(')
 
 assert 'bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)' in source
 assert '    app_sample_task();' in source

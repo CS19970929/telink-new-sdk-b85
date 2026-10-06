@@ -186,7 +186,6 @@ static uint32_t g_soc_sample_tick_32k;
 static uint32_t g_soc_interval_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
-static uint8_t g_soc_input_ready;
 static uint8_t g_soc_charger_state_ready;
 static uint8_t g_soc_last_charger_present;
 static uint8_t g_soc_load_state_ready;
@@ -516,7 +515,7 @@ static uint8_t get_soc_display(void)
 }
 
 /* 设置显示 SOC 并限制合法范围。 */
-void set_dispsoc(uint8_t soc)
+static void set_dispsoc(uint8_t soc)
 {
     g_soc_display_soc = soc_limit_percent_u32(soc);
     g_soc_display_step_ticks = 0u;
@@ -1739,7 +1738,7 @@ static void soc_strategy_update(void)
 }
 
 /* 设置计算 SOC 并处理外部状态变更。 */
-void set_calsoc(uint8_t soc)
+static void set_calsoc(uint8_t soc)
 {
     SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(soc);
     soc_recalc_full_capacity();
@@ -1860,7 +1859,6 @@ static void SOC_Result_Pass(void)
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
-    g_soc_input_ready = 0u;
     g_soc_charger_state_ready = 0u;
     g_soc_load_state_ready = 0u;
     g_soc_interval_32k = 0u;
@@ -1938,14 +1936,13 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         soc_invalidate_sample_interval();
         return;
     }
-    if (!g_soc_input_ready)
+    if (!g_soc_input_valid)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_FIRST,
                              SOC_INTEGRAL_DIR_NONE, 0u);
         g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
-        g_soc_input_ready = 1u;
         return; /* 首个新样本不能证明此前时间段。 */
     }
     elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
@@ -1966,7 +1963,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
-        g_soc_input_ready = 1u;
         return;
     }
     previous_dir = soc_current_direction(0);

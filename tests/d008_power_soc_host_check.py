@@ -5,6 +5,7 @@ The SOC translation unit is included in full. PM/guard functions are extracted
 unchanged because app.c depends on the target-only BLE SDK. These tests validate
 software decisions, not SDK timing, electrical shutdown, or AFE silicon behavior.
 """
+from validation_support import function as extract_function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import argparse
@@ -25,16 +26,7 @@ def source(name):
 
 def function(name, signature):
     text = selected_source(MOD / name) if name == 'app.c' else (MOD / name).read_text()
-    tail = r"\s*\{" if signature.endswith(")") else r"[^;{}]*\)\s*\{"
-    match = re.search(re.escape(signature) + tail, text)
-    assert match, signature
-    start = match.start()
-    pos = text.index('{', start) + 1
-    depth = 1
-    while depth:
-        depth += (text[pos] == '{') - (text[pos] == '}')
-        pos += 1
-    return text[start:pos]
+    return extract_function(text, signature)
 
 
 def main():

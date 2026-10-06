@@ -295,15 +295,6 @@ static u8 dvc_comm_write(u16 reg, u16 val)
 
     return MB_EX_ILLEGAL_ADDRESS;
 }
-#else
-/* 判断地址是否属于 DVC 语义配置窗口。 */
-static int dvc_comm_is_semantic(u16 reg) { (void)reg; return 0; }
-/* 判断地址是否属于 DVC 原始寄存器窗口。 */
-static int dvc_comm_is_raw(u16 reg) { (void)reg; return 0; }
-/* 读取允许的 DVC 语义或原始配置字段。 */
-static u16 dvc_comm_read(u16 reg) { (void)reg; return 0xFFFFu; }
-/* 校验 DVC 地址和写权限后更新配置字段。 */
-static u8 dvc_comm_write(u16 reg, u16 val) { (void)reg; (void)val; return MB_EX_ILLEGAL_ADDRESS; }
 #endif
 
 /* 读取协议地址对应的历史故障编号。 */
@@ -364,7 +355,11 @@ static int read_address_supported(u16 r)
            (r>=0xC002u && r<0xC032u) || (r>=0xD000u && r<=0xD03Eu) ||
            (r>=0x2100u && r<=0x2140u) || (r>=0xD100u && r<=0xD116u) ||
            (r>=BMS_REALTIME_REG_BASE && r<BMS_REALTIME_REG_BASE+BMS_REALTIME_REG_COUNT) ||
-           afe_hw_profile_is_reg(r) || dvc_comm_is_semantic(r) || dvc_comm_is_raw(r);
+           afe_hw_profile_is_reg(r)
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+           || dvc_comm_is_semantic(r) || dvc_comm_is_raw(r)
+#endif
+           ;
 }
 
 /* 按地址分派读取一个协议寄存器。 */
@@ -378,8 +373,10 @@ static u16 read_reg(u16 reg)
 
     if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_read(reg);
+#endif
 
     if (reg < 3u)
     {
@@ -466,8 +463,10 @@ static int reg_requires_param_save(u16 reg)
 static u8 write_reg(u16 reg, u16 val)
 {
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_write(reg, val);
+#endif
 
     if (reg==0x1005u || reg==0x2318u || reg==0x2319u || (reg>=0x2E00u && reg<0x2F00u)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};

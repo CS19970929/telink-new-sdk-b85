@@ -195,17 +195,10 @@ void DVC1124_OpenWireReset(void);
 /* 配置 DVC 短路保护开关及参数。 */
 uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
 
-/*
- * 0x76 混合读清除事件 COTF 与可读写阈值位。普通读改写会清除 COTF，因此禁止使用；
- * 这些 API 将读写阈值期间观察到的 COTF 保留为软件锁存副本。
- */
-uint8_t DVC1124_ReadCoreOtThresholdCode(uint8_t *threshold_code);
 /* 校验并设置核心过温阈值编码。 */
 uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
 /* 读取核心过温事件锁存状态。 */
 uint8_t DVC1124_GetCoreOtEventLatched(void);
-/* 清除核心过温事件锁存。 */
-void DVC1124_ClearCoreOtEventLatched(void);
 
 /* W0C 与自清除操作由 dvc1124_special.c 实现。 */
 uint8_t DVC1124_ClearAlarmFlags(uint8_t flag_mask);

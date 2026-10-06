@@ -164,12 +164,8 @@ static uint8_t apply_requested(void)
         c = 0u;
         d = 0u;
     }
-    if (bms_features_charge_hard_blocked()) c = 0u;
-    if (bms_features_discharge_blocked()) d = 0u;
-#if (BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124) && \
-    (BMS_AFE_BACKEND != BMS_AFE_BACKEND_SH3673510)
-    if (bms_features_charge_direction_blocked()) c = 0u;
-#endif
+    if (bms_features_outputs_blocked()) { c = 0u; d = 0u; }
+    /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
     return AFE_FETS(c, d);
 }
 

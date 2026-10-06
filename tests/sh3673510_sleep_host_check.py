@@ -3,6 +3,7 @@
 Only peripheral outcomes are mocked. This proves software sequencing, not AFE
 sleep current, GPIO timing, or physical MOS shutdown. No project temp files.
 """
+from validation_support import function as extract_function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -17,11 +18,8 @@ APP = Sources(ROOT)
 def function(file, name):
     source = (APP / file).read_text(encoding='utf-8')
     match = re.search(r'(?m)^(?:static )?(?:void|int|uint8_t|u32) ' + name + r'\(', source)
-    if match is None:
-        raise AssertionError('production function missing: ' + name)
-    end = source.index('\n}\n', match.start()) + 3
-    return source[match.start():end]
-
+    assert match, name
+    return extract_function(source, match.group(0))
 
 guard = (APP / 'bms_afe_guard.c').read_text(encoding='utf-8')
 state = re.search(r'^#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT .*$', guard, re.M).group(0) + '\n' + guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
@@ -48,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
     c.write_text(fixture.replace('/* PRODUCTION */', body), encoding='utf-8')
     # Default 1 reproduces the actual fixed-UART gate. Test-only 0 retains
     # fault-injection coverage of the latent PM body; it is not a product mode.
-    config = (APP / 'bms_sh3673510_config.h').read_text(encoding='utf-8')
+    config = (ROOT / 'bms/products/sh3673510_defaults.h').read_text(encoding='utf-8')
     assert re.search(r'^#define SH3673510_FIXED_UART_BLOCKS_PM 1u$', config, re.M)
     for blocked in (1, 0):
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',

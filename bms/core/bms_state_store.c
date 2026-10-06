@@ -243,19 +243,6 @@ int bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle)
     return bms_state_save(&next);
 }
 
-/* 更新待保存的学习容量和标志，不立即写 Flash。 */
-int bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags)
-{
-    bms_state_persist_t next;
-    if (!bms_state_store_init()) return 0;
-    next = g_bms_state_pending;
-    next.learned_capacity_0p1ah = learned_capacity_0p1ah;
-    next.flags = flags;
-    g_bms_state_pending = next;
-    /* 排队保存检查点，由主循环持久化，关机刷新包含它。 */
-    return 1;
-}
-
 /* 校验并更新待保存的学习元数据，不立即写 Flash。 */
 int bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
                                         u32 candidate_capacity_0p1ah,

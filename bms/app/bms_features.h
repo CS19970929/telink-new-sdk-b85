@@ -92,13 +92,9 @@ uint32_t bms_features_diag_reasons(uint8_t charge);
  * 公共 AFE 门禁施加硬阻断；方向性充电阻断较软，DVC 映射为 AUTO_DIODE，
  * 以保留合法放电。
  */
-uint8_t bms_features_charge_hard_blocked(void);
+uint8_t bms_features_outputs_blocked(void);
 /* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void);
-/* 汇总公共功能对充电 MOS 的阻断。 */
-uint8_t bms_features_charge_blocked(void);
-/* 汇总公共功能对放电 MOS 的阻断。 */
-uint8_t bms_features_discharge_blocked(void);
 /* 查询断线检测流程是否处于活动阶段。 */
 uint8_t bms_features_openwire_active(void);
 /*
@@ -106,7 +102,5 @@ uint8_t bms_features_openwire_active(void);
  * 失败/不确定轮次始终保留 suspected。
  */
 uint8_t bms_features_openwire_sample_active(void);
-/* 取得断线检测结果及相关诊断信息。 */
-void bms_features_get_openwire_result(bms_afe_openwire_result_t *result);
 
 #endif /* 头文件保护：BMS_FEATURES_H_。 */

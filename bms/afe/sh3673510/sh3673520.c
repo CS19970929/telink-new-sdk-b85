@@ -496,40 +496,6 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
 }
 
 
-/* 设置驱动的有效电芯串数。 */
-sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count)
-{
-    uint8_t current;
-    uint8_t target;
-    uint8_t verify;
-    sh3673520_status_t status;
-
-    if ((cell_count < SH3673520_MIN_CELLS) ||
-        (cell_count > SH3673520_MAX_CELLS)) {
-        return SH3673520_ERR_RANGE;
-    }
-    if (s_ready == 0u) {
-        return SH3673520_ERR_NOT_READY;
-    }
-
-    status = SH3673520_ReadReg(SH3673520_REG_SCONF4, &current);
-    if (status != SH3673520_OK) return status;
-
-    target = (uint8_t)((current & (uint8_t)~SH3673520_SCONF4_CELL_COUNT_MASK) |
-                       (cell_count & SH3673520_SCONF4_CELL_COUNT_MASK));
-    if (target != current) {
-        status = SH3673520_WriteReg(SH3673520_REG_SCONF4, target);
-        if (status != SH3673520_OK) return status;
-    }
-
-    status = SH3673520_ReadReg(SH3673520_REG_SCONF4, &verify);
-    if (status != SH3673520_OK) return status;
-    if ((verify & SH3673520_SCONF4_CELL_COUNT_MASK) != cell_count) {
-        return SH3673520_ERR_VERIFY;
-    }
-    return SH3673520_OK;
-}
-
 /* 设置驱动均衡掩码并更新芯片寄存器。 */
 sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
                                             uint8_t cell_count)
@@ -860,32 +826,6 @@ sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *tempe
         raw[SH3673520_EXTERNAL_TEMP_COUNT * 2u],
         raw[SH3673520_EXTERNAL_TEMP_COUNT * 2u + 1u]);
 
-    return SH3673520_OK;
-}
-
-/* 读取 AFE 状态与保护标志。 */
-sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status)
-{
-    uint8_t raw[2];
-    sh3673520_status_t result;
-
-    if (status == NULL) {
-        return SH3673520_ERR_INVALID_PARAM;
-    }
-
-    result = sh3673520_require_ready();
-    if (result != SH3673520_OK) {
-        return result;
-    }
-
-    /* 只读取 BSTATUS1/BSTATUS2；FLAG2 的 VADC_FLG/CADC_FLG 为读清除，故不纳入。 */
-    result = SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, raw, sizeof(raw));
-    if (result != SH3673520_OK) {
-        return result;
-    }
-
-    status->bstatus1 = raw[0];
-    status->bstatus2 = raw[1];
     return SH3673520_OK;
 }
 

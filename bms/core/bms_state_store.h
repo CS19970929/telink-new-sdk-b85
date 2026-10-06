@@ -58,8 +58,6 @@ bms_state_store_data_t bms_state_store_get_default_data(void);
 bms_state_store_data_t bms_state_store_get(void);
 /* 保存完整状态并按结果发布缓存。 */
 int  bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle);
-/* 学习数据先入 RAM 队列，周期检查点和 write_all 刷新包含它。 */
-int  bms_state_store_write_learning(u32 learned_capacity_0p1ah, u32 flags);
 /* 校验并更新待保存的学习元数据，不立即写 Flash。 */
 int  bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
                                          u32 candidate_capacity_0p1ah,

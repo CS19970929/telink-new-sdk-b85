@@ -696,8 +696,8 @@ uint8_t bms_features_balance_voltage_trusted(void) { return s_feature.balance_vo
 /* 查询是否存在尚未确认的电芯断线嫌疑。 */
 uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspected; }
 
-/* 查询公共功能导致的硬性充电阻断。 */
-uint8_t bms_features_charge_hard_blocked(void)
+/* 查询配置无效或断线检测造成的双向硬性阻断。 */
+uint8_t bms_features_outputs_blocked(void)
 {
     return (!bms_protection_params_valid() ||
             s_feature.openwire_active ||
@@ -711,21 +711,6 @@ uint8_t bms_features_charge_direction_blocked(void)
             s_feature.heater_state == BMS_HEATER_ACTIVE) ? 1u : 0u;
 }
 
-/* 汇总公共功能对充电 MOS 的阻断。 */
-uint8_t bms_features_charge_blocked(void)
-{
-    return (bms_features_charge_hard_blocked() ||
-            bms_features_charge_direction_blocked()) ? 1u : 0u;
-}
-
-/* 汇总公共功能对放电 MOS 的阻断。 */
-uint8_t bms_features_discharge_blocked(void)
-{
-    return (!bms_protection_params_valid() ||
-            s_feature.openwire_active ||
-            s_feature.openwire_fault_latched) ? 1u : 0u;
-}
-
 /* 查询断线检测流程是否处于活动阶段。 */
 uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
 /* 查询当前样本是否属于断线诊断采样窗口。 */
@@ -733,12 +718,6 @@ uint8_t bms_features_openwire_sample_active(void)
 {
     return (s_feature.openwire_active || s_feature.openwire_sample_active) ? 1u : 0u;
 }
-/* 取得断线检测结果及相关诊断信息。 */
-void bms_features_get_openwire_result(bms_afe_openwire_result_t *r)
-{
-    if (r) *r = s_feature.openwire_result;
-}
-
 /* 编码加热、均衡和断线检测的阻断原因。 */
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {

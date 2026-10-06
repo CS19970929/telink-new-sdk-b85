@@ -34,7 +34,6 @@ class D008FrameworkContract(unittest.TestCase):
         cls.dvc = read("dvc1124.c")
         cls.dvc_bms = read("dvc1124_bms.c")
         cls.fixed_backend = read("dvc1124.c") + read("dvc1124_boot.c")
-        cls.fixed_header = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.project = read("dvc1124_project_config.h")
         cls.product = read("d008_product_profile.h")
@@ -78,7 +77,6 @@ class D008FrameworkContract(unittest.TestCase):
         ):
             self.assertIn(token, self.guard)
         self.assertNotIn("DVC1124_AFE_WakeupFromShutdown", self.fixed_backend)
-        self.assertNotIn("DVC1124_AFE_Shutdown", self.fixed_header)
 
     def test_guard_keeps_requested_state_separate_from_feedback(self):
         self.assertIn("requested_charge_on", self.guard)
@@ -169,7 +167,6 @@ class D008FrameworkContract(unittest.TestCase):
                         sample.index("bms_sw_protection_update_groups"))
 
     def test_fixed_dvc_operating_config_has_no_flash_owner(self):
-        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.fixed_header)
         for token in (
             "flash_kv32",
             "ConfigStoreLoad",

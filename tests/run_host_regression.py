@@ -74,8 +74,7 @@ def commands_for(selected, only):
         raise ValueError(f'测试登记不一致：未登记={sorted(found-set(CHECKS))} 文件缺失={sorted(set(CHECKS)-found)}')
     commands=[]
     if not only:
-        for product in selected:
-            commands.append(('tooling_unit_tests',product,'tooling','工具单测',[sys.executable,'-m','unittest','tests.test_bms_tools','-q']))
+        commands.append(('tooling_unit_tests','shared','tooling','工具单测（内部枚举产品配置）',[sys.executable,'-m','unittest','tests.test_bms_tools','-q']))
         commands += [
             ('validation_runner_tests','shared','tooling','工具故障回归',[sys.executable,'-m','unittest','discover','-s','tests','-p','test_validation_runner.py','-q']),
             ('source_manifests','shared','tooling','四产品实际源码清单',[sys.executable,'bms_tools/bms.py','--all-products','sources','--check'])]

@@ -1,4 +1,5 @@
 """Exercise production AFE commit/rollback code with bounded fault injection."""
+from validation_support import function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -10,15 +11,6 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 APP = Sources(ROOT)
 
-def function(text, signature):
-    start = text.index(signature)
-    begin = text.index('{', start)
-    depth = 1
-    end = begin + 1
-    while depth:
-        depth += (text[end] == '{') - (text[end] == '}')
-        end += 1
-    return text[start:end]
 
 def main():
     header = (APP / 'bms_afe_hw_profile.h').read_text(encoding='utf-8')

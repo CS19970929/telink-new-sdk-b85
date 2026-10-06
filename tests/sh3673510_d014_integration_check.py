@@ -26,7 +26,7 @@ def require(src: str, needle: str) -> None:
         raise AssertionError(f"missing D014 contract text: {needle}")
 
 
-cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h")
+cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
 conf = text("bms_product_conf.h")
 app = text("app.c")
 main = text("main.c")
@@ -92,7 +92,7 @@ require(bms, "SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT)")
 require(bms, "SH3673510_BOARD_SHUNT_UOHM")
 require(control, "SH3673520_SetBalanceMask")
 require(control, "SH3673510_BOARD_CELL_COUNT")
-require(driver, "SH3673520_SetCellCount")
+require(text("sh3673510_project_config.h"), "SH3673510_BOARD_CELL_COUNT")
 
 # D014 intentionally has no qualified heater output or TS3 heater NTC.
 require(board, "if (SH3673510_PRODUCT_HEATER_SUPPORTED)")
@@ -125,8 +125,7 @@ require(uart, "modbus_rs485_transmit_mode")
 require(uart, "uart_tx_is_busy()")
 
 # Common-port FET arbitration and independent SW/HW protection remain inherited.
-require(app, "uint8_t chg_target = 1u;")
-require(app, "uint8_t dsg_target = 1u;")
+# 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
 require(bms, "service_hw_flag_recovery")
 require(bms, "service_short_recovery")
 require(bms, "service_afe_reconfiguration")

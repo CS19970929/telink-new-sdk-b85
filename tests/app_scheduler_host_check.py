@@ -1,4 +1,5 @@
 """Run production scheduling and aging code against observable hardware stubs."""
+from validation_support import function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os
@@ -10,17 +11,6 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
 
-
-def function(source, signature):
-    match = re.search(re.escape(signature) + r"[^;{}]*\)\s*\{", source)
-    if match is None: raise AssertionError(signature)
-    start = match.start()
-    end = source.index("{", start) + 1
-    depth = 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def main():

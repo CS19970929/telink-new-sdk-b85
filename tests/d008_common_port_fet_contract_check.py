@@ -34,12 +34,9 @@ class D008CommonPortFetContract(unittest.TestCase):
 
     def test_body_diode_policy_has_no_operating_config_flash_owner(self):
         backend = read("dvc1124.c") + read("dvc1124_boot.c")
-        header = read("dvc1124_boot.h")
-        self.assertNotIn("body_diode_threshold_uv", header)
         self.assertNotIn("ConfigStoreLoad", backend)
         self.assertNotIn("ConfigStoreSave", backend)
         self.assertNotIn("flash_kv32", backend)
-        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", header)
 
     def test_one_sided_protection_uses_auto_diode_without_hard_off_transition(self):
         bms = read("dvc1124_bms.c")
@@ -57,9 +54,8 @@ class D008CommonPortFetContract(unittest.TestCase):
     def test_heater_directional_block_uses_auto_diode_not_guard_hard_off(self):
         guard = read("bms_afe_guard.c")
         bms = read("dvc1124_bms.c")
-        self.assertIn("bms_features_charge_hard_blocked()", guard)
-        self.assertIn("bms_features_charge_direction_blocked()", guard)
-        self.assertIn("#if (BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124)", guard)
+        self.assertIn("bms_features_outputs_blocked()", guard)
+        self.assertNotIn("bms_features_charge_direction_blocked()", guard)
         charge = bms.split("static uint8_t dvc_charge_blocked", 1)[1].split("static uint8_t dvc_discharge_blocked", 1)[0]
         self.assertIn("bms_features_charge_direction_blocked()", charge)
         policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]

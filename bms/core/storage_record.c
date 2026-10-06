@@ -60,12 +60,6 @@ static uint32_t crc_update(uint32_t crc, const uint8_t *data, uint32_t len)
     return crc;
 }
 
-/* 计算记录载荷的 CRC32 校验值。 */
-uint32_t storage_record_crc32(const uint8_t *data, uint32_t len)
-{
-    return ~crc_update(0xFFFFFFFFu, data, len);
-}
-
 /* 把长度向上对齐到指定存储粒度。 */
 static uint32_t align_up(uint32_t value, uint32_t align)
 {
@@ -344,26 +338,5 @@ int storage_record_save(storage_record_store_t *s, const uint8_t *payload)
     ok = 1;
 done:
     end_write(s);
-    return ok;
-}
-
-/* 擦除并重新初始化指定记录区域。 */
-int storage_record_format(storage_record_store_t *s)
-{
-    uint16_t sec;
-    int ok = 1;
-    if (s == 0 || !s->ready || !begin_write(s)) return 0;
-    for (sec = 0u; sec < s->sector_count; ++sec) {
-        if (!s->port->erase(s->port->ctx, sector_base(s, sec), s->port->erase_size)) {
-            ok = 0;
-            break;
-        }
-    }
-    end_write(s);
-    if (ok) {
-        s->latest_addr = INVALID_ADDR;
-        s->next_sequence = 1u;
-        s->has_latest = 0u;
-    }
     return ok;
 }

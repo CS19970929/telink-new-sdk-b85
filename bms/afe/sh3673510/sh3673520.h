@@ -51,11 +51,6 @@ typedef struct {
 } sh3673520_comm_stats_t;
 
 typedef struct {
-    uint8_t bstatus1;
-    uint8_t bstatus2;
-} sh3673520_device_status_t;
-
-typedef struct {
     int32_t vadc_raw;
     int32_t cadc_raw;
 } sh3673520_current_raw_t;
@@ -87,8 +82,6 @@ sh3673520_status_t SH3673520_WriteRegs(uint8_t start_reg,
                                        const uint8_t *buffer,
                                        sh3673520_size_t length);
 
-/* 系列共用配置辅助接口，支持最多 20S 产品。 */
-sh3673520_status_t SH3673520_SetCellCount(uint8_t cell_count);
 /* 设置驱动均衡掩码并更新芯片寄存器。 */
 sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
                                             uint8_t cell_count);
@@ -101,8 +94,6 @@ sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv);
 sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current);
 /* 读取 NTC 通道测量及有效性。 */
 sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures);
-/* 读取 AFE 状态与保护标志。 */
-sh3673520_status_t SH3673520_ReadStatus(sh3673520_device_status_t *status);
 
 /* 计算 AFE 通信数据的 CRC8 校验值。 */
 uint8_t SH3673520_Crc8(const uint8_t *data, sh3673520_size_t length);

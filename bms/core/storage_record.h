@@ -46,11 +46,7 @@ int storage_record_open(storage_record_store_t *store,
 int storage_record_load(storage_record_store_t *store, uint8_t *payload_out);
 /* 写入并验证新记录后发布提交标记，保留旧有效记录。 */
 int storage_record_save(storage_record_store_t *store, const uint8_t *payload);
-/* 擦除并重新初始化指定记录区域。 */
-int storage_record_format(storage_record_store_t *store);
 
-/* 计算记录载荷的 CRC32 校验值。 */
-uint32_t storage_record_crc32(const uint8_t *data, uint32_t len);
 
 #ifdef __cplusplus
 }

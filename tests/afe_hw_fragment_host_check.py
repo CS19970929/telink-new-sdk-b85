@@ -3,7 +3,7 @@
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import re, os, shlex, subprocess, tempfile
-from bms_diag_host_check import function
+from validation_support import function
 ROOT=Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
 def main():

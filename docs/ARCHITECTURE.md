@@ -37,13 +37,13 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 
 软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向。SOC Low 和压差故障不直接列入 MOS 关断掩码。软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
 
-AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。DVC 的初始默认仍取编译期软件默认种子，SH 初始默认来自产品头；不能把运行时独立误写为所有默认来源完全独立。
+AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。DVC 的初始默认仍取编译期软件默认种子，SH 初始默认来自产品能力头及 `bms/products/sh3673510_defaults.h`；不能把运行时独立误写为所有默认来源完全独立。
 
 AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/effective readback → verify；失败恢复前一 profile 并重新应用，回滚失败保持配置不一致。详见 [AFE_HARDWARE_PROTECTION_V2](AFE_HARDWARE_PROTECTION_V2.md)。
 
 ## 4. 输出与物理反馈
 
-`mos_update()` 给出产品请求；最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
+`main_loop()` 四产品共用任务顺序，真正的 GPIO/PM/D008 总线差异留在板级分支。`mos_update()` 共用同口产品请求；最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
 
 DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
 

@@ -64,7 +64,9 @@ SIF 黄金向量冻结自基线实际 builder，使用与固件相同的 `-fpack
 
 固定配置不存在运行时第二种来源，因此不再传递大结构或暴露通用 mutable OperatingConfig API。编译期字段在芯片编码函数内直接可见，boot 只拥有阶段、wake/retry。`DVC1124_WriteRegisterSafe` 从头文件移入 `.c`，保留全部 RMW、reserved-bit、read-side-effect 和读回校验；`noinline` 固定一个调试入口并避免逐调用点复制该检查。它不是 ISR 或波形函数，I2C 访问顺序保持。
 
-新增 DVC 基线黄金 transaction hash，覆盖 3 profile × HW on/off × 寄存器初值 00/FF × 正常及每个 45 次 bus access 的失败，比较每次读/写寄存器、值、失败位置及最终返回。资源门禁仍为生产 8 KiB，未用关闭诊断/算法或降低门槛绕过。
+当时新增 DVC 基线黄金 transaction hash，覆盖 3 profile × HW on/off × 寄存器初值 00/FF × 正常及每个 45 次 bus access 的失败，比较每次读/写寄存器、值、失败位置及最终返回。资源门禁仍为生产 8 KiB，未用关闭诊断/算法或降低门槛绕过。
+
+2026-10-06 已用寄存器语义断言替换该历史 hash，详见 [第二轮简化](SIMPLIFICATION_20261006.md)。本节以下成绩只属于列出的历史提交。
 
 ## 固定提交验证记录
 

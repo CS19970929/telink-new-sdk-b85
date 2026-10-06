@@ -1,4 +1,5 @@
 """Execute the production D008 recovery and FET arbitration with fake I/O."""
+from validation_support import function as extract_function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
 import os, subprocess, tempfile, re
@@ -6,9 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
 s = (MOD / 'dvc1124_bms.c').read_text(encoding='utf-8')
 def function(name):
-    start = s.index('static uint8_t ' + name + '(')
-    end = s.index('\n}\n', start) + 3
-    return s[start:end]
+    return extract_function(s, 'static uint8_t ' + name + '(')
+
 state = '#define DVC_BMS_SAMPLE_PERIOD_MS 200u\n' + s[s.index('#define DVC_OCC_RECOVERY_TICKS'):s.index('static uint16_t dvc_get_configured_temperature')]
 fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
 code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc_apply_common_port_fet_state'))

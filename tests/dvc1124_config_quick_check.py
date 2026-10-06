@@ -64,7 +64,6 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         cls.product = read("d008_product_profile.h")
         cls.project = read("dvc1124_project_config.h")
         cls.backend = read("dvc1124.c") + read("dvc1124_boot.c")
-        cls.store_hdr = read("dvc1124_boot.h")
         cls.service = read("dvc1124_config_service.c")
         cls.service_hdr = read("dvc1124_config_service.h")
 
@@ -90,8 +89,6 @@ class CompileTimeOwnershipTests(unittest.TestCase):
         )
         for token in forbidden:
             self.assertNotIn(token, self.backend)
-        self.assertIn("DVC1124_FIXED_CONFIG_COMPILE_TIME", self.store_hdr)
-        self.assertNotIn("dvc1124_persistent_config_t", self.store_hdr)
 
     def test_every_afe_init_reapplies_firmware_policy(self):
         self.assertIn("DVC1124_AFE_Reset();", self.backend)

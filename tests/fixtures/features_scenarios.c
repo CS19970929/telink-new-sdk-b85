@@ -82,10 +82,10 @@ int main(void)
     }else{g_stCellInfoReport.u16Ichg=0;step(10);assert(!heater && !fuse_count);}
     /* 真正经过 service 发起诊断，完成帧仍不得用于 SOC。 */
     reset();g_stCellInfoReport.u16Ichg=0;step(101);assert(ow_started && bms_features_openwire_active());
-    assert(bms_features_charge_hard_blocked() && bms_features_discharge_blocked());
+    assert(bms_features_outputs_blocked());
     ow_result.valid=1;ow_result.determinate=1;ow_result.open_cell_mask=1;ow_state=BMS_AFE_DIAG_READY;
     step(1);assert(!bms_features_openwire_active() && bms_features_openwire_sample_active());
-    assert(bms_features_charge_hard_blocked() && bms_features_discharge_blocked());
+    assert(bms_features_outputs_blocked());
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
            (unsigned)SeriesNum,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;

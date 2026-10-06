@@ -11,7 +11,6 @@ dvc = (HERE / 'dvc1124.c').read_text(encoding='utf-8')
 cfg = (HERE / 'dvc1124_project_config.h').read_text(encoding='utf-8')
 boot = (HERE / 'dvc1124_boot.c').read_text(encoding='utf-8')
 store = dvc + boot
-store_h = (HERE / 'dvc1124_boot.h').read_text(encoding='utf-8')
 service = (HERE / 'dvc1124_config_service.c').read_text(encoding='utf-8')
 
 assert '#define D008_PRODUCT_PROFILE_20S_NMC  2u' in profile
@@ -40,7 +39,6 @@ assert masks(24) == [0x00, 0x00, 0x00]
 assert 'for (cell = 5u; cell <= DVC1124_MAX_CELLS; ++cell)' in dvc
 
 # D008 board invariants are compile-time owned and re-applied after every init.
-assert 'DVC1124_FIXED_CONFIG_COMPILE_TIME' in store_h
 assert 'ConfigStoreLoad' not in store and 'ConfigStoreRestore' not in store
 assert 'DVC1124_DEFAULT_HIGH_SIDE_FET_MASK' in dvc
 assert 'DVC1124_EncodeCurrentWake(DVC1124_CURRENT_WAKE_THRESHOLD_UV' in store

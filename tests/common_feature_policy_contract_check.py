@@ -27,7 +27,7 @@ assert "bms_board_heater_allowed" in board_h and "bms_board_balance_supported" i
 assert "bms_board_heater_allowed()" in features_c and "bms_board_balance_supported()" in features_c
 assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c
 assert "service_openwire" in features_c and "bms_afe_openwire_start" in features_c and "bms_afe_openwire_poll" in features_c
-charge_block=guard_c.index("bms_features_charge_hard_blocked"); fet_write=guard_c.index("AFE_FETS",charge_block)
+charge_block=guard_c.index("bms_features_outputs_blocked"); fet_write=guard_c.index("AFE_FETS",charge_block)
 assert charge_block < fet_write
 assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
 assert "bms_features_service();" in guard_c and "bms_features_on_afe_invalid();" in guard_c

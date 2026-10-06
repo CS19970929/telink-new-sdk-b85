@@ -27,20 +27,6 @@ static uint8_t dvc1124_read_core_ot_raw(uint8_t *raw)
     return 1u;
 }
 
-/* 读取核心过温阈值编码。 */
-uint8_t DVC1124_ReadCoreOtThresholdCode(uint8_t *threshold_code)
-{
-    uint8_t raw;
-
-    if (threshold_code == 0) return 0u;
-    if (!dvc1124_read_core_ot_raw(&raw)) return 0u;
-
-    *threshold_code = DVC1124_FIELD_GET(DVC1124_CORE_OT_THRESHOLD_MASK,
-                                        DVC1124_CORE_OT_THRESHOLD_SHIFT,
-                                        raw);
-    return 1u;
-}
-
 /* 校验并设置核心过温阈值编码。 */
 uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code)
 {
@@ -69,12 +55,6 @@ uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code)
 uint8_t DVC1124_GetCoreOtEventLatched(void)
 {
     return s_core_ot_event_latched;
-}
-
-/* 清除核心过温事件锁存。 */
-void DVC1124_ClearCoreOtEventLatched(void)
-{
-    s_core_ot_event_latched = 0u;
 }
 
 /* 按专属寄存器语义清除 DVC 告警位。 */

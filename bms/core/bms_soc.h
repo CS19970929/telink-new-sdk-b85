@@ -130,10 +130,6 @@ void bms_soc_get_diag(bms_soc_diag_t *diag);
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
 /* 更新 SOC 参数与相关容量状态。 */
 void set_soc_param(uint8_t soc, uint8_t sync_display);
-/* 设置计算 SOC 并处理外部状态变更。 */
-void set_calsoc(uint8_t soc);
-/* 设置显示 SOC 并限制合法范围。 */
-void set_dispsoc(uint8_t soc);
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void);
 /* 初始化 SOC 参数、持久状态与策略计数。 */
