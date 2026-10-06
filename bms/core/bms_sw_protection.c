@@ -59,6 +59,10 @@ static uint8_t s_current_recovery_requires_evidence;
 
 /* 恢复仅属于阻断 MOS 的 Third 级；First/Second 是滤波告警，各自越限消失即清除。 */
 /* 校验高阈值三级保护的恢复值必须低于触发值。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static uint8_t bms_sw_high_recovery_valid(uint16_t third, uint16_t recover) __attribute__((noinline));
+#endif
 static uint8_t bms_sw_high_recovery_valid(uint16_t third, uint16_t recover)
 {
     return !third || recover < third;
@@ -71,6 +75,13 @@ static uint8_t bms_sw_low_recovery_valid(uint16_t third, uint16_t recover)
 }
 
 /* 按保护级别选择对应阈值或延时。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static uint16_t bms_sw_level_value(uint8_t level,
+                                   uint16_t first,
+                                   uint16_t second,
+                                   uint16_t third) __attribute__((noinline));
+#endif
 static uint16_t bms_sw_level_value(uint8_t level,
                                    uint16_t first,
                                    uint16_t second,
@@ -94,6 +105,10 @@ static uint16_t bms_sw_filter_samples(uint16_t filter_10ms)
 }
 
 /* 清除软件保护滤波器的计数与活动状态。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static void bms_sw_filter_reset(bms_sw_filter_t *state) __attribute__((noinline));
+#endif
 static void bms_sw_filter_reset(bms_sw_filter_t *state)
 {
     if (state == 0) return;
@@ -170,6 +185,17 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
  * 若因此清故障会立即重新开 FET 并反复通断。因此活动故障仅按温度与恢复滤波解除，
  * 不再依赖电流。
  */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
+                                         uint8_t trip_enabled,
+                                         uint16_t value,
+                                         uint16_t trip,
+                                         uint16_t recover,
+                                         uint16_t filter_10ms,
+                                         bms_sw_direction_t direction,
+                                         uint8_t use_recovery) __attribute__((noinline));
+#endif
 static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                          uint8_t trip_enabled,
                                          uint16_t value,
@@ -205,6 +231,10 @@ static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
 }
 
 /* 仅清除本模块拥有的软件保护故障位。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault) __attribute__((noinline));
+#endif
 static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault)
 {
     if (fault == 0) return;

@@ -2,6 +2,8 @@
 
 ## 1. 目的
 
+原厂审查后的严格新写入、历史参数兼容、配置一致性门禁及验证状态见 [AFE修复记录](AFE_AUDIT_REMEDIATION.md)。35-word和存储格式保持不变。
+
 软件三级保护与 AFE 芯片硬件保护是两条独立安全通道：
 
 - 软件保护：`g_tParam.protect`，First / Second / Third / Recover / Filter；

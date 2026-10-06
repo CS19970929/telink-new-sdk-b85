@@ -395,6 +395,8 @@ Balance 不再复用软件压差保护参数。CFG2 schema 2 的 user payload �
 
 DVC COW 开启后约 1 s 内 100 uA 下拉有效，因此诊断采样必须发生在 COW 仍为 1 的窗口内。当前实现约 200 ms 后使用新的 AFE snapshot 捕获诊断电压并主动清 COW；当前项目以诊断窗口内使用中的 cell 输入为 0 mV 标记对应 open bit。这是项目判据；DVC DS V1.1 p15 / RM V1.2 p22 没有规定它是断线的充分或必要条件，需厂家澄清及实板验证。采样完成资格问题见固定提交审查 DVC-02，不能把 snapshot generation 增加自动解释为新 ADC 完成。
 
+本轮修复排除COW开始前的VADF，只在有效激励内获得新VADC事件后发布诊断。启动零点及正常电流分别检查CC2完成事件；原厂尚未规定多字节快照原子性和CAMZ完成上限，实板采样相位仍待验收。新写入边界、物理恢复和完整证据见 [修复记录](AFE_AUDIT_REMEDIATION.md)。
+
 ### 13.5 Balance 与 COV
 
 Cell OVP 不被一刀切作为 Balance hard-block：在电压数据可信、温度/AFE/OpenWire 条件正常且 charge session 有效时，CHG 可因高单体停充，同时继续对高单体被动泄放，形成 `停充 -> 均衡 -> COV recover -> 继续充电` 的恢复闭环。CUV、总压异常、过流、温度故障、短路等仍阻止均衡。

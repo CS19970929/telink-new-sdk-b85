@@ -222,6 +222,10 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 }
 
 /* 验证保护触发与恢复阈值的回差关系。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+#if defined(__GNUC__)
+static u8 validate_hysteresis(const bms_afe_hw_profile_t *p) __attribute__((noinline));
+#endif
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&

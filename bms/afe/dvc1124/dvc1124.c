@@ -132,6 +132,8 @@ static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
 }
 
 /* 按毫秒执行 AFE 所需的短等待。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static void dvc_delay_ms(uint16_t ms) __attribute__((noinline));
 static void dvc_delay_ms(uint16_t ms)
 {
     uint32_t tick = clock_time();
@@ -166,6 +168,8 @@ static void dvc_bus_recover(void)
 }
 
 /* Telink I2C 硬件每次 BUSY 等待都必须有时间边界。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint8_t dvc_i2c_wait_done(void) __attribute__((noinline));
 static uint8_t dvc_i2c_wait_done(void)
 {
     uint32_t tick = clock_time();
@@ -249,6 +253,8 @@ static uint8_t dvc_i2c_read_raw(uint8_t write_addr,
 }
 
 /* 从大端字节序读取 16 位无符号值。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint16_t dvc_be16(const uint8_t *p) __attribute__((noinline));
 static uint16_t dvc_be16(const uint8_t *p)
 {
     return (uint16_t)(((uint16_t)p[0] << 8) | p[1]);
@@ -269,6 +275,8 @@ static uint32_t dvc_abs_i32(int32_t value)
 }
 
 /* 按分流电阻将 CC2 原始读数换算为毫安。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2) __attribute__((noinline));
 static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2)
 {
     int32_t current_num;
@@ -492,6 +500,8 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 }
 
 /* V1.2 第 32 页的共模修正查表，K 放大 10000 倍。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint16_t dvc_cell_k_x10000(uint32_t common_mode_mv) __attribute__((noinline));
 static uint16_t dvc_cell_k_x10000(uint32_t common_mode_mv)
 {
     if (common_mode_mv < 24000u) return 10000u;
@@ -576,6 +586,8 @@ static uint8_t dvc_update_reg(uint8_t reg, uint8_t clear_mask, uint8_t set_mask)
 
 #if DVC1124_HW_PROTECT_ENABLE
 /* 选择不超过请求值的最大可用电压保护延时。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms) __attribute__((noinline));
 static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms)
 {
     static const uint16_t table_ms[16] = {
@@ -602,6 +614,10 @@ static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms
 }
 
 /* OC1/OC2 延时为 (code+1)*step；向下取整，避免保护晚于请求时间。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
+                                     uint16_t step_ms,
+                                     uint16_t *actual_ms) __attribute__((noinline));
 static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
                                      uint16_t step_ms,
                                      uint16_t *actual_ms)
@@ -681,6 +697,8 @@ static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10, uint16_t *actua
 }
 
 /* 请求值与实际量化值不同时置位对应诊断标志。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual) __attribute__((noinline));
 static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual)
 {
     if (requested != actual) s_applied.quantized_mask |= bit;
@@ -1260,6 +1278,8 @@ void DVC1124_SetOutputEnabled(uint8_t enabled)
 }
 
 /* 根据有效串数生成电芯通道掩码。 */
+/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
+static uint32_t dvc_valid_cell_mask(void) __attribute__((noinline));
 static uint32_t dvc_valid_cell_mask(void)
 {
     return (s_cfg.cell_count >= 24u)
