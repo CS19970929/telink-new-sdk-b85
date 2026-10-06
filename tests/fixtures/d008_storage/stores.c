@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
@@ -50,6 +51,90 @@ static void reboot(void){
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
 static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_startup();LoadParam();assert(bms_protection_params_valid());}
+
+/* 独立按 schema 2 的已发布字节位置构造期望，不调用生产 codec。 */
+static void codec_expect_le(u8 *bytes, u32 value, unsigned width)
+{
+ for(unsigned i=0;i<width;++i) bytes[i]=(u8)(value>>(i*8u));
+}
+static u32 codec_random(u32 *seed, unsigned scenario)
+{
+ *seed=*seed*1664525u+1013904223u;
+ if(scenario==0u) return 0u;
+ if(scenario==1u) return UINT32_MAX;
+ if(scenario==2u) return 0x80018001u;
+ if(scenario==3u) return 0x80000000u;
+ return *seed;
+}
+static void test_config_codec_layout(void)
+{
+ u32 seed=0x43464732u;
+ assert(BMS_CONFIG_PAYLOAD_BYTES==322u);
+ for(unsigned scenario=0;scenario<10000u;++scenario){
+  bms_config_cache_t cfg,decoded;
+  u8 expected[322],encoded[324];
+  u16 business[7];
+  u32 system[5];
+  memset(&cfg,0,sizeof(cfg));memset(expected,0,sizeof(expected));
+  codec_expect_le(expected,BMS_PRODUCT_ID,4u);
+  for(unsigned i=0;i<65u;++i){
+   u16 value=(u16)codec_random(&seed,scenario);
+   memcpy((u8*)&cfg.protect+i*2u,&value,sizeof(value));
+   codec_expect_le(expected+4u+i*2u,value,2u);
+  }
+  for(unsigned i=0;i<5u;++i) system[i]=codec_random(&seed,scenario);
+  cfg.system.bms_type=system[0];cfg.system.series_num=system[1];
+  cfg.system.capacity_factory=system[2];cfg.system.battery_chemistry=system[3];
+  cfg.system.soc_profile_id=system[4];
+  for(unsigned i=0;i<5u;++i) codec_expect_le(expected+134u+i*4u,system[i],4u);
+  for(unsigned i=0;i<35u;++i){
+   u16 value=(u16)codec_random(&seed,scenario);
+   memcpy((u8*)&cfg.afe_hw+i*2u,&value,sizeof(value));
+   codec_expect_le(expected+154u+i*2u,value,2u);
+  }
+  for(unsigned i=0;i<24u;++i) cfg.bt_name_suffix[i]=(char)codec_random(&seed,scenario);
+  memcpy(expected+224u,cfg.bt_name_suffix,24u);
+  cfg.soc.chemistry=(u8)system[3];cfg.soc.profile_id=(u8)system[4];
+  cfg.soc.current_deadband_ma=(u16)codec_random(&seed,scenario);
+  cfg.soc.ocv_rest_prepare_s=(u16)codec_random(&seed,scenario);
+  cfg.soc.ocv_error_band_percent=(u8)codec_random(&seed,scenario);
+  cfg.soc.capacity_learning_enable=(u8)codec_random(&seed,scenario);
+  cfg.soc.hide_capacity_until_learned=(u8)codec_random(&seed,scenario);
+  codec_expect_le(expected+248u,cfg.soc.current_deadband_ma,2u);
+  codec_expect_le(expected+250u,cfg.soc.ocv_rest_prepare_s,2u);
+  expected[252]=cfg.soc.ocv_error_band_percent;
+  expected[253]=cfg.soc.capacity_learning_enable;
+  expected[254]=cfg.soc.hide_capacity_until_learned;
+  for(unsigned i=0;i<7u;++i) business[i]=(u16)codec_random(&seed,scenario);
+  cfg.user.heater_enable=business[0];cfg.user.heater_start_x10=business[1];
+  cfg.user.heater_stop_x10=business[2];cfg.user.balance_enable=business[3];
+  cfg.user.balance_start_mv=business[4];cfg.user.balance_start_delta_mv=business[5];
+  cfg.user.balance_stop_delta_mv=business[6];
+  for(unsigned i=0;i<7u;++i) codec_expect_le(expected+256u+i*2u,business[i],2u);
+  /* memcpy 覆盖负值和 INT32_MIN 的位模式，不依赖越界有符号转换。 */
+  u32 offset=codec_random(&seed,scenario);
+  memcpy(&cfg.user.current_offset_ma,&offset,sizeof(offset));
+  cfg.user.current_gain_ppm=codec_random(&seed,scenario);
+  codec_expect_le(expected+270u,offset,4u);
+  codec_expect_le(expected+274u,cfg.user.current_gain_ppm,4u);
+  for(unsigned i=0;i<32u;++i) cfg.user.serial[i]=(char)codec_random(&seed,scenario);
+  memcpy(expected+278u,cfg.user.serial,32u);
+  for(unsigned i=0;i<6u;++i){
+   cfg.revisions[i]=(u16)codec_random(&seed,scenario);
+   codec_expect_le(expected+310u+i*2u,cfg.revisions[i],2u);
+  }
+  memset(encoded,0xa5,sizeof(encoded));bms_config_encode(&cfg,encoded+1u);
+  assert(encoded[0]==0xa5 && encoded[323]==0xa5);
+  assert(!memcmp(encoded+1u,expected,sizeof(expected)));
+  expected[255]=0xffu; /* 保留字节忽略，BLE 后缀末字节强制 NUL。 */
+  cfg.bt_name_suffix[23]='\0';
+  memset(&decoded,0xa5,sizeof(decoded));bms_config_decode(&decoded,expected);
+  assert(!memcmp(&decoded,&cfg,sizeof(cfg)));
+ }
+ puts("PASS Config codec: 10000 independent 322-byte vectors, signed/high-bit fields, reserved byte, guards, native ABI padding");
+ printf("BMS_EVIDENCE {\"config_codec\":{\"cases\":10000,\"payload_bytes\":322,\"user_native_bytes\":%u,\"calibration_native_offset\":%u}}\n",
+        (unsigned)sizeof(bms_user_params_t),(unsigned)offsetof(bms_user_params_t,current_offset_ma));
+}
 static void test_config_schema(void){
  fresh(); bms_config_system_params_t cap=g_bms_config.system;
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
@@ -339,4 +424,4 @@ static void test_protection_commit(void) {
  puts("PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent");
 }
 
-int main(void){test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+int main(void){test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

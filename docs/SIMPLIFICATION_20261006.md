@@ -140,3 +140,21 @@ AFE requested/effective 逐字读取经过审核后保留：Config 未 ready 时
 | 公共声明、全局/static 状态、产品默认 | 未改变 |
 
 源码指标、六配置前后对照、本机完整 host、TC32 六 production 资源及四产品镜像/静态收据统一放在树外 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/protocol-simplify-20261006-a1f69829/`；以各报告的实际输入指纹和 Git commit 为准。最终镜像仍在当前项目 `firmware/`，编译优化保持原配置。资源与 CI 结果按实际提交留证，不复用本节前面的固定历史数值。后续仍可审查参数编解码与构建输入扫描；requested/effective、存储事务和物理恢复证据继续保留。
+
+## 继续简化 Config 固定字段编解码
+
+起点为 `8594eb5ac07c828c769aac53422a6c5f8122eea7`。Config 内的软件保护、AFE requested profile、七个业务参数和六个更新编号，共用两个局部 16 位编解码函数；蓝牙后缀直接复制固定字节。默认值构造 `bms_config_user_defaults()` 只有本模块消费者，收回 `static` 并删除公共声明。没有增加文件、公共 API 或运行状态。
+
+共用范围只包括连续 `u16`。业务参数前缀长度以编译断言约束，字段顺序以独立按名称构造的字节期望校验；校准 offset/gain 和 SN 仍逐字段放到原位置。PC 默认 ABI 的用户结构为 56 字节、offset 字段位置为 16；packed 用户结构为 54 字节、offset 位置为 14。结构体 padding 不落盘，CFG2 schema 2 的 payload 始终为 322 字节。编译断言使用 TC32/GCC 已有的 `__builtin_offsetof`，因为 TC32 `<stddef.h>` 与 SDK `size_t` 定义冲突；SDK 类型、ABI 与工具链不改动。
+
+固定位置的独立测试覆盖 10,000 组记录：零值、全置位、最高位/负 offset、`INT32_MIN`、随机字段、六个编号、预留字节忽略、蓝牙末尾 NUL 和写入哨兵。同一新夹具分别编译起点与修改后完整 Config/State/Event/parameter 模块，在普通与 packed 用户结构下均验证；每个布局还运行现有编号策略和 101..109 编号策略。字节序错误、业务字段偏移错误和解码值错误三个 mutation 均由独立字节/字段断言拒绝，编译失败不计作发现 mutation。
+
+存储测试复用现有 `run_c`，保留三个执行程序及原有逐字节写中断、缓存回滚、启动授权、64 种 Config 更新组合、State/Event 独立更新、SN 会话和 platform 排他/页写/重试场景，并接入既有 ASan/UBSan job。fixture 中 Flash、部分产品默认构造和参数 validator 仍为替身；它证明生产存储代码的 host 行为，不证明实板掉电、设备参数实读或 OTA 验收。
+
+修正后 Windows 完整 host 175/175、CMake 3/3 通过；存储检查在 WSL 的四产品 ASan/UBSan 运行全部通过，输入文件指纹与最终 Windows host 一致，运行期间源码与 HEAD 未改变。完整 sanitizer 范围和九项 CI 的成绩单另以最终提交收据为准。
+
+本轮自有 C/H 文件仍为 115 个，总物理行 23,944→23,939，Config C 为 576→573 行。主要收益是共用八段重复字段处理和减少一个公共接口，不把少量行数变化称为整仓库重复率改善。生产优化参数保持不变；整机 Flash/RAM、编译警告和镜像身份以最终 clean commit 的六配置链接收据为准。
+
+正式证据统一位于树外 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/config-codec-20261006-8594eb5a/`：`codec-differential.json`、`source-metrics.json`、`host-final/`、`sanitizers-storage-final/`、`resources-differential.json`、`images-report.json` 和 CI 收据。最终四产品 BIN/manifest 继续放当前项目 `firmware/`，没有另建 worktree。早期 SDK 头冲突和全 fixture packing 探针的编译失败保留为探索记录，最终验证仅采用修正后冻结输入，不抑制这些警告或以探索结果冒充通过。
+
+协议 wire 的大端 word 顺序与 Flash 小端布局仍分别处理；保存事务、产品 tag/schema 拒绝、更新编号、校准算法和保护输出语义不变。构建扫描暂时保留全部输入哈希：收窄到依赖缓存还需证明新头文件遮蔽、`.inc`、工具/库变化及跨 profile 的失效规则，目前不为减少扫描引入新的缓存状态。

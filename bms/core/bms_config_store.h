@@ -26,8 +26,6 @@ typedef struct {
     u32 current_gain_ppm;
     char serial[32];
 } bms_user_params_t;
-/* 构造用户业务参数默认值。 */
-void bms_config_user_defaults(bms_user_params_t *value);
 /* 检查用户业务参数范围与一致性。 */
 int bms_config_user_valid(const bms_user_params_t *value);
 /* 从配置缓存取得用户业务参数。 */

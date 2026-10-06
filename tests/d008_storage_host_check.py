@@ -4,8 +4,9 @@ Parameter validators/default builders are explicit stubs here; their separate
 contracts/target build cover actual product definitions, not this host harness.
 """
 from pathlib import Path
-from project_paths import Sources, host_includes, selected_source
-import re, subprocess, tempfile, os, shlex
+from project_paths import Sources
+import re, tempfile
+from validation_support import run_c
 ROOT=Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
 def source(n):
@@ -20,22 +21,20 @@ def main():
     units='\n'.join(source(n) for n in ['bms_config_store.c','bms_state_store.c','bms_event_log.c','param.c'])
     fixture=(ROOT/'tests/fixtures/d008_storage/stores.c').read_text()
     code=fixture.replace('/* PARAMETER_PROTOCOL */',source('bms_parameter_access.h')+'\n'+source('bms_parameter_access.c')).replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
+    sources=[str((MOD/n).relative_to(ROOT)) for n in ('storage_record.c','bms_diag.c')]
+    flags=['-Wno-unused-function','-include',str(MOD/'bms_diag.h')]
+    run_c(code,sources=sources,flags=flags,name='semantic_stores')
     with tempfile.TemporaryDirectory(prefix='d008-storage-') as d:
-        p=Path(d)/'stores.c';p.write_text(code); exe=Path(d)/'stores'
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function',*host_includes(ROOT),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
         # 发布编号可任意递增，回归不能绑定当前版本 1。仍编译同一套生产实现。
         policy = (MOD/'bms_parameter_policy.h').read_text()
         revisions = iter(range(101, 110))
         policy = re.sub(r'(#define BMS_UPDATE_\w+_REVISION)\s+\d+u',
                         lambda match: match[1]+' '+str(next(revisions))+'u', policy)
         (Path(d)/'bms_parameter_policy.h').write_text(policy)
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-I',d,*host_includes(ROOT),str(p),str(MOD/'storage_record.c'),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
-        platform=(ROOT/'tests/fixtures/d008_storage/platform.c').read_text()
-        platform=platform.replace('/* MACROS */',macros).replace('/* TYPES */',source('bms_storage_platform.h'))
-        unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]
-        p.write_text(platform.replace('/* PRODUCTION */',unit))
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-include',str(MOD/'storage_port.h'),str(p),str(MOD/'bms_diag.c'),'-include',str(MOD/'bms_diag.h'),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
+        run_c(code,sources=sources,flags=['-I',d,*flags],name='semantic_stores_revisions')
+    platform=(ROOT/'tests/fixtures/d008_storage/platform.c').read_text()
+    platform=platform.replace('/* MACROS */',macros).replace('/* TYPES */',source('bms_storage_platform.h'))
+    unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]
+    run_c(platform.replace('/* PRODUCTION */',unit),sources=[sources[1]],
+          flags=['-Wno-unused-function','-include',str(MOD/'storage_port.h'),*flags[1:]],name='storage_platform')
 if __name__=='__main__': main()

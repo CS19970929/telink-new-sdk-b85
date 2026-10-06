@@ -23,6 +23,7 @@
 #define BMS_CONFIG_AFE_WORDS             35u
 #define BMS_CONFIG_BTNAME_BYTES          24u
 #define BMS_CONFIG_USER_BYTES            54u
+#define BMS_CONFIG_USER_BUSINESS_WORDS   7u
 
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
@@ -36,6 +37,8 @@
 typedef char bms_config_protect_layout_must_be_65_words[(sizeof(struct PRT_E2ROM_PARAS) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
 typedef char bms_config_system_layout_must_be_5_words[(sizeof(bms_config_system_params_t) == BMS_CONFIG_SYSTEM_BYTES) ? 1 : -1];
 typedef char bms_config_afe_layout_must_be_35_words[(sizeof(bms_afe_hw_profile_t) == BMS_CONFIG_AFE_BYTES) ? 1 : -1];
+/* 只共享连续的七个 u16；校准字段仍逐字段编码。TC32 的 stddef.h 与 SDK size_t 冲突。 */
+typedef char bms_config_user_business_layout_must_be_7_words[(__builtin_offsetof(bms_user_params_t, balance_stop_delta_mv) + sizeof(u16) == BMS_CONFIG_USER_BUSINESS_WORDS * 2u) ? 1 : -1];
 
 typedef struct {
     u16 revisions[BMS_UPDATE_CONFIG_GROUP_COUNT];
@@ -54,6 +57,7 @@ static u8 g_bms_config_ready;
 /* 仅在加载/发布配置时重算，不逐样本计算。 */
 static u8 g_bms_config_user_valid;
 static u8 g_bms_config_needs_save;
+static void bms_config_user_defaults(bms_user_params_t *value);
 
 /* 将 16 位值按小端写入存储缓冲区。 */
 static void bms_config_put_u16le(u8 *buf, u16 value)
@@ -82,6 +86,25 @@ static u32 bms_config_get_u32le(const u8 *buf)
 {
     return ((u32)buf[0]) | ((u32)buf[1] << 8) |
            ((u32)buf[2] << 16) | ((u32)buf[3] << 24);
+}
+
+/* memcpy 读取原生值，避免 packed 参数块的未对齐访问和类型别名问题。 */
+static void bms_config_encode_words(u8 *payload, const void *values, u16 count)
+{
+    u16 i, word;
+    for (i = 0u; i < count; ++i) {
+        memcpy(&word, (const u8 *)values + i * 2u, sizeof(word));
+        bms_config_put_u16le(payload + i * 2u, word);
+    }
+}
+
+static void bms_config_decode_words(void *values, const u8 *payload, u16 count)
+{
+    u16 i, word;
+    for (i = 0u; i < count; ++i) {
+        word = bms_config_get_u16le(payload + i * 2u);
+        memcpy((u8 *)values + i * 2u, &word, sizeof(word));
+    }
 }
 
 /* 取得产品软件保护默认配置。 */
@@ -122,71 +145,54 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
 /* 按 CFG2 固定字段顺序编码配置记录。 */
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
 {
-    u16 word;
     u32 system_word;
     u16 off = 4u;
     u16 i;
 
     bms_config_put_u32le(payload, BMS_PRODUCT_ID);
-    for (i = 0u; i < BMS_CONFIG_PROTECT_WORDS; ++i) {
-        memcpy(&word, (const u8 *)&cfg->protect + i * 2u, sizeof(word));
-        bms_config_put_u16le(&payload[off], word); off = (u16)(off + 2u);
-    }
+    bms_config_encode_words(&payload[off], &cfg->protect, BMS_CONFIG_PROTECT_WORDS);
+    off += BMS_CONFIG_PROTECT_BYTES;
     for (i = 0u; i < BMS_CONFIG_SYSTEM_WORDS; ++i) {
         memcpy(&system_word, (const u8 *)&cfg->system + i * 4u, sizeof(system_word));
         bms_config_put_u32le(&payload[off], system_word); off = (u16)(off + 4u);
     }
-    for (i = 0u; i < BMS_CONFIG_AFE_WORDS; ++i) {
-        memcpy(&word, (const u8 *)&cfg->afe_hw + i * 2u, sizeof(word));
-        bms_config_put_u16le(&payload[off], word); off = (u16)(off + 2u);
-    }
-    for (i = 0u; i < BMS_CONFIG_BTNAME_BYTES; ++i) payload[off++] = (u8)cfg->bt_name_suffix[i];
+    bms_config_encode_words(&payload[off], &cfg->afe_hw, BMS_CONFIG_AFE_WORDS);
+    off += BMS_CONFIG_AFE_BYTES;
+    memcpy(&payload[off], cfg->bt_name_suffix, BMS_CONFIG_BTNAME_BYTES);
+    off += BMS_CONFIG_BTNAME_BYTES;
     bms_config_put_u16le(&payload[off], cfg->soc.current_deadband_ma); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->soc.ocv_rest_prepare_s); off += 2u;
     payload[off++] = cfg->soc.ocv_error_band_percent;
     payload[off++] = cfg->soc.capacity_learning_enable;
     payload[off++] = cfg->soc.hide_capacity_until_learned;
     payload[off++] = 0u;
-    bms_config_put_u16le(&payload[off], cfg->user.heater_enable); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.heater_start_x10); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.heater_stop_x10); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.balance_enable); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.balance_start_mv); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.balance_start_delta_mv); off += 2u;
-    bms_config_put_u16le(&payload[off], cfg->user.balance_stop_delta_mv); off += 2u;
+    bms_config_encode_words(&payload[off], &cfg->user, BMS_CONFIG_USER_BUSINESS_WORDS);
+    off += BMS_CONFIG_USER_BUSINESS_WORDS * 2u;
     bms_config_put_u32le(&payload[off], (u32)cfg->user.current_offset_ma); off += 4u;
     bms_config_put_u32le(&payload[off], cfg->user.current_gain_ppm); off += 4u;
     memcpy(&payload[off], cfg->user.serial, sizeof(cfg->user.serial));
     off += sizeof(cfg->user.serial);
-    for (i = 0u; i < BMS_UPDATE_CONFIG_GROUP_COUNT; ++i) {
-        bms_config_put_u16le(&payload[off], cfg->revisions[i]);
-        off += 2u;
-    }
-
+    bms_config_encode_words(&payload[off], cfg->revisions, BMS_UPDATE_CONFIG_GROUP_COUNT);
 }
 
-/* 校验 CFG2 的版本、产品 tag 和字段边界；各参数组是否更新由产品独立更新编号决定。 */
+/* 解码固定字段；调用者负责版本、产品 tag 和参数有效性校验。 */
 static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
 {
-    u16 word;
     u32 system_word;
     u16 off = 4u;
     u16 i;
 
     memset(cfg, 0, sizeof(*cfg));
-    for (i = 0u; i < BMS_CONFIG_PROTECT_WORDS; ++i) {
-        word = bms_config_get_u16le(&payload[off]); off = (u16)(off + 2u);
-        memcpy((u8 *)&cfg->protect + i * 2u, &word, sizeof(word));
-    }
+    bms_config_decode_words(&cfg->protect, &payload[off], BMS_CONFIG_PROTECT_WORDS);
+    off += BMS_CONFIG_PROTECT_BYTES;
     for (i = 0u; i < BMS_CONFIG_SYSTEM_WORDS; ++i) {
         system_word = bms_config_get_u32le(&payload[off]); off = (u16)(off + 4u);
         memcpy((u8 *)&cfg->system + i * 4u, &system_word, sizeof(system_word));
     }
-    for (i = 0u; i < BMS_CONFIG_AFE_WORDS; ++i) {
-        word = bms_config_get_u16le(&payload[off]); off = (u16)(off + 2u);
-        memcpy((u8 *)&cfg->afe_hw + i * 2u, &word, sizeof(word));
-    }
-    for (i = 0u; i < BMS_CONFIG_BTNAME_BYTES; ++i) cfg->bt_name_suffix[i] = (char)payload[off++];
+    bms_config_decode_words(&cfg->afe_hw, &payload[off], BMS_CONFIG_AFE_WORDS);
+    off += BMS_CONFIG_AFE_BYTES;
+    memcpy(cfg->bt_name_suffix, &payload[off], BMS_CONFIG_BTNAME_BYTES);
+    off += BMS_CONFIG_BTNAME_BYTES;
     cfg->bt_name_suffix[BMS_CONFIG_BTNAME_BYTES - 1u] = '\0';
     cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
     cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
@@ -196,22 +202,13 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->soc.capacity_learning_enable = payload[off++];
     cfg->soc.hide_capacity_until_learned = payload[off++];
     off++; /* 预留字段。 */
-    cfg->user.heater_enable = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.heater_start_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.heater_stop_x10 = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.balance_enable = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.balance_start_mv = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.balance_start_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
-    cfg->user.balance_stop_delta_mv = bms_config_get_u16le(&payload[off]); off += 2u;
+    bms_config_decode_words(&cfg->user, &payload[off], BMS_CONFIG_USER_BUSINESS_WORDS);
+    off += BMS_CONFIG_USER_BUSINESS_WORDS * 2u;
     cfg->user.current_offset_ma = (int32_t)bms_config_get_u32le(&payload[off]); off += 4u;
     cfg->user.current_gain_ppm = bms_config_get_u32le(&payload[off]); off += 4u;
     memcpy(cfg->user.serial, &payload[off], sizeof(cfg->user.serial));
     off += sizeof(cfg->user.serial);
-    for (i = 0u; i < BMS_UPDATE_CONFIG_GROUP_COUNT; ++i) {
-        cfg->revisions[i] = bms_config_get_u16le(&payload[off]);
-        off += 2u;
-    }
-
+    bms_config_decode_words(cfg->revisions, &payload[off], BMS_UPDATE_CONFIG_GROUP_COUNT);
 }
 
 /*
@@ -464,7 +461,7 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
 }
 
 /* 构造用户业务参数默认值。 */
-void bms_config_user_defaults(bms_user_params_t *v)
+static void bms_config_user_defaults(bms_user_params_t *v)
 {
     memset(v, 0, sizeof(*v));
     v->heater_enable = 1u;
