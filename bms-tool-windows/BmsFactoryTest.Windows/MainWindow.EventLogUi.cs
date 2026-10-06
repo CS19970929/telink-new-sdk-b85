@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -7,12 +7,10 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
-    // Reading and deleting share the same operation guard.
+    // 读取历史事件时暂停轮询，沿用现有 C008/100 协议。
     private bool _eventLogReadInProgress;
     private const ushort EventLogRegister = 0xC008;
     private const ushort EventLogCount = 100;
-    private const ushort ResetEventRecordRegister = 0x1007;
-    private const ushort ResetEventRecordValue = 0x0001;
 
     private void AddEventLogTab()
     {
@@ -28,9 +26,6 @@ public partial class MainWindow
         var readButton = new Button { Content = "读取事件日志", Width = 120, Height = 30 };
         readButton.Click += ReadEventLogs_Click;
         top.Children.Add(readButton);
-        var deleteButton = new Button { Content = "删除设备日志", Width = 120, Height = 30, Margin = new Thickness(8, 0, 0, 0) };
-        deleteButton.Click += DeleteEventLogs_Click;
-        top.Children.Add(deleteButton);
 
         _eventLogStatus = new TextBlock { Text = "未读取", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
         top.Children.Add(_eventLogStatus);
@@ -107,45 +102,6 @@ public partial class MainWindow
         {
             _eventLogReadInProgress = false;
             if (sender is Button readButton) readButton.IsEnabled = true;
-            StartAutomaticRefresh();
-        }
-    }
-
-    private async void DeleteEventLogs_Click(object sender, RoutedEventArgs e)
-    {
-        if (_eventLogReadInProgress || _otaRunning || _shBusy || ShFactoryBusy()) return;
-        if (_bms is null)
-        {
-            MessageBox.Show(this, "请先连接BMS。", "删除设备日志", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        if (MessageBox.Show(this, "确认删除当前BMS的全部事件日志？删除后无法恢复。", "删除设备日志",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
-
-        _eventLogReadInProgress = true;
-        if (sender is Button button) button.IsEnabled = false;
-        try
-        {
-            _pollTimer.Stop();
-            await WaitForCommunicationIdleAsync();
-            BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
-            _eventLogStatus!.Text = "正在删除设备日志...";
-            // Sci_WrReg_0x06_Reset_EventRecord: 0x1007 = 1 resets persistent logs.
-            // The client validates the CRC, slave, function, register and value of the ACK.
-            await bms.WriteSingleRegisterAsync(ResetEventRecordRegister, ResetEventRecordValue);
-            _deviceEventLogs.Clear();
-            _eventLogStatus.Text = "设备已确认删除日志；后续事件仍会正常记录";
-            AppendLog("EVENT_LOG_DELETE_OK", "LOG");
-        }
-        catch (Exception ex)
-        {
-            if (_eventLogStatus is not null) _eventLogStatus.Text = "删除未确认，请重新读取设备日志核实";
-            ShowError("删除设备事件日志未确认，请重新读取核实", ex);
-        }
-        finally
-        {
-            _eventLogReadInProgress = false;
-            if (sender is Button deleteButton) deleteButton.IsEnabled = true;
             StartAutomaticRefresh();
         }
     }

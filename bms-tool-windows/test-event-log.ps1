@@ -11,9 +11,8 @@ foreach ($source in @($customer, $factory)) {
 }
 
 if ($customer.Contains('DeleteEventLogs') -or $customer.Contains('ResetEventRecord')) { throw "客户版不能接入日志删除" }
-if (-not $factory.Contains('deleteButton.Click += DeleteEventLogs_Click;')) { throw "完整版缺少删除入口" }
-if (-not $factory.Contains('private const ushort ResetEventRecordRegister = 0x1007;')) { throw "完整版缺少日志删除寄存器" }
-if (-not $factory.Contains('private const ushort ResetEventRecordValue = 0x0001;')) { throw "完整版缺少日志删除值" }
+
+if ($factory.Contains('DeleteEventLogs') -or $factory.Contains('ResetEventRecord')) { throw "monorepo 不提供日志清空命令" }
 
 $testRoot = Join-Path $env:LOCALAPPDATA ("CodexTemp\bms-tool-windows\event-log-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
@@ -26,9 +25,7 @@ static class Test {
     static void Main() {
         byte[] read = ModbusRtu.ReadHolding(0xC008, 100);
         Check(Convert.ToHexString(read) == "0103C0080064F9E3");
-        byte[] delete = ModbusRtu.WriteSingle(0x1007, 0x0001);
-        ModbusRtu.ValidateWriteSingleAck(delete, 0x1007, 0x0001);
-        Console.WriteLine("PASS: Windows event log uses existing C008/100 protocol only; delete command remains valid in internal build");
+        Console.WriteLine("PASS: existing C008/100 read request; both apps have no clear action.");
     }
 }
 '@ | Set-Content -LiteralPath (Join-Path $testRoot "Test.cs") -Encoding UTF8
