@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from bms_diag_host_check import function
+from validation_support import function
 
 ROOT = Path(__file__).resolve().parents[1]
 

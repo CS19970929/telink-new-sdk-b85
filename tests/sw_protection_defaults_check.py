@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
+from validation_support import function
 import re
 import shlex
 import subprocess
@@ -11,16 +12,6 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
-
-
-def function(text, signature):
-    start = text.index(signature)
-    end = text.index('{', start) + 1
-    depth = 1
-    while depth:
-        depth += (text[end] == '{') - (text[end] == '}')
-        end += 1
-    return text[start:end]
 
 
 def main():
