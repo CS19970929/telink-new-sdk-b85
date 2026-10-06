@@ -14,7 +14,6 @@
 #include "bms_event_log.h"
 #include "bms_product_config.h"
 #include "bms_state_store.h"
-#include "bms_factory_mode.h"
 #include <string.h>
 
 PARAM_T g_tParam;

@@ -62,22 +62,21 @@ class LayoutTests(unittest.TestCase):
 
     def regions(self, capacity):
         out = {}
-        for domain in ("EVENT", "STATE", "CONFIG", "FACTORY"):
+        for domain in ("EVENT", "STATE", "CONFIG"):
             base = macro(self.cfg, f"FLASH_ADDR_LAYOUT_{capacity}_{domain}_BASE")
             count = macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS")
             out[domain] = (base, base + count * self.sector)
         return out
 
     def test_every_domain_has_power_loss_rotation_room(self):
-        for domain in ("EVENT", "STATE", "CONFIG", "FACTORY"):
+        for domain in ("EVENT", "STATE", "CONFIG"):
             self.assertGreaterEqual(macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS"), 2)
 
     def test_512k_layout_is_the_reviewed_storage_v1_map(self):
         r = self.regions("512K")
-        self.assertEqual(r["EVENT"], (0x40000, 0x48000))
-        self.assertEqual(r["STATE"], (0x53000, 0x5B000))
-        self.assertEqual(r["CONFIG"], (0x5B000, 0x5F000))
-        self.assertEqual(r["FACTORY"], (0x5F000, 0x61000))
+        self.assertEqual(r["EVENT"], (0x4C000, 0x5C000))
+        self.assertEqual(r["STATE"], (0x44000, 0x4C000))
+        self.assertEqual(r["CONFIG"], (0x40000, 0x44000))
 
     def test_domains_do_not_overlap(self):
         for capacity in ("512K", "1M", "2M"):
@@ -131,7 +130,7 @@ class ArchitectureTests(unittest.TestCase):
         porth = text(PLATFORM_H)
         self.assertIn("BMS_STORAGE_DOMAIN_CONFIG", porth)
         self.assertIn("BMS_STORAGE_DOMAIN_STATE", porth)
-        self.assertIn("BMS_STORAGE_DOMAIN_FACTORY", porth)
+        self.assertNotIn("BMS_STORAGE_DOMAIN_FACTORY", porth)
         self.assertIn("BMS_STORAGE_DOMAIN_EVENT", porth)
 
     def test_semantic_stores_share_record_engine(self):
@@ -150,26 +149,18 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("bms_state_put_u32le", state)
         self.assertIn("bms_state_get_u32le", state)
 
-    def test_runtime_is_part_of_state_not_a_second_flash_engine(self):
-        run = text(RUNTIME_C)
-        self.assertIn("bms_state_store_get_runtime_min", run)
-        self.assertIn("bms_state_store_write_runtime_min", run)
-        self.assertNotIn("flash_read_page", run)
-        self.assertNotIn("runtime_crc", run)
-        # 深睡准备仅重设计时基准，不补算睡眠期间的运行时长。
-        prepare = run.split("void Runtime_PrepareForDeepSleep(void)", 1)[1].split(
-            "void Runtime_CancelPendingDeepSleep(void)", 1)[0]
-        self.assertIn("g_runtime_last_tick_32k = pm_get_32k_tick();", prepare)
-        self.assertIn("g_runtime_tick_ready = 1u;", prepare)
-        self.assertNotIn("runtime_apply_elapsed_ticks(", prepare)
+    def test_aging_module_is_removed_from_products(self):
+        self.assertFalse(RUNTIME_C.exists())
+        self.assertNotIn("runtime_min", text(STATE_C))
+        self.assertNotIn("bms_factory_mode", text(SOURCE_ORDER))
 
     def test_state_keeps_changed_value_write_semantics(self):
         state = text(STATE_C)
-        self.assertIn("memcmp(&g_bms_state, next, sizeof(*next)) == 0", state)
+        self.assertIn("memcmp(previous, payload, sizeof(payload)) == 0", state)
         self.assertIn("bms_state_store_update_and_log_if_changed", text(APP_C))
         self.assertFalse((MOD / "soc_kv_store.h").exists())
         self.assertFalse((MOD / "bms_cold_kv_store.h").exists())
-        self.assertIn("runtime_min", state)
+        self.assertNotIn("runtime_min", state)
         self.assertIn("BMS_STATE_DEFAULT_DSG    0u", text(STATE_H))
 
     def test_event_latch_is_only_advanced_after_successful_persist(self):

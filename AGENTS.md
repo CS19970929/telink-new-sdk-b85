@@ -17,7 +17,7 @@
 - 无效串位发送 61001，不计入有效串数、min/max、SOC、保护、balance/open-wire。
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。
-- 开发参数 CFG2 schema 2，旧记录拒绝；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
+- CFG2 payload 格式不变；Config/State/Event 内部 journal schema 3，旧开发布局不迁移（本次用户已授权重划业务 Flash）；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
 - 公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。

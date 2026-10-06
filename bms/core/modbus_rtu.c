@@ -30,7 +30,6 @@
 #include "bms_event_log.h"
 #include "app.h"
 #include "conf.h"
-#include "bms_factory_mode.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
 #endif
@@ -438,12 +437,6 @@ static u8 write_reg(u16 reg, u16 val)
         return bms_parameter_write(reg,1u,bytes);
     }
     if (reg==0x1102u && val==0x0Au) { deepsleep_en=true; return 0u; }
-    if (reg == BMS_EVENT_LOG_RESET_REG)
-    {
-        if (val != 0x0001u) return MB_EX_ILLEGAL_VALUE;
-        return bms_event_log_factory_reset() ? 0u : MB_EX_DEVICE_FAILURE;
-    }
-
     return MB_EX_ILLEGAL_ADDRESS;
 }
 

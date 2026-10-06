@@ -8,9 +8,9 @@
 |---|---|---|
 | 编译期产品/硬件输入 | `bms/products/<product>/` | 编译并运行新固件；固定 AFE 工作设置在 reset/init 时应用 |
 | 运行参数 | Config journal，启动加载到公共模块 | 已保存值通常优先；按分组更新编号决定覆盖 |
-| 运行状态 | State/Event journal 和 RAM | SOC、循环、老化计时、事件由各模块维护 |
+| 运行状态 | State/Event journal 和 RAM | SOC、循环、容量学习、事件由各模块维护 |
 
-修改头文件不是在线修改设备。当前 schema 2 内，编号相同保留设备值，编号不同写入该类默认；旧 schema 拒绝且不迁移。九类、回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
+修改头文件不是在线修改设备。当前内部 journal schema 3 内，编号相同保留设备值，编号不同写入该类默认；旧 schema 拒绝且不迁移。八类及一个保留槽、回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
 
 ## 2. 修改位置
 
@@ -24,7 +24,7 @@
 | 软件保护默认 | `bms/core/param.h` 的宏及 `E2P_PROTECT_DEFAULT_PRT` | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
-| OTA 更新策略 | 产品 `bms_parameter_policy.h` | 九类独立编号，不用软件版本代替 |
+| OTA 更新策略 | 产品 `bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
 `bms/core/conf.h` 引入当前产品 `bms_product_conf.h`；include 路径由构建器选择。`bms_product_config.h` 与 `bms_product_conf.h` 职责不同，改前先追 include 和使用者。

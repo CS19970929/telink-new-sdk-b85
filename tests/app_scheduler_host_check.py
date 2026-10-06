@@ -1,4 +1,4 @@
-"""Run production scheduling and aging code against observable hardware stubs."""
+"""Run production scheduling code against observable hardware stubs."""
 from validation_support import function
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
@@ -23,9 +23,8 @@ def main():
         "static void app_event_log_1s_task(void){\n" + event + "note('E');}",
         function(app, "_attribute_no_inline_ void main_loop("),
     ])
-    runtime = re.sub(r'^#include[^\n]*', '', (MOD / "bms_factory_mode.c").read_text(), flags=re.M)
     with tempfile.TemporaryDirectory(prefix="d008-scheduler-") as folder:
-        for name, production in (("scheduler", scheduler), ("bms_factory_mode", runtime)):
+        for name, production in (("scheduler", scheduler),):
             fixture = (ROOT / "tests/fixtures/d008_scheduler" / (name + ".c")).read_text()
             path = Path(folder) / (name + ".c")
             path.write_text(fixture.replace("/* PRODUCTION_SOURCE */", production))

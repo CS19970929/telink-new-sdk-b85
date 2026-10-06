@@ -43,7 +43,7 @@ python bms_tools/bms.py --product d014 resources
 | [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |
 | [AFE 原厂资料库](references/afe/README.md) · [开发使用指南](docs/AFE_REFERENCE_GUIDE.md) | 六份原 PDF、型号/版本边界、检索工具、独立审查及已知问题 |
 | [四产品配置核对表](docs/FOUR_PRODUCT_CONFIGURATION_AUDIT.md) | 固定基线的完整默认字段、量化结果和替换限制 |
-| [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | 九类编号、保留/重置、回退和启动失败 |
+| [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | 八类编号及一个保留槽、保留/重置、回退和启动失败 |
 
 ## 专题与调试
 
@@ -54,7 +54,8 @@ python bms_tools/bms.py --product d014 resources
 | [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
 | [D014 保护与恢复软件闭环](docs/D014_SAFETY_LOOP.md) | 真实参数/存储到 SPI MOS 命令、软件过流物理恢复、重初始化与测试边界 |
 | [SOC](docs/SOC.md) | 真实样本时基、OCV、学习与状态保存 |
-| [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、Factory 预留、地址和事务 |
+| [存储优化实施记录](docs/STORAGE_REFACTOR_20261006.md) | 删除老化、Event 修复、验证与硬件边界 |
+| [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 休眠/唤醒、通信与采样门禁 |
 | [D014 诊断](docs/D014_DIAGNOSTICS.md) | 温度断线、MOS 阻断、诊断快照 |
@@ -69,7 +70,7 @@ python bms_tools/bms.py --product d014 resources
 | [GitHub Actions 运维](docs/GITHUB_ACTIONS_RUNBOOK.md) | 当前 CI 矩阵、runner 条件与排查 |
 | [硬件验证清单](docs/HARDWARE_VALIDATION.md) | 四产品共同与各自的未关闭项 |
 
-2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺，本次未重新核验这些原件。产品 reference 中相应历史结论保留其证据边界。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 选择不会自动生成 NMC 保护值。开发板采用 CFG2/State/Event schema 2，不迁移旧格式，同格式按更新编号处理。源码、host、ELF、设备读回与实板波形分别留证。
+2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺，本次未重新核验这些原件。产品 reference 中相应历史结论保留其证据边界。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 选择不会自动生成 NMC 保护值。开发板采用 Config/State/Event 内部 journal schema 3，不迁移旧开发布局；CFG2 payload 和通信版本值保持，同格式按更新编号处理。老化模式及事件清空命令已删除，详见 Flash 与持久化。源码、host、ELF、设备读回与实板波形分别留证。
 
 <details>
 <summary>历史审计与固定提交证据（需要追溯时展开）</summary>

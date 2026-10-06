@@ -14,7 +14,6 @@ extern "C" {
 #define BMS_EVENT_LOG_ENTRY_COUNT     100u
 #define BMS_EVENT_LOG_REG_BASE        0xC008u
 #define BMS_EVENT_LOG_REG_COUNT       BMS_EVENT_LOG_ENTRY_COUNT
-#define BMS_EVENT_LOG_RESET_REG       0x1007u
 
 typedef enum {
     BMS_EVENT_NULL1 = 0,
@@ -45,14 +44,14 @@ typedef struct {
     u8 balance;
     u8 vcell_ovp, vbus_ovp, chg_ocp, vcell_uvp, vbus_uvp, dsg_ocp;
     u8 chg_utp, dsg_utp, chg_otp, dsg_otp, vdelta_op;
-    u8 afe2_err, cbc_err;
+    u8 afe1_err, cbc_err;
 } bms_event_log_sample_t;
 
 /* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void);
-/* 记录本次启动及启动原因。 */
+/* 记录本次启动；原协议不含启动原因。 */
 void bms_event_log_note_startup(void);
-/* 记录进入休眠的原因与当前状态。 */
+/* 追加休眠尝试并保存检查点；失败保留待保存记录。 */
 int bms_event_log_note_sleep(void);
 /* 按秒检测事件变化并按策略保存检查点。 */
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
@@ -60,8 +59,8 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
 u16 bms_event_log_read_repeat(u16 reg);
 /* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg);
-/* 按出厂恢复策略清理历史事件并保存。 */
-int bms_event_log_factory_reset(void);
+/* PM/shutdown 转换中止后允许下一次尝试追加记录。 */
+void bms_event_log_cancel_sleep(void);
 
 #ifdef __cplusplus
 }

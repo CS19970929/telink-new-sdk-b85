@@ -12,7 +12,7 @@ D014 在 `0x2A00..0x2DFF` 提供与统一上位机兼容的只读 Diagnostics sc
 
 数据直接来自 D014 的 SH3673510 8S/667µΩ实现。FET 分为 Requested、SH command、
 `BSTATUS1` AFE status，均不等于 Gate/Vgs 物理反馈。SOC 发布当前算法真实具备的 profile、OCV、
-容量和 SOH。Storage 覆盖 CONFIG/STATE/EVENT，FACTORY 当前保持 NOT_RUN。完整诊断会独立
+容量和 SOH。Storage 覆盖 CONFIG/STATE/EVENT，原 FACTORY 槽位保留 NOT_RUN，地址/大小为 0，不再分配物理区域。完整诊断会独立
 读取软件保护与 AFE Hardware Protection V2 requested/meta/effective 窗口，不依赖 D008 参数协议。
 
 ```powershell

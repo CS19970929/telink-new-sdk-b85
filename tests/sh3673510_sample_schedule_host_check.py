@@ -50,7 +50,6 @@ static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
     ++soc_calls; last_valid=v; last_current=c; last_tick=t;
 }
 static void mos_update(void) { ++mos_calls; }
-static unsigned Runtime_GetMode(void) { return 0; }
 static void bms_diag_poll_runtime(u8 v, int32_t c, u32 t, u8 factory) {
     (void)v; (void)c; (void)t; (void)factory; ++diag_calls;
 }

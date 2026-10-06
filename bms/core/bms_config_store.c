@@ -17,7 +17,7 @@
 #include <string.h>
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464732u /* 配置记录标识：CFG2。 */
-#define BMS_CONFIG_SCHEMA_VERSION        2u
+#define BMS_CONFIG_SCHEMA_VERSION        3u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          5u
 #define BMS_CONFIG_AFE_WORDS             35u
@@ -266,7 +266,11 @@ static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
+    u8 previous[BMS_CONFIG_PAYLOAD_BYTES];
     bms_config_encode(cfg, payload);
+    bms_config_encode(&g_bms_config, previous);
+    if (g_bms_config_store.has_latest && !g_bms_config_needs_save &&
+        memcmp(payload, previous, sizeof(payload)) == 0) return 1;
     if (!storage_record_save(&g_bms_config_store, payload)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
     }
@@ -293,7 +297,7 @@ int bms_config_store_init(void)
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_PORT); return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_CONFIG, &region)) { return 0; }
-    if (!storage_record_open(&g_bms_config_store, port, region, BMS_CONFIG_RECORD_MAGIC,
+    if (!g_bms_config_store.ready && !storage_record_open(&g_bms_config_store, port, region, BMS_CONFIG_RECORD_MAGIC,
                              BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OPEN); return 0;
     }
@@ -310,6 +314,9 @@ int bms_config_store_init(void)
             g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
         }
     } else {
+        if (g_bms_config_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+            bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
+        }
         g_bms_config_store.has_latest = 0u;
         bms_config_defaults(&g_bms_config);
         g_bms_config_needs_save = 1u;
@@ -324,7 +331,7 @@ int bms_config_store_init(void)
 /* 取得缓存的软件保护配置。 */
 int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect)
 {
-    if ((protect == 0) || !bms_config_ensure_ready()) return 0;
+    if ((protect == 0) || !g_bms_config_ready) return 0;
     *protect = g_bms_config.protect;
     return 1;
 }
@@ -342,7 +349,7 @@ int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
 /* 取得缓存的系统业务配置。 */
 int bms_config_store_get_system(bms_config_system_params_t *system)
 {
-    if ((system == 0) || !bms_config_ensure_ready()) return 0;
+    if ((system == 0) || !g_bms_config_ready) return 0;
     *system = g_bms_config.system;
     return 1;
 }
@@ -368,7 +375,7 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
 /* 取得缓存的独立 AFE 硬件保护配置。 */
 int bms_config_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)
 {
-    if ((profile == 0) || !bms_config_ensure_ready()) return 0;
+    if ((profile == 0) || !g_bms_config_ready) return 0;
     *profile = g_bms_config.afe_hw;
     return 1;
 }
@@ -388,7 +395,7 @@ int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size)
 {
     u16 i = 0u;
     u16 limit;
-    if ((suffix == 0) || (suffix_size == 0u) || !bms_config_ensure_ready()) return 0;
+    if ((suffix == 0) || (suffix_size == 0u) || !g_bms_config_ready) return 0;
     limit = (u16)(suffix_size - 1u);
     if (limit > BTNAME_SUFFIX_MAX_LEN) limit = BTNAME_SUFFIX_MAX_LEN;
     while ((i < limit) && (g_bms_config.bt_name_suffix[i] != '\0')) {
@@ -436,7 +443,7 @@ int bms_config_store_validate_startup(void)
 /* 取得缓存的SOC 算法配置。 */
 int bms_config_store_get_soc(bms_soc_config_t *config)
 {
-    if (config == 0 || !bms_config_ensure_ready()) return 0;
+    if (config == 0 || !g_bms_config_ready) return 0;
     *config = g_bms_config.soc;
     return bms_soc_config_valid(config);
 }
@@ -498,14 +505,14 @@ int bms_config_user_valid(const bms_user_params_t *v)
 /* 从配置缓存取得用户业务参数。 */
 int bms_config_get_user(bms_user_params_t *v)
 {
-    if (!v || !bms_config_ensure_ready()) return 0;
+    if (!v || !g_bms_config_ready) return 0;
     *v = g_bms_config.user;
     return g_bms_config_user_valid;
 }
 /* 读取持久化电流校准偏移和比例。 */
 int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm)
 {
-    if (!offset_ma || !gain_ppm || !bms_config_ensure_ready() ||
+    if (!offset_ma || !gain_ppm || !g_bms_config_ready ||
         !g_bms_config_user_valid) return 0;
     *offset_ma = g_bms_config.user.current_offset_ma;
     *gain_ppm = g_bms_config.user.current_gain_ppm;

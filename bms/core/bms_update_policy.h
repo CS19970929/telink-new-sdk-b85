@@ -16,7 +16,7 @@ typedef enum {
     BMS_UPDATE_CALIBRATION,
     BMS_UPDATE_IDENTITY,
     BMS_UPDATE_SOC_STATE,
-    BMS_UPDATE_FACTORY_RUNTIME,
+    BMS_UPDATE_RESERVED_7, /* 协议 0x2E87 保留，不再属于持久域。 */
     BMS_UPDATE_EVENTS,
     BMS_UPDATE_GROUP_COUNT
 } bms_update_group_t;
@@ -44,9 +44,6 @@ typedef enum {
 #if BMS_UPDATE_SOC_STATE_REVISION < 1 || BMS_UPDATE_SOC_STATE_REVISION > 65535
 #error "BMS_UPDATE_SOC_STATE_REVISION must be in 1..65535"
 #endif
-#if BMS_UPDATE_FACTORY_RUNTIME_REVISION < 1 || BMS_UPDATE_FACTORY_RUNTIME_REVISION > 65535
-#error "BMS_UPDATE_FACTORY_RUNTIME_REVISION must be in 1..65535"
-#endif
 #if BMS_UPDATE_EVENTS_REVISION < 1 || BMS_UPDATE_EVENTS_REVISION > 65535
 #error "BMS_UPDATE_EVENTS_REVISION must be in 1..65535"
 #endif
@@ -62,7 +59,7 @@ static inline uint16_t bms_update_revision(bms_update_group_t group)
         BMS_UPDATE_CALIBRATION_REVISION,
         BMS_UPDATE_IDENTITY_REVISION,
         BMS_UPDATE_SOC_STATE_REVISION,
-        BMS_UPDATE_FACTORY_RUNTIME_REVISION,
+        1u, /* 已废弃老化组的原协议占位。 */
         BMS_UPDATE_EVENTS_REVISION,
     };
     return (unsigned)group < BMS_UPDATE_GROUP_COUNT ? revisions[group] : 0u;

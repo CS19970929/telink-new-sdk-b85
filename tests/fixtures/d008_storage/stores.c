@@ -23,8 +23,10 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t
 /* TYPES */
 typedef struct {struct PRT_E2ROM_PARAS protect;} PARAM_T;
 static u32 now, errors, programs, erases;
+static u32 sector_erases[28];
+static int read_ok=1, erase_ok=1;
 static int cut=-1, begin_ok=1, region_ok=1;
-static u8 flash[20u*4096u];
+static u8 flash[28u*4096u];
 static u8 backup[sizeof(flash)];
 static u32 pm_get_32k_tick(void){return now;}
 static void bms_error_raise(int e){(void)e;++errors;}
@@ -35,24 +37,26 @@ void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->cu
 u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
 static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
-static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
+static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok)return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
 static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<=sizeof(flash));for(u32 i=0;i<n;i++){if(cut==0)return 0;if(cut>0)--cut;assert((flash[a+i]|b[i])==flash[a+i]);flash[a+i]&=b[i];}return 1;}
-static int erase(void*c,u32 a,u32 n){(void)c;++erases;assert(a+n<=sizeof(flash));memset(flash+a,255,n);return 1;}
+static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
-int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=8*4096;}else return 0;return 1;}
+int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else return 0;return 1;}
 uint32_t bms_diag_tick(void){return now;}
 /* PRODUCTION */
 static void reboot(void){
- bms_diag_init();region_ok=1;
+ bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;
  g_bms_config_ready=0;g_bms_state_ready=0;
+ memset(&g_bms_config_store,0,sizeof(g_bms_config_store));
+ memset(&g_bms_state_store,0,sizeof(g_bms_state_store));
  g_bms_state_attempted=0;g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
 static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_startup();LoadParam();assert(bms_protection_params_valid());}
 
-/* 独立按 schema 2 的已发布字节位置构造期望，不调用生产 codec。 */
+/* 独立按 CFG2 payload 的固定字节位置构造期望，不调用生产 codec。 */
 static void codec_expect_le(u8 *bytes, u32 value, unsigned width)
 {
  for(unsigned i=0;i<width;++i) bytes[i]=(u8)(value>>(i*8u));
@@ -177,7 +181,7 @@ static void test_state(void){
  assert(bms_state_store_write_all(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
  assert(g_bms_state.candidate_match_count==1);
 
- bms_state_persist_t old=g_bms_state,next=old;next.soc=77;next.runtime_min=33;
+ bms_state_persist_t old=g_bms_state,next=old;next.soc=77;
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_STATE_PAYLOAD_BYTES+8);byte++){
   memcpy(flash,backup,sizeof(flash));reboot();assert(bms_state_store_init());cut=byte;
@@ -185,7 +189,7 @@ static void test_state(void){
   reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
  }
  assert(bms_state_save(&next));reboot();assert(bms_state_store_init());
- assert(g_bms_state.soc==77 && g_bms_state.runtime_min==33);
+ assert(g_bms_state.soc==77);
  now=UINT32_MAX-32000;g_bms_state_last_attempt_32k=now;
  bms_state_store_update_and_log_if_changed(78,0,0);now+=(60*32000);bms_state_store_update_and_log_if_changed(79,0,0);assert(g_bms_state.soc==79);
  puts("PASS State: coalescing, failure/backoff, learning metadata/flags, atomic rollback, all byte cuts, wrap");
@@ -201,13 +205,14 @@ static void test_events(void){
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_EVENT_PAYLOAD_BYTES+8);byte++){
   memcpy(flash,backup,sizeof(flash));reboot();assert(bms_event_log_init());cut=byte;
-  assert(!bms_event_log_factory_reset());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
+  bms_event_log_note_startup();assert(!bms_event_log_write_snapshot());
+  assert((bms_event_log_read_reg(0)>>8)==BMS_START_UP);
   reboot();assert(bms_event_log_init());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
  }
- assert(bms_event_log_factory_reset());reboot();assert(bms_event_log_init());
- assert(bms_event_log_read_reg(0)==0);
+ bms_event_log_note_startup();assert(bms_event_log_write_snapshot());reboot();assert(bms_event_log_init());
+ assert((bms_event_log_read_reg(0)>>8)==BMS_START_UP);
  count=programs;assert(bms_event_log_init());assert(programs==count);
- puts("PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic reset, byte cuts");
+ puts("PASS Event: coalescing/repeats, failure retention, forced shutdown flush, atomic snapshots, byte cuts");
 }
 static void test_boot_gate(void){
  for(unsigned domain=0;domain<3;domain++){
@@ -246,7 +251,6 @@ static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
 void set_soc_param(u8 soc,u8 sync){(void)sync;live_soc=soc;}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
-static int Runtime_ReenterFactoryMode(void){return 1;}
 static u8 bms_reset_software_parameters(void){return 0;}
 static u8 bms_reset_afe_parameters(void){return access_active?0:2;}
 void WriteProID_Default(void){identity_updates++;}
@@ -262,7 +266,7 @@ static void test_parameter_protocol(void){
  assert(bms_parameter_write(0x2e40,1,commit)==3);
  for(u16 i=0;i<16;i+=4)assert(bms_parameter_write(0x2e50+i,4,chunk)==0);
  assert(programs==before);assert(bms_parameter_write(0x2e40,1,commit)==0);assert(identity_updates==1);
- reboot();assert(bms_parameter_read(0x2e30)==0x534e);
+ reboot();bms_parameters_startup();LoadParam();assert(bms_parameter_read(0x2e30)==0x534e);
  now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*32000u;
  assert(bms_parameter_write(0x2e50,4,chunk)==3);
  assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
@@ -274,13 +278,13 @@ static void test_user_parameters(void){
  assert(old.heater_enable==1 && old.heater_start_x10==400 && old.heater_stop_x10==450);
  v=old;v.heater_start_x10=460;assert(!bms_config_set_user(&v));
  v=old;v.current_offset_ma=-123;v.current_gain_ppm=1100000;strcpy(v.serial,"D008-TEST");
- assert(bms_config_set_user(&v));reboot();assert(bms_config_get_user(&old));assert(!memcmp(&old,&v,sizeof(v)));
+ assert(bms_config_set_user(&v));reboot();assert(bms_config_store_init());assert(bms_config_get_user(&old));assert(!memcmp(&old,&v,sizeof(v)));
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);byte++){
-  memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_get_user(&old));
+  memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_store_init());assert(bms_config_get_user(&old));
   bms_user_params_t next=old;next.heater_enable=0;cut=byte;assert(!bms_config_set_user(&next));
   assert(bms_config_get_user(&next));assert(next.heater_enable==1);
-  reboot();assert(bms_config_get_user(&next));assert(next.heater_enable==1 && !strcmp(next.serial,"D008-TEST"));
+  reboot();assert(bms_config_store_init());assert(bms_config_get_user(&next));assert(next.heater_enable==1 && !strcmp(next.serial,"D008-TEST"));
  }
  assert(bms_config_reset_business());assert(bms_config_get_user(&old));assert(old.current_offset_ma==-123 && !strcmp(old.serial,"D008-TEST"));
  uint32_t rng=19;
@@ -377,34 +381,32 @@ static void test_ota_config_policy(void)
 
 static void test_ota_state_events(void)
 {
-    for (unsigned domain = 0; domain < 3; ++domain) {
+    for (unsigned domain = 0; domain < 2; ++domain) {
         fresh();
         bms_state_persist_t cfg = g_bms_state;
-        cfg.soc = 88u; cfg.cycle = 99u; cfg.runtime_min = 123u;
+        cfg.soc = 88u; cfg.cycle = 99u;
         if (domain == 0u) cfg.soc_revision = other_revision(BMS_UPDATE_SOC_STATE);
-        if (domain == 1u) cfg.runtime_revision = other_revision(BMS_UPDATE_FACTORY_RUNTIME);
         assert(bms_state_save(&cfg));
         assert(bms_event_log_note_sleep());
-        if (domain == 2u) {
+        if (domain == 1u) {
             u8 payload[BMS_EVENT_PAYLOAD_BYTES]; bms_event_log_encode(payload);
             bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], other_revision(BMS_UPDATE_EVENTS));
             assert(storage_record_save(&g_bms_event_log.store, payload));
         }
         memcpy(backup, flash, sizeof(flash));
-        unsigned payload_size = domain == 2u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
+        unsigned payload_size = domain == 1u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
         for (int byte = 0; byte < (int)(24 + payload_size + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
             bms_parameters_startup(); LoadParam(); assert(!bms_protection_params_valid());
             reboot(); bms_parameters_startup(); LoadParam(); assert(bms_protection_params_valid());
             assert(g_bms_state.soc == (domain == 0u ? 60u : 88u));
             assert(g_bms_state.cycle == (domain == 0u ? 0u : 99u));
-            assert(g_bms_state.runtime_min == (domain == 1u ? 0u : 123u));
-            assert((bms_event_log_read_reg(0u) >> 8) == (domain == 2u ? 0u : BMS_SLEEP));
+            assert((bms_event_log_read_reg(0u) >> 8) == (domain == 1u ? 0u : BMS_SLEEP));
             u32 before = programs;
             reboot(); bms_parameters_startup(); LoadParam(); assert(programs == before);
         }
     }
-    puts("PASS OTA State/Event: independent SOC/runtime/event resets, every byte cut, startup inhibit, restart idempotence");
+    puts("PASS OTA State/Event: independent SOC/event resets, every byte cut, startup inhibit, restart idempotence");
 }
 
 static void test_protection_commit(void) {
@@ -416,7 +418,7 @@ static void test_protection_commit(void) {
   assert(!bms_protection_params_commit(&next));
   assert(!memcmp(&g_tParam.protect,&old,sizeof(old)) && bms_protection_params_valid());
   assert(bms_config_store_get_protect(&loaded) && !memcmp(&loaded,&old,sizeof(old)));
-  memcpy(flash,backup,sizeof(flash));cut=-1;
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_startup();LoadParam();
  }
  assert(!bms_protection_params_commit(0));assert(bms_protection_params_valid());
  assert(bms_protection_params_commit(&next));assert(!memcmp(&g_tParam.protect,&next,sizeof(next)));
@@ -424,4 +426,71 @@ static void test_protection_commit(void) {
  puts("PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent");
 }
 
-int main(void){test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+
+
+static void test_storage_reliability(void){
+ fresh();u32 seq=g_bms_config_store.next_sequence;
+ for(unsigned i=0;i<10;++i)assert(bms_config_reset_business());
+ assert(g_bms_config_store.next_sequence==seq);
+ unsigned slots=g_bms_state_store.slots_per_sector;
+ for(unsigned i=1;i<slots;++i)assert(bms_state_store_write_all(i%100,0,i));
+ u32 old=g_bms_state.soc,old_addr=g_bms_state_store.latest_addr;
+ u32 before_erase=erases,before_program=programs;cut=0;now=60u*32000u;
+ for(unsigned i=0;i<120;++i){bms_state_store_update_and_log_if_changed(77,0,77);now+=5u*32000u;}
+ assert(erases-before_erase==1);assert(programs-before_program==3);
+ assert(g_bms_state_store.latest_addr==old_addr && g_bms_state.soc==old);
+ reboot();assert(bms_state_store_init());assert(g_bms_state.soc==old);
+ fresh();old_addr=g_bms_state_store.latest_addr;cut=10;
+ assert(!bms_state_store_write_all(77,0,77));cut=-1;now+=5u*32000u;before_erase=erases;
+ assert(bms_state_store_write_all(78,0,78));assert(erases==before_erase);
+ assert(g_bms_state_store.latest_addr==old_addr+2u*g_bms_state_store.slot_size);
+ fresh();slots=g_bms_state_store.slots_per_sector;
+ for(unsigned i=1;i<slots;++i)assert(bms_state_store_write_all(i%100,0,i));
+ old_addr=g_bms_state_store.latest_addr;before_erase=erases;before_program=programs;erase_ok=0;
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_write_all(77,0,77));now+=5u*32000u;}
+ assert(erases-before_erase==3u && programs==before_program);
+ assert(g_bms_state_store.latest_addr==old_addr);
+ fresh();begin_ok=0;before_erase=erases;before_program=programs;
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_write_all(77,0,77));now+=5u*32000u;}
+ assert(erases==before_erase && programs==before_program && g_bms_state_store.write_failures==0u);
+ begin_ok=1;assert(bms_state_store_write_all(77,0,77));
+ for(unsigned domain=0;domain<3;++domain){
+  fresh();reboot();read_ok=0;before_program=programs;before_erase=erases;
+  assert(!bms_config_get_user(&(bms_user_params_t){0}));
+  assert(bms_event_log_read_reg(0)==0 && bms_event_log_read_repeat(0)==0);
+  if(domain==0)assert(!bms_config_store_init());
+  if(domain==1)assert(!bms_state_store_init());
+  if(domain==2)assert(!bms_event_log_init());
+  assert(programs==before_program && erases==before_erase);
+ }
+ puts("PASS storage: no-op Config, 120 failures bounded to 3 writes/1 erase, partial-slot reuse, IO errors never default-write, cache-only reads");
+}
+static void test_event_semantics(void){
+ bms_event_log_sample_t sample={0};
+ fresh();sample.vcell_ovp=1;now=59u*32000u;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=0;now=60u*32000u;bms_event_log_poll_1s(&sample);
+ assert(!g_bms_event_log.dirty);u16 pos=g_bms_event_log.write_pos;
+ sample.vcell_ovp=1;now=61u*32000u;bms_event_log_poll_1s(&sample);
+ assert(pos==g_bms_event_log.write_pos && bms_event_log_read_repeat(0)==2 && g_bms_event_log.dirty);
+ fresh();memset(&sample,0,sizeof(sample));bms_event_log_note_startup();
+ now=3700u*32000u;sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
+ assert(bms_event_log_read_reg(0)==((VCELL_OVP<<8)|2u));
+ fresh();memset(&sample,0,sizeof(sample));sample.cbc_err=1;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);pos=g_bms_event_log.write_pos;
+ sample.cbc_err=0;bms_event_log_poll_1s(&sample);assert(pos==g_bms_event_log.write_pos);
+ assert(bms_event_log_note_sleep());bms_event_log_cancel_sleep();
+ assert(bms_event_log_note_sleep());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
+ assert(g_bms_event_log.write_pos==pos+2u);
+ fresh();memset(&sample,0,sizeof(sample));sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
+ reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0);
+ fresh();memset(&sample,0,sizeof(sample));
+ now=UINT32_MAX-16000u;g_bms_event_log.clock_tick_32k=now;
+ now+=32000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
+ now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
+ now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==2u);
+ sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);u8 payload[BMS_EVENT_PAYLOAD_BYTES];
+ bms_event_log_encode(payload);payload[2]=255;assert(!bms_event_log_decode(payload));
+ puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
+}
+
+int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

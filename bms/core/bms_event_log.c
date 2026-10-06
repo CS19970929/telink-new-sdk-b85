@@ -17,7 +17,7 @@
 #define BMS_EVENT_RECORD_MAGIC          0x45563200u + BMS_PRODUCT_ID /*
  * 事件标识为 EV2 加产品编号。
  */
-#define BMS_EVENT_SCHEMA_VERSION        2u
+#define BMS_EVENT_SCHEMA_VERSION        3u
 #define BMS_EVENT_REPEAT_OFFSET (2u + BMS_EVENT_LOG_ENTRY_COUNT * 2u)
 #define BMS_EVENT_PAYLOAD_BYTES         (4u + (BMS_EVENT_LOG_ENTRY_COUNT * 4u))
 
@@ -32,7 +32,9 @@ typedef struct {
     u32 interval_s;
     u8 ready;
     u8 event_latched[EVENT_NUM];
-    u8 cbc_last;
+    u32 clock_tick_32k;
+    u16 clock_fraction_32k;
+    u8 merge_ready;
     storage_record_store_t store;
 } bms_event_log_ctx_t;
 
@@ -61,8 +63,25 @@ static u16 bms_event_log_get_u16le(const u8 *buf)
 static void bms_event_log_clear_runtime_flags(void)
 {
     memset(g_bms_event_log.event_latched, 0, sizeof(g_bms_event_log.event_latched));
-    g_bms_event_log.cbc_last = 0u;
+    g_bms_event_log.clock_tick_32k = pm_get_32k_tick();
+    g_bms_event_log.clock_fraction_32k = 0u;
+    g_bms_event_log.merge_ready = 0u;
     g_bms_event_log.interval_s = 0u;
+}
+
+/* 按实际 32K 差值累计；每次调用间隔须短于约 37 小时的 tick 回绕周期。 */
+static void bms_event_log_advance_time(void)
+{
+    u32 now = pm_get_32k_tick();
+    u32 delta = now - g_bms_event_log.clock_tick_32k;
+    u32 seconds = delta / 32000u;
+    u32 fraction = delta % 32000u + g_bms_event_log.clock_fraction_32k;
+    const u32 limit = 168u * 3600u + 1u;
+    g_bms_event_log.clock_tick_32k = now;
+    seconds += fraction / 32000u;
+    g_bms_event_log.clock_fraction_32k = (u16)(fraction % 32000u);
+    if (seconds >= limit - g_bms_event_log.interval_s) g_bms_event_log.interval_s = limit;
+    else g_bms_event_log.interval_s += seconds;
 }
 
 /* 仅复位 RAM 历史事件状态，不擦除持久记录。 */
@@ -92,6 +111,15 @@ static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
     u16 write_pos = bms_event_log_get_u16le(&payload[0]);
     if (write_pos >= BMS_EVENT_LOG_ENTRY_COUNT ||
         bms_event_log_get_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u]) != BMS_UPDATE_EVENTS_REVISION) return 0;
+    for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i) {
+        u8 event = payload[2u + 2u * i];
+        u8 time = payload[3u + 2u * i];
+        u16 repeat = bms_event_log_get_u16le(&payload[BMS_EVENT_REPEAT_OFFSET + 2u * i]);
+        if (event >= EVENT_NUM || (event == 0u && (time != 0u || repeat != 0u)) ||
+            (event != 0u && (repeat == 0u ||
+             (time == 0u && event != BMS_START_UP) ||
+             (time > 168u && time != 170u && time != 171u)))) return 0;
+    }
     g_bms_event_log.write_pos = write_pos;
     memcpy(g_bms_event_log.records, &payload[2], sizeof(g_bms_event_log.records));
     for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i)
@@ -142,16 +170,21 @@ static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
     if (!g_bms_event_log.ready) return 0;
     pos = g_bms_event_log.write_pos;
     previous = pos ? (u16)(pos - 1u) : (BMS_EVENT_LOG_ENTRY_COUNT - 1u);
-    if (g_bms_event_log.dirty && !startup_event && event != BMS_SLEEP &&
+    if (g_bms_event_log.merge_ready && !startup_event && event != BMS_SLEEP &&
         g_bms_event_log.records[previous][0] == (u8)event &&
         g_bms_event_log.interval_s <= 60u) {
-        if (g_bms_event_log.repeats[previous] != 65535u) ++g_bms_event_log.repeats[previous];
+        if (g_bms_event_log.repeats[previous] != 65535u) {
+            ++g_bms_event_log.repeats[previous];
+            g_bms_event_log.dirty = 1u;
+        }
         return 1;
     }
     g_bms_event_log.records[pos][0] = (u8)event;
     g_bms_event_log.records[pos][1] = startup_event ? 0u :
         bms_event_log_map_interval(&g_bms_event_log.interval_s);
+    g_bms_event_log.clock_fraction_32k = 0u;
     g_bms_event_log.repeats[pos] = 1u;
+    g_bms_event_log.merge_ready = (!startup_event && event != BMS_SLEEP) ? 1u : 0u;
     g_bms_event_log.write_pos = (u16)((pos + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
     g_bms_event_log.dirty = 1u;
     return 1;
@@ -170,14 +203,6 @@ static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
     }
 }
 
-/* 检测运行字段变化并记录历史事件。 */
-static void bms_event_log_track_change(u8 value, bms_event_log_id_t event)
-{
-    if ((g_bms_event_log.cbc_last != value) && bms_event_log_append(event, 0)) {
-        g_bms_event_log.cbc_last = value;
-    }
-}
-
 /* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void)
 {
@@ -192,11 +217,14 @@ int bms_event_log_init(void)
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
-    if (!storage_record_open(&g_bms_event_log.store, port, region, BMS_EVENT_RECORD_MAGIC,
+    if (!g_bms_event_log.store.ready && !storage_record_open(&g_bms_event_log.store, port, region, BMS_EVENT_RECORD_MAGIC,
                              BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OPEN); return 0;
     }
     loaded = storage_record_load(&g_bms_event_log.store, payload) && bms_event_log_decode(payload);
+    if (g_bms_event_log.store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_INVALID); return 0;
+    }
     if (!loaded) { bms_event_log_reset_ram_only(); bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_DEFAULTS); }
     g_bms_event_log.ready = 1u;
     if (!loaded) {
@@ -212,6 +240,9 @@ int bms_event_log_init(void)
 void bms_event_log_note_startup(void)
 {
     if (!g_bms_event_log.ready && !bms_event_log_init()) return;
+    bms_event_log_advance_time();
+    g_bms_event_log.interval_s = 0u;
+    g_bms_event_log.clock_fraction_32k = 0u;
     (void)bms_event_log_append(BMS_START_UP, 1);
 }
 
@@ -219,7 +250,8 @@ void bms_event_log_note_startup(void)
 int bms_event_log_note_sleep(void)
 {
     if (!g_bms_event_log.ready && !bms_event_log_init()) return 0;
-    /* 重复失败的关机尝试不重复添加休眠标记。 */
+    bms_event_log_advance_time();
+    /* 保存失败的同一次尝试不重复追加；物理转换中止由 cancel_sleep 结束。 */
     if (!g_bms_event_log.event_latched[BMS_SLEEP]) {
         if (!bms_event_log_append(BMS_SLEEP, 0)) return 0;
         g_bms_event_log.event_latched[BMS_SLEEP] = 1u;
@@ -233,7 +265,7 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 {
     if (sample == 0) return;
     if (!g_bms_event_log.ready && !bms_event_log_init()) return;
-    if (g_bms_event_log.interval_s != 0xFFFFFFFFu) g_bms_event_log.interval_s += 1u;
+    bms_event_log_advance_time();
     bms_event_log_track_edge(sample->balance, BALANCE_OPEN);
     bms_event_log_track_edge(sample->vcell_ovp, VCELL_OVP);
     bms_event_log_track_edge(sample->vbus_ovp, VBUS_OVP);
@@ -246,8 +278,8 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
     bms_event_log_track_edge(sample->chg_otp, CHG_OTP);
     bms_event_log_track_edge(sample->dsg_otp, DSG_OTP);
     bms_event_log_track_edge(sample->vdelta_op, VDELTA_OP);
-    bms_event_log_track_edge(sample->afe2_err, AFE1_ERR);
-    bms_event_log_track_change(sample->cbc_err, CBC_ERR);
+    bms_event_log_track_edge(sample->afe1_err, AFE1_ERR);
+    bms_event_log_track_edge(sample->cbc_err, CBC_ERR);
     if (g_bms_event_log.dirty &&
         (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) >=
         (g_bms_event_log.last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_EVENT_SAVE_INTERVAL_32K))
@@ -259,41 +291,24 @@ u16 bms_event_log_read_reg(u16 reg)
 {
     u16 idx;
     if (reg >= BMS_EVENT_LOG_REG_COUNT) return 0u;
-    if (!g_bms_event_log.ready && !bms_event_log_init()) return 0u;
+    if (!g_bms_event_log.ready) return 0u;
     idx = (u16)(g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg);
     while (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
                  g_bms_event_log.records[idx][1]);
 }
 
-/* 按出厂恢复策略清理历史事件并保存。 */
-int bms_event_log_factory_reset(void)
+/* 结束未真正进入 PM 的尝试；已保存的记录仍表示进入休眠的尝试。 */
+void bms_event_log_cancel_sleep(void)
 {
-    u8 old_payload[BMS_EVENT_PAYLOAD_BYTES];
-    u8 old_latches[EVENT_NUM];
-    u8 old_dirty, old_cbc;
-    u32 old_interval;
-    if (!g_bms_event_log.ready && !bms_event_log_init()) return 0;
-    bms_event_log_encode(old_payload);
-    memcpy(old_latches, g_bms_event_log.event_latched, sizeof(old_latches));
-    old_dirty = g_bms_event_log.dirty; old_cbc = g_bms_event_log.cbc_last;
-    old_interval = g_bms_event_log.interval_s;
-    bms_event_log_reset_ram_only();
-    if (!bms_event_log_write_snapshot()) {
-        (void)bms_event_log_decode(old_payload);
-        memcpy(g_bms_event_log.event_latched, old_latches, sizeof(old_latches));
-        g_bms_event_log.dirty = old_dirty; g_bms_event_log.cbc_last = old_cbc;
-        g_bms_event_log.interval_s = old_interval;
-        return 0;
-    }
-    return 1;
+    g_bms_event_log.event_latched[BMS_SLEEP] = 0u;
 }
 
 /* 读取历史事件的重复次数信息。 */
 u16 bms_event_log_read_repeat(u16 reg)
 {
     u16 idx;
-    if (reg >= BMS_EVENT_LOG_ENTRY_COUNT || !bms_event_log_init()) return 0u;
+    if (reg >= BMS_EVENT_LOG_ENTRY_COUNT || !g_bms_event_log.ready) return 0u;
     idx = (u16)((g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg) % BMS_EVENT_LOG_ENTRY_COUNT);
     return g_bms_event_log.repeats[idx];
 }

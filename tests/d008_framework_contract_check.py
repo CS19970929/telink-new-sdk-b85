@@ -235,7 +235,8 @@ class D008FrameworkContract(unittest.TestCase):
         self.assertIn("Production build requires watchdog", self.app_config)
         self.assertIn("Production build requires software, hardware and temperature protection enabled", self.project)
         self.assertIn("sensitive_factory_write_allowed", self.parameter_access)
-        self.assertIn("Runtime_GetMode() == MODE_FACTORY", self.parameter_access)
+        self.assertNotIn("Runtime_GetMode()", self.parameter_access)
+        self.assertIn("bms_afe_hw_access_is_active()", self.parameter_access)
         self.assertGreaterEqual(self.parameter_access.count("sensitive_factory_write_allowed()"), 3)
 
     def test_no_legacy_parameter_migration(self):

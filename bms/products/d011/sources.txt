@@ -37,7 +37,6 @@ bms/core/modbus_rtu.c
 bms/platform/telink/modbus_uart.c
 bms/core/bms_parameter_access.c
 bms/core/param.c
-bms/core/bms_factory_mode.c
 bms/afe/sh3673510/sh3673510_bms.c
 bms/afe/sh3673510/sh3673510_control.c
 bms/afe/sh3673510/sh3673510_ntc.c

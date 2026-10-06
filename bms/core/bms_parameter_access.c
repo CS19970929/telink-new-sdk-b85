@@ -11,7 +11,6 @@
 #include "bms_afe.h"
 #include "bms_board.h"
 #include "drivers.h"
-#include "bms_factory_mode.h"
 #include "modbus_rtu.h"
 #include <string.h>
 /* 恢复并写入默认生产信息。 */
@@ -44,11 +43,7 @@ static u8 finish(u8 result)
 static u8 sensitive_factory_write_allowed(void)
 {
     if (!bms_afe_hw_access_is_active()) return 0u;
-#if BMS_PRODUCTION_BUILD
-    return (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u;
-#else
-    return 1u;
-#endif
+    return 1u; /* 已授权的 AFE 独占会话，不再依赖老化时长。 */
 }
 
 /* 检查业务参数地址是否允许读取。 */
@@ -170,7 +165,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         if (value == 6u)
         {
             if (!bms_afe_hw_access_is_active()) return finish(2u);
-            result = Runtime_ReenterFactoryMode() ? 0u : 4u;
+            result = 0u; /* 废弃的老化重置命令：保留原授权和应答，不写 Flash。 */
             return finish(result);
         }
         return finish(3u);

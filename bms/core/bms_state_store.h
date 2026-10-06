@@ -1,5 +1,5 @@
 /*
- * 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；
+ * 文件功能：SOC/循环/学习数据的状态记录；
  * 管理缓存、变化保存和恢复默认入口。
  * bms/core/bms_state_store.h；实际编译归属见各产品 sources.txt。
  */
@@ -67,13 +67,6 @@ int  bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
                                          u32 candidate_match_count);
 /* 仅在状态变化且策略允许时提交检查点。 */
 void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
-/* 取得累计运行分钟数。 */
-u32 bms_state_store_get_runtime_min(void);
-/* 保存累计运行分钟数。 */
-int bms_state_store_write_runtime_min(u32 runtime_min);
-/* 恢复运行计时持久状态默认值。 */
-int bms_state_store_reset_runtime(void);
-
 /* 更新 SOC 与循环次数状态并保存。 */
 int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle);
 

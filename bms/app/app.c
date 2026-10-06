@@ -47,7 +47,6 @@
 #include "bms_state_store.h"
 #include "bms_storage_platform.h"
 #include "btname_modbus.h"
-#include "bms_factory_mode.h"
 #include "param.h"
 #include <string.h>
 
@@ -218,7 +217,7 @@ static void app_event_log_1s_task(void)
 	sample.dsg_otp = g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
 	sample.vdelta_op = g_stCellInfoReport.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
 
-	sample.afe2_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
+	sample.afe1_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
@@ -269,6 +268,7 @@ static int app_enter_power_off(void)
                                SOC_Calculate_Element.u32Cycle_times) ||
         !bms_event_log_note_sleep()) return 0;
     if (!bms_afe_enter_shutdown()) {
+        bms_event_log_cancel_sleep();
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 1u);
         return 0;
     }
@@ -329,9 +329,12 @@ static int app_enter_acc_sleep(void)
                                SOC_Calculate_Element.u8DSG_SOC_Int,
                                SOC_Calculate_Element.u32Cycle_times) ||
         !bms_event_log_note_sleep()) return 0;
-    if (!gpio_read(ACC_MCU_PIN)) return 0;
-    if (bls_ll_setAdvEnable(BLC_ADV_DISABLE) != BLE_SUCCESS) return 0;
+    if (!gpio_read(ACC_MCU_PIN)) { bms_event_log_cancel_sleep(); return 0; }
+    if (bls_ll_setAdvEnable(BLC_ADV_DISABLE) != BLE_SUCCESS) {
+        bms_event_log_cancel_sleep(); return 0;
+    }
     if (!bms_afe_enter_shutdown()) {
+        bms_event_log_cancel_sleep();
         bls_ll_setAdvEnable(BLC_ADV_ENABLE);
         return 0;
     }
@@ -395,10 +398,16 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
         return 0;
     }
 
-    bms_event_log_note_sleep();
-    Runtime_PrepareForDeepSleep();
+    /* SH 保持低功耗优先级：保存失败报告诊断，不改变原来的入睡门禁。 */
+    if (!bms_state_store_write_all(SOC_Calculate_Element.u8SOC_Now,
+                                  SOC_Calculate_Element.u8DSG_SOC_Int,
+                                  SOC_Calculate_Element.u32Cycle_times))
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 1u);
+    if (!bms_event_log_note_sleep())
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 2u);
     sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
-    Runtime_CancelPendingDeepSleep();
+    bms_event_log_cancel_sleep();
+
     BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_RETURN, sleep_status, 0u);
     return ((sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM) == 0);
 }
@@ -847,7 +856,7 @@ void blt_pm_proc(void)
 		SH3673510_FIXED_UART_BLOCKS_PM ||
 		uart_tx_is_busy() || modbus_uart_tx_active() ||
 		g_stCellInfoReport.u16IDischg ||
-		// MODE_FACTORY == Runtime_GetMode() ||
+
 		ota_is_working)
 	// if(
 	// 	g_stCellInfoReport.u16IDischg
@@ -891,9 +900,9 @@ _attribute_no_inline_ void main_loop(void)
      * 最后根据新状态评估 suspend。
      */
 	blt_sdk_main_loop();
-	Runtime_Poll();
+
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_diag_runtime_mode((Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
+    bms_diag_runtime_mode(0u);
 #endif
 
 #if BMS_DEBUG_LOG_ENABLE
@@ -968,7 +977,7 @@ static void app_sample_task(void)
 #else
     bms_diag_poll_runtime(valid, valid ? m.current_ma : 0,
                          valid ? m.sample_tick_32k : pm_get_32k_tick(),
-                         (Runtime_GetMode() == MODE_FACTORY) ? 1u : 0u);
+                         0u);
 #endif
 
     /* 即使 BLE 广播间隔为 800 ms，也保持固定采样节拍。 */
@@ -1451,7 +1460,7 @@ _attribute_no_inline_ void user_init_normal(void)
 #endif
 	btname_init();
 	bms_event_log_note_startup();
-	Runtime_Init();
+
     s_sample_tick = clock_time();
     s_sample_due = 0u;
     bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);

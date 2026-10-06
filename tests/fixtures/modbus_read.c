@@ -34,7 +34,6 @@ const char *btname_get(void) { return "BT_TEST"; }
 int bms_parameter_readable(u16 r) { return r>=0x2E00u && r<=0x2E0Fu; }
 u16 bms_parameter_read(u16 r) { return (u16)(r^0x55aau); }
 int bms_config_get_user(bms_user_params_t *u) { memset(u,0,sizeof(*u)); return 1; }
-int bms_event_log_factory_reset(void) { abort(); }
 void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *p) { (void)p; abort(); }
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
 u8 bms_protection_params_commit(const struct PRT_E2ROM_PARAS *p) { (void)p; abort(); }
@@ -116,6 +115,21 @@ int main(void)
 {
     u16 words[125]={0};
     bms_diag_init(); bms_debug_log_init();
+    /* The canceled event-clear command must reject both single/block writes. */
+    for (unsigned block=0; block<2; ++block) {
+        for (unsigned broadcast=0; broadcast<2; ++broadcast) {
+            u8 req[11]={broadcast?0u:1u,block?0x10u:0x06u,0x10u,0x07u,0x12u,0x34u};
+            u8 rsp[16]; u32 length=0u; unsigned n=6u;
+            if (block) { req[4]=0u;req[5]=1u;req[6]=2u;req[7]=0x12u;req[8]=0x34u;n=9u; }
+            u16 crc=wire_crc(req,n);req[n++]=(u8)crc;req[n++]=(u8)(crc>>8);
+            assert(modbus_on_frame(req,n,rsp,&length)==!broadcast);
+            if (broadcast) assert(length==0u);
+            else {
+                assert(length==5u && rsp[0]==1u && rsp[1]==(u8)(req[1]|0x80u) && rsp[2]==2u);
+                crc=wire_crc(rsp,3u);assert(rsp[3]==(u8)crc && rsp[4]==(u8)(crc>>8));
+            }
+        }
+    }
     assert(read_address_supported(0xD000)); assert(read_address_supported(0xD03E));
     assert(!read_address_supported(0xD03F)); assert(read_address_supported(0x2140));
     assert(!read_address_supported(0x2141)); assert(!read_address_supported(0xFFFF));

@@ -367,7 +367,7 @@ D008 当前产品策略使用 DVC 电流方向作为充电会话入口，而不�
 
 ### 13.2 均衡独立参数
 
-Balance 不再复用软件压差保护参数。CFG2 schema 2 的 user payload 独立保存：
+Balance 不再复用软件压差保护参数。CFG2 格式的 user payload（当前内部 journal schema 3） 独立保存：
 
 - `balance_enable`
 - `balance_start_mv`：可调均衡起始电压；

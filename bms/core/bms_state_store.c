@@ -1,5 +1,5 @@
 /*
- * 文件功能：SOC/循环/学习数据及运行分钟数的状态记录；
+ * 文件功能：SOC/循环/学习数据的状态记录；
  * 管理缓存、变化保存和恢复默认入口。
  * bms/core/bms_state_store.c；实际编译归属见各产品 sources.txt。
  */
@@ -17,19 +17,17 @@
 #define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /*
  * 状态标识为 STB 加产品编号。
  */
-#define BMS_STATE_SCHEMA_VERSION      2u
-#define BMS_STATE_PAYLOAD_WORDS       11u
+#define BMS_STATE_SCHEMA_VERSION      3u
+#define BMS_STATE_PAYLOAD_WORDS       10u
 #define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u + 4u)
 
 typedef struct {
     u16 soc_revision;
-    u16 runtime_revision;
     u32 soc;
     u32 dsg;
     u32 cycle;
     u32 learned_capacity_0p1ah;
     u32 flags;
-    u32 runtime_min;
     u32 candidate_capacity_0p1ah;
     u32 valid_learning_count;
     u32 rejected_learning_count;
@@ -84,13 +82,11 @@ static void bms_state_defaults(bms_state_persist_t *state)
 {
     bms_state_store_data_t soc = bms_state_store_get_default_data();
     state->soc_revision = BMS_UPDATE_SOC_STATE_REVISION;
-    state->runtime_revision = BMS_UPDATE_FACTORY_RUNTIME_REVISION;
     state->soc = soc.soc;
     state->dsg = soc.dsg;
     state->cycle = soc.cycle;
     state->learned_capacity_0p1ah = soc.learned_capacity_0p1ah;
     state->flags = soc.flags;
-    state->runtime_min = 0u;
     state->candidate_capacity_0p1ah = soc.candidate_capacity_0p1ah;
     state->valid_learning_count = soc.valid_learning_count;
     state->rejected_learning_count = soc.rejected_learning_count;
@@ -106,13 +102,12 @@ static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
     bms_state_put_u32le(&payload[8], state->cycle);
     bms_state_put_u32le(&payload[12], state->learned_capacity_0p1ah);
     bms_state_put_u32le(&payload[16], state->flags);
-    bms_state_put_u32le(&payload[20], state->runtime_min);
-    bms_state_put_u32le(&payload[24], state->candidate_capacity_0p1ah);
-    bms_state_put_u32le(&payload[28], state->valid_learning_count);
-    bms_state_put_u32le(&payload[32], state->rejected_learning_count);
-    bms_state_put_u32le(&payload[36], state->last_learning_reject_reason);
-    bms_state_put_u32le(&payload[40], state->candidate_match_count);
-    bms_state_put_u32le(&payload[44], (u32)state->soc_revision | ((u32)state->runtime_revision << 16));
+    bms_state_put_u32le(&payload[20], state->candidate_capacity_0p1ah);
+    bms_state_put_u32le(&payload[24], state->valid_learning_count);
+    bms_state_put_u32le(&payload[28], state->rejected_learning_count);
+    bms_state_put_u32le(&payload[32], state->last_learning_reject_reason);
+    bms_state_put_u32le(&payload[36], state->candidate_match_count);
+    bms_state_put_u32le(&payload[40], (u32)state->soc_revision);
 }
 
 /* 验证版本、产品及字段范围后解码状态记录。 */
@@ -123,14 +118,12 @@ static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
     state->cycle = bms_state_get_u32le(&payload[8]);
     state->learned_capacity_0p1ah = bms_state_get_u32le(&payload[12]);
     state->flags = bms_state_get_u32le(&payload[16]);
-    state->runtime_min = bms_state_get_u32le(&payload[20]);
-    state->candidate_capacity_0p1ah = bms_state_get_u32le(&payload[24]);
-    state->valid_learning_count = bms_state_get_u32le(&payload[28]);
-    state->rejected_learning_count = bms_state_get_u32le(&payload[32]);
-    state->last_learning_reject_reason = bms_state_get_u32le(&payload[36]);
-    state->candidate_match_count = bms_state_get_u32le(&payload[40]);
-    state->soc_revision = (u16)bms_state_get_u32le(&payload[44]);
-    state->runtime_revision = (u16)(bms_state_get_u32le(&payload[44]) >> 16);
+    state->candidate_capacity_0p1ah = bms_state_get_u32le(&payload[20]);
+    state->valid_learning_count = bms_state_get_u32le(&payload[24]);
+    state->rejected_learning_count = bms_state_get_u32le(&payload[28]);
+    state->last_learning_reject_reason = bms_state_get_u32le(&payload[32]);
+    state->candidate_match_count = bms_state_get_u32le(&payload[36]);
+    state->soc_revision = (u16)bms_state_get_u32le(&payload[40]);
 }
 
 /* 持久状态 checkpoint；保存结果决定缓存提交，不能把 RAM 更新视为 Flash 已落盘。 */
@@ -138,13 +131,15 @@ static int bms_state_save(const bms_state_persist_t *next)
 {
     u8 payload[BMS_STATE_PAYLOAD_BYTES];
     u32 now = pm_get_32k_tick();
-    if (g_bms_state_store.has_latest && memcmp(&g_bms_state, next, sizeof(*next)) == 0) return 1;
+    u8 previous[BMS_STATE_PAYLOAD_BYTES];
+    bms_state_encode(next, payload);
+    bms_state_encode(&g_bms_state, previous);
+    if (g_bms_state_store.has_latest && memcmp(previous, payload, sizeof(payload)) == 0) return 1;
     /* 强制关机写入绕过普通间隔，但绝不绕过失败退避。 */
     if (g_bms_state_attempted && g_bms_state_last_failed &&
         (u32)(now - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
     g_bms_state_attempted = 1u;
     g_bms_state_last_attempt_32k = now;
-    bms_state_encode(next, payload);
     if (!storage_record_save(&g_bms_state_store, payload)) {
         g_bms_state_last_failed = 1u;
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
@@ -169,23 +164,18 @@ int bms_state_store_init(void)
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }
-    if (!storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
+    if (!g_bms_state_store.ready && !storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
                              BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); goto invalid;
     }
     if (storage_record_load(&g_bms_state_store, payload)) bms_state_decode(&g_bms_state, payload);
+    else if (g_bms_state_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
+    }
     else { bms_state_defaults(&g_bms_state); bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS); }
     next = g_bms_state;
     if (next.soc_revision != BMS_UPDATE_SOC_STATE_REVISION) {
-        u32 runtime_min = next.runtime_min;
-        u16 runtime_revision = next.runtime_revision;
         bms_state_defaults(&next);
-        next.runtime_min = runtime_min;
-        next.runtime_revision = runtime_revision;
-    }
-    if (next.runtime_revision != BMS_UPDATE_FACTORY_RUNTIME_REVISION) {
-        next.runtime_min = 0u;
-        next.runtime_revision = BMS_UPDATE_FACTORY_RUNTIME_REVISION;
     }
     if (next.soc > 100u || next.dsg > 100u ||
         next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
@@ -218,7 +208,7 @@ invalid:
 bms_state_store_data_t bms_state_store_get(void)
 {
     bms_state_store_data_t data = bms_state_store_get_default_data();
-    if (!bms_state_store_init()) return data;
+    if (!g_bms_state_ready) return data;
     data.soc = g_bms_state.soc;
     data.dsg = g_bms_state.dsg;
     data.cycle = g_bms_state.cycle;
@@ -281,30 +271,6 @@ void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
     interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_STATE_SAVE_INTERVAL_32K;
     if ((u32)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < interval) return;
     (void)bms_state_save(&g_bms_state_pending);
-}
-
-/* 取得累计运行分钟数。 */
-u32 bms_state_store_get_runtime_min(void)
-{
-    if (!bms_state_store_init()) return 0u;
-    return g_bms_state.runtime_min;
-}
-
-/* 保存累计运行分钟数。 */
-int bms_state_store_write_runtime_min(u32 runtime_min)
-{
-    bms_state_persist_t next;
-    if (!bms_state_store_init()) return 0;
-    next = g_bms_state_pending;
-    next.runtime_min = runtime_min;
-    g_bms_state_pending = next;
-    return bms_state_save(&next);
-}
-
-/* 恢复运行计时持久状态默认值。 */
-int bms_state_store_reset_runtime(void)
-{
-    return bms_state_store_write_runtime_min(0u);
 }
 
 /* 更新 SOC 与循环次数状态并保存。 */

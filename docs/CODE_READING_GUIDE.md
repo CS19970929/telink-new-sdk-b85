@@ -47,7 +47,7 @@ main_loop → app_sample_task（约 200 ms）
 
 ```text
 产品/公共默认 → Config default builder
-有效同产品 schema 2 记录 → 按类别比较更新编号
+有效同产品内部 journal schema 3 记录 → 按类别比较更新编号
 候选校验 → journal commit → 发布 RAM 值
 启动任一域失败 → s_storage_startup_valid=0 → 输出资格不成立
 ```
@@ -67,6 +67,6 @@ main_loop → app_sample_task（约 200 ms）
 | BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，及 `app.c` 的连接/PM/Flash 回调 |
 | 日志诊断 | `bms/core/bms_diag.c`、`bms_debug_log.c`、`bms/platform/telink/bms_runtime_diag.c` |
 | heater/balance/open-wire | `bms/app/bms_features.c`、所选 AFE `*_feature_backend.c`、产品能力输入 |
-| 工厂运行 | `bms/core/bms_factory_mode.c`、`bms_state_store.c`，累计计时归 State |
+| 状态保存 | `bms_state_store.c`；SOC/循环/学习统一 checkpoint，老化模式已删除 |
 
 每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。然后选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。

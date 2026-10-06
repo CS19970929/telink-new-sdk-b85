@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-原厂审查后的严格新写入、历史参数兼容、配置一致性门禁及验证状态见 [AFE修复记录](AFE_AUDIT_REMEDIATION.md)。35-word和存储格式保持不变。
+原厂审查后的严格新写入、历史参数兼容、配置一致性门禁及验证状态见 [AFE修复记录](AFE_AUDIT_REMEDIATION.md)。35-word AFE payload 保持；后续业务 Flash 重划与内部 journal schema 3 见 [STORAGE](STORAGE.md)。
 
 软件三级保护与 AFE 芯片硬件保护是两条独立安全通道：
 
@@ -11,7 +11,7 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_tParam.protect`。
 
-当前 monorepo 使用 CFG2 schema 2，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取编译期软件默认种子并规范化，SH 默认来自产品头文件。
+当前 monorepo 使用 CFG2 payload 格式、内部 journal schema 3，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取编译期软件默认种子并规范化，SH 默认来自产品头文件。
 
 D014 当前从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
 

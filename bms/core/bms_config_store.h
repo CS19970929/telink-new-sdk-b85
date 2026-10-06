@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-/* 四产品均使用 CFG2 schema 2，明确拒绝旧板记录。 */
+/* CFG2 payload 格式不变；内部 journal schema 3 拒绝旧开发布局。 */
 typedef struct {
     u16 heater_enable;
     u16 heater_start_x10; /* 温度编码：(degC + 40) * 10。 */

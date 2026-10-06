@@ -52,9 +52,6 @@ static void bms_storage_platform_diag_poll(void){note('2');}
 static void bms_afe_diag_poll(void){note('3');}
 static void cpu_sleep_wakeup(int m,int w,u32 t){(void)m;(void)w;assert(t==now+3200000u);note('Q');}
 static void blt_sdk_main_loop(void){note('B');}
-typedef enum {MODE_FACTORY,MODE_NORMAL} bms_mode_t;
-static bms_mode_t Runtime_GetMode(void){return MODE_NORMAL;}
-static void Runtime_Poll(void){note('R');}
 static void bms_diag_runtime_mode(u8 factory){(void)factory;}
 static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
@@ -65,13 +62,13 @@ static struct {int u8SOC_Now,u8DSG_SOC_Int,u32Cycle_times;} SOC_Calculate_Elemen
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
- main_loop();expect("123BRXUFP");
- now=3200000;main_loop();expect("123BRXUFP"); /* SDK uses strict >. */
- now++;main_loop();expect("123BRAVSMWLXUFP");assert(s_sample_tick==now&&!s_sample_due);
- s_sample_due=1;main_loop();expect("123BRAVSMWLXUFP");
- valid=0;s_sample_due=1;main_loop();expect("123BRAVSMWLXUFP");valid=1;
- now=16000001;main_loop();expect("123BRAVSMWLEXUFP");
- main_loop();expect("123BRXUFP"); /* no repeated event or sample */
+ main_loop();expect("123BXUFP");
+ now=3200000;main_loop();expect("123BXUFP"); /* SDK uses strict >. */
+ now++;main_loop();expect("123BAVSMWLXUFP");assert(s_sample_tick==now&&!s_sample_due);
+ s_sample_due=1;main_loop();expect("123BAVSMWLXUFP");
+ valid=0;s_sample_due=1;main_loop();expect("123BAVSMWLXUFP");valid=1;
+ now=16000001;main_loop();expect("123BAVSMWLEXUFP");
+ main_loop();expect("123BXUFP"); /* no repeated event or sample */
  now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("AVSMWL");
  sample_cost=3200001;s_sample_due=1;app_sample_task();expect("AVSMWL");assert(s_sample_due);
  sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSMWL");assert(s_sample_due);

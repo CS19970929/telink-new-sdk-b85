@@ -148,10 +148,6 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
         base = flash_store_cfg_get_state_base();
         sectors = flash_store_cfg_get_state_sectors();
         break;
-    case BMS_STORAGE_DOMAIN_FACTORY:
-        base = flash_store_cfg_get_factory_base();
-        sectors = flash_store_cfg_get_factory_sectors();
-        break;
     case BMS_STORAGE_DOMAIN_EVENT:
         base = flash_store_cfg_get_event_log_base();
         sectors = flash_store_cfg_get_event_log_sectors();
@@ -189,8 +185,8 @@ void bms_storage_platform_diag_boot(void)
     bms_diag_boot_u32(34u, FLASH_ADDR_CONFIG_SECTORS * FLASH_SECTOR_SIZE);
     bms_diag_boot_u32(48u, flash_store_cfg_get_state_base());
     bms_diag_boot_u32(50u, FLASH_ADDR_STATE_SECTORS * FLASH_SECTOR_SIZE);
-    bms_diag_boot_u32(64u, flash_store_cfg_get_factory_base());
-    bms_diag_boot_u32(66u, FLASH_ADDR_FACTORY_SECTORS * FLASH_SECTOR_SIZE);
+    bms_diag_boot_u32(64u, 0u);
+    bms_diag_boot_u32(66u, 0u);
     bms_diag_boot_u32(80u, flash_store_cfg_get_event_log_base());
     bms_diag_boot_u32(82u, FLASH_ADDR_EVENT_SECTORS * FLASH_SECTOR_SIZE);
 }

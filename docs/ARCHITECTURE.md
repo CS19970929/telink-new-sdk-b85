@@ -30,7 +30,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
 | SOC estimate/display/OCV/学习 | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
-| SOC/循环/学习/工厂时长持久值 | `bms_state_store.c`；Runtime 使用公共 State | 周期 checkpoint 与失败退避；不同组按独立编号重置 |
+| SOC/循环/学习持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立编号 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
 ## 3. 软件保护与 AFE 保护

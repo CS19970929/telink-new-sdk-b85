@@ -93,7 +93,7 @@ assert "sh3673510_backend_get_charge_source_present" not in sh
 
 for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
     assert token in config_h and token in config_c and token in features_c
-assert "#define BMS_CONFIG_SCHEMA_VERSION        2u" in config_c
+assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
 assert "#define BMS_CONFIG_USER_BYTES            54u" in config_c
 parameters=text("bms_parameter_access.c")
 assert "0x2E20u" in parameters and "0x2E70u" in parameters

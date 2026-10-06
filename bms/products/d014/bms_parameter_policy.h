@@ -13,5 +13,4 @@
 #define BMS_UPDATE_CALIBRATION_REVISION 1u /* 电流校准 */
 #define BMS_UPDATE_IDENTITY_REVISION 1u /* 序列号与蓝牙名称 */
 #define BMS_UPDATE_SOC_STATE_REVISION 1u /* SOC、循环和容量学习状态 */
-#define BMS_UPDATE_FACTORY_RUNTIME_REVISION 1u /* 工厂老化计时 */
 #define BMS_UPDATE_EVENTS_REVISION 1u /* 事件记录 */

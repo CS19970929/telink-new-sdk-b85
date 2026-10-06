@@ -36,7 +36,7 @@ SOC Low 的 `u16SocLow_First/Second/Third/Rcv/Filter` 由 `soc_update_low_faults
 
 ## 4. 存储与诊断
 
-Config schema 2 保存 chemistry/profile 和 SOC 配置；State schema 2 保存 SOC、循环、放电累计、学习数据及工厂计时。State 正常约 60 s checkpoint、失败约 5 s 退避，并有显式保存入口；不能保证异常断电前最后一帧已落盘。显示 SOC 不作为另一套 KV 保存。
+Config 内部 journal schema 3 保存 chemistry/profile 和 SOC 配置；State schema 3 保存 SOC、循环、放电累计及学习数据，不再保存工厂老化计时。State 正常约 60 s checkpoint、失败约 5 s 退避，连续三次实际擦写失败后本次启动停止物理写入，并有显式保存入口；不能保证异常断电前最后一帧已落盘。积分余量、OCV 静置和显示跟随在 RAM，启动从整数 SOC 重建剩余容量。完整保存/恢复与各产品休眠差异见 [STORAGE](STORAGE.md)。
 
 `bms_soc_get_diag()` 提供实际 chemistry/profile/version、estimate/display、OCV/rest、学习、端点、ETA 和样本拒收原因。设备实际值必须读设备；编译默认和 host 仿真不能替代电流标定、真实容量或实板结果。
 
