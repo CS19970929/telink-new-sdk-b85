@@ -11,6 +11,7 @@ constants += '\n' + re.search(r'^#define MODBUS_RTU_FRAME_CAPACITY[^\n]*', read(
 for header,names in (
     ('bms_afe_hw_access.h', ('BMS_AFE_HW_ACCESS_MODBUS_FUNC',)),
     ('bms_afe_hw_modbus.h', ('BMS_AFE_HW_REQUESTED_REG_BASE','BMS_AFE_HW_REQUESTED_REG_COUNT')),
+    ('bms_event_log.h', ('BMS_EVENT_LOG_ENTRY_COUNT','BMS_EVENT_LOG_REG_BASE','BMS_EVENT_LOG_REG_COUNT')),
     ('btname_modbus.h', ('BTNAME_REG_BASE','BTNAME_REG_WORDS'))):
     for name in names:
         constants += '\n'+re.search(r'^#define '+name+r'\s+[^\n]*',read('bms/core/'+header),re.M).group()

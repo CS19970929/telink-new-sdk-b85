@@ -19,7 +19,7 @@ static int bms_debug_log_overlaps(u16 r,u16 n){return 0;}
 static int bms_diag_overlaps(u16 r,u16 n){return 0;}
 static int bms_debug_log_read(u16 r,u16 n,u8*d){return 0;}
 static int bms_diag_read(u16 r,u16 n,u8*d){return 0;}
-static int read_event_log_frame(u8 a,u8 f,u16 r,u16 n,u8*d,u32*l){return 0;}
+static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
 static int read_address_supported(u16 r){return r>=0x2100&&r<=0x2140;}
 static u16 read_reg(u16 r){return (u16)(r^0x55aa);}
 static int reg_requires_param_save(u16 r){return r>=0x2100&&r<=0x2140;}

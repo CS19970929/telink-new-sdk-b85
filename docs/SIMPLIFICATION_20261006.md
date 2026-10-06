@@ -117,3 +117,26 @@ WSL 运行记录的 Git 脏文件数受 Windows checkout 的换行配置影响�
 | Flash/RAM 继续按 MAP 审核 | 删除未引用源码不必然减少已链接 section；当前 production core 已使用 `-Os` | 固定输入、实际分配 section、相同场景行为；SDK/AFE 时序及 ABI 不因体积目标更改 |
 
 学习容量可由当前 CFG2 开启，真实/显示 SOC、有效样本与上一个接受样本、请求/命令/反馈、故障 latch 与物理恢复窗口，以及 Config/State/Event 掉电域，仍是必要复杂度。本轮不以删除这些机制换取行数。上述后续方向是待验证候选，不宣称已完成。
+
+## 继续简化 Modbus 读路径
+
+起点为 `a1f69829629f2181ae4515559ba157657b0671bd`，直接在当前项目分支开发。日志、diag、历史事件和普通寄存器读取现在只填写 payload，再共用一处响应头、长度、CRC 和广播返回；历史事件仍仅在原起始地址接受最多 100 words，普通地址仍先完整预检再读取。删除 `read_event_log_frame()`、三个只返回板级常量的 `afe_hw_profile_product_*()` 和重复的 SOC extern 声明。产品串数直接使用已有 `SeriesNum`，Rsense/watchdog 直接使用对应产品配置，没有新增配置层、公共接口或全局状态。
+
+AFE requested/effective 逐字读取经过审核后保留：Config 未 ready 时 getter 会重试初始化，effective 会查询后端诊断；整帧缓存失败会改变后续字的重试结果。授权 session 的到期查询也保持原入口。响应整理不改变这些 getter、提交/回滚、保护资格、Flash/OTA 或 MOS 行为。
+
+`modbus_address_host_check.py` 从两个函数的源码切片改为编译完整生产 `modbus_rtu.c`，复用原产品头和既有 host SDK 边界，并链接真实 CRC/State/diag/logger。覆盖所有 profile 子区间、每个字的失败及后续重试、元数据、SH 有效/无效映射、日志/diag 最大 125-word 响应、历史事件 1..100 words、跨界、广播和缓冲区哨兵。配置/事件/AFE 所有者仍是可控替身；这不是全系统或实板证明。diag 夹具继续覆盖四种日志/trace 开关组合，并复用已有 `run_c`，支持 sanitizer。
+
+六配置在同一新夹具下分别编译起点源码和修改后源码，12,303 个读帧全部通过独立字节/CRC 断言，前后响应摘要及逐字 getter 调用顺序相同。摘要只用于此次前后对照，不设历史源码 hash 期望。
+
+本机完整 host 175/175 通过、运行期间源码未改变，CMake 3/3 通过；既有随机协议场景仍为每产品 100,000 帧，现有 mutation 检查通过。另在树外注入错误 CRC、历史事件越界和串数偏移，新整帧测试均正确拒绝。新增读帧观测会在旧 host 报告对比中显示四条新增记录；它们是测试证据扩充，wire 等价由上述独立前后对照证明。两个相关整帧/diag 检查已加入现有 ASan/UBSan job，成绩以本提交 CI 收据为准。
+
+| 指标 | 起点 → 修改后 |
+|---|---:|
+| BMS 自有 C/H 文件 | 115 → 115 |
+| BMS 自有 C/H 物理行 | 24,017 → 23,944 |
+| `modbus_rtu.c` 物理行 | 863 → 790 |
+| 本模块内部函数 | 减少 4 |
+| 本模块条件预处理指令（含 elif/else/endif） | 33 → 24 |
+| 公共声明、全局/static 状态、产品默认 | 未改变 |
+
+源码指标、六配置前后对照、本机完整 host、TC32 六 production 资源及四产品镜像/静态收据统一放在树外 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/protocol-simplify-20261006-a1f69829/`；以各报告的实际输入指纹和 Git commit 为准。最终镜像仍在当前项目 `firmware/`，编译优化保持原配置。资源与 CI 结果按实际提交留证，不复用本节前面的固定历史数值。后续仍可审查参数编解码与构建输入扫描；requested/effective、存储事务和物理恢复证据继续保留。

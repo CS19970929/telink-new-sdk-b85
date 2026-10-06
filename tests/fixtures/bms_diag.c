@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "bms_diag.h"
 #include "bms_debug_log.h"
+#include "bms_event_log.h"
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define MODBUS_RTU_FRAME_CAPACITY 256u
 #define MB_ADDR 1u
@@ -25,7 +26,7 @@ static void put_u16be(u8*p,u16 v){p[0]=(u8)(v>>8);p[1]=(u8)v;}
 static u16 mb_crc16(const u8*p,u32 n){u16 crc=0xffff;for(u32 i=0;i<n;i++){crc^=p[i];for(int k=0;k<8;k++)crc=(u16)((crc>>1)^((crc&1)?0xa001:0));}return crc;}
 static int modbus_exception(u8 a,u8 f,u8 e,u8*r,u32*n){r[0]=a;r[1]=f|0x80;r[2]=e;u16 c=mb_crc16(r,3);r[3]=(u8)c;r[4]=(u8)(c>>8);*n=5;return a!=0;}
 static int bms_afe_hw_access_modbus_on_frame(const u8*q,u32 n,u8*r,u32*l){writes++;return 0;}
-static int read_event_log_frame(u8 a,u8 f,u16 reg,u16 qty,u8*r,u32*l){reads++;return 0;}
+u16 bms_event_log_read_reg(u16 reg){reads++;return 0;}
 static u16 read_reg(u16 r){reads++;return 0;}
 static int reg_requires_param_save(u16 r){return 0;}
 static u8 write_reg(u16 r,u16 v){writes++;return 0;}

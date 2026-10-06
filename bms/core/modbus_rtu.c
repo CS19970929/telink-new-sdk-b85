@@ -70,8 +70,6 @@ static u16 u16be(const u8 *p);
 static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset);
 /* 读取生产信息与产品身份字段。 */
 static u16 read_production_info_reg(u16 reg);
-/* 构造历史事件读响应并检查帧容量。 */
-static int read_event_log_frame(u8 addr, u8 func, u16 reg, u16 qty, u8 *rsp, u32 *rsp_len);
 /* 读取当前电池测量和运行状态字段。 */
 static u16 read_realtime_status_reg(u16 reg);
 /* 把有符号电流转换为既有协议编码。 */
@@ -109,42 +107,6 @@ static int afe_hw_profile_is_reg(u16 reg)
     return afe_hw_profile_is_requested_reg(reg) || afe_hw_profile_is_effective_reg(reg);
 }
 
-/* 取得产品分流电阻微欧值。 */
-static u16 afe_hw_profile_product_shunt_uohm(void)
-{
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    return DVC1124_DEFAULT_SHUNT_UOHM;
-#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    return SH3673510_BOARD_SHUNT_UOHM;
-#else
-    return 0u;
-#endif
-}
-
-/* 取得产品有效电芯串数。 */
-static u16 afe_hw_profile_product_cell_count(void)
-{
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    return DVC1124_DEFAULT_CELL_COUNT;
-#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    return SH3673510_BOARD_CELL_COUNT;
-#else
-    return 0u;
-#endif
-}
-
-/* 取得产品 AFE 看门狗秒数。 */
-static u16 afe_hw_profile_product_wdt_seconds(void)
-{
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    return DVC1124_I2C_WATCHDOG_SECONDS;
-#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    return SH3673510_BOARD_WDT_EN ? 32u : 0u;
-#else
-    return 0u;
-#endif
-}
-
 /* 读取硬件保护窗口中的一个协议寄存器。 */
 static u16 afe_hw_profile_read_reg(u16 reg)
 {
@@ -171,9 +133,14 @@ static u16 afe_hw_profile_read_reg(u16 reg)
     {
     case BMS_AFE_HW_META_CAPABILITIES:      return bms_afe_hw_profile_capabilities();
     case BMS_AFE_HW_META_VALID:             return bms_afe_hw_profile_get(&p) ? 1u : 0u;
-    case BMS_AFE_HW_META_SHUNT_UOHM:        return afe_hw_profile_product_shunt_uohm();
-    case BMS_AFE_HW_META_CELL_COUNT:        return afe_hw_profile_product_cell_count();
-    case BMS_AFE_HW_META_WDT_SECONDS:       return afe_hw_profile_product_wdt_seconds();
+    case BMS_AFE_HW_META_CELL_COUNT:        return SeriesNum;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
+    case BMS_AFE_HW_META_WDT_SECONDS:       return DVC1124_I2C_WATCHDOG_SECONDS;
+#else
+    case BMS_AFE_HW_META_SHUNT_UOHM:        return SH3673510_BOARD_SHUNT_UOHM;
+    case BMS_AFE_HW_META_WDT_SECONDS:       return SH3673510_BOARD_WDT_EN ? 32u : 0u;
+#endif
     case BMS_AFE_HW_META_ACCESS_ACTIVE:     return bms_afe_hw_access_is_active() ? 1u : 0u;
     case BMS_AFE_HW_META_APPLY_STATE:       return bms_afe_hw_profile_apply_state();
     case BMS_AFE_HW_META_LAST_ERROR:        return bms_afe_hw_profile_last_error();
@@ -449,8 +416,6 @@ static u16 read_reg(u16 reg)
 }
 
 extern bool deepsleep_en;
-/* 取得内部计算的真实 SOC 百分比。 */
-extern uint8_t get_soc_real(void);
 
 /* 判断写入地址是否需要保存业务参数。 */
 static int reg_requires_param_save(u16 reg)
@@ -562,31 +527,24 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         if (bms_debug_log_overlaps(reg, qty)) {
             if (!bms_debug_log_read(reg, qty, &rsp[3]))
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-            rsp[0] = addr; rsp[1] = func; rsp[2] = (u8)(qty * 2u);
-            l = 3u + (u32)qty * 2u; crc = mb_crc16(rsp, l);
-            rsp[l] = (u8)crc; rsp[l+1u] = (u8)(crc >> 8); *rsp_len = l + 2u;
-            return addr != 0u;
-        }
-        if (bms_diag_overlaps(reg, qty)) {
+        } else if (bms_diag_overlaps(reg, qty)) {
             if (!bms_diag_read(reg, qty, &rsp[3]))
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-            rsp[0] = addr; rsp[1] = func; rsp[2] = (u8)(qty * 2u);
-            l = 3u + (u32)qty * 2u; crc = mb_crc16(rsp, l);
-            rsp[l] = (u8)crc; rsp[l+1u] = (u8)(crc >> 8); *rsp_len = l + 2u;
-            return addr != 0u;
+        } else if (reg == BMS_EVENT_LOG_REG_BASE && qty <= BMS_EVENT_LOG_REG_COUNT) {
+            for (i = 0u; i < qty; ++i)
+                put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
+        } else {
+            /* 先校验整个范围；非法尾地址不能造成部分读取。 */
+            for (i = 0u; i < qty; ++i)
+                if (!read_address_supported((u16)(reg + i)))
+                    return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+            for (i = 0u; i < qty; ++i)
+                put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
         }
-        if (read_event_log_frame(addr, func, reg, qty, rsp, rsp_len))
-            return (addr != 0x00u);
-
-        for (i=0u;i<qty;++i)
-            if (!read_address_supported((u16)(reg+i)))
-                return modbus_exception(addr,func,MB_EX_ILLEGAL_ADDRESS,rsp,rsp_len);
         bytes = (u32)qty * 2u;
         rsp[0] = addr;
         rsp[1] = func;
         rsp[2] = (u8)bytes;
-        for (i = 0u; i < qty; i++)
-            put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
 
         l = 3u + bytes;
         crc = mb_crc16(rsp, l);
@@ -720,37 +678,6 @@ static u16 read_afe_actual_reg(u16 reg)
     }
 }
 #endif
-
-/* 构造历史事件读响应并检查帧容量。 */
-static int read_event_log_frame(u8 addr,
-                                u8 func,
-                                u16 reg,
-                                u16 qty,
-                                u8 *rsp,
-                                u32 *rsp_len)
-{
-    u16 i;
-    u32 bytes;
-    u32 l;
-    u16 crc;
-
-    if (reg != BMS_EVENT_LOG_REG_BASE) return 0;
-    if ((qty == 0u) || (qty > BMS_EVENT_LOG_REG_COUNT)) return 0;
-
-    bytes = (u32)qty * 2u;
-    rsp[0] = addr;
-    rsp[1] = func;
-    rsp[2] = (u8)bytes;
-    for (i = 0u; i < qty; ++i)
-        put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
-
-    l = 3u + bytes;
-    crc = mb_crc16(rsp, l);
-    rsp[l] = (u8)(crc & 0xFFu);
-    rsp[l + 1u] = (u8)(crc >> 8);
-    *rsp_len = l + 2u;
-    return 1;
-}
 
 /* 把有符号电流转换为既有协议编码。 */
 static u16 encode_signed_current_reg(void)

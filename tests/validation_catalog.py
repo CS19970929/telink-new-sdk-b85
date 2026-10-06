@@ -42,7 +42,7 @@ register('soc', ('d008',), '生产 SOC/部分 PM 与环境替身', 'd008_power_s
 register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'd008_storage_host_check flash_quick_check')
 register('storage', SH, '提取函数故障注入', 'sh_event_checkpoint_host_check sh_storage_platform_host_check')
 register('protocol', PRODUCTS, '真实 parser/CRC 与寄存器替身', 'modbus_fuzz_host_check')
-register('protocol', PRODUCTS, '提取函数场景', 'modbus_address_host_check')
+register('protocol', PRODUCTS, '完整 Modbus 模块与真实 CRC/State/diag/logger，寄存器所有者替身', 'modbus_address_host_check')
 register('protocol', ('d008',), '真实封包与固定 wire 向量', 'sif_packet_host_check')
 register('protocol', PRODUCTS, 'UART DMA/IRQ 软件模型', 'uart_ownership_host_check')
 register('diagnostics', PRODUCTS, '生产代码与环境替身', 'bms_diag_host_check runtime_debug_log_host_check')
