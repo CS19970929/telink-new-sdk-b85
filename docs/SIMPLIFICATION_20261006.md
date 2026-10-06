@@ -49,6 +49,53 @@ AFE guard、器件后端、hardware profile 和特殊 RC/W0C 寄存器处理具�
 
 本轮日志、预处理快照、ELF/MAP、资源结果和完整机器报告位于源码树外：`C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/simplification-20261006-f8047d16/`。日常阅读入口与历史 evidence 分开，原厂原件和历史认证/安全证据保留。
 
-最终固定提交成绩和前后指标在完成全部回归后补录。计数口径为 `bms/**/*.c,h` 物理行；函数/状态/wrapper 是词法候选，不能当作编译后安全所有权数量或覆盖率。Flash 为 ELF 投影，RAM 为地址跨度，均不是实板栈水位或 BIN 实测。
+### 固定代码提交的验证
+
+本机最终代码快照为 `e48bd259e7f46aaf545d24945bdf23c12b143904`，验证期间原始输入未变化。后续本报告及构建说明的文字补录不改变该代码快照。各项原始报告和失败诊断保留在上述外部目录，不能把历史运行的结果移记到其他代码提交。
+
+| 验证 | 本轮结果与边界 |
+|---|---|
+| Windows 完整 host | 起点 178/178，最终 175/175；减少三次重复工具单测，72 个 check 文件仍全部登记；同输入保护观测无变化，完整运行无失败或输入完整性错误 |
+| 主循环前后对照 | 四产品 × debug 开/关 × 160 次调用，动作顺序和 event 秒门禁相同；含 tick 回绕、D008 两种已提交关机保持；提取真实函数并替代外设，属于软件等价证据 |
+| TC32 开发 ELF | 四产品 link/resource 全通过，0 编译警告；源码清单及顺序未改变 |
+| TC32 生产 ELF | D008 三 profile + D011/D013/D014 共六配置全部通过，0 编译警告；每个 Flash 余量均超过原 8 KiB 门槛 |
+| CMake portable | Windows Release 的 storage_journal、portable_core、soc_eta：3/3 通过 |
+| ASan/UBSan | WSL 显式插桩范围 31/31 组通过；含寄存器语义、故障注入和 mutation；原始输入 SHA 与 Windows 最终 host 一致，不宣称未插桩夹具已覆盖 |
+| fuzz / mutation / 长时序 | 完整 host 中的四产品协议 fuzz、四类保护 mutation、SOC/simulator、Flash 故障注入及 D014 22 个生产 TU 链全部通过 |
+| Cppcheck 2.21 | error/warning/performance 均为 0；D008 37 TU，style 120→111；SH 各 36 TU，style 104→89；SH 的两个未编译头覆盖缺口仍记录，MISRA 未执行 |
+| GitHub CI | [代码提交 e48bd259 的运行](https://github.com/CS19970929/telink-new-sdk-b85/actions/runs/37398813520) 九项全部成功；包含完整 host/CMake、ASan/UBSan、Windows TC32/static 和六个生产配置 |
+
+WSL 运行记录的 Git 脏文件数受 Windows checkout 的换行配置影响；原始输入 SHA 为 `6bc10ae9b9cbd8cbeaac2972dd6b2bff03271ef4d659e04330ffe21b2977290d`，与 Windows 最终 host 相同。对齐 `core.autocrlf=true` 后 `bms` / `bms_tools` / `tests` 对代码 HEAD 的 diff 为空；不把该元数据差异当作源码变化，也不将 WSL 验证替代 Windows 生产或实板证据。
+
+### 前后指标
+
+| 指标 | f8047d16 | e48bd259 |
+|---|---:|---:|
+| BMS 自有 C/H 物理行 | 24,644 | 24,031 |
+| C/H 文件 | 115 | 115 |
+| 非 static 函数定义候选 | 383 | 369 |
+| 公共头唯一函数名 | 359 | 347 |
+| 顶层变量声明候选（含 const 数据） | 262 | 261 |
+| 条件编译指令 | 450 | 448 |
+| 单次调用 wrapper 候选 | 61 | 60 |
+| SH 产品头两两相同宏名/文本值交集 | 298 | 3 |
+| `*_check.py` 文件 | 72 | 72 |
+| 测试 Python 物理行 | 6,137 | 6,168 |
+| 完整 host 执行组 | 178 | 175 |
+
+公共 SH 默认只计一份，产品头交集的分母由 315 项降为 18 项，因此不把这个词法指标称为整仓库重复率。测试 Python 增加 31 行来自语义/故障覆盖；历史 JSON hash fixture 已删除。C/H 与测试 Python 合计减少 582 行。`app.c` 1,738→1,574 行；SOC 2,038→2,034 行，没有以文件长度冒充算法简化。
+
+| 生产配置 | Flash 字节：前→后 | RAM 地址跨度字节：前→后 | 最终 Flash 余量 |
+|---|---:|---:|---:|
+| D008 16S LFP | 118,756→118,644 | 25,032→25,028 | 8,332 |
+| D008 20S NMC | 118,756→118,644 | 25,032→25,028 | 8,332 |
+| D008 24S LFP | 118,756→118,628 | 25,032→25,028 | 8,348 |
+| D011 | 115,204→115,092 | 24,204→24,196 | 11,884 |
+| D013 | 114,180→114,052 | 24,184→24,176 | 12,924 |
+| D014 | 115,028→114,900 | 24,204→24,196 | 12,076 |
+
+计数口径为 `bms/**/*.c,h` 物理行；函数/状态/wrapper 是词法候选，不能当作编译后安全所有权数量或覆盖率。Flash 为 ELF 投影，RAM 为地址跨度，均不是实板栈水位或 BIN 实测。资源收益为 Flash 112–128 字节、RAM 跨度 4–8 字节；本轮主要收益是少记一套流程、少维护重复配置和无消费者接口。
+
+本轮没有生成 Telink 固件 BIN；CMake 的 `CMakeDetermineCompilerABI_C.bin` 是 PC 编译器探测产物。实际 D014 ELF 位于外部证据目录的 `final-production/build/fcdfbbf61247/production/d014/825x_ble_sample.elf`。自行编译从 `D:/telink/bms-monorepo` 使用统一 `bms_tools/bms.py`；`link` 不生成镜像，明确需要 BIN 时才用 `rebuild` 及镜像验收链，详见 [构建、测试与交付](BUILD_AND_TEST.md)。本轮未调整优化参数：开发全 `-O2`，生产仅公共 core `-Os`；app/AFE/平台/SDK 保持 `-O2`，ABI 及 Vendor 库沿用原体系。
 
 实板仍须验证：四板真实 Gate/恢复窗口、C+/LOAD/PB1、ADC/NTC 时序和校准、watchdog 静默、重配置失败、reset/OTA、Flash 掉电、Sleep/Wake、RS485 DE/DMA 与 SIF 波形，以及产品容量/阈值签核。软件通过不解除 [硬件验收清单](HARDWARE_VALIDATION.md) 中的阻断项。
