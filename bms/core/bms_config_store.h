@@ -76,8 +76,6 @@ int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
 int bms_config_store_set_bt_name_suffix(const char *suffix);
 /* 取得产品软件保护默认配置。 */
 void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
-/* 取得产品系统业务默认配置。 */
-void bms_config_store_get_default_system(bms_config_system_params_t *system);
 
 #ifdef __cplusplus
 }

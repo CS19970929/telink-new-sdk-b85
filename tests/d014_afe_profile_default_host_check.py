@@ -1,65 +1,9 @@
 #!/usr/bin/env python3
-"""Execute D014's real AFE profile builder and validator with board defaults."""
+"""Execute D014's actual product defaults and validator; no copied board macros."""
+from project_paths import host_includes
+from validation_support import ROOT, profile_prefix, run_c
 
-import os
-import re
-import shutil
-import subprocess
-import tempfile
-from pathlib import Path
-from project_paths import Sources, host_includes, selected_source
-
-
-ROOT = Path(__file__).resolve().parents[1]
-VENDOR = Sources(ROOT)
-source = (VENDOR / "bms_afe_hw_profile.c").read_text(encoding="utf-8")
-profile_header = (VENDOR / "bms_afe_hw_profile.h").read_text(encoding="utf-8")
-product_header = (VENDOR / "sh3673510_project_config.h").read_text(encoding="utf-8")
-compiler = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
-if compiler is None:
-    raise SystemExit("C host compiler required for D014 AFE migration check")
-
-# Compile the production builder/validator bodies, while replacing only MCU
-# headers and persistence with host declarations. Keep D014 board macro values
-# from sh3673510_project_config.h so changed defaults are exercised.
-body = source[source.index("static u16 ms10_to_ms"):
-              source.index("u8 bms_afe_hw_profile_init(void)")]
-profile_type = profile_header[profile_header.index("typedef struct"):profile_header.index("} bms_afe_hw_profile_t;") + len("} bms_afe_hw_profile_t;")]
-fields = sorted(set(re.findall(r"s->(u16\w+)", body)))
-macro_lines = [line for line in (product_header + (VENDOR / "bms_sh3673510_config.h").read_text(encoding="utf8") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")).splitlines()
-               if re.match(r"#define\s+(SH3673510_HW_DEFAULT_|SH3673510_BOARD_SHUNT_UOHM)", line)]
-if len(macro_lines) != 31:
-    raise AssertionError("D014 AFE product defaults changed")
-
-prefix = f"""
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-#define BMS_AFE_BACKEND_DVC1124 1
-#define BMS_AFE_BACKEND_SH3673510 2
-#define BMS_AFE_BACKEND BMS_AFE_BACKEND_SH3673510
-#define BMS_AFE_HW_PROFILE_SCHEMA_VERSION 1u
-#define BMS_AFE_HW_MODEL_SH3673510 0x3510u
-#define BMS_AFE_HW_EN_COV (1u << 0)
-#define BMS_AFE_HW_EN_CUV (1u << 1)
-#define BMS_AFE_HW_EN_OCD1 (1u << 2)
-#define BMS_AFE_HW_EN_OCD2 (1u << 3)
-#define BMS_AFE_HW_EN_OCC1 (1u << 4)
-#define BMS_AFE_HW_EN_OCC2 (1u << 5)
-#define BMS_AFE_HW_EN_SC (1u << 6)
-#define BMS_AFE_HW_EN_TEMP (1u << 7)
-{chr(10).join(macro_lines)}
-{profile_type}
-#define E2P_PROTECT_DEFAULT_PRT {{0}}
-struct PRT_E2ROM_PARAS {{ {''.join('u16 ' + field + ';' for field in fields)} }};
-struct {{ struct PRT_E2ROM_PARAS protect; }} g_tParam;
-"""
-prefix += (VENDOR / "sh3673510_quantize.h").read_text(encoding="utf8")
-
-suffix = """
+code = profile_prefix('d014') + """
 int main(void)
 {
     bms_afe_hw_profile_t p;
@@ -78,12 +22,4 @@ int main(void)
     return 0;
 }
 """
-
-temp_root = Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "d014" / "afe-profile-test"
-temp_root.mkdir(parents=True, exist_ok=True)
-with tempfile.TemporaryDirectory(dir=temp_root) as tmp:
-    harness = Path(tmp) / "afe_profile_host.c"
-    executable = Path(tmp) / "afe_profile_host.exe"
-    harness.write_text(prefix + body + suffix, encoding="utf-8")
-    subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror", str(harness), "-o", str(executable)], check=True)
-    subprocess.run([str(executable)], check=True)
+run_c(code, flags=host_includes(ROOT, 'd014'), name='d014-afe-defaults')

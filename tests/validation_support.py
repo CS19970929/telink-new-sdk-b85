@@ -108,5 +108,5 @@ def profile_prefix(product):
     result += without_includes(read('bms/core/param.h'))
     result += without_includes(read('bms/core/bms_afe_hw_profile.h'))
     source = read('bms/core/bms_afe_hw_profile.c')
-    result += source[source.index('static u16 ms10_to_ms'):source.index('u8 bms_afe_hw_profile_init(void)')]
+    result += source[source.index('static u16 ms10_to_ms'):source.index('u8 bms_afe_hw_profile_get(')]
     return result

@@ -36,7 +36,9 @@ int main(void)
     regs[SH3673520_REG_BSTATUS2]=charge ? 0 : SH3673520_BSTATUS2_LOADON_MASK;
     raw16(0x95,charge ? 1024 : 0); /* Connected charger at 4 V C+ in this model. */
     bms_diag_init(); bms_parameters_startup(); LoadParam();
-    assert(bms_protection_params_valid()); assert(bms_afe_hw_profile_init());
+    assert(bms_protection_params_valid());
+    bms_afe_hw_profile_t startup_profile;
+    assert(bms_afe_hw_profile_get(&startup_profile));
     if (!boot) {
         struct PRT_E2ROM_PARAS p=g_tParam.protect;
         p.u16IchgOcp_First=p.u16IdsgOcp_First=100;

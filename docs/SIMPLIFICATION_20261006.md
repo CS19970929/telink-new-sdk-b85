@@ -99,3 +99,21 @@ WSL 运行记录的 Git 脏文件数受 Windows checkout 的换行配置影响�
 本轮没有生成 Telink 固件 BIN；CMake 的 `CMakeDetermineCompilerABI_C.bin` 是 PC 编译器探测产物。实际 D014 ELF 位于外部证据目录的 `final-production/build/fcdfbbf61247/production/d014/825x_ble_sample.elf`。自行编译从 `D:/telink/bms-monorepo` 使用统一 `bms_tools/bms.py`；`link` 不生成镜像，明确需要 BIN 时才用 `rebuild` 及镜像验收链，详见 [构建、测试与交付](BUILD_AND_TEST.md)。本轮未调整优化参数：开发全 `-O2`，生产仅公共 core `-Os`；app/AFE/平台/SDK 保持 `-O2`，ABI 及 Vendor 库沿用原体系。
 
 实板仍须验证：四板真实 Gate/恢复窗口、C+/LOAD/PB1、ADC/NTC 时序和校准、watchdog 静默、重配置失败、reset/OTA、Flash 掉电、Sleep/Wake、RS485 DE/DMA 与 SIF 波形，以及产品容量/阈值签核。软件通过不解除 [硬件验收清单](HARDWARE_VALIDATION.md) 中的阻断项。
+
+## 继续审查：开发位置、镜像交付与剩余方向
+
+按后续用户要求，`D:/telink/bms-monorepo` worktree 已移除，`codex-bms-monorepo` 直接检出到原项目目录。本节之前的路径和成绩属于固定历史快照；后续构建使用当前目录和新提交，不能复用旧收据冒充新镜像。原目录未跟踪的 D008 原理图与分支版本 SHA256 相同，已原样保留并另作树外备份。
+
+最终 BIN 和 manifest 放当前项目 `firmware/<mode-profile>/<product>/`；编译对象、ELF/MAP、raw BIN 和 checker 处理中间文件仍在树外。六种生产配置的输出路径互不覆盖。批量入口沿用 `--all-products`，依次执行四产品，不新增 runner 或并发调度框架；命令及 D008 profile 选择见 [构建说明](BUILD_AND_TEST.md)。CRC 失败保留上一个已发布镜像，成功发布后旧 manifest 失效，重新生成并校验清单。
+
+本次继续完成三个接口收口：删除只有测试使用的 `bms_afe_hw_profile_init()`，测试改用生产实际使用的 getter；profile setter 与系统默认构造函数收回 `static`，减少三个公共声明。启动授权仍由 `LoadParam()` / `bms_config_store_validate_startup()` 负责；提交/回滚、Flash 字节布局、硬件配置和故障恢复不改变。D014 默认测试复用真实产品头和既有 builder/validator 夹具，删除手工复制的宏、类型和重复编译流程，原恢复阈值边界断言保留。
+
+| 后续方向 | 当前代码依据 | 实施前必须证明 |
+|---|---|---|
+| 协议整帧读取减少重复工作 | `modbus_rtu.c` 逐地址调 getter，AFE profile 读窗口重复取得/校验同一请求配置 | 保持地址、字节序、错误码及失败时每个寄存器的行为；快照与失效语义不能猜测 |
+| 参数编解码减少重复维护 | `bms_parameter_access.c` 与 Config 的 wire/Flash 编解码分别维护字段范围和单位 | 协议大端与持久化小端、字段布局和掉电事务仍各自明确；不引入通用反射/表驱动框架 |
+| 测试逐步减少源码切片 | `validation_support.profile_prefix()` 及 SDK 相关夹具仍提取生产函数 | 优先链接原 TU，只替代平台 I/O；行为/故障覆盖和结构化失败信息保留 |
+| 构建输入扫描按实际依赖收敛 | `_capture_compile_inputs()` 每次扫描全部 SDK 头及工具；当前方式保守可靠 | 以 TC32 实际依赖闭包证明不漏头、`.inc`、库、工具或宏，跨四产品/profile验证增量失效 |
+| Flash/RAM 继续按 MAP 审核 | 删除未引用源码不必然减少已链接 section；当前 production core 已使用 `-Os` | 固定输入、实际分配 section、相同场景行为；SDK/AFE 时序及 ABI 不因体积目标更改 |
+
+学习容量可由当前 CFG2 开启，真实/显示 SOC、有效样本与上一个接受样本、请求/命令/反馈、故障 latch 与物理恢复窗口，以及 Config/State/Event 掉电域，仍是必要复杂度。本轮不以删除这些机制换取行数。上述后续方向是待验证候选，不宣称已完成。

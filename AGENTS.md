@@ -1,6 +1,6 @@
 # AGENTS.md — BMS monorepo
 
-这是 D008 / D011 / D013 / D014 的统一源码仓库。固件后续以 `codex-bms-monorepo` 为主要开发分支。先读 `README.md` 的完整文档导航及相关产品 reference。
+这是 D008 / D011 / D013 / D014 的统一源码仓库。直接在本仓库的 `codex-bms-monorepo` 分支开发，不另建 monorepo worktree。先读 `README.md` 的完整文档导航及相关产品 reference。
 涉及 AFE 寄存器、采样/校准、保护恢复、MOS/均衡、低功耗/通信，或默认/持久化/OTA AFE 配置时，先读 `docs/AFE_REFERENCE_GUIDE.md` 和其中的固定提交审查入口；按对应原 PDF 页码建立依据，明确型号/版本、硬件条件与未决项。原资料在 `references/afe/`，临时解析/渲染输出仍在源码树外。
 首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
 构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
@@ -21,7 +21,7 @@
 - 公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。
-- 所有临时和构建输出放源码树外。重大变更附必要文档并提交本次文件。
+- 对象、ELF/MAP、raw BIN、日志和临时文件放源码树外；最终校验通过的 BIN 和 manifest 放 `firmware/<mode-profile>/<product>/`，不提交生成产物。批量镜像命令和 D008 profile 选择见 `docs/BUILD_AND_TEST.md`。重大变更附必要文档并提交本次文件。
 - Windows 上位机继续以 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 为维护来源。
 
 完整本机回归入口：`python tests/run_host_regression.py`。

@@ -15,7 +15,7 @@ python bms_tools/bms.py --product d014 env
 python bms_tools/bms.py --all-products sources --check
 ```
 
-输出默认根为 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build`，可用 `BMS_BUILD_ROOT` 指向其他源码树外目录。实际路径为 `<根>/<checkout-hash>/<mode-profile>/<product>/`，看 `env` 的 `build dir`；D008 显式 profile 会附加到 mode。Windows 无空格 junction 由工具在用户临时区维护。
+对象、ELF/MAP、raw BIN 和日志的默认根为 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build`，可用 `BMS_BUILD_ROOT` 指向其他源码树外目录。实际路径为 `<根>/<checkout-hash>/<mode-profile>/<product>/`，看 `env` 的 `build dir`。最终校验通过的 BIN 和 manifest 固定放在当前项目 `firmware/<mode-profile>/<product>/`，看 `final firmware dir`；D008 的 profile 始终附加到 mode。Windows 无空格 junction 由工具在用户临时区维护。
 
 | 文件 | 含义 |
 |---|---|
@@ -25,7 +25,8 @@ python bms_tools/bms.py --all-products sources --check
 | `gen/build.log` | 编译与 warning 门禁日志 |
 | `gen/compile-inputs.json`、`gen/link-completed.json` | 输入指纹和链接完成收据 |
 | `gen/resources.json` | 资源报告，必须识别是 ELF 投影还是 BIN 检查 |
-| `825x_ble_sample.bin`、`.raw.bin`、`fw_manifest.json` | 仅明确执行镜像流程才产生 |
+| 树外 `825x_ble_sample.raw.bin` 及 checker 处理中间镜像 | 仅明确执行镜像流程才产生；不是交付入口 |
+| 项目内 `firmware/<mode-profile>/<product>/825x_ble_sample.bin`、`fw_manifest.json` | 校验通过的最终镜像及显式生成的完整性清单 |
 
 同一 checkout/模式/profile/产品不要并发两个构建。若要强制全编译又不生成 BIN，改用新的外部 `BMS_BUILD_ROOT` 后执行 `link`，不使用 `rebuild`。
 
@@ -123,6 +124,18 @@ python bms_tools/bms.py --product d014 --production verify
 ```
 
 只交付 canonical `.bin`，不把 `.raw.bin` 当 OTA 镜像。归档完整 SHA、产品/profile、工具版本、参数更新编号、BIN hash、manifest、ELF/MAP/resources 与测试日志；另按 [硬件验收](HARDWARE_VALIDATION.md) 关闭实板项目。`flash-help` 只提供说明，生成镜像不等于烧录或 OTA 成功。
+
+### 一次生成多个产品
+
+下面一组命令批量生成 D008 16S LFP、D011、D013、D014 的生产镜像并完成清单校验：
+
+```powershell
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp rebuild --jobs 4
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp manifest
+python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verify
+```
+
+四产品依次构建，每个产品内最多四个 Make job；各输出目录独立。D008 16S 输出在 `firmware/production-16s-lfp/d008/`，其他三个在 `firmware/production/d011/`、`d013/`、`d014/`。如需全部六配置，再分别对 D008 `20s-nmc`、`24s-lfp` 执行同样的 `rebuild` / `manifest` / `verify`，输出在相应 profile 目录。相同产品/模式/profile 保留最近一次结果，不并发两次构建。最终 BIN 只在 checker 和 CRC 通过后发布；发布新 BIN 会移除旧 manifest，随后重新执行 `manifest`。
 
 ## 6. 常见失败
 

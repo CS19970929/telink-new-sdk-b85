@@ -182,7 +182,9 @@ int main(void)
         steps(15); require_both_off();
         puts("PASS failed startup persistence inhibits requested FETs"); return 0;
     }
-    assert(bms_protection_params_valid()); assert(bms_afe_hw_profile_init());
+    assert(bms_protection_params_valid());
+    bms_afe_hw_profile_t startup_profile;
+    assert(bms_afe_hw_profile_get(&startup_profile));
     bms_afe_init(); assert(sh3673510_control_ready());
     request_outputs(); steps(3); require_both_off(); steps(9);
     assert(bms_afe_samples_qualified()); assert(discharge_on());

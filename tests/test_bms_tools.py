@@ -215,6 +215,56 @@ class OutputPathTests(unittest.TestCase):
         self.assertFalse(bms.BUILD_DIR.is_relative_to(REPO_ROOT))
         self.assertEqual(bms.BUILD_DIR.name, bms.PRODUCT)
         self.assertNotEqual(bms.BUILD_DIR, bms.IDE_BUILD_DIR)
+        self.assertFalse(bms.RAW_BIN.is_relative_to(REPO_ROOT))
+        self.assertTrue(bms.BIN.is_relative_to(REPO_ROOT / "firmware"))
+        self.assertEqual(bms.MANIFEST.parent, bms.BIN.parent)
+
+    def test_six_production_outputs_do_not_overwrite_each_other(self):
+        outputs = set()
+        cases = [("d008", profile) for profile in ("16s-lfp", "20s-nmc", "24s-lfp")]
+        cases += [(product, None) for product in ("d011", "d013", "d014")]
+        for product, profile in cases:
+            argv = ["bms.py", "--product", product, "--production"]
+            if profile:
+                argv += ["--d008-profile", profile]
+            module = importlib.util.module_from_spec(SPEC)
+            with mock.patch.object(sys, "argv", argv):
+                SPEC.loader.exec_module(module)
+            self.assertEqual(module.FIRMWARE_DIR.parent.name, "production" + ("-" + profile if profile else ""))
+            self.assertEqual(module.BIN.parent.name, product)
+            outputs.add(module.BIN)
+        self.assertEqual(len(outputs), 6)
+
+    def test_only_checked_image_is_published_and_old_manifest_is_invalidated(self):
+        payload = bytes(range(32))
+        checked = payload + ((~bms._crc32(payload)) & 0xFFFFFFFF).to_bytes(4, "little")
+        for valid in (True, False):
+            with self.subTest(valid=valid), tempfile.TemporaryDirectory() as directory:
+                temporary = Path(directory)
+                build = temporary / "external"
+                final = temporary / "project" / "firmware"
+                build.mkdir()
+                final.mkdir(parents=True)
+                elf, raw = build / "firmware.elf", build / "firmware.raw.bin"
+                binary, manifest = final / "firmware.bin", final / "fw_manifest.json"
+                checker = temporary / "checker.exe"
+                elf.touch()
+                checker.touch()
+                binary.write_bytes(b"previous image")
+                manifest.write_text("previous manifest", encoding="utf8")
+                with mock.patch.multiple(bms, PRODUCTION=False, ELF=elf, RAW_BIN=raw, BIN=binary,
+                                         MANIFEST=manifest, BUILD_DIR=build, TL_CHECK_FW2=checker), \
+                     mock.patch.object(bms, "_objcopy", side_effect=lambda source, target: target.write_bytes(b"raw")), \
+                     mock.patch.object(bms, "_run_tl_check_fw", side_effect=lambda path: path.write_bytes(checked if valid else b"invalid")):
+                    if valid:
+                        bms._finalize_firmware()
+                        self.assertEqual(binary.read_bytes(), checked)
+                        self.assertFalse(manifest.exists())
+                    else:
+                        with self.assertRaises(SystemExit):
+                            bms._finalize_firmware()
+                        self.assertEqual(binary.read_bytes(), b"previous image")
+                        self.assertEqual(manifest.read_text(encoding="utf8"), "previous manifest")
 
 
 

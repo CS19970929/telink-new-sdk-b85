@@ -369,14 +369,6 @@ u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p)
     return 1u;
 }
 
-/* 加载并验证独立硬件保护配置，必要时采用默认值。 */
-u8 bms_afe_hw_profile_init(void)
-{
-    bms_afe_hw_profile_t p;
-    if (!bms_config_store_get_afe_hw_profile(&p)) return 0u;
-    return bms_afe_hw_profile_validate(&p);
-}
-
 /* 取得缓存的请求硬件保护配置。 */
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 {
@@ -386,7 +378,7 @@ u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 }
 
 /* 校验并持久化请求硬件保护配置。 */
-u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
+static u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 {
     if (!bms_afe_hw_profile_validate(p)) return 0u;
     return bms_config_store_set_afe_hw_profile(p) ? 1u : 0u;

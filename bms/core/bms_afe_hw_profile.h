@@ -74,12 +74,8 @@ u16 bms_afe_hw_profile_capabilities(void);
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *profile);
 /* 新授权写入的保证范围/硬件能力校验；不重置旧持久参数。 */
 u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *profile);
-/* 加载并验证独立硬件保护配置，必要时采用默认值。 */
-u8 bms_afe_hw_profile_init(void);
 /* 取得缓存的请求硬件保护配置。 */
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile);
-/* 校验并持久化请求硬件保护配置。 */
-u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *profile);
 /* 返回当前 AFE 量化后实际可表示的值。 */
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *profile);
 /* 按产品输入构造独立 AFE 硬件保护默认值。 */

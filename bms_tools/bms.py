@@ -85,15 +85,17 @@ TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve
 
 # Per-checkout, per-product build outputs stay outside the source worktree.
 BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-monorepo-build")))
-BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / (BUILD_MODE + ("-" + D008_PROFILE if PRODUCT == "d008" and D008_PROFILE else "")) / PRODUCT).resolve()
+BUILD_VARIANT = BUILD_MODE + ("-" + (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else "")
+BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / BUILD_VARIANT / PRODUCT).resolve()
+FIRMWARE_DIR = REPO_ROOT / "firmware" / BUILD_VARIANT / PRODUCT
 OBJ_DIR = BUILD_DIR / "obj"
 GEN_DIR = BUILD_DIR / "gen"
 ELF = BUILD_DIR / "825x_ble_sample.elf"
-BIN = BUILD_DIR / "825x_ble_sample.bin"
+BIN = FIRMWARE_DIR / "825x_ble_sample.bin"
 RAW_BIN = BUILD_DIR / "825x_ble_sample.raw.bin"
 LST = GEN_DIR / "825x_ble_sample.lst"
 MAP = GEN_DIR / "825x_ble_sample.map"
-MANIFEST = BUILD_DIR / "fw_manifest.json"
+MANIFEST = FIRMWARE_DIR / "fw_manifest.json"
 SOURCE_ORDER_FILE = REPO_ROOT / "bms" / "products" / PRODUCT / "sources.txt"
 IDE_BUILD_DIR = PROJ_DIR / "825x_ble_sample"
 
@@ -301,6 +303,7 @@ def cmd_env(args: argparse.Namespace) -> int:
         print(f"required vendor lib   : {library}  (exists={library.exists()})")
     print(f"tl_check_fw2.exe      : {TL_CHECK_FW2}  (exists={TL_CHECK_FW2.exists()})")
     print(f"build dir              : {BUILD_DIR}")
+    print(f"final firmware dir     : {FIRMWARE_DIR}")
     try:
         source_order = _load_source_order_strict()
     except SourceOrderError as exc:
@@ -796,10 +799,15 @@ def _finalize_firmware() -> None:
     if PRODUCTION:
         cmd_map(argparse.Namespace(elf_only=True))
     _objcopy(ELF, RAW_BIN)
-    shutil.copy2(RAW_BIN, BIN)
-    _run_tl_check_fw(BIN)
-    if not _telink_crc_details(BIN.read_bytes()).get("valid"):
+    processed_bin = BUILD_DIR / "825x_ble_sample.bin"
+    shutil.copy2(RAW_BIN, processed_bin)
+    _run_tl_check_fw(processed_bin)
+    if not _telink_crc_details(processed_bin.read_bytes()).get("valid"):
         _die("canonical BIN failed Telink trailer/residue validation")
+    BIN.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(processed_bin, BIN)
+    MANIFEST.unlink(missing_ok=True)
+    _info(f"final firmware: {BIN}")
 
 
 def cmd_check_fw(args: argparse.Namespace) -> int:

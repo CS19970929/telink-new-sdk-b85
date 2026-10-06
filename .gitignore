@@ -19,6 +19,13 @@
 .build/
 .dist/
 
+# Final firmware deliveries; object files and intermediate images remain external.
+/firmware/
+
+# 原目录的本地 exclude 曾忽略这两个目录；本分支将它们作为源码维护。
+!/bms_tools/
+!/tests/
+
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/build_version_auto.h
 tools/lan_clipboard_sync
 

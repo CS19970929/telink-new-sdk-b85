@@ -4,10 +4,10 @@
 
 ## 1. 确认拿到的代码
 
-从团队仓库取得 `codex-bms-monorepo` 分支。本机已有工作树为 `D:\telink\bms-monorepo`；其他电脑可使用自己的无空格路径。
+从团队仓库取得 `codex-bms-monorepo` 分支，直接在原项目目录开发；本机 monorepo worktree 已移除。其他电脑可使用自己的目录，Windows 构建工具会处理路径中的空格。
 
 ```powershell
-Set-Location 'D:\telink\bms-monorepo' # 改为自己的工作树
+Set-Location 'D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)' # 改为自己的项目目录
 git branch --show-current
 git rev-parse HEAD
 git status --short
