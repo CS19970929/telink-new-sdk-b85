@@ -39,4 +39,4 @@
 实际源码位于 `bms/core`、`bms/app`、`bms/afe/sh3673510`、`bms/platform/telink`。
 这里仅维护 D014 产品输入。使用 `BMS_BOARD_*` / `SH3673510_BOARD_*` 中性宏。
 wire ID 继续是 2，内部存储产品 tag 是 14；开发默认值不是已签核硬件参数。
-执行根目录统一回归及 D014 integration contract；不自动生成或烧录 BIN。
+本机测试的执行条件和范围遵循[根协作规则](../../../AGENTS.md#本机验证约定)；需要测试时按范围选择统一回归及 D014 integration contract。不自动生成或烧录 BIN。

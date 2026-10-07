@@ -7,6 +7,14 @@
 `docs/history/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
 全局嵌入式规则继续适用；当前开发阶段按已确认产品约定拒绝旧 schema，不迁移旧开发板参数；同 schema 按产品更新编号处理。
 
+## 本机验证约定
+
+- 默认完成源码审查、调用链/状态/异常路径核对和 Git 差异检查。只有用户明确要求测试、编译或运行验证时，才执行 `sources --check`、host 回归、ASan/UBSan、静态分析工具、目标编译/链接和资源检查。
+- 用户指定测试范围时按指定范围执行；仅要求“测试”时选择受影响模块的相关检查。只有明确要求“完整测试”“全量回归”等完整范围时才执行完整耗时套件。
+- 项目文档中的构建和测试命令是按需入口，不构成自动执行授权。交付中明确注明未执行的编译/测试，不把源码审查或历史结果写成当前测试通过。
+
+## 项目边界
+
 - 唯一公共源码在 `bms/core` / `bms/app`。不复制到产品目录或 SDK 示例目录，不引入同步脚本。
 - 产品目录只维护板级数据、feature 能力和 repository-relative `sources.txt`。
 - AFE 寄存器、芯片恢复和芯片校准留在相应后端；Flash/UART/BLE/tick/GPIO 留在平台。
@@ -18,7 +26,7 @@
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。
 - CFG2 payload 格式不变；Config/State/Event 内部 journal schema 3，旧开发布局不迁移（本次用户已授权重划业务 Flash）；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
-- 公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
+- 用户要求测试且未限定更小范围时，公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。
 - 对象、ELF/MAP、raw BIN、日志和临时文件放源码树外；最终校验通过的 BIN 和 manifest 放 `firmware/<mode-profile>/<product>/`，不提交生成产物。批量镜像命令和 D008 profile 选择见 `docs/BUILD_AND_TEST.md`。重大变更附必要文档并提交本次文件。

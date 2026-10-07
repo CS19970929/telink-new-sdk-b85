@@ -2,6 +2,8 @@
 
 本页命令在仓库根目录 PowerShell 执行。产品配置见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)，工具准备见 [上手指南](ONBOARDING.md)。每条命令结束检查 `$LASTEXITCODE`，非 0 时先解决失败。
 
+本机验证的执行条件和范围以[根协作规则](../AGENTS.md#本机验证约定)为准：默认源码审查和差异检查，用户明确要求测试、编译或运行验证后才运行相应命令。本页命令用于按需执行；完整回归须有明确的完整范围要求。交付时注明实际执行项及未执行项。本约定不修改现有远端 CI 流程。
+
 ## 1. 产品与输出
 
 `--product d008/d011/d013/d014` 优先于环境 `BMS_PRODUCT`，两者都未指定时为 D014。`--all-products` 依次执行四产品；`--jobs 4` 是单产品 Make 并行度。D008 profile 使用 `--d008-profile 16s-lfp/20s-nmc/24s-lfp`，开发默认 16S LFP，生产必须显式选择。
@@ -30,7 +32,7 @@ python bms_tools/bms.py --all-products sources --check
 
 同一 checkout/模式/profile/产品不要并发两个构建。若要强制全编译又不生成 BIN，改用新的外部 `BMS_BUILD_ROOT` 后执行 `link`，不使用 `rebuild`。
 
-## 2. 日常验证：不生成 BIN
+## 2. 按需验证：不生成 BIN
 
 ```powershell
 python bms_tools/bms.py --product d014 compile --jobs 4
@@ -38,7 +40,7 @@ python bms_tools/bms.py --product d014 link --jobs 4
 python bms_tools/bms.py --product d014 resources
 ```
 
-`link` 会编译所需对象，通常直接执行即可；单独 `compile` 用于只检查编译。修改公共 core/app/平台或构建设置时使用四产品入口：
+`link` 会编译所需对象，获准编译/链接时通常直接执行即可；单独 `compile` 用于只检查编译。获准测试公共 core/app/平台或构建设置，且用户未限定更小范围时，使用四产品入口：
 
 ```powershell
 python bms_tools/bms.py --all-products sources --check
@@ -68,7 +70,7 @@ try {
 } finally { $env:BMS_PRODUCT = $savedProduct }
 ```
 
-| 修改模块 | 优先检查（必要时完整 runner） |
+| 修改模块 | 获准测试时的优先检查（明确要求完整范围时使用完整 runner） |
 |---|---|
 | 产品/板级 | `tooling_contract_check.py`、对应 integration/profile/board checks |
 | 软件保护 | `core_contract_check.py`、`sw_temperature_groups_host_check.py` |
@@ -115,7 +117,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 
 生产镜像先要求各产品 `BMS_PRODUCT_RELEASE_APPROVED=1`，再检查专项签核：D008 全部 profile 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；20S NMC 还要求 `BMS_D008_20S_NMC_PROTECTION_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。当前四产品整体批准及三个专项批准均为 0，**只有实际签核并提交后才可置 1**，不能由 `EXTRA_DEFINES` 覆盖。`link/resources` 允许检查未签核工程配置，不构成发布签核。
 
-日常优先使用 `link`（开发验证）、`test`（host）、`static`（静态分析），明确需要镜像并完成签核后用 `release` 串联 clean/build/check、manifest、verify。`--product d014 test` 选择 D014，`--all-products test` 只执行一次统一四产品报告。
+获准验证时按范围选择 `link`（开发验证）、`test`（host）、`static`（静态分析），明确需要镜像并完成签核后用 `release` 串联 clean/build/check、manifest、verify。`--product d014 test` 选择 D014，`--all-products test` 只执行一次统一四产品报告。
 
 以已经确认的 D014 生产交付为例，保持每条命令产品/模式/profile 一致：
 
@@ -150,4 +152,4 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 | 找不到 BIN | `link` 本就不生成；确认任务明确要求镜像后才使用第 5 节 |
 | 静态分析要本机模板 | 使用 `static --no-report`，保留机器可读结果 |
 
-文档修改优先验证链接、源码引用与现有文档 contract；不必为了改文字重跑所有固件变体。本机结果不等于远端 CI，host/ELF 结果不等于实板 MOS、Flash 掉电或低功耗验证。
+文档修改默认审查链接、源码引用和 Git 差异；文档 contract 等检查脚本也只在用户要求测试时执行。本机结果不等于远端 CI，host/ELF 结果不等于实板 MOS、Flash 掉电或低功耗验证。

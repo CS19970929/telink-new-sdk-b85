@@ -24,7 +24,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |
 | [根协作规则](AGENTS.md) | 开始修改前确认仓库约束 |
 
-在根目录 PowerShell 执行（先按上手指南准备环境）：
+用户明确要求测试、编译或运行验证时，在根目录 PowerShell 按指定范围执行（先按上手指南准备环境）；默认执行条件见[根协作规则](AGENTS.md#本机验证约定)：
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
@@ -35,7 +35,7 @@ python bms_tools/bms.py --product d014 link --jobs 4
 python bms_tools/bms.py --product d014 resources
 ```
 
-每条命令确认退出码为 0 再继续。`link` 只生成 ELF/MAP/LST，不生成 BIN。默认产品是 D014，日常命令仍应显式写产品；公共代码修改按构建指南验证四产品。输出默认在 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build/`。打开 `bms.code-workspace` 可聚焦业务代码；被隐藏的 SDK 仍参与编译，旧 Eclipse 示例工程不再是本分支构建入口。
+每条命令确认退出码为 0 再继续。`link` 只生成 ELF/MAP/LST，不生成 BIN。默认产品是 D014，命令仍应显式写产品；获准测试公共代码且未限定更小范围时，按构建指南验证四产品。输出默认在 `%LOCALAPPDATA%/CodexTemp/bms-monorepo-build/`。打开 `bms.code-workspace` 可聚焦业务代码；被隐藏的 SDK 仍参与编译，旧 Eclipse 示例工程不再是本分支构建入口。
 
 ## 产品与参数
 
