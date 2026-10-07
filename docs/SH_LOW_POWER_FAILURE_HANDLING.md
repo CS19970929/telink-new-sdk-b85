@@ -1,10 +1,10 @@
 # SH 低功耗失败处理与采样调度
 
-适用 monorepo 的 D011/D013/D014。读 `bms/app/app.c` 的 SH 分支、`bms/core/bms_afe_guard.c` 和 SH backend/control。D008 的 AFE shutdown/PC4/ACC 路径另见其产品 reference。
+适用 monorepo 的 D011/D013/D014。读 `bms/app/app_power.c` 的 SH 分支、`bms/core/bms_afe_guard.c` 和 SH backend/control。D008 的 AFE shutdown/PC4/ACC 路径另见其产品 reference。
 
 ## 当前调用链
 
-`blt_pm_proc()` 评估现有产品资格 → `app_note_sleep_and_enter_deepsleep()` 检查互锁 → `bms_afe_sleep()` → SH driver/control → 成功后才尝试 MCU deep sleep。
+`app_power_process()` 评估现有产品资格 → `app_note_sleep_and_enter_deepsleep()` 检查互锁 → `bms_afe_sleep()` → SH driver/control → 成功后才尝试 MCU deep sleep。
 
 `SH3673510_FIXED_UART_BLOCKS_PM=1` 保留原固定 UART 门禁，默认配置可能先被此条件阻止；函数存在、host 场景通过不说明实机已经能进入该路径。不能为了省电删除门禁。
 
@@ -22,7 +22,7 @@ sleep 事件只记录进入尝试。最后时刻 PAD 变化或 SDK 拒睡仍可�
 
 三种 SH 产品使用同一 200 ms sample wakeup 调度：callback 只置位，采样、SOC、MOS 和诊断在主循环；超时合并，不补造多帧。软件保护计数仍按名义 200 ms 样本，真实 BLE/Flash 阻塞可能影响墙钟响应。
 
-使用 [构建指南](BUILD_AND_TEST.md) 的环境选择产品后运行 `sh_power_host_check.py`、`sh_power_host_check.py`、`sh_recovery_host_check.py`，公共变化跑完整 runner 及四目标 link/resources。测试有 SDK/驱动桩和隔离 PM 门禁的故障场景，不是新增支持模式；日常不运行会生成 BIN 的 `bms.py ci`。
+用户明确要求测试时，按 [构建指南](BUILD_AND_TEST.md) 的环境选择产品，运行相关 `sh_power_host_check.py`、`sh_recovery_host_check.py` 与目标 link/resources；完整 runner 仅在明确要求完整范围时执行。测试有 SDK/驱动桩和隔离 PM 门禁的故障场景，不是新增支持模式；日常不运行会生成 BIN 的 `bms.py ci`。
 
 ## 实板未关闭项
 

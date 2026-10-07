@@ -30,4 +30,29 @@ CI sanitizer 命令增加 `--only core_contract_check`，其产品归属由 `tes
 
 同步现有消费者、夹具和当前产品说明；固定提交审查报告保持历史原样。未运行这些夹具，也未执行预处理或目标构建，因此不宣称已证明编译等价或资源余量。
 
-本轮没有镜像、烧录、实板、Flash 掉电、Sleep/Wake 或 OTA 验收。
+## 应用与电源状态所有权
+
+`app.c` 收至 413 行，继续负责启动、GPIO 初始化、采样到期标志、AFE/SOC/MOS、通信和 State checkpoint。原电源计时、重试、ACC/关机提交状态及 DVC/SH PM 分支移入 `app_power.c`；四产品 `sources.txt` 在 `app.c` 后加入此文件，其余源码顺序保留。
+
+公共入口只有 `app_power_prepare_loop()`、`app_power_process()` 及原 SDK 回调 `task_sleep_enter()`：
+
+```text
+main_loop
+  app_power_prepare_loop
+    D008 已提交 ACC 休眠：保持动作并返回，不进入后续任务
+    D008 参数/存储/AFE 诊断轮询
+    D008 已提交关机：定时 suspend 并返回，不进入后续任务
+    其他情况：继续
+  BLE → 到期采样 → 事件 → 通信 → State checkpoint
+  app_power_process：评估原 DVC/SH 电源策略
+```
+
+没有新初始化 wrapper。`board_init()` 和 `app_init()` 的 GPIO 唤醒配置保留原位置；SDK 回调名、签名、注册点与行为保留。200 ms 采样/关机保持间隔共用 `app.h` 的 `APP_SAMPLE_PERIOD_US`，删除无消费者的重复 ADV/CONN idle 宏。
+
+`s_sample_due` 仍由 `app.c` 的唤醒回调置位、采样任务消费。唯一生产调用传入非空 `&s_sample_due`；PM 不保存指针、不修改标志，每次读取保留 `volatile` 语义，避免改成传值后隐藏调用期间的新到期事件。`deepsleep_en` 由电源模块定义、Modbus 按原地址锁存，保持 SDK `bool` 类型。DVC 的短测量新鲜度 helper 在两文件各自保持私有，用同一阈值与时间差表达式，没有新增公共安全 API。
+
+源码对照保留 ACC 去抖与断连、显式命令应答排空、State/事件/AFE shutdown/PC4 的顺序，以及 OTA、Flash、总线、UART、PAD、样本、电流和退避门禁。SH 默认固定 UART 阻断仍存在，保存失败策略和各后端 AFE 事务不变。SOC、保护算法、guard、journal 编码及外部地址均未在此拆分中修改。
+
+现有 scheduler、D008 PM、SH sleep、产品合同及检查目录已适配新入口/文件；scheduler 夹具仍覆盖正常顺序、ACC 保持和已关机保持，断言预期保留。仅审阅源码和 Git 差异，未执行夹具、编译、预处理、`sources --check`、静态分析或资源检查。跨文件拆分后的链接与 Flash/RAM 余量尚未重新验证。
+
+本轮没有镜像、烧录、实板、Flash 掉电、Sleep/Wake 或 OTA 验收。SOC 诊断类型的归属调整是原方案的可选后续项，本轮未纳入。

@@ -2,7 +2,7 @@
 """Execute production C with hardware/storage mocks; requires a host C compiler.
 
 The SOC translation unit is included in full. PM/guard functions are extracted
-unchanged because app.c depends on the target-only BLE SDK. These tests validate
+unchanged because app_power.c depends on the target-only BLE SDK. These tests validate
 software decisions, not SDK timing, electrical shutdown, or AFE silicon behavior.
 """
 from validation_support import function as extract_function
@@ -25,7 +25,7 @@ def source(name):
 
 
 def function(name, signature):
-    text = selected_source(MOD / name) if name == 'app.c' else (MOD / name).read_text()
+    text = selected_source(MOD / name) if name in ('app.c', 'app_power.c') else (MOD / name).read_text()
     return extract_function(text, signature)
 
 
@@ -49,10 +49,10 @@ def main():
         }
         if args.compile_soc_executable is None and not args.soc_only:
             units.update({
-            'power': '\n'.join(function('app.c', sig) for sig in (
+            'power': '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
                 'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',
-                'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void blt_pm_proc(void)')),
+                'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(')),
             'guard': source('bms_afe_guard.c'),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
             })

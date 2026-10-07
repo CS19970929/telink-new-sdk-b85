@@ -79,7 +79,7 @@ static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}
 static void bms_state_store_update_and_log_if_changed(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
-static void blt_pm_proc(void){note('P');}
+static void app_power_process(const volatile uint8_t *pending){assert(pending==&s_sample_due);note('P');}
 static struct {int soc_estimate_percent,discharge_fraction_percent,cycle_count;} g_bms_soc;
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}

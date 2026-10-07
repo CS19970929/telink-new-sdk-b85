@@ -165,7 +165,7 @@ require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_
 require(bms, "s_aux.sample_tick_32k = now;")
 require(bms, "if (status.flag2 & SH3673520_FLAG2_CADC_MASK)")
 require(app, "BMS_BOARD_SWITCH_PIN")
-require(app, "#define APP_SAMPLE_PERIOD_US 200000u")
+require(text("app.h"), "#define APP_SAMPLE_PERIOD_US 200000u")
 require(app, "bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup)")
 require(app, "bls_pm_setAppWakeupLowPower(")
 require(app, "static void app_sample_task(void)")
@@ -234,7 +234,7 @@ require(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)"
 # D011 safety invariants: old board aliases and accidental irreversible-fuse
 # actuation must not re-enter production code.
 production = "\n".join(selected_source(HERE / name) for name in (
-    "bms_product.h", "app.c", "modbus_uart.c", "sh3673510_control.c",
+    "bms_product.h", "app.c", "app_power.c", "modbus_uart.c", "sh3673510_control.c",
     "sh3673510_bms.c", "sh3673510_project_config.h",
 ))
 for forbidden in ("BMS_BOARD_LOAD_DETECT_PIN", "BMS_BOARD_HEATER_FUSE_PIN", "BMS_BOARD_AFE_ENABLE_PIN", "BMS_BOARD_MCU_LDO_PIN",

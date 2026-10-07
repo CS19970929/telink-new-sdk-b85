@@ -65,7 +65,7 @@ SOURCES = {
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
     'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
     'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c'],
-    'power': ['bms/app/app.c', 'bms/core/bms_afe_guard.c'],
+    'power': ['bms/app/app.c', 'bms/app/app_power.c', 'bms/core/bms_afe_guard.c'],
     'tooling': ['bms_tools', 'tests'],
 }
 

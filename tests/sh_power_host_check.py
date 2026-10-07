@@ -24,7 +24,7 @@ def check_sh3673510_sample_schedule_host_check():
     assert '    app_sample_task();' in source
     assert function('app_sample_task').count('bms_afe_sample();') == 1
     assert 'test_task_tick' not in source and 'hello World!!!' not in source
-    period = re.search(r'(?m)^#define APP_SAMPLE_PERIOD_US\s+\d+u', source).group()
+    period = re.search(r'(?m)^#define APP_SAMPLE_PERIOD_US\s+\d+u', (APP/'app.h').read_text()).group()
     code = r'''
     #include <stdint.h>
     #include <stdio.h>
@@ -126,10 +126,10 @@ def check_sh3673510_sleep_host_check():
         function('bms_afe_guard.c', 'enter_failsafe_wait'),
         function('bms_afe_guard.c', 'note_invalid'),
         function('bms_afe_guard.c', 'bms_afe_sleep'),
-        function('app.c', 'app_note_sleep_and_enter_deepsleep'),
-        function('app.c', 'app_pm_elapsed_limit'),
+        function('app_power.c', 'app_note_sleep_and_enter_deepsleep'),
+        function('app_power.c', 'app_pm_elapsed_limit'),
     ])
-    app_source = selected_source(APP / 'app.c')
+    app_source = selected_source(APP / 'app_power.c')
     for counter in ('sleep_cnt', 'sleep_veryvlow_cnt', 'sleep_vlow_cnt',
                     'sleep_vnormal_cnt', 'afe_comm_err_sleepcnt'):
         assert f'{counter} = app_pm_elapsed_limit(' in app_source

@@ -105,7 +105,7 @@ def check_sh3673510_d014_integration_check():
 
     cfg = text("sh3673510_project_config.h") + text("bms_product.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
     conf = text("bms_product.h")
-    app = text("app.c")
+    app = text("app.c") + text("app_power.c")
     main = text("main.c")
     control = text("sh3673510_control.c")
     bms = text("sh3673510_bms.c")

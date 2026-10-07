@@ -63,9 +63,10 @@ main_loop → app_sample_task（约 200 ms）
 | Flash 保存失败 | `bms_config_store.c`、`bms_state_store.c`、`storage_record.c`、`bms/platform/telink/bms_storage_platform_telink.c` |
 | AFE 硬件配置 | `bms_afe_hw_profile.c`、`bms_afe_hw_access.c`、对应 AFE control/backend 与产品配置 |
 | Modbus/RS485 | `bms/core/modbus_rtu.c`、`bms_parameter_access.c`、`bms/platform/telink/modbus_uart.c` |
-| BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，`app_ble.c` 的连接/SDK PM/Flash 回调及 `app.c` 的业务低功耗门禁 |
+| BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，`app_ble.c` 的连接/SDK PM/Flash 回调及 `app_power.c` 的业务低功耗门禁 |
+| 休眠/关机 | `app_power_prepare_loop` 先处理已提交保持状态；正常任务完成后 `app_power_process` 评估 DVC/SH 的原有门禁；SDK 仍注册 `task_sleep_enter` |
 | 日志诊断 | `bms/core/bms_diag.c`、`bms_debug_log.c`、`bms/platform/telink/bms_runtime_diag.c` |
 | heater/balance/open-wire | `bms/app/bms_features.c`、所选 AFE `*_feature_backend.c`、产品能力输入 |
 | 状态保存 | `bms_state_store.c`；SOC/放电累计/循环统一 checkpoint，老化模式已删除 |
 
-每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。然后选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。
+每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。用户明确要求测试时，再选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。

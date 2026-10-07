@@ -15,6 +15,7 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/user_confi
 bms/core/bms_soc.c
 bms/core/bms_soc_eta.c
 bms/app/app.c
+bms/app/app_power.c
 bms/platform/telink/app_ble.c
 bms/platform/telink/app_att.c
 bms/platform/telink/ble_ota.c

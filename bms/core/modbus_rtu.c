@@ -30,6 +30,7 @@
 #include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app.h"
+#include "app_power.h"
 #include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
@@ -420,8 +421,6 @@ static u16 read_reg(u16 reg)
 
     return 0u;
 }
-
-extern bool deepsleep_en;
 
 /* 判断写入地址是否需要保存业务参数。 */
 static int reg_requires_param_save(u16 reg)

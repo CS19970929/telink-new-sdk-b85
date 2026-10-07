@@ -1,6 +1,5 @@
 /*
- * 文件功能：应用调度与 BLE 电源策略；主循环按 200 ms 执行 AFE/SOC/MOS，
- * 协调通信、OTA 和休眠入口。
+ * 文件功能：BMS 应用调度与 BLE 生命周期接口；PM 接口见 app_power.h。
  * bms/app/app.h；实际编译归属见各产品 sources.txt。
  */
 /*
@@ -16,6 +15,9 @@
 
 #include "common/types.h"
 #include "bms_error.h"
+
+/* 周期采样与已关机保持的定时唤醒共用原 200 ms 间隔。 */
+#define APP_SAMPLE_PERIOD_US 200000u
 
 #define MY_DIRECT_ADV_TIME 2000000
 
@@ -41,9 +43,8 @@ extern u8 sendTerminate_before_enterDeep;
 #if BMS_DEBUG_LOG_ENABLE
 u32 app_ble_suspend_exit_count(void);
 #endif
-/* SDK 正常初始化完成后的业务启动与休眠回调。 */
+/* SDK 正常初始化完成后的业务启动。 */
 void app_init(void);
-void task_sleep_enter(u8 e, u8 *p, int n);
 
 extern u8 ota_is_working;
 

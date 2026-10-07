@@ -62,7 +62,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | MCU GPIO / U1 引脚 | 原理图网络 | 当前代码符号/用途 | 本次确认与维护要求 |
 |---|---|---|---|
 | PD7 / 2 | `MCU-AFE-EN` | `BMS_BOARD_AFE_ENABLE_PIN`，AFE init 拉高 | 参与 AFE 供电/接口使能；不是 MCU 总电源开关，也不是 DVC 独立 RESET 引脚 |
-| PA0 / 3 | `ACC-MCU` | `BMS_BOARD_ACC_PIN`，低有效运行开关 | 用户最新授权独立ACC深睡眠，见第 12 节与 `bms/app/app.c` |
+| PA0 / 3 | `ACC-MCU` | `BMS_BOARD_ACC_PIN`，低有效运行开关 | 用户最新授权独立ACC深睡眠，见第 12 节与 `bms/app/app_power.c` |
 | PB1 / 6 | `CHG-IN` | `BMS_BOARD_LOAD_DETECT_PIN`，保留输入，无业务读取/PAD 唤醒 | 实际为负载检测。Q40 导通时输出低；不等于已验证所有负载场景的逻辑。暂不实现负载判定、去抖或策略，也不能据此证明正在充电 |
 | PC4 / 24 | `MCU-LDO` | `BMS_BOARD_MCU_LDO_PIN`，启动保持高、关机事务最后拉低 | 已接入控制路径；实测保持时点、掉电与复电时序仍为 TODO_VERIFY_HW |
 | PC0 / 20 | `SDA` | DVC I2C SDA | 经 R96=100 Ω；与图纸一致 |
@@ -337,9 +337,9 @@ AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不�
 
 ## 12. 当前电源路径与保护开关
 
-`bms/app/app.c` 的 DVC 分支有三条不同路径：
+`bms/app/app_power.c` 的 DVC 分支有三条不同路径：
 
-- 普通 suspend 由 `blt_pm_proc()` 结合 BLE、通信状态及可靠充/放电电流判断；双向达到 500 mA 的策略需要实测验证。
+- 普通 suspend 由 `app_power_process()` 结合 BLE、通信状态及可靠充/放电电流判断；双向达到 500 mA 的策略需要实测验证。
 - `app_enter_power_off()`：检查 OTA/Flash/mux 等门禁，保存 State/事件，AFE shutdown 成功后才拉低 PC4/MCU_LDO，切断 MCU 电源。
 - `app_enter_acc_sleep()`：PA0 高稳定 200 ms 后，检查通信/连接并保存状态；AFE shutdown 成功后保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
 
