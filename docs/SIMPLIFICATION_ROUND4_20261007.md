@@ -39,3 +39,13 @@
 四产品各保留一个 `bms_product.h`，D008 的三种串数/chemistry 选择另保留 `d008_product_profile.h`。原三个或四个配置头合并；产品 GPIO、NTC、Rsense、身份/容量/通信与批准标志均保留原值和 guards。SH 默认输入仍共用 `sh3673510_defaults.h`，寄存器公式/隔离策略留在 SH 后端；实际消费者显式引入后端配置，避免产品头与编码头循环依赖。D011 PB5 safe=0、D013 heater/balance=0、D014 TS3 NC/TS4 MOS 与原配置保持。
 
 六种配置默认值逐字一致，488 项产品宏输入逐项一致；四产品 sources、开发 link/resources 零错误/警告，14 组配置/门禁/清单回归全部通过。24 个关键 TU 活动分支仍一致。生产批准标志仍为待签核状态，未生成生产镜像；产品文档和入门路径同步更新，固定提交历史审查入口保留原路径。
+
+## 第四批：运行快照与诊断入口
+
+`bms_soc_diag_t` 删除十个恒零 learning 成员；一次 `bms_diag_runtime_soc(const bms_soc_diag_t *)` 发布基础/扩展诊断，取代十二参数调用和第二次扩展调用。旧 wire offsets 210/211/212、243..247 及 flags bit0/1 保持零，地址和版本保持；恒零兼容仅在诊断缓存中。一次提交变化序号，空指针和重复快照不改变序号。
+
+九个纯 RAM getter 合并为 `bms_features_get_status()`。保留 outputs_blocked、charge_direction_blocked、diag_reasons 的决策入口和原状态所有者；DVC SOC 继续使用 active OR 最后一帧 COW，SH 继续使用当前 active。没有新增总 context。完整 feature 状态机、温度/电压资格和安全阻断决策保持。
+
+AFE aux 消费者（app 的新鲜电流/时间、参数电流诊断、runtime raw diag）、feature snapshot 消费者（独立温度/有效性）、charge-source 消费者（board/backend 物理资格）已核对。三者资格不同，保留各自入口与判断；没有把 cached value 当作统一有效样本。
+
+四产品开发 link/resources 零错误/警告；14 组相关回归初次有一处联合 SOC 夹具路径失败，修正函数抽取调用后又暴露模拟 heater/balance 位仍在旧 getter 外。夹具改为经 feature 状态输入，联合真实 Open-Wire/SOC 策略及原静置取消场景重跑通过；其余 13 组通过。保留失败记录，最终全量固定快照回归另证。既有 CSV 测试输出中的历史列保持零，不占用生产诊断结构。

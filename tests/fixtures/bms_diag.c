@@ -48,20 +48,18 @@ int main(void){
  assert(bms_diag_cached_word(2)==BMS_DIAG_CAPABILITIES);
  assert(bms_diag_cached_word(BMS_DIAG_RUNTIME_OFFSET)==BMS_DIAG_RUNTIME_VERSION);
  bms_diag_runtime_sample(1u,-123,456,0x11223344u,1u);
- bms_diag_runtime_soc(73u,72u,2u,74u,69u,79u,90u,600u,1u,1u,580u,200u);
  bms_soc_diag_t sx={0};
+ sx.soc_estimate=73;sx.soc_display=72;sx.ocv_state=2;sx.ocv_center=74;
+ sx.ocv_low=69;sx.ocv_high=79;sx.ocv_confidence=90;sx.rest_seconds=600;sx.current_deadband_ma=200;
  sx.chemistry=1;sx.profile_id=1;sx.profile_version=2;sx.endpoint_state=1;
  sx.endpoint_event_flags=3;sx.nominal_capacity_0p1ah=1000;
  sx.effective_capacity_0p1ah=950;sx.remaining_capacity_0p1ah=700;
  sx.filtered_current_ma=-10000;sx.current_variation_ma=120;
  sx.time_to_empty_min=180;sx.time_to_full_min=240;sx.eta_state=2;
  sx.eta_direction=1;sx.eta_confidence=88;sx.eta_valid=1;sx.soh=95;
- sx.soh_source=2;sx.soh_confidence=100;sx.capacity_learning_enable=1;
- sx.capacity_learning_candidate_valid=1;sx.candidate_capacity_0p1ah=910;
- sx.valid_learning_count=4;sx.rejected_learning_count=2;
- sx.last_learning_reject_reason=12;sx.capacity_learning_confidence=75;
+ sx.soh_source=2;sx.soh_confidence=100;
  sx.ocv_cell_mv=3400;
- bms_diag_runtime_soc_extended(&sx);
+ bms_diag_runtime_soc(&sx);
  bms_diag_runtime_pm(0u,DIAG_PM_BLOCK_CURRENT|DIAG_PM_BLOCK_BUS,3u,120u,1u,0u,500u);
  bms_diag_runtime_faults(1u,2u,4u);
  bms_diag_runtime_mode(1u);
@@ -76,7 +74,11 @@ int main(void){
  assert((int32_t)((uint32_t)bms_diag_cached_word(234)|((uint32_t)bms_diag_cached_word(235)<<16))==-10000);
  assert(bms_diag_cached_word(237)==180u&&bms_diag_cached_word(238)==240u);
  assert((bms_diag_cached_word(239)&0x0fu)==2u);
- assert(bms_diag_cached_word(243)==910u&&bms_diag_cached_word(246)==12u);
+ const unsigned reserved[]={210,211,212,243,244,245,246,247};
+ for(unsigned i=0;i<sizeof(reserved)/sizeof(reserved[0]);++i)assert(bms_diag_cached_word(reserved[i])==0);
+ assert((bms_diag_cached_word(230)&3u)==0u && (bms_diag_cached_word(230)&4u)==4u);
+ {uint16_t sequence=bms_diag_cached_word(4);bms_diag_runtime_soc(NULL);
+  bms_diag_runtime_soc(&sx);assert(bms_diag_cached_word(4)==sequence);}
  bms_diag_runtime_pm(1u,0u,0u,0u,1u,0u,500u);
  { uint32_t trace_before=(uint32_t)bms_diag_cached_word(8)|((uint32_t)bms_diag_cached_word(9)<<16);
    bms_diag_runtime_pm(0u,DIAG_PM_BLOCK_SAMPLE_PENDING,0u,0u,1u,1u,500u);

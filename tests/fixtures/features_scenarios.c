@@ -19,6 +19,11 @@ uint8_t bms_afe_get_balance_mask(uint32_t *mask){*mask=balance;return 1;}
 uint8_t bms_afe_openwire_start(void){++ow_started;return 1;}
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r){*r=ow_result;return ow_state;}
 /* FEATURES */
+static bms_features_status_t feature_status(void)
+{
+ bms_features_status_t status;bms_features_get_status(&status);return status;
+}
+
 static void voltages(unsigned delta)
 {
     for(unsigned i=0;i<BMS_AFE_FEATURE_MAX_CELLS;i++)
@@ -47,8 +52,8 @@ static void reset(void)
 static void step(unsigned n){while(n--)bms_features_service();}
 int main(void)
 {
-    reset();step(4);assert(!balance && !bms_features_balance_voltage_trusted());
-    step(1);assert(bms_features_balance_voltage_trusted());
+    reset();step(4);assert(!balance && !feature_status().balance_voltage_trusted);
+    step(1);assert(feature_status().balance_voltage_trusted);
     assert(balance==(bms_board_balance_supported()?1u:0u));
     voltages(30);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     voltages(29);step(1);assert(!balance);
@@ -59,32 +64,32 @@ int main(void)
     bms_error_clear(BMS_ERROR_DSG_SHORT);step(1);balance_fail=1;step(1);assert(bms_error_get(BMS_ERROR_BALANCE));
     balance_fail=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
     /* 不存在串位的 61001 不得进入 mask；真实有效串异常必须失去资格。 */
-    g_stCellInfoReport.u16VCell[0]=61001;step(1);assert(!balance && bms_features_openwire_suspected());
-    reset();step(5);snapshot.valid=0;step(1);assert(!heater && !bms_features_balance_voltage_trusted());
+    g_stCellInfoReport.u16VCell[0]=61001;step(1);assert(!balance && feature_status().openwire_suspected);
+    reset();step(5);snapshot.valid=0;step(1);assert(!heater && !feature_status().balance_voltage_trusted);
     /* 总线未知时保留最后读回，不能用软件请求 OFF 冒充硬件 OFF。 */
     assert(g_stCellInfoReport.u16BalanceFlag1==(bms_board_balance_supported()?1u:0u));
     reset();snapshot.battery_temp_min_x10=399;step(1);
     if(bms_board_heater_supported() && bms_board_heater_allowed()){
-        assert(bms_features_heater_state()==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
+        assert(feature_status().heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
         step(3);assert(!heater);g_stCellInfoReport.u16Ichg=0;step(1);assert(heater);
         snapshot.battery_temp_min_x10=449;step(1);assert(heater);
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater);
-        snapshot.battery_temp_min_x10=399;step(1);assert(!heater && bms_features_heater_state()==BMS_HEATER_IDLE);
+        snapshot.battery_temp_min_x10=399;step(1);assert(!heater && feature_status().heater_state==BMS_HEATER_IDLE);
         g_stCellInfoReport.u16Ichg=10;step(1);g_stCellInfoReport.u16Ichg=0;step(1);assert(heater);
         g_stCellInfoReport.u16IDischg=1;step(1);assert(!heater);
         if(bms_board_heater_fuse_supported()){
             snapshot.heater_temp_x10=bms_board_heater_off_fault_temp_x10();
             unsigned n=(bms_board_heater_off_fault_confirm_ms()+199u)/200u;
             if(n==0)n=1;
-            step(n-1);assert(!fuse_count);step(1);assert(fuse_count==1 && bms_features_heater_fuse_fired());
+            step(n-1);assert(!fuse_count);step(1);assert(fuse_count==1 && feature_status().heater_fuse_fired);
             step(n+1);assert(fuse_count==1);
         }
     }else{g_stCellInfoReport.u16Ichg=0;step(10);assert(!heater && !fuse_count);}
     /* 真正经过 service 发起诊断，完成帧仍不得用于 SOC。 */
-    reset();g_stCellInfoReport.u16Ichg=0;step(101);assert(ow_started && bms_features_openwire_active());
+    reset();g_stCellInfoReport.u16Ichg=0;step(101);assert(ow_started && feature_status().openwire_active);
     assert(bms_features_outputs_blocked());
     ow_result.valid=1;ow_result.determinate=1;ow_result.open_cell_mask=1;ow_state=BMS_AFE_DIAG_READY;
-    step(1);assert(!bms_features_openwire_active() && bms_features_openwire_sample_active());
+    step(1);assert(!feature_status().openwire_active && feature_status().openwire_sample_active);
     assert(bms_features_outputs_blocked());
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
            (unsigned)SeriesNum,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());

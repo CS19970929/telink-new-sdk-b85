@@ -848,14 +848,7 @@ static void app_sample_task(void)
                             valid ? m.sample_tick_32k : pm_get_32k_tick(),
                             bms_afe_current_recovery_pending());
     bms_soc_get_diag(&soc_diag);
-    bms_diag_runtime_soc(soc_diag.soc_estimate, soc_diag.soc_display,
-                         soc_diag.ocv_state, soc_diag.ocv_center,
-                         soc_diag.ocv_low, soc_diag.ocv_high,
-                         soc_diag.ocv_confidence, soc_diag.rest_seconds,
-                         soc_diag.learning_state, soc_diag.capacity_learned,
-                         soc_diag.learned_capacity_0p1ah,
-                         soc_diag.current_deadband_ma);
-    bms_diag_runtime_soc_extended(&soc_diag);
+    bms_diag_runtime_soc(&soc_diag);
     bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
                             g_stCellInfoReport.unMdlFault_Second.all,
                             g_stCellInfoReport.unMdlFault_Third.all);
@@ -888,6 +881,7 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
                              uint32_t sample_tick_32k)
 {
     bms_afe_feature_snapshot_t feature;
+    bms_features_status_t status;
     bms_soc_sample_t sample;
     uint16_t third_faults = g_stCellInfoReport.unMdlFault_Third.all;
     memset(&sample, 0, sizeof(sample));
@@ -908,14 +902,15 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
         sample.temperature_min_x10 = feature.battery_temp_min_x10;
         sample.temperature_max_x10 = feature.battery_temp_max_x10;
     }
-    sample.balancing_active = bms_features_balance_active();
-    sample.heating_active = bms_features_heater_on();
+    bms_features_get_status(&status);
+    sample.balancing_active = status.balance_active;
+    sample.heating_active = status.heater_on;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    sample.open_wire_active = bms_features_openwire_sample_active();
+    sample.open_wire_active = status.openwire_sample_active;
 #else
-    sample.open_wire_active = bms_features_openwire_active();
+    sample.open_wire_active = status.openwire_active;
 #endif
-    sample.open_wire_suspected = bms_features_openwire_suspected();
+    sample.open_wire_suspected = status.openwire_suspected;
     sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     sample.temperature_fault =
         ((third_faults & SOC_SAMPLE_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;
@@ -928,7 +923,7 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     sample.third_cell_uvp =
         g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp;
     sample.charger_state_known = 1u;
-    sample.charger_present = bms_features_charge_session_active();
+    sample.charger_present = status.charge_session_active;
     bms_soc_process_sample(&sample);
 }
 

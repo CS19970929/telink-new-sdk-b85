@@ -207,50 +207,36 @@ void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
         changed();
 }
 
-/* 发布 SOC 基础运行诊断。 */
-void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
-                          uint8_t ocv_state, uint8_t ocv_center,
-                          uint8_t ocv_low, uint8_t ocv_high,
-                          uint8_t ocv_confidence, uint16_t rest_seconds,
-                          uint8_t learning_state, uint8_t capacity_learned,
-                          uint16_t learned_capacity_0p1ah,
-                          uint16_t current_deadband_ma)
-{
-    uint8_t dirty = 0u;
-    if (s_words[202] != soc_estimate || s_words[203] != soc_display || s_words[204] != ocv_state)
-        BMS_LOG(BMS_LOG_INFO, BMS_LOG_SOC, BMS_LOG_SOC_STATE,
-                ((uint32_t)soc_estimate << 16) | soc_display, ocv_state);
-    dirty |= update16(200u, current_deadband_ma);
-    dirty |= update16(202u, soc_estimate);
-    dirty |= update16(203u, soc_display);
-    dirty |= update16(204u, ocv_state);
-    dirty |= update16(205u, ocv_center);
-    dirty |= update16(206u, ocv_low);
-    dirty |= update16(207u, ocv_high);
-    dirty |= update16(208u, ocv_confidence);
-    dirty |= update16(209u, rest_seconds);
-    dirty |= update16(210u, learning_state);
-    dirty |= update16(211u, capacity_learned);
-    dirty |= update16(212u, learned_capacity_0p1ah);
-    if (dirty) changed();
-}
-
-/* 发布 SOC 端点、OCV 与学习扩展诊断。 */
-void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
+/* 发布 SOC 运行快照；恒零的旧学习槽只存在于 wire 缓存。 */
+void bms_diag_runtime_soc(const bms_soc_diag_t *soc)
 {
     uint16_t flags;
     uint16_t eta;
     uint8_t dirty = 0u;
     if (soc == 0) return;
+    if (s_words[202] != soc->soc_estimate || s_words[203] != soc->soc_display || s_words[204] != soc->ocv_state)
+        BMS_LOG(BMS_LOG_INFO, BMS_LOG_SOC, BMS_LOG_SOC_STATE,
+                ((uint32_t)soc->soc_estimate << 16) | soc->soc_display, soc->ocv_state);
+    dirty |= update16(200u, soc->current_deadband_ma);
+    dirty |= update16(202u, soc->soc_estimate);
+    dirty |= update16(203u, soc->soc_display);
+    dirty |= update16(204u, soc->ocv_state);
+    dirty |= update16(205u, soc->ocv_center);
+    dirty |= update16(206u, soc->ocv_low);
+    dirty |= update16(207u, soc->ocv_high);
+    dirty |= update16(208u, soc->ocv_confidence);
+    dirty |= update16(209u, soc->rest_seconds);
+    dirty |= update16(210u, 0u);
+    dirty |= update16(211u, 0u);
+    dirty |= update16(212u, 0u);
+
     BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_SOC, BMS_LOG_SOC_DECISION,
             ((uint32_t)soc->last_soc_action << 24) | ((uint32_t)soc->last_soc_before << 16) |
             ((uint32_t)soc->last_soc_after << 8) | soc->last_soc_target,
             ((uint32_t)soc->last_decision_detail << 16) | soc->rest_seconds);
     BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_SOC, BMS_LOG_SOC_TIME,
             soc->last_sample_elapsed_32k, soc->last_integral_delta_as10);
-    flags = (uint16_t)((soc->capacity_learning_enable ? 1u : 0u) |
-                       (soc->capacity_learning_candidate_valid ? 2u : 0u) |
-                       (soc->eta_valid ? 4u : 0u) |
+    flags = (uint16_t)((soc->eta_valid ? 4u : 0u) |
                        ((soc->endpoint_event_flags & 0x00FFu) << 8));
     eta = (uint16_t)((soc->eta_state & 0x000Fu) |
                      ((soc->eta_direction & 0x000Fu) << 4) |
@@ -271,11 +257,11 @@ void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc)
     dirty |= update16(240u, soc->soh);
     dirty |= update16(241u, soc->soh_source);
     dirty |= update16(242u, soc->soh_confidence);
-    dirty |= update16(243u, soc->candidate_capacity_0p1ah);
-    dirty |= update16(244u, soc->valid_learning_count);
-    dirty |= update16(245u, soc->rejected_learning_count);
-    dirty |= update16(246u, soc->last_learning_reject_reason);
-    dirty |= update16(247u, soc->capacity_learning_confidence);
+    dirty |= update16(243u, 0u);
+    dirty |= update16(244u, 0u);
+    dirty |= update16(245u, 0u);
+    dirty |= update16(246u, 0u);
+    dirty |= update16(247u, 0u);
     dirty |= update16(248u, soc->ocv_cell_mv);
     dirty |= update16(249u, (uint16_t)((soc->last_sample_state & 0x0Fu) |
                                        ((soc->last_integral_direction & 0x0Fu) << 4) |

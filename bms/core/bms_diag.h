@@ -66,11 +66,8 @@ typedef struct {
     uint8_t ocv_low;
     uint8_t ocv_high;
     uint8_t ocv_confidence;
-    uint8_t capacity_learned;
-    uint8_t learning_state;
     uint16_t ocv_cell_mv;
     uint16_t rest_seconds;
-    uint16_t learned_capacity_0p1ah;
     uint16_t nominal_capacity_0p1ah;
     uint16_t effective_capacity_0p1ah;
     uint16_t remaining_capacity_0p1ah;
@@ -87,13 +84,6 @@ typedef struct {
     uint8_t soh;
     uint8_t soh_source;
     uint8_t soh_confidence;
-    uint8_t capacity_learning_enable;
-    uint8_t capacity_learning_candidate_valid;
-    uint8_t capacity_learning_confidence;
-    uint16_t candidate_capacity_0p1ah;
-    uint16_t valid_learning_count;
-    uint16_t rejected_learning_count;
-    uint8_t last_learning_reject_reason;
     uint8_t last_sample_state;
     uint8_t last_integral_direction;
     uint8_t last_soc_action;
@@ -190,16 +180,8 @@ void bms_diag_counter(uint16_t index, uint32_t value);
 void bms_diag_runtime_sample(uint8_t valid, int32_t raw_current_ma,
                              int32_t current_ma, uint32_t sample_tick_32k,
                              uint8_t current_recovery_pending);
-/* 发布 SOC 基础运行诊断。 */
-void bms_diag_runtime_soc(uint8_t soc_estimate, uint8_t soc_display,
-                          uint8_t ocv_state, uint8_t ocv_center,
-                          uint8_t ocv_low, uint8_t ocv_high,
-                          uint8_t ocv_confidence, uint16_t rest_seconds,
-                          uint8_t learning_state, uint8_t capacity_learned,
-                          uint16_t learned_capacity_0p1ah,
-                          uint16_t current_deadband_ma);
-/* 发布 SOC 端点、OCV 与学习扩展诊断。 */
-void bms_diag_runtime_soc_extended(const bms_soc_diag_t *soc);
+/* 一次发布 SOC 运行快照；旧 learning wire 槽由诊断核心保持零。 */
+void bms_diag_runtime_soc(const bms_soc_diag_t *soc);
 /* 发布低功耗状态与阻断原因，变化时记录轨迹。 */
 void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint8_t low_voltage_region, uint32_t low_voltage_seconds,

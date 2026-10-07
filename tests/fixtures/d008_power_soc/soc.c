@@ -9,12 +9,31 @@ typedef struct {uint32_t soc,dsg,cycle;} bms_state_store_data_t;
 static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0};return d;}
 static int openwire_active,openwire_suspected;
 static int balance_active,heater_on,charge_session_active,temp_valid=1;
-static uint8_t bms_features_openwire_active(void){return (uint8_t)openwire_active;}
-static uint8_t bms_features_openwire_sample_active(void){return (uint8_t)openwire_active;}
-static uint8_t bms_features_openwire_suspected(void){return (uint8_t)openwire_suspected;}
-static uint8_t bms_features_balance_active(void){return (uint8_t)balance_active;}
-static uint8_t bms_features_heater_on(void){return (uint8_t)heater_on;}
-static uint8_t bms_features_charge_session_active(void){return (uint8_t)charge_session_active;}
+typedef enum {
+    BMS_HEATER_IDLE = 0u,
+    BMS_HEATER_ARMING = 1u,
+    BMS_HEATER_ACTIVE = 2u
+} bms_heater_state_t;
+typedef struct {
+    bms_heater_state_t heater_state;
+    uint8_t heater_on;
+    uint8_t heater_fuse_fired;
+    uint8_t charge_session_active;
+    uint8_t balance_active;
+    uint8_t balance_voltage_trusted;
+    uint8_t openwire_suspected;
+    uint8_t openwire_active;
+    /* 包含健康 COW 轮询清 active 后的最后诊断样本，供 DVC SOC 使用。 */
+    uint8_t openwire_sample_active;
+} bms_features_status_t;
+static void bms_features_get_status(bms_features_status_t *s)
+{
+ memset(s,0,sizeof(*s));s->heater_on=(uint8_t)heater_on;
+ s->charge_session_active=(uint8_t)charge_session_active;
+ s->balance_active=(uint8_t)balance_active;
+ s->openwire_active=(uint8_t)openwire_active;s->openwire_sample_active=(uint8_t)openwire_active;
+ s->openwire_suspected=(uint8_t)openwire_suspected;
+}
 typedef struct {uint8_t valid,cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
 static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->valid=1;s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
 typedef struct {uint32_t battery_chemistry,soc_profile_id,capacity_factory;} bms_config_system_params_t;
@@ -101,7 +120,6 @@ static void check_invariants(void){
  assert(d.time_to_empty_min==BMS_SOC_ETA_MINUTES_INVALID||d.time_to_empty_min<65535u);
  assert(d.time_to_full_min==BMS_SOC_ETA_MINUTES_INVALID||d.time_to_full_min<65535u);
  if(d.eta_direction==BMS_SOC_ETA_DIR_NONE)assert(!d.eta_valid);
- assert(!d.capacity_learning_enable&&d.learning_state==0);
 }
 static void run_long_duration_checks(void){
  const uint32_t step_ticks=12800u;
@@ -176,8 +194,8 @@ static int write_trajectory(void){
     g_stCellInfoReport.u16VCellTotle*10u,(unsigned)d.eta_direction,reset,missing,true_ah,
     d.soc_estimate,d.soc_display,d.remaining_capacity_0p1ah,d.effective_capacity_0p1ah,
     d.ocv_state,d.ocv_center,d.ocv_low,d.ocv_high,d.ocv_confidence,d.endpoint_state,
-    d.time_to_empty_min,d.time_to_full_min,d.eta_confidence,d.learning_state,
-    d.candidate_capacity_0p1ah,d.learned_capacity_0p1ah,d.capacity_learning_confidence,d.soh);
+    d.time_to_empty_min,d.time_to_full_min,d.eta_confidence,0u,
+    0u,0u,0u,d.soh);
   }
  }
  return 0;
@@ -211,8 +229,8 @@ static int replay_csv(const char *input_path,const char *output_path){
   fprintf(out,"%u,%u,%lu,%d,%u,%u,%u,%.6f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lu\n",
    scenario,step,timestamp,current_ma,min_mv,max_mv,pack_mv,true_soc,d.soc_estimate,d.soc_display,
    d.remaining_capacity_0p1ah,d.effective_capacity_0p1ah,d.ocv_state,d.ocv_center,d.ocv_low,d.ocv_high,
-   d.ocv_confidence,d.rest_seconds,d.endpoint_state,d.endpoint_event_flags,d.learning_state,
-   d.last_learning_reject_reason,d.eta_direction,d.eta_state,d.eta_confidence,d.time_to_empty_min,
+   d.ocv_confidence,d.rest_seconds,d.endpoint_state,d.endpoint_event_flags,0u,
+   0u,d.eta_direction,d.eta_state,d.eta_confidence,d.time_to_empty_min,
    d.time_to_full_min,d.last_soc_action,d.last_sample_state,(unsigned long)d.last_integral_delta_as10);
  }
  fclose(in);fclose(out);return 0;
@@ -419,10 +437,6 @@ int main(int argc,char **argv){
   assert(diag.soh==expected_soh[i]&&diag.soh_source==1&&diag.soh_confidence==25);
   assert(SOC_Calculate_Element.u32CapFull==1000u*3600u*expected_soh[i]/100u);
   assert(g_stCellInfoReport.SocElement.u16CapacityFull==10000u*expected_soh[i]/100u);
-  assert(!diag.capacity_learned&&!diag.learning_state&&!diag.learned_capacity_0p1ah);
-  assert(!diag.capacity_learning_enable&&!diag.capacity_learning_candidate_valid);
-  assert(!diag.capacity_learning_confidence&&!diag.candidate_capacity_0p1ah);
-  assert(!diag.valid_learning_count&&!diag.rejected_learning_count&&!diag.last_learning_reject_reason);
   simulated_reboot();assert(SOC_Calculate_Element.soh==expected_soh[i]);
  }
  for(uint32_t cycle=1;cycle<=65535u;++cycle)

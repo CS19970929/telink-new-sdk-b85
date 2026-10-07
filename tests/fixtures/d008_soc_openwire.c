@@ -3,10 +3,10 @@ static unsigned poll_count, rounds, diagnostic_frames;
 static int poll_result, poll_stuck, start_ok = 1;
 static uint8_t openwire_hard_fault(void) { return (uint8_t)afe_error; }
 static uint8_t apply_balance_mask(uint32_t mask) { return 1u; }
-static void update_charge_session(void) {}
+static void update_charge_session(void) { s_feature.charge_session_active = (uint8_t)charge_session_active; }
 static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s) {}
-static void service_heater(const bms_afe_feature_snapshot_t *s) {}
-static void service_balance(const bms_afe_feature_snapshot_t *s) {}
+static void service_heater(const bms_afe_feature_snapshot_t *s) { s_feature.heater_on = (uint8_t)heater_on; }
+static void service_balance(const bms_afe_feature_snapshot_t *s) { s_feature.balance_active = (uint8_t)balance_active; }
 static void bms_features_on_afe_invalid(void) { s_feature.openwire_suspected = 1u; }
 static uint8_t bms_afe_openwire_start(void)
 {
@@ -26,6 +26,11 @@ static bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
     return BMS_AFE_DIAG_READY;
 }
 /* FEATURE_SOURCE */
+static bms_features_status_t feature_status(void)
+{
+ bms_features_status_t status;bms_features_get_status(&status);return status;
+}
+
 
 static void initialize_joint(void)
 {
@@ -96,7 +101,7 @@ int main(void)
     uint32_t rest = g_soc_runtime.idle_stable_ticks;
     joint_sample(12800u);
     joint_sample(12800u);
-    assert(!s_feature.openwire_active && bms_features_openwire_sample_active());
+    assert(!s_feature.openwire_active && feature_status().openwire_sample_active);
     assert(g_soc_runtime.idle_stable_ticks == rest && g_soc_runtime.ocv_down_ticks == 123u);
     for (unsigned i = 1u; i <= 3u; ++i) {
         joint_sample(12800u);

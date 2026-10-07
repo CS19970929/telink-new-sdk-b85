@@ -71,20 +71,21 @@ typedef enum {
     BMS_HEATER_ACTIVE = 2u
 } bms_heater_state_t;
 
-/* 查询加热输出当前是否激活。 */
-uint8_t bms_features_heater_on(void);
-/* 查询不可逆加热熔断是否已经触发。 */
-uint8_t bms_features_heater_fuse_fired(void);
-/* 取得当前加热策略阶段。 */
-bms_heater_state_t bms_features_heater_state(void);
-/* 查询充电会话是否已确认有效。 */
-uint8_t bms_features_charge_session_active(void);
-/* 查询是否存在正在使用的均衡通道。 */
-uint8_t bms_features_balance_active(void);
-/* 查询均衡用电芯电压是否已通过可信度确认。 */
-uint8_t bms_features_balance_voltage_trusted(void);
-/* 查询是否存在尚未确认的电芯断线嫌疑。 */
-uint8_t bms_features_openwire_suspected(void);
+typedef struct {
+    bms_heater_state_t heater_state;
+    uint8_t heater_on;
+    uint8_t heater_fuse_fired;
+    uint8_t charge_session_active;
+    uint8_t balance_active;
+    uint8_t balance_voltage_trusted;
+    uint8_t openwire_suspected;
+    uint8_t openwire_active;
+    /* 包含健康 COW 轮询清 active 后的最后诊断样本，供 DVC SOC 使用。 */
+    uint8_t openwire_sample_active;
+} bms_features_status_t;
+
+/* 复制本模块 RAM 状态；不读取 AFE，不改变输出授权。 */
+void bms_features_get_status(bms_features_status_t *status);
 /* 编码加热、均衡和断线检测的阻断原因。 */
 uint32_t bms_features_diag_reasons(uint8_t charge);
 
@@ -95,12 +96,4 @@ uint32_t bms_features_diag_reasons(uint8_t charge);
 uint8_t bms_features_outputs_blocked(void);
 /* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void);
-/* 查询断线检测流程是否处于活动阶段。 */
-uint8_t bms_features_openwire_active(void);
-/*
- * 仅供 SOC 的 RAM 查询，包含健康轮询清 active 后的最后 COW 样本；
- * 失败/不确定轮次始终保留 suspected。
- */
-uint8_t bms_features_openwire_sample_active(void);
-
 #endif /* 头文件保护：BMS_FEATURES_H_。 */

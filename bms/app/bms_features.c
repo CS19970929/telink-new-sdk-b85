@@ -681,20 +681,21 @@ void bms_features_on_afe_invalid(void)
         bms_error_raise(BMS_ERROR_HEAT);
 }
 
-/* 查询加热输出当前是否激活。 */
-uint8_t bms_features_heater_on(void) { return s_feature.heater_on; }
-/* 查询不可逆加热熔断是否已经触发。 */
-uint8_t bms_features_heater_fuse_fired(void) { return s_feature.heater_fuse_fired; }
-/* 取得当前加热策略阶段。 */
-bms_heater_state_t bms_features_heater_state(void) { return s_feature.heater_state; }
-/* 查询充电会话是否已确认有效。 */
-uint8_t bms_features_charge_session_active(void) { return s_feature.charge_session_active; }
-/* 查询是否存在正在使用的均衡通道。 */
-uint8_t bms_features_balance_active(void) { return s_feature.balance_active; }
-/* 查询均衡用电芯电压是否已通过可信度确认。 */
-uint8_t bms_features_balance_voltage_trusted(void) { return s_feature.balance_voltage_trusted; }
-/* 查询是否存在尚未确认的电芯断线嫌疑。 */
-uint8_t bms_features_openwire_suspected(void) { return s_feature.openwire_suspected; }
+/* 复制 feature 所有者的 RAM 状态，不额外读取总线或推进状态机。 */
+void bms_features_get_status(bms_features_status_t *status)
+{
+    if (status == 0) return;
+    status->heater_on = s_feature.heater_on;
+    status->heater_fuse_fired = s_feature.heater_fuse_fired;
+    status->heater_state = s_feature.heater_state;
+    status->charge_session_active = s_feature.charge_session_active;
+    status->balance_active = s_feature.balance_active;
+    status->balance_voltage_trusted = s_feature.balance_voltage_trusted;
+    status->openwire_suspected = s_feature.openwire_suspected;
+    status->openwire_active = s_feature.openwire_active;
+    status->openwire_sample_active =
+        (s_feature.openwire_active || s_feature.openwire_sample_active) ? 1u : 0u;
+}
 
 /* 查询配置无效或断线检测造成的双向硬性阻断。 */
 uint8_t bms_features_outputs_blocked(void)
@@ -711,13 +712,6 @@ uint8_t bms_features_charge_direction_blocked(void)
             s_feature.heater_state == BMS_HEATER_ACTIVE) ? 1u : 0u;
 }
 
-/* 查询断线检测流程是否处于活动阶段。 */
-uint8_t bms_features_openwire_active(void) { return s_feature.openwire_active; }
-/* 查询当前样本是否属于断线诊断采样窗口。 */
-uint8_t bms_features_openwire_sample_active(void)
-{
-    return (s_feature.openwire_active || s_feature.openwire_sample_active) ? 1u : 0u;
-}
 /* 编码加热、均衡和断线检测的阻断原因。 */
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {

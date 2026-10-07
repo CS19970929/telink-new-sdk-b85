@@ -88,13 +88,10 @@ def main():
 
 def check_soc_openwire():
     fixture = (FIX / 'soc.c').read_text().split('int main(', 1)[0]
-    for name in ('bms_features_openwire_active',
-                 'bms_features_openwire_sample_active',
-                 'bms_features_openwire_suspected'):
-        fixture, count = re.subn(r'static uint8_t ' + name +
-                                r'\(void\)\{[^\n]+\}',
-                                'static uint8_t ' + name + '(void);', fixture)
-        assert count == 1
+    fixture, count = re.subn(r'static void bms_features_get_status\([^)]*\)\n\{.*?\n\}',
+                            'void bms_features_get_status(bms_features_status_t *s);',
+                            fixture, flags=re.S)
+    assert count == 1
     soc = (('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + source('bms_diag.h') +
            source('bms_soc.h') + source('bms_soc_profile.h') +
            'static int bms_config_store_set_soc(const bms_soc_config_t *c){return config_store_write_ok;}\n'
@@ -118,12 +115,10 @@ def check_soc_openwire():
     constants += '\n#define BMS_OPENWIRE_FIRST_IDLE_SAMPLES (BMS_OPENWIRE_FIRST_IDLE_MS / BMS_FEATURE_SERVICE_PERIOD_MS)\n'
     constants += '#define BMS_OPENWIRE_PERIOD_SAMPLES (BMS_OPENWIRE_PERIOD_MS / BMS_FEATURE_SERVICE_PERIOD_MS)\n'
     fixture += '\n#define BMS_AFE_FEATURE_MAX_CELLS 24u\n' + afe_types + '\n' + constants
-    fixture += '\ntypedef int bms_heater_state_t;\n' + feature_type
+    fixture += '\n' + feature_type
     fixture += (Path(__file__).parent / 'fixtures/d008_soc_openwire.c').read_text()
     for signature in ('static uint8_t openwire_eligible(', 'static void service_openwire(',
-                      'void bms_features_service(', 'uint8_t bms_features_openwire_active(',
-                      'uint8_t bms_features_openwire_sample_active(',
-                      'uint8_t bms_features_openwire_suspected('):
+                      'void bms_features_service(', 'void bms_features_get_status('):
         fixture = fixture.replace('/* FEATURE_SOURCE */',
                                   function('bms_features.c', signature) + '\n/* FEATURE_SOURCE */')
     fixture = fixture.replace('/* FEATURE_SOURCE */', '')

@@ -25,10 +25,7 @@ void bms_diag_poll_runtime(uint8_t valid, int32_t current_ma,
             ((uint32_t)g_stCellInfoReport.u16VCellMin << 16) | g_stCellInfoReport.u16VCellMax,
             ((uint32_t)g_stCellInfoReport.u16VCellMinPosition << 16) | g_stCellInfoReport.u16VCellMaxPosition);
     bms_soc_get_diag(&soc);
-    bms_diag_runtime_soc(soc.soc_estimate,soc.soc_display,soc.ocv_state,soc.ocv_center,
-        soc.ocv_low,soc.ocv_high,soc.ocv_confidence,soc.rest_seconds,soc.learning_state,
-        soc.capacity_learned,soc.learned_capacity_0p1ah,soc.current_deadband_ma);
-    bms_diag_runtime_soc_extended(&soc);
+    bms_diag_runtime_soc(&soc);
     bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
         g_stCellInfoReport.unMdlFault_Second.all,g_stCellInfoReport.unMdlFault_Third.all);
     bms_diag_runtime_mode(factory);
