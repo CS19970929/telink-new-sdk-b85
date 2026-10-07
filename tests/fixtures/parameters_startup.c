@@ -15,9 +15,9 @@ static void note(char action) { calls[count++]=action; calls[count]=0; }
 int bms_config_store_validate_startup(void) { note('C'); return failed_domain!=1u; }
 int bms_state_store_init(void) { note('S'); return failed_domain!=2u; }
 int bms_event_log_init(void) { note('E'); return failed_domain!=3u; }
-int bms_config_store_init(void) { note('I'); return 1; }
-int bms_config_store_get_protect(bms_protection_params_t *p) { memset(p,0,sizeof(*p)); return 1; }
-void bms_config_store_get_default_protect(bms_protection_params_t *p) { memset(p,0,sizeof(*p)); }
+int bms_config_store_init(void) { assert(0 && "protection loading must not retry Config initialization"); return 0; }
+int bms_config_store_get_protect(bms_protection_params_t *p) { note('G'); memset(p,0,sizeof(*p)); return failed_domain!=1u; }
+void bms_config_store_get_default_protect(bms_protection_params_t *p) { note('D'); memset(p,0,sizeof(*p)); }
 int bms_config_store_set_protect(const bms_protection_params_t *p) { (void)p; return 1; }
 uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *p) { note('P'); return p!=0 && failed_domain!=4u; }
 void bms_diag_boot_word(uint16_t offset,uint16_t value) { (void)offset; (void)value; }
@@ -26,7 +26,8 @@ void bms_diag_params(uint8_t valid,uint8_t startup) { (void)valid; (void)startup
 void bms_error_raise(bms_error_id_t error) { assert(error==BMS_ERROR_EEPROM_STORE); }
 int main(void) {
     for(failed_domain=0;failed_domain<5;failed_domain++) {
-        count=0; upgrade_status=0; bms_parameters_init(); assert(!strcmp(calls,"CSEIP"));
+        count=0; upgrade_status=0; bms_parameters_init();
+        assert(!strcmp(calls,failed_domain==1u ? "CSEGD" : "CSEGP"));
         assert(bms_protection_params_valid()==(failed_domain==0));
         if(failed_domain==2) assert(upgrade_status==DIAG_UPGRADE_STATE);
         if(failed_domain==3) assert(upgrade_status==DIAG_UPGRADE_EVENT);

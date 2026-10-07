@@ -20,6 +20,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 | [第三轮简化与保留边界](docs/SIMPLIFICATION_20261007.md) · [固定提交证据](docs/SIMPLIFICATION_20261007_EVIDENCE.json) | 主流程、产品差异、删除项、状态与验证口径 |
 | [第四轮维护入口简化](docs/SIMPLIFICATION_ROUND4_20261007.md) · [固定提交证据](docs/SIMPLIFICATION_ROUND4_20261007_EVIDENCE.json) | 参数命名、配置头、诊断状态与协议可读性 |
 | [启动、诊断与产品命名收口](docs/MAINTENANCE_SIMPLIFICATION_20261007.md) · [固定提交证据](docs/MAINTENANCE_SIMPLIFICATION_20261007_EVIDENCE.json) | CI 证据、发布批准、单一启动/诊断入口及字段命名 |
+| [最后一轮启动与电源职责简化](docs/FINAL_MAINTENANCE_SIMPLIFICATION_20261007.md) | Config 单次尝试、CI 选择、D008 固定输入及低功耗职责；本轮未运行测试 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |
 | [根协作规则](AGENTS.md) | 开始修改前确认仓库约束 |

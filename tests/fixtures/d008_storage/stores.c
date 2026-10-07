@@ -226,7 +226,7 @@ static void test_boot_gate(void){
 static void test_diag_boot(void){
  fresh();reboot();region_ok=0;u32 before=errors;
  bms_parameters_init();
- assert(errors-before==3);assert(bms_diag_cached_word(36)==2);
+ assert(errors-before==3);assert(bms_diag_cached_word(36)==1);
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
  assert(bms_diag_cached_word(52)==1 && bms_diag_cached_word(84)==1);
  assert(!bms_event_log_init());assert(bms_diag_cached_word(84)==2);
@@ -234,7 +234,7 @@ static void test_diag_boot(void){
  bms_diag_freeze_boot();region_ok=1;assert(bms_config_store_init());
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
  fresh();assert(bms_diag_cached_word(39)==1 && bms_diag_cached_word(37)==0);
- puts("PASS diagnostics: two Config failures, independent State/Event attempts, frozen first failure, blank defaults");
+ puts("PASS diagnostics: one Config failure, independent State/Event attempts, frozen first failure, blank defaults");
 }
 static void test_config_failure_preserves_state_cache(void){
  fresh();assert(bms_state_store_write_all(63u,27u,123u));
@@ -242,7 +242,7 @@ static void test_config_failure_preserves_state_cache(void){
  assert(!bms_protection_params_valid());assert(g_bms_state_ready && g_bms_event_log.ready);
  bms_state_store_data_t loaded=bms_state_store_get();
  assert(loaded.soc==63u && loaded.dsg==27u && loaded.cycle==123u);
- assert(bms_diag_cached_word(52)==1 && bms_diag_cached_word(84)==1);
+ assert(bms_diag_cached_word(36)==1 && bms_diag_cached_word(52)==1 && bms_diag_cached_word(84)==1);
  config_read_fail=0;assert(bms_protection_params_commit(&g_bms_protection_params));
  assert(!bms_protection_params_valid());
  loaded=bms_state_store_get();assert(loaded.soc==63u && loaded.cycle==123u);

@@ -73,6 +73,7 @@ jobs:
           --only modbus_host_check --only current_calibration_host_check
           --only diagnostics_host_check
           --only storage_host_check
+          --only core_contract_check
           --only portable_core_host_check
       - uses: actions/upload-artifact@v4
         if: always()

@@ -24,23 +24,15 @@ uint8_t bms_protection_params_valid(void)
 /* 加载并验证配置后发布运行参数；更新失败时保留启动安全门禁，不能通过普通保存绕过。 */
 static void parameters_load_protection(void)
 {
-
     s_protection_params_valid = 0u;
     bms_diag_boot_word(26u, DIAG_STARTED);
 
-    if (!bms_config_store_init()) {
+    /* 启动资格入口已经尝试 Config；这里只读缓存，失败不重试 I/O 或写回默认。 */
+    if (!bms_config_store_get_protect(&g_bms_protection_params)) {
         bms_diag_boot_word(26u, DIAG_INVALID);
         bms_config_store_get_default_protect(&g_bms_protection_params);
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
-    }
-    if (!bms_config_store_get_protect(&g_bms_protection_params)) {
-        bms_config_store_get_default_protect(&g_bms_protection_params);
-        if (!bms_config_store_set_protect(&g_bms_protection_params)) {
-            bms_diag_boot_word(26u, DIAG_SAVE);
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-            return;
-        }
     }
 
     /*
