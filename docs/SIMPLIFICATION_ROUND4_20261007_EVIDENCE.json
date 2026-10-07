@@ -1,0 +1,2770 @@
+{
+  "schema": "bms-round4-simplification-evidence/v1",
+  "recorded_utc": "2026-10-07T03:32:41.933156+00:00",
+  "baseline_commit": "5d95a6e29a962b5dbf2bd3f90cf93c500e2cda84",
+  "implementation_commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+  "snapshot_note": "固定实施提交 + 既有官方 SDK Patch_0001 覆盖 + 实际源码字节指纹；Windows Git stat 未报告 SDK 覆盖，WSL 原始 dirty 元数据保留，不能声称纯 HEAD 或远端 CI 已验证。",
+  "preexisting_sdk_overlays": [
+    {
+      "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.h",
+      "actual_sha256": "5e0af5c31bdbd6cbd0b54c2a28e1591e641e85de9cf238e23d7ee8e161dc30c2",
+      "committed_sha256": "21c0e4a2d0805e2fe529b220c87f9d4c99377b649b96aad42b8b3015dc19424c",
+      "patch_reference": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk_v3.4.2.8_Patch/patch_0001_20250929/common/sdk_version.h",
+      "matches_supplied_patch": true,
+      "note": "已存在的 SDK Patch_0001 覆盖，本轮未修改或提交；Windows Git stat 未识别，独立字节指纹留证"
+    },
+    {
+      "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.c",
+      "actual_sha256": "aea0a9a206eecbd568a49a1b78bbf5a77b71b8f11293df5a34dc9b9ce8024d3f",
+      "committed_sha256": "3c43b0170fcbc299b2bc24cccd8513402efee76706ade079b617f627bd09e6a2",
+      "patch_reference": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk_v3.4.2.8_Patch/patch_0001_20250929/drivers/B85/clock.c",
+      "matches_supplied_patch": true,
+      "note": "已存在的 SDK Patch_0001 覆盖，本轮未修改或提交；Windows Git stat 未识别，独立字节指纹留证"
+    }
+  ],
+  "windows_host": {
+    "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\host-final\\report.json",
+    "sha256": "61cdd98a36da4c434502ffda89be399ba9b373bbec770e8a4a175f4782a0b658",
+    "git": {
+      "head": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+      "tree": "131497bd2e6e52b3e653993cef3dc42de1658b80",
+      "status": "",
+      "recent_commits": "3a3f7f39 清理状态历史命名与协议头依赖并移除废弃老化命令\n6ca65fa0 合并 SOC 诊断与 feature 状态查询并删除恒零学习成员\n773e64b6 统一四产品配置入口并保留后端寄存器编码边界\n6e1b008a 删除混合配置头并归位类型与时间常量\n0b77b9fa 清理历史参数命名并以逐字段初始化维护保护默认值"
+    },
+    "input_sha256": "11c51d3d22f548c85c582a89d4747a7fe343d343ebc77e6385f1e1908feea7f4",
+    "input_file_count": 885,
+    "planned": 110,
+    "completed": 110,
+    "failures": 0,
+    "verdict": "软件验证通过",
+    "partial": false,
+    "source_changed_during_run": false,
+    "tools": {
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.19045-SP0",
+      "cc": {
+        "command": [
+          "C:/qp/qtools/MinGW32/bin/cc.exe"
+        ],
+        "path": "C:/qp/qtools/MinGW32/bin\\cc.exe",
+        "version": "cc.exe (Rev2, Built by MSYS2 project) 9.2.0\r\nCopyright (C) 2019 Free Software Foundation, Inc.\r\nThis is free software; see the source for copying conditions.  There is NO\r\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\r\n",
+        "exit": 0,
+        "sha256": "4f337497b7f3baee31a830e82567e1c1d130963bca6ff6e9e8da3399b86ae1e7"
+      },
+      "sanitizers": "0"
+    },
+    "checks": [
+      {
+        "check": "tooling_unit_tests",
+        "product": "shared",
+        "exit": 0
+      },
+      {
+        "check": "validation_runner_tests",
+        "product": "shared",
+        "exit": 0
+      },
+      {
+        "check": "source_manifests",
+        "product": "shared",
+        "exit": 0
+      },
+      {
+        "check": "afe_configuration_gate_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "afe_factory_regression_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "afe_factory_regression_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "afe_factory_regression_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "afe_factory_regression_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "afe_hw_transaction_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "afe_hw_transaction_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "afe_hw_transaction_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "afe_hw_transaction_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "app_scheduler_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "bms_simplification_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "core_contract_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "core_contract_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "core_contract_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "core_contract_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "d008_backend_contract_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "d008_configuration_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "d008_power_soc_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "d008_recovery_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "d014_configuration_contract_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "d014_defaults_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "d014_safety_loop_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "dvc1124_fixed_policy_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "dvc_adc_events_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "dvc_register_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "flash_quick_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "flash_quick_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "flash_quick_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "flash_quick_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "portable_core_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "production_policy_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "production_policy_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "production_policy_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "production_policy_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_comm_mode_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_comm_mode_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_d011_integration_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_soc_direction_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_soc_direction_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh3673510_soc_direction_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh3673520_contract_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_backend_contract_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_backend_contract_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_backend_contract_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_power_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_power_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_power_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_quantize_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_recovery_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_recovery_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_recovery_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_sample_atomic_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_sample_atomic_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_sample_atomic_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_storage_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_storage_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_storage_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sif_packet_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "soc_replay_freshness_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "soc_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "soc_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "soc_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "soc_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sw_temperature_groups_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "sw_temperature_groups_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sw_temperature_groups_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sw_temperature_groups_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "tooling_contract_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "uart_ownership_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "uart_ownership_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "uart_ownership_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "uart_ownership_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "validation_mutation_check",
+        "product": "d014",
+        "exit": 0
+      }
+    ]
+  },
+  "wsl_selected_asan_ubsan": {
+    "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\sanitizers-final\\report.json",
+    "sha256": "4ad1f6e86edf1d6d3aba9ecf6913144f00bb2de755ff0f90166a5ef55baa916a",
+    "git": {
+      "head": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+      "tree": "131497bd2e6e52b3e653993cef3dc42de1658b80",
+      "status": "M .gitattributes\n M .github/actionlint.yaml\n M .github/workflows/afe-hw-split-ci.yml\n M .github/workflows/bms-ci.yml\n M .gitignore\n M .vscode/tasks.json\n M README.md\n M bms.code-workspace\n M bms/products/baselines.json\n M bms_tools/static_analysis/cppcheck.cfg\n M bms_tools/static_analysis/tc32-platform.xml\n M docs/AFE_AUDIT_REMEDIATION.md\n M docs/AFE_HARDWARE_PROTECTION_V2.md\n M docs/AFE_REFERENCE_GUIDE.md\n M docs/ARCHITECTURE.md\n M docs/AUTOMATED_VALIDATION.md\n M docs/BUILD_AND_TEST.md\n M docs/CODE_READING_GUIDE.md\n M docs/CONFIGURATION_AND_BUILD_GUIDE.md\n M docs/D008_PRODUCT_REFERENCE.md\n M docs/D011_PRODUCT_REFERENCE.md\n M docs/D013_PRODUCT_REFERENCE.md\n M docs/D014_DIAGNOSTICS.md\n M docs/D014_PRODUCT_REFERENCE.md\n M docs/D014_RS485_TX_DIAG.md\n M docs/D014_SAFETY_LOOP.md\n M docs/GITHUB_ACTIONS_RUNBOOK.md\n M docs/HARDWARE_VALIDATION.md\n M docs/ONBOARDING.md\n M docs/OTA_PARAMETERS.md\n M docs/README.md\n M docs/RESOURCE_BUDGET_AND_VALIDATION.md\n M docs/RUNTIME_DEBUG_LOG.md\n M docs/SH_LOW_POWER_FAILURE_HANDLING.md\n M docs/SH_RECOVERY_AND_FRESHNESS.md\n M docs/SIMPLIFICATION_20261007.md\n M docs/SIMPLIFICATION_20261007_EVIDENCE.json\n M docs/SIMPLIFICATION_ROUND4_20261007.md\n M docs/SOC.md\n M docs/SOFTWARE_PROTECTION.md\n M docs/STORAGE.md\n M docs/history/AUTOMATED_VALIDATION_EVIDENCE.json\n M docs/history/BMS_MONOREPO_REMEDIATION.md\n M docs/history/BMS_MONOREPO_VALIDATION.md\n M docs/history/BMS_SIMPLIFICATION.md\n M docs/history/BMS_SIMPLIFICATION_EVIDENCE.json\n M docs/history/CHINESE_CODE_COMMENTS.md\n M docs/history/CHINESE_COMMENT_AUDIT.json\n M docs/history/D014_SAFETY_LOOP_EVIDENCE.json\n M docs/history/DOCUMENTATION_AUDIT.md\n M docs/history/FOUR_PRODUCT_CONFIGURATION_AUDIT.md\n M docs/history/SIMPLIFICATION_20261006.md\n M docs/history/STORAGE_REFACTOR_20261006.md\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/print/u_printf.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/boot/B85/cstartup_825x.S\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/types.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/BMSGeneratedRegisterCatalog.swift\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/BmsGeneratedRegisterCatalog.kt\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/README.md\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/bms_generated_register_catalog.hpp\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/protocol_test_vectors.json\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/register_catalog.json\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B87/adc.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio_default.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/lib/include/pm/pm.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/lib/include/rf_drv.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/watchdog.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.cproject\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.settings/org.eclipse.cdt.core.prefs\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.settings/org.eclipse.core.resources.prefs\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_remote/825x_ble_remote.lst\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_remote/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample/vendor/ble_sample/subdir.mk\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_module/825x_module.lst\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_module/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/boot.link\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B87/boot.link\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/gen_ble_sample_version_header.ps1\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_master_kma_dongle/app_config.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_master_kma_dongle/blm_ota.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app_config.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/battery_check.c\n M tests/bms_core_host_test.c\n M tests/bms_soc_eta_host_test.c\n M tests/fixtures/d014_safety_loop/include/ble_flash.h\n M tests/fixtures/d014_safety_loop/include/common/types.h\n M tests/fixtures/d014_safety_loop/include/drivers.h\n M tests/fixtures/d014_safety_loop/include/stack/ble/ble.h\n M tests/fixtures/d014_safety_loop/include/tl_common.h\n M tests/fixtures/sif_wire_6604d738.json\n M tests/fixtures/sif_wire_model.h\n M tests/soc/traces/README.md\n M tests/storage_record_host_test.c",
+      "recent_commits": "3a3f7f39 清理状态历史命名与协议头依赖并移除废弃老化命令\n6ca65fa0 合并 SOC 诊断与 feature 状态查询并删除恒零学习成员\n773e64b6 统一四产品配置入口并保留后端寄存器编码边界\n6e1b008a 删除混合配置头并归位类型与时间常量\n0b77b9fa 清理历史参数命名并以逐字段初始化维护保护默认值"
+    },
+    "input_sha256": "11c51d3d22f548c85c582a89d4747a7fe343d343ebc77e6385f1e1908feea7f4",
+    "input_file_count": 885,
+    "planned": 37,
+    "completed": 37,
+    "failures": 0,
+    "verdict": "部分验证通过",
+    "partial": true,
+    "source_changed_during_run": false,
+    "tools": {
+      "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+      "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "cc": {
+        "command": [
+          "gcc"
+        ],
+        "path": "/usr/bin/gcc",
+        "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+        "exit": 0,
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+      },
+      "sanitizers": "1"
+    },
+    "checks": [
+      {
+        "check": "current_calibration_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "current_calibration_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "d014_safety_loop_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "diagnostics_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "dvc_register_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "features_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "modbus_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "portable_core_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "product_configuration_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "protection_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_register_scenarios_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "sh_safety_chain_host_check",
+        "product": "d014",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d008",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d011",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d013",
+        "exit": 0
+      },
+      {
+        "check": "storage_host_check",
+        "product": "d014",
+        "exit": 0
+      }
+    ]
+  },
+  "sources": {
+    "d008": {
+      "path": "bms/products/d008/sources.txt",
+      "sha256": "b4666a9329526a05ad69fcbde4fc549537fc9c8e3c117ee6c0c4b76da1dd78c6",
+      "only_change": "param.c 更名，位置与其余顺序保持"
+    },
+    "d011": {
+      "path": "bms/products/d011/sources.txt",
+      "sha256": "cc055d1ecf83eb255146691f3c7497a21699f10862a4949e7306a3b03595dd7f",
+      "only_change": "param.c 更名，位置与其余顺序保持"
+    },
+    "d013": {
+      "path": "bms/products/d013/sources.txt",
+      "sha256": "cc055d1ecf83eb255146691f3c7497a21699f10862a4949e7306a3b03595dd7f",
+      "only_change": "param.c 更名，位置与其余顺序保持"
+    },
+    "d014": {
+      "path": "bms/products/d014/sources.txt",
+      "sha256": "cc055d1ecf83eb255146691f3c7497a21699f10862a4949e7306a3b03595dd7f",
+      "only_change": "param.c 更名，位置与其余顺序保持"
+    }
+  },
+  "tc32_resources": [
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\development\\d011\\gen\\resources.json",
+      "sha256": "5291a6b5d241f3453f5dcaed4c41fa37c35b020ad1d1ca99b575e189623dffdb",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "5e4177636b3db582f58b480f4754733f35bfd69e94c95f17c2df0bf62a9d842c",
+        "product": "d011",
+        "configuration": {
+          "product": "d011",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "ed9a35a41eebc5e89474b6b71c8de8422de7d4bcb19d4ffe5933984c31a0b94e",
+        "flash_bytes": 115620,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 11356,
+        "ram_span_bytes": 24116,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8652,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5580,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 96468
+          },
+          "cstartup_ram_funcs": {
+            "address": 111328,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111664,
+            "bytes": 3792
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6084
+          },
+          "data_no_init": {
+            "address": 8674100,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674868,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "5e4177636b3db582f58b480f4754733f35bfd69e94c95f17c2df0bf62a9d842c",
+          "825x_ble_sample.lst": "a7d2368e64476bee2addd9ea1e5dc830d1cccf3ed3095d3cd9ce1885f7e16fad",
+          "825x_ble_sample.map": "ed9a35a41eebc5e89474b6b71c8de8422de7d4bcb19d4ffe5933984c31a0b94e"
+        },
+        "inputs_sha256": "b0fec15dfbfd2aed30a499e447ed6d1304e531adec10f56c6c0faf4a9715b0da"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\development\\d013\\gen\\resources.json",
+      "sha256": "25a1ba717522d1f55f8466ebf3a485b33d5e23d617f666fae1e2eb494605d8af",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "769798e024b9b1e4db7cc75f90c32223bea0c75f632fef00d2a59500a228258b",
+        "product": "d013",
+        "configuration": {
+          "product": "d013",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "931c9cf68e9e772a531d9575cf403d672a35f3e060f4b3b167b954990ba8a9f8",
+        "flash_bytes": 114628,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12348,
+        "ram_span_bytes": 24096,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8672,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5600,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 95476
+          },
+          "cstartup_ram_funcs": {
+            "address": 110336,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 110672,
+            "bytes": 3792
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6064
+          },
+          "data_no_init": {
+            "address": 8674080,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674848,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "769798e024b9b1e4db7cc75f90c32223bea0c75f632fef00d2a59500a228258b",
+          "825x_ble_sample.lst": "c95835b0936fbc987ab1a24969bf9d3bb681f5ad9e344e5835578d9bd2d94a57",
+          "825x_ble_sample.map": "931c9cf68e9e772a531d9575cf403d672a35f3e060f4b3b167b954990ba8a9f8"
+        },
+        "inputs_sha256": "5d1ebd190c3d9423f326c49c913156d5567da11a530317bb9e1de5fcc2d33e38"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\development\\d014\\gen\\resources.json",
+      "sha256": "c87ee06e5e7d42166a199d6f2a7548975c8e4909ae984d171f718b9bf45bd52b",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "2fad44bf8cf335fca8820a5941238e7d3537b65708dbcddaf1f61d3d2e2f9eb3",
+        "product": "d014",
+        "configuration": {
+          "product": "d014",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "8dae92b287a5a0e2b0487a5f1fdc382eee355677bd271f6a974f2fcd500d6ba5",
+        "flash_bytes": 115444,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 11532,
+        "ram_span_bytes": 24116,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8652,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5580,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 96292
+          },
+          "cstartup_ram_funcs": {
+            "address": 111152,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111488,
+            "bytes": 3796
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6084
+          },
+          "data_no_init": {
+            "address": 8674100,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674868,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "2fad44bf8cf335fca8820a5941238e7d3537b65708dbcddaf1f61d3d2e2f9eb3",
+          "825x_ble_sample.lst": "8185a3e984e7117ea0df52088b669e9e5b08e9bff3cd8d223940d63e04c70486",
+          "825x_ble_sample.map": "8dae92b287a5a0e2b0487a5f1fdc382eee355677bd271f6a974f2fcd500d6ba5"
+        },
+        "inputs_sha256": "df296b4cbd2c616df8be04fa6038c2de98aa7ce75937bf99e359686b572ffaaf"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\development-16s-lfp\\d008\\gen\\resources.json",
+      "sha256": "698842a1658b74c4ba99e1799253dc6a485ff73d2adf15f4c55eb266ea32067d",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "79e8e467013171e9c2f99bb05d46ab1a889b0646063d0184005a165981a5f3dd",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": "16s-lfp",
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "8f3b4ad9ea46afc72c9b253bef4707498799b77f9b99127bef8726c6be0dc471",
+        "flash_bytes": 119236,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 7740,
+        "ram_span_bytes": 24948,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 7820,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 4748,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10692
+          },
+          "retention_data": {
+            "address": 8661924,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 99372
+          },
+          "cstartup_ram_funcs": {
+            "address": 114480,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 114816,
+            "bytes": 4244
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 6644
+          },
+          "data_no_init": {
+            "address": 8674932,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8675700,
+            "bytes": 52
+          }
+        },
+        "warnings": [
+          "Flash free below 8 KiB: review feature budget"
+        ]
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "79e8e467013171e9c2f99bb05d46ab1a889b0646063d0184005a165981a5f3dd",
+          "825x_ble_sample.lst": "f1a10cfd81ab1495bf1ecbf2938471c332a4ae4cb015cafd15bb6f463f95e824",
+          "825x_ble_sample.map": "8f3b4ad9ea46afc72c9b253bef4707498799b77f9b99127bef8726c6be0dc471"
+        },
+        "inputs_sha256": "2318cd18fd466d9a5ad0c1cb418e833ee770229f438acef0cd01128ea880b10e"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production\\d011\\gen\\resources.json",
+      "sha256": "e495000c1fb90ce3ebf51993bafa0f7dd2e94159392a5060f3c40369e61631fe",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "5a978e76f745e8d112b3cbbfacb7c19093ab405a247314c3eec2b395220d9855",
+        "product": "d011",
+        "configuration": {
+          "product": "d011",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "4c50f804674d5d2b74090524624d0c226bf4bb78c92d2be7012dca96cdb485b9",
+        "flash_bytes": 110964,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 16012,
+        "ram_span_bytes": 22576,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10192,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7120,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 92868
+          },
+          "cstartup_ram_funcs": {
+            "address": 107728,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 108064,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4544
+          },
+          "data_no_init": {
+            "address": 8672560,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673328,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "5a978e76f745e8d112b3cbbfacb7c19093ab405a247314c3eec2b395220d9855",
+          "825x_ble_sample.lst": "b2770d9cf2c75e178906c952e203735eb98f367420bebd0adb1bd4f9159414f9",
+          "825x_ble_sample.map": "4c50f804674d5d2b74090524624d0c226bf4bb78c92d2be7012dca96cdb485b9"
+        },
+        "inputs_sha256": "1bce92c7eef835ca7f13e107aac563e38653bda67d4301dfd9689c5bdd53ce86"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production\\d013\\gen\\resources.json",
+      "sha256": "65f19b96911b3814a5932d4c91b8b892b72f12b71621a9d5ad10614c846835ac",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "c90bccc348d9c78383214d15bfefe1f84ea8f73c9cbd39599c9568afc1ffade9",
+        "product": "d013",
+        "configuration": {
+          "product": "d013",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "e6e42b712559cd93fdd2f2c9d05eccf228b199651d0da178e242bb38413140c8",
+        "flash_bytes": 109940,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 17036,
+        "ram_span_bytes": 22556,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10212,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7140,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 91844
+          },
+          "cstartup_ram_funcs": {
+            "address": 106704,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 107040,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4524
+          },
+          "data_no_init": {
+            "address": 8672540,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673308,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "c90bccc348d9c78383214d15bfefe1f84ea8f73c9cbd39599c9568afc1ffade9",
+          "825x_ble_sample.lst": "304d5c7578cc639164edafe123b6d6b576f959bc542fb749bd01587bca601df4",
+          "825x_ble_sample.map": "e6e42b712559cd93fdd2f2c9d05eccf228b199651d0da178e242bb38413140c8"
+        },
+        "inputs_sha256": "08aa7ef8dc0bdd95de16f14015849074ab518f355dd3ae816bed2604b968c73f"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production\\d014\\gen\\resources.json",
+      "sha256": "ab106fbfa6432fd70b2cf06ec0a7c08a5f1a2b7958bb692906d77d94c5e9576f",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "1689e4ee30a245de4134ac549345172ea7af28c548c12c3315773e37bcb43ca3",
+        "product": "d014",
+        "configuration": {
+          "product": "d014",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "8864faead4b8417a338f6b6b2266634e02303f38434069960b109b131d21f247",
+        "flash_bytes": 110788,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 16188,
+        "ram_span_bytes": 22576,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10192,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7120,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 92692
+          },
+          "cstartup_ram_funcs": {
+            "address": 107552,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 107888,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4544
+          },
+          "data_no_init": {
+            "address": 8672560,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673328,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "1689e4ee30a245de4134ac549345172ea7af28c548c12c3315773e37bcb43ca3",
+          "825x_ble_sample.lst": "d267654b3547b9246e3a442a3d5b5b794b1b1d236fdccff827497d5256ec28af",
+          "825x_ble_sample.map": "8864faead4b8417a338f6b6b2266634e02303f38434069960b109b131d21f247"
+        },
+        "inputs_sha256": "428b5a07c9c986b91d8917f7a8266fa46e235806aed73920feb9310feeaf5776"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production-16s-lfp\\d008\\gen\\resources.json",
+      "sha256": "b32080ed97f341feb5a2ec0e231178c78bf171232b01acc09b5d2eb7cca65714",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "0fad9c4104333322a97a0c78f25d002a9723a8c72e28c46a2041eaab26470199",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "16s-lfp",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "1c92cb6155ea76f016c56ef8e86a5cd228dd4f8f6649ac1ed33bea4b08093d52",
+        "flash_bytes": 114660,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12316,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95820
+          },
+          "cstartup_ram_funcs": {
+            "address": 110928,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111264,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "0fad9c4104333322a97a0c78f25d002a9723a8c72e28c46a2041eaab26470199",
+          "825x_ble_sample.lst": "ed9c9798a63b5c9948d5d17a49b23583e8e7b9a9a59fe3c306fe8dc0e7933364",
+          "825x_ble_sample.map": "1c92cb6155ea76f016c56ef8e86a5cd228dd4f8f6649ac1ed33bea4b08093d52"
+        },
+        "inputs_sha256": "4a2d3472e99710e9a3111d3b38b983e9d0ddcad669e663793bf0fca839f22a4a"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production-20s-nmc\\d008\\gen\\resources.json",
+      "sha256": "eb255108b52dd9066c3f33f980a267153101a0b9b5351240e911495551e020d8",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "0a7dbe3bf43ea8b7f089e3878cced4e2246da7376621b683ec917467f52e4e0d",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "20s-nmc",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "a81c4c21259ab1e6039b930ab6db7e58fc43113295db25a756a72262e7254e46",
+        "flash_bytes": 114660,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12316,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95820
+          },
+          "cstartup_ram_funcs": {
+            "address": 110928,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111264,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "0a7dbe3bf43ea8b7f089e3878cced4e2246da7376621b683ec917467f52e4e0d",
+          "825x_ble_sample.lst": "77ceafcfdc33ab3969c848e79c383f7b1fffe6b041e84068d395088439b556fa",
+          "825x_ble_sample.map": "a81c4c21259ab1e6039b930ab6db7e58fc43113295db25a756a72262e7254e46"
+        },
+        "inputs_sha256": "b54b31ec02c47368bf82d2d300b54148a13fc75740f820a9b2fcb2120caf3d06"
+      }
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\targets-final\\47196ba33c07\\production-24s-lfp\\d008\\gen\\resources.json",
+      "sha256": "a5227f441939e9c64731b503a8e9ff09727aa03c7e5aee33c8c13943632e0041",
+      "data": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "3a3f7f39b1b13b025368af0d6391e384d3e2d01e",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "79b062a8796f438a94ea03ec314e8ab9d04ef0c80d978af31cc5f2cd17cb050c",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "24s-lfp",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "0886779b96cd1941b708c5bd0535b3ee57aab59ae7e2df18ffdb8acf06f387bd",
+        "flash_bytes": 114660,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12316,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95820
+          },
+          "cstartup_ram_funcs": {
+            "address": 110928,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111264,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "link_receipt": {
+        "artifacts": {
+          "825x_ble_sample.elf": "79b062a8796f438a94ea03ec314e8ab9d04ef0c80d978af31cc5f2cd17cb050c",
+          "825x_ble_sample.lst": "531032ec47dd29023b36e298aca6e38c5f70e48a29ccc4e54ff79fd32dcb47f6",
+          "825x_ble_sample.map": "0886779b96cd1941b708c5bd0535b3ee57aab59ae7e2df18ffdb8acf06f387bd"
+        },
+        "inputs_sha256": "99d0a48f0f25e1fa616f85dd443b294f2af9207356fcc1c563373175c51811b0"
+      }
+    }
+  ],
+  "commands": {
+    "development": [
+      {
+        "label": "sources-final",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--all-products",
+          "sources",
+          "--check"
+        ],
+        "exit": 0,
+        "seconds": 1.391,
+        "log": "sources-final.log"
+      },
+      {
+        "label": "dev-all-link",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--all-products",
+          "link",
+          "--jobs",
+          "4"
+        ],
+        "exit": 0,
+        "seconds": 70.906,
+        "log": "dev-all-link.log"
+      },
+      {
+        "label": "dev-all-resources",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--all-products",
+          "resources"
+        ],
+        "exit": 0,
+        "seconds": 3.906,
+        "log": "dev-all-resources.log"
+      }
+    ],
+    "production": [
+      {
+        "label": "prod-16s-all-link",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--all-products",
+          "--production",
+          "--d008-profile",
+          "16s-lfp",
+          "link",
+          "--jobs",
+          "4"
+        ],
+        "exit": 0,
+        "seconds": 60.125,
+        "log": "prod-16s-all-link.log"
+      },
+      {
+        "label": "prod-16s-all-resources",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--all-products",
+          "--production",
+          "--d008-profile",
+          "16s-lfp",
+          "resources"
+        ],
+        "exit": 0,
+        "seconds": 4.0,
+        "log": "prod-16s-all-resources.log"
+      },
+      {
+        "label": "prod-20s-d008-link",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--product",
+          "d008",
+          "--production",
+          "--d008-profile",
+          "20s-nmc",
+          "link",
+          "--jobs",
+          "4"
+        ],
+        "exit": 0,
+        "seconds": 17.875,
+        "log": "prod-20s-d008-link.log"
+      },
+      {
+        "label": "prod-20s-d008-resources",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--product",
+          "d008",
+          "--production",
+          "--d008-profile",
+          "20s-nmc",
+          "resources"
+        ],
+        "exit": 0,
+        "seconds": 1.172,
+        "log": "prod-20s-d008-resources.log"
+      },
+      {
+        "label": "prod-24s-d008-link",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--product",
+          "d008",
+          "--production",
+          "--d008-profile",
+          "24s-lfp",
+          "link",
+          "--jobs",
+          "4"
+        ],
+        "exit": 0,
+        "seconds": 17.922,
+        "log": "prod-24s-d008-link.log"
+      },
+      {
+        "label": "prod-24s-d008-resources",
+        "command": [
+          "C:\\Tools\\Python312\\python.exe",
+          "bms_tools/bms.py",
+          "--product",
+          "d008",
+          "--production",
+          "--d008-profile",
+          "24s-lfp",
+          "resources"
+        ],
+        "exit": 0,
+        "seconds": 1.031,
+        "log": "prod-24s-d008-resources.log"
+      }
+    ]
+  },
+  "baseline_comparisons": {
+    "default_six_configurations": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\final-fixed.json",
+      "sha256": "5941e3d9a3e5dd8d86ebb286015da577934328c0ea17cc414590998c2bba83a6"
+    },
+    "software_words": 65,
+    "afe_requested_words": 35,
+    "unchanged_default_values": {
+      "d008": {
+        "16s-lfp": {
+          "afe_requested": {
+            "afe_model": 4388,
+            "chg_ot_recover_x10": 0,
+            "chg_ot_x10": 0,
+            "chg_ut_recover_x10": 0,
+            "chg_ut_x10": 0,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 1000,
+            "cuv_mv": 2200,
+            "cuv_recover_ms": 1000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 0,
+            "dsg_ot_x10": 0,
+            "dsg_ut_recover_x10": 0,
+            "dsg_ut_x10": 0,
+            "enable_mask": 63,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 150,
+            "occ2_delay_ms": 100,
+            "occ_recover_a10": 99,
+            "occ_recover_ms": 0,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 99,
+            "ocd_recover_ms": 0,
+            "sc_a10": 0,
+            "sc_delay_us": 0,
+            "sc_recover_ms": 0,
+            "schema_version": 1,
+            "temp_recover_ms": 0
+          },
+          "capacity_0p1ah": 78,
+          "cells": 16,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 5600,
+            "u16VbusOvp_Rcv": 5600,
+            "u16VbusOvp_Second": 5760,
+            "u16VbusOvp_Third": 5840,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 4800,
+            "u16VbusUvp_Rcv": 4800,
+            "u16VbusUvp_Second": 4800,
+            "u16VbusUvp_Third": 4640,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 100,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 2200,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        },
+        "20s-nmc": {
+          "afe_requested": {
+            "afe_model": 4388,
+            "chg_ot_recover_x10": 0,
+            "chg_ot_x10": 0,
+            "chg_ut_recover_x10": 0,
+            "chg_ut_x10": 0,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 1000,
+            "cuv_mv": 2200,
+            "cuv_recover_ms": 1000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 0,
+            "dsg_ot_x10": 0,
+            "dsg_ut_recover_x10": 0,
+            "dsg_ut_x10": 0,
+            "enable_mask": 63,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 150,
+            "occ2_delay_ms": 100,
+            "occ_recover_a10": 99,
+            "occ_recover_ms": 0,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 99,
+            "ocd_recover_ms": 0,
+            "sc_a10": 0,
+            "sc_delay_us": 0,
+            "sc_recover_ms": 0,
+            "schema_version": 1,
+            "temp_recover_ms": 0
+          },
+          "capacity_0p1ah": 78,
+          "cells": 20,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 7000,
+            "u16VbusOvp_Rcv": 7000,
+            "u16VbusOvp_Second": 7200,
+            "u16VbusOvp_Third": 7300,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 6000,
+            "u16VbusUvp_Rcv": 6000,
+            "u16VbusUvp_Second": 6000,
+            "u16VbusUvp_Third": 5800,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 100,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 2200,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        },
+        "24s-lfp": {
+          "afe_requested": {
+            "afe_model": 4388,
+            "chg_ot_recover_x10": 0,
+            "chg_ot_x10": 0,
+            "chg_ut_recover_x10": 0,
+            "chg_ut_x10": 0,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 1000,
+            "cuv_mv": 2200,
+            "cuv_recover_ms": 1000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 0,
+            "dsg_ot_x10": 0,
+            "dsg_ut_recover_x10": 0,
+            "dsg_ut_x10": 0,
+            "enable_mask": 63,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 150,
+            "occ2_delay_ms": 100,
+            "occ_recover_a10": 99,
+            "occ_recover_ms": 0,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 99,
+            "ocd_recover_ms": 0,
+            "sc_a10": 0,
+            "sc_delay_us": 0,
+            "sc_recover_ms": 0,
+            "schema_version": 1,
+            "temp_recover_ms": 0
+          },
+          "capacity_0p1ah": 78,
+          "cells": 24,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 8400,
+            "u16VbusOvp_Rcv": 8400,
+            "u16VbusOvp_Second": 8640,
+            "u16VbusOvp_Third": 8760,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 7200,
+            "u16VbusUvp_Rcv": 7200,
+            "u16VbusUvp_Second": 7200,
+            "u16VbusUvp_Third": 6960,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 100,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 2200,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        }
+      },
+      "d011": {
+        "default": {
+          "afe_requested": {
+            "afe_model": 13584,
+            "chg_ot_recover_x10": 900,
+            "chg_ot_x10": 950,
+            "chg_ut_recover_x10": 430,
+            "chg_ut_x10": 400,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 10000,
+            "cuv_mv": 3000,
+            "cuv_recover_ms": 10000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 900,
+            "dsg_ot_x10": 1000,
+            "dsg_ut_recover_x10": 300,
+            "dsg_ut_x10": 200,
+            "enable_mask": 223,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 0,
+            "occ2_delay_ms": 0,
+            "occ_recover_a10": 100,
+            "occ_recover_ms": 100,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 100,
+            "ocd_recover_ms": 2000,
+            "sc_a10": 300,
+            "sc_delay_us": 256,
+            "sc_recover_ms": 2000,
+            "schema_version": 1,
+            "temp_recover_ms": 1000
+          },
+          "capacity_0p1ah": 116,
+          "cells": 10,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 3500,
+            "u16VbusOvp_Rcv": 3500,
+            "u16VbusOvp_Second": 3600,
+            "u16VbusOvp_Third": 3650,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 3000,
+            "u16VbusUvp_Rcv": 3000,
+            "u16VbusUvp_Second": 3000,
+            "u16VbusUvp_Third": 2900,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 1000,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 3000,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        }
+      },
+      "d013": {
+        "default": {
+          "afe_requested": {
+            "afe_model": 13584,
+            "chg_ot_recover_x10": 900,
+            "chg_ot_x10": 950,
+            "chg_ut_recover_x10": 430,
+            "chg_ut_x10": 400,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 10000,
+            "cuv_mv": 3000,
+            "cuv_recover_ms": 10000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 900,
+            "dsg_ot_x10": 1000,
+            "dsg_ut_recover_x10": 300,
+            "dsg_ut_x10": 200,
+            "enable_mask": 223,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 0,
+            "occ2_delay_ms": 0,
+            "occ_recover_a10": 100,
+            "occ_recover_ms": 100,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 100,
+            "ocd_recover_ms": 2000,
+            "sc_a10": 300,
+            "sc_delay_us": 256,
+            "sc_recover_ms": 2000,
+            "schema_version": 1,
+            "temp_recover_ms": 1000
+          },
+          "capacity_0p1ah": 116,
+          "cells": 4,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 1400,
+            "u16VbusOvp_Rcv": 1400,
+            "u16VbusOvp_Second": 1440,
+            "u16VbusOvp_Third": 1460,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 1200,
+            "u16VbusUvp_Rcv": 1200,
+            "u16VbusUvp_Second": 1200,
+            "u16VbusUvp_Third": 1160,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 1000,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 3000,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        }
+      },
+      "d014": {
+        "default": {
+          "afe_requested": {
+            "afe_model": 13584,
+            "chg_ot_recover_x10": 900,
+            "chg_ot_x10": 950,
+            "chg_ut_recover_x10": 430,
+            "chg_ut_x10": 400,
+            "cov_delay_ms": 1000,
+            "cov_mv": 3750,
+            "cov_recover_ms": 1000,
+            "cov_recover_mv": 3500,
+            "cuv_delay_ms": 10000,
+            "cuv_mv": 3000,
+            "cuv_recover_ms": 10000,
+            "cuv_recover_mv": 3100,
+            "dsg_ot_recover_x10": 900,
+            "dsg_ot_x10": 1000,
+            "dsg_ut_recover_x10": 300,
+            "dsg_ut_x10": 200,
+            "enable_mask": 223,
+            "occ1_a10": 100,
+            "occ1_delay_ms": 100,
+            "occ2_a10": 0,
+            "occ2_delay_ms": 0,
+            "occ_recover_a10": 100,
+            "occ_recover_ms": 100,
+            "ocd1_a10": 100,
+            "ocd1_delay_ms": 100,
+            "ocd2_a10": 150,
+            "ocd2_delay_ms": 100,
+            "ocd_recover_a10": 100,
+            "ocd_recover_ms": 2000,
+            "sc_a10": 300,
+            "sc_delay_us": 256,
+            "sc_recover_ms": 2000,
+            "schema_version": 1,
+            "temp_recover_ms": 1000
+          },
+          "capacity_0p1ah": 116,
+          "cells": 8,
+          "sw": {
+            "u16IchgOcp_Filter": 10,
+            "u16IchgOcp_First": 100,
+            "u16IchgOcp_Rcv": 100,
+            "u16IchgOcp_Second": 150,
+            "u16IchgOcp_Third": 200,
+            "u16IdsgOcp_Filter": 10,
+            "u16IdsgOcp_First": 100,
+            "u16IdsgOcp_Rcv": 100,
+            "u16IdsgOcp_Second": 150,
+            "u16IdsgOcp_Third": 200,
+            "u16SocLow_Filter": 100,
+            "u16SocLow_First": 20,
+            "u16SocLow_Rcv": 11,
+            "u16SocLow_Second": 10,
+            "u16SocLow_Third": 5,
+            "u16TChgOTp_Filter": 100,
+            "u16TChgOTp_First": 800,
+            "u16TChgOTp_Rcv": 900,
+            "u16TChgOTp_Second": 900,
+            "u16TChgOTp_Third": 950,
+            "u16TchgUTp_Filter": 100,
+            "u16TchgUTp_First": 450,
+            "u16TchgUTp_Rcv": 430,
+            "u16TchgUTp_Second": 430,
+            "u16TchgUTp_Third": 400,
+            "u16TdischgOTp_Filter": 100,
+            "u16TdischgOTp_First": 900,
+            "u16TdischgOTp_Rcv": 900,
+            "u16TdischgOTp_Second": 900,
+            "u16TdischgOTp_Third": 1000,
+            "u16TdischgUTp_Filter": 100,
+            "u16TdischgUTp_First": 300,
+            "u16TdischgUTp_Rcv": 300,
+            "u16TdischgUTp_Second": 250,
+            "u16TdischgUTp_Third": 200,
+            "u16TmosOTp_Filter": 100,
+            "u16TmosOTp_First": 1150,
+            "u16TmosOTp_Rcv": 1200,
+            "u16TmosOTp_Second": 1250,
+            "u16TmosOTp_Third": 1350,
+            "u16VbusOvp_Filter": 100,
+            "u16VbusOvp_First": 2800,
+            "u16VbusOvp_Rcv": 2800,
+            "u16VbusOvp_Second": 2880,
+            "u16VbusOvp_Third": 2920,
+            "u16VbusUvp_Filter": 100,
+            "u16VbusUvp_First": 2400,
+            "u16VbusUvp_Rcv": 2400,
+            "u16VbusUvp_Second": 2400,
+            "u16VbusUvp_Third": 2320,
+            "u16VcellOvp_Filter": 100,
+            "u16VcellOvp_First": 3750,
+            "u16VcellOvp_Rcv": 3500,
+            "u16VcellOvp_Second": 3750,
+            "u16VcellOvp_Third": 3750,
+            "u16VcellUvp_Filter": 1000,
+            "u16VcellUvp_First": 3000,
+            "u16VcellUvp_Rcv": 3100,
+            "u16VcellUvp_Second": 3000,
+            "u16VcellUvp_Third": 3000,
+            "u16VdeltaOvp_Filter": 100,
+            "u16VdeltaOvp_First": 600,
+            "u16VdeltaOvp_Rcv": 800,
+            "u16VdeltaOvp_Second": 800,
+            "u16VdeltaOvp_Third": 1000
+          }
+        }
+      }
+    },
+    "product_macros": {
+      "checked": 488,
+      "differences": []
+    },
+    "product_macro_report": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\macros-final.json",
+      "sha256": "a5a6926def6bf17b7ca30373aa2f94cce714fef45db1447c2c9a0cdbbc41c857"
+    },
+    "tc32_layout_observations": 148,
+    "tc32_layout": {
+      "d008": {
+        "offset_report_SocElement": 105,
+        "offset_report_mac_public": 127,
+        "offset_report_u16BalanceFlag1": 123,
+        "offset_report_u16BalanceFlag2": 125,
+        "offset_report_u16IDischg": 103,
+        "offset_report_u16Ichg": 101,
+        "offset_report_u16TempMax": 97,
+        "offset_report_u16TempMin": 99,
+        "offset_report_u16Temperature": 77,
+        "offset_report_u16VCell": 1,
+        "offset_report_u16VCellDelta": 73,
+        "offset_report_u16VCellMax": 65,
+        "offset_report_u16VCellMaxPosition": 69,
+        "offset_report_u16VCellMin": 67,
+        "offset_report_u16VCellMinPosition": 71,
+        "offset_report_u16VCellTotle": 75,
+        "offset_report_unMdlFault_First": 117,
+        "offset_report_unMdlFault_Second": 119,
+        "offset_report_unMdlFault_Third": 121,
+        "offset_soc_report_u16CapacityFactory": 9,
+        "offset_soc_report_u16CapacityFull": 7,
+        "offset_soc_report_u16CapacityNow": 5,
+        "offset_soc_report_u16Cycle_times": 11,
+        "offset_soc_report_u16Soc": 1,
+        "offset_soc_report_u16Soh": 3,
+        "offset_soc_soh": 19,
+        "offset_soc_u32CapFactory": 1,
+        "offset_soc_u32CapFull": 15,
+        "offset_soc_u32CapNow": 6,
+        "offset_soc_u32Cycle_times": 11,
+        "offset_soc_u8DSG_SOC_Int": 10,
+        "offset_soc_u8SOC_Now": 5,
+        "size_fault_bits": 2,
+        "size_fault_reg": 2,
+        "size_report": 132,
+        "size_soc": 19,
+        "size_soc_report": 12
+      },
+      "d011": {
+        "offset_report_SocElement": 105,
+        "offset_report_mac_public": 127,
+        "offset_report_u16BalanceFlag1": 123,
+        "offset_report_u16BalanceFlag2": 125,
+        "offset_report_u16IDischg": 103,
+        "offset_report_u16Ichg": 101,
+        "offset_report_u16TempMax": 97,
+        "offset_report_u16TempMin": 99,
+        "offset_report_u16Temperature": 77,
+        "offset_report_u16VCell": 1,
+        "offset_report_u16VCellDelta": 73,
+        "offset_report_u16VCellMax": 65,
+        "offset_report_u16VCellMaxPosition": 69,
+        "offset_report_u16VCellMin": 67,
+        "offset_report_u16VCellMinPosition": 71,
+        "offset_report_u16VCellTotle": 75,
+        "offset_report_unMdlFault_First": 117,
+        "offset_report_unMdlFault_Second": 119,
+        "offset_report_unMdlFault_Third": 121,
+        "offset_soc_report_u16CapacityFactory": 9,
+        "offset_soc_report_u16CapacityFull": 7,
+        "offset_soc_report_u16CapacityNow": 5,
+        "offset_soc_report_u16Cycle_times": 11,
+        "offset_soc_report_u16Soc": 1,
+        "offset_soc_report_u16Soh": 3,
+        "offset_soc_soh": 19,
+        "offset_soc_u32CapFactory": 1,
+        "offset_soc_u32CapFull": 15,
+        "offset_soc_u32CapNow": 6,
+        "offset_soc_u32Cycle_times": 11,
+        "offset_soc_u8DSG_SOC_Int": 10,
+        "offset_soc_u8SOC_Now": 5,
+        "size_fault_bits": 2,
+        "size_fault_reg": 2,
+        "size_report": 132,
+        "size_soc": 19,
+        "size_soc_report": 12
+      },
+      "d013": {
+        "offset_report_SocElement": 105,
+        "offset_report_mac_public": 127,
+        "offset_report_u16BalanceFlag1": 123,
+        "offset_report_u16BalanceFlag2": 125,
+        "offset_report_u16IDischg": 103,
+        "offset_report_u16Ichg": 101,
+        "offset_report_u16TempMax": 97,
+        "offset_report_u16TempMin": 99,
+        "offset_report_u16Temperature": 77,
+        "offset_report_u16VCell": 1,
+        "offset_report_u16VCellDelta": 73,
+        "offset_report_u16VCellMax": 65,
+        "offset_report_u16VCellMaxPosition": 69,
+        "offset_report_u16VCellMin": 67,
+        "offset_report_u16VCellMinPosition": 71,
+        "offset_report_u16VCellTotle": 75,
+        "offset_report_unMdlFault_First": 117,
+        "offset_report_unMdlFault_Second": 119,
+        "offset_report_unMdlFault_Third": 121,
+        "offset_soc_report_u16CapacityFactory": 9,
+        "offset_soc_report_u16CapacityFull": 7,
+        "offset_soc_report_u16CapacityNow": 5,
+        "offset_soc_report_u16Cycle_times": 11,
+        "offset_soc_report_u16Soc": 1,
+        "offset_soc_report_u16Soh": 3,
+        "offset_soc_soh": 19,
+        "offset_soc_u32CapFactory": 1,
+        "offset_soc_u32CapFull": 15,
+        "offset_soc_u32CapNow": 6,
+        "offset_soc_u32Cycle_times": 11,
+        "offset_soc_u8DSG_SOC_Int": 10,
+        "offset_soc_u8SOC_Now": 5,
+        "size_fault_bits": 2,
+        "size_fault_reg": 2,
+        "size_report": 132,
+        "size_soc": 19,
+        "size_soc_report": 12
+      },
+      "d014": {
+        "offset_report_SocElement": 105,
+        "offset_report_mac_public": 127,
+        "offset_report_u16BalanceFlag1": 123,
+        "offset_report_u16BalanceFlag2": 125,
+        "offset_report_u16IDischg": 103,
+        "offset_report_u16Ichg": 101,
+        "offset_report_u16TempMax": 97,
+        "offset_report_u16TempMin": 99,
+        "offset_report_u16Temperature": 77,
+        "offset_report_u16VCell": 1,
+        "offset_report_u16VCellDelta": 73,
+        "offset_report_u16VCellMax": 65,
+        "offset_report_u16VCellMaxPosition": 69,
+        "offset_report_u16VCellMin": 67,
+        "offset_report_u16VCellMinPosition": 71,
+        "offset_report_u16VCellTotle": 75,
+        "offset_report_unMdlFault_First": 117,
+        "offset_report_unMdlFault_Second": 119,
+        "offset_report_unMdlFault_Third": 121,
+        "offset_soc_report_u16CapacityFactory": 9,
+        "offset_soc_report_u16CapacityFull": 7,
+        "offset_soc_report_u16CapacityNow": 5,
+        "offset_soc_report_u16Cycle_times": 11,
+        "offset_soc_report_u16Soc": 1,
+        "offset_soc_report_u16Soh": 3,
+        "offset_soc_soh": 19,
+        "offset_soc_u32CapFactory": 1,
+        "offset_soc_u32CapFull": 15,
+        "offset_soc_u32CapNow": 6,
+        "offset_soc_u32Cycle_times": 11,
+        "offset_soc_u8DSG_SOC_Int": 10,
+        "offset_soc_u8SOC_Now": 5,
+        "size_fault_bits": 2,
+        "size_fault_reg": 2,
+        "size_report": 132,
+        "size_soc": 19,
+        "size_soc_report": 12
+      }
+    },
+    "tc32_layout_report": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\layout-final.json",
+      "sha256": "4c1b7a4a6e918396daad1e41fecc37538b9f0aae814a174a479e20aadc8c30fc"
+    },
+    "critical_bodies_compared": 99,
+    "critical_bodies_differences": 0,
+    "critical_bodies_report": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\critical-final.json",
+      "sha256": "ee8e650eb2365e65aaa422f7c4058cdabd11fef7c0fa6bc997bf649ba62d6616"
+    },
+    "comparison_note": "关键活动代码比较只归一化已审查类型和标识符；结构观测为实际 TC32 packed/short-enum 布局；均不代替硬件证明。"
+  },
+  "windows_client": {
+    "branch": "feature/windows-afe-hw-protection-editor-v2",
+    "implementation_commit": "ca37d7f17088de87f4460ac33a0d4193be001db2",
+    "workspace": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-cli-ble-test-20260920\\src",
+    "dirty": false,
+    "test_pass": true,
+    "release_builds": {
+      "customer": "0 errors, 0 warnings",
+      "internal": "0 errors, 0 warnings",
+      "cli": "0 errors, 0 warnings"
+    },
+    "logs": [
+      {
+        "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\client-test.log",
+        "sha256": "4ca36ae6f8551d8cf54d4ee4e9e4757704b6bd2b20c31518e8d084ae9716d077"
+      },
+      {
+        "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\client-customer-build.log",
+        "sha256": "d8ac15fae72e0fe771cc569c2b03d9cfcb5e2dad2dfc73f1c4c9ec35c1211d23"
+      },
+      {
+        "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\client-internal-build.log",
+        "sha256": "91655169094e31c56047d3e546ac9528a409d73797b8db194ad27ca5cc84f2a5"
+      },
+      {
+        "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\client-cli-build.log",
+        "sha256": "f94051431f755dcf351267b089776569845445d8f5e86a48186f3a340a5d3bcb"
+      }
+    ]
+  },
+  "initial_failures_retained": {
+    "precommit_host": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\host-all-precommit\\report.json",
+      "sha256": "44995e0667afb36e1b24c2c09c84d7fe9deb678487db3aa56fd99a9cd9793853"
+    },
+    "repair": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\host-precommit-repair\\report.json",
+      "sha256": "91d953b94983d2db0ac13aee46d7b8c1558f6de01c6cd09f197ee76d5e653438"
+    },
+    "last_sh_repair": {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round4-20261007\\host-sh-storage-repair\\report.json",
+      "sha256": "c275d3b0250785aa71d4b6078c320952f1b33598792691f1e0640b2175bbfd4c"
+    },
+    "note": "修正传递 include 和旧夹具后在上述固定提交重新完整验证；初次失败不作验收结论。"
+  },
+  "explicit_behavior_change": {
+    "register": "0x2E10",
+    "value": 6,
+    "before": "AFE 授权后成功 no-op",
+    "after": "非法值 3，不写 Flash、不递增成功序号"
+  },
+  "boundaries": {
+    "firmware_bin_generated": false,
+    "board_tested": false,
+    "ota_tested": false,
+    "remote_ci_tested": false,
+    "product_approvals_changed": false,
+    "no_claim": "host/ELF/资源与 Windows 模拟通信不等于实板保护、掉电、Sleep/Wake 或量产签核。"
+  },
+  "resource_comparison": {
+    "previous_fixed_evidence": "docs/SIMPLIFICATION_20261007_EVIDENCE.json",
+    "previous_implementation_commit": "27765c88e8d6a888f73a081805755995ebccd780",
+    "bms_sources_unchanged_from_previous_implementation_to_baseline": true,
+    "d008_production": [
+      {
+        "profile": "16s-lfp",
+        "previous_free_bytes": 12748,
+        "current_free_bytes": 12316,
+        "flash_growth_bytes": 432,
+        "margin_above_12kib_bytes": 28
+      },
+      {
+        "profile": "20s-nmc",
+        "previous_free_bytes": 12748,
+        "current_free_bytes": 12316,
+        "flash_growth_bytes": 432,
+        "margin_above_12kib_bytes": 28
+      },
+      {
+        "profile": "24s-lfp",
+        "previous_free_bytes": 12748,
+        "current_free_bytes": 12316,
+        "flash_growth_bytes": 432,
+        "margin_above_12kib_bytes": 28
+      }
+    ]
+  }
+}
