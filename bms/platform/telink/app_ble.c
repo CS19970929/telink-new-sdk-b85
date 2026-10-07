@@ -211,10 +211,10 @@ static void ble_build_adv_scanrsp(void)
 	tbl_advDataLen = i;
 
 	i = 0;
-	tbl_scanRsp[i++] = (u8)(DEV_NAME_LEN + 1);
+	tbl_scanRsp[i++] = (u8)(BMS_PRODUCT_BLE_NAME_LENGTH + 1);
 	tbl_scanRsp[i++] = 0x09;
-	memcpy(&tbl_scanRsp[i], DEV_NAME_STR, DEV_NAME_LEN);
-	i += DEV_NAME_LEN;
+	memcpy(&tbl_scanRsp[i], BMS_PRODUCT_BLE_NAME, BMS_PRODUCT_BLE_NAME_LENGTH);
+	i += BMS_PRODUCT_BLE_NAME_LENGTH;
 
 	tbl_scanRspLen = i;
 }

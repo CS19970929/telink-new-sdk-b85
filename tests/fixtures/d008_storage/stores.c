@@ -7,11 +7,11 @@
 #include "bms_update_policy.h"
 #include "bms_soc_eta.h"
 typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
-#define CapacityFactory 1000u
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 1000u
 #define BMS_HEATER_START_TEMP_X10 400u
 #define BMS_HEATER_STOP_TEMP_X10 450u
-#define FD_BMS_TYPE 8u
-#define SeriesNum 24u
+#define BMS_PRODUCT_WIRE_ID 8u
+#define BMS_PRODUCT_CELL_COUNT 24u
 #define BTNAME_SUFFIX_MAX_LEN 23u
 #define BMS_PRODUCT_ID 8u
 #define BMS_PRODUCT_CHEMISTRY 1u

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #define _attribute_ram_code_
-#define _FUNC_SIF_ 1
+#define BMS_PRODUCT_SIF_ENABLE 1
 #define CLOCK_SYS_CLOCK_1US 16
 #define FLD_IRQ_TMR0_EN 1
 #define FLD_TMR_STA_TMR0 1
@@ -12,7 +12,7 @@
 #define OWC_TX_PIN 1
 #define OWC_RX_PIN 2
 #define MOS_TEMP1 3
-#define CapacityFactory 116u
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 116u
 #define __TODO__ 0Xaa
 typedef enum {SIF_IDLE=0,SYNC_SIGNAL,SEND_PUBLIC,SEND_DATA,SEND_DATA_COMPLETE,STOP_SIGNAL} SIF_STATE_E;
 typedef struct {
@@ -46,7 +46,7 @@ static void wire_case(unsigned n){
  g_bms_report.SocElement.u16Soc=NEXT;g_bms_report.SocElement.u16Cycle_times=NEXT;
  g_bms_report.u16VCellMax=NEXT;g_bms_report.u16VCellMin=NEXT;
  g_bms_report.u16VCellMaxPosition=NEXT;g_bms_report.u16VCellMinPosition=NEXT;
- for(unsigned i=0;i<32;++i)g_bms_report.u16VCell[i]=i<SeriesNum?NEXT:61001u;
+ for(unsigned i=0;i<32;++i)g_bms_report.u16VCell[i]=i<BMS_PRODUCT_CELL_COUNT?NEXT:61001u;
  g_bms_report.unMdlFault_Third.bits.b1IchgOcp=n&1;
  g_bms_report.unMdlFault_Third.bits.b1IdischgOcp=n&2;
  g_bms_report.unMdlFault_Third.bits.b1CellOvp=n&4;

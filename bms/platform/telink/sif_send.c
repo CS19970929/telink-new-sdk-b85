@@ -35,7 +35,7 @@ _attribute_ram_code_ void sif_timer_irq_handler(void)
     }
 }
 
-#ifdef _FUNC_SIF_
+#if BMS_PRODUCT_SIF_ENABLE
 
 /* 构造 SIF 私有单体电压包，只使用有效串数。 */
 static void sif_send_private_cell_voltages(void);
@@ -74,7 +74,7 @@ static volatile uint8_t sif_send_length = 0;
 /* 显式表达遗留 TC32 -fpack-struct 线格式，不直接发送本机结构体映像。 */
 #define SIF_PUBLIC_BYTES 20u
 #define SIF_REALTIME_BYTES 33u
-#define SIF_CELL_BYTES (4u + 2u * SeriesNum)
+#define SIF_CELL_BYTES (4u + 2u * BMS_PRODUCT_CELL_COUNT)
 typedef char sif_cell_packet_fits[(SIF_CELL_BYTES <= 64u) ? 1 : -1];
 static uint8_t s_packets[2][64];
 static uint8_t s_packet_lengths[2];
@@ -361,8 +361,8 @@ static void sif_send_public_packet(void)
     uint8_t *p = s_packets[s_prepare_packet];
     memset(p, 0, SIF_PUBLIC_BYTES);
     p[0] = 1u; p[1] = 1u; p[2] = 1u; p[3] = __TODO__; p[4] = 3u;
-    sif_put_u16le(p + 5, SeriesNum * 36u);
-    sif_put_u16le(p + 7, CapacityFactory);
+    sif_put_u16le(p + 5, BMS_PRODUCT_CELL_COUNT * 36u);
+    sif_put_u16le(p + 7, BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH);
     p[9] = (uint8_t)(g_bms_report.SocElement.u16Soc * 2u);
     sif_put_u16le(p + 10, g_bms_report.u16VCellTotle / 10u);
     sif_put_u16le(p + 12, sif_encoded_current());
@@ -394,7 +394,7 @@ static void sif_send_private_realtime_info(void)
     p[20] = (uint8_t)g_bms_report.u16VCellMaxPosition;
     p[21] = (uint8_t)g_bms_report.u16VCellMinPosition;
     p[22] = __TODO__;
-    sif_put_u16le(p + 23, 43u * SeriesNum);
+    sif_put_u16le(p + 23, 43u * BMS_PRODUCT_CELL_COUNT);
     p[25] = 20u; p[27] = __TODO__; p[28] = __TODO__;
     p[32] = sum_verify(p, SIF_REALTIME_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_REALTIME_BYTES;
@@ -406,10 +406,10 @@ static void sif_send_private_cell_voltages(void)
     uint8_t i;
     uint8_t *p = s_packets[s_prepare_packet];
     memset(p, 0, SIF_CELL_BYTES);
-    p[0] = 0x3bu; p[1] = 1u; p[2] = 2u * SeriesNum;
-    for (i = 0u; i < SeriesNum; ++i)
+    p[0] = 0x3bu; p[1] = 1u; p[2] = 2u * BMS_PRODUCT_CELL_COUNT;
+    for (i = 0u; i < BMS_PRODUCT_CELL_COUNT; ++i)
         sif_put_u16le(p + 3u + i * 2u, g_bms_report.u16VCell[i]);
-    p[3u + SeriesNum * 2u] = __TODO__;
+    p[3u + BMS_PRODUCT_CELL_COUNT * 2u] = __TODO__;
     s_packet_lengths[s_prepare_packet] = SIF_CELL_BYTES;
 }
 
@@ -422,4 +422,4 @@ void sif_send_data_handle(void)
 {
     /* 当前产品配置未启用 SIF，保留空入口以维持调度接口。 */
 }
-#endif /* 条件编译结束： _FUNC_SIF_ */
+#endif /* 条件编译结束： BMS_PRODUCT_SIF_ENABLE */

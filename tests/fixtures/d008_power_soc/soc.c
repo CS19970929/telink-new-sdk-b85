@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 typedef uint32_t u32;
-#define CapacityFactory 1000u
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 1000u
 #define BMS_STATE_DEFAULT_SOC 60u
 typedef struct {uint32_t soc,dsg,cycle;} bms_state_store_data_t;
 static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0};return d;}

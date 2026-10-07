@@ -34,7 +34,7 @@ int main(void){
 for cells in (16,20,24):
     with tempfile.TemporaryDirectory(prefix='sif-wire-') as folder:
         c=Path(folder)/'check.c';exe=Path(folder)/'check.exe'
-        c.write_text('#define SeriesNum %du\n'%cells+prefix+source+tail,encoding='utf8')
+        c.write_text('#define BMS_PRODUCT_CELL_COUNT %du\n'%cells+prefix+source+tail,encoding='utf8')
         subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror',
                        '-Wno-unused-function',str(c),'-o',str(exe)],check=True)
         output=subprocess.check_output([str(exe)],text=True).splitlines()

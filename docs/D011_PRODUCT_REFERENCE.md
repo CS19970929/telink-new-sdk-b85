@@ -26,9 +26,9 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 | 串数 | 10S；B0..B10 接入 VC0..VC10 |
 | Rsense | 原理图 RS1..RS8 均为 2 mΩ；全部装配时 8 并联 = 250 µΩ |
 | AFE 通信 | SPI Mode 3，源码目标 500 kHz；SH 手册规定 SCK high/low 均至少 500 ns（上限 1 MHz） |
-| 主通信 | Modbus RTU over RS485，`MODBUS_RS485_ENABLE=1` |
-| 产品 ID | `FD_BMS_TYPE=2u`，`SeriesNum=10`，硬件版本字符串 `D011` |
-| 当前容量默认 | `CapacityFactory=116`（源码已有产品数据，非由原理图推导） |
+| 主通信 | Modbus RTU over RS485，`BMS_PRODUCT_RS485_ENABLE=1` |
+| 产品 ID | `BMS_PRODUCT_WIRE_ID=2u`，`BMS_PRODUCT_CELL_COUNT=10`，硬件版本字符串 `D011` |
+| 当前容量默认 | `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116`（源码已有产品数据，非由原理图推导） |
 
 文件名“50A”不是软件/AFE 过流阈值的授权来源；OC/SCD 参数必须从产品要求和实板波形签核。
 

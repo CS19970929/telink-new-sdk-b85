@@ -112,7 +112,7 @@ _attribute_data_retention_	static u16 serviceChangeVal[2] = {0};
 _attribute_data_retention_	static u8 serviceChangeCCC[2] = {0,0};
 
 //static const u8 my_devName[] = {'t','S','a','m','p','l','e'};
-// static const u8 my_devName[BTNAME_TOTAL_MAX_LEN] = DEV_NAME_STR;
+// static const u8 my_devName[BTNAME_TOTAL_MAX_LEN] = BMS_PRODUCT_BLE_NAME;
 u8 my_devName[BTNAME_TOTAL_MAX_LEN] = "BT_default";
 
 static const u8 my_PnPtrs [] = {0x02, 0x8a, 0x24, 0x66, 0x82, 0x01, 0x00};

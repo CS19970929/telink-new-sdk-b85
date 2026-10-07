@@ -35,7 +35,7 @@
 
 | 字段/边界 | 单位/例子 |
 |---|---|
-| `CapacityFactory`、`0x2318` | 0.1 Ah；116 = 11.6 Ah；范围见 `BMS_SOC_CAPACITY_MAX_0P1AH` |
+| `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH`、`0x2318` | 0.1 Ah；116 = 11.6 Ah；范围见 `BMS_SOC_CAPACITY_MAX_0P1AH` |
 | 对外容量报告 | 0.01 Ah，与名义容量相差 10 倍 |
 | 公共 `current_ma` | mA，正放电负充电；SH 已在测量边界转换，不再取反 |
 | 软件/AFE `*_a10` | 0.1 A；100 = 10 A |
@@ -72,7 +72,7 @@ try {
 
 假设批准需求为 D014 12.0 Ah，这只是操作示例，不是新的产品参数：
 
-1. 改 `bms/products/d014/bms_product.h` 的 `CapacityFactory` 为 `120`，不改公共倍率。
+1. 改 `bms/products/d014/bms_product.h` 的 `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH` 为 `120`，不改公共倍率。
 2. 只影响空白设备则保持编号；要覆盖同 schema 设备则改变 D014 `BMS_UPDATE_BUSINESS_REVISION`。该组还会恢复 heater/balance，不能当“只重置容量”开关。
 3. 更换电池/容量要评估 `SOC_STATE`，它同时重置 SOC 和循环状态。在线容量接口 `0x2318` 走持久化事务及 `bms_soc_nominal_capacity_changed()`，不要直接写全局量。
 4. 查看 diff，跑 source 检查、参数/storage host、目标 link/resources；共享默认或算法变化则验证四产品。
@@ -92,6 +92,6 @@ D008 `20s-nmc` 只选串数/SOC 化学体系，不会自动替换为 NMC 保护�
 
 依次核对：运行固件 Build ID/产品/profile → 编译开关 → 设备 CFG2 和更新编号 → 启动诊断/inhibit → AFE requested/effective → 产品通道能力。常见原因是已有值被保留、编号未变、固件未部署、硬件量化或能力禁用。
 
-软件版本、编译名称、用户 SN、持久蓝牙后缀是不同字段；改 `DEV_NAME_STR` 不会清除已有后缀。内部 tag 为 8/11/13/14；D011/D013/D014 wire ID 仍为 2，不能为显示方便擅自改变。
+软件版本、编译名称、用户 SN、持久蓝牙后缀是不同字段；改 `BMS_PRODUCT_BLE_NAME` 不会清除已有后缀。内部 tag 为 8/11/13/14；D011/D013/D014 wire ID 仍为 2，不能为显示方便擅自改变。
 
 在线配置使用 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`，先核对固件/工具能力。AFE 写入使用授权及完整 35-word 事务。协议地址、缩放、Flash/OTA 布局、底层寄存器不属于随手试改范围。

@@ -12,7 +12,7 @@ code = profile_prefix(product) + '\n#include "bms_sw_protection.h"\n#include "bm
 code += 'bms_protection_params_t g_bms_protection_params; uint8_t bms_protection_params_valid(void){return 1;}\n'
 code += 'int main(void){bms_protection_params_t sw; bms_config_store_get_default_protect(&sw); bms_afe_hw_profile_t hw;\n'
 code += 'bms_afe_hw_profile_build_default(&hw); assert(bms_afe_hw_profile_validate(&hw)); assert(bms_sw_protection_validate_params(&sw));\n'
-code += 'printf("{\\"cells\\":%u,\\"capacity_0p1ah\\":%u,\\"sw\\":{",(unsigned)SeriesNum,(unsigned)CapacityFactory);\n'
+code += 'printf("{\\"cells\\":%u,\\"capacity_0p1ah\\":%u,\\"sw\\":{",(unsigned)BMS_PRODUCT_CELL_COUNT,(unsigned)BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH);\n'
 for index, name in enumerate(sw_fields):
     code += f'printf("{"," if index else ""}\\"{name}\\":%u",(unsigned)sw.{name});\n'
 code += 'printf("},\\"afe_requested\\":{");\n'

@@ -18,3 +18,5 @@
 临时快照、对象、ELF/MAP、日志在 `%LOCALAPPDATA%/CodexTemp/bms-round5-20261007/`。继承上轮两处官方 SDK Patch_0001 覆盖，冻结实际字节哈希，本轮不修改/提交。没有镜像请求，使用 link/resources，不生成 BIN、烧录或 OTA。
 
 第二批：app 只调用 bms_parameters_init；保留 Config→State→Event→保护加载顺序及启动失败持续门禁。诊断使用四参数共用入口，旧 wire 225 槽保持 0；清除重复声明。相关启动、存储、AFE 配置门禁、D008 调度、SH 电源和诊断共 17 组全部通过。新增真实生产 TU 夹具检查域失败、在线提交不能清门禁、同帧诊断与无额外 aux 读取。初跑夹具中的旧类型、旧模式及 SH inline stub 冲突均已修正后重跑通过。
+
+第三批：产品旧宏直接换为 BMS_PRODUCT_* 与具单位的 BMS_SLEEP_*；通信能力采用显式 0/1。D008 公共入口包含私有 dvc1124_product_defaults.h，原默认数值逐行保留。四产品 TC32 预处理比较 488 项原产品/板级/后端宏，归一改名后 0 差异；99 项关键活跃源码/函数体 0 差异。产品默认、核心契约和 production 批准正负控制 12 组通过。

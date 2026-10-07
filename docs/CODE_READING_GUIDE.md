@@ -54,7 +54,7 @@ main_loop → app_sample_task（约 200 ms）
 
 在线软件写入走校验和保存；AFE 写入另走授权、完整 35-word 事务、apply/readback/rollback。参见 [参数策略](OTA_PARAMETERS.md) 和 [架构](ARCHITECTURE.md)。
 
-完成标准：解释“只改 CapacityFactory / 改 BUSINESS 编号 / 在线写 0x2318”三者的范围差别，以及 BUSINESS 更新为何还影响 heater/balance。
+完成标准：解释“只改 BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH / 改 BUSINESS 编号 / 在线写 0x2318”三者的范围差别，以及 BUSINESS 更新为何还影响 heater/balance。
 
 ## 按任务继续阅读
 

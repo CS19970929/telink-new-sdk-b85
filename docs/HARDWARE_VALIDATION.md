@@ -91,7 +91,7 @@
 
 ### 6. 产品参数发布签核
 
-- [ ] 额定容量；当前 `CapacityFactory=116` 仅为继承迁移默认，不得直接作为 D014 量产值。
+- [ ] 额定容量；当前 `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116` 仅为继承迁移默认，不得直接作为 D014 量产值。
 - [ ] 软件 OV/UV/OC/温度/压差 First/Second/Third/Recover/Filter。
 - [ ] AFE HW OC/SC/温度 requested/effective。
 - [ ] D014 独立 wire numeric ID 是否需要从历史 D11 wire ID 分离（存储已使用内部 tag 14），并同步 Windows 上位机。

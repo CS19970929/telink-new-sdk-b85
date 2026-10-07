@@ -65,7 +65,7 @@ int main(void){
  assert(sends==0);assert(modbus_uart_send(data,268));
  memset(data,0x66,sizeof(data));assert(!modbus_uart_send(data,8));
  assert(sends==1&&s_tx_pkt.dma_len==268&&s_tx_pkt.data[0]==0x55);
-#if MODBUS_RS485_ENABLE
+#if BMS_PRODUCT_RS485_ENABLE
  assert(de);irqsrc|=2;modbus_uart_irq_proc();assert(de);
  busy=0;now+=1000u*16u;main_loop_modbus();assert(de); // minimum full-frame hold
  now+=24000u*16u;main_loop_modbus();assert(!de&&!modbus_uart_tx_active());
@@ -86,7 +86,7 @@ for product in products:
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
     header = (ROOT / 'bms/platform/telink/modbus_uart.h').read_text(encoding='utf8')
     diag = re.search(r'typedef struct \{[\s\S]*?\} bms_rs485_tx_diag_t;', header)[0]
-    defines = ('#define MODBUS_RS485_ENABLE %d\n#define BMS_RS485_TX_DIAG_ENABLE 0\n'
+    defines = ('#define BMS_PRODUCT_RS485_ENABLE %d\n#define BMS_RS485_TX_DIAG_ENABLE 0\n'
                '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
                '#define OWC_TX_PIN 1\n#define OWC_RX_PIN 2\n'
                '#define BMS_BOARD_RS485_EN_PIN 3\n'

@@ -111,12 +111,12 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 
 原理图没有给出以下产品定义，因此本分支不把它们伪装成 D014 硬件事实：
 
-1. 额定容量；当前 `CapacityFactory=116` 只是从 D011 继承的迁移默认值。
+1. 额定容量；当前 `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116` 只是从 D011 继承的迁移默认值。
 2. 最终软件 First/Second/Third OV/UV/OC/温度/压差阈值。
 3. 最终 AFE HW requested/effective OC/SC/温度阈值。
 4. TS4/RN4 的实际 BOM。
 5. RS485/CMNT-WK 实际唤醒有效电平和通信电源时序。
-6. D014 独立协议产品 ID。当前 `FD_BMS_TYPE=2u` 保留历史 wire ID；内部存储 `BMS_PRODUCT_ID=14u` 已独立，不能把两种 ID 混为一谈。硬件字符串和 BLE 名称为 D014。
+6. D014 独立协议产品 ID。当前 `BMS_PRODUCT_WIRE_ID=2u` 保留历史 wire ID；内部存储 `BMS_PRODUCT_ID=14u` 已独立，不能把两种 ID 混为一谈。硬件字符串和 BLE 名称为 D014。
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 

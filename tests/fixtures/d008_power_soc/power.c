@@ -33,10 +33,10 @@ static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
 #define SUSPEND_ADV 1
 #define SUSPEND_CONN 2
 #define SUSPEND_DISABLE 0
-#define __SLEEP_VLOW__ 2800
-#define __SLEEP_VNORMAL__ 3000
-#define __SLEEP_TIMEVLOW__ 10000u
-#define __SLEEP_TIMENORMAL__ 10000u
+#define BMS_SLEEP_LOW_CELL_MV 2800
+#define BMS_SLEEP_NORMAL_CELL_MV 3000
+#define BMS_SLEEP_LOW_SECONDS 10000u
+#define BMS_SLEEP_NORMAL_SECONDS 10000u
 #define DIAG_PM_BLOCK_SAMPLE_INVALID 1u
 #define DIAG_PM_BLOCK_OTA 2u
 #define DIAG_PM_BLOCK_FLASH 4u

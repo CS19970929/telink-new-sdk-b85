@@ -40,7 +40,7 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_fail=0;fuse_count=0;ow_started=0;
     ow_state=BMS_AFE_DIAG_BUSY;memset(&ow_result,0,sizeof(ow_result));
-    snapshot.valid=1;snapshot.cell_count=SeriesNum;
+    snapshot.valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
     snapshot.battery_temp_min_x10=650;snapshot.battery_temp_max_x10=650;
     snapshot.heater_temp_x10=650;snapshot.mos_temp_x10=650;
@@ -92,6 +92,6 @@ int main(void)
     step(1);assert(!feature_status().openwire_active && feature_status().openwire_sample_active);
     assert(bms_features_outputs_blocked());
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
-           (unsigned)SeriesNum,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
+           (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;
 }

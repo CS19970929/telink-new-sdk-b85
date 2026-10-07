@@ -119,15 +119,15 @@ static const bms_protection_params_t s_default_protection = {
     .u16VcellUvp_Third = BMS_DEFAULT_CUV3_MV,
     .u16VcellUvp_Rcv = 3100,
     .u16VcellUvp_Filter = BMS_DEFAULT_CUV3_FILTER,
-    .u16VbusOvp_First = (350 * SeriesNum),
-    .u16VbusOvp_Second = (360 * SeriesNum),
-    .u16VbusOvp_Third = (365 * SeriesNum),
-    .u16VbusOvp_Rcv = (350 * SeriesNum),
+    .u16VbusOvp_First = (350 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusOvp_Second = (360 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusOvp_Third = (365 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusOvp_Rcv = (350 * BMS_PRODUCT_CELL_COUNT),
     .u16VbusOvp_Filter = 100,
-    .u16VbusUvp_First = (300 * SeriesNum),
-    .u16VbusUvp_Second = (300 * SeriesNum),
-    .u16VbusUvp_Third = (290 * SeriesNum),
-    .u16VbusUvp_Rcv = (300 * SeriesNum),
+    .u16VbusUvp_First = (300 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusUvp_Second = (300 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusUvp_Third = (290 * BMS_PRODUCT_CELL_COUNT),
+    .u16VbusUvp_Rcv = (300 * BMS_PRODUCT_CELL_COUNT),
     .u16VbusUvp_Filter = 100,
     .u16IchgOcp_First = (100),
     .u16IchgOcp_Second = (150),
@@ -192,9 +192,9 @@ static void bms_config_store_get_default_system(bms_config_system_params_t *syst
 {
     if (system == 0) return;
     memset(system, 0, sizeof(*system));
-    system->bms_type = FD_BMS_TYPE;
-    system->series_num = SeriesNum;
-    system->capacity_factory = CapacityFactory;
+    system->bms_type = BMS_PRODUCT_WIRE_ID;
+    system->series_num = BMS_PRODUCT_CELL_COUNT;
+    system->capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     system->battery_chemistry = BMS_PRODUCT_CHEMISTRY;
     system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID;
 }
@@ -378,8 +378,8 @@ int bms_config_store_init(void)
         bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {
         bms_config_decode(&g_bms_config, payload);
         /* 装配串数属于板级身份，不能把另一种装配的参数直接用于当前板。 */
-        if (g_bms_config.system.series_num != SeriesNum ||
-            g_bms_config.system.bms_type != FD_BMS_TYPE) {
+        if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
+            g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID) {
             bms_config_defaults(&g_bms_config);
             g_bms_config_needs_save = 1u;
         } else {
@@ -431,7 +431,7 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
 {
     bms_config_cache_t next;
     if ((system == 0) || !bms_config_ensure_ready()) return 0;
-    if (system->series_num != SeriesNum || system->bms_type != FD_BMS_TYPE) return 0;
+    if (system->series_num != BMS_PRODUCT_CELL_COUNT || system->bms_type != BMS_PRODUCT_WIRE_ID) return 0;
     if ((system->battery_chemistry > BMS_SOC_CHEMISTRY_NMC) ||
         (system->soc_profile_id > BMS_SOC_PROFILE_GENERIC_NMC) ||
         ((system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) ||
@@ -502,8 +502,8 @@ int bms_config_store_validate_startup(void)
     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) invalid |= DIAG_UPGRADE_BAD_AFE;
     if (!bms_soc_config_valid(&g_bms_config.soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
     if (!bms_config_user_valid(&g_bms_config.user)) invalid |= DIAG_UPGRADE_BAD_SW;
-    if (g_bms_config.system.series_num != SeriesNum ||
-        g_bms_config.system.bms_type != FD_BMS_TYPE ||
+    if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
+        g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID ||
         g_bms_config.system.capacity_factory == 0u ||
         g_bms_config.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) invalid |= DIAG_UPGRADE_BAD_CAPACITY;
     if (invalid) { bms_diag_upgrade(DIAG_UPGRADE_VALIDATION, invalid); return 0; }
@@ -603,7 +603,7 @@ int bms_config_reset_business(void)
     bms_config_cache_t next;
     if (!bms_config_ensure_ready()) return 0;
     next = g_bms_config;
-    next.system.capacity_factory = CapacityFactory;
+    next.system.capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     next.user.heater_enable = 1u;
     next.user.heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     next.user.heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;

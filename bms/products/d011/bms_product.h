@@ -30,32 +30,34 @@
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
 /* 量产选择：D011 固定 RS485 Modbus RTU，不使用 SIF/单线。 */
-#define _UL_RENZHENG_ENABLE_
-#define _FUNC_UART_
-#define MODBUS_RS485_ENABLE              1
+#define BMS_PRODUCT_UART_ENABLE 1
+#define BMS_PRODUCT_SIF_ENABLE 0
+#define BMS_PRODUCT_RS485_ENABLE              1
 #ifndef FAC_TEST
-#define _DI_SWITCH_SYS_ONOFF
+#define BMS_PRODUCT_SWITCH_ENABLE 1
+#else
+#define BMS_PRODUCT_SWITCH_ENABLE 0
 #endif
 
-#define __SLEEP_VNORMAL__             (3000)
-#define __SLEEP_TIMENORMAL__          (60 * 60 * 24)
-#define __SLEEP_VLOW__                (2800)
-#define __SLEEP_TIMEVLOW__            (60 * 60 * 1)
+#define BMS_SLEEP_NORMAL_CELL_MV             (3000)
+#define BMS_SLEEP_NORMAL_SECONDS          (60 * 60 * 24)
+#define BMS_SLEEP_LOW_CELL_MV                (2800)
+#define BMS_SLEEP_LOW_SECONDS            (60 * 60 * 1)
 
 /* 保持历史数字产品 ID，兼容协议/存储。 */
-#define FD_BMS_TYPE 2u
-#define SeriesNum                      SH3673510_BOARD_CELL_COUNT
+#define BMS_PRODUCT_WIRE_ID 2u
+#define BMS_PRODUCT_CELL_COUNT                      SH3673510_BOARD_CELL_COUNT
 /* 现有 D11 容量单位 Ah*10，是产品数据，不能由原理图推断。 */
-#define CapacityFactory                116
-#define BMS_HARDWARE_VERDION_DEFAULT   "D011"
-#define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"
-#define BMS_SERIAL_NUMBER_DEFAULT      "D011-UNSET"
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
+#define BMS_PRODUCT_HW_VERSION   "D011"
+#define BMS_PRODUCT_SW_VERSION   "V1.0"
+#define BMS_PRODUCT_DEFAULT_SERIAL      "D011-UNSET"
 
 
-#define DEV_NAME_STR  "BT_D011"
-#define DEV_NAME_LEN  (sizeof(DEV_NAME_STR)-1)
-#define DEV_NAME_STR2 "BT_D011_FACTORY"
-#define DEV_NAME_LEN2 (sizeof(DEV_NAME_STR2)-1)
+#define BMS_PRODUCT_BLE_NAME  "BT_D011"
+#define BMS_PRODUCT_BLE_NAME_LENGTH  (sizeof(BMS_PRODUCT_BLE_NAME)-1)
+#define BMS_PRODUCT_FACTORY_BLE_NAME "BT_D011_FACTORY"
+#define BMS_PRODUCT_FACTORY_BLE_NAME_LENGTH (sizeof(BMS_PRODUCT_FACTORY_BLE_NAME)-1)
 
 
 #define BMS_DEFAULT_CUV3_MV 3000u

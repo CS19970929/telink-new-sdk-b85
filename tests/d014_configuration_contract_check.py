@@ -147,13 +147,13 @@ def check_sh3673510_d014_integration_check():
         require(cfg, pin)
 
     # Product identity and communications.
-    require(conf, "#define FD_BMS_TYPE 2u")
-    require(conf, "#define SeriesNum                      SH3673510_BOARD_CELL_COUNT")
-    require(conf, "#define MODBUS_RS485_ENABLE              1")
-    require(conf, 'BMS_HARDWARE_VERDION_DEFAULT   "D014"')
-    if not re.search(r'BMS_SERIAL_NUMBER_DEFAULT\s+"D014-[^"]+"', conf):
+    require(conf, "#define BMS_PRODUCT_WIRE_ID 2u")
+    require(conf, "#define BMS_PRODUCT_CELL_COUNT                      SH3673510_BOARD_CELL_COUNT")
+    require(conf, "#define BMS_PRODUCT_RS485_ENABLE              1")
+    require(conf, 'BMS_PRODUCT_HW_VERSION   "D014"')
+    if not re.search(r'BMS_PRODUCT_DEFAULT_SERIAL\s+"D014-[^"]+"', conf):
         raise AssertionError("D014 default serial number must retain the D014- prefix")
-    require(conf, '#define DEV_NAME_STR  "BT_D014"')
+    require(conf, '#define BMS_PRODUCT_BLE_NAME  "BT_D014"')
     require(text("bms_product.h"), "#define BMS_PRODUCT_ID 14u")
 
     # AFE SPI remains the verified SH36735xx Mode-3, 500-kHz implementation.

@@ -131,7 +131,7 @@ static u16 afe_hw_profile_read_reg(u16 reg)
     {
     case BMS_AFE_HW_META_CAPABILITIES:      return bms_afe_hw_profile_capabilities();
     case BMS_AFE_HW_META_VALID:             return bms_afe_hw_profile_get(&p) ? 1u : 0u;
-    case BMS_AFE_HW_META_CELL_COUNT:        return SeriesNum;
+    case BMS_AFE_HW_META_CELL_COUNT:        return BMS_PRODUCT_CELL_COUNT;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
     case BMS_AFE_HW_META_WDT_SECONDS:       return DVC1124_I2C_WATCHDOG_SECONDS;
@@ -750,20 +750,20 @@ static u16 read_production_info_reg(u16 reg)
 void bms_product_info_refresh(void)
 {
     bms_user_params_t user;
-    uint8_t hardwareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+    uint8_t hardwareCount = sizeof(BMS_PRODUCT_HW_VERSION) > PRODUCT_ID_LENGTH_MAX
                               ? PRODUCT_ID_LENGTH_MAX
-                              : sizeof(BMS_HARDWARE_VERDION_DEFAULT);
-    uint8_t softwareCount = sizeof(BMS_SOFTWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+                              : sizeof(BMS_PRODUCT_HW_VERSION);
+    uint8_t softwareCount = sizeof(BMS_PRODUCT_SW_VERSION) > PRODUCT_ID_LENGTH_MAX
                               ? PRODUCT_ID_LENGTH_MAX
-                              : sizeof(BMS_SOFTWARE_VERDION_DEFAULT);
-    uint8_t serialNumberCount = sizeof(BMS_SERIAL_NUMBER_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+                              : sizeof(BMS_PRODUCT_SW_VERSION);
+    uint8_t serialNumberCount = sizeof(BMS_PRODUCT_DEFAULT_SERIAL) > PRODUCT_ID_LENGTH_MAX
                                   ? PRODUCT_ID_LENGTH_MAX
-                                  : sizeof(BMS_SERIAL_NUMBER_DEFAULT);
+                                  : sizeof(BMS_PRODUCT_DEFAULT_SERIAL);
 
     memset(&s_product_info, 0, sizeof(bms_product_info_t));
-    memcpy(&s_product_info.BMS_HardWareVersion[0], BMS_HARDWARE_VERDION_DEFAULT, hardwareCount);
-    memcpy(&s_product_info.BMS_SoftWareVersion[0], BMS_SOFTWARE_VERDION_DEFAULT, softwareCount);
-    memcpy(&s_product_info.BMS_SerialNumber[0], BMS_SERIAL_NUMBER_DEFAULT, serialNumberCount);
+    memcpy(&s_product_info.BMS_HardWareVersion[0], BMS_PRODUCT_HW_VERSION, hardwareCount);
+    memcpy(&s_product_info.BMS_SoftWareVersion[0], BMS_PRODUCT_SW_VERSION, softwareCount);
+    memcpy(&s_product_info.BMS_SerialNumber[0], BMS_PRODUCT_DEFAULT_SERIAL, serialNumberCount);
     if (bms_config_get_user(&user) && user.serial[0])
         memcpy(s_product_info.BMS_SerialNumber,user.serial,sizeof(user.serial));
 }

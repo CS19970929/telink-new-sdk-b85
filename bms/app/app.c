@@ -149,7 +149,7 @@ static void app_schedule_sample_wakeup(void)
 /* 按产品配置读取开关输入状态。 */
 static uint8_t board_switch_is_on(void)
 {
-#ifdef _DI_SWITCH_SYS_ONOFF
+#if BMS_PRODUCT_SWITCH_ENABLE
 	return gpio_read(BMS_BOARD_SWITCH_PIN) ? 0u : 1u;
 #else
 	return 1u;
@@ -556,15 +556,15 @@ void blt_pm_proc(void)
             region = 1u;
             limit_seconds = 3600u;
         }
-        else if (g_bms_report.u16VCellMin < __SLEEP_VLOW__)
+        else if (g_bms_report.u16VCellMin < BMS_SLEEP_LOW_CELL_MV)
         {
             region = 2u;
-            limit_seconds = __SLEEP_TIMEVLOW__;
+            limit_seconds = BMS_SLEEP_LOW_SECONDS;
         }
-        else if (g_bms_report.u16VCellMin < __SLEEP_VNORMAL__ && m.current_ma >= 0)
+        else if (g_bms_report.u16VCellMin < BMS_SLEEP_NORMAL_CELL_MV && m.current_ma >= 0)
         {
             region = 3u;
-            limit_seconds = __SLEEP_TIMENORMAL__;
+            limit_seconds = BMS_SLEEP_NORMAL_SECONDS;
         }
     }
     if (!region || region != low_voltage_region)
@@ -632,7 +632,7 @@ void blt_pm_proc(void)
 
 	if (sleep_elapsed_sec != 0u)
 	{
-#ifdef _DI_SWITCH_SYS_ONOFF
+#if BMS_PRODUCT_SWITCH_ENABLE
 		if (!board_switch_is_on() && !gpio_read(BMS_BOARD_INT_WK_MCU_PIN))
 		{
 			sleep_cnt = app_pm_elapsed_limit(sleep_cnt, sleep_elapsed_sec, 3u);
@@ -661,7 +661,7 @@ void blt_pm_proc(void)
 			}
 		}
 		// else if ((g_bms_report.u16VCellMin <= 2750 && !g_bms_report.u16Ichg) || deepsleep_en)
-		else if ((g_bms_report.u16VCellMin < __SLEEP_VLOW__))
+		else if ((g_bms_report.u16VCellMin < BMS_SLEEP_LOW_CELL_MV))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
@@ -670,20 +670,20 @@ void blt_pm_proc(void)
 			// 	deepsleep_en = false;
 			// 	sleep_vlow_cnt = (60 * 60 * 1);
 			// }
-			sleep_vlow_cnt = app_pm_elapsed_limit(sleep_vlow_cnt, sleep_elapsed_sec, __SLEEP_TIMEVLOW__);
-			if (sleep_vlow_cnt >= __SLEEP_TIMEVLOW__)
+			sleep_vlow_cnt = app_pm_elapsed_limit(sleep_vlow_cnt, sleep_elapsed_sec, BMS_SLEEP_LOW_SECONDS);
+			if (sleep_vlow_cnt >= BMS_SLEEP_LOW_SECONDS)
 			{
 				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_vlow_cnt = 0;
 			}
 		}
-		else if ((g_bms_report.u16VCellMin < __SLEEP_VNORMAL__ && !g_bms_report.u16Ichg))
+		else if ((g_bms_report.u16VCellMin < BMS_SLEEP_NORMAL_CELL_MV && !g_bms_report.u16Ichg))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
 			afe_comm_err_sleepcnt = 0;
 
-			sleep_vnormal_cnt = app_pm_elapsed_limit(sleep_vnormal_cnt, sleep_elapsed_sec, __SLEEP_TIMENORMAL__);
-			if (sleep_vnormal_cnt >= __SLEEP_TIMENORMAL__)
+			sleep_vnormal_cnt = app_pm_elapsed_limit(sleep_vnormal_cnt, sleep_elapsed_sec, BMS_SLEEP_NORMAL_SECONDS);
+			if (sleep_vnormal_cnt >= BMS_SLEEP_NORMAL_SECONDS)
 			// if (sleep_vnormal_cnt >= (60 * 30))
 			{
 				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_vnormal_cnt = 0;
@@ -809,7 +809,7 @@ _attribute_no_inline_ void main_loop(void)
 	bus_mux_task();
     sif_prepare_task(s_sample_tick);
 #endif
-#ifdef _FUNC_UART_
+#if BMS_PRODUCT_UART_ENABLE
 	main_loop_modbus();
 #endif
 	bms_state_store_update_and_log_if_changed(g_bms_soc.u8SOC_Now, g_bms_soc.u8DSG_SOC_Int, g_bms_soc.u32Cycle_times);

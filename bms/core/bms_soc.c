@@ -500,7 +500,7 @@ static uint32_t soc_nominal_capacity_0p1ah(void)
     bms_config_system_params_t system;
     if (bms_config_store_get_system(&system) && system.capacity_factory > 0u &&
         system.capacity_factory <= BMS_SOC_CAPACITY_MAX_0P1AH) return system.capacity_factory;
-    return (uint32_t)CapacityFactory;
+    return (uint32_t)BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
 }
 
 /* 按名义容量和循环 SOH 重算满容量。 */
@@ -963,8 +963,8 @@ static uint16_t soc_discharge_natural_1pct_ticks(uint16_t dsg_current)
     if (dsg_current < SOC_DSG_CURRENT_MIN_A10) dsg_current = SOC_DSG_CURRENT_MIN_A10;
     factory_a10 = (uint16_t)soc_nominal_capacity_0p1ah();
     /*
-     * CapacityFactory 单位 Ah*10，电流 A*10；
-     * 1% 所需秒数为36*CapacityFactory/current。
+     * BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 单位 Ah*10，电流 A*10；
+     * 1% 所需秒数为36*BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH/current。
      */
     ticks = ((uint32_t)36u * factory_a10 * SOC_TICKS_PER_SECOND + ((uint32_t)dsg_current / 2u)) /
         (uint32_t)dsg_current;

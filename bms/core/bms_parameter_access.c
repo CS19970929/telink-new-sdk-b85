@@ -74,7 +74,7 @@ u16 bms_parameter_read(u16 r)
     if (r == BMS_PARAM_REG_CONFIG_FORMAT) return 2u; /* 配置格式：CFG2 schema。 */
     if (r == BMS_PARAM_REG_SN_GENERATION) return s_sn_generation;
     if (r == BMS_PARAM_REG_RESET_POLICY) return 1u; /* 禁止旧 1102=3 重置入口。 */
-    if (r == BMS_PARAM_REG_DEFAULT_CAPACITY) return CapacityFactory;
+    if (r == BMS_PARAM_REG_DEFAULT_CAPACITY) return BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     if (r == BMS_PARAM_REG_HEATER_SUPPORTED) return bms_board_heater_supported();
     if (r == BMS_PARAM_REG_DEFAULT_HEATER_START) return BMS_HEATER_START_TEMP_X10;
     if (r == BMS_PARAM_REG_DEFAULT_HEATER_STOP) return BMS_HEATER_STOP_TEMP_X10;

@@ -24,10 +24,10 @@ app = selected_source(HERE / "app.c")
 uart = selected_source(HERE / "modbus_uart.c")
 main = selected_source(HERE / "main.c")
 
-assert literal(conf, "MODBUS_RS485_ENABLE") == 1
-if re.search(r"(?m)^\s*#define\s+_FUNC_SIF_\b", conf):
+assert literal(conf, "BMS_PRODUCT_RS485_ENABLE") == 1
+if re.search(r"(?m)^\s*#define\s+BMS_PRODUCT_SIF_ENABLE\b", conf):
     raise AssertionError("D014 must not enable one-wire/SIF")
-if not re.search(r"(?m)^\s*#define\s+_FUNC_UART_\b", conf):
+if not re.search(r"(?m)^\s*#define\s+BMS_PRODUCT_UART_ENABLE\b", conf):
     raise AssertionError("D014 Modbus UART must be enabled")
 
 # Fixed Modbus UART is initialized directly. No inert SIF/mux enters the IRQ.
@@ -52,7 +52,7 @@ for required in (
 ):
     if required not in uart:
         raise AssertionError(f"missing D014 RS485 contract: {required}")
-assert "#if MODBUS_RS485_ENABLE" in text("modbus_uart.c")
+assert "#if BMS_PRODUCT_RS485_ENABLE" in text("modbus_uart.c")
 assert "BMS_BOARD_RS485_EN_PIN" in text("modbus_uart.c")
 if "bus_mux_on_uart_rx_byte" in uart or '#include "bus_mux.h"' in uart:
     raise AssertionError("UART driver must not depend on the removed mux detector")

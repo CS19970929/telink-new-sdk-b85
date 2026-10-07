@@ -5,7 +5,7 @@ typedef uint32_t u32;
 typedef uint8_t u8;
 #define _attribute_data_retention_
 #define _attribute_no_inline_
-#define _FUNC_UART_
+#define BMS_PRODUCT_UART_ENABLE
 #define APP_SAMPLE_PERIOD_US 200000u
 #define SYSTEM_TIMER_TICK_1US 16u
 #define SUSPEND_MODE 0

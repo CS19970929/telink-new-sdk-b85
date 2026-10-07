@@ -162,7 +162,7 @@ int main(void)
 #else
     words[2]=SH3673510_BOARD_SHUNT_UOHM; words[4]=SH3673510_BOARD_WDT_EN ? 32u : 0u;
 #endif
-    words[3]=SeriesNum; words[5]=1; words[6]=2; words[7]=3; words[8]=BMS_AFE_HW_INTERFACE_VERSION;
+    words[3]=BMS_PRODUCT_CELL_COUNT; words[5]=1; words[6]=2; words[7]=3; words[8]=BMS_AFE_HW_INTERFACE_VERSION;
     expect_read(1,BMS_AFE_HW_META_CAPABILITIES,9,words,0);
     for (unsigned broadcast=0; broadcast<2; ++broadcast) {
         u8 addr=broadcast?0u:1u;

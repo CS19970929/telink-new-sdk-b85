@@ -27,13 +27,13 @@
 | shunt | 100 µΩ | CODE；注释为 2 mV : 20 A -> 0.1 mΩ |
 | SPI group | PB6 MISO / PB7 MOSI / PD7 SCLK / PD2 CS | CODE，沿用 D011 配置 |
 | NTC nominal | 10K | CODE，沿用 D011 假设 |
-| Modbus transport | direct UART，`MODBUS_RS485_ENABLE=0` | CODE |
+| Modbus transport | direct UART，`BMS_PRODUCT_RS485_ENABLE=0` | CODE |
 
 ### 2.1 产品身份与能力
 
 硬件版本为 `D013`，默认序列号 `D013-UNSET`，BLE 为 `BT_D013` / `BT_D013_FACTORY`。
 历史 numeric wire ID 保持 2，内部存储 tag 为 13；本次不改变外部协议数值。
-`CapacityFactory=116` 等继承默认仍待产品签核，不因身份更名变成已验证参数。
+`BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116` 等继承默认仍待产品签核，不因身份更名变成已验证参数。
 
 当前 profile 的 heater、balance、heater NTC 和 MOS NTC 均不支持。
 `mos_temp_required=0`，因此未配置 TS4 不报温度断线，也不计算 MOS OTP；
@@ -50,7 +50,7 @@ TS1/TS2 仍为必需电池温度，任一无效仍阻断输出。
 | PD4 | `BMS_BOARD_CMNT_EN_PIN` | communication enable | **未验证** |
 | PD7 | `BMS_BOARD_AFE_SCLK_PIN` | AFE SPI SCLK | **未验证** |
 | PA0 | `BMS_BOARD_SWITCH_PIN` | switch input | **未验证** |
-| PA1 | `BMS_BOARD_RS485_EN_PIN` | RS485 direction | **未验证；且 D013 conf 当前 `MODBUS_RS485_ENABLE=0`** |
+| PA1 | `BMS_BOARD_RS485_EN_PIN` | RS485 direction | **未验证；且 D013 conf 当前 `BMS_PRODUCT_RS485_ENABLE=0`** |
 | PA7 | `BMS_BOARD_SWS_PIN` | SWS debug | **未验证** |
 | PB1 | `BMS_BOARD_INT_WK_MCU_PIN` | interrupt/wake input | **未验证** |
 | PB4 | `BMS_BOARD_HEATER_CHG_PIN` | heater control | **未验证** |
