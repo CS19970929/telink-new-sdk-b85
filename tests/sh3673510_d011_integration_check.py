@@ -159,8 +159,8 @@ for needle in (
 
 require(bms, "current.cadc_raw")
 require(bms, "SH3673510_BOARD_SHUNT_UOHM")
-require(bms, "g_stCellInfoReport.u16Ichg")
-require(bms, "g_stCellInfoReport.u16IDischg")
+require(bms, "g_bms_report.u16Ichg")
+require(bms, "g_bms_report.u16IDischg")
 require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);")
 require(bms, "s_aux.sample_tick_32k = now;")
 require(bms, "if (status.flag2 & SH3673520_FLAG2_CADC_MASK)")
@@ -196,9 +196,9 @@ require(bms, "s_hw_charge_protect")
 require(bms, "s_hw_discharge_protect")
 require(bms, "s_afe_reconfigure_required")
 require(bms, "SH3673510_BOARD_HEATER_NTC_INDEX")
-require(bms, "g_stCellInfoReport.u16Temperature[AFE1_TEMP3]")
-require(bms, "g_stCellInfoReport.u16TempMin = bat_temp_min;")
-require(bms, "g_stCellInfoReport.u16TempMax = bat_temp_max;")
+require(bms, "g_bms_report.u16Temperature[AFE1_TEMP3]")
+require(bms, "g_bms_report.u16TempMin = bat_temp_min;")
+require(bms, "g_bms_report.u16TempMax = bat_temp_max;")
 
 # D011 is common-port: normal healthy operation requests both FETs ON.
 # 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
@@ -366,10 +366,10 @@ if publish_start < 0 or publish_end <= publish_start:
 publish_text = bms[publish_start:publish_end]
 for needle in (
     "battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)",
-    "g_stCellInfoReport.u16TempMin = bat_temp_min;",
-    "g_stCellInfoReport.u16TempMax = bat_temp_max;",
-    "g_stCellInfoReport.u16TempMin = 0u;",
-    "g_stCellInfoReport.u16TempMax = 0u;",
+    "g_bms_report.u16TempMin = bat_temp_min;",
+    "g_bms_report.u16TempMax = bat_temp_max;",
+    "g_bms_report.u16TempMin = 0u;",
+    "g_bms_report.u16TempMax = 0u;",
 ):
     require(publish_text, needle)
 

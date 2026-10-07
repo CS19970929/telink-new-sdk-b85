@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
-static struct {uint16_t u16Ichg,u16IDischg;}g_stCellInfoReport;
+static struct {uint16_t u16Ichg,u16IDischg;}g_bms_report;
 /* CURRENT_FLOOR */
 /* PRODUCTION_SOURCE */
 int main(void){
@@ -10,10 +10,10 @@ int main(void){
   int32_t ma=inputs[i];uint32_t magnitude=ma<0?0u-(uint32_t)ma:(uint32_t)ma;
   uint32_t expected=magnitude<=200?0:magnitude/100;
   if(expected>65535)expected=65535;
-  g_stCellInfoReport.u16Ichg=g_stCellInfoReport.u16IDischg=99;
+  g_bms_report.u16Ichg=g_bms_report.u16IDischg=99;
   dvc_publish_current_report(ma);
-  assert(g_stCellInfoReport.u16Ichg==(ma<0?expected:0));
-  assert(g_stCellInfoReport.u16IDischg==(ma>=0?expected:0));
+  assert(g_bms_report.u16Ichg==(ma<0?expected:0));
+  assert(g_bms_report.u16IDischg==(ma>=0?expected:0));
  }
  puts("PASS current: +/-199/200 masked, +/-201 reported, both directions and saturation");
 }

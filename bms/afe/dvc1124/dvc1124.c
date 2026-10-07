@@ -1305,8 +1305,8 @@ static uint8_t dvc_refresh_balance_state(void)
 
     if (!DVC1124_ReadRegisters(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
     actual = (((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2]) & dvc_valid_cell_mask();
-    g_stCellInfoReport.u16BalanceFlag1 = (uint16_t)(actual & 0xFFFFu);
-    g_stCellInfoReport.u16BalanceFlag2 = (uint16_t)((actual >> 16) & 0x00FFu);
+    g_bms_report.u16BalanceFlag1 = (uint16_t)(actual & 0xFFFFu);
+    g_bms_report.u16BalanceFlag2 = (uint16_t)((actual >> 16) & 0x00FFu);
     return 1u;
 }
 
@@ -1611,8 +1611,8 @@ static void dvc_publish_current_report(int32_t current_ma)
         (0u - (uint32_t)current_ma) : (uint32_t)current_ma;
     uint32_t a10;
 
-    g_stCellInfoReport.u16Ichg = 0u;
-    g_stCellInfoReport.u16IDischg = 0u;
+    g_bms_report.u16Ichg = 0u;
+    g_bms_report.u16IDischg = 0u;
     /*
      * 先在 mA 单位应用可信电流下限，再转为旧 0.1 A 编码。
      * snapshot.current_ma 保留未屏蔽值，供诊断及 PM/SOC 策略使用。
@@ -1620,8 +1620,8 @@ static void dvc_publish_current_report(int32_t current_ma)
     if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA) return;
     a10 = magnitude_ma / 100u;
     if (a10 > 65535u) a10 = 65535u;
-    if (current_ma < 0) g_stCellInfoReport.u16Ichg = (uint16_t)a10;
-    else g_stCellInfoReport.u16IDischg = (uint16_t)a10;
+    if (current_ma < 0) g_bms_report.u16Ichg = (uint16_t)a10;
+    else g_bms_report.u16IDischg = (uint16_t)a10;
 }
 
 /* 采集 DVC 测量和状态并更新驱动快照。 */
@@ -1659,8 +1659,8 @@ void DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
-        g_stCellInfoReport.u16Ichg = 0u;
-        g_stCellInfoReport.u16IDischg = 0u;
+        g_bms_report.u16Ichg = 0u;
+        g_bms_report.u16IDischg = 0u;
         dvc_note_comm_result(0u);
         return;
     }
@@ -1704,21 +1704,21 @@ void DVC1124_App_AFEGet(void)
             uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
 
             s_snapshot.cell_mv[i] = mv;
-            g_stCellInfoReport.u16VCell[i] = mv;
+            g_bms_report.u16VCell[i] = mv;
             total_mv += mv;
             common_mode_mv += mv;
             if (mv > max_mv) { max_mv = mv; max_pos = i; }
             if (mv < min_mv) { min_mv = mv; min_pos = i; }
         }
         for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
-        for (i = s_cfg.cell_count; i < 32u; ++i) g_stCellInfoReport.u16VCell[i] = 61001u;
+        for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.u16VCell[i] = 61001u;
 
-        g_stCellInfoReport.u16VCellTotle = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
-        g_stCellInfoReport.u16VCellMax = max_mv;
-        g_stCellInfoReport.u16VCellMin = (min_mv == 0xFFFFu) ? 0u : min_mv;
-        g_stCellInfoReport.u16VCellDelta = (uint16_t)(max_mv - g_stCellInfoReport.u16VCellMin);
-        g_stCellInfoReport.u16VCellMaxPosition = (uint16_t)max_pos + 1u;
-        g_stCellInfoReport.u16VCellMinPosition = (uint16_t)min_pos + 1u;
+        g_bms_report.u16VCellTotle = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
+        g_bms_report.u16VCellMax = max_mv;
+        g_bms_report.u16VCellMin = (min_mv == 0xFFFFu) ? 0u : min_mv;
+        g_bms_report.u16VCellDelta = (uint16_t)(max_mv - g_bms_report.u16VCellMin);
+        g_bms_report.u16VCellMaxPosition = (uint16_t)max_pos + 1u;
+        g_bms_report.u16VCellMinPosition = (uint16_t)min_pos + 1u;
 
         v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
         for (i = 0u; i < DVC1124_MAX_GP; ++i)
@@ -1733,7 +1733,7 @@ void DVC1124_App_AFEGet(void)
             s_snapshot.ntc_res_ohm[i] = r_ohm;
 
             if (i < 4u)
-                g_stCellInfoReport.u16Temperature[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
+                g_bms_report.u16Temperature[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
 
             if (((i + 1u) == s_cfg.battery_ntc_gp || (i + 1u) == s_cfg.mos_ntc_gp) && !ntc_ok)
                 configured_ntc_ok = 0u;
@@ -1755,7 +1755,7 @@ void DVC1124_App_AFEGet(void)
             if (report_temp < 0) report_temp = 0;
             if (report_temp > 65535) report_temp = 65535;
             s_snapshot.die_temp_x10 = (int16_t)die_x10;
-            g_stCellInfoReport.u16Temperature[4] = (uint16_t)report_temp;
+            g_bms_report.u16Temperature[4] = (uint16_t)report_temp;
         }
 
         {
@@ -1763,13 +1763,13 @@ void DVC1124_App_AFEGet(void)
             uint16_t tmin = 0xFFFFu;
             for (i = 0u; i < 5u; ++i)
             {
-                uint16_t t = g_stCellInfoReport.u16Temperature[i];
+                uint16_t t = g_bms_report.u16Temperature[i];
                 if (t == 0u) continue;
                 if (t > tmax) tmax = t;
                 if (t < tmin) tmin = t;
             }
-            g_stCellInfoReport.u16TempMax = tmax;
-            g_stCellInfoReport.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
+            g_bms_report.u16TempMax = tmax;
+            g_bms_report.u16TempMin = (tmin == 0xFFFFu) ? 0u : tmin;
         }
 
         s_voltage_seen = 1u;
@@ -1796,8 +1796,8 @@ void DVC1124_App_AFEGet(void)
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())
     {
-        g_stCellInfoReport.u16BalanceFlag1 = 0u;
-        g_stCellInfoReport.u16BalanceFlag2 = 0u;
+        g_bms_report.u16BalanceFlag1 = 0u;
+        g_bms_report.u16BalanceFlag2 = 0u;
     }
     dvc_note_comm_result(1u);
 }

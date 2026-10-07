@@ -18,8 +18,6 @@ def check_sh_event_checkpoint_host_check():
     #include "storage_record.h"
     #include "bms_update_policy.h"
     #define BMS_ERROR_EEPROM_STORE 1
-    #define BMS_EVENT_SAVE_INTERVAL_32K (60u*32000u)
-    #define BMS_STORAGE_RETRY_INTERVAL_32K (5u*32000u)
     static u32 tick, saves, blocked;
     static int save_ok=1;
     static u8 durable[404];
@@ -85,7 +83,7 @@ def check_sh_storage_platform_host_check():
     APP = Sources(ROOT)
     def source(n):return re.sub(r'^\s*#(?:include[^\n]*|pragma once)','',(APP/n).read_text(),flags=re.M)
     fixture=(ROOT/'tests/fixtures/sh_storage_platform.c').read_text()
-    fixture=fixture.replace('/* TYPES */',source('bms_storage_platform.h')).replace('/* MACROS */','#define BMS_STORAGE_RETRY_INTERVAL_32K (5u*32000u)')
+    fixture=fixture.replace('/* TYPES */',source('bms_storage_platform.h')).replace('/* MACROS */','')
     unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]
     fixture=fixture.replace('/* PRODUCTION */',unit)
     with tempfile.TemporaryDirectory(prefix='sh-platform-') as d:

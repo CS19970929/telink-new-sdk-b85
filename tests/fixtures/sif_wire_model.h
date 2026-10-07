@@ -23,7 +23,7 @@ static struct {
  uint16_t u16VCell[32],u16VCellMax,u16VCellMin,u16VCellMaxPosition,u16VCellMinPosition;
  struct {uint16_t u16Soc,u16Cycle_times;} SocElement;
  struct {bms_fault_bits_t bits;} unMdlFault_Third,unMdlFault_Second;
-} g_stCellInfoReport;
+} g_bms_report;
 static int reg_irq_mask,reg_tmr0_tick,reg_tmr0_capt,reg_tmr_sta,reg_tmr_ctrl;
 static int bus=1;
 #define BUS_STATE_OWC_TX 1
@@ -37,20 +37,20 @@ static void bus_mux_return_to_owc_idle(void){bus=0;}
 void sif_send_data_handle(void);
 static void wire_case(unsigned n){
  uint32_t rng=19u+n*387u;
- memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
+ memset(&g_bms_report,0,sizeof(g_bms_report));
 #define NEXT (rng=rng*1664525u+1013904223u,(uint16_t)(rng>>7))
- g_stCellInfoReport.u16Ichg=n&1?NEXT:0;
- g_stCellInfoReport.u16IDischg=n&2?NEXT:0;
- g_stCellInfoReport.u16TempMax=NEXT;g_stCellInfoReport.u16TempMin=NEXT;
- g_stCellInfoReport.u16Temperature[3]=NEXT;g_stCellInfoReport.u16VCellTotle=NEXT;
- g_stCellInfoReport.SocElement.u16Soc=NEXT;g_stCellInfoReport.SocElement.u16Cycle_times=NEXT;
- g_stCellInfoReport.u16VCellMax=NEXT;g_stCellInfoReport.u16VCellMin=NEXT;
- g_stCellInfoReport.u16VCellMaxPosition=NEXT;g_stCellInfoReport.u16VCellMinPosition=NEXT;
- for(unsigned i=0;i<32;++i)g_stCellInfoReport.u16VCell[i]=i<SeriesNum?NEXT:61001u;
- g_stCellInfoReport.unMdlFault_Third.bits.b1IchgOcp=n&1;
- g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp=n&2;
- g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp=n&4;
- g_stCellInfoReport.unMdlFault_Third.bits.b1CellDischgUtp=n&2;
+ g_bms_report.u16Ichg=n&1?NEXT:0;
+ g_bms_report.u16IDischg=n&2?NEXT:0;
+ g_bms_report.u16TempMax=NEXT;g_bms_report.u16TempMin=NEXT;
+ g_bms_report.u16Temperature[3]=NEXT;g_bms_report.u16VCellTotle=NEXT;
+ g_bms_report.SocElement.u16Soc=NEXT;g_bms_report.SocElement.u16Cycle_times=NEXT;
+ g_bms_report.u16VCellMax=NEXT;g_bms_report.u16VCellMin=NEXT;
+ g_bms_report.u16VCellMaxPosition=NEXT;g_bms_report.u16VCellMinPosition=NEXT;
+ for(unsigned i=0;i<32;++i)g_bms_report.u16VCell[i]=i<SeriesNum?NEXT:61001u;
+ g_bms_report.unMdlFault_Third.bits.b1IchgOcp=n&1;
+ g_bms_report.unMdlFault_Third.bits.b1IdischgOcp=n&2;
+ g_bms_report.unMdlFault_Third.bits.b1CellOvp=n&4;
+ g_bms_report.unMdlFault_Third.bits.b1CellDischgUtp=n&2;
 #undef NEXT
 }
 static void print_packet(const uint8_t*p,unsigned n){

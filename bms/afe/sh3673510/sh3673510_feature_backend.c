@@ -130,7 +130,7 @@ bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *
         if (out != 0) {
             memset(out, 0, sizeof(*out)); out->valid = 1u; out->determinate = 1u;
             out->cell_count = SH3673510_BOARD_CELL_COUNT; out->open_cell_mask = s_ow_mask & valid_mask;
-            for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) out->diagnostic_cell_mv[i] = g_stCellInfoReport.u16VCell[i];
+            for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) out->diagnostic_cell_mv[i] = g_bms_report.u16VCell[i];
         }
         (void)sh_ow_enable(0u); s_ow_busy = 0u; s_ow_attempts = 0u;
         return BMS_AFE_DIAG_READY;

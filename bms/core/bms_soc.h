@@ -74,8 +74,7 @@ typedef struct
     uint8_t ocv_error_band_percent;     /* OCV 中心上下的百分比点范围。 */
 } bms_soc_config_t;
 
-struct SOC_CALCULATE_ELEMENT
-{
+typedef struct {
     uint32_t u32CapFactory;         /* As*10 */
     uint8_t u8SOC_Now;            /* 估计 SOC，范围 0..100。 */
     uint32_t u32CapNow;             /* As*10 */
@@ -83,9 +82,9 @@ struct SOC_CALCULATE_ELEMENT
     uint32_t u32Cycle_times;
     uint32_t u32CapFull;            /* As*10 */
     uint8_t soh;
-};
+} bms_soc_state_t;
 
-extern struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
+extern bms_soc_state_t g_bms_soc;
 
 /* 构造 SOC 算法默认值与自动化学体系设置。 */
 void bms_soc_get_default_config(bms_soc_config_t *config);

@@ -61,7 +61,7 @@ static int modbus_uart_tx_active(void) { return tx_busy; }
 static int app_flash_lock_restore_enabled(void) { return flash_locked; }
 static u32 pm_get_32k_tick(void) { return fake_tick; }
 static int bms_event_log_note_sleep(void) { ++event_calls; return 1; }
-static struct {u8 u8SOC_Now,u8DSG_SOC_Int;u32 u32Cycle_times;} SOC_Calculate_Element;
+static struct {u8 u8SOC_Now,u8DSG_SOC_Int;u32 u32Cycle_times;} g_bms_soc;
 static int bms_state_store_write_all(u32 soc,u32 dsg,u32 cycle) { (void)soc;(void)dsg;(void)cycle;++prepare_calls;return 1; }
 static void bms_event_log_cancel_sleep(void) { ++cancel_calls; }
 static int cpu_sleep_wakeup(unsigned mode, unsigned source, unsigned tick) {

@@ -225,9 +225,9 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
 /* 取得指定级别的软件故障寄存器。 */
 static bms_fault_reg_t *bms_sw_fault_reg(uint8_t level)
 {
-    if (level == 0u) return &g_stCellInfoReport.unMdlFault_First;
-    if (level == 1u) return &g_stCellInfoReport.unMdlFault_Second;
-    return &g_stCellInfoReport.unMdlFault_Third;
+    if (level == 0u) return &g_bms_report.unMdlFault_First;
+    if (level == 1u) return &g_bms_report.unMdlFault_Second;
+    return &g_bms_report.unMdlFault_Third;
 }
 
 /* 仅清除本模块拥有的软件保护故障位。 */
@@ -527,12 +527,12 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
         bms_sw_protection_clear();
         return;
     }
-    measurements.cell_max_mv = g_stCellInfoReport.u16VCellMax;
-    measurements.cell_min_mv = g_stCellInfoReport.u16VCellMin;
-    measurements.cell_delta_mv = g_stCellInfoReport.u16VCellDelta;
-    measurements.pack_voltage_10mv = g_stCellInfoReport.u16VCellTotle;
-    measurements.charge_a10 = g_stCellInfoReport.u16Ichg;
-    measurements.discharge_a10 = g_stCellInfoReport.u16IDischg;
+    measurements.cell_max_mv = g_bms_report.u16VCellMax;
+    measurements.cell_min_mv = g_bms_report.u16VCellMin;
+    measurements.cell_delta_mv = g_bms_report.u16VCellDelta;
+    measurements.pack_voltage_10mv = g_bms_report.u16VCellTotle;
+    measurements.charge_a10 = g_bms_report.u16Ichg;
+    measurements.discharge_a10 = g_bms_report.u16IDischg;
     bms_sw_evaluate(inputs, &g_bms_protection_params, &measurements,
                     voltage_current_enabled, temperature_enabled);
 }

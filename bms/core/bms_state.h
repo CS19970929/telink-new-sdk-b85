@@ -10,14 +10,14 @@
 
 /* AFE 无关的 BMS 运行/报告状态；字段单位在定义处说明。 */
 
-struct SOC_CAL_ELEMENT_UPPER {
+typedef struct {
     uint16_t u16Soc;             /* SOC，单位 %。 */
     uint16_t u16Soh;             /* SOH，单位 %。 */
     uint16_t u16CapacityNow;     /* 上报容量，单位 Ah*100。 */
     uint16_t u16CapacityFull;    /* 满容量，单位 Ah*100。 */
     uint16_t u16CapacityFactory; /* 工厂容量，单位 Ah*100。 */
     uint16_t u16Cycle_times;
-};
+} bms_soc_report_t;
 
 typedef enum {
     AFE1_TEMP1 = 0,
@@ -136,7 +136,7 @@ uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age);
 /* 在成对的 16 位查表数据中插值，越界时返回端点值。 */
 uint16_t bms_lookup_u16(const uint16_t *table, uint16_t table_size, uint16_t input);
 
-struct MDLCHGFAULT_BITS {
+typedef struct {
     uint8_t b1CellOvp         : 1;
     uint8_t b1CellUvp         : 1;
     uint8_t b1BatOvp          : 1;
@@ -156,14 +156,14 @@ struct MDLCHGFAULT_BITS {
     uint8_t b1TmosOtp         : 1;
     uint8_t b1Rcved1          : 1;
     uint8_t b1Rcved2          : 1;
-};
+} bms_fault_bits_t;
 
-union MDLCHGFAULT_REG {
+typedef union {
     uint16_t all;
-    struct MDLCHGFAULT_BITS bits;
-};
+    bms_fault_bits_t bits;
+} bms_fault_reg_t;
 
-struct stCell_Info {
+typedef struct {
     uint16_t u16VCell[32];
     uint16_t u16VCellMax;          /* mV */
     uint16_t u16VCellMin;          /* mV */
@@ -179,22 +179,17 @@ struct stCell_Info {
     uint16_t u16Ichg;              /* A * 10 */
     uint16_t u16IDischg;           /* A * 10 */
 
-    struct SOC_CAL_ELEMENT_UPPER SocElement;
-    union MDLCHGFAULT_REG unMdlFault_First;
-    union MDLCHGFAULT_REG unMdlFault_Second;
-    union MDLCHGFAULT_REG unMdlFault_Third;
+    bms_soc_report_t SocElement;
+    bms_fault_reg_t unMdlFault_First;
+    bms_fault_reg_t unMdlFault_Second;
+    bms_fault_reg_t unMdlFault_Third;
 
     uint16_t u16BalanceFlag1;
     uint16_t u16BalanceFlag2;
     uint8_t mac_public[6];
-};
+} bms_report_t;
 
-/* 新模板代码优先使用中性名称。 */
-typedef struct SOC_CAL_ELEMENT_UPPER bms_soc_report_t;
-typedef struct MDLCHGFAULT_BITS bms_fault_bits_t;
-typedef union MDLCHGFAULT_REG bms_fault_reg_t;
-typedef struct stCell_Info bms_state_t;
 
-extern struct stCell_Info g_stCellInfoReport;
+extern bms_report_t g_bms_report;
 
 #endif /* 头文件保护：BMS_STATE_H_。 */

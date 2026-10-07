@@ -228,7 +228,7 @@ def check_common_feature_policy_contract_check():
     assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
     assert "#define BMS_CONFIG_USER_BYTES            54u" in config_c
     parameters=text("bms_parameter_access.c")
-    assert "0x2E20u" in parameters and "0x2E70u" in parameters
+    assert "BMS_PARAM_REG_HEATER_ENABLE" in parameters and "BMS_PARAM_REG_BALANCE_ENABLE" in parameters
     assert "bms_parameter_write" in modbus
 
     sh_bms=text("sh3673510_bms.c")
@@ -346,11 +346,11 @@ def check_soc_contract_check():
         def test_display_soc_is_separate(self):
             self.assertIn("static uint8_t g_soc_display_soc", C)
             self.assertIn("SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND", C)
-            self.assertIn("g_stCellInfoReport.SocElement.u16Soc = get_soc_display();", C)
+            self.assertIn("g_bms_report.SocElement.u16Soc = get_soc_display();", C)
 
         def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
-            self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp", APP)
-            self.assertIn("g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp", APP)
+            self.assertIn("g_bms_report.unMdlFault_Third.bits.b1CellOvp", APP)
+            self.assertIn("g_bms_report.unMdlFault_Third.bits.b1CellUvp", APP)
             self.assertIn("150u, 100u, 50u, 20u", PROFILE)
             self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 

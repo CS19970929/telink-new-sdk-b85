@@ -4,6 +4,7 @@
  * bms/core/bms_afe_hw_access.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_hw_access.h"
+#include "app_config.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_crc.h"
 

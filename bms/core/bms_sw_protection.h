@@ -10,7 +10,7 @@
 #include "bms_protection_params.h"
 
 /*
- * 与 AFE 无关的软件保护输入。温度为 (degC+40)*10；电压/电流取 g_stCellInfoReport，
+ * 与 AFE 无关的软件保护输入。温度为 (degC+40)*10；电压/电流取 g_bms_report，
  * 旧单位见 bms_state.h。
  */
 typedef struct

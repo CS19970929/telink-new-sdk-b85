@@ -238,7 +238,7 @@ static void test_diag_boot(void){
 }
 static int access_active=1;static unsigned identity_updates,capacity_updates;
 static u8 live_soc=60;
-struct SOC_CALCULATE_ELEMENT SOC_Calculate_Element;
+bms_soc_state_t g_bms_soc;
 typedef struct {int32_t raw_current_ma,current_ma;u32 sample_tick_32k;} bms_afe_aux_measurements_t;
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));return 1;}
 static u8 bms_board_heater_supported(void){return 1;}
@@ -248,10 +248,14 @@ void set_soc_param(u8 soc,u8 sync){(void)sync;live_soc=soc;}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
 static u8 bms_reset_software_parameters(void){return 0;}
 static u8 bms_reset_afe_parameters(void){return access_active?0:2;}
-void WriteProID_Default(void){identity_updates++;}
+void bms_product_info_refresh(void){identity_updates++;}
 /* PARAMETER_PROTOCOL */
 static void test_parameter_protocol(void){
- fresh();u8 heat[]={0,1,1,134,1,194},begin[]={0,0},chunk[8]={'S','N','0','1',0,0,0,0};
+ fresh();u8 retired[]={0,6};u32 flash_before=programs;u16 sequence=bms_parameter_read(0x2e04);
+ access_active=0;assert(bms_parameter_write(0x2e10,1,retired)==3);
+ access_active=1;assert(bms_parameter_write(0x2e10,1,retired)==3);
+ assert(programs==flash_before && bms_parameter_read(0x2e04)==sequence);
+ u8 heat[]={0,1,1,134,1,194},begin[]={0,0},chunk[8]={'S','N','0','1',0,0,0,0};
  assert(bms_parameter_read(0x2e00)==0xd008);assert(bms_parameter_write(0x2e20,1,heat)==3);
  assert(bms_parameter_write(0x2e20,3,heat)==0);assert(bms_parameter_read(0x2e21)==390);
  cut=0;heat[0]=0;heat[1]=0;assert(bms_parameter_write(0x2e20,3,heat)==4);assert(bms_parameter_read(0x2e20)==1);cut=-1;

@@ -17,7 +17,7 @@
 typedef uint16_t u16;
 /* PROFILE TYPE */
 const uint16_t sh3673510_ntc_10k[60] = {0};
-struct stCell_Info g_stCellInfoReport;
+bms_report_t g_bms_report;
 /* Only the report bits used by the selected backend are platform-owned. */
 volatile bms_system_status_t g_bms_system_status;
 static uint8_t errors[BMS_ERROR_COUNT];
@@ -160,26 +160,26 @@ int main(void) {
     sh3673510_bms_afe_init();
     for(unsigned i=0;i<8;++i)sample();
     assert(sh3673510_bms_afe_get_aux_measurements(&aux));
-    struct stCell_Info before=g_stCellInfoReport;
+    bms_report_t before=g_bms_report;
     for(unsigned f=1;f<=8;++f) {
         /* Re-establish the public healthy state before each independent fault. */
         fail_stage=0;sample();sample();
         fail_stage=f;sample();
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
-        assert(!memcmp(&before,&g_stCellInfoReport,sizeof(before)));
+        assert(!memcmp(&before,&g_bms_report,sizeof(before)));
         assert(!sh3673510_backend_get_feature_snapshot(&snap));
     }
     fail_stage=0;
     for(unsigned c=0;c<SH3673510_BOARD_CELL_COUNT;++c)for(unsigned v=0;v<2;++v) {
         bad_cell=(int)c;bad_cell_mv=v?65536:-1;sample();
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
-        assert(!memcmp(&before,&g_stCellInfoReport,sizeof(before)));
+        assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     }
     bad_cell=-1;sample();sample();
     unsigned reads=read_stage;
     assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.valid && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
-    for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_stCellInfoReport.u16VCell[i]==61001);
+    for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.u16VCell[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();
     assert(sh3673510_backend_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();

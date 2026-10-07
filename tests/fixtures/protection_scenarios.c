@@ -44,21 +44,21 @@ static void parameter(unsigned g, unsigned f, uint16_t value)
 static void measurement(unsigned g, uint16_t value)
 {
     switch (g) {
-    case 0: g_stCellInfoReport.u16VCellMax=value; break;
-    case 1: g_stCellInfoReport.u16VCellMin=value; break;
-    case 2: case 3: g_stCellInfoReport.u16VCellTotle=value; break;
-    case 4: g_stCellInfoReport.u16Ichg=value; break;
-    case 5: g_stCellInfoReport.u16IDischg=value; break;
+    case 0: g_bms_report.u16VCellMax=value; break;
+    case 1: g_bms_report.u16VCellMin=value; break;
+    case 2: case 3: g_bms_report.u16VCellTotle=value; break;
+    case 4: g_bms_report.u16Ichg=value; break;
+    case 5: g_bms_report.u16IDischg=value; break;
     case 6: case 8: input.battery_temp_max=value; break;
     case 7: case 9: input.battery_temp_min=value; break;
     case 10: input.mos_temp=value; break;
-    default: g_stCellInfoReport.u16VCellDelta=value; break;
+    default: g_bms_report.u16VCellDelta=value; break;
     }
 }
 static unsigned active(unsigned g, unsigned l)
 {
-    const bms_fault_reg_t *f = l==0 ? &g_stCellInfoReport.unMdlFault_First :
-        (l==1 ? &g_stCellInfoReport.unMdlFault_Second : &g_stCellInfoReport.unMdlFault_Third);
+    const bms_fault_reg_t *f = l==0 ? &g_bms_report.unMdlFault_First :
+        (l==1 ? &g_bms_report.unMdlFault_Second : &g_bms_report.unMdlFault_Third);
     switch(g) {
     case 0: return f->bits.b1CellOvp; case 1: return f->bits.b1CellUvp;
     case 2: return f->bits.b1BatOvp; case 3: return f->bits.b1BatUvp;
@@ -71,10 +71,10 @@ static unsigned active(unsigned g, unsigned l)
 static void reset(void)
 {
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));
-    memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
+    memset(&g_bms_report,0,sizeof(g_bms_report));
     input.battery_temp_valid=input.mos_temp_valid=input.mos_temp_required=1;
     input.battery_temp_min=input.battery_temp_max=input.mos_temp=500;
-    g_stCellInfoReport.u16Ichg=g_stCellInfoReport.u16IDischg=1;
+    g_bms_report.u16Ichg=g_bms_report.u16IDischg=1;
     params_valid=1; step=0;
     bms_sw_protection_init();
 }

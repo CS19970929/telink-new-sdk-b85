@@ -29,6 +29,7 @@ def check_modbus_fuzz_host_check():
         'static int modbus_exception(', 'static u16 u16be(', 'static void put_u16be(',
         'int modbus_on_frame('))
     constants = '\n'.join(re.findall(r'^#define MB_\w+[^\n]*', source, re.M))
+    constants += '\n'+'\n'.join(re.findall(r'^#define BMS_PARAM_REG_\w+[^\n]*', read('bms/core/bms_parameter_access.h'), re.M))
     constants += '\n' + re.search(r'^#define MODBUS_RTU_FRAME_CAPACITY[^\n]*', read('bms/core/modbus_rtu.h'), re.M).group(0)
     for header,names in (
         ('bms_afe_hw_access.h', ('BMS_AFE_HW_ACCESS_MODBUS_FUNC',)),

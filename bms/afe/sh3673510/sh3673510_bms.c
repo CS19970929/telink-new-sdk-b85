@@ -186,8 +186,8 @@ static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
     if (bat_min == 0 || bat_max == 0) return 0u;
     if (!s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ||
         !s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX]) return 0u;
-    t1 = g_stCellInfoReport.u16Temperature[AFE1_TEMP1];
-    t2 = g_stCellInfoReport.u16Temperature[AFE1_TEMP2];
+    t1 = g_bms_report.u16Temperature[AFE1_TEMP1];
+    t2 = g_bms_report.u16Temperature[AFE1_TEMP2];
     *bat_min = (t1 < t2) ? t1 : t2;
     *bat_max = (t1 > t2) ? t1 : t2;
     return 1u;
@@ -347,14 +347,14 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 /* 把 SH 硬件保护位合并到公共故障状态。 */
 static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
 {
-    union MDLCHGFAULT_REG *f;
+    bms_fault_reg_t *f;
     if (s == 0) return;
 
     /*
      * 硬件保护可在 200 ms 软件采样观察到越限前动作；
      * 将 AFE 锁存保护映射到 Third 报告，避免 MOS 已受阻时上位机仍显示无保护。
      */
-    f = &g_stCellInfoReport.unMdlFault_Third;
+    f = &g_bms_report.unMdlFault_Third;
     if (s->flag1 & SH3673520_FLAG1_OV_MASK) f->bits.b1CellOvp = 1u;
     if (s->flag1 & SH3673520_FLAG1_UV_MASK) f->bits.b1CellUvp = 1u;
     if (s->flag1 & SH3673520_FLAG1_OCC_MASK) f->bits.b1IchgOcp = 1u;
@@ -453,32 +453,32 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
     if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
         if (hw_recovery_stable(HW_REC_OV,
                 actual_ok &&
-                g_stCellInfoReport.u16VCellMax <= hw.cov_recover_mv &&
-                g_stCellInfoReport.u16VCellMax < actual.ov_mv,
+                g_bms_report.u16VCellMax <= hw.cov_recover_mv &&
+                g_bms_report.u16VCellMax < actual.ov_mv,
                 (u16)((hw.cov_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OV_MASK;
     } else s_hw_recovery_count[HW_REC_OV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_UV_MASK) {
         if (hw_recovery_stable(HW_REC_UV,
                 actual_ok &&
-                g_stCellInfoReport.u16VCellMin >= hw.cuv_recover_mv &&
-                g_stCellInfoReport.u16VCellMin > actual.uv_mv,
+                g_bms_report.u16VCellMin >= hw.cuv_recover_mv &&
+                g_bms_report.u16VCellMin > actual.uv_mv,
                 (u16)((hw.cuv_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_UV_MASK;
     } else s_hw_recovery_count[HW_REC_UV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
         if (hw_recovery_stable(HW_REC_OCD1,
                 actual_ok && dsg_ocp_release_ok &&
-                g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10 &&
-                g_stCellInfoReport.u16IDischg < actual.ocd1_a10,
+                g_bms_report.u16IDischg <= hw.ocd_recover_a10 &&
+                g_bms_report.u16IDischg < actual.ocd1_a10,
                 (u16)((hw.ocd_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCD1_MASK;
     } else s_hw_recovery_count[HW_REC_OCD1] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD2_MASK) {
         if (hw_recovery_stable(HW_REC_OCD2,
                 actual_ok && dsg_ocp_release_ok &&
-                g_stCellInfoReport.u16IDischg <= hw.ocd_recover_a10 &&
-                g_stCellInfoReport.u16IDischg < actual.ocd2_a10,
+                g_bms_report.u16IDischg <= hw.ocd_recover_a10 &&
+                g_bms_report.u16IDischg < actual.ocd2_a10,
                 (u16)((hw.ocd_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCD2_MASK;
     } else s_hw_recovery_count[HW_REC_OCD2] = 0u;
 
@@ -486,8 +486,8 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
         if (hw_recovery_stable(HW_REC_OCC,
                 actual_ok && (s_charger_removed ||
                               (s->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK)) &&
-                g_stCellInfoReport.u16Ichg <= hw.occ_recover_a10 &&
-                g_stCellInfoReport.u16Ichg < actual.occ_a10,
+                g_bms_report.u16Ichg <= hw.occ_recover_a10 &&
+                g_bms_report.u16Ichg < actual.occ_a10,
                 (u16)((hw.occ_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCC_MASK;
     } else s_hw_recovery_count[HW_REC_OCC] = 0u;
 
@@ -651,21 +651,21 @@ static uint8_t publish_measurements(void)
         for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
             uint16_t mv;
             mv = (uint16_t)cell[i];
-            g_stCellInfoReport.u16VCell[i] = mv;
+            g_bms_report.u16VCell[i] = mv;
             if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
             if (mv < min_mv) { min_mv = mv; min_pos = (uint8_t)(i + 1u); }
         }
         for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
-            g_stCellInfoReport.u16VCell[i] = SH3510_MISSING_CELL_MV;
-        g_stCellInfoReport.u16VCellMax = max_mv;
-        g_stCellInfoReport.u16VCellMin = min_mv;
-        g_stCellInfoReport.u16VCellMaxPosition = max_pos;
-        g_stCellInfoReport.u16VCellMinPosition = min_pos;
-        g_stCellInfoReport.u16VCellDelta = (uint16_t)(max_mv - min_mv);
+            g_bms_report.u16VCell[i] = SH3510_MISSING_CELL_MV;
+        g_bms_report.u16VCellMax = max_mv;
+        g_bms_report.u16VCellMin = min_mv;
+        g_bms_report.u16VCellMaxPosition = max_pos;
+        g_bms_report.u16VCellMinPosition = min_pos;
+        g_bms_report.u16VCellDelta = (uint16_t)(max_mv - min_mv);
 
         if (pack_mv < 0L) pack_mv = 0L;
         s_aux.pack_voltage_mv = (uint32_t)pack_mv;
-        g_stCellInfoReport.u16VCellTotle = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
+        g_bms_report.u16VCellTotle = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
     }
 
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK) {
@@ -679,8 +679,8 @@ static uint8_t publish_measurements(void)
                 (0u - (uint32_t)s_aux.current_ma) : (uint32_t)s_aux.current_ma;
             uint32_t a10 = (ma + 50u) / 100u;
             if (a10 > 65535u) a10 = 65535u;
-            g_stCellInfoReport.u16IDischg = (s_aux.current_ma > 0) ? (uint16_t)a10 : 0u;
-            g_stCellInfoReport.u16Ichg = (s_aux.current_ma < 0) ? (uint16_t)a10 : 0u;
+            g_bms_report.u16IDischg = (s_aux.current_ma > 0) ? (uint16_t)a10 : 0u;
+            g_bms_report.u16Ichg = (s_aux.current_ma < 0) ? (uint16_t)a10 : 0u;
         }
     }
 
@@ -693,21 +693,21 @@ static uint8_t publish_measurements(void)
             if (SH3673520_NtcRawToOhm(temp.external_raw[i], &r) == SH3673520_OK &&
                 r >= 500u && r <= 300000u) { s_ntc_valid[i] = 1u; s_ntc_ohm[i] = r; }
         }
-        g_stCellInfoReport.u16Temperature[AFE1_TEMP1] =
+        g_bms_report.u16Temperature[AFE1_TEMP1] =
             s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]) : 0u;
-        g_stCellInfoReport.u16Temperature[AFE1_TEMP2] =
+        g_bms_report.u16Temperature[AFE1_TEMP2] =
             s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) : 0u;
 #if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
-        g_stCellInfoReport.u16Temperature[AFE1_TEMP3] =
+        g_bms_report.u16Temperature[AFE1_TEMP3] =
             s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX]) : 0u;
 #else
-        g_stCellInfoReport.u16Temperature[AFE1_TEMP3] = 0u;
+        g_bms_report.u16Temperature[AFE1_TEMP3] = 0u;
 #endif
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-        g_stCellInfoReport.u16Temperature[MOS_TEMP1] =
+        g_bms_report.u16Temperature[MOS_TEMP1] =
             s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]) : 0u;
 #else
-        g_stCellInfoReport.u16Temperature[MOS_TEMP1] = 0u;
+        g_bms_report.u16Temperature[MOS_TEMP1] = 0u;
 #endif
 
         /*
@@ -715,15 +715,15 @@ static uint8_t publish_measurements(void)
          * TS4 单独发布给 MOS 高温保护，0 仍是旧协议无效/温度断线标记。
          */
         if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
-            g_stCellInfoReport.u16TempMin = bat_temp_min;
-            g_stCellInfoReport.u16TempMax = bat_temp_max;
+            g_bms_report.u16TempMin = bat_temp_min;
+            g_bms_report.u16TempMax = bat_temp_max;
         } else {
-            g_stCellInfoReport.u16TempMin = 0u;
-            g_stCellInfoReport.u16TempMax = 0u;
+            g_bms_report.u16TempMin = 0u;
+            g_bms_report.u16TempMax = 0u;
         }
 
         /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
-        g_stCellInfoReport.u16Temperature[ENV_TEMP3] = g_stCellInfoReport.u16TempMax;
+        g_bms_report.u16Temperature[ENV_TEMP3] = g_bms_report.u16TempMax;
 
         if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] &&
             s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
@@ -759,7 +759,7 @@ static uint8_t publish_measurements(void)
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
         sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? 1u : 0u;
         if (sw.mos_temp_valid)
-            sw.mos_temp = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+            sw.mos_temp = g_bms_report.u16Temperature[MOS_TEMP1];
 #else
         sw.mos_temp_valid = 0u;
         sw.mos_temp = 0u;
@@ -792,7 +792,7 @@ void sh3673510_bms_afe_init(void)
 
     bms_sw_protection_init();
     for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
-        g_stCellInfoReport.u16VCell[i] = SH3510_MISSING_CELL_MV;
+        g_bms_report.u16VCell[i] = SH3510_MISSING_CELL_MV;
     memset(&s_aux, 0, sizeof(s_aux));
     s_hw_afe_error = 0u;
     s_requested_charge_on = 0u;
@@ -904,11 +904,11 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
                                                             &out->battery_temp_max_x10);
 #if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
     out->heater_temp_valid = s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX];
-    out->heater_temp_x10 = g_stCellInfoReport.u16Temperature[AFE1_TEMP3];
+    out->heater_temp_x10 = g_bms_report.u16Temperature[AFE1_TEMP3];
 #endif
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     out->mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX];
-    out->mos_temp_x10 = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+    out->mos_temp_x10 = g_bms_report.u16Temperature[MOS_TEMP1];
 #endif
     return 1u;
 }
@@ -950,7 +950,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
     detail->bstatus2 = s_bstatus2;
     detail->mos_ntc_raw = (uint16_t)s_mos_ntc_raw;
     detail->mos_ntc_ohm = s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX];
-    detail->mos_temp_x10 = g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+    detail->mos_temp_x10 = g_bms_report.u16Temperature[MOS_TEMP1];
 
     if (s_output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
     if (s_snapshot_valid) detail->backend_state |= DIAG_SH_SNAPSHOT_VALID;

@@ -6,6 +6,7 @@
 #include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_state_store.h"
+#include "bms_product.h"
 
 #include "bms_storage_platform.h"
 #include "storage_record.h"

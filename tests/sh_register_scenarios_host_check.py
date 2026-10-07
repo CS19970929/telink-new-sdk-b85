@@ -84,8 +84,8 @@ def check_sh_current_report_range_host_check():
      const uint16_t expected[]={0,0,1,65535,65535,65535,65535,0,1,65535,65535,65535,65535};
      for(unsigned i=0;i<sizeof(input)/sizeof(input[0]);++i) {
       calibration_result=input[i];sample();
-      assert(g_stCellInfoReport.u16IDischg==(input[i]>=0?expected[i]:0));
-      assert(g_stCellInfoReport.u16Ichg==(input[i]<0?expected[i]:0));
+      assert(g_bms_report.u16IDischg==(input[i]>=0?expected[i]:0));
+      assert(g_bms_report.u16Ichg==(input[i]<0?expected[i]:0));
      }
      puts("PASS 13个校准电流边界，0.1A饱和与INT32_MIN有符号极值");return 0;
     }
@@ -137,7 +137,7 @@ def check_sh3673510_board_host_check():
     }
     ''' + board + r'''
     #define MOS_TEMP1 3
-    static struct {uint16_t u16Temperature[4];} g_stCellInfoReport;
+    static struct {uint16_t u16Temperature[4];} g_bms_report;
     static uint8_t s_ntc_valid[4];
     static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
     static struct {uint8_t bstatus2;} status;
@@ -156,7 +156,7 @@ def check_sh3673510_board_host_check():
      assert(input[GPIO_PD3]==1 && output[GPIO_PD3]==0);
      for(int valid=0;valid<=1;++valid){
       s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX]=valid;
-      g_stCellInfoReport.u16Temperature[MOS_TEMP1]=1350;
+      g_bms_report.u16Temperature[MOS_TEMP1]=1350;
       bms_sw_protection_inputs_t in=sample();
       assert(in.battery_temp_valid && in.battery_temp_min==650);
       assert(in.mos_temp_required==EXPECTED_MOS);

@@ -62,7 +62,7 @@ typedef struct {
     uint32_t last_integral_delta_as10;
 } bms_soc_diag_t;
 typedef union {uint16_t all;} diag_fault_t;
-static struct {diag_fault_t unMdlFault_First,unMdlFault_Second,unMdlFault_Third;} g_stCellInfoReport;
+static struct {diag_fault_t unMdlFault_First,unMdlFault_Second,unMdlFault_Third;} g_bms_report;
 static void bms_afe_sample(void){note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;}
 static u8 app_get_fresh_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;return valid;}
 static u8 bms_afe_current_recovery_pending(void){return 0;}
@@ -86,7 +86,7 @@ static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}
 static void bms_state_store_update_and_log_if_changed(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
 static void blt_pm_proc(void){note('P');}
-static struct {int u8SOC_Now,u8DSG_SOC_Int,u32Cycle_times;} SOC_Calculate_Element;
+static struct {int u8SOC_Now,u8DSG_SOC_Int,u32Cycle_times;} g_bms_soc;
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){

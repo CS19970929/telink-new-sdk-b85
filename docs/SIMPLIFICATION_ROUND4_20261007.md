@@ -49,3 +49,19 @@
 AFE aux 消费者（app 的新鲜电流/时间、参数电流诊断、runtime raw diag）、feature snapshot 消费者（独立温度/有效性）、charge-source 消费者（board/backend 物理资格）已核对。三者资格不同，保留各自入口与判断；没有把 cached value 当作统一有效样本。
 
 四产品开发 link/resources 零错误/警告；14 组相关回归初次有一处联合 SOC 夹具路径失败，修正函数抽取调用后又暴露模拟 heater/balance 位仍在旧 getter 外。夹具改为经 feature 状态输入，联合真实 Open-Wire/SOC 策略及原静置取消场景重跑通过；其余 13 组通过。保留失败记录，最终全量固定快照回归另证。既有 CSV 测试输出中的历史列保持零，不占用生产诊断结构。
+
+## 第五批：状态名称与协议所有者
+
+`g_bms_report/bms_report_t`、`g_bms_soc/bms_soc_state_t` 和 SOC/fault 子类型代替历史大小写名称。保留结构字段顺序、bit-field 顺序及原修改入口，不拆分 SOC/DVC 实现，不增加总 context。TC32 使用实际 `-fpack-struct/-fshort-enums` 编译后，四产品共 148 项尺寸/字段偏移观测与基线相同；99 项关键活动代码比较在归一化已审查名称和类型后一致，包括保护、AFE guard、SOC、通信、中断、低功耗和 feature 阻断决策。
+
+`modbus_rtu.h` 只公开帧容量、CRC 和解析 API。DVC 配置/原始诊断窗口归 `dvc1124_config_service.h`，生产信息地址归 `bms_parameter_access.h`。业务 wire 地址改为有含义的常量，保持原数值；不用寄存器描述表。生产信息缓存仍由 Modbus 实现持有，`bms_product_info_refresh()` 仅刷新 RAM 信息。删除没有消费者的版本前后缀和重复 AFE 窗口定义。
+
+删除 `0x2E10=6` 的成功 no-op；现在返回非法值 3，不写 Flash、不递增成功序号，授权会话也不改变该结果。软件/AFE/State 三个重置命令 1/2/3、SN 分段提交、电流校准和 AFE 独占授权继续保留。已有 FactoryMode 只读诊断仍为零，不能作为写入资格。
+
+本批首次全量 host 为 97/110；失败定位到瘦头文件暴露的两处生产 TU 传递依赖，以及旧解析/诊断/SH 存储夹具。生产 TU 显式引入产品/时钟配置；夹具从真实所有者头读取命名地址、删除重复宏。13 组失败场景修正后全部重跑通过，原失败日志保留。最终固定提交的全量结果另列，不将拼接重跑当作一次完整验收。
+
+## Windows 维护分支同步
+
+在真实维护分支 `feature/windows-afe-hw-protection-editor-v2` 的已有工作区提交 `ca37d7f17088de87f4460ac33a0d4193be001db2`。删除老化按钮、写命令和 SN/电流校准的老化资格检查；敏感写入仍使用 AFE 授权、失败/完成清理会话和读回确认。客户版 SN 只读限制保持。保留 CLI 的 FactoryMode 只读导出字段以保持 JSON 结构，值不参与授权。
+
+`test-d008-parameters.ps1` 通过；客户版、内部版、CLI 三个 Release 构建均为零错误/警告，输出位于源码树外。测试包含授权失败无 SN 写入、会话清理、完整分段 SN 写入、读回、未来协议版本拒绝以及不发送废弃命令。本地构建和模拟通信不证明实机 Windows/BLE/串口联调或产品签核。

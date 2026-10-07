@@ -6,6 +6,7 @@
 #include "bms_debug_log.h"
 #include "bms_diag.h"
 #include "bms_product.h"
+#include "bms_afe_backend.h"
 #include "modbus_rtu.h"
 #include "app_config.h"
 #include "tl_common.h"
@@ -81,10 +82,8 @@ static u16 read_afe_actual_reg(u16 reg);
 #endif
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val);
-/* 恢复并写入默认生产信息。 */
-void WriteProID_Default(void);
 
-static PRODUCTION_ID_INFO ProductionInfor;
+static bms_product_info_t s_product_info;
 
 /* 判断地址是否属于请求硬件保护配置窗口。 */
 static int afe_hw_profile_is_requested_reg(u16 reg)
@@ -357,14 +356,14 @@ static u16 read_reg(u16 reg)
         switch (reg)
         {
         case 0:
-            return (u16)((g_stCellInfoReport.mac_public[0] << 8) |
-                         g_stCellInfoReport.mac_public[1]);
+            return (u16)((g_bms_report.mac_public[0] << 8) |
+                         g_bms_report.mac_public[1]);
         case 1:
-            return (u16)((g_stCellInfoReport.mac_public[2] << 8) |
-                         g_stCellInfoReport.mac_public[3]);
+            return (u16)((g_bms_report.mac_public[2] << 8) |
+                         g_bms_report.mac_public[3]);
         case 2:
-            return (u16)((g_stCellInfoReport.mac_public[4] << 8) |
-                         g_stCellInfoReport.mac_public[5]);
+            return (u16)((g_bms_report.mac_public[4] << 8) |
+                         g_bms_report.mac_public[5]);
         default:
             return 0u;
         }
@@ -392,7 +391,7 @@ static u16 read_reg(u16 reg)
     {
         u16 value;
         /* 此协议窗口跨多个报告字段，不仅是单体数组。 */
-        memcpy(&value, (const u8 *)&g_stCellInfoReport + (reg-0xD000u)*2u, sizeof(value));
+        memcpy(&value, (const u8 *)&g_bms_report + (reg-0xD000u)*2u, sizeof(value));
         return value;
     }
 
@@ -440,7 +439,7 @@ static u8 write_reg(u16 reg, u16 val)
         return dvc_comm_write(reg, val);
 #endif
 
-    if (reg==0x1005u || reg==0x2318u || reg==0x2319u || (reg>=0x2E00u && reg<0x2F00u)) {
+    if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE || (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
     }
@@ -624,7 +623,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
         /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
-        if (reg>=0x2E00u && reg<0x2F00u) {
+        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
             exception=bms_parameter_write(reg,qty,pdata);
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
@@ -685,10 +684,10 @@ static u16 encode_signed_current_reg(void)
 {
     int16_t signed_current = 0;
 
-    if (g_stCellInfoReport.u16IDischg)
-        signed_current = (int16_t)(-((int16_t)g_stCellInfoReport.u16IDischg));
-    else if (g_stCellInfoReport.u16Ichg)
-        signed_current = (int16_t)g_stCellInfoReport.u16Ichg;
+    if (g_bms_report.u16IDischg)
+        signed_current = (int16_t)(-((int16_t)g_bms_report.u16IDischg));
+    else if (g_bms_report.u16Ichg)
+        signed_current = (int16_t)g_bms_report.u16Ichg;
 
     return (u16)signed_current;
 }
@@ -700,15 +699,15 @@ static u16 read_realtime_status_reg(u16 reg)
     {
     case BMS_REALTIME_REG_MAGIC_ADDR:       return BMS_REALTIME_REG_MAGIC;
     case BMS_REALTIME_REG_VERSION_ADDR:     return BMS_REALTIME_REG_VERSION;
-    case BMS_REALTIME_REG_VOLTAGE_ADDR:     return g_stCellInfoReport.u16VCellTotle;
+    case BMS_REALTIME_REG_VOLTAGE_ADDR:     return g_bms_report.u16VCellTotle;
     case BMS_REALTIME_REG_CURRENT_ADDR:     return encode_signed_current_reg();
-    case BMS_REALTIME_REG_SOC_ADDR:         return g_stCellInfoReport.SocElement.u16Soc;
-    case BMS_REALTIME_REG_TEMP_MAX_ADDR:    return g_stCellInfoReport.u16TempMax;
-    case BMS_REALTIME_REG_TEMP_MIN_ADDR:    return g_stCellInfoReport.u16TempMin;
-    case BMS_REALTIME_REG_TEMP_MOS_ADDR:    return g_stCellInfoReport.u16Temperature[MOS_TEMP1];
-    case BMS_REALTIME_REG_VCELL_MAX_ADDR:   return g_stCellInfoReport.u16VCellMax;
-    case BMS_REALTIME_REG_VCELL_MIN_ADDR:   return g_stCellInfoReport.u16VCellMin;
-    case BMS_REALTIME_REG_VCELL_DELTA_ADDR: return g_stCellInfoReport.u16VCellDelta;
+    case BMS_REALTIME_REG_SOC_ADDR:         return g_bms_report.SocElement.u16Soc;
+    case BMS_REALTIME_REG_TEMP_MAX_ADDR:    return g_bms_report.u16TempMax;
+    case BMS_REALTIME_REG_TEMP_MIN_ADDR:    return g_bms_report.u16TempMin;
+    case BMS_REALTIME_REG_TEMP_MOS_ADDR:    return g_bms_report.u16Temperature[MOS_TEMP1];
+    case BMS_REALTIME_REG_VCELL_MAX_ADDR:   return g_bms_report.u16VCellMax;
+    case BMS_REALTIME_REG_VCELL_MIN_ADDR:   return g_bms_report.u16VCellMin;
+    case BMS_REALTIME_REG_VCELL_DELTA_ADDR: return g_bms_report.u16VCellDelta;
     default: return 0u;
     }
 }
@@ -730,25 +729,25 @@ static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)
 static u16 read_production_info_reg(u16 reg)
 {
     if (reg >= PROD_SN_REG_BASE && reg < (PROD_SN_REG_BASE + PROD_SN_REG_COUNT))
-        return read_ascii_string_reg(ProductionInfor.BMS_SerialNumber,
+        return read_ascii_string_reg(s_product_info.BMS_SerialNumber,
                                      PRODUCT_ID_LENGTH_MAX,
                                      (u16)(reg - PROD_SN_REG_BASE));
 
     if (reg >= PROD_HW_VER_REG_BASE && reg < (PROD_HW_VER_REG_BASE + PROD_HW_VER_REG_COUNT))
-        return read_ascii_string_reg(ProductionInfor.BMS_HardWareVersion,
+        return read_ascii_string_reg(s_product_info.BMS_HardWareVersion,
                                      PRODUCT_ID_LENGTH_MAX,
                                      (u16)(reg - PROD_HW_VER_REG_BASE));
 
     if (reg >= PROD_SW_VER_REG_BASE && reg < (PROD_SW_VER_REG_BASE + PROD_SW_VER_REG_COUNT))
-        return read_ascii_string_reg(ProductionInfor.BMS_SoftWareVersion,
+        return read_ascii_string_reg(s_product_info.BMS_SoftWareVersion,
                                      PRODUCT_ID_LENGTH_MAX,
                                      (u16)(reg - PROD_SW_VER_REG_BASE));
 
     return 0u;
 }
 
-/* 恢复并写入默认生产信息。 */
-void WriteProID_Default(void)
+/* 从 Config SN 和编译身份刷新协议 RAM 缓存，不写 Flash。 */
+void bms_product_info_refresh(void)
 {
     bms_user_params_t user;
     uint8_t hardwareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
@@ -761,12 +760,12 @@ void WriteProID_Default(void)
                                   ? PRODUCT_ID_LENGTH_MAX
                                   : sizeof(BMS_SERIAL_NUMBER_DEFAULT);
 
-    memset(&ProductionInfor, 0, sizeof(PRODUCTION_ID_INFO));
-    memcpy(&ProductionInfor.BMS_HardWareVersion[0], BMS_HARDWARE_VERDION_DEFAULT, hardwareCount);
-    memcpy(&ProductionInfor.BMS_SoftWareVersion[0], BMS_SOFTWARE_VERDION_DEFAULT, softwareCount);
-    memcpy(&ProductionInfor.BMS_SerialNumber[0], BMS_SERIAL_NUMBER_DEFAULT, serialNumberCount);
+    memset(&s_product_info, 0, sizeof(bms_product_info_t));
+    memcpy(&s_product_info.BMS_HardWareVersion[0], BMS_HARDWARE_VERDION_DEFAULT, hardwareCount);
+    memcpy(&s_product_info.BMS_SoftWareVersion[0], BMS_SOFTWARE_VERDION_DEFAULT, softwareCount);
+    memcpy(&s_product_info.BMS_SerialNumber[0], BMS_SERIAL_NUMBER_DEFAULT, serialNumberCount);
     if (bms_config_get_user(&user) && user.serial[0])
-        memcpy(ProductionInfor.BMS_SerialNumber,user.serial,sizeof(user.serial));
+        memcpy(s_product_info.BMS_SerialNumber,user.serial,sizeof(user.serial));
 }
 
 /* 按类别恢复软件业务参数并提交存储。 */

@@ -78,7 +78,7 @@ int main(void)
     }
     printf("RESET_OBSERVATION direction=%s history=%s recorded=%d first_on_sample=%u current_a10=%u\n",
            direction,history,recorded,first_on,
-           charge ? g_stCellInfoReport.u16Ichg : g_stCellInfoReport.u16IDischg);
+           charge ? g_bms_report.u16Ichg : g_bms_report.u16IDischg);
     if (first_on) {
         fprintf(stderr,"RESET_POLICY_GAP direction=%s history=%s expected=OFF_UNTIL_PHYSICAL_RELEASE actual=ON\n",direction,history);
         return 1;

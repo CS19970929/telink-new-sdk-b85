@@ -50,7 +50,7 @@ def check_d008_voltage_recovery_host_check():
     #include <assert.h>
     #include "dvc1124.h"
     typedef struct { uint16_t cov_recover_mv, cuv_recover_mv, cov_recover_ms, cuv_recover_ms; } bms_afe_hw_profile_t;
-    static struct { uint16_t u16VCellMax, u16VCellMin; } g_stCellInfoReport = {3400, 3200};
+    static struct { uint16_t u16VCellMax, u16VCellMin; } g_bms_report = {3400, 3200};
     static unsigned writes;
     static uint8_t profile_ok=1, clear_ok=1, read_ok=1;
     static uint8_t bms_afe_hw_profile_get(bms_afe_hw_profile_t *p) {

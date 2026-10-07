@@ -49,24 +49,24 @@ static int afe_error;
 static uint8_t bms_error_get(int error){(void)error;return (uint8_t)afe_error;}
 typedef enum {BMS_FAULT_SOC_LOW_FIRST,BMS_FAULT_SOC_LOW_SECOND,BMS_FAULT_SOC_LOW_THIRD} bms_fault_code_t;
 static void bms_fault_history_record(bms_fault_code_t c){}
-typedef union MDLCHGFAULT_REG {struct {unsigned b1SocLow:1,b1CellOvp:1,b1CellUvp:1;}bits;uint16_t all;} MDLCHGFAULT_REG;
+typedef union {struct {unsigned b1SocLow:1,b1CellOvp:1,b1CellUvp:1;}bits;uint16_t all;} bms_fault_reg_t;
 static struct {uint16_t u16VcellOvp_Third,u16VcellUvp_Third,u16SocLow_Filter,u16SocLow_First,u16SocLow_Second,u16SocLow_Third,u16SocLow_Rcv;}g_bms_protection_params;
 static struct {
  uint16_t u16VCellMax,u16VCellMin,u16VCellDelta,u16VCellTotle,u16Ichg,u16IDischg;
- MDLCHGFAULT_REG unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
+ bms_fault_reg_t unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
  struct{uint16_t u16Soc,u16Soh,u16Cycle_times,u16CapacityNow,u16CapacityFull,u16CapacityFactory;}SocElement;
-}g_stCellInfoReport;
+}g_bms_report;
 static int config_store_write_ok=1;
 /* CURRENT_FLOOR */
 /* PRODUCTION_SOURCE */
 static uint32_t tick;
 static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
- memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
- memset(&SOC_Calculate_Element,0,sizeof(SOC_Calculate_Element));
+ memset(&g_bms_report,0,sizeof(g_bms_report));
+ memset(&g_bms_soc,0,sizeof(g_bms_soc));
  stored_profile.battery_chemistry=chemistry;stored_profile.soc_profile_id=chemistry;
  g_bms_protection_params.u16VcellOvp_Third=chemistry==1?3650:4250;
  g_bms_protection_params.u16VcellUvp_Third=2500;
- g_stCellInfoReport.u16VCellMin=voltage;g_stCellInfoReport.u16VCellMax=voltage;
+ g_bms_report.u16VCellMin=voltage;g_bms_report.u16VCellMax=voltage;
  openwire_active=0;openwire_suspected=0;balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
  bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;
@@ -75,15 +75,15 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_soc_input.cell_min_mv=voltage;g_soc_input.cell_max_mv=voltage;
 }
 static void set_core_voltage(uint16_t min_mv,uint16_t max_mv,uint16_t delta){
- g_stCellInfoReport.u16VCellMin=min_mv;g_stCellInfoReport.u16VCellMax=max_mv;g_stCellInfoReport.u16VCellDelta=delta;
+ g_bms_report.u16VCellMin=min_mv;g_bms_report.u16VCellMax=max_mv;g_bms_report.u16VCellDelta=delta;
  g_soc_input.cell_min_mv=min_mv;g_soc_input.cell_max_mv=max_mv;g_soc_input.cell_delta_mv=delta;
 }
 static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma,tick);}
 static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned count){
  setup(chemistry,60,chemistry==1?3330:3800);sample(1,ma,1);
- uint32_t before=SOC_Calculate_Element.u32CapNow;
+ uint32_t before=g_bms_soc.u32CapNow;
  for(unsigned i=0;i<count;i++)sample(1,ma,step);
- uint32_t after=SOC_Calculate_Element.u32CapNow;
+ uint32_t after=g_bms_soc.u32CapNow;
  return ma>0?before-after:after-before;
 }
 static uint16_t lfp_mv_from_soc(double soc){
@@ -103,14 +103,14 @@ static void model_voltage(double true_soc,int32_t ma,uint32_t noise){
  uint16_t delta=(uint16_t)(5u+(noise%16u));
  if(min_mv<2500)min_mv=2500;
  if(min_mv>3800)min_mv=3800;
- g_stCellInfoReport.u16VCellMin=(uint16_t)min_mv;
- g_stCellInfoReport.u16VCellMax=(uint16_t)(min_mv+delta);
- g_stCellInfoReport.u16VCellDelta=delta;
- g_stCellInfoReport.u16VCellTotle=(uint16_t)(((uint32_t)(min_mv+delta/2u)*16u)/10u);
+ g_bms_report.u16VCellMin=(uint16_t)min_mv;
+ g_bms_report.u16VCellMax=(uint16_t)(min_mv+delta);
+ g_bms_report.u16VCellDelta=delta;
+ g_bms_report.u16VCellTotle=(uint16_t)(((uint32_t)(min_mv+delta/2u)*16u)/10u);
 }
 static void simulated_reboot(void){
- bms_state_store_data_t d={SOC_Calculate_Element.u8SOC_Now,SOC_Calculate_Element.u8DSG_SOC_Int,
-  SOC_Calculate_Element.u32Cycle_times};
+ bms_state_store_data_t d={g_bms_soc.u8SOC_Now,g_bms_soc.u8DSG_SOC_Int,
+  g_bms_soc.u32Cycle_times};
  soc_param_lib_init(&d);
 }
 static void check_invariants(void){
@@ -190,8 +190,8 @@ static int write_trajectory(void){
   if(n%150u==0u){
    bms_soc_diag_t d;bms_soc_get_diag(&d);
    printf("%u,%d,%u,%u,%u,25,%u,0,%d,%d,%.3f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
-    (unsigned)(n*2u/5u),ma,g_stCellInfoReport.u16VCellMin,g_stCellInfoReport.u16VCellMax,
-    g_stCellInfoReport.u16VCellTotle*10u,(unsigned)d.eta_direction,reset,missing,true_ah,
+    (unsigned)(n*2u/5u),ma,g_bms_report.u16VCellMin,g_bms_report.u16VCellMax,
+    g_bms_report.u16VCellTotle*10u,(unsigned)d.eta_direction,reset,missing,true_ah,
     d.soc_estimate,d.soc_display,d.remaining_capacity_0p1ah,d.effective_capacity_0p1ah,
     d.ocv_state,d.ocv_center,d.ocv_low,d.ocv_high,d.ocv_confidence,d.endpoint_state,
     d.time_to_empty_min,d.time_to_full_min,d.eta_confidence,0u,
@@ -223,8 +223,8 @@ static int replay_csv(const char *input_path,const char *output_path){
   s.open_wire_suspected=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
   s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
   s.charger_state_known=(uint8_t)ck;s.charger_present=(uint8_t)cp;s.load_state_known=(uint8_t)lk;s.load_present=(uint8_t)lp;
-  g_stCellInfoReport.u16VCellMin=s.cell_min_mv;g_stCellInfoReport.u16VCellMax=s.cell_max_mv;
-  g_stCellInfoReport.u16VCellDelta=s.cell_delta_mv;g_stCellInfoReport.u16VCellTotle=(uint16_t)(pack_mv/10u);
+  g_bms_report.u16VCellMin=s.cell_min_mv;g_bms_report.u16VCellMax=s.cell_max_mv;
+  g_bms_report.u16VCellDelta=s.cell_delta_mv;g_bms_report.u16VCellTotle=(uint16_t)(pack_mv/10u);
   bms_soc_process_sample(&s);bms_soc_get_diag(&d);
   fprintf(out,"%u,%u,%lu,%d,%u,%u,%u,%.6f,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lu\n",
    scenario,step,timestamp,current_ma,min_mv,max_mv,pack_mv,true_soc,d.soc_estimate,d.soc_display,
@@ -239,16 +239,16 @@ int main(int argc,char **argv){
  if(argc==2&&!strcmp(argv[1],"--trajectory"))return write_trajectory();
  if(argc==4&&!strcmp(argv[1],"--replay"))return replay_csv(argv[2],argv[3]);
  setup(1,60,3330);bms_state_store_data_t restored={60,0,5};
- soc_param_lib_init(&restored);assert(SOC_Calculate_Element.soh==100);
+ soc_param_lib_init(&restored);assert(g_bms_soc.soh==100);
  stored_profile.capacity_factory=1200;bms_soc_nominal_capacity_changed();
- assert(get_soc_real()==60 && SOC_Calculate_Element.u32Cycle_times==5);
- soc_param_lib_init(&restored);assert(SOC_Calculate_Element.u32CapFull==1200u*3600u);
+ assert(get_soc_real()==60 && g_bms_soc.u32Cycle_times==5);
+ soc_param_lib_init(&restored);assert(g_bms_soc.u32CapFull==1200u*3600u);
  stored_profile.capacity_factory=1000;
 
  setup(1,100,3330);stored_profile.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH;
  soc_recalc_full_capacity();soc_recalc_now_capacity();SOC_Result_Pass();
- assert(g_stCellInfoReport.SocElement.u16CapacityFactory==65530);
- assert(SOC_Calculate_Element.u32CapNow==6553u*3600u);
+ assert(g_bms_report.SocElement.u16CapacityFactory==65530);
+ assert(g_bms_soc.u32CapNow==6553u*3600u);
  stored_profile.capacity_factory=1000;
  bms_soc_config_t configured=g_soc_config;configured.ocv_rest_prepare_s=900;
  config_store_write_ok=0;assert(!bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==600);
@@ -289,21 +289,21 @@ int main(int argc,char **argv){
   assert(get_soc_real()==60);assert(g_soc_runtime.idle_stable_ticks==0);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_INVALID);
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,500,1);
-  uint32_t before=SOC_Calculate_Element.u32CapNow;
+  uint32_t before=g_bms_soc.u32CapNow;
   for(int i=0;i<100;i++)sample(1,500,0);
-  assert(SOC_Calculate_Element.u32CapNow==before);
+  assert(g_bms_soc.u32CapNow==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
-  sample(1,500,12801);assert(SOC_Calculate_Element.u32CapNow==before);
+  sample(1,500,12801);assert(g_bms_soc.u32CapNow==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_GAP&&g_soc_runtime.last_sample_elapsed_32k==12801u);
-  sample(1,500,6400);assert(SOC_Calculate_Element.u32CapNow==before-1);
+  sample(1,500,6400);assert(g_bms_soc.u32CapNow==before-1);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
   assert(g_soc_runtime.last_integral_direction==SOC_INTEGRAL_DIR_DSG);
   assert(g_soc_runtime.last_soc_action==BMS_SOC_ACTION_INTEGRATE);
   assert(g_soc_runtime.last_integral_delta_as10==1u);
-  sample(0,0,6400);sample(1,500,6400);assert(SOC_Calculate_Element.u32CapNow==before-1);
+  sample(0,0,6400);sample(1,500,6400);assert(g_bms_soc.u32CapNow==before-1);
   setup(chemistry,60,chemistry==1?3330:3800);tick=UINT32_MAX-3200;sample(1,500,0);
-  before=SOC_Calculate_Element.u32CapNow;sample(1,500,6400);
-  assert(SOC_Calculate_Element.u32CapNow==before-1);
+  before=g_bms_soc.u32CapNow;sample(1,500,6400);
+  assert(g_bms_soc.u32CapNow==before-1);
   /* The unreliable floor is still an idle candidate (user policy), but
    * invalid frames cannot qualify and a reliable excursion resets rest. */
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,200,1);
@@ -348,9 +348,9 @@ int main(int argc,char **argv){
   /* A confirmed protection anchor may move estimate immediately for safety,
    * while display completes a bounded soft landing even if charging stops. */
   setup(chemistry,80,chemistry==1?3500:4180);sample(1,-500,1);
-  g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp=1;sample(1,-500,6400);
+  g_bms_report.unMdlFault_Third.bits.b1CellOvp=1;sample(1,-500,6400);
   assert(get_soc_real()==100&&get_soc_display()==80);
-  g_stCellInfoReport.unMdlFault_Third.bits.b1CellOvp=0;sample(1,0,6400);
+  g_bms_report.unMdlFault_Third.bits.b1CellOvp=0;sample(1,0,6400);
   for(int i=0;i<10;i++)sample(1,0,6400);
   assert(get_soc_display()==85);
   for(int i=0;i<30;i++)sample(1,0,6400);
@@ -394,8 +394,8 @@ int main(int argc,char **argv){
 
  /* Early UVP remains a final safety anchor but is explicitly diagnosable. */
  setup(1,15,2500);sample(1,1000,1);
- g_stCellInfoReport.u16VCellMax=2600;g_stCellInfoReport.u16VCellDelta=100;
- g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp=1;
+ g_bms_report.u16VCellMax=2600;g_bms_report.u16VCellDelta=100;
+ g_bms_report.unMdlFault_Third.bits.b1CellUvp=1;
  sample(1,1000,6400);
  assert(get_soc_real()==0 && get_soc_display()==0);
  assert((g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_EARLY_UVP)!=0);
@@ -408,22 +408,22 @@ int main(int argc,char **argv){
  setup(1,15,2650);sample(1,1000,1);
  for(int i=0;i<5000&&get_soc_real()>12;i++)sample(1,1000,6400);
  assert(get_soc_real()<=12&&get_soc_real()>0);
- g_stCellInfoReport.u16VCellMin=g_stCellInfoReport.u16VCellMax=2600;
+ g_bms_report.u16VCellMin=g_bms_report.u16VCellMax=2600;
  for(int i=0;i<6000&&get_soc_real()>6;i++)sample(1,1000,6400);
  assert(get_soc_real()<=6&&get_soc_real()>0);
- g_stCellInfoReport.u16VCellMin=g_stCellInfoReport.u16VCellMax=2550;
+ g_bms_report.u16VCellMin=g_bms_report.u16VCellMax=2550;
  for(int i=0;i<5000&&get_soc_real()>3;i++)sample(1,1000,6400);
  assert(get_soc_real()<=3&&get_soc_real()>0);
- g_stCellInfoReport.u16VCellMin=g_stCellInfoReport.u16VCellMax=2520;
+ g_bms_report.u16VCellMin=g_bms_report.u16VCellMax=2520;
  for(int i=0;i<5000&&get_soc_real()>1;i++)sample(1,1000,6400);
  assert(get_soc_real()==1);
- g_stCellInfoReport.u16VCellMin=g_stCellInfoReport.u16VCellMax=2500;
+ g_bms_report.u16VCellMin=g_bms_report.u16VCellMax=2500;
  for(int i=0;i<12;i++)sample(1,1000,6400);
  assert(get_soc_real()==0);
  setup(1,50,2500);sample(1,10000,1);
  for(int i=0;i<100;i++)sample(1,10000,6400);
  assert(get_soc_real()>=49);
- g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp=1;sample(1,10000,6400);
+ g_bms_report.unMdlFault_Third.bits.b1CellUvp=1;sample(1,10000,6400);
  assert(get_soc_real()==0&&(g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_LARGE_SAG)!=0);
 
  /* Cycle-only SOH: independent boundary expectations, monotonicity, saturation,
@@ -435,21 +435,21 @@ int main(int argc,char **argv){
   bms_state_store_data_t state={60,99,cycles[i]};soc_param_lib_init(&state);
   bms_soc_diag_t diag;bms_soc_get_diag(&diag);
   assert(diag.soh==expected_soh[i]&&diag.soh_source==1&&diag.soh_confidence==25);
-  assert(SOC_Calculate_Element.u32CapFull==1000u*3600u*expected_soh[i]/100u);
-  assert(g_stCellInfoReport.SocElement.u16CapacityFull==10000u*expected_soh[i]/100u);
-  simulated_reboot();assert(SOC_Calculate_Element.soh==expected_soh[i]);
+  assert(g_bms_soc.u32CapFull==1000u*3600u*expected_soh[i]/100u);
+  assert(g_bms_report.SocElement.u16CapacityFull==10000u*expected_soh[i]/100u);
+  simulated_reboot();assert(g_bms_soc.soh==expected_soh[i]);
  }
  for(uint32_t cycle=1;cycle<=65535u;++cycle)
   assert(bms_soh_from_cycle((uint16_t)cycle)<=bms_soh_from_cycle((uint16_t)(cycle-1)));
- setup(1,60,3330);SOC_Calculate_Element.u32Cycle_times=499;SOC_Calculate_Element.u8DSG_SOC_Int=75;
+ setup(1,60,3330);g_bms_soc.u32Cycle_times=499;g_bms_soc.u8DSG_SOC_Int=75;
  soc_note_discharge_soc_drop(60,35);
- assert(SOC_Calculate_Element.u32Cycle_times==500&&SOC_Calculate_Element.u8DSG_SOC_Int==0);
- assert(SOC_Calculate_Element.soh==90);
- SOC_Calculate_Element.u32Cycle_times=65535;SOC_Calculate_Element.u8DSG_SOC_Int=99;
- soc_note_discharge_soc_drop(60,59);assert(SOC_Calculate_Element.u32Cycle_times==65535);
+ assert(g_bms_soc.u32Cycle_times==500&&g_bms_soc.u8DSG_SOC_Int==0);
+ assert(g_bms_soc.soh==90);
+ g_bms_soc.u32Cycle_times=65535;g_bms_soc.u8DSG_SOC_Int=99;
+ soc_note_discharge_soc_drop(60,59);assert(g_bms_soc.u32Cycle_times==65535);
  stored_profile.capacity_factory=2000;bms_soc_nominal_capacity_changed();
- assert(SOC_Calculate_Element.u32CapFull==2000u*3600u*80u/100u);
- assert(SOC_Calculate_Element.u32Cycle_times==65535);
+ assert(g_bms_soc.u32CapFull==2000u*3600u*80u/100u);
+ assert(g_bms_soc.u32Cycle_times==65535);
  stored_profile.capacity_factory=1000;
 
  run_long_duration_checks();

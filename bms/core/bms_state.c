@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 volatile bms_system_status_t g_bms_system_status;
-struct stCell_Info g_stCellInfoReport;
+bms_report_t g_bms_report;
 
 static volatile uint8_t s_error_count[BMS_ERROR_COUNT];
 static uint8_t s_fault_write_index[3];

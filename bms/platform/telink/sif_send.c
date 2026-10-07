@@ -111,12 +111,12 @@ static uint8_t sum_verify(const uint8_t *data, uint16_t length)
 /* 按既有优先顺序映射 SIF 故障编号。 */
 static uint8_t sif_fault_code(void)
 {
-    const bms_fault_bits_t *fault = &g_stCellInfoReport.unMdlFault_Third.bits;
+    const bms_fault_bits_t *fault = &g_bms_report.unMdlFault_Third.bits;
     uint8_t code = 0u;
 
     /* 保留 SIF 规则：后匹配的故障覆盖先匹配故障。 */
     if (fault->b1IdischgOcp) code = 0x01u;
-    if (g_stCellInfoReport.unMdlFault_Second.bits.b1IdischgOcp) code = 0x02u;
+    if (g_bms_report.unMdlFault_Second.bits.b1IdischgOcp) code = 0x02u;
     if (fault->b1CellChgUtp) code = 0x03u;
     if (fault->b1CellChgOtp) code = 0x04u;
     if (fault->b1CellDischgOtp) code = 0x05u;
@@ -343,16 +343,16 @@ void sif_prepare_task(uint32_t sample_tick)
 /* 把充放电电流转换为 SIF 既有编码。 */
 static uint16_t sif_encoded_current(void)
 {
-    uint16_t current = g_stCellInfoReport.u16IDischg ?
-                       g_stCellInfoReport.u16IDischg : g_stCellInfoReport.u16Ichg;
+    uint16_t current = g_bms_report.u16IDischg ?
+                       g_bms_report.u16IDischg : g_bms_report.u16Ichg;
     return (uint16_t)((current / 10u + 500u) * 10u);
 }
 
 /* 把当前运行和 MOS 状态编码为 SIF 状态字。 */
 static uint8_t sif_work_status(void)
 {
-    return g_stCellInfoReport.u16IDischg ? 0u :
-           (g_stCellInfoReport.u16Ichg ? 1u : 2u);
+    return g_bms_report.u16IDischg ? 0u :
+           (g_bms_report.u16Ichg ? 1u : 2u);
 }
 
 /* 构造公共 SIF 报告包供定时器发送。 */
@@ -363,13 +363,13 @@ static void sif_send_public_packet(void)
     p[0] = 1u; p[1] = 1u; p[2] = 1u; p[3] = __TODO__; p[4] = 3u;
     sif_put_u16le(p + 5, SeriesNum * 36u);
     sif_put_u16le(p + 7, CapacityFactory);
-    p[9] = (uint8_t)(g_stCellInfoReport.SocElement.u16Soc * 2u);
-    sif_put_u16le(p + 10, g_stCellInfoReport.u16VCellTotle / 10u);
+    p[9] = (uint8_t)(g_bms_report.SocElement.u16Soc * 2u);
+    sif_put_u16le(p + 10, g_bms_report.u16VCellTotle / 10u);
     sif_put_u16le(p + 12, sif_encoded_current());
-    p[14] = (uint8_t)(g_stCellInfoReport.u16TempMax / 10u);
-    p[15] = (uint8_t)(g_stCellInfoReport.u16TempMin / 10u);
+    p[14] = (uint8_t)(g_bms_report.u16TempMax / 10u);
+    p[15] = (uint8_t)(g_bms_report.u16TempMin / 10u);
     /* 保留公共 MOS 线格式的历史截断。 */
-    p[16] = (uint8_t)g_stCellInfoReport.u16Temperature[MOS_TEMP1];
+    p[16] = (uint8_t)g_bms_report.u16Temperature[MOS_TEMP1];
     p[17] = sif_fault_code(); p[18] = sif_work_status();
     p[19] = sum_verify(p, SIF_PUBLIC_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_PUBLIC_BYTES;
@@ -381,18 +381,18 @@ static void sif_send_private_realtime_info(void)
     uint8_t *p = s_packets[s_prepare_packet];
     memset(p, 0, SIF_REALTIME_BYTES);
     p[0] = 0x3au; p[1] = 1u; p[2] = SIF_REALTIME_BYTES - 4u;
-    p[3] = (uint8_t)(g_stCellInfoReport.SocElement.u16Soc * 2u);
-    sif_put_u16le(p + 4, g_stCellInfoReport.u16VCellTotle / 10u);
+    p[3] = (uint8_t)(g_bms_report.SocElement.u16Soc * 2u);
+    sif_put_u16le(p + 4, g_bms_report.u16VCellTotle / 10u);
     sif_put_u16le(p + 6, sif_encoded_current());
-    p[8] = (uint8_t)(g_stCellInfoReport.u16TempMax / 10u);
-    p[9] = (uint8_t)(g_stCellInfoReport.u16TempMin / 10u);
-    p[10] = (uint8_t)(g_stCellInfoReport.u16Temperature[MOS_TEMP1] / 10u);
+    p[8] = (uint8_t)(g_bms_report.u16TempMax / 10u);
+    p[9] = (uint8_t)(g_bms_report.u16TempMin / 10u);
+    p[10] = (uint8_t)(g_bms_report.u16Temperature[MOS_TEMP1] / 10u);
     p[11] = sif_fault_code(); p[12] = sif_work_status();
-    sif_put_u16le(p + 14, g_stCellInfoReport.SocElement.u16Cycle_times);
-    sif_put_u16le(p + 16, g_stCellInfoReport.u16VCellMax);
-    sif_put_u16le(p + 18, g_stCellInfoReport.u16VCellMin);
-    p[20] = (uint8_t)g_stCellInfoReport.u16VCellMaxPosition;
-    p[21] = (uint8_t)g_stCellInfoReport.u16VCellMinPosition;
+    sif_put_u16le(p + 14, g_bms_report.SocElement.u16Cycle_times);
+    sif_put_u16le(p + 16, g_bms_report.u16VCellMax);
+    sif_put_u16le(p + 18, g_bms_report.u16VCellMin);
+    p[20] = (uint8_t)g_bms_report.u16VCellMaxPosition;
+    p[21] = (uint8_t)g_bms_report.u16VCellMinPosition;
     p[22] = __TODO__;
     sif_put_u16le(p + 23, 43u * SeriesNum);
     p[25] = 20u; p[27] = __TODO__; p[28] = __TODO__;
@@ -408,7 +408,7 @@ static void sif_send_private_cell_voltages(void)
     memset(p, 0, SIF_CELL_BYTES);
     p[0] = 0x3bu; p[1] = 1u; p[2] = 2u * SeriesNum;
     for (i = 0u; i < SeriesNum; ++i)
-        sif_put_u16le(p + 3u + i * 2u, g_stCellInfoReport.u16VCell[i]);
+        sif_put_u16le(p + 3u + i * 2u, g_bms_report.u16VCell[i]);
     p[3u + SeriesNum * 2u] = __TODO__;
     s_packet_lengths[s_prepare_packet] = SIF_CELL_BYTES;
 }

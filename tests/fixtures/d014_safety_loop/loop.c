@@ -152,14 +152,14 @@ static void trip_discharge(void)
 {
     regs[SH3673520_REG_BSTATUS2] = SH3673520_BSTATUS2_LOADON_MASK;
     raw16(0x91, (uint16_t)-5000); steps(2);
-    assert(g_stCellInfoReport.u16IDischg > 200);
-    assert(g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp);
+    assert(g_bms_report.u16IDischg > 200);
+    assert(g_bms_report.unMdlFault_Third.bits.b1IdischgOcp);
     assert(!discharge_on()); raw16(0x91, 0);
 }
 static void release_discharge(void)
 {
     regs[SH3673520_REG_BSTATUS2] = SH3673520_BSTATUS2_LOADOFF_MASK;
-    steps(4); assert(!g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp);
+    steps(4); assert(!g_bms_report.unMdlFault_Third.bits.b1IdischgOcp);
 }
 int main(void)
 {
@@ -188,8 +188,8 @@ int main(void)
     bms_afe_init(); assert(sh3673510_control_ready());
     request_outputs(); steps(3); require_both_off(); steps(9);
     assert(bms_afe_samples_qualified()); assert(discharge_on());
-    assert(g_stCellInfoReport.u16VCellMax==3300 && g_stCellInfoReport.u16VCellMin==3300);
-    for (unsigned i=8; i<32; ++i) assert(g_stCellInfoReport.u16VCell[i]==61001);
+    assert(g_bms_report.u16VCellMax==3300 && g_bms_report.u16VCellMin==3300);
+    for (unsigned i=8; i<32; ++i) assert(g_bms_report.u16VCell[i]==61001);
     if (!strcmp(scenario, "cold-reboot")) {
         assert(g_bms_protection_params.u16IdsgOcp_Third==200);
         assert(g_bms_protection_params.u16IdsgOcp_Filter==40);
@@ -215,10 +215,10 @@ int main(void)
     puts("PASS persistent-load software OCD remains off after zero current");
     /* AFE re-init and feature init must not erase the same SW fault. */
     reinitialize(); assert(!discharge_on());
-    assert(g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp);
+    assert(g_bms_report.unMdlFault_Third.bits.b1IdischgOcp);
     regs[SH3673520_REG_FLAG1] |= SH3673520_FLAG1_RST1_MASK;
     step(); require_both_off(); steps(12); assert(!discharge_on());
-    assert(g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp);
+    assert(g_bms_report.unMdlFault_Third.bits.b1IdischgOcp);
     assert(bms_afe_sleep()); require_both_off();
     steps(3); require_both_off(); steps(10); assert(!discharge_on());
     puts("PASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification");
@@ -262,14 +262,14 @@ int main(void)
     unsigned fresh=0;
     for(unsigned i=0; fresh<10; ++i) {
         ready_bits=(i%5==2) ? 2 : 3; if(ready_bits==3) ++fresh;
-        step(); assert(!!g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp==(fresh<10));
+        step(); assert(!!g_bms_report.unMdlFault_Third.bits.b1IdischgOcp==(fresh<10));
     }
     ready_bits=3; assert(discharge_on()); p.u16IdsgOcp_Filter=40;
     assert(bms_protection_params_commit(&p));
     trip_discharge(); steps(2);
     regs[SH3673520_REG_BSTATUS2]=SH3673520_BSTATUS2_LOADOFF_MASK;
     step(); bus_failed=1; step(); bus_failed=0; step();
-    assert(g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp);
+    assert(g_bms_report.unMdlFault_Third.bits.b1IdischgOcp);
     steps(6); assert(discharge_on());
     puts("PASS 4 Hz CADC eventually recovers; a communication gap discards the partial window");
     /* Failed reconfiguration readback keeps output authorization inhibited. */

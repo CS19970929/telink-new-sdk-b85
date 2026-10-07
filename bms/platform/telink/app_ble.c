@@ -487,7 +487,7 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	for (size_t i = 0; i < 6; i++)
 	{
-		g_stCellInfoReport.mac_public[i] = mac_public[5 - i];
+		g_bms_report.mac_public[i] = mac_public[5 - i];
 	}
 
 	blc_ll_initBasicMCU();

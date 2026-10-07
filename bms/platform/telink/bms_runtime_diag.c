@@ -22,12 +22,12 @@ void bms_diag_poll_runtime(uint8_t valid, int32_t current_ma,
     if (valid && bms_afe_get_aux_measurements(&sample)) raw=sample.raw_current_ma;
     bms_diag_runtime_sample(valid,raw,current_ma,tick_32k,bms_afe_current_recovery_pending());
     BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_AFE, BMS_LOG_CELL_RANGE,
-            ((uint32_t)g_stCellInfoReport.u16VCellMin << 16) | g_stCellInfoReport.u16VCellMax,
-            ((uint32_t)g_stCellInfoReport.u16VCellMinPosition << 16) | g_stCellInfoReport.u16VCellMaxPosition);
+            ((uint32_t)g_bms_report.u16VCellMin << 16) | g_bms_report.u16VCellMax,
+            ((uint32_t)g_bms_report.u16VCellMinPosition << 16) | g_bms_report.u16VCellMaxPosition);
     bms_soc_get_diag(&soc);
     bms_diag_runtime_soc(&soc);
-    bms_diag_runtime_faults(g_stCellInfoReport.unMdlFault_First.all,
-        g_stCellInfoReport.unMdlFault_Second.all,g_stCellInfoReport.unMdlFault_Third.all);
+    bms_diag_runtime_faults(g_bms_report.unMdlFault_First.all,
+        g_bms_report.unMdlFault_Second.all,g_bms_report.unMdlFault_Third.all);
     bms_diag_runtime_mode(factory);
     bms_storage_platform_diag_poll();
     bms_parameters_diag_poll();

@@ -26,7 +26,7 @@ static uint8_t registers[256];
 static int corrupt_reg=-1,corrupt_count;
 static uint8_t auto_cc2_event;
 static struct {uint16_t u16Ichg,u16IDischg,u16VCell[32],u16VCellTotle,u16VCellMax,u16VCellMin,u16VCellDelta,u16VCellMaxPosition,u16VCellMinPosition,u16Temperature[5],u16TempMax,u16TempMin,u16BalanceFlag1,u16BalanceFlag2;
- struct {struct {uint8_t b1IchgOcp,b1IdischgOcp;}bits;}unMdlFault_Third;}g_stCellInfoReport;
+ struct {struct {uint8_t b1IchgOcp,b1IdischgOcp;}bits;}unMdlFault_Third;}g_bms_report;
 static struct {struct {uint8_t b1Status_MOS_CHG,b1Status_MOS_DSG;}bits;}g_bms_system_status;
 void DVC1124_UpdataAfeConfig(void){}
 uint8_t DVC1124_GetWriteAddress(void){return 0x40;}
@@ -107,9 +107,9 @@ int main(void){
  assert(!(registers[0x6d]&4)); /* 新VADC完成后才停止COW。 */
  for(unsigned cst=0;cst<=6;++cst)for(unsigned driver=0;driver<=1;++driver){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
-  acquire(100,(uint8_t)(0x50|cst));g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp=1;
+  acquire(100,(uint8_t)(0x50|cst));g_bms_report.unMdlFault_Third.bits.b1IdischgOcp=1;
   dvc_recover_current_faults(&s_snapshot,0,1);
-  acquire(6500,(uint8_t)(0x50|cst));g_stCellInfoReport.unMdlFault_Third.bits.b1IdischgOcp=0;
+  acquire(6500,(uint8_t)(0x50|cst));g_bms_report.unMdlFault_Third.bits.b1IdischgOcp=0;
   dvc_recover_current_faults(&s_snapshot,0,1);
   assert(s_current_recovery.discharge==driver); /* 真实解码→恢复，14个正交输入。 */
  }

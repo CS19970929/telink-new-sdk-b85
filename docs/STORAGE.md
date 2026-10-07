@@ -22,7 +22,7 @@ storage_port → bms_storage_platform_telink → SDK Flash
 
 每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动需要的数据校验/保存失败时，原有输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁。
 
-`CFG2` 的 322-byte payload 及通信 `0x2E05=2` 保留；它与内部 journal schema 3 是不同层次。`0x2E87` 保留原位置，恒为 1，没有老化更新宏；`0x2E10=6` 保留授权检查后成功空操作，不再计时或写 Flash。诊断原 Factory 槽位保留 NOT_RUN、地址/大小为 0，原运行模式字段为 0；其他诊断字段位置不变。
+`CFG2` 的 322-byte payload 及通信 `0x2E05=2` 保留；它与内部 journal schema 3 是不同层次。`0x2E87` 保留原位置，恒为 1，没有老化更新宏；废弃的 `0x2E10=6` 返回非法值（异常码 3），不再提供成功空操作。SN/电流校准继续要求 AFE 已授权会话。诊断原 Factory 槽位保留 NOT_RUN、地址/大小为 0，原运行模式字段为 0；其他诊断字段位置不变。
 
 ## Flash 布局
 
