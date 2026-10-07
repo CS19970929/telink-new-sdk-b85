@@ -32,7 +32,7 @@ static uint8_t bms_error_get(int error){(void)error;return (uint8_t)afe_error;}
 typedef enum {BMS_FAULT_SOC_LOW_FIRST,BMS_FAULT_SOC_LOW_SECOND,BMS_FAULT_SOC_LOW_THIRD} bms_fault_code_t;
 static void bms_fault_history_record(bms_fault_code_t c){}
 typedef union MDLCHGFAULT_REG {struct {unsigned b1SocLow:1,b1CellOvp:1,b1CellUvp:1;}bits;uint16_t all;} MDLCHGFAULT_REG;
-static struct {struct {uint16_t u16VcellOvp_Third,u16VcellUvp_Third,u16SocLow_Filter,u16SocLow_First,u16SocLow_Second,u16SocLow_Third,u16SocLow_Rcv;}protect;}g_tParam;
+static struct {uint16_t u16VcellOvp_Third,u16VcellUvp_Third,u16SocLow_Filter,u16SocLow_First,u16SocLow_Second,u16SocLow_Third,u16SocLow_Rcv;}g_bms_protection_params;
 static struct {
  uint16_t u16VCellMax,u16VCellMin,u16VCellDelta,u16VCellTotle,u16Ichg,u16IDischg;
  MDLCHGFAULT_REG unMdlFault_First,unMdlFault_Second,unMdlFault_Third;
@@ -46,8 +46,8 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
  memset(&SOC_Calculate_Element,0,sizeof(SOC_Calculate_Element));
  stored_profile.battery_chemistry=chemistry;stored_profile.soc_profile_id=chemistry;
- g_tParam.protect.u16VcellOvp_Third=chemistry==1?3650:4250;
- g_tParam.protect.u16VcellUvp_Third=2500;
+ g_bms_protection_params.u16VcellOvp_Third=chemistry==1?3650:4250;
+ g_bms_protection_params.u16VcellUvp_Third=2500;
  g_stCellInfoReport.u16VCellMin=voltage;g_stCellInfoReport.u16VCellMax=voltage;
  openwire_active=0;openwire_suspected=0;balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;

@@ -15,12 +15,12 @@ fixture=fixture.replace('/* PROFILE TYPE */',profile)
 fixture=fixture.replace('/* PRODUCTION */',selected_source(ROOT/'bms/afe/sh3673510/sh3673510_bms.c'))
 fixture=fixture.replace('/* GUARD */',selected_source(ROOT/'bms/core/bms_afe_guard.c'))
 fixture+='''
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 uint8_t bms_protection_params_valid(void){return 1;}
 void bms_fault_history_record(bms_fault_code_t f){(void)f;}
 int main(void){
- g_tParam.protect.u16VcellOvp_Third=3750;g_tParam.protect.u16VcellOvp_Rcv=3500;g_tParam.protect.u16VcellOvp_Filter=40;
- g_tParam.protect.u16VcellUvp_Third=3000;g_tParam.protect.u16VcellUvp_Rcv=3100;g_tParam.protect.u16VcellUvp_Filter=40;
+ g_bms_protection_params.u16VcellOvp_Third=3750;g_bms_protection_params.u16VcellOvp_Rcv=3500;g_bms_protection_params.u16VcellOvp_Filter=40;
+ g_bms_protection_params.u16VcellUvp_Third=3000;g_bms_protection_params.u16VcellUvp_Rcv=3100;g_bms_protection_params.u16VcellUvp_Filter=40;
  now=0xffff8000u;device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  for(unsigned i=0;i<10;i++)sample();

@@ -12,7 +12,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include <string.h>
 
 #define BMS_OPENWIRE_FIRST_IDLE_SAMPLES \
@@ -209,7 +209,7 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
      * 不能等待滤波后的充电低温故障位再预热；首个可信电流样本就需停止低温充电尝试。
      * HeaterStart 是用户策略，Third UTP 阈值仍是绝对软件充电许可边界。
      */
-    charge_utp_trip = g_tParam.protect.u16TchgUTp_Third;
+    charge_utp_trip = g_bms_protection_params.u16TchgUTp_Third;
     if ((charge_utp_trip != 0u) &&
         (s->battery_temp_min_x10 <= charge_utp_trip))
         return 1u;
@@ -533,9 +533,9 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
      * 均衡会产生热量，使用既有保护恢复边界作为保守准入窗口，
      * 不依赖零电流时可能清除的方向性故障位；阈值零表示相应保护关闭。
      */
-    charge_ot_recover = g_tParam.protect.u16TChgOTp_Rcv;
-    charge_ut_recover = g_tParam.protect.u16TchgUTp_Rcv;
-    mos_ot_recover = g_tParam.protect.u16TmosOTp_Rcv;
+    charge_ot_recover = g_bms_protection_params.u16TChgOTp_Rcv;
+    charge_ut_recover = g_bms_protection_params.u16TchgUTp_Rcv;
+    mos_ot_recover = g_bms_protection_params.u16TmosOTp_Rcv;
 
     if ((charge_ot_recover != 0u) &&
         (s->battery_temp_max_x10 >= charge_ot_recover))

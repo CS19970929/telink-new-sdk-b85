@@ -21,7 +21,7 @@
 | 内部 tag、SOC chemistry/profile | 产品 `bms_product_config.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_sh3673510_config.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
 | DVC 固定配置和 SCD 种子 | D008 `dvc1124_project_config.h` | 固定板级值或 AFE，按 default builder 区分 |
-| 软件保护默认 | `bms/core/param.h` 的宏及 `E2P_PROTECT_DEFAULT_PRT` | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
+| 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection` 逐字段初始化 | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
 | OTA 更新策略 | 共享 `bms/products/bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
@@ -29,7 +29,7 @@
 
 `bms/core/conf.h` 引入当前产品 `bms_product_conf.h`；include 路径由构建器选择。`bms_product_config.h` 与 `bms_product_conf.h` 职责不同，改前先追 include 和使用者。
 
-**D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共 `param.h` 可能同时改变 D008 新设备的 AFE 默认，不能只看 SW 编号。
+**D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共软件保护默认值 可能同时改变 D008 新设备的 AFE 默认，不能只看 SW 编号。
 
 ## 3. 单位速查
 
@@ -80,7 +80,7 @@ try {
 
 ## 6. 例 C：软件保护与 AFE 保护
 
-软件参数从 `param.h` 找字段，核对高/低阈值顺序、Third/Recover 回差、Filter 和使用者。产品已有 CUV3 入口 `BMS_DEFAULT_CUV3_MV` / `BMS_DEFAULT_CUV3_FILTER`；其他公共宏默认影响四产品。只改一款需要新增差异时，明确增加产品输入并保留其他产品值，这属于代码修改。
+软件参数从 `bms_parameters.h` 找字段，核对高/低阈值顺序、Third/Recover 回差、Filter 和使用者。产品已有 CUV3 入口 `BMS_DEFAULT_CUV3_MV` / `BMS_DEFAULT_CUV3_FILTER`；其他公共宏默认影响四产品。只改一款需要新增差异时，明确增加产品输入并保留其他产品值，这属于代码修改。
 
 SH AFE 默认只改目标产品 `SH3673510_HW_DEFAULT_*`，按 AFE 编号生效，保持软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
 

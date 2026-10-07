@@ -1,0 +1,15 @@
+/* 文件功能：软件保护运行参数所有者、提交及持久域启动安全门禁。 */
+#ifndef BMS_PARAMETERS_H_
+#define BMS_PARAMETERS_H_
+#include "conf.h"
+#include "bms_protection_params.h"
+
+/* 加载、校验软件保护参数；失败保持输出阻断。 */
+void bms_parameters_init(void);
+/* 加载并验证 Config/State/Event，确定启动资格。 */
+void bms_parameters_startup(void);
+/* 候选校验和持久保存成功后才发布，不清除失败的启动门禁。 */
+uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate);
+/* 刷新运行参数和启动门禁诊断。 */
+void bms_parameters_diag_poll(void);
+#endif

@@ -10,7 +10,7 @@
  * D008 产品配置（串数/化学体系）、本文件（固定策略）、运行 Flash 参数（仅保护阈值）
  * 、DVC11XX DemoCode V1.3（辅助时序/示例）。重要所有权规则：本文件值由固件拥有，
  * 每次 AFE 复位后应用，禁止从历史 DVC 运行配置 Flash 恢复；0x2800 窗口仅诊断。
- * 持久保护独立由 g_tParam.protect（软件）和 bms_afe_hw_profile_t（DVC 硬件阈值/延时
+ * 持久保护独立由 g_bms_protection_params（软件）和 bms_afe_hw_profile_t（DVC 硬件阈值/延时
  * ）拥有。
  */
 

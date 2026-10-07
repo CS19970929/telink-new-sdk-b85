@@ -2,7 +2,7 @@
 
 ## 1. 参数所有权
 
-四个产品的 MCU 软件保护参数都来自 `g_tParam.protect`，字段结构保持 First / Second / Third / Recover / Filter。共同算法位于 `bms_sw_protection.c/.h`；AFE backend 不再各自实现一套软件阈值状态机。
+四个产品的 MCU 软件保护参数都来自 `g_bms_protection_params`，字段结构保持 First / Second / Third / Recover / Filter。共同算法位于 `bms_sw_protection.c/.h`；AFE backend 不再各自实现一套软件阈值状态机。
 
 - First：一级告警/报告，不直接作为最终 MOS 关闭级。
 - Second：二级告警/报告，不直接作为最终 MOS 关闭级。
@@ -48,5 +48,5 @@ AND no AFE hardware block/lockout
 
 - 新软件保护项优先放公共层；
 - 不在 AFE driver 复制三级状态机；
-- 不把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_tParam.protect`；
+- 不把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_bms_protection_params`；
 - 保护语义变化必须补 contract 和实板触发/恢复测试。

@@ -32,6 +32,6 @@ void bms_diag_poll_runtime(uint8_t valid, int32_t current_ma,
         g_stCellInfoReport.unMdlFault_Second.all,g_stCellInfoReport.unMdlFault_Third.all);
     bms_diag_runtime_mode(factory);
     bms_storage_platform_diag_poll();
-    bms_param_diag_poll();
+    bms_parameters_diag_poll();
     bms_afe_diag_poll();
 }

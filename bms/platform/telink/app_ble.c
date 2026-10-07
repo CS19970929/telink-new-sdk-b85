@@ -33,7 +33,7 @@
 #include "bms_state.h"
 #include "bms_afe_hw_access.h"
 #include "bms_storage_platform.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include <string.h>
 
 static void task_connect(u8 e, u8 *p, int n);

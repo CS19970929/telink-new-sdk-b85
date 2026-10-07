@@ -105,7 +105,8 @@ def profile_prefix(product):
         result += '#include "dvc1124_project_config.h"\n'
     else:
         result += '#include "sh3673510_project_config.h"\n#include "sh3673510_quantize.h"\n'
-    result += without_includes(read('bms/core/param.h'))
+    defaults = read('bms/core/bms_config_store.c')
+    result += defaults[defaults.index('static const bms_protection_params_t s_default_protection'):defaults.index('\n}', defaults.index('void bms_config_store_get_default_protect')) + 2]
     result += without_includes(read('bms/core/bms_afe_hw_profile.h'))
     source = read('bms/core/bms_afe_hw_profile.c')
     result += source[source.index('static u16 ms10_to_ms'):source.index('u8 bms_afe_hw_profile_get(')]

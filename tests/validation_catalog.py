@@ -59,7 +59,7 @@ register('tooling', ('d014',), '故意变异检验', 'validation_mutation_check'
 
 SOURCES = {
     'protection': ['bms/core/bms_sw_protection.c', 'bms/app/bms_features.c'],
-    'configuration': ['bms/core/param.h', 'bms/core/bms_afe_hw_profile.c', 'bms/products'],
+    'configuration': ['bms/core/bms_parameters.h', 'bms/core/bms_afe_hw_profile.c', 'bms/products'],
     'afe': ['bms/core/bms_afe_guard.c', 'bms/core/bms_afe_hw_profile.c', 'bms/afe'],
     'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],

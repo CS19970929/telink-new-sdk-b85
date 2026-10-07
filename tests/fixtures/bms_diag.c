@@ -17,8 +17,8 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_HW_PROFILE_WORD_COUNT 35u
 #define BTNAME_REG_BASE 0x100u
 #define BTNAME_REG_WORDS 12u
-struct PRT_E2ROM_PARAS{u16 u16VcellOvp_First;u16 rest[64];};
-static struct {struct PRT_E2ROM_PARAS protect;}g_tParam;
+typedef struct {u16 u16VcellOvp_First;u16 rest[64];} bms_protection_params_t;
+static bms_protection_params_t g_bms_protection_params;
 static u32 tick, reads,writes;
 u32 bms_diag_tick(void){return tick;}
 static u16 u16be(const u8*p){return (u16)(((u16)p[0]<<8)|p[1]);}
@@ -30,7 +30,7 @@ u16 bms_event_log_read_reg(u16 reg){reads++;return 0;}
 static u16 read_reg(u16 r){reads++;return 0;}
 static int reg_requires_param_save(u16 r){return 0;}
 static u8 write_reg(u16 r,u16 v){writes++;return 0;}
-static u8 commit_protection_update(struct PRT_E2ROM_PARAS*p){writes++;return 0;}
+static u8 commit_protection_update(bms_protection_params_t*p){writes++;return 0;}
 static u8 afe_hw_profile_write_block(const u8*p,u16 n){writes++;return 0;}
 static int afe_hw_profile_is_reg(u16 r){return 0;}
 static int read_address_supported(u16 r){return r>=0x2100 && r<=0x2140;}

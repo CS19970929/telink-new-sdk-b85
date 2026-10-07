@@ -25,7 +25,7 @@
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
 #endif
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app.h"
@@ -399,7 +399,7 @@ static u16 read_reg(u16 reg)
     if (reg >= 0x2100u && reg <= 0x2140u)
     {
         u16 value;
-        memcpy(&value, (const u8 *)&g_tParam.protect + (reg-0x2100u)*2u, sizeof(value));
+        memcpy(&value, (const u8 *)&g_bms_protection_params + (reg-0x2100u)*2u, sizeof(value));
         return value;
     }
 
@@ -449,7 +449,7 @@ static u8 write_reg(u16 reg, u16 val)
 }
 
 /* 校验并提交软件保护参数，失败保留原状态。 */
-static u8 commit_protection_update(const struct PRT_E2ROM_PARAS *candidate)
+static u8 commit_protection_update(const bms_protection_params_t *candidate)
 {
     if (!bms_sw_protection_validate_params(candidate)) return MB_EX_ILLEGAL_VALUE;
     return bms_protection_params_commit(candidate) ? 0u : MB_EX_DEVICE_FAILURE;
@@ -560,7 +560,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         u16 reg;
         u16 val;
         u8 exception;
-        struct PRT_E2ROM_PARAS candidate;
+        bms_protection_params_t candidate;
         int protect_changed;
 
         if (req_len != 8u) return 0;
@@ -570,7 +570,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
         protect_changed = reg_requires_param_save(reg);
         if (protect_changed) {
-            candidate = g_tParam.protect;
+            candidate = g_bms_protection_params;
             memcpy((u8 *)&candidate + (reg - 0x2100u) * 2u, &val, sizeof(val));
             exception = commit_protection_update(&candidate);
         } else {
@@ -593,7 +593,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         const u8 *pdata;
         u16 i;
         u8 exception;
-        struct PRT_E2ROM_PARAS candidate;
+        bms_protection_params_t candidate;
 
         if (req_len < 9u) return 0;
         reg = u16be(&req[2]);
@@ -629,7 +629,7 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
         } else if (reg>=0x2100u && (u32)reg+qty<=0x2141u) {
-            candidate=g_tParam.protect;
+            candidate=g_bms_protection_params;
             for (i=0u;i<qty;++i) {
                 u16 value=u16be(&pdata[i*2u]);
                 memcpy((u8 *)&candidate+(reg-0x2100u+i)*2u,&value,sizeof(value));
@@ -772,7 +772,7 @@ void WriteProID_Default(void)
 /* 按类别恢复软件业务参数并提交存储。 */
 u8 bms_reset_software_parameters(void)
 {
-    struct PRT_E2ROM_PARAS defaults;
+    bms_protection_params_t defaults;
     bms_config_store_get_default_protect(&defaults);
     return commit_protection_update(&defaults);
 }

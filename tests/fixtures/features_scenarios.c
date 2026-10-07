@@ -1,5 +1,5 @@
 
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
 static uint8_t heater, balance_fail, params_valid=1;
@@ -32,7 +32,7 @@ static void reset(void)
 {
     memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
     for(unsigned i=0;i<BMS_ERROR_COUNT;i++)bms_error_clear((bms_error_id_t)i);
-    memset(&g_tParam,0,sizeof(g_tParam));memset(&snapshot,0,sizeof(snapshot));
+    memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_fail=0;fuse_count=0;ow_started=0;
     ow_state=BMS_AFE_DIAG_BUSY;memset(&ow_result,0,sizeof(ow_result));
     snapshot.valid=1;snapshot.cell_count=SeriesNum;
@@ -41,7 +41,7 @@ static void reset(void)
     snapshot.heater_temp_x10=650;snapshot.mos_temp_x10=650;
     user.heater_enable=1;user.heater_start_x10=400;user.heater_stop_x10=450;
     user.balance_enable=1;user.balance_start_mv=3400;user.balance_start_delta_mv=50;user.balance_stop_delta_mv=30;
-    g_tParam.protect.u16TChgOTp_Rcv=850;g_tParam.protect.u16TchgUTp_Rcv=450;g_tParam.protect.u16TmosOTp_Rcv=1100;
+    g_bms_protection_params.u16TChgOTp_Rcv=850;g_bms_protection_params.u16TchgUTp_Rcv=450;g_bms_protection_params.u16TmosOTp_Rcv=1100;
     voltages(50);g_stCellInfoReport.u16Ichg=10;bms_features_init();
 }
 static void step(unsigned n){while(n--)bms_features_service();}

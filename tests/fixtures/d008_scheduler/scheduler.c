@@ -47,7 +47,7 @@ static void mos_update(void){note('M');}
 static void app_schedule_sample_wakeup(void){note('W');}
 static void gpio_toggle(int pin){(void)pin;note('L');}
 static void app_acc_sleep_hold(void){note('H');}
-static void bms_param_diag_poll(void){note('1');}
+static void bms_parameters_diag_poll(void){note('1');}
 static void bms_storage_platform_diag_poll(void){note('2');}
 static void bms_afe_diag_poll(void){note('3');}
 static void cpu_sleep_wakeup(int m,int w,u32 t){(void)m;(void)w;assert(t==now+3200000u);note('Q');}

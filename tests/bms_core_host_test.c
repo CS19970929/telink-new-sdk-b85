@@ -5,7 +5,7 @@
 #include "bms_state.h"
 #include "bms_sw_protection.h"
 
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 uint8_t bms_protection_params_valid(void) { return 1u; }
 
 int main(void)

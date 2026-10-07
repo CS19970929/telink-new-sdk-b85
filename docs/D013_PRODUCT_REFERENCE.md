@@ -139,7 +139,7 @@ D013 与 D011 使用同一量化实现，但因为 Rsense 不同，**同一个�
 
 ## 8. 软件保护与 AFE 硬件保护
 
-- 软件保护统一使用 `g_tParam.protect`：First / Second / Third / Recover / Filter。
+- 软件保护统一使用 `g_bms_protection_params`：First / Second / Third / Recover / Filter。
 - AFE 硬件保护使用独立 `bms_afe_hw_profile_t`，没有三级概念。
 - 两套参数独立持久化、独立修改；普通软件参数写入不得改硬件 profile。
 - AFE 参数使用 requested/effective 分离、完整 35-word 原子写、固件 validate/persist/apply/readback/rollback；rollback 失败报告 `CONFIG_INCONSISTENT`。

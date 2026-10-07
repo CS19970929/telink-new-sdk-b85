@@ -18,6 +18,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 | [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
 | [当前简化与保留边界](docs/SIMPLIFICATION_20261007.md) · [本轮验证证据](docs/SIMPLIFICATION_20261007_EVIDENCE.json) | 主流程、产品差异、删除项、状态与验证口径 |
+| [第四轮维护入口简化](docs/SIMPLIFICATION_ROUND4_20261007.md) | 参数命名、配置头、诊断状态与协议可读性 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |
 | [根协作规则](AGENTS.md) | 开始修改前确认仓库约束 |

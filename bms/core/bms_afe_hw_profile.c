@@ -143,9 +143,10 @@ static void dvc_normalize_default_profile(bms_afe_hw_profile_t *p)
 /* 按产品输入构造独立 AFE 硬件保护默认值。 */
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 {
-    const struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;
-    const struct PRT_E2ROM_PARAS *s = &defaults;
+    bms_protection_params_t defaults;
+    const bms_protection_params_t *s = &defaults;
     if (p == 0) return;
+    bms_config_store_get_default_protect(&defaults);
     memset(p, 0, sizeof(*p));
     p->schema_version = BMS_AFE_HW_PROFILE_SCHEMA_VERSION;
     p->afe_model = bms_afe_hw_profile_expected_model();

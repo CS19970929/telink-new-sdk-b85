@@ -47,7 +47,7 @@
 #include "bms_state_store.h"
 #include "bms_storage_platform.h"
 #include "btname_modbus.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include <string.h>
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -761,7 +761,7 @@ _attribute_no_inline_ void main_loop(void)
         app_acc_sleep_hold();
         return;
     }
-    bms_param_diag_poll();
+    bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
     if (s_power_off_committed)
@@ -946,7 +946,7 @@ void app_init(void)
 #endif
 		board_init();
 		bms_parameters_startup();
-		LoadParam();
+		bms_parameters_init();
 		bms_event_log_init();
 
 		bms_afe_init();
@@ -985,7 +985,7 @@ void app_init(void)
     bms_diag_set_boot_result(
         g_bms_system_status.bits.b1Status_AFE1 ? DIAG_OK : DIAG_INVALID,
         bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
-    bms_param_diag_poll();
+    bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
     bms_diag_freeze_boot();

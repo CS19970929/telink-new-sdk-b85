@@ -177,7 +177,7 @@ void bms_diag_command(uint8_t command, uint8_t valid);
 /* 发布驱动 FET 缓存标志与有效性，不作为物理 Gate 证据。 */
 void bms_diag_driver(uint8_t flags, uint8_t valid);
 /* 刷新业务参数与启动门禁诊断快照。 */
-void bms_param_diag_poll(void);
+void bms_parameters_diag_poll(void);
 /* 从选定后端刷新诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void);
 /* 更新所选 AFE 后端的诊断字段。 */

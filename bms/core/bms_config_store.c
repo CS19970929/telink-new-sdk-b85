@@ -34,7 +34,7 @@
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
 #endif
 
-typedef char bms_config_protect_layout_must_be_65_words[(sizeof(struct PRT_E2ROM_PARAS) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
+typedef char bms_config_protect_layout_must_be_65_words[(sizeof(bms_protection_params_t) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
 typedef char bms_config_system_layout_must_be_5_words[(sizeof(bms_config_system_params_t) == BMS_CONFIG_SYSTEM_BYTES) ? 1 : -1];
 typedef char bms_config_afe_layout_must_be_35_words[(sizeof(bms_afe_hw_profile_t) == BMS_CONFIG_AFE_BYTES) ? 1 : -1];
 /* 只共享连续的七个 u16；校准字段仍逐字段编码。TC32 的 stddef.h 与 SDK size_t 冲突。 */
@@ -42,7 +42,7 @@ typedef char bms_config_user_business_layout_must_be_7_words[(__builtin_offsetof
 
 typedef struct {
     u16 revisions[BMS_UPDATE_CONFIG_GROUP_COUNT];
-    struct PRT_E2ROM_PARAS protect;
+    bms_protection_params_t protect;
     bms_config_system_params_t system;
     bms_afe_hw_profile_t afe_hw;
     bms_soc_config_t soc;
@@ -107,11 +107,84 @@ static void bms_config_decode_words(void *values, const u8 *payload, u16 count)
     }
 }
 
+/* 原软件保护默认表来源：Copyright (C), 2012-2013, www.armfly.com。 */
+static const bms_protection_params_t s_default_protection = {
+    .u16VcellOvp_First = 3750,
+    .u16VcellOvp_Second = 3750,
+    .u16VcellOvp_Third = 3750,
+    .u16VcellOvp_Rcv = 3500,
+    .u16VcellOvp_Filter = 100,
+    .u16VcellUvp_First = 3000,
+    .u16VcellUvp_Second = 3000,
+    .u16VcellUvp_Third = BMS_DEFAULT_CUV3_MV,
+    .u16VcellUvp_Rcv = 3100,
+    .u16VcellUvp_Filter = BMS_DEFAULT_CUV3_FILTER,
+    .u16VbusOvp_First = (350 * SeriesNum),
+    .u16VbusOvp_Second = (360 * SeriesNum),
+    .u16VbusOvp_Third = (365 * SeriesNum),
+    .u16VbusOvp_Rcv = (350 * SeriesNum),
+    .u16VbusOvp_Filter = 100,
+    .u16VbusUvp_First = (300 * SeriesNum),
+    .u16VbusUvp_Second = (300 * SeriesNum),
+    .u16VbusUvp_Third = (290 * SeriesNum),
+    .u16VbusUvp_Rcv = (300 * SeriesNum),
+    .u16VbusUvp_Filter = 100,
+    .u16IchgOcp_First = (100),
+    .u16IchgOcp_Second = (150),
+    .u16IchgOcp_Third = (200),
+    .u16IchgOcp_Rcv = (100),
+    .u16IchgOcp_Filter = 10,
+    .u16IdsgOcp_First = (100),
+    .u16IdsgOcp_Second = (150),
+    .u16IdsgOcp_Third = (200),
+    .u16IdsgOcp_Rcv = (100),
+    .u16IdsgOcp_Filter = 10,
+    .u16TChgOTp_First = ((40 + 40) * 10),
+    .u16TChgOTp_Second = ((50 + 40) * 10),
+    .u16TChgOTp_Third = ((55 + 40) * 10),
+    .u16TChgOTp_Rcv = ((50 + 40) * 10),
+    .u16TChgOTp_Filter = 100,
+    .u16TchgUTp_First = ((5 + 40) * 10),
+    .u16TchgUTp_Second = ((3 + 40) * 10),
+    .u16TchgUTp_Third = ((0 + 40) * 10),
+    .u16TchgUTp_Rcv = ((3 + 40) * 10),
+    .u16TchgUTp_Filter = 100,
+    .u16TdischgOTp_First = ((50 + 40) * 10),
+    .u16TdischgOTp_Second = ((50 + 40) * 10),
+    .u16TdischgOTp_Third = ((60 + 40) * 10),
+    .u16TdischgOTp_Rcv = ((50 + 40) * 10),
+    .u16TdischgOTp_Filter = 100,
+    .u16TdischgUTp_First = ((-10 + 40) * 10),
+    .u16TdischgUTp_Second = ((-15 + 40) * 10),
+    .u16TdischgUTp_Third = ((-20 + 40) * 10),
+    .u16TdischgUTp_Rcv = ((-10 + 40) * 10),
+    .u16TdischgUTp_Filter = 100,
+    .u16TmosOTp_First = ((75 + 40) * 10),
+    .u16TmosOTp_Second = ((85 + 40) * 10),
+    .u16TmosOTp_Third = ((95 + 40) * 10),
+    .u16TmosOTp_Rcv = ((80 + 40) * 10),
+    .u16TmosOTp_Filter = 100,
+    .u16VdeltaOvp_First = 600,
+    .u16VdeltaOvp_Second = 800,
+    .u16VdeltaOvp_Third = 1000,
+    .u16VdeltaOvp_Rcv = 800,
+    .u16VdeltaOvp_Filter = 100,
+    .u16SocLow_First = 20,
+    .u16SocLow_Second = 10,
+    .u16SocLow_Third = 5,
+    .u16SocLow_Rcv = 11,
+    .u16SocLow_Filter = 100,
+};
+
+/* 编译默认值先检查等级及恢复关系，运行参数仍由完整 validator 校验。 */
+#if (3000u < BMS_DEFAULT_CUV3_MV) || ((BMS_DEFAULT_CUV3_MV != 0u) && (3100u <= BMS_DEFAULT_CUV3_MV))
+#error "CUV defaults require First >= Second >= Third and Recover > Third (unless Third=0)"
+#endif
+
 /* 取得产品软件保护默认配置。 */
-void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *protect)
+void bms_config_store_get_default_protect(bms_protection_params_t *protect)
 {
-    struct PRT_E2ROM_PARAS defaults = E2P_PROTECT_DEFAULT_PRT;
-    if (protect != 0) *protect = defaults;
+    if (protect != 0) *protect = s_default_protection;
 }
 
 /* 取得产品系统业务默认配置。 */
@@ -328,7 +401,7 @@ int bms_config_store_init(void)
 }
 
 /* 取得缓存的软件保护配置。 */
-int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect)
+int bms_config_store_get_protect(bms_protection_params_t *protect)
 {
     if ((protect == 0) || !g_bms_config_ready) return 0;
     *protect = g_bms_config.protect;
@@ -336,7 +409,7 @@ int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect)
 }
 
 /* 校验并保存软件保护配置，按保存结果更新缓存。 */
-int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect)
+int bms_config_store_set_protect(const bms_protection_params_t *protect)
 {
     bms_config_cache_t next;
     if (!bms_sw_protection_validate_params(protect) || !bms_config_ensure_ready()) return 0;

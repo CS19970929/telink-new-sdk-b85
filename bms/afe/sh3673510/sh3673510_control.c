@@ -8,7 +8,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"
 #include "sh3673520.h"
 #include "sh3673520_port.h"
@@ -295,7 +295,7 @@ typedef struct {
 
 /*
  * 所选产品使用确定性的静态 AFE 配置。
- * 0x49..0x54 保护阈值独立于 g_tParam.protect 应用；阈值有效后才写 SCONF6，
+ * 0x49..0x54 保护阈值独立于 g_bms_protection_params 应用；阈值有效后才写 SCONF6，
  * 避免对意外复位阈值启用硬件保护。
  */
 static const sh3510_static_reg_cfg_t s_static_reg_cfg[] = {

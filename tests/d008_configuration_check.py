@@ -132,7 +132,7 @@ def check_d008_framework_contract_check():
             cls.project = read("dvc1124_project_config.h")
             cls.product = read("d008_product_profile.h")
             cls.features = read("bms_features.c")
-            cls.param = read("param.c")
+            cls.param = read("bms_parameters.c")
             cls.app = read("app.c")
             cls.app_config = read("app_config.h")
             cls.parameter_access = read("bms_parameter_access.c")

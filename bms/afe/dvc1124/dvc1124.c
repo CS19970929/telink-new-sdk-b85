@@ -12,7 +12,7 @@
 #include "conf.h"
 #include "bms_error.h"
 #include "bms_state.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"
 #include <string.h>
 

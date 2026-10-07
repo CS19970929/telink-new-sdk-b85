@@ -11,7 +11,7 @@ static void SOC_Result_Pass(void);
 #include "bms_soc_profile.h"
 #include "bms_error.h"
 #include "bms_state.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_diag.h"
 #include <string.h>
 
@@ -306,7 +306,7 @@ static uint8_t soc_resolve_chemistry(void)
     }
 
     /* AUTO 是明确的通用选择；D008 默认使用编译装配身份，不迁移旧 Flash。 */
-    ovp = g_tParam.protect.u16VcellOvp_Third;
+    ovp = g_bms_protection_params.u16VcellOvp_Third;
     if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
     if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
 
@@ -1017,7 +1017,7 @@ static uint8_t soc_discharge_sag_hold_active(void)
 /* 取得当前欠压触发阈值，单位为毫伏。 */
 static uint16_t soc_uvp_trip_mv(void)
 {
-    uint16_t uvp = g_tParam.protect.u16VcellUvp_Third;
+    uint16_t uvp = g_bms_protection_params.u16VcellUvp_Third;
     if ((uvp < 2200u) || (uvp > 3500u)) uvp = g_soc_profile->empty_sync_mv;
     return uvp;
 }
@@ -1278,7 +1278,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
 /* 将低 SOC 保护延时转换为确认样本数。 */
 static uint16_t soc_fault_filter_samples(void)
 {
-    uint32_t ms = (uint32_t)g_tParam.protect.u16SocLow_Filter * 10u;
+    uint32_t ms = (uint32_t)g_bms_protection_params.u16SocLow_Filter * 10u;
     uint32_t samples = (ms + SOC_INTEGRAL_PERIOD_MS - 1u) / SOC_INTEGRAL_PERIOD_MS;
     if (samples == 0u) samples = 1u;
     if (samples > 65535u) samples = 65535u;
@@ -1296,9 +1296,9 @@ static union MDLCHGFAULT_REG *soc_fault_reg(uint8_t level)
 /* 取得指定级别的低 SOC 阈值。 */
 static uint16_t soc_fault_threshold(uint8_t level)
 {
-    if (level == 0u) return g_tParam.protect.u16SocLow_First;
-    if (level == 1u) return g_tParam.protect.u16SocLow_Second;
-    return g_tParam.protect.u16SocLow_Third;
+    if (level == 0u) return g_bms_protection_params.u16SocLow_First;
+    if (level == 1u) return g_bms_protection_params.u16SocLow_Second;
+    return g_bms_protection_params.u16SocLow_Third;
 }
 
 /* 取得对应低 SOC 级别的历史故障编号。 */
@@ -1319,7 +1319,7 @@ static void soc_update_low_faults(void)
 
     for (level = 0u; level < 3u; ++level) {
         uint16_t trip = soc_fault_threshold(level);
-        uint16_t recover = g_tParam.protect.u16SocLow_Rcv;
+        uint16_t recover = g_bms_protection_params.u16SocLow_Rcv;
 
         if (trip == 0u || trip > SOC_PERCENT_MAX) {
             g_soc_runtime.soc_low_active[level] = 0u;

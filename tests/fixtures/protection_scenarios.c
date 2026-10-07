@@ -7,7 +7,7 @@
 #include "bms_error.h"
 #include "bms_sw_protection.h"
 
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 static uint8_t params_valid = 1;
 uint8_t bms_protection_params_valid(void) { return params_valid; }
 static bms_sw_protection_inputs_t input;
@@ -27,7 +27,7 @@ static void expect(unsigned actual, unsigned expected)
 }
 
 typedef struct { size_t fields[5]; uint8_t low, charge_block, discharge_block; } rule_t;
-#define RULE(n,l,c,d) {{offsetof(struct PRT_E2ROM_PARAS,n##_First), offsetof(struct PRT_E2ROM_PARAS,n##_Second), offsetof(struct PRT_E2ROM_PARAS,n##_Third), offsetof(struct PRT_E2ROM_PARAS,n##_Rcv), offsetof(struct PRT_E2ROM_PARAS,n##_Filter)},l,c,d}
+#define RULE(n,l,c,d) {{offsetof(bms_protection_params_t,n##_First), offsetof(bms_protection_params_t,n##_Second), offsetof(bms_protection_params_t,n##_Third), offsetof(bms_protection_params_t,n##_Rcv), offsetof(bms_protection_params_t,n##_Filter)},l,c,d}
 static const rule_t rules[] = {
     RULE(u16VcellOvp,0,1,0), RULE(u16VcellUvp,1,0,1),
     RULE(u16VbusOvp,0,1,0), RULE(u16VbusUvp,1,0,1),
@@ -39,7 +39,7 @@ static const rule_t rules[] = {
 #undef RULE
 static void parameter(unsigned g, unsigned f, uint16_t value)
 {
-    memcpy((unsigned char *)&g_tParam.protect + rules[g].fields[f], &value, sizeof(value));
+    memcpy((unsigned char *)&g_bms_protection_params + rules[g].fields[f], &value, sizeof(value));
 }
 static void measurement(unsigned g, uint16_t value)
 {
@@ -70,7 +70,7 @@ static unsigned active(unsigned g, unsigned l)
 }
 static void reset(void)
 {
-    memset(&g_tParam,0,sizeof(g_tParam));
+    memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));
     memset(&g_stCellInfoReport,0,sizeof(g_stCellInfoReport));
     input.battery_temp_valid=input.mos_temp_valid=input.mos_temp_required=1;
     input.battery_temp_min=input.battery_temp_max=input.mos_temp=500;

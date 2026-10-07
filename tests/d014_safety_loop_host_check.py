@@ -7,7 +7,7 @@ SOURCES = [
     'bms/core/' + name + '.c' for name in (
         'bms_afe_guard', 'bms_afe_hw_access', 'bms_afe_hw_profile', 'bms_config_store',
         'bms_crc', 'bms_debug_log', 'bms_diag', 'bms_event_log', 'bms_soc', 'bms_soc_eta',
-        'bms_state', 'bms_state_store', 'bms_sw_protection', 'param', 'storage_record')
+        'bms_state', 'bms_state_store', 'bms_sw_protection', 'bms_parameters', 'storage_record')
 ] + ['bms/app/bms_features.c', 'bms/platform/telink/bms_board.c'] + [
     'bms/afe/sh3673510/' + name + '.c' for name in (
         'sh3673510_bms', 'sh3673510_control', 'sh3673510_ntc',

@@ -5,7 +5,7 @@
 /* Compile the whole production module, with no function extraction. */
 #include "modbus_rtu.c"
 
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 bool deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
 static int requested_fail_at = -1, effective_fail_at = -1;
@@ -34,9 +34,9 @@ const char *btname_get(void) { return "BT_TEST"; }
 int bms_parameter_readable(u16 r) { return r>=0x2E00u && r<=0x2E0Fu; }
 u16 bms_parameter_read(u16 r) { return (u16)(r^0x55aau); }
 int bms_config_get_user(bms_user_params_t *u) { memset(u,0,sizeof(*u)); return 1; }
-void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *p) { (void)p; abort(); }
+void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
-u8 bms_protection_params_commit(const struct PRT_E2ROM_PARAS *p) { (void)p; abort(); }
+u8 bms_protection_params_commit(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_valid(void) { abort(); }
 u8 bms_parameter_write(u16 r,u16 n,const u8 *p) { (void)r; (void)n; (void)p; abort(); }
 int btname_modbus_on_write_holding(u16 r,u16 n,const u16 *p)

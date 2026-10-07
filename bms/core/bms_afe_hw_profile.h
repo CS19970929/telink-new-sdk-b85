@@ -7,7 +7,7 @@
 #define BMS_AFE_HW_PROFILE_H_
 
 #include "tl_common.h"
-#include "param.h"
+#include "bms_parameters.h"
 
 #define BMS_AFE_HW_PROFILE_SCHEMA_VERSION 1u
 #define BMS_AFE_HW_MODEL_DVC1124          0x1124u

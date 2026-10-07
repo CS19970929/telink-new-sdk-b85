@@ -6,7 +6,7 @@
 #define BMS_PROTECTION_PARAMS_H_
 #include <stdint.h>
 /* 共 65 words，字段名保留外部寄存器契约。 */
-struct PRT_E2ROM_PARAS {
+typedef struct {
 // 参数存储顺序与地址分配。
 	uint16_t	u16VcellOvp_First;
 	uint16_t	u16VcellOvp_Second;
@@ -85,11 +85,8 @@ struct PRT_E2ROM_PARAS {
 	uint16_t	u16SocLow_Third;
 	uint16_t	u16SocLow_Rcv;
 	uint16_t	u16SocLow_Filter;
-};
-typedef struct {
-    struct PRT_E2ROM_PARAS protect;
-} PARAM_T;
-extern PARAM_T g_tParam;
+} bms_protection_params_t;
+extern bms_protection_params_t g_bms_protection_params;
 /* 检查软件保护参数的阈值及恢复关系。 */
 uint8_t bms_protection_params_valid(void);
 #endif

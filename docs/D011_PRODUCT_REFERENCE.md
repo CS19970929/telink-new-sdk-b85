@@ -136,7 +136,7 @@ AFE hardware profile 的 `enable_mask` 是最终硬件保护使能来源：
 
 ## 9. 软件保护与 AFE 硬件保护
 
-- 软件保护：统一 `bms_sw_protection.*`，参数来自 `g_tParam.protect`，First/Second/Third/Recover/Filter。
+- 软件保护：统一 `bms_sw_protection.*`，参数来自 `g_bms_protection_params`，First/Second/Third/Recover/Filter。
 - AFE 硬件保护：`bms_afe_hw_profile_t`，没有三级概念，单独持久化/修改。
 - 普通软件参数写入不得触发 AFE profile 改写。
 - AFE profile 写入执行 validate -> persist -> apply -> readback/effective -> verify；失败回滚，rollback 失败进入 `CONFIG_INCONSISTENT`。

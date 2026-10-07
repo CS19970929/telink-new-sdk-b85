@@ -35,12 +35,12 @@ int main(void)
     raw16(0x93,6758);
     regs[SH3673520_REG_BSTATUS2]=charge ? 0 : SH3673520_BSTATUS2_LOADON_MASK;
     raw16(0x95,charge ? 1024 : 0); /* Connected charger at 4 V C+ in this model. */
-    bms_diag_init(); bms_parameters_startup(); LoadParam();
+    bms_diag_init(); bms_parameters_startup(); bms_parameters_init();
     assert(bms_protection_params_valid());
     bms_afe_hw_profile_t startup_profile;
     assert(bms_afe_hw_profile_get(&startup_profile));
     if (!boot) {
-        struct PRT_E2ROM_PARAS p=g_tParam.protect;
+        bms_protection_params_t p=g_bms_protection_params;
         p.u16IchgOcp_First=p.u16IdsgOcp_First=100;
         p.u16IchgOcp_Second=p.u16IdsgOcp_Second=150;
         p.u16IchgOcp_Third=p.u16IdsgOcp_Third=200;
@@ -70,7 +70,7 @@ int main(void)
     /* This is a fresh OS process: no production static RAM was manually reset. */
     int recorded=(bms_event_log_read_reg(0)>>8)==(charge ? CHG_OCP : DSG_OCP);
     assert(recorded==durable);
-    assert(g_tParam.protect.u16IdsgOcp_Third==200 && g_tParam.protect.u16IchgOcp_Third==200);
+    assert(g_bms_protection_params.u16IdsgOcp_Third==200 && g_bms_protection_params.u16IchgOcp_Third==200);
     unsigned first_on=0;
     for(unsigned i=1;i<=12;++i) {
         step();

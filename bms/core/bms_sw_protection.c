@@ -253,7 +253,7 @@ static void bms_sw_clear_managed_bits(bms_fault_reg_t *fault)
 }
 
 /* 检查软件保护阈值、恢复值和延时关系。 */
-uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *p)
+uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *p)
 {
     if (p == 0) return 0u;
     if ((p->u16VcellOvp_First > p->u16VcellOvp_Second) ||
@@ -371,7 +371,7 @@ static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
 
 /* 以输入快照评估各组软件保护并更新故障状态。 */
 static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
-                            const struct PRT_E2ROM_PARAS *p,
+                            const bms_protection_params_t *p,
                             const bms_sw_measurements_t *measurements,
                             uint8_t voltage_current_enabled,
                             uint8_t temperature_enabled)
@@ -533,7 +533,7 @@ void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
     measurements.pack_voltage_10mv = g_stCellInfoReport.u16VCellTotle;
     measurements.charge_a10 = g_stCellInfoReport.u16Ichg;
     measurements.discharge_a10 = g_stCellInfoReport.u16IDischg;
-    bms_sw_evaluate(inputs, &g_tParam.protect, &measurements,
+    bms_sw_evaluate(inputs, &g_bms_protection_params, &measurements,
                     voltage_current_enabled, temperature_enabled);
 }
 

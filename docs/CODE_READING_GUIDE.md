@@ -10,7 +10,7 @@
 SDK startup → main → user_init_normal（app_ble.c）→ app_init（app.c）
   board_init：先关闭业务输出授权
   bms_parameters_startup：Config/State/Event 启动校验及更新
-  LoadParam：读取并校验 g_tParam.protect
+  bms_parameters_init：读取并校验 g_bms_protection_params
   bms_afe_init → 首次 bms_afe_sample
   State → soc_param_lib_init
   UART/SIF、名称、事件、Runtime、采样唤醒初始化
@@ -43,7 +43,7 @@ main_loop → app_sample_task（约 200 ms）
 
 ## 第三轮：默认值为何不一定生效
 
-读 `bms/core/param.c`、`bms_config_store.c`、`bms_update_policy.h`、共享 `bms/products/bms_parameter_policy.h`、`bms_parameter_access.c`。
+读 `bms/core/bms_parameters.c`、`bms_config_store.c`、`bms_update_policy.h`、共享 `bms/products/bms_parameter_policy.h`、`bms_parameter_access.c`。
 
 ```text
 产品/公共默认 → Config default builder

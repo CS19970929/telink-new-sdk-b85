@@ -7,7 +7,7 @@
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 /* CONSTANTS */
 #define BMS_LOG(...) ((void)0)
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 static unsigned writes, calls, iteration;
 static const char *scenario;
 static void check(unsigned actual,unsigned expected)
@@ -23,7 +23,7 @@ static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
 static int read_address_supported(u16 r){return r>=0x2100&&r<=0x2140;}
 static u16 read_reg(u16 r){return (u16)(r^0x55aa);}
 static int reg_requires_param_save(u16 r){return r>=0x2100&&r<=0x2140;}
-static u8 commit_protection_update(const struct PRT_E2ROM_PARAS*c){++writes;g_tParam.protect=*c;return 0;}
+static u8 commit_protection_update(const bms_protection_params_t*c){++writes;g_bms_protection_params=*c;return 0;}
 static u8 write_reg(u16 r,u16 v){++writes;return 2;}
 static u8 afe_hw_profile_write_block(const u8*d,u16 n){++writes;return 0;}
 static int afe_hw_profile_is_reg(u16 r){return r>=BMS_AFE_HW_REQUESTED_REG_BASE&&r<BMS_AFE_HW_REQUESTED_REG_BASE+BMS_AFE_HW_REQUESTED_REG_COUNT;}
@@ -60,7 +60,7 @@ int main(void)
         req[iteration]^=(u8)(1u<<bit);writes=0;check(run(req,8),0);check(writes,0);req[iteration]^=(u8)(1u<<bit);
     }
     scenario="重复单寄存器写及广播";
-    for(iteration=0;iteration<100;iteration++){writes=0;check(run(req,8),1);check(writes,1);check(g_tParam.protect.u16VcellOvp_First,0x0102);}
+    for(iteration=0;iteration<100;iteration++){writes=0;check(run(req,8),1);check(writes,1);check(g_bms_protection_params.u16VcellOvp_First,0x0102);}
     req[0]=0;crc_frame(req,8);writes=0;check(run(req,8),0);check(writes,1);
     scenario="跨所有者多写拒绝且无副作用";
     memset(req,0,sizeof(req));req[0]=1;req[1]=0x10;req[2]=0x21;req[3]=0x40;req[5]=2;req[6]=4;crc_frame(req,13);

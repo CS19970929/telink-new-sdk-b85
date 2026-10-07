@@ -23,7 +23,7 @@ def check_sw_protection_defaults_check():
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument('--series-num', type=int, choices=(16, 20, 24), default=24)
         parser.add_argument('--boot-check', action='store_true',
-                            help='Also execute Config/State/Event/LoadParam with RAM Flash')
+                            help='Also execute Config/State/Event/bms_parameters_init with RAM Flash')
         args = parser.parse_args()
         source = (MOD / 'bms_sw_protection.c').read_text(encoding='utf-8')
         filters = source[source.index('typedef struct'):source.index('static bms_sw_filter_t s_filter')]

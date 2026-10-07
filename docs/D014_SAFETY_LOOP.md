@@ -68,7 +68,7 @@ python tests/run_host_regression.py --product d014 --only d014_safety_loop_host_
 
 - `bms/platform/telink/main.c` 的普通路径调用 `user_init_normal()`；`bms/app/app.c` 加载参数、初始化 AFE，随后调用 `mos_update()` 并允许输出请求。
 - `bms/core/bms_sw_protection.c` 的软件 Third OC 与恢复证据状态是静态 RAM；`bms_sw_protection_init()` 的保留动作只能保留仍存在于当前进程中的状态。
-- `bms/core/param.c` 在 `bms_parameters_startup()` 加载 event journal；`bms/core/bms_event_log.c` 恢复的是历史记录，没有把历史事件还原成当前保护锁存。旧事件也不能直接当作尚未解除的故障。
+- `bms/core/bms_parameters.c` 在 `bms_parameters_startup()` 加载 event journal；`bms/core/bms_event_log.c` 恢复的是历史记录，没有把历史事件还原成当前保护锁存。旧事件也不能直接当作尚未解除的故障。
 - `bms/afe/sh3673510/sh3673520.c` 的 `SH3673520_Init()` 发送 `SH3673520_Reset()`。因此不能直接假设仅 MCU 复位就会让 AFE 故障位一直保留；具体位和电气行为仍需官方资料及实板验证。
 
 ### 运行与结果解释

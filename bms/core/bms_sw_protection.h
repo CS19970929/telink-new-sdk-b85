@@ -1,5 +1,5 @@
 /*
- * 文件功能：软件三级保护滤波与故障位更新；使用 g_tParam.protect，
+ * 文件功能：软件三级保护滤波与故障位更新；使用 g_bms_protection_params，
  * Third 负责 MOS 阻断与恢复回差。
  * bms/core/bms_sw_protection.h；实际编译归属见各产品 sources.txt。
  */
@@ -36,7 +36,7 @@ typedef struct
 } bms_sw_protection_inputs_t;
 
 /* 检查软件保护阈值、恢复值和延时关系。 */
-uint8_t bms_sw_protection_validate_params(const struct PRT_E2ROM_PARAS *params);
+uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *params);
 /* 初始化软件保护参数和状态。 */
 void bms_sw_protection_init(void);
 /* 清除软件保护状态与内部滤波计数。 */

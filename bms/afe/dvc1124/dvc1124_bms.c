@@ -15,7 +15,7 @@
 #include "bms_sw_protection.h"
 #include "bms_features.h"
 #include "bms_afe_hw_profile.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include <string.h>
 
 /* 当前项目每 200 ms 调度一次 dvc1124_backend_sample()。 */

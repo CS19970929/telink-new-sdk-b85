@@ -15,7 +15,7 @@ extern "C" {
 /*
  * 与传输方式无关的 DVC1124 诊断/配置字段 ID。
  * 0x2800 固定运行/板级字段由编译期产品策略推导，只读且不持久化。
- * 运行时保护另有所有者：软件保护使用 g_tParam.protect，
+ * 运行时保护另有所有者：软件保护使用 g_bms_protection_params，
  * AFE 硬件保护使用 BMS_AFE_HW 配置事务。
  */
 typedef enum

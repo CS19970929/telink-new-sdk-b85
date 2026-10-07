@@ -22,7 +22,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 
 | 状态/数据 | 所有者与入口 | 失败/限制 |
 |---|---|---|
-| 软件保护参数 `g_tParam.protect` | `param.c` 的 LoadParam / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 SaveParam 不解除启动存储失败 |
+| 软件保护参数 `g_bms_protection_params` | `bms_parameters.c` 的 bms_parameters_init / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 SaveParam 不解除启动存储失败 |
 | 持久 Config 和更新编号 | `bms_config_store.c` 的 get/set/default/update | 候选成功落盘后才替换 cache |
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
 | 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |

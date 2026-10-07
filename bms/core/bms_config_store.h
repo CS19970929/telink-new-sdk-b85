@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_soc.h"
 
@@ -57,9 +57,9 @@ int bms_config_store_get_soc(bms_soc_config_t *config);
 /* 校验并保存SOC 算法配置，按保存结果更新缓存。 */
 int bms_config_store_set_soc(const bms_soc_config_t *config);
 /* 取得缓存的软件保护配置。 */
-int bms_config_store_get_protect(struct PRT_E2ROM_PARAS *protect);
+int bms_config_store_get_protect(bms_protection_params_t *protect);
 /* 校验并保存软件保护配置，按保存结果更新缓存。 */
-int bms_config_store_set_protect(const struct PRT_E2ROM_PARAS *protect);
+int bms_config_store_set_protect(const bms_protection_params_t *protect);
 /* 取得缓存的系统业务配置。 */
 int bms_config_store_get_system(bms_config_system_params_t *system);
 /* 校验并保存系统业务配置，按保存结果更新缓存。 */
@@ -73,7 +73,7 @@ int bms_config_store_get_bt_name_suffix(char *suffix, u16 suffix_size);
 /* 校验并保存BLE 名称后缀，按保存结果更新缓存。 */
 int bms_config_store_set_bt_name_suffix(const char *suffix);
 /* 取得产品软件保护默认配置。 */
-void bms_config_store_get_default_protect(struct PRT_E2ROM_PARAS *protect);
+void bms_config_store_get_default_protect(bms_protection_params_t *protect);
 
 #ifdef __cplusplus
 }

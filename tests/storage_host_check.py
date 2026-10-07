@@ -10,15 +10,20 @@ from validation_support import run_c
 ROOT=Path(__file__).resolve().parents[1]
 MOD = Sources(ROOT)
 def source(n):
-    return re.sub(r'^\s*#(?:include[^\n]*|pragma once)', '', (MOD/n).read_text(), flags=re.M)
+    text = re.sub(r'^\s*#(?:include[^\n]*|pragma once)', '', (MOD/n).read_text(), flags=re.M)
+    if n == 'bms_config_store.c':
+        start=text.index('static const bms_protection_params_t s_default_protection')
+        end=text.index('\n}',text.index('void bms_config_store_get_default_protect'))+2
+        text=text[:start]+'void bms_config_store_get_default_protect(bms_protection_params_t *p){if(p)memset(p,0,sizeof(*p));}'+text[end:]
+    return text
 def main():
-    param=source('bms_protection_params.h'); a=param.index('struct PRT_E2ROM_PARAS {'); b=param.index('};',a)+2
+    param=source('bms_protection_params.h'); a=param.index('typedef struct {'); b=param.index('} bms_protection_params_t;',a)+len('} bms_protection_params_t;')
     conf=(MOD/'conf.h').read_text()
     macros='\n'.join(re.findall(r'^#define (?:FW_UPGRADE_RESET_\w+|BMS_(?:STATE_SAVE|EVENT_SAVE|STORAGE_RETRY)_INTERVAL_32K)[^\n]*',conf,re.M))
     feature_header=(MOD/'bms_features.h').read_text()
     macros+='\n'+'\n'.join(re.findall(r'^#define BMS_BALANCE_(?:ENABLE_DEFAULT|START_VOLTAGE_MV_DEFAULT|START_DELTA_MV_DEFAULT|STOP_DELTA_MV_DEFAULT|CELL_PLAUSIBLE_MIN_MV|SUSPECT_DELTA_MV)[^\n]*',feature_header,re.M))
     headers='\n'.join(source(n) for n in ['bms_soc_defs.h','bms_state_store.h','bms_soc.h','bms_afe_hw_profile.h','bms_config_store.h','bms_event_log.h','bms_storage_platform.h'])
-    units='\n'.join(source(n) for n in ['bms_config_store.c','bms_state_store.c','bms_event_log.c','param.c'])
+    units='\n'.join(source(n) for n in ['bms_config_store.c','bms_state_store.c','bms_event_log.c','bms_parameters.c'])
     fixture=(ROOT/'tests/fixtures/d008_storage/stores.c').read_text()
     code=fixture.replace('/* PARAMETER_PROTOCOL */',source('bms_parameter_access.h')+'\n'+source('bms_parameter_access.c')).replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
     sources=[str((MOD/n).relative_to(ROOT)) for n in ('storage_record.c','bms_diag.c')]

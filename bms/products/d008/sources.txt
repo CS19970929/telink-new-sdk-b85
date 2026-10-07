@@ -44,7 +44,7 @@ bms/platform/telink/main.c
 bms/platform/telink/bms_stack_monitor.c
 bms/core/modbus_rtu.c
 bms/platform/telink/modbus_uart.c
-bms/core/param.c
+bms/core/bms_parameters.c
 bms/platform/telink/sif_send.c
 bms/core/storage_record.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.c

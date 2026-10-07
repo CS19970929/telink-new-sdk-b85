@@ -45,7 +45,7 @@ def check_afe_hw_profile_contract_check():
     commit = m[m.index('static u8 commit_protection_update'):m.index('static u16 u16be(', m.index('static u8 commit_protection_update'))]
     assert 'bms_afe_apply_protection_config' not in commit
     apply = c[c.index('uint8_t sh3673510_control_apply_protection'):c.index('uint8_t sh3673510_control_get_protection_actual')]
-    assert 'g_tParam.protect' not in apply
+    assert 'g_bms_protection_params' not in apply
     assert 'bms_afe_hw_profile_get(&hw)' in b
 
     # D014 current sense: 667uOhm. Requested values are rounded upward by AFE

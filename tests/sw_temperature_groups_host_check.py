@@ -10,7 +10,7 @@ code = r'''
 #include "bms_sw_protection.h"
 #include "bms_protection_params.h"
 #include "bms_error.h"
-PARAM_T g_tParam;
+bms_protection_params_t g_bms_protection_params;
 struct stCell_Info g_stCellInfoReport;
 static int broken;
 void bms_error_clear(bms_error_id_t error){(void)error;broken=0;}
@@ -21,10 +21,10 @@ void bms_fault_history_record(bms_fault_code_t fault){(void)fault;}
 int main(void){
  bms_sw_protection_inputs_t in={.battery_temp_valid=1, .mos_temp_valid=1,
   .battery_temp_min=1000, .battery_temp_max=1000, .mos_temp=1000, .mos_temp_required=1};
- g_tParam.protect.u16TChgOTp_Third=900;g_tParam.protect.u16TChgOTp_Rcv=800;
- g_tParam.protect.u16TmosOTp_Third=900;g_tParam.protect.u16TmosOTp_Rcv=800;
- g_tParam.protect.u16IchgOcp_Third=100;g_tParam.protect.u16IchgOcp_Rcv=50;
- g_tParam.protect.u16VcellOvp_Third=4000;g_tParam.protect.u16VcellOvp_Rcv=3900;
+ g_bms_protection_params.u16TChgOTp_Third=900;g_bms_protection_params.u16TChgOTp_Rcv=800;
+ g_bms_protection_params.u16TmosOTp_Third=900;g_bms_protection_params.u16TmosOTp_Rcv=800;
+ g_bms_protection_params.u16IchgOcp_Third=100;g_bms_protection_params.u16IchgOcp_Rcv=50;
+ g_bms_protection_params.u16VcellOvp_Third=4000;g_bms_protection_params.u16VcellOvp_Rcv=3900;
  g_stCellInfoReport.u16Ichg=200;g_stCellInfoReport.u16VCellMax=4100;
  for(int vc=0;vc<=1;vc++) for(int temp=0;temp<=1;temp++){
   bms_sw_protection_init();bms_sw_protection_update_groups(&in,vc,temp);

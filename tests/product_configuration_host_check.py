@@ -9,8 +9,8 @@ sw_fields = re.findall(r'uint16_t\s+(u16\w+)\s*;', read('bms/core/bms_protection
 hw_fields = re.findall(r'    u16 (\w+);', read('bms/core/bms_afe_hw_profile.h'))
 assert len(sw_fields) == 65 and len(hw_fields) == 35
 code = profile_prefix(product) + '\n#include "bms_sw_protection.h"\n#include "bms_state.h"\n'
-code += 'PARAM_T g_tParam; uint8_t bms_protection_params_valid(void){return 1;}\n'
-code += 'int main(void){struct PRT_E2ROM_PARAS sw=E2P_PROTECT_DEFAULT_PRT; bms_afe_hw_profile_t hw;\n'
+code += 'bms_protection_params_t g_bms_protection_params; uint8_t bms_protection_params_valid(void){return 1;}\n'
+code += 'int main(void){bms_protection_params_t sw; bms_config_store_get_default_protect(&sw); bms_afe_hw_profile_t hw;\n'
 code += 'bms_afe_hw_profile_build_default(&hw); assert(bms_afe_hw_profile_validate(&hw)); assert(bms_sw_protection_validate_params(&sw));\n'
 code += 'printf("{\\"cells\\":%u,\\"capacity_0p1ah\\":%u,\\"sw\\":{",(unsigned)SeriesNum,(unsigned)CapacityFactory);\n'
 for index, name in enumerate(sw_fields):

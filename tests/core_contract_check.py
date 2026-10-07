@@ -268,7 +268,7 @@ def check_afe_hw_access_contract_check():
     assert 'BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u' in c
     assert 'BMS_AFE_HW_META_INTERFACE_VERSION        0x252Bu' in c
     assert 'bms_afe_hw_profile_get_effective' in p
-    assert 'g_tParam.protect' not in m[m.index('static u8 afe_hw_profile_write_block'):m.index('static int dvc_comm_is_semantic') if 'static int dvc_comm_is_semantic' in m[m.index('static u8 afe_hw_profile_write_block'):] else m.index('static u16 read_fault_history_reg')]
+    assert 'g_bms_protection_params' not in m[m.index('static u8 afe_hw_profile_write_block'):m.index('static int dvc_comm_is_semantic') if 'static int dvc_comm_is_semantic' in m[m.index('static u8 afe_hw_profile_write_block'):] else m.index('static u16 read_fault_history_reg')]
     print('AFE hardware access/transaction/effective-profile contract: PASS')
 
 def check_soc_contract_check():

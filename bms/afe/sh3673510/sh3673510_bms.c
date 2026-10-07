@@ -9,7 +9,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "conf.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_error.h"
 #include "bms_diag.h"
 #include "bms_config_store.h"

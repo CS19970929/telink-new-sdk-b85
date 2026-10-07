@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "drivers.h"
-#include "param.h"
+#include "bms_parameters.h"
 #include "bms_state.h"
 #include "bms_afe.h"
 #include "bms_afe_driver.h"
@@ -176,7 +176,7 @@ int main(void)
     for (unsigned i=0; i<4; ++i) raw16((uint8_t)(0x5d+2*i), 16384); /* 10 kohm */
     raw16(0x93, 6758); /* 26.398 V */
     if (!strcmp(scenario, "boot-failure")) flash_cut=0;
-    bms_diag_init(); bms_parameters_startup(); LoadParam();
+    bms_diag_init(); bms_parameters_startup(); bms_parameters_init();
     if (!strcmp(scenario, "boot-failure")) {
         assert(!bms_protection_params_valid()); bms_afe_init(); request_outputs();
         steps(15); require_both_off();
@@ -191,23 +191,23 @@ int main(void)
     assert(g_stCellInfoReport.u16VCellMax==3300 && g_stCellInfoReport.u16VCellMin==3300);
     for (unsigned i=8; i<32; ++i) assert(g_stCellInfoReport.u16VCell[i]==61001);
     if (!strcmp(scenario, "cold-reboot")) {
-        assert(g_tParam.protect.u16IdsgOcp_Third==200);
-        assert(g_tParam.protect.u16IdsgOcp_Filter==40);
+        assert(g_bms_protection_params.u16IdsgOcp_Third==200);
+        assert(g_bms_protection_params.u16IdsgOcp_Filter==40);
         /* Only configuration is durable. Never claim a RAM SW latch survived reset. */
         assert(!bms_sw_protection_discharge_blocked());
         puts("PASS new process reloads committed parameters; cold MCU reset is a separate latch boundary"); return 0;
     }
-    struct PRT_E2ROM_PARAS p = g_tParam.protect;
+    bms_protection_params_t p = g_bms_protection_params;
     p.u16IdsgOcp_First=100; p.u16IdsgOcp_Second=150; p.u16IdsgOcp_Third=200;
     p.u16IdsgOcp_Rcv=50; p.u16IdsgOcp_Filter=40;
     assert(bms_protection_params_commit(&p));
-    struct PRT_E2ROM_PARAS invalid=p;
+    bms_protection_params_t invalid=p;
     invalid.u16IdsgOcp_Rcv=201; assert(!bms_protection_params_commit(&invalid));
-    assert(!memcmp(&p, &g_tParam.protect, sizeof(p)));
-    struct PRT_E2ROM_PARAS interrupted=p;
+    assert(!memcmp(&p, &g_bms_protection_params, sizeof(p)));
+    bms_protection_params_t interrupted=p;
     interrupted.u16IdsgOcp_Third=210; flash_cut=24;
     assert(!bms_protection_params_commit(&interrupted)); flash_cut=-1;
-    assert(!memcmp(&p, &g_tParam.protect, sizeof(p)));
+    assert(!memcmp(&p, &g_bms_protection_params, sizeof(p)));
     bms_error_clear(BMS_ERROR_EEPROM_STORE);
     puts("PASS real product defaults, parameter validation and failed-save atomic publication");
     trip_discharge(); steps(20);

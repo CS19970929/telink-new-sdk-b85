@@ -6,10 +6,10 @@
 
 软件三级保护与 AFE 芯片硬件保护是两条独立安全通道：
 
-- 软件保护：`g_tParam.protect`，First / Second / Third / Recover / Filter；
+- 软件保护：`g_bms_protection_params`，First / Second / Third / Recover / Filter；
 - AFE硬件保护：`bms_afe_hw_profile_t`，没有 First/Second/Third；
 - 修改软件保护不得副作用重写 AFE HW profile；
-- 修改 AFE HW profile 不得改 `g_tParam.protect`。
+- 修改 AFE HW profile 不得改 `g_bms_protection_params`。
 
 当前 monorepo 使用 CFG2 payload 格式、内部 journal schema 3，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取编译期软件默认种子并规范化，SH 默认来自产品头文件。
 

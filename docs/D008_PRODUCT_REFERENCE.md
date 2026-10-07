@@ -53,7 +53,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
 | 板载 NTC | NTC1/NTC2 标注 `SNC103B13435F0603E` |
 
-容量、OV/UV/OC/温度默认值仍需产品签核。当前入口为产品 `bms_product_conf.h`、`d008_product_profile.h`、`dvc1124_project_config.h` 及公共 `param.h`。
+容量、OV/UV/OC/温度默认值仍需产品签核。当前入口为产品 `bms_product_conf.h`、`d008_product_profile.h`、`dvc1124_project_config.h` 及公共 `bms_parameters.h`。
 
 ## 3. MCU IO 基线与代码核对
 
@@ -144,7 +144,7 @@ bms/products/d008/dvc1124_project_config.h
 
 仅保护参数保留运行时持久化：
 
-1. MCU 软件保护：`g_tParam.protect`
+1. MCU 软件保护：`g_bms_protection_params`
    - First / Second / Third
    - Recover
    - Filter
@@ -301,7 +301,7 @@ Requested AFE Hardware Profile 仍保存在 Flash；重新用 `HW=1` 构建后�
 软件保护与 AFE hardware protection 是两套独立参数：
 
 ```text
-g_tParam.protect
+g_bms_protection_params
     = software First/Second/Third/Recover/Filter
 
 bms_afe_hw_profile_t
