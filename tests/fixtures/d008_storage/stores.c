@@ -21,7 +21,7 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 /* TYPES */
 static u32 now, errors, programs, erases;
 static u32 sector_erases[28];
-static int read_ok=1, erase_ok=1;
+static int read_ok=1, erase_ok=1, config_read_fail;
 static int cut=-1, begin_ok=1, region_ok=1;
 static u8 flash[28u*4096u];
 static u8 backup[sizeof(flash)];
@@ -34,7 +34,7 @@ void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->cu
 u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
 static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
-static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok)return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
+static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok || (config_read_fail && a<4u*4096u))return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
 static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<=sizeof(flash));for(u32 i=0;i<n;i++){if(cut==0)return 0;if(cut>0)--cut;assert((flash[a+i]|b[i])==flash[a+i]);flash[a+i]&=b[i];}return 1;}
 static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
@@ -43,7 +43,7 @@ int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!r
 uint32_t bms_diag_tick(void){return now;}
 /* PRODUCTION */
 static void reboot(void){
- bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;
+ bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;config_read_fail=0;
  g_bms_config_ready=0;g_bms_state_ready=0;
  memset(&g_bms_config_store,0,sizeof(g_bms_config_store));
  memset(&g_bms_state_store,0,sizeof(g_bms_state_store));
@@ -226,15 +226,27 @@ static void test_boot_gate(void){
 static void test_diag_boot(void){
  fresh();reboot();region_ok=0;u32 before=errors;
  bms_parameters_init();
- assert(errors-before==2);assert(bms_diag_cached_word(36)==2);
+ assert(errors-before==3);assert(bms_diag_cached_word(36)==2);
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
- assert(bms_diag_cached_word(52)==0 && bms_diag_cached_word(84)==0);
- assert(!bms_event_log_init());assert(bms_diag_cached_word(84)==1);
+ assert(bms_diag_cached_word(52)==1 && bms_diag_cached_word(84)==1);
+ assert(!bms_event_log_init());assert(bms_diag_cached_word(84)==2);
  bms_parameters_diag_poll();assert(bms_diag_cached_word(144)==0);
  bms_diag_freeze_boot();region_ok=1;assert(bms_config_store_init());
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
  fresh();assert(bms_diag_cached_word(39)==1 && bms_diag_cached_word(37)==0);
- puts("PASS diagnostics: two Config failures, short circuit, independent Event attempt, frozen first failure, blank defaults");
+ puts("PASS diagnostics: two Config failures, independent State/Event attempts, frozen first failure, blank defaults");
+}
+static void test_config_failure_preserves_state_cache(void){
+ fresh();assert(bms_state_store_write_all(63u,27u,123u));
+ reboot();config_read_fail=1;bms_parameters_init();
+ assert(!bms_protection_params_valid());assert(g_bms_state_ready && g_bms_event_log.ready);
+ bms_state_store_data_t loaded=bms_state_store_get();
+ assert(loaded.soc==63u && loaded.dsg==27u && loaded.cycle==123u);
+ assert(bms_diag_cached_word(52)==1 && bms_diag_cached_word(84)==1);
+ config_read_fail=0;assert(bms_protection_params_commit(&g_bms_protection_params));
+ assert(!bms_protection_params_valid());
+ loaded=bms_state_store_get();assert(loaded.soc==63u && loaded.cycle==123u);
+ puts("PASS Config read failure: real State cache preserves SOC/discharge/cycles, every domain initialized once, online commit cannot clear gate");
 }
 static int access_active=1;static unsigned identity_updates,capacity_updates;
 static u8 live_soc=60;
@@ -492,4 +504,4 @@ static void test_event_semantics(void){
  puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
 }
 
-int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

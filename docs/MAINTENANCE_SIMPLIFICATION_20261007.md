@@ -6,7 +6,7 @@
 
 - CI 源码当前上传整个 TC32 build root。收为 ELF、MAP、resources、输入/链接收据、build.log、static 报告；排除对象、LST 和 Cppcheck 缓存。上传失败仍失败，不以 continue-on-error 隐藏。
 - 四产品 `BMS_PRODUCT_RELEASE_APPROVED` 全部保持 0，正式 production 镜像再叠加 D008/D013 专项批准；工程 link/resources 继续允许。禁止 EXTRA_DEFINES 绕过。
-- 参数启动收为一个公共入口。保留原 Config→State→Event 验证顺序及其失败门禁，再加载软件保护；删除 app 中重复显式 State/Event init，不改变 reset 保持或跨域原子策略。
+- 参数启动收为一个公共入口。Config→State→Event 各尝试初始化一次，即使前域失败仍加载其他健康域；整体失败门禁保持，再加载软件保护；删除 app 中重复显式 State/Event init，不改变 reset 保持或跨域原子策略。
 - 运行诊断共用入口，但 D008 新鲜度与 SH 原样本资格仍由原消费者判断。直接传本帧 raw/current/tick，不重新取一次 aux；DVC 主循环的 storage/parameters/AFE 诊断时点保留，避免停机时失去诊断或额外 AFE 访问。
 - 产品宏和字段名称直接替换，不留 alias。D008 一个公共产品入口包含私有 DVC 默认文件；不改寄存器编码、工作时序、保护阈值、产品容量和通信名称。
 - 字段重命名单独提交，类型/成员顺序/bit-field、65-word 软件保护、CFG2/State/Event 编码、wire 地址和 Flash/OTA 边界保持。
@@ -22,3 +22,5 @@
 第三批：产品旧宏直接换为 BMS_PRODUCT_* 与具单位的 BMS_SLEEP_*；通信能力采用显式 0/1。D008 公共入口包含私有 dvc1124_product_defaults.h，原默认数值逐行保留。四产品 TC32 预处理比较 488 项原产品/板级/后端宏，归一改名后 0 差异；99 项关键活跃源码/函数体 0 差异。产品默认、核心契约和 production 批准正负控制 12 组通过。
 
 第四批：133 个旧成员名直接替换为描述业务与单位的名称，生产代码仅机械改名与定义注释/对齐，不改表达式。TC32 四产品各 104 项 sizeof/offset 和 38 个位域常量对象一致；18 个修改生产文件归一改名后源码一致。六装配的串数、容量、65 项软件保护及 35 项 AFE 默认数值一致。核心、诊断、Modbus、默认配置 16 组、保护场景 4 组和 D008 配置/后端 2 组通过。对应源码解析/拼接名夹具同步名称，断言保持。后续统一固定提交执行完整 host/sanitizers 与四开发、六生产 link/resources。
+
+异常路径补查：原 app 重复 State init 还保证 Config 失败后读取健康 State，初次集中入口的早返回遗漏了这一点。最终入口依次尝试三个独立域，再按首个失败保持诊断和输出禁止；不会因 Config 失败让 SOC 启动读取默认循环次数。增加仅 Config 区读失败的真实 Config/State/Event/journal 场景：State 保持 SOC=63、放电累计=27、循环=123，三个域各尝试一次，在线保护提交仍不能清门禁；相关核心、存储与 AFE 门禁 9 组通过。最终增加四产品 core_contract 的 sanitizer 覆盖，共 41 组。

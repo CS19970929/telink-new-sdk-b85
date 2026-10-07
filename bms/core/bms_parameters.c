@@ -75,16 +75,21 @@ uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate)
 /* 加载并验证各持久域，确定启动输出资格。 */
 static void parameters_validate_storage_startup(void)
 {
+    uint8_t config_valid, state_valid, event_valid;
     /*
      * 启动更新失败持续阻断，直到重启/重走本启动路径；
      * 后续通信 bms_protection_params_commit 不能清此门禁。
      */
     s_storage_startup_valid = 0u;
-    if (!bms_config_store_validate_startup()) goto failed;
-    if (!bms_state_store_init()) {
+    /* 各域独立加载；Config 失败也须保留健康 State 的 SOC/循环次数缓存。 */
+    config_valid = bms_config_store_validate_startup() ? 1u : 0u;
+    state_valid = bms_state_store_init() ? 1u : 0u;
+    event_valid = bms_event_log_init() ? 1u : 0u;
+    if (!config_valid) goto failed;
+    if (!state_valid) {
         bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u); goto failed;
     }
-    if (!bms_event_log_init()) {
+    if (!event_valid) {
         bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u); goto failed;
     }
     s_storage_startup_valid = 1u;
