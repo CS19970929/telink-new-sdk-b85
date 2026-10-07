@@ -178,6 +178,9 @@
 #endif
 
 #if BMS_PRODUCTION_BUILD
+    #if defined(BMS_HOST_TEST) && BMS_HOST_TEST
+        #error "Production firmware must disable BMS_HOST_TEST"
+    #endif
 	#if (BMS_DIAG_BUILD_ID == 0u)
 		#error "Production build requires a nonzero Git diagnostic build ID"
 	#endif

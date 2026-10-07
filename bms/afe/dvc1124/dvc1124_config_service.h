@@ -119,10 +119,23 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
                                                     u32 value);
 
+/* 两档构建能力：开发允许安全原始读，生产不编译原始访问。 */
+#ifndef BMS_DVC_RAW_DIAG_ENABLE
+#define BMS_DVC_RAW_DIAG_ENABLE (!BMS_PRODUCTION_BUILD)
+#endif
+#if (BMS_DVC_RAW_DIAG_ENABLE != 0) && (BMS_DVC_RAW_DIAG_ENABLE != 1)
+#error "BMS_DVC_RAW_DIAG_ENABLE must be 0 or 1"
+#endif
+#if BMS_PRODUCTION_BUILD && BMS_DVC_RAW_DIAG_ENABLE
+#error "Production firmware must disable BMS_DVC_RAW_DIAG_ENABLE"
+#endif
+#if BMS_DVC_RAW_DIAG_ENABLE
 /* 原始镜像仅供只读诊断；拒绝具有读清除副作用的寄存器，应读取缓存/软件锁存语义诊断。 */
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value);
 /* 拒绝原始寄存器写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value);
+
+#endif
 
 #ifdef __cplusplus
 }

@@ -78,7 +78,7 @@ class ProductionBuildTests(unittest.TestCase):
                 bms._effective_extra_defines()
             with mock.patch.object(bms, "_firmware_git_dirty", return_value=1), self.assertRaises(SystemExit):
                 bms._effective_extra_defines()
-            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3"):
+            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_D008_20S_NMC_PROTECTION_APPROVED=1", "-DBMS_D013_HW_CONFIG_APPROVED=1"):
                 with mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": override}), self.assertRaises(SystemExit):
                     bms._effective_extra_defines()
 
@@ -206,8 +206,39 @@ class CommandSurfaceTests(unittest.TestCase):
         self.assertEqual(
             commands,
             {"env", "build", "compile", "link", "resources", "rebuild", "objcopy", "check-fw", "size", "map",
-             "manifest", "verify", "baseline", "static", "flash-help", "ci", "sources"},
+             "manifest", "verify", "baseline", "static", "flash-help", "ci", "sources", "test", "release"},
         )
+
+
+    def test_host_test_selection_runs_once_for_all_products(self):
+        for all_products in (False, True):
+            with self.subTest(all_products=all_products), mock.patch.object(bms._selection, "all_products", all_products), mock.patch.object(bms.subprocess, "call", return_value=0) as child:
+                self.assertEqual(bms.main(["test", "--output", "external-report"]), 0)
+                command = child.call_args.args[0]
+                self.assertEqual(child.call_count, 1)
+                self.assertEqual("--product" in command, not all_products)
+                self.assertEqual(command[-2:], ["--output", "external-report"])
+
+    def test_missing_action_reports_parser_error_before_dispatch(self):
+        with mock.patch.object(bms._selection, "all_products", True), mock.patch.object(bms, "_cli", []), mock.patch.object(bms.sys, "stderr"), mock.patch.object(bms.subprocess, "call") as child:
+            with self.assertRaises(SystemExit) as caught:bms.main()
+            self.assertEqual(caught.exception.code, 2)
+            child.assert_not_called()
+
+    def test_release_runs_image_manifest_verify_in_order(self):
+        calls = []
+        with mock.patch.object(bms, "PRODUCTION", True), mock.patch.object(bms, "cmd_rebuild", side_effect=lambda a:calls.append("rebuild")), mock.patch.object(bms, "cmd_manifest", side_effect=lambda a:calls.append("manifest")), mock.patch.object(bms, "cmd_verify", side_effect=lambda a:calls.append("verify") or 0):
+            self.assertEqual(bms.cmd_release(bms.argparse.Namespace(jobs=4)), 0)
+            self.assertEqual(calls, ["rebuild", "manifest", "verify"])
+
+    def test_pending_approval_stops_before_clean_or_image_generation(self):
+        for command in (bms.cmd_build, bms.cmd_rebuild, bms._finalize_firmware):
+            with self.subTest(command=command.__name__), mock.patch.object(bms, "_require_release_approval", side_effect=SystemExit(1)), mock.patch.object(bms, "_invoke_make") as make, mock.patch.object(bms, "_run") as run:
+                with self.assertRaises(SystemExit):
+                    if command == bms._finalize_firmware:command()
+                    else:command(bms.argparse.Namespace(jobs=4))
+                make.assert_not_called()
+                run.assert_not_called()
 
 
 class OutputPathTests(unittest.TestCase):

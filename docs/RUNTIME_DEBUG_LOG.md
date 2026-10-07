@@ -4,6 +4,8 @@
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
 四产品共享 `bms/core/bms_debug_log.c`，产品 sources.txt 引用同一文件。
 
+诊断 ring trace 与运行日志是两个开关：开发 `BMS_DIAG_TRACE_ENABLE=1`，production 固定为 0；`BMS_DEBUG_LOG_ENABLE` 仍默认 0、production 禁止开启。关闭 trace 保留 boot/AFE/MOS/storage/fault 快照，原 trace 窗口读零，能力位关闭。DVC raw register window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
+
 ## 使用
 
 默认 `BMS_DEBUG_LOG_ENABLE=0`。开发时用编译参数启用，避免把调试配置提交为量产默认值：

@@ -49,6 +49,7 @@ MAP      := $(GEN_DIR)/825x_ble_sample.map
 # ---- Include paths (exact set from Eclipse .cproject for B85/825x_sample) -
 INCLUDES := -I"$(REPO_ROOT)" \
 	-I"$(REPO_ROOT)/bms/products/$(PRODUCT)" \
+	-I"$(REPO_ROOT)/bms/products" \
     -I"$(REPO_ROOT)/bms/core" \
     -I"$(REPO_ROOT)/bms/app" \
     -I"$(REPO_ROOT)/bms/platform/telink" \

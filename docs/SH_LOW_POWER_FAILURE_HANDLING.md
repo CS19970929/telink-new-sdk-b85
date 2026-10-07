@@ -22,7 +22,7 @@ sleep 事件只记录进入尝试。最后时刻 PAD 变化或 SDK 拒睡仍可�
 
 三种 SH 产品使用同一 200 ms sample wakeup 调度：callback 只置位，采样、SOC、MOS 和诊断在主循环；超时合并，不补造多帧。软件保护计数仍按名义 200 ms 样本，真实 BLE/Flash 阻塞可能影响墙钟响应。
 
-使用 [构建指南](BUILD_AND_TEST.md) 的环境选择产品后运行 `sh3673510_sleep_host_check.py`、`sh3673510_sample_schedule_host_check.py`、`sh3673510_recovery_host_check.py`，公共变化跑完整 runner 及四目标 link/resources。测试有 SDK/驱动桩和隔离 PM 门禁的故障场景，不是新增支持模式；日常不运行会生成 BIN 的 `bms.py ci`。
+使用 [构建指南](BUILD_AND_TEST.md) 的环境选择产品后运行 `sh_power_host_check.py`、`sh_power_host_check.py`、`sh_recovery_host_check.py`，公共变化跑完整 runner 及四目标 link/resources。测试有 SDK/驱动桩和隔离 PM 门禁的故障场景，不是新增支持模式；日常不运行会生成 BIN 的 `bms.py ci`。
 
 ## 实板未关闭项
 

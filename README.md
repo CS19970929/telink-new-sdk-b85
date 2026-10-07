@@ -2,6 +2,8 @@
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
 
+当前专题与阅读顺序见 [文档导航](docs/README.md)。
+
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 优先列出当前系统；固定提交报告与 generated evidence 见末尾历史入口。
 
 AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边界见 [AFE修复记录](docs/AFE_AUDIT_REMEDIATION.md)。
@@ -15,7 +17,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
 | [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
-| [当前简化与保留边界](docs/SIMPLIFICATION_20261006.md) | 主流程、产品差异、删除项、状态与验证口径 |
+| [当前简化与保留边界](docs/SIMPLIFICATION_20261007.md) | 主流程、产品差异、删除项、状态与验证口径 |
 | [架构与状态所有权](docs/ARCHITECTURE.md) | 查模块责任、数据流和失败路径 |
 | [单一源码组织说明](docs/BMS_MONOREPO.md) | 查产品边界、参数格式、移植及导入范围 |
 | [根协作规则](AGENTS.md) | 开始修改前确认仓库约束 |
@@ -42,7 +44,6 @@ python bms_tools/bms.py --product d014 resources
 | [D013 产品 reference](docs/D013_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d013/AGENTS.md) | 4S/100 µΩ 为代码输入；专属原理图/BOM 尚缺 |
 | [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |
 | [AFE 原厂资料库](references/afe/README.md) · [开发使用指南](docs/AFE_REFERENCE_GUIDE.md) | 六份原 PDF、型号/版本边界、检索工具、独立审查及已知问题 |
-| [四产品配置核对表](docs/FOUR_PRODUCT_CONFIGURATION_AUDIT.md) | 固定基线的完整默认字段、量化结果和替换限制 |
 | [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | 八类编号及一个保留槽、保留/重置、回退和启动失败 |
 
 ## 专题与调试
@@ -53,8 +54,7 @@ python bms_tools/bms.py --product d014 resources
 | [AFE 硬件保护](docs/AFE_HARDWARE_PROTECTION_V2.md) | 授权、35-word profile、requested/effective、回滚 |
 | [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
 | [D014 保护与恢复软件闭环](docs/D014_SAFETY_LOOP.md) | 真实参数/存储到 SPI MOS 命令、软件过流物理恢复、重初始化与测试边界 |
-| [SOC](docs/SOC.md) | 真实样本时基、OCV、学习与状态保存 |
-| [存储优化实施记录](docs/STORAGE_REFACTOR_20261006.md) | 删除老化、Event 修复、验证与硬件边界 |
+| [SOC](docs/SOC.md) | 真实样本时基、OCV、循环 SOH 与状态保存 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 休眠/唤醒、通信与采样门禁 |
@@ -78,15 +78,17 @@ python bms_tools/bms.py --product d014 resources
 | 文档 | 用途 |
 |---|---|
 | [AFE 原厂文档与四产品审查](docs/afe-audit/20261006-0aaa8429/README.md) | 2026-10-06 固定提交 `0aaa8429`；原 PDF 对照、当前问题、配置矩阵及验证收据，未实施修复 |
-| [文档审核与交接记录](docs/DOCUMENTATION_AUDIT.md) | 本次修正/删除范围、验证和剩余资料缺口 |
-| [初次迁移验证记录](docs/BMS_MONOREPO_VALIDATION.md) | 历史 `fd50730`；不是当前测试成绩 |
-| [迁移后整改记录](docs/BMS_MONOREPO_REMEDIATION.md) | 固定提交的整改和六配置生产验证 |
+| [文档审核与交接记录](docs/history/DOCUMENTATION_AUDIT.md) | 本次修正/删除范围、验证和剩余资料缺口 |
+| [初次迁移验证记录](docs/history/BMS_MONOREPO_VALIDATION.md) | 历史 `fd50730`；不是当前测试成绩 |
+| [迁移后整改记录](docs/history/BMS_MONOREPO_REMEDIATION.md) | 固定提交的整改和六配置生产验证 |
 
 
-- [第一轮简化](docs/BMS_SIMPLIFICATION.md) · [固定证据](docs/BMS_SIMPLIFICATION_EVIDENCE.json)
-- [自动化验证固定证据](docs/AUTOMATED_VALIDATION_EVIDENCE.json)
-- [D014 软件闭环固定证据](docs/D014_SAFETY_LOOP_EVIDENCE.json)
-- [中文注释说明](docs/CHINESE_CODE_COMMENTS.md) · [历史检查摘要](docs/CHINESE_COMMENT_AUDIT.json)
+- [第二轮简化](docs/history/SIMPLIFICATION_20261006.md) · [存储优化实施记录](docs/history/STORAGE_REFACTOR_20261006.md)
+- [四产品配置固定核对表](docs/history/FOUR_PRODUCT_CONFIGURATION_AUDIT.md)
+- [第一轮简化](docs/history/BMS_SIMPLIFICATION.md) · [固定证据](docs/history/BMS_SIMPLIFICATION_EVIDENCE.json)
+- [自动化验证固定证据](docs/history/AUTOMATED_VALIDATION_EVIDENCE.json)
+- [D014 软件闭环固定证据](docs/history/D014_SAFETY_LOOP_EVIDENCE.json)
+- [中文注释说明](docs/history/CHINESE_CODE_COMMENTS.md) · [历史检查摘要](docs/history/CHINESE_COMMENT_AUDIT.json)
 
 这些记录只代表各自标注的提交；当前成绩以当前 HEAD 的 CI 和源码树外本轮报告为准。原厂 AFE PDF、原始硬件资料及认证证据没有删除。
 

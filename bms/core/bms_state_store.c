@@ -1,5 +1,5 @@
 /*
- * 文件功能：SOC/循环/学习数据的状态记录；
+ * 文件功能：SOC/循环数据的状态记录；
  * 管理缓存、变化保存和恢复默认入口。
  * bms/core/bms_state_store.c；实际编译归属见各产品 sources.txt。
  */
@@ -11,7 +11,6 @@
 #include "storage_record.h"
 #include "drivers.h"
 #include "bms_error.h"
-#include "bms_soc_defs.h"
 #include <string.h>
 
 #define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /*
@@ -26,13 +25,6 @@ typedef struct {
     u32 soc;
     u32 dsg;
     u32 cycle;
-    u32 learned_capacity_0p1ah;
-    u32 flags;
-    u32 candidate_capacity_0p1ah;
-    u32 valid_learning_count;
-    u32 rejected_learning_count;
-    u32 last_learning_reject_reason;
-    u32 candidate_match_count;
 } bms_state_persist_t;
 
 static storage_record_store_t g_bms_state_store;
@@ -60,20 +52,13 @@ static u32 bms_state_get_u32le(const u8 *buf)
            ((u32)buf[2] << 16) | ((u32)buf[3] << 24);
 }
 
-/* 取得 SOC、循环和学习状态默认值。 */
+/* 取得 SOC 和循环状态默认值。 */
 bms_state_store_data_t bms_state_store_get_default_data(void)
 {
     bms_state_store_data_t data;
     data.soc = BMS_STATE_DEFAULT_SOC;
     data.dsg = BMS_STATE_DEFAULT_DSG;
     data.cycle = BMS_STATE_DEFAULT_CYCLE;
-    data.learned_capacity_0p1ah = BMS_STATE_DEFAULT_LEARNED_CAPACITY;
-    data.flags = BMS_STATE_DEFAULT_FLAGS;
-    data.candidate_capacity_0p1ah = 0u;
-    data.valid_learning_count = 0u;
-    data.rejected_learning_count = 0u;
-    data.last_learning_reject_reason = 0u;
-    data.candidate_match_count = 0u;
     return data;
 }
 
@@ -85,28 +70,15 @@ static void bms_state_defaults(bms_state_persist_t *state)
     state->soc = soc.soc;
     state->dsg = soc.dsg;
     state->cycle = soc.cycle;
-    state->learned_capacity_0p1ah = soc.learned_capacity_0p1ah;
-    state->flags = soc.flags;
-    state->candidate_capacity_0p1ah = soc.candidate_capacity_0p1ah;
-    state->valid_learning_count = soc.valid_learning_count;
-    state->rejected_learning_count = soc.rejected_learning_count;
-    state->last_learning_reject_reason = soc.last_learning_reject_reason;
-    state->candidate_match_count = soc.candidate_match_count;
 }
 
-/* 按固定存储格式编码 SOC、循环和学习状态。 */
+/* 按固定存储格式编码 SOC 和循环状态。 */
 static void bms_state_encode(const bms_state_persist_t *state, u8 *payload)
 {
     bms_state_put_u32le(&payload[0], state->soc);
     bms_state_put_u32le(&payload[4], state->dsg);
     bms_state_put_u32le(&payload[8], state->cycle);
-    bms_state_put_u32le(&payload[12], state->learned_capacity_0p1ah);
-    bms_state_put_u32le(&payload[16], state->flags);
-    bms_state_put_u32le(&payload[20], state->candidate_capacity_0p1ah);
-    bms_state_put_u32le(&payload[24], state->valid_learning_count);
-    bms_state_put_u32le(&payload[28], state->rejected_learning_count);
-    bms_state_put_u32le(&payload[32], state->last_learning_reject_reason);
-    bms_state_put_u32le(&payload[36], state->candidate_match_count);
+    memset(&payload[12], 0, 28u); /* schema 3 原学习槽保留，编码恒零。 */
     bms_state_put_u32le(&payload[40], (u32)state->soc_revision);
 }
 
@@ -116,13 +88,6 @@ static void bms_state_decode(bms_state_persist_t *state, const u8 *payload)
     state->soc = bms_state_get_u32le(&payload[0]);
     state->dsg = bms_state_get_u32le(&payload[4]);
     state->cycle = bms_state_get_u32le(&payload[8]);
-    state->learned_capacity_0p1ah = bms_state_get_u32le(&payload[12]);
-    state->flags = bms_state_get_u32le(&payload[16]);
-    state->candidate_capacity_0p1ah = bms_state_get_u32le(&payload[20]);
-    state->valid_learning_count = bms_state_get_u32le(&payload[24]);
-    state->rejected_learning_count = bms_state_get_u32le(&payload[28]);
-    state->last_learning_reject_reason = bms_state_get_u32le(&payload[32]);
-    state->candidate_match_count = bms_state_get_u32le(&payload[36]);
     state->soc_revision = (u16)bms_state_get_u32le(&payload[40]);
 }
 
@@ -177,16 +142,7 @@ int bms_state_store_init(void)
     if (next.soc_revision != BMS_UPDATE_SOC_STATE_REVISION) {
         bms_state_defaults(&next);
     }
-    if (next.soc > 100u || next.dsg > 100u ||
-        next.learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        next.candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        (next.flags & ~(BMS_STATE_FLAG_LOW_MASK | BMS_STATE_FLAG_NOMINAL_MASK)) != 0u ||
-        (next.flags & BMS_STATE_FLAG_LOW_MASK &
-         ~(BMS_STATE_FLAG_CAPACITY_LEARNED | BMS_STATE_FLAG_LEARNING_META |
-           BMS_STATE_FLAG_LEARNING_ACTIVE)) != 0u ||
-        (next.flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        next.valid_learning_count > 65535u || next.rejected_learning_count > 65535u ||
-        next.last_learning_reject_reason > 255u || next.candidate_match_count > 255u) {
+    if (next.soc > 100u || next.dsg > 100u || next.cycle > 65535u) {
         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
     }
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
@@ -204,7 +160,7 @@ invalid:
     return 0;
 }
 
-/* 取得缓存的 SOC、循环和学习状态。 */
+/* 取得缓存的 SOC 和循环状态。 */
 bms_state_store_data_t bms_state_store_get(void)
 {
     bms_state_store_data_t data = bms_state_store_get_default_data();
@@ -212,13 +168,6 @@ bms_state_store_data_t bms_state_store_get(void)
     data.soc = g_bms_state.soc;
     data.dsg = g_bms_state.dsg;
     data.cycle = g_bms_state.cycle;
-    data.learned_capacity_0p1ah = g_bms_state.learned_capacity_0p1ah;
-    data.flags = g_bms_state.flags;
-    data.candidate_capacity_0p1ah = g_bms_state.candidate_capacity_0p1ah;
-    data.valid_learning_count = g_bms_state.valid_learning_count;
-    data.rejected_learning_count = g_bms_state.rejected_learning_count;
-    data.last_learning_reject_reason = g_bms_state.last_learning_reject_reason;
-    data.candidate_match_count = g_bms_state.candidate_match_count;
     return data;
 }
 
@@ -226,45 +175,18 @@ bms_state_store_data_t bms_state_store_get(void)
 int bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle)
 {
     bms_state_persist_t next;
-    if (!bms_state_store_init()) return 0;
+    if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
     next = g_bms_state_pending;
     next.soc = soc; next.dsg = dsg; next.cycle = cycle;
     g_bms_state_pending = next;
     return bms_state_save(&next);
 }
 
-/* 校验并更新待保存的学习元数据，不立即写 Flash。 */
-int bms_state_store_write_learning_meta(u32 learned_capacity_0p1ah, u32 flags,
-                                        u32 candidate_capacity_0p1ah,
-                                        u32 valid_learning_count,
-                                        u32 rejected_learning_count,
-                                        u32 last_learning_reject_reason,
-                                        u32 candidate_match_count)
-{
-    bms_state_persist_t next;
-    if (!bms_state_store_init()) return 0;
-    if (learned_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        candidate_capacity_0p1ah > BMS_SOC_CAPACITY_MAX_0P1AH ||
-        valid_learning_count > 65535u || rejected_learning_count > 65535u ||
-        last_learning_reject_reason > 255u || candidate_match_count > 255u)
-        return 0;
-    next = g_bms_state_pending;
-    next.learned_capacity_0p1ah = learned_capacity_0p1ah;
-    next.flags = flags;
-    next.candidate_capacity_0p1ah = candidate_capacity_0p1ah;
-    next.valid_learning_count = valid_learning_count;
-    next.rejected_learning_count = rejected_learning_count;
-    next.last_learning_reject_reason = last_learning_reject_reason;
-    next.candidate_match_count = candidate_match_count;
-    g_bms_state_pending = next;
-    return 1;
-}
-
 /* 仅在状态变化且策略允许时提交检查点。 */
 void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
 {
     u32 interval;
-    if (!bms_state_store_init()) return;
+    if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return;
     g_bms_state_pending.soc = soc;
     g_bms_state_pending.dsg = dsg;
     g_bms_state_pending.cycle = cycle;
@@ -277,7 +199,7 @@ void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle)
 int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle)
 {
     bms_state_persist_t next;
-    if (soc > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
+    if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
     next = g_bms_state_pending;
     next.soc = soc; next.dsg = dsg; next.cycle = cycle;
     if (!bms_state_save(&next)) return 0;

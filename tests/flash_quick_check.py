@@ -28,6 +28,7 @@ STATE_H = MOD / "bms_state_store.h"
 EVENT_C = MOD / "bms_event_log.c"
 RUNTIME_C = MOD / "bms_factory_mode.c"
 APP_C = MOD / "app.c"
+PLATFORM_APP_C = MOD / "app_ble.c"
 SOURCE_ORDER = ROOT / "bms/products" / MOD.product / "sources.txt"
 HOST_TEST = ROOT / "tests" / "storage_record_host_test.c"
 BLE_FLASH = COMMON / "ble_flash.h"
@@ -182,7 +183,7 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_flash_protection_session_contract_remains(self):
         self.assertIn("app_flash_lock_restore_enabled()", text(FLASH_SAFE))
-        app = text(APP_C)
+        app = text(PLATFORM_APP_C)
         self.assertIn("g_app_flash_stack_session_active = 1u;", app)
         self.assertIn("g_app_flash_stack_session_active = 0u;", app)
 

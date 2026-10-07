@@ -4,7 +4,7 @@
 涉及 AFE 寄存器、采样/校准、保护恢复、MOS/均衡、低功耗/通信，或默认/持久化/OTA AFE 配置时，先读 `docs/AFE_REFERENCE_GUIDE.md` 和其中的固定提交审查入口；按对应原 PDF 页码建立依据，明确型号/版本、硬件条件与未决项。原资料在 `references/afe/`，临时解析/渲染输出仍在源码树外。
 首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
 构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
-`docs/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
+`docs/history/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
 全局嵌入式规则继续适用；当前开发阶段按已确认产品约定拒绝旧 schema，不迁移旧开发板参数；同 schema 按产品更新编号处理。
 
 - 唯一公共源码在 `bms/core` / `bms/app`。不复制到产品目录或 SDK 示例目录，不引入同步脚本。

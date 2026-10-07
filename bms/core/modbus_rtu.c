@@ -193,7 +193,9 @@ static int dvc_comm_is_raw(u16 reg)
 static u16 dvc_comm_read(u16 reg)
 {
     u32 value;
+#if BMS_DVC_RAW_DIAG_ENABLE
     u8 raw;
+#endif
     dvc1124_config_result_t result;
 
     if (dvc_comm_is_semantic(reg))
@@ -205,6 +207,7 @@ static u16 dvc_comm_read(u16 reg)
         return (u16)value;
     }
 
+#if BMS_DVC_RAW_DIAG_ENABLE
     if (dvc_comm_is_raw(reg))
     {
         result = DVC1124_ConfigServiceReadRaw(
@@ -212,6 +215,8 @@ static u16 dvc_comm_read(u16 reg)
             &raw);
         return (result == DVC1124_CFG_OK) ? raw : 0xFFFFu;
     }
+
+#endif
 
     return 0xFFFFu;
 }
@@ -250,6 +255,7 @@ static u8 dvc_comm_write(u16 reg, u16 val)
         return dvc_result_to_modbus_exception(result);
     }
 
+#if BMS_DVC_RAW_DIAG_ENABLE
     if (dvc_comm_is_raw(reg))
     {
         if (val > 0xFFu) return MB_EX_ILLEGAL_VALUE;
@@ -258,6 +264,8 @@ static u8 dvc_comm_write(u16 reg, u16 val)
             (u8)val);
         return dvc_result_to_modbus_exception(result);
     }
+
+#endif
 
     return MB_EX_ILLEGAL_ADDRESS;
 }

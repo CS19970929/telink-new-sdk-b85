@@ -163,8 +163,8 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     bms_config_put_u16le(&payload[off], cfg->soc.current_deadband_ma); off += 2u;
     bms_config_put_u16le(&payload[off], cfg->soc.ocv_rest_prepare_s); off += 2u;
     payload[off++] = cfg->soc.ocv_error_band_percent;
-    payload[off++] = cfg->soc.capacity_learning_enable;
-    payload[off++] = cfg->soc.hide_capacity_until_learned;
+    payload[off++] = 0u; /* 原学习开关槽保留，功能已删除。 */
+    payload[off++] = 0u;
     payload[off++] = 0u;
     bms_config_encode_words(&payload[off], &cfg->user, BMS_CONFIG_USER_BUSINESS_WORDS);
     off += BMS_CONFIG_USER_BUSINESS_WORDS * 2u;
@@ -199,8 +199,7 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->soc.current_deadband_ma = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->soc.ocv_rest_prepare_s = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->soc.ocv_error_band_percent = payload[off++];
-    cfg->soc.capacity_learning_enable = payload[off++];
-    cfg->soc.hide_capacity_until_learned = payload[off++];
+    off += 2u; /* 保留 CFG2 字节位置；旧学习设置不再消费。 */
     off++; /* 预留字段。 */
     bms_config_decode_words(&cfg->user, &payload[off], BMS_CONFIG_USER_BUSINESS_WORDS);
     off += BMS_CONFIG_USER_BUSINESS_WORDS * 2u;
@@ -461,9 +460,7 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
         g_bms_config.soc.profile_id == config->profile_id &&
         g_bms_config.soc.current_deadband_ma == config->current_deadband_ma &&
         g_bms_config.soc.ocv_rest_prepare_s == config->ocv_rest_prepare_s &&
-        g_bms_config.soc.ocv_error_band_percent == config->ocv_error_band_percent &&
-        g_bms_config.soc.capacity_learning_enable == config->capacity_learning_enable &&
-        g_bms_config.soc.hide_capacity_until_learned == config->hide_capacity_until_learned) return 1;
+        g_bms_config.soc.ocv_error_band_percent == config->ocv_error_band_percent) return 1;
     return bms_config_save_cache(&next);
 }
 

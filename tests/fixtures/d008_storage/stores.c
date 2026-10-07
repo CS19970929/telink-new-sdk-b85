@@ -102,13 +102,9 @@ static void test_config_codec_layout(void)
   cfg.soc.current_deadband_ma=(u16)codec_random(&seed,scenario);
   cfg.soc.ocv_rest_prepare_s=(u16)codec_random(&seed,scenario);
   cfg.soc.ocv_error_band_percent=(u8)codec_random(&seed,scenario);
-  cfg.soc.capacity_learning_enable=(u8)codec_random(&seed,scenario);
-  cfg.soc.hide_capacity_until_learned=(u8)codec_random(&seed,scenario);
   codec_expect_le(expected+248u,cfg.soc.current_deadband_ma,2u);
   codec_expect_le(expected+250u,cfg.soc.ocv_rest_prepare_s,2u);
   expected[252]=cfg.soc.ocv_error_band_percent;
-  expected[253]=cfg.soc.capacity_learning_enable;
-  expected[254]=cfg.soc.hide_capacity_until_learned;
   for(unsigned i=0;i<7u;++i) business[i]=(u16)codec_random(&seed,scenario);
   cfg.user.heater_enable=business[0];cfg.user.heater_start_x10=business[1];
   cfg.user.heater_stop_x10=business[2];cfg.user.balance_enable=business[3];
@@ -130,7 +126,7 @@ static void test_config_codec_layout(void)
   memset(encoded,0xa5,sizeof(encoded));bms_config_encode(&cfg,encoded+1u);
   assert(encoded[0]==0xa5 && encoded[323]==0xa5);
   assert(!memcmp(encoded+1u,expected,sizeof(expected)));
-  expected[255]=0xffu; /* 保留字节忽略，BLE 后缀末字节强制 NUL。 */
+  expected[253]=0xffu;expected[254]=0xffu;expected[255]=0xffu; /* 保留字节忽略，BLE 后缀末字节强制 NUL。 */
   cfg.bt_name_suffix[23]='\0';
   memset(&decoded,0xa5,sizeof(decoded));bms_config_decode(&decoded,expected);
   assert(!memcmp(&decoded,&cfg,sizeof(cfg)));
@@ -168,19 +164,21 @@ static void test_config_schema(void){
 }
 
 static void test_state(void){
- fresh();assert(bms_state_store_write_learning_meta(900,
-  BMS_STATE_FLAG_CAPACITY_LEARNED|BMS_STATE_FLAG_LEARNING_META|(1000u<<BMS_STATE_FLAG_NOMINAL_SHIFT),
-  890,3,2,12,1));
+ fresh();
  bms_state_store_update_and_log_if_changed(61,2,3);assert(g_bms_state.soc==60);
  now=60*32000;cut=0;bms_state_store_update_and_log_if_changed(62,4,5);u32 count=programs;
  for(unsigned i=0;i<100;i++)bms_state_store_update_and_log_if_changed(63,6,7);
  assert(programs==count);assert(errors);now+=5*32000;cut=-1;
- bms_state_store_update_and_log_if_changed(64,8,9);assert(g_bms_state.soc==64);assert(g_bms_state.learned_capacity_0p1ah==900);
- assert(g_bms_state.candidate_capacity_0p1ah==890&&g_bms_state.valid_learning_count==3);
- assert(g_bms_state.rejected_learning_count==2&&g_bms_state.last_learning_reject_reason==12);
+ bms_state_store_update_and_log_if_changed(64,8,9);assert(g_bms_state.soc==64);
  assert(bms_state_store_write_all(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
- assert(g_bms_state.candidate_match_count==1);
 
+ /* Keep schema 3 SOC/cycle/revision offsets. Ignore obsolete learning bytes. */
+ u8 state_payload[BMS_STATE_PAYLOAD_BYTES];bms_state_encode(&g_bms_state,state_payload);
+ for(unsigned i=12;i<40;++i)assert(state_payload[i]==0);
+ memset(state_payload+12,0xff,28);assert(storage_record_save(&g_bms_state_store,state_payload));
+ reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65&&g_bms_state.cycle==10);
+ assert(!bms_state_store_write_all(101,0,0));assert(!bms_state_store_write_all(60,101,0));
+ assert(!bms_state_store_set_soc_cycle(60,0,65536));
  bms_state_persist_t old=g_bms_state,next=old;next.soc=77;
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_STATE_PAYLOAD_BYTES+8);byte++){
@@ -192,7 +190,7 @@ static void test_state(void){
  assert(g_bms_state.soc==77);
  now=UINT32_MAX-32000;g_bms_state_last_attempt_32k=now;
  bms_state_store_update_and_log_if_changed(78,0,0);now+=(60*32000);bms_state_store_update_and_log_if_changed(79,0,0);assert(g_bms_state.soc==79);
- puts("PASS State: coalescing, failure/backoff, learning metadata/flags, atomic rollback, all byte cuts, wrap");
+ puts("PASS State: coalescing, failure/backoff, cycle state/reserved slots, atomic rollback, all byte cuts, wrap");
 }
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;

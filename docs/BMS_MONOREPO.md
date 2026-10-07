@@ -126,4 +126,4 @@ SH 产品的 GPIO、NTC role/capability、静态 AFE 输入及独立 HW 默认�
 原 D008/D011/D013 导入 SHA 未上传到远端，不能恢复或伪装为已审计历史。
 `baselines.json` 保留这些缺失 SHA，另锚定可下载的 `fd50730` 导入结果快照和各远端对照 commit。
 对照 commit 不声称与缺失导入完全等价；`python bms_tools/verify_baselines.py --fetch`
-验证可发布证据的可解析性。完整修复与验证边界见 [整改记录](BMS_MONOREPO_REMEDIATION.md)。
+验证可发布证据的可解析性。完整修复与验证边界见 [整改记录](history/BMS_MONOREPO_REMEDIATION.md)。

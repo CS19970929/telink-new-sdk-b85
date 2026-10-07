@@ -588,7 +588,7 @@ def _firmware_git_dirty() -> int:
 
 def _effective_extra_defines() -> str:
     extra = os.environ.get("EXTRA_DEFINES", "").strip()
-    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE)(?:\b)"
+    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D008_20S_NMC_PROTECTION_APPROVED|BMS_D013_HW_CONFIG_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
     build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()
@@ -747,7 +747,23 @@ def _invoke_make(targets: list[str], jobs: int = 1,
             cmd_map(argparse.Namespace(elf_only=True))
 
 
+def _require_release_approval() -> None:
+    """正式生产镜像必须通过源码签核；link/resources 允许验证未签核工程配置。"""
+    if not PRODUCTION:
+        return
+    command = [_tc32_tool("tc32-elf-gcc"), "-E", "-x", "c",
+               "-I", str(REPO_ROOT / "bms/products" / PRODUCT),
+               "-I", str(REPO_ROOT / "bms/products"),
+               "-I", str(REPO_ROOT / "bms/core"),
+               *shlex.split(_effective_extra_defines()), "-"]
+    result = subprocess.run(command, input='#include "bms_release_approval.h"\n',
+                            text=True, capture_output=True)
+    if result.returncode:
+        _die("生产镜像签核门未通过；link/resources 仅供工程验证。\n" + result.stderr.strip())
+
+
 def cmd_build(args: argparse.Namespace) -> int:
+    _require_release_approval()
     _invoke_make(["all"], jobs=args.jobs)
     _finalize_firmware()
     _info("build complete (ELF/MAP/raw BIN/canonical BIN)")
@@ -766,6 +782,7 @@ def cmd_compile(args: argparse.Namespace) -> int:
 
 
 def cmd_rebuild(args: argparse.Namespace) -> int:
+    _require_release_approval()
     _invoke_make(["clean"], jobs=1)
     _invoke_make(["all"], jobs=args.jobs)
     _finalize_firmware()
@@ -792,6 +809,7 @@ def _objcopy(elf_path: Path, bin_path: Path) -> None:
 
 def _finalize_firmware() -> None:
     """Generate an auditable raw image and one canonical Telink-checked image."""
+    _require_release_approval()
     if not ELF.exists():
         _die(f"ELF missing: {ELF}. Run 'build' first.")
     if not TL_CHECK_FW2.exists():
@@ -1359,6 +1377,23 @@ def cmd_flash_help(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------------
 # Subcommand: ci  (repeatable host-side toolchain pipeline)
 # ----------------------------------------------------------------------------
+def cmd_test(args: argparse.Namespace) -> int:
+    command = [sys.executable, str(REPO_ROOT / "tests/run_host_regression.py")]
+    if not _selection.all_products:
+        command += ["--product", PRODUCT]
+    if args.output:
+        command += ["--output", args.output]
+    return subprocess.call(command, cwd=REPO_ROOT)
+
+
+def cmd_release(args: argparse.Namespace) -> int:
+    if not PRODUCTION:
+        _die("release requires --production and product approval")
+    cmd_rebuild(args)
+    cmd_manifest(args)
+    return cmd_verify(args)
+
+
 def cmd_ci(args: argparse.Namespace) -> int:
     report_dir = BUILD_DIR / "ci"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -1466,6 +1501,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
+    test_parser = sub.add_parser("test", help="所选产品 host 回归；不生成 BIN")
+    test_parser.add_argument("--output", help="源码树外的空报告目录")
+    test_parser.set_defaults(func=cmd_test)
+    release_parser = sub.add_parser("release", help="已签核生产镜像、manifest 和完整性验证；生成 BIN")
+    release_parser.add_argument("-j", "--jobs", type=int, default=4)
+    release_parser.set_defaults(func=cmd_release)
+
     sub.add_parser("env", help="check local toolchain / paths").set_defaults(func=cmd_env)
 
     psrc = sub.add_parser("sources", help="validate/update locked source and link order")
@@ -1533,10 +1575,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    if _selection.all_products and argv is None:
+    args = build_parser().parse_args(_cli if argv is None else argv)
+    if _selection.all_products and argv is None and args.cmd != "test":
         results = [subprocess.call([sys.executable, str(Path(__file__).resolve()), *_selection_args(product), *_cli]) for product in PRODUCTS]
         return 1 if any(results) else 0
-    args = build_parser().parse_args(_cli if argv is None else argv)
     try:
         return args.func(args)
     except subprocess.CalledProcessError as e:

@@ -10,8 +10,9 @@ functions='\n'.join(function(source,signature) for signature in (
     'static uint8_t dvc_linear_delay_code(', 'static uint16_t dvc_current_from_sense_uv(',
     'static uint8_t dvc_current_to_oc1_code(', 'static uint8_t dvc_current_to_oc2_code(',
     'static void dvc_note_quant(', 'static uint8_t dvc_apply_protection_from_params(',
-    'uint8_t DVC1124_SetShortCircuitProtection('))
+    'static uint8_t DVC1124_SetShortCircuitProtection('))
 code=profile_prefix('d008')+'\n#include "dvc1124.h"\n'
+code+='static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);\n'
 code+=read('tests/fixtures/dvc_register_scenarios.c').replace('/* DRIVER */',state+functions)
 traces={}
 for profile in (1,2,3):

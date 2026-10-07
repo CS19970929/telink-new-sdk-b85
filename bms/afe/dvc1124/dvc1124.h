@@ -155,14 +155,6 @@ typedef enum
 #define DVC1124_DEFAULT_MOS_NTC_GP           1u
 #endif
 
-/* 按型号和地址模式解析 DVC 的 I2C 写地址。 */
-uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
-                                    dvc1124_addr_mode_t mode,
-                                    uint8_t hardwire_code,
-                                    uint8_t explicit_write_addr,
-                                    uint8_t *write_addr);
-/* 设置驱动的有效电芯串数。 */
-uint8_t DVC1124_SetCellCount(uint8_t cell_count);
 /* 取得 DVC 当前驱动配置。 */
 void DVC1124_GetConfig(dvc1124_config_t *config);
 /* 取得 DVC 最近一次测量与状态快照。 */
@@ -174,16 +166,12 @@ uint8_t DVC1124_GetWriteAddress(void);
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len);
 /* 校验范围后写入 DVC 寄存器。 */
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
-/* 按充放电请求配置 DVC MOS 控制状态。 */
-uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
 /* 设置 DVC 输出授权并同步 MOS 控制。 */
 void DVC1124_SetOutputEnabled(uint8_t enabled);
 /* 设置 DVC 均衡请求掩码并同步硬件。 */
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 /* 推进均衡服务并刷新通道状态。 */
 void DVC1124_BalanceService(uint8_t allow_refresh);
-/* 启动 DVC 电芯断线检测。 */
-uint8_t DVC1124_StartOpenWireCheck(void);
 /* 准备并开始 DVC 非阻塞断线检测流程。 */
 uint8_t DVC1124_OpenWireBegin(void);
 /* 推进断线检测阶段并收集完成结果。 */
@@ -192,9 +180,6 @@ void DVC1124_OpenWirePoll(void);
 void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result);
 /* 复位 DVC 断线检测阶段及结果。 */
 void DVC1124_OpenWireReset(void);
-/* 配置 DVC 短路保护开关及参数。 */
-uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
-
 /* 校验并设置核心过温阈值编码。 */
 uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
 /* 读取核心过温事件锁存状态。 */
@@ -206,9 +191,6 @@ uint8_t DVC1124_ClearAlarmFlags(uint8_t flag_mask);
 uint8_t DVC1124_StartCadcCalibration(void);
 /* 启动阶段确认 FET 关闭后采集残余电流并校准零点。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void);
-/* 取得启动电流零点校准的缓存诊断。 */
-void DVC1124_GetBootCurrentZeroDiag(dvc1124_boot_zero_diag_t *diag);
-
 /*
  * 读取副作用依据 V1.2 手册：0x01 的 VADF/CC1F/CC2F 为 RC，读字节会消耗标志；
  * 0x76 的 COTF 为 RC，读字节会消耗硬件标志。
@@ -226,7 +208,6 @@ static inline uint8_t DVC1124_RegReadHasSideEffect(uint8_t reg)
     return (DVC1124_RegReadEffect(reg) != DVC1124_REG_READ_SAFE) ? 1u : 0u;
 }
 
-/* ALARM 为 W0C，STATUS 含命令位，CORE_OT 混合 RC 与 RW。 */
 /* 检查该寄存器是否允许通用读改写。 */
 static inline uint8_t DVC1124_RegGenericRmwAllowed(uint8_t reg)
 {
@@ -298,20 +279,12 @@ void DVC1124_App_AFEGet(void);
 void DVC1124_BmsApp_AFEGet(void);
 /* 复位 DVC AFE 并重建驱动状态。 */
 void DVC1124_AFE_Reset(void);
-/* 查询 DVC 初始化就绪状态。 */
-uint8_t DVC1124_AFE_IsReady(void); /* 旧约定：0 表示已就绪。 */
+/* 请求 DVC 进入 shutdown 并返回通信结果。 */
 uint8_t DVC1124_AFE_Sleep(void);
 /* 按当前参数更新 DVC AFE 配置。 */
 void DVC1124_UpdataAfeConfig(void);
 /* 应用并验证 DVC 硬件保护参数。 */
 uint8_t DVC1124_ApplyProtectionConfig(void);
-
-/* 安全基线与完整产品配置阶段共用精确编码器。 */
-uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code);
-/* 校验并编码共口体二极管恢复配置。 */
-uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code);
-/* 校验并编码 I2C 硬件看门狗配置。 */
-uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code);
 
 #ifdef __cplusplus
 }

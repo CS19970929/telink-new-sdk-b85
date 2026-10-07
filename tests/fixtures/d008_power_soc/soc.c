@@ -6,17 +6,8 @@ typedef uint32_t UINT32;
 typedef uint32_t u32;
 #define CapacityFactory 1000u
 #define BMS_STATE_DEFAULT_SOC 60u
-#define BMS_STATE_FLAG_CAPACITY_LEARNED 1u
-#define BMS_STATE_FLAG_LEARNING_META 2u
-#define BMS_STATE_FLAG_LEARNING_ACTIVE 4u
-#define BMS_STATE_FLAG_NOMINAL_SHIFT 16u
-typedef struct {
- uint32_t soc,dsg,cycle,learned_capacity_0p1ah,flags;
- uint32_t candidate_capacity_0p1ah,valid_learning_count,rejected_learning_count;
- uint32_t last_learning_reject_reason,candidate_match_count;
-} bms_state_store_data_t;
-static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0,0,0,0,0,0,0,0};return d;}
-static int bms_state_store_write_learning_meta(u32 a,u32 b,u32 c,u32 d,u32 e,u32 f,u32 g){return 1;}
+typedef struct {uint32_t soc,dsg,cycle;} bms_state_store_data_t;
+static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0};return d;}
 static int openwire_active,openwire_suspected;
 static int balance_active,heater_on,charge_session_active,temp_valid=1;
 static uint8_t bms_features_openwire_active(void){return (uint8_t)openwire_active;}
@@ -60,7 +51,7 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_stCellInfoReport.u16VCellMin=voltage;g_stCellInfoReport.u16VCellMax=voltage;
  openwire_active=0;openwire_suspected=0;balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
- bms_state_store_data_t d={soc,0,0,0,0,0,0,0,0,0};soc_param_lib_init(&d);tick=0;
+ bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;
  memset(&g_soc_input,0,sizeof(g_soc_input));g_soc_input.sample_valid=1;g_soc_input.voltage_valid=1;
  g_soc_input.temperature_valid=1;g_soc_input.temperature_min_x10=650;g_soc_input.temperature_max_x10=650;
  g_soc_input.cell_min_mv=voltage;g_soc_input.cell_max_mv=voltage;
@@ -101,13 +92,7 @@ static void model_voltage(double true_soc,int32_t ma,uint32_t noise){
 }
 static void simulated_reboot(void){
  bms_state_store_data_t d={SOC_Calculate_Element.u8SOC_Now,SOC_Calculate_Element.u8DSG_SOC_Int,
-  SOC_Calculate_Element.u32Cycle_times,g_soc_runtime.learned_capacity_0p1ah,
-  BMS_STATE_FLAG_LEARNING_META|(1000u<<BMS_STATE_FLAG_NOMINAL_SHIFT),
-  g_soc_runtime.candidate_capacity_0p1ah,g_soc_runtime.valid_learning_count,
-  g_soc_runtime.rejected_learning_count,g_soc_runtime.last_learning_reject_reason,
-  g_soc_runtime.candidate_match_count};
- if(g_soc_runtime.capacity_learned)d.flags|=BMS_STATE_FLAG_CAPACITY_LEARNED;
- if(g_soc_runtime.learning_state!=BMS_SOC_LEARNING_NONE)d.flags|=BMS_STATE_FLAG_LEARNING_ACTIVE;
+  SOC_Calculate_Element.u32Cycle_times};
  soc_param_lib_init(&d);
 }
 static void check_invariants(void){
@@ -117,7 +102,7 @@ static void check_invariants(void){
  assert(d.time_to_empty_min==BMS_SOC_ETA_MINUTES_INVALID||d.time_to_empty_min<65535u);
  assert(d.time_to_full_min==BMS_SOC_ETA_MINUTES_INVALID||d.time_to_full_min<65535u);
  if(d.eta_direction==BMS_SOC_ETA_DIR_NONE)assert(!d.eta_valid);
- assert(!d.capacity_learning_enable&&d.learning_state==BMS_SOC_LEARNING_NONE);
+ assert(!d.capacity_learning_enable&&d.learning_state==0);
 }
 static void run_long_duration_checks(void){
  const uint32_t step_ticks=12800u;
@@ -163,7 +148,7 @@ static void run_long_duration_checks(void){
    assert(error<=8.0);check_invariants();
   }
  }
- assert(g_soc_runtime.candidate_capacity_0p1ah==0u&&!g_soc_runtime.capacity_learned);
+ check_invariants();
 }
 static int write_trajectory(void){
  const uint32_t step_ticks=12800u,steps_per_hour=9000u;
@@ -236,11 +221,11 @@ static int replay_csv(const char *input_path,const char *output_path){
 int main(int argc,char **argv){
  if(argc==2&&!strcmp(argv[1],"--trajectory"))return write_trajectory();
  if(argc==4&&!strcmp(argv[1],"--replay"))return replay_csv(argv[2],argv[3]);
- setup(1,60,3330);bms_state_store_data_t learned={60,0,5,900,1u|(1000u<<16),0,0,0,0,0};
- soc_param_lib_init(&learned);assert(g_soc_runtime.capacity_learned);
+ setup(1,60,3330);bms_state_store_data_t restored={60,0,5};
+ soc_param_lib_init(&restored);assert(SOC_Calculate_Element.soh==100);
  stored_profile.capacity_factory=1200;bms_soc_nominal_capacity_changed();
- assert(!g_soc_runtime.capacity_learned && get_soc_real()==60 && SOC_Calculate_Element.u32Cycle_times==5);
- soc_param_lib_init(&learned);assert(!g_soc_runtime.capacity_learned);
+ assert(get_soc_real()==60 && SOC_Calculate_Element.u32Cycle_times==5);
+ soc_param_lib_init(&restored);assert(SOC_Calculate_Element.u32CapFull==1200u*3600u);
  stored_profile.capacity_factory=1000;
 
  setup(1,100,3330);stored_profile.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH;
@@ -424,118 +409,38 @@ int main(int argc,char **argv){
  g_stCellInfoReport.unMdlFault_Third.bits.b1CellUvp=1;sample(1,10000,6400);
  assert(get_soc_real()==0&&(g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_LARGE_SAG)!=0);
 
- /* Capacity learning: qualified cycles create candidates; two consistent
-  * independent candidates update effective capacity by at most 5%. */
- setup(1,100,3500);g_soc_config.capacity_learning_enable=1;
- g_soc_input_valid=1;g_soc_input_current_ma=-1000;
- soc_learning_on_full_anchor();
- assert(g_soc_runtime.learning_state==BMS_SOC_LEARNING_FULL_TO_EMPTY);
- g_soc_runtime.learning_capacity_as10=900u*3600u;
- g_soc_input_current_ma=1000;set_core_voltage(2500,2500,0);
- soc_learning_on_empty_anchor();
- assert(g_soc_runtime.candidate_capacity_0p1ah==900 && g_soc_runtime.candidate_match_count==1);
- assert(!g_soc_runtime.capacity_learned && g_soc_runtime.valid_learning_count==1);
- g_soc_runtime.learning_capacity_as10=910u*3600u;
- g_soc_input_current_ma=-1000;set_core_voltage(3500,3500,0);
- soc_learning_on_full_anchor();
- assert(g_soc_runtime.capacity_learned && g_soc_runtime.learned_capacity_0p1ah==950);
- assert(g_soc_runtime.valid_learning_count==2 && g_soc_runtime.learning_confidence==100);
-
- /* A real 100% -> 95% -> 90% -> 85% decline is intentionally tracked in
-  * bounded steps.  Each accepted pair may move effective capacity by no more
-  * 5%, so neither SOC nor ETA can jump to a single low-cycle observation. */
- {
-  const uint16_t targets[]={900u,850u,850u};
-  uint16_t previous=g_soc_runtime.learned_capacity_0p1ah;
-  for(unsigned cycle=0;cycle<sizeof(targets)/sizeof(targets[0]);cycle++){
-   for(unsigned confirmation=0;confirmation<2u;confirmation++){
-    g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
-    g_soc_runtime.learning_capacity_as10=(uint32_t)targets[cycle]*3600u;
-    assert(soc_learning_accept_candidate());
-   }
-   assert((uint32_t)(previous-g_soc_runtime.learned_capacity_0p1ah)<=
-          ((uint32_t)previous*5u)/100u);
-   previous=g_soc_runtime.learned_capacity_0p1ah;
-  }
-  assert(g_soc_runtime.learned_capacity_0p1ah>=850u &&
-         g_soc_runtime.learned_capacity_0p1ah<=860u);
+ /* Cycle-only SOH: independent boundary expectations, monotonicity, saturation,
+  * equivalent partial discharge and restore; former diagnostic slots are zero. */
+ const uint16_t cycles[]={0,80,81,122,500,501,530,799,800,65535};
+ const uint8_t expected_soh[]={100,100,100,99,90,90,89,81,80,80};
+ for(unsigned i=0;i<sizeof(cycles)/sizeof(cycles[0]);++i){
+  setup(1,60,3330);
+  bms_state_store_data_t state={60,99,cycles[i]};soc_param_lib_init(&state);
+  bms_soc_diag_t diag;bms_soc_get_diag(&diag);
+  assert(diag.soh==expected_soh[i]&&diag.soh_source==1&&diag.soh_confidence==25);
+  assert(SOC_Calculate_Element.u32CapFull==1000u*3600u*expected_soh[i]/100u);
+  assert(g_stCellInfoReport.SocElement.u16CapacityFull==10000u*expected_soh[i]/100u);
+  assert(!diag.capacity_learned&&!diag.learning_state&&!diag.learned_capacity_0p1ah);
+  assert(!diag.capacity_learning_enable&&!diag.capacity_learning_candidate_valid);
+  assert(!diag.capacity_learning_confidence&&!diag.candidate_capacity_0p1ah);
+  assert(!diag.valid_learning_count&&!diag.rejected_learning_count&&!diag.last_learning_reject_reason);
+  simulated_reboot();assert(SOC_Calculate_Element.soh==expected_soh[i]);
  }
-
- /* A high-current/sag UVP can anchor SOC safety but cannot qualify capacity. */
- uint16_t learned_before=g_soc_runtime.learned_capacity_0p1ah;
- uint16_t rejected_before=g_soc_runtime.rejected_learning_count;
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_soc_runtime.learning_capacity_as10=700u*3600u;
- g_soc_input_current_ma=10000;set_core_voltage(2500,2500,0);
- soc_learning_on_empty_anchor();
- assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
- assert(g_soc_runtime.rejected_learning_count==rejected_before+1);
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_LOW_QUALITY_EMPTY);
-
- /* Candidate disagreement is retained as evidence and never immediately
-  * overwrites the accepted effective capacity. */
- g_soc_runtime.capacity_learned=0;g_soc_runtime.learned_capacity_0p1ah=0;
- g_soc_runtime.candidate_capacity_0p1ah=1000;g_soc_runtime.candidate_match_count=1;
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_EMPTY_TO_FULL;
- g_soc_runtime.learning_capacity_as10=800u*3600u;
- g_soc_input_current_ma=-1000;set_core_voltage(3500,3500,0);
- soc_learning_on_full_anchor();
- assert(!g_soc_runtime.capacity_learned && g_soc_runtime.candidate_capacity_0p1ah==800);
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT);
-
- /* Charge interruption/reversal and an early weak-cell full endpoint abort
-  * learning without changing the accepted effective-capacity evidence. */
- learned_before=g_soc_runtime.learned_capacity_0p1ah;
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_EMPTY_TO_FULL;
- soc_learning_on_delta(SOC_INTEGRAL_DIR_DSG,1u);
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_EMPTY_TO_FULL;
- g_soc_runtime.learning_capacity_as10=850u*3600u;g_soc_input_valid=1;
- g_soc_input_current_ma=-1000;set_core_voltage(3400,3600,200);
- soc_learning_on_full_anchor();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL);
- assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
-
- /* Independent quality gates reject open-wire, imbalance, temperature and
-  * missing samples without changing the accepted effective capacity. */
- learned_before=g_soc_runtime.learned_capacity_0p1ah;
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;g_soc_input.open_wire_suspected=1;
- soc_learning_monitor_quality();assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_OPEN_WIRE);
- g_soc_input.open_wire_suspected=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- set_core_voltage(g_soc_input.cell_min_mv,g_soc_input.cell_max_mv,51);soc_learning_monitor_quality();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE);
- set_core_voltage(g_soc_input.cell_min_mv,g_soc_input.cell_max_mv,0);g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_soc_input.temperature_fault=1;soc_learning_monitor_quality();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_TEMPERATURE);
- g_soc_input.temperature_fault=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_soc_input.balancing_active=1;soc_learning_monitor_quality();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_BALANCING);
- g_soc_input.balancing_active=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_soc_input.heating_active=1;soc_learning_monitor_quality();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_HEATING);
- g_soc_input.heating_active=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- sample(0,0,6400);assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
- assert(g_soc_runtime.learned_capacity_0p1ah==learned_before);
-
- g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;g_soc_input.afe_fault=1;
- soc_learning_monitor_quality();assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION);
- g_soc_input.afe_fault=0;g_soc_runtime.learning_state=BMS_SOC_LEARNING_FULL_TO_EMPTY;
- g_soc_runtime.learning_current_offset_ma=0;g_soc_runtime.learning_current_gain_ppm=1000000;
- stored_user.current_offset_ma=1;soc_learning_monitor_quality();
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED);
- stored_user.current_offset_ma=0;
-
- /* A persisted active-session marker makes reboot invalidation observable. */
- bms_state_store_data_t interrupted={60,0,0,0,
-  BMS_STATE_FLAG_LEARNING_META|BMS_STATE_FLAG_LEARNING_ACTIVE|(1000u<<BMS_STATE_FLAG_NOMINAL_SHIFT),
-  900,3,4,0,1};
- soc_param_lib_init(&interrupted);
- assert(g_soc_runtime.learning_state==BMS_SOC_LEARNING_NONE);
- assert(g_soc_runtime.rejected_learning_count==5);
- assert(g_soc_runtime.last_learning_reject_reason==BMS_SOC_LEARNING_REJECT_REBOOT);
+ for(uint32_t cycle=1;cycle<=65535u;++cycle)
+  assert(bms_soh_from_cycle((uint16_t)cycle)<=bms_soh_from_cycle((uint16_t)(cycle-1)));
+ setup(1,60,3330);SOC_Calculate_Element.u32Cycle_times=499;SOC_Calculate_Element.u8DSG_SOC_Int=75;
+ soc_note_discharge_soc_drop(60,35);
+ assert(SOC_Calculate_Element.u32Cycle_times==500&&SOC_Calculate_Element.u8DSG_SOC_Int==0);
+ assert(SOC_Calculate_Element.soh==90);
+ SOC_Calculate_Element.u32Cycle_times=65535;SOC_Calculate_Element.u8DSG_SOC_Int=99;
+ soc_note_discharge_soc_drop(60,59);assert(SOC_Calculate_Element.u32Cycle_times==65535);
+ stored_profile.capacity_factory=2000;bms_soc_nominal_capacity_changed();
+ assert(SOC_Calculate_Element.u32CapFull==2000u*3600u*80u/100u);
+ assert(SOC_Calculate_Element.u32Cycle_times==65535);
+ stored_profile.capacity_factory=1000;
 
  run_long_duration_checks();
 
- puts("PASS SOC: production C integration/OCV/endpoints, ETA confidence/taper, qualified learning, 30-day Monte Carlo and 90-day shallow cycling");
+ puts("PASS SOC: production C integration/OCV/endpoints, ETA confidence/taper, cycle-only SOH, 30-day Monte Carlo and 90-day shallow cycling");
  return 0;
 }

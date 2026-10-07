@@ -33,8 +33,8 @@ class RunnerTests(unittest.TestCase):
 
     def test_catalog_is_complete_and_common_tests_have_four_products(self):
         commands=runner.commands_for(runner.PRODUCTS,None)
-        self.assertGreater(len(commands),115)
-        for name in ('d008_storage_host_check','protection_scenarios_host_check','shared_soc_host_check'):
+        self.assertGreater(len(commands),100)
+        for name in ('storage_host_check','protection_scenarios_host_check','soc_scenarios_host_check'):
             self.assertEqual({c[1] for c in commands if c[0]==name},set(runner.PRODUCTS))
 
     def test_empty_selection_is_an_error(self):

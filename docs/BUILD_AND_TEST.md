@@ -44,7 +44,7 @@ python bms_tools/bms.py --product d014 resources
 python bms_tools/bms.py --all-products sources --check
 python bms_tools/bms.py --all-products link --jobs 4
 python bms_tools/bms.py --all-products resources
-python tests/run_host_regression.py
+python bms_tools/bms.py --all-products test
 ```
 
 host 需要本机 C 编译器；Windows 设置示例：
@@ -63,19 +63,19 @@ runner 的产品分配以 `tests/validation_catalog.py` 为准；新增 `*_check
 $savedProduct = $env:BMS_PRODUCT
 try {
     $env:BMS_PRODUCT = 'd014'
-    python tests/sh3673510_d014_integration_check.py
+    python tests/d014_configuration_contract_check.py
     if ($LASTEXITCODE -ne 0) { throw 'D014 contract 失败' }
 } finally { $env:BMS_PRODUCT = $savedProduct }
 ```
 
 | 修改模块 | 优先检查（必要时完整 runner） |
 |---|---|
-| 产品/板级 | `monorepo_source_check.py`、对应 integration/profile/board checks |
-| 软件保护 | `sw_protection_contract_check.py`、`sw_temperature_groups_host_check.py` |
+| 产品/板级 | `tooling_contract_check.py`、对应 integration/profile/board checks |
+| 软件保护 | `core_contract_check.py`、`sw_temperature_groups_host_check.py` |
 | AFE 参数/恢复 | `afe_hw_*`、所选后端 recovery/sleep tests |
-| 参数/存储/更新编号 | `d008_storage_host_check.py`（历史名字，覆盖公共存储）、`flash_quick_check.py`、Modbus 检查 |
-| SOC | `soc_contract_check.py`、`soc_simulator_check.py`、对应方向/open-wire tests |
-| 日志/协议 | `runtime_debug_log_host_check.py`、`modbus_address_host_check.py` |
+| 参数/存储/更新编号 | `storage_host_check.py`（四产品公共存储）、`flash_quick_check.py`、Modbus 检查 |
+| SOC | `core_contract_check.py`、`soc_scenarios_host_check.py`、对应方向/open-wire tests |
+| 日志/协议 | `diagnostics_host_check.py`、`modbus_host_check.py` |
 
 ## 3. 可移植核心与静态分析
 
@@ -98,7 +98,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link 
 python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
 ```
 
-示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产要求至少 8 KiB Flash 余量，并拒绝 dirty/空 Build ID、测试开关或保护关闭。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
+示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产 trace/raw 诊断关闭，相关能力位和窗口按 [日志说明](RUNTIME_DEBUG_LOG.md) 处理。生产要求至少 8 KiB Flash 余量，并拒绝 dirty/空 Build ID、测试开关或保护关闭。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
 
 优化由 `bms_tools/build.mk` 的 `CFLAGS_BASE` / `CORE_OPT_FLAGS` 和 `bms.py` 生成的逐源规则确定：
 
@@ -111,23 +111,23 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 
 ## 5. 仅明确需要镜像时
 
-`build` / `rebuild` / `objcopy` / **`check-fw`** 会生成或重新生成 BIN；`ci` 串联镜像流水线，也不是无镜像测试入口。`map`/`manifest`/`verify` 属于已有 BIN 的验收链，日常 ELF 使用 `resources`。
+`release` / `build` / `rebuild` / `objcopy` / **`check-fw`** 会生成或重新生成 BIN；`ci` 串联镜像流水线，也不是无镜像测试入口。`map`/`manifest`/`verify` 属于已有 BIN 的验收链，日常 ELF 使用 `resources`。
+
+生产镜像额外检查源码中的产品签核：D008 全部 profile 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；20S NMC 还要求 `BMS_D008_20S_NMC_PROTECTION_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。当前三个值均为 0，**只有实际签核并提交后才可置 1**，不能由 `EXTRA_DEFINES` 覆盖。`link/resources` 允许检查未签核工程配置，不构成发布签核。
+
+日常优先使用 `link`（开发验证）、`test`（host）、`static`（静态分析），明确需要镜像并完成签核后用 `release` 串联 clean/build/check、manifest、verify。`--product d014 test` 选择 D014，`--all-products test` 只执行一次统一四产品报告。
 
 以已经确认的 D014 生产交付为例，保持每条命令产品/模式/profile 一致：
 
 ```powershell
-python bms_tools/bms.py --product d014 --production rebuild --jobs 4
-python bms_tools/bms.py --product d014 --production check-fw
-python bms_tools/bms.py --product d014 --production map
-python bms_tools/bms.py --product d014 --production manifest
-python bms_tools/bms.py --product d014 --production verify
+python bms_tools/bms.py --product d014 --production release --jobs 4
 ```
 
 只交付 canonical `.bin`，不把 `.raw.bin` 当 OTA 镜像。归档完整 SHA、产品/profile、工具版本、参数更新编号、BIN hash、manifest、ELF/MAP/resources 与测试日志；另按 [硬件验收](HARDWARE_VALIDATION.md) 关闭实板项目。`flash-help` 只提供说明，生成镜像不等于烧录或 OTA 成功。
 
 ### 一次生成多个产品
 
-下面一组命令批量生成 D008 16S LFP、D011、D013、D014 的生产镜像并完成清单校验：
+完成对应产品签核后，下面一组命令批量生成 D008 16S LFP、D011、D013、D014 的生产镜像并完成清单校验：
 
 ```powershell
 python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp rebuild --jobs 4

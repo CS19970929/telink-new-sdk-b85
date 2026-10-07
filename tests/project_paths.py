@@ -12,6 +12,8 @@ class Sources:
     def __truediv__(self, name):
         name=str(name)
         if name=="bms_board.c": return self.root/"bms/platform/telink/bms_board.c"
+        shared=self.root/"bms/products"/name
+        if shared.is_file(): return shared
         product=self.root/"bms/products"/self.product/name
         if product.exists(): return product
         candidates=[x for x in (self.root/"bms").rglob(name) if "products" not in x.parts]
@@ -24,7 +26,7 @@ class Sources:
 
 def host_includes(root, product=None):
     root=Path(root);product=product or os.environ.get("BMS_PRODUCT", "d014")
-    dirs=[root,root/"bms/core", root/"bms/app",root/"bms/platform/telink",root/"bms/products"/product,
+    dirs=[root,root/"bms/core", root/"bms/app",root/"bms/platform/telink",root/"bms/products"/product,root/"bms/products",
           root/"bms/afe"/("dvc1124" if product=="d008" else "sh3673510"),
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk",
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85",
@@ -47,4 +49,4 @@ def selected_source(path, product=None):
         marker=re.match(r'^# \d+ "(.*?)"',line)
         if marker:active=Path(marker[1].replace("\\","/")).resolve().as_posix().casefold()==target
         elif active:out.append(line)
-    return "".join(out).replace("\r\n", "\n")
+    return re.sub(r"\r+\n", "\n", "".join(out)).replace("\r", "\n")

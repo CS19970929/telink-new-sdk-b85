@@ -49,7 +49,7 @@
 
 ## 软件验证
 
-新增 `tests/sh_recovery_evidence_host_check.py`：以真实选中产品的完整 SH BMS 单元、真实公共 guard 和真实 CRLD 寄存器控制函数分别验证公开入口。设备寄存器、时间、独立软件保护和 feature 策略由 host fixture 模拟；不声称覆盖真实整机。
+新增 `tests/sh_recovery_host_check.py`：以真实选中产品的完整 SH BMS 单元、真实公共 guard 和真实 CRLD 寄存器控制函数分别验证公开入口。设备寄存器、时间、独立软件保护和 feature 策略由 host fixture 模拟；不声称覆盖真实整机。
 
 覆盖 OCC 零电流误恢复、迟滞/负 ADC、检测模式切换、SC/OCC 并发、清除后读回、清除失败静默、ADC 无新数据/超时、正常 4 Hz CADC 节奏、tick 回绕、寄存器其他位保持及每个模式读写/读回失败。D011 / D013 / D014 分别用 host `-O2` / `-Os` 执行。
 

@@ -20,7 +20,7 @@
 /* 保持历史数字线协议产品 ID；存储有独立标记。 */
 #define FD_BMS_TYPE 2u
 #define SeriesNum                      SH3673510_BOARD_CELL_COUNT
-/* 现有 D11 容量单位 Ah*10，是产品数据，不能由原理图推断。 */
+/* D013 开发容量 11.6 Ah（0.1 Ah 单位）；需产品参数签核。 */
 #define CapacityFactory                116
 #define BMS_HARDWARE_VERDION_DEFAULT   "D013"
 #define BMS_SOFTWARE_VERDION_DEFAULT   "V1.0"

@@ -365,6 +365,7 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
     return DVC1124_CFG_ERR_ADDRESS;
 }
 
+#if BMS_DVC_RAW_DIAG_ENABLE
 /* 按允许范围读取 DVC 原始寄存器。 */
 dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
 {
@@ -393,3 +394,5 @@ dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value)
      */
     return DVC1124_CFG_ERR_READ_ONLY;
 }
+
+#endif

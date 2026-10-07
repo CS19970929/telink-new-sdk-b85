@@ -8,7 +8,7 @@
 |---|---|---|
 | 编译期产品/硬件输入 | `bms/products/<product>/` | 编译并运行新固件；固定 AFE 工作设置在 reset/init 时应用 |
 | 运行参数 | Config journal，启动加载到公共模块 | 已保存值通常优先；按分组更新编号决定覆盖 |
-| 运行状态 | State/Event journal 和 RAM | SOC、循环、容量学习、事件由各模块维护 |
+| 运行状态 | State/Event journal 和 RAM | SOC、循环、事件由各模块维护 |
 
 修改头文件不是在线修改设备。当前内部 journal schema 3 内，编号相同保留设备值，编号不同写入该类默认；旧 schema 拒绝且不迁移。八类及一个保留槽、回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
 
@@ -24,7 +24,7 @@
 | 软件保护默认 | `bms/core/param.h` 的宏及 `E2P_PROTECT_DEFAULT_PRT` | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
-| OTA 更新策略 | 产品 `bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
+| OTA 更新策略 | 共享 `bms/products/bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
 `bms/core/conf.h` 引入当前产品 `bms_product_conf.h`；include 路径由构建器选择。`bms_product_config.h` 与 `bms_product_conf.h` 职责不同，改前先追 include 和使用者。
@@ -74,7 +74,7 @@ try {
 
 1. 改 `bms/products/d014/bms_product_conf.h` 的 `CapacityFactory` 为 `120`，不改公共倍率。
 2. 只影响空白设备则保持编号；要覆盖同 schema 设备则改变 D014 `BMS_UPDATE_BUSINESS_REVISION`。该组还会恢复 heater/balance，不能当“只重置容量”开关。
-3. 更换电池/容量要评估 `SOC_STATE`，它同时重置 SOC、循环和学习状态。在线容量接口 `0x2318` 走持久化事务及 `bms_soc_nominal_capacity_changed()`，不要直接写全局量。
+3. 更换电池/容量要评估 `SOC_STATE`，它同时重置 SOC 和循环状态。在线容量接口 `0x2318` 走持久化事务及 `bms_soc_nominal_capacity_changed()`，不要直接写全局量。
 4. 查看 diff，跑 source 检查、参数/storage host、目标 link/resources；共享默认或算法变化则验证四产品。
 5. 真正上板后分别记录默认容量 `0x2E08`、设备容量 `0x2318`、更新编号和启动结果；再测重启与回退。
 
@@ -86,7 +86,7 @@ SH AFE 默认只改目标产品 `SH3673510_HW_DEFAULT_*`，按 AFE 编号生效�
 
 D008 `20s-nmc` 只选串数/SOC 化学体系，不会自动替换为 NMC 保护值，当前 SCD 默认关闭。profile 选择不代表参数签核。
 
-相关入口：`sw_protection_contract_check.py`、`sw_temperature_groups_host_check.py`、`afe_hw_profile_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_afe_profile_default_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
+相关入口：`core_contract_check.py`、`sw_temperature_groups_host_check.py`、`d014_configuration_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_defaults_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
 
 ## 7. 参数没变化时排查
 

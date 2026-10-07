@@ -4,10 +4,10 @@
 
 ## 第一轮：选对产品，追启动
 
-读目标产品 `bms_product_config.h`、`bms_product_conf.h`、`sources.txt`，再读 `bms/platform/telink/main.c`、`bms/app/app.c`。
+读目标产品 `bms_product_config.h`、`bms_product_conf.h`、`sources.txt`，再读 `bms/platform/telink/main.c`、`app_ble.c`、`bms/app/app.c`。
 
 ```text
-SDK startup → main → user_init_normal
+SDK startup → main → user_init_normal（app_ble.c）→ app_init（app.c）
   board_init：先关闭业务输出授权
   bms_parameters_startup：Config/State/Event 启动校验及更新
   LoadParam：读取并校验 g_tParam.protect
@@ -43,7 +43,7 @@ main_loop → app_sample_task（约 200 ms）
 
 ## 第三轮：默认值为何不一定生效
 
-读 `bms/core/param.c`、`bms_config_store.c`、`bms_update_policy.h`、本产品 `bms_parameter_policy.h`、`bms_parameter_access.c`。
+读 `bms/core/param.c`、`bms_config_store.c`、`bms_update_policy.h`、共享 `bms/products/bms_parameter_policy.h`、`bms_parameter_access.c`。
 
 ```text
 产品/公共默认 → Config default builder
@@ -64,9 +64,9 @@ main_loop → app_sample_task（约 200 ms）
 | Flash 保存失败 | `bms_config_store.c`、`bms_state_store.c`、`storage_record.c`、`bms/platform/telink/bms_storage_platform_telink.c` |
 | AFE 硬件配置 | `bms_afe_hw_profile.c`、`bms_afe_hw_access.c`、对应 AFE control/backend 与产品配置 |
 | Modbus/RS485 | `bms/core/modbus_rtu.c`、`bms_parameter_access.c`、`bms/platform/telink/modbus_uart.c` |
-| BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，及 `app.c` 的连接/PM/Flash 回调 |
+| BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，`app_ble.c` 的连接/SDK PM/Flash 回调及 `app.c` 的业务低功耗门禁 |
 | 日志诊断 | `bms/core/bms_diag.c`、`bms_debug_log.c`、`bms/platform/telink/bms_runtime_diag.c` |
 | heater/balance/open-wire | `bms/app/bms_features.c`、所选 AFE `*_feature_backend.c`、产品能力输入 |
-| 状态保存 | `bms_state_store.c`；SOC/循环/学习统一 checkpoint，老化模式已删除 |
+| 状态保存 | `bms_state_store.c`；SOC/放电累计/循环统一 checkpoint，老化模式已删除 |
 
 每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。然后选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。

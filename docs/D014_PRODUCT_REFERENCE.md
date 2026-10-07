@@ -132,5 +132,5 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 - `bms/core/bms_sw_protection.*`：软件三级保护。
 - `bms/core/bms_afe_hw_profile.*`：独立 AFE hardware protection profile。
 - `bms/app/bms_features.*`：balance/open-wire/heater 公共策略。
-- `tests/sh3673510_d014_integration_check.py`：D014 板级 contract。
-- `tests/d014_afe_profile_default_host_check.py`：执行 D014 AFE 默认 profile 构建与校验。
+- `tests/d014_configuration_contract_check.py`：D014 板级 contract。
+- `tests/d014_defaults_host_check.py`：执行 D014 AFE 默认 profile 构建与校验。

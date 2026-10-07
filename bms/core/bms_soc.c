@@ -1,5 +1,5 @@
 /*
- * 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之
+ * 文件功能：SOC 积分、OCV 校正、端点约束与循环 SOH；明确有效样本、时间差和持久状态之
  * 间的边界。
  * bms/core/bms_soc.c；实际编译归属见各产品 sources.txt。
  */
@@ -74,25 +74,13 @@ static void SOC_Result_Pass(void);
 #define SOC_DSG_CORR_MID_GAP_MUL             3u
 #define SOC_DSG_CORR_LARGE_GAP_MUL           2u
 #define SOC_AUTO_LFP_OVP_MAX_MV              3900u
-#define SOC_LEARNED_CAP_MIN_PERCENT          50u
-#define SOC_LEARNED_CAP_MAX_PERCENT          130u
-#define SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT 5u
-#define SOC_LEARNING_UPDATE_MAX_PERCENT      5u
-#define SOC_LEARNING_CONFIRM_CYCLES          2u
 #define SOC_ENDPOINT_EVENT_EARLY_UVP         0x01u
 #define SOC_ENDPOINT_EVENT_LARGE_SAG         0x02u
 #define SOC_ENDPOINT_EVENT_IMBALANCE         0x04u
 #define SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH 0x08u
-#define SOC_ENDPOINT_EVENT_LEARNING_REJECTED 0x10u
 #define SOC_OCV_TEMP_MIN_X10                 200u  /* 温度 -20 ℃。 */
 #define SOC_OCV_TEMP_MAX_X10                 1000u /* 温度 +60 ℃。 */
 
-#ifndef BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT
-#define BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT 0u
-#endif
-#ifndef BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT
-#define BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT 1u
-#endif
 #ifndef BMS_CURRENT_UNRELIABLE_MAX_MA
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #endif
@@ -143,25 +131,10 @@ typedef struct
     uint16_t soc_low_recover_count[3];
     uint8_t soc_low_active[3];
 
-    uint8_t capacity_learned;
-    uint16_t learned_capacity_0p1ah;
-    uint8_t learning_state;
-    uint32_t learning_capacity_as10;
-    uint16_t candidate_capacity_0p1ah;
-    uint16_t valid_learning_count;
-    uint16_t rejected_learning_count;
-    uint8_t candidate_match_count;
-    uint8_t last_learning_reject_reason;
-    uint8_t learning_confidence;
-    int32_t learning_current_offset_ma;
-    uint32_t learning_current_gain_ppm;
-
     bms_soc_eta_t eta;
 
     uint8_t endpoint_state;
     uint8_t endpoint_event_flags;
-    uint8_t soh_source;
-    uint8_t soh_confidence;
 
     uint8_t last_sample_state;
     uint8_t last_integral_direction;
@@ -199,12 +172,10 @@ static bms_soc_config_t g_soc_config = {
     SOC_CURRENT_DEADBAND_MA_DEFAULT,
     SOC_OCV_REST_PREPARE_SECONDS,
     SOC_OCV_ERROR_BAND_PERCENT,
-    BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT,
-    BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT,
 };
 static const soc_profile_t *g_soc_profile;
 
-/* 按容量配置与学习结果重算满容量。 */
+/* 按名义容量和循环 SOH 重算满容量。 */
 static void soc_recalc_full_capacity(void);
 /* 按当前 SOC 重算剩余容量。 */
 static void soc_recalc_now_capacity(void);
@@ -214,14 +185,6 @@ static void soc_reset_ocv_tracking(void);
 static void soc_profile_refresh(void);
 /* 样本失效时撤销积分时间区间并复位相关跟踪。 */
 static void soc_invalidate_sample_interval(void);
-/* 终止容量学习并清除本轮累计状态。 */
-static void soc_learning_abort(void);
-/* 把当前学习结果提交到待保存状态，由检查点路径写 Flash。 */
-static void soc_learning_persist(void);
-/* 检查满充学习端点的电压、电流及确认资格。 */
-static uint8_t soc_learning_full_quality(void);
-/* 检查空电学习端点的负载与电压资格。 */
-static uint8_t soc_learning_empty_quality(void);
 
 /* 记录 SOC 输入样本资格与时序诊断。 */
 static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
@@ -276,8 +239,6 @@ void bms_soc_get_default_config(bms_soc_config_t *config)
     config->current_deadband_ma = SOC_CURRENT_DEADBAND_MA_DEFAULT;
     config->ocv_rest_prepare_s = SOC_OCV_REST_PREPARE_SECONDS;
     config->ocv_error_band_percent = SOC_OCV_ERROR_BAND_PERCENT;
-    config->capacity_learning_enable = BMS_SOC_CAPACITY_LEARNING_ENABLE_DEFAULT;
-    config->hide_capacity_until_learned = BMS_SOC_HIDE_CAPACITY_UNTIL_LEARNED_DEFAULT;
 }
 
 /* 检查 SOC 产品输入是否完整有效。 */
@@ -301,9 +262,7 @@ uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
         (config->ocv_rest_prepare_s < 60u) ||
         (config->ocv_rest_prepare_s > 3600u) ||
         (config->ocv_error_band_percent == 0u) ||
-        (config->ocv_error_band_percent > 20u) ||
-        (config->capacity_learning_enable > 1u) ||
-        (config->hide_capacity_until_learned > 1u)) return 0u;
+        (config->ocv_error_band_percent > 20u)) return 0u;
     return 1u;
 }
 
@@ -314,11 +273,6 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
 
     if (!bms_config_store_set_soc(config)) return 0u;
     g_soc_config = *config;
-    if (!g_soc_config.capacity_learning_enable &&
-        g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE) {
-        soc_learning_abort();
-        soc_learning_persist();
-    }
     soc_invalidate_sample_interval();
     soc_profile_refresh();
     soc_reset_ocv_tracking();
@@ -385,6 +339,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
 {
     uint32_t rest_s;
     if (diag == 0) return;
+    memset(diag, 0, sizeof(*diag)); /* 原学习诊断槽保留，恒为零。 */
     if (g_soc_profile == 0) soc_profile_refresh();
     rest_s = g_soc_runtime.idle_stable_ticks / SOC_TICKS_PER_SECOND;
     if (rest_s > 65535u) rest_s = 65535u;
@@ -400,11 +355,8 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->ocv_low = g_soc_runtime.ocv_low;
     diag->ocv_high = g_soc_runtime.ocv_high;
     diag->ocv_confidence = g_soc_runtime.ocv_confidence;
-    diag->capacity_learned = g_soc_runtime.capacity_learned;
-    diag->learning_state = g_soc_runtime.learning_state;
     diag->ocv_cell_mv = g_soc_runtime.ocv_mv;
     diag->rest_seconds = (uint16_t)rest_s;
-    diag->learned_capacity_0p1ah = g_soc_runtime.learned_capacity_0p1ah;
     diag->nominal_capacity_0p1ah = (uint16_t)(SOC_Calculate_Element.u32CapFactory /
                                                SOC_CAPACITY_UNITS_PER_FACTORY);
     diag->effective_capacity_0p1ah = (uint16_t)(SOC_Calculate_Element.u32CapFull /
@@ -423,16 +375,8 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->eta_confidence = g_soc_runtime.eta.eta_confidence;
     diag->eta_valid = g_soc_runtime.eta.eta_valid;
     diag->soh = SOC_Calculate_Element.soh;
-    diag->soh_source = g_soc_runtime.soh_source;
-    diag->soh_confidence = g_soc_runtime.soh_confidence;
-    diag->capacity_learning_enable = g_soc_config.capacity_learning_enable;
-    diag->capacity_learning_candidate_valid =
-        (g_soc_runtime.candidate_match_count != 0u) ? 1u : 0u;
-    diag->capacity_learning_confidence = g_soc_runtime.learning_confidence;
-    diag->candidate_capacity_0p1ah = g_soc_runtime.candidate_capacity_0p1ah;
-    diag->valid_learning_count = g_soc_runtime.valid_learning_count;
-    diag->rejected_learning_count = g_soc_runtime.rejected_learning_count;
-    diag->last_learning_reject_reason = g_soc_runtime.last_learning_reject_reason;
+    diag->soh_source = BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE;
+    diag->soh_confidence = 25u; /* 循环经验估算，不是实测容量。 */
     diag->last_sample_state = g_soc_runtime.last_sample_state;
     diag->last_integral_direction = g_soc_runtime.last_integral_direction;
     diag->last_soc_action = g_soc_runtime.last_soc_action;
@@ -561,27 +505,15 @@ static uint32_t soc_nominal_capacity_0p1ah(void)
     return (uint32_t)CapacityFactory;
 }
 
-/* 按容量配置与学习结果重算满容量。 */
+/* 按名义容量和循环 SOH 重算满容量。 */
 static void soc_recalc_full_capacity(void)
 {
     uint32_t factory = soc_nominal_capacity_0p1ah();
     SOC_Calculate_Element.u32CapFactory = factory * SOC_CAPACITY_UNITS_PER_FACTORY;
 
-    if (g_soc_runtime.capacity_learned && g_soc_runtime.learned_capacity_0p1ah != 0u) {
-        uint32_t learned = g_soc_runtime.learned_capacity_0p1ah;
-        uint32_t soh = (factory == 0u) ? 100u : (learned * 100u) / factory;
-        if (soh > 100u) soh = 100u;
-        SOC_Calculate_Element.soh = (uint8_t)soh;
-        SOC_Calculate_Element.u32CapFull = learned * SOC_CAPACITY_UNITS_PER_FACTORY;
-        g_soc_runtime.soh_source = BMS_SOC_SOH_SOURCE_CAPACITY;
-        g_soc_runtime.soh_confidence = 100u;
-    } else {
-        SOC_Calculate_Element.soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
-        SOC_Calculate_Element.u32CapFull =
-            (SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh) / 100u;
-        g_soc_runtime.soh_source = BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE;
-        g_soc_runtime.soh_confidence = 25u;
-    }
+    SOC_Calculate_Element.soh = bms_soh_from_cycle(soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times));
+    SOC_Calculate_Element.u32CapFull =
+        (SOC_Calculate_Element.u32CapFactory * SOC_Calculate_Element.soh) / SOC_PERCENT_MAX;
 
     if (SOC_Calculate_Element.u32CapFull == 0u) SOC_Calculate_Element.u32CapFull = 1u;
 }
@@ -681,204 +613,6 @@ static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
     }
 }
 
-/* 终止容量学习并清除本轮累计状态。 */
-static void soc_learning_abort(void)
-{
-    g_soc_runtime.learning_state = BMS_SOC_LEARNING_NONE;
-    g_soc_runtime.learning_capacity_as10 = 0u;
-}
-
-/* 饱和递增 16 位计数器，避免回绕。 */
-static uint16_t soc_sat_inc_u16(uint16_t value)
-{
-    return (value == 65535u) ? value : (uint16_t)(value + 1u);
-}
-
-/* 组合容量学习持久状态标志，不执行存储写入。 */
-static uint32_t soc_learning_persist_flags(void)
-{
-    uint32_t flags = BMS_STATE_FLAG_LEARNING_META |
-        (soc_nominal_capacity_0p1ah() << BMS_STATE_FLAG_NOMINAL_SHIFT);
-    if (g_soc_runtime.capacity_learned) flags |= BMS_STATE_FLAG_CAPACITY_LEARNED;
-    if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-        flags |= BMS_STATE_FLAG_LEARNING_ACTIVE;
-    return flags;
-}
-
-/* 按样本与候选质量更新学习置信度。 */
-static void soc_learning_update_confidence(void)
-{
-    uint16_t confidence;
-    if (g_soc_runtime.capacity_learned) {
-        g_soc_runtime.learning_confidence = 100u;
-        return;
-    }
-    confidence = (uint16_t)g_soc_runtime.candidate_match_count *
-        (100u / SOC_LEARNING_CONFIRM_CYCLES);
-    if (confidence > 99u) confidence = 99u;
-    g_soc_runtime.learning_confidence = (uint8_t)confidence;
-}
-
-/* 把当前学习结果提交到待保存状态，由检查点路径写 Flash。 */
-static void soc_learning_persist(void)
-{
-    (void)bms_state_store_write_learning_meta(
-        (u32)g_soc_runtime.learned_capacity_0p1ah,
-        soc_learning_persist_flags(),
-        (u32)g_soc_runtime.candidate_capacity_0p1ah,
-        (u32)g_soc_runtime.valid_learning_count,
-        (u32)g_soc_runtime.rejected_learning_count,
-        (u32)g_soc_runtime.last_learning_reject_reason,
-        (u32)g_soc_runtime.candidate_match_count);
-}
-
-/* 拒绝当前学习候选并记录原因。 */
-static void soc_learning_reject(uint8_t reason)
-{
-    if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-        g_soc_runtime.rejected_learning_count =
-            soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
-    g_soc_runtime.last_learning_reject_reason = reason;
-    g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LEARNING_REJECTED;
-    soc_learning_abort();
-    soc_learning_update_confidence();
-    soc_learning_persist();
-}
-
-/* 从合格端点启动一轮容量学习。 */
-static void soc_learning_start(uint8_t state)
-{
-    int32_t offset_ma;
-    uint32_t gain_ppm;
-    if (!bms_config_get_current_calibration(&offset_ma, &gain_ppm)) {
-        g_soc_runtime.last_learning_reject_reason =
-            BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED;
-        soc_learning_abort();
-        soc_learning_persist();
-        return;
-    }
-    g_soc_runtime.learning_state = state;
-    g_soc_runtime.learning_capacity_as10 = 0u;
-    g_soc_runtime.learning_current_offset_ma = offset_ma;
-    g_soc_runtime.learning_current_gain_ppm = gain_ppm;
-    soc_learning_persist();
-}
-
-/* 将有效容量增量累积到当前学习轮次。 */
-static void soc_learning_add(uint32_t delta)
-{
-    if ((0xFFFFFFFFu - g_soc_runtime.learning_capacity_as10) < delta)
-        g_soc_runtime.learning_capacity_as10 = 0xFFFFFFFFu;
-    else
-        g_soc_runtime.learning_capacity_as10 += delta;
-}
-
-/* 校验候选容量及连续确认后接受学习结果。 */
-static uint8_t soc_learning_accept_candidate(void)
-{
-    uint32_t nominal = soc_nominal_capacity_0p1ah();
-    uint32_t candidate = (g_soc_runtime.learning_capacity_as10 + 1800u) / 3600u;
-    uint32_t min_cap = (nominal * SOC_LEARNED_CAP_MIN_PERCENT) / 100u;
-    uint32_t max_cap = (nominal * SOC_LEARNED_CAP_MAX_PERCENT) / 100u;
-
-    if ((nominal == 0u) || (candidate < min_cap) || (candidate > max_cap) ||
-        (candidate > BMS_SOC_CAPACITY_MAX_0P1AH)) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CAPACITY_RANGE);
-        return 0u;
-    }
-
-    g_soc_runtime.valid_learning_count = soc_sat_inc_u16(g_soc_runtime.valid_learning_count);
-    if (g_soc_runtime.candidate_match_count == 0u) {
-        g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)candidate;
-        g_soc_runtime.candidate_match_count = 1u;
-    } else {
-        uint32_t tolerance;
-        tolerance = ((uint32_t)g_soc_runtime.candidate_capacity_0p1ah *
-                     SOC_LEARNING_CANDIDATE_TOLERANCE_PERCENT) / 100u;
-        if (tolerance == 0u) tolerance = 1u;
-        if (soc_abs_diff_u16((uint16_t)candidate,
-                             g_soc_runtime.candidate_capacity_0p1ah) > tolerance) {
-            g_soc_runtime.rejected_learning_count =
-                soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
-            g_soc_runtime.last_learning_reject_reason =
-                BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT;
-            g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LEARNING_REJECTED;
-            g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)candidate;
-            g_soc_runtime.candidate_match_count = 1u;
-        } else {
-            uint32_t averaged = ((uint32_t)g_soc_runtime.candidate_capacity_0p1ah +
-                                 candidate + 1u) / 2u;
-            g_soc_runtime.candidate_capacity_0p1ah = (uint16_t)averaged;
-            if (g_soc_runtime.candidate_match_count < 255u)
-                g_soc_runtime.candidate_match_count++;
-        }
-    }
-
-    if (g_soc_runtime.candidate_match_count >= SOC_LEARNING_CONFIRM_CYCLES) {
-        uint32_t base = g_soc_runtime.capacity_learned ?
-            g_soc_runtime.learned_capacity_0p1ah : nominal;
-        uint32_t max_step = (base * SOC_LEARNING_UPDATE_MAX_PERCENT) / 100u;
-        uint32_t target = g_soc_runtime.candidate_capacity_0p1ah;
-        if (max_step == 0u) max_step = 1u;
-        if (target > base + max_step) target = base + max_step;
-        else if (target + max_step < base) target = base - max_step;
-        g_soc_runtime.learned_capacity_0p1ah = (uint16_t)target;
-        g_soc_runtime.capacity_learned = 1u;
-        g_soc_runtime.candidate_match_count = 0u;
-        soc_recalc_full_capacity();
-        soc_recalc_now_capacity();
-    }
-
-    soc_learning_abort();
-    soc_learning_update_confidence();
-    soc_learning_persist();
-    return 1u;
-}
-
-/* 按积分方向和资格推进学习容量累计。 */
-static void soc_learning_on_delta(soc_integral_dir_t dir, uint32_t delta)
-{
-    if (!g_soc_config.capacity_learning_enable || delta == 0u) return;
-
-    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_EMPTY_TO_FULL) {
-        if (dir == SOC_INTEGRAL_DIR_CHG) soc_learning_add(delta);
-        else if (dir == SOC_INTEGRAL_DIR_DSG)
-            soc_learning_reject(BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
-    } else if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_FULL_TO_EMPTY) {
-        if (dir == SOC_INTEGRAL_DIR_DSG) soc_learning_add(delta);
-        else if (dir == SOC_INTEGRAL_DIR_CHG)
-            soc_learning_reject(BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE);
-    }
-}
-
-/* 满充锚点到达时处理学习开始或结束。 */
-static void soc_learning_on_full_anchor(void)
-{
-    uint8_t quality;
-    if (!g_soc_config.capacity_learning_enable) return;
-    quality = soc_learning_full_quality();
-    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_EMPTY_TO_FULL) {
-        if (quality) (void)soc_learning_accept_candidate();
-        else soc_learning_reject(BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL);
-    }
-    if (quality) soc_learning_start(BMS_SOC_LEARNING_FULL_TO_EMPTY);
-    else soc_learning_abort();
-}
-
-/* 空电锚点到达时处理学习开始或结束。 */
-static void soc_learning_on_empty_anchor(void)
-{
-    uint8_t quality;
-    if (!g_soc_config.capacity_learning_enable) return;
-    quality = soc_learning_empty_quality();
-    if (g_soc_runtime.learning_state == BMS_SOC_LEARNING_FULL_TO_EMPTY) {
-        if (quality) (void)soc_learning_accept_candidate();
-        else soc_learning_reject(BMS_SOC_LEARNING_REJECT_LOW_QUALITY_EMPTY);
-    }
-    if (quality) soc_learning_start(BMS_SOC_LEARNING_EMPTY_TO_FULL);
-    else soc_learning_abort();
-}
-
 /* 把容量积分增量应用到真实 SOC 与循环状态。 */
 static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 {
@@ -888,8 +622,6 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
     g_soc_runtime.last_integral_delta_as10 = delta;
     soc_diag_note_action(BMS_SOC_ACTION_INTEGRATE, old_soc, old_soc, 0u);
     if (delta == 0u) return;
-
-    soc_learning_on_delta(dir, delta);
 
     if (dir == SOC_INTEGRAL_DIR_CHG) {
         if ((SOC_Calculate_Element.u32CapNow >= SOC_Calculate_Element.u32CapFull) ||
@@ -1291,87 +1023,6 @@ static uint16_t soc_uvp_trip_mv(void)
 }
 
 /* 计算有符号电流的绝对量。 */
-static uint32_t soc_abs_i32(int32_t value)
-{
-    return (value < 0) ? (0u - (uint32_t)value) : (uint32_t)value;
-}
-
-/* 取得学习端点允许的最大电流毫安值。 */
-static uint32_t soc_learning_endpoint_current_max_ma(void)
-{
-    return (soc_nominal_capacity_0p1ah() *
-            g_soc_profile->learning_endpoint_max_c_rate_x1000) / 10u;
-}
-
-/* 检查容量学习共有的样本与故障资格。 */
-static uint8_t soc_learning_common_quality(soc_integral_dir_t required_dir)
-{
-    if (!g_soc_input_valid || !soc_ocv_sample_valid() ||
-        !soc_temperature_reasonable() ||
-        g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv ||
-        g_soc_input.afe_fault || g_soc_input.open_wire_active ||
-        g_soc_input.open_wire_suspected || g_soc_input.balancing_active ||
-        g_soc_input.heating_active || g_soc_input.temperature_fault ||
-        g_soc_input.current_fault || g_soc_input.pack_fault ||
-        soc_current_direction(0) != required_dir ||
-        soc_abs_i32(g_soc_input_current_ma) > soc_learning_endpoint_current_max_ma())
-        return 0u;
-    return 1u;
-}
-
-/* 检查满充学习端点的电压、电流及确认资格。 */
-static uint8_t soc_learning_full_quality(void)
-{
-    uint16_t full_min = (g_soc_profile->full_sync_mv > g_soc_profile->full_min_margin_mv) ?
-        (uint16_t)(g_soc_profile->full_sync_mv - g_soc_profile->full_min_margin_mv) : 0u;
-    return (soc_learning_common_quality(SOC_INTEGRAL_DIR_CHG) &&
-            VCELLMAX >= g_soc_profile->full_sync_mv && VCELLMIN >= full_min &&
-            g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) ? 1u : 0u;
-}
-
-/* 检查空电学习端点的负载与电压资格。 */
-static uint8_t soc_learning_empty_quality(void)
-{
-    uint16_t empty_limit = (uint16_t)(soc_uvp_trip_mv() +
-                                      g_soc_profile->terminal_l3_offset_mv);
-    return (soc_learning_common_quality(SOC_INTEGRAL_DIR_DSG) &&
-            VCELLMIN <= empty_limit && !soc_discharge_sag_hold_active()) ? 1u : 0u;
-}
-
-/* 运行中监测学习资格，异常时拒绝本轮。 */
-static void soc_learning_monitor_quality(void)
-{
-    int32_t offset_ma;
-    uint32_t gain_ppm;
-    if (!g_soc_config.capacity_learning_enable ||
-        g_soc_runtime.learning_state == BMS_SOC_LEARNING_NONE) return;
-    if (g_soc_input.afe_fault) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION); return;
-    }
-    if (!bms_config_get_current_calibration(&offset_ma, &gain_ppm) ||
-        offset_ma != g_soc_runtime.learning_current_offset_ma ||
-        gain_ppm != g_soc_runtime.learning_current_gain_ppm) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED); return;
-    }
-    if (g_soc_input.open_wire_active || g_soc_input.open_wire_suspected) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_OPEN_WIRE); return;
-    }
-    if (g_soc_input.balancing_active) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_BALANCING); return;
-    }
-    if (g_soc_input.heating_active) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_HEATING); return;
-    }
-    if (!soc_temperature_reasonable() || g_soc_input.temperature_fault) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_TEMPERATURE); return;
-    }
-    if (g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv) {
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE); return;
-    }
-    if (g_soc_input.current_fault || g_soc_input.pack_fault)
-        soc_learning_reject(BMS_SOC_LEARNING_REJECT_PROTECTION);
-}
-
 /* 复位 SOC 内部剩余时间估算状态。 */
 static void soc_eta_reset(void)
 {
@@ -1466,7 +1117,6 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
                                  current_soc, 0u, sag_hold_blocks);
             if (!g_soc_runtime.empty_anchor_latched) {
                 g_soc_runtime.empty_anchor_latched = 1u;
-                soc_learning_on_empty_anchor();
             }
             g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
             return 1u;
@@ -1508,7 +1158,6 @@ static uint8_t soc_apply_full_anchor(void)
         if (!g_soc_runtime.full_anchor_latched) {
             g_soc_runtime.full_anchor_latched = 1u;
             g_soc_runtime.empty_anchor_latched = 0u;
-            soc_learning_on_full_anchor();
         }
         g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
         soc_diag_note_action(BMS_SOC_ACTION_FULL_ANCHOR, before,
@@ -1532,7 +1181,6 @@ static uint8_t soc_apply_full_anchor(void)
         if (!g_soc_runtime.full_anchor_latched) {
             g_soc_runtime.full_anchor_latched = 1u;
             g_soc_runtime.empty_anchor_latched = 0u;
-            soc_learning_on_full_anchor();
         }
         g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
         return 0u;
@@ -1547,7 +1195,6 @@ static uint8_t soc_apply_full_anchor(void)
         if (get_soc_real() == SOC_PERCENT_MAX && !g_soc_runtime.full_anchor_latched) {
             g_soc_runtime.full_anchor_latched = 1u;
             g_soc_runtime.empty_anchor_latched = 0u;
-            soc_learning_on_full_anchor();
         }
         if (get_soc_real() == SOC_PERCENT_MAX)
             g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_FULL;
@@ -1568,7 +1215,7 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
     if (soc_discharge_sag_hold_active())
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LARGE_SAG;
-    if (g_soc_input.cell_delta_mv > g_soc_profile->learning_cell_delta_max_mv)
+    if (g_soc_input.cell_delta_mv > g_soc_profile->terminal_cell_delta_max_mv)
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_IMBALANCE;
     if (get_soc_real() != 0u) {
         soc_apply_real_value(0u, 1u);
@@ -1579,7 +1226,6 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     if (!g_soc_runtime.empty_anchor_latched) {
         g_soc_runtime.empty_anchor_latched = 1u;
         g_soc_runtime.full_anchor_latched = 0u;
-        soc_learning_on_empty_anchor();
     }
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
     return 1u;
@@ -1606,7 +1252,6 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         if (!g_soc_runtime.empty_anchor_latched) {
             g_soc_runtime.empty_anchor_latched = 1u;
             g_soc_runtime.full_anchor_latched = 0u;
-            soc_learning_on_empty_anchor();
         }
         g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
         return 0u;
@@ -1621,7 +1266,6 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         if (get_soc_real() == 0u && !g_soc_runtime.empty_anchor_latched) {
             g_soc_runtime.empty_anchor_latched = 1u;
             g_soc_runtime.full_anchor_latched = 0u;
-            soc_learning_on_empty_anchor();
         }
         if (get_soc_real() == 0u)
             g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
@@ -1730,7 +1374,7 @@ static void soc_strategy_update(void)
 
     if (soc_apply_full_anchor()) { soc_eta_update(); return; }
     if (soc_apply_forced_empty_anchor()) { soc_eta_update(); return; }
-    soc_learning_monitor_quality();
+
     if (soc_apply_discharge_terminal_tracking()) { soc_eta_update(); return; }
     if (soc_apply_idle_empty_anchor()) { soc_eta_update(); return; }
     (void)soc_idle_ocv_tracking();
@@ -1763,7 +1407,6 @@ void set_soc_param(uint8_t soc, uint8_t sync_display)
 void soc_param_lib_init(const bms_state_store_data_t *soc)
 {
     bms_state_store_data_t defaults;
-    uint8_t learning_meta_changed = 0u;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
     soc_invalidate_sample_interval();
     soc_load_persisted_product_config();
@@ -1776,32 +1419,6 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
 
     SOC_Calculate_Element.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
     SOC_Calculate_Element.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
-    if ((soc->flags >> BMS_STATE_FLAG_NOMINAL_SHIFT) == soc_nominal_capacity_0p1ah()) {
-        if ((soc->flags & BMS_STATE_FLAG_CAPACITY_LEARNED) &&
-            soc->learned_capacity_0p1ah != 0u) {
-            g_soc_runtime.capacity_learned = 1u;
-            g_soc_runtime.learned_capacity_0p1ah =
-                (soc->learned_capacity_0p1ah > 65535u) ?
-                65535u : (uint16_t)soc->learned_capacity_0p1ah;
-        }
-        if (soc->flags & BMS_STATE_FLAG_LEARNING_META) {
-            g_soc_runtime.candidate_capacity_0p1ah =
-                (uint16_t)soc->candidate_capacity_0p1ah;
-            g_soc_runtime.valid_learning_count = (uint16_t)soc->valid_learning_count;
-            g_soc_runtime.rejected_learning_count = (uint16_t)soc->rejected_learning_count;
-            g_soc_runtime.last_learning_reject_reason =
-                (uint8_t)soc->last_learning_reject_reason;
-            g_soc_runtime.candidate_match_count = (uint8_t)soc->candidate_match_count;
-        }
-        if (soc->flags & BMS_STATE_FLAG_LEARNING_ACTIVE) {
-            g_soc_runtime.rejected_learning_count =
-                soc_sat_inc_u16(g_soc_runtime.rejected_learning_count);
-            g_soc_runtime.last_learning_reject_reason =
-                BMS_SOC_LEARNING_REJECT_REBOOT;
-            learning_meta_changed = 1u;
-        }
-    }
-
     SOC_Calculate_Element.u8SOC_Now = soc_limit_percent_u32(soc->soc);
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
@@ -1813,9 +1430,8 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     soc_diag_note_action(BMS_SOC_ACTION_STATE_RESTORE,
                          SOC_Calculate_Element.u8SOC_Now,
                          SOC_Calculate_Element.u8SOC_Now, 0u);
-    soc_learning_update_confidence();
+
     g_soc_initialized = 1u;
-    if (learning_meta_changed) soc_learning_persist();
     SOC_Result_Pass();
 }
 
@@ -1832,27 +1448,17 @@ static void soc_integrate_current(soc_integral_dir_t dir)
 /* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
 static void SOC_Result_Pass(void)
 {
-    uint8_t hide_capacity;
     soc_display_follow_real();
     g_stCellInfoReport.SocElement.u16Soc = get_soc_display();
     g_stCellInfoReport.SocElement.u16Soh = SOC_Calculate_Element.soh;
     g_stCellInfoReport.SocElement.u16Cycle_times = soc_cycle_to_u16(SOC_Calculate_Element.u32Cycle_times);
 
-    hide_capacity = (g_soc_config.capacity_learning_enable &&
-                     g_soc_config.hide_capacity_until_learned &&
-                     !g_soc_runtime.capacity_learned) ? 1u : 0u;
-    if (hide_capacity) {
-        g_stCellInfoReport.SocElement.u16CapacityNow = 0u;
-        g_stCellInfoReport.SocElement.u16CapacityFull = 0u;
-        g_stCellInfoReport.SocElement.u16CapacityFactory = 0u;
-    } else {
-        g_stCellInfoReport.SocElement.u16CapacityNow =
-            (uint16_t)(soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR);
-        g_stCellInfoReport.SocElement.u16CapacityFull =
-            (uint16_t)(SOC_Calculate_Element.u32CapFull / SOC_REPORT_CAPACITY_DIVISOR);
-        g_stCellInfoReport.SocElement.u16CapacityFactory =
-            (uint16_t)(SOC_Calculate_Element.u32CapFactory / SOC_REPORT_CAPACITY_DIVISOR);
-    }
+    g_stCellInfoReport.SocElement.u16CapacityNow =
+        (uint16_t)(soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR);
+    g_stCellInfoReport.SocElement.u16CapacityFull =
+        (uint16_t)(SOC_Calculate_Element.u32CapFull / SOC_REPORT_CAPACITY_DIVISOR);
+    g_stCellInfoReport.SocElement.u16CapacityFactory =
+        (uint16_t)(SOC_Calculate_Element.u32CapFactory / SOC_REPORT_CAPACITY_DIVISOR);
 }
 
 /* 样本失效时撤销积分时间区间并复位相关跟踪。 */
@@ -1877,20 +1483,16 @@ static void soc_invalidate_sample_interval(void)
     g_soc_display_step_ticks = 0u;
     memset(g_soc_runtime.soc_low_trip_count, 0, sizeof(g_soc_runtime.soc_low_trip_count));
     memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
-    soc_learning_abort();
 }
 
 /* 外部 SOC 或容量变化后重建算法跟踪状态。 */
-static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample,
-                                          uint8_t *reason)
+static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample)
 {
     uint8_t changed = 0u;
-    *reason = BMS_SOC_LEARNING_REJECT_NONE;
     if (sample->charger_state_known) {
         if (g_soc_charger_state_ready &&
             g_soc_last_charger_present != sample->charger_present) {
             changed = 1u;
-            *reason = BMS_SOC_LEARNING_REJECT_CHARGER_CHANGE;
         }
         g_soc_last_charger_present = sample->charger_present;
         g_soc_charger_state_ready = 1u;
@@ -1899,8 +1501,6 @@ static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample,
         if (g_soc_load_state_ready &&
             g_soc_last_load_present != sample->load_present) {
             changed = 1u;
-            if (*reason == BMS_SOC_LEARNING_REJECT_NONE)
-                *reason = BMS_SOC_LEARNING_REJECT_LOAD_CHANGE;
         }
         g_soc_last_load_present = sample->load_present;
         g_soc_load_state_ready = 1u;
@@ -1916,7 +1516,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     soc_integral_dir_t dir;
     soc_integral_dir_t previous_dir;
     uint8_t external_change;
-    uint8_t learning_reject_reason;
 
     if (sample == 0) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
@@ -1924,15 +1523,12 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return;
     }
     g_soc_input = *sample;
-    external_change = soc_external_state_changed(sample, &learning_reject_reason);
+    external_change = soc_external_state_changed(sample);
 
     if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
-        if (g_soc_initialized &&
-            (!sample->sample_valid || !sample->voltage_valid) &&
-            g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-            soc_learning_reject(BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE);
+
         soc_invalidate_sample_interval();
         return;
     }
@@ -1956,8 +1552,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_GAP,
                              SOC_INTEGRAL_DIR_NONE, elapsed_32k);
-        if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-            soc_learning_reject(BMS_SOC_LEARNING_REJECT_SAMPLE_GAP);
+
         soc_invalidate_sample_interval();
         /* 当前帧开启新时间段，不补填盲区。 */
         g_soc_sample_tick_32k = sample->timestamp_32k;
@@ -1978,8 +1573,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_runtime.full_adjust_ticks = 0u;
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
-        if (g_soc_runtime.learning_state != BMS_SOC_LEARNING_NONE)
-            soc_learning_reject(learning_reject_reason);
     }
     soc_integrate_current(dir);
 
@@ -2015,19 +1608,9 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 
-/* 名义容量变更后重算容量并复位相关学习状态。 */
+/* 名义容量变更后重算容量并重建积分与显示状态。 */
 void bms_soc_nominal_capacity_changed(void)
 {
-    g_soc_runtime.capacity_learned = 0u;
-    g_soc_runtime.learned_capacity_0p1ah = 0u;
-    g_soc_runtime.candidate_capacity_0p1ah = 0u;
-    g_soc_runtime.candidate_match_count = 0u;
-    g_soc_runtime.valid_learning_count = 0u;
-    g_soc_runtime.rejected_learning_count = 0u;
-    g_soc_runtime.last_learning_reject_reason = BMS_SOC_LEARNING_REJECT_NONE;
-    g_soc_runtime.learning_confidence = 0u;
-    soc_learning_abort();
-    (void)bms_state_store_write_learning_meta(0u, 0u, 0u, 0u, 0u, 0u, 0u);
     soc_recalc_full_capacity();
     set_soc_param(get_soc_real(), 1u);
     SOC_Result_Pass();

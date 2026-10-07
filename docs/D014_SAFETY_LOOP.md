@@ -119,7 +119,7 @@ python tests/d014_reset_boundary_probe.py --output "$env:USERPROFILE/Documents/C
 
 ## 固定提交验证记录
 
-实现提交 `3f2fe78272f48a9570d4b31252386287a6c01c92`；验证时 Windows/WSL 工作树均干净。后续本页和证据文件的提交仅补充记录，不冒称重新编译。完整机器数据、报告哈希、ELF/MAP 哈希及工具身份见 [D014_SAFETY_LOOP_EVIDENCE.json](D014_SAFETY_LOOP_EVIDENCE.json)。
+实现提交 `3f2fe78272f48a9570d4b31252386287a6c01c92`；验证时 Windows/WSL 工作树均干净。后续本页和证据文件的提交仅补充记录，不冒称重新编译。完整机器数据、报告哈希、ELF/MAP 哈希及工具身份见 [D014_SAFETY_LOOP_EVIDENCE.json](history/D014_SAFETY_LOOP_EVIDENCE.json)。
 
 | 验证 | 实际结果 |
 |---|---|

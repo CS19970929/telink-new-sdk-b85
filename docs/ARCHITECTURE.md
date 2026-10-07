@@ -6,7 +6,7 @@
 
 ```text
 产品头文件 + sources.txt → 选择能力/默认值及唯一 AFE 后端
-Telink main/IRQ → app 调度
+Telink main/IRQ → app_ble SDK 初始化/回调 → app_init / app 调度
 app / Modbus / BLE → 公共参数、SOC、feature、诊断
 app / feature → bms_afe.h → bms_afe_guard → bms_afe_driver.h
                                             ↓
@@ -29,8 +29,8 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
-| SOC estimate/display/OCV/学习 | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
-| SOC/循环/学习持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立编号 |
+| SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
+| SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立编号 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
 ## 3. 软件保护与 AFE 保护

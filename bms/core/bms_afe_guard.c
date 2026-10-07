@@ -446,6 +446,7 @@ uint8_t bms_afe_enter_shutdown(void)
     return 1u;
 }
 
+#if defined(BMS_HOST_TEST) && BMS_HOST_TEST
 /* 测试构建中发起 AFE shutdown 并记录结果。 */
 uint8_t bms_afe_test_enter_shutdown(void)
 {
@@ -473,6 +474,8 @@ uint8_t bms_afe_test_wake(void)
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     return 1u;
 }
+#endif
+
 #endif
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

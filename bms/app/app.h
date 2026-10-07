@@ -17,6 +17,34 @@
 #include "conf.h"
 #include "bms_error.h"
 
+#define MY_DIRECT_ADV_TIME 2000000
+
+#define MY_APP_ADV_CHANNEL BLT_ENABLE_ADV_ALL
+#define MY_ADV_INTERVAL_MIN ADV_INTERVAL_800MS
+#define MY_ADV_INTERVAL_MAX ADV_INTERVAL_800MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_500MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_500MS
+// #define 	MY_ADV_INTERVAL_MIN					ADV_INTERVAL_30MS
+// #define 	MY_ADV_INTERVAL_MAX					ADV_INTERVAL_30MS
+
+#define MY_RF_POWER_INDEX RF_POWER_P3dBm
+
+#define BLE_DEVICE_ADDRESS_TYPE BLE_DEVICE_ADDRESS_PUBLIC
+
+void mos_update(void);
+
+/* BLE/PM 既有保留状态；SDK 回调拥有连接状态，PM 消费时间和终止标志。 */
+extern int device_in_connection_state;
+extern u32 advertise_begin_tick;
+extern u32 latest_user_event_tick;
+extern u8 sendTerminate_before_enterDeep;
+#if BMS_DEBUG_LOG_ENABLE
+u32 app_ble_suspend_exit_count(void);
+#endif
+/* SDK 正常初始化完成后的业务启动与休眠回调。 */
+void app_init(void);
+void task_sleep_enter(u8 e, u8 *p, int n);
+
 extern u8 ota_is_working;
 
 /* 请求常规 BLE 连接参数。 */

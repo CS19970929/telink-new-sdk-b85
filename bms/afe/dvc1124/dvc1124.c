@@ -22,6 +22,21 @@
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
 
+/* 本文件拥有的寄存器工具，业务与后端消费者不直接调用。 */
+static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
+                                    dvc1124_addr_mode_t mode,
+                                    uint8_t hardwire_code,
+                                    uint8_t explicit_write_addr,
+                                    uint8_t *write_addr);
+static uint8_t DVC1124_SetCellCount(uint8_t cell_count);
+static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
+static uint8_t DVC1124_StartOpenWireCheck(void);
+static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
+static uint8_t DVC1124_AFE_IsReady(void);
+static uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code);
+static uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code);
+static uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code);
+
 /* NTC 电阻与 ((degC + 40) * 10) 温度编码成对存储；电阻单位为 10 Ω。 */
 static const uint16_t s_ntc_10k_table[DVC_TEMP_TABLE_LEN] = {
     11611u, 100u, 8935u, 150u, 6943u, 200u, 5442u, 250u,
@@ -412,12 +427,6 @@ static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
     return 1u;
 }
 
-/* 取得启动电流零点校准的缓存诊断。 */
-void DVC1124_GetBootCurrentZeroDiag(dvc1124_boot_zero_diag_t *diag)
-{
-    if (diag != 0) *diag = s_boot_zero;
-}
-
 /* 启动阶段确认 FET 关闭后采集残余电流并校准零点。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 {
@@ -727,7 +736,7 @@ static uint8_t dvc_apply_cell_masks(void)
 }
 
 /* 校验并编码 DVC 电流唤醒配置。 */
-uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
+static uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
 {
     if (code == 0) return 0u;
     if (threshold_uv == 0u) { *code = 0u; return 1u; }
@@ -737,7 +746,7 @@ uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code)
 }
 
 /* 校验并编码共口体二极管恢复配置。 */
-uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
+static uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
 {
     if (code == 0) return 0u;
     if (threshold_uv == 0u) { *code = 0u; return 1u; }
@@ -747,7 +756,7 @@ uint8_t DVC1124_EncodeBodyDiode(uint16_t threshold_uv, uint8_t *code)
 }
 
 /* 校验并编码 I2C 硬件看门狗配置。 */
-uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code)
+static uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t *code)
 {
     if (code == 0) return 0u;
     switch (seconds)
@@ -1079,7 +1088,7 @@ static uint8_t dvc_ntc_resistance(uint16_t gp_code,
 }
 
 /* 按型号和地址模式解析 DVC 的 I2C 写地址。 */
-uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
+static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     dvc1124_addr_mode_t mode,
                                     uint8_t hardwire_code,
                                     uint8_t explicit_write_addr,
@@ -1119,7 +1128,7 @@ uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
 }
 
 /* 设置驱动的有效电芯串数。 */
-uint8_t DVC1124_SetCellCount(uint8_t cell_count)
+static uint8_t DVC1124_SetCellCount(uint8_t cell_count)
 {
     /* DVC1124-2 V1.2 明确支持 4..24 串。 */
     if ((cell_count < DVC1124_MIN_CELLS) || (cell_count > DVC1124_MAX_CELLS)) return 0u;
@@ -1244,7 +1253,7 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
 }
 
 /* 按充放电请求配置 DVC MOS 控制状态。 */
-uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
+static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 {
     uint8_t set = 0u;
 
@@ -1365,7 +1374,7 @@ void DVC1124_BalanceService(uint8_t allow_refresh)
 }
 
 /* 启动 DVC 电芯断线检测。 */
-uint8_t DVC1124_StartOpenWireCheck(void)
+static uint8_t DVC1124_StartOpenWireCheck(void)
 {
     uint8_t reg;
 
@@ -1459,7 +1468,7 @@ void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result)
 }
 
 /* 配置 DVC 短路保护开关及参数。 */
-uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us)
+static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us)
 {
     uint8_t threshold_code;
     uint8_t delay_code;
@@ -1530,7 +1539,7 @@ void DVC1124_AFE_Reset(void)
 }
 
 /* 查询 DVC 初始化就绪状态。 */
-uint8_t DVC1124_AFE_IsReady(void)
+static uint8_t DVC1124_AFE_IsReady(void)
 {
     uint8_t attempt;
     uint8_t version = 0u;

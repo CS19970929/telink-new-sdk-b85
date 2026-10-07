@@ -70,9 +70,9 @@ jobs:
           --only features_scenarios_host_check --only sh_safety_chain_host_check
           --only d014_safety_loop_host_check
           --only sh_register_scenarios_host_check --only dvc_register_scenarios_host_check
-          --only modbus_fuzz_host_check --only current_calibration_host_check
-          --only modbus_address_host_check --only bms_diag_host_check
-          --only d008_storage_host_check
+          --only modbus_host_check --only current_calibration_host_check
+           --only diagnostics_host_check
+          --only storage_host_check
           --only portable_core_host_check
       - uses: actions/upload-artifact@v4
         if: always()

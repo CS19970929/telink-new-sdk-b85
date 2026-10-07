@@ -58,7 +58,7 @@ python bms_tools/bms.py --product d014 resources
 
 按 [代码阅读指南](CODE_READING_GUIDE.md)，每轮只追 2～5 个核心文件：
 
-1. 产品与启动：产品头文件 → `main.c` → `app.c`。指出实际后端、启动输出禁止位置和 200 ms 采样入口。
+1. 产品与启动：产品头文件 → `main.c` → `app_ble.c::user_init_normal()` → `app.c::app_init()`。指出实际后端、启动输出禁止位置和 200 ms 采样入口。
 2. 参数与保护：`param.c`、Config、软件保护、AFE guard。区分编译默认、Flash 值、requested/effective、软件命令与物理 MOS 状态。
 3. 一项业务：SOC 或均衡 → 协议/诊断 → host 测试。解释输入失效、保存失败和重启时如何处理。
 

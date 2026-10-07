@@ -1,5 +1,5 @@
 /*
- * 文件功能：SOC 积分、OCV 校正、端点约束与容量学习；明确有效样本、时间差和持久状态之
+ * 文件功能：SOC 积分、OCV 校正、端点约束与循环 SOH；明确有效样本、时间差和持久状态之
  * 间的边界。
  * bms/core/bms_soc.h；实际编译归属见各产品 sources.txt。
  */
@@ -16,10 +16,6 @@
 #define BMS_SOC_OCV_READY          2u
 #define BMS_SOC_OCV_CORRECT_DOWN   3u
 
-#define BMS_SOC_LEARNING_NONE          0u
-#define BMS_SOC_LEARNING_EMPTY_TO_FULL 1u
-#define BMS_SOC_LEARNING_FULL_TO_EMPTY 2u
-
 #define BMS_SOC_ENDPOINT_NORMAL          0u
 #define BMS_SOC_ENDPOINT_FULL_APPROACH   1u
 #define BMS_SOC_ENDPOINT_CONFIRMED_FULL  2u
@@ -29,27 +25,6 @@
 #include "bms_soc_eta.h"
 
 #define BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE 1u
-#define BMS_SOC_SOH_SOURCE_CAPACITY       2u
-
-#define BMS_SOC_LEARNING_REJECT_NONE                   0u
-#define BMS_SOC_LEARNING_REJECT_INVALID_SAMPLE         1u
-#define BMS_SOC_LEARNING_REJECT_SAMPLE_GAP             2u
-#define BMS_SOC_LEARNING_REJECT_REBOOT                  3u
-#define BMS_SOC_LEARNING_REJECT_DIRECTION_REVERSE       4u
-#define BMS_SOC_LEARNING_REJECT_OPEN_WIRE               5u
-#define BMS_SOC_LEARNING_REJECT_CELL_IMBALANCE          6u
-#define BMS_SOC_LEARNING_REJECT_TEMPERATURE              7u
-#define BMS_SOC_LEARNING_REJECT_PROTECTION               8u
-#define BMS_SOC_LEARNING_REJECT_LOW_QUALITY_EMPTY        9u
-#define BMS_SOC_LEARNING_REJECT_LOW_QUALITY_FULL        10u
-#define BMS_SOC_LEARNING_REJECT_CAPACITY_RANGE          11u
-#define BMS_SOC_LEARNING_REJECT_CANDIDATE_INCONSISTENT  12u
-#define BMS_SOC_LEARNING_REJECT_AFE_COMMUNICATION       13u
-#define BMS_SOC_LEARNING_REJECT_CALIBRATION_CHANGED     14u
-#define BMS_SOC_LEARNING_REJECT_BALANCING               15u
-#define BMS_SOC_LEARNING_REJECT_HEATING                 16u
-#define BMS_SOC_LEARNING_REJECT_CHARGER_CHANGE          17u
-#define BMS_SOC_LEARNING_REJECT_LOAD_CHANGE             18u
 
 /*
  * 与硬件无关的 SOC 输入；单位属于 ABI：
@@ -94,8 +69,6 @@ typedef struct
      */
     uint16_t ocv_rest_prepare_s;        /* 允许 OCV 修正前所需的连续静置时间。 */
     uint8_t ocv_error_band_percent;     /* OCV 中心上下的百分比点范围。 */
-    uint8_t capacity_learning_enable;   /* 默认关闭。 */
-    uint8_t hide_capacity_until_learned;/* 仅学习使能时有效。 */
 } bms_soc_config_t;
 
 struct SOC_CALCULATE_ELEMENT
@@ -137,7 +110,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc);
 /* 根据循环次数估算 SOH。 */
 uint8_t bms_soh_from_cycle(uint16_t cycle);
 
-/* 名义容量变更后重算容量并复位相关学习状态。 */
+/* 名义容量变更后重算容量并重建积分与显示状态。 */
 void bms_soc_nominal_capacity_changed(void);
 
 #endif /* 头文件保护：BMS_SOC_H_。 */

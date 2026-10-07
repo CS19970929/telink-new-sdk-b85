@@ -24,14 +24,22 @@
 #define BMS_DIAG_TRACE_WORDS 12u
 
 /*
- * 默认保留轨迹；产品可显式裁剪以节省 1536 字节 RAM，
+ * 开发默认保留轨迹；生产关闭以节省 1536 字节 RAM，
  * 能力位和既有只读窗口随之报告无轨迹。
  */
 #ifndef BMS_DIAG_TRACE_ENABLE
+#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
+#define BMS_DIAG_TRACE_ENABLE 0
+#else
 #define BMS_DIAG_TRACE_ENABLE 1
+#endif
 #endif
 #if (BMS_DIAG_TRACE_ENABLE != 0) && (BMS_DIAG_TRACE_ENABLE != 1)
 #error "BMS_DIAG_TRACE_ENABLE must be 0 or 1"
+#endif
+
+#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD && BMS_DIAG_TRACE_ENABLE
+#error "Production firmware must disable BMS_DIAG_TRACE_ENABLE"
 #endif
 
 #define BMS_DIAG_CAP_BOOT       0x0001u

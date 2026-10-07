@@ -20,28 +20,41 @@ chemistry ID：AUTO=0、LFP=1、NMC=2；profile ID：AUTO=0、GENERIC_LFP=1、GE
 
 D008 产品 profile 显式提供 chemistry；SH 当前默认 AUTO/AUTO。AUTO 的解析由 `soc_profile_refresh` 等逻辑完成，保留单体三级 OVP 3900 mV 分界的推断。明确产品应核对真实化学体系，不能把继承默认当标定结果。
 
-默认配置由 `bms_soc_get_default_config()` 和产品 system identity 共同形成：deadband 200 mA，静置准备 600 s，OCV 误差带 ±5 个百分点，学习关闭。`bms_soc_configure()` 校验并通过 Config 保存，成功后切换运行配置及作废旧积分区间。当前没有 `bms_soc_set_product_config()` 或旧 `0x2009` KV 配置入口。
+默认配置由 `bms_soc_get_default_config()` 和产品 system identity 共同形成：deadband 200 mA，静置准备 600 s，OCV 误差带 ±5 个百分点。`bms_soc_configure()` 校验并通过 Config 保存，成功后切换运行配置及作废旧积分区间。当前没有 `bms_soc_set_product_config()` 或旧 `0x2009` KV 配置入口。
 
 generic 曲线是通用数据，不是某型号电芯的实测曲线；改曲线需实测依据、profile version 与回归。换 chemistry/容量需评估 OTA 的 SOC 和 SOC_STATE 两类编号，详见 [参数策略](OTA_PARAMETERS.md)。
 
-## 3. OCV、端点与学习
+## 3. OCV、端点与循环 SOH
 
 OCV 电压取 `(3 * cell_min_mv + cell_max_mv) / 4`。低电流只是静置条件之一，还检查电压稳定、压差、温度、feature/故障及 charger/load 变化。普通 OCV 在达到配置静置时间和质量条件后，只允许估计值向区间上界缓慢下降；不会凭开机高电压、回弹或一次静置测量主动向上校准。
 
 确认充电方向下才允许满电锚点或向 100% 收敛；三级 UVP/放电末端策略可驱动空电锚点。大电流 sag hold、端点质量和 open-wire 诊断暂停/恢复都是独立条件，需沿算法和测试核对，不用瞬时单体电压代替完整路径。
 
-学习默认关闭。启用后要求合格完整充放路径；反向、重启、采样失效/gap、温度/保护、校准变化、均衡/加热等有拒收原因。候选容量范围为名义 50%～130%，并有重复候选一致性和更新幅度限制；不代表单次充放电一定完成学习。ETA 使用独立状态和输入，不作为硬件保护依据。
+容量学习已删除，没有候选容量、学习窗口或隐藏容量状态。SOH 只使用原有等效放电循环数曲线：
+
+| 循环数 C | SOH（整数百分比） |
+|---|---|
+| 0..80 | 100 |
+| 81..500 | `100 - (C - 80) * 10 / 420` |
+| 501..799 | `90 - (C - 500) * 10 / 300` |
+| ≥800 | 80 |
+
+整数除法向下取整；循环数饱和到 65535。累计放电百分比达到 100 计一等效循环；浅放电可以累计，充电和一次开关机不计作新循环。有效满容量按名义容量乘 SOH 比例计算，内部保留原积分单位，对外容量仍为 0.01 Ah；容量始终正常显示。修改名义容量保留循环数，并按原 SOC 百分比重算容量。更换电池需主动使用既有循环/SOC 设置或 SOC_STATE 更新编号。
+
+这是基于循环数的估算 SOH，不是测得的电芯容量；沿用既有曲线，不新增未经签核的寿命参数。ETA 使用独立状态和输入，不作为硬件保护依据。
 
 SOC Low 的 `u16SocLow_First/Second/Third/Rcv/Filter` 由 `soc_update_low_faults()` 消费，写三级 `b1SocLow`。它是低电量告警，不直接纳入 MOS 阻断掩码。恢复值不足时对相应级别钳位到 trip+1；没有未解决的 SocUp 命名语义。
 
 ## 4. 存储与诊断
 
-Config 内部 journal schema 3 保存 chemistry/profile 和 SOC 配置；State schema 3 保存 SOC、循环、放电累计及学习数据，不再保存工厂老化计时。State 正常约 60 s checkpoint、失败约 5 s 退避，连续三次实际擦写失败后本次启动停止物理写入，并有显式保存入口；不能保证异常断电前最后一帧已落盘。积分余量、OCV 静置和显示跟随在 RAM，启动从整数 SOC 重建剩余容量。完整保存/恢复与各产品休眠差异见 [STORAGE](STORAGE.md)。
+Config 内部 journal schema 3 保存 chemistry/profile 和 SOC 配置；State schema 3 保存 SOC、循环、放电累计，不再保存工厂老化计时。State 正常约 60 s checkpoint、失败约 5 s 退避，连续三次实际擦写失败后本次启动停止物理写入，并有显式保存入口；不能保证异常断电前最后一帧已落盘。积分余量、OCV 静置和显示跟随在 RAM，启动从整数 SOC 重建剩余容量。完整保存/恢复与各产品休眠差异见 [STORAGE](STORAGE.md)。
 
-`bms_soc_get_diag()` 提供实际 chemistry/profile/version、estimate/display、OCV/rest、学习、端点、ETA 和样本拒收原因。设备实际值必须读设备；编译默认和 host 仿真不能替代电流标定、真实容量或实板结果。
+`bms_soc_get_diag()` 提供实际 chemistry/profile/version、estimate/display、OCV/rest、循环 SOH、端点、ETA 和样本拒收原因。设备实际值必须读设备；编译默认和 host 仿真不能替代电流标定、真实容量或实板结果。
 
 ## 5. 修改后的验证
 
-按 [构建指南](BUILD_AND_TEST.md) 运行 `soc_contract_check.py`、`soc_simulator_check.py`，输入边界变化加对应 open-wire/方向/调度测试；存储变化加公共 storage 回归。至少检查首帧、重复、400 ms 边界、gap、时间回绕、200 mA 边界、方向切换、OCV 不向上、满空锚点、学习拒收和保存失败。
+按 [构建指南](BUILD_AND_TEST.md) 运行 `core_contract_check.py`、`soc_scenarios_host_check.py`，输入边界变化加对应 open-wire/方向/调度测试；存储变化加公共 storage 回归。至少检查首帧、重复、400 ms 边界、gap、时间回绕、200 mA 边界、方向切换、OCV 不向上、满空锚点、循环曲线边界/饱和、容量更新、重启与保存失败。
 
 真实充放电电流、采样时间、长休息、端点、电池容量与掉电恢复仍按 [硬件验收](HARDWARE_VALIDATION.md) 测量。仿真使用生产算法及硬件桩，不能等同整板全链路。
+
+旧学习诊断槽固定为零，SOH source 为 `BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE`、confidence 为 25。CFG2 的原学习开关两字节与 State 的学习数据位置继续保留，旧值忽略，不因本次删除而重置 SOC/循环；精确布局见 [存储说明](STORAGE.md)。

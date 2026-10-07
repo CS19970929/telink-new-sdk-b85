@@ -45,10 +45,13 @@ static inline uint8_t bms_afe_current_recovery_pending(void) { return 0u; }
  * 冷启动/受保护唤醒前不再访问 AFE。
  */
 uint8_t bms_afe_enter_shutdown(void);
+#if defined(BMS_HOST_TEST) && BMS_HOST_TEST
 /* 测试构建中发起 AFE shutdown 并记录结果。 */
 uint8_t bms_afe_test_enter_shutdown(void);
 /* 测试构建中执行 AFE 唤醒并重新获取资格。 */
 uint8_t bms_afe_test_wake(void);
+#endif
+
 #endif
 typedef struct {
     uint16_t battery_ntc_mv;
