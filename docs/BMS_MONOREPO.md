@@ -115,7 +115,7 @@ SOC、参数、语义存储和 Modbus 当前四产品共享，所需产品、时
 ## 2026-10-05 构建和追溯整改
 
 SH 产品的 GPIO、NTC role/capability、静态 AFE 输入及独立 HW 默认值均由各自
-`bms/products/<product>/bms_sh3673510_config.h` 提供；共享后端保留寄存器组合与芯片算法。
+`bms/products/<product>/bms_product.h` 提供；共享后端保留寄存器组合与芯片算法。
 生产模式使用 `--production`，D008 额外指定 `--d008-profile`；生产策略作用于所有 TC32 C 编译单元。
 输出按模式/profile/产品隔离，输入收据、manifest、resources 均记录配置；诊断 build flags bit2 表示生产。
 生产镜像槽必须保留至少 8 KiB，低于该值链接命令失败；开发模式保留警告。

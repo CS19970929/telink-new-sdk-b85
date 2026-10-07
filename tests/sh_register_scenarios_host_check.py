@@ -120,7 +120,7 @@ def check_sh3673510_board_host_check():
     #include <string.h>
     #include <assert.h>
     #include "bms_sw_protection.h"
-    #include "bms_sh3673510_config.h"
+    #include "bms_product.h"
     #include "sh3673520_reg.h"
     #define AS_GPIO 1
     #define GPIO_PA0 0

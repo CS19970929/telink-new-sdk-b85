@@ -7,7 +7,7 @@
 #include "sh3673510_ntc.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"

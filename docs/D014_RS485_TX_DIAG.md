@@ -1,6 +1,6 @@
 # D014 RS485 发送链路诊断
 
-当前入口：`bms/products/d014/bms_product_conf.h` 的宏及 `bms/platform/telink/modbus_uart.c/.h`。日常验证用 D014 `link/resources`；台架需要镜像时另按 [构建指南](BUILD_AND_TEST.md) 明确生成。本页末尾旧 MAP 地址仅为历史观察，调试时使用当前 ELF。
+当前入口：`bms/products/d014/bms_product.h` 的宏及 `bms/platform/telink/modbus_uart.c/.h`。日常验证用 D014 `link/resources`；台架需要镜像时另按 [构建指南](BUILD_AND_TEST.md) 明确生成。本页末尾旧 MAP 地址仅为历史观察，调试时使用当前 ELF。
 
 ## 用途与边界
 

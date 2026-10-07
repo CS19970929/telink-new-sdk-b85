@@ -29,7 +29,7 @@
  *
  *******************************************************************************************************/
 #include "tl_common.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"

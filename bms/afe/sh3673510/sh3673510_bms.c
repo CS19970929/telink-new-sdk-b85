@@ -8,7 +8,7 @@
 #include "bms_afe_driver.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "bms_parameters.h"
 #include "bms_error.h"

@@ -129,7 +129,7 @@ apply_state = CONFIG_INCONSISTENT
 - 持久化：`bms_config_store.c` / `storage_record.c`；
 - D008量化/应用：DVC1124 backend；
 - D011/D013/D014量化/应用：`sh3673510_control.c`；
-- 产品板级静态安全配置：D008 的 `dvc1124_project_config.h` 或 SH 产品的 `bms/products/<product>/bms_sh3673510_config.h`。
+- 产品板级静态安全配置：D008 的 `bms_product.h` 或 SH 产品的 `bms/products/<product>/bms_product.h`。
 
 普通产品阈值调整不要改寄存器真值头文件。
 

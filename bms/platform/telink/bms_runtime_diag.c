@@ -8,7 +8,7 @@
 #include "bms_afe.h"
 #include "bms_storage_platform.h"
 #include "bms_soc.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "bms_state.h"
 

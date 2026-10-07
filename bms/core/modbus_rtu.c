@@ -5,6 +5,7 @@
  */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
+#include "bms_product.h"
 #include "modbus_rtu.h"
 #include "app_config.h"
 #include "tl_common.h"
@@ -20,7 +21,6 @@
 #include "bms_afe_hw_modbus.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124.h"
-#include "dvc1124_project_config.h"
 #else
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
@@ -29,7 +29,6 @@
 #include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app.h"
-#include "bms_product_conf.h"
 #include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"

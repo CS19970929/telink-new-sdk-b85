@@ -4,7 +4,7 @@
  * bms/core/bms_soc.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_soc.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 /* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
 static void SOC_Result_Pass(void);
 

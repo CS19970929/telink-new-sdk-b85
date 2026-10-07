@@ -17,10 +17,10 @@
 | 要改什么 | 入口 | 范围/更新编号 |
 |---|---|---|
 | 产品选择 | `bms.py --product`；D008 另用 `--d008-profile` | 不靠修改源码清单切产品 |
-| 容量、编译名称/软件版本、通信模式 | 产品 `bms_product_conf.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
-| 内部 tag、SOC chemistry/profile | 产品 `bms_product_config.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
-| SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_sh3673510_config.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
-| DVC 固定配置和 SCD 种子 | D008 `dvc1124_project_config.h` | 固定板级值或 AFE，按 default builder 区分 |
+| 容量、编译名称/软件版本、通信模式 | 产品 `bms_product.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
+| 内部 tag、SOC chemistry/profile | 产品 `bms_product.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
+| SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
+| DVC 固定配置和 SCD 种子 | D008 `bms_product.h` | 固定板级值或 AFE，按 default builder 区分 |
 | 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection` 逐字段初始化 | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
@@ -72,7 +72,7 @@ try {
 
 假设批准需求为 D014 12.0 Ah，这只是操作示例，不是新的产品参数：
 
-1. 改 `bms/products/d014/bms_product_conf.h` 的 `CapacityFactory` 为 `120`，不改公共倍率。
+1. 改 `bms/products/d014/bms_product.h` 的 `CapacityFactory` 为 `120`，不改公共倍率。
 2. 只影响空白设备则保持编号；要覆盖同 schema 设备则改变 D014 `BMS_UPDATE_BUSINESS_REVISION`。该组还会恢复 heater/balance，不能当“只重置容量”开关。
 3. 更换电池/容量要评估 `SOC_STATE`，它同时重置 SOC 和循环状态。在线容量接口 `0x2318` 走持久化事务及 `bms_soc_nominal_capacity_changed()`，不要直接写全局量。
 4. 查看 diff，跑 source 检查、参数/storage host、目标 link/resources；共享默认或算法变化则验证四产品。

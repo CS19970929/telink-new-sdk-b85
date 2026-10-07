@@ -19,7 +19,7 @@ def literal(src: str, name: str) -> int:
     return int(m.group(1), 10)
 
 
-conf = text("bms_product_conf.h")
+conf = text("bms_product.h")
 app = selected_source(HERE / "app.c")
 uart = selected_source(HERE / "modbus_uart.c")
 main = selected_source(HERE / "main.c")

@@ -17,7 +17,7 @@
 
 ## 2. 当前源码产品身份
 
-`bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 当前明确写入以下产品 profile：
+`bms/products/d013/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`） 当前明确写入以下产品 profile：
 
 | 项目 | 当前源码事实 | 硬件证据状态 |
 |---|---|---|
@@ -43,7 +43,7 @@ TS1/TS2 仍为必需电池温度，任一无效仍阻断输出。
 
 ## 3. MCU IO：当前源码映射（未获 D013 原理图验证）
 
-`bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 使用中性 `BMS_BOARD_*` 宏名；引脚值继承 D011，仍待 D013 原理图确认。以下只表示 D013 分支当前会按这些 GPIO 编译：
+`bms/products/d013/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`） 使用中性 `BMS_BOARD_*` 宏名；引脚值继承 D011，仍待 D013 原理图确认。以下只表示 D013 分支当前会按这些 GPIO 编译：
 
 | GPIO | 当前源码宏 | 当前源码用途 | D013 原理图状态 |
 |---|---|---|---|
@@ -79,7 +79,7 @@ TS1/TS2 仍为必需电池温度，任一无效仍阻断输出。
 
 AFE 寄存器模型来自 SH36735XX CV1.0A；当前 D013 与 D011 共用 `sh3673520_reg.h` 和 `sh3673510_control.c`。这在芯片系列层面有手册依据；板级配置仍需 D013 原理图确认。
 
-解析当前 `bms/products/d013/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`）：
+解析当前 `bms/products/d013/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`）：
 
 | 寄存器 | D013 当前静态值 | 关键字段 |
 |---|---:|---|
@@ -156,8 +156,8 @@ D013 与 D011 使用同一量化实现，但因为 Rsense 不同，**同一个�
 
 ## 10. 当前权威源码入口
 
-- `bms/products/d013/bms_product_conf.h`：当前 D013 编译身份/通信模式，保留既有 numeric wire ID，字符串已改为 D013。
-- `bms/products/d013/bms_sh3673510_config.h`：4S/100µΩ 和当前继承 IO/AFE 静态配置。
+- `bms/products/d013/bms_product.h`：当前 D013 编译身份/通信模式，保留既有 numeric wire ID，字符串已改为 D013。
+- `bms/products/d013/bms_product.h`：4S/100µΩ 和当前继承 IO/AFE 静态配置。
 - `bms/afe/sh3673510/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
 - `bms/afe/sh3673510/sh3673510_control.c`：硬件保护量化、静态配置、FET/温度处理。
 - `bms/afe/sh3673510/sh3673510_bms.c`：BMS适配、保护恢复、AFE communication fail-safe。

@@ -7,9 +7,8 @@
 
 #include "tl_common.h"
 #include "drivers.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
-#include "dvc1124_project_config.h"
 #include <string.h>
 
 /* 应用 D008 编译期板级配置，并通过公共 AFE profile 初始化硬件保护。 */

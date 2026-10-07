@@ -10,7 +10,7 @@
 #include "sh3673520_port.h"
 
 /* 共用 SH3673510 寄存器公式，物理量由所选产品提供。 */
-#include "bms_sh3673510_config.h"
+#include "bms_product.h"
 
 /*
  * 保护路径隔离开关：1/1 为软件加硬件保护的量产行为；1/0 为仅软件台架测试；

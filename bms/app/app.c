@@ -27,7 +27,11 @@
  *
  *******************************************************************************************************/
 #include "bms_debug_log.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
+#include "bms_afe_backend.h"
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+#include "sh3673510_project_config.h"
+#endif
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"

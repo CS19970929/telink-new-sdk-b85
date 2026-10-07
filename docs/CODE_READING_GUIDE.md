@@ -4,7 +4,7 @@
 
 ## 第一轮：选对产品，追启动
 
-读目标产品 `bms_product_config.h`、`bms_product_conf.h`、`sources.txt`，再读 `bms/platform/telink/main.c`、`app_ble.c`、`bms/app/app.c`。
+读目标产品 `bms_product.h`、`sources.txt`（D008 另读 `d008_product_profile.h`），再读 `bms/platform/telink/main.c`、`app_ble.c`、`bms/app/app.c`。
 
 ```text
 SDK startup → main → user_init_normal（app_ble.c）→ app_init（app.c）

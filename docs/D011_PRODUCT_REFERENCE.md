@@ -71,7 +71,7 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 
 ## 5. SH3673510 静态寄存器配置：当前源码实际值
 
-下表解析 `bms/products/d011/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`）。保护阈值寄存器 0x49..0x54 不是固定产品镜像，它们由独立 AFE HW profile 运行时量化写入。
+下表解析 `bms/products/d011/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`）。保护阈值寄存器 0x49..0x54 不是固定产品镜像，它们由独立 AFE HW profile 运行时量化写入。
 
 | 寄存器 | 当前静态值 | 关键字段 |
 |---|---:|---|
@@ -162,8 +162,8 @@ TS3 仍归 heater 策略，TS3/TS4 不并入 AFE 共用电池温度阈值。
 
 ## 12. 当前权威源码入口
 
-- `bms/products/d011/bms_product_conf.h`：D011 产品选择、通信模式、产品兼容值。
-- `bms/products/d011/bms_sh3673510_config.h`：D011 IO、串数、Rsense、静态 AFE 配置。
+- `bms/products/d011/bms_product.h`：D011 产品选择、通信模式、产品兼容值。
+- `bms/products/d011/bms_product.h`：D011 IO、串数、Rsense、静态 AFE 配置。
 - `bms/afe/sh3673510/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
 - `bms/afe/sh3673510/sh3673520*.c`：SPI 驱动。
 - `bms/afe/sh3673510/sh3673510_control.c`：AFE 静态/保护配置、量化、FET/温度控制。

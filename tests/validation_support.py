@@ -100,9 +100,9 @@ def profile_prefix(product):
     result = '#include <stdint.h>\n#include <string.h>\n#include <stdio.h>\n#include <assert.h>\n'
     result += 'typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;\n'
     result += '#include "bms_protection_params.h"\n#include "bms_afe_backend.h"\n'
-    result += '#include "bms_product_conf.h"\n'
+    result += '#include "bms_product.h"\n'
     if product == 'd008':
-        result += '#include "dvc1124_project_config.h"\n'
+        result += '#include "bms_product.h"\n'
     else:
         result += '#include "sh3673510_project_config.h"\n#include "sh3673510_quantize.h"\n'
     defaults = read('bms/core/bms_config_store.c')

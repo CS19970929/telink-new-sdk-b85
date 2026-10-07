@@ -120,12 +120,12 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
-当前 D014 的 AFE hardware profile 首次初始化使用 `bms/products/d014/bms_sh3673510_config.h`（编码公式在共享 `sh3673510_project_config.h`） 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
+当前 D014 的 AFE hardware profile 首次初始化使用 `bms/products/d014/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`） 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
 
 ## 9. 代码入口
 
-- `bms/products/d014/bms_sh3673510_config.h`：D014 8S / 667µΩ / GPIO / feature capability。
-- `bms/products/d014/bms_product_conf.h`：产品身份、RS485、容量等编译期默认。
+- `bms/products/d014/bms_product.h`：D014 8S / 667µΩ / GPIO / feature capability。
+- `bms/products/d014/bms_product.h`：产品身份、RS485、容量等编译期默认。
 - `bms/afe/sh3673510/sh3673520*.c`：SH36735xx SPI/register driver。
 - `bms/afe/sh3673510/sh3673510_control.c`：静态配置、硬件保护量化、FET/balance。
 - `bms/afe/sh3673510/sh3673510_bms.c`：采样、保护恢复、measurement publish。

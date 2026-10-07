@@ -8,7 +8,7 @@
 #include "bms_features.h"
 #include "bms_error.h"
 #include "bms_diag.h"
-#include "bms_sh3673510_config.h"
+#include "bms_product.h"
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
 #include "sh3673510_ntc.h"

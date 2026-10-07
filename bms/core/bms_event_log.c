@@ -11,7 +11,7 @@
 #include "bms_storage_platform.h"
 #include "storage_record.h"
 #include "drivers.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
 #include <string.h>
 

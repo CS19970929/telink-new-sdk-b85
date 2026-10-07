@@ -11,7 +11,7 @@
 #include <string.h>
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-#include "dvc1124_project_config.h"
+#include "bms_product.h"
 #include "dvc1124_config_service.h"
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 #include "sh3673510_project_config.h"

@@ -21,7 +21,7 @@ def check_sh3673510_protection_mode_check():
             raise AssertionError(f"missing protection-mode invariant: {needle}")
 
 
-    cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
+    cfg = text("sh3673510_project_config.h") + text("bms_product.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
     bms = text("sh3673510_bms.c")
 
     for needle in (

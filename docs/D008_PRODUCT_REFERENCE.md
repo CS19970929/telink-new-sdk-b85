@@ -53,7 +53,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
 | 板载 NTC | NTC1/NTC2 标注 `SNC103B13435F0603E` |
 
-容量、OV/UV/OC/温度默认值仍需产品签核。当前入口为产品 `bms_product_conf.h`、`d008_product_profile.h`、`dvc1124_project_config.h` 及公共 `bms_parameters.h`。
+容量、OV/UV/OC/温度默认值仍需产品签核。当前入口为产品 `bms_product.h`、`d008_product_profile.h`、`bms_product.h` 及公共 `bms_parameters.h`。
 
 ## 3. MCU IO 基线与代码核对
 
@@ -79,7 +79,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 
 ## 4. DVC GP / FET 拓扑
 
-当前 `dvc1124_project_config.h`：
+当前 `bms_product.h`：
 
 | DVC GP | 功能 | code |
 |---|---|---:|
@@ -119,7 +119,7 @@ D008 已取消 DVC operating-config Flash owner。**固定 DVC 配置全部来�
 唯一主要入口：
 
 ```text
-bms/products/d008/dvc1124_project_config.h
+bms/products/d008/bms_product.h
 ```
 
 包括：

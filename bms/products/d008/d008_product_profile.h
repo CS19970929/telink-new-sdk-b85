@@ -6,7 +6,7 @@
 
 /*
  * HS-D008 装配配置：仅拥有随装配变化的物理串数和化学体系/SOC 配置。
- * 固定板级/故障安全策略在 dvc1124_project_config.h；
+ * 固定板级/故障安全策略在 bms_product.h；
  * 运行/持久保护分别由g_bms_protection_params（软件）及 bms_afe_hw_profile_t（AFE 硬件）持有
  * 。
  */

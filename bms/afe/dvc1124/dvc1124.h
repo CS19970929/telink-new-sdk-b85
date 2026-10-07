@@ -128,7 +128,7 @@ typedef enum
 #define DVC1124_MAX_GP                       6u
 
 /* 产品与板级默认值集中在项目拥有的配置文件中。 */
-#include "dvc1124_project_config.h"
+#include "bms_product.h"
 
 #ifndef DVC1124_DEFAULT_MODEL
 #define DVC1124_DEFAULT_MODEL                DVC1124_MODEL_22

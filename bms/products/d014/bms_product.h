@@ -1,8 +1,28 @@
-/* 文件功能：产品容量、名称、采样及通信功能配置。 */
-#ifndef BMS_PRODUCT_CONF_H_
-#define BMS_PRODUCT_CONF_H_
+/* D014 产品入口：身份、板级输入、容量及通信；数值保持原产品配置。 */
+#pragma once
+#include "bms_soc_defs.h"
 
-#include "sh3673510_project_config.h"
+/* 文件功能：产品身份、AFE 后端及化学体系的编译期选择。 */
+#define BMS_PRODUCT_ID 14u
+#define BMS_AFE_BACKEND 2
+#define BMS_PRODUCT_CHEMISTRY BMS_SOC_CHEMISTRY_AUTO
+#define BMS_PRODUCT_SOC_PROFILE_ID BMS_SOC_PROFILE_AUTO
+
+/* D014：8S / 667 uOhm；TS3 NC，实装 TS4 MOS 10K-3435（RN4 图纸差异）。 */
+#define SH3673510_BOARD_CELL_COUNT               8u
+#define SH3673510_BOARD_SHUNT_UOHM              667u
+#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
+#define SH3673510_PRODUCT_HEATER_SUPPORTED       0u
+#define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED   0u
+#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED 1u
+
+#include "../sh3673510_defaults.h"
+
+#if SH3673510_PRODUCT_HEATER_SUPPORTED || SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
+#error "D014 has no fitted heater or TS3 sensor"
+#endif
+
+/* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
 /* 量产选择：D014 固定隔离 RS485 Modbus RTU，不使用 SIF/单线。 */
 #define _UL_RENZHENG_ENABLE_
@@ -47,4 +67,3 @@
 
 #define BMS_DEFAULT_CUV3_MV 3000u
 #define BMS_DEFAULT_CUV3_FILTER 1000u
-#endif

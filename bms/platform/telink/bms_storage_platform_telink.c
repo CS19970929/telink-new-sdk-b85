@@ -13,7 +13,7 @@
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
 #include "flash_store_cfg.h"
-#include "bms_product_conf.h"
+#include "bms_product.h"
 #include "bms_afe_backend.h"
 
 extern u8 ota_is_working;

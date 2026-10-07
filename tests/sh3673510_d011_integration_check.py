@@ -22,9 +22,9 @@ def require(src: str, needle: str) -> None:
     if needle not in src:
         raise AssertionError(f"missing contract text: {needle}")
 
-cfg = text("sh3673510_project_config.h") + text("bms_sh3673510_config.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
-conf = text("bms_product_conf.h")
-backend = text("bms_afe_backend.h") + text("bms_product_config.h")
+cfg = text("sh3673510_project_config.h") + text("bms_product.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
+conf = text("bms_product.h")
+backend = text("bms_afe_backend.h") + text("bms_product.h")
 afe = text("bms_afe.h") + text("bms_afe_driver.h")
 reg = text("sh3673520_reg.h")
 port = text("sh3673520_port.c")
@@ -234,7 +234,7 @@ require(uart, "clock_time_exceed(s_rs485_tx_start_tick, s_rs485_tx_min_hold_us)"
 # D011 safety invariants: old board aliases and accidental irreversible-fuse
 # actuation must not re-enter production code.
 production = "\n".join(selected_source(HERE / name) for name in (
-    "bms_product_conf.h", "app.c", "modbus_uart.c", "sh3673510_control.c",
+    "bms_product.h", "app.c", "modbus_uart.c", "sh3673510_control.c",
     "sh3673510_bms.c", "sh3673510_project_config.h",
 ))
 for forbidden in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN",

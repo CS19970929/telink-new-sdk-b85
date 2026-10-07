@@ -81,7 +81,7 @@ def check_monorepo_source_check():
     shared = (ROOT / "bms/afe/sh3673510/sh3673510_project_config.h").read_text()
     assert " GPIO_P" not in shared and "#define SH3673510_HW_DEFAULT_" not in shared
     for product in products[1:]:
-        config = (ROOT / "bms/products" / product / "bms_sh3673510_config.h").read_text()
+        config = (ROOT / "bms/products" / product / "bms_product.h").read_text()
         assert '#include "../sh3673510_defaults.h"' in config
         config += (ROOT / "bms/products/sh3673510_defaults.h").read_text()
         assert "#define SH3673510_BOARD_BAT_NTC1_INDEX" in config
