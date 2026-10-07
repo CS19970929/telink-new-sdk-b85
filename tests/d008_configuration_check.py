@@ -13,7 +13,7 @@ def check_d008_20s_profile_contract_check():
     HERE = Sources(ROOT)
     profile = (HERE / 'd008_product_profile.h').read_text(encoding='utf-8')
     dvc = (HERE / 'dvc1124.c').read_text(encoding='utf-8')
-    cfg = (HERE / 'bms_product.h').read_text(encoding='utf-8')
+    cfg = (HERE / 'bms_product.h').read_text(encoding='utf-8') + (HERE / 'dvc1124_product_defaults.h').read_text(encoding='utf-8')
     boot = (HERE / 'dvc1124_boot.c').read_text(encoding='utf-8')
     store = dvc + boot
     service = (HERE / 'dvc1124_config_service.c').read_text(encoding='utf-8')
@@ -122,21 +122,21 @@ def check_d008_framework_contract_check():
     class D008FrameworkContract(unittest.TestCase):
         @classmethod
         def setUpClass(cls):
-            cls.backend_h = read("bms_afe_backend.h") + read("bms_product.h")
+            cls.backend_h = read("bms_afe_backend.h") + (read("bms_product.h") + read("dvc1124_product_defaults.h"))
             cls.afe_h = read("bms_afe.h") + read("bms_afe_driver.h")
             cls.guard = read("bms_afe_guard.c")
             cls.dvc = read("dvc1124.c")
             cls.dvc_bms = read("dvc1124_bms.c")
             cls.fixed_backend = read("dvc1124.c") + read("dvc1124_boot.c")
             cls.service = read("dvc1124_config_service.c")
-            cls.project = read("bms_product.h")
+            cls.project = (read("bms_product.h") + read("dvc1124_product_defaults.h"))
             cls.product = read("d008_product_profile.h")
             cls.features = read("bms_features.c")
             cls.param = read("bms_parameters.c")
             cls.app = read("app.c")
             cls.app_config = read("app_config.h")
             cls.parameter_access = read("bms_parameter_access.c")
-            cls.conf = read("bms_product.h")
+            cls.conf = (read("bms_product.h") + read("dvc1124_product_defaults.h"))
             cls.hw_profile = read("bms_afe_hw_profile.c")
 
         def test_backend_defaults_to_dvc1124(self):

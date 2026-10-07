@@ -67,7 +67,7 @@ def check_dvc1124_config_quick_check():
         @classmethod
         def setUpClass(cls):
             cls.product = read("d008_product_profile.h")
-            cls.project = read("bms_product.h")
+            cls.project = (read("bms_product.h") + read("dvc1124_product_defaults.h"))
             cls.backend = read("dvc1124.c") + read("dvc1124_boot.c")
             cls.service = read("dvc1124_config_service.c")
             cls.service_hdr = read("dvc1124_config_service.h")
@@ -232,7 +232,7 @@ def check_d008_common_port_fet_contract_check():
             self.assertNotIn("Runtime_GetMode()", body)
 
         def test_dvc_body_diode_recovery_is_compile_time_policy(self):
-            cfg = read("bms_product.h")
+            cfg = (read("bms_product.h") + read("dvc1124_product_defaults.h"))
             backend = read("dvc1124.c") + read("dvc1124_boot.c")
             self.assertRegex(cfg, r"#define\s+DVC1124_BODY_DIODE_THRESHOLD_UV\s+80u")
             self.assertIn("DVC1124_DSGMASK_DBDM_MASK", cfg)
@@ -330,7 +330,7 @@ def check_d008_boot_zero_current_contract_check():
 
     driver = (BASE / "dvc1124.c").read_text(encoding="utf-8")
     header = (BASE / "dvc1124.h").read_text(encoding="utf-8")
-    config = (BASE / "bms_product.h").read_text(encoding="utf-8")
+    config = (BASE / "bms_product.h").read_text(encoding="utf-8") + (BASE / "dvc1124_product_defaults.h").read_text(encoding="utf-8")
     backend = (BASE / "dvc1124_boot.c").read_text(encoding="utf-8")
     conf = (BASE / "bms_soc.h").read_text(encoding="utf-8")
 
