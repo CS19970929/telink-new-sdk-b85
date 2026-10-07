@@ -10,6 +10,12 @@
 
 四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
 
+## monorepo 参数入口
+
+当前 monorepo 已删除老化模式与 `0x2E10=6`；内部版不再提供“进入设备 Factory Mode”。SN 和电流校准保存继续使用 AFE 授权会话、失败清理与写后回读，客户版 SN 仍只读。历史参数备份中的只读 FactoryMode 字段保留原 JSON 形状，当前固件恒零，不作为写入资格。旧固件若仍要求老化窗口，其敏感写会由固件拒绝；本修改不绕过设备授权。
+
+相关验证入口为 `test-d008-parameters.ps1`；共享参数实现由客户/内部 WPF 构建验证，CLI 保持共享读取和导出。构建输出可用 `dotnet build --artifacts-path <源码树外目录>`。
+
 ## Android 共享核心版
 
 Android 版不是对 Windows 流程的第二份翻译。`BmsTool.Core` 编译同一份 `BmsClient.cs`、诊断读取、`ModbusRtu.cs`、`TelinkOtaProtocol.cs` 和 `Shared/TelinkOtaCore.cs`；Windows WinRT 与 Android `BluetoothGatt` 只实现各自的传输接口。OTA 的 START/DATA/END、packet CRC16、BIN 尺寸/TLNK marker/Telink CRC32 trailer 预检、`*.raw.bin` 拒绝、`OTA_RESULT` 解码和成功判定都只有一份源码。

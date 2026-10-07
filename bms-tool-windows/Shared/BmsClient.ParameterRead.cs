@@ -24,6 +24,7 @@ public sealed partial class BmsClient
             }
         } catch(BmsModbusException ex) when(ex.Code is 1 or 2) {c.Status="固件不支持参数协议，仅备份已有参数";}
         catch(Exception ex) {c.Status="能力读取失败";c.Errors.Add(ex.Message);return c;}
+        // FactoryMode 仅保留既有备份字段；当前 monorepo 的诊断槽为零，不用于写授权。
         var blocks=new List<(string Name,ushort Address,ushort Count)>{
             ("FactoryMode",0x2AE1,1),("Capacity",0x2318,2),("SOC",0x1005,1),("Heater",0x2E20,3),
             ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16),
