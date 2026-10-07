@@ -43,7 +43,7 @@ OCV 电压取 `(3 * cell_min_mv + cell_max_mv) / 4`。低电流只是静置条�
 
 这是基于循环数的估算 SOH，不是测得的电芯容量；沿用既有曲线，不新增未经签核的寿命参数。ETA 使用独立状态和输入，不作为硬件保护依据。
 
-SOC Low 的 `u16SocLow_First/Second/Third/Rcv/Filter` 由 `soc_update_low_faults()` 消费，写三级 `b1SocLow`。它是低电量告警，不直接纳入 MOS 阻断掩码。恢复值不足时对相应级别钳位到 trip+1；没有未解决的 SocUp 命名语义。
+SOC Low 的 `soc_low_first_percent/Second/Third/Rcv/Filter` 由 `soc_update_low_faults()` 消费，写三级 `soc_low`。它是低电量告警，不直接纳入 MOS 阻断掩码。恢复值不足时对相应级别钳位到 trip+1；没有未解决的 SocUp 命名语义。
 
 ## 4. 存储与诊断
 

@@ -19,23 +19,23 @@ def check_sw_protection_contract_check():
         "BMS_SW_PROTECTION_FILTER_COUNT    12u",
         "trip_count",
         "recover_count",
-        "unMdlFault_First",
-        "unMdlFault_Second",
-        "unMdlFault_Third",
-        "u16VcellOvp_First",
-        "u16VcellOvp_Second",
-        "u16VcellOvp_Third",
-        "u16VcellUvp_First",
-        "u16VbusOvp_First",
-        "u16VbusUvp_First",
-        "u16IchgOcp_First",
-        "u16IdsgOcp_First",
-        "u16TChgOTp_First",
-        "u16TchgUTp_First",
-        "u16TdischgOTp_First",
-        "u16TdischgUTp_First",
-        "u16TmosOTp_First",
-        "u16VdeltaOvp_First",
+        "fault_first",
+        "fault_second",
+        "fault_third",
+        "cell_ovp_first_mv",
+        "cell_ovp_second_mv",
+        "cell_ovp_third_mv",
+        "cell_uvp_first_mv",
+        "pack_ovp_first_10mv",
+        "pack_uvp_first_10mv",
+        "charge_ocp_first_a10",
+        "discharge_ocp_first_a10",
+        "charge_otp_first_x10",
+        "charge_utp_first_x10",
+        "discharge_otp_first_x10",
+        "discharge_utp_first_x10",
+        "mos_otp_first_x10",
+        "cell_delta_first_mv",
         "BMS_ERROR_TEMP_BREAK",
         "bms_sw_protection_record_fault_edges",
     ):
@@ -153,7 +153,7 @@ def check_common_feature_policy_contract_check():
     assert "#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u" in features_h
     assert "openwire_fault_latched" in features_c and "openwire_suspected" in features_c
     assert "balance_voltage_trusted" in features_c and "balance_sample_plausible" in features_c
-    assert "u16VdeltaOvp_First" not in features_c
+    assert "cell_delta_first_mv" not in features_c
     assert "bms_board_heater_set" in board_h and "bms_board_charge_source_present" in board_h
     assert "bms_board_heater_allowed" in board_h and "bms_board_balance_supported" in board_h
     assert "bms_board_heater_allowed()" in features_c and "bms_board_balance_supported()" in features_c
@@ -346,11 +346,11 @@ def check_soc_contract_check():
         def test_display_soc_is_separate(self):
             self.assertIn("static uint8_t g_soc_display_soc", C)
             self.assertIn("SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND", C)
-            self.assertIn("g_bms_report.SocElement.u16Soc = get_soc_display();", C)
+            self.assertIn("g_bms_report.soc.soc_percent = get_soc_display();", C)
 
         def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
-            self.assertIn("g_bms_report.unMdlFault_Third.bits.b1CellOvp", APP)
-            self.assertIn("g_bms_report.unMdlFault_Third.bits.b1CellUvp", APP)
+            self.assertIn("g_bms_report.fault_third.bits.cell_ovp", APP)
+            self.assertIn("g_bms_report.fault_third.bits.cell_uvp", APP)
             self.assertIn("150u, 100u, 50u, 20u", PROFILE)
             self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 
@@ -365,9 +365,9 @@ def check_soc_contract_check():
 
         def test_soc_low_faults_are_implemented_without_mos_policy(self):
             self.assertIn("soc_update_low_faults", C)
-            self.assertIn("soc_fault_reg(level)->bits.b1SocLow", C)
-            self.assertIn("u16SocLow_First", C)
-            self.assertNotIn("b1SocLow ||", C)
+            self.assertIn("soc_fault_reg(level)->bits.soc_low", C)
+            self.assertIn("soc_low_first_percent", C)
+            self.assertNotIn("soc_low ||", C)
 
         def test_cycle_soh_has_no_learning_state(self):
             self.assertNotIn("soc_learning_", C)

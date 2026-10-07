@@ -684,10 +684,10 @@ static u16 encode_signed_current_reg(void)
 {
     int16_t signed_current = 0;
 
-    if (g_bms_report.u16IDischg)
-        signed_current = (int16_t)(-((int16_t)g_bms_report.u16IDischg));
-    else if (g_bms_report.u16Ichg)
-        signed_current = (int16_t)g_bms_report.u16Ichg;
+    if (g_bms_report.discharge_current_a10)
+        signed_current = (int16_t)(-((int16_t)g_bms_report.discharge_current_a10));
+    else if (g_bms_report.charge_current_a10)
+        signed_current = (int16_t)g_bms_report.charge_current_a10;
 
     return (u16)signed_current;
 }
@@ -699,15 +699,15 @@ static u16 read_realtime_status_reg(u16 reg)
     {
     case BMS_REALTIME_REG_MAGIC_ADDR:       return BMS_REALTIME_REG_MAGIC;
     case BMS_REALTIME_REG_VERSION_ADDR:     return BMS_REALTIME_REG_VERSION;
-    case BMS_REALTIME_REG_VOLTAGE_ADDR:     return g_bms_report.u16VCellTotle;
+    case BMS_REALTIME_REG_VOLTAGE_ADDR:     return g_bms_report.pack_voltage_10mv;
     case BMS_REALTIME_REG_CURRENT_ADDR:     return encode_signed_current_reg();
-    case BMS_REALTIME_REG_SOC_ADDR:         return g_bms_report.SocElement.u16Soc;
-    case BMS_REALTIME_REG_TEMP_MAX_ADDR:    return g_bms_report.u16TempMax;
-    case BMS_REALTIME_REG_TEMP_MIN_ADDR:    return g_bms_report.u16TempMin;
-    case BMS_REALTIME_REG_TEMP_MOS_ADDR:    return g_bms_report.u16Temperature[MOS_TEMP1];
-    case BMS_REALTIME_REG_VCELL_MAX_ADDR:   return g_bms_report.u16VCellMax;
-    case BMS_REALTIME_REG_VCELL_MIN_ADDR:   return g_bms_report.u16VCellMin;
-    case BMS_REALTIME_REG_VCELL_DELTA_ADDR: return g_bms_report.u16VCellDelta;
+    case BMS_REALTIME_REG_SOC_ADDR:         return g_bms_report.soc.soc_percent;
+    case BMS_REALTIME_REG_TEMP_MAX_ADDR:    return g_bms_report.temperature_max_x10;
+    case BMS_REALTIME_REG_TEMP_MIN_ADDR:    return g_bms_report.temperature_min_x10;
+    case BMS_REALTIME_REG_TEMP_MOS_ADDR:    return g_bms_report.temperature_x10[MOS_TEMP1];
+    case BMS_REALTIME_REG_VCELL_MAX_ADDR:   return g_bms_report.cell_max_mv;
+    case BMS_REALTIME_REG_VCELL_MIN_ADDR:   return g_bms_report.cell_min_mv;
+    case BMS_REALTIME_REG_VCELL_DELTA_ADDR: return g_bms_report.cell_delta_mv;
     default: return 0u;
     }
 }

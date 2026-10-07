@@ -181,20 +181,20 @@ def check_d008_framework_contract_check():
                 self.guard,
             )
             self.assertIsNotNone(set_fets)
-            self.assertNotIn("b1Status_MOS_CHG =", set_fets.group(0))
-            self.assertNotIn("b1Status_MOS_DSG =", set_fets.group(0))
+            self.assertNotIn("charge_mos_status =", set_fets.group(0))
+            self.assertNotIn("discharge_mos_status =", set_fets.group(0))
 
         def test_mos_report_is_owned_by_dvc_feedback(self):
             self.assertRegex(
                 self.dvc,
-                r"b1Status_MOS_CHG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_CHGF_MASK\)",
+                r"charge_mos_status\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_CHGF_MASK\)",
             )
             self.assertRegex(
                 self.dvc,
-                r"b1Status_MOS_DSG\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_DSGF_MASK\)",
+                r"discharge_mos_status\s*=\s*\(data\[DVC1124_REG_CC2_L_FLAGS\]\s*&\s*DVC1124_CC2_DSGF_MASK\)",
             )
-            self.assertNotRegex(self.app, r"b1Status_MOS_(?:CHG|DSG)\s*=")
-            self.assertNotRegex(self.dvc_bms, r"b1Status_MOS_(?:CHG|DSG)\s*=")
+            self.assertNotRegex(self.app, r"(?:charge|discharge)_mos_status\s*=")
+            self.assertNotRegex(self.dvc_bms, r"(?:charge|discharge)_mos_status\s*=")
 
         def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
             policy = self.dvc_bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
@@ -232,10 +232,10 @@ def check_d008_framework_contract_check():
             self.assertIn("DVC1124_DEFAULT_BATTERY_NTC_GP       2u", self.project)
             self.assertIn("DVC1124_DEFAULT_BATTERY_NTC2_GP      3u", self.project)
             self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP           4u", self.project)
-            self.assertIn("u16Temperature[ENV_TEMP3]", self.dvc_bms)
-            self.assertIn("u16Temperature[MOS_TEMP1]", self.dvc_bms)
-            self.assertIn("u16TempMin = sw->battery_temp_min", self.dvc_bms)
-            self.assertIn("u16TempMax = sw->battery_temp_max", self.dvc_bms)
+            self.assertIn("temperature_x10[ENV_TEMP3]", self.dvc_bms)
+            self.assertIn("temperature_x10[MOS_TEMP1]", self.dvc_bms)
+            self.assertIn("temperature_min_x10 = sw->battery_temp_min", self.dvc_bms)
+            self.assertIn("temperature_max_x10 = sw->battery_temp_max", self.dvc_bms)
 
         def test_protection_switches_default_to_production(self):
             self.assertEqual(macro_literal(self.project, "DVC1124_SW_PROTECT_ENABLE"), 1)
@@ -355,7 +355,7 @@ def check_d008_framework_contract_check():
             self.assertIn("apply_balance_mask(0u)", self.features)
             self.assertIn("openwire_suspected", self.features)
             self.assertIn("balance_voltage_trusted", self.features)
-            self.assertNotIn("u16VdeltaOvp_First", self.features)
+            self.assertNotIn("cell_delta_first_mv", self.features)
             self.assertIn("DVC1124_OpenWireBegin", self.dvc)
             self.assertIn("DVC1124_BalanceService", self.dvc)
 

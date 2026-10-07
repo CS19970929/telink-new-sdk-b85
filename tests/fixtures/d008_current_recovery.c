@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "dvc1124.h"
 #include "bms_diag.h"
-static struct { struct { struct { uint8_t b1IchgOcp, b1IdischgOcp; } bits; } unMdlFault_Third; } g_bms_report;
+static struct { struct { struct { uint8_t charge_ocp, discharge_ocp; } bits; } fault_third; } g_bms_report;
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 static int32_t current_ma;
 static uint8_t read_ok=1, write_ok=1, read_alarm, writes, last_clear;
@@ -13,14 +13,14 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *value, uint8_t count) {
     (void)reg; (void)count; *value=read_alarm; return read_ok;
 }
 void bms_diag_trace(uint16_t event, uint32_t a, uint32_t b) { (void)event; (void)a; (void)b; }
-static uint8_t dvc_charge_blocked(void) { return g_bms_report.unMdlFault_Third.bits.b1IchgOcp; }
-static uint8_t dvc_discharge_blocked(void) { return g_bms_report.unMdlFault_Third.bits.b1IdischgOcp; }
+static uint8_t dvc_charge_blocked(void) { return g_bms_report.fault_third.bits.charge_ocp; }
+static uint8_t dvc_discharge_blocked(void) { return g_bms_report.fault_third.bits.discharge_ocp; }
 static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t c,dvc1124_fet_drive_t d) { chg_mode=c; dsg_mode=d; return 1; }
 /* PRODUCTION */
 static uint8_t step(uint32_t tick,uint8_t alarm,uint8_t removed,uint8_t driver_on,uint8_t swc,uint8_t swd) {
     dvc1124_snapshot_t snap={0}; snap.valid=1; snap.current_fresh=1; snap.current_ma=current_ma; snap.sample_tick_32k=tick; snap.status=6; snap.fet_status=driver_on ? DVC1124_CC2_DSGF_MASK : 0;
-    g_bms_report.unMdlFault_Third.bits.b1IchgOcp=swc;
-    g_bms_report.unMdlFault_Third.bits.b1IdischgOcp=swd;
+    g_bms_report.fault_third.bits.charge_ocp=swc;
+    g_bms_report.fault_third.bits.discharge_ocp=swd;
     return dvc_recover_current_faults(&snap,alarm,removed);
 }
 static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery)); current_ma=0; writes=0; write_ok=read_ok=1; read_alarm=0; }

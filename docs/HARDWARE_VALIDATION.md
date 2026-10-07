@@ -53,7 +53,7 @@
 
 - [ ] VC1..VC8 逐通道电压正确；VC9..VC20 未使用通道不会进入 min/max、保护、SOC、balance、open-wire。
 - [ ] 3×2mΩ 并联分流路径实测；确认等效阻值、Kelvin 采样方向、零点、增益和温漂。当前软件模型为 667µΩ。
-- [ ] 充电/放电电流符号与 `u16Ichg/u16IDischg` 一致；SOC 积分方向正确。
+- [ ] 充电/放电电流符号与 `charge_current_a10/discharge_current_a10` 一致；SOC 积分方向正确。
 - [ ] AFE SPI Mode 3 / 500kHz：初始化、连续采样、CRC/ACK、异常恢复。
 - [ ] CHG/DSG 正常开关、上电默认安全态、通信失效 fail-safe。
 - [ ] RS485：PA1方向控制、PC2 TX、PC3 RX、PD4 CMNT-EN；最后停止位发完后再切回接收。

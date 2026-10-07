@@ -8,7 +8,7 @@ mutations = {
     'trip-equality': ('(value >= trip)', '(value > trip)'),
     'recovery-equality': ('(value <= recover)', '(value < recover)'),
     'filter-ceiling': ('delay_ms + BMS_SW_PROTECTION_SAMPLE_MS - 1u', 'delay_ms'),
-    'mos-charge-gate': ('f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||', 'f->b1CellChgOtp || f->b1CellChgUtp ||'),
+    'mos-charge-gate': ('f->charge_otp || f->charge_utp || f->mos_otp ||', 'f->charge_otp || f->charge_utp ||'),
 }
 with tempfile.TemporaryDirectory(prefix='bms-mutants-') as directory:
     for name, (old, new) in mutations.items():

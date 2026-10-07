@@ -56,8 +56,8 @@ static u8 ble_tx_pending;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
 static bms_afe_aux_measurements_t measurement;
 static bool s_low_power_mode;
-static struct{uint16_t u16VCellMin;}g_bms_report={3300};
-static struct{uint8_t u8SOC_Now,u8DSG_SOC_Int;uint32_t u32Cycle_times;}g_bms_soc;
+static struct{uint16_t cell_min_mv;}g_bms_report={3300};
+static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
 static u32 pm_get_32k_tick(void){return now;}
 static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){*m=measurement;return valid;}
 static int app_flash_lock_restore_enabled(void){return flash_ready;}
@@ -84,7 +84,7 @@ static void reset(void){
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
  now=measurement.sample_tick_32k=100;measurement.current_ma=0;elapsed=0;
- g_bms_report.u16VCellMin=3300;blt_pm_proc();
+ g_bms_report.cell_min_mv=3300;blt_pm_proc();
 }
 static void test_acc_sleep(void){
  reset();acc_high=1;blt_pm_proc();assert(!deep_calls);
@@ -131,7 +131,7 @@ int main(void){
  /* A live BLE connection is not itself an active-mode request. */
  reset();device_in_connection_state=1;blt_pm_proc();
  assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&s_low_power_mode);
- elapsed=7200;g_bms_report.u16VCellMin=2400;blt_pm_proc();assert(!cut_calls);
+ elapsed=7200;g_bms_report.cell_min_mv=2400;blt_pm_proc();assert(!cut_calls);
  ota_is_working=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
  ota_is_working=0;bus_busy=1;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
  bus_busy=0;flash_ready=0;blt_pm_proc();assert(mask==SUSPEND_DISABLE);
@@ -142,7 +142,7 @@ int main(void){
  puts("PASS connected suspend: link retained; OTA/bus/Flash/sample/current/invalid gates and no automatic power-off");
  reset();valid=0;blt_pm_proc();assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
  reset();now+=12801;blt_pm_proc();assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
- reset();ota_is_working=1;elapsed=3600;g_bms_report.u16VCellMin=2400;blt_pm_proc();assert(!cut_calls);assert(mask==0);
+ reset();ota_is_working=1;elapsed=3600;g_bms_report.cell_min_mv=2400;blt_pm_proc();assert(!cut_calls);assert(mask==0);
  reset();flash_ready=0;assert(!app_enter_power_off());assert(seq_len==0);
  reset();device_in_connection_state=1;assert(!app_enter_power_off());assert(seq_len==0);
  reset();bus_busy=1;assert(!app_enter_power_off());assert(seq_len==0);

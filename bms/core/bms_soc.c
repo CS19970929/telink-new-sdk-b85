@@ -26,8 +26,8 @@ static void SOC_Result_Pass(void);
 
 #define VCELLMAX g_soc_input.cell_max_mv
 #define VCELLMIN g_soc_input.cell_min_mv
-#define ICHG     g_bms_report.u16Ichg
-#define IDSG     g_bms_report.u16IDischg
+#define ICHG     g_bms_report.charge_current_a10
+#define IDSG     g_bms_report.discharge_current_a10
 
 #define SOC_INTEGRAL_PERIOD_MS              200u
 #define SOC_INTEGRAL_MS_PER_SEC             1000u
@@ -304,7 +304,7 @@ static uint8_t soc_resolve_chemistry(void)
     }
 
     /* AUTO 是明确的通用选择；D008 默认使用编译装配身份，不迁移旧 Flash。 */
-    ovp = g_bms_protection_params.u16VcellOvp_Third;
+    ovp = g_bms_protection_params.cell_ovp_third_mv;
     if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
     if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
 
@@ -345,7 +345,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->chemistry = g_soc_profile->chemistry;
     diag->profile_id = g_soc_profile->profile_id;
     diag->profile_version = g_soc_profile->profile_version;
-    diag->soc_estimate = g_bms_soc.u8SOC_Now;
+    diag->soc_estimate = g_bms_soc.soc_estimate_percent;
     diag->soc_display = g_soc_display_soc;
     diag->current_deadband_ma = g_soc_config.current_deadband_ma;
     diag->ocv_state = g_soc_runtime.ocv_state;
@@ -355,11 +355,11 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->ocv_confidence = g_soc_runtime.ocv_confidence;
     diag->ocv_cell_mv = g_soc_runtime.ocv_mv;
     diag->rest_seconds = (uint16_t)rest_s;
-    diag->nominal_capacity_0p1ah = (uint16_t)(g_bms_soc.u32CapFactory /
+    diag->nominal_capacity_0p1ah = (uint16_t)(g_bms_soc.nominal_capacity_as10 /
                                                SOC_CAPACITY_UNITS_PER_FACTORY);
-    diag->effective_capacity_0p1ah = (uint16_t)(g_bms_soc.u32CapFull /
+    diag->effective_capacity_0p1ah = (uint16_t)(g_bms_soc.effective_capacity_as10 /
                                                  SOC_CAPACITY_UNITS_PER_FACTORY);
-    diag->remaining_capacity_0p1ah = (uint16_t)(g_bms_soc.u32CapNow /
+    diag->remaining_capacity_0p1ah = (uint16_t)(g_bms_soc.remaining_capacity_as10 /
                                                  SOC_CAPACITY_UNITS_PER_FACTORY);
     diag->endpoint_state = g_soc_runtime.endpoint_state;
     diag->endpoint_event_flags = g_soc_runtime.endpoint_event_flags;
@@ -447,7 +447,7 @@ static uint8_t isCHG(void)
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void)
 {
-    return g_bms_soc.u8SOC_Now;
+    return g_bms_soc.soc_estimate_percent;
 }
 
 /* 取得供上位机显示的 SOC 百分比。 */
@@ -461,7 +461,7 @@ static void set_dispsoc(uint8_t soc)
 {
     g_soc_display_soc = soc_limit_percent_u32(soc);
     g_soc_display_step_ticks = 0u;
-    g_bms_report.SocElement.u16Soc = g_soc_display_soc;
+    g_bms_report.soc.soc_percent = g_soc_display_soc;
 }
 
 /* 按确认节拍使显示 SOC 跟随真实 SOC。 */
@@ -491,7 +491,7 @@ static void soc_display_follow_real(void)
 /* 计算与显示 SOC 对应的当前容量。 */
 static uint32_t soc_display_capacity_now(void)
 {
-    return ((uint32_t)get_soc_display() * g_bms_soc.u32CapFull) / SOC_PERCENT_MAX;
+    return ((uint32_t)get_soc_display() * g_bms_soc.effective_capacity_as10) / SOC_PERCENT_MAX;
 }
 
 /* 取得名义容量，单位为 0.1 Ah。 */
@@ -507,20 +507,20 @@ static uint32_t soc_nominal_capacity_0p1ah(void)
 static void soc_recalc_full_capacity(void)
 {
     uint32_t factory = soc_nominal_capacity_0p1ah();
-    g_bms_soc.u32CapFactory = factory * SOC_CAPACITY_UNITS_PER_FACTORY;
+    g_bms_soc.nominal_capacity_as10 = factory * SOC_CAPACITY_UNITS_PER_FACTORY;
 
-    g_bms_soc.soh = bms_soh_from_cycle(soc_cycle_to_u16(g_bms_soc.u32Cycle_times));
-    g_bms_soc.u32CapFull =
-        (g_bms_soc.u32CapFactory * g_bms_soc.soh) / SOC_PERCENT_MAX;
+    g_bms_soc.soh = bms_soh_from_cycle(soc_cycle_to_u16(g_bms_soc.cycle_count));
+    g_bms_soc.effective_capacity_as10 =
+        (g_bms_soc.nominal_capacity_as10 * g_bms_soc.soh) / SOC_PERCENT_MAX;
 
-    if (g_bms_soc.u32CapFull == 0u) g_bms_soc.u32CapFull = 1u;
+    if (g_bms_soc.effective_capacity_as10 == 0u) g_bms_soc.effective_capacity_as10 = 1u;
 }
 
 /* 按当前 SOC 重算剩余容量。 */
 static void soc_recalc_now_capacity(void)
 {
-    g_bms_soc.u32CapNow =
-        ((uint32_t)get_soc_real() * g_bms_soc.u32CapFull) / SOC_PERCENT_MAX;
+    g_bms_soc.remaining_capacity_as10 =
+        ((uint32_t)get_soc_real() * g_bms_soc.effective_capacity_as10) / SOC_PERCENT_MAX;
 }
 
 /* 清除积分余量与当前方向状态。 */
@@ -574,8 +574,8 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
 /* 将充电容量换算为 SOC 百分比。 */
 static uint8_t soc_percent_from_capacity_charge(uint32_t cap)
 {
-    if (cap >= g_bms_soc.u32CapFull) return SOC_PERCENT_MAX;
-    return soc_limit_percent_u32((cap * SOC_PERCENT_MAX) / g_bms_soc.u32CapFull);
+    if (cap >= g_bms_soc.effective_capacity_as10) return SOC_PERCENT_MAX;
+    return soc_limit_percent_u32((cap * SOC_PERCENT_MAX) / g_bms_soc.effective_capacity_as10);
 }
 
 /* 将放电容量换算为 SOC 百分比。 */
@@ -583,9 +583,9 @@ static uint8_t soc_percent_from_capacity_discharge(uint32_t cap)
 {
     uint32_t percent;
     if (cap == 0u) return 0u;
-    if (cap >= g_bms_soc.u32CapFull) return SOC_PERCENT_MAX;
-    percent = ((cap * SOC_PERCENT_MAX) + g_bms_soc.u32CapFull - 1u) /
-        g_bms_soc.u32CapFull;
+    if (cap >= g_bms_soc.effective_capacity_as10) return SOC_PERCENT_MAX;
+    percent = ((cap * SOC_PERCENT_MAX) + g_bms_soc.effective_capacity_as10 - 1u) /
+        g_bms_soc.effective_capacity_as10;
     return soc_limit_percent_u32(percent);
 }
 
@@ -596,15 +596,15 @@ static void soc_note_discharge_soc_drop(uint8_t old_soc, uint8_t new_soc)
     uint8_t cycle_changed = 0u;
     if (old_soc <= new_soc) return;
 
-    dsg_acc = (uint16_t)g_bms_soc.u8DSG_SOC_Int + (uint16_t)(old_soc - new_soc);
+    dsg_acc = (uint16_t)g_bms_soc.discharge_fraction_percent + (uint16_t)(old_soc - new_soc);
     while (dsg_acc >= SOC_EQUIV_CYCLE_PERCENT) {
         dsg_acc -= SOC_EQUIV_CYCLE_PERCENT;
-        if (g_bms_soc.u32Cycle_times < SOC_CYCLE_MAX) {
-            g_bms_soc.u32Cycle_times += 1u;
+        if (g_bms_soc.cycle_count < SOC_CYCLE_MAX) {
+            g_bms_soc.cycle_count += 1u;
             cycle_changed = 1u;
         }
     }
-    g_bms_soc.u8DSG_SOC_Int = (uint8_t)dsg_acc;
+    g_bms_soc.discharge_fraction_percent = (uint8_t)dsg_acc;
     if (cycle_changed) {
         soc_recalc_full_capacity();
         soc_recalc_now_capacity();
@@ -622,29 +622,29 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
     if (delta == 0u) return;
 
     if (dir == SOC_INTEGRAL_DIR_CHG) {
-        if ((g_bms_soc.u32CapNow >= g_bms_soc.u32CapFull) ||
-            ((g_bms_soc.u32CapFull - g_bms_soc.u32CapNow) <= delta))
-            g_bms_soc.u32CapNow = g_bms_soc.u32CapFull;
+        if ((g_bms_soc.remaining_capacity_as10 >= g_bms_soc.effective_capacity_as10) ||
+            ((g_bms_soc.effective_capacity_as10 - g_bms_soc.remaining_capacity_as10) <= delta))
+            g_bms_soc.remaining_capacity_as10 = g_bms_soc.effective_capacity_as10;
         else
-            g_bms_soc.u32CapNow += delta;
+            g_bms_soc.remaining_capacity_as10 += delta;
 
-        new_soc = soc_percent_from_capacity_charge(g_bms_soc.u32CapNow);
+        new_soc = soc_percent_from_capacity_charge(g_bms_soc.remaining_capacity_as10);
         if (new_soc > old_soc) {
-            g_bms_soc.u8SOC_Now = new_soc;
+            g_bms_soc.soc_estimate_percent = new_soc;
         }
     } else if (dir == SOC_INTEGRAL_DIR_DSG) {
-        if (g_bms_soc.u32CapNow <= delta) g_bms_soc.u32CapNow = 0u;
-        else g_bms_soc.u32CapNow -= delta;
+        if (g_bms_soc.remaining_capacity_as10 <= delta) g_bms_soc.remaining_capacity_as10 = 0u;
+        else g_bms_soc.remaining_capacity_as10 -= delta;
 
-        new_soc = soc_percent_from_capacity_discharge(g_bms_soc.u32CapNow);
+        new_soc = soc_percent_from_capacity_discharge(g_bms_soc.remaining_capacity_as10);
         if ((new_soc == 0u) && (old_soc > 0u) &&
             (g_soc_profile != 0) && (VCELLMIN > g_soc_profile->empty_sync_mv)) {
-            g_bms_soc.u32CapNow =
-                (g_bms_soc.u32CapFull + SOC_PERCENT_MAX - 1u) / SOC_PERCENT_MAX;
+            g_bms_soc.remaining_capacity_as10 =
+                (g_bms_soc.effective_capacity_as10 + SOC_PERCENT_MAX - 1u) / SOC_PERCENT_MAX;
             new_soc = 1u;
         }
         if (new_soc < old_soc) {
-            g_bms_soc.u8SOC_Now = new_soc;
+            g_bms_soc.soc_estimate_percent = new_soc;
             soc_note_discharge_soc_drop(old_soc, new_soc);
         }
     }
@@ -654,9 +654,9 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 /* 更新真实 SOC 并同步容量边界。 */
 static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
 {
-    g_bms_soc.u8SOC_Now = soc_limit_percent_u32(soc);
+    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
     soc_recalc_now_capacity();
-    if (sync_display) set_dispsoc(g_bms_soc.u8SOC_Now);
+    if (sync_display) set_dispsoc(g_bms_soc.soc_estimate_percent);
 }
 
 /* 按规定步进向下逼近目标 SOC。 */
@@ -1015,7 +1015,7 @@ static uint8_t soc_discharge_sag_hold_active(void)
 /* 取得当前欠压触发阈值，单位为毫伏。 */
 static uint16_t soc_uvp_trip_mv(void)
 {
-    uint16_t uvp = g_bms_protection_params.u16VcellUvp_Third;
+    uint16_t uvp = g_bms_protection_params.cell_uvp_third_mv;
     if ((uvp < 2200u) || (uvp > 3500u)) uvp = g_soc_profile->empty_sync_mv;
     return uvp;
 }
@@ -1033,8 +1033,8 @@ static void soc_eta_update(void)
     soc_integral_dir_t direction = soc_current_direction(0);
     bms_soc_eta_input_t input;
     input.current_ma = g_soc_input_current_ma;
-    input.remaining_as10 = g_bms_soc.u32CapNow;
-    input.full_as10 = g_bms_soc.u32CapFull;
+    input.remaining_as10 = g_bms_soc.remaining_capacity_as10;
+    input.full_as10 = g_bms_soc.effective_capacity_as10;
     input.deadband_ma = g_soc_config.current_deadband_ma;
     if (input.deadband_ma < BMS_CURRENT_UNRELIABLE_MAX_MA)
         input.deadband_ma = BMS_CURRENT_UNRELIABLE_MAX_MA;
@@ -1276,7 +1276,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
 /* 将低 SOC 保护延时转换为确认样本数。 */
 static uint16_t soc_fault_filter_samples(void)
 {
-    uint32_t ms = (uint32_t)g_bms_protection_params.u16SocLow_Filter * 10u;
+    uint32_t ms = (uint32_t)g_bms_protection_params.soc_low_filter_10ms * 10u;
     uint32_t samples = (ms + SOC_INTEGRAL_PERIOD_MS - 1u) / SOC_INTEGRAL_PERIOD_MS;
     if (samples == 0u) samples = 1u;
     if (samples > 65535u) samples = 65535u;
@@ -1286,17 +1286,17 @@ static uint16_t soc_fault_filter_samples(void)
 /* 取得指定级别的 SOC 故障位寄存器。 */
 static bms_fault_reg_t *soc_fault_reg(uint8_t level)
 {
-    if (level == 0u) return &g_bms_report.unMdlFault_First;
-    if (level == 1u) return &g_bms_report.unMdlFault_Second;
-    return &g_bms_report.unMdlFault_Third;
+    if (level == 0u) return &g_bms_report.fault_first;
+    if (level == 1u) return &g_bms_report.fault_second;
+    return &g_bms_report.fault_third;
 }
 
 /* 取得指定级别的低 SOC 阈值。 */
 static uint16_t soc_fault_threshold(uint8_t level)
 {
-    if (level == 0u) return g_bms_protection_params.u16SocLow_First;
-    if (level == 1u) return g_bms_protection_params.u16SocLow_Second;
-    return g_bms_protection_params.u16SocLow_Third;
+    if (level == 0u) return g_bms_protection_params.soc_low_first_percent;
+    if (level == 1u) return g_bms_protection_params.soc_low_second_percent;
+    return g_bms_protection_params.soc_low_third_percent;
 }
 
 /* 取得对应低 SOC 级别的历史故障编号。 */
@@ -1317,13 +1317,13 @@ static void soc_update_low_faults(void)
 
     for (level = 0u; level < 3u; ++level) {
         uint16_t trip = soc_fault_threshold(level);
-        uint16_t recover = g_bms_protection_params.u16SocLow_Rcv;
+        uint16_t recover = g_bms_protection_params.soc_low_recover_percent;
 
         if (trip == 0u || trip > SOC_PERCENT_MAX) {
             g_soc_runtime.soc_low_active[level] = 0u;
             g_soc_runtime.soc_low_trip_count[level] = 0u;
             g_soc_runtime.soc_low_recover_count[level] = 0u;
-            soc_fault_reg(level)->bits.b1SocLow = 0u;
+            soc_fault_reg(level)->bits.soc_low = 0u;
             continue;
         }
         if (recover <= trip) recover = (trip < SOC_PERCENT_MAX) ? (uint16_t)(trip + 1u) : SOC_PERCENT_MAX;
@@ -1352,7 +1352,7 @@ static void soc_update_low_faults(void)
                 g_soc_runtime.soc_low_trip_count[level] = 0u;
             }
         }
-        soc_fault_reg(level)->bits.b1SocLow = g_soc_runtime.soc_low_active[level];
+        soc_fault_reg(level)->bits.soc_low = g_soc_runtime.soc_low_active[level];
     }
 }
 
@@ -1382,7 +1382,7 @@ static void soc_strategy_update(void)
 /* 设置计算 SOC 并处理外部状态变更。 */
 static void set_calsoc(uint8_t soc)
 {
-    g_bms_soc.u8SOC_Now = soc_limit_percent_u32(soc);
+    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
 }
@@ -1415,9 +1415,9 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
         soc = &defaults;
     }
 
-    g_bms_soc.u8DSG_SOC_Int = soc_limit_dsg_u32(soc->dsg);
-    g_bms_soc.u32Cycle_times = soc_limit_cycle_u32(soc->cycle);
-    g_bms_soc.u8SOC_Now = soc_limit_percent_u32(soc->soc);
+    g_bms_soc.discharge_fraction_percent = soc_limit_dsg_u32(soc->dsg);
+    g_bms_soc.cycle_count = soc_limit_cycle_u32(soc->cycle);
+    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc->soc);
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
     set_dispsoc(get_soc_real());
@@ -1426,8 +1426,8 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     soc_eta_reset();
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
     soc_diag_note_action(BMS_SOC_ACTION_STATE_RESTORE,
-                         g_bms_soc.u8SOC_Now,
-                         g_bms_soc.u8SOC_Now, 0u);
+                         g_bms_soc.soc_estimate_percent,
+                         g_bms_soc.soc_estimate_percent, 0u);
 
     g_soc_initialized = 1u;
     SOC_Result_Pass();
@@ -1447,16 +1447,16 @@ static void soc_integrate_current(soc_integral_dir_t dir)
 static void SOC_Result_Pass(void)
 {
     soc_display_follow_real();
-    g_bms_report.SocElement.u16Soc = get_soc_display();
-    g_bms_report.SocElement.u16Soh = g_bms_soc.soh;
-    g_bms_report.SocElement.u16Cycle_times = soc_cycle_to_u16(g_bms_soc.u32Cycle_times);
+    g_bms_report.soc.soc_percent = get_soc_display();
+    g_bms_report.soc.soh_percent = g_bms_soc.soh;
+    g_bms_report.soc.cycle_count = soc_cycle_to_u16(g_bms_soc.cycle_count);
 
-    g_bms_report.SocElement.u16CapacityNow =
+    g_bms_report.soc.remaining_capacity_0p01ah =
         (uint16_t)(soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR);
-    g_bms_report.SocElement.u16CapacityFull =
-        (uint16_t)(g_bms_soc.u32CapFull / SOC_REPORT_CAPACITY_DIVISOR);
-    g_bms_report.SocElement.u16CapacityFactory =
-        (uint16_t)(g_bms_soc.u32CapFactory / SOC_REPORT_CAPACITY_DIVISOR);
+    g_bms_report.soc.effective_capacity_0p01ah =
+        (uint16_t)(g_bms_soc.effective_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
+    g_bms_report.soc.nominal_capacity_0p01ah =
+        (uint16_t)(g_bms_soc.nominal_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
 }
 
 /* 样本失效时撤销积分时间区间并复位相关跟踪。 */

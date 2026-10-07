@@ -137,7 +137,7 @@ static void test_config_schema(void){
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
  assert(g_bms_config.system.capacity_factory==1000);
  bms_config_cache_t old=g_bms_config,next=old;
- next.protect.u16VcellOvp_Third=3999;next.afe_hw.cov_mv=4100;
+ next.protect.cell_ovp_third_mv=3999;next.afe_hw.cov_mv=4100;
  next.soc.ocv_rest_prepare_s=777;strcpy(next.bt_name_suffix,"persist-name");
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);byte++){
@@ -151,12 +151,12 @@ static void test_config_schema(void){
  u8 payload[BMS_CONFIG_PAYLOAD_BYTES];bms_config_encode(&next,payload);
  bms_config_put_u32le(payload,14u);assert(storage_record_save(&g_bms_config_store,payload));
  reboot();assert(bms_config_store_init());assert(!g_bms_config_store.has_latest);
- assert(g_bms_config.protect.u16VcellOvp_Third==0);assert(bms_config_store_validate_startup());
+ assert(g_bms_config.protect.cell_ovp_third_mv==0);assert(bms_config_store_validate_startup());
  /* Older schema/magic is never decoded into the new structure. */
  fresh();memset(flash,255,4*4096);reboot();assert(bms_config_store_init());
  g_bms_config_store.magic=0x43464731u;assert(bms_config_save_cache(&next));
  reboot();assert(bms_config_store_init());assert(!g_bms_config_store.has_latest);
- assert(g_bms_config.protect.u16VcellOvp_Third==0);
+ assert(g_bms_config.protect.cell_ovp_third_mv==0);
  puts("PASS Config: new schema, all byte cuts, atomic rollback, product isolation, old format rejection");
 }
 
@@ -310,7 +310,7 @@ static void test_user_parameters(void){
 static bms_config_cache_t configured(void)
 {
     bms_config_cache_t cfg = g_bms_config;
-    cfg.protect.u16VcellOvp_Third = 3999u;
+    cfg.protect.cell_ovp_third_mv = 3999u;
     cfg.afe_hw.cov_mv = 4100u;
     cfg.system.capacity_factory = 1234u;
     cfg.user.heater_enable = 0u;
@@ -325,7 +325,7 @@ static bms_config_cache_t configured(void)
 
 static void assert_update_groups(unsigned mask)
 {
-    assert(g_bms_config.protect.u16VcellOvp_Third == ((mask & 1u) ? 0u : 3999u));
+    assert(g_bms_config.protect.cell_ovp_third_mv == ((mask & 1u) ? 0u : 3999u));
     assert(g_bms_config.afe_hw.cov_mv == ((mask & 2u) ? 3650u : 4100u));
     assert(g_bms_config.system.capacity_factory == ((mask & 4u) ? 1000u : 1234u));
     assert(g_bms_config.user.heater_enable == ((mask & 4u) ? 1u : 0u));
@@ -354,7 +354,7 @@ static void test_ota_config_policy(void)
         assert(bms_config_save_cache(&cfg));
         reboot(); bms_parameters_init();
         assert(bms_protection_params_valid()); assert_update_groups(mask);
-        assert(g_bms_protection_params.u16VcellOvp_Third == g_bms_config.protect.u16VcellOvp_Third);
+        assert(g_bms_protection_params.cell_ovp_third_mv == g_bms_config.protect.cell_ovp_third_mv);
         u32 before = programs;
         reboot(); bms_parameters_init();
         assert(programs == before); assert_update_groups(mask);
@@ -411,7 +411,7 @@ static void test_ota_state_events(void)
 static void test_protection_commit(void) {
  fresh();
  bms_protection_params_t old=g_bms_protection_params, next=old, loaded;
- next.u16VcellOvp_Third=3999;
+ next.cell_ovp_third_mv=3999;
  for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte) {
   memcpy(backup,flash,sizeof(flash));cut=byte;
   assert(!bms_protection_params_commit(&next));

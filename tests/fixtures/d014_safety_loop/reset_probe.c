@@ -41,11 +41,11 @@ int main(void)
     assert(bms_afe_hw_profile_get(&startup_profile));
     if (!boot) {
         bms_protection_params_t p=g_bms_protection_params;
-        p.u16IchgOcp_First=p.u16IdsgOcp_First=100;
-        p.u16IchgOcp_Second=p.u16IdsgOcp_Second=150;
-        p.u16IchgOcp_Third=p.u16IdsgOcp_Third=200;
-        p.u16IchgOcp_Rcv=p.u16IdsgOcp_Rcv=50;
-        p.u16IchgOcp_Filter=p.u16IdsgOcp_Filter=40;
+        p.charge_ocp_first_a10=p.discharge_ocp_first_a10=100;
+        p.charge_ocp_second_a10=p.discharge_ocp_second_a10=150;
+        p.charge_ocp_third_a10=p.discharge_ocp_third_a10=200;
+        p.charge_ocp_recover_a10=p.discharge_ocp_recover_a10=50;
+        p.charge_ocp_filter_10ms=p.discharge_ocp_filter_10ms=40;
         assert(bms_protection_params_commit(&p));
     }
     bms_afe_init(); request_outputs(); require_both_off();
@@ -70,7 +70,7 @@ int main(void)
     /* This is a fresh OS process: no production static RAM was manually reset. */
     int recorded=(bms_event_log_read_reg(0)>>8)==(charge ? CHG_OCP : DSG_OCP);
     assert(recorded==durable);
-    assert(g_bms_protection_params.u16IdsgOcp_Third==200 && g_bms_protection_params.u16IchgOcp_Third==200);
+    assert(g_bms_protection_params.discharge_ocp_third_a10==200 && g_bms_protection_params.charge_ocp_third_a10==200);
     unsigned first_on=0;
     for(unsigned i=1;i<=12;++i) {
         step();
@@ -78,7 +78,7 @@ int main(void)
     }
     printf("RESET_OBSERVATION direction=%s history=%s recorded=%d first_on_sample=%u current_a10=%u\n",
            direction,history,recorded,first_on,
-           charge ? g_bms_report.u16Ichg : g_bms_report.u16IDischg);
+           charge ? g_bms_report.charge_current_a10 : g_bms_report.discharge_current_a10);
     if (first_on) {
         fprintf(stderr,"RESET_POLICY_GAP direction=%s history=%s expected=OFF_UNTIL_PHYSICAL_RELEASE actual=ON\n",direction,history);
         return 1;

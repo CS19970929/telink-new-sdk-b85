@@ -100,16 +100,16 @@ def mos_request_test():
     run_c(r'''
 #include <stdint.h>
 #include <assert.h>
-static struct { struct { uint8_t b1Status_Cool; } bits; } g_bms_system_status;
+static struct { struct { uint8_t cooler_status; } bits; } g_bms_system_status;
 static unsigned calls;
 static uint8_t bms_afe_set_fets(uint8_t c, uint8_t d) {
     assert(c == 1u && d == 1u); ++calls; return 0u;
 }
 ''' + function(source, 'void mos_update(') + r'''
 int main(void) {
-    g_bms_system_status.bits.b1Status_Cool = 1u;
+    g_bms_system_status.bits.cooler_status = 1u;
     mos_update();
-    assert(calls == 1u && g_bms_system_status.bits.b1Status_Cool == 0u);
+    assert(calls == 1u && g_bms_system_status.bits.cooler_status == 0u);
     mos_update(); assert(calls == 2u);
     return 0;
 }

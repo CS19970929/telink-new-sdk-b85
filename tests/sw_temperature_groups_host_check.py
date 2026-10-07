@@ -21,24 +21,24 @@ void bms_fault_history_record(bms_fault_code_t fault){(void)fault;}
 int main(void){
  bms_sw_protection_inputs_t in={.battery_temp_valid=1, .mos_temp_valid=1,
   .battery_temp_min=1000, .battery_temp_max=1000, .mos_temp=1000, .mos_temp_required=1};
- g_bms_protection_params.u16TChgOTp_Third=900;g_bms_protection_params.u16TChgOTp_Rcv=800;
- g_bms_protection_params.u16TmosOTp_Third=900;g_bms_protection_params.u16TmosOTp_Rcv=800;
- g_bms_protection_params.u16IchgOcp_Third=100;g_bms_protection_params.u16IchgOcp_Rcv=50;
- g_bms_protection_params.u16VcellOvp_Third=4000;g_bms_protection_params.u16VcellOvp_Rcv=3900;
- g_bms_report.u16Ichg=200;g_bms_report.u16VCellMax=4100;
+ g_bms_protection_params.charge_otp_third_x10=900;g_bms_protection_params.charge_otp_recover_x10=800;
+ g_bms_protection_params.mos_otp_third_x10=900;g_bms_protection_params.mos_otp_recover_x10=800;
+ g_bms_protection_params.charge_ocp_third_a10=100;g_bms_protection_params.charge_ocp_recover_a10=50;
+ g_bms_protection_params.cell_ovp_third_mv=4000;g_bms_protection_params.cell_ovp_recover_mv=3900;
+ g_bms_report.charge_current_a10=200;g_bms_report.cell_max_mv=4100;
  for(int vc=0;vc<=1;vc++) for(int temp=0;temp<=1;temp++){
   bms_sw_protection_init();bms_sw_protection_update_groups(&in,vc,temp);
-  assert(g_bms_report.unMdlFault_Third.bits.b1IchgOcp==vc);
-  assert(g_bms_report.unMdlFault_Third.bits.b1CellOvp==vc);
-  assert(g_bms_report.unMdlFault_Third.bits.b1CellChgOtp==temp);
-  assert(g_bms_report.unMdlFault_Third.bits.b1TmosOtp==temp);
+  assert(g_bms_report.fault_third.bits.charge_ocp==vc);
+  assert(g_bms_report.fault_third.bits.cell_ovp==vc);
+  assert(g_bms_report.fault_third.bits.charge_otp==temp);
+  assert(g_bms_report.fault_third.bits.mos_otp==temp);
  }
  in.battery_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);assert(broken);
  bms_sw_protection_update_groups(&in,1,0);assert(!broken);
- assert(!g_bms_report.unMdlFault_Third.bits.b1TmosOtp);
+ assert(!g_bms_report.fault_third.bits.mos_otp);
  in.battery_temp_valid=1;bms_sw_protection_update_groups(&in,0,1);
- assert(!g_bms_report.unMdlFault_Third.bits.b1IchgOcp);
- assert(g_bms_report.unMdlFault_Third.bits.b1TmosOtp);
+ assert(!g_bms_report.fault_third.bits.charge_ocp);
+ assert(g_bms_report.fault_third.bits.mos_otp);
  // Required MOS NTC: healthy, broken, then overtemperature and recovery.
  in.battery_temp_min=in.battery_temp_max=650;in.mos_temp=650;
  bms_sw_protection_init();bms_sw_protection_update_groups(&in,0,1);
@@ -46,7 +46,7 @@ int main(void){
  in.mos_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
  assert(broken && bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  in.mos_temp_valid=1;in.mos_temp=1000;bms_sw_protection_update_groups(&in,0,1);
- assert(!broken && g_bms_report.unMdlFault_Third.bits.b1TmosOtp);
+ assert(!broken && g_bms_report.fault_third.bits.mos_otp);
  assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  in.mos_temp=650;bms_sw_protection_update_groups(&in,0,1);
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
@@ -55,17 +55,17 @@ int main(void){
  bms_sw_protection_update_groups(&in,0,1);assert(!broken);
  in.mos_temp_valid=1;in.mos_temp=1600;
  bms_sw_protection_update_groups(&in,0,1);
- assert(!broken && !g_bms_report.unMdlFault_Third.bits.b1TmosOtp);
+ assert(!broken && !g_bms_report.fault_third.bits.mos_otp);
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
  // HW-only report flags must not masquerade as a software blocking reason.
  bms_sw_protection_clear();
- g_bms_report.unMdlFault_Third.bits.b1CellOvp=1;
- g_bms_report.unMdlFault_Third.bits.b1CellUvp=1;
+ g_bms_report.fault_third.bits.cell_ovp=1;
+ g_bms_report.fault_third.bits.cell_uvp=1;
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
  // SW stays blocked even if a downstream report consumer modifies merged bits.
  in.battery_temp_valid=1;in.mos_temp_required=1;in.mos_temp_valid=1;in.mos_temp=1000;
  bms_sw_protection_update_groups(&in,0,1);
- g_bms_report.unMdlFault_Third.all=0;
+ g_bms_report.fault_third.all=0;
  assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  in.mos_temp=650;bms_sw_protection_update_groups(&in,0,1);
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());

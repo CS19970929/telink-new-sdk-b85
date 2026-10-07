@@ -179,7 +179,7 @@ int main(void) {
     unsigned reads=read_stage;
     assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.valid && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
-    for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.u16VCell[i]==61001);
+    for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.cell_voltage_mv[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();
     assert(sh3673510_backend_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();

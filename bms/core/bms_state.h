@@ -11,12 +11,12 @@
 /* AFE 无关的 BMS 运行/报告状态；字段单位在定义处说明。 */
 
 typedef struct {
-    uint16_t u16Soc;             /* SOC，单位 %。 */
-    uint16_t u16Soh;             /* SOH，单位 %。 */
-    uint16_t u16CapacityNow;     /* 上报容量，单位 Ah*100。 */
-    uint16_t u16CapacityFull;    /* 满容量，单位 Ah*100。 */
-    uint16_t u16CapacityFactory; /* 工厂容量，单位 Ah*100。 */
-    uint16_t u16Cycle_times;
+    uint16_t soc_percent;                      /* SOC，单位 %。 */
+    uint16_t soh_percent;                      /* SOH，单位 %。 */
+    uint16_t remaining_capacity_0p01ah;        /* 上报容量，单位 Ah*100。 */
+    uint16_t effective_capacity_0p01ah;        /* 满容量，单位 Ah*100。 */
+    uint16_t nominal_capacity_0p01ah;          /* 工厂容量，单位 Ah*100。 */
+    uint16_t cycle_count;
 } bms_soc_report_t;
 
 typedef enum {
@@ -38,30 +38,30 @@ typedef union
     uint32_t all;
     struct
     {
-        uint8_t b1StartUpBMS           : 1;
-        uint8_t b1Status_MOS_PRE       : 1;
-        uint8_t b1Status_MOS_CHG       : 1;
-        uint8_t b1Status_MOS_DSG       : 1;
-        uint8_t b1Status_Relay_PRE     : 1;
-        uint8_t b1Status_Relay_CHG     : 1;
-        uint8_t b1Status_Relay_DSG     : 1;
-        uint8_t b1Status_Relay_MAIN    : 1;
+        uint8_t startup_complete         : 1;
+        uint8_t precharge_mos_status     : 1;
+        uint8_t charge_mos_status        : 1;
+        uint8_t discharge_mos_status     : 1;
+        uint8_t precharge_relay_status   : 1;
+        uint8_t charge_relay_status      : 1;
+        uint8_t discharge_relay_status   : 1;
+        uint8_t main_relay_status        : 1;
 
-        uint8_t b1Status_Heat          : 1;
-        uint8_t b1Status_Cool          : 1;
-        uint8_t b1Status_AFE1          : 1;
-        uint8_t b1Status_AFE2          : 1;
-        uint8_t b1Status_Balance       : 1;
-        uint8_t b1Status_ToSleep       : 1;
-        uint8_t b1Status_BnCloseIO     : 1;
-        uint8_t b1Status_HeatCloseIO   : 1;
+        uint8_t heater_status            : 1;
+        uint8_t cooler_status            : 1;
+        uint8_t afe1_status              : 1;
+        uint8_t afe2_status              : 1;
+        uint8_t balance_status           : 1;
+        uint8_t sleep_requested          : 1;
+        uint8_t balance_close_requested  : 1;
+        uint8_t heater_close_requested   : 1;
 
-        uint8_t b1Status_SysLimits     : 1;
-        uint8_t b1Status_CBCCloseIO    : 1;
-        uint8_t b1Status_DriverExtCtrl : 1;
-        uint8_t bReserved0             : 1;
-        uint8_t b4Status_ProjectVer    : 4;
-        uint8_t bReserved1;
+        uint8_t system_limits            : 1;
+        uint8_t cbc_close_requested      : 1;
+        uint8_t external_driver_control  : 1;
+        uint8_t reserved_0               : 1;
+        uint8_t project_version          : 4;
+        uint8_t reserved_1;
     } bits;
 } bms_system_status_t;
 
@@ -137,25 +137,25 @@ uint8_t bms_fault_history_recent(bms_fault_level_t level, uint8_t age);
 uint16_t bms_lookup_u16(const uint16_t *table, uint16_t table_size, uint16_t input);
 
 typedef struct {
-    uint8_t b1CellOvp         : 1;
-    uint8_t b1CellUvp         : 1;
-    uint8_t b1BatOvp          : 1;
-    uint8_t b1BatUvp          : 1;
+    uint8_t cell_ovp                 : 1;
+    uint8_t cell_uvp                 : 1;
+    uint8_t pack_ovp                 : 1;
+    uint8_t pack_uvp                 : 1;
 
-    uint8_t b1IchgOcp         : 1;
-    uint8_t b1IdischgOcp      : 1;
-    uint8_t b1CellChgOtp      : 1;
-    uint8_t b1CellDischgOtp   : 1;
+    uint8_t charge_ocp               : 1;
+    uint8_t discharge_ocp            : 1;
+    uint8_t charge_otp               : 1;
+    uint8_t discharge_otp            : 1;
 
-    uint8_t b1CellChgUtp      : 1;
-    uint8_t b1CellDischgUtp   : 1;
-    uint8_t b1VcellDeltaBig   : 1;
-    uint8_t b1TempDeltaBig    : 1;
+    uint8_t charge_utp               : 1;
+    uint8_t discharge_utp            : 1;
+    uint8_t cell_delta_high          : 1;
+    uint8_t temperature_delta_high   : 1;
 
-    uint8_t b1SocLow          : 1;
-    uint8_t b1TmosOtp         : 1;
-    uint8_t b1Rcved1          : 1;
-    uint8_t b1Rcved2          : 1;
+    uint8_t soc_low                  : 1;
+    uint8_t mos_otp                  : 1;
+    uint8_t reserved_0               : 1;
+    uint8_t reserved_1               : 1;
 } bms_fault_bits_t;
 
 typedef union {
@@ -164,28 +164,28 @@ typedef union {
 } bms_fault_reg_t;
 
 typedef struct {
-    uint16_t u16VCell[32];
-    uint16_t u16VCellMax;          /* mV */
-    uint16_t u16VCellMin;          /* mV */
-    uint16_t u16VCellMaxPosition;
-    uint16_t u16VCellMinPosition;
-    uint16_t u16VCellDelta;        /* mV */
-    uint16_t u16VCellTotle;        /* 电压 V*100，保留旧字段名。 */
+    uint16_t cell_voltage_mv[32];
+    uint16_t cell_max_mv;                      /* mV */
+    uint16_t cell_min_mv;                      /* mV */
+    uint16_t cell_max_index;
+    uint16_t cell_min_index;
+    uint16_t cell_delta_mv;                    /* mV */
+    uint16_t pack_voltage_10mv;                /* 电压 V*100。 */
 
-    uint16_t u16Temperature[10];   /* 温度编码：(degC + 40) * 10。 */
-    uint16_t u16TempMax;
-    uint16_t u16TempMin;
+    uint16_t temperature_x10[10];              /* 温度编码：(degC + 40) * 10。 */
+    uint16_t temperature_max_x10;
+    uint16_t temperature_min_x10;
 
-    uint16_t u16Ichg;              /* A * 10 */
-    uint16_t u16IDischg;           /* A * 10 */
+    uint16_t charge_current_a10;               /* A * 10 */
+    uint16_t discharge_current_a10;            /* A * 10 */
 
-    bms_soc_report_t SocElement;
-    bms_fault_reg_t unMdlFault_First;
-    bms_fault_reg_t unMdlFault_Second;
-    bms_fault_reg_t unMdlFault_Third;
+    bms_soc_report_t soc;
+    bms_fault_reg_t fault_first;
+    bms_fault_reg_t fault_second;
+    bms_fault_reg_t fault_third;
 
-    uint16_t u16BalanceFlag1;
-    uint16_t u16BalanceFlag2;
+    uint16_t balance_bits_low;
+    uint16_t balance_bits_high;
     uint8_t mac_public[6];
 } bms_report_t;
 

@@ -159,8 +159,8 @@ for needle in (
 
 require(bms, "current.cadc_raw")
 require(bms, "SH3673510_BOARD_SHUNT_UOHM")
-require(bms, "g_bms_report.u16Ichg")
-require(bms, "g_bms_report.u16IDischg")
+require(bms, "g_bms_report.charge_current_a10")
+require(bms, "g_bms_report.discharge_current_a10")
 require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);")
 require(bms, "s_aux.sample_tick_32k = now;")
 require(bms, "if (status.flag2 & SH3673520_FLAG2_CADC_MASK)")
@@ -196,9 +196,9 @@ require(bms, "s_hw_charge_protect")
 require(bms, "s_hw_discharge_protect")
 require(bms, "s_afe_reconfigure_required")
 require(bms, "SH3673510_BOARD_HEATER_NTC_INDEX")
-require(bms, "g_bms_report.u16Temperature[AFE1_TEMP3]")
-require(bms, "g_bms_report.u16TempMin = bat_temp_min;")
-require(bms, "g_bms_report.u16TempMax = bat_temp_max;")
+require(bms, "g_bms_report.temperature_x10[AFE1_TEMP3]")
+require(bms, "g_bms_report.temperature_min_x10 = bat_temp_min;")
+require(bms, "g_bms_report.temperature_max_x10 = bat_temp_max;")
 
 # D011 is common-port: normal healthy operation requests both FETs ON.
 # 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
@@ -255,7 +255,7 @@ short_end = bms.find("static uint8_t hw_recovery_stable", short_start)
 if short_start < 0 or short_end <= short_start:
     raise AssertionError("missing service_short_recovery")
 short_text = bms[short_start:short_end]
-if "u16IDischg" in short_text:
+if "discharge_current_a10" in short_text:
     raise AssertionError("short-circuit recovery must not use discharge current as load-release proof")
 require(bms, "service_short_recovery")
 require(bms, "bms_afe_samples_qualified()")
@@ -320,24 +320,24 @@ if hw_start < 0 or hw_end <= hw_start:
 hw_text = bms[hw_start:hw_end]
 for needle in (
     "sh3673510_control_get_protection_actual",
-    "u16VCellMax <= hw.cov_recover_mv",
-    "u16VCellMax < actual.ov_mv",
-    "u16VCellMin >= hw.cuv_recover_mv",
-    "u16VCellMin > actual.uv_mv",
+    "cell_max_mv <= hw.cov_recover_mv",
+    "cell_max_mv < actual.ov_mv",
+    "cell_min_mv >= hw.cuv_recover_mv",
+    "cell_min_mv > actual.uv_mv",
     "dsg_ocp_release_ok",
     "s_load_removed",
     "SH3673520_BSTATUS2_CHGING_MASK",
-    "u16IDischg <= hw.ocd_recover_a10",
-    "u16IDischg < actual.ocd1_a10",
-    "u16IDischg < actual.ocd2_a10",
+    "discharge_current_a10 <= hw.ocd_recover_a10",
+    "discharge_current_a10 < actual.ocd1_a10",
+    "discharge_current_a10 < actual.ocd2_a10",
     "hw.ocd_recover_ms",
-    "u16Ichg <= hw.occ_recover_a10",
-    "u16Ichg < actual.occ_a10",
+    "charge_current_a10 <= hw.occ_recover_a10",
+    "charge_current_a10 < actual.occ_a10",
     "bat_max <= hw.chg_ot_recover_x10",
     "bat_min >= hw.chg_ut_recover_x10",
 ):
     require(hw_text, needle)
-if "unMdlFault_Third" in hw_text:
+if "fault_third" in hw_text:
     raise AssertionError("hardware FLAG recovery must be independent from software Third-level activity")
 
 # Heater and balance policy belong to common bms_features; the SH backend only
@@ -366,10 +366,10 @@ if publish_start < 0 or publish_end <= publish_start:
 publish_text = bms[publish_start:publish_end]
 for needle in (
     "battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)",
-    "g_bms_report.u16TempMin = bat_temp_min;",
-    "g_bms_report.u16TempMax = bat_temp_max;",
-    "g_bms_report.u16TempMin = 0u;",
-    "g_bms_report.u16TempMax = 0u;",
+    "g_bms_report.temperature_min_x10 = bat_temp_min;",
+    "g_bms_report.temperature_max_x10 = bat_temp_max;",
+    "g_bms_report.temperature_min_x10 = 0u;",
+    "g_bms_report.temperature_max_x10 = 0u;",
 ):
     require(publish_text, needle)
 

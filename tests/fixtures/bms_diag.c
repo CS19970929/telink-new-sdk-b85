@@ -17,7 +17,7 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_HW_PROFILE_WORD_COUNT 35u
 #define BTNAME_REG_BASE 0x100u
 #define BTNAME_REG_WORDS 12u
-typedef struct {u16 u16VcellOvp_First;u16 rest[64];} bms_protection_params_t;
+typedef struct {u16 cell_ovp_first_mv;u16 rest[64];} bms_protection_params_t;
 static bms_protection_params_t g_bms_protection_params;
 static u32 tick, reads,writes;
 u32 bms_diag_tick(void){return tick;}

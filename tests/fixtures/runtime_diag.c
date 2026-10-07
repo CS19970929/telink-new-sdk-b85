@@ -33,7 +33,7 @@ void bms_storage_platform_diag_poll(void) { ++storage; }
 void bms_parameters_diag_poll(void) { ++parameters; }
 void bms_afe_diag_poll(void) { ++afe; }
 int main(void) {
-    g_bms_report.unMdlFault_First.all=1;g_bms_report.unMdlFault_Second.all=2;g_bms_report.unMdlFault_Third.all=4;
+    g_bms_report.fault_first.all=1;g_bms_report.fault_second.all=2;g_bms_report.fault_third.all=4;
     expected_valid=1;expected_raw=-123;expected_current=-120;expected_tick=UINT32_MAX-10u;
     bms_diag_poll_runtime(expected_valid,expected_raw,expected_current,expected_tick);
     expected_valid=0;expected_raw=expected_current=0;expected_tick=5;

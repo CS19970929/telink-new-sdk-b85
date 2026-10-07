@@ -5,7 +5,7 @@ import re
 from validation_support import profile_prefix, read, run_c, evidence
 
 product = os.environ.get('BMS_PRODUCT', 'd014')
-sw_fields = re.findall(r'uint16_t\s+(u16\w+)\s*;', read('bms/core/bms_protection_params.h'))
+sw_fields = re.findall(r'uint16_t\s+(\w+)\s*;', read('bms/core/bms_protection_params.h'))
 hw_fields = re.findall(r'    u16 (\w+);', read('bms/core/bms_afe_hw_profile.h'))
 assert len(sw_fields) == 65 and len(hw_fields) == 35
 code = profile_prefix(product) + '\n#include "bms_sw_protection.h"\n#include "bms_state.h"\n'

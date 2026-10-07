@@ -16,7 +16,7 @@ Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT�
 
 ## 3. SOC Low 与最终阻断
 
-`u16SocLow_First/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `b1SocLow`；不是未使用的 legacy 字段。SOC Low 与压差故障用于报告，不直接列入软件 CHG/DSG 阻断掩码；具体掩码见 `bms_sw_protection_charge_blocked()` / `bms_sw_protection_discharge_blocked()`。
+`soc_low_first_percent/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `soc_low`；不是未使用的 legacy 字段。SOC Low 与压差故障用于报告，不直接列入软件 CHG/DSG 阻断掩码；具体掩码见 `bms_sw_protection_charge_blocked()` / `bms_sw_protection_discharge_blocked()`。
 
 `Filter` 单位 10 ms，以 `ceil(Filter * 10 / 200)` 转为样本数，最少一个样本。高值触发 `>=trip`，低值触发 `<=trip`；Third 分别在 `<=Recover` / `>=Recover` 后确认恢复。采样阻塞会影响墙钟时延，不能把配置 100 ms 写成保证 100 ms 响应。
 

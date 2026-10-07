@@ -60,7 +60,7 @@ int main(void)
         req[iteration]^=(u8)(1u<<bit);writes=0;check(run(req,8),0);check(writes,0);req[iteration]^=(u8)(1u<<bit);
     }
     scenario="重复单寄存器写及广播";
-    for(iteration=0;iteration<100;iteration++){writes=0;check(run(req,8),1);check(writes,1);check(g_bms_protection_params.u16VcellOvp_First,0x0102);}
+    for(iteration=0;iteration<100;iteration++){writes=0;check(run(req,8),1);check(writes,1);check(g_bms_protection_params.cell_ovp_first_mv,0x0102);}
     req[0]=0;crc_frame(req,8);writes=0;check(run(req,8),0);check(writes,1);
     scenario="跨所有者多写拒绝且无副作用";
     memset(req,0,sizeof(req));req[0]=1;req[1]=0x10;req[2]=0x21;req[3]=0x40;req[5]=2;req[6]=4;crc_frame(req,13);

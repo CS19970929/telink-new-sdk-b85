@@ -159,7 +159,7 @@ def write_reports(output, report):
     lines += ['', '| 产品/profile | 串数 | 容量(0.1Ah) | SW CUV3(mV) | AFE CUV(mV) | AFE mask |','|---|---:|---:|---:|---:|---:|']
     for product,value in configs:
         for profile,c in value['profiles'].items():
-            lines.append(f"| {product}/{profile} | {c['cells']} | {c['capacity_0p1ah']} | {c['sw']['u16VcellUvp_Third']} | {c['afe_requested']['cuv_mv']} | {c['afe_requested']['enable_mask']} |")
+            lines.append(f"| {product}/{profile} | {c['cells']} | {c['capacity_0p1ah']} | {c['sw']['cell_uvp_third_mv']} | {c['afe_requested']['cuv_mv']} | {c['afe_requested']['enable_mask']} |")
     lines += ['', '65 个软件字段、35 个 AFE requested 字段及两类 AFE 寄存器实写轨迹保存在 report.json；它们是开发配置，不是产品签核。','', '## 风险与盲区','']
     for risk in BLIND_SPOTS:lines.append(f"- **{risk['risk']} / {risk['area']}**：{risk['gap']}")
     if report['source_changed_during_run']:lines += ['','**源码在验证期间发生变化，本轮拒绝给出统一 PASS。**']

@@ -8,7 +8,7 @@ typedef struct { uint8_t flag1, flag2, bstatus1, bstatus2; } sh3673510_control_s
 typedef struct { uint8_t last_error; } sh3673520_comm_stats_t;
 enum { BMS_ERROR_SPI, BMS_ERROR_AFE1, BMS_ERROR_DSG_SHORT, BMS_ERROR_CBC_DSG };
 enum { SH3673520_ERR_SPI, SH3673520_ERR_TIMEOUT, SH3673520_ERR_CRC, SH3673520_ERR_PROTOCOL };
-static struct { struct { uint8_t b1Status_AFE1, b1Status_MOS_CHG, b1Status_MOS_DSG; } bits; } g_bms_system_status;
+static struct { struct { uint8_t afe1_status, charge_mos_status, discharge_mos_status; } bits; } g_bms_system_status;
 static uint8_t errors[4];
 static unsigned failures, clears, writes;
 static uint8_t guard_qualified = 1;

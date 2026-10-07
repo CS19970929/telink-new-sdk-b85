@@ -83,7 +83,7 @@ u16 bms_parameter_read(u16 r)
     if (r == BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_START) return BMS_BALANCE_START_DELTA_MV_DEFAULT;
     if (r == BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP) return BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
     if (r == BMS_PARAM_REG_SOC) return get_soc_real();
-    if (r == BMS_PARAM_REG_CYCLE) return (u16)g_bms_soc.u32Cycle_times;
+    if (r == BMS_PARAM_REG_CYCLE) return (u16)g_bms_soc.cycle_count;
     if (r == BMS_PARAM_REG_CAPACITY)
         return bms_config_store_get_system(&system) ? (u16)system.capacity_factory : 0xFFFFu;
     if (r >= BMS_PARAM_REG_RAW_CURRENT_LO && r <= BMS_PARAM_REG_SAMPLE_TICK_HI)
@@ -131,11 +131,11 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     if (r == BMS_PARAM_REG_SOC || r == BMS_PARAM_REG_CYCLE)
     {
         u16 soc = (r == BMS_PARAM_REG_SOC) ? value : get_soc_real();
-        u32 cycle = (r == BMS_PARAM_REG_CYCLE) ? value : g_bms_soc.u32Cycle_times;
+        u32 cycle = (r == BMS_PARAM_REG_CYCLE) ? value : g_bms_soc.cycle_count;
         if (qty != 1u || soc > 100u) return finish(3u);
-        if (!bms_state_store_set_soc_cycle(soc, g_bms_soc.u8DSG_SOC_Int, cycle))
+        if (!bms_state_store_set_soc_cycle(soc, g_bms_soc.discharge_fraction_percent, cycle))
             return finish(4u);
-        g_bms_soc.u32Cycle_times = cycle;
+        g_bms_soc.cycle_count = cycle;
         set_soc_param((u8)soc, 1u);
         return finish(0u);
     }

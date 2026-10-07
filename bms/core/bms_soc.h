@@ -49,7 +49,7 @@ typedef struct
     uint8_t temperature_valid;
     uint8_t balancing_active;
     uint8_t heating_active;
-    uint8_t open_wire_active;       /* 有效激励或当前诊断电压帧。 */
+    uint8_t open_wire_active;                  /* 有效激励或当前诊断电压帧。 */
     uint8_t open_wire_suspected;
     uint8_t afe_fault;
     uint8_t temperature_fault;
@@ -65,22 +65,22 @@ typedef struct
 
 typedef struct
 {
-    uint8_t chemistry;                  /* 化学体系选择：AUTO/LFP/NMC。 */
-    uint8_t profile_id;                 /* 配置选择：AUTO/通用 LFP/通用 NMC。 */
+    uint8_t chemistry;                         /* 化学体系选择：AUTO/LFP/NMC。 */
+    uint8_t profile_id;                        /* 配置选择：AUTO/通用 LFP/通用 NMC。 */
     uint16_t current_deadband_ma;       /*
      * 不超过此值的电流忽略，D008 可信下限也生效。
      */
-    uint16_t ocv_rest_prepare_s;        /* 允许 OCV 修正前所需的连续静置时间。 */
-    uint8_t ocv_error_band_percent;     /* OCV 中心上下的百分比点范围。 */
+    uint16_t ocv_rest_prepare_s;               /* 允许 OCV 修正前所需的连续静置时间。 */
+    uint8_t ocv_error_band_percent;            /* OCV 中心上下的百分比点范围。 */
 } bms_soc_config_t;
 
 typedef struct {
-    uint32_t u32CapFactory;         /* As*10 */
-    uint8_t u8SOC_Now;            /* 估计 SOC，范围 0..100。 */
-    uint32_t u32CapNow;             /* As*10 */
-    uint8_t u8DSG_SOC_Int;        /* 等效放电百分比累计器。 */
-    uint32_t u32Cycle_times;
-    uint32_t u32CapFull;            /* As*10 */
+    uint32_t nominal_capacity_as10;            /* As*10 */
+    uint8_t soc_estimate_percent;              /* 估计 SOC，范围 0..100。 */
+    uint32_t remaining_capacity_as10;          /* As*10 */
+    uint8_t discharge_fraction_percent;        /* 等效放电百分比累计器。 */
+    uint32_t cycle_count;
+    uint32_t effective_capacity_as10;          /* As*10 */
     uint8_t soh;
 } bms_soc_state_t;
 

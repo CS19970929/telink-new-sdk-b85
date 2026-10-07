@@ -95,7 +95,7 @@ bool deepsleep_en = false;
  * D008 ACC/PB1 和 SH PA0 均不能代替已有安全门禁。 */
 void mos_update(void)
 {
-    g_bms_system_status.bits.b1Status_Cool = 0u;
+    g_bms_system_status.bits.cooler_status = 0u;
     (void)bms_afe_set_fets(1u, 1u);
 }
 
@@ -198,19 +198,19 @@ static void app_event_log_1s_task(void)
 
 	memset(&sample, 0, sizeof(sample));
 
-	sample.balance = ((g_bms_report.u16BalanceFlag1 != 0u) || (g_bms_report.u16BalanceFlag2 != 0u)) ? 1u : 0u;
+	sample.balance = ((g_bms_report.balance_bits_low != 0u) || (g_bms_report.balance_bits_high != 0u)) ? 1u : 0u;
 
-	sample.vcell_ovp = g_bms_report.unMdlFault_Third.bits.b1CellOvp ? 1u : 0u;
-	sample.vbus_ovp = g_bms_report.unMdlFault_Third.bits.b1BatOvp ? 1u : 0u;
-	sample.chg_ocp = g_bms_report.unMdlFault_Third.bits.b1IchgOcp ? 1u : 0u;
-	sample.vcell_uvp = g_bms_report.unMdlFault_Third.bits.b1CellUvp ? 1u : 0u;
-	sample.vbus_uvp = g_bms_report.unMdlFault_Third.bits.b1BatUvp ? 1u : 0u;
-	sample.dsg_ocp = g_bms_report.unMdlFault_Third.bits.b1IdischgOcp ? 1u : 0u;
-	sample.chg_utp = g_bms_report.unMdlFault_Third.bits.b1CellChgUtp ? 1u : 0u;
-	sample.dsg_utp = g_bms_report.unMdlFault_Third.bits.b1CellDischgUtp ? 1u : 0u;
-	sample.chg_otp = g_bms_report.unMdlFault_Third.bits.b1CellChgOtp ? 1u : 0u;
-	sample.dsg_otp = g_bms_report.unMdlFault_Third.bits.b1CellDischgOtp ? 1u : 0u;
-	sample.vdelta_op = g_bms_report.unMdlFault_Third.bits.b1VcellDeltaBig ? 1u : 0u;
+	sample.vcell_ovp = g_bms_report.fault_third.bits.cell_ovp ? 1u : 0u;
+	sample.vbus_ovp = g_bms_report.fault_third.bits.pack_ovp ? 1u : 0u;
+	sample.chg_ocp = g_bms_report.fault_third.bits.charge_ocp ? 1u : 0u;
+	sample.vcell_uvp = g_bms_report.fault_third.bits.cell_uvp ? 1u : 0u;
+	sample.vbus_uvp = g_bms_report.fault_third.bits.pack_uvp ? 1u : 0u;
+	sample.dsg_ocp = g_bms_report.fault_third.bits.discharge_ocp ? 1u : 0u;
+	sample.chg_utp = g_bms_report.fault_third.bits.charge_utp ? 1u : 0u;
+	sample.dsg_utp = g_bms_report.fault_third.bits.discharge_utp ? 1u : 0u;
+	sample.chg_otp = g_bms_report.fault_third.bits.charge_otp ? 1u : 0u;
+	sample.dsg_otp = g_bms_report.fault_third.bits.discharge_otp ? 1u : 0u;
+	sample.vdelta_op = g_bms_report.fault_third.bits.cell_delta_high ? 1u : 0u;
 
 	sample.afe1_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
@@ -258,9 +258,9 @@ static int app_enter_power_off(void)
      * PC4 拉低后不能再延后执行 Flash 操作；休眠事件记录尝试，
      * shutdown 失败绝不切断供电。
      */
-    if (!bms_state_store_write_all(g_bms_soc.u8SOC_Now,
-                               g_bms_soc.u8DSG_SOC_Int,
-                               g_bms_soc.u32Cycle_times) ||
+    if (!bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
+                               g_bms_soc.discharge_fraction_percent,
+                               g_bms_soc.cycle_count) ||
         !bms_event_log_note_sleep()) return 0;
     if (!bms_afe_enter_shutdown()) {
         bms_event_log_cancel_sleep();
@@ -320,9 +320,9 @@ static int app_enter_acc_sleep(void)
     if (s_acc_retry_ready && (u32)(now - s_acc_retry_tick) <
         APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
     s_acc_retry_ready = 1u; s_acc_retry_tick = now;
-    if (!bms_state_store_write_all(g_bms_soc.u8SOC_Now,
-                               g_bms_soc.u8DSG_SOC_Int,
-                               g_bms_soc.u32Cycle_times) ||
+    if (!bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
+                               g_bms_soc.discharge_fraction_percent,
+                               g_bms_soc.cycle_count) ||
         !bms_event_log_note_sleep()) return 0;
     if (!gpio_read(ACC_MCU_PIN)) { bms_event_log_cancel_sleep(); return 0; }
     if (bls_ll_setAdvEnable(BLC_ADV_DISABLE) != BLE_SUCCESS) {
@@ -394,9 +394,9 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     }
 
     /* SH 保持低功耗优先级：保存失败报告诊断，不改变原来的入睡门禁。 */
-    if (!bms_state_store_write_all(g_bms_soc.u8SOC_Now,
-                                  g_bms_soc.u8DSG_SOC_Int,
-                                  g_bms_soc.u32Cycle_times))
+    if (!bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
+                                  g_bms_soc.discharge_fraction_percent,
+                                  g_bms_soc.cycle_count))
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 1u);
     if (!bms_event_log_note_sleep())
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 2u);
@@ -551,17 +551,17 @@ void blt_pm_proc(void)
     /* BLE 连接允许事件间 suspend，但仍禁止自动低压断电；SDK 调度连接事件唤醒。 */
     if (valid && !busy && !device_in_connection_state)
     {
-        if (g_bms_report.u16VCellMin < 2550u)
+        if (g_bms_report.cell_min_mv < 2550u)
         {
             region = 1u;
             limit_seconds = 3600u;
         }
-        else if (g_bms_report.u16VCellMin < BMS_SLEEP_LOW_CELL_MV)
+        else if (g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV)
         {
             region = 2u;
             limit_seconds = BMS_SLEEP_LOW_SECONDS;
         }
-        else if (g_bms_report.u16VCellMin < BMS_SLEEP_NORMAL_CELL_MV && m.current_ma >= 0)
+        else if (g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV && m.current_ma >= 0)
         {
             region = 3u;
             limit_seconds = BMS_SLEEP_NORMAL_SECONDS;
@@ -648,7 +648,7 @@ void blt_pm_proc(void)
 		}
 #endif
 
-		if (g_bms_report.u16VCellMin < 2550)
+		if (g_bms_report.cell_min_mv < 2550)
 		{
 			sleep_vlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
@@ -660,8 +660,8 @@ void blt_pm_proc(void)
 				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_veryvlow_cnt = 0;
 			}
 		}
-		// else if ((g_bms_report.u16VCellMin <= 2750 && !g_bms_report.u16Ichg) || deepsleep_en)
-		else if ((g_bms_report.u16VCellMin < BMS_SLEEP_LOW_CELL_MV))
+		// else if ((g_bms_report.cell_min_mv <= 2750 && !g_bms_report.charge_current_a10) || deepsleep_en)
+		else if ((g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vnormal_cnt = 0;
@@ -676,7 +676,7 @@ void blt_pm_proc(void)
 				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_vlow_cnt = 0;
 			}
 		}
-		else if ((g_bms_report.u16VCellMin < BMS_SLEEP_NORMAL_CELL_MV && !g_bms_report.u16Ichg))
+		else if ((g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV && !g_bms_report.charge_current_a10))
 		{
 			sleep_veryvlow_cnt = 0;
 			sleep_vlow_cnt = 0;
@@ -737,15 +737,15 @@ void blt_pm_proc(void)
 	}
 #endif
 
-	// if(!gpio_read(BMS_BOARD_SWITCH_PIN) || g_bms_report.u16IDischg || )
+	// if(!gpio_read(BMS_BOARD_SWITCH_PIN) || g_bms_report.discharge_current_a10 || )
 	if (!gpio_read(BMS_BOARD_SWITCH_PIN) ||
 		SH3673510_FIXED_UART_BLOCKS_PM ||
 		uart_tx_is_busy() || modbus_uart_tx_active() ||
-		g_bms_report.u16IDischg ||
+		g_bms_report.discharge_current_a10 ||
 
 		ota_is_working)
 	// if(
-	// 	g_bms_report.u16IDischg
+	// 	g_bms_report.discharge_current_a10
 	// 	)
 	{
 		s_low_power_mode = false;
@@ -812,7 +812,7 @@ _attribute_no_inline_ void main_loop(void)
 #if BMS_PRODUCT_UART_ENABLE
 	main_loop_modbus();
 #endif
-	bms_state_store_update_and_log_if_changed(g_bms_soc.u8SOC_Now, g_bms_soc.u8DSG_SOC_Int, g_bms_soc.u32Cycle_times);
+	bms_state_store_update_and_log_if_changed(g_bms_soc.soc_estimate_percent, g_bms_soc.discharge_fraction_percent, g_bms_soc.cycle_count);
 	blt_pm_proc();
 }
 
@@ -865,16 +865,16 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     bms_afe_feature_snapshot_t feature;
     bms_features_status_t status;
     bms_soc_sample_t sample;
-    uint16_t third_faults = g_bms_report.unMdlFault_Third.all;
+    uint16_t third_faults = g_bms_report.fault_third.all;
     memset(&sample, 0, sizeof(sample));
     memset(&feature, 0, sizeof(feature));
 
     sample.timestamp_32k = sample_tick_32k;
     sample.current_ma = current_ma;
-    sample.pack_voltage_mv = (uint32_t)g_bms_report.u16VCellTotle * 10u;
-    sample.cell_min_mv = g_bms_report.u16VCellMin;
-    sample.cell_max_mv = g_bms_report.u16VCellMax;
-    sample.cell_delta_mv = g_bms_report.u16VCellDelta;
+    sample.pack_voltage_mv = (uint32_t)g_bms_report.pack_voltage_10mv * 10u;
+    sample.cell_min_mv = g_bms_report.cell_min_mv;
+    sample.cell_max_mv = g_bms_report.cell_max_mv;
+    sample.cell_delta_mv = g_bms_report.cell_delta_mv;
     sample.sample_valid = valid ? 1u : 0u;
     sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
                             sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
@@ -901,9 +901,9 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     sample.pack_fault =
         ((third_faults & SOC_SAMPLE_PACK_FAULT_MASK) != 0u) ? 1u : 0u;
     sample.third_cell_ovp =
-        g_bms_report.unMdlFault_Third.bits.b1CellOvp;
+        g_bms_report.fault_third.bits.cell_ovp;
     sample.third_cell_uvp =
-        g_bms_report.unMdlFault_Third.bits.b1CellUvp;
+        g_bms_report.fault_third.bits.cell_uvp;
     sample.charger_state_known = 1u;
     sample.charger_present = status.charge_session_active;
     bms_soc_process_sample(&sample);
@@ -961,7 +961,7 @@ void app_init(void)
 	bms_product_info_refresh();
 	bms_afe_set_output_enabled(1u);
     bms_diag_set_boot_result(
-        g_bms_system_status.bits.b1Status_AFE1 ? DIAG_OK : DIAG_INVALID,
+        g_bms_system_status.bits.afe1_status ? DIAG_OK : DIAG_INVALID,
         bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
     bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();

@@ -68,9 +68,9 @@ static void update_charge_session(void)
      * 预热主动阻断 CHG 后电流消失，零电流不能清会话；
      * 真实放电方向是退出充电场景的可信证据。
      */
-    if (g_bms_report.u16IDischg != 0u)
+    if (g_bms_report.discharge_current_a10 != 0u)
         s_feature.charge_session_active = 0u;
-    else if ((g_bms_report.u16Ichg != 0u) || charge_source_present())
+    else if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
         s_feature.charge_session_active = 1u;
 }
 
@@ -80,7 +80,7 @@ static void set_heater(uint8_t on)
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
     bms_board_heater_set(on);
     s_feature.heater_on = on;
-    g_bms_system_status.bits.b1Status_Heat = on;
+    g_bms_system_status.bits.heater_status = on;
 }
 
 /* 停止加热并复位当前加热阶段。 */
@@ -179,7 +179,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
 /* 检查必须立即停止加热的硬故障条件。 */
 static uint8_t heater_hard_fault(void)
 {
-    const bms_fault_bits_t *f = &g_bms_report.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
     /*
      * 充放电低温不作为加热硬故障，低温正是预热要恢复的条件；CUV 也不是加热硬故障，
@@ -191,10 +191,10 @@ static uint8_t heater_hard_fault(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
-            f->b1CellOvp || f->b1BatOvp ||
-            f->b1IchgOcp || f->b1IdischgOcp ||
-            f->b1CellChgOtp || f->b1CellDischgOtp ||
-            f->b1TmosOtp) ? 1u : 0u;
+            f->cell_ovp || f->pack_ovp ||
+            f->charge_ocp || f->discharge_ocp ||
+            f->charge_otp || f->discharge_otp ||
+            f->mos_otp) ? 1u : 0u;
 }
 
 /* 判断电池温度是否形成加热需求。 */
@@ -209,11 +209,11 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
      * 不能等待滤波后的充电低温故障位再预热；首个可信电流样本就需停止低温充电尝试。
      * HeaterStart 是用户策略，Third UTP 阈值仍是绝对软件充电许可边界。
      */
-    charge_utp_trip = g_bms_protection_params.u16TchgUTp_Third;
+    charge_utp_trip = g_bms_protection_params.charge_utp_third_x10;
     if ((charge_utp_trip != 0u) &&
         (s->battery_temp_min_x10 <= charge_utp_trip))
         return 1u;
-    if (g_bms_report.unMdlFault_Third.bits.b1CellChgUtp) return 1u;
+    if (g_bms_report.fault_third.bits.charge_utp) return 1u;
 
     if (s_feature.heater_state == BMS_HEATER_ACTIVE)
         return (s->battery_temp_min_x10 < config->heater_stop_x10) ? 1u : 0u;
@@ -267,7 +267,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
              * 请求加热前需新充电方向证据或未来批准的物理充电器信号；
              * 进入 ARMING 后零电流才是充电路径已阻断的预期证据。
              */
-            if ((g_bms_report.u16Ichg != 0u) || charge_source_present())
+            if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
             {
                 s_feature.heater_state = BMS_HEATER_ARMING;
             }
@@ -287,7 +287,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
             heater_idle();
             return;
         }
-        if (g_bms_report.u16Ichg != 0u)
+        if (g_bms_report.charge_current_a10 != 0u)
         {
             set_heater(0u);
             return;
@@ -304,7 +304,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     }
 
     /* 本服务前放电事件已清 charge_session；若仍收到矛盾报告，按故障安全关闭加热。 */
-    if (g_bms_report.u16IDischg != 0u)
+    if (g_bms_report.discharge_current_a10 != 0u)
     {
         s_feature.charge_session_active = 0u;
         heater_idle();
@@ -328,16 +328,16 @@ static uint8_t openwire_hard_fault(void)
 static uint8_t openwire_eligible(void)
 {
     if (s_feature.heater_on) return 0u;
-    if (g_bms_report.u16Ichg || g_bms_report.u16IDischg) return 0u;
+    if (g_bms_report.charge_current_a10 || g_bms_report.discharge_current_a10) return 0u;
     return openwire_hard_fault() ? 0u : 1u;
 }
 
 /* 发布均衡通道和工作状态到公共报告。 */
 static void publish_balance(uint32_t mask)
 {
-    g_bms_report.u16BalanceFlag1 = (uint16_t)(mask & 0xFFFFu);
-    g_bms_report.u16BalanceFlag2 = (uint16_t)((mask >> 16) & 0x00FFu);
-    g_bms_system_status.bits.b1Status_Balance = mask ? 1u : 0u;
+    g_bms_report.balance_bits_low = (uint16_t)(mask & 0xFFFFu);
+    g_bms_report.balance_bits_high = (uint16_t)((mask >> 16) & 0x00FFu);
+    g_bms_system_status.bits.balance_status = mask ? 1u : 0u;
 }
 
 /* 应用均衡掩码并记录实际成功状态。 */
@@ -461,7 +461,7 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
 
     for (i = 0u; i < s->cell_count; ++i)
     {
-        uint16_t cell = g_bms_report.u16VCell[i];
+        uint16_t cell = g_bms_report.cell_voltage_mv[i];
         if (cell < BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV ||
             cell > BMS_BALANCE_CELL_PLAUSIBLE_MAX_MV)
             return 0u;
@@ -480,13 +480,13 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
     }
 
     if ((uint16_t)(vmax - vmin) > BMS_BALANCE_SUSPECT_DELTA_MV) return 0u;
-    if (g_bms_report.u16VCellMin != vmin ||
-        g_bms_report.u16VCellMax != vmax ||
-        g_bms_report.u16VCellDelta != (uint16_t)(vmax - vmin))
+    if (g_bms_report.cell_min_mv != vmin ||
+        g_bms_report.cell_max_mv != vmax ||
+        g_bms_report.cell_delta_mv != (uint16_t)(vmax - vmin))
         return 0u;
 
     for (i = 0u; i < s->cell_count; ++i)
-        s_feature.balance_prev_cell_mv[i] = g_bms_report.u16VCell[i];
+        s_feature.balance_prev_cell_mv[i] = g_bms_report.cell_voltage_mv[i];
     s_feature.balance_prev_cell_count = s->cell_count;
     return 1u;
 }
@@ -533,9 +533,9 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
      * 均衡会产生热量，使用既有保护恢复边界作为保守准入窗口，
      * 不依赖零电流时可能清除的方向性故障位；阈值零表示相应保护关闭。
      */
-    charge_ot_recover = g_bms_protection_params.u16TChgOTp_Rcv;
-    charge_ut_recover = g_bms_protection_params.u16TchgUTp_Rcv;
-    mos_ot_recover = g_bms_protection_params.u16TmosOTp_Rcv;
+    charge_ot_recover = g_bms_protection_params.charge_otp_recover_x10;
+    charge_ut_recover = g_bms_protection_params.charge_utp_recover_x10;
+    mos_ot_recover = g_bms_protection_params.mos_otp_recover_x10;
 
     if ((charge_ot_recover != 0u) &&
         (s->battery_temp_max_x10 >= charge_ot_recover))
@@ -552,7 +552,7 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
 /* 检查必须关闭均衡的硬故障条件。 */
 static uint8_t balance_hard_fault(void)
 {
-    const bms_fault_bits_t *f = &g_bms_report.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
     /* 有意不列入单体过压：充电已阻断时，确认的被动泄放是高单体的合法恢复路径。 */
     return (!bms_protection_params_valid() ||
@@ -560,11 +560,11 @@ static uint8_t balance_hard_fault(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
-            f->b1CellUvp || f->b1BatUvp || f->b1BatOvp ||
-            f->b1IchgOcp || f->b1IdischgOcp ||
-            f->b1CellChgOtp || f->b1CellChgUtp ||
-            f->b1CellDischgOtp || f->b1CellDischgUtp ||
-            f->b1TmosOtp) ? 1u : 0u;
+            f->cell_uvp || f->pack_uvp || f->pack_ovp ||
+            f->charge_ocp || f->discharge_ocp ||
+            f->charge_otp || f->charge_utp ||
+            f->discharge_otp || f->discharge_utp ||
+            f->mos_otp) ? 1u : 0u;
 }
 
 /*
@@ -598,15 +598,15 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
                     config.balance_stop_delta_mv :
                     config.balance_start_delta_mv;
 
-        if (g_bms_report.u16VCellMax >= config.balance_start_mv &&
-            g_bms_report.u16VCellDelta >= threshold)
+        if (g_bms_report.cell_max_mv >= config.balance_start_mv &&
+            g_bms_report.cell_delta_mv >= threshold)
         {
             for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
             {
-                uint16_t cell = g_bms_report.u16VCell[i];
+                uint16_t cell = g_bms_report.cell_voltage_mv[i];
                 if (cell >= config.balance_start_mv &&
-                    cell >= g_bms_report.u16VCellMin &&
-                    (uint16_t)(cell - g_bms_report.u16VCellMin) >= threshold)
+                    cell >= g_bms_report.cell_min_mv &&
+                    (uint16_t)(cell - g_bms_report.cell_min_mv) >= threshold)
                     desired |= (1uL << i);
             }
         }
@@ -626,7 +626,7 @@ void bms_features_init(void)
     s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
     bms_board_features_init();
     bms_board_heater_set(0u);
-    g_bms_system_status.bits.b1Status_Heat = 0u;
+    g_bms_system_status.bits.heater_status = 0u;
     publish_balance(0u);
 }
 
@@ -670,8 +670,8 @@ void bms_features_on_afe_invalid(void)
      * AFE 总线失效时物理均衡状态未知；不能把期望关闭状态当成硬件反馈。
      * 保留最后回读值至通信恢复，DVC 独立均衡定时器仍作硬件回退。
      */
-    if ((g_bms_report.u16BalanceFlag1 != 0u) ||
-        (g_bms_report.u16BalanceFlag2 != 0u))
+    if ((g_bms_report.balance_bits_low != 0u) ||
+        (g_bms_report.balance_bits_high != 0u))
     {
         if (!bms_error_get(BMS_ERROR_BALANCE))
             bms_error_raise(BMS_ERROR_BALANCE);

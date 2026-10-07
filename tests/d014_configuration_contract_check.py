@@ -178,7 +178,7 @@ def check_sh3673510_d014_integration_check():
     require(bms, "#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED")
     require(bms, "sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX]")
     require(sw_protection, "!inputs->mos_temp_required || inputs->mos_temp_valid")
-    require(sw_protection, "p->u16TmosOTp_Third")
+    require(sw_protection, "p->mos_otp_third_x10")
     if "BMS_BOARD_HEATER_FUSE_TRIGGER_PIN" in app:
         raise AssertionError("D014 app must not drive the inherited D011 heater-fuse pin")
     if "HT-RF-EN" in app or "HT-CHG" in app:

@@ -55,7 +55,7 @@ uint8_t bms_afe_current_recovery_pending(void)
 static uint16_t dvc_get_configured_temperature(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
-    return g_bms_report.u16Temperature[gp - 1u];
+    return g_bms_report.temperature_x10[gp - 1u];
 }
 
 /* 检查已配置 NTC 通道的测量有效性。 */
@@ -108,20 +108,20 @@ static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
      * GP4 为功率 MOS 温度；旧报告槽位使用相同工程值，避免 Modbus/上位机再次查表。
      * ENV_TEMP3 镜像电池最高温度，MOS_TEMP1 对应 GP4。
      */
-    g_bms_report.u16Temperature[ENV_TEMP3] =
+    g_bms_report.temperature_x10[ENV_TEMP3] =
         sw->battery_temp_valid ? sw->battery_temp_max : 0u;
-    g_bms_report.u16Temperature[MOS_TEMP1] =
+    g_bms_report.temperature_x10[MOS_TEMP1] =
         sw->mos_temp_valid ? sw->mos_temp : 0u;
 
     if (sw->battery_temp_valid)
     {
-        g_bms_report.u16TempMin = sw->battery_temp_min;
-        g_bms_report.u16TempMax = sw->battery_temp_max;
+        g_bms_report.temperature_min_x10 = sw->battery_temp_min;
+        g_bms_report.temperature_max_x10 = sw->battery_temp_max;
     }
     else
     {
-        g_bms_report.u16TempMin = 0u;
-        g_bms_report.u16TempMax = 0u;
+        g_bms_report.temperature_min_x10 = 0u;
+        g_bms_report.temperature_max_x10 = 0u;
     }
 }
 
@@ -168,13 +168,13 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
     last_sample_tick = sample_tick_32k;
 
     if (alarm & DVC1124_ALARM_COV_MASK) {
-        if (dvc_recovery_stable((uint8_t)(g_bms_report.u16VCellMax <= hw.cov_recover_mv),
+        if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_max_mv <= hw.cov_recover_mv),
                                 hw.cov_recover_ms, &cov_count))
             clear_mask |= DVC1124_ALARM_COV_MASK;
     } else cov_count = 0u;
 
     if (alarm & DVC1124_ALARM_CUV_MASK) {
-        if (dvc_recovery_stable((uint8_t)(g_bms_report.u16VCellMin >= hw.cuv_recover_mv),
+        if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_min_mv >= hw.cuv_recover_mv),
                                 hw.cuv_recover_ms, &cuv_count))
             clear_mask |= DVC1124_ALARM_CUV_MASK;
     } else cuv_count = 0u;
@@ -188,14 +188,14 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
 /* 将 DVC 硬件故障合并到公共保护状态。 */
 static void dvc_merge_hw_faults(uint8_t alarm)
 {
-    bms_fault_reg_t *f = &g_bms_report.unMdlFault_Third;
+    bms_fault_reg_t *f = &g_bms_report.fault_third;
 
-    if (alarm & DVC1124_ALARM_COV_MASK) f->bits.b1CellOvp = 1u;
-    if (alarm & DVC1124_ALARM_CUV_MASK) f->bits.b1CellUvp = 1u;
+    if (alarm & DVC1124_ALARM_COV_MASK) f->bits.cell_ovp = 1u;
+    if (alarm & DVC1124_ALARM_CUV_MASK) f->bits.cell_uvp = 1u;
     if (alarm & (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK))
-        f->bits.b1IdischgOcp = 1u;
+        f->bits.discharge_ocp = 1u;
     if (alarm & (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK))
-        f->bits.b1IchgOcp = 1u;
+        f->bits.charge_ocp = 1u;
 
     /* SCD 保留为硬件/后端锁定，不并入通用软件阈值恢复状态机。 */
     if (alarm & DVC1124_ALARM_SCD_MASK)
@@ -218,8 +218,8 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
                                          uint8_t alarm, uint8_t load_removed)
 {
     uint32_t now = snapshot->sample_tick_32k;
-    uint8_t sw_charge = g_bms_report.unMdlFault_Third.bits.b1IchgOcp;
-    uint8_t sw_discharge = g_bms_report.unMdlFault_Third.bits.b1IdischgOcp;
+    uint8_t sw_charge = g_bms_report.fault_third.bits.charge_ocp;
+    uint8_t sw_discharge = g_bms_report.fault_third.bits.discharge_ocp;
     uint8_t charge_ready = 0u, discharge_ready = 0u;
     uint8_t release_reason = 0u;
     uint8_t before = (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1));
@@ -313,18 +313,18 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
         bms_diag_trace(DIAG_EV_CURRENT_RECOVERY,
             (uint32_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)),
             (uint32_t)alarm | ((uint32_t)load_removed << 8) | ((uint32_t)snapshot->status << 16) | ((uint32_t)release_reason << 24));
-    if (s_current_recovery.charge) g_bms_report.unMdlFault_Third.bits.b1IchgOcp = 1u;
-    if (s_current_recovery.discharge) g_bms_report.unMdlFault_Third.bits.b1IdischgOcp = 1u;
+    if (s_current_recovery.charge) g_bms_report.fault_third.bits.charge_ocp = 1u;
+    if (s_current_recovery.discharge) g_bms_report.fault_third.bits.discharge_ocp = 1u;
     return (uint8_t)(alarm | s_current_recovery.hw_pending);
 }
 
 /* 汇总当前充电方向的保护阻断条件。 */
 static uint8_t dvc_charge_blocked(void)
 {
-    const bms_fault_bits_t *f = &g_bms_report.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
-    return (f->b1CellOvp || f->b1BatOvp || f->b1IchgOcp ||
-            f->b1CellChgOtp || f->b1CellChgUtp || f->b1TmosOtp ||
+    return (f->cell_ovp || f->pack_ovp || f->charge_ocp ||
+            f->charge_otp || f->charge_utp || f->mos_otp ||
             bms_features_charge_direction_blocked() ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
@@ -332,10 +332,10 @@ static uint8_t dvc_charge_blocked(void)
 /* 汇总当前放电方向的保护阻断条件。 */
 static uint8_t dvc_discharge_blocked(void)
 {
-    const bms_fault_bits_t *f = &g_bms_report.unMdlFault_Third.bits;
+    const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
-    return (f->b1CellUvp || f->b1BatUvp || f->b1IdischgOcp ||
-            f->b1CellDischgOtp || f->b1CellDischgUtp || f->b1TmosOtp ||
+    return (f->cell_uvp || f->pack_uvp || f->discharge_ocp ||
+            f->discharge_otp || f->discharge_utp || f->mos_otp ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }

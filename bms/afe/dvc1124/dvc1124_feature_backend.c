@@ -9,8 +9,8 @@ static uint32_t s_balance_request;
 /* 把驱动均衡状态转换为公共报告掩码。 */
 static uint32_t dvc_balance_report_mask(void)
 {
-    return ((uint32_t)(g_bms_report.u16BalanceFlag2 & 0x00FFu) << 16) |
-           g_bms_report.u16BalanceFlag1;
+    return ((uint32_t)(g_bms_report.balance_bits_high & 0x00FFu) << 16) |
+           g_bms_report.balance_bits_low;
 }
 
 /* 检查指定 NTC 测量是否有效。 */
@@ -24,7 +24,7 @@ static uint8_t dvc_ntc_valid(const dvc1124_snapshot_t *s, uint8_t gp)
 static uint16_t dvc_temp(uint8_t gp)
 {
     if ((gp == 0u) || (gp > 4u)) return 0u;
-    return g_bms_report.u16Temperature[gp - 1u];
+    return g_bms_report.temperature_x10[gp - 1u];
 }
 
 /* 取得均衡、温度和断线策略需要的后端快照。 */

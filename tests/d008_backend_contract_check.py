@@ -227,8 +227,8 @@ def check_d008_common_port_fet_contract_check():
             self.assertIn("bms_afe_set_fets(1u, 1u)", body)
             self.assertNotIn("IsChargerWakeupActive", body)
             self.assertNotIn("IsKeyWakeupActive", body)
-            self.assertNotIn("b1Status_MOS_CHG", body)
-            self.assertNotIn("b1Status_MOS_DSG", body)
+            self.assertNotIn("charge_mos_status", body)
+            self.assertNotIn("discharge_mos_status", body)
             self.assertNotIn("Runtime_GetMode()", body)
 
         def test_dvc_body_diode_recovery_is_compile_time_policy(self):

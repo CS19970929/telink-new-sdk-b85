@@ -37,7 +37,7 @@ static int dvc1124_backend_get_balance_mask(uint32_t*x){return 1;}
 static int dvc1124_backend_openwire_start(void){return 1;}
 static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
 static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
-struct {struct {uint8_t b1Status_MOS_CHG,b1Status_MOS_DSG,b1Status_Cool;}bits;}g_bms_system_status;
+struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
 uint32_t bms_diag_tick(void){return 0u;}
 static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u;}

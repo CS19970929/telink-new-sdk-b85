@@ -27,14 +27,14 @@ static void expect(unsigned actual, unsigned expected)
 }
 
 typedef struct { size_t fields[5]; uint8_t low, charge_block, discharge_block; } rule_t;
-#define RULE(n,l,c,d) {{offsetof(bms_protection_params_t,n##_First), offsetof(bms_protection_params_t,n##_Second), offsetof(bms_protection_params_t,n##_Third), offsetof(bms_protection_params_t,n##_Rcv), offsetof(bms_protection_params_t,n##_Filter)},l,c,d}
+#define RULE(n,u,l,c,d) {{offsetof(bms_protection_params_t,n##_first_##u), offsetof(bms_protection_params_t,n##_second_##u), offsetof(bms_protection_params_t,n##_third_##u), offsetof(bms_protection_params_t,n##_recover_##u), offsetof(bms_protection_params_t,n##_filter_10ms)},l,c,d}
 static const rule_t rules[] = {
-    RULE(u16VcellOvp,0,1,0), RULE(u16VcellUvp,1,0,1),
-    RULE(u16VbusOvp,0,1,0), RULE(u16VbusUvp,1,0,1),
-    RULE(u16IchgOcp,0,1,0), RULE(u16IdsgOcp,0,0,1),
-    RULE(u16TChgOTp,0,1,0), RULE(u16TchgUTp,1,1,0),
-    RULE(u16TdischgOTp,0,0,1), RULE(u16TdischgUTp,1,0,1),
-    RULE(u16TmosOTp,0,1,1), RULE(u16VdeltaOvp,0,0,0)
+    RULE(cell_ovp,mv,0,1,0), RULE(cell_uvp,mv,1,0,1),
+    RULE(pack_ovp,10mv,0,1,0), RULE(pack_uvp,10mv,1,0,1),
+    RULE(charge_ocp,a10,0,1,0), RULE(discharge_ocp,a10,0,0,1),
+    RULE(charge_otp,x10,0,1,0), RULE(charge_utp,x10,1,1,0),
+    RULE(discharge_otp,x10,0,0,1), RULE(discharge_utp,x10,1,0,1),
+    RULE(mos_otp,x10,0,1,1), RULE(cell_delta,mv,0,0,0)
 };
 #undef RULE
 static void parameter(unsigned g, unsigned f, uint16_t value)
@@ -44,28 +44,28 @@ static void parameter(unsigned g, unsigned f, uint16_t value)
 static void measurement(unsigned g, uint16_t value)
 {
     switch (g) {
-    case 0: g_bms_report.u16VCellMax=value; break;
-    case 1: g_bms_report.u16VCellMin=value; break;
-    case 2: case 3: g_bms_report.u16VCellTotle=value; break;
-    case 4: g_bms_report.u16Ichg=value; break;
-    case 5: g_bms_report.u16IDischg=value; break;
+    case 0: g_bms_report.cell_max_mv=value; break;
+    case 1: g_bms_report.cell_min_mv=value; break;
+    case 2: case 3: g_bms_report.pack_voltage_10mv=value; break;
+    case 4: g_bms_report.charge_current_a10=value; break;
+    case 5: g_bms_report.discharge_current_a10=value; break;
     case 6: case 8: input.battery_temp_max=value; break;
     case 7: case 9: input.battery_temp_min=value; break;
     case 10: input.mos_temp=value; break;
-    default: g_bms_report.u16VCellDelta=value; break;
+    default: g_bms_report.cell_delta_mv=value; break;
     }
 }
 static unsigned active(unsigned g, unsigned l)
 {
-    const bms_fault_reg_t *f = l==0 ? &g_bms_report.unMdlFault_First :
-        (l==1 ? &g_bms_report.unMdlFault_Second : &g_bms_report.unMdlFault_Third);
+    const bms_fault_reg_t *f = l==0 ? &g_bms_report.fault_first :
+        (l==1 ? &g_bms_report.fault_second : &g_bms_report.fault_third);
     switch(g) {
-    case 0: return f->bits.b1CellOvp; case 1: return f->bits.b1CellUvp;
-    case 2: return f->bits.b1BatOvp; case 3: return f->bits.b1BatUvp;
-    case 4: return f->bits.b1IchgOcp; case 5: return f->bits.b1IdischgOcp;
-    case 6: return f->bits.b1CellChgOtp; case 7: return f->bits.b1CellChgUtp;
-    case 8: return f->bits.b1CellDischgOtp; case 9: return f->bits.b1CellDischgUtp;
-    case 10: return f->bits.b1TmosOtp; default: return f->bits.b1VcellDeltaBig;
+    case 0: return f->bits.cell_ovp; case 1: return f->bits.cell_uvp;
+    case 2: return f->bits.pack_ovp; case 3: return f->bits.pack_uvp;
+    case 4: return f->bits.charge_ocp; case 5: return f->bits.discharge_ocp;
+    case 6: return f->bits.charge_otp; case 7: return f->bits.charge_utp;
+    case 8: return f->bits.discharge_otp; case 9: return f->bits.discharge_utp;
+    case 10: return f->bits.mos_otp; default: return f->bits.cell_delta_high;
     }
 }
 static void reset(void)
@@ -74,7 +74,7 @@ static void reset(void)
     memset(&g_bms_report,0,sizeof(g_bms_report));
     input.battery_temp_valid=input.mos_temp_valid=input.mos_temp_required=1;
     input.battery_temp_min=input.battery_temp_max=input.mos_temp=500;
-    g_bms_report.u16Ichg=g_bms_report.u16IDischg=1;
+    g_bms_report.charge_current_a10=g_bms_report.discharge_current_a10=1;
     params_valid=1; step=0;
     bms_sw_protection_init();
 }

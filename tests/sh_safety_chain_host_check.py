@@ -19,8 +19,8 @@ bms_protection_params_t g_bms_protection_params;
 uint8_t bms_protection_params_valid(void){return 1;}
 void bms_fault_history_record(bms_fault_code_t f){(void)f;}
 int main(void){
- g_bms_protection_params.u16VcellOvp_Third=3750;g_bms_protection_params.u16VcellOvp_Rcv=3500;g_bms_protection_params.u16VcellOvp_Filter=40;
- g_bms_protection_params.u16VcellUvp_Third=3000;g_bms_protection_params.u16VcellUvp_Rcv=3100;g_bms_protection_params.u16VcellUvp_Filter=40;
+ g_bms_protection_params.cell_ovp_third_mv=3750;g_bms_protection_params.cell_ovp_recover_mv=3500;g_bms_protection_params.cell_ovp_filter_10ms=40;
+ g_bms_protection_params.cell_uvp_third_mv=3000;g_bms_protection_params.cell_uvp_recover_mv=3100;g_bms_protection_params.cell_uvp_filter_10ms=40;
  now=0xffff8000u;device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  for(unsigned i=0;i<10;i++)sample();
