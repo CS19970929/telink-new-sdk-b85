@@ -97,6 +97,20 @@ class ClientAssetPathTests(unittest.TestCase):
 
 
 class WorkflowSecurityTests(unittest.TestCase):
+    def test_sanitizer_folded_command_remains_one_shell_command(self):
+        import shlex
+        from tests.validation_catalog import CHECKS
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        job = workflow.split("  host-sanitizers:\n", 1)[1].split("  tc32-windows:\n", 1)[0]
+        block = job.split("run: >-\n", 1)[1].split("\n      - uses:", 1)[0]
+        lines = [line for line in block.splitlines() if line.strip()]
+        indent = len(lines[0]) - len(lines[0].lstrip())
+        self.assertTrue(all(len(line) - len(line.lstrip()) == indent for line in lines), "YAML additional indentation breaks the folded shell command")
+        args = shlex.split(" ".join(line.strip() for line in lines))
+        selected = [args[i + 1] for i, arg in enumerate(args) if arg == "--only"]
+        self.assertEqual(len(selected), len(set(selected)))
+        self.assertTrue(set(selected) <= set(CHECKS))
+
     def test_external_fork_prs_cannot_reach_tc32_runner(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         tc32_job = workflow.split("  tc32-windows:\n", 1)[1].split("  tc32-production:\n", 1)[0]

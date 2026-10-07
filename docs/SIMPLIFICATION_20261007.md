@@ -29,10 +29,38 @@
 
 ## 验证边界
 
-已完成四产品 sources --check 及开发 link（零编译错误/警告）。Windows 完整回归 110 组全部通过（45 个入口按适用产品展开加公共工具检查），输入指纹 `b5337e9e104c1ba16cb42dcc78a5746f51e232190ac8a30d082789fa4b0be0e8`，运行期间源码未变化，原长时 SOC、逐字节掉电、保护/恢复、寄存器、协议及故意变异场景通过。WSL 插桩与固定源码提交的六 production ELF/MAP/resources 收据将在验证记录中分别报告。此次没有请求 BIN，未生成镜像、烧录或 OTA。
+已完成四产品 sources --check、相关 host 回归及开发/production 的工程链接与资源检查。完整 host 共 110 组（45 个入口按适用产品展开加公共工具检查），包括长时 SOC、逐字节掉电、保护/恢复、寄存器、协议及故意变异场景；固定快照结果、输入指纹与六 production 资源收据见下节。此次没有请求 BIN，未生成本项目固件镜像、烧录或 OTA。
 
 实板 Gate/恢复波形、Flash 掉电、reset 策略、低功耗/BLE 时序和容量精度验收仍需 [HARDWARE_VALIDATION](HARDWARE_VALIDATION.md) 的独立证据。产品签核值保持待确认，未自行选择新阈值或短路政策。
 
 WSL Ubuntu GCC 13.3 的选定 ASan/UBSan 回归 37 组全部通过、运行期间源码未变化；这是辅助 host 证据。使用 validation_support 编译的 TU/场景实际插桩；同组保留的旧自带编译命令仍按其原证据层级报告，未宣称全部 45 个入口插桩。
 
 四产品 `BMS_DEBUG_LOG_ENABLE=1` 的开发 link/resources 已通过，编译零警告；D008 此开发日志配置 Flash free=6828 B 产生既有开发预算告警。它不是 production 结果，不降低生产 8192 B 硬门槛。
+
+## 固定快照验证记录
+
+业务代码提交为 `27765c88e8d6a888f73a081805755995ebccd780`。以下收据使用该提交及实际 SDK 快照，后续仅 CI 命令缩进、对应工具检查和文档证据变更。完整路径/哈希、MAP 前 30 个自有函数与前 30 个 rodata 见 [机器证据](SIMPLIFICATION_20261007_EVIDENCE.json)。
+
+- Windows 完整 host：110/110，通过；WSL 选定 ASan/UBSan：37/37，通过。两端实际源码输入指纹相同：`996ede8ef294b96193e406be66f463fff8def597f1a212f836652d816ac38b17`，运行期间未变化。收口后补充的 YAML 命令折叠检查已实际解析为单条 shell 命令，36 项工具单测通过。
+- 四开发 + 六 production ELF/MAP/resources 全部通过，TC32 编译均零错误、零警告；全部 resources 标记 image_generated=false。
+- 六 production ELF 均不含 trace 缓冲及测试 shutdown/wake API，D008 也不含 raw API。
+- 四目标 static 完成：D008 104 项 style，其余各 86 项 style，无 error/warning 项；SH 的 bus_mux.h/sif_send.h 两个 DVC 专用头在该目标未分析；MISRA 未执行。未据 style 项批量改名/改逻辑。
+
+| Production 配置 | Flash 占用投影(B) | Flash free(B) | 预留主栈后 SRAM 余量(B) |
+|---|---:|---:|---:|
+| d011 / 固定板级 | 111140 | 15836 | 7120 |
+| d013 / 固定板级 | 110100 | 16876 | 7140 |
+| d014 / 固定板级 | 110948 | 16028 | 7120 |
+| d008 / 16s-lfp | 114228 | 12748 | 6288 |
+| d008 / 20s-nmc | 114228 | 12748 | 6288 |
+| d008 / 24s-lfp | 114228 | 12748 | 6288 |
+
+D008 三 profile 均为 12748 B（12.45 KiB），达到 ≥12 KiB 目标，16S 相比修改前的同口径 8268 B 增加 4480 B；生产 8192 B 硬门槛保留。默认开发 D008 为 7996 B、运行日志开发为 6828 B，均产生开发预算告警，不能把开发诊断版当生产余量。最大自有函数仍为 SOC（3720 B）、Modbus（2428 B）、软件保护（2060 B）、feature（1908 B）、DVC 采样（1644 B）和 journal save（1628 B）；它们承担真实业务/安全责任。最大 rodata 是 BLE attributes（768 B）、DVC semantic read 跳转表（316 B）及 NTC（112 B）。达标后未继续裁剪必要快照、安全事务或协议属性。
+
+### SDK 与 Git 状态边界
+
+本次发现两处修改前已存在的 SDK 覆盖：common/sdk_version.h 的 PATCH_NUM 为 1（Git 为 0），drivers/B85/clock.c 的 48 MHz 分支使用 48000000（Git 为 24000000）。它们与仓库附带 Patch_0001 原文件一致，且实际 SHA256 与保存的 `9e8a2a05` 构建输入收据一致。本轮没有修改、重置或提交这两个 SDK 文件。
+
+Windows Git stat 报告干净未识别这些覆盖；WSL Git 初始报告 97 项 dirty，其中多数为换行配置差异，规范化配置后剩这两处真实覆盖。机器证据保留原始状态与两文件实际/提交 SHA256。**本轮验证对应源码提交加已记录 SDK 覆盖及实际输入指纹，不声称纯 Git HEAD 或远端 CI 使用同一 SDK 快照。** 新环境复现必须对照收据与受控官方补丁，不能仅凭 Git clean 推断一致。
+
+三个产品签核值仍为 0。工程验证与资源达标不等于正式镜像签核；本轮没有生成本项目 BIN，没有烧录、OTA 或实板验收。

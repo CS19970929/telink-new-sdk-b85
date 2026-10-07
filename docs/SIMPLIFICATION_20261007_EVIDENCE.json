@@ -1,0 +1,1520 @@
+{
+  "schema": "bms-simplification-evidence/v1",
+  "recorded_utc": "2026-10-07T02:19:06.870017+00:00",
+  "implementation_commit": "27765c88e8d6a888f73a081805755995ebccd780",
+  "baseline_commit": "9e8a2a05ad581baad4846887aa3953bd615eb4c1",
+  "snapshot_note": "Windows Git 报告干净但两处既有官方 SDK Patch_0001 覆盖未由 stat 检出；验证以源码提交 + 下列覆盖 + 实际字节指纹为准，不声称纯 HEAD/CI 已验证。WSL 原始 dirty 元数据保留。",
+  "preexisting_sdk_overlays": [
+    {
+      "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.h",
+      "actual_sha256": "5e0af5c31bdbd6cbd0b54c2a28e1591e641e85de9cf238e23d7ee8e161dc30c2",
+      "committed_sha256": "21c0e4a2d0805e2fe529b220c87f9d4c99377b649b96aad42b8b3015dc19424c",
+      "patch_reference": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk_v3.4.2.8_Patch/patch_0001_20250929/common/sdk_version.h",
+      "matches_supplied_patch": true,
+      "note": "已存在的 SDK Patch_0001 覆盖，本轮未修改或提交；Windows Git stat 未识别，独立字节指纹留证"
+    },
+    {
+      "file": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.c",
+      "actual_sha256": "aea0a9a206eecbd568a49a1b78bbf5a77b71b8f11293df5a34dc9b9ce8024d3f",
+      "committed_sha256": "3c43b0170fcbc299b2bc24cccd8513402efee76706ade079b617f627bd09e6a2",
+      "patch_reference": "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk_v3.4.2.8_Patch/patch_0001_20250929/drivers/B85/clock.c",
+      "matches_supplied_patch": true,
+      "note": "已存在的 SDK Patch_0001 覆盖，本轮未修改或提交；Windows Git stat 未识别，独立字节指纹留证"
+    }
+  ],
+  "windows_host": {
+    "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\host-committed\\report.json",
+    "report_sha256": "1d542d027a441fbea6e209ece36575aaa817d116394c151c174deae20607381d",
+    "git": {
+      "head": "27765c88e8d6a888f73a081805755995ebccd780",
+      "tree": "d75641eaa258676e043bec8154a91132970d93a5",
+      "status": "",
+      "recent_commits": "27765c88 简化 SOC 为循环 SOH，收口生产诊断与维护入口\n9e8a2a05 删除四产品老化模式并优化持久存储与事件日志\n3caed1d0 简化 Config 定长字段编解码并补齐字节布局回归\n8594eb5a 简化 Modbus 读响应生成并以完整生产模块验证报文\na1f69829 将最终固件放回项目目录并收回无外部消费者的参数接口"
+    },
+    "input_sha256": "996ede8ef294b96193e406be66f463fff8def597f1a212f836652d816ac38b17",
+    "planned": 110,
+    "completed": 110,
+    "failures": 0,
+    "verdict": "软件验证通过",
+    "partial": false,
+    "source_changed_during_run": false,
+    "tools": {
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "platform": "Windows-10-10.0.19045-SP0",
+      "cc": {
+        "command": [
+          "C:/qp/qtools/MinGW32/bin/cc.exe"
+        ],
+        "path": "C:/qp/qtools/MinGW32/bin\\cc.exe",
+        "version": "cc.exe (Rev2, Built by MSYS2 project) 9.2.0\r\nCopyright (C) 2019 Free Software Foundation, Inc.\r\nThis is free software; see the source for copying conditions.  There is NO\r\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\r\n\r\n",
+        "exit": 0,
+        "sha256": "4f337497b7f3baee31a830e82567e1c1d130963bca6ff6e9e8da3399b86ae1e7"
+      },
+      "sanitizers": "0"
+    }
+  },
+  "wsl_selected_sanitizers": {
+    "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\sanitizers-committed\\report.json",
+    "report_sha256": "03ab65832899a4311bd9adb129826d0eb7f4a0883e55ffe0bf395cfae04074f3",
+    "git": {
+      "head": "27765c88e8d6a888f73a081805755995ebccd780",
+      "tree": "d75641eaa258676e043bec8154a91132970d93a5",
+      "status": "M .gitattributes\n M .github/actionlint.yaml\n M .github/workflows/afe-hw-split-ci.yml\n M .github/workflows/bms-ci.yml\n M .gitignore\n M .vscode/tasks.json\n M README.md\n M bms.code-workspace\n M bms/products/baselines.json\n M bms_tools/static_analysis/cppcheck.cfg\n M bms_tools/static_analysis/tc32-platform.xml\n M docs/AFE_AUDIT_REMEDIATION.md\n M docs/AFE_HARDWARE_PROTECTION_V2.md\n M docs/AFE_REFERENCE_GUIDE.md\n M docs/ARCHITECTURE.md\n M docs/AUTOMATED_VALIDATION.md\n M docs/BUILD_AND_TEST.md\n M docs/CODE_READING_GUIDE.md\n M docs/CONFIGURATION_AND_BUILD_GUIDE.md\n M docs/D008_PRODUCT_REFERENCE.md\n M docs/D011_PRODUCT_REFERENCE.md\n M docs/D013_PRODUCT_REFERENCE.md\n M docs/D014_DIAGNOSTICS.md\n M docs/D014_PRODUCT_REFERENCE.md\n M docs/D014_RS485_TX_DIAG.md\n M docs/D014_SAFETY_LOOP.md\n M docs/GITHUB_ACTIONS_RUNBOOK.md\n M docs/HARDWARE_VALIDATION.md\n M docs/ONBOARDING.md\n M docs/OTA_PARAMETERS.md\n M docs/README.md\n M docs/RESOURCE_BUDGET_AND_VALIDATION.md\n M docs/RUNTIME_DEBUG_LOG.md\n M docs/SH_LOW_POWER_FAILURE_HANDLING.md\n M docs/SH_RECOVERY_AND_FRESHNESS.md\n M docs/SIMPLIFICATION_20261007.md\n M docs/SOC.md\n M docs/SOFTWARE_PROTECTION.md\n M docs/STORAGE.md\n M docs/history/AUTOMATED_VALIDATION_EVIDENCE.json\n M docs/history/BMS_MONOREPO_REMEDIATION.md\n M docs/history/BMS_MONOREPO_VALIDATION.md\n M docs/history/BMS_SIMPLIFICATION.md\n M docs/history/BMS_SIMPLIFICATION_EVIDENCE.json\n M docs/history/CHINESE_CODE_COMMENTS.md\n M docs/history/CHINESE_COMMENT_AUDIT.json\n M docs/history/D014_SAFETY_LOOP_EVIDENCE.json\n M docs/history/DOCUMENTATION_AUDIT.md\n M docs/history/FOUR_PRODUCT_CONFIGURATION_AUDIT.md\n M docs/history/SIMPLIFICATION_20261006.md\n M docs/history/STORAGE_REFACTOR_20261006.md\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/print/u_printf.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/boot/B85/cstartup_825x.S\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/sdk_version.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common/types.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/BMSGeneratedRegisterCatalog.swift\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/BmsGeneratedRegisterCatalog.kt\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/README.md\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/generated/bms_generated_register_catalog.hpp\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/protocol_test_vectors.json\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/register_catalog.json\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/adc.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85/clock.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B87/adc.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/gpio_default.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/lib/include/pm/pm.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/lib/include/rf_drv.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/TC321X/watchdog.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.cproject\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.settings/org.eclipse.cdt.core.prefs\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/.settings/org.eclipse.core.resources.prefs\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_remote/825x_ble_remote.lst\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_remote/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_ble_sample/vendor/ble_sample/subdir.mk\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_module/825x_module.lst\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/825x_module/makefile\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B85/boot.link\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/project/tlsr_tc32/B87/boot.link\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/script/gen_ble_sample_version_header.ps1\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_master_kma_dongle/app_config.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_master_kma_dongle/blm_ota.c\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/app_config.h\n M tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/battery_check.c\n M tests/bms_core_host_test.c\n M tests/bms_soc_eta_host_test.c\n M tests/fixtures/d014_safety_loop/include/ble_flash.h\n M tests/fixtures/d014_safety_loop/include/common/types.h\n M tests/fixtures/d014_safety_loop/include/drivers.h\n M tests/fixtures/d014_safety_loop/include/stack/ble/ble.h\n M tests/fixtures/d014_safety_loop/include/tl_common.h\n M tests/fixtures/sif_wire_6604d738.json\n M tests/fixtures/sif_wire_model.h\n M tests/soc/traces/README.md\n M tests/storage_record_host_test.c",
+      "recent_commits": "27765c88 简化 SOC 为循环 SOH，收口生产诊断与维护入口\n9e8a2a05 删除四产品老化模式并优化持久存储与事件日志\n3caed1d0 简化 Config 定长字段编解码并补齐字节布局回归\n8594eb5a 简化 Modbus 读响应生成并以完整生产模块验证报文\na1f69829 将最终固件放回项目目录并收回无外部消费者的参数接口"
+    },
+    "input_sha256": "996ede8ef294b96193e406be66f463fff8def597f1a212f836652d816ac38b17",
+    "planned": 37,
+    "completed": 37,
+    "failures": 0,
+    "verdict": "部分验证通过",
+    "partial": true,
+    "source_changed_during_run": false,
+    "tools": {
+      "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+      "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+      "cc": {
+        "command": [
+          "gcc"
+        ],
+        "path": "/usr/bin/gcc",
+        "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+        "exit": 0,
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+      },
+      "sanitizers": "1"
+    }
+  },
+  "source_order": [
+    {
+      "product": "d008",
+      "path": "bms/products/d008/sources.txt",
+      "sha256": "cc29ab0199f648453e2f9591c6550e05f9a7c3df3624af26ae0008c969d7ba24",
+      "source_count": 100,
+      "baseline_order_preserved": true
+    },
+    {
+      "product": "d011",
+      "path": "bms/products/d011/sources.txt",
+      "sha256": "f0e0ceb79de92cc79c589593f96d7982921e6cd08bbd898a58dfe1c5870864cf",
+      "source_count": 99,
+      "baseline_order_preserved": true
+    },
+    {
+      "product": "d013",
+      "path": "bms/products/d013/sources.txt",
+      "sha256": "f0e0ceb79de92cc79c589593f96d7982921e6cd08bbd898a58dfe1c5870864cf",
+      "source_count": 99,
+      "baseline_order_preserved": true
+    },
+    {
+      "product": "d014",
+      "path": "bms/products/d014/sources.txt",
+      "sha256": "f0e0ceb79de92cc79c589593f96d7982921e6cd08bbd898a58dfe1c5870864cf",
+      "source_count": 99,
+      "baseline_order_preserved": true
+    }
+  ],
+  "targets": [
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\development\\d011\\gen\\resources.json",
+      "report_sha256": "a522dd8d23bcc018a67f16ffc7bf41221a3c3678bb83910dda92028be0d69fbf",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "2e3035b695aa3e074e99f02e1fbd2058aa689d93c953b1ede3e34921ce5d58ce",
+        "product": "d011",
+        "configuration": {
+          "product": "d011",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "a54aea6ba5b489069d808d704d906152875e2c13c36198801d04e8403ee7d020",
+        "flash_bytes": 115492,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 11484,
+        "ram_span_bytes": 24116,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8652,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5580,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 96340
+          },
+          "cstartup_ram_funcs": {
+            "address": 111200,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111536,
+            "bytes": 3792
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6084
+          },
+          "data_no_init": {
+            "address": 8674100,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674868,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "fef48642111f6bf5e66b46c1842578c6fba5f1da7c43f145fc999977f97ba331",
+      "link_receipt_sha256": "1bf76b9f5bf6a674af86f2f436933eed343706bc77f0175d01c4dfd5cb4f87c5"
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\development\\d013\\gen\\resources.json",
+      "report_sha256": "e1a1441c397d1fab80b766b955ced503e27bb714cc152d097d94e7f346f3229b",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "2720f043b1bb25da0eee036b4b1dbd2282c0a607dcbd77e3da2edbba11615a1c",
+        "product": "d013",
+        "configuration": {
+          "product": "d013",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "84043790ce683f3f21cf078d31c951bab091104356aeb344360696cd1053c728",
+        "flash_bytes": 114500,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12476,
+        "ram_span_bytes": 24096,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8672,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5600,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 95348
+          },
+          "cstartup_ram_funcs": {
+            "address": 110208,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 110544,
+            "bytes": 3792
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6064
+          },
+          "data_no_init": {
+            "address": 8674080,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674848,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "6134eb360197f63548813c5b2d5834c7cf467141d5c6d721dcd97f1aceaf6e0b",
+      "link_receipt_sha256": "11aabaa69cffcb06285b7df2ff76c7efa5009237073cd66288026c327de83ec2"
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\development\\d014\\gen\\resources.json",
+      "report_sha256": "92bc8f8b3ce672e788ee8db0cf2c12cfc1e61d203c58b864d98dde1235b387e2",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "8f1484263aa329abe0ae8a87c78f1738efb68e8a94f840f976f48604e78ac76c",
+        "product": "d014",
+        "configuration": {
+          "product": "d014",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": null,
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "a2e15d97959c8533080bcb2515e8a01854f3aa3b4c41ad1143f1c2fc38bfc1b3",
+        "flash_bytes": 115316,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 11660,
+        "ram_span_bytes": 24116,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 8652,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 5580,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10516
+          },
+          "retention_data": {
+            "address": 8661748,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 96164
+          },
+          "cstartup_ram_funcs": {
+            "address": 111024,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 111360,
+            "bytes": 3796
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 6084
+          },
+          "data_no_init": {
+            "address": 8674100,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674868,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "e4abad56bd77da089856a29a0bd2a3fffe5c56bedc8dea65b53940d337df9537",
+      "link_receipt_sha256": "3b86a39e44a9793f10aa1a19b4ab341349f31ab4eb70d00f2155197c7742f476"
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\development-16s-lfp\\d008\\gen\\resources.json",
+      "report_sha256": "0ad948facbe1cfd9d01e79fe91cc3eab3d3d4bf916c661a382a2872040512e47",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "65b80b043bf19313c922bebb1aeac5d38d26848272b56cc8c019770236ea7700",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "development",
+          "production": false,
+          "d008_profile": "16s-lfp",
+          "core_optimization": "-O2"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "cdbae5db4ff759e748768a7217e2f164e1002676e38650cbf0e3a873edc2b4a9",
+        "flash_bytes": 118980,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 7996,
+        "ram_span_bytes": 24948,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 7820,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 4748,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10692
+          },
+          "retention_data": {
+            "address": 8661924,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 99116
+          },
+          "cstartup_ram_funcs": {
+            "address": 114224,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 114560,
+            "bytes": 4244
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 6644
+          },
+          "data_no_init": {
+            "address": 8674932,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8675700,
+            "bytes": 52
+          }
+        },
+        "warnings": [
+          "Flash free below 8 KiB: review feature budget"
+        ]
+      },
+      "compile_inputs_sha256": "cc3f430089d9d30e8fab6bbfdf6d21e171999519dd9058ff341dcd36b99af9cd",
+      "link_receipt_sha256": "41c930eb72b539c84717fe261f0d8b33f14a97e13c80bca5164ea26c7e06a93e"
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d011\\gen\\resources.json",
+      "report_sha256": "872e0e0ac510cc0d1cd0c26002e458cf87a6cb1ee457cce1f125811f260d09bf",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "ccaa7a9946b9afecec7ce8fba6aa9741f92edfd8086b84b1edeeccff0e1499f5",
+        "product": "d011",
+        "configuration": {
+          "product": "d011",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "012d0a1fa0801829578f0a00dd05696db3034c456eb9d05586ba7b032895b59f",
+        "flash_bytes": 111140,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 15836,
+        "ram_span_bytes": 22576,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10192,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7120,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 93044
+          },
+          "cstartup_ram_funcs": {
+            "address": 107904,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 108240,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4544
+          },
+          "data_no_init": {
+            "address": 8672560,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673328,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "4dac58ef473fa7d56b1428418ca16ff59e37b42349554eec3198924f21968c85",
+      "link_receipt_sha256": "644228ccc4fa64bb5bc5cf5a33b67b7dd5d5c7e2932deb8b1d334b55a6f97b66",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake"
+      ]
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d013\\gen\\resources.json",
+      "report_sha256": "114013825441a5ac0e41ce55bb635b61d1aab0a841fcfc4bb58115c279b95274",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "fcce4c3a2cb3813d247ead7ca7ed61025c72186e5c19d7e51381a3df2d2d77fb",
+        "product": "d013",
+        "configuration": {
+          "product": "d013",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "e9ea8fb160cc6df6c1cab1b4ecc5435e417ae3efca876438950e74a5aa8e83d2",
+        "flash_bytes": 110100,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 16876,
+        "ram_span_bytes": 22556,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10212,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7140,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 92004
+          },
+          "cstartup_ram_funcs": {
+            "address": 106864,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 107200,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4524
+          },
+          "data_no_init": {
+            "address": 8672540,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673308,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "f2a5d776e8c8dccbb0c8cd2364ebdb0f25a64671efbce11e8d859bede5843c23",
+      "link_receipt_sha256": "5a9dfadc23a7362b6b8a604a351c88f5bcd0c8e009347e27aae75f230643c0d3",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake"
+      ]
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d014\\gen\\resources.json",
+      "report_sha256": "529caa93e1b8c5fd46e3b478d73699cea2f3ada6816bbfd6a1a43d731c7a069e",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "c2ebd4759c43ab10b6f8a132fabde7dc48abd8e07f0ed523b6a13090c59adbfe",
+        "product": "d014",
+        "configuration": {
+          "product": "d014",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": null,
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "750004a2acc553aa859f083463437372854f6bf80e10f164f3fcf3b8fc2b19ef",
+        "flash_bytes": 110948,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 16028,
+        "ram_span_bytes": 22576,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 10192,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 7120,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10504
+          },
+          "retention_data": {
+            "address": 8661736,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 14848,
+            "bytes": 92852
+          },
+          "cstartup_ram_funcs": {
+            "address": 107712,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 108048,
+            "bytes": 2732
+          },
+          "data": {
+            "address": 8667904,
+            "bytes": 100
+          },
+          "bss": {
+            "address": 8668016,
+            "bytes": 4544
+          },
+          "data_no_init": {
+            "address": 8672560,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8673328,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "e5e0432e360f75d949ea77f4d5d89af24a3727d3b7703af8ae1fc7dcdfd864e9",
+      "link_receipt_sha256": "23b43eeca9d06ee65b43fc30515474ae3cb08af152cca4f602fcae8139007d43",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake"
+      ]
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production-16s-lfp\\d008\\gen\\resources.json",
+      "report_sha256": "44c24afe2db5bb8aa99bff6b5dd1d0b6351ebfaf6184979711fc910ec6eaf87e",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "046260d6abc1df225f0eb08cccfb1270f6831fb211b828c3508502400180ed39",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "16s-lfp",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "cb031320ae62fd8f6f6d978e5d6debfaea829ecacaa68a6eaa6f3666b8b43b3c",
+        "flash_bytes": 114228,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12748,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95388
+          },
+          "cstartup_ram_funcs": {
+            "address": 110496,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 110832,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "fbc062b3aa96352bc91361e12303cad2214323529749ae99073ab29d7539db2e",
+      "link_receipt_sha256": "d7ff4c2f8b12104190c1325175177a6fce279e747b3b531583c03e7245ac883e",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake",
+        "DVC1124_ConfigServiceReadRaw",
+        "DVC1124_ConfigServiceWriteRaw"
+      ]
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production-20s-nmc\\d008\\gen\\resources.json",
+      "report_sha256": "ad9fb1ca5635e41b96da62a1e9b0423f909c71fce28a1ecdc278212db91c7e24",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "e1695d9be9a3df15c449c64d8ef96fa9633cea965e7f5453524229802215ed8f",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "20s-nmc",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "c75b63fd83942fa5f7d116db94d236437bb5728ee37c8fff03eada069db07ffd",
+        "flash_bytes": 114228,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12748,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95388
+          },
+          "cstartup_ram_funcs": {
+            "address": 110496,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 110832,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "be57d7ed627437c8ee207f179ad794aac3ce95f8290a425be48040354dcb5bfd",
+      "link_receipt_sha256": "d4e9c4726051691242b4961298747ad3b73fa5325a7cbf5de46b0b41af69043f",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake",
+        "DVC1124_ConfigServiceReadRaw",
+        "DVC1124_ConfigServiceWriteRaw"
+      ]
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production-24s-lfp\\d008\\gen\\resources.json",
+      "report_sha256": "da1172a5662b62cfe6ac474c8dc19e922bc72a16de9e9b4eab5d0e1f718ddc17",
+      "resources": {
+        "schema": "bms-resources/v1",
+        "git": {
+          "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+          "branch": "codex-bms-monorepo",
+          "dirty": false
+        },
+        "elf_sha256": "0d3cbcc0fe60023aefbca375fbc7c7c31f9879fd4223e157d5f42d38fb397d71",
+        "product": "d008",
+        "configuration": {
+          "product": "d008",
+          "build_mode": "production",
+          "production": true,
+          "d008_profile": "24s-lfp",
+          "core_optimization": "-Os"
+        },
+        "image_generated": false,
+        "bin_sha256": null,
+        "map_sha256": "a9dd20ccb442d69c6503b0e6f98f3c7eaf6b46468fd4728a162b43875d5b1a75",
+        "flash_bytes": 114228,
+        "flash_limit_bytes": 126976,
+        "flash_free_bytes": 12748,
+        "ram_span_bytes": 23408,
+        "ram_total_bytes": 32768,
+        "main_stack_gap_bytes": 9360,
+        "main_stack_reserve_bytes": 3072,
+        "ram_growth_headroom_bytes": 6288,
+        "note": "Address span includes RAM code/cache/IRQ stack; main reserve is a budget, not measured high water.",
+        "sections": {
+          "vectors": {
+            "address": 0,
+            "bytes": 480
+          },
+          "ram_code": {
+            "address": 480,
+            "bytes": 10680
+          },
+          "retention_data": {
+            "address": 8661912,
+            "bytes": 3832
+          },
+          "text": {
+            "address": 15104,
+            "bytes": 95388
+          },
+          "cstartup_ram_funcs": {
+            "address": 110496,
+            "bytes": 336
+          },
+          "rodata": {
+            "address": 110832,
+            "bytes": 3216
+          },
+          "data": {
+            "address": 8668160,
+            "bytes": 120
+          },
+          "bss": {
+            "address": 8668288,
+            "bytes": 5104
+          },
+          "data_no_init": {
+            "address": 8673392,
+            "bytes": 768
+          },
+          "sdk_version": {
+            "address": 8674160,
+            "bytes": 52
+          }
+        },
+        "warnings": []
+      },
+      "compile_inputs_sha256": "41ee3af26cd662e77ba42f4b220ab22bea464314083e4145d74e8df832c32072",
+      "link_receipt_sha256": "f1b76b5165ad7de02779e2b61090c3f5be172045587cf006e34a048c5222f2bc",
+      "verified_absent_symbols": [
+        "s_trace",
+        "bms_afe_test_enter_shutdown",
+        "bms_afe_test_wake",
+        "DVC1124_ConfigServiceReadRaw",
+        "DVC1124_ConfigServiceWriteRaw"
+      ]
+    }
+  ],
+  "static_analysis": [
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d011\\static\\run_20261007T020820Z\\static_analysis_report_data.json",
+      "report_sha256": "3c93fe449d670cd9bfedbc93e8b54fc609bd2c6b3f81cde5733a2adecc1681d7",
+      "git": {
+        "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "analysed_translation_units": 36,
+      "severity_counts": {
+        "style": 86
+      },
+      "coverage_gaps": [
+        "bms/platform/telink/bus_mux.h",
+        "bms/platform/telink/sif_send.h"
+      ],
+      "MISRA_executed": false
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d013\\static\\run_20261007T020850Z\\static_analysis_report_data.json",
+      "report_sha256": "81e62a3e6d68b7cec92fa8a1b44df41f001bc15db63b4d77972bcd393fec44c5",
+      "git": {
+        "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "analysed_translation_units": 36,
+      "severity_counts": {
+        "style": 86
+      },
+      "coverage_gaps": [
+        "bms/platform/telink/bus_mux.h",
+        "bms/platform/telink/sif_send.h"
+      ],
+      "MISRA_executed": false
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production\\d014\\static\\run_20261007T020919Z\\static_analysis_report_data.json",
+      "report_sha256": "d9382cb16ad4dfd4b12a6d3c34a2fbb7f0d860784b71f7f1f56ce0cf005cf02a",
+      "git": {
+        "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "analysed_translation_units": 36,
+      "severity_counts": {
+        "style": 86
+      },
+      "coverage_gaps": [
+        "bms/platform/telink/bus_mux.h",
+        "bms/platform/telink/sif_send.h"
+      ],
+      "MISRA_executed": false
+    },
+    {
+      "report_path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-round3-20261007\\targets\\47196ba33c07\\production-16s-lfp\\d008\\static\\run_20261007T020746Z\\static_analysis_report_data.json",
+      "report_sha256": "9cbb40590c2c0e30d3968550704131040e36f997b9bb75a1c9333cdd5b4098c9",
+      "git": {
+        "commit": "27765c88e8d6a888f73a081805755995ebccd780",
+        "branch": "codex-bms-monorepo",
+        "dirty": false
+      },
+      "analysed_translation_units": 37,
+      "severity_counts": {
+        "style": 104
+      },
+      "coverage_gaps": [],
+      "MISRA_executed": false
+    }
+  ],
+  "d008_production_map_symbols": {
+    "functions_top30": [
+      {
+        "kind": "text",
+        "symbol": "bms_soc_process_sample",
+        "address": 18492,
+        "bytes": 3720,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "modbus_on_frame",
+        "address": 67280,
+        "bytes": 2428,
+        "source": "bms/core/modbus_rtu.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_sw_protection_update_groups",
+        "address": 50324,
+        "bytes": 2060,
+        "source": "bms/core/bms_sw_protection.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_features_service",
+        "address": 41576,
+        "bytes": 1908,
+        "source": "bms/app/bms_features.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "DVC1124_App_AFEGet",
+        "address": 59300,
+        "bytes": 1644,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "storage_record_save",
+        "address": 74432,
+        "bytes": 1628,
+        "source": "bms/core/storage_record.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "DVC1124_BmsApp_AFEGet",
+        "address": 62260,
+        "bytes": 1316,
+        "source": "bms/afe/dvc1124/dvc1124_bms.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "blt_pm_proc",
+        "address": 23544,
+        "bytes": 1108,
+        "source": "bms/app/app.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_config_store_init",
+        "address": 33400,
+        "bytes": 1076,
+        "source": "bms/core/bms_config_store.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_diag_runtime_soc_extended",
+        "address": 37432,
+        "bytes": 1064,
+        "source": "bms/core/bms_diag.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_sw_protection_validate_params",
+        "address": 49100,
+        "bytes": 1036,
+        "source": "bms/core/bms_sw_protection.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "dvc_apply_protection_from_params",
+        "address": 56792,
+        "bytes": 1004,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "main_loop",
+        "address": 24652,
+        "bytes": 984,
+        "source": "bms/app/app.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "storage_record_load",
+        "address": 73452,
+        "bytes": 980,
+        "source": "bms/core/storage_record.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "DVC1124_ConfigServiceRead",
+        "address": 64264,
+        "bytes": 884,
+        "source": "bms/afe/dvc1124/dvc1124_config_service.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_parameter_write",
+        "address": 44588,
+        "bytes": 796,
+        "source": "bms/core/bms_parameter_access.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_soc_eta_update",
+        "address": 22392,
+        "bytes": 712,
+        "source": "bms/core/bms_soc_eta.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_afe_hw_access_modbus_on_frame",
+        "address": 28608,
+        "bytes": 692,
+        "source": "bms/core/bms_afe_hw_access.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_parameter_read",
+        "address": 43896,
+        "bytes": 692,
+        "source": "bms/core/bms_parameter_access.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "sif_send_data_handle",
+        "address": 71712,
+        "bytes": 604,
+        "source": "bms/platform/telink/sif_send.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_afe_hw_profile_validate",
+        "address": 30304,
+        "bytes": 592,
+        "source": "bms/core/bms_afe_hw_profile.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "DVC1124_ReadRegisters",
+        "address": 55176,
+        "bytes": 556,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_soc_get_diag",
+        "address": 17624,
+        "bytes": 548,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_afe_hw_profile_build_default",
+        "address": 29772,
+        "bytes": 532,
+        "source": "bms/core/bms_afe_hw_profile.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "DVC1124_UpdataAfeConfig",
+        "address": 58772,
+        "bytes": 528,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_event_log_init",
+        "address": 40036,
+        "bytes": 504,
+        "source": "bms/core/bms_event_log.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "storage_record_open",
+        "address": 72962,
+        "bytes": 490,
+        "source": "bms/core/storage_record.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "bms_state_store_init",
+        "address": 46160,
+        "bytes": 452,
+        "source": "bms/core/bms_state_store.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "user_init_normal",
+        "address": 26316,
+        "bytes": 440,
+        "source": "bms/platform/telink/app_ble.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "text",
+        "symbol": "app_init",
+        "address": 25636,
+        "bytes": 376,
+        "source": "bms/app/app.c",
+        "scope": "common/platform"
+      }
+    ],
+    "rodata_top30": [
+      {
+        "kind": "rodata",
+        "symbol": "my_Attributes",
+        "address": 111244,
+        "bytes": 768,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "DVC1124_ConfigServiceRead",
+        "address": 112576,
+        "bytes": 316,
+        "source": "bms/afe/dvc1124/dvc1124_config_service.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "C.31.7716",
+        "address": 112112,
+        "bytes": 132,
+        "source": "bms/core/bms_config_store.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "CSWTCH.116",
+        "address": 112340,
+        "bytes": 124,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "s_ntc_10k_table",
+        "address": 112464,
+        "bytes": 112,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "g_soc_ocv_lfp",
+        "address": 110912,
+        "bytes": 48,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "g_soc_ocv_nmc",
+        "address": 110960,
+        "bytes": 40,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "g_soc_profile_lfp",
+        "address": 110840,
+        "bytes": 36,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "g_soc_profile_nmc",
+        "address": 110876,
+        "bytes": 36,
+        "source": "bms/core/bms_soc.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "port.5441",
+        "address": 112264,
+        "bytes": 36,
+        "source": "bms/platform/telink/bms_storage_platform_telink.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "table_ms.6203",
+        "address": 112308,
+        "bytes": 32,
+        "source": "bms/afe/dvc1124/dvc1124.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "delay.5535",
+        "address": 112892,
+        "bytes": 32,
+        "source": "bms/afe/dvc1124/dvc1124_config_service.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "delay.5538",
+        "address": 112924,
+        "bytes": 32,
+        "source": "bms/afe/dvc1124/dvc1124_config_service.c",
+        "scope": "D008 backend"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSPPC2SDescriptor",
+        "address": 111148,
+        "bytes": 28,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSPPS2CDescriptor",
+        "address": 112056,
+        "bytes": 28,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "str1.4",
+        "address": 111000,
+        "bytes": 25,
+        "source": "bms/platform/telink/app_ble.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "str1.1",
+        "address": 112956,
+        "bytes": 24,
+        "source": "bms/core/modbus_rtu.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "sif_send_data_handle",
+        "address": 112992,
+        "bytes": 24,
+        "source": "bms/platform/telink/sif_send.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSppDataClient2ServerCharVal",
+        "address": 111028,
+        "bytes": 20,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_OtaCharVal",
+        "address": 111076,
+        "bytes": 20,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSppDataServer2ClientCharVal",
+        "address": 111204,
+        "bytes": 20,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "revisions.4875",
+        "address": 112244,
+        "bytes": 20,
+        "source": "bms/core/bms_parameter_access.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_OtaUUID",
+        "address": 111100,
+        "bytes": 16,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSppServiceUUID",
+        "address": 111120,
+        "bytes": 16,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_OtaServiceUUID",
+        "address": 111228,
+        "bytes": 16,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSppDataServer2ClientUUID",
+        "address": 112016,
+        "bytes": 16,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "TelinkSppDataClient2ServerUUID",
+        "address": 112096,
+        "bytes": 16,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_periConnParameters",
+        "address": 111052,
+        "bytes": 8,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_appearanceCharVal",
+        "address": 111060,
+        "bytes": 8,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      },
+      {
+        "kind": "rodata",
+        "symbol": "my_serviceChangeCharVal",
+        "address": 111068,
+        "bytes": 8,
+        "source": "bms/platform/telink/app_att.c",
+        "scope": "common/platform"
+      }
+    ]
+  },
+  "ci_folded_command_validation": {
+    "passed": true,
+    "command": "python tests/run_host_regression.py --output \"${{ runner.temp }}/bms-sanitizers\" --only protection_scenarios_host_check --only product_configuration_host_check --only features_scenarios_host_check --only sh_safety_chain_host_check --only d014_safety_loop_host_check --only sh_register_scenarios_host_check --only dvc_register_scenarios_host_check --only modbus_host_check --only current_calibration_host_check --only diagnostics_host_check --only storage_host_check --only portable_core_host_check",
+    "selected_checks": [
+      "protection_scenarios_host_check",
+      "product_configuration_host_check",
+      "features_scenarios_host_check",
+      "sh_safety_chain_host_check",
+      "d014_safety_loop_host_check",
+      "sh_register_scenarios_host_check",
+      "dvc_register_scenarios_host_check",
+      "modbus_host_check",
+      "current_calibration_host_check",
+      "diagnostics_host_check",
+      "storage_host_check",
+      "portable_core_host_check"
+    ],
+    "tool_unit_tests_passed": 36
+  },
+  "firmware_image_generated": false,
+  "board_or_OTA_validation": false,
+  "approval_flags": {
+    "BMS_D008_SCD_POLICY_APPROVED": 0,
+    "BMS_D008_20S_NMC_PROTECTION_APPROVED": 0,
+    "BMS_D013_HW_CONFIG_APPROVED": 0
+  }
+}
