@@ -6,7 +6,8 @@
 #include "bms_board.h"
 #include "tl_common.h"
 #include "drivers.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 #include "sh3673510_project_config.h"

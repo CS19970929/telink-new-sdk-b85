@@ -7,7 +7,8 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "modbus_uart.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include "app.h"
 
 // 引脚

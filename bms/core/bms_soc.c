@@ -4,6 +4,7 @@
  * bms/core/bms_soc.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_soc.h"
+#include "bms_product_conf.h"
 /* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
 static void SOC_Result_Pass(void);
 
@@ -81,9 +82,6 @@ static void SOC_Result_Pass(void);
 #define SOC_OCV_TEMP_MIN_X10                 200u  /* 温度 -20 ℃。 */
 #define SOC_OCV_TEMP_MAX_X10                 1000u /* 温度 +60 ℃。 */
 
-#ifndef BMS_CURRENT_UNRELIABLE_MAX_MA
-#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
-#endif
 
 typedef enum
 {

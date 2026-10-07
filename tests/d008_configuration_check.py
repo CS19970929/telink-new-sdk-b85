@@ -136,7 +136,7 @@ def check_d008_framework_contract_check():
             cls.app = read("app.c")
             cls.app_config = read("app_config.h")
             cls.parameter_access = read("bms_parameter_access.c")
-            cls.conf = read("conf.h")
+            cls.conf = read("bms_product_conf.h")
             cls.hw_profile = read("bms_afe_hw_profile.c")
 
         def test_backend_defaults_to_dvc1124(self):

@@ -7,7 +7,7 @@
 #define __SIF_SEND_H__
 
 #include "stdint.h"
-#include "conf.h"
+#include "common/types.h"
 
 typedef enum
 {

@@ -14,7 +14,7 @@
 #ifndef APP_H_
 #define APP_H_
 
-#include "conf.h"
+#include "common/types.h"
 #include "bms_error.h"
 
 #define MY_DIRECT_ADV_TIME 2000000

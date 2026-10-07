@@ -1,7 +1,7 @@
 /* 文件功能：软件保护运行参数所有者、提交及持久域启动安全门禁。 */
 #ifndef BMS_PARAMETERS_H_
 #define BMS_PARAMETERS_H_
-#include "conf.h"
+
 #include "bms_protection_params.h"
 
 /* 加载、校验软件保护参数；失败保持输出阻断。 */

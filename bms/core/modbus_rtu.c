@@ -29,7 +29,8 @@
 #include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
 #endif
@@ -751,13 +752,13 @@ static u16 read_production_info_reg(u16 reg)
 void WriteProID_Default(void)
 {
     bms_user_params_t user;
-    UINT8 hardwareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+    uint8_t hardwareCount = sizeof(BMS_HARDWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
                               ? PRODUCT_ID_LENGTH_MAX
                               : sizeof(BMS_HARDWARE_VERDION_DEFAULT);
-    UINT8 softwareCount = sizeof(BMS_SOFTWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+    uint8_t softwareCount = sizeof(BMS_SOFTWARE_VERDION_DEFAULT) > PRODUCT_ID_LENGTH_MAX
                               ? PRODUCT_ID_LENGTH_MAX
                               : sizeof(BMS_SOFTWARE_VERDION_DEFAULT);
-    UINT8 serialNumberCount = sizeof(BMS_SERIAL_NUMBER_DEFAULT) > PRODUCT_ID_LENGTH_MAX
+    uint8_t serialNumberCount = sizeof(BMS_SERIAL_NUMBER_DEFAULT) > PRODUCT_ID_LENGTH_MAX
                                   ? PRODUCT_ID_LENGTH_MAX
                                   : sizeof(BMS_SERIAL_NUMBER_DEFAULT);
 

@@ -33,7 +33,8 @@
 #include "stack/ble/ble.h"
 #include "app.h"
 #include "app_att.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include "modbus_rtu.h"
 #include "btname_modbus.h"
 

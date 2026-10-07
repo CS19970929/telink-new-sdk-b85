@@ -6,6 +6,7 @@
 #include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
+#include "bms_product_conf.h"
 
 #include "bms_soc_defs.h"
 #include "bms_product_config.h"

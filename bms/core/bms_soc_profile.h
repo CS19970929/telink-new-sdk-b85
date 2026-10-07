@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "conf.h"
+
 #include "bms_soc_defs.h"
 
 /*

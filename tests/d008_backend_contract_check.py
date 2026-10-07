@@ -332,7 +332,7 @@ def check_d008_boot_zero_current_contract_check():
     header = (BASE / "dvc1124.h").read_text(encoding="utf-8")
     config = (BASE / "dvc1124_project_config.h").read_text(encoding="utf-8")
     backend = (BASE / "dvc1124_boot.c").read_text(encoding="utf-8")
-    conf = (BASE / "conf.h").read_text(encoding="utf-8")
+    conf = (BASE / "bms_soc.h").read_text(encoding="utf-8")
 
     assert "#define DVC1124_BOOT_ZERO_ENABLE              1u" in config
     assert "#define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS  270u" in config

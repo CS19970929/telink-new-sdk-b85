@@ -6,10 +6,13 @@
 #ifndef BMS_SOC_H_
 #define BMS_SOC_H_
 
-#include "conf.h"
+#include <stdint.h>
 #include "bms_state_store.h"
 #include "bms_soc_defs.h"
 #include "bms_diag.h"
+
+/* D008 测量可信下限，AFE 发布和 SOC 积分采用同一固定值。 */
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 
 #define BMS_SOC_OCV_WAIT_CURRENT   0u
 #define BMS_SOC_OCV_PREPARE        1u
@@ -73,12 +76,12 @@ typedef struct
 
 struct SOC_CALCULATE_ELEMENT
 {
-    UINT32 u32CapFactory;         /* As*10 */
+    uint32_t u32CapFactory;         /* As*10 */
     uint8_t u8SOC_Now;            /* 估计 SOC，范围 0..100。 */
-    UINT32 u32CapNow;             /* As*10 */
+    uint32_t u32CapNow;             /* As*10 */
     uint8_t u8DSG_SOC_Int;        /* 等效放电百分比累计器。 */
-    UINT32 u32Cycle_times;
-    UINT32 u32CapFull;            /* As*10 */
+    uint32_t u32Cycle_times;
+    uint32_t u32CapFull;            /* As*10 */
     uint8_t soh;
 };
 

@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-typedef uint32_t UINT32;
 typedef uint32_t u32;
 #define CapacityFactory 1000u
 #define BMS_STATE_DEFAULT_SOC 60u

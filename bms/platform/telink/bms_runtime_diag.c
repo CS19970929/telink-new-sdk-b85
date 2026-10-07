@@ -8,7 +8,8 @@
 #include "bms_afe.h"
 #include "bms_storage_platform.h"
 #include "bms_soc.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include "bms_state.h"
 
 /* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */

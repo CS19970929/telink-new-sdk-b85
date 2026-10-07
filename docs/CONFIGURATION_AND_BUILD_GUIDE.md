@@ -27,7 +27,7 @@
 | OTA 更新策略 | 共享 `bms/products/bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
-`bms/core/conf.h` 引入当前产品 `bms_product_conf.h`；include 路径由构建器选择。`bms_product_config.h` 与 `bms_product_conf.h` 职责不同，改前先追 include 和使用者。
+产品 include 路径由构建器选择。各模块显式引入所需产品配置；公共整数类型使用 `stdint.h`。State/Event 保存周期归各自实现，有限重试周期由 `bms_storage_platform.h` 定义。
 
 **D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共软件保护默认值 可能同时改变 D008 新设备的 AFE 默认，不能只看 SW 编号。
 

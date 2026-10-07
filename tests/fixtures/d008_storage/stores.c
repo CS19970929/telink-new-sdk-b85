@@ -6,8 +6,7 @@
 #include "storage_record.h"
 #include "bms_update_policy.h"
 #include "bms_soc_eta.h"
-typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32; typedef uint32_t UINT32;
-#define FAC_INIT_soc 60u
+typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define CapacityFactory 1000u
 #define BMS_HEATER_START_TEMP_X10 400u
 #define BMS_HEATER_STOP_TEMP_X10 450u

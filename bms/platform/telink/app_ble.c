@@ -27,6 +27,7 @@
 #include "stack/ble/ble.h"
 #include "app_config.h"
 #include "app.h"
+#include "bms_product_conf.h"
 #include "ble_ota.h"
 #include "app_att.h"
 #include "bms_debug_log.h"

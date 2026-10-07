@@ -27,6 +27,7 @@
  *
  *******************************************************************************************************/
 #include "bms_debug_log.h"
+#include "bms_product_conf.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -141,7 +142,7 @@ static void app_schedule_sample_wakeup(void)
 }
 
 /* 按产品配置读取开关输入状态。 */
-static UINT8 board_switch_is_on(void)
+static uint8_t board_switch_is_on(void)
 {
 #ifdef _DI_SWITCH_SYS_ONOFF
 	return gpio_read(BMS_BOARD_SWITCH_PIN) ? 0u : 1u;

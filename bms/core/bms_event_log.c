@@ -11,8 +11,11 @@
 #include "bms_storage_platform.h"
 #include "storage_record.h"
 #include "drivers.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include <string.h>
+
+#define BMS_EVENT_SAVE_INTERVAL_32K (60u * 32000u)
 
 #define BMS_EVENT_RECORD_MAGIC          0x45563200u + BMS_PRODUCT_ID /*
  * 事件标识为 EV2 加产品编号。

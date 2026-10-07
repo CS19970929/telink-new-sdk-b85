@@ -38,7 +38,7 @@ def main():
     parser.add_argument('--soc-only', action='store_true', help='仅运行公共 SOC 和所选产品 app 样本入口')
     args = parser.parse_args()
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
-                      (MOD / 'conf.h').read_text(), re.M)
+                      (MOD / 'bms_soc.h').read_text(), re.M)
     assert floor is not None, "missing D008 current reliability floor"
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         units = {
@@ -103,7 +103,7 @@ def check_soc_openwire():
     fixture = fixture.replace('/* PRODUCTION_SOURCE */', soc)
     fixture += '\nvoid bms_diag_trace(uint16_t event, uint32_t a, uint32_t b) {(void)event;(void)a;(void)b;}\n'
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
-                      (MOD / 'conf.h').read_text(), re.M)
+                      (MOD / 'bms_soc.h').read_text(), re.M)
     fixture = fixture.replace('/* CURRENT_FLOOR */', floor.group(0))
     feature = (MOD / 'bms_features.c').read_text()
     feature_type = feature[feature.index('typedef struct'):feature.index('static bms_feature_state_t')]

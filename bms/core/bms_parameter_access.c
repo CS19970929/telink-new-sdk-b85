@@ -3,6 +3,7 @@
  * bms/core/bms_parameter_access.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_parameter_access.h"
+#include "bms_product_conf.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
 #include "bms_state_store.h"

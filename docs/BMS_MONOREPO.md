@@ -95,7 +95,7 @@ SH `0x2180..0x218A` 的旧实际量化值诊断保留；公共 `0x2500` profile�
 
 `bms_core` CMake target 包含软件保护、ETA 估算、公共状态、运行日志、诊断、CRC 和 storage_record；实际编译成员以根 `CMakeLists.txt` 为准。
 这部分没有 Telink include，可在本机编译，也可由未来 STM32 工程链接。
-SOC、参数、语义存储和 Modbus 当前虽然四产品共享，但仍包含现有 `conf.h`、时钟或平台依赖；
+SOC、参数、语义存储和 Modbus 当前四产品共享，所需产品、时钟或平台依赖由各模块显式引入；
 不能把它们称为已经完成 STM32 移植。真正加入 STM32 时，把相应时钟、串口、Flash 和调度调用落实到具体平台，
 继续使用本仓库中的公共算法文件；保持现有 StdPeriph 或 vendor 驱动体系。
 本次没有虚构 STM32 引脚、Flash 布局、AFE 驱动或板级测试。

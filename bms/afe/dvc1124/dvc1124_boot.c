@@ -7,7 +7,8 @@
 
 #include "tl_common.h"
 #include "drivers.h"
-#include "conf.h"
+#include "bms_product_conf.h"
+#include "bms_afe_backend.h"
 #include "dvc1124_project_config.h"
 #include <string.h>
 

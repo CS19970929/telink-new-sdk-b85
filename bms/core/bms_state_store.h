@@ -7,15 +7,14 @@
 
 /* Storage V1 的 State 域保存 SOC 和循环检查点。 */
 
-#include "tl_common.h"
-#include "conf.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifndef BMS_STATE_DEFAULT_SOC
-#define BMS_STATE_DEFAULT_SOC    ((u32)FAC_INIT_soc)
+#define BMS_STATE_DEFAULT_SOC    60u
 #endif
 #ifndef BMS_STATE_DEFAULT_DSG
 #define BMS_STATE_DEFAULT_DSG    0u
@@ -25,9 +24,9 @@ extern "C" {
 #endif
 
 typedef struct {
-    u32 soc;
-    u32 dsg;
-    u32 cycle;
+    uint32_t soc;
+    uint32_t dsg;
+    uint32_t cycle;
 } bms_state_store_data_t;
 
 /* 加载并验证持久状态，建立当前缓存。 */
@@ -37,11 +36,11 @@ bms_state_store_data_t bms_state_store_get_default_data(void);
 /* 取得缓存的 SOC 和循环状态。 */
 bms_state_store_data_t bms_state_store_get(void);
 /* 保存完整状态并按结果发布缓存。 */
-int  bms_state_store_write_all(u32 soc, u32 dsg, u32 cycle);
+int  bms_state_store_write_all(uint32_t soc, uint32_t dsg, uint32_t cycle);
 /* 仅在状态变化且策略允许时提交检查点。 */
-void bms_state_store_update_and_log_if_changed(u32 soc, u32 dsg, u32 cycle);
+void bms_state_store_update_and_log_if_changed(uint32_t soc, uint32_t dsg, uint32_t cycle);
 /* 更新 SOC 与循环次数状态并保存。 */
-int bms_state_store_set_soc_cycle(u32 soc, u32 dsg, u32 cycle);
+int bms_state_store_set_soc_cycle(uint32_t soc, uint32_t dsg, uint32_t cycle);
 
 #ifdef __cplusplus
 }
