@@ -28,3 +28,7 @@ Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python�
 当前 CI ELF artifact 不是发布 BIN；Actions artifact 有保留期。需要镜像时按构建指南的明确镜像流程，归档 commit/profile、工具、BIN hash/manifest、ELF/MAP/resources、host/static 和实板记录。绿色 CI 不关闭 [硬件验收](HARDWARE_VALIDATION.md) 项目。
 
 host 与 sanitizer artifact 保留 90 天，包含 Markdown/JSON/JUnit 和原始日志。长期接受的基线应另外保存；使用统一 runner 的 `--baseline` 作结构化比较，见 [自动化验证](AUTOMATED_VALIDATION.md)。
+
+## 构建证据上传范围
+
+TC32 Windows 与 production matrix 仅上传 ELF、MAP、resources、输入/链接收据、build.log 和 static 结果目录，排除对象和 LST。上传失败仍令 CI 失败，不使用 continue-on-error；源码验证与证据传输结果分别判定。路径无匹配时明确报错。

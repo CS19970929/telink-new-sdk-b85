@@ -118,7 +118,21 @@ jobs:
         with:
           name: bms-production-windows-${{ github.sha }}
           retention-days: 14
-          path: ${{ runner.temp }}/bms-build
+          # Keep reviewable evidence; objects and verbose disassembly stay on the runner.
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/bms-build/**/*.elf
+            ${{ runner.temp }}/bms-build/**/*.map
+            ${{ runner.temp }}/bms-build/**/resources.json
+            ${{ runner.temp }}/bms-build/**/compile-inputs.json
+            ${{ runner.temp }}/bms-build/**/link-completed.json
+            ${{ runner.temp }}/bms-build/**/build.log
+            ${{ runner.temp }}/bms-build/**/static/**/*.json
+            ${{ runner.temp }}/bms-build/**/static/**/*.xml
+            ${{ runner.temp }}/bms-build/**/static/**/*.csv
+            ${{ runner.temp }}/bms-build/**/static/**/*.log
+            ${{ runner.temp }}/bms-build/**/static/**/*.txt
+            !${{ runner.temp }}/bms-build/**/static/**/cppcheck-cache-*/**
 
   tc32-production:
     name: Production ${{ matrix.product }} ${{ matrix.profile }}
@@ -164,4 +178,18 @@ jobs:
         with:
           name: bms-production-${{ matrix.product }}-${{ matrix.profile }}-${{ github.sha }}
           retention-days: 14
-          path: ${{ runner.temp }}/bms-build
+          # Keep reviewable evidence; objects and verbose disassembly stay on the runner.
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/bms-build/**/*.elf
+            ${{ runner.temp }}/bms-build/**/*.map
+            ${{ runner.temp }}/bms-build/**/resources.json
+            ${{ runner.temp }}/bms-build/**/compile-inputs.json
+            ${{ runner.temp }}/bms-build/**/link-completed.json
+            ${{ runner.temp }}/bms-build/**/build.log
+            ${{ runner.temp }}/bms-build/**/static/**/*.json
+            ${{ runner.temp }}/bms-build/**/static/**/*.xml
+            ${{ runner.temp }}/bms-build/**/static/**/*.csv
+            ${{ runner.temp }}/bms-build/**/static/**/*.log
+            ${{ runner.temp }}/bms-build/**/static/**/*.txt
+            !${{ runner.temp }}/bms-build/**/static/**/cppcheck-cache-*/**

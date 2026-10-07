@@ -588,7 +588,7 @@ def _firmware_git_dirty() -> int:
 
 def _effective_extra_defines() -> str:
     extra = os.environ.get("EXTRA_DEFINES", "").strip()
-    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D008_20S_NMC_PROTECTION_APPROVED|BMS_D013_HW_CONFIG_APPROVED)(?:\b)"
+    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D008_20S_NMC_PROTECTION_APPROVED|BMS_D013_HW_CONFIG_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
     build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()

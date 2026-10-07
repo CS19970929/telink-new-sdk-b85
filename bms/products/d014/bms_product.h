@@ -3,6 +3,8 @@
 #include "bms_soc_defs.h"
 
 /* 文件功能：产品身份、AFE 后端及化学体系的编译期选择。 */
+/* 产品整体签核：参数与实板验收完成后，经受控提交置 1。 */
+#define BMS_PRODUCT_RELEASE_APPROVED 0
 #define BMS_PRODUCT_ID 14u
 #define BMS_AFE_BACKEND 2
 #define BMS_PRODUCT_CHEMISTRY BMS_SOC_CHEMISTRY_AUTO

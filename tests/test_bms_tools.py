@@ -78,7 +78,7 @@ class ProductionBuildTests(unittest.TestCase):
                 bms._effective_extra_defines()
             with mock.patch.object(bms, "_firmware_git_dirty", return_value=1), self.assertRaises(SystemExit):
                 bms._effective_extra_defines()
-            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_D008_20S_NMC_PROTECTION_APPROVED=1", "-DBMS_D013_HW_CONFIG_APPROVED=1"):
+            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_D008_20S_NMC_PROTECTION_APPROVED=1", "-DBMS_D013_HW_CONFIG_APPROVED=1", "-DBMS_PRODUCT_RELEASE_APPROVED=1"):
                 with mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": override}), self.assertRaises(SystemExit):
                     bms._effective_extra_defines()
 

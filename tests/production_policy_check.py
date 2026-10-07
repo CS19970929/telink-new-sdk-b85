@@ -40,14 +40,14 @@ with tempfile.TemporaryDirectory(prefix='bms-approval-') as tmp:
    fixture=real.replace('_APPROVED 0','_APPROVED 1') if approved else real
    (folder/'bms_product.h').write_text(fixture,encoding='utf-8')
    result=subprocess.run(command[:-1]+options+command[-1:],input=src,capture_output=True,text=True)
-   expected=approved or bms.PRODUCT not in ('d008','d013')
+   expected=approved
    assert (result.returncode==0)==expected,(profile,approved,result.stderr)
 print('PASS actual release approval gate: pending rejection and isolated signed positive controls')
 
 if not sh:
  with tempfile.TemporaryDirectory(prefix='bms-nmc-approval-') as tmp:
   folder=Path(tmp)
-  signed_scd=real.replace('BMS_D008_SCD_POLICY_APPROVED 0','BMS_D008_SCD_POLICY_APPROVED 1')
+  signed_scd=real.replace('BMS_D008_SCD_POLICY_APPROVED 0','BMS_D008_SCD_POLICY_APPROVED 1').replace('BMS_PRODUCT_RELEASE_APPROVED 0','BMS_PRODUCT_RELEASE_APPROVED 1')
   (folder/'bms_product.h').write_text(signed_scd,encoding='utf-8')
   for profile in (1,2,3):
    command=[*shlex.split(os.environ.get('CC','cc')),'-E','-x','c','-I',str(folder),*host_includes(ROOT),'-DD008_PRODUCT_PROFILE='+str(profile),'-']
