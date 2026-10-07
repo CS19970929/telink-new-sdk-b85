@@ -479,7 +479,7 @@ void DVC1124_BmsApp_AFEGet(void)
     sw.charge_recovery_allowed = snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
     sw.discharge_recovery_allowed =
         snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA ||
-        (gpio_read(CHG_IN_PIN) && !(snapshot.fet_status & DVC1124_CC2_DSGF_MASK));
+        (gpio_read(BMS_BOARD_LOAD_DETECT_PIN) && !(snapshot.fet_status & DVC1124_CC2_DSGF_MASK));
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
         &snapshot, &sw.battery_temp_min, &sw.battery_temp_max);
     sw.mos_temp_required = 1u;
@@ -501,7 +501,7 @@ void DVC1124_BmsApp_AFEGet(void)
                                           snapshot.sample_tick_32k);
 #endif
     alarm = dvc_recover_current_faults(&snapshot, alarm,
-                                      (uint8_t)(gpio_read(CHG_IN_PIN) != 0u));
+                                      (uint8_t)(gpio_read(BMS_BOARD_LOAD_DETECT_PIN) != 0u));
 #if DVC1124_HW_PROTECT_ENABLE
     dvc_merge_hw_faults(alarm);
     if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;

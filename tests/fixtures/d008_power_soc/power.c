@@ -8,9 +8,9 @@ typedef uint8_t u8;typedef uint32_t u32;
 #define APP_SUSPEND_EXIT_CURRENT_MA 500
 #define APP_POWER_OFF_RETRY_SECONDS 5u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
-#define MCU_LDO_PIN 4
-#define ACC_MCU_PIN 0
-#define CHG_IN_PIN 1
+#define BMS_BOARD_MCU_LDO_PIN 4
+#define BMS_BOARD_ACC_PIN 0
+#define BMS_BOARD_LOAD_DETECT_PIN 1
 #define Level_Low 0
 #define DEEPSLEEP_MODE 0x80
 #define PM_WAKEUP_PAD 16
@@ -23,9 +23,9 @@ static u8 s_acc_high_seen,s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconne
 static u32 s_acc_high_tick,s_acc_retry_tick;
 static int acc_high,ldo_high,acc_wake,deep_calls,reboot_calls,disconnect_calls,adv_enabled=1;
 static int acc_low_during_shutdown,acc_low_during_sleep;
-static int gpio_read(int pin){assert(pin==ACC_MCU_PIN);return acc_high;}
+static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN);return acc_high;}
 static void start_reboot(void){reboot_calls++;}
-static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low);if(pin==ACC_MCU_PIN)acc_wake=en;else assert(pin==CHG_IN_PIN&&!en);}
+static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else assert(pin==BMS_BOARD_LOAD_DETECT_PIN&&!en);}
 static int cpu_sleep_wakeup(int mode,int src,u32 tick){assert(mode==DEEPSLEEP_MODE&&src==PM_WAKEUP_PAD&&tick==0&&acc_wake&&ldo_high);deep_calls++;if(acc_low_during_sleep)acc_high=0;return 0;}
 static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return BLE_SUCCESS;}
 static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
@@ -67,7 +67,7 @@ static int bms_event_log_note_sleep(void){seq[seq_len++]=2;return event_ok;}
 static void bms_event_log_cancel_sleep(void){}
 static int bms_afe_enter_shutdown(void){seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
 static void bls_pm_setAppWakeupLowPower(u32 t,int en){assert(en==0);seq[seq_len++]=4;}
-static void gpio_write(int pin,int level){assert(pin==MCU_LDO_PIN);if(level)ldo_high=1;else cut_calls++;seq[seq_len++]=5;}
+static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);if(level)ldo_high=1;else cut_calls++;seq[seq_len++]=5;}
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t*c){return elapsed;}
 static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}

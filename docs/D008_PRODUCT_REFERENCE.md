@@ -61,16 +61,16 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 
 | MCU GPIO / U1 引脚 | 原理图网络 | 当前代码符号/用途 | 本次确认与维护要求 |
 |---|---|---|---|
-| PD7 / 2 | `MCU-AFE-EN` | `AFE1_PRO_EN_PIN`，AFE init 拉高 | 参与 AFE 供电/接口使能；不是 MCU 总电源开关，也不是 DVC 独立 RESET 引脚 |
-| PA0 / 3 | `ACC-MCU` | `ACC_MCU_PIN`，低有效运行开关 | 用户最新授权独立ACC深睡眠，见第 12 节与 `bms/app/app.c` |
-| PB1 / 6 | `CHG-IN` | `CHG_IN_PIN`，保留输入，无业务读取/PAD 唤醒 | 实际为负载检测。Q40 导通时输出低；不等于已验证所有负载场景的逻辑。暂不实现负载判定、去抖或策略，也不能据此证明正在充电 |
-| PC4 / 24 | `MCU-LDO` | `MCU_LDO_PIN`，启动保持高、关机事务最后拉低 | 已接入控制路径；实测保持时点、掉电与复电时序仍为 TODO_VERIFY_HW |
+| PD7 / 2 | `MCU-AFE-EN` | `BMS_BOARD_AFE_ENABLE_PIN`，AFE init 拉高 | 参与 AFE 供电/接口使能；不是 MCU 总电源开关，也不是 DVC 独立 RESET 引脚 |
+| PA0 / 3 | `ACC-MCU` | `BMS_BOARD_ACC_PIN`，低有效运行开关 | 用户最新授权独立ACC深睡眠，见第 12 节与 `bms/app/app.c` |
+| PB1 / 6 | `CHG-IN` | `BMS_BOARD_LOAD_DETECT_PIN`，保留输入，无业务读取/PAD 唤醒 | 实际为负载检测。Q40 导通时输出低；不等于已验证所有负载场景的逻辑。暂不实现负载判定、去抖或策略，也不能据此证明正在充电 |
+| PC4 / 24 | `MCU-LDO` | `BMS_BOARD_MCU_LDO_PIN`，启动保持高、关机事务最后拉低 | 已接入控制路径；实测保持时点、掉电与复电时序仍为 TODO_VERIFY_HW |
 | PC0 / 20 | `SDA` | DVC I2C SDA | 经 R96=100 Ω；与图纸一致 |
 | PC1 / 21 | `SCL` | DVC I2C SCL | 经 R95=100 Ω；与图纸一致；SDA/SCL 各有 4.7 kΩ 上拉至 MCU 3V3 |
-| PC2 / 22 | `OWC-TX` | `OWC_TX_PIN` | 图纸同时接 UART/单线转换路径；复用由 bus mux 管理 |
-| PC3 / 23 | `OWC-RX` | `OWC_RX_PIN` | 同上，不移植 D011 RS485/SPI 网络 |
-| PA1 / 4 | `MCC-EN-HT` | `HEATER_EN_PIN`，启动低、加热时高 | 加热控制链，图纸连线对应；热控制参数仍须验证 |
-| PD4 / 1 | `MCC-EN-RF` | `RF_EN_PIN`，启动低、熔断请求高 | F1 相关支路；不能按 RF 名称理解成 BLE 射频供电 |
+| PC2 / 22 | `OWC-TX` | `BMS_BOARD_OWC_TX_PIN` | 图纸同时接 UART/单线转换路径；复用由 bus mux 管理 |
+| PC3 / 23 | `OWC-RX` | `BMS_BOARD_OWC_RX_PIN` | 同上，不移植 D011 RS485/SPI 网络 |
+| PA1 / 4 | `MCC-EN-HT` | `BMS_BOARD_HEATER_ENABLE_PIN`，启动低、加热时高 | 加热控制链，图纸连线对应；热控制参数仍须验证 |
+| PD4 / 1 | `MCC-EN-RF` | `BMS_BOARD_HEATER_FUSE_PIN`，启动低、熔断请求高 | F1 相关支路；不能按 RF 名称理解成 BLE 射频供电 |
 | PA7 / 5 | `SWS-A7` | SWS 下载/调试 | 保留 SDK 调试用途 |
 | PB4 / 14、PB5 / 15、PB7 / 17、PD3 / 32 | `SOC25/50/75/100` | 对应 SOC LED 宏 | 网络映射一致；外接显示负载、极性仍按实物核对 |
 | PB6 / 16 | `BLUE` | `LED_BLUE_PIN` | 经 R165=3.3 kΩ 接 LED1 至 B−；代码别名不改变原图网络名 |

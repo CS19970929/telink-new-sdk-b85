@@ -271,7 +271,7 @@ static int app_enter_power_off(void)
     s_power_off_committed = 1u;
     bls_pm_setAppWakeupLowPower(0u, 0u);
     s_low_power_mode = true;
-    gpio_write(MCU_LDO_PIN, 0u); /* 最后硬件动作使整个 MCU 掉电。 */
+    gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u); /* 最后硬件动作使整个 MCU 掉电。 */
     return 1;
 }
 
@@ -281,21 +281,21 @@ static int app_enter_power_off(void)
  */
 static void app_acc_sleep_hold(void)
 {
-    if (!gpio_read(ACC_MCU_PIN)) {
+    if (!gpio_read(BMS_BOARD_ACC_PIN)) {
         start_reboot();
         return;
     }
-    cpu_set_gpio_wakeup(ACC_MCU_PIN, Level_Low, 1);
+    cpu_set_gpio_wakeup(BMS_BOARD_ACC_PIN, Level_Low, 1);
     cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
     /* PAD 可能在检查后、入睡前变为有效。 */
-    if (!gpio_read(ACC_MCU_PIN)) start_reboot();
+    if (!gpio_read(BMS_BOARD_ACC_PIN)) start_reboot();
 }
 
 /* 判断 ACC 条件是否请求进入休眠。 */
 static int app_acc_sleep_requested(void)
 {
     u32 now = pm_get_32k_tick();
-    if (!gpio_read(ACC_MCU_PIN)) {
+    if (!gpio_read(BMS_BOARD_ACC_PIN)) {
         s_acc_high_seen = s_acc_retry_ready = s_acc_disconnect_sent = 0u;
         return 0;
     }
@@ -309,7 +309,7 @@ static int app_acc_sleep_requested(void)
 static int app_enter_acc_sleep(void)
 {
     u32 now = pm_get_32k_tick();
-    if (!gpio_read(ACC_MCU_PIN) || ota_is_working ||
+    if (!gpio_read(BMS_BOARD_ACC_PIN) || ota_is_working ||
         !app_flash_lock_restore_enabled() || BUS_STATE_OWC_IDLE != bus_mux_get_state()) return 0;
     if (device_in_connection_state) {
         if (!s_acc_disconnect_sent && blc_ll_getTxFifoNumber() == 0u &&
@@ -324,7 +324,7 @@ static int app_enter_acc_sleep(void)
                                g_bms_soc.discharge_fraction_percent,
                                g_bms_soc.cycle_count) ||
         !bms_event_log_note_sleep()) return 0;
-    if (!gpio_read(ACC_MCU_PIN)) { bms_event_log_cancel_sleep(); return 0; }
+    if (!gpio_read(BMS_BOARD_ACC_PIN)) { bms_event_log_cancel_sleep(); return 0; }
     if (bls_ll_setAdvEnable(BLC_ADV_DISABLE) != BLE_SUCCESS) {
         bms_event_log_cancel_sleep(); return 0;
     }
@@ -337,8 +337,8 @@ static int app_enter_acc_sleep(void)
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0u, 0u);
     s_low_power_mode = true;
-    gpio_write(MCU_LDO_PIN, 1u);
-    cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 0);
+    gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
+    cpu_set_gpio_wakeup(BMS_BOARD_LOAD_DETECT_PIN, Level_Low, 0);
     app_acc_sleep_hold();
     return 1;
 }
@@ -428,19 +428,19 @@ static void board_init(void)
 	bms_afe_set_output_enabled(0u);
 
 	/* PD4 是加热保险丝驱动，不是 BLE 射频供电；启动保持安全无效电平。 */
-	gpio_set_func(RF_EN_PIN, AS_GPIO);
-	gpio_set_input_en(RF_EN_PIN, 0);
-	gpio_set_output_en(RF_EN_PIN, 1);
-	gpio_write(RF_EN_PIN, 0);
+	gpio_set_func(BMS_BOARD_HEATER_FUSE_PIN, AS_GPIO);
+	gpio_set_input_en(BMS_BOARD_HEATER_FUSE_PIN, 0);
+	gpio_set_output_en(BMS_BOARD_HEATER_FUSE_PIN, 1);
+	gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0);
 
-	gpio_set_func(ACC_MCU_PIN, AS_GPIO);
-	gpio_set_input_en(ACC_MCU_PIN, 1);
-	gpio_set_output_en(ACC_MCU_PIN, 0);
+	gpio_set_func(BMS_BOARD_ACC_PIN, AS_GPIO);
+	gpio_set_input_en(BMS_BOARD_ACC_PIN, 1);
+	gpio_set_output_en(BMS_BOARD_ACC_PIN, 0);
 
-	gpio_set_func(CHG_IN_PIN, AS_GPIO);
-	gpio_setup_up_down_resistor(CHG_IN_PIN, PM_PIN_PULLUP_1M);
-	gpio_set_input_en(CHG_IN_PIN, 1);
-	gpio_set_output_en(CHG_IN_PIN, 0);
+	gpio_set_func(BMS_BOARD_LOAD_DETECT_PIN, AS_GPIO);
+	gpio_setup_up_down_resistor(BMS_BOARD_LOAD_DETECT_PIN, PM_PIN_PULLUP_1M);
+	gpio_set_input_en(BMS_BOARD_LOAD_DETECT_PIN, 1);
+	gpio_set_output_en(BMS_BOARD_LOAD_DETECT_PIN, 0);
 
 	gpio_set_func(LED_BLUE_PIN, AS_GPIO);
 	gpio_set_input_en(LED_BLUE_PIN, 0);
@@ -931,8 +931,8 @@ void app_init(void)
 
 		bms_afe_init();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-        cpu_set_gpio_wakeup(CHG_IN_PIN, Level_Low, 0);
-        cpu_set_gpio_wakeup(ACC_MCU_PIN, Level_Low, 0);
+        cpu_set_gpio_wakeup(BMS_BOARD_LOAD_DETECT_PIN, Level_Low, 0);
+        cpu_set_gpio_wakeup(BMS_BOARD_ACC_PIN, Level_Low, 0);
 #else
         cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
 #endif

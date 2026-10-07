@@ -50,17 +50,9 @@
 
 #define  BMS_PRODUCT_SW_VERSION  	"V8.8"
 
-/*
- * HS-D008 为 24S DVC1124-2 板；容量/保护值保留原参数存储，物理串数应与本分支一致；
- * 20S 装配可覆盖 DVC1124_DEFAULT_CELL_COUNT。
- */
-#define DVC1124_D008_PROJECT 1
-#if DVC1124_D008_PROJECT
-#undef BMS_PRODUCT_CELL_COUNT
+/* 串数仅由 D008 装配 profile 选择，硬件版本为本产品固定身份。 */
 #define BMS_PRODUCT_CELL_COUNT  (DVC1124_DEFAULT_CELL_COUNT)
-#undef BMS_PRODUCT_HW_VERSION
 #define BMS_PRODUCT_HW_VERSION "D008"
-#endif
 
 #define  BMS_PRODUCT_DEFAULT_SERIAL  	"D008-20260930"
 
@@ -71,15 +63,15 @@
 #define BMS_PRODUCT_FACTORY_BLE_NAME_LENGTH  (sizeof(BMS_PRODUCT_FACTORY_BLE_NAME)-1)
 
 
-/* HS-D008 原理图 MCU 物理网络。 */
-#define RF_EN_PIN              (GPIO_PD4)
-#define AFE1_PRO_EN_PIN        (GPIO_PD7)
-#define ACC_MCU_PIN            (GPIO_PA0)
-#define HEATER_EN_PIN          (GPIO_PA1)
-#define CHG_IN_PIN             (GPIO_PB1)
-#define OWC_TX_PIN             (GPIO_PC2)
-#define OWC_RX_PIN             (GPIO_PC3)
-#define MCU_LDO_PIN            (GPIO_PC4)
+/* HS-D008 原理图第 1 页：PD4 驱动 F1 支路；PB1 是负载检测，不是充电源。 */
+#define BMS_BOARD_HEATER_FUSE_PIN    (GPIO_PD4)
+#define BMS_BOARD_AFE_ENABLE_PIN     (GPIO_PD7)
+#define BMS_BOARD_ACC_PIN            (GPIO_PA0)
+#define BMS_BOARD_HEATER_ENABLE_PIN  (GPIO_PA1)
+#define BMS_BOARD_LOAD_DETECT_PIN    (GPIO_PB1)
+#define BMS_BOARD_OWC_TX_PIN          (GPIO_PC2)
+#define BMS_BOARD_OWC_RX_PIN          (GPIO_PC3)
+#define BMS_BOARD_MCU_LDO_PIN         (GPIO_PC4)
 #define SOC25_PIN              (GPIO_PB4)
 #define SOC50_PIN              (GPIO_PB5)
 #define SOC75_PIN              (GPIO_PB7)

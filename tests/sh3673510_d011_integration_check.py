@@ -237,7 +237,7 @@ production = "\n".join(selected_source(HERE / name) for name in (
     "bms_product.h", "app.c", "modbus_uart.c", "sh3673510_control.c",
     "sh3673510_bms.c", "sh3673510_project_config.h",
 ))
-for forbidden in ("CHG_IN_PIN", "RF_EN_PIN", "AFE1_PRO_EN_PIN", "MCU_LDO_PIN",
+for forbidden in ("BMS_BOARD_LOAD_DETECT_PIN", "BMS_BOARD_HEATER_FUSE_PIN", "BMS_BOARD_AFE_ENABLE_PIN", "BMS_BOARD_MCU_LDO_PIN",
                   "BMS_BOARD_HEATER_RF_EN_PIN"):
     if re.search(rf"\b{re.escape(forbidden)}\b", production):
         raise AssertionError(f"obsolete/unsafe D011 alias remains: {forbidden}")

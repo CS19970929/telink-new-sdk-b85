@@ -82,10 +82,10 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     /* 先设置供电锁存电平再启用输出，低脉冲会切断 MCU 电源。 */
-    gpio_set_func(MCU_LDO_PIN, AS_GPIO);
-    gpio_write(MCU_LDO_PIN, 1u);
-    gpio_set_input_en(MCU_LDO_PIN, 0u);
-    gpio_set_output_en(MCU_LDO_PIN, 1u);
+    gpio_set_func(BMS_BOARD_MCU_LDO_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
+    gpio_set_input_en(BMS_BOARD_MCU_LDO_PIN, 0u);
+    gpio_set_output_en(BMS_BOARD_MCU_LDO_PIN, 1u);
 #endif
 
 	clock_init(SYS_CLK_TYPE);

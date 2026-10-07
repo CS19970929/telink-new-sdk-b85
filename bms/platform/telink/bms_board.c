@@ -19,15 +19,15 @@
 void bms_board_features_init(void)
 {
     /* HS-D008：PA1 = MCC-EN-HT，PD4 = MCC-EN-RF；启动时均保持非激活。 */
-    gpio_set_func(HEATER_EN_PIN, AS_GPIO);
-    gpio_write(HEATER_EN_PIN, 0u);
-    gpio_set_input_en(HEATER_EN_PIN, 0u);
-    gpio_set_output_en(HEATER_EN_PIN, 1u);
+    gpio_set_func(BMS_BOARD_HEATER_ENABLE_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_HEATER_ENABLE_PIN, 0u);
+    gpio_set_input_en(BMS_BOARD_HEATER_ENABLE_PIN, 0u);
+    gpio_set_output_en(BMS_BOARD_HEATER_ENABLE_PIN, 1u);
 
-    gpio_set_func(RF_EN_PIN, AS_GPIO);
-    gpio_write(RF_EN_PIN, 0u);
-    gpio_set_input_en(RF_EN_PIN, 0u);
-    gpio_set_output_en(RF_EN_PIN, 1u);
+    gpio_set_func(BMS_BOARD_HEATER_FUSE_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0u);
+    gpio_set_input_en(BMS_BOARD_HEATER_FUSE_PIN, 0u);
+    gpio_set_output_en(BMS_BOARD_HEATER_FUSE_PIN, 1u);
 }
 
 /* 按产品已验证硬件输入查询充电源存在状态。 */
@@ -49,7 +49,7 @@ uint8_t bms_board_heater_supported(void)
 /* 仅在产品支持时设置物理加热输出。 */
 void bms_board_heater_set(uint8_t enabled)
 {
-    gpio_write(HEATER_EN_PIN, enabled ? 1u : 0u);
+    gpio_write(BMS_BOARD_HEATER_ENABLE_PIN, enabled ? 1u : 0u);
 }
 
 /* 查询是否有支持的不可逆加热熔断输出。 */
@@ -74,7 +74,7 @@ uint16_t bms_board_heater_off_fault_confirm_ms(void)
 void bms_board_heater_fuse_fire(void)
 {
     /* HS-D008 不可逆加热电路故障处置：将 PD4 / MCC-EN-RF 置高。 */
-    gpio_write(RF_EN_PIN, 1u);
+    gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 1u);
 }
 
 /* 查询产品是否具有有效电芯均衡通道。 */

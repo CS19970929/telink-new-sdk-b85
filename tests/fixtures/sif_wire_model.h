@@ -9,8 +9,8 @@
 #define FLD_IRQ_TMR0_EN 1
 #define FLD_TMR_STA_TMR0 1
 #define FLD_TMR0_EN 1
-#define OWC_TX_PIN 1
-#define OWC_RX_PIN 2
+#define BMS_BOARD_OWC_TX_PIN 1
+#define BMS_BOARD_OWC_RX_PIN 2
 #define MOS_TEMP1 3
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 116u
 #define __TODO__ 0Xaa

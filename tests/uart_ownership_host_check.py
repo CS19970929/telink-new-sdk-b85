@@ -88,7 +88,7 @@ for product in products:
     diag = re.search(r'typedef struct \{[\s\S]*?\} bms_rs485_tx_diag_t;', header)[0]
     defines = ('#define BMS_PRODUCT_RS485_ENABLE %d\n#define BMS_RS485_TX_DIAG_ENABLE 0\n'
                '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
-               '#define OWC_TX_PIN 1\n#define OWC_RX_PIN 2\n'
+               '#define BMS_BOARD_OWC_TX_PIN 1\n#define BMS_BOARD_OWC_RX_PIN 2\n'
                '#define BMS_BOARD_RS485_EN_PIN 3\n'
                '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n') % (product in ('d011', 'd014'))
     with tempfile.TemporaryDirectory(prefix='uart-ownership-') as folder:

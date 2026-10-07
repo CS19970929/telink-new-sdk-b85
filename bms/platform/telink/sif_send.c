@@ -47,13 +47,13 @@ static void sif_send_public_packet(void);
 /* 停止单线发送并释放输出状态。 */
 static inline void sif_turn_off(void)
 {
-    gpio_write(OWC_TX_PIN, 0);
+    gpio_write(BMS_BOARD_OWC_TX_PIN, 0);
 }
 
 /* 启动单线发送的定时器和输出状态。 */
 static inline void sif_turn_on(void)
 {
-    gpio_write(OWC_TX_PIN, 1);
+    gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
 }
 
 #define __TODO__ 0Xaa
@@ -154,7 +154,7 @@ void sif_send_data_handle(void)
 
         sif_turn_on();
 
-        if (!gpio_read(OWC_RX_PIN))
+        if (!gpio_read(BMS_BOARD_OWC_RX_PIN))
         {
             s_return_to_idle = 1u;
             cnt = 0;

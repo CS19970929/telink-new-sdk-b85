@@ -213,7 +213,7 @@ void modbus_uart_init(void)
 #endif
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    uart_gpio_set(OWC_TX_PIN, OWC_RX_PIN);
+    uart_gpio_set(BMS_BOARD_OWC_TX_PIN, BMS_BOARD_OWC_RX_PIN);
 #else
     uart_gpio_set(BMS_BOARD_SCI1_TX_PIN, BMS_BOARD_SCI1_RX_PIN);
 #endif

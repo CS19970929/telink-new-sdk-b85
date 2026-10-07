@@ -220,7 +220,7 @@ def check_d008_framework_contract_check():
             self.assertNotIn("_UL_RENZHENG_ENABLE_", self.app)
             self.assertNotIn("_UL_RENZHENG_ENABLE_", self.conf)
             self.assertNotIn("BMS_FAULT_MOS_OTP_THIRD", self.app)
-            self.assertIn("gpio_write(RF_EN_PIN, 0);", self.app)
+            self.assertIn("gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0);", self.app)
 
         def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
             sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]

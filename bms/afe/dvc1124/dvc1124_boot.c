@@ -43,10 +43,10 @@ static void dvc_project_enable_afe_interface(void)
      * HS-D008 MCU-AFE-EN/AFE1-PRO-EN 为 PD7，高电平有效；
      * 施加 PC0/PC1 shutdown 唤醒条件前先开启 AFE 接口。
      */
-    gpio_set_func(AFE1_PRO_EN_PIN, AS_GPIO);
-    gpio_write(AFE1_PRO_EN_PIN, 1u);
-    gpio_set_input_en(AFE1_PRO_EN_PIN, 0u);
-    gpio_set_output_en(AFE1_PRO_EN_PIN, 1u);
+    gpio_set_func(BMS_BOARD_AFE_ENABLE_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_AFE_ENABLE_PIN, 1u);
+    gpio_set_input_en(BMS_BOARD_AFE_ENABLE_PIN, 0u);
+    gpio_set_output_en(BMS_BOARD_AFE_ENABLE_PIN, 1u);
     dvc_project_delay_us(DVC1124_AFE_ENABLE_SETTLE_US);
 }
 

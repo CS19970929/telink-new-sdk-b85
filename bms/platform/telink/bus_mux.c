@@ -12,8 +12,8 @@
 #include "app.h"
 
 // 引脚
-#define PIN_OWC_RX OWC_RX_PIN
-#define PIN_OWC_TX OWC_TX_PIN
+#define PIN_OWC_RX BMS_BOARD_OWC_RX_PIN
+#define PIN_OWC_TX BMS_BOARD_OWC_TX_PIN
 
 // 参数
 #define RX_HIGH_STABLE_US      (50u * 1000u)
@@ -42,10 +42,10 @@ static inline int rx_is_high(void) { return gpio_read(PIN_OWC_RX) ? 1 : 0; }
 /* 配置单线发送输出，保持接收监听约束。 */
 static void owc_start_tx_only(void)
 {
-    gpio_set_func(OWC_TX_PIN, AS_GPIO); /* HS-D008 OWC-TX 使用 PC2。 */
-    gpio_set_input_en(OWC_TX_PIN, 0);
-    gpio_set_output_en(OWC_TX_PIN, 1);
-    gpio_write(OWC_TX_PIN, 1);
+    gpio_set_func(BMS_BOARD_OWC_TX_PIN, AS_GPIO); /* HS-D008 OWC-TX 使用 PC2。 */
+    gpio_set_input_en(BMS_BOARD_OWC_TX_PIN, 0);
+    gpio_set_output_en(BMS_BOARD_OWC_TX_PIN, 1);
+    gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
     gpio_en_interrupt_risc0(PIN_OWC_RX, 0);
 }
 /* 监听态GPIO初始化：不发，RX下拉，开启 RISC0 下降沿中断 */
