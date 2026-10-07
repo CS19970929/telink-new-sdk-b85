@@ -22,7 +22,7 @@ uint8_t bms_protection_params_valid(void)
 }
 
 /* 加载并验证配置后发布运行参数；更新失败时保留启动安全门禁，不能通过普通保存绕过。 */
-void bms_parameters_init(void)
+static void parameters_load_protection(void)
 {
 
     s_protection_params_valid = 0u;
@@ -73,7 +73,7 @@ uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate)
 }
 
 /* 加载并验证各持久域，确定启动输出资格。 */
-void bms_parameters_startup(void)
+static void parameters_validate_storage_startup(void)
 {
     /*
      * 启动更新失败持续阻断，直到重启/重走本启动路径；
@@ -92,6 +92,13 @@ void bms_parameters_startup(void)
     return;
 failed:
     bms_error_raise(BMS_ERROR_EEPROM_STORE);
+}
+
+/* 只在启动调用；先确定持久域资格，再加载保护，失败门禁不由在线提交清除。 */
+void bms_parameters_init(void)
+{
+    parameters_validate_storage_startup();
+    parameters_load_protection();
 }
 
 /* 刷新业务参数与启动门禁诊断快照。 */

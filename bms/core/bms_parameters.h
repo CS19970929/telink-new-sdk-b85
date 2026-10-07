@@ -4,10 +4,8 @@
 
 #include "bms_protection_params.h"
 
-/* 加载、校验软件保护参数；失败保持输出阻断。 */
+/* 一次完成 Config/State/Event 启动验证与保护加载；失败保持输出阻断。 */
 void bms_parameters_init(void);
-/* 加载并验证 Config/State/Event，确定启动资格。 */
-void bms_parameters_startup(void);
 /* 候选校验和持久保存成功后才发布，不清除失败的启动门禁。 */
 uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate);
 /* 刷新运行参数和启动门禁诊断。 */

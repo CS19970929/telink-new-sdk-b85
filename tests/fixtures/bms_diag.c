@@ -62,14 +62,14 @@ int main(void){
  bms_diag_runtime_soc(&sx);
  bms_diag_runtime_pm(0u,DIAG_PM_BLOCK_CURRENT|DIAG_PM_BLOCK_BUS,3u,120u,1u,0u,500u);
  bms_diag_runtime_faults(1u,2u,4u);
- bms_diag_runtime_mode(1u);
+ assert(bms_diag_cached_word(225u)==0u);
  assert(bms_diag_cached_word(193)==3u);
  assert((int32_t)((uint32_t)bms_diag_cached_word(194)|((uint32_t)bms_diag_cached_word(195)<<16))==-123);
  assert((int32_t)((uint32_t)bms_diag_cached_word(196)|((uint32_t)bms_diag_cached_word(197)<<16))==456);
  assert(bms_diag_cached_word(200)==200u&&bms_diag_cached_word(202)==73u&&bms_diag_cached_word(203)==72u);
  assert(bms_diag_cached_word(215)==0u&&bms_diag_cached_word(221)==500u);
  assert(bms_diag_cached_word(222)==1u&&bms_diag_cached_word(223)==2u&&bms_diag_cached_word(224)==4u);
- assert(bms_diag_cached_word(225)==1u);
+ assert(bms_diag_cached_word(225)==0u);
  assert(bms_diag_cached_word(226)==1u&&bms_diag_cached_word(228)==2u);
  assert((int32_t)((uint32_t)bms_diag_cached_word(234)|((uint32_t)bms_diag_cached_word(235)<<16))==-10000);
  assert(bms_diag_cached_word(237)==180u&&bms_diag_cached_word(238)==240u);

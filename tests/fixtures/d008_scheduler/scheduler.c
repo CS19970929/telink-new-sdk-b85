@@ -62,14 +62,9 @@ typedef struct {
     uint32_t last_integral_delta_as10;
 } bms_soc_diag_t;
 typedef union {uint16_t all;} diag_fault_t;
-static struct {diag_fault_t unMdlFault_First,unMdlFault_Second,unMdlFault_Third;} g_bms_report;
 static void bms_afe_sample(void){note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;}
 static u8 app_get_fresh_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;return valid;}
-static u8 bms_afe_current_recovery_pending(void){return 0;}
-static void bms_soc_get_diag(bms_soc_diag_t *d){memset(d,0,sizeof(*d));d->soc_estimate=50;d->soc_display=50;d->current_deadband_ma=200;}
-static void bms_diag_runtime_sample(u8 v,int raw,int current,u32 tick,u8 recovery){(void)v;(void)raw;(void)current;(void)tick;(void)recovery;}
-static void bms_diag_runtime_soc(const bms_soc_diag_t *d){(void)d;}
-static void bms_diag_runtime_faults(uint16_t a,uint16_t b,uint16_t c){(void)a;(void)b;(void)c;}
+static void bms_diag_poll_runtime(u8 v,int raw,int current,u32 tick){assert(v==valid);assert(raw==(v?-710:0));assert(current==(v?-700:0));assert(tick==(v?99u:77u));}
 static void app_update_soc_from_sample(u8 v,int ma,u32 tick){note('S');assert(v==valid);assert(ma==(v?-700:0));assert(tick==(v?99u:77u));}
 static void mos_update(void){note('M');}
 static void app_schedule_sample_wakeup(void){note('W');}
@@ -80,7 +75,6 @@ static void bms_storage_platform_diag_poll(void){note('2');}
 static void bms_afe_diag_poll(void){note('3');}
 static void cpu_sleep_wakeup(int m,int w,u32 t){(void)m;(void)w;assert(t==now+3200000u);note('Q');}
 static void blt_sdk_main_loop(void){note('B');}
-static void bms_diag_runtime_mode(u8 factory){(void)factory;}
 static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}

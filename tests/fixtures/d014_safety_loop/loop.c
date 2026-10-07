@@ -176,7 +176,7 @@ int main(void)
     for (unsigned i=0; i<4; ++i) raw16((uint8_t)(0x5d+2*i), 16384); /* 10 kohm */
     raw16(0x93, 6758); /* 26.398 V */
     if (!strcmp(scenario, "boot-failure")) flash_cut=0;
-    bms_diag_init(); bms_parameters_startup(); bms_parameters_init();
+    bms_diag_init(); bms_parameters_init();
     if (!strcmp(scenario, "boot-failure")) {
         assert(!bms_protection_params_valid()); bms_afe_init(); request_outputs();
         steps(15); require_both_off();

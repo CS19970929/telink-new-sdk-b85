@@ -32,7 +32,7 @@ def check_sh3673510_sample_schedule_host_check():
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
     #define MODE_FACTORY 1
-    typedef struct { int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
+    typedef struct { int32_t raw_current_ma; int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
     static u32 s_sample_tick, fake_tick, scheduled_tick, sample_cost;
     static volatile u8 s_sample_due;
     static unsigned samples, soc_calls, mos_calls, diag_calls, failures;
@@ -48,15 +48,15 @@ def check_sh3673510_sample_schedule_host_check():
     }
     static void bms_afe_sample(void) { ++samples; fake_tick += sample_cost; }
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
-        if (valid) { s->current_ma = 1234; s->sample_tick_32k = 123; }
+        if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; }
         return valid;
     }
     static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
         ++soc_calls; last_valid=v; last_current=c; last_tick=t;
     }
     static void mos_update(void) { ++mos_calls; }
-    static void bms_diag_poll_runtime(u8 v, int32_t c, u32 t, u8 factory) {
-        (void)v; (void)c; (void)t; (void)factory; ++diag_calls;
+    static void bms_diag_poll_runtime(u8 v, int32_t raw, int32_t c, u32 t) {
+        (void)v; (void)c; (void)t; (void)raw; ++diag_calls;
     }
     /* PRODUCTION */
     #define CHECK(c) do { if (!(c)) { ++failures; printf("FAIL %d: %s\n", __LINE__, #c); } } while(0)

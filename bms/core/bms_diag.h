@@ -166,10 +166,6 @@ void bms_diag_mos(uint16_t requested, uint32_t charge, uint32_t discharge);
 void bms_diag_command(uint8_t command, uint8_t valid);
 /* 发布驱动 FET 缓存标志与有效性，不作为物理 Gate 证据。 */
 void bms_diag_driver(uint8_t flags, uint8_t valid);
-/* 刷新业务参数与启动门禁诊断快照。 */
-void bms_parameters_diag_poll(void);
-/* 从选定后端刷新诊断，遵守总线静默门禁。 */
-void bms_afe_diag_poll(void);
 /* 更新所选 AFE 后端的诊断字段。 */
 void bms_diag_backend(uint16_t charge, uint16_t discharge);
 /* 取得单个缓存诊断字，不访问硬件。 */
@@ -189,8 +185,6 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint16_t suspend_current_threshold_ma);
 /* 发布各级保护故障位快照。 */
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3);
-/* 发布运行模式与累计时间诊断。 */
-void bms_diag_runtime_mode(uint8_t factory_mode);
 /* 判断请求寄存器范围是否与诊断窗口重叠。 */
 int bms_diag_overlaps(uint16_t start, uint16_t count);
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
@@ -202,7 +196,8 @@ enum {
     DIAG_GUARD_SAMPLES_QUALIFIED=16u
 };
 /* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
-void bms_diag_poll_runtime(uint8_t, int32_t, uint32_t, uint8_t);
+void bms_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
+                           int32_t current_ma, uint32_t sample_tick_32k);
 /* 发布后端配置、控制与恢复的详细诊断。 */
 void bms_diag_backend_details(const uint16_t *words);
 enum {

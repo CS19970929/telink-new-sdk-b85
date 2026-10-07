@@ -787,9 +787,6 @@ _attribute_no_inline_ void main_loop(void)
      */
 	blt_sdk_main_loop();
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_diag_runtime_mode(0u);
-#endif
 
 #if BMS_DEBUG_LOG_ENABLE
     /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
@@ -823,9 +820,6 @@ _attribute_no_inline_ void main_loop(void)
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_soc_diag_t soc_diag;
-#endif
     u8 valid;
 
     if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
@@ -842,22 +836,9 @@ static void app_sample_task(void)
                            valid ? m.sample_tick_32k : pm_get_32k_tick());
     mos_update();
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_diag_runtime_sample(valid,
-                            valid ? m.raw_current_ma : 0,
-                            valid ? m.current_ma : 0,
-                            valid ? m.sample_tick_32k : pm_get_32k_tick(),
-                            bms_afe_current_recovery_pending());
-    bms_soc_get_diag(&soc_diag);
-    bms_diag_runtime_soc(&soc_diag);
-    bms_diag_runtime_faults(g_bms_report.unMdlFault_First.all,
-                            g_bms_report.unMdlFault_Second.all,
-                            g_bms_report.unMdlFault_Third.all);
-#else
-    bms_diag_poll_runtime(valid, valid ? m.current_ma : 0,
-                         valid ? m.sample_tick_32k : pm_get_32k_tick(),
-                         0u);
-#endif
+    bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
+                          valid ? m.current_ma : 0,
+                          valid ? m.sample_tick_32k : pm_get_32k_tick());
 
     /* 即使 BLE 广播间隔为 800 ms，也保持固定采样节拍。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
@@ -946,9 +927,7 @@ void app_init(void)
                                  (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
 #endif
 		board_init();
-		bms_parameters_startup();
 		bms_parameters_init();
-		bms_event_log_init();
 
 		bms_afe_init();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -960,7 +939,6 @@ void app_init(void)
 
 		/* 启动电压、电流和温度状态使用同一 AFE 快照。 */
 		bms_afe_sample();
-		bms_state_store_init();
 		bms_state_store_data_t d = bms_state_store_get();
 		soc_param_lib_init(&d);
 	}

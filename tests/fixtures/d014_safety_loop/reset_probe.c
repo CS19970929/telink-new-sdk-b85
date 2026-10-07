@@ -35,7 +35,7 @@ int main(void)
     raw16(0x93,6758);
     regs[SH3673520_REG_BSTATUS2]=charge ? 0 : SH3673520_BSTATUS2_LOADON_MASK;
     raw16(0x95,charge ? 1024 : 0); /* Connected charger at 4 V C+ in this model. */
-    bms_diag_init(); bms_parameters_startup(); bms_parameters_init();
+    bms_diag_init(); bms_parameters_init();
     assert(bms_protection_params_valid());
     bms_afe_hw_profile_t startup_profile;
     assert(bms_afe_hw_profile_get(&startup_profile));

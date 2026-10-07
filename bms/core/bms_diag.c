@@ -77,6 +77,7 @@ void bms_diag_init(void)
     s_trace_sequence = 0u; s_next = 0u;
 #endif
     s_sequence = 0u; s_frozen = 0u;
+    /* 已删除模式的 wire slot 225 保持初始化零，无运行写入口。 */
     s_words[0] = 0x4447u; s_words[1] = 1u; s_words[2] = BMS_DIAG_CAPABILITIES;
     s_words[BMS_DIAG_RUNTIME_OFFSET] = BMS_DIAG_RUNTIME_VERSION;
     put32(&s_words[22], BMS_DIAG_BUILD_ID);
@@ -320,12 +321,6 @@ void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
     bms_diag_trace(DIAG_EV_PROTECTION,
                    (uint32_t)level1 | ((uint32_t)level2 << 16),
                    level3);
-}
-
-/* 发布运行模式与累计时间诊断。 */
-void bms_diag_runtime_mode(uint8_t factory_mode)
-{
-    if (update16(225u, factory_mode ? 1u : 0u)) changed();
 }
 
 /* 判断请求寄存器范围是否与诊断窗口重叠。 */

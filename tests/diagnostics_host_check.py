@@ -110,3 +110,6 @@ def check_runtime_debug_log_host_check():
 if __name__ == "__main__":
     check_bms_diag_host_check()
     check_runtime_debug_log_host_check()
+    from validation_support import read, run_c, ROOT
+    run_c(read('tests/fixtures/runtime_diag.c'), ['bms/platform/telink/bms_runtime_diag.c'],
+          ['-I',str(ROOT/'tests/fixtures/d014_safety_loop/include')], name='runtime-diag')

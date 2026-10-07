@@ -23,7 +23,7 @@ int main(void) {
  for(unsigned i=0;i<20;++i)raw16((uint8_t)(0x69+2*i),21120);
  for(unsigned i=0;i<4;++i)raw16((uint8_t)(0x5d+2*i),16384);
  raw16(0x93,6758);
- bms_diag_init();bms_parameters_startup();bms_parameters_init();bms_afe_init();request_outputs();steps(12);
+ bms_diag_init();bms_parameters_init();bms_afe_init();request_outputs();steps(12);
  assert(bms_afe_samples_qualified() && discharge_on());
  bms_afe_hw_profile_t before,candidate,after;
  assert(bms_afe_hw_profile_get(&before));candidate=before;candidate.cov_mv+=100;candidate.enable_mask=0;

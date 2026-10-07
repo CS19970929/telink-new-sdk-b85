@@ -51,7 +51,7 @@ static void reboot(void){
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
-static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_startup();bms_parameters_init();assert(bms_protection_params_valid());}
+static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());}
 
 /* 独立按 CFG2 payload 的固定字节位置构造期望，不调用生产 codec。 */
 static void codec_expect_le(u8 *bytes, u32 value, unsigned width)
@@ -216,16 +216,16 @@ static void test_boot_gate(void){
   unsigned base=domain==0?0:(domain==1?4*4096:12*4096);
   unsigned size=domain==0?4*4096:8*4096;
   memset(flash+base,255,size);reboot();cut=0;
-  bms_parameters_startup();bms_parameters_init();assert(!bms_protection_params_valid());
+  bms_parameters_init();assert(!bms_protection_params_valid());
   cut=-1;assert(bms_protection_params_commit(&g_bms_protection_params));assert(!bms_protection_params_valid());
-  reboot();bms_parameters_startup();bms_parameters_init();assert(bms_protection_params_valid());
+  reboot();bms_parameters_init();assert(bms_protection_params_valid());
  }
  puts("PASS startup: Config/State/Event first-save failure gates, protection commit cannot bypass");
 }
 
 static void test_diag_boot(void){
  fresh();reboot();region_ok=0;u32 before=errors;
- bms_parameters_startup();bms_parameters_init();
+ bms_parameters_init();
  assert(errors-before==2);assert(bms_diag_cached_word(36)==2);
  assert(bms_diag_cached_word(37)==DIAG_LAYOUT && bms_diag_cached_word(38)==DIAG_LAYOUT);
  assert(bms_diag_cached_word(52)==0 && bms_diag_cached_word(84)==0);
@@ -265,7 +265,7 @@ static void test_parameter_protocol(void){
  assert(bms_parameter_write(0x2e40,1,commit)==3);
  for(u16 i=0;i<16;i+=4)assert(bms_parameter_write(0x2e50+i,4,chunk)==0);
  assert(programs==before);assert(bms_parameter_write(0x2e40,1,commit)==0);assert(identity_updates==1);
- reboot();bms_parameters_startup();bms_parameters_init();assert(bms_parameter_read(0x2e30)==0x534e);
+ reboot();bms_parameters_init();assert(bms_parameter_read(0x2e30)==0x534e);
  now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*32000u;
  assert(bms_parameter_write(0x2e50,4,chunk)==3);
  assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
@@ -352,11 +352,11 @@ static void test_ota_config_policy(void)
         for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
             if (mask & (1u << group)) cfg.revisions[group] = other_revision((bms_update_group_t)group);
         assert(bms_config_save_cache(&cfg));
-        reboot(); bms_parameters_startup(); bms_parameters_init();
+        reboot(); bms_parameters_init();
         assert(bms_protection_params_valid()); assert_update_groups(mask);
         assert(g_bms_protection_params.u16VcellOvp_Third == g_bms_config.protect.u16VcellOvp_Third);
         u32 before = programs;
-        reboot(); bms_parameters_startup(); bms_parameters_init();
+        reboot(); bms_parameters_init();
         assert(programs == before); assert_update_groups(mask);
     }
     for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
@@ -364,11 +364,11 @@ static void test_ota_config_policy(void)
         assert(bms_config_save_cache(&cfg)); memcpy(backup, flash, sizeof(flash));
         for (int byte = 0; byte < (int)(24 + BMS_CONFIG_PAYLOAD_BYTES + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
-            bms_parameters_startup(); bms_parameters_init(); assert(!bms_protection_params_valid());
+            bms_parameters_init(); assert(!bms_protection_params_valid());
             u8 payload[BMS_CONFIG_PAYLOAD_BYTES]; bms_config_cache_t persisted;
             assert(storage_record_load(&g_bms_config_store, payload));
             bms_config_decode(&persisted, payload); assert(!memcmp(&persisted, &cfg, sizeof(cfg)));
-            reboot(); bms_parameters_startup(); bms_parameters_init();
+            reboot(); bms_parameters_init();
             assert(bms_protection_params_valid()); assert_update_groups(1u << group);
         }
     }
@@ -396,13 +396,13 @@ static void test_ota_state_events(void)
         unsigned payload_size = domain == 1u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
         for (int byte = 0; byte < (int)(24 + payload_size + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
-            bms_parameters_startup(); bms_parameters_init(); assert(!bms_protection_params_valid());
-            reboot(); bms_parameters_startup(); bms_parameters_init(); assert(bms_protection_params_valid());
+            bms_parameters_init(); assert(!bms_protection_params_valid());
+            reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
             assert(g_bms_state.soc == (domain == 0u ? 60u : 88u));
             assert(g_bms_state.cycle == (domain == 0u ? 0u : 99u));
             assert((bms_event_log_read_reg(0u) >> 8) == (domain == 1u ? 0u : BMS_SLEEP));
             u32 before = programs;
-            reboot(); bms_parameters_startup(); bms_parameters_init(); assert(programs == before);
+            reboot(); bms_parameters_init(); assert(programs == before);
         }
     }
     puts("PASS OTA State/Event: independent SOC/event resets, every byte cut, startup inhibit, restart idempotence");
@@ -417,11 +417,11 @@ static void test_protection_commit(void) {
   assert(!bms_protection_params_commit(&next));
   assert(!memcmp(&g_bms_protection_params,&old,sizeof(old)) && bms_protection_params_valid());
   assert(bms_config_store_get_protect(&loaded) && !memcmp(&loaded,&old,sizeof(old)));
-  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_startup();bms_parameters_init();
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();
  }
  assert(!bms_protection_params_commit(0));assert(bms_protection_params_valid());
  assert(bms_protection_params_commit(&next));assert(!memcmp(&g_bms_protection_params,&next,sizeof(next)));
- reboot();bms_parameters_startup();bms_parameters_init();assert(!memcmp(&g_bms_protection_params,&next,sizeof(next)));
+ reboot();bms_parameters_init();assert(!memcmp(&g_bms_protection_params,&next,sizeof(next)));
  puts("PASS SW candidate: every journal byte cut leaves live/cache unchanged, validity retained, success/reboot consistent");
 }
 
