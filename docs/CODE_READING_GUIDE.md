@@ -4,15 +4,14 @@
 
 ## 第一轮：选对产品，追启动
 
-读目标产品 `bms_product.h`、`sources.txt`（D008 另读 `d008_product_profile.h`），再读 `bms/platform/telink/main.c`、`app_ble.c`、`bms/app/app.c`。
+读目标产品 `bms_product.h`、`sources.txt`（D008 另读 `d008_product_profile.h` 和入口包含的私有 `dvc1124_product_defaults.h`），再读 `bms/platform/telink/main.c`、`app_ble.c`、`bms/app/app.c`。
 
 ```text
 SDK startup → main → user_init_normal（app_ble.c）→ app_init（app.c）
   board_init：先关闭业务输出授权
-  bms_parameters_startup：Config/State/Event 启动校验及更新
-  bms_parameters_init：读取并校验 g_bms_protection_params
+  bms_parameters_init：Config→State→Event 启动校验及更新，再读取/校验 g_bms_protection_params
   bms_afe_init → 首次 bms_afe_sample
-  State → soc_param_lib_init
+  State 缓存 → soc_param_lib_init
   UART/SIF、名称、事件、Runtime、采样唤醒初始化
   mos_update → bms_afe_set_output_enabled(1)
   main 循环 → main_loop → bms_stack_monitor_poll

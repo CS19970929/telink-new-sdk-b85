@@ -25,10 +25,8 @@ uart = selected_source(HERE / "modbus_uart.c")
 main = selected_source(HERE / "main.c")
 
 assert literal(conf, "BMS_PRODUCT_RS485_ENABLE") == 1
-if re.search(r"(?m)^\s*#define\s+BMS_PRODUCT_SIF_ENABLE\b", conf):
-    raise AssertionError("D014 must not enable one-wire/SIF")
-if not re.search(r"(?m)^\s*#define\s+BMS_PRODUCT_UART_ENABLE\b", conf):
-    raise AssertionError("D014 Modbus UART must be enabled")
+assert literal(conf, "BMS_PRODUCT_SIF_ENABLE") == 0
+assert literal(conf, "BMS_PRODUCT_UART_ENABLE") == 1
 
 # Fixed Modbus UART is initialized directly. No inert SIF/mux enters the IRQ.
 assert "modbus_uart_init();" in app

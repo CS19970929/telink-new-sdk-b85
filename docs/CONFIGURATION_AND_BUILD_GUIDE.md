@@ -20,7 +20,7 @@
 | 容量、编译名称/软件版本、通信模式 | 产品 `bms_product.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
 | 内部 tag、SOC chemistry/profile | 产品 `bms_product.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
-| DVC 固定配置和 SCD 种子 | D008 `bms_product.h` | 固定板级值或 AFE，按 default builder 区分 |
+| DVC 固定配置和 SCD 种子 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级值或 AFE，按 default builder 区分 |
 | 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection` 逐字段初始化 | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
