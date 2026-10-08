@@ -36,6 +36,24 @@ public sealed record BmsOpenWireStatus(ushort[] Words)
             return cells.Count == 0 ? "无已锁存故障" : string.Join(", ", cells.Select(x => "C" + x));
         }
     }
+    // Cn 是固件掩码指向的测量通道，不直接等同于某根物理采样线。
+    public string MainSummary {
+        get {
+            if (!Fresh) return "断线检测：数据过期，当前串号未知";
+            if (Fault) {
+                string channels = FaultMask == 0 || Words[31] == 0 ? $"串号不可用（掩码 0x{FaultMask:X6}）" : FaultCells;
+                return $"断线故障通道（锁存）：{channels}" +
+                    (Words[2] == 2 ? "；SH 通道映射待实板确认" : "") +
+                    (Active ? "；正在复检" : "");
+            }
+            if (Active) return "断线检测：正在检测，尚无已锁存断线故障";
+            if (Words[3] == 2 && (Words[4] & 0x30) == 0x30 && Completed != 0)
+                return "断线检测：最近完整检测未发现断线；" + Eligibility;
+            if (Words[5] != 0) return "断线检测：尚未确认故障串号；" + ErrorText(Words[5]);
+            if ((Words[4] & 2) != 0) return "断线检测：疑似采样异常，尚未确认故障串号";
+            return "断线检测：尚无完整结果；" + Eligibility;
+        }
+    }
     public string Eligibility {
         get {
             var reasons = new List<string>();

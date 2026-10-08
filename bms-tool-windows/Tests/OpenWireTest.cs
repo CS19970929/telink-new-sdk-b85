@@ -10,11 +10,17 @@ static class OpenWireTest
         w[8] = 0xFFF0; w[9] = 0xFFFF; w[44] = 32; w[31] = 20;
         var active = BmsOpenWireStatus.Decode(w);
         Check(active.Fresh && active.Active && !active.Fault && active.StateText.Contains("不主动关"), "active detection is separate from fault, tick wrap supported");
+        Check(active.MainSummary.Contains("正在检测") && !active.MainSummary.Contains("未发现断线"), "active detection cannot claim healthy");
         w[3] = 4; w[4] = 4; w[5] = 4; w[22] = 0x8001; w[23] = 8; w[30] = 3;
         var failed = BmsOpenWireStatus.Decode(w);
         Check(failed.FaultCells == "C1, C16, C20" && failed.Summary.Contains("映射不确定"), "indeterminate result retains previous fault mask, high bits decoded");
+        Check(failed.MainSummary.Contains("C1, C16, C20") && failed.MainSummary.Contains("映射待实板确认"), "main page names latched channels with SH mapping boundary");
         Check(active.Active && !active.Fault, "decoded snapshot does not change after source buffer mutation");
-        w[44] = 0; w[45] = 3; Check(!BmsOpenWireStatus.Decode(w).Fresh, "stale snapshot is unknown");
+        w[44] = 0; w[45] = 3; Check(!BmsOpenWireStatus.Decode(w).Fresh && BmsOpenWireStatus.Decode(w).MainSummary.Contains("未知"), "stale snapshot is unknown");
+        w[8] = w[9] = w[44] = w[45] = 0; w[3] = 0; w[4] = w[5] = 0;
+        Check(BmsOpenWireStatus.Decode(w).MainSummary.Contains("尚无完整结果"), "empty snapshot is not a healthy result");
+        w[3] = 2; w[4] = 48; w[18] = 1;
+        Check(BmsOpenWireStatus.Decode(w).MainSummary.Contains("最近完整检测未发现断线"), "only completed valid determinate result is healthy");
         w[31] = 25;
         try { BmsOpenWireStatus.Decode(w); throw new Exception("invalid channel count accepted"); }
         catch (System.IO.InvalidDataException) { }

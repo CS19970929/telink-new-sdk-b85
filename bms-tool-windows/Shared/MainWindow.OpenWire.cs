@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace BmsTool.Windows;
@@ -35,6 +36,7 @@ public partial class MainWindow
         root.Children.Add(grid); MainTabs.Items.Add(new TabItem { Header = "断线检测", Content = root });
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => {
+            RefreshMainOpenWireFreshness();
             if (_openWireReceived == default || _openWireStale) return;
             if (_bms is null || _otaRunning || _mosAuto.IsChecked != true || DateTimeOffset.UtcNow - _openWireReceived > TimeSpan.FromSeconds(5)) {
                 _openWireStale = true;
@@ -45,6 +47,28 @@ public partial class MainWindow
         timer.Start(); Closed += (_, _) => timer.Stop();
     }
 
+    private void SetMainOpenWireUnknown(string message)
+    {
+        CustomerOpenWireText.Text = "断线检测：" + message;
+        CustomerOpenWireText.Foreground = Brushes.DimGray;
+    }
+
+    private void ApplyMainOpenWireStatus(BmsOpenWireStatus status)
+    {
+        CustomerOpenWireText.Text = status.MainSummary;
+        CustomerOpenWireText.Foreground = !status.Fresh ? Brushes.DimGray :
+            status.Fault ? Brushes.Firebrick : Brushes.DarkSlateGray;
+    }
+
+    private void RefreshMainOpenWireFreshness()
+    {
+        if (_bms is null) SetMainOpenWireUnknown("未连接，当前串号未知");
+        else if (!ReferenceEquals(_openWireClient, _bms)) SetMainOpenWireUnknown("连接已改变，等待新数据");
+        else if (_otaRunning || _mosAuto.IsChecked != true) SetMainOpenWireUnknown("监控暂停，当前串号未知");
+        else if (_openWireReceived != default && DateTimeOffset.UtcNow - _openWireReceived > TimeSpan.FromSeconds(5))
+            SetMainOpenWireUnknown("数据过期，当前串号未知");
+    }
+
     private async Task RefreshOpenWireAsync(BmsClient client, CancellationToken ct)
     {
         if (!ReferenceEquals(client, _openWireClient)) {
@@ -53,17 +77,24 @@ public partial class MainWindow
         try {
             var status = await client.ReadOpenWireStatusAsync(ct);
             if (_mosClosed || !ReferenceEquals(client, _bms)) return;
-            if (status is null) { _openWireStatus.Text = "当前固件不支持独立断线检测快照；升级配套固件后显示"; return; }
+            if (status is null) {
+                _openWireStatus.Text = "当前固件不支持独立断线检测快照；升级配套固件后显示";
+                SetMainOpenWireUnknown("当前固件不支持，升级配套固件后显示串号");
+                _openWireReceived = DateTimeOffset.UtcNow; _openWireStale = false;
+                return;
+            }
             bool reset = _openWirePrevious is { } previous && (previous.BuildId != status.BuildId ||
                 unchecked(status.Sequence - previous.Sequence) >= 0x80000000u ||
                 unchecked(status.ReadTick - previous.ReadTick) >= 0x80000000u);
             uint completedBetween = !reset && _openWirePrevious is { } old ? unchecked(status.Completed - old.Completed) : 0;
             if (!TryMosWrite("openwire", new { sample = _mosSample, status.Words, status.Sequence,
                 status.Attempts, status.Completed, status.Failed, reset, completedBetween, summary = status.Summary })) {
-                _openWireStatus.Text = "记录写盘失败，监控已停止"; return;
+                _openWireStatus.Text = "记录写盘失败，监控已停止";
+                SetMainOpenWireUnknown("记录写盘失败，监控已停止"); return;
             }
             _openWirePath.Text = "自动保存：" + _mosDirectory + "（mos_*.jsonl 中 kind=openwire）";
             _openWireStatus.Text = status.Summary;
+            ApplyMainOpenWireStatus(status);
             if (_openWirePrevious is null || reset || status.Sequence != _openWirePrevious.Sequence ||
                 status.Words[4] != _openWirePrevious.Words[4] || status.Words[39] != _openWirePrevious.Words[39]) {
                 string detail = status.Summary + (reset ? "\n检测到重启/序号回退，建立新观察段" : "") +
@@ -72,9 +103,14 @@ public partial class MainWindow
                 while (_openWireRows.Count > 300) _openWireRows.RemoveAt(_openWireRows.Count - 1);
             }
             _openWirePrevious = status; _openWireReceived = DateTimeOffset.UtcNow; _openWireStale = false;
-        } catch (OperationCanceledException) { throw; }
+        } catch (OperationCanceledException) {
+            if (ReferenceEquals(client, _bms)) SetMainOpenWireUnknown("读取已取消，等待新数据");
+            throw;
+        }
         catch (Exception ex) {
+            if (!ReferenceEquals(client, _bms)) return;
             _openWireStatus.Text = "断线检测读取失败，当前状态未知：" + ex.Message;
+            SetMainOpenWireUnknown("读取失败，当前串号未知");
             TryMosWrite("openwire-gap", new { reason = ex.Message });
         }
     }

@@ -101,6 +101,31 @@ static class MosMonitorUiTest
                 using var file = File.Create(Path.Combine(args[0],$"openwire-{size.Item1}-{size.Item2}.png")); encoder.Save(file);
             }
         }
+        tabs.SelectedIndex = 0;
+        var mainStatus = (TextBlock)window.FindName("CustomerOpenWireText");
+        owWords[3] = 3; owWords[4] = 52; owWords[22] = 5;
+        Call(window, "ApplyMainOpenWireStatus", BmsOpenWireStatus.Decode(owWords));
+        Check(mainStatus.Text.Contains("C1, C3") && mainStatus.Foreground == Brushes.Firebrick,
+            "main page shows latched channels in red with SH mapping qualification");
+        foreach (var size in new[] { (1360,900), (1180,760) }) foreach (double scale in new[] { 1d,1.25,1.5 }) {
+            content.LayoutTransform = new ScaleTransform(scale,scale);
+            content.Measure(new Size(size.Item1,size.Item2)); content.Arrange(new Rect(0,0,size.Item1,size.Item2)); content.UpdateLayout();
+            Check(tabs.SelectedIndex == 0 && mainStatus.Visibility == Visibility.Visible && mainStatus.ActualHeight > 0 && mainStatus.ActualWidth > 200,
+                "main page open-wire channels visible at supported sizes/scales");
+            Console.WriteLine($"PASS Main OpenWire UI layout {size.Item1}x{size.Item2} scale={scale}");
+            if (args.Length > 0 && scale == 1) {
+                var bitmap = new RenderTargetBitmap(size.Item1,size.Item2,96,96,PixelFormats.Pbgra32); bitmap.Render(content);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var file = File.Create(Path.Combine(args[0],$"main-openwire-{size.Item1}-{size.Item2}.png")); encoder.Save(file);
+            }
+        }
+        Set(window, "_openWireClient", client); Set(window, "_openWireReceived", DateTimeOffset.UtcNow.AddSeconds(-6));
+        Call(window, "RefreshMainOpenWireFreshness");
+        Check(mainStatus.Text.Contains("未知") && mainStatus.Foreground == Brushes.DimGray, "stale main page never shows current confirmed channel");
+        Set(window, "_openWireReceived", DateTimeOffset.UtcNow); openWireAuto.IsChecked = false;
+        Call(window, "RefreshMainOpenWireFreshness"); Check(mainStatus.Text.Contains("暂停"), "paused monitor shows unknown on main page");
+        openWireAuto.IsChecked = true; Set(window, "_bms", null!);
+        Call(window, "RefreshMainOpenWireFreshness"); Check(mainStatus.Text.Contains("未连接"), "disconnect removes current channel claim");
         Console.WriteLine("MOS UI journal: " + directory);
         window.Close();
         Console.WriteLine("PASS actual WPF MOS monitor: auto journal, indication edge, invalid/stale UNKNOWN, both sizes and scaling");

@@ -41,6 +41,7 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="76"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0" Margin="4,0,4,8">
@@ -74,7 +75,10 @@
                                     <TextBlock x:Name="CustomerCellCountText" VerticalAlignment="Center" Text="—"/>
                                 </StackPanel>
                             </Grid>
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <TextBlock x:Name="CustomerOpenWireText" Grid.Row="1" Margin="5,0,5,8" Text="断线检测：未连接，当前串号未知"
+                                       TextWrapping="Wrap" FontWeight="SemiBold" Foreground="DimGray"
+                                       ToolTip="C1、C2…来自固件已锁存故障掩码，不由单体电压猜测。SH 通道映射待逐路实板确认；具体物理采样线需核对原始结果。更多状态、倒计时和记录见断线检测页。"/>
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <WrapPanel x:Name="CustomerCellPanel" Margin="5" ItemWidth="205"/>
                             </ScrollViewer>
 
