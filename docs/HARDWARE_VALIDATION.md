@@ -24,7 +24,7 @@
 参见 [D008 reference](D008_PRODUCT_REFERENCE.md)。
 
 - [ ] 分别签核实际使用的 16S LFP / 20S NMC / 24S LFP；NMC 保护默认与 profile 的差异必须处理。
-- [ ] SCD 当前默认关闭，产品需明确最终要求；签核固定 WDT/body-diode/AUTO_DIODE 的动作与裕量。
+- [ ] SCD 已按产品确认默认开启 200 A / 请求 256 µs（名义量化延时 249.92 µs，整数读回 250 µs）；实测短路动作、Gate/Vgs、MOS SOA、持续短路/恢复及 OTA/回退。签核固定 WDT/body-diode/AUTO_DIODE 的动作与裕量。
 - [ ] 同口单侧保护后反向续流，不出现周期性关断；真实 I2C dead-bus 的自主关 MOS。
 - [ ] PC4 整机断电与 PA0/ACC 保电 deep sleep 分别验证保存失败、AFE shutdown 失败及重复唤醒。
 - [ ] heater 在充电会话下的 ARMING/ACTIVE、拔充电器空载/反供；COW 诊断帧与均衡互锁。

@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include "storage_record.h"
-#include "bms_update_policy.h"
 #include "bms_soc_eta.h"
 typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 1000u
@@ -16,6 +15,7 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define BMS_PRODUCT_ID 8u
 #define BMS_PRODUCT_CHEMISTRY 1u
 #define BMS_PRODUCT_SOC_PROFILE_ID 1u
+#include "bms_update_policy.h"
 #define BMS_ERROR_EEPROM_STORE 1
 /* MACROS */
 /* TYPES */

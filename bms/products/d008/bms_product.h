@@ -11,7 +11,7 @@
 #define BMS_PRODUCT_SOC_PROFILE_ID D008_PRODUCT_SOC_PROFILE_ID
 #include "d008_product_profile.h"
 
-/* 本次授权接受现有 SCD 策略用于镜像生成；保留原阈值及 SCD 开关。 */
+/* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */
 #define BMS_D008_SCD_POLICY_APPROVED 1
 #define BMS_D008_20S_NMC_PROTECTION_APPROVED 0
 

@@ -84,7 +84,7 @@ try {
 
 SH AFE 默认只改目标产品 `SH3673510_HW_DEFAULT_*`，按 AFE 编号生效，保持软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
 
-D008 `20s-nmc` 只选串数/SOC 化学体系，不会自动替换为 NMC 保护值，当前 SCD 默认关闭。profile 选择不代表参数签核。
+D008 三个装配 profile 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40 mV，硬件量化后名义延时 249.92 µs（整数读回 250 µs）。D008 的 AFE 更新编号为 `2u`，同 schema 设备 OTA 后整组 AFE profile 恢复新默认，详见 [OTA 参数更新](OTA_PARAMETERS.md#d008-开启短路保护2026-10-08)。`20s-nmc` 仍只选串数/SOC 化学体系，不会自动替换其他保护值；profile 选择不代表 NMC 保护参数签核。
 
 相关入口：`core_contract_check.py`、`sw_temperature_groups_host_check.py`、`d014_configuration_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_defaults_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
 

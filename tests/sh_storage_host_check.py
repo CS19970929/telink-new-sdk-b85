@@ -16,7 +16,6 @@ def check_sh_event_checkpoint_host_check():
     #include <assert.h>
     typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
     #include "storage_record.h"
-    #include "bms_update_policy.h"
     #define BMS_ERROR_EEPROM_STORE 1
     static u32 tick, saves, blocked;
     static int save_ok=1;
@@ -34,6 +33,7 @@ def check_sh_event_checkpoint_host_check():
     #define DIAG_BACKOFF 12
     #define DIAG_SAVE 7
     #define BMS_PRODUCT_ID 14u
+    #include "bms_update_policy.h"
     /* TYPES */
     static const storage_port_t port={0};
     const storage_port_t*bms_storage_platform_port(void){return &port;}

@@ -323,6 +323,10 @@ AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不�
 
 物理电流阈值按 sense voltage / 200 µΩ Rsense 换算。
 
+2026-10-08 产品确认三个 D008 装配 profile 默认开启 SCD：**200 A / 请求延时 256 µs**。依据 DVC1124-2 Reference Manual V1.2 第 20 页，40 mV 对应 `SCDT=4`，现有驱动将延时向下量化为 `SCDD=32`，名义硬件延时 249.92 µs，整数 effective 读回 250 µs；保持原量化规则和恢复逻辑。
+
+D008 的 `BMS_UPDATE_AFE_REVISION=2u`，OTA 后对同 schema、相同产品/串数的旧编号设备恢复**整组 AFE 硬件保护默认值**，包括原自定义 COV/CUV/OCD/OCC；其他参数组及其他产品编号不变。启动成功后应读到 requested `0x284C=40`、`0x284D=256`，硬件读回 `0x285C=40`、`0x285D=250`。重复启动/旧固件回退规则和验证边界见 [OTA 参数更新](OTA_PARAMETERS.md#d008-开启短路保护2026-10-08)；此配置确认不代替实板动作与恢复验收。
+
 ## 11. 实板验证重点
 
 固定配置或 FET 策略修改后至少验证：

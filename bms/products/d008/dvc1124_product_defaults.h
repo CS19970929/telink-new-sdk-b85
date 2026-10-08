@@ -137,11 +137,13 @@
 #define DVC1124_DEFAULT_CORE_OT_CODE             0u
 
 /*
- * SCD 是运行 AFE 硬件保护参数，来自 bms_afe_hw_profile_t；
- * 遗留零默认只作保守编译回退，不拥有运行配置 Flash。
+ * 2026-10-08 产品确认：200 A / 请求延时 256 us；200 uOhm 下阈值为 40 mV。
+ * DVC1124-2 RM V1.2 p20：SCDT*10 mV、SCDD*7.81 us；沿用驱动向下量化，
+ * 延时代码为 32，名义硬件延时 249.92 us，整数诊断读回 250 us。
+ * 这里只提供 bms_afe_hw_profile_t 默认种子；运行值及 Flash 由该 profile 拥有。
  */
-#define DVC1124_HW_SCD_THRESHOLD_MV          0u
-#define DVC1124_HW_SCD_DELAY_US              0u
+#define DVC1124_HW_SCD_THRESHOLD_MV          40u
+#define DVC1124_HW_SCD_DELAY_US              256u
 
 /* 固定电流唤醒：0 关闭，否则 CWT * 10uV。 */
 #define DVC1124_CURRENT_WAKE_THRESHOLD_UV    0u
