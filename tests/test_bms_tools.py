@@ -503,7 +503,10 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         default = [task for task in tasks['tasks'] if isinstance(task.get('group'), dict)
                    and task['group'].get('isDefault')]
         self.assertEqual(len(default), 1)
-        self.assertEqual(default[0]['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
+        self.assertEqual(default[0]['label'], 'BMS: 选择配置生成 BIN（单个或批量）')
+        self.assertEqual(default[0]['args'][-1], '${workspaceFolder}/bms_tools/select_firmware_build.ps1')
+        ota = next(task for task in tasks['tasks'] if task['label'] == 'BMS: 编译并发送固件到 Android')
+        self.assertEqual(ota['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
         selection = next(item for item in tasks['inputs'] if item['id'] == 'otaTarget')
         self.assertEqual({item['value'] for item in selection['options']}, set(android_ota.TARGETS))
 

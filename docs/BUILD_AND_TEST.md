@@ -164,10 +164,9 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 
 | 快捷键 | 用途 | 操作 |
 |---|---|---|
-| `Ctrl+Alt+B` | 单个/批量生成 BIN | 勾选产品、装配和模式，点击“开始编译”；仅编译，不发送手机 |
-| `Ctrl+Shift+B` | 单个型号的一键 OTA | 选择型号/装配，沿用 production 编译、校验和无线发送流程 |
+| `Ctrl+Shift+B` | 所有产品的单个/批量 BIN 生成 | 勾选产品、装配和开发/生产模式，点击“开始编译”；仅编译，不发送手机 |
 
-`Ctrl+Alt+B` 在本机已绑定任务 **BMS: 选择配置生成 BIN（单个或批量）**。Windows 勾选窗口由 VS Code 启动，支持任意多个配置混选、“全部开发”“全部生产”和“清空选择”；默认只选 D008 16S production。可勾选“清理后全量重编译”，默认使用增量编译。取消窗口不构建、不发送。
+`Ctrl+Shift+B` 统一绑定默认任务 **BMS: 选择配置生成 BIN（单个或批量）**，本机原有的直接快捷键覆盖也已同步更新；原 `Ctrl+Alt+B` 作为兼容别名保留。Windows 勾选窗口由 VS Code 启动，支持任意多个配置混选、“全部开发”“全部生产”和“清空选择”；默认只选 D008 16S production。可勾选“清理后全量重编译”，默认使用增量编译。取消窗口不构建、不发送。
 
 批量构建顺序执行；每项独立执行 build/rebuild、manifest、verify，并核对模式/产品/profile/路径与 BIN 大小及 SHA-256。单项失败继续其他项，末尾分别列出成功/失败项，任一失败则任务退出码非 0。旧 BIN 可能仍在磁盘，只以本次成功校验项作为有效结果。输出按 `firmware/<mode-profile>/<product>/` 分开，开发和生产不会互相覆盖。同一 checkout/模式/profile/产品仍不得与其他构建任务并发。
 
@@ -175,17 +174,17 @@ VS Code 的自定义快捷键必须放在用户级配置，本仓库提供 [快�
 
 ### 单个型号一键 OTA
 
-打开仓库根目录或 `bms.code-workspace`，按 `Ctrl+Shift+B`。默认任务 **BMS: 编译并发送固件到 Android** 弹出型号/装配选择框，包含 D008 的三个 profile 及 D011/D013/D014，默认 D008 16S LFP。
+打开仓库根目录或 `bms.code-workspace`，从 `Tasks: Run Task` 选择 **BMS: 编译并发送固件到 Android**。该任务作为单独入口保留，弹出型号/装配选择框，包含 D008 的三个 profile 及 D011/D013/D014，默认 D008 16S LFP。
 
 选定后，`bms_tools/android_ota.py` 显式指定产品、profile 和 `--production`，依次执行增量 `build --jobs 4`、`manifest`、`verify`。所有步骤成功且发送前产品/profile/路径、大小与 SHA-256 匹配，才将当前 `firmware/<mode-profile>/<product>/825x_ble_sample.bin` 交给既有 Android Sender 的 `--firmware ... --auto-ota`。任何构建、批准或校验失败都停止，不发送旧 BIN；取消选择不会启动任务。
 
-本机 Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/android-direct-sender-v3/BmsTool.Android.Sender.exe`，其他电脑用环境变量 `BMS_ANDROID_SENDER` 指向安装好的同一 Sender。Sender 源码仍在 Windows 上位机维护分支；本流程不复制上位机源码，不再依赖旧 `send-from-vscode.ps1` 中的 SDK 输出路径。本机用户级旧编译发送任务已取消默认标记，避免两个默认任务使快捷键先弹出任务选择；手动选择 BIN 和连接无线调试任务保留。本仓库使用新的同名默认任务。
+本机 Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/android-direct-sender-v3/BmsTool.Android.Sender.exe`，其他电脑用环境变量 `BMS_ANDROID_SENDER` 指向安装好的同一 Sender。Sender 源码仍在 Windows 上位机维护分支；本流程不复制上位机源码，不再依赖旧 `send-from-vscode.ps1` 中的 SDK 输出路径。本机用户级旧编译发送任务已取消默认标记，避免两个默认任务使快捷键先弹出任务选择；手动选择 BIN 和连接无线调试任务保留。默认构建入口为配置选择，OTA 由独立任务启动。
 
 手机须与电脑具备原无线调试条件并已授权；原 Sender 负责重连及传输。安卓 App 已连接明确 BMS 时自动 OTA，否则由 App 选择/连接设备后升级。所选型号须与实际连接的板卡一致，当前流程核对的是构建镜像身份，没有新增设备型号读回检查。Sender 成功退出代表发送及 OTA 请求完成，最终升级结果以 App 为准。
 
 生产批准门继续适用：当前 D008 16S/24S 可生成镜像，D008 20S NMC 与其他产品未批准时停止。本任务不会自动改批准值、提交脏源码、绕过资源/保护门禁或降为开发模式。production 要求先提交代码；镜像及 manifest 不提交 Git。
 
-若 VS Code 尚在使用旧任务，执行 `Developer: Reload Window`，再用 `Tasks: Configure Default Build Task` 选择本仓库的同名任务。也可直接运行：
+若 VS Code 尚在使用旧任务，执行 `Developer: Reload Window`，再用 `Tasks: Configure Default Build Task` 选择 **BMS: 选择配置生成 BIN（单个或批量）**。也可直接运行 OTA 任务的脚本：
 
 ```powershell
 python bms_tools/android_ota.py --target d008-16s-lfp
