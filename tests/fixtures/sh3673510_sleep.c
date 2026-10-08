@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "sh3673520_reg.h"
+#include "bms_diag.h"
 typedef uint8_t u8;
 typedef uint32_t u32;
 enum { SH3673520_OK, SH3673520_ERR_SPI };
@@ -24,6 +25,9 @@ static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
 static int pm_status;
 static u32 fake_tick;
+static u32 s_sleep_failure_mask, s_sleep_last_attempt_tick_32k;
+static u8 s_sleep_attempt_ready;
+void bms_diag_sleep_committed(void) {}
 static uint8_t io_ok(void) { ++bus_calls; return bus_calls != command_fail_at; }
 static uint8_t sh3673510_board_wake_active(void) { return control_wake_active; }
 static uint8_t sh3673510_control_set_balance(uint16_t mask) {

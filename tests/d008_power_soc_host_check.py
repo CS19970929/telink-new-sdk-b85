@@ -51,6 +51,8 @@ def main():
             units.update({
             'power': '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
+                'static u32 app_sleep_retry_ms(', 'static void app_publish_sleep(',
+                'static void app_dvc_publish_sleep(',
                 'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(')),
             'guard': source('bms_afe_guard.c'),
@@ -60,6 +62,8 @@ def main():
             if name == 'power':
                 code = '#include "' + (ROOT/'bms/core/bms_debug_log.h').as_posix() + '"\n' + code
             fixture = (FIX / (name + '.c')).read_text()
+            if name == 'power':
+                fixture = '#include "' + (ROOT/'bms/core/bms_diag.h').as_posix() + '"\n' + fixture
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')
             path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)

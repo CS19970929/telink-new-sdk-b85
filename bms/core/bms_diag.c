@@ -9,6 +9,7 @@
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
+static uint16_t s_sleep_words[BMS_DIAG_SLEEP_WORDS];
 #if BMS_DIAG_TRACE_ENABLE
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
 static uint32_t s_trace_sequence;
@@ -72,6 +73,9 @@ void bms_diag_init(void)
 {
     bms_debug_log_init();
     memset(s_words, 0, sizeof(s_words));
+    memset(s_sleep_words, 0, sizeof(s_sleep_words));
+    s_sleep_words[0] = 0x534Cu;
+    s_sleep_words[1] = 1u;
 #if BMS_DIAG_TRACE_ENABLE
     memset(s_trace, 0, sizeof(s_trace));
     s_trace_sequence = 0u; s_next = 0u;
@@ -323,11 +327,40 @@ void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
                    level3);
 }
 
+/* 发布电源策略快照；毫秒计数仅复制，不产生轨迹、I/O 或 Flash 写入。 */
+void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
+                    uint32_t delay_ms, uint32_t retry_ms, uint8_t suspend_allowed)
+{
+    uint32_t remaining_ms = elapsed_ms < delay_ms ? delay_ms - elapsed_ms : 0u;
+    s_sleep_words[2] = reason == DIAG_SLEEP_REASON_NONE ? DIAG_SLEEP_NONE :
+        (block_mask ? DIAG_SLEEP_BLOCKED : (retry_ms ? DIAG_SLEEP_RETRY :
+        (remaining_ms ? DIAG_SLEEP_COUNTING : DIAG_SLEEP_READY)));
+    s_sleep_words[3] = reason;
+    s_sleep_words[4] = suspend_allowed ? 1u : 0u;
+    put32(&s_sleep_words[6], block_mask);
+    put32(&s_sleep_words[8], elapsed_ms);
+    put32(&s_sleep_words[10], delay_ms);
+    put32(&s_sleep_words[12], remaining_ms);
+    put32(&s_sleep_words[14], retry_ms);
+    put32(&s_sleep_words[16], bms_diag_tick());
+}
+
+void bms_diag_sleep_committed(void)
+{
+    s_sleep_words[2] = DIAG_SLEEP_COMMITTED;
+    put32(&s_sleep_words[8], get32(&s_sleep_words[10]));
+    put32(&s_sleep_words[12], 0u);
+    put32(&s_sleep_words[6], 0u);
+    put32(&s_sleep_words[14], 0u);
+    put32(&s_sleep_words[16], bms_diag_tick());
+}
+
 /* 判断请求寄存器范围是否与诊断窗口重叠。 */
 int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
-    return count != 0u && start < BMS_DIAG_END && end > BMS_DIAG_BASE;
+    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
+        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE));
 }
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
@@ -335,6 +368,16 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
+    if (bytes && count && count <= BMS_DIAG_SLEEP_WORDS &&
+        start >= BMS_DIAG_SLEEP_BASE && end <= BMS_DIAG_SLEEP_END) {
+        put32(&s_sleep_words[18], tick);
+        for (i = 0u; i < count; ++i) {
+            uint16_t word = s_sleep_words[start - BMS_DIAG_SLEEP_BASE + i];
+            bytes[2u*i] = (uint8_t)(word >> 8);
+            bytes[2u*i+1u] = (uint8_t)word;
+        }
+        return 1;
+    }
     if (!bytes || !count || count > 125u || start < BMS_DIAG_BASE ||
         end > BMS_DIAG_END || (start < BMS_DIAG_TRACE_BASE && end > BMS_DIAG_TRACE_BASE)) return 0;
     /*

@@ -57,6 +57,16 @@ static u8 ble_tx_pending;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
 static bms_afe_aux_measurements_t measurement;
 static bool s_low_power_mode;
+static u32 s_sleep_failure_mask;
+static u8 s_sleep_report_reason;
+static u8 observed_sleep_reason;
+static u32 observed_sleep_block, observed_sleep_elapsed, observed_sleep_retry;
+void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms,u8 allowed){
+ (void)delay_ms;(void)allowed;
+ observed_sleep_reason=reason;observed_sleep_block=block;
+ observed_sleep_elapsed=elapsed_ms;observed_sleep_retry=retry_ms;
+}
+void bms_diag_sleep_committed(void){}
 static struct{uint16_t cell_min_mv;}g_bms_report={3300};
 static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
 static u32 pm_get_32k_tick(void){return now;}
@@ -81,6 +91,7 @@ static void reset(void){
  acc_low_during_shutdown=acc_low_during_sleep=0;
  s_acc_high_seen=s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
  deepsleep_en=false;ble_tx_pending=0;
+ s_sleep_failure_mask=s_sleep_report_reason=0;
  s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
@@ -122,6 +133,10 @@ static void test_acc_sleep(void){
 }
 int main(void){
  test_acc_sleep();
+ reset();g_bms_report.cell_min_mv=2770;elapsed=2;app_power_process(&s_sample_due);
+ assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
+ device_in_connection_state=1;app_power_process(&s_sample_due);
+ assert(observed_sleep_elapsed==0u && (observed_sleep_block&DIAG_SLEEP_BLOCK_BLE));
  reset();int currents[]={-501,-500,-499,0,499,500,501};
  for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
   measurement.current_ma=currents[i];app_power_process(&s_sample_due);
@@ -166,6 +181,8 @@ int main(void){
  ota_is_working=0;bus_busy=1;app_power_process(&s_sample_due);assert(!cut_calls);
  bus_busy=0;flash_ready=0;app_power_process(&s_sample_due);assert(!cut_calls);
  flash_ready=1;storage_ok=0;app_power_process(&s_sample_due);assert(seq_len==1 && !cut_calls);
+ assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND);
+ assert(observed_sleep_block==DIAG_SLEEP_BLOCK_STORAGE && observed_sleep_retry==5000u);
  for(int i=0;i<10;i++){app_power_process(&s_sample_due);} assert(seq_len==1);
  now+=160000u;seq_len=0;storage_ok=1;shutdown_ok=0;
  app_power_process(&s_sample_due);assert(seq_len==3 && !cut_calls && deepsleep_en);

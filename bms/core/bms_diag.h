@@ -22,6 +22,10 @@
 #define BMS_DIAG_END 0x2E00u
 #define BMS_DIAG_TRACE_COUNT 64u
 #define BMS_DIAG_TRACE_WORDS 12u
+/* 独立只读休眠快照；旧诊断及日志地址、schema 均保持。 */
+#define BMS_DIAG_SLEEP_BASE 0x3300u
+#define BMS_DIAG_SLEEP_WORDS 20u
+#define BMS_DIAG_SLEEP_END (BMS_DIAG_SLEEP_BASE + BMS_DIAG_SLEEP_WORDS)
 
 /*
  * 开发默认保留轨迹；生产关闭以节省 1536 字节 RAM，
@@ -48,9 +52,10 @@
 #define BMS_DIAG_CAP_MOS        0x0008u
 #define BMS_DIAG_CAP_UPGRADE    0x0010u
 #define BMS_DIAG_CAP_RUNTIME    0x0020u
+#define BMS_DIAG_CAP_SLEEP      0x0040u
 #define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_TRACE : 0u) | \
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
-                                 BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME)
+                                 BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP)
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
@@ -140,6 +145,24 @@ enum {
     DIAG_PM_BLOCK_POWER_OFF = 64u,
     DIAG_PM_BLOCK_ACC_SLEEP = 128u
 };
+enum { DIAG_SLEEP_INIT=0, DIAG_SLEEP_NONE=1, DIAG_SLEEP_COUNTING=2,
+    DIAG_SLEEP_BLOCKED=3, DIAG_SLEEP_READY=4, DIAG_SLEEP_RETRY=5,
+    DIAG_SLEEP_COMMITTED=6 };
+enum { DIAG_SLEEP_REASON_NONE=0, DIAG_SLEEP_REASON_COMMAND=1,
+    DIAG_SLEEP_REASON_ACC=2, DIAG_SLEEP_REASON_SWITCH=3,
+    DIAG_SLEEP_REASON_VERY_LOW=4, DIAG_SLEEP_REASON_LOW=5,
+    DIAG_SLEEP_REASON_NORMAL=6, DIAG_SLEEP_REASON_AFE=7 };
+enum { DIAG_SLEEP_BLOCK_OTA=1u, DIAG_SLEEP_BLOCK_FLASH=2u,
+    DIAG_SLEEP_BLOCK_BUS=4u, DIAG_SLEEP_BLOCK_BLE=8u,
+    DIAG_SLEEP_BLOCK_FIXED_UART=16u, DIAG_SLEEP_BLOCK_UART_TX=32u,
+    DIAG_SLEEP_BLOCK_WAKE_PAD=64u, DIAG_SLEEP_BLOCK_SAMPLE=128u,
+    DIAG_SLEEP_BLOCK_STORAGE=256u, DIAG_SLEEP_BLOCK_AFE=512u,
+    DIAG_SLEEP_BLOCK_BLE_CONTROL=1024u };
+/* 由原电源路径发布，只记录已有计数，不推进计时或访问硬件。 */
+void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
+                    uint32_t delay_ms, uint32_t retry_ms, uint8_t suspend_allowed);
+/* 已完成前置动作，即将调用 SDK 深睡或切断供电；不是实测入睡证明。 */
+void bms_diag_sleep_committed(void);
 /* 取得存储诊断使用的系统时间戳。 */
 uint32_t bms_diag_tick(void);
 /* 初始化诊断窗口和启动快照。 */
