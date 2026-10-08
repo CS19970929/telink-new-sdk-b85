@@ -157,8 +157,11 @@ public partial class MainWindow
     private void UpdateCustomerSystemLamps()
     {
         string mos = MosStateText.Text ?? string.Empty;
-        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText, TryGetSwitchState(mos, "充电 MOS"));
-        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, TryGetSwitchState(mos, "放电 MOS"));
+        bool mosUnknown = _bms is null || _customerLastDataUtc == DateTime.MinValue ||
+            DateTime.UtcNow - _customerLastDataUtc > TimeSpan.FromSeconds(5) ||
+            (_mosAuto.IsChecked == true && _mosDriverInvalid);
+        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText, mosUnknown ? null : TryGetSwitchState(mos, "充电 MOS"));
+        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, mosUnknown ? null : TryGetSwitchState(mos, "放电 MOS"));
 
         string system = SystemStateText.Text ?? string.Empty;
         SetLamp(CustomerHeatLamp, CustomerHeatText, TryGetSwitchState(system, "加热"));

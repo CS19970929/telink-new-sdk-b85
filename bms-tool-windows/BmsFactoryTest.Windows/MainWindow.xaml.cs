@@ -371,6 +371,8 @@ public partial class MainWindow : Window
 
     private async Task DisposeBmsAsync()
     {
+        _mosCts?.Cancel();
+        NoteMosGap("设备断开或重连");
         if (_bms is not null)
         {
             _bms.Log -= OnProtocolLog;
@@ -406,6 +408,8 @@ public partial class MainWindow : Window
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
+        if (!ReferenceEquals(bms, _bms)) return id;
+        SetMosIdentity(bms, id);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
         FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
         FactoryConnectionText.Text = $"连接状态：已连接\n硬件：{id.Hardware}\n软件：{id.Software}";
@@ -422,11 +426,13 @@ public partial class MainWindow : Window
         BatterySnapshot snapshot = await bms.ReadBatteryAsync();
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
+        await RefreshMosMonitorAsync(bms);
         await RefreshSleepStatusAsync(bms);
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A";
         SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohPercent}%";
@@ -585,6 +591,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            NoteMosGap("电池刷新失败：" + ex.Message);
             _pollFailureCount++;
             AppendLog($"AUTO_REFRESH_FAIL count={_pollFailureCount}; type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}", "POLL");
             if (_pollFailureCount >= 3)

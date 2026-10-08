@@ -65,6 +65,7 @@ public partial class MainWindow
     // OTA owns the transport only after an in-flight log transaction has released it.
     private async Task StopRuntimeLogsForOtaAsync()
     {
+        await StopMosReadsForOtaAsync();
         _runtimeLogAuto.IsChecked = false;
         _runtimeLogCts?.Cancel();
         for (int attempt = 0; _runtimeLogBusy && attempt < 100; ++attempt)
