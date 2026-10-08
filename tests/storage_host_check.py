@@ -28,6 +28,9 @@ def main():
     sources=[str((MOD/n).relative_to(ROOT)) for n in ('storage_record.c','bms_diag.c')]
     flags=['-Wno-unused-function','-include',str(MOD/'bms_diag.h')]
     run_c(code,sources=sources,flags=flags,name='semantic_stores')
+    # 模拟 TC32 的 packed 结构布局；x86 允许非对齐访问，夹具显式检查生产对象地址。
+    run_c(code,sources=sources,flags=[*flags,'-fpack-struct','-fshort-enums',
+          '-Wno-error=address-of-packed-member'],name='semantic_stores_packed')
     with tempfile.TemporaryDirectory(prefix='d008-storage-') as d:
         # 发布编号可任意递增，回归不能绑定当前版本 1。仍编译同一套生产实现。
         policy = (MOD/'bms_parameter_policy.h').read_text()

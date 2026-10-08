@@ -38,10 +38,11 @@ typedef struct {
     u32 clock_tick_32k;
     u16 clock_fraction_32k;
     u8 merge_ready;
-    storage_record_store_t store;
 } bms_event_log_ctx_t;
 
 static bms_event_log_ctx_t g_bms_event_log;
+/* SDK 的 -fpack-struct 会压紧 ctx；TC32 整字读取 store->port，不能内嵌到未对齐偏移。 */
+static storage_record_store_t g_bms_event_store __attribute__((aligned(4)));
 
 /* 把历史事件存储失败提交到诊断。 */
 static void bms_event_log_report_store_error(void)
@@ -141,7 +142,7 @@ static int bms_event_log_write_snapshot(void)
     g_bms_event_log.last_attempt_32k = now;
     g_bms_event_log.attempted = 1u;
     bms_event_log_encode(payload);
-    if (!storage_record_save(&g_bms_event_log.store, payload)) {
+    if (!storage_record_save(&g_bms_event_store, payload)) {
         g_bms_event_log.last_failed = 1u;
         bms_event_log_report_store_error();
         return 0;
@@ -220,12 +221,12 @@ int bms_event_log_init(void)
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
-    if (!g_bms_event_log.store.ready && !storage_record_open(&g_bms_event_log.store, port, region, BMS_EVENT_RECORD_MAGIC,
+    if (!g_bms_event_store.ready && !storage_record_open(&g_bms_event_store, port, region, BMS_EVENT_RECORD_MAGIC,
                              BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OPEN); return 0;
     }
-    loaded = storage_record_load(&g_bms_event_log.store, payload) && bms_event_log_decode(payload);
-    if (g_bms_event_log.store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+    loaded = storage_record_load(&g_bms_event_store, payload) && bms_event_log_decode(payload);
+    if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
         bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_INVALID); return 0;
     }
     if (!loaded) { bms_event_log_reset_ram_only(); bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_DEFAULTS); }

@@ -49,9 +49,14 @@ static void reboot(void){
  memset(&g_bms_state_store,0,sizeof(g_bms_state_store));
  g_bms_state_attempted=0;g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
+ memset(&g_bms_event_store,0,sizeof(g_bms_event_store));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
-static void fresh(void){memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());}
+static void fresh(void){
+ /* TC32 的 program_bytes 会整字读取 store->port，生产 RAM 对象必须四字节对齐。 */
+ assert(((uintptr_t)&g_bms_event_store % 4u)==0u);
+ memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());
+}
 
 /* 独立按 CFG2 payload 的固定字节位置构造期望，不调用生产 codec。 */
 static void codec_expect_le(u8 *bytes, u32 value, unsigned width)
@@ -402,7 +407,7 @@ static void test_ota_state_events(void)
         if (domain == 1u) {
             u8 payload[BMS_EVENT_PAYLOAD_BYTES]; bms_event_log_encode(payload);
             bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], other_revision(BMS_UPDATE_EVENTS));
-            assert(storage_record_save(&g_bms_event_log.store, payload));
+            assert(storage_record_save(&g_bms_event_store, payload));
         }
         memcpy(backup, flash, sizeof(flash));
         unsigned payload_size = domain == 1u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;

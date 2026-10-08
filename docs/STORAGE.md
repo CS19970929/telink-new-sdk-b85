@@ -60,6 +60,8 @@ SDK 当前 825x 定义 SMP pairing `0x74000`、MAC `0x76000`、calibration `0x77
 
 正常 State/Event 采用 60 s 检查点、失败 5 s 退避。Config 相同编码直接成功，不增加 sequence 或物理写入。寿命主要取决于变化频率，而不是读取次数：
 
+Event 的 `storage_record_store_t` 单独静态存放并显式四字节对齐。SDK 保留 `-fpack-struct`，不能把该对象内嵌到业务 ctx 的未对齐偏移：TC32 `program_bytes` 的整字指针读取可能取错端口。2026-10-08 D008 开发设备曾出现 Event 首次保存失败、擦除一次但未进入编程，进而保持启动输出禁止；同 Build ID 的 MAP/LST 显示内嵌对象地址 `0x008453A6` 却使用 `tloadr`。本轮仅调整 RAM 对象组织，不改变 Flash schema、payload、分区或启动门禁。存储 host 回归增加 packed 布局下的实际对象地址检查；目标 MAP/LST 和 OTA 后设备读回分别作为独立证据，不能以 host 通过代替实板恢复。
+
 | 域 | 每 sector 槽位 | 全区域一轮记录数 |
 |---|---:|---:|
 | Config：32+322 对齐为 356 bytes | 11 | 44 |
