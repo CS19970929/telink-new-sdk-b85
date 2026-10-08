@@ -355,7 +355,7 @@ public static class ModbusRtu
         if (frame.Length < 4) throw new IOException("Modbus response too short.");
         ushort rx = (ushort)(frame[^2] | frame[^1] << 8);
         ushort calc = Crc16(frame[..^2]);
-        if (rx != calc) throw new IOException($"Modbus CRC mismatch: rx=0x{rx:X4}, calc=0x{calc:X4}.");
+        if (rx != calc) throw new ModbusCrcException($"Modbus CRC mismatch: rx=0x{rx:X4}, calc=0x{calc:X4}.");
     }
 
     public static ushort Crc16(ReadOnlySpan<byte> data)
@@ -377,4 +377,9 @@ public static class ModbusRtu
         if (zero >= 0) bytes.RemoveRange(zero, bytes.Count - zero);
         return Encoding.UTF8.GetString(bytes.ToArray()).Trim();
     }
+}
+
+public sealed class ModbusCrcException : IOException
+{
+    public ModbusCrcException(string message) : base(message) { }
 }

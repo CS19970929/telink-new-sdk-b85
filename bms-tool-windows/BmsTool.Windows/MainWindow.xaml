@@ -290,6 +290,7 @@
                     <!-- Main-page status bar -->
                     <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#C8C8C8" BorderThickness="1,1,1,0" Background="#F5F5F5" Margin="5,2,5,0" Padding="8,4">
                         <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -300,8 +301,10 @@
                             <TextBlock x:Name="CustomerSoftwareText" Grid.Column="1" VerticalAlignment="Center" Text="软件版本：—"/>
                             <TextBlock x:Name="CustomerSerialText" Grid.Column="2" VerticalAlignment="Center" Text="BMS序列号：—"/>
                             <Border x:Name="CustomerCommStatusBorder" Grid.Column="3" Background="#18C73E" Padding="9,2" Visibility="Collapsed">
-                                <TextBlock Text="通信：正在通讯" Foreground="Black"/>
+                                <TextBlock x:Name="CommunicationStatusText" Text="通信：未连接" Foreground="Black"/>
                             </Border>
+                            <TextBlock x:Name="CommunicationCountersText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" FontSize="12" Text="TX 0帧 / RX 0帧 · 超时 0 · CRC 0 · 重连 0"/>
                         </Grid>
                     </Border>
                 </Grid>

@@ -224,7 +224,7 @@ public partial class MainWindow : Window
         try
         {
             await transport.ConnectAsync(address, ct);
-            client = new BmsClient(transport);
+            client = new BmsClient(transport, _communicationStatistics);
             client.Log += OnProtocolLog;
 
             var probeTimer = Stopwatch.StartNew();
@@ -361,6 +361,7 @@ public partial class MainWindow : Window
             .Where(cell => cell.mv != BmsRegisters.MissingCellVoltageMv)
             .Select(cell => $"第{cell.Index}串 {cell.mv / 1000.0:F3} V"));
 
+        _customerLastDataUtc = DateTime.UtcNow;
         LastUpdateText.Text = $"最后更新：{DateTime.Now:HH:mm:ss}";
         CurrentSocParamText.Text = $"当前 SOC：{s.SocPercent}%";
         CurrentCycleParamText.Text = $"当前循环次数：{s.CycleCount}";
@@ -407,6 +408,7 @@ public partial class MainWindow : Window
         if (_autoReconnectRunning || _otaRunning) return;
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
         if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
+        _communicationReconnectAttempts++;
         _autoReconnectRunning = true;
         _pollTimer.Stop();
         try
@@ -924,7 +926,7 @@ public partial class MainWindow : Window
         try
         {
             await transport.ConnectAsync(portName, baudRate, ct);
-            client = new BmsClient(transport);
+            client = new BmsClient(transport, _communicationStatistics);
             client.Log += OnProtocolLog;
             AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
             await client.ProbeAsync(ct);

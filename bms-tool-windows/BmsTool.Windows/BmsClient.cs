@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.IO;
+using System.Diagnostics;
 using System.Text;
 
 namespace BmsTool.Windows;
@@ -101,18 +102,68 @@ public sealed class BatterySnapshot
     }
 }
 
+// 每个窗口持有一份累计计数；更换 transport 或 BmsClient 后仍保留证据。
+public sealed record BmsCommunicationSnapshot(long TxFrames, long TxBytes, long RxFrames,
+    long RxBytes, long Timeouts, long CrcErrors, long InvalidResponses, long ExceptionResponses,
+    long SendFailures, long Cancellations, double? LastResponseMs, double? LastResponseAgeMs,
+    string LastError);
+
+public sealed class BmsCommunicationStatistics
+{
+    private readonly object _lock = new();
+    private long _txFrames, _txBytes, _rxFrames, _rxBytes, _timeouts, _crcErrors;
+    private long _invalidResponses, _exceptionResponses, _sendFailures, _cancellations;
+    private long? _lastResponseTick;
+    private double? _lastResponseMs;
+    private string _lastError = string.Empty;
+
+    public BmsCommunicationSnapshot Snapshot()
+    {
+        lock (_lock) return new(_txFrames, _txBytes, _rxFrames, _rxBytes, _timeouts,
+            _crcErrors, _invalidResponses, _exceptionResponses, _sendFailures, _cancellations,
+            _lastResponseMs, _lastResponseTick is long tick ? Stopwatch.GetElapsedTime(tick).TotalMilliseconds : null,
+            _lastError);
+    }
+    internal void Sent(int bytes) { lock (_lock) { _txFrames++; _txBytes += bytes; } }
+    internal void ReceivedBytes(int bytes) { lock (_lock) _rxBytes += bytes; }
+    internal void ReceivedFrame(double elapsedMs, bool exception)
+    {
+        lock (_lock) {
+            _rxFrames++; if (exception) _exceptionResponses++;
+            _lastResponseMs = elapsedMs; _lastResponseTick = Stopwatch.GetTimestamp();
+        }
+    }
+    internal void Failed(Exception ex, bool sending)
+    {
+        lock (_lock) {
+            if (ex is OperationCanceledException) _cancellations++;
+            else if (sending) _sendFailures++;
+            else if (ex is TimeoutException) _timeouts++;
+            else if (ex is ModbusCrcException) _crcErrors++;
+            else _invalidResponses++;
+            _lastError = ex.GetType().Name + ": " + ex.Message;
+        }
+    }
+}
+
 public sealed partial class BmsClient : IAsyncDisposable
 {
+    // COM3 / D011 独立台架对照：连续请求会丢响应，20 ms 转换间隔通过。
+    // 仅限制串口请求，给板端和转换器完成发送到接收的切换；BLE 保持原节奏。
+    private static readonly TimeSpan SerialResponseTurnaroundDelay = TimeSpan.FromMilliseconds(20);
+    private long _lastReceiveTick;
     private readonly IBmsTransport _transport;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _rxLock = new();
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
     public event Action<string>? Log;
+    public BmsCommunicationStatistics CommunicationStatistics { get; }
 
-    public BmsClient(IBmsTransport transport)
+    public BmsClient(IBmsTransport transport, BmsCommunicationStatistics? statistics = null)
     {
         _transport = transport;
+        CommunicationStatistics = statistics ?? new BmsCommunicationStatistics();
         _transport.DataReceived += OnData;
     }
 
@@ -493,46 +544,76 @@ public sealed partial class BmsClient : IAsyncDisposable
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
         await _gate.WaitAsync(ct);
+        var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool sending = true;
         try
         {
-            var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_rxLock)
-            {
-                _rx.Clear();
-                _pending = tcs;
-            }
-
-            Log?.Invoke("TX " + Convert.ToHexString(request));
-            await _transport.WriteAsync(request, ct);
-            TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
-            try
-            {
-                byte[] rsp = await tcs.Task.WaitAsync(timeout, ct);
-                Log?.Invoke("RX " + Convert.ToHexString(rsp));
-                return rsp;
-            }
-            catch (TimeoutException ex)
-            {
-                Log?.Invoke($"[MODBUS] TIMEOUT timeoutMs={timeout.TotalMilliseconds:F0}; request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(_rx.ToArray())}");
-                throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
-            }
-            finally
-            {
-                lock (_rxLock)
-                {
-                    if (ReferenceEquals(_pending, tcs)) _pending = null;
-                    _rx.Clear();
+            if (_transport.RequiresSerialWakeup) {
+                long received = Interlocked.Read(ref _lastReceiveTick);
+                if (received != 0) {
+                    double remainingMs = SerialResponseTurnaroundDelay.TotalMilliseconds - Stopwatch.GetElapsedTime(received).TotalMilliseconds;
+                    if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct);
                 }
             }
+            lock (_rxLock) { _rx.Clear(); _pending = tcs; }
+            Log?.Invoke("TX " + Convert.ToHexString(request));
+            long started = Stopwatch.GetTimestamp();
+            await _transport.WriteAsync(request, ct);
+            CommunicationStatistics.Sent(request.Length);
+            sending = false;
+            TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
+            byte[] rsp;
+            try { rsp = await tcs.Task.WaitAsync(timeout, ct); }
+            catch (TimeoutException ex) {
+                byte[] buffered;
+                lock (_rxLock) buffered = _rx.ToArray();
+                Log?.Invoke($"[MODBUS] TIMEOUT timeoutMs={timeout.TotalMilliseconds:F0}; request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(buffered)}");
+                throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
+            }
+            Log?.Invoke("RX " + Convert.ToHexString(rsp));
+            ValidateResponseHeader(request, rsp);
+            CommunicationStatistics.ReceivedFrame(Stopwatch.GetElapsedTime(started).TotalMilliseconds, (rsp[1] & 0x80) != 0);
+            return rsp;
         }
-        finally
-        {
+        catch (Exception ex) {
+            CommunicationStatistics.Failed(ex, sending);
+            throw;
+        }
+        finally {
+            // 包括 WriteAsync 失败在内，任何退出路径都释放当前接收所有权。
+            lock (_rxLock) {
+                if (ReferenceEquals(_pending, tcs)) _pending = null;
+                _rx.Clear();
+            }
             _gate.Release();
+        }
+    }
+
+    private static void ValidateResponseHeader(byte[] request, byte[] response)
+    {
+        ModbusRtu.ValidateFrame(response);
+        if (response[0] != request[0] || (response[1] & 0x7F) != request[1])
+            throw new IOException("Modbus response address/function mismatch.");
+        if ((response[1] & 0x80) != 0) {
+            if (response.Length != 5) throw new IOException("Invalid Modbus exception response length.");
+            return;
+        }
+        if (request[1] == 0x03) {
+            int bytes = BinaryPrimitives.ReadUInt16BigEndian(request.AsSpan(4, 2)) * 2;
+            if (response.Length != bytes + 5 || response[2] != bytes)
+                throw new IOException("Modbus read response length mismatch.");
+        } else if (request[1] is 0x06 or 0x10) {
+            if (response.Length != 8 || !response.AsSpan(0, 6).SequenceEqual(request.AsSpan(0, 6)))
+                throw new IOException("Modbus write acknowledgement mismatch.");
+        } else if (response.Length < 6 || response[2] != request[2]) {
+            throw new IOException("Modbus command response mismatch.");
         }
     }
 
     private void OnData(ReadOnlyMemory<byte> fragment)
     {
+        Interlocked.Exchange(ref _lastReceiveTick, Stopwatch.GetTimestamp());
+        CommunicationStatistics.ReceivedBytes(fragment.Length);
         TaskCompletionSource<byte[]>? done = null;
         byte[]? frame = null;
         lock (_rxLock)

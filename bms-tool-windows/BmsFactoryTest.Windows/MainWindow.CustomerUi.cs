@@ -11,7 +11,6 @@ public partial class MainWindow
 {
     private DispatcherTimer? _customerUiTimer;
     private string _customerLastCellsRaw = string.Empty;
-    private string _customerLastUpdateRaw = string.Empty;
     private DateTime _customerLastDataUtc = DateTime.MinValue;
 
     private static readonly Brush LampOnBrush = new SolidColorBrush(Color.FromRgb(46, 190, 78));
@@ -204,20 +203,7 @@ public partial class MainWindow
         CustomerSerialText.Text = "BMS序列号：" + ExtractValue(text, @"序列号：([^\r\n]+)", "—");
     }
 
-    private void UpdateCustomerCommunicationIndicator()
-    {
-        string update = LastUpdateText.Text ?? string.Empty;
-        if (update != _customerLastUpdateRaw && !string.IsNullOrWhiteSpace(update) && update != "未读取")
-        {
-            _customerLastUpdateRaw = update;
-            _customerLastDataUtc = DateTime.UtcNow;
-        }
-
-        bool dataFresh = _customerLastDataUtc != DateTime.MinValue &&
-                         DateTime.UtcNow - _customerLastDataUtc < TimeSpan.FromSeconds(3.2);
-        bool show = _bms is not null && dataFresh && !_autoReconnectRunning && !_otaRunning;
-        CustomerCommStatusBorder.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-    }
+    private void UpdateCustomerCommunicationIndicator() => UpdateCommunicationStatus();
 
     private async void CustomerDisconnect_Click(object sender, RoutedEventArgs e)
     {

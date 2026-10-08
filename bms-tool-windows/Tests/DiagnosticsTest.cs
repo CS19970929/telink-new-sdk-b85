@@ -20,6 +20,7 @@ static class Test
         sleepWords[12]=1;
         try { BmsSleepStatus.Decode(sleepWords);throw new Exception("inconsistent sleep countdown accepted"); }
         catch(System.IO.InvalidDataException) {}
+        await CommunicationCountersTest.RunAsync();
         await SocInputRecordingTest.RunAsync();
         await DiagnosticSessionTest.RunAsync();
         Check(BmsClient.NormalizeLegacyCurrentTenthA(0,10)==10,"legacy discharge must normalize positive");
