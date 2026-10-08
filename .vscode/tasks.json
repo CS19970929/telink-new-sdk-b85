@@ -2,6 +2,26 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "BMS: 选择配置生成 BIN（单个或批量）",
+      "detail": "勾选产品、装配与开发/生产模式，可选择增量或全量编译；仅生成 BIN",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/bms_tools/select_firmware_build.ps1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+      },
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "focus": false, "panel": "dedicated", "clear": true},
+      "runOptions": {"instanceLimit": 1}
+    },
+    {
       "label": "BMS: 编译并发送固件到 Android",
       "detail": "选择产品/装配，生成并校验 production BIN，发送到 Android 并请求自动 OTA",
       "type": "process",

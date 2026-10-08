@@ -147,6 +147,34 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 
 ## 6. VS Code 一键编译、无线发送与 OTA
 
+### 快捷键与配置选择
+
+常规配置为 **6 种装配 × 开发/生产 2 种模式，共 12 种**。模式的优化与诊断差异见第 4 节；增量/全量编译只改变构建方式，不增加固件配置种类。
+
+| 装配 | 串数/体系 | 开发 BIN | 生产镜像批准状态 |
+|---|---|---|---|
+| D008 16S LFP | 16S 磷酸铁锂 | 可选择 | 已开放镜像生成 |
+| D008 20S NMC | 20S 三元锂 | 可选择 | 专项批准未开放 |
+| D008 24S LFP | 24S 磷酸铁锂 | 可选择 | 已开放镜像生成 |
+| D011 | 10S | 可选择 | 整体批准未开放 |
+| D013 | 4S | 可选择 | 整体/硬件配置批准未开放 |
+| D014 | 8S | 可选择 | 整体批准未开放 |
+
+本表描述源码门禁状态，不代表这 12 种配置都经过本次实际构建或实板验收。日志等级、保护台架开关和其他 `EXTRA_DEFINES` 属于额外自定义配置，不计入这 12 种常规配置，菜单不修改这些宏。
+
+| 快捷键 | 用途 | 操作 |
+|---|---|---|
+| `Ctrl+Alt+B` | 单个/批量生成 BIN | 勾选产品、装配和模式，点击“开始编译”；仅编译，不发送手机 |
+| `Ctrl+Shift+B` | 单个型号的一键 OTA | 选择型号/装配，沿用 production 编译、校验和无线发送流程 |
+
+`Ctrl+Alt+B` 在本机已绑定任务 **BMS: 选择配置生成 BIN（单个或批量）**。Windows 勾选窗口由 VS Code 启动，支持任意多个配置混选、“全部开发”“全部生产”和“清空选择”；默认只选 D008 16S production。可勾选“清理后全量重编译”，默认使用增量编译。取消窗口不构建、不发送。
+
+批量构建顺序执行；每项独立执行 build/rebuild、manifest、verify，并核对模式/产品/profile/路径与 BIN 大小及 SHA-256。单项失败继续其他项，末尾分别列出成功/失败项，任一失败则任务退出码非 0。旧 BIN 可能仍在磁盘，只以本次成功校验项作为有效结果。输出按 `firmware/<mode-profile>/<product>/` 分开，开发和生产不会互相覆盖。同一 checkout/模式/profile/产品仍不得与其他构建任务并发。
+
+VS Code 的自定义快捷键必须放在用户级配置，本仓库提供 [快捷键示例](../.vscode/keybindings.example.json)；换电脑时可将其条目加入 `Preferences: Open Keyboard Shortcuts (JSON)`，或通过 `Tasks: Run Task` 直接选择上述任务，不必写构建命令。其他电脑需要 Windows PowerShell 5.1/WinForms 和原 TC32/Python 环境。生产批准、干净提交和资源门禁继续适用，菜单不会自动提交或批准。
+
+### 单个型号一键 OTA
+
 打开仓库根目录或 `bms.code-workspace`，按 `Ctrl+Shift+B`。默认任务 **BMS: 编译并发送固件到 Android** 弹出型号/装配选择框，包含 D008 的三个 profile 及 D011/D013/D014，默认 D008 16S LFP。
 
 选定后，`bms_tools/android_ota.py` 显式指定产品、profile 和 `--production`，依次执行增量 `build --jobs 4`、`manifest`、`verify`。所有步骤成功且发送前产品/profile/路径、大小与 SHA-256 匹配，才将当前 `firmware/<mode-profile>/<product>/825x_ble_sample.bin` 交给既有 Android Sender 的 `--firmware ... --auto-ota`。任何构建、批准或校验失败都停止，不发送旧 BIN；取消选择不会启动任务。

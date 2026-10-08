@@ -30,23 +30,28 @@ def default_sender() -> Path:
 
 
 def run_workflow(target: str, sender: Path, *, build_only: bool = False,
-                 root: Path = ROOT) -> int:
+                 root: Path = ROOT, mode: str = "production",
+                 rebuild: bool = False) -> int:
+    if mode not in ("production", "development"):
+        raise ValueError("不支持的构建模式：" + mode)
     product, profile = TARGETS[target]
-    variant = "production" + ("-" + profile if profile else "")
+    variant = mode + ("-" + profile if profile else "")
     firmware = root / "firmware" / variant / product / "825x_ble_sample.bin"
     manifest = firmware.with_name("fw_manifest.json")
     if not build_only and not sender.is_file():
         raise ValueError("Android Sender 不存在；请安装原 Sender 或设置 BMS_ANDROID_SENDER：" + str(sender))
 
-    print(f"[OTA] 已选择 {target}；模式 production", flush=True)
+    print(f"[OTA] 已选择 {target}；模式 {mode}", flush=True)
     command = [sys.executable, str(root / "bms_tools/bms.py"),
-               "--product", product, "--production"]
+               "--product", product]
+    if mode == "production":
+        command.append("--production")
     if profile:
         command += ["--d008-profile", profile]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
     # build 为增量构建，内含批准、warning、资源、Telink checker/CRC 门禁。
     # 每一步检查退出码；旧 BIN 即使仍在磁盘也不能走到发送步骤。
-    for arguments in (["build", "--jobs", "4"], ["manifest"], ["verify"]):
+    for arguments in (["rebuild" if rebuild else "build", "--jobs", "4"], ["manifest"], ["verify"]):
         quiet = arguments == ["manifest"]
         result = subprocess.run(command + arguments, cwd=root, env=env,
                                 capture_output=quiet, text=True,
@@ -63,7 +68,8 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
     configuration = data.get("configuration", {})
     if (data.get("product") != product
             or configuration.get("product") != product
-            or configuration.get("production") is not True
+            or configuration.get("production") is not (mode == "production")
+            or configuration.get("build_mode") != mode
             or configuration.get("d008_profile") != profile
             or Path(data.get("bin", "")).resolve() != firmware.resolve()):
         raise ValueError("manifest 的产品、装配或镜像路径不匹配；没有发送固件。")
@@ -91,9 +97,12 @@ def main() -> int:
     parser.add_argument("--target", required=True, choices=TARGETS)
     parser.add_argument("--sender", type=Path, default=default_sender())
     parser.add_argument("--build-only", action="store_true", help="验证实际构建，不连接手机")
+    parser.add_argument("--mode", choices=("production", "development"), default="production")
+    parser.add_argument("--rebuild", action="store_true", help="清理后全量重编译")
     args = parser.parse_args()
     try:
-        return run_workflow(args.target, args.sender.resolve(), build_only=args.build_only)
+        return run_workflow(args.target, args.sender.resolve(), build_only=args.build_only,
+                            mode=args.mode, rebuild=args.rebuild)
     except (OSError, ValueError, KeyError) as exc:
         print(f"[OTA] ERROR: {exc}", file=sys.stderr)
         return 1

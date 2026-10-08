@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -410,16 +411,17 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
 
 
 class AndroidOtaWorkflowTests(unittest.TestCase):
-    def create_files(self, root, target):
+    def create_files(self, root, target, mode='production'):
         product, profile = android_ota.TARGETS[target]
-        variant = 'production' + ('-' + profile if profile else '')
+        variant = mode + ('-' + profile if profile else '')
         firmware = root / 'firmware' / variant / product / '825x_ble_sample.bin'
         firmware.parent.mkdir(parents=True)
         firmware.write_bytes(b'old-or-new-fixture')
         data = {'product': product, 'bin': str(firmware),
                 'size_bytes': firmware.stat().st_size,
                 'sha256': hashlib.sha256(firmware.read_bytes()).hexdigest(),
-                'configuration': {'product': product, 'production': True,
+                'configuration': {'product': product, 'production': mode == 'production',
+                                  'build_mode': mode,
                                   'd008_profile': profile}}
         manifest = firmware.with_name('fw_manifest.json')
         manifest.write_text(json.dumps(data), encoding='utf-8')
@@ -504,6 +506,65 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         self.assertEqual(default[0]['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
         selection = next(item for item in tasks['inputs'] if item['id'] == 'otaTarget')
         self.assertEqual({item['value'] for item in selection['options']}, set(android_ota.TARGETS))
+
+    def test_all_twelve_bin_configurations_use_separate_paths_and_the_selected_mode(self):
+        for mode in ('production', 'development'):
+            for target in android_ota.TARGETS:
+                with self.subTest(mode=mode, target=target), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    firmware, _, _, sender = self.create_files(root, target, mode)
+                    sender.unlink()
+                    with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                        self.assertEqual(android_ota.run_workflow(target, sender, root=root, mode=mode, build_only=True, rebuild=True), 0)
+                    commands = [call.args[0] for call in run.call_args_list]
+                    self.assertEqual(len(commands), 3)
+                    self.assertEqual(commands[0][-3:], ['rebuild', '--jobs', '4'])
+                    self.assertTrue(all(('--production' in command) == (mode == 'production') for command in commands))
+                    self.assertTrue(firmware.is_file())
+
+    def test_manifest_mode_mismatch_and_invalid_mode_stop_before_send(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, manifest, data, sender = self.create_files(root, 'd014')
+            data['configuration']['build_mode'] = 'development'
+            manifest.write_text(json.dumps(data), encoding='utf-8')
+            with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                with self.assertRaises(ValueError):
+                    android_ota.run_workflow('d014', sender, root=root)
+                self.assertEqual(run.call_count, 3)
+                run.reset_mock()
+                with self.assertRaises(ValueError):
+                    android_ota.run_workflow('d014', sender, root=root, mode='invalid')
+                run.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
+    def test_batch_picker_plans_all_configurations_without_building_or_sending(self):
+        script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
+        selections = [mode + ':' + target for mode in ('production', 'development')
+                      for target in android_ota.TARGETS]
+        # 参数都是受控常量；单引号加倍只用于仓库路径。
+        source = "& '" + str(script).replace("'", "''") + "' -PlanOnly -Rebuild -Configurations @("
+        source += ','.join("'" + selection + "'" for selection in selections) + ')'
+        result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
+                                 '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ' + source],
+                                capture_output=True, encoding='utf-8', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = json.loads(result.stdout)
+        self.assertEqual(len(commands), 12)
+        for entry, selection in zip(commands, selections):
+            mode, target = selection.split(':')
+            self.assertEqual(entry['Configuration'], selection)
+            self.assertEqual(entry['Arguments'], [str(REPO_ROOT / 'bms_tools/android_ota.py'), '--target', target,
+                                                 '--mode', mode, '--build-only', '--rebuild'])
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
+    def test_batch_picker_rejects_unknown_selection_before_starting_a_build(self):
+        script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
+        result = subprocess.run(['powershell.exe', '-NoProfile', '-File', str(script),
+                                 '-PlanOnly', '-Configurations', 'production:unknown'],
+                                capture_output=True, encoding='utf-8', errors='replace', timeout=15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Unknown build configuration', result.stderr)
 
 
 if __name__ == "__main__":
