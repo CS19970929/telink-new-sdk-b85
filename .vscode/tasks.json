@@ -2,8 +2,8 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "BMS: 选择配置生成 BIN（单个或批量）",
-      "detail": "勾选产品、装配与开发/生产模式，可选择增量或全量编译；仅生成 BIN",
+      "label": "BMS: 选择配置编译并发送 OTA",
+      "detail": "选择开发/生产配置，编译校验后发送安卓并请求 OTA；多选时再选一份用于升级",
       "type": "process",
       "command": "powershell.exe",
       "args": [

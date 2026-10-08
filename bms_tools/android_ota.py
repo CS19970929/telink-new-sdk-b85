@@ -31,7 +31,9 @@ def default_sender() -> Path:
 
 def run_workflow(target: str, sender: Path, *, build_only: bool = False,
                  root: Path = ROOT, mode: str = "production",
-                 rebuild: bool = False) -> int:
+                 rebuild: bool = False, send_only: bool = False) -> int:
+    if send_only and build_only:
+        raise ValueError("仅构建和仅发送不能同时使用。")
     if mode not in ("production", "development"):
         raise ValueError("不支持的构建模式：" + mode)
     product, profile = TARGETS[target]
@@ -51,7 +53,9 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
     env = dict(os.environ, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
     # build 为增量构建，内含批准、warning、资源、Telink checker/CRC 门禁。
     # 每一步检查退出码；旧 BIN 即使仍在磁盘也不能走到发送步骤。
-    for arguments in (["rebuild" if rebuild else "build", "--jobs", "4"], ["manifest"], ["verify"]):
+    stages = (["verify"],) if send_only else (
+        ["rebuild" if rebuild else "build", "--jobs", "4"], ["manifest"], ["verify"])
+    for arguments in stages:
         quiet = arguments == ["manifest"]
         result = subprocess.run(command + arguments, cwd=root, env=env,
                                 capture_output=quiet, text=True,
@@ -96,13 +100,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True, choices=TARGETS)
     parser.add_argument("--sender", type=Path, default=default_sender())
-    parser.add_argument("--build-only", action="store_true", help="验证实际构建，不连接手机")
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--build-only", action="store_true", help="验证实际构建，不连接手机")
+    operation.add_argument("--send-only", action="store_true", help="重新校验当前镜像并发送，不重复构建")
     parser.add_argument("--mode", choices=("production", "development"), default="production")
     parser.add_argument("--rebuild", action="store_true", help="清理后全量重编译")
     args = parser.parse_args()
     try:
         return run_workflow(args.target, args.sender.resolve(), build_only=args.build_only,
-                            mode=args.mode, rebuild=args.rebuild)
+                            mode=args.mode, rebuild=args.rebuild, send_only=args.send_only)
     except (OSError, ValueError, KeyError) as exc:
         print(f"[OTA] ERROR: {exc}", file=sys.stderr)
         return 1

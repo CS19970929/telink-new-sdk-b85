@@ -3,7 +3,8 @@
 param(
     [string[]]$Configurations,
     [switch]$Rebuild,
-    [switch]$PlanOnly
+    [switch]$PlanOnly,
+    [switch]$BuildOnly
 )
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
@@ -32,7 +33,7 @@ if (-not $Configurations) {
     Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'BMS 单个 / 批量 BIN 编译'
+    $form.Text = 'BMS 编译、发送安卓与 OTA'
     $form.ClientSize = New-Object System.Drawing.Size(560, 480)
     $form.StartPosition = 'CenterScreen'
     $form.FormBorderStyle = 'FixedDialog'
@@ -42,7 +43,7 @@ if (-not $Configurations) {
     $form.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 10)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = '勾选一个或多个配置，自动生成 BIN 和校验清单；此入口不发送 OTA。'
+    $hint.Text = '单选：编译校验后自动发送并 OTA。多选：全部生成后再选一份用于 OTA。'
     $hint.SetBounds(16, 12, 528, 44)
     $form.Controls.Add($hint)
     $list = New-Object System.Windows.Forms.CheckedListBox
@@ -87,7 +88,7 @@ if (-not $Configurations) {
     $note.SetBounds(16, 412, 528, 26)
     $form.Controls.Add($note)
     $start = New-Object System.Windows.Forms.Button
-    $start.Text = '开始编译'
+    $start.Text = '编译并 OTA'
     $start.SetBounds(306, 442, 112, 30)
     $start.Add_Click({
         if ($list.CheckedIndices.Count -eq 0) {
@@ -148,5 +149,67 @@ Write-Host "完成：成功 $($succeeded.Count)，失败 $($failed.Count)。"
 foreach ($configuration in $succeeded) { Write-Host "BIN 已校验：$configuration" }
 foreach ($configuration in $failed) { Write-Host "失败（不作为本次有效镜像）：$configuration" }
 Write-Host "输出目录：$(Join-Path $repositoryRoot 'firmware')"
+if (-not $BuildOnly -and $succeeded.Count -gt 0) {
+    $otaConfiguration = $null
+    if ($commands.Count -eq 1) {
+        $otaConfiguration = $succeeded[0]
+    } else {
+        # 多选是生成多个镜像，不代表授权给当前连接的同一板卡逐个刷入。
+        # 下拉框只列本次成功项；即使仅剩一项成功也由用户明确选择。
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+        $otaForm = New-Object System.Windows.Forms.Form
+        $otaForm.Text = '选择本次用于 OTA 的固件'
+        $otaForm.ClientSize = New-Object System.Drawing.Size(540, 160)
+        $otaForm.StartPosition = 'CenterScreen'
+        $otaForm.FormBorderStyle = 'FixedDialog'
+        $otaForm.MaximizeBox = $false
+        $otaForm.MinimizeBox = $false
+        $otaForm.TopMost = $true
+        $otaForm.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 10)
+        $otaHint = New-Object System.Windows.Forms.Label
+        $otaHint.Text = '选择与安卓 App 当前连接的 BMS 相符的一份固件。'
+        $otaHint.SetBounds(16, 12, 508, 32)
+        $otaForm.Controls.Add($otaHint)
+        $otaList = New-Object System.Windows.Forms.ComboBox
+        $otaList.DropDownStyle = 'DropDownList'
+        $otaList.SetBounds(16, 48, 508, 32)
+        foreach ($configuration in $succeeded) { [void]$otaList.Items.Add($configuration) }
+        $otaList.SelectedIndex = -1
+        $otaForm.Controls.Add($otaList)
+        $otaStart = New-Object System.Windows.Forms.Button
+        $otaStart.Text = '发送并 OTA'
+        $otaStart.SetBounds(270, 108, 120, 34)
+        $otaStart.Add_Click({
+            if ($otaList.SelectedIndex -lt 0) {
+                [void][System.Windows.Forms.MessageBox]::Show('请选择一份用于 OTA 的固件。', 'BMS')
+                return
+            }
+            $otaForm.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $otaForm.Close()
+        })
+        $otaForm.Controls.Add($otaStart)
+        $otaCancel = New-Object System.Windows.Forms.Button
+        $otaCancel.Text = '仅保留 BIN'
+        $otaCancel.SetBounds(404, 108, 120, 34)
+        $otaCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $otaForm.Controls.Add($otaCancel)
+        $otaForm.AcceptButton = $otaStart
+        $otaForm.CancelButton = $otaCancel
+        try {
+            if ($otaForm.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                $otaConfiguration = [string]$otaList.SelectedItem
+            } else {
+                Write-Host '已取消发送，生成的 BIN 保留。'
+            }
+        } finally { $otaForm.Dispose() }
+    }
+    if ($otaConfiguration) {
+        $otaChoice = @($choices | Where-Object { $_.Id -eq $otaConfiguration })[0]
+        $otaArguments = @($workflow, '--target', $otaChoice.Target, '--mode', $otaChoice.Mode, '--send-only')
+        & python @otaArguments
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+}
 if ($failed.Count -gt 0) { exit 1 }
 exit 0

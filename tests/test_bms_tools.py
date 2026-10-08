@@ -503,7 +503,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         default = [task for task in tasks['tasks'] if isinstance(task.get('group'), dict)
                    and task['group'].get('isDefault')]
         self.assertEqual(len(default), 1)
-        self.assertEqual(default[0]['label'], 'BMS: 选择配置生成 BIN（单个或批量）')
+        self.assertEqual(default[0]['label'], 'BMS: 选择配置编译并发送 OTA')
         self.assertEqual(default[0]['args'][-1], '${workspaceFolder}/bms_tools/select_firmware_build.ps1')
         ota = next(task for task in tasks['tasks'] if task['label'] == 'BMS: 编译并发送固件到 Android')
         self.assertEqual(ota['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
@@ -539,6 +539,61 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     android_ota.run_workflow('d014', sender, root=root, mode='invalid')
                 run.assert_not_called()
+
+    def test_send_only_revalidates_without_rebuilding_and_requests_auto_ota(self):
+        for mode in ('production', 'development'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                firmware, _, _, sender = self.create_files(root, 'd008-16s-lfp', mode)
+                with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                    self.assertEqual(android_ota.run_workflow('d008-16s-lfp', sender, root=root, mode=mode, send_only=True), 0)
+                self.assertEqual(run.call_count, 2)
+                self.assertEqual(run.call_args_list[0].args[0][-1], 'verify')
+                self.assertEqual(run.call_args_list[1].args[0], [str(sender), '--firmware', str(firmware), '--auto-ota'])
+
+    def test_send_only_verification_failure_never_calls_sender(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, _, sender = self.create_files(root, 'd014')
+            with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=8)) as run, mock.patch('builtins.print'):
+                self.assertEqual(android_ota.run_workflow('d014', sender, root=root, send_only=True), 8)
+                self.assertEqual(run.call_count, 1)
+                run.reset_mock()
+                with self.assertRaises(ValueError):
+                    android_ota.run_workflow('d014', sender, root=root, send_only=True, build_only=True)
+                run.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
+    def test_picker_single_selection_builds_then_sends_and_failed_build_stops(self):
+        script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
+        for code, expected_calls in ((0, 2), (7, 1)):
+            with self.subTest(code=code):
+                # 用 PowerShell 函数替代 Python 进程，验证真实菜单调度，不碰手机。
+                source = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); '
+                source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); '
+                source += '$global:LASTEXITCODE = ' + str(code) + ' }; '
+                source += "& '" + str(script).replace("'", "''") + "' -Configurations 'development:d014'"
+                result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
+                                        capture_output=True, encoding='utf-8', timeout=15)
+                self.assertEqual(result.returncode, 0 if code == 0 else 1)
+                calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
+                self.assertEqual(len(calls), expected_calls)
+                self.assertEqual(calls[0][-1], '--build-only')
+                if code == 0:
+                    self.assertEqual(calls[1], [str(REPO_ROOT / 'bms_tools/android_ota.py'), '--target', 'd014', '--mode', 'development', '--send-only'])
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
+    def test_picker_batch_build_only_suppresses_sending_and_ota_selection(self):
+        script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
+        source = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); '
+        source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); $global:LASTEXITCODE = 0 }; '
+        source += "& '" + str(script).replace("'", "''") + "' -BuildOnly -Configurations @('development:d014','production:d008-16s-lfp')"
+        result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
+                                capture_output=True, encoding='utf-8', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(call[-1] == '--build-only' for call in calls))
 
     @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
     def test_batch_picker_plans_all_configurations_without_building_or_sending(self):

@@ -2,7 +2,7 @@
   {
     "key": "ctrl+shift+b",
     "command": "workbench.action.tasks.runTask",
-    "args": "BMS: 选择配置生成 BIN（单个或批量）",
+    "args": "BMS: 选择配置编译并发送 OTA",
     "when": "workspaceFolderCount > 0"
   }
 ]
