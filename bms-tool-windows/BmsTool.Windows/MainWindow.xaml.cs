@@ -323,7 +323,9 @@ public partial class MainWindow : Window
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         BatterySnapshot snapshot = await bms.ReadBatteryAsync();
+        if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
+        await RefreshSleepStatusAsync(bms);
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)

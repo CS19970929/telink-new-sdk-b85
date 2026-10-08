@@ -115,6 +115,7 @@ public partial class MainWindow
         _socChart.SizeChanged+=(_,_)=>RenderSocChart();
         _diagTimer=new DispatcherTimer {Interval=TimeSpan.FromSeconds(1)};
         _diagTimer.Tick+=async (_,_)=> {
+            RefreshSleepStatusFreshness();
             if(_bms is null) { _diagProbedClient=null;_diagCts?.Cancel();ObservationGap("disconnected");return; }
             if(_observationSession is not null && !_diagBusy && (_otaRunning || _autoReconnectRunning || _shBusy || ShFactoryBusy()))
                 ObservationGap("paused_for_other_operation");
@@ -154,6 +155,8 @@ public partial class MainWindow
             if(!ReferenceEquals(client,_bms)) { result.Errors.Add("采集期间连接改变");result.Status="旧连接的部分证据";ObservationGap("connection_changed_during_capture"); }
             var health=BmsHealth.Evaluate(result,identity,battery);
             _diagCapture=result;_diagHealthReport=health;_diagProbedClient=client;
+            if (result.EvidenceBlocks.TryGetValue("Sleep", out var sleepWords))
+                ApplySleepStatus(client, BmsSleepStatus.Decode(sleepWords));
             _diagHealth.ItemsSource=health.Checks;
             _diagCurrent.ItemsSource=result.Current;_diagSoc.ItemsSource=result.Soc;
             _diagPower.ItemsSource=result.Power;_diagProtection.ItemsSource=result.Protection;

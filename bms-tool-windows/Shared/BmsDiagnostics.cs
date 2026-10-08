@@ -429,3 +429,56 @@ public static class BmsDiagnostics
         Add("raw_frames.json",c.Frames);
     }
 }
+
+/// <summary>固件电源路径发布的只读观察值，倒计时不由 PC 推进。</summary>
+public sealed record BmsSleepStatus(ushort State, ushort Reason, bool SuspendAllowed,
+    uint BlockMask, uint ElapsedMs, uint DelayMs, uint RemainingMs, uint RetryMs,
+    uint UpdatedTick32k, uint ReadTick32k)
+{
+    public const ushort Base = 0x3300, WordCount = 20, Capability = 0x0040;
+    public bool Fresh => unchecked(ReadTick32k - UpdatedTick32k) <= 5u * 32000u;
+    public string ReasonText => Reason switch {
+        0 => "未满足深睡/关机条件", 1 => "收到关机命令", 2 => "ACC关闭",
+        3 => "开关关闭", 4 => "单体电压低于2550 mV", 5 => "单体电压低于低压休眠阈值",
+        6 => "单体低压且无充电", 7 => "AFE通信异常持续", _ => $"未知原因({Reason})" };
+    public string StateText => State switch {
+        0 => "电源状态尚未发布", 1 => "暂不准备深睡/关机", 2 => "正在倒计时",
+        3 => RemainingMs == 0 && Reason != 0 ? "时间已到，但休眠被阻止" : "休眠被阻止",
+        4 => "时间已到，等待执行", 5 => "等待失败重试",
+        6 => "已提交入睡/关机动作", _ => $"未知状态({State})" };
+    public string BlockText {
+        get {
+            string[] names = { "OTA进行中", "Flash未锁定", "总线忙", "等待BLE断开或应答发送完成",
+                "产品固定UART门禁", "UART/RS485正在发送", "唤醒引脚处于有效电平",
+                "采样无效或过期", "保存状态/事件失败", "AFE休眠/关断失败", "BLE广播控制失败" };
+            var reasons = new List<string>();
+            for (int i = 0; i < names.Length; i++)
+                if ((BlockMask & (1u << i)) != 0) reasons.Add(names[i]);
+            if ((BlockMask & ~0x7FFu) != 0) reasons.Add($"未知位0x{BlockMask & ~0x7FFu:X8}");
+            return reasons.Count == 0 ? "无" : string.Join("；", reasons);
+        }
+    }
+    public static string Duration(uint ms) {
+        ulong seconds = ((ulong)ms + 999u) / 1000u;
+        if (ms != 0 && ms < 1000) return $"{ms} ms";
+        return seconds >= 3600 ? $"{seconds / 3600}小时{seconds % 3600 / 60}分{seconds % 60}秒" :
+            seconds >= 60 ? $"{seconds / 60}分{seconds % 60}秒" : $"{seconds}秒";
+    }
+    public string Summary => $"深睡/关机：{StateText}；原因：{ReasonText}\n" +
+        (Reason == 0 ? "尚未开始倒计时" :
+            $"已累计 {Duration(ElapsedMs)} / 设定 {Duration(DelayMs)}；距计时到期 {Duration(RemainingMs)}") +
+        $"\n阻止原因：{BlockText}" + (RetryMs == 0 ? "" : $"；重试等待 {Duration(RetryMs)}") +
+        $"\n普通suspend：{(SuspendAllowed ? "策略允许" : "策略禁止")}";
+    public static BmsSleepStatus Decode(ushort[] words) {
+        if (words.Length != WordCount || words[0] != 0x534C || words[1] != 1)
+            throw new System.IO.InvalidDataException("休眠状态格式或版本不支持");
+        var result = new BmsSleepStatus(words[2], words[3], (words[4] & 1) != 0,
+            BmsDiagnostics.U32(words, 6), BmsDiagnostics.U32(words, 8),
+            BmsDiagnostics.U32(words, 10), BmsDiagnostics.U32(words, 12),
+            BmsDiagnostics.U32(words, 14), BmsDiagnostics.U32(words, 16), BmsDiagnostics.U32(words, 18));
+        if (result.State > 6 || result.Reason > 7 || result.RemainingMs > result.DelayMs ||
+            result.RemainingMs != (result.ElapsedMs < result.DelayMs ? result.DelayMs - result.ElapsedMs : 0u))
+            throw new System.IO.InvalidDataException("休眠状态字段不一致");
+        return result;
+    }
+}

@@ -2,6 +2,22 @@ using System.IO;
 namespace BmsTool.Windows;
 public sealed partial class BmsClient
 {
+    private bool? _sleepStatusSupported;
+    public async Task<BmsSleepStatus?> ReadSleepStatusAsync(CancellationToken ct = default)
+    {
+        if (_sleepStatusSupported is null) {
+            try {
+                var header = await ReadRegistersAsync(BmsDiagnostics.Base, 3, ct);
+                _sleepStatusSupported = header[0] == BmsDiagnostics.Magic && header[1] == BmsDiagnostics.Schema &&
+                    (header[2] & BmsSleepStatus.Capability) != 0;
+            }
+            catch (BmsModbusException ex) when (ex.Function == 0x03 && ex.Code is 1 or 2) {
+                _sleepStatusSupported = false;
+            }
+        }
+        if (_sleepStatusSupported != true) return null;
+        return BmsSleepStatus.Decode(await ReadRegistersAsync(BmsSleepStatus.Base, BmsSleepStatus.WordCount, ct));
+    }
     public async Task<uint?> TryReadFirmwareBuildIdAsync(CancellationToken ct=default)
     {
         try
@@ -50,6 +66,22 @@ public sealed partial class BmsClient
             ushort[] tail=await Read(BmsDiagnostics.Base,16);
             Array.Copy(tail,words,16);
             BmsDiagnostics.Decode(c,words);
+            if ((header[2] & BmsSleepStatus.Capability) != 0) {
+                try {
+                    var sleepWords = await Read(BmsSleepStatus.Base, BmsSleepStatus.WordCount);
+                    var sleep = BmsSleepStatus.Decode(sleepWords);
+                    c.EvidenceBlocks["Sleep"] = sleepWords;
+                    c.Power.Add(new DiagnosticField("休眠实时状态", sleep.Fresh ? sleep.StateText : "数据过期，状态未知"));
+                    c.Power.Add(new DiagnosticField("休眠原因", sleep.ReasonText));
+                    c.Power.Add(new DiagnosticField("已累计时间", BmsSleepStatus.Duration(sleep.ElapsedMs)));
+                    c.Power.Add(new DiagnosticField("设定延时", BmsSleepStatus.Duration(sleep.DelayMs)));
+                    c.Power.Add(new DiagnosticField("距计时到期", BmsSleepStatus.Duration(sleep.RemainingMs)));
+                    c.Power.Add(new DiagnosticField("阻止原因", sleep.BlockText));
+                    c.Power.Add(new DiagnosticField("重试等待", BmsSleepStatus.Duration(sleep.RetryMs)));
+                } catch (Exception ex) when (ex is not OperationCanceledException) {
+                    c.Errors.Add("Sleep: " + ex.Message);
+                }
+            }
             c.SnapshotConsistent=(words[3]&1)!=0 && unchecked(BmsDiagnostics.U32(tail,6)-BmsDiagnostics.U32(header,6))<=60u*32000u;
             if(!c.SnapshotConsistent)c.Errors.Add("启动快照尚未冻结或采集期间设备重启；请重新采集");
             if(includeTrace && (header[2]&2)!=0) {

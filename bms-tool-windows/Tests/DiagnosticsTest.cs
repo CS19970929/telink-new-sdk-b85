@@ -7,6 +7,19 @@ static class Test
     static void Check(bool ok,string why) {if(!ok)throw new Exception(why);}
     static async Task Main()
     {
+        var sleepWords = new ushort[20];
+        sleepWords[0]=0x534C;sleepWords[1]=1;sleepWords[2]=3;sleepWords[3]=5;
+        sleepWords[6]=16;sleepWords[8]=12000;sleepWords[10]=60000;sleepWords[12]=48000;
+        sleepWords[16]=0xFFF0;sleepWords[17]=0xFFFF;sleepWords[18]=32;
+        var sleep=BmsSleepStatus.Decode(sleepWords);
+        Check(sleep.Fresh && sleep.RemainingMs==48000 && sleep.BlockText.Contains("固定UART"),
+            "sleep countdown, block reasons and 32K wrap");
+        Check(BmsSleepStatus.Duration(86400000)=="24小时0分0秒", "sleep duration beyond ushort range");
+        sleepWords[18]=0;sleepWords[19]=3;
+        Check(!BmsSleepStatus.Decode(sleepWords).Fresh, "stale sleep snapshot is unknown");
+        sleepWords[12]=1;
+        try { BmsSleepStatus.Decode(sleepWords);throw new Exception("inconsistent sleep countdown accepted"); }
+        catch(System.IO.InvalidDataException) {}
         await SocInputRecordingTest.RunAsync();
         await DiagnosticSessionTest.RunAsync();
         Check(BmsClient.NormalizeLegacyCurrentTenthA(0,10)==10,"legacy discharge must normalize positive");
