@@ -32,6 +32,11 @@ static class MosMonitorUiTest
         var client = new BmsClient(new NoIoTransport());
         Set(window, "_bms", client);
         Call(window, "SetMosIdentity", client, new DeviceIdentity("mock", "UI-test", "D011", "test", "mock"));
+        // 使用同一实际 writer，把模拟记录限制在测试证据目录，不混入用户监控记录。
+        string testParent = args.Length > 0 ? Path.Combine(args[0], "journals") :
+            Path.Combine(Path.GetTempPath(), "BmsMonitorUi", Guid.NewGuid().ToString("N"));
+        var testJournal = new BmsMosJournal(testParent);
+        Set(window, "_mosJournal", testJournal); Set(window, "_mosDirectory", testJournal.DirectoryPath);
         Call(window, "ApplyBatterySnapshot", new BatterySnapshot { SystemStatus = 12, MinCellMv = 3300, MaxCellMv = 3301 });
         Call(window, "ApplyBatterySnapshot", new BatterySnapshot { SystemStatus = 8, MinCellMv = 3300, MaxCellMv = 3301 });
         string directory = (string)Get(window, "_mosDirectory")!;
@@ -64,6 +69,36 @@ static class MosMonitorUiTest
                 var bitmap = new RenderTargetBitmap(size.Item1,size.Item2,96,96,PixelFormats.Pbgra32); bitmap.Render(content);
                 var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
                 using var file = File.Create(Path.Combine(args[0],$"mos-{size.Item1}-{size.Item2}.png")); encoder.Save(file);
+            }
+        }
+        var openWirePage = tabs.Items.OfType<TabItem>().Single(t => t.Header?.ToString() == "断线检测");
+        tabs.SelectedItem = openWirePage;
+        var openWirePanel = (DockPanel)openWirePage.Content;
+        var openWireAuto = openWirePanel.Children.OfType<CheckBox>().Single();
+        Check(openWireAuto.IsChecked == true, "open-wire monitoring visible and enabled by default");
+        openWireAuto.IsChecked = false;
+        Check(((CheckBox)Get(window, "_mosAuto")!).IsChecked == false, "open-wire shares actual monitor lifecycle and OTA cancellation");
+        openWireAuto.IsChecked = true;
+        var owWords = new ushort[48]; owWords[0] = 0x4F57; owWords[1] = 1; owWords[2] = 2;
+        owWords[3] = 2; owWords[4] = 48; owWords[16] = owWords[18] = 2; owWords[30] = 3; owWords[31] = 20;
+        owWords[32] = (ushort)(300000u & 0xFFFFu); owWords[33] = (ushort)(300000u >> 16); owWords[46] = 800;
+        var demonstration = BmsOpenWireStatus.Decode(owWords);
+        ((TextBlock)Get(window,"_openWireStatus")!).Text = "离屏布局测试：模拟数据，无实板通信\n" + demonstration.Summary;
+        ((TextBlock)Get(window,"_openWirePath")!).Text = "测试记录：" + directory;
+        var rowType = typeof(MainWindow).GetNestedType("OpenWireRow", BindingFlags.NonPublic)!;
+        ((IList)Get(window,"_openWireRows")!).Add(Activator.CreateInstance(rowType,
+            new object[] { "22:00:00.000", demonstration.StateText, demonstration.Summary })!);
+        foreach (var size in new[] { (1360,900), (1180,760) }) foreach (double scale in new[] { 1d,1.25,1.5 }) {
+            content.LayoutTransform = new ScaleTransform(scale,scale);
+            content.Measure(new Size(size.Item1,size.Item2)); content.Arrange(new Rect(0,0,size.Item1,size.Item2)); content.UpdateLayout();
+            var state = (TextBlock)Get(window,"_openWireStatus")!;
+            Check(openWirePage.IsSelected && state.ActualHeight > 0 && openWirePanel.Children.OfType<DataGrid>().Single().ActualHeight > 100,
+                "open-wire status and history visible at supported sizes/scales");
+            Console.WriteLine($"PASS OpenWire UI layout {size.Item1}x{size.Item2} scale={scale}");
+            if (args.Length > 0 && scale == 1) {
+                var bitmap = new RenderTargetBitmap(size.Item1,size.Item2,96,96,PixelFormats.Pbgra32); bitmap.Render(content);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var file = File.Create(Path.Combine(args[0],$"openwire-{size.Item1}-{size.Item2}.png")); encoder.Save(file);
             }
         }
         Console.WriteLine("MOS UI journal: " + directory);

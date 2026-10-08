@@ -39,6 +39,7 @@ public partial class MainWindow
         AddParameterTab();
         AddRuntimeLogTab();
         AddMosMonitorTab();
+        AddOpenWireTab();
         var root=new DockPanel {Margin=new Thickness(12)};
         var controls=new WrapPanel {Orientation=Orientation.Horizontal};
         var read=new Button {Content="读取完整诊断",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};

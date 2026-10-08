@@ -66,6 +66,16 @@ public sealed partial class BmsClient
             ushort[] tail=await Read(BmsDiagnostics.Base,16);
             Array.Copy(tail,words,16);
             BmsDiagnostics.Decode(c,words);
+            if ((header[2] & BmsOpenWireStatus.Capability) != 0) {
+                try {
+                    var openWireWords = await Read(BmsOpenWireStatus.Base, BmsOpenWireStatus.WordCount);
+                    var openWire = BmsOpenWireStatus.Decode(openWireWords);
+                    c.EvidenceBlocks["OpenWire"] = openWireWords;
+                    c.Protection.Add(new DiagnosticField("断线检测", openWire.Summary));
+                } catch (Exception ex) when (ex is not OperationCanceledException) {
+                    c.Errors.Add("OpenWire: " + ex.Message);
+                }
+            }
             if ((header[2] & BmsSleepStatus.Capability) != 0) {
                 try {
                     var sleepWords = await Read(BmsSleepStatus.Base, BmsSleepStatus.WordCount);

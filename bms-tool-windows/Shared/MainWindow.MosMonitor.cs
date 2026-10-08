@@ -162,6 +162,7 @@ public partial class MainWindow
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         _mosCts = cts;
         try {
+            await RefreshOpenWireAsync(client, cts.Token);
             var capture = await client.ReadMosHistoryAsync(_mosSequence, _mosBootTick, _mosBuildId, cts.Token);
             if (_mosClosed || !ReferenceEquals(client, _bms) || !ReferenceEquals(client, _mosClient)) return;
             if (capture.Reset) { NoteMosGap("固件重启或序号回退"); _mosPrevious = null; }

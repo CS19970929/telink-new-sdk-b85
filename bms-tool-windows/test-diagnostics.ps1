@@ -6,5 +6,8 @@ foreach ($file in @("Shared/SocInputRecording.cs", "Tests/SocInputRecordingTest.
     Copy-Item -LiteralPath (Join-Path $root $file) -Destination $testRoot
 }
 '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup></Project>' | Set-Content -LiteralPath (Join-Path $testRoot 'Test.csproj') -Encoding utf8
+foreach ($file in @('Shared/BmsOpenWire.cs', 'Tests/OpenWireTest.cs')) {
+    Copy-Item -LiteralPath (Join-Path $root $file) -Destination $testRoot
+}
 & dotnet run --project (Join-Path $testRoot 'Test.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Diagnostics tests failed' }
