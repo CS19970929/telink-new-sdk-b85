@@ -608,10 +608,13 @@ static uint8_t publish_measurements(void)
     sh3673520_temperature_raw_t temp;
     sh3673510_control_status_t status;
     bms_sw_protection_inputs_t sw;
+    bms_features_status_t features;
     uint16_t max_mv = 0u, min_mv = 0xFFFFu;
     uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t max_pos = 0u, min_pos = 0u, i;
     uint32_t now;
+
+    bms_features_get_status(&features);
 
     if (!sh3673510_control_wake()) return 0u;
     if (s_sampling_restart) restart_sampling();
@@ -648,7 +651,7 @@ static uint8_t publish_measurements(void)
         return 1u;
     }
 
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) {
+    if ((status.flag2 & SH3673520_FLAG2_VADC_MASK) && !features.openwire_sample_active) {
         for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
             uint16_t mv;
             mv = (uint16_t)cell[i];
@@ -748,6 +751,7 @@ static uint8_t publish_measurements(void)
 
     if (!s_afe_reconfigure_required) {
         memset(&sw, 0, sizeof(sw));
+        sw.voltage_sample_diagnostic = features.openwire_sample_active;
         sw.current_recovery_requires_evidence = 1u;
         sw.current_recovery_sample_fresh = !s_sample_pending;
         sw.charge_recovery_allowed =

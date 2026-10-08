@@ -88,6 +88,9 @@ typedef struct {
     uint8_t valid;
     uint8_t determinate;
     uint8_t cell_count;
+    uint8_t phase_coverage;
+    uint8_t error;
+    uint32_t raw_phase[2];
     uint32_t open_cell_mask;
     uint16_t diagnostic_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
 } bms_afe_openwire_result_t;
@@ -101,6 +104,8 @@ uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
 /* 门禁允许时启动后端断线检测。 */
 uint8_t bms_afe_openwire_start(void);
+/* 撤销诊断激励，不写 MOS；失败保留待清理状态。 */
+uint8_t bms_afe_openwire_stop(void);
 /* 通过 guard 推进后端断线检测阶段。 */
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *result);
 

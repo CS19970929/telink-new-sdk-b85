@@ -113,6 +113,11 @@ uint8_t dvc1124_backend_openwire_start(void)
     return DVC1124_OpenWireBegin();
 }
 
+uint8_t dvc1124_backend_openwire_stop(void)
+{
+    return DVC1124_OpenWireStop();
+}
+
 /* 推进后端断线检测并返回阶段或结果。 */
 bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *out)
 {
@@ -122,13 +127,17 @@ bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *ou
     DVC1124_OpenWireGetResult(&raw);
     if (raw.state == DVC1124_OPENWIRE_WAITING) return BMS_AFE_DIAG_BUSY;
     if (raw.state == DVC1124_OPENWIRE_IDLE) return BMS_AFE_DIAG_IDLE;
-    if (raw.state == DVC1124_OPENWIRE_ERROR) { DVC1124_OpenWireReset(); return BMS_AFE_DIAG_ERROR; }
+    if (raw.state == DVC1124_OPENWIRE_ERROR) {
+        if (out != 0) out->error = raw.error;
+        return BMS_AFE_DIAG_ERROR;
+    }
     if (raw.state != DVC1124_OPENWIRE_READY) return BMS_AFE_DIAG_ERROR;
     if (out != 0) {
         memset(out, 0, sizeof(*out));
         out->valid = raw.valid;
         out->cell_count = raw.cell_count;
         out->determinate = raw.valid ? 1u : 0u;
+        out->phase_coverage = raw.valid ? 1u : 0u;
         out->open_cell_mask = 0u;
         for (i = 0u; i < raw.cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
         {
@@ -142,6 +151,5 @@ bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *ou
                 out->open_cell_mask |= (1uL << i);
         }
     }
-    DVC1124_OpenWireReset();
     return BMS_AFE_DIAG_READY;
 }

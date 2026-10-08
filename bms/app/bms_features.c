@@ -17,8 +17,6 @@
 
 #define BMS_OPENWIRE_FIRST_IDLE_SAMPLES \
     ((BMS_OPENWIRE_FIRST_IDLE_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
-#define BMS_OPENWIRE_PERIOD_SAMPLES \
-    ((BMS_OPENWIRE_PERIOD_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
 #define BMS_BALANCE_TRUST_CONFIRM_SAMPLES \
     ((BMS_BALANCE_TRUST_CONFIRM_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
 
@@ -34,9 +32,24 @@ typedef struct {
     uint8_t openwire_sample_active;
     uint8_t openwire_fault_latched;
     uint8_t openwire_suspected;
+    uint8_t openwire_cell_count;
     uint16_t openwire_idle_samples;
-    uint16_t openwire_cooldown_samples;
     bms_afe_openwire_result_t openwire_result;
+    uint8_t openwire_cleanup_pending;
+    uint8_t openwire_state;
+    uint8_t openwire_last_error;
+    uint8_t openwire_failure_error;
+    uint32_t openwire_sequence;
+    uint32_t openwire_started_tick;
+    uint32_t openwire_finished_tick;
+    uint32_t openwire_healthy_tick;
+    uint32_t openwire_failure_tick;
+    uint32_t openwire_wait_tick;
+    uint32_t openwire_wait_ms;
+    uint32_t openwire_attempts;
+    uint32_t openwire_completed;
+    uint32_t openwire_failed;
+    uint32_t openwire_latched_mask;
 
     uint8_t balance_active;
     uint8_t balance_voltage_trusted;
@@ -247,7 +260,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    /* 断线诊断拥有短时硬隔离窗口；已请求预热时保留请求，诊断结束后恢复。 */
+    /* 检测不写 MOS；温度保护照常评估，暂缓新加热周期。 */
     if (s_feature.openwire_active)
     {
         set_heater(0u);
@@ -327,7 +340,7 @@ static uint8_t openwire_hard_fault(void)
 /* 检查采样、负载和保护状态是否允许断线检测。 */
 static uint8_t openwire_eligible(void)
 {
-    if (s_feature.heater_on) return 0u;
+    if (s_feature.heater_state != BMS_HEATER_IDLE) return 0u;
     if (g_bms_report.charge_current_a10 || g_bms_report.discharge_current_a10) return 0u;
     return openwire_hard_fault() ? 0u : 1u;
 }
@@ -367,85 +380,160 @@ static uint8_t apply_balance_mask(uint32_t desired)
     return 1u;
 }
 
-/* 按采样可信度推进非阻塞 Open-Wire 阶段；可疑状态与已确认断线必须区分。 */
+/* 32 kHz SDK tick 实际为每毫秒 32 个计数；无符号差值允许一次回绕。 */
+static uint32_t openwire_wait_remaining(uint32_t now)
+{
+    uint32_t elapsed = (uint32_t)(now - s_feature.openwire_wait_tick) / 32u;
+    return elapsed < s_feature.openwire_wait_ms ? s_feature.openwire_wait_ms - elapsed : 0u;
+}
+
+static void openwire_put32(uint16_t *p, uint32_t v)
+{
+    p[0] = (uint16_t)v; p[1] = (uint16_t)(v >> 16);
+}
+
+/* 独立只读快照，无 Flash 写入，也不访问 AFE。字段定义见 OPENWIRE_MONITOR.md。 */
+static void publish_openwire(void)
+{
+    uint16_t w[BMS_DIAG_OPENWIRE_WORDS] = {0};
+    uint32_t now = bms_diag_tick();
+    w[0] = 0x4F57u; w[1] = 1u; w[2] = BMS_AFE_BACKEND;
+    w[3] = s_feature.openwire_state;
+    w[4] = (uint16_t)(s_feature.openwire_active | (s_feature.openwire_suspected << 1) |
+        (s_feature.openwire_fault_latched << 2) | (s_feature.openwire_cleanup_pending << 3) |
+        (s_feature.openwire_result.valid << 4) | (s_feature.openwire_result.determinate << 5));
+    w[5] = s_feature.openwire_last_error;
+    openwire_put32(w+6, s_feature.openwire_sequence);
+    openwire_put32(w+8, now);
+    openwire_put32(w+10, s_feature.openwire_started_tick);
+    openwire_put32(w+12, s_feature.openwire_finished_tick);
+    openwire_put32(w+14, s_feature.openwire_healthy_tick);
+    openwire_put32(w+16, s_feature.openwire_attempts);
+    openwire_put32(w+18, s_feature.openwire_completed);
+    openwire_put32(w+20, s_feature.openwire_failed);
+    openwire_put32(w+22, s_feature.openwire_latched_mask);
+    openwire_put32(w+24, s_feature.openwire_result.open_cell_mask);
+    openwire_put32(w+26, s_feature.openwire_result.raw_phase[0]);
+    openwire_put32(w+28, s_feature.openwire_result.raw_phase[1]);
+    w[30] = s_feature.openwire_result.phase_coverage;
+    w[31] = s_feature.openwire_cell_count;
+    openwire_put32(w+32, openwire_wait_remaining(now));
+    openwire_put32(w+34, s_feature.openwire_active ? (uint32_t)(now-s_feature.openwire_started_tick)/32u : 0u);
+    openwire_put32(w+36, s_feature.openwire_failure_tick);
+    w[38] = s_feature.openwire_failure_error;
+    w[39] = (uint16_t)((g_bms_report.charge_current_a10 || g_bms_report.discharge_current_a10 ? 1u : 0u) |
+        (s_feature.heater_state != BMS_HEATER_IDLE ? 2u : 0u) | (openwire_hard_fault() ? 4u : 0u) |
+        (bms_error_get(BMS_ERROR_BALANCE) ? 8u : 0u));
+    openwire_put32(w+40, BMS_OPENWIRE_PERIOD_MS);
+    openwire_put32(w+42, BMS_DIAG_BUILD_ID);
+    openwire_put32(w+46, s_feature.openwire_attempts ?
+        (uint32_t)(s_feature.openwire_finished_tick-s_feature.openwire_started_tick)/32u : 0u);
+    bms_diag_openwire(w);
+}
+
+/* 所有退出都撤销激励并校验；超时不等于断线，清理 I/O 故障由 guard 仲裁。 */
+static void finish_openwire(uint8_t error)
+{
+    uint32_t now = bms_diag_tick();
+    if (error == BMS_OW_ERR_NONE && s_feature.openwire_result.open_cell_mask != 0u) {
+        s_feature.openwire_fault_latched = 1u;
+        s_feature.openwire_latched_mask = s_feature.openwire_result.open_cell_mask;
+    }
+    s_feature.openwire_active = 0u;
+    s_feature.openwire_cleanup_pending = 1u;
+    if (bms_afe_openwire_stop()) s_feature.openwire_cleanup_pending = 0u;
+    else error = BMS_OW_ERR_CLEANUP;
+    s_feature.openwire_finished_tick = now;
+    s_feature.openwire_wait_tick = now;
+    s_feature.openwire_idle_samples = 0u;
+    s_feature.balance_voltage_trusted = 0u;
+    s_feature.balance_trust_samples = 0u;
+    s_feature.balance_prev_cell_count = 0u;
+    if (error != BMS_OW_ERR_NONE) {
+        ++s_feature.openwire_failed;
+        s_feature.openwire_suspected = 1u;
+        s_feature.openwire_last_error = error;
+        s_feature.openwire_failure_error = error;
+        s_feature.openwire_failure_tick = now;
+        s_feature.openwire_state = s_feature.openwire_cleanup_pending ? BMS_OW_CLEANUP : BMS_OW_FAILED;
+        s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
+    } else {
+        ++s_feature.openwire_completed;
+        s_feature.openwire_last_error = BMS_OW_ERR_NONE;
+        s_feature.openwire_fault_latched = s_feature.openwire_result.open_cell_mask ? 1u : 0u;
+        s_feature.openwire_latched_mask = s_feature.openwire_result.open_cell_mask;
+        s_feature.openwire_suspected = s_feature.openwire_fault_latched;
+        s_feature.openwire_state = s_feature.openwire_fault_latched ? BMS_OW_FAULT : BMS_OW_HEALTHY;
+        if (!s_feature.openwire_fault_latched) s_feature.openwire_healthy_tick = now;
+        s_feature.openwire_wait_ms = s_feature.openwire_fault_latched ? BMS_OPENWIRE_RETRY_MS : BMS_OPENWIRE_PERIOD_MS;
+    }
+    ++s_feature.openwire_sequence;
+}
+
+/* 检测过程不关 MOS；仅完整有效的诊断结果更新断线保护锁存。 */
 static void service_openwire(void)
 {
     bms_afe_diag_state_t state;
     bms_afe_openwire_result_t result;
-
-    if (s_feature.openwire_active)
-    {
+    uint32_t now = bms_diag_tick();
+    if (s_feature.openwire_active) {
+        if (!openwire_eligible()) { finish_openwire(BMS_OW_ERR_INTERRUPTED); return; }
         memset(&result, 0, sizeof(result));
         state = bms_afe_openwire_poll(&result);
-        if (state == BMS_AFE_DIAG_READY)
-        {
+        if (state == BMS_AFE_DIAG_READY) {
             s_feature.openwire_result = result;
-            if (result.valid && result.determinate)
-            {
-                s_feature.openwire_fault_latched = result.open_cell_mask ? 1u : 0u;
-                s_feature.openwire_suspected = s_feature.openwire_fault_latched;
-                if (!s_feature.openwire_fault_latched)
-                {
-                    s_feature.balance_voltage_trusted = 0u;
-                    s_feature.balance_trust_samples = 0u;
-                    s_feature.balance_prev_cell_count = 0u;
-                }
-            }
-            else
-            {
-                s_feature.openwire_suspected = 1u;
-            }
-            s_feature.openwire_active = 0u;
-            s_feature.openwire_idle_samples = 0u;
-            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_PERIOD_SAMPLES;
-        }
-        else if (state == BMS_AFE_DIAG_ERROR)
-        {
-            s_feature.openwire_suspected = 1u;
-            s_feature.openwire_active = 0u;
-            s_feature.openwire_idle_samples = 0u;
-            s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
+            finish_openwire(result.valid && result.determinate ? BMS_OW_ERR_NONE : BMS_OW_ERR_INCOMPLETE);
+        } else if (state == BMS_AFE_DIAG_ERROR || state == BMS_AFE_DIAG_IDLE) {
+            s_feature.openwire_result = result;
+            finish_openwire(result.error ? result.error : BMS_OW_ERR_IO);
+        } else if ((uint32_t)(now-s_feature.openwire_started_tick) >= BMS_OPENWIRE_TIMEOUT_MS * 32u) {
+            s_feature.openwire_result = result;
+            finish_openwire(BMS_OW_ERR_TIMEOUT);
+        } else {
+            if (result.phase_coverage != s_feature.openwire_result.phase_coverage)
+                ++s_feature.openwire_sequence;
+            s_feature.openwire_result = result;
         }
         return;
     }
-
-    if (!s_feature.openwire_suspected && s_feature.openwire_cooldown_samples != 0u)
-    {
-        --s_feature.openwire_cooldown_samples;
-        return;
+    /* 可疑电压不能绕过失败退避；清理失败也只在退避后重试。 */
+    if (openwire_wait_remaining(now) != 0u) return;
+    if (s_feature.openwire_cleanup_pending) {
+        if (!bms_afe_openwire_stop()) {
+            s_feature.openwire_wait_tick = now;
+            s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
+            return;
+        }
+        s_feature.openwire_cleanup_pending = 0u;
+        s_feature.openwire_sample_active = 1u;
+        s_feature.openwire_state = BMS_OW_FAILED;
+        ++s_feature.openwire_sequence;
+        return; /* 下次正常转换后才允许新检测。 */
     }
-
-    if (!openwire_eligible())
-    {
-        s_feature.openwire_idle_samples = 0u;
-        return;
-    }
-
+    if (!openwire_eligible()) { s_feature.openwire_idle_samples = 0u; return; }
     if (!s_feature.openwire_suspected &&
-        s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES)
-    {
+        s_feature.openwire_idle_samples < (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES) {
         ++s_feature.openwire_idle_samples;
         return;
     }
-
     s_feature.balance_active = 0u;
-    if (!apply_balance_mask(0u))
-    {
-        s_feature.openwire_idle_samples = 0u;
+    if (!apply_balance_mask(0u)) {
+        s_feature.openwire_wait_tick = now;
+        s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
         return;
     }
-
-    if (bms_afe_openwire_start())
-    {
+    ++s_feature.openwire_attempts;
+    ++s_feature.openwire_sequence;
+    s_feature.openwire_started_tick = now;
+    s_feature.openwire_finished_tick = now;
+    s_feature.openwire_idle_samples = 0u;
+    s_feature.openwire_sample_active = 1u;
+    memset(&s_feature.openwire_result, 0, sizeof(s_feature.openwire_result));
+    if (bms_afe_openwire_start()) {
         s_feature.openwire_active = 1u;
-        s_feature.openwire_idle_samples = 0u;
-    }
-    else
-    {
-        s_feature.openwire_suspected = 1u;
-        s_feature.openwire_idle_samples = 0u;
-        s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
-    }
+        s_feature.openwire_state = BMS_OW_RUNNING;
+        s_feature.openwire_last_error = BMS_OW_ERR_NONE;
+    } else finish_openwire(BMS_OW_ERR_START);
 }
 
 /* 检查电芯电压快照是否可用于均衡策略。 */
@@ -621,13 +709,39 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
 /* 复位加热、均衡和断线检测的公共状态。 */
 void bms_features_init(void)
 {
-    memset(&s_feature, 0, sizeof(s_feature));
+    /* AFE 重初始化只撤销运行资格，保留故障、原始结果和本次启动累计计数。
+     * MCU 冷启动由静态 RAM 零初始化；不能用 AFE 重新初始化冒充故障解除。 */
+    s_feature.heater_on = 0u;
+    s_feature.heater_fuse_fired = 0u;
+    s_feature.heater_state = BMS_HEATER_IDLE;
+    s_feature.heater_off_hot_samples = 0u;
+    s_feature.charge_session_active = 0u;
+    s_feature.balance_active = 0u;
+    s_feature.balance_voltage_trusted = 0u;
+    s_feature.balance_trust_samples = 0u;
+    s_feature.balance_prev_cell_count = 0u;
+    s_feature.balance_requested_mask = 0u;
+    memset(s_feature.balance_prev_cell_mv, 0, sizeof(s_feature.balance_prev_cell_mv));
+    if (s_feature.openwire_active) {
+        ++s_feature.openwire_failed;
+        s_feature.openwire_failure_error = BMS_OW_ERR_SAMPLE;
+        s_feature.openwire_failure_tick = bms_diag_tick();
+        s_feature.openwire_finished_tick = s_feature.openwire_failure_tick;
+    }
+    s_feature.openwire_active = 0u;
+    s_feature.openwire_sample_active = 0u;
+    s_feature.openwire_cleanup_pending = 0u;
+    s_feature.openwire_idle_samples = 0u;
+    s_feature.openwire_state = s_feature.openwire_fault_latched ? BMS_OW_FAULT : BMS_OW_WAIT;
+    ++s_feature.openwire_sequence;
+    s_feature.openwire_wait_tick = bms_diag_tick();
+    s_feature.openwire_wait_ms = BMS_OPENWIRE_FIRST_IDLE_MS;
     bms_sw_protection_init();
-    s_feature.openwire_cooldown_samples = (uint16_t)BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
     bms_board_features_init();
     bms_board_heater_set(0u);
     g_bms_system_status.bits.heater_status = 0u;
     publish_balance(0u);
+    publish_openwire();
 }
 
 /* 按有效快照推进加热、断线检测及均衡策略。 */
@@ -645,10 +759,14 @@ void bms_features_service(void)
     }
 
     update_charge_session();
-    update_balance_voltage_trust(&s);
+    if (s.cell_count != 0u && s.cell_count <= BMS_AFE_FEATURE_MAX_CELLS)
+        s_feature.openwire_cell_count = s.cell_count;
+    if (!s_feature.openwire_sample_active && !s_feature.openwire_cleanup_pending)
+        update_balance_voltage_trust(&s);
     service_openwire();
     service_heater(&s);
     service_balance(&s);
+    publish_openwire();
 }
 
 /* AFE 样本失效时撤销功能资格并停止相关输出。 */
@@ -662,6 +780,18 @@ void bms_features_on_afe_invalid(void)
     s_feature.balance_voltage_trusted = 0u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
+    if (s_feature.openwire_active) {
+        s_feature.openwire_cleanup_pending = 1u;
+        s_feature.openwire_state = BMS_OW_CLEANUP;
+        s_feature.openwire_last_error = BMS_OW_ERR_SAMPLE;
+        s_feature.openwire_failure_error = BMS_OW_ERR_SAMPLE;
+        s_feature.openwire_failure_tick = bms_diag_tick();
+        s_feature.openwire_finished_tick = s_feature.openwire_failure_tick;
+        s_feature.openwire_wait_tick = s_feature.openwire_failure_tick;
+        s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
+        ++s_feature.openwire_failed;
+        ++s_feature.openwire_sequence;
+    }
     s_feature.openwire_active = 0u;
     s_feature.openwire_suspected = 1u;
     s_feature.openwire_idle_samples = 0u;
@@ -679,6 +809,7 @@ void bms_features_on_afe_invalid(void)
 
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
         bms_error_raise(BMS_ERROR_HEAT);
+    publish_openwire();
 }
 
 /* 复制 feature 所有者的 RAM 状态，不额外读取总线或推进状态机。 */
@@ -694,14 +825,15 @@ void bms_features_get_status(bms_features_status_t *status)
     status->openwire_suspected = s_feature.openwire_suspected;
     status->openwire_active = s_feature.openwire_active;
     status->openwire_sample_active =
-        (s_feature.openwire_active || s_feature.openwire_sample_active) ? 1u : 0u;
+        (s_feature.openwire_active || s_feature.openwire_sample_active ||
+         s_feature.openwire_cleanup_pending) ? 1u : 0u;
 }
 
-/* 查询配置无效或断线检测造成的双向硬性阻断。 */
+/* 已确认断线、参数无效或真实 AFE 清理故障未恢复时保持阻断；活动检测不阻断。 */
 uint8_t bms_features_outputs_blocked(void)
 {
     return (!bms_protection_params_valid() ||
-            s_feature.openwire_active ||
+            s_feature.openwire_cleanup_pending ||
             s_feature.openwire_fault_latched) ? 1u : 0u;
 }
 
@@ -716,7 +848,8 @@ uint8_t bms_features_charge_direction_blocked(void)
 uint32_t bms_features_diag_reasons(uint8_t charge)
 {
     uint32_t reason = 0u;
-    if (s_feature.openwire_active || s_feature.openwire_fault_latched)
+    if (s_feature.openwire_cleanup_pending) reason |= DIAG_BLOCK_COMM;
+    if (s_feature.openwire_fault_latched)
         reason |= DIAG_BLOCK_OPENWIRE;
     if (charge && bms_features_charge_direction_blocked())
         reason |= DIAG_BLOCK_HEATER;

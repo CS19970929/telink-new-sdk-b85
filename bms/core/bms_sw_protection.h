@@ -33,6 +33,8 @@ typedef struct
     uint8_t charge_recovery_allowed;
     uint8_t discharge_recovery_allowed;
     uint8_t current_recovery_sample_fresh;
+    /* 诊断激励电压不能推进电压/压差触发或恢复；保留原锁存及滤波。 */
+    uint8_t voltage_sample_diagnostic;
 } bms_sw_protection_inputs_t;
 
 /* 检查软件保护阈值、恢复值和延时关系。 */

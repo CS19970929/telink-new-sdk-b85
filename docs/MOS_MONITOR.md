@@ -1,5 +1,7 @@
 # MOS 无人值守监控与证据边界
 
+后续断线检测行为和独立监控窗口见 [OPENWIRE_MONITOR](OPENWIRE_MONITOR.md)。配套新固件的 `DIAG_BLOCK_OPENWIRE`仅表示断线故障锁存；旧固件该原因也可能表示检测过程主动隔离，需要结合版本及独立窗口分析。
+
 2026-10-08：用户观察到 Windows MOS 指示瞬间关闭后恢复，实际负载是否中断尚未确认。
 本改动增加记录证据，不改变保护、MOS 仲裁、AFE 控制、恢复、Flash、OTA 或低功耗策略。
 

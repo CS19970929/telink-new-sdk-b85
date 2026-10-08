@@ -456,6 +456,7 @@ void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
+    bms_features_status_t features;
     uint8_t alarm = 0u;
 
     uint16_t diag_c = 0u, diag_d = 0u;
@@ -473,6 +474,8 @@ void DVC1124_BmsApp_AFEGet(void)
 
     if (dvc1124_backend_sample_pending()) return;
     memset(&sw, 0, sizeof(sw));
+    bms_features_get_status(&features);
+    sw.voltage_sample_diagnostic = features.openwire_sample_active;
     /* PB1 只证明负载移除；没有批准的充电器移除输入时，充电恢复只用可靠反向电流。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;

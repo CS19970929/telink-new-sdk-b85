@@ -71,6 +71,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_BAL_SET(m) dvc1124_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
 #define AFE_OW_START() dvc1124_backend_openwire_start()
+#define AFE_OW_STOP() dvc1124_backend_openwire_stop()
 #define AFE_OW_POLL(r) dvc1124_backend_openwire_poll((r))
 #else
 #define AFE_INIT() sh3673510_bms_afe_init()
@@ -86,6 +87,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_BAL_SET(m) sh3673510_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) sh3673510_backend_get_balance_mask((m))
 #define AFE_OW_START() sh3673510_backend_openwire_start()
+#define AFE_OW_STOP() sh3673510_backend_openwire_stop()
 #define AFE_OW_POLL(r) sh3673510_backend_openwire_poll((r))
 #endif
 
@@ -244,7 +246,8 @@ void bms_afe_sample(void)
      * comm_inhibit 时调用功能服务会令快照读取失败并锁存虚假断线疑似，
      * 导致健康启动后两个 FET 长期关闭。
      */
-    if (!s_guard.comm_inhibit) bms_features_service();
+    /* 缓存等待不能消费“最后诊断帧”标志，或推进空闲/均衡确认计数。 */
+    if (!s_guard.comm_inhibit && !AFE_PENDING()) bms_features_service();
     if (!apply_requested()) note_invalid();
 }
 
@@ -404,10 +407,19 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
 /* 门禁允许时启动后端断线检测。 */
 uint8_t bms_afe_openwire_start(void)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
-    (void)AFE_BAL_SET(0u);
-    if (!AFE_FETS(0u, 0u)) return 0u;
+    if (s_guard.comm_inhibit || s_guard.config_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (!AFE_BAL_SET(0u)) return 0u;
     return AFE_OW_START();
+}
+
+uint8_t bms_afe_openwire_stop(void)
+{
+    /* 失联后的清理也必须尊重 watchdog 总线静默，不能用重试续命。 */
+    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (AFE_OW_STOP()) return 1u;
+    /* 清理 I/O 失败属于真实 AFE 通信失败，继续使用既有恢复资格。 */
+    note_invalid();
+    return 0u;
 }
 
 /* 通过 guard 推进后端断线检测阶段。 */

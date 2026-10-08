@@ -141,6 +141,7 @@ def check_sh3673510_board_host_check():
     static uint8_t s_ntc_valid[4];
     static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
     static struct {uint8_t bstatus2;} status;
+    static struct {uint8_t openwire_sample_active;} features;
     static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}
     static bms_sw_protection_inputs_t sample(void){bms_sw_protection_inputs_t sw;
     ''' + mapping + r'''

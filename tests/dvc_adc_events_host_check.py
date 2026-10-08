@@ -7,6 +7,8 @@ code=r'''
 #include <string.h>
 #include <assert.h>
 #include "dvc1124.h"
+#include "bms_features.h"
+#include "bms_diag.h"
 #define DVC_MEAS_BYTES 0x4d
 #define BMS_ERROR_TEMP_BREAK 0
 #define MODULE_WATCHDOG_ENABLE 0
@@ -15,6 +17,7 @@ code=r'''
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #define DIAG_EV_CURRENT_RECOVERY 1u
 #define DVC_OPENWIRE_SETTLE_US 200000u
+#define DVC_OPENWIRE_TIMEOUT_US 900000u
 static dvc1124_snapshot_t s_snapshot;
 static dvc1124_config_t s_cfg={.cell_count=4,.battery_ntc_gp=2,.mos_ntc_gp=3};
 static uint8_t s_need_config,s_bus_initialized,s_i2c_raw[256];
@@ -22,6 +25,8 @@ static uint32_t s_snapshot_generation,now;
 static uint32_t s_openwire_start_generation,s_openwire_start_tick,s_balance_requested_mask;
 static uint8_t s_balance_suspended;
 static dvc1124_openwire_result_t s_openwire_result;
+static uint8_t diagnostic_active;
+void bms_features_get_status(bms_features_status_t *s){memset(s,0,sizeof(*s));s->openwire_sample_active=diagnostic_active;}
 static uint8_t registers[256];
 static int corrupt_reg=-1,corrupt_count;
 static uint8_t auto_cc2_event;
@@ -72,6 +77,8 @@ code+=s[s.index('#define DVC_ADC_MAX_AGE_TICKS'):s.index('static uint32_t s_snap
 code+=function(s,'static uint8_t dvc_crc8(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
+code+=function(s,'void DVC1124_OpenWireReset(')
+code+=function(s,'uint8_t DVC1124_OpenWireStop(')
 code+=function(s,'uint8_t DVC1124_OpenWireBegin(')
 code+=function(s,'void DVC1124_OpenWirePoll(')
 code+=function(s,'void DVC1124_App_AFEGet(')
@@ -82,7 +89,7 @@ code+=r'''
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));memset(&s_openwire_result,0,sizeof(s_openwire_result));
  s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0;
- s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0;corrupt_reg=-1;corrupt_count=0;}
+ s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0;corrupt_reg=-1;corrupt_count=0;diagnostic_active=0;}
 int main(void){
  reset();acquire(100,0);acquire(6500,0);assert(!s_snapshot_generation && !s_snapshot.valid && s_sample_pending);
  acquire(7000,0x40);assert(s_snapshot_generation==1 && s_snapshot.voltage_fresh && !s_snapshot.valid && s_sample_pending);
@@ -105,6 +112,17 @@ int main(void){
  acquire(6501,0x10);assert(s_openwire_result.state==DVC1124_OPENWIRE_WAITING); /* drain前事件不授权诊断。 */
  acquire(12901,0x50);assert(s_openwire_result.state==DVC1124_OPENWIRE_READY && s_openwire_result.valid);
  assert(!(registers[0x6d]&4)); /* 新VADC完成后才停止COW。 */
+ reset();registers[DVC1124_REG_CELL1_H]=0x0d;registers[DVC1124_REG_CELL1_H+1]=0x48;
+ acquire(100,0x50);assert(g_bms_report.cell_voltage_mv[0]==3400);
+ assert(DVC1124_OpenWireBegin());diagnostic_active=1;
+ registers[DVC1124_REG_CELL1_H]=registers[DVC1124_REG_CELL1_H+1]=0;
+ acquire(12901,0x50);assert(s_openwire_result.valid && s_openwire_result.cell_mv[0]==0);
+ assert(g_bms_report.cell_voltage_mv[0]==3400 && s_snapshot.cell_mv[0]==3400);
+ assert(DVC1124_OpenWireStop() && !(registers[0x6d]&4));
+ reset();acquire(100,0x50);assert(DVC1124_OpenWireBegin());
+ now=100+901u*32u;DVC1124_OpenWirePoll();
+ assert(s_openwire_result.state==DVC1124_OPENWIRE_ERROR && s_openwire_result.error==BMS_OW_ERR_TIMEOUT);
+ assert(DVC1124_OpenWireStop());
  for(unsigned cst=0;cst<=6;++cst)for(unsigned driver=0;driver<=1;++driver){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
   acquire(100,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=1;

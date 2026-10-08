@@ -1,6 +1,9 @@
 static bms_feature_state_t s_feature;
 static unsigned poll_count, rounds, diagnostic_frames;
 static int poll_result, poll_stuck, start_ok = 1;
+uint32_t bms_diag_tick(void) { return tick; }
+void bms_diag_openwire(const uint16_t *words) { (void)words; }
+static uint8_t bms_afe_openwire_stop(void) { return 1u; }
 static uint8_t openwire_hard_fault(void) { return (uint8_t)afe_error; }
 static uint8_t apply_balance_mask(uint32_t mask) { return 1u; }
 static void update_charge_session(void) { s_feature.charge_session_active = (uint8_t)charge_session_active; }
@@ -37,7 +40,8 @@ static void initialize_joint(void)
     setup(1u, 100u, 3196u);
     set_core_voltage(3196u, 3260u, 64u);
     memset(&s_feature, 0, sizeof(s_feature));
-    s_feature.openwire_cooldown_samples = BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
+    s_feature.openwire_wait_tick = tick;
+    s_feature.openwire_wait_ms = BMS_OPENWIRE_FIRST_IDLE_MS;
     rounds = diagnostic_frames = poll_count = 0u;
     poll_result = poll_stuck = 0;
     start_ok = 1;
@@ -61,11 +65,12 @@ static void joint_sample(uint32_t elapsed_32k)
 static void prime_rest(void)
 {
     initialize_joint();
-    s_feature.openwire_cooldown_samples = 65535u;
+    s_feature.openwire_wait_tick = tick;
+    s_feature.openwire_wait_ms = 600000u;
     for (unsigned i = 0u; i < 510u; ++i) joint_sample(6400u);
     assert(g_soc_runtime.idle_stable_ticks > 500u);
     g_soc_runtime.ocv_down_ticks = 123u;
-    s_feature.openwire_cooldown_samples = 0u;
+    s_feature.openwire_wait_ms = 0u;
     s_feature.openwire_idle_samples = BMS_OPENWIRE_FIRST_IDLE_SAMPLES;
     joint_sample(6400u);
     assert(g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_PAUSED);

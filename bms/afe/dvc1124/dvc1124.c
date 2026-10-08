@@ -4,6 +4,7 @@
  * bms/afe/dvc1124/dvc1124.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
+#include "bms_features.h"
 #include "dvc1124.h"
 #include "bms_config_store.h"
 
@@ -22,6 +23,7 @@
 #define DVC_I2C_RAW_MAX            (2u * (DVC1124_MAX_REGISTER + 1u))
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
+#define DVC_OPENWIRE_TIMEOUT_US    900000u
 
 /* 本文件拥有的寄存器工具，业务与后端消费者不直接调用。 */
 static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
@@ -1394,7 +1396,21 @@ void DVC1124_OpenWireReset(void)
     s_openwire_start_generation = s_snapshot_generation;
 }
 
-/* 准备并开始 DVC 非阻塞断线检测流程。 */
+/* 只清 COW，读改写保留 charge pump 及其它配置，退出必须回读确认。 */
+uint8_t DVC1124_OpenWireStop(void)
+{
+    uint8_t cp, verify;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) return 0u;
+    if (cp & DVC1124_COW_MASK) {
+        cp &= (uint8_t)~DVC1124_COW_MASK;
+        if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) return 0u;
+    }
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &verify, 1u)) return 0u;
+    if (verify & DVC1124_COW_MASK) return 0u;
+    DVC1124_OpenWireReset();
+    return 1u;
+}
+
 uint8_t DVC1124_OpenWireBegin(void)
 {
     if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING) return 0u;
@@ -1428,6 +1444,12 @@ void DVC1124_OpenWirePoll(void)
     uint8_t cp;
 
     if (s_openwire_result.state != DVC1124_OPENWIRE_WAITING) return;
+    /* COW 自动结束约 1 秒；超过本窗口不能再把普通电压当诊断结果。 */
+    if (clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_TIMEOUT_US)) {
+        s_openwire_result.error = BMS_OW_ERR_TIMEOUT;
+        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
+        return;
+    }
     if (!clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_SETTLE_US)) return;
 
     /*
@@ -1438,24 +1460,27 @@ void DVC1124_OpenWirePoll(void)
         s_snapshot_generation == s_openwire_start_generation) return;
     if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
+        s_openwire_result.error = BMS_OW_ERR_IO;
         s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
         return;
     }
     if (!(cp & DVC1124_COW_MASK))
     {
+        s_openwire_result.error = BMS_OW_ERR_TIMEOUT;
         s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
         return;
     }
 
     s_openwire_result.valid = 1u;
     s_openwire_result.cell_count = s_snapshot.cell_count;
-    memcpy(s_openwire_result.cell_mv, s_snapshot.cell_mv, sizeof(s_openwire_result.cell_mv));
     s_openwire_result.pack_mv = s_snapshot.pack_mv;
 
     /* 诊断样本抓取后立即停止激励。COW 是命令位，不使用普通持久配置的回读规则。 */
     cp &= (uint8_t)~DVC1124_COW_MASK;
     if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
     {
+        s_openwire_result.valid = 0u;
+        s_openwire_result.error = BMS_OW_ERR_CLEANUP;
         s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
         return;
     }
@@ -1643,6 +1668,8 @@ void DVC1124_App_AFEGet(void)
     uint8_t write_addr;
     uint8_t configured_ntc_ok = 1u;
     uint32_t now = pm_get_32k_tick();
+    bms_features_status_t features;
+    bms_features_get_status(&features);
     s_sample_pending = 0u;
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
@@ -1703,8 +1730,12 @@ void DVC1124_App_AFEGet(void)
             uint16_t raw_cell = dvc_be16(&data[reg]);
             uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
 
-            s_snapshot.cell_mv[i] = mv;
-            g_bms_report.cell_voltage_mv[i] = mv;
+            if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)
+                s_openwire_result.cell_mv[i] = mv;
+            if (!features.openwire_sample_active) {
+                s_snapshot.cell_mv[i] = mv;
+                g_bms_report.cell_voltage_mv[i] = mv;
+            }
             total_mv += mv;
             common_mode_mv += mv;
             if (mv > max_mv) { max_mv = mv; max_pos = i; }
@@ -1713,12 +1744,14 @@ void DVC1124_App_AFEGet(void)
         for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
         for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
 
-        g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
-        g_bms_report.cell_max_mv = max_mv;
-        g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
-        g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
-        g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
-        g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
+        if (!features.openwire_sample_active) {
+            g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
+            g_bms_report.cell_max_mv = max_mv;
+            g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
+            g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
+            g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
+            g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
+        }
 
         v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
         for (i = 0u; i < DVC1124_MAX_GP; ++i)

@@ -40,6 +40,7 @@ uint8_t dvc1124_backend_set_balance_mask(uint32_t);
 uint8_t dvc1124_backend_get_balance_mask(uint32_t *);
 /* 开始后端非阻塞电芯断线检测。 */
 uint8_t dvc1124_backend_openwire_start(void);
+uint8_t dvc1124_backend_openwire_stop(void);
 /* 推进后端断线检测并返回阶段或结果。 */
 bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
@@ -79,6 +80,7 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t);
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *);
 /* 开始后端非阻塞电芯断线检测。 */
 uint8_t sh3673510_backend_openwire_start(void);
+uint8_t sh3673510_backend_openwire_stop(void);
 /* 推进后端断线检测并返回阶段或结果。 */
 bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *);
 #else

@@ -399,30 +399,32 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         uint16_t trip;
 
         if (voltage_current_enabled) {
-            trip = bms_sw_level_value(level, p->cell_ovp_first_mv,
-                                      p->cell_ovp_second_mv, p->cell_ovp_third_mv);
-            f->bits.cell_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
-                measurements->cell_max_mv, trip, p->cell_ovp_recover_mv,
-                p->cell_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
+            if (!inputs->voltage_sample_diagnostic) {
+                trip = bms_sw_level_value(level, p->cell_ovp_first_mv,
+                                          p->cell_ovp_second_mv, p->cell_ovp_third_mv);
+                f->bits.cell_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
+                    measurements->cell_max_mv, trip, p->cell_ovp_recover_mv,
+                    p->cell_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
-            trip = bms_sw_level_value(level, p->cell_uvp_first_mv,
-                                      p->cell_uvp_second_mv, p->cell_uvp_third_mv);
-            f->bits.cell_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
-                measurements->cell_min_mv, trip, p->cell_uvp_recover_mv,
-                p->cell_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
+                trip = bms_sw_level_value(level, p->cell_uvp_first_mv,
+                                          p->cell_uvp_second_mv, p->cell_uvp_third_mv);
+                f->bits.cell_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
+                    measurements->cell_min_mv, trip, p->cell_uvp_recover_mv,
+                    p->cell_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
 
-            trip = bms_sw_level_value(level, p->pack_ovp_first_10mv,
-                                      p->pack_ovp_second_10mv, p->pack_ovp_third_10mv);
-            f->bits.pack_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
-                measurements->pack_voltage_10mv, trip, p->pack_ovp_recover_10mv,
-                p->pack_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
+                trip = bms_sw_level_value(level, p->pack_ovp_first_10mv,
+                                          p->pack_ovp_second_10mv, p->pack_ovp_third_10mv);
+                f->bits.pack_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
+                    measurements->pack_voltage_10mv, trip, p->pack_ovp_recover_10mv,
+                    p->pack_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
-            trip = bms_sw_level_value(level, p->pack_uvp_first_10mv,
-                                      p->pack_uvp_second_10mv, p->pack_uvp_third_10mv);
-            f->bits.pack_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
-                measurements->pack_voltage_10mv, trip, p->pack_uvp_recover_10mv,
-                p->pack_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
+                trip = bms_sw_level_value(level, p->pack_uvp_first_10mv,
+                                          p->pack_uvp_second_10mv, p->pack_uvp_third_10mv);
+                f->bits.pack_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
+                    measurements->pack_voltage_10mv, trip, p->pack_uvp_recover_10mv,
+                    p->pack_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
 
+            }
             trip = bms_sw_level_value(level, p->charge_ocp_first_a10,
                                       p->charge_ocp_second_a10, p->charge_ocp_third_a10);
             f->bits.charge_ocp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
@@ -498,13 +500,13 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             f->bits.mos_otp = 0u;
         }
 
-        if (voltage_current_enabled) {
+        if (voltage_current_enabled && !inputs->voltage_sample_diagnostic) {
             trip = bms_sw_level_value(level, p->cell_delta_first_mv,
                                       p->cell_delta_second_mv, p->cell_delta_third_mv);
             f->bits.cell_delta_high = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
                 measurements->cell_delta_mv, trip, p->cell_delta_recover_mv,
                 p->cell_delta_filter_10ms, BMS_SW_HIGH, level == 2u);
-        } else {
+        } else if (!voltage_current_enabled) {
             bms_sw_filter_reset(&s_filter[level][BMS_SW_F_VDELTA]);
             f->bits.cell_delta_high = 0u;
         }

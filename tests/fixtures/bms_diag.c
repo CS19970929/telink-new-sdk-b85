@@ -177,6 +177,18 @@ int main(void){
  }
  n=request(q,1,3,BMS_DIAG_MOS_END-1u,2u);
  assert(modbus_on_frame(q,n,r,&l) && r[2]==2u && reads==0u && writes==0u);
- puts("PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, ring overwrite/tick wrap");
+ /* 独立断线快照：能力、生产可读、低字优先、零 I/O、跨范围写入拒绝。 */
+ uint16_t ow[BMS_DIAG_OPENWIRE_WORDS]={0};ow[0]=0x4f57;ow[1]=1;ow[6]=0x5678;ow[7]=0x1234;
+ bms_diag_openwire(ow);
+ assert(bms_diag_cached_word(2)&BMS_DIAG_CAP_OPENWIRE);
+ n=request(q,1,3,BMS_DIAG_OPENWIRE_BASE,BMS_DIAG_OPENWIRE_WORDS);
+ assert(modbus_on_frame(q,n,r,&l) && l==101 && u16be(r+3)==0x4f57 && u16be(r+15)==0x5678 && u16be(r+17)==0x1234);
+ for(unsigned func=6;func<=16;func+=10){
+  n=request(q,1,(u8)func,func==16?BMS_DIAG_OPENWIRE_BASE-1:BMS_DIAG_OPENWIRE_BASE,2);
+  assert(modbus_on_frame(q,n,r,&l)&&r[2]==2&&writes==0);
+ }
+ n=request(q,1,3,BMS_DIAG_OPENWIRE_END-1,2);
+ assert(modbus_on_frame(q,n,r,&l)&&r[2]==2&&reads==0&&writes==0);
+ puts("PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, openwire, ring overwrite/tick wrap");
  return 0;
 }

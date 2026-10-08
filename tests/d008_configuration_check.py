@@ -57,7 +57,7 @@ def check_d008_20s_profile_contract_check():
     # Open-wire results are raw measurements only; no unverified open-wire trip rule.
     assert 'DVC1124_OpenWireBegin' in dvc and 'DVC1124_OpenWirePoll' in dvc
     ow = dvc.split('void DVC1124_OpenWirePoll', 1)[1].split('void DVC1124_OpenWireGetResult', 1)[0]
-    assert 'cell_mv' in ow and 'OPENWIRE_READY' in ow
+    assert 's_openwire_result.cell_mv[i] = mv' in dvc and 'OPENWIRE_READY' in ow
     assert 'bms_error_raise' not in ow
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.

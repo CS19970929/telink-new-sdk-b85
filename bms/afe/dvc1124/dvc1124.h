@@ -110,6 +110,7 @@ typedef struct
     uint8_t cell_count;
     uint16_t cell_mv[24]; /* DVC1124 物理最大值；宏在此公共类型之后声明。 */
     uint32_t pack_mv;
+    uint8_t error;
 } dvc1124_openwire_result_t;
 
 
@@ -174,6 +175,7 @@ uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 void DVC1124_BalanceService(uint8_t allow_refresh);
 /* 准备并开始 DVC 非阻塞断线检测流程。 */
 uint8_t DVC1124_OpenWireBegin(void);
+uint8_t DVC1124_OpenWireStop(void);
 /* 推进断线检测阶段并收集完成结果。 */
 void DVC1124_OpenWirePoll(void);
 /* 取得最近一次断线检测结果。 */

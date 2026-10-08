@@ -57,6 +57,8 @@
 #ifndef BMS_OPENWIRE_PERIOD_MS
 #define BMS_OPENWIRE_PERIOD_MS 300000u
 #endif
+#define BMS_OPENWIRE_TIMEOUT_MS 3000u
+#define BMS_OPENWIRE_RETRY_MS 10000u
 
 /* 复位加热、均衡和断线检测的公共状态。 */
 void bms_features_init(void);
@@ -80,7 +82,7 @@ typedef struct {
     uint8_t balance_voltage_trusted;
     uint8_t openwire_suspected;
     uint8_t openwire_active;
-    /* 包含健康 COW 轮询清 active 后的最后诊断样本，供 DVC SOC 使用。 */
+    /* 包含最后诊断帧和待清理窗口，供测量发布、软件电压保护和 SOC 隔离。 */
     uint8_t openwire_sample_active;
 } bms_features_status_t;
 

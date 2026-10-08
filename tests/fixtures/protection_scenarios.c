@@ -76,6 +76,7 @@ static void reset(void)
     input.battery_temp_min=input.battery_temp_max=input.mos_temp=500;
     g_bms_report.charge_current_a10=g_bms_report.discharge_current_a10=1;
     params_valid=1; step=0;
+    input.voltage_sample_diagnostic=0;
     bms_sw_protection_init();
 }
 static void update(void) { ++step; bms_sw_protection_update(&input); }
@@ -132,6 +133,15 @@ int main(void)
             expect(bms_sw_protection_charge_blocked(),charge);expect(bms_sw_protection_discharge_blocked(),discharge);
         }
     }
+    /* 诊断电压既不触发、也不解除电压保护；电流及温度继续更新。 */
+    reset();phase="断线激励电压隔离";
+    for(group=0;group<4;group++){parameter(group,2,500);parameter(group,3,rules[group].low?600:400);}
+    parameter(11,2,500);parameter(11,3,400);input.voltage_sample_diagnostic=1;
+    measurement(0,1000);measurement(1,0);measurement(2,1000);measurement(11,1000);update();
+    expect(active(0,2),0);expect(active(1,2),0);expect(active(2,2),0);expect(active(11,2),0);
+    parameter(4,2,500);parameter(4,3,400);measurement(4,500);update();expect(active(4,2),1);
+    input.voltage_sample_diagnostic=0;update();expect(active(0,2),1);expect(active(1,2),1);
+    input.voltage_sample_diagnostic=1;measurement(0,0);measurement(1,1000);update();expect(active(0,2),1);expect(active(1,2),1);
     reset();phase="NTC 失效";input.battery_temp_valid=0;update();
     expect(bms_sw_protection_charge_blocked(),1);expect(bms_sw_protection_discharge_blocked(),1);
     input.battery_temp_valid=1;input.mos_temp_valid=0;update();expect(bms_sw_protection_charge_blocked(),1);

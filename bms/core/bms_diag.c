@@ -10,6 +10,7 @@
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
 static uint16_t s_sleep_words[BMS_DIAG_SLEEP_WORDS];
+static uint16_t s_openwire_words[BMS_DIAG_OPENWIRE_WORDS];
 #if BMS_DIAG_TRACE_ENABLE
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
 static uint32_t s_trace_sequence;
@@ -22,6 +23,11 @@ static uint16_t s_mos_raw_status;
 #endif
 static uint32_t s_sequence;
 static uint8_t s_frozen;
+
+void bms_diag_openwire(const uint16_t *words)
+{
+    if (words != 0) memcpy(s_openwire_words, words, sizeof(s_openwire_words));
+}
 
 /* 将 32 位值拆为低字在前的两个 16 位诊断字。 */
 static void put32(uint16_t *p, uint32_t value)
@@ -79,6 +85,9 @@ void bms_diag_init(void)
     bms_debug_log_init();
     memset(s_words, 0, sizeof(s_words));
     memset(s_sleep_words, 0, sizeof(s_sleep_words));
+    memset(s_openwire_words, 0, sizeof(s_openwire_words));
+    s_openwire_words[0] = 0x4F57u;
+    s_openwire_words[1] = 1u;
     s_sleep_words[0] = 0x534Cu;
     s_sleep_words[1] = 1u;
 #if BMS_DIAG_TRACE_ENABLE
@@ -422,7 +431,8 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
     uint32_t end = (uint32_t)start + count;
     return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
         (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
-        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE));
+        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
+        (start < BMS_DIAG_OPENWIRE_END && end > BMS_DIAG_OPENWIRE_BASE));
 }
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
@@ -430,6 +440,16 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
+    if (bytes && count && count <= BMS_DIAG_OPENWIRE_WORDS &&
+        start >= BMS_DIAG_OPENWIRE_BASE && end <= BMS_DIAG_OPENWIRE_END) {
+        put32(&s_openwire_words[44], tick);
+        for (i = 0u; i < count; ++i) {
+            uint16_t word = s_openwire_words[start - BMS_DIAG_OPENWIRE_BASE + i];
+            bytes[2u*i] = (uint8_t)(word >> 8);
+            bytes[2u*i+1u] = (uint8_t)word;
+        }
+        return 1;
+    }
     if (bytes && count && count <= 125u && start >= BMS_DIAG_MOS_BASE && end <= BMS_DIAG_MOS_END) {
         for (i = 0u; i < count; ++i) {
             uint16_t offset = (uint16_t)(start - BMS_DIAG_MOS_BASE + i), word = 0u;

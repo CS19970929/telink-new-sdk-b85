@@ -15,6 +15,7 @@ typedef int bms_afe_diag_state_t;
 static int err,block,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static int raised,init_fail,aux_ok=1;
 static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls,sleep_ok=1;
+static int openwire_stop_ok=1;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
 static void bms_features_on_afe_invalid(void){}
@@ -35,6 +36,7 @@ static int dvc1124_backend_get_charge_source_present(uint8_t*x){return 0;}
 static int dvc1124_backend_set_balance_mask(uint32_t x){return balance_ok;}
 static int dvc1124_backend_get_balance_mask(uint32_t*x){return 1;}
 static int dvc1124_backend_openwire_start(void){return 1;}
+static int dvc1124_backend_openwire_stop(void){return openwire_stop_ok;}
 static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
 static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
@@ -44,7 +46,7 @@ static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u
 /* PRODUCTION_SOURCE */
 static void reset(void){
  err=raised=init_fail=0;aux_ok=1;
- balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
+ balance_ok=shutdown_ok=openwire_stop_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
 }
 static void test_startup_qualification(void){
@@ -74,6 +76,10 @@ static void test_startup_qualification(void){
  puts("PASS healthy boot: zero synthetic AFE1 errors, three-sample output inhibit; real init/read faults and watchdog recovery retained");
 }
 int main(void){
+ reset();bms_afe_set_fets(1,1);assert(bms_afe_openwire_start());assert(cmd_c==1&&cmd_d==1);
+ assert(bms_afe_openwire_stop());assert(cmd_c==1&&cmd_d==1);
+ openwire_stop_ok=0;assert(!bms_afe_openwire_stop());assert(cmd_c==0&&cmd_d==0&&!bms_afe_samples_qualified());
+ reset(); /* 真实清理 I/O 失败保留原通信保护；健康停止不写 MOS。 */
  test_startup_qualification();
  reset();assert(bms_afe_sleep());assert(s_guard.comm_inhibit && err);
  reset();sleep_ok=0;assert(!bms_afe_sleep());assert(s_guard.comm_failures==1);

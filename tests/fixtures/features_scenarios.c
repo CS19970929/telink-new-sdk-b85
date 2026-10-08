@@ -7,6 +7,12 @@ static unsigned fuse_count, ow_started;
 static uint32_t balance;
 static bms_afe_openwire_result_t ow_result;
 static bms_afe_diag_state_t ow_state;
+static uint32_t test_tick;
+static uint16_t diagnostic[BMS_DIAG_OPENWIRE_WORDS];
+static uint8_t stop_ok = 1u, start_ok = 1u;
+static unsigned stopped;
+uint32_t bms_diag_tick(void){return test_tick;}
+void bms_diag_openwire(const uint16_t *words){memcpy(diagnostic,words,sizeof(diagnostic));}
 int bms_config_get_user(bms_user_params_t *p){*p=user;return 1;}
 uint8_t bms_protection_params_valid(void){return params_valid;}
 void bms_board_features_init(void){}
@@ -16,7 +22,8 @@ uint8_t bms_afe_get_charge_source_present(uint8_t *present){*present=0;return 1;
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){*s=snapshot;return 1;}
 uint8_t bms_afe_set_balance_mask(uint32_t mask){if(balance_fail)return 0;balance=mask;return 1;}
 uint8_t bms_afe_get_balance_mask(uint32_t *mask){*mask=balance;return 1;}
-uint8_t bms_afe_openwire_start(void){++ow_started;return 1;}
+uint8_t bms_afe_openwire_start(void){++ow_started;return start_ok;}
+uint8_t bms_afe_openwire_stop(void){++stopped;return stop_ok;}
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r){*r=ow_result;return ow_state;}
 /* FEATURES */
 static bms_features_status_t feature_status(void)
@@ -47,9 +54,11 @@ static void reset(void)
     user.heater_enable=1;user.heater_start_x10=400;user.heater_stop_x10=450;
     user.balance_enable=1;user.balance_start_mv=3400;user.balance_start_delta_mv=50;user.balance_stop_delta_mv=30;
     g_bms_protection_params.charge_otp_recover_x10=850;g_bms_protection_params.charge_utp_recover_x10=450;g_bms_protection_params.mos_otp_recover_x10=1100;
+    test_tick=0;stopped=0;stop_ok=start_ok=1;
+    memset(&s_feature,0,sizeof(s_feature)); /* 模拟 MCU 冷启动，区别于 AFE 重初始化。 */
     voltages(50);g_bms_report.charge_current_a10=10;bms_features_init();
 }
-static void step(unsigned n){while(n--)bms_features_service();}
+static void step(unsigned n){while(n--){test_tick+=6400u;bms_features_service();}}
 int main(void)
 {
     reset();step(4);assert(!balance && !feature_status().balance_voltage_trusted);
@@ -87,10 +96,30 @@ int main(void)
     }else{g_bms_report.charge_current_a10=0;step(10);assert(!heater && !fuse_count);}
     /* 真正经过 service 发起诊断，完成帧仍不得用于 SOC。 */
     reset();g_bms_report.charge_current_a10=0;step(101);assert(ow_started && feature_status().openwire_active);
-    assert(bms_features_outputs_blocked());
+    assert(!bms_features_outputs_blocked() && !(bms_features_diag_reasons(1)&DIAG_BLOCK_OPENWIRE));
+    ow_result.valid=1;ow_result.determinate=1;ow_state=BMS_AFE_DIAG_READY;
+    step(1);assert(!bms_features_outputs_blocked() && stopped==1 && diagnostic[3]==BMS_OW_HEALTHY);
+    reset();g_bms_report.charge_current_a10=0;step(101);assert(feature_status().openwire_active);
+    ow_state=BMS_AFE_DIAG_ERROR;step(1);assert(!bms_features_outputs_blocked() && diagnostic[3]==BMS_OW_FAILED);
+    unsigned started=ow_started;step(49);assert(ow_started==started);step(1);assert(ow_started==started+1);
+    /* BUSY 无完成时有墙钟超时，失败不转成断线故障。 */
+    reset();g_bms_report.charge_current_a10=0;step(101);step(15);
+    assert(!feature_status().openwire_active && !bms_features_outputs_blocked() && diagnostic[5]==BMS_OW_ERR_TIMEOUT);
+    /* 真实清理 I/O 故障保持安全阻断，不能仅凭新采样解除，不能误称断线。 */
+    reset();g_bms_report.charge_current_a10=0;step(101);stop_ok=0;ow_state=BMS_AFE_DIAG_ERROR;step(1);
+    assert(diagnostic[3]==BMS_OW_CLEANUP && (diagnostic[4]&8) && bms_features_outputs_blocked());
+    assert((bms_features_diag_reasons(1)&DIAG_BLOCK_COMM) && !(bms_features_diag_reasons(1)&DIAG_BLOCK_OPENWIRE));
+    started=ow_started;step(50);assert(ow_started==started);stop_ok=1;step(50);assert(!(diagnostic[4]&8));
+    /* 调度和总超时跨 tick 回绕。 */
+    reset();g_bms_report.charge_current_a10=0;test_tick=UINT32_MAX-32000u;s_feature.openwire_wait_tick=test_tick;
+    step(101);assert(feature_status().openwire_active && !bms_features_outputs_blocked());
+    step(15);assert(diagnostic[5]==BMS_OW_ERR_TIMEOUT);
+    reset();g_bms_report.charge_current_a10=0;step(101);
     ow_result.valid=1;ow_result.determinate=1;ow_result.open_cell_mask=1;ow_state=BMS_AFE_DIAG_READY;
     step(1);assert(!feature_status().openwire_active && feature_status().openwire_sample_active);
     assert(bms_features_outputs_blocked());
+    assert(bms_features_diag_reasons(1)&DIAG_BLOCK_OPENWIRE);
+    bms_features_init();assert(bms_features_outputs_blocked()); /* AFE 重初始化不能解除真实故障。 */
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
            (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;

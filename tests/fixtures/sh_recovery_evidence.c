@@ -64,11 +64,13 @@ uint8_t bms_features_outputs_blocked(void) { return 0; }
 uint8_t sh3673510_backend_set_balance_mask(uint32_t m) { (void)m;return 1; }
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *m) { *m=0;return 1; }
 uint8_t sh3673510_backend_openwire_start(void) { return 1; }
+uint8_t sh3673510_backend_openwire_stop(void) { return 1; }
 bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *r) { (void)r;return BMS_AFE_DIAG_ERROR; }
 #endif
 uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0; }
+void bms_features_get_status(bms_features_status_t *s) { memset(s,0,sizeof(*s)); }
 void bms_sw_protection_init(void) {}
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { (void)p; }
 void bms_sw_protection_reset_current_recovery(void) {}
