@@ -34,7 +34,7 @@ if (-not $Configurations) {
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'BMS 编译、发送安卓与 OTA'
-    $form.ClientSize = New-Object System.Drawing.Size(560, 480)
+    $form.ClientSize = New-Object System.Drawing.Size(560, 512)
     $form.StartPosition = 'CenterScreen'
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
@@ -43,7 +43,7 @@ if (-not $Configurations) {
     $form.Font = New-Object System.Drawing.Font('Microsoft YaHei UI', 10)
 
     $hint = New-Object System.Windows.Forms.Label
-    $hint.Text = '单选：编译校验后自动发送并 OTA。多选：全部生成后再选一份用于 OTA。'
+    $hint.Text = '选择编译配置，可勾选自动 OTA；多选时全部生成后再选一份用于 OTA。'
     $hint.SetBounds(16, 12, 528, 44)
     $form.Controls.Add($hint)
     $list = New-Object System.Windows.Forms.CheckedListBox
@@ -83,13 +83,18 @@ if (-not $Configurations) {
     $clean.SetBounds(16, 384, 528, 28)
     $clean.Checked = $Rebuild.IsPresent
     $form.Controls.Add($clean)
+    $autoOta = New-Object System.Windows.Forms.CheckBox
+    $autoOta.Text = '生成后发送安卓并请求 OTA（取消勾选则仅生成 BIN）'
+    $autoOta.SetBounds(16, 412, 528, 28)
+    $autoOta.Checked = -not $BuildOnly.IsPresent
+    $form.Controls.Add($autoOta)
     $note = New-Object System.Windows.Forms.Label
     $note.Text = '生产模式须提交源码并通过批准门；失败配置单独报告，继续其他配置。'
-    $note.SetBounds(16, 412, 528, 26)
+    $note.SetBounds(16, 444, 528, 26)
     $form.Controls.Add($note)
     $start = New-Object System.Windows.Forms.Button
-    $start.Text = '编译并 OTA'
-    $start.SetBounds(306, 442, 112, 30)
+    $start.Text = '开始执行'
+    $start.SetBounds(306, 474, 112, 30)
     $start.Add_Click({
         if ($list.CheckedIndices.Count -eq 0) {
             [void][System.Windows.Forms.MessageBox]::Show('请至少选择一个配置。', 'BMS')
@@ -101,7 +106,7 @@ if (-not $Configurations) {
     $form.Controls.Add($start)
     $cancel = New-Object System.Windows.Forms.Button
     $cancel.Text = '取消'
-    $cancel.SetBounds(430, 442, 112, 30)
+    $cancel.SetBounds(430, 474, 112, 30)
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $form.Controls.Add($cancel)
     $form.AcceptButton = $start
@@ -113,6 +118,7 @@ if (-not $Configurations) {
         }
         $Configurations = @($list.CheckedIndices | ForEach-Object { $choices[$_].Id })
         $Rebuild = [bool]$clean.Checked
+        $BuildOnly = -not $autoOta.Checked
     } finally { $form.Dispose() }
 }
 

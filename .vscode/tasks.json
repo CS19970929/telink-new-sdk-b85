@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "选择开发/生产配置，编译校验后发送安卓并请求 OTA；多选时再选一份用于升级",
+      "detail": "选择开发/生产配置，可仅生成 BIN 或生成后发送安卓并请求 OTA；多选 OTA 时再选一份用于升级",
       "type": "process",
       "command": "powershell.exe",
       "args": [
