@@ -27,6 +27,7 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 | Rsense | 原理图 RS1..RS8 均为 2 mΩ；全部装配时 8 并联 = 250 µΩ |
 | AFE 通信 | SPI Mode 3，源码目标 500 kHz；SH 手册规定 SCK high/low 均至少 500 ns（上限 1 MHz） |
 | 主通信 | Modbus RTU over RS485，`BMS_PRODUCT_RS485_ENABLE=1` |
+| UART 配置 | 当前为 19200、8N1；`BMS_PRODUCT_UART_BAUD_RATE=19200u`，16 MHz 下 divider=118、BWPC=6；支持改回 9600（divider=118、BWPC=13），实板通信待验证 |
 | 产品 ID | `BMS_PRODUCT_WIRE_ID=2u`，`BMS_PRODUCT_CELL_COUNT=10`，硬件版本字符串 `D011` |
 | 当前容量默认 | `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116`（源码已有产品数据，非由原理图推导） |
 

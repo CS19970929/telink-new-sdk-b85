@@ -31,6 +31,7 @@
 
 /* 量产选择：D011 固定 RS485 Modbus RTU，不使用 SIF/单线。 */
 #define BMS_PRODUCT_UART_ENABLE 1
+#define BMS_PRODUCT_UART_BAUD_RATE 115200u
 #define BMS_PRODUCT_SIF_ENABLE 0
 #define BMS_PRODUCT_RS485_ENABLE              1
 #ifndef FAC_TEST
@@ -50,8 +51,8 @@
 /* 现有 D11 容量单位 Ah*10，是产品数据，不能由原理图推断。 */
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
 #define BMS_PRODUCT_HW_VERSION   "D011"
-#define BMS_PRODUCT_SW_VERSION   "V1.0"
-#define BMS_PRODUCT_DEFAULT_SERIAL      "D011-UNSET"
+#define BMS_PRODUCT_SW_VERSION   "V4.8"
+#define BMS_PRODUCT_DEFAULT_SERIAL      "D011-20261008"
 
 
 #define BMS_PRODUCT_BLE_NAME  "BT_D011"

@@ -77,6 +77,7 @@ python bms_tools/bms.py --product d014 resources
 | [资源预算与栈观测](docs/RESOURCE_BUDGET_AND_VALIDATION.md) | ELF/BIN 口径、Flash/SRAM 门禁、实测水位 |
 | [GitHub Actions 运维](docs/GITHUB_ACTIONS_RUNBOOK.md) | 当前 CI 矩阵、runner 条件与排查 |
 | [硬件验证清单](docs/HARDWARE_VALIDATION.md) | 四产品共同与各自的未关闭项 |
+| [项目待办](docs/TODO.md) | 待资料或后续开发项；D013 MOS 温度待原理图确认 |
 
 2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺，本次未重新核验这些原件。产品 reference 中相应历史结论保留其证据边界。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 选择不会自动生成 NMC 保护值。开发板采用 Config/State/Event 内部 journal schema 3，不迁移旧开发布局；CFG2 payload 和通信版本值保持，同格式按更新编号处理。老化模式及事件清空命令已删除，详见 Flash 与持久化。源码、host、ELF、设备读回与实板波形分别留证。
 

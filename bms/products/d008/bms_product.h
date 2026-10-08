@@ -79,5 +79,5 @@
 #define LED_BLUE_PIN           (GPIO_PB4)
 
 
-#define BMS_DEFAULT_CUV3_MV 2200u
+#define BMS_DEFAULT_CUV3_MV 2800u
 #define BMS_DEFAULT_CUV3_FILTER 100u

@@ -30,7 +30,7 @@ static int uart_tx_is_busy(void){return busy;}
 static void uart_reset(void){busy=0;++resets;}
 static void uart_ndma_clear_tx_index(void){}
 static void uart_ndma_clear_rx_index(void){}
-static void uart_init(int a,int b,int c,int d){assert(a==9&&b==13&&c==0&&d==1);}
+static void uart_init(int a,int b,int c,int d){assert(a==TEST_UART_DIVIDER&&b==TEST_UART_BWPC&&c==0&&d==1);}
 static void uart_dma_enable(int a,int b){(void)a;(void)b;}
 static void uart_irq_enable(int a,int b){assert(!a&&!b);}
 static void uart_recbuff_init(u8*p,unsigned n){assert(p&&n==272);channels|=1;}
@@ -68,10 +68,16 @@ int main(void){
 #if BMS_PRODUCT_RS485_ENABLE
  assert(de);irqsrc|=2;modbus_uart_irq_proc();assert(de);
  busy=0;now+=1000u*16u;main_loop_modbus();assert(de); // minimum full-frame hold
- now+=24000u*16u;main_loop_modbus();assert(!de&&!modbus_uart_tx_active());
+#if TEST_UART_BAUD_RATE != 115200
+ now+=50000u*16u;main_loop_modbus();assert(de&&g_bms_rs485_tx_diag.tx_timeout_count==0);
+ now+=(TEST_RS485_FRAME_END_US-51000u)*16u;
+#else
+ now+=(TEST_RS485_FRAME_END_US-1000u)*16u;
+#endif
+ main_loop_modbus();assert(!de&&!modbus_uart_tx_active());
  assert(g_bms_rs485_tx_diag.tx_complete_count==1);
  now=UINT32_MAX-100;assert(modbus_uart_send(data,8));int previous=resets;
- now+=50001u*16u;main_loop_modbus(); // lost DMA IRQ and forever-busy UART
+ now+=(TEST_RS485_TIMEOUT_US+1u)*16u;main_loop_modbus(); // lost DMA IRQ and forever-busy UART
  assert(!de&&!modbus_uart_tx_active()&&!busy&&resets==previous+1);
  assert(g_bms_rs485_tx_diag.tx_timeout_count==1&&g_bms_rs485_tx_diag.tx_complete_count==1);
  assert(channels&1);assert(modbus_uart_send(data,8));
@@ -93,7 +99,24 @@ for product in products:
                '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n') % (product in ('d011', 'd014'))
     with tempfile.TemporaryDirectory(prefix='uart-ownership-') as folder:
         c = Path(folder) / 'check.c'; exe = Path(folder) / 'check.exe'
-        c.write_text(PREFIX + defines + diag + source + TAIL, encoding='utf8')
+        product_header = (ROOT / 'bms/products' / product / 'bms_product.h').read_text(encoding='utf8')
+        baud_pattern = r'^#define\s+BMS_PRODUCT_UART_BAUD_RATE\s+(\d+)u?\s*$'
+        baud_match = re.search(baud_pattern, product_header, re.M)
+        if baud_match is None:
+            baud_match = re.search(baud_pattern,
+                (ROOT / 'bms/platform/telink/modbus_uart.c').read_text(encoding='utf8'), re.M)
+        baud_rate = int(baud_match[1])
+        # SDK 16 MHz 配置表与独立的最长帧时间验收点。
+        divider, bwpc, timeout_us, frame_end_us = {
+            9600: (118, 13, 350000, 281000),
+            19200: (118, 6, 200000, 141000),
+            115200: (9, 13, 50000, 25000),
+        }[baud_rate]
+        expected = ('#define TEST_UART_BAUD_RATE %du\n#define TEST_UART_DIVIDER %du\n'
+                    '#define TEST_UART_BWPC %du\n#define TEST_RS485_TIMEOUT_US %du\n'
+                    '#define TEST_RS485_FRAME_END_US %du\n') % (
+                        baud_rate, divider, bwpc, timeout_us, frame_end_us)
+        c.write_text(expected + PREFIX + defines + diag + source + TAIL, encoding='utf8')
         subprocess.run(shlex.split(os.environ.get('CC','cc')) + ['-std=c99','-Wall','-Wextra','-Werror',
                         '-Wno-unused-function',str(c),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)

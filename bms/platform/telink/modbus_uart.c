@@ -25,8 +25,32 @@ typedef struct __attribute__((aligned(4))) {
 typedef char modbus_dma_packet_size_must_be_272[
     (sizeof(mb_dma_pkt_t) == 272u) ? 1 : -1];
 
+#ifndef BMS_PRODUCT_UART_BAUD_RATE
+#define BMS_PRODUCT_UART_BAUD_RATE 115200u
+#endif
+
+#if CLOCK_SYS_CLOCK_HZ != 16000000u
+#error "Modbus UART divider configuration requires a 16 MHz system clock"
+#endif
+
+/* B85 SDK 的 16 MHz 配置表；初始化与超时恢复使用同一组参数。 */
+#if BMS_PRODUCT_UART_BAUD_RATE == 9600u
+#define MODBUS_UART_CLOCK_DIVIDER 118u
+#define MODBUS_UART_BWPC          13u
+/* 268 字节最长帧约 279 ms，必须允许完整发送后再判超时。 */
+#define MODBUS_RS485_TX_TIMEOUT_US 350000u
+#elif BMS_PRODUCT_UART_BAUD_RATE == 19200u
+#define MODBUS_UART_CLOCK_DIVIDER 118u
+#define MODBUS_UART_BWPC          6u
+/* 268 字节最长帧约 140 ms，保留发送完成与主循环调度余量。 */
+#define MODBUS_RS485_TX_TIMEOUT_US 200000u
+#elif BMS_PRODUCT_UART_BAUD_RATE == 115200u
 #define MODBUS_UART_CLOCK_DIVIDER 9u
 #define MODBUS_UART_BWPC          13u
+#define MODBUS_RS485_TX_TIMEOUT_US 50000u
+#else
+#error "Unsupported BMS_PRODUCT_UART_BAUD_RATE"
+#endif
 #define MODBUS_UART_BITS_PER_CHAR 10u /* 8N1：起始位 + 8 个数据位 + 停止位。 */
 #define MODBUS_UART_RECOVERY_US   (1u * 1000u * 1000u)
 
@@ -45,8 +69,6 @@ typedef char modbus_dma_packet_size_must_be_272[
 #if BMS_RS485_TX_DIAG_ENABLE && !BMS_PRODUCT_RS485_ENABLE
 #error "RS485 TX diagnostics require BMS_PRODUCT_RS485_ENABLE"
 #endif
-
-#define MODBUS_RS485_TX_TIMEOUT_US 50000u
 
 volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
@@ -83,8 +105,8 @@ static u32 modbus_rs485_min_hold_us(u32 len)
 {
     /*
      * B85 UART 位时钟：baud = SYSCLK / ((divider + 1) * (BWPC + 1))。
-     * 16 MHz、divider=9、BWPC=13 时实际约 114285.7 波特，每个 8N1 字符占 87.5 us。
-     * 按系统 tick 计算 DE 最小保持时间以跟随实际配置，不假定理想 115200 波特率。
+     * 16 MHz 下：9/13 约 114285.7 波特，118/13 约 9603.8 波特，118/6 约 19207.7 波特。
+     * 按系统 tick 计算 DE 最小保持时间，以跟随当前产品的实际分频配置。
      */
     const u32 ticks_per_us = CLOCK_SYS_CLOCK_HZ / 1000000u;
     const u32 ticks_per_bit =

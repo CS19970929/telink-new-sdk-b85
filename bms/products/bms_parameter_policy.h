@@ -13,7 +13,7 @@
  */
 #define BMS_UPDATE_SW_REVISION 1u /* 软件保护 */
 #if BMS_PRODUCT_ID == 8u
-#define BMS_UPDATE_AFE_REVISION 2u /* D008：OTA 后恢复 AFE 默认并开启 200 A SCD。 */
+#define BMS_UPDATE_AFE_REVISION 3u /* D008：OTA 后恢复 AFE 默认并开启 200 A SCD。 */
 #else
 #define BMS_UPDATE_AFE_REVISION 1u /* 其他产品 AFE 硬件保护保持原编号。 */
 #endif

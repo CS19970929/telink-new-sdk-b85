@@ -14,7 +14,7 @@
 #define BMS_D013_HW_CONFIG_APPROVED 0
 
 /* D013：4S / 100 uOhm；无 balance/heater/MOS NTC，板级映射待实板确认。 */
-#define SH3673510_BOARD_CELL_COUNT               4u
+#define SH3673510_BOARD_CELL_COUNT               10u
 #define SH3673510_BOARD_SHUNT_UOHM              100u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      0u /* 待验证硬件。 */
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u /* 待验证硬件。 */
@@ -46,8 +46,8 @@
 /* D013 开发容量 11.6 Ah（0.1 Ah 单位）；需产品参数签核。 */
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
 #define BMS_PRODUCT_HW_VERSION   "D013"
-#define BMS_PRODUCT_SW_VERSION   "V1.0"
-#define BMS_PRODUCT_DEFAULT_SERIAL      "D013-UNSET"
+#define BMS_PRODUCT_SW_VERSION   "V8.6"
+#define BMS_PRODUCT_DEFAULT_SERIAL      "D013-20261018"
 
 
 #define BMS_PRODUCT_BLE_NAME  "BT_D013"

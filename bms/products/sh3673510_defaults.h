@@ -4,7 +4,7 @@
 #pragma once
 
 #ifndef BMS_BOARD_DEBUG_LED_ENABLE
-#define BMS_BOARD_DEBUG_LED_ENABLE                   0u
+#define BMS_BOARD_DEBUG_LED_ENABLE                   1u
 #endif
 #define SH3673510_BOARD_NTC_NOMINAL_OHM 10000UL
 #define SH3673510_BOARD_SPI_GROUP               SH3673520_SPI_GROUP_B6_B7_D2_D7
