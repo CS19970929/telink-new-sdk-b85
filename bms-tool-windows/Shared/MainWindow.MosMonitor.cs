@@ -52,7 +52,11 @@ public partial class MainWindow
         var grid = new DataGrid { IsReadOnly = true, AutoGenerateColumns = false, CanUserAddRows = false, ItemsSource = _mosRows };
         foreach (var column in new[] { ("PC 时间", "Time", 155d), ("证据来源", "Source", 140d), ("状态", "State", 200d) })
             grid.Columns.Add(new DataGridTextColumn { Header = column.Item1, Binding = new Binding(column.Item2), Width = column.Item3 });
-        grid.Columns.Add(new DataGridTextColumn { Header = "原因 / 证据边界", Binding = new Binding("Detail"), Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 260 });
+        var detailStyle = new Style(typeof(TextBlock));
+        detailStyle.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap));
+        detailStyle.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, new Binding("Detail")));
+        grid.Columns.Add(new DataGridTextColumn { Header = "原因 / 证据边界", Binding = new Binding("Detail"),
+            ElementStyle = detailStyle, Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 260 });
         root.Children.Add(grid);
         MainTabs.Items.Add(new TabItem { Header = "MOS 监控", Content = root });
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };

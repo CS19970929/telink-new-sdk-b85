@@ -24,6 +24,10 @@ static class MosMonitorUiTest
         var tabs = (TabControl)window.FindName("MainTabs");
         var page = tabs.Items.OfType<TabItem>().Single(t => t.Header?.ToString() == "MOS 监控");
         tabs.SelectedItem = page;
+        var grid = ((DockPanel)page.Content).Children.OfType<DataGrid>().Single();
+        Check(((DataGridTextColumn)grid.Columns.Last()).ElementStyle.Setters.OfType<Setter>().Any(s =>
+            s.Property == TextBlock.TextWrappingProperty && (TextWrapping)s.Value == TextWrapping.Wrap),
+            "reason text wraps and remains readable in narrow windows");
         Check(((CheckBox)Get(window, "_mosAuto")!).IsChecked == true, "monitor defaults enabled in actual window");
         var client = new BmsClient(new NoIoTransport());
         Set(window, "_bms", client);
