@@ -496,6 +496,7 @@ void bms_afe_diag_poll(void)
         bms_diag_driver(0u, 0u);
         bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
     }
+    bms_diag_mos_capture();
 }
 
 #endif

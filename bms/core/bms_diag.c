@@ -14,6 +14,11 @@ static uint16_t s_sleep_words[BMS_DIAG_SLEEP_WORDS];
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
 static uint32_t s_trace_sequence;
 static uint16_t s_next;
+static uint16_t s_mos_live[BMS_DIAG_MOS_RECORD_WORDS];
+static uint16_t s_mos_history[BMS_DIAG_MOS_RECORD_COUNT][BMS_DIAG_MOS_RECORD_WORDS];
+static uint32_t s_mos_sequence, s_mos_overwritten, s_mos_boot_tick;
+static uint16_t s_mos_count;
+static uint16_t s_mos_raw_status;
 #endif
 static uint32_t s_sequence;
 static uint8_t s_frozen;
@@ -79,6 +84,11 @@ void bms_diag_init(void)
 #if BMS_DIAG_TRACE_ENABLE
     memset(s_trace, 0, sizeof(s_trace));
     s_trace_sequence = 0u; s_next = 0u;
+    memset(s_mos_live, 0, sizeof(s_mos_live));
+    memset(s_mos_history, 0, sizeof(s_mos_history));
+    s_mos_sequence = 0u; s_mos_overwritten = 0u; s_mos_count = 0u;
+    s_mos_raw_status = 0u;
+    s_mos_boot_tick = bms_diag_tick();
 #endif
     s_sequence = 0u; s_frozen = 0u;
     /* 已删除模式的 wire slot 225 保持初始化零，无运行写入口。 */
@@ -183,6 +193,57 @@ void bms_diag_driver(uint8_t flags, uint8_t valid)
         bms_diag_trace(DIAG_EV_DRIVER, flags & 3u, valid);
     s_words[132] = flags; s_words[133] = valid;
     put32(&s_words[140], bms_diag_tick()); changed();
+}
+
+void bms_diag_mos_raw_status(uint16_t raw_status)
+{
+#if BMS_DIAG_TRACE_ENABLE
+    s_mos_raw_status = raw_status;
+#else
+    (void)raw_status;
+#endif
+}
+
+/*
+ * 主循环在后端发布完请求/命令/状态/原因后记录。测量值只作带采样时间的背景，
+ * 不因电流或 tick 变化填满 ring；无效状态是 UNKNOWN，绝非已确认关断。
+ */
+void bms_diag_mos_capture(void)
+{
+#if BMS_DIAG_TRACE_ENABLE
+    uint16_t now[BMS_DIAG_MOS_RECORD_WORDS];
+    uint16_t i, dirty = s_mos_count == 0u;
+    memset(now, 0, sizeof(now));
+    /* 4..19 的控制/保护缓存决定是否记录，driver 只比较 CHG/DSG 两位。 */
+    for (i = 0u; i < 6u; ++i) now[4u+i] = s_words[128u+i];
+    now[8] &= 3u;
+    for (i = 0u; i < 4u; ++i) now[10u+i] = s_words[136u+i];
+    now[14] = s_words[142]; now[15] = s_words[143];
+    now[16] = s_words[145]; now[17] = s_words[146]; now[18] = s_words[147];
+    now[19] = s_words[193] & 1u;
+    for (i = 4u; i < 20u; ++i) {
+        /* SH FLAG2 的 ADC 完成位不是 MOS 故障，原值保留但不制造周期记录。 */
+        uint16_t mask = (i == 15u && s_words[14] == 0x3510u) ? 0xFFFCu : 0xFFFFu;
+        if ((now[i] & mask) != (s_mos_live[i] & mask)) dirty = 1u;
+    }
+    for (i = 0u; i < 3u; ++i) {
+        now[24u+i] = s_words[222u+i];
+        if (now[24u+i] != s_mos_live[24u+i]) dirty = 1u;
+    }
+    now[31] = s_words[14] == 0x3510u ? s_mos_raw_status : s_words[132];
+    if (s_words[14] == 0x3510u && ((now[31] ^ s_mos_live[31]) & 0x37u)) dirty = 1u;
+    if (!dirty) return;
+    put32(now, ++s_mos_sequence); put32(now+2, bms_diag_tick());
+    put32(now+20, get32(s_words+196)); put32(now+22, get32(s_words+198));
+    now[27] = s_words[14];
+    /* 独立保留前一状态，最旧条被覆盖时仍能识别本条边沿。 */
+    now[28] = s_mos_live[8]; now[29] = s_mos_live[9];
+    now[30] = s_mos_count != 0u;
+    memcpy(s_mos_history[(s_mos_sequence-1u) % BMS_DIAG_MOS_RECORD_COUNT], now, sizeof(now));
+    memcpy(s_mos_live, now, sizeof(now));
+    if (s_mos_count < BMS_DIAG_MOS_RECORD_COUNT) ++s_mos_count;
+    else if (s_mos_overwritten != 0xFFFFFFFFu) ++s_mos_overwritten;
+#endif
 }
 /* 更新指定诊断计数项。 */
 void bms_diag_counter(uint16_t index, uint32_t value)
@@ -360,7 +421,8 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
     return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
-        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE));
+        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
+        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE));
 }
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
@@ -368,6 +430,36 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
+    if (bytes && count && count <= 125u && start >= BMS_DIAG_MOS_BASE && end <= BMS_DIAG_MOS_END) {
+        for (i = 0u; i < count; ++i) {
+            uint16_t offset = (uint16_t)(start - BMS_DIAG_MOS_BASE + i), word = 0u;
+            if (offset == 0u) word = 0x4D48u;
+            else if (offset == 1u) word = 1u;
+            else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE;
+            else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
+            else if (offset == 4u) word = BMS_DIAG_MOS_RECORD_WORDS;
+            else if (offset == 12u) word = (uint16_t)BMS_DIAG_BUILD_ID;
+            else if (offset == 13u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+            else if (offset == 14u) word = s_words[14];
+            else if (offset == 15u) word = s_words[13];
+#if BMS_DIAG_TRACE_ENABLE
+            else if (offset == 5u) word = s_mos_count;
+            else if (offset == 6u) word = (uint16_t)s_mos_sequence;
+            else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
+            else if (offset == 8u) word = (uint16_t)s_mos_overwritten;
+            else if (offset == 9u) word = (uint16_t)(s_mos_overwritten >> 16);
+            else if (offset == 10u) word = (uint16_t)s_mos_boot_tick;
+            else if (offset == 11u) word = (uint16_t)(s_mos_boot_tick >> 16);
+            else if (offset >= 16u && offset < 48u) word = s_mos_live[offset-16u];
+            else if (offset >= 48u) {
+                offset = (uint16_t)(offset-48u);
+                word = s_mos_history[offset / BMS_DIAG_MOS_RECORD_WORDS][offset % BMS_DIAG_MOS_RECORD_WORDS];
+            }
+#endif
+            bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
+        }
+        return 1;
+    }
     if (bytes && count && count <= BMS_DIAG_SLEEP_WORDS &&
         start >= BMS_DIAG_SLEEP_BASE && end <= BMS_DIAG_SLEEP_END) {
         put32(&s_sleep_words[18], tick);

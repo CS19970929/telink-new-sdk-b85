@@ -146,6 +146,37 @@ int main(void){
  n=request(q,1,3,BMS_DIAG_SLEEP_END-1,2);
  assert(modbus_on_frame(q,n,r,&l) && r[2]==2);
  assert(reads==0 && writes==0);
- puts("PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, ring overwrite/tick wrap");
+ /* MOS 独立历史：采样间短暂关/开、有效性与背景、只读和生产关闭。 */
+ bms_diag_init();
+ bms_diag_mos(3u,0u,0u); bms_diag_command(3u,1u); bms_diag_driver(3u,1u);
+ bms_diag_runtime_sample(1u,-123,-123,tick,0u); bms_diag_mos_capture();
+ n=request(q,1,3,BMS_DIAG_MOS_BASE,48u);
+ assert(modbus_on_frame(q,n,r,&l) && l==101u && u16be(r+3)==0x4d48u);
+#if BMS_DIAG_TRACE_ENABLE
+ assert(u16be(r+7)==1u && u16be(r+15)==1u); /* enabled / latest sequence */
+ tick=0xfffffff0u;
+ bms_diag_runtime_sample(1u,999,999,tick,0u); bms_diag_mos_capture();
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+15)==1u); /* current-only does not fill ring */
+ bms_diag_driver(2u,1u); bms_diag_mos_capture();
+ tick=32u; bms_diag_driver(3u,1u); bms_diag_mos_capture();
+ n=request(q,1,3,BMS_DIAG_MOS_BASE+48u+32u,32u);
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+3)==2u && u16be(r+19)==2u);
+ assert(u16be(r+59)==3u && u16be(r+61)==1u); /* previous driver/valid retained */
+ bms_diag_driver(0u,0u); bms_diag_mos_capture();
+ n=request(q,1,3,BMS_DIAG_MOS_BASE,48u);
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+15)==4u && u16be(r+53)==0u);
+ for(unsigned i=0;i<20;i++){ bms_diag_driver((uint8_t)(i&1u),1u);bms_diag_mos_capture(); }
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+13)==8u && u16be(r+19)>0u);
+#else
+ assert(u16be(r+7)==0u && (bms_diag_cached_word(2)&BMS_DIAG_CAP_MOS_HISTORY)==0u);
+ for(unsigned i=16u;i<48u;i++) assert(u16be(r+3u+2u*i)==0u);
+#endif
+ for(unsigned func=6u;func<=16u;func+=10u){
+  n=request(q,1,(u8)func,func==16u?BMS_DIAG_MOS_BASE-1u:BMS_DIAG_MOS_BASE,2u);
+  assert(modbus_on_frame(q,n,r,&l) && r[2]==2u && writes==0u);
+ }
+ n=request(q,1,3,BMS_DIAG_MOS_END-1u,2u);
+ assert(modbus_on_frame(q,n,r,&l) && r[2]==2u && reads==0u && writes==0u);
+ puts("PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, ring overwrite/tick wrap");
  return 0;
 }

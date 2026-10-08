@@ -47,4 +47,5 @@ void bms_afe_diag_poll(void)
     words[9] = (uint16_t)(detail.mos_ntc_ohm >> 16);
     words[10] = detail.mos_temp_x10;
     bms_diag_backend_details(words);
+    bms_diag_mos_capture();
 }

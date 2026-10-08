@@ -26,6 +26,13 @@
 #define BMS_DIAG_SLEEP_BASE 0x3300u
 #define BMS_DIAG_SLEEP_WORDS 20u
 #define BMS_DIAG_SLEEP_END (BMS_DIAG_SLEEP_BASE + BMS_DIAG_SLEEP_WORDS)
+/* 开发 MOS 专用变化历史，不被 SOC/PM 高频轨迹覆盖；u32 仍低 word 在前。 */
+#define BMS_DIAG_MOS_BASE 0x3400u
+#define BMS_DIAG_MOS_HEADER_WORDS 16u
+#define BMS_DIAG_MOS_RECORD_WORDS 32u
+#define BMS_DIAG_MOS_RECORD_COUNT 8u
+#define BMS_DIAG_MOS_END (BMS_DIAG_MOS_BASE + BMS_DIAG_MOS_HEADER_WORDS + \
+    BMS_DIAG_MOS_RECORD_WORDS * (1u + BMS_DIAG_MOS_RECORD_COUNT))
 
 /*
  * 开发默认保留轨迹；生产关闭以节省 1536 字节 RAM，
@@ -53,9 +60,11 @@
 #define BMS_DIAG_CAP_UPGRADE    0x0010u
 #define BMS_DIAG_CAP_RUNTIME    0x0020u
 #define BMS_DIAG_CAP_SLEEP      0x0040u
+#define BMS_DIAG_CAP_MOS_HISTORY 0x0080u
 #define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_TRACE : 0u) | \
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
-                                 BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP)
+                                 BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP | \
+                                 (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_MOS_HISTORY : 0u))
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
@@ -189,6 +198,10 @@ void bms_diag_mos(uint16_t requested, uint32_t charge, uint32_t discharge);
 void bms_diag_command(uint8_t command, uint8_t valid);
 /* 发布驱动 FET 缓存标志与有效性，不作为物理 Gate 证据。 */
 void bms_diag_driver(uint8_t flags, uint8_t valid);
+/* 后端完整缓存发布后调用；仅开发 RAM 记录，不访问 AFE 或改变 MOS。 */
+void bms_diag_mos_capture(void);
+/* SH 已读 BSTATUS1 原值，仅用于开发历史；DVC 原值来自 driver 缓存。 */
+void bms_diag_mos_raw_status(uint16_t raw_status);
 /* 更新所选 AFE 后端的诊断字段。 */
 void bms_diag_backend(uint16_t charge, uint16_t discharge);
 /* 取得单个缓存诊断字，不访问硬件。 */

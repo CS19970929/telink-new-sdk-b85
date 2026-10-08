@@ -286,6 +286,7 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     s_flag1 = s->flag1;
     s_flag2 = s->flag2;
     s_bstatus2 = s->bstatus2;
+    bms_diag_mos_raw_status(s->bstatus1);
     g_bms_system_status.bits.charge_mos_status =
         (s->bstatus1 & SH3673520_BSTATUS1_CHG_FET_MASK) ? 1u : 0u;
     g_bms_system_status.bits.discharge_mos_status =
