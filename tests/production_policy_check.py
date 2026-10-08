@@ -1,7 +1,7 @@
 """Preprocess real release configuration: positive control plus forbidden options."""
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
-import subprocess,tempfile,importlib.util,os,shlex
+import subprocess,tempfile,importlib.util,os,shlex,re
 ROOT=Path(__file__).resolve().parents[1]
 SDK=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk'
 APP = Sources(ROOT)
@@ -25,8 +25,8 @@ with tempfile.TemporaryDirectory(prefix='bms-production-') as d:
   assert (r.returncode==0)==ok,(extra,r.stderr)
 print('PASS release positive control and forbidden debug/test/dirty/identity/protection combinations')
 
-# Preprocess the actual release gate. Positive controls replace only approval values
-# in an external fixture; those fixtures are never a production artifact.
+# 正负控制在树外夹具中显式设置批准值，不依赖当前产品是否已批准。
+# 夹具不会用于生成生产镜像。
 with tempfile.TemporaryDirectory(prefix='bms-approval-') as tmp:
  folder=Path(tmp)
  real=(ROOT/'bms/products'/bms.PRODUCT/'bms_product.h').read_text(encoding='utf-8')
@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix='bms-approval-') as tmp:
  for profile in profiles:
   options=['-DD008_PRODUCT_PROFILE='+str(profile)] if not sh else []
   for approved in (False,True):
-   fixture=real.replace('_APPROVED 0','_APPROVED 1') if approved else real
+   fixture=re.sub(r'(?m)^(#define\s+\w+_APPROVED)\s+[01]\b',lambda m:m.group(1)+' '+str(int(approved)),real)
    (folder/'bms_product.h').write_text(fixture,encoding='utf-8')
    result=subprocess.run(command[:-1]+options+command[-1:],input=src,capture_output=True,text=True)
    expected=approved

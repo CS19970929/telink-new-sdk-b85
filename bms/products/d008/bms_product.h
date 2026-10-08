@@ -3,16 +3,16 @@
 #include "bms_soc_defs.h"
 
 /* 文件功能：产品身份、AFE 后端及化学体系的编译期选择。 */
-/* 产品整体签核：参数与实板验收完成后，经受控提交置 1。 */
-#define BMS_PRODUCT_RELEASE_APPROVED 0
+/* 2026-10-08 按用户指示授权生产镜像生成；实板验收仍按硬件清单独立记录。 */
+#define BMS_PRODUCT_RELEASE_APPROVED 1
 #define BMS_PRODUCT_ID 8u
 #define BMS_AFE_BACKEND 1
 #define BMS_PRODUCT_CHEMISTRY D008_PRODUCT_CHEMISTRY
 #define BMS_PRODUCT_SOC_PROFILE_ID D008_PRODUCT_SOC_PROFILE_ID
 #include "d008_product_profile.h"
 
-/* 需产品签核与依据提交后才能置 1；不改变现有阈值或 SCD 开关。 */
-#define BMS_D008_SCD_POLICY_APPROVED 0
+/* 本次授权接受现有 SCD 策略用于镜像生成；保留原阈值及 SCD 开关。 */
+#define BMS_D008_SCD_POLICY_APPROVED 1
 #define BMS_D008_20S_NMC_PROTECTION_APPROVED 0
 
 #include "dvc1124_product_defaults.h"
