@@ -28,7 +28,7 @@
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="36"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="35*"/>
@@ -304,7 +304,8 @@
                                 <TextBlock x:Name="CommunicationStatusText" Text="通信：未连接" Foreground="Black"/>
                             </Border>
                             <TextBlock x:Name="CommunicationCountersText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0"
-                                       TextWrapping="Wrap" FontSize="12" Text="TX 0帧 / RX 0帧 · 超时 0 · CRC 0 · 重连 0"/>
+                                       TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" Foreground="#333333"
+                                       Text="通信统计：TX 0帧 / RX 0帧 · 超时 0 · CRC 0 · 重连 0"/>
                         </Grid>
                     </Border>
                 </Grid>

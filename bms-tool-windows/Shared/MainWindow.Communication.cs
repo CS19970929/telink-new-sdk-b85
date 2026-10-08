@@ -14,7 +14,7 @@ public partial class MainWindow
     {
         var s = _communicationStatistics.Snapshot();
         string rtt = s.LastResponseMs is double ms ? $"{ms:F1}ms" : "—";
-        CommunicationCountersText.Text = $"TX {s.TxFrames}帧 / RX {s.RxFrames}帧 · 超时 {s.Timeouts} · CRC {s.CrcErrors} · 异常 {s.InvalidResponses + s.ExceptionResponses} · 发送失败 {s.SendFailures} · 重连 {_communicationReconnectAttempts}";
+        CommunicationCountersText.Text = $"通信统计：TX {s.TxFrames}帧 / RX {s.RxFrames}帧 · 超时 {s.Timeouts} · CRC {s.CrcErrors} · 异常 {s.InvalidResponses + s.ExceptionResponses} · 发送失败 {s.SendFailures} · 重连 {_communicationReconnectAttempts}";
         string detail = $"本窗口累计，断开和重连后保留。TX 为 transport 写入成功的请求；RX 为 CRC、地址、功能和长度校验通过的响应（包含异常应答）。\n发送 {s.TxBytes}B / 原始接收 {s.RxBytes}B；最近响应 {rtt}；取消 {s.Cancellations}。\n最近异常：{(string.IsNullOrEmpty(s.LastError) ? "无" : s.LastError)}";
         CommunicationCountersText.ToolTip = detail;
         CustomerCommStatusBorder.Visibility = Visibility.Visible;
