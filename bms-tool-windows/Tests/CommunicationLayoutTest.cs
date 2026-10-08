@@ -44,7 +44,10 @@ static class CommunicationLayoutTest
                         SavePng(bitmap, Path.Combine(args[0], $"layout-{width}-{height}.png"));
                         var footerBitmap = new RenderTargetBitmap((int)Math.Ceiling(footer.ActualWidth),
                             (int)Math.Ceiling(footer.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-                        footerBitmap.Render(footer);
+                        var footerVisual = new DrawingVisual();
+                        using (var drawing = footerVisual.RenderOpen())
+                            drawing.DrawRectangle(new VisualBrush(footer), null, new Rect(0, 0, footer.ActualWidth, footer.ActualHeight));
+                        footerBitmap.Render(footerVisual);
                         SavePng(footerBitmap, Path.Combine(args[0], $"footer-{width}-{height}.png"));
                     }
                 }
@@ -64,3 +67,4 @@ static class CommunicationLayoutTest
         encoder.Save(file);
     }
 }
+
