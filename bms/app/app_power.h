@@ -8,7 +8,7 @@
 /* Modbus 锁存原有请求；D008 关机路径消费，失败保持请求。 */
 extern bool deepsleep_en;
 
-/* 已提交休眠/关机时执行保持动作并返回 1；正常运行返回 0。 */
+/* 已提交保护性深睡/ACC/关机时只执行保持动作并返回 1；正常运行返回 0。 */
 uint8_t app_power_prepare_loop(void);
 /* app.c 必须传入非空采样标志指针；本次调用只读，不缓存指针或修改标志。 */
 void app_power_process(const volatile uint8_t *sample_due);

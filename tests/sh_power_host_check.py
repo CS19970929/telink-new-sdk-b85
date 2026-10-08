@@ -130,10 +130,9 @@ def check_sh3673510_sleep_host_check():
         function('app_power.c', 'app_pm_elapsed_limit'),
     ])
     app_source = selected_source(APP / 'app_power.c')
-    for counter in ('sleep_cnt', 'sleep_veryvlow_cnt', 'sleep_vlow_cnt',
-                    'sleep_vnormal_cnt', 'afe_comm_err_sleepcnt'):
-        assert f'{counter} = app_pm_elapsed_limit(' in app_source
-        assert f'if (app_note_sleep_and_enter_deepsleep(1u)) {counter} = 0;' in app_source
+    assert 'sleep_cnt = app_pm_elapsed_limit(' in app_source
+    assert 'if (app_note_sleep_and_enter_deepsleep(1u)) sleep_cnt = 0;' in app_source
+    assert 'if (app_protective_sleep_poll(sleep_elapsed_sec)) return;' in app_source
     fixture = '#define BMS_AFE_BACKEND 2\n#define BMS_AFE_BACKEND_DVC1124 1\n' + (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
         c, exe = Path(tmp) / 'check.c', Path(tmp) / 'check.exe'
@@ -150,6 +149,26 @@ def check_sh3673510_sleep_host_check():
             subprocess.run([str(exe)], check=True)
     print('SH production sleep/control/backend/guard/app fault injection: PASS')
 
+def check_sh_protective_sleep():
+    """执行当前 SH 产品的保护计时/深睡保持生产函数，边界均注入失败。"""
+    from pathlib import Path
+    from project_paths import selected_source
+    from validation_support import function, run_c
+    root = Path(__file__).resolve().parents[1]
+    source = selected_source(root / 'bms/app/app_power.c')
+    start = source.index('#define APP_AFE_ERROR_SLEEP_SECONDS')
+    end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
+    body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
+    body += '\n'.join(function(source, signature) for signature in (
+        'static uint8_t app_get_fresh_measurements(',
+        'static u32 app_pm_take_elapsed_seconds(', 'static u32 app_pm_elapsed_limit(',
+        'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
+        'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+        'uint8_t app_power_prepare_loop('))
+    fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
+    run_c(fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
+
 if __name__ == "__main__":
     check_sh3673510_sample_schedule_host_check()
     check_sh3673510_sleep_host_check()
+    check_sh_protective_sleep()

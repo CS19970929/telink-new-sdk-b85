@@ -341,13 +341,14 @@ D008 的 `BMS_UPDATE_AFE_REVISION=2u`，OTA 后对同 schema、相同产品/串�
 
 ## 12. 当前电源路径与保护开关
 
-`bms/app/app_power.c` 的 DVC 分支有三条不同路径：
+`bms/app/app_power.c` 的 DVC 分支有四条不同路径：
 
 - 普通 suspend 由 `app_power_process()` 结合 BLE、通信状态及可靠充/放电电流判断；双向达到 500 mA 的策略需要实测验证。
 - `app_enter_power_off()`：检查 OTA/Flash/mux 等门禁，保存 State/事件，AFE shutdown 成功后才拉低 PC4/MCU_LDO，切断 MCU 电源。
 - `app_enter_acc_sleep()`：PA0 高稳定 200 ms 后，检查通信/连接并保存状态；AFE shutdown 成功后保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
+- `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后强制 deep sleep，保持 PC4 高；通信、OTA、保存或 AFE 失败不阻止，规则见 [保护性深睡](LOW_POWER_POLICY.md)。
 
-保存失败、shutdown 失败不能继续最终电源动作；重试有间隔，唤醒走重新初始化。物理供电、ACC 电平、负载检测与唤醒时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。
+普通 ACC/显式关机在保存或 shutdown 失败时保留请求并退避；保护性深睡不使用这些门禁。唤醒走重新初始化。物理供电、ACC 电平、负载检测与唤醒时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。
 
 `DVC1124_SW_PROTECT_ENABLE` 控制软件电压/电流/压差，`DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制温度和必需 NTC 失效保护；第 9 节 SW/HW 表必须连同温度开关理解。生产全部保护开关按门禁开启；非生产组合只作受控验证。
 

@@ -61,6 +61,7 @@ python bms_tools/bms.py --product d014 resources
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 休眠/唤醒、通信与采样门禁 |
+| [四产品保护性深睡](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期强制深睡与唤醒 |
 | [实时休眠原因与倒计时](docs/SLEEP_STATUS.md) | 四产品只读状态、剩余时间、阻止原因及 Windows 实时显示 |
 | [D014 诊断](docs/D014_DIAGNOSTICS.md) | 温度断线、MOS 阻断、诊断快照 |
 | [D014 RS485 发送诊断](docs/D014_RS485_TX_DIAG.md) | 台架模式、DMA/DE 计数和波形定位 |

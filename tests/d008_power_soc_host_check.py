@@ -29,6 +29,13 @@ def function(name, signature):
     return extract_function(text, signature)
 
 
+def protective_sleep_state():
+    text = (MOD / 'app_power.c').read_text()
+    start = text.index('#define APP_AFE_ERROR_SLEEP_SECONDS')
+    end = text.index('static app_protective_sleep_t s_protective_sleep;', start)
+    return text[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run D008 production SOC/PM host checks")
     parser.add_argument('--trajectory', type=Path,
@@ -49,9 +56,12 @@ def main():
         }
         if args.compile_soc_executable is None and not args.soc_only:
             units.update({
-            'power': '\n'.join(function('app_power.c', sig) for sig in (
+            'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
                 'static u32 app_sleep_retry_ms(', 'static void app_publish_sleep(',
+                'static u32 app_pm_elapsed_limit(',
+                'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
+                'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',
                 'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(')),

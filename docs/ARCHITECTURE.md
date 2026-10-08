@@ -31,7 +31,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
 | SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
 | SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立编号 |
-| 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交 ACC 休眠/关机先执行保持动作，不再进入业务调度 |
+| 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
 ## 3. 软件保护与 AFE 保护
@@ -69,6 +69,6 @@ D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和�
 
 ## 7. 修改边界
 
-固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 的 `SH3673510_FIXED_UART_BLOCKS_PM=1` 保留现有固定 UART 门禁，不因“有 sleep 函数”声称默认模式一定进入休眠。
+固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 的 `SH3673510_FIXED_UART_BLOCKS_PM=1` 保留普通低功耗门禁；[低压/AFE 异常保护性深睡](LOW_POWER_POLICY.md) 到期后不受其阻止。
 
 持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/编号规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。

@@ -4,6 +4,9 @@
 #include <assert.h>
 #include <string.h>
 typedef uint8_t u8;typedef uint32_t u32;
+typedef int GPIO_PinTypeDef;
+#define BMS_AFE_BACKEND 1
+#define BMS_AFE_BACKEND_DVC1124 1
 #define APP_PM_TICKS_PER_SEC 32000u
 #define APP_SUSPEND_EXIT_CURRENT_MA 500
 #define APP_POWER_OFF_RETRY_SECONDS 5u
@@ -12,6 +15,7 @@ typedef uint8_t u8;typedef uint32_t u32;
 #define BMS_BOARD_ACC_PIN 0
 #define BMS_BOARD_LOAD_DETECT_PIN 1
 #define Level_Low 0
+#define Level_High 1
 #define DEEPSLEEP_MODE 0x80
 #define PM_WAKEUP_PAD 16
 #define BLE_SUCCESS 0
@@ -23,9 +27,9 @@ static u8 s_acc_high_seen,s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconne
 static u32 s_acc_high_tick,s_acc_retry_tick;
 static int acc_high,ldo_high,acc_wake,deep_calls,reboot_calls,disconnect_calls,adv_enabled=1;
 static int acc_low_during_shutdown,acc_low_during_sleep;
-static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN);return acc_high;}
+static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
 static void start_reboot(void){reboot_calls++;}
-static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else assert(pin==BMS_BOARD_LOAD_DETECT_PIN&&!en);}
+static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else assert(pin==BMS_BOARD_LOAD_DETECT_PIN);}
 static int cpu_sleep_wakeup(int mode,int src,u32 tick){assert(mode==DEEPSLEEP_MODE&&src==PM_WAKEUP_PAD&&tick==0&&acc_wake&&ldo_high);deep_calls++;if(acc_low_during_sleep)acc_high=0;return 0;}
 static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return BLE_SUCCESS;}
 static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
@@ -35,8 +39,8 @@ static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
 #define SUSPEND_DISABLE 0
 #define BMS_SLEEP_LOW_CELL_MV 2800
 #define BMS_SLEEP_NORMAL_CELL_MV 3000
-#define BMS_SLEEP_LOW_SECONDS 10000u
-#define BMS_SLEEP_NORMAL_SECONDS 10000u
+#define BMS_SLEEP_LOW_SECONDS 3600u
+#define BMS_SLEEP_NORMAL_SECONDS 86400u
 #define DIAG_PM_BLOCK_SAMPLE_INVALID 1u
 #define DIAG_PM_BLOCK_OTA 2u
 #define DIAG_PM_BLOCK_FLASH 4u
@@ -52,6 +56,11 @@ static volatile u8 s_sample_due;
 static u32 s_power_off_retry_tick,now,elapsed;
 static int valid=1,flash_ready=1,ota_is_working,device_in_connection_state,bus_busy,mask;
 static int storage_ok=1,event_ok=1,shutdown_ok=1,cut_calls,seq[64],seq_len;
+static int afe_error, output_enabled=1;
+#define BMS_ERROR_AFE1 0
+static int bms_error_get(int error){assert(error==BMS_ERROR_AFE1);return afe_error;}
+static void bms_afe_set_output_enabled(u8 en){output_enabled=en;}
+static int bms_afe_sleep(void){seq[seq_len++]=3;return shutdown_ok;}
 static bool deepsleep_en;
 static u8 ble_tx_pending;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
@@ -92,6 +101,7 @@ static void reset(void){
  s_acc_high_seen=s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
  deepsleep_en=false;ble_tx_pending=0;
  s_sleep_failure_mask=s_sleep_report_reason=0;
+ memset(&s_protective_sleep,0,sizeof(s_protective_sleep));afe_error=0;output_enabled=1;
  s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
@@ -136,7 +146,7 @@ int main(void){
  reset();g_bms_report.cell_min_mv=2770;elapsed=2;app_power_process(&s_sample_due);
  assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
  device_in_connection_state=1;app_power_process(&s_sample_due);
- assert(observed_sleep_elapsed==0u && (observed_sleep_block&DIAG_SLEEP_BLOCK_BLE));
+ assert(observed_sleep_elapsed==4000u && observed_sleep_block==0u);
  reset();int currents[]={-501,-500,-499,0,499,500,501};
  for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
   measurement.current_ma=currents[i];app_power_process(&s_sample_due);
@@ -147,7 +157,7 @@ int main(void){
  /* A live BLE connection is not itself an active-mode request. */
  reset();device_in_connection_state=1;app_power_process(&s_sample_due);
  assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&s_low_power_mode);
- elapsed=7200;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);assert(!cut_calls);
+ elapsed=0;g_bms_report.cell_min_mv=3300;
  ota_is_working=1;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  ota_is_working=0;bus_busy=1;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  bus_busy=0;flash_ready=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
@@ -155,10 +165,21 @@ int main(void){
  s_sample_due=0;measurement.current_ma=500;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  measurement.current_ma=-500;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  measurement.current_ma=0;valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
- puts("PASS connected suspend: link retained; OTA/bus/Flash/sample/current/invalid gates and no automatic power-off");
+ puts("PASS connected suspend: link retained; ordinary OTA/bus/Flash/sample/current/invalid gates");
  reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
  reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
- reset();ota_is_working=1;elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);assert(!cut_calls);assert(mask==0);
+ reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
+ elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
+ assert(!cut_calls&&deep_calls==1&&s_protective_sleep.committed&&!output_enabled);
+ assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
+ int saved=seq_len;app_power_process(&s_sample_due);assert(deep_calls==2&&seq_len==saved);
+ reset();valid=0;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
+ assert(!deep_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
+ app_power_process(&s_sample_due);assert(deep_calls==1&&s_protective_sleep.committed);
+ reset();g_bms_report.cell_min_mv=2400;afe_error=1;elapsed=900;app_power_process(&s_sample_due);
+ g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
+ assert(deep_calls==1); /* low-voltage branch does not erase the AFE timeout */
+ puts("PASS protective sleep: connected low voltage, OTA/bus/Flash/AFE failure override, invalid samples and independent AFE timeout, no repeated saves");
  reset();flash_ready=0;assert(!app_enter_power_off());assert(seq_len==0);
  reset();device_in_connection_state=1;assert(!app_enter_power_off());assert(seq_len==0);
  reset();bus_busy=1;assert(!app_enter_power_off());assert(seq_len==0);
