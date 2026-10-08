@@ -22,6 +22,8 @@ bms_report_t g_bms_report;
 volatile bms_system_status_t g_bms_system_status;
 static uint8_t errors[BMS_ERROR_COUNT];
 static uint32_t now;
+/* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
+void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }
 static sh3673510_control_status_t device;
 static unsigned clear_calls;
 static uint8_t clear_ok = 1, command_c, command_d;
