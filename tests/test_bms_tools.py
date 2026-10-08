@@ -18,6 +18,9 @@ sys.modules[SPEC.name] = bms
 sys.path.insert(0, str(MODULE_PATH.parent))
 SPEC.loader.exec_module(bms)
 from static_analysis import StaticAnalysis
+import android_ota
+import hashlib
+import json
 static = StaticAnalysis(bms)
 
 
@@ -404,6 +407,103 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
             self.assertTrue((verification_dir / "verification.json").exists())
             self.assertEqual(data_path.read_text(encoding="utf-8"), "{}")
             self.assertFalse((run_dir / "node_modules").exists())
+
+
+class AndroidOtaWorkflowTests(unittest.TestCase):
+    def create_files(self, root, target):
+        product, profile = android_ota.TARGETS[target]
+        variant = 'production' + ('-' + profile if profile else '')
+        firmware = root / 'firmware' / variant / product / '825x_ble_sample.bin'
+        firmware.parent.mkdir(parents=True)
+        firmware.write_bytes(b'old-or-new-fixture')
+        data = {'product': product, 'bin': str(firmware),
+                'size_bytes': firmware.stat().st_size,
+                'sha256': hashlib.sha256(firmware.read_bytes()).hexdigest(),
+                'configuration': {'product': product, 'production': True,
+                                  'd008_profile': profile}}
+        manifest = firmware.with_name('fw_manifest.json')
+        manifest.write_text(json.dumps(data), encoding='utf-8')
+        sender = root / 'Sender.exe'
+        sender.write_bytes(b'not-an-executable')
+        return firmware, manifest, data, sender
+
+    def test_all_six_selections_build_verify_and_send_the_matching_image(self):
+        for target, (product, profile) in android_ota.TARGETS.items():
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                firmware, _, _, sender = self.create_files(root, target)
+                with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                    self.assertEqual(android_ota.run_workflow(target, sender, root=root), 0)
+                commands = [call.args[0] for call in run.call_args_list]
+                for command in commands[:3]:
+                    self.assertEqual(command[command.index('--product') + 1], product)
+                    self.assertIn('--production', command)
+                    if profile:
+                        self.assertEqual(command[command.index('--d008-profile') + 1], profile)
+                    else:
+                        self.assertNotIn('--d008-profile', command)
+                self.assertEqual(commands[0][-3:], ['build', '--jobs', '4'])
+                self.assertEqual([command[-1] for command in commands[1:3]], ['manifest', 'verify'])
+                self.assertEqual(commands[3], [str(sender), '--firmware', str(firmware), '--auto-ota'])
+
+    def test_each_failed_stage_stops_before_sending_an_existing_old_bin(self):
+        for failed_stage in range(3):
+            with self.subTest(stage=failed_stage), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                _, _, _, sender = self.create_files(root, 'd008-16s-lfp')
+                responses = [mock.Mock(returncode=0) for _ in range(failed_stage)]
+                responses.append(mock.Mock(returncode=7, stdout='failure', stderr='failure'))
+                with mock.patch.object(android_ota.subprocess, 'run', side_effect=responses) as run, mock.patch('builtins.print'):
+                    self.assertEqual(android_ota.run_workflow('d008-16s-lfp', sender, root=root), 7)
+                self.assertEqual(run.call_count, failed_stage + 1)
+
+    def test_wrong_product_profile_path_or_changed_bin_is_never_sent(self):
+        for fault in ('product', 'profile', 'path', 'bytes'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                firmware, manifest, data, sender = self.create_files(root, 'd008-16s-lfp')
+                if fault == 'product':
+                    data['product'] = 'd014'
+                elif fault == 'profile':
+                    data['configuration']['d008_profile'] = '24s-lfp'
+                elif fault == 'path':
+                    data['bin'] = str(root / 'wrong.bin')
+                else:
+                    firmware.write_bytes(b'changed')
+                manifest.write_text(json.dumps(data), encoding='utf-8')
+                with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                    with self.assertRaises(ValueError):
+                        android_ota.run_workflow('d008-16s-lfp', sender, root=root)
+                self.assertEqual(run.call_count, 3)
+
+    def test_missing_sender_fails_before_build_and_build_only_never_connects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, _, sender = self.create_files(root, 'd008-16s-lfp')
+            sender.unlink()
+            with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                with self.assertRaises(ValueError):
+                    android_ota.run_workflow('d008-16s-lfp', sender, root=root)
+                run.assert_not_called()
+                self.assertEqual(android_ota.run_workflow('d008-16s-lfp', sender, root=root, build_only=True), 0)
+                self.assertEqual(run.call_count, 3)
+
+    def test_sender_failure_remains_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, _, sender = self.create_files(root, 'd008-16s-lfp')
+            responses = [mock.Mock(returncode=code) for code in (0, 0, 0, 9)]
+            with mock.patch.object(android_ota.subprocess, 'run', side_effect=responses), mock.patch('builtins.print'):
+                self.assertEqual(android_ota.run_workflow('d008-16s-lfp', sender, root=root), 9)
+
+    def test_shortcut_selections_match_the_workflow_targets(self):
+        tasks = json.loads((REPO_ROOT / '.vscode/tasks.json').read_text(encoding='utf-8'))
+        default = [task for task in tasks['tasks'] if isinstance(task.get('group'), dict)
+                   and task['group'].get('isDefault')]
+        self.assertEqual(len(default), 1)
+        self.assertEqual(default[0]['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
+        selection = next(item for item in tasks['inputs'] if item['id'] == 'otaTarget')
+        self.assertEqual({item['value'] for item in selection['options']}, set(android_ota.TARGETS))
 
 
 if __name__ == "__main__":
