@@ -63,6 +63,7 @@ python bms_tools/bms.py --product d014 resources
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 休眠/唤醒、通信与采样门禁 |
 | [四产品保护性深睡](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期强制深睡与唤醒 |
 | [MOS 无人值守监控](docs/MOS_MONITOR.md) | 请求、命令、AFE 状态、原因、开发历史及自动写盘 |
+| [断线检测调研与双后端方案](docs/OPENWIRE_RESEARCH_AND_DESIGN.md) | 原厂检测目的、DVC/SH 差异、当前 MOS 隔离问题及待验证方案 |
 | [实时休眠原因与倒计时](docs/SLEEP_STATUS.md) | 四产品只读状态、剩余时间、阻止原因及 Windows 实时显示 |
 | [D014 诊断](docs/D014_DIAGNOSTICS.md) | 温度断线、MOS 阻断、诊断快照 |
 | [D014 RS485 发送诊断](docs/D014_RS485_TX_DIAG.md) | 台架模式、DMA/DE 计数和波形定位 |
