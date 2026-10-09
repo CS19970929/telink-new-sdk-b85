@@ -23,7 +23,7 @@
 |---|---|---|
 | MCU | TLSR8251F512ET32 | 未取得 D013 原理图复核 |
 | AFE | SH3673510 | 未取得 D013 原理图复核 |
-| cell count | 4 | CODE |
+| cell count | 默认 10；构建可覆盖，须核对实际编译参数 | CODE；不是实板确认 |
 | shunt | 100 µΩ | CODE；注释为 2 mV : 20 A -> 0.1 mΩ |
 | SPI group | PB6 MISO / PB7 MOSI / PD7 SCLK / PD2 CS | CODE，沿用 D011 配置 |
 | NTC nominal | 10K | CODE，沿用 D011 假设 |
@@ -86,7 +86,7 @@ AFE 寄存器模型来自 SH36735XX CV1.0A；当前 D013 与 D011 共用 `sh3673
 | SCONF1 0x40 | `0x00` | Normal |
 | SCONF2 0x41 | `0x50` | PD_EN=1、PUMP_EN=1；PDSGMOS/DSGMOS/CHGMOS boot=0 |
 | SCONF3 0x42 | `0x44` | CGR_WK=1、LD_WK=OFF、CRLD_EN=CPLUS、OWD_EN/TRG=0 |
-| SCONF4 0x43 | `0x64` | PDSGT code3=490 ms，CN=4 |
+| SCONF4 0x43 | 默认 `0x6A` | PDSGT code3=490 ms，CN=10；构建覆盖后随有效串数变化 |
 | SCONF5 0x44 | 初始 `0x3C` | MOS_EN=1、OCC_EN=1、CADC_EN=1、WDT_EN=1、WDT code0 |
 | SCONF7 0x46 | `0x04` | RLD=0、CADCT=4S、CDV=4 |
 | OWV/ALARMH 0x47 | `0x57` | OWV code5、LOADOFF/VADC/CADC interrupt=1 |
@@ -94,7 +94,7 @@ AFE 寄存器模型来自 SH36735XX CV1.0A；当前 D013 与 D011 共用 `sh3673
 
 D013 与 D011 的关键静态 AFE 差异在当前源码中主要是：
 
-- `CN=4`（D011 为 10）；
+- 默认 `CN=10`（与 D011 相同）；串数不是当前默认差异；
 - `Rsense=100 µΩ`（D011 为 250 µΩ）；
 - 产品配置选择 direct UART。
 
@@ -148,7 +148,7 @@ D013 与 D011 使用同一量化实现，但因为 Rsense 不同，**同一个�
 
 1. **补 D013 原理图/BOM**，逐一确认 MCU GPIO、SPI、RESET、ALARM、UART、开关、加热、唤醒、LED。
 2. 明确 D013 实际 AFE 型号和封装，确认就是 SH3673510。
-3. 用硬件资料确认 4S cell wiring、未使用通道处理方式。
+3. 用硬件资料确认实际串数及 cell wiring、未使用通道处理方式。
 4. 确认 100 µΩ shunt 的实际物料/并联结构、Kelvin 取样、方向和功率。
 5. 确认 TS1..TS4 的实际 NTC 数量、阻值和物理位置；当前 10K 是继承配置，TS3/TS4 capability 禁用；实际传感器存在性及角色尚待确认。
 6. 中性宏和 D013 身份已完成整理；引脚值仍需逐网验证，命名清理不等于硬件确认。
@@ -157,7 +157,7 @@ D013 与 D011 使用同一量化实现，但因为 Rsense 不同，**同一个�
 ## 10. 当前权威源码入口
 
 - `bms/products/d013/bms_product.h`：当前 D013 编译身份/通信模式，保留既有 numeric wire ID，字符串已改为 D013。
-- `bms/products/d013/bms_product.h`：4S/100µΩ 和当前继承 IO/AFE 静态配置。
+- `bms/products/d013/bms_product.h`：默认 10S/100µΩ 和当前继承 IO/AFE 静态配置。
 - `bms/afe/sh3673510/sh3673520_reg.h`：SH36735xx CV1.0A 寄存器/协议真值。
 - `bms/afe/sh3673510/sh3673510_control.c`：硬件保护量化、静态配置、FET/温度处理。
 - `bms/afe/sh3673510/sh3673510_bms.c`：BMS适配、保护恢复、AFE communication fail-safe。

@@ -16,7 +16,7 @@
 /* D013 专属原理图/BOM 尚缺，保持未签核。 */
 #define BMS_D013_HW_CONFIG_APPROVED 0
 
-/* D013：4S / 100 uOhm；无 balance/heater/MOS NTC，板级映射待实板确认。 */
+/* D013：默认 10S / 100 uOhm；无 balance/heater/MOS NTC，板级映射待实板确认。 */
 #ifndef BMS_BUILD_CELL_COUNT
 #define SH3673510_BOARD_CELL_COUNT               10u
 #else
