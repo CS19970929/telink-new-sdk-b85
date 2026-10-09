@@ -1,12 +1,12 @@
 """Preprocess real release configuration: positive control plus forbidden options."""
 from pathlib import Path
 from project_paths import Sources, host_includes, selected_source
-import subprocess,tempfile,importlib.util,os,shlex,re
+import subprocess,tempfile,os,shlex,re,sys
 ROOT=Path(__file__).resolve().parents[1]
 SDK=ROOT/'tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk'
 APP = Sources(ROOT)
-spec=importlib.util.spec_from_file_location('bms_policy',ROOT/'bms_tools/bms.py')
-bms=importlib.util.module_from_spec(spec);spec.loader.exec_module(bms)
+sys.path.insert(0, str(ROOT))
+from bms_tools import bms
 backend=(APP/'bms_afe_backend.h').read_text(encoding='utf-8')
 sh=bms.PRODUCT != "d008"
 prefix='SH3673510' if sh else 'DVC1124'
@@ -19,8 +19,6 @@ with tempfile.TemporaryDirectory(prefix='bms-production-') as d:
  if sh:cases.append((['-DBMS_BOARD_DEBUG_LED_ENABLE=1'],False))
  for extra,ok in cases:
   flags=[]
-  if sh and not any('BMS_BOARD_DEBUG_LED_ENABLE=' in x for x in extra):
-   flags+=['-DBMS_BOARD_DEBUG_LED_ENABLE=0']
   if not any('BMS_DIAG_BUILD_ID=' in x for x in extra):flags+=['-DBMS_DIAG_BUILD_ID=1']
   if not any('BMS_DIAG_BUILD_DIRTY=' in x for x in extra):flags+=['-DBMS_DIAG_BUILD_DIRTY=0']
   r=subprocess.run(base+flags+extra+[str(p)],capture_output=True,text=True)
