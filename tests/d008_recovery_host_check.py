@@ -65,32 +65,64 @@ def check_d008_voltage_recovery_host_check():
         uint32_t tick=0xffff0000u;
         unsigned i,gap,before;
         for(gap=1;gap<10;++gap) {
-            dvc_clear_recovered_hw_latches(0,0,0);
+            dvc_clear_recovered_hw_latches(0,0,0,0);
             before=writes;
-            for(i=0;i<gap;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm); }
-            dvc_clear_recovered_hw_latches(0,0,0);
-            for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm); }
+            for(i=0;i<gap;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+            dvc_clear_recovered_hw_latches(0,0,0,0);
+            for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
             assert(writes==before);
-            tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==0);
+            tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
         }
-        dvc_clear_recovered_hw_latches(0,0,0); before=writes;
-        for(i=0;i<9;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,tick); }
+        dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
+        for(i=0;i<9;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
         tick+=32000; /* sleep/reinit gap even without an explicitly invalid sample */
-        assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm && writes==before);
-        for(i=0;i<8;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm); }
-        tick+=6400; clear_ok=0; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm);
-        clear_ok=1; read_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm);
-        read_ok=1; profile_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm);
+        assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm && writes==before);
+        for(i=0;i<8;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        tick+=6400; clear_ok=0; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
+        clear_ok=1; read_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
+        read_ok=1; profile_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
         profile_ok=1; before=writes;
-        for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==alarm); }
+        for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
         assert(writes==before);
-        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,tick)==0);
+        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+
+        /* CC2/VADC同步256ms：每4轮有一轮等待，轻微调度延迟不能丢失资格。 */
+        dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
+        for(i=0;i<13;++i) {
+            uint8_t fresh=(i%4u!=3u);
+            tick+=6410;
+            assert(dvc_clear_recovered_hw_latches(alarm,1,fresh,tick)==(i==12u ? 0u : alarm));
+            assert(writes==before+(i==12u ? 1u : 0u));
+        }
+
+        /* 已有9次新电压时，重复缓存不能补足第10次。 */
+        dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
+        for(i=0;i<9;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
+        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,0,tick)==alarm && writes==before);
+        /* 无效/诊断采样即使没有新电压，也必须清零已有资格。 */
+        tick+=6400; dvc_clear_recovered_hw_latches(alarm,0,0,tick);
+        for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        assert(writes==before);
+        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+
+        /* 告警已消失时，即使本轮没有新电压，也不能保留旧恢复资格。 */
+        dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
+        for(i=0;i<9;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
+        tick+=6400; dvc_clear_recovered_hw_latches(0,1,0,tick);
+        for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        assert(writes==before);
+        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
         return 0;
     }
     '''
     # The production invalid-acquisition branch must reach the qualification reset.
     invalid = source[source.index('if (!snapshot.valid) {'):source.index('memset(&sw, 0, sizeof(sw));')]
-    assert 'dvc_clear_recovered_hw_latches(0u, 0u, 0u);' in invalid
+    assert 'dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);' in invalid
+    recovery = source.index('alarm = dvc_clear_recovered_hw_latches(snapshot.alarm')
+    pending = source.index('if (dvc1124_backend_sample_pending()) return;')
+    assert recovery < pending
+    assert '!features.openwire_sample_active, snapshot.voltage_fresh' in source[recovery:pending]
+    assert 'pm_get_32k_tick()' in source[recovery:pending]
     with tempfile.TemporaryDirectory(prefix='d008-voltage-recovery-') as tmp:
         c = Path(tmp) / 'check.c'
         exe = Path(tmp) / 'check.exe'
