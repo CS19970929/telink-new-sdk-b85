@@ -488,12 +488,6 @@ static void soc_display_follow_real(void)
     else g_soc_display_soc--;
 }
 
-/* 计算与显示 SOC 对应的当前容量。 */
-static uint32_t soc_display_capacity_now(void)
-{
-    return ((uint32_t)get_soc_display() * g_bms_soc.effective_capacity_as10) / SOC_PERCENT_MAX;
-}
-
 /* 取得名义容量，单位为 0.1 Ah。 */
 static uint32_t soc_nominal_capacity_0p1ah(void)
 {
@@ -1454,7 +1448,7 @@ static void SOC_Result_Pass(void)
     g_bms_report.soc.cycle_count = soc_cycle_to_u16(g_bms_soc.cycle_count);
 
     g_bms_report.soc.remaining_capacity_0p01ah =
-        (uint16_t)(soc_display_capacity_now() / SOC_REPORT_CAPACITY_DIVISOR);
+        (uint16_t)(g_bms_soc.remaining_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
     g_bms_report.soc.effective_capacity_0p01ah =
         (uint16_t)(g_bms_soc.effective_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
     g_bms_report.soc.nominal_capacity_0p01ah =
@@ -1480,7 +1474,7 @@ static void soc_invalidate_sample_interval(void)
     g_soc_runtime.dsg_empty_lock_ticks = 0u;
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
     soc_eta_reset();
-    g_soc_display_step_ticks = 0u;
+    /* 显示跟随只累计已接受的节拍；中断积分不能反复抹掉显示进度。 */
     memset(g_soc_runtime.soc_low_trip_count, 0, sizeof(g_soc_runtime.soc_low_trip_count));
     memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
 }

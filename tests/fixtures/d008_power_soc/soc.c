@@ -413,6 +413,36 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=1000;
  }
 
+ /* Charging must publish fractional capacity before integer SOC rises. */
+ for(uint8_t chemistry=1;chemistry<=2;chemistry++){
+  setup(chemistry,0,chemistry==1?3300:3800);
+  stored_profile.capacity_factory=20;bms_soc_nominal_capacity_changed();
+  sample(1,-2900,1);
+  for(unsigned n=0;n<80;n++)sample(1,-2900,6400);
+  assert(get_soc_real()==0&&get_soc_display()==0);
+  assert(g_bms_report.soc.remaining_capacity_0p01ah>0);
+  assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
+
+  /* Recorded D008 pattern: short accepted runs separated by ~407ms GAPs.
+     Blind intervals remain non-integrating, but cannot starve display forever. */
+  setup(chemistry,0,chemistry==1?3300:3800);
+  sample(1,-2900,1);
+  for(unsigned n=0;n<150;n++){
+   for(unsigned i=0;i<3;i++)sample(1,-2900,6410);
+   uint32_t before=g_bms_soc.remaining_capacity_as10;
+   sample(1,-2900,13020);
+   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_GAP);
+   assert(g_bms_soc.remaining_capacity_as10==before);
+   sample(1,-2900,0);
+   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
+   assert(g_bms_soc.remaining_capacity_as10==before);
+  }
+  assert(get_soc_real()>0&&get_soc_display()>0);
+  assert(get_soc_display()<=get_soc_real());
+  assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
+  stored_profile.capacity_factory=1000;
+ }
+
  /* Early UVP remains a final safety anchor but is explicitly diagnosable. */
  setup(1,15,2500);sample(1,1000,1);
  g_bms_report.cell_max_mv=2600;g_bms_report.cell_delta_mv=100;
