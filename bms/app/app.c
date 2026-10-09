@@ -321,8 +321,6 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
         g_bms_report.fault_third.bits.cell_ovp;
     sample.third_cell_uvp =
         g_bms_report.fault_third.bits.cell_uvp;
-    sample.charger_state_known = 1u;
-    sample.charger_present = status.charge_session_active;
 #if BMS_SOC_BOARD_TEST_ENABLE
     bms_soc_board_test_suspend_exits(app_ble_suspend_exit_count());
     bms_soc_board_test_prepare(&sample, pm_get_32k_tick());

@@ -133,7 +133,12 @@ int main(void)
     prime_rest(); balance_active = 1; joint_sample(6400u); assert_reset();
     prime_rest(); afe_error = 1; joint_sample(6400u); assert_reset();
     prime_rest(); sample(1, 201, 6400u); assert_reset();
-    prime_rest(); charge_session_active = 1; joint_sample(6400u); assert_reset();
+    prime_rest();
+    rest = g_soc_runtime.idle_stable_ticks;
+    charge_session_active = 1; joint_sample(6400u);
+    assert(g_soc_runtime.idle_stable_ticks == rest);
+    assert(g_soc_runtime.ocv_down_ticks == 123u);
+    assert(g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_PAUSED);
     prime_rest(); simulated_reboot(); assert_reset();
     prime_rest(); joint_sample(6400u); joint_sample(6400u);
     set_core_voltage(3210u, 3274u, 64u); bms_features_service();
@@ -141,7 +146,7 @@ int main(void)
     prime_rest(); joint_sample(6400u); joint_sample(6400u);
     set_core_voltage(3196u, 3300u, 104u); bms_features_service();
     sample(1, -89, 6400u); assert_reset();
-    puts("PASS failure: suspected/confirmed/error/timeout, GAP/invalid, temperature/current/heater/balance/AFE/charger/reboot and changed voltage reset both timers");
+    puts("PASS failure: suspected/confirmed/error/timeout, GAP/invalid, temperature/current/heater/balance/AFE/reboot and changed voltage reset both timers; session alone preserves pause");
 
     prime_rest();
     tick = UINT32_MAX - 9600u;

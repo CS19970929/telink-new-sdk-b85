@@ -67,10 +67,6 @@ typedef struct
     uint8_t pack_fault;
     uint8_t third_cell_ovp;
     uint8_t third_cell_uvp;
-    uint8_t charger_state_known;
-    uint8_t charger_present;
-    uint8_t load_state_known;
-    uint8_t load_present;
 } bms_soc_sample_t;
 
 typedef struct

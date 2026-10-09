@@ -224,7 +224,7 @@ static int replay_csv(const char *input_path,const char *output_path){
   s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.open_wire_active=(uint8_t)owa;
   s.open_wire_suspected=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
   s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
-  s.charger_state_known=(uint8_t)ck;s.charger_present=(uint8_t)cp;s.load_state_known=(uint8_t)lk;s.load_present=(uint8_t)lp;
+  /* 保留 CSV 环境记录列；SOC 只使用测量量，不以插拔标记重置资格。 */
   g_bms_report.cell_min_mv=s.cell_min_mv;g_bms_report.cell_max_mv=s.cell_max_mv;
   g_bms_report.cell_delta_mv=s.cell_delta_mv;g_bms_report.pack_voltage_10mv=(uint16_t)(pack_mv/10u);
   bms_soc_process_sample(&s);bms_soc_get_diag(&d);
@@ -352,7 +352,18 @@ int main(int argc,char **argv){
    sample(1,0,6400);
   }
   assert(g_soc_runtime.idle_stable_ticks>0);
-  charge_session_active=1;sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
+  /* 会话变化本身不改变静置测量；实际电流/电压/加热变化仍撤销资格。 */
+  uint32_t rest_before=g_soc_runtime.idle_stable_ticks;
+  for(unsigned i=0;i<20u;i++){
+   charge_session_active=(int)(i&1u);sample(1,0,6400);
+   assert(g_soc_runtime.idle_stable_ticks==rest_before+i+1u);
+  }
+  sample(1,-500,6400);assert(g_soc_runtime.idle_stable_ticks==0);
+  sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
+  for(unsigned i=0;i<10u;i++)sample(1,0,6400);
+  assert(g_soc_runtime.idle_stable_ticks>0);
+  g_bms_report.cell_min_mv-=20u;
+  sample(1,0,6400);assert(g_soc_runtime.idle_stable_ticks==0);
   setup(chemistry,20,chemistry==1?3350:3900);sample(1,0,1);
   for(int i=0;i<12100;i++)sample(1,0,6400);
   assert(get_soc_real()==20); /* OCV never calibrates upward */

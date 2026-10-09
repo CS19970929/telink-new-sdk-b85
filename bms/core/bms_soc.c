@@ -157,10 +157,6 @@ static uint32_t g_soc_sample_tick_32k;
 static uint32_t g_soc_interval_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
-static uint8_t g_soc_charger_state_ready;
-static uint8_t g_soc_last_charger_present;
-static uint8_t g_soc_load_state_ready;
-static uint8_t g_soc_last_load_present;
 static uint8_t g_soc_display_soc = (uint8_t)BMS_STATE_DEFAULT_SOC;
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
@@ -776,7 +772,7 @@ static void soc_trace_ocv_inputs(uint16_t event)
         ((uint32_t)g_soc_input.temperature_fault << 8) |
         ((uint32_t)g_soc_input.current_fault << 9) |
         ((uint32_t)g_soc_input.pack_fault << 10) |
-        ((uint32_t)g_soc_input.charger_present << 11) |
+        /* bit 11 保留为零：充电会话不是物理充电器存在证据。 */
         ((uint32_t)g_soc_runtime.last_sample_state << 16) |
         ((uint32_t)g_soc_runtime.ocv_openwire_phase << 24) |
         ((uint32_t)g_soc_runtime.ocv_openwire_confirm_samples << 28);
@@ -1467,8 +1463,6 @@ static void SOC_Result_Pass(void)
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
-    g_soc_charger_state_ready = 0u;
-    g_soc_load_state_ready = 0u;
     g_soc_interval_32k = 0u;
     g_soc_strategy_pending_32k = 0u;
     soc_reset_ocv_tracking();
@@ -1487,29 +1481,6 @@ static void soc_invalidate_sample_interval(void)
     memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
 }
 
-/* 外部 SOC 或容量变化后重建算法跟踪状态。 */
-static uint8_t soc_external_state_changed(const bms_soc_sample_t *sample)
-{
-    uint8_t changed = 0u;
-    if (sample->charger_state_known) {
-        if (g_soc_charger_state_ready &&
-            g_soc_last_charger_present != sample->charger_present) {
-            changed = 1u;
-        }
-        g_soc_last_charger_present = sample->charger_present;
-        g_soc_charger_state_ready = 1u;
-    }
-    if (sample->load_state_known) {
-        if (g_soc_load_state_ready &&
-            g_soc_last_load_present != sample->load_present) {
-            changed = 1u;
-        }
-        g_soc_last_load_present = sample->load_present;
-        g_soc_load_state_ready = 1u;
-    }
-    return changed;
-}
-
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample)
 {
@@ -1517,7 +1488,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     const uint32_t quantum_32k = BMS_SOC_TIME_TICKS_PER_SECOND / SOC_TICKS_PER_SECOND;
     soc_integral_dir_t dir;
     soc_integral_dir_t previous_dir;
-    uint8_t external_change;
 
     if (sample == 0) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
@@ -1525,7 +1495,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return;
     }
     g_soc_input = *sample;
-    external_change = soc_external_state_changed(sample);
 
     if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
     {
@@ -1569,13 +1538,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     dir = soc_current_direction(0);
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
 
-    if (external_change) {
-        soc_reset_ocv_tracking();
-        g_soc_runtime.full_lock_ticks = 0u;
-        g_soc_runtime.full_adjust_ticks = 0u;
-        g_soc_runtime.empty_lock_ticks = 0u;
-        g_soc_runtime.empty_adjust_ticks = 0u;
-    }
     soc_integrate_current(dir);
 
     if (dir != previous_dir)
