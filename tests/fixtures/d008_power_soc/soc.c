@@ -392,6 +392,27 @@ int main(int argc,char **argv){
  assert(integrate(1,150,6400,100)==0);assert(integrate(1,200,6400,100)==0);
  assert(integrate(1,201,6400,100)==40);assert(integrate(1,250,6400,100)==50);
 
+ /* Charge recovery with a retained UVP must accumulate capacity, including
+    immediately after an operator sets SOC. Exercise the actual app input. */
+ for(uint8_t chemistry=1;chemistry<=2;chemistry++){
+  setup(chemistry,0,chemistry==1?3300:3800);
+  stored_profile.capacity_factory=20;bms_soc_nominal_capacity_changed();
+  g_bms_report.fault_third.bits.cell_uvp=1;
+  sample(1,-2900,1);
+  for(unsigned n=0;n<200;n++)sample(1,-2900,6400);
+  assert(get_soc_real()>0&&g_bms_soc.remaining_capacity_as10>0);
+  assert(g_bms_report.fault_third.bits.cell_uvp==1);
+  set_soc_param(60,1);sample(1,-2900,6400);
+  for(unsigned n=0;n<5;n++)sample(1,-2900,6400);
+  assert(get_soc_real()==60&&get_soc_display()==60);
+  assert(g_soc_runtime.last_soc_action!=BMS_SOC_ACTION_FORCED_EMPTY);
+  assert(g_bms_report.fault_third.bits.cell_uvp==1);
+  /* Reversing to discharge preserves the existing UVP safety anchor. */
+  sample(1,1000,6400);sample(1,1000,6400);
+  assert(get_soc_real()==0&&get_soc_display()==0);
+  stored_profile.capacity_factory=1000;
+ }
+
  /* Early UVP remains a final safety anchor but is explicitly diagnosable. */
  setup(1,15,2500);sample(1,1000,1);
  g_bms_report.cell_max_mv=2600;g_bms_report.cell_delta_mv=100;

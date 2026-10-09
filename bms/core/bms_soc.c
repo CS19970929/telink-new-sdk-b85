@@ -1207,7 +1207,9 @@ static uint8_t soc_apply_full_anchor(void)
 static uint8_t soc_apply_forced_empty_anchor(void)
 {
     uint8_t before;
-    if (!g_soc_input.third_cell_uvp) return 0u;
+    /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
+     * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
+    if (!g_soc_input.third_cell_uvp || isCHG()) return 0u;
     before = get_soc_real();
     if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
