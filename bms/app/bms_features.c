@@ -71,7 +71,7 @@ static uint8_t charge_source_present(void)
     return bms_board_charge_source_present() ? 1u : 0u;
 }
 
-/* 更新充电会话状态及稳定确认计数。 */
+/* 充电会话的唯一运行更新入口；先于 Open-Wire/Heater/均衡执行。 */
 static void update_charge_session(void)
 {
     /*
@@ -235,7 +235,6 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 static void service_heater(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;
-    uint8_t demand;
 
     if ((s == 0) || !s->valid || !bms_board_heater_supported())
     {
@@ -265,39 +264,26 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    demand = heater_demand(s, &config);
+    if (!heater_demand(s, &config))
+    {
+        heater_idle();
+        return;
+    }
 
     if (s_feature.heater_state == BMS_HEATER_IDLE)
     {
-        if (demand)
+        /* 零电流可维持既有预热会话，不能证明仍有充电器来启动新周期。
+         * 进入 ARMING 后，零电流才是充电路径已阻断的预期证据。 */
+        if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
         {
-            /*
-             * PREHEAT 阻断充电后允许充电会话在 Ichg=0 时保留，
-             * 但不能据此从 IDLE 开始新加热周期：普通充电后充电器可能已拔除且无负载，
-             * 没有可见电流变化清会话。
-             * 请求加热前需新充电方向证据或未来批准的物理充电器信号；
-             * 进入 ARMING 后零电流才是充电路径已阻断的预期证据。
-             */
-            if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
-            {
-                s_feature.heater_state = BMS_HEATER_ARMING;
-            }
-            set_heater(0u);
+            s_feature.heater_state = BMS_HEATER_ARMING;
         }
-        else
-        {
-            set_heater(0u);
-        }
+        set_heater(0u);
         return;
     }
 
     if (s_feature.heater_state == BMS_HEATER_ARMING)
     {
-        if (!demand)
-        {
-            heater_idle();
-            return;
-        }
         if (g_bms_report.charge_current_a10 != 0u)
         {
             set_heater(0u);
@@ -305,20 +291,6 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         }
         set_heater(1u);
         s_feature.heater_state = BMS_HEATER_ACTIVE;
-        return;
-    }
-
-    if (!demand)
-    {
-        heater_idle();
-        return;
-    }
-
-    /* 本服务前放电事件已清 charge_session；若仍收到矛盾报告，按故障安全关闭加热。 */
-    if (g_bms_report.discharge_current_a10 != 0u)
-    {
-        s_feature.charge_session_active = 0u;
-        heater_idle();
         return;
     }
 

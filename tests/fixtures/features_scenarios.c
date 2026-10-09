@@ -84,8 +84,13 @@ int main(void)
         snapshot.battery_temp_min_x10=449;step(1);assert(heater);
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater);
         snapshot.battery_temp_min_x10=399;step(1);assert(!heater && feature_status().heater_state==BMS_HEATER_IDLE);
+        g_bms_report.charge_current_a10=10;step(1);assert(feature_status().heater_state==BMS_HEATER_ARMING);
+        snapshot.battery_temp_min_x10=450;step(1);assert(!heater && feature_status().heater_state==BMS_HEATER_IDLE);
+        snapshot.battery_temp_min_x10=399;
         g_bms_report.charge_current_a10=10;step(1);g_bms_report.charge_current_a10=0;step(1);assert(heater);
-        g_bms_report.discharge_current_a10=1;step(1);assert(!heater);
+        /* 同时报告充放电时放电优先，由会话所有者统一撤销资格。 */
+        g_bms_report.charge_current_a10=10;g_bms_report.discharge_current_a10=1;
+        step(1);assert(!heater && !feature_status().charge_session_active);
         if(bms_board_heater_fuse_supported()){
             snapshot.heater_temp_x10=bms_board_heater_off_fault_temp_x10();
             unsigned n=(bms_board_heater_off_fault_confirm_ms()+199u)/200u;
