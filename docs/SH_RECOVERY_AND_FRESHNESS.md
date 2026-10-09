@@ -73,3 +73,7 @@
 完整 host 日志、开发/生产 ELF/MAP、输入收据、资源 JSON 和 D014 静态结果归档于 `C:/Users/Administrator/Documents/CodexOutputs/bms-monorepo/sh-recovery-freshness-20261005/`，汇总为其中的 `evidence.json`。四产品源清单数量和顺序保持不变：D008 100 个对象，三个 SH 产品均为 99 个。
 
 没有请求或生成 BIN，没有烧录、OTA 或实板操作；发布阻断项仍见 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md)。
+
+## 静默窗口按实际时间计时
+
+公共 guard 使用既有 32 kHz tick 和无符号差值计算 DVC 5 秒、SH 35 秒总线静默窗口；重复调用不推进时间，跨 tick 回绕仍有效。窗口到期仅重新初始化一次，输出仍需三次新鲜有效样本及原有保护恢复条件。时间阈值及 AFE watchdog 配置不变；本机时钟模型不替代实板 watchdog 到期和 Gate 关断验证。

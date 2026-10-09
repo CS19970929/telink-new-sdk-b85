@@ -88,6 +88,7 @@ void bms_sw_protection_clear(void) {}
 void bms_sw_protection_record_fault_edges(void) {}
 static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }
 static uint32_t pm_get_32k_tick(void) { return now; }
+uint32_t bms_diag_tick(void) { return now; }
 uint16_t bms_lookup_u16(const uint16_t *p, uint16_t n, uint16_t x) { (void)p; (void)n; (void)x; return 650; }
 uint8_t sh3673510_control_init(void) { load_mode = 0; return 1; }
 uint8_t sh3673510_control_ready(void) { return 1; }
@@ -302,9 +303,12 @@ int main(void) {
     unsigned before=clear_calls;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     device.flag1=SH3673520_FLAG1_OCC_MASK; cplus_raw=0;
-    for(unsigned i=0;i<175;++i) { sample(); assert(!bms_afe_bus_access_allowed()); }
+    /* 高频调用不能提前结束静默；时间跨回绕后仍须完整等待。 */
+    for(unsigned i=0;i<1000;++i) { bms_afe_sample(); assert(!bms_afe_bus_access_allowed()); }
+    now += 35000u * 32u - 1u;
+    bms_afe_sample(); assert(!bms_afe_bus_access_allowed());
     assert(clear_calls==before);
-    sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
+    ++now; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
     for(unsigned i=0;i<8;++i)sample();
     assert(bms_afe_samples_qualified());
     device.flag1=SH3673520_FLAG1_OCC_MASK;clear_ok=0;

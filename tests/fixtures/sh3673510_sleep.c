@@ -9,7 +9,7 @@ enum { SH3673520_OK, SH3673520_ERR_SPI };
 enum { BMS_ERROR_AFE1 };
 enum { DEEPSLEEP_MODE = 1, PM_WAKEUP_PAD = 1, STATUS_GPIO_ERR_NO_ENTER_PM = 256 };
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE 2u
-#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u
+#define BMS_AFE_FAILSAFE_WAIT_MS 35000u
 static uint8_t s_control_ready, s_afe_sleeping;
 static uint8_t s_short_clear_pending;
 static uint8_t s_fet_command_valid, s_snapshot_valid;
@@ -25,6 +25,7 @@ static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
 static int pm_status;
 static u32 fake_tick;
+uint32_t bms_diag_tick(void) { return fake_tick; }
 static u32 s_sleep_failure_mask, s_sleep_last_attempt_tick_32k;
 static u8 s_sleep_attempt_ready;
 void bms_diag_sleep_committed(void) {}
@@ -119,10 +120,10 @@ int main(void) {
     reset(); control_wake_active = 1;
     CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !sleep_writes);
 
-    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_wait_samples = 90;
+    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_32k = 90;
     s_guard.comm_failures = 1;
     CHECK(!app_note_sleep_and_enter_deepsleep(1));
-    CHECK(!bus_calls && !pm_calls && s_guard.failsafe_wait_samples == 90);
+    CHECK(!bus_calls && !pm_calls && s_guard.failsafe_start_tick_32k == 90);
     CHECK(s_guard.comm_failures == 1);
 
     reset(); s_control_ready = 0;
@@ -130,7 +131,7 @@ int main(void) {
     CHECK(!bms_afe_sleep()); CHECK(s_guard.bus_silenced);
     n = bus_calls;
     CHECK(!bms_afe_sleep()); CHECK(bus_calls == n);
-    CHECK(s_guard.failsafe_wait_samples == BMS_AFE_FAILSAFE_WAIT_SAMPLES);
+    CHECK(s_guard.failsafe_start_tick_32k == fake_tick);
 
 #if SH3673510_FIXED_UART_BLOCKS_PM
     reset(); CHECK(!app_note_sleep_and_enter_deepsleep(1));

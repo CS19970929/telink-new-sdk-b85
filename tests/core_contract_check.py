@@ -169,14 +169,14 @@ def check_common_feature_policy_contract_check():
     # production profile, so the common guard must leave the SPI bus silent for a
     # full 35 s margin before a single bounded recovery attempt.
     assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
-    assert "#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u" in guard_c
+    assert "#define BMS_AFE_FAILSAFE_WAIT_MS 35000u" in guard_c
     assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
     # 校验静默等待分支在任何总线动作之前返回，不依赖注释语言。
     wait = guard_c.split("static uint8_t service_failsafe_wait", 1)[1].split(
         "static uint8_t apply_requested", 1)[0]
-    waiting = wait.split("if (s_guard.failsafe_wait_samples != 0u)", 1)[1].split(
+    waiting = wait.split("BMS_AFE_FAILSAFE_WAIT_MS * 32u)", 1)[1].split(
         "s_guard.bus_silenced = 0u;", 1)[0]
-    assert "--s_guard.failsafe_wait_samples;" in waiting and "return 1u;" in waiting
+    assert "return 1u;" in waiting
     assert "AFE_" not in waiting
     assert wait.index("return 1u;") < wait.index("AFE_INIT();")
     assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c

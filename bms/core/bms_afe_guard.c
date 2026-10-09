@@ -13,15 +13,15 @@
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
 
 /*
- * bms_afe_sample() 每 200 ms 执行。失联安全分两层：MCU 立即撤销输出授权，
+ * 失联安全分两层：MCU 立即撤销输出授权，
  * 在总线可能仍可用时尽力关闭一次；重复失败后停止全部 AFE 总线流量，
  * 让 AFE 自身硬件看门狗到期并最终关 MOS。DVC 量产 I2C 看门狗为 4 秒，
  * 等待 5 秒才探测恢复一次，避免失败重试持续喂狗；SH 量产约 32 秒，此处等待 35 秒。
  */
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 25u  /* 5 s */
+#define BMS_AFE_FAILSAFE_WAIT_MS 5000u
 #else
-#define BMS_AFE_FAILSAFE_WAIT_SAMPLES 175u /* 35 s */
+#define BMS_AFE_FAILSAFE_WAIT_MS 35000u
 #endif
 
 typedef struct
@@ -36,7 +36,7 @@ typedef struct
     uint8_t comm_failures;
     uint8_t bus_silenced;
     uint8_t test_shutdown_hold;
-    uint16_t failsafe_wait_samples;
+    uint32_t failsafe_start_tick_32k;
 } bms_afe_guard_state_t;
 
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
@@ -119,7 +119,7 @@ static void enter_failsafe_wait(void)
 {
     inhibit_local();
     s_guard.bus_silenced = 1u;
-    s_guard.failsafe_wait_samples = BMS_AFE_FAILSAFE_WAIT_SAMPLES;
+    s_guard.failsafe_start_tick_32k = bms_diag_tick();
     s_guard.comm_failures = 0u;
 }
 
@@ -129,9 +129,9 @@ static uint8_t service_failsafe_wait(void)
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
-    if (s_guard.failsafe_wait_samples != 0u)
+    if ((uint32_t)(bms_diag_tick() - s_guard.failsafe_start_tick_32k) <
+        BMS_AFE_FAILSAFE_WAIT_MS * 32u)
     {
-        --s_guard.failsafe_wait_samples;
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
         return 1u;
     }
@@ -475,7 +475,7 @@ uint8_t bms_afe_test_wake(void)
     s_guard.valid_snapshot_streak = 0u;
     s_guard.comm_failures = 0u;
     s_guard.bus_silenced = 0u;
-    s_guard.failsafe_wait_samples = 0u;
+    s_guard.failsafe_start_tick_32k = 0u;
 
     /*
      * 正常后端初始化负责完整 shutdown 唤醒/复位、持久硬件配置、编译期策略与回读；
