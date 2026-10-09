@@ -443,6 +443,28 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=1000;
  }
 
+ /* 静置空端点只在电压/温度与业务上下文可信时累计，不能绕过 OCV 的资格。 */
+ for(unsigned invalid=0;invalid<10;invalid++){
+  setup(1,60,2400);
+  switch(invalid){
+   case 0:g_soc_input.voltage_valid=0;break;
+   case 1:g_soc_input.temperature_valid=0;break;
+   case 2:g_soc_input.balancing_active=1;break;
+   case 3:g_soc_input.heating_active=1;break;
+   case 4:g_soc_input.open_wire_active=1;break;
+   case 5:g_soc_input.open_wire_suspected=1;break;
+   case 6:g_soc_input.afe_fault=1;break;
+   case 7:g_soc_input.temperature_fault=1;break;
+   case 8:g_soc_input.current_fault=1;break;
+   default:g_soc_input.pack_fault=1;break;
+  }
+  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
+  assert(get_soc_real()==60 && !g_soc_runtime.empty_lock_ticks);
+ }
+ setup(1,60,2400);
+ for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
+ assert(get_soc_real()<60);
+
  /* Charging must publish fractional capacity before integer SOC rises. */
  for(uint8_t chemistry=1;chemistry<=2;chemistry++){
   setup(chemistry,0,chemistry==1?3300:3800);

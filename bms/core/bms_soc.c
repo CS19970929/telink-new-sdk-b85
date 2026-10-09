@@ -1238,7 +1238,8 @@ static uint8_t soc_apply_idle_empty_anchor(void)
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
     uint16_t empty_max = (uint16_t)(empty_mv + g_soc_profile->empty_max_margin_mv);
     uint8_t before;
-    if (!soc_idle_for_ocv() || (VCELLMIN > empty_mv) || (VCELLMAX > empty_max)) {
+    if (!soc_idle_for_ocv() || !soc_rest_context_valid() || g_soc_input.open_wire_active ||
+        (VCELLMIN > empty_mv) || (VCELLMAX > empty_max)) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
         if (VCELLMIN > empty_mv + 100u) g_soc_runtime.empty_anchor_latched = 0u;
