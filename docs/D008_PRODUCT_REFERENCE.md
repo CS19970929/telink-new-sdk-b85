@@ -138,7 +138,7 @@ bms/products/d008/bms_product.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
+`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。所选类型经 `bms_battery_defaults.h` 派生电压保护、均衡和 SOC 默认；运行参数仍按各持久组处理。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
 
 ### 5.2 Flash 中保留的保护参数
 
@@ -387,7 +387,7 @@ Balance 不再复用软件压差保护参数。CFG2 格式的 user payload（当
 - `balance_start_delta_mv`：默认 50 mV；
 - `balance_stop_delta_mv`：默认 30 mV，必须小于 start delta。
 
-当前 LFP profile 的 `balance_start_mv` 为 3400 mV，仅作为当前固件业务默认值，量产仍需结合电芯、均衡电流、热测试签核。
+当前 LFP profile 的 `balance_start_mv` 为 3400 mV；`20s-nmc` 编译默认改为 4100 mV，启动/停止压差均为 50/30 mV。profile 还联动电压保护与 SOC 默认，完整表及已有设备的更新方法见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md#编译时选择磷酸铁锂或三元锂)。这些仅为固件开发默认，量产仍需结合电芯、均衡电流、热测试签核。
 
 ### 13.3 均衡数据可信门禁
 

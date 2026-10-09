@@ -7,9 +7,15 @@
 #define BMS_PRODUCT_RELEASE_APPROVED 1
 #define BMS_PRODUCT_ID 8u
 #define BMS_AFE_BACKEND 1
-#define BMS_PRODUCT_CHEMISTRY D008_PRODUCT_CHEMISTRY
-#define BMS_PRODUCT_SOC_PROFILE_ID D008_PRODUCT_SOC_PROFILE_ID
 #include "d008_product_profile.h"
+#ifndef BMS_PRODUCT_CHEMISTRY
+#define BMS_PRODUCT_CHEMISTRY D008_PRODUCT_CHEMISTRY
+#endif
+/* profile 名称同时用于构建/交付身份，不能用类型宏绕过装配选择。 */
+#if BMS_PRODUCT_CHEMISTRY != D008_PRODUCT_CHEMISTRY
+#error "D008 chemistry must match D008_PRODUCT_PROFILE"
+#endif
+#include "../bms_battery_defaults.h"
 
 /* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */
 #define BMS_D008_SCD_POLICY_APPROVED 1
@@ -67,5 +73,4 @@
 #define LED_BLUE_PIN           (GPIO_PB4)
 
 
-#define BMS_DEFAULT_CUV3_MV 2800u
 #define BMS_DEFAULT_CUV3_FILTER 100u

@@ -1,6 +1,7 @@
 /* D011/D013/D014 共同的 SH 板级接线与独立 AFE 默认值。
  * 产品文件先明确串数、Rsense 和功能能力；本文件不提供能力回退值。
- * 寄存器组合在 sh3673510_project_config.h，软件保护参数保持独立。 */
+ * 寄存器组合在 sh3673510_project_config.h。电压默认来自电池类型表，
+ * 运行时软件保护与 AFE 参数仍独立保存。 */
 #pragma once
 
 #ifndef BMS_BOARD_DEBUG_LED_ENABLE
@@ -78,13 +79,13 @@
 #define SH3673510_BOARD_OV_INT                      1u
 #define SH3673510_BOARD_SC_MULTIPLIER_CODE           0u
 #define SH3673510_BOARD_SC_DELAY_CODE                7u
-#define SH3673510_HW_DEFAULT_COV_MV                3750u
+#define SH3673510_HW_DEFAULT_COV_MV                BMS_DEFAULT_CELL_OVP_MV
 #define SH3673510_HW_DEFAULT_COV_DELAY_MS          1000u
-#define SH3673510_HW_DEFAULT_COV_RECOVER_MV        3500u
+#define SH3673510_HW_DEFAULT_COV_RECOVER_MV        BMS_DEFAULT_CELL_OVP_RECOVER_MV
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MS        1000u
-#define SH3673510_HW_DEFAULT_CUV_MV                3000u
+#define SH3673510_HW_DEFAULT_CUV_MV                BMS_DEFAULT_CUV3_MV
 #define SH3673510_HW_DEFAULT_CUV_DELAY_MS          10000u
-#define SH3673510_HW_DEFAULT_CUV_RECOVER_MV        3100u
+#define SH3673510_HW_DEFAULT_CUV_RECOVER_MV        BMS_DEFAULT_CELL_UVP_RECOVER_MV
 #define SH3673510_HW_DEFAULT_CUV_RECOVER_MS        10000u
 #define SH3673510_HW_DEFAULT_OCD1_A10              100u
 #define SH3673510_HW_DEFAULT_OCD1_DELAY_MS         100u

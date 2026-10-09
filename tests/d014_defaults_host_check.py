@@ -105,6 +105,100 @@ def check_d014_afe_profile_default_host_check():
     """
     run_c(code, flags=host_includes(ROOT, 'd014'), name='d014-afe-defaults')
 
+def check_battery_chemistry_defaults():
+    """读取实际默认初始化及 AFE builder，覆盖类型与装配组合；不代替完整 TU/实板验证。"""
+    import os
+    import re
+    import shlex
+    import subprocess
+    from project_paths import host_includes
+    from validation_support import ROOT, function, profile_prefix, read, run_c
+
+    print("CHECK battery_chemistry_defaults", flush=True)
+    config_h = read('bms/core/bms_config_store.h')
+    config_c = read('bms/core/bms_config_store.c')
+    # 使用实际字段和默认初始化，不在夹具中另写参数默认表。
+    types = ''.join(re.search(r'typedef struct \{[^{}]*\} ' + name + ';', config_h).group(0)
+                    for name in ('bms_user_params_t', 'bms_config_system_params_t'))
+    defaults = types + '\n' + function(config_c, 'static void bms_config_user_defaults(')
+    defaults += '\n' + function(config_c, 'static void bms_config_store_get_default_system(')
+    # heater 默认值先由实际功能头提供，再编译其使用者。
+    defaults = '#include "bms_features.h"\n' + defaults
+    matrix = [('d008', ['-DD008_PRODUCT_PROFILE=3'], 1, 16, 2800),
+              ('d008', ['-DD008_PRODUCT_PROFILE=2'], 2, 20, 3000),
+              ('d008', ['-DD008_PRODUCT_PROFILE=1'], 1, 24, 2800)]
+    matrix += [(product, [] if chemistry == 1 else ['-DBMS_PRODUCT_CHEMISTRY=2'], chemistry, cells, 3000)
+               for product, cells in (('d011', 10), ('d013', 10), ('d014', 8))
+               for chemistry in (1, 2)]
+    for product, flags, chemistry, cells, uvp in matrix:
+        nmc = chemistry == 2
+        expected = f'''
+        enum {{ expected_chemistry={chemistry}, expected_cells={cells},
+                expected_cov={4200 if nmc else 3750},
+                expected_cov_recover={4100 if nmc else 3500}, expected_cuv={uvp},
+                expected_balance={4100 if nmc else 3400},
+                expected_pack_ovp1={4200 if nmc else 3500},
+                expected_pack_ovp2={4200 if nmc else 3600},
+                expected_pack_ovp3={4200 if nmc else 3650},
+                expected_pack_uvp3={3000 if nmc else 2900},
+                expected_pack_uv_recover={3100 if nmc else 3000} }};
+        '''
+        code = profile_prefix(product) + '\n' + defaults + expected + r'''
+        int main(void)
+        {
+            bms_protection_params_t sw;
+            bms_afe_hw_profile_t hw;
+            bms_user_params_t user;
+            bms_config_system_params_t system;
+            bms_config_store_get_default_protect(&sw);
+            bms_afe_hw_profile_build_default(&hw);
+            bms_config_user_defaults(&user);
+            bms_config_store_get_default_system(&system);
+            assert(system.battery_chemistry == expected_chemistry);
+            assert(system.soc_profile_id == expected_chemistry);
+            assert(system.series_num == expected_cells);
+            assert(sw.cell_ovp_first_mv == expected_cov && sw.cell_ovp_second_mv == expected_cov);
+            assert(sw.cell_ovp_third_mv == expected_cov && sw.cell_ovp_recover_mv == expected_cov_recover);
+            assert(sw.cell_uvp_first_mv == 3000 && sw.cell_uvp_second_mv == 3000);
+            assert(sw.cell_uvp_third_mv == expected_cuv && sw.cell_uvp_recover_mv == 3100);
+            assert(sw.pack_ovp_first_10mv == expected_pack_ovp1 / 10 * expected_cells);
+            assert(sw.pack_ovp_second_10mv == expected_pack_ovp2 / 10 * expected_cells);
+            assert(sw.pack_ovp_third_10mv == expected_pack_ovp3 / 10 * expected_cells);
+            assert(sw.pack_ovp_recover_10mv == expected_cov_recover / 10 * expected_cells);
+            assert(sw.pack_uvp_first_10mv == 300 * expected_cells);
+            assert(sw.pack_uvp_second_10mv == 300 * expected_cells);
+            assert(sw.pack_uvp_third_10mv == expected_pack_uvp3 / 10 * expected_cells);
+            assert(sw.pack_uvp_recover_10mv == expected_pack_uv_recover / 10 * expected_cells);
+            assert(hw.cov_mv == expected_cov && hw.cov_recover_mv == expected_cov_recover);
+            assert(hw.cuv_mv == expected_cuv && hw.cuv_recover_mv == 3100);
+            assert(bms_afe_hw_profile_validate(&hw));
+            assert(user.balance_enable == 1 && user.balance_start_mv == expected_balance);
+            assert(user.balance_start_delta_mv == 50 && user.balance_stop_delta_mv == 30);
+        #if BMS_PRODUCT_ID == 13u
+            assert(SH3673510_PRODUCT_BALANCE_SUPPORTED == 0);
+        #endif
+            puts("battery chemistry defaults: PASS");
+            return 0;
+        }
+        '''
+        run_c(code, flags=[*host_includes(ROOT, product), *flags],
+              name=f'battery-defaults-{product}-{cells}-{chemistry}')
+
+    # 非法类型、曲线冲突和 D008 装配冲突必须由产品头本身拒绝。
+    rejected = [('d014', ['-DBMS_PRODUCT_CHEMISTRY=0'], 'must be LFP'),
+                ('d014', ['-DBMS_PRODUCT_CHEMISTRY=3'], 'must be LFP'),
+                ('d014', ['-DBMS_PRODUCT_CHEMISTRY=2', '-DBMS_PRODUCT_SOC_PROFILE_ID=1'], 'SOC profile must match'),
+                ('d008', ['-DD008_PRODUCT_PROFILE=3', '-DBMS_PRODUCT_CHEMISTRY=2'], 'D008 chemistry must match'),
+                ('d008', ['-DD008_PRODUCT_PROFILE=2', '-DBMS_PRODUCT_CHEMISTRY=1'], 'D008 chemistry must match')]
+    for product, flags, error in rejected:
+        command = [*shlex.split(os.environ.get('CC', 'cc')), '-E', '-x', 'c',
+                   *host_includes(ROOT, product), *flags, '-']
+        result = subprocess.run(command, input='#include "bms_product.h"\n',
+                                capture_output=True, text=True, check=False)
+        assert result.returncode != 0 and error in result.stderr, result.stderr
+
+
 if __name__ == "__main__":
     check_sw_protection_defaults_check()
     check_d014_afe_profile_default_host_check()
+    check_battery_chemistry_defaults()

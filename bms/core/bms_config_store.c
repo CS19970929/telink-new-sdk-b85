@@ -109,25 +109,25 @@ static void bms_config_decode_words(void *values, const u8 *payload, u16 count)
 
 /* 原软件保护默认表来源：Copyright (C), 2012-2013, www.armfly.com。 */
 static const bms_protection_params_t s_default_protection = {
-    .cell_ovp_first_mv = 3750,
-    .cell_ovp_second_mv = 3750,
-    .cell_ovp_third_mv = 3750,
-    .cell_ovp_recover_mv = 3500,
+    .cell_ovp_first_mv = BMS_DEFAULT_CELL_OVP_MV,
+    .cell_ovp_second_mv = BMS_DEFAULT_CELL_OVP_MV,
+    .cell_ovp_third_mv = BMS_DEFAULT_CELL_OVP_MV,
+    .cell_ovp_recover_mv = BMS_DEFAULT_CELL_OVP_RECOVER_MV,
     .cell_ovp_filter_10ms = 100,
-    .cell_uvp_first_mv = 3000,
-    .cell_uvp_second_mv = 3000,
+    .cell_uvp_first_mv = BMS_DEFAULT_CELL_UVP_ALARM_MV,
+    .cell_uvp_second_mv = BMS_DEFAULT_CELL_UVP_ALARM_MV,
     .cell_uvp_third_mv = BMS_DEFAULT_CUV3_MV,
-    .cell_uvp_recover_mv = 3100,
+    .cell_uvp_recover_mv = BMS_DEFAULT_CELL_UVP_RECOVER_MV,
     .cell_uvp_filter_10ms = BMS_DEFAULT_CUV3_FILTER,
-    .pack_ovp_first_10mv = (350 * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_second_10mv = (360 * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_third_10mv = (365 * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_recover_10mv = (350 * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_first_10mv = (BMS_DEFAULT_PACK_OVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_second_10mv = (BMS_DEFAULT_PACK_OVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_third_10mv = (BMS_DEFAULT_PACK_OVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_recover_10mv = (BMS_DEFAULT_PACK_OVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
     .pack_ovp_filter_10ms = 100,
-    .pack_uvp_first_10mv = (300 * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_second_10mv = (300 * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_third_10mv = (290 * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_recover_10mv = (300 * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_first_10mv = (BMS_DEFAULT_PACK_UVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_second_10mv = (BMS_DEFAULT_PACK_UVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_third_10mv = (BMS_DEFAULT_PACK_UVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_recover_10mv = (BMS_DEFAULT_PACK_UVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
     .pack_uvp_filter_10ms = 100,
     .charge_ocp_first_a10 = (100),
     .charge_ocp_second_a10 = (150),
@@ -177,7 +177,8 @@ static const bms_protection_params_t s_default_protection = {
 };
 
 /* 编译默认值先检查等级及恢复关系，运行参数仍由完整 validator 校验。 */
-#if (3000u < BMS_DEFAULT_CUV3_MV) || ((BMS_DEFAULT_CUV3_MV != 0u) && (3100u <= BMS_DEFAULT_CUV3_MV))
+#if (BMS_DEFAULT_CELL_UVP_ALARM_MV < BMS_DEFAULT_CUV3_MV) || \
+    ((BMS_DEFAULT_CUV3_MV != 0u) && (BMS_DEFAULT_CELL_UVP_RECOVER_MV <= BMS_DEFAULT_CUV3_MV))
 #error "CUV defaults require First >= Second >= Third and Recover > Third (unless Third=0)"
 #endif
 

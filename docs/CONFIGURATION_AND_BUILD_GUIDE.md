@@ -18,11 +18,11 @@
 |---|---|---|
 | 产品选择 | `bms.py --product`；D008 另用 `--d008-profile` | 不靠修改源码清单切产品 |
 | 容量、编译名称/软件版本、通信模式 | 产品 `bms_product.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
-| 内部 tag、SOC chemistry/profile | 产品 `bms_product.h`；D008 `d008_product_profile.h` | SOC；tag/串数有存储识别约束 |
+| 电池类型及关联默认值 | 产品 `BMS_PRODUCT_CHEMISTRY`；D008 `d008_product_profile.h`；公共 `bms/products/bms_battery_defaults.h` | 联动 SW、AFE、BUSINESS、SOC 的编译默认；已保存值仍按各组编号处理 |
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
 | DVC 固定配置和 SCD 种子 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级值或 AFE，按 default builder 区分 |
-| 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection` 逐字段初始化 | 公共默认影响四产品；CUV3 用产品 `BMS_DEFAULT_CUV3_*`；SW |
-| heater/balance 默认 | `bms/app/bms_features.h`、`bms_config_user_defaults()` | 公共默认；BUSINESS；能力禁用仍优先 |
+| 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection`；电压常量来自 `bms_battery_defaults.h` | 公共默认影响四产品；CUV3 延时保持产品 `BMS_DEFAULT_CUV3_FILTER`；SW |
+| heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
 | OTA 更新策略 | 共享 `bms/products/bms_parameter_policy.h` | 八类独立编号及一个保留槽，不用软件版本代替 |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
@@ -30,6 +30,35 @@
 产品 include 路径由构建器选择。各模块显式引入所需产品配置；公共整数类型使用 `stdint.h`。State/Event 保存周期归各自实现，有限重试周期由 `bms_storage_platform.h` 定义。
 
 **D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共软件保护默认值 可能同时改变 D008 新设备的 AFE 默认，不能只看 SW 编号。
+
+### 编译时选择磷酸铁锂或三元锂
+
+唯一类型入口为 `BMS_PRODUCT_CHEMISTRY`，仅接受 `BMS_SOC_CHEMISTRY_LFP`（1）或 `BMS_SOC_CHEMISTRY_NMC`（2）。SOC profile 自动匹配类型；`AUTO`、未知类型或显式指定不匹配的 SOC profile 均在编译时报错。
+
+- **D011 / D013 / D014：** 在对应产品 `bms_product.h` 的默认定义处选类型，或通过 `EXTRA_DEFINES` 加入 `-DBMS_PRODUCT_CHEMISTRY=BMS_SOC_CHEMISTRY_NMC`；选 LFP 时使用 `BMS_SOC_CHEMISTRY_LFP`。未覆盖时默认 LFP，电压保护及均衡保持原有数值。串数不随化学体系改变。
+- **D008：** 继续选择编译宏 `D008_PRODUCT_PROFILE`，构建工具使用 `--d008-profile 16s-lfp` / `20s-nmc` / `24s-lfp`。`20s-nmc` 自动选择 NMC 的整套关联默认，另两个选择 LFP。不能额外用不匹配的类型宏覆盖 profile；例如 `16s-lfp` 配 NMC 会编译报错，防止镜像名称与实际配置矛盾。本次不新增装配组合。
+
+共享参数表只有编译期常量，没有新增运行时状态或调度逻辑。默认值如下，均为 mV；软件一级、二级、三级分别列出：
+
+| 参数 | LFP（保留现有值） | NMC（本次确认的 4.20 V 开发默认） |
+|---|---|---|
+| 单体过压 First / Second / Third / Recover | 3750 / 3750 / 3750 / 3500 | 4200 / 4200 / 4200 / 4100 |
+| 单体欠压 First / Second / Third / Recover | D008：3000 / 3000 / 2800 / 3100；SH：3000 / 3000 / 3000 / 3100 | 3000 / 3000 / 3000 / 3100 |
+| AFE 过压 / 恢复 | 3750 / 3500 | 4200 / 4100 |
+| AFE 欠压 / 恢复 | D008：2800 / 3100；SH：3000 / 3100 | 3000 / 3100 |
+| 总压过压 First / Second / Third / Recover，按每串折算 | 3500 / 3600 / 3650 / 3500 | 4200 / 4200 / 4200 / 4100 |
+| 总压欠压 First / Second / Third / Recover，按每串折算 | 3000 / 3000 / 2900 / 3000 | 3000 / 3000 / 3000 / 3100 |
+| 均衡起始电压 | 3400 | 4100 |
+| 均衡启动 / 停止压差 | 50 / 30 | 50 / 30 |
+| SOC 通用曲线 | `BMS_SOC_PROFILE_GENERIC_LFP` | `BMS_SOC_PROFILE_GENERIC_NMC` |
+
+总压字段实际单位仍为 10 mV，默认初始化按表中单串值除以 10 再乘有效串数。AFE 默认请求仍经过现有后端量化/恢复逻辑，未修改寄存器编码。硬件范围依据：DVC1124-2 RM V1.2 第 23–24 页；SH36735XX CV1.0A 第 49 页；资料入口见 [AFE_REFERENCE_GUIDE](AFE_REFERENCE_GUIDE.md)。这些范围依据不代替电芯规格或产品签核。
+
+均衡开关、压差、充电会话、温度和采样可信度门禁保持原逻辑；D013 的均衡能力仍为关闭。过流、短路、温度、滤波延时、容量、Rsense、NTC 和休眠参数保持各项目原配置。更换实际电池时，这些板级/负载参数仍需独立核对。
+
+**已有设备不会仅因类型宏变化就覆盖 Flash 参数。** 如要在同 schema、同串数的设备上切换整套默认，须在 `bms_parameter_policy.h` 同时调整目标产品的 `SW`、`AFE`、`BUSINESS`、`SOC` 四组更新编号，再编译部署并回读确认。`BUSINESS` 整组还包含容量和加热默认，不能当作仅重置均衡的开关；需要保留设备自定义值时应使用现有参数接口分别配置。实际更换电池还需明确处理 `SOC_STATE`，避免沿用旧电池 SOC/循环数据。本次未更改任何更新编号、Flash 布局或已有设备数据。
+
+相关检查入口 `tests/d014_defaults_host_check.py` 已包含 D008 三个 profile、三个 SH 产品的默认 LFP/NMC 参数矩阵，以及非法类型/profile 组合拒绝检查。它提取生产默认初始化及 AFE builder 执行，证据低于完整生产 TU 和实板；按根协作规则，仅在明确要求测试时运行。本次实现只做源码审查及 Git 差异检查，未执行这些用例或目标编译。
 
 ## 3. 单位速查
 
@@ -80,11 +109,11 @@ try {
 
 ## 6. 例 C：软件保护与 AFE 保护
 
-软件参数从 `bms_parameters.h` 找字段，核对高/低阈值顺序、Third/Recover 回差、Filter 和使用者。产品已有 CUV3 入口 `BMS_DEFAULT_CUV3_MV` / `BMS_DEFAULT_CUV3_FILTER`；其他公共宏默认影响四产品。只改一款需要新增差异时，明确增加产品输入并保留其他产品值，这属于代码修改。
+软件参数从 `bms_parameters.h` 找字段，核对高/低阈值顺序、Third/Recover 回差、Filter 和使用者。电池类型相关电压默认集中在 `bms_battery_defaults.h`；CUV3 延时仍用各产品 `BMS_DEFAULT_CUV3_FILTER`。只改一款需要新增差异时，明确增加产品输入并保留其他产品值，这属于代码修改。
 
-SH AFE 默认只改目标产品 `SH3673510_HW_DEFAULT_*`，按 AFE 编号生效，保持软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
+SH AFE 电压默认由电池类型表提供，其他 `SH3673510_HW_DEFAULT_*` 保持原 SH/产品配置；已保存的 AFE profile 按 AFE 编号生效，运行时与软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
 
-D008 三个装配 profile 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40 mV，硬件量化后名义延时 249.92 µs（整数读回 250 µs）。D008 的 AFE 更新编号为 `2u`，同 schema 设备 OTA 后整组 AFE profile 恢复新默认，详见 [OTA 参数更新](OTA_PARAMETERS.md#d008-开启短路保护2026-10-08)。`20s-nmc` 仍只选串数/SOC 化学体系，不会自动替换其他保护值；profile 选择不代表 NMC 保护参数签核。
+D008 三个装配 profile 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40 mV，硬件量化后名义延时 249.92 µs（整数读回 250 µs）。当前 AFE 更新编号以 `bms_parameter_policy.h` 为准；同 schema 设备按编号是否变化决定是否整组恢复默认，详见 [OTA 参数更新](OTA_PARAMETERS.md#d008-开启短路保护2026-10-08)。`20s-nmc` 已联动上述 NMC 电压保护、均衡和 SOC 默认；profile 选择及开发默认不代表 NMC 产品签核，现有生产批准门禁不变。
 
 相关入口：`core_contract_check.py`、`sw_temperature_groups_host_check.py`、`d014_configuration_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_defaults_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
 
