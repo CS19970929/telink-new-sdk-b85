@@ -410,6 +410,39 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
             self.assertFalse((run_dir / "node_modules").exists())
 
 
+class BuildOptionsTests(unittest.TestCase):
+    def test_options_are_in_both_compiler_flags_and_configuration_receipt(self):
+        options = {'chemistry': 'nmc', 'capacity_0p1ah': 120,
+                   'parameters_revision': 4, 'soc_state_revision': 5}
+        with mock.patch.multiple(bms, PRODUCT='d014', PRODUCTION=False), \
+             mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
+             mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
+             mock.patch.dict(bms.os.environ, {'BMS_BUILD_OPTIONS': json.dumps(options), 'EXTRA_DEFINES': ''}):
+            self.assertEqual(bms._build_configuration()['build_options'], options)
+            flags = bms._effective_extra_defines()
+            for flag in ('-DBMS_PRODUCT_CHEMISTRY=BMS_SOC_CHEMISTRY_NMC',
+                         '-DBMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=120u',
+                         '-DBMS_BUILD_PARAMETERS_REVISION=4u', '-DBMS_BUILD_SOC_STATE_REVISION=5u'):
+                self.assertIn(flag, flags)
+            for macro in bms.build_options.MACROS.values():
+                with mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': '-D' + macro + '=2'}):
+                    with self.assertRaises(SystemExit):
+                        bms._effective_extra_defines()
+
+    def test_validation_rejects_invalid_types_ranges_and_conflicting_profiles(self):
+        for options in ({'capacity_0p1ah': True}, {'capacity_0p1ah': '120'},
+                        {'capacity_0p1ah': 6554}, {'soc_state_revision': -1},
+                        {'parameters_revision': 65536}, {'chemistry': 'auto'}, [], {'unknown': 1}):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                bms.build_options.normalize(options, 'd014', None)
+        with self.assertRaises(ValueError):
+            bms.build_options.normalize({'chemistry': 'lfp'}, 'd008', '20s-nmc')
+        for product, profile, chemistry in (('d008', '20s-nmc', 'nmc'),
+                                            ('d008', '16s-lfp', 'lfp'), ('d014', None, 'nmc')):
+            self.assertEqual(bms.build_options.normalize({'chemistry': chemistry, 'capacity_0p1ah': 6553,
+                'parameters_revision': 65535}, product, profile)['capacity_0p1ah'], 6553)
+
+
 class AndroidOtaWorkflowTests(unittest.TestCase):
     def create_files(self, root, target, mode='production'):
         product, profile = android_ota.TARGETS[target]
@@ -505,10 +538,13 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         self.assertEqual(len(default), 1)
         self.assertEqual(default[0]['label'], 'BMS: 选择配置编译并发送 OTA')
         self.assertEqual(default[0]['args'][-1], '${workspaceFolder}/bms_tools/select_firmware_build.ps1')
-        ota = next(task for task in tasks['tasks'] if task['label'] == 'BMS: 编译并发送固件到 Android')
-        self.assertEqual(ota['args'], ['bms_tools/android_ota.py', '--target', '${input:otaTarget}'])
-        selection = next(item for item in tasks['inputs'] if item['id'] == 'otaTarget')
-        self.assertEqual({item['value'] for item in selection['options']}, set(android_ota.TARGETS))
+        self.assertFalse(any(task['label'] == 'BMS: 编译并发送固件到 Android' for task in tasks['tasks']))
+        self.assertFalse(any(item['id'] == 'otaTarget' for item in tasks['inputs']))
+        picker = (REPO_ROOT / 'bms_tools/select_firmware_build.ps1').read_text(encoding='utf-8-sig')
+        for target in android_ota.TARGETS:
+            self.assertIn("Id = '" + target + "'", picker)
+        self.assertNotIn('CheckedListBox', picker)
+        self.assertNotIn('D013 4S', picker)
 
     def test_all_twelve_bin_configurations_use_separate_paths_and_the_selected_mode(self):
         for mode in ('production', 'development'):
@@ -563,66 +599,92 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                     android_ota.run_workflow('d014', sender, root=root, send_only=True, build_only=True)
                 run.assert_not_called()
 
+    def test_custom_options_reach_every_stage_and_must_match_the_sent_manifest(self):
+        options = {'chemistry': 'nmc', 'capacity_0p1ah': 120,
+                   'parameters_revision': 4, 'soc_state_revision': 5}
+        for send_only in (False, True):
+            with self.subTest(send_only=send_only), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                _, manifest, data, sender = self.create_files(root, 'd014')
+                data['configuration']['build_options'] = options
+                manifest.write_text(json.dumps(data), encoding='utf-8')
+                with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                    self.assertEqual(android_ota.run_workflow('d014', sender, root=root, options=options, send_only=send_only), 0)
+                    for call in run.call_args_list:
+                        self.assertEqual(json.loads(call.kwargs['env']['BMS_BUILD_OPTIONS']), options)
+                    for key, value in options.items():
+                        wrong = dict(options, **{key: 'lfp' if key == 'chemistry' else value + 1})
+                        run.reset_mock()
+                        with self.assertRaises(ValueError):
+                            android_ota.run_workflow('d014', sender, root=root, options=wrong, send_only=True)
+                        self.assertEqual(run.call_count, 1)  # 只验证，不能调用 Sender。
+
+    def test_invalid_options_fail_before_any_build_or_send(self):
+        for options in ({'chemistry': 'nmc'}, {'capacity_0p1ah': 6554},
+                        {'parameters_revision': 0}, {'soc_state_revision': True}, {'unknown': 1}):
+            with self.subTest(options=options), mock.patch.object(android_ota.subprocess, 'run') as run:
+                with self.assertRaises(ValueError):
+                    android_ota.run_workflow('d008-16s-lfp', Path('missing.exe'), options=options)
+                run.assert_not_called()
+
     @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
     def test_picker_single_selection_builds_then_sends_and_failed_build_stops(self):
         script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
         for code, expected_calls in ((0, 2), (7, 1)):
             with self.subTest(code=code):
-                # 用 PowerShell 函数替代 Python 进程，验证真实菜单调度，不碰手机。
+                # 替代 Python 进程，验证实际脚本调度，不碰手机，也不打开窗口。
                 source = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); '
                 source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); '
                 source += '$global:LASTEXITCODE = ' + str(code) + ' }; '
-                source += "& '" + str(script).replace("'", "''") + "' -Configurations 'development:d014'"
+                source += "& '" + str(script).replace("'", "''") + "' -Target d014 -Mode development -Chemistry nmc -Capacity0p1Ah 120 -ParametersRevision 4 -SocStateRevision 5"
                 result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
                                         capture_output=True, encoding='utf-8', timeout=15)
-                self.assertEqual(result.returncode, 0 if code == 0 else 1)
+                self.assertEqual(result.returncode, code, result.stderr)
                 calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
                 self.assertEqual(len(calls), expected_calls)
                 self.assertEqual(calls[0][-1], '--build-only')
+                self.assertEqual(calls[0][1:-1], ['--target', 'd014', '--mode', 'development',
+                    '--chemistry', 'nmc', '--capacity-0p1ah', '120', '--parameters-revision', '4', '--soc-state-revision', '5'])
                 if code == 0:
-                    self.assertEqual(calls[1], [str(REPO_ROOT / 'bms_tools/android_ota.py'), '--target', 'd014', '--mode', 'development', '--send-only'])
+                    self.assertEqual(calls[1], calls[0][:-1] + ['--send-only'])
 
     @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
-    def test_picker_batch_build_only_suppresses_sending_and_ota_selection(self):
+    def test_picker_build_only_suppresses_sending(self):
         script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
         source = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); '
         source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); $global:LASTEXITCODE = 0 }; '
-        source += "& '" + str(script).replace("'", "''") + "' -BuildOnly -Configurations @('development:d014','production:d008-16s-lfp')"
+        source += "& '" + str(script).replace("'", "''") + "' -BuildOnly -Target d014 -Mode development"
         result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
                                 capture_output=True, encoding='utf-8', timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
-        self.assertEqual(len(calls), 2)
-        self.assertTrue(all(call[-1] == '--build-only' for call in calls))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][-1], '--build-only')
 
     @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
-    def test_batch_picker_plans_all_configurations_without_building_or_sending(self):
+    def test_picker_plans_each_single_target_without_building_or_sending(self):
         script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
-        selections = [mode + ':' + target for mode in ('production', 'development')
-                      for target in android_ota.TARGETS]
-        # 参数都是受控常量；单引号加倍只用于仓库路径。
-        source = "& '" + str(script).replace("'", "''") + "' -PlanOnly -Rebuild -Configurations @("
-        source += ','.join("'" + selection + "'" for selection in selections) + ')'
-        result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
-                                 '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ' + source],
-                                capture_output=True, encoding='utf-8', timeout=15)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        commands = json.loads(result.stdout)
-        self.assertEqual(len(commands), 12)
-        for entry, selection in zip(commands, selections):
-            mode, target = selection.split(':')
-            self.assertEqual(entry['Configuration'], selection)
-            self.assertEqual(entry['Arguments'], [str(REPO_ROOT / 'bms_tools/android_ota.py'), '--target', target,
-                                                 '--mode', mode, '--build-only', '--rebuild'])
+        for mode in ('production', 'development'):
+            for target in android_ota.TARGETS:
+                with self.subTest(mode=mode, target=target):
+                    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
+                        '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & ' +
+                        "'" + str(script).replace("'", "''") + "' -PlanOnly -Rebuild -Target " + target + ' -Mode ' + mode],
+                        capture_output=True, encoding='utf-8', timeout=15)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    entry = json.loads(result.stdout)
+                    self.assertEqual(entry['Configuration'], mode + ':' + target)
+                    self.assertEqual(entry['Arguments'], [str(REPO_ROOT / 'bms_tools/android_ota.py'), '--target', target,
+                                                         '--mode', mode, '--build-only', '--rebuild'])
 
     @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
-    def test_batch_picker_rejects_unknown_selection_before_starting_a_build(self):
+    def test_picker_rejects_unknown_target_before_starting_a_build(self):
         script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
         result = subprocess.run(['powershell.exe', '-NoProfile', '-File', str(script),
-                                 '-PlanOnly', '-Configurations', 'production:unknown'],
+                                 '-PlanOnly', '-Target', 'unknown'],
                                 capture_output=True, encoding='utf-8', errors='replace', timeout=15)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Unknown build configuration', result.stderr)
+        self.assertIn('Unknown build target', result.stderr)
 
 
 if __name__ == "__main__":

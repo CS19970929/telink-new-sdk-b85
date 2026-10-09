@@ -42,6 +42,11 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from . import build_options
+except ImportError:
+    import build_options
+
 # ----------------------------------------------------------------------------
 # Path resolution (machine-portable)
 # ----------------------------------------------------------------------------
@@ -65,10 +70,21 @@ def _selection_args(product=None):
             (["--d008-profile", D008_PROFILE] if D008_PROFILE else []))
 
 
+def _selected_build_options():
+    try:
+        return build_options.from_environment(os.environ, PRODUCT, D008_PROFILE)
+    except ValueError as exc:
+        _die(str(exc))
+
+
 def _build_configuration():
-    return {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
+    configuration = {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
             "d008_profile": (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else None,
             "core_optimization": "-Os" if PRODUCTION else "-O2"}
+    options = _selected_build_options()
+    if options:
+        configuration["build_options"] = options
+    return configuration
 
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
@@ -588,6 +604,11 @@ def _firmware_git_dirty() -> int:
 
 def _effective_extra_defines() -> str:
     extra = os.environ.get("EXTRA_DEFINES", "").strip()
+    if build_options.ENV_NAME in os.environ:
+        try:
+            build_options.check_extra_defines(extra)
+        except ValueError as exc:
+            _die(str(exc))
     reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D008_20S_NMC_PROTECTION_APPROVED|BMS_D013_HW_CONFIG_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
@@ -599,6 +620,7 @@ def _effective_extra_defines() -> str:
             _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
              f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
+    flags.extend(build_options.defines(_selected_build_options()))
     if PRODUCT == "d008" and D008_PROFILE:
         flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
     return " ".join(x for x in flags if x)
@@ -610,7 +632,8 @@ def _capture_compile_inputs(extra_defines: str) -> dict:
     paths.update(SDK_DIR.rglob("*.h"))
     paths.update((REPO_ROOT / "bms").rglob("*.h"))
     paths.update(SDK_DIR.rglob("*.inc"))
-    paths.update((SOURCE_ORDER_FILE, LINKER_FILE, _HERE / "build.mk", _HERE / "bms.py"))
+    paths.update((SOURCE_ORDER_FILE, LINKER_FILE, _HERE / "build.mk", _HERE / "bms.py",
+                  _HERE / "build_options.py"))
     paths.update(REQUIRED_VENDOR_LIBS)
     files = {p.relative_to(REPO_ROOT).as_posix(): _sha256(p) for p in sorted(paths)}
     executables = [_tc32_tool(n) for n in ("tc32-elf-gcc", "tc32-elf-as", "tc32-elf-ld", "tc32-elf-objcopy", "tc32-elf-objdump")]

@@ -184,6 +184,32 @@ def check_battery_chemistry_defaults():
         run_c(code, flags=[*host_includes(ROOT, product), *flags],
               name=f'battery-defaults-{product}-{cells}-{chemistry}')
 
+    # 窗口覆盖必须进入实际容量默认及分组编号；校准/身份/事件保持源码策略。
+    for product in ('d008', 'd011', 'd013', 'd014'):
+        code = profile_prefix(product) + '\n' + defaults + r'''
+        #include "bms_update_policy.h"
+        int main(void)
+        {
+            bms_config_system_params_t system;
+            bms_config_store_get_default_system(&system);
+            assert(system.capacity_factory == 120u);
+            assert(bms_update_revision(BMS_UPDATE_SW) == 4u);
+            assert(bms_update_revision(BMS_UPDATE_AFE) == 4u);
+            assert(bms_update_revision(BMS_UPDATE_BUSINESS) == 4u);
+            assert(bms_update_revision(BMS_UPDATE_SOC) == 4u);
+            assert(bms_update_revision(BMS_UPDATE_SOC_STATE) == 5u);
+            assert(bms_update_revision(BMS_UPDATE_CALIBRATION) == 1u);
+            assert(bms_update_revision(BMS_UPDATE_IDENTITY) == 1u);
+            assert(bms_update_revision(BMS_UPDATE_EVENTS) == 1u);
+            return 0;
+        }
+        '''
+        run_c(code, flags=[*host_includes(ROOT, product),
+                          '-DBMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=120u',
+                          '-DBMS_BUILD_PARAMETERS_REVISION=4u',
+                          '-DBMS_BUILD_SOC_STATE_REVISION=5u'],
+              name=f'window-defaults-{product}')
+
     # 非法类型、曲线冲突和 D008 装配冲突必须由产品头本身拒绝。
     rejected = [('d014', ['-DBMS_PRODUCT_CHEMISTRY=0'], 'must be LFP'),
                 ('d014', ['-DBMS_PRODUCT_CHEMISTRY=3'], 'must be LFP'),

@@ -145,54 +145,36 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 
 四产品依次构建，每个产品内最多四个 Make job；各输出目录独立。D008 16S 输出在 `firmware/production-16s-lfp/d008/`，其他三个在 `firmware/production/d011/`、`d013/`、`d014/`。如需全部六配置，再分别对 D008 `20s-nmc`、`24s-lfp` 执行同样的 `rebuild` / `manifest` / `verify`，输出在相应 profile 目录。相同产品/模式/profile 保留最近一次结果，不并发两次构建。最终 BIN 只在 checker 和 CRC 通过后发布；发布新 BIN 会移除旧 manifest，随后重新执行 `manifest`。
 
-## 6. VS Code 一键编译、无线发送与 OTA
+## 6. Ctrl+Shift+B 单项目配置与编译
 
-### 快捷键与配置选择
+打开仓库根目录或 `bms.code-workspace`，按 **Ctrl+Shift+B**，进入默认任务 **BMS: 选择配置编译并发送 OTA**。常用配置全部在一个窗口内完成，不需要输入命令；已移除批量勾选和重复的单型号 OTA 入口。
 
-常规配置为 **6 种装配 × 开发/生产 2 种模式，共 12 种**。模式的优化与诊断差异见第 4 节；增量/全量编译只改变构建方式，不增加固件配置种类。
+| 窗口项目 | 使用方式 |
+|---|---|
+| 产品 / 装配 | D008 16S LFP、20S NMC、24S LFP，以及 D011、D013、D014，单次选择一个 |
+| 构建模式 | 开发 / 生产；生产仍须满足干净提交、产品批准和资源门禁 |
+| 串数 | 只读，D008 随装配选择；D011 / D013 / D014 从源码读取，当前为 10 / 10 / 8 串 |
+| 电池类型 | D008 随装配固定；SH 产品可选磷酸铁锂或 4.20 V 三元锂，串数不随类型变化 |
+| 默认容量 | Ah，步进 0.1 Ah；未改时读取产品头文件，后续记住本机选择 |
+| 本次 OTA 恢复配置默认值 | 更新 SW、AFE、BUSINESS、SOC 四组编号，恢复保护、容量、加热、均衡及 SOC 配置；不重置校准、身份、事件 |
+| 更换电池：重置 SOC / 循环 | 单独更新 SOC_STATE 编号；SOC 恢复源码初始估计，同时重置循环，不代表真实电量已校准 |
+| 更新编号 | 勾选恢复/重置后可编辑；自动给出高于源码默认与该装配本机记录的下一值，两个选项共用一个新编号 |
+| 清理后全量重编译 | 默认不勾选，使用增量编译 |
+| 生成后发送安卓并请求 OTA | 取消勾选时只生成并校验 BIN，无需手机；勾选时编译成功后发送当前镜像并请求 OTA |
 
-| 装配 | 串数/体系 | 开发 BIN | 生产镜像批准状态 |
-|---|---|---|---|
-| D008 16S LFP | 16S 磷酸铁锂 | 可选择 | 已开放镜像生成 |
-| D008 20S NMC | 20S 三元锂 | 可选择 | 专项批准未开放 |
-| D008 24S LFP | 24S 磷酸铁锂 | 可选择 | 已开放镜像生成 |
-| D011 | 10S | 可选择 | 整体批准未开放 |
-| D013 | 4S | 可选择 | 整体/硬件配置批准未开放 |
-| D014 | 8S | 可选择 | 整体批准未开放 |
+修改电池类型或容量时自动勾选恢复配置默认值，可手动取消。取消只改变镜像的编译默认，已有同串数设备仍按编号保留旧参数。均衡起始电压、单体/总压保护和 SOC 曲线自动关联类型；总压按有效串数计算，不逐项增加输入框。D013 的均衡能力仍关闭。详见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)。
 
-本表描述源码门禁状态，不代表这 12 种配置都经过本次实际构建或实板验收。日志等级、保护台架开关和其他 `EXTRA_DEFINES` 属于额外自定义配置，不计入这 12 种常规配置，菜单不修改这些宏。
+**串数变化会触发现有整套 Config 恢复，包括校准、SN 和蓝牙名称等；升级前先备份。** 不同装配对应不同硬件条件，菜单不增加任意串数组合，也不修改产品批准值。
 
-| 快捷键 | 用途 | 操作 |
-|---|---|---|
-| `Ctrl+Shift+B` | 所有产品开发/生产配置的编译，可选 OTA | 勾选自动 OTA 则生成后发送；取消勾选则仅生成 BIN |
+本机设置写在 `%LOCALAPPDATA%/BmsBuildMenu/<repoHash>.json`，不写源码目录。按装配记住类型、容量和已选更新编号；下次普通编译延续这些编号，恢复/重置勾选本身默认关闭，避免再次主动递增。编号在点击开始时保存，即使本次构建失败也不会自动回退。相同编号保留设备值，不同编号恢复默认；换电脑、删除设置、使用其他固件或回刷旧固件时，必须核对设备原编号。本机递增不能替代设备回读；65535 不自动回绕。
 
-`Ctrl+Shift+B` 统一绑定默认任务 **BMS: 选择配置编译并发送 OTA**，本机原有的直接快捷键覆盖也已同步更新；原 `Ctrl+Alt+B` 作为兼容别名保留。Windows 勾选窗口由 VS Code 启动，支持任意多个配置混选、“全部开发”“全部生产”和“清空选择”；默认只选 D008 16S production。“生成后发送安卓并请求 OTA”默认勾选，取消勾选后仅编译并校验 BIN，无需连接手机，也不弹出后续 OTA 选择窗口。点击“开始执行”后执行流程，可勾选“清理后全量重编译”，默认使用增量编译。取消窗口不构建、不发送。
+点击“开始编译”依次执行 build/rebuild、manifest、verify。电池类型、容量和更新编号同时写入编译输入收据与 manifest；发送前再次核对模式、产品、装配、编译参数、路径、BIN 大小及 SHA-256。构建或校验失败立即停止，不发送旧 BIN。发送复用同一份配置，仅重新验证，不重复编译。输出沿用 `firmware/<mode-profile>/<product>/`；同一目录不得同时启动其他构建任务。
 
-批量构建顺序执行；每项独立执行 build/rebuild、manifest、verify，并核对模式/产品/profile/路径与 BIN 大小及 SHA-256。单项失败继续其他项，末尾分别列出成功/失败项，任一失败则任务退出码非 0。旧 BIN 可能仍在磁盘，只以本次成功校验项作为有效结果。输出按 `firmware/<mode-profile>/<product>/` 分开，开发和生产不会互相覆盖。同一 checkout/模式/profile/产品仍不得与其他构建任务并发。
+Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/android-direct-sender-v3/BmsTool.Android.Sender.exe`，其他电脑可通过环境变量 `BMS_ANDROID_SENDER` 指向原 Sender。手机沿用原无线调试授权及连接条件；安卓 App 需连接明确的目标 BMS。流程核对镜像身份，没有新增设备型号读回检查；Sender 成功代表发送及 OTA 请求完成，最终升级结果以 App 为准。
 
-勾选自动 OTA 时，只选一个配置且构建成功便自动调用 `--send-only`：重新验证当前镜像后发送到安卓并请求 OTA，不重复编译。选择多个配置时，生成完毕后弹出“选择本次用于 OTA 的固件”，仅列本次成功项；用户选择与当前连接 BMS 相符的一份并点击“发送并 OTA”。即使批量中只有一项成功也要求明确选择，不将不同型号/模式的 BIN 连续刷到同一设备；取消后保留生成的 BIN。全部失败不发送。脚本 `-BuildOnly` 与窗口取消自动 OTA 勾选效果相同，`-PlanOnly` 仅输出计划，均不连接手机。
+当前 D008 20S NMC 和 SH 产品仍受原生产批准门限制；菜单不自动提交、不批准、不降级为开发模式。已有源码脏修改也会阻止生产构建。镜像及 manifest 不提交 Git。
 
-VS Code 的自定义快捷键必须放在用户级配置，本仓库提供 [快捷键示例](../.vscode/keybindings.example.json)；换电脑时可将其条目加入 `Preferences: Open Keyboard Shortcuts (JSON)`，或通过 `Tasks: Run Task` 直接选择上述任务，不必写构建命令。其他电脑需要 Windows PowerShell 5.1/WinForms 和原 TC32/Python 环境。生产批准、干净提交和资源门禁继续适用，菜单不会自动提交或批准。
-
-### 单个型号一键 OTA
-
-打开仓库根目录或 `bms.code-workspace`，从 `Tasks: Run Task` 选择 **BMS: 编译并发送固件到 Android**。该任务作为单独入口保留，弹出型号/装配选择框，包含 D008 的三个 profile 及 D011/D013/D014，默认 D008 16S LFP。
-
-选定后，`bms_tools/android_ota.py` 显式指定产品、profile 和 `--production`，依次执行增量 `build --jobs 4`、`manifest`、`verify`。所有步骤成功且发送前产品/profile/路径、大小与 SHA-256 匹配，才将当前 `firmware/<mode-profile>/<product>/825x_ble_sample.bin` 交给既有 Android Sender 的 `--firmware ... --auto-ota`。任何构建、批准或校验失败都停止，不发送旧 BIN；取消选择不会启动任务。
-
-本机 Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/android-direct-sender-v3/BmsTool.Android.Sender.exe`，其他电脑用环境变量 `BMS_ANDROID_SENDER` 指向安装好的同一 Sender。Sender 源码仍在 Windows 上位机维护分支；本流程不复制上位机源码，不再依赖旧 `send-from-vscode.ps1` 中的 SDK 输出路径。本机用户级旧编译发送任务已取消默认标记，避免两个默认任务使快捷键先弹出任务选择；手动选择 BIN 和连接无线调试任务保留。默认配置选择入口已包含自动发送和 OTA；原 production 单型号任务也保留。
-
-手机须与电脑具备原无线调试条件并已授权；原 Sender 负责重连及传输。安卓 App 已连接明确 BMS 时自动 OTA，否则由 App 选择/连接设备后升级。所选型号须与实际连接的板卡一致，当前流程核对的是构建镜像身份，没有新增设备型号读回检查。Sender 成功退出代表发送及 OTA 请求完成，最终升级结果以 App 为准。
-
-生产批准门继续适用：当前 D008 16S/24S 可生成镜像，D008 20S NMC 与其他产品未批准时停止。本任务不会自动改批准值、提交脏源码、绕过资源/保护门禁或降为开发模式。production 要求先提交代码；镜像及 manifest 不提交 Git。
-
-若 VS Code 尚在使用旧任务，执行 `Developer: Reload Window`，再用 `Tasks: Configure Default Build Task` 选择 **BMS: 选择配置编译并发送 OTA**。也可直接运行 OTA 任务的脚本：
-
-```powershell
-python bms_tools/android_ota.py --target d008-16s-lfp
-# 只验证构建和镜像，不连接手机：
-python bms_tools/android_ota.py --target d008-16s-lfp --build-only
-```
+快捷键目标名称保持不变，仓库提供 [快捷键示例](../.vscode/keybindings.example.json)。若界面仍是旧版，执行 `Developer: Reload Window`，或从 `Tasks: Run Task` 选择 **BMS: 选择配置编译并发送 OTA**；需要时在 `Tasks: Configure Default Build Task` 设为默认。此入口需要 Windows PowerShell 5.1 / WinForms 和原 TC32 / Python 环境。本次仅源码审查及差异检查，未运行窗口、测试、固件编译或 OTA。
 
 ## 7. 常见失败
 

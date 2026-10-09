@@ -9,6 +9,11 @@ from pathlib import Path
 import subprocess
 import sys
 
+try:
+    from . import build_options
+except ImportError:
+    import build_options
+
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {
     "d008-16s-lfp": ("d008", "16s-lfp"),
@@ -31,12 +36,15 @@ def default_sender() -> Path:
 
 def run_workflow(target: str, sender: Path, *, build_only: bool = False,
                  root: Path = ROOT, mode: str = "production",
-                 rebuild: bool = False, send_only: bool = False) -> int:
+                 rebuild: bool = False, send_only: bool = False,
+                 options: dict | None = None) -> int:
     if send_only and build_only:
         raise ValueError("仅构建和仅发送不能同时使用。")
     if mode not in ("production", "development"):
         raise ValueError("不支持的构建模式：" + mode)
     product, profile = TARGETS[target]
+    options = build_options.normalize({} if options is None else options, product, profile)
+    build_options.check_extra_defines(os.environ.get("EXTRA_DEFINES", ""))
     variant = mode + ("-" + profile if profile else "")
     firmware = root / "firmware" / variant / product / "825x_ble_sample.bin"
     manifest = firmware.with_name("fw_manifest.json")
@@ -51,6 +59,7 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
     if profile:
         command += ["--d008-profile", profile]
     env = dict(os.environ, PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
+    env[build_options.ENV_NAME] = json.dumps(options, sort_keys=True)
     # build 为增量构建，内含批准、warning、资源、Telink checker/CRC 门禁。
     # 每一步检查退出码；旧 BIN 即使仍在磁盘也不能走到发送步骤。
     stages = (["verify"],) if send_only else (
@@ -75,8 +84,9 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
             or configuration.get("production") is not (mode == "production")
             or configuration.get("build_mode") != mode
             or configuration.get("d008_profile") != profile
+            or configuration.get("build_options", {}) != options
             or Path(data.get("bin", "")).resolve() != firmware.resolve()):
-        raise ValueError("manifest 的产品、装配或镜像路径不匹配；没有发送固件。")
+        raise ValueError("manifest 的产品、装配、编译参数或镜像路径不匹配；没有发送固件。")
     payload = firmware.read_bytes()
     if (len(payload) != data.get("size_bytes")
             or hashlib.sha256(payload).hexdigest() != data.get("sha256")):
@@ -105,10 +115,17 @@ def main() -> int:
     operation.add_argument("--send-only", action="store_true", help="重新校验当前镜像并发送，不重复构建")
     parser.add_argument("--mode", choices=("production", "development"), default="production")
     parser.add_argument("--rebuild", action="store_true", help="清理后全量重编译")
+    parser.add_argument("--chemistry", choices=("lfp", "nmc"))
+    parser.add_argument("--capacity-0p1ah", type=int)
+    parser.add_argument("--parameters-revision", type=int)
+    parser.add_argument("--soc-state-revision", type=int)
     args = parser.parse_args()
     try:
+        options = {key: getattr(args, key) for key in build_options.MACROS
+                   if getattr(args, key) is not None}
         return run_workflow(args.target, args.sender.resolve(), build_only=args.build_only,
-                            mode=args.mode, rebuild=args.rebuild, send_only=args.send_only)
+                            mode=args.mode, rebuild=args.rebuild, send_only=args.send_only,
+                            options=options)
     except (OSError, ValueError, KeyError) as exc:
         print(f"[OTA] ERROR: {exc}", file=sys.stderr)
         return 1

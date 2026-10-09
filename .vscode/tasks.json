@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "选择开发/生产配置，可仅生成 BIN 或生成后发送安卓并请求 OTA；多选 OTA 时再选一份用于升级",
+      "detail": "单项目配置：装配、模式、电池类型、容量和 OTA 参数生效；可仅生成 BIN",
       "type": "process",
       "command": "powershell.exe",
       "args": [
@@ -21,49 +21,6 @@
       "problemMatcher": [],
       "presentation": {"reveal": "always", "focus": false, "panel": "dedicated", "clear": true},
       "runOptions": {"instanceLimit": 1}
-    },
-    {
-      "label": "BMS: 编译并发送固件到 Android",
-      "detail": "选择产品/装配，生成并校验 production BIN，发送到 Android 并请求自动 OTA",
-      "type": "process",
-      "command": "python",
-      "args": [
-        "bms_tools/android_ota.py",
-        "--target",
-        "${input:otaTarget}"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
-      },
-      "group": "build",
-      "problemMatcher": {
-        "owner": "cpp",
-        "source": "TC32",
-        "fileLocation": ["autoDetect", "${workspaceFolder}/tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk"],
-        "pattern": {
-          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
-          "file": 1,
-          "line": 2,
-          "column": 3,
-          "severity": 4,
-          "message": 5
-        }
-      },
-      "presentation": {
-        "reveal": "always",
-        "focus": false,
-        "panel": "dedicated",
-        "clear": true,
-        "showReuseMessage": false
-      },
-      "runOptions": {
-        "instanceLimit": 1,
-        "reevaluateOnRerun": true
-      }
     },
     {
       "label": "BMS: compile",
@@ -164,20 +121,6 @@
     }
   ],
   "inputs": [
-    {
-      "id": "otaTarget",
-      "type": "pickString",
-      "description": "选择要升级的 BMS 型号与装配（production）",
-      "options": [
-        {"label": "D008 16S 磷酸铁锂", "value": "d008-16s-lfp"},
-        {"label": "D008 20S 三元锂（需专项批准）", "value": "d008-20s-nmc"},
-        {"label": "D008 24S 磷酸铁锂", "value": "d008-24s-lfp"},
-        {"label": "D011（需生产镜像批准）", "value": "d011"},
-        {"label": "D013（需生产镜像及硬件配置批准）", "value": "d013"},
-        {"label": "D014（需生产镜像批准）", "value": "d014"}
-      ],
-      "default": "d008-16s-lfp"
-    },
     {
       "id": "product",
       "type": "pickString",

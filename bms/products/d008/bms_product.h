@@ -40,7 +40,9 @@
 
 /* 移除无关遗留产品表时保留持久化类型 ID 和出厂容量回退，容量单位 Ah * 10。 */
 #define BMS_PRODUCT_WIRE_ID   12u
+#ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 78u
+#endif
 
 #define  BMS_PRODUCT_SW_VERSION  	"V8.8"
 

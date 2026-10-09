@@ -33,7 +33,9 @@
 
 ### 编译时选择磷酸铁锂或三元锂
 
-唯一类型入口为 `BMS_PRODUCT_CHEMISTRY`，仅接受 `BMS_SOC_CHEMISTRY_LFP`（1）或 `BMS_SOC_CHEMISTRY_NMC`（2）。SOC profile 自动匹配类型；`AUTO`、未知类型或显式指定不匹配的 SOC profile 均在编译时报错。
+日常使用 **Ctrl+Shift+B** 单项目窗口选择装配、电池类型和容量，保护/均衡默认值自动联动，不需要输入编译命令或修改头文件。窗口操作、编号延续和 OTA 说明见 [构建指南第 6 节](BUILD_AND_TEST.md#6-ctrlshiftb-单项目配置与编译)。
+
+底层唯一类型入口为 `BMS_PRODUCT_CHEMISTRY`，仅接受 `BMS_SOC_CHEMISTRY_LFP`（1）或 `BMS_SOC_CHEMISTRY_NMC`（2）。SOC profile 自动匹配类型；`AUTO`、未知类型或显式指定不匹配的 SOC profile 均在编译时报错。
 
 - **D011 / D013 / D014：** 在对应产品 `bms_product.h` 的默认定义处选类型，或通过 `EXTRA_DEFINES` 加入 `-DBMS_PRODUCT_CHEMISTRY=BMS_SOC_CHEMISTRY_NMC`；选 LFP 时使用 `BMS_SOC_CHEMISTRY_LFP`。未覆盖时默认 LFP，电压保护及均衡保持原有数值。串数不随化学体系改变。
 - **D008：** 继续选择编译宏 `D008_PRODUCT_PROFILE`，构建工具使用 `--d008-profile 16s-lfp` / `20s-nmc` / `24s-lfp`。`20s-nmc` 自动选择 NMC 的整套关联默认，另两个选择 LFP。不能额外用不匹配的类型宏覆盖 profile；例如 `16s-lfp` 配 NMC 会编译报错，防止镜像名称与实际配置矛盾。本次不新增装配组合。
@@ -54,9 +56,9 @@
 
 总压字段实际单位仍为 10 mV，默认初始化按表中单串值除以 10 再乘有效串数。AFE 默认请求仍经过现有后端量化/恢复逻辑，未修改寄存器编码。硬件范围依据：DVC1124-2 RM V1.2 第 23–24 页；SH36735XX CV1.0A 第 49 页；资料入口见 [AFE_REFERENCE_GUIDE](AFE_REFERENCE_GUIDE.md)。这些范围依据不代替电芯规格或产品签核。
 
-均衡开关、压差、充电会话、温度和采样可信度门禁保持原逻辑；D013 的均衡能力仍为关闭。过流、短路、温度、滤波延时、容量、Rsense、NTC 和休眠参数保持各项目原配置。更换实际电池时，这些板级/负载参数仍需独立核对。
+均衡开关、压差、充电会话、温度和采样可信度门禁保持原逻辑；D013 的均衡能力仍为关闭。过流、短路、温度、滤波延时、Rsense、NTC 和休眠参数保持各项目原配置；容量未在窗口覆盖时使用产品原默认。更换实际电池时，这些板级/负载参数仍需独立核对。
 
-**已有设备不会仅因类型宏变化就覆盖 Flash 参数。** 如要在同 schema、同串数的设备上切换整套默认，须在 `bms_parameter_policy.h` 同时调整目标产品的 `SW`、`AFE`、`BUSINESS`、`SOC` 四组更新编号，再编译部署并回读确认。`BUSINESS` 整组还包含容量和加热默认，不能当作仅重置均衡的开关；需要保留设备自定义值时应使用现有参数接口分别配置。实际更换电池还需明确处理 `SOC_STATE`，避免沿用旧电池 SOC/循环数据。本次未更改任何更新编号、Flash 布局或已有设备数据。
+**已有设备不会仅因类型宏变化就覆盖 Flash 参数。** 在同 schema、同串数设备上切换整套默认，在窗口勾选“本次 OTA 恢复配置默认值”，自动使用 `BMS_BUILD_PARAMETERS_REVISION` 给 `SW`、`AFE`、`BUSINESS`、`SOC` 四组设置同一更新编号，再编译部署并回读确认。窗口修改类型/容量时自动勾选此项；不勾选时延续本机此前编号，无记录则采用源码编号。维护者仍可在 `bms_parameter_policy.h` 分组维护默认编号。`BUSINESS` 整组还包含容量和加热默认，不能当作仅重置均衡的开关；需要保留设备自定义值时应使用现有参数接口分别配置。实际更换电池时，窗口可独立勾选“更换电池：重置 SOC / 循环”，通过 `BMS_BUILD_SOC_STATE_REVISION` 更新 `SOC_STATE`，避免沿用旧电池数据。窗口编号范围 1..65535，本机自动递增不能保证与其他电脑刷入的设备编号不同，须回读核对。串数变化仍按现有逻辑重建整套 Config（含校准/身份）；本次未改变 Flash 布局。
 
 相关检查入口 `tests/d014_defaults_host_check.py` 已包含 D008 三个 profile、三个 SH 产品的默认 LFP/NMC 参数矩阵，以及非法类型/profile 组合拒绝检查。它提取生产默认初始化及 AFE builder 执行，证据低于完整生产 TU 和实板；按根协作规则，仅在明确要求测试时运行。本次实现只做源码审查及 Git 差异检查，未执行这些用例或目标编译。
 

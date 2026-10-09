@@ -56,7 +56,9 @@
  * 不补充原理图缺失的产品要求；D014 参数签核前 BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 保持开发默认，
  * 保护仍由持久软件配置和独立 AFE 硬件配置负责。
  */
+#ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
+#endif
 #define BMS_PRODUCT_HW_VERSION   "D014"
 #define BMS_PRODUCT_SW_VERSION   "V1.6"
 #define BMS_PRODUCT_DEFAULT_SERIAL      "D014-20260925"
