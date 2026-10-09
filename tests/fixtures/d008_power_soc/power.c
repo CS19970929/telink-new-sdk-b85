@@ -93,8 +93,9 @@ static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);if(
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t*c){return elapsed;}
 static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}
+static u32 observed_voltage_seconds;
 void bms_diag_runtime_pm(u8 allowed,u32 reason,u8 region,u32 seconds,u8 connected,u8 pending,uint16_t threshold){
- (void)allowed;(void)reason;(void)region;(void)seconds;(void)connected;(void)pending;assert(threshold==APP_SUSPEND_EXIT_CURRENT_MA);
+ (void)allowed;(void)reason;(void)region;observed_voltage_seconds=seconds;(void)connected;(void)pending;assert(threshold==APP_SUSPEND_EXIT_CURRENT_MA);
 }
 /* PRODUCTION_SOURCE */
 static void reset(void){
@@ -170,6 +171,7 @@ static void test_low_voltage_sample_wait(void){
  assert(s_protective_sleep.region==3&&s_protective_sleep.normal_voltage_seconds==105u);
  measurement.current_ma=-200;app_power_process(&s_sample_due);
  assert(s_protective_sleep.normal_voltage_seconds==110u);
+ assert(observed_voltage_seconds==110u);
  measurement.current_ma=-201;elapsed=0;app_power_process(&s_sample_due);
  assert(!s_protective_sleep.region&&!s_protective_sleep.low_voltage_seconds);
  puts("PASS low-voltage timer: repeated ADC waits cannot postpone one-hour expiry; only valid recovery cancels; reliable charge threshold");

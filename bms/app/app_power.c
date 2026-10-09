@@ -574,12 +574,15 @@ void app_power_process(const volatile uint8_t *sample_due)
     bms_afe_aux_measurements_t m;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
     u32 pm_block = 0u;
+    u32 voltage_seconds;
     u8 valid = app_get_fresh_measurements(&m);
     u8 ota_busy = ota_is_working ? 1u : 0u;
     u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
     u8 bus_busy = (BUS_STATE_OWC_IDLE != bus_mux_get_state()) ? 1u : 0u;
 
     if (app_protective_sleep_poll(elapsed_sec)) return;
+    voltage_seconds = (s_protective_sleep.region == 3u) ?
+        s_protective_sleep.normal_voltage_seconds : s_protective_sleep.low_voltage_seconds;
 
     if (!valid) pm_block |= DIAG_PM_BLOCK_SAMPLE_INVALID;
     if (ota_busy) pm_block |= DIAG_PM_BLOCK_OTA;
@@ -598,7 +601,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (deepsleep_en)
     {
         pm_block |= DIAG_PM_BLOCK_POWER_OFF;
-        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, s_protective_sleep.low_voltage_seconds,
+        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
         app_dvc_publish_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, 0u, 0u);
@@ -613,7 +616,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (app_acc_sleep_requested())
     {
         pm_block |= DIAG_PM_BLOCK_ACC_SLEEP;
-        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, s_protective_sleep.low_voltage_seconds,
+        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
         app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 200u, 200u, 0u);
@@ -634,7 +637,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
-        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, s_protective_sleep.low_voltage_seconds,
+        bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
     }
@@ -642,7 +645,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     {
         s_low_power_mode = true;
         bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
-        bms_diag_runtime_pm(1u, 0u, s_protective_sleep.region, s_protective_sleep.low_voltage_seconds,
+        bms_diag_runtime_pm(1u, 0u, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
     }
