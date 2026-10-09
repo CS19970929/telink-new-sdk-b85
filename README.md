@@ -53,6 +53,7 @@ python bms_tools/bms.py --product d014 resources
 
 | 文档 | 内容 |
 |---|---|
+| [2026-10-10 最小优化记录](docs/OPTIMIZATION_20261010.md) | 独立提交、状态所有权、验证范围与未决实板边界 |
 | [软件保护](docs/SOFTWARE_PROTECTION.md) | 三级保护、单位、滤波及阻断 |
 | [AFE 硬件保护](docs/AFE_HARDWARE_PROTECTION_V2.md) | 授权、35-word profile、requested/effective、回滚 |
 | [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
