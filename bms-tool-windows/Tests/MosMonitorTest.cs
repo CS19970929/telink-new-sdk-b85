@@ -19,6 +19,40 @@ static class MosMonitorTest
         Check(new MosHistoryEntry(words).State.Contains("未知"), "invalid sample cannot confirm driver state");
         words[19] = 1; words[10] = 32;
         Check(new MosHistoryEntry(words).Reasons.Contains("AFE 硬件保护"), "explicit reason survives decoder");
+        // 复现实板日志：缓存无效时有效关命令不能漏算；恢复状态落后一帧。
+        var tracker = new MosCommandTracker();
+        var baseline = first.Entries[0]; tracker.Observe(baseline,false);
+        var offWords = baseline.Words.ToArray(); offWords[6]=0; offWords[9]=offWords[19]=0;
+        PutTestTick(offWords,1000); offWords[10]=offWords[12]=8;
+        var offEntry = new MosHistoryEntry(offWords);
+        ushort[] failureWords=new ushort[16]; failureWords[2]=1; failureWords[6]=10;
+        failureWords[8]=0x101; failureWords[9]=0; failureWords[10]=12801;
+        offEntry.FailureWords=failureWords;
+        Check(tracker.Observe(offEntry,true).Contains("主动关命令") && tracker.OffEvents==1,
+            "invalid driver still counts successful firmware OFF command once");
+        Check(offEntry.Detail.Contains("CADC 数据超过 400 ms") && offEntry.Detail.Contains("400.03"),
+            "specific failure stage and ADC age survive record decoding");
+        var restoreWords=offWords.ToArray();restoreWords[6]=3;restoreWords[8]=0;
+        restoreWords[9]=restoreWords[19]=1;restoreWords[10]=restoreWords[12]=0;restoreWords[29]=0;restoreWords[30]=1;
+        PutTestTick(restoreWords,20520);
+        var restoreEntry=new MosHistoryEntry(restoreWords);
+        Check(tracker.Observe(restoreEntry,true).Contains("610.00 ms") && restoreEntry.Reasons.Contains("等待下一次"),
+            "32000 Hz command duration and one-frame report delay identified");
+        restoreWords=restoreWords.ToArray();restoreWords[8]=3;PutTestTick(restoreWords,26720);
+        Check(tracker.Observe(new MosHistoryEntry(restoreWords),true).Contains("803.75 ms"),"AFE report recovery paired with original command");
+        tracker.ResetContinuity();tracker.Observe(offEntry,true);
+        Check(tracker.OffEvents==1,"gap and startup OFF baseline are not counted as runtime closure");
+        var extendedTransport=new MosTransport { FailureExtension=true };
+        await using var extendedClient=new BmsClient(extendedTransport);
+        var extended=await extendedClient.ReadMosHistoryAsync();
+        Check(extended.Current?.FailureWords is {Length:16} && extended.Entries.All(e=>e.FailureWords is {Length:16}),
+            "failure sidecar matched to every MOS sequence");
+        extendedTransport.BadFailureSlot=true;
+        var wrongFailure=await extendedClient.ReadMosHistoryAsync();
+        Check(wrongFailure.Entries.All(e=>e.FailureWords is null),"overwritten failure slot cannot be attributed to wrong MOS event");
+        extendedTransport.BadFailureSlot=false;extendedTransport.FailureBootMismatch=true;
+        var wrongBoot=await extendedClient.ReadMosHistoryAsync();
+        Check(wrongBoot.Current?.FailureWords is null && wrongBoot.Entries.All(e=>e.FailureWords is null),"failure sidecar boot must match MOS header");
         words[10] = 0; words[14] = 16; words[27] = 0x3510; words[31] = 0x22;
         Check(new MosHistoryEntry(words).Reasons.Contains("短路") && new MosHistoryEntry(words).Reasons.Contains("高侧报告"),
             "SH raw flags and high-side report retained without claiming physical Gate proof");
@@ -66,12 +100,15 @@ static class MosMonitorTest
         Console.WriteLine("PASS MOS monitor: short off/on, invalid samples, unknown cause, overwrite, torn slot, reset, sequence wrap, old firmware, durable journal");
     }
 
+    private static void PutTestTick(ushort[] words,uint tick) { words[2]=(ushort)tick;words[3]=(ushort)(tick>>16); }
+
     sealed class MosTransport : IBmsTransport
     {
         public uint Latest = 3, Boot = 123;
         public ushort Count = 3;
         public bool Old, BadSlot, ChangeBootOnTail;
         public bool Enabled = true;
+        public bool FailureExtension, BadFailureSlot, FailureBootMismatch;
         public int HistoryRequests, ProbeRequests;
         private bool _sawSlot;
         public bool IsConnected => true;
@@ -115,6 +152,16 @@ static class MosMonitorTest
                 words = Entry(BadSlot ? unchecked(seq+1) : seq);
             }
             else if (address == 0x2A00) { ++ProbeRequests; words = new ushort[] { 0x4447, 1, 8 }; }
+            else if (address == 0x3700 && FailureExtension) {
+                words=new ushort[32];words[0]=0x4146;words[1]=words[2]=1;words[3]=8;words[4]=16;words[5]=Count;
+                Put(words,6,Latest);Put(words,8,FailureBootMismatch?Boot+1:Boot);Put(words,10,0x12345678);words[15]=32;
+                Put(words,16,Latest);Put(words,18,1);words[22]=10;words[24]=0x101;words[26]=12801;
+            }
+            else if (address >= 0x3720 && address < 0x37A0 && FailureExtension) {
+                uint slot=(uint)(address-0x3720)/16,seq=Latest;
+                while(unchecked(seq-1)%8 != slot)--seq;
+                words=new ushort[16];Put(words,0,BadFailureSlot?seq+1:seq);Put(words,2,1);words[6]=10;words[8]=0x101;words[10]=12801;
+            }
             else words = new ushort[count];
             byte[] body = new byte[3 + count * 2]; body[0] = 1; body[1] = 3; body[2] = (byte)(count * 2);
             for (int i = 0; i < count; ++i) BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+i*2, 2), words[i]);

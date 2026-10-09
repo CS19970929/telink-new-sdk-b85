@@ -27,6 +27,8 @@ public partial class MainWindow
     private CancellationTokenSource? _mosCts;
     private bool _mosBusy, _mosClosed;
     private bool _mosDriverInvalid;
+    private readonly MosCommandTracker _mosCommandTracker = new();
+    private bool _mosLaunchAttempted;
     private readonly (uint Tick, DateTimeOffset Seen)?[] _mosOffTicks = new (uint, DateTimeOffset)?[2];
 
     private void AddMosMonitorTab()
@@ -59,6 +61,7 @@ public partial class MainWindow
             ElementStyle = detailStyle, Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 260 });
         root.Children.Add(grid);
         MainTabs.Items.Add(new TabItem { Header = "MOS 监控", Content = root });
+        Loaded += async (_, _) => await StartRequestedMosMonitorAsync();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => {
             if (_mosClosed || _mosAuto.IsChecked != true || _mosJournal is null) return;
@@ -75,6 +78,41 @@ public partial class MainWindow
         };
     }
 
+    // 显式启动参数用于台架无人值守监控；普通双击不自动占用串口。
+    private async Task StartRequestedMosMonitorAsync()
+    {
+        string? Argument(string prefix) => Environment.GetCommandLineArgs()
+            .FirstOrDefault(a => a.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+        string? port = Argument("--monitor-serial="), mac = Argument("--monitor-mac=");
+        if (port is null || _mosLaunchAttempted) return;
+        _mosLaunchAttempted = true;
+        try {
+            if (string.IsNullOrWhiteSpace(mac) || !int.TryParse(Argument("--monitor-baud="),out int baud) ||
+                baud < 1200 || baud > 1000000) throw new InvalidDataException("自动 MOS 监控需要明确串口、波特率和目标 MAC");
+            ConnectButton.IsEnabled = false;
+            ConnectionModeBox.SelectedIndex = 1;
+            _connectionMode = ConnectionMode.Serial; _serialBaudRate = baud;
+            _connectedAddress = null; _connectedSerialPort = port; _connectedName = $"串口 {port}";
+            _pollFailureCount = 0;
+            using var ct = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await ConnectSerialInternalAsync(port,baud,ct.Token);
+            DeviceIdentity identity = await RefreshIdentityAsync();
+            if (!string.Equals(identity.Mac,mac,StringComparison.OrdinalIgnoreCase)) {
+                await DisposeBmsAsync();
+                throw new InvalidDataException($"自动监控目标不符：读回 {identity.Mac}，要求 {mac}");
+            }
+            await RefreshBatteryAsync(); StartAutomaticRefresh();
+            ConnectionText.Text = $"已连接：{port} · {baud} 8N1";
+            MainTabs.SelectedItem = MainTabs.Items.OfType<TabItem>().Single(t=>t.Header?.ToString()=="MOS 监控");
+        }
+        catch (Exception ex) {
+            _mosStatus.Text = "自动 MOS 监控启动失败：" + ex.Message;
+            ConnectionText.Text = _mosStatus.Text;
+            AppendLog(_mosStatus.Text,"MOS_MONITOR");
+        }
+        finally { ConnectButton.IsEnabled = true; }
+    }
+
     private void SetMosIdentity(BmsClient client, DeviceIdentity identity)
     {
         if (!ReferenceEquals(client, _bms)) return;
@@ -87,6 +125,7 @@ public partial class MainWindow
             _mosLastDiagnosticUtc = default;
             _mosDriverInvalid = false;
             Array.Clear(_mosOffTicks);
+            _mosCommandTracker.ResetSession();
         }
     }
 
@@ -133,6 +172,7 @@ public partial class MainWindow
     private void NoteMosGap(string reason)
     {
         _mosPrevious = null; Array.Clear(_mosOffTicks);
+        _mosCommandTracker.ResetContinuity();
         if (_mosJournal is null || _mosGap == reason) return;
         _mosGap = reason;
         TryMosWrite("gap", new { reason, communication = _communicationStatistics.Snapshot() });
@@ -168,6 +208,7 @@ public partial class MainWindow
             if (capture.Reset) { NoteMosGap("固件重启或序号回退"); _mosPrevious = null; }
             if (capture.Missing != 0) NoteMosGap($"固件历史缺失 {capture.Missing} 条（覆盖或读取中变化）");
             if (!TryMosWrite("diagnostic", new { sample = _mosSample, capture.Header, current = capture.Current?.Words,
+                failureCurrent = capture.Current?.FailureWords,
                 capture.LegacyMosWords, capture.Missing, capture.Reset, capture.Availability })) return;
             _mosDriverInvalid = capture.Current is not null ? !capture.Current.DriverValid :
                 capture.LegacyMosWords is { } legacy && legacy[5] == 0;
@@ -175,14 +216,16 @@ public partial class MainWindow
                 bool continuousTime = _mosSequence.HasValue && !capture.Reset && capture.Missing == 0 &&
                     _mosLastDiagnosticUtc != default && DateTimeOffset.UtcNow - _mosLastDiagnosticUtc < TimeSpan.FromHours(36);
                 string duration = continuousTime ? MosRecoveryDuration(entry) : "；历史回读或有缺口，不推断关断时长";
-                if (!TryMosWrite("firmware", new { sample = _mosSample, entry.Words, entry.Sequence, entry.Tick32k, entry.State, entry.Detail, duration })) return;
-                AddMosRow("固件 #" + entry.Sequence, entry.State, entry.Detail + duration);
+                string commandEvent = _mosCommandTracker.Observe(entry, continuousTime);
+                if (!TryMosWrite("firmware", new { sample = _mosSample, entry.Words, entry.FailureWords, entry.Sequence, entry.Tick32k, entry.State, entry.Detail, duration, commandEvent,
+                    commandOffEvents = _mosCommandTracker.OffEvents })) return;
+                AddMosRow("固件 #" + entry.Sequence, entry.State, entry.Detail + duration + commandEvent);
             }
             if (capture.Enabled) { _mosSequence = capture.LatestSequence; _mosBootTick = capture.BootTick; _mosBuildId = capture.BuildId; }
             _mosLastDiagnosticUtc = DateTimeOffset.UtcNow;
             string currentText = capture.Current is not null ? capture.Current.State + " · " + capture.Current.Reasons :
                 capture.LegacyMosWords is { } old ? $"AFE 缓存：{(old[5] != 0 ? MosHistoryEntry.Bits(old[4] & 3) : "未知")} · 充电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,8))} · 放电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,10))}" : "";
-            _mosStatus.Text = "正在自动写盘 · " + capture.Availability + " · " + currentText;
+            _mosStatus.Text = $"正在自动写盘 · 本会话请求仍开时主动关命令 {_mosCommandTracker.OffEvents} 次 · " + capture.Availability + " · " + currentText + capture.Current?.FailureDetail;
         }
         catch (OperationCanceledException) { if (!_mosClosed) NoteMosGap("MOS 读取取消或超时"); }
         catch (Exception ex) { NoteMosGap("MOS 诊断读取失败：" + ex.Message); AppendLog(ex.Message, "MOS_MONITOR"); }
@@ -199,7 +242,7 @@ public partial class MainWindow
                 _mosOffTicks[channel] = (entry.Tick32k, DateTimeOffset.UtcNow);
             if ((entry.Driver & bit) != 0 && _mosOffTicks[channel] is { } start) {
                 if (DateTimeOffset.UtcNow - start.Seen < TimeSpan.FromHours(36))
-                    detail += $"；{(channel == 0 ? "充电" : "放电")}恢复，固件采样计时差 {unchecked(entry.Tick32k-start.Tick)/32.768:F1} ms（物理关断时长未测）";
+                    detail += $"；{(channel == 0 ? "充电" : "放电")}恢复，固件采样计时差 {unchecked(entry.Tick32k-start.Tick)/32.0:F1} ms（物理关断时长未测）";
                 else detail += "；长时间记录跨 tick 周期，关断时长无法确认";
                 _mosOffTicks[channel] = null;
             }

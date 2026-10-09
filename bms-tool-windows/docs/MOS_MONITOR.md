@@ -43,3 +43,17 @@ Windows/CLI/Core复用 `Shared/BmsMosMonitor.cs`，没有第二套通信协议�
 验证入口：`test-diagnostics.ps1` 包含真实共享客户端的短暂关/开、无效样本、原因、覆盖、竞争、复位、
 回绕、旧固件降级及实时写盘测试。客户WPF、内部WPF、CLI统一Release构建；离屏WPF检查MOS监控入口及通信计数。
 本次没有固件目标编译、镜像生成、OTA或实板验收；正式EXE、哈希和实际验证记录见交付目录。
+# 2026-10-09 失效现场更新
+
+新版在“MOS 监控”显示有效关命令计数、关闭命令持续时间、恢复回读过程，以及最近 AFE 失败步骤。
+具体步骤包含寄存器/测量读取、MOS 写入/校验、单体范围、VADC/CADC 数据超过400ms、恢复清标志等。
+同时保存本次 FLAG2、ADC 数据年龄、采样耗时、底层错误码和 CRC/重试累计；
+`firmware.FailureWords` 和 `diagnostic.failureCurrent` 保存完整原字，可离线复查。
+旧固件自动降级，保留 MOS v1；新增 `[0x3700,0x37A0)` 为只读扩展，逐槽序号、boot和Build ID匹配才关联。
+计数只计算本会话连续读取中“请求仍开而有效命令开→关”；启动基线、初次历史回读、无效命令不计。
+关闭命令与 AFE 报告分开计时，按32000 tick/s换算，均不是物理 Gate 时长。
+
+普通双击后连接 COM3/115200，保持“自动监控并写盘”。台架可显式运行：
+`BmsFactoryTest.Windows.exe --monitor-serial=COM3 --monitor-baud=115200 --monitor-mac=A4:C1:38:86:8B:DF`。
+工具自动连接并核对MAC，进入MOS页持续记录；目标不符时断开并报错。客户版也支持相同参数。
+每次关断可能产生多条状态记录，应按sequence和命令边沿合并分析，不能把每条日志当作一次关断。
