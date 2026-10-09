@@ -474,6 +474,15 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
                 discharge_current_present, inputs->battery_temp_min, trip, p->discharge_utp_recover_x10,
                 p->discharge_utp_filter_10ms, BMS_SW_LOW, level == 2u);
         }
+        else if (temperature_enabled)
+        {
+            uint8_t id;
+            /* 传感器失效只撤销连续证据，不能证明已经恢复。 */
+            for (id = BMS_SW_F_CHG_OT; id <= BMS_SW_F_DSG_UT; ++id) {
+                s_filter[level][id].trip_count = 0u;
+                s_filter[level][id].recover_count = 0u;
+            }
+        }
         else
         {
             bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT]);
@@ -493,6 +502,11 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             f->bits.mos_otp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_MOS_OT],
                 inputs->mos_temp, trip, p->mos_otp_recover_x10,
                 p->mos_otp_filter_10ms, BMS_SW_HIGH, level == 2u);
+        }
+        else if (temperature_enabled && inputs->mos_temp_required)
+        {
+            s_filter[level][BMS_SW_F_MOS_OT].trip_count = 0u;
+            s_filter[level][BMS_SW_F_MOS_OT].recover_count = 0u;
         }
         else
         {

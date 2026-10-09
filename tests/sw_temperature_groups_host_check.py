@@ -50,6 +50,22 @@ int main(void){
  assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
  in.mos_temp=650;bms_sw_protection_update_groups(&in,0,1);
  assert(!bms_sw_protection_charge_blocked() && !bms_sw_protection_discharge_blocked());
+ // A broken sensor must not erase an already latched temperature fault.
+ in.mos_temp=1000;bms_sw_protection_update_groups(&in,0,1);
+ in.mos_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
+ in.mos_temp_valid=1;in.mos_temp=850;bms_sw_protection_update_groups(&in,0,1);
+ assert(!broken && g_bms_report.fault_third.bits.mos_otp);
+ assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
+ in.mos_temp=750;bms_sw_protection_update_groups(&in,0,1);
+ assert(!g_bms_report.fault_third.bits.mos_otp);
+ in.battery_temp_min=in.battery_temp_max=1000;bms_sw_protection_update_groups(&in,0,1);
+ assert(g_bms_report.fault_third.bits.charge_otp);
+ in.battery_temp_valid=0;bms_sw_protection_update_groups(&in,0,1);
+ in.battery_temp_valid=1;in.battery_temp_min=in.battery_temp_max=850;
+ bms_sw_protection_update_groups(&in,0,1);
+ assert(!broken && g_bms_report.fault_third.bits.charge_otp);
+ in.battery_temp_min=in.battery_temp_max=750;bms_sw_protection_update_groups(&in,0,1);
+ assert(!g_bms_report.fault_third.bits.charge_otp);
  // Unfitted MOS NTC: invalid or stale-hot values never participate.
  in.mos_temp_required=0;in.mos_temp_valid=0;
  bms_sw_protection_update_groups(&in,0,1);assert(!broken);

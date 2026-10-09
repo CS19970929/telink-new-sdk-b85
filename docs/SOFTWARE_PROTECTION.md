@@ -58,3 +58,7 @@ AND no AFE hardware block/lockout
 - 不在 AFE driver 复制三级状态机；
 - 不把 SCD/WDT/Body-Diode 等硬件能力塞进 `g_bms_protection_params`；
 - 保护语义变化必须补 contract 和实板触发/恢复测试。
+
+## 温度传感器暂时失效
+
+已建立的电池/MOS 温度保护在传感器暂时无效时保持锁存，触发和连续恢复计数归零。TEMP_BREAK 保持输出禁止；传感器恢复到动作/恢复阈值之间时不能解除旧锁存。明确禁用温度保护或产品不装配 MOS NTC 时仍清理对应状态。host 场景不替代 NTC 与 Gate 实板验证。
