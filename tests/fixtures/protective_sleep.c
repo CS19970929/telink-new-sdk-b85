@@ -10,6 +10,7 @@ typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
 #define APP_PM_TICKS_PER_SEC 32000u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #define BMS_SLEEP_LOW_CELL_MV 2800u
 #define BMS_SLEEP_LOW_SECONDS 3600u
 #define BMS_SLEEP_NORMAL_CELL_MV 3000u
@@ -91,10 +92,29 @@ int main(void) {
     reset(); valid=0; assert(!app_protective_sleep_poll(900));
     valid=1; assert(!app_protective_sleep_poll(1)); assert(!s_protective_sleep.afe_error_seconds);
     now+=BMS_SOC_MAX_SAMPLE_GAP_32K+1; assert(app_protective_sleep_poll(1800));
-    reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-1;
+    reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-201;
     assert(!app_protective_sleep_poll(86400));
     measurement.current_ma=0; assert(!app_protective_sleep_poll(86399));
     assert(app_protective_sleep_poll(1));
+    reset(); g_bms_report.cell_min_mv=2700;
+    assert(!app_protective_sleep_poll(3599));
+    now+=12801u; assert(!app_protective_sleep_poll(0));
+    assert(s_protective_sleep.low_voltage_seconds==3599u);
+    assert(app_protective_sleep_poll(1)); /* 采样等待不能推迟已确认低压的一小时到期。 */
+    reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-90;
+    assert(app_protective_sleep_poll(86400)); /* 可靠电流区外的偏移不冒充充电。 */
+    reset(); g_bms_report.cell_min_mv=2700; now=measurement.sample_tick_32k=0;
+    app_pm_elapsed_ctx_t wall_clock={0};
+    assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock)));
+    for(u32 seconds=1;seconds<=3600u;++seconds) {
+        now=seconds*32000u; measurement.sample_tick_32k=now;
+        assert(app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock))==(seconds==3600u));
+        assert(s_protective_sleep.low_voltage_seconds==seconds);
+        if(seconds==3600u) break;
+        now+=12801u;
+        assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock)));
+        assert(s_protective_sleep.low_voltage_seconds==seconds);
+    }
     reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-15999u,16000u,1u}; now=0u;
     assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_32k);
     ctx.last_tick_32k=1u;ctx.pending_tick_32k=31999u;now=0u;

@@ -351,7 +351,7 @@ DVC1124-2 DS V1.1 原 PDF 第 13 页规定 CC2 周期为 256 ms；当前 VADC �
 
 `bms/app/app_power.c` 的 DVC 分支有四条不同路径：
 
-- 普通 suspend 由 `app_power_process()` 结合 BLE、通信状态及可靠充/放电电流判断；双向达到 500 mA 的策略需要实测验证。
+- 普通 suspend 由 `app_power_process()` 结合通信、采样及可靠充/放电电流判断；双向绝对值达到 200 mA 即禁止，允许时仍保持 200 ms 应用采样唤醒。实际功耗和保护响应需实测验证。
 - `app_enter_power_off()`：检查 OTA/Flash/mux 等门禁，保存 State/事件，AFE shutdown 成功后才拉低 PC4/MCU_LDO，切断 MCU 电源。
 - `app_enter_acc_sleep()`：PA0 高稳定 200 ms 后，检查通信/连接并保存状态；AFE shutdown 成功后保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
 - `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后强制 deep sleep，保持 PC4 高；通信、OTA、保存或 AFE 失败不阻止，规则见 [保护性深睡](LOW_POWER_POLICY.md)。

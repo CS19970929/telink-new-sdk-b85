@@ -76,7 +76,7 @@ typedef struct {
 } app_protective_sleep_t;
 static app_protective_sleep_t s_protective_sleep;
 
-/* 只用同轮有效缓存计低压时间；采样异常另有独立强制休眠计时。 */
+/* 普通 suspend 只接受新鲜缓存；低压计时不能用此门禁失败推断电压已恢复。 */
 static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!bms_afe_get_aux_measurements(m)) return 0u;
@@ -223,23 +223,32 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
 {
     bms_afe_aux_measurements_t m;
     u8 valid;
-    u8 region = 0u;
-    u32 limit = 0u;
+    u8 region = s_protective_sleep.region;
+    u32 limit = region == 1u ? 3600u :
+                region == 2u ? BMS_SLEEP_LOW_SECONDS :
+                region == 3u ? BMS_SLEEP_NORMAL_SECONDS : 0u;
     if (s_protective_sleep.committed) {
         app_protective_sleep_hold();
         return 1u;
     }
     valid = app_get_fresh_measurements(&m);
     if (valid) {
+        region = 0u;
+        limit = 0u;
         if (g_bms_report.cell_min_mv < 2550u) {
             region = 1u; limit = 3600u;
         } else if (g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV) {
             region = 2u; limit = BMS_SLEEP_LOW_SECONDS;
-        } else if (g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV && m.current_ma >= 0) {
+        } else if (g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
+                   m.current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA) {
             region = 3u; limit = BMS_SLEEP_NORMAL_SECONDS;
         }
     }
-    /* 极低压和低压同为一小时，跨 2550 mV 不撤销已累计的低压时间。 */
+    /*
+     * 无新鲜样本是“未知”，不是低压已恢复。保留最后确认的低压区并按墙钟继续，
+     * 避免 ADC 转换等待反复延后保护性深睡；持续失效仍有独立的 AFE 30 分钟计时。
+     * 只有有效采样确认解除或切换延时才清零；跨 2550 mV 的两个一小时区不清零。
+     */
     if (!region || !s_protective_sleep.region ||
         ((region == 3u) != (s_protective_sleep.region == 3u)))
         s_protective_sleep.low_voltage_seconds = 0u;

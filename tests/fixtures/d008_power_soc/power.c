@@ -142,8 +142,40 @@ static void test_acc_sleep(void){
  reset();acc_high=1;deepsleep_en=true;app_power_process(&s_sample_due);assert(cut_calls==1&&!deep_calls);
  puts("PASS ACC: debounce/cancel/wrap, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority");
 }
+static void test_low_voltage_sample_wait(void){
+ reset();g_bms_report.cell_min_mv=2700;
+ /* 实板 PM 轨迹：正常低压采样间反复出现 >400 ms 的旧电流缓存。
+  * 每次等待都不能撤销已经确认的低压，一小时墙钟到期仍必须深睡。 */
+ for(unsigned seconds=1;seconds<=3600;seconds++){
+  now=seconds*32000u;measurement.sample_tick_32k=now;elapsed=1;
+  app_power_process(&s_sample_due);
+  assert(observed_sleep_elapsed==seconds*1000u);
+  if(seconds==3600){assert(deep_calls==1&&!output_enabled);break;}
+  now+=12801u;elapsed=0;app_power_process(&s_sample_due);
+  assert(s_protective_sleep.region==2&&observed_sleep_elapsed==seconds*1000u);
+  assert(mask==SUSPEND_DISABLE&&!deep_calls);
+ }
+ /* 无效缓存的“恢复电压”不能清零；有效恢复和不同延时区才可以。 */
+ reset();g_bms_report.cell_min_mv=2700;elapsed=100;app_power_process(&s_sample_due);
+ valid=0;g_bms_report.cell_min_mv=3300;elapsed=1;app_power_process(&s_sample_due);
+ assert(s_protective_sleep.low_voltage_seconds==101u);
+ valid=1;elapsed=0;app_power_process(&s_sample_due);
+ assert(!s_protective_sleep.low_voltage_seconds&&!s_protective_sleep.region);
+ g_bms_report.cell_min_mv=2700;elapsed=100;app_power_process(&s_sample_due);
+ g_bms_report.cell_min_mv=2900;elapsed=0;app_power_process(&s_sample_due);
+ assert(s_protective_sleep.region==3&&!s_protective_sleep.low_voltage_seconds);
+ /* 小电流偏移处于 SOC 不可靠区，不能冒充可靠充电取消 24 小时计时。 */
+ measurement.current_ma=-90;elapsed=5;app_power_process(&s_sample_due);
+ assert(s_protective_sleep.region==3&&s_protective_sleep.low_voltage_seconds==5u);
+ measurement.current_ma=-200;app_power_process(&s_sample_due);
+ assert(s_protective_sleep.low_voltage_seconds==10u);
+ measurement.current_ma=-201;elapsed=0;app_power_process(&s_sample_due);
+ assert(!s_protective_sleep.region&&!s_protective_sleep.low_voltage_seconds);
+ puts("PASS low-voltage timer: repeated ADC waits cannot postpone one-hour expiry; only valid recovery cancels; reliable charge threshold");
+}
 int main(void){
  test_acc_sleep();
+ test_low_voltage_sample_wait();
  reset();g_bms_report.cell_min_mv=2770;elapsed=2;app_power_process(&s_sample_due);
  assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
  device_in_connection_state=1;app_power_process(&s_sample_due);
