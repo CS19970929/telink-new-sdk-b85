@@ -26,11 +26,11 @@ static class MosMonitorTest
         PutTestTick(offWords,1000); offWords[10]=offWords[12]=8;
         var offEntry = new MosHistoryEntry(offWords);
         ushort[] failureWords=new ushort[16]; failureWords[2]=1; failureWords[6]=10;
-        failureWords[8]=0x101; failureWords[9]=0; failureWords[10]=12801;
+        failureWords[8]=0x302; failureWords[9]=0; failureWords[10]=12801;
         offEntry.FailureWords=failureWords;
         Check(tracker.Observe(offEntry,true).Contains("主动关命令") && tracker.OffEvents==1,
             "invalid driver still counts successful firmware OFF command once");
-        Check(offEntry.Detail.Contains("CADC 数据超过 400 ms") && offEntry.Detail.Contains("400.03"),
+        Check(offEntry.Detail.Contains("CADC 数据超过 400 ms") && offEntry.Detail.Contains("400.03") && offEntry.Detail.Contains("模式 IDLE"),
             "specific failure stage and ADC age survive record decoding");
         var restoreWords=offWords.ToArray();restoreWords[6]=3;restoreWords[8]=0;
         restoreWords[9]=restoreWords[19]=1;restoreWords[10]=restoreWords[12]=0;restoreWords[29]=0;restoreWords[30]=1;

@@ -11,6 +11,7 @@ public sealed record MosHistoryEntry(ushort[] Words)
     public string FailureDetail => FailureWords is { Length: 16 } f && BmsDiagnostics.U32(f,2) != 0 ?
         $"；最近 AFE 失效 #{BmsDiagnostics.U32(f,2)}：{FailureStage(f[6])}，底层错误 {(short)f[7]}，" +
         $"本次 FLAG2 {((f[8]&256)!=0 ? $"0x{f[8]&255:X2}" : "未成功读取")}，" +
+        $"本次模式 {((f[8]&256)==0 ? "未知" : (f[8]&1024)!=0 ? "SLEEP" : (f[8]&512)!=0 ? "IDLE" : "NORMAL")}，" +
         $"VADC/CADC 数据年龄 {Age(f[9])}/{Age(f[10])} ms，采样耗时 {Age(f[11])} ms，" +
         $"CRC 累计 {BmsDiagnostics.U32(f,12)}，重试累计 {BmsDiagnostics.U32(f,14)}（现场 tick {BmsDiagnostics.U32(f,4)}）" : "";
     private static string Age(ushort ticks) => (ticks == 65535 ? ">=" : "") + (ticks/32.0).ToString("F2");
