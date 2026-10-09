@@ -329,7 +329,7 @@ def check_soc_contract_check():
             self.assertIn("bms_config_store_set_soc(config)", C)
 
         def test_coulomb_integration_and_deadband(self):
-            self.assertIn("SOC_INTEGRAL_PERIOD_MS              200u", C)
+            # 积分时间行为由 d008_power_soc_host_check 的实际时间场景验证。
             self.assertIn("SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", C)
             self.assertIn("soc_current_direction", C)
             self.assertIn("g_soc_integral_tick_remainder", C)
