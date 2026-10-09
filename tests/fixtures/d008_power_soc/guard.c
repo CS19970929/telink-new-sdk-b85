@@ -41,7 +41,8 @@ static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
 static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
-uint32_t bms_diag_tick(void){return 0u;}
+static uint32_t guard_tick;
+uint32_t bms_diag_tick(void){return guard_tick;}
 static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u;}
 /* PRODUCTION_SOURCE */
 static void reset(void){
@@ -63,9 +64,12 @@ static void test_startup_qualification(void){
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit && cmd_c==0 && cmd_d==0);}
  bms_afe_sample();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  /* Repeated failures still silence the bus for the hardware watchdog window. */
+ guard_tick=UINT32_MAX-32000u;
  aux_ok=0;bms_afe_sample();bms_afe_sample();assert(s_guard.bus_silenced && err);
  int before=sample_calls;aux_ok=1;
- for(int i=0;i<25;i++){bms_afe_sample();} assert(sample_calls==before && s_guard.bus_silenced);
+ for(int i=0;i<1000;i++){bms_afe_sample();} assert(sample_calls==before && s_guard.bus_silenced);
+ guard_tick+=5000u*32u-1u;bms_afe_sample();assert(sample_calls==before && s_guard.bus_silenced);
+ ++guard_tick;
  bms_afe_sample();assert(sample_calls==before && err && s_guard.comm_inhibit);
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}
  bms_afe_sample();assert(!err && !s_guard.comm_inhibit);
