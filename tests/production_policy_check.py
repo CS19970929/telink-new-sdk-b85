@@ -19,6 +19,8 @@ with tempfile.TemporaryDirectory(prefix='bms-production-') as d:
  if sh:cases.append((['-DBMS_BOARD_DEBUG_LED_ENABLE=1'],False))
  for extra,ok in cases:
   flags=[]
+  if sh and not any('BMS_BOARD_DEBUG_LED_ENABLE=' in x for x in extra):
+   flags+=['-DBMS_BOARD_DEBUG_LED_ENABLE=0']
   if not any('BMS_DIAG_BUILD_ID=' in x for x in extra):flags+=['-DBMS_DIAG_BUILD_ID=1']
   if not any('BMS_DIAG_BUILD_DIRTY=' in x for x in extra):flags+=['-DBMS_DIAG_BUILD_DIRTY=0']
   r=subprocess.run(base+flags+extra+[str(p)],capture_output=True,text=True)

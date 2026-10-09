@@ -46,8 +46,8 @@ def check_sh3673510_protection_mode_check():
         "bms_sw_protection_clear();",
         "#if SH3673510_HW_PROTECT_ENABLE",
         "merge_hw_protection_faults(&status);",
-        "if (!service_short_recovery(&status)) return 0u;",
-        "if (!s_sample_pending && !service_hw_flag_recovery(&status)) return 0u;",
+        "if (!service_short_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);",
+        "if (!s_sample_pending && !service_hw_flag_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);",
         "s_hw_charge_protect = 0u;",
         "s_hw_discharge_protect = 0u;",
     ):

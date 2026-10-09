@@ -47,8 +47,8 @@ static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r
 static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return 650;}
 static void bms_error_clear(uint32_t x){(void)x;}
 static void bms_error_raise(uint32_t x){(void)x;}
-static void bms_diag_driver(uint8_t x,uint8_t y){(void)x;(void)y;}
-static void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
+void bms_diag_driver(uint8_t x,uint8_t y){(void)x;(void)y;}
+void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
 static uint32_t pm_get_32k_tick(void){return now;}
 static uint32_t clock_time(void){return now*500u;}

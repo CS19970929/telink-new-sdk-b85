@@ -45,6 +45,7 @@ static bms_user_params_t stored_user={0,1000000};
 static int bms_config_get_user(bms_user_params_t*p){*p=stored_user;return 1;}
 static int bms_config_get_current_calibration(int32_t*o,uint32_t*g){*o=stored_user.current_offset_ma;*g=stored_user.current_gain_ppm;return 1;}
 #define BMS_ERROR_AFE1 0
+#define BMS_ERROR_BALANCE 1
 static int afe_error;
 static uint8_t bms_error_get(int error){(void)error;return (uint8_t)afe_error;}
 typedef enum {BMS_FAULT_SOC_LOW_FIRST,BMS_FAULT_SOC_LOW_SECOND,BMS_FAULT_SOC_LOW_THIRD} bms_fault_code_t;

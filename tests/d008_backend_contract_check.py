@@ -299,13 +299,16 @@ def check_d008_common_port_fet_contract_check():
             bms = read("dvc1124_bms.c")
 
             # When communication is healthy, an explicit 0/0 request still maps to
-            # the true DVC OFF/OFF command; open-wire can also request controlled off.
+            # the true DVC OFF/OFF command; open-wire 检测过程不主动关 MOS。
             policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
             policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
             self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("bms_afe_openwire_start", guard)
-            self.assertIn("if (!AFE_FETS(0u, 0u)) return 0u;", guard)
+            openwire = guard.split("uint8_t bms_afe_openwire_start(void)", 1)[1].split("uint8_t bms_afe_openwire_stop(void)", 1)[0]
+            self.assertNotIn("AFE_FETS", openwire)
+            self.assertIn("return AFE_OW_START();", openwire)
+            self.assertIn("if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))", guard)
 
             # Communication loss is different: make only one best-effort off
             # attempt, then keep the bus silent so the DVC hardware WDT can fire.

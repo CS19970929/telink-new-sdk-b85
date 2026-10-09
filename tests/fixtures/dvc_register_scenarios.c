@@ -39,7 +39,7 @@ static void decode(void)
     check((regs[0x5b]+1u)*8,s_applied.ocd1_delay_ms,"OCD1 delay");
     check((regs[0x60]+1u)*4,s_applied.ocd2_delay_ms,"OCD2 delay");
     check(regs[0x5e]&0x80,0x80,"OC2 保留位");
-    check(regs[0x62]&0x40,0,"当前默认 SC 关闭");
+    check(regs[0x62]&0x40,0x40,"产品已确认默认 SC 开启");
 }
 int main(void)
 {

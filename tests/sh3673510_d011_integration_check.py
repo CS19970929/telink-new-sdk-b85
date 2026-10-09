@@ -171,7 +171,7 @@ require(app, "bls_pm_setAppWakeupLowPower(")
 require(app, "static void app_sample_task(void)")
 require(app, "valid = bms_afe_get_aux_measurements(&m);")
 require(app, "valid ? m.sample_tick_32k : pm_get_32k_tick()")
-assert literal(cfg, "BMS_BOARD_DEBUG_LED_ENABLE") == 0
+assert literal(cfg, "BMS_BOARD_DEBUG_LED_ENABLE") == 1  # 当前开发默认；生产预处理必须显式关闭。
 main = text("main.c")
 require(main, "#if BMS_BOARD_DEBUG_LED_ENABLE")
 if "hello World!!!" in app or "test_task_tick" in app:

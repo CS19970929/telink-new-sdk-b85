@@ -146,6 +146,8 @@ int main(void)
     prime_rest();
     tick = UINT32_MAX - 9600u;
     g_soc_sample_tick_32k = tick;
+    g_soc_observed_tick_32k = tick;
+    s_feature.openwire_started_tick = tick;
     g_soc_runtime.ocv_openwire_started_32k = tick;
     for (unsigned i = 0u; i < 6u; ++i) joint_sample(6400u);
     assert(g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_NONE);

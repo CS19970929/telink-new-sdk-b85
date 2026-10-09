@@ -360,7 +360,8 @@ def check_soc_contract_check():
             full_fn = C[start:end]
             self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min)", full_fn)
             self.assertIn("(g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG()", full_fn)
-            self.assertIn("if (isCHG() && g_soc_input.third_cell_ovp)", full_fn)
+            self.assertIn("if (voltage_ready && g_soc_input.third_cell_ovp)", full_fn)
+            self.assertNotIn("if (isCHG() && g_soc_input.third_cell_ovp)", full_fn)
             self.assertNotIn("&& !isDSG()", full_fn)
 
         def test_soc_low_faults_are_implemented_without_mos_policy(self):
