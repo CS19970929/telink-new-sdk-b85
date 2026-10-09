@@ -73,7 +73,7 @@ SOURCES = {
 BLIND_SPOTS = [
     {'risk':'高','area':'完整系统 SIL','gap':'D014 已连接真实参数/journal/SH SPI/feature/guard/SW 到 FET 命令；完整 MCU 调度、DVC 联合链、物理 Gate 和跨 MCU reset 的软件 OC 锁存策略仍未闭合'},
     {'risk':'高','area':'AFE 物理行为','gap':'RAM 寄存器不模拟硅片比较器、ADC 误差、转换时延或 watchdog 断总线后的 Gate；官方手册/板级读回仍需独立核验'},
-    {'risk':'高','area':'产品参数','gap':'D013 缺受控原理图；容量/阈值未全部签核；D008 20S NMC 仍使用公共软件保护默认且 SC 默认关闭'},
+    {'risk':'高','area':'产品参数','gap':'D013 缺受控原理图；容量/阈值未全部签核；D008 SCD 与各化学体系编译默认不代替实板保护和 MOS SOA 验收'},
     {'risk':'高','area':'SOC/电流','gap':'长时算法场景使用受控 100Ah 环境；开机零点的真实零电流、SH 新鲜温度标志、C+ 判据和整板标定仍需台架'},
     {'risk':'高','area':'存储/升级','gap':'逐字节故障模型不等于 Flash 擦除掉电、电源瞬态或实际 OTA；三域分别提交不构成跨域原子事务'},
     {'risk':'中','area':'协议','gap':'parser 随机测试的寄存器所有者为替身；BLE SDK/分片/RF、UART 任意粘包吞吐、PHY 仍需硬件；CAN 未进入当前四产品真实源码清单'},

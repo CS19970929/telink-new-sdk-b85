@@ -22,7 +22,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 
 | 状态/数据 | 所有者与入口 | 失败/限制 |
 |---|---|---|
-| 软件保护参数 `g_bms_protection_params` | `bms_parameters.c` 的 bms_parameters_init / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 bms_protection_params_commit 不解除启动存储失败 |
+| 软件保护参数 `g_bms_protection_params` | `bms_parameters.c` 的 bms_parameters_init / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 bms_protection_params_commit 不解除 Config 启动失败；State/Event 故障降级报错 |
 | 持久 Config 和 OTA 执行标记 | `bms_config_store.c` 的 get/set/default/update | 参数和标记一起提交，候选成功落盘后才替换 cache |
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
 | 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |
@@ -52,9 +52,9 @@ DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH
 
 | 产品 | 输入 | 能力限制 |
 |---|---|---|
-| D008 | DVC1124；产品 `d008_product_profile.h` + `bms_product.h` | 三种 profile；当前 SC 默认未启用 |
+| D008 | DVC1124；产品 `d008_product_profile.h` + `bms_product.h` | 三种 profile；SC 默认 200 A / 请求 256 µs，实板验收独立 |
 | D011 | SH；产品 `bms_product.h`；10S/250 µΩ | heater/balance；PB5 fuse 安全 LOW |
-| D013 | SH；4S/100 µΩ | heater/balance/MOS NTC 禁用；原理图待核 |
+| D013 | SH；默认 10S/100 µΩ，构建可覆盖串数 | heater/balance/MOS NTC 禁用；原理图待核 |
 | D014 | SH；8S/667 µΩ | 无 heater，TS3 NC；TS4 必需 MOS NTC |
 
 公共电流 mA 正放负充，SH 在测量边界转换；温度 `(°C+40)*10`；名义容量 0.1 Ah、报告容量 0.01 Ah。无效串位 61001，不进入有效通道计算。字段定义与协议大小端以生产头文件和读写实现为准。

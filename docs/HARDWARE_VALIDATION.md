@@ -41,7 +41,7 @@
 
 参见 [D013 reference](D013_PRODUCT_REFERENCE.md)。
 
-- [ ] 补专属原理图/BOM，逐网核对所有继承 GPIO；4S/100 µΩ、SH 型号和 direct UART 目前只是代码输入。
+- [ ] 补专属原理图/BOM，逐网核对所有继承 GPIO；默认 10S/100 µΩ、SH 型号和 direct UART 目前只是代码输入；实际串数须按构建参数及装配核对。
 - [ ] 核对 heater/balance/MOS NTC 禁用与真实装配一致；TS1/TS2 必需温度失效路径实测。
 - [ ] 核对继承容量/OV/UV/OC/SC 参数、唤醒网络与通信方式后，才开展对应上板验收。
 
