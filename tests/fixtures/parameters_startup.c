@@ -28,16 +28,16 @@ int main(void) {
     for(failed_domain=0;failed_domain<5;failed_domain++) {
         count=0; upgrade_status=0; bms_parameters_init();
         assert(!strcmp(calls,failed_domain==1u ? "CSEGD" : "CSEGP"));
-        assert(bms_protection_params_valid()==(failed_domain==0));
+        assert(bms_protection_params_valid()==(failed_domain!=1 && failed_domain!=4));
         if(failed_domain==2) assert(upgrade_status==DIAG_UPGRADE_STATE);
         if(failed_domain==3) assert(upgrade_status==DIAG_UPGRADE_EVENT);
         if(failed_domain==1) assert(upgrade_status==0); /* Config 自身的失败诊断不被覆盖。 */
         if(failed_domain>0 && failed_domain<4) {
             assert(bms_protection_params_commit(&g_bms_protection_params));
-            assert(!bms_protection_params_valid());
+            assert(bms_protection_params_valid()==(failed_domain!=1));
         }
     }
     failed_domain=0;count=0;bms_parameters_init();assert(bms_protection_params_valid());
-    puts("PASS production parameter startup: every domain once despite earlier failure, failure gate sticky across commit, explicit restart");
+    puts("PASS production parameter startup: every domain once despite earlier failure, Config gate sticky across commit, State/Event degraded, explicit restart");
     return 0;
 }

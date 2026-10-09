@@ -221,8 +221,8 @@ static void test_boot_gate(void){
   unsigned base=domain==0?0:(domain==1?4*4096:12*4096);
   unsigned size=domain==0?4*4096:8*4096;
   memset(flash+base,255,size);reboot();cut=0;
-  bms_parameters_init();assert(!bms_protection_params_valid());
-  cut=-1;assert(bms_protection_params_commit(&g_bms_protection_params));assert(!bms_protection_params_valid());
+  bms_parameters_init();assert(bms_protection_params_valid()==(domain!=0));
+  cut=-1;assert(bms_protection_params_commit(&g_bms_protection_params));assert(bms_protection_params_valid()==(domain!=0));
   reboot();bms_parameters_init();assert(bms_protection_params_valid());
  }
  puts("PASS startup: Config/State/Event first-save failure gates, protection commit cannot bypass");
@@ -413,7 +413,7 @@ static void test_ota_state_events(void)
         unsigned payload_size = domain == 1u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
         for (int byte = 0; byte < (int)(24 + payload_size + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
-            bms_parameters_init(); assert(!bms_protection_params_valid());
+            bms_parameters_init(); assert(bms_protection_params_valid());
             reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
             assert(g_bms_state.soc == (domain == 0u ? 60u : 88u));
             assert(g_bms_state.cycle == (domain == 0u ? 0u : 99u));
@@ -422,7 +422,7 @@ static void test_ota_state_events(void)
             reboot(); bms_parameters_init(); assert(programs == before);
         }
     }
-    puts("PASS OTA State/Event: independent SOC/event resets, every byte cut, startup inhibit, restart idempotence");
+    puts("PASS OTA State/Event: independent SOC/event resets, every byte cut, non-safety degradation, restart idempotence");
 }
 
 static void test_protection_commit(void) {

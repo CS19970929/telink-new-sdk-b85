@@ -20,7 +20,7 @@ storage_port → bms_storage_platform_telink → SDK Flash
 | State | SOC、放电累计、循环、SOC_STATE 编号及保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
 | Event | 100 条事件环、重复计数、写位置、EVENTS 编号 | 3 / 404 bytes | dirty 且检查点到期，或入睡前提交 |
 
-每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动需要的数据校验/保存失败时，原有输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁。
+每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动安全配置校验/保存失败时，输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁；State/Event 失败按文末规则降级。
 
 `CFG2` 的 322-byte payload 及通信 `0x2E05=2` 保留；它与内部 journal schema 3 是不同层次。`0x2E87` 保留原位置，恒为 1，没有老化更新宏；废弃的 `0x2E10=6` 返回非法值（异常码 3），不再提供成功空操作。SN/电流校准继续要求 AFE 已授权会话。诊断原 Factory 槽位保留 NOT_RUN、地址/大小为 0，原运行模式字段为 0；其他诊断字段位置不变。
 
@@ -111,3 +111,7 @@ D008 保存失败阻止主动断电，SH 保持低功耗优先，这是当前已
 回归覆盖编码、CRC、逐字节中断、sector 轮换、部分槽位后续利用、连续失败预算、门禁不耗预算、I/O 失败不写默认、cache-only 读取、事件合并/时间/取消、更新编号和协议。四产品实际 sources 与 TC32 ELF/MAP/resource 单独验证；不会自动生成 BIN。
 
 实板仍需验证擦写过程中掉电、复位风暴、低电压写入、Flash 读回故障、最大擦写时间/watchdog/BLE 延迟，以及 ACC/AFE/MCU 进入及唤醒顺序。Host 和 ELF 不证明这些硬件行为。
+
+## 非安全持久域降级
+
+启动仍各初始化 Config/State/Event 一次。Config 或保护参数校验失败保持输出禁止；State/Event 失败记录 EEPROM 错误和域诊断，不撤销有效软件保护资格。State 无可用缓存时沿既有默认估算入口启动，SOC/SOH 不作为 MOS 许可依据；持久域保留自身重试和 journal 掉电安全。诊断中的 startup 资格表示安全配置启动资格，不表示全部持久域健康。

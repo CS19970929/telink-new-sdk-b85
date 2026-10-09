@@ -77,18 +77,15 @@ static void parameters_validate_storage_startup(void)
     config_valid = bms_config_store_validate_startup() ? 1u : 0u;
     state_valid = bms_state_store_init() ? 1u : 0u;
     event_valid = bms_event_log_init() ? 1u : 0u;
-    if (!config_valid) goto failed;
-    if (!state_valid) {
-        bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u); goto failed;
-    }
-    if (!event_valid) {
-        bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u); goto failed;
-    }
-    s_storage_startup_valid = 1u;
-    bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);
-    return;
-failed:
-    bms_error_raise(BMS_ERROR_EEPROM_STORE);
+    /* 只有安全配置的启动资格阻断输出。State 估算与 Event 历史故障单独降级，
+     * 各域保留错误诊断和自身重试，不把可选持久化失败当作保护参数失效。 */
+    s_storage_startup_valid = config_valid;
+    if (!config_valid || !state_valid || !event_valid)
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+    if (!config_valid) return; /* 保留 Config 自身诊断，在线提交不能解除启动失败。 */
+    if (!state_valid) bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u);
+    else if (!event_valid) bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u);
+    else bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);
 }
 
 /* 只在启动调用；先确定持久域资格，再加载保护，失败门禁不由在线提交清除。 */
