@@ -29,7 +29,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
-| SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，样本入口推进 | 首帧/重复/无效/gap 不虚构时间；配置与 State 分域 |
+| SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，应用输入推进 | 首轮建立基准、重复应用时间不积分、无效/GAP 不补算；有效缓存可积分，新测量确认独立 |
 | SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立编号 |
 | 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |

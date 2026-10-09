@@ -950,6 +950,7 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     if (m == 0) return 0u;
     if (!s_snapshot_valid) { memset(m, 0, sizeof(*m)); return 0u; }
     *m = s_aux;
+    m->sample_fresh = (uint8_t)!s_sample_pending;
     return 1u;
 }
 

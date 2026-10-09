@@ -24,7 +24,8 @@ def check_sh3673510_sample_schedule_host_check():
     assert '    app_sample_task();' in source
     assert function('app_sample_task').count('bms_afe_sample();') == 1
     assert 'test_task_tick' not in source and 'hello World!!!' not in source
-    period = re.search(r'(?m)^#define APP_SAMPLE_PERIOD_US\s+\d+u', (APP/'app.h').read_text()).group()
+    period = (APP/'bms_timing.h').read_text() + '\n' + re.search(
+        r'(?m)^#define APP_SAMPLE_PERIOD_US[^\n]*', (APP/'app.h').read_text()).group()
     code = r'''
     #include <stdint.h>
     #include <stdio.h>
@@ -32,7 +33,7 @@ def check_sh3673510_sample_schedule_host_check():
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
     #define MODE_FACTORY 1
-    typedef struct { int32_t raw_current_ma; int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
+    typedef struct { int32_t raw_current_ma; int32_t current_ma; u32 sample_tick_32k; u8 sample_fresh; } bms_afe_aux_measurements_t;
     static u32 s_sample_tick, fake_tick, scheduled_tick, sample_cost;
     static volatile u8 s_sample_due;
     static unsigned samples, soc_calls, mos_calls, diag_calls, failures;
@@ -48,10 +49,10 @@ def check_sh3673510_sample_schedule_host_check():
     }
     static void bms_afe_sample(void) { ++samples; fake_tick += sample_cost; }
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
-        if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; }
+        if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; s->sample_fresh = 1; }
         return valid;
     }
-    static void app_update_soc_from_sample(u8 v, int32_t c, u32 t) {
+    static void app_update_soc_from_sample(u8 v, int32_t c, u8 t) {
         ++soc_calls; last_valid=v; last_current=c; last_tick=t;
     }
     static void mos_update(void) { ++mos_calls; }
@@ -65,13 +66,13 @@ def check_sh3673510_sample_schedule_host_check():
         app_sample_task(); CHECK(samples==0);
         fake_tick += APP_SAMPLE_PERIOD_US*16u + 1;
         app_sample_task(); CHECK(samples==1 && soc_calls==1 && mos_calls==1 && diag_calls==1);
-        CHECK(last_valid && last_current==1234 && last_tick==123);
+        CHECK(last_valid && last_current==1234 && last_tick==1);
         CHECK(scheduled_tick==s_sample_tick+APP_SAMPLE_PERIOD_US*16u);
         app_sample_task(); CHECK(samples==1);
         app_sample_wakeup(0); app_sample_wakeup(0); CHECK(samples==1);
         app_sample_task(); CHECK(samples==2); /* multiple IRQ marks coalesce */
         valid=0; app_sample_wakeup(0); app_sample_task();
-        CHECK(!last_valid && last_current==0 && last_tick==4321);
+        CHECK(!last_valid && last_current==0 && last_tick==0);
         sample_cost=APP_SAMPLE_PERIOD_US*16u+1; app_sample_wakeup(0);
         app_sample_task(); CHECK(samples==4 && s_sample_due); /* no catch-up loop */
         sample_cost=0; app_sample_task(); CHECK(samples==5 && !s_sample_due);
@@ -189,6 +190,7 @@ def check_sh_suspend_current_gates():
     typedef struct { int unused; } app_pm_elapsed_ctx_t;
     typedef struct { int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
     #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
+    #define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
     #define BMS_BOARD_SWITCH_PIN 0
     #define BMS_BOARD_INT_WK_MCU_PIN 1
     #define Level_Low 0

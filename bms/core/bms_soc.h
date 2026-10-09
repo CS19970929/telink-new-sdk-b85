@@ -7,6 +7,7 @@
 #define BMS_SOC_H_
 
 #include <stdint.h>
+#include "bms_timing.h"
 #include "bms_state_store.h"
 #include "bms_soc_defs.h"
 #include "bms_diag.h"
@@ -39,13 +40,12 @@
 
 /*
  * 与硬件无关的 SOC 输入；单位属于 ABI：
- * mV、mA、既有 (degC+40)*10 温度和 SDK 32 kHz时间。AFE 后端填写结构，
+ * mV、mA、既有 (degC+40)*10 温度和 SDK 32K 时间。应用按后端有效快照填写结构，
  * SOC 不依赖 DVC/SH 寄存器或传输细节。
  */
 typedef struct
 {
-    uint32_t timestamp_32k;
-    uint32_t observed_at_32k;       /* 应用读取合格 AFE 快照的时间，不替代 ADC 时间戳。 */
+    uint32_t timestamp_32k;        /* 本次应用任务时间；有效缓存也计算新时间区间。 */
     uint32_t pack_voltage_mv;
     int32_t current_ma;             /* 负值充电，正值放电。 */
     uint16_t cell_min_mv;
@@ -54,7 +54,7 @@ typedef struct
     uint16_t temperature_min_x10;
     uint16_t temperature_max_x10;
     uint8_t sample_valid;
-    uint8_t observation_valid;     /* 提供逐次观察时间；未提供时沿用严格 400 ms 间隔。 */
+    uint8_t measurement_fresh;     /* 仅供 OCV 等新测量确认，不决定是否积分。 */
     uint8_t voltage_valid;
     uint8_t temperature_valid;
     uint8_t balancing_active;
@@ -106,12 +106,12 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config);
 void bms_soc_get_diag(bms_soc_diag_t *diag);
 
 /*
- * 每次有效观察不得间隔超过 400 ms。ADC 更新跨过此界限时，只有期间
- * 始终按时读到合格快照才可积分，且新 ADC 数据间隔仍不超过两个观察界限。
+ * 应用每 200 ms 提交最新有效电流，按实际应用间隔积分。
+ * 应用间隔超过 400 ms 不补算盲区；AFE 活性由后端独立验证。
  * SDK 32K 时钟通过无符号减法跨回绕。
  */
 #define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
-#define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
+#define BMS_SOC_MAX_SAMPLE_GAP_32K    BMS_SAMPLE_MAX_POLL_GAP_32K
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
 #if BMS_SOC_BOARD_TEST_ENABLE

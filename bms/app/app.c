@@ -65,7 +65,7 @@
 static void app_sample_task(void);
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
-                             uint32_t sample_tick_32k);
+                             uint8_t measurement_fresh);
 /* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
@@ -85,44 +85,13 @@ void mos_update(void)
     (void)bms_afe_set_fets(1u, 1u);
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/* 检查并取得同一采样周期的有效测量快照。 */
-static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
-{
-    if (!bms_afe_get_aux_measurements(m)) return 0u;
-    return ((u32)(pm_get_32k_tick() - m->sample_tick_32k) <=
-            BMS_SOC_MAX_SAMPLE_GAP_32K) ? 1u : 0u;
-}
-
-/*
- * SDK 低功耗回调只安排任务；I2C、SOC、Flash 仍在协作主循环执行，
- * 包括从 suspend 回调发起的任务。
- */
-
-/* 按配置安排下次周期采样唤醒；关闭周期唤醒时为空入口。 */
-static void app_schedule_sample_wakeup(void)
-{
-    /*
-     * 功耗测试期间故障恢复也需连续样本；查询状态所有者的 RAM，
-     * 不从驱动反馈反推目标请求。
-     */
-    if (BMS_APP_SAMPLE_WAKEUP_ENABLE || bms_afe_current_recovery_pending())
-        bls_pm_setAppWakeupLowPower(s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
-    else
-        bls_pm_setAppWakeupLowPower(0u, 0u);
-}
-
-#else
-
-/* 设置下一次周期采样的低功耗唤醒期限。 */
-/* 按配置安排下次周期采样唤醒；关闭周期唤醒时为空入口。 */
+/* 四产品始终在下一次采样期限前唤醒，不从处理结束时再睡满一个周期。 */
 static void app_schedule_sample_wakeup(void)
 {
     bls_pm_setAppWakeupLowPower(
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
 }
 
-#endif
 /* 按秒推进历史事件与运行计时任务。 */
 static void app_event_log_1s_task(void)
 {
@@ -277,13 +246,9 @@ static void app_sample_task(void)
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     bms_afe_sample();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    valid = app_get_fresh_measurements(&m);
-#else
     valid = bms_afe_get_aux_measurements(&m);
-#endif
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0,
-                           valid ? m.sample_tick_32k : pm_get_32k_tick());
+                               valid ? m.sample_fresh : 0u);
     mos_update();
 
     bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
@@ -310,7 +275,7 @@ static void app_sample_wakeup(int type)
 
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
-                             uint32_t sample_tick_32k)
+                             uint8_t measurement_fresh)
 {
     bms_afe_feature_snapshot_t feature;
     bms_features_status_t status;
@@ -319,9 +284,9 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     memset(&sample, 0, sizeof(sample));
     memset(&feature, 0, sizeof(feature));
 
-    sample.timestamp_32k = sample_tick_32k;
-    sample.observed_at_32k = pm_get_32k_tick();
-    sample.observation_valid = 1u;
+    /* 积分使用应用时间；旧电流可用于新时间段，但不能冒充新的确认样本。 */
+    sample.timestamp_32k = pm_get_32k_tick();
+    sample.measurement_fresh = measurement_fresh;
     sample.current_ma = current_ma;
     sample.pack_voltage_mv = (uint32_t)g_bms_report.pack_voltage_10mv * 10u;
     sample.cell_min_mv = g_bms_report.cell_min_mv;

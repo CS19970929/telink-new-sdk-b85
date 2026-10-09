@@ -81,7 +81,7 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!bms_afe_get_aux_measurements(m)) return 0u;
     return ((u32)(pm_get_32k_tick() - m->sample_tick_32k) <=
-            BMS_SOC_MAX_SAMPLE_GAP_32K) ? 1u : 0u;
+            BMS_SAMPLE_MAX_POLL_GAP_32K) ? 1u : 0u;
 }
 
 /* 与 SOC 可靠电流范围一致；充、放电两侧均阻止普通 suspend。 */

@@ -21,7 +21,7 @@ def main():
     macros=''
     feature_header=(MOD/'bms_features.h').read_text()
     macros+='\n'+'\n'.join(re.findall(r'^#define BMS_BALANCE_(?:ENABLE_DEFAULT|START_VOLTAGE_MV_DEFAULT|START_DELTA_MV_DEFAULT|STOP_DELTA_MV_DEFAULT|CELL_PLAUSIBLE_MIN_MV|SUSPECT_DELTA_MV)[^\n]*',feature_header,re.M))
-    headers='\n'.join(source(n) for n in ['bms_soc_defs.h','bms_state_store.h','bms_soc.h','bms_afe_hw_profile.h','bms_config_store.h','bms_event_log.h','bms_storage_platform.h'])
+    headers='\n'.join(source(n) for n in ['bms_timing.h','bms_soc_defs.h','bms_state_store.h','bms_soc.h','bms_afe_hw_profile.h','bms_config_store.h','bms_event_log.h','bms_storage_platform.h'])
     units='\n'.join(source(n) for n in ['bms_config_store.c','bms_state_store.c','bms_event_log.c','bms_parameters.c'])
     fixture=(ROOT/'tests/fixtures/d008_storage/stores.c').read_text()
     code=fixture.replace('/* PARAMETER_PROTOCOL */',source('bms_parameter_access.h')+'\n'+source('bms_parameter_access.c')).replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)

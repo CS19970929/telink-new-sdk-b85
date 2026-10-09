@@ -80,7 +80,7 @@ static void set_core_voltage(uint16_t min_mv,uint16_t max_mv,uint16_t delta){
  g_bms_report.cell_min_mv=min_mv;g_bms_report.cell_max_mv=max_mv;g_bms_report.cell_delta_mv=delta;
  g_soc_input.cell_min_mv=min_mv;g_soc_input.cell_max_mv=max_mv;g_soc_input.cell_delta_mv=delta;
 }
-static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma,tick);}
+static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma,1u);}
 static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned count){
  setup(chemistry,60,chemistry==1?3330:3800);sample(1,ma,1);
  uint32_t before=g_bms_soc.remaining_capacity_as10;
@@ -217,7 +217,7 @@ static int replay_csv(const char *input_path,const char *output_path){
    &ck,&cp,&lk,&lp,&event,&true_soc,&seed_soc)!=29)continue;
   if(!initialized||event==2u){setup(1u,(uint8_t)seed_soc,min_mv);initialized=1;}
   else if(event==1u||event==3u)simulated_reboot();
-  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;
+  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;s.measurement_fresh=1u;
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
   s.pack_voltage_mv=(uint32_t)pack_mv;s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
@@ -285,6 +285,16 @@ int main(int argc,char **argv){
   assert(integrate(chemistry,-500,6400,100)==100);
   assert(integrate(chemistry,501,6400,100)==100);
   assert(integrate(chemistry,-501,6400,100)==100);
+  /* 五个不同的200ms区间使用同一有效电流，必须完整累计一秒。 */
+  setup(chemistry,60,chemistry==1?3330:3800);sample(1,10000,1);
+  uint32_t held_before=g_bms_soc.remaining_capacity_as10;
+  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,10000,0u);}
+  assert(g_bms_soc.remaining_capacity_as10==held_before-100u);
+  setup(chemistry,60,chemistry==1?3330:3800);sample(1,-10000,1);
+  held_before=g_bms_soc.remaining_capacity_as10;
+  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,-10000,0u);}
+  assert(g_bms_soc.remaining_capacity_as10==held_before+100u);
+
   setup(chemistry,60,2900);sample(1,0,1);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_FIRST);
   for(int i=0;i<100;i++)sample(0,0,6400);
@@ -295,9 +305,10 @@ int main(int argc,char **argv){
   for(int i=0;i<100;i++)sample(1,500,0);
   assert(g_bms_soc.remaining_capacity_as10==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
-  /* AFE 正常等待一帧：200 ms 连续合格观察，400 ms + 抖动的新数据不漏积分。 */
-  tick+=6401u;app_update_soc_from_sample(1,500,g_soc_sample_tick_32k);
-  tick+=6401u;app_update_soc_from_sample(1,500,tick);
+  /* AFE 正常等待：同一有效电流在新的应用时间段继续积分。 */
+  tick+=6401u;app_update_soc_from_sample(1,500,0u);
+  assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
+  tick+=6401u;app_update_soc_from_sample(1,500,1u);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
   assert(g_bms_soc.remaining_capacity_as10==before-2u);
   before=g_bms_soc.remaining_capacity_as10;
@@ -457,6 +468,21 @@ int main(int argc,char **argv){
   assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
   stored_profile.capacity_factory=1000;
  }
+
+ /* 有效缓存可以推进应用时间，不能替代断线检测后OCV的三个新测量。 */
+ setup(1,80,3300);sample(1,0,1);
+ g_soc_runtime.idle_ocv_mv_valid=1u;g_soc_runtime.idle_ocv_last_mv=3300u;
+ g_soc_runtime.ocv_openwire_phase=SOC_OCV_OPENWIRE_RECOVERING;
+ g_soc_runtime.ocv_openwire_started_32k=tick;
+ g_soc_runtime.ocv_openwire_confirm_samples=1u;
+ for(unsigned i=0;i<3u;i++){tick+=6400u;app_update_soc_from_sample(1,0,0u);}
+ assert(g_soc_runtime.ocv_openwire_confirm_samples==1u);
+ assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_RECOVERING);
+ sample(1,0,6400);sample(1,0,6400);
+ assert(g_soc_runtime.ocv_openwire_confirm_samples==3u);
+ tick+=6400u;app_update_soc_from_sample(1,0,0u);
+ assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_RECOVERING);
+ sample(1,0,6400);assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_NONE);
 
  /* Early UVP remains a final safety anchor but is explicitly diagnosable. */
  setup(1,15,2500);sample(1,1000,1);

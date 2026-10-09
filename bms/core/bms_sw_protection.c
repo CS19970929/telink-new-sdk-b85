@@ -16,7 +16,7 @@
  * AFE 硬件保护保持独立后备，后端在软件计算后合并硬件标志到 Third。
  * SOC 低电量故障由 bms_soc.c 根据 SOC 样本统一处理。
  */
-#define BMS_SW_PROTECTION_SAMPLE_MS       200u
+#define BMS_SW_PROTECTION_SAMPLE_MS       BMS_SAMPLE_PERIOD_MS
 #define BMS_SW_PROTECTION_LEVEL_COUNT     3u
 #define BMS_SW_PROTECTION_FILTER_COUNT    12u
 

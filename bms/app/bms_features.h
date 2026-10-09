@@ -8,9 +8,10 @@
 
 #include <stdint.h>
 #include "bms_afe.h"
+#include "bms_timing.h"
 
-/* 每个有效 AFE 样本后调用公共功能服务，当前周期 200 ms。 */
-#define BMS_FEATURE_SERVICE_PERIOD_MS 200u
+/* 仅新鲜合格样本推进功能资格；按应用名义节拍换算，等待转换只会延长确认。 */
+#define BMS_FEATURE_SERVICE_PERIOD_MS BMS_SAMPLE_PERIOD_MS
 
 /* 现有固件温度统一编码为 (degC + 40) * 10。 */
 #ifndef BMS_HEATER_START_TEMP_X10

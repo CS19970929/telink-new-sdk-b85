@@ -21,7 +21,8 @@ static uint8_t step(uint32_t tick,uint8_t alarm,uint8_t removed,uint8_t driver_o
     dvc1124_snapshot_t snap={0}; snap.valid=1; snap.current_fresh=1; snap.current_ma=current_ma; snap.sample_tick_32k=tick; snap.status=6; snap.fet_status=driver_on ? DVC1124_CC2_DSGF_MASK : 0;
     g_bms_report.fault_third.bits.charge_ocp=swc;
     g_bms_report.fault_third.bits.discharge_ocp=swd;
-    return dvc_recover_current_faults(&snap,alarm,removed);
+    dvc_observe_current_recovery(&snap,removed,tick);
+    return dvc_recover_current_faults(&snap,alarm,removed,tick);
 }
 static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery)); current_ma=0; writes=0; write_ok=read_ok=1; read_alarm=0; }
 int main(void) {
@@ -70,5 +71,40 @@ int main(void) {
     assert(bms_afe_current_recovery_pending());
     /* A recovery-only 200 ms deadline completes qualification without BLE. */
     step(108800,0,1,0,0,0); assert(!bms_afe_current_recovery_pending());
+    /* 200ms 每轮观察，但新电流间隔略超400ms：不丢恢复窗口。 */
+    reset(); step(100,0,0,0,0,1);
+    current_ma=-3000;step(6500,0,0,1,0,0);
+    dvc1124_snapshot_t cache={0};cache.valid=1;cache.current_ma=current_ma;cache.fet_status=DVC1124_CC2_DSGF_MASK;
+    dvc_observe_current_recovery(&cache,0,12910);
+    assert(s_current_recovery.removed_pending==2u && s_current_recovery.discharge);
+    g_bms_report.fault_third.bits.discharge_ocp=0;
+    assert(dvc_recover_current_faults(&cache,0,0,12910)==0);
+    assert(s_current_recovery.discharge && g_bms_report.fault_third.bits.discharge_ocp); /* 缓存不能解除，必须保留仲裁阻断 */
+    dvc_apply_common_port_fet_state(1,1);
+    assert(chg_mode==DVC1124_FET_DRIVE_ON && dsg_mode==DVC1124_FET_DRIVE_AUTO_DIODE);
+    step(19320,0,0,1,0,0);assert(!s_current_recovery.discharge);
+
+    /* 等待转换时也必须撤销已经丢失的负载移除证据。 */
+    reset();step(0,0,1,0,0,1);assert(s_current_recovery.removed_pending==1u);
+    cache.current_ma=0;cache.fet_status=0;
+    dvc_observe_current_recovery(&cache,0,6400);
+    assert(!s_current_recovery.removed_pending && s_current_recovery.discharge);
+    step(12800,0,1,0,0,0);assert(s_current_recovery.discharge);
+    step(19200,0,1,0,0,0);assert(!s_current_recovery.discharge);
+
+    /* 充电故障在等待转换期间也必须持续阻断，硬件待清标志不能丢失。 */
+    reset();step(0,0,0,0,1,0);
+    g_bms_report.fault_third.bits.charge_ocp=0;
+    cache.current_ma=0;
+    assert(dvc_recover_current_faults(&cache,0,0,6400)==0);
+    assert(s_current_recovery.charge && g_bms_report.fault_third.bits.charge_ocp);
+    dvc_apply_common_port_fet_state(1,1);
+    assert(chg_mode==DVC1124_FET_DRIVE_AUTO_DIODE && dsg_mode==DVC1124_FET_DRIVE_ON);
+#if DVC1124_HW_PROTECT_ENABLE
+    reset();step(0,DVC_DSG_ALARMS,0,0,0,0);
+    g_bms_report.fault_third.bits.discharge_ocp=0;
+    assert(dvc_recover_current_faults(&cache,0,0,6400)==DVC_DSG_ALARMS);
+    assert(g_bms_report.fault_third.bits.discharge_ocp && !writes);
+#endif
     return 0;
 }

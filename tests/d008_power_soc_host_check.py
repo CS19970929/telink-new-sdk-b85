@@ -72,6 +72,7 @@ def main():
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
             })
         for name, code in units.items():
+            code = source('bms_timing.h') + '\n' + code
             if name == 'power':
                 code = '#include "' + (ROOT/'bms/core/bms_debug_log.h').as_posix() + '"\n' + code
             fixture = (FIX / (name + '.c')).read_text()
@@ -110,7 +111,7 @@ def check_soc_openwire():
                             'void bms_features_get_status(bms_features_status_t *s);',
                             fixture, flags=re.S)
     assert count == 1
-    soc = (('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + source('bms_diag.h') +
+    soc = (source('bms_timing.h') + ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + source('bms_diag.h') +
            source('bms_soc.h') + source('bms_soc_profile.h') +
            'static int bms_config_store_set_soc(const bms_soc_config_t *c){return config_store_write_ok;}\n'
            'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);return 1;}\n' +

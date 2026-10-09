@@ -57,7 +57,7 @@ python bms_tools/bms.py --product d014 resources
 | [AFE 硬件保护](docs/AFE_HARDWARE_PROTECTION_V2.md) | 授权、35-word profile、requested/effective、回滚 |
 | [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
 | [D014 保护与恢复软件闭环](docs/D014_SAFETY_LOOP.md) | 真实参数/存储到 SPI MOS 命令、软件过流物理恢复、重初始化与测试边界 |
-| [SOC](docs/SOC.md) | 真实样本时基、OCV、循环 SOH 与状态保存 |
+| [SOC](docs/SOC.md) | 200 ms 应用时间积分、采样资格、OCV、循环 SOH 与状态保存 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 休眠/唤醒、通信与采样门禁 |

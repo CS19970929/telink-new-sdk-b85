@@ -20,18 +20,6 @@
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
 
-/*
- * 仅功耗对比：0 取消周期唤醒期限，采样依赖其他事件，
- * 可能错过 DVC Open-Wire COW 窗口；正常保护/SOC 时序保持 1，修改后重编译。
- */
-#ifndef BMS_APP_SAMPLE_WAKEUP_ENABLE
-#define BMS_APP_SAMPLE_WAKEUP_ENABLE 1u
-#endif
-#if (BMS_APP_SAMPLE_WAKEUP_ENABLE != 0u) && (BMS_APP_SAMPLE_WAKEUP_ENABLE != 1u)
-#error "BMS_APP_SAMPLE_WAKEUP_ENABLE must be 0 or 1"
-#endif
-
-
 #define BMS_PRODUCT_SIF_ENABLE 1
 #define BMS_PRODUCT_UART_ENABLE 1
 #define BMS_PRODUCT_RS485_ENABLE 0

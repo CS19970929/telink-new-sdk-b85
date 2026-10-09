@@ -20,9 +20,6 @@
 #include "bms_parameters.h"
 #include <string.h>
 
-/* 当前项目每 200 ms 调度一次 dvc1124_backend_sample()。 */
-#define DVC_BMS_SAMPLE_PERIOD_MS 200u
-
 /*
  * D008 恢复状态在 AFE 重初始化后保留，MCU 复位后丢失。
  * PB1 仅在有效样本且 DSGF=0 时有意义；连续高电平确认 200 ms，排除单次采样毛刺，
@@ -36,14 +33,36 @@ static struct {
     uint32_t charge_started;
     uint32_t charge_release_started;
     uint32_t removed_started;
-    uint32_t last_sample;
-    uint8_t sample_seen;
+    uint32_t last_poll_tick;
+    uint8_t poll_seen;
     uint8_t charge;
     uint8_t charge_release_pending;
     uint8_t discharge;
     uint8_t removed_pending;
     uint8_t hw_pending;
 } s_current_recovery;
+
+/* 每轮有效观察维持连续性；等待转换不能清零，失效/未观察/物理证据丢失必须清零。 */
+static void dvc_observe_current_recovery(const dvc1124_snapshot_t *snapshot,
+                                         uint8_t load_removed, uint32_t poll_tick)
+{
+    if (!snapshot->valid || (s_current_recovery.poll_seen &&
+        (uint32_t)(poll_tick - s_current_recovery.last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K)) {
+        s_current_recovery.removed_pending = 0u;
+        s_current_recovery.charge_release_pending = 0u;
+    }
+    s_current_recovery.poll_seen = snapshot->valid;
+    s_current_recovery.last_poll_tick = poll_tick;
+    if (!snapshot->valid) return;
+    if (s_current_recovery.removed_pending == 1u &&
+        (!load_removed || (snapshot->fet_status & DVC1124_CC2_DSGF_MASK)))
+        s_current_recovery.removed_pending = 0u;
+    if (s_current_recovery.removed_pending == 2u &&
+        snapshot->current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+        s_current_recovery.removed_pending = 0u;
+    if (snapshot->current_ma <= (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+        s_current_recovery.charge_release_pending = 0u;
+}
 
 /* 查询是否仍有电流保护等待物理条件恢复。 */
 uint8_t bms_afe_current_recovery_pending(void)
@@ -127,16 +146,20 @@ static void dvc_publish_temperature_report(const bms_sw_protection_inputs_t *sw)
 
 #if DVC1124_HW_PROTECT_ENABLE
 /* 确认保护解除条件连续稳定达到所需时间。 */
-static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms, uint16_t *count)
+typedef struct {
+    uint32_t started_tick;
+    uint8_t pending;
+} dvc_voltage_recovery_t;
+
+static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms,
+                                  dvc_voltage_recovery_t *state, uint32_t now)
 {
-    uint16_t required;
-    if (count == 0) return 0u;
-    if (!condition) { *count = 0u; return 0u; }
-    required = (uint16_t)(((uint32_t)stable_ms + DVC_BMS_SAMPLE_PERIOD_MS - 1u) /
-                          DVC_BMS_SAMPLE_PERIOD_MS);
-    if (required == 0u) required = 1u;
-    if (*count < required) ++(*count);
-    return (*count >= required) ? 1u : 0u;
+    if (!condition) { state->pending = 0u; return 0u; }
+    if (!state->pending) {
+        state->pending = 1u;
+        state->started_tick = now;
+    }
+    return ((uint32_t)(now - state->started_tick) >= (uint32_t)stable_ms * 32u) ? 1u : 0u;
 }
 
 /* 清除已满足恢复条件的硬件保护锁存。 */
@@ -145,8 +168,8 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
                                              uint8_t voltage_fresh,
                                              uint32_t poll_tick_32k)
 {
-    static uint16_t cov_count;
-    static uint16_t cuv_count;
+    static dvc_voltage_recovery_t cov;
+    static dvc_voltage_recovery_t cuv;
     static uint32_t last_poll_tick;
     static uint8_t poll_seen;
     bms_afe_hw_profile_t hw;
@@ -155,34 +178,33 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
 
     /* 连续恢复证据不得跨越无效采样、AFE 重初始化或长时间未采样的休眠/调度间隔。 */
     if (!sample_valid || !bms_afe_hw_profile_get(&hw)) {
-        cov_count = 0u;
-        cuv_count = 0u;
+        cov.pending = 0u;
+        cuv.pending = 0u;
         poll_seen = 0u;
         return alarm;
     }
-    if (poll_seen && (uint32_t)(poll_tick_32k - last_poll_tick) >
-        2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u) {
-        cov_count = 0u;
-        cuv_count = 0u;
+    if (poll_seen && (uint32_t)(poll_tick_32k - last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K) {
+        cov.pending = 0u;
+        cuv.pending = 0u;
     }
     poll_seen = 1u;
     last_poll_tick = poll_tick_32k;
 
-    if (!(alarm & DVC1124_ALARM_COV_MASK)) cov_count = 0u;
-    if (!(alarm & DVC1124_ALARM_CUV_MASK)) cuv_count = 0u;
+    if (!(alarm & DVC1124_ALARM_COV_MASK)) cov.pending = 0u;
+    if (!(alarm & DVC1124_ALARM_CUV_MASK)) cuv.pending = 0u;
 
     /* 有效缓存只维持采样连续性；恢复资格必须来自新的正常电压转换。 */
     if (!voltage_fresh) return alarm;
 
     if (alarm & DVC1124_ALARM_COV_MASK) {
         if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_max_mv <= hw.cov_recover_mv),
-                                hw.cov_recover_ms, &cov_count))
+                                hw.cov_recover_ms, &cov, poll_tick_32k))
             clear_mask |= DVC1124_ALARM_COV_MASK;
     }
 
     if (alarm & DVC1124_ALARM_CUV_MASK) {
         if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_min_mv >= hw.cuv_recover_mv),
-                                hw.cuv_recover_ms, &cuv_count))
+                                hw.cuv_recover_ms, &cuv, poll_tick_32k))
             clear_mask |= DVC1124_ALARM_CUV_MASK;
     }
 
@@ -222,9 +244,8 @@ static void dvc_merge_hw_faults(uint8_t alarm)
  * 不得把上一周期合并后的位反馈进来。
  */
 static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
-                                         uint8_t alarm, uint8_t load_removed)
+                                         uint8_t alarm, uint8_t load_removed, uint32_t now)
 {
-    uint32_t now = snapshot->sample_tick_32k;
     uint8_t sw_charge = g_bms_report.fault_third.bits.charge_ocp;
     uint8_t sw_discharge = g_bms_report.fault_third.bits.discharge_ocp;
     uint8_t charge_ready = 0u, discharge_ready = 0u;
@@ -234,21 +255,15 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     uint8_t clear_mask, verify;
     s_current_recovery.hw_pending |= (uint8_t)(alarm & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
 #endif
-    /* 未经观察的采样或重初始化间隔不能算作连续恢复证据。 */
-    if (s_current_recovery.sample_seen &&
-        (uint32_t)(now - s_current_recovery.last_sample) > 2u * DVC_BMS_SAMPLE_PERIOD_MS * 32u)
-    {
-        s_current_recovery.removed_pending = 0u;
-        s_current_recovery.charge_release_pending = 0u;
-    }
-    s_current_recovery.sample_seen = 1u;
-    s_current_recovery.last_sample = now;
     if (!s_current_recovery.charge && (sw_charge || (alarm & DVC_OCC_ALARMS))) {
         s_current_recovery.charge = 1u;
         s_current_recovery.charge_started = now;
     }
     if (sw_discharge || (alarm & DVC_DSG_ALARMS))
         s_current_recovery.discharge = 1u;
+
+    /* 有效缓存不能解锁，但必须继续发布既有锁存，避免输出仲裁丢失阻断。 */
+    if (!snapshot->current_fresh) goto publish_faults;
 
     /* 仍然有效的软件阈值故障独立阻断输出。 */
     /* 未签核充电器拔除输入；只能用新鲜反向放电证明充电故障的物理恢复。 */
@@ -316,6 +331,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
         s_current_recovery.discharge = 0u;
         s_current_recovery.removed_pending = 0u;
     }
+publish_faults:
     if (before != (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)))
         bms_diag_trace(DIAG_EV_CURRENT_RECOVERY,
             (uint32_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)),
@@ -465,14 +481,17 @@ void DVC1124_BmsApp_AFEGet(void)
     bms_sw_protection_inputs_t sw;
     bms_features_status_t features;
     uint8_t alarm = 0u;
+    uint8_t load_removed;
+    uint32_t poll_tick;
 
     uint16_t diag_c = 0u, diag_d = 0u;
 
     DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
+    poll_tick = pm_get_32k_tick();
+    load_removed = (uint8_t)(gpio_read(BMS_BOARD_LOAD_DETECT_PIN) != 0u);
+    dvc_observe_current_recovery(&snapshot, load_removed, poll_tick);
     if (!snapshot.valid) {
-        s_current_recovery.removed_pending = 0u;
-        s_current_recovery.charge_release_pending = 0u;
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
 #endif
@@ -482,16 +501,16 @@ void DVC1124_BmsApp_AFEGet(void)
     bms_features_get_status(&features);
 #if DVC1124_HW_PROTECT_ENABLE
     /*
-     * CC2/VADC 为 256 ms，200 ms 轮询会有正常的等待轮次。
-     * 每轮先维护有效采样连续性，只用新电压推进恢复计数，
+     * AFE 转换完成与 200 ms 轮询不同步，正常等待不表示采样失效。
+     * 每轮先维护有效采样连续性，只用新电压确认稳定时间，
      * 避免等到新电流才检查时把约 400 ms 的间隔误判为中断。
      * 断线检测的诊断电压不能成为恢复证据。
      */
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm,
         (uint8_t)!features.openwire_sample_active, snapshot.voltage_fresh,
-        pm_get_32k_tick());
+        poll_tick);
 #endif
-    if (dvc1124_backend_sample_pending()) return;
+    /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
     sw.voltage_sample_diagnostic = features.openwire_sample_active;
     /* PB1 只证明负载移除；没有批准的充电器移除输入时，充电恢复只用可靠反向电流。 */
@@ -518,7 +537,7 @@ void DVC1124_BmsApp_AFEGet(void)
     if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
 
     alarm = dvc_recover_current_faults(&snapshot, alarm,
-                                      (uint8_t)(gpio_read(BMS_BOARD_LOAD_DETECT_PIN) != 0u));
+                                      load_removed, poll_tick);
 #if DVC1124_HW_PROTECT_ENABLE
     dvc_merge_hw_faults(alarm);
     if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
@@ -595,5 +614,6 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
+    measurements->sample_fresh = (uint8_t)!dvc1124_backend_sample_pending();
     return 1u;
 }

@@ -15,9 +15,10 @@
 
 #include "common/types.h"
 #include "bms_error.h"
+#include "bms_timing.h"
 
 /* 周期采样与已关机保持的定时唤醒共用原 200 ms 间隔。 */
-#define APP_SAMPLE_PERIOD_US 200000u
+#define APP_SAMPLE_PERIOD_US BMS_SAMPLE_PERIOD_US
 
 #define MY_DIRECT_ADV_TIME 2000000
 

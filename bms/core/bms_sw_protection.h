@@ -7,6 +7,7 @@
 #define BMS_SW_PROTECTION_H_
 
 #include <stdint.h>
+#include "bms_timing.h"
 #include "bms_protection_params.h"
 
 /*
