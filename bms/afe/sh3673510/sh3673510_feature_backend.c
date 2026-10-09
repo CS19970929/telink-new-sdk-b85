@@ -12,11 +12,9 @@
 #include "sh3673520_reg.h"
 #include <string.h>
 
-#define SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u /*
- * 按 200 ms 节拍为 20 秒，短于 30.38 秒硬件超时。
- */
+#define SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u) /* 20 秒，短于既有硬件超时。 */
 static uint32_t s_balance_requested;
-static uint16_t s_balance_refresh_count;
+static uint32_t s_balance_refresh_tick;
 static uint8_t s_ow_busy;
 static uint8_t s_ow_seen_odd;
 static uint8_t s_ow_seen_even;
@@ -51,19 +49,18 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
     if (!sh_read_balance_mask(&actual)) return 0u;
 
     if (cell_mask == 0u) {
-        s_balance_refresh_count = 0u;
+        s_balance_refresh_tick = bms_diag_tick();
         if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
         s_balance_requested = 0u;
         return 1u;
     }
 
-    if (s_balance_refresh_count < SH_FEATURE_BALANCE_REFRESH_SAMPLES) ++s_balance_refresh_count;
     if (actual != cell_mask || cell_mask != s_balance_requested ||
-        s_balance_refresh_count >= SH_FEATURE_BALANCE_REFRESH_SAMPLES) {
+        (uint32_t)(bms_diag_tick() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
         if (!sh3673510_control_set_balance((uint16_t)cell_mask)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
-        s_balance_refresh_count = 0u;
+        s_balance_refresh_tick = bms_diag_tick();
     }
     s_balance_requested = cell_mask;
     return 1u;

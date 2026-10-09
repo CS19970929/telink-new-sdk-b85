@@ -14,10 +14,18 @@ code = profile_prefix(os.environ.get('BMS_PRODUCT', 'd011')) + r'''
 #include "sh3673520_reg.h"
 static uint32_t tick;
 static uint8_t registers[256], fail_write;
+static unsigned balance_writes;
 bms_report_t g_bms_report;
 uint32_t bms_diag_tick(void) { return tick; }
 uint8_t SH3673520_IsReady(void) { return 1; }
-uint8_t sh3673510_control_set_balance(uint16_t mask) { (void)mask; return 1; }
+uint8_t sh3673510_control_set_balance(uint16_t mask) {
+    ++balance_writes;
+    if(fail_write)return 0;
+    registers[SH3673520_REG_BALANCEH]=(uint8_t)(mask>>16);
+    registers[SH3673520_REG_BALANCEH+1]=(uint8_t)(mask>>8);
+    registers[SH3673520_REG_BALANCEH+2]=(uint8_t)mask;
+    return 1;
+}
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg,uint8_t *out) {
     *out=registers[reg];
     if(reg==SH3673520_REG_FLAG3) registers[reg]=0; /* RC，检测为唯一读取者。 */
@@ -42,6 +50,19 @@ static void complete(uint8_t ind,uint32_t raw) {
 }
 int main(void) {
     bms_afe_openwire_result_t out;
+    tick=UINT32_MAX-32000u;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
+    for(unsigned i=0;i<200;i++)assert(sh3673510_backend_set_balance_mask(1u));
+    assert(balance_writes==1u);
+    tick+=20000u*32u-1u;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
+    ++tick; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==2u);
+    tick+=20000u*32u; fail_write=1;
+    assert(!sh3673510_backend_set_balance_mask(1u));
+    fail_write=0; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==4u);
+    registers[SH3673520_REG_BALANCEH+2]=0;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==5u);
+    assert(sh3673510_backend_set_balance_mask(0u)); assert(balance_writes==6u);
     registers[SH3673520_REG_SCONF3]=SH3673520_SCONF3_CRLD_LOAD;
     complete(1,0xfffff);assert(sh3673510_backend_openwire_start()); /* 旧 FLAG 不授权新检测。 */
     assert(sh3673510_backend_openwire_poll(&out)==BMS_AFE_DIAG_BUSY && !out.phase_coverage);
