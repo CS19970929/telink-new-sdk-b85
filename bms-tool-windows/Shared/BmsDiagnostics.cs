@@ -146,7 +146,7 @@ public static class BmsDiagnostics
         return values.Count==0?"无":string.Join("；",values);
     }
     private static string EtaMinutes(ushort value)=>value==0xFFFF?"unavailable":$"{value} min（based on recent current）";
-    private static string D008CurrentText(int value)
+    private static string ApplicationCurrentText(int value)
         => value>0?$"{value} mA（放电）":value<0?$"{value} mA（充电）":"0 mA（静置）";
 
     public static SocDiagnosticSnapshot DecodeSocSnapshot(ushort[] w)
@@ -289,8 +289,8 @@ public static class BmsDiagnostics
             C("采样有效/新鲜",sampleValid?"是":"否");
             int rawCurrent=I32(w,194),businessCurrent=I32(w,196);
             C(genericFetBits?"AFE 换算电流（无独立 raw）":"AFE 原始电流",
-                w[14]==0x1124?D008CurrentText(rawCurrent):$"{rawCurrent} mA");
-            C("业务电流",w[14]==0x1124?D008CurrentText(businessCurrent):$"{businessCurrent} mA");
+                ApplicationCurrentText(rawCurrent));
+            C("业务电流",ApplicationCurrentText(businessCurrent));
             C("采样年龄",$"{unchecked(U32(w,6)-U32(w,198))} ticks32k");
             C("SOC deadband",genericFetBits?$"{w[200]} mA（由当前 SH 产品固件上报）":$"{w[200]} mA（D008 另有固定≤200mA不可靠区）");
             C("过流恢复 pending",(w[193]&2)!=0?"是":"否");
@@ -370,8 +370,8 @@ public static class BmsDiagnostics
     public static void ApplyEvidence(DiagnosticCapture c)
     {
         if(c.EvidenceBlocks.TryGetValue("Current",out var current) && current.Length>=7) {
-            c.Current.Add(new("参数窗口原始电流",D008CurrentText(I32(current,0))));
-            c.Current.Add(new("参数窗口校准电流",D008CurrentText(I32(current,2))));
+            c.Current.Add(new("参数窗口原始电流",ApplicationCurrentText(I32(current,0))));
+            c.Current.Add(new("参数窗口校准电流",ApplicationCurrentText(I32(current,2))));
             c.Current.Add(new("参数窗口有效/新鲜",current[4]!=0?"是":"否"));
         }
         if(c.EvidenceBlocks.TryGetValue("Calibration",out var cal) && cal.Length>=4) {

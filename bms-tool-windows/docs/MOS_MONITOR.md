@@ -13,6 +13,10 @@ UTC时间保留毫秒，源窗口非原子采样，sample与后续diagnostic按�
 JSONL使用UTF-8、每条AutoFlush到操作系统，适合后续脚本/AI分析；不保证突然断电持久性。
 原始TX/RX通信日志照常保存，可通过start中的路径关联人为MOS指令。
 
+四产品的业务电流统一为正放电、负充电。客户版和内部版主界面同时显示有符号 A 值及
+充电/放电/静置文字，诊断页对 DVC 和 SH 都标明 mA 值的方向。D000 的充/放电幅值和
+D120 v1 的历史符号由同一 BmsClient 入口归一化；显示格式不改变协议、SOC 输入或日志中的数值。
+
 新固件提供 `0x3400` 独立MOS历史，开发默认与 `BMS_DIAG_TRACE_ENABLE` 同开，量产关闭。
 Header16 words，当前变化快照32 words，历史8×32 words；u32低word在前，每word大端。
 Header magic=0x4D48、version=1、enabled、capacity=8、recordWords=32、count，
