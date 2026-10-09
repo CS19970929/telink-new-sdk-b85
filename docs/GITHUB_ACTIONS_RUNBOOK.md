@@ -21,7 +21,7 @@ Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python�
 
 ## 遗留 workflow
 
-[afe-hw-split-ci.yml](../.github/workflows/afe-hw-split-ci.yml) 是旧 D011 分支流程，仍带手动触发入口、隐式产品选择和旧产物路径；不能用它验收 monorepo，也不要在本分支手动运行它。它含 `rebuild/check-fw`，会生成镜像。本次文档任务未修改 CI 执行行为；未来如退役，应作为单独 CI 变更检查其分支使用者。
+旧 D011 AFE split workflow 已从本分支删除：它引用已移除的检查脚本和旧产物路径，且保留生成 BIN 的手动入口。当前统一入口只有 `bms-ci.yml`；历史分支的 workflow 不受本次删除影响。
 
 ## 发布归档
 
