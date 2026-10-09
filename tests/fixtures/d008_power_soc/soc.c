@@ -219,7 +219,7 @@ static int replay_csv(const char *input_path,const char *output_path){
   else if(event==1u||event==3u)simulated_reboot();
   memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;s.measurement_fresh=1u;
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
-  s.pack_voltage_mv=(uint32_t)pack_mv;s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
+  s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
   s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.open_wire_active=(uint8_t)owa;
   s.open_wire_suspected=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;

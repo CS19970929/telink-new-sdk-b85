@@ -46,7 +46,6 @@
 typedef struct
 {
     uint32_t timestamp_32k;        /* 本次应用任务时间；有效缓存也计算新时间区间。 */
-    uint32_t pack_voltage_mv;
     int32_t current_ma;             /* 负值充电，正值放电。 */
     uint16_t cell_min_mv;
     uint16_t cell_max_mv;

@@ -279,7 +279,6 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     sample.timestamp_32k = pm_get_32k_tick();
     sample.measurement_fresh = measurement_fresh;
     sample.current_ma = current_ma;
-    sample.pack_voltage_mv = (uint32_t)g_bms_report.pack_voltage_10mv * 10u;
     sample.cell_min_mv = g_bms_report.cell_min_mv;
     sample.cell_max_mv = g_bms_report.cell_max_mv;
     sample.cell_delta_mv = g_bms_report.cell_delta_mv;
