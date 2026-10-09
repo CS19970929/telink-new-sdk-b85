@@ -126,10 +126,17 @@ def check_battery_chemistry_defaults():
     defaults = '#include "bms_features.h"\n' + defaults
     matrix = [('d008', ['-DD008_PRODUCT_PROFILE=3'], 1, 16, 2800),
               ('d008', ['-DD008_PRODUCT_PROFILE=2'], 2, 20, 3000),
-              ('d008', ['-DD008_PRODUCT_PROFILE=1'], 1, 24, 2800)]
+              ('d008', ['-DD008_PRODUCT_PROFILE=1'], 1, 24, 2800),
+              ('d008', ['-DD008_PRODUCT_PROFILE=4', '-DBMS_BUILD_CELL_COUNT=4', '-DBMS_PRODUCT_CHEMISTRY=1'], 1, 4, 2800),
+              ('d008', ['-DD008_PRODUCT_PROFILE=4', '-DBMS_BUILD_CELL_COUNT=23', '-DBMS_PRODUCT_CHEMISTRY=2'], 2, 23, 3000)]
     matrix += [(product, [] if chemistry == 1 else ['-DBMS_PRODUCT_CHEMISTRY=2'], chemistry, cells, 3000)
                for product, cells in (('d011', 10), ('d013', 10), ('d014', 8))
                for chemistry in (1, 2)]
+    matrix += [(product, ['-DBMS_BUILD_CELL_COUNT=4', '-DBMS_PRODUCT_CHEMISTRY=2'], 2, 4, 3000)
+               for product in ('d011', 'd013', 'd014')]
+    matrix += [('d014', ['-DBMS_BUILD_CELL_COUNT=10'], 1, 10, 3000)]
+    matrix += [(product, ['-DBMS_BUILD_AFE_MODEL=3520', '-DBMS_BUILD_CELL_COUNT=20', '-DBMS_PRODUCT_CHEMISTRY=2'], 2, 20, 3000)
+               for product in ('d011', 'd013', 'd014')]
     for product, flags, chemistry, cells, uvp in matrix:
         nmc = chemistry == 2
         expected = f'''
@@ -184,7 +191,7 @@ def check_battery_chemistry_defaults():
         run_c(code, flags=[*host_includes(ROOT, product), *flags],
               name=f'battery-defaults-{product}-{cells}-{chemistry}')
 
-    # 窗口覆盖必须进入实际容量默认及分组编号；校准/身份/事件保持源码策略。
+    # 窗口覆盖进入容量和一次性更新选择；历史编号不参与决策。
     for product in ('d008', 'd011', 'd013', 'd014'):
         code = profile_prefix(product) + '\n' + defaults + r'''
         #include "bms_update_policy.h"
@@ -193,21 +200,22 @@ def check_battery_chemistry_defaults():
             bms_config_system_params_t system;
             bms_config_store_get_default_system(&system);
             assert(system.capacity_factory == 120u);
-            assert(bms_update_revision(BMS_UPDATE_SW) == 4u);
-            assert(bms_update_revision(BMS_UPDATE_AFE) == 4u);
-            assert(bms_update_revision(BMS_UPDATE_BUSINESS) == 4u);
-            assert(bms_update_revision(BMS_UPDATE_SOC) == 4u);
-            assert(bms_update_revision(BMS_UPDATE_SOC_STATE) == 5u);
-            assert(bms_update_revision(BMS_UPDATE_CALIBRATION) == 1u);
-            assert(bms_update_revision(BMS_UPDATE_IDENTITY) == 1u);
-            assert(bms_update_revision(BMS_UPDATE_EVENTS) == 1u);
+            uint16_t id[BMS_OTA_UPDATE_ID_WORDS] = {0};
+            assert(bms_ota_update_selected(BMS_UPDATE_BUSINESS));
+            assert(bms_ota_update_selected(BMS_UPDATE_SOC_STATE));
+            assert(!bms_ota_update_selected(BMS_UPDATE_CALIBRATION));
+            assert(!bms_ota_update_selected(BMS_UPDATE_IDENTITY));
+            assert(!bms_ota_update_selected(BMS_UPDATE_EVENTS));
+            assert(!bms_ota_update_id_matches(id));
+            bms_ota_update_copy_id(id);
+            assert(bms_ota_update_id_matches(id));
             return 0;
         }
         '''
         run_c(code, flags=[*host_includes(ROOT, product),
                           '-DBMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=120u',
-                          '-DBMS_BUILD_PARAMETERS_REVISION=4u',
-                          '-DBMS_BUILD_SOC_STATE_REVISION=5u'],
+                          '-DBMS_OTA_UPDATE_MASK=68u', '-DBMS_OTA_UPDATE_ID_0=0u',
+                          *[f'-DBMS_OTA_UPDATE_ID_{i}={i}u' for i in range(1, 6)]],
               name=f'window-defaults-{product}')
 
     # 非法类型、曲线冲突和 D008 装配冲突必须由产品头本身拒绝。
@@ -216,6 +224,15 @@ def check_battery_chemistry_defaults():
                 ('d014', ['-DBMS_PRODUCT_CHEMISTRY=2', '-DBMS_PRODUCT_SOC_PROFILE_ID=1'], 'SOC profile must match'),
                 ('d008', ['-DD008_PRODUCT_PROFILE=3', '-DBMS_PRODUCT_CHEMISTRY=2'], 'D008 chemistry must match'),
                 ('d008', ['-DD008_PRODUCT_PROFILE=2', '-DBMS_PRODUCT_CHEMISTRY=1'], 'D008 chemistry must match')]
+    rejected += [('d014', ['-DBMS_BUILD_CELL_COUNT=3'], 'outside the selected AFE model range'),
+                 ('d011', ['-DBMS_BUILD_CELL_COUNT=11'], 'outside the selected AFE model range'),
+                 ('d008', ['-DD008_PRODUCT_PROFILE=4', '-DBMS_BUILD_CELL_COUNT=3', '-DBMS_PRODUCT_CHEMISTRY=1'], 'outside DVC1124-2 range'),
+                 ('d008', ['-DD008_PRODUCT_PROFILE=4', '-DBMS_BUILD_CELL_COUNT=25', '-DBMS_PRODUCT_CHEMISTRY=1'], 'outside DVC1124-2 range'),
+                 ('d008', ['-DD008_PRODUCT_PROFILE=4', '-DBMS_BUILD_CELL_COUNT=24', '-DBMS_PRODUCT_CHEMISTRY=2'], 'must not exceed 100V'),
+                 ('d008', ['-DD008_PRODUCT_PROFILE=3', '-DBMS_BUILD_CELL_COUNT=20'], 'must match D008_PRODUCT_PROFILE')]
+    rejected += [('d014', ['-DBMS_BUILD_AFE_MODEL=3520', '-DBMS_BUILD_CELL_COUNT=21'], 'outside the selected AFE model range'),
+                 ('d011', ['-DBMS_BUILD_AFE_MODEL=3514'], 'model must be 3510 or 3520'),
+                 ('d008', ['-DBMS_BUILD_AFE_MODEL=3520'], 'requires DVC1124-2')]
     for product, flags, error in rejected:
         command = [*shlex.split(os.environ.get('CC', 'cc')), '-E', '-x', 'c',
                    *host_includes(ROOT, product), *flags, '-']
@@ -224,7 +241,46 @@ def check_battery_chemistry_defaults():
         assert result.returncode != 0 and error in result.stderr, result.stderr
 
 
+def check_sh_20cell_balance_mask():
+    from validation_support import read, function, run_c
+    code = r'''
+    #include <stdint.h>
+    #include <stddef.h>
+    #include <assert.h>
+    #define SH3673510_BOARD_CELL_COUNT 20u
+    #define SH3673520_MIN_CELLS 4u
+    #define SH3673520_MAX_CELLS 20u
+    #define SH3673520_REG_BALANCEH 0x55u
+    enum { SH3673520_OK, SH3673520_ERR_RANGE, SH3673520_ERR_NOT_READY };
+    typedef uint8_t sh3673520_status_t;
+    static uint8_t s_ready = 1u, s_control_ready, written[3];
+    static sh3673520_status_t SH3673520_WriteRegs(uint8_t reg, const uint8_t *data, size_t length)
+    {
+        assert(reg == SH3673520_REG_BALANCEH && length == 3u);
+        for (size_t i=0; i<3u; ++i) written[i] = data[i];
+        return SH3673520_OK;
+    }
+    '''
+    code += function(read('bms/afe/sh3673510/sh3673520.c'), 'sh3673520_status_t SH3673520_SetBalanceMask(')
+    code += function(read('bms/afe/sh3673510/sh3673510_control.c'), 'uint8_t sh3673510_control_set_balance(')
+    code += r'''
+    int main(void)
+    {
+        assert(!sh3673510_control_set_balance(0xAAAAAu));
+        s_control_ready = 1u;
+        assert(sh3673510_control_set_balance(0xAAAAAu));
+        assert(written[0] == 0x0Au && written[1] == 0xAAu && written[2] == 0xAAu);
+        assert(!sh3673510_control_set_balance(1UL << 20));
+        assert(sh3673510_control_set_balance(0u));
+        assert(written[0] == 0u && written[1] == 0u && written[2] == 0u);
+        return 0;
+    }
+    '''
+    run_c(code, name='sh-20cell-balance-mask')
+
+
 if __name__ == "__main__":
     check_sw_protection_defaults_check()
     check_d014_afe_profile_default_host_check()
     check_battery_chemistry_defaults()
+    check_sh_20cell_balance_mask()

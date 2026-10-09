@@ -15,6 +15,15 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define BMS_PRODUCT_ID 8u
 #define BMS_PRODUCT_CHEMISTRY 1u
 #define BMS_PRODUCT_SOC_PROFILE_ID 1u
+/* 夹具在重启之间选择镜像的更新范围；生产固件仍使用编译期常量。 */
+static unsigned test_ota_mask;
+#define BMS_OTA_UPDATE_MASK test_ota_mask
+#define BMS_OTA_UPDATE_ID_0 0u
+#define BMS_OTA_UPDATE_ID_1 0x1234u
+#define BMS_OTA_UPDATE_ID_2 0x5678u
+#define BMS_OTA_UPDATE_ID_3 0x9abcu
+#define BMS_OTA_UPDATE_ID_4 0xdef0u
+#define BMS_OTA_UPDATE_ID_5 0x2468u
 #include "bms_update_policy.h"
 #define BMS_ERROR_EEPROM_STORE 1
 /* MACROS */
@@ -53,6 +62,7 @@ static void reboot(void){
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
 }
 static void fresh(void){
+ test_ota_mask=0u;
  /* TC32 的 program_bytes 会整字读取 store->port，生产 RAM 对象必须四字节对齐。 */
  assert(((uintptr_t)&g_bms_event_store % 4u)==0u);
  memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());
@@ -122,8 +132,8 @@ static void test_config_codec_layout(void)
   for(unsigned i=0;i<32u;++i) cfg.user.serial[i]=(char)codec_random(&seed,scenario);
   memcpy(expected+278u,cfg.user.serial,32u);
   for(unsigned i=0;i<6u;++i){
-   cfg.revisions[i]=(u16)codec_random(&seed,scenario);
-   codec_expect_le(expected+310u+i*2u,cfg.revisions[i],2u);
+   cfg.ota_update_id[i]=(u16)codec_random(&seed,scenario);
+   codec_expect_le(expected+310u+i*2u,cfg.ota_update_id[i],2u);
   }
   memset(encoded,0xa5,sizeof(encoded));bms_config_encode(&cfg,encoded+1u);
   assert(encoded[0]==0xa5 && encoded[323]==0xa5);
@@ -323,7 +333,7 @@ static void test_user_parameters(void){
  assert(bms_state_store_set_soc_cycle(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
  puts("PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback");
 }
-/* OTA 策略回归：通过真实记录制造待更新版本，启动流程负责提交。 */
+/* OTA 策略回归：通过真实记录模拟客户旧值，启动流程负责按 BIN 选择提交。 */
 static bms_config_cache_t configured(void)
 {
     bms_config_cache_t cfg = g_bms_config;
@@ -348,12 +358,11 @@ static void assert_update_groups(unsigned mask)
     assert(g_bms_config.user.heater_enable == ((mask & 4u) ? 1u : 0u));
     assert(g_bms_config.user.balance_start_mv == ((mask & 4u) ? BMS_BALANCE_START_VOLTAGE_MV_DEFAULT : 3500u));
     assert(g_bms_config.soc.ocv_rest_prepare_s == ((mask & 8u) ? 600u : 777u));
-    assert(g_bms_config.user.current_offset_ma == ((mask & 16u) ? 0 : -123));
-    assert(g_bms_config.user.current_gain_ppm == ((mask & 16u) ? 1000000u : 1100000u));
-    assert(!strcmp(g_bms_config.user.serial, (mask & 32u) ? "" : "KEEP-SN"));
-    assert(!strcmp(g_bms_config.bt_name_suffix, (mask & 32u) ? "" : "KEEP-NAME"));
-    for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
-        assert(g_bms_config.revisions[group] == bms_update_revision((bms_update_group_t)group));
+    assert(g_bms_config.user.current_offset_ma == -123);
+    assert(g_bms_config.user.current_gain_ppm == 1100000u);
+    assert(!strcmp(g_bms_config.user.serial, "KEEP-SN"));
+    assert(!strcmp(g_bms_config.bt_name_suffix, "KEEP-NAME"));
+    if (mask) assert(bms_ota_update_id_matches(g_bms_config.ota_update_id));
 }
 
 static u16 other_revision(bms_update_group_t group)
@@ -363,12 +372,13 @@ static u16 other_revision(bms_update_group_t group)
 
 static void test_ota_config_policy(void)
 {
-    for (unsigned mask = 0u; mask < 64u; ++mask) {
+    for (unsigned mask = 0u; mask < 16u; ++mask) {
         fresh();
         bms_config_cache_t cfg = configured();
         for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
-            if (mask & (1u << group)) cfg.revisions[group] = other_revision((bms_update_group_t)group);
+            cfg.ota_update_id[group] = (u16)(65535u - group); /* 未知客户旧编号。 */
         assert(bms_config_save_cache(&cfg));
+        test_ota_mask = mask;
         reboot(); bms_parameters_init();
         assert(bms_protection_params_valid()); assert_update_groups(mask);
         assert(g_bms_protection_params.cell_ovp_third_mv == g_bms_config.protect.cell_ovp_third_mv);
@@ -376,9 +386,10 @@ static void test_ota_config_policy(void)
         reboot(); bms_parameters_init();
         assert(programs == before); assert_update_groups(mask);
     }
-    for (unsigned group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
-        fresh(); bms_config_cache_t cfg = configured(); cfg.revisions[group] = other_revision((bms_update_group_t)group);
+    for (unsigned group = 0u; group < 4u; ++group) {
+        fresh(); bms_config_cache_t cfg = configured();
         assert(bms_config_save_cache(&cfg)); memcpy(backup, flash, sizeof(flash));
+        test_ota_mask = 1u << group;
         for (int byte = 0; byte < (int)(24 + BMS_CONFIG_PAYLOAD_BYTES + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
             bms_parameters_init(); assert(!bms_protection_params_valid());
@@ -392,37 +403,71 @@ static void test_ota_config_policy(void)
     assert(bms_parameter_read(0x2e05u) == 2u);
     for (unsigned group = 0; group < BMS_UPDATE_GROUP_COUNT; ++group)
         assert(bms_parameter_read((u16)(0x2e80u + group)) == bms_update_revision((bms_update_group_t)group));
-    puts("PASS OTA Config: 64 combinations, keep/reset isolation, applied SW values, every byte cut, restart idempotence, policy readback");
+    /* 同一个 BIN 执行后，客户再次修改参数，重启不能再次覆盖。 */
+    fresh(); test_ota_mask = 15u; reboot(); bms_parameters_init();
+    bms_config_cache_t custom = configured(); assert(bms_config_save_cache(&custom));
+    reboot(); bms_parameters_init(); assert(!memcmp(&g_bms_config, &custom, sizeof(custom)));
+    /* 换一个更新 BIN 标记时重新执行；保留模式不消耗以前的标记。 */
+    custom.ota_update_id[1] ^= 1u; assert(bms_config_save_cache(&custom));
+    reboot(); bms_parameters_init(); assert_update_groups(15u);
+    /* 只有明确更新四组时才接受串数变化，且不重置身份/校准。 */
+    fresh(); custom = configured(); custom.system.series_num = 16u;
+    assert(bms_config_save_cache(&custom));
+    reboot(); bms_parameters_init(); assert(!bms_protection_params_valid());
+    test_ota_mask = 15u; reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
+    assert(g_bms_config.system.series_num == 24u); assert_update_groups(15u);
+    /* SOC 类型改变但未更新电压保护时拒绝放行。 */
+    fresh(); custom = configured(); custom.system.battery_chemistry = 2u;
+    custom.system.soc_profile_id = 2u; custom.soc.chemistry = 2u; custom.soc.profile_id = 2u;
+    assert(bms_config_save_cache(&custom)); test_ota_mask = 8u;
+    reboot(); bms_parameters_init(); assert(!bms_protection_params_valid());
+    test_ota_mask = 15u; reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
+    assert_update_groups(15u);
+    puts("PASS OTA Config: 16 group combinations, unknown legacy identifiers, every byte cut, idempotence and custom-value retention");
 }
 
 static void test_ota_state_events(void)
 {
-    for (unsigned domain = 0; domain < 2; ++domain) {
+    for (unsigned reset_state = 0; reset_state < 2; ++reset_state) {
         fresh();
         bms_state_persist_t cfg = g_bms_state;
         cfg.soc = 88u; cfg.cycle = 99u;
-        if (domain == 0u) cfg.soc_revision = other_revision(BMS_UPDATE_SOC_STATE);
+        cfg.soc_revision = 65535u; /* 旧编号变化本身不重置状态。 */
         assert(bms_state_save(&cfg));
         assert(bms_event_log_note_sleep());
-        if (domain == 1u) {
+        {
             u8 payload[BMS_EVENT_PAYLOAD_BYTES]; bms_event_log_encode(payload);
             bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], other_revision(BMS_UPDATE_EVENTS));
             assert(storage_record_save(&g_bms_event_store, payload));
         }
+        test_ota_mask = reset_state ? 64u : 0u;
         memcpy(backup, flash, sizeof(flash));
-        unsigned payload_size = domain == 1u ? BMS_EVENT_PAYLOAD_BYTES : BMS_STATE_PAYLOAD_BYTES;
+        unsigned payload_size = BMS_STATE_PAYLOAD_BYTES;
         for (int byte = 0; byte < (int)(24 + payload_size + 8); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
             bms_parameters_init(); assert(bms_protection_params_valid());
+            assert(g_bms_state_ready == !reset_state); /* State 失败不撤销安全配置资格。 */
+            if (reset_state) {
+                u8 payload[BMS_STATE_PAYLOAD_BYTES]; bms_state_persist_t persisted;
+                assert(storage_record_load(&g_bms_state_store, payload));
+                bms_state_decode(&persisted, payload);
+                assert(persisted.soc == 88u && persisted.cycle == 99u);
+                assert(!bms_ota_update_id_matches(persisted.ota_update_id));
+            }
             reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
-            assert(g_bms_state.soc == (domain == 0u ? 60u : 88u));
-            assert(g_bms_state.cycle == (domain == 0u ? 0u : 99u));
-            assert((bms_event_log_read_reg(0u) >> 8) == (domain == 1u ? 0u : BMS_SLEEP));
+            assert(g_bms_state.soc == (reset_state ? 60u : 88u));
+            assert(g_bms_state.cycle == (reset_state ? 0u : 99u));
+            assert((bms_event_log_read_reg(0u) >> 8) == BMS_SLEEP);
             u32 before = programs;
             reboot(); bms_parameters_init(); assert(programs == before);
         }
+        /* 更新执行后客户在线修改状态，同一 BIN 重启不能再清零循环或 SOC。 */
+        assert(bms_state_store_set_soc_cycle(77u, 3u, 123u));
+        u32 before = programs;
+        reboot(); bms_parameters_init(); assert(programs == before);
+        assert(g_bms_state.soc == 77u && g_bms_state.dsg == 3u && g_bms_state.cycle == 123u);
     }
-    puts("PASS OTA State/Event: independent SOC/event resets, every byte cut, non-safety degradation, restart idempotence");
+    puts("PASS OTA State/Event: selected SOC reset, legacy revisions ignored, events retained, byte cuts and idempotence");
 }
 
 static void test_protection_commit(void) {

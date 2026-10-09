@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "单项目配置：装配、模式、电池类型、容量和 OTA 参数生效；可仅生成 BIN",
+      "detail": "单项目配置：板型、AFE、串数、模式、电池类型、容量和 OTA 参数生效；可仅生成 BIN",
       "type": "process",
       "command": "powershell.exe",
       "args": [

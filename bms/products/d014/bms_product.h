@@ -14,7 +14,11 @@
 #include "../bms_battery_defaults.h"
 
 /* D014：8S / 667 uOhm；TS3 NC，实装 TS4 MOS 10K-3435（RN4 图纸差异）。 */
+#ifndef BMS_BUILD_CELL_COUNT
 #define SH3673510_BOARD_CELL_COUNT               8u
+#else
+#define SH3673510_BOARD_CELL_COUNT BMS_BUILD_CELL_COUNT
+#endif
 #define SH3673510_BOARD_SHUNT_UOHM              667u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u

@@ -18,7 +18,7 @@ static unsigned balance_writes;
 bms_report_t g_bms_report;
 uint32_t bms_diag_tick(void) { return tick; }
 uint8_t SH3673520_IsReady(void) { return 1; }
-uint8_t sh3673510_control_set_balance(uint16_t mask) {
+uint8_t sh3673510_control_set_balance(uint32_t mask) {
     ++balance_writes;
     if(fail_write)return 0;
     registers[SH3673520_REG_BALANCEH]=(uint8_t)(mask>>16);

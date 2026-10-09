@@ -4,6 +4,10 @@
 
 #include "bms_soc_defs.h"
 
+#if defined(BMS_BUILD_AFE_MODEL) && BMS_BUILD_AFE_MODEL != 1124u
+#error "D008 requires DVC1124-2"
+#endif
+
 /*
  * HS-D008 装配配置：仅拥有随装配变化的物理串数和化学体系/SOC 配置。
  * 固定板级/故障安全策略在 bms_product.h；
@@ -14,6 +18,7 @@
 #define D008_PRODUCT_PROFILE_24S_LFP  1u
 #define D008_PRODUCT_PROFILE_20S_NMC  2u
 #define D008_PRODUCT_PROFILE_16S_LFP  3u
+#define D008_PRODUCT_PROFILE_CUSTOM   4u
 
 #ifndef D008_PRODUCT_PROFILE
 #if BMS_PRODUCTION_BUILD
@@ -37,12 +42,32 @@
 #define D008_PRODUCT_CHEMISTRY        BMS_SOC_CHEMISTRY_LFP
 #define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_LFP
 #define D008_PRODUCT_PROFILE_NAME     "D008-24S-LFP"
+#elif (D008_PRODUCT_PROFILE == D008_PRODUCT_PROFILE_CUSTOM)
+/* 窗口输入经过工具与编译期双重校验，不改变任何板级 GPIO/Rsense。 */
+#if !defined(BMS_BUILD_CELL_COUNT) || !defined(BMS_PRODUCT_CHEMISTRY)
+#error "D008 custom requires cell count and chemistry"
+#endif
+#define D008_PRODUCT_CELL_COUNT       BMS_BUILD_CELL_COUNT
+#define D008_PRODUCT_CHEMISTRY        BMS_PRODUCT_CHEMISTRY
+#if BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP
+#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_LFP
+#else
+#define D008_PRODUCT_SOC_PROFILE_ID   BMS_SOC_PROFILE_GENERIC_NMC
+#endif
+#define D008_PRODUCT_PROFILE_NAME     "D008-CUSTOM"
 #else
 #error "Unsupported D008_PRODUCT_PROFILE"
 #endif
 
 #if ((D008_PRODUCT_CELL_COUNT < 4u) || (D008_PRODUCT_CELL_COUNT > 24u))
 #error "D008 product cell count is outside DVC1124-2 range"
+#endif
+#if defined(BMS_BUILD_CELL_COUNT) && BMS_BUILD_CELL_COUNT != D008_PRODUCT_CELL_COUNT
+#error "D008 cell count must match D008_PRODUCT_PROFILE"
+#endif
+/* DS V1.1 PDF 第 1 页：电池包总压不超过 100V；4.20V NMC 最多 23 串。 */
+#if D008_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC && D008_PRODUCT_CELL_COUNT > 23u
+#error "DVC1124-2 NMC pack must not exceed 100V (maximum 23 cells)"
 #endif
 
 #endif /* 条件编译结束： D008_PRODUCT_PROFILE_H_ */

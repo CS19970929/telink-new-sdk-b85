@@ -18,7 +18,7 @@ git remote -v
 
 | 目录 | 接手时应理解的内容 |
 |---|---|
-| `bms/products/<product>/` | 产品身份、串数/化学体系、引脚/AFE 输入、参数更新编号、源码清单 |
+| `bms/products/<product>/` | 产品身份、串数/化学体系、引脚/AFE 输入、编译默认、源码清单 |
 | `bms/app/` | 启动、调度、低功耗、heater/balance/open-wire 策略 |
 | `bms/core/` | 参数、保护、SOC、存储、协议与诊断；共享不等于全部脱离 SDK |
 | `bms/afe/` | DVC1124 与 SH3673510 两种硬件后端 |
@@ -68,7 +68,7 @@ python bms_tools/bms.py --product d014 resources
 
 从 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md) 的开发日志练习开始；不改硬件参数即可练习选择产品、外部输出和验证。正式容量或保护配置只按批准需求修改。
 
-中文提交说明包括：产品、原因/单位、涉及文件、是否改变参数更新编号、测试结论、尚需的实板验证。只暂存本次文件。镜像生成、OTA 和烧录是明确交付步骤，不属于阅读或 `link` 的隐含操作。
+中文提交说明包括：产品、原因/单位、涉及文件、OTA 更新组选择、测试结论、尚需的实板验证。只暂存本次文件。镜像生成、OTA 和烧录是明确交付步骤，不属于阅读或 `link` 的隐含操作。
 
 ## 5. 交接验收
 
@@ -77,8 +77,8 @@ python bms_tools/bms.py --product d014 resources
 | 选对产品 | 说明产品/profile、串数、AFE、Rsense、通信和能力限制 |
 | 找到真实源码 | 展示 `sources.txt`，指出公共修改影响哪些产品 |
 | 跑通环境 | 保存 SHA、工具版本、host 结果和目标 ELF 资源报告 |
-| 做简单修改 | 小 diff、默认值与更新编号说明、相关检查通过 |
-| 定位“参数没变” | 核对 Build ID、设备持久值、更新编号和启动结果 |
+| 做简单修改 | 小 diff、默认值与 OTA 选择说明、按授权执行的相关检查 |
+| 定位“参数没变” | 核对 Build ID、manifest 更新选择/标记、设备持久值和启动结果 |
 | 定位“MOS 没开” | 分别查 requested、guard、软件故障、AFE lockout；命令不是 Gate 反馈 |
 | 知道剩余工作 | 列出 [硬件验收](HARDWARE_VALIDATION.md) 中本产品未关闭项 |
 

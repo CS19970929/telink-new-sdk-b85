@@ -1,6 +1,6 @@
 /*
  * 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，
- * 遵循现有更新编号策略。
+ * OTA 保留已保存的历史事件，不再依据旧编号清空。
  * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -113,8 +113,8 @@ static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
     u16 i;
     u16 write_pos = bms_event_log_get_u16le(&payload[0]);
-    if (write_pos >= BMS_EVENT_LOG_ENTRY_COUNT ||
-        bms_event_log_get_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u]) != BMS_UPDATE_EVENTS_REVISION) return 0;
+    /* 旧事件编号不再触发清空；OTA 窗口始终保留历史事件。 */
+    if (write_pos >= BMS_EVENT_LOG_ENTRY_COUNT) return 0;
     for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i) {
         u8 event = payload[2u + 2u * i];
         u8 time = payload[3u + 2u * i];

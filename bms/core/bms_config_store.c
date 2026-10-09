@@ -1,6 +1,6 @@
 /*
- * 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各
- * 参数组。
+ * 文件功能：CFG2 持久配置的缓存、校验与编解码；按产品 tag 和镜像更新选择恢复/更新各
+ * 参数组，OTA 选择与一次性标记随 BIN 发布。
  * bms/core/bms_config_store.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
@@ -37,11 +37,12 @@
 typedef char bms_config_protect_layout_must_be_65_words[(sizeof(bms_protection_params_t) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
 typedef char bms_config_system_layout_must_be_5_words[(sizeof(bms_config_system_params_t) == BMS_CONFIG_SYSTEM_BYTES) ? 1 : -1];
 typedef char bms_config_afe_layout_must_be_35_words[(sizeof(bms_afe_hw_profile_t) == BMS_CONFIG_AFE_BYTES) ? 1 : -1];
+typedef char bms_config_update_id_reuses_revision_slots[(BMS_OTA_UPDATE_ID_WORDS == BMS_UPDATE_CONFIG_GROUP_COUNT) ? 1 : -1];
 /* 只共享连续的七个 u16；校准字段仍逐字段编码。TC32 的 stddef.h 与 SDK size_t 冲突。 */
 typedef char bms_config_user_business_layout_must_be_7_words[(__builtin_offsetof(bms_user_params_t, balance_stop_delta_mv) + sizeof(u16) == BMS_CONFIG_USER_BUSINESS_WORDS * 2u) ? 1 : -1];
 
 typedef struct {
-    u16 revisions[BMS_UPDATE_CONFIG_GROUP_COUNT];
+    u16 ota_update_id[BMS_OTA_UPDATE_ID_WORDS];
     bms_protection_params_t protect;
     bms_config_system_params_t system;
     bms_afe_hw_profile_t afe_hw;
@@ -203,10 +204,9 @@ static void bms_config_store_get_default_system(bms_config_system_params_t *syst
 /* 建立 CFG2 各参数组的默认缓存。 */
 static void bms_config_defaults(bms_config_cache_t *cfg)
 {
-    unsigned group;
     memset(cfg, 0, sizeof(*cfg));
-    for (group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group)
-        cfg->revisions[group] = bms_update_revision((bms_update_group_t)group);
+    if (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK)
+        bms_ota_update_copy_id(cfg->ota_update_id);
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
     bms_soc_get_default_config(&cfg->soc);
@@ -246,7 +246,7 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     bms_config_put_u32le(&payload[off], cfg->user.current_gain_ppm); off += 4u;
     memcpy(&payload[off], cfg->user.serial, sizeof(cfg->user.serial));
     off += sizeof(cfg->user.serial);
-    bms_config_encode_words(&payload[off], cfg->revisions, BMS_UPDATE_CONFIG_GROUP_COUNT);
+    bms_config_encode_words(&payload[off], cfg->ota_update_id, BMS_OTA_UPDATE_ID_WORDS);
 }
 
 /* 解码固定字段；调用者负责版本、产品 tag 和参数有效性校验。 */
@@ -281,21 +281,22 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     cfg->user.current_gain_ppm = bms_config_get_u32le(&payload[off]); off += 4u;
     memcpy(cfg->user.serial, &payload[off], sizeof(cfg->user.serial));
     off += sizeof(cfg->user.serial);
-    bms_config_decode_words(cfg->revisions, &payload[off], BMS_UPDATE_CONFIG_GROUP_COUNT);
+    bms_config_decode_words(cfg->ota_update_id, &payload[off], BMS_OTA_UPDATE_ID_WORDS);
 }
 
 /*
- * 数据和更新编号位于同一条 CRC/提交标记保护的记录中。这里只准备 RAM 值；
+ * 数据和一次性标记位于同一条 CRC/提交标记保护的记录中。这里只准备 RAM 值；
  * 启动验证完成并提交成功后才允许 AFE 输出。
  */
 static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
 {
     bms_config_cache_t defaults;
     unsigned group;
-    u8 changed = 0u;
+    if (!(BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) ||
+        bms_ota_update_id_matches(cfg->ota_update_id)) return 0u;
     bms_config_defaults(&defaults);
     for (group = 0u; group < BMS_UPDATE_CONFIG_GROUP_COUNT; ++group) {
-        if (cfg->revisions[group] == defaults.revisions[group]) continue;
+        if (!bms_ota_update_selected((bms_update_group_t)group)) continue;
         switch ((bms_update_group_t)group) {
         case BMS_UPDATE_SW:
             cfg->protect = defaults.protect;
@@ -318,21 +319,12 @@ static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
             cfg->system.battery_chemistry = defaults.system.battery_chemistry;
             cfg->system.soc_profile_id = defaults.system.soc_profile_id;
             break;
-        case BMS_UPDATE_CALIBRATION:
-            cfg->user.current_offset_ma = defaults.user.current_offset_ma;
-            cfg->user.current_gain_ppm = defaults.user.current_gain_ppm;
-            break;
-        case BMS_UPDATE_IDENTITY:
-            memcpy(cfg->user.serial, defaults.user.serial, sizeof(cfg->user.serial));
-            memcpy(cfg->bt_name_suffix, defaults.bt_name_suffix, sizeof(cfg->bt_name_suffix));
-            break;
         default:
             break;
         }
-        cfg->revisions[group] = defaults.revisions[group];
-        changed = 1u;
     }
-    return changed;
+    bms_ota_update_copy_id(cfg->ota_update_id);
+    return 1u;
 }
 
 /* 保存完整配置缓存并返回持久化结果。 */
@@ -381,11 +373,22 @@ int bms_config_store_init(void)
         /* 装配串数属于板级身份，不能把另一种装配的参数直接用于当前板。 */
         if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
             g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID) {
-            bms_config_defaults(&g_bms_config);
-            g_bms_config_needs_save = 1u;
-        } else {
-            g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
+            /* 拓扑变化必须显式更新四组；保留校准和身份，拒绝旧阈值配新串数。 */
+            if ((BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
+                bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
+            }
+            g_bms_config.system.series_num = BMS_PRODUCT_CELL_COUNT;
+            g_bms_config.system.bms_type = BMS_PRODUCT_WIRE_ID;
+            memset(g_bms_config.ota_update_id, 0, sizeof(g_bms_config.ota_update_id));
         }
+        /* 切换化学体系时四组配置一起更新，避免旧电压阈值/均衡混入。 */
+        if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
+            (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) &&
+            g_bms_config.system.battery_chemistry != BMS_PRODUCT_CHEMISTRY &&
+            (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
+            bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
+        }
+        g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
     } else {
         if (g_bms_config_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
             bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;

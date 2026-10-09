@@ -58,7 +58,7 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
 
     if (actual != cell_mask || cell_mask != s_balance_requested ||
         (uint32_t)(bms_diag_tick() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
-        if (!sh3673510_control_set_balance((uint16_t)cell_mask)) return 0u;
+        if (!sh3673510_control_set_balance(cell_mask)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
         s_balance_refresh_tick = bms_diag_tick();
     }

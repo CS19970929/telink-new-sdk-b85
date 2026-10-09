@@ -16,6 +16,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {
+    "d008": ("d008", "custom"),
     "d008-16s-lfp": ("d008", "16s-lfp"),
     "d008-20s-nmc": ("d008", "20s-nmc"),
     "d008-24s-lfp": ("d008", "24s-lfp"),
@@ -45,7 +46,7 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
     product, profile = TARGETS[target]
     options = build_options.normalize({} if options is None else options, product, profile)
     build_options.check_extra_defines(os.environ.get("EXTRA_DEFINES", ""))
-    variant = mode + ("-" + profile if profile else "")
+    variant = build_options.variant(mode, product, profile, options)
     firmware = root / "firmware" / variant / product / "825x_ble_sample.bin"
     manifest = firmware.with_name("fw_manifest.json")
     if not build_only and not sender.is_file():
@@ -116,13 +117,17 @@ def main() -> int:
     parser.add_argument("--mode", choices=("production", "development"), default="production")
     parser.add_argument("--rebuild", action="store_true", help="清理后全量重编译")
     parser.add_argument("--chemistry", choices=("lfp", "nmc"))
+    parser.add_argument("--cell-count", type=int)
+    parser.add_argument("--afe-model", choices=("dvc1124", "sh3673510", "sh3673520"))
     parser.add_argument("--capacity-0p1ah", type=int)
-    parser.add_argument("--parameters-revision", type=int)
-    parser.add_argument("--soc-state-revision", type=int)
+    parser.add_argument("--update-groups", nargs="+", choices=tuple(build_options.UPDATE_GROUPS))
+    parser.add_argument("--update-id")
     args = parser.parse_args()
     try:
-        options = {key: getattr(args, key) for key in build_options.MACROS
+        options = {key: getattr(args, key) for key in build_options.OPTION_KEYS
                    if getattr(args, key) is not None}
+        if args.update_groups and args.update_id is None and not args.send_only:
+            options["update_id"] = build_options.new_update_id()
         return run_workflow(args.target, args.sender.resolve(), build_only=args.build_only,
                             mode=args.mode, rebuild=args.rebuild, send_only=args.send_only,
                             options=options)

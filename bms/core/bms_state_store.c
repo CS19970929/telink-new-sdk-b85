@@ -25,6 +25,7 @@
 
 typedef struct {
     uint16_t soc_revision;
+    uint16_t ota_update_id[BMS_OTA_UPDATE_ID_WORDS];
     uint32_t soc;
     uint32_t dsg;
     uint32_t cycle;
@@ -70,6 +71,8 @@ static void bms_state_defaults(bms_state_persist_t *state)
 {
     bms_state_store_data_t soc = bms_state_store_get_default_data();
     state->soc_revision = BMS_UPDATE_SOC_STATE_REVISION;
+    memset(state->ota_update_id, 0, sizeof(state->ota_update_id));
+    if (bms_ota_update_selected(BMS_UPDATE_SOC_STATE)) bms_ota_update_copy_id(state->ota_update_id);
     state->soc = soc.soc;
     state->dsg = soc.dsg;
     state->cycle = soc.cycle;
@@ -78,20 +81,29 @@ static void bms_state_defaults(bms_state_persist_t *state)
 /* 按固定存储格式编码 SOC 和循环状态。 */
 static void bms_state_encode(const bms_state_persist_t *state, uint8_t *payload)
 {
+    unsigned i;
     bms_state_put_u32le(&payload[0], state->soc);
     bms_state_put_u32le(&payload[4], state->dsg);
     bms_state_put_u32le(&payload[8], state->cycle);
-    memset(&payload[12], 0, 28u); /* schema 3 原学习槽保留，编码恒零。 */
+    memset(&payload[12], 0, 28u); /* 原学习槽前 12 字节用于 OTA 标记，其余恒零。 */
+    for (i = 0u; i < BMS_OTA_UPDATE_ID_WORDS; ++i) {
+        payload[12u + 2u * i] = (uint8_t)state->ota_update_id[i];
+        payload[13u + 2u * i] = (uint8_t)(state->ota_update_id[i] >> 8);
+    }
     bms_state_put_u32le(&payload[40], (uint32_t)state->soc_revision);
 }
 
 /* 验证版本、产品及字段范围后解码状态记录。 */
 static void bms_state_decode(bms_state_persist_t *state, const uint8_t *payload)
 {
+    unsigned i;
     state->soc = bms_state_get_u32le(&payload[0]);
     state->dsg = bms_state_get_u32le(&payload[4]);
     state->cycle = bms_state_get_u32le(&payload[8]);
     state->soc_revision = (uint16_t)bms_state_get_u32le(&payload[40]);
+    for (i = 0u; i < BMS_OTA_UPDATE_ID_WORDS; ++i)
+        state->ota_update_id[i] = (uint16_t)((uint16_t)payload[12u + 2u * i] |
+                                           ((uint16_t)payload[13u + 2u * i] << 8));
 }
 
 /* 持久状态 checkpoint；保存结果决定缓存提交，不能把 RAM 更新视为 Flash 已落盘。 */
@@ -142,7 +154,7 @@ int bms_state_store_init(void)
     }
     else { bms_state_defaults(&g_bms_state); bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS); }
     next = g_bms_state;
-    if (next.soc_revision != BMS_UPDATE_SOC_STATE_REVISION) {
+    if (bms_ota_update_selected(BMS_UPDATE_SOC_STATE) && !bms_ota_update_id_matches(next.ota_update_id)) {
         bms_state_defaults(&next);
     }
     if (next.soc > 100u || next.dsg > 100u || next.cycle > 65535u) {

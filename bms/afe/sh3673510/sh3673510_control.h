@@ -50,7 +50,7 @@ uint8_t sh3673510_control_clear_flag1(uint8_t clear_mask);
 /* 清除指定 FLAG2 保护标志并检查结果。 */
 uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask);
 /* 写入有效电芯通道的均衡掩码。 */
-uint8_t sh3673510_control_set_balance(uint16_t cell_mask);
+uint8_t sh3673510_control_set_balance(uint32_t cell_mask);
 /* 1 表示准备写入及 SLEEP 命令全部成功；这是传输证据，不是 AFE 休眠电流实测。 */
 uint8_t sh3673510_control_sleep(void);
 /* 执行 SH 唤醒并重建配置、验证状态。 */

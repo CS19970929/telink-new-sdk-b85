@@ -46,14 +46,14 @@ main_loop → app_sample_task（约 200 ms）
 
 ```text
 产品/公共默认 → Config default builder
-有效同产品内部 journal schema 3 记录 → 按类别比较更新编号
+有效同产品内部 journal schema 3 记录 → 按 BIN 选择及一次性标记更新
 候选校验 → journal commit → 发布 RAM 值
-启动任一域失败 → s_storage_startup_valid=0 → 输出资格不成立
+启动安全配置失败 → s_storage_startup_valid=0 → 输出资格不成立
 ```
 
 在线软件写入走校验和保存；AFE 写入另走授权、完整 35-word 事务、apply/readback/rollback。参见 [参数策略](OTA_PARAMETERS.md) 和 [架构](ARCHITECTURE.md)。
 
-完成标准：解释“只改 BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH / 改 BUSINESS 编号 / 在线写 0x2318”三者的范围差别，以及 BUSINESS 更新为何还影响 heater/balance。
+完成标准：解释“只改 BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH / 在 BIN 中选择 BUSINESS 更新 / 在线写 0x2318”三者的范围差别，以及 BUSINESS 更新为何还影响 heater/balance。
 
 ## 按任务继续阅读
 

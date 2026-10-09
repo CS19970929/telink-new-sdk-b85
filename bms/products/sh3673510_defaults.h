@@ -4,6 +4,21 @@
  * 运行时软件保护与 AFE 参数仍独立保存。 */
 #pragma once
 
+/* SH36735XX CV1.0A PDF 第 8 页：共用寄存器/驱动，实装型号决定通道上限。 */
+#ifndef BMS_BUILD_AFE_MODEL
+#define BMS_BUILD_AFE_MODEL 3510u
+#endif
+#if BMS_BUILD_AFE_MODEL == 3510u
+#define SH3673510_BOARD_MAX_CELL_COUNT 10u
+#elif BMS_BUILD_AFE_MODEL == 3520u
+#define SH3673510_BOARD_MAX_CELL_COUNT 20u
+#else
+#error "SH AFE model must be 3510 or 3520"
+#endif
+#if SH3673510_BOARD_CELL_COUNT < 4u || SH3673510_BOARD_CELL_COUNT > SH3673510_BOARD_MAX_CELL_COUNT
+#error "SH cell count is outside the selected AFE model range"
+#endif
+
 #ifndef BMS_BOARD_DEBUG_LED_ENABLE
 #if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
 #define BMS_BOARD_DEBUG_LED_ENABLE                   0u
@@ -131,4 +146,3 @@
 
 /* 硬件验证前保留固定 UART 低功耗门控。 */
 #define SH3673510_FIXED_UART_BLOCKS_PM 1u
-

@@ -46,7 +46,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | MCU | TLSR8251F512ET32 |
 | AFE | DVC1124-2；源码默认 `DVC1124_MODEL_22` |
 | 开发模式默认 profile | **16S LFP**；生产构建必须显式传入 `--d008-profile` |
-| 可选编译 profile | `16s-lfp` / `20s-nmc` / `24s-lfp`，生产没有隐式默认值 |
+| 可选编译 profile | `16s-lfp` / `20s-nmc` / `24s-lfp`，以及窗口的 `custom`（显式串数/类型）；生产没有隐式默认值 |
 | 原理图能力 | 图纸为 24S（C0..C24）；不能据此推定所选 16S/20S 固件对应的实际装配 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
 | DVC 地址 | `0x40` write / `0x41` read transfer address |
@@ -138,7 +138,7 @@ bms/products/d008/bms_product.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 只负责 16S LFP / 20S NMC / 24S LFP 的装配串数和 chemistry/SOC identity，不再承载 DVC fail-safe 参数。所选类型经 `bms_battery_defaults.h` 派生电压保护、均衡和 SOC 默认；运行参数仍按各持久组处理。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
+`d008_product_profile.h` 负责三个历史 profile 以及 `custom` 的串数和 chemistry/SOC identity；Ctrl+Shift+B 可独立选择串数与类型，LFP 4～24S、4.20V NMC 4～23S（DS V1.1 原 PDF 第 1 页的 100V 包压限制），不再承载 DVC fail-safe 参数。所选类型经 `bms_battery_defaults.h` 派生电压保护、均衡和 SOC 默认；运行参数仍按各持久组处理。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
 
 ### 5.2 Flash 中保留的保护参数
 

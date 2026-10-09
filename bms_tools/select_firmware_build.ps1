@@ -4,9 +4,11 @@ param(
     [string]$Target,
     [ValidateSet('production', 'development')][string]$Mode = 'production',
     [ValidateSet('lfp', 'nmc')][string]$Chemistry,
+    [ValidateSet('dvc1124', 'sh3673510', 'sh3673520')][string]$AfeModel,
+    [ValidateRange(0, 24)][int]$CellCount = 0,
     [ValidateRange(0, 6553)][int]$Capacity0p1Ah = 0,
-    [ValidateRange(0, 65535)][int]$ParametersRevision = 0,
-    [ValidateRange(0, 65535)][int]$SocStateRevision = 0,
+    [ValidateSet('sw', 'afe', 'business', 'soc', 'soc_state')][string[]]$UpdateGroups = @(),
+    [string]$UpdateId,
     [switch]$Rebuild,
     [switch]$PlanOnly,
     [switch]$BuildOnly
@@ -15,9 +17,7 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $workflow = Join-Path $PSScriptRoot 'android_ota.py'
 $targets = @(
-    @{ Id = 'd008-16s-lfp'; Name = 'D008 16S 磷酸铁锂' },
-    @{ Id = 'd008-20s-nmc'; Name = 'D008 20S 三元锂' },
-    @{ Id = 'd008-24s-lfp'; Name = 'D008 24S 磷酸铁锂' },
+    @{ Id = 'd008'; Name = 'D008' },
     @{ Id = 'd011'; Name = 'D011' },
     @{ Id = 'd013'; Name = 'D013' },
     @{ Id = 'd014'; Name = 'D014' }
@@ -33,9 +33,13 @@ function Get-TargetDefaults([string]$id) {
     }
     $capacity = [int]$Matches[1]
     if ($product -eq 'd008') {
-        if ($id -notmatch '^d008-(16|20|24)s-(lfp|nmc)$') { throw 'D008 装配无效。' }
+        $profile = Get-Content (Join-Path $repositoryRoot 'bms/products/d008/d008_product_profile.h') -Raw
+        if ($profile -notmatch '(?m)^\s*#define\s+D008_PRODUCT_PROFILE\s+D008_PRODUCT_PROFILE_(\d+)S_(LFP|NMC)') {
+            throw '无法读取 D008 默认串数与电池类型。'
+        }
         $cells = [int]$Matches[1]
-        $chemical = $Matches[2]
+        $chemical = $Matches[2].ToLowerInvariant()
+        $model = 'dvc1124'
     } else {
         if ($header -notmatch '(?m)^\s*#define\s+SH3673510_BOARD_CELL_COUNT\s+(\d+)') {
             throw "无法读取 $product 串数。"
@@ -45,12 +49,17 @@ function Get-TargetDefaults([string]$id) {
             throw "无法读取 $product 电池类型。"
         }
         $chemical = $Matches[1].ToLowerInvariant()
+        $shDefaults = Get-Content (Join-Path $repositoryRoot 'bms/products/sh3673510_defaults.h') -Raw
+        if ($shDefaults -notmatch '(?m)^\s*#define\s+BMS_BUILD_AFE_MODEL\s+(3510|3520)') {
+            throw '无法读取 SH 默认 AFE 型号。'
+        }
+        $model = 'sh367' + $Matches[1]
     }
-    return @{ Capacity0p1Ah = $capacity; Chemistry = $chemical; Cells = $cells }
+    return @{ Capacity0p1Ah = $capacity; Chemistry = $chemical; Cells = $cells; AfeModel = $model }
 }
 
 if (-not $Target) {
-    # 设置保存在用户目录；编号延续，避免下次普通编译意外回退参数版本。
+    # 只记住板级配置；参数更新选择每次默认关闭，避免无意覆盖客户参数。
     $hash = [System.Security.Cryptography.SHA256]::Create()
     try {
         $repoKey = ([BitConverter]::ToString($hash.ComputeHash(
@@ -62,29 +71,36 @@ if (-not $Target) {
         try {
             $saved = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
             if ($saved.Target -in $targets.Id) { $settings.Target = $saved.Target }
+            if ($saved.Target -match '^d008-(\d+)s-(lfp|nmc)$') {
+                $settings.Target = 'd008'
+                $oldD008 = $saved.Profiles.($saved.Target)
+                if ($null -ne $oldD008) {
+                    $oldD008 | Add-Member -NotePropertyName CellCount -NotePropertyValue ([int]$Matches[1]) -Force
+                    $saved.Profiles | Add-Member -NotePropertyName d008 -NotePropertyValue $oldD008 -Force
+                }
+            }
             if ($saved.Mode -in @('production', 'development')) { $settings.Mode = $saved.Mode }
             foreach ($entry in $targets) {
                 $item = $saved.Profiles.($entry.Id)
                 if ($null -ne $item -and $item.Chemistry -in @('lfp', 'nmc') -and
-                    $item.Capacity0p1Ah -ge 1 -and $item.Capacity0p1Ah -le 6553 -and
-                    $item.ParametersRevision -ge 0 -and $item.ParametersRevision -le 65535 -and
-                    $item.SocStateRevision -ge 0 -and $item.SocStateRevision -le 65535) {
+                    $item.Capacity0p1Ah -ge 1 -and $item.Capacity0p1Ah -le 6553) {
+                    if ($null -eq $item.CellCount) {
+                        $item | Add-Member -NotePropertyName CellCount -NotePropertyValue (Get-TargetDefaults $entry.Id).Cells
+                    }
+                    if ($null -eq $item.AfeModel) {
+                        $item | Add-Member -NotePropertyName AfeModel -NotePropertyValue (Get-TargetDefaults $entry.Id).AfeModel
+                    }
                     $settings.Profiles[$entry.Id] = $item
                 }
             }
         } catch { Write-Warning '上次窗口设置无法读取，本次使用源码默认。' }
     }
-    $policy = Get-Content (Join-Path $repositoryRoot 'bms/products/bms_parameter_policy.h') -Raw
-    $sourceRevisions = @([regex]::Matches($policy, '#define\s+BMS_UPDATE_\w+_REVISION\s+(\d+)u') |
-        ForEach-Object { [int]$_.Groups[1].Value })
-    if ($sourceRevisions.Count -eq 0) { throw '无法读取源码参数更新编号。' }
-
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'BMS 单项目配置与编译'
-    $form.ClientSize = New-Object System.Drawing.Size(590, 430)
+    $form.ClientSize = New-Object System.Drawing.Size(590, 526)
     $form.StartPosition = 'CenterScreen'
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
@@ -96,12 +112,17 @@ if (-not $Target) {
         $label.SetBounds($x, $y, $width, 28)
         $form.Controls.Add($label)
     }
-    Add-Label '产品 / 装配' 16 20 116
+    Add-Label '板型' 16 20 116
     $productList = New-Object System.Windows.Forms.ComboBox
     $productList.DropDownStyle = 'DropDownList'
-    $productList.SetBounds(136, 16, 430, 30)
+    $productList.SetBounds(136, 16, 190, 30)
     foreach ($entry in $targets) { [void]$productList.Items.Add($entry.Name) }
     $form.Controls.Add($productList)
+    Add-Label 'AFE' 350 20 58
+    $afeList = New-Object System.Windows.Forms.ComboBox
+    $afeList.DropDownStyle = 'DropDownList'
+    $afeList.SetBounds(410, 16, 156, 30)
+    $form.Controls.Add($afeList)
     Add-Label '构建模式' 16 60 116
     $modeList = New-Object System.Windows.Forms.ComboBox
     $modeList.DropDownStyle = 'DropDownList'
@@ -110,9 +131,15 @@ if (-not $Target) {
     [void]$modeList.Items.Add('生产')
     $modeList.SelectedIndex = if ($settings.Mode -eq 'production') { 1 } else { 0 }
     $form.Controls.Add($modeList)
-    $series = New-Object System.Windows.Forms.Label
-    $series.SetBounds(350, 60, 216, 28)
-    $form.Controls.Add($series)
+    Add-Label '串数' 350 60 58
+    $cellInput = New-Object System.Windows.Forms.NumericUpDown
+    $cellInput.SetBounds(410, 56, 70, 30)
+    $cellInput.Minimum = 4
+    $cellInput.Maximum = 24
+    $form.Controls.Add($cellInput)
+    $cellRange = New-Object System.Windows.Forms.Label
+    $cellRange.SetBounds(488, 60, 80, 28)
+    $form.Controls.Add($cellRange)
     Add-Label '电池类型' 16 100 116
     $chemistryList = New-Object System.Windows.Forms.ComboBox
     $chemistryList.DropDownStyle = 'DropDownList'
@@ -128,41 +155,54 @@ if (-not $Target) {
     $capacityInput.Minimum = [decimal]0.1
     $capacityInput.Maximum = [decimal]655.3
     $form.Controls.Add($capacityInput)
-    $applyDefaults = New-Object System.Windows.Forms.CheckBox
-    $applyDefaults.Text = '本次 OTA 恢复配置默认值（保护 / 容量 / 加热 / 均衡 / SOC）'
-    $applyDefaults.SetBounds(16, 180, 558, 28)
-    $form.Controls.Add($applyDefaults)
-    $resetState = New-Object System.Windows.Forms.CheckBox
-    $resetState.Text = '更换电池：重置 SOC / 循环'
-    $resetState.SetBounds(16, 212, 280, 28)
-    $form.Controls.Add($resetState)
-    Add-Label '更新编号' 322 216 90
-    $revisionInput = New-Object System.Windows.Forms.NumericUpDown
-    $revisionInput.SetBounds(414, 212, 152, 30)
-    $revisionInput.Minimum = 1
-    $revisionInput.Maximum = 65535
-    $revisionInput.Enabled = $false
-    $form.Controls.Add($revisionInput)
-    $tip = New-Object System.Windows.Forms.ToolTip
-    $tip.SetToolTip($revisionInput, '默认递增本机记录；须与设备旧编号不同。换电脑或使用其他固件时请核对。')
+    $updateBox = New-Object System.Windows.Forms.GroupBox
+    $updateBox.Text = 'OTA 后更新所选组为本次默认值（全不选则保留参数）'
+    $updateBox.SetBounds(16, 180, 558, 124)
+    $form.Controls.Add($updateBox)
+    $groupChoices = @(
+        @{ Id = 'sw'; Text = '软件保护'; X = 14; Y = 28 },
+        @{ Id = 'afe'; Text = 'AFE 硬件保护'; X = 286; Y = 28 },
+        @{ Id = 'business'; Text = '容量 / 加热 / 均衡'; X = 14; Y = 58 },
+        @{ Id = 'soc'; Text = 'SOC 配置 / 电池类型'; X = 286; Y = 58 },
+        @{ Id = 'soc_state'; Text = '更换电池：重置 SOC / 循环'; X = 14; Y = 88 }
+    )
+    $updateChecks = @{}
+    foreach ($choice in $groupChoices) {
+        $check = New-Object System.Windows.Forms.CheckBox
+        $check.Text = $choice.Text
+        $check.SetBounds($choice.X, $choice.Y, 264, 28)
+        $updateBox.Controls.Add($check)
+        $updateChecks[$choice.Id] = $check
+    }
     $note = New-Object System.Windows.Forms.Label
-    $note.Text = "电压保护、总压、均衡和 SOC 曲线自动匹配类型及串数。`r`n串数变化会恢复整套配置（含校准 / SN），升级前先备份。"
-    $note.SetBounds(16, 250, 558, 52)
+    $note.Text = "BIN 自带更新选择；无需读取客户板子编号，只执行一次。`r`n换串数或电池类型须更新四组；接线须匹配 AFE 手册。`r`n校准、SN 和事件保留；换电池可单独重置 SOC / 循环。"
+    $note.SetBounds(16, 318, 558, 74)
     $form.Controls.Add($note)
     $clean = New-Object System.Windows.Forms.CheckBox
     $clean.Text = '清理后全量重编译（默认增量编译）'
-    $clean.SetBounds(16, 306, 558, 28)
+    $clean.SetBounds(16, 400, 558, 28)
     $clean.Checked = $Rebuild.IsPresent
     $form.Controls.Add($clean)
     $autoOta = New-Object System.Windows.Forms.CheckBox
     $autoOta.Text = '生成后发送安卓并请求 OTA（取消勾选则仅生成 BIN）'
-    $autoOta.SetBounds(16, 338, 558, 28)
+    $autoOta.SetBounds(16, 432, 558, 28)
     $autoOta.Checked = -not $BuildOnly.IsPresent
     $form.Controls.Add($autoOta)
     $script:loadingInputs = $false
     $script:targetInputsValid = $false
-    $script:previousParametersRevision = 0
-    $script:previousSocStateRevision = 0
+    function Select-LinkedGroups {
+        if (-not $script:loadingInputs) {
+            foreach ($group in @('sw', 'afe', 'business', 'soc')) { $updateChecks[$group].Checked = $true }
+        }
+    }
+    function Update-CellRange {
+        if ($productList.SelectedIndex -lt 0 -or $afeList.SelectedIndex -lt 0) { return }
+        $maximum = if ($targets[$productList.SelectedIndex].Id -eq 'd008') {
+            if ($chemistryList.SelectedIndex -eq 1) { 23 } else { 24 }
+        } else { if ($afeList.SelectedIndex -eq 1) { 20 } else { 10 } }
+        $cellInput.Maximum = $maximum
+        $cellRange.Text = "4～$maximum"
+    }
     function Update-TargetInputs {
         $script:loadingInputs = $true
         $script:targetInputsValid = $false
@@ -172,52 +212,53 @@ if (-not $Target) {
             $item = $settings.Profiles[$id]
             $chemical = $defaults.Chemistry
             $capacity = $defaults.Capacity0p1Ah
-            $script:previousParametersRevision = 0
-            $script:previousSocStateRevision = 0
+            $cells = $defaults.Cells
+            $model = $defaults.AfeModel
             if ($null -ne $item) {
-                if (-not $id.StartsWith('d008-')) { $chemical = $item.Chemistry }
+                $chemical = $item.Chemistry
+                $cells = [int]$item.CellCount
+                $model = $item.AfeModel
                 $capacity = [int]$item.Capacity0p1Ah
-                $script:previousParametersRevision = [int]$item.ParametersRevision
-                $script:previousSocStateRevision = [int]$item.SocStateRevision
+            }
+            $afeList.Items.Clear()
+            if ($id -eq 'd008') {
+                [void]$afeList.Items.Add('DVC1124-2')
+                $afeList.Enabled = $false
+                $afeList.SelectedIndex = 0
+            } else {
+                [void]$afeList.Items.Add('SH3673510')
+                [void]$afeList.Items.Add('SH3673520')
+                $afeList.Enabled = $true
+                $afeList.SelectedIndex = if ($model -eq 'sh3673520') { 1 } else { 0 }
             }
             $chemistryList.SelectedIndex = if ($chemical -eq 'nmc') { 1 } else { 0 }
-            $chemistryList.Enabled = -not $id.StartsWith('d008-')
-            $series.Text = "$($defaults.Cells) 串（随装配配置）"
+            Update-CellRange
+            $cellInput.Value = $cells
             $capacityInput.Value = [decimal]$capacity / 10
-            $applyDefaults.Checked = $false
-            $resetState.Checked = $false
-            $maximumRevision = ($sourceRevisions + @($script:previousParametersRevision,
-                $script:previousSocStateRevision) | Measure-Object -Maximum).Maximum
-            $revisionInput.Value = [Math]::Min(65535, $maximumRevision + 1)
+            foreach ($check in $updateChecks.Values) { $check.Checked = $false }
             $script:targetInputsValid = $true
         } catch {
             [void][System.Windows.Forms.MessageBox]::Show("配置读取失败：$_", 'BMS')
         } finally { $script:loadingInputs = $false }
     }
+    $afeList.Add_SelectedIndexChanged({ Update-CellRange; Select-LinkedGroups })
     $productList.Add_SelectedIndexChanged({ Update-TargetInputs })
-    $chemistryList.Add_SelectedIndexChanged({ if (-not $script:loadingInputs) { $applyDefaults.Checked = $true } })
-    $capacityInput.Add_ValueChanged({ if (-not $script:loadingInputs) { $applyDefaults.Checked = $true } })
-    $applyDefaults.Add_CheckedChanged({ $revisionInput.Enabled = $applyDefaults.Checked -or $resetState.Checked })
-    $resetState.Add_CheckedChanged({ $revisionInput.Enabled = $applyDefaults.Checked -or $resetState.Checked })
+    $chemistryList.Add_SelectedIndexChanged({ Update-CellRange; Select-LinkedGroups })
+    $cellInput.Add_ValueChanged({ Select-LinkedGroups })
+    $capacityInput.Add_ValueChanged({ if (-not $script:loadingInputs) { $updateChecks['business'].Checked = $true } })
     $productList.SelectedIndex = [array]::IndexOf(@($targets.Id), $settings.Target)
     $start = New-Object System.Windows.Forms.Button
     $start.Text = '开始编译'
-    $start.SetBounds(322, 384, 116, 32)
+    $start.SetBounds(322, 480, 116, 32)
     $start.Add_Click({
         if (-not $script:targetInputsValid) { return }
-        $number = [int]$revisionInput.Value
-        if (($applyDefaults.Checked -and ($number -in $sourceRevisions -or $number -eq $script:previousParametersRevision)) -or
-            ($resetState.Checked -and ($number -in $sourceRevisions -or $number -eq $script:previousSocStateRevision))) {
-            [void][System.Windows.Forms.MessageBox]::Show('请选择与旧值不同的更新编号，不能重复使用。', 'BMS')
-            return
-        }
         $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $form.Close()
     })
     $form.Controls.Add($start)
     $cancel = New-Object System.Windows.Forms.Button
     $cancel.Text = '取消'
-    $cancel.SetBounds(450, 384, 116, 32)
+    $cancel.SetBounds(450, 480, 116, 32)
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $form.Controls.Add($cancel)
     $form.AcceptButton = $start
@@ -231,27 +272,37 @@ if (-not $Target) {
         $Mode = if ($modeList.SelectedIndex -eq 1) { 'production' } else { 'development' }
         $Chemistry = if ($chemistryList.SelectedIndex -eq 1) { 'nmc' } else { 'lfp' }
         $Capacity0p1Ah = [int]($capacityInput.Value * 10)
-        $ParametersRevision = $script:previousParametersRevision
-        $SocStateRevision = $script:previousSocStateRevision
-        if ($applyDefaults.Checked) { $ParametersRevision = [int]$revisionInput.Value }
-        if ($resetState.Checked) { $SocStateRevision = [int]$revisionInput.Value }
+        $CellCount = [int]$cellInput.Value
+        $AfeModel = if ($Target -eq 'd008') { 'dvc1124' } else {
+            if ($afeList.SelectedIndex -eq 1) { 'sh3673520' } else { 'sh3673510' }
+        }
+        $UpdateGroups = @($groupChoices | Where-Object { $updateChecks[$_.Id].Checked } | ForEach-Object { $_.Id })
         $Rebuild = [bool]$clean.Checked
         $BuildOnly = -not $autoOta.Checked
         $settings.Target = $Target
         $settings.Mode = $Mode
-        $settings.Profiles[$Target] = @{ Chemistry = $Chemistry; Capacity0p1Ah = $Capacity0p1Ah;
-            ParametersRevision = $ParametersRevision; SocStateRevision = $SocStateRevision }
-        # 写入失败则停止，避免已经烧入的新编号无法延续到下次编译。
+        $settings.Profiles[$Target] = @{ Chemistry = $Chemistry; CellCount = $CellCount; AfeModel = $AfeModel; Capacity0p1Ah = $Capacity0p1Ah }
         [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $settingsPath))
         $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $settingsPath -Encoding UTF8
-    } finally { $tip.Dispose(); $form.Dispose() }
+    } finally { $form.Dispose() }
 }
 
+if ($UpdateGroups.Count -gt 0 -and -not $UpdateId) {
+    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $bytes = New-Object byte[] 10
+        $random.GetBytes($bytes)
+        $UpdateId = '0000' + ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+        if ($UpdateId -eq ('0' * 24)) { $UpdateId = '000000000000000000000001' }
+    } finally { $random.Dispose() }
+}
 $commonArguments = @($workflow, '--target', $Target, '--mode', $Mode)
+if ($AfeModel) { $commonArguments += @('--afe-model', $AfeModel) }
 if ($Chemistry) { $commonArguments += @('--chemistry', $Chemistry) }
+if ($CellCount) { $commonArguments += @('--cell-count', "$CellCount") }
 if ($Capacity0p1Ah) { $commonArguments += @('--capacity-0p1ah', "$Capacity0p1Ah") }
-if ($ParametersRevision) { $commonArguments += @('--parameters-revision', "$ParametersRevision") }
-if ($SocStateRevision) { $commonArguments += @('--soc-state-revision', "$SocStateRevision") }
+if ($UpdateGroups.Count -gt 0) { $commonArguments += @('--update-groups') + $UpdateGroups }
+if ($UpdateId) { $commonArguments += @('--update-id', $UpdateId) }
 $buildArguments = $commonArguments + @('--build-only')
 if ($Rebuild) { $buildArguments += '--rebuild' }
 if ($PlanOnly) {

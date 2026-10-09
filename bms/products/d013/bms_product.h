@@ -17,7 +17,11 @@
 #define BMS_D013_HW_CONFIG_APPROVED 0
 
 /* D013：4S / 100 uOhm；无 balance/heater/MOS NTC，板级映射待实板确认。 */
+#ifndef BMS_BUILD_CELL_COUNT
 #define SH3673510_BOARD_CELL_COUNT               10u
+#else
+#define SH3673510_BOARD_CELL_COUNT BMS_BUILD_CELL_COUNT
+#endif
 #define SH3673510_BOARD_SHUNT_UOHM              100u
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      0u /* 待验证硬件。 */
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u /* 待验证硬件。 */

@@ -5,7 +5,7 @@
 首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
 构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
 `docs/history/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
-全局嵌入式规则继续适用；当前开发阶段按已确认产品约定拒绝旧 schema，不迁移旧开发板参数；同 schema 按产品更新编号处理。
+全局嵌入式规则继续适用；当前开发阶段拒绝更早的旧 schema。当前 schema 3 旧记录兼容读取；OTA 按 BIN 内参数组选择和一次性标记处理，详见 `docs/OTA_PARAMETERS.md`，不读取客户旧编号。
 
 ## 本机验证约定
 

@@ -32,7 +32,7 @@ def main():
     run_c(code,sources=sources,flags=[*flags,'-fpack-struct','-fshort-enums',
           '-Wno-error=address-of-packed-member'],name='semantic_stores_packed')
     with tempfile.TemporaryDirectory(prefix='d008-storage-') as d:
-        # 发布编号可任意递增，回归不能绑定当前版本 1。仍编译同一套生产实现。
+        # 历史只读编号变化不再触发恢复；仍编译同一套生产实现。
         policy = (MOD/'bms_parameter_policy.h').read_text()
         revisions = iter(range(101, 110))
         policy = re.sub(r'(#define BMS_UPDATE_\w+_REVISION)\s+\d+u',

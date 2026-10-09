@@ -16,8 +16,8 @@ storage_port → bms_storage_platform_telink → SDK Flash
 
 | 域 | 业务数据 | 内部 schema / payload | 正常写入条件 |
 |---|---|---|---|
-| Config | 软件保护、产品/容量/SOC 设置、独立 AFE requested profile、校准、SN、蓝牙后缀、六类更新编号 | 3 / 322 bytes；magic `CFG2` | 候选编码实际改变或启动需要重置 |
-| State | SOC、放电累计、循环、SOC_STATE 编号及保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
+| Config | 软件保护、产品/容量/SOC 设置、AFE requested、校准、SN、蓝牙后缀、OTA 执行标记 | 3 / 322 bytes；magic `CFG2` | 候选编码改变或选中 OTA 更新未执行 |
+| State | SOC、放电累计、循环、OTA 执行标记及旧保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
 | Event | 100 条事件环、重复计数、写位置、EVENTS 编号 | 3 / 404 bytes | dirty 且检查点到期，或入睡前提交 |
 
 每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动安全配置校验/保存失败时，输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁；State/Event 失败按文末规则降级。
@@ -84,9 +84,9 @@ Event 从 8 增至 16 个 sector。同样持续 dirty、每分钟保存一次的
 
 ## SOC 当前存储逻辑
 
-SOC 输入只由合格的新样本推进，通常约 200 ms；重复、无效或过大 gap 不虚构积分。名义容量、化学体系、OCV、死区属于 Config；实时 estimate/display 与积分余量属于 RAM；State 只消费整数 SOC 0..100、放电累计百分比 0..100、cycle 0..65535 和更新编号。
+SOC 输入只由合格的新样本推进，通常约 200 ms；重复、无效或过大 gap 不虚构积分。名义容量、化学体系、OCV、死区属于 Config；实时 estimate/display 与积分余量属于 RAM；State 保存整数 SOC 0..100、放电累计百分比 0..100、cycle 0..65535 和 OTA 执行标记。
 
-容量学习删除后，Config payload 仍为 322 bytes：原开关偏移 253/254 写零、读取忽略；State 仍为 44 bytes：0/4/8 为 SOC/放电累计/cycle，12..39 写零、读取忽略，40 为 SOC_STATE 编号（little-endian u32）。schema 3 和编号保持，已有效保存的 SOC/循环继续使用；旧学习容量不再参与满容量计算。读取和重新保存旧保留槽的回归验证了这一边界。
+容量学习删除后，Config 仍为 322 bytes，原开关偏移 253/254 写零、读取忽略。2026-10-10 OTA 选择改用一次性标记：Config 原编号槽 310..321 复用为标记；State 仍为 44 bytes，0/4/8 为 SOC/放电累计/cycle，12..23 保存本域标记，24..39 写零，40 保留历史编号。schema、记录几何和参数位置保持；兼容当前旧记录，未选中参数不因旧编号而恢复。详情见 [OTA 参数策略](OTA_PARAMETERS.md)。
 
 SOC/循环变化由主循环汇入待保存副本，检查点到期且编码改变时提交；显式设置先成功保存再修改算法值。计划休眠/断电主动提交当前 SOC、放电累计及 cycle。启动从最后有效 State 恢复这三个值，并使用名义容量与循环 SOH 重算满容量/剩余容量；积分余量、显示跟随、OCV 静置、ETA 状态重新建立。
 
@@ -108,7 +108,7 @@ D008 保存失败阻止主动断电，SH 保持低功耗优先，这是当前已
 
 ## 验证与实板边界
 
-回归覆盖编码、CRC、逐字节中断、sector 轮换、部分槽位后续利用、连续失败预算、门禁不耗预算、I/O 失败不写默认、cache-only 读取、事件合并/时间/取消、更新编号和协议。四产品实际 sources 与 TC32 ELF/MAP/resource 单独验证；不会自动生成 BIN。
+回归入口覆盖编码、CRC、逐字节中断、sector 轮换、部分槽位后续利用、连续失败预算、门禁不耗预算、I/O 失败不写默认、cache-only 读取、事件合并/时间/取消、OTA 选择和协议。本次新增用例尚未执行。四产品实际 sources 与 TC32 ELF/MAP/resource 单独验证；不会自动生成 BIN。
 
 实板仍需验证擦写过程中掉电、复位风暴、低电压写入、Flash 读回故障、最大擦写时间/watchdog/BLE 延迟，以及 ACC/AFE/MCU 进入及唤醒顺序。Host 和 ELF 不证明这些硬件行为。
 

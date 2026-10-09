@@ -56,13 +56,13 @@ _product_args = argparse.ArgumentParser(add_help=False)
 _product_args.add_argument("--product", choices=PRODUCTS, default=os.environ.get("BMS_PRODUCT", "d014"))
 _product_args.add_argument("--all-products", action="store_true")
 _product_args.add_argument("--production", action="store_true", help="enforce production policy on every translation unit")
-_product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp"))
+_product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp", "custom"))
 _selection, _cli = _product_args.parse_known_args(_cli)
 PRODUCT = _selection.product
 PRODUCTION = _selection.production
 D008_PROFILE = _selection.d008_profile
 BUILD_MODE = "production" if PRODUCTION else "development"
-PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3}
+PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3, "custom": 4}
 
 
 def _selection_args(product=None):
@@ -74,7 +74,7 @@ def _selected_build_options():
     try:
         return build_options.from_environment(os.environ, PRODUCT, D008_PROFILE)
     except ValueError as exc:
-        _die(str(exc))
+        raise SystemExit(str(exc)) from exc
 
 
 def _build_configuration():
@@ -101,7 +101,7 @@ TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve
 
 # Per-checkout, per-product build outputs stay outside the source worktree.
 BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-monorepo-build")))
-BUILD_VARIANT = BUILD_MODE + ("-" + (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else "")
+BUILD_VARIANT = build_options.variant(BUILD_MODE, PRODUCT, D008_PROFILE, _selected_build_options())
 BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / BUILD_VARIANT / PRODUCT).resolve()
 FIRMWARE_DIR = REPO_ROOT / "firmware" / BUILD_VARIANT / PRODUCT
 OBJ_DIR = BUILD_DIR / "obj"

@@ -413,7 +413,8 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
 class BuildOptionsTests(unittest.TestCase):
     def test_options_are_in_both_compiler_flags_and_configuration_receipt(self):
         options = {'chemistry': 'nmc', 'capacity_0p1ah': 120,
-                   'parameters_revision': 4, 'soc_state_revision': 5}
+                   'update_groups': ['sw', 'afe', 'business', 'soc', 'soc_state'],
+                   'update_id': '0000' + '1234' * 5}
         with mock.patch.multiple(bms, PRODUCT='d014', PRODUCTION=False), \
              mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
              mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
@@ -422,9 +423,11 @@ class BuildOptionsTests(unittest.TestCase):
             flags = bms._effective_extra_defines()
             for flag in ('-DBMS_PRODUCT_CHEMISTRY=BMS_SOC_CHEMISTRY_NMC',
                          '-DBMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=120u',
-                         '-DBMS_BUILD_PARAMETERS_REVISION=4u', '-DBMS_BUILD_SOC_STATE_REVISION=5u'):
+                         '-DBMS_OTA_UPDATE_MASK=0x004fu', '-DBMS_OTA_UPDATE_ID_0=0x0000u',
+                         '-DBMS_OTA_UPDATE_ID_5=0x1234u'):
                 self.assertIn(flag, flags)
-            for macro in bms.build_options.MACROS.values():
+            for macro in (*bms.build_options.MACROS.values(), 'BMS_OTA_UPDATE_MASK',
+                          'BMS_OTA_UPDATE_ID_5', 'BMS_BUILD_PARAMETERS_REVISION'):
                 with mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': '-D' + macro + '=2'}):
                     with self.assertRaises(SystemExit):
                         bms._effective_extra_defines()
@@ -437,16 +440,44 @@ class BuildOptionsTests(unittest.TestCase):
                 bms.build_options.normalize(options, 'd014', None)
         with self.assertRaises(ValueError):
             bms.build_options.normalize({'chemistry': 'lfp'}, 'd008', '20s-nmc')
+        for product, cells, chemistry in (('d008', 3, 'lfp'), ('d008', 25, 'lfp'),
+                                           ('d008', 24, 'nmc'), ('d011', 11, 'lfp'), ('d014', 3, 'nmc')):
+            with self.subTest(product=product, cells=cells), self.assertRaises(ValueError):
+                bms.build_options.normalize({'cell_count': cells, 'chemistry': chemistry}, product,
+                                            'custom' if product == 'd008' else None)
+
+        selected = bms.build_options.normalize({'afe_model': 'sh3673520', 'cell_count': 20, 'chemistry': 'nmc'}, 'd014', None)
+        self.assertIn('-DBMS_BUILD_AFE_MODEL=3520u', bms.build_options.defines(selected))
+        self.assertEqual(bms.build_options.variant('development', 'd014', None, selected), 'development-sh3673520-20s-nmc')
+        for product, model, cells in (('d014', 'sh3673510', 20), ('d014', 'sh3673520', 21), ('d008', 'sh3673520', 10)):
+            with self.subTest(model=model, cells=cells), self.assertRaises(ValueError):
+                bms.build_options.normalize({'afe_model': model, 'cell_count': cells, 'chemistry': 'lfp'}, product,
+                                            'custom' if product == 'd008' else None)
         for product, profile, chemistry in (('d008', '20s-nmc', 'nmc'),
                                             ('d008', '16s-lfp', 'lfp'), ('d014', None, 'nmc')):
             self.assertEqual(bms.build_options.normalize({'chemistry': chemistry, 'capacity_0p1ah': 6553,
-                'parameters_revision': 65535}, product, profile)['capacity_0p1ah'], 6553)
+                'update_groups': ['business'], 'update_id': '0000' + '1234' * 5}, product, profile)['capacity_0p1ah'], 6553)
+
+    def test_ota_selection_requires_a_generated_identifier_and_preserve_has_zero_mask(self):
+        self.assertIn('-DBMS_OTA_UPDATE_MASK=0x0000u', bms.build_options.defines({}))
+        self.assertNotIn('update_id', bms.build_options.normalize({'update_groups': []}, 'd014', None))
+        for options in ({'update_groups': ['sw']}, {'update_id': '0000' + '1234' * 5},
+                        {'update_groups': ['events'], 'update_id': '0000' + '1234' * 5},
+                        {'update_groups': ['sw', 'sw'], 'update_id': '0000' + '1234' * 5},
+                        {'update_groups': ['sw'], 'update_id': '0' * 24},
+                        {'update_groups': ['sw'], 'update_id': '1111' + '1234' * 5}):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                bms.build_options.normalize(options, 'd014', None)
+        token = bms.build_options.new_update_id()
+        self.assertEqual(len(token), 24)
+        self.assertEqual(bms.build_options.normalize({'update_groups': ['sw'], 'update_id': token}, 'd014', None)['update_id'], token)
 
 
 class AndroidOtaWorkflowTests(unittest.TestCase):
-    def create_files(self, root, target, mode='production'):
+    def create_files(self, root, target, mode='production', options=None):
         product, profile = android_ota.TARGETS[target]
-        variant = mode + ('-' + profile if profile else '')
+        options = android_ota.build_options.normalize(options or {}, product, profile)
+        variant = android_ota.build_options.variant(mode, product, profile, options)
         firmware = root / 'firmware' / variant / product / '825x_ble_sample.bin'
         firmware.parent.mkdir(parents=True)
         firmware.write_bytes(b'old-or-new-fixture')
@@ -456,6 +487,8 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 'configuration': {'product': product, 'production': mode == 'production',
                                   'build_mode': mode,
                                   'd008_profile': profile}}
+        if options:
+            data['configuration']['build_options'] = options
         manifest = firmware.with_name('fw_manifest.json')
         manifest.write_text(json.dumps(data), encoding='utf-8')
         sender = root / 'Sender.exe'
@@ -464,6 +497,8 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
 
     def test_all_six_selections_build_verify_and_send_the_matching_image(self):
         for target, (product, profile) in android_ota.TARGETS.items():
+            if target == 'd008':
+                continue  # 自定义串数/类型在独立矩阵中验证。
             with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 firmware, _, _, sender = self.create_files(root, target)
@@ -541,7 +576,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         self.assertFalse(any(task['label'] == 'BMS: 编译并发送固件到 Android' for task in tasks['tasks']))
         self.assertFalse(any(item['id'] == 'otaTarget' for item in tasks['inputs']))
         picker = (REPO_ROOT / 'bms_tools/select_firmware_build.ps1').read_text(encoding='utf-8-sig')
-        for target in android_ota.TARGETS:
+        for target in ('d008', 'd011', 'd013', 'd014'):
             self.assertIn("Id = '" + target + "'", picker)
         self.assertNotIn('CheckedListBox', picker)
         self.assertNotIn('D013 4S', picker)
@@ -549,6 +584,8 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
     def test_all_twelve_bin_configurations_use_separate_paths_and_the_selected_mode(self):
         for mode in ('production', 'development'):
             for target in android_ota.TARGETS:
+                if target == 'd008':
+                    continue
                 with self.subTest(mode=mode, target=target), tempfile.TemporaryDirectory() as tmp:
                     root = Path(tmp)
                     firmware, _, _, sender = self.create_files(root, target, mode)
@@ -599,9 +636,25 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                     android_ota.run_workflow('d014', sender, root=root, send_only=True, build_only=True)
                 run.assert_not_called()
 
+    def test_configurable_board_count_and_chemistry_are_recorded_in_matching_image(self):
+        for target, cells, chemistry in (('d008', 4, 'lfp'), ('d008', 24, 'lfp'),
+                                         ('d008', 23, 'nmc'), ('d008', 20, 'nmc'),
+                                         ('d011', 4, 'nmc'), ('d013', 7, 'lfp'), ('d014', 10, 'nmc')):
+            options = {'cell_count': cells, 'chemistry': chemistry, 'capacity_0p1ah': 120}
+            with self.subTest(target=target, cells=cells, chemistry=chemistry), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                firmware, _, _, sender = self.create_files(root, target, 'development', options)
+                with mock.patch.object(android_ota.subprocess, 'run', return_value=mock.Mock(returncode=0)) as run, mock.patch('builtins.print'):
+                    self.assertEqual(android_ota.run_workflow(target, sender, root=root, mode='development', options=options), 0)
+                    self.assertEqual(run.call_args_list[-1].args[0][2], str(firmware))
+                    self.assertIn('development-' + str(cells) + 's-' + chemistry, str(firmware))
+                    for call in run.call_args_list:
+                        self.assertEqual(json.loads(call.kwargs['env']['BMS_BUILD_OPTIONS']), options)
+
     def test_custom_options_reach_every_stage_and_must_match_the_sent_manifest(self):
-        options = {'chemistry': 'nmc', 'capacity_0p1ah': 120,
-                   'parameters_revision': 4, 'soc_state_revision': 5}
+        options = {'afe_model': 'sh3673520', 'chemistry': 'nmc', 'capacity_0p1ah': 120,
+                   'update_groups': ['sw', 'afe', 'business', 'soc', 'soc_state'],
+                   'update_id': '0000' + '1234' * 5}
         for send_only in (False, True):
             with self.subTest(send_only=send_only), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
@@ -613,14 +666,17 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                     for call in run.call_args_list:
                         self.assertEqual(json.loads(call.kwargs['env']['BMS_BUILD_OPTIONS']), options)
                     for key, value in options.items():
-                        wrong = dict(options, **{key: 'lfp' if key == 'chemistry' else value + 1})
+                        wrong_value = {'afe_model': 'sh3673510', 'chemistry': 'lfp', 'capacity_0p1ah': 121,
+                                       'update_groups': ['sw'], 'update_id': '0000' + 'abcd' * 5}[key]
+                        wrong = dict(options, **{key: wrong_value})
                         run.reset_mock()
                         with self.assertRaises(ValueError):
                             android_ota.run_workflow('d014', sender, root=root, options=wrong, send_only=True)
                         self.assertEqual(run.call_count, 1)  # 只验证，不能调用 Sender。
 
     def test_invalid_options_fail_before_any_build_or_send(self):
-        for options in ({'chemistry': 'nmc'}, {'capacity_0p1ah': 6554},
+        for options in ({'chemistry': 'nmc'}, {'cell_count': 3, 'chemistry': 'lfp'},
+                        {'cell_count': 24, 'chemistry': 'nmc'}, {'capacity_0p1ah': 6554},
                         {'parameters_revision': 0}, {'soc_state_revision': True}, {'unknown': 1}):
             with self.subTest(options=options), mock.patch.object(android_ota.subprocess, 'run') as run:
                 with self.assertRaises(ValueError):
@@ -636,7 +692,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 source = '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); '
                 source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); '
                 source += '$global:LASTEXITCODE = ' + str(code) + ' }; '
-                source += "& '" + str(script).replace("'", "''") + "' -Target d014 -Mode development -Chemistry nmc -Capacity0p1Ah 120 -ParametersRevision 4 -SocStateRevision 5"
+                source += "& '" + str(script).replace("'", "''") + "' -Target d014 -Mode development -Chemistry nmc -CellCount 6 -Capacity0p1Ah 120 -UpdateGroups sw,afe,business,soc,soc_state -UpdateId 000012341234123412341234"
                 result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
                                         capture_output=True, encoding='utf-8', timeout=15)
                 self.assertEqual(result.returncode, code, result.stderr)
@@ -644,7 +700,9 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 self.assertEqual(len(calls), expected_calls)
                 self.assertEqual(calls[0][-1], '--build-only')
                 self.assertEqual(calls[0][1:-1], ['--target', 'd014', '--mode', 'development',
-                    '--chemistry', 'nmc', '--capacity-0p1ah', '120', '--parameters-revision', '4', '--soc-state-revision', '5'])
+                    '--chemistry', 'nmc', '--cell-count', '6', '--capacity-0p1ah', '120',
+                    '--update-groups', 'sw', 'afe', 'business', 'soc', 'soc_state',
+                    '--update-id', '000012341234123412341234'])
                 if code == 0:
                     self.assertEqual(calls[1], calls[0][:-1] + ['--send-only'])
 
@@ -665,7 +723,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
     def test_picker_plans_each_single_target_without_building_or_sending(self):
         script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
         for mode in ('production', 'development'):
-            for target in android_ota.TARGETS:
+            for target in ('d008', 'd011', 'd013', 'd014'):
                 with self.subTest(mode=mode, target=target):
                     result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
                         '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); & ' +

@@ -464,10 +464,10 @@ uint8_t sh3673510_control_clear_flag2(uint8_t clear_mask)
 }
 
 /* 写入有效电芯通道的均衡掩码。 */
-uint8_t sh3673510_control_set_balance(uint16_t cell_mask)
+uint8_t sh3673510_control_set_balance(uint32_t cell_mask)
 {
     if (!s_control_ready) return 0u;
-    return (SH3673520_SetBalanceMask((uint32_t)(cell_mask & 0x03FFu),
+    return (SH3673520_SetBalanceMask(cell_mask,
                                      SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
 }
 

@@ -75,7 +75,7 @@ try {
 | 产品/板级 | `tooling_contract_check.py`、对应 integration/profile/board checks |
 | 软件保护 | `core_contract_check.py`、`sw_temperature_groups_host_check.py` |
 | AFE 参数/恢复 | `afe_hw_*`、所选后端 recovery/sleep tests |
-| 参数/存储/更新编号 | `storage_host_check.py`（四产品公共存储）、`flash_quick_check.py`、Modbus 检查 |
+| 参数/存储/OTA 分组更新 | `storage_host_check.py`（四产品公共存储）、`flash_quick_check.py`、Modbus 检查 |
 | SOC | `core_contract_check.py`、`soc_scenarios_host_check.py`、对应方向/open-wire tests |
 | 日志/协议 | `diagnostics_host_check.py`、`modbus_host_check.py` |
 
@@ -131,7 +131,7 @@ python bms_tools/bms.py --product d008 --production --d008-profile 16s-lfp relea
 python bms_tools/bms.py --product d014 --production release --jobs 4
 ```
 
-只交付 canonical `.bin`，不把 `.raw.bin` 当 OTA 镜像。归档完整 SHA、产品/profile、工具版本、参数更新编号、BIN hash、manifest、ELF/MAP/resources 与测试日志；另按 [硬件验收](HARDWARE_VALIDATION.md) 关闭实板项目。`flash-help` 只提供说明，生成镜像不等于烧录或 OTA 成功。
+只交付 canonical `.bin`，不把 `.raw.bin` 当 OTA 镜像。归档完整 SHA、产品/profile、工具版本、更新组及执行标识、BIN hash、manifest、ELF/MAP/resources 与测试日志；另按 [硬件验收](HARDWARE_VALIDATION.md) 关闭实板项目。`flash-help` 只提供说明，生成镜像不等于烧录或 OTA 成功。
 
 ### 一次生成多个产品
 
@@ -147,34 +147,37 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 
 ## 6. Ctrl+Shift+B 单项目配置与编译
 
+范围依据：DVC1124-2 DS V1.1 原 PDF 第 1 页支持 4～24 串且电池包不超过 100V，故 4.20V NMC 上限为 23 串；SH36735XX CV1.0A 原 PDF 第 8 页规定 SH3673510 为 4～10 串、SH3673520 为 4～20 串，连续使用 VC1..VCN，未使用输入不得悬空。入口见 [AFE 资料指南](AFE_REFERENCE_GUIDE.md)。
+
 打开仓库根目录或 `bms.code-workspace`，按 **Ctrl+Shift+B**，进入默认任务 **BMS: 选择配置编译并发送 OTA**。常用配置全部在一个窗口内完成，不需要输入命令；已移除批量勾选和重复的单型号 OTA 入口。
 
 | 窗口项目 | 使用方式 |
 |---|---|
-| 产品 / 装配 | D008 16S LFP、20S NMC、24S LFP，以及 D011、D013、D014，单次选择一个 |
+| 板型 | D008、D011、D013、D014，单次选择一个；D008 固定 DVC1124-2；SH 板型可选择 3510 或 3520 |
+| AFE 型号 | SH 板型独立选择 SH3673510 / SH3673520，复用同一套寄存器驱动；必须与实装芯片相符 |
 | 构建模式 | 开发 / 生产；生产仍须满足干净提交、产品批准和资源门禁 |
-| 串数 | 只读，D008 随装配选择；D011 / D013 / D014 从源码读取，当前为 10 / 10 / 8 串 |
-| 电池类型 | D008 随装配固定；SH 产品可选磷酸铁锂或 4.20 V 三元锂，串数不随类型变化 |
+| 串数 | 可编辑：D008 LFP 为 4～24 串，NMC 为 4～23 串；SH3673510 为 4～10 串、SH3673520 为 4～20 串 |
+| 电池类型 | 四产品均可选磷酸铁锂或 4.20 V 三元锂；D008 切到 NMC 时串数上限自动降至 23 |
 | 默认容量 | Ah，步进 0.1 Ah；未改时读取产品头文件，后续记住本机选择 |
-| 本次 OTA 恢复配置默认值 | 更新 SW、AFE、BUSINESS、SOC 四组编号，恢复保护、容量、加热、均衡及 SOC 配置；不重置校准、身份、事件 |
-| 更换电池：重置 SOC / 循环 | 单独更新 SOC_STATE 编号；SOC 恢复源码初始估计，同时重置循环，不代表真实电量已校准 |
-| 更新编号 | 勾选恢复/重置后可编辑；自动给出高于源码默认与该装配本机记录的下一值，两个选项共用一个新编号 |
+| OTA 后更新所选组 | 软件保护、AFE 硬件保护、容量/加热/均衡、SOC 配置四个勾选；全不选保留，勾选组恢复本次固件默认 |
+| 更换电池：重置 SOC / 循环 | 单独选择 SOC_STATE；恢复源码初始 SOC、放电累计和循环，不代表真实电量已校准 |
+| 更新标识 | 工具自动生成并编入 BIN；界面无需编号，不读取客户旧编号 |
 | 清理后全量重编译 | 默认不勾选，使用增量编译 |
 | 生成后发送安卓并请求 OTA | 取消勾选时只生成并校验 BIN，无需手机；勾选时编译成功后发送当前镜像并请求 OTA |
 
-修改电池类型或容量时自动勾选恢复配置默认值，可手动取消。取消只改变镜像的编译默认，已有同串数设备仍按编号保留旧参数。均衡起始电压、单体/总压保护和 SOC 曲线自动关联类型；总压按有效串数计算，不逐项增加输入框。D013 的均衡能力仍关闭。详见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md)。
+修改 AFE、串数或电池类型时自动选择四组 Config；修改容量时只选择业务组，可手动调整。全不选时健康同拓扑设备保留参数，不依据旧编号覆盖。均衡、单体/总压和 SOC 曲线自动关联类型，总压按有效串数计算。SH 均衡入口使用 32 位掩码，支持第 11～20 串；D013 均衡能力仍关闭。详见 [配置指南](CONFIGURATION_AND_BUILD_GUIDE.md) 和 [OTA 参数策略](OTA_PARAMETERS.md)。
 
-**串数变化会触发现有整套 Config 恢复，包括校准、SN 和蓝牙名称等；升级前先备份。** 不同装配对应不同硬件条件，菜单不增加任意串数组合，也不修改产品批准值。
+**更换串数或持久电池类型时必须选齐四组 Config，否则固件保持启动输出禁止；校准、SN 和事件保留。** 可选范围以实装 AFE 型号为准，3510 不因共享驱动而支持 20 串。串数须匹配接线，未使用采样输入按手册处理；D014 原 8S 板改为 9～20S 的接线未确认。菜单不修改生产批准值。
 
-本机设置写在 `%LOCALAPPDATA%/BmsBuildMenu/<repoHash>.json`，不写源码目录。按装配记住类型、容量和已选更新编号；下次普通编译延续这些编号，恢复/重置勾选本身默认关闭，避免再次主动递增。编号在点击开始时保存，即使本次构建失败也不会自动回退。相同编号保留设备值，不同编号恢复默认；换电脑、删除设置、使用其他固件或回刷旧固件时，必须核对设备原编号。本机递增不能替代设备回读；65535 不自动回绕。
+本机设置写在 `%LOCALAPPDATA%/BmsBuildMenu/<repoHash>.json`，按板型只记住 AFE、串数、类型和容量。每次打开更新勾选默认关闭，旧设置中的编号不再使用；换电脑不影响更新判断。每次明确选择更新并编译产生新随机标识，重复交付同一个 BIN 保持原标识。当前每域记录最后一次执行标识，回刷其他更新包可能重新恢复该包选中的参数；详见 OTA 参数策略。
 
-点击“开始编译”依次执行 build/rebuild、manifest、verify。电池类型、容量和更新编号同时写入编译输入收据与 manifest；发送前再次核对模式、产品、装配、编译参数、路径、BIN 大小及 SHA-256。构建或校验失败立即停止，不发送旧 BIN。发送复用同一份配置，仅重新验证，不重复编译。输出沿用 `firmware/<mode-profile>/<product>/`；同一目录不得同时启动其他构建任务。
+点击“开始编译”依次执行 build/rebuild、manifest、verify。AFE、串数、类型、容量、更新范围和一次性标识写入输入收据与 manifest；发送前核对配置、路径、BIN 大小及 SHA-256。失败停止，不发送旧 BIN；发送阶段复用同一标识，仅重新验证。输出为 `firmware/<mode>-<afe型号>-<串数>s-<lfp或nmc>/<product>/`，旧命令未覆盖串数时保留原目录；同一目录不并发构建。
 
 Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/android-direct-sender-v3/BmsTool.Android.Sender.exe`，其他电脑可通过环境变量 `BMS_ANDROID_SENDER` 指向原 Sender。手机沿用原无线调试授权及连接条件；安卓 App 需连接明确的目标 BMS。流程核对镜像身份，没有新增设备型号读回检查；Sender 成功代表发送及 OTA 请求完成，最终升级结果以 App 为准。
 
-当前 D008 20S NMC 和 SH 产品仍受原生产批准门限制；菜单不自动提交、不批准、不降级为开发模式。已有源码脏修改也会阻止生产构建。镜像及 manifest 不提交 Git。
+D008 窗口使用独立的 `custom` 编译 profile，旧三个 profile 保留兼容。现有 D008 16/24S LFP 生产签核范围保持；20S NMC 仍需要原专项批准，其余新组合仅开放开发构建，生产需另行源码签核。SH 产品仍受原生产批准门限制；菜单不自动提交、不批准、不降级为开发模式。已有源码脏修改也会阻止生产构建。镜像及 manifest 不提交 Git。
 
-快捷键目标名称保持不变，仓库提供 [快捷键示例](../.vscode/keybindings.example.json)。若界面仍是旧版，执行 `Developer: Reload Window`，或从 `Tasks: Run Task` 选择 **BMS: 选择配置编译并发送 OTA**；需要时在 `Tasks: Configure Default Build Task` 设为默认。此入口需要 Windows PowerShell 5.1 / WinForms 和原 TC32 / Python 环境。本次仅源码审查及差异检查，未运行窗口、测试、固件编译或 OTA。
+快捷键目标名称保持不变，仓库提供 [快捷键示例](../.vscode/keybindings.example.json)。若界面仍是旧版，关闭旧窗口并重新按快捷键，必要时执行 `Developer: Reload Window`。此入口需要 Windows PowerShell 5.1 / WinForms 和原 TC32 / Python 环境。2026-10-10 本次参数组窗口未运行；此前旧窗口启动/控件读取不作为本版本验证。本次未执行 host、固件编译、镜像生成或 OTA。
 
 ## 7. 常见失败
 
