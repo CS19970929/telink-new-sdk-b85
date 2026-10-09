@@ -151,7 +151,7 @@ def check_common_feature_policy_contract_check():
     assert "BMS_HEATER_START_TEMP_X10" in config_c and "BMS_HEATER_STOP_TEMP_X10" in config_c
     assert "#define BMS_BALANCE_START_DELTA_MV_DEFAULT 50u" in features_h
     assert "#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u" in features_h
-    assert "openwire_fault_latched" in features_c and "openwire_suspected" in features_c
+    assert "openwire_latched_mask" in features_c and "openwire_suspected" in features_c
     assert "balance_voltage_trusted" in features_c and "balance_sample_plausible" in features_c
     assert "cell_delta_first_mv" not in features_c
     assert "bms_board_heater_set" in board_h and "bms_board_charge_source_present" in board_h

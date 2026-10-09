@@ -30,7 +30,6 @@ typedef struct {
 
     uint8_t openwire_active;
     uint8_t openwire_sample_active;
-    uint8_t openwire_fault_latched;
     uint8_t openwire_suspected;
     uint8_t openwire_cell_count;
     uint16_t openwire_idle_samples;
@@ -49,7 +48,7 @@ typedef struct {
     uint32_t openwire_attempts;
     uint32_t openwire_completed;
     uint32_t openwire_failed;
-    uint32_t openwire_latched_mask;
+    uint32_t openwire_latched_mask; /* 非零即已确认故障；只由完整结果更新，不另存布尔锁存。 */
 
     uint8_t balance_active;
     uint16_t balance_trust_samples;
@@ -198,7 +197,7 @@ static uint8_t heater_hard_fault(void)
      * 深度放电包可能需预热后才能安全充电。
      */
     return (!bms_protection_params_valid() ||
-            s_feature.openwire_fault_latched ||
+            (s_feature.openwire_latched_mask != 0u) ||
             bms_error_get(BMS_ERROR_AFE1) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK) ||
             bms_error_get(BMS_ERROR_DSG_SHORT) ||
@@ -399,7 +398,7 @@ static void publish_openwire(void)
     w[0] = 0x4F57u; w[1] = 1u; w[2] = BMS_AFE_BACKEND;
     w[3] = s_feature.openwire_state;
     w[4] = (uint16_t)(s_feature.openwire_active | (s_feature.openwire_suspected << 1) |
-        (s_feature.openwire_fault_latched << 2) | (s_feature.openwire_cleanup_pending << 3) |
+        ((s_feature.openwire_latched_mask != 0u) << 2) | (s_feature.openwire_cleanup_pending << 3) |
         (s_feature.openwire_result.valid << 4) | (s_feature.openwire_result.determinate << 5));
     w[5] = s_feature.openwire_last_error;
     openwire_put32(w+6, s_feature.openwire_sequence);
@@ -435,7 +434,6 @@ static void finish_openwire(uint8_t error)
 {
     uint32_t now = bms_diag_tick();
     if (error == BMS_OW_ERR_NONE && s_feature.openwire_result.open_cell_mask != 0u) {
-        s_feature.openwire_fault_latched = 1u;
         s_feature.openwire_latched_mask = s_feature.openwire_result.open_cell_mask;
     }
     s_feature.openwire_active = 0u;
@@ -458,12 +456,11 @@ static void finish_openwire(uint8_t error)
     } else {
         ++s_feature.openwire_completed;
         s_feature.openwire_last_error = BMS_OW_ERR_NONE;
-        s_feature.openwire_fault_latched = s_feature.openwire_result.open_cell_mask ? 1u : 0u;
         s_feature.openwire_latched_mask = s_feature.openwire_result.open_cell_mask;
-        s_feature.openwire_suspected = s_feature.openwire_fault_latched;
-        s_feature.openwire_state = s_feature.openwire_fault_latched ? BMS_OW_FAULT : BMS_OW_HEALTHY;
-        if (!s_feature.openwire_fault_latched) s_feature.openwire_healthy_tick = now;
-        s_feature.openwire_wait_ms = s_feature.openwire_fault_latched ? BMS_OPENWIRE_RETRY_MS : BMS_OPENWIRE_PERIOD_MS;
+        s_feature.openwire_suspected = (s_feature.openwire_latched_mask != 0u);
+        s_feature.openwire_state = (s_feature.openwire_latched_mask != 0u) ? BMS_OW_FAULT : BMS_OW_HEALTHY;
+        if (s_feature.openwire_latched_mask == 0u) s_feature.openwire_healthy_tick = now;
+        s_feature.openwire_wait_ms = (s_feature.openwire_latched_mask != 0u) ? BMS_OPENWIRE_RETRY_MS : BMS_OPENWIRE_PERIOD_MS;
     }
     ++s_feature.openwire_sequence;
 }
@@ -592,7 +589,7 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    if (s_feature.openwire_suspected || s_feature.openwire_fault_latched)
+    if (s_feature.openwire_suspected || (s_feature.openwire_latched_mask != 0u))
     {
         s_feature.balance_trust_samples = 0u;
         return;
@@ -675,7 +672,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
                         bms_board_balance_supported() &&
                         balance_voltage_trusted() &&
                         !s_feature.openwire_active &&
-                        !s_feature.openwire_fault_latched &&
+                        (s_feature.openwire_latched_mask == 0u) &&
                         !s_feature.openwire_suspected &&
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
                         s_feature.charge_session_active &&
@@ -733,7 +730,7 @@ void bms_features_init(void)
     s_feature.openwire_sample_active = 0u;
     s_feature.openwire_cleanup_pending = 0u;
     s_feature.openwire_idle_samples = 0u;
-    s_feature.openwire_state = s_feature.openwire_fault_latched ? BMS_OW_FAULT : BMS_OW_WAIT;
+    s_feature.openwire_state = (s_feature.openwire_latched_mask != 0u) ? BMS_OW_FAULT : BMS_OW_WAIT;
     ++s_feature.openwire_sequence;
     s_feature.openwire_wait_tick = bms_diag_tick();
     s_feature.openwire_wait_ms = BMS_OPENWIRE_FIRST_IDLE_MS;
@@ -834,7 +831,7 @@ uint8_t bms_features_outputs_blocked(void)
 {
     return (!bms_protection_params_valid() ||
             s_feature.openwire_cleanup_pending ||
-            s_feature.openwire_fault_latched) ? 1u : 0u;
+            (s_feature.openwire_latched_mask != 0u)) ? 1u : 0u;
 }
 
 /* 查询充电方向相关的公共功能阻断。 */
@@ -849,7 +846,7 @@ uint32_t bms_features_diag_reasons(uint8_t charge)
 {
     uint32_t reason = 0u;
     if (s_feature.openwire_cleanup_pending) reason |= DIAG_BLOCK_COMM;
-    if (s_feature.openwire_fault_latched)
+    if (s_feature.openwire_latched_mask != 0u)
         reason |= DIAG_BLOCK_OPENWIRE;
     if (charge && bms_features_charge_direction_blocked())
         reason |= DIAG_BLOCK_HEATER;

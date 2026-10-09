@@ -115,11 +115,21 @@ int main(void)
     step(101);assert(feature_status().openwire_active && !bms_features_outputs_blocked());
     step(15);assert(diagnostic[5]==BMS_OW_ERR_TIMEOUT);
     reset();g_bms_report.charge_current_a10=0;step(101);
-    ow_result.valid=1;ow_result.determinate=1;ow_result.open_cell_mask=1;ow_state=BMS_AFE_DIAG_READY;
+    ow_result.valid=1;ow_result.determinate=1;ow_result.open_cell_mask=2;ow_state=BMS_AFE_DIAG_READY;
     step(1);assert(!feature_status().openwire_active && feature_status().openwire_sample_active);
     assert(bms_features_outputs_blocked());
     assert(bms_features_diag_reasons(1)&DIAG_BLOCK_OPENWIRE);
+    assert((diagnostic[4]&4u) && diagnostic[22]==2u); /* 布尔位不能把原掩码直接左移。 */
     bms_features_init();assert(bms_features_outputs_blocked()); /* AFE 重初始化不能解除真实故障。 */
+    for(unsigned i=0;i<110u && !feature_status().openwire_active;i++)step(1);
+    assert(feature_status().openwire_active);
+    ow_result.open_cell_mask=0;stop_ok=0;step(1);
+    assert(bms_features_outputs_blocked() && (diagnostic[4]&4u) && diagnostic[22]==2u);
+    stop_ok=1;
+    for(unsigned i=0;i<110u && !feature_status().openwire_active;i++)step(1);
+    assert(feature_status().openwire_active);
+    step(1); /* 完整健康结果加退出成功，才解除原掩码。 */
+    assert(!bms_features_outputs_blocked() && !(diagnostic[4]&4u) && diagnostic[22]==0u);
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
            (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;
