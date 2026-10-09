@@ -269,7 +269,6 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
     g_soc_config = *config;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
-    soc_reset_ocv_tracking();
     if (g_soc_initialized) {
         soc_recalc_full_capacity();
         soc_recalc_now_capacity();
@@ -320,12 +319,6 @@ static void soc_profile_refresh(void)
         g_soc_profile = next;
         soc_reset_ocv_tracking();
     }
-}
-
-/* 加载持久化 SOC 配置并检查产品适配。 */
-static void soc_load_persisted_product_config(void)
-{
-    (void)bms_config_store_get_soc(&g_soc_config);
 }
 
 /* 取得 SOC 运行诊断快照。 */
@@ -1370,33 +1363,25 @@ static void soc_strategy_update(void)
         BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_NORMAL;
     soc_update_discharge_sag_hold();
 
-    if (soc_apply_full_anchor()) { soc_eta_update(); return; }
-    if (soc_apply_forced_empty_anchor()) { soc_eta_update(); return; }
-
-    if (soc_apply_discharge_terminal_tracking()) { soc_eta_update(); return; }
-    if (soc_apply_idle_empty_anchor()) { soc_eta_update(); return; }
-    (void)soc_idle_ocv_tracking();
+    /* 顺序即优先级；每个策略仍执行自己的资格维护，命中后不执行低优先级校正。 */
+    if (!soc_apply_full_anchor() &&
+        !soc_apply_forced_empty_anchor() &&
+        !soc_apply_discharge_terminal_tracking() &&
+        !soc_apply_idle_empty_anchor())
+        (void)soc_idle_ocv_tracking();
     soc_eta_update();
-}
-
-/* 设置计算 SOC 并处理外部状态变更。 */
-static void set_calsoc(uint8_t soc)
-{
-    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
-    soc_recalc_full_capacity();
-    soc_recalc_now_capacity();
 }
 
 /* 更新 SOC 参数与相关容量状态。 */
 void set_soc_param(uint8_t soc, uint8_t sync_display)
 {
     uint8_t before = get_soc_real();
-    set_calsoc(soc);
+    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
+    soc_recalc_full_capacity();
+    soc_recalc_now_capacity();
     soc_invalidate_sample_interval();
     soc_reset_integral_accumulator();
-    soc_reset_ocv_tracking();
     if (sync_display) set_dispsoc(get_soc_real());
-    soc_recalc_now_capacity();
     soc_diag_note_action(BMS_SOC_ACTION_PARAMETER_SET, before,
                          soc_limit_percent_u32(soc), sync_display);
 }
@@ -1407,7 +1392,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     bms_state_store_data_t defaults;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
     soc_invalidate_sample_interval();
-    soc_load_persisted_product_config();
+    (void)bms_config_store_get_soc(&g_soc_config);
     soc_profile_refresh();
 
     if (soc == 0) {
@@ -1422,9 +1407,6 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     soc_recalc_now_capacity();
     set_dispsoc(get_soc_real());
     soc_reset_integral_accumulator();
-    soc_reset_ocv_tracking();
-    soc_eta_reset();
-    g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
     soc_diag_note_action(BMS_SOC_ACTION_STATE_RESTORE,
                          g_bms_soc.soc_estimate_percent,
                          g_bms_soc.soc_estimate_percent, 0u);
@@ -1575,7 +1557,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
 /* 名义容量变更后重算容量并重建积分与显示状态。 */
 void bms_soc_nominal_capacity_changed(void)
 {
-    soc_recalc_full_capacity();
     set_soc_param(get_soc_real(), 1u);
     SOC_Result_Pass();
 }
