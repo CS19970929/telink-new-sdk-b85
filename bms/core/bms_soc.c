@@ -1621,6 +1621,7 @@ static const int32_t s_board_currents_ma[] = {
 static uint16_t s_board_words[SOC_BOARD_CASE_COUNT][20];
 static bms_soc_state_t s_board_saved_soc;
 static uint32_t s_board_started_tick;
+static uint32_t s_board_suspend_count, s_board_suspend_start;
 static uint8_t s_board_started, s_board_case, s_board_saved_display;
 
 static void board_put32(uint16_t *words, uint32_t value)
@@ -1636,6 +1637,11 @@ static uint32_t board_get32(const uint16_t *words)
 uint8_t bms_soc_board_test_active(void)
 {
     return s_board_started && s_board_case < SOC_BOARD_CASE_COUNT;
+}
+
+void bms_soc_board_test_suspend_exits(uint32_t count)
+{
+    s_board_suspend_count=count;
 }
 
 uint8_t bms_soc_board_test_keep_awake(void)
@@ -1672,6 +1678,7 @@ void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_t
     record=s_board_words[s_board_case];
     if (new_case) {
         s_board_started_tick=observation_tick_32k;
+        s_board_suspend_start=s_board_suspend_count;
         set_soc_param(50u,1u);
         record[0]=bms_soc_board_test_keep_awake() ? 2u : 0u;
         board_put32(&record[2],(uint32_t)s_board_currents_ma[s_board_case]);
@@ -1701,8 +1708,7 @@ void bms_soc_board_test_note(void)
     }
     if (state==BMS_SOC_SAMPLE_DUPLICATE) ++record[14];
     if (state==BMS_SOC_SAMPLE_INVALID) ++record[15];
-    if (g_soc_runtime.last_sample_elapsed_32k > board_get32(&record[18]))
-        board_put32(&record[18],g_soc_runtime.last_sample_elapsed_32k);
+    board_put32(&record[18],s_board_suspend_count-s_board_suspend_start);
 }
 
 uint16_t bms_soc_board_test_word(uint16_t offset)

@@ -114,6 +114,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample);
 #if BMS_SOC_BOARD_TEST_ENABLE
 void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_tick_32k);
 void bms_soc_board_test_note(void);
+void bms_soc_board_test_suspend_exits(uint32_t count);
 uint8_t bms_soc_board_test_active(void);
 uint8_t bms_soc_board_test_keep_awake(void);
 uint16_t bms_soc_board_test_word(uint16_t offset);

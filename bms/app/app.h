@@ -40,7 +40,7 @@ extern int device_in_connection_state;
 extern u32 advertise_begin_tick;
 extern u32 latest_user_event_tick;
 extern u8 sendTerminate_before_enterDeep;
-#if BMS_DEBUG_LOG_ENABLE
+#if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
 u32 app_ble_suspend_exit_count(void);
 #endif
 /* SDK 正常初始化完成后的业务启动。 */

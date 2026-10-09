@@ -51,7 +51,7 @@ static void ble_build_adv_scanrsp(void);
 #define APP_CONN_LATENCY_NORMAL 99
 #define APP_CONN_LATENCY_OTA 0
 
-#if BMS_DEBUG_LOG_ENABLE
+#if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
 static volatile u32 s_debug_suspend_exits;
 u32 app_ble_suspend_exit_count(void) { return s_debug_suspend_exits; }
 #endif
@@ -259,7 +259,7 @@ static void task_connect(u8 e, u8 *p, int n)
 /* 恢复 suspend 后的外设与应用时序状态。 */
 static void task_suspend_exit(u8 e, u8 *p, int n)
 {
-#if BMS_DEBUG_LOG_ENABLE
+#if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
     ++s_debug_suspend_exits; /* 此处不写环形缓存、不读 tick、不格式化、不执行 I/O。 */
 #endif
 	(void)e;
