@@ -150,6 +150,7 @@ int main(void){
  bms_diag_init();
  bms_diag_boot_word(14u,0x3510u);
  bms_diag_afe_failure(DIAG_AFE_FAIL_CADC_AGE,0,0x101u,32u,12801u,64u,22u,44u);
+ bms_diag_afe_failure(DIAG_AFE_FAIL_FET_WRITE,-4,0u,32u,12801u,64u,23u,45u);
  bms_diag_mos(3u,0u,0u); bms_diag_command(3u,1u); bms_diag_driver(3u,1u);
  bms_diag_runtime_sample(1u,-123,-123,tick,0u); bms_diag_mos_capture();
  n=request(q,1,3,BMS_DIAG_MOS_BASE,48u);

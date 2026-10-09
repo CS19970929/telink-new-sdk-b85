@@ -228,6 +228,8 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
     uint32_t crc_errors, uint32_t retries)
 {
 #if BMS_DIAG_TRACE_ENABLE
+    /* 同一主循环中采样失败后关命令也可能失败；先保留首因，不能被补救失败覆盖。 */
+    if (get32(s_afe_failure_latest+2) != get32(s_afe_failure_live+2)) return;
     put32(s_afe_failure_latest+2, get32(s_afe_failure_latest+2)+1u);
     put32(s_afe_failure_latest+4, bms_diag_tick());
     s_afe_failure_latest[6] = stage;
