@@ -67,6 +67,8 @@ static u8 s_sleep_report_reason;
 #define APP_AFE_ERROR_SLEEP_SECONDS (30u * 60u)
 typedef struct {
     u32 low_voltage_seconds;
+    u32 normal_voltage_seconds;
+    u8 normal_voltage_active;
     u32 afe_error_seconds;
     u32 elapsed_ms;
     u32 delay_ms;
@@ -235,6 +237,9 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
     if (valid) {
         region = 0u;
         limit = 0u;
+        s_protective_sleep.normal_voltage_active =
+            g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
+            m.current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
         if (g_bms_report.cell_min_mv < 2550u) {
             region = 1u; limit = 3600u;
         } else if (g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV) {
@@ -244,17 +249,14 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
             region = 3u; limit = BMS_SLEEP_NORMAL_SECONDS;
         }
     }
-    /*
-     * 无新鲜样本是“未知”，不是低压已恢复。保留最后确认的低压区并按墙钟继续，
-     * 避免 ADC 转换等待反复延后保护性深睡；持续失效仍有独立的 AFE 30 分钟计时。
-     * 只有有效采样确认解除或切换延时才清零；跨 2550 mV 的两个一小时区不清零。
-     */
-    if (!region || !s_protective_sleep.region ||
-        ((region == 3u) != (s_protective_sleep.region == 3u)))
-        s_protective_sleep.low_voltage_seconds = 0u;
+    /* 两个电压条件分别累计；跨2800mV只结束一小时条件，不丢24小时资格。
+     * 无新鲜数据保持最后确认的条件；有效恢复或可靠充电才解除相应计时。 */
     s_protective_sleep.region = region;
-    s_protective_sleep.low_voltage_seconds = region ?
+    s_protective_sleep.low_voltage_seconds = (region == 1u || region == 2u) ?
         app_pm_elapsed_limit(s_protective_sleep.low_voltage_seconds, elapsed_sec, limit) : 0u;
+    s_protective_sleep.normal_voltage_seconds = s_protective_sleep.normal_voltage_active ?
+        app_pm_elapsed_limit(s_protective_sleep.normal_voltage_seconds, elapsed_sec,
+                             BMS_SLEEP_NORMAL_SECONDS) : 0u;
     s_protective_sleep.afe_error_seconds = (!valid || bms_error_get(BMS_ERROR_AFE1)) ?
         app_pm_elapsed_limit(s_protective_sleep.afe_error_seconds, elapsed_sec,
                              APP_AFE_ERROR_SLEEP_SECONDS) : 0u;
@@ -262,9 +264,16 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
                                          DIAG_SLEEP_REASON_NONE;
     s_protective_sleep.elapsed_ms = s_protective_sleep.low_voltage_seconds * 1000u;
     s_protective_sleep.delay_ms = limit * 1000u;
+    if (s_protective_sleep.normal_voltage_active &&
+        (region == 3u || BMS_SLEEP_NORMAL_SECONDS - s_protective_sleep.normal_voltage_seconds <=
+                         limit - s_protective_sleep.low_voltage_seconds)) {
+        s_protective_sleep.reason = (u8)(DIAG_SLEEP_REASON_VERY_LOW + 2u);
+        s_protective_sleep.elapsed_ms = s_protective_sleep.normal_voltage_seconds * 1000u;
+        s_protective_sleep.delay_ms = BMS_SLEEP_NORMAL_SECONDS * 1000u;
+    }
     if (s_protective_sleep.afe_error_seconds &&
-        (!region || APP_AFE_ERROR_SLEEP_SECONDS - s_protective_sleep.afe_error_seconds <=
-                    limit - s_protective_sleep.low_voltage_seconds)) {
+        (!region || (APP_AFE_ERROR_SLEEP_SECONDS - s_protective_sleep.afe_error_seconds) * 1000u <=
+                    s_protective_sleep.delay_ms - s_protective_sleep.elapsed_ms)) {
         s_protective_sleep.reason = DIAG_SLEEP_REASON_AFE;
         s_protective_sleep.elapsed_ms = s_protective_sleep.afe_error_seconds * 1000u;
         s_protective_sleep.delay_ms = APP_AFE_ERROR_SLEEP_SECONDS * 1000u;

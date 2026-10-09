@@ -116,6 +116,13 @@ int main(void) {
         assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock)));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
     }
+    /* 始终低于3000mV，跨2800mV不得丢掉24小时资格；低压一小时仍需连续。 */
+    reset();
+    for (unsigned step=1;step<=48u;++step) {
+        g_bms_report.cell_min_mv=(step&1u)?2799u:2801u;
+        assert(app_protective_sleep_poll(1800u)==(step==48u));
+    }
+    assert(reason==DIAG_SLEEP_REASON_VERY_LOW + 2u);
     reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-15999u,16000u,1u}; now=0u;
     assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_32k);
     ctx.last_tick_32k=1u;ctx.pending_tick_32k=31999u;now=0u;

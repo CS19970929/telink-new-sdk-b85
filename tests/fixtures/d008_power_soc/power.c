@@ -167,9 +167,9 @@ static void test_low_voltage_sample_wait(void){
  assert(s_protective_sleep.region==3&&!s_protective_sleep.low_voltage_seconds);
  /* 小电流偏移处于 SOC 不可靠区，不能冒充可靠充电取消 24 小时计时。 */
  measurement.current_ma=-90;elapsed=5;app_power_process(&s_sample_due);
- assert(s_protective_sleep.region==3&&s_protective_sleep.low_voltage_seconds==5u);
+ assert(s_protective_sleep.region==3&&s_protective_sleep.normal_voltage_seconds==105u);
  measurement.current_ma=-200;app_power_process(&s_sample_due);
- assert(s_protective_sleep.low_voltage_seconds==10u);
+ assert(s_protective_sleep.normal_voltage_seconds==110u);
  measurement.current_ma=-201;elapsed=0;app_power_process(&s_sample_due);
  assert(!s_protective_sleep.region&&!s_protective_sleep.low_voltage_seconds);
  puts("PASS low-voltage timer: repeated ADC waits cannot postpone one-hour expiry; only valid recovery cancels; reliable charge threshold");
