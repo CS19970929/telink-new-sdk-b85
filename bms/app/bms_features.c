@@ -239,7 +239,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     bms_user_params_t config;
     uint8_t demand;
 
-    if ((s == 0) || !s->valid || !bms_board_heater_supported() || !bms_board_heater_allowed())
+    if ((s == 0) || !s->valid || !bms_board_heater_supported())
     {
         heater_idle();
         return;

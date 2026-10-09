@@ -8,7 +8,6 @@
 #include "drivers.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
-#include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
@@ -79,8 +78,6 @@ void bms_board_heater_fuse_fire(void)
 
 /* 查询产品是否具有有效电芯均衡通道。 */
 uint8_t bms_board_balance_supported(void) { return 1u; }
-/* 查询板级硬件能力是否允许公共加热策略。 */
-uint8_t bms_board_heater_allowed(void) { return 1u; }
 #else
 /* 初始化当前产品支持的板级功能 GPIO。 */
 void bms_board_features_init(void)
@@ -113,13 +110,6 @@ uint8_t bms_board_heater_supported(void)
 uint8_t bms_board_balance_supported(void)
 {
     return SH3673510_PRODUCT_BALANCE_SUPPORTED ? 1u : 0u;
-}
-
-/* 查询板级硬件能力是否允许公共加热策略。 */
-uint8_t bms_board_heater_allowed(void)
-{
-    /* 板级加热允许条件仅由物理加热能力决定。 */
-    return SH3673510_PRODUCT_HEATER_SUPPORTED ? 1u : 0u;
 }
 
 /* 仅在产品支持时设置物理加热输出。 */

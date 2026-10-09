@@ -16,8 +16,6 @@
 void bms_board_features_init(void);
 /* 查询产品是否具有有效电芯均衡通道。 */
 uint8_t bms_board_balance_supported(void);
-/* 查询板级硬件能力是否允许公共加热策略。 */
-uint8_t bms_board_heater_allowed(void);
 /* 按产品已验证硬件输入查询充电源存在状态。 */
 uint8_t bms_board_charge_source_present(void);
 /* 查询当前产品是否有已支持的物理加热输出。 */

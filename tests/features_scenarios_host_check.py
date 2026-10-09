@@ -10,7 +10,7 @@ code += '\n#include "bms_features.h"\n#include "bms_board.h"\n#include "bms_erro
 code += re.search(r'typedef struct\s*\{.*?\} bms_user_params_t;', read('bms/core/bms_config_store.h'), re.S).group()
 board = selected_source('bms/platform/telink/bms_board.c', product)
 for signature in ('uint8_t bms_board_balance_supported(', 'uint8_t bms_board_heater_supported(',
-                  'uint8_t bms_board_heater_allowed(', 'uint8_t bms_board_heater_fuse_supported(',
+                  'uint8_t bms_board_heater_fuse_supported(',
                   'uint16_t bms_board_heater_off_fault_temp_x10(', 'uint16_t bms_board_heater_off_fault_confirm_ms(',
                   'uint8_t bms_board_charge_source_present('):
     code += '\n' + function(board, signature)

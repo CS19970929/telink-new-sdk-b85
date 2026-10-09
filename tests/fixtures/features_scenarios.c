@@ -78,7 +78,7 @@ int main(void)
     /* 总线未知时保留最后读回，不能用软件请求 OFF 冒充硬件 OFF。 */
     assert(g_bms_report.balance_bits_low==(bms_board_balance_supported()?1u:0u));
     reset();snapshot.battery_temp_min_x10=399;step(1);
-    if(bms_board_heater_supported() && bms_board_heater_allowed()){
+    if(bms_board_heater_supported()){
         assert(feature_status().heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
         step(3);assert(!heater);g_bms_report.charge_current_a10=0;step(1);assert(heater);
         snapshot.battery_temp_min_x10=449;step(1);assert(heater);

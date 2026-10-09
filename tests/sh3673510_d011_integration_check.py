@@ -172,12 +172,12 @@ require(app, "bls_pm_setAppWakeupLowPower(")
 require(app, "static void app_sample_task(void)")
 require(app, "valid = bms_afe_get_aux_measurements(&m);")
 require(app, "valid ? m.sample_tick_32k : pm_get_32k_tick()")
-assert literal(cfg, "BMS_BOARD_DEBUG_LED_ENABLE") == 1  # 当前开发默认；生产预处理必须显式关闭。
+# LED 分支由 production_policy_check 的真实预处理检查；不能用首个文本宏推断有效值。
 main = text("main.c")
 require(main, "#if BMS_BOARD_DEBUG_LED_ENABLE")
 if "hello World!!!" in app or "test_task_tick" in app:
     raise AssertionError("D011 production scheduler still contains demo sampling path")
-require(board, "bms_board_heater_allowed")
+require(board, "bms_board_heater_supported")
 require(board, "bms_board_balance_supported")
 require(cfg, "#define SH3673510_PRODUCT_HEATER_SUPPORTED       1u")
 require(cfg, "#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u")

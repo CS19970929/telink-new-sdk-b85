@@ -155,8 +155,8 @@ def check_common_feature_policy_contract_check():
     assert "balance_voltage_trusted" in features_c and "balance_sample_plausible" in features_c
     assert "cell_delta_first_mv" not in features_c
     assert "bms_board_heater_set" in board_h and "bms_board_charge_source_present" in board_h
-    assert "bms_board_heater_allowed" in board_h and "bms_board_balance_supported" in board_h
-    assert "bms_board_heater_allowed()" in features_c and "bms_board_balance_supported()" in features_c
+    assert "bms_board_heater_supported" in board_h and "bms_board_balance_supported" in board_h
+    assert "bms_board_heater_supported()" in features_c and "bms_board_balance_supported()" in features_c
     assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c
     assert "service_openwire" in features_c and "bms_afe_openwire_start" in features_c and "bms_afe_openwire_poll" in features_c
     charge_block=guard_c.index("bms_features_outputs_blocked"); fet_write=guard_c.index("AFE_FETS",charge_block)
@@ -216,7 +216,7 @@ def check_common_feature_policy_contract_check():
     for token in (
         "SH3673520_SCONF3_OWD_EN_MASK","SH3673520_SCONF3_OWD_TRG_MASK",
         "SH3673520_REG_FLAG3","SH3673520_REG_OWDH","0x000AAAAA","0x00055555",
-        "SH_FEATURE_BALANCE_REFRESH_SAMPLES 100u","sh_read_balance_mask"
+        "SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u)","sh_read_balance_mask"
     ): assert token in sh, token
     for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",
                   "sample_release_evidence", "sh3673510_backend_get_charge_source_present"):
