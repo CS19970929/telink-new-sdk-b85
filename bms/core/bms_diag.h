@@ -60,7 +60,7 @@ enum {
     DIAG_AFE_FAIL_FET_WRITE=17, DIAG_AFE_FAIL_FLAG_CLEAR_HOLD=18,
     DIAG_AFE_FAIL_SLEEP=19, DIAG_AFE_FAIL_OUTPUT_DISABLE=20
 };
-/* 仅复制故障现场，无额外 AFE I/O；flag2 bit8 表示本次读取有效。 */
+/* 仅复制故障现场，无额外 AFE I/O；flag2 bit8=读取有效，bit9=IDLE，bit10=SLEEP。 */
 void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
     uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
     uint32_t crc_errors, uint32_t retries);

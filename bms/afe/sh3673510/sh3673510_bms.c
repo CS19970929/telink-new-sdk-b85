@@ -640,7 +640,10 @@ static uint8_t publish_measurements(void)
      * 但不能把旧值标为新样本。
      */
     if (!sh3673510_control_read_status(&status)) return sample_failed(DIAG_AFE_FAIL_STATUS);
-    s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2);
+    /* 同时保留本次模式，避免把 IDLE 的4秒 CADC 周期误分析为 normal 的250ms。 */
+    s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2 |
+        ((uint16_t)(status.bstatus2 & (SH3673520_BSTATUS2_IDLE_MASK |
+                                     SH3673520_BSTATUS2_SLEEP_MASK)) << 5));
     if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CELL_READ);
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_PACK_READ);
     if (SH3673520_ReadCurrent(&current) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_READ);

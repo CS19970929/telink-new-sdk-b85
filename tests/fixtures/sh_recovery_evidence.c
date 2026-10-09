@@ -175,11 +175,14 @@ int main(void) {
     for(unsigned f=1;f<=8;++f) {
         /* Re-establish the public healthy state before each independent fault. */
         fail_stage=0;sample();sample();
+        device.bstatus2=SH3673520_BSTATUS2_IDLE_MASK;
         fail_stage=f;sample();
         const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
             DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
             DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
         assert(failure_step==expected[f]);
+        if(f>2u) assert(failure_flag2 & 0x200u);
+        device.bstatus2=0u;
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
         assert(!sh3673510_backend_get_feature_snapshot(&snap));
