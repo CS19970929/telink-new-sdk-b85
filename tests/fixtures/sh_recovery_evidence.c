@@ -22,6 +22,13 @@ bms_report_t g_bms_report;
 volatile bms_system_status_t g_bms_system_status;
 static uint8_t errors[BMS_ERROR_COUNT];
 static uint32_t now;
+static uint16_t failure_step, failure_flag2;
+static uint32_t failure_vadc_age, failure_cadc_age;
+void bms_diag_afe_failure(uint16_t stage,int16_t error,uint16_t flag2,
+    uint32_t vadc,uint32_t cadc,uint32_t elapsed,uint32_t crc,uint32_t retries) {
+    (void)error;(void)elapsed;(void)crc;(void)retries;
+    failure_step=stage;failure_flag2=flag2;failure_vadc_age=vadc;failure_cadc_age=cadc;
+}
 /* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
 void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }
 static sh3673510_control_status_t device;
@@ -169,6 +176,10 @@ int main(void) {
         /* Re-establish the public healthy state before each independent fault. */
         fail_stage=0;sample();sample();
         fail_stage=f;sample();
+        const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
+            DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
+            DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
+        assert(failure_step==expected[f]);
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
         assert(!sh3673510_backend_get_feature_snapshot(&snap));
@@ -176,6 +187,7 @@ int main(void) {
     fail_stage=0;
     for(unsigned c=0;c<SH3673510_BOARD_CELL_COUNT;++c)for(unsigned v=0;v<2;++v) {
         bad_cell=(int)c;bad_cell_mv=v?65536:-1;sample();
+        assert(failure_step==DIAG_AFE_FAIL_CELL_RANGE);
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     }
@@ -280,6 +292,8 @@ int main(void) {
     sample();assert(bms_afe_get_aux_measurements(&aux) && aux.sample_tick_32k==stamp);
     sample();assert(bms_afe_samples_qualified());
     sample();assert(!bms_afe_samples_qualified() && command_c==0 && command_d==0);
+    assert(failure_step==DIAG_AFE_FAIL_CADC_AGE && failure_cadc_age==19200u);
+    assert(failure_vadc_age==0u && failure_flag2==(0x100u|SH3673520_FLAG2_VADC_MASK));
     sample();assert(!bms_afe_bus_access_allowed());
     /* No status/clear/detection I/O during the watchdog silence window. */
     unsigned before=clear_calls;

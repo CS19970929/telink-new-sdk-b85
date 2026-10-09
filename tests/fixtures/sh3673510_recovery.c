@@ -2,10 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "sh3673520_reg.h"
+#include "bms_diag.h"
 
 typedef struct { uint32_t unused; } bms_afe_aux_measurements_t;
 typedef struct { uint8_t flag1, flag2, bstatus1, bstatus2; } sh3673510_control_status_t;
-typedef struct { uint8_t last_error; } sh3673520_comm_stats_t;
+typedef struct { uint8_t last_error; uint32_t crc_error_count, retry_count; } sh3673520_comm_stats_t;
 enum { BMS_ERROR_SPI, BMS_ERROR_AFE1, BMS_ERROR_DSG_SHORT, BMS_ERROR_CBC_DSG };
 enum { SH3673520_ERR_SPI, SH3673520_ERR_TIMEOUT, SH3673520_ERR_CRC, SH3673520_ERR_PROTOCOL };
 static struct { struct { uint8_t afe1_status, charge_mos_status, discharge_mos_status; } bits; } g_bms_system_status;
@@ -18,7 +19,11 @@ static uint8_t clear_ok, write_ok, init_ok, actual_c, actual_d;
 static uint8_t bms_error_get(unsigned e) { return errors[e]; }
 static void bms_error_raise(unsigned e) { errors[e] = 1; }
 static void bms_error_clear(unsigned e) { errors[e] = 0; }
-static void SH3673520_GetCommStats(sh3673520_comm_stats_t *s) { s->last_error = SH3673520_ERR_CRC; }
+static void SH3673520_GetCommStats(sh3673520_comm_stats_t *s) { memset(s,0,sizeof(*s)); s->last_error = SH3673520_ERR_CRC; }
+void bms_diag_afe_failure(uint16_t a,int16_t b,uint16_t c,uint32_t d,uint32_t e,uint32_t f,uint32_t g,uint32_t h) {
+    (void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;
+}
+void bms_diag_mos_raw_status(uint16_t raw) { (void)raw; }
 static uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 static uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 static void bms_sw_protection_reset_current_recovery(void) {}
@@ -103,7 +108,7 @@ static void short_recovery(void) {
         reset();
         for (i = 0; i < gap; ++i) sample(1, 1);
         unsigned before = clears;
-        note_comm_error();
+        note_comm_error(DIAG_AFE_FAIL_STATUS);
         CHECK(s_short_latched && !s_short_clear_pending && s_short_release_count == 0);
         for (i = 0; i < 9; ++i) sample(0, 1);
         CHECK(s_short_latched && clears == before);
@@ -120,7 +125,7 @@ static void recovery_continuity(void) {
     reset();
     for (id = 0; id < HW_REC_COUNT; ++id)
         for (i = 0; i < 9; ++i) CHECK(!hw_recovery_stable((sh3510_hw_recovery_id_t)id, 1, 200));
-    note_comm_error();
+    note_comm_error(DIAG_AFE_FAIL_STATUS);
     for (id = 0; id < HW_REC_COUNT; ++id)
         CHECK(!hw_recovery_stable((sh3510_hw_recovery_id_t)id, 1, 200));
     s_short_release_count = 9; s_short_clear_pending = 1; s_short_latched = 1;

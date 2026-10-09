@@ -20,6 +20,9 @@ static uint16_t s_mos_history[BMS_DIAG_MOS_RECORD_COUNT][BMS_DIAG_MOS_RECORD_WOR
 static uint32_t s_mos_sequence, s_mos_overwritten, s_mos_boot_tick;
 static uint16_t s_mos_count;
 static uint16_t s_mos_raw_status;
+static uint16_t s_afe_failure_latest[BMS_DIAG_AFE_FAILURE_WORDS];
+static uint16_t s_afe_failure_live[BMS_DIAG_AFE_FAILURE_WORDS];
+static uint16_t s_afe_failure_history[BMS_DIAG_MOS_RECORD_COUNT][BMS_DIAG_AFE_FAILURE_WORDS];
 #endif
 static uint32_t s_sequence;
 static uint8_t s_frozen;
@@ -97,6 +100,9 @@ void bms_diag_init(void)
     memset(s_mos_history, 0, sizeof(s_mos_history));
     s_mos_sequence = 0u; s_mos_overwritten = 0u; s_mos_count = 0u;
     s_mos_raw_status = 0u;
+    memset(s_afe_failure_latest, 0, sizeof(s_afe_failure_latest));
+    memset(s_afe_failure_live, 0, sizeof(s_afe_failure_live));
+    memset(s_afe_failure_history, 0, sizeof(s_afe_failure_history));
     s_mos_boot_tick = bms_diag_tick();
 #endif
     s_sequence = 0u; s_frozen = 0u;
@@ -217,6 +223,27 @@ void bms_diag_mos_raw_status(uint16_t raw_status)
  * 主循环在后端发布完请求/命令/状态/原因后记录。测量值只作带采样时间的背景，
  * 不因电流或 tick 变化填满 ring；无效状态是 UNKNOWN，绝非已确认关断。
  */
+void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
+    uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
+    uint32_t crc_errors, uint32_t retries)
+{
+#if BMS_DIAG_TRACE_ENABLE
+    put32(s_afe_failure_latest+2, get32(s_afe_failure_latest+2)+1u);
+    put32(s_afe_failure_latest+4, bms_diag_tick());
+    s_afe_failure_latest[6] = stage;
+    s_afe_failure_latest[7] = (uint16_t)io_error;
+    s_afe_failure_latest[8] = flag2;
+    s_afe_failure_latest[9] = (uint16_t)(vadc_age_32k > 65535u ? 65535u : vadc_age_32k);
+    s_afe_failure_latest[10] = (uint16_t)(cadc_age_32k > 65535u ? 65535u : cadc_age_32k);
+    s_afe_failure_latest[11] = (uint16_t)(sample_elapsed_32k > 65535u ? 65535u : sample_elapsed_32k);
+    put32(s_afe_failure_latest+12, crc_errors);
+    put32(s_afe_failure_latest+14, retries);
+#else
+    (void)stage; (void)io_error; (void)flag2; (void)vadc_age_32k;
+    (void)cadc_age_32k; (void)sample_elapsed_32k; (void)crc_errors; (void)retries;
+#endif
+}
+
 void bms_diag_mos_capture(void)
 {
 #if BMS_DIAG_TRACE_ENABLE
@@ -241,6 +268,7 @@ void bms_diag_mos_capture(void)
     }
     now[31] = s_words[14] == 0x3510u ? s_mos_raw_status : s_words[132];
     if (s_words[14] == 0x3510u && ((now[31] ^ s_mos_live[31]) & 0x37u)) dirty = 1u;
+    if (get32(s_afe_failure_latest+2) != get32(s_afe_failure_live+2)) dirty = 1u;
     if (!dirty) return;
     put32(now, ++s_mos_sequence); put32(now+2, bms_diag_tick());
     put32(now+20, get32(s_words+196)); put32(now+22, get32(s_words+198));
@@ -250,6 +278,10 @@ void bms_diag_mos_capture(void)
     now[30] = s_mos_count != 0u;
     memcpy(s_mos_history[(s_mos_sequence-1u) % BMS_DIAG_MOS_RECORD_COUNT], now, sizeof(now));
     memcpy(s_mos_live, now, sizeof(now));
+    put32(s_afe_failure_latest, s_mos_sequence);
+    memcpy(s_afe_failure_live, s_afe_failure_latest, sizeof(s_afe_failure_live));
+    memcpy(s_afe_failure_history[(s_mos_sequence-1u) % BMS_DIAG_MOS_RECORD_COUNT],
+           s_afe_failure_latest, sizeof(s_afe_failure_latest));
     if (s_mos_count < BMS_DIAG_MOS_RECORD_COUNT) ++s_mos_count;
     else if (s_mos_overwritten != 0xFFFFFFFFu) ++s_mos_overwritten;
 #endif
@@ -432,7 +464,8 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
     return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
         (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
         (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
-        (start < BMS_DIAG_OPENWIRE_END && end > BMS_DIAG_OPENWIRE_BASE));
+        (start < BMS_DIAG_OPENWIRE_END && end > BMS_DIAG_OPENWIRE_BASE) ||
+        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
 }
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
@@ -440,6 +473,34 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
+    if (bytes && count && count <= 125u && start >= BMS_DIAG_AFE_FAILURE_BASE && end <= BMS_DIAG_AFE_FAILURE_END) {
+        for (i = 0u; i < count; ++i) {
+            uint16_t offset = (uint16_t)(start - BMS_DIAG_AFE_FAILURE_BASE + i), word = 0u;
+            if (offset == 0u) word = 0x4146u;
+            else if (offset == 1u) word = 1u;
+            else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE && s_words[14] == 0x3510u;
+            else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
+            else if (offset == 4u) word = BMS_DIAG_AFE_FAILURE_WORDS;
+            else if (offset == 10u) word = (uint16_t)BMS_DIAG_BUILD_ID;
+            else if (offset == 11u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+            else if (offset == 14u) word = s_words[14];
+            else if (offset == 15u) word = 32u; /* SDK 时间单位：32 tick/ms。 */
+#if BMS_DIAG_TRACE_ENABLE
+            else if (offset == 5u) word = s_mos_count;
+            else if (offset == 6u) word = (uint16_t)s_mos_sequence;
+            else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
+            else if (offset == 8u) word = (uint16_t)s_mos_boot_tick;
+            else if (offset == 9u) word = (uint16_t)(s_mos_boot_tick >> 16);
+            else if (offset >= 16u && offset < 32u) word = s_afe_failure_live[offset-16u];
+            else if (offset >= 32u) {
+                offset = (uint16_t)(offset-32u);
+                word = s_afe_failure_history[offset / BMS_DIAG_AFE_FAILURE_WORDS][offset % BMS_DIAG_AFE_FAILURE_WORDS];
+            }
+#endif
+            bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
+        }
+        return 1;
+    }
     if (bytes && count && count <= BMS_DIAG_OPENWIRE_WORDS &&
         start >= BMS_DIAG_OPENWIRE_BASE && end <= BMS_DIAG_OPENWIRE_END) {
         put32(&s_openwire_words[44], tick);

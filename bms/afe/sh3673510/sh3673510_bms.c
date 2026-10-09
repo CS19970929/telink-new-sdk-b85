@@ -93,6 +93,10 @@ static uint8_t s_temperature_started;
 static uint32_t s_sampling_start_tick;
 static uint32_t s_vadc_tick;
 static uint32_t s_cadc_tick;
+/* 本次采样现场；失败时先复制，再清除恢复资格。协议读取不消费 FLAG2。 */
+static uint32_t s_sample_attempt_tick;
+static uint16_t s_sample_attempt_flag2;
+static uint16_t s_sample_failure_stage;
 
 
 /* 复位转换时间与完成标志，要求重新采集有效 AFE 样本。 */
@@ -143,9 +147,17 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
 }
 
 /* 累计通信失败并更新 AFE 错误状态。 */
-static void note_comm_error(void)
+static void note_comm_error(uint16_t stage)
 {
     sh3673520_comm_stats_t stats;
+    uint32_t now = pm_get_32k_tick();
+
+    SH3673520_GetCommStats(&stats);
+    bms_diag_afe_failure(stage, (int16_t)stats.last_error,
+        stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
+        (uint32_t)(now-s_vadc_tick), (uint32_t)(now-s_cadc_tick),
+        stage < DIAG_AFE_FAIL_INIT ? (uint32_t)(now-s_sample_attempt_tick) : 0u,
+        stats.crc_error_count, stats.retry_count);
 
     bms_sw_protection_reset_current_recovery();
     s_snapshot_valid = 0u;
@@ -158,7 +170,6 @@ static void note_comm_error(void)
     s_short_release_count = 0u;
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
     s_fet_command_valid = 0u;
-    SH3673520_GetCommStats(&stats);
     if (stats.last_error == SH3673520_ERR_SPI ||
         stats.last_error == SH3673520_ERR_TIMEOUT ||
         stats.last_error == SH3673520_ERR_CRC ||
@@ -261,7 +272,7 @@ static uint8_t sh3510_apply_requested_fets(void)
 
     if (!sh3673510_control_set_fets(charge_on, discharge_on))
     {
-        note_comm_error();
+        note_comm_error(DIAG_AFE_FAIL_FET_WRITE);
         s_fet_command_valid = 0u;
         return 0u;
     }
@@ -599,6 +610,12 @@ static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
 }
 
 /* 完整读取后按 ADC 完成标志发布；状态位每次读取，未完成转换不推进测量时间。 */
+static uint8_t sample_failed(uint16_t stage)
+{
+    s_sample_failure_stage = stage;
+    return 0u;
+}
+
 static uint8_t publish_measurements(void)
 {
     int32_t cell[SH3673510_BOARD_CELL_COUNT];
@@ -616,33 +633,36 @@ static uint8_t publish_measurements(void)
 
     bms_features_get_status(&features);
 
-    if (!sh3673510_control_wake()) return 0u;
+    if (!sh3673510_control_wake()) return sample_failed(DIAG_AFE_FAIL_WAKE);
     if (s_sampling_restart) restart_sampling();
     /*
      * 先读取读清除就绪标志，再读相应数据。后续转换可能替换寄存器，
      * 但不能把旧值标为新样本。
      */
-    if (!sh3673510_control_read_status(&status)) return 0u;
-    if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return 0u;
-    if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return 0u;
-    if (SH3673520_ReadCurrent(&current) != SH3673520_OK) return 0u;
-    if (SH3673520_ReadTemperatures(&temp) != SH3673520_OK) return 0u;
+    if (!sh3673510_control_read_status(&status)) return sample_failed(DIAG_AFE_FAIL_STATUS);
+    s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2);
+    if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CELL_READ);
+    if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_PACK_READ);
+    if (SH3673520_ReadCurrent(&current) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_READ);
+    if (SH3673520_ReadTemperatures(&temp) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_TEMP_READ);
     if (SH3673520_CurrentRawToMilliAmp(current.cadc_raw,
-        SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return 0u;
+        SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_CONVERT);
 
     /* 修改共享报告前先拒绝整个无效帧。 */
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
-        if (cell[i] < 0L || cell[i] > 65535L) return 0u;
+        if (cell[i] < 0L || cell[i] > 65535L) return sample_failed(DIAG_AFE_FAIL_CELL_RANGE);
     now = pm_get_32k_tick();
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_tick = now; }
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_tick = now; }
-    if ((uint32_t)(now - s_vadc_tick) > SH3510_ADC_MAX_AGE_32K ||
-        (uint32_t)(now - s_cadc_tick) > SH3510_ADC_MAX_AGE_32K) return 0u;
+    if ((uint32_t)(now - s_vadc_tick) > SH3510_ADC_MAX_AGE_32K)
+        return sample_failed(DIAG_AFE_FAIL_VADC_AGE);
+    if ((uint32_t)(now - s_cadc_tick) > SH3510_ADC_MAX_AGE_32K)
+        return sample_failed(DIAG_AFE_FAIL_CADC_AGE);
     s_sample_pending = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) !=
                        (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
     publish_hw_status(&status);
     if (s_afe_reconfigure_required) return 1u;
-    if (!sample_release_evidence(&status)) return 0u;
+    if (!sample_release_evidence(&status)) return sample_failed(DIAG_AFE_FAIL_RELEASE_READ);
     if ((uint32_t)(now - s_sampling_start_tick) >= SH3510_TEMP_STARTUP_32K)
         s_temperature_started = 1u;
     if (!s_vadc_seen || !s_cadc_seen || !s_temperature_started ||
@@ -781,8 +801,8 @@ static uint8_t publish_measurements(void)
             s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
         if (!s_charger_removed && !(status.bstatus2 & SH3673520_BSTATUS2_DSGING_MASK))
             s_hw_recovery_count[HW_REC_OCC] = 0u;
-        if (!service_short_recovery(&status)) return 0u;
-        if (!s_sample_pending && !service_hw_flag_recovery(&status)) return 0u;
+        if (!service_short_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);
+        if (!s_sample_pending && !service_hw_flag_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);
 #endif
         bms_sw_protection_record_fault_edges();
     }
@@ -823,7 +843,7 @@ void sh3673510_bms_afe_init(void)
     s_flag_clear_failed = 0u;
     sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
-    if (!sh3673510_control_init()) { note_comm_error(); return; }
+    if (!sh3673510_control_init()) { note_comm_error(DIAG_AFE_FAIL_INIT); return; }
     restart_sampling();
     note_comm_ok();
 }
@@ -832,17 +852,20 @@ void sh3673510_bms_afe_init(void)
 void sh3673510_bms_afe_sample(void)
 {
     s_sample_pending = 0u;
+    s_sample_attempt_tick = pm_get_32k_tick();
+    s_sample_attempt_flag2 = 0u;
+    s_sample_failure_stage = DIAG_AFE_FAIL_NONE;
     sh3673510_board_force_heater_fuse_safe();
-    if (s_flag_clear_failed) { note_comm_error(); return; }
+    if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return; }
     if (!publish_measurements()) {
         /* 公共 bms_afe_guard 管理关闭请求、WDT 静默和有界重初始化。 */
         s_snapshot_valid = 0u;
-        note_comm_error();
+        note_comm_error(s_sample_failure_stage);
         return;
     }
 
     if (s_afe_reconfigure_required) {
-        if (!service_afe_reconfiguration()) note_comm_error();
+        if (!service_afe_reconfiguration()) note_comm_error(DIAG_AFE_FAIL_RECONFIGURE);
         return; /* 下一周期必须使用配置完成后的新测量。 */
     }
 
@@ -860,7 +883,7 @@ uint8_t sh3673510_bms_afe_sample_pending(void)
 uint8_t sh3673510_bms_afe_apply_protection_config(void)
 {
     if (!sh3673510_control_ready()) return 0u;
-    if (!sh3673510_control_apply_protection()) { note_comm_error(); return 0u; }
+    if (!sh3673510_control_apply_protection()) { note_comm_error(DIAG_AFE_FAIL_PROFILE); return 0u; }
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
     return 1u;
 }
@@ -882,7 +905,7 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
         s_fet_command_valid = 0u;
         if (sh3673510_control_ready()) {
             (void)sh3673510_control_set_balance(0u);
-            if (!sh3673510_control_set_fets(0u, 0u)) note_comm_error();
+            if (!sh3673510_control_set_fets(0u, 0u)) note_comm_error(DIAG_AFE_FAIL_OUTPUT_DISABLE);
         }
     } else if (s_snapshot_valid) {
         (void)sh3510_apply_requested_fets();
@@ -1010,7 +1033,7 @@ uint8_t sh3673510_bms_afe_sleep(void)
     s_load_removed = s_charger_removed = s_charger_known = 0u;
     s_sampling_restart = 1u;
     if (!sh3673510_control_sleep()) {
-        note_comm_error();
+        note_comm_error(DIAG_AFE_FAIL_SLEEP);
         return 0u;
     }
     return 1u;
