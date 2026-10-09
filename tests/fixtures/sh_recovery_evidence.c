@@ -96,7 +96,7 @@ uint8_t sh3673510_control_wake(void) { return read_ok(); }
 uint8_t sh3673510_control_sleep(void) { return 1; }
 uint8_t sh3673510_control_apply_protection(void) { return 1; }
 uint8_t sh3673510_control_set_fets(uint8_t c, uint8_t d) { command_c=c; command_d=d; return 1; }
-uint8_t sh3673510_control_set_balance(uint16_t mask) { (void)mask; return 1; }
+uint8_t sh3673510_control_set_balance(uint32_t mask) { (void)mask; return 1; }
 void sh3673510_board_set_heater(uint8_t on) { (void)on; }
 void sh3673510_board_force_heater_fuse_safe(void) {}
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *s) { *s=device; return read_ok(); }
