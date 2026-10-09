@@ -130,3 +130,7 @@ Config 内部 journal schema 3 保存 chemistry/profile 和 SOC 配置；State s
 真实充放电电流、采样时间、长休息、端点、电池容量与掉电恢复仍按 [硬件验收](HARDWARE_VALIDATION.md) 测量。仿真使用生产算法及硬件桩，不能等同整板全链路。
 
 旧学习诊断槽固定为零，SOH source 为 `BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE`、confidence 为 25。CFG2 的原学习开关两字节与 State 的学习数据位置继续保留，旧值忽略，不因本次删除而重置 SOC/循环；精确布局见 [存储说明](STORAGE.md)。
+
+## 欠压锁存与空电证据
+
+强制空电锚定要求当前有效、非断线诊断/疑似电压仍不高于软件第三段单体欠压动作阈值。可靠充电期间不执行；电压已回升但 UV 保护尚未恢复时，停止充电不会再次清除已充入容量。软件/AFE 的 MOS 欠压恢复条件不变，不新增充放电状态机。

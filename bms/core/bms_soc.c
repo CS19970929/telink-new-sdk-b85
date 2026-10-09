@@ -1206,7 +1206,11 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     uint8_t before;
     /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
      * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
-    if (!g_soc_input.third_cell_uvp || isCHG()) return 0u;
+    if (!g_soc_input.third_cell_uvp || isCHG() ||
+        !g_soc_input.voltage_valid || g_soc_input.open_wire_active ||
+        g_soc_input.open_wire_suspected ||
+        VCELLMIN > g_bms_protection_params.cell_uvp_third_mv) return 0u;
+    /* 旧 UV 锁存不是新空电证据；电压已回升时保留充入容量，不新增方向状态。 */
     before = get_soc_real();
     if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
