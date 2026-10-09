@@ -168,7 +168,79 @@ def check_sh_protective_sleep():
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     run_c(fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
 
+def check_sh_suspend_current_gates():
+    """运行真实 SH 普通 suspend 入口；关闭固定门禁仅用于覆盖潜在分支。"""
+    from pathlib import Path
+    import re
+    from project_paths import selected_source
+    from validation_support import function, run_c
+    root = Path(__file__).resolve().parents[1]
+    source = selected_source(root / 'bms/app/app_power.c', 'd011')
+    defines = re.search(r'^#define APP_SUSPEND_EXIT_CURRENT_MA[^\n]*', source, re.M).group()
+    defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
+                               (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
+    body = '\n'.join(function(source, signature) for signature in (
+        'static uint8_t app_get_fresh_measurements(', 'void app_power_process('))
+    fixture = r'''
+    #include <stdint.h>
+    #include <stdbool.h>
+    #include <assert.h>
+    typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
+    typedef struct { int unused; } app_pm_elapsed_ctx_t;
+    typedef struct { int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
+    #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
+    #define BMS_BOARD_SWITCH_PIN 0
+    #define BMS_BOARD_INT_WK_MCU_PIN 1
+    #define Level_Low 0
+    #define SUSPEND_DISABLE 0
+    #define SUSPEND_ADV 1
+    #define SUSPEND_CONN 2
+    static bool s_low_power_mode;
+    static int valid=1, flash_locked=1, tx_busy, ota_is_working, device_in_connection_state;
+    static int mask, observed_allowed;
+    static u32 now=100;
+    static bms_afe_aux_measurements_t measurement={0,100};
+    static u32 pm_get_32k_tick(void){return now;}
+    static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){*m=measurement;return valid;}
+    static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *c){(void)c;return 0;}
+    static u8 app_protective_sleep_poll(u32 seconds){(void)seconds;return 0;}
+    static void app_sh_publish_sleep(u32 seconds,u8 allowed){(void)seconds;observed_allowed=allowed;}
+    static int board_switch_is_on(void){return 1;}
+    static int gpio_read(int pin){(void)pin;return 1;}
+    static void cpu_set_gpio_wakeup(int pin,int level,int enable){(void)pin;(void)level;(void)enable;}
+    static u32 app_pm_elapsed_limit(u32 current,u32 elapsed,u32 limit){(void)elapsed;(void)limit;return current;}
+    static int app_note_sleep_and_enter_deepsleep(int note){(void)note;return 0;}
+    static int uart_tx_is_busy(void){return tx_busy;}
+    static int modbus_uart_tx_active(void){return 0;}
+    static int app_flash_lock_restore_enabled(void){return flash_locked;}
+    static void bls_pm_setSuspendMask(int value){mask=value;}
+    static void bls_pm_setManualLatency(int value){(void)value;}
+    /* PRODUCTION */
+    int main(void){
+        volatile u8 due=0;
+        int32_t currents[]={INT32_MIN,-500,-201,-200,-199,0,199,200,201,500,INT32_MAX};
+        for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
+            measurement.current_ma=currents[i];app_power_process(&due);
+            int blocked=SH3673510_FIXED_UART_BLOCKS_PM || currents[i]<=-200 || currents[i]>=200;
+            assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
+            assert(observed_allowed==!blocked);
+        }
+        measurement.current_ma=0;
+        valid=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
+        valid=1;now=measurement.sample_tick_32k+12801u;
+        app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
+        now=100;due=1;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
+        due=0;flash_locked=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
+        return 0;
+    }
+    '''
+    for fixed_gate in (1, 0):
+        run_c(defines + '\n#define SH3673510_FIXED_UART_BLOCKS_PM %d\n' % fixed_gate +
+              fixture.replace('/* PRODUCTION */', body),
+              flags=('-Wno-unused-function',), name='sh-suspend-current')
+
 if __name__ == "__main__":
     check_sh3673510_sample_schedule_host_check()
     check_sh3673510_sleep_host_check()
     check_sh_protective_sleep()
+    check_sh_suspend_current_gates()

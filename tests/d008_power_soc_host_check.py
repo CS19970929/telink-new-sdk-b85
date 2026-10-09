@@ -47,6 +47,9 @@ def main():
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                       (MOD / 'bms_soc.h').read_text(), re.M)
     assert floor is not None, "missing D008 current reliability floor"
+    suspend_limit = re.search(r'^#define APP_SUSPEND_EXIT_CURRENT_MA[^\n]*',
+                              (MOD / 'app_power.c').read_text(), re.M)
+    assert suspend_limit is not None
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         units = {
             'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
@@ -77,7 +80,8 @@ def main():
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')
             path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)
-                           .replace('/* CURRENT_FLOOR */', floor.group(0)))
+                           .replace('/* CURRENT_FLOOR */', floor.group(0))
+                           .replace('/* SUSPEND_CURRENT_LIMIT */', suspend_limit.group(0)))
             if args.compile_soc_executable is not None and name != 'soc':
                 continue
             executable = (args.compile_soc_executable if

@@ -84,8 +84,10 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
             BMS_SOC_MAX_SAMPLE_GAP_32K) ? 1u : 0u;
 }
 
+/* 与 SOC 可靠电流范围一致；充、放电两侧均阻止普通 suspend。 */
+#define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-#define APP_SUSPEND_EXIT_CURRENT_MA 500
 #define APP_POWER_OFF_RETRY_SECONDS 5u
 #define APP_ACC_HIGH_STABLE_TICKS (APP_PM_TICKS_PER_SEC / 5u)
 static u8 s_power_off_committed;
@@ -661,7 +663,11 @@ void app_power_process(const volatile uint8_t *sample_due)
 	static u16 sleep_cnt = 0;
 	static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
 	u32 sleep_elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
-	(void)sample_due;
+	bms_afe_aux_measurements_t m;
+	/* 采样到期或失效时先保持运行；有效小电流仍由 200 ms 定时唤醒维持采样。 */
+	u8 sample_block = (u8)(!app_get_fresh_measurements(&m) || (*sample_due) ||
+		m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
+		m.current_ma <= -APP_SUSPEND_EXIT_CURRENT_MA);
 	if (app_protective_sleep_poll(sleep_elapsed_sec)) return;
 	app_sh_publish_sleep(sleep_cnt, s_low_power_mode);
 
@@ -711,16 +717,12 @@ void app_power_process(const volatile uint8_t *sample_due)
 	}
 #endif
 
-	// if(!gpio_read(BMS_BOARD_SWITCH_PIN) || g_bms_report.discharge_current_a10 || )
 	if (!gpio_read(BMS_BOARD_SWITCH_PIN) ||
 		SH3673510_FIXED_UART_BLOCKS_PM ||
 		uart_tx_is_busy() || modbus_uart_tx_active() ||
-		g_bms_report.discharge_current_a10 ||
+		sample_block || !app_flash_lock_restore_enabled() ||
 
 		ota_is_working)
-	// if(
-	// 	g_bms_report.discharge_current_a10
-	// 	)
 	{
 		s_low_power_mode = false;
 		bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -733,7 +735,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     app_sh_publish_sleep(sleep_cnt,
         (u8)(gpio_read(BMS_BOARD_SWITCH_PIN) && !SH3673510_FIXED_UART_BLOCKS_PM &&
              !uart_tx_is_busy() && !modbus_uart_tx_active() &&
-             !g_bms_report.discharge_current_a10 && !ota_is_working
+             !sample_block && app_flash_lock_restore_enabled() && !ota_is_working
 #if (UI_KEYBOARD_ENABLE)
              && !scan_pin_need && !key_not_released
 #elif (UI_BUTTON_ENABLE)

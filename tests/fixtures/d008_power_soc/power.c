@@ -8,7 +8,8 @@ typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
 #define APP_PM_TICKS_PER_SEC 32000u
-#define APP_SUSPEND_EXIT_CURRENT_MA 500
+/* CURRENT_FLOOR */
+/* SUSPEND_CURRENT_LIMIT */
 #define APP_POWER_OFF_RETRY_SECONDS 5u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
 #define BMS_BOARD_MCU_LDO_PIN 4
@@ -147,10 +148,10 @@ int main(void){
  assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
  device_in_connection_state=1;app_power_process(&s_sample_due);
  assert(observed_sleep_elapsed==4000u && observed_sleep_block==0u);
- reset();int currents[]={-501,-500,-499,0,499,500,501};
+ reset();int currents[]={INT32_MIN,-501,-500,-201,-200,-199,0,199,200,201,500,501,INT32_MAX};
  for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
   measurement.current_ma=currents[i];app_power_process(&s_sample_due);
-  int active=currents[i]>=500||currents[i]<=-500;
+  int active=currents[i]>=200||currents[i]<=-200;
   assert(mask==(active?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
   assert(s_low_power_mode==!active);
  }
