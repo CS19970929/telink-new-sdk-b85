@@ -61,7 +61,8 @@ public partial class MainWindow
             ElementStyle = detailStyle, Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 260 });
         root.Children.Add(grid);
         MainTabs.Items.Add(new TabItem { Header = "MOS 监控", Content = root });
-        Loaded += async (_, _) => await StartRequestedMosMonitorAsync();
+        // 诊断页本身在 Window.Loaded 中创建，不能在此再订阅已经发生的 Loaded。
+        _ = Dispatcher.InvokeAsync(async () => await StartRequestedMosMonitorAsync(), DispatcherPriority.Loaded);
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => {
             if (_mosClosed || _mosAuto.IsChecked != true || _mosJournal is null) return;
@@ -84,7 +85,7 @@ public partial class MainWindow
         string? Argument(string prefix) => Environment.GetCommandLineArgs()
             .FirstOrDefault(a => a.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
         string? port = Argument("--monitor-serial="), mac = Argument("--monitor-mac=");
-        if (port is null || _mosLaunchAttempted) return;
+        if (port is null || _mosLaunchAttempted || _mosClosed) return;
         _mosLaunchAttempted = true;
         try {
             if (string.IsNullOrWhiteSpace(mac) || !int.TryParse(Argument("--monitor-baud="),out int baud) ||
@@ -106,6 +107,8 @@ public partial class MainWindow
             MainTabs.SelectedItem = MainTabs.Items.OfType<TabItem>().Single(t=>t.Header?.ToString()=="MOS 监控");
         }
         catch (Exception ex) {
+            _pollTimer.Stop();
+            await DisposeBmsAsync();
             _mosStatus.Text = "自动 MOS 监控启动失败：" + ex.Message;
             ConnectionText.Text = _mosStatus.Text;
             AppendLog(_mosStatus.Text,"MOS_MONITOR");
