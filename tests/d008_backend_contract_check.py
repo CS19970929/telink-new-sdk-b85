@@ -221,10 +221,13 @@ def check_d008_common_port_fet_contract_check():
     class D008CommonPortFetContract(unittest.TestCase):
         def test_normal_operation_requests_both_fets(self):
             app = read("app.c")
-            m = re.search(r"void mos_update\(void\)\n\{(.*?)\n\}\n", app, re.S)
+            m = re.search(r"void app_init\(void\)\n\{(.*?)\n\}", app, re.S)
             self.assertIsNotNone(m)
             body = m.group(1)
             self.assertIn("bms_afe_set_fets(1u, 1u)", body)
+            self.assertEqual(app.count("bms_afe_set_fets("), 1)
+            self.assertLess(body.index("bms_afe_set_fets(1u, 1u)"),
+                            body.index("bms_afe_set_output_enabled(1u)"))
             self.assertNotIn("IsChargerWakeupActive", body)
             self.assertNotIn("IsKeyWakeupActive", body)
             self.assertNotIn("charge_mos_status", body)

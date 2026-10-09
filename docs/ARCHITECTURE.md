@@ -44,7 +44,7 @@ AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/ef
 
 ## 4. 输出与物理反馈
 
-`main_loop()` 四产品共用任务顺序，GPIO 初始化和 D008 总线调度保留原时点；PM 状态机由 `bms/app/app_power.c` 持有。`mos_update()` 共用同口产品请求；最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
+`main_loop()` 四产品共用任务顺序，GPIO 初始化和 D008 总线调度保留原时点；PM 状态机由 `bms/app/app_power.c` 持有。`app_init()` 一次性提交同口 CHG/DSG 请求；`bms_afe_sample()` 在采样、软件保护和 feature 之后、SOC 之前重新仲裁输出，应用不再每帧重复提交固定请求。最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
 
 DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
 

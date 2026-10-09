@@ -846,7 +846,7 @@ static uint8_t dvc_apply_basic_config(void)
     ok &= dvc_write_verified(DVC1124_REG_DSG_MASK, dsg_mask);
     ok &= dvc_write_verified(DVC1124_REG_CHG_MASK, chg_mask);
 
-    /* 启动时保持安全状态，稍后由现有 mos_update() 请求应用输出状态。 */
+    /* 启动时保持安全状态，稍后由 app_init() 提交产品输出请求。 */
     ok &= DVC1124_SetMosState(0u, 0u);
     return ok;
 }

@@ -9,11 +9,11 @@
 ```text
 SDK startup → main → user_init_normal（app_ble.c）→ app_init（app.c）
   board_init：先关闭业务输出授权
-  bms_parameters_init：Config→State→Event 各自初始化，任一失败保留整体门禁，再读取/校验 g_bms_protection_params
+  bms_parameters_init：Config→State→Event 各自初始化；Config 失败保留保护门禁，State/Event 失败降级报错，再读取/校验 g_bms_protection_params
   bms_afe_init → 首次 bms_afe_sample
   State 缓存 → soc_param_lib_init
   UART/SIF、名称、事件、Runtime、采样唤醒初始化
-  mos_update → bms_afe_set_output_enabled(1)
+  bms_afe_set_fets(1,1)：提交固定产品请求 → bms_afe_set_output_enabled(1)
   main 循环 → main_loop → bms_stack_monitor_poll
 ```
 
@@ -31,12 +31,12 @@ main_loop → app_sample_task（约 200 ms）
   bms_afe_sample → guard → 当前 backend 采样/恢复/测量发布
   backend → bms_sw_protection_update；合并芯片硬件故障
   guard → 合格样本及 bms_features_service
+  guard → apply_requested → backend 最终仲裁/写寄存器
   app_update_soc_from_sample → bms_soc_process_sample
-  mos_update → bms_afe_set_fets → guard → backend 最终仲裁/写寄存器
   runtime diagnostics → 下次采样唤醒安排
 ```
 
-软件保护滤波在后端发布时执行，不能误以为 SOC 调用后才执行。SOC 按应用时间使用最新有效电流；同一电流可用于不同时间段，但缓存不能冒充恢复资格的新帧。无效输入仍作废区间，不补算盲区。请求、允许输出、软件保护、AFE 锁存与寄存器缓存是不同状态；DVC 单侧保护 AUTO_DIODE 与 SH 的 FET 控制方式也不同。
+软件保护滤波及 MOS 仲裁在 SOC 调用前完成。固定产品请求只在 app_init 提交一次，guard 仍在每次采样后重新仲裁；watchdog 恢复重初始化后端时保留请求，三次新鲜有效样本资格不变。SOC 按应用时间使用最新有效电流；同一电流可用于不同时间段，但缓存不能冒充恢复资格的新帧。无效输入仍作废区间，不补算盲区。请求、允许输出、软件保护、AFE 锁存与寄存器缓存是不同状态；DVC 单侧保护 AUTO_DIODE 与 SH 的 FET 控制方式也不同。
 
 完成标准：沿“温度无效 → TEMP_BREAK → 阻断”走通一遍，指出 SC/OCD/OCC 的恢复证据在哪里；不能只用关 MOS 后电流为零解释恢复。
 

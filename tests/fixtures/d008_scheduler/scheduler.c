@@ -68,7 +68,6 @@ static void bms_afe_sample(void){note('A');now+=sample_cost;if(callback_during_s
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;m->sample_fresh=1;return valid;}
 static void bms_diag_poll_runtime(u8 v,int raw,int current,u32 tick){assert(v==valid);assert(raw==(v?-710:0));assert(current==(v?-700:0));assert(tick==(v?99u:77u));}
 static void app_update_soc_from_sample(u8 v,int ma,u8 fresh){note('S');assert(v==valid);assert(ma==(v?-700:0));assert(fresh==(v?1u:0u));}
-static void mos_update(void){note('M');}
 static void app_schedule_sample_wakeup(void){note('W');}
 static void gpio_toggle(int pin){(void)pin;note('L');}
 static void app_acc_sleep_hold(void){note('H');}
@@ -88,14 +87,14 @@ static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
  main_loop();expect("123BXUFP");
  now=3200000;main_loop();expect("123BXUFP"); /* SDK uses strict >. */
- now++;main_loop();expect("123BAVSMWLXUFP");assert(s_sample_tick==now&&!s_sample_due);
- s_sample_due=1;main_loop();expect("123BAVSMWLXUFP");
- valid=0;s_sample_due=1;main_loop();expect("123BAVSMWLXUFP");valid=1;
- now=16000001;main_loop();expect("123BAVSMWLEXUFP");
+ now++;main_loop();expect("123BAVSWLXUFP");assert(s_sample_tick==now&&!s_sample_due);
+ s_sample_due=1;main_loop();expect("123BAVSWLXUFP");
+ valid=0;s_sample_due=1;main_loop();expect("123BAVSWLXUFP");valid=1;
+ now=16000001;main_loop();expect("123BAVSWLEXUFP");
  main_loop();expect("123BXUFP"); /* no repeated event or sample */
- now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("AVSMWL");
- sample_cost=3200001;s_sample_due=1;app_sample_task();expect("AVSMWL");assert(s_sample_due);
- sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSMWL");assert(s_sample_due);
+ now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("AVSWL");
+ sample_cost=3200001;s_sample_due=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
+ sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
  callback_during_sample=0;
  s_acc_sleep_committed=1;main_loop();expect("H");
  s_acc_sleep_committed=0;s_power_off_committed=1;main_loop();expect("123Q");

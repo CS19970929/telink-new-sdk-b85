@@ -77,14 +77,6 @@ static volatile u8 s_sample_due;
 #define SOC_SAMPLE_CURRENT_FAULT_MASK      0x0030u
 #define SOC_SAMPLE_TEMP_FAULT_MASK         0x2BC0u
 
-/* 四产品同口请求均为 CHG/DSG 开启；guard 授权、方向保护和后端反馈决定实际输出。
- * D008 ACC/PB1 和 SH PA0 均不能代替已有安全门禁。 */
-void mos_update(void)
-{
-    g_bms_system_status.bits.cooler_status = 0u;
-    (void)bms_afe_set_fets(1u, 1u);
-}
-
 /* 四产品始终在下一次采样期限前唤醒，不从处理结束时再睡满一个周期。 */
 static void app_schedule_sample_wakeup(void)
 {
@@ -249,7 +241,6 @@ static void app_sample_task(void)
     valid = bms_afe_get_aux_measurements(&m);
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0,
                                valid ? m.sample_fresh : 0u);
-    mos_update();
 
     bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
                           valid ? m.current_ma : 0,
@@ -378,7 +369,10 @@ void app_init(void)
     s_sample_due = 0u;
     bls_pm_registerAppWakeupLowPowerCb(app_sample_wakeup);
     app_schedule_sample_wakeup();
-	mos_update();
+    /* 固定同口产品请求只在启动提交；guard 每次采样后按资格和保护重新仲裁。
+     * AFE watchdog 恢复只重初始化后端，保留此请求；完整 app_init 则重新提交。 */
+    g_bms_system_status.bits.cooler_status = 0u;
+    (void)bms_afe_set_fets(1u, 1u);
 
 	bms_product_info_refresh();
 	bms_afe_set_output_enabled(1u);

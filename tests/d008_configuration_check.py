@@ -205,8 +205,7 @@ def check_d008_framework_contract_check():
             self.assertNotIn("DVC1124_WriteRegisterFieldSafe", policy)
 
         def test_normal_app_requests_both_common_port_fets(self):
-            fn = self.app.split("void mos_update(void)", 1)[1]
-            fn = fn.split("static void board_init", 1)[0]
+            fn = self.app.split("void app_init(void)", 1)[1]
             self.assertIn("bms_afe_set_fets(1u, 1u)", fn)
             self.assertNotIn("IsKeyWakeupActive", fn)
             self.assertNotIn("Runtime_GetMode()", fn)

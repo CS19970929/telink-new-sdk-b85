@@ -72,7 +72,7 @@ static void test_startup_qualification(void){
  ++guard_tick;
  bms_afe_sample();assert(sample_calls==before && err && s_guard.comm_inhibit);
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}
- bms_afe_sample();assert(!err && !s_guard.comm_inhibit);
+ bms_afe_sample();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  /* A backend init/config failure is not mistaken for healthy startup. */
  reset();init_fail=1;bms_afe_init();assert(err);
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}

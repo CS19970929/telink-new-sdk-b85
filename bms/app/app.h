@@ -34,8 +34,6 @@
 
 #define BLE_DEVICE_ADDRESS_TYPE BLE_DEVICE_ADDRESS_PUBLIC
 
-void mos_update(void);
-
 /* BLE/PM 既有保留状态；SDK 回调拥有连接状态，PM 消费时间和终止标志。 */
 extern int device_in_connection_state;
 extern u32 advertise_begin_tick;
