@@ -11,6 +11,7 @@ code=r'''
 #include "bms_diag.h"
 #define DVC_MEAS_BYTES 0x4d
 #define BMS_ERROR_TEMP_BREAK 0
+#define BMS_ERROR_BALANCE 1
 #define MODULE_WATCHDOG_ENABLE 0
 #define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS 270u
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
@@ -55,7 +56,8 @@ static uint8_t clock_time_exceed(uint32_t t,uint32_t us){return (uint32_t)(clock
 static uint8_t dvc_write_balance_hw(uint32_t m){(void)m;return 1;}
 uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
 uint8_t DVC1124_StartOpenWireCheck(void){registers[0x6d]|=4;return 1;}
-static uint8_t dvc_refresh_balance_state(void){return 1;}
+static uint8_t balance_read_ok=1;
+static uint8_t dvc_refresh_balance_state(void){return balance_read_ok;}
 static void dvc_bus_init(void){s_bus_initialized=1;}
 static void dvc_bus_recover(void){}
 static void dvc_delay_ms(uint32_t ms){now+=ms*32u;if(auto_cc2_event)registers[1]|=0x10u;}
@@ -132,8 +134,39 @@ int main(void){
   dvc_recover_current_faults(&s_snapshot,0,1,now);
   assert(s_current_recovery.discharge==driver); /* 真实解码→恢复，14个正交输入。 */
  }
+ reset();g_bms_report.balance_bits_low=5;balance_read_ok=0;acquire(100,0x50);
+ assert(g_bms_report.balance_bits_low==5);balance_read_ok=1;
  puts("PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、缓存到期与tick回绕");return 0;
 }
 '''
 out=run_c(code,name='dvc-adc-events')
 evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真，外围换算替身；512ms为项目活性约束'})
+
+# 均衡命令失败必须返回失败；只验证寄存器服务结果，不代替物理均衡电流。
+balance_fixture = r'''
+#include <stdint.h>
+#include <assert.h>
+#define DVC1124_OPENWIRE_WAITING 1
+#define DVC_BALANCE_REFRESH_INTERVAL_US 100u
+static uint32_t s_balance_requested_mask=5u,s_balance_last_refresh_tick;
+static uint8_t s_balance_suspended=1u;
+static struct {unsigned state;} s_openwire_result;
+static int read_ok=1,write_ok=0;
+static uint8_t dvc_refresh_balance_state(void){return read_ok;}
+static uint8_t dvc_write_balance_hw(uint32_t mask){(void)mask;return write_ok;}
+static unsigned clock_time(void){return 200u;}
+static int clock_time_exceed(unsigned tick,unsigned us){return 200u-tick>us;}
+'''
+balance_fixture += function(s,'uint8_t DVC1124_BalanceService(')
+balance_fixture += r'''
+int main(void){
+ assert(!DVC1124_BalanceService(1) && s_balance_suspended);
+ write_ok=1;assert(DVC1124_BalanceService(1) && !s_balance_suspended);
+ write_ok=0;assert(!DVC1124_BalanceService(0) && !s_balance_suspended);
+ write_ok=1;assert(DVC1124_BalanceService(0) && s_balance_suspended);
+ read_ok=0;assert(!DVC1124_BalanceService(0));
+ s_balance_requested_mask=0;assert(!DVC1124_BalanceService(1));
+ return 0;
+}
+'''
+run_c(balance_fixture,name='dvc-balance-failures')

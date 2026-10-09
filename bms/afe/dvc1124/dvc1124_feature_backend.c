@@ -95,16 +95,13 @@ uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
         if (!DVC1124_SetBalanceMask(cell_mask)) return 0u;
         s_balance_request = cell_mask;
     }
-    DVC1124_BalanceService(cell_mask ? 1u : 0u);
-    return 1u;
+    return DVC1124_BalanceService(cell_mask ? 1u : 0u);
 }
 
 /* 取得后端缓存或回读的均衡状态掩码。 */
 uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
 {
-    if (cell_mask == 0) return 0u;
-    *cell_mask = dvc_balance_report_mask();
-    return 1u;
+    return DVC1124_GetBalanceMask(cell_mask);
 }
 
 /* 开始后端非阻塞电芯断线检测。 */

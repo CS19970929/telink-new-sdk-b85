@@ -1344,36 +1344,34 @@ uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
 }
 
 /* 推进均衡服务并刷新通道状态。 */
-void DVC1124_BalanceService(uint8_t allow_refresh)
+uint8_t DVC1124_BalanceService(uint8_t allow_refresh)
 {
     if (s_balance_requested_mask == 0u)
-    {
-        (void)dvc_refresh_balance_state();
-        return;
-    }
-
-    if (!allow_refresh || (s_openwire_result.state == DVC1124_OPENWIRE_WAITING))
-    {
-        if (!s_balance_suspended)
-        {
-            if (dvc_write_balance_hw(0u)) s_balance_suspended = 1u;
+        return dvc_refresh_balance_state();
+    if (!allow_refresh || (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)) {
+        if (!s_balance_suspended) {
+            if (!dvc_write_balance_hw(0u)) return 0u;
+            s_balance_suspended = 1u;
         }
-        return;
+        return dvc_refresh_balance_state();
     }
-
     if (s_balance_suspended ||
-        clock_time_exceed(s_balance_last_refresh_tick, DVC_BALANCE_REFRESH_INTERVAL_US))
-    {
-        if (dvc_write_balance_hw(s_balance_requested_mask))
-        {
-            s_balance_suspended = 0u;
-            s_balance_last_refresh_tick = clock_time();
-        }
+        clock_time_exceed(s_balance_last_refresh_tick, DVC_BALANCE_REFRESH_INTERVAL_US)) {
+        if (!dvc_write_balance_hw(s_balance_requested_mask)) return 0u;
+        s_balance_suspended = 0u;
+        s_balance_last_refresh_tick = clock_time();
+        return 1u;
     }
-    else
-    {
-        (void)dvc_refresh_balance_state();
-    }
+    return dvc_refresh_balance_state();
+}
+
+/* 只有成功回读才能向调用者提供有效均衡状态。 */
+uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask)
+{
+    if (cell_mask == 0 || !dvc_refresh_balance_state()) return 0u;
+    *cell_mask = ((uint32_t)g_bms_report.balance_bits_high << 16) |
+                g_bms_report.balance_bits_low;
+    return 1u;
 }
 
 /* 启动 DVC 电芯断线检测。 */
@@ -1828,10 +1826,7 @@ void DVC1124_App_AFEGet(void)
 
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())
-    {
-        g_bms_report.balance_bits_low = 0u;
-        g_bms_report.balance_bits_high = 0u;
-    }
+        bms_error_raise(BMS_ERROR_BALANCE); /* 未知保留最后确认值，不能冒充关闭。 */
     dvc_note_comm_result(1u);
 }
 

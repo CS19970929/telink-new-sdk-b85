@@ -172,7 +172,8 @@ void DVC1124_SetOutputEnabled(uint8_t enabled);
 /* 设置 DVC 均衡请求掩码并同步硬件。 */
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 /* 推进均衡服务并刷新通道状态。 */
-void DVC1124_BalanceService(uint8_t allow_refresh);
+uint8_t DVC1124_BalanceService(uint8_t allow_refresh);
+uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask);
 /* 准备并开始 DVC 非阻塞断线检测流程。 */
 uint8_t DVC1124_OpenWireBegin(void);
 uint8_t DVC1124_OpenWireStop(void);
