@@ -14,6 +14,8 @@ typedef uint8_t u8;
 static u32 now, s_sample_tick, sample_cost;
 static volatile u8 s_sample_due;
 static u8 s_acc_sleep_committed, s_power_off_committed, valid = 1, callback_during_sample;
+static struct {u8 committed;} s_protective_sleep;
+static void app_protective_sleep_hold(void) {}
 static char calls[100];
 static unsigned n;
 static void note(char c){calls[n++]=c;calls[n]=0;}

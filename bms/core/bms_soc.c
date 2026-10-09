@@ -154,6 +154,9 @@ static int32_t g_soc_input_current_ma;
 /* 当前 SOC 输入快照的所有者；有效标志、时间戳和电流必须来自同一采样周期。 */
 static bms_soc_sample_t g_soc_input;
 static uint32_t g_soc_sample_tick_32k;
+static uint32_t g_soc_observed_tick_32k;
+static uint8_t g_soc_observation_ready;
+static uint8_t g_soc_interval_observed;
 static uint32_t g_soc_interval_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
@@ -547,8 +550,8 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
     /*
      * 固定 TC32 链接器无 64 位乘除辅助函数。将幅值拆为整分母单位和有界余数块；
-     * 整数结果不超过 671*12800，各次和小于 3200000*1025<UINT32_MAX。
-     * 接受的 400 ms 间隔最多循环 13 次，
+     * 整数结果不超过 671*25600，各次和小于 3200000*1025<UINT32_MAX。
+     * 连续观察下接受的 800 ms 间隔最多循环 25 次，
      * 与 mA*ticks/denominator 保持完全相同商和余数。
      */
     delta = (magnitude_ma / denominator) * g_soc_interval_32k;
@@ -1141,7 +1144,8 @@ static uint8_t soc_apply_full_anchor(void)
         (g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
     uint8_t before;
 
-    if (isCHG() && g_soc_input.third_cell_ovp) {
+    /* 单串过压仍执行保护，但不代表整包满电；满锚点也须满足最小电压和压差。 */
+    if (voltage_ready && g_soc_input.third_cell_ovp) {
         before = get_soc_real();
         if (get_soc_real() != SOC_PERCENT_MAX) {
             soc_apply_real_value(SOC_PERCENT_MAX, 0u);
@@ -1459,6 +1463,8 @@ static void SOC_Result_Pass(void)
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
+    g_soc_observation_ready = 0u;
+    g_soc_interval_observed = 0u;
     g_soc_charger_state_ready = 0u;
     g_soc_load_state_ready = 0u;
     g_soc_interval_32k = 0u;
@@ -1533,8 +1539,19 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
+        g_soc_observed_tick_32k = sample->observed_at_32k;
+        g_soc_observation_ready = sample->observation_valid;
+        g_soc_interval_observed = sample->observation_valid;
         return; /* 首个新样本不能证明此前时间段。 */
     }
+    /* 每次应用观察都检查，重复 ADC 帧只能证明调度未中断，不能重复积分。
+     * 任一次观察缺失/超时会否决当前区间；真实 AFE 故障仍由上面的 valid 门禁处理。 */
+    if (!sample->observation_valid || !g_soc_observation_ready ||
+        (uint32_t)(sample->observed_at_32k - g_soc_observed_tick_32k) >
+            BMS_SOC_MAX_SAMPLE_GAP_32K)
+        g_soc_interval_observed = 0u;
+    g_soc_observed_tick_32k = sample->observed_at_32k;
+    g_soc_observation_ready = sample->observation_valid;
     elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
     if (elapsed_32k == 0u) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE,
@@ -1542,7 +1559,8 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return; /* 重复缓存读取不是新证据。 */
     }
     g_soc_sample_tick_32k = sample->timestamp_32k;
-    if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
+    if (elapsed_32k > 2u * BMS_SOC_MAX_SAMPLE_GAP_32K ||
+        (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K && !g_soc_interval_observed))
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_GAP,
                              SOC_INTEGRAL_DIR_NONE, elapsed_32k);
@@ -1552,8 +1570,12 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
+        g_soc_observed_tick_32k = sample->observed_at_32k;
+        g_soc_observation_ready = sample->observation_valid;
+        g_soc_interval_observed = sample->observation_valid;
         return;
     }
+    g_soc_interval_observed = sample->observation_valid;
     previous_dir = soc_current_direction(0);
     g_soc_input_current_ma = sample->current_ma;
     g_soc_input_valid = 1u;
@@ -1589,7 +1611,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
 
     /*
      * 既有校准阈值仍为 200 ms 单位，但按实测时间计入；
-     * 每个有界间隔新样本最多记两个单位。长间隔下 8 mV 斜率检查保持保守。
+     * 每个有界间隔新样本最多记四个单位。长间隔下 8 mV 斜率检查保持保守。
      */
     g_soc_strategy_pending_32k += elapsed_32k;
     while (g_soc_strategy_pending_32k >= quantum_32k)
@@ -1614,9 +1636,10 @@ void bms_soc_nominal_capacity_changed(void)
 /* 使用实板 AFE/调度时间；仅在 SOC 入口替换物理量，AFE 保护与 MOS 不使用这些值。
  * 每段约 20 秒，结果保留 RAM，避免 PC 轮询漏掉 200 ms 样本。 */
 static const int32_t s_board_currents_ma[] = {
-    0, 199, -199, 200, -200, 201, -201, 3000, -3000, 20000, -20000, -3000
+    0, 199, -199, 200, -200, 201, -201, 3000, -3000, 20000, -20000, -3000,
+    -3000, -3000
 };
-#define SOC_BOARD_CASE_COUNT 12u
+#define SOC_BOARD_CASE_COUNT 14u
 #define SOC_BOARD_CASE_TICKS (20u * BMS_SOC_TIME_TICKS_PER_SECOND)
 static uint16_t s_board_words[SOC_BOARD_CASE_COUNT][20];
 static bms_soc_state_t s_board_saved_soc;
@@ -1689,6 +1712,13 @@ void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_t
     /* 中段电压与清除 SOC 锚点输入只用于测纯积分，真实报告/硬件保护不变。 */
     sample->cell_min_mv=3300u; sample->cell_max_mv=3310u; sample->cell_delta_mv=10u;
     sample->third_cell_ovp=0u; sample->third_cell_uvp=0u;
+    if (s_board_case == 12u || s_board_case == 13u) {
+        /* 在 SOC 输入中验证单串过压不等于整包满电，不修改真实保护报告。 */
+        sample->third_cell_ovp=1u;
+        sample->cell_min_mv=(s_board_case == 12u) ? 3300u : 3500u;
+        sample->cell_max_mv=(s_board_case == 12u) ? 3700u : 3510u;
+        sample->cell_delta_mv=sample->cell_max_mv-sample->cell_min_mv;
+    }
 }
 
 void bms_soc_board_test_note(void)
@@ -1713,7 +1743,7 @@ void bms_soc_board_test_note(void)
 
 uint16_t bms_soc_board_test_word(uint16_t offset)
 {
-    if (offset>=256u) return 0u;
+    if (offset>=16u+SOC_BOARD_CASE_COUNT*20u) return 0u;
     if (offset>=16u) return s_board_words[(offset-16u)/20u][(offset-16u)%20u];
     switch (offset) {
     case 0u:return 0x5342u;

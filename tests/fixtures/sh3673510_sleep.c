@@ -53,7 +53,7 @@ static int SH3673520_WriteReg(uint8_t reg, uint8_t val) {
 static void sh3673520_port_delay_ms(unsigned ms) { (void)ms; }
 static uint8_t sh3510_configure_runtime(void) { return configure_ok; }
 static uint8_t sh3673510_control_apply_protection(void) { return protection_ok; }
-static void note_comm_error(void) { ++comm_errors; }
+static void note_comm_error(uint8_t stage) { (void)stage; ++comm_errors; }
 static uint8_t bms_error_get(unsigned e) { (void)e; return errors != 0; }
 static void bms_error_raise(unsigned e) { (void)e; ++errors; }
 static void bms_features_on_afe_invalid(void) { ++invalidations; heater_on = 0; }

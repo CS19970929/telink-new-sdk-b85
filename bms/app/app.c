@@ -320,6 +320,8 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     memset(&feature, 0, sizeof(feature));
 
     sample.timestamp_32k = sample_tick_32k;
+    sample.observed_at_32k = pm_get_32k_tick();
+    sample.observation_valid = 1u;
     sample.current_ma = current_ma;
     sample.pack_voltage_mv = (uint32_t)g_bms_report.pack_voltage_10mv * 10u;
     sample.cell_min_mv = g_bms_report.cell_min_mv;

@@ -468,7 +468,7 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
     uint32_t end = (uint32_t)start + count;
     return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-        (start < 0x3900u && end > 0x3800u) ||
+        (start < 0x3940u && end > 0x3800u) ||
 #endif
         (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
         (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
@@ -482,7 +482,7 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3900u) {
+    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3940u) {
         for (i=0u; i<count; ++i) {
             uint16_t value=bms_soc_board_test_word((uint16_t)(start-0x3800u+i));
             bytes[2u*i]=(uint8_t)(value>>8); bytes[2u*i+1u]=(uint8_t)value;

@@ -45,6 +45,7 @@
 typedef struct
 {
     uint32_t timestamp_32k;
+    uint32_t observed_at_32k;       /* 应用读取合格 AFE 快照的时间，不替代 ADC 时间戳。 */
     uint32_t pack_voltage_mv;
     int32_t current_ma;             /* 负值充电，正值放电。 */
     uint16_t cell_min_mv;
@@ -53,6 +54,7 @@ typedef struct
     uint16_t temperature_min_x10;
     uint16_t temperature_max_x10;
     uint8_t sample_valid;
+    uint8_t observation_valid;     /* 提供逐次观察时间；未提供时沿用严格 400 ms 间隔。 */
     uint8_t voltage_valid;
     uint8_t temperature_valid;
     uint8_t balancing_active;
@@ -104,7 +106,8 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config);
 void bms_soc_get_diag(bms_soc_diag_t *diag);
 
 /*
- * 400 ms 等于两个名义样本；更长/未观测间隔不积分也不计静置。
+ * 每次有效观察不得间隔超过 400 ms。ADC 更新跨过此界限时，只有期间
+ * 始终按时读到合格快照才可积分，且新 ADC 数据间隔仍不超过两个观察界限。
  * SDK 32K 时钟通过无符号减法跨回绕。
  */
 #define BMS_SOC_TIME_TICKS_PER_SECOND 32000u

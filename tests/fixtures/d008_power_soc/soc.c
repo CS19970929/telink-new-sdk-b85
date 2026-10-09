@@ -58,8 +58,9 @@ static struct {
 }g_bms_report;
 static int config_store_write_ok=1;
 /* CURRENT_FLOOR */
-/* PRODUCTION_SOURCE */
 static uint32_t tick;
+static uint32_t pm_get_32k_tick(void) {return tick;}
+/* PRODUCTION_SOURCE */
 static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  memset(&g_bms_report,0,sizeof(g_bms_report));
  memset(&g_bms_soc,0,sizeof(g_bms_soc));
@@ -261,7 +262,7 @@ int main(int argc,char **argv){
  for(int n=0;n<10000;n++){
   random_state=random_state*1664525u+1013904223u;
   g_soc_input_current_ma=n==0?INT32_MIN:(int32_t)random_state;
-  g_soc_input_valid=1;g_soc_interval_32k=(random_state%12800u)+1u;
+  g_soc_input_valid=1;g_soc_interval_32k=(random_state%25600u)+1u;
   uint32_t magnitude=g_soc_input_current_ma<0?0u-(uint32_t)g_soc_input_current_ma:(uint32_t)g_soc_input_current_ma;
   uint64_t reference=(uint64_t)magnitude*g_soc_interval_32k+ref_remainder;
   assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG)==reference/3200000u);
@@ -293,6 +294,12 @@ int main(int argc,char **argv){
   for(int i=0;i<100;i++)sample(1,500,0);
   assert(g_bms_soc.remaining_capacity_as10==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
+  /* AFE 正常等待一帧：200 ms 连续合格观察，400 ms + 抖动的新数据不漏积分。 */
+  tick+=6401u;app_update_soc_from_sample(1,500,g_soc_sample_tick_32k);
+  tick+=6401u;app_update_soc_from_sample(1,500,tick);
+  assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
+  assert(g_bms_soc.remaining_capacity_as10==before-2u);
+  before=g_bms_soc.remaining_capacity_as10;
   sample(1,500,12801);assert(g_bms_soc.remaining_capacity_as10==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_GAP&&g_soc_runtime.last_sample_elapsed_32k==12801u);
   sample(1,500,6400);assert(g_bms_soc.remaining_capacity_as10==before-1);
@@ -345,7 +352,14 @@ int main(int argc,char **argv){
   for(int i=0;i<200;i++)sample(1,-500,6400);
   assert(get_soc_real()==100&&get_soc_display()==100);
 
-  /* A confirmed protection anchor may move estimate immediately for safety,
+  /* 单串过压并非整包满电，压差过大时只积分，不执行满锚点。 */
+  setup(chemistry,50,chemistry==1?3300:3800);sample(1,-500,1);
+  g_bms_report.cell_max_mv=chemistry==1?3700:4300;
+  g_bms_report.cell_delta_mv=400;
+  g_bms_report.fault_third.bits.cell_ovp=1;
+  for(int i=0;i<100;i++)sample(1,-500,6400);
+  assert(get_soc_real()==50);
+  /* A qualified pack-full protection anchor may move estimate immediately,
    * while display completes a bounded soft landing even if charging stops. */
   setup(chemistry,80,chemistry==1?3500:4180);sample(1,-500,1);
   g_bms_report.fault_third.bits.cell_ovp=1;sample(1,-500,6400);
