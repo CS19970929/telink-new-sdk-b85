@@ -14,6 +14,14 @@
 /* D008 测量可信下限，AFE 发布和 SOC 积分采用同一固定值。 */
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 
+/* 实板临时积分测试只改变 SOC 输入；正常固件不编译测试状态。 */
+#ifndef BMS_SOC_BOARD_TEST_ENABLE
+#define BMS_SOC_BOARD_TEST_ENABLE 0
+#endif
+#if BMS_SOC_BOARD_TEST_ENABLE && defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
+#error "Production firmware must disable SOC board test"
+#endif
+
 #define BMS_SOC_OCV_WAIT_CURRENT   0u
 #define BMS_SOC_OCV_PREPARE        1u
 #define BMS_SOC_OCV_READY          2u
@@ -103,6 +111,13 @@ void bms_soc_get_diag(bms_soc_diag_t *diag);
 #define BMS_SOC_MAX_SAMPLE_GAP_32K    12800u
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
+#if BMS_SOC_BOARD_TEST_ENABLE
+void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_tick_32k);
+void bms_soc_board_test_note(void);
+uint8_t bms_soc_board_test_active(void);
+uint8_t bms_soc_board_test_keep_awake(void);
+uint16_t bms_soc_board_test_word(uint16_t offset);
+#endif
 /* 更新 SOC 参数与相关容量状态。 */
 void set_soc_param(uint8_t soc, uint8_t sync_display);
 /* 取得内部计算的真实 SOC 百分比。 */

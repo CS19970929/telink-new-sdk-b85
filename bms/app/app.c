@@ -255,8 +255,15 @@ _attribute_no_inline_ void main_loop(void)
 #if BMS_PRODUCT_UART_ENABLE
 	main_loop_modbus();
 #endif
+#if BMS_SOC_BOARD_TEST_ENABLE
+    /* 假电流结果不能进入正常 State checkpoint。 */
+    if (!bms_soc_board_test_active())
+#endif
 	bms_state_store_update_and_log_if_changed(g_bms_soc.soc_estimate_percent, g_bms_soc.discharge_fraction_percent, g_bms_soc.cycle_count);
 	app_power_process(&s_sample_due);
+#if BMS_SOC_BOARD_TEST_ENABLE
+    if (bms_soc_board_test_keep_awake()) bls_pm_setSuspendMask(SUSPEND_DISABLE);
+#endif
 }
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
@@ -349,7 +356,13 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
         g_bms_report.fault_third.bits.cell_uvp;
     sample.charger_state_known = 1u;
     sample.charger_present = status.charge_session_active;
+#if BMS_SOC_BOARD_TEST_ENABLE
+    bms_soc_board_test_prepare(&sample, pm_get_32k_tick());
+#endif
     bms_soc_process_sample(&sample);
+#if BMS_SOC_BOARD_TEST_ENABLE
+    bms_soc_board_test_note();
+#endif
 }
 
 /* 参数、AFE 与业务状态启动；由平台完成 BLE 初始化后调用一次。 */

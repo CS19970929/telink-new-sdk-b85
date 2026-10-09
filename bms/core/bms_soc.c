@@ -1609,3 +1609,119 @@ void bms_soc_nominal_capacity_changed(void)
     set_soc_param(get_soc_real(), 1u);
     SOC_Result_Pass();
 }
+
+#if BMS_SOC_BOARD_TEST_ENABLE
+/* 使用实板 AFE/调度时间；仅在 SOC 入口替换物理量，AFE 保护与 MOS 不使用这些值。
+ * 每段约 20 秒，结果保留 RAM，避免 PC 轮询漏掉 200 ms 样本。 */
+static const int32_t s_board_currents_ma[] = {
+    0, 199, -199, 200, -200, 201, -201, 3000, -3000, 20000, -20000, -3000
+};
+#define SOC_BOARD_CASE_COUNT 12u
+#define SOC_BOARD_CASE_TICKS (20u * BMS_SOC_TIME_TICKS_PER_SECOND)
+static uint16_t s_board_words[SOC_BOARD_CASE_COUNT][20];
+static bms_soc_state_t s_board_saved_soc;
+static uint32_t s_board_started_tick;
+static uint8_t s_board_started, s_board_case, s_board_saved_display;
+
+static void board_put32(uint16_t *words, uint32_t value)
+{
+    words[0]=(uint16_t)value; words[1]=(uint16_t)(value>>16);
+}
+
+static uint32_t board_get32(const uint16_t *words)
+{
+    return (uint32_t)words[0] | ((uint32_t)words[1]<<16);
+}
+
+uint8_t bms_soc_board_test_active(void)
+{
+    return s_board_started && s_board_case < SOC_BOARD_CASE_COUNT;
+}
+
+uint8_t bms_soc_board_test_keep_awake(void)
+{
+    return bms_soc_board_test_active() && s_board_case != 0u && s_board_case != 11u;
+}
+
+void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_tick_32k)
+{
+    uint16_t *record;
+    uint8_t new_case=0u;
+    if (!s_board_started) {
+        if (!sample->sample_valid || !sample->voltage_valid) return;
+        s_board_saved_soc=g_bms_soc;
+        s_board_saved_display=get_soc_display();
+        s_board_started=1u;
+        new_case=1u;
+    } else if (s_board_case < SOC_BOARD_CASE_COUNT &&
+               (uint32_t)(observation_tick_32k-s_board_started_tick) >= SOC_BOARD_CASE_TICKS) {
+        s_board_words[s_board_case][0] |= 1u;
+        ++s_board_case;
+        new_case=1u;
+    }
+    if (!bms_soc_board_test_active()) {
+        if (new_case) {
+            g_bms_soc=s_board_saved_soc;
+            soc_invalidate_sample_interval();
+            soc_reset_integral_accumulator();
+            set_dispsoc(s_board_saved_display);
+            SOC_Result_Pass();
+        }
+        return;
+    }
+    record=s_board_words[s_board_case];
+    if (new_case) {
+        s_board_started_tick=observation_tick_32k;
+        set_soc_param(50u,1u);
+        record[0]=bms_soc_board_test_keep_awake() ? 2u : 0u;
+        board_put32(&record[2],(uint32_t)s_board_currents_ma[s_board_case]);
+        board_put32(&record[4],sample->timestamp_32k);
+        board_put32(&record[8],g_bms_soc.remaining_capacity_as10);
+    }
+    sample->current_ma=s_board_currents_ma[s_board_case];
+    /* 中段电压与清除 SOC 锚点输入只用于测纯积分，真实报告/硬件保护不变。 */
+    sample->cell_min_mv=3300u; sample->cell_max_mv=3310u; sample->cell_delta_mv=10u;
+    sample->third_cell_ovp=0u; sample->third_cell_uvp=0u;
+}
+
+void bms_soc_board_test_note(void)
+{
+    uint16_t *record;
+    uint8_t state;
+    if (!bms_soc_board_test_active()) return;
+    record=s_board_words[s_board_case];
+    if (record[1] != 0xFFFFu) ++record[1];
+    board_put32(&record[6],g_soc_sample_tick_32k);
+    board_put32(&record[10],g_bms_soc.remaining_capacity_as10);
+    state=g_soc_runtime.last_sample_state;
+    if (state==BMS_SOC_SAMPLE_ACCEPTED || state==BMS_SOC_SAMPLE_DIRECTION_CHANGE) ++record[12];
+    if (state==BMS_SOC_SAMPLE_GAP) {
+        ++record[13];
+        board_put32(&record[16],board_get32(&record[16])+g_soc_runtime.last_sample_elapsed_32k);
+    }
+    if (state==BMS_SOC_SAMPLE_DUPLICATE) ++record[14];
+    if (state==BMS_SOC_SAMPLE_INVALID) ++record[15];
+    if (g_soc_runtime.last_sample_elapsed_32k > board_get32(&record[18]))
+        board_put32(&record[18],g_soc_runtime.last_sample_elapsed_32k);
+}
+
+uint16_t bms_soc_board_test_word(uint16_t offset)
+{
+    if (offset>=256u) return 0u;
+    if (offset>=16u) return s_board_words[(offset-16u)/20u][(offset-16u)%20u];
+    switch (offset) {
+    case 0u:return 0x5342u;
+    case 1u:return 1u;
+    case 2u:return s_board_case;
+    case 3u:return SOC_BOARD_CASE_COUNT;
+    case 4u:return 20u;
+    case 5u:return 20u;
+    case 6u:return bms_soc_board_test_active();
+    case 7u:return bms_soc_board_test_keep_awake();
+    case 8u:return (uint16_t)BMS_DIAG_BUILD_ID;
+    case 9u:return (uint16_t)(BMS_DIAG_BUILD_ID>>16);
+    case 10u:return s_board_saved_soc.soc_estimate_percent;
+    default:return 0u;
+    }
+}
+#endif

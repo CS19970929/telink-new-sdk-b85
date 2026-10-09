@@ -1,5 +1,21 @@
 # SOC：当前样本接口与持久化
 
+2026-10-09 用户授权 D008 实板积分定位及假电流测试。临时开发开关
+`BMS_SOC_BOARD_TEST_ENABLE=1` 在原 app/SOC 入口使用实板 AFE 的采样时间，
+逐段测试 0、±199、±200、±201、±3000、±20000 mA，并比较 3000 mA 的
+强制运行与允许普通 suspend 场景，每段约 20 秒。真实 AFE 采样、保护和 MOS 不注入；
+SOC 输入使用中段电压并屏蔽 SOC 满/空锚点标志，以隔离积分量。
+测试结果直接累计于 MCU RAM，避免 PC 轮询漏帧；测试期间不执行正常 State checkpoint，
+结束后恢复开始时 SOC RAM 值。开关默认 0，生产禁止开启，测试后应 OTA 回正常固件。
+只读测试窗口 `0x3800..0x38FF`：16-word header，随后 12 个 20-word 记录；
+u32 为低 word 在前。记录含完成/强制运行、样本数、电流、首末采样 tick、首末 As*10 容量、
+接受/GAP/重复/无效计数、GAP 丢弃时间及最大间隔；header magic=0x5342/schema=1。
+它是临时实板测试窗口，不改变已有业务寄存器、Flash 或量产策略。
+
+此前只读实板采集确认板上 Build `b3fc6038`，单体过压保护后真实电流落入死区，
+SOC estimate 已为 100%、显示从 94% 跟随至 100%；这段不能当作持续充电积分基准。
+需要分别核对正常转换 GAP 漏积分和保护标志直接触发 SOC 满电锚点两个机制。
+
 入口是 `bms/app/app.c::app_update_soc_from_sample()` → `bms/core/bms_soc.c::bms_soc_process_sample()`。数据定义在 `bms_soc.h`，OCV 曲线在 `bms_soc_profile.h`，ETA 独立在 `bms_soc_eta.c/.h`。本页替代旧 Cold/Hot KV 和旧分支 schema 说明。
 
 ## 1. 样本与时间

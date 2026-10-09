@@ -5,6 +5,9 @@
  */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+#include "bms_soc.h"
+#endif
 #include <string.h>
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
@@ -464,6 +467,9 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
     return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+        (start < 0x3900u && end > 0x3800u) ||
+#endif
         (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
         (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
         (start < BMS_DIAG_OPENWIRE_END && end > BMS_DIAG_OPENWIRE_BASE) ||
@@ -475,6 +481,15 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
     uint32_t tick = bms_diag_tick();
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3900u) {
+        for (i=0u; i<count; ++i) {
+            uint16_t value=bms_soc_board_test_word((uint16_t)(start-0x3800u+i));
+            bytes[2u*i]=(uint8_t)(value>>8); bytes[2u*i+1u]=(uint8_t)value;
+        }
+        return 1;
+    }
+#endif
     if (bytes && count && count <= 125u && start >= BMS_DIAG_AFE_FAILURE_BASE && end <= BMS_DIAG_AFE_FAILURE_END) {
         for (i = 0u; i < count; ++i) {
             uint16_t offset = (uint16_t)(start - BMS_DIAG_AFE_FAILURE_BASE + i), word = 0u;
