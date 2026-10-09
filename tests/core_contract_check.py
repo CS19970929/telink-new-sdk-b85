@@ -313,7 +313,7 @@ def check_soc_contract_check():
             self.assertIn("system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
             self.assertIn("bms_config_store_get_system", CONFIG_C)
             self.assertIn("bms_soc_configure", C)
-            self.assertIn("soc_load_persisted_product_config", C)
+            self.assertIn("bms_config_store_get_soc(&g_soc_config)", C)
             self.assertNotIn("BMS_COLD_SYSTEM_KEY_BASE", CONFIG_C)
 
         def test_explicit_profile_wins_and_mismatches_are_rejected(self):
@@ -322,8 +322,8 @@ def check_soc_contract_check():
             self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
             self.assertIn("soc_product_config_valid", C)
             # 读取当前配置域，不通过旧键值存储迁移产品身份。
-            load = C.split("static void soc_load_persisted_product_config(void)", 1)[1].split(
-                "void bms_soc_get_diag", 1)[0]
+            from validation_support import function
+            load = function(C, "void soc_param_lib_init(")
             self.assertIn("bms_config_store_get_soc(&g_soc_config)", load)
             self.assertNotIn("SOC_KV_KEY_", load)
             self.assertIn("bms_config_store_set_soc(config)", C)
