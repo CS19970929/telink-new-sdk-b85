@@ -52,7 +52,6 @@ typedef struct {
     uint32_t openwire_latched_mask;
 
     uint8_t balance_active;
-    uint8_t balance_voltage_trusted;
     uint16_t balance_trust_samples;
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
@@ -446,7 +445,6 @@ static void finish_openwire(uint8_t error)
     s_feature.openwire_finished_tick = now;
     s_feature.openwire_wait_tick = now;
     s_feature.openwire_idle_samples = 0u;
-    s_feature.balance_voltage_trusted = 0u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     if (error != BMS_OW_ERR_NONE) {
@@ -588,7 +586,6 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
 
     if (!balance_sample_plausible(s))
     {
-        s_feature.balance_voltage_trusted = 0u;
         s_feature.balance_trust_samples = 0u;
         s_feature.balance_active = 0u;
         s_feature.openwire_suspected = 1u;
@@ -597,15 +594,20 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
 
     if (s_feature.openwire_suspected || s_feature.openwire_fault_latched)
     {
-        s_feature.balance_voltage_trusted = 0u;
         s_feature.balance_trust_samples = 0u;
         return;
     }
 
     if (s_feature.balance_trust_samples < required)
         ++s_feature.balance_trust_samples;
-    s_feature.balance_voltage_trusted =
-        (s_feature.balance_trust_samples >= required) ? 1u : 0u;
+}
+
+/* 确认计数是唯一资格状态；不再维护必须同步置位/清零的布尔副本。 */
+static uint8_t balance_voltage_trusted(void)
+{
+    uint16_t required = (uint16_t)BMS_BALANCE_TRUST_CONFIRM_SAMPLES;
+    if (required == 0u) required = 1u;
+    return s_feature.balance_trust_samples >= required;
 }
 
 /* 检查温度有效性与均衡允许温区。 */
@@ -671,7 +673,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
                         bms_config_get_user(&config) &&
                         config.balance_enable &&
                         bms_board_balance_supported() &&
-                        s_feature.balance_voltage_trusted &&
+                        balance_voltage_trusted() &&
                         !s_feature.openwire_active &&
                         !s_feature.openwire_fault_latched &&
                         !s_feature.openwire_suspected &&
@@ -717,7 +719,6 @@ void bms_features_init(void)
     s_feature.heater_off_hot_samples = 0u;
     s_feature.charge_session_active = 0u;
     s_feature.balance_active = 0u;
-    s_feature.balance_voltage_trusted = 0u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     s_feature.balance_requested_mask = 0u;
@@ -777,7 +778,6 @@ void bms_features_on_afe_invalid(void)
     s_feature.charge_session_active = 0u;
     s_feature.balance_requested_mask = 0u;
     s_feature.balance_active = 0u;
-    s_feature.balance_voltage_trusted = 0u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     if (s_feature.openwire_active) {
@@ -821,7 +821,7 @@ void bms_features_get_status(bms_features_status_t *status)
     status->heater_state = s_feature.heater_state;
     status->charge_session_active = s_feature.charge_session_active;
     status->balance_active = s_feature.balance_active;
-    status->balance_voltage_trusted = s_feature.balance_voltage_trusted;
+    status->balance_voltage_trusted = balance_voltage_trusted();
     status->openwire_suspected = s_feature.openwire_suspected;
     status->openwire_active = s_feature.openwire_active;
     status->openwire_sample_active =

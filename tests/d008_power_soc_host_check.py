@@ -130,8 +130,11 @@ def check_soc_openwire():
     features_h = (MOD / 'bms_features.h').read_text()
     constants = '\n'.join(line for line in features_h.splitlines()
                           if line.startswith('#define BMS_OPENWIRE_') or
+                          line.startswith('#define BMS_BALANCE_TRUST_CONFIRM_MS ') or
                           line.startswith('#define BMS_FEATURE_SERVICE_PERIOD_MS'))
     constants += '\n#define BMS_OPENWIRE_FIRST_IDLE_SAMPLES (BMS_OPENWIRE_FIRST_IDLE_MS / BMS_FEATURE_SERVICE_PERIOD_MS)\n'
+    constants += re.search(r'#define BMS_BALANCE_TRUST_CONFIRM_SAMPLES [^\n]*\n[^\n]+',
+                           (MOD / 'bms_features.c').read_text()).group() + '\n'
     constants += '#define BMS_OPENWIRE_PERIOD_SAMPLES (BMS_OPENWIRE_PERIOD_MS / BMS_FEATURE_SERVICE_PERIOD_MS)\n'
     fixture += '\n#define BMS_AFE_FEATURE_MAX_CELLS 24u\n' + afe_types + '\n' + constants
     fixture += '\n#define BMS_AFE_BACKEND 1u\n' + feature_type
@@ -139,7 +142,8 @@ def check_soc_openwire():
     for signature in ('static uint8_t openwire_eligible(', 'static uint32_t openwire_wait_remaining(',
                       'static void openwire_put32(', 'static void publish_openwire(', 'static void finish_openwire(',
                       'static void service_openwire(',
-                      'void bms_features_service(', 'void bms_features_get_status('):
+                      'void bms_features_service(', 'static uint8_t balance_voltage_trusted(',
+                      'void bms_features_get_status('):
         fixture = fixture.replace('/* FEATURE_SOURCE */',
                                   function('bms_features.c', signature) + '\n/* FEATURE_SOURCE */')
     fixture = fixture.replace('/* FEATURE_SOURCE */', '')
