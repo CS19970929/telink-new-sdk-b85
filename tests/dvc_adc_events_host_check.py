@@ -45,7 +45,6 @@ static void dvc_publish_current_report(int32_t x){(void)x;}
 static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm){(void)cm;return x;}
 static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r){(void)gp;(void)v;(void)rpu;*r=10000;return 1;}
 static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return 650;}
-static void bms_error_clear(uint32_t x){(void)x;}
 static void bms_error_raise(uint32_t x){(void)x;}
 void bms_diag_driver(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
@@ -90,7 +89,7 @@ code+=r'''
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));memset(&s_openwire_result,0,sizeof(s_openwire_result));
  s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0;
- s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0;corrupt_reg=-1;corrupt_count=0;diagnostic_active=0;}
+ s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;diagnostic_active=0;}
 int main(void){
  reset();acquire(100,0);acquire(6500,0);assert(!s_snapshot_generation && !s_snapshot.valid && s_sample_pending);
  acquire(7000,0x40);assert(s_snapshot_generation==1 && s_snapshot.voltage_fresh && !s_snapshot.valid && s_sample_pending);

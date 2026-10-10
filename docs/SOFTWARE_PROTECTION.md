@@ -37,6 +37,11 @@ backend 向公共层提供 Battery min/max、MOS温度、valid 标志及产品�
 默认保护、持久参数和重初始化边界见 [D013 影响审查](D013_PRODUCT_REFERENCE.md#11-ts4-mos-温度接入与影响审查2026-10-10)。
 `required && !valid` 才是 MOS 断线；不支持时不参与 MOS OTP，不能把无效样本伪装为有效。必需温度无效时进入 `BMS_ERROR_TEMP_BREAK` / fail-safe，不能用旧样本恢复；重新有效后重新经过保护滤波。
 
+D008 的 NTC 开短路范围筛选和三次新 VADF 恢复资格由 DVC 测量层统一产生，
+电阻零值表示无效或尚未恢复合格；公共软件保护是 DVC 路径 `TEMP_BREAK` 的唯一
+运行时写入者。必需 NTC 一次无效立即禁止两路 MOS，缓存不增加恢复次数。具体判据、原理图
+依据及本次未执行测试的边界见 [D008 NTC 说明](D008_PRODUCT_REFERENCE.md#ntc-开短路与恢复资格2026-10-10)。
+
 ## 5. 与 AFE 硬件保护的关系
 
 AFE Hardware Protection V2 使用独立 `bms_afe_hw_profile_t`，不属于 First/Second/Third。软件参数写入不得重写 AFE profile，反之亦然。硬件 flag/latch 由 backend 映射为 BMS fault/lockout；SC/SCD、WDT、load detect、body diode、Open-Wire、Balance、寄存器量化和恢复条件保留 AFE/Product 差异。

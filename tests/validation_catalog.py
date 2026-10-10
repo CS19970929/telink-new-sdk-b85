@@ -28,6 +28,7 @@ register('protection', ('d014',), '22 个原始生产 TU 与 SPI/Flash 端口模
 register('diagnostics', PRODUCTS, '生产代码与环境替身', 'diagnostics_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'dvc1124_fixed_policy_host_check')
 register('afe', ('d008',), '实际DVC读取/采样函数体与原厂RC事件向量', 'dvc_adc_events_host_check')
+register('afe', ('d008',), '真实温度采集/有效性/仲裁函数体与完整公共保护；RAM 寄存器非物理 Gate', 'dvc_ntc_scenarios_host_check')
 register('afe', SH, '真实检测函数与读清寄存器 peer；不替代物理映射及 Gate', 'openwire_backends_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'dvc_register_scenarios_host_check')
 register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')

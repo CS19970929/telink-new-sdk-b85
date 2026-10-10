@@ -24,6 +24,11 @@
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
 #define DVC_OPENWIRE_TIMEOUT_US    900000u
+/* D008 10K NTC 的开短路筛选范围，覆盖现有温度表的 860..116110 ohm。
+ * CN4 拔除后仍有 R163/R164=3M 下拉，不能只用 GP >= V1P8 判开路。
+ * 这些是项目传感器判据，不是 DVC 硬件温度保护阈值。 */
+#define DVC_NTC_MIN_RES_OHM        100u
+#define DVC_NTC_MAX_RES_OHM        500000u
 
 /* 本文件拥有的寄存器工具，业务与后端消费者不直接调用。 */
 static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
@@ -72,10 +77,12 @@ static uint32_t s_balance_last_refresh_tick;
 static uint8_t s_balance_suspended;
 /* DS V1.1 p13：CC2 256ms，VADC最长223ms；512ms是项目活性上限。 */
 #define DVC_ADC_MAX_AGE_TICKS (512u * 32u)
+#define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_pending_adc_events;
 static uint8_t s_voltage_seen, s_current_seen, s_sample_pending;
 static uint8_t s_voltage_since_current;
 static uint32_t s_voltage_tick, s_current_tick, s_adc_wait_started;
+static uint8_t s_ntc_valid_samples[4]; /* 仅 GP1..GP4 为 NTC；只由新 VADF 推进。 */
 static uint32_t s_snapshot_generation;
 static uint32_t s_openwire_start_generation;
 static uint32_t s_openwire_start_tick;
@@ -1071,22 +1078,26 @@ static uint16_t dvc_ntc_temp_report(uint32_t r_ohm)
     return bms_lookup_u16(s_ntc_10k_table, DVC_TEMP_TABLE_LEN, (uint16_t)code);
 }
 
-/* 根据 ADC 读数计算 NTC 电阻。 */
+/* DS V1.1 PDF p16：Rntc = GP * Rpu / (V1P8 - GP)，再筛选项目开短路范围。 */
 static uint8_t dvc_ntc_resistance(uint16_t gp_code,
                                   uint16_t v1p8_code,
                                   uint16_t rpu_ohm,
                                   uint32_t *res_ohm)
 {
     uint32_t denominator;
+    uint32_t resistance;
 
     if (res_ohm == NULL) return 0u;
     *res_ohm = 0u;
-    if (v1p8_code == 0u) return 0u;
+    if (v1p8_code == 0u || rpu_ohm == 0u) return 0u;
     if (gp_code == 0u) return 0u;             /* 短路或无效输入。 */
     if (v1p8_code <= gp_code) return 0u;      /* 开路或饱和。 */
 
     denominator = (uint32_t)v1p8_code - gp_code;
-    *res_ohm = ((uint32_t)gp_code * rpu_ohm) / denominator;
+    resistance = ((uint32_t)gp_code * rpu_ohm) / denominator;
+    if (resistance < DVC_NTC_MIN_RES_OHM || resistance > DVC_NTC_MAX_RES_OHM)
+        return 0u;
+    *res_ohm = resistance;
     return 1u;
 }
 
@@ -1549,6 +1560,7 @@ void DVC1124_AFE_Reset(void)
     (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* 配置值：CST=1101。 */
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
+    memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
     memset(&s_applied, 0, sizeof(s_applied));
     s_balance_requested_mask = 0u;
     s_balance_suspended = 0u;
@@ -1653,12 +1665,17 @@ void DVC1124_App_AFEGet(void)
     int32_t current_ma;
     int32_t factory_current_ma;
     uint8_t write_addr;
-    uint8_t configured_ntc_ok = 1u;
     uint32_t now = pm_get_32k_tick();
     bms_features_status_t features;
     bms_features_get_status(&features);
     s_sample_pending = 0u;
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
+
+    /* 失去温度观察后必须重新取得新转换资格；缓存和长间隔不能凑恢复次数。 */
+    if (s_voltage_seen && (uint32_t)(now - s_voltage_tick) > DVC_ADC_MAX_AGE_TICKS) {
+        memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
+        memset(s_snapshot.ntc_res_ohm, 0, sizeof(s_snapshot.ntc_res_ohm));
+    }
 
     if (s_need_config)
     {
@@ -1673,6 +1690,8 @@ void DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
+        memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
+        memset(s_snapshot.ntc_res_ohm, 0, sizeof(s_snapshot.ntc_res_ohm));
         g_bms_report.charge_current_a10 = 0u;
         g_bms_report.discharge_current_a10 = 0u;
         dvc_note_comm_result(0u);
@@ -1750,23 +1769,21 @@ void DVC1124_App_AFEGet(void)
 
             s_snapshot.gp_code[i] = gp_code;
             ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
-            s_snapshot.ntc_res_ohm[i] = r_ohm;
 
-            if (i < 4u)
+            if (i < 4u) {
+                /* 一次无效立即禁止；恢复需该通道连续三次新的有效温度转换。
+                 * 未合格时电阻置零，让保护、heater/balance 和报告共用同一有效性。 */
+                if (!ntc_ok) s_ntc_valid_samples[i] = 0u;
+                else if (s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES)
+                    ++s_ntc_valid_samples[i];
+                ntc_ok = (s_ntc_valid_samples[i] >= DVC_NTC_VALID_SAMPLES) ? 1u : 0u;
+                if (!ntc_ok) r_ohm = 0u;
                 g_bms_report.temperature_x10[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
-
-            if (((i + 1u) == s_cfg.battery_ntc_gp || (i + 1u) == s_cfg.mos_ntc_gp) && !ntc_ok)
-                configured_ntc_ok = 0u;
+            }
+            s_snapshot.ntc_res_ohm[i] = r_ohm;
         }
 
-        if (!DVC1124_SW_TEMP_PROTECT_ENABLE || configured_ntc_ok)
-        {
-            bms_error_clear(BMS_ERROR_TEMP_BREAK);
-        }
-        else
-        {
-            bms_error_raise(BMS_ERROR_TEMP_BREAK);
-        }
+        /* TEMP_BREAK 只由公共软件保护按 GP2/GP3/GP4 的有效性维护。 */
 
         {
             /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */

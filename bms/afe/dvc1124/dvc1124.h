@@ -64,7 +64,7 @@ typedef struct
     uint32_t load_mv;
     uint16_t cell_mv[24];
     uint16_t gp_code[6];
-    uint32_t ntc_res_ohm[6];
+    uint32_t ntc_res_ohm[6];      /* GP1..GP4 为资格确认后的电阻；无效/恢复中为零。 */
     int16_t die_temp_x10;        /* 有符号温度，单位为 0.1 ℃。 */
     uint16_t rpu_ohm;
 } dvc1124_snapshot_t;
