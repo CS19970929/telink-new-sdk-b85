@@ -126,12 +126,14 @@ int main(void){
  for(unsigned cst=0;cst<=6;++cst)for(unsigned driver=0;driver<=1;++driver){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
   acquire(100,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=1;
-  dvc_observe_current_recovery(&s_snapshot,1,now);
-  dvc_recover_current_faults(&s_snapshot,0,1,now);
+  dvc_observe_current_recovery(&s_snapshot,now);
+  dvc_recover_current_faults(&s_snapshot,0,now);
   acquire(6500,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=0;
-  dvc_observe_current_recovery(&s_snapshot,1,now);
-  dvc_recover_current_faults(&s_snapshot,0,1,now);
-  assert(s_current_recovery.discharge==driver); /* 真实解码→恢复，14个正交输入。 */
+  dvc_observe_current_recovery(&s_snapshot,now);
+  dvc_recover_current_faults(&s_snapshot,0,now);
+  assert(s_snapshot.status==(uint8_t)(0x50|cst));
+  assert(!!(s_snapshot.fet_status&DVC1124_CC2_DSGF_MASK)==driver);
+  assert(s_current_recovery.discharge); /* R1/R6 均不能让零电流解除放电故障。 */
  }
  reset();g_bms_report.balance_bits_low=5;balance_read_ok=0;acquire(100,0x50);
  assert(g_bms_report.balance_bits_low==5);balance_read_ok=1;

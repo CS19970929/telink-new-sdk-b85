@@ -141,6 +141,7 @@ static void board_init(void)
 	gpio_set_input_en(BMS_BOARD_ACC_PIN, 1);
 	gpio_set_output_en(BMS_BOARD_ACC_PIN, 0);
 
+	/* PB1 暂不用：仅保留输入电气配置，业务不读取，PAD 唤醒保持关闭。 */
 	gpio_set_func(BMS_BOARD_LOAD_DETECT_PIN, AS_GPIO);
 	gpio_setup_up_down_resistor(BMS_BOARD_LOAD_DETECT_PIN, PM_PIN_PULLUP_1M);
 	gpio_set_input_en(BMS_BOARD_LOAD_DETECT_PIN, 1);
