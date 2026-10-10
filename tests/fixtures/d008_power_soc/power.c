@@ -28,9 +28,8 @@ typedef int GPIO_PinTypeDef;
 #define BLC_ADV_ENABLE 1
 #define BLC_ADV_DISABLE 0
 #define HCI_ERR_REMOTE_USER_TERM_CONN 19
-#define APP_ACC_HIGH_STABLE_TICKS (APP_PM_TICKS_PER_SEC / 5u)
-static u8 s_acc_high_seen,s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconnect_sent;
-static u32 s_acc_high_tick,s_acc_retry_tick;
+static u8 s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconnect_sent;
+static u32 s_acc_retry_tick;
 static int acc_high,ldo_high,acc_wake,load_wake,deep_calls,timer_hold_calls,reboot_calls,disconnect_calls,adv_enabled=1;
 static int acc_low_during_shutdown,acc_low_during_sleep;
 static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
@@ -120,7 +119,7 @@ void bms_diag_runtime_pm(u8 allowed,u32 reason,u8 region,u32 seconds,u8 connecte
 static void reset(void){
  acc_high=acc_wake=load_wake=deep_calls=timer_hold_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
  acc_low_during_shutdown=acc_low_during_sleep=0;
- s_acc_high_seen=s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
+ s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
  deepsleep_en=false;ble_tx_pending=0;
  s_sleep_failure_mask=s_sleep_report_reason=0;
  memset(&s_protective_sleep,0,sizeof(s_protective_sleep));afe_error=0;output_enabled=1;
@@ -132,10 +131,13 @@ static void reset(void){
  g_bms_report.cell_min_mv=3300;app_power_process(&s_sample_due);
 }
 static void test_acc_sleep(void){
- reset();acc_high=1;app_power_process(&s_sample_due);assert(!deep_calls);
- now+=APP_ACC_HIGH_STABLE_TICKS-1;app_power_process(&s_sample_due);assert(!deep_calls);
- acc_high=0;app_power_process(&s_sample_due);acc_high=1;app_power_process(&s_sample_due);assert(!deep_calls);
- now+=APP_ACC_HIGH_STABLE_TICKS;app_power_process(&s_sample_due);
+ reset();acc_high=1;app_power_process(&s_sample_due);
+#if !BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+ assert(!s_acc_sleep_committed&&!deep_calls&&!cut_calls);
+ /* 关掉ACC触发后，命令断电及低压入口继续工作。 */
+ deepsleep_en=true;app_power_process(&s_sample_due);assert(cut_calls==1&&!deep_calls);
+ return;
+#endif
  assert(s_acc_sleep_committed&&deep_calls==1&&!cut_calls&&ldo_high&&!adv_enabled);
  assert(seq[0]==1&&seq[1]==2&&seq[2]==3&&seq[3]==4);
  int saved=seq_len;app_acc_sleep_hold();assert(seq_len==saved&&deep_calls==2);
@@ -159,10 +161,10 @@ static void test_acc_sleep(void){
  assert(app_enter_acc_sleep()&&reboot_calls==1&&!deep_calls&&!cut_calls);
  reset();acc_high=1;acc_low_during_sleep=1;
  assert(app_enter_acc_sleep()&&reboot_calls==1&&deep_calls==1&&!cut_calls);
- reset();now=UINT32_MAX-100;acc_high=1;assert(!app_acc_sleep_requested());
- now+=APP_ACC_HIGH_STABLE_TICKS;assert(app_acc_sleep_requested());
+ reset();now=UINT32_MAX-100;acc_high=1;assert(app_acc_sleep_requested());
+ now+=200u;assert(app_acc_sleep_requested());
  reset();acc_high=1;deepsleep_en=true;app_power_process(&s_sample_due);assert(cut_calls==1&&!deep_calls);
- puts("PASS ACC: debounce/cancel/wrap, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority");
+ puts("PASS ACC: immediate request/configuration, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority");
 }
 static void test_low_voltage_sample_wait(void){
  reset();g_bms_report.cell_min_mv=2700;

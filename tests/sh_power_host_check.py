@@ -145,22 +145,33 @@ def check_sh_protective_sleep():
     from validation_support import function, run_c
     root = Path(__file__).resolve().parents[1]
     source = selected_source(root / 'bms/app/app_power.c')
+    startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
+    assert startup.index('clock_init(SYS_CLK_TYPE)') < startup.index('while (app_power_boot_sleep_hold())')
+    assert startup.index('while (app_power_boot_sleep_hold())') < startup.index('wd_start()') < startup.index('user_init_normal()')
     start = source.index('#define APP_AFE_ERROR_SLEEP_SECONDS')
     end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
     body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
     body += '\n'.join(function(source, signature) for signature in (
         'static uint8_t app_get_fresh_measurements(',
         'static u32 app_pm_take_elapsed_seconds(', 'static u32 app_pm_elapsed_limit(',
+        'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
+        'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
         'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))
-    state_start = source.index('static u8 s_switch_off_seen')
+    state_start = source.index('static u8 s_command_seen')
     state_end = source.index('static u8 app_sh_explicit_sleep_poll(', state_start)
     body += '\n' + source[state_start:state_end]
-    body += function(source, 'static u8 app_sh_explicit_sleep_poll(')
+    # 保留策略宏分支，分别覆盖开启/关闭；其他函数使用实际SH预处理分支。
+    raw = (root / 'bms/app/app_power.c').read_text(encoding='utf-8')
+    body += function(raw, 'static u8 app_sh_explicit_sleep_poll(')
+    import re
+    body = '\n'.join(re.findall(r'^#define APP_SH_SWITCH_WAKE_(?:TAG|MASK)[^\n]*', raw, re.M)) + '\n' + body
     body += '\n' + function(source, 'int app_power_before_suspend(')
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
-    run_c(fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
+    for enabled in (1, 0):
+        run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled +
+              fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
 
 def check_sh_suspend_current_gates():
     """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
@@ -191,8 +202,7 @@ def check_sh_suspend_current_gates():
     #define SUSPEND_ADV 1
     #define SUSPEND_CONN 2
     static bool s_low_power_mode, deepsleep_en;
-    static u8 s_switch_off_seen;
-    static u32 s_switch_off_tick, s_command_tick;
+    static u32 s_command_tick;
     static struct { u8 reason; u32 elapsed_ms, delay_ms; } s_protective_sleep;
     #define DIAG_SLEEP_REASON_NONE 0
     #define DIAG_SLEEP_REASON_COMMAND 1

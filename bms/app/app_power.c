@@ -49,6 +49,10 @@
 #include "bus_mux.h"
 #endif
 
+#if (BMS_PRODUCT_SWITCH_SLEEP_ENABLE != 0) && (BMS_PRODUCT_SWITCH_SLEEP_ENABLE != 1)
+#error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
+#endif
+
 #define APP_PM_TICKS_PER_SEC 32000u
 
 typedef struct
@@ -93,24 +97,20 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #define APP_POWER_OFF_RETRY_SECONDS 5u
-#define APP_ACC_HIGH_STABLE_TICKS (APP_PM_TICKS_PER_SEC / 5u)
 static u8 s_power_off_committed;
 static u8 s_power_off_retry_ready;
 static u32 s_power_off_retry_tick;
-static u8 s_acc_high_seen, s_acc_sleep_committed, s_acc_retry_ready, s_acc_disconnect_sent;
-static u32 s_acc_high_tick, s_acc_retry_tick;
+static u8 s_acc_sleep_committed, s_acc_retry_ready, s_acc_disconnect_sent;
+static u32 s_acc_retry_tick;
 
 #else
+#if BMS_PRODUCT_SWITCH_ENABLE
 /* 按产品配置读取开关输入状态。 */
 static uint8_t board_switch_is_on(void)
 {
-#if BMS_PRODUCT_SWITCH_ENABLE
 	return gpio_read(BMS_BOARD_SWITCH_PIN) ? 0u : 1u;
-#else
-	return 1u;
-#endif
 }
-
+#endif
 #endif
 
 /* 从低功耗时间差中消费完整秒数并保留余量。 */
@@ -171,6 +171,60 @@ static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/* B85 pm.h：REG6在深睡保留，watchdog/芯片复位/断电清零；本字节仅由PM持有。
+ * 低3位保存其他唤醒输入；命令/低压在开关ON时入睡，OFF只允许重新布防ON。 */
+#define APP_SH_SWITCH_WAKE_TAG 0xa8u
+#define APP_SH_SWITCH_WAKE_MASK 0xf8u
+static u8 app_sh_other_wakeup_levels(void)
+{
+    return (gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u) |
+        (gpio_read(BMS_BOARD_AFE_ALARM_PIN) ? 2u : 0u) |
+        (gpio_read(BMS_BOARD_AFE_RESET_OUT_PIN) ? 4u : 0u);
+}
+
+static void app_sh_set_other_wakeup(u8 levels)
+{
+    cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, (levels & 1u) ? Level_Low : Level_High, 1);
+    cpu_set_gpio_wakeup(BMS_BOARD_AFE_ALARM_PIN, (levels & 2u) ? Level_Low : Level_High, 1);
+    cpu_set_gpio_wakeup(BMS_BOARD_AFE_RESET_OUT_PIN, (levels & 4u) ? Level_Low : Level_High, 1);
+}
+
+/* GPIO/clock初始化之后、watchdog/BLE/AFE/业务初始化之前调用。
+ * 返回1仅重复本保持动作；不读写Flash、不访问AFE、不恢复通信供电。 */
+u8 app_power_boot_sleep_hold(void)
+{
+    u8 retained = analog_read(DEEP_ANA_REG6);
+#if BMS_PRODUCT_SWITCH_ENABLE
+    if ((pm_get_wakeup_src() & WAKEUP_STATUS_PAD) &&
+        (retained & APP_SH_SWITCH_WAKE_MASK) == APP_SH_SWITCH_WAKE_TAG) {
+        static const GPIO_PinTypeDef inputs[] = { BMS_BOARD_SWITCH_PIN,
+            BMS_BOARD_INT_WK_MCU_PIN, BMS_BOARD_AFE_ALARM_PIN, BMS_BOARD_AFE_RESET_OUT_PIN };
+        u8 i;
+        for (i = 0u; i < sizeof(inputs) / sizeof(inputs[0]); ++i) {
+            gpio_set_func(inputs[i], AS_GPIO);
+            gpio_set_input_en(inputs[i], 1);
+            gpio_set_output_en(inputs[i], 0);
+        }
+        /* 其他PAD同时改变时，保留其正常唤醒；仅过滤单独的开关OFF。 */
+        if (!board_switch_is_on() && app_sh_other_wakeup_levels() == (retained & 7u)) {
+            gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
+            gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
+            gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
+            gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
+            cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
+            cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
+            app_sh_set_other_wakeup(retained & 7u);
+            (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
+            return 1u; /* PAD竞争返回后重新检查；ON或其他输入改变才放行。 */
+        }
+    }
+#else
+    (void)retained;
+#endif
+    analog_write(DEEP_ANA_REG6, 0u);
+    return 0u;
+}
+
 /* 等待原有输入改变，当前静态有效电平不作为拒睡条件。 */
 static void app_protective_wakeup_pin(GPIO_PinTypeDef pin)
 {
@@ -186,18 +240,20 @@ static void app_protective_sleep_hold(void)
     (void)cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
                           clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
 #else
+    u8 levels = app_sh_other_wakeup_levels();
     /* UART 只唤醒普通 Suspend，持续串口活动不能打断已提交的深睡。 */
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
     gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
     reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 #if BMS_PRODUCT_SWITCH_ENABLE
-    app_protective_wakeup_pin(BMS_BOARD_SWITCH_PIN);
+    u8 switch_on = board_switch_is_on();
+    analog_write(DEEP_ANA_REG6, switch_on ? APP_SH_SWITCH_WAKE_TAG | levels : 0u);
+    cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, switch_on ? Level_High : Level_Low, 1);
 #else
+    analog_write(DEEP_ANA_REG6, 0u);
     cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 0);
 #endif
-    app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
-    app_protective_wakeup_pin(BMS_BOARD_AFE_ALARM_PIN);
-    app_protective_wakeup_pin(BMS_BOARD_AFE_RESET_OUT_PIN);
+    app_sh_set_other_wakeup(levels);
     bms_diag_sleep_committed();
     (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
 #endif
@@ -399,15 +455,15 @@ static void app_acc_sleep_hold(void)
 /* 判断 ACC 条件是否请求进入休眠。 */
 static int app_acc_sleep_requested(void)
 {
-    u32 now = pm_get_32k_tick();
+#if BMS_PRODUCT_SWITCH_SLEEP_ENABLE
     if (!gpio_read(BMS_BOARD_ACC_PIN)) {
-        s_acc_high_seen = s_acc_retry_ready = s_acc_disconnect_sent = 0u;
+        s_acc_retry_ready = s_acc_disconnect_sent = 0u;
         return 0;
     }
-    if (!s_acc_high_seen) {
-        s_acc_high_seen = 1u; s_acc_high_tick = now;
-    }
-    return (u32)(now - s_acc_high_tick) >= APP_ACC_HIGH_STABLE_TICKS;
+    return 1; /* 主循环检测到OFF立即请求，不增加确认延时。 */
+#else
+    return 0;
+#endif
 }
 
 /* 满足通信和硬件门禁后进入 ACC 休眠。 */
@@ -458,9 +514,8 @@ static int app_enter_acc_sleep(void)
 #else
 
 /* 开关/命令与低压复用同一个已提交深睡入口；失败后不恢复业务。 */
-static u8 s_switch_off_seen, s_command_seen;
-static u32 s_switch_off_tick, s_command_tick;
-#define APP_SH_SWITCH_HOLD_32K (3u * APP_PM_TICKS_PER_SEC)
+static u8 s_command_seen;
+static u32 s_command_tick;
 #define APP_SH_COMMAND_REPLY_32K (APP_PM_TICKS_PER_SEC / 2u)
 
 static u8 app_sh_explicit_sleep_poll(void)
@@ -468,22 +523,14 @@ static u8 app_sh_explicit_sleep_poll(void)
     u32 now = pm_get_32k_tick();
     u8 reason = DIAG_SLEEP_REASON_NONE;
     u32 elapsed = 0u, delay = 0u;
-#if BMS_PRODUCT_SWITCH_ENABLE
+#if BMS_PRODUCT_SWITCH_ENABLE && BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+    /* 开关OFF优先于命令应答，主循环本次直接提交深睡。 */
     if (!board_switch_is_on()) {
-        if (!s_switch_off_seen) { s_switch_off_seen = 1u; s_switch_off_tick = now; }
-        elapsed = (u32)(now - s_switch_off_tick);
-        delay = APP_SH_SWITCH_HOLD_32K;
-        reason = DIAG_SLEEP_REASON_SWITCH;
-    } else {
-        s_switch_off_seen = 0u;
-    }
-#endif
-    /* 开关到期优先于命令应答；INT_WK/ALARM/OTA/UART 均不能撤销开关请求。 */
-    if (reason == DIAG_SLEEP_REASON_SWITCH && elapsed >= delay) {
-        bms_diag_sleep(reason, 0u, 3000u, 3000u, 0u, 0u);
+        bms_diag_sleep(DIAG_SLEEP_REASON_SWITCH, 0u, 0u, 0u, 0u, 0u);
         app_enter_protective_sleep();
         return 1u;
     }
+#endif
     if (deepsleep_en) {
         if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
         reason = DIAG_SLEEP_REASON_COMMAND;
@@ -586,9 +633,9 @@ void app_power_process(const volatile uint8_t *sample_due)
         bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 200u, 200u, 0u);
+        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 0u, 0u, 0u);
         if (app_enter_acc_sleep()) return;
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 200u, 200u, 0u);
+        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 0u, 0u, 0u);
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
@@ -621,14 +668,7 @@ void app_power_process(const volatile uint8_t *sample_due)
                                 s_protective_sleep.delay_ms, s_low_power_mode);
         return;
     }
-    /* 无保护性计时时，继续展示普通 ACC 确认窗口及其门禁。 */
-    if (s_acc_high_seen) {
-        u32 acc_ms = (u32)(pm_get_32k_tick() - s_acc_high_tick) / 32u;
-        if (acc_ms > 200u) acc_ms = 200u;
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, acc_ms, 200u, s_low_power_mode);
-    } else {
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_NONE, 0u, 0u, s_low_power_mode);
-    }
+    app_dvc_publish_sleep(DIAG_SLEEP_REASON_NONE, 0u, 0u, s_low_power_mode);
 }
 
 #else
@@ -667,9 +707,6 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (deepsleep_en)
         bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u,
             (u32)(pm_get_32k_tick() - s_command_tick) / 32u, 500u, 0u, s_low_power_mode);
-    else if (s_switch_off_seen)
-        bms_diag_sleep(DIAG_SLEEP_REASON_SWITCH, 0u,
-            (u32)(pm_get_32k_tick() - s_switch_off_tick) / 32u, 3000u, 0u, s_low_power_mode);
     else if (s_protective_sleep.reason != DIAG_SLEEP_REASON_NONE)
         bms_diag_sleep(s_protective_sleep.reason, 0u, s_protective_sleep.elapsed_ms,
             s_protective_sleep.delay_ms, 0u, s_low_power_mode);

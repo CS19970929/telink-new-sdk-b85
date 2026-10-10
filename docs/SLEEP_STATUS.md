@@ -14,8 +14,7 @@
 低压/AFE 异常到期即提交保护性休眠：D008 拉低 PC4 关闭 MCU 供电，SH MCU 深睡；不受通信、OTA、保存或 AFE 失败阻止。D008 普通 ACC/命令仍有门禁与失败退避；SH 开关/命令使用强制深睡入口。执行规则见 [保护性休眠](LOW_POWER_POLICY.md)。
 `COMMITTED` 表示前置动作完成、即将调用 SDK 深睡或切断 MCU 电源，不证明芯片
 实际睡眠或 Gate 状态。断连、通信失败、超过五秒未更新均显示未知或过期，不能
-把通信中断解释成已经休眠。真正深睡/掉电后无法实时读取；ACC 的 200 ms 窗口
-也可能短于上位机刷新周期。
+把通信中断解释成已经休眠。真正深睡/掉电后无法实时读取；开关立即请求的过程也可能短于上位机刷新周期。
 
 旧固件根据原 Diagnostics magic/schema/新增 capability 判定不支持，不显示虚构的零秒。
 新快照只增加 RAM 观察数据，不改变 Config/State/Event、OTA 参数编号或已有寄存器含义。
@@ -26,9 +25,11 @@
 |---|---|
 | 四产品低压/AFE 异常 | 使用产品阈值和延时；两类计时独立；展示最早到期的一条，阻止位与退避为零，到期 D008 断电、SH 深睡 |
 | D008 命令关机 | 无额外计时；等待 OTA、Flash、总线和 BLE 应答，失败五秒重试 |
-| D008 ACC | 高电平连续 200 ms；BLE 断开、保存及 AFE shutdown 成功后深睡 |
-| SH 开关 | OFF 连续三秒；不要求 INT 条件，到期无业务阻止位和失败退避 |
+| D008 ACC | 宏启用时ACC高电平立即请求；BLE断开、保存及AFE shutdown成功后深睡 |
+| SH 开关 | 宏启用时OFF立即提交，延时为零；不要求INT条件，无业务阻止位和失败退避 |
 | SH 命令 | 等待已有 UART/BLE 应答，最长 500 ms，到期强制深睡 |
+
+四项目 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` 默认1，置0只关闭开关/ACC请求。SH命令休眠后OFF不恢复业务，再ON才恢复，见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
 
 普通 suspend 是否许可独立展示，不代表可以阻止保护性深睡。
 AFE 和实板边界见 [AFE资料指南](AFE_REFERENCE_GUIDE.md) 与 [保护性深睡](LOW_POWER_POLICY.md)。

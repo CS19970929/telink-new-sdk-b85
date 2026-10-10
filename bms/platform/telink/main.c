@@ -33,6 +33,7 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
+#include "app_power.h"
 #include "bms_stack_monitor.h"
 #include "modbus_uart.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -89,6 +90,12 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 #endif
 
 	clock_init(SYS_CLK_TYPE);
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    /* OFF只是布防下次ON，禁止经过user_init_normal重新开启AFE/通信。
+     * 每次保持调用都尝试deep sleep；PAD竞争返回才再检查，并非延时等待。 */
+    while (app_power_boot_sleep_hold()) {}
+#endif
 
 	#if (MODULE_WATCHDOG_ENABLE)
 		wd_set_interval_ms(WATCHDOG_INIT_TIMEOUT,CLOCK_SYS_CLOCK_1MS);

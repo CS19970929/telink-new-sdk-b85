@@ -25,6 +25,7 @@
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
 | OTA 更新策略 | 窗口、`bms_tools/build_options.py`、`bms/core/bms_update_policy.h` | 分组选择和一次性标记；历史编号只保留只读地址 |
+| 开关/ACC触发休眠 | 四项目各自 `bms_product.h` 的 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` | 默认1，设0只关闭开关休眠请求；不改变开关输入/唤醒/其他用途，不属于Flash参数；详见 [SH低功耗与开关策略](SH_LOW_POWER_FAILURE_HANDLING.md) |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
 产品 include 路径由构建器选择。各模块显式引入所需产品配置；公共整数类型使用 `stdint.h`。State/Event 保存周期归各自实现，有限重试周期由 `bms_storage_platform.h` 定义。

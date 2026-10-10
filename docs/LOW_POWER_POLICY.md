@@ -39,8 +39,9 @@ PC4 高，并以 PA0 低电平唤醒。显式命令关机继续拉低 PC4。
 具体充电/开关复电条件须实板确认。若调试器等外部供电使 MCU 未实际掉电，保护性
 入口仅执行 200 ms 定时 Suspend 保持，不恢复业务、不重复保存或发送 AFE 命令。
 
-SH 保持原有深睡：关闭 CMNT_EN，将开关、INT_WK、ALARM、RESET 等 PAD 输入配置为
-入睡时电平的反向，静态有效电平不能拒睡。SDK 返回后仅重设 PAD 并重试，
+SH 深睡关闭 CMNT_EN；INT_WK、ALARM、RESET 等 PAD 等待输入改变，静态电平不拒睡。
+开关OFF时等待ON；ON状态下命令/低压入睡后的OFF在业务初始化前重新深睡，
+再ON才恢复工作，具体保留标记及SDK边界见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。SDK 返回后仅重设 PAD 并重试，
 不恢复 BLE/采样业务、不重复保存或发送 AFE 命令。真正 deep sleep 唤醒走完整启动。
 
 2026-10-10 按产品要求将 D008 的全部 AFE 低功耗请求统一为 Shutdown，包括低压和
@@ -61,7 +62,7 @@ RM V1.2 PDF 第 7 页 CST；PC4 供电控制见 HS-D008-24S100A-V1 原理图第 
 覆盖最终拉低 PC4、保存/AFE 失败仍断电、外部供电保持及 ACC 不断电，但未执行；
 未编译、生成 BIN 或连接实板。下述历史验证不覆盖本次断电策略改动。
 
-D008 ACC/显式命令关机保留原门禁。SH 开关 OFF 连续 3 秒和命令请求现也复用本页强制深睡入口；普通 Suspend 使用串口静默 30 秒及 RX 唤醒策略，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
+D008 ACC/显式命令关机保留原门禁。SH 开关 OFF 立即请求（`BMS_PRODUCT_SWITCH_SLEEP_ENABLE=1`）和命令请求现也复用本页强制深睡入口；普通 Suspend 使用串口静默 30 秒及 RX 唤醒策略，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
 [实时诊断](SLEEP_STATUS.md) 中保护性原因的阻止位为零，`COMMITTED` 只代表已提交动作。
 
 原资料依据：DVC1124-2 RM V1.2 PDF 第 7 页 CST sleep/shutdown；SH36735XX V1.0A

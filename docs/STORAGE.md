@@ -97,10 +97,10 @@ SOC/循环变化由主循环汇入待保存副本，检查点到期且编码改�
 | 产品/路径 | 进入条件与动作 | 持久化/恢复 |
 |---|---|---|
 | D008 普通 suspend | OTA/Flash/总线/样本门禁通过、有效电流绝对值小于 200 mA；BLE 连接事件间也允许；应用采样唤醒约 200 ms | RAM 保留，不为每次 suspend 擦写 |
-| D008 ACC 深睡 | ACC 高稳定 200 ms；等待事务结束和 BLE 断开；关广告，AFE shutdown；PC4 保持高 | State/Event 必须保存成功；ACC 低唤醒，完整 reboot；CHG_IN 不作为该路径唤醒源 |
+| D008 ACC 深睡 | 休眠宏开启时ACC高立即请求；等待事务结束和 BLE 断开；关广告，AFE shutdown；PC4 保持高 | State/Event 必须保存成功；ACC 低唤醒，完整 reboot；CHG_IN 不作为该路径唤醒源 |
 | D008 显式断电 | `0x1102=0x000A` 锁存请求，等待应答发完；AFE shutdown 成功后最后拉低 PC4 | State/Event 必须成功；失败保持供电/请求并 5 s 重试 |
 | D008 保护性断电 | 低压/AFE条件到期；通信、OTA、Flash不阻止 | State/Event尽力保存后拉低PC4，失败不能取消断电；详见保护性休眠策略 |
-| SH 三产品深睡 | 开关 OFF 3 s、低压/AFE 到期或显式命令；提交后不被 UART、OTA、Flash、AFE 失败取消 | 非 OTA 且 Flash 可写时 State/Event 各尽力保存一次；失败不重试，SDK 返回仅重试深睡 |
+| SH 三产品深睡 | 休眠宏开启时开关OFF立即提交、低压/AFE 到期或显式命令；提交后不被 UART、OTA、Flash、AFE 失败取消 | 非 OTA 且 Flash 可写时 State/Event 各尽力保存一次；失败不重试，SDK 返回仅重试深睡 |
 | SH 普通 Suspend | 串口静默 30 s 及采样/电流等安全条件满足；RX 唤醒，首帧丢弃 | RAM 保留，不为 Suspend 写 Flash，主循环恢复 UART/DMA |
 
 SH 固定 UART 禁睡宏已移除。低压阈值保持，详细进入、唤醒和失败处理见

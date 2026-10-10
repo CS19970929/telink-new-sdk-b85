@@ -37,6 +37,10 @@
 #define BMS_PRODUCT_UART_ENABLE 1
 #define BMS_PRODUCT_SIF_ENABLE 0
 #define BMS_PRODUCT_RS485_ENABLE              1
+/* 仅控制开关/ACC触发休眠；关闭不改变开关输入、MOS逻辑或其他休眠入口。 */
+#ifndef BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE 1
+#endif
 /* 仅实板 UART DMA/RS485 线路测试，量产默认禁止。 */
 #ifndef BMS_RS485_TX_DIAG_ENABLE
 #define BMS_RS485_TX_DIAG_ENABLE         0

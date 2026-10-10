@@ -7,7 +7,7 @@
 
 | 入口 | 确认时间 | 提交条件 |
 |---|---|---|
-| 开关 OFF（PA0 高） | 连续 3 秒，期间 ON 取消本次确认 | 不再要求 INT_WK 为低，不受 UART、BLE、OTA、Flash 状态阻止 |
+| 开关 OFF（PA0 高） | 宏启用时，主循环检测到即提交，无额外等待 | 不再要求 INT_WK 为低，不受 UART、BLE、OTA、Flash 状态阻止 |
 | 最低单体低于 2800 mV | 连续 1 小时 | 保留既有低压计时和有效恢复判据 |
 | 最低单体低于 3000 mV，且 `current_ma >= -200` | 连续 24 小时 | 无可靠充电；与一小时条件独立累计 |
 | AFE 异常／无新鲜有效采样 | 连续 30 分钟 | 与低压独立计时 |
@@ -23,9 +23,42 @@ AFE、存储、BLE 控制失败不撤销请求；watchdog 总线静默期间不�
 OTA 可被中断，未保存的状态可能丢失，这属于强制深睡的明确取舍。
 
 UART RX 的 PAD 唤醒与 RISC0 中断在深睡保持入口关闭，持续串口不能取消深睡。
-开关、INT_WK、ALARM、RESET 的 PAD 唤醒设为入睡时电平的反向，以等待后续变化。
+INT_WK、ALARM、RESET 的 PAD 唤醒继续等待输入变化。开关按“OFF保持休眠，ON恢复工作”处理：
+
+- 入睡时开关 OFF：直接设 PA0 低电平（ON）唤醒。
+- 命令或低压入睡时开关 ON：不能直接设低电平，否则立即拒睡。先设高电平，
+  用 B85 `DEEP_ANA_REG6`（0x35）保存过滤标记与其他三个 PAD 的入睡电平。
+- 后续 OFF 会使 MCU 短暂硬件启动。`main()` 在 GPIO/clock 初始化后、watchdog 启动及
+  `user_init_normal()` 前调用 `app_power_boot_sleep_hold()`。若只有开关变为 OFF，
+  保持通信供电关闭，不初始化 BLE/AFE/业务、不保存 Flash，改为低电平唤醒并重新深睡。
+  再次 ON 才放行正常启动；其他 PAD 同时改变仍保留正常唤醒。
+- SDK 若因竞争返回，启动保持入口重新检查输入；OFF继续尝试深睡，ON或其他输入变化
+  才放行。这里保证不恢复业务，并非宣称 OFF 完全不产生 MCU 硬件启动电流脉冲。
+
+此标记仅由 PM 使用，不占用 Flash、不改协议。SDK `pm.h` 规定 REG6 在深睡保留，
+watchdog、芯片复位、RESET和断电清零；不是旧的 `USED_DEEP_ANA_REG` 或 SDK专用 REG2。
+正常启动清除标记；无有效标记或非 PAD 启动不套用该过滤。
 若 SDK 因 PAD 竞争返回，仅重设 PAD 并重试深睡，不返回业务，也不重复保存或发送 AFE 命令。
 真正深睡唤醒走完整启动、AFE 重配及保护资格恢复；不能凭旧缓存恢复 MOS。
+
+## 开关休眠宏
+
+四项目各自 `bms/products/<product>/bms_product.h` 增加：
+
+```c
+#ifndef BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE 1
+#endif
+```
+
+设为 `0` 只取消开关触发休眠，仍保留开关输入、原有唤醒、MOS及其他用途。
+SH 还要求既有 `BMS_PRODUCT_SWITCH_ENABLE` 表示开关能力；不要用这个旧能力宏代替
+新的休眠策略宏。新宏不受 `FAC_TEST` 自动改写，可按产品头文件或编译定义选择，
+只允许0/1，不属于持久化参数或OTA参数组。D008的新宏控制已有ACC休眠入口；
+默认启用并取消原200ms确认，但其通信、存储与AFE成功门禁保持，命令仍切断MCU供电。
+
+“立即”指主循环本次检测到OFF即请求/提交，不含人为3秒等待，也不表示GPIO中断内睡眠；
+已有当前任务与必要AFE/保存事务仍有执行时间。SH开关提交后不受业务门禁取消。
 
 ## 普通 Suspend 与串口
 
@@ -56,7 +89,8 @@ AFE 依据 SH36735XX CV1.0A 原 PDF 第 10 页，见 [AFE资料指南](AFE_REFER
 未执行编译、host 回归、资源检查或生成 BIN。后续按授权执行 `sh_power_host_check.py`、
 `uart_ownership_host_check.py`、`sh3673510_comm_mode_check.py` 及公共改动四产品检查。
 
-实板须覆盖三个产品：开关关闭、低压到期与持续串口/OTA并发；AFE失联与保存失败；
+实板须覆盖三个产品：开关关闭立即请求、宏0/1、低压到期与持续串口/OTA并发；AFE失联与保存失败；
+命令ON入睡→OFF不恢复通信/MOS→ON正常启动、其他PAD并发以及watchdog/reset标记清除；
 广播/连接期间 UART 首帧唤醒、第二帧正常、30秒后再次 Suspend；9600/19200/115200
 对应产品长帧、DE最终停止位、RX持续低、GPIO竞争及唤醒后的采样/MOS保护。
 软件保证已提交请求不被业务条件取消，不代表 MCU 故障、输入持续抖动时仍有物理睡眠保证。

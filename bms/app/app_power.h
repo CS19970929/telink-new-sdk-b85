@@ -16,5 +16,7 @@ void app_power_process(const volatile uint8_t *sample_due);
 void task_sleep_enter(u8 e, u8 *p, int n);
 /* 仅 SH 注册：在 SDK 真正休眠前复核 UART 活动，已提交深睡始终放行。 */
 int app_power_before_suspend(void);
+/* 仅SH启动早期调用：过滤深睡后的开关OFF，返回1时继续保持休眠。 */
+u8 app_power_boot_sleep_hold(void);
 
 #endif
