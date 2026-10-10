@@ -41,5 +41,6 @@ ALARM、RESET 输入变化唤醒并关闭 CMNT_EN。SDK 拒睡返回后仅重设
 
 原资料依据：DVC1124-2 RM V1.2 PDF 第 7 页 CST sleep/shutdown；SH36735XX V1.0A
 PDF 第 10 页 SLEEP/NORMAL 和唤醒。见 [AFE资料指南](AFE_REFERENCE_GUIDE.md)。
-AFE 失联时无法确认芯片已睡或 MOS 已关。未执行编译、host 或实板测试；实际功耗、
-PAD 竞争、OTA 中断恢复及唤醒后的保护恢复需要实板验证。
+AFE 失联时无法确认芯片已睡或 MOS 已关。2026-10-10 的相关 host、四产品开发 ELF
+与资源检查见 [优化及固定提交验证记录](OPTIMIZATION_20261010.md)。软件检查不能证明
+实际功耗、PAD 竞争、OTA 中断恢复及唤醒后的保护恢复；这些仍需实板验证。
