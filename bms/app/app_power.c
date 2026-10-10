@@ -678,6 +678,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 	static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
 	u32 sleep_elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
 	bms_afe_aux_measurements_t m;
+    u8 ui_busy = 0u;
 	/* 采样到期或失效时先保持运行；有效小电流仍由 200 ms 定时唤醒维持采样。 */
 	u8 sample_block = (u8)(!app_get_fresh_measurements(&m) || (*sample_due) ||
 		m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
@@ -705,57 +706,23 @@ void app_power_process(const volatile uint8_t *sample_due)
 
 	}
 
-	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
-	s_low_power_mode = true;
-	// 此处不处理 keyScan/button_detect 功耗；需要时参考 ble_remote 示例。
-	if (0)
-	{
-	}
 #if (UI_KEYBOARD_ENABLE)
-	else if (scan_pin_need || key_not_released)
-	{
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
+    ui_busy = (scan_pin_need || key_not_released) ? 1u : 0u;
 #elif (UI_BUTTON_ENABLE)
-	else if (button_not_released)
-	{
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
+    ui_busy = button_not_released ? 1u : 0u;
 #endif
 #if (BLE_OTA_SERVER_ENABLE)
-	else if (ota_is_working)
-	{
-		s_low_power_mode = false;
-		bls_pm_setManualLatency(0);
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
+    /* 保留 UI 优先于 OTA latency 调整的既有顺序。 */
+    if (ota_is_working && !ui_busy) bls_pm_setManualLatency(0);
 #endif
-
-	if (!gpio_read(BMS_BOARD_SWITCH_PIN) ||
-		SH3673510_FIXED_UART_BLOCKS_PM ||
-		uart_tx_is_busy() || modbus_uart_tx_active() ||
-		sample_block || !app_flash_lock_restore_enabled() ||
-
-		ota_is_working)
-	{
-		s_low_power_mode = false;
-		bls_pm_setSuspendMask(SUSPEND_DISABLE);
-	}
-	else if (device_in_connection_state)
-	{
-		s_low_power_mode = false;
-	}
-    /* 此字段记录 SDK suspend mask 是否许可，不把 BLE 连接等同于禁止 suspend。 */
-    app_sh_publish_sleep(sleep_cnt,
-        (u8)(gpio_read(BMS_BOARD_SWITCH_PIN) && !SH3673510_FIXED_UART_BLOCKS_PM &&
-             !uart_tx_is_busy() && !modbus_uart_tx_active() &&
-             !sample_block && app_flash_lock_restore_enabled() && !ota_is_working
-#if (UI_KEYBOARD_ENABLE)
-             && !scan_pin_need && !key_not_released
-#elif (UI_BUTTON_ENABLE)
-             && !button_not_released
-#endif
-             ));
+    /* 普通 Suspend 只作一次决定；SDK mask 与诊断使用同一结果。
+     * BLE 连接本身不阻断 SUSPEND_CONN；开关深睡的条件仍由独立入口处理。 */
+    s_low_power_mode = !ui_busy && gpio_read(BMS_BOARD_SWITCH_PIN) &&
+        !SH3673510_FIXED_UART_BLOCKS_PM && !uart_tx_is_busy() &&
+        !modbus_uart_tx_active() && !sample_block &&
+        app_flash_lock_restore_enabled() && !ota_is_working;
+    bls_pm_setSuspendMask(s_low_power_mode ? SUSPEND_ADV | SUSPEND_CONN : SUSPEND_DISABLE);
+    app_sh_publish_sleep(sleep_cnt, s_low_power_mode);
 }
 
 #endif
