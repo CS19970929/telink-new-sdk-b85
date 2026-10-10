@@ -28,6 +28,8 @@
 #include "app_config.h"
 #include "app.h"
 #include "app_power.h"
+#include "modbus_uart.h"
+#include "bms_afe_backend.h"
 #include "bms_product.h"
 #include "ble_ota.h"
 #include "app_att.h"
@@ -259,6 +261,11 @@ static void task_connect(u8 e, u8 *p, int n)
 /* 恢复 suspend 后的外设与应用时序状态。 */
 static void task_suspend_exit(u8 e, u8 *p, int n)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    /* B85 SUSPEND_EXIT 的 p[0] 是本次 cpu_sleep_wakeup 返回状态低字节。
+     * pm_get_wakeup_src() 是启动缓存，不能用于普通 Suspend。 */
+    modbus_uart_suspend_exit((p && n > 0) ? p[0] : 0u);
+#endif
 #if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
     ++s_debug_suspend_exits; /* 此处不写环形缓存、不读 tick、不格式化、不执行 I/O。 */
 #endif
@@ -582,6 +589,9 @@ _attribute_no_inline_ void user_init_normal(void)
 	bls_app_registerEventCallback(BLT_EV_FLAG_CONNECT, &task_connect);
 	bls_app_registerEventCallback(BLT_EV_FLAG_TERMINATE, &task_terminate);
 	bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_EXIT, &task_suspend_exit);
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    bls_pm_registerFuncBeforeSuspend(&app_power_before_suspend);
+#endif
 	bls_app_registerEventCallback(BLT_EV_FLAG_DATA_LENGTH_EXCHANGE, &task_dle_exchange);
 
 #if (BLE_APP_PM_ENABLE)

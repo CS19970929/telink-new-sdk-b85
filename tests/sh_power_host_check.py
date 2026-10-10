@@ -126,28 +126,17 @@ def check_sh3673510_sleep_host_check():
         function('bms_afe_guard.c', 'enter_failsafe_wait'),
         function('bms_afe_guard.c', 'note_invalid'),
         function('bms_afe_guard.c', 'bms_afe_sleep'),
-        function('app_power.c', 'app_enter_switch_deepsleep'),
         function('app_power.c', 'app_pm_elapsed_limit'),
     ])
-    app_source = selected_source(APP / 'app_power.c')
-    assert 'sleep_cnt = app_pm_elapsed_limit(' in app_source
-    assert 'if (app_enter_switch_deepsleep()) sleep_cnt = 0;' in app_source
-    assert 'if (app_protective_sleep_poll(sleep_elapsed_sec)) return;' in app_source
     fixture = '#define BMS_AFE_BACKEND 2\n#define BMS_AFE_BACKEND_DVC1124 1\n' + (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
         c, exe = Path(tmp) / 'check.c', Path(tmp) / 'check.exe'
         c.write_text(fixture.replace('/* PRODUCTION */', body), encoding='utf-8')
-        # Default 1 reproduces the actual fixed-UART gate. Test-only 0 retains
-        # fault-injection coverage of the latent PM body; it is not a product mode.
-        config = (ROOT / 'bms/products/sh3673510_defaults.h').read_text(encoding='utf-8')
-        assert re.search(r'^#define SH3673510_FIXED_UART_BLOCKS_PM 1u$', config, re.M)
-        for blocked in (1, 0):
-            subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
-                            '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
-                            '-DSH3673510_FIXED_UART_BLOCKS_PM=%d' % blocked,
-                            *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
-            subprocess.run([str(exe)], check=True)
-    print('SH production sleep/control/backend/guard/app fault injection: PASS')
+        subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
+                        '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
+                        *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
+        subprocess.run([str(exe)], check=True)
+    print('SH production sleep/control/backend/guard fault injection: PASS')
 
 def check_sh_protective_sleep():
     """执行当前 SH 产品的保护计时/深睡保持生产函数，边界均注入失败。"""
@@ -165,11 +154,16 @@ def check_sh_protective_sleep():
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
         'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))
+    state_start = source.index('static u8 s_switch_off_seen')
+    state_end = source.index('static u8 app_sh_explicit_sleep_poll(', state_start)
+    body += '\n' + source[state_start:state_end]
+    body += function(source, 'static u8 app_sh_explicit_sleep_poll(')
+    body += '\n' + function(source, 'int app_power_before_suspend(')
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     run_c(fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
 
 def check_sh_suspend_current_gates():
-    """运行真实 SH 普通 suspend 入口；关闭固定门禁仅用于覆盖潜在分支。"""
+    """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
     from pathlib import Path
     import re
     from project_paths import selected_source
@@ -196,9 +190,15 @@ def check_sh_suspend_current_gates():
     #define SUSPEND_DISABLE 0
     #define SUSPEND_ADV 1
     #define SUSPEND_CONN 2
-    static bool s_low_power_mode;
+    static bool s_low_power_mode, deepsleep_en;
+    static u8 s_switch_off_seen;
+    static u32 s_switch_off_tick, s_command_tick;
+    static struct { u8 reason; u32 elapsed_ms, delay_ms; } s_protective_sleep;
+    #define DIAG_SLEEP_REASON_NONE 0
+    #define DIAG_SLEEP_REASON_COMMAND 1
+    #define DIAG_SLEEP_REASON_SWITCH 3
     static int valid=1, flash_locked=1, tx_busy, modbus_busy, ota_is_working;
-    static int device_in_connection_state, switch_high=1;
+    static int idle_ready=1;
     static int mask, observed_allowed, mask_calls;
     static u32 now=100;
     static bms_afe_aux_measurements_t measurement={0,100};
@@ -206,14 +206,11 @@ def check_sh_suspend_current_gates():
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){*m=measurement;return valid;}
     static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *c){(void)c;return 0;}
     static u8 app_protective_sleep_poll(u32 seconds){(void)seconds;return 0;}
-    static void app_sh_publish_sleep(u32 seconds,u8 allowed){(void)seconds;observed_allowed=allowed;}
-    static int board_switch_is_on(void){return 1;}
-    static int gpio_read(int pin){return pin==BMS_BOARD_SWITCH_PIN?switch_high:1;}
-    static void cpu_set_gpio_wakeup(int pin,int level,int enable){(void)pin;(void)level;(void)enable;}
-    static u32 app_pm_elapsed_limit(u32 current,u32 elapsed,u32 limit){(void)elapsed;(void)limit;return current;}
-    static int app_enter_switch_deepsleep(void){return 0;}
-    static int uart_tx_is_busy(void){return tx_busy;}
-    static int modbus_uart_tx_active(void){return modbus_busy;}
+    static u8 app_sh_explicit_sleep_poll(void){return 0;}
+    static int modbus_uart_suspend_ready(void){return idle_ready&&!tx_busy&&!modbus_busy;}
+    static void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed){
+        (void)r;(void)b;(void)e;(void)d;(void)retry;observed_allowed=allowed;
+    }
     static int app_flash_lock_restore_enabled(void){return flash_locked;}
     static void bls_pm_setSuspendMask(int value){mask=value;++mask_calls;}
     static void bls_pm_setManualLatency(int value){(void)value;}
@@ -223,7 +220,7 @@ def check_sh_suspend_current_gates():
         int32_t currents[]={INT32_MIN,-500,-201,-200,-199,0,199,200,201,500,INT32_MAX};
         for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
             measurement.current_ma=currents[i];app_power_process(&due);
-            int blocked=SH3673510_FIXED_UART_BLOCKS_PM || currents[i]<=-200 || currents[i]>=200;
+            int blocked=currents[i]<=-200 || currents[i]>=200;
             assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
             assert(observed_allowed==!blocked);
         }
@@ -233,26 +230,24 @@ def check_sh_suspend_current_gates():
         app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         now=100;due=1;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         due=0;flash_locked=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
-        /* 各门禁及 BLE 连接组合：控制输出与最终诊断必须一致，每轮只设置一次 mask。 */
-        for(unsigned bits=0;bits<512u;bits++){
-            switch_high=(bits&1u)!=0;flash_locked=(bits&2u)!=0;
+        /* 各门禁组合：控制输出与最终诊断必须一致，每轮只设置一次 mask。 */
+        for(unsigned bits=0;bits<256u;bits++){
+            idle_ready=(bits&1u)!=0;flash_locked=(bits&2u)!=0;
             tx_busy=(bits&4u)!=0;modbus_busy=(bits&8u)!=0;
             ota_is_working=(bits&16u)!=0;valid=(bits&32u)!=0;
-            due=(bits&64u)!=0;device_in_connection_state=(bits&128u)!=0;
-            now=100u+((bits&256u)?12801u:0u);mask_calls=0;
+            due=(bits&64u)!=0;
+            now=100u+((bits&128u)?12801u:0u);mask_calls=0;
             app_power_process(&due);
-            int blocked=SH3673510_FIXED_UART_BLOCKS_PM || !switch_high || !flash_locked ||
-                tx_busy || modbus_busy || ota_is_working || !valid || due || (bits&256u);
+            int blocked=!idle_ready || !flash_locked ||
+                tx_busy || modbus_busy || ota_is_working || !valid || due || (bits&128u);
             assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
             assert(observed_allowed==!blocked && s_low_power_mode==!blocked && mask_calls==1);
         }
         return 0;
     }
     '''
-    for fixed_gate in (1, 0):
-        run_c(defines + '\n#define SH3673510_FIXED_UART_BLOCKS_PM %d\n' % fixed_gate +
-              fixture.replace('/* PRODUCTION */', body),
-              flags=('-Wno-unused-function',), name='sh-suspend-current')
+    run_c(defines + '\n' + fixture.replace('/* PRODUCTION */', body),
+          flags=('-Wno-unused-function',), name='sh-suspend-current')
 
 if __name__ == "__main__":
     check_sh3673510_sample_schedule_host_check()

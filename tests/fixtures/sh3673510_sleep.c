@@ -7,7 +7,6 @@ typedef uint8_t u8;
 typedef uint32_t u32;
 enum { SH3673520_OK, SH3673520_ERR_SPI };
 enum { BMS_ERROR_AFE1 };
-enum { DEEPSLEEP_MODE = 1, PM_WAKEUP_PAD = 1, STATUS_GPIO_ERR_NO_ENTER_PM = 256 };
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE 2u
 #define BMS_AFE_FAILSAFE_WAIT_MS 35000u
 static uint8_t s_control_ready, s_afe_sleeping;
@@ -18,17 +17,11 @@ static uint8_t s_sampling_restart;
 static uint16_t s_short_release_count, s_hw_recovery_count[9];
 static unsigned errors, invalidations, comm_errors, failures, assertions;
 static unsigned bus_calls, balance_calls, fet_calls, sleep_writes, normal_writes;
-static unsigned pm_calls, event_calls, prepare_calls, cancel_calls;
-static unsigned wake_calls, wake_on_call, command_fail_at;
-static uint8_t ota_is_working, tx_busy, flash_locked;
+static unsigned command_fail_at;
 static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
-static int pm_status;
 static u32 fake_tick;
 uint32_t bms_diag_tick(void) { return fake_tick; }
-static u32 s_sleep_failure_mask, s_sleep_last_attempt_tick_32k;
-static u8 s_sleep_attempt_ready;
-void bms_diag_sleep_committed(void) {}
 static uint8_t io_ok(void) { ++bus_calls; return bus_calls != command_fail_at; }
 static uint8_t sh3673510_board_wake_active(void) { return control_wake_active; }
 static uint8_t sh3673510_control_set_balance(uint16_t mask) {
@@ -58,20 +51,6 @@ static void note_comm_error(uint8_t stage) { (void)stage; ++comm_errors; }
 static uint8_t bms_error_get(unsigned e) { (void)e; return errors != 0; }
 static void bms_error_raise(unsigned e) { (void)e; ++errors; }
 static void bms_features_on_afe_invalid(void) { ++invalidations; heater_on = 0; }
-static int app_deepsleep_pad_wakeup_active(void) {
-    ++wake_calls; return wake_on_call && wake_calls >= wake_on_call;
-}
-static int uart_tx_is_busy(void) { return tx_busy; }
-static int modbus_uart_tx_active(void) { return tx_busy; }
-static int app_flash_lock_restore_enabled(void) { return flash_locked; }
-static u32 pm_get_32k_tick(void) { return fake_tick; }
-static int bms_event_log_note_sleep(void) { ++event_calls; return 1; }
-static struct {u8 soc_estimate_percent,discharge_fraction_percent;u32 cycle_count;} g_bms_soc;
-static int bms_state_store_write_all(u32 soc,u32 dsg,u32 cycle) { (void)soc;(void)dsg;(void)cycle;++prepare_calls;return 1; }
-static void bms_event_log_cancel_sleep(void) { ++cancel_calls; }
-static int cpu_sleep_wakeup(unsigned mode, unsigned source, unsigned tick) {
-    (void)mode; (void)source; (void)tick; ++pm_calls; return pm_status;
-}
 #define AFE_SLEEP() sh3673510_bms_afe_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)
@@ -82,7 +61,7 @@ static int cpu_sleep_wakeup(unsigned mode, unsigned source, unsigned tick) {
 #define CHECK(c) do { ++assertions; if (!(c)) { \
     printf("FAIL line %d: %s\n", __LINE__, #c); ++failures; } } while (0)
 static void reset(void) {
-    /* Advance past any retry deadline, including across uint32 wrap. */
+    /* 每个故障场景使用独立状态及不同墙钟时间。 */
     fake_tick += 4u * APP_PM_TICKS_PER_SEC;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.output_enabled = 1;
@@ -93,11 +72,10 @@ static void reset(void) {
     memset(s_hw_recovery_count, 1, sizeof(s_hw_recovery_count));
     errors = invalidations = comm_errors = bus_calls = 0;
     balance_calls = fet_calls = sleep_writes = normal_writes = 0;
-    pm_calls = event_calls = prepare_calls = cancel_calls = 0;
-    wake_calls = wake_on_call = command_fail_at = 0;
-    ota_is_working = tx_busy = control_wake_active = 0;
-    configure_ok = protection_ok = flash_locked = 1;
-    heater_on = last_c = last_d = 1; pm_status = 0;
+    command_fail_at = 0;
+    control_wake_active = 0;
+    configure_ok = protection_ok = 1;
+    heater_on = last_c = last_d = 1;
 }
 int main(void) {
     unsigned i, n;
@@ -106,26 +84,6 @@ int main(void) {
     s_guard.valid_snapshot_streak = 3; s_guard.comm_inhibit = 1; CHECK(!bms_afe_samples_qualified());
     s_guard.comm_inhibit = 0; s_guard.test_shutdown_hold = 1; CHECK(!bms_afe_samples_qualified());
     s_guard.test_shutdown_hold = 0; s_guard.bus_silenced = 1; CHECK(!bms_afe_samples_qualified());
-    reset(); ota_is_working = 1;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
-    reset(); tx_busy = 1;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
-    reset(); flash_locked = 0;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
-    reset(); wake_on_call = 1;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
-
-    reset(); s_control_ready = 0;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !sleep_writes);
-    reset(); control_wake_active = 1;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !sleep_writes);
-
-    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_32k = 90;
-    s_guard.comm_failures = 1;
-    CHECK(!app_enter_switch_deepsleep());
-    CHECK(!bus_calls && !pm_calls && s_guard.failsafe_start_tick_32k == 90);
-    CHECK(s_guard.comm_failures == 1);
-
     reset(); s_control_ready = 0;
     CHECK(!bms_afe_sleep()); CHECK(s_guard.comm_failures == 1);
     CHECK(!bms_afe_sleep()); CHECK(s_guard.bus_silenced);
@@ -133,53 +91,29 @@ int main(void) {
     CHECK(!bms_afe_sleep()); CHECK(bus_calls == n);
     CHECK(s_guard.failsafe_start_tick_32k == fake_tick);
 
-#if SH3673510_FIXED_UART_BLOCKS_PM
-    reset(); CHECK(!app_enter_switch_deepsleep());
-    CHECK(!bus_calls && !pm_calls && !event_calls && !prepare_calls);
-#else
-    /* Latent PM failure handling is isolated from the product's fixed gate. */
-    /* Learn the successful path's IO count; fail every operation in turn. */
-    reset(); CHECK(app_enter_switch_deepsleep()); n = bus_calls;
-    CHECK(pm_calls == 1 && sleep_writes == 1 && event_calls == 1);
-    CHECK(!heater_on && !last_c && !last_d);
+    /* 对实际AFE链逐个注入SPI失败；应用层强制深睡另有独立场景。 */
+    reset(); CHECK(bms_afe_sleep()); n = bus_calls;
+    CHECK(sleep_writes == 1 && !heater_on && !last_c && !last_d);
     CHECK(!s_snapshot_valid && !s_fet_command_valid);
     for (i = 1; i <= n; ++i) {
         reset(); command_fail_at = i;
-        CHECK(!app_enter_switch_deepsleep());
-        CHECK(!pm_calls && !prepare_calls && !event_calls);
+        CHECK(!bms_afe_sleep());
         CHECK(!s_snapshot_valid && !s_fet_command_valid);
     }
-
-    reset(); wake_on_call = 2;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls);
-    CHECK(sh3673510_control_wake()); CHECK(!physical_sleep);
-
-    reset(); pm_status = STATUS_GPIO_ERR_NO_ENTER_PM;
-    CHECK(!app_enter_switch_deepsleep());
-    CHECK(prepare_calls == 1 && cancel_calls == 1);
-    CHECK(sh3673510_control_wake()); CHECK(!physical_sleep);
-
-    /* Failed SLEEP acknowledgement must still force NORMAL/configure on resume. */
+    reset(); control_wake_active = 1; CHECK(!bms_afe_sleep());
+    CHECK(!sleep_writes);
+    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_32k = 90;
+    CHECK(!bms_afe_sleep()); CHECK(!bus_calls && s_guard.failsafe_start_tick_32k == 90);
+    /* SLEEP接受但ACK丢失后，仍必须执行NORMAL/configure。 */
     reset(); command_fail_at = n;
-    CHECK(!app_enter_switch_deepsleep());
-    CHECK(sh3673510_control_wake());
+    CHECK(!bms_afe_sleep()); CHECK(sh3673510_control_wake());
     CHECK(normal_writes == 1 && !physical_sleep);
-
-    reset(); CHECK(app_enter_switch_deepsleep()); configure_ok = 0;
+    reset(); CHECK(bms_afe_sleep()); configure_ok = 0;
     CHECK(!sh3673510_control_wake() && s_afe_sleeping);
     configure_ok = 1; protection_ok = 0;
     CHECK(!sh3673510_control_wake() && s_afe_sleeping);
     protection_ok = 1; CHECK(sh3673510_control_wake() && !s_afe_sleeping);
 
-    /* Same PM failure is retried at a bounded cadence, including tick wrap. */
-    reset(); fake_tick = UINT32_MAX - APP_PM_TICKS_PER_SEC;
-    pm_status = STATUS_GPIO_ERR_NO_ENTER_PM;
-    CHECK(!app_enter_switch_deepsleep()); n = bus_calls;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(bus_calls == n && pm_calls == 1);
-    fake_tick += 3u * APP_PM_TICKS_PER_SEC;
-    CHECK(!app_enter_switch_deepsleep()); CHECK(pm_calls == 2);
-
-#endif
     CHECK(app_pm_elapsed_limit(3599, 1, 3600) == 3600);
     CHECK(app_pm_elapsed_limit(3600, UINT32_MAX, 3600) == 3600);
     CHECK(app_pm_elapsed_limit(0, UINT32_MAX, 3600) == 3600);

@@ -22,6 +22,9 @@ typedef int GPIO_PinTypeDef;
 #define BMS_BOARD_AFE_ALARM_PIN 2
 #define BMS_BOARD_AFE_RESET_OUT_PIN 3
 #define BMS_BOARD_CMNT_EN_PIN 4
+#define BMS_BOARD_SCI1_RX_PIN 5
+#define BMS_PRODUCT_SWITCH_ENABLE 1
+#define FLD_IRQ_GPIO_RISC0_EN 8
 #define Level_Low 0
 #define Level_High 1
 #define DEEPSLEEP_MODE 0x80
@@ -35,10 +38,19 @@ static struct { uint16_t cell_min_mv; } g_bms_report;
 static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_count; } g_bms_soc;
 static bms_afe_aux_measurements_t measurement;
 static int valid, afe_error, ota_is_working, device_in_connection_state, flash_ready;
-static bool s_low_power_mode;
+static bool s_low_power_mode, deepsleep_en;
+static int tx_busy, ble_pending, uart_ready, uart_entered;
+static u32 reg_irq_src;
 static u32 now, saves, events, afe_calls, output_calls, sleep_calls, pad_calls;
 static u8 reason;
-static int pins[5], levels[5], enabled[5];
+static int pins[6], levels[6], enabled[6];
+static int board_switch_is_on(void) { return !pins[0]; }
+static int uart_tx_is_busy(void) { return tx_busy; }
+static int modbus_uart_tx_active(void) { return tx_busy; }
+static int blc_ll_getTxFifoNumber(void) { return ble_pending; }
+static int modbus_uart_suspend_ready(void) { return uart_ready; }
+static void modbus_uart_suspend_enter(void) { ++uart_entered; }
+static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
 static u32 pm_get_32k_tick(void) { return now; }
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { *m=measurement; return valid; }
 static u8 bms_error_get(int error) { assert(error==BMS_ERROR_AFE1); return afe_error; }
@@ -54,11 +66,12 @@ static void bls_pm_setAppWakeupLowPower(u32 t, u8 en) { assert(!t&&!en); }
 static int gpio_read(int pin) { assert(pin>=0&&pin<4); return pins[pin]; }
 static void gpio_write(int pin, int en) { assert(pin==BMS_BOARD_CMNT_EN_PIN&&!en); }
 static void cpu_set_gpio_wakeup(int pin, int level, int en) {
-    assert(pin>=0&&pin<4); levels[pin]=level; enabled[pin]=en; ++pad_calls;
+    assert(pin>=0&&pin<6&&pin!=4); if(pin==5) assert(!en); levels[pin]=level; enabled[pin]=en; ++pad_calls;
 }
 static int cpu_sleep_wakeup(int mode, int source, u32 tick) {
     assert(mode==DEEPSLEEP_MODE&&source==PM_WAKEUP_PAD&&!tick);
     for (int pin=0;pin<4;++pin) if(enabled[pin]) assert(levels[pin]!=pins[pin]);
+    assert(!enabled[5]);
     ++sleep_calls; return 0x100; /* SDK PAD 竞争拒睡 */
 }
 void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
@@ -68,6 +81,8 @@ void bms_diag_sleep_committed(void) {}
 /* PRODUCTION */
 static void reset(void) {
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
+    s_switch_off_seen=s_command_seen=0;
+    deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=0;
     now=measurement.sample_tick_32k=100u; measurement.current_ma=0;
     valid=flash_ready=1; afe_error=ota_is_working=device_in_connection_state=0;
     saves=events=afe_calls=output_calls=sleep_calls=pad_calls=0;
@@ -127,6 +142,33 @@ int main(void) {
     assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_32k);
     ctx.last_tick_32k=1u;ctx.pending_tick_32k=31999u;now=0u;
     assert(app_pm_take_elapsed_seconds(&ctx)==134218u&&ctx.pending_tick_32k==23294u);
+    /* 开关3秒：OTA、TX、BLE、Flash和AFE失败均不能取消到期动作。 */
+    reset(); pins[0]=1; tx_busy=ble_pending=ota_is_working=device_in_connection_state=1;
+    flash_ready=0; now=UINT32_MAX-32000u;
+    assert(!app_sh_explicit_sleep_poll()); now+=95999u;
+    assert(!app_sh_explicit_sleep_poll()); now++;
+    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&afe_calls==1);
+    assert(reason==DIAG_SLEEP_REASON_SWITCH);
+    assert(app_power_before_suspend()); /* 已提交深睡不受普通UART门禁否决。 */
+    assert(app_power_prepare_loop()&&sleep_calls==2&&afe_calls==1);
+    reset(); pins[0]=1; assert(!app_sh_explicit_sleep_poll()); now+=90000;
+    pins[0]=0; assert(!app_sh_explicit_sleep_poll());
+    pins[0]=1; assert(!app_sh_explicit_sleep_poll()); now+=95999;
+    assert(!app_sh_explicit_sleep_poll()); now++;
+    assert(app_sh_explicit_sleep_poll());
+    /* 命令空闲立即睡；通信卡死时最多等500ms应答窗口。 */
+    reset(); deepsleep_en=1; assert(app_sh_explicit_sleep_poll());
+    assert(reason==DIAG_SLEEP_REASON_COMMAND);
+    reset(); deepsleep_en=1; tx_busy=ble_pending=device_in_connection_state=1;
+    ota_is_working=1; flash_ready=0;
+    assert(!app_sh_explicit_sleep_poll()); now+=15999;
+    assert(!app_sh_explicit_sleep_poll()); now++;
+    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves);
+    /* SDK临睡检查再次检查UART资格；普通开关ON不阻止Suspend。 */
+    reset(); s_low_power_mode=1; assert(!app_power_before_suspend());
+    uart_ready=1; assert(app_power_before_suspend()&&uart_entered==1);
+    for(int pin=0;pin<4;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
+    s_low_power_mode=0; assert(!app_power_before_suspend());
     puts("PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap");
     return 0;
 }

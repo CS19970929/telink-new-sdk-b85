@@ -38,7 +38,7 @@ INFO 适合观察状态变化；DEBUG 另外记录周期采样、SOC 决策/积�
 
 这是 RAM 运行日志，与 `bms_event_log` 的 Flash 历史事件独立，不改变持久布局、参数版本或历史事件策略。
 记录固定二进制字段，固件无 printf、动态内存、字符串格式化、额外 DMA 发送或等待。
-主循环拥有记录缓存；SDK suspend exit 回调仅递增一个 volatile 32-bit 计数，主循环每秒汇总。
+主循环拥有记录缓存；SDK suspend exit 回调的日志部分仅递增一个 volatile 32-bit 计数，主循环每秒汇总；SH 同一回调还交付 UART 唤醒状态，UART/DMA 恢复和帧处理仍在主循环。
 UART IRQ 中不记录日志。BLE 接收入口延续 SDK 主循环分发路径。
 
 串口和 BLE 通过既有 Modbus 03 请求读取新增只读窗口。既有寄存器、帧格式、CRC、波特率、

@@ -61,7 +61,7 @@ RM V1.2 PDF 第 7 页 CST；PC4 供电控制见 HS-D008-24S100A-V1 原理图第 
 覆盖最终拉低 PC4、保存/AFE 失败仍断电、外部供电保持及 ACC 不断电，但未执行；
 未编译、生成 BIN 或连接实板。下述历史验证不覆盖本次断电策略改动。
 
-普通 suspend、D008 ACC/显式命令关机、SH 开关休眠保留原门禁；保护性深睡优先。
+D008 ACC/显式命令关机保留原门禁。SH 开关 OFF 连续 3 秒和命令请求现也复用本页强制深睡入口；普通 Suspend 使用串口静默 30 秒及 RX 唤醒策略，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
 [实时诊断](SLEEP_STATUS.md) 中保护性原因的阻止位为零，`COMMITTED` 只代表已提交动作。
 
 原资料依据：DVC1124-2 RM V1.2 PDF 第 7 页 CST sleep/shutdown；SH36735XX V1.0A

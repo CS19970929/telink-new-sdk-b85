@@ -143,6 +143,3 @@
 #define BMS_BOARD_DEBUG_LED_PIN                      GPIO_PC4
 #define BMS_BOARD_CMNT_WK_PIN                        GPIO_PD3
 #define BMS_BOARD_AFE_CS_PIN                         GPIO_PD2
-
-/* 硬件验证前保留固定 UART 低功耗门控。 */
-#define SH3673510_FIXED_UART_BLOCKS_PM 1u

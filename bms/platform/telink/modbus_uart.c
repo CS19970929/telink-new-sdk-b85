@@ -76,6 +76,15 @@ static volatile u8 s_rx_ready = 0u;
 static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+#define MODBUS_UART_IDLE_32K (30u * 32000u)
+#define MODBUS_UART_WAKE_GAP_US 5000u /* 大于最低9600波特的3.5字符间隔。 */
+static volatile u8 s_uart_activity, s_uart_suspending, s_uart_resume_pending;
+static volatile u8 s_uart_wake_discard;
+static u8 s_uart_idle_ready;
+static u32 s_uart_last_activity_32k, s_uart_last_edge_tick;
+#endif
+
 #if BMS_PRODUCT_RS485_ENABLE
 static volatile u8 s_rs485_tx_dma_done = 0u;
 static volatile u8 s_rs485_tx_active = 0u;
@@ -211,6 +220,109 @@ u8 modbus_uart_tx_active(void)
 #endif
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/* RISC0仅在SH产品归UART RX所有。每轮最多一个边沿IRQ，避免按每个数据位中断。 */
+int modbus_uart_suspend_ready(void)
+{
+    return s_uart_idle_ready && !s_uart_activity && !s_rx_ready &&
+        !s_uart_resume_pending && !s_uart_wake_discard &&
+        !(reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) &&
+        !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
+        gpio_read(BMS_BOARD_SCI1_RX_PIN) &&
+        !uart_tx_is_busy() && !modbus_uart_tx_active();
+}
+
+void modbus_uart_suspend_enter(void)
+{
+    s_uart_suspending = 1u;
+    cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 1);
+}
+
+/* SDK回调只交付唤醒状态；PAD不能定位具体管脚，保守按通信唤醒保持运行。 */
+void modbus_uart_suspend_exit(u8 wakeup_status)
+{
+    if (!s_uart_suspending) return;
+    s_uart_suspending = 0u;
+    s_uart_resume_pending = 1u;
+    if ((wakeup_status & WAKEUP_STATUS_PAD) || s_uart_activity ||
+        (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) || !gpio_read(BMS_BOARD_SCI1_RX_PIN)) {
+        s_uart_wake_discard = 1u;
+        s_uart_activity = 1u;
+    }
+}
+
+/* Suspend前没有TX；只在主循环恢复UART/DMA，不在SDK回调中解析或发送。 */
+static void modbus_uart_resume_rx(void)
+{
+    u8 irq_state = irq_disable();
+    dma_chn_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    uart_dma_enable(0, 0);
+    uart_reset();
+    uart_ndma_clear_tx_index();
+    uart_ndma_clear_rx_index();
+    uart_init(MODBUS_UART_CLOCK_DIVIDER, MODBUS_UART_BWPC, PARITY_NONE, STOP_BIT_ONE);
+    uart_irq_enable(0, 0);
+    dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX);
+    s_rx_ready = 0u;
+    s_rx_pkt.dma_len = 0u;
+#if BMS_RS485_TX_DIAG_ENABLE
+    uart_dma_enable(0, 1);
+#else
+    uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
+    uart_dma_enable(1, 1);
+#endif
+#if BMS_PRODUCT_RS485_ENABLE
+    modbus_rs485_receive_mode();
+#endif
+    irq_restore(irq_state);
+}
+
+/* RX边沿、坏帧、TX都刷新静默期；定时唤醒和周期RX维护不能刷新它。 */
+static u8 modbus_uart_service_suspend(void)
+{
+    u8 irq_state = irq_disable();
+    u8 activity = s_uart_activity;
+    u8 resume = s_uart_resume_pending;
+    s_uart_activity = 0u;
+    gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 1);
+    if (resume) {
+        modbus_uart_resume_rx();
+        /* 覆盖定时唤醒后、UART恢复期间到来的起始位；恢复完成前不解除标记。 */
+        if (activity || s_uart_wake_discard ||
+            (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) || !gpio_read(BMS_BOARD_SCI1_RX_PIN)) {
+            s_uart_wake_discard = 1u;
+            activity = 1u;
+        }
+        s_uart_resume_pending = 0u;
+    }
+    irq_restore(irq_state);
+    if (activity || !gpio_read(BMS_BOARD_SCI1_RX_PIN) ||
+        uart_tx_is_busy() || modbus_uart_tx_active()) {
+        s_uart_last_activity_32k = pm_get_32k_tick();
+        s_uart_last_edge_tick = clock_time();
+        s_uart_idle_ready = 0u;
+    }
+    if (s_uart_wake_discard) {
+        /* 等待帧尾静默再重新装载RX；整个唤醒帧均不执行Modbus写命令。 */
+        irq_state = irq_disable();
+        if (!s_uart_activity && !(reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) &&
+            gpio_read(BMS_BOARD_SCI1_RX_PIN) &&
+            clock_time_exceed(s_uart_last_edge_tick, MODBUS_UART_WAKE_GAP_US)) {
+            modbus_uart_resume_rx();
+            /* 重新装载期间若又出现起始位，仍按残帧处理，不能提前交给协议。 */
+            s_uart_wake_discard = (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) ||
+                !gpio_read(BMS_BOARD_SCI1_RX_PIN);
+            if (s_uart_wake_discard) s_uart_activity = 1u;
+        }
+        irq_restore(irq_state);
+        return 1u;
+    }
+    if ((u32)(pm_get_32k_tick() - s_uart_last_activity_32k) >= MODBUS_UART_IDLE_32K)
+        s_uart_idle_ready = 1u;
+    return 0u;
+}
+#endif
+
 /* 初始化产品 UART、DMA 缓冲区及 RS485 方向。 */
 void modbus_uart_init(void)
 {
@@ -263,6 +375,14 @@ void modbus_uart_init(void)
     modbus_rs485_receive_mode();
 #endif
     s_rx_ready = 0u;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    s_uart_activity = s_uart_suspending = s_uart_resume_pending = s_uart_wake_discard = 0u;
+    s_uart_idle_ready = 0u;
+    s_uart_last_activity_32k = pm_get_32k_tick();
+    s_uart_last_edge_tick = clock_time();
+    gpio_set_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, POL_FALLING);
+    cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
+#endif
     irq_enable();
 }
 
@@ -270,6 +390,14 @@ void modbus_uart_init(void)
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    if (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) {
+        gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
+        reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
+        s_uart_activity = 1u;
+        if (s_uart_suspending || s_uart_resume_pending) s_uart_wake_discard = 1u;
+    }
+#endif
 
     if (irqsrc & FLD_DMA_CHN_UART_RX)
     {
@@ -277,6 +405,9 @@ void modbus_uart_irq_proc(void)
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX);
         /* 无效/零长度也必须经过 poll，以重新启用 RX。 */
         s_rx_ready = 1u;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+        s_uart_activity = 1u;
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         if (s_rx_pkt.dma_len > 0u) bus_mux_on_uart_rx_byte();
 #endif
@@ -355,6 +486,9 @@ u8 modbus_uart_send(const u8 *p, u32 len)
 
     /* 已验证的 new-new-master TX 路径：DMA 包为 [u32 长度 + 载荷]。 */
     uart_send_dma((u8 *)&s_tx_pkt);
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    s_uart_activity = 1u;
+#endif
     return 1u;
 }
 
@@ -427,6 +561,9 @@ static void modbus_uart_diag_send_next(void)
 /* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
 void main_loop_modbus(void)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    if (modbus_uart_service_suspend()) return;
+#endif
 #if BMS_RS485_TX_DIAG_ENABLE
     modbus_rs485_service_tx_done();
     if (!modbus_uart_tx_active() && !uart_tx_is_busy() &&

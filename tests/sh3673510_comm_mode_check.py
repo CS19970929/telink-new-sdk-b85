@@ -31,8 +31,9 @@ assert literal(conf, "BMS_PRODUCT_UART_ENABLE") == 1
 # Fixed Modbus UART is initialized directly. No inert SIF/mux enters the IRQ.
 assert "modbus_uart_init();" in app
 assert "modbus_uart_irq_proc();" in main
-assert "SH3673510_FIXED_UART_BLOCKS_PM" in text("app_power.c")
-assert literal((ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8"), "SH3673510_FIXED_UART_BLOCKS_PM") == 1
+assert "SH3673510_FIXED_UART_BLOCKS_PM" not in text("app_power.c")
+assert "modbus_uart_suspend_ready()" in text("app_power.c")
+assert "gpio_set_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, POL_FALLING)" in uart
 order = (ROOT / "bms/products" / HERE.product / "sources.txt").read_text(encoding="utf-8")
 for name in ("bus_mux.c", "bus_mux.h", "sif_send.c", "sif_send.h"):
     assert not any(name == Path(entry).name for entry in (ROOT / "bms/products" / HERE.product / "sources.txt").read_text(encoding="utf8").splitlines())
