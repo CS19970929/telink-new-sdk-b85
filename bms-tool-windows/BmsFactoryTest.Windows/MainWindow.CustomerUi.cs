@@ -142,7 +142,7 @@ public partial class MainWindow
 
         var voltage = new TextBlock
         {
-            Text = (volts * 1000.0).ToString("F0", CultureInfo.InvariantCulture) + (balancing ? " [均衡]" : ""),
+            Text = (volts * 1000.0).ToString("F0", CultureInfo.InvariantCulture),
             ToolTip = "均衡标记表示 AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。",
             FontSize = 15,
             FontWeight = isMax || isMin ? FontWeights.Bold : FontWeights.Normal,
@@ -150,9 +150,29 @@ public partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(4, 0, 0, 0)
         };
-        Grid.SetColumn(voltage, 1);
-        root.Children.Add(voltage);
+        var reading = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        reading.Children.Add(voltage);
+        if (balancing) reading.Children.Add(CreateBalanceIcon());
+        Grid.SetColumn(reading, 1);
+        root.Children.Add(reading);
         return root;
+    }
+
+    // 使用矢量双横线，避免符号字体差异；同一图标也用于内部版单体卡片。
+    private static Border CreateBalanceIcon()
+    {
+        var bars = new Grid { Width = 8, Height = 7 };
+        bars.Children.Add(new Border { Height = 2, Background = Brushes.White, VerticalAlignment = VerticalAlignment.Top });
+        bars.Children.Add(new Border { Height = 2, Background = Brushes.White, VerticalAlignment = VerticalAlignment.Bottom });
+        var icon = new Border
+        {
+            Width = 18, Height = 18, CornerRadius = new CornerRadius(9),
+            Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(Color.FromRgb(190, 95, 0)), Child = bars,
+            ToolTip = "均衡中：AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。"
+        };
+        System.Windows.Automation.AutomationProperties.SetName(icon, "均衡中");
+        return icon;
     }
 
     private void UpdateCustomerSystemLamps()

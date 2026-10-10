@@ -495,6 +495,10 @@ public partial class MainWindow : Window
             int mv = s.CellMillivolts[i];
             if (mv == BmsRegisters.MissingCellVoltageMv)
                 continue;
+            var reading = new StackPanel { Orientation = Orientation.Horizontal };
+            reading.Children.Add(new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV",
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"), VerticalAlignment = VerticalAlignment.Center });
+            if (s.IsCellBalancing(i)) reading.Children.Add(CreateBalanceIcon());
             FactoryCellPanel.Children.Add(new Border
             {
                 BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.LightGray),
@@ -503,8 +507,7 @@ public partial class MainWindow : Window
                 Margin = new Thickness(2),
                 Padding = new Thickness(5, 3, 5, 3),
                 ToolTip = "均衡标记表示 AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。",
-                Child = new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV{(s.IsCellBalancing(i) ? "  [均衡]" : "")}", FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Foreground = s.IsCellBalancing(i) ? System.Windows.Media.Brushes.DarkOrange : System.Windows.Media.Brushes.Black }
+                Child = reading
             });
         }
     }
