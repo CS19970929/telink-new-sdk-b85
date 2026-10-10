@@ -63,7 +63,7 @@ bool deepsleep_en = false;
 static u32 s_sleep_failure_mask;
 static u8 s_sleep_report_reason;
 
-/* 四产品保护性深睡共用计时；到期后锁存，不再回到通信/采样业务。 */
+/* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 #define APP_AFE_ERROR_SLEEP_SECONDS (30u * 60u)
 typedef struct {
     u32 low_voltage_seconds;
@@ -165,18 +165,21 @@ static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
     return elapsed + increment;
 }
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* 等待原有输入改变，当前静态有效电平不作为拒睡条件。 */
 static void app_protective_wakeup_pin(GPIO_PinTypeDef pin)
 {
     cpu_set_gpio_wakeup(pin, gpio_read(pin) ? Level_Low : Level_High, 1);
 }
+#endif
 
-/* SDK 因 PAD 竞争返回时只重设电平并再入睡，不重新运行业务或重复写 Flash/AFE。 */
+/* D008 断电未生效时保持静止；SH PAD 返回后仅重试，不重复写 Flash/AFE。 */
 static void app_protective_sleep_hold(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    app_protective_wakeup_pin(BMS_BOARD_ACC_PIN);
-    app_protective_wakeup_pin(BMS_BOARD_LOAD_DETECT_PIN);
+    /* 外部供电可能使 MCU 未实际掉电；不配置 ACC/负载 PAD 唤醒，不恢复业务。 */
+    (void)cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
+                          clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
 #else
 #if BMS_PRODUCT_SWITCH_ENABLE
     app_protective_wakeup_pin(BMS_BOARD_SWITCH_PIN);
@@ -186,18 +189,18 @@ static void app_protective_sleep_hold(void)
     app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
     app_protective_wakeup_pin(BMS_BOARD_AFE_ALARM_PIN);
     app_protective_wakeup_pin(BMS_BOARD_AFE_RESET_OUT_PIN);
-#endif
     bms_diag_sleep_committed();
     (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
+#endif
 }
 
-/* 用户要求：保护性深睡不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
+/* 用户要求：保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
     s_protective_sleep.committed = 1u;
     bms_afe_set_output_enabled(0u);
     /* guard 选择 DVC Shutdown / SH Sleep 并保持总线静默资格；
-     * 无法通知 AFE 时也必须执行 MCU 深睡。 */
+     * 无法通知 AFE 时也必须执行 D008 断电 / SH 深睡。 */
     (void)bms_afe_sleep();
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {
@@ -211,13 +214,14 @@ static void app_enter_protective_sleep(void)
     (void)bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0u, 0u);
+    s_low_power_mode = true;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    /* 保护性深睡保留 MCU 供电，由 ACC/负载输入变化唤醒并完整重启。 */
-    gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
+    bms_diag_sleep_committed();
+    /* 低压/AFE 异常均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
+    gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u);
 #else
     gpio_write(BMS_BOARD_CMNT_EN_PIN, 0u);
 #endif
-    s_low_power_mode = true;
     app_protective_sleep_hold();
 }
 

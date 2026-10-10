@@ -1,18 +1,18 @@
-# 四产品保护性深睡
+# 四产品保护性休眠
 
 适用 D008 / D011 / D013 / D014。状态和计时只由 `bms/app/app_power.c` 持有。
 
 | 条件 | 连续时间 | 到期动作 |
 |---|---|---|
-| 新鲜有效样本的最低单体低于 2550 mV，或低于产品 `BMS_SLEEP_LOW_CELL_MV` | 1 小时；跨 2550 mV 不清零 | 强制 MCU deep sleep |
-| 最低单体低于 3000 mV 且有效电流未显示可靠充电（`current_ma >= -200`） | 24 小时 | 强制 MCU deep sleep |
-| AFE 报错，或无法取得新鲜有效测量 | 30 分钟 | 强制 MCU deep sleep |
+| 新鲜有效样本的最低单体低于 2550 mV，或低于产品 `BMS_SLEEP_LOW_CELL_MV` | 低于 2550 mV 为 1 小时，其余使用 `BMS_SLEEP_LOW_SECONDS`；跨分界保留已累计时间 | D008 关闭 MCU 供电；SH MCU deep sleep |
+| 最低单体低于产品 `BMS_SLEEP_NORMAL_CELL_MV` 且有效电流未显示可靠充电（`current_ma >= -200`） | `BMS_SLEEP_NORMAL_SECONDS` | D008 关闭 MCU 供电；SH MCU deep sleep |
+| AFE 报错，或无法取得新鲜有效测量 | 30 分钟 | D008 关闭 MCU 供电；SH MCU deep sleep |
 
 低压与 AFE 异常分别计时。低压区域只由有效新鲜采样改变；一旦确认低压，
 短暂无新样本、旧缓存或 AFE 故障均不能证明电压已恢复，保留区域并继续墙钟计时。
-一小时低压与24小时低压条件独立累计。跨2800 mV只重置一小时条件，
-不能清除持续低于3000 mV且无可靠充电的24小时资格。有效恢复或可靠充电
-仅解除对应条件，显示当前最早到期的一项。
+专用低压与低压无充电条件独立累计。跨 `BMS_SLEEP_LOW_CELL_MV` 只解除专用低压条件，
+不能清除持续低于 `BMS_SLEEP_NORMAL_CELL_MV` 且无可靠充电的计时资格。
+有效恢复或可靠充电仅解除对应条件，显示当前最早到期的一项。
 AFE 恢复且测量有效才清零异常计时。BLE、UART、OTA 和 Flash 状态不清零计时。
 阈值与延时沿用产品头文件；未改变协议、参数编号或持久化布局。
 
@@ -29,12 +29,18 @@ AFE 恢复且测量有效才清零异常计时。BLE、UART、OTA 和 Flash 状�
 
 到期后立即锁存：撤销输出授权，D008 所有原因尝试 AFE Shutdown，
 SH 产品仅尝试 AFE Sleep，不发送 Powerdown 命令；允许 Flash 写入且未 OTA 时，
-State 和事件各尝试保存一次。保存、AFE、BLE 控制失败都不阻止 MCU deep sleep。
+State 和事件各尝试保存一次。保存、AFE、BLE 控制失败都不阻止 D008 断电或 SH MCU deep sleep。
 OTA 可以被中断。AFE guard 的 watchdog 总线静默门禁保持，禁止绕过静默访问 AFE。
 
-已有 PAD 唤醒输入设置为当前电平的反向，静态有效电平不能拒睡。
-D008 保持 PC4/MCU_LDO 高，以 ACC/负载输入变化唤醒；SH 使用原有开关、INT_WK、
-ALARM、RESET 输入变化唤醒并关闭 CMNT_EN。SDK 拒睡返回后仅重设 PAD 并重试，
+D008 的低压和 AFE 异常共用保护性入口：完成上述前置动作后，最后拉低
+PC4/MCU_LDO，关闭 MCU 供电，不启用 PA0/PB1 PAD 唤醒。只有 ACC 开关休眠保持
+PC4 高，并以 PA0 低电平唤醒。显式命令关机继续拉低 PC4。
+真正断电后的重新启动依赖外部硬件供电恢复，不能由 MCU GPIO、BLE 或定时器唤醒；
+具体充电/开关复电条件须实板确认。若调试器等外部供电使 MCU 未实际掉电，保护性
+入口仅执行 200 ms 定时 Suspend 保持，不恢复业务、不重复保存或发送 AFE 命令。
+
+SH 保持原有深睡：关闭 CMNT_EN，将开关、INT_WK、ALARM、RESET 等 PAD 输入配置为
+入睡时电平的反向，静态有效电平不能拒睡。SDK 返回后仅重设 PAD 并重试，
 不恢复 BLE/采样业务、不重复保存或发送 AFE 命令。真正 deep sleep 唤醒走完整启动。
 
 2026-10-10 按产品要求将 D008 的全部 AFE 低功耗请求统一为 Shutdown，包括低压和
@@ -48,10 +54,12 @@ OTA 参数更新组或 Config journal。`UV_EN` 欠压关 MOS 保护、其它硬
 保留。SH36735XX CV1.0A 原 PDF 第 10 页规定内部过温和 WDT 故障也可独立触发
 Powerdown；关闭 PD_EN 不能禁止这些芯片自保行为。普通 BLE Suspend 不发送
 AFE 低功耗命令，D008 AFE 继续采样。
-PC4 保持高、PA0/PB1 反向电平唤醒保持；因此本改动不会消除 P− 引起 PB1 变化的
-唤醒路径。依据 DVC1124-2 DS V1.1 PDF 第 12 页功能模式、RM V1.2 PDF 第 7 页 CST；
-Sleep/Shutdown 的芯片典型电流不能代替整板功耗验收。本次补充 host 场景但未执行，
-未编译、生成 BIN 或连接实板；下述历史验证不覆盖本次改动。
+上述 AFE 模式统一改动最初保留 PC4 高及 PA0/PB1 反向电平唤醒，现已按用户要求
+改为本页的 D008 保护性断电策略。依据 DVC1124-2 DS V1.1 PDF 第 12 页功能模式、
+RM V1.2 PDF 第 7 页 CST；PC4 供电控制见 HS-D008-24S100A-V1 原理图第 1 页和
+用户确认，不能仅由芯片典型电流推断整板功耗或硬件复电行为。本次同步 host 场景，
+覆盖最终拉低 PC4、保存/AFE 失败仍断电、外部供电保持及 ACC 不断电，但未执行；
+未编译、生成 BIN 或连接实板。下述历史验证不覆盖本次断电策略改动。
 
 普通 suspend、D008 ACC/显式命令关机、SH 开关休眠保留原门禁；保护性深睡优先。
 [实时诊断](SLEEP_STATUS.md) 中保护性原因的阻止位为零，`COMMITTED` 只代表已提交动作。

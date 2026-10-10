@@ -19,7 +19,11 @@ typedef int GPIO_PinTypeDef;
 #define Level_Low 0
 #define Level_High 1
 #define DEEPSLEEP_MODE 0x80
+#define SUSPEND_MODE 0
+#define PM_WAKEUP_TIMER 2
 #define PM_WAKEUP_PAD 16
+#define APP_SAMPLE_PERIOD_US 200000u
+#define SYSTEM_TIMER_TICK_1US 16u
 #define BLE_SUCCESS 0
 #define BLC_ADV_ENABLE 1
 #define BLC_ADV_DISABLE 0
@@ -27,12 +31,12 @@ typedef int GPIO_PinTypeDef;
 #define APP_ACC_HIGH_STABLE_TICKS (APP_PM_TICKS_PER_SEC / 5u)
 static u8 s_acc_high_seen,s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconnect_sent;
 static u32 s_acc_high_tick,s_acc_retry_tick;
-static int acc_high,ldo_high,acc_wake,deep_calls,reboot_calls,disconnect_calls,adv_enabled=1;
+static int acc_high,ldo_high,acc_wake,load_wake,deep_calls,timer_hold_calls,reboot_calls,disconnect_calls,adv_enabled=1;
 static int acc_low_during_shutdown,acc_low_during_sleep;
 static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
 static void start_reboot(void){reboot_calls++;}
-static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else assert(pin==BMS_BOARD_LOAD_DETECT_PIN);}
-static int cpu_sleep_wakeup(int mode,int src,u32 tick){assert(mode==DEEPSLEEP_MODE&&src==PM_WAKEUP_PAD&&tick==0&&acc_wake&&ldo_high);deep_calls++;if(acc_low_during_sleep)acc_high=0;return 0;}
+static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else{assert(pin==BMS_BOARD_LOAD_DETECT_PIN);load_wake=en;}}
+static int cpu_sleep_wakeup(int mode,int src,u32 tick);
 static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return BLE_SUCCESS;}
 static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
 #define BUS_STATE_OWC_IDLE 0
@@ -90,7 +94,21 @@ static int bms_event_log_note_sleep(void){seq[seq_len++]=2;return event_ok;}
 static void bms_event_log_cancel_sleep(void){}
 static int bms_afe_enter_shutdown(void){afe_shutdown_calls++;seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
 static void bls_pm_setAppWakeupLowPower(u32 t,int en){assert(en==0);seq[seq_len++]=4;}
-static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);if(level)ldo_high=1;else cut_calls++;seq[seq_len++]=5;}
+static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);ldo_high=level;if(!level)cut_calls++;seq[seq_len++]=5;}
+static u32 clock_time(void){return now;}
+/* 模拟外部供电：PC4 已低而 MCU 仍执行，必须只进入保持路径。 */
+static int cpu_sleep_wakeup(int mode,int src,u32 tick){
+ if(mode==DEEPSLEEP_MODE){
+  assert(src==PM_WAKEUP_PAD&&tick==0&&acc_wake&&!load_wake&&ldo_high);
+  deep_calls++;
+  if(acc_low_during_sleep)acc_high=0;
+ }else{
+  assert(mode==SUSPEND_MODE&&src==PM_WAKEUP_TIMER&&tick==now+APP_SAMPLE_PERIOD_US*SYSTEM_TIMER_TICK_1US);
+  assert(cut_calls==1&&!ldo_high&&!acc_wake&&!load_wake&&seq[seq_len-1]==5);
+  timer_hold_calls++;
+ }
+ return 0;
+}
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t*c){return elapsed;}
 static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}
@@ -100,7 +118,7 @@ void bms_diag_runtime_pm(u8 allowed,u32 reason,u8 region,u32 seconds,u8 connecte
 }
 /* PRODUCTION_SOURCE */
 static void reset(void){
- acc_high=acc_wake=deep_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
+ acc_high=acc_wake=load_wake=deep_calls=timer_hold_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
  acc_low_during_shutdown=acc_low_during_sleep=0;
  s_acc_high_seen=s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
  deepsleep_en=false;ble_tx_pending=0;
@@ -149,12 +167,12 @@ static void test_acc_sleep(void){
 static void test_low_voltage_sample_wait(void){
  reset();g_bms_report.cell_min_mv=2700;
  /* 实板 PM 轨迹：正常低压采样间反复出现 >400 ms 的旧电流缓存。
-  * 每次等待都不能撤销已经确认的低压，一小时墙钟到期仍必须深睡。 */
+  * 每次等待都不能撤销已经确认的低压，一小时墙钟到期仍必须断电。 */
  for(unsigned seconds=1;seconds<=3600;seconds++){
   now=seconds*32000u;measurement.sample_tick_32k=now;elapsed=1;
   app_power_process(&s_sample_due);
   assert(observed_sleep_elapsed==seconds*1000u);
-  if(seconds==3600){assert(deep_calls==1&&!output_enabled);break;}
+  if(seconds==3600){assert(cut_calls==1&&timer_hold_calls==1&&!deep_calls&&!output_enabled);break;}
   now+=12801u;elapsed=0;app_power_process(&s_sample_due);
   assert(s_protective_sleep.region==2&&observed_sleep_elapsed==seconds*1000u);
   assert(mask==SUSPEND_DISABLE&&!deep_calls);
@@ -188,11 +206,22 @@ static void test_protective_low_voltage_shutdown(void){
   reset();g_bms_report.cell_min_mv=cases[i].cell_mv;elapsed=cases[i].seconds;
   app_power_process(&s_sample_due);
   assert(observed_sleep_reason==cases[i].reason);
-  assert(afe_shutdown_calls==1&&deep_calls==1&&!cut_calls&&ldo_high);
+  assert(afe_shutdown_calls==1&&cut_calls==1&&!ldo_high&&!deep_calls&&timer_hold_calls==1);
+  assert(seq_len==5&&seq[0]==3&&seq[1]==1&&seq[2]==2&&seq[3]==4&&seq[4]==5);
   int saved=seq_len;app_power_process(&s_sample_due);
-  assert(deep_calls==2&&afe_shutdown_calls==1&&seq_len==saved);
+  assert(timer_hold_calls==2&&cut_calls==1&&afe_shutdown_calls==1&&seq_len==saved);
+  acc_high=1;app_power_process(&s_sample_due);
+  assert(timer_hold_calls==3&&!reboot_calls&&!deep_calls&&cut_calls==1&&seq_len==saved);
  }
- puts("PASS D008 low-voltage shutdown: all voltage regions, keep MCU supply, PAD retry does not resend AFE command");
+ /* 允许保存时，State、Event 或 Shutdown 各自失败都不能撤销保护性断电。 */
+ for(unsigned failure=0;failure<3;failure++){
+  reset();storage_ok=failure!=0;event_ok=failure!=1;shutdown_ok=failure!=2;
+  g_bms_report.cell_min_mv=2700;elapsed=BMS_SLEEP_LOW_SECONDS;
+  app_power_process(&s_sample_due);
+  assert(cut_calls==1&&!ldo_high&&!deep_calls&&timer_hold_calls==1&&s_protective_sleep.committed);
+  assert(afe_shutdown_calls==1&&seq_len==5&&seq[seq_len-1]==5);
+ }
+ puts("PASS D008 low-voltage power-off: all voltage regions, save/AFE failures still cut PC4, external supply hold never repeats AFE/Flash/cut or enables PAD wake");
 }
 int main(void){
  test_acc_sleep();
@@ -225,17 +254,17 @@ int main(void){
  reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
- assert(!cut_calls&&deep_calls==1&&s_protective_sleep.committed&&!output_enabled);
- assert(afe_shutdown_calls==1); /* shutdown 失败不能阻止低压深睡。 */
+ assert(cut_calls==1&&!deep_calls&&timer_hold_calls==1&&s_protective_sleep.committed&&!output_enabled);
+ assert(afe_shutdown_calls==1); /* shutdown 失败不能阻止低压断电。 */
  assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
- int saved=seq_len;app_power_process(&s_sample_due);assert(deep_calls==2&&seq_len==saved);
+ int saved=seq_len;app_power_process(&s_sample_due);assert(timer_hold_calls==2&&cut_calls==1&&seq_len==saved);
  reset();valid=0;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
- assert(!deep_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
- app_power_process(&s_sample_due);assert(deep_calls==1&&s_protective_sleep.committed);
+ assert(!cut_calls&&!timer_hold_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
+ app_power_process(&s_sample_due);assert(cut_calls==1&&timer_hold_calls==1&&!deep_calls&&s_protective_sleep.committed);
  assert(afe_shutdown_calls==1); /* AFE 异常入口也请求 Shutdown。 */
  reset();g_bms_report.cell_min_mv=2400;afe_error=1;elapsed=900;app_power_process(&s_sample_due);
  g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
- assert(deep_calls==1); /* low-voltage branch does not erase the AFE timeout */
+ assert(cut_calls==1&&timer_hold_calls==1&&!deep_calls); /* low-voltage branch does not erase the AFE timeout */
  puts("PASS protective sleep: connected low voltage, OTA/bus/Flash/AFE failure override, invalid samples and independent AFE timeout, no repeated saves");
  reset();deepsleep_en=true;flash_ready=0;assert(!app_enter_command_power_off());assert(seq_len==0);
  reset();deepsleep_en=true;device_in_connection_state=1;ble_tx_pending=1;assert(!app_enter_command_power_off());assert(seq_len==0);
