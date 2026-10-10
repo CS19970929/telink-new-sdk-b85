@@ -16,7 +16,20 @@ Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT�
 
 ## 3. SOC Low 与最终阻断
 
-`soc_low_first_percent/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `soc_low`；不是未使用的 legacy 字段。SOC Low 与压差故障用于报告，不直接列入软件 CHG/DSG 阻断掩码；具体掩码见 `bms_sw_protection_charge_blocked()` / `bms_sw_protection_discharge_blocked()`。
+`soc_low_first_percent/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `soc_low`；不是未使用的 legacy 字段。SOC Low 用于报告，不直接列入软件 CHG/DSG 阻断掩码。
+
+2026-10-10 按用户确认，四产品三级压差 `cell_delta_high` 同时阻断充、放电；一级、二级仍仅告警。
+原默认 First/Second/Third/Recover 为 600/800/1000/800 mV，Filter 为 100（名义 1 秒），
+本次不修改参数或持久布局，已有设备仍使用已保存值；三级阈值为 0 时仍按原规则禁用该项。
+压差保护不等待周期断线检测，也不受有无充电电流限制。D008 独立的后端方向阻断同步包含
+三级压差，因此请求双 MOS 开启时最终为两路 hard OFF，不进入单侧 AUTO_DIODE；SH 三产品
+通过公共软件阻断使两方向同时禁止，反向电流恢复不得强开任一侧。
+压差降至 Recover 以下（含相等）并满足连续恢复滤波后解除本项；其他软件/硬件保护、
+已锁存断线故障、通信资格和输出授权继续独立约束 MOS。正常欠压仍只阻断放电。
+断线激励期间及最后诊断帧保持原电压保护状态，不触发或解除压差保护。
+这不是全通道断线诊断的替代：未达到压差动作条件的断线仍依赖既有检测。
+本次仅完成源码审查并补充回归场景，未执行 host、目标编译或实板验证；实板需覆盖充电中
+断线压差超限后的双 MOS 关断、恢复回差、诊断激励隔离及其他故障尚在时不误恢复。
 
 `Filter` 单位 10 ms，以 `ceil(Filter * 10 / 200)` 转为样本数，最少一个样本。高值触发 `>=trip`，低值触发 `<=trip`；Third 分别在 `<=Recover` / `>=Recover` 后确认恢复。采样阻塞会影响墙钟时延，不能把配置 100 ms 写成保证 100 ms 响应。
 

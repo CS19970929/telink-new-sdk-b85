@@ -34,7 +34,7 @@ static const rule_t rules[] = {
     RULE(charge_ocp,a10,0,1,0), RULE(discharge_ocp,a10,0,0,1),
     RULE(charge_otp,x10,0,1,0), RULE(charge_utp,x10,1,1,0),
     RULE(discharge_otp,x10,0,0,1), RULE(discharge_utp,x10,1,0,1),
-    RULE(mos_otp,x10,0,1,1), RULE(cell_delta,mv,0,0,0)
+    RULE(mos_otp,x10,0,1,1), RULE(cell_delta,mv,0,1,1)
 };
 #undef RULE
 static void parameter(unsigned g, unsigned f, uint16_t value)
@@ -103,6 +103,8 @@ int main(void)
             for(unsigned n=0;n<count+1;n++){update();expect(active(group,level),1);}
             phase="连续恢复"; measurement(group,level==2 ? recover : safe);
             for(unsigned n=1;n<=count;n++){update();expect(active(group,level),n!=count);}
+            expect(bms_sw_protection_charge_blocked(),0);
+            expect(bms_sw_protection_discharge_blocked(),0);
             phase="禁用阈值"; parameter(group,level,0);measurement(group,500);update();expect(active(group,level),0);
         }
         reset();parameter(group,level,500);parameter(group,3,rules[group].low?600:400);parameter(group,4,60);
@@ -140,8 +142,9 @@ int main(void)
     measurement(0,1000);measurement(1,0);measurement(2,1000);measurement(11,1000);update();
     expect(active(0,2),0);expect(active(1,2),0);expect(active(2,2),0);expect(active(11,2),0);
     parameter(4,2,500);parameter(4,3,400);measurement(4,500);update();expect(active(4,2),1);
-    input.voltage_sample_diagnostic=0;update();expect(active(0,2),1);expect(active(1,2),1);
-    input.voltage_sample_diagnostic=1;measurement(0,0);measurement(1,1000);update();expect(active(0,2),1);expect(active(1,2),1);
+    input.voltage_sample_diagnostic=0;update();expect(active(0,2),1);expect(active(1,2),1);expect(active(11,2),1);
+    input.voltage_sample_diagnostic=1;measurement(0,0);measurement(1,1000);measurement(11,0);
+    update();expect(active(0,2),1);expect(active(1,2),1);expect(active(11,2),1);
     reset();phase="NTC 失效";input.battery_temp_valid=0;update();
     expect(bms_sw_protection_charge_blocked(),1);expect(bms_sw_protection_discharge_blocked(),1);
     input.battery_temp_valid=1;input.mos_temp_valid=0;update();expect(bms_sw_protection_charge_blocked(),1);

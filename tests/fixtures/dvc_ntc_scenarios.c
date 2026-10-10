@@ -121,6 +121,50 @@ static void qualify(void)
     step(0x50u,6400u); check_open();
     assert(g_bms_report.temperature_min_x10==650u && g_bms_report.temperature_max_x10==650u);
 }
+/* 复用本夹具的真实公共保护和 DVC 仲裁，覆盖压差到 R81 的双向关断。 */
+static void check_cell_delta_protection(void)
+{
+    bms_sw_protection_inputs_t in={0};
+    reset(); qualify();
+    in.battery_temp_valid=in.mos_temp_valid=in.mos_temp_required=1u;
+    in.battery_temp_min=in.battery_temp_max=in.mos_temp=650u;
+    g_bms_protection_params.cell_delta_first_mv=600u;
+    g_bms_protection_params.cell_delta_second_mv=800u;
+    g_bms_protection_params.cell_delta_third_mv=1000u;
+    g_bms_protection_params.cell_delta_recover_mv=800u;
+    g_bms_protection_params.cell_delta_filter_10ms=100u;
+    g_bms_report.charge_current_a10=10u;
+    g_bms_report.cell_delta_mv=900u;
+    for (unsigned i=0u;i<5u;++i) bms_sw_protection_update(&in);
+    assert(g_bms_report.fault_second.bits.cell_delta_high);
+    assert(dvc_apply_common_port_fet_state(1u,1u)); check_open();
+
+    g_bms_report.cell_delta_mv=3300u; /* 有效串位掉到 0，其他串约 3300 mV。 */
+    for (unsigned i=0u;i<5u;++i) {
+        bms_sw_protection_update(&in);
+        assert(dvc_apply_common_port_fet_state(1u,1u));
+        assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==(i<4u?0x0fu:0u));
+    }
+    assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
+    for (unsigned request=0u;request<4u;++request) {
+        assert(dvc_apply_common_port_fet_state(request&1u,(request>>1)&1u));
+        assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==0u);
+    }
+    in.voltage_sample_diagnostic=1u; g_bms_report.cell_delta_mv=0u;
+    for (unsigned i=0u;i<6u;++i) bms_sw_protection_update(&in);
+    assert(g_bms_report.fault_third.bits.cell_delta_high);
+    in.voltage_sample_diagnostic=0u; g_bms_report.cell_delta_mv=801u;
+    for (unsigned i=0u;i<6u;++i) bms_sw_protection_update(&in);
+    assert(g_bms_report.fault_third.bits.cell_delta_high);
+    g_bms_report.cell_delta_mv=800u;
+    for (unsigned i=0u;i<5u;++i) {
+        bms_sw_protection_update(&in);
+        assert(dvc_apply_common_port_fet_state(1u,1u));
+        assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==(i<4u?0u:0x0fu));
+    }
+    check_open();
+}
+
 int main(void)
 {
     uint32_t resistance;
@@ -170,6 +214,7 @@ int main(void)
     /* GP1 是加热探头，其失效不等同于电池/MOS 必需温度失效。 */
     put16(DVC1124_REG_GP1_H,17940u); step(0x50u,6400u); check_open();
     assert(!s_snapshot.ntc_res_ohm[0]);
-    puts("PASS D008 NTC 开短路、两电池探头/MOS 探头、三次新 VADF 恢复、缓存/通信空档和 tick 回绕");
+    check_cell_delta_protection();
+    puts("PASS D008 NTC 开短路、两电池探头/MOS 探头、三次新 VADF 恢复、缓存/通信空档、tick 回绕及三级压差双向关断/恢复");
     return 0;
 }

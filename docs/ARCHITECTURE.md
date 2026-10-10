@@ -36,7 +36,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 
 ## 3. 软件保护与 AFE 保护
 
-软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向。SOC Low 和压差故障不直接列入 MOS 关断掩码。软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
+软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向，三级压差同时阻断充放电。SOC Low 不直接列入 MOS 关断掩码。压差保护不等待周期断线检测，软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
 
 AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。DVC 的初始默认仍取编译期软件默认种子，SH 初始默认来自产品能力头及 `bms/products/sh3673510_defaults.h`；不能把运行时独立误写为所有默认来源完全独立。
 

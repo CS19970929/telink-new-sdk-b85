@@ -347,7 +347,7 @@ static uint8_t dvc_charge_blocked(void)
     const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
     return (f->cell_ovp || f->pack_ovp || f->charge_ocp ||
-            f->charge_otp || f->charge_utp || f->mos_otp ||
+            f->charge_otp || f->charge_utp || f->mos_otp || f->cell_delta_high ||
             bms_features_charge_direction_blocked() ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
@@ -358,7 +358,7 @@ static uint8_t dvc_discharge_blocked(void)
     const bms_fault_bits_t *f = &g_bms_report.fault_third.bits;
 
     return (f->cell_uvp || f->pack_uvp || f->discharge_ocp ||
-            f->discharge_otp || f->discharge_utp || f->mos_otp ||
+            f->discharge_otp || f->discharge_utp || f->mos_otp || f->cell_delta_high ||
             bms_error_get(BMS_ERROR_CBC_DSG) ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }

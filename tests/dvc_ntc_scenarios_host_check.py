@@ -1,4 +1,4 @@
-"""D008 新温度转换→NTC 有效性→公共软件保护→R81 命令；不模拟物理 Gate。"""
+"""D008 NTC 有效性及三级压差→公共软件保护→R81 命令；不模拟物理 Gate。"""
 import re
 from validation_support import read, function, run_c, evidence
 

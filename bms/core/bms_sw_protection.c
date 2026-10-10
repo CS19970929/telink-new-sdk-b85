@@ -590,7 +590,7 @@ uint8_t bms_sw_protection_charge_blocked(void)
 {
     const bms_fault_bits_t *f = &s_sw_fault[2].bits;
     return (f->cell_ovp || f->pack_ovp || f->charge_ocp ||
-            f->charge_otp || f->charge_utp || f->mos_otp ||
+            f->charge_otp || f->charge_utp || f->mos_otp || f->cell_delta_high ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
@@ -599,6 +599,6 @@ uint8_t bms_sw_protection_discharge_blocked(void)
 {
     const bms_fault_bits_t *f = &s_sw_fault[2].bits;
     return (f->cell_uvp || f->pack_uvp || f->discharge_ocp ||
-            f->discharge_otp || f->discharge_utp || f->mos_otp ||
+            f->discharge_otp || f->discharge_utp || f->mos_otp || f->cell_delta_high ||
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
