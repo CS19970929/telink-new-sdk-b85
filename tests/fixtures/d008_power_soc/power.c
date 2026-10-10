@@ -202,8 +202,8 @@ int main(void){
  measurement.current_ma=-500;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  measurement.current_ma=0;valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  puts("PASS connected suspend: link retained; ordinary OTA/bus/Flash/sample/current/invalid gates");
- reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
- reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);assert(!app_enter_power_off());
+ reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
+ reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(!cut_calls&&deep_calls==1&&s_protective_sleep.committed&&!output_enabled);
@@ -216,20 +216,20 @@ int main(void){
  g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
  assert(deep_calls==1); /* low-voltage branch does not erase the AFE timeout */
  puts("PASS protective sleep: connected low voltage, OTA/bus/Flash/AFE failure override, invalid samples and independent AFE timeout, no repeated saves");
- reset();flash_ready=0;assert(!app_enter_power_off());assert(seq_len==0);
- reset();device_in_connection_state=1;assert(!app_enter_power_off());assert(seq_len==0);
- reset();bus_busy=1;assert(!app_enter_power_off());assert(seq_len==0);
- reset();storage_ok=0;assert(!app_enter_power_off());assert(seq_len==1&&!cut_calls);
- reset();event_ok=0;assert(!app_enter_power_off());assert(seq_len==2&&!cut_calls);
- reset();shutdown_ok=0;assert(!app_enter_power_off());assert(seq_len==3&&!cut_calls);
- assert(!app_enter_power_off());assert(seq_len==3); /* retry must not wear Flash every loop */
+ reset();deepsleep_en=true;flash_ready=0;assert(!app_enter_command_power_off());assert(seq_len==0);
+ reset();deepsleep_en=true;device_in_connection_state=1;ble_tx_pending=1;assert(!app_enter_command_power_off());assert(seq_len==0);
+ reset();deepsleep_en=true;bus_busy=1;assert(!app_enter_command_power_off());assert(seq_len==0);
+ reset();deepsleep_en=true;storage_ok=0;assert(!app_enter_command_power_off());assert(seq_len==1&&!cut_calls);
+ reset();deepsleep_en=true;event_ok=0;assert(!app_enter_command_power_off());assert(seq_len==2&&!cut_calls);
+ reset();deepsleep_en=true;shutdown_ok=0;assert(!app_enter_command_power_off());assert(seq_len==3&&!cut_calls);
+ assert(!app_enter_command_power_off());assert(seq_len==3); /* retry must not wear Flash every loop */
  now+=5*32000;measurement.sample_tick_32k=now;seq_len=0;shutdown_ok=1;
- assert(app_enter_power_off());assert(cut_calls==1&&seq_len==5);
+ assert(app_enter_command_power_off());assert(cut_calls==1&&seq_len==5);
  for(int i=0;i<5;i++)assert(seq[i]==i+1);
- assert(!app_enter_power_off());assert(cut_calls==1);
- reset();s_power_off_retry_ready=1;s_power_off_retry_tick=UINT32_MAX-32000;
+ assert(!app_enter_command_power_off());assert(cut_calls==1);
+ reset();deepsleep_en=true;s_power_off_retry_ready=1;s_power_off_retry_tick=UINT32_MAX-32000;
  now=s_power_off_retry_tick+160000u;measurement.sample_tick_32k=now;
- assert(app_enter_power_off());assert(cut_calls==1);
+ assert(app_enter_command_power_off());assert(cut_calls==1);
  /* Explicit command works at normal voltage while connected and with stale
   * sampling. Its acknowledgement must drain; busy/failed work stays pending. */
  reset();deepsleep_en=true;device_in_connection_state=1;valid=0;ble_tx_pending=1;

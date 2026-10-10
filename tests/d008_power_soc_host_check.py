@@ -66,7 +66,7 @@ def main():
                 'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
                 'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',
-                'static int app_enter_power_off(', 'static void app_acc_sleep_hold(',
+                'static int app_enter_command_power_off(', 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(')),
             'guard': source('bms_afe_guard.c'),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),

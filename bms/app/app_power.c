@@ -309,8 +309,6 @@ static void app_dvc_publish_sleep(u8 reason, u32 elapsed_ms, u32 delay_ms,
     if (device_in_connection_state &&
         (reason != DIAG_SLEEP_REASON_COMMAND || blc_ll_getTxFifoNumber() != 0u))
         block |= DIAG_SLEEP_BLOCK_BLE;
-    if (reason >= DIAG_SLEEP_REASON_VERY_LOW && !app_get_fresh_measurements(&m))
-        block |= DIAG_SLEEP_BLOCK_SAMPLE;
     retry_ms = reason == DIAG_SLEEP_REASON_ACC ?
         app_sleep_retry_ms(s_acc_retry_ready, s_acc_retry_tick, APP_POWER_OFF_RETRY_SECONDS) :
         app_sleep_retry_ms(s_power_off_retry_ready, s_power_off_retry_tick, APP_POWER_OFF_RETRY_SECONDS);
@@ -321,10 +319,9 @@ static void app_dvc_publish_sleep(u8 reason, u32 elapsed_ms, u32 delay_ms,
     app_publish_sleep(reason, block, elapsed_ms, delay_ms, retry_ms, suspend_allowed);
 }
 
-/* 完成关断准备后按板级流程关闭电源。 */
-static int app_enter_power_off(void)
+/* 仅由显式命令分支调用；保护性低压休眠不经过此关机流程。 */
+static int app_enter_command_power_off(void)
 {
-    bms_afe_aux_measurements_t m;
     u32 now = pm_get_32k_tick();
 
     if (s_power_off_committed || ota_is_working ||
@@ -334,11 +331,7 @@ static int app_enter_power_off(void)
      * 显式休眠命令不要求低电压、BLE 断连或有效电流样本。断电前必须发完命令应答；
      * 保护性深睡由独立入口执行，不使用本函数的门禁。
      */
-    if (deepsleep_en)
-    {
-        if (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u) return 0;
-    }
-    else if (device_in_connection_state || !app_get_fresh_measurements(&m)) return 0;
+    if (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u) return 0;
     if (s_power_off_retry_ready &&
         (u32)(now - s_power_off_retry_tick) <
             APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
@@ -605,7 +598,7 @@ void app_power_process(const volatile uint8_t *sample_due)
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
         app_dvc_publish_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, 0u, 0u);
-        if (app_enter_power_off()) return;
+        if (app_enter_command_power_off()) return;
         app_dvc_publish_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, 0u, 0u);
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
