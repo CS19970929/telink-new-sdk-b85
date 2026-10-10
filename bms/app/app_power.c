@@ -495,7 +495,7 @@ static void app_sh_publish_sleep(u32 switch_seconds, u8 suspend_allowed)
  * 仅在 OTA、Flash、UART、总线及唤醒脚门禁满足后尝试深睡；
  * 失败保留请求并按 32K 时间退避。
  */
-static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
+static int app_enter_switch_deepsleep(void)
 {
     u32 now_tick_32k = pm_get_32k_tick();
     int sleep_status;
@@ -516,8 +516,8 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     s_sleep_attempt_ready = 1u;
     s_sleep_failure_mask = 0u;
 
-    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 0u);
-    if (need_afe_sleep && !bms_afe_sleep()) {
+    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 0u);
+    if (!bms_afe_sleep()) {
         s_sleep_failure_mask = DIAG_SLEEP_BLOCK_AFE;
         BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 0u);
         return 0;
@@ -533,9 +533,9 @@ static int app_note_sleep_and_enter_deepsleep(u8 need_afe_sleep)
     if (!bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
                                   g_bms_soc.discharge_fraction_percent,
                                   g_bms_soc.cycle_count))
-        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 1u);
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
     if (!bms_event_log_note_sleep())
-        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, need_afe_sleep, 2u);
+        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 2u);
     bms_diag_sleep_committed();
     sleep_status = cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0);
     if (sleep_status & STATUS_GPIO_ERR_NO_ENTER_PM)
@@ -695,7 +695,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 			if (sleep_cnt >= 3u)
 			{
 				cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
-				if (app_note_sleep_and_enter_deepsleep(1u)) sleep_cnt = 0;
+				if (app_enter_switch_deepsleep()) sleep_cnt = 0;
 			}
 		}
 		else

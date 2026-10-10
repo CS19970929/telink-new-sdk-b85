@@ -107,22 +107,22 @@ int main(void) {
     s_guard.comm_inhibit = 0; s_guard.test_shutdown_hold = 1; CHECK(!bms_afe_samples_qualified());
     s_guard.test_shutdown_hold = 0; s_guard.bus_silenced = 1; CHECK(!bms_afe_samples_qualified());
     reset(); ota_is_working = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
     reset(); tx_busy = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
     reset(); flash_locked = 0;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
     reset(); wake_on_call = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !bus_calls);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !bus_calls);
 
     reset(); s_control_ready = 0;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !sleep_writes);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !sleep_writes);
     reset(); control_wake_active = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls && !sleep_writes);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls && !sleep_writes);
 
     reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_32k = 90;
     s_guard.comm_failures = 1;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1));
+    CHECK(!app_enter_switch_deepsleep());
     CHECK(!bus_calls && !pm_calls && s_guard.failsafe_start_tick_32k == 90);
     CHECK(s_guard.comm_failures == 1);
 
@@ -134,40 +134,38 @@ int main(void) {
     CHECK(s_guard.failsafe_start_tick_32k == fake_tick);
 
 #if SH3673510_FIXED_UART_BLOCKS_PM
-    reset(); CHECK(!app_note_sleep_and_enter_deepsleep(1));
-    CHECK(!bus_calls && !pm_calls && !event_calls && !prepare_calls);
-    reset(); CHECK(!app_note_sleep_and_enter_deepsleep(0));
+    reset(); CHECK(!app_enter_switch_deepsleep());
     CHECK(!bus_calls && !pm_calls && !event_calls && !prepare_calls);
 #else
     /* Latent PM failure handling is isolated from the product's fixed gate. */
     /* Learn the successful path's IO count; fail every operation in turn. */
-    reset(); CHECK(app_note_sleep_and_enter_deepsleep(1)); n = bus_calls;
+    reset(); CHECK(app_enter_switch_deepsleep()); n = bus_calls;
     CHECK(pm_calls == 1 && sleep_writes == 1 && event_calls == 1);
     CHECK(!heater_on && !last_c && !last_d);
     CHECK(!s_snapshot_valid && !s_fet_command_valid);
     for (i = 1; i <= n; ++i) {
         reset(); command_fail_at = i;
-        CHECK(!app_note_sleep_and_enter_deepsleep(1));
+        CHECK(!app_enter_switch_deepsleep());
         CHECK(!pm_calls && !prepare_calls && !event_calls);
         CHECK(!s_snapshot_valid && !s_fet_command_valid);
     }
 
     reset(); wake_on_call = 2;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(!pm_calls);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(!pm_calls);
     CHECK(sh3673510_control_wake()); CHECK(!physical_sleep);
 
     reset(); pm_status = STATUS_GPIO_ERR_NO_ENTER_PM;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1));
+    CHECK(!app_enter_switch_deepsleep());
     CHECK(prepare_calls == 1 && cancel_calls == 1);
     CHECK(sh3673510_control_wake()); CHECK(!physical_sleep);
 
     /* Failed SLEEP acknowledgement must still force NORMAL/configure on resume. */
     reset(); command_fail_at = n;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1));
+    CHECK(!app_enter_switch_deepsleep());
     CHECK(sh3673510_control_wake());
     CHECK(normal_writes == 1 && !physical_sleep);
 
-    reset(); CHECK(app_note_sleep_and_enter_deepsleep(1)); configure_ok = 0;
+    reset(); CHECK(app_enter_switch_deepsleep()); configure_ok = 0;
     CHECK(!sh3673510_control_wake() && s_afe_sleeping);
     configure_ok = 1; protection_ok = 0;
     CHECK(!sh3673510_control_wake() && s_afe_sleeping);
@@ -176,10 +174,10 @@ int main(void) {
     /* Same PM failure is retried at a bounded cadence, including tick wrap. */
     reset(); fake_tick = UINT32_MAX - APP_PM_TICKS_PER_SEC;
     pm_status = STATUS_GPIO_ERR_NO_ENTER_PM;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); n = bus_calls;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(bus_calls == n && pm_calls == 1);
+    CHECK(!app_enter_switch_deepsleep()); n = bus_calls;
+    CHECK(!app_enter_switch_deepsleep()); CHECK(bus_calls == n && pm_calls == 1);
     fake_tick += 3u * APP_PM_TICKS_PER_SEC;
-    CHECK(!app_note_sleep_and_enter_deepsleep(1)); CHECK(pm_calls == 2);
+    CHECK(!app_enter_switch_deepsleep()); CHECK(pm_calls == 2);
 
 #endif
     CHECK(app_pm_elapsed_limit(3599, 1, 3600) == 3600);

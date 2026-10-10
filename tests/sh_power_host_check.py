@@ -126,12 +126,12 @@ def check_sh3673510_sleep_host_check():
         function('bms_afe_guard.c', 'enter_failsafe_wait'),
         function('bms_afe_guard.c', 'note_invalid'),
         function('bms_afe_guard.c', 'bms_afe_sleep'),
-        function('app_power.c', 'app_note_sleep_and_enter_deepsleep'),
+        function('app_power.c', 'app_enter_switch_deepsleep'),
         function('app_power.c', 'app_pm_elapsed_limit'),
     ])
     app_source = selected_source(APP / 'app_power.c')
     assert 'sleep_cnt = app_pm_elapsed_limit(' in app_source
-    assert 'if (app_note_sleep_and_enter_deepsleep(1u)) sleep_cnt = 0;' in app_source
+    assert 'if (app_enter_switch_deepsleep()) sleep_cnt = 0;' in app_source
     assert 'if (app_protective_sleep_poll(sleep_elapsed_sec)) return;' in app_source
     fixture = '#define BMS_AFE_BACKEND 2\n#define BMS_AFE_BACKEND_DVC1124 1\n' + (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
@@ -211,7 +211,7 @@ def check_sh_suspend_current_gates():
     static int gpio_read(int pin){return pin==BMS_BOARD_SWITCH_PIN?switch_high:1;}
     static void cpu_set_gpio_wakeup(int pin,int level,int enable){(void)pin;(void)level;(void)enable;}
     static u32 app_pm_elapsed_limit(u32 current,u32 elapsed,u32 limit){(void)elapsed;(void)limit;return current;}
-    static int app_note_sleep_and_enter_deepsleep(int note){(void)note;return 0;}
+    static int app_enter_switch_deepsleep(void){return 0;}
     static int uart_tx_is_busy(void){return tx_busy;}
     static int modbus_uart_tx_active(void){return modbus_busy;}
     static int app_flash_lock_restore_enabled(void){return flash_locked;}
