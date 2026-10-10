@@ -183,3 +183,14 @@ dotnet build .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -c Release
 - [AFE Hardware Protection V2](AFE_HARDWARE_PROTECTION_V2.md)
 - [Telink OTA 审计](TELINK_OTA_MASTER_AND_WINDOWS_OTA.md)
 - [Android 使用与验证](ANDROID.md)
+
+
+## 单体电压均衡标记（2026-10-10）
+
+客户版、内部版实时页面及内部版单体卡片在已启用均衡的单体电压旁显示 `[均衡]`；关闭后随下一次成功刷新移除。不存在的 `61001` 串位不显示，其他串位编号不前移。数据来自原有 63-word 电池快照：`0xD03D` bit0～15 对应第1～16串，`0xD03E` bit0～7 对应第17～24串。Modbus 每 word 大端，掩码低 word 在前；高 word 保留位被屏蔽。固件协议不变，未增加轮询请求；状态总灯仍使用原系统状态位。
+
+标记表示 AFE 最后回读的均衡通道使能，不代表支路电流实测。SH 芯片内部奇偶轮流工作；AFE 异常或断连时最后快照可能过期，请结合通信状态和更新时间。D013 当前固件能力禁用均衡。
+
+D008 新固件测试组由固件的 `BMS_D008_BALANCE_TEST_ENABLE=1` 提供：开启、3300 mV、启动压差10 mV、停止压差3 mV。制作 OTA 包时选择容量/加热/均衡业务组（同时恢复容量和加热默认），升级后在 D008 参数页读取 `Balance`，应为 `0001 0CE4 000A 0003`。未选业务组则旧参数保留；仍需原有充电会话、温度、可信采样和保护门禁，不是只达到3300 mV就强制均衡。
+
+本次仅完成源码和差异审查，已在 `Tests/AfeFragmentsTest.cs` 补充实际电池读取、Modbus字节序、第1/16/17/24串、保留位、不存在串和关闭位图场景；未执行测试、Windows/CLI构建或实机显示验证，未生成安装包。

@@ -462,7 +462,7 @@ public partial class MainWindow : Window
         CellsText.Text = string.Join("    ", s.CellMillivolts
             .Select((mv, i) => (mv, Index: i + 1))
             .Where(cell => cell.mv != BmsRegisters.MissingCellVoltageMv)
-            .Select(cell => $"第{cell.Index}串 {cell.mv / 1000.0:F3} V"));
+            .Select(cell => FormattableString.Invariant($"第{cell.Index}串 {cell.mv / 1000.0:F3} V{(s.IsCellBalancing(cell.Index - 1) ? " [均衡]" : "")}")));
 
         _customerLastDataUtc = DateTime.UtcNow;
         LastUpdateText.Text = $"最后更新：{DateTime.Now:HH:mm:ss}";
@@ -502,7 +502,9 @@ public partial class MainWindow : Window
                 CornerRadius = new CornerRadius(2),
                 Margin = new Thickness(2),
                 Padding = new Thickness(5, 3, 5, 3),
-                Child = new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV", FontFamily = new System.Windows.Media.FontFamily("Consolas") }
+                ToolTip = "均衡标记表示 AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。",
+                Child = new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV{(s.IsCellBalancing(i) ? "  [均衡]" : "")}", FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                    Foreground = s.IsCellBalancing(i) ? System.Windows.Media.Brushes.DarkOrange : System.Windows.Media.Brushes.Black }
             });
         }
     }

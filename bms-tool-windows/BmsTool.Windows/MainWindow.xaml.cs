@@ -365,7 +365,7 @@ public partial class MainWindow : Window
         CellsText.Text = string.Join("    ", s.CellMillivolts
             .Select((mv, i) => (mv, Index: i + 1))
             .Where(cell => cell.mv != BmsRegisters.MissingCellVoltageMv)
-            .Select(cell => $"第{cell.Index}串 {cell.mv / 1000.0:F3} V"));
+            .Select(cell => FormattableString.Invariant($"第{cell.Index}串 {cell.mv / 1000.0:F3} V{(s.IsCellBalancing(cell.Index - 1) ? " [均衡]" : "")}")));
 
         _customerLastDataUtc = DateTime.UtcNow;
         LastUpdateText.Text = $"最后更新：{DateTime.Now:HH:mm:ss}";

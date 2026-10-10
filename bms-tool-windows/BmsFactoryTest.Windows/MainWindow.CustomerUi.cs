@@ -75,12 +75,12 @@ public partial class MainWindow
         if (raw == _customerLastCellsRaw || string.IsNullOrWhiteSpace(raw) || raw == "—") return;
         _customerLastCellsRaw = raw;
 
-        var cells = new List<(int Index, double Volts)>();
-        foreach (Match match in Regex.Matches(raw, @"第\s*(\d+)\s*串\s*([0-9]+(?:\.[0-9]+)?)\s*V", RegexOptions.IgnoreCase))
+        var cells = new List<(int Index, double Volts, bool Balancing)>();
+        foreach (Match match in Regex.Matches(raw, @"第\s*(\d+)\s*串\s*([0-9]+(?:\.[0-9]+)?)\s*V(?:\s*(\[均衡\]))?", RegexOptions.IgnoreCase))
         {
             if (int.TryParse(match.Groups[1].Value, out int index) &&
                 double.TryParse(match.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double volts))
-                cells.Add((index, volts));
+                cells.Add((index, volts, match.Groups[3].Success));
         }
 
         if (cells.Count == 0) return;
@@ -98,10 +98,10 @@ public partial class MainWindow
 
         CustomerCellPanel.Children.Clear();
         foreach (var cell in cells.OrderBy(c => c.Index))
-            CustomerCellPanel.Children.Add(CreateCellVisual(cell.Index, cell.Volts, cell.Index == max.Index, cell.Index == min.Index));
+            CustomerCellPanel.Children.Add(CreateCellVisual(cell.Index, cell.Volts, cell.Index == max.Index, cell.Index == min.Index, cell.Balancing));
     }
 
-    private static UIElement CreateCellVisual(int index, double volts, bool isMax, bool isMin)
+    private static UIElement CreateCellVisual(int index, double volts, bool isMax, bool isMin, bool balancing)
     {
         var root = new Grid { Width = 200, Height = 58, Margin = new Thickness(4, 4, 4, 5) };
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
@@ -142,7 +142,8 @@ public partial class MainWindow
 
         var voltage = new TextBlock
         {
-            Text = (volts * 1000.0).ToString("F0", CultureInfo.InvariantCulture),
+            Text = (volts * 1000.0).ToString("F0", CultureInfo.InvariantCulture) + (balancing ? " [均衡]" : ""),
+            ToolTip = "均衡标记表示 AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。",
             FontSize = 15,
             FontWeight = isMax || isMin ? FontWeights.Bold : FontWeights.Normal,
             Foreground = isMax ? Brushes.Red : isMin ? Brushes.Green : Brushes.Black,

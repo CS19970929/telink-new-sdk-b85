@@ -61,6 +61,13 @@ public sealed class BatterySnapshot
     public ushort ProtectionLevel2Raw { get; init; }
     public ushort ProtectionLevel3Raw { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
+    // D03D: 第 1～16 串；D03E 低 8 位: 第 17～24 串。状态来自 AFE 最后一次回读。
+    public uint BalanceCellMask { get; init; }
+    public bool IsCellBalancing(int zeroBasedCellIndex) =>
+        (uint)zeroBasedCellIndex < 24u && zeroBasedCellIndex < CellMillivolts.Count &&
+        CellMillivolts[zeroBasedCellIndex] != BmsRegisters.MissingCellVoltageMv &&
+        (BalanceCellMask & (1u << zeroBasedCellIndex)) != 0;
+
 
     public string WorkState => CurrentA > 0.05 ? "放电" : CurrentA < -0.05 ? "充电" : "静置";
     public bool PrechargeMosOn => Bit(1);
@@ -467,6 +474,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel1Raw = legacy[58],
             ProtectionLevel2Raw = legacy[59],
             ProtectionLevel3Raw = legacy[60],
+            BalanceCellMask = (uint)legacy[61] | ((uint)(legacy[62] & 0x00FFu) << 16),
             // The first 32 Legacy words are protocol slots, not the configured
             // series count.  61001 marks a slot that is not physically present.
             CellMillivolts = legacy.Take(BmsRegisters.CellVoltageSlotCount).ToArray()
