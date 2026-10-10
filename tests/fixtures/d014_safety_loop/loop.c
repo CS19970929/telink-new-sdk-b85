@@ -185,7 +185,11 @@ int main(void)
     assert(bms_protection_params_valid());
     bms_afe_hw_profile_t startup_profile;
     assert(bms_afe_hw_profile_get(&startup_profile));
+    regs[SH3673520_REG_SCONF2]=SH3673520_RESET_SCONF2;
     bms_afe_init(); assert(sh3673510_control_ready());
+    assert(!(regs[SH3673520_REG_SCONF2] & (SH3673520_SCONF2_PD_EN_MASK | SH3673520_SCONF2_PD_CTL_MASK)));
+    assert(regs[SH3673520_REG_SCONF6] & SH3673520_SCONF6_UV_EN_MASK);
+    assert(regs[SH3673520_REG_SCONF5] & SH3673520_SCONF5_WDT_EN_MASK);
     request_outputs(); steps(3); require_both_off(); steps(9);
     assert(bms_afe_samples_qualified()); assert(discharge_on());
     assert(g_bms_report.cell_max_mv==3300 && g_bms_report.cell_min_mv==3300);
@@ -220,7 +224,11 @@ int main(void)
     step(); require_both_off(); steps(12); assert(!discharge_on());
     assert(g_bms_report.fault_third.bits.discharge_ocp);
     assert(bms_afe_sleep()); require_both_off();
+    regs[SH3673520_REG_SCONF2] |= SH3673520_SCONF2_PD_EN_MASK; /* 验证唤醒重配清除旧值。 */
     steps(3); require_both_off(); steps(10); assert(!discharge_on());
+    assert(!(regs[SH3673520_REG_SCONF2] & (SH3673520_SCONF2_PD_EN_MASK | SH3673520_SCONF2_PD_CTL_MASK)));
+    assert(regs[SH3673520_REG_SCONF6] & SH3673520_SCONF6_UV_EN_MASK);
+    assert(regs[SH3673520_REG_SCONF5] & SH3673520_SCONF5_WDT_EN_MASK);
     puts("PASS SW OCD survives explicit init, AFE reset flag and Sleep/Wake qualification");
     /* One release sample, reattachment, then a full fresh release window. */
     regs[SH3673520_REG_BSTATUS2]=SH3673520_BSTATUS2_LOADOFF_MASK;

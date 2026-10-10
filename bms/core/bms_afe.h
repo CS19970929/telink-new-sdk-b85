@@ -11,7 +11,7 @@
 void bms_afe_init(void);
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
 void bms_afe_sample(void);
-/* 通过 guard 执行选定 AFE 的休眠流程。 */
+/* DVC 请求 Shutdown，SH 请求 Sleep；门禁拒绝或命令失败返回 0。 */
 uint8_t bms_afe_sleep(void);
 /* 安全门禁允许时应用独立硬件保护配置。 */
 uint8_t bms_afe_apply_protection_config(void);
@@ -24,8 +24,7 @@ void bms_afe_get_requested_fets(uint8_t *charge_on, uint8_t *discharge_on);
 /* 设置应用输出授权并重新仲裁 MOS 请求。 */
 void bms_afe_set_output_enabled(uint8_t enabled);
 /*
- * 仅在有意的看门狗等待窗口返回 0；绕过正常门禁的诊断/原始路径也须遵守，
- * 不能访问 AFE。
+ * 看门狗总线静默或主动 shutdown 后返回 0；诊断/原始路径也须遵守，不能访问 AFE。
  */
 uint8_t bms_afe_bus_access_allowed(void);
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
@@ -37,7 +36,7 @@ static inline uint8_t bms_afe_current_recovery_pending(void) { return 0u; }
 #endif
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 /*
- * 受保护的 D008 台架生命周期：shutdown 保留 FET 请求但禁止全部 AFE 访问；
+ * 受保护的 D008 关机流程：shutdown 保留 FET 请求但禁止全部 AFE 访问；
  * 唤醒完整初始化并确认新样本后才允许请求到达硬件。
  */
 /*

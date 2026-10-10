@@ -18,8 +18,6 @@ void dvc1124_backend_init(void);
 void dvc1124_backend_sample(void);
 /* 成功读取但等待新的 ADC 完成，不计入采样资格。 */
 uint8_t dvc1124_backend_sample_pending(void);
-/* 按器件与板级时序进入 AFE 休眠。 */
-uint8_t dvc1124_backend_sleep(void);
 /* 执行后端 shutdown 流程并返回通信结果。 */
 uint8_t dvc1124_backend_enter_shutdown(void);
 /* 应用独立 AFE 硬件保护配置并返回结果。 */

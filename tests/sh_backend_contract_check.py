@@ -27,7 +27,8 @@ def check_sh3673510_protection_mode_check():
     for needle in (
         "#define SH3673510_SW_PROTECT_ENABLE             1u",
         "#define SH3673510_HW_PROTECT_ENABLE             1u",
-        "#define SH3673510_BOARD_PD_EN                      SH3673510_HW_PROTECT_ENABLE",
+        "#define SH3673510_BOARD_PD_EN                      0u",
+        "#define SH3673510_BOARD_PD_CTL                     0u",
         "#define SH3673510_BOARD_MOS_EN                     SH3673510_HW_PROTECT_ENABLE",
         "#define SH3673510_BOARD_OCC_EN                     SH3673510_HW_PROTECT_ENABLE",
         "#define SH3673510_BOARD_WDT_EN                     SH3673510_HW_PROTECT_ENABLE",

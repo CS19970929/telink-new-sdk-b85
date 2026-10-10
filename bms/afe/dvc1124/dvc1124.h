@@ -282,8 +282,6 @@ void DVC1124_App_AFEGet(void);
 void DVC1124_BmsApp_AFEGet(void);
 /* 复位 DVC AFE 并重建驱动状态。 */
 void DVC1124_AFE_Reset(void);
-/* 请求 DVC 进入 shutdown 并返回通信结果。 */
-uint8_t DVC1124_AFE_Sleep(void);
 /* 按当前参数更新 DVC AFE 配置。 */
 void DVC1124_UpdataAfeConfig(void);
 /* 应用并验证 DVC 硬件保护参数。 */

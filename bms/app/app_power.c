@@ -196,7 +196,8 @@ static void app_enter_protective_sleep(void)
 {
     s_protective_sleep.committed = 1u;
     bms_afe_set_output_enabled(0u);
-    /* guard 继续拥有总线静默资格；无法通知 AFE 时也必须执行 MCU 深睡。 */
+    /* guard 选择 DVC Shutdown / SH Sleep 并保持总线静默资格；
+     * 无法通知 AFE 时也必须执行 MCU 深睡。 */
     (void)bms_afe_sleep();
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {

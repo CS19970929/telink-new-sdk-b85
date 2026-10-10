@@ -60,7 +60,6 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_INIT() dvc1124_backend_init()
 #define AFE_SAMPLE() dvc1124_backend_sample()
 #define AFE_PENDING() dvc1124_backend_sample_pending()
-#define AFE_SLEEP() dvc1124_backend_sleep()
 #define AFE_TEST_SHUTDOWN() dvc1124_backend_enter_shutdown()
 #define AFE_APPLY() dvc1124_backend_apply_protection_config()
 #define AFE_FETS(c,d) dvc1124_backend_set_fets((c),(d))
@@ -101,7 +100,7 @@ static void inhibit_local(void)
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
 }
 
-/* 尝试关闭 AFE 输出并保留无法确认关断的失败状态。 */
+/* 仅尽力关闭均衡/MOS，不发送芯片 Shutdown/Powerdown 模式命令。 */
 static void best_effort_shutdown(void)
 {
     if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
@@ -251,18 +250,19 @@ void bms_afe_sample(void)
     if (!apply_requested()) note_invalid();
 }
 
-/* 通过 guard 执行选定 AFE 的休眠流程。 */
+/* 产品低功耗模式固定：DVC 仅用 Shutdown，SH 仅用 Sleep。 */
 uint8_t bms_afe_sleep(void)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    return bms_afe_enter_shutdown();
+#else
     if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
     inhibit_local();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    best_effort_shutdown();
-#endif
     /* 本地禁止会主动置 AFE1；此处依据实际命令应答。 */
     if (!AFE_SLEEP()) { note_invalid(); return 0u; }
     s_guard.comm_failures = 0u;
     return 1u;
+#endif
 }
 
 /* 安全门禁允许时应用独立硬件保护配置。 */

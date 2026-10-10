@@ -84,7 +84,7 @@ AFE 寄存器模型来自 SH36735XX CV1.0A；当前 D013 与 D011 共用 `sh3673
 | 寄存器 | D013 当前静态值 | 关键字段 |
 |---|---:|---|
 | SCONF1 0x40 | `0x00` | Normal |
-| SCONF2 0x41 | `0x50` | PD_EN=1、PUMP_EN=1；PDSGMOS/DSGMOS/CHGMOS boot=0 |
+| SCONF2 0x41 | `0x10` | PD_EN=0、PD_CTL=0、PUMP_EN=1；PDSGMOS/DSGMOS/CHGMOS boot=0 |
 | SCONF3 0x42 | `0x44` | CGR_WK=1、LD_WK=OFF、CRLD_EN=CPLUS、OWD_EN/TRG=0 |
 | SCONF4 0x43 | 默认 `0x6A` | PDSGT code3=490 ms，CN=10；构建覆盖后随有效串数变化 |
 | SCONF5 0x44 | 初始 `0x3C` | MOS_EN=1、OCC_EN=1、CADC_EN=1、WDT_EN=1、WDT code0 |

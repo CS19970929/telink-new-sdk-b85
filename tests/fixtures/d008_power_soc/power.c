@@ -58,11 +58,12 @@ static volatile u8 s_sample_due;
 static u32 s_power_off_retry_tick,now,elapsed;
 static int valid=1,flash_ready=1,ota_is_working,device_in_connection_state,bus_busy,mask;
 static int storage_ok=1,event_ok=1,shutdown_ok=1,cut_calls,seq[64],seq_len;
-static int afe_error, output_enabled=1;
+static int afe_error, output_enabled=1,afe_shutdown_calls;
 #define BMS_ERROR_AFE1 0
 static int bms_error_get(int error){assert(error==BMS_ERROR_AFE1);return afe_error;}
 static void bms_afe_set_output_enabled(u8 en){output_enabled=en;}
-static int bms_afe_sleep(void){seq[seq_len++]=3;return shutdown_ok;}
+static int bms_afe_enter_shutdown(void);
+static int bms_afe_sleep(void){return bms_afe_enter_shutdown();}
 static bool deepsleep_en;
 static u8 ble_tx_pending;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
@@ -87,7 +88,7 @@ static int bus_mux_get_state(void){return bus_busy;}
 static int bms_state_store_write_all(int s,int d,uint32_t c){seq[seq_len++]=1;return storage_ok;}
 static int bms_event_log_note_sleep(void){seq[seq_len++]=2;return event_ok;}
 static void bms_event_log_cancel_sleep(void){}
-static int bms_afe_enter_shutdown(void){seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
+static int bms_afe_enter_shutdown(void){afe_shutdown_calls++;seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
 static void bls_pm_setAppWakeupLowPower(u32 t,int en){assert(en==0);seq[seq_len++]=4;}
 static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);if(level)ldo_high=1;else cut_calls++;seq[seq_len++]=5;}
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t*c){return elapsed;}
@@ -105,6 +106,7 @@ static void reset(void){
  deepsleep_en=false;ble_tx_pending=0;
  s_sleep_failure_mask=s_sleep_report_reason=0;
  memset(&s_protective_sleep,0,sizeof(s_protective_sleep));afe_error=0;output_enabled=1;
+ afe_shutdown_calls=0;
  s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
@@ -176,9 +178,26 @@ static void test_low_voltage_sample_wait(void){
  assert(!s_protective_sleep.region&&!s_protective_sleep.low_voltage_seconds);
  puts("PASS low-voltage timer: repeated ADC waits cannot postpone one-hour expiry; only valid recovery cancels; reliable charge threshold");
 }
+static void test_protective_low_voltage_shutdown(void){
+ const struct {uint16_t cell_mv;u32 seconds;u8 reason;} cases[]={
+  {2400u,3600u,DIAG_SLEEP_REASON_VERY_LOW},
+  {2700u,BMS_SLEEP_LOW_SECONDS,DIAG_SLEEP_REASON_LOW},
+  {2900u,BMS_SLEEP_NORMAL_SECONDS,DIAG_SLEEP_REASON_NORMAL}
+ };
+ for(unsigned i=0;i<sizeof(cases)/sizeof(cases[0]);i++){
+  reset();g_bms_report.cell_min_mv=cases[i].cell_mv;elapsed=cases[i].seconds;
+  app_power_process(&s_sample_due);
+  assert(observed_sleep_reason==cases[i].reason);
+  assert(afe_shutdown_calls==1&&deep_calls==1&&!cut_calls&&ldo_high);
+  int saved=seq_len;app_power_process(&s_sample_due);
+  assert(deep_calls==2&&afe_shutdown_calls==1&&seq_len==saved);
+ }
+ puts("PASS D008 low-voltage shutdown: all voltage regions, keep MCU supply, PAD retry does not resend AFE command");
+}
 int main(void){
  test_acc_sleep();
  test_low_voltage_sample_wait();
+ test_protective_low_voltage_shutdown();
  reset();g_bms_report.cell_min_mv=2770;elapsed=2;app_power_process(&s_sample_due);
  assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
  device_in_connection_state=1;app_power_process(&s_sample_due);
@@ -207,11 +226,13 @@ int main(void){
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(!cut_calls&&deep_calls==1&&s_protective_sleep.committed&&!output_enabled);
+ assert(afe_shutdown_calls==1); /* shutdown 失败不能阻止低压深睡。 */
  assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
  int saved=seq_len;app_power_process(&s_sample_due);assert(deep_calls==2&&seq_len==saved);
  reset();valid=0;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(!deep_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
  app_power_process(&s_sample_due);assert(deep_calls==1&&s_protective_sleep.committed);
+ assert(afe_shutdown_calls==1); /* AFE 异常入口也请求 Shutdown。 */
  reset();g_bms_report.cell_min_mv=2400;afe_error=1;elapsed=900;app_power_process(&s_sample_due);
  g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
  assert(deep_calls==1); /* low-voltage branch does not erase the AFE timeout */

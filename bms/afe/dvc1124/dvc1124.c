@@ -1616,17 +1616,6 @@ void DVC1124_UpdataAfeConfig(void)
     }
 }
 
-/* 按现有器件时序使 DVC 进入休眠。 */
-uint8_t DVC1124_AFE_Sleep(void)
-{
-    uint8_t cmd = (uint8_t)DVC1124_CST_ENTER_SLEEP;
-    if (!DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u)) {
-        dvc_note_comm_result(0u);
-        return 0u;
-    }
-    return 1u;
-}
-
 /* 把电流测量转换并发布到公共报告。 */
 static void dvc_publish_current_report(int32_t current_ma)
 {

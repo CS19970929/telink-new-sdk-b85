@@ -14,7 +14,7 @@ typedef int bms_afe_diag_state_t;
 #define BMS_AFE_DIAG_ERROR 3
 static int err,block,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static int raised,init_fail,aux_ok=1;
-static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls,sleep_ok=1;
+static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
 static int openwire_stop_ok=1;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
@@ -26,7 +26,6 @@ static int bms_features_charge_direction_blocked(void){return 0;}
 static void dvc1124_backend_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
 static void dvc1124_backend_sample(void){sample_calls++;err=0;}
 static uint8_t dvc1124_backend_sample_pending(void){return 0;}
-static uint8_t dvc1124_backend_sleep(void){return (uint8_t)sleep_ok;}
 static int dvc1124_backend_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int dvc1124_backend_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
 static void dvc1124_backend_set_output_enabled(int x){}
@@ -44,6 +43,7 @@ struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bi
 static uint32_t guard_tick;
 uint32_t bms_diag_tick(void){return guard_tick;}
 static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u;}
+uint8_t bms_afe_enter_shutdown(void);
 /* PRODUCTION_SOURCE */
 static void reset(void){
  err=raised=init_fail=0;aux_ok=1;
@@ -85,10 +85,15 @@ int main(void){
  openwire_stop_ok=0;assert(!bms_afe_openwire_stop());assert(cmd_c==0&&cmd_d==0&&!bms_afe_samples_qualified());
  reset(); /* 真实清理 I/O 失败保留原通信保护；健康停止不写 MOS。 */
  test_startup_qualification();
- reset();assert(bms_afe_sleep());assert(s_guard.comm_inhibit && err);
- reset();sleep_ok=0;assert(!bms_afe_sleep());assert(s_guard.comm_failures==1);
- assert(!bms_afe_sleep());assert(s_guard.bus_silenced);sleep_ok=1;
- puts("PASS DVC sleep: actual ACK, failure escalation, local inhibit cannot invalidate successful ACK");
+ reset();bms_afe_set_fets(1,1);assert(bms_afe_sleep());
+ assert(shutdown_calls==1&&s_guard.comm_inhibit&&err&&s_guard.test_shutdown_hold);
+ assert(cmd_c==0&&cmd_d==0&&!bms_afe_bus_access_allowed());
+ assert(!bms_afe_sleep());assert(shutdown_calls==1);
+ reset();shutdown_ok=0;assert(!bms_afe_sleep());
+ assert(shutdown_calls==1&&s_guard.comm_failures==1&&!s_guard.test_shutdown_hold);
+ assert(!bms_afe_sleep());assert(shutdown_calls==1); /* inhibit 后不重复发命令。 */
+ reset();s_guard.bus_silenced=1;assert(!bms_afe_sleep());assert(shutdown_calls==0);
+ puts("PASS DVC low power: Shutdown only, output OFF, terminal bus hold, communication inhibit and watchdog silence retained");
  bms_diag_init();reset();bms_afe_set_fets(1,1);bms_diag_params(0,0);
  bms_diag_backend(DIAG_BLOCK_HW,DIAG_BLOCK_SW);bms_afe_diag_poll();
  assert(bms_diag_cached_word(128)==3 && bms_diag_cached_word(129)==0);

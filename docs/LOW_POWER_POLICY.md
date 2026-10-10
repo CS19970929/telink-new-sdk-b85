@@ -27,7 +27,8 @@ AFE 恢复且测量有效才清零异常计时。BLE、UART、OTA 和 Flash 状�
 异常优先、PAD 返回保持、tick 回绕及保存失败路径。host 的时钟推进不是实板睡眠证明，
 实际一小时到期、功耗、Gate 和 PAD 唤醒仍须独立实板验收。
 
-到期后立即锁存：撤销输出授权，尝试 AFE sleep；允许 Flash 写入且未 OTA 时，
+到期后立即锁存：撤销输出授权，D008 所有原因尝试 AFE Shutdown，
+SH 产品仅尝试 AFE Sleep，不发送 Powerdown 命令；允许 Flash 写入且未 OTA 时，
 State 和事件各尝试保存一次。保存、AFE、BLE 控制失败都不阻止 MCU deep sleep。
 OTA 可以被中断。AFE guard 的 watchdog 总线静默门禁保持，禁止绕过静默访问 AFE。
 
@@ -35,6 +36,22 @@ OTA 可以被中断。AFE guard 的 watchdog 总线静默门禁保持，禁止�
 D008 保持 PC4/MCU_LDO 高，以 ACC/负载输入变化唤醒；SH 使用原有开关、INT_WK、
 ALARM、RESET 输入变化唤醒并关闭 CMNT_EN。SDK 拒睡返回后仅重设 PAD 并重试，
 不恢复 BLE/采样业务、不重复保存或发送 AFE 命令。真正 deep sleep 唤醒走完整启动。
+
+2026-10-10 按产品要求将 D008 的全部 AFE 低功耗请求统一为 Shutdown，包括低压和
+AFE 异常保护性深睡；开关及命令关机原本已用 Shutdown。公共 `bms_afe_sleep()`
+复用已有受保护的 `bms_afe_enter_shutdown()`，移除 DVC Sleep 命令入口：均衡关闭、
+FET 关闭及 shutdown 应答成功后保持总线静止。通信 inhibit、命令失败或 watchdog
+bus silence 不阻止保护性 MCU 深睡，不追加绕过 guard 的命令。
+SH 软件仅请求 Sleep；按用户确认关闭欠压自主 Powerdown（`PD_EN=0`），保持
+`PD_CTL=0`。这是固定运行配置，启动和 Sleep 唤醒重配时写入并回读验证，不依赖
+OTA 参数更新组或 Config journal。`UV_EN` 欠压关 MOS 保护、其它硬件保护及 WDT
+保留。SH36735XX CV1.0A 原 PDF 第 10 页规定内部过温和 WDT 故障也可独立触发
+Powerdown；关闭 PD_EN 不能禁止这些芯片自保行为。普通 BLE Suspend 不发送
+AFE 低功耗命令，D008 AFE 继续采样。
+PC4 保持高、PA0/PB1 反向电平唤醒保持；因此本改动不会消除 P− 引起 PB1 变化的
+唤醒路径。依据 DVC1124-2 DS V1.1 PDF 第 12 页功能模式、RM V1.2 PDF 第 7 页 CST；
+Sleep/Shutdown 的芯片典型电流不能代替整板功耗验收。本次补充 host 场景但未执行，
+未编译、生成 BIN 或连接实板；下述历史验证不覆盖本次改动。
 
 普通 suspend、D008 ACC/显式命令关机、SH 开关休眠保留原门禁；保护性深睡优先。
 [实时诊断](SLEEP_STATUS.md) 中保护性原因的阻止位为零，`COMMITTED` 只代表已提交动作。

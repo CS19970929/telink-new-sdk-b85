@@ -38,8 +38,8 @@
  */
 #define SH3673510_BOARD_SCONF1_BOOT_VALUE         SH3673520_SCONF1_NORMAL
 #define SH3673510_BOARD_LTCLR                      0u /* 仅运行时标志清除门控。 */
-#define SH3673510_BOARD_PD_EN                      SH3673510_HW_PROTECT_ENABLE /*
- * 低电压自主 Powerdown 属于硬件保护。
+#define SH3673510_BOARD_PD_EN                      0u /*
+ * 产品要求仅使用 Sleep，关闭欠压自主 Powerdown；UV_EN 欠压关 MOS 保护独立保留。
  */
 #define SH3673510_BOARD_PD_CTL                     0u /*
  * 不立即发出 MCU Powerdown 命令。

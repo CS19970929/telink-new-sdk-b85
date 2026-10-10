@@ -150,9 +150,3 @@ uint8_t dvc1124_backend_apply_protection_config(void)
     /* 只有保护参数归运行时/Flash 状态管理。 */
     return DVC1124_ApplyProtectionConfig();
 }
-
-/* 按器件与板级时序进入 AFE 休眠。 */
-uint8_t dvc1124_backend_sleep(void)
-{
-    return DVC1124_AFE_Sleep();
-}
