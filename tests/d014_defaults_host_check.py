@@ -137,13 +137,18 @@ def check_battery_chemistry_defaults():
     matrix += [('d014', ['-DBMS_BUILD_CELL_COUNT=10'], 1, 10, 3000)]
     matrix += [(product, ['-DBMS_BUILD_AFE_MODEL=3520', '-DBMS_BUILD_CELL_COUNT=20', '-DBMS_PRODUCT_CHEMISTRY=2'], 2, 20, 3000)
                for product in ('d011', 'd013', 'd014')]
+    # D008 测试组默认启用；同时保留关闭测试组后的 LFP/NMC 正常默认覆盖。
+    matrix += [(product, flags + ['-DBMS_D008_BALANCE_TEST_ENABLE=0'], chemistry, cells, uvp)
+               for product, flags, chemistry, cells, uvp in list(matrix) if product == 'd008']
     for product, flags, chemistry, cells, uvp in matrix:
+        balance_test = product == 'd008' and '-DBMS_D008_BALANCE_TEST_ENABLE=0' not in flags
         nmc = chemistry == 2
         expected = f'''
         enum {{ expected_chemistry={chemistry}, expected_cells={cells},
                 expected_cov={4200 if nmc else 3750},
                 expected_cov_recover={4100 if nmc else 3500}, expected_cuv={uvp},
-                expected_balance={4100 if nmc else 3400},
+                expected_balance={3300 if balance_test else 4100 if nmc else 3400},
+                expected_balance_start={10 if balance_test else 50}, expected_balance_stop={3 if balance_test else 30},
                 expected_pack_ovp1={4200 if nmc else 3500},
                 expected_pack_ovp2={4200 if nmc else 3600},
                 expected_pack_ovp3={4200 if nmc else 3650},
@@ -180,7 +185,7 @@ def check_battery_chemistry_defaults():
             assert(hw.cuv_mv == expected_cuv && hw.cuv_recover_mv == 3100);
             assert(bms_afe_hw_profile_validate(&hw));
             assert(user.balance_enable == 1 && user.balance_start_mv == expected_balance);
-            assert(user.balance_start_delta_mv == 50 && user.balance_stop_delta_mv == 30);
+            assert(user.balance_start_delta_mv == expected_balance_start && user.balance_stop_delta_mv == expected_balance_stop);
         #if BMS_PRODUCT_ID == 13u
             assert(SH3673510_PRODUCT_BALANCE_SUPPORTED == 0);
         #endif

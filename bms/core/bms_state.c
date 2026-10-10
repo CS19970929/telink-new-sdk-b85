@@ -7,6 +7,10 @@
 #include "bms_error.h"
 #include <stddef.h>
 
+/* D000 连续窗口的逐串均衡位图；防止结构字段变化静默改变既有协议地址。 */
+typedef char bms_balance_low_at_d03d[(offsetof(bms_report_t, balance_bits_low) == 61u * 2u) ? 1 : -1];
+typedef char bms_balance_high_at_d03e[(offsetof(bms_report_t, balance_bits_high) == 62u * 2u) ? 1 : -1];
+
 volatile bms_system_status_t g_bms_system_status;
 bms_report_t g_bms_report;
 

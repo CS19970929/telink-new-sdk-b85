@@ -345,8 +345,14 @@ static uint8_t apply_balance_mask(uint32_t desired)
         return 0u;
     }
 
-    bms_error_clear(BMS_ERROR_BALANCE);
     publish_balance(actual);
+    if (actual != desired)
+    {
+        /* 上报实际回读；不把总线应答成功当作全部通道已应用。 */
+        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        return 0u;
+    }
+    bms_error_clear(BMS_ERROR_BALANCE);
     return 1u;
 }
 
@@ -633,8 +639,9 @@ static uint8_t balance_hard_fault(void)
 static void service_balance(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;
-    uint16_t threshold;
     uint32_t desired = 0u;
+    uint32_t active_mask = s_feature.balance_active ?
+        ((uint32_t)g_bms_report.balance_bits_high << 16) | g_bms_report.balance_bits_low : 0u;
     uint8_t i;
     uint8_t allowed;
 
@@ -653,21 +660,17 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
 
     if (allowed)
     {
-        threshold = s_feature.balance_active ?
-                    config.balance_stop_delta_mv :
-                    config.balance_start_delta_mv;
-
-        if (g_bms_report.cell_max_mv >= config.balance_start_mv &&
-            g_bms_report.cell_delta_mv >= threshold)
+        for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
         {
-            for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
-            {
-                uint16_t cell = g_bms_report.cell_voltage_mv[i];
-                if (cell >= config.balance_start_mv &&
-                    cell >= g_bms_report.cell_min_mv &&
-                    (uint16_t)(cell - g_bms_report.cell_min_mv) >= threshold)
-                    desired |= (1uL << i);
-            }
+            uint16_t cell = g_bms_report.cell_voltage_mv[i];
+            uint16_t delta;
+            uint32_t bit = 1uL << i;
+            if (cell < config.balance_start_mv || cell < g_bms_report.cell_min_mv) continue;
+            delta = (uint16_t)(cell - g_bms_report.cell_min_mv);
+            /* 每串独立迟滞：未开启须达到启动压差，已开启降至停止压差即关闭。 */
+            if ((active_mask & bit) ? (delta > config.balance_stop_delta_mv) :
+                                     (delta >= config.balance_start_delta_mv))
+                desired |= bit;
         }
     }
 
@@ -789,7 +792,9 @@ void bms_features_get_status(bms_features_status_t *status)
     status->heater_fuse_fired = s_feature.heater_fuse_fired;
     status->heater_state = s_feature.heater_state;
     status->charge_session_active = s_feature.charge_session_active;
-    status->balance_active = s_feature.balance_active;
+    /* SOC 静置资格看最后硬件回读，不能因应用失败而把残留均衡当作已关闭。 */
+    status->balance_active = (g_bms_report.balance_bits_low != 0u ||
+                              g_bms_report.balance_bits_high != 0u) ? 1u : 0u;
     status->balance_voltage_trusted = balance_voltage_trusted();
     status->openwire_suspected = s_feature.openwire_suspected;
     status->openwire_active = s_feature.openwire_active;

@@ -15,6 +15,19 @@
 #if BMS_PRODUCT_CHEMISTRY != D008_PRODUCT_CHEMISTRY
 #error "D008 chemistry must match D008_PRODUCT_PROFILE"
 #endif
+/* 用户本轮 OTA 均衡测试组；置 0 恢复随化学体系选择的正常默认。 */
+#ifndef BMS_D008_BALANCE_TEST_ENABLE
+#define BMS_D008_BALANCE_TEST_ENABLE 1
+#endif
+#if BMS_D008_BALANCE_TEST_ENABLE != 0 && BMS_D008_BALANCE_TEST_ENABLE != 1
+#error "BMS_D008_BALANCE_TEST_ENABLE must be 0 or 1"
+#endif
+#if BMS_D008_BALANCE_TEST_ENABLE
+#define BMS_BALANCE_ENABLE_DEFAULT 1u
+#define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT 3300u
+#define BMS_BALANCE_START_DELTA_MV_DEFAULT 10u
+#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 3u
+#endif
 #include "../bms_battery_defaults.h"
 
 /* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */

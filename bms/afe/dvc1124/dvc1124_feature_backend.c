@@ -91,7 +91,8 @@ uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
     valid_mask = (cfg.cell_count >= 24u) ? 0x00FFFFFFu : ((1uL << cfg.cell_count) - 1uL);
     cell_mask &= valid_mask;
     actual = dvc_balance_report_mask() & valid_mask;
-    if (cell_mask != s_balance_request || (cell_mask != 0u && actual == 0u)) {
+    /* 任一通道与请求不符就重发，包括残留非零位和部分通道提前关闭。 */
+    if (cell_mask != s_balance_request || actual != cell_mask) {
         if (!DVC1124_SetBalanceMask(cell_mask)) return 0u;
         s_balance_request = cell_mask;
     }

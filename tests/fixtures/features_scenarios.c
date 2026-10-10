@@ -4,7 +4,7 @@ static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
 static uint8_t heater, balance_fail, params_valid=1;
 static unsigned fuse_count, ow_started;
-static uint32_t balance;
+static uint32_t balance, balance_dropped_mask;
 static bms_afe_openwire_result_t ow_result;
 static bms_afe_diag_state_t ow_state;
 static uint32_t test_tick;
@@ -20,7 +20,7 @@ void bms_board_heater_set(uint8_t on){heater=on;}
 void bms_board_heater_fuse_fire(void){++fuse_count;}
 uint8_t bms_afe_get_charge_source_present(uint8_t *present){*present=0;return 1;}
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){*s=snapshot;return 1;}
-uint8_t bms_afe_set_balance_mask(uint32_t mask){if(balance_fail)return 0;balance=mask;return 1;}
+uint8_t bms_afe_set_balance_mask(uint32_t mask){if(balance_fail)return 0;balance=mask & ~balance_dropped_mask;return 1;}
 uint8_t bms_afe_get_balance_mask(uint32_t *mask){*mask=balance;return 1;}
 uint8_t bms_afe_openwire_start(void){++ow_started;return start_ok;}
 uint8_t bms_afe_openwire_stop(void){++stopped;return stop_ok;}
@@ -45,7 +45,7 @@ static void reset(void)
     memset(&g_bms_report,0,sizeof(g_bms_report));
     for(unsigned i=0;i<BMS_ERROR_COUNT;i++)bms_error_clear((bms_error_id_t)i);
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
-    params_valid=1;balance=0;balance_fail=0;fuse_count=0;ow_started=0;
+    params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=0;fuse_count=0;ow_started=0;
     ow_state=BMS_AFE_DIAG_BUSY;memset(&ow_result,0,sizeof(ow_result));
     snapshot.valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
@@ -64,8 +64,8 @@ int main(void)
     reset();step(4);assert(!balance && !feature_status().balance_voltage_trusted);
     step(1);assert(feature_status().balance_voltage_trusted);
     assert(balance==(bms_board_balance_supported()?1u:0u));
-    voltages(30);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
-    voltages(29);step(1);assert(!balance);
+    voltages(31);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    voltages(30);step(1);assert(!balance);
     voltages(49);step(1);assert(!balance);voltages(50);step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
     snapshot.mos_temp_x10=1100;step(1);assert(!balance);
@@ -77,6 +77,35 @@ int main(void)
     reset();step(5);snapshot.valid=0;step(1);assert(!heater && !feature_status().balance_voltage_trusted);
     /* 总线未知时保留最后读回，不能用软件请求 OFF 冒充硬件 OFF。 */
     assert(g_bms_report.balance_bits_low==(bms_board_balance_supported()?1u:0u));
+    /* 10/3 mV 测试组：新通道不得借用其他通道的停止门槛。 */
+    reset();user.balance_start_mv=3300;user.balance_start_delta_mv=10;user.balance_stop_delta_mv=3;
+    voltages(10);g_bms_report.cell_voltage_mv[1]=3405;step(5);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
+    step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    g_bms_report.cell_voltage_mv[1]=3410;step(1);
+    assert(balance==(bms_board_balance_supported()?3u:0u));
+    voltages(4);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    voltages(3);step(1);assert(!balance);
+    voltages(9);step(1);assert(!balance);
+    /* 3300 mV 包含边界；3299 mV 即便压差足够也不能启动。 */
+    for(unsigned i=0;i<snapshot.cell_count;i++)g_bms_report.cell_voltage_mv[i]=3290;
+    g_bms_report.cell_voltage_mv[0]=3300;g_bms_report.cell_min_mv=3290;
+    g_bms_report.cell_max_mv=3300;g_bms_report.cell_delta_mv=10;step(1);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
+    g_bms_report.cell_voltage_mv[0]=3299;g_bms_report.cell_max_mv=3299;g_bms_report.cell_delta_mv=9;
+    step(1);assert(!balance);
+    /* ACK 成功但通道未应用：发布回读，报错并撤销继续均衡资格。 */
+    reset();balance_dropped_mask=1u;step(5);
+    assert(!balance && !g_bms_report.balance_bits_low);
+    assert((bms_error_get(BMS_ERROR_BALANCE)!=0)==(bms_board_balance_supported()!=0));
+    assert(!feature_status().balance_active);
+    balance_dropped_mask=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
+    reset();g_bms_report.cell_voltage_mv[1]=3450;balance_dropped_mask=2u;step(5);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
+    assert(!s_feature.balance_active); /* 应用资格失败。 */
+    assert(feature_status().balance_active==bms_board_balance_supported()); /* SOC仍看到残留均衡。 */
+    reset();user.balance_stop_delta_mv=0;step(5);voltages(0);step(1);
+    assert(!balance); /* 零停止压差不能把最低电芯或所有电芯打开。 */
     reset();snapshot.battery_temp_min_x10=399;step(1);
     if(bms_board_heater_supported()){
         assert(feature_status().heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
