@@ -2,7 +2,8 @@
 bms_protection_params_t g_bms_protection_params;
 static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
-static uint8_t heater, balance_fail, params_valid=1;
+static uint8_t heater, balance_fail, balance_off_fail, balance_read_fail, params_valid=1;
+static unsigned balance_on_calls, balance_off_calls;
 static unsigned fuse_count, ow_started;
 static uint32_t balance, balance_dropped_mask;
 static bms_afe_openwire_result_t ow_result;
@@ -20,8 +21,12 @@ void bms_board_heater_set(uint8_t on){heater=on;}
 void bms_board_heater_fuse_fire(void){++fuse_count;}
 uint8_t bms_afe_get_charge_source_present(uint8_t *present){*present=0;return 1;}
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){*s=snapshot;return 1;}
-uint8_t bms_afe_set_balance_mask(uint32_t mask){if(balance_fail)return 0;balance=mask & ~balance_dropped_mask;return 1;}
-uint8_t bms_afe_get_balance_mask(uint32_t *mask){*mask=balance;return 1;}
+uint8_t bms_afe_set_balance_mask(uint32_t mask){
+    if(mask)++balance_on_calls;else ++balance_off_calls;
+    if(balance_fail || (!mask && balance_off_fail))return 0;
+    balance=mask & ~balance_dropped_mask;return 1;
+}
+uint8_t bms_afe_get_balance_mask(uint32_t *mask){if(balance_read_fail)return 0;*mask=balance;return 1;}
 uint8_t bms_afe_openwire_start(void){++ow_started;return start_ok;}
 uint8_t bms_afe_openwire_stop(void){++stopped;return stop_ok;}
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r){*r=ow_result;return ow_state;}
@@ -45,7 +50,8 @@ static void reset(void)
     memset(&g_bms_report,0,sizeof(g_bms_report));
     for(unsigned i=0;i<BMS_ERROR_COUNT;i++)bms_error_clear((bms_error_id_t)i);
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
-    params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=0;fuse_count=0;ow_started=0;
+    params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=balance_off_fail=balance_read_fail=0;
+    balance_on_calls=balance_off_calls=0;fuse_count=0;ow_started=0;
     ow_state=BMS_AFE_DIAG_BUSY;memset(&ow_result,0,sizeof(ow_result));
     snapshot.valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
@@ -100,12 +106,57 @@ int main(void)
     assert((bms_error_get(BMS_ERROR_BALANCE)!=0)==(bms_board_balance_supported()!=0));
     assert(!feature_status().balance_active);
     balance_dropped_mask=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
-    reset();g_bms_report.cell_voltage_mv[1]=3450;balance_dropped_mask=2u;step(5);
+    reset();g_bms_report.cell_voltage_mv[1]=3450;step(5);
+    balance_dropped_mask=2u;balance_off_fail=1u;step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
     assert(!s_feature.balance_active); /* 应用资格失败。 */
     assert(feature_status().balance_active==bms_board_balance_supported()); /* SOC仍看到残留均衡。 */
+    if(bms_board_balance_supported()) {
+        unsigned on_calls=balance_on_calls;
+        assert(s_feature.balance_off_pending);
+        step(1);assert(balance_on_calls==on_calls && s_feature.balance_off_pending);
+        balance_off_fail=0;balance_dropped_mask=0;step(1);
+        assert(!balance && !s_feature.balance_off_pending && balance_on_calls==on_calls);
+        step(1);assert(balance==3u && balance_on_calls>on_calls);
+        /* 回读失败：即使 OFF 写入成功也不能假装已确认，报告保留最后读回。 */
+        balance_read_fail=1;step(1);assert(s_feature.balance_off_pending);
+        assert(g_bms_report.balance_bits_low==3u);
+        on_calls=balance_on_calls;step(2);assert(balance_on_calls==on_calls);
+        balance_read_fail=0;step(1);assert(!balance && !s_feature.balance_off_pending);
+    }
     reset();user.balance_stop_delta_mv=0;step(5);voltages(0);step(1);
     assert(!balance); /* 零停止压差不能把最低电芯或所有电芯打开。 */
+#if BMS_BALANCE_MAX_CELLS == 2
+    /* 上限与温度值仅用于夹具，产品宏仍默认关闭新增限制。 */
+    reset();user.balance_start_mv=3300;user.balance_start_delta_mv=10;user.balance_stop_delta_mv=3;
+    voltages(10);g_bms_report.cell_voltage_mv[1]=3420;g_bms_report.cell_voltage_mv[2]=3430;
+    g_bms_report.cell_max_mv=3430;g_bms_report.cell_delta_mv=30;step(5);
+    assert(balance==(bms_board_balance_supported()?6u:0u));
+    g_bms_report.cell_voltage_mv[0]=3440;g_bms_report.cell_max_mv=3440;g_bms_report.cell_delta_mv=40;
+    step(1);assert(balance==(bms_board_balance_supported()?6u:0u)); /* 旧通道保留。 */
+    g_bms_report.cell_voltage_mv[1]=3403;step(1);
+    assert(balance==(bms_board_balance_supported()?5u:0u)); /* 达停止压差后腾位给最高串。 */
+    reset();voltages(50);g_bms_report.cell_voltage_mv[1]=3450;g_bms_report.cell_voltage_mv[2]=3450;
+    step(5);assert(balance==(bms_board_balance_supported()?3u:0u)); /* 同压按串号，相邻串可选。 */
+#endif
+#if BMS_BALANCE_TEMP_STOP_X10 == 1000 && BMS_BALANCE_TEMP_RESUME_X10 == 900
+    reset();step(5);snapshot.mos_temp_x10=1000;step(1);
+    assert(!balance && s_feature.balance_temperature_paused);
+    snapshot.mos_temp_x10=950;step(1);assert(!balance && s_feature.balance_temperature_paused);
+    bms_features_init();assert(s_feature.balance_temperature_paused); /* AFE reset 不解除热暂停。 */
+    snapshot.mos_temp_x10=900;step(5);assert(!balance && s_feature.balance_temperature_paused);
+    snapshot.mos_temp_valid=0;snapshot.mos_temp_x10=899;step(1);
+    assert(!balance && s_feature.balance_temperature_paused);
+    snapshot.mos_temp_valid=1;step(1);
+    assert(!s_feature.balance_temperature_paused && balance==(bms_board_balance_supported()?1u:0u));
+    /* 其他业务门禁阻断期间仍记录过热；即使原温度门槛禁用也有效。 */
+    user.balance_enable=0;g_bms_protection_params.charge_otp_recover_x10=0;
+    snapshot.battery_temp_max_x10=1000;step(1);assert(s_feature.balance_temperature_paused);
+    snapshot.battery_temp_max_x10=950;user.balance_enable=1;step(1);assert(!balance);
+    snapshot.valid=0;step(1);assert(s_feature.balance_temperature_paused);
+    snapshot.valid=1;snapshot.battery_temp_max_x10=899;step(1);
+    assert(!s_feature.balance_temperature_paused); /* 降温可解除，其他资格仍需重新建立。 */
+#endif
     reset();snapshot.battery_temp_min_x10=399;step(1);
     if(bms_board_heater_supported()){
         assert(feature_status().heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());

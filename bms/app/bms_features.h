@@ -35,6 +35,19 @@
 #define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u
 #endif
 
+/* 编译期校验产品均衡调度配置，不新增 Flash 字段或协议寄存器。 */
+#if BMS_BALANCE_MAX_CELLS < 0 || BMS_BALANCE_MAX_CELLS > BMS_AFE_FEATURE_MAX_CELLS
+#error "BMS_BALANCE_MAX_CELLS must be 0 (unlimited) or within the feature cell capacity"
+#endif
+#if BMS_BALANCE_TEMP_STOP_X10 == 0
+#if BMS_BALANCE_TEMP_RESUME_X10 != 0
+#error "Disabled balance temperature hysteresis requires both thresholds to be zero"
+#endif
+#elif BMS_BALANCE_TEMP_STOP_X10 < 0 || BMS_BALANCE_TEMP_STOP_X10 > 1650 || \
+      BMS_BALANCE_TEMP_RESUME_X10 <= 0 || BMS_BALANCE_TEMP_RESUME_X10 >= BMS_BALANCE_TEMP_STOP_X10
+#error "Balance temperatures must satisfy 0 < resume < stop <= 1650 in (C + 40) * 10"
+#endif
+
 /* 均衡不能基于单个可疑样本动作；这些是测量合理性/资格限值，不是客户保护阈值。 */
 #ifndef BMS_BALANCE_TRUST_CONFIRM_MS
 #define BMS_BALANCE_TRUST_CONFIRM_MS 1000u

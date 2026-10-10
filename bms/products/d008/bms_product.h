@@ -30,6 +30,20 @@
 #endif
 #include "../bms_battery_defaults.h"
 
+/* 均衡调度：0 不增加数量限制；温度两项均为 0 关闭新增回差，原温度保护仍有效。
+ * 温度使用 (摄氏度 + 40) * 10；启用时必须 0 < 恢复值 < 停止值 <= 1650。
+ * 数量限制总使能位数，奇偶交替由 AFE 完成。 */
+#ifndef BMS_BALANCE_MAX_CELLS
+#define BMS_BALANCE_MAX_CELLS 0u
+#endif
+#ifndef BMS_BALANCE_TEMP_STOP_X10
+#define BMS_BALANCE_TEMP_STOP_X10 0u
+#endif
+#ifndef BMS_BALANCE_TEMP_RESUME_X10
+#define BMS_BALANCE_TEMP_RESUME_X10 0u
+#endif
+
+
 /* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */
 #define BMS_D008_SCD_POLICY_APPROVED 1
 #define BMS_D008_20S_NMC_PROTECTION_APPROVED 0

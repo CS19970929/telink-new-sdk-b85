@@ -13,6 +13,20 @@
 #endif
 #include "../bms_battery_defaults.h"
 
+/* 均衡调度：0 不增加数量限制；温度两项均为 0 关闭新增回差，原温度保护仍有效。
+ * 温度使用 (摄氏度 + 40) * 10；启用时必须 0 < 恢复值 < 停止值 <= 1650。
+ * 数量限制总使能位数，奇偶交替由 AFE 完成。 */
+#ifndef BMS_BALANCE_MAX_CELLS
+#define BMS_BALANCE_MAX_CELLS 0u
+#endif
+#ifndef BMS_BALANCE_TEMP_STOP_X10
+#define BMS_BALANCE_TEMP_STOP_X10 0u
+#endif
+#ifndef BMS_BALANCE_TEMP_RESUME_X10
+#define BMS_BALANCE_TEMP_RESUME_X10 0u
+#endif
+
+
 /* D011：10S / 250 uOhm；TS3 加热、TS4 MOS 10K-3435，PB5 启动保持低。 */
 #ifndef BMS_BUILD_CELL_COUNT
 #define SH3673510_BOARD_CELL_COUNT              10u

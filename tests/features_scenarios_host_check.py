@@ -15,7 +15,15 @@ for signature in ('uint8_t bms_board_balance_supported(', 'uint8_t bms_board_hea
                   'uint8_t bms_board_charge_source_present('):
     code += '\n' + function(board, signature)
 code += read('tests/fixtures/features_scenarios.c').replace('/* FEATURES */', without_includes(read('bms/app/bms_features.c')))
-raw = run_c(code, ['bms/core/bms_state.c','bms/core/bms_sw_protection.c'],
-            ['-Wno-unused-function'], name='features')
+observations = []
+for name, overrides in (
+    ('features', []),
+    ('features-balance-limits', ['-DBMS_BALANCE_MAX_CELLS=2',
+                               '-DBMS_BALANCE_TEMP_STOP_X10=1000',
+                               '-DBMS_BALANCE_TEMP_RESUME_X10=900']),
+):
+    observations.append(run_c(code, ['bms/core/bms_state.c','bms/core/bms_sw_protection.c'],
+                              ['-Wno-unused-function'] + overrides, name=name).strip())
+raw = '\n'.join(observations)
 evidence({'domain':'features','product':product,'observations':raw.strip(),
           'boundary':'完整 feature 函数体及产品能力、真实错误状态；AFE/温度/GPIO/配置读取为环境替身'})

@@ -51,6 +51,8 @@ typedef struct {
     uint32_t openwire_latched_mask; /* 非零即已确认故障；只由完整结果更新，不另存布尔锁存。 */
 
     uint8_t balance_active;
+    uint8_t balance_temperature_paused; /* 仅温度回落确认可解除，AFE 重初始化不清除。 */
+    uint8_t balance_off_pending; /* 必须确认关闭后才能重新选择通道。 */
     uint16_t balance_trust_samples;
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
@@ -336,12 +338,14 @@ static uint8_t apply_balance_mask(uint32_t desired)
         BMS_LOG(BMS_LOG_ERROR, BMS_LOG_FEATURE, BMS_LOG_BALANCE_RESULT, desired, UINT32_MAX);
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
         if (bms_afe_get_balance_mask(&actual)) publish_balance(actual);
+        s_feature.balance_off_pending = 1u;
         return 0u;
     }
 
     if (!bms_afe_get_balance_mask(&actual))
     {
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        s_feature.balance_off_pending = 1u;
         return 0u;
     }
 
@@ -350,8 +354,10 @@ static uint8_t apply_balance_mask(uint32_t desired)
     {
         /* 上报实际回读；不把总线应答成功当作全部通道已应用。 */
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        s_feature.balance_off_pending = 1u;
         return 0u;
     }
+    if (desired == 0u) s_feature.balance_off_pending = 0u;
     bms_error_clear(BMS_ERROR_BALANCE);
     return 1u;
 }
@@ -592,7 +598,19 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
     uint16_t charge_ut_recover;
     uint16_t mos_ot_recover;
 
-    if ((s == 0) || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
+    if ((s == 0) || !s->valid || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
+
+#if BMS_BALANCE_TEMP_STOP_X10 != 0
+    {
+        uint16_t hottest_x10 = (s->battery_temp_max_x10 > s->mos_temp_x10) ?
+                              s->battery_temp_max_x10 : s->mos_temp_x10;
+        if (hottest_x10 >= BMS_BALANCE_TEMP_STOP_X10)
+            s_feature.balance_temperature_paused = 1u;
+        else if (hottest_x10 < BMS_BALANCE_TEMP_RESUME_X10)
+            s_feature.balance_temperature_paused = 0u;
+        if (s_feature.balance_temperature_paused) return 0u;
+    }
+#endif
 
     /*
      * 均衡会产生热量，使用既有保护恢复边界作为保守准入窗口，
@@ -632,6 +650,54 @@ static uint8_t balance_hard_fault(void)
             f->mos_otp) ? 1u : 0u;
 }
 
+/* 保留合格旧通道，再用最高电压补位；每轮最多扫描 24×24 次，无排序数组。 */
+static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
+                                    const bms_user_params_t *config)
+{
+    uint32_t active = s_feature.balance_active ?
+        ((uint32_t)g_bms_report.balance_bits_high << 16) | g_bms_report.balance_bits_low : 0u;
+    uint32_t retained = 0u, starting = 0u, selected = 0u;
+    uint8_t limit = s->cell_count;
+    uint8_t count = 0u, phase, i;
+
+#if BMS_BALANCE_MAX_CELLS != 0
+    if (limit > BMS_BALANCE_MAX_CELLS) limit = BMS_BALANCE_MAX_CELLS;
+#endif
+    for (i = 0u; i < s->cell_count; ++i)
+    {
+        uint16_t cell = g_bms_report.cell_voltage_mv[i];
+        uint16_t delta;
+        uint32_t bit = 1uL << i;
+        if (cell < config->balance_start_mv || cell < g_bms_report.cell_min_mv) continue;
+        delta = (uint16_t)(cell - g_bms_report.cell_min_mv);
+        if (active & bit) {
+            if (delta > config->balance_stop_delta_mv) retained |= bit;
+        } else if (delta >= config->balance_start_delta_mv) {
+            starting |= bit;
+        }
+    }
+
+    for (phase = 0u; phase < 2u; ++phase)
+    {
+        uint32_t candidates = (phase == 0u) ? retained : starting;
+        for (; count < limit && candidates != 0u; ++count)
+        {
+            uint8_t best = s->cell_count;
+            uint16_t highest_mv = 0u;
+            for (i = 0u; i < s->cell_count; ++i) {
+                if ((candidates & (1uL << i)) && g_bms_report.cell_voltage_mv[i] > highest_mv) {
+                    best = i;
+                    highest_mv = g_bms_report.cell_voltage_mv[i];
+                }
+            }
+            if (best == s->cell_count) break;
+            selected |= 1uL << best;
+            candidates &= ~(1uL << best);
+        }
+    }
+    return selected;
+}
+
 /*
  * 统一均衡资格与 mask 仲裁；只使用有效 cell，
  * 失效测量和硬故障应通过现有路径停止均衡。
@@ -640,12 +706,13 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
 {
     bms_user_params_t config;
     uint32_t desired = 0u;
-    uint32_t active_mask = s_feature.balance_active ?
-        ((uint32_t)g_bms_report.balance_bits_high << 16) | g_bms_report.balance_bits_low : 0u;
-    uint8_t i;
+    /* 即使其他门禁阻断，也持续记录过热/降温，不能丢失暂停回差。 */
+    uint8_t temperature_safe = balance_temperature_safe(s);
     uint8_t allowed;
 
     allowed = (uint8_t)((s != 0) && s->valid &&
+                        s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
+                        !s_feature.balance_off_pending &&
                         bms_config_get_user(&config) &&
                         config.balance_enable &&
                         bms_board_balance_supported() &&
@@ -655,29 +722,21 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
                         !s_feature.openwire_suspected &&
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
                         s_feature.charge_session_active &&
-                        balance_temperature_safe(s) &&
+                        temperature_safe &&
                         !balance_hard_fault());
 
-    if (allowed)
-    {
-        for (i = 0u; i < s->cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
-        {
-            uint16_t cell = g_bms_report.cell_voltage_mv[i];
-            uint16_t delta;
-            uint32_t bit = 1uL << i;
-            if (cell < config.balance_start_mv || cell < g_bms_report.cell_min_mv) continue;
-            delta = (uint16_t)(cell - g_bms_report.cell_min_mv);
-            /* 每串独立迟滞：未开启须达到启动压差，已开启降至停止压差即关闭。 */
-            if ((active_mask & bit) ? (delta > config.balance_stop_delta_mv) :
-                                     (delta >= config.balance_start_delta_mv))
-                desired |= bit;
-        }
-    }
+    if (allowed) desired = select_balance_mask(s, &config);
 
     if (apply_balance_mask(desired))
         s_feature.balance_active = desired ? 1u : 0u;
     else
+    {
         s_feature.balance_active = 0u;
+        /* 非零应用失败后仅追加一次关闭尝试；关闭未确认时以后只重试 OFF。
+         * 受 guard 总线静默约束，不在这里重初始化 AFE，也不忙等。 */
+        if (desired != 0u) (void)apply_balance_mask(0u);
+        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+    }
 }
 
 /* 复位加热、均衡和断线检测的公共状态。 */
@@ -691,6 +750,7 @@ void bms_features_init(void)
     s_feature.heater_off_hot_samples = 0u;
     s_feature.charge_session_active = 0u;
     s_feature.balance_active = 0u;
+    /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     s_feature.balance_requested_mask = 0u;
@@ -750,6 +810,7 @@ void bms_features_on_afe_invalid(void)
     s_feature.charge_session_active = 0u;
     s_feature.balance_requested_mask = 0u;
     s_feature.balance_active = 0u;
+    s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     if (s_feature.openwire_active) {

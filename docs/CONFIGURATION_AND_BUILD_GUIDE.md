@@ -23,6 +23,7 @@
 | DVC 固定配置和 SCD 种子 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级值或 AFE，按 default builder 区分 |
 | 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection`；电压常量来自 `bms_battery_defaults.h` | 公共默认影响四产品；CUV3 延时保持产品 `BMS_DEFAULT_CUV3_FILTER`；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
+| 均衡通道数量上限、温度回差 | 各产品 `bms_product.h` 的 `BMS_BALANCE_*` 宏，见下节 | 编译期策略，不写入 Flash、不增加协议字段 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
 | OTA 更新策略 | 窗口、`bms_tools/build_options.py`、`bms/core/bms_update_policy.h` | 分组选择和一次性标记；历史编号只保留只读地址 |
 | 开关/ACC触发休眠 | 四项目各自 `bms_product.h` 的 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` | 默认1，设0只关闭开关休眠请求；不改变开关输入/唤醒/其他用途，不属于Flash参数；详见 [SH低功耗与开关策略](SH_LOW_POWER_FAILURE_HANDLING.md) |
@@ -65,6 +66,22 @@ D008 当前按用户测试需求默认启用 `BMS_D008_BALANCE_TEST_ENABLE=1`，
 **已有设备不会仅因类型宏变化就覆盖 Flash 参数。** 窗口提供软件保护、AFE 保护、容量/加热/均衡、SOC 配置四个更新勾选，另有独立 SOC/循环重置；全不选保留。工具生成一次性标识并写入 BIN，客户 OTA 后板子更新选中的组并保存标识，同一更新包连续重启不重复恢复，不需要客户旧编号。串数或持久电池类型改变须选齐四组，否则禁止启动输出；校准、SN 和事件保留。BUSINESS 是整组恢复，需要仅修改单项时沿用在线接口。schema、长度、Flash 分区和 journal 提交方式不变；旧记录与回刷边界详见 [OTA 参数策略](OTA_PARAMETERS.md)。
 
 相关检查入口 `tests/d014_defaults_host_check.py` 已补充自定义串数/类型矩阵与 SH 20 串均衡掩码用例。它提取生产默认初始化及 AFE builder，证据低于完整生产 TU 和实板；按根协作规则，仅在明确要求测试时运行。2026-10-10 本次仅完成源码及 Git 差异检查，未运行最新窗口、host 用例或目标编译。
+
+### 均衡调度宏
+
+四产品分别在 `bms/products/<product>/bms_product.h` 配置，当前新增限制默认关闭，具体热限制待产品确定：
+
+| 宏 | 当前默认 | 含义 |
+|---|---|---|
+| `BMS_BALANCE_MAX_CELLS` | `0u` | 0 不增加数量限制；1～24 限制总使能通道数，实际还受有效串数限制 |
+| `BMS_BALANCE_TEMP_STOP_X10` | `0u` | 达到此温度停止均衡；与恢复值同时为 0 时关闭新增回差 |
+| `BMS_BALANCE_TEMP_RESUME_X10` | `0u` | 暂停后须低于此温度才能恢复；启用时要求 `0 < resume < stop <= 1650` |
+
+温度编码为 `(°C + 40) * 10`。使用有效电池最高温与 MOS 温度的较高值；任一温度无效时停止且不解除热暂停。既有充电高低温、MOS 温度恢复门槛和故障门禁仍同时生效，因此新增停止值高于既有边界不会放宽原门禁。AFE 重初始化保留热暂停，MCU 冷启动重新依据有效样本判断。现有测点不等于均衡电阻/三极管温度，配置和热效果仍需实板验证。
+
+调度先保留仍满足起始电压且压差大于停止值的旧通道，再按电压从高到低补足空位，同压优先串号小者。软件不额外进行奇偶轮换，数量上限限制的是寄存器使能位数；实际导通相位由 AFE 决定。D013 均衡能力仍关闭。写入或回读失败后优先关闭，未确认 OFF 前不再请求开启；协议继续上报最后成功回读位图。
+
+这些宏随新固件生效，保留参数模式 OTA 也会使用新策略；无需为此选择 BUSINESS 更新。均衡启用、起始电压及启动/停止压差仍是既有持久参数，包括 D008 3300/10/3 mV 测试组，更新它们仍按上文的业务组规则处理。
 
 ## 3. 单位速查
 
