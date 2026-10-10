@@ -232,13 +232,11 @@ static void app_protective_wakeup_pin(GPIO_PinTypeDef pin)
 }
 #endif
 
-/* D008 断电未生效时保持静止；SH PAD 返回后仅重试，不重复写 Flash/AFE。 */
+/* D008 已请求断电，不再执行低功耗调用；SH 仅重试深睡，不重复写 Flash/AFE。 */
 static void app_protective_sleep_hold(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    /* 外部供电可能使 MCU 未实际掉电；不配置 ACC/负载 PAD 唤醒，不恢复业务。 */
-    (void)cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
-                          clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
+    return; /* PC4 已拉低，禁止继续采样、通信或重复保存。 */
 #else
     u8 levels = app_sh_other_wakeup_levels();
     /* UART 只唤醒普通 Suspend，持续串口活动不能打断已提交的深睡。 */
@@ -432,7 +430,7 @@ static int app_enter_command_power_off(void)
     bls_pm_setAppWakeupLowPower(0u, 0u);
     s_low_power_mode = true;
     bms_diag_sleep_committed();
-    gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u); /* 最后硬件动作使整个 MCU 掉电。 */
+    gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u); /* 请求切断 MCU 电源。 */
     return 1;
 }
 
@@ -728,19 +726,14 @@ uint8_t app_power_prepare_loop(void)
         app_acc_sleep_hold();
         return 1u;
     }
+    if (s_power_off_committed)
+    {
+        /* PC4 已拉低；只阻止正常业务继续执行，不调用 Suspend/DeepSleep。 */
+        return 1u;
+    }
     bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
-    if (s_power_off_committed)
-    {
-        /*
-         * 调试器等外部供电保持 3V3 时仍保持静止；
-         * 成功 shutdown 后不忙循环、不重试I2C、不写 Flash。
-         */
-        cpu_sleep_wakeup(SUSPEND_MODE, PM_WAKEUP_TIMER,
-                         clock_time() + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
-        return 1u;
-    }
 #endif
     return 0u;
 }

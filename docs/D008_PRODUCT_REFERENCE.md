@@ -381,7 +381,7 @@ DVC1124-2 DS V1.1 原 PDF 第 13 页规定 CC2 周期为 256 ms；当前 VADC �
 - 普通 suspend 由 `app_power_process()` 结合通信、采样及可靠充/放电电流判断；双向绝对值达到 200 mA 即禁止，允许时仍保持 200 ms 应用采样唤醒。实际功耗和保护响应需实测验证。
 - `app_enter_command_power_off()`：检查 OTA/Flash/mux 等门禁，保存 State/事件，AFE shutdown 成功后才拉低 PC4/MCU_LDO，切断 MCU 电源。
 - `app_enter_acc_sleep()`：PA0 高稳定 200 ms 后，检查通信/连接并保存状态；AFE shutdown 成功后保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
-- `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后，尝试 AFE Shutdown 和允许的保存，最后拉低 PC4，关闭 MCU 供电；通信、OTA、保存或 AFE 失败不阻止。若外部供电使 MCU 未掉电，仅定时 Suspend 保持，不启用 PA0/PB1 PAD 唤醒、不恢复业务，规则见 [保护性休眠](LOW_POWER_POLICY.md)。
+- `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后，尝试 AFE Shutdown 和允许的保存，最后拉低 PC4，关闭 MCU 供电；通信、OTA、保存或 AFE 失败不阻止。按2026-10-10用户要求，拉低 PC4 后不再调用定时 Suspend 或 MCU DeepSleep 兜底，已提交标记仅阻止正常业务继续执行，规则见 [保护性休眠](LOW_POWER_POLICY.md)。
 
 普通 ACC/显式关机在保存或 shutdown 失败时保留请求并退避；保护性断电不使用这些门禁。ACC 低电平唤醒走重新初始化；PC4 断电后需要外部硬件恢复供电才能启动。物理供电、ACC 电平、负载检测与复电时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。
 
