@@ -16,7 +16,7 @@
 /* D013 专属原理图/BOM 尚缺，保持未签核。 */
 #define BMS_D013_HW_CONFIG_APPROVED 0
 
-/* D013：默认 10S / 100 uOhm；无 balance/heater/MOS NTC，板级映射待实板确认。 */
+/* D013：默认 10S / 100 uOhm；无 balance/heater，TS4 MOS NTC 为用户确认的 10K-3435。 */
 #ifndef BMS_BUILD_CELL_COUNT
 #define SH3673510_BOARD_CELL_COUNT               10u
 #else
@@ -26,7 +26,8 @@
 #define SH3673510_PRODUCT_BALANCE_SUPPORTED      0u /* 待验证硬件。 */
 #define SH3673510_PRODUCT_HEATER_SUPPORTED       0u /* 待验证硬件。 */
 #define SH3673510_PRODUCT_HEATER_NTC_SUPPORTED 0u
-#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED 0u
+/* TS4 必需：无效阻断充放电，过温使用独立软件 MOS 阈值。 */
+#define SH3673510_PRODUCT_MOS_NTC_SUPPORTED 1u
 
 #include "../sh3673510_defaults.h"
 

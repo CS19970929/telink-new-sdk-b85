@@ -114,7 +114,7 @@ def check_sh3673510_board_host_check():
     start = source.index('        memset(&sw, 0, sizeof(sw));')
     end = source.index('        bms_sw_protection_update(&sw);', start)
     mapping = source[start:end]
-    expected = int(product != 'd013')
+    expected = 1  # D011/D013/D014 均将 TS4 作为必需 MOS NTC。
     code = r'''
     #include <stdint.h>
     #include <string.h>
@@ -155,6 +155,7 @@ def check_sh3673510_board_host_check():
      assert(input[GPIO_PD4]==0 && output[GPIO_PD4]==1);
      assert(input[GPIO_PA0]==1 && output[GPIO_PA0]==0);
      assert(input[GPIO_PD3]==1 && output[GPIO_PD3]==0);
+     assert(SH3673510_BOARD_MOS_NTC_INDEX==3u);
      for(int valid=0;valid<=1;++valid){
       s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX]=valid;
       g_bms_report.temperature_x10[MOS_TEMP1]=1350;

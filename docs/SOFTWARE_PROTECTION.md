@@ -33,7 +33,8 @@ SH 后端的软件 Third OC 恢复额外要求负载/充电器移除或既有可
 ## 4. 温度有效性
 
 backend 向公共层提供 Battery min/max、MOS温度、valid 标志及产品固定的 `mos_temp_required`。
-四产品均要求电池 NTC 有效；D008/D011/D014 要求 MOS NTC，D013 当前 profile 不要求。
+四产品均要求电池 NTC 和 MOS NTC 有效。D013 于 2026-10-10 按用户确认的 TS4 MOS 10K-3435 启用；
+默认保护、持久参数和重初始化边界见 [D013 影响审查](D013_PRODUCT_REFERENCE.md#11-ts4-mos-温度接入与影响审查2026-10-10)。
 `required && !valid` 才是 MOS 断线；不支持时不参与 MOS OTP，不能把无效样本伪装为有效。必需温度无效时进入 `BMS_ERROR_TEMP_BREAK` / fail-safe，不能用旧样本恢复；重新有效后重新经过保护滤波。
 
 ## 5. 与 AFE 硬件保护的关系

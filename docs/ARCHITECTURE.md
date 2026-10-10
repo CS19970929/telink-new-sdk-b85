@@ -54,7 +54,7 @@ DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH
 |---|---|---|
 | D008 | DVC1124；产品 `d008_product_profile.h` + `bms_product.h` | 三种 profile；SC 默认 200 A / 请求 256 µs，实板验收独立 |
 | D011 | SH；产品 `bms_product.h`；10S/250 µΩ | heater/balance；PB5 fuse 安全 LOW |
-| D013 | SH；默认 10S/100 µΩ，构建可覆盖串数 | heater/balance/MOS NTC 禁用；原理图待核 |
+| D013 | SH；默认 10S/100 µΩ，构建可覆盖串数 | heater/balance 禁用；TS4 必需 MOS 10K-3435（用户确认），原理图待核 |
 | D014 | SH；8S/667 µΩ | 无 heater，TS3 NC；TS4 必需 MOS NTC |
 
 公共电流 mA 正放负充，SH 在测量边界转换；温度 `(°C+40)*10`；名义容量 0.1 Ah、报告容量 0.01 Ah。无效串位 61001，不进入有效通道计算。字段定义与协议大小端以生产头文件和读写实现为准。

@@ -78,7 +78,7 @@ python tests/run_host_regression.py --baseline C:/reports/previous/report.json
 
 ## 参数关系与行为统一的判断
 
-相同受控输入下公共软件保护应一致；测试会比较输出摘要并拒绝不一致。真实产品默认可以不同：D008 的单体欠压 Third/filter 与 SH 不同，pack 阈值随串数变化，ADC/Rsense 和硬件量化分辨率不同，D013 禁用 MOS NTC/均衡/加热等能力。不能把四次绿色理解为四块板物理行为一致。
+相同受控输入下公共软件保护应一致；测试会比较输出摘要并拒绝不一致。真实产品默认可以不同：D008 的单体欠压 Third/filter 与 SH 不同，pack 阈值随串数变化，ADC/Rsense 和硬件量化分辨率不同，D013 禁用均衡/加热，TS4 MOS NTC 已按用户确认启用。不能把四次绿色理解为四块板物理行为一致。
 
 AFE 测试区分 requested、编码、effective；受限的电流步长/延时向上量化不会自动成为产品允许误差。SH 电压按 5mV 编码，电流分辨率随 Rsense 改变；DVC 有不同的 OC1/OC2/SC 量化。软件保护每 200ms 调度，100ms 软件延时实质为一个采样周期，与 AFE 延时不能按字段值直接视为相等。
 
