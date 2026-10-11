@@ -527,6 +527,7 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t
     uint32_t delta;
     uint32_t fractional_ma;
     const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
+    if (!g_soc_input_valid || elapsed_32k == 0u) return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
@@ -631,11 +632,11 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 }
 
 /* 更新真实 SOC 并同步容量边界。 */
-static void soc_apply_real_value(uint8_t soc)
+static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
 {
     g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
     soc_recalc_now_capacity();
-    set_dispsoc(g_bms_soc.soc_estimate_percent);
+    if (sync_display) set_dispsoc(g_bms_soc.soc_estimate_percent);
 }
 
 /* 按规定步进向下逼近目标 SOC。 */
