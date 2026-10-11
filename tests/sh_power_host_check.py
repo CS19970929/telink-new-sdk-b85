@@ -185,7 +185,9 @@ def check_sh_suspend_current_gates():
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
     body = '\n'.join(function(source, signature) for signature in (
-        'static uint8_t app_get_fresh_measurements(', 'void app_power_process('))
+        'static uint8_t app_get_fresh_measurements(',
+        'static uint8_t app_current_prevents_suspend(',
+        'void app_power_process('))
     fixture = r'''
     #include <stdint.h>
     #include <stdbool.h>
@@ -216,7 +218,10 @@ def check_sh_suspend_current_gates():
     static u32 pm_get_32k_tick(void){return now;}
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){*m=measurement;return valid;}
     static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *c){(void)c;return 0;}
-    static u8 app_protective_sleep_poll(u32 seconds, app_sleep_status_t *s){(void)seconds;memset(s,0,sizeof(*s));return 0;}
+    static u8 app_protective_sleep_poll(u32 seconds,
+          const bms_afe_aux_measurements_t *m, u8 valid, app_sleep_status_t *s){
+        (void)seconds;(void)m;(void)valid;memset(s,0,sizeof(*s));return 0;
+    }
     static u8 app_sh_explicit_sleep_poll(void){return 0;}
     static int modbus_uart_suspend_ready(void){return idle_ready&&!tx_busy&&!modbus_busy;}
     static void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed){
