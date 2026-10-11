@@ -319,7 +319,9 @@ def check_d008_common_port_fet_contract_check():
             self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", guard)
             self.assertIn("s_guard.bus_silenced = 1u;", guard)
             self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;", guard)
-            self.assertIn("if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;", guard)
+            self.assertIn("if (!runtime_access_allowed()) return 1u;", guard)
+            self.assertIn("return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&", guard)
+            self.assertIn("!s_guard.test_shutdown_hold) ? 1u : 0u;", guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)
 
     if __name__ == "__main__":
