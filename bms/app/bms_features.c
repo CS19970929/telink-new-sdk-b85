@@ -65,6 +65,24 @@ typedef struct {
  */
 static bms_feature_state_t s_feature;
 
+/* 业务资格沿用两后端既有的 0.1A 上报死区，不直接以非零 mA 改变启停门限。 */
+static uint8_t charging_current_reported(void)
+{
+    return g_bms_report.charge_current_a10 != 0u;
+}
+
+static uint8_t discharging_current_reported(void)
+{
+    return g_bms_report.discharge_current_a10 != 0u;
+}
+
+/* 对外状态的均衡掩码只在此处解码；回读结果与应用请求仍分别保存。 */
+static uint32_t reported_balance_mask(void)
+{
+    return ((uint32_t)g_bms_report.balance_bits_high << 16) |
+           g_bms_report.balance_bits_low;
+}
+
 /* 汇总板级与 AFE 可确认的充电源证据。 */
 static uint8_t charge_source_present(void)
 {
@@ -81,7 +99,7 @@ static void update_balance_charge_session(uint8_t charging_present)
      * 会话建立后保留充后静置均衡；零电流不能证明拔掉充电器。
      * 真实放电方向是退出充电场景的可信证据。
      */
-    if (g_bms_report.discharge_current_a10 != 0u)
+    if (discharging_current_reported())
         s_feature.balance_charge_session_active = 0u;
     else if (charging_present)
         s_feature.balance_charge_session_active = 1u;
@@ -252,7 +270,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
         return;
     }
 
-    if (g_bms_report.discharge_current_a10 != 0u)
+    if (discharging_current_reported())
     {
         heater_idle();
         return;
@@ -312,7 +330,7 @@ static uint8_t openwire_hard_fault(void)
 static uint8_t openwire_eligible(void)
 {
     if (s_feature.heater_state != BMS_HEATER_IDLE) return 0u;
-    if (g_bms_report.charge_current_a10 || g_bms_report.discharge_current_a10) return 0u;
+    if (charging_current_reported() || discharging_current_reported()) return 0u;
     return openwire_hard_fault() ? 0u : 1u;
 }
 
@@ -402,7 +420,7 @@ static void publish_openwire(void)
     openwire_put32(w+34, s_feature.openwire_active ? (uint32_t)(now-s_feature.openwire_started_tick)/32u : 0u);
     openwire_put32(w+36, s_feature.openwire_failure_tick);
     w[38] = s_feature.openwire_failure_error;
-    w[39] = (uint16_t)((g_bms_report.charge_current_a10 || g_bms_report.discharge_current_a10 ? 1u : 0u) |
+    w[39] = (uint16_t)(((charging_current_reported() || discharging_current_reported()) ? 1u : 0u) |
         (s_feature.heater_state != BMS_HEATER_IDLE ? 2u : 0u) | (openwire_hard_fault() ? 4u : 0u) |
         (bms_error_get(BMS_ERROR_BALANCE) ? 8u : 0u));
     openwire_put32(w+40, BMS_OPENWIRE_PERIOD_MS);
@@ -677,8 +695,7 @@ static uint8_t balance_hard_fault(void)
 static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
                                     const bms_user_params_t *config)
 {
-    uint32_t active = s_feature.balance_active ?
-        ((uint32_t)g_bms_report.balance_bits_high << 16) | g_bms_report.balance_bits_low : 0u;
+    uint32_t active = s_feature.balance_active ? reported_balance_mask() : 0u;
     uint32_t retained = 0u, starting = 0u, selected = 0u;
     uint8_t limit = s->cell_count;
     uint8_t count = 0u, phase, i;
@@ -818,7 +835,7 @@ void bms_features_service(void)
     }
 
     user = bms_config_get_user(&config) ? &config : 0;
-    charging_present = (g_bms_report.charge_current_a10 != 0u) || charge_source_present();
+    charging_present = charging_current_reported() || charge_source_present();
     update_balance_charge_session(charging_present);
     if (s.cell_count != 0u && s.cell_count <= BMS_AFE_FEATURE_MAX_CELLS)
         s_feature.openwire_cell_count = s.cell_count;
@@ -862,8 +879,7 @@ static void stop_feature_outputs(uint8_t afe_invalid)
      * 输出撤销时物理均衡状态可能未知；不能把期望关闭状态当成硬件反馈。
      * 保留最后回读值至通信恢复，DVC 独立均衡定时器仍作硬件回退。
      */
-    if ((g_bms_report.balance_bits_low != 0u) ||
-        (g_bms_report.balance_bits_high != 0u))
+    if (reported_balance_mask() != 0u)
     {
         if (!bms_error_get(BMS_ERROR_BALANCE))
             bms_error_raise(BMS_ERROR_BALANCE);
@@ -895,8 +911,7 @@ void bms_features_get_status(bms_features_status_t *status)
     status->heater_state = s_feature.heater_state;
     status->charge_session_active = s_feature.balance_charge_session_active;
     /* SOC 静置资格看最后硬件回读，不能因应用失败而把残留均衡当作已关闭。 */
-    status->balance_active = (g_bms_report.balance_bits_low != 0u ||
-                              g_bms_report.balance_bits_high != 0u) ? 1u : 0u;
+    status->balance_active = reported_balance_mask() ? 1u : 0u;
     status->balance_voltage_trusted = balance_voltage_trusted();
     status->openwire_suspected = s_feature.openwire_suspected;
     status->openwire_active = s_feature.openwire_active;
