@@ -73,6 +73,8 @@ python bms_tools/bms.py --product d014 resources
 | [D014 RS485 发送诊断](docs/D014_RS485_TX_DIAG.md) | 台架模式、DMA/DE 计数和波形定位 |
 | [SOC 仿真轨迹说明](tests/soc/traces/README.md) | 回放数据与模型边界 |
 
+本次全仓减法重构见 [Issue #11 执行报告](docs/ISSUE11_SIMPLIFICATION.md) 和 [实际源码、函数及状态导航清单](docs/ISSUE11_SOURCE_INVENTORY.json)。报告固定到所列提交，不替代后续版本或实板验收。
+
 ## 验证与交接缺口
 
 | 文档 | 用途 |
