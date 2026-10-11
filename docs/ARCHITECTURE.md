@@ -53,6 +53,8 @@ AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/ef
 
 DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
 
+参数/启动资格由 guard 直接检查，feature 只汇总自身断线故障和清理阻断。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
+
 ## 5. 产品和单位
 
 | 产品 | 输入 | 能力限制 |
