@@ -43,11 +43,18 @@ typedef struct
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
 static bms_afe_guard_state_t s_guard;
 
+/* 业务期访问统一受通信隔离/总线静默/测试关机门禁约束；
+ * 配置禁止由各自写入事务控制，不能在此悄悄改变配置恢复策略。 */
+static inline uint8_t runtime_access_allowed(void)
+{
+    return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&
+            !s_guard.test_shutdown_hold) ? 1u : 0u;
+}
+
 /* 公共三帧资格只有一个状态所有者，后端 FET 调用也遵守。 */
 uint8_t bms_afe_samples_qualified(void)
 {
-    return (!s_guard.comm_inhibit && !s_guard.config_inhibit && !s_guard.bus_silenced &&
-            !s_guard.test_shutdown_hold &&
+    return (runtime_access_allowed() && !s_guard.config_inhibit &&
             s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) ? 1u : 0u;
 }
 
@@ -161,7 +168,7 @@ static uint8_t apply_requested(void)
     uint8_t d;
 
     /* 通信禁止期间 MCU 只管理授权，不能反复写关闭命令而意外喂 AFE WDT。 */
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;
+    if (!runtime_access_allowed()) return 1u;
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
@@ -315,7 +322,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
     s_guard.requested_discharge_on = requested_d;
 
     /* 通信未合格时只缓存产品请求；请求状态变化不能成为访问静默总线的理由。 */
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;
+    if (!runtime_access_allowed()) return 1u;
 
     if (!apply_requested())
     {
@@ -361,7 +368,7 @@ void bms_afe_set_output_enabled(uint8_t e)
         return;
     }
 
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
+    if (!runtime_access_allowed()) return;
     if (!apply_requested()) note_invalid();
 }
 
@@ -369,12 +376,7 @@ void bms_afe_set_output_enabled(uint8_t e)
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!m) return 0u;
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
-    {
-        memset(m, 0, sizeof(*m));
-        return 0u;
-    }
-    if (!AFE_AUX(m))
+    if (!runtime_access_allowed() || !AFE_AUX(m))
     {
         memset(m, 0, sizeof(*m));
         return 0u;
@@ -385,21 +387,21 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
-    if (!s || s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (!s || !runtime_access_allowed()) return 0u;
     return AFE_FEATURE(s);
 }
 
 /* 取得后端可验证的充电源存在状态。 */
 uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 {
-    if (!p || s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (!p || !runtime_access_allowed()) return 0u;
     return AFE_CHARGER(p);
 }
 
 /* 门禁允许时更新有效通道均衡请求。 */
 uint8_t bms_afe_set_balance_mask(uint32_t m)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
+    if (!runtime_access_allowed())
         return (m == 0u) ? 1u : 0u;
     return AFE_BAL_SET(m);
 }
@@ -408,7 +410,7 @@ uint8_t bms_afe_set_balance_mask(uint32_t m)
 uint8_t bms_afe_get_balance_mask(uint32_t *m)
 {
     if (!m) return 0u;
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
+    if (!runtime_access_allowed())
     {
         *m = 0u;
         return 0u;
@@ -419,7 +421,7 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
 /* 门禁允许时启动后端断线检测。 */
 uint8_t bms_afe_openwire_start(void)
 {
-    if (s_guard.comm_inhibit || s_guard.config_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (s_guard.config_inhibit || !runtime_access_allowed()) return 0u;
     if (!AFE_BAL_SET(0u)) return 0u;
     return AFE_OW_START();
 }
@@ -437,7 +439,7 @@ uint8_t bms_afe_openwire_stop(void)
 /* 通过 guard 推进后端断线检测阶段。 */
 bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
+    if (!runtime_access_allowed())
         return BMS_AFE_DIAG_ERROR;
     return AFE_OW_POLL(r);
 }
@@ -446,7 +448,7 @@ bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
 /* 撤销输出授权并执行后端 shutdown。 */
 uint8_t bms_afe_enter_shutdown(void)
 {
-    if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold)
+    if (!runtime_access_allowed())
         return 0u;
 
     inhibit_local();
