@@ -30,7 +30,6 @@ void bms_soc_eta_reset(bms_soc_eta_t *eta)
     eta->eta_state = BMS_SOC_ETA_INVALID;
     eta->eta_direction = BMS_SOC_ETA_DIR_NONE;
     eta->eta_confidence = 0u;
-    eta->eta_valid = 0u;
 }
 
 /* 按限速滤波推进 ETA 使用的电流估计。 */
@@ -122,7 +121,6 @@ void bms_soc_eta_update(bms_soc_eta_t *eta, const bms_soc_eta_input_t *input)
         eta->eta_variation_ma > variation_limit ||
         input->endpoint_active) {
         eta->eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
-        eta->eta_valid = 0u;
         eta->eta_confidence = 20u;
         eta->time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
         eta->time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
@@ -134,7 +132,6 @@ void bms_soc_eta_update(bms_soc_eta_t *eta, const bms_soc_eta_input_t *input)
         eta->eta_peak_current_ma > 0u &&
         magnitude < (eta->eta_peak_current_ma / 100u) * SOC_ETA_TAPER_PERCENT) {
         eta->eta_state = BMS_SOC_ETA_LOW_CONFIDENCE;
-        eta->eta_valid = 0u;
         eta->eta_confidence = 10u;
         eta->time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
         eta->time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
@@ -145,7 +142,6 @@ void bms_soc_eta_update(bms_soc_eta_t *eta, const bms_soc_eta_input_t *input)
     if (confidence_drop > 80u) confidence_drop = 80u;
     eta->eta_confidence = (uint8_t)(100u - confidence_drop);
     eta->eta_state = BMS_SOC_ETA_VALID;
-    eta->eta_valid = 1u;
     eta->time_to_empty_min = BMS_SOC_ETA_MINUTES_INVALID;
     eta->time_to_full_min = BMS_SOC_ETA_MINUTES_INVALID;
     if (eta_dir == BMS_SOC_ETA_DIR_DISCHARGE)

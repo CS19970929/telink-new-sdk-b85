@@ -314,7 +314,7 @@ static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,
 static u8 bms_board_heater_supported(void){return 1;}
 static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
-void set_soc_param(u8 soc,u8 sync){(void)sync;live_soc=soc;}
+void set_soc_param(u8 soc){live_soc=soc;}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
 static u8 bms_reset_software_parameters(void){return 0;}
 static u8 bms_reset_afe_parameters(void){return access_active?0:2;}

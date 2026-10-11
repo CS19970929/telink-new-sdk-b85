@@ -26,7 +26,6 @@ typedef struct {
     uint8_t eta_state;
     uint8_t eta_direction;
     uint8_t eta_confidence;
-    uint8_t eta_valid;
 } bms_soc_eta_t;
 
 typedef struct {

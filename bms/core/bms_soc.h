@@ -117,8 +117,8 @@ uint8_t bms_soc_board_test_active(void);
 uint8_t bms_soc_board_test_keep_awake(void);
 uint16_t bms_soc_board_test_word(uint16_t offset);
 #endif
-/* 更新 SOC 参数与相关容量状态。 */
-void set_soc_param(uint8_t soc, uint8_t sync_display);
+/* 更新 SOC、相关容量状态并同步显示值。 */
+void set_soc_param(uint8_t soc);
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void);
 /* 初始化 SOC 参数、持久状态与策略计数。 */

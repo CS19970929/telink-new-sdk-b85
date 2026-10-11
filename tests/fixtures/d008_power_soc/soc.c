@@ -267,10 +267,10 @@ int main(int argc,char **argv){
  for(int n=0;n<10000;n++){
   random_state=random_state*1664525u+1013904223u;
   g_soc_input_current_ma=n==0?INT32_MIN:(int32_t)random_state;
-  g_soc_input_valid=1;g_soc_interval_32k=(random_state%25600u)+1u;
+  g_soc_input_valid=1;uint32_t elapsed_32k=(random_state%25600u)+1u;
   uint32_t magnitude=g_soc_input_current_ma<0?0u-(uint32_t)g_soc_input_current_ma:(uint32_t)g_soc_input_current_ma;
-  uint64_t reference=(uint64_t)magnitude*g_soc_interval_32k+ref_remainder;
-  assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG)==reference/3200000u);
+  uint64_t reference=(uint64_t)magnitude*elapsed_32k+ref_remainder;
+  assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG,elapsed_32k)==reference/3200000u);
   ref_remainder=(uint32_t)(reference%3200000u);
   assert(g_soc_integral_tick_remainder==ref_remainder);
  }
@@ -401,22 +401,22 @@ int main(int argc,char **argv){
  /* ETA uses internal capacity and a stable filtered current, never display SOC. */
  setup(1,50,3330);sample(1,10000,1);
  for(int i=0;i<170;i++)sample(1,10000,6400);
- assert(g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_DISCHARGE);
+ assert((g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID) && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_DISCHARGE);
  assert(g_soc_runtime.eta.time_to_empty_min>=298 && g_soc_runtime.eta.time_to_empty_min<=300);
  assert(g_soc_runtime.eta.time_to_full_min==BMS_SOC_ETA_MINUTES_INVALID);
  setup(1,50,3330);sample(1,20000,1);
  for(int i=0;i<170;i++)sample(1,20000,6400);
- assert(g_soc_runtime.eta.eta_valid&&g_soc_runtime.eta.time_to_empty_min>=148&&g_soc_runtime.eta.time_to_empty_min<=150);
+ assert((g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID)&&g_soc_runtime.eta.time_to_empty_min>=148&&g_soc_runtime.eta.time_to_empty_min<=150);
  setup(1,50,3330);sample(1,5000,1);
  for(int i=0;i<170;i++)sample(1,5000,6400);
- assert(g_soc_runtime.eta.eta_valid&&g_soc_runtime.eta.time_to_empty_min>=598&&g_soc_runtime.eta.time_to_empty_min<=600);
+ assert((g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID)&&g_soc_runtime.eta.time_to_empty_min>=598&&g_soc_runtime.eta.time_to_empty_min<=600);
  for(int i=0;i<200;i++)sample(1,(i&1)?5000:20000,6400);
- assert(!g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_state==BMS_SOC_ETA_LOW_CONFIDENCE);
+ assert(!(g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID) && g_soc_runtime.eta.eta_state==BMS_SOC_ETA_LOW_CONFIDENCE);
  setup(1,50,3330);sample(1,-10000,1);
  for(int i=0;i<170;i++)sample(1,-10000,6400);
- assert(g_soc_runtime.eta.eta_valid && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_CHARGE);
+ assert((g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID) && g_soc_runtime.eta.eta_direction==BMS_SOC_ETA_DIR_CHARGE);
  assert(g_soc_runtime.eta.time_to_full_min>=298 && g_soc_runtime.eta.time_to_full_min<=300);
- sample(1,100,6400);sample(1,100,6400);assert(!g_soc_runtime.eta.eta_valid);
+ sample(1,100,6400);sample(1,100,6400);assert(!(g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID));
 
  /* Maximum configured capacity must not overflow the 32-bit TC32 ETA path. */
  assert(bms_eta_minutes(BMS_SOC_CAPACITY_MAX_0P1AH*3600u,201u)==65534u);
@@ -426,7 +426,7 @@ int main(int argc,char **argv){
  setup(1,90,3400);sample(1,-20000,1);
  for(int i=0;i<170;i++)sample(1,-20000,6400);
  for(int i=0;i<80;i++)sample(1,-2000,6400);
- assert(!g_soc_runtime.eta.eta_valid);
+ assert(!(g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID));
 
  /* Exact D008 deadband boundary samples, including the requested 50..250mA set. */
  assert(integrate(1,50,6400,100)==0);assert(integrate(1,100,6400,100)==0);
@@ -443,7 +443,7 @@ int main(int argc,char **argv){
   for(unsigned n=0;n<200;n++)sample(1,-2900,6400);
   assert(get_soc_real()>0&&g_bms_soc.remaining_capacity_as10>0);
   assert(g_bms_report.fault_third.bits.cell_uvp==1);
-  set_soc_param(60,1);sample(1,-2900,6400);
+  set_soc_param(60);sample(1,-2900,6400);
   for(unsigned n=0;n<5;n++)sample(1,-2900,6400);
   assert(get_soc_real()==60&&get_soc_display()==60);
   assert(g_soc_runtime.last_soc_action!=BMS_SOC_ACTION_FORCED_EMPTY);

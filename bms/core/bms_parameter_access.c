@@ -140,7 +140,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         if (!bms_state_store_set_soc_cycle(soc, g_bms_soc.discharge_fraction_percent, cycle))
             return finish(4u);
         g_bms_soc.cycle_count = cycle;
-        set_soc_param((u8)soc, 1u);
+        set_soc_param((u8)soc);
         return finish(0u);
     }
     if (r == BMS_PARAM_REG_CAPACITY)

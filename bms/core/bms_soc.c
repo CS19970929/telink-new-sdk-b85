@@ -152,7 +152,6 @@ static int32_t g_soc_input_current_ma;
 /* 当前 SOC 输入快照的所有者；有效性、应用时间和电流来自同一次应用观察。 */
 static bms_soc_sample_t g_soc_input;
 static uint32_t g_soc_sample_tick_32k;
-static uint32_t g_soc_interval_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
 static uint8_t g_soc_display_soc = (uint8_t)BMS_STATE_DEFAULT_SOC;
@@ -358,7 +357,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->eta_state = g_soc_runtime.eta.eta_state;
     diag->eta_direction = g_soc_runtime.eta.eta_direction;
     diag->eta_confidence = g_soc_runtime.eta.eta_confidence;
-    diag->eta_valid = g_soc_runtime.eta.eta_valid;
+    diag->eta_valid = (g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID);
     diag->soh = g_bms_soc.soh;
     diag->soh_source = BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE;
     diag->soh_confidence = 25u; /* 循环经验估算，不是实测容量。 */
@@ -521,14 +520,13 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
 }
 
 /* 把电流与有效时间转换为容量积分增量。 */
-static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
+static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t elapsed_32k)
 {
     uint32_t magnitude_ma;
     uint32_t ticks_left;
     uint32_t delta;
     uint32_t fractional_ma;
     const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
-    if (!g_soc_input_valid || g_soc_interval_32k == 0u) return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
@@ -538,9 +536,9 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir)
      * 应用允许的 400 ms 间隔最多循环 13 次，
      * 与 mA*ticks/denominator 保持完全相同商和余数。
      */
-    delta = (magnitude_ma / denominator) * g_soc_interval_32k;
+    delta = (magnitude_ma / denominator) * elapsed_32k;
     fractional_ma = magnitude_ma % denominator;
-    ticks_left = g_soc_interval_32k;
+    ticks_left = elapsed_32k;
     while (ticks_left != 0u)
     {
         uint32_t chunk = (ticks_left > 1024u) ? 1024u : ticks_left;
@@ -633,11 +631,11 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
 }
 
 /* 更新真实 SOC 并同步容量边界。 */
-static void soc_apply_real_value(uint8_t soc, uint8_t sync_display)
+static void soc_apply_real_value(uint8_t soc)
 {
     g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
     soc_recalc_now_capacity();
-    if (sync_display) set_dispsoc(g_bms_soc.soc_estimate_percent);
+    set_dispsoc(g_bms_soc.soc_estimate_percent);
 }
 
 /* 按规定步进向下逼近目标 SOC。 */
@@ -1393,7 +1391,7 @@ static void soc_strategy_update(void)
 }
 
 /* 更新 SOC 参数与相关容量状态。 */
-void set_soc_param(uint8_t soc, uint8_t sync_display)
+void set_soc_param(uint8_t soc)
 {
     uint8_t before = get_soc_real();
     g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
@@ -1401,9 +1399,9 @@ void set_soc_param(uint8_t soc, uint8_t sync_display)
     soc_recalc_now_capacity();
     soc_invalidate_sample_interval();
     soc_reset_integral_accumulator();
-    if (sync_display) set_dispsoc(get_soc_real());
+    set_dispsoc(get_soc_real());
     soc_diag_note_action(BMS_SOC_ACTION_PARAMETER_SET, before,
-                         soc_limit_percent_u32(soc), sync_display);
+                         soc_limit_percent_u32(soc), 1u);
 }
 
 /* 初始化 SOC 参数、持久状态与策略计数。 */
@@ -1436,13 +1434,13 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
 }
 
 /* 对合格时间区间的电流进行容量积分。 */
-static void soc_integrate_current(soc_integral_dir_t dir)
+static void soc_integrate_current(soc_integral_dir_t dir, uint32_t elapsed_32k)
 {
     if (dir == SOC_INTEGRAL_DIR_NONE) {
         soc_reset_integral_accumulator();
         return;
     }
-    soc_apply_integral_delta(dir, soc_integral_delta_from_current(dir));
+    soc_apply_integral_delta(dir, soc_integral_delta_from_current(dir, elapsed_32k));
 }
 
 /* 把 SOC、容量、循环和 SOH 结果发布到公共报告。 */
@@ -1476,7 +1474,6 @@ static void soc_reset_voltage_confirmation(void)
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
-    g_soc_interval_32k = 0u;
     g_soc_strategy_pending_32k = 0u;
     soc_reset_ocv_tracking();
     soc_reset_voltage_confirmation();
@@ -1550,11 +1547,10 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     previous_dir = soc_current_direction(0);
     g_soc_input_current_ma = sample->current_ma;
     g_soc_input_valid = 1u;
-    g_soc_interval_32k = elapsed_32k;
     dir = soc_current_direction(0);
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
 
-    soc_integrate_current(dir);
+    soc_integrate_current(dir, elapsed_32k);
 
     if (dir != previous_dir)
     {
@@ -1564,7 +1560,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         soc_reset_voltage_confirmation();
         soc_eta_reset();
         g_soc_strategy_pending_32k = 0u;
-        g_soc_interval_32k = 0u;
         return;
     }
 
@@ -1586,13 +1581,12 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     /* 诊断/失败帧的不足量子时间不能转成下一正常帧的电压确认时间。 */
     if (sample->voltage_untrusted || sample->voltage_diagnostic)
         g_soc_strategy_pending_32k = 0u;
-    g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 
 /* 名义容量变更后重算容量并重建积分与显示状态。 */
 void bms_soc_nominal_capacity_changed(void)
 {
-    set_soc_param(get_soc_real(), 1u);
+    set_soc_param(get_soc_real());
     SOC_Result_Pass();
 }
 
@@ -1666,7 +1660,7 @@ void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_t
     if (new_case) {
         s_board_started_tick=observation_tick_32k;
         s_board_suspend_start=s_board_suspend_count;
-        set_soc_param(50u,1u);
+        set_soc_param(50u);
         record[0]=bms_soc_board_test_keep_awake() ? 2u : 0u;
         board_put32(&record[2],(uint32_t)s_board_currents_ma[s_board_case]);
         board_put32(&record[4],sample->timestamp_32k);
