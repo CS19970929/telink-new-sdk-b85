@@ -63,8 +63,6 @@ static dvc1124_config_t s_cfg = {
     DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR,
     DVC1124_DEFAULT_CELL_COUNT,
     DVC1124_DEFAULT_SHUNT_UOHM,
-    DVC1124_DEFAULT_BATTERY_NTC_GP,
-    DVC1124_DEFAULT_MOS_NTC_GP,
 };
 
 static dvc1124_snapshot_t s_snapshot;
@@ -105,39 +103,6 @@ static dvc1124_openwire_result_t s_openwire_result;
 #define DVC_BOOT_ZERO_DIAG_SPREAD_MA       127u
 
 static dvc1124_boot_zero_diag_t s_boot_zero;
-
-/* DVC 硬件实际表示的最近配置值，用于诊断。 */
-typedef struct
-{
-    uint16_t cov_mv;
-    uint16_t cov_delay_ms;
-    uint16_t cuv_mv;
-    uint16_t cuv_delay_ms;
-    uint16_t ocd1_a_x10;
-    uint16_t ocd1_delay_ms;
-    uint16_t occ1_a_x10;
-    uint16_t occ1_delay_ms;
-    uint16_t ocd2_a_x10;
-    uint16_t ocd2_delay_ms;
-    uint16_t occ2_a_x10;
-    uint16_t occ2_delay_ms;
-    uint16_t scd_mv;
-    uint16_t scd_delay_us;
-    uint32_t quantized_mask;
-} dvc_applied_protection_t;
-
-static dvc_applied_protection_t s_applied;
-
-#define DVC_QUANT_COV_DLY   (1uL << 0)
-#define DVC_QUANT_CUV_DLY   (1uL << 1)
-#define DVC_QUANT_OCD1_THR  (1uL << 2)
-#define DVC_QUANT_OCC1_THR  (1uL << 3)
-#define DVC_QUANT_OCD1_DLY  (1uL << 4)
-#define DVC_QUANT_OCC1_DLY  (1uL << 5)
-#define DVC_QUANT_OCD2_THR  (1uL << 6)
-#define DVC_QUANT_OCC2_THR  (1uL << 7)
-#define DVC_QUANT_OCD2_DLY  (1uL << 8)
-#define DVC_QUANT_OCC2_DLY  (1uL << 9)
 
 /* 计算 AFE 通信数据的 CRC8 校验值。 */
 static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
@@ -606,8 +571,8 @@ static uint8_t dvc_update_reg(uint8_t reg, uint8_t clear_mask, uint8_t set_mask)
 #if DVC1124_HW_PROTECT_ENABLE
 /* 选择不超过请求值的最大可用电压保护延时。 */
 /* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
-static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms) __attribute__((noinline));
-static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms)
+static uint8_t dvc_voltage_delay_code(uint32_t requested_ms) __attribute__((noinline));
+static uint8_t dvc_voltage_delay_code(uint32_t requested_ms)
 {
     static const uint16_t table_ms[16] = {
         200u, 300u, 400u, 500u, 600u, 700u, 800u, 900u,
@@ -615,70 +580,42 @@ static uint8_t dvc_voltage_delay_code(uint32_t requested_ms, uint16_t *actual_ms
     };
     int i;
 
-    if (requested_ms < table_ms[0])
-    {
-        *actual_ms = table_ms[0];
-        return 0u;
-    }
-    for (i = 15; i >= 0; --i)
+    for (i = 15; i > 0; --i)
     {
         if (requested_ms >= table_ms[i])
         {
-            *actual_ms = table_ms[i];
             return (uint8_t)i;
         }
     }
-    *actual_ms = table_ms[0];
     return 0u;
 }
 
 /* OC1/OC2 延时为 (code+1)*step；向下取整，避免保护晚于请求时间。 */
 /* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
 static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
-                                     uint16_t step_ms,
-                                     uint16_t *actual_ms) __attribute__((noinline));
+                                     uint16_t step_ms) __attribute__((noinline));
 static uint8_t dvc_linear_delay_code(uint32_t requested_ms,
-                                     uint16_t step_ms,
-                                     uint16_t *actual_ms)
+                                     uint16_t step_ms)
 {
     uint32_t steps;
 
     if (requested_ms < step_ms)
     {
-        *actual_ms = step_ms;
         return 0u;
     }
     steps = requested_ms / step_ms;
-    if (steps == 0u) steps = 1u;
     if (steps > 256u) steps = 256u;
-    *actual_ms = (uint16_t)(steps * step_ms);
     return (uint8_t)(steps - 1u);
 }
 
-/* 按分流电阻将采样压差微伏值换算为电流。 */
-static uint16_t dvc_current_from_sense_uv(uint32_t sense_uv)
-{
-    uint32_t value;
-    if (s_cfg.shunt_uohm == 0u) return 0u;
-    value = (sense_uv * 10u + s_cfg.shunt_uohm / 2u) / s_cfg.shunt_uohm;
-    if (value > 65535u) value = 65535u;
-    return (uint16_t)value;
-}
-
 /* 将电流阈值量化为一级过流寄存器编码。 */
-static uint8_t dvc_current_to_oc1_code(uint16_t requested_a_x10, uint16_t *actual_a_x10)
+static uint8_t dvc_current_to_oc1_code(uint16_t requested_a_x10)
 {
     uint32_t sense_uv;
     uint32_t code;
 
-    if (requested_a_x10 == 0u)
+    if (requested_a_x10 == 0u || s_cfg.shunt_uohm == 0u)
     {
-        *actual_a_x10 = 0u;
-        return 0u;
-    }
-    if (s_cfg.shunt_uohm == 0u)
-    {
-        *actual_a_x10 = 0u;
         return 0u;
     }
 
@@ -686,24 +623,17 @@ static uint8_t dvc_current_to_oc1_code(uint16_t requested_a_x10, uint16_t *actua
     code = sense_uv / 250u; /* 阈值为 code * 0.25 mV。 */
     if (code == 0u) code = 1u;
     if (code > 255u) code = 255u;
-    *actual_a_x10 = dvc_current_from_sense_uv(code * 250u);
     return (uint8_t)code;
 }
 
 /* 将电流阈值量化为二级过流寄存器编码。 */
-static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10, uint16_t *actual_a_x10)
+static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10)
 {
     uint32_t sense_uv;
     uint32_t index;
 
-    if (requested_a_x10 == 0u)
+    if (requested_a_x10 == 0u || s_cfg.shunt_uohm == 0u)
     {
-        *actual_a_x10 = 0u;
-        return 0u;
-    }
-    if (s_cfg.shunt_uohm == 0u)
-    {
-        *actual_a_x10 = 0u;
         return 0u;
     }
 
@@ -711,16 +641,7 @@ static uint8_t dvc_current_to_oc2_code(uint16_t requested_a_x10, uint16_t *actua
     index = sense_uv / 4000u; /* 阈值为 (code+1)*4 mV。 */
     if (index == 0u) index = 1u; /* 硬件最小阈值为 4 mV。 */
     if (index > 64u) index = 64u;
-    *actual_a_x10 = dvc_current_from_sense_uv(index * 4000u);
     return (uint8_t)(index - 1u);
-}
-
-/* 请求值与实际量化值不同时置位对应诊断标志。 */
-/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
-static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual) __attribute__((noinline));
-static void dvc_note_quant(uint32_t bit, uint32_t requested, uint32_t actual)
-{
-    if (requested != actual) s_applied.quantized_mask |= bit;
 }
 
 #endif
@@ -879,7 +800,6 @@ static uint8_t dvc_disable_threshold_protection(void)
      * 使 HW=0 真正成为仅软件保护的台架模式，而非仅忽略标志。
      * 仍可直接通过 0x51 CHGC/DSGC 控制。
      */
-    memset(&s_applied, 0, sizeof(s_applied));
     ok &= dvc_write_verified_block(DVC1124_REG_COV_H, disabled_vprot, 2u);
     ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, disabled_vprot, 2u);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, 0u);
@@ -919,18 +839,11 @@ static uint8_t dvc_apply_protection_from_params(void)
     uint16_t cov_mv;
     uint16_t cuv_mv;
     uint16_t request;
-    uint32_t cov_req_dly;
-    uint32_t cuv_req_dly;
-    uint32_t ocd1_req_dly;
-    uint32_t ocd2_req_dly;
-    uint32_t occ1_req_dly;
-    uint32_t occ2_req_dly;
     uint32_t sc_sense_uv;
     uint16_t sc_mv;
     uint8_t buf[2];
     uint8_t code;
     uint16_t code12;
-    uint16_t actual;
     uint8_t ok = 1u;
 
     if (!bms_afe_hw_profile_get(&hw)) return 0u;
@@ -939,25 +852,15 @@ static uint8_t dvc_apply_protection_from_params(void)
 
     cov_mv = (hw.enable_mask & BMS_AFE_HW_EN_COV) ? hw.cov_mv : 0u;
     cuv_mv = (hw.enable_mask & BMS_AFE_HW_EN_CUV) ? hw.cuv_mv : 0u;
-    cov_req_dly = hw.cov_delay_ms;
-    cuv_req_dly = hw.cuv_delay_ms;
-    ocd1_req_dly = hw.ocd1_delay_ms;
-    ocd2_req_dly = hw.ocd2_delay_ms;
-    occ1_req_dly = hw.occ1_delay_ms;
-    occ2_req_dly = hw.occ2_delay_ms;
 
-    memset(&s_applied, 0, sizeof(s_applied));
 
     if (cov_mv == 0u) {
         code12 = 0u;
     } else {
         if ((cov_mv < 501u) || (cov_mv > 4595u)) return 0u;
         code12 = (uint16_t)(cov_mv - 500u);
-        s_applied.cov_mv = (uint16_t)(code12 + 500u);
     }
-    code = dvc_voltage_delay_code(cov_req_dly, &actual);
-    s_applied.cov_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_COV_DLY, cov_req_dly, actual);
+    code = dvc_voltage_delay_code(hw.cov_delay_ms);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_COV_H, buf, 2u);
@@ -967,35 +870,24 @@ static uint8_t dvc_apply_protection_from_params(void)
     } else {
         if (cuv_mv > 4095u) return 0u;
         code12 = cuv_mv;
-        s_applied.cuv_mv = code12;
     }
-    code = dvc_voltage_delay_code(cuv_req_dly, &actual);
-    s_applied.cuv_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_CUV_DLY, cuv_req_dly, actual);
+    code = dvc_voltage_delay_code(hw.cuv_delay_ms);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, buf, 2u);
 
     request = (hw.enable_mask & BMS_AFE_HW_EN_OCD1) ? hw.ocd1_a10 : 0u;
-    code = dvc_current_to_oc1_code(request, &actual);
-    s_applied.ocd1_a_x10 = actual;
-    dvc_note_quant(DVC_QUANT_OCD1_THR, request, actual);
+    code = dvc_current_to_oc1_code(request);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, code);
 
     request = (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? hw.occ1_a10 : 0u;
-    code = dvc_current_to_oc1_code(request, &actual);
-    s_applied.occ1_a_x10 = actual;
-    dvc_note_quant(DVC_QUANT_OCC1_THR, request, actual);
+    code = dvc_current_to_oc1_code(request);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_THR, code);
 
-    code = dvc_linear_delay_code(ocd1_req_dly, 8u, &actual);
-    s_applied.ocd1_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCD1_DLY, ocd1_req_dly, actual);
+    code = dvc_linear_delay_code(hw.ocd1_delay_ms, 8u);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_DLY, code);
 
-    code = dvc_linear_delay_code(occ1_req_dly, 8u, &actual);
-    s_applied.occ1_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCC1_DLY, occ1_req_dly, actual);
+    code = dvc_linear_delay_code(hw.occ1_delay_ms, 8u);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_DLY, code);
 
     request = (hw.enable_mask & BMS_AFE_HW_EN_OCD2) ? hw.ocd2_a10 : 0u;
@@ -1003,9 +895,7 @@ static uint8_t dvc_apply_protection_from_params(void)
         ok &= dvc_update_reg(DVC1124_REG_OCD2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
     } else {
-        code = dvc_current_to_oc2_code(request, &actual);
-        s_applied.ocd2_a_x10 = actual;
-        dvc_note_quant(DVC_QUANT_OCD2_THR, request, actual);
+        code = dvc_current_to_oc2_code(request);
         ok &= dvc_update_reg(DVC1124_REG_OCD2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
@@ -1016,22 +906,16 @@ static uint8_t dvc_apply_protection_from_params(void)
         ok &= dvc_update_reg(DVC1124_REG_OCC2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
     } else {
-        code = dvc_current_to_oc2_code(request, &actual);
-        s_applied.occ2_a_x10 = actual;
-        dvc_note_quant(DVC_QUANT_OCC2_THR, request, actual);
+        code = dvc_current_to_oc2_code(request);
         ok &= dvc_update_reg(DVC1124_REG_OCC2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK),
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
-    code = dvc_linear_delay_code(ocd2_req_dly, 4u, &actual);
-    s_applied.ocd2_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCD2_DLY, ocd2_req_dly, actual);
+    code = dvc_linear_delay_code(hw.ocd2_delay_ms, 4u);
     ok &= dvc_write_verified(DVC1124_REG_OCD2_DLY, code);
 
-    code = dvc_linear_delay_code(occ2_req_dly, 4u, &actual);
-    s_applied.occ2_delay_ms = actual;
-    dvc_note_quant(DVC_QUANT_OCC2_DLY, occ2_req_dly, actual);
+    code = dvc_linear_delay_code(hw.occ2_delay_ms, 4u);
     ok &= dvc_write_verified(DVC1124_REG_OCC2_DLY, code);
 
     sc_mv = 0u;
@@ -1482,7 +1366,6 @@ void DVC1124_OpenWirePoll(void)
 
     s_openwire_result.valid = 1u;
     s_openwire_result.cell_count = s_snapshot.cell_count;
-    s_openwire_result.pack_mv = s_snapshot.pack_mv;
 
     /* 诊断样本抓取后立即停止激励。COW 是命令位，不使用普通持久配置的回读规则。 */
     cp &= (uint8_t)~DVC1124_COW_MASK;
@@ -1508,13 +1391,10 @@ static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t
     uint8_t threshold_code;
     uint8_t delay_code;
     uint32_t delay_code32;
-    uint16_t actual_delay_us;
     uint8_t ok;
 
     if (threshold_mv == 0u)
     {
-        s_applied.scd_mv = 0u;
-        s_applied.scd_delay_us = 0u;
         ok = dvc_update_reg(DVC1124_REG_SCD,
                             (uint8_t)(DVC1124_SCD_ENABLE_MASK |
                                       DVC1124_SCD_THRESHOLD_MASK),
@@ -1531,7 +1411,6 @@ static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t
     delay_code32 = ((uint32_t)delay_us * 100u) / 781u;
     if (delay_code32 > 255u) return 0u;
     delay_code = (uint8_t)delay_code32;
-    actual_delay_us = (uint16_t)(((uint32_t)delay_code * 781u + 50u) / 100u);
 
     if (!dvc_write_verified(DVC1124_REG_SCD_DLY, delay_code)) return 0u;
     if (!dvc_update_reg(DVC1124_REG_SCD,
@@ -1539,8 +1418,6 @@ static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t
                                   DVC1124_SCD_THRESHOLD_MASK),
                         (uint8_t)(DVC1124_SCD_ENABLE_MASK | threshold_code))) return 0u;
 
-    s_applied.scd_mv = (uint16_t)threshold_code * 10u;
-    s_applied.scd_delay_us = actual_delay_us;
     return 1u;
 }
 
@@ -1561,7 +1438,6 @@ void DVC1124_AFE_Reset(void)
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
     memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
-    memset(&s_applied, 0, sizeof(s_applied));
     s_balance_requested_mask = 0u;
     s_balance_suspended = 0u;
     s_balance_last_refresh_tick = clock_time();
@@ -1587,7 +1463,6 @@ static uint8_t DVC1124_AFE_IsReady(void)
         if (DVC1124_ReadRegisters(DVC1124_REG_CHIP_VERSION, &version, 1u) &&
             DVC1124_ReadRegisters(DVC1124_REG_FRT, &frt, 1u))
         {
-            s_snapshot.chip_version = version;
             s_snapshot.rpu_ohm = (uint16_t)(6800u + (uint16_t)frt * 25u);
             dvc_note_comm_result(1u);
             return 0u; /* 旧 API 约定：0 表示已就绪。 */
@@ -1683,8 +1558,6 @@ static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage
     uint8_t min_pos = 0u;
     uint8_t i;
     s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
-    s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
-    s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
 
     for (i = 0u; i < s_cfg.cell_count; ++i)
     {
@@ -1696,7 +1569,6 @@ static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage
             s_openwire_result.cell_mv[i] = mv;
         /* 采样前只看仍在运行的激励，上一帧诊断标志由采样后的 SOC 消费。 */
         if (!voltage_diagnostic) {
-            s_snapshot.cell_mv[i] = mv;
             g_bms_report.cell_voltage_mv[i] = mv;
         }
         total_mv += mv;
@@ -1704,7 +1576,6 @@ static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage
         if (mv > max_mv) { max_mv = mv; max_pos = i; }
         if (mv < min_mv) { min_mv = mv; min_pos = i; }
     }
-    for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
     for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
 
     if (!voltage_diagnostic) {
@@ -1730,7 +1601,6 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
         uint32_t r_ohm = 0u;
         uint8_t ntc_ok;
 
-        s_snapshot.gp_code[i] = gp_code;
         ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
 
         if (i < 4u) {
@@ -1754,7 +1624,6 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
         int32_t report_temp = die_x10 + 400;
         if (report_temp < 0) report_temp = 0;
         if (report_temp > 65535) report_temp = 65535;
-        s_snapshot.die_temp_x10 = (int16_t)die_x10;
         g_bms_report.temperature_x10[4] = (uint16_t)report_temp;
     }
 
@@ -1777,7 +1646,6 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
 void DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
-    uint8_t write_addr;
     uint32_t now = pm_get_32k_tick();
     bms_features_status_t features;
     bms_features_get_status(&features);
@@ -1811,14 +1679,12 @@ void DVC1124_App_AFEGet(void)
         return;
     }
 
-    write_addr = DVC1124_GetWriteAddress();
     s_snapshot.voltage_fresh = (s_pending_adc_events & DVC1124_STATUS_VADF_MASK) ? 1u : 0u;
     s_snapshot.current_fresh = (s_pending_adc_events & DVC1124_STATUS_CC2F_MASK) ? 1u : 0u;
     s_pending_adc_events = 0u;
     s_snapshot.fet_status = data[DVC1124_REG_CC2_L_FLAGS];
     s_snapshot.alarm = data[DVC1124_REG_ALARM];
     s_snapshot.status = data[DVC1124_REG_STATUS];
-    s_snapshot.write_addr = write_addr;
     s_snapshot.cell_count = s_cfg.cell_count;
     if (s_snapshot.current_fresh)
         dvc_publish_current_measurement(data, now);

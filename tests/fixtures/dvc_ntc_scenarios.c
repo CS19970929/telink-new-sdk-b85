@@ -14,7 +14,7 @@
 
 #define DVC_MEAS_BYTES (DVC1124_REG_CELL24_L + 1u)
 static dvc1124_snapshot_t s_snapshot;
-static dvc1124_config_t s_cfg = {.cell_count=4, .battery_ntc_gp=2, .mos_ntc_gp=4};
+static dvc1124_config_t s_cfg = {.cell_count=4};
 static dvc1124_openwire_result_t s_openwire_result;
 static uint32_t s_snapshot_generation, now;
 static uint8_t s_need_config, registers[256], read_ok=1;

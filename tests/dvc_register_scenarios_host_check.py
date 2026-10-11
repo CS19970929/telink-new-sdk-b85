@@ -2,18 +2,16 @@
 from validation_support import read, profile_prefix, function, run_c, evidence
 
 source=read('bms/afe/dvc1124/dvc1124.c')
-# 按配置结构与函数签名取状态区，不以说明文字作为定位依据。
-state=source[source.index('typedef struct'):source.index('static uint8_t dvc_crc8')]
 functions='\n'.join(function(source,signature) for signature in (
     'static uint8_t dvc_write_verified_block(', 'static uint8_t dvc_write_verified(',
     'static uint8_t dvc_update_reg(', 'static uint8_t dvc_voltage_delay_code(',
-    'static uint8_t dvc_linear_delay_code(', 'static uint16_t dvc_current_from_sense_uv(',
+    'static uint8_t dvc_linear_delay_code(',
     'static uint8_t dvc_current_to_oc1_code(', 'static uint8_t dvc_current_to_oc2_code(',
-    'static void dvc_note_quant(', 'static uint8_t dvc_apply_protection_from_params(',
+    'static uint8_t dvc_apply_protection_from_params(',
     'static uint8_t DVC1124_SetShortCircuitProtection('))
 code=profile_prefix('d008')+'\n#include "dvc1124.h"\n'
 code+='static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);\n'
-code+=read('tests/fixtures/dvc_register_scenarios.c').replace('/* DRIVER */',state+functions)
+code+=read('tests/fixtures/dvc_register_scenarios.c').replace('/* DRIVER */',functions)
 traces={}
 for profile in (1,2,3):
     traces[{1:'24s-lfp',2:'20s-nmc',3:'16s-lfp'}[profile]]=run_c(code,flags=[f'-DD008_PRODUCT_PROFILE={profile}'],name='dvc-registers').strip()

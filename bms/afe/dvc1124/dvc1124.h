@@ -41,8 +41,6 @@ typedef struct
     uint8_t explicit_write_addr;
     uint8_t cell_count;          /* DVC1124-2 V1.2 有效范围为 4..24。 */
     uint32_t shunt_uohm;
-    uint8_t battery_ntc_gp;
-    uint8_t mos_ntc_gp;
 } dvc1124_config_t;
 
 typedef struct
@@ -53,19 +51,12 @@ typedef struct
     uint8_t fet_status;          /* R6 CHGF/DSGF，与 R1 CST/RC 事件严格分开。 */
     uint8_t voltage_fresh;
     uint8_t current_fresh;
-    uint8_t chip_version;
-    uint8_t write_addr;
     uint8_t cell_count;
     uint32_t sample_tick_32k;    /* 采样时刻，使用 SDK 32K 时钟的 32 位回绕值。 */
     int32_t raw_current_ma;     /* 软件工厂校准之前的值。 */
     int32_t current_ma;          /* 正值放电，负值充电。 */
     uint32_t vtop_mv;
-    uint32_t pack_mv;
-    uint32_t load_mv;
-    uint16_t cell_mv[24];
-    uint16_t gp_code[6];
     uint32_t ntc_res_ohm[6];      /* GP1..GP4 为资格确认后的电阻；无效/恢复中为零。 */
-    int16_t die_temp_x10;        /* 有符号温度，单位为 0.1 ℃。 */
     uint16_t rpu_ohm;
 } dvc1124_snapshot_t;
 
@@ -109,7 +100,6 @@ typedef struct
     uint8_t valid;
     uint8_t cell_count;
     uint16_t cell_mv[24]; /* DVC1124 物理最大值；宏在此公共类型之后声明。 */
-    uint32_t pack_mv;
     uint8_t error;
 } dvc1124_openwire_result_t;
 

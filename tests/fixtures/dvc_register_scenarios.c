@@ -30,14 +30,15 @@ static void decode(void)
     static const unsigned delays[]={200,300,400,500,600,700,800,900,1000,2000,3000,4000,5000,6000,7000,8000};
     check((regs[0x70]*16u+(regs[0x71]>>4))+500u,requested.cov_mv,"COV mV");
     check(regs[0x72]*16u+(regs[0x73]>>4),requested.cuv_mv,"CUV mV");
-    check(delays[regs[0x71]&15u],s_applied.cov_delay_ms,"COV delay");
-    check(delays[regs[0x73]&15u],s_applied.cuv_delay_ms,"CUV delay");
-    check(((uint32_t)regs[0x59]*2500+s_cfg.shunt_uohm/2)/s_cfg.shunt_uohm,s_applied.ocd1_a_x10,"OCD1 a10");
-    check(((uint32_t)regs[0x5a]*2500+s_cfg.shunt_uohm/2)/s_cfg.shunt_uohm,s_applied.occ1_a_x10,"OCC1 a10");
-    check((((uint32_t)(regs[0x5e]&63)+1)*40000+s_cfg.shunt_uohm/2)/s_cfg.shunt_uohm,s_applied.ocd2_a_x10,"OCD2 a10");
-    check((((uint32_t)(regs[0x5f]&63)+1)*40000+s_cfg.shunt_uohm/2)/s_cfg.shunt_uohm,s_applied.occ2_a_x10,"OCC2 a10");
-    check((regs[0x5b]+1u)*8,s_applied.ocd1_delay_ms,"OCD1 delay");
-    check((regs[0x60]+1u)*4,s_applied.ocd2_delay_ms,"OCD2 delay");
+    /* 固定默认配置的独立寄存器期望，来自基线轨迹及 RM V1.2 编码；不读取驱动私有缓存。 */
+    check(delays[regs[0x71]&15u],1000u,"COV delay");
+    check(delays[regs[0x73]&15u],1000u,"CUV delay");
+    check(regs[0x59],8u,"OCD1 code");
+    check(regs[0x5a],8u,"OCC1 code");
+    check(regs[0x5e]&63u,0u,"OCD2 code");
+    check(regs[0x5f]&63u,0u,"OCC2 code");
+    check((regs[0x5b]+1u)*8u,96u,"OCD1 delay");
+    check((regs[0x60]+1u)*4u,100u,"OCD2 delay");
     check(regs[0x5e]&0x80,0x80,"OC2 保留位");
     check(regs[0x62]&0x40,0x40,"产品已确认默认 SC 开启");
 }

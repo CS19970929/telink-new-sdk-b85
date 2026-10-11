@@ -19,7 +19,7 @@ code=r'''
 #define DVC_OPENWIRE_SETTLE_US 200000u
 #define DVC_OPENWIRE_TIMEOUT_US 900000u
 static dvc1124_snapshot_t s_snapshot;
-static dvc1124_config_t s_cfg={.cell_count=4,.battery_ntc_gp=2,.mos_ntc_gp=3};
+static dvc1124_config_t s_cfg={.cell_count=4};
 static uint8_t s_need_config,s_bus_initialized,s_i2c_raw[256];
 static uint32_t s_snapshot_generation,now;
 static uint32_t s_openwire_start_generation,s_openwire_start_tick,s_balance_requested_mask;
@@ -120,7 +120,7 @@ int main(void){
  assert(DVC1124_OpenWireBegin());diagnostic_active=1;
  registers[DVC1124_REG_CELL1_H]=registers[DVC1124_REG_CELL1_H+1]=0;
  acquire(12901,0x50);assert(s_openwire_result.valid && s_openwire_result.cell_mv[0]==0);
- assert(g_bms_report.cell_voltage_mv[0]==3400 && s_snapshot.cell_mv[0]==3400);
+ assert(g_bms_report.cell_voltage_mv[0]==3400 && g_bms_report.cell_voltage_mv[4]==61001u);
  assert(DVC1124_OpenWireStop() && !(registers[0x6d]&4));
  reset();acquire(100,0x50);assert(DVC1124_OpenWireBegin());
  now=100+901u*32u;DVC1124_OpenWirePoll();
