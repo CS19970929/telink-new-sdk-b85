@@ -21,8 +21,8 @@
 
 typedef struct
 {
-    uint16_t trip_count;
-    uint16_t recover_count;
+    /* active=0 累积触发，active=1 连续确认恢复；切换阶段时归零。 */
+    uint16_t count;
     uint8_t active;
 } bms_sw_filter_t;
 
@@ -49,7 +49,7 @@ typedef enum
     BMS_SW_LOW
 } bms_sw_direction_t;
 
-/* 各等级/项目独立保存触发累积和连续恢复计数，单位为有效样本。 */
+/* 各等级/项目独立持有活动状态和当前阶段计数，单位为有效样本。 */
 static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 /* 软件拥有这些位，公共报告还可包含硬件位。 */
@@ -111,8 +111,7 @@ static void bms_sw_filter_reset(bms_sw_filter_t *state) __attribute__((noinline)
 static void bms_sw_filter_reset(bms_sw_filter_t *state)
 {
     if (state == 0) return;
-    state->trip_count = 0u;
-    state->recover_count = 0u;
+    state->count = 0u;
     state->active = 0u;
 }
 
@@ -147,13 +146,13 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                         (value < trip) : (value > trip);
         if (recovered)
         {
-            if (state->recover_count < required) ++state->recover_count;
-            if (state->recover_count >= required)
+            if (state->count < required) ++state->count;
+            if (state->count >= required)
                 bms_sw_filter_reset(state);
         }
         else
         {
-            state->recover_count = 0u;
+            state->count = 0u;
         }
         return state->active;
     }
@@ -162,18 +161,17 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                (value >= trip) : (value <= trip);
     if (violated)
     {
-        if (state->trip_count < required) ++state->trip_count;
-        if (state->trip_count >= required)
+        if (state->count < required) ++state->count;
+        if (state->count >= required)
         {
             state->active = 1u;
-            state->trip_count = 0u;
-            state->recover_count = 0u;
+            state->count = 0u;
         }
     }
-    else if (state->trip_count != 0u)
+    else if (state->count != 0u)
     {
         /* 保留 D011/D013 既有漏积分去抖，不因一个正常样本就清越限累计。 */
-        --state->trip_count;
+        --state->count;
     }
     return state->active;
 }
@@ -212,8 +210,7 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
          * 整个触发确认期间温度和对应电流方向须同时满足，
          * 不能跨空闲或反向保留部分计数。
          */
-        state->trip_count = 0u;
-        state->recover_count = 0u;
+        state->count = 0u;
         return 0u;
     }
 
@@ -333,8 +330,11 @@ void bms_sw_protection_init(void)
 /* 复位电流保护的恢复确认状态。 */
 void bms_sw_protection_reset_current_recovery(void)
 {
-    s_filter[2][BMS_SW_F_CHG_OC].recover_count = 0u;
-    s_filter[2][BMS_SW_F_DSG_OC].recover_count = 0u;
+    /* 只撤销恢复证据；尚未触发时必须保留已经累计的越限样本。 */
+    if (s_filter[2][BMS_SW_F_CHG_OC].active)
+        s_filter[2][BMS_SW_F_CHG_OC].count = 0u;
+    if (s_filter[2][BMS_SW_F_DSG_OC].active)
+        s_filter[2][BMS_SW_F_DSG_OC].count = 0u;
 }
 
 /* 查询软件放电过流三级保护是否激活。 */
@@ -360,7 +360,7 @@ static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
     uint8_t third, uint8_t recovery_allowed, uint8_t fresh)
 {
     if (third && state->active && s_current_recovery_requires_evidence && trip != 0u) {
-        if (!recovery_allowed) state->recover_count = 0u;
+        if (!recovery_allowed) state->count = 0u;
         /* 正常 CADC 等待暂停计数；观测到重接则重置。 */
         if (!recovery_allowed || !fresh) return 1u;
     }
@@ -478,8 +478,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             uint8_t id;
             /* 传感器失效只撤销连续证据，不能证明已经恢复。 */
             for (id = BMS_SW_F_CHG_OT; id <= BMS_SW_F_DSG_UT; ++id) {
-                s_filter[level][id].trip_count = 0u;
-                s_filter[level][id].recover_count = 0u;
+                s_filter[level][id].count = 0u;
             }
         }
         else
@@ -504,8 +503,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         }
         else if (temperature_enabled && inputs->mos_temp_required)
         {
-            s_filter[level][BMS_SW_F_MOS_OT].trip_count = 0u;
-            s_filter[level][BMS_SW_F_MOS_OT].recover_count = 0u;
+            s_filter[level][BMS_SW_F_MOS_OT].count = 0u;
         }
         else
         {

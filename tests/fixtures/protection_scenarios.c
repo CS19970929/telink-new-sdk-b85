@@ -116,6 +116,18 @@ int main(void)
         measurement(group,500);update();measurement(group,rules[group].low?600:400);
         update();update();expect(active(group,level),1);update();expect(active(group,level),0);
     }
+    /* 丢失恢复证据只撤销恢复窗口，不能抹掉尚未触发的越限累计。 */
+    for (group=4;group<=5;group++) {
+        reset();level=2;phase="恢复复位与触发累计隔离";
+        parameter(group,2,500);parameter(group,3,400);parameter(group,4,60);
+        measurement(group,500);update();update();
+        bms_sw_protection_reset_current_recovery();
+        update();expect(active(group,2),1);
+        measurement(group,400);update();update();
+        bms_sw_protection_reset_current_recovery();
+        update();expect(active(group,2),1);
+        update();expect(active(group,2),1);update();expect(active(group,2),0);
+    }
     /* 排除共享同一个输入且互斥的 pack OV/UV；其他十组可独立施加阈值。 */
     static const unsigned independent[]={0,1,4,5,6,7,8,9,10,11};
     for(unsigned mask=0;mask<1024;mask++) {

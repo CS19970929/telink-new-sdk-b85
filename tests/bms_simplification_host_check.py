@@ -72,7 +72,7 @@ def filter_test():
 #include <assert.h>
 #include <stdio.h>
 #define BMS_SW_PROTECTION_SAMPLE_MS 200u
-typedef struct {uint16_t trip_count,recover_count;uint8_t active;} bms_sw_filter_t;
+typedef struct {uint16_t count;uint8_t active;} bms_sw_filter_t;
 typedef enum {BMS_SW_HIGH=0,BMS_SW_LOW} bms_sw_direction_t;
 '''
     funcs = '\n'.join(function(source, signature) for signature in (

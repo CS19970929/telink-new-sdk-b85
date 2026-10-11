@@ -14,6 +14,10 @@
 
 Cell OV/UV、Pack OV/UV、Charge/Discharge OC、Charge OT/UT、Discharge OT/UT、MOS OT、Cell delta。触发采用超限样本累积，正常样本将触发计数减一；恢复要求连续满足恢复条件。两者不是同一种滤波。该行为保持原 D011/D013 策略，不能把触发计数递减改成清零而称为等价清理。
 
+每个等级/保护项只保存 `active` 和一个当前阶段计数：未激活时用于触发，激活后用于恢复，
+阶段切换归零。两种滤波算法仍不同；复位过流恢复窗口仅清除活动故障的计数，不能清掉
+尚未触发的越限累计。SOC Low 同样共用阶段计数，但其触发和恢复都要求连续样本。
+
 ## 3. SOC Low 与最终阻断
 
 `soc_low_first_percent/Second/Third/Rcv/Filter` 由 `bms/core/bms_soc.c::soc_update_low_faults()` 执行，写入三级 `soc_low`；不是未使用的 legacy 字段。SOC Low 用于报告，不直接列入软件 CHG/DSG 阻断掩码。

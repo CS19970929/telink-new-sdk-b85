@@ -17,8 +17,7 @@ def check_sw_protection_contract_check():
     for token in (
         "BMS_SW_PROTECTION_LEVEL_COUNT     3u",
         "BMS_SW_F_COUNT",
-        "trip_count",
-        "recover_count",
+        "uint16_t count;",
         "fault_first",
         "fault_second",
         "fault_third",
@@ -87,7 +86,7 @@ def check_sw_protection_contract_check():
         "charge_current_present = (measurements->charge_a10 > 0u)",
         "discharge_current_present = (measurements->discharge_a10 > 0u)",
         "if (!state->active && !trip_enabled)",
-        "state->trip_count = 0u;",
+        "state->count = 0u;",
         "charge_current_present, inputs->battery_temp_max",
         "charge_current_present, inputs->battery_temp_min",
         "discharge_current_present, inputs->battery_temp_max",

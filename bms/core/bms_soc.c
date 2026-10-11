@@ -123,8 +123,8 @@ typedef struct
     uint16_t dsg_empty_lock_ticks;
     uint16_t dsg_sag_hold_ticks;
 
-    uint16_t soc_low_trip_count[3];
-    uint16_t soc_low_recover_count[3];
+    /* 未激活时确认触发，激活后确认恢复；两个阶段不同时累计。 */
+    uint16_t soc_low_count[3];
     uint8_t soc_low_active[3];
 
     bms_soc_eta_t eta;
@@ -1333,36 +1333,24 @@ static void soc_update_low_faults(void)
 
         if (trip == 0u || trip > SOC_PERCENT_MAX) {
             g_soc_runtime.soc_low_active[level] = 0u;
-            g_soc_runtime.soc_low_trip_count[level] = 0u;
-            g_soc_runtime.soc_low_recover_count[level] = 0u;
+            g_soc_runtime.soc_low_count[level] = 0u;
             soc_fault_reg(level)->bits.soc_low = 0u;
             continue;
         }
         if (recover <= trip) recover = (trip < SOC_PERCENT_MAX) ? (uint16_t)(trip + 1u) : SOC_PERCENT_MAX;
 
-        if (g_soc_runtime.soc_low_active[level]) {
-            if (soc >= recover) {
-                if (g_soc_runtime.soc_low_recover_count[level] < needed)
-                    g_soc_runtime.soc_low_recover_count[level]++;
-                if (g_soc_runtime.soc_low_recover_count[level] >= needed) {
-                    g_soc_runtime.soc_low_active[level] = 0u;
-                    g_soc_runtime.soc_low_recover_count[level] = 0u;
-                }
-            } else {
-                g_soc_runtime.soc_low_recover_count[level] = 0u;
+        /* SOC 告警的触发和恢复都要求连续样本，当前活动状态选择对应阈值。 */
+        if (g_soc_runtime.soc_low_active[level] ? soc >= recover : soc <= trip) {
+            if (g_soc_runtime.soc_low_count[level] < needed)
+                g_soc_runtime.soc_low_count[level]++;
+            if (g_soc_runtime.soc_low_count[level] >= needed) {
+                g_soc_runtime.soc_low_active[level] = !g_soc_runtime.soc_low_active[level];
+                g_soc_runtime.soc_low_count[level] = 0u;
+                if (g_soc_runtime.soc_low_active[level])
+                    bms_fault_history_record(soc_fault_history_code(level));
             }
         } else {
-            if (soc <= trip) {
-                if (g_soc_runtime.soc_low_trip_count[level] < needed)
-                    g_soc_runtime.soc_low_trip_count[level]++;
-                if (g_soc_runtime.soc_low_trip_count[level] >= needed) {
-                    g_soc_runtime.soc_low_active[level] = 1u;
-                    g_soc_runtime.soc_low_trip_count[level] = 0u;
-                    bms_fault_history_record(soc_fault_history_code(level));
-                }
-            } else {
-                g_soc_runtime.soc_low_trip_count[level] = 0u;
-            }
+            g_soc_runtime.soc_low_count[level] = 0u;
         }
         soc_fault_reg(level)->bits.soc_low = g_soc_runtime.soc_low_active[level];
     }
@@ -1483,8 +1471,7 @@ static void soc_invalidate_sample_interval(void)
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
     soc_eta_reset();
     /* 显示跟随只累计已接受的节拍；中断积分不能反复抹掉显示进度。 */
-    memset(g_soc_runtime.soc_low_trip_count, 0, sizeof(g_soc_runtime.soc_low_trip_count));
-    memset(g_soc_runtime.soc_low_recover_count, 0, sizeof(g_soc_runtime.soc_low_recover_count));
+    memset(g_soc_runtime.soc_low_count, 0, sizeof(g_soc_runtime.soc_low_count));
 }
 
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
