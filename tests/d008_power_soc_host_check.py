@@ -64,6 +64,7 @@ def main():
             units.update({
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
+                'static uint8_t app_current_prevents_suspend(',
                 'static u32 app_sleep_retry_ms(', 'static void app_publish_sleep(',
                 'static u32 app_pm_elapsed_limit(',
                 'static void app_protective_sleep_hold(',
@@ -150,7 +151,10 @@ def check_soc_openwire():
     fixture += '\n#define BMS_AFE_FEATURE_MAX_CELLS 24u\n' + afe_types + '\n' + constants
     fixture += '\n#define BMS_AFE_BACKEND 1u\n' + feature_type
     fixture += (Path(__file__).parent / 'fixtures/d008_soc_openwire.c').read_text()
-    for signature in ('static uint8_t openwire_eligible(', 'static uint32_t openwire_wait_remaining(',
+    for signature in ('static uint8_t charging_current_reported(',
+                      'static uint8_t discharging_current_reported(',
+                      'static uint32_t reported_balance_mask(',
+                      'static uint8_t openwire_eligible(', 'static uint32_t openwire_wait_remaining(',
                       'static void openwire_put32(', 'static void publish_openwire(', 'static uint8_t openwire_result_abnormal(', 'static void finish_openwire(',
                       'static void service_openwire(',
                       'void bms_features_service(', 'static uint8_t balance_voltage_trusted(',
