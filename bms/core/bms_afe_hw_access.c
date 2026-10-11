@@ -10,7 +10,6 @@
 
 static u16 s_token;
 static u32 s_last_activity_tick;
-static u8 s_active;
 static u16 s_generation;
 #define ACCESS_FRAME_BYTES 79u
 #define ACCESS_CHUNK_BYTES 11u
@@ -37,19 +36,10 @@ static void access_put_u16be(u8 *p, u16 value)
     p[1] = (u8)value;
 }
 
-/* 用无符号 tick 差值判断授权会话是否超时。 */
-static u8 access_expired(void)
-{
-    if (!s_active) return 1u;
-    return clock_time_exceed(s_last_activity_tick,
-                             (u32)BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS * 1000000u) ? 1u : 0u;
-}
-
 /* 关闭 AFE 硬件写授权会话并清除令牌。 */
 void bms_afe_hw_access_close(void)
 {
     s_received = 0u;
-    s_active = 0u;
     s_token = 0u;
     s_last_activity_tick = 0u;
 }
@@ -58,14 +48,15 @@ void bms_afe_hw_access_close(void)
 void bms_afe_hw_access_poll(void)
 {
     if (s_received && clock_time_exceed(s_fragment_tick, 5000000u)) s_received = 0u;
-    if (s_active && access_expired()) bms_afe_hw_access_close();
+    if (s_token && clock_time_exceed(s_last_activity_tick,
+            (u32)BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS * 1000000u)) bms_afe_hw_access_close();
 }
 
 /* 查询硬件写授权会话当前是否有效。 */
 u8 bms_afe_hw_access_is_active(void)
 {
     bms_afe_hw_access_poll();
-    return s_active ? 1u : 0u;
+    return s_token != 0u;
 }
 
 /* 取得硬件写授权会话的剩余秒数。 */
@@ -155,7 +146,6 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
         s_received = 0u;
         s_token = access_new_token();
         s_last_activity_tick = clock_time();
-        s_active = 1u;
         access_put_u16be(&payload[0], s_token);
         access_put_u16be(&payload[2], BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS);
         payload[4] = BMS_AFE_HW_ACCESS_PROTOCOL_VERSION;

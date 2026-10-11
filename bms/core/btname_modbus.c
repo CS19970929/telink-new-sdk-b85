@@ -125,12 +125,6 @@ static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
     return (suffix[0] != '\0');
 }
 
-/* 保存经过校验的 BLE 名称后缀。 */
-static int btname_save_suffix_to_store(const char *suffix)
-{
-    return bms_config_store_set_bt_name_suffix(suffix);
-}
-
 /* 加载名称后缀并构造应用 BLE 名称。 */
 void btname_init(void)
 {
@@ -185,7 +179,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
         return 1;
     }
 
-    if (!btname_save_suffix_to_store(suffix)) {
+    if (!bms_config_store_set_bt_name_suffix(suffix)) {
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0;
     }

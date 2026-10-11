@@ -38,7 +38,6 @@ static uint8_t g_bms_state_ready;
 static bms_state_persist_t g_bms_state_pending;
 static uint32_t g_bms_state_last_attempt_32k;
 static uint8_t g_bms_state_last_failed;
-static uint8_t g_bms_state_attempted;
 
 /* 将 32 位值按小端写入存储缓冲区。 */
 static void bms_state_put_u32le(uint8_t *buf, uint32_t value)
@@ -111,15 +110,16 @@ static int bms_state_save(const bms_state_persist_t *next)
 {
     uint8_t payload[BMS_STATE_PAYLOAD_BYTES];
     uint32_t now = pm_get_32k_tick();
-    uint8_t previous[BMS_STATE_PAYLOAD_BYTES];
-    bms_state_encode(next, payload);
-    bms_state_encode(&g_bms_state, previous);
-    if (g_bms_state_store.has_latest && memcmp(previous, payload, sizeof(payload)) == 0) return 1;
+    /* 比较全部持久字段，避免重复编码及第二份 payload；不能比较结构体填充字节。 */
+    if (g_bms_state_store.has_latest && next->soc == g_bms_state.soc &&
+        next->dsg == g_bms_state.dsg && next->cycle == g_bms_state.cycle &&
+        next->soc_revision == g_bms_state.soc_revision &&
+        memcmp(next->ota_update_id, g_bms_state.ota_update_id, sizeof(next->ota_update_id)) == 0) return 1;
     /* 强制关机写入绕过普通间隔，但绝不绕过失败退避。 */
-    if (g_bms_state_attempted && g_bms_state_last_failed &&
+    if (g_bms_state_last_failed &&
         (uint32_t)(now - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
-    g_bms_state_attempted = 1u;
     g_bms_state_last_attempt_32k = now;
+    bms_state_encode(next, payload);
     if (!storage_record_save(&g_bms_state_store, payload)) {
         g_bms_state_last_failed = 1u;
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
@@ -139,7 +139,7 @@ int bms_state_store_init(void)
     bms_state_persist_t next;
     if (g_bms_state_ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
-    if (g_bms_state_attempted && g_bms_state_last_failed &&
+    if (g_bms_state_last_failed &&
         (uint32_t)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
@@ -163,12 +163,10 @@ int bms_state_store_init(void)
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
     g_bms_state_pending = g_bms_state;
     g_bms_state_last_attempt_32k = pm_get_32k_tick();
-    g_bms_state_attempted = 1u;
     g_bms_state_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 invalid:
-    g_bms_state_attempted = 1u;
     g_bms_state_last_failed = 1u;
     g_bms_state_last_attempt_32k = pm_get_32k_tick();
     bms_error_raise(BMS_ERROR_EEPROM_STORE);

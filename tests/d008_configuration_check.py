@@ -327,10 +327,9 @@ def check_d008_framework_contract_check():
             self.assertIn("Production build requires SDK flash protection", self.app_config)
             self.assertIn("Production build requires watchdog", self.app_config)
             self.assertIn("Production build requires software, hardware and temperature protection enabled", self.project)
-            self.assertIn("sensitive_factory_write_allowed", self.parameter_access)
             self.assertNotIn("Runtime_GetMode()", self.parameter_access)
             self.assertIn("bms_afe_hw_access_is_active()", self.parameter_access)
-            self.assertGreaterEqual(self.parameter_access.count("sensitive_factory_write_allowed()"), 3)
+            self.assertGreaterEqual(self.parameter_access.count("bms_afe_hw_access_is_active()"), 3)
 
         def test_no_legacy_parameter_migration(self):
             self.assertNotIn("param_apply_d008_product_identity_if_unset", self.param)

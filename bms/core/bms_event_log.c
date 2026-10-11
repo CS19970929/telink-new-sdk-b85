@@ -28,7 +28,6 @@ typedef struct {
     u8 records[BMS_EVENT_LOG_ENTRY_COUNT][2];
     u16 repeats[BMS_EVENT_LOG_ENTRY_COUNT];
     u32 last_attempt_32k;
-    u8 attempted;
     u8 last_failed;
     u8 dirty;
     u16 write_pos;
@@ -137,10 +136,9 @@ static int bms_event_log_write_snapshot(void)
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];
     u32 now = pm_get_32k_tick();
     if (!g_bms_event_log.ready) return 0;
-    if (g_bms_event_log.attempted && g_bms_event_log.last_failed &&
+    if (g_bms_event_log.last_failed &&
         (u32)(now - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
     g_bms_event_log.last_attempt_32k = now;
-    g_bms_event_log.attempted = 1u;
     bms_event_log_encode(payload);
     if (!storage_record_save(&g_bms_event_store, payload)) {
         g_bms_event_log.last_failed = 1u;
@@ -214,7 +212,7 @@ int bms_event_log_init(void)
     int loaded;
     if (g_bms_event_log.ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_EVENT);
-    if (g_bms_event_log.attempted && g_bms_event_log.last_failed &&
+    if (g_bms_event_log.last_failed &&
         (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }

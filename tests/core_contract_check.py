@@ -16,7 +16,7 @@ def check_sw_protection_contract_check():
 
     for token in (
         "BMS_SW_PROTECTION_LEVEL_COUNT     3u",
-        "BMS_SW_PROTECTION_FILTER_COUNT    12u",
+        "BMS_SW_F_COUNT",
         "trip_count",
         "recover_count",
         "fault_first",

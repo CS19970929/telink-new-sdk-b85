@@ -18,7 +18,6 @@
  */
 #define BMS_SW_PROTECTION_SAMPLE_MS       BMS_SAMPLE_PERIOD_MS
 #define BMS_SW_PROTECTION_LEVEL_COUNT     3u
-#define BMS_SW_PROTECTION_FILTER_COUNT    12u
 
 typedef struct
 {

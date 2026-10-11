@@ -38,13 +38,6 @@ static u8 finish(u8 result)
     return result;
 }
 
-/* 检查敏感出厂参数写入资格。 */
-static u8 sensitive_factory_write_allowed(void)
-{
-    if (!bms_afe_hw_access_is_active()) return 0u;
-    return 1u; /* 已授权的 AFE 独占会话，不再依赖老化时长。 */
-}
-
 /* 检查业务参数地址是否允许读取。 */
 int bms_parameter_readable(u16 r)
 {
@@ -192,13 +185,13 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     else if (r == BMS_PARAM_REG_CURRENT_OFFSET_LO)
     {
         if (qty != 4u) return finish(3u);
-        if (!sensitive_factory_write_allowed()) return finish(2u);
+        if (!bms_afe_hw_access_is_active()) return finish(2u);
         v.current_offset_ma = (int32_t)dword(data);
         v.current_gain_ppm = dword(data + 4);
     }
     else if (r == BMS_PARAM_REG_SN_COMMAND)
     {
-        if (qty != 1u || !sensitive_factory_write_allowed()) return finish(2u);
+        if (qty != 1u || !bms_afe_hw_access_is_active()) return finish(2u);
         if (value == 0u)
         {
             if (++s_sn_generation == 0u) ++s_sn_generation;
@@ -216,7 +209,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     }
     else if (r >= BMS_PARAM_REG_SN_STAGE_BASE && r <= BMS_PARAM_REG_SN_STAGE_LAST)
     {
-        if (!sensitive_factory_write_allowed()) return finish(2u);
+        if (!bms_afe_hw_access_is_active()) return finish(2u);
         if (!s_sn_active || (u32)(pm_get_32k_tick() - s_sn_tick) > 60u * 32000u || qty > 4u ||
             (u32)r + qty > BMS_PARAM_REG_SN_STAGE_END)
             return finish(3u);
