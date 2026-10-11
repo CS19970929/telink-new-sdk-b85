@@ -1454,6 +1454,17 @@ static void SOC_Result_Pass(void)
         (uint16_t)(g_bms_soc.nominal_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
 }
 
+/* 统一撤销电压端点确认计时，不改变电流积分及已确认的端点锁存。 */
+static void soc_reset_voltage_confirmation(void)
+{
+    g_soc_runtime.full_lock_ticks = 0u;
+    g_soc_runtime.full_adjust_ticks = 0u;
+    g_soc_runtime.empty_lock_ticks = 0u;
+    g_soc_runtime.empty_adjust_ticks = 0u;
+    g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+    g_soc_runtime.dsg_empty_lock_ticks = 0u;
+}
+
 /* 样本失效时撤销积分时间区间并复位相关跟踪。 */
 static void soc_invalidate_sample_interval(void)
 {
@@ -1461,14 +1472,9 @@ static void soc_invalidate_sample_interval(void)
     g_soc_interval_32k = 0u;
     g_soc_strategy_pending_32k = 0u;
     soc_reset_ocv_tracking();
-    g_soc_runtime.full_lock_ticks = 0u;
-    g_soc_runtime.full_adjust_ticks = 0u;
+    soc_reset_voltage_confirmation();
     g_soc_runtime.full_anchor_latched = 0u;
-    g_soc_runtime.empty_lock_ticks = 0u;
-    g_soc_runtime.empty_adjust_ticks = 0u;
     g_soc_runtime.empty_anchor_latched = 0u;
-    g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
-    g_soc_runtime.dsg_empty_lock_ticks = 0u;
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
     soc_eta_reset();
     /* 显示跟随只累计已接受的节拍；中断积分不能反复抹掉显示进度。 */
@@ -1496,12 +1502,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     if (sample->voltage_untrusted) soc_reset_ocv_tracking();
     if (sample->voltage_untrusted || sample->voltage_diagnostic) {
         g_soc_strategy_pending_32k = 0u;
-        g_soc_runtime.full_lock_ticks = 0u;
-        g_soc_runtime.full_adjust_ticks = 0u;
-        g_soc_runtime.empty_lock_ticks = 0u;
-        g_soc_runtime.empty_adjust_ticks = 0u;
-        g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
-        g_soc_runtime.dsg_empty_lock_ticks = 0u;
+        soc_reset_voltage_confirmation();
     }
 
     if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
@@ -1553,12 +1554,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         g_soc_runtime.last_sample_state = BMS_SOC_SAMPLE_DIRECTION_CHANGE;
         /* 跨电流状态转换的时间段不能证明连续静置或连续满/空锚点条件。 */
         soc_reset_ocv_tracking();
-        g_soc_runtime.full_lock_ticks = 0u;
-        g_soc_runtime.full_adjust_ticks = 0u;
-        g_soc_runtime.empty_lock_ticks = 0u;
-        g_soc_runtime.empty_adjust_ticks = 0u;
-        g_soc_runtime.dsg_empty_lock_ticks = 0u;
-        g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+        soc_reset_voltage_confirmation();
         soc_eta_reset();
         g_soc_strategy_pending_32k = 0u;
         g_soc_interval_32k = 0u;
