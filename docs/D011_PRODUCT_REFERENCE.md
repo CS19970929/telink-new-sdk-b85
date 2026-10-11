@@ -97,7 +97,7 @@ AFE hardware profile 的 `enable_mask` 是最终硬件保护使能来源：
 - TEMP -> TS1_EN + TS2_EN；
 - TS3（heater MOS）和 TS4（power MOS）当前不作为 AFE common temperature hardware protection，仍由软件策略处理。
 
-因此不能只看 `SH3673510_BOARD_SCONF6_VALUE` 的编译常量判断实际运行使能；必须看 persisted `bms_afe_hw_profile_t.enable_mask` 和 AFE readback。
+SCONF6 由 `sh3673510_control.c` 按持久化的 `bms_afe_hw_profile_t.enable_mask` 构造并校验写入；判断实际运行使能必须结合该参数和 AFE readback。未使用的固定 SCONF6 合成宏已删除。
 
 ## 6. SH3673510 硬件保护量化
 
