@@ -28,7 +28,6 @@ static int modbus_exception(u8 a,u8 f,u8 e,u8*r,u32*n){r[0]=a;r[1]=f|0x80;r[2]=e
 static int bms_afe_hw_access_modbus_on_frame(const u8*q,u32 n,u8*r,u32*l){writes++;return 0;}
 u16 bms_event_log_read_reg(u16 reg){reads++;return 0;}
 static u16 read_reg(u16 r){reads++;return 0;}
-static int reg_requires_param_save(u16 r){return 0;}
 static u8 write_reg(u16 r,u16 v){writes++;return 0;}
 static u8 commit_protection_update(bms_protection_params_t*p){writes++;return 0;}
 static u8 afe_hw_profile_write_block(const u8*p,u16 n){writes++;return 0;}

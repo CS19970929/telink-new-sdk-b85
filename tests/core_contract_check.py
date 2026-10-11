@@ -350,7 +350,7 @@ def check_soc_contract_check():
         def test_display_soc_is_separate(self):
             self.assertIn("static uint8_t g_soc_display_soc", C)
             self.assertIn("SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND", C)
-            self.assertIn("g_bms_report.soc.soc_percent = get_soc_display();", C)
+            self.assertIn("g_bms_report.soc.soc_percent = g_soc_display_soc;", C)
 
         def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
             self.assertIn("g_bms_report.fault_third.bits.cell_ovp", APP)

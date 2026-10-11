@@ -66,6 +66,8 @@ static int config_store_write_ok=1;
 static uint32_t tick;
 static uint32_t pm_get_32k_tick(void) {return tick;}
 /* PRODUCTION_SOURCE */
+static uint8_t display_soc(void) { bms_soc_diag_t diag; bms_soc_get_diag(&diag); return diag.soc_display; }
+
 static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  memset(&g_bms_report,0,sizeof(g_bms_report));
  memset(&g_bms_soc,0,sizeof(g_bms_soc));
@@ -377,7 +379,7 @@ int main(int argc,char **argv){
   for(int i=0;i<350;i++)sample(1,-500,6400);
   assert(get_soc_real()>80); /* valid charging full anchor still works */
   for(int i=0;i<200;i++)sample(1,-500,6400);
-  assert(get_soc_real()==100&&get_soc_display()==100);
+  assert(get_soc_real()==100&&display_soc()==100);
 
   /* 单串过压并非整包满电，压差过大时只积分，不执行满锚点。 */
   setup(chemistry,50,chemistry==1?3300:3800);sample(1,-500,1);
@@ -390,12 +392,12 @@ int main(int argc,char **argv){
    * while display completes a bounded soft landing even if charging stops. */
   setup(chemistry,80,chemistry==1?3500:4180);sample(1,-500,1);
   g_bms_report.fault_third.bits.cell_ovp=1;sample(1,-500,6400);
-  assert(get_soc_real()==100&&get_soc_display()==80);
+  assert(get_soc_real()==100&&display_soc()==80);
   g_bms_report.fault_third.bits.cell_ovp=0;sample(1,0,6400);
   for(int i=0;i<10;i++)sample(1,0,6400);
-  assert(get_soc_display()==85);
+  assert(display_soc()==85);
   for(int i=0;i<30;i++)sample(1,0,6400);
-  assert(get_soc_display()==100);
+  assert(display_soc()==100);
  }
 
  /* ETA uses internal capacity and a stable filtered current, never display SOC. */
@@ -445,7 +447,7 @@ int main(int argc,char **argv){
   assert(g_bms_report.fault_third.bits.cell_uvp==1);
   set_soc_param(60);sample(1,-2900,6400);
   for(unsigned n=0;n<5;n++)sample(1,-2900,6400);
-  assert(get_soc_real()==60&&get_soc_display()==60);
+  assert(get_soc_real()==60&&display_soc()==60);
   assert(g_soc_runtime.last_soc_action!=BMS_SOC_ACTION_FORCED_EMPTY);
   assert(g_bms_report.fault_third.bits.cell_uvp==1);
   /* An old UV latch is not new empty evidence after charging stops. */
@@ -454,7 +456,7 @@ int main(int argc,char **argv){
   sample(1,1000,6400);sample(1,1000,6400);
   assert(get_soc_real()>0);
   set_core_voltage(2400,2400,0);sample(1,1000,6400);
-  assert(get_soc_real()==0&&get_soc_display()==0);
+  assert(get_soc_real()==0&&display_soc()==0);
   stored_profile.capacity_factory=1000;
  }
 
@@ -537,7 +539,7 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=20;bms_soc_nominal_capacity_changed();
   sample(1,-2900,1);
   for(unsigned n=0;n<80;n++)sample(1,-2900,6400);
-  assert(get_soc_real()==0&&get_soc_display()==0);
+  assert(get_soc_real()==0&&display_soc()==0);
   assert(g_bms_report.soc.remaining_capacity_0p01ah>0);
   assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
 
@@ -555,8 +557,8 @@ int main(int argc,char **argv){
    assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
    assert(g_bms_soc.remaining_capacity_as10==before);
   }
-  assert(get_soc_real()>0&&get_soc_display()>0);
-  assert(get_soc_display()<=get_soc_real());
+  assert(get_soc_real()>0&&display_soc()>0);
+  assert(display_soc()<=get_soc_real());
   assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
   stored_profile.capacity_factory=1000;
  }
@@ -581,7 +583,7 @@ int main(int argc,char **argv){
  g_bms_report.cell_max_mv=2600;g_bms_report.cell_delta_mv=100;
  g_bms_report.fault_third.bits.cell_uvp=1;
  sample(1,1000,6400);
- assert(get_soc_real()==0 && get_soc_display()==0);
+ assert(get_soc_real()==0 && display_soc()==0);
  assert((g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_EARLY_UVP)!=0);
  assert((g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH)!=0);
  assert((g_soc_runtime.endpoint_event_flags&SOC_ENDPOINT_EVENT_IMBALANCE)!=0);

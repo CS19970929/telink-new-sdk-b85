@@ -187,12 +187,11 @@ bms_state_store_data_t bms_state_store_get(void)
 /* 保存完整状态并按结果发布缓存。 */
 int bms_state_store_write_all(uint32_t soc, uint32_t dsg, uint32_t cycle)
 {
-    bms_state_persist_t next;
     if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
-    next = g_bms_state_pending;
-    next.soc = soc; next.dsg = dsg; next.cycle = cycle;
-    g_bms_state_pending = next;
-    return bms_state_save(&next);
+    g_bms_state_pending.soc = soc;
+    g_bms_state_pending.dsg = dsg;
+    g_bms_state_pending.cycle = cycle;
+    return bms_state_save(&g_bms_state_pending);
 }
 
 /* 仅在状态变化且策略允许时提交检查点。 */

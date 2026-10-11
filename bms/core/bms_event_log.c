@@ -43,12 +43,6 @@ static bms_event_log_ctx_t g_bms_event_log;
 /* SDK 的 -fpack-struct 会压紧 ctx；TC32 整字读取 store->port，不能内嵌到未对齐偏移。 */
 static storage_record_store_t g_bms_event_store __attribute__((aligned(4)));
 
-/* 把历史事件存储失败提交到诊断。 */
-static void bms_event_log_report_store_error(void)
-{
-    bms_error_raise(BMS_ERROR_EEPROM_STORE);
-}
-
 /* 将 16 位值按小端写入存储缓冲区。 */
 static void bms_event_log_put_u16le(u8 *buf, u16 value)
 {
@@ -142,7 +136,7 @@ static int bms_event_log_write_snapshot(void)
     bms_event_log_encode(payload);
     if (!storage_record_save(&g_bms_event_store, payload)) {
         g_bms_event_log.last_failed = 1u;
-        bms_event_log_report_store_error();
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0;
     }
     g_bms_event_log.last_failed = 0u;
@@ -162,32 +156,31 @@ static u8 bms_event_log_map_interval(u32 seconds)
  * RAM 待保存环形缓冲在保存失败后保留事件；协议记录编码不变，重复计数单独诊断，
  * 绝不打包到记录内。
  */
-static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
+static void bms_event_log_append(bms_event_log_id_t event)
 {
     u16 pos, previous;
-    if (!g_bms_event_log.ready) return 0;
+    /* 三个调用入口均已完成 init；这里只更新 RAM，不存在存储失败返回。 */
     pos = g_bms_event_log.write_pos;
     previous = pos ? (u16)(pos - 1u) : (BMS_EVENT_LOG_ENTRY_COUNT - 1u);
-    if (g_bms_event_log.merge_ready && !startup_event && event != BMS_SLEEP &&
+    if (g_bms_event_log.merge_ready && event != BMS_START_UP && event != BMS_SLEEP &&
         g_bms_event_log.records[previous][0] == (u8)event &&
         g_bms_event_log.interval_s <= 60u) {
         if (g_bms_event_log.repeats[previous] != 65535u) {
             ++g_bms_event_log.repeats[previous];
             g_bms_event_log.dirty = 1u;
         }
-        return 1;
+        return;
     }
     g_bms_event_log.records[pos][0] = (u8)event;
-    g_bms_event_log.records[pos][1] = startup_event ? 0u :
+    g_bms_event_log.records[pos][1] = event == BMS_START_UP ? 0u :
         bms_event_log_map_interval(g_bms_event_log.interval_s);
     /* 直接访问 packed 字段，不能把未对齐成员地址作为普通 u32 * 传递。 */
-    if (!startup_event) g_bms_event_log.interval_s = 0u;
+    if (event != BMS_START_UP) g_bms_event_log.interval_s = 0u;
     g_bms_event_log.clock_fraction_32k = 0u;
     g_bms_event_log.repeats[pos] = 1u;
-    g_bms_event_log.merge_ready = (!startup_event && event != BMS_SLEEP) ? 1u : 0u;
+    g_bms_event_log.merge_ready = (event != BMS_START_UP && event != BMS_SLEEP) ? 1u : 0u;
     g_bms_event_log.write_pos = (u16)((pos + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
     g_bms_event_log.dirty = 1u;
-    return 1;
 }
 
 /* 检测故障上升沿并追加历史事件。 */
@@ -195,7 +188,8 @@ static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
 {
     if ((u32)event >= EVENT_NUM) return;
     if (active) {
-        if (!g_bms_event_log.event_latched[event] && bms_event_log_append(event, 0)) {
+        if (!g_bms_event_log.event_latched[event]) {
+            bms_event_log_append(event);
             g_bms_event_log.event_latched[event] = 1u;
         }
     } else {
@@ -239,21 +233,21 @@ int bms_event_log_init(void)
 /* 记录本次启动及启动原因。 */
 void bms_event_log_note_startup(void)
 {
-    if (!g_bms_event_log.ready && !bms_event_log_init()) return;
+    if (!bms_event_log_init()) return;
     bms_event_log_advance_time();
     g_bms_event_log.interval_s = 0u;
     g_bms_event_log.clock_fraction_32k = 0u;
-    (void)bms_event_log_append(BMS_START_UP, 1);
+    bms_event_log_append(BMS_START_UP);
 }
 
 /* 记录进入休眠的原因与当前状态。 */
 int bms_event_log_note_sleep(void)
 {
-    if (!g_bms_event_log.ready && !bms_event_log_init()) return 0;
+    if (!bms_event_log_init()) return 0;
     bms_event_log_advance_time();
     /* 保存失败的同一次尝试不重复追加；物理转换中止由 cancel_sleep 结束。 */
     if (!g_bms_event_log.event_latched[BMS_SLEEP]) {
-        if (!bms_event_log_append(BMS_SLEEP, 0)) return 0;
+        bms_event_log_append(BMS_SLEEP);
         g_bms_event_log.event_latched[BMS_SLEEP] = 1u;
     }
     if (!g_bms_event_log.dirty) return 1;
@@ -264,7 +258,7 @@ int bms_event_log_note_sleep(void)
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
 {
     if (sample == 0) return;
-    if (!g_bms_event_log.ready && !bms_event_log_init()) return;
+    if (!bms_event_log_init()) return;
     bms_event_log_advance_time();
     bms_event_log_track_edge(sample->balance, BALANCE_OPEN);
     bms_event_log_track_edge(sample->vcell_ovp, VCELL_OVP);
@@ -293,7 +287,7 @@ u16 bms_event_log_read_reg(u16 reg)
     if (reg >= BMS_EVENT_LOG_REG_COUNT) return 0u;
     if (!g_bms_event_log.ready) return 0u;
     idx = (u16)(g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg);
-    while (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
+    if (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
                  g_bms_event_log.records[idx][1]);
 }

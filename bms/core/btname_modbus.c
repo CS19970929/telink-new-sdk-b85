@@ -92,7 +92,7 @@ static int is_allowed_suffix_char(unsigned char c)
 }
 
 /* 在长度与字符约束内整理名称后缀。 */
-static uint8_t sanitize_suffix(char *s)
+static void sanitize_suffix(char *s)
 {
     uint8_t w = 0;
     uint8_t r;
@@ -104,34 +104,18 @@ static uint8_t sanitize_suffix(char *s)
         s[w++] = (char)c;
     }
     s[w] = '\0';
-    return w;
-}
-
-/* 恢复产品默认 BLE 名称后缀。 */
-static void btname_set_default_suffix(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
-{
-    m_strncpy(suffix, "DEFAULT", BTNAME_SUFFIX_MAX_LEN);
-    suffix[BTNAME_SUFFIX_MAX_LEN] = '\0';
-}
-
-/* 加载持久化 BLE 名称后缀。 */
-static int btname_load_suffix_from_store(char suffix[BTNAME_SUFFIX_MAX_LEN + 1])
-{
-    if (!bms_config_store_get_bt_name_suffix(suffix, BTNAME_SUFFIX_MAX_LEN + 1u)) {
-        return 0;
-    }
-
-    sanitize_suffix(suffix);
-    return (suffix[0] != '\0');
 }
 
 /* 加载名称后缀并构造应用 BLE 名称。 */
 void btname_init(void)
 {
-    char suffix[BTNAME_SUFFIX_MAX_LEN + 1];
+    char suffix[BTNAME_SUFFIX_MAX_LEN + 1] = {0};
 
-    if (!btname_load_suffix_from_store(suffix)) {
-        btname_set_default_suffix(suffix);
+    if (bms_config_store_get_bt_name_suffix(suffix, sizeof(suffix)))
+        sanitize_suffix(suffix);
+    if (suffix[0] == '\0') {
+        m_strncpy(suffix, "DEFAULT", BTNAME_SUFFIX_MAX_LEN);
+        suffix[BTNAME_SUFFIX_MAX_LEN] = '\0';
     }
 
     build_full_name_from_suffix(suffix, g_name);

@@ -102,7 +102,7 @@ int main(void)
         if (g_soc_runtime.last_soc_action == BMS_SOC_ACTION_OCV_DOWN) ++corrections;
     }
     assert(rounds >= 8u && diagnostic_frames >= 16u);
-    assert(get_soc_real() == 99u && get_soc_display() == 99u && corrections == 1u);
+    assert(get_soc_real() == 99u && display_soc() == 99u && corrections == 1u);
     assert(g_soc_runtime.idle_stable_ticks == soc_ocv_prepare_ticks());
     puts("PASS joint: repeated real Open-Wire policy, diagnostic voltage exclusion, 600s qualification and 1800s OCV_DOWN/display");
 

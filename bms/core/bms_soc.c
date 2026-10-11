@@ -390,12 +390,6 @@ static uint32_t soc_limit_cycle_u32(uint32_t value)
     return (value > SOC_CYCLE_MAX) ? SOC_CYCLE_MAX : value;
 }
 
-/* 将循环次数安全转换为 16 位报告值。 */
-static uint16_t soc_cycle_to_u16(uint32_t value)
-{
-    return (uint16_t)soc_limit_cycle_u32(value);
-}
-
 /* 计算两个 16 位值的无符号绝对差。 */
 static uint16_t soc_abs_diff_u16(uint16_t a, uint16_t b)
 {
@@ -434,12 +428,6 @@ static uint8_t isCHG(void)
 uint8_t get_soc_real(void)
 {
     return g_bms_soc.soc_estimate_percent;
-}
-
-/* 取得供上位机显示的 SOC 百分比。 */
-static uint8_t get_soc_display(void)
-{
-    return g_soc_display_soc;
 }
 
 /* 设置显示 SOC 并限制合法范围。 */
@@ -489,7 +477,7 @@ static void soc_recalc_full_capacity(void)
     uint32_t factory = soc_nominal_capacity_0p1ah();
     g_bms_soc.nominal_capacity_as10 = factory * SOC_CAPACITY_UNITS_PER_FACTORY;
 
-    g_bms_soc.soh = bms_soh_from_cycle(soc_cycle_to_u16(g_bms_soc.cycle_count));
+    g_bms_soc.soh = bms_soh_from_cycle((uint16_t)soc_limit_cycle_u32(g_bms_soc.cycle_count));
     g_bms_soc.effective_capacity_as10 =
         (g_bms_soc.nominal_capacity_as10 * g_bms_soc.soh) / SOC_PERCENT_MAX;
 
@@ -995,25 +983,12 @@ static void soc_update_discharge_sag_hold(void)
     }
 }
 
-/* 查询压降保持期是否仍有效。 */
-static uint8_t soc_discharge_sag_hold_active(void)
-{
-    return (g_soc_runtime.dsg_sag_hold_ticks > 0u) ? 1u : 0u;
-}
-
 /* 取得当前欠压触发阈值，单位为毫伏。 */
 static uint16_t soc_uvp_trip_mv(void)
 {
     uint16_t uvp = g_bms_protection_params.cell_uvp_third_mv;
     if ((uvp < 2200u) || (uvp > 3500u)) uvp = g_soc_profile->empty_sync_mv;
     return uvp;
-}
-
-/* 计算有符号电流的绝对量。 */
-/* 复位 SOC 内部剩余时间估算状态。 */
-static void soc_eta_reset(void)
-{
-    bms_soc_eta_reset(&g_soc_runtime.eta);
 }
 
 /* 用当前有效容量、电流和方向更新剩余时间。 */
@@ -1084,7 +1059,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
         return 0u;
     }
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_EMPTY_APPROACH;
-    if (sag_hold_blocks && soc_discharge_sag_hold_active()) {
+    if (sag_hold_blocks && (g_soc_runtime.dsg_sag_hold_ticks != 0u)) {
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
         return 0u;
     }
@@ -1216,7 +1191,7 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     before = get_soc_real();
     if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
-    if (soc_discharge_sag_hold_active())
+    if (g_soc_runtime.dsg_sag_hold_ticks != 0u)
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LARGE_SAG;
     if (g_soc_input.cell_delta_mv > g_soc_profile->terminal_cell_delta_max_mv)
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_IMBALANCE;
@@ -1366,7 +1341,7 @@ static void soc_strategy_update(void)
      */
     g_soc_runtime.endpoint_state =
         (g_soc_runtime.full_anchor_latched && get_soc_real() == SOC_PERCENT_MAX &&
-         get_soc_display() < SOC_PERCENT_MAX) ?
+         g_soc_display_soc < SOC_PERCENT_MAX) ?
         BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_NORMAL;
     soc_update_discharge_sag_hold();
 
@@ -1436,9 +1411,9 @@ static void soc_integrate_current(soc_integral_dir_t dir, uint32_t elapsed_32k)
 static void SOC_Result_Pass(void)
 {
     soc_display_follow_real();
-    g_bms_report.soc.soc_percent = get_soc_display();
+    g_bms_report.soc.soc_percent = g_soc_display_soc;
     g_bms_report.soc.soh_percent = g_bms_soc.soh;
-    g_bms_report.soc.cycle_count = soc_cycle_to_u16(g_bms_soc.cycle_count);
+    g_bms_report.soc.cycle_count = (uint16_t)soc_limit_cycle_u32(g_bms_soc.cycle_count);
 
     g_bms_report.soc.remaining_capacity_0p01ah =
         (uint16_t)(g_bms_soc.remaining_capacity_as10 / SOC_REPORT_CAPACITY_DIVISOR);
@@ -1469,7 +1444,7 @@ static void soc_invalidate_sample_interval(void)
     g_soc_runtime.full_anchor_latched = 0u;
     g_soc_runtime.empty_anchor_latched = 0u;
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
-    soc_eta_reset();
+    bms_soc_eta_reset(&g_soc_runtime.eta);
     /* 显示跟随只累计已接受的节拍；中断积分不能反复抹掉显示进度。 */
     memset(g_soc_runtime.soc_low_count, 0, sizeof(g_soc_runtime.soc_low_count));
 }
@@ -1527,14 +1502,12 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
 
         soc_invalidate_sample_interval();
         /* 当前帧开启新时间段，不补填盲区。 */
-        g_soc_sample_tick_32k = sample->timestamp_32k;
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
         return;
     }
     previous_dir = soc_current_direction(0);
     g_soc_input_current_ma = sample->current_ma;
-    g_soc_input_valid = 1u;
     dir = soc_current_direction(0);
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
 
@@ -1546,7 +1519,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         /* 跨电流状态转换的时间段不能证明连续静置或连续满/空锚点条件。 */
         soc_reset_ocv_tracking();
         soc_reset_voltage_confirmation();
-        soc_eta_reset();
+        bms_soc_eta_reset(&g_soc_runtime.eta);
         g_soc_strategy_pending_32k = 0u;
         return;
     }
@@ -1625,7 +1598,7 @@ void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_t
     if (!s_board_started) {
         if (!sample->sample_valid || !sample->voltage_valid) return;
         s_board_saved_soc=g_bms_soc;
-        s_board_saved_display=get_soc_display();
+        s_board_saved_display=g_soc_display_soc;
         s_board_started=1u;
         new_case=1u;
     } else if (s_board_case < SOC_BOARD_CASE_COUNT &&

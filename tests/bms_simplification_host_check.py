@@ -34,10 +34,11 @@ typedef uint8_t u8;
 #define BMS_AFE_BACKEND_DVC1124 1
 #define BMS_AFE_BACKEND_SH3673510 2
 #define BMS_ERROR_EEPROM_STORE 12
-static int errors, save_ok, saves, broadcasts;
+static int errors, save_ok, saves, broadcasts, load_ok=1;
+static const char *loaded_name="DEFAULT";
 u8 my_devName[BTNAME_TOTAL_MAX_LEN];
 static void bms_error_raise(int e){assert(e==BMS_ERROR_EEPROM_STORE);++errors;}
-static int bms_config_store_get_bt_name_suffix(char*s,unsigned n){assert(n>7);strcpy(s,"DEFAULT");return 1;}
+static int bms_config_store_get_bt_name_suffix(char*s,unsigned n){assert(n>7);if(!load_ok)return 0;strcpy(s,loaded_name);return 1;}
 static int bms_config_store_set_bt_name_suffix(const char*s){assert(strcmp(s,"NEW")==0);++saves;return save_ok;}
 static void bls_ll_setAdvEnable(int n){(void)n;}
 static void bls_ll_setScanRspData(uint8_t*s,unsigned n){assert(n>=2&&n<=31&&s[1]==9);++broadcasts;}
@@ -45,6 +46,11 @@ static void bls_ll_setScanRspData(uint8_t*s,unsigned n){assert(n>=2&&n<=31&&s[1]
     tail = r'''
 int main(void){
     uint16_t words[2]={0}; int previous;
+    load_ok=0;btname_init();assert(strcmp(btname_get(),"BT_DEFAULT")==0);
+    load_ok=1;loaded_name="";btname_init();assert(strcmp(btname_get(),"BT_DEFAULT")==0);
+    loaded_name=" !@";btname_init();assert(strcmp(btname_get(),"BT_DEFAULT")==0);
+    loaded_name="A!_9";btname_init();assert(strcmp(btname_get(),"BT_A_9")==0);
+    loaded_name="DEFAULT";
     memcpy(words,"NEW",3); btname_init(); previous=broadcasts;
     assert(btname_modbus_on_write_holding(0x100,2,words)==0);
     assert(errors==1&&saves==1&&broadcasts==previous);

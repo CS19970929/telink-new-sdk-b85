@@ -421,13 +421,6 @@ static u16 read_reg(u16 reg)
     return 0u;
 }
 
-/* 判断写入地址是否需要保存业务参数。 */
-static int reg_requires_param_save(u16 reg)
-{
-    /* 固定 DVC 语义诊断为只读。 */
-    return (reg >= 0x2100u && reg <= 0x2140u);
-}
-
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val)
 {
@@ -527,15 +520,13 @@ static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     u16 val;
     u8 exception;
     bms_protection_params_t candidate;
-    int protect_changed;
 
     if (req_len != 8u) return 0;
     reg = u16be(&req[2]);
     val = u16be(&req[4]);
     if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-    protect_changed = reg_requires_param_save(reg);
-    if (protect_changed) {
+    if (reg >= 0x2100u && reg <= 0x2140u) {
         candidate = g_bms_protection_params;
         memcpy((u8 *)&candidate + (reg - 0x2100u) * 2u, &val, sizeof(val));
         exception = commit_protection_update(&candidate);

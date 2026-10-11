@@ -22,7 +22,6 @@ static int bms_diag_read(u16 r,u16 n,u8*d){return 0;}
 static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
 static int read_address_supported(u16 r){return r>=0x2100&&r<=0x2140;}
 static u16 read_reg(u16 r){return (u16)(r^0x55aa);}
-static int reg_requires_param_save(u16 r){return r>=0x2100&&r<=0x2140;}
 static u8 commit_protection_update(const bms_protection_params_t*c){++writes;g_bms_protection_params=*c;return 0;}
 static u8 write_reg(u16 r,u16 v){++writes;return 2;}
 static u8 afe_hw_profile_write_block(const u8*d,u16 n){++writes;return 0;}
