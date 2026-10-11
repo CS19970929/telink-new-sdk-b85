@@ -10,7 +10,10 @@ static uint8_t charge_source_present(void) { return 0u; }
 static void update_balance_charge_session(uint8_t present) { s_feature.balance_charge_session_active = (uint8_t)charge_session_active; }
 static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s) {}
 static void service_heater(const bms_afe_feature_snapshot_t *s, const bms_user_params_t *config, uint8_t present) { s_feature.heater_on = (uint8_t)heater_on; }
-static void service_balance(const bms_afe_feature_snapshot_t *s, const bms_user_params_t *config) { s_feature.balance_active = (uint8_t)balance_active; }
+static void service_balance(const bms_afe_feature_snapshot_t *s, const bms_user_params_t *config) {
+    s_feature.balance_active = (uint8_t)balance_active;
+    g_bms_report.balance_bits_low = (uint16_t)balance_active;
+}
 static void bms_features_on_afe_invalid(void) { s_feature.openwire_suspected = 1u; }
 static uint8_t bms_afe_openwire_start(void)
 {

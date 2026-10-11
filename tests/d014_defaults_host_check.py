@@ -120,7 +120,8 @@ def check_battery_chemistry_defaults():
     # 使用实际字段和默认初始化，不在夹具中另写参数默认表。
     types = ''.join(re.search(r'typedef struct \{[^{}]*\} ' + name + ';', config_h).group(0)
                     for name in ('bms_user_params_t', 'bms_config_system_params_t'))
-    defaults = types + '\n' + function(config_c, 'static void bms_config_user_defaults(')
+    defaults = types + '\n' + function(config_c, 'static void bms_config_user_business_defaults(')
+    defaults += '\n' + function(config_c, 'static void bms_config_user_defaults(')
     defaults += '\n' + function(config_c, 'static void bms_config_store_get_default_system(')
     # heater 默认值先由实际功能头提供，再编译其使用者。
     defaults = '#include "bms_features.h"\n' + defaults
@@ -203,6 +204,8 @@ def check_battery_chemistry_defaults():
         int main(void)
         {
             bms_config_system_params_t system;
+            bms_user_params_t user;
+            bms_config_user_defaults(&user);
             bms_config_store_get_default_system(&system);
             assert(system.capacity_factory == 120u);
             uint16_t id[BMS_OTA_UPDATE_ID_WORDS] = {0};

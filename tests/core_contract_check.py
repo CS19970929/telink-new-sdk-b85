@@ -183,13 +183,16 @@ def check_common_feature_policy_contract_check():
     assert "s_guard.bus_silenced = 1u;" in guard_c
     assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
     apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
-    assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in apply
+    assert "if (!runtime_access_allowed()) return 1u;" in apply
+    access=guard_c.split("static inline uint8_t runtime_access_allowed",1)[1].split("uint8_t bms_afe_samples_qualified",1)[0]
+    for gate in ("!s_guard.comm_inhibit", "!s_guard.bus_silenced", "!s_guard.test_shutdown_hold"):
+        assert gate in access
     sleep=guard_c.split("uint8_t bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
     dvc_sleep, sh_sleep=sleep.split("#else",1)
     assert "return bms_afe_enter_shutdown();" in dvc_sleep and "AFE_SLEEP()" not in dvc_sleep
     assert sh_sleep.index("if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;") < sh_sleep.index("AFE_SLEEP()")
     setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
-    assert "if (s_guard.comm_inhibit || s_guard.bus_silenced || s_guard.test_shutdown_hold) return 1u;" in setfets
+    assert "if (!runtime_access_allowed()) return 1u;" in setfets
 
     sh_bms=text("sh3673510_bms.c")
     for forbidden in (

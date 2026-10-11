@@ -19,6 +19,7 @@ static int openwire_stop_ok=1;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
 static void bms_features_on_afe_invalid(void){}
+static void bms_features_on_output_disabled(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}

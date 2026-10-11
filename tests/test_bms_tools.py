@@ -693,6 +693,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 source += 'function python { Write-Output ("CALL:" + (ConvertTo-Json -InputObject @($args) -Compress)); '
                 source += '$global:LASTEXITCODE = ' + str(code) + ' }; '
                 source += "& '" + str(script).replace("'", "''") + "' -Target d014 -Mode development -Chemistry nmc -CellCount 6 -Capacity0p1Ah 120 -UpdateGroups sw,afe,business,soc,soc_state -UpdateId 000012341234123412341234"
+                source += '; exit $LASTEXITCODE'  # -Command 否则把脚本的非零退出码折叠为 1。
                 result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
                                         capture_output=True, encoding='utf-8', timeout=15)
                 self.assertEqual(result.returncode, code, result.stderr)

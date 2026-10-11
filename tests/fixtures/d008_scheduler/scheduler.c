@@ -74,7 +74,6 @@ static void app_acc_sleep_hold(void){note('H');}
 static void bms_parameters_diag_poll(void){note('1');}
 static void bms_storage_platform_diag_poll(void){note('2');}
 static void bms_afe_diag_poll(void){note('3');}
-static void cpu_sleep_wakeup(int m,int w,u32 t){(void)m;(void)w;assert(t==now+3200000u);note('Q');}
 static void blt_sdk_main_loop(void){note('B');}
 static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
@@ -97,6 +96,6 @@ int main(void){
  sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
  callback_during_sample=0;
  s_acc_sleep_committed=1;main_loop();expect("H");
- s_acc_sleep_committed=0;s_power_off_committed=1;main_loop();expect("123Q");
+ s_acc_sleep_committed=0;s_power_off_committed=1;main_loop();expect("");
  return 0;
 }

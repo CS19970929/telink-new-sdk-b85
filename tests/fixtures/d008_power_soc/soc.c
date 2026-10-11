@@ -57,6 +57,7 @@ typedef union {struct {unsigned soc_low:1,cell_ovp:1,cell_uvp:1;}bits;uint16_t a
 static struct {uint16_t cell_ovp_third_mv,cell_uvp_third_mv,soc_low_filter_10ms,soc_low_first_percent,soc_low_second_percent,soc_low_third_percent,soc_low_recover_percent;}g_bms_protection_params;
 static struct {
  uint16_t cell_max_mv,cell_min_mv,cell_delta_mv,pack_voltage_10mv,charge_current_a10,discharge_current_a10;
+ uint16_t balance_bits_low,balance_bits_high;
  bms_fault_reg_t fault_first,fault_second,fault_third;
  struct{uint16_t soc_percent,soh_percent,cycle_count,remaining_capacity_0p01ah,effective_capacity_0p01ah,nominal_capacity_0p01ah;}soc;
 }g_bms_report;
