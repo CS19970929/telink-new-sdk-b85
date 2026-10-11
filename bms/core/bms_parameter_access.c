@@ -48,11 +48,22 @@ static u8 sensitive_factory_write_allowed(void)
 /* 检查业务参数地址是否允许读取。 */
 int bms_parameter_readable(u16 r)
 {
-    return (r >= BMS_PARAM_REG_MAGIC && r <= BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP) || (r >= BMS_PARAM_REG_HEATER_ENABLE && r <= BMS_PARAM_REG_HEATER_STOP) ||
-           (r >= BMS_PARAM_REG_CURRENT_OFFSET_LO && r <= BMS_PARAM_REG_SAMPLE_TICK_HI) || (r >= BMS_PARAM_REG_SN_BASE && r <= BMS_PARAM_REG_SN_LAST) ||
-           (r >= BMS_PARAM_REG_BALANCE_ENABLE && r <= BMS_PARAM_REG_BALANCE_DELTA_STOP) ||
-           (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE && r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT) || r == BMS_PARAM_REG_SOC || r == BMS_PARAM_REG_CAPACITY ||
-           r == BMS_PARAM_REG_CYCLE;
+    /* 仅按既有外部寄存器块判断；不扩大可读地址范围。 */
+    return ((r >= BMS_PARAM_REG_MAGIC &&
+             r <= BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP) ||
+            (r >= BMS_PARAM_REG_HEATER_ENABLE &&
+             r <= BMS_PARAM_REG_HEATER_STOP) ||
+            (r >= BMS_PARAM_REG_CURRENT_OFFSET_LO &&
+             r <= BMS_PARAM_REG_SAMPLE_TICK_HI) ||
+            (r >= BMS_PARAM_REG_SN_BASE &&
+             r <= BMS_PARAM_REG_SN_LAST) ||
+            (r >= BMS_PARAM_REG_BALANCE_ENABLE &&
+             r <= BMS_PARAM_REG_BALANCE_DELTA_STOP) ||
+            (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE &&
+             r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT) ||
+            r == BMS_PARAM_REG_SOC ||
+            r == BMS_PARAM_REG_CAPACITY ||
+            r == BMS_PARAM_REG_CYCLE);
 }
 
 /* 按地址读取业务参数并编码为协议字。 */
