@@ -58,7 +58,6 @@ static inline void sif_turn_on(void)
 
 #define __TODO__ 0Xaa
 
-#define SIF_VERSION 1
 #define SIF_SYNC (2 * (10 + 1))
 #define SIF_STOP (2 * 5)
 #define SIF_SEND_COUNT 4

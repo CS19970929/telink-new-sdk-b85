@@ -29,16 +29,6 @@ void bms_board_features_init(uint8_t heater_fuse_fired)
     gpio_set_output_en(BMS_BOARD_HEATER_FUSE_PIN, 1u);
 }
 
-/* 按产品已验证硬件输入查询充电源存在状态。 */
-uint8_t bms_board_charge_source_present(void)
-{
-    /*
-     * CHG-IN/PB1 用于负载检测，不能证明充电器存在。ACC 与负载策略尚未实现，
-     * 不得因此允许加热。
-     */
-    return 0u;
-}
-
 /* 查询当前产品是否有已支持的物理加热输出。 */
 uint8_t bms_board_heater_supported(void)
 {
@@ -89,16 +79,6 @@ void bms_board_features_init(uint8_t heater_fuse_fired)
         sh3673510_board_force_heater_fuse_safe();
         sh3673510_board_set_heater(0u);
     }
-}
-
-/* 按产品已验证硬件输入查询充电源存在状态。 */
-uint8_t bms_board_charge_source_present(void)
-{
-    /*
-     * D014 无原理图支持的独立充电器存在 GPIO。
-     * 公共策略必须从已验证的 AFE/电流语义判断；此处安全拒绝，D014 加热本就关闭。
-     */
-    return 0u;
 }
 
 /* 查询当前产品是否有已支持的物理加热输出。 */

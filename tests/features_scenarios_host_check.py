@@ -11,8 +11,7 @@ code += re.search(r'typedef struct\s*\{.*?\} bms_user_params_t;', read('bms/core
 board = selected_source('bms/platform/telink/bms_board.c', product)
 for signature in ('uint8_t bms_board_balance_supported(', 'uint8_t bms_board_heater_supported(',
                   'uint8_t bms_board_heater_fuse_supported(',
-                  'uint16_t bms_board_heater_off_fault_temp_x10(', 'uint16_t bms_board_heater_off_fault_confirm_ms(',
-                  'uint8_t bms_board_charge_source_present('):
+                  'uint16_t bms_board_heater_off_fault_temp_x10(', 'uint16_t bms_board_heater_off_fault_confirm_ms('):
     code += '\n' + function(board, signature)
 code += read('tests/fixtures/features_scenarios.c').replace('/* FEATURES */', without_includes(read('bms/app/bms_features.c')))
 observations = []

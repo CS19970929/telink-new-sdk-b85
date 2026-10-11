@@ -36,9 +36,6 @@
 
 /* BLE/PM 既有保留状态；SDK 回调拥有连接状态，PM 消费时间和终止标志。 */
 extern int device_in_connection_state;
-extern u32 advertise_begin_tick;
-extern u32 latest_user_event_tick;
-extern u8 sendTerminate_before_enterDeep;
 #if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
 u32 app_ble_suspend_exit_count(void);
 #endif

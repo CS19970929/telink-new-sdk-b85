@@ -4,7 +4,6 @@
  * bms/platform/telink/app_att.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
-#include "bms_afe_backend.h"
 /********************************************************************************************************
  * @file    app_att.c
  *
@@ -56,16 +55,6 @@ static const u8 TelinkSPPS2CDescriptor[] 		 		= "Telink SPP: Module->Phone";
 static const u8 TelinkSPPC2SDescriptor[]        		= "Telink SPP: Phone->Module";
 
 // Telink SPP 属性值。
-// static const u8 TelinkSppDataServer2ClientCharVal[19] = {
-// 	CHAR_PROP_READ | CHAR_PROP_NOTIFY,
-// 	U16_LO(SPP_SERVER_TO_CLIENT_DP_H), U16_HI(SPP_SERVER_TO_CLIENT_DP_H),
-// 	TELINK_SPP_DATA_SERVER2CLIENT
-// };
-// static const u8 TelinkSppDataClient2ServerCharVal[19] = {
-// 	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP,
-// 	U16_LO(SPP_CLIENT_TO_SERVER_DP_H), U16_HI(SPP_CLIENT_TO_SERVER_DP_H),
-// 	TELINK_SPP_DATA_CLIENT2SERVER
-// };
 
 static const u8 TelinkSppDataServer2ClientCharVal[19] = {
 	CHAR_PROP_READ | CHAR_PROP_WRITE_WITHOUT_RSP | CHAR_PROP_WRITE,
@@ -111,8 +100,6 @@ _attribute_data_retention_	static u16 serviceChangeVal[2] = {0};
 
 _attribute_data_retention_	static u8 serviceChangeCCC[2] = {0,0};
 
-//static const u8 my_devName[] = {'t','S','a','m','p','l','e'};
-// static const u8 my_devName[BTNAME_TOTAL_MAX_LEN] = BMS_PRODUCT_BLE_NAME;
 u8 my_devName[BTNAME_TOTAL_MAX_LEN] = "BT_default";
 
 static const u8 my_PnPtrs [] = {0x02, 0x8a, 0x24, 0x66, 0x82, 0x01, 0x00};
@@ -289,48 +276,17 @@ static const attribute_t my_Attributes[] = {
 	{8,ATT_PERMISSIONS_READ,2,16,(u8*)(&my_primaryServiceUUID), 	(u8*)(&TelinkSppServiceUUID), 0},
 	// 属性声明。
 	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataServer2ClientCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataServer2ClientCharVal), 0},
-	// {0,ATT_PERMISSIONS_READ,16,sizeof(SppDataServer2ClientData),(
-	// u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), 0},	//取
 	// 值
 	// 属性值。
 	{0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataServer2ClientData),(u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), (att_readwrite_callback_t)&module_onReceiveData},
-	// {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
 	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPS2CDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPS2CDescriptor)},
 	// 属性声明。
 	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataClient2ServerCharVal),(u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataClient2ServerCharVal), 0},
-	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(
-	// u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), (
-	// att_readwrite_callback_t)&module_onReceiveData},	//取值
 	// 属性值。
 	{0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), 0},
 	{0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
 	{0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPC2SDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPC2SDescriptor)},
 
-	// SPP 服务。
-	// 000f - 0016 为 SPP 服务。
-	// {8,ATT_PERMISSIONS_READ,2,16,(u8*)(&my_primaryServiceUUID), 	(u8*)(&TelinkSppServiceUUID), 0},
-	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataServer2ClientCharVal),(
-	// u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataServer2ClientCharVal), 0},
-	// //属性
-	// // {0,ATT_PERMISSIONS_READ,16,sizeof(SppDataServer2ClientData),(
-	// u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), 0},	//取
-	// 值
-	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataServer2ClientData),(
-	// u8*)(&TelinkSppDataServer2ClientUUID), (u8*)(SppDataServer2ClientData), (
-	// att_readwrite_callback_t)&module_onReceiveData},	//取值
-	// // {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
-	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPS2CDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPS2CDescriptor)},
-	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSppDataClient2ServerCharVal),(
-	// u8*)(&my_characterUUID), 		(u8*)(TelinkSppDataClient2ServerCharVal), 0},
-	// //属性
-	// // {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(
-	// u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), (
-	// att_readwrite_callback_t)&module_onReceiveData},	//取值
-	// {0,ATT_PERMISSIONS_RDWR,16,sizeof(SppDataClient2ServerData),(
-	// u8*)(&TelinkSppDataClient2ServerUUID), (u8*)(SppDataClient2ServerData), 0},	//取
-	// 值
-	// {0,ATT_PERMISSIONS_RDWR,2,2,(u8*)&clientCharacterCfgUUID,(u8*)(&SppDataServer2ClientDataCCC)},
-	// {0,ATT_PERMISSIONS_READ,2,sizeof(TelinkSPPC2SDescriptor),(u8*)&userdesc_UUID,(u8*)(&TelinkSPPC2SDescriptor)},
 
 #if (BLE_OTA_SERVER_ENABLE)
 	// OTA 服务。

@@ -88,7 +88,6 @@ static u32 s_uart_last_activity_32k, s_uart_last_edge_tick;
 static volatile u8 s_rs485_tx_dma_done = 0u;
 static volatile u8 s_rs485_tx_active = 0u;
 static volatile u8 s_rs485_tx_uart_done = 0u;
-static volatile u8 s_rs485_tx_timeout_seen = 0u;
 static volatile u32 s_rs485_tx_start_tick = 0u;
 static volatile u32 s_rs485_tx_min_hold_us = 0u;
 
@@ -140,10 +139,8 @@ static void modbus_rs485_service_tx_done(void)
         return;
     }
 
-    if (!s_rs485_tx_timeout_seen &&
-        clock_time_exceed(s_rs485_tx_start_tick, MODBUS_RS485_TX_TIMEOUT_US))
+    if (clock_time_exceed(s_rs485_tx_start_tick, MODBUS_RS485_TX_TIMEOUT_US))
     {
-        s_rs485_tx_timeout_seen = 1u;
         ++g_bms_rs485_tx_diag.tx_timeout_count;
         /* 超时表示帧被中止，绝不能视为成功完成。 */
         {
@@ -203,7 +200,6 @@ static void modbus_rs485_service_tx_done(void)
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
     s_rs485_tx_uart_done = 0u;
-    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_start_tick = 0u;
     s_rs485_tx_min_hold_us = 0u;
 }
@@ -340,7 +336,6 @@ void modbus_uart_init(void)
     s_rs485_tx_active = 0u;
     s_rs485_tx_dma_done = 0u;
     s_rs485_tx_uart_done = 0u;
-    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_start_tick = 0u;
     s_rs485_tx_min_hold_us = 0u;
 #endif
@@ -474,7 +469,6 @@ u8 modbus_uart_send(const u8 *p, u32 len)
     modbus_rs485_transmit_mode();
     s_rs485_tx_dma_done = 0u;
     s_rs485_tx_uart_done = 0u;
-    s_rs485_tx_timeout_seen = 0u;
     s_rs485_tx_active = 1u;
     s_rs485_tx_start_tick = clock_time();
     s_rs485_tx_min_hold_us = modbus_rs485_min_hold_us(len);

@@ -83,12 +83,11 @@ static uint32_t reported_balance_mask(void)
            g_bms_report.balance_bits_low;
 }
 
-/* 汇总板级与 AFE 可确认的充电源证据。 */
+/* 仅采用 AFE 确认的充电源；D008 CHG-IN/PB1 是负载输入，不能作为充电器证据。 */
 static uint8_t charge_source_present(void)
 {
     uint8_t present = 0u;
-    if (bms_afe_get_charge_source_present(&present)) return present ? 1u : 0u;
-    return bms_board_charge_source_present() ? 1u : 0u;
+    return bms_afe_get_charge_source_present(&present) && present;
 }
 
 /* 均衡保留既有充后静置策略；加热周期由 heater_state 独立保持。 */

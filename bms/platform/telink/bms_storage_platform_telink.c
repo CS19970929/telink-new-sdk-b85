@@ -10,7 +10,6 @@
 
 #include "tl_common.h"
 #include "drivers.h"
-#include "flash_store_cfg.h"
 #include "flash_store_safe.h"
 #include "flash_store_cfg.h"
 #include "bms_product.h"

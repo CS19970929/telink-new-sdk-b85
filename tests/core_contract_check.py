@@ -154,7 +154,7 @@ def check_common_feature_policy_contract_check():
     assert "openwire_latched_mask" in features_c and "openwire_suspected" in features_c
     assert "balance_voltage_trusted" in features_c and "balance_sample_plausible" in features_c
     assert "cell_delta_first_mv" not in features_c
-    assert "bms_board_heater_set" in board_h and "bms_board_charge_source_present" in board_h
+    assert "bms_board_heater_set" in board_h
     assert "bms_board_heater_supported" in board_h and "bms_board_balance_supported" in board_h
     assert "bms_board_heater_supported()" in features_c and "bms_board_balance_supported()" in features_c
     assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c

@@ -26,7 +26,6 @@
 
 #define SH3510_SAMPLE_MS              200u
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 按 200 ms 节拍连续确认 LOADOFF 2 秒。 */
-#define SH3510_OCD_RELEASE_FILTER_10MS  200u /* 连续确认负载移除或充电恢复 2 秒。 */
 #define SH3510_MISSING_CELL_MV       61001u /* D000..D01F 未用串位的协议标记。 */
 #define SH3510_DETECT_SETTLE_32K      6400u /*
  * 200 ms 大于 tLOAD 65 ms 与 VADC 70 ms。

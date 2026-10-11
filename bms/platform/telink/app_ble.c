@@ -91,16 +91,12 @@ _attribute_data_retention_ my_fifo_t blt_txfifo = {
 };
 
 u8 tbl_advData[31];
-u8 tbl_advDataLen;
 
 u8 tbl_scanRsp[31];
-u8 tbl_scanRspLen;
 
 _attribute_data_retention_ int device_in_connection_state;
 
-_attribute_data_retention_ u32 advertise_begin_tick;
 
-_attribute_data_retention_ u8 sendTerminate_before_enterDeep = 0;
 
 /* 请求常规 BLE 连接参数。 */
 void app_ble_request_normal_conn_param(void)
@@ -129,7 +125,6 @@ void app_ble_restore_normal_power(void)
 	app_ble_request_normal_conn_param();
 }
 
-_attribute_data_retention_ u32 latest_user_event_tick;
 
 
 /* 深睡保留唤醒时恢复 SDK 与应用必要状态。 */
@@ -172,19 +167,11 @@ static void task_terminate(u8 e, u8 *p, int n)
 
 	tlkapi_printf(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] disconnect, reason 0x%x\n", pEvt->terminate_reason);
 
-#if (BLE_APP_PM_ENABLE)
-	if (sendTerminate_before_enterDeep == 1 && !TEST_CONN_CURRENT_ENABLE)
-	{
-		sendTerminate_before_enterDeep = 2;
-		bls_ll_setAdvEnable(BLC_ADV_DISABLE);
-	}
-#endif
 
 #if (UI_LED_ENABLE && !TEST_CONN_CURRENT_ENABLE)
 	gpio_write(GPIO_LED_RED, !LED_ON_LEVEL);
 #endif
 
-	advertise_begin_tick = clock_time();
 }
 
 
@@ -211,15 +198,12 @@ static void ble_build_adv_scanrsp(void)
 	tbl_advData[i++] = 0x0F;
 	tbl_advData[i++] = 0x18;
 
-	tbl_advDataLen = i;
 
 	i = 0;
 	tbl_scanRsp[i++] = (u8)(BMS_PRODUCT_BLE_NAME_LENGTH + 1);
 	tbl_scanRsp[i++] = 0x09;
 	memcpy(&tbl_scanRsp[i], BMS_PRODUCT_BLE_NAME, BMS_PRODUCT_BLE_NAME_LENGTH);
-	i += BMS_PRODUCT_BLE_NAME_LENGTH;
 
-	tbl_scanRspLen = i;
 }
 
 #if BLE_APP_SECURITY_ENABLE
@@ -251,7 +235,6 @@ static void task_connect(u8 e, u8 *p, int n)
 	tlkapi_send_string_data(APP_CONTR_EVENT_LOG_EN, "[APP][EVT] connect, intA & advA:", pConnEvt->initA, 12);
 	device_in_connection_state = 1;
 	app_ble_request_normal_conn_param();
-	latest_user_event_tick = clock_time();
 
 #if (UI_LED_ENABLE && !TEST_CONN_CURRENT_ENABLE)
 	gpio_write(GPIO_LED_RED, LED_ON_LEVEL);
@@ -619,7 +602,6 @@ _attribute_no_inline_ void user_init_normal(void)
 
 	blc_app_checkControllerHostInitialization();
 
-	advertise_begin_tick = clock_time();
 	tlkapi_printf(APP_LOG_EN, "[APP][INI] BLE sample init \n");
 
     app_init();

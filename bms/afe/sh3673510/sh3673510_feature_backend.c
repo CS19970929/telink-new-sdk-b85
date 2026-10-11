@@ -69,10 +69,7 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
 /* 取得后端缓存或回读的均衡状态掩码。 */
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
 {
-    uint32_t actual;
-    if (cell_mask == 0 || !sh_read_balance_mask(&actual)) return 0u;
-    *cell_mask = actual;
-    return 1u;
+    return sh_read_balance_mask(cell_mask);
 }
 
 /* 配置 SH 断线检测功能开关。 */

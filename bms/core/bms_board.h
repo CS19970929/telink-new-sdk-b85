@@ -11,14 +11,12 @@
 /*
  * 仅板级功能边界。公共加热/均衡/断线策略不应知道 MCU GPIO 编号，
  * 也不在此直接访问 AFE 寄存器；
- * 仅提供充电器存在、加热输出及不可逆保险丝触发等产品物理信号。
+ * 仅提供加热输出及不可逆保险丝触发等产品物理信号。
  */
 /* 冷启动传 0；同进程重初始化保持已提交的不可逆熔断输出。 */
 void bms_board_features_init(uint8_t heater_fuse_fired);
 /* 查询产品是否具有有效电芯均衡通道。 */
 uint8_t bms_board_balance_supported(void);
-/* 按产品已验证硬件输入查询充电源存在状态。 */
-uint8_t bms_board_charge_source_present(void);
 /* 查询当前产品是否有已支持的物理加热输出。 */
 uint8_t bms_board_heater_supported(void);
 /* 仅在产品支持时设置物理加热输出。 */

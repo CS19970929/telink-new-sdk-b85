@@ -19,9 +19,6 @@ int app_flash_lock_restore_enabled(void);
 #define FLASH_STORE_VERIFY_CHUNK  64u
 #endif
 
-#ifndef FLASH_STORE_PAGE_BYTES
-#define FLASH_STORE_PAGE_BYTES    256u
-#endif
 
 /* 检查 OTA 与 Flash 保护条件并开始修改事务。 */
 static inline void flash_store_begin_modify(void)
