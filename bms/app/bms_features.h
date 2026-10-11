@@ -112,7 +112,8 @@ void bms_features_get_status(bms_features_status_t *status);
 uint32_t bms_features_diag_reasons(uint8_t charge);
 
 /*
- * 公共 AFE 门禁施加硬阻断；方向性充电阻断较软，DVC 映射为 AUTO_DIODE，
+ * 仅汇总功能自身的硬阻断，参数/通信/输出授权由公共 AFE 门禁检查；
+ * 方向性充电阻断较软，DVC 映射为 AUTO_DIODE，
  * 以保留合法放电。
  */
 uint8_t bms_features_outputs_blocked(void);

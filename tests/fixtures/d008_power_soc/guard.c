@@ -13,6 +13,8 @@ typedef struct {int dummy;} bms_afe_openwire_result_t;
 typedef int bms_afe_diag_state_t;
 #define BMS_AFE_DIAG_ERROR 3
 static int err,block,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
+static uint8_t params_valid=1u;
+static uint8_t bms_protection_params_valid(void){return params_valid;}
 static int raised,init_fail,aux_ok=1;
 static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
 static int openwire_stop_ok=1;
@@ -49,11 +51,20 @@ static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u
 uint8_t bms_afe_enter_shutdown(void);
 /* PRODUCTION_SOURCE */
 static void reset(void){
+ params_valid=1u;block=0;
  err=raised=init_fail=0;aux_ok=1;
  balance_ok=shutdown_ok=openwire_stop_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
 }
 static void test_startup_qualification(void){
+ /* 参数门禁独立于 feature；关闭任一授权均保持 MOS 请求为 OFF。 */
+ reset();bms_afe_set_fets(1,1);
+ for(unsigned enabled=0;enabled<2;enabled++)
+ for(unsigned valid=0;valid<2;valid++)
+ for(unsigned blocked=0;blocked<2;blocked++){
+  params_valid=(uint8_t)valid;block=(int)blocked;bms_afe_set_output_enabled((uint8_t)enabled);
+  bms_afe_sample();assert(cmd_c==(int)(enabled && valid && !blocked));assert(cmd_d==cmd_c);
+ }
  reset();raised=0;bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  unsigned init_count=protection_inits;
  assert(s_guard.comm_inhibit && !err && !raised);

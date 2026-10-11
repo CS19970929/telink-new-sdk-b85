@@ -8,6 +8,7 @@
 #include "bms_features.h"
 #include "bms_error.h"
 #include "bms_sw_protection.h"
+#include "bms_parameters.h"
 #include <string.h>
 
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
@@ -172,12 +173,13 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    if (!s_guard.output_enabled)
+    /* 参数资格直接由输出门禁消费，不借加热/均衡/断线功能代为阻断。 */
+    if (!s_guard.output_enabled || !bms_protection_params_valid() ||
+        bms_features_outputs_blocked())
     {
         c = 0u;
         d = 0u;
     }
-    if (bms_features_outputs_blocked()) { c = 0u; d = 0u; }
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
     return AFE_FETS(c, d);
 }

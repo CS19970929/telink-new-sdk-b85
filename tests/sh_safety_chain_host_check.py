@@ -16,7 +16,6 @@ fixture=fixture.replace('/* PRODUCTION */',selected_source(ROOT/'bms/afe/sh36735
 fixture=fixture.replace('/* GUARD */',selected_source(ROOT/'bms/core/bms_afe_guard.c'))
 fixture+='''
 bms_protection_params_t g_bms_protection_params;
-uint8_t bms_protection_params_valid(void){return 1;}
 void bms_fault_history_record(bms_fault_code_t f){(void)f;}
 int main(void){
  g_bms_protection_params.cell_ovp_third_mv=3750;g_bms_protection_params.cell_ovp_recover_mv=3500;g_bms_protection_params.cell_ovp_filter_10ms=40;

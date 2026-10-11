@@ -68,6 +68,9 @@ static void reset(void)
 static void step(unsigned n){while(n--){test_tick+=6400u;bms_features_service();}}
 int main(void)
 {
+    /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
+    reset();params_valid=0;step(5);
+    assert(!balance && !heater && !bms_features_outputs_blocked());
     reset();step(4);assert(!balance && !feature_status().balance_voltage_trusted);
     step(1);assert(feature_status().balance_voltage_trusted);
     assert(balance==(bms_board_balance_supported()?1u:0u));

@@ -922,11 +922,10 @@ void bms_features_get_status(bms_features_status_t *status)
         (status->openwire_sample_active && s_feature.openwire_last_error != BMS_OW_ERR_NONE)) ? 1u : 0u;
 }
 
-/* 已确认断线、参数无效或真实 AFE 清理故障未恢复时保持阻断；活动检测不阻断。 */
+/* 只报告功能自身的硬阻断；参数资格由 AFE 输出门禁直接检查，活动检测不阻断。 */
 uint8_t bms_features_outputs_blocked(void)
 {
-    return (!bms_protection_params_valid() ||
-            s_feature.openwire_cleanup_pending ||
+    return (s_feature.openwire_cleanup_pending ||
             (s_feature.openwire_latched_mask != 0u)) ? 1u : 0u;
 }
 
