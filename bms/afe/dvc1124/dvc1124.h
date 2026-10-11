@@ -217,20 +217,6 @@ static inline uint8_t DVC1124_RegGenericRmwAllowed(uint8_t reg)
  */
 uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested);
 
-/* 读取并提取寄存器中的指定字段。 */
-static inline uint8_t DVC1124_ReadRegisterField(uint8_t reg,
-                                                uint8_t mask,
-                                                uint8_t shift,
-                                                uint8_t *value)
-{
-    uint8_t raw;
-
-    if ((value == 0) || (mask == 0u) || (reg > DVC1124_MAX_REGISTER)) return 0u;
-    if (DVC1124_RegReadHasSideEffect(reg)) return 0u;
-    if (!DVC1124_ReadRegisters(reg, &raw, 1u)) return 0u;
-    *value = DVC1124_FIELD_GET(mask, shift, raw);
-    return 1u;
-}
 
 /* 检查副作用和允许写位后更新寄存器字段。 */
 static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,

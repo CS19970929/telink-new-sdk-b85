@@ -56,7 +56,7 @@ static void reboot(void){
  g_bms_config_ready=0;g_bms_state_ready=0;
  memset(&g_bms_config_store,0,sizeof(g_bms_config_store));
  memset(&g_bms_state_store,0,sizeof(g_bms_state_store));
- g_bms_state_attempted=0;g_bms_state_last_failed=0;
+ g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  memset(&g_bms_event_store,0,sizeof(g_bms_event_store));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;

@@ -548,8 +548,8 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
             else if (offset == 9u) word = (uint16_t)(s_mos_overwritten >> 16);
             else if (offset == 10u) word = (uint16_t)s_mos_boot_tick;
             else if (offset == 11u) word = (uint16_t)(s_mos_boot_tick >> 16);
-            else if (offset >= 16u && offset < 48u) word = s_mos_live[offset-16u];
-            else if (offset >= 48u) {
+            else if (offset < 48u) word = s_mos_live[offset-16u];
+            else {
                 offset = (uint16_t)(offset-48u);
                 word = s_mos_history[offset / BMS_DIAG_MOS_RECORD_WORDS][offset % BMS_DIAG_MOS_RECORD_WORDS];
             }

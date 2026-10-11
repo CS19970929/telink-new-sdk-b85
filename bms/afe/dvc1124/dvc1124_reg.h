@@ -491,30 +491,5 @@ static inline uint8_t DVC1124_RegDocumentedWriteMask(uint8_t reg)
     }
 }
 
-/*
- * 仅包含稳定配置字段，排除命令/状态/运行控制：
- * ALARM/CST、FET 输出、CADC 手动校准、均衡和断线触发。
- */
-static inline uint8_t DVC1124_RegPersistentConfigMask(uint8_t reg)
-{
-    uint8_t mask = DVC1124_RegDocumentedWriteMask(reg);
-
-    switch (reg)
-    {
-    case DVC1124_REG_ALARM:
-    case DVC1124_REG_STATUS:
-    case DVC1124_REG_FET_CTRL:
-    case DVC1124_REG_BAL_24_17:
-    case DVC1124_REG_BAL_16_9:
-    case DVC1124_REG_BAL_8_1:
-        return 0u;
-    case DVC1124_REG_CADC_CTRL:
-        return (uint8_t)(mask & (uint8_t)~DVC1124_CADC_CAMZ_MASK);
-    case DVC1124_REG_CP_CTRL:
-        return (uint8_t)(mask & (uint8_t)~DVC1124_COW_MASK);
-    default:
-        return mask;
-    }
-}
 
 #endif /* 头文件保护：DVC1124_REG_H_。 */
