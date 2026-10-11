@@ -135,10 +135,10 @@ static void sample(void) {
 #if defined(MODE_TEST)
 int main(void) {
     uint8_t changed;
-    /* p16/p32：保留稳定位，不重发自清TRG；其当前值不决定配置是否改变。 */
+    /* p16/p32：保留 wake 等无关位，关闭 OWD_EN/TRG；自清 TRG 不决定是否重写。 */
     for(unsigned initial=0;initial<=255;++initial)for(unsigned load=0;load<=1;++load) {
         mode_register=(uint8_t)initial;mode_stage=mode_writes=0;
-        uint8_t target=(uint8_t)((initial&~0x0du)|(load?0x08u:0x04u));
+        uint8_t target=(uint8_t)((initial&~0x0fu)|(load?0x08u:0x04u));
         unsigned needs_write=((initial&0x7eu)!=(target&0x7eu));
         assert(sh3673510_control_set_load_detection((uint8_t)load,&changed));
         assert(mode_register==(needs_write?target:initial) && changed==needs_write);

@@ -51,7 +51,8 @@ def check_sh_factory_register_host_check():
       assert(a.sc_delay_us==oracle[expected]);
      }
      uint8_t changed;regs[0x42]=0x47;
-     assert(sh3673510_control_set_load_detection(1,&changed));assert(changed && regs[0x42]==0x4a);
+     /* 切到 LOAD 保留 wake 位，同时关闭已撤销的 OWD_EN/TRG。 */
+     assert(sh3673510_control_set_load_detection(1,&changed));assert(changed && regs[0x42]==0x48);
      /* 稳定owned位损坏必须继续拒绝；自清位不作为持久配置比较。 */
      corrupt_at=operation+3;regs[0x42]=0x44;
      assert(!sh3673510_control_set_load_detection(1,&changed));corrupt_at=0;
