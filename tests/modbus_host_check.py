@@ -27,6 +27,8 @@ def check_modbus_fuzz_host_check():
     source = read('bms/core/modbus_rtu.c')
     parts = '\n'.join(function(source, sig) for sig in (
         'static int modbus_exception(', 'static u16 u16be(', 'static void put_u16be(',
+        'static int modbus_finish_response(', 'static int modbus_read_holding(',
+        'static int modbus_write_single(', 'static int modbus_write_multiple(',
         'int modbus_on_frame('))
     constants = '\n'.join(re.findall(r'^#define MB_\w+[^\n]*', source, re.M))
     constants += '\n'+'\n'.join(re.findall(r'^#define BMS_PARAM_REG_\w+[^\n]*', read('bms/core/bms_parameter_access.h'), re.M))

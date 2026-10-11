@@ -616,6 +616,158 @@ static uint8_t sample_failed(uint16_t stage)
     return 0u;
 }
 
+/* 仅向正常电压缓存发布已完成的 VADC，未接串仍编码为 61001。 */
+static void sh3510_publish_voltage(const int32_t *cell, int32_t pack_mv)
+{
+    uint16_t max_mv = 0u, min_mv = 0xFFFFu;
+    uint8_t max_pos = 0u, min_pos = 0u, i;
+    for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
+        uint16_t mv;
+        mv = (uint16_t)cell[i];
+        g_bms_report.cell_voltage_mv[i] = mv;
+        if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
+        if (mv < min_mv) { min_mv = mv; min_pos = (uint8_t)(i + 1u); }
+    }
+    for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
+        g_bms_report.cell_voltage_mv[i] = SH3510_MISSING_CELL_MV;
+    g_bms_report.cell_max_mv = max_mv;
+    g_bms_report.cell_min_mv = min_mv;
+    g_bms_report.cell_max_index = max_pos;
+    g_bms_report.cell_min_index = min_pos;
+    g_bms_report.cell_delta_mv = (uint16_t)(max_mv - min_mv);
+
+    if (pack_mv < 0L) pack_mv = 0L;
+    s_aux.pack_voltage_mv = (uint32_t)pack_mv;
+    g_bms_report.pack_voltage_10mv = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
+}
+
+/* CADC 完成后统一转换公共电流方向，保留原舍入、饱和和时间戳。 */
+static void sh3510_publish_current(int32_t current_ma, uint32_t now)
+{
+    s_aux.raw_current_ma = (current_ma == INT32_MIN) ? INT32_MAX : -current_ma;
+    s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);
+    s_aux.sample_tick_32k = now;
+
+    /* 公共 mA 正放电；无符号取绝对值覆盖 INT32_MIN，0.1A 报告饱和。 */
+    {
+        uint32_t ma = (s_aux.current_ma < 0) ?
+            (0u - (uint32_t)s_aux.current_ma) : (uint32_t)s_aux.current_ma;
+        uint32_t a10 = (ma + 50u) / 100u;
+        if (a10 > 65535u) a10 = 65535u;
+        g_bms_report.discharge_current_a10 = (s_aux.current_ma > 0) ? (uint16_t)a10 : 0u;
+        g_bms_report.charge_current_a10 = (s_aux.current_ma < 0) ? (uint16_t)a10 : 0u;
+    }
+}
+
+/* 温度只消费本轮已读取原始值；电池、加热及 MOS 角色仍按产品选择。 */
+static void sh3510_publish_temperatures(const sh3673520_temperature_raw_t *temp)
+{
+    uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
+    uint8_t i;
+    s_mos_ntc_raw = (int16_t)temp->external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
+    memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
+    memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
+    for (i = 0u; i < 4u; ++i) {
+        uint32_t r;
+        if (SH3673520_NtcRawToOhm(temp->external_raw[i], &r) == SH3673520_OK &&
+            r >= 500u && r <= 300000u) { s_ntc_valid[i] = 1u; s_ntc_ohm[i] = r; }
+    }
+    g_bms_report.temperature_x10[AFE1_TEMP1] =
+        s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]) : 0u;
+    g_bms_report.temperature_x10[AFE1_TEMP2] =
+        s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) : 0u;
+#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
+    g_bms_report.temperature_x10[AFE1_TEMP3] =
+        s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX]) : 0u;
+#else
+    g_bms_report.temperature_x10[AFE1_TEMP3] = 0u;
+#endif
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
+    g_bms_report.temperature_x10[MOS_TEMP1] =
+        s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]) : 0u;
+#else
+    g_bms_report.temperature_x10[MOS_TEMP1] = 0u;
+#endif
+
+    /*
+     * 实时温度极值只使用经过校验的 TS1/TS2 电池温度；加热与 MOS 角色由产品定义。
+     * TS4 单独发布给 MOS 高温保护，0 仍是旧协议无效/温度断线标记。
+     */
+    if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
+        g_bms_report.temperature_min_x10 = bat_temp_min;
+        g_bms_report.temperature_max_x10 = bat_temp_max;
+    } else {
+        g_bms_report.temperature_min_x10 = 0u;
+        g_bms_report.temperature_max_x10 = 0u;
+    }
+
+    /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
+    g_bms_report.temperature_x10[ENV_TEMP3] = g_bms_report.temperature_max_x10;
+
+    if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] &&
+        s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
+        s_aux.battery_ntc_100ohm =
+            ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] < s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) ?
+             s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] : s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) / 100u;
+    else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX])
+        s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] / 100u;
+    else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
+        s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] / 100u;
+    else s_aux.battery_ntc_100ohm = 0u;
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
+    s_aux.mos_ntc_100ohm = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ?
+        s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] / 100u : 0u;
+#else
+    s_aux.mos_ntc_100ohm = 0u;
+#endif
+    s_aux.battery_ntc_mv = legacy_adc_mv(s_aux.battery_ntc_100ohm * 100u);
+    s_aux.mos_ntc_mv = legacy_adc_mv(s_aux.mos_ntc_100ohm * 100u);
+}
+
+/* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
+static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status,
+                              uint8_t voltage_diagnostic)
+{
+    bms_sw_protection_inputs_t sw;
+    memset(&sw, 0, sizeof(sw));
+    sw.voltage_sample_diagnostic = voltage_diagnostic;
+    sw.current_recovery_requires_evidence = 1u;
+    sw.current_recovery_sample_fresh = !s_sample_pending;
+    sw.charge_recovery_allowed =
+        (s_charger_removed || (status->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK));
+    sw.discharge_recovery_allowed =
+        (s_load_removed || (status->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK));
+    sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
+    sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
+                                                          &sw.battery_temp_max);
+#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
+    sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? 1u : 0u;
+    if (sw.mos_temp_valid)
+        sw.mos_temp = g_bms_report.temperature_x10[MOS_TEMP1];
+#else
+    sw.mos_temp_valid = 0u;
+    sw.mos_temp = 0u;
+#endif
+#if SH3673510_SW_PROTECT_ENABLE
+    bms_sw_protection_update(&sw);
+#else
+    bms_sw_protection_clear();
+#endif
+#if SH3673510_HW_PROTECT_ENABLE
+    merge_hw_protection_faults(status);
+    /* 待完成 CADC 可暂停恢复计数，但观察到负载重接时必须立即作废旧物理窗口。 */
+    if (!s_load_removed && !(status->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK))
+        s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
+    if (!s_charger_removed && !(status->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK))
+        s_hw_recovery_count[HW_REC_OCC] = 0u;
+    if (!service_short_recovery(status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);
+    if (!s_sample_pending && !service_hw_flag_recovery(status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);
+#endif
+    bms_sw_protection_record_fault_edges();
+    return 1u;
+}
+
+/* 完整读取和资格确认后按原顺序发布测量，再评估保护；失败交回采样入口。 */
 static uint8_t publish_measurements(void)
 {
     int32_t cell[SH3673510_BOARD_CELL_COUNT];
@@ -624,11 +776,8 @@ static uint8_t publish_measurements(void)
     sh3673520_current_raw_t current;
     sh3673520_temperature_raw_t temp;
     sh3673510_control_status_t status;
-    bms_sw_protection_inputs_t sw;
     bms_features_status_t features;
-    uint16_t max_mv = 0u, min_mv = 0xFFFFu;
-    uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
-    uint8_t max_pos = 0u, min_pos = 0u, i;
+    uint8_t i;
     uint32_t now;
 
     bms_features_get_status(&features);
@@ -674,143 +823,18 @@ static uint8_t publish_measurements(void)
         return 1u;
     }
 
-    /* 本轮采样前的激励资格与采样后最后诊断帧资格分开，不能多抑制一次正常电压。 */
+    /* 采样前激励资格不复用上一帧诊断标志；诊断期间只隔离电压发布。 */
     if ((status.flag2 & SH3673520_FLAG2_VADC_MASK) &&
-        !(features.openwire_active || features.openwire_cleanup_pending)) {
-        for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
-            uint16_t mv;
-            mv = (uint16_t)cell[i];
-            g_bms_report.cell_voltage_mv[i] = mv;
-            if (mv > max_mv) { max_mv = mv; max_pos = (uint8_t)(i + 1u); }
-            if (mv < min_mv) { min_mv = mv; min_pos = (uint8_t)(i + 1u); }
-        }
-        for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
-            g_bms_report.cell_voltage_mv[i] = SH3510_MISSING_CELL_MV;
-        g_bms_report.cell_max_mv = max_mv;
-        g_bms_report.cell_min_mv = min_mv;
-        g_bms_report.cell_max_index = max_pos;
-        g_bms_report.cell_min_index = min_pos;
-        g_bms_report.cell_delta_mv = (uint16_t)(max_mv - min_mv);
+        !(features.openwire_active || features.openwire_cleanup_pending))
+        sh3510_publish_voltage(cell, pack_mv);
+    if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
+        sh3510_publish_current(current_ma, now);
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
+        sh3510_publish_temperatures(&temp);
 
-        if (pack_mv < 0L) pack_mv = 0L;
-        s_aux.pack_voltage_mv = (uint32_t)pack_mv;
-        g_bms_report.pack_voltage_10mv = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
-    }
-
-    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) {
-        s_aux.raw_current_ma = (current_ma == INT32_MIN) ? INT32_MAX : -current_ma;
-        s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);
-        s_aux.sample_tick_32k = now;
-
-        /* 公共 mA 正放电；无符号取绝对值覆盖 INT32_MIN，0.1A 报告饱和。 */
-        {
-            uint32_t ma = (s_aux.current_ma < 0) ?
-                (0u - (uint32_t)s_aux.current_ma) : (uint32_t)s_aux.current_ma;
-            uint32_t a10 = (ma + 50u) / 100u;
-            if (a10 > 65535u) a10 = 65535u;
-            g_bms_report.discharge_current_a10 = (s_aux.current_ma > 0) ? (uint16_t)a10 : 0u;
-            g_bms_report.charge_current_a10 = (s_aux.current_ma < 0) ? (uint16_t)a10 : 0u;
-        }
-    }
-
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) {
-        s_mos_ntc_raw = (int16_t)temp.external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
-        memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
-        memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
-        for (i = 0u; i < 4u; ++i) {
-            uint32_t r;
-            if (SH3673520_NtcRawToOhm(temp.external_raw[i], &r) == SH3673520_OK &&
-                r >= 500u && r <= 300000u) { s_ntc_valid[i] = 1u; s_ntc_ohm[i] = r; }
-        }
-        g_bms_report.temperature_x10[AFE1_TEMP1] =
-            s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]) : 0u;
-        g_bms_report.temperature_x10[AFE1_TEMP2] =
-            s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) : 0u;
-#if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
-        g_bms_report.temperature_x10[AFE1_TEMP3] =
-            s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX]) : 0u;
-#else
-        g_bms_report.temperature_x10[AFE1_TEMP3] = 0u;
-#endif
-#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-        g_bms_report.temperature_x10[MOS_TEMP1] =
-            s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]) : 0u;
-#else
-        g_bms_report.temperature_x10[MOS_TEMP1] = 0u;
-#endif
-
-        /*
-         * 实时温度极值只使用经过校验的 TS1/TS2 电池温度；加热与 MOS 角色由产品定义。
-         * TS4 单独发布给 MOS 高温保护，0 仍是旧协议无效/温度断线标记。
-         */
-        if (battery_temperature_snapshot(&bat_temp_min, &bat_temp_max)) {
-            g_bms_report.temperature_min_x10 = bat_temp_min;
-            g_bms_report.temperature_max_x10 = bat_temp_max;
-        } else {
-            g_bms_report.temperature_min_x10 = 0u;
-            g_bms_report.temperature_max_x10 = 0u;
-        }
-
-        /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
-        g_bms_report.temperature_x10[ENV_TEMP3] = g_bms_report.temperature_max_x10;
-
-        if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] &&
-            s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
-            s_aux.battery_ntc_100ohm =
-                ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] < s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) ?
-                 s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] : s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) / 100u;
-        else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX])
-            s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] / 100u;
-        else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
-            s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] / 100u;
-        else s_aux.battery_ntc_100ohm = 0u;
-#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-        s_aux.mos_ntc_100ohm = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ?
-            s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] / 100u : 0u;
-#else
-        s_aux.mos_ntc_100ohm = 0u;
-#endif
-        s_aux.battery_ntc_mv = legacy_adc_mv(s_aux.battery_ntc_100ohm * 100u);
-        s_aux.mos_ntc_mv = legacy_adc_mv(s_aux.mos_ntc_100ohm * 100u);
-    }
-
-    if (!s_afe_reconfigure_required) {
-        memset(&sw, 0, sizeof(sw));
-        sw.voltage_sample_diagnostic = (features.openwire_active || features.openwire_cleanup_pending);
-        sw.current_recovery_requires_evidence = 1u;
-        sw.current_recovery_sample_fresh = !s_sample_pending;
-        sw.charge_recovery_allowed =
-            (s_charger_removed || (status.bstatus2 & SH3673520_BSTATUS2_DSGING_MASK));
-        sw.discharge_recovery_allowed =
-            (s_load_removed || (status.bstatus2 & SH3673520_BSTATUS2_CHGING_MASK));
-        sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
-        sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
-                                                              &sw.battery_temp_max);
-#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-        sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? 1u : 0u;
-        if (sw.mos_temp_valid)
-            sw.mos_temp = g_bms_report.temperature_x10[MOS_TEMP1];
-#else
-        sw.mos_temp_valid = 0u;
-        sw.mos_temp = 0u;
-#endif
-#if SH3673510_SW_PROTECT_ENABLE
-        bms_sw_protection_update(&sw);
-#else
-        bms_sw_protection_clear();
-#endif
-#if SH3673510_HW_PROTECT_ENABLE
-        merge_hw_protection_faults(&status);
-        /* 待完成 CADC 可暂停恢复计数，但观察到负载重接时必须立即作废旧物理窗口。 */
-        if (!s_load_removed && !(status.bstatus2 & SH3673520_BSTATUS2_CHGING_MASK))
-            s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
-        if (!s_charger_removed && !(status.bstatus2 & SH3673520_BSTATUS2_DSGING_MASK))
-            s_hw_recovery_count[HW_REC_OCC] = 0u;
-        if (!service_short_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);
-        if (!s_sample_pending && !service_hw_flag_recovery(&status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);
-#endif
-        bms_sw_protection_record_fault_edges();
-    }
+    if (!s_afe_reconfigure_required &&
+        !sh3510_update_protection(&status,
+            features.openwire_active || features.openwire_cleanup_pending)) return 0u;
     s_snapshot_valid = 1u;
     return 1u;
 }

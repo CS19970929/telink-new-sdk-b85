@@ -327,15 +327,34 @@ static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
     return 1u;
 }
 
+/*
+ * 只比较实际编码的字段，跳过 RAM 结构填充和固定写零的保留槽。
+ * protect/system/afe_hw 的连续 word 布局由文件顶部断言约束。
+ */
+static int bms_config_cache_equal(const bms_config_cache_t *a,
+                                  const bms_config_cache_t *b)
+{
+    return memcmp(&a->protect, &b->protect, sizeof(a->protect)) == 0 &&
+        memcmp(&a->system, &b->system, sizeof(a->system)) == 0 &&
+        memcmp(&a->afe_hw, &b->afe_hw, sizeof(a->afe_hw)) == 0 &&
+        memcmp(a->bt_name_suffix, b->bt_name_suffix, sizeof(a->bt_name_suffix)) == 0 &&
+        a->soc.current_deadband_ma == b->soc.current_deadband_ma &&
+        a->soc.ocv_rest_prepare_s == b->soc.ocv_rest_prepare_s &&
+        a->soc.ocv_error_band_percent == b->soc.ocv_error_band_percent &&
+        memcmp(&a->user, &b->user, BMS_CONFIG_USER_BUSINESS_WORDS * 2u) == 0 &&
+        a->user.current_offset_ma == b->user.current_offset_ma &&
+        a->user.current_gain_ppm == b->user.current_gain_ppm &&
+        memcmp(a->user.serial, b->user.serial, sizeof(a->user.serial)) == 0 &&
+        memcmp(a->ota_update_id, b->ota_update_id, sizeof(a->ota_update_id)) == 0;
+}
+
 /* 保存完整配置缓存并返回持久化结果。 */
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
-    u8 previous[BMS_CONFIG_PAYLOAD_BYTES];
-    bms_config_encode(cfg, payload);
-    bms_config_encode(&g_bms_config, previous);
     if (g_bms_config_store.has_latest && !g_bms_config_needs_save &&
-        memcmp(payload, previous, sizeof(payload)) == 0) return 1;
+        bms_config_cache_equal(cfg, &g_bms_config)) return 1;
+    bms_config_encode(cfg, payload);
     if (!storage_record_save(&g_bms_config_store, payload)) {
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
     }

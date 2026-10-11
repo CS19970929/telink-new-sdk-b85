@@ -139,7 +139,6 @@ bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *ou
         out->open_cell_mask = 0u;
         for (i = 0u; i < raw.cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
         {
-            out->diagnostic_cell_mv[i] = raw.cell_mv[i];
             /*
              * DS V1.1 第 15 页规定 100 uA 下拉并由 MCU 据测量判断。
              * 0 mV 是本项目现有判据，手册未将其定义为断线充要条件；

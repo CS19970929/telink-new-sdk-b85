@@ -1648,11 +1648,33 @@ static void dvc_publish_current_report(int32_t current_ma)
     else g_bms_report.discharge_current_a10 = (uint16_t)a10;
 }
 
-/* 采集 DVC 测量和状态并更新驱动快照。 */
-void DVC1124_App_AFEGet(void)
+/* 新 CC2 才推进电流时间；校准、启动零偏及 0.1A 报告死区保持原顺序。 */
+static void dvc_publish_current_measurement(const uint8_t *data, uint32_t now)
 {
-    uint8_t data[DVC_MEAS_BYTES];
-    uint16_t v1p8_code;
+    uint32_t raw20;
+    int32_t cc2;
+    int32_t current_ma;
+    int32_t factory_current_ma;
+    raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
+            ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
+            ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
+    cc2 = dvc_sign_extend20(raw20);
+    current_ma = dvc_cc2_to_raw_current_ma(cc2);
+    s_snapshot.raw_current_ma = current_ma;
+    factory_current_ma = bms_config_calibrate_current(current_ma);
+    current_ma = dvc_apply_boot_zero(factory_current_ma);
+    s_snapshot.current_ma = current_ma;
+
+    dvc_publish_current_report(current_ma);
+
+    s_current_seen = 1u;
+    s_current_tick = now;
+    s_snapshot.sample_tick_32k = now;
+}
+
+/* VADC 诊断期间保留正常电压缓存，原始诊断值仍交给 Open-Wire 所有者。 */
+static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage_diagnostic)
+{
     uint32_t common_mode_mv = 0u;
     uint32_t total_mv = 0u;
     uint16_t max_mv = 0u;
@@ -1660,10 +1682,101 @@ void DVC1124_App_AFEGet(void)
     uint8_t max_pos = 0u;
     uint8_t min_pos = 0u;
     uint8_t i;
-    uint32_t raw20;
-    int32_t cc2;
-    int32_t current_ma;
-    int32_t factory_current_ma;
+    s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
+    s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
+    s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
+
+    for (i = 0u; i < s_cfg.cell_count; ++i)
+    {
+        uint8_t reg = (uint8_t)(DVC1124_REG_CELL1_H + (uint8_t)(i * 2u));
+        uint16_t raw_cell = dvc_be16(&data[reg]);
+        uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
+
+        if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)
+            s_openwire_result.cell_mv[i] = mv;
+        /* 采样前只看仍在运行的激励，上一帧诊断标志由采样后的 SOC 消费。 */
+        if (!voltage_diagnostic) {
+            s_snapshot.cell_mv[i] = mv;
+            g_bms_report.cell_voltage_mv[i] = mv;
+        }
+        total_mv += mv;
+        common_mode_mv += mv;
+        if (mv > max_mv) { max_mv = mv; max_pos = i; }
+        if (mv < min_mv) { min_mv = mv; min_pos = i; }
+    }
+    for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
+    for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
+
+    if (!voltage_diagnostic) {
+        g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
+        g_bms_report.cell_max_mv = max_mv;
+        g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
+        g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
+        g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
+        g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
+    }
+}
+
+/* 仅新 VADC 推进 NTC 连续资格；无效通道仍立即撤销，温度角色和换算不变。 */
+static void dvc_publish_temperature_measurement(const uint8_t *data)
+{
+    uint16_t v1p8_code;
+    uint8_t i;
+    v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
+    for (i = 0u; i < DVC1124_MAX_GP; ++i)
+    {
+        uint8_t reg = (uint8_t)(DVC1124_REG_GP1_H + (uint8_t)(i * 2u));
+        uint16_t gp_code = dvc_be16(&data[reg]);
+        uint32_t r_ohm = 0u;
+        uint8_t ntc_ok;
+
+        s_snapshot.gp_code[i] = gp_code;
+        ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
+
+        if (i < 4u) {
+            /* 一次无效立即禁止；恢复需该通道连续三次新的有效温度转换。
+             * 未合格时电阻置零，让保护、heater/balance 和报告共用同一有效性。 */
+            if (!ntc_ok) s_ntc_valid_samples[i] = 0u;
+            else if (s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES)
+                ++s_ntc_valid_samples[i];
+            ntc_ok = (s_ntc_valid_samples[i] >= DVC_NTC_VALID_SAMPLES) ? 1u : 0u;
+            if (!ntc_ok) r_ohm = 0u;
+            g_bms_report.temperature_x10[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
+        }
+        s_snapshot.ntc_res_ohm[i] = r_ohm;
+    }
+
+    /* TEMP_BREAK 只由公共软件保护按 GP2/GP3/GP4 的有效性维护。 */
+
+    {
+        /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */
+        int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
+        int32_t report_temp = die_x10 + 400;
+        if (report_temp < 0) report_temp = 0;
+        if (report_temp > 65535) report_temp = 65535;
+        s_snapshot.die_temp_x10 = (int16_t)die_x10;
+        g_bms_report.temperature_x10[4] = (uint16_t)report_temp;
+    }
+
+    {
+        uint16_t tmax = 0u;
+        uint16_t tmin = 0xFFFFu;
+        for (i = 0u; i < 5u; ++i)
+        {
+            uint16_t t = g_bms_report.temperature_x10[i];
+            if (t == 0u) continue;
+            if (t > tmax) tmax = t;
+            if (t < tmin) tmin = t;
+        }
+        g_bms_report.temperature_max_x10 = tmax;
+        g_bms_report.temperature_min_x10 = (tmin == 0xFFFFu) ? 0u : tmin;
+    }
+}
+
+/* 采集 DVC 测量和状态并更新驱动快照。 */
+void DVC1124_App_AFEGet(void)
+{
+    uint8_t data[DVC_MEAS_BYTES];
     uint8_t write_addr;
     uint32_t now = pm_get_32k_tick();
     bms_features_status_t features;
@@ -1707,109 +1820,13 @@ void DVC1124_App_AFEGet(void)
     s_snapshot.status = data[DVC1124_REG_STATUS];
     s_snapshot.write_addr = write_addr;
     s_snapshot.cell_count = s_cfg.cell_count;
-    if (s_snapshot.current_fresh) {
-        raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
-                ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
-                ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
-        cc2 = dvc_sign_extend20(raw20);
-        current_ma = dvc_cc2_to_raw_current_ma(cc2);
-        s_snapshot.raw_current_ma = current_ma;
-        factory_current_ma = bms_config_calibrate_current(current_ma);
-        current_ma = dvc_apply_boot_zero(factory_current_ma);
-        s_snapshot.current_ma = current_ma;
-
-        dvc_publish_current_report(current_ma);
-
-        s_current_seen = 1u;
-        s_current_tick = now;
-        s_snapshot.sample_tick_32k = now;
-    }
+    if (s_snapshot.current_fresh)
+        dvc_publish_current_measurement(data, now);
 
     if (s_snapshot.voltage_fresh) {
-        s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
-        s_snapshot.pack_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VPACK_H]) * 128u + 5u) / 10u;
-        s_snapshot.load_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VLOAD_H]) * 128u + 5u) / 10u;
-
-        for (i = 0u; i < s_cfg.cell_count; ++i)
-        {
-            uint8_t reg = (uint8_t)(DVC1124_REG_CELL1_H + (uint8_t)(i * 2u));
-            uint16_t raw_cell = dvc_be16(&data[reg]);
-            uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
-
-            if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)
-                s_openwire_result.cell_mv[i] = mv;
-            /* 采样前只看仍在运行的激励，上一帧诊断标志由采样后的 SOC 消费。 */
-            if (!(features.openwire_active || features.openwire_cleanup_pending)) {
-                s_snapshot.cell_mv[i] = mv;
-                g_bms_report.cell_voltage_mv[i] = mv;
-            }
-            total_mv += mv;
-            common_mode_mv += mv;
-            if (mv > max_mv) { max_mv = mv; max_pos = i; }
-            if (mv < min_mv) { min_mv = mv; min_pos = i; }
-        }
-        for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
-        for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
-
-        if (!(features.openwire_active || features.openwire_cleanup_pending)) {
-            g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
-            g_bms_report.cell_max_mv = max_mv;
-            g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
-            g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
-            g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
-            g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
-        }
-
-        v1p8_code = dvc_be16(&data[DVC1124_REG_V1P8_H]);
-        for (i = 0u; i < DVC1124_MAX_GP; ++i)
-        {
-            uint8_t reg = (uint8_t)(DVC1124_REG_GP1_H + (uint8_t)(i * 2u));
-            uint16_t gp_code = dvc_be16(&data[reg]);
-            uint32_t r_ohm = 0u;
-            uint8_t ntc_ok;
-
-            s_snapshot.gp_code[i] = gp_code;
-            ntc_ok = dvc_ntc_resistance(gp_code, v1p8_code, s_snapshot.rpu_ohm, &r_ohm);
-
-            if (i < 4u) {
-                /* 一次无效立即禁止；恢复需该通道连续三次新的有效温度转换。
-                 * 未合格时电阻置零，让保护、heater/balance 和报告共用同一有效性。 */
-                if (!ntc_ok) s_ntc_valid_samples[i] = 0u;
-                else if (s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES)
-                    ++s_ntc_valid_samples[i];
-                ntc_ok = (s_ntc_valid_samples[i] >= DVC_NTC_VALID_SAMPLES) ? 1u : 0u;
-                if (!ntc_ok) r_ohm = 0u;
-                g_bms_report.temperature_x10[i] = ntc_ok ? dvc_ntc_temp_report(r_ohm) : 0u;
-            }
-            s_snapshot.ntc_res_ohm[i] = r_ohm;
-        }
-
-        /* TEMP_BREAK 只由公共软件保护按 GP2/GP3/GP4 的有效性维护。 */
-
-        {
-            /* V1.2：T = VCT*0.24467 - 271.03 ℃；整数单位为 0.1 ℃。 */
-            int32_t die_x10 = ((int32_t)dvc_be16(&data[DVC1124_REG_VCT_H]) * 24467) / 10000 - 2710;
-            int32_t report_temp = die_x10 + 400;
-            if (report_temp < 0) report_temp = 0;
-            if (report_temp > 65535) report_temp = 65535;
-            s_snapshot.die_temp_x10 = (int16_t)die_x10;
-            g_bms_report.temperature_x10[4] = (uint16_t)report_temp;
-        }
-
-        {
-            uint16_t tmax = 0u;
-            uint16_t tmin = 0xFFFFu;
-            for (i = 0u; i < 5u; ++i)
-            {
-                uint16_t t = g_bms_report.temperature_x10[i];
-                if (t == 0u) continue;
-                if (t > tmax) tmax = t;
-                if (t < tmin) tmin = t;
-            }
-            g_bms_report.temperature_max_x10 = tmax;
-            g_bms_report.temperature_min_x10 = (tmin == 0xFFFFu) ? 0u : tmin;
-        }
-
+        dvc_publish_voltage_measurement(data,
+            features.openwire_active || features.openwire_cleanup_pending);
+        dvc_publish_temperature_measurement(data);
         s_voltage_seen = 1u;
         s_voltage_since_current = 1u;
         s_voltage_tick = now;

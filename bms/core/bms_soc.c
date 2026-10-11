@@ -802,15 +802,9 @@ static void soc_reset_ocv_tracking(void)
     g_soc_runtime.ocv_high = 0u;
 }
 
-/* 推进静置确认和 OCV 校正，处理断线检测暂停。 */
-static uint8_t soc_idle_ocv_tracking(void)
+/* 确认本轮 OCV 电压资格，集中处理诊断暂停、超时及正常新帧恢复。 */
+static uint8_t soc_ocv_voltage_ready(uint16_t *mv)
 {
-    uint16_t mv;
-    uint16_t diff;
-    uint32_t prepare_ticks;
-    uint32_t confidence;
-    uint8_t current_soc;
-
     if (g_soc_input.voltage_diagnostic ||
         g_soc_runtime.ocv_openwire_phase != SOC_OCV_OPENWIRE_NONE)
         soc_trace_ocv_inputs(SOC_TRACE_OCV_COW_INPUT);
@@ -848,12 +842,12 @@ static uint8_t soc_idle_ocv_tracking(void)
         return 0u;
     }
 
-    mv = soc_weighted_cell_mv();
+    *mv = soc_weighted_cell_mv();
     if (g_soc_runtime.ocv_openwire_phase != SOC_OCV_OPENWIRE_NONE) {
         if ((uint32_t)(g_soc_input.timestamp_32k -
                        g_soc_runtime.ocv_openwire_started_32k) >
             SOC_OCV_OPENWIRE_MAX_PAUSE_32K ||
-            soc_abs_diff_u16(mv, g_soc_runtime.idle_ocv_last_mv) >
+            soc_abs_diff_u16(*mv, g_soc_runtime.idle_ocv_last_mv) >
             SOC_OCV_IDLE_SLOPE_MAX_MV) {
             soc_reset_ocv_tracking();
             return 0u;
@@ -879,6 +873,19 @@ static uint8_t soc_idle_ocv_tracking(void)
         }
         g_soc_runtime.ocv_openwire_phase = SOC_OCV_OPENWIRE_NONE;
     }
+    return 1u;
+}
+
+/* 推进静置确认和 OCV 校正，处理断线检测暂停。 */
+static uint8_t soc_idle_ocv_tracking(void)
+{
+    uint16_t mv;
+    uint16_t diff;
+    uint32_t prepare_ticks;
+    uint32_t confidence;
+    uint8_t current_soc;
+
+    if (!soc_ocv_voltage_ready(&mv)) return 0u;
     if (!g_soc_runtime.idle_ocv_mv_valid) {
         g_soc_runtime.idle_ocv_last_mv = mv;
         g_soc_runtime.idle_ocv_mv_valid = 1u;

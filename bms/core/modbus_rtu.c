@@ -465,6 +465,156 @@ static void put_u16be(u8 *p, u16 v)
     p[1] = (u8)(v & 0xFFu);
 }
 
+/* 统一追加正常响应 CRC；广播仍完成既有处理但不发送响应。 */
+static int modbus_finish_response(u8 *rsp, u32 payload_len, u32 *rsp_len)
+{
+    u16 crc = mb_crc16(rsp, payload_len);
+    rsp[payload_len] = (u8)(crc & 0xFFu);
+    rsp[payload_len + 1u] = (u8)(crc >> 8);
+    *rsp_len = payload_len + 2u;
+    return rsp[0] != 0x00u;
+}
+
+/* 0x03：先校验完整地址范围，再编码原有读取窗口。 */
+static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
+{
+    u8 addr = req[0];
+    u8 func = req[1];
+    u16 reg;
+    u16 qty;
+    u32 bytes;
+    u16 i;
+
+    if (req_len != 8u) return 0;
+    reg = u16be(&req[2]);
+    qty = u16be(&req[4]);
+    if (qty == 0u || qty > 0x7Du)
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
+
+    if ((u32)reg + qty > 65536u)
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    if (bms_debug_log_overlaps(reg, qty)) {
+        if (!bms_debug_log_read(reg, qty, &rsp[3]))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    } else if (bms_diag_overlaps(reg, qty)) {
+        if (!bms_diag_read(reg, qty, &rsp[3]))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    } else if (reg == BMS_EVENT_LOG_REG_BASE && qty <= BMS_EVENT_LOG_REG_COUNT) {
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
+    } else {
+        /* 先校验整个范围；非法尾地址不能造成部分读取。 */
+        for (i = 0u; i < qty; ++i)
+            if (!read_address_supported((u16)(reg + i)))
+                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
+    }
+    bytes = (u32)qty * 2u;
+    rsp[0] = addr;
+    rsp[1] = func;
+    rsp[2] = (u8)bytes;
+
+    return modbus_finish_response(rsp, 3u + bytes, rsp_len);
+}
+
+/* 0x06：单寄存器候选提交成功后才回显，广播副作用保持原语义。 */
+static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
+{
+    u8 addr = req[0];
+    u8 func = req[1];
+    u16 reg;
+    u16 val;
+    u8 exception;
+    bms_protection_params_t candidate;
+    int protect_changed;
+
+    if (req_len != 8u) return 0;
+    reg = u16be(&req[2]);
+    val = u16be(&req[4]);
+    if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    protect_changed = reg_requires_param_save(reg);
+    if (protect_changed) {
+        candidate = g_bms_protection_params;
+        memcpy((u8 *)&candidate + (reg - 0x2100u) * 2u, &val, sizeof(val));
+        exception = commit_protection_update(&candidate);
+    } else {
+        exception = write_reg(reg, val);
+    }
+    if (exception != 0u)
+        return modbus_exception(addr, func, exception, rsp, rsp_len);
+
+    if (addr == 0x00u) return 0;
+    memcpy(rsp, req, req_len);
+    *rsp_len = req_len;
+    return 1;
+}
+
+/* 0x10：整帧校验并只提交一个状态所有者，AFE 仍要求完整授权事务。 */
+static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
+{
+    u8 addr = req[0];
+    u8 func = req[1];
+    u16 reg;
+    u16 qty;
+    u8 bytecnt;
+    const u8 *pdata;
+    u16 i;
+    u8 exception;
+    bms_protection_params_t candidate;
+
+    if (req_len < 9u) return 0;
+    reg = u16be(&req[2]);
+    qty = u16be(&req[4]);
+    if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    bytecnt = req[6];
+
+    if (qty == 0u || qty > 0x7Bu)
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
+    if (bytecnt != (u8)(qty * 2u))
+        return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
+    if (req_len != (u32)(7u + bytecnt + 2u)) return 0;
+
+    pdata = &req[7];
+    if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
+        if (addr == 0x00u) return 0;
+        if (qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
+        exception = afe_hw_profile_write_block(pdata, qty);
+        if (exception != 0u)
+            return modbus_exception(addr, func, exception, rsp, rsp_len);
+    } else {
+        if (afe_hw_profile_is_reg(reg) || afe_hw_profile_is_reg((u16)(reg + qty - 1u)))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+
+        /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
+        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
+            exception=bms_parameter_write(reg,qty,pdata);
+        } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
+            exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
+        } else if (reg>=0x2100u && (u32)reg+qty<=0x2141u) {
+            candidate=g_bms_protection_params;
+            for (i=0u;i<qty;++i) {
+                u16 value=u16be(&pdata[i*2u]);
+                memcpy((u8 *)&candidate+(reg-0x2100u+i)*2u,&value,sizeof(value));
+            }
+            exception=commit_protection_update(&candidate);
+        } else if (qty==1u) {
+            exception=write_reg(reg,u16be(pdata));
+        } else exception=MB_EX_ILLEGAL_ADDRESS;
+        if (exception) return modbus_exception(addr,func,exception,rsp,rsp_len);
+    }
+
+    if (addr == 0x00u) return 0;
+    rsp[0] = addr;
+    rsp[1] = func;
+    put_u16be(&rsp[2], reg);
+    put_u16be(&rsp[4], qty);
+    return modbus_finish_response(rsp, 6u, rsp_len);
+}
+
 /*
  * UART/BLE 的共同协议入口；先检查长度、地址、CRC，再分派请求，
  * 返回值表示是否生成响应。
@@ -506,150 +656,13 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
         return 1;
     }
 
-    if (func == 0x03u)
+    switch (func)
     {
-        u16 reg;
-        u16 qty;
-        u32 bytes;
-        u32 l;
-        u16 i;
-
-        if (req_len != 8u) return 0;
-        reg = u16be(&req[2]);
-        qty = u16be(&req[4]);
-        if (qty == 0u || qty > 0x7Du)
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-
-        if ((u32)reg + qty > 65536u)
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        if (bms_debug_log_overlaps(reg, qty)) {
-            if (!bms_debug_log_read(reg, qty, &rsp[3]))
-                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        } else if (bms_diag_overlaps(reg, qty)) {
-            if (!bms_diag_read(reg, qty, &rsp[3]))
-                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        } else if (reg == BMS_EVENT_LOG_REG_BASE && qty <= BMS_EVENT_LOG_REG_COUNT) {
-            for (i = 0u; i < qty; ++i)
-                put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
-        } else {
-            /* 先校验整个范围；非法尾地址不能造成部分读取。 */
-            for (i = 0u; i < qty; ++i)
-                if (!read_address_supported((u16)(reg + i)))
-                    return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-            for (i = 0u; i < qty; ++i)
-                put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
-        }
-        bytes = (u32)qty * 2u;
-        rsp[0] = addr;
-        rsp[1] = func;
-        rsp[2] = (u8)bytes;
-
-        l = 3u + bytes;
-        crc = mb_crc16(rsp, l);
-        rsp[l] = (u8)(crc & 0xFFu);
-        rsp[l + 1u] = (u8)(crc >> 8);
-        *rsp_len = l + 2u;
-        return (addr != 0x00u);
+    case 0x03u: return modbus_read_holding(req, req_len, rsp, rsp_len);
+    case 0x06u: return modbus_write_single(req, req_len, rsp, rsp_len);
+    case 0x10u: return modbus_write_multiple(req, req_len, rsp, rsp_len);
+    default: return modbus_exception(addr, func, MB_EX_ILLEGAL_FUNCTION, rsp, rsp_len);
     }
-
-    if (func == 0x06u)
-    {
-        u16 reg;
-        u16 val;
-        u8 exception;
-        bms_protection_params_t candidate;
-        int protect_changed;
-
-        if (req_len != 8u) return 0;
-        reg = u16be(&req[2]);
-        val = u16be(&req[4]);
-        if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        protect_changed = reg_requires_param_save(reg);
-        if (protect_changed) {
-            candidate = g_bms_protection_params;
-            memcpy((u8 *)&candidate + (reg - 0x2100u) * 2u, &val, sizeof(val));
-            exception = commit_protection_update(&candidate);
-        } else {
-            exception = write_reg(reg, val);
-        }
-        if (exception != 0u)
-            return modbus_exception(addr, func, exception, rsp, rsp_len);
-
-        if (addr == 0x00u) return 0;
-        memcpy(rsp, req, req_len);
-        *rsp_len = req_len;
-        return 1;
-    }
-
-    if (func == 0x10u)
-    {
-        u16 reg;
-        u16 qty;
-        u8 bytecnt;
-        const u8 *pdata;
-        u16 i;
-        u8 exception;
-        bms_protection_params_t candidate;
-
-        if (req_len < 9u) return 0;
-        reg = u16be(&req[2]);
-        qty = u16be(&req[4]);
-        if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        bytecnt = req[6];
-
-        if (qty == 0u || qty > 0x7Bu)
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-        if (bytecnt != (u8)(qty * 2u))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-        if (req_len != (u32)(7u + bytecnt + 2u)) return 0;
-
-        pdata = &req[7];
-        if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
-            if (addr == 0x00u) return 0;
-            if (qty != BMS_AFE_HW_PROFILE_WORD_COUNT)
-                return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
-            exception = afe_hw_profile_write_block(pdata, qty);
-            if (exception != 0u)
-                return modbus_exception(addr, func, exception, rsp, rsp_len);
-            rsp[0] = addr; rsp[1] = func; put_u16be(&rsp[2], reg); put_u16be(&rsp[4], qty);
-            crc = mb_crc16(rsp, 6u); rsp[6] = (u8)(crc & 0xFFu); rsp[7] = (u8)(crc >> 8); *rsp_len = 8u;
-            return 1;
-        }
-        if (afe_hw_profile_is_reg(reg) || afe_hw_profile_is_reg((u16)(reg + qty - 1u)))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-
-        /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
-        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
-            exception=bms_parameter_write(reg,qty,pdata);
-        } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
-            exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
-        } else if (reg>=0x2100u && (u32)reg+qty<=0x2141u) {
-            candidate=g_bms_protection_params;
-            for (i=0u;i<qty;++i) {
-                u16 value=u16be(&pdata[i*2u]);
-                memcpy((u8 *)&candidate+(reg-0x2100u+i)*2u,&value,sizeof(value));
-            }
-            exception=commit_protection_update(&candidate);
-        } else if (qty==1u) {
-            exception=write_reg(reg,u16be(pdata));
-        } else exception=MB_EX_ILLEGAL_ADDRESS;
-        if (exception) return modbus_exception(addr,func,exception,rsp,rsp_len);
-
-        if (addr == 0x00u) return 0;
-        rsp[0] = addr;
-        rsp[1] = func;
-        put_u16be(&rsp[2], reg);
-        put_u16be(&rsp[4], qty);
-        crc = mb_crc16(rsp, 6u);
-        rsp[6] = (u8)(crc & 0xFFu);
-        rsp[7] = (u8)(crc >> 8);
-        *rsp_len = 8u;
-        return 1;
-    }
-
-    return modbus_exception(addr, func, MB_EX_ILLEGAL_FUNCTION, rsp, rsp_len);
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510

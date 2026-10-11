@@ -92,7 +92,6 @@ typedef struct {
     uint8_t error;
     uint32_t raw_phase[2];
     uint32_t open_cell_mask;
-    uint16_t diagnostic_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
 } bms_afe_openwire_result_t;
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);

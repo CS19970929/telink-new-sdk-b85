@@ -146,6 +146,30 @@ static void test_config_codec_layout(void)
  printf("BMS_EVIDENCE {\"config_codec\":{\"cases\":10000,\"payload_bytes\":322,\"user_native_bytes\":%u,\"calibration_native_offset\":%u}}\n",
         (unsigned)sizeof(bms_user_params_t),(unsigned)offsetof(bms_user_params_t,current_offset_ma));
 }
+static void test_config_cache_equality(void)
+{
+ bms_config_cache_t base,candidate;
+ u8 encoded_base[BMS_CONFIG_PAYLOAD_BYTES],encoded_candidate[BMS_CONFIG_PAYLOAD_BYTES];
+ /* 用真实 codec 作行为依据；逐位覆盖持久字段和 native ABI 填充。 */
+ memset(&base,0xa5,sizeof(base));bms_config_encode(&base,encoded_base);
+ assert(bms_config_cache_equal(&base,&base));
+ for(unsigned byte=0;byte<sizeof(base);++byte){
+  for(unsigned bit=0;bit<8u;++bit){
+   memcpy(&candidate,&base,sizeof(candidate));
+   ((u8*)&candidate)[byte]^=(u8)(1u<<bit);
+   bms_config_encode(&candidate,encoded_candidate);
+   assert(bms_config_cache_equal(&base,&candidate)==
+          (memcmp(encoded_base,encoded_candidate,sizeof(encoded_base))==0));
+  }
+ }
+ fresh();assert(g_bms_config_store.has_latest);
+ u32 before=programs;
+ assert(bms_config_save_cache(&g_bms_config));assert(programs==before);
+ /* OTA/默认配置待提交时，即使字段相同也不能被 no-op 跳过。 */
+ g_bms_config_needs_save=1u;
+ assert(bms_config_save_cache(&g_bms_config));
+ assert(programs>before && !g_bms_config_needs_save);
+}
 static void test_config_schema(void){
  /* CRC 有效也不能让超宽化学体系/profile 截断为 u8 AUTO 后放行。 */
  fresh();bms_config_cache_t malformed=g_bms_config;
@@ -577,4 +601,4 @@ static void test_event_semantics(void){
  puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
 }
 
-int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

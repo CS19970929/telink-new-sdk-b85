@@ -15,6 +15,9 @@ table = driver[table_start:driver.index('};', table_start) + 2]
 production = constants + '\n' + table + '\n'
 for signature in ('static uint16_t dvc_ntc_temp_report(',
                   'static uint8_t dvc_ntc_resistance(',
+                  'static void dvc_publish_current_measurement(',
+                  'static void dvc_publish_voltage_measurement(',
+                  'static void dvc_publish_temperature_measurement(',
                   'void DVC1124_App_AFEGet('):
     production += function(driver, signature) + '\n'
 for signature in ('static uint16_t dvc_get_configured_temperature(',
@@ -30,7 +33,9 @@ production += function(feature, 'static uint8_t dvc_ntc_valid(') + '\n'
 production += function(feature, 'static uint16_t dvc_temp(') + '\n'
 production += function(feature, 'uint8_t dvc1124_backend_get_feature_snapshot(') + '\n'
 # 原始采集层不能独立清除公共 NTC 错误；公共保护统一读取两个电池探头和 MOS 探头。
-assert 'BMS_ERROR_TEMP_BREAK' not in function(driver, 'void DVC1124_App_AFEGet(')
+for signature in ('void DVC1124_App_AFEGet(',
+                  'static void dvc_publish_temperature_measurement('):
+    assert 'BMS_ERROR_TEMP_BREAK' not in function(driver, signature)
 reset = function(driver, 'void DVC1124_AFE_Reset(')
 assert 'memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples))' in reset
 code = read('tests/fixtures/dvc_ntc_scenarios.c').replace('/* PRODUCTION STATE */', state)
