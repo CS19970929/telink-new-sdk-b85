@@ -76,7 +76,7 @@ try {
 | 软件保护 | `core_contract_check.py`、`sw_temperature_groups_host_check.py` |
 | AFE 参数/恢复 | `afe_hw_*`、所选后端 recovery/sleep tests |
 | 参数/存储/OTA 分组更新 | `storage_host_check.py`（四产品公共存储）、`flash_quick_check.py`、Modbus 检查 |
-| SOC | `core_contract_check.py`、`soc_scenarios_host_check.py`、对应方向/open-wire tests |
+| SOC | `core_contract_check.py`、`soc_scenarios_host_check.py`、对应方向/采样有效性 tests |
 | 日志/协议 | `diagnostics_host_check.py`、`modbus_host_check.py` |
 
 ## 3. 可移植核心与静态分析

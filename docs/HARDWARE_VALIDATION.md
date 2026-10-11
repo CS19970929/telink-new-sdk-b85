@@ -27,7 +27,7 @@
 - [ ] SCD 已按产品确认默认开启 200 A / 请求 256 µs（名义量化延时 249.92 µs，整数读回 250 µs）；实测短路动作、Gate/Vgs、MOS SOA、持续短路/恢复及 OTA/回退。签核固定 WDT/body-diode/AUTO_DIODE 的动作与裕量。
 - [ ] 同口单侧保护后反向续流，不出现周期性关断；真实 I2C dead-bus 的自主关 MOS。
 - [ ] PC4 整机断电与 PA0/ACC 保电 deep sleep 分别验证保存失败、AFE shutdown 失败及重复唤醒。
-- [ ] heater 在充电会话下的 ARMING/ACTIVE、拔充电器空载/反供；COW 诊断帧与均衡互锁。
+- [ ] heater 在充电会话下的 ARMING/ACTIVE、拔充电器空载/反供；加热与均衡互锁。
 
 ## D011 专属
 
@@ -53,7 +53,7 @@
 
 ### 1. P0：首次上板
 
-- [ ] VC1..VC8 逐通道电压正确；VC9..VC20 未使用通道不会进入 min/max、保护、SOC、balance、open-wire。
+- [ ] VC1..VC8 逐通道电压正确；VC9..VC20 未使用通道不会进入 min/max、保护、SOC、balance。
 - [ ] 3×2mΩ 并联分流路径实测；确认等效阻值、Kelvin 采样方向、零点、增益和温漂。当前软件模型为 667µΩ。
 - [ ] 充电/放电电流符号与 `charge_current_a10/discharge_current_a10` 一致；SOC 积分方向正确。
 - [ ] AFE SPI Mode 3 / 500kHz：初始化、连续采样、CRC/ACK、异常恢复。
@@ -76,12 +76,12 @@
 - [ ] TS4 MOS 10K-3435：核对用户确认的实装 BOM 与图纸 RN4=10M 差异；做低/中/高温点和开短路实测。
 - [ ] 验证 TS4 开短路使 `BMS_ERROR_TEMP_BREAK` 关断 CHG/DSG；MOS 75/85/95°C 软件保护及 80°C 恢复按实际持久参数验证。
 
-### 4. Balance / Open-Wire
+### 4. Balance 与主动诊断删除后的边界
 
 - [ ] B1..B8 balance mask 与物理 cell 一一对应。
 - [ ] 同时均衡限制、温升、采样扰动、起停压差、充电会话条件。
-- [ ] Open-Wire 对 8S 有效通道正确，不误判未使用 VC9..VC20。
-- [ ] 断线或异常压差时 balance 不得误开。
+- [ ] 确认普通运行、重初始化和唤醒后 OWD_EN/OWD_TRG 均为 0；不再产生周期激励。
+- [ ] 异常电压/压差仍阻止均衡；采样线断开但读数合理的情况不再有主动诊断覆盖，按 [删除说明](OPENWIRE_REMOVAL.md) 记录产品验收。
 
 ### 5. 低功耗 / 唤醒
 

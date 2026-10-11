@@ -31,7 +31,7 @@ D014 只把 VC1..VC8 作为有效 cell。SH3673510 的上部未使用 cell 输�
 - 软件 OV/UV/压差；
 - SOC/OCV；
 - 均衡 mask；
-- Open-Wire 有效 cell 判断。
+- 无效串位不参与普通电压统计与保护。
 
 `SH3673510_BOARD_CELL_COUNT` 是中性板级宏，由 D014 产品头文件给出 8；不是 D011 硬件别名。
 
@@ -92,7 +92,7 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 - 起停压差；
 - 充电会话条件；
 - 温度条件；
-- Open-Wire/采样可信度互锁；
+- 测量有效性与连续可信样本资格；
 - AFE balance mask。
 
 实板发布前仍需验证相邻通道、同时均衡数量、温升、采样干扰和停止行为。
@@ -131,6 +131,6 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 - `bms/afe/sh3673510/sh3673510_bms.c`：采样、保护恢复、measurement publish。
 - `bms/core/bms_sw_protection.*`：软件三级保护。
 - `bms/core/bms_afe_hw_profile.*`：独立 AFE hardware protection profile。
-- `bms/app/bms_features.*`：balance/open-wire/heater 公共策略。
+- `bms/app/bms_features.*`：balance/heater 公共策略。
 - `tests/d014_configuration_contract_check.py`：D014 板级 contract。
 - `tests/d014_defaults_host_check.py`：执行 D014 AFE 默认 profile 构建与校验。

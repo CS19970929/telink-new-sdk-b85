@@ -1,5 +1,7 @@
 # BMS monorepo：D008 / D011 / D013 / D014
 
+本分支 `codex-remove-openwire` 从 `ee284189` 裁剪主动断线检测，见 [删除与回归说明](docs/OPENWIRE_REMOVAL.md)。
+
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
 
 当前专题与阅读顺序见 [文档导航](docs/README.md)。
@@ -66,8 +68,8 @@ python bms_tools/bms.py --product d014 resources
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默30秒Suspend及首帧唤醒 |
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |
 | [MOS 无人值守监控](docs/MOS_MONITOR.md) | 请求、命令、AFE 状态、原因、开发历史及自动写盘 |
-| [断线检测调研与双后端方案](docs/OPENWIRE_RESEARCH_AND_DESIGN.md) | 原厂检测目的、DVC/SH 差异、当前 MOS 隔离问题及待验证方案 |
-| [断线检测与实时监控](docs/OPENWIRE_MONITOR.md) | 检测过程不主动关 MOS、真实故障保护、只读状态和 Windows 自动记录 |
+| [历史：断线检测调研与双后端方案](docs/OPENWIRE_RESEARCH_AND_DESIGN.md) | 原厂检测目的、DVC/SH 差异、当前 MOS 隔离问题及待验证方案 |
+| [历史：断线检测与实时监控](docs/OPENWIRE_MONITOR.md) | 检测过程不主动关 MOS、真实故障保护、只读状态和 Windows 自动记录 |
 | [实时休眠原因与倒计时](docs/SLEEP_STATUS.md) | 四产品只读状态、剩余时间、阻止原因及 Windows 实时显示 |
 | [D014 诊断](docs/D014_DIAGNOSTICS.md) | 温度断线、MOS 阻断、诊断快照 |
 | [D014 RS485 发送诊断](docs/D014_RS485_TX_DIAG.md) | 台架模式、DMA/DE 计数和波形定位 |

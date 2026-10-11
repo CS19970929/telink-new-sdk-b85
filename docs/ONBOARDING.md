@@ -19,7 +19,7 @@ git remote -v
 | 目录 | 接手时应理解的内容 |
 |---|---|
 | `bms/products/<product>/` | 产品身份、串数/化学体系、引脚/AFE 输入、编译默认、源码清单 |
-| `bms/app/` | 启动、调度、低功耗、heater/balance/open-wire 策略 |
+| `bms/app/` | 启动、调度、低功耗、heater/balance 策略 |
 | `bms/core/` | 参数、保护、SOC、存储、协议与诊断；共享不等于全部脱离 SDK |
 | `bms/afe/` | DVC1124 与 SH3673510 两种硬件后端 |
 | `bms/platform/telink/` | main/IRQ、BLE/UART、Flash、GPIO、栈观测 |

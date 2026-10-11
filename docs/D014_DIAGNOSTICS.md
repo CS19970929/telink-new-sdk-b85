@@ -27,7 +27,7 @@ bms-cli test diag --mac <MAC> --count 3 --full --output "$diagOutput/D014_diag_t
 ```
 
 构建和 host contract 不能证明 667µΩ 电流标定、TS4 BOM、保护时序、FET 实际导通、
-RS485/CMNT-WK、8S balance/open-wire 或低功耗行为；这些仍按 `HARDWARE_VALIDATION.md` 实板验证。
+RS485/CMNT-WK、8S balance 或低功耗行为；这些仍按 `HARDWARE_VALIDATION.md` 实板验证。
 
 ## MOS 关断诊断与温度传感器策略
 

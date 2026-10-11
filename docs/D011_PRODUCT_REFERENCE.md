@@ -152,7 +152,7 @@ SCONF6 由 `sh3673510_control.c` 按持久化的 `bms_afe_hw_profile_t.enable_ma
 4. PB5 `HT-RF-EN` 不可逆 fuse 触发条件；当前安全策略是保持 LOW；
 5. SC/OCD/OCC 的最终产品阈值和实际栅极波形；
 6. TS3/TS4 BOM 文档修订；
-7. 均衡、Open-Wire、低功耗、Flash/OTA 实板验收。
+7. 均衡、低功耗、Flash/OTA 实板验收。
 
 ## 11. 2026-10-05 温度与 GPIO 修复
 

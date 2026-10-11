@@ -24,7 +24,7 @@
 ```text
 bms/
   core/                    # 公共保护、SOC、参数、存储记录、日志、Modbus、诊断、状态
-  app/                     # 公共业务调度与 heater/balance/open-wire 策略
+  app/                     # 公共业务调度与 heater/balance 策略
   afe/
     dvc1124/               # DVC 寄存器、测量、配置、诊断和恢复实现
     sh3673510/             # D011/D013/D014 共用 SH 驱动与恢复实现

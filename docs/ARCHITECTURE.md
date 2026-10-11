@@ -28,7 +28,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
-| heater/balance/open-wire 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
+| heater/balance 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
 | SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，应用输入推进 | 首轮建立基准、重复应用时间不积分、无效/GAP 不补算；有效缓存可积分，新测量确认独立 |
 | SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
 | 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
@@ -41,7 +41,7 @@ PM 的原因/elapsed/delay 是本轮局部结果，跨轮只保存计时、最�
 
 ## 3. 软件保护与 AFE 保护
 
-软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向，三级压差同时阻断充放电。SOC Low 不直接列入 MOS 关断掩码。压差保护不等待周期断线检测，软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
+软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向，三级压差同时阻断充放电。SOC Low 不直接列入 MOS 关断掩码。压差保护持续独立运行，软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
 
 AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。DVC 的初始默认仍取编译期软件默认种子，SH 初始默认来自产品能力头及 `bms/products/sh3673510_defaults.h`；不能把运行时独立误写为所有默认来源完全独立。
 
@@ -53,7 +53,7 @@ AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/ef
 
 DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
 
-参数/启动资格由 guard 直接检查，feature 只汇总自身断线故障和清理阻断。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
+参数/启动资格由 guard 直接检查；feature 的双向断线阻断已删除，加热仍可阻断充电方向。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
 
 ## 5. 产品和单位
 
@@ -70,10 +70,7 @@ DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH
 
 SH 只有完整采样读取及全串范围校验成功才发布报告；feature getter 只读同轮已验证温度，不产生 SPI。公共三新帧资格只由 guard 计数；backend 保留自己的硬件锁存、恢复窗口和命令证据。
 
-断线激励的采样前判断使用 `openwire_active || openwire_cleanup_pending`；采样后的 SOC
-使用包含最后诊断帧的 `openwire_sample_active`。普通检测失败不锁存断线疑似，但该失败帧
-发布为 `voltage_untrusted`，作废 SOC 电压资格；有效电流继续积分。异常原始位和已确认断线
-仍保留原恢复要求，不能用普通正常电压解除。
+主动采样线诊断、诊断帧隔离和 SOC 暂停/恢复状态已删除，见 [删除说明](OPENWIRE_REMOVAL.md)。新 VADC 直接更新普通电压报告；ADC 活性、guard 三次新样本、通信静默及物理恢复资格继续独立维护。
 
 UART RX IRQ 暂停 RX DMA 后交付单个缓冲区，主循环解析完才重新装载。此设计要求主站等待应答；不能保证接收任意背靠背请求。TX 全帧接受或拒绝，不截断、不覆盖活动 DMA。RS485 正常完成仍要求 DMA、UART 完成和最小线时长；超过 50 ms 在主循环中中止、重置 UART/DMA、释放 DE，再恢复 RX。
 
