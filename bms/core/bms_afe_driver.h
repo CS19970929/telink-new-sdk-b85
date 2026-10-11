@@ -28,7 +28,7 @@ uint8_t dvc1124_backend_set_fets(uint8_t,uint8_t);
 void dvc1124_backend_set_output_enabled(uint8_t);
 /* 取得后端辅助测量与有效性。 */
 uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *);
-/* 取得均衡、温度和断线策略需要的后端快照。 */
+/* 取得均衡和温度策略需要的后端快照。 */
 uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *);
 /* 返回后端可确认的充电源存在状态。 */
 uint8_t dvc1124_backend_get_charge_source_present(uint8_t *);
@@ -36,11 +36,6 @@ uint8_t dvc1124_backend_get_charge_source_present(uint8_t *);
 uint8_t dvc1124_backend_set_balance_mask(uint32_t);
 /* 取得后端缓存或回读的均衡状态掩码。 */
 uint8_t dvc1124_backend_get_balance_mask(uint32_t *);
-/* 开始后端非阻塞电芯断线检测。 */
-uint8_t dvc1124_backend_openwire_start(void);
-uint8_t dvc1124_backend_openwire_stop(void);
-/* 推进后端断线检测并返回阶段或结果。 */
-bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *);
 #elif (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510)
 /* 初始化选定 AFE 后端并应用产品配置。 */
 void sh3673510_bms_afe_init(void);
@@ -68,7 +63,7 @@ typedef struct {
 } sh3673510_fet_diag_detail_t;
 /* 取得 FET 仲裁的详细诊断字段。 */
 uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail);
-/* 取得均衡、温度和断线策略需要的后端快照。 */
+/* 取得均衡和温度策略需要的后端快照。 */
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *);
 /* 返回后端可确认的充电源存在状态。 */
 uint8_t sh3673510_backend_get_charge_source_present(uint8_t *);
@@ -76,11 +71,6 @@ uint8_t sh3673510_backend_get_charge_source_present(uint8_t *);
 uint8_t sh3673510_backend_set_balance_mask(uint32_t);
 /* 取得后端缓存或回读的均衡状态掩码。 */
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *);
-/* 开始后端非阻塞电芯断线检测。 */
-uint8_t sh3673510_backend_openwire_start(void);
-uint8_t sh3673510_backend_openwire_stop(void);
-/* 推进后端断线检测并返回阶段或结果。 */
-bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *);
 #else
 #error "Unsupported BMS_AFE_BACKEND"
 #endif

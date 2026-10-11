@@ -1,0 +1,63 @@
+"""SH 真实均衡函数：续期、回读、失败与 tick 回绕；不替代实板。"""
+from validation_support import read, without_includes, profile_prefix, run_c, evidence
+import os
+
+code = profile_prefix(os.environ.get('BMS_PRODUCT', 'd011')) + r'''
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include "bms_afe_driver.h"
+#include "bms_state.h"
+#include "bms_diag.h"
+#include "sh3673510_project_config.h"
+#include "sh3673520.h"
+#include "sh3673520_reg.h"
+static uint32_t tick;
+static uint8_t registers[256], fail_write;
+static unsigned balance_writes;
+bms_report_t g_bms_report;
+uint32_t bms_diag_tick(void) { return tick; }
+uint8_t SH3673520_IsReady(void) { return 1; }
+uint8_t sh3673510_control_set_balance(uint32_t mask) {
+    ++balance_writes;
+    if(fail_write)return 0;
+    registers[SH3673520_REG_BALANCEH]=(uint8_t)(mask>>16);
+    registers[SH3673520_REG_BALANCEH+1]=(uint8_t)(mask>>8);
+    registers[SH3673520_REG_BALANCEH+2]=(uint8_t)mask;
+    return 1;
+}
+sh3673520_status_t SH3673520_ReadReg(uint8_t reg,uint8_t *out) {
+    *out=registers[reg];
+    return SH3673520_OK;
+}
+sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *out,sh3673520_size_t count) {
+    memcpy(out,registers+reg,count);return SH3673520_OK;
+}
+sh3673520_status_t SH3673520_WriteReg(uint8_t reg,uint8_t value) {
+    if(fail_write)return SH3673520_ERR_SPI;
+    registers[reg]=value;return SH3673520_OK;
+}
+'''
+code += without_includes(read('bms/afe/sh3673510/sh3673510_feature_backend.c'))
+code += r'''
+int main(void) {
+    tick=UINT32_MAX-32000u;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
+    for(unsigned i=0;i<200;i++)assert(sh3673510_backend_set_balance_mask(1u));
+    assert(balance_writes==1u);
+    tick+=20000u*32u-1u;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
+    ++tick; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==2u);
+    tick+=20000u*32u; fail_write=1;
+    assert(!sh3673510_backend_set_balance_mask(1u));
+    fail_write=0; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==4u);
+    registers[SH3673520_REG_BALANCEH+2]=0;
+    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==5u);
+    assert(sh3673510_backend_set_balance_mask(0u)); assert(balance_writes==6u);
+    puts("PASS SH balance: refresh, tick wrap, failed write, readback and hardware timeout");
+    return 0;
+}
+'''
+out = run_c(code, name='sh-balance')
+evidence({'domain': 'balance', 'observations': out.strip(),
+          'boundary': '真实 SH 均衡函数；寄存器 peer 为替身，物理均衡电流未验证'})

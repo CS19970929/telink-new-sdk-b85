@@ -50,7 +50,7 @@ static uint8_t sh3673510_control_apply_protection(void) { return protection_ok; 
 static void note_comm_error(uint8_t stage) { (void)stage; ++comm_errors; }
 static uint8_t bms_error_get(unsigned e) { (void)e; return errors != 0; }
 static void bms_error_raise(unsigned e) { (void)e; ++errors; }
-static void bms_features_on_afe_invalid(void) { ++invalidations; heater_on = 0; }
+static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
 #define AFE_SLEEP() sh3673510_bms_afe_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)

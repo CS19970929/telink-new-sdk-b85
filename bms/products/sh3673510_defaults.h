@@ -54,10 +54,6 @@
 #define SH3673510_BOARD_CGR_WK                     1u
 #define SH3673510_BOARD_LD_WK_CODE                 SH3673520_SCONF3_LD_WK_OFF
 #define SH3673510_BOARD_CRLD_EN_CODE               SH3673520_SCONF3_CRLD_CPLUS_CODE
-#define SH3673510_BOARD_OWD_EN                     0u
-#define SH3673510_BOARD_OWD_TRG                    0u /*
- * 触发位具有命令语义，静态保持零。
- */
 #define SH3673510_BOARD_PDSGT_CODE                 SH3673520_SCONF4_PDSGT_490MS
 #define SH3673510_BOARD_MOS_EN                     SH3673510_HW_PROTECT_ENABLE /*
  * 硬件测试隔离 AFE 自主 FET 恢复。
@@ -90,7 +86,6 @@
 #define SH3673510_BOARD_CADC_INT                    1u
 #define SH3673510_BOARD_WK_INT                      1u
 #define SH3673510_BOARD_WDT_INT                     1u
-#define SH3673510_BOARD_OWD_INT                     1u
 #define SH3673510_BOARD_TEMP_INT                    1u
 #define SH3673510_BOARD_OCC_INT                     1u
 #define SH3673510_BOARD_OCD_INT                     1u

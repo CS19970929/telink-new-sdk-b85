@@ -33,13 +33,12 @@ def check_sh3673510_sample_schedule_host_check():
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
     #define MODE_FACTORY 1
-    typedef struct { int32_t raw_current_ma; int32_t current_ma; u32 sample_tick_32k; u8 sample_fresh; } bms_afe_aux_measurements_t;
+    typedef struct { int32_t raw_current_ma; int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
     static u32 s_sample_tick, fake_tick, scheduled_tick, sample_cost;
     static volatile u8 s_sample_due;
     static unsigned samples, soc_calls, diag_calls, failures;
     static u8 valid, last_valid;
     static int32_t last_current;
-    static u32 last_tick;
     static u32 clock_time(void) { return fake_tick; }
     static u32 pm_get_32k_tick(void) { return 4321; }
     static int clock_time_exceed(u32 since, u32 us) { return (u32)(fake_tick-since) > us*16u; }
@@ -49,11 +48,11 @@ def check_sh3673510_sample_schedule_host_check():
     }
     static void bms_afe_sample(void) { ++samples; fake_tick += sample_cost; }
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
-        if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; s->sample_fresh = 1; }
+        if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; }
         return valid;
     }
-    static void app_update_soc_from_sample(u8 v, int32_t c, u8 t) {
-        ++soc_calls; last_valid=v; last_current=c; last_tick=t;
+    static void app_update_soc_from_sample(u8 v, int32_t c) {
+        ++soc_calls; last_valid=v; last_current=c;
     }
     static void bms_diag_poll_runtime(u8 v, int32_t raw, int32_t c, u32 t) {
         (void)v; (void)c; (void)t; (void)raw; ++diag_calls;
@@ -65,13 +64,13 @@ def check_sh3673510_sample_schedule_host_check():
         app_sample_task(); CHECK(samples==0);
         fake_tick += APP_SAMPLE_PERIOD_US*16u + 1;
         app_sample_task(); CHECK(samples==1 && soc_calls==1 && diag_calls==1);
-        CHECK(last_valid && last_current==1234 && last_tick==1);
+        CHECK(last_valid && last_current==1234);
         CHECK(scheduled_tick==s_sample_tick+APP_SAMPLE_PERIOD_US*16u);
         app_sample_task(); CHECK(samples==1);
         app_sample_wakeup(0); app_sample_wakeup(0); CHECK(samples==1);
         app_sample_task(); CHECK(samples==2); /* multiple IRQ marks coalesce */
         valid=0; app_sample_wakeup(0); app_sample_task();
-        CHECK(!last_valid && last_current==0 && last_tick==0);
+        CHECK(!last_valid && last_current==0);
         sample_cost=APP_SAMPLE_PERIOD_US*16u+1; app_sample_wakeup(0);
         app_sample_task(); CHECK(samples==4 && s_sample_due); /* no catch-up loop */
         sample_cost=0; app_sample_task(); CHECK(samples==5 && !s_sample_due);

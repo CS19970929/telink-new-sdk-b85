@@ -142,10 +142,8 @@ def check_sh3673510_board_host_check():
     static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
     typedef struct {uint8_t bstatus2;} test_status_t;
     static test_status_t status_data;
-    static struct {uint8_t openwire_active,openwire_cleanup_pending;} features;
     static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}
     static bms_sw_protection_inputs_t sample(void){bms_sw_protection_inputs_t sw;
-     const uint8_t voltage_diagnostic=features.openwire_active||features.openwire_cleanup_pending;
      const test_status_t *status=&status_data;
     ''' + mapping + r'''
      return sw;

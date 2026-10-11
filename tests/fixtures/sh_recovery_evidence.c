@@ -68,15 +68,10 @@ uint8_t bms_afe_samples_qualified(void) { return 1; }
 #else
 void bms_features_init(void) {}
 void bms_features_service(void) {}
-void bms_features_on_afe_invalid(void) {}
-void bms_features_on_output_disabled(void) {}
-uint8_t bms_features_outputs_blocked(void) { return 0; }
+void bms_features_stop(void) {}
 uint8_t bms_protection_params_valid(void) { return 1; }
 uint8_t sh3673510_backend_set_balance_mask(uint32_t m) { (void)m;return 1; }
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *m) { *m=0;return 1; }
-uint8_t sh3673510_backend_openwire_start(void) { return 1; }
-uint8_t sh3673510_backend_openwire_stop(void) { return 1; }
-bms_afe_diag_state_t sh3673510_backend_openwire_poll(bms_afe_openwire_result_t *r) { (void)r;return BMS_AFE_DIAG_ERROR; }
 #endif
 uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }

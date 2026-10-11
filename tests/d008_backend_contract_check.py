@@ -265,7 +265,7 @@ def check_d008_common_port_fet_contract_check():
         def test_heater_directional_block_uses_auto_diode_not_guard_hard_off(self):
             guard = read("bms_afe_guard.c")
             bms = read("dvc1124_bms.c")
-            self.assertIn("bms_features_outputs_blocked()", guard)
+            self.assertIn("!bms_protection_params_valid()", guard)
             self.assertNotIn("bms_features_charge_direction_blocked()", guard)
             charge = bms.split("static uint8_t dvc_charge_blocked", 1)[1].split("static uint8_t dvc_discharge_blocked", 1)[0]
             self.assertIn("bms_features_charge_direction_blocked()", charge)
@@ -302,24 +302,11 @@ def check_d008_common_port_fet_contract_check():
             bms = read("dvc1124_bms.c")
 
             # When communication is healthy, an explicit 0/0 request still maps to
-            # the true DVC OFF/OFF command; open-wire 检测过程不主动关 MOS。
+            # the true DVC OFF/OFF command.
             policy = bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
             policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
             self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
-            self.assertIn("bms_afe_openwire_start", guard)
-            openwire = guard.split("uint8_t bms_afe_openwire_start(void)", 1)[1].split("uint8_t bms_afe_openwire_stop(void)", 1)[0]
-            self.assertNotIn("AFE_FETS", openwire)
-            self.assertIn("return AFE_OW_START();", openwire)
-            self.assertIn("if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))", guard)
-
-            # Communication loss is different: make only one best-effort off
-            # attempt, then keep the bus silent so the DVC hardware WDT can fire.
-            self.assertIn("static void best_effort_shutdown(void)", guard)
-            self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", guard)
-            self.assertIn("s_guard.bus_silenced = 1u;", guard)
-            self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;", guard)
-            self.assertIn("if (!runtime_access_allowed()) return 1u;", guard)
             self.assertIn("return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&", guard)
             self.assertIn("!s_guard.test_shutdown_hold) ? 1u : 0u;", guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)

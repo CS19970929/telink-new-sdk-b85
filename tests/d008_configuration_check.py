@@ -54,16 +54,10 @@ def check_d008_20s_profile_contract_check():
     assert 'DVC1124_CFG_ERR_READ_ONLY' in service
     assert 'DVC1124_ConfigStoreSave' not in service
 
-    # Open-wire results are raw measurements only; no unverified open-wire trip rule.
-    assert 'DVC1124_OpenWireBegin' in dvc and 'DVC1124_OpenWirePoll' in dvc
-    ow = dvc.split('void DVC1124_OpenWirePoll', 1)[1].split('void DVC1124_OpenWireGetResult', 1)[0]
-    assert 's_openwire_result.cell_mv[i] = mv' in dvc and 'OPENWIRE_READY' in ow
-    assert 'bms_error_raise' not in ow
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.
     assert '#define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u' in dvc
     assert 'DVC1124_BalanceService' in dvc
-    assert 's_openwire_result.state == DVC1124_OPENWIRE_WAITING' in dvc
 
     print('D008 20S/product safety completion contract: PASS')
 
@@ -156,7 +150,7 @@ def check_d008_framework_contract_check():
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", self.guard)
             self.assertNotIn("BMS_AFE_REINIT_COOLDOWN_SAMPLES", self.guard)
             self.assertIn("valid_snapshot_streak", self.guard)
-            self.assertIn("bms_features_on_afe_invalid", self.guard)
+            self.assertIn("bms_features_stop", self.guard)
             self.assertIn("bms_afe_bus_access_allowed", self.guard)
 
         def test_guard_owns_shutdown_wake_test_lifecycle(self):
@@ -348,13 +342,10 @@ def check_d008_framework_contract_check():
             self.assertIn("s_storage_startup_valid = 0u", self.param)
             self.assertNotIn("param_upgrade_mark_epoch", self.param)
 
-        def test_openwire_and_balance_safety_gate_remain(self):
-            self.assertIn("bms_afe_openwire_start", self.features)
+        def test_balance_safety_gate_remains(self):
             self.assertIn("apply_balance_mask(0u)", self.features)
-            self.assertIn("openwire_suspected", self.features)
             self.assertIn("balance_voltage_trusted", self.features)
             self.assertNotIn("cell_delta_first_mv", self.features)
-            self.assertIn("DVC1124_OpenWireBegin", self.dvc)
             self.assertIn("DVC1124_BalanceService", self.dvc)
 
         def test_source_order_still_contains_backend_lifecycle_unit(self):

@@ -474,7 +474,6 @@ void DVC1124_BmsApp_AFEGet(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
-    bms_features_status_t features;
     uint8_t alarm = 0u;
     uint32_t poll_tick;
 
@@ -491,21 +490,18 @@ void DVC1124_BmsApp_AFEGet(void)
         bms_diag_driver(0u, 0u); return;
     }
 
-    bms_features_get_status(&features);
 #if DVC1124_HW_PROTECT_ENABLE
     /*
      * AFE 转换完成与 200 ms 轮询不同步，正常等待不表示采样失效。
      * 每轮先维护有效采样连续性，只用新电压确认稳定时间，
      * 避免等到新电流才检查时把约 400 ms 的间隔误判为中断。
-     * 断线检测的诊断电压不能成为恢复证据。
      */
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm,
-        (uint8_t)!(features.openwire_active || features.openwire_cleanup_pending), snapshot.voltage_fresh,
+        1u, snapshot.voltage_fresh,
         poll_tick);
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
-    sw.voltage_sample_diagnostic = (features.openwire_active || features.openwire_cleanup_pending);
     /* 外部负载检测暂不用，两方向恢复均只用可靠反向电流。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;
@@ -605,6 +601,5 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
-    measurements->sample_fresh = (uint8_t)!dvc1124_backend_sample_pending();
     return 1u;
 }

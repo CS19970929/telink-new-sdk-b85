@@ -16,17 +16,10 @@ code=r'''
 #define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS 270u
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #define DIAG_EV_CURRENT_RECOVERY 1u
-#define DVC_OPENWIRE_SETTLE_US 200000u
-#define DVC_OPENWIRE_TIMEOUT_US 900000u
 static dvc1124_snapshot_t s_snapshot;
 static dvc1124_config_t s_cfg={.cell_count=4};
 static uint8_t s_need_config,s_bus_initialized,s_i2c_raw[256];
-static uint32_t s_snapshot_generation,now;
-static uint32_t s_openwire_start_generation,s_openwire_start_tick,s_balance_requested_mask;
-static uint8_t s_balance_suspended;
-static dvc1124_openwire_result_t s_openwire_result;
-static uint8_t diagnostic_active;
-void bms_features_get_status(bms_features_status_t *s){memset(s,0,sizeof(*s));s->openwire_active=diagnostic_active;}
+static uint32_t now;
 static uint8_t registers[256];
 static int corrupt_reg=-1,corrupt_count;
 static uint8_t auto_cc2_event;
@@ -50,11 +43,7 @@ void bms_diag_driver(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
 static uint32_t pm_get_32k_tick(void){return now;}
-static uint32_t clock_time(void){return now*500u;}
-static uint8_t clock_time_exceed(uint32_t t,uint32_t us){return (uint32_t)(clock_time()-t)>us*16u;}
-static uint8_t dvc_write_balance_hw(uint32_t m){(void)m;return 1;}
 uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
-uint8_t DVC1124_StartOpenWireCheck(void){registers[0x6d]|=4;return 1;}
 static uint8_t balance_read_ok=1;
 static uint8_t dvc_refresh_balance_state(void){return balance_read_ok;}
 static void dvc_bus_init(void){s_bus_initialized=1;}
@@ -73,14 +62,10 @@ static uint8_t dvc_i2c_read_raw(uint8_t addr,uint8_t reg,uint8_t *out,uint16_t c
 }
 '''
 # 实际私有ADC状态、CRC、重试读取及测量发布函数体，换算/平台外围是显式替身。
-code+=s[s.index('#define DVC_ADC_MAX_AGE_TICKS'):s.index('static uint32_t s_snapshot_generation;')]
+code+=s[s.index('#define DVC_ADC_MAX_AGE_TICKS'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_US')]
 code+=function(s,'static uint8_t dvc_crc8(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
-code+=function(s,'void DVC1124_OpenWireReset(')
-code+=function(s,'uint8_t DVC1124_OpenWireStop(')
-code+=function(s,'uint8_t DVC1124_OpenWireBegin(')
-code+=function(s,'void DVC1124_OpenWirePoll(')
 code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
@@ -90,42 +75,32 @@ code+='\n'+recovery[recovery.index('#define DVC_OCC_RECOVERY_TICKS'):recovery.in
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;DVC1124_App_AFEGet();}
-static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));memset(&s_openwire_result,0,sizeof(s_openwire_result));
+static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0;
- s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;diagnostic_active=0;}
+ s_voltage_tick=s_current_tick=s_adc_wait_started=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
- reset();acquire(100,0);acquire(6500,0);assert(!s_snapshot_generation && !s_snapshot.valid && s_sample_pending);
- acquire(7000,0x40);assert(s_snapshot_generation==1 && s_snapshot.voltage_fresh && !s_snapshot.valid && s_sample_pending);
+ reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && s_sample_pending);
+ acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && s_sample_pending);
  acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && !s_sample_pending && s_snapshot.sample_tick_32k==8000);
- acquire(9000,0);assert(s_snapshot.valid && s_sample_pending && s_snapshot_generation==1 && s_snapshot.sample_tick_32k==8000);
+ acquire(9000,0);assert(s_snapshot.valid && s_sample_pending && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
  acquire(8000+512u*32u+1u,0);assert(!s_snapshot.valid && !s_sample_pending);
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);
  /* 第一个读取已通过R1 CRC，后面的R2 CRC失败；重试R1已清零，事件仍须保留。 */
  reset();corrupt_reg=2;corrupt_count=1;acquire(100,0x50);
- assert(s_snapshot.valid && s_snapshot.voltage_fresh && s_snapshot.current_fresh && s_snapshot_generation==1);
+ assert(s_snapshot.valid && s_snapshot.voltage_fresh && s_snapshot.current_fresh && s_voltage_seen);
  /* R1自身CRC坏，不能把未经验证的事件当作新采样。 */
  reset();corrupt_reg=1;corrupt_count=1;acquire(100,0x50);
- assert(!s_snapshot.valid && !s_snapshot_generation && !s_pending_adc_events);
+ assert(!s_snapshot.valid && !s_voltage_seen && !s_pending_adc_events);
  reset();acquire(0xfffff000u,0x50);acquire(0xfffff000u+512u*32u+1u,0);assert(!s_snapshot.valid);
  reset();registers[1]=0x10;assert(!dvc_boot_zero_wait_fresh_cc2()); /* 只有旧事件，等待后没有新转换。 */
  auto_cc2_event=1;assert(dvc_boot_zero_wait_fresh_cc2());assert(!s_pending_adc_events);auto_cc2_event=0;
- reset();acquire(100,0x50);registers[1]=0x40;assert(DVC1124_OpenWireBegin());
- acquire(6501,0x10);assert(s_openwire_result.state==DVC1124_OPENWIRE_WAITING); /* drain前事件不授权诊断。 */
- acquire(12901,0x50);assert(s_openwire_result.state==DVC1124_OPENWIRE_READY && s_openwire_result.valid);
- assert(!(registers[0x6d]&4)); /* 新VADC完成后才停止COW。 */
+ /* 新电压持续发布，零读数不再被诊断缓存替换；无效串位仍是 61001。 */
  reset();registers[DVC1124_REG_CELL1_H]=0x0d;registers[DVC1124_REG_CELL1_H+1]=0x48;
  acquire(100,0x50);assert(g_bms_report.cell_voltage_mv[0]==3400);
- assert(DVC1124_OpenWireBegin());diagnostic_active=1;
  registers[DVC1124_REG_CELL1_H]=registers[DVC1124_REG_CELL1_H+1]=0;
- acquire(12901,0x50);assert(s_openwire_result.valid && s_openwire_result.cell_mv[0]==0);
- assert(g_bms_report.cell_voltage_mv[0]==3400 && g_bms_report.cell_voltage_mv[4]==61001u);
- assert(DVC1124_OpenWireStop() && !(registers[0x6d]&4));
- reset();acquire(100,0x50);assert(DVC1124_OpenWireBegin());
- now=100+901u*32u;DVC1124_OpenWirePoll();
- assert(s_openwire_result.state==DVC1124_OPENWIRE_ERROR && s_openwire_result.error==BMS_OW_ERR_TIMEOUT);
- assert(DVC1124_OpenWireStop());
+ acquire(6500,0x50);assert(g_bms_report.cell_voltage_mv[0]==0 && g_bms_report.cell_voltage_mv[4]==61001u);
  for(unsigned cst=0;cst<=6;++cst)for(unsigned driver=0;driver<=1;++driver){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
   acquire(100,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=1;
@@ -150,11 +125,9 @@ evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRe
 balance_fixture = r'''
 #include <stdint.h>
 #include <assert.h>
-#define DVC1124_OPENWIRE_WAITING 1
 #define DVC_BALANCE_REFRESH_INTERVAL_US 100u
 static uint32_t s_balance_requested_mask=5u,s_balance_last_refresh_tick;
 static uint8_t s_balance_suspended=1u;
-static struct {unsigned state;} s_openwire_result;
 static int read_ok=1,write_ok=0;
 static uint8_t dvc_refresh_balance_state(void){return read_ok;}
 static uint8_t dvc_write_balance_hw(uint32_t mask){(void)mask;return write_ok;}

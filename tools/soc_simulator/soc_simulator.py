@@ -31,7 +31,7 @@ INPUT_COLUMNS = (
     "scenario", "step", "timestamp_32k", "current_ma", "cell_min_mv",
     "cell_max_mv", "cell_delta_mv", "pack_voltage_mv", "temp_min_x10",
     "temp_max_x10", "sample_valid", "voltage_valid", "balancing", "heating",
-    "openwire_active", "openwire_suspected", "afe_fault", "temperature_fault",
+    "afe_fault", "temperature_fault",
     "current_fault", "pack_fault", "cell_ovp", "cell_uvp", "charger_known",
     "charger_present", "load_known", "load_present", "event", "true_soc",
     "firmware_seed_soc",
@@ -44,7 +44,7 @@ SCENARIOS = (
     "high_rate_sag", "near_uv_load", "charger_toggle", "regenerative_charge",
     "current_zero_offset", "current_offset_step", "capacity_aging",
     "balancing_active", "heating_active", "protection_trigger",
-    "direction_switch", "afe_invalid", "cell_voltage_anomaly", "open_wire",
+    "direction_switch", "afe_invalid", "cell_voltage_anomaly",
 )
 
 # An independent, deliberately simple LFP truth model.  The table is not read
@@ -132,8 +132,6 @@ def normalize_row(row: dict, scenario: int, step: int) -> dict:
         "voltage_valid": as_int(row, "voltage_valid", 1),
         "balancing": as_int(row, "balancing", as_int(row, "balancing_active", 0)),
         "heating": as_int(row, "heating", as_int(row, "heating_active", 0)),
-        "openwire_active": as_int(row, "openwire_active", 0),
-        "openwire_suspected": as_int(row, "openwire_suspected", 0),
         "afe_fault": as_int(row, "afe_fault", 0),
         "temperature_fault": as_int(row, "temperature_fault", 0),
         "current_fault": as_int(row, "current_fault", 0),
@@ -212,14 +210,13 @@ def scenario_shape(name: str) -> tuple[float, float, float]:
         "balancing_active": (20 * 60, 85, 100), "heating_active": (20 * 60, 35, 100),
         "protection_trigger": (20 * 60, 15, 100), "direction_switch": (30 * 60, 50, 100),
         "afe_invalid": (20 * 60, 65, 100), "cell_voltage_anomaly": (20 * 60, 65, 100),
-        "open_wire": (20 * 60, 65, 100),
     }
     return table[name]
 
 
 def scenario_current_a(name: str, t: float, progress: float) -> float:
     if name in ("rest_10m", "rest_30m", "rest_2h", "ocv_large_deviation",
-                "balancing_active", "heating_active", "open_wire"):
+                "balancing_active", "heating_active"):
         return 0.0
     if name in ("standard_discharge", "capacity_aging"):
         return 25.0
@@ -276,7 +273,6 @@ def generate_scenario(name: str, scenario_id: int, seed: int) -> Iterator[dict]:
         active = 0.30 <= progress <= 0.70
         sample_valid = not (name == "afe_invalid" and active and int(t * 5) % 20 < 8)
         voltage_valid = not (name == "cell_voltage_anomaly" and active)
-        openwire = name == "open_wire" and active
         if not voltage_valid:
             min_mv, max_mv = 0, 5200
         event = 2 if step == 0 else 0
@@ -294,7 +290,6 @@ def generate_scenario(name: str, scenario_id: int, seed: int) -> Iterator[dict]:
             "sample_valid": int(sample_valid), "voltage_valid": int(voltage_valid),
             "balancing": int(name == "balancing_active" and active),
             "heating": int(name == "heating_active" and active),
-            "openwire_active": int(openwire), "openwire_suspected": int(openwire),
             "afe_fault": int(not sample_valid), "temperature_fault": 0,
             "current_fault": 0, "pack_fault": 0, "cell_ovp": 0,
             "cell_uvp": int(cell_uvp), "charger_known": 1,
@@ -338,7 +333,6 @@ def generate_fuzz(count: int, seed: int) -> Iterator[dict]:
                 "temperature_decic": int(rng.uniform(-150, 550)),
                 "sample_valid": int(not invalid), "voltage_valid": int(not invalid),
                 "balancing": int(rng.random() < 0.01), "heating": int(rng.random() < 0.005),
-                "openwire_suspected": int(rng.random() < 0.001),
                 "afe_fault": int(invalid), "cell_uvp": int(protection and current_a > 0),
                 "cell_ovp": int(protection and current_a < 0),
                 "charger_present": int(current_a < -0.2), "load_present": int(current_a > 0.2),

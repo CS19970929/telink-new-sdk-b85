@@ -9,24 +9,18 @@ typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_ERROR_AFE1 1
 typedef struct {int dummy;} bms_afe_aux_measurements_t;
 typedef struct {int dummy;} bms_afe_feature_snapshot_t;
-typedef struct {int dummy;} bms_afe_openwire_result_t;
-typedef int bms_afe_diag_state_t;
-#define BMS_AFE_DIAG_ERROR 3
-static int err,block,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
+static int err,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static uint8_t params_valid=1u;
 static uint8_t bms_protection_params_valid(void){return params_valid;}
 static int raised,init_fail,aux_ok=1;
 static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
-static int openwire_stop_ok=1;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
-static void bms_features_on_afe_invalid(void){}
-static void bms_features_on_output_disabled(void){}
+static void bms_features_stop(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
 static void bms_features_service(void){}
-static int bms_features_outputs_blocked(void){return block;}
 static int bms_features_charge_direction_blocked(void){return 0;}
 static void dvc1124_backend_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
 static void dvc1124_backend_sample(void){sample_calls++;err=0;}
@@ -39,21 +33,17 @@ static int dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t*x){re
 static int dvc1124_backend_get_charge_source_present(uint8_t*x){return 0;}
 static int dvc1124_backend_set_balance_mask(uint32_t x){return balance_ok;}
 static int dvc1124_backend_get_balance_mask(uint32_t*x){return 1;}
-static int dvc1124_backend_openwire_start(void){return 1;}
-static int dvc1124_backend_openwire_stop(void){return openwire_stop_ok;}
-static int dvc1124_backend_openwire_poll(bms_afe_openwire_result_t*x){return 1;}
 static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
 static uint32_t guard_tick;
 uint32_t bms_diag_tick(void){return guard_tick;}
-static uint32_t bms_features_diag_reasons(uint8_t charge){(void)charge;return 0u;}
 uint8_t bms_afe_enter_shutdown(void);
 /* PRODUCTION_SOURCE */
 static void reset(void){
- params_valid=1u;block=0;
+ params_valid=1u;
  err=raised=init_fail=0;aux_ok=1;
- balance_ok=shutdown_ok=openwire_stop_ok=1;fet_fail=shutdown_calls=sample_calls=0;
+ balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
 }
 static void test_startup_qualification(void){
@@ -61,9 +51,9 @@ static void test_startup_qualification(void){
  reset();bms_afe_set_fets(1,1);
  for(unsigned enabled=0;enabled<2;enabled++)
  for(unsigned valid=0;valid<2;valid++)
- for(unsigned blocked=0;blocked<2;blocked++){
-  params_valid=(uint8_t)valid;block=(int)blocked;bms_afe_set_output_enabled((uint8_t)enabled);
-  bms_afe_sample();assert(cmd_c==(int)(enabled && valid && !blocked));assert(cmd_d==cmd_c);
+ {
+  params_valid=(uint8_t)valid;bms_afe_set_output_enabled((uint8_t)enabled);
+  bms_afe_sample();assert(cmd_c==(int)(enabled && valid));assert(cmd_d==cmd_c);
  }
  reset();raised=0;bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  unsigned init_count=protection_inits;
@@ -96,10 +86,6 @@ static void test_startup_qualification(void){
  puts("PASS healthy boot: zero synthetic AFE1 errors, three-sample output inhibit; real init/read faults and watchdog recovery retained");
 }
 int main(void){
- reset();bms_afe_set_fets(1,1);assert(bms_afe_openwire_start());assert(cmd_c==1&&cmd_d==1);
- assert(bms_afe_openwire_stop());assert(cmd_c==1&&cmd_d==1);
- openwire_stop_ok=0;assert(!bms_afe_openwire_stop());assert(cmd_c==0&&cmd_d==0&&!bms_afe_samples_qualified());
- reset(); /* 真实清理 I/O 失败保留原通信保护；健康停止不写 MOS。 */
  test_startup_qualification();
  reset();bms_afe_set_fets(1,1);assert(bms_afe_sleep());
  assert(shutdown_calls==1&&s_guard.comm_inhibit&&err&&s_guard.test_shutdown_hold);

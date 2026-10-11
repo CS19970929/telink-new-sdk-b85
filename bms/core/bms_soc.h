@@ -53,13 +53,10 @@ typedef struct
     uint16_t temperature_min_x10;
     uint16_t temperature_max_x10;
     uint8_t sample_valid;
-    uint8_t measurement_fresh;     /* 仅供 OCV 等新测量确认，不决定是否积分。 */
     uint8_t voltage_valid;
     uint8_t temperature_valid;
     uint8_t balancing_active;
     uint8_t heating_active;
-    uint8_t voltage_diagnostic;    /* 诊断扰动期间暂停电压资格，电流仍可积分。 */
-    uint8_t voltage_untrusted;     /* 本帧不可延续静置或锚定资格，之后重新累计。 */
     uint8_t afe_fault;
     uint8_t temperature_fault;
     uint8_t current_fault;

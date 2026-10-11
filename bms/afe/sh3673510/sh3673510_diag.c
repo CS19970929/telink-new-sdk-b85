@@ -29,9 +29,9 @@ void bms_afe_diag_poll(void)
     if (!(guard & DIAG_GUARD_OUTPUT_ENABLED)) common |= DIAG_BLOCK_OUTPUT;
     if (guard & (DIAG_GUARD_COMM_INHIBIT | DIAG_GUARD_BUS_SILENCED)) common |= DIAG_BLOCK_COMM;
     if (c && (!command_valid || !(command & 1u)))
-        charge = detail.charge_block_reasons | bms_features_diag_reasons(1u) | common;
+        charge = detail.charge_block_reasons | (bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u) | common;
     if (d && (!command_valid || !(command & 2u)))
-        discharge = detail.discharge_block_reasons | bms_features_diag_reasons(0u) | common;
+        discharge = detail.discharge_block_reasons | common;
     bms_diag_mos((uint16_t)(c | (d << 1)), charge, discharge);
     bms_diag_command(command, command_valid);
     bms_diag_driver(driver, driver_valid);

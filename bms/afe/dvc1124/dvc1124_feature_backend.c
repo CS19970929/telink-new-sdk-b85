@@ -1,4 +1,4 @@
-/* 文件功能：DVC1124 功能快照、均衡和 Open-Wire 适配；把芯片能力映射到公共功能策略。 */
+/* 文件功能：DVC1124 功能快照和均衡适配；把芯片能力映射到公共功能策略。 */
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
 #include "bms_state.h"
@@ -27,7 +27,7 @@ static uint16_t dvc_temp(uint8_t gp)
     return g_bms_report.temperature_x10[gp - 1u];
 }
 
-/* 取得均衡、温度和断线策略需要的后端快照。 */
+/* 取得均衡和温度策略需要的后端快照。 */
 uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     dvc1124_snapshot_t s;
@@ -103,50 +103,4 @@ uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
 uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
 {
     return DVC1124_GetBalanceMask(cell_mask);
-}
-
-/* 开始后端非阻塞电芯断线检测。 */
-uint8_t dvc1124_backend_openwire_start(void)
-{
-    return DVC1124_OpenWireBegin();
-}
-
-uint8_t dvc1124_backend_openwire_stop(void)
-{
-    return DVC1124_OpenWireStop();
-}
-
-/* 推进后端断线检测并返回阶段或结果。 */
-bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *out)
-{
-    dvc1124_openwire_result_t raw;
-    uint8_t i;
-    DVC1124_OpenWirePoll();
-    DVC1124_OpenWireGetResult(&raw);
-    if (raw.state == DVC1124_OPENWIRE_WAITING) return BMS_AFE_DIAG_BUSY;
-    if (raw.state == DVC1124_OPENWIRE_IDLE) return BMS_AFE_DIAG_IDLE;
-    if (raw.state == DVC1124_OPENWIRE_ERROR) {
-        if (out != 0) out->error = raw.error;
-        return BMS_AFE_DIAG_ERROR;
-    }
-    if (raw.state != DVC1124_OPENWIRE_READY) return BMS_AFE_DIAG_ERROR;
-    if (out != 0) {
-        memset(out, 0, sizeof(*out));
-        out->valid = raw.valid;
-        out->cell_count = raw.cell_count;
-        out->determinate = raw.valid ? 1u : 0u;
-        out->phase_coverage = raw.valid ? 1u : 0u;
-        out->open_cell_mask = 0u;
-        for (i = 0u; i < raw.cell_count && i < BMS_AFE_FEATURE_MAX_CELLS; ++i)
-        {
-            /*
-             * DS V1.1 第 15 页规定 100 uA 下拉并由 MCU 据测量判断。
-             * 0 mV 是本项目现有判据，手册未将其定义为断线充要条件；
-             * 本轮保留判据，检出覆盖仍需实板确认。
-             */
-            if (raw.valid && raw.cell_mv[i] == 0u)
-                out->open_cell_mask |= (1uL << i);
-        }
-    }
-    return BMS_AFE_DIAG_READY;
 }

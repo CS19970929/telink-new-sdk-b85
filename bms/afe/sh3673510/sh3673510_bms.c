@@ -724,12 +724,10 @@ static void sh3510_publish_temperatures(const sh3673520_temperature_raw_t *temp)
 }
 
 /* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
-static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status,
-                              uint8_t voltage_diagnostic)
+static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status)
 {
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
-    sw.voltage_sample_diagnostic = voltage_diagnostic;
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = !s_sample_pending;
     sw.charge_recovery_allowed =
@@ -775,11 +773,9 @@ static uint8_t publish_measurements(void)
     sh3673520_current_raw_t current;
     sh3673520_temperature_raw_t temp;
     sh3673510_control_status_t status;
-    bms_features_status_t features;
     uint8_t i;
     uint32_t now;
 
-    bms_features_get_status(&features);
 
     if (!sh3673510_control_wake()) return sample_failed(DIAG_AFE_FAIL_WAKE);
     if (s_sampling_restart) restart_sampling();
@@ -822,9 +818,7 @@ static uint8_t publish_measurements(void)
         return 1u;
     }
 
-    /* 采样前激励资格不复用上一帧诊断标志；诊断期间只隔离电压发布。 */
-    if ((status.flag2 & SH3673520_FLAG2_VADC_MASK) &&
-        !(features.openwire_active || features.openwire_cleanup_pending))
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
         sh3510_publish_voltage(cell, pack_mv);
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
         sh3510_publish_current(current_ma, now);
@@ -832,8 +826,7 @@ static uint8_t publish_measurements(void)
         sh3510_publish_temperatures(&temp);
 
     if (!s_afe_reconfigure_required &&
-        !sh3510_update_protection(&status,
-            features.openwire_active || features.openwire_cleanup_pending)) return 0u;
+        !sh3510_update_protection(&status)) return 0u;
     s_snapshot_valid = 1u;
     return 1u;
 }
@@ -974,7 +967,6 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     if (m == 0) return 0u;
     if (!s_snapshot_valid) { memset(m, 0, sizeof(*m)); return 0u; }
     *m = s_aux;
-    m->sample_fresh = (uint8_t)!s_sample_pending;
     return 1u;
 }
 

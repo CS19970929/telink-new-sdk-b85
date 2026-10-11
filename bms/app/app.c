@@ -64,8 +64,7 @@
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void);
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
-                             uint8_t measurement_fresh);
+static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma);
 /* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
@@ -240,8 +239,7 @@ static void app_sample_task(void)
     s_sample_tick = clock_time();
     bms_afe_sample();
     valid = bms_afe_get_aux_measurements(&m);
-    app_update_soc_from_sample(valid, valid ? m.current_ma : 0,
-                               valid ? m.sample_fresh : 0u);
+    app_update_soc_from_sample(valid, valid ? m.current_ma : 0);
 
     bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
                           valid ? m.current_ma : 0,
@@ -266,8 +264,7 @@ static void app_sample_wakeup(int type)
 
 
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
-                             uint8_t measurement_fresh)
+static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
 {
     bms_afe_feature_snapshot_t feature;
     bms_features_status_t status;
@@ -278,7 +275,6 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
 
     /* 积分使用应用时间；旧电流可用于新时间段，但不能冒充新的确认样本。 */
     sample.timestamp_32k = pm_get_32k_tick();
-    sample.measurement_fresh = measurement_fresh;
     sample.current_ma = current_ma;
     sample.cell_min_mv = g_bms_report.cell_min_mv;
     sample.cell_max_mv = g_bms_report.cell_max_mv;
@@ -295,8 +291,6 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     bms_features_get_status(&status);
     sample.balancing_active = status.balance_active;
     sample.heating_active = status.heater_on;
-    sample.voltage_diagnostic = status.openwire_sample_active;
-    sample.voltage_untrusted = status.voltage_untrusted;
     sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     sample.temperature_fault =
         ((third_faults & SOC_SAMPLE_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;

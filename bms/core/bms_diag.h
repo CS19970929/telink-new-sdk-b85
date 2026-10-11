@@ -26,16 +26,6 @@
 #define BMS_DIAG_SLEEP_BASE 0x3300u
 #define BMS_DIAG_SLEEP_WORDS 20u
 #define BMS_DIAG_SLEEP_END (BMS_DIAG_SLEEP_BASE + BMS_DIAG_SLEEP_WORDS)
-#define BMS_DIAG_OPENWIRE_BASE 0x3600u
-#define BMS_DIAG_OPENWIRE_WORDS 48u
-#define BMS_DIAG_OPENWIRE_END (BMS_DIAG_OPENWIRE_BASE + BMS_DIAG_OPENWIRE_WORDS)
-/* 状态快照量产可读；不写 Flash，不依赖开发轨迹开关。 */
-void bms_diag_openwire(const uint16_t *words);
-enum { BMS_OW_WAIT=0, BMS_OW_RUNNING=1, BMS_OW_HEALTHY=2,
-       BMS_OW_FAULT=3, BMS_OW_FAILED=4, BMS_OW_CLEANUP=5 };
-enum { BMS_OW_ERR_NONE=0, BMS_OW_ERR_START=1, BMS_OW_ERR_IO=2,
-       BMS_OW_ERR_TIMEOUT=3, BMS_OW_ERR_INCOMPLETE=4,
-       BMS_OW_ERR_CLEANUP=5, BMS_OW_ERR_SAMPLE=6, BMS_OW_ERR_INTERRUPTED=7 };
 /* 开发 MOS 专用变化历史，不被 SOC/PM 高频轨迹覆盖；u32 仍低 word 在前。 */
 #define BMS_DIAG_MOS_BASE 0x3400u
 #define BMS_DIAG_MOS_HEADER_WORDS 16u
@@ -92,11 +82,11 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
 #define BMS_DIAG_CAP_RUNTIME    0x0020u
 #define BMS_DIAG_CAP_SLEEP      0x0040u
 #define BMS_DIAG_CAP_MOS_HISTORY 0x0080u
-#define BMS_DIAG_CAP_OPENWIRE 0x0100u
+/* 能力位 0x0100 已撤销，保留不复用。 */
 #define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_TRACE : 0u) | \
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP | \
-                                 (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_MOS_HISTORY : 0u) | BMS_DIAG_CAP_OPENWIRE)
+                                 (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_MOS_HISTORY : 0u))
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
@@ -173,7 +163,8 @@ void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask);
 
 enum { DIAG_BLOCK_PARAMS=1u, DIAG_BLOCK_UPGRADE=2u, DIAG_BLOCK_OUTPUT=4u,
     DIAG_BLOCK_COMM=8u, DIAG_BLOCK_SW=16u, DIAG_BLOCK_HW=32u,
-    DIAG_BLOCK_OPENWIRE=64u, DIAG_BLOCK_HEATER=128u,
+    /* 原 bit 6 已撤销，后续原因位编号保持。 */
+    DIAG_BLOCK_HEATER=128u,
     DIAG_BLOCK_SHUTDOWN=256u, DIAG_BLOCK_TEMP=512u, DIAG_BLOCK_BACKEND=1024u };
 
 enum {

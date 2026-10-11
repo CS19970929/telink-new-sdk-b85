@@ -7,7 +7,6 @@ typedef uint32_t u32;
 #define BMS_STATE_DEFAULT_SOC 60u
 typedef struct {uint32_t soc,dsg,cycle;} bms_state_store_data_t;
 static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0};return d;}
-static int openwire_active,openwire_suspected;
 static int balance_active,heater_on,charge_session_active,temp_valid=1;
 typedef enum {
     BMS_HEATER_IDLE = 0u,
@@ -21,21 +20,12 @@ typedef struct {
     uint8_t charge_session_active;
     uint8_t balance_active;
     uint8_t balance_voltage_trusted;
-    uint8_t openwire_suspected;
-    uint8_t openwire_active;
-    uint8_t openwire_cleanup_pending;
-    /* 包含健康诊断清 active 后的最后诊断样本，供公共 SOC 使用。 */
-    uint8_t openwire_sample_active;
-    uint8_t voltage_untrusted;
 } bms_features_status_t;
 static void bms_features_get_status(bms_features_status_t *s)
 {
  memset(s,0,sizeof(*s));s->heater_on=(uint8_t)heater_on;
  s->charge_session_active=(uint8_t)charge_session_active;
  s->balance_active=(uint8_t)balance_active;
- s->openwire_active=(uint8_t)openwire_active;s->openwire_sample_active=(uint8_t)openwire_active;
- s->openwire_suspected=(uint8_t)openwire_suspected;
- s->voltage_untrusted=(uint8_t)openwire_suspected;
 }
 typedef struct {uint8_t valid,cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
 static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->valid=1;s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
@@ -75,7 +65,7 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_bms_protection_params.cell_ovp_third_mv=chemistry==1?3650:4250;
  g_bms_protection_params.cell_uvp_third_mv=2500;
  g_bms_report.cell_min_mv=voltage;g_bms_report.cell_max_mv=voltage;
- openwire_active=0;openwire_suspected=0;balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
+ balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
  bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;
  memset(&g_soc_input,0,sizeof(g_soc_input));g_soc_input.sample_valid=1;g_soc_input.voltage_valid=1;
@@ -86,7 +76,7 @@ static void set_core_voltage(uint16_t min_mv,uint16_t max_mv,uint16_t delta){
  g_bms_report.cell_min_mv=min_mv;g_bms_report.cell_max_mv=max_mv;g_bms_report.cell_delta_mv=delta;
  g_soc_input.cell_min_mv=min_mv;g_soc_input.cell_max_mv=max_mv;g_soc_input.cell_delta_mv=delta;
 }
-static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma,1u);}
+static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma);}
 static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned count){
  setup(chemistry,60,chemistry==1?3330:3800);sample(1,ma,1);
  uint32_t before=g_bms_soc.remaining_capacity_as10;
@@ -214,21 +204,21 @@ static int replay_csv(const char *input_path,const char *output_path){
  fprintf(out,"scenario,step,timestamp_32k,current_ma,cell_min_mv,cell_max_mv,pack_voltage_mv,true_soc,soc_est,soc_display,remaining_0p1ah,full_0p1ah,ocv_state,ocv_center,ocv_low,ocv_high,ocv_confidence,rest_seconds,endpoint_state,endpoint_flags,learning_state,learning_reject,eta_direction,eta_state,eta_confidence,tte_min,ttf_min,last_action,sample_state,integral_delta_as10\n");
  while(fgets(line,sizeof(line),in)){
   unsigned scenario,step,min_mv,max_mv,delta_mv,pack_mv,tmin,tmax;
-  unsigned sample_valid,voltage_valid,balance,heat,owa,ows,afe,tf,cf,pf,ovp,uvp,ck,cp,lk,lp,event,seed_soc;
+  unsigned sample_valid,voltage_valid,balance,heat,afe,tf,cf,pf,ovp,uvp,ck,cp,lk,lp,event,seed_soc;
   unsigned long timestamp;int current_ma;double true_soc;bms_soc_sample_t s;bms_soc_diag_t d;
   if(line[0]<'0'||line[0]>'9')continue;
-  if(sscanf(line,"%u,%u,%lu,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lf,%u",
+  if(sscanf(line,"%u,%u,%lu,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lf,%u",
    &scenario,&step,&timestamp,&current_ma,&min_mv,&max_mv,&delta_mv,&pack_mv,&tmin,&tmax,
-   &sample_valid,&voltage_valid,&balance,&heat,&owa,&ows,&afe,&tf,&cf,&pf,&ovp,&uvp,
-   &ck,&cp,&lk,&lp,&event,&true_soc,&seed_soc)!=29)continue;
+   &sample_valid,&voltage_valid,&balance,&heat,&afe,&tf,&cf,&pf,&ovp,&uvp,
+   &ck,&cp,&lk,&lp,&event,&true_soc,&seed_soc)!=27)continue;
   if(!initialized||event==2u){setup(1u,(uint8_t)seed_soc,min_mv);initialized=1;}
   else if(event==1u||event==3u)simulated_reboot();
-  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;s.measurement_fresh=1u;
+  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
   s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
-  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.voltage_diagnostic=(uint8_t)owa;
-  s.voltage_untrusted=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
+  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;
+  s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
   s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
   /* 保留 CSV 环境记录列；SOC 只使用测量量，不以插拔标记重置资格。 */
   g_bms_report.cell_min_mv=s.cell_min_mv;g_bms_report.cell_max_mv=s.cell_max_mv;
@@ -294,11 +284,11 @@ int main(int argc,char **argv){
   /* 五个不同的200ms区间使用同一有效电流，必须完整累计一秒。 */
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,10000,1);
   uint32_t held_before=g_bms_soc.remaining_capacity_as10;
-  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,10000,0u);}
+  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,10000);}
   assert(g_bms_soc.remaining_capacity_as10==held_before-100u);
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,-10000,1);
   held_before=g_bms_soc.remaining_capacity_as10;
-  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,-10000,0u);}
+  for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,-10000);}
   assert(g_bms_soc.remaining_capacity_as10==held_before+100u);
 
   setup(chemistry,60,2900);sample(1,0,1);
@@ -312,9 +302,9 @@ int main(int argc,char **argv){
   assert(g_bms_soc.remaining_capacity_as10==before);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_DUPLICATE);
   /* AFE 正常等待：同一有效电流在新的应用时间段继续积分。 */
-  tick+=6401u;app_update_soc_from_sample(1,500,0u);
+  tick+=6401u;app_update_soc_from_sample(1,500);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
-  tick+=6401u;app_update_soc_from_sample(1,500,1u);
+  tick+=6401u;app_update_soc_from_sample(1,500);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
   assert(g_bms_soc.remaining_capacity_as10==before-2u);
   before=g_bms_soc.remaining_capacity_as10;
@@ -460,70 +450,16 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=1000;
  }
 
- /* 连续 199 ms 的健康诊断不能绕过 PAUSED 和三次正常新帧确认。 */
- setup(1,60,3330);sample(1,0,1);sample(1,0,6400u);
- g_soc_runtime.idle_stable_ticks=500u;g_soc_runtime.ocv_down_ticks=123u;
- bms_soc_sample_t short_diagnostic=g_soc_input;short_diagnostic.voltage_diagnostic=1u;
- for(unsigned n=0;n<3;n++){
-  short_diagnostic.timestamp_32k+=6368u;bms_soc_process_sample(&short_diagnostic);
-  assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_PAUSED);
-  assert(g_soc_runtime.idle_stable_ticks==500u && !g_soc_strategy_pending_32k);
- }
- short_diagnostic.voltage_diagnostic=0u;
- for(unsigned n=1;n<=3;n++){
-  short_diagnostic.timestamp_32k+=6400u;bms_soc_process_sample(&short_diagnostic);
-  assert(g_soc_runtime.ocv_openwire_confirm_samples==n && g_soc_runtime.idle_stable_ticks==500u);
- }
- short_diagnostic.timestamp_32k+=6400u;bms_soc_process_sample(&short_diagnostic);
- assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_NONE && g_soc_runtime.idle_stable_ticks==501u);
- /* 静置空端点只在电压/温度与业务上下文可信时累计，不能绕过 OCV 的资格。 */
- /* 诊断/不可信电压不得推进任何满/空端点，电流积分仍保持有效。 */
- setup(1,60,3330);sample(1,-3000,1);
- g_soc_runtime.idle_stable_ticks=500;g_soc_runtime.ocv_down_ticks=123;
- g_soc_runtime.full_lock_ticks=g_soc_runtime.empty_lock_ticks=10;
- bms_soc_sample_t failed=g_soc_input;failed.voltage_untrusted=1;
- failed.timestamp_32k+=1u;bms_soc_process_sample(&failed);
- assert(!g_soc_runtime.idle_stable_ticks && !g_soc_runtime.ocv_down_ticks);
- assert(!g_soc_runtime.full_lock_ticks && !g_soc_runtime.empty_lock_ticks && g_soc_input_valid);
- g_soc_strategy_pending_32k=3200u;
- uint32_t integral_remainder=g_soc_integral_tick_remainder;
- bms_soc_process_sample(&failed); /* 重复时间的失败也撤销旧策略余量。 */
- assert(!g_soc_strategy_pending_32k && g_soc_integral_tick_remainder==integral_remainder);
- failed.timestamp_32k+=6368u;bms_soc_process_sample(&failed); /* 199 ms 失败帧。 */
- assert(!g_soc_strategy_pending_32k && g_soc_input_valid);
- failed.voltage_untrusted=0;failed.timestamp_32k+=32u;bms_soc_process_sample(&failed);
- assert(g_soc_strategy_pending_32k==32u); /* 正常 1 ms 不能借用失败的 199 ms。 */
- for(unsigned diagnostic=0;diagnostic<2;diagnostic++){
-  setup(1,60,3500);sample(1,-3000,1);
-  bms_soc_sample_t input=g_soc_input;
-  input.voltage_diagnostic=diagnostic;input.voltage_untrusted=!diagnostic;
-  input.third_cell_ovp=1;
-  uint32_t before=g_bms_soc.remaining_capacity_as10;
-  input.timestamp_32k+=6400u;bms_soc_process_sample(&input);
-  assert(g_bms_soc.remaining_capacity_as10>before && get_soc_real()<100);
-  assert(!g_soc_runtime.full_lock_ticks && !g_soc_runtime.full_adjust_ticks);
-  input.current_ma=3000;input.cell_min_mv=input.cell_max_mv=2400;
-  input.third_cell_ovp=0;input.third_cell_uvp=1;
-  before=g_bms_soc.remaining_capacity_as10;
-  input.timestamp_32k+=6400u;bms_soc_process_sample(&input);
-  assert(g_bms_soc.remaining_capacity_as10<before && get_soc_real()>0);
-  assert(!g_soc_runtime.dsg_terminal_adjust_ticks && !g_soc_runtime.dsg_empty_lock_ticks);
-  g_soc_runtime.full_anchor_latched=g_soc_runtime.empty_anchor_latched=1;
-  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
-  assert(g_soc_runtime.full_anchor_latched && g_soc_runtime.empty_anchor_latched);
- }
- for(unsigned invalid=0;invalid<10;invalid++){
+ for(unsigned invalid=0;invalid<8;invalid++){
   setup(1,60,2400);
   switch(invalid){
    case 0:g_soc_input.voltage_valid=0;break;
    case 1:g_soc_input.temperature_valid=0;break;
    case 2:g_soc_input.balancing_active=1;break;
    case 3:g_soc_input.heating_active=1;break;
-   case 4:g_soc_input.voltage_diagnostic=1;break;
-   case 5:g_soc_input.voltage_untrusted=1;break;
-   case 6:g_soc_input.afe_fault=1;break;
-   case 7:g_soc_input.temperature_fault=1;break;
-   case 8:g_soc_input.current_fault=1;break;
+   case 4:g_soc_input.afe_fault=1;break;
+   case 5:g_soc_input.temperature_fault=1;break;
+   case 6:g_soc_input.current_fault=1;break;
    default:g_soc_input.pack_fault=1;break;
   }
   for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
@@ -562,21 +498,6 @@ int main(int argc,char **argv){
   assert(g_bms_report.soc.remaining_capacity_0p01ah==g_bms_soc.remaining_capacity_as10/360u);
   stored_profile.capacity_factory=1000;
  }
-
- /* 有效缓存可以推进应用时间，不能替代断线检测后OCV的三个新测量。 */
- setup(1,80,3300);sample(1,0,1);
- g_soc_runtime.idle_ocv_mv_valid=1u;g_soc_runtime.idle_ocv_last_mv=3300u;
- g_soc_runtime.ocv_openwire_phase=SOC_OCV_OPENWIRE_RECOVERING;
- g_soc_runtime.ocv_openwire_started_32k=tick;
- g_soc_runtime.ocv_openwire_confirm_samples=1u;
- for(unsigned i=0;i<3u;i++){tick+=6400u;app_update_soc_from_sample(1,0,0u);}
- assert(g_soc_runtime.ocv_openwire_confirm_samples==1u);
- assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_RECOVERING);
- sample(1,0,6400);sample(1,0,6400);
- assert(g_soc_runtime.ocv_openwire_confirm_samples==3u);
- tick+=6400u;app_update_soc_from_sample(1,0,0u);
- assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_RECOVERING);
- sample(1,0,6400);assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_NONE);
 
  /* Early UVP remains a final safety anchor but is explicitly diagnosable. */
  setup(1,15,2500);sample(1,1000,1);

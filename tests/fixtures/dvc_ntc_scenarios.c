@@ -15,8 +15,7 @@
 #define DVC_MEAS_BYTES (DVC1124_REG_CELL24_L + 1u)
 static dvc1124_snapshot_t s_snapshot;
 static dvc1124_config_t s_cfg = {.cell_count=4};
-static dvc1124_openwire_result_t s_openwire_result;
-static uint32_t s_snapshot_generation, now;
+static uint32_t now;
 static uint8_t s_need_config, registers[256], read_ok=1;
 bms_protection_params_t g_bms_protection_params;
 /* PRODUCTION STATE */
@@ -27,7 +26,6 @@ uint8_t bms_features_charge_direction_blocked(void) { return 0u; }
 void bms_diag_driver(uint8_t flags,uint8_t valid) { (void)flags; (void)valid; }
 void bms_diag_command(uint8_t command,uint8_t valid) { (void)command; (void)valid; }
 void DVC1124_UpdataAfeConfig(void) {}
-void DVC1124_OpenWirePoll(void) {}
 uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }
 void DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { *s=s_snapshot; }
 void DVC1124_GetConfig(dvc1124_config_t *c) { *c=s_cfg; }
@@ -73,7 +71,7 @@ static void reset(void)
     memset(registers,0,sizeof(registers));
     memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));
     s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0u;
-    s_snapshot_generation=s_voltage_tick=s_current_tick=s_adc_wait_started=0u;
+    s_voltage_tick=s_current_tick=s_adc_wait_started=0u;
     read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
     put16(DVC1124_REG_V1P8_H,18000u);
     for (unsigned gp=0;gp<4u;++gp) put16((uint8_t)(DVC1124_REG_GP1_H+2u*gp),9000u);
@@ -150,10 +148,7 @@ static void check_cell_delta_protection(void)
         assert(dvc_apply_common_port_fet_state(request&1u,(request>>1)&1u));
         assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==0u);
     }
-    in.voltage_sample_diagnostic=1u; g_bms_report.cell_delta_mv=0u;
-    for (unsigned i=0u;i<6u;++i) bms_sw_protection_update(&in);
-    assert(g_bms_report.fault_third.bits.cell_delta_high);
-    in.voltage_sample_diagnostic=0u; g_bms_report.cell_delta_mv=801u;
+    g_bms_report.cell_delta_mv=801u;
     for (unsigned i=0u;i<6u;++i) bms_sw_protection_update(&in);
     assert(g_bms_report.fault_third.bits.cell_delta_high);
     g_bms_report.cell_delta_mv=800u;

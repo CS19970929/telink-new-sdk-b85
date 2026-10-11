@@ -61,7 +61,6 @@ typedef struct {
     int32_t raw_current_ma;
     int32_t current_ma; /* mA：正放电，负充电 */
     uint32_t sample_tick_32k;
-    uint8_t sample_fresh; /* 完整新测量；有效缓存可用于 SOC，不可累计新帧资格。 */
 } bms_afe_aux_measurements_t;
 /* 取得选定后端的辅助测量快照。 */
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample);
@@ -78,21 +77,6 @@ typedef struct {
     uint16_t heater_temp_x10;
     uint16_t mos_temp_x10;
 } bms_afe_feature_snapshot_t;
-typedef enum {
-    BMS_AFE_DIAG_IDLE = 0u,
-    BMS_AFE_DIAG_BUSY = 1u,
-    BMS_AFE_DIAG_READY = 2u,
-    BMS_AFE_DIAG_ERROR = 3u
-} bms_afe_diag_state_t;
-typedef struct {
-    uint8_t valid;
-    uint8_t determinate;
-    uint8_t cell_count;
-    uint8_t phase_coverage;
-    uint8_t error;
-    uint32_t raw_phase[2];
-    uint32_t open_cell_mask;
-} bms_afe_openwire_result_t;
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 /* 取得后端可验证的充电源存在状态。 */
@@ -101,13 +85,6 @@ uint8_t bms_afe_get_charge_source_present(uint8_t *present);
 uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
 /* 读取当前后端均衡状态掩码。 */
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
-/* 门禁允许时启动后端断线检测。 */
-uint8_t bms_afe_openwire_start(void);
-/* 撤销诊断激励，不写 MOS；失败保留待清理状态。 */
-uint8_t bms_afe_openwire_stop(void);
-/* 通过 guard 推进后端断线检测阶段。 */
-bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *result);
-
 /* 取得输出禁止、通信隔离和恢复阶段诊断位。 */
 uint16_t bms_afe_get_guard_diagnostic_bits(void);
 /* 从选定后端刷新诊断，遵守总线静默门禁。 */

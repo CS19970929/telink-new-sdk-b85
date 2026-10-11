@@ -88,25 +88,6 @@ typedef struct
 
 typedef enum
 {
-    DVC1124_OPENWIRE_IDLE = 0u,
-    DVC1124_OPENWIRE_WAITING = 1u,
-    DVC1124_OPENWIRE_READY = 2u,
-    DVC1124_OPENWIRE_ERROR = 3u,
-} dvc1124_openwire_state_t;
-
-typedef struct
-{
-    dvc1124_openwire_state_t state;
-    uint8_t valid;
-    uint8_t cell_count;
-    uint16_t cell_mv[24]; /* DVC1124 物理最大值；宏在此公共类型之后声明。 */
-    uint8_t error;
-} dvc1124_openwire_result_t;
-
-
-
-typedef enum
-{
     DVC1124_REG_READ_SAFE = 0u,
     DVC1124_REG_READ_CLEAR = 1u
 } dvc1124_reg_read_effect_t;
@@ -164,15 +145,6 @@ uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 /* 推进均衡服务并刷新通道状态。 */
 uint8_t DVC1124_BalanceService(uint8_t allow_refresh);
 uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask);
-/* 准备并开始 DVC 非阻塞断线检测流程。 */
-uint8_t DVC1124_OpenWireBegin(void);
-uint8_t DVC1124_OpenWireStop(void);
-/* 推进断线检测阶段并收集完成结果。 */
-void DVC1124_OpenWirePoll(void);
-/* 取得最近一次断线检测结果。 */
-void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result);
-/* 复位 DVC 断线检测阶段及结果。 */
-void DVC1124_OpenWireReset(void);
 /* 校验并设置核心过温阈值编码。 */
 uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
 /* 读取核心过温事件锁存状态。 */
@@ -216,7 +188,6 @@ static inline uint8_t DVC1124_RegGenericRmwAllowed(uint8_t reg)
  * ALARM W0C、STATUS 命令、CORE_OT RC+RW 和自清除命令必须使用专用 API。
  */
 uint8_t DVC1124_WriteRegisterSafe(uint8_t reg, uint8_t requested);
-
 
 /* 检查副作用和允许写位后更新寄存器字段。 */
 static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,

@@ -1,5 +1,5 @@
 /*
- * 文件功能：公共均衡、Open-Wire 与 heater 策略；依据采样可信度、温度和保护状态仲裁，
+ * 文件功能：公共均衡与 heater 策略；依据采样可信度、温度和保护状态仲裁，
  * 硬件动作交给 backend。
  * bms/app/bms_features.h；实际编译归属见各产品 sources.txt。
  */
@@ -65,23 +65,10 @@
 #define BMS_BALANCE_SUSPECT_DELTA_MV 1000u
 #endif
 
-#ifndef BMS_OPENWIRE_FIRST_IDLE_MS
-#define BMS_OPENWIRE_FIRST_IDLE_MS 10000u
-#endif
-#ifndef BMS_OPENWIRE_PERIOD_MS
-#define BMS_OPENWIRE_PERIOD_MS 300000u
-#endif
-#define BMS_OPENWIRE_TIMEOUT_MS 3000u
-#define BMS_OPENWIRE_RETRY_MS 10000u
-
-/* 复位加热、均衡和断线检测的公共状态。 */
+/* 初始化、推进和撤销加热/均衡资格。 */
 void bms_features_init(void);
-/* 按有效快照推进加热、断线检测及均衡策略。 */
 void bms_features_service(void);
-/* 主动输出关闭仅撤销功能资格，不产生疑似断线。 */
-void bms_features_on_output_disabled(void);
-/* 真实 AFE 失效时撤销功能资格，检测中断需安全清理。 */
-void bms_features_on_afe_invalid(void);
+void bms_features_stop(void);
 
 typedef enum {
     BMS_HEATER_IDLE = 0u,
@@ -96,27 +83,11 @@ typedef struct {
     uint8_t charge_session_active;
     uint8_t balance_active;
     uint8_t balance_voltage_trusted;
-    uint8_t openwire_suspected;
-    uint8_t openwire_active;
-    /* 采样前消费者只看当前激励/清理；不消费上一帧的诊断标志。 */
-    uint8_t openwire_cleanup_pending;
-    /* 采样后资格：包含最后诊断帧和待清理窗口，供 SOC 隔离；不能用于下一次采样前判断。 */
-    uint8_t openwire_sample_active;
-    /* 异常疑似或失败诊断帧不能作电压锚定证据，不否定有效电流。 */
-    uint8_t voltage_untrusted;
 } bms_features_status_t;
 
 /* 复制本模块 RAM 状态；不读取 AFE，不改变输出授权。 */
 void bms_features_get_status(bms_features_status_t *status);
-/* 编码加热、均衡和断线检测的阻断原因。 */
-uint32_t bms_features_diag_reasons(uint8_t charge);
 
-/*
- * 仅汇总功能自身的硬阻断，参数/通信/输出授权由公共 AFE 门禁检查；
- * 方向性充电阻断较软，DVC 映射为 AUTO_DIODE，
- * 以保留合法放电。
- */
-uint8_t bms_features_outputs_blocked(void);
 /* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void);
 #endif /* 头文件保护：BMS_FEATURES_H_。 */

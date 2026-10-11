@@ -9,7 +9,7 @@ constants = '\n'.join(re.findall(
     r'^#define DVC_(?:TEMP_TABLE_LEN|NTC_MIN_RES_OHM|NTC_MAX_RES_OHM)\s+[^\n]+',
     driver, re.M))
 state = driver[driver.index('#define DVC_ADC_MAX_AGE_TICKS'):
-               driver.index('static uint32_t s_snapshot_generation;')]
+               driver.index('#define DVC_BALANCE_REFRESH_INTERVAL_US')]
 table_start = driver.index('static const uint16_t s_ntc_10k_table')
 table = driver[table_start:driver.index('};', table_start) + 2]
 production = constants + '\n' + table + '\n'

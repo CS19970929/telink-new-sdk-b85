@@ -16,14 +16,6 @@ static void SOC_Result_Pass(void);
 #include "bms_diag.h"
 #include <string.h>
 
-/* 仅开发配置在既有 Trace 环形缓存捕获 COW 恢复输入；默认构建不产生这些私有调试标记。 */
-#ifndef BMS_SOC_OCV_TRACE_ENABLE
-#define BMS_SOC_OCV_TRACE_ENABLE 0
-#endif
-#define SOC_TRACE_OCV_RESET              0x8000u
-#define SOC_TRACE_OCV_COW_INPUT          0x8010u
-#define SOC_TRACE_OCV_SLOPE_RESET        0x8020u
-
 #define VCELLMAX g_soc_input.cell_max_mv
 #define VCELLMIN g_soc_input.cell_min_mv
 
@@ -44,11 +36,6 @@ static void SOC_Result_Pass(void);
 #define SOC_OCV_ERROR_BAND_PERCENT          5u
 #define SOC_OCV_IDLE_SLOPE_MAX_MV           8u
 #define SOC_OCV_IDLE_CELL_DELTA_MAX_MV      100u
-#define SOC_OCV_OPENWIRE_CONFIRM_SAMPLES   3u
-/* 一秒 COW 窗口、最后一帧诊断和三帧正常样本；每个接受帧仍独立受 400 ms 门禁限制。 */
-#define SOC_OCV_OPENWIRE_MAX_PAUSE_32K \
-    (BMS_SOC_TIME_TICKS_PER_SECOND + \
-     (SOC_OCV_OPENWIRE_CONFIRM_SAMPLES + 1u) * BMS_SOC_MAX_SAMPLE_GAP_32K)
 #define SOC_OCV_CELL_DELTA_MAX_MV           200u
 #define SOC_LONG_REST_DOWN_STEP_TICKS       (SOC_TICKS_PER_SECOND * 60u * 30u)
 #define SOC_FULL_LOCK_TICKS                 (SOC_TICKS_PER_SECOND * 60u)
@@ -80,7 +67,6 @@ static void SOC_Result_Pass(void);
 #define SOC_OCV_TEMP_MIN_X10                 200u  /* 温度 -20 ℃。 */
 #define SOC_OCV_TEMP_MAX_X10                 1000u /* 温度 +60 ℃。 */
 
-
 typedef enum
 {
     SOC_INTEGRAL_DIR_NONE = 0,
@@ -88,21 +74,10 @@ typedef enum
     SOC_INTEGRAL_DIR_DSG,
 } soc_integral_dir_t;
 
-typedef enum
-{
-    SOC_OCV_OPENWIRE_NONE = 0,
-    SOC_OCV_OPENWIRE_PAUSED,
-    SOC_OCV_OPENWIRE_RECOVERING,
-} soc_ocv_openwire_phase_t;
-
 typedef struct
 {
     uint32_t idle_stable_ticks;
     uint32_t ocv_down_ticks;
-    uint32_t ocv_openwire_started_32k;
-    uint32_t ocv_openwire_confirm_tick_32k;
-    soc_ocv_openwire_phase_t ocv_openwire_phase;
-    uint8_t ocv_openwire_confirm_samples;
     uint16_t idle_ocv_last_mv;
     uint16_t ocv_mv;
     uint8_t idle_ocv_mv_valid;
@@ -170,7 +145,7 @@ static const soc_profile_t *g_soc_profile;
 static void soc_recalc_full_capacity(void);
 /* 按当前 SOC 重算剩余容量。 */
 static void soc_recalc_now_capacity(void);
-/* 复位静置、斜率和断线恢复跟踪状态。 */
+/* 复位静置与斜率跟踪状态。 */
 static void soc_reset_ocv_tracking(void);
 /* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void);
@@ -655,7 +630,7 @@ static uint16_t soc_weighted_cell_mv(void)
     return (uint16_t)((((uint32_t)VCELLMIN * 3u) + (uint32_t)VCELLMAX) / 4u);
 }
 
-/* 检查样本有效性及断线状态是否允许 OCV 校正。 */
+/* 检查正常单体范围及压差是否允许 OCV 校正。 */
 static uint8_t soc_ocv_sample_valid(void)
 {
     if (g_soc_profile == 0) return 0u;
@@ -681,7 +656,6 @@ static uint8_t soc_rest_context_valid(void)
 {
     if (!g_soc_input.voltage_valid || !soc_temperature_reasonable() ||
         g_soc_input.balancing_active || g_soc_input.heating_active ||
-        g_soc_input.voltage_untrusted ||
         g_soc_input.afe_fault || g_soc_input.temperature_fault ||
         g_soc_input.current_fault || g_soc_input.pack_fault) return 0u;
     return 1u;
@@ -735,51 +709,11 @@ static uint32_t soc_ocv_prepare_ticks(void)
     return (uint32_t)g_soc_config.ocv_rest_prepare_s * SOC_TICKS_PER_SECOND;
 }
 
-/* 开发构建中记录 OCV 判定输入，不改变正式策略。 */
-static void soc_trace_ocv_inputs(uint16_t event)
-{
-#if BMS_SOC_OCV_TRACE_ENABLE
-    uint32_t flags = (uint32_t)g_soc_input.sample_valid |
-        ((uint32_t)g_soc_input.voltage_valid << 1) |
-        ((uint32_t)g_soc_input.temperature_valid << 2) |
-        ((uint32_t)g_soc_input.balancing_active << 3) |
-        ((uint32_t)g_soc_input.heating_active << 4) |
-        ((uint32_t)g_soc_input.voltage_diagnostic << 5) |
-        ((uint32_t)g_soc_input.voltage_untrusted << 6) |
-        ((uint32_t)g_soc_input.afe_fault << 7) |
-        ((uint32_t)g_soc_input.temperature_fault << 8) |
-        ((uint32_t)g_soc_input.current_fault << 9) |
-        ((uint32_t)g_soc_input.pack_fault << 10) |
-        /* bit 11 保留为零：充电会话不是物理充电器存在证据。 */
-        ((uint32_t)g_soc_runtime.last_sample_state << 16) |
-        ((uint32_t)g_soc_runtime.ocv_openwire_phase << 24) |
-        ((uint32_t)g_soc_runtime.ocv_openwire_confirm_samples << 28);
-    bms_diag_trace(event, (uint32_t)g_soc_input.current_ma, flags);
-    bms_diag_trace((uint16_t)(event + 1u),
-        (uint32_t)g_soc_runtime.idle_ocv_last_mv |
-        ((uint32_t)g_soc_input.cell_min_mv << 16),
-        (uint32_t)g_soc_input.cell_max_mv |
-        ((uint32_t)g_soc_input.cell_delta_mv << 16));
-    bms_diag_trace((uint16_t)(event + 2u), g_soc_input.timestamp_32k,
-        (uint32_t)(g_soc_input.timestamp_32k - g_soc_runtime.ocv_openwire_started_32k));
-    bms_diag_trace((uint16_t)(event + 3u),
-        (uint32_t)(uint16_t)g_soc_input.temperature_min_x10 |
-        ((uint32_t)(uint16_t)g_soc_input.temperature_max_x10 << 16),
-        g_soc_runtime.ocv_down_ticks);
-#else
-    (void)event;
-#endif
-}
-
-/* 复位静置、斜率和断线恢复跟踪状态。 */
+/* 复位静置与斜率跟踪状态。 */
 static void soc_reset_ocv_tracking(void)
 {
-    if (g_soc_runtime.idle_stable_ticks || g_soc_runtime.ocv_down_ticks)
-        soc_trace_ocv_inputs(SOC_TRACE_OCV_RESET);
     g_soc_runtime.idle_stable_ticks = 0u;
     g_soc_runtime.ocv_down_ticks = 0u;
-    g_soc_runtime.ocv_openwire_phase = SOC_OCV_OPENWIRE_NONE;
-    g_soc_runtime.ocv_openwire_confirm_samples = 0u;
     g_soc_runtime.idle_ocv_mv_valid = 0u;
     g_soc_runtime.ocv_confidence = 0u;
     g_soc_runtime.ocv_state = BMS_SOC_OCV_WAIT_CURRENT;
@@ -789,81 +723,7 @@ static void soc_reset_ocv_tracking(void)
     g_soc_runtime.ocv_high = 0u;
 }
 
-/* 确认本轮 OCV 电压资格，集中处理诊断暂停、超时及正常新帧恢复。 */
-static uint8_t soc_ocv_voltage_ready(uint16_t *mv)
-{
-    if (g_soc_input.voltage_diagnostic ||
-        g_soc_runtime.ocv_openwire_phase != SOC_OCV_OPENWIRE_NONE)
-        soc_trace_ocv_inputs(SOC_TRACE_OCV_COW_INPUT);
-
-    if (!soc_idle_for_ocv() || !soc_rest_context_valid()) {
-        soc_reset_ocv_tracking();
-        return 0u;
-    }
-
-    if (g_soc_input.voltage_diagnostic) {
-        /*
-         * 只有已合格的正常基线可跨越有界诊断；功能所有者将失败帧/异常证据
-         * 作为 voltage_untrusted 发布，作废静置资格但不丢弃有效电流积分。
-         */
-        if (!g_soc_runtime.idle_ocv_mv_valid ||
-            g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_RECOVERING) {
-            soc_reset_ocv_tracking();
-            return 0u;
-        }
-        if (g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_NONE) {
-            g_soc_runtime.ocv_openwire_phase = SOC_OCV_OPENWIRE_PAUSED;
-            g_soc_runtime.ocv_openwire_started_32k = g_soc_input.timestamp_32k;
-            g_soc_runtime.ocv_openwire_confirm_samples = 0u;
-        }
-        if ((uint32_t)(g_soc_input.timestamp_32k -
-                       g_soc_runtime.ocv_openwire_started_32k) >
-            SOC_OCV_OPENWIRE_MAX_PAUSE_32K)
-            soc_reset_ocv_tracking();
-        return 0u; /* COW 电压和持续时间不能作为 OCV 证据。 */
-    }
-
-    if (!soc_ocv_sample_valid() ||
-        g_soc_input.cell_delta_mv > SOC_OCV_IDLE_CELL_DELTA_MAX_MV) {
-        soc_reset_ocv_tracking();
-        return 0u;
-    }
-
-    *mv = soc_weighted_cell_mv();
-    if (g_soc_runtime.ocv_openwire_phase != SOC_OCV_OPENWIRE_NONE) {
-        if ((uint32_t)(g_soc_input.timestamp_32k -
-                       g_soc_runtime.ocv_openwire_started_32k) >
-            SOC_OCV_OPENWIRE_MAX_PAUSE_32K ||
-            soc_abs_diff_u16(*mv, g_soc_runtime.idle_ocv_last_mv) >
-            SOC_OCV_IDLE_SLOPE_MAX_MV) {
-            soc_reset_ocv_tracking();
-            return 0u;
-        }
-        /* 有效缓存可积分；诊断后恢复 OCV 必须确认正常新测量。 */
-        if (!g_soc_input.measurement_fresh) return 0u;
-        if (g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_PAUSED) {
-            g_soc_runtime.ocv_openwire_phase = SOC_OCV_OPENWIRE_RECOVERING;
-            g_soc_runtime.ocv_openwire_confirm_tick_32k = g_soc_input.timestamp_32k;
-            g_soc_runtime.ocv_openwire_confirm_samples = 1u;
-            return 0u;
-        }
-        /*
-         * 一个应用区间可执行两次策略；资格只按新测量累计，
-         * 三次确认全部完成后的下一帧才恢复。
-         */
-        if (g_soc_runtime.ocv_openwire_confirm_tick_32k == g_soc_input.timestamp_32k)
-            return 0u;
-        g_soc_runtime.ocv_openwire_confirm_tick_32k = g_soc_input.timestamp_32k;
-        if (g_soc_runtime.ocv_openwire_confirm_samples < SOC_OCV_OPENWIRE_CONFIRM_SAMPLES) {
-            ++g_soc_runtime.ocv_openwire_confirm_samples;
-            return 0u;
-        }
-        g_soc_runtime.ocv_openwire_phase = SOC_OCV_OPENWIRE_NONE;
-    }
-    return 1u;
-}
-
-/* 推进静置确认和 OCV 校正，处理断线检测暂停。 */
+/* 推进静置确认和 OCV 校正。 */
 static uint8_t soc_idle_ocv_tracking(void)
 {
     uint16_t mv;
@@ -872,7 +732,13 @@ static uint8_t soc_idle_ocv_tracking(void)
     uint32_t confidence;
     uint8_t current_soc;
 
-    if (!soc_ocv_voltage_ready(&mv)) return 0u;
+    if (!soc_idle_for_ocv() || !soc_rest_context_valid() ||
+        !soc_ocv_sample_valid() ||
+        g_soc_input.cell_delta_mv > SOC_OCV_IDLE_CELL_DELTA_MAX_MV) {
+        soc_reset_ocv_tracking();
+        return 0u;
+    }
+    mv = soc_weighted_cell_mv();
     if (!g_soc_runtime.idle_ocv_mv_valid) {
         g_soc_runtime.idle_ocv_last_mv = mv;
         g_soc_runtime.idle_ocv_mv_valid = 1u;
@@ -881,8 +747,6 @@ static uint8_t soc_idle_ocv_tracking(void)
     }
 
     diff = soc_abs_diff_u16(mv, g_soc_runtime.idle_ocv_last_mv);
-    if (diff > SOC_OCV_IDLE_SLOPE_MAX_MV)
-        soc_trace_ocv_inputs(SOC_TRACE_OCV_SLOPE_RESET);
     g_soc_runtime.idle_ocv_last_mv = mv;
     if (diff > SOC_OCV_IDLE_SLOPE_MAX_MV) {
         g_soc_runtime.idle_stable_ticks = 0u;
@@ -1046,8 +910,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
     uint16_t current = 0u;
     uint16_t step_ticks;
 
-    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
-        g_soc_input.voltage_untrusted ||
+    if (!g_soc_input.voltage_valid ||
         soc_current_direction(&current) != SOC_INTEGRAL_DIR_DSG) {
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
         g_soc_runtime.dsg_empty_lock_ticks = 0u;
@@ -1113,8 +976,7 @@ static uint8_t soc_apply_full_anchor(void)
         (g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
     uint8_t before;
 
-    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
-        g_soc_input.voltage_untrusted) {
+    if (!g_soc_input.voltage_valid) {
         g_soc_runtime.full_lock_ticks = 0u;
         g_soc_runtime.full_adjust_ticks = 0u;
         return 0u;
@@ -1184,8 +1046,7 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
      * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
     if (!g_soc_input.third_cell_uvp || isCHG() ||
-        !g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
-        g_soc_input.voltage_untrusted ||
+        !g_soc_input.voltage_valid ||
         VCELLMIN > g_bms_protection_params.cell_uvp_third_mv) return 0u;
     /* 旧 UV 锁存不是新空电证据；电压已回升时保留充入容量，不新增方向状态。 */
     before = get_soc_real();
@@ -1215,8 +1076,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
     uint16_t empty_max = (uint16_t)(empty_mv + g_soc_profile->empty_max_margin_mv);
     uint8_t before;
-    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
-        g_soc_input.voltage_untrusted) {
+    if (!g_soc_input.voltage_valid) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
         return 0u;
@@ -1464,14 +1324,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     }
     g_soc_input = *sample;
 
-    /* 先消费本帧电压资格；短于200ms或重复时间的输入也不能漏掉失败证据。
-     * 不作废电流区间、积分余数或已确认满/空锁存。 */
-    if (sample->voltage_untrusted) soc_reset_ocv_tracking();
-    if (sample->voltage_untrusted || sample->voltage_diagnostic) {
-        g_soc_strategy_pending_32k = 0u;
-        soc_reset_voltage_confirmation();
-    }
-
     if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
@@ -1524,9 +1376,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return;
     }
 
-    /* 健康诊断即使不足一个策略量子，也必须记录暂停和后续新帧确认要求。 */
-    if (sample->voltage_diagnostic) (void)soc_idle_ocv_tracking();
-
     /*
      * 既有校准阈值仍为 200 ms 单位，但按实测时间计入；
      * 每个合格应用间隔最多记两个单位。长间隔下 8 mV 斜率检查保持保守。
@@ -1539,9 +1388,6 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         soc_update_low_faults();
         SOC_Result_Pass();
     }
-    /* 诊断/失败帧的不足量子时间不能转成下一正常帧的电压确认时间。 */
-    if (sample->voltage_untrusted || sample->voltage_diagnostic)
-        g_soc_strategy_pending_32k = 0u;
 }
 
 /* 名义容量变更后重算容量并重建积分与显示状态。 */

@@ -78,9 +78,6 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_CHARGER(p) dvc1124_backend_get_charge_source_present((p))
 #define AFE_BAL_SET(m) dvc1124_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
-#define AFE_OW_START() dvc1124_backend_openwire_start()
-#define AFE_OW_STOP() dvc1124_backend_openwire_stop()
-#define AFE_OW_POLL(r) dvc1124_backend_openwire_poll((r))
 #else
 #define AFE_INIT() sh3673510_bms_afe_init()
 #define AFE_SAMPLE() sh3673510_bms_afe_sample()
@@ -94,9 +91,6 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_CHARGER(p) sh3673510_backend_get_charge_source_present((p))
 #define AFE_BAL_SET(m) sh3673510_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) sh3673510_backend_get_balance_mask((m))
-#define AFE_OW_START() sh3673510_backend_openwire_start()
-#define AFE_OW_STOP() sh3673510_backend_openwire_stop()
-#define AFE_OW_POLL(r) sh3673510_backend_openwire_poll((r))
 #endif
 
 /* 设置本地输出禁止状态，撤销驱动授权。 */
@@ -105,7 +99,7 @@ static void inhibit_local(void)
     s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
-    bms_features_on_afe_invalid();
+    bms_features_stop();
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
 }
 
@@ -173,9 +167,8 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    /* 参数资格直接由输出门禁消费，不借加热/均衡/断线功能代为阻断。 */
-    if (!s_guard.output_enabled || !bms_protection_params_valid() ||
-        bms_features_outputs_blocked())
+    /* 参数资格直接由输出门禁消费，不借业务功能代为阻断。 */
+    if (!s_guard.output_enabled || !bms_protection_params_valid())
     {
         c = 0u;
         d = 0u;
@@ -260,12 +253,7 @@ void bms_afe_sample(void)
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     }
 
-    /*
-     * 资格尚未确认不是采样失败。
-     * comm_inhibit 时调用功能服务会令快照读取失败并锁存虚假断线疑似，
-     * 导致健康启动后两个 FET 长期关闭。
-     */
-    /* 缓存等待不能消费“最后诊断帧”标志，或推进空闲/均衡确认计数。 */
+    /* 仅合格新样本推进加热/均衡资格；缓存等待不能累计确认次数。 */
     if (!s_guard.comm_inhibit && !AFE_PENDING()) bms_features_service();
     if (!apply_requested()) note_invalid();
 }
@@ -365,7 +353,7 @@ void bms_afe_set_output_enabled(uint8_t e)
     if (!s_guard.output_enabled)
     {
         /* 关闭输出不代表电压测量或采样线故障。 */
-        bms_features_on_output_disabled();
+        bms_features_stop();
         if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) best_effort_shutdown();
         return;
     }
@@ -418,32 +406,6 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
         return 0u;
     }
     return AFE_BAL_GET(m);
-}
-
-/* 门禁允许时启动后端断线检测。 */
-uint8_t bms_afe_openwire_start(void)
-{
-    if (s_guard.config_inhibit || !runtime_access_allowed()) return 0u;
-    if (!AFE_BAL_SET(0u)) return 0u;
-    return AFE_OW_START();
-}
-
-uint8_t bms_afe_openwire_stop(void)
-{
-    /* 失联后的清理也必须尊重 watchdog 总线静默，不能用重试续命。 */
-    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
-    if (AFE_OW_STOP()) return 1u;
-    /* 清理 I/O 失败属于真实 AFE 通信失败，继续使用既有恢复资格。 */
-    note_invalid();
-    return 0u;
-}
-
-/* 通过 guard 推进后端断线检测阶段。 */
-bms_afe_diag_state_t bms_afe_openwire_poll(bms_afe_openwire_result_t *r)
-{
-    if (!runtime_access_allowed())
-        return BMS_AFE_DIAG_ERROR;
-    return AFE_OW_POLL(r);
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -510,7 +472,8 @@ uint8_t bms_afe_test_wake(void)
 /* 从选定后端刷新诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void)
 {
-    uint32_t c = bms_features_diag_reasons(1u), d = bms_features_diag_reasons(0u);
+    uint32_t c = bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u;
+    uint32_t d = 0u;
     uint32_t common = 0u;
     uint16_t params = bms_diag_cached_word(144u);
     if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;

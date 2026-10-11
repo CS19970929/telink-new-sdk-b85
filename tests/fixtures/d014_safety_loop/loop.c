@@ -19,7 +19,6 @@
 static uint32_t now_32k, spi_calls;
 static uint8_t regs[256], frame[256], reply[256];
 static unsigned pos, read_count;
-static uint8_t openwire_pending, openwire_odd;
 static uint8_t flash[20u * 4096u];
 static int bus_failed, flash_cut = -1;
 static int corrupt_read_reg = -1;
@@ -88,8 +87,8 @@ sh3673520_port_status_t sh3673520_port_xfer(uint8_t tx, uint8_t *rx)
         if (frame[0] == 1) {
             if (frame[1] == 0x58 || frame[1] == 0x59) regs[frame[1]] &= frame[2];
             else regs[frame[1]] = frame[2];
-            if (frame[1] == SH3673520_REG_SCONF3 && (frame[2] & SH3673520_SCONF3_OWD_TRG_MASK))
-                openwire_pending=1;
+            if (frame[1] == SH3673520_REG_SCONF3 && (frame[2] & (SH3673520_SCONF3_OWD_EN_MASK | SH3673520_SCONF3_OWD_TRG_MASK)))
+                assert(0 && "removed diagnostic must not be triggered");
         } else assert(frame[0] == 0x0b && frame[1] == 0xbb && frame[2] == 0xcc);
     }
     ++pos; return SH3673520_PORT_OK;
@@ -126,14 +125,7 @@ static void raw16(uint8_t address, uint16_t raw)
 static void step(void)
 {
     now_32k += 6400u;
-    /* Script an intact harness result one host tick after each OWD trigger.
-     * This supplies the hardware result, not a replacement feature decision. */
-    if (openwire_pending) {
-        openwire_pending=0; openwire_odd^=1;
-        regs[SH3673520_REG_SCONF3] &= (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK;
-        regs[SH3673520_REG_FLAG3]=SH3673520_FLAG3_OWD_FLG_MASK |
-            (openwire_odd ? SH3673520_FLAG3_OWD_IND_MASK : 0);
-    }
+
     regs[SH3673520_REG_FLAG2] |= ready_bits;
     bms_afe_sample();
 }

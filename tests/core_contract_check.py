@@ -150,19 +150,17 @@ def check_common_feature_policy_contract_check():
     assert "BMS_HEATER_START_TEMP_X10" in config_c and "BMS_HEATER_STOP_TEMP_X10" in config_c
     assert "#define BMS_BALANCE_START_DELTA_MV_DEFAULT 50u" in features_h
     assert "#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 30u" in features_h
-    assert "openwire_latched_mask" in features_c and "openwire_suspected" in features_c
     assert "balance_voltage_trusted" in features_c and "balance_sample_plausible" in features_c
     assert "cell_delta_first_mv" not in features_c
     assert "bms_board_heater_set" in board_h
     assert "bms_board_heater_supported" in board_h and "bms_board_balance_supported" in board_h
     assert "bms_board_heater_supported()" in features_c and "bms_board_balance_supported()" in features_c
     assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c
-    assert "service_openwire" in features_c and "bms_afe_openwire_start" in features_c and "bms_afe_openwire_poll" in features_c
-    charge_block=guard_c.index("bms_features_outputs_blocked"); fet_write=guard_c.index("AFE_FETS",charge_block)
+    charge_block=guard_c.index("!bms_protection_params_valid()"); fet_write=guard_c.index("AFE_FETS",charge_block)
     assert charge_block < fet_write
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
-    assert "bms_features_service();" in guard_c and "bms_features_on_afe_invalid();" in guard_c
-    for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask","bms_afe_openwire_start","bms_afe_openwire_poll"): assert symbol in afe_h
+    assert "bms_features_service();" in guard_c and "bms_features_stop();" in guard_c
+    for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask"): assert symbol in afe_h
 
     # Communication-loss fail-safe contract. SH36735xx WDT is ~32 s in the
     # production profile, so the common guard must leave the SPI bus silent for a
@@ -218,8 +216,6 @@ def check_common_feature_policy_contract_check():
 
     sh=text("sh3673510_feature_backend.c")
     for token in (
-        "SH3673520_SCONF3_OWD_EN_MASK","SH3673520_SCONF3_OWD_TRG_MASK",
-        "SH3673520_REG_FLAG3","SH3673520_REG_OWDH","0x000AAAAA","0x00055555",
         "SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u)","sh_read_balance_mask"
     ): assert token in sh, token
     for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",

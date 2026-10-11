@@ -4,7 +4,6 @@
  * bms/afe/dvc1124/dvc1124.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
-#include "bms_features.h"
 #include "dvc1124.h"
 #include "bms_config_store.h"
 
@@ -23,7 +22,6 @@
 #define DVC_I2C_RAW_MAX            (2u * (DVC1124_MAX_REGISTER + 1u))
 #define DVC_READY_RETRY_COUNT      20u
 #define DVC_TEMP_TABLE_LEN         56u
-#define DVC_OPENWIRE_TIMEOUT_US    900000u
 /* D008 10K NTC 的开短路筛选范围，覆盖现有温度表的 860..116110 ohm。
  * CN4 拔除后仍有 R163/R164=3M 下拉，不能只用 GP >= V1P8 判开路。
  * 这些是项目传感器判据，不是 DVC 硬件温度保护阈值。 */
@@ -38,7 +36,6 @@ static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     uint8_t *write_addr);
 static uint8_t DVC1124_SetCellCount(uint8_t cell_count);
 static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
-static uint8_t DVC1124_StartOpenWireCheck(void);
 static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
 static uint8_t DVC1124_AFE_IsReady(void);
 static uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code);
@@ -81,13 +78,8 @@ static uint8_t s_voltage_seen, s_current_seen, s_sample_pending;
 static uint8_t s_voltage_since_current;
 static uint32_t s_voltage_tick, s_current_tick, s_adc_wait_started;
 static uint8_t s_ntc_valid_samples[4]; /* 仅 GP1..GP4 为 NTC；只由新 VADF 推进。 */
-static uint32_t s_snapshot_generation;
-static uint32_t s_openwire_start_generation;
-static uint32_t s_openwire_start_tick;
-static dvc1124_openwire_result_t s_openwire_result;
 
 #define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u
-#define DVC_OPENWIRE_SETTLE_US            200000u
 
 /* 冻结的启动诊断，偏移相对 BMS_DIAG_BASE。 */
 #define DVC_BOOT_ZERO_DIAG_STATUS          110u
@@ -853,7 +845,6 @@ static uint8_t dvc_apply_protection_from_params(void)
     cov_mv = (hw.enable_mask & BMS_AFE_HW_EN_COV) ? hw.cov_mv : 0u;
     cuv_mv = (hw.enable_mask & BMS_AFE_HW_EN_CUV) ? hw.cuv_mv : 0u;
 
-
     if (cov_mv == 0u) {
         code12 = 0u;
     } else {
@@ -1243,7 +1234,7 @@ uint8_t DVC1124_BalanceService(uint8_t allow_refresh)
 {
     if (s_balance_requested_mask == 0u)
         return dvc_refresh_balance_state();
-    if (!allow_refresh || (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)) {
+    if (!allow_refresh) {
         if (!s_balance_suspended) {
             if (!dvc_write_balance_hw(0u)) return 0u;
             s_balance_suspended = 1u;
@@ -1267,122 +1258,6 @@ uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask)
     *cell_mask = ((uint32_t)g_bms_report.balance_bits_high << 16) |
                 g_bms_report.balance_bits_low;
     return 1u;
-}
-
-/* 启动 DVC 电芯断线检测。 */
-static uint8_t DVC1124_StartOpenWireCheck(void)
-{
-    uint8_t reg;
-
-    /* COW 约 1 秒后自清除，因此不要求持续回读为 1。 */
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &reg, 1u)) return 0u;
-    reg |= DVC1124_COW_MASK;
-    return DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &reg, 1u);
-}
-
-/* 复位 DVC 断线检测阶段及结果。 */
-void DVC1124_OpenWireReset(void)
-{
-    memset(&s_openwire_result, 0, sizeof(s_openwire_result));
-    s_openwire_result.state = DVC1124_OPENWIRE_IDLE;
-    s_openwire_start_tick = 0u;
-    s_openwire_start_generation = s_snapshot_generation;
-}
-
-/* 只清 COW，读改写保留 charge pump 及其它配置，退出必须回读确认。 */
-uint8_t DVC1124_OpenWireStop(void)
-{
-    uint8_t cp, verify;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) return 0u;
-    if (cp & DVC1124_COW_MASK) {
-        cp &= (uint8_t)~DVC1124_COW_MASK;
-        if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) return 0u;
-    }
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &verify, 1u)) return 0u;
-    if (verify & DVC1124_COW_MASK) return 0u;
-    DVC1124_OpenWireReset();
-    return 1u;
-}
-
-uint8_t DVC1124_OpenWireBegin(void)
-{
-    if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING) return 0u;
-
-    if (!s_balance_suspended && s_balance_requested_mask != 0u)
-    {
-        if (!dvc_write_balance_hw(0u)) return 0u;
-        s_balance_suspended = 1u;
-    }
-
-    memset(&s_openwire_result, 0, sizeof(s_openwire_result));
-    {
-        uint8_t status;
-        if (!DVC1124_ReadRegisters(DVC1124_REG_STATUS, &status, 1u)) return 0u;
-        s_pending_adc_events &= (uint8_t)~DVC1124_STATUS_VADF_MASK;
-    }
-    s_openwire_result.state = DVC1124_OPENWIRE_WAITING;
-    s_openwire_start_generation = s_snapshot_generation;
-    s_openwire_start_tick = clock_time();
-    if (!DVC1124_StartOpenWireCheck())
-    {
-        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
-        return 0u;
-    }
-    return 1u;
-}
-
-/* 推进断线检测阶段并收集完成结果。 */
-void DVC1124_OpenWirePoll(void)
-{
-    uint8_t cp;
-
-    if (s_openwire_result.state != DVC1124_OPENWIRE_WAITING) return;
-    /* COW 自动结束约 1 秒；超过本窗口不能再把普通电压当诊断结果。 */
-    if (clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_TIMEOUT_US)) {
-        s_openwire_result.error = BMS_OW_ERR_TIMEOUT;
-        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
-        return;
-    }
-    if (!clock_time_exceed(s_openwire_start_tick, DVC_OPENWIRE_SETTLE_US)) return;
-
-    /*
-     * COW 对单体输入施加约 1 秒的 100 uA 下拉。必须在 COW 有效期间抓取诊断样本；
-     * 等待自动清除后读到的是普通电压，无法区分断线与正常输入。
-     */
-    if (!s_snapshot.valid || !s_snapshot.voltage_fresh ||
-        s_snapshot_generation == s_openwire_start_generation) return;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
-    {
-        s_openwire_result.error = BMS_OW_ERR_IO;
-        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
-        return;
-    }
-    if (!(cp & DVC1124_COW_MASK))
-    {
-        s_openwire_result.error = BMS_OW_ERR_TIMEOUT;
-        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
-        return;
-    }
-
-    s_openwire_result.valid = 1u;
-    s_openwire_result.cell_count = s_snapshot.cell_count;
-
-    /* 诊断样本抓取后立即停止激励。COW 是命令位，不使用普通持久配置的回读规则。 */
-    cp &= (uint8_t)~DVC1124_COW_MASK;
-    if (!DVC1124_WriteRegisters(DVC1124_REG_CP_CTRL, &cp, 1u))
-    {
-        s_openwire_result.valid = 0u;
-        s_openwire_result.error = BMS_OW_ERR_CLEANUP;
-        s_openwire_result.state = DVC1124_OPENWIRE_ERROR;
-        return;
-    }
-    s_openwire_result.state = DVC1124_OPENWIRE_READY;
-}
-
-/* 取得最近一次断线检测结果。 */
-void DVC1124_OpenWireGetResult(dvc1124_openwire_result_t *result)
-{
-    if (result != NULL) *result = s_openwire_result;
 }
 
 /* 配置 DVC 短路保护开关及参数。 */
@@ -1441,12 +1316,10 @@ void DVC1124_AFE_Reset(void)
     s_balance_requested_mask = 0u;
     s_balance_suspended = 0u;
     s_balance_last_refresh_tick = clock_time();
-    s_snapshot_generation = 0u;
     s_pending_adc_events = 0u;
     s_voltage_seen = s_current_seen = s_sample_pending = 0u;
     s_voltage_since_current = 0u;
     s_adc_wait_started = pm_get_32k_tick();
-    DVC1124_OpenWireReset();
     s_need_config = 1u;
 }
 
@@ -1547,8 +1420,8 @@ static void dvc_publish_current_measurement(const uint8_t *data, uint32_t now)
     s_snapshot.sample_tick_32k = now;
 }
 
-/* VADC 诊断期间保留正常电压缓存，原始诊断值仍交给 Open-Wire 所有者。 */
-static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage_diagnostic)
+/* 发布新 VADC 的单体、总压和极值；无效串位继续使用 61001。 */
+static void dvc_publish_voltage_measurement(const uint8_t *data)
 {
     uint32_t common_mode_mv = 0u;
     uint32_t total_mv = 0u;
@@ -1565,12 +1438,8 @@ static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage
         uint16_t raw_cell = dvc_be16(&data[reg]);
         uint16_t mv = dvc_correct_cell_mv(raw_cell, common_mode_mv);
 
-        if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)
-            s_openwire_result.cell_mv[i] = mv;
-        /* 采样前只看仍在运行的激励，上一帧诊断标志由采样后的 SOC 消费。 */
-        if (!voltage_diagnostic) {
-            g_bms_report.cell_voltage_mv[i] = mv;
-        }
+        g_bms_report.cell_voltage_mv[i] = mv;
+
         total_mv += mv;
         common_mode_mv += mv;
         if (mv > max_mv) { max_mv = mv; max_pos = i; }
@@ -1578,14 +1447,12 @@ static void dvc_publish_voltage_measurement(const uint8_t *data, uint8_t voltage
     }
     for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
 
-    if (!voltage_diagnostic) {
-        g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
-        g_bms_report.cell_max_mv = max_mv;
-        g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
-        g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
-        g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
-        g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
-    }
+    g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
+    g_bms_report.cell_max_mv = max_mv;
+    g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;
+    g_bms_report.cell_delta_mv = (uint16_t)(max_mv - g_bms_report.cell_min_mv);
+    g_bms_report.cell_max_index = (uint16_t)max_pos + 1u;
+    g_bms_report.cell_min_index = (uint16_t)min_pos + 1u;
 }
 
 /* 仅新 VADC 推进 NTC 连续资格；无效通道仍立即撤销，温度角色和换算不变。 */
@@ -1647,8 +1514,6 @@ void DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
     uint32_t now = pm_get_32k_tick();
-    bms_features_status_t features;
-    bms_features_get_status(&features);
     s_sample_pending = 0u;
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
@@ -1690,13 +1555,11 @@ void DVC1124_App_AFEGet(void)
         dvc_publish_current_measurement(data, now);
 
     if (s_snapshot.voltage_fresh) {
-        dvc_publish_voltage_measurement(data,
-            features.openwire_active || features.openwire_cleanup_pending);
+        dvc_publish_voltage_measurement(data);
         dvc_publish_temperature_measurement(data);
         s_voltage_seen = 1u;
         s_voltage_since_current = 1u;
         s_voltage_tick = now;
-        ++s_snapshot_generation;
     }
     s_snapshot.valid = s_voltage_seen && s_current_seen &&
         (uint32_t)(now - s_voltage_tick) <= DVC_ADC_MAX_AGE_TICKS &&
@@ -1712,7 +1575,6 @@ void DVC1124_App_AFEGet(void)
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
     bms_diag_driver(data[DVC1124_REG_CC2_L_FLAGS], 1u);
-    DVC1124_OpenWirePoll();
 
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())
