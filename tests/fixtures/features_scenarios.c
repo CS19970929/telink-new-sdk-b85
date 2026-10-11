@@ -79,7 +79,22 @@ int main(void)
     bms_error_clear(BMS_ERROR_DSG_SHORT);step(1);balance_fail=1;step(1);assert(bms_error_get(BMS_ERROR_BALANCE));
     balance_fail=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
     /* 不存在串位的 61001 不得进入 mask；真实有效串异常必须失去资格。 */
-    g_bms_report.cell_voltage_mv[0]=61001;step(1);assert(!balance && feature_status().openwire_suspected);
+    g_bms_report.cell_voltage_mv[0]=61001;step(1);
+    assert(!balance && !feature_status().balance_voltage_trusted && !feature_status().openwire_suspected);
+    voltages(50);step(5); /* 恢复有效电压无需等到空闲断线检测。 */
+    assert(balance==(bms_board_balance_supported()?1u:0u) && ow_started==0u);
+    /* 充电唤醒时即使 AFE 输出先关闭，不能因此产生永远无法清除的疑似断线。 */
+    reset();bms_features_on_output_disabled();bms_features_init();step(5);
+    assert(!feature_status().openwire_suspected && ow_started==0u);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
+    /* 真实短暂测量失效恢复后，连续有效样本重新建立均衡资格。 */
+    bms_features_on_afe_invalid();assert(!feature_status().openwire_suspected);
+    step(5);assert(balance==(bms_board_balance_supported()?1u:0u) && ow_started==0u);
+    /* 一次超限电压跳变只拒绝当前帧；不使用旧基线无限阻断后续充电。 */
+    reset();step(5);voltages(350);step(1);
+    assert(!balance && !feature_status().balance_voltage_trusted);
+    step(4);assert(!balance);step(1);
+    assert(balance==(bms_board_balance_supported()?1u:0u) && ow_started==0u);
     reset();step(5);snapshot.valid=0;step(1);assert(!heater && !feature_status().balance_voltage_trusted);
     /* 总线未知时保留最后读回，不能用软件请求 OFF 冒充硬件 OFF。 */
     assert(g_bms_report.balance_bits_low==(bms_board_balance_supported()?1u:0u));
@@ -185,7 +200,13 @@ int main(void)
     ow_result.valid=1;ow_result.determinate=1;ow_state=BMS_AFE_DIAG_READY;
     step(1);assert(!bms_features_outputs_blocked() && stopped==1 && diagnostic[3]==BMS_OW_HEALTHY);
     reset();g_bms_report.charge_current_a10=0;step(101);assert(feature_status().openwire_active);
-    ow_state=BMS_AFE_DIAG_ERROR;step(1);assert(!bms_features_outputs_blocked() && diagnostic[3]==BMS_OW_FAILED);
+    g_bms_report.charge_current_a10=10;step(1);
+    assert(!feature_status().openwire_active && !feature_status().openwire_suspected &&
+           diagnostic[5]==BMS_OW_ERR_INTERRUPTED);
+    step(5);assert(balance==(bms_board_balance_supported()?1u:0u) && ow_started==1u);
+    reset();g_bms_report.charge_current_a10=0;step(101);assert(feature_status().openwire_active);
+    ow_state=BMS_AFE_DIAG_ERROR;step(1);assert(!bms_features_outputs_blocked() &&
+        diagnostic[3]==BMS_OW_FAILED && feature_status().openwire_suspected);
     unsigned started=ow_started;step(49);assert(ow_started==started);step(1);assert(ow_started==started+1);
     /* BUSY 无完成时有墙钟超时，失败不转成断线故障。 */
     reset();g_bms_report.charge_current_a10=0;step(101);step(15);

@@ -69,6 +69,7 @@ uint8_t bms_afe_samples_qualified(void) { return 1; }
 void bms_features_init(void) {}
 void bms_features_service(void) {}
 void bms_features_on_afe_invalid(void) {}
+void bms_features_on_output_disabled(void) {}
 uint8_t bms_features_outputs_blocked(void) { return 0; }
 uint8_t sh3673510_backend_set_balance_mask(uint32_t m) { (void)m;return 1; }
 uint8_t sh3673510_backend_get_balance_mask(uint32_t *m) { *m=0;return 1; }

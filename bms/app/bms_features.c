@@ -431,7 +431,8 @@ static void finish_openwire(uint8_t error)
     s_feature.balance_prev_cell_count = 0u;
     if (error != BMS_OW_ERR_NONE) {
         ++s_feature.openwire_failed;
-        s_feature.openwire_suspected = 1u;
+        /* 充电/负载在检测中出现只是正常中止，不提供断线证据。 */
+        if (error != BMS_OW_ERR_INTERRUPTED) s_feature.openwire_suspected = 1u;
         s_feature.openwire_last_error = error;
         s_feature.openwire_failure_error = error;
         s_feature.openwire_failure_tick = now;
@@ -520,18 +521,25 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
 {
     uint16_t vmin = 0xFFFFu;
     uint16_t vmax = 0u;
+    uint8_t step_ok = 1u;
     uint8_t i;
 
     if ((s == 0) || !s->valid || (s->cell_count == 0u) ||
         (s->cell_count > BMS_AFE_FEATURE_MAX_CELLS))
+    {
+        s_feature.balance_prev_cell_count = 0u;
         return 0u;
+    }
 
     for (i = 0u; i < s->cell_count; ++i)
     {
         uint16_t cell = g_bms_report.cell_voltage_mv[i];
         if (cell < BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV ||
             cell > BMS_BALANCE_CELL_PLAUSIBLE_MAX_MV)
+        {
+            s_feature.balance_prev_cell_count = 0u;
             return 0u;
+        }
 
         if (s_feature.balance_prev_cell_count == s->cell_count)
         {
@@ -539,23 +547,27 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
             uint16_t step = (cell >= previous) ?
                             (uint16_t)(cell - previous) :
                             (uint16_t)(previous - cell);
-            if (step > BMS_BALANCE_CELL_MAX_STEP_MV) return 0u;
+            if (step > BMS_BALANCE_CELL_MAX_STEP_MV) step_ok = 0u;
         }
 
         if (cell < vmin) vmin = cell;
         if (cell > vmax) vmax = cell;
     }
 
-    if ((uint16_t)(vmax - vmin) > BMS_BALANCE_SUSPECT_DELTA_MV) return 0u;
-    if (g_bms_report.cell_min_mv != vmin ||
+    if ((uint16_t)(vmax - vmin) > BMS_BALANCE_SUSPECT_DELTA_MV ||
+        g_bms_report.cell_min_mv != vmin ||
         g_bms_report.cell_max_mv != vmax ||
         g_bms_report.cell_delta_mv != (uint16_t)(vmax - vmin))
+    {
+        s_feature.balance_prev_cell_count = 0u;
         return 0u;
+    }
 
+    /* 大跳变本帧不可信，但保留合理新基线，防止永远和旧值比较。 */
     for (i = 0u; i < s->cell_count; ++i)
         s_feature.balance_prev_cell_mv[i] = g_bms_report.cell_voltage_mv[i];
     s_feature.balance_prev_cell_count = s->cell_count;
-    return 1u;
+    return step_ok;
 }
 
 /* 更新均衡电压可信度及连续确认状态。 */
@@ -569,7 +581,7 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
     {
         s_feature.balance_trust_samples = 0u;
         s_feature.balance_active = 0u;
-        s_feature.openwire_suspected = 1u;
+        /* 普通测量异常只撤销均衡资格；不能冒充主动断线诊断结果。 */
         return;
     }
 
@@ -802,8 +814,8 @@ void bms_features_service(void)
     publish_openwire();
 }
 
-/* AFE 样本失效时撤销功能资格并停止相关输出。 */
-void bms_features_on_afe_invalid(void)
+/* 主动关闭输出和 AFE 失效均撤销功能资格；只有中断真实诊断才需要重检。 */
+static void stop_feature_outputs(uint8_t afe_invalid)
 {
     heater_idle();
     s_feature.heater_off_hot_samples = 0u;
@@ -819,6 +831,7 @@ void bms_features_on_afe_invalid(void)
         s_feature.openwire_last_error = BMS_OW_ERR_SAMPLE;
         s_feature.openwire_failure_error = BMS_OW_ERR_SAMPLE;
         s_feature.openwire_failure_tick = bms_diag_tick();
+        if (afe_invalid) s_feature.openwire_suspected = 1u;
         s_feature.openwire_finished_tick = s_feature.openwire_failure_tick;
         s_feature.openwire_wait_tick = s_feature.openwire_failure_tick;
         s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
@@ -826,11 +839,10 @@ void bms_features_on_afe_invalid(void)
         ++s_feature.openwire_sequence;
     }
     s_feature.openwire_active = 0u;
-    s_feature.openwire_suspected = 1u;
     s_feature.openwire_idle_samples = 0u;
 
     /*
-     * AFE 总线失效时物理均衡状态未知；不能把期望关闭状态当成硬件反馈。
+     * 输出撤销时物理均衡状态可能未知；不能把期望关闭状态当成硬件反馈。
      * 保留最后回读值至通信恢复，DVC 独立均衡定时器仍作硬件回退。
      */
     if ((g_bms_report.balance_bits_low != 0u) ||
@@ -843,6 +855,18 @@ void bms_features_on_afe_invalid(void)
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
         bms_error_raise(BMS_ERROR_HEAT);
     publish_openwire();
+}
+
+/* 主动停止 MOS/均衡是正常控制，不产生 AFE 故障或虚假断线疑似。 */
+void bms_features_on_output_disabled(void)
+{
+    stop_feature_outputs(0u);
+}
+
+/* 真实 AFE 测量失效仍保留输出安全撤销及检测中断的重新诊断资格。 */
+void bms_features_on_afe_invalid(void)
+{
+    stop_feature_outputs(1u);
 }
 
 /* 复制 feature 所有者的 RAM 状态，不额外读取总线或推进状态机。 */

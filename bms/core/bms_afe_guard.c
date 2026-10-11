@@ -344,7 +344,8 @@ void bms_afe_set_output_enabled(uint8_t e)
 
     if (!s_guard.output_enabled)
     {
-        bms_features_on_afe_invalid();
+        /* 关闭输出不代表电压测量或采样线故障。 */
+        bms_features_on_output_disabled();
         if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) best_effort_shutdown();
         return;
     }

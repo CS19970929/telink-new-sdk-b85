@@ -78,7 +78,9 @@
 void bms_features_init(void);
 /* 按有效快照推进加热、断线检测及均衡策略。 */
 void bms_features_service(void);
-/* AFE 样本失效时撤销功能资格并停止相关输出。 */
+/* 主动输出关闭仅撤销功能资格，不产生疑似断线。 */
+void bms_features_on_output_disabled(void);
+/* 真实 AFE 失效时撤销功能资格，检测中断需安全清理。 */
 void bms_features_on_afe_invalid(void);
 
 typedef enum {
