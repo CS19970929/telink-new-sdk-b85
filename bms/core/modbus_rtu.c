@@ -31,7 +31,6 @@
 #include "bms_event_log.h"
 #include "app.h"
 #include "app_power.h"
-#include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
 #endif

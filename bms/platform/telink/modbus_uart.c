@@ -12,7 +12,6 @@
 #include "drivers.h"
 #include "modbus_rtu.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
 #endif
