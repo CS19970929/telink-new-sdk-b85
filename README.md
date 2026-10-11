@@ -74,6 +74,7 @@ python bms_tools/bms.py --product d014 resources
 | [SOC 仿真轨迹说明](tests/soc/traces/README.md) | 回放数据与模型边界 |
 
 本次全仓减法重构见 [Issue #11 执行报告](docs/ISSUE11_SIMPLIFICATION.md) 和 [实际源码、函数及状态导航清单](docs/ISSUE11_SOURCE_INVENTORY.json)。报告固定到所列提交，不替代后续版本或实板验收。
+继续精简的计数复用、模块内部调用与验证见 [Issue #11 后续精简](docs/ISSUE11_FOLLOWUP_SIMPLIFICATION.md)。
 
 ## 验证与交接缺口
 
