@@ -85,7 +85,10 @@ void bms_diag_sleep_committed(void){}
 static struct{uint16_t cell_min_mv;}g_bms_report={3300};
 static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
 static u32 pm_get_32k_tick(void){return now;}
-static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){*m=measurement;return valid;}
+static unsigned afe_snapshot_reads;
+static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){
+ ++afe_snapshot_reads;*m=measurement;return valid;
+}
 static int app_flash_lock_restore_enabled(void){return flash_ready;}
 static int bus_mux_get_state(void){return bus_busy;}
 static int bms_state_store_write_all(int s,int d,uint32_t c){seq[seq_len++]=1;return storage_ok;}
@@ -133,7 +136,9 @@ static void reset(void){
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
  now=measurement.sample_tick_32k=100;measurement.current_ma=0;elapsed=0;
- g_bms_report.cell_min_mv=3300;app_power_process(&s_sample_due);
+ g_bms_report.cell_min_mv=3300;afe_snapshot_reads=0;
+ app_power_process(&s_sample_due);
+ assert(afe_snapshot_reads==1u); /* 同一轮深睡/普通Suspend/诊断只采一份快照。 */
 }
 static void test_acc_sleep(void){
  reset();acc_high=1;app_power_process(&s_sample_due);
